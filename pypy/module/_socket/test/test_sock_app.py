@@ -1135,6 +1135,19 @@ class AppTestSocketTCP:
         #assert not hasattr(_socket, "SOCK_CLOEXEC") # not in py 2
         #assert not hasattr(_socket, "SOCK_NONBLOCK") # 3.7 only
 
+    def test_bind_audit(self):
+        import _socket
+        import sys
+        events = []
+        def f(event, args):
+            events.append((event, args))
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        sys.addaudithook(f)
+        s.bind(('localhost', 0))
+        assert len(events) == 1
+        assert events[0][0] == 'socket.bind'
+        assert events[0][1][0] is s
+        assert events[0][1][1] == ('localhost', 0)
 
 class AppTestErrno:
     spaceconfig = {'usemodules': ['_socket', 'select']}

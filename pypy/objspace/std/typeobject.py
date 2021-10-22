@@ -1240,7 +1240,7 @@ def check_and_find_best_base(space, bases_w):
                     "a new-style class can't have only classic bases")
     if not w_bestbase.layout.typedef.acceptable_as_base_class:
         raise oefmt(space.w_TypeError,
-                    "type '%N' is not an acceptable base class", w_bestbase)
+                    "type '%s' is not an acceptable base type", w_bestbase.name)
 
     # check that all other bases' layouts are "super-layouts" of the
     # bestbase's layout

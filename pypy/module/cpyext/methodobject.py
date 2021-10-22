@@ -12,7 +12,8 @@ from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_FASTCALL,
     METH_NOARGS, METH_O, METH_STATIC, METH_VARARGS,
     PyObject, bootstrap_function, cpython_api, generic_cpy_call,
-    CANNOT_FAIL, slot_function, cts, build_type_checkers)
+    CANNOT_FAIL, slot_function, cts, build_type_checkers,
+    PyObjectP, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
     decref, from_ref, make_ref, as_pyobj, make_typedescr)
 from pypy.module.cpyext.state import State
@@ -301,14 +302,11 @@ class W_PyCWrapperObject(W_Root):
     """
     Abstract class; for concrete subclasses, see slotdefs.py
     """
-    _immutable_fields_ = ['offset[*]']
-
-    def __init__(self, space, w_type, method_name, doc, func, offset):
+    def __init__(self, space, w_type, method_name, doc, func):
         self.space = space
         self.method_name = method_name
         self.doc = doc
         self.func = func
-        self.offset = offset
         assert isinstance(w_type, W_TypeObject)
         self.w_objclass = w_type
 
@@ -318,25 +316,8 @@ class W_PyCWrapperObject(W_Root):
     def call(self, space, w_self, __args__):
         raise NotImplementedError
 
-    @jit.unroll_safe
     def get_func_to_call(self):
-        func_to_call = self.func
-        if self.offset:
-            pto = as_pyobj(self.space, self.w_objclass)
-            # make ptr the equivalent of this, using the offsets
-            #func_to_call = rffi.cast(rffi.VOIDP, ptr.c_tp_as_number.c_nb_multiply)
-            if pto:
-                cptr = rffi.cast(rffi.CCHARP, pto)
-                for o in self.offset:
-                    ptr = rffi.cast(rffi.VOIDPP, rffi.ptradd(cptr, o))[0]
-                    cptr = rffi.cast(rffi.CCHARP, ptr)
-                func_to_call = rffi.cast(rffi.VOIDP, cptr)
-            else:
-                # Should never happen, assert to get a traceback
-                assert False, "failed to convert w_type %s to PyObject" % str(
-                                                              self.w_objclass)
-        assert func_to_call
-        return func_to_call
+        return self.func
 
     def check_args(self, __args__, arity):
         length = len(__args__.arguments_w)
@@ -491,3 +472,37 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
     if name == "__methods__":
         return space.newlist(method_list_w)
     raise OperationError(space.w_AttributeError, space.newtext(name))
+
+def argtuple_from_pyobject_array(space, py_args, n):
+    args_w = [None] * n
+    for i in range(n):
+        args_w[i] = from_ref(space, py_args[i])
+    return space.newtuple(args_w)
+
+@cpython_api([PyObject, PyObjectP, Py_ssize_t, PyObject], PyObject)
+def _PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
+
+    if w_argnames is None:
+        n_kwargs = -1
+    else:
+        n_kwargs = space.len_w(w_argnames)
+    w_args = argtuple_from_pyobject_array(space, py_args, n)
+    if w_argnames is None:
+        w_kwargs = None
+    else:
+        w_kwargs = space.newdict()
+        for i in range(n_kwargs):
+            space.setitem(w_kwargs, space.getitem(w_argnames, space.newint(i)),
+                    from_ref(space, py_args[n + i]))
+    w_result = space.call(w_func, w_args, w_kwargs)
+    return w_result
+
+@cpython_api([PyObject, PyObjectP, Py_ssize_t], PyObject)
+def _PyObject_FastCall(space, w_func, py_args, n):
+    return _PyObject_Vectorcall(space, w_func, py_args, n, lltype.nullptr(PyObject.TO))
+
+@cpython_api([PyObject, PyObjectP, Py_ssize_t, PyObject], PyObject)
+def _PyObject_FastCallDict(space, w_func, py_args, n, w_kwargs):
+    w_args = argtuple_from_pyobject_array(space, py_args, n)
+    w_result = space.call(w_func, w_args, w_kwargs)
+    return w_result

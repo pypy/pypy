@@ -135,6 +135,9 @@ def run_toplevel(f, *fargs, **fkwds):
             sys.setprofile(None)
     except SystemExit as e:
         handle_sys_exit(e)
+    except KeyboardInterrupt as e:
+        # handled a level up
+        raise
     except BaseException as e:
         display_exception(e)
         return False
@@ -212,7 +215,7 @@ def get_sys_executable():
 
 def print_help(*args):
     if IS_WINDOWS:
-        pathsep = ';' 
+        pathsep = ';'
     else:
         pathsep = ':'
     initstdio()
@@ -296,7 +299,7 @@ def fdopen(fd, mode, bufsize=-1):
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
     if IS_WINDOWS:
-        pathsep = ';' 
+        pathsep = ';'
     else:
         pathsep = ':'
     getenv = get_getenv()
@@ -318,7 +321,7 @@ def initstdio(encoding=None, unbuffered=False):
     if hasattr(sys, 'stdin'):
         return # already initialized
     if IS_WINDOWS:
-        pathsep = ';' 
+        pathsep = ';'
     else:
         pathsep = ':'
     getenv = get_getenv()
@@ -642,6 +645,20 @@ def run_command_line(interactive,
         if 'jit-off' in sys._xoptions:
             set_jit_option(None, "off")
 
+    pycache_prefix = sys._xoptions.get('pycache_prefix', None)
+    if pycache_prefix is True:
+        # "-Xpycache_prefix"
+        pass
+    elif pycache_prefix is not None:
+        # "-Xpycache_prefix=" or "-Xpycache_prefix=something"
+        if pycache_prefix:
+            sys.pycache_prefix = pycache_prefix
+    elif readenv:
+        # only if no "-Xpycache_prefix at all"
+        pycache_prefix = getenv('PYTHONPYCACHEPREFIX')
+        if pycache_prefix:    
+            sys.pycache_prefix = pycache_prefix
+
     mainmodule = type(sys)('__main__')
     mainmodule.__loader__ = sys.__loader__
     mainmodule.__builtins__ = __builtins__
@@ -884,6 +901,27 @@ def run_command_line(interactive,
         status = e.code
         if inspect_requested():
             display_exception(e)
+    except KeyboardInterrupt as e:
+        display_exception(e)
+        status = True
+        if not inspect_requested():
+            try:
+                import _signal
+                import os
+            except ImportError:
+                pass
+            else:
+                try:
+                    sys.stdout.flush()
+                except Exception:
+                    pass
+                try:
+                    sys.stderr.flush()
+                except Exception:
+                    pass
+                _signal.signal(_signal.SIGINT, _signal.SIG_DFL)
+                os.kill(os.getpid(), _signal.SIGINT);
+                assert 0, "should be unreachable"
     else:
         status = not success
 
@@ -902,7 +940,14 @@ def run_command_line(interactive,
             status = e.code
         else:
             status = not success
-
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        sys.stderr.flush()
+    except Exception:
+        pass
     return status
 
 def print_banner(copyright):
@@ -940,6 +985,8 @@ def setup_bootstrap_path(executable):
     # from this point on, we are free to use all the unicode stuff we want,
     # This is important for py3k
     sys.executable = executable
+    # This may be wrong on windows using a launcher?
+    sys._base_executable = executable
 
 @hidden_applevel
 def entry_point(executable, argv):
@@ -999,11 +1046,20 @@ if __name__ == '__main__':
         return os.path.abspath(s)
 
     def pypy_find_stdlib(s):
-        from os.path import abspath, join, dirname as dn
+        from os.path import abspath, join, exists, dirname as dn
         thisfile = abspath(__file__)
         root = dn(dn(dn(thisfile)))
-        return [join(root, 'lib-python', '3'),
-                join(root, 'lib_pypy')]
+        pre_build = join(root, 'lib-python', '3')
+        if sys.platform == 'win32':
+            post_build = join(root, 'Lib')
+        else:
+            post_build = join(root, 'lib', 'pypy3.8')
+        if exists(pre_build):
+            return [pre_build, join(root, 'lib_pypy')]
+        elif exists(post_build):
+            return [post_build, join(root, 'lib_pypy')]
+        raise RuntimeError(
+                "could not find stdlib in '{}' and '{}'".format(pre_build, post_build))
 
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always

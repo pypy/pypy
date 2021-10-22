@@ -101,7 +101,7 @@ class PythonAstCompiler(PyCodeCompiler):
     """
     def __init__(self, space, override_version=None):
         PyCodeCompiler.__init__(self, space)
-        self.future_flags = future.futureFlags_3_7
+        self.future_flags = future.futureFlags_3_8
         self.parser = pyparse.PythonParser(space, self.future_flags)
         self.additional_rules = {}
         self.compiler_flags = self.future_flags.allowed_flags
@@ -113,6 +113,8 @@ class PythonAstCompiler(PyCodeCompiler):
             check = isinstance(node, ast.Module)
         elif mode == 'input':
             check = isinstance(node, ast.Interactive)
+        elif mode == 'func_type':
+            raise oefmt(self.space.w_ValueError, "can't compile func_type input")
         else:
             check = True
         if not check:
@@ -120,7 +122,7 @@ class PythonAstCompiler(PyCodeCompiler):
         if optimize == -1:
             optimize = self.space.sys.get_optimize()
 
-        fut = misc.parse_future(node, self.future_flags.compiler_features)
+        fut = misc.parse_future(self.space, node, self.future_flags.compiler_features)
         f_flags, f_lineno, f_col = fut
         future_pos = f_lineno, f_col
         flags |= f_flags
@@ -150,12 +152,13 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(self.space.w_ValueError,
                                  self.space.newtext(e.message))
 
-    def compile_to_ast(self, source, filename, mode, flags):
-        info = pyparse.CompileInfo(filename, mode, flags)
+    def compile_to_ast(self, source, filename, mode, flags, feature_version=-1):
+        info = pyparse.CompileInfo(filename, mode, flags, feature_version=feature_version)
         return self._compile_to_ast(source, info)
 
     def _compile_to_ast(self, source, info):
         space = self.space
+        self.parser.reset()
         try:
             parse_tree = self.parser.parse_source(source, info)
             mod = astbuilder.ast_from_node(space, parse_tree, info,

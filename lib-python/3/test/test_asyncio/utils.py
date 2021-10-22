@@ -1,5 +1,6 @@
 """Utilities shared by tests."""
 
+import asyncio
 import collections
 import contextlib
 import io
@@ -57,7 +58,7 @@ PEERCERT = {
     'issuer': ((('countryName', 'XY'),),
             (('organizationName', 'Python Software Foundation CA'),),
             (('commonName', 'our-ca-server'),)),
-    'notAfter': 'Jul  7 14:23:16 2028 GMT',
+    'notAfter': 'Oct 28 14:23:16 2037 GMT',
     'notBefore': 'Aug 29 14:23:16 2018 GMT',
     'serialNumber': 'CB2D80995A69525C',
     'subject': ((('countryName', 'XY'),),
@@ -113,7 +114,7 @@ def run_until(loop, pred, timeout=30):
             timeout = deadline - time.monotonic()
             if timeout <= 0:
                 raise futures.TimeoutError()
-        loop.run_until_complete(tasks.sleep(0.001, loop=loop))
+        loop.run_until_complete(tasks.sleep(0.001))
 
 
 def run_once(loop):
@@ -174,11 +175,21 @@ class SSLWSGIServer(SSLWSGIServerMixin, SilentWSGIServer):
 
 def _run_test_server(*, address, use_ssl=False, server_cls, server_ssl_cls):
 
+    def loop(environ):
+        size = int(environ['CONTENT_LENGTH'])
+        while size:
+            data = environ['wsgi.input'].read(min(size, 0x10000))
+            yield data
+            size -= len(data)
+
     def app(environ, start_response):
         status = '200 OK'
         headers = [('Content-type', 'text/plain')]
         start_response(status, headers)
-        return [b'Test message']
+        if environ['PATH_INFO'] == '/loop':
+            return loop(environ)
+        else:
+            return [b'Test message']
 
     # Run the test WSGI server in a separate thread in order not to
     # interfere with event handling in the main thread
@@ -502,6 +513,18 @@ class TestCase(unittest.TestCase):
         if executor is not None:
             executor.shutdown(wait=True)
         loop.close()
+        policy = support.maybe_get_event_loop_policy()
+        if policy is not None:
+            try:
+                watcher = policy.get_child_watcher()
+            except NotImplementedError:
+                # watcher is not implemented by EventLoopPolicy, e.g. Windows
+                pass
+            else:
+                if isinstance(watcher, asyncio.ThreadedChildWatcher):
+                    threads = list(watcher._threads.values())
+                    for thread in threads:
+                        thread.join()
 
     def set_event_loop(self, loop, *, cleanup=True):
         assert loop is not None
@@ -515,16 +538,20 @@ class TestCase(unittest.TestCase):
         self.set_event_loop(loop)
         return loop
 
-    def unpatch_get_running_loop(self):
-        events._get_running_loop = self._get_running_loop
+    # PyPy modification: the commented out lines interfere with the fact that
+    # we are not using the C accelerator module _asyncio. they are removed in
+    # 3.10
+
+    #def unpatch_get_running_loop(self):
+    #    events._get_running_loop = self._get_running_loop
 
     def setUp(self):
-        self._get_running_loop = events._get_running_loop
-        events._get_running_loop = lambda: None
+        #self._get_running_loop = events._get_running_loop
+        #events._get_running_loop = lambda: None
         self._thread_cleanup = support.threading_setup()
 
     def tearDown(self):
-        self.unpatch_get_running_loop()
+        #self.unpatch_get_running_loop()
 
         events.set_event_loop(None)
 

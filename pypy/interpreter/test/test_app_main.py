@@ -231,6 +231,8 @@ class TestParseCommandLine:
                 check_hash_based_pycs=val)
 
     def test_jit_off(self, monkeypatch):
+        # skip if untranslated
+        get_python3()
         options = [None]
         def set_jit_option(_, option, *args):
             options[0] = option
@@ -1125,7 +1127,6 @@ class TestNonInteractive:
         data, status = self.run_with_status_code('does_not_exist.py')
         assert "can't open file" in data
         assert status == 2
-
         
 
 @py.test.mark.skipif('config.getoption("runappdirect")')

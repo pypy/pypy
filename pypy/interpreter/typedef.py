@@ -342,7 +342,8 @@ class GetSetProperty(W_Root):
         Delete the value of the property from the given obj."""
         fdel = self.fdel
         if fdel is None:
-            raise oefmt(space.w_AttributeError, "cannot delete attribute")
+            raise oefmt(space.w_AttributeError,
+                        "can't delete %N.%s", w_obj, self.name)
         try:
             fdel(self, space, w_obj)
         except DescrMismatch:
@@ -497,7 +498,7 @@ def generic_new_descr(W_Type):
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pyopcode import SuspendedUnroller
+from pypy.interpreter.pyopcode import SApplicationException
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
@@ -506,7 +507,7 @@ from pypy.interpreter.generator import GeneratorIterator, Coroutine
 from pypy.interpreter.generator import CoroutineWrapper, AIterWrapper
 from pypy.interpreter.generator import AsyncGenerator
 from pypy.interpreter.generator import AsyncGenASend, AsyncGenAThrow
-from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.nestedscope import Cell, descr_new_cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
 
@@ -548,6 +549,9 @@ def fget_co_varnames(space, code): # unwrapping through unwrap_spec
 
 def fget_co_argcount(space, code): # unwrapping through unwrap_spec
     return space.newint(code.signature().num_argnames())
+
+def fget_co_posonlyargcount(space, code): # unwrapping through unwrap_spec
+    return space.newint(code.signature().num_posonlyargnames())
 
 def fget_co_kwonlyargcount(space, code): # unwrapping through unwrap_spec
     return space.newint(code.signature().num_kwonlyargnames())
@@ -600,6 +604,7 @@ Code.typedef = TypeDef('internal-code',
     co_name = interp_attrproperty('co_name', cls=Code, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=Code),
     co_argcount = GetSetProperty(fget_co_argcount, cls=Code),
+    co_posonlyargcount = GetSetProperty(fget_zero, cls=Code),
     co_kwonlyargcount = GetSetProperty(fget_zero, cls=Code),
     co_flags = GetSetProperty(fget_co_flags, cls=Code),
     co_consts = GetSetProperty(fget_co_consts, cls=Code),
@@ -611,6 +616,7 @@ BuiltinCode.typedef = TypeDef('builtin-code',
     co_name = interp_attrproperty('co_name', cls=BuiltinCode, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=BuiltinCode),
     co_argcount = GetSetProperty(fget_co_argcount, cls=BuiltinCode),
+    co_posonlyargcount = GetSetProperty(fget_co_posonlyargcount, cls=BuiltinCode),
     co_kwonlyargcount = GetSetProperty(fget_co_kwonlyargcount, cls=BuiltinCode),
     co_flags = GetSetProperty(fget_co_flags, cls=BuiltinCode),
     co_consts = GetSetProperty(fget_co_consts, cls=BuiltinCode),
@@ -626,6 +632,7 @@ PyCode.typedef = TypeDef('code',
     __reduce__ = interp2app(PyCode.descr__reduce__),
     __repr__ = interp2app(PyCode.repr),
     co_argcount = interp_attrproperty('co_argcount', cls=PyCode, wrapfn="newint"),
+    co_posonlyargcount = interp_attrproperty('co_posonlyargcount', cls=PyCode, wrapfn="newint"),
     co_kwonlyargcount = interp_attrproperty('co_kwonlyargcount', cls=PyCode, wrapfn="newint"),
     co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode, wrapfn="newint"),
     co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode, wrapfn="newint"),
@@ -640,6 +647,7 @@ PyCode.typedef = TypeDef('code',
     co_name = interp_attrproperty('co_name', cls=PyCode, wrapfn="newtext"),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode, wrapfn="newint"),
     co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode, wrapfn="newbytes"),
+    replace = interp2app(PyCode.descr_replace),
     __weakref__ = make_weakref_descr(PyCode),
     )
 PyCode.typedef.acceptable_as_base_class = False
@@ -677,7 +685,8 @@ Module.typedef = TypeDef("module",
 
 getset_func_doc = GetSetProperty(Function.fget_func_doc,
                                  Function.fset_func_doc,
-                                 Function.fdel_func_doc)
+                                 Function.fdel_func_doc,
+                                )
 
 # __module__ attribute lazily gets its value from the w_globals
 # at the time of first invocation. This is not 100% compatible but
@@ -940,6 +949,7 @@ AsyncGenAThrow.typedef = TypeDef("async_generator_athrow",
 
 Cell.typedef = TypeDef("cell",
     __total_ordering__ = 'auto',
+    __new__      = interp2app(descr_new_cell),
     __lt__       = interp2app(Cell.descr__lt__),
     __eq__       = interp2app(Cell.descr__eq__),
     __hash__     = None,
@@ -951,8 +961,9 @@ Cell.typedef = TypeDef("cell",
         Cell.descr_set_cell_contents,
         Cell.descr_del_cell_contents,
         cls=Cell),
+
 )
-assert not Cell.typedef.acceptable_as_base_class  # no __new__
+Cell.typedef.acceptable_as_base_class = False
 
 Ellipsis.typedef = TypeDef("ellipsis",
     __new__ = interp2app(Ellipsis.descr_new_ellipsis),
@@ -968,8 +979,8 @@ NotImplemented.typedef = TypeDef("NotImplementedType",
 )
 NotImplemented.typedef.acceptable_as_base_class = False
 
-SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
-SuspendedUnroller.typedef.acceptable_as_base_class = False
+SApplicationException.typedef = TypeDef("SApplicationException")
+SApplicationException.typedef.acceptable_as_base_class = False
 
 ## W_OperationError.typedef = TypeDef("OperationError",
 ##     __reduce__ = interp2app(W_OperationError.descr_reduce),

@@ -188,12 +188,29 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
                 Py_RETURN_NONE;
              Py_XINCREF(result);
              return result;
+             """),
+            ("dict_getitem_string", "METH_VARARGS",
+             """
+             PyObject *d, *result;
+             char * key;
+             if (!PyArg_ParseTuple(args, "Os", &d, &key)) {
+                return NULL;
+             }
+             result = _PyDict_GetItemStringWithError(d, key);
+             if (result == NULL && !PyErr_Occurred())
+                Py_RETURN_NONE;
+             Py_XINCREF(result);
+             return result;
              """)])
         d = {'foo': 'bar'}
         assert module.dict_getitem(d, 'foo') == 'bar'
+        assert module.dict_getitem_string(d, 'foo') == 'bar'
         assert module.dict_getitem(d, 'missing') is None
+        assert module.dict_getitem_string(d, 'missing') is None
         with raises(TypeError):
             module.dict_getitem(d, [])
+        with raises(TypeError):
+            module.dict_getitem_string(d, [])
 
     def test_setdefault(self):
         module = self.import_extension('foo', [

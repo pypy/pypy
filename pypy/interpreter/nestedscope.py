@@ -19,9 +19,9 @@ class Cell(W_Root):
         if jit.isconstant(self):
             # ever_mutated is False if we never see a transition from not-None to
             # not-None. That means _elidable_get might return an out-of-date
-            # None, and by now the cell was to, with a not-None. So if we see a
-            # None, we don't return that and instead read self.w_value in the
-            # code below.
+            # None, and by now the cell was written to, with a not-None. So if
+            # we see a None, we don't return that and instead read self.w_value
+            # in the code below.
             if not self.family.ever_mutated:
                 w_res = self._elidable_get()
                 if w_res is not None:
@@ -115,9 +115,18 @@ class Cell(W_Root):
             pass # CPython ignores it
 
 
+def descr_new_cell(space, w_type, w_obj=None):
+    """ Create and return a new cell. If an argument is given, it is used as
+    the cell_contents of the cell, otherwise the cell is empty. """
+    return Cell(w_obj, DUMMY_FAMILY)
+
+
 class CellFamily(object):
     _immutable_fields_ = ['ever_mutated?']
 
     def __init__(self, name):
         self.name = name
         self.ever_mutated = False
+
+DUMMY_FAMILY = CellFamily("<dummy>")
+DUMMY_FAMILY.ever_mutated = True

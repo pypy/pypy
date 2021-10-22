@@ -177,7 +177,7 @@ class TestW_IntObject:
     else:
         @given(
            a=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
-           b=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+           b=strategies.integers(min_value=0, max_value=sys.maxint),
            c=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint))
         @example(0, 0, -sys.maxint-1)
         @example(0, 1, -sys.maxint-1)
@@ -204,6 +204,18 @@ class TestW_IntObject:
             except OverflowError:
                 result = OverflowError
             assert result == expected
+
+            # check exponent -1
+            if isinstance(expected, int):
+                try:
+                    result = iobj._pow(self.space, a, -1, c)
+                except OperationError as e:
+                    pass
+                except OverflowError:
+                    pass
+                else:
+                    assert (a * result % c) == 1 % c
+
 
         @given(
            a=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
@@ -546,6 +558,15 @@ class AppTestInt(object):
         assert n == 1
         assert type(n) is int
 
+    def test_trunc_returns_index(self):
+        class Index:
+            def __index__(self):
+                return 17
+        class TruncReturnsIndex:
+            def __trunc__(self):
+                return Index()
+        assert int(TruncReturnsIndex()) == 17
+
     def test_int_before_string(self):
         class Integral(str):
             def __int__(self):
@@ -811,7 +832,68 @@ class AppTestInt(object):
     def test_int_new_pos_only(self):
         with raises(TypeError) as info:
             int(x=1)
-        assert "got an unexpected keyword argument 'x'" in str(info.value)
+        assert "got a positional-only argument passed as keyword argument: 'x'" in str(info.value)
+
+    def test_int_as_integer_ratio(self):
+        assert 4 .as_integer_ratio() == (4, 1)
+        assert (-1).as_integer_ratio() == (-1, 1)
+        assert (2 ** 100).as_integer_ratio() == (2 ** 100).as_integer_ratio()
+
+        d, n = True.as_integer_ratio()
+        assert (d, n) == (1, 1)
+        assert type(d) is int
+        d, n = False.as_integer_ratio()
+        assert (d, n) == (0, 1)
+        assert type(d) is int
+
+        class X(int): pass
+        a = X(5)
+        n, d = a.as_integer_ratio()
+        assert n == 5 and d == 1
+        assert type(n) is int
+
+    def test_pow_negative_exponent_mod(self):
+        import math
+        for i in range(1, 7):
+            for j in range(2, 7):
+                for sign in [1, -1]:
+                    i = i * sign
+                    if math.gcd(i, j) != 1:
+                        with raises(ValueError):
+                            pow(i, -1, j)
+                        continue
+                    x = pow(i, -1, j)
+                    assert (x * i) % j == 1 % j
+
+                    for k in range(2, 4):
+                        y = pow(i, -k, j)
+                        assert y == pow(x, k, j)
+
+    def test_int_constructor_calls_index(self):
+        class A:
+            def __index__(self):
+                return 25
+        assert int(A()) == 25
+        reallybig = 1 << 1000
+        class A:
+            def __index__(self):
+                return reallybig
+        assert int(A()) == reallybig
+
+        class A:
+            def __index__(self):
+                return "abc"
+        with raises(TypeError):
+            int(A())
+
+        class subint(int):
+            pass
+        class A:
+            def __index__(self):
+                return subint(12)
+        x = int(A())
+        assert x == 12
+        assert type(x) is int
 
 
 

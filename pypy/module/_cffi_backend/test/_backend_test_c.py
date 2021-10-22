@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.14.5", ("This test_c.py file is for testing a version"
+assert __version__ == "1.14.6", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -1350,6 +1350,8 @@ def test_callback_exception():
     try:
         linecache.getline = lambda *args: 'LINE'    # hack: speed up PyPy tests
         sys.stderr = cStringIO.StringIO()
+        if hasattr(sys, '__unraisablehook__'):          # work around pytest
+            sys.unraisablehook = sys.__unraisablehook__ # on recent CPythons
         assert f(100) == 300
         assert sys.stderr.getvalue() == ''
         assert f(10000) == -42
@@ -1436,6 +1438,8 @@ TypeError: $integer$
         sys.stderr = cStringIO.StringIO()
         seen = "not a list"    # this makes the oops() function crash
         assert ff(bigvalue) == -42
+        # the $ after the AttributeError message are for the suggestions that
+        # will be added in Python 3.10
         assert matches(sys.stderr.getvalue(), """\
 From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
@@ -1446,7 +1450,7 @@ During the call to 'onerror', another exception occurred:
 Traceback (most recent call last):
   File "$", line $, in oops
     $
-AttributeError: 'str' object has no attribute 'append'
+AttributeError: 'str' object has no attribute 'append$
 """, """\
 Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
 Traceback (most recent call last):
@@ -1457,7 +1461,7 @@ Exception ignored during handling of the above exception by 'onerror':
 Traceback (most recent call last):
   File "$", line $, in oops
     $
-AttributeError: 'str' object has no attribute 'append'
+AttributeError: 'str' object has no attribute 'append$
 """)
     finally:
         sys.stderr = orig_stderr

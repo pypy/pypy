@@ -117,6 +117,8 @@ class CConfig:
                        STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
                        LOAD_WITH_ALTERED_SEARCH_PATH CT_CTYPE3 C3_HIGHSURROGATE
                        CP_ACP CP_UTF8 CP_UTF7 CP_OEMCP MB_ERR_INVALID_CHARS
+                       LOAD_LIBRARY_SEARCH_DEFAULT_DIRS SEM_FAILCRITICALERRORS
+                       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -213,7 +215,7 @@ if WIN32:
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE,
                               save_err=rffi.RFFI_SAVE_LASTERROR)
     def wrap_loadlibraryex(func):
-        def loadlibrary(name, flags=LOAD_WITH_ALTERED_SEARCH_PATH):
+        def loadlibrary(name, flags):
             # Requires a full path name with '/' -> '\\'
             return func(name, NULL_HANDLE, flags)
         return loadlibrary
@@ -251,8 +253,8 @@ if WIN32:
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], rffi.INTP)
 
     def get_osfhandle(fd):
-        from rpython.rlib.rposix import FdValidator
-        with FdValidator(fd):
+        from rpython.rlib.rposix import SuppressIPH
+        with SuppressIPH():
             handle = rffi.cast(HANDLE, _get_osfhandle(fd))
         if handle == INVALID_HANDLE_VALUE:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
@@ -261,12 +263,12 @@ if WIN32:
     _open_osfhandle = rffi.llexternal('_open_osfhandle', [rffi.INTP, rffi.INT], rffi.INT)
 
     def open_osfhandle(handle, flags):
-        from rpython.rlib.rposix import FdValidator
+        from rpython.rlib.rposix import SuppressIPH
         fd = _open_osfhandle(handle, flags)
-        with FdValidator(fd):
+        with SuppressIPH():
             return fd
-    
-    wcsncpy_s = rffi.llexternal('wcsncpy_s', 
+
+    wcsncpy_s = rffi.llexternal('wcsncpy_s',
                     [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, rffi.SIZE_T], rffi.INT)
 
     def build_winerror_to_errno():
@@ -583,27 +585,27 @@ if WIN32:
                 os.close(fd2)
                 raise
         return res
-    
+
     GetConsoleMode = winexternal(
         'GetConsoleMode', [HANDLE, LPDWORD], BOOL)
-        
+
     GetNumberOfConsoleInputEvents = winexternal(
         'GetNumberOfConsoleInputEvents', [HANDLE, LPDWORD], BOOL)
 
     ERROR_INSUFFICIENT_BUFFER = 122
     ERROR_OPERATION_ABORTED   = 995
-    CP_UTF8 = 65001 
-    
+    CP_UTF8 = 65001
+
     ReadConsoleW = winexternal(
         'ReadConsoleW', [HANDLE, LPWSTR, DWORD, LPDWORD, LPVOID], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
-        
+
     WriteConsoleW = winexternal(
         'WriteConsoleW', [HANDLE, LPVOID, DWORD, LPDWORD, LPVOID], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     GetStringTypeW = winexternal(
-        'GetStringTypeW', [DWORD, rffi.CWCHARP, rffi.INT, LPWORD], BOOL, 
+        'GetStringTypeW', [DWORD, rffi.CWCHARP, rffi.INT, LPWORD], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     _SetEnvironmentVariableW = winexternal(
@@ -613,4 +615,17 @@ if WIN32:
     def SetEnvironmentVariableW(name, value):
         with rffi.scoped_unicode2wcharp(name) as nameWbuf:
             with rffi.scoped_unicode2wcharp(value) as valueWbuf:
-                return _SetEnvironmentVariableW(nameWbuf, valueWbuf) 
+                return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
+
+    _AddDllDirectory = winexternal('AddDllDirectory', [LPWSTR], rffi.VOIDP,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    def AddDllDirectory(path, length):
+        with rffi.scoped_utf82wcharp(path, length) as pathW:
+            return _AddDllDirectory(pathW)
+
+    RemoveDllDirectory = winexternal('RemoveDllDirectory', [rffi.VOIDP], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    # Don't save the err since this is called before checking err in rdynload
+    SetErrorMode = winexternal('SetErrorMode', [rffi.UINT], rffi.UINT) 

@@ -18,6 +18,11 @@ __all__ = [
     'parse_config_h',
 ]
 
+# Keys for get_config_var() that are never converted to Python integers.
+_ALWAYS_STR = {
+    'MACOSX_DEPLOYMENT_TARGET',
+}
+
 _INSTALL_SCHEMES = {
     'posix_prefix': {
         'stdlib': '{installed_base}/lib/{implementation_lower}{py_version_short}',
@@ -41,16 +46,6 @@ _INSTALL_SCHEMES = {
         'scripts': '{base}/bin',
         'data': '{base}',
         },
-    'pypy': {
-        'stdlib': '{installed_base}/lib-{implementation_lower}',
-        'platstdlib': '{base}/lib-{implementation_lower}',
-        'purelib': '{base}/lib/python{py_version_short}/site-packages',
-        'platlib': '{platbase}/lib/python{py_version_short}/site-packages',
-        'include': '{installed_base}/include',
-        'platinclude': '{installed_base}/include',
-        'scripts': '{base}/bin',
-        'data'   : '{base}',
-        },
     'nt': {
         'stdlib': '{installed_base}/Lib',
         'platstdlib': '{base}/Lib',
@@ -60,16 +55,6 @@ _INSTALL_SCHEMES = {
         'platinclude': '{installed_base}/Include',
         'scripts': '{base}/Scripts',
         'data': '{base}',
-        },
-    'pypy_nt': {
-        'stdlib': '{installed_base}/lib-{implementation_lower}',
-        'platstdlib': '{base}/lib-{implementation_lower}',
-        'purelib': '{base}/Lib/site-packages',
-        'platlib': '{base}/Lib/site-packages',
-        'include': '{installed_base}/include',
-        'platinclude': '{installed_base}/include',
-        'scripts': '{base}/Scripts',
-        'data'   : '{base}',
         },
     'nt_user': {
         'stdlib': '{userbase}/{implementation}{py_version_nodot}',
@@ -119,7 +104,7 @@ _USER_BASE = None
 # NOTE: site.py has copy of this function.
 # Sync it when modify this function.
 def _get_implementation():
-    if '__pypy__' in sys.builtin_module_names:
+    if sys.implementation.name == 'pypy':
         return 'PyPy'
     return 'Python'
 
@@ -145,7 +130,7 @@ if "_PYTHON_PROJECT_BASE" in os.environ:
     _PROJECT_BASE = _safe_realpath(os.environ["_PYTHON_PROJECT_BASE"])
 
 def _is_python_source_dir(d):
-    for fn in ("Setup.dist", "Setup.local"):
+    for fn in ("Setup", "Setup.local"):
         if os.path.isfile(os.path.join(d, "Modules", fn)):
             return True
     return False
@@ -206,13 +191,8 @@ def _expand_vars(scheme, vars):
 
 def _get_default_scheme():
     if os.name == 'posix':
-        if '__pypy__' in sys.builtin_module_names:
-            return 'pypy'
         # the default scheme for posix is posix_prefix
         return 'posix_prefix'
-    if os.name == 'nt':
-        if '__pypy__' in sys.builtin_module_names:
-            return 'pypy_nt'
     return os.name
 
 
@@ -273,6 +253,9 @@ def _parse_makefile(filename, vars=None):
                 notdone[n] = v
             else:
                 try:
+                    if n in _ALWAYS_STR:
+                        raise ValueError
+
                     v = int(v)
                 except ValueError:
                     # insert literal `$'
@@ -331,6 +314,8 @@ def _parse_makefile(filename, vars=None):
                         notdone[name] = value
                     else:
                         try:
+                            if name in _ALWAYS_STR:
+                                raise ValueError
                             value = int(value)
                         except ValueError:
                             done[name] = value.strip()
@@ -383,7 +368,7 @@ def _get_sysconfigdata_name():
     ))
 
 
-def _generate_posix_vars():
+def _generate_posix_vars(args):
     """Generate the Python module containing build-time variables."""
     import pprint
     vars = {}
@@ -416,6 +401,10 @@ def _generate_posix_vars():
         if _PYTHON_BUILD:
             vars['BLDSHARED'] = vars['LDSHARED']
 
+    if args:
+        # PyPy extension: they should be key, value pairs
+        for k, v in zip(args[::2], args[1::2]):
+            vars[k] = v 
     # There's a chicken-and-egg situation on OS X with regards to the
     # _sysconfigdata module after the changes introduced by #15298:
     # get_config_vars() is called by get_platform() as part of the
@@ -447,7 +436,7 @@ def _generate_posix_vars():
         pprint.pprint(vars, stream=f)
 
     # Create file used for sys.path fixup -- see Modules/getpath.c
-    with open('pybuilddir.txt', 'w', encoding='ascii') as f:
+    with open('pybuilddir.txt', 'w', encoding='utf8') as f:
         f.write(pybuilddir)
 
 def _init_posix(vars):
@@ -505,6 +494,8 @@ def parse_config_h(fp, vars=None):
         if m:
             n, v = m.group(1, 2)
             try:
+                if n in _ALWAYS_STR:
+                    raise ValueError
                 v = int(v)
             except ValueError:
                 pass
@@ -609,7 +600,9 @@ def get_config_vars(*args):
         # Always convert srcdir to an absolute path
         srcdir = _CONFIG_VARS.get('srcdir', _PROJECT_BASE)
         if os.name == 'posix':
-            if _PYTHON_BUILD:
+            if sys.implementation.name == 'pypy':
+                pass
+            elif _PYTHON_BUILD:
                 # If srcdir is a relative path (typically '.' or '..')
                 # then it should be interpreted relative to the directory
                 # containing Makefile.
@@ -674,6 +667,10 @@ def get_platform():
     if os.name == 'nt':
         if 'amd64' in sys.version.lower():
             return 'win-amd64'
+        if '(arm)' in sys.version.lower():
+            return 'win-arm32'
+        if '(arm64)' in sys.version.lower():
+            return 'win-arm64'
         return sys.platform
 
     if os.name != "posix" or not hasattr(os, 'uname'):
@@ -741,7 +738,7 @@ def _print_dict(title, data):
 def _main():
     """Display all information sysconfig detains."""
     if '--generate-posix-vars' in sys.argv:
-        _generate_posix_vars()
+        _generate_posix_vars(sys.argv[2:])
         return
     print('Platform: "%s"' % get_platform())
     print('Python version: "%s"' % get_python_version())

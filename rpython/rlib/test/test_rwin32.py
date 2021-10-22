@@ -52,7 +52,7 @@ def test_get_osfhandle():
     fd = fid.fileno()
     rwin32.get_osfhandle(fd)
     fid.close()
-    # Somehow the FdValidator's c_enter_suppress_iph, which resolves
+    # Somehow the SuppressIPH's c_enter_suppress_iph, which resolves
     # to calling _set_thread_local_invalid_parameter_handler, does not work
     # untranslated. After translation it does work.
     # py.test.raises(OSError, rwin32.get_osfhandle, fd)
@@ -112,7 +112,7 @@ def test_loadlibraryA():
 
     assert os.path.exists(test1)
 
-    hdll = rwin32.LoadLibraryExA(test1)
+    hdll = rwin32.LoadLibraryExA(test1, rwin32.LOAD_WITH_ALTERED_SEARCH_PATH)
     assert hdll
     faddr = rwin32.GetProcAddress(hdll, 'sum')
     assert faddr
@@ -131,7 +131,7 @@ def test_loadlibraryW():
 
     assert os.path.exists(unicode(test1))
 
-    hdll = rwin32.LoadLibraryExW(unicode(test1))
+    hdll = rwin32.LoadLibraryExW(unicode(test1), rwin32.LOAD_WITH_ALTERED_SEARCH_PATH)
     assert hdll
     faddr = rwin32.GetProcAddress(hdll, 'sum')
     assert faddr

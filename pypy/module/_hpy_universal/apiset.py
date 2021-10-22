@@ -4,13 +4,15 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize, llhelper_error_value
+from rpython.rlib.objectmodel import specialize
+from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi
 
 class APISet(object):
 
-    def __init__(self, cts, prefix=r'^_?HPy_?', force_c_name=False):
+    def __init__(self, cts, is_debug, prefix=r'^_?HPy_?', force_c_name=False):
         self.cts = cts
+        self.is_debug = is_debug
         self.prefix = re.compile(prefix)
         self.force_c_name = force_c_name
         self.all_functions = []
@@ -96,6 +98,7 @@ class APISet(object):
                 'you might solve this by making sure that the module is imported '
                 'earlier')
         def decorate(fn):
+            from pypy.module._hpy_universal.state import State
             name, ll_functype, ll_errval = self.parse_signature(cdecl, error_value)
             if name != fn.__name__:
                 raise ValueError(
@@ -111,9 +114,14 @@ class APISet(object):
             # get_llhelper
             @specialize.memo()
             def make_wrapper(space):
-                @llhelper_error_value(ll_errval)
                 def wrapper(*args):
-                    return fn(space, *args)
+                    state = space.fromcache(State)
+                    handles = state.get_handle_manager(self.is_debug)
+                    try:
+                        return fn(space, handles, *args)
+                    except OperationError as e:
+                        state.set_exception(e)
+                        return ll_errval
                 wrapper.__name__ = 'ctx_%s' % fn.__name__
                 if self.force_c_name:
                     wrapper.c_name = fn.__name__
@@ -158,4 +166,5 @@ class APISet(object):
 
 
 
-API = APISet(llapi.cts)
+API = APISet(llapi.cts, is_debug=False)
+DEBUG = APISet(llapi.cts, is_debug=True)

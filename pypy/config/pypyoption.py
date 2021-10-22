@@ -17,7 +17,7 @@ all_modules = [p.basename for p in modulepath.listdir()
 essential_modules = set([
     "exceptions", "_io", "sys", "builtins", "posix", "_warnings",
     "itertools", "_frozen_importlib", "operator", "_locale", "struct",
-    "thread", "__pypy__",
+    "thread", "__pypy__", "zipimport",
 ])
 if sys.platform == "win32":
     essential_modules.add("_winreg")
@@ -35,7 +35,7 @@ default_modules.update([
 working_modules = default_modules.copy()
 working_modules.update([
     "_socket", "unicodedata", "mmap", "fcntl", "pwd",
-    "select", "zipimport", "_lsprof", "signal", "_rawffi", "termios",
+    "select", "_lsprof", "signal", "_rawffi", "termios",
     "zlib", "bz2", "_md5", "_minimal_curses",
     "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
@@ -88,7 +88,7 @@ if sys.platform == "win32":
 
     # not ported yet
     if IS_64_BITS:
-        for name in ["_cppyy", "micronumpy", "_hpy_universal"]:
+        for name in ["_cppyy", "micronumpy"]:
             if name in working_modules:
                 working_modules.remove(name)
 

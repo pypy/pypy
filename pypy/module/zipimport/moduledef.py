@@ -1,25 +1,32 @@
-
-""" Zipimport module
-"""
-
+import os
+from rpython.rlib.objectmodel import we_are_translated
+from pypy.module._frozen_importlib.moduledef import Module as FrozenImportlibModule
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.module.sys import initpath
+
+lib_python = os.path.join(os.path.dirname(__file__),
+                          '..', '..', '..', 'lib-python', '3')
 
 class Module(MixedModule):
-
     interpleveldefs = {
-        'zipimporter':'interp_zipimport.W_ZipImporter',
-        '_zip_directory_cache' : 'space.wrap(interp_zipimport.zip_cache)',
-        'ZipImportError': 'interp_zipimport.get_error(space)',
-    }
+        }
 
     appleveldefs = {
-    }
+        }
 
-    def setup_after_space_initialization(self):
+    def install(self):
         """NOT_RPYTHON"""
+        from pypy.module.imp import interp_imp
+
+        super(Module, self).install()
         space = self.space
-        # install zipimport hook
-        w_path_hooks = space.sys.get('path_hooks')
-        from pypy.module.zipimport.interp_zipimport import W_ZipImporter
-        w_zipimporter = space.gettypefor(W_ZipImporter)
-        space.call_method(w_path_hooks, 'append', w_zipimporter)
+        FrozenImportlibModule._compile_bootstrap_module(
+            space, 'zipimport', self.w_name, self.w_dict,
+            directory=".")
+
+    def startup(self, space):
+        """ sys.path_hooks.insert(0, zipimporter) """
+        if not we_are_translated(): # add it at translation time only, will be frozen into the binary
+            w_path_hooks = space.sys.get("path_hooks")
+            w_zipimporter = self.get("zipimporter")
+            space.call_method(w_path_hooks, "insert", space.newint(0), w_zipimporter)

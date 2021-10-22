@@ -176,6 +176,9 @@ class ModuleDictStrategy(DictStrategy):
     def getiteritems_with_hash(self, w_dict):
         return objectmodel.iteritems_with_hash(self.unerase(w_dict.dstorage))
 
+    def getiterreversed(self, w_dict):
+        return objectmodel.reversed_dict(self.unerase(w_dict.dstorage))
+
     wrapkey = _wrapkey
 
     def wrapvalue(space, value):

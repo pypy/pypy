@@ -897,3 +897,13 @@ class AppTestMMap:
         assert list(iter(m)) == [b"A", b"B"]
         assert list(reversed(m)) == [b"B", b"A"]
         assert list(enumerate(m)) == [(0, b"A"), (1, b"B")]
+
+    def test_madvise(self):
+        import mmap
+        m = mmap.mmap(-1, 1024)
+        if not hasattr(m, "madvise"):
+            m.close()
+            py.test.skip("no madvise")
+
+        m.madvise(mmap.MADV_NORMAL)
+        m.close()

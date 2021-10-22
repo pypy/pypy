@@ -63,6 +63,14 @@ def test_format_percent_tuple():
     assert 'a%' == 'a%%' % t
     assert '%' == '%%' % t
 
+def test_format_percent_subclass_tuple_ignores_iter():
+    class t(tuple):
+        def __iter__(self):
+            yield 1
+            yield 2
+            yield 3
+    assert "%s %s %s" % t((4, 5, 6)) == "4 5 6"
+
 def test_format_too_much():
     raises(TypeError, '%s%s'.__mod__, ())
     raises(TypeError, '%s%s'.__mod__, (23,))

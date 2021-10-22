@@ -4,7 +4,7 @@ functional programming.
 """
 
 # ____________________________________________________________
-def sorted(iterable, *, key=None, reverse=False):
+def sorted(iterable, /, *, key=None, reverse=False):
     "sorted(iterable, key=None, reverse=False) --> new sorted list"
     sorted_lst = list(iterable)
     sorted_lst.sort(key=key, reverse=reverse)
@@ -40,12 +40,72 @@ empty, returns start."""
         raise TypeError("sum() can't sum bytes [use b''.join(seq) instead]")
     if isinstance(start, bytearray):
         raise TypeError("sum() can't sum bytearray [use b''.join(seq) instead]")
+
+    # Avoiding isinstance here, since subclasses can override `+`
+    if type(start) is list:
+        return _list_sum(sequence, start)
+
+    if type(start) is tuple:
+        return _tuple_sum(sequence, start)
+
+    return _regular_sum(sequence, start)
+
+
+def _regular_sum(sequence, start):
+    # Default implementation for sum (no specialization)
     last = start
     for x in sequence:
         # Very intentionally *not* +=, that would have different semantics if
         # start was a mutable type, such as a list
         last = last + x
     return last
+
+
+def _list_sum(sequence, start):
+    # Specialization avoiding quadratic complexity for lists
+    iterator = iter(sequence)
+
+    try:
+        first = next(iterator)
+    except StopIteration:
+        return start
+
+    if type(first) is not list:
+        return _regular_sum(iterator, start + first)
+
+    last = start + first
+    for item in iterator:
+        if type(item) is list:
+            last += item
+        else:
+            # Non-trivial sum. Use _regular_sum.
+            return _regular_sum(iterator, last + item)
+
+    return last
+
+
+def _tuple_sum(sequence, start):
+    # Specialization avoiding quadratic complexity for tuples
+    iterator = iter(sequence)
+
+    try:
+        first = next(iterator)
+    except StopIteration:
+        return start
+
+    if type(first) is not tuple:
+        return _regular_sum(iterator, start + first)
+
+    last = list(start)
+    last.extend(first)
+    for item in iterator:
+        if type(item) is tuple:
+            last.extend(item)
+        else:
+            # Non-trivial sum. Cast back to tuple and use regular_sum.
+            return _regular_sum(iterator, tuple(last) + item)
+
+    return tuple(last)
 
 def filter(func, seq):
     """filter(function or None, sequence) -> list, tuple, or string

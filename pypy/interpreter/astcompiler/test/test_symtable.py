@@ -531,3 +531,7 @@ def f(x):
     def test_issue13343(self):
         scp = self.mod_scope("lambda *, k1=x, k2: None")
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_IMPLICIT
+
+    def test_named_expr_list_comprehension(self):
+        fscp = self.func_scope("def f(): [(y := x) for x in range(5)]")
+        assert fscp.lookup("y") == symtable.SCOPE_CELL

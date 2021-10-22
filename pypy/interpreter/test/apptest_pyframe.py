@@ -62,6 +62,27 @@ def test_f_lineno_huge_jump():
     print(repr(g.__code__.co_lnotab))
     assert g() == [origin+3, origin+5+127, origin+7+127+1000]
 
+def test_bug_line_tracing():
+    import sys
+    def trace(frame, event, arg):
+        lineno = frame.f_lineno - frame.f_code.co_firstlineno
+        tr.append((event, lineno))
+        return trace
+    tr = []
+    def no_pop_tops():      # 0
+        x = 1               # 1
+        for a in range(2):  # 2
+            if a:           # 3
+                x = 1       # 4
+            else:           # 5
+                x = 1       # 6
+    sys.settrace(trace)
+    no_pop_tops()
+    sys.settrace(None)
+    assert tr == [('call', 0), ('line', 1), ('line', 2), ('line', 3),
+            ('line', 6), ('line', 2), ('line', 3), ('line', 4), ('line', 2),
+            ('return', 2)]
+
 class JumpTracer:
     """Defines a trace function that jumps from one place to another."""
 
@@ -536,7 +557,6 @@ def test_trace_onliner_if():
     sys.settrace(None)
     firstlineno = onliners.__code__.co_firstlineno
     assert l == [(firstlineno + 0, 'call'),
-                    (firstlineno + 1, 'line'),
                     (firstlineno + 3, 'line'),
                     (firstlineno + 3, 'return')]
 

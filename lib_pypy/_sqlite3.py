@@ -508,19 +508,30 @@ class Connection(object):
 
     @_check_thread_wrap
     @_check_closed_wrap
-    def create_function(self, name, num_args, callback):
+    def create_function(self, name, nargs, func, *, deterministic=False):
         try:
-            closure = self.__func_cache[callback]
+            closure = self.__func_cache[func]
         except KeyError:
             @_ffi.callback("void(sqlite3_context*, int, sqlite3_value**)")
             def closure(context, nargs, c_params):
-                _function_callback(callback, context, nargs, c_params)
-            self.__func_cache[callback] = closure
+                _function_callback(func, context, nargs, c_params)
+            self.__func_cache[func] = closure
 
         if isinstance(name, unicode):
             name = name.encode('utf-8')
-        ret = _lib.sqlite3_create_function(self._db, name, num_args,
-                                           _lib.SQLITE_UTF8, _ffi.NULL,
+        flags = _lib.SQLITE_UTF8
+        if deterministic:
+            if not hasattr(_lib, 'SQLITE_DETERMINISTIC'):
+                raise NotSupportedError(
+                        "deterministic=True requires building _sqlite3 with "
+                        "SQLite 3.8.3 or higher")
+            
+            if _lib.sqlite3_libversion_number() < 3008003:
+                raise NotSupportedError(
+                        "deterministic=True requires SQLite 3.8.3 or higher")
+                flags |= _lib.SQLITE_DETERMINISTIC
+        ret = _lib.sqlite3_create_function(self._db, name, nargs,
+                                           flags, _ffi.NULL,
                                            closure, _ffi.NULL, _ffi.NULL)
         if ret != _lib.SQLITE_OK:
             raise self.OperationalError("Error creating function")
@@ -652,7 +663,7 @@ class Connection(object):
 
     @_check_thread_wrap
     @_check_closed_wrap
-    def set_progress_handler(self, callable, nsteps):
+    def set_progress_handler(self, callable, n):
         if callable is None:
             progress_handler = _ffi.NULL
         else:
@@ -667,7 +678,7 @@ class Connection(object):
                         # abort query if error occurred
                         return 1
                 self.__func_cache[callable] = progress_handler
-        _lib.sqlite3_progress_handler(self._db, nsteps, progress_handler,
+        _lib.sqlite3_progress_handler(self._db, n, progress_handler,
                                       _ffi.NULL)
 
     @_check_thread_wrap

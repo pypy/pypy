@@ -627,6 +627,27 @@ class TestArgumentsNormal(object):
         # *args always go last
         assert scope == ['fake_self', 'None1', 'None2', ('abc', )]
 
+    def test_posonly(self):
+        space = DummySpace()
+        sig = Signature(["x", "y", "z", "a", "b", "c"], posonlyargcount=3)
+
+        args = Arguments(space, [1, 2, 3, 4, 5, 6])
+        l = [None] * 6
+        args._match_signature(None, l, sig)
+        assert l == [1, 2, 3, 4, 5, 6]
+
+        args = Arguments(space, [1, 2, 3, 4, 5], ["c"], [6])
+        l = [None] * 6
+        args._match_signature(None, l, sig)
+        assert l == [1, 2, 3, 4, 5, 6]
+
+    def test_posonly_kwargs(self):
+        space = DummySpace()
+        sig = Signature(["x", "y", "z", "a", "b", "c"], kwargname="kwargs", posonlyargcount=3)
+        args = Arguments(space, [1, 2, 3, 4, 5, 6], ["x"], [7])
+        l = [None] * 7
+        args._match_signature(None, l, sig)
+        assert l == [1, 2, 3, 4, 5, 6, {'x': 7}]
 
 class TestErrorHandling(object):
     def test_missing_args(self):
@@ -827,8 +848,13 @@ class TestErrorHandling(object):
             args = Arguments(space, [1, 2, 3, 4, 5], ["x"], [6])
             l = [None] * 6
             args._match_signature(None, l, sig)
-        assert info.value.getmsg() == "got an unexpected keyword argument 'x'"
+        assert info.value.getmsg() == "got a positional-only argument passed as keyword argument: 'x'"
 
+        with pytest.raises(ArgErrPosonlyAsKwds) as info:
+            args = Arguments(space, [1, 2, 3, 4, 5], ["x", "z"], [6, 7])
+            l = [None] * 6
+            args._match_signature(None, l, sig)
+        assert info.value.getmsg() == "got some positional-only arguments passed as keyword arguments: 'x, z'"
 
 class AppTestArgument:
     @pytest.mark.pypy_only

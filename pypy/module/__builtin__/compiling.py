@@ -11,9 +11,9 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.function import Function
 
 @unwrap_spec(filename='fsencode', mode='text', flags=int, dont_inherit=int,
-             optimize=int)
+             optimize=int, _feature_version=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0,
-            optimize=-1):
+            optimize=-1, _feature_version=-1):
     """Compile the source string (a Python module, statement or expression)
 into a code object that can be executed by the exec statement or eval().
 The filename will be used for run-time error messages.
@@ -27,27 +27,46 @@ compile; if absent or zero these statements do influence the compilation,
 in addition to any features explicitly specified.
 """
     from pypy.interpreter.pyopcode import source_as_str
+    # only allow default value of _feature_version for now
+    # we need to support the keyword argument, the ast module passes it (set to
+    # -1, usually)
+    if _feature_version >= 0 and (flags & consts.PyCF_ONLY_AST):
+        feature_version = _feature_version
+    else:
+        feature_version = -1
+
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
                  consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8 |
-                 consts.PyCF_ACCEPT_NULL_BYTES):
+                 consts.PyCF_ACCEPT_NULL_BYTES | consts.PyCF_TYPE_COMMENTS |
+                 consts.PyCF_ALLOW_TOP_LEVEL_AWAIT):
         raise oefmt(space.w_ValueError, "compile() unrecognized flags")
+
+    only_ast = flags & consts.PyCF_ONLY_AST
 
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
         if caller:
             flags |= ec.compiler.getcodeflags(caller.getcode())
 
-    if mode not in ('exec', 'eval', 'single'):
+    if mode not in ('exec', 'eval', 'single', 'func_type'):
+        if only_ast:
+            raise oefmt(space.w_ValueError,
+                        "compile() mode must be 'exec', 'eval', 'single' or 'func_type'")
+        else:
+            raise oefmt(space.w_ValueError,
+                        "compile() arg 3 must be 'exec', 'eval' or 'single'")
+
+    if mode == "func_type" and not only_ast:
         raise oefmt(space.w_ValueError,
-                    "compile() arg 3 must be 'exec', 'eval' or 'single'")
+                    "compile() mode 'func_type' requires flag PyCF_ONLY_AST")
 
     if optimize < -1 or optimize > 2:
         raise oefmt(space.w_ValueError,
             "compile(): invalid optimize value")
 
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
-        if flags & consts.PyCF_ONLY_AST:
+        if only_ast:
             return w_source
         ast_node = ast.mod.from_object(space, w_source)
         ec.compiler.validate_ast(ast_node)
@@ -58,8 +77,8 @@ in addition to any features explicitly specified.
     source, flags = source_as_str(space, w_source, 'compile',
                                   "string, bytes or AST", flags)
 
-    if flags & consts.PyCF_ONLY_AST:
-        node = ec.compiler.compile_to_ast(source, filename, mode, flags)
+    if only_ast:
+        node = ec.compiler.compile_to_ast(source, filename, mode, flags, feature_version)
         return node.to_object(space)
     else:
         return ec.compiler.compile(source, filename, mode, flags,
@@ -78,6 +97,7 @@ If only globals is given, locals defaults to it.
 
     if space.isinstance_w(w_prog, space.gettypeobject(PyCode.typedef)):
         code = space.interp_w(PyCode, w_prog)
+        space.audit("exec", [w_prog])
     else:
         source, flags = source_as_str(space, w_prog, 'eval',
                                       "string, bytes or code",
@@ -93,6 +113,18 @@ If only globals is given, locals defaults to it.
     return code.exec_code(space, w_globals, w_locals)
 
 def exec_(space, w_prog, w_globals=None, w_locals=None):
+    """
+    exec(source, globals=None, locals=None, /)
+
+    Execute the given source in the context of globals and locals.
+
+    The source may be a string representing one or more Python statements
+    or a code object as returned by compile().
+    The globals must be a dictionary and locals can be any mapping,
+    defaulting to the current globals and locals.
+    If only globals is given, locals defaults to it.
+    """
+
     frame = space.getexecutioncontext().gettopframe()
     frame.exec_(w_prog, w_globals, w_locals)
 
@@ -186,15 +218,12 @@ def build_class(space, w_func, w_name, __args__):
             e.get_w_value(space))
     if isinstance(w_cell, Cell) and isinstance(w_class, W_TypeObject):
         if w_cell.empty():
-            # will become an error in Python 3.7
-            space.warn(space.newtext(
-                "__class__ not set defining %s as %s . "
-                "Was __classcell__ propagated to type.__new__?" % (
-                    space.text_w(w_name),
-                    space.text_w(space.str(w_class))
-                )),
-                space.w_DeprecationWarning)
-            w_cell.set(w_class)
+            raise oefmt(space.w_RuntimeError,
+                "__class__ not set defining %S as %S. "
+                "Was __classcell__ propagated to type.__new__?",
+                    w_name,
+                    w_class)
+
         else:
             w_class_from_cell = w_cell.get()
             if not space.is_w(w_class, w_class_from_cell):

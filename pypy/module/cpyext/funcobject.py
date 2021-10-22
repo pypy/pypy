@@ -129,6 +129,7 @@ def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
     version since the definition of the bytecode changes often."""
     return PyCode(space,
                   argcount=rffi.cast(lltype.Signed, argcount),
+                  posonlyargcount=0,
                   kwonlyargcount = rffi.cast(lltype.Signed, kwonlyargcount),
                   nlocals=rffi.cast(lltype.Signed, nlocals),
                   stacksize=rffi.cast(lltype.Signed, stacksize),
@@ -149,6 +150,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
     return PyCode(space,
                   argcount=0,
+                  posonlyargcount=0,
                   kwonlyargcount=0,
                   nlocals=0,
                   stacksize=0,
@@ -170,3 +172,13 @@ def PyCode_GetNumFree(space, w_co):
     co = space.interp_w(PyCode, w_co)
     return len(co.co_freevars)
 
+@cpython_api([PyCodeObject, rffi.INT_real], rffi.INT_real, error=-1)
+def PyCode_Addr2Line(space, w_code, offset):
+    from pypy.interpreter.pytraceback import offset2lineno
+    offset = rffi.cast(lltype.Signed, offset)
+    co = space.interp_w(PyCode, w_code)
+    if offset < 0:
+        return -1
+    if offset > len(co.co_code):
+        return -1
+    return offset2lineno(co, offset)

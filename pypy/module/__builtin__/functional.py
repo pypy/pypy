@@ -7,7 +7,8 @@ import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
-    interp2app, interpindirect2app, unwrap_spec)
+    interp2app, interpindirect2app, unwrap_spec,
+    WrappedDefault)
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from rpython.rlib import jit, rarithmetic
 from rpython.rlib.objectmodel import specialize
@@ -151,7 +152,7 @@ def min_max_sequence(space, w_sequence, w_key, w_default, implementation_of):
             has_item = True
             w_max_item = w_item
             w_max_val = w_compare_with
-    if w_max_item is None:
+    if not has_item and not w_max_item:
         raise oefmt(space.w_ValueError, "arg is an empty sequence")
     return w_max_item
 
@@ -199,6 +200,8 @@ def min_max(space, args, implementation_of):
                             implementation_of)
     #
     args_w = args.arguments_w
+    if space.is_w(w_key, space.w_None):
+        w_key = None
     if len(args_w) > 1:
         if w_default is not None:
             raise oefmt(space.w_TypeError,

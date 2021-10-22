@@ -14,6 +14,10 @@ from test.test_asyncio import utils as test_utils
 from test import support
 
 
+def tearDownModule():
+    asyncio.set_event_loop_policy(None)
+
+
 def _fakefunc(f):
     return f
 
@@ -850,7 +854,8 @@ class PyFutureInheritanceTests(BaseFutureInheritanceTests,
     def _get_future_cls(self):
         return futures._PyFuture
 
-
+@unittest.skipUnless(hasattr(futures, '_CFuture'),
+                     'requires the C _asyncio module')
 class CFutureInheritanceTests(BaseFutureInheritanceTests,
                               test_utils.TestCase):
     def _get_future_cls(self):

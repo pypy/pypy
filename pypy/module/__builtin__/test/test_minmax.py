@@ -21,6 +21,10 @@ class AppTestMin:
     def test_min_empty(self):
         raises(ValueError, min, [])
 
+    def test_min_default(self):
+        assert min([], default=-1) == -1
+        assert min([], default=None) is None
+
 class AppTestMax:
 
     def test_max_notseq(self):

@@ -10,9 +10,9 @@ class AppTestAST:
     def setup_class(cls):
         cls.w_ast = cls.space.getbuiltinmodule('_ast')
 
-    def w_get_ast(self, source, mode="exec"):
+    def w_get_ast(self, source, mode="exec", flags=0, feature_version=-1):
         ast = self.ast
-        mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST)
+        mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST | flags, _feature_version=feature_version)
         assert isinstance(mod, ast.mod)
         return mod
 
@@ -55,11 +55,9 @@ class AppTestAST:
     def test_string(self):
         mod = self.get_ast("'hi'", "eval")
         s = mod.body
-        assert s.s == "hi"
-        s.s = "pypy"
+        assert s.value == "hi"
+        s.value = "pypy"
         assert eval(compile(mod, "<test>", "eval")) == "pypy"
-        s.s = 43
-        raises(TypeError, compile, mod, "<test>", "eval")
 
     def test_empty_initialization(self):
         ast = self.ast
@@ -73,7 +71,7 @@ class AppTestAST:
         expr.id = "hi"
         expr.ctx = ast.Load()
         expr.lineno = 4
-        exc = raises(TypeError, com, ast.Module([ast.Expr(expr)])).value
+        exc = raises(TypeError, com, ast.Module([ast.Expr(expr)], [])).value
         assert (str(exc) == "required field \"lineno\" missing from stmt" or # cpython
                 str(exc) == "required field \"lineno\" missing from Expr")   # pypy, better
 
@@ -88,7 +86,7 @@ class AppTestAST:
                                names=[ast.alias(name='sleep')],
                                level=None,
                                lineno=1, col_offset=2)]
-        mod = ast.Module(body)
+        mod = ast.Module(body, [])
         compile(mod, 'test', 'exec')
 
     def test_bad_int(self):
@@ -97,7 +95,7 @@ class AppTestAST:
                                names=[ast.alias(name='sleep')],
                                level='A',
                                lineno=1, col_offset=2)]
-        mod = ast.Module(body)
+        mod = ast.Module(body, [])
         exc = raises(ValueError, compile, mod, 'test', 'exec')
         assert str(exc.value) == "invalid integer value: 'A'"
 
@@ -133,8 +131,9 @@ class AppTestAST:
 
     def test_object(self):
         ast = self.ast
-        const = ast.Constant(4)
+        const = ast.Constant(4, None)
         assert const.value == 4
+        assert const.kind is None
         const.value = 5
         assert const.value == 5
 
@@ -142,14 +141,14 @@ class AppTestAST:
         mod = self.get_ast("x(32)", "eval")
         call = mod.body
         assert len(call.args) == 1
-        assert call.args[0].n == 32
+        assert call.args[0].value == 32
         co = compile(mod, "<test>", "eval")
         ns = {"x" : lambda x: x}
         assert eval(co, ns) == 32
 
     def test_list_syncing(self):
         ast = self.ast
-        mod = ast.Module([ast.Lt()])
+        mod = ast.Module([ast.Lt()], [])
         raises(TypeError, compile, mod, "<string>", "exec")
         mod = self.get_ast("x = y = 3")
         assign = mod.body[0]
@@ -158,7 +157,7 @@ class AppTestAST:
                                      lineno=0, col_offset=0)
         name = ast.Name("apple", ast.Store(),
                         lineno=0, col_offset=0)
-        mod.body.append(ast.Assign([name], ast.Num(4, lineno=0, col_offset=0),
+        mod.body.append(ast.Assign([name], ast.Constant(4, None, lineno=0, col_offset=0), None,
                                    lineno=0, col_offset=0))
         co = compile(mod, "<test>", "exec")
         ns = {}
@@ -168,7 +167,7 @@ class AppTestAST:
         assert ns["apple"] == 4
 
     def test_empty_module(self):
-        compile(self.ast.Module([]), "<test>", "exec")
+        compile(self.ast.Module([], []), "<test>", "exec")
 
     def test_ast_types(self):
         ast = self.ast
@@ -186,17 +185,17 @@ class AppTestAST:
             pass
         Y()
         exc = raises(TypeError, ast.AST, 2)
-        assert exc.value.args[0] == "_ast.AST constructor takes 0 positional arguments"
+        assert exc.value.args[0] == "_ast.AST constructor takes at most 0 positional argument"
 
     def test_constructor(self):
         ast = self.ast
         body = []
-        mod = ast.Module(body)
+        mod = ast.Module(body, [])
         assert mod.body is body
         target = ast.Name("hi", ast.Store())
         expr = ast.Name("apples", ast.Load())
         otherwise = []
-        fr = ast.For(target, expr, body, otherwise, lineno=0, col_offset=1)
+        fr = ast.For(target, expr, body, otherwise, None, lineno=0, col_offset=1)
         assert fr.target is target
         assert fr.iter is expr
         assert fr.orelse is otherwise
@@ -204,16 +203,16 @@ class AppTestAST:
         assert fr.lineno == 0
         assert fr.col_offset == 1
         fr = ast.For(body=body, target=target, iter=expr, col_offset=1,
-                     lineno=0, orelse=otherwise)
+                     type_comment = None, lineno=0, orelse=otherwise)
         assert fr.target is target
         assert fr.iter is expr
         assert fr.orelse is otherwise
         assert fr.body is body
         assert fr.lineno == 0
         assert fr.col_offset == 1
-        exc = raises(TypeError, ast.Module, 1, 2).value
+        exc = raises(TypeError, ast.Module, 1, 2, 3).value
         msg = str(exc)
-        assert msg == "Module constructor takes either 0 or 1 positional argument"
+        assert msg == "Module constructor takes at most 2 positional argument"
         ast.Module(nothing=23)
 
     def test_future(self):
@@ -233,7 +232,7 @@ from __future__ import generators""")
 
     def test_field_attr_writable(self):
         import _ast as ast
-        x = ast.Num()
+        x = ast.Constant()
         # We can assign to _fields
         x._fields = 666
         assert x._fields == 666
@@ -251,34 +250,35 @@ from __future__ import generators""")
         assert ns["x"] == 4
 
     def test_classattrs(self):
-        import ast
-        x = ast.Num()
-        assert x._fields == ('n',)
-        exc = raises(AttributeError, getattr, x, 'n')
-        assert str(exc.value) == "'Num' object has no attribute 'n'"
+        import _ast as ast
+        x = ast.Constant()
+        assert x._fields == ('value', 'kind')
+        exc = raises(AttributeError, getattr, x, 'value')
+        assert str(exc.value) == "'Constant' object has no attribute 'value'"
 
-        x = ast.Num(42)
-        assert x.n == 42
+        x = ast.Constant(42)
+        assert x.value == 42
         exc = raises(AttributeError, getattr, x, 'lineno')
-        assert str(exc.value) == "'Num' object has no attribute 'lineno'"
+        assert str(exc.value) == "'Constant' object has no attribute 'lineno'"
 
-        y = ast.Num()
+        y = ast.Constant()
         x.lineno = y
         assert x.lineno == y
 
         exc = raises(AttributeError, getattr, x, 'foobar')
-        assert str(exc.value) == "'Num' object has no attribute 'foobar'"
+        assert str(exc.value) == "'Constant' object has no attribute 'foobar'"
 
-        x = ast.Num(lineno=2)
+        x = ast.Constant(lineno=2)
         assert x.lineno == 2
 
-        x = ast.Num(42, lineno=0)
+        x = ast.Constant(42, None, lineno=0)
         assert x.lineno == 0
-        assert x._fields == ('n',)
-        assert x.n == 42
+        assert x._fields == ('value', 'kind')
+        assert x.value == 42
+        assert x.kind is None
 
-        raises(TypeError, ast.Num, 1, 2)
-        raises(TypeError, ast.Num, 1, 2, lineno=0)
+        raises(TypeError, ast.Constant, 1, 2, 3)
+        raises(TypeError, ast.Constant, 1, 2, 3, lineno=0)
 
     def test_issue1680_nonseq(self):
         # Test deleting an attribute manually
@@ -338,8 +338,8 @@ from __future__ import generators""")
 
     def test_node_identity(self):
         import _ast as ast
-        n1 = ast.Num(1)
-        n3 = ast.Num(3)
+        n1 = ast.Constant(1, None)
+        n3 = ast.Constant(3, None)
         addop = ast.Add()
         x = ast.BinOp(n1, addop, n3)
         assert x.left == n1
@@ -347,16 +347,17 @@ from __future__ import generators""")
         assert x.right == n3
 
     def test_functiondef(self):
-        import ast
+        import ast as ast_utils
+        import _ast as ast
         fAst = ast.FunctionDef(
             name="foo",
             args=ast.arguments(
                 args=[], vararg=None, kwarg=None, defaults=[],
-                kwonlyargs=[], kw_defaults=[]),
-            body=[ast.Expr(ast.Str('docstring'))],
+                kwonlyargs=[], kw_defaults=[], posonlyargs=[]),
+            body=[ast.Expr(ast.Constant('docstring', None))],
             decorator_list=[], lineno=5, col_offset=0)
         exprAst = ast.Interactive(body=[fAst])
-        ast.fix_missing_locations(exprAst)
+        ast_utils.fix_missing_locations(exprAst)
         compiled = compile(exprAst, "<foo>", "single")
         #
         d = {}
@@ -381,31 +382,34 @@ from __future__ import generators""")
                                    None, [ast.Pass(lineno=4, col_offset=0)],
                                    lineno=4, col_offset=0)],
                 [], [], lineno=1, col_offset=0)
-        ])
+        ], [])
         exec(compile(body, '<string>', 'exec'))
 
     def test_empty_set(self):
-        import ast
-        m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))])
-        ast.fix_missing_locations(m)
+        import ast as ast_utils
+        import _ast as ast
+        m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))], type_ignores=[])
+        ast_utils.fix_missing_locations(m)
         compile(m, "<test>", "exec")
 
     def test_invalid_sum(self):
         import _ast as ast
         pos = dict(lineno=2, col_offset=3)
-        m = ast.Module([ast.Expr(ast.expr(**pos), **pos)])
+        m = ast.Module([ast.Expr(ast.expr(**pos), **pos)], [])
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
     def test_invalid_identitifer(self):
-        import ast
-        m = ast.Module([ast.Expr(ast.Name(b"x", ast.Load()))])
-        ast.fix_missing_locations(m)
+        import ast as ast_utils
+        import _ast as ast
+        m = ast.Module([ast.Expr(ast.Name(b"x", ast.Load()))], [])
+        ast_utils.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
-    def test_invalid_string(self):
-        import ast
-        m = ast.Module([ast.Expr(ast.Str(43))])
-        ast.fix_missing_locations(m)
+    def test_invalid_constant(self):
+        import ast as ast_utils
+        import _ast as ast
+        m = ast.Module([ast.Expr(ast.Constant(ast.List([], ast.Load()), None))], [])
+        ast_utils.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
     def test_hacked_lineno(self):
@@ -425,43 +429,45 @@ from __future__ import generators""")
         code = compile(mod, "<test>", "exec")
 
     def test_dict_astNode(self):
-        import ast
-        num_node = ast.Num(n=2, lineno=2, col_offset=3)
+        import _ast as ast
+        num_node = ast.Constant(value=2, kind=None, lineno=2, col_offset=3)
         dict_res = num_node.__dict__
-        assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
+        assert dict_res == {'value':2, 'kind': None, 'lineno':2, 'col_offset':3}
 
     def test_issue1673_Num_notfullinit(self):
-        import ast
+        import _ast as ast
         import copy
-        num_node = ast.Num(n=2,lineno=2)
-        assert num_node.n == 2
-        assert num_node.lineno == 2
+        num_node = ast.Constant(value=2,lineno=2)
         num_node2 = copy.deepcopy(num_node)
+        assert num_node2.value == 2
+        assert num_node2.lineno == 2
 
     def test_issue1673_Num_fullinit(self):
-        import ast
+        import _ast as ast
         import copy
-        num_node = ast.Num(n=2,lineno=2,col_offset=3)
+        num_node = ast.Constant(value=2,kind=None,lineno=2,col_offset=3)
         num_node2 = copy.deepcopy(num_node)
-        assert num_node.n == num_node2.n
+        assert num_node.value == num_node2.value
+        assert num_node.kind is num_node2.kind
         assert num_node.lineno == num_node2.lineno
         assert num_node.col_offset == num_node2.col_offset
         dict_res = num_node2.__dict__
-        assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
+        assert dict_res == {'value':2, 'kind': None, 'lineno':2, 'col_offset':3}
 
     def test_issue1673_Str(self):
-        import ast
+        import _ast as ast
         import copy
-        str_node = ast.Str(n=2,lineno=2)
-        assert str_node.n == 2
+        str_node = ast.Constant(value=2,kind=None,lineno=2)
+        assert str_node.value == 2
         assert str_node.lineno == 2
         str_node2 = copy.deepcopy(str_node)
+        str_node2.kind = 'u'
         dict_res = str_node2.__dict__
-        assert dict_res == {'n':2, 'lineno':2}
+        assert dict_res == {'value':2, 'kind': 'u', 'lineno':2}
 
     def test_bug_null_in_objspace_type(self):
-        import ast
-        code = ast.Expression(lineno=1, col_offset=1, body=ast.ListComp(lineno=1, col_offset=1, elt=ast.Call(lineno=1, col_offset=1, func=ast.Name(lineno=1, col_offset=1, id='str', ctx=ast.Load(lineno=1, col_offset=1)), args=[ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Load(lineno=1, col_offset=1))], keywords=[]), generators=[ast.comprehension(lineno=1, col_offset=1, target=ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Store(lineno=1, col_offset=1)), iter=ast.List(lineno=1, col_offset=1, elts=[ast.Num(lineno=1, col_offset=1, n=23)], ctx=ast.Load(lineno=1, col_offset=1, )), ifs=[], is_async=False)]))
+        import _ast as ast
+        code = ast.Expression(lineno=1, col_offset=1, body=ast.ListComp(lineno=1, col_offset=1, elt=ast.Call(lineno=1, col_offset=1, func=ast.Name(lineno=1, col_offset=1, id='str', ctx=ast.Load(lineno=1, col_offset=1)), args=[ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Load(lineno=1, col_offset=1))], keywords=[]), generators=[ast.comprehension(lineno=1, col_offset=1, target=ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Store(lineno=1, col_offset=1)), iter=ast.List(lineno=1, col_offset=1, elts=[ast.Constant(lineno=1, col_offset=1, value=23)], ctx=ast.Load(lineno=1, col_offset=1, )), ifs=[], is_async=False)]))
         compile(code, '<template>', 'eval')
 
     def test_empty_yield_from(self):
@@ -473,27 +479,108 @@ from __future__ import generators""")
         assert "field value is required" in str(exc.value)
 
     def test_compare(self):
-        import ast
+        import ast as ast_utils
+        import _ast as ast
         
         def _mod(mod, msg=None, mode="exec", exc=ValueError):
             mod.lineno = mod.col_offset = 0
-            ast.fix_missing_locations(mod)
+            ast_utils.fix_missing_locations(mod)
             exc = raises(exc, compile, mod, "<test>", mode)
             if msg is not None:
                 assert msg in str(exc.value)
         def _expr(node, msg=None, exc=ValueError):
-            mod = ast.Module([ast.Expr(node)])
+            mod = ast.Module([ast.Expr(node)], [])
             _mod(mod, msg, exc=exc)
         left = ast.Name("x", ast.Load())
         comp = ast.Compare(left, [ast.In()], [])
         _expr(comp, "no comparators")
-        comp = ast.Compare(left, [ast.In()], [ast.Num(4), ast.Num(5)])
+        comp = ast.Compare(left, [ast.In()], [ast.Constant(4, None), ast.Constant(5, None)])
         _expr(comp, "different number of comparators and operands")
-        comp = ast.Compare(ast.Num("blah"), [ast.In()], [left])
-        _expr(comp, "non-numeric", exc=TypeError)
-        comp = ast.Compare(left, [ast.In()], [ast.Num("blah")])
-        _expr(comp, "non-numeric", exc=TypeError)
 
     def test_dict_unpacking(self):
         self.get_ast("{**{1:2}, 2:3}")
 
+    def test_type_comments(self):
+        mod = self.get_ast("a = 5 # type: int", flags=self.ast.PyCF_TYPE_COMMENTS)
+        assert mod.body[0].type_comment == "int"
+
+        mod = self.get_ast("a = 5 # type: ignore", flags=self.ast.PyCF_TYPE_COMMENTS)
+        assert len(mod.type_ignores) == 1
+        assert mod.type_ignores[0].tag == ""
+        assert mod.type_ignores[0].lineno == 1
+
+        mod = self.get_ast("a = 5")
+        assert mod.body[0].type_comment is None
+
+    def test_type_comments_are_None_by_default(self):
+        mod = self.get_ast("a = 5 # type: int")
+        assert mod.body[0].type_comment is None
+
+        mod = self.get_ast("a = 5 # type: int")
+        assert mod.body[0].type_comment is None
+        mod = self.get_ast("""def fkwo(
+            a, # type: 1
+            *,
+            b  # type: 2
+        ):
+            pass
+        """)
+        assert mod.body[0].args.args[0].type_comment is None
+
+    def test_ast_initalization(self):
+        import _ast as ast
+
+        zero = ast.Module()
+        assert not hasattr(zero, "body")
+        assert not hasattr(zero, "type_ignores")
+
+        one = ast.Module(1)
+        assert one.body == 1
+        assert not hasattr(one, "type_ignores")
+
+        full = ast.Module(1, 2)
+        assert full.body == 1
+        assert full.type_ignores == 2
+
+        exc = raises(TypeError, ast.Module, 1, 2, 3).value
+        msg = str(exc)
+        assert msg == "Module constructor takes at most 2 positional argument"
+
+        raises(TypeError, ast.Module, 1, 2, type_ignores=3)
+
+    def test_ast_feature_version(self):
+        raises(SyntaxError, self.get_ast, "await = x")
+        raises(SyntaxError, self.get_ast, "await = x", feature_version=9)
+        raises(SyntaxError, self.get_ast, "await = x", feature_version=-1)
+
+        tree_36 = self.get_ast("await = x", feature_version=6)
+        assert tree_36.body[0].targets[0].id == 'await'
+
+        tree_35 = self.get_ast("await = x", feature_version=5)
+        assert tree_35.body[0].targets[0].id == 'await'
+
+    def test_ast_feature_version_with_type_comments(self):
+
+        import ast
+        import textwrap
+
+        ignores = textwrap.dedent("""\
+        def foo():
+            pass  # type: ignore
+
+        def bar():
+            x = 1  # type: ignore
+
+        def baz():
+            pass  # type: ignore[excuse]
+            pass  # type: ignore=excuse
+            pass  # type: ignore [excuse]
+            x = 1  # type: ignore whatever
+        """)
+
+        for version in range(9):
+            tree_1 = ast.parse(ignores, type_comments=True, feature_version=version)
+            tree_2 = ast.parse(ignores, type_comments=True, feature_version=(3, version))
+
+            assert len(tree_1.type_ignores) == 6
+            assert len(tree_2.type_ignores) == 6

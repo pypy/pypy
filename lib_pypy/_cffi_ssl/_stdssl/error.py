@@ -7,6 +7,7 @@ from _pypy_openssl import lib
 
 from _cffi_ssl._stdssl.utility import _string_from_asn1, _str_to_ffi_buffer, _str_from_buf
 from _cffi_ssl._stdssl.errorcodes import _error_codes, _lib_codes
+from __pypy__ import write_unraisable
 
 SSL_ERROR_NONE = 0
 SSL_ERROR_SSL = 1
@@ -124,7 +125,7 @@ def pyssl_error(obj, ret):
                         if err.ws:
                             return OSError(err.ws)
                     if err.c:
-                       ffi.errno = err.c 
+                        ffi.errno = err.c 
                     errno = ffi.errno
                     return OSError(errno, os.strerror(errno))
                 else:
@@ -179,11 +180,11 @@ def fill_sslerror(obj, errtype, ssl_errno, errstr, errcode):
         if not verify_str:
             verify_str = ffi.string(lib.X509_verify_cert_error_string(verify_code)).decode()
     if verify_str and reason_str and lib_str:
-        msg = f"{verify_str}"
+        msg = f'[{lib_str}: {reason_str}] {errstr}: {verify_str}'
     elif reason_str and lib_str:
-        msg = "[%s: %s] %s" % (lib_str, reason_str, errstr)
+        msg = f"[{lib_str}: {reason_str}] {errstr}"
     elif lib_str:
-        msg = "[%s] %s" % (lib_str, errstr)
+        msg = f"[{lib_str}] {errstr}"
 
     err_value = errtype(ssl_errno, msg)
     err_value.reason = reason_str if reason_str else None
@@ -194,21 +195,7 @@ def fill_sslerror(obj, errtype, ssl_errno, errstr, errcode):
     return err_value
 
 def pyerr_write_unraisable(exc, obj):
-    f = sys.stderr
-
-    if obj:
-        f.write("Exception ignored in: ")
-        f.write(repr(obj))
-        f.write("\n")
-
-    t, v, tb = sys.exc_info()
-    traceback.print_tb(tb, file=f)
-
-    assert isinstance(v, Exception)
-    f.write(t.__module__ + "." + t.__name__)
-    f.write(": ")
-    f.write(str(v))
-    f.write("\n")
+    write_unraisable('ssl', exc, obj)
 
 SSL_AD_NAMES = [
     "ACCESS_DENIED",

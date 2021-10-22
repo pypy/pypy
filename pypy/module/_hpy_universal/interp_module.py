@@ -1,15 +1,27 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, oefmt
+from rpython.rlib.objectmodel import specialize
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.module import Module, init_extra_module_attrs
-from pypy.module._hpy_universal.apiset import API
-from pypy.module._hpy_universal import llapi
-from pypy.module._hpy_universal import handles
+from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import interp_extfunc
+from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods
 
 
-@API.func("HPy HPyModule_Create(HPyContext ctx, HPyModuleDef *def)")
-def HPyModule_Create(space, ctx, hpydef):
+@API.func("HPy HPyModule_Create(HPyContext *ctx, HPyModuleDef *def)")
+def HPyModule_Create(space, handles, ctx, hpydef):
+    return _hpymodule_create(handles, hpydef)
+
+@DEBUG.func("HPy debug_HPyModule_Create(HPyContext *ctx, HPyModuleDef *def)",
+            func_name='HPyModule_Create')
+def debug_HPyModule_Create(space, handles, ctx, hpydef):
+    state = State.get(space)
+    assert ctx == state.get_handle_manager(debug=True).ctx
+    return _hpymodule_create(handles, hpydef)
+
+@specialize.arg(0)
+def _hpymodule_create(handles, hpydef):
+    space = handles.space
     modname = rffi.constcharp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
     #
@@ -33,8 +45,8 @@ def HPyModule_Create(space, ctx, hpydef):
             name = rffi.constcharp2str(hpymeth.c_name)
             sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
             doc = get_doc(hpymeth.c_doc)
-            w_extfunc = interp_extfunc.W_ExtensionFunction(
-                space, name, sig, doc, hpymeth.c_impl, w_mod)
+            w_extfunc = handles.w_ExtensionFunction(
+                space, handles, name, sig, doc, hpymeth.c_impl, w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1
     if hpydef.c_m_doc:
@@ -43,8 +55,7 @@ def HPyModule_Create(space, ctx, hpydef):
         w_doc = space.w_None
     space.setattr(w_mod, space.newtext('__doc__'), w_doc)
     init_extra_module_attrs(space, w_mod)
-    return handles.new(space, w_mod)
-
+    return handles.new(w_mod)
 
 def get_doc(c_doc):
     if not c_doc:

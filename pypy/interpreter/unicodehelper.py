@@ -1001,6 +1001,12 @@ def str_decode_utf_7(s, errors, final=False,
                 pos += 1
                 result.append('+')
                 outsize += 1
+            elif pos < len(s) and not _utf7_IS_BASE64(ord(s[pos])):
+                msg = "ill-formed sequence"
+                r, pos, rettype, s = errorhandler(errors, 'utf7', msg, s, pos-1, pos+1)
+                reslen = rutf8.check_utf8(r, True)
+                outsize += reslen
+                result.append(r)
             else: # begin base64-encoded section
                 inShift = 1
                 surrogate = 0
@@ -1512,83 +1518,6 @@ def utf8_encode_utf_32_le(s, errors,
     return utf8_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "little",
                                         'utf-32-le')
-# ____________________________________________________________
-# unicode-internal
-
-def str_decode_unicode_internal(s, errors, final=False,
-                                errorhandler=None):
-    if len(s) == 0:
-        return '', 0
-
-    if rutf8.MAXUNICODE < 65536:
-        unicode_bytes = 2
-    else:
-        unicode_bytes = 4
-    if BYTEORDER == "little":
-        start = 0
-        stop = unicode_bytes
-        step = 1
-    else:
-        start = unicode_bytes - 1
-        stop = -1
-        step = -1
-
-    result = StringBuilder(len(s))
-    pos = 0
-    while pos < len(s):
-        if pos > len(s) - unicode_bytes:
-            r, pos, rettype, s = errorhandler(errors, "unicode_internal",
-                                    "truncated input",
-                                    s, pos, len(s))
-            result.append(r)
-            continue
-        t = r_uint(0)
-        h = 0
-        for j in range(start, stop, step):
-            t += r_uint(ord(s[pos + j])) << (h*8)
-            h += 1
-        if t > rutf8.MAXUNICODE:
-            r, pos, rettype, s = errorhandler(errors, "unicode_internal",
-                                    "unichr(%d) not in range" % (t,),
-                                    s, pos, pos + unicode_bytes)
-            result.append(r)
-            continue
-        rutf8.unichr_as_utf8_append(result, intmask(t), allow_surrogates=True)
-        pos += unicode_bytes
-    r = result.build()
-    lgt = rutf8.check_utf8(r, True)
-    return r, lgt
-
-def utf8_encode_unicode_internal(s, errors, errorhandler, allow_surrogates=False):
-    # uses only s, ignores the other arguments
-    size = len(s)
-    if size == 0:
-        return ''
-
-    if rutf8.MAXUNICODE < 65536:
-        unicode_bytes = 2
-    else:
-        unicode_bytes = 4
-    result = StringBuilder(size * unicode_bytes)
-    pos = 0
-    while pos < size:
-        oc = rutf8.codepoint_at_pos(s, pos)
-        if BYTEORDER == "little":
-            result.append(chr(oc       & 0xFF))
-            result.append(chr(oc >>  8 & 0xFF))
-            if unicode_bytes > 2:
-                result.append(chr(oc >> 16 & 0xFF))
-                result.append(chr(oc >> 24 & 0xFF))
-        else:
-            if unicode_bytes > 2:
-                result.append(chr(oc >> 24 & 0xFF))
-                result.append(chr(oc >> 16 & 0xFF))
-            result.append(chr(oc >>  8 & 0xFF))
-            result.append(chr(oc       & 0xFF))
-        pos = rutf8.next_codepoint_pos(s, pos)
-
-    return result.build()
-
 # ____________________________________________________________
 # Charmap
 

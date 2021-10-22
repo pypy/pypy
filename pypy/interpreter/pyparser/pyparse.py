@@ -1,8 +1,10 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
+from pypy.module.sys.version import CPYTHON_VERSION
 from rpython.rlib import rstring
 
+CPYTHON_MINOR_VERSION = CPYTHON_VERSION[1]
 
 def recode_to_utf8(space, bytes, encoding):
     if encoding == 'utf-8':
@@ -61,7 +63,7 @@ class CompileInfo(object):
     """Stores information about the source being compiled.
 
     * filename: The filename of the source.
-    * mode: The parse mode to use. ('exec', 'eval', or 'single')
+    * mode: The parse mode to use. ('exec', 'eval', 'single' or 'func_type')
     * flags: Parser and compiler flags.
     * encoding: The source encoding.
     * last_future_import: The line number and offset of the last __future__
@@ -75,8 +77,12 @@ class CompileInfo(object):
     """
 
     def __init__(self, filename, mode="exec", flags=0, future_pos=(0, 0),
-                 hidden_applevel=False, optimize=0):
+                 hidden_applevel=False, optimize=0, feature_version=-1):
         assert optimize >= 0
+        if feature_version == -1:
+            feature_version = CPYTHON_MINOR_VERSION
+        if feature_version < 7:
+            flags |= consts.PyCF_ASYNC_HACKS
         rstring.check_str0(filename)
         self.filename = filename
         self.mode = mode
@@ -85,21 +91,27 @@ class CompileInfo(object):
         self.optimize = optimize
         self.last_future_import = future_pos
         self.hidden_applevel = hidden_applevel
+        self.feature_version = feature_version
 
 
 _targets = {
 'eval' : pygram.syms.eval_input,
 'single' : pygram.syms.single_input,
 'exec' : pygram.syms.file_input,
+'func_type' : pygram.syms.func_type_input,
 }
 
 class PythonParser(parser.Parser):
 
-    def __init__(self, space, future_flags=future.futureFlags_3_5,
+    def __init__(self, space, future_flags=future.futureFlags_3_8,
                  grammar=pygram.python_grammar):
         parser.Parser.__init__(self, grammar)
         self.space = space
         self.future_flags = future_flags
+        self.type_ignores = []
+
+    def reset(self):
+        self.type_ignores = []
 
     def parse_source(self, bytessrc, compile_info):
         """Main entry point for parsing Python source.
@@ -152,6 +164,18 @@ class PythonParser(parser.Parser):
             compile_info.flags |= consts.PyCF_FOUND_ENCODING
         return self._parse(textsrc, compile_info)
 
+    def _get_possible_arcs(self, arcs):
+        # Handle func_body_suite separately for expecting an IndentationError
+        # instead of a normal SyntaxError when the indentation is not supplied.
+        if len(arcs) == 2:
+            for n, arc in enumerate(arcs):
+                if self.grammar.labels[arc[0]] == pygram.tokens.TYPE_COMMENT:
+                    break
+            else:
+                return arcs
+            arcs.pop(n)
+        return arcs
+
     def _parse(self, textsrc, compile_info):
         flags = compile_info.flags
 
@@ -191,7 +215,10 @@ class PythonParser(parser.Parser):
 
                 for token in tokens_stream:
                     next_token_seen = token
-                    if self.add_token(token):
+                    # Special handling for TYPE_IGNOREs
+                    if token.token_type == pygram.tokens.TYPE_IGNORE:
+                        self.type_ignores.append(token)
+                    elif self.add_token(token):
                         break
                     last_token_seen = token
                 last_token_seen = None

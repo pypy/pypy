@@ -30,7 +30,7 @@ class Module(MixedModule):
    PyUnicode_FromObject() prior to applying the conversion.
 
    These <encoding>s are available: utf_8, unicode_escape,
-   raw_unicode_escape, unicode_internal, latin_1, ascii (7-bit),
+   raw_unicode_escape, latin_1, ascii (7-bit),
    mbcs (on win32).
 
 
@@ -82,8 +82,6 @@ Copyright (c) Corporation for National Research Initiatives.
          'unicode_escape_encode'     :  'interp_codecs.unicode_escape_encode',
          'raw_unicode_escape_decode' :  'interp_codecs.raw_unicode_escape_decode',
          'raw_unicode_escape_encode' :  'interp_codecs.raw_unicode_escape_encode',
-         'unicode_internal_decode'   :  'interp_codecs.unicode_internal_decode',
-         'unicode_internal_encode'   :  'interp_codecs.unicode_internal_encode',
     }
 
     @not_rpython

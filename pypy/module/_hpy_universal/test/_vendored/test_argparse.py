@@ -10,15 +10,27 @@ from .support import HPyTest
 
 
 class TestParseItem(HPyTest):
+
+    def unsigned_long_bits(self):
+        """ Return the number of bits in an unsigned long. """
+        # XXX: Copied from test_hpylong.py
+        import struct
+        unsigned_long_bytes = len(struct.pack('l', 0))
+        return 8 * unsigned_long_bytes
+
+
     def make_parse_item(self, fmt, type, hpy_converter):
         mod = self.make_module("""
-            __attribute__((unused)) static inline
-            HPy char_to_hpybytes(HPyContext ctx, char a) {{
+            #ifndef _MSC_VER
+            __attribute__((unused))
+            #endif
+            static inline
+            HPy char_to_hpybytes(HPyContext *ctx, char a) {{
                 return HPyBytes_FromStringAndSize(ctx, &a, 1);
             }}
 
             HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
-            static HPy f_impl(HPyContext ctx, HPy self,
+            static HPy f_impl(HPyContext *ctx, HPy self,
                               HPy *args, HPy_ssize_t nargs)
             {{
                 {type} a;
@@ -48,7 +60,22 @@ class TestParseItem(HPyTest):
             "function unsigned byte integer is less than minimum"
         )
 
-    def test_B(self):
+    def test_s(self):
+        import pytest
+        mod = self.make_parse_item("s", "const char*", "HPyUnicode_FromString")
+        assert mod.f("hello HPy") == "hello HPy"
+        with pytest.raises(ValueError) as err:
+            mod.f(b"hello\0HPy".decode('utf-8'))
+        assert str(err.value) == (
+            "function embedded null character"
+        )
+        with pytest.raises(TypeError) as err:
+            mod.f(b"hello HPy")
+        assert str(err.value) == (
+            "function a str is required"
+        )
+
+    def test_bigB(self):
         mod = self.make_parse_item("B", "char", "char_to_hpybytes")
         assert mod.f(0) == b"\x00"
         assert mod.f(1) == b"\x01"
@@ -109,13 +136,15 @@ class TestParseItem(HPyTest):
         assert mod.f(-2**31) == -2**31
         with pytest.raises(OverflowError) as err:
             mod.f(2**31)
-        assert str(err.value) == (
-            "function signed integer is greater than maximum"
+        assert str(err.value) in (
+            "function signed integer is greater than maximum",
+            "Python int too large to convert to C long",  # where sizeof(long) == 4
         )
         with pytest.raises(OverflowError) as err:
             mod.f(-2**31 - 1)
-        assert str(err.value) == (
-            "function signed integer is less than minimum"
+        assert str(err.value) in (
+            "function signed integer is less than minimum",
+            "Python int too large to convert to C long",  # where sizeof(long) == 4
         )
 
     def test_I_signed(self):
@@ -144,42 +173,45 @@ class TestParseItem(HPyTest):
 
     def test_l(self):
         import pytest
+        LONG_BITS = self.unsigned_long_bits() - 1
         mod = self.make_parse_item("l", "long", "HPyLong_FromLong")
         assert mod.f(0) == 0
         assert mod.f(1) == 1
         assert mod.f(-1) == -1
-        assert mod.f(2**63 - 1) == 2**63 - 1
-        assert mod.f(-2**63) == -2**63
+        assert mod.f(2**LONG_BITS - 1) == 2**LONG_BITS - 1
+        assert mod.f(-2**LONG_BITS) == -2**LONG_BITS
         with pytest.raises(OverflowError):
-            mod.f(2**63)
+            mod.f(2**LONG_BITS)
         with pytest.raises(OverflowError):
-            mod.f(-2**63 - 1)
+            mod.f(-2**LONG_BITS - 1)
 
     def test_k_signed(self):
+        LONG_BITS = self.unsigned_long_bits() - 1
         mod = self.make_parse_item("k", "long", "HPyLong_FromLong")
         assert mod.f(0) == 0
         assert mod.f(1) == 1
         assert mod.f(-1) == -1
-        assert mod.f(2**63 - 1) == 2**63 - 1
-        assert mod.f(-2**63) == -2**63
-        assert mod.f(2**64 - 1) == -1
-        assert mod.f(-2**64 + 1) == 1
-        assert mod.f(2**64) == 0
-        assert mod.f(-2**64) == 0
+        assert mod.f(2**LONG_BITS - 1) == 2**LONG_BITS - 1
+        assert mod.f(-2**LONG_BITS) == -2**LONG_BITS
+        assert mod.f(2**(LONG_BITS + 1) - 1) == -1
+        assert mod.f(-2**(LONG_BITS + 1) + 1) == 1
+        assert mod.f(2**(LONG_BITS + 1)) == 0
+        assert mod.f(-2**(LONG_BITS + 1)) == 0
 
     def test_k_unsigned(self):
+        ULONG_BITS = self.unsigned_long_bits()
         mod = self.make_parse_item(
             "k", "unsigned long", "HPyLong_FromUnsignedLong"
         )
         assert mod.f(0) == 0
         assert mod.f(1) == 1
-        assert mod.f(-1) == 2**64 - 1
-        assert mod.f(2**64 - 1) == 2**64 - 1
-        assert mod.f(-2**64 + 1) == 1
-        assert mod.f(2**64) == 0
-        assert mod.f(-2**64) == 0
+        assert mod.f(-1) == 2**ULONG_BITS - 1
+        assert mod.f(2**ULONG_BITS - 1) == 2**ULONG_BITS - 1
+        assert mod.f(-2**ULONG_BITS + 1) == 1
+        assert mod.f(2**ULONG_BITS) == 0
+        assert mod.f(-2**ULONG_BITS) == 0
 
-    def test_L(self):
+    def test_bigL(self):
         import pytest
         mod = self.make_parse_item("L", "long long", "HPyLong_FromLongLong")
         assert mod.f(0) == 0
@@ -192,8 +224,8 @@ class TestParseItem(HPyTest):
         with pytest.raises(OverflowError):
             mod.f(-2**63 - 1)
 
-    def test_K_signed(self):
-        mod = self.make_parse_item("k", "long long", "HPyLong_FromLongLong")
+    def test_bigK_signed(self):
+        mod = self.make_parse_item("K", "long long", "HPyLong_FromLongLong")
         assert mod.f(0) == 0
         assert mod.f(1) == 1
         assert mod.f(-1) == -1
@@ -204,9 +236,9 @@ class TestParseItem(HPyTest):
         assert mod.f(2**64) == 0
         assert mod.f(-2**64) == 0
 
-    def test_K_unsigned(self):
+    def test_bigK_unsigned(self):
         mod = self.make_parse_item(
-            "k", "unsigned long long", "HPyLong_FromUnsignedLongLong"
+            "K", "unsigned long long", "HPyLong_FromUnsignedLongLong"
         )
         assert mod.f(0) == 0
         assert mod.f(1) == 1
@@ -267,7 +299,7 @@ class TestArgParse(HPyTest):
     def make_two_arg_add(self, fmt="OO"):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
-            static HPy f_impl(HPyContext ctx, HPy self,
+            static HPy f_impl(HPyContext *ctx, HPy self,
                               HPy *args, HPy_ssize_t nargs)
             {{
                 HPy a;
@@ -292,7 +324,7 @@ class TestArgParse(HPyTest):
     def test_many_int_arguments(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
-            static HPy f_impl(HPyContext ctx, HPy self,
+            static HPy f_impl(HPyContext *ctx, HPy self,
                               HPy *args, HPy_ssize_t nargs)
             {
                 long a, b, c, d, e;
@@ -310,7 +342,7 @@ class TestArgParse(HPyTest):
     def test_many_handle_arguments(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
-            static HPy f_impl(HPyContext ctx, HPy self,
+            static HPy f_impl(HPyContext *ctx, HPy self,
                               HPy *args, HPy_ssize_t nargs)
             {
                 HPy a, b;
@@ -326,7 +358,7 @@ class TestArgParse(HPyTest):
     def test_supplying_hpy_tracker(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
-            static HPy f_impl(HPyContext ctx, HPy self,
+            static HPy f_impl(HPyContext *ctx, HPy self,
                               HPy *args, HPy_ssize_t nargs)
             {
                 HPy a, b, result;
@@ -401,7 +433,7 @@ class TestArgParseKeywords(HPyTest):
     def make_two_arg_add(self, fmt="O+O+"):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_KEYWORDS)
-            static HPy f_impl(HPyContext ctx, HPy self,
+            static HPy f_impl(HPyContext *ctx, HPy self,
                               HPy *args, HPy_ssize_t nargs, HPy kw)
             {{
                 HPy a, b, result;
@@ -427,7 +459,7 @@ class TestArgParseKeywords(HPyTest):
     def test_handle_reordered_arguments(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_KEYWORDS)
-            static HPy f_impl(HPyContext ctx, HPy self,
+            static HPy f_impl(HPyContext *ctx, HPy self,
                               HPy *args, HPy_ssize_t nargs, HPy kw)
             {
                 HPy a, b, result;
@@ -448,7 +480,7 @@ class TestArgParseKeywords(HPyTest):
     def test_handle_optional_arguments(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_KEYWORDS)
-            static HPy f_impl(HPyContext ctx, HPy self,
+            static HPy f_impl(HPyContext *ctx, HPy self,
                               HPy *args, HPy_ssize_t nargs, HPy kw)
             {
                 HPy a;
@@ -507,7 +539,7 @@ class TestArgParseKeywords(HPyTest):
         import pytest
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_KEYWORDS)
-            static HPy f_impl(HPyContext ctx, HPy self,
+            static HPy f_impl(HPyContext *ctx, HPy self,
                               HPy *args, HPy_ssize_t nargs, HPy kw)
             {
                 long a, b, c;
@@ -528,7 +560,7 @@ class TestArgParseKeywords(HPyTest):
         import pytest
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_KEYWORDS)
-            static HPy f_impl(HPyContext ctx, HPy self,
+            static HPy f_impl(HPyContext *ctx, HPy self,
                               HPy *args, HPy_ssize_t nargs, HPy kw)
             {
                 HPy a;

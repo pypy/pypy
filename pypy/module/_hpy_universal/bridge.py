@@ -34,8 +34,6 @@ llapi.cts.parse_source("""
 typedef struct {
     void * hpy_err_Occurred_rpy;
     void * hpy_err_Clear;
-    void * _hpy_err_SetString;
-    void * _hpy_err_SetObject;
 } _HPyBridge;
 """)
 
@@ -43,4 +41,4 @@ _HPyBridge = llapi.cts.gettype('_HPyBridge')
 hpy_get_bridge = rffi.llexternal('hpy_get_bridge', [], lltype.Ptr(_HPyBridge),
                                  compilation_info=llapi.eci, _nowrapper=True)
 
-BRIDGE = APISet(llapi.cts, prefix='^hpy_', force_c_name=True)
+BRIDGE = APISet(llapi.cts, is_debug=False, prefix='^hpy_', force_c_name=True)

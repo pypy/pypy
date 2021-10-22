@@ -6,21 +6,18 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import codepoints_in_utf8
 
 
-def add_constant_string(astbuilder, joined_pieces, w_string, atom_node):
+def add_constant_string(astbuilder, joined_pieces, w_string, atom_node,
+                        kind=None):
     space = astbuilder.space
     is_unicode = space.isinstance_w(w_string, space.w_unicode)
     # Implement implicit string concatenation.
     if joined_pieces:
         prev = joined_pieces[-1]
-        if is_unicode and isinstance(prev, ast.Str):
-            w_string = space.add(prev.s, w_string)
-            del joined_pieces[-1]
-        elif not is_unicode and isinstance(prev, ast.Bytes):
-            w_string = space.add(prev.s, w_string)
-            del joined_pieces[-1]
-    node = ast.Str if is_unicode else ast.Bytes
-    joined_pieces.append(node(w_string, atom_node.get_lineno(),
-                                        atom_node.get_column()))
+        if isinstance(prev, ast.Constant):
+            if is_unicode is space.isinstance_w(prev.value, space.w_unicode):
+                w_string = space.add(prev.value, w_string)
+                del joined_pieces[-1]                
+    joined_pieces.append(ast.build(ast.Constant, w_string, space.newtext_or_none(kind), atom_node))
 
 def f_constant_string(astbuilder, joined_pieces, w_u, atom_node):
     add_constant_string(astbuilder, joined_pieces, w_u, atom_node)
@@ -87,7 +84,9 @@ class FixPosVisitor(ast.GenericASTVisitor):
         if isinstance(node, ast.stmt) or isinstance(node, ast.expr):
             if node.lineno == 1:
                 node.col_offset += self.column_offset
+                node.end_col_offset += self.column_offset
             node.lineno += self.line_offset
+            node.end_lineno += self.line_offset
 
 
 def unexpected_end_of_string(astbuilder, atom_node):
@@ -101,6 +100,8 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # format_spec expression.
     conversion = -1      # the conversion char.  -1 if not specified.
     format_spec = None
+    expr_text = None     # Stores the text representation of the expression part
+                         # in order to be used for f-string debugging (f'{x = }')
 
     # 0 if we're not in a string, else the quote char we're trying to
     # match (single or double quote).
@@ -112,6 +113,7 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # Keep track of nesting level for braces/parens/brackets in
     # expressions.
     nested_depth = 0
+    parenstack = [''] * 200
 
     # Can only nest one level deep.
     if rec >= 2:
@@ -173,24 +175,43 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
             # Start looking for the end of the string.
             quote_char = ord(ch)
         elif ch in "[{(":
+            if nested_depth > len(parenstack):
+                astbuilder.error('f-string: too many nested parenthesis',
+                                 atom_node)
+            parenstack[nested_depth] = ch
             nested_depth += 1
-        elif nested_depth != 0 and ch in "]})":
-            nested_depth -= 1
         elif ch == '#':
             # Error: can't include a comment character, inside parens
             # or not.
             astbuilder.error("f-string expression part cannot include '#'",
                              atom_node)
-        elif nested_depth == 0 and ch in "!:}":
-            # First, test for the special case of "!=". Since '=' is
-            # not an allowed conversion character, nothing is lost in
-            # this test.
-            if ch == '!' and i + 1 < len(s) and s[i+1] == '=':
-                # This isn't a conversion character, just continue.
-                i += 1
-                continue
+        elif nested_depth == 0 and ch in ":}!=<>":
+            # First, test for the special case of comparison operators
+            # that also contains equal sign ("!="/">="/"=="/"<=").
+            if i + 1 < len(s):
+                nextch = s[i + 1]
+                if ch in '!=<>' and nextch == '=':
+                    # This is an operator, just skip it.
+                    i += 2
+                    continue
+                # don't get out of the loop for just < or > if they are single
+                # chars (ie not part of a two-char token).
+                if ch in "<>":
+                    i += 1
+                    continue
             # Normal way out of this loop.
             break
+        elif ch in ']})':
+            if nested_depth == 0:
+                astbuilder.error("f-string: unmatched '%s'" % ch, atom_node)
+            nested_depth -=1
+            opening = parenstack[nested_depth]
+            if not ((opening == '(' and ch ==')') or
+                    (opening == '[' and ch ==']') or
+                    (opening == '{' and ch =='}')):
+                astbuilder.error("f-string: closing parenthesis '%s' "
+                                 "does not match opening parenthesis '%s'"
+                                 % (ch, opening), atom_node)
         #else:
         #   This isn't a conversion character, just continue.
         i += 1
@@ -203,7 +224,9 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
         astbuilder.error("f-string: unterminated string", atom_node)
 
     if nested_depth:
-        astbuilder.error("f-string: mismatched '(', '{' or '['", atom_node)
+        opening = parenstack[nested_depth - 1]
+        astbuilder.error("f-string: unmatched '%s'" % opening,
+                         atom_node)
 
     if i >= len(s):
         unexpected_end_of_string(astbuilder, atom_node)
@@ -213,6 +236,27 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # conversion or format_spec.
     expr = f_string_compile(astbuilder, s[expr_start:i], atom_node, fstr)
     assert isinstance(expr, ast.Expression)
+
+    # Check for the equal sign (debugging expr)
+    if s[i] == '=':
+        astbuilder.check_feature(
+            condition=True,
+            version=8,
+            msg="f-string: self documenting expressions are only supported in Python 3.8 and greater",
+            n=atom_node
+        )
+        i += 1
+        if i >= len(s):
+            unexpected_end_of_string(astbuilder, atom_node)
+
+        # The whitespace after the equal sign (f'{x=    }') can be
+        # safely ignored (since it will be preserved in expr_text).
+        while s[i].isspace():
+            i += 1
+            if i >= len(s):
+                unexpected_end_of_string(astbuilder, atom_node)
+
+        expr_text = s[expr_start:i]
 
     # Check for a conversion char, if present.
     if s[i] == '!':
@@ -242,15 +286,23 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     if i >= len(s) or s[i] != '}':
         unexpected_end_of_string(astbuilder, atom_node)
 
+    w_expr_text = None
+    if expr_text is not None:
+        # If there are no format spec and conversion, debugging exprs will
+        # default to using !r for their conversion.
+        if format_spec is None and conversion == -1:
+            conversion = ord('r')
+
+        w_expr_text = astbuilder.space.newtext(expr_text)
+
     # We're at a right brace. Consume it.
     i += 1
     fstr.current_index = i
 
     # And now create the FormattedValue node that represents this
     # entire expression with the conversion and format spec.
-    return ast.FormattedValue(expr.body, conversion, format_spec,
-                              atom_node.get_lineno(),
-                              atom_node.get_column())
+    return ast.build(ast.FormattedValue, expr.body, conversion, format_spec,
+            atom_node), w_expr_text
 
 
 def fstring_find_literal(astbuilder, fstr, atom_node, rec):
@@ -334,12 +386,12 @@ def fstring_find_literal_and_expr(astbuilder, fstr, atom_node, rec):
     if i >= len(s) or s[i] == '}':
         # We're at the end of the string or the end of a nested
         # f-string: no expression.
-        expr = None
+        expr, w_expr_text = None, None
     else:
         # We must now be the start of an expression, on a '{'.
         assert s[i] == '{'
-        expr = fstring_find_expr(astbuilder, fstr, atom_node, rec)
-    return w_u, expr
+        expr, w_expr_text = fstring_find_expr(astbuilder, fstr, atom_node, rec)
+    return w_u, expr, w_expr_text
 
 
 def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
@@ -348,13 +400,15 @@ def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
     # done this way to follow CPython's source code more closely.
     space = astbuilder.space
     while True:
-        w_u, expr = fstring_find_literal_and_expr(astbuilder, fstr,
-                                                      atom_node, rec)
+        w_u, expr, w_expr_text  = fstring_find_literal_and_expr(astbuilder, fstr,
+                                                                atom_node, rec)
 
         # add the literal part
         f_constant_string(astbuilder, joined_pieces, w_u, atom_node)
         if expr is None:
             break         # We're done with this f-string.
+        if w_expr_text is not None:
+            f_constant_string(astbuilder, joined_pieces, w_expr_text, atom_node)
         joined_pieces.append(expr)
 
     # If recurse_lvl is zero, then we must be at the end of the
@@ -374,10 +428,9 @@ def f_string_to_ast_node(astbuilder, joined_pieces, atom_node):
     # and avoid calling "BUILD_STRING 1" in this case.
     space = astbuilder.space
     values = [node for node in joined_pieces
-                   if not isinstance(node, ast.Str)
-                      or space.is_true(node.s)]
-    return ast.JoinedStr(values, atom_node.get_lineno(),
-                                 atom_node.get_column())
+                   if not isinstance(node, ast.Constant)
+                      or space.is_true(node.value)]
+    return ast.build(ast.JoinedStr, values, atom_node)
 
 
 def string_parse_literal(astbuilder, atom_node):
@@ -388,12 +441,17 @@ def string_parse_literal(astbuilder, atom_node):
     for i in range(atom_node.num_children()):
         child = atom_node.get_child(i)
         try:
+            child_str = child.get_value()
             w_next = parsestring.parsestr(
-                    space, encoding, child.get_value(), child,
+                    space, encoding, child_str, child,
                     astbuilder)
             if not isinstance(w_next, parsestring.W_FString):
-                add_constant_string(astbuilder, joined_pieces, w_next,
-                                    atom_node)
+                # u'' prefix can not be combined with
+                # any other specifier, so it's safe to
+                # check the initial letter for determining.
+                kind = "u" if child_str[0] == "u" else None
+                add_constant_string(astbuilder, joined_pieces,
+                                    w_next, atom_node, kind)
             else:
                 parse_f_string(astbuilder, joined_pieces, w_next, atom_node)
                 fmode = True
@@ -414,13 +472,19 @@ def string_parse_literal(astbuilder, atom_node):
             raise astbuilder.error('%s%s' % (kind, errmsg), child)
 
     if not fmode and len(joined_pieces) == 1:   # <= the common path
-        return joined_pieces[0]   # ast.Str, Bytes or FormattedValue
+        return joined_pieces[0]   # ast.Constant or FormattedValue
 
-    # with more than one piece, it is a combination of Str and
-    # FormattedValue pieces---if there is a Bytes, then we got
+    astbuilder.check_feature(
+        fmode,
+        version=6,
+        msg="Format strings are only supported in Python 3.6 and greater",
+        n=atom_node
+    )
+    # with more than one piece, it is a combination of ast.Constant[str]
+    # and FormattedValue pieces --- if there is a bytes value, then we got
     # an invalid mixture of bytes and unicode literals
     for node in joined_pieces:
-        if isinstance(node, ast.Bytes):
+        if isinstance(node, ast.Constant) and space.isinstance_w(node.value, space.w_bytes):
             astbuilder.error("cannot mix bytes and nonbytes literals",
                              atom_node)
     assert fmode

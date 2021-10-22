@@ -11,6 +11,6 @@ class Module(MixedModule):
     }
     for name in '''lookup name decimal digit numeric category bidirectional
                    east_asian_width combining mirrored decomposition
-                   normalize _get_code'''.split():
+                   normalize _get_code is_normalized'''.split():
         interpleveldefs[name] = '''space.getattr(space.wrap(interp_ucd.ucd),
                                    space.wrap("%s"))''' % name

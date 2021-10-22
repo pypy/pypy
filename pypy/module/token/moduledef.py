@@ -20,7 +20,9 @@ def _init_tokens():
         tok_name[id] = tok
     Module.interpleveldefs["tok_name"] = "space.wrap(%r)" % (tok_name,)
     Module.interpleveldefs["N_TOKENS"] = "space.wrap(%d)" % len(tok_name)
+    Module.interpleveldefs['EXACT_TOKEN_TYPES'] = "space.wrap(%r)" % pytoken.python_opmap
     all_names = Module.interpleveldefs.keys()
     Module.interpleveldefs["__all__"] = "space.wrap(%r)" % (all_names,)
+
 
 _init_tokens()

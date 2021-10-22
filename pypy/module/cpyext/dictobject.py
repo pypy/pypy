@@ -129,6 +129,15 @@ def PyDict_GetItemString(space, w_dict, key):
     # XXX this is wrong with IntMutableCell.  Hope it works...
     return w_dict.getitem(w_key)
 
+
+@cpython_api([PyObject, CONST_STRING], PyObject,
+             result_borrowed=True)
+def _PyDict_GetItemStringWithError(space, w_dict, key):
+    w_key = space.newtext(rffi.charp2str(key))
+    if not isinstance(w_dict, W_DictMultiObject):
+        PyErr_BadInternalCall(space)
+    return w_dict.getitem(w_key)
+
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
 def PyDict_DelItemString(space, w_dict, key_ptr):
     """Remove the entry in dictionary p which has a key specified by the string

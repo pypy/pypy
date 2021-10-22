@@ -15,7 +15,7 @@ from pypy.interpreter import (
     gateway, function, eval, pyframe, pytraceback, pycode
 )
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error
+from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, raise_import_error
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
@@ -132,7 +132,7 @@ class __extend__(pyframe.PyFrame):
                 self.space, operr, self, self.last_instr)
             ec.exception_trace(self, operr)
 
-        block = self.unrollstack(SApplicationException.kind)
+        block = self.unrollstack()
         if block is None:
             # no handler found for the OperationError
             if we_are_translated():
@@ -178,36 +178,25 @@ class __extend__(pyframe.PyFrame):
                 oparg = (oparg * 256) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
-                if not self.blockstack_non_empty():
-                    self.frame_finished_execution = True  # for generators
-                    raise Return
-                w_returnvalue = self.popvalue()
-                block = self.unrollstack(SReturnValue.kind)
-                if block is None:
-                    self.pushvalue(w_returnvalue)
-                    raise Return
-                else:
-                    unroller = SReturnValue(w_returnvalue)
-                    next_instr = block.handle(self, unroller)
-                    return next_instr    # now inside a 'finally' block
+                assert not self.blockstack_non_empty()
+                self.frame_finished_execution = True  # for generators
+                raise Return
             elif opcode == opcodedesc.END_FINALLY.index:
-                unroller = self.end_finally()
-                if isinstance(unroller, SuspendedUnroller):
+                unroller_or_int = self.end_finally()
+                if isinstance(unroller_or_int, SApplicationException):
                     # go on unrolling the stack
-                    block = self.unrollstack(unroller.kind)
+                    block = self.unrollstack()
                     if block is None:
-                        w_result = unroller.nomoreblocks()
-                        self.pushvalue(w_result)
-                        raise Return
+                        w_result = unroller_or_int.reraise()
+                        assert 0, "unreachable"
                     else:
-                        next_instr = block.handle(self, unroller)
+                        next_instr = block.handle(self, unroller_or_int)
+                elif self.space.isinstance_w(unroller_or_int, self.space.w_int):
+                    # we arrived here via a CALL_FINALLY
+                    next_instr = r_uint(self.space.int_w(unroller_or_int))
                 return next_instr
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
                 return self.jump_absolute(oparg, ec)
-            elif opcode == opcodedesc.BREAK_LOOP.index:
-                next_instr = self.BREAK_LOOP(oparg, next_instr)
-            elif opcode == opcodedesc.CONTINUE_LOOP.index:
-                return self.CONTINUE_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
                 next_instr = self.FOR_ITER(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_FORWARD.index:
@@ -382,8 +371,10 @@ class __extend__(pyframe.PyFrame):
                 self.SETUP_EXCEPT(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_FINALLY.index:
                 self.SETUP_FINALLY(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_LOOP.index:
-                self.SETUP_LOOP(oparg, next_instr)
+            elif opcode == opcodedesc.BEGIN_FINALLY.index:
+                self.BEGIN_FINALLY(oparg, next_instr)
+            elif opcode == opcodedesc.POP_FINALLY.index:
+                self.POP_FINALLY(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_WITH.index:
                 self.SETUP_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
@@ -432,10 +423,14 @@ class __extend__(pyframe.PyFrame):
                 self.GET_AITER(oparg, next_instr)
             elif opcode == opcodedesc.GET_ANEXT.index:
                 self.GET_ANEXT(oparg, next_instr)
+            elif opcode == opcodedesc.END_ASYNC_FOR.index:
+                next_instr = self.END_ASYNC_FOR(oparg, next_instr)
             elif opcode == opcodedesc.FORMAT_VALUE.index:
                 self.FORMAT_VALUE(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_STRING.index:
                 self.BUILD_STRING(oparg, next_instr)
+            elif opcode == opcodedesc.CALL_FINALLY.index:
+                next_instr = self.CALL_FINALLY(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
                 self.LOAD_REVDB_VAR(oparg, next_instr)
             else:
@@ -445,20 +440,15 @@ class __extend__(pyframe.PyFrame):
                 return next_instr
 
     @jit.unroll_safe
-    def unrollstack(self, unroller_kind):
+    def unrollstack(self):
         while self.blockstack_non_empty():
             block = self.pop_block()
-            if (block.handling_mask & unroller_kind) != 0:
+            if not isinstance(block, SysExcInfoRestorer):
                 return block
             block.cleanupstack(self)
         self.frame_finished_execution = True  # for generators
         return None
 
-    def unrollstack_and_jump(self, unroller):
-        block = self.unrollstack(unroller.kind)
-        if block is None:
-            raise BytecodeCorruption("misplaced bytecode - should not return")
-        return block.handle(self, unroller)
 
     ### accessor functions ###
 
@@ -690,13 +680,6 @@ class __extend__(pyframe.PyFrame):
     def PRINT_NEWLINE(self, oparg, next_instr):
         print_newline(self.space)
 
-    def BREAK_LOOP(self, oparg, next_instr):
-        return self.unrollstack_and_jump(SBreakLoop.singleton)
-
-    def CONTINUE_LOOP(self, startofloop, next_instr):
-        unroller = SContinueLoop(startofloop)
-        return self.unrollstack_and_jump(unroller)
-
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs > 2:
@@ -741,6 +724,7 @@ class __extend__(pyframe.PyFrame):
         flags = ec.compiler.getcodeflags(self.pycode)
 
         if space.isinstance_w(w_prog, space.gettypeobject(PyCode.typedef)):
+            space.audit("exec", [w_prog])
             code = space.interp_w(PyCode, w_prog)
         else:
             from pypy.interpreter.astcompiler import consts
@@ -788,8 +772,7 @@ class __extend__(pyframe.PyFrame):
         # In the case of a finally: block, the stack contains only one
         # item (unlike CPython which can have 1, 2, 3 or 5 items, and
         # even in one case a non-fixed number of items):
-        #   [wrapped subclass of SuspendedUnroller]
-
+        #   [wrapped SApplicationException]
         block = self.pop_block()
         assert isinstance(block, SysExcInfoRestorer)
         block.cleanupstack(self)   # restores ec.sys_exc_operror
@@ -797,9 +780,12 @@ class __extend__(pyframe.PyFrame):
         w_top = self.popvalue()
         if self.space.is_w(w_top, self.space.w_None):
             # case of a finally: block with no exception
-            return None
-        if isinstance(w_top, SuspendedUnroller):
+            return self.space.w_None
+        if isinstance(w_top, SApplicationException):
             # case of a finally: block with a suspended unroller
+            return w_top
+        if self.space.isinstance_w(w_top, self.space.w_int):
+            # we arrived here via a CALL_FINALLY
             return w_top
         else:
             # case of an except: block.  We popped the exception type
@@ -1073,16 +1059,33 @@ class __extend__(pyframe.PyFrame):
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            try:
-                w_pkgname = space.getattr(
-                    w_module, space.newtext('__name__'))
-                w_fullname = space.newtext(b'%s.%s' %
-                    (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
-                return space.getitem(space.sys.get('modules'), w_fullname)
-            except OperationError:
-                raise oefmt(
-                    space.w_ImportError, "cannot import name %R", w_name)
 
+        w_pkgname = space.newtext("<unknown module name>")
+        try:
+            w_pkgname = space.getattr(
+                w_module, space.newtext('__name__'))
+            w_fullname = space.newtext(b'%s.%s' %
+                (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
+            return space.getitem(space.sys.get('modules'), w_fullname)
+        except OperationError:
+            from pypy.module.imp.importing import is_spec_initializing, get_path, get_spec
+
+            w_pkgpath = get_path(space, w_module)
+            args = (space.utf8_w(w_name), space.utf8_w(w_pkgname), space.utf8_w(w_pkgpath))
+            if is_spec_initializing(space, get_spec(space, w_module)):
+                msg = (
+                    "cannot import name '%s' from partially initialized module '%s' "
+                    "(most likely due to a circular import) (%s)" % args
+                )
+            else:
+                msg = "cannot import name '%s' from '%s' (%s)" % args
+
+            raise_import_error(
+                space,
+                space.newtext(msg),
+                w_pkgname,
+                w_pkgpath,
+            )
 
     def YIELD_VALUE(self, oparg, next_instr):
         if self.getcode().co_flags & pycode.CO_ASYNC_GENERATOR:
@@ -1222,11 +1225,6 @@ class __extend__(pyframe.PyFrame):
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
 
-    def SETUP_LOOP(self, offsettoend, next_instr):
-        block = LoopBlock(self.valuestackdepth,
-                          next_instr + offsettoend, self.lastblock)
-        self.lastblock = block
-
     def SETUP_EXCEPT(self, offsettoend, next_instr):
         block = ExceptBlock(self.valuestackdepth,
                             next_instr + offsettoend, self.lastblock)
@@ -1236,6 +1234,30 @@ class __extend__(pyframe.PyFrame):
         block = FinallyBlock(self.valuestackdepth,
                              next_instr + offsettoend, self.lastblock)
         self.lastblock = block
+
+    def BEGIN_FINALLY(self, oparg, next_instr):
+        self.pushvalue(self.space.w_None)
+
+    def POP_FINALLY(self, oparg, next_instr):
+        block = self.pop_block()
+        assert isinstance(block, SysExcInfoRestorer)
+        block.cleanupstack(self)   # restores ec.sys_exc_operror
+
+        w_result = None
+        if oparg:
+            # top value is some result, needs to be preserved
+            w_result = self.popvalue()
+        w_top = self.popvalue()
+        # do nothing in any case, but check the cases ;-)
+        if self.space.is_w(w_top, self.space.w_None):
+            pass
+        elif isinstance(w_top, SApplicationException):
+            pass
+        else:
+            assert self.space.isinstance_w(w_top, self.space.w_int)
+
+        if oparg:
+            self.pushvalue(w_result)
 
     def SETUP_WITH(self, offsettoend, next_instr):
         w_manager = self.peekvalue()
@@ -1252,6 +1274,10 @@ class __extend__(pyframe.PyFrame):
                              next_instr + offsettoend, self.lastblock)
         self.lastblock = block
         self.pushvalue(w_result)
+
+    def CALL_FINALLY(self, jumpby, next_instr):
+        self.pushvalue(self.space.newint(intmask(next_instr)))
+        return next_instr + jumpby
 
     def WITH_CLEANUP_START(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
@@ -1329,7 +1355,6 @@ class __extend__(pyframe.PyFrame):
         finally:
             self.dropvalues(nargs + 1)
         self.pushvalue(w_result)
-
     @jit.unroll_safe
     def CALL_FUNCTION_KW(self, n_arguments, next_instr):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
@@ -1432,8 +1457,8 @@ class __extend__(pyframe.PyFrame):
         self.space.call_method(w_set, 'add', w_value)
 
     def MAP_ADD(self, oparg, next_instr):
-        w_key = self.popvalue()
         w_value = self.popvalue()
+        w_key = self.popvalue()
         w_dict = self.peekvalue(oparg - 1)
         self.space.setitem(w_dict, w_key, w_value)
 
@@ -1628,27 +1653,12 @@ class __extend__(pyframe.PyFrame):
         # If __aiter__() returns an object with a __anext__() method,
         # wrap it in a awaitable that resolves to 'w_iter'.
         if space.lookup(w_iter, "__anext__") is not None:
-            w_awaitable = AIterWrapper(w_iter)
+            self.pushvalue(w_iter)
         else:
-            try:
-                w_awaitable = get_awaitable_iter(space, w_iter)
-            except OperationError as e:
-                if e.async(space):
-                    raise
-                new_error = oefmt(space.w_TypeError,
-                            "'async for' received an invalid object "
-                            "from __aiter__: %T", w_iter)
-                e.normalize_exception(space)
-                new_error.normalize_exception(space)
-                new_error.set_cause(space, e.get_w_value(space))
-                raise new_error
-            space.warn(space.newtext(
-                "'%s' implements legacy __aiter__ protocol; "
-                "__aiter__ should return an asynchronous "
-                "iterator, not awaitable" %
-                    space.type(w_obj).name),
-                space.w_DeprecationWarning)
-        self.pushvalue(w_awaitable)
+            new_error = oefmt(space.w_TypeError,
+                        "'async for' received a object from __aiter__ that"
+                        " does not implement __anext__: %T", w_iter)
+            raise new_error
 
     def GET_ANEXT(self, oparg, next_instr):
         from pypy.interpreter.generator import get_awaitable_iter
@@ -1676,6 +1686,30 @@ class __extend__(pyframe.PyFrame):
             new_error.set_cause(space, e.get_w_value(space))
             raise new_error
         self.pushvalue(w_awaitable)
+
+    def END_ASYNC_FOR(self, oparg, next_instr):
+        block = self.pop_block()
+        assert isinstance(block, SysExcInfoRestorer)
+        block.cleanupstack(self)   # restores ec.sys_exc_operror
+
+        w_typ = self.popvalue()
+        if self.space.exception_match(w_typ, self.space.w_StopAsyncIteration):
+            self.popvalue() # w_exc
+            self.popvalue() # unroller
+            self.popvalue() # aiter
+            return next_instr
+        else:
+            unroller = self.peekvalue(1)
+            if not isinstance(unroller, SApplicationException):
+                raise oefmt(self.space.w_RuntimeError,
+                        "END_ASYNC_FOR found no exception")
+            block = self.unrollstack()
+            if block is None:
+                w_result = unroller.reraise()
+                assert 0, "unreachable"
+            else:
+                next_instr = block.handle(self, unroller)
+        return next_instr
 
     def FORMAT_VALUE(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
@@ -1768,59 +1802,14 @@ class RaiseWithExplicitTraceback(Exception):
 
 ### Frame Blocks ###
 
-class SuspendedUnroller(W_Root):
-    """Abstract base class for interpreter-level objects that
-    instruct the interpreter to change the control flow and the
-    block stack.
-
-    The concrete subclasses correspond to the various values WHY_XXX
-    values of the why_code enumeration in ceval.c:
-
-                WHY_NOT,        OK, not this one :-)
-                WHY_EXCEPTION,  SApplicationException
-                WHY_RERAISE,    implemented differently, see Reraise
-                WHY_RETURN,     SReturnValue
-                WHY_BREAK,      SBreakLoop
-                WHY_CONTINUE,   SContinueLoop
-                WHY_YIELD       not needed
-    """
-    _immutable_ = True
-    def nomoreblocks(self):
-        raise BytecodeCorruption("misplaced bytecode - should not return")
-
-class SReturnValue(SuspendedUnroller):
-    """Signals a 'return' statement.
-    Argument is the wrapped object to return."""
-    _immutable_ = True
-    kind = 0x01
-    def __init__(self, w_returnvalue):
-        self.w_returnvalue = w_returnvalue
-    def nomoreblocks(self):
-        return self.w_returnvalue
-
-class SApplicationException(SuspendedUnroller):
+class SApplicationException(W_Root):
     """Signals an application-level exception
     (i.e. an OperationException)."""
     _immutable_ = True
-    kind = 0x02
     def __init__(self, operr):
         self.operr = operr
-    def nomoreblocks(self):
+    def reraise(self):
         raise RaiseWithExplicitTraceback(self.operr)
-
-class SBreakLoop(SuspendedUnroller):
-    """Signals a 'break' statement."""
-    _immutable_ = True
-    kind = 0x04
-SBreakLoop.singleton = SBreakLoop()
-
-class SContinueLoop(SuspendedUnroller):
-    """Signals a 'continue' statement.
-    Argument is the bytecode position of the beginning of the loop."""
-    _immutable_ = True
-    kind = 0x08
-    def __init__(self, jump_to):
-        self.jump_to = jump_to
 
 
 class FrameBlock(object):
@@ -1834,23 +1823,12 @@ class FrameBlock(object):
         self.valuestackdepth = valuestackdepth
         self.previous = previous   # this makes a linked list of blocks
 
-    def __eq__(self, other):
-        return (self.__class__ is other.__class__ and
-                self.handlerposition == other.handlerposition and
-                self.valuestackdepth == other.valuestackdepth)
-
-    def __ne__(self, other):
-        return not (self == other)
-
-    def __hash__(self):
-        return hash((self.handlerposition, self.valuestackdepth))
-
     def cleanupstack(self, frame):
         frame.dropvaluesuntil(self.valuestackdepth)
 
     def pop_block(self, frame):
-        "Clean up a frame when we normally exit the block."
-        self.cleanupstack(frame)
+        # cleaning up the stack is compiled into the bytecode nowadays
+        pass
 
     # internal pickling interface, not using the standard protocol
     def _get_state_(self, space):
@@ -1862,27 +1840,6 @@ class FrameBlock(object):
         """
         raise NotImplementedError
 
-class LoopBlock(FrameBlock):
-    """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
-
-    _immutable_ = True
-    _opname = 'SETUP_LOOP'
-    handling_mask = SBreakLoop.kind | SContinueLoop.kind
-
-    def handle(self, frame, unroller):
-        if isinstance(unroller, SContinueLoop):
-            # re-push the loop block without cleaning up the value stack,
-            # and jump to the beginning of the loop, stored in the
-            # exception's argument
-            frame.append_block(self)
-            jumpto = unroller.jump_to
-            ec = frame.space.getexecutioncontext()
-            return r_uint(frame.jump_absolute(jumpto, ec))
-        else:
-            # jump to the end of the loop
-            self.cleanupstack(frame)
-            return r_uint(self.handlerposition)
-
 
 class SysExcInfoRestorer(FrameBlock):
     """
@@ -1892,7 +1849,6 @@ class SysExcInfoRestorer(FrameBlock):
 
     _immutable_ = True
     _opname = 'SYS_EXC_INFO_RESTORER' # it's not associated to any opcode
-    handling_mask = 0 # this block is never handled, only popped by POP_EXCEPT
 
     def __init__(self, operr, previous):
         self.operr = operr
@@ -1914,7 +1870,6 @@ class ExceptBlock(FrameBlock):
 
     _immutable_ = True
     _opname = 'SETUP_EXCEPT'
-    handling_mask = SApplicationException.kind
 
     def handle(self, frame, unroller):
         # push the exception to the value stack for inspection by the
@@ -1934,13 +1889,15 @@ class ExceptBlock(FrameBlock):
         frame.save_and_change_sys_exc_info(operationerr)
         return r_uint(self.handlerposition)   # jump to the handler
 
+    def pop_block(self, frame):
+        pass
+
 
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
 
     _immutable_ = True
     _opname = 'SETUP_FINALLY'
-    handling_mask = -1     # handles every kind of SuspendedUnroller
 
     def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
@@ -1958,42 +1915,8 @@ class FinallyBlock(FrameBlock):
         return r_uint(self.handlerposition)   # jump to the handler
 
     def pop_block(self, frame):
-        self.cleanupstack(frame)
         frame.save_and_change_sys_exc_info(None)
 
-
-block_classes = {'SYS_EXC_INFO_RESTORER': SysExcInfoRestorer,
-                 'SETUP_LOOP': LoopBlock,
-                 'SETUP_EXCEPT': ExceptBlock,
-                 'SETUP_FINALLY': FinallyBlock,
-                 'SETUP_WITH': FinallyBlock,
-                 }
-
-
-##class W_OperationError(W_Root):
-##    """
-##    Tiny applevel wrapper around an OperationError.
-##    """
-##
-##    def __init__(self, operr):
-##        self.operr = operr
-##
-##    def descr_reduce(self, space):
-##        from pypy.interpreter.mixedmodule import MixedModule
-##        w_mod = space.getbuiltinmodule('_pickle_support')
-##        mod = space.interp_w(MixedModule, w_mod)
-##        w_new_inst = mod.get('operationerror_new')
-##        w_args = space.newtuple([])
-##        operr = self.operr
-##        if operr is None:
-##            return space.newtuple([w_new_inst, w_args])
-##        w_state = space.newtuple([operr.w_type, operr.get_w_value(space),
-##                                  operr.get_traceback()])
-##        return space.newtuple([w_new_inst, w_args, w_state])
-##
-##    def descr_setstate(self, space, w_state):
-##        w_type, w_value, w_tb = space.fixedview(w_state, 3)
-##        self.operr = OperationError(w_type, w_value, w_tb)
 
 def source_as_str(space, w_source, funcname, what, flags):
     """Return source code as str0 with adjusted compiler flags
@@ -2154,7 +2077,28 @@ app = gateway.applevel(r'''
             skip_leading_underscores = True
         else:
             skip_leading_underscores = False
+
+        module_name = module.__name__
+        if not isinstance(module_name, str):
+            raise TypeError("module __name__ must be a string, not %s", type(module_name).__name__)
+
         for name in all:
+            if not isinstance(name, str):
+                if skip_leading_underscores:
+                    container = "__dict__"
+                    accessor = "Key"
+                else:
+                    container = "__all__"
+                    accessor = "Item"
+
+                raise TypeError(
+                    "%s in %s.%s must be str, not %s" % (
+                        accessor,
+                        module_name,
+                        container,
+                        type(name).__name__
+                    )
+                )
             if skip_leading_underscores and name and name[0] == '_':
                 continue
             into_locals[name] = getattr(module, name)

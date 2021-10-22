@@ -594,14 +594,14 @@ class Method(W_Root):
         space = self.space
         if not isinstance(w_other, Method):
             return space.w_NotImplemented
-        if not space.eq_w(self.w_instance, w_other.w_instance):
+        if not space.is_w(self.w_instance, w_other.w_instance):
             return space.w_False
-        return space.newbool(space.eq_w(self.w_function, w_other.w_function))
+        return space.is_(self.w_function, w_other.w_function)
 
     def descr_method_hash(self):
         space = self.space
         w_result = space.hash(self.w_function)
-        w_result = space.xor(w_result, space.hash(self.w_instance))
+        w_result = space.xor(w_result, space.id(self.w_instance))
         return w_result
 
     def descr_method__reduce__(self, space):

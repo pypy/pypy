@@ -535,12 +535,6 @@ class AppTestReversed:
                 return 5
         assert list(reversed(X())) == ["4", "3", "2", "1", "0"]
 
-    def test_reversed_not_for_mapping(self):
-        raises(TypeError, reversed, {})
-        raises(TypeError, reversed, {2: 3})
-        assert not hasattr(dict, '__reversed__')
-        raises(TypeError, reversed, int.__dict__)
-
     def test_reversed_type_with_no_len(self):
         class X(object):
             def __getitem__(self, key):
@@ -635,6 +629,7 @@ class AppTestMinMax:
         assert min([], default=None) == None
         raises(TypeError, min, 1, default=0)
         raises(TypeError, min, default=1)
+        raises(ValueError, min, [])
 
     def test_max(self):
         assert max(1, 2) == 2
@@ -653,10 +648,14 @@ class AppTestMinMax:
         assert max([], default=None) == None
         raises(TypeError, max, 1, default=0)
         raises(TypeError, max, default=1)
+        raises(ValueError, max, [])
 
     def test_max_list_and_key(self):
         assert max(["100", "50", "30", "-200"], key=int) == "100"
         assert max("100", "50", "30", "-200", key=int) == "100"
+
+    def test_max_key_is_None_works(self):
+        assert max(1, 2, key=None) == 2
 
 
 try:

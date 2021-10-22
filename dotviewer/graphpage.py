@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 
 class GraphPage(object):
     """Base class for the client-side content of one of the 'pages'
@@ -27,25 +28,26 @@ class GraphPage(object):
 
     def display(self):
         "Display a graph page."
-        import graphclient, msgstruct
+        from dotviewer import graphclient, msgstruct
         try:
             graphclient.display_page(self, save_tmp_file=self.save_tmp_file)
-        except msgstruct.RemoteError, e:
+        except msgstruct.RemoteError as e:
             import sys
             print >> sys.stderr, "Exception in the graph viewer:", str(e)
 
     def display_background(self):
         "Display a graph page in a background thread."
         try:
-            import thread
-            thread.start_new_thread(self.display, ())
+            import threading
+            t = threading.Thread(target=self.display)
+            t.start()
         except ImportError:
             self.display()
 
 class DotFileGraphPage(GraphPage):
     def compute(self, dotfile):
         import codecs
-        from strunicode import RAW_ENCODING
+        from dotviewer.strunicode import RAW_ENCODING
         f = codecs.open(dotfile, 'r', RAW_ENCODING)
         self.source = f.read()
         f.close()

@@ -1,4 +1,5 @@
 # encoding: utf-8
+import pytest
 import py, sys
 from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
@@ -343,6 +344,16 @@ class TestPythonAstCompiler:
             ex.normalize_exception(self.space)
             assert ex.match(self.space, self.space.w_SyntaxError)
 
+    def test_future_error_offset(self):
+        space = self.space
+        with pytest.raises(OperationError) as excinfo:
+            self.compiler.compile("from __future__ import bogus", "tmp", "exec", 0)
+        ex = excinfo.value
+        assert ex.match(space, space.w_SyntaxError)
+        ex.normalize_exception(space)
+        w_exc = ex.get_w_value(space)
+        assert space.int_w(w_exc.w_offset) == 1
+
     def test_globals_warnings(self):
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
@@ -581,9 +592,12 @@ def test():
         finally:
             continue       # 'continue' inside 'finally'
 
+test()
         '''))
-        space.raises_w(space.w_SyntaxError, self.compiler.compile,
-                       snippet, '<tmp>', 'exec', 0)
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
 
     def test_continue_in_nested_finally(self):
         space = self.space
@@ -596,9 +610,12 @@ def test():
                 continue       # 'continue' inside 'finally'
             except:
                 pass
+test()
         '''))
-        space.raises_w(space.w_SyntaxError, self.compiler.compile,
-                       snippet, '<tmp>', 'exec', 0)
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
 
     def test_really_nested_stuff(self):
         space = self.space
@@ -1090,7 +1107,7 @@ class AppTestCompiler(object):
         delete = _ast.Delete([])
         delete.lineno = 0
         delete.col_offset = 0
-        mod = _ast.Module([delete])
+        mod = _ast.Module([delete], [])
         exc = raises(ValueError, compile, mod, 'filename', 'exec')
         assert str(exc.value) == "empty targets on Delete"
 
@@ -1135,12 +1152,11 @@ class AppTestCompiler(object):
                 namespace.pop('__classcell__', None)
                 return super().__new__(cls, name, bases, namespace)
 
-        class WithClassRef(metaclass=Meta):
-            def f(self):
-                return __class__
+        with raises(RuntimeError):
+            class WithClassRef(metaclass=Meta):
+                def f(self):
+                    return __class__
 
-        # Check __class__ still gets set despite the warning
-        assert WithClassRef().f() is WithClassRef
         """
 
     def test_classcell_overwrite(self):
@@ -1235,6 +1251,23 @@ class AppTestOptimizer(object):
             co = co.co_code
             op = co[0]
             assert op == opcode.opmap["LOAD_CONST"]
+
+    def test_and_or_folding(self):
+        if not self.is_pypy():
+            return # pypy-only
+        def f1():
+            return True or 1 + x
+        assert len(f1.__code__.co_code) == 4 # load_const, return_value
+        def f2():
+            return 0 and 1 + x
+        assert len(f2.__code__.co_code) == 4 # load_const, return_value
+        def f3():
+            return a or False or True or x
+        assert len(f3.__code__.co_code) == 8 # load_global, jump, load_const, return_value
+        def f4():
+            return a and True and 0 and x
+        assert len(f4.__code__.co_code) == 8 # load_global, jump, load_const, return_value
+
 
     def test_tuple_constants(self):
         ns = {}

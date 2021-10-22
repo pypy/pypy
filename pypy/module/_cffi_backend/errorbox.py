@@ -47,7 +47,8 @@ if MESSAGEBOX:
 
     eci = ExternalCompilationInfo(
             separate_module_sources=[MODULE],
-            post_include_bits=["RPY_EXTERN int _cffi_errorbox1(void);\n"
+            post_include_bits=["#include <wchar.h>\n",
+                               "RPY_EXTERN int _cffi_errorbox1(void);\n",
                                "RPY_EXTERN void _cffi_errorbox(wchar_t *);\n"])
 
     cffi_errorbox1 = rffi.llexternal("_cffi_errorbox1", [],

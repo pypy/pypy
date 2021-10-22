@@ -126,15 +126,14 @@ class HelperFunctionsTests(unittest.TestCase):
         pth_dir = os.path.abspath(pth_dir)
         pth_basename = pth_name + '.pth'
         pth_fn = os.path.join(pth_dir, pth_basename)
-        pth_file = open(pth_fn, 'w', encoding='utf-8')
-        self.addCleanup(lambda: os.remove(pth_fn))
-        pth_file.write(contents)
-        pth_file.close()
+        with open(pth_fn, 'w', encoding='utf-8') as pth_file:
+            self.addCleanup(lambda: os.remove(pth_fn))
+            pth_file.write(contents)
         return pth_dir, pth_basename
 
     def test_addpackage_import_bad_syntax(self):
         # Issue 10642
-        pth_dir, pth_fn = self.make_pth("import bad)syntax\n")
+        pth_dir, pth_fn = self.make_pth("import bad-syntax\n")
         with captured_stderr() as err_out:
             site.addpackage(pth_dir, pth_fn, set())
         self.assertRegex(err_out.getvalue(), "line 1")
@@ -144,7 +143,7 @@ class HelperFunctionsTests(unittest.TestCase):
         # order doesn't matter.  The next three could be a single check
         # but my regex foo isn't good enough to write it.
         self.assertRegex(err_out.getvalue(), 'Traceback')
-        self.assertRegex(err_out.getvalue(), r'import bad\)syntax')
+        self.assertRegex(err_out.getvalue(), r'import bad-syntax')
         self.assertRegex(err_out.getvalue(), 'SyntaxError')
 
     def test_addpackage_import_bad_exec(self):
@@ -163,13 +162,12 @@ class HelperFunctionsTests(unittest.TestCase):
         # Issue 5258
         pth_dir, pth_fn = self.make_pth("abc\x00def\n")
         with captured_stderr() as err_out:
-            site.addpackage(pth_dir, pth_fn, set())
-        self.assertRegex(err_out.getvalue(), "line 1")
-        self.assertRegex(err_out.getvalue(),
-            re.escape(os.path.join(pth_dir, pth_fn)))
-        # XXX: ditto previous XXX comment.
-        self.assertRegex(err_out.getvalue(), 'Traceback')
-        self.assertRegex(err_out.getvalue(), 'ValueError')
+            self.assertFalse(site.addpackage(pth_dir, pth_fn, set()))
+        self.maxDiff = None
+        self.assertEqual(err_out.getvalue(), "")
+        for path in sys.path:
+            if isinstance(path, str):
+                self.assertNotIn("abc\x00def", path)
 
     def test_addsitedir(self):
         # Same tests for test_addpackage since addsitedir() essentially just
@@ -269,14 +267,15 @@ class HelperFunctionsTests(unittest.TestCase):
         site.PREFIXES = ['xoxo']
         dirs = site.getsitepackages()
         if check_impl_detail(pypy=True):
-            self.assertEqual(len(dirs), 1)
-            wanted = os.path.join('xoxo', 'site-packages')
-            self.assertEqual(dirs[0], wanted)
-        elif os.sep == '/':
+            implementation = 'pypy'
+        else:
+            implementation = 'python'
+        ver = sys.version_info
+        if os.sep == '/':
             # OS X, Linux, FreeBSD, etc
             self.assertEqual(len(dirs), 1)
             wanted = os.path.join('xoxo', 'lib',
-                                  'python%d.%d' % sys.version_info[:2],
+                                  f'{implementation}{ver[0]}.{ver[1]}',
                                   'site-packages')
             self.assertEqual(dirs[0], wanted)
         else:
@@ -386,56 +385,16 @@ class ImportSideEffectTests(unittest.TestCase):
         """Restore sys.path"""
         sys.path[:] = self.sys_path
 
-    def test_abs_paths(self):
-        # Make sure all imported modules have their __file__ and __cached__
-        # attributes as absolute paths.  Arranging to put the Lib directory on
-        # PYTHONPATH would cause the os module to have a relative path for
-        # __file__ if abs_paths() does not get run.  sys and builtins (the
-        # only other modules imported before site.py runs) do not have
-        # __file__ or __cached__ because they are built-in.
-        try:
-            parent = os.path.relpath(os.path.dirname(os.__file__))
-            cwd = os.getcwd()
-        except ValueError:
-            # Failure to get relpath probably means we need to chdir
-            # to the same drive.
-            cwd, parent = os.path.split(os.path.dirname(os.__file__))
-        with change_cwd(cwd):
-            env = os.environ.copy()
-            env['PYTHONPATH'] = parent
-            code = ('import os, sys',
-                # use ASCII to avoid locale issues with non-ASCII directories
-                'os_file = os.__file__.encode("ascii", "backslashreplace")',
-                r'sys.stdout.buffer.write(os_file + b"\n")',
-                'os_cached = os.__cached__.encode("ascii", "backslashreplace")',
-                r'sys.stdout.buffer.write(os_cached + b"\n")')
-            command = '\n'.join(code)
-            # First, prove that with -S (no 'import site'), the paths are
-            # relative.
-            proc = subprocess.Popen([sys.executable, '-S', '-c', command],
-                                    env=env,
-                                    stdout=subprocess.PIPE)
-            stdout, stderr = proc.communicate()
+    def test_abs_paths_cached_None(self):
+        """Test for __cached__ is None.
 
-            self.assertEqual(proc.returncode, 0)
-            os__file__, os__cached__ = stdout.splitlines()[:2]
-            if check_impl_detail(cpython=True):
-                # XXX: should probably match cpython
-                self.assertFalse(os.path.isabs(os__file__))
-                self.assertFalse(os.path.isabs(os__cached__))
-            # Now, with 'import site', it works.
-            proc = subprocess.Popen([sys.executable, '-c', command],
-                                    env=env,
-                                    stdout=subprocess.PIPE)
-            stdout, stderr = proc.communicate()
-            self.assertEqual(proc.returncode, 0)
-            os__file__, os__cached__ = stdout.splitlines()[:2]
-            self.assertTrue(os.path.isabs(os__file__),
-                            "expected absolute path, got {}"
-                            .format(os__file__.decode('ascii')))
-            self.assertTrue(os.path.isabs(os__cached__),
-                            "expected absolute path, got {}"
-                            .format(os__cached__.decode('ascii')))
+        Regarding to PEP 3147, __cached__ can be None.
+
+        See also: https://bugs.python.org/issue30167
+        """
+        sys.modules['test'].__cached__ = None
+        site.abs_paths()
+        self.assertIsNone(sys.modules['test'].__cached__)
 
     def test_no_duplicate_paths(self):
         # No duplicate paths should exist in sys.path
@@ -490,8 +449,6 @@ class ImportSideEffectTests(unittest.TestCase):
 
     @test.support.requires_resource('network')
     @test.support.system_must_validate_cert
-    @unittest.skipUnless(sys.version_info[3] == 'final',
-                         'only for released versions')
     @unittest.skipUnless(hasattr(urllib.request, "HTTPSHandler"),
                          'need SSL support to download license')
     def test_license_exists_at_url(self):
@@ -499,6 +456,8 @@ class ImportSideEffectTests(unittest.TestCase):
         # string displayed by license in the absence of a LICENSE file.
         url = license._Printer__data.split()[1]
         req = urllib.request.Request(url, method='HEAD')
+        # Reset global urllib.request._opener
+        self.addCleanup(urllib.request.urlcleanup)
         try:
             with test.support.transient_internet(url):
                 with urllib.request.urlopen(req) as data:
@@ -524,7 +483,7 @@ class StartupImportTests(unittest.TestCase):
         # found in sys.path (see site.addpackage()). Skip the test if at least
         # one .pth file is found.
         for path in isolated_paths:
-            pth_files = glob.glob(os.path.join(path, "*.pth"))
+            pth_files = glob.glob(os.path.join(glob.escape(path), "*.pth"))
             if pth_files:
                 self.skipTest(f"found {len(pth_files)} .pth files in: {path}")
 

@@ -193,7 +193,7 @@ class AppTestAppSysTests:
         # sanity check
         assert sys.flags.optimize is not None
         # make sure the flags are read-only
-        exc = raises(TypeError, 'sys.flags.optimize = 3')
+        exc = raises(AttributeError, 'sys.flags.optimize = 3')
         assert 'readonly' in str(exc.value)
         raises(AttributeError, 'sys.flags.not_a_sys_flag = 2')
 
@@ -230,6 +230,9 @@ class AppTestAppSysTests:
         else:
             assert not sys.implemenation.hasattr('_multiarch')
 
+    def test_audit(self):
+        import sys
+        sys.audit("os.chdir", "bla", 1, 2, 12) # does not crash
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {
         "usemodules": ["struct"],

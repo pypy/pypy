@@ -261,7 +261,7 @@ class Finalize(object):
         if self._kwargs:
             x += ', kwargs=' + str(self._kwargs)
         if self._key[0] is not None:
-            x += ', exitprority=' + str(self._key[0])
+            x += ', exitpriority=' + str(self._key[0])
         return x + '>'
 
 
@@ -458,6 +458,12 @@ def spawnv_passfds(path, args, passfds):
         os.close(errpipe_write)
 
 
+def close_fds(*fds):
+    """Close each file descriptor given as an argument"""
+    for fd in fds:
+        os.close(fd)
+
+
 def _cleanup_tests():
     """Cleanup multiprocessing resources when multiprocessing tests
     completed."""
@@ -470,6 +476,10 @@ def _cleanup_tests():
     # Stop the ForkServer process if it's running
     from multiprocessing import forkserver
     forkserver._forkserver._stop()
+
+    # Stop the ResourceTracker process if it's running
+    from multiprocessing import resource_tracker
+    resource_tracker._resource_tracker._stop()
 
     # bpo-37421: Explicitly call _run_finalizers() to remove immediately
     # temporary directories created by multiprocessing.util.get_temp_dir().

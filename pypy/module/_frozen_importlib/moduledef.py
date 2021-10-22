@@ -15,11 +15,11 @@ class Module(MixedModule):
         }
 
     @staticmethod
-    def _compile_bootstrap_module(space, name, w_name, w_dict):
+    def _compile_bootstrap_module(space, name, w_name, w_dict, directory="importlib"):
         """NOT_RPYTHON"""
-        with open(os.path.join(lib_python, 'importlib', name + '.py')) as fp:
+        with open(os.path.join(lib_python, directory, name + '.py')) as fp:
             source = fp.read()
-        pathname = "<frozen importlib.%s>" % name
+        pathname = "<frozen %s>" % (directory + "." + name).lstrip(".")
         code_w = Module._cached_compile(space, name, source,
                                         pathname, 'exec', 0)
         space.setitem(w_dict, space.wrap('__name__'), w_name)

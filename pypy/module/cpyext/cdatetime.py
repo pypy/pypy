@@ -55,6 +55,10 @@ def _PyDateTime_Import(space):
     datetimeAPI.c_TZInfoType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
 
+    w_type = space.getattr(w_datetime, space.newtext("timezone"))
+    w_utc = space.getattr(w_type, space.newtext("utc"))
+    datetimeAPI.c_TimeZone_UTC = make_ref(space, w_utc)
+
     datetimeAPI.c_Date_FromDate = llhelper(
         _PyDate_FromDate.api_func.functype,
         _PyDate_FromDate.api_func.get_wrapper(space))
@@ -81,6 +85,10 @@ def _PyDateTime_Import(space):
     datetimeAPI.c_Date_FromTimestamp = llhelper(
         _PyDate_FromTimestamp.api_func.functype,
         _PyDate_FromTimestamp.api_func.get_wrapper(space))
+
+    datetimeAPI.c_TimeZone_FromTimeZone = llhelper(
+        _PyTimeZone_FromTimeZone.api_func.functype,
+        _PyTimeZone_FromTimeZone.api_func.get_wrapper(space))
 
     state.datetimeAPI.append(datetimeAPI)
     return state.datetimeAPI[0]
@@ -268,7 +276,7 @@ def _PyDateTime_FromDateAndTimeAndFold(space, year, month, day,
     second = rffi.cast(lltype.Signed, second)
     usecond = rffi.cast(lltype.Signed, usecond)
     fold = rffi.cast(lltype.Signed, fold)
-    args = Arguments(space, 
+    args = Arguments(space,
                     [space.newint(year), space.newint(month), space.newint(day),
                      space.newint(hour), space.newint(minute), space.newint(second),
                      space.newint(usecond), w_tzinfo],
@@ -290,13 +298,13 @@ def _PyTime_FromTimeAndFold(space, hour, minute, second, usecond,
     second = rffi.cast(lltype.Signed, second)
     usecond = rffi.cast(lltype.Signed, usecond)
     fold = rffi.cast(lltype.Signed, fold)
-    args = Arguments(space, 
+    args = Arguments(space,
                     [space.newint(hour), space.newint(minute), space.newint(second),
                      space.newint(usecond), w_tzinfo],
                     keywords=['fold'],
                     keywords_w = [space.newint(fold)],
                 )
-                    
+
     return space.call_args(w_type, args)
 
 @cpython_api([PyObject], PyObject)
@@ -349,8 +357,22 @@ def _PyDelta_FromDelta(space, days, seconds, useconds, normalize, w_type):
         w_type,
         space.newint(days), space.newint(seconds), space.newint(useconds))
 
-# Accessors
 
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyTimeZone_FromTimeZone(space, w_offset, w_name):
+    """Return a datetime.timezone object with an unnamed fixed offset
+    represented by the offset argument.
+    """
+    w_datetime = PyImport_Import(space, space.newtext("datetime"))
+    w_type = space.getattr(w_datetime, space.newtext("timezone"))
+
+    if w_name is not None:
+        return space.call_function(w_type, w_offset, w_name)
+
+    return space.call_function(w_type, w_offset)
+
+
+# Accessors
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_GET_YEAR(space, w_obj):
     """Return the year, as a positive int.

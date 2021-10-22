@@ -14,12 +14,15 @@ class Module(MixedModule):
         'SIG_IGN':             'space.wrap(interp_signal.SIG_IGN)',
         'default_int_handler': 'interp_signal.default_int_handler',
         'ItimerError':         'interp_signal.get_itimer_error(space)',
+        'valid_signals':       'interp_signal.valid_signals',
+        'raise_signal':        'interp_signal.raise_signal',
     }
 
     if os.name == 'posix':
         interpleveldefs['alarm'] = 'interp_signal.alarm'
         interpleveldefs['pause'] = 'interp_signal.pause'
         interpleveldefs['siginterrupt'] = 'interp_signal.siginterrupt'
+        interpleveldefs['strsignal']    = 'interp_signal.strsignal'
 
     if os.name == 'posix':
         interpleveldefs['setitimer'] = 'interp_signal.setitimer'

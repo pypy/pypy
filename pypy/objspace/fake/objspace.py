@@ -46,7 +46,7 @@ class W_MyObject(W_Root):
         is_root(w_subtype)
 
     def buffer_w(self, space, flags):
-        return SimpleView(StringBuffer("foobar"))
+        return SimpleView(StringBuffer("foobar"), w_obj=self)
 
     def text_w(self, space):
         return NonConstant("foobar")
@@ -468,6 +468,8 @@ class FakeObjSpace(ObjSpace):
         #t.viewcg()
         t.buildrtyper().specialize()
         t.checkgraphs()
+        from rpython.translator.backendopt.all import backend_optimizations
+        backend_optimizations(t, replace_we_are_jitted=True)
         if c_compile:
             cbuilder = CStandaloneBuilder(t, entry_point, t.config)
             cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)

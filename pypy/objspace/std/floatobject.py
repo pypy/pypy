@@ -240,6 +240,9 @@ class W_FloatObject(W_Root):
             elif space.is_w(w_floattype, space.w_float):
                 return w_obj
             value = space.float_w(w_obj)
+        elif space.lookup(w_value, "__index__") is not None:
+            w_obj = space.index(w_value)
+            return space.float(w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
             from unicodeobject import unicode_to_decimal_w
             value = _string_to_float(space, w_value,
@@ -512,7 +515,7 @@ class W_FloatObject(W_Root):
             return space.w_NotImplemented
         rhs = w_rhs.floatval
         if rhs == 0.0:
-            raise oefmt(space.w_ZeroDivisionError, "float division")
+            raise oefmt(space.w_ZeroDivisionError, "float division by zero")
         return W_FloatObject(self.floatval / rhs)
 
     def descr_rdiv(self, space, w_lhs):
@@ -521,7 +524,7 @@ class W_FloatObject(W_Root):
             return space.w_NotImplemented
         selfval = self.floatval
         if selfval == 0.0:
-            raise oefmt(space.w_ZeroDivisionError, "float division")
+            raise oefmt(space.w_ZeroDivisionError, "float division by zero")
         return W_FloatObject(w_lhs.floatval / selfval)
 
     def descr_floordiv(self, space, w_rhs):

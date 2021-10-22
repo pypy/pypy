@@ -17,6 +17,7 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.signature import signature
 from rpython.rlib import rposix_stat, types
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
+from pypy.module.__pypy__.interp_os import _multiarch
 
 _WIN32 = sys.platform == 'win32'
 
@@ -43,19 +44,12 @@ def get_so_extension(space):
 
     platform_name = sys.platform
     if platform_name.startswith('linux'):
-        if re.match('(i[3-6]86|x86_64)$', platform.machine()):
-            if sys.maxsize < 2**32:
-                platform_name = 'i686-linux-gnu'
-                # xxx should detect if we are inside 'x32', but not for now
-                # because it's not supported anyway by PyPy.  (Relying
-                # on platform.machine() does not work, it may return x86_64
-                # anyway)
-            else:
-                platform_name = 'x86_64-linux-gnu'
-        else:
-            platform_name = 'linux-gnu'
+        platform_name = _multiarch
     elif platform_name == 'win32' and sys.maxsize > 2**32:
         platform_name = 'win_amd64'
+    else:
+        # darwin?
+        pass
 
     soabi += '-' + platform_name
 
@@ -96,6 +90,8 @@ def _readall(space, filename):
 @unwrap_spec(modulename='fsencode', level=int)
 def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None, level=0):
     # A minimal version, that can only import builtin and lib_pypy modules!
+    # The actual __import__ is
+    # pypy.module._frozenimportlib.interp_import.import_with_frames_removed
     assert w_locals is w_globals
     assert level == 0
 
@@ -494,3 +490,38 @@ def import_name_fast_path(space, w_modulename, w_globals, w_locals, w_fromlist,
                 return w_mod
     return space.call_function(space.w_default_importlib_import, w_modulename, w_globals,
                                 w_locals, w_fromlist, w_level)
+
+def get_spec(space, w_module):
+    try:
+        return space.getattr(w_module, space.newtext('__spec__'))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        return space.w_None
+
+def is_spec_initializing(space, w_spec):
+    if space.is_none(w_spec):
+        return False
+
+    try:
+        w_initializing = space.getattr(w_spec, space.newtext("_initializing"))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+
+        return False
+    else:
+        return space.is_true(w_initializing)
+
+def get_path(space, w_module):
+    default = space.newtext("unknown location")
+    try:
+        w_ret = space.getattr(w_module, space.newtext('__file__'))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        return default
+    if w_ret is space.w_None:
+        return default
+    return w_ret
+

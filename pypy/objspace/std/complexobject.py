@@ -161,6 +161,11 @@ def unpackcomplex(space, w_complex, strict_typing=True, firstarg=True):
         raise oefmt(space.w_TypeError,
                     "__complex__() must return a complex number")
 
+    # try to see whether it has an __index__
+    if space.lookup(w_complex, '__index__') is not None:
+        result = space.float_w(space.float(space.index(w_complex)))
+        return (result, 0.0)
+
     #
     # no '__complex__' method, so we assume it is a float,
     # unless it is an instance of some subclass of complex.

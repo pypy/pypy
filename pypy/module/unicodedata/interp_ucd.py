@@ -7,7 +7,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong, r_uint
-from rpython.rlib.unicodedata import unicodedb_11_0_0, unicodedb_3_2_0
+from rpython.rlib.unicodedata import unicodedb_12_1_0, unicodedb_3_2_0
 from rpython.rlib.rutf8 import Utf8StringBuilder, unichr_as_utf8
 
 
@@ -286,6 +286,11 @@ class UCD(W_Root):
 
         return self.build(space, result, stop=next_insert)
 
+    @unwrap_spec(form='text')
+    def is_normalized(self, space, form, w_uni):
+        # XXX inefficient!
+        return space.eq(self.normalize(space, form, w_uni), w_uni)
+
     def build(self, space, r, stop):
         builder = Utf8StringBuilder(stop * 3)
         for i in range(stop):
@@ -297,6 +302,7 @@ methods = {}
 for methodname in """
         _get_code lookup name decimal digit numeric category east_asian_width
         bidirectional combining mirrored decomposition normalize
+        is_normalized
         """.split():
     methods[methodname] = interp2app(getattr(UCD, methodname))
 
@@ -308,8 +314,8 @@ UCD.typedef = TypeDef("unicodedata.UCD",
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
-ucd_11_0_0 = UCD(unicodedb_11_0_0)
-ucd = ucd_11_0_0
+ucd_12_1_0 = UCD(unicodedb_12_1_0)
+ucd = ucd_12_1_0
 
 # This is the default unicodedb used in various places:
 # - the unicode type

@@ -200,6 +200,15 @@ class AppTestBytesObject:
         raises(TypeError, "b'xxx' % bytearray()")
         raises(TypeError, "b'xxx' % 53")
 
+    def test_format_percent_subclass_tuple_ignores_iter(self):
+        class t(tuple):
+            def __iter__(self):
+                yield b"1"
+                yield b"2"
+                yield b"3"
+        assert b"%s %s %s" % t((b"4", b"5", b"6")) == b"4 5 6"
+
+
     def test_split(self):
         assert b"".split() == []
         assert b"".split(b'x') == [b'']
@@ -1007,6 +1016,24 @@ class AppTestBytesObject:
         assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex() == \
                "73616e746120636c617573"
         assert bytes(64).hex() == "00"*64
+
+    def test_hex_sep(self):
+        raises(TypeError, bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex, 12)
+        res = bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex(b'.')
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        res = bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('.')
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        with raises(ValueError):
+            bytes([1, 2, 3]).hex("abc")
+        assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('?', 4) == \
+               "73616e?74612063?6c617573"
+        assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('?', -4) == \
+               "73616e74?6120636c?617573"
+        with raises(ValueError) as excinfo:
+            bytes([1, 2, 3]).hex("ä")
+        assert "ASCII" in str(excinfo.value)
+        with raises(TypeError):
+            bytes().hex(None, 1)
 
     def test_format(self):
         """

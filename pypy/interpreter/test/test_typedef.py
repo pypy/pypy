@@ -213,6 +213,7 @@ class TestTypeDef:
             A3()
         """)
         gc.collect(); gc.collect()
+        self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [1]
         #
         w_seen = space.newlist([])
@@ -225,6 +226,7 @@ class TestTypeDef:
             A4()
         """)
         gc.collect(); gc.collect()
+        self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [4, 1]    # user __del__, and _finalize_
         #
         w_seen = space.newlist([])
@@ -235,6 +237,7 @@ class TestTypeDef:
             A5()
         """)
         gc.collect(); gc.collect()
+        self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [1]     # _finalize_ only
 
     def test_multiple_inheritance(self):
@@ -430,3 +433,10 @@ class AppTestTypeDef:
         e = raises(AttributeError, 'x.__globals__ = {}')
         if '__pypy__' in sys.builtin_module_names:
             assert str(e.value) == "readonly attribute '__globals__'"
+
+    def test_del_doc(self):
+        class X:
+            "hi there"
+        assert X.__doc__ == 'hi there'
+        exc = raises(AttributeError, 'del X.__doc__')
+        assert "can't delete X.__doc__" in str(exc.value)

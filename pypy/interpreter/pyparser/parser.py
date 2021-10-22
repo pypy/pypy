@@ -62,6 +62,7 @@ class DFA(object):
         self.symbol_id = symbol_id
         self.states = states
         self.first = self._first_to_string(first)
+        self.grammar = grammar
 
     def could_match_token(self, label_index):
         pos = label_index >> 3
@@ -81,13 +82,15 @@ class DFA(object):
 
 
 class Token(object):
-    def __init__(self, token_type, value, lineno, column, line):
+    def __init__(self, token_type, value, lineno, column, line, end_lineno=-1, end_column=-1):
         self.token_type = token_type
         self.value = value
         self.lineno = lineno
         # 0-based offset
         self.column = column
         self.line = line
+        self.end_lineno = end_lineno
+        self.end_column = end_column
 
     def __repr__(self):
         return "Token(%s, %s)" % (self.token_type, self.value)
@@ -99,7 +102,9 @@ class Token(object):
             self.value == other.value and
             self.lineno == other.lineno and
             self.column == other.column and
-            self.line == other.line
+            self.line == other.line and
+            self.end_lineno == other.end_lineno and
+            self.end_column == other.end_column
         )
 
     def __ne__(self, other):
@@ -169,20 +174,22 @@ class Node(object):
 
 
 class Terminal(Node):
-    __slots__ = ("value", "lineno", "column", "line")
-    def __init__(self, grammar, type, value, lineno, column, line=None):
+    __slots__ = ("value", "lineno", "column", "line", "end_lineno", "end_column")
+    def __init__(self, grammar, type, value, lineno, column, line=None, end_lineno=-1, end_column=-1):
         Node.__init__(self, grammar, type)
         self.value = value
         self.lineno = lineno
         self.column = column
         self.line = line
+        self.end_lineno = end_lineno
+        self.end_column = end_column
 
     @staticmethod
     def fromtoken(grammar, token):
         return Terminal(
             grammar,
             token.token_type, token.value, token.lineno, token.column,
-            token.line)
+            token.line, token.end_lineno, token.end_column)
 
     def __repr__(self):
         return "Terminal(type=%s, value=%r)" % (self.type, self.value)
@@ -202,6 +209,12 @@ class Terminal(Node):
     def get_column(self):
         return self.column
 
+    def get_end_lineno(self):
+        return self.end_lineno
+
+    def get_end_column(self):
+        return self.end_column
+
     def get_line(self):
         return self.line
 
@@ -220,6 +233,12 @@ class AbstractNonterminal(Node):
 
     def get_line(self):
         return self.get_child(0).get_line()
+
+    def get_end_lineno(self):
+        return self.get_child(self.num_children() - 1).get_end_lineno()
+
+    def get_end_column(self):
+        return self.get_child(self.num_children() - 1).get_end_column()
 
     def __eq__(self, other):
         # For tests.
@@ -320,10 +339,11 @@ class StackEntry(object):
     def node_append_child(self, child):
         node = self.node
         if node is None:
-            self.node = Nonterminal1(self.dfa.grammar, self.dfa.symbol_id, child)
+            self.node = Nonterminal1(self.dfa.grammar,
+                    self.dfa.symbol_id, child)
         elif isinstance(node, Nonterminal1):
             newnode = self.node = Nonterminal(
-                    self.dfa.grammar, 
+                    self.dfa.grammar,
                     self.dfa.symbol_id, [node._child, child])
         else:
             self.node.append_child(child)
@@ -376,7 +396,7 @@ class Parser(object):
                 sym_id = self.grammar.labels[i]
                 if label_index == i:
                     # We matched a non-terminal.
-                    self.shift(next_state, token)
+                    self.shift(dfa.grammar, next_state, token)
                     state = states[next_state]
                     # While the only possible action is to accept, pop nodes off
                     # the stack.
@@ -405,17 +425,24 @@ class Parser(object):
                 else:
                     # If only one possible input would satisfy, attach it to the
                     # error.
-                    if len(arcs) == 1:
-                        expected = sym_id
+                    possible_arcs = self._get_possible_arcs(arcs)
+                    if len(possible_arcs) == 1:
+                        possible_arc = possible_arcs[0]
+                        expected = self.grammar.labels[possible_arc[0]]
                         expected_str = self.grammar.token_to_error_string.get(
-                                arcs[0][0], None)
+                                possible_arc[0], None)
                     else:
                         expected = -1
                         expected_str = None
                     raise ParseError("bad input", token, expected, expected_str)
 
+    def _get_possible_arcs(self, arcs):
+        """Filter out pseudo tokens from the possible paths to be taken
+        in the grammar, in order to determine most precise token type
+        for syntax errors."""
+        return arcs
 
-    def shift(self, next_state, token):
+    def shift(self, grammar, next_state, token):
         """Shift a non-terminal and prepare for the next state."""
         new_node = Terminal.fromtoken(self.grammar, token)
         self.stack.node_append_child(new_node)
@@ -436,3 +463,7 @@ class Parser(object):
             self.stack.node_append_child(node)
         else:
             self.root = node
+
+    def reset(self):
+        """Reset the state-bound data"""
+

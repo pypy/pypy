@@ -31,8 +31,8 @@ import os
 import sys
 import shutil
 import tempfile
-import warnings
 import unittest
+import warnings
 
 
 TEMPLATE = r"""# coding: %s
@@ -62,6 +62,8 @@ def byte(i):
 
 
 class TestLiterals(unittest.TestCase):
+
+    from test.support import check_syntax_warning
 
     def setUp(self):
         self.save_path = sys.path[:]

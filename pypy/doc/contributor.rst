@@ -23,8 +23,8 @@ Contributors
   Christian Tismer
   Hakan Ardo
   Benjamin Peterson
-  Anders Chrigstrom
   Wim Lavrijsen
+  Anders Chrigstrom
   Eric van Riet Paap
   Dan Villiom Podlaski Christiansen
   Remi Meier
@@ -51,27 +51,29 @@ Contributors
   Guido Wesdorp
   Lawrence Oluyede
   Bartosz Skowron
-  Daniel Roberts
   Stefano Rivera
+  Daniel Roberts
   Adrien Di Mascio
   Niko Matsakis
   Alexander Hesse
   Ludovic Aubry
+  Batuhan Taskaya
   stian
   Jacob Hallen
   Jason Creighton
   Mark Young
   Andrew Lawrence
   Alex Martelli
+  Ondrej Baranovič
   Spenser Bauman
   Michal Bendowski
-  Ondrej Baranovič
   Jan de Mooij
   Stefan Beyer
   Tyler Wade
   Vincent Legoll
   Michael Foord
   Stephan Diehl
+  muke101
   Simon Cross
   Jean-Paul Calderone
   Stefan Schwarzer
@@ -88,7 +90,6 @@ Contributors
   Edd Barrett
   Marius Gedminas
   Laurence Tratt
-  Batuhan Taskaya
   Alexandre Fayolle
   Nicolas Truessel
   Simon Burton
@@ -102,10 +103,11 @@ Contributors
   Greg Price
   Ivan Sichmann Freitas
   Mark Pearse
-  Andreas Stührk
   Tobias Pape
+  Andreas Stührk
   Jean-Philippe St. Pierre
   Stian Andreassen
+  Yusuke Izawa
   Guido van Rossum
   Pavel Vinogradov
   William Leslie
@@ -121,8 +123,8 @@ Contributors
   Joannah Nanjekye
   Georg Brandl
   quejebo
-  muke101
-  Bert Freudenberg
+  Vanessa Freudenberg
+  Michał Górny
   Gerald Klix
   Wanja Saatkamp
   Mike Blume
@@ -130,7 +132,6 @@ Contributors
   Rami Chowdhury
   Stefan H. Muller
   Dodan Mihai
-  Michał Górny
   Tim Felgentreff
   Eugene Oden
   Colin Valliant
@@ -165,6 +166,7 @@ Contributors
   Lucian Branescu Mihaila
   anatoly techtonik
   Mariano Anaya
+  olliemath
   Olivier Dormond
   Jared Grubb
   Karl Bartel
@@ -191,6 +193,7 @@ Contributors
   Berkin Ilbeyi
   Mihnea Saracin
   Matt Jackson
+  Ricky Zhou
   Jonathan David Riehl
   Anders Qvist
   Beatrice During
@@ -200,7 +203,6 @@ Contributors
   Faye Zhao
   Pauli Virtanen
   Mike Pavone
-  Ricky Zhou
   Alan McIntyre
   Alexander Sedov
   Alex Perry
@@ -211,6 +213,8 @@ Contributors
   Reuben Cummings
   Robert Zaremba
   David C Ellis
+  cptpcrd
+  Felix C. Stegerman
   Jens-Uwe Mager
   Dan Stromberg
   Carl Meyer
@@ -244,7 +248,6 @@ Contributors
   Thomas Hisch
   Barry Hart
   Tomasz Dziopa
-  cptpcrd
   Lutz Paelike
   Ignas Mikalajunas
   Martin Blais
@@ -273,8 +276,9 @@ Contributors
   Miro Hrončok
   Antoine Dupre
   Bernd Schoeller
-  olliemath
   Catalin Fierut
+  nimaje
+  Pierre-Yves DAVID
   Gustavo Niemeyer
   Andrew Thompson
   Joshua Gilbert
@@ -314,6 +318,7 @@ Contributors
   afteryu
   Andrew Stepanov
   Radu Ciorba
+  Ian Clester
   Carl Bordum Hansen
   Paul Ganssle
   Michal Kuffa
@@ -332,6 +337,7 @@ Contributors
   Alex Orange
   alexprengere
   Dennis Sweeney
+  Kevin Lee
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -435,3 +441,4 @@ Contributors
   Chris AtLee
   Christoph Reiter
   Chris Burr
+  Brad Kish

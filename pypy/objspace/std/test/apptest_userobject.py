@@ -167,16 +167,14 @@ def test_del_exception():
     finally:
         sys.stderr = prev
     def check_tb(x, traceback=True):
-        print('----\n%s----\n' % (x,))
-        assert x.startswith('Exception ignored in: <bound method ')
+        # print('----\n%s----\n' % (x,))
+        assert x.startswith('Exception ignored in: <function ')
         if traceback:
             assert '>\nTraceback (most recent call last):\n  File "' in x
             assert " in __del__\n" in x
             assert x.endswith("\nValueError: foo bar\n")
         else:
-            assert 'Traceback' not in x
-            assert '  File' not in x
-            assert '>\nTypeError: <lambda>() missing 2 required pos' in x
+            assert 'TypeError: <lambda>() missing 2 required pos' in x
     check_tb(res)
     check_tb(res2)
     check_tb(res3, traceback=False)

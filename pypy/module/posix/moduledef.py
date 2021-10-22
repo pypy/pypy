@@ -134,15 +134,15 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['uname'] = 'interp_posix.uname'
     if hasattr(os, 'sysconf'):
         interpleveldefs['sysconf'] = 'interp_posix.sysconf'
-        interpleveldefs['sysconf_names'] = 'space.wrap(os.sysconf_names)'
+        interpleveldefs['sysconf_names'] = 'space.wrap(interp_posix.sysconf_names())'
     if hasattr(os, 'fpathconf'):
         interpleveldefs['fpathconf'] = 'interp_posix.fpathconf'
-        interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
+        interpleveldefs['pathconf_names'] = 'space.wrap(interp_posix.pathconf_names())'
     if hasattr(os, 'pathconf'):
         interpleveldefs['pathconf'] = 'interp_posix.pathconf'
     if hasattr(os, 'confstr'):
         interpleveldefs['confstr'] = 'interp_posix.confstr'
-        interpleveldefs['confstr_names'] = 'space.wrap(os.confstr_names)'
+        interpleveldefs['confstr_names'] = 'space.wrap(interp_posix.confstr_names())'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
     if hasattr(os, 'getloadavg'):
@@ -188,6 +188,9 @@ corresponding Unix manual entries for more information on calls."""
                 '_getfinalpathname': 'interp_posix._getfinalpathname',
                 'get_handle_inheritable': 'interp_posix.get_handle_inheritable',
                 'set_handle_inheritable': 'interp_posix.set_handle_inheritable',
+                '_path_splitroot': 'interp_posix._path_splitroot',
+                '_add_dll_directory': 'interp_posix._add_dll_directory',
+                '_remove_dll_directory': 'interp_posix._remove_dll_directory',
         })
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'
@@ -259,6 +262,10 @@ corresponding Unix manual entries for more information on calls."""
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
+    for _name in rposix.constants:
+        # note they are prepended with '_'
+        if getattr(rposix, _name) is not None:
+            interpleveldefs['_' + _name] = 'space.wrap(%d)' % getattr(rposix, _name)
 
     if hasattr(rposix, 'getxattr'):
         interpleveldefs['getxattr'] = 'interp_posix.getxattr'
@@ -269,6 +276,30 @@ corresponding Unix manual entries for more information on calls."""
             if getattr(rposix, _name) is not None:
                 interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
 
+    if hasattr(rposix, 'memfd_create'):
+        interpleveldefs['memfd_create'] = 'interp_posix.memfd_create'
+        for name in """
+                MFD_CLOEXEC
+                MFD_ALLOW_SEALING
+                MFD_CLOEXEC
+                MFD_HUGETLB
+                MFD_HUGE_SHIFT
+                MFD_HUGE_MASK
+                MFD_HUGE_64KB
+                MFD_HUGE_512KB
+                MFD_HUGE_1MB
+                MFD_HUGE_2MB
+                MFD_HUGE_8MB
+                MFD_HUGE_16MB
+                MFD_HUGE_32MB
+                MFD_HUGE_256MB
+                MFD_HUGE_512MB
+                MFD_HUGE_1GB
+                MFD_HUGE_2GB
+                MFD_HUGE_16GB
+                """.split():
+            if getattr(rposix, name, None) is not None:
+                interpleveldefs[name] = 'space.wrap(%d)' % getattr(rposix, name)
 
     def startup(self, space):
         from pypy.module.posix import interp_posix

@@ -272,3 +272,31 @@ def set_contextvar_context(space, w_obj):
     ec.contextvar_context = w_obj
     return space.w_None
 
+def set_exc_info(space, w_type, w_value, w_traceback=None):
+    ec = space.getexecutioncontext()
+    ec.set_sys_exc_info3(w_type, w_value, w_traceback)
+
+def get_contextvar_context(space):
+    ec = space.getexecutioncontext()
+    context = ec.contextvar_context
+    if context:
+        return context
+    else:
+        return space.w_None
+
+def set_contextvar_context(space, w_obj):
+    ec = space.getexecutioncontext()
+    ec.contextvar_context = w_obj
+    return space.w_None
+
+
+@unwrap_spec(where='text')
+def write_unraisable(space, where, w_exc, w_obj):
+    OperationError(space.type(w_exc), w_exc).write_unraisable(space, where, w_obj)
+
+def _testing_clear_audithooks(space):
+    if we_are_translated():
+        raise oefmt(space.w_RuntimeError, "can only use _testing_clear_audithooks before translation")
+    from pypy.module.sys.vm import AuditHolder
+    holder = space.fromcache(AuditHolder)
+    holder.hook_chain = None

@@ -1,18 +1,93 @@
-What's New in IDLE 3.7.8
-Released on 2020-06-27?
+What's New in IDLE 3.8.9
+Released on 2021-05-03?
+=========================
+
+
+bpo-43283: Document why printing to IDLE's Shell is often slower than
+printing to a system terminal and that it can be made faster by
+pre-formatting a single string before printing.
+
+What's New in IDLE 3.8.8
+Released on 2021-02-19
 ======================================
 
+bpo-23544: Disable Debug=>Stack Viewer when user code is running or
+Debugger is active, to prevent hang or crash.  Patch by Zackery Spytz.
+
+bpo-43008: Make IDLE invoke :func:`sys.excepthook` in normal,
+2-process mode.  Patch by Ken Hilton.
+
+bpo-33065: Fix problem debugging user classes with __repr__ method.
+
+bpo-32631: Finish zzdummy example extension module: make menu entries
+work; add docstrings and tests with 100% coverage.
+
+bpo-42508: Keep IDLE running on macOS.  Remove obsolete workaround
+that prevented running files with shortcuts when using new universal2
+installers built on macOS 11.
+
+What's New in IDLE 3.8.7
+Released on 2020-12-27
+======================================
+
+bpo-42426: Fix reporting offset of the RE error in searchengine.
+
+bpo-42416: Get docstrings for IDLE calltips more often
+by using inspect.getdoc.
+
+bpo-33987: Mostly finish using ttk widgets, mainly for editor,
+settings, and searches.  Some patches by Mark Roseman.
+
+bpo-41775: Make 'IDLE Shell' the shell title.
+
+bpo-35764: Rewrite the Calltips doc section.
+
+bpo-40181: In calltips, stop reminding that '/' marks the end of
+positional-only arguments.
+
+
+What's New in IDLE 3.8.6
+Released on 2020-09-??
+======================================
+
+bpo-41468: Improve IDLE run crash error message (which users should
+never see).
+
+bpo-41373: Save files loaded with no line ending, as when blank, or
+different line endings, by setting its line ending to the system
+default. Fix regression in 3.8.4 and 3.9.0b4.
+
+
+What's New in IDLE 3.8.5
+Released on 2020-07-20
+======================================
+
+bpo-41300: Save files with non-ascii chars.  Fix regression in
+3.9.0b4 and 3.8.4.
+
+
+What's New in IDLE 3.8.4
+Released on 2020-06-30
+======================================
+
+bpo-37765: Add keywords to module name completion list.  Rewrite
+Completions section of IDLE doc.
+
+bpo-41152: The encoding of ``stdin``, ``stdout`` and ``stderr`` in IDLE
+is now always UTF-8.
+
+bpo-41144: Make Open Module open a special module such as os.path.
 
 bpo-40723: Make test_idle pass when run after import.
 Patch by Florian Dahlitz.
 
+
+What's New in IDLE 3.8.3
+Released on 2020-05-13
+======================================
+
 bpo-38689: IDLE will no longer freeze when inspect.signature fails
 when fetching a calltip.
-
-
-What's New in IDLE 3.7.7
-Released on 2020-03-10
-======================================
 
 bpo-27115: For 'Go to Line', use a Query entry box subclass with
 IDLE standard behavior and improved error checking.
@@ -27,6 +102,11 @@ accidental deletion.  It also updates Ln and Col on the status bar.
 bpo-39781: Selecting code context lines no longer causes a jump.
 
 bpo-39663: Add tests for pyparse find_good_parse_start().
+
+
+What's New in IDLE 3.8.2
+Released on 2020-02-17
+======================================
 
 bpo-39600: Remove duplicate font names from configuration list.
 
@@ -45,7 +125,7 @@ Remove unneeded arguments and dead code from pyparse
 find_good_parse_start method.
 
 
-What's New in IDLE 3.7.6
+What's New in IDLE 3.8.1
 Released on 2019-12-18
 ======================================
 
@@ -62,17 +142,17 @@ bpo-38636: Fix IDLE Format menu tab toggle and file indent width. These
 functions (default shortcuts Alt-T and Alt-U) were mistakenly disabled
 in 3.7.5 and 3.8.0.
 
-bpo-4360: Add an option to toggle IDLE's cursor blink for shell,
+bpo-4630: Add an option to toggle IDLE's cursor blink for shell,
 editor, and output windows.  See Settings, General, Window Preferences,
-Cursor Blink.  Patch by Zachary Spytz.
+Cursor Blink.  Patch by Zackery Spytz.
 
 bpo-26353: Stop adding newline when saving an IDLE shell window.
 
 bpo-38598: Do not try to compile IDLE shell or output windows.
 
 
-What's New in IDLE 3.7.5
-Released on 2019-10-15
+What's New in IDLE 3.8.0 (since 3.7.0)
+Released on 2019-10-14
 ======================================
 
 bpo-36698: IDLE no longer fails when writing non-encodable characters
@@ -143,11 +223,6 @@ of after a random delay.
 bpo-27452: Cleanup config.py by inlining RemoveFile and simplifying
 the handling of __file__ in CreateConfigHandlers/
 
-
-What's New in IDLE 3.7.4
-Released on 2019-07-08
-======================================
-
 bpo-26806: To compensate for stack frames added by IDLE and avoid
 possible problems with low recursion limits, add 30 to limits in the
 user code execution process.  Subtract 30 when reporting recursion
@@ -203,11 +278,6 @@ bpo-36396: Remove fgBg param of idlelib.config.GetHighlight().
 This param was only used twice and changed the return type.
 
 bpo-23216: IDLE: Add docstrings to search modules.
-
-
-What's New in IDLE 3.7.3
-Released on 2019-03-25
-======================================
 
 bpo-36176: Fix IDLE autocomplete & calltip popup colors.
 Prevent conflicts with Linux dark themes
@@ -265,11 +335,6 @@ Zoom Height has moved from the Window menu to the Options menu.
 bpo-35521: Document the editor code context feature.
 Add some internal references within the IDLE doc.
 
-
-What's New in IDLE 3.7.2
-Released on 2018-12-24
-======================================
-
 bpo-34864: When starting IDLE on MacOS, warn if the system setting
 "Prefer tabs when opening documents" is "Always".  As previous
 documented for this issue, running IDLE with this setting causes
@@ -307,11 +372,6 @@ We now use git and backporting instead of hg and forward merging.
 
 bpo-35087: Update idlelib help files for the current doc build.
 The main change is the elimination of chapter-section numbers.
-
-
-What's New in IDLE 3.7.1
-Released on 2018-10-20
-======================================
 
 bpo-1529353: Output over N lines (50 by default) is squeezed down to a button.
 N can be changed in the PyShell section of the General page of the

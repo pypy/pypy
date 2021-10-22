@@ -449,6 +449,7 @@ def _match_keywords(signature, blindargs, co_posonlyargcount,
     # letting JIT unroll the loop is *only* safe if the callsite didn't
     # use **args because num_kwds can be arbitrarily large otherwise.
     num_kwds = num_remainingkwds = len(keywords)
+    wrong_posonly = None
     for i in range(num_kwds):
         name = keywords[i]
         # If name was not encoded as a string, it could be None. In that
@@ -457,8 +458,17 @@ def _match_keywords(signature, blindargs, co_posonlyargcount,
             continue
         j = signature.find_argname(name)
         if 0 <= j < co_posonlyargcount:
-            raise ArgErrPosonlyAsKwds(signature.argnames[j])
-        elif j < input_argcount:
+            # we complain about a forbidden positional only keyword argument
+            # only if there is no **kwargs. otherwise, the keyword goes into
+            # the kwargs dict.
+            if signature.has_kwarg():
+                j = -1
+            else:
+                if wrong_posonly is None:
+                    wrong_posonly = []
+                wrong_posonly.append(signature.argnames[j])
+                continue
+        if j < input_argcount:
             # if j == -1 nothing happens, because j < input_argcount and
             # blindargs > j
 
@@ -472,6 +482,8 @@ def _match_keywords(signature, blindargs, co_posonlyargcount,
         else:
             kwds_mapping[j - input_argcount] = i # map to the right index
             num_remainingkwds -= 1
+    if wrong_posonly:
+        raise ArgErrPosonlyAsKwds(wrong_posonly)
     return num_remainingkwds
 
 @jit.look_inside_iff(
@@ -626,12 +638,12 @@ class ArgErrUnknownKwds(ArgErr):
 
 class ArgErrPosonlyAsKwds(ArgErr):
 
-    def __init__(self, posonly_kwd):
-        self.posonly_kwd = posonly_kwd
+    def __init__(self, posonly_kwds):
+        self.posonly_kwds = posonly_kwds
 
     def getmsg(self):
-        # this message will have to be different in 3.8, where positional only
-        # arguments are a "real" concept, not just for built-in functions
-        # for now let's be consistent with ArgErrUnknownKwds
-        msg = ("got an unexpected keyword argument '%s'" % self.posonly_kwd)
+        if len(self.posonly_kwds) == 1:
+            msg = ("got a positional-only argument passed as keyword argument: '%s'" % self.posonly_kwds[0])
+        else:
+            msg = ("got some positional-only arguments passed as keyword arguments: '%s'" % ", ".join(self.posonly_kwds))
         return msg

@@ -521,6 +521,16 @@ def test_method_eq():
     assert (c.m != c2.m) is True
     assert (c.m != c.m) is False
 
+def test_method_eq_bug():
+    # method equality is based on the identity of the underlying instances, not
+    # equality
+    class A:
+        def __eq__(self, other):
+            return True
+        def f(self): pass
+
+    assert A().f != A().f
+
 def test_method_hash():
     class C(object):
         def m(): pass
@@ -661,3 +671,31 @@ def test_method_identity():
     assert id(x) != id(A.n)
     assert x is B.m
     assert id(x) == id(B.m)
+
+def test_posonly():
+    def posonlyfunc(a, b, c, /, d):
+        return (a, b, c, d)
+
+    assert posonlyfunc(1, 2, 3, 4) == (1, 2, 3, 4)
+    with raises(TypeError):
+        posonlyfunc(a=1, b=2, c=3, d=4)
+
+def test_posonly_default():
+    def posonlyfunc(a, b=(), /, **kwds):
+        return a, b, kwds
+    assert posonlyfunc(1) == (1, (), {})
+    assert posonlyfunc(1, 2) == (1, 2, {})
+    assert posonlyfunc(1, 2, a=4, b=5) == (1, 2, {'a': 4, 'b': 5})
+
+def test_posonly_annotations():
+    def posonlyfunc(x: int, /):
+        pass
+    print(posonlyfunc.__annotations__)
+    assert posonlyfunc.__annotations__ == {"x": int}
+
+def global_inner_has_pos_only():
+    def f(x: int, /): ...
+    return f
+
+def test_posonly_annotations_crash():
+    assert global_inner_has_pos_only().__annotations__ == {"x": int}

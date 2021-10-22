@@ -7,6 +7,9 @@ import subprocess
 
 
 SYMBOL_FILE              = support.findfile('symbol.py')
+GEN_SYMBOL_FILE          = os.path.join(os.path.dirname(__file__),
+                                        '..', '..', 'Tools', 'scripts',
+                                        'generate_symbol_py.py')
 GRAMMAR_FILE             = os.path.join(os.path.dirname(__file__),
                                         '..', '..', 'Include', 'graminit.h')
 TEST_PY_FILE             = 'symbol_test.py'
@@ -23,7 +26,7 @@ class TestSymbolGeneration(unittest.TestCase):
 
     def _generate_symbols(self, grammar_file, target_symbol_py_file):
         proc = subprocess.Popen([sys.executable,
-                                 SYMBOL_FILE,
+                                 GEN_SYMBOL_FILE,
                                  grammar_file,
                                  target_symbol_py_file], stderr=subprocess.PIPE)
         stderr = proc.communicate()[1]

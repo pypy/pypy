@@ -72,25 +72,6 @@ def test_StopAsyncIteration():
     else:
         assert False, "should have raised"
 
-
-def test_async_for_old_style():
-    class X:
-        def __aiter__(self):
-            return MyAIter()
-    class MyAIter:
-        def __await__(self):
-            return iter([20, 30])
-    async def f(x):
-        sum = 0
-        async for a in x:
-            sum += a
-            if sum > 100:
-                break
-        return sum
-    cr = f(X())
-    assert next(cr.__await__()) == 20
-
-
 def test_for_error_cause():
     class F:
         def __aiter__(self):
@@ -107,33 +88,6 @@ def test_for_error_cause():
     c = pytest.raises(TypeError, main().send, None)
     assert 'an invalid object from __anext__' in c.value.args[0], c.value
     assert isinstance(c.value.__cause__, ZeroDivisionError)
-
-def test_set_coroutine_wrapper():
-    async def f():
-        pass
-    seen = []
-    def my_wrapper(cr):
-        seen.append(cr)
-        return 42
-    assert sys.get_coroutine_wrapper() is None
-    sys.set_coroutine_wrapper(my_wrapper)
-    assert sys.get_coroutine_wrapper() is my_wrapper
-    cr = f()
-    assert cr == 42
-    sys.set_coroutine_wrapper(None)
-    assert sys.get_coroutine_wrapper() is None
-
-def test_get_set_coroutine_wrapper_deprecated():
-    import warnings
-    def my_wrapper(cr):
-        return 1
-    with warnings.catch_warnings(record=True) as l:
-        warnings.simplefilter('always', category=DeprecationWarning)
-        sys.get_coroutine_wrapper()
-        sys.set_coroutine_wrapper(my_wrapper)
-        sys.set_coroutine_wrapper(None)
-    print(l)
-    assert len(l) == 3
 
 def test_async_with():
     seen = []
@@ -428,16 +382,13 @@ def test_async_yield_explicit_asend_used_several_times():
     assert r == -3
     e = raises(StopIteration, gs.send, "cont2")
     assert e.value.args == (-5,)
-    e = raises(StopIteration, gs.send, None)
-    assert e.value.args == ()
-    e = raises(StopIteration, gs.send, None)
-    assert e.value.args == ()
+    e = raises(RuntimeError, gs.send, None)
+    e = raises(RuntimeError, gs.send, None)
     #
     gs = g.asend("foo")
     e = raises(StopIteration, gs.send, None)
     assert e.value.args == (-6,)
-    e = raises(StopIteration, gs.send, "bar")
-    assert e.value.args == ()
+    e = raises(RuntimeError, gs.send, "bar")
 
 def test_async_yield_asend_notnone_throw():
     async def f():
@@ -471,7 +422,7 @@ def test_async_yield_athrow_send_after_exception():
 
     athrow_coro = ag().athrow(ValueError)
     raises(ValueError, athrow_coro.send, None)
-    raises(StopIteration, athrow_coro.send, None)
+    raises(RuntimeError, athrow_coro.send, None)
 
 def test_async_yield_athrow_throw():
     async def ag():
@@ -662,8 +613,8 @@ def test_async_anext_close():
     an.close()
     try:
         next(an)
-    except StopIteration as e:
-        assert e.value is None
+    except RuntimeError:
+        pass
     else:
         assert False, "didn't raise"
 
@@ -902,3 +853,21 @@ def test_runtime_warning_origin_tracking():
     assert str(w).endswith("foobaz' was never awaited")
     assert "test_runtime_warning_origin_tracking" in str(w)
 
+def test_await_multiple_times_same_gen():
+    async def async_iterate():
+        yield 1
+        yield 2
+
+    async def run():
+        it = async_iterate()
+        nxt = it.__anext__()
+        await nxt
+        with pytest.raises(RuntimeError):
+            await nxt
+
+        coro = it.aclose()
+        await coro
+        with pytest.raises(RuntimeError):
+            await coro
+
+    run_async(run())

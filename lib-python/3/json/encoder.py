@@ -418,7 +418,7 @@ class JSONEncoder(object):
             item_separator = self.item_separator
         first = True
         if self.sort_keys:
-            items = sorted(dct.items(), key=lambda kv: kv[0])
+            items = sorted(dct.items())
         else:
             items = dct.items()
         for key, value in items:

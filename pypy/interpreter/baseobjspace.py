@@ -250,13 +250,13 @@ class W_Root(object):
         self._typed_unwrap_error(space, "bytes")
 
     def text_w(self, space):
-        self._typed_unwrap_error(space, "unicode")
+        self._typed_unwrap_error(space, "str")
 
     def utf8_w(self, space):
-        self._typed_unwrap_error(space, "unicode")
+        self._typed_unwrap_error(space, "str")
 
     def convert_to_w_unicode(self, space):
-        self._typed_unwrap_error(space, "unicode")
+        self._typed_unwrap_error(space, "str")
 
     def bytearray_list_of_chars_w(self, space):
         self._typed_unwrap_error(space, "bytearray")
@@ -303,7 +303,9 @@ class W_Root(object):
         from pypy.objspace.std.intobject import W_AbstractIntObject
         w_impl = space.lookup(self, '__int__')
         if w_impl is None:
-            self._typed_unwrap_error(space, "integer")
+            w_impl = space.lookup(self, '__index__')
+            if w_impl is None:
+                    self._typed_unwrap_error(space, "integer")
         w_result = space.get_and_call_function(w_impl, self)
 
         if space.is_w(space.type(w_result), space.w_int):
@@ -563,10 +565,23 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        modules = ['__pypy__']  # Install __pypy__ first for bootstrapping
+        # Install __pypy__ first for bootstrapping
+        modules = ['__pypy__']
+
+        # _frozen_importlib imports lib-python/3/importlib/_bootstrap_external,
+        # which imports many builtins. Make sure it is imported last
+        append__frozen_importlib = False
+        # and zipimport even laster
+        append_zipimport = False
 
         # You can enable more modules by specifying --usemodules=xxx,yyy
         for name, value in self.config.objspace.usemodules:
+            if name == '_frozen_importlib':
+                append__frozen_importlib = True
+                continue
+            if name == "zipimport":
+                append_zipimport = True
+                continue
             if value and name not in modules:
                 modules.append(name)
 
@@ -574,7 +589,10 @@ class ObjSpace(object):
             for name in self.config.objspace.extmodules.split(','):
                 if name not in modules:
                     modules.append(name)
-
+        if append__frozen_importlib:
+            modules.append('_frozen_importlib')
+        if append_zipimport:
+            modules.append('zipimport')
         self._builtinmodule_list = modules
         return self._builtinmodule_list
 
@@ -614,7 +632,8 @@ class ObjSpace(object):
             self.setitem(self.builtin.w_dict, self.newtext(name), w_type)
 
         # install mixed modules
-        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
+        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions',
+                                 'zipimport', '_frozen_importlib'))
         for mixedname in self.get_builtinmodule_to_install():
             if mixedname not in bootstrap_modules:
                 self.install_mixedmodule(mixedname)
@@ -625,6 +644,7 @@ class ObjSpace(object):
         # force this value into the dict without unlazyfying everything
         self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
                      w_builtin_module_names)
+
 
     def get_builtin_types(self):
         """Get a dictionary mapping the names of builtin types to the type
@@ -667,6 +687,9 @@ class ObjSpace(object):
             from pypy.module._cffi_backend import copy_includes
             copy_includes.main()
         
+        # now we can setup _frozen_importlib, after the dll is installed
+        self.install_mixedmodule('_frozen_importlib')
+        
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('_imp')
         frozen_importlib = self.getbuiltinmodule('_frozen_importlib')
@@ -674,6 +697,10 @@ class ObjSpace(object):
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
         self.w_default_importlib_import = frozen_importlib.w_import
+        # special-casing zipimport: it needs a lot of things already in place,
+        # so we even install it here!
+        self.install_mixedmodule('zipimport')
+        self.getbuiltinmodule('zipimport')
 
     @not_rpython
     def initialize(self):
@@ -726,6 +753,16 @@ class ObjSpace(object):
             from pypy.interpreter.pycompiler import PythonAstCompiler
             compiler = PythonAstCompiler(self)
             self.default_compiler = compiler
+            return compiler
+
+    def createnewcompiler(self):
+        "Factory function creating a compiler object."
+        try:
+            return self.default_newcompiler
+        except AttributeError:
+            from pypy.interpreter.pycompiler import PythonAstCompiler
+            compiler = PythonAstCompiler(self)
+            self.default_newcompiler = compiler
             return compiler
 
     def createframe(self, code, w_globals, outer_func=None):
@@ -1648,7 +1685,7 @@ class ObjSpace(object):
         """
         assert w_obj is not None
         if not self.isinstance_w(w_obj, self.w_unicode):
-            w_obj._typed_unwrap_error(self, "unicode")
+            w_obj._typed_unwrap_error(self, "str")
         return w_obj.text_w(self)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
@@ -1982,6 +2019,10 @@ class ObjSpace(object):
         if not we_are_translated():
             assert self.issubtype_w(w_warningcls, self.w_Warning)
         do_warn(self, w_msg, w_warningcls, stacklevel - 1)
+
+    def audit(self, event, args_w):
+        from pypy.module.sys.vm import audit
+        audit(self, event, args_w)
 
     def iterator_greenkey(self, w_iterable):
         """ Return something that can be used as a green key in jit drivers

@@ -246,6 +246,7 @@ class AppTestPosix:
             for field in [
                 'f_bsize', 'f_frsize', 'f_blocks', 'f_bfree', 'f_bavail',
                 'f_files', 'f_ffree', 'f_favail', 'f_flag', 'f_namemax',
+                'f_fsid',
             ]:
                 assert hasattr(st, field)
 
@@ -546,6 +547,8 @@ class AppTestPosix:
         import errno
         with raises(TypeError):
             os.utime('xxx', 3)
+        with raises(TypeError):
+            os.utime('xxx', [5, 5])
         with raises(OSError) as exc:
             os.utime('somefilewhichihopewouldneverappearhere', None)
         assert exc.value.errno == errno.ENOENT
@@ -1528,6 +1531,24 @@ class AppTestPosix:
         self.posix.RTLD_GLOBAL
         self.posix.RTLD_LOCAL
 
+    @py.test.mark.skipif("sys.platform != 'win32'")
+    def test_win_constants(self):
+        win_constants =['_LOAD_LIBRARY_SEARCH_DEFAULT_DIRS',
+                        '_LOAD_LIBRARY_SEARCH_APPLICATION_DIR',
+                        '_LOAD_LIBRARY_SEARCH_SYSTEM32',
+                        '_LOAD_LIBRARY_SEARCH_USER_DIRS',
+                        '_LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR',
+                       ]
+        for name in win_constants:
+            print(name, getattr(self.posix, name))
+
+    @py.test.mark.skipif("sys.platform != 'darwin'")
+    def test_darwin_constants(self):
+        darwin_constants =['_COPYFILE_DATA']
+        for name in darwin_constants:
+            getattr(self.posix, name)
+
+
     def test_error_message(self):
         import sys
         with raises(OSError) as e:
@@ -1603,6 +1624,17 @@ class AppTestPosix:
                 os.getxattr(self.path, 'user.test')
             assert os.listxattr(self.path, follow_symlinks=False) == init_names
 
+    if hasattr(rposix, 'memfd_create'):
+        # minimal testing
+        def test_memfd_create(self):
+            os = self.posix
+            fd = os.memfd_create("abc")
+            try:
+                s = b"defghi?"
+                os.write(fd, s)
+            finally:
+                os.close(fd)
+
     def test_get_terminal_size(self):
         os = self.posix
         for args in [(), (1,), (0,), (42421,)]:
@@ -1632,6 +1664,15 @@ class AppTestPosix:
             posix.execv("notepad", ('',))
         with raises(OSError):
             posix.execv("notepad", (' ',))
+
+    def test_execve_invalid_env(self):
+        import sys
+        os = self.posix
+        args = ['notepad', '-c', 'pass']
+        newenv = os.environ.copy()
+        newenv["FRUIT=VEGETABLE"] = "cabbage"
+        with raises(ValueError):
+            os.execve(args[0], args, newenv)
 
 
 @py.test.mark.skipif("sys.platform != 'win32'")
@@ -1686,6 +1727,21 @@ class AppTestNt(object):
         path = sysdrv + 'hubber'
         assert '\\' in nt._getfullpathname(path)
         assert type(nt._getfullpathname(b'C:')) is bytes
+
+    def test__path_splitroot(self):
+        nt = self.posix
+        ret = nt._path_splitroot(u'c:\\abc\\def.txt')
+        assert ret == (u'c:\\', u'abc\\def.txt') 
+        ret = nt._path_splitroot(u'//server/abc/xyz/def.txt')
+        assert ret == (u'//server/abc/', u'xyz/def.txt') 
+
+    def test_dll_directory(self):
+        nt = self.posix
+        ret = nt._add_dll_directory(b'c:\\')
+        assert nt._remove_dll_directory(ret)
+        ret = nt._add_dll_directory(u'c:\\')
+        assert nt._remove_dll_directory(ret)
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):

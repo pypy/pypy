@@ -353,7 +353,6 @@ def add_operators(space, w_type, dict_w, pto, name):
     for method_name, slot_names, wrapper_class, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
-        offset = [rffi.offsetof(lltype.typeOf(pto).TO, slot_names[0])]
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
             if slot_names[0] == 'c_tp_hash':
@@ -370,7 +369,6 @@ def add_operators(space, w_type, dict_w, pto, name):
             struct = getattr(pto, slot_names[0])
             if not struct:
                 continue
-            offset.append(rffi.offsetof(lltype.typeOf(struct).TO, slot_names[1]))
             func = getattr(struct, slot_names[1])
         func_voidp = rffi.cast(rffi.VOIDP, func)
         if not func:
@@ -380,8 +378,7 @@ def add_operators(space, w_type, dict_w, pto, name):
 
         assert issubclass(wrapper_class, W_PyCWrapperObject)
 
-        w_obj = wrapper_class(space, w_type, method_name, doc, func_voidp,
-                              offset=offset[:])
+        w_obj = wrapper_class(space, w_type, method_name, doc, func_voidp)
         dict_w[method_name] = w_obj
     if pto.c_tp_doc:
         raw_doc = rffi.constcharp2str(pto.c_tp_doc)
@@ -645,7 +642,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
 
     typedescr = get_typedescr(w_type.layout.typedef)
 
-    if space.is_w(w_type, space.w_bytes):
+    if space.is_w(w_type, space.w_bytes) or space.is_w(w_type, space.w_text):
         pto.c_tp_itemsize = 1
     elif space.is_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
@@ -776,6 +773,8 @@ def inherit_slots(space, pto, w_base):
                 pto_as.c_bf_getbuffer = base_as.c_bf_getbuffer
             if not pto_as.c_bf_releasebuffer:
                 pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
+        if pto.c_tp_vectorcall_offset == 0:
+            pto.c_tp_vectorcall_offset = base.c_tp_vectorcall_offset
     finally:
         decref(space, base_pyo)
 

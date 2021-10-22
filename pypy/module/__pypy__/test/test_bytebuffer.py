@@ -25,3 +25,9 @@ class AppTest(object):
         from __pypy__ import bytebuffer
         b = bytebuffer(10)
         assert b[1:0] == b''
+
+    def test_bytebuffer_object(self):
+        from __pypy__ import bytebuffer
+        b = bytebuffer(10)
+        assert b.obj is None
+

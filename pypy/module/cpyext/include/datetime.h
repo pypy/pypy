@@ -10,6 +10,9 @@ PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 
 #define PyDateTime_IMPORT (PyDateTimeAPI = _PyDateTime_Import())
 
+/* Macro for access to the UTC singleton */
+#define PyDateTime_TimeZone_UTC PyDateTimeAPI->TimeZone_UTC
+
 /* Macros for accessing constructors in a simplified fashion. */
 #define PyDate_FromDate(year, month, day) \
     PyDateTimeAPI->Date_FromDate(year, month, day, PyDateTimeAPI->DateType)
@@ -33,6 +36,12 @@ PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 #define PyDelta_FromDSU(days, seconds, useconds) \
     PyDateTimeAPI->Delta_FromDelta(days, seconds, useconds, 1, \
         PyDateTimeAPI->DeltaType)
+
+#define PyTimeZone_FromOffset(offset) \
+    PyDateTimeAPI->TimeZone_FromTimeZone(offset, NULL)
+
+#define PyTimeZone_FromOffsetAndName(offset, name) \
+    PyDateTimeAPI->TimeZone_FromTimeZone(offset, name)
 
 #ifdef __cplusplus
 }

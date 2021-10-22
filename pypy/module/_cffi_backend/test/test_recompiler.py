@@ -1572,10 +1572,11 @@ class AppTestRecompiler:
             return n * 10
         with self.StdErrCapture() as f:
             res = lib.bar(321)
+        msg = f.getvalue()
         assert res is None
-        assert f.getvalue() == (
-            "From cffi callback %r:\n" % (bar,) +
-            "Trying to convert the result back to C:\n"
+        assert "rom cffi callback %r" % (bar,) in msg
+        assert "rying to convert the result back to C:\n" in msg
+        assert msg.endswith(
             "TypeError: callback with the return type 'void' must return None\n")
 
     def test_extern_python_redefine(self):

@@ -52,6 +52,15 @@ from enum import Enum
 
 __author__ = 'Ka-Ping Yee <ping@zesty.ca>'
 
+# The recognized platforms - known behaviors
+if sys.platform in ('win32', 'darwin'):
+    _AIX = _LINUX = False
+else:
+    import platform
+    _platform_system = platform.system()
+    _AIX     = _platform_system == 'AIX'
+    _LINUX   = _platform_system == 'Linux'
+
 RESERVED_NCS, RFC_4122, RESERVED_MICROSOFT, RESERVED_FUTURE = [
     'reserved for NCS compatibility', 'specified in RFC 4122',
     'reserved for Microsoft compatibility', 'reserved for future definition']
@@ -118,6 +127,8 @@ class UUID:
                     uuid_generate_time_safe(3).
     """
 
+    __slots__ = ('int', 'is_safe', '__weakref__')
+
     def __init__(self, hex=None, bytes=None, bytes_le=None, fields=None,
                        int=None, version=None,
                        *, is_safe=SafeUUID.unknown):
@@ -150,39 +161,26 @@ class UUID:
         for multiprocessing applications, via uuid_generate_time_safe(3).
         """
 
+        if [hex, bytes, bytes_le, fields, int].count(None) != 4:
+            raise TypeError('one of the hex, bytes, bytes_le, fields, '
+                            'or int arguments must be given')
         if hex is not None:
-            if (bytes is not None or bytes_le is not None or
-                    fields is not None or int is not None):
-                raise TypeError('if the hex argument is given, bytes,'
-                                ' bytes_le, fields,  and int need to be None')
             hex = hex.replace('urn:', '').replace('uuid:', '')
             hex = hex.strip('{}').replace('-', '')
             if len(hex) != 32:
                 raise ValueError('badly formed hexadecimal UUID string')
             int = int_(hex, 16)
-        elif bytes_le is not None:
-            if bytes is not None or fields is not None or int is not None:
-                raise TypeError('if the bytes_le argument is given, bytes,'
-                                ' fields, and int need to be None')
+        if bytes_le is not None:
             if len(bytes_le) != 16:
                 raise ValueError('bytes_le is not a 16-char string')
-            bytes = (bytes_(reversed(bytes_le[0:4])) +
-                     bytes_(reversed(bytes_le[4:6])) +
-                     bytes_(reversed(bytes_le[6:8])) +
-                     bytes_le[8:])
-            int = int_.from_bytes(bytes, byteorder='big')
-        elif bytes is not None:
-            if fields is not None or int is not None:
-                raise TypeError('if the bytes argument is given, fields '
-                                'and int need to be None')
+            bytes = (bytes_le[4-1::-1] + bytes_le[6-1:4-1:-1] +
+                     bytes_le[8-1:6-1:-1] + bytes_le[8:])
+        if bytes is not None:
             if len(bytes) != 16:
                 raise ValueError('bytes is not a 16-char string')
             assert isinstance(bytes, bytes_), repr(bytes)
             int = int_.from_bytes(bytes, byteorder='big')
-        elif fields is not None:
-            if int is not None:
-                raise TypeError('if the fields argument is given, int needs'
-                                ' to be None')
+        if fields is not None:
             if len(fields) != 6:
                 raise ValueError('fields is not a 6-tuple')
             (time_low, time_mid, time_hi_version,
@@ -202,12 +200,9 @@ class UUID:
             clock_seq = (clock_seq_hi_variant << 8) | clock_seq_low
             int = ((time_low << 96) | (time_mid << 80) |
                    (time_hi_version << 64) | (clock_seq << 48) | node)
-        elif int is not None:
+        if int is not None:
             if not 0 <= int < 1<<128:
                 raise ValueError('int is out of range (need a 128-bit value)')
-        else:
-            raise TypeError('one of hex, bytes, bytes_le, fields,'
-                            ' or int need to be not None')
         if version is not None:
             if not 1 <= version <= 5:
                 raise ValueError('illegal version number')
@@ -218,26 +213,22 @@ class UUID:
             int &= ~(0xf000 << 64)
             int |= version << 76
         object.__setattr__(self, 'int', int)
-        self.__dict__['is_safe'] = is_safe
+        object.__setattr__(self, 'is_safe', is_safe)
 
     def __getstate__(self):
-        state = self.__dict__.copy()
+        d = {'int': self.int}
         if self.is_safe != SafeUUID.unknown:
             # is_safe is a SafeUUID instance.  Return just its value, so that
             # it can be un-pickled in older Python versions without SafeUUID.
-            state['is_safe'] = self.is_safe.value
-        else:
-            # omit is_safe when it is "unknown"
-            del state['is_safe']
-        return state
+            d['is_safe'] = self.is_safe.value
+        return d
 
     def __setstate__(self, state):
-        self.__dict__.update(state)
+        object.__setattr__(self, 'int', state['int'])
         # is_safe was added in 3.7; it is also omitted when it is "unknown"
-        self.__dict__['is_safe'] = (
-            SafeUUID(state['is_safe'])
-            if 'is_safe' in state else SafeUUID.unknown
-        )
+        object.__setattr__(self, 'is_safe',
+                           SafeUUID(state['is_safe'])
+                           if 'is_safe' in state else SafeUUID.unknown)
 
     def __eq__(self, other):
         if isinstance(other, UUID):
@@ -691,12 +682,31 @@ def _random_getnode():
     return random.getrandbits(48) | (1 << 40)
 
 
+# _OS_GETTERS, when known, are targeted for a specific OS or platform.
+# The order is by 'common practice' on the specified platform.
+# Note: 'posix' and 'windows' _OS_GETTERS are prefixed by a dll/dlload() method
+# which, when successful, means none of these "external" methods are called.
+# _GETTERS is (also) used by test_uuid.py to SkipUnless(), e.g.,
+#     @unittest.skipUnless(_uuid._ifconfig_getnode in _uuid._GETTERS, ...)
+if _LINUX:
+    _OS_GETTERS = [_ip_getnode, _ifconfig_getnode]
+elif sys.platform == 'darwin':
+    _OS_GETTERS = [_ifconfig_getnode, _arp_getnode, _netstat_getnode]
+elif sys.platform == 'win32':
+    _OS_GETTERS = [_netbios_getnode, _ipconfig_getnode]
+elif _AIX:
+    _OS_GETTERS = [_netstat_getnode]
+else:
+    _OS_GETTERS = [_ifconfig_getnode, _ip_getnode, _arp_getnode,
+                   _netstat_getnode, _lanscan_getnode]
+if os.name == 'posix':
+    _GETTERS = [_unix_getnode] + _OS_GETTERS
+elif os.name == 'nt':
+    _GETTERS = [_windll_getnode] + _OS_GETTERS
+else:
+    _GETTERS = _OS_GETTERS
+
 _node = None
-
-_NODE_GETTERS_WIN32 = [_windll_getnode, _netbios_getnode, _ipconfig_getnode]
-
-_NODE_GETTERS_UNIX = [_unix_getnode, _ifconfig_getnode, _ip_getnode,
-                      _arp_getnode, _lanscan_getnode, _netstat_getnode]
 
 def getnode(*, getters=None):
     """Get the hardware address as a 48-bit positive integer.
@@ -710,12 +720,7 @@ def getnode(*, getters=None):
     if _node is not None:
         return _node
 
-    if sys.platform == 'win32':
-        getters = _NODE_GETTERS_WIN32
-    else:
-        getters = _NODE_GETTERS_UNIX
-
-    for getter in getters + [_random_getnode]:
+    for getter in _GETTERS + [_random_getnode]:
         try:
             _node = getter()
         except:
@@ -746,10 +751,10 @@ def uuid1(node=None, clock_seq=None):
 
     global _last_timestamp
     import time
-    nanoseconds = int(time.time() * 1e9)
+    nanoseconds = time.time_ns()
     # 0x01b21dd213814000 is the number of 100-ns intervals between the
     # UUID epoch 1582-10-15 00:00:00 and the Unix epoch 1970-01-01 00:00:00.
-    timestamp = int(nanoseconds/100) + 0x01b21dd213814000
+    timestamp = nanoseconds // 100 + 0x01b21dd213814000
     if _last_timestamp is not None and timestamp <= _last_timestamp:
         timestamp = _last_timestamp + 1
     _last_timestamp = timestamp

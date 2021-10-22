@@ -411,6 +411,8 @@ def _sigset_to_signals(space, mask):
     return space.call_function(space.w_set, space.newtuple(signals_w))
 
 def sigwait(space, w_signals):
+    """Suspend execution of the calling thread until the delivery of one of the
+    signals specified in the signal set signals. """
     with SignalMask(space, w_signals) as sigset:
         with lltype.scoped_alloc(rffi.INTP.TO, 1) as signum_ptr:
             ret = c_sigwait(sigset, signum_ptr)
@@ -420,6 +422,11 @@ def sigwait(space, w_signals):
     return space.newint(signum)
 
 def sigpending(space):
+    """Examine pending signals.
+
+    Returns a set of signal numbers that are pending for delivery to
+    the calling thread.
+    """
     with lltype.scoped_alloc(c_sigset_t.TO) as mask:
         ret = c_sigpending(mask)
         if ret != 0:
@@ -428,6 +435,7 @@ def sigpending(space):
 
 @unwrap_spec(how=int)
 def pthread_sigmask(space, how, w_signals):
+    'Fetch and/or change the signal mask of the calling thread.'
     with SignalMask(space, w_signals) as sigset:
         with lltype.scoped_alloc(c_sigset_t.TO) as previous:
             ret = c_pthread_sigmask(how, sigset, previous)
@@ -436,3 +444,50 @@ def pthread_sigmask(space, how, w_signals):
             # if signals was unblocked, signal handlers have been called
             space.getexecutioncontext().checksignals()
             return _sigset_to_signals(space, previous)
+
+def valid_signals(space):
+    '''Return a set of valid signal numbers on this platform.
+
+    The signal numbers returned by this function can be safely passed to
+    functions like `pthread_sigmask`.'''
+    if WIN32:
+        # follow cpython
+        signals_w = [space.newint(SIGABRT), space.newint(SIGBREAK),
+                     space.newint(SIGFPE), space.newint(SIGILL),
+                     space.newint(SIGINT), space.newint(SIGSEGV),
+                     space.newint(SIGTERM),
+                    ]
+        return space.call_function(space.w_set, space.newtuple(signals_w))
+    else:     
+        mask = lltype.malloc(c_sigset_t.TO, flavor='raw')
+        try:
+            ret = c_sigemptyset(mask)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            ret = c_sigfillset(mask)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            return _sigset_to_signals(space, mask)
+        finally:
+            lltype.free(mask, flavor='raw')
+
+@unwrap_spec(signalnum=int)
+def raise_signal(space, signalnum):
+    'Send a signal to the executing process.'
+    c_raise(signalnum)
+
+
+@unwrap_spec(signalnum=int)
+def strsignal(space, signalnum):
+    '''Return the system description of the given signal.
+    The return values can be such as "Interrupt", "Segmentation fault", etc.
+    Returns None if the signal is not recognized.'''
+    from rpython.rlib import rsignal
+    if signalnum < 1 or signalnum > NSIG:
+        raise oefmt(space.w_ValueError, 'signal number out of range')
+    res = rsignal.strsignal(signalnum)
+    if res is None:
+        return space.w_None
+    return space.newtext(res)
+
+

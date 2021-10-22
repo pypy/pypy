@@ -1,23 +1,24 @@
+from __future__ import absolute_import
 import sys, os
 from struct import pack, unpack, calcsize
-from strunicode import tryencode
+from dotviewer.strunicode import tryencode, ord_byte_index
 
 MAGIC = -0x3b83728b
 
-CMSG_INIT        = 'i'
-CMSG_START_GRAPH = '['
-CMSG_ADD_NODE    = 'n'
-CMSG_ADD_EDGE    = 'e'
-CMSG_ADD_LINK    = 'l'
-CMSG_FIXED_FONT  = 'f'
-CMSG_STOP_GRAPH  = ']'
-CMSG_MISSING_LINK= 'm'
-CMSG_SAY         = 's'
+CMSG_INIT        = b'i'
+CMSG_START_GRAPH = b'['
+CMSG_ADD_NODE    = b'n'
+CMSG_ADD_EDGE    = b'e'
+CMSG_ADD_LINK    = b'l'
+CMSG_FIXED_FONT  = b'f'
+CMSG_STOP_GRAPH  = b']'
+CMSG_MISSING_LINK= b'm'
+CMSG_SAY         = b's'
 
-MSG_OK           = 'O'
-MSG_ERROR        = 'E'
-MSG_RELOAD       = 'R'
-MSG_FOLLOW_LINK  = 'L'
+MSG_OK           = b'O'
+MSG_ERROR        = b'E'
+MSG_RELOAD       = b'R'
+MSG_FOLLOW_LINK  = b'L'
 
 # ____________________________________________________________
 
@@ -27,20 +28,20 @@ long_max = 2147483647
 
 def message(tp, *values):
     #print >> sys.stderr, tp, values
-    typecodes = ['']
-    values = map(tryencode, values)
+    typecodes = [b'']
+    values = list(map(tryencode, values))
     for v in values:
-        if type(v) is str:
-            typecodes.append('%ds' % len(v))
+        if type(v) is bytes:
+            typecodes.append(b'%ds' % len(v))
         elif 0 <= v < 256:
-            typecodes.append('B')
+            typecodes.append(b'B')
         elif long_min <= v <= long_max:
-            typecodes.append('l')
+            typecodes.append(b'l')
         else:
-            typecodes.append('q')
-    typecodes = ''.join(typecodes)
+            typecodes.append(b'q')
+    typecodes = b''.join(typecodes)
     if len(typecodes) < 256:
-        return pack(("!B%dsc" % len(typecodes)) + typecodes,
+        return pack((b"!B%dsc" % len(typecodes)) + typecodes,
                     len(typecodes), typecodes, tp, *values)
     else:
         # too many values - encapsulate the message in another one
@@ -48,14 +49,14 @@ def message(tp, *values):
 
 def decodemessage(data):
     if data:
-        limit = ord(data[0]) + 1
+        limit = ord_byte_index(data, 0) + 1
         if len(data) >= limit:
-            typecodes = "!c" + data[1:limit]
+            typecodes = b"!c" + data[1:limit]
             end = limit + calcsize(typecodes)
             if len(data) >= end:
                 msg = unpack(typecodes, data[limit:end])
-                if msg[0] == '\x00':
-                    msg = unpack("!c" + msg[1], msg[2])
+                if msg[0] == b'\x00':
+                    msg = unpack(b"!c" + msg[1], msg[2])
                 return msg, data[end:]
             #elif end > 1000000:
             #    raise OverflowError
@@ -68,7 +69,7 @@ class RemoteError(Exception):
 
 
 class IO(object):
-    _buffer = ''
+    _buffer = b''
 
     def sendmsg(self, tp, *values):
         self.sendall(message(tp, *values))

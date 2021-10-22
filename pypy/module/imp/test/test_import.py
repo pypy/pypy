@@ -134,6 +134,11 @@ def setup_directory_structure(cls):
     setuppkg('circular',
              circ1="from . import circ2",
              circ2="from . import circ1")
+    setuppkg('absolute_circular',
+             circ1 = "from absolute_circular.circ2 import a; b = 1",
+             circ2 = "from absolute_circular.circ1 import b; a = 1")
+    setuppkg('module_with_wrong_all',
+             __init__ = "__all__ = ['x', 'y', 3, 'z']; x, y, z = 1, 2, 3")
 
     p = setuppkg("encoded",
              # actually a line 2, setuppkg() sets up a line1
@@ -213,6 +218,13 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_import_namespace_package(self):
         import packagenamespace
+        try:
+            from packagenamespace import nothing
+        except ImportError as e:
+            assert str(e) == ("cannot import name 'nothing' from "
+                              "'packagenamespace' (unknown location)")
+        else:
+            assert False
 
     def test_import_sys(self):
         import sys
@@ -532,6 +544,13 @@ class AppTestImport(BaseFSEncodeTest):
     def test_relative_circular(self):
         import circular.circ1  # doesn't fail
 
+    def test_partially_initialized_circular(self):
+        with raises(ImportError) as info:
+            import absolute_circular.circ1
+
+        assert ("cannot import name 'b' from partially initialized "
+                "module 'absolute_circular.circ1'") in info.value.msg
+
     def test_import_function(self):
         # More tests for __import__
         import sys
@@ -738,6 +757,12 @@ class AppTestImport(BaseFSEncodeTest):
                 pass    # 'int' object does not support indexing
             else:
                 raise AssertionError("should have failed")
+
+    def test_import_star_with_mixed_types___all__(self):
+        with raises(TypeError) as info:
+            exec("from module_with_wrong_all import *")
+
+        assert "module_with_wrong_all.__all__ must be str, not int" in str(info.value)
 
     def test_verbose_flag_0(self):
         output = []
@@ -999,7 +1024,7 @@ class TestPycStuff:
         with open(stdlib_opcode.__file__.rstrip("c"), "rb") as f:
             h.update(f.read())
         assert h.hexdigest() == 'e7480938678ad1eb61dfcc30ef6088059b8ad182'
-        assert default_magic == 0xa0d00f0
+        assert default_magic == 0xa0d0100
 
 
 

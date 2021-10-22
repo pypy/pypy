@@ -217,7 +217,7 @@ typedef struct _typeobject {
     /* Methods to implement standard operations */
 
     destructor tp_dealloc;
-    printfunc tp_print;
+    Py_ssize_t tp_vectorcall_offset;
     getattrfunc tp_getattr;
     setattrfunc tp_setattr;
     PyAsyncMethods *tp_as_async; /* formerly known as tp_compare (Python 2)
@@ -289,6 +289,8 @@ typedef struct _typeobject {
     unsigned int tp_version_tag;
 
     destructor tp_finalize;
+
+    printfunc tp_print; // deprecated, but stays around for compatibility
 
     /* PyPy specific extra fields: make sure that they are ALWAYS at the end,
        for compatibility with CPython */

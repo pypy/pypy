@@ -45,29 +45,6 @@ class __extend__(ast.expr):
             gen.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
 
 
-class __extend__(ast.Num):
-
-    def as_constant(self, space, compile_info):
-        return self.n
-
-
-class __extend__(ast.Str):
-
-    def as_constant(self, space, compile_info):
-        return self.s
-
-
-class __extend__(ast.Bytes):
-
-    def as_constant(self, space, compile_info):
-        return self.s
-
-
-class __extend__(ast.Ellipsis):
-    def as_constant(self, space, compile_info):
-        return space.w_Ellipsis
-
-
 class __extend__(ast.Constant):
 
     def as_constant(self, space, compile_info):
@@ -80,10 +57,6 @@ class __extend__(ast.Name):
         else:
             return None
 
-
-class __extend__(ast.NameConstant):
-    def as_constant(self, space, compile_info):
-        return self.value
 
 class __extend__(ast.Index):
     def as_constant(self, space, compile_info):
@@ -230,7 +203,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                     else:
                         if self.space.int_w(w_len) > 20:
                             return binop
-                    return ast.Constant(w_const, binop.lineno, binop.col_offset)
+                    return self.new_constant(w_const, binop)
         return binop
 
     def visit_UnaryOp(self, unary):
@@ -251,7 +224,7 @@ class OptimizingVisitor(ast.ASTVisitor):
             except OperationError:
                 pass
             else:
-                return ast.Constant(w_const, unary.lineno, unary.col_offset)
+                return self.new_constant(w_const, unary)
         elif op == ast.Not:
             compare = unary.operand
             if isinstance(compare, ast.Compare) and len(compare.ops) == 1:
@@ -265,24 +238,6 @@ class OptimizingVisitor(ast.ASTVisitor):
                     return compare
         return unary
 
-    def visit_BoolOp(self, bop):
-        values = bop.values
-        we_are_and = bop.op == ast.And
-        i = 0
-        while i < len(values) - 1:
-            truth = values[i].as_constant_truth(self.space, self.compile_info)
-            if truth != CONST_NOT_CONST:
-                if (truth != CONST_TRUE) == we_are_and:
-                    del values[i + 1:]
-                    break
-                else:
-                    del values[i]
-            else:
-                i += 1
-        if len(values) == 1:
-            return values[0]
-        return bop
-
     def visit_Name(self, name):
         """Turn loading None, True, and False into a constant lookup."""
         if name.ctx == ast.Del:
@@ -292,7 +247,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         if name.id == '__debug__':
             w_const = space.newbool(self.compile_info.optimize == 0)
         if w_const is not None:
-            return ast.NameConstant(w_const, name.lineno, name.col_offset)
+            return self.new_constant(w_const, name)
         return name
 
     def visit_Tuple(self, tup):
@@ -308,7 +263,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                 if w_const is None:
                     new_elts = self._optimize_constant_star_unpacks(tup.elts)
                     if new_elts is not None:
-                        return ast.Tuple(new_elts, ast.Load, tup.lineno, tup.col_offset)
+                        return ast.Tuple(new_elts, ast.Load, tup.lineno, tup.col_offset, tup.end_lineno, tup.end_col_offset)
                     return tup
                 consts_w[i] = w_const
             # intern the string constants packed into the tuple here,
@@ -319,13 +274,14 @@ class OptimizingVisitor(ast.ASTVisitor):
         else:
             consts_w = []
         w_consts = self.space.newtuple(consts_w)
-        return ast.Constant(w_consts, tup.lineno, tup.col_offset)
+        return self.new_constant(w_consts, tup)
 
     def _make_starred_tuple_const(self, consts_w, firstelt):
         w_consts = self.space.newtuple(consts_w[:])
-        return ast.Starred(ast.Constant(
-                    w_consts, firstelt.lineno, firstelt.col_offset),
-                ast.Load, firstelt.lineno, firstelt.col_offset)
+        return ast.Starred(self.new_constant(
+                    w_consts, firstelt),
+                ast.Load, firstelt.lineno, firstelt.col_offset,
+                firstelt.end_lineno, firstelt.end_col_offset)
 
     def _optimize_constant_star_unpacks(self, elts):
         # turn (1, 2, 3, *a) into (*(1, 2, 3), *a) with a constant (1, 2, 3)
@@ -374,7 +330,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         if l.ctx == ast.Load and l.elts:
             new_elts = self._optimize_constant_star_unpacks(l.elts)
             if new_elts:
-                return ast.List(new_elts, ast.Load, l.lineno, l.col_offset)
+                return ast.List(new_elts, ast.Load, l.lineno, l.col_offset, l.end_lineno, l.end_col_offset)
         return l
 
     def visit_Subscript(self, subs):
@@ -412,6 +368,10 @@ class OptimizingVisitor(ast.ASTVisitor):
                         # See test_const_fold_unicode_subscr
                         return subs
 
-                    return ast.Constant(w_const, subs.lineno, subs.col_offset)
+                    return self.new_constant(w_const, subs)
 
         return subs
+
+    def new_constant(self, const, node):
+        return ast.Constant(const, self.space.w_None, node.lineno, node.col_offset,
+                node.end_lineno, node.end_col_offset)

@@ -24,7 +24,7 @@ class ExecutionContext(object):
     #     over the place as well as w_tracefunc
 
     _immutable_fields_ = [
-        'profilefunc?', 'w_tracefunc?', 'w_coroutine_wrapper_fn?',
+        'profilefunc?', 'w_tracefunc?',
         'w_asyncgen_firstiter_fn?', 'w_asyncgen_finalizer_fn?']
 
     def __init__(self, space):
@@ -40,8 +40,6 @@ class ExecutionContext(object):
         self.profilefunc = None
         self.w_profilefuncarg = None
         self.thread_disappeared = False   # might be set to True after os.fork()
-        self.w_coroutine_wrapper_fn = None
-        self.in_coroutine_wrapper = False
         self.w_asyncgen_firstiter_fn = None
         self.w_asyncgen_finalizer_fn = None
         self.contextvar_context = None
@@ -180,12 +178,8 @@ class ExecutionContext(object):
     def run_trace_func(self, frame):
         code = frame.pycode
         d = frame.getorcreatedebug()
-        if d.instr_lb <= frame.last_instr < d.instr_ub:
-            if frame.last_instr < d.instr_prev_plus_one:
-                # We jumped backwards in the same line.
-                if d.f_trace_lines:
-                    self._trace(frame, 'line', self.space.w_None)
-        else:
+        line = d.f_lineno
+        if not (d.instr_lb <= frame.last_instr < d.instr_ub):
             size = len(code.co_lnotab) / 2
             addr = 0
             line = code.co_firstlineno
@@ -218,10 +212,12 @@ class ExecutionContext(object):
             else:
                 d.instr_ub = sys.maxint
 
-            if d.instr_lb == frame.last_instr: # At start of line!
-                d.f_lineno = line
-                if d.f_trace_lines:
-                    self._trace(frame, 'line', self.space.w_None)
+        # when we are at a start of a line, or executing a backwards jump,
+        # produce a line event
+        if d.instr_lb == frame.last_instr or frame.last_instr < d.instr_prev_plus_one:
+            d.f_lineno = line
+            if d.f_trace_lines:
+                self._trace(frame, 'line', self.space.w_None)
         if d.f_trace_opcodes:
             self._trace(frame, 'opcode', self.space.w_None)
 
@@ -663,7 +659,7 @@ class UserDelAction(AsyncAction):
                 try:
                     space.call_function(w_impl)
                 except Exception as e:
-                    report_error(space, e, '', w_impl)
+                    report_error(space, e, '', w_del)
 
         # Call the RPython-level _finalize_() method.
         try:

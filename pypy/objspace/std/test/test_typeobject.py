@@ -1498,6 +1498,28 @@ class AppTestTypeObject:
         assert not hasattr(TestNoOrigBases, '__orig_bases__')
         """
 
+    def test_classcell_missing(self):
+        """
+        # Some metaclasses may not pass the original namespace to type.__new__
+        # We test that case here by forcibly deleting __classcell__
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                namespace.pop('__classcell__', None)
+                return super().__new__(cls, name, bases, namespace)
+
+        # The default case should continue to work without any errors
+        class WithoutClassRef(metaclass=Meta):
+            pass
+
+        # With zero-arg super() or an explicit __class__ reference, we expect
+        # __build_class__ to raise a RuntimeError complaining that
+        # __class__ was not set, and asking if __classcell__ was propagated
+        # to type.__new__.
+        with raises(RuntimeError):
+            class WithClassRef(metaclass=Meta):
+                def f(self):
+                    return __class__
+        """
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
@@ -1777,3 +1799,53 @@ class AppTestComparesByIdentity:
         assert "takes exactly 3 arguments (1 given)" in str(info.value)
         info = raises(TypeError, Meta, 5, 7)
         assert "takes exactly 3 arguments (1 given)" in str(info.value)
+
+    def test_hash_comparison_of_methods(self):
+        def check_ordering(a, b):
+            with raises(TypeError):
+                a < b
+            with raises(TypeError):
+                a > b
+            with raises(TypeError):
+                a <= b
+            with raises(TypeError):
+                a >= b
+
+        class A:
+            def __init__(self, x):
+                self.x = x
+            def f(self):
+                pass
+            def g(self):
+                pass
+            def __eq__(self, other):
+                return True
+            def __hash__(self):
+                raise TypeError
+
+        class B(A):
+            pass
+
+        a1 = A(1)
+        a2 = A(1)
+        assert a1.f == a1.f
+        assert not a1.f != a1.f
+        assert not a1.f == a2.f
+        assert a1.f != a2.f
+        assert not a1.f == a1.g
+        assert a1.f != a1.g
+        check_ordering(a1.f, a1.f)
+        assert hash(a1.f) == hash(a1.f)
+
+        assert not A.f == a1.f
+        assert A.f != a1.f
+        assert not A.f == A.g
+        assert A.f != A.g
+        assert B.f == A.f
+        assert not B.f != A.f
+        check_ordering(A.f, A.f)
+        assert hash(B.f) == hash(A.f)
+
+        # the following triggers a SystemError in 2.4
+        a = A(hash(A.f)^(-1))
+        hash(a.f)

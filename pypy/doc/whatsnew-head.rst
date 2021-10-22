@@ -1,32 +1,8 @@
 ============================
-What's new in PyPy2.7 7.3.4+
+What's new in PyPy2.7 7.3.6+
 ============================
 
-.. this is a revision shortly after release-pypy-7.3.4
-.. startrev: 9c11d242d78c
+.. this is a revision shortly after release-pypy-7.3.6
+.. startrev: 0012ea4931c1
 
-
-.. branch: faster-rbigint-big-divmod
-
-Speed up ``divmod`` for very large numbers. This also speeds up string
-formatting of big numbers.
-
-.. branch: jit-heapcache-interiorfields
-
-Optimize dictionary operations in the JIT a bit more, making it possible to
-completely optimize away the creation of dictionaries in more situations (such
-as calling the ``dict.update`` method on known dicts).
-
-.. branch: bpo-35714
-
-Add special error messange for ``'\0'`` in ``rstruct.formatiterator``
-(bpo-35714)
-
-.. branch: gcc-precompiled-header
-
-Speed up GCC compilation by using a pre-compiled header.
-
-
-.. minor branches not worth to document
-.. branch: fix-checkmodule-2
 

@@ -23,11 +23,14 @@ the on-disk file appear empty or truncated.  Moreover, you might reach your
 OS's limit on the number of concurrently opened files.
 
 If you are debugging a case where a file in your program is not closed
-properly, you can use the ``-X track-resources`` command line option. If it is
-given, a ``ResourceWarning`` is produced for every file and socket that the
-garbage collector closes. The warning will contain the stack trace of the
-position where the file or socket was created, to make it easier to see which
-parts of the program don't close files explicitly.
+properly on PyPy2, you can use the ``-X track-resources`` command line
+option. On Python3 (both CPython and PyPy), use the ``-Walways`` command line
+option. In both cases, you may need to add a call to ``gc.collect()`` at the
+end of the program. Then a ``ResourceWarning`` is produced for every file and
+socket that the garbage collector closes. On PyPy, the warning will always
+contain the stack trace of the position where the file or socket was created,
+to make it easier to see which parts of the program don't close files
+explicitly.
 
 Fixing this difference to CPython is essentially impossible without forcing a
 reference-counting approach to garbage collection.  The effect that you
@@ -576,7 +579,6 @@ List of extension modules that we support:
     time
     token
     unicodedata
-    zipimport
     zlib
 
   When translated on Windows, a few Unix-only modules are skipped,

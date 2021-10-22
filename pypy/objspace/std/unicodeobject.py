@@ -1060,7 +1060,7 @@ class W_UnicodeObject(W_Root):
         builder = rutf8.Utf8StringBuilder(len(value))
         it = rutf8.Utf8StringPosIterator(value)
         uchar, _ = it.next()
-        codes = unicodedb.toupper_full(uchar)
+        codes = unicodedb.totitle_full(uchar)
         # can sometimes give more than one, like for omega-with-Ypogegrammeni, 8179
         for c in codes:
             builder.append_code(c)

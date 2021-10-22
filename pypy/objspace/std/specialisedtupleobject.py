@@ -1,5 +1,6 @@
 from pypy.interpreter.error import oefmt
-from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+from pypy.objspace.std.tupleobject import (W_AbstractTupleObject,
+    XXPRIME_1, XXPRIME_2, XXPRIME_5, xxrotate, uhash_type)
 from pypy.objspace.std.util import negate
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
@@ -64,31 +65,32 @@ def make_specialised_class(typetuple):
         getitems_copy = func_with_new_name(tolist, 'getitems_copy')
 
         def descr_hash(self, space):
-            mult = 1000003
-            x = 0x345678
-            z = typelen
+            acc = XXPRIME_5
+
             for i in iter_n:
                 value = getattr(self, 'value%s' % i)
                 if typetuple[i] == object:
-                    y = space.int_w(space.hash(value))
+                    lane = uhash_type(space.int_w(space.hash(value)))
                 elif typetuple[i] == float:
                     # get the correct hash for float which is an
                     # integer & other less frequent cases
                     from pypy.objspace.std.floatobject import _hash_float
-                    y = _hash_float(space, value)
+                    lane = uhash_type(_hash_float(space, value))
                 elif typetuple[i] == int:
                     # hash for int which is different from the hash
                     # given by rpython
                     from pypy.objspace.std.intobject import _hash_int
-                    y = _hash_int(value)
+                    lane = uhash_type(_hash_int(value))
                 else:
                     raise NotImplementedError
 
-                x = (x ^ y) * mult
-                z -= 1
-                mult += 82520 + z + z
-            x += 97531
-            return space.newint(intmask(x))
+                acc += lane * XXPRIME_2
+                acc = xxrotate(acc)
+                acc *= XXPRIME_1
+
+            acc += typelen ^ (XXPRIME_5 ^ uhash_type(3527539))
+            acc += (acc == uhash_type(-1)) * uhash_type(1546275796 + 1)
+            return space.newint(intmask(acc))
 
         def descr_eq(self, space, w_other):
             if not isinstance(w_other, W_AbstractTupleObject):

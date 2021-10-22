@@ -17,6 +17,20 @@ What's new in PyPy3 7.3.4
 
     Fix utf_8_decode for final=False, error=ignore
 
+.. 3.8 branches  ------------------------
+
+.. branch: fstring-debugging
+Add support for the debugging sigil ``=`` in f-strings.
+
+.. branch: some-other-38-features
+Implement ``typed_ast`` features in the ``ast``-module.
+
+.. branch: some-3.8-features
+Implement named expression (the walrus operator ``:=``).
+
+
+.. 3.7 branches -----------------------------------------
+
 .. branch: py3.7-rsre
 
 Fix rsre module for python 3.7

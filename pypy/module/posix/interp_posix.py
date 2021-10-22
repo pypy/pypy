@@ -24,6 +24,7 @@ from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror,
     exception_from_saved_errno)
 from pypy.interpreter.executioncontext import ExecutionContext
+from pypy.interpreter.baseobjspace import W_Root
 
 
 _WIN32 = sys.platform == 'win32'
@@ -213,6 +214,9 @@ def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
             return _path_from_unicode(space, w_result)
         elif space.isinstance_w(w_result, space.w_bytes):
             return _path_from_bytes(space, w_result)
+        raise oefmt(space.w_TypeError,
+                "expected %S.__fspath__() to return str or bytes, not %T",
+                w_value, w_result)
 
     raise oefmt(space.w_TypeError,
         "illegal type for path parameter (should be "
@@ -303,8 +307,10 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
   and path should be relative; path will then be relative to that directory.
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
+
     if rposix.O_CLOEXEC is not None:
         flags |= rposix.O_CLOEXEC
+    space.audit("open", [w_path, space.w_None, space.newint(flags)])
     while True:
         try:
             if rposix.HAVE_OPENAT and dir_fd != DEFAULT_DIR_FD:
@@ -1675,7 +1681,14 @@ def _env2interp(space, w_env):
     w_keys = space.call_method(w_env, 'keys')
     for w_key in space.unpackiterable(w_keys):
         w_value = space.getitem(w_env, w_key)
-        env[space.fsencode_w(w_key)] = space.fsencode_w(w_value)
+        key = space.fsencode_w(w_key)
+        val = space.fsencode_w(w_value)
+        # Search from index 1 because on Windows starting '=' is allowed for
+        # defining hidden environment variables
+        if len(key) == 0 or '=' in key[1:]:
+            raise oefmt(space.w_ValueError,
+                "illegal environment variable name")
+        env[key] = val
     return env
 
 
@@ -1840,14 +1853,14 @@ def parse_utime_args(space, w_times, w_ns):
         atime_ns = mtime_ns = 0
     elif not space.is_w(w_times, space.w_None):
         times_w = space.fixedview(w_times)
-        if len(times_w) != 2:
+        if len(times_w) != 2 or not space.isinstance_w(w_times, space.w_tuple):
             raise oefmt(space.w_TypeError,
                 "utime: 'times' must be either a tuple of two ints or None")
         atime_s, atime_ns = convert_seconds(space, times_w[0])
         mtime_s, mtime_ns = convert_seconds(space, times_w[1])
     else:
         args_w = space.fixedview(w_ns)
-        if len(args_w) != 2:
+        if len(args_w) != 2 or not space.isinstance_w(w_ns, space.w_tuple):
             raise oefmt(space.w_TypeError,
                 "utime: 'ns' must be a tuple of two ints")
         atime_s, atime_ns = convert_ns(space, args_w[0])
@@ -2303,12 +2316,15 @@ def confname_w(space, w_name, namespace):
     return num
 
 def sysconf(space, w_name):
-    num = confname_w(space, w_name, os.sysconf_names)
+    num = confname_w(space, w_name, rposix.sysconf_names)
     try:
         res = os.sysconf(num)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
     return space.newint(res)
+
+def sysconf_names():
+    return rposix.sysconf_names
 
 @unwrap_spec(fd=c_int)
 def fpathconf(space, fd, w_name):
@@ -2321,7 +2337,7 @@ def fpathconf(space, fd, w_name):
 
 @unwrap_spec(path=path_or_fd(allow_fd=hasattr(os, 'fpathconf')))
 def pathconf(space, path, w_name):
-    num = confname_w(space, w_name, os.pathconf_names)
+    num = confname_w(space, w_name, rposix.pathconf_names)
     if path.as_fd != -1:
         try:
             res = os.fpathconf(path.as_fd, num)
@@ -2334,13 +2350,19 @@ def pathconf(space, path, w_name):
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
     return space.newint(res)
 
+def pathconf_names():
+    return rposix.pathconf_names
+
 def confstr(space, w_name):
-    num = confname_w(space, w_name, os.confstr_names)
+    num = confname_w(space, w_name, rposix.confstr_names)
     try:
         res = os.confstr(num)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
     return space.newtext(res)
+
+def confstr_names():
+    return rposix.confstr_names
 
 @unwrap_spec(
     uid=c_uid_t, gid=c_gid_t,
@@ -2509,9 +2531,8 @@ def device_encoding(space, fd):
     Return a string describing the encoding of the device if the output
     is a terminal; else return None.
     """
-    with rposix.FdValidator(fd):
-        if not (os.isatty(fd)):
-            return space.w_None
+    if not (os.isatty(fd)):
+        return space.w_None
     if _WIN32:
         if fd == 0:
             ccp = rwin32.GetConsoleCP()
@@ -2695,6 +2716,28 @@ If follow_symlinks is False, and the last element of the path is a symbolic
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path)
     return space.newlist([space.newfilename(attr) for attr in result])
+
+@unwrap_spec(name='text', flags=int)
+def memfd_create(space, name, flags=getattr(rposix, "MFD_CLOEXEC", 0xdead)):
+    """
+os.memfd_create(name[, flags=os.MFD_CLOEXEC])
+
+Create an anonymous file and return a file descriptor that refers to it. flags
+must be one of the os.MFD_* constants available on the system (or a bitwise
+ORed combination of them). By default, the new file descriptor is
+non-inheritable.
+
+The name supplied in name is used as a filename and will be displayed as the
+target of the corresponding symbolic link in the directory /proc/self/fd/. The
+displayed name is always prefixed with memfd: and serves only for debugging
+purposes. Names do not affect the behavior of the file descriptor, and as such
+multiple files can have the same name without any side effects.
+"""
+    try:
+        result = rposix.memfd_create(name, flags)
+    except OSError as e:
+        raise wrap_oserror2(space, e)
+    return space.newint(result)
 
 
 have_functions = []
@@ -2983,3 +3026,95 @@ def sched_setparam(space, pid, w_param):
         wrap_oserror(space, e, eintr_retry=True)
     else:
         return space.newint(res)
+
+def splitdrive(p):
+    # copied from ntpath.py, but changed to move the sep to the root.
+    # where os.path.splitpath('c:\\abc\\def.txt')
+    # returns ('c:', '\\abc\\def.txt', we want ('c:\\', 'abc\\def.txt')
+    # and '//server/abc/xyz/def.txt' becomes
+    # ('//server/abc/', 'xyz/def.txt')
+    if len(p) >= 2:
+        if isinstance(p, bytes):
+            sep = b'\\'
+            altsep = b'/'
+            colon = b':'
+        else:
+            sep = '\\'
+            altsep = '/'
+            colon = ':'
+        normp = p.replace(altsep, sep)
+        if (normp[0:2] == sep*2) and (normp[2:3] != sep):
+            # is a UNC path:
+            # vvvvvvvvvvvvvvvvvvvvv drive letter or UNC path
+            # \\machine\mountpoint\directory\etc\...
+            #           directory  ^^^^^^^^^^^^^^
+            index = normp.find(sep, 2)
+            if index < 0:
+                return p[:0], p
+            index2 = normp.find(sep, index + 1)
+            # a UNC path can't have two slashes in a row
+            # (after the initial two)
+            if index2 == index + 1:
+                return p[:0], p
+            if index2 < 0:
+                index2 = len(p)
+            return p[:index2+1], p[index2+1:]
+        if normp[1:2] == colon and normp[2:3] == sep:
+            return p[:3], p[3:]
+        elif normp[1:2] == colon:
+            return p[:2], p[2:]
+    return p[:0], p
+
+def _path_splitroot(space, w_path):
+    """Removes everything after the root on Win32."""
+
+    # ... which begs the question "what is a "root"?
+    # answer: from trial and error, it is almost-but-not-quite
+    # os.path.splitdrive
+    p = space.text_w(fspath(space, w_path))
+    ret0, ret1 = splitdrive(p)
+    #XXX what do we do when w_p is bytes?
+    return space.newtuple([space.newtext(ret0), space.newtext(ret1)])
+
+class W_DLLCapsule(W_Root):
+
+    def __init__(self, cookie):
+        self.cookie = cookie
+
+def _add_dll_directory(space, w_path):
+    """os._add_dll_directory
+
+        path: path_t
+
+    Add a path to the DLL search path.
+
+    This search path is used when resolving dependencies for imported
+    extension modules (the module itself is resolved through sys.path),
+    and also by ctypes.
+
+    Returns an opaque value that may be passed to os.remove_dll_directory
+    to remove this directory from the search path.
+    """
+    space.audit("os.add_dll_directory", [w_path])
+    cookie = rwin32.AddDllDirectory(space.utf8_w(w_path), space.len_w(w_path))
+    return W_DLLCapsule(cookie)
+
+def _remove_dll_directory(space, w_cookie):
+    """os._remove_dll_directory
+
+        cookie: object
+
+    Removes a path from the DLL search path.
+
+    The parameter is an opaque value that was returned from
+    os.add_dll_directory. You can only remove directories that you added
+    yourself.
+    """
+
+    if not isinstance(w_cookie, W_DLLCapsule):
+        raise oefmt(space.w_TypeError, "Provided cookie was not returned "
+                    "from os.add_dll_directory")
+    cookie = w_cookie.cookie
+    # CPython does not emit an audit event here
+    return space.newbool(bool(rwin32.RemoveDllDirectory(cookie)))
+

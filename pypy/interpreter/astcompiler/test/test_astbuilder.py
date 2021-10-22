@@ -3,6 +3,8 @@ import random
 import string
 import sys
 import pytest
+import functools
+import textwrap
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -15,11 +17,13 @@ class TestAstBuilder:
     def setup_class(cls):
         cls.parser = pyparse.PythonParser(cls.space)
 
-    def get_ast(self, source, p_mode=None, flags=None):
+    def get_ast(self, source, p_mode=None, flags=None, with_async_hacks=False):
         if p_mode is None:
             p_mode = "exec"
         if flags is None:
             flags = consts.CO_FUTURE_WITH_STATEMENT
+        if with_async_hacks:
+            flags |= consts.PyCF_ASYNC_HACKS
         info = pyparse.CompileInfo("<test>", p_mode, flags)
         tree = self.parser.parse_source(source, info)
         ast_node = ast_from_node(self.space, tree, info, self.parser)
@@ -32,8 +36,8 @@ class TestAstBuilder:
         assert isinstance(expr, ast.Expr)
         return expr.value
 
-    def get_first_stmt(self, source):
-        mod = self.get_ast(source)
+    def get_first_stmt(self, source, p_mode=None, flags=None):
+        mod = self.get_ast(source, p_mode, flags)
         assert len(mod.body) == 1
         return mod.body[0]
 
@@ -108,7 +112,7 @@ class TestAstBuilder:
         assert ra.cause is None
         ra = self.get_first_stmt("raise x from 3")
         assert isinstance(ra.exc, ast.Name)
-        assert isinstance(ra.cause, ast.Num)
+        assert isinstance(ra.cause, ast.Constant)
 
     def test_import(self):
         im = self.get_first_stmt("import x")
@@ -216,7 +220,7 @@ class TestAstBuilder:
         assert asrt.msg is None
         asrt = self.get_first_stmt("assert x, 'hi'")
         assert isinstance(asrt.test, ast.Name)
-        assert isinstance(asrt.msg, ast.Str)
+        assert isinstance(asrt.msg, ast.Constant)
 
     def test_suite(self):
         suite = self.get_first_stmt("while x: n;").body
@@ -237,20 +241,20 @@ class TestAstBuilder:
         assert isinstance(if_.test, ast.Name)
         assert if_.test.ctx == ast.Load
         assert len(if_.body) == 1
-        assert isinstance(if_.body[0].value, ast.Num)
+        assert isinstance(if_.body[0].value, ast.Constant)
         assert if_.orelse is None
         if_ = self.get_first_stmt("if x: 4\nelse: 'hi'")
         assert isinstance(if_.test, ast.Name)
         assert len(if_.body) == 1
-        assert isinstance(if_.body[0].value, ast.Num)
+        assert isinstance(if_.body[0].value, ast.Constant)
         assert len(if_.orelse) == 1
-        assert isinstance(if_.orelse[0].value, ast.Str)
+        assert isinstance(if_.orelse[0].value, ast.Constant)
         if_ = self.get_first_stmt("if x: 3\nelif 'hi': pass")
         assert isinstance(if_.test, ast.Name)
         assert len(if_.orelse) == 1
         sub_if = if_.orelse[0]
         assert isinstance(sub_if, ast.If)
-        assert isinstance(sub_if.test, ast.Str)
+        assert isinstance(sub_if.test, ast.Constant)
         assert sub_if.orelse is None
         if_ = self.get_first_stmt("if x: pass\nelif 'hi': 3\nelse: ()")
         assert isinstance(if_.test, ast.Name)
@@ -259,9 +263,9 @@ class TestAstBuilder:
         assert len(if_.orelse) == 1
         sub_if = if_.orelse[0]
         assert isinstance(sub_if, ast.If)
-        assert isinstance(sub_if.test, ast.Str)
+        assert isinstance(sub_if.test, ast.Constant)
         assert len(sub_if.body) == 1
-        assert isinstance(sub_if.body[0].value, ast.Num)
+        assert isinstance(sub_if.body[0].value, ast.Constant)
         assert len(sub_if.orelse) == 1
         assert isinstance(sub_if.orelse[0].value, ast.Tuple)
 
@@ -292,7 +296,7 @@ class TestAstBuilder:
         assert len(wh.body) == 1
         assert isinstance(wh.body[0], ast.Pass)
         assert len(wh.orelse) == 1
-        assert isinstance(wh.orelse[0].value, ast.Num)
+        assert isinstance(wh.orelse[0].value, ast.Constant)
 
     def test_for(self):
         fr = self.get_first_stmt("for x in y: pass")
@@ -323,7 +327,7 @@ class TestAstBuilder:
         assert len(fr.body) == 1
         assert isinstance(fr.body[0], ast.Pass)
         assert len(fr.orelse) == 1
-        assert isinstance(fr.orelse[0].value, ast.Num)
+        assert isinstance(fr.orelse[0].value, ast.Constant)
 
     def test_try(self):
         tr = self.get_first_stmt("try: x" + "\n" +
@@ -373,7 +377,7 @@ class TestAstBuilder:
         assert len(tr.handlers) == 1
         assert isinstance(tr.handlers[0].body[0], ast.Pass)
         assert len(tr.orelse) == 1
-        assert isinstance(tr.orelse[0].value, ast.Num)
+        assert isinstance(tr.orelse[0].value, ast.Constant)
         tr = self.get_first_stmt("try: x" + "\n" +
                                  "except Exc as a: 5" + "\n" +
                                  "except F: pass")
@@ -381,7 +385,7 @@ class TestAstBuilder:
         h1, h2 = tr.handlers
         assert isinstance(h1.type, ast.Name)
         assert h1.name == "a"
-        assert isinstance(h1.body[0].value, ast.Num)
+        assert isinstance(h1.body[0].value, ast.Constant)
         assert isinstance(h2.type, ast.Name)
         assert h2.name is None
         assert isinstance(h2.body[0], ast.Pass)
@@ -392,7 +396,7 @@ class TestAstBuilder:
         h1, h2 = tr.handlers
         assert isinstance(h1.type, ast.Name)
         assert h1.name == "a"
-        assert isinstance(h1.body[0].value, ast.Num)
+        assert isinstance(h1.body[0].value, ast.Constant)
         assert isinstance(h2.type, ast.Name)
         assert h2.name is None
         assert isinstance(h2.body[0], ast.Pass)
@@ -404,7 +408,7 @@ class TestAstBuilder:
         assert isinstance(tr.finalbody[0], ast.Pass)
         assert len(tr.handlers) == 1
         assert len(tr.handlers[0].body) == 1
-        assert isinstance(tr.handlers[0].body[0].value, ast.Num)
+        assert isinstance(tr.handlers[0].body[0].value, ast.Constant)
         assert len(tr.body) == 1
         assert isinstance(tr.body[0].value, ast.Name)
         tr = self.get_first_stmt("try: x" + "\n" +
@@ -416,7 +420,7 @@ class TestAstBuilder:
         assert isinstance(tr.finalbody[0], ast.Pass)
         assert len(tr.body) == 1
         assert len(tr.orelse) == 1
-        assert isinstance(tr.orelse[0].value, ast.Str)
+        assert isinstance(tr.orelse[0].value, ast.Constant)
         assert len(tr.body) == 1
         assert isinstance(tr.body[0].value, ast.Name)
         assert len(tr.handlers) == 1
@@ -561,10 +565,18 @@ class TestAstBuilder:
         assert isinstance(fn.args.kwonlyargs[0], ast.arg)
         assert fn.args.kwonlyargs[0].arg == "kwarg"
         assert len(fn.args.kw_defaults) == 1
-        assert isinstance(fn.args.kw_defaults[0], ast.Num)
+        assert isinstance(fn.args.kw_defaults[0], ast.Constant)
         input = "def f(p1, *, **k1):  pass"
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "named arguments must follows bare *"
+
+    def test_posonly_arguments(self):
+        fn = self.get_first_stmt("def f(a, b, c, /, arg): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.posonlyargs) == 3
+        assert len(fn.args.args) == 1
+        assert isinstance(fn.args.args[0], ast.arg)
+        assert fn.args.args[0].arg == "arg"
 
     def test_function_annotation(self):
         func = self.get_first_stmt("def f() -> X: pass")
@@ -573,14 +585,14 @@ class TestAstBuilder:
         assert func.returns.ctx == ast.Load
         for stmt in "def f(x : 42): pass", "def f(x : 42=a): pass":
             func = self.get_first_stmt(stmt)
-            assert isinstance(func.args.args[0].annotation, ast.Num)
+            assert isinstance(func.args.args[0].annotation, ast.Constant)
         assert isinstance(func.args.defaults[0], ast.Name)
         func = self.get_first_stmt("def f(*x : 42): pass")
-        assert isinstance(func.args.vararg.annotation, ast.Num)
+        assert isinstance(func.args.vararg.annotation, ast.Constant)
         func = self.get_first_stmt("def f(**kw : 42): pass")
-        assert isinstance(func.args.kwarg.annotation, ast.Num)
+        assert isinstance(func.args.kwarg.annotation, ast.Constant)
         func = self.get_first_stmt("def f(*, kw : 42=a): pass")
-        assert isinstance(func.args.kwonlyargs[0].annotation, ast.Num)
+        assert isinstance(func.args.kwonlyargs[0].annotation, ast.Constant)
 
     def test_lots_of_kwonly_arguments(self):
         fundef = "def f("
@@ -656,8 +668,8 @@ class TestAstBuilder:
 
         with_value = self.get_first_stmt('x: str = "test"')
         assert isinstance(with_value, ast.AnnAssign)
-        assert isinstance(with_value.value, ast.Str)
-        assert self.space.eq_w(with_value.value.s, self.space.wrap("test"))
+        assert isinstance(with_value.value, ast.Constant)
+        assert self.space.eq_w(with_value.value.value, self.space.wrap("test"))
 
         not_simple = self.get_first_stmt('(a): int')
         assert isinstance(not_simple, ast.AnnAssign)
@@ -706,7 +718,7 @@ class TestAstBuilder:
             assert assign.op is ast_type
             assert isinstance(assign.target, ast.Name)
             assert assign.target.ctx == ast.Store
-            assert isinstance(assign.value, ast.Num)
+            assert isinstance(assign.value, ast.Constant)
 
     def test_assign(self):
         assign = self.get_first_stmt("hi = 32")
@@ -716,7 +728,7 @@ class TestAstBuilder:
         assert isinstance(name, ast.Name)
         assert name.ctx == ast.Store
         value = assign.value
-        assert self.space.eq_w(value.n, self.space.wrap(32))
+        assert self.space.eq_w(value.value, self.space.wrap(32))
         assign = self.get_first_stmt("hi, = something")
         assert len(assign.targets) == 1
         tup = assign.targets[0]
@@ -749,7 +761,7 @@ class TestAstBuilder:
         assert tup.ctx == ast.Load
         tup = self.get_first_expr("(3,)")
         assert len(tup.elts) == 1
-        assert self.space.eq_w(tup.elts[0].n, self.space.wrap(3))
+        assert self.space.eq_w(tup.elts[0].value, self.space.wrap(3))
         tup = self.get_first_expr("2, 3, 4")
         assert len(tup.elts) == 3
 
@@ -760,13 +772,13 @@ class TestAstBuilder:
         assert seq.ctx == ast.Load
         seq = self.get_first_expr("[3,]")
         assert len(seq.elts) == 1
-        assert self.space.eq_w(seq.elts[0].n, self.space.wrap(3))
+        assert self.space.eq_w(seq.elts[0].value, self.space.wrap(3))
         seq = self.get_first_expr("[3]")
         assert len(seq.elts) == 1
         seq = self.get_first_expr("[1, 2, 3, 4, 5]")
         assert len(seq.elts) == 5
         nums = range(1, 6)
-        assert [self.space.int_w(n.n) for n in seq.elts] == nums
+        assert [self.space.int_w(n.value) for n in seq.elts] == nums
 
     def test_dict(self):
         d = self.get_first_expr("{}")
@@ -776,26 +788,26 @@ class TestAstBuilder:
         d = self.get_first_expr("{4 : x, y : 7}")
         assert len(d.keys) == len(d.values) == 2
         key1, key2 = d.keys
-        assert isinstance(key1, ast.Num)
+        assert isinstance(key1, ast.Constant)
         assert isinstance(key2, ast.Name)
         assert key2.ctx == ast.Load
         v1, v2 = d.values
         assert isinstance(v1, ast.Name)
         assert v1.ctx == ast.Load
-        assert isinstance(v2, ast.Num)
+        assert isinstance(v2, ast.Constant)
 
     def test_set(self):
         s = self.get_first_expr("{1}")
         assert isinstance(s, ast.Set)
         assert len(s.elts) == 1
-        assert isinstance(s.elts[0], ast.Num)
-        assert self.space.eq_w(s.elts[0].n, self.space.wrap(1))
+        assert isinstance(s.elts[0], ast.Constant)
+        assert self.space.eq_w(s.elts[0].value, self.space.wrap(1))
         s = self.get_first_expr("{0, 1, 2, 3, 4, 5}")
         assert isinstance(s, ast.Set)
         assert len(s.elts) == 6
         for i, elt in enumerate(s.elts):
-            assert isinstance(elt, ast.Num)
-            assert self.space.eq_w(elt.n, self.space.wrap(i))
+            assert isinstance(elt, ast.Constant)
+            assert self.space.eq_w(elt.value, self.space.wrap(i))
 
     def test_set_unpack(self):
         s = self.get_first_expr("{*{1}}")
@@ -806,8 +818,8 @@ class TestAstBuilder:
         s0 = sta0.value
         assert isinstance(s0, ast.Set)
         assert len(s0.elts) == 1
-        assert isinstance(s0.elts[0], ast.Num)
-        assert self.space.eq_w(s0.elts[0].n, self.space.wrap(1))
+        assert isinstance(s0.elts[0], ast.Constant)
+        assert self.space.eq_w(s0.elts[0].value, self.space.wrap(1))
         s = self.get_first_expr("{*{0, 1, 2, 3, 4, 5}}")
         assert isinstance(s, ast.Set)
         assert len(s.elts) == 1
@@ -817,8 +829,8 @@ class TestAstBuilder:
         assert isinstance(s0, ast.Set)
         assert len(s0.elts) == 6
         for i, elt in enumerate(s0.elts):
-            assert isinstance(elt, ast.Num)
-            assert self.space.eq_w(elt.n, self.space.wrap(i))
+            assert isinstance(elt, ast.Constant)
+            assert self.space.eq_w(elt.value, self.space.wrap(i))
 
     def test_set_context(self):
         tup = self.get_ast("(a, b) = c").body[0].targets[0]
@@ -842,8 +854,8 @@ class TestAstBuilder:
             ("'str'", "literal"),
             ("b'bytes'", "literal"),
             ("23", "literal"),
-            ("{}", "literal"),
-            ("{1, 2, 3}", "literal"),
+            ("{}", "dict display"),
+            ("{1, 2, 3}", "set display"),
             ("(x > 4)", "comparison"),
             ("(x if y else a)", "conditional expression"),
             ("...", "Ellipsis"),
@@ -857,7 +869,7 @@ class TestAstBuilder:
                 input = template % (expr,)
                 with pytest.raises(SyntaxError) as excinfo:
                     self.get_ast(input)
-                assert excinfo.value.msg == "can't %s %s" % (ctx_type, type_str)
+                assert excinfo.value.msg == "cannot %s %s" % (ctx_type, type_str)
 
     def test_assignment_to_forbidden_names(self):
         invalid = (
@@ -905,7 +917,7 @@ class TestAstBuilder:
         input = "f(lambda x: x[0] = y)"
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast(input)
-        assert excinfo.value.msg == "lambda cannot contain assignment"
+        assert excinfo.value.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
 
     def test_ifexp(self):
         ifexp = self.get_first_expr("x if y else g")
@@ -1047,7 +1059,7 @@ class TestAstBuilder:
         assert power.op == ast.Pow
         assert isinstance(power.left , ast.Name)
         assert power.left.ctx == ast.Load
-        assert isinstance(power.right, ast.Num)
+        assert isinstance(power.right, ast.Constant)
 
     def test_call(self):
         call = self.get_first_expr("f()")
@@ -1058,8 +1070,8 @@ class TestAstBuilder:
         assert call.func.ctx == ast.Load
         call = self.get_first_expr("f(2, 3)")
         assert len(call.args) == 2
-        assert isinstance(call.args[0], ast.Num)
-        assert isinstance(call.args[1], ast.Num)
+        assert isinstance(call.args[0], ast.Constant)
+        assert isinstance(call.args[1], ast.Constant)
         assert call.keywords is None
         call = self.get_first_expr("f(a=3)")
         assert call.args is None
@@ -1067,7 +1079,7 @@ class TestAstBuilder:
         keyword = call.keywords[0]
         assert isinstance(keyword, ast.keyword)
         assert keyword.arg == "a"
-        assert isinstance(keyword.value, ast.Num)
+        assert isinstance(keyword.value, ast.Constant)
         call = self.get_first_expr("f(*a, **b)")
         assert isinstance(call.args[0], ast.Starred)
         assert isinstance(call.keywords[0], ast.keyword)
@@ -1098,9 +1110,17 @@ class TestAstBuilder:
         input = "f(%s)" % (many_args,)
         self.get_ast(input) # doesn't crash any more
         exc = pytest.raises(SyntaxError, self.get_ast, "f((a+b)=c)").value
-        assert exc.msg == "keyword can't be an expression"
+        assert exc.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
         exc = pytest.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
         assert exc.msg == "keyword argument repeated: 'a'"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast("f((x)=1)")
+        assert excinfo.value.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast("f(True=1)")
+        assert excinfo.value.msg == 'cannot assign to True'
+        assert excinfo.value.offset == 2
+
 
     def test_attribute(self):
         attr = self.get_first_expr("x.y")
@@ -1134,44 +1154,44 @@ class TestAstBuilder:
         assert slc.lower is None
         assert slc.step is None
         slc = self.get_first_expr("x[1:]").slice
-        assert isinstance(slc.lower, ast.Num)
+        assert isinstance(slc.lower, ast.Constant)
         assert slc.upper is None
         assert slc.step is None
         slc = self.get_first_expr("x[1::]").slice
-        assert isinstance(slc.lower, ast.Num)
+        assert isinstance(slc.lower, ast.Constant)
         assert slc.upper is None
         assert slc.step is None
         slc = self.get_first_expr("x[:2]").slice
         assert slc.lower is None
-        assert isinstance(slc.upper, ast.Num)
+        assert isinstance(slc.upper, ast.Constant)
         assert slc.step is None
         slc = self.get_first_expr("x[:2:]").slice
         assert slc.lower is None
-        assert isinstance(slc.upper, ast.Num)
+        assert isinstance(slc.upper, ast.Constant)
         assert slc.step is None
         slc = self.get_first_expr("x[2:2]").slice
-        assert isinstance(slc.lower, ast.Num)
-        assert isinstance(slc.upper, ast.Num)
+        assert isinstance(slc.lower, ast.Constant)
+        assert isinstance(slc.upper, ast.Constant)
         assert slc.step is None
         slc = self.get_first_expr("x[2:2:]").slice
-        assert isinstance(slc.lower, ast.Num)
-        assert isinstance(slc.upper, ast.Num)
+        assert isinstance(slc.lower, ast.Constant)
+        assert isinstance(slc.upper, ast.Constant)
         assert slc.step is None
         slc = self.get_first_expr("x[::2]").slice
         assert slc.lower is None
         assert slc.upper is None
-        assert isinstance(slc.step, ast.Num)
+        assert isinstance(slc.step, ast.Constant)
         slc = self.get_first_expr("x[2::2]").slice
-        assert isinstance(slc.lower, ast.Num)
+        assert isinstance(slc.lower, ast.Constant)
         assert slc.upper is None
-        assert isinstance(slc.step, ast.Num)
+        assert isinstance(slc.step, ast.Constant)
         slc = self.get_first_expr("x[:2:2]").slice
         assert slc.lower is None
-        assert isinstance(slc.upper, ast.Num)
-        assert isinstance(slc.step, ast.Num)
+        assert isinstance(slc.upper, ast.Constant)
+        assert isinstance(slc.step, ast.Constant)
         slc = self.get_first_expr("x[1:2:3]").slice
         for field in (slc.lower, slc.upper, slc.step):
-            assert isinstance(field, ast.Num)
+            assert isinstance(field, ast.Constant)
         sub = self.get_first_expr("x[1,2,3]")
         slc = sub.slice
         assert isinstance(slc, ast.Index)
@@ -1183,27 +1203,30 @@ class TestAstBuilder:
         assert len(slc.dims) == 2
         complex_slc = slc.dims[1]
         assert isinstance(complex_slc, ast.Slice)
-        assert isinstance(complex_slc.lower, ast.Num)
-        assert isinstance(complex_slc.upper, ast.Num)
+        assert isinstance(complex_slc.lower, ast.Constant)
+        assert isinstance(complex_slc.upper, ast.Constant)
         assert complex_slc.step is None
 
     def test_ellipsis(self):
         e = self.get_first_expr("...")
-        assert isinstance(e, ast.Ellipsis)
+        assert isinstance(e, ast.Constant)
+        assert self.space.is_w(e.value, self.space.w_Ellipsis)
+
         sub = self.get_first_expr("x[...]")
-        assert isinstance(sub.slice.value, ast.Ellipsis)
+        assert isinstance(sub.slice.value, ast.Constant)
+        assert self.space.is_w(sub.slice.value.value, self.space.w_Ellipsis)
 
     def test_string(self):
         space = self.space
         s = self.get_first_expr("'hi'")
-        assert isinstance(s, ast.Str)
-        assert space.eq_w(s.s, space.wrap("hi"))
+        assert isinstance(s, ast.Constant)
+        assert space.eq_w(s.value, space.wrap("hi"))
         s = self.get_first_expr("'hi' ' implicitly' ' extra'")
-        assert isinstance(s, ast.Str)
-        assert space.eq_w(s.s, space.wrap("hi implicitly extra"))
+        assert isinstance(s, ast.Constant)
+        assert space.eq_w(s.value, space.wrap("hi implicitly extra"))
         s = self.get_first_expr("b'hi' b' implicitly' b' extra'")
-        assert isinstance(s, ast.Bytes)
-        assert space.eq_w(s.s, space.newbytes("hi implicitly extra"))
+        assert isinstance(s, ast.Constant)
+        assert space.eq_w(s.value, space.newbytes("hi implicitly extra"))
         pytest.raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
         sentence = u"Die Männer ärgern sich!"
         source = u"# coding: utf-7\nstuff = '%s'" % (sentence,)
@@ -1211,8 +1234,8 @@ class TestAstBuilder:
         tree = self.parser.parse_source(source.encode("utf-7"), info)
         assert info.encoding == "utf-7"
         s = ast_from_node(space, tree, info).body[0].value
-        assert isinstance(s, ast.Str)
-        assert space.eq_w(s.s, space.wrap(sentence))
+        assert isinstance(s, ast.Constant)
+        assert space.eq_w(s.value, space.wrap(sentence))
 
     def test_string_pep3120(self):
         space = self.space
@@ -1222,8 +1245,8 @@ class TestAstBuilder:
         tree = self.parser.parse_source(source.encode("utf-8"), info)
         assert info.encoding == "utf-8"
         s = ast_from_node(space, tree, info).body[0].value
-        assert isinstance(s, ast.Str)
-        assert space.eq_w(s.s, space.wrap(japan))
+        assert isinstance(s, ast.Constant)
+        assert space.eq_w(s.value, space.wrap(japan))
 
     def test_name_pep3131(self):
         assign = self.get_first_stmt("日本 = 32")
@@ -1256,8 +1279,8 @@ class TestAstBuilder:
         tree = self.parser.parse_source(source.encode("Latin-1"), info)
         assert info.encoding == "iso-8859-1"
         s = ast_from_node(space, tree, info).body[0].value
-        assert isinstance(s, ast.Str)
-        assert space.eq_w(s.s, space.wrap(u'Ç'))
+        assert isinstance(s, ast.Constant)
+        assert space.eq_w(s.value, space.wrap(u'Ç'))
 
     def test_string_bug(self):
         space = self.space
@@ -1266,14 +1289,14 @@ class TestAstBuilder:
         tree = self.parser.parse_source(source, info)
         assert info.encoding == "utf8"
         s = ast_from_node(space, tree, info).body[0].value
-        assert isinstance(s, ast.Str)
-        assert space.eq_w(s.s, space.wrap(u'x \xe9 \n'))
+        assert isinstance(s, ast.Constant)
+        assert space.eq_w(s.value, space.wrap(u'x \xe9 \n'))
 
     def test_number(self):
         def get_num(s):
             node = self.get_first_expr(s)
-            assert isinstance(node, ast.Num)
-            value = node.n
+            assert isinstance(node, ast.Constant)
+            value = node.value
             assert isinstance(value, W_Root)
             return value
         space = self.space
@@ -1413,8 +1436,9 @@ class TestAstBuilder:
         assert isinstance(expr.right, ast.Name)
         # imatmul is tested earlier search for @=
     
-    def test_asyncFunctionDef(self):
-        mod = self.get_ast("async def f():\n await something()")
+    @pytest.mark.parametrize('with_async_hacks', [False, True])
+    def test_asyncFunctionDef(self, with_async_hacks):
+        mod = self.get_ast("async def f():\n await something()", with_async_hacks=with_async_hacks)
         assert isinstance(mod, ast.Module)
         assert len(mod.body) == 1
         asyncdef = mod.body[0]
@@ -1433,8 +1457,9 @@ class TestAstBuilder:
         assert func.id == 'something'
         assert func.ctx == ast.Load
     
-    def test_asyncFor(self):
-        mod = self.get_ast("async def f():\n async for e in i: 1\n else: 2")
+    @pytest.mark.parametrize('with_async_hacks', [False, True])
+    def test_asyncFor(self, with_async_hacks):
+        mod = self.get_ast("async def f():\n async for e in i: 1\n else: 2", with_async_hacks=with_async_hacks)
         assert isinstance(mod, ast.Module)
         assert len(mod.body) == 1
         asyncdef = mod.body[0]
@@ -1448,13 +1473,14 @@ class TestAstBuilder:
         assert isinstance(asyncfor.iter, ast.Name)
         assert len(asyncfor.body) == 1
         assert isinstance(asyncfor.body[0], ast.Expr)
-        assert isinstance(asyncfor.body[0].value, ast.Num)
+        assert isinstance(asyncfor.body[0].value, ast.Constant)
         assert len(asyncfor.orelse) == 1
         assert isinstance(asyncfor.orelse[0], ast.Expr)
-        assert isinstance(asyncfor.orelse[0].value, ast.Num)
+        assert isinstance(asyncfor.orelse[0].value, ast.Constant)
     
-    def test_asyncWith(self):
-        mod = self.get_ast("async def f():\n async with a as b: 1")
+    @pytest.mark.parametrize('with_async_hacks', [False, True])
+    def test_asyncWith(self, with_async_hacks):
+        mod = self.get_ast("async def f():\n async with a as b: 1", with_async_hacks=with_async_hacks)
         assert isinstance(mod, ast.Module)
         assert len(mod.body) == 1
         asyncdef = mod.body[0]
@@ -1471,10 +1497,11 @@ class TestAstBuilder:
         assert isinstance(asyncitem.optional_vars, ast.Name)
         assert len(asyncwith.body) == 1
         assert isinstance(asyncwith.body[0], ast.Expr)
-        assert isinstance(asyncwith.body[0].value, ast.Num)
+        assert isinstance(asyncwith.body[0].value, ast.Constant)
 
-    def test_asyncYield(self):
-        mod = self.get_ast("async def f():\n yield 5")
+    @pytest.mark.parametrize('with_async_hacks', [False, True])
+    def test_asyncYield(self, with_async_hacks):
+        mod = self.get_ast("async def f():\n yield 5", with_async_hacks=with_async_hacks)
         assert isinstance(mod, ast.Module)
         assert len(mod.body) == 1
         asyncdef = mod.body[0]
@@ -1485,16 +1512,39 @@ class TestAstBuilder:
         expr = asyncdef.body[0]
         assert isinstance(expr, ast.Expr)
         assert isinstance(expr.value, ast.Yield)
-        assert isinstance(expr.value.value, ast.Num)
+        assert isinstance(expr.value.value, ast.Constant)
 
-    def test_asyncComp(self):
-        mod = self.get_ast("async def f():\n [i async for b in c]")
+    @pytest.mark.parametrize('with_async_hacks', [False, True])
+    def test_asyncComp(self, with_async_hacks):
+        mod = self.get_ast("async def f():\n [i async for b in c]", with_async_hacks=with_async_hacks)
         asyncdef = mod.body[0]
         expr = asyncdef.body[0]
         comp = expr.value.generators[0]
         assert comp.target.id == 'b'
         assert comp.iter.id == 'c'
         assert comp.is_async is True
+
+    def test_without_async_hacks(self):
+        with pytest.raises(SyntaxError):
+            self.get_ast("await = 1", with_async_hacks=False)
+
+        mod = self.get_ast("await x()", with_async_hacks=False)
+        assert isinstance(mod.body[0].value, ast.Await)
+
+        mod = self.get_ast("async for x in y: pass", with_async_hacks=False)
+        assert isinstance(mod.body[0], ast.AsyncFor)
+
+    def test_with_async_hacks(self):
+        mod = self.get_ast("await = 1", with_async_hacks=True)
+        assert isinstance(mod.body[0], ast.Assign)
+        assert isinstance(mod.body[0].targets[0], ast.Name)
+        assert mod.body[0].targets[0].id == "await"
+
+        with pytest.raises(SyntaxError):
+            self.get_ast("await x()", with_async_hacks=True)
+
+        with pytest.raises(SyntaxError):
+            self.get_ast("await x()", with_async_hacks=True)
 
     def test_decode_error_in_string_literal(self):
         input = "u'\\x'"
@@ -1518,9 +1568,417 @@ class TestAstBuilder:
         mod = self.get_ast('x=1\nf"{    x + 1}"')
         assert mod.body[1].value.values[0].value.lineno == 2
         assert mod.body[1].value.values[0].value.col_offset == 7
+        assert mod.body[1].value.values[0].value.end_lineno == 2
+        assert mod.body[1].value.values[0].value.end_col_offset == 12
 
     def test_wrong_async_def_col_offset(self):
         mod = self.get_ast("async def f():\n pass")
         asyncdef = mod.body[0]
         assert asyncdef.col_offset == 0
+
+    def get_first_typed_stmt(self, source):
+        return self.get_first_stmt(source, flags=consts.PyCF_TYPE_COMMENTS)
+
+    def test_type_comments(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
+        assign = self.get_first_typed_stmt("a = 5 # type: int")
+        assert eq_w(assign.type_comment, w('int'))
+        lines = (
+            "def func(\n"
+            "  a, # type: List[int]\n"
+            "  b = 5, # type: int\n"
+            "  c = None\n"
+            "): pass"
+        )
+        func = self.get_first_typed_stmt(lines)
+        args = func.args
+        assert eq_w(args.args[0].type_comment, w("List[int]"))
+        assert eq_w(args.args[1].type_comment, w("int"))
+        assert self.space.is_w(args.args[2].type_comment, self.space.w_None)
+
+    def test_type_comments_func_body(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
+        source = textwrap.dedent("""\
+        def foo():
+            # type: () -> int
+            pass
+        """)
+        func = self.get_first_typed_stmt(source)
+        assert eq_w(func.type_comment, w("() -> int"))
+
+        source = textwrap.dedent("""\
+        def foo(): # type: () -> int
+            pass
+        """)
+        func = self.get_first_typed_stmt(source)
+        assert eq_w(func.type_comment, w("() -> int"))
+
+    def test_type_comments_statements(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
+        asyncdef = textwrap.dedent("""\
+        async def foo():
+            # type: () -> int
+            return await bar()
+        """)
+        node = self.get_first_typed_stmt(asyncdef)
+        assert eq_w(node.type_comment, w("() -> int"))
+
+        nonasciidef = textwrap.dedent("""\
+        def foo():
+            # type: () -> àçčéñt
+            pass
+        """)
+        node = self.get_first_typed_stmt(nonasciidef)
+        assert eq_w(node.type_comment, w("() -> àçčéñt"))
+
+        forstmt = textwrap.dedent("""\
+        for a in []:  # type: int
+            pass
+        """)
+        node = self.get_first_typed_stmt(forstmt)
+        assert eq_w(node.type_comment, w("int"))
+
+        withstmt = textwrap.dedent("""\
+        with context() as a:  # type: int
+            pass
+        """)
+        node = self.get_first_typed_stmt(withstmt)
+        assert eq_w(node.type_comment, w("int"))
+
+        vardecl = textwrap.dedent("""\
+        a = 0  # type: int
+        """)
+        node = self.get_first_typed_stmt(vardecl)
+        assert eq_w(node.type_comment, w("int"))
+
+    def test_type_ignore(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
+        module = self.get_ast(textwrap.dedent("""\
+        import x # type: ignore
+        # type: ignore@abc
+        test = 1 # type: ignore
+        if test: # type: ignore
+            ...
+            ...
+            ...
+            with x() as y: # type: ignore@def
+                ...
+        """), flags=consts.PyCF_TYPE_COMMENTS)
+
+        expecteds = [
+            (1, ''),
+            (2, '@abc'),
+            (3, ''),
+            (4, ''),
+            (8, '@def')
+        ]
+
+        assert all([
+            eq_w(type_ignore.tag, w(expected[1]))
+            and type_ignore.lineno == expected[0]
+            for type_ignore, expected in zip(module.type_ignores, expecteds)
+        ])
+
+    def test_type_comments_function_args(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
+        module = self.get_ast(textwrap.dedent("""\
+        def fa(
+            a = 1,  # type: 1
+        ):
+            pass
+
+        def fa(
+            a = 1  # type: 1
+        ):
+            pass
+
+        def fab(
+            a,  # type: 1
+            b,  # type: 2
+        ):
+            pass
+
+        def fab(
+            a,  # type: 1
+            b  # type: 2
+        ):
+            pass
+
+        def fv(
+            *v,  # type: 1
+        ):
+            pass
+
+        def fv(
+            *v # type: 1
+        ):
+            pass
+
+        def fk(
+            **k,  # type: 1
+        ):
+            pass
+
+        def fk(
+            **k  # type: 1
+        ):
+            pass
+
+        def fvk(
+            *v,  # type: 1
+            **k,  # type: 2
+        ):
+            pass
+
+        def fvk(
+            *v,  # type: 1
+            **k  # type: 2
+        ):
+            pass
+
+        def fav(
+            a,  # type: 1
+            *v,  # type: 2
+        ):
+            pass
+
+        def fav(
+            a,  # type: 1
+            *v  # type: 2
+        ):
+            pass
+
+        def fak(
+            a,  # type: 1
+            **k,  # type: 2
+        ):
+            pass
+
+        def fak(
+            a,  # type: 1
+            **k  # type: 2
+        ):
+            pass
+
+        def favk(
+            a,  # type: 1
+            *v,  # type: 2
+            **k,  # type: 3
+        ):
+            pass
+
+        def favk(
+            a,  # type: 1
+            *v,  # type: 2
+            **k  # type: 3
+        ):
+            pass
+
+        def fkwo(
+            a, # type: 1
+            *,
+            b  # type: 2
+        ):
+            pass
+        """), flags=consts.PyCF_TYPE_COMMENTS)
+
+        for function in module.body:
+            args = function.args
+            all_args = []
+            all_args.extend(args.args)
+            all_args.extend(args.kwonlyargs or [])
+            if args.vararg:
+                all_args.append(args.vararg)
+            if args.kwarg:
+                all_args.append(args.kwarg)
+            assert all([
+                eq_w(arg.type_comment, w(str(i)))
+                for i, arg in enumerate(all_args, 1)
+            ])
+
+    def test_double_type_comment(self):
+        with pytest.raises(SyntaxError) as excinfo:
+            tree = self.get_ast(textwrap.dedent("""\
+            def foo():  # type: () -> int
+                # type: () -> str
+                return test
+            """), flags=consts.PyCF_TYPE_COMMENTS)
+        assert excinfo.value.msg.startswith("Cannot have two type comments on def")
+
+    def test_invalid_type_comments(self):
+        def check_both_ways(source):
+            self.get_ast(source) # this is fine, no type_comments
+            with pytest.raises(SyntaxError):
+                self.get_ast(source, flags=consts.PyCF_TYPE_COMMENTS)
+
+        check_both_ways("pass  # type: int\n")
+        check_both_ways("foo()  # type: int\n")
+        check_both_ways("x += 1  # type: int\n")
+        check_both_ways("while True:  # type: int\n  continue\n")
+        check_both_ways("while True:\n  continue  # type: int\n")
+        check_both_ways("try:  # type: int\n  pass\nfinally:\n  pass\n")
+        check_both_ways("try:\n  pass\nfinally:  # type: int\n  pass\n")
+        check_both_ways("pass  # type: ignorewhatever\n")
+        check_both_ways("pass  # type: ignoreé\n")
+
+    def test_walrus(self):
+        mod = self.get_ast("(a := 1)")
+        expr = mod.body[0].value
+        assert isinstance(expr, ast.NamedExpr)
+        assert expr.target.id == 'a'
+        assert expr.target.ctx == ast.Store
+        assert isinstance(expr.value, ast.Constant)
+
+    def test_func_type(self):
+        func = self.get_ast("() -> int", p_mode="func_type")
+        assert len(func.argtypes) == 0
+        assert isinstance(func.returns, ast.Name)
+        assert func.returns.id == 'int'
+
+        func = self.get_ast("(str, int) -> str", p_mode="func_type")
+        assert len(func.argtypes) == 2
+        assert [arg_type.id for arg_type in func.argtypes] == ['str', 'int']
+        assert isinstance(func.returns, ast.Name)
+
+    def test_constant_kind(self):
+        expr = self.get_first_expr("'bruh'")
+        assert isinstance(expr, ast.Constant)
+        assert self.space.is_none(expr.kind)
+
+        expr = self.get_first_expr("u'bruh'")
+        assert isinstance(expr, ast.Constant)
+        assert self.space.eq_w(expr.kind, self.space.wrap("u"))
+
+    def test_end_positions(self):
+        s = "a + b"
+        expr = self.get_first_expr(s)
+        assert expr.end_lineno == expr.lineno
+        assert expr.col_offset + len(s) == expr.end_col_offset
+
+        s = '''def func(x: int,
+         *args: str,
+         z: float = 0,
+         **kwargs: Any) -> bool:
+    return True'''
+        fdef = self.get_ast(s).body[0]
+        assert fdef.end_lineno == 5
+        assert fdef.end_col_offset == 15
+        assert fdef.get_source_segment(s) == s
+
+        s = 'lambda a, b, *c: (a + b) * c'
+        fdef = self.get_ast(s).body[0].value
+        assert fdef.get_source_segment(s) == s
+        assert fdef.args.args[0].get_source_segment(s) == "a"
+        assert fdef.body.get_source_segment(s) == "(a + b) * c"
+
+        s = '( ( ( a ) ) ) ( )'
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert fdef.get_source_segment(s) == s
+
+        s = "a.b"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
+
+        s = "a[x:y]"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
+
+        s = "f(x for x in y)"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        gen = tree.args[0]
+        assert gen.end_col_offset == len(s) - 1
+        assert gen.col_offset == 2
+        assert fdef.get_source_segment(s) == s
+
+        s = "(x for x in y)"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+
+        s = "[x for x in y]"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
+
+        s = "{x for x in y}"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
+
+        s = "{x: x+1 for x in y}"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
+
+    def test_binop_offset_bug(self):
+        s = "1 + 2+3+4"
+        tree = self.get_first_expr(s)
+        assert tree.col_offset == 0
+        assert tree.end_col_offset == len(s)
+
+        parent_binop = self.get_first_expr('4+5+6+7')
+        child_binop = parent_binop.left
+        grandchild_binop = child_binop.left
+        assert parent_binop.col_offset == 0
+        assert parent_binop.end_col_offset == 7
+        assert child_binop.col_offset == 0
+        assert child_binop.end_col_offset == 5
+        assert grandchild_binop.col_offset == 0
+        assert grandchild_binop.end_col_offset == 3
+
+    def test_binop_paren_bug(self):
+        s = "(    1 + 2)"
+        tree = self.get_first_expr(s)
+        assert tree.col_offset == 5
+        assert tree.end_col_offset == len(s) - 1
+
+    def test_tuple_pos_bug(self):
+        s = "(a, bccccccccccccccccccccc)"
+        tree = self.get_first_expr(s)
+        assert tree.col_offset == 0
+        assert tree.end_col_offset == len(s)
+
+    def test_tuple_assign_pos_bug(self):
+        s = "(a, b) = c"
+        tree = self.get_ast(s)
+        assert tree.body[0].targets[0].col_offset == 0
+        assert tree.body[0].targets[0].end_col_offset == 6
+
+    def test_dotted_name_bug(self):
+        tree = self.get_ast('@a.b.c\ndef f(): pass')
+        attr_b = tree.body[0].decorator_list[0].value
+        assert attr_b.end_col_offset == 4
+
+    def test_get_source_segment(self):
+        s = "a + (b + c)"
+        tree = self.get_first_expr(s)
+        assert tree.get_source_segment(s) == s
+        assert tree.get_source_segment(s, padded=True) == s
+        # single line, no padding
+        assert tree.right.get_source_segment(s) == "b + c"
+        assert tree.right.get_source_segment(s, padded=True) == "b + c"
+
+        # padding
+        s = "a + (b \n + c)"
+        tree = self.get_first_expr(s)
+        assert tree.get_source_segment(s) == s
+        assert tree.get_source_segment(s, padded=True) == s
+        assert tree.right.get_source_segment(s) == "b \n + c"
+        assert tree.right.get_source_segment(s, padded=True) == "     b \n + c"
+
+    def test_fstring_mismatch(self):
+        with pytest.raises(SyntaxError) as excinfo:
+            tree = self.get_ast("f'{((}')")
+        assert excinfo.value.msg == "unmatched ')'"
+
 

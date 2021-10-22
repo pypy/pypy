@@ -31,6 +31,7 @@ class MissingDependenciesError(Exception):
 cffi_build_scripts = collections.OrderedDict([
     ("_ctypes._ctypes_cffi",
      "_ctypes/_ctypes_build.py" if sys.platform == 'darwin' else None),
+    ("_pypy_util_cffi_inner", "_pypy_util_build.py"), # this needs to come before ssl
     ("_blake2", "_blake2/_blake2_build.py"),
     ("_ssl", "_ssl_build.py"),
     ("sqlite3", "_sqlite3_build.py"),
@@ -45,6 +46,7 @@ cffi_build_scripts = collections.OrderedDict([
     # ("_decimal", "_decimal_build.py"),  # issue 3024
     ("_sha3", "_sha3/_sha3_build.py"),
     ("xx", None),    # for testing: 'None' should be completely ignored
+    ("_posixshmem", "_posixshmem_build.py" if sys.platform != "win32" else None),
     ])
 
 # for distribution, we may want to fetch dependencies not provided by
@@ -180,15 +182,25 @@ def _build_dependency(name, patches=[]):
 
 def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                                  embed_dependencies=False, rebuild=False):
+    """
+    Entry point for building the cffi c-extension modules. 
+    pypy_c is a pypy3 interpreter
+    options is the parsed options
+    basedir is the pypy-source base directory
+    embed_dependencies will download and build the external libraries in
+        cffi_dependencies and link to them statically
+    rebuild will force rebuilding a module
+    only will only build the modules in that list rather than all in cffi_build_scripts
+    """
     from rpython.tool.runsubprocess import run_subprocess
     print('calling create_cffi_import_libraries with "embed_dependencies"', embed_dependencies)
 
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
                   ignore_errors=True)
+    pypy3 = str(pypy_c)
     env = os.environ
     if sys.platform == 'win32':
-        externals_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                        '..', '..', 'externals'))
+        externals_path = os.path.abspath(os.path.join(basedir, 'externals'))
         # Needed for buildbot builds. On conda this is not needed. 
         if os.path.exists(externals_path):
             env = os.environ.copy()
@@ -196,10 +208,22 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             env['LIB'] = externals_path + r'\lib;' + env.get('LIB', '')
             env['PATH'] = externals_path + r'\bin;' + env.get('PATH', '')
     else:
-        env['CFLAGS'] = '-fPIC ' + env.get('CFLAGS', '')
-    status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
+        # normally, this would be correctly added by setuptools/distutils, but
+        # we moved this for python3.8, and the ensurepip setuptools has not
+        # caught up yet. It needs at least setuptools-58.2 in ensurepip
+        status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'from sysconfig import get_config_var as gcv; print(gcv("INCLUDEPY"))'])
+        stdout = stdout.decode('utf-8')
+        if status != 0:
+            print("stdout:")
+            print(stdout)
+            print("stderr:")
+            print(stderr.decode('utf-8'))
+            return list(cffi_build_scripts.items())
+        include_path = stdout.strip()
+        env['CFLAGS'] = ' '.join(('-fPIC', '-I' + include_path, env.get('CFLAGS', '')))
+    status, stdout, stderr = run_subprocess(pypy3, ['-c', 'import setuptools'])
     if status  != 0:
-        status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
+        status, stdout, stderr = run_subprocess(pypy3, ['-m', 'ensurepip'])
     failures = []
 
     for key, module in cffi_build_scripts.items():
@@ -210,7 +234,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             continue
         if not rebuild:
             # the key is the module name, has it already been built?
-            status, stdout, stderr = run_subprocess(str(pypy_c),
+            status, stdout, stderr = run_subprocess(pypy3,
                                          ['-c', 'import %s' % key], env=env)
             if status  == 0:
                 print('*', ' %s already built' % key, file=sys.stderr)
@@ -240,8 +264,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 '-L{}/usr/lib {}'.format(deps_destdir, env.get('LDFLAGS', ''))
 
         try:
-            status, stdout, stderr = run_subprocess(str(pypy_c), args,
-                                                    cwd=cwd, env=env)
+            status, stdout, stderr = run_subprocess(pypy3, args, cwd=cwd, env=env)
             if status != 0:
                 print("stdout:")
                 print(stdout.decode('utf-8'), file=sys.stderr)
@@ -253,9 +276,13 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             failures.append((key, module))
         else:
             # Make sure it worked
-            status, stdout, stderr = run_subprocess(str(pypy_c),
-                         ['-c', "print('testing {0}'); import {0}".format(key)],
-                         env=env)
+            test_script = "print('testing {0}'); import {0}".format(key)
+            if sys.platform == 'win32': 
+                externals_path = os.path.abspath(os.path.join(basedir, 'externals'))
+                test_script = ("import os; os.add_dll_directory(r'" +
+                               externals_path + r'\bin'  + "');" + test_script)
+            status, stdout, stderr = run_subprocess(pypy3, ['-c', test_script],
+                                                    env=env)
             if status != 0:
                 failures.append((key, module))
                 print("stdout:")
@@ -294,7 +321,7 @@ if __name__ == '__main__':
     exename = join(os.getcwd(), args.exefile)
     basedir = exename
 
-    while not os.path.exists(join(basedir,'include')):
+    while not os.path.exists(join(basedir,'lib_pypy')):
         _basedir = os.path.dirname(basedir)
         if _basedir == basedir:
             raise ValueError('interpreter %s not inside pypy repo', 

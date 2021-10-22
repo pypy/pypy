@@ -125,6 +125,10 @@ class Module(MixedModule):
 
         'get_contextvar_context'    : 'interp_magic.get_contextvar_context',
         'set_contextvar_context'    : 'interp_magic.set_contextvar_context',
+
+        'write_unraisable'          : 'interp_magic.write_unraisable',
+
+        'PickleBuffer'              : 'interp_buffer.W_PickleBuffer',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
@@ -169,3 +173,7 @@ class Module(MixedModule):
             self.extra_interpdef('revdb_stop', 'interp_magic.revdb_stop')
         else:
             self.extra_interpdef('revdb_stop', 'space.w_None')
+
+        if not self.space.config.translating:
+            self.extra_interpdef(
+                '_testing_clear_audithooks', 'interp_magic._testing_clear_audithooks')

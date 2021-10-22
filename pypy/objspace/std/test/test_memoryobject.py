@@ -215,6 +215,15 @@ class AppTestMemoryView(object):
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
 
+    def test_hex_sep(self):
+        res = memoryview(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('.')
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        with raises(ValueError):
+            bytes([1, 2, 3]).hex("abc")
+        assert memoryview(
+                bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('?', 4) == \
+               "73616e?74612063?6c617573"
+
     def test_hex_long(self):
         x = b'01' * 100000
         m1 = memoryview(x)
@@ -309,6 +318,26 @@ class AppTestMemoryView(object):
         raises(NotImplementedError, m.__getitem__, (slice(0,1,1), slice(0,1,2)))
         raises(NotImplementedError, m.__setitem__, (slice(0,1,1), slice(0,1,2)), 123)
 
+    def test_toreadonly(self):
+        b = bytearray(b"abc")
+        m = memoryview(b)
+        m[0] = ord("c")
+        m2 = m.toreadonly()
+        assert m2.readonly
+        with raises(TypeError):
+            m2[0] = ord('x')
+        assert m2.tolist() == m.tolist()
+        m2.release()
+        assert len(m.tolist()) == 3 # does not crash
+
+    def test_toreadonly_slice_is_readonly(self):
+        b = bytearray(b"abcdefghi")
+        m = memoryview(b)
+        m[0] = ord("c")
+        m2 = m.toreadonly()
+        m3 = m2[1:4]
+        m3.readonly
+
 class AppTestCtypes(object):
     spaceconfig = dict(usemodules=['sys', '_rawffi'])
 
@@ -326,8 +355,9 @@ class AppTestCtypes(object):
 
 class MockBuffer(BufferView):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
-                 w_itemsize, w_strides, w_shape):
+                 w_itemsize, w_strides, w_shape, w_obj=None):
         self.space = space
+        self.w_obj = w_obj
         self.w_arr = w_arr
         self.arr = []
         self.ndim = space.int_w(w_dim)
@@ -398,7 +428,8 @@ class W_MockArray(W_Root):
 
     def buffer_w(self, space, flags):
         return MockBuffer(space, self.w_list, self.w_dim, self.w_fmt, \
-                          self.w_size, self.w_strides, self.w_shape)
+                          self.w_size, self.w_strides, self.w_shape,
+                          w_obj=self)
 
 W_MockArray.typedef = TypeDef("MockArray", None, None, "read-write",
     __new__ = interp2app(W_MockArray.descr_new),
@@ -496,7 +527,7 @@ class AppTestMemoryViewMockBuffer(object):
 
 class AppTestMemoryViewMockBuffer(object):
     spaceconfig = dict(usemodules=['__pypy__'])
-        
+
     def test_cast_with_byteorder(self):
         import sys
         if '__pypy__' not in sys.modules:

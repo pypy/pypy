@@ -637,3 +637,12 @@ def test_int_override():
 
     c = MyComplex(0.j)
     assert int(c) == 42
+
+def test_complex_constructor_calls_index():
+    class A:
+        def __init__(self, val):
+            self.val = val
+        def __index__(self):
+            return self.val
+    assert complex(A(1), A(2)) == (1.0+2.0j)
+

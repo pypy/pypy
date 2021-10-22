@@ -27,13 +27,14 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
+from pypy.interpreter.pyparser import pygram
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
 #from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.__pypy__.interp_buffer import W_Bufferable
 from rpython.rlib.entrypoint import entrypoint_lowlevel
-from rpython.rlib.rposix import FdValidator
+from rpython.rlib.rposix import SuppressIPH
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module.exceptions import interp_exceptions
@@ -103,27 +104,27 @@ assert CONST_WSTRING == rffi.CWCHARP
 
 def fclose(fp):
     try:
-        with FdValidator(c_fileno(fp)):
+        with SuppressIPH():
             return c_fclose(fp)
     except IOError:
         return -1
 
 def fwrite(buf, sz, n, fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return c_fwrite(buf, sz, n, fp)
 
 def fread(buf, sz, n, fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return c_fread(buf, sz, n, fp)
 
 _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return _feof(fp)
 
 _ferror = rffi.llexternal('ferror', [FILEP], rffi.INT)
 def ferror(fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return _ferror(fp)
 
 pypy_decl = 'pypy_decl.h'
@@ -175,7 +176,7 @@ def copy_header_files(cts, dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
-    for name in ["pypy_macros.h"] + FUNCTIONS_BY_HEADER.keys():
+    for name in ["pypy_macros.h", "graminit.h"] + FUNCTIONS_BY_HEADER.keys():
         headers.append(udir.join(name))
     for path in cts.parsed_headers:
         headers.append(path)
@@ -655,6 +656,7 @@ SYMBOLS_C = [
     '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar',
     'PyTuple_New', '_Py_Dealloc',
+    'PyVectorcall_Call',
 ]
 if sys.platform == "win32":
     SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')
@@ -1535,6 +1537,14 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
     for header_name, header_decls in decls.iteritems():
         write_header(header_name, header_decls)
 
+    # generate graminit.h
+    graminit_h = udir.join('graminit.h')
+    graminit_h.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */')
+    for attr in dir(pygram.syms):
+        val = getattr(pygram.syms, attr)
+        graminit_h.write('#define {} {}'.format(attr, val))
+    
+
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
                          source_dir / "modsupport.c",
@@ -1560,6 +1570,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "typeobject.c",
                          source_dir / "tupleobject.c",
                          source_dir / "sliceobject.c",
+                         source_dir / "call.c",
                          ]
 if WIN32:
     separate_module_files.append(source_dir / "pythread_nt.c")
@@ -1711,7 +1722,13 @@ def setup_library(space):
             deco(func.get_wrapper(space))
 
     setup_init_functions(eci, prefix)
-    trunk_include = pypydir.dirpath() / 'include'
+    if sys.platform == "win32":
+        trunk_include = pypydir.dirpath() / 'include'
+    else:
+        from pypy.module.sys import version
+        ver = version.CPYTHON_VERSION[:2]
+        trunk_include = pypydir.dirpath() / 'include' / 'pypy{}.{}'.format(*ver)
+        trunk_include.ensure(dir=True)
     copy_header_files(cts, trunk_include, use_micronumpy)
 
 
@@ -1731,11 +1748,16 @@ def create_extension_module(space, w_spec):
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
     try:
+        # XXX does this need a fsdecoder for utf8 paths?
         ll_libname = rffi.str2charp(path)
         try:
             if WIN32:
-                # Allow other DLLs in the same directory with "path"
-                dll = rdynload.dlopenex(ll_libname)
+                from rpython.rlib import rwin32
+                # Allow other DLLs in the same directory
+                # use os.add_dll_directory for more locations
+                flags = (rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                        rwin32.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
+                dll = rdynload.dlopenex(ll_libname, flags)
             else:
                 dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:

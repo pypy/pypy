@@ -1,25 +1,42 @@
 import py
 import os.path
-from pypy.module.sys.initpath import (compute_stdlib_path, find_executable,
-                                      find_stdlib, resolvedirof,
-                                      pypy_init_home, pypy_init_free,
-                                      find_pyvenv_cfg)
+from pypy.module.sys.initpath import (compute_stdlib_path_sourcetree,
+    find_executable, find_stdlib, resolvedirof, pypy_init_home, pypy_init_free,
+    find_pyvenv_cfg)
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 from rpython.rtyper.lltypesystem import rffi
 
-def build_hierarchy(prefix):
+def build_hierarchy_srctree(prefix):
     dirname = '%d' % CPYTHON_VERSION[0]
     a = prefix.join('lib_pypy').ensure(dir=1)
     b = prefix.join('lib-python', dirname).ensure(dir=1)
     return a, b
 
+def build_hierarchy_package(prefix):
+    b = prefix.join('lib', 'pypy3.8').ensure(dir=1)
+    b.join('site.py').ensure(dir=0)
+    return b
+
 def test_find_stdlib(tmpdir):
     bin_dir = tmpdir.join('bin').ensure(dir=True)
     pypy = bin_dir.join('pypy3').ensure(file=True)
-    build_hierarchy(tmpdir)
+    build_hierarchy_srctree(tmpdir)
     path, prefix = find_stdlib(None, str(pypy))
     assert prefix == tmpdir
-    # in executable is None look for stdlib based on the working directory
+    # if executable is None look for stdlib based on the working directory
+    # see lib-python/2.7/test/test_sys.py:test_executable
+    _, prefix = find_stdlib(None, '')
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    assert prefix is not None
+    assert cwd.startswith(str(prefix))
+
+def test_find_stdlib_package(tmpdir):
+    bin_dir = tmpdir.join('bin').ensure(dir=True)
+    pypy = bin_dir.join('pypy3').ensure(file=True)
+    build_hierarchy_package(tmpdir)
+    path, prefix = find_stdlib(None, str(pypy))
+    assert prefix == tmpdir
+    # if executable is None look for stdlib based on the working directory
     # see lib-python/2.7/test/test_sys.py:test_executable
     _, prefix = find_stdlib(None, '')
     cwd = os.path.dirname(os.path.realpath(__file__))
@@ -30,7 +47,7 @@ def test_find_stdlib(tmpdir):
 def test_find_stdlib_follow_symlink(tmpdir):
     pypydir = tmpdir.join('opt', 'pypy3-xxx')
     pypy = pypydir.join('bin', 'pypy3').ensure(file=True)
-    build_hierarchy(pypydir)
+    build_hierarchy_srctree(pypydir)
     pypy_sym = tmpdir.join('pypy3_sym')
     os.symlink(str(pypy), str(pypy_sym))
     path, prefix = find_stdlib(None, str(pypy_sym))
@@ -41,20 +58,13 @@ def test_pypy_init_home():
     assert p
     s = rffi.charp2str(p)
     pypy_init_free(p)
-    print s
     assert os.path.exists(s)
 
 def test_compute_stdlib_path(tmpdir):
-    dirs = build_hierarchy(tmpdir)
-    path = compute_stdlib_path(None, str(tmpdir))
-    # we get at least 'dirs', and maybe more (e.g. plat-linux2)
+    dirs = build_hierarchy_srctree(tmpdir)
+    path = compute_stdlib_path_sourcetree(None, str(tmpdir))
+    # we get at least 'dirs'
     assert path[:len(dirs)] == map(str, dirs)
-
-def test_include_libtk(tmpdir):
-    lib_pypy, lib_python = build_hierarchy(tmpdir)
-    lib_tk = lib_python.join('lib-tk')
-    path = compute_stdlib_path(None, str(tmpdir))
-    assert lib_tk in path
 
 def test_find_executable(tmpdir, monkeypatch):
     from pypy.module.sys import initpath
@@ -133,7 +143,7 @@ def test_find_stdlib_follow_pyvenv_cfg(tmpdir):
     otherdir = tmpdir.join('otherdir').ensure(dir=True)
     bin_dir = mydir.join('bin').ensure(dir=True)
     pypy = bin_dir.join('pypy3').ensure(file=True)
-    build_hierarchy(otherdir)
+    build_hierarchy_srctree(otherdir)
     for homedir in [otherdir, otherdir.join('bin')]:
         mydir.join('pyvenv.cfg').write('home = %s\n' % (homedir,))
         _, prefix = find_stdlib(None, str(pypy))

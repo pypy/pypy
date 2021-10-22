@@ -52,8 +52,8 @@ class AppTestUnicodeData:
             ('4E00', '9FEF'),
             ('20000', '2A6D6'),
             ('2A700', '2B734'),
-            ('2B740', '2B81D'),
-            ('2B820', '2CEA1'),
+            ('2B740', '2CEA1'),
+            ('2CEB0', '2EBE0'),
         ]
         for first, last in cases:
             first = int(first, 16)
@@ -91,6 +91,11 @@ class AppTestUnicodeData:
     def test_normalize_wide(self):
         import unicodedata
         assert unicodedata.normalize('NFC', '\U000110a5\U000110ba') == '\U000110ab'
+
+    def test_is_normalized(self):
+        import unicodedata
+        assert unicodedata.is_normalized("NFC", '\U000110ab')
+        assert not unicodedata.is_normalized("NFC", '\U000110a5\U000110ba')
 
     def test_linebreaks(self):
         linebreaks = (0x0a, 0x0b, 0x0c, 0x0d, 0x85,
@@ -162,3 +167,8 @@ class AppTestUnicodeData:
     def test_11_change(self):
         import unicodedata
         assert unicodedata.name(chr(0x1f9b9)) == "SUPERVILLAIN"
+
+    def test_12_1_change(self):
+        import unicodedata
+        assert unicodedata.name(chr(0x32ff)) == 'SQUARE ERA NAME REIWA'
+

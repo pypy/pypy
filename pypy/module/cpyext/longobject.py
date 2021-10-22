@@ -70,7 +70,7 @@ def PyLong_AsUnsignedLong(space, w_long):
         # On win64 space.uint_w will succeed for 8-byte ints
         # but long is 4 bytes. So we must check manually
         raise oefmt(space.w_OverflowError,
-                    "int too large to convert to C unsigned long")
+                    "Python int too large to convert to C unsigned long")
     return rffi.cast(rffi.ULONG, val)
 
 @cpython_api([PyObject], rffi.ULONG, error=-1)
@@ -99,7 +99,7 @@ def PyLong_AsLong(space, w_long):
         # On win64 space.int_w will succeed for 8-byte ints
         # but long is 4 bytes. So we must check manually
         raise oefmt(space.w_OverflowError,
-                    "int too large to convert to C long")
+                    "Python int too large to convert to C long")
     return rffi.cast(rffi.LONG, val)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)

@@ -221,6 +221,10 @@ class W_Socket(W_Root):
                 type = SOCK_STREAM
             if proto == -1:
                 proto = 0
+        # TODO: figure out a way to not slow down the non-audit case
+        space.audit("socket.__new__",
+                    [self, space.newint(family), space.newint(type),
+                     space.newint(proto)])
         try:
             if not space.is_w(w_fileno, space.w_None):
                 if _WIN32 and space.isinstance_w(w_fileno, space.w_bytes):
@@ -329,6 +333,7 @@ class W_Socket(W_Root):
         pair (host, port); the host must refer to the local host. For raw packet
         sockets the address is a tuple (ifname, proto [,pkttype [,hatype]])
         """
+        space.audit("socket.bind", [self, w_addr])
         try:
             self.sock.bind(self.addr_from_object(space, w_addr))
         except SocketError as e:
@@ -351,6 +356,7 @@ class W_Socket(W_Root):
         Connect the socket to a remote address.  For IP sockets, the address
         is a pair (host, port).
         """
+        space.audit("socket.connect", [self, w_addr])
         while True:
             try:
                 self.sock.connect(self.addr_from_object(space, w_addr))
@@ -368,6 +374,7 @@ class W_Socket(W_Root):
             addr = self.addr_from_object(space, w_addr)
         except SocketError as e:
             raise converted_error(space, e)
+        space.audit("socket.connect", [self, w_addr])
         while True:
             error = self.sock.connect_ex(addr)
             if error != errno.EINTR:
@@ -681,6 +688,7 @@ class W_Socket(W_Root):
             # 3 args version
             flags = space.int_w(w_param2)
             w_addr = w_param3
+        space.audit("socket.sendto", [self, w_addr])
         while True:
             try:
                 addr = self.addr_from_object(space, w_addr)
@@ -706,6 +714,10 @@ class W_Socket(W_Root):
         :param w_address: needs to be a bytes-like object Can remain unspecified.
         :return: Bytes sent from the message
         """
+        if not space.is_none(w_address):
+            space.audit("socket.sendmsg", [self, w_address])
+        else:
+            space.audit("socket.sendmsg", [self, space.w_None])
         # Get the flag and address from the object space
         while True:
             try:

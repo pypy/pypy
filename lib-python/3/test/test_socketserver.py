@@ -157,27 +157,25 @@ class SocketServerTest(unittest.TestCase):
         if verbose: print("done")
 
     def stream_examine(self, proto, addr):
-        s = socket.socket(proto, socket.SOCK_STREAM)
-        s.connect(addr)
-        s.sendall(TEST_STR)
-        buf = data = receive(s, 100)
-        while data and b'\n' not in buf:
-            data = receive(s, 100)
-            buf += data
-        self.assertEqual(buf, TEST_STR)
-        s.close()
+        with socket.socket(proto, socket.SOCK_STREAM) as s:
+            s.connect(addr)
+            s.sendall(TEST_STR)
+            buf = data = receive(s, 100)
+            while data and b'\n' not in buf:
+                data = receive(s, 100)
+                buf += data
+            self.assertEqual(buf, TEST_STR)
 
     def dgram_examine(self, proto, addr):
-        s = socket.socket(proto, socket.SOCK_DGRAM)
-        if HAVE_UNIX_SOCKETS and proto == socket.AF_UNIX:
-            s.bind(self.pickaddr(proto))
-        s.sendto(TEST_STR, addr)
-        buf = data = receive(s, 100)
-        while data and b'\n' not in buf:
-            data = receive(s, 100)
-            buf += data
-        self.assertEqual(buf, TEST_STR)
-        s.close()
+        with socket.socket(proto, socket.SOCK_DGRAM) as s:
+            if HAVE_UNIX_SOCKETS and proto == socket.AF_UNIX:
+                s.bind(self.pickaddr(proto))
+            s.sendto(TEST_STR, addr)
+            buf = data = receive(s, 100)
+            while data and b'\n' not in buf:
+                data = receive(s, 100)
+                buf += data
+            self.assertEqual(buf, TEST_STR)
 
     def test_TCPServer(self):
         self.run_server(socketserver.TCPServer,
@@ -277,6 +275,13 @@ class SocketServerTest(unittest.TestCase):
         for t, s in threads:
             t.join()
             s.server_close()
+
+    def test_close_immediately(self):
+        class MyServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+            pass
+
+        server = MyServer((HOST, 0), lambda: None)
+        server.server_close()
 
     def test_tcpserver_bind_leak(self):
         # Issue #22435: the server socket wouldn't be closed if bind()/listen()
@@ -490,6 +495,22 @@ class MiscTestCase(unittest.TestCase):
         s.close()
         server.handle_request()
         self.assertEqual(server.shutdown_called, 1)
+        server.server_close()
+
+    def test_threads_reaped(self):
+        """
+        In #37193, users reported a memory leak
+        due to the saving of every request thread. Ensure that
+        not all threads are kept forever.
+        """
+        class MyServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+            pass
+
+        server = MyServer((HOST, 0), socketserver.StreamRequestHandler)
+        for n in range(10):
+            with socket.create_connection(server.server_address):
+                server.handle_request()
+        self.assertLess(len(server._threads), 10)
         server.server_close()
 
 

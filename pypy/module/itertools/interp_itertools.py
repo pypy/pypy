@@ -1641,31 +1641,46 @@ permutations(range(3), 2) --> (0,1), (0,2), (1,0), (1,2), (2,0), (2,1)""",
 
 
 class W_Accumulate(W_Root):
-    def __init__(self, space, w_iterable, w_func=None):
+    'Return series of accumulated sums (or other binary function results).'
+
+    def __init__(self, space, w_iterable, w_func, w_initial):
         self.space = space
         self.w_iterable = w_iterable
         self.w_func = w_func if not space.is_w(w_func, space.w_None) else None
         self.w_total = None
+        self.w_initial = w_initial
 
     def iter_w(self):
         return self
 
     def next_w(self):
-        w_value = self.space.next(self.w_iterable)
+        space = self.space
+        if not space.is_w(self.w_initial, space.w_None):
+            w_res = self.w_total = self.w_initial
+            self.w_initial = space.w_None
+            return w_res
+        w_value = space.next(self.w_iterable)
         if self.w_total is None:
             self.w_total = w_value
             return w_value
 
         if self.w_func is None:
-            self.w_total = self.space.add(self.w_total, w_value)
+            self.w_total = space.add(self.w_total, w_value)
         else:
-            self.w_total = self.space.call_function(self.w_func, self.w_total, w_value)
+            self.w_total = space.call_function(self.w_func, self.w_total, w_value)
         return self.w_total
 
     def reduce_w(self):
         space = self.space
         w_func = space.w_None if self.w_func is None else self.w_func
-        if self.w_total is space.w_None:      # :-(
+        if not space.is_w(self.w_initial, space.w_None):
+            w_it = W_Chain(space, space.iter(space.newlist([
+                space.newtuple([self.w_initial]),
+                self.w_iterable])))
+            return space.newtuple([space.gettypefor(W_Accumulate),
+                space.newtuple([w_it, w_func]),
+                space.w_None])
+        if self.w_total is space.w_None: # :-(
             w_it = W_Chain(space, space.iter(space.newlist([
                                      space.newtuple([self.w_total]),
                                      self.w_iterable])))
@@ -1681,9 +1696,10 @@ class W_Accumulate(W_Root):
     def setstate_w(self, space, w_state):
         self.w_total = w_state if not space.is_w(w_state, space.w_None) else None
 
-def W_Accumulate__new__(space, w_subtype, w_iterable, w_func=None):
+@unwrap_spec(w_initial=WrappedDefault(None))
+def W_Accumulate__new__(space, w_subtype, w_iterable, w_func=None, __kwonly__=None, w_initial=None):
     r = space.allocate_instance(W_Accumulate, w_subtype)
-    r.__init__(space, space.iter(w_iterable), w_func)
+    r.__init__(space, space.iter(w_iterable), w_func, w_initial)
     return r
 
 W_Accumulate.typedef = TypeDef("itertools.accumulate",

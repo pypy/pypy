@@ -22,7 +22,7 @@ def test_async_for():
             self._data = list(range(5))
             self._index = 0
         
-        async def __aiter__(self):
+        def __aiter__(self):
             return self
         
         async def __anext__(self):

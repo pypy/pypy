@@ -52,7 +52,7 @@ class W_BytearrayObject(W_Root):
                            ''.join(self._data[self._offset:]))
 
     def buffer_w(self, space, flags):
-        return SimpleView(BytearrayBuffer(self))
+        return SimpleView(BytearrayBuffer(self), w_obj=self)
 
     def bytearray_list_of_chars_w(self, space):
         return self.getdata()
@@ -481,9 +481,31 @@ class W_BytearrayObject(W_Root):
     def descr_copy(self, space):
         return self._new(self._data[self._offset:])
 
-    def descr_hex(self, space):
+    def descr_hex(self, space, w_sep=None, w_bytes_per_sep=None):
+        """
+        Create a str of hexadecimal numbers from a bytearray object.
+
+          sep
+            An optional single character or byte to separate hex bytes.
+          bytes_per_sep
+            How many bytes between separators.  Positive values count from the
+            right, negative values count from the left.
+
+        Example:
+        >>> value = bytearray([0xb9, 0x01, 0xef])
+        >>> value.hex()
+        'b901ef'
+        >>> value.hex(':')
+        'b9:01:ef'
+        >>> value.hex(':', 2)
+        'b9:01ef'
+        >>> value.hex(':', -2)
+        'b901:ef'
+        """
+        sep, bytes_per_sep = unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep)
         data = self.getdata()
-        return _array_to_hexstring(space, data, 0, 1, len(data), True)
+        return _array_to_hexstring(space, data, 0, 1, len(data), True,
+                sep=sep, bytes_per_sep=bytes_per_sep)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTEARRAY)
@@ -578,12 +600,56 @@ def _hexstring_to_array(space, s):
 HEXDIGITS = "0123456789abcdef"
 PY_SIZE_T_MAX = intmask(2**(rffi.sizeof(rffi.SIZE_T)*8-1)-1)
 
+def unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep):
+    if w_sep is not None:
+        if space.isinstance_w(w_sep, space.w_unicode):
+            sep = space.text_w(w_sep)
+        elif space.isinstance_w(w_sep, space.w_bytes):
+            sep = space.bytes_w(w_sep)
+        else:
+            raise oefmt(space.w_TypeError, "sep must be str of bytes")
+        if w_bytes_per_sep is None:
+            bytes_per_sep = 1
+        else:
+            bytes_per_sep = space.int_w(w_bytes_per_sep)
+    else:
+        sep = None
+        bytes_per_sep = 0
+    return sep, bytes_per_sep
+
+
 @specialize.arg(5) # raw access
-def _array_to_hexstring(space, buf, start, step, length, rawaccess=False):
+def _array_to_hexstring(space, buf, start, step, length, rawaccess=False, sep=None, bytes_per_sep=0):
+    from rpython.rlib.rutf8 import check_ascii, CheckError
+    if sep is not None:
+        try:
+            check_ascii(sep)
+        except CheckError:
+            raise oefmt(space.w_ValueError, "sep must be ASCII.")
+        if len(sep) != 1:
+            raise oefmt(space.w_ValueError, "sep must be length 1.")
+    else:
+        bytes_per_sep = 0
     hexstring = StringBuilder(length*2)
 
     if length > PY_SIZE_T_MAX/2:
         raise OperationError(space.w_MemoryError, space.w_None)
+
+    if bytes_per_sep == 1:
+        bytes_per_sep_prefix = 1
+
+    elif bytes_per_sep > 1:
+        bytes_per_sep_prefix = length % bytes_per_sep
+        if bytes_per_sep_prefix == 0:
+            bytes_per_sep_prefix = bytes_per_sep
+    elif bytes_per_sep < 0:
+        bytes_per_sep_prefix = -bytes_per_sep
+        bytes_per_sep = -bytes_per_sep
+    else:
+        assert bytes_per_sep == 0
+        bytes_per_sep_prefix = -1 # disable separators
+
+    sep_counter = bytes_per_sep_prefix
 
     stepped = 0
     i = start
@@ -598,8 +664,13 @@ def _array_to_hexstring(space, buf, start, step, length, rawaccess=False):
         hexstring.append(HEXDIGITS[c])
         i += step
         stepped += 1
+        sep_counter -= 1
+        if sep_counter == 0 and sep is not None and stepped != length:
+            hexstring.append(sep)
+            sep_counter = bytes_per_sep
 
-    return space.newtext(hexstring.build())
+    s = hexstring.build()
+    return space.newtext(s, len(s)) # we know it's ASCII
 
 class BytearrayDocstrings:
     """bytearray(iterable_of_ints) -> bytearray

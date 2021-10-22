@@ -287,6 +287,22 @@ class W_AbstractIntObject(W_Root):
     descr_mod, descr_rmod = _abstract_binop('mod')
     descr_divmod, descr_rdivmod = _abstract_binop('divmod')
 
+    def descr_as_integer_ratio(self, space):
+        """
+        Return integer ratio.
+
+        Return a pair of integers, whose ratio is exactly equal to the original int
+        and with a positive denominator.
+
+        >>> (10).as_integer_ratio()
+        (10, 1)
+        >>> (-10).as_integer_ratio()
+        (-10, 1)
+        >>> (0).as_integer_ratio()
+        (0, 1)
+        """
+        return space.newtuple([self.int(space), space.newint(1)])
+
 
 def _floordiv(space, x, y):
     try:
@@ -407,12 +423,8 @@ def _pow_nomod(iv, iw):
 def _pow_mod(space, iv, iw, iz):
     from rpython.rlib.rarithmetic import mulmod
 
-    if iw <= 0:
-        if iw == 0:
-            return 1 % iz   # != 1, for iz == 1 or iz < 0
-        raise oefmt(space.w_ValueError,
-                    "pow() 2nd argument cannot be negative when 3rd "
-                    "argument specified")
+    if iw == 0:
+        return 1 % iz   # != 1, for iz == 1 or iz < 0
     if iz < 0:
         try:
             iz = ovfcheck(-iz)
@@ -421,6 +433,14 @@ def _pow_mod(space, iv, iw, iz):
         iz_negative = True
     else:
         iz_negative = False
+    if iw <= 0:
+        w_iv = invmod(space, space.newint(iv), space.newint(iz))
+        assert isinstance(w_iv, W_IntObject)
+        iv = w_iv.intval
+        try:
+            iw = ovfcheck(-iw)
+        except OverflowError:
+            raise
 
     temp = iv
     ix = 1
@@ -842,6 +862,23 @@ divmod_near = applevel('''
            return q, r
 ''', filename=__file__).interphook('divmod_near')
 
+invmod = applevel('''
+def invmod(a, n):
+    if n == 1:
+        return 0
+    if a == 1:
+        return 1
+    assert n >= 0
+    b, c = 1, 0
+    while n:
+        q, r = divmod(a, n)
+        a, b, c, n = n, c, b - q*c, r
+    # at this point a is the gcd of the original inputs
+    if a == 1:
+        return b
+    raise ValueError("base is not invertible for the given modulus")
+''', filename=__file__).interphook("invmod")
+
 
 def _recover_with_smalllong(space):
     """True if there is a chance that a SmallLong would fit when an Int
@@ -891,7 +928,23 @@ def _new_baseint(space, w_value, w_base=None):
         elif space.lookup(w_value, '__trunc__') is not None:
             w_obj = space.trunc(w_value)
             if not space.isinstance_w(w_obj, space.w_int):
-                w_obj = space.int(w_obj)
+                try:
+                    w_obj = space.int(w_obj)
+                except OperationError as e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
+                    w_obj = space.index(w_obj)
+            assert isinstance(w_obj, W_AbstractIntObject)
+            return _ensure_baseint(space, w_obj)
+        elif space.lookup(w_value, '__index__') is not None:
+            w_obj = space.index(w_value)
+            if not space.is_w(space.type(w_obj), space.w_int):
+                if space.isinstance_w(w_obj, space.w_int):
+                    w_obj = space.int(w_obj)
+                else:
+                    raise oefmt(space.w_TypeError,
+                                "int() argument must be a string, a bytes-like "
+                                "object or a number, not '%T'", w_value)
             assert isinstance(w_obj, W_AbstractIntObject)
             return _ensure_baseint(space, w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
@@ -1007,6 +1060,8 @@ Base 0 means to interpret the base from the string as an integer literal.
     imag = typedef.GetSetProperty(
         W_AbstractIntObject.descr_get_imag,
         doc="the imaginary part of a complex number"),
+
+    as_integer_ratio = interp2app(W_AbstractIntObject.descr_as_integer_ratio),
 
     from_bytes = interp2app(W_AbstractIntObject.descr_from_bytes,
                             as_classmethod=True),

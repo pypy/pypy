@@ -37,11 +37,11 @@ TP_TO_DEFAULT = {
         'z': None,
         'Z': None,
         '?': False,
+        'v': 0,
 }
 
 if sys.platform == 'win32':
     TP_TO_DEFAULT['X'] = NULL
-    TP_TO_DEFAULT['v'] = 0
 
 DEFAULT_VALUE = object()
 

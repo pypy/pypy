@@ -276,6 +276,21 @@ def _has_backup():
     unverified_lib = unverified_ffi.dlopen(libname)
     return hasattr(unverified_lib, 'sqlite3_backup_init')
 
+def _get_version():
+    unverified_ffi = _FFI()
+    unverified_ffi.cdef("""
+    int sqlite3_libversion_number(void);
+    """)
+    libname = 'sqlite3'
+    if sys.platform == 'win32':
+        import os
+        _libname = os.path.join(os.path.dirname(sys.executable), libname)
+        if os.path.exists(_libname + '.dll'):
+            libname = _libname
+    unverified_lib = unverified_ffi.dlopen(libname)
+    return unverified_lib.sqlite3_libversion_number()
+
+
 if _has_load_extension():
     _ffi.cdef("int sqlite3_enable_load_extension(sqlite3 *db, int onoff);")
     _ffi.cdef("int sqlite3_load_extension(sqlite3 *db, const char *, "
@@ -289,6 +304,11 @@ int sqlite3_backup_finish(sqlite3_backup *p);
 int sqlite3_backup_remaining(sqlite3_backup *p);
 int sqlite3_backup_pagecount(sqlite3_backup *p);
 """)
+
+if _get_version() >= 3008003:
+    _ffi.cdef("""
+        #define SQLITE_DETERMINISTIC ...
+    """)
 
 libraries=['sqlite3']
 if sys.platform.startswith('freebsd'):

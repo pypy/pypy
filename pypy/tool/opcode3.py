@@ -31,15 +31,12 @@ hasjabs = []
 haslocal = []
 hascompare = []
 hasfree = []
-hasnargs = []
+hasnargs = [] # unused
 
 opmap = {}
-opname = [''] * 256
-for op in range(256): opname[op] = '<%r>' % (op,)
-del op
+opname = ['<%r>' % (op,) for op in range(256)]
 
 def def_op(name, op):
-    assert op not in opname
     opname[op] = name
     opmap[name] = op
 
@@ -63,6 +60,7 @@ def_op('ROT_TWO', 2)
 def_op('ROT_THREE', 3)
 def_op('DUP_TOP', 4)
 def_op('DUP_TOP_TWO', 5)
+def_op('ROT_FOUR', 6)
 
 def_op('NOP', 9)
 def_op('UNARY_POSITIVE', 10)
@@ -89,7 +87,8 @@ def_op('INPLACE_TRUE_DIVIDE', 29)
 def_op('GET_AITER', 50)
 def_op('GET_ANEXT', 51)
 def_op('BEFORE_ASYNC_WITH', 52)
-
+def_op('BEGIN_FINALLY', 53)
+def_op('END_ASYNC_FOR', 54)
 def_op('INPLACE_ADD', 55)
 def_op('INPLACE_SUBTRACT', 56)
 def_op('INPLACE_MULTIPLY', 57)
@@ -164,7 +163,7 @@ name_op('LOAD_GLOBAL', 116)     # Index in name list
 jabs_op('CONTINUE_LOOP', 119)   # Target address
 jrel_op('SETUP_LOOP', 120)      # Distance to target address
 jrel_op('SETUP_EXCEPT', 121)    # ""
-jrel_op('SETUP_FINALLY', 122)   # ""
+jrel_op('SETUP_FINALLY', 122)   # Distance to target address
 
 def_op('LOAD_FAST', 124)        # Local variable number
 haslocal.append(124)
@@ -175,8 +174,7 @@ haslocal.append(126)
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
 def_op('CALL_FUNCTION', 131)    # #args
-hasnargs.append(131)
-def_op('MAKE_FUNCTION', 132)    # Number of args with default values
+def_op('MAKE_FUNCTION', 132)    # Flags
 def_op('BUILD_SLICE', 133)      # Number of items
 def_op('LOAD_CLOSURE', 135)
 hasfree.append(135)
@@ -188,7 +186,6 @@ def_op('DELETE_DEREF', 138)
 hasfree.append(138)
 
 def_op('CALL_FUNCTION_KW', 141)  # #args + #kwargs
-hasnargs.append(141)
 def_op('CALL_FUNCTION_EX', 142)  # Flags
 
 jrel_op('SETUP_WITH', 143)
@@ -200,8 +197,6 @@ def_op('MAP_ADD', 147)
 def_op('LOAD_CLASSDEREF', 148)
 hasfree.append(148)
 
-jrel_op('SETUP_ASYNC_WITH', 154)
-
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
 
@@ -211,18 +206,23 @@ def_op('BUILD_MAP_UNPACK_WITH_CALL', 151)
 def_op('BUILD_TUPLE_UNPACK', 152)
 def_op('BUILD_SET_UNPACK', 153)
 
-def_op('FORMAT_VALUE', 155)   # in CPython 3.6, but available in PyPy from 3.5
-def_op("BUILD_CONST_KEY_MAP", 156)
-def_op('BUILD_STRING', 157)   # in CPython 3.6, but available in PyPy from 3.5
+jrel_op('SETUP_ASYNC_WITH', 154)
+
+def_op('FORMAT_VALUE', 155)
+def_op('BUILD_CONST_KEY_MAP', 156)
+def_op('BUILD_STRING', 157)
+
+#name_op('LOAD_METHOD', 160)
+def_op('CALL_METHOD', 161)
+
+jrel_op('CALL_FINALLY', 162)
+def_op('POP_FINALLY', 163)
 
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
-def_op('CALL_METHOD', 202)            # #args not including 'self'
 def_op('BUILD_LIST_FROM_ARG', 203)
 def_op('CALL_METHOD_KW', 204)
-
-name_op('LOAD_METHOD', 160)
-def_op('CALL_METHOD', 161)
+def_op('LOAD_REVDB_VAR', 205)         # reverse debugger (syntax example: $5)
 
 del def_op, name_op, jrel_op, jabs_op

@@ -202,7 +202,7 @@ if sys.platform == "win32":
 
     def _setfd_binary(fd):
         # Allow this to succeed on invalid fd's
-        with rposix.FdValidator(fd):
+        with rposix.SuppressIPH():
             _setmode(fd, os.O_BINARY)
 
     def ftruncate_win32(fd, size):

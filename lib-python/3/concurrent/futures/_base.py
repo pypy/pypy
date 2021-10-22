@@ -53,6 +53,10 @@ class TimeoutError(Error):
     """The operation exceeded the given deadline."""
     pass
 
+class InvalidStateError(Error):
+    """The operation is not allowed in this state."""
+    pass
+
 class _Waiter(object):
     """Provides the event that wait() and as_completed() block on."""
     def __init__(self):
@@ -381,7 +385,11 @@ class Future(object):
 
     def __get_result(self):
         if self._exception:
-            raise self._exception
+            try:
+                raise self._exception
+            finally:
+                # Break a reference cycle with the exception in self._exception
+                self = None
         else:
             return self._result
 
@@ -421,20 +429,24 @@ class Future(object):
                 timeout.
             Exception: If the call raised then that exception will be raised.
         """
-        with self._condition:
-            if self._state in [CANCELLED, CANCELLED_AND_NOTIFIED]:
-                raise CancelledError()
-            elif self._state == FINISHED:
-                return self.__get_result()
+        try:
+            with self._condition:
+                if self._state in [CANCELLED, CANCELLED_AND_NOTIFIED]:
+                    raise CancelledError()
+                elif self._state == FINISHED:
+                    return self.__get_result()
 
-            self._condition.wait(timeout)
+                self._condition.wait(timeout)
 
-            if self._state in [CANCELLED, CANCELLED_AND_NOTIFIED]:
-                raise CancelledError()
-            elif self._state == FINISHED:
-                return self.__get_result()
-            else:
-                raise TimeoutError()
+                if self._state in [CANCELLED, CANCELLED_AND_NOTIFIED]:
+                    raise CancelledError()
+                elif self._state == FINISHED:
+                    return self.__get_result()
+                else:
+                    raise TimeoutError()
+        finally:
+            # Break a reference cycle with the exception in self._exception
+            self = None
 
     def exception(self, timeout=None):
         """Return the exception raised by the call that the future represents.
@@ -516,6 +528,8 @@ class Future(object):
         Should only be used by Executor implementations and unit tests.
         """
         with self._condition:
+            if self._state in {CANCELLED, CANCELLED_AND_NOTIFIED, FINISHED}:
+                raise InvalidStateError('{}: {!r}'.format(self._state, self))
             self._result = result
             self._state = FINISHED
             for waiter in self._waiters:
@@ -529,6 +543,8 @@ class Future(object):
         Should only be used by Executor implementations and unit tests.
         """
         with self._condition:
+            if self._state in {CANCELLED, CANCELLED_AND_NOTIFIED, FINISHED}:
+                raise InvalidStateError('{}: {!r}'.format(self._state, self))
             self._exception = exception
             self._state = FINISHED
             for waiter in self._waiters:
@@ -553,11 +569,16 @@ class Executor(object):
         elif not args:
             raise TypeError("descriptor 'submit' of 'Executor' object "
                             "needs an argument")
-        elif 'fn' not in kwargs:
+        elif 'fn' in kwargs:
+            import warnings
+            warnings.warn("Passing 'fn' as keyword argument is deprecated",
+                          DeprecationWarning, stacklevel=2)
+        else:
             raise TypeError('submit expected at least 1 positional argument, '
                             'got %d' % (len(args)-1))
 
         raise NotImplementedError()
+    submit.__text_signature__ = '($self, fn, /, *args, **kwargs)'
 
     def map(self, fn, *iterables, timeout=None, chunksize=1):
         """Returns an iterator equivalent to map(fn, iter).

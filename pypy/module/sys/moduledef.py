@@ -94,15 +94,21 @@ class Module(MixedModule):
         'hash_info'             : 'system.get_hash_info(space)',
         'float_repr_style'      : 'system.get_float_repr_style(space)',
 
-        'get_coroutine_wrapper' : 'vm.get_coroutine_wrapper',
-        'set_coroutine_wrapper' : 'vm.set_coroutine_wrapper',
         'get_asyncgen_hooks'    : 'vm.get_asyncgen_hooks',
         'set_asyncgen_hooks'    : 'vm.set_asyncgen_hooks',
 
         'is_finalizing'         : 'vm.is_finalizing',
 
+        'audit'                 : 'vm.audit',
+        'addaudithook'          : 'vm.addaudithook',
+
+        'pycache_prefix'        : 'space.w_None',
+
         'get_coroutine_origin_tracking_depth': 'vm.get_coroutine_origin_tracking_depth',
         'set_coroutine_origin_tracking_depth': 'vm.set_coroutine_origin_tracking_depth',
+
+        'unraisablehook'        : 'vm.unraisablehook',
+        '__unraisablehook__'    : 'vm.unraisablehook',
         }
 
     if sys.platform == 'win32':

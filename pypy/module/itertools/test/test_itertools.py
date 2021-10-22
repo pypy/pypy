@@ -1182,6 +1182,20 @@ class AppTestItertools32:
         res = list(b)
         assert res == [True, False]
 
+    def test_accumulate_initial(self):
+        from itertools import accumulate
+        import pickle
+        assert list(accumulate([1, 1, 1], initial=1)) == [1, 2, 3, 4]
+        assert list(accumulate([1, 2, 3], initial=8)) == [8, 9, 11, 14]
+        assert list(accumulate([1, 2, 3], func=max, initial=8)) == [8] * 4
+
+        it = accumulate([10, 50, 150], initial=-10)
+        x1, x2, x3 = it.__reduce__()
+        it2 = x1(*x2)
+        it2.__setstate__(x3)
+        res2 = list(it2)
+        assert res2 == [-10, 0, 50, 200]
+
     def test_tee_concurrent(self):
         from itertools import tee
         import threading

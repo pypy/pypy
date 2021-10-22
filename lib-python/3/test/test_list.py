@@ -1,5 +1,6 @@
 import sys
 from test import list_tests
+from test.support import cpython_only
 import pickle
 import unittest
 
@@ -149,11 +150,6 @@ class ListTest(list_tests.CommonTest):
             a[:] = data
             self.assertEqual(list(it), [])
 
-    def test_step_overflow(self):
-        a = [0, 1, 2, 3, 4]
-        a[1::sys.maxsize] = [0]
-        self.assertEqual(a[3::sys.maxsize], [3])
-
     def test_no_comdat_folding(self):
         # Issue 8847: In the PGO build, the MSVC linker's COMDAT folding
         # optimization causes failures in code that relies on distinct
@@ -162,6 +158,7 @@ class ListTest(list_tests.CommonTest):
         with self.assertRaises(TypeError):
             (3,) + L([1,2])
 
+    @cpython_only
     def test_equal_operator_modifying_operand(self):
         # test fix for seg fault reported in bpo-38588 part 2.
         class X:
@@ -181,11 +178,19 @@ class ListTest(list_tests.CommonTest):
 
         list1 = [X()]
         list2 = [Y()]
-        list1 == list2 # does not segfault, result doesn't matter
+        self.assertTrue(list1 == list2)
 
         list3 = [Z()]
         list4 = [1]
-        list3 == list4 # does not segfault, result doesn't matter
+        self.assertFalse(list3 == list4)
+
+    @cpython_only
+    def test_preallocation(self):
+        iterable = [0] * 10
+        iter_size = sys.getsizeof(iterable)
+
+        self.assertEqual(iter_size, sys.getsizeof(list([0] * 10)))
+        self.assertEqual(iter_size, sys.getsizeof(list(range(10))))
 
     def test_count_index_remove_crashes(self):
         # bpo-38610: The count(), index(), and remove() methods were not

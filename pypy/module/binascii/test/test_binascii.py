@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 class AppTestBinascii(object):
     spaceconfig = dict(usemodules=['binascii'])
@@ -69,7 +70,7 @@ class AppTestBinascii(object):
             raises(self.binascii.Error, self.binascii.a2b_uu, bogus + b'  \r\n')
         #
         assert self.binascii.a2b_uu(u"!6") == b"X"
-        raises(UnicodeEncodeError, self.binascii.a2b_uu, u"caf\xe9")
+        raises(ValueError, self.binascii.a2b_uu, u"caf\xe9")
 
     def test_b2a_uu(self):
         for input, expected in [
@@ -130,7 +131,7 @@ class AppTestBinascii(object):
             raises(self.binascii.Error, self.binascii.a2b_base64, bogus)
         #
         assert self.binascii.a2b_base64(u"Yg==\n") == b"b"
-        raises(UnicodeEncodeError, self.binascii.a2b_base64, u"caf\xe9")
+        raises(ValueError, self.binascii.a2b_base64, u"caf\xe9")
 
     def test_b2a_base64(self):
         for newline in (True, False, None):
@@ -177,7 +178,7 @@ class AppTestBinascii(object):
             assert self.binascii.a2b_qp(input, header=True) == expected
         #
         assert self.binascii.a2b_qp(u"a_b", header=True) == b"a b"
-        raises(UnicodeEncodeError, self.binascii.a2b_qp, u"caf\xe9")
+        raises(ValueError, self.binascii.a2b_qp, u"caf\xe9")
 
     def test_b2a_qp(self):
         for input, flags, expected in [
@@ -261,7 +262,7 @@ class AppTestBinascii(object):
             raises(self.binascii.Error, self.binascii.a2b_hqx, bogus)
         #
         assert self.binascii.a2b_hqx("AAA:") == (b"]u", 1)
-        raises(UnicodeEncodeError, self.binascii.a2b_hqx, u"caf\xe9")
+        raises(ValueError, self.binascii.a2b_hqx, u"caf\xe9")
 
     def test_b2a_hqx(self):
         for input, expected in [
@@ -429,8 +430,25 @@ class AppTestBinascii(object):
             (b"\x00\x00\x00\xff\x00\x00", b"000000ff0000"),
             (b"\x28\x9c\xc8\xc0\x3d\x8e", b"289cc8c03d8e"),
             ]:
+            print(input, expected, self.binascii.hexlify(input))
             assert self.binascii.hexlify(input) == expected
             assert self.binascii.b2a_hex(input) == expected
+
+    def test_hexlify_sep(self):
+        res = self.binascii.hexlify(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]), '.')
+        assert res == b"73.61.6e.74.61.20.63.6c.61.75.73"
+        with raises(ValueError):
+            self.binascii.hexlify(bytes([1, 2, 3]), b"abc")
+        return
+        assert self.binascii.hexlify(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]), '?', 4) == \
+               b"73616e?74612063?6c617573"
+        assert self.binascii.hexlify(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]), '?', -4) == \
+               b"73616e74?6120636c?617573"
+        with raises(ValueError) as excinfo:
+            self.binascii.hexlify(bytes([1, 2, 3]), "ä")
+        assert "ASCII" in str(excinfo.value)
+        with raises(TypeError):
+            self.binascii.hexlify(bytes(), None, 1)
 
     def test_unhexlify(self):
         for input, expected in [
@@ -455,7 +473,7 @@ class AppTestBinascii(object):
             assert self.binascii.a2b_hex(input) == expected
             assert self.binascii.unhexlify(input.decode('ascii')) == expected
             assert self.binascii.a2b_hex(input.decode('ascii')) == expected
-        raises(UnicodeEncodeError, self.binascii.a2b_hex, u"caf\xe9")
+        raises(ValueError, self.binascii.a2b_hex, u"caf\xe9")
 
     def test_errors(self):
         binascii = self.binascii

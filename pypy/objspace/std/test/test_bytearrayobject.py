@@ -607,6 +607,17 @@ class AppTestBytesArray:
     def test_hex(self):
         assert bytearray(b'santa claus').hex() == "73616e746120636c617573"
 
+    def test_hex_sep(self):
+        res = bytearray(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('.')
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        with raises(ValueError):
+            bytes([1, 2, 3]).hex("abc")
+        assert bytearray(
+                bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('?', 4) == \
+               "73616e?74612063?6c617573"
+        res = bytearray(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('.', 0)
+        assert res == "73616e746120636c617573"
+
     def test_isascii(self):
         assert bytearray(b'hello world').isascii() is True
         assert bytearray(b'\x00\x7f').isascii() is True

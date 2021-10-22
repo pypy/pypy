@@ -109,9 +109,11 @@ def setup_context(space, stacklevel):
 
     if frame:
         w_globals = frame.get_w_globals()
+        w_filename = space.newtext(frame.pycode.co_filename)
         lineno = frame.get_last_lineno()
     else:
         w_globals = space.sys.w_dict
+        w_filename = space.newtext("sys")
         lineno = 1
 
     # setup registry
@@ -130,28 +132,6 @@ def setup_context(space, stacklevel):
         if not e.match(space, space.w_KeyError):
             raise
         w_module = space.newtext("<string>")
-
-    # setup filename
-    try:
-        w_filename = space.getitem(w_globals, space.newtext("__file__"))
-        filename = space.fsencode_w(w_filename)
-    except OperationError as e:
-        if space.text_w(w_module) == '__main__':
-            w_argv = space.sys.getdictvalue(space, 'argv')
-            if w_argv and space.len_w(w_argv) > 0:
-                w_filename = space.getitem(w_argv, space.newint(0))
-                if not space.is_true(w_filename):
-                    w_filename = space.newtext('__main__')
-            else:
-                # embedded interpreters don't have sys.argv
-                w_filename = space.newtext('__main__')
-        else:
-            w_filename = w_module
-    else:
-        lc_filename = filename.lower()
-        if lc_filename.endswith(".pyc"):
-            # strip last character
-            w_filename = space.fsdecode(space.newbytes(filename[:-1]))
 
     return (w_filename, lineno, w_module, w_registry)
 
@@ -323,7 +303,8 @@ def do_warn_explicit(space, w_category, w_message, context_w,
     if action != 'always':
         if not space.is_w(w_registry, space.w_None):
             space.setitem(w_registry, w_key, space.w_True)
-        elif action == 'once':
+
+        if action == 'once':
             if space.is_w(w_registry, space.w_None):
                 w_registry = get_once_registry(space)
             warned = update_registry(space, w_registry, w_text, w_category)

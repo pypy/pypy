@@ -4,14 +4,26 @@ Implementation of interpreter-level 'sys' routines.
 
 from rpython.rlib import jit
 from rpython.rlib.rutf8 import MAXUNICODE
+from rpython.rlib import debug
+from rpython.rlib import objectmodel
 
 from pypy.interpreter import gateway
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 
 
 # ____________________________________________________________
 
+app_hookargs = gateway.applevel("""
+from _structseq import structseqtype, structseqfield
+class UnraisableHookArgs(metaclass=structseqtype):
+    exc_type = structseqfield(0, "Exception type")
+    exc_value = structseqfield(1, "Exception value")
+    exc_traceback = structseqfield(2, "Exception traceback")
+    err_msg = structseqfield(3, "Error message")
+    object = structseqfield(4, "Object causing the exception")
+    extra_line = structseqfield(6, "Extra error lines that is PyPy specific")
+""")
 
 @unwrap_spec(depth=int)
 def _getframe(space, depth=0):
@@ -341,25 +353,6 @@ same value."""
         return space.new_interned_w_str(w_str)
     raise oefmt(space.w_TypeError, "intern() argument must be string.")
 
-def get_coroutine_wrapper(space):
-    "Return the wrapper for coroutine objects set by sys.set_coroutine_wrapper."
-    space.warn(space.newtext("get_coroutine_wrapper is deprecated"), space.w_DeprecationWarning)
-    ec = space.getexecutioncontext()
-    if ec.w_coroutine_wrapper_fn is None:
-        return space.w_None
-    return ec.w_coroutine_wrapper_fn
-
-def set_coroutine_wrapper(space, w_wrapper):
-    space.warn(space.newtext("set_coroutine_wrapper is deprecated"), space.w_DeprecationWarning)
-    "Set a wrapper for coroutine objects."
-    ec = space.getexecutioncontext()
-    if space.is_w(w_wrapper, space.w_None):
-        ec.w_coroutine_wrapper_fn = None
-    elif space.is_true(space.callable(w_wrapper)):
-        ec.w_coroutine_wrapper_fn = w_wrapper
-    else:
-        raise oefmt(space.w_TypeError, "callable expected, got %T", w_wrapper)
-
 def get_asyncgen_hooks(space):
     """get_asyncgen_hooks()
 
@@ -425,3 +418,69 @@ def set_coroutine_origin_tracking_depth(space, depth):
                 "depth must be >= 0")
     ec = space.getexecutioncontext()
     ec.coroutine_origin_tracking_depth = depth
+
+
+class AuditHolder(object):
+    _immutable_fields_ = ['hooks_w?[:]']
+
+    def __init__(self, space):
+        self.hooks_w = None
+        self.space = space
+
+    @objectmodel.dont_inline
+    @jit.unroll_safe
+    def trigger_audit_events(self, space, event, args_w):
+        w_event = space.newtext(event)
+        w_args = space.newtuple(args_w)
+        hooks_w = self.hooks_w
+        assert hooks_w is not None
+        for w_hook in hooks_w:
+            space.call_function(w_hook, w_event, w_args)
+
+
+@unwrap_spec(event="text")
+def audit(space, event, args_w):
+    """
+    audit(event, *args)
+    
+    Passes the event to any audit hooks that are attached.
+    """
+    holder = space.fromcache(AuditHolder)
+    if holder.hooks_w is None:
+        return
+    holder.trigger_audit_events(space, event, args_w)
+
+
+def addaudithook(space, w_hook):
+    """
+    addaudithook(hook)
+
+    Adds a new audit hook callback.
+    """
+    holder = space.fromcache(AuditHolder)
+    try:
+        audit(space, "sys.addaudithook", [])
+    except OperationError, e:
+        if not e.match(space, space.w_RuntimeError):
+            raise
+        # RuntimeError is ignored and we don't add the new hook
+        return
+    if holder.hooks_w is None:
+        holder.hooks_w = [w_hook]
+        debug.make_sure_not_resized(holder.hooks_w)
+    else:
+        holder.hooks_w = holder.hooks_w + [w_hook]
+
+
+
+def unraisablehook(space, w_hookargs):
+    w_type = space.getattr(w_hookargs, space.newtext("exc_type"))
+    w_value = space.getattr(w_hookargs, space.newtext("exc_value"))
+    w_tb = space.getattr(w_hookargs, space.newtext("exc_traceback"))
+    err_msg = space.text_w(space.getattr(w_hookargs, space.newtext("err_msg")))
+    w_object = space.getattr(w_hookargs, space.newtext("object"))
+    extra_line = space.text_w(space.getattr(w_hookargs, space.newtext("extra_line")))
+    OperationError.write_unraisable_default(space, w_type, w_value, w_tb, err_msg, w_object, extra_line)
+
+
+
