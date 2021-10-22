@@ -93,6 +93,10 @@ def dyld_executable_path_search(name, executable_path=None):
     # If we haven't done any searching and found a library and the
     # dylib_name starts with "@executable_path/" then construct the
     # library name.
+    if not executable_path:
+        import sys
+        if sys.prefix:
+            executable_path = os.path.join(sys.prefix, 'bin')
     if name.startswith('@executable_path/') and executable_path is not None:
         yield os.path.join(executable_path, name[len('@executable_path/'):])
 

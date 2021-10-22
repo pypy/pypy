@@ -107,7 +107,8 @@ else:
     # libffidir = py.path.local(cdir).join('src', 'libffi_msvc')
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
-        libraries = ['kernel32', 'libffi-7'],
+        # CONDA: the library is called libffi, not libffi-8
+        libraries = ['kernel32', 'libffi'],
         separate_module_sources = separate_module_sources,
         post_include_bits = post_include_bits,
         )
