@@ -88,16 +88,16 @@ inplace_operations = misc.dict_to_switch({
 })
 
 compare_operations = misc.dict_to_switch({
-    ast.Eq: 2,
-    ast.NotEq: 3,
-    ast.Lt: 0,
-    ast.LtE: 1,
-    ast.Gt: 4,
-    ast.GtE: 5,
-    ast.In: 6,
-    ast.NotIn: 7,
-    ast.Is: 8,
-    ast.IsNot: 9
+    ast.Eq: (ops.COMPARE_OP, 2),
+    ast.NotEq: (ops.COMPARE_OP, 3),
+    ast.Lt: (ops.COMPARE_OP, 0),
+    ast.LtE: (ops.COMPARE_OP, 1),
+    ast.Gt: (ops.COMPARE_OP, 4),
+    ast.GtE: (ops.COMPARE_OP, 5),
+    ast.In: (ops.CONTAINS_OP, 0),
+    ast.NotIn: (ops.CONTAINS_OP, 1),
+    ast.Is: (ops.IS_OP, 0),
+    ast.IsNot: (ops.IS_OP, 1)
 })
 
 subscr_operations = misc.dict_to_switch({
@@ -797,8 +797,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if handler.type:
                 self.emit_op(ops.DUP_TOP)
                 handler.type.walkabout(self)
-                self.emit_op_arg(ops.COMPARE_OP, 10)
-                self.emit_jump(ops.POP_JUMP_IF_FALSE, next_except, True)
+                self.emit_jump(ops.JUMP_IF_NOT_EXC_MATCH, next_except, True)
             else:
                 if i != len(tr.handlers) - 1:
                     self.error(
@@ -1287,15 +1286,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for i in range(1, ops_count):
             self.emit_op(ops.DUP_TOP)
             self.emit_op(ops.ROT_THREE)
-            op_kind = compare_operations(comp.ops[i - 1])
-            self.emit_op_arg(ops.COMPARE_OP, op_kind)
+            opcode, op_kind = compare_operations(comp.ops[i - 1])
+            self.emit_op_arg(opcode, op_kind)
             self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup, True)
             if i < (ops_count - 1):
                 comp.comparators[i].walkabout(self)
         last_op, last_comparator = comp.ops[-1], comp.comparators[-1]
         if not self._optimize_comparator(last_op, last_comparator):
             last_comparator.walkabout(self)
-        self.emit_op_arg(ops.COMPARE_OP, compare_operations(last_op))
+        opcode, op_kind = compare_operations(last_op)
+        self.emit_op_arg(opcode, op_kind)
         if ops_count > 1:
             end = self.new_block()
             self.emit_jump(ops.JUMP_FORWARD, end)

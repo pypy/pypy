@@ -660,6 +660,8 @@ _static_opcode_stack_effects = {
     ops.YIELD_VALUE: 0,
     ops.YIELD_FROM: -1,
     ops.COMPARE_OP: -1,
+    ops.IS_OP: -1,
+    ops.CONTAINS_OP: -1,
 
     ops.LOOKUP_METHOD: 1,
 
@@ -706,6 +708,7 @@ _static_opcode_stack_effects = {
     ops.JUMP_IF_FALSE_OR_POP: 0,
     ops.POP_JUMP_IF_TRUE: -1,
     ops.POP_JUMP_IF_FALSE: -1,
+    ops.JUMP_IF_NOT_EXC_MATCH: -2,
 
     ops.SETUP_ANNOTATIONS: 0,
 

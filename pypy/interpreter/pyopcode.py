@@ -209,6 +209,8 @@ class __extend__(pyframe.PyFrame):
                 next_instr = self.POP_JUMP_IF_FALSE(oparg, next_instr)
             elif opcode == opcodedesc.POP_JUMP_IF_TRUE.index:
                 next_instr = self.POP_JUMP_IF_TRUE(oparg, next_instr)
+            elif opcode == opcodedesc.JUMP_IF_NOT_EXC_MATCH.index:
+                next_instr = self.JUMP_IF_NOT_EXC_MATCH(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_ADD.index:
                 self.BINARY_ADD(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_AND.index:
@@ -273,6 +275,10 @@ class __extend__(pyframe.PyFrame):
                 self.CALL_METHOD_KW(oparg, next_instr)
             elif opcode == opcodedesc.COMPARE_OP.index:
                 self.COMPARE_OP(oparg, next_instr)
+            elif opcode == opcodedesc.IS_OP.index:
+                self.IS_OP(oparg, next_instr)
+            elif opcode == opcodedesc.CONTAINS_OP.index:
+                self.CONTAINS_OP(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_ATTR.index:
                 self.DELETE_ATTR(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_DEREF.index:
@@ -980,7 +986,7 @@ class __extend__(pyframe.PyFrame):
                     raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
         elif not space.exception_is_valid_class_w(w_2):
             raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
-        return space.newbool(space.exception_match(w_1, w_2))
+        return space.exception_match(w_1, w_2)
 
     def COMPARE_OP(self, testnum, next_instr):
         w_2 = self.popvalue()
@@ -997,19 +1003,28 @@ class __extend__(pyframe.PyFrame):
             w_result = self.space.gt(w_1, w_2)
         elif testnum == 5:
             w_result = self.space.ge(w_1, w_2)
-        elif testnum == 6:
-            w_result = self.space.contains(w_2, w_1)
-        elif testnum == 7:
-            w_result = self.space.not_(self.space.contains(w_2, w_1))
-        elif testnum == 8:
-            w_result = self.space.is_(w_1, w_2)
-        elif testnum == 9:
-            w_result = self.space.not_(self.space.is_(w_1, w_2))
-        elif testnum == 10:
-            w_result = self.cmp_exc_match(w_1, w_2)
-        else:
-            raise BytecodeCorruption("bad COMPARE_OP oparg")
         self.pushvalue(w_result)
+
+    def IS_OP(self, oparg, next_instr):
+        w_2 = self.popvalue()
+        w_1 = self.popvalue()
+        res = self.space.is_w(w_1, w_2) ^ oparg
+        self.pushvalue(self.space.newbool(res))
+
+    def CONTAINS_OP(self, oparg, next_instr):
+        w_2 = self.popvalue()
+        w_1 = self.popvalue()
+        res = self.space.contains_w(w_2, w_1) ^ oparg
+        self.pushvalue(self.space.newbool(res))
+
+    def JUMP_IF_NOT_EXC_MATCH(self, oparg, next_instr):
+        w_2 = self.popvalue()
+        w_1 = self.popvalue()
+        res = self.cmp_exc_match(w_1, w_2)
+        if res:
+            return next_instr
+        else:
+            return oparg
 
     def IMPORT_NAME(self, nameindex, next_instr):
         from pypy.module.imp.importing import import_name_fast_path
