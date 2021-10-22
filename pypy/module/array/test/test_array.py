@@ -164,28 +164,7 @@ class AppTestArray(object):
 
     def test_fromstring(self):
         a = self.array('b')
-        a.fromstring('Hi!')
-        assert len(a) == 3
-        assert a[0] == ord(b'H') and a[1] == ord(b'i') and a[2] == ord(b'!')
-        a = self.array('b')
-        a.fromstring(memoryview(b'xyz'))
-        assert len(a) == 3
-        assert a[0] == ord(b'x') and a[1] == ord(b'y') and a[2] == ord(b'z')
-        a = self.array('b')
-        a.fromstring('')
-        assert not len(a)
-
-        for t in 'bBhHiIlLfdQq':
-            a = self.array(t)
-            a.fromstring('\x00' * a.itemsize * 2)
-            assert len(a) == 2 and a[0] == 0 and a[1] == 0
-            if a.itemsize > 1:
-                raises(ValueError, a.fromstring, '\x00' * (a.itemsize - 1))
-                raises(ValueError, a.fromstring, '\x00' * (a.itemsize + 1))
-                raises(ValueError, a.fromstring, '\x00' * (2 * a.itemsize - 1))
-                raises(ValueError, a.fromstring, '\x00' * (2 * a.itemsize + 1))
-            b = self.array(t, b'\x00' * a.itemsize * 2)
-            assert len(b) == 2 and b[0] == 0 and b[1] == 0
+        assert not hasattr("a", "fromstring")
 
     def test_frombytes(self):
         import sys
@@ -473,7 +452,7 @@ class AppTestArray(object):
 
     def test_empty_tostring(self):
         a = self.array('l')
-        assert a.tostring() == b''
+        assert not hasattr(a, "tostring")
 
     def test_buffer(self):
         a = self.array('h', b'Hi')
@@ -496,7 +475,7 @@ class AppTestArray(object):
             buf[3] = b'L'
         except TypeError:
             skip("memoryview(array) returns a read-only buffer on CPython")
-        assert a.tostring() == b'helLo'
+        assert a.tobytes() == b'helLo'
 
     def test_buffer_keepalive(self):
         import sys
@@ -507,7 +486,7 @@ class AppTestArray(object):
         #
         a = self.array('b', b'foobarbaz')
         buf = memoryview(a)
-        a.fromstring(b'some extra text')
+        a.frombytes(b'some extra text')
         assert buf[:] == b'foobarbazsome extra text'
 
     def test_memview_multi_tobytes(self):
@@ -868,7 +847,7 @@ class AppTestArray(object):
             def fromlist(self, lst):
                 self.append(7)
 
-            def fromstring(self, lst):
+            def frombytes(self, lst):
                 self.append(8)
 
             def fromunicode(self, lst):
@@ -886,7 +865,7 @@ class AppTestArray(object):
         assert repr(a) == "mya('i', [7])"
 
         a = mya('b')
-        a.fromstring(b'hi')
+        a.frombytes(b'hi')
         assert repr(a) == "mya('b', [8])"
 
         a = mya('u')

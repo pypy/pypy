@@ -385,18 +385,6 @@ class W_ArrayBase(W_Root):
             self.setlen(s)
             raise
 
-    def descr_tostring(self, space):
-        """ tostring() -> bytes
-
-        Convert the array to an array of machine values and return the
-        bytes representation.
-
-        This method is deprecated. Use tobytes instead.
-        """
-        msg = "tostring() is deprecated. Use tobytes() instead."
-        space.warn(space.newtext(msg), space.w_DeprecationWarning)
-        return self.descr_tobytes(space)
-
     def descr_tobytes(self, space):
         """tobytes() -> bytes
 
@@ -410,23 +398,6 @@ class W_ArrayBase(W_Root):
         s = rffi.charpsize2str(cbuf, size * self.itemsize)
         self._charbuf_stop()
         return self.space.newbytes(s)
-
-    def descr_fromstring(self, space, w_s):
-        """ fromstring(string)
-
-        Appends items from the string, interpreting it as an array of
-        machine values, as if it had been read from a file using the
-        fromfile() method).
-
-        This method is deprecated. Use frombytes instead.
-        """
-        if self is w_s:
-            raise oefmt(space.w_ValueError,
-                        "array.fromstring(x): x cannot be self")
-        s = space.getarg_w('s#', w_s)
-        msg = "fromstring() is deprecated. Use frombytes() instead."
-        space.warn(space.newtext(msg), self.space.w_DeprecationWarning)
-        self._frombytes(space, s)
 
     def descr_frombytes(self, space, w_s):
         """frombytes(bytestring)
@@ -492,7 +463,7 @@ class W_ArrayBase(W_Root):
         """
         # XXX the following probable bug is not emulated:
         # CPython accepts a non-unicode string or a buffer, and then
-        # behaves just like fromstring(), except that it strangely truncate
+        # behaves just like frombytes(), except that it strangely truncate
         # string arguments at multiples of the unicode byte size.
         # Let's only accept unicode arguments for now.
         if self.typecode == 'u':
@@ -833,8 +804,6 @@ W_ArrayBase.typedef = TypeDef(
 
     tolist = interp2app(W_ArrayBase.descr_tolist),
     fromlist = interp2app(W_ArrayBase.descr_fromlist),
-    tostring = interp2app(W_ArrayBase.descr_tostring),
-    fromstring = interp2app(W_ArrayBase.descr_fromstring),
     tofile = interp2app(W_ArrayBase.descr_tofile),
     fromfile = interp2app(W_ArrayBase.descr_fromfile),
     fromunicode = interp2app(W_ArrayBase.descr_fromunicode),
