@@ -1436,8 +1436,10 @@ class W_UnicodeObject(W_Root):
         w_suffix = self.convert_arg_to_w_unicode(space, w_suffix)
         suffix = w_suffix._utf8
         selfval = self._utf8
-        if endswith(selfval, suffix):
-            return W_UnicodeObject(selfval[:len(suffix) - 1], self._length - w_suffix._length)
+        if suffix and endswith(selfval, suffix):
+            end = len(suffix) - 1
+            assert end >= 0
+            return W_UnicodeObject(selfval[:end], self._length - w_suffix._length)
         if type(self) is W_UnicodeObject:
             return self
         return W_UnicodeObject(selfval, self._length)

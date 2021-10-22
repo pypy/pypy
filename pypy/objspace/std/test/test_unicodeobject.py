@@ -1362,3 +1362,4 @@ class AppTestUnicodeString:
     def test_removesuffix(self):
         assert u'abc'.removesuffix(u'x') == u'abc'
         assert u'abc'.removesuffix(u'bc') == u'a'
+        assert u'abc'.removesuffix(u'') == u'abc'

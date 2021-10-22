@@ -1106,7 +1106,9 @@ class AppTestBytesObject:
     def test_removeprefix(self):
         assert b'abc'.removeprefix(b'x') == b'abc'
         assert b'abc'.removeprefix(b'ab') == b'c'
+        assert b'abc'.removeprefix(b'') == b'abc'
 
     def test_removesuffix(self):
         assert b'abc'.removesuffix(b'x') == b'abc'
         assert b'abc'.removesuffix(b'bc') == b'a'
+        assert b'abc'.removesuffix(b'') == b'abc'

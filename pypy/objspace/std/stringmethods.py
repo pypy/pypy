@@ -830,8 +830,10 @@ class StringMethods(object):
     def descr_removesuffix(self, space, w_suffix):
         suffix = self._op_val(space, w_suffix)
         selfval = self._val(space)
-        if endswith(selfval, suffix):
-            return self._new(selfval[:len(suffix) - 1])
+        if suffix and endswith(selfval, suffix):
+            end = len(suffix) - 1
+            assert end >= 0
+            return self._new(selfval[:end])
         return self._new(selfval)
 
 # ____________________________________________________________
