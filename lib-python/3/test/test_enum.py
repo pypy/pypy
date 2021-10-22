@@ -9,6 +9,7 @@ from enum import Enum, IntEnum, EnumMeta, Flag, IntFlag, unique, auto
 from io import StringIO
 from pickle import dumps, loads, PicklingError, HIGHEST_PROTOCOL
 from test import support
+from test.support import ALWAYS_EQ
 from datetime import timedelta
 
 
@@ -429,6 +430,7 @@ class TestEnum(unittest.TestCase):
                 green = 2
                 blue = 3
 
+
     def test_enum_with_value_name(self):
         class Huh(Enum):
             name = 1
@@ -592,13 +594,49 @@ class TestEnum(unittest.TestCase):
 
     def test_inherited_data_type(self):
         class HexInt(int):
+            __qualname__ = 'HexInt'
             def __repr__(self):
                 return hex(self)
         class MyEnum(HexInt, enum.Enum):
+            __qualname__ = 'MyEnum'
             A = 1
             B = 2
             C = 3
         self.assertEqual(repr(MyEnum.A), '<MyEnum.A: 0x1>')
+        globals()['HexInt'] = HexInt
+        globals()['MyEnum'] = MyEnum
+        test_pickle_dump_load(self.assertIs, MyEnum.A)
+        test_pickle_dump_load(self.assertIs, MyEnum)
+        #
+        class SillyInt(HexInt):
+            __qualname__ = 'SillyInt'
+            pass
+        class MyOtherEnum(SillyInt, enum.Enum):
+            __qualname__ = 'MyOtherEnum'
+            D = 4
+            E = 5
+            F = 6
+        self.assertIs(MyOtherEnum._member_type_, SillyInt)
+        globals()['SillyInt'] = SillyInt
+        globals()['MyOtherEnum'] = MyOtherEnum
+        test_pickle_dump_load(self.assertIs, MyOtherEnum.E)
+        test_pickle_dump_load(self.assertIs, MyOtherEnum)
+        #
+        class BrokenInt(int):
+            __qualname__ = 'BrokenInt'
+            def __new__(cls, value):
+                return int.__new__(cls, value)
+        class MyBrokenEnum(BrokenInt, Enum):
+            __qualname__ = 'MyBrokenEnum'
+            G = 7
+            H = 8
+            I = 9
+        self.assertIs(MyBrokenEnum._member_type_, BrokenInt)
+        self.assertIs(MyBrokenEnum(7), MyBrokenEnum.G)
+        globals()['BrokenInt'] = BrokenInt
+        globals()['MyBrokenEnum'] = MyBrokenEnum
+        test_pickle_exception(self.assertRaises, TypeError, MyBrokenEnum.G)
+        test_pickle_exception(self.assertRaises, PicklingError, MyBrokenEnum)
 
     def test_too_many_data_types(self):
         with self.assertRaisesRegex(TypeError, 'too many data types'):
@@ -1145,6 +1183,7 @@ class TestEnum(unittest.TestCase):
         class auto_enum(type(Enum)):
             def __new__(metacls, cls, bases, classdict):
                 temp = type(classdict)()
+                temp._cls_name = cls
                 names = set(classdict._member_names)
                 i = 0
                 for k in classdict._member_names:
@@ -1576,13 +1615,10 @@ class TestEnum(unittest.TestCase):
         self.assertEqual(list(map(int, Color)), [1, 2, 3])
 
     def test_equality(self):
-        class AlwaysEqual:
-            def __eq__(self, other):
-                return True
         class OrdinaryEnum(Enum):
             a = 1
-        self.assertEqual(AlwaysEqual(), OrdinaryEnum.a)
-        self.assertEqual(OrdinaryEnum.a, AlwaysEqual())
+        self.assertEqual(ALWAYS_EQ, OrdinaryEnum.a)
+        self.assertEqual(OrdinaryEnum.a, ALWAYS_EQ)
 
     def test_ordered_mixin(self):
         class OrderedEnum(Enum):
@@ -1925,9 +1961,9 @@ class TestEnum(unittest.TestCase):
         class_2_ref = weakref.ref(Class2())
         #
         # The exception raised by Enum creates a reference loop and thus
-        # Class2 instances will stick around until the next gargage collection
+        # Class2 instances will stick around until the next garbage collection
         # cycle, unlike Class1.
-        gc.collect()
+        gc.collect()  # For PyPy or other GCs.
         self.assertIs(class_1_ref(), None)
         self.assertIs(class_2_ref(), None)
 
@@ -2074,6 +2110,53 @@ class TestEnum(unittest.TestCase):
                 return member
         self.assertEqual(Fee.TEST, 2)
 
+    def test_miltuple_mixin_with_common_data_type(self):
+        class CaseInsensitiveStrEnum(str, Enum):
+            @classmethod
+            def _missing_(cls, value):
+                for member in cls._member_map_.values():
+                    if member._value_.lower() == value.lower():
+                        return member
+                return super()._missing_(value)
+        #
+        class LenientStrEnum(str, Enum):
+            def __init__(self, *args):
+                self._valid = True
+            @classmethod
+            def _missing_(cls, value):
+                # encountered an unknown value!
+                # Luckily I'm a LenientStrEnum, so I won't crash just yet.
+                # You might want to add a new case though.
+                unknown = cls._member_type_.__new__(cls, value)
+                unknown._valid = False
+                unknown._name_ = value.upper()
+                unknown._value_ = value
+                cls._member_map_[value] = unknown
+                return unknown
+            @property
+            def valid(self):
+                return self._valid
+        #
+        class JobStatus(CaseInsensitiveStrEnum, LenientStrEnum):
+            ACTIVE = "active"
+            PENDING = "pending"
+            TERMINATED = "terminated"
+        #
+        JS = JobStatus
+        self.assertEqual(list(JobStatus), [JS.ACTIVE, JS.PENDING, JS.TERMINATED])
+        self.assertEqual(JS.ACTIVE, 'active')
+        self.assertEqual(JS.ACTIVE.value, 'active')
+        self.assertIs(JS('Active'), JS.ACTIVE)
+        self.assertTrue(JS.ACTIVE.valid)
+        missing = JS('missing')
+        self.assertEqual(list(JobStatus), [JS.ACTIVE, JS.PENDING, JS.TERMINATED])
+        self.assertEqual(JS.ACTIVE, 'active')
+        self.assertEqual(JS.ACTIVE.value, 'active')
+        self.assertIs(JS('Active'), JS.ACTIVE)
+        self.assertTrue(JS.ACTIVE.valid)
+        self.assertTrue(isinstance(missing, JS))
+        self.assertFalse(missing.valid)
+
     def test_empty_globals(self):
         # bpo-35717: sys._getframe(2).f_globals['__name__'] fails with KeyError
         # when using compile and exec because f_globals is empty
@@ -2082,6 +2165,22 @@ class TestEnum(unittest.TestCase):
         global_ns = {}
         local_ls = {}
         exec(code, global_ns, local_ls)
+
+    @unittest.skipUnless(
+            sys.version_info[:2] == (3, 9),
+            'private variables are now normal attributes',
+            )
+    def test_warning_for_private_variables(self):
+        with self.assertWarns(DeprecationWarning):
+            class Private(Enum):
+                __corporal = 'Radar'
+        self.assertEqual(Private._Private__corporal.value, 'Radar')
+        try:
+            with self.assertWarns(DeprecationWarning):
+                class Private(Enum):
+                    __major_ = 'Hoolihan'
+        except ValueError:
+            pass
 
 
 class TestOrder(unittest.TestCase):
@@ -2430,12 +2529,13 @@ class TestFlag(unittest.TestCase):
             d = 4
             f = 6
         # Bizarre.c | Bizarre.d
-        self.assertRaisesRegex(ValueError, "5 is not a valid Bizarre", Bizarre, 5)
-        self.assertRaisesRegex(ValueError, "5 is not a valid Bizarre", Bizarre, 5)
-        self.assertRaisesRegex(ValueError, "2 is not a valid Bizarre", Bizarre, 2)
-        self.assertRaisesRegex(ValueError, "2 is not a valid Bizarre", Bizarre, 2)
-        self.assertRaisesRegex(ValueError, "1 is not a valid Bizarre", Bizarre, 1)
-        self.assertRaisesRegex(ValueError, "1 is not a valid Bizarre", Bizarre, 1)
+        name = "TestFlag.test_cascading_failure.<locals>.Bizarre"
+        self.assertRaisesRegex(ValueError, "5 is not a valid " + name, Bizarre, 5)
+        self.assertRaisesRegex(ValueError, "5 is not a valid " + name, Bizarre, 5)
+        self.assertRaisesRegex(ValueError, "2 is not a valid " + name, Bizarre, 2)
+        self.assertRaisesRegex(ValueError, "2 is not a valid " + name, Bizarre, 2)
+        self.assertRaisesRegex(ValueError, "1 is not a valid " + name, Bizarre, 1)
+        self.assertRaisesRegex(ValueError, "1 is not a valid " + name, Bizarre, 1)
 
     def test_duplicate_auto(self):
         class Dupes(Enum):
@@ -2531,6 +2631,42 @@ class TestFlag(unittest.TestCase):
                 failed,
                 'at least one thread failed while creating composite members')
         self.assertEqual(256, len(seen), 'too many composite members created')
+
+    def test_init_subclass(self):
+        class MyEnum(Flag):
+            def __init_subclass__(cls, **kwds):
+                super().__init_subclass__(**kwds)
+                self.assertFalse(cls.__dict__.get('_test', False))
+                cls._test1 = 'MyEnum'
+        #
+        class TheirEnum(MyEnum):
+            def __init_subclass__(cls, **kwds):
+                super(TheirEnum, cls).__init_subclass__(**kwds)
+                cls._test2 = 'TheirEnum'
+        class WhoseEnum(TheirEnum):
+            def __init_subclass__(cls, **kwds):
+                pass
+        class NoEnum(WhoseEnum):
+            ONE = 1
+        self.assertEqual(TheirEnum.__dict__['_test1'], 'MyEnum')
+        self.assertEqual(WhoseEnum.__dict__['_test1'], 'MyEnum')
+        self.assertEqual(WhoseEnum.__dict__['_test2'], 'TheirEnum')
+        self.assertFalse(NoEnum.__dict__.get('_test1', False))
+        self.assertFalse(NoEnum.__dict__.get('_test2', False))
+        #
+        class OurEnum(MyEnum):
+            def __init_subclass__(cls, **kwds):
+                cls._test2 = 'OurEnum'
+        class WhereEnum(OurEnum):
+            def __init_subclass__(cls, **kwds):
+                pass
+        class NeverEnum(WhereEnum):
+            ONE = 1
+        self.assertEqual(OurEnum.__dict__['_test1'], 'MyEnum')
+        self.assertFalse(WhereEnum.__dict__.get('_test1', False))
+        self.assertEqual(WhereEnum.__dict__['_test2'], 'OurEnum')
+        self.assertFalse(NeverEnum.__dict__.get('_test1', False))
+        self.assertFalse(NeverEnum.__dict__.get('_test2', False))
 
 
 class TestIntFlag(unittest.TestCase):

@@ -13,8 +13,13 @@ import time
 import typing
 import unittest
 import unittest.mock
+import os
+import weakref
+import gc
 from weakref import proxy
 import contextlib
+
+from test.support.script_helper import assert_python_ok
 
 import functools
 
@@ -164,7 +169,7 @@ class TestPartial:
         p = proxy(f)
         self.assertEqual(f.func, p.func)
         f = None
-        support.gc_collect()
+        support.gc_collect()  # For PyPy or other GCs.
         self.assertRaises(ReferenceError, getattr, p, 'func')
 
     def test_with_bound_and_unbound_methods(self):
@@ -562,11 +567,9 @@ class TestPartialMethod(unittest.TestCase):
         with self.assertRaises(TypeError):
             class B:
                 method = functools.partialmethod()
-        with self.assertWarns(DeprecationWarning):
+        with self.assertRaises(TypeError):
             class B:
                 method = functools.partialmethod(func=capture, a=1)
-        b = B()
-        self.assertEqual(b.method(2, x=3), ((b, 2), {'a': 1, 'x': 3}))
 
     def test_repr(self):
         self.assertEqual(repr(vars(self.A)['both']),
@@ -1156,6 +1159,34 @@ class TestTotalOrdering(unittest.TestCase):
                     method_copy = pickle.loads(pickle.dumps(method, proto))
                     self.assertIs(method_copy, method)
 
+
+    def test_total_ordering_for_metaclasses_issue_44605(self):
+
+        @functools.total_ordering
+        class SortableMeta(type):
+            def __new__(cls, name, bases, ns):
+                return super().__new__(cls, name, bases, ns)
+
+            def __lt__(self, other):
+                if not isinstance(other, SortableMeta):
+                    pass
+                return self.__name__ < other.__name__
+
+            def __eq__(self, other):
+                if not isinstance(other, SortableMeta):
+                    pass
+                return self.__name__ == other.__name__
+
+        class B(metaclass=SortableMeta):
+            pass
+
+        class A(metaclass=SortableMeta):
+            pass
+
+        self.assertTrue(A < B)
+        self.assertFalse(A > B)
+
+
 @functools.total_ordering
 class Orderable_LT:
     def __init__(self, value):
@@ -1164,6 +1195,25 @@ class Orderable_LT:
         return self.value < other.value
     def __eq__(self, other):
         return self.value == other.value
+
+
+class TestCache:
+    # This tests that the pass-through is working as designed.
+    # The underlying functionality is tested in TestLRU.
+
+    def test_cache(self):
+        @self.module.cache
+        def fib(n):
+            if n < 2:
+                return n
+            return fib(n-1) + fib(n-2)
+        self.assertEqual([fib(n) for n in range(16)],
+            [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610])
+        self.assertEqual(fib.cache_info(),
+            self.module._CacheInfo(hits=28, misses=16, maxsize=None, currsize=16))
+        fib.cache_clear()
+        self.assertEqual(fib.cache_info(),
+            self.module._CacheInfo(hits=0, misses=0, maxsize=None, currsize=0))
 
 
 class TestLRU:
@@ -1662,6 +1712,46 @@ class TestLRU:
             with self.subTest(func=f):
                 f_copy = copy.deepcopy(f)
                 self.assertIs(f_copy, f)
+
+    def test_lru_cache_parameters(self):
+        @self.module.lru_cache(maxsize=2)
+        def f():
+            return 1
+        self.assertEqual(f.cache_parameters(), {'maxsize': 2, "typed": False})
+
+        @self.module.lru_cache(maxsize=1000, typed=True)
+        def f():
+            return 1
+        self.assertEqual(f.cache_parameters(), {'maxsize': 1000, "typed": True})
+
+    def test_lru_cache_weakrefable(self):
+        @self.module.lru_cache
+        def test_function(x):
+            return x
+
+        class A:
+            @self.module.lru_cache
+            def test_method(self, x):
+                return (self, x)
+
+            @staticmethod
+            @self.module.lru_cache
+            def test_staticmethod(x):
+                return (self, x)
+
+        refs = [weakref.ref(test_function),
+                weakref.ref(A.test_method),
+                weakref.ref(A.test_staticmethod)]
+
+        for ref in refs:
+            self.assertIsNotNone(ref())
+
+        del A
+        del test_function
+        gc.collect()
+
+        for ref in refs:
+            self.assertIsNone(ref())
 
 
 @py_functools.lru_cache()

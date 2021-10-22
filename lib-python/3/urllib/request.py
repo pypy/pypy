@@ -64,7 +64,7 @@ opener = urllib.request.build_opener(proxy_support, authinfo,
 # install it
 urllib.request.install_opener(opener)
 
-f = urllib.request.urlopen('http://www.python.org/')
+f = urllib.request.urlopen('https://www.python.org/')
 """
 
 # XXX issues:
@@ -163,18 +163,10 @@ def urlopen(url, data=None, timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
 
     The *cadefault* parameter is ignored.
 
-    This function always returns an object which can work as a context
-    manager and has methods such as
 
-    * geturl() - return the URL of the resource retrieved, commonly used to
-      determine if a redirect was followed
-
-    * info() - return the meta-information of the page, such as headers, in the
-      form of an email.message_from_string() instance (see Quick Reference to
-      HTTP Headers)
-
-    * getcode() - return the HTTP status code of the response.  Raises URLError
-      on errors.
+    This function always returns an object which can work as a
+    context manager and has the properties url, headers, and status.
+    See urllib.response.addinfourl for more detail on these properties.
 
     For HTTP and HTTPS URLs, this function returns a http.client.HTTPResponse
     object slightly modified. In addition to the three new methods above, the
@@ -1823,7 +1815,7 @@ class URLopener:
                 hdrs = fp.info()
                 fp.close()
                 return url2pathname(_splithost(url1)[1]), hdrs
-            except OSError as msg:
+            except OSError:
                 pass
         fp = self.open(url, data)
         try:

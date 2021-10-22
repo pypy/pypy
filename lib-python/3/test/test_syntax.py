@@ -124,9 +124,108 @@ SyntaxError: cannot assign to __debug__
 Traceback (most recent call last):
 SyntaxError: cannot assign to operator
 
+>>> [a, b[1], c + 1] = [1, 2, 3]
+Traceback (most recent call last):
+SyntaxError: cannot assign to operator
+
+>>> [a, b.c.d, c + 1] = [1, 2, 3]
+Traceback (most recent call last):
+SyntaxError: cannot assign to operator
+
 >>> a if 1 else b = 1
 Traceback (most recent call last):
 SyntaxError: cannot assign to conditional expression
+
+>>> True = True = 3
+Traceback (most recent call last):
+SyntaxError: cannot assign to True
+
+>>> x = y = True = z = 3
+Traceback (most recent call last):
+SyntaxError: cannot assign to True
+
+>>> x = y = yield = 1
+Traceback (most recent call last):
+SyntaxError: assignment to yield expression not possible
+
+>>> a, b += 1, 2
+Traceback (most recent call last):
+SyntaxError: 'tuple' is an illegal expression for augmented assignment
+
+>>> (a, b) += 1, 2
+Traceback (most recent call last):
+SyntaxError: 'tuple' is an illegal expression for augmented assignment
+
+>>> [a, b] += 1, 2
+Traceback (most recent call last):
+SyntaxError: 'list' is an illegal expression for augmented assignment
+
+Invalid targets in `for` loops and `with` statements should also
+produce a specialized error message
+
+>>> for a() in b: pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to function call
+
+>>> for (a, b()) in b: pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to function call
+
+>>> for [a, b()] in b: pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to function call
+
+>>> for (*a, b, c+1) in b: pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to operator
+
+>>> for (x, *(y, z.d())) in b: pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to function call
+
+>>> for a, b() in c: pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to function call
+
+>>> for i < (): pass
+Traceback (most recent call last):
+SyntaxError: invalid syntax
+
+>>> for a, b
+Traceback (most recent call last):
+SyntaxError: invalid syntax
+
+>>> with a as b(): pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to function call
+
+>>> with a as (b, c()): pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to function call
+
+>>> with a as [b, c()]: pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to function call
+
+>>> with a as (*b, c, d+1): pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to operator
+
+>>> with a as (x, *(y, z.d())): pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to function call
+
+>>> with a as b, c as d(): pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to function call
+
+>>> with a as b
+Traceback (most recent call last):
+SyntaxError: invalid syntax
+
+>>> p = p =
+Traceback (most recent call last):
+SyntaxError: invalid syntax
 
 From compiler_complex_args():
 
@@ -134,7 +233,6 @@ From compiler_complex_args():
 ...     pass
 Traceback (most recent call last):
 SyntaxError: invalid syntax
-
 
 From ast_for_arguments():
 
@@ -159,6 +257,16 @@ SyntaxError: invalid syntax (expected ')')
 ...     pass
 Traceback (most recent call last):
 SyntaxError: invalid syntax
+
+>>> import ast; ast.parse('''
+... def f(
+...     *, # type: int
+...     a, # type: int
+... ):
+...     pass
+... ''', type_comments=True)
+Traceback (most recent call last):
+SyntaxError: bare * has associated type comment
 
 
 From ast_for_funcdef():
@@ -303,6 +411,11 @@ SyntaxError: ...
 Traceback (most recent call last):
 SyntaxError: expression cannot contain assignment, perhaps you meant "=="?
 
+# Check that this error doesn't trigger for names:
+>>> f(a={x: for x in {}})
+Traceback (most recent call last):
+SyntaxError: invalid syntax
+
 The grammar accepts any test (basically, any expression) in the
 keyword slot of a call site.  Test a few different options.
 
@@ -318,10 +431,10 @@ SyntaxError: expression cannot contain assignment, perhaps you meant "=="?
 >>> f((x)=2)
 Traceback (most recent call last):
 SyntaxError: expression cannot contain assignment, perhaps you meant "=="?
->>> f(True=2)
-Traceback (most recent call last):
-SyntaxError: cannot assign to True
 >>> f(__debug__=1)
+Traceback (most recent call last):
+SyntaxError: cannot assign to __debug__
+>>> __debug__: int
 Traceback (most recent call last):
 SyntaxError: cannot assign to __debug__
 
@@ -330,16 +443,16 @@ More set_context():
 
 >>> (x for x in x) += 1
 Traceback (most recent call last):
-SyntaxError: cannot assign to generator expression
+SyntaxError: 'generator expression' is an illegal expression for augmented assignment
 >>> None += 1
 Traceback (most recent call last):
-SyntaxError: cannot assign to None
+SyntaxError: 'None' is an illegal expression for augmented assignment
 >>> __debug__ += 1
 Traceback (most recent call last):
 SyntaxError: cannot assign to __debug__
 >>> f() += 1
 Traceback (most recent call last):
-SyntaxError: cannot assign to function call
+SyntaxError: 'function call' is an illegal expression for augmented assignment
 
 
 Test continue in finally in weird combinations.
@@ -419,7 +532,6 @@ isn't, there should be a syntax error.
    Traceback (most recent call last):
      ...
    SyntaxError: 'break' outside loop
-
 
 Misuse of the nonlocal and global statement can lead to a few unique syntax errors.
 
@@ -561,7 +673,7 @@ PyPy-specific extension
 >>> f(a=23, a=234)
 Traceback (most recent call last):
    ...
-SyntaxError: keyword argument repeated: 'a'
+SyntaxError: keyword argument repeated: a
 
 >>> {1, 2, 3} = 42
 Traceback (most recent call last):
@@ -578,6 +690,34 @@ SyntaxError: cannot assign to f-string expression
 >>> f'{x}-{y}' = 42
 Traceback (most recent call last):
 SyntaxError: cannot assign to f-string expression
+
+>>> from t import x,
+Traceback (most recent call last):
+SyntaxError: trailing comma not allowed without surrounding parentheses
+
+>>> from t import x,y,
+Traceback (most recent call last):
+SyntaxError: trailing comma not allowed without surrounding parentheses
+
+# Check that we dont raise the "trailing comma" error if there is more
+# input to the left of the valid part that we parsed.
+
+>>> from t import x,y, and 3
+Traceback (most recent call last):
+SyntaxError: invalid syntax
+
+>>> (): int
+Traceback (most recent call last):
+SyntaxError: only single target (not tuple) can be annotated
+>>> []: int
+Traceback (most recent call last):
+SyntaxError: only single target (not list) can be annotated
+>>> (()): int
+Traceback (most recent call last):
+SyntaxError: only single target (not tuple) can be annotated
+>>> ([]): int
+Traceback (most recent call last):
+SyntaxError: only single target (not list) can be annotated
 
 Corner-cases that used to fail to raise the correct error:
 
@@ -607,6 +747,9 @@ Corner-cases that used to crash:
     Traceback (most recent call last):
     SyntaxError: cannot assign to __debug__
 
+    >>> import ä £
+    Traceback (most recent call last):
+    SyntaxError: invalid character '£' (U+00A3)
 """
 
 import re
@@ -631,7 +774,7 @@ class SyntaxTestCase(unittest.TestCase):
                 self.fail("SyntaxError is not a %s" % subclass.__name__)
             mo = re.search(errtext, str(err))
             if mo is None:
-                self.fail("SyntaxError did not contain '%r'" % (errtext,))
+                self.fail("SyntaxError did not contain %r" % (errtext,))
             self.assertEqual(err.filename, filename)
             if lineno is not None:
                 self.assertEqual(err.lineno, lineno)
@@ -640,11 +783,43 @@ class SyntaxTestCase(unittest.TestCase):
         else:
             self.fail("compile() did not raise SyntaxError")
 
+    def test_curly_brace_after_primary_raises_immediately(self):
+        self._check_error("f{", "invalid syntax", mode="single")
+
     def test_assign_call(self):
         self._check_error("f() = 1", "assign")
 
+    @unittest.skipIf(support.use_old_parser(), "The old parser cannot generate these error messages")
     def test_assign_del(self):
-        self._check_error("del f()", "delete")
+        self._check_error("del (,)", "invalid syntax")
+        self._check_error("del 1", "delete literal")
+        self._check_error("del (1, 2)", "delete literal")
+        self._check_error("del None", "delete None")
+        self._check_error("del *x", "delete starred")
+        self._check_error("del (*x)", "use starred expression")
+        self._check_error("del (*x,)", "delete starred")
+        self._check_error("del [*x,]", "delete starred")
+        self._check_error("del f()", "delete function call")
+        self._check_error("del f(a, b)", "delete function call")
+        self._check_error("del o.f()", "delete function call")
+        self._check_error("del a[0]()", "delete function call")
+        self._check_error("del x, f()", "delete function call")
+        self._check_error("del f(), x", "delete function call")
+        self._check_error("del [a, b, ((c), (d,), e.f())]", "delete function call")
+        self._check_error("del (a if True else b)", "delete conditional")
+        self._check_error("del +a", "delete operator")
+        self._check_error("del a, +b", "delete operator")
+        self._check_error("del a + b", "delete operator")
+        self._check_error("del (a + b, c)", "delete operator")
+        self._check_error("del (c[0], a + b)", "delete operator")
+        self._check_error("del a.b.c + 2", "delete operator")
+        self._check_error("del a.b.c[0] + 2", "delete operator")
+        self._check_error("del (a, b, (c, d.e.f + 2))", "delete operator")
+        self._check_error("del [a, b, (c, d.e.f[0] + 2)]", "delete operator")
+        self._check_error("del (a := 5)", "delete named expression")
+        # We don't have a special message for this, but make sure we don't
+        # report "cannot delete name"
+        self._check_error("del a += b", "invalid syntax")
 
     def test_global_param_err_first(self):
         source = """if 1:
@@ -739,13 +914,68 @@ class SyntaxTestCase(unittest.TestCase):
                           "iterable argument unpacking follows "
                           "keyword argument unpacking")
 
-    @support.cpython_only
-    def test_too_deep_nesting(self):
-        # This raises a SyntaxError, it used to raise a SystemError.
-        # Context for this change can be found on issue #27514
+    def test_empty_line_after_linecont(self):
+        # See issue-40847
+        s = r"""\
+pass
+        \
 
-        # In 2.5 there was a missing exception and an assert was triggered in a debug
-        # build.  The number of blocks must be greater than CO_MAXBLOCKS.  SF #1565514
+pass
+"""
+        try:
+            compile(s, '<string>', 'exec')
+        except SyntaxError:
+            self.fail("Empty line after a line continuation character is valid.")
+
+    @support.cpython_only
+    def test_nested_named_except_blocks(self):
+        code = ""
+        for i in range(12):
+            code += f"{'    '*i}try:\n"
+            code += f"{'    '*(i+1)}raise Exception\n"
+            code += f"{'    '*i}except Exception as e:\n"
+        code += f"{' '*4*12}pass"
+        self._check_error(code, "too many statically nested blocks")
+
+    def test_barry_as_flufl_with_syntax_errors(self):
+        # The "barry_as_flufl" rule can produce some "bugs-at-a-distance" if
+        # is reading the wrong token in the presence of syntax errors later
+        # in the file. See bpo-42214 for more information.
+        code = """
+def func1():
+    if a != b:
+        raise ValueError
+
+def func2():
+    try
+        return 1
+    finally:
+        pass
+"""
+        self._check_error(code, "invalid syntax")
+
+    def test_invalid_line_continuation_error_position(self):
+        self._check_error(r"a = 3 \ 4",
+                          "unexpected character after line continuation character",
+                          lineno=1, offset=(10 if support.use_old_parser() else 9))
+
+    def test_invalid_line_continuation_left_recursive(self):
+        # Check bpo-42218: SyntaxErrors following left-recursive rules
+        # (t_primary_raw in this case) need to be tested explicitly
+        self._check_error("A.\u018a\\ ",
+                          "unexpected character after line continuation character")
+        self._check_error("A.\u03bc\\\n",
+                          "unexpected EOF while parsing")
+
+    @support.cpython_only
+    def test_syntax_error_on_deeply_nested_blocks(self):
+        # This raises a SyntaxError, it used to raise a SystemError. Context
+        # for this change can be found on issue #27514
+
+        # In 2.5 there was a missing exception and an assert was triggered in a
+        # debug build.  The number of blocks must be greater than CO_MAXBLOCKS.
+        # SF #1565514
+
         source = """
 while 1:
  while 2:
@@ -769,8 +999,9 @@ while 1:
                    while 21:
                     while 22:
                      break
-        """
+"""
         self._check_error(source, "too many statically nested blocks")
+
 
 def test_main():
     support.run_unittest(SyntaxTestCase)

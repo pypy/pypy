@@ -1,4 +1,6 @@
 import os
+import copy
+import pickle
 import platform
 import subprocess
 import sys
@@ -154,11 +156,71 @@ class PlatformTest(unittest.TestCase):
         res = platform.uname()
         self.assertTrue(any(res))
         self.assertEqual(res[0], res.system)
+        self.assertEqual(res[-6], res.system)
         self.assertEqual(res[1], res.node)
+        self.assertEqual(res[-5], res.node)
         self.assertEqual(res[2], res.release)
+        self.assertEqual(res[-4], res.release)
         self.assertEqual(res[3], res.version)
+        self.assertEqual(res[-3], res.version)
         self.assertEqual(res[4], res.machine)
+        self.assertEqual(res[-2], res.machine)
         self.assertEqual(res[5], res.processor)
+        self.assertEqual(res[-1], res.processor)
+        self.assertEqual(len(res), 6)
+
+    def test_uname_cast_to_tuple(self):
+        res = platform.uname()
+        expected = (
+            res.system, res.node, res.release, res.version, res.machine,
+            res.processor,
+        )
+        self.assertEqual(tuple(res), expected)
+
+    def test_uname_replace(self):
+        res = platform.uname()
+        new = res._replace(
+            system='system', node='node', release='release',
+            version='version', machine='machine')
+        self.assertEqual(new.system, 'system')
+        self.assertEqual(new.node, 'node')
+        self.assertEqual(new.release, 'release')
+        self.assertEqual(new.version, 'version')
+        self.assertEqual(new.machine, 'machine')
+        # processor cannot be replaced
+        self.assertEqual(new.processor, res.processor)
+
+    def test_uname_copy(self):
+        uname = platform.uname()
+        self.assertEqual(copy.copy(uname), uname)
+        self.assertEqual(copy.deepcopy(uname), uname)
+
+    def test_uname_pickle(self):
+        orig = platform.uname()
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.subTest(protocol=proto):
+                pickled = pickle.dumps(orig, proto)
+                restored = pickle.loads(pickled)
+                self.assertEqual(restored, orig)
+
+    def test_uname_slices(self):
+        res = platform.uname()
+        expected = tuple(res)
+        self.assertEqual(res[:], expected)
+        self.assertEqual(res[:5], expected[:5])
+
+    @unittest.skipIf(sys.platform in ['win32', 'OpenVMS'], "uname -p not used")
+    def test_uname_processor(self):
+        """
+        On some systems, the processor must match the output
+        of 'uname -p'. See Issue 35967 for rationale.
+        """
+        try:
+            proc_res = subprocess.check_output(['uname', '-p'], text=True).strip()
+            expect = platform._unknown_as_blank(proc_res)
+        except (OSError, subprocess.CalledProcessError):
+            expect = ''
+        self.assertEqual(platform.uname().processor, expect)
 
     @unittest.skipUnless(sys.platform.startswith('win'), "windows only test")
     def test_uname_win32_ARCHITEW6432(self):
@@ -239,9 +301,7 @@ class PlatformTest(unittest.TestCase):
 
         else:
             # parent
-            cpid, sts = os.waitpid(pid, 0)
-            self.assertEqual(cpid, pid)
-            self.assertEqual(sts, 0)
+            support.wait_process(pid, exitcode=0)
 
     def test_libc_ver(self):
         # check that libc_ver(executable) doesn't raise an exception

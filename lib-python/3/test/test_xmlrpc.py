@@ -15,6 +15,8 @@ import re
 import io
 import contextlib
 from test import support
+from test.support import socket_helper
+from test.support import ALWAYS_EQ, LARGEST, SMALLEST
 
 try:
     import gzip
@@ -333,7 +335,7 @@ class XMLRPCTestCase(unittest.TestCase):
             server.handle_request()  # First request and attempt at second
             server.handle_request()  # Retried second request
 
-        server = http.server.HTTPServer((support.HOST, 0), RequestHandler)
+        server = http.server.HTTPServer((socket_helper.HOST, 0), RequestHandler)
         self.addCleanup(server.server_close)
         thread = threading.Thread(target=run_server)
         thread.start()
@@ -530,14 +532,10 @@ class DateTimeTestCase(unittest.TestCase):
         # some other types
         dbytes = dstr.encode('ascii')
         dtuple = now.timetuple()
-        with self.assertRaises(TypeError):
-            dtime == 1970
-        with self.assertRaises(TypeError):
-            dtime != dbytes
-        with self.assertRaises(TypeError):
-            dtime == bytearray(dbytes)
-        with self.assertRaises(TypeError):
-            dtime != dtuple
+        self.assertFalse(dtime == 1970)
+        self.assertTrue(dtime != dbytes)
+        self.assertFalse(dtime == bytearray(dbytes))
+        self.assertTrue(dtime != dtuple)
         with self.assertRaises(TypeError):
             dtime < float(1970)
         with self.assertRaises(TypeError):
@@ -546,6 +544,18 @@ class DateTimeTestCase(unittest.TestCase):
             dtime <= bytearray(dbytes)
         with self.assertRaises(TypeError):
             dtime >= dtuple
+
+        self.assertTrue(dtime == ALWAYS_EQ)
+        self.assertFalse(dtime != ALWAYS_EQ)
+        self.assertTrue(dtime < LARGEST)
+        self.assertFalse(dtime > LARGEST)
+        self.assertTrue(dtime <= LARGEST)
+        self.assertFalse(dtime >= LARGEST)
+        self.assertFalse(dtime < SMALLEST)
+        self.assertTrue(dtime > SMALLEST)
+        self.assertFalse(dtime <= SMALLEST)
+        self.assertTrue(dtime >= SMALLEST)
+
 
 class BinaryTestCase(unittest.TestCase):
 
@@ -686,11 +696,16 @@ def http_multi_server(evt, numrequests, requestHandler=None):
         #on AF_INET only.
         URL = "http://%s:%d"%(ADDR, PORT)
         serv.server_activate()
-        paths = ["/foo", "/foo/bar"]
+        paths = [
+            "/foo", "/foo/bar",
+            "/foo?k=v", "/foo#frag", "/foo?k=v#frag",
+            "", "/", "/RPC2", "?k=v", "#frag",
+        ]
         for path in paths:
             d = serv.add_dispatcher(path, xmlrpc.server.SimpleXMLRPCDispatcher())
             d.register_introspection_functions()
             d.register_multicall_functions()
+            d.register_function(lambda p=path: p, 'test')
         serv.get_dispatcher(paths[0]).register_function(pow)
         serv.get_dispatcher(paths[1]).register_function(lambda x,y: x+y, 'add')
         serv.add_dispatcher("/is/broken", BrokenDispatcher())
@@ -1005,6 +1020,39 @@ class MultiPathServerTestCase(BaseServerTestCase):
     def test_path3(self):
         p = xmlrpclib.ServerProxy(URL+"/is/broken")
         self.assertRaises(xmlrpclib.Fault, p.add, 6, 8)
+
+    def test_invalid_path(self):
+        p = xmlrpclib.ServerProxy(URL+"/invalid")
+        self.assertRaises(xmlrpclib.Fault, p.add, 6, 8)
+
+    def test_path_query_fragment(self):
+        p = xmlrpclib.ServerProxy(URL+"/foo?k=v#frag")
+        self.assertEqual(p.test(), "/foo?k=v#frag")
+
+    def test_path_fragment(self):
+        p = xmlrpclib.ServerProxy(URL+"/foo#frag")
+        self.assertEqual(p.test(), "/foo#frag")
+
+    def test_path_query(self):
+        p = xmlrpclib.ServerProxy(URL+"/foo?k=v")
+        self.assertEqual(p.test(), "/foo?k=v")
+
+    def test_empty_path(self):
+        p = xmlrpclib.ServerProxy(URL)
+        self.assertEqual(p.test(), "/RPC2")
+
+    def test_root_path(self):
+        p = xmlrpclib.ServerProxy(URL + "/")
+        self.assertEqual(p.test(), "/")
+
+    def test_empty_path_query(self):
+        p = xmlrpclib.ServerProxy(URL + "?k=v")
+        self.assertEqual(p.test(), "?k=v")
+
+    def test_empty_path_fragment(self):
+        p = xmlrpclib.ServerProxy(URL + "#frag")
+        self.assertEqual(p.test(), "#frag")
+
 
 #A test case that verifies that a server using the HTTP/1.1 keep-alive mechanism
 #does indeed serve subsequent requests on the same connection

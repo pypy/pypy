@@ -1,4 +1,5 @@
 import _compression
+import array
 from io import BytesIO, UnsupportedOperation, DEFAULT_BUFFER_SIZE
 import os
 import pathlib
@@ -350,7 +351,7 @@ class CompressorDecompressorTestCase(unittest.TestCase):
     def test_decompressor_bigmem(self, size):
         lzd = LZMADecompressor()
         blocksize = 10 * 1024 * 1024
-        block = random.getrandbits(blocksize * 8).to_bytes(blocksize, "little")
+        block = random.randbytes(blocksize)
         try:
             input = block * (size // blocksize + 1)
             cdata = lzma.compress(input)
@@ -1226,6 +1227,14 @@ class FileTestCase(unittest.TestCase):
         self.assertEqual(len(out2), 11)
         self.assertTrue(d2.eof)
         self.assertEqual(out1 + out2, entire)
+
+    def test_issue44439(self):
+        q = array.array('Q', [1, 2, 3, 4, 5])
+        LENGTH = len(q) * q.itemsize
+
+        with LZMAFile(BytesIO(), 'w') as f:
+            self.assertEqual(f.write(q), LENGTH)
+            self.assertEqual(f.tell(), LENGTH)
 
 
 class OpenTestCase(unittest.TestCase):

@@ -313,6 +313,34 @@ class GeneralFloatCases(unittest.TestCase):
         # distinguishes -0.0 and 0.0.
         self.assertEqual((a, copysign(1.0, a)), (b, copysign(1.0, b)))
 
+    def test_float_floor(self):
+        self.assertIsInstance(float(0.5).__floor__(), int)
+        self.assertEqual(float(0.5).__floor__(), 0)
+        self.assertEqual(float(1.0).__floor__(), 1)
+        self.assertEqual(float(1.5).__floor__(), 1)
+        self.assertEqual(float(-0.5).__floor__(), -1)
+        self.assertEqual(float(-1.0).__floor__(), -1)
+        self.assertEqual(float(-1.5).__floor__(), -2)
+        self.assertEqual(float(1.23e167).__floor__(), 1.23e167)
+        self.assertEqual(float(-1.23e167).__floor__(), -1.23e167)
+        self.assertRaises(ValueError, float("nan").__floor__)
+        self.assertRaises(OverflowError, float("inf").__floor__)
+        self.assertRaises(OverflowError, float("-inf").__floor__)
+
+    def test_float_ceil(self):
+        self.assertIsInstance(float(0.5).__ceil__(), int)
+        self.assertEqual(float(0.5).__ceil__(), 1)
+        self.assertEqual(float(1.0).__ceil__(), 1)
+        self.assertEqual(float(1.5).__ceil__(), 2)
+        self.assertEqual(float(-0.5).__ceil__(), 0)
+        self.assertEqual(float(-1.0).__ceil__(), -1)
+        self.assertEqual(float(-1.5).__ceil__(), -1)
+        self.assertEqual(float(1.23e167).__ceil__(), 1.23e167)
+        self.assertEqual(float(-1.23e167).__ceil__(), -1.23e167)
+        self.assertRaises(ValueError, float("nan").__ceil__)
+        self.assertRaises(OverflowError, float("inf").__ceil__)
+        self.assertRaises(OverflowError, float("-inf").__ceil__)
+
     @support.requires_IEEE_754
     def test_float_mod(self):
         # Check behaviour of % operator for IEEE 754 special cases.
@@ -1135,10 +1163,10 @@ class HexFloatTestCase(unittest.TestCase):
 
 
     def test_from_hex(self):
-        MIN = self.MIN;
-        MAX = self.MAX;
-        TINY = self.TINY;
-        EPS = self.EPS;
+        MIN = self.MIN
+        MAX = self.MAX
+        TINY = self.TINY
+        EPS = self.EPS
 
         # two spellings of infinity, with optional signs; case-insensitive
         self.identical(fromHex('inf'), INF)
@@ -1418,6 +1446,20 @@ class HexFloatTestCase(unittest.TestCase):
         self.identical(fromHex('0x1.0000000000001ep0'), 1.0+2*EPS)
         self.identical(fromHex('0X1.0000000000001fp0'), 1.0+2*EPS)
         self.identical(fromHex('0x1.00000000000020p0'), 1.0+2*EPS)
+
+        # Regression test for a corner-case bug reported in b.p.o. 44954
+        self.identical(fromHex('0x.8p-1074'), 0.0)
+        self.identical(fromHex('0x.80p-1074'), 0.0)
+        self.identical(fromHex('0x.81p-1074'), TINY)
+        self.identical(fromHex('0x8p-1078'), 0.0)
+        self.identical(fromHex('0x8.0p-1078'), 0.0)
+        self.identical(fromHex('0x8.1p-1078'), TINY)
+        self.identical(fromHex('0x80p-1082'), 0.0)
+        self.identical(fromHex('0x81p-1082'), TINY)
+        self.identical(fromHex('.8p-1074'), 0.0)
+        self.identical(fromHex('8p-1078'), 0.0)
+        self.identical(fromHex('-.8p-1074'), -0.0)
+        self.identical(fromHex('+8p-1078'), 0.0)
 
     def test_roundtrip(self):
         def roundtrip(x):

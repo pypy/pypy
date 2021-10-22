@@ -63,3 +63,24 @@ def printlist(x, width=70, indent=4, file=None):
 
 def print_warning(msg):
     support.print_warning(msg)
+
+
+orig_unraisablehook = None
+
+
+def regrtest_unraisable_hook(unraisable):
+    global orig_unraisablehook
+    support.environment_altered = True
+    print_warning("Unraisable exception")
+    old_stderr = sys.stderr
+    try:
+        sys.stderr = sys.__stderr__
+        orig_unraisablehook(unraisable)
+    finally:
+        sys.stderr = old_stderr
+
+
+def setup_unraisable_hook():
+    global orig_unraisablehook
+    orig_unraisablehook = sys.unraisablehook
+    sys.unraisablehook = regrtest_unraisable_hook

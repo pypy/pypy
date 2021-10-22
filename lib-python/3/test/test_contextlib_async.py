@@ -207,7 +207,18 @@ class AsyncContextManagerTestCase(unittest.TestCase):
         async def woohoo():
             yield
 
-        for stop_exc in (StopIteration('spam'), StopAsyncIteration('ham')):
+        class StopIterationSubclass(StopIteration):
+            pass
+
+        class StopAsyncIterationSubclass(StopAsyncIteration):
+            pass
+
+        for stop_exc in (
+            StopIteration('spam'),
+            StopAsyncIteration('ham'),
+            StopIterationSubclass('spam'),
+            StopAsyncIterationSubclass('spam')
+        ):
             with self.subTest(type=type(stop_exc)):
                 try:
                     async with woohoo():
@@ -358,9 +369,9 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
                 stack.push_async_callback(arg=1)
             with self.assertRaises(TypeError):
                 self.exit_stack.push_async_callback(arg=2)
-            with self.assertWarns(DeprecationWarning):
+            with self.assertRaises(TypeError):
                 stack.push_async_callback(callback=_exit, arg=3)
-        self.assertEqual(result, [((), {'arg': 3})])
+        self.assertEqual(result, [])
 
     @_async_test
     async def test_async_push(self):

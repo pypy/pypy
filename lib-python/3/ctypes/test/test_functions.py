@@ -393,7 +393,7 @@ class FunctionTestCase(unittest.TestCase):
 
     @xfail
     def test_sf1651235(self):
-        # see http://www.python.org/sf/1651235
+        # see https://www.python.org/sf/1651235
 
         proto = CFUNCTYPE(c_int, RECT, POINT)
         def callback(*args):

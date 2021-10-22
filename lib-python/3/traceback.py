@@ -536,29 +536,38 @@ class TracebackException:
         _seen.add(id(exc_value))
         # Gracefully handle (the way Python 2.4 and earlier did) the case of
         # being called with no type or value (None, None, None).
-        if (exc_value and exc_value.__cause__ is not None
-            and id(exc_value.__cause__) not in _seen):
-            cause = TracebackException(
-                type(exc_value.__cause__),
-                exc_value.__cause__,
-                exc_value.__cause__.__traceback__,
-                limit=limit,
-                lookup_lines=False,
-                capture_locals=capture_locals,
-                _seen=_seen)
-        else:
+        self._truncated = False
+        try:
+            if (exc_value and exc_value.__cause__ is not None
+                and id(exc_value.__cause__) not in _seen):
+                cause = TracebackException(
+                    type(exc_value.__cause__),
+                    exc_value.__cause__,
+                    exc_value.__cause__.__traceback__,
+                    limit=limit,
+                    lookup_lines=False,
+                    capture_locals=capture_locals,
+                    _seen=_seen)
+            else:
+                cause = None
+            if (exc_value and exc_value.__context__ is not None
+                and id(exc_value.__context__) not in _seen):
+                context = TracebackException(
+                    type(exc_value.__context__),
+                    exc_value.__context__,
+                    exc_value.__context__.__traceback__,
+                    limit=limit,
+                    lookup_lines=False,
+                    capture_locals=capture_locals,
+                    _seen=_seen)
+            else:
+                context = None
+        except RecursionError:
+            # The recursive call to the constructors above
+            # may result in a stack overflow for long exception chains,
+            # so we must truncate.
+            self._truncated = True
             cause = None
-        if (exc_value and exc_value.__context__ is not None
-            and id(exc_value.__context__) not in _seen):
-            context = TracebackException(
-                type(exc_value.__context__),
-                exc_value.__context__,
-                exc_value.__context__.__traceback__,
-                limit=limit,
-                lookup_lines=False,
-                capture_locals=capture_locals,
-                _seen=_seen)
-        else:
             context = None
         self.__cause__ = cause
         self.__context__ = context
@@ -603,7 +612,9 @@ class TracebackException:
             self.__cause__._load_lines()
 
     def __eq__(self, other):
-        return self.__dict__ == other.__dict__
+        if isinstance(other, TracebackException):
+            return self.__dict__ == other.__dict__
+        return NotImplemented
 
     def __str__(self):
         return self._str
@@ -632,9 +643,12 @@ class TracebackException:
 
         if not issubclass(self.exc_type, SyntaxError):
             yield _format_final_exc_line(stype, self._str)
-            return
+        else:
+            yield from self._format_syntax_error(stype)
 
-        # It was a syntax error; show exactly where the problem was found.
+    def _format_syntax_error(self, stype):
+        """Format SyntaxError exceptions (internal helper)."""
+        # Show exactly where the problem was found.
         filename_suffix = ''
         if self.lineno is not None:
             yield '  File "{}", line {}\n'.format(
@@ -642,16 +656,20 @@ class TracebackException:
         elif self.filename is not None:
             filename_suffix = ' ({})'.format(self.filename)
 
-        badline = self.text
-        offset = self.offset
-        if badline is not None:
-            yield '    {}\n'.format(badline.strip())
-            if offset is not None:
-                caretspace = badline.rstrip('\n')
-                # bug in CPython: the case offset==0 is mishandled
-                caretspace = caretspace[:offset].lstrip()[:-1]
+        text = self.text
+        if text is not None:
+            # text  = "   foo\n"
+            # rtext = "   foo"
+            # ltext =    "foo"
+            rtext = text.rstrip('\n')
+            ltext = rtext.lstrip(' \n\f')
+            spaces = len(rtext) - len(ltext)
+            yield '    {}\n'.format(ltext)
+            # Convert 1-based column offset to 0-based index into stripped text
+            caret = (self.offset or 0) - 1 - spaces
+            if caret >= 0:
                 # non-space whitespace (likes tabs) must be kept for alignment
-                caretspace = ((c.isspace() and c or ' ') for c in caretspace)
+                caretspace = ((c if c.isspace() else ' ') for c in ltext[:caret])
                 yield '    {}^\n'.format(''.join(caretspace))
         msg = self.msg or "<no detail available>"
         yield "{}: {}{}\n".format(stype, msg, filename_suffix)
@@ -676,6 +694,10 @@ class TracebackException:
                 not self.__suppress_context__):
                 yield from self.__context__.format(chain=chain)
                 yield _context_message
+            if self._truncated:
+                yield (
+                    'Chained exceptions have been truncated to avoid '
+                    'stack overflow in traceback formatting:\n')
         if self.stack:
             yield 'Traceback (most recent call last):\n'
             yield from self.stack.format()

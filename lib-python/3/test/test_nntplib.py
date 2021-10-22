@@ -5,13 +5,14 @@ import textwrap
 import unittest
 import functools
 import contextlib
+import nntplib
 import os.path
 import re
 import threading
 
 from test import support
+from test.support import socket_helper
 from nntplib import NNTP, GroupInfo
-import nntplib
 from unittest.mock import patch
 try:
     import ssl
@@ -19,7 +20,6 @@ except ImportError:
     ssl = None
 
 
-TIMEOUT = 30
 certfile = os.path.join(os.path.dirname(__file__), 'keycert3.pem')
 
 if ssl is not None:
@@ -246,7 +246,7 @@ class NetworkedNNTPTestsMixin:
         def wrap_meth(meth):
             @functools.wraps(meth)
             def wrapped(self):
-                with support.transient_internet(self.NNTP_HOST):
+                with socket_helper.transient_internet(self.NNTP_HOST):
                     meth(self)
             return wrapped
         for name in dir(cls):
@@ -259,6 +259,10 @@ class NetworkedNNTPTestsMixin:
             # value
             setattr(cls, name, wrap_meth(meth))
 
+    def test_timeout(self):
+        with self.assertRaises(ValueError):
+            self.NNTP_CLASS(self.NNTP_HOST, timeout=0, usenetrc=False)
+
     def test_with_statement(self):
         def is_connected():
             if not hasattr(server, 'file'):
@@ -270,12 +274,18 @@ class NetworkedNNTPTestsMixin:
             return True
 
         try:
-            with self.NNTP_CLASS(self.NNTP_HOST, timeout=TIMEOUT, usenetrc=False) as server:
+            server = self.NNTP_CLASS(self.NNTP_HOST,
+                                     timeout=support.INTERNET_TIMEOUT,
+                                     usenetrc=False)
+            with server:
                 self.assertTrue(is_connected())
                 self.assertTrue(server.help())
             self.assertFalse(is_connected())
 
-            with self.NNTP_CLASS(self.NNTP_HOST, timeout=TIMEOUT, usenetrc=False) as server:
+            server = self.NNTP_CLASS(self.NNTP_HOST,
+                                     timeout=support.INTERNET_TIMEOUT,
+                                     usenetrc=False)
+            with server:
                 server.quit()
             self.assertFalse(is_connected())
         except SSLError as ssl_err:
@@ -306,9 +316,10 @@ class NetworkedNNTPTests(NetworkedNNTPTestsMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         support.requires("network")
-        with support.transient_internet(cls.NNTP_HOST):
+        with socket_helper.transient_internet(cls.NNTP_HOST):
             try:
-                cls.server = cls.NNTP_CLASS(cls.NNTP_HOST, timeout=TIMEOUT,
+                cls.server = cls.NNTP_CLASS(cls.NNTP_HOST,
+                                            timeout=support.INTERNET_TIMEOUT,
                                             usenetrc=False)
             except SSLError as ssl_err:
                 # matches "[SSL: DH_KEY_TOO_SMALL] dh key too small"
@@ -404,6 +415,18 @@ def make_mock_file(handler):
     return (sio, file)
 
 
+class NNTPServer(nntplib.NNTP):
+
+    def __init__(self, f, host, readermode=None):
+        self.file = f
+        self.host = host
+        self._base_init(readermode)
+
+    def _close(self):
+        self.file.close()
+        del self.file
+
+
 class MockedNNTPTestsMixin:
     # Override in derived classes
     handler_class = None
@@ -419,7 +442,7 @@ class MockedNNTPTestsMixin:
     def make_server(self, *args, **kwargs):
         self.handler = self.handler_class()
         self.sio, file = make_mock_file(self.handler)
-        self.server = nntplib._NNTPBase(file, 'test.server', *args, **kwargs)
+        self.server = NNTPServer(file, 'test.server', *args, **kwargs)
         return self.server
 
 
@@ -1549,14 +1572,14 @@ class MockSslTests(MockSocketTests):
 class LocalServerTests(unittest.TestCase):
     def setUp(self):
         sock = socket.socket()
-        port = support.bind_port(sock)
+        port = socket_helper.bind_port(sock)
         sock.listen()
         self.background = threading.Thread(
             target=self.run_server, args=(sock,))
         self.background.start()
         self.addCleanup(self.background.join)
 
-        self.nntp = NNTP(support.HOST, port, usenetrc=False).__enter__()
+        self.nntp = NNTP(socket_helper.HOST, port, usenetrc=False).__enter__()
         self.addCleanup(self.nntp.__exit__, None, None, None)
 
     def run_server(self, sock):

@@ -458,7 +458,7 @@ class TestContext(unittest.TestCase):
                 except AttributeError:
                     # make x.__del__ trigger
                     del x
-                    gc.collect()
+                    gc.collect()  # For PyPy or other GCs.
                     raise TypeError
             except Exception as e:
                 self.assertNotEqual(e.__context__, None)

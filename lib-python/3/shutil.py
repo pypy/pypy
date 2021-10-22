@@ -261,28 +261,36 @@ def copyfile(src, dst, *, follow_symlinks=True):
     if not follow_symlinks and _islink(src):
         os.symlink(os.readlink(src), dst)
     else:
-        with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst:
-            # macOS
-            if _HAS_FCOPYFILE:
-                try:
-                    _fastcopy_fcopyfile(fsrc, fdst, posix._COPYFILE_DATA)
+        try:
+            with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst:
+                # macOS
+                if _HAS_FCOPYFILE:
+                    try:
+                        _fastcopy_fcopyfile(fsrc, fdst, posix._COPYFILE_DATA)
+                        return dst
+                    except _GiveupOnFastCopy:
+                        pass
+                # Linux
+                elif _USE_CP_SENDFILE:
+                    try:
+                        _fastcopy_sendfile(fsrc, fdst)
+                        return dst
+                    except _GiveupOnFastCopy:
+                        pass
+                # Windows, see:
+                # https://github.com/python/cpython/pull/7160#discussion_r195405230
+                elif _WINDOWS and file_size > 0:
+                    _copyfileobj_readinto(fsrc, fdst, min(file_size, COPY_BUFSIZE))
                     return dst
-                except _GiveupOnFastCopy:
-                    pass
-            # Linux
-            elif _USE_CP_SENDFILE:
-                try:
-                    _fastcopy_sendfile(fsrc, fdst)
-                    return dst
-                except _GiveupOnFastCopy:
-                    pass
-            # Windows, see:
-            # https://github.com/python/cpython/pull/7160#discussion_r195405230
-            elif _WINDOWS and file_size > 0:
-                _copyfileobj_readinto(fsrc, fdst, min(file_size, COPY_BUFSIZE))
-                return dst
 
-            copyfileobj(fsrc, fdst)
+                copyfileobj(fsrc, fdst)
+
+        # Issue 43219, raise a less confusing exception
+        except IsADirectoryError as e:
+            if os.path.exists(dst):
+                raise
+            else:
+                raise FileNotFoundError(f'Directory does not exist: {dst}') from e
 
     return dst
 
@@ -744,8 +752,20 @@ def rmtree(path, ignore_errors=False, onerror=None):
 rmtree.avoids_symlink_attacks = _use_fd_functions
 
 def _basename(path):
-    # A basename() variant which first strips the trailing slash, if present.
-    # Thus we always get the last component of the path, even for directories.
+    """A basename() variant which first strips the trailing slash, if present.
+    Thus we always get the last component of the path, even for directories.
+
+    path: Union[PathLike, str]
+
+    e.g.
+    >>> os.path.basename('/bar/foo')
+    'foo'
+    >>> os.path.basename('/bar/foo/')
+    ''
+    >>> _basename('/bar/foo/')
+    'foo'
+    """
+    path = os.fspath(path)
     sep = os.path.sep + (os.path.altsep or '')
     return os.path.basename(path.rstrip(sep))
 
@@ -784,7 +804,10 @@ def move(src, dst, copy_function=copy2):
             os.rename(src, dst)
             return
 
+        # Using _basename instead of os.path.basename is important, as we must
+        # ignore any trailing slash to avoid the basename returning ''
         real_dst = os.path.join(dst, _basename(src))
+
         if os.path.exists(real_dst):
             raise Error("Destination path '%s' already exists" % real_dst)
     try:

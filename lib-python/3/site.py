@@ -344,7 +344,7 @@ def getsitepackages(prefixes=None):
         if not prefix or prefix in seen:
             continue
         seen.add(prefix)
-
+        # ZZZ CPython does new sys.platlibdir stuff here
         implementation = _get_implementation().lower()
         ver = sys.version_info
         if os.sep == '/':

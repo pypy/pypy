@@ -1,5 +1,7 @@
 # Tests for extended unpacking, starred expressions.
 
+from test.support import use_old_parser
+
 doctests = """
 
 Unpack tuple
@@ -158,15 +160,20 @@ List comprehension element unpacking
     ...
     SyntaxError: iterable unpacking cannot be used in comprehension
 
-Generator expression in function arguments
-PyPy has extended sytax error messages, ignore the detail for compatibility
-
-    >>> list(*x for x in (range(5) for i in range(3))) # doctest: +IGNORE_EXCEPTION_DETAIL
+    >>> {**{} for a in [1]}
     Traceback (most recent call last):
     ...
-        list(*x for x in (range(5) for i in range(3)))
-                  ^
-    SyntaxError: invalid syntax
+    SyntaxError: dict unpacking cannot be used in dict comprehension
+
+# Pegen is better here.
+# Generator expression in function arguments
+
+#     >>> list(*x for x in (range(5) for i in range(3)))
+#     Traceback (most recent call last):
+#     ...
+#         list(*x for x in (range(5) for i in range(3)))
+#                   ^
+#     SyntaxError: invalid syntax
 
     >>> dict(**x for x in [{1:2}]) # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
@@ -314,12 +321,17 @@ Now some general starred expressions (all fail).
     >>> a, *b, c, *d, e = range(10) # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    SyntaxError: two starred expressions in assignment
+    SyntaxError: multiple starred expressions in assignment
 
     >>> [*b, *c] = range(10) # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    SyntaxError: two starred expressions in assignment
+    SyntaxError: multiple starred expressions in assignment
+
+    >>> a,*b,*c,*d = range(4) # doctest:+ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    SyntaxError: multiple starred expressions in assignment
 
     >>> *a = range(10) # doctest:+ELLIPSIS
     Traceback (most recent call last):
@@ -360,7 +372,37 @@ Some size constraints (all fail.)
 
 """
 
-__test__ = {'doctests' : doctests}
+new_parser_doctests = """\
+    >>> (*x),y = 1, 2 # doctest:+ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    SyntaxError: can't use starred expression here
+
+    >>> (((*x))),y = 1, 2 # doctest:+ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    SyntaxError: can't use starred expression here
+
+    >>> z,(*x),y = 1, 2, 4 # doctest:+ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    SyntaxError: can't use starred expression here
+
+    >>> z,(*x) = 1, 2 # doctest:+ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    SyntaxError: can't use starred expression here
+
+    >>> ((*x),y) = 1, 2 # doctest:+ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    SyntaxError: can't use starred expression here
+"""
+
+if use_old_parser():
+    __test__ = {'doctests' : doctests}
+else:
+    __test__ = {'doctests' : doctests + new_parser_doctests}
 
 def test_main(verbose=False):
     from test import support

@@ -25,10 +25,10 @@ _ALWAYS_STR = {
 
 _INSTALL_SCHEMES = {
     'posix_prefix': {
-        'stdlib': '{installed_base}/lib/{implementation_lower}{py_version_short}',
-        'platstdlib': '{platbase}/lib/{implementation_lower}{py_version_short}',
+        'stdlib': '{installed_base}/{platlibdir}/{implementation_lower}{py_version_short}',
+        'platstdlib': '{platbase}/{platlibdir}/{implementation_lower}{py_version_short}',
         'purelib': '{base}/lib/{implementation_lower}{py_version_short}/site-packages',
-        'platlib': '{platbase}/lib/{implementation_lower}{py_version_short}/site-packages',
+        'platlib': '{platbase}/{platlibdir}/{implementation_lower}{py_version_short}/site-packages',
         'include':
             '{installed_base}/include/{implementation_lower}{py_version_short}{abiflags}',
         'platinclude':
@@ -66,10 +66,10 @@ _INSTALL_SCHEMES = {
         'data': '{userbase}',
         },
     'posix_user': {
-        'stdlib': '{userbase}/lib/{implementation_lower}{py_version_short}',
-        'platstdlib': '{userbase}/lib/{implementation_lower}{py_version_short}',
+        'stdlib': '{userbase}/{platlibdir}/{implementation_lower}{py_version_short}',
+        'platstdlib': '{userbase}/{platlibdir}/{implementation_lower}{py_version_short}',
         'purelib': '{userbase}/lib/{implementation_lower}{py_version_short}/site-packages',
-        'platlib': '{userbase}/lib/{implementation_lower}{py_version_short}/site-packages',
+        'platlib': '{userbase}/{platlibdir}/{implementation_lower}{py_version_short}/site-packages',
         'include': '{userbase}/include/{implementation_lower}{py_version_short}',
         'scripts': '{userbase}/bin',
         'data': '{userbase}',
@@ -88,8 +88,6 @@ _INSTALL_SCHEMES = {
 _SCHEME_KEYS = ('stdlib', 'platstdlib', 'purelib', 'platlib', 'include',
                 'scripts', 'data')
 
- # FIXME don't rely on sys.version here, its format is an implementation detail
- # of CPython, use sys.version_info or sys.hexversion
 _PY_VERSION = sys.version.split()[0]
 _PY_VERSION_SHORT = '%d.%d' % sys.version_info[:2]
 _PY_VERSION_SHORT_NO_DOT = '%d%d' % sys.version_info[:2]
@@ -575,6 +573,7 @@ def get_config_vars(*args):
         _CONFIG_VARS['installed_platbase'] = _BASE_EXEC_PREFIX
         _CONFIG_VARS['platbase'] = _EXEC_PREFIX
         _CONFIG_VARS['projectbase'] = _PROJECT_BASE
+        _CONFIG_VARS['platlibdir'] = sys.platlibdir
         try:
             _CONFIG_VARS['abiflags'] = sys.abiflags
         except AttributeError:
@@ -586,6 +585,7 @@ def get_config_vars(*args):
 
         if os.name == 'nt':
             _init_non_posix(_CONFIG_VARS)
+            _CONFIG_VARS['TZPATH'] = ''
         if os.name == 'posix':
             _init_posix(_CONFIG_VARS)
         # For backward compatibility, see issue19555

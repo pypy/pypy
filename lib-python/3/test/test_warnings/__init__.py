@@ -943,8 +943,8 @@ class PyWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
             """))
 
         def run(*args):
-            res = assert_python_ok(*args)
-            stderr = res.err.decode('ascii', 'replace')
+            res = assert_python_ok(*args, PYTHONIOENCODING='utf-8')
+            stderr = res.err.decode('utf-8', 'replace')
             stderr = '\n'.join(stderr.splitlines())
 
             # normalize newlines
@@ -952,27 +952,26 @@ class PyWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
             return stderr
 
         # tracemalloc disabled
+        filename = os.path.abspath(support.TESTFN)
         stderr = run('-Wd', support.TESTFN)
-        expected = textwrap.dedent('''
-            {fname}:5: ResourceWarning: unclosed file <...>
+        expected = textwrap.dedent(f'''
+            {filename}:5: ResourceWarning: unclosed file <...>
               f = None
             ResourceWarning: Enable tracemalloc to get the object allocation traceback
-        ''')
-        expected = expected.format(fname=support.TESTFN).strip()
+        ''').strip()
         self.assertEqual(stderr, expected)
 
         # tracemalloc enabled
         stderr = run('-Wd', '-X', 'tracemalloc=2', support.TESTFN)
-        expected = textwrap.dedent('''
-            {fname}:5: ResourceWarning: unclosed file <...>
+        expected = textwrap.dedent(f'''
+            {filename}:5: ResourceWarning: unclosed file <...>
               f = None
             Object allocated at (most recent call last):
-              File "{fname}", lineno 7
+              File "{filename}", lineno 7
                 func()
-              File "{fname}", lineno 3
+              File "{filename}", lineno 3
                 f = open(__file__)
-        ''')
-        expected = expected.format(fname=support.TESTFN).strip()
+        ''').strip()
         self.assertEqual(stderr, expected)
 
 
@@ -1202,7 +1201,7 @@ class EnvironmentVariableTests(BaseTest):
     @unittest.skipUnless(sys.getfilesystemencoding() != 'ascii',
                          'requires non-ascii filesystemencoding')
     def test_nonascii(self):
-        PYTHONWARNINGS="ignore:DeprecationWarning" + (support.FS_NONASCII or '')
+        PYTHONWARNINGS="ignore:DeprecationWarning" + support.FS_NONASCII
         rc, stdout, stderr = assert_python_ok("-c",
             "import sys; sys.stdout.write(str(sys.warnoptions))",
             PYTHONIOENCODING="utf-8",
@@ -1231,7 +1230,6 @@ class BootstrapTest(unittest.TestCase):
 
 
 class FinalizationTest(unittest.TestCase):
-    @support.requires_type_collecting
     def test_finalization(self):
         # Issue #19421: warnings.warn() should not crash
         # during Python finalization
@@ -1247,7 +1245,8 @@ A()
 import gc; gc.collect()
         """
         rc, out, err = assert_python_ok("-c", code)
-        self.assertEqual(err.decode(), '<string>:7: UserWarning: test')
+        self.assertEqual(err.decode().rstrip(),
+                         '<string>:7: UserWarning: test')
 
     @support.cpython_only
     def test_late_resource_warning(self):

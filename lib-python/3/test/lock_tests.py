@@ -2,6 +2,7 @@
 Various tests for synchronization primitives.
 """
 
+import os
 import gc
 import sys
 import time
@@ -11,6 +12,11 @@ import unittest
 import weakref
 
 from test import support
+
+
+requires_fork = unittest.skipUnless(hasattr(os, 'fork'),
+                                    "platform doesn't support fork "
+                                     "(no _at_fork_reinit method)")
 
 
 def _wait():
@@ -183,7 +189,7 @@ class BaseLockTests(BaseTestCase):
     def test_timeout(self):
         lock = self.locktype()
         # Can't set timeout if not blocking
-        self.assertRaises(ValueError, lock.acquire, 0, 1)
+        self.assertRaises(ValueError, lock.acquire, False, 1)
         # Invalid timeout values
         self.assertRaises(ValueError, lock.acquire, timeout=-100)
         self.assertRaises(OverflowError, lock.acquire, timeout=1e100)
@@ -215,7 +221,7 @@ class BaseLockTests(BaseTestCase):
         lock = self.locktype()
         ref = weakref.ref(lock)
         del lock
-        gc.collect()
+        gc.collect()  # For PyPy or other GCs.
         self.assertIsNone(ref())
 
 
@@ -266,6 +272,25 @@ class LockTests(BaseLockTests):
         lock.release()
         self.assertFalse(lock.locked())
         self.assertTrue(lock.acquire(blocking=False))
+
+    @requires_fork
+    def test_at_fork_reinit(self):
+        def use_lock(lock):
+            # make sure that the lock still works normally
+            # after _at_fork_reinit()
+            lock.acquire()
+            lock.release()
+
+        # unlocked
+        lock = self.locktype()
+        lock._at_fork_reinit()
+        use_lock(lock)
+
+        # locked: _at_fork_reinit() resets the lock to the unlocked state
+        lock2 = self.locktype()
+        lock2.acquire()
+        lock2._at_fork_reinit()
+        use_lock(lock2)
 
 
 class RLockTests(BaseLockTests):
@@ -419,12 +444,13 @@ class EventTests(BaseTestCase):
         b.wait_for_finished()
         self.assertEqual(results, [True] * N)
 
-    def test_reset_internal_locks(self):
+    @requires_fork
+    def test_at_fork_reinit(self):
         # ensure that condition is still using a Lock after reset
         evt = self.eventtype()
         with evt._cond:
             self.assertFalse(evt._cond.acquire(False))
-        evt._reset_internal_locks()
+        evt._at_fork_reinit()
         with evt._cond:
             self.assertFalse(evt._cond.acquire(False))
 
@@ -664,6 +690,38 @@ class BaseSemaphoreTests(BaseTestCase):
         sem.release()
         b.wait_for_finished()
         self.assertEqual(sem_results, [True] * (6 + 7 + 6 + 1))
+
+    def test_multirelease(self):
+        sem = self.semtype(7)
+        sem.acquire()
+        results1 = []
+        results2 = []
+        phase_num = 0
+        def f():
+            sem.acquire()
+            results1.append(phase_num)
+            sem.acquire()
+            results2.append(phase_num)
+        b = Bunch(f, 10)
+        b.wait_for_started()
+        while len(results1) + len(results2) < 6:
+            _wait()
+        self.assertEqual(results1 + results2, [0] * 6)
+        phase_num = 1
+        sem.release(7)
+        while len(results1) + len(results2) < 13:
+            _wait()
+        self.assertEqual(sorted(results1 + results2), [0] * 6 + [1] * 7)
+        phase_num = 2
+        sem.release(6)
+        while len(results1) + len(results2) < 19:
+            _wait()
+        self.assertEqual(sorted(results1 + results2), [0] * 6 + [1] * 7 + [2] * 6)
+        # The semaphore is still locked
+        self.assertFalse(sem.acquire(False))
+        # Final release, to let the last thread finish
+        sem.release()
+        b.wait_for_finished()
 
     def test_try_acquire(self):
         sem = self.semtype(2)

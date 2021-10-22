@@ -1,6 +1,7 @@
 from test import support
 from test.support import bigmemtest, _4G
 
+import array
 import unittest
 from io import BytesIO, DEFAULT_BUFFER_SIZE
 import os
@@ -100,6 +101,9 @@ class BZ2FileTest(BaseTest):
         self.assertRaises(ValueError, BZ2File, os.devnull, "rbt")
         self.assertRaises(ValueError, BZ2File, os.devnull, compresslevel=0)
         self.assertRaises(ValueError, BZ2File, os.devnull, compresslevel=10)
+
+        # compresslevel is keyword-only
+        self.assertRaises(TypeError, BZ2File, os.devnull, "r", 3)
 
     def testRead(self):
         self.createTempFile()
@@ -618,6 +622,14 @@ class BZ2FileTest(BaseTest):
             with BZ2File(BytesIO(truncated[:i])) as f:
                 self.assertRaises(EOFError, f.read, 1)
 
+    def test_issue44439(self):
+        q = array.array('Q', [1, 2, 3, 4, 5])
+        LENGTH = len(q) * q.itemsize
+
+        with BZ2File(BytesIO(), 'w') as f:
+            self.assertEqual(f.write(q), LENGTH)
+            self.assertEqual(f.tell(), LENGTH)
+
 
 class BZ2CompressorTest(BaseTest):
     def testCompress(self):
@@ -710,7 +722,7 @@ class BZ2DecompressorTest(BaseTest):
     def testDecompress4G(self, size):
         # "Test BZ2Decompressor.decompress() with >4GiB input"
         blocksize = 10 * 1024 * 1024
-        block = random.getrandbits(blocksize * 8).to_bytes(blocksize, 'little')
+        block = random.randbytes(blocksize)
         try:
             data = block * (size // blocksize + 1)
             compressed = bz2.compress(data)

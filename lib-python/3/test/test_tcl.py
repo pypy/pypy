@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 import os
+import warnings
 from test import support
 
 # Skip this test if the _tkinter module wasn't built.
@@ -40,8 +41,14 @@ def get_tk_patchlevel():
 class TkinterTest(unittest.TestCase):
 
     def testFlattenLen(self):
-        # flatten(<object with no length>)
+        # Object without length.
         self.assertRaises(TypeError, _tkinter._flatten, True)
+        # Object with length, but not sequence.
+        self.assertRaises(TypeError, _tkinter._flatten, {})
+        # Sequence or set, but not tuple or list.
+        # (issue44608: there were leaks in the following cases)
+        self.assertRaises(TypeError, _tkinter._flatten, 'string')
+        self.assertRaises(TypeError, _tkinter._flatten, {'set'})
 
 
 class TclTest(unittest.TestCase):
@@ -199,7 +206,7 @@ class TclTest(unittest.TestCase):
 
     def testEvalFile(self):
         tcl = self.interp
-        filename = support.TESTFN
+        filename = support.TESTFN_ASCII
         self.addCleanup(support.unlink, filename)
         with open(filename, 'w') as f:
             f.write("""set a 1
@@ -213,7 +220,7 @@ class TclTest(unittest.TestCase):
 
     def test_evalfile_null_in_result(self):
         tcl = self.interp
-        filename = support.TESTFN
+        filename = support.TESTFN_ASCII
         self.addCleanup(support.unlink, filename)
         with open(filename, 'w') as f:
             f.write("""
@@ -230,7 +237,7 @@ class TclTest(unittest.TestCase):
         self.addCleanup(tcl.call, 'encoding', 'system', encoding)
         tcl.call('encoding', 'system', 'utf-8')
 
-        filename = support.TESTFN
+        filename = support.TESTFN_ASCII
         self.addCleanup(support.unlink, filename)
         with open(filename, 'wb') as f:
             f.write(b"""
@@ -611,9 +618,12 @@ class TclTest(unittest.TestCase):
     def test_split(self):
         split = self.interp.tk.split
         call = self.interp.tk.call
-        self.assertRaises(TypeError, split)
-        self.assertRaises(TypeError, split, 'a', 'b')
-        self.assertRaises(TypeError, split, 2)
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', r'\bsplit\b.*\bsplitlist\b',
+                                    DeprecationWarning)
+            self.assertRaises(TypeError, split)
+            self.assertRaises(TypeError, split, 'a', 'b')
+            self.assertRaises(TypeError, split, 2)
         testcases = [
             ('2', '2'),
             ('', ''),
@@ -655,7 +665,8 @@ class TclTest(unittest.TestCase):
                     expected),
             ]
         for arg, res in testcases:
-            self.assertEqual(split(arg), res, msg=arg)
+            with self.assertWarns(DeprecationWarning):
+                self.assertEqual(split(arg), res, msg=arg)
 
     def test_splitdict(self):
         splitdict = tkinter._splitdict

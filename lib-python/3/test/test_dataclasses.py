@@ -2028,7 +2028,7 @@ class TestDocString(unittest.TestCase):
         class C:
             x: Union[int, type(None)] = None
 
-        self.assertDocStrEqual(C.__doc__, "C(x:Union[int, NoneType]=None)")
+        self.assertDocStrEqual(C.__doc__, "C(x:Optional[int]=None)")
 
     def test_docstring_list_field(self):
         @dataclass
@@ -3155,13 +3155,6 @@ class TestReplace(unittest.TestCase):
 
         c = C(1, 2)
         c1 = replace(c, x=3)
-        self.assertEqual(c1.x, 3)
-        self.assertEqual(c1.y, 2)
-
-        self.assertRaises(TypeError, replace)
-        self.assertRaises(TypeError, replace, c, c)
-        with self.assertWarns(DeprecationWarning):
-            c1 = replace(obj=c, x=3)
         self.assertEqual(c1.x, 3)
         self.assertEqual(c1.y, 2)
 

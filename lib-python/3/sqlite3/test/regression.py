@@ -1,7 +1,7 @@
 #-*- coding: iso-8859-1 -*-
 # pysqlite2/test/regression.py: pysqlite regression tests
 #
-# Copyright (C) 2006-2010 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2006-2010 Gerhard Hï¿½ring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -127,12 +127,12 @@ class RegressionTests(unittest.TestCase):
         con = sqlite.connect(":memory:",detect_types=sqlite.PARSE_DECLTYPES)
         con.execute("create table foo(bar timestamp)")
         con.execute("insert into foo(bar) values (?)", (datetime.datetime.now(),))
-        con.execute(SELECT)
+        con.execute(SELECT).close()
         support.gc_collect()  # PyPy change
         con.execute("drop table foo")
         con.execute("create table foo(bar integer)")
         con.execute("insert into foo(bar) values (5)")
-        con.execute(SELECT)
+        con.execute(SELECT).close()
 
     def CheckBindMutatingList(self):
         # Issue41662: Crash when mutate a list of parameters during iteration.
@@ -276,7 +276,7 @@ class RegressionTests(unittest.TestCase):
         Call a connection with a non-string SQL request: check error handling
         of the statement constructor.
         """
-        self.assertRaises(sqlite.Warning, self.con, 1)
+        self.assertRaises(TypeError, self.con, 1)
 
     def CheckCollation(self):
         def collation_cb(a, b):
