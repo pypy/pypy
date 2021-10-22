@@ -95,3 +95,12 @@ app = gateway.applevel(r'''
 
 _classdir = app.interphook('_classdir')
 _objectdir = app.interphook('_objectdir')
+
+def generic_alias_class_getitem(space, w_cls, w_item):
+    "See PEP 585"
+    print("DAAAANGER! imported _pypy_generic_alias")
+    w_builtins = space.getbuiltinmodule('builtins')
+    w_mod = space.call_method(w_builtins, '__import__',
+            space.newtext("_pypy_generic_alias"))
+    w_GenericAlias = space.getattr(w_mod, space.newtext("GenericAlias"))
+    return space.call_function(w_GenericAlias, w_cls, w_item)

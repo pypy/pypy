@@ -35,7 +35,7 @@ from pypy.objspace.std.iterobject import (
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
-from pypy.objspace.std.util import get_positive_index, negate
+from pypy.objspace.std.util import get_positive_index, negate, generic_alias_class_getitem
 
 __all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
 
@@ -2213,6 +2213,9 @@ list(iterable) -> new list initialized from iterable's items""",
     __getitem__ = interp2app(W_ListObject.descr_getitem),
     __setitem__ = interp2app(W_ListObject.descr_setitem),
     __delitem__ = interp2app(W_ListObject.descr_delitem),
+
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 
     sort = interp2app(W_ListObject.descr_sort),
     index = interp2app(W_ListObject.descr_index),

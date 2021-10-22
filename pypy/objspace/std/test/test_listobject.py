@@ -1732,6 +1732,12 @@ class AppTestListObject(object):
         with raises(TypeError):
             list(sequence=[])
 
+    def test_generic_alias(self):
+        ga = list[int]
+        assert ga.__origin__ is list
+        assert ga.__args__ == (int, )
+
+
 class AppTestWithoutStrategies:
     spaceconfig = {"objspace.std.withliststrategies": False}
 
