@@ -105,7 +105,8 @@ def stderr_to_parser_error(parse_args, *args, **kwargs):
             code = sys.exc_info()[1].code
             stdout = sys.stdout.getvalue()
             stderr = sys.stderr.getvalue()
-            raise ArgumentParserError("SystemExit", stdout, stderr, code)
+            raise ArgumentParserError(
+                "SystemExit", stdout, stderr, code) from None
     finally:
         sys.stdout = old_stdout
         sys.stderr = old_stderr
@@ -686,6 +687,38 @@ class TestOptionalsActionStoreTrue(ParserTestCase):
         ('--apple', NS(apple=True)),
     ]
 
+class TestBooleanOptionalAction(ParserTestCase):
+    """Tests BooleanOptionalAction"""
+
+    argument_signatures = [Sig('--foo', action=argparse.BooleanOptionalAction)]
+    failures = ['--foo bar', '--foo=bar']
+    successes = [
+        ('', NS(foo=None)),
+        ('--foo', NS(foo=True)),
+        ('--no-foo', NS(foo=False)),
+        ('--foo --no-foo', NS(foo=False)),  # useful for aliases
+        ('--no-foo --foo', NS(foo=True)),
+    ]
+
+    def test_const(self):
+        # See bpo-40862
+        parser = argparse.ArgumentParser()
+        with self.assertRaises(TypeError) as cm:
+            parser.add_argument('--foo', const=True, action=argparse.BooleanOptionalAction)
+
+        self.assertIn("got an unexpected keyword argument 'const'", str(cm.exception))
+
+class TestBooleanOptionalActionRequired(ParserTestCase):
+    """Tests BooleanOptionalAction required"""
+
+    argument_signatures = [
+        Sig('--foo', required=True, action=argparse.BooleanOptionalAction)
+    ]
+    failures = ['']
+    successes = [
+        ('--foo', NS(foo=True)),
+        ('--no-foo', NS(foo=False)),
+    ]
 
 class TestOptionalsActionAppend(ParserTestCase):
     """Tests the append action for an Optional"""
@@ -2024,6 +2057,30 @@ class TestAddSubparsers(TestCase):
         ret = parser.parse_args(())
         self.assertIsNone(ret.command)
 
+    def test_required_subparsers_no_destination_error(self):
+        parser = ErrorRaisingArgumentParser()
+        subparsers = parser.add_subparsers(required=True)
+        subparsers.add_parser('foo')
+        subparsers.add_parser('bar')
+        with self.assertRaises(ArgumentParserError) as excinfo:
+            parser.parse_args(())
+        self.assertRegex(
+            excinfo.exception.stderr,
+            'error: the following arguments are required: {foo,bar}\n$'
+        )
+
+    def test_wrong_argument_subparsers_no_destination_error(self):
+        parser = ErrorRaisingArgumentParser()
+        subparsers = parser.add_subparsers(required=True)
+        subparsers.add_parser('foo')
+        subparsers.add_parser('bar')
+        with self.assertRaises(ArgumentParserError) as excinfo:
+            parser.parse_args(('baz',))
+        self.assertRegex(
+            excinfo.exception.stderr,
+            r"error: argument {foo,bar}: invalid choice: 'baz' \(choose from 'foo', 'bar'\)\n$"
+        )
+
     def test_optional_subparsers(self):
         parser = ErrorRaisingArgumentParser()
         subparsers = parser.add_subparsers(dest='command', required=False)
@@ -2176,7 +2233,7 @@ class TestAddSubparsers(TestCase):
 
     def test_subparser2_help(self):
         self._test_subparser_help('5.0 2 -h', textwrap.dedent('''\
-            usage: PROG bar 2 [-h] [-y {1,2,3}] [z [z ...]]
+            usage: PROG bar 2 [-h] [-y {1,2,3}] [z ...]
 
             2 description
 
@@ -2710,10 +2767,10 @@ class TestMutuallyExclusiveOptionalAndPositional(MEMixin, TestCase):
     ]
 
     usage_when_not_required = '''\
-        usage: PROG [-h] [--foo | --spam SPAM | badger [badger ...]]
+        usage: PROG [-h] [--foo | --spam SPAM | badger ...]
         '''
     usage_when_required = '''\
-        usage: PROG [-h] (--foo | --spam SPAM | badger [badger ...])
+        usage: PROG [-h] (--foo | --spam SPAM | badger ...)
         '''
     help = '''\
 
@@ -3493,6 +3550,10 @@ class TestHelpUsage(HelpTestCase):
         Sig('a', help='a'),
         Sig('b', help='b', nargs=2),
         Sig('c', help='c', nargs='?'),
+        Sig('--foo', help='Whether to foo', action=argparse.BooleanOptionalAction),
+        Sig('--bar', help='Whether to bar', default=True,
+                     action=argparse.BooleanOptionalAction),
+        Sig('-f', '--foobar', '--barfoo', action=argparse.BooleanOptionalAction),
     ]
     argument_group_signatures = [
         (Sig('group'), [
@@ -3503,26 +3564,32 @@ class TestHelpUsage(HelpTestCase):
         ])
     ]
     usage = '''\
-        usage: PROG [-h] [-w W [W ...]] [-x [X [X ...]]] [-y [Y]] [-z Z Z Z]
-                    a b b [c] [d [d ...]] e [e ...]
+        usage: PROG [-h] [-w W [W ...]] [-x [X ...]] [--foo | --no-foo]
+                    [--bar | --no-bar]
+                    [-f | --foobar | --no-foobar | --barfoo | --no-barfoo] [-y [Y]]
+                    [-z Z Z Z]
+                    a b b [c] [d ...] e [e ...]
         '''
     help = usage + '''\
 
         positional arguments:
-          a               a
-          b               b
-          c               c
+          a                     a
+          b                     b
+          c                     c
 
         optional arguments:
-          -h, --help      show this help message and exit
-          -w W [W ...]    w
-          -x [X [X ...]]  x
+          -h, --help            show this help message and exit
+          -w W [W ...]          w
+          -x [X ...]            x
+          --foo, --no-foo       Whether to foo
+          --bar, --no-bar       Whether to bar (default: True)
+          -f, --foobar, --no-foobar, --barfoo, --no-barfoo
 
         group:
-          -y [Y]          y
-          -z Z Z Z        z
-          d               d
-          e               e
+          -y [Y]                y
+          -z Z Z Z              z
+          d                     d
+          e                     e
         '''
     version = ''
 
@@ -4192,6 +4259,9 @@ class TestHelpArgumentDefaults(HelpTestCase):
     argument_signatures = [
         Sig('--foo', help='foo help - oh and by the way, %(default)s'),
         Sig('--bar', action='store_true', help='bar help'),
+        Sig('--taz', action=argparse.BooleanOptionalAction,
+            help='Whether to taz it', default=True),
+        Sig('--quux', help="Set the quux", default=42),
         Sig('spam', help='spam help'),
         Sig('badger', nargs='?', default='wooden', help='badger help'),
     ]
@@ -4200,25 +4270,29 @@ class TestHelpArgumentDefaults(HelpTestCase):
          [Sig('--baz', type=int, default=42, help='baz help')]),
     ]
     usage = '''\
-        usage: PROG [-h] [--foo FOO] [--bar] [--baz BAZ] spam [badger]
+        usage: PROG [-h] [--foo FOO] [--bar] [--taz | --no-taz] [--quux QUUX]
+                    [--baz BAZ]
+                    spam [badger]
         '''
     help = usage + '''\
 
         description
 
         positional arguments:
-          spam        spam help
-          badger      badger help (default: wooden)
+          spam             spam help
+          badger           badger help (default: wooden)
 
         optional arguments:
-          -h, --help  show this help message and exit
-          --foo FOO   foo help - oh and by the way, None
-          --bar       bar help (default: False)
+          -h, --help       show this help message and exit
+          --foo FOO        foo help - oh and by the way, None
+          --bar            bar help (default: False)
+          --taz, --no-taz  Whether to taz it (default: True)
+          --quux QUUX      Set the quux (default: 42)
 
         title:
           description
 
-          --baz BAZ   baz help (default: 42)
+          --baz BAZ        baz help (default: 42)
         '''
     version = ''
 
@@ -4690,7 +4764,7 @@ class TestStrings(TestCase):
 
     def test_namespace(self):
         ns = argparse.Namespace(foo=42, bar='spam')
-        string = "Namespace(bar='spam', foo=42)"
+        string = "Namespace(foo=42, bar='spam')"
         self.assertStringEqual(ns, string)
 
     def test_namespace_starkwargs_notidentifier(self):
@@ -5116,7 +5190,7 @@ class TestAddArgumentMetavar(TestCase):
         self.do_test_exception(nargs="*", metavar=tuple())
 
     def test_nargs_zeroormore_metavar_length1(self):
-        self.do_test_exception(nargs="*", metavar=("1",))
+        self.do_test_no_exception(nargs="*", metavar=("1",))
 
     def test_nargs_zeroormore_metavar_length2(self):
         self.do_test_no_exception(nargs="*", metavar=("1", "2"))
@@ -5297,6 +5371,21 @@ class TestWrappingMetavar(TestCase):
               -h, --help            show this help message and exit
               --proxy <http[s]://example:1234>
             '''))
+
+
+class TestExitOnError(TestCase):
+
+    def setUp(self):
+        self.parser = argparse.ArgumentParser(exit_on_error=False)
+        self.parser.add_argument('--integers', metavar='N', type=int)
+
+    def test_exit_on_error_with_good_args(self):
+        ns = self.parser.parse_args('--integers 4'.split())
+        self.assertEqual(ns, argparse.Namespace(integers=4))
+
+    def test_exit_on_error_with_bad_args(self):
+        with self.assertRaises(argparse.ArgumentError):
+            self.parser.parse_args('--integers a'.split())
 
 
 def test_main():

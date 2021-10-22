@@ -4,12 +4,12 @@ import errno
 import io
 import os
 import pathlib
-import signal
 import sys
 import re
 import warnings
 import contextlib
 import stat
+import types
 import weakref
 from unittest import mock
 
@@ -200,15 +200,7 @@ class TestRandomNameSequence(BaseTestCase):
             child_value = os.read(read_fd, len(parent_value)).decode("ascii")
         finally:
             if pid:
-                # best effort to ensure the process can't bleed out
-                # via any bugs above
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                except OSError:
-                    pass
-
-                # Read the process exit status to avoid zombie process
-                os.waitpid(pid, 0)
+                support.wait_process(pid, exitcode=0)
 
             os.close(read_fd)
             os.close(write_fd)
@@ -436,6 +428,7 @@ class TestMkstempInner(TestBadTempdir, BaseTestCase):
             self.do_create(dir=dir).write(b"blat")
             self.do_create(dir=pathlib.Path(dir)).write(b"blat")
         finally:
+            support.gc_collect()  # For PyPy or other GCs.
             os.rmdir(dir)
 
     def test_file_mode(self):
@@ -829,6 +822,8 @@ class TestMktemp(BaseTestCase):
         extant = list(range(TEST_FILES))
         for i in extant:
             extant[i] = self.do_create(pre="aa")
+        del extant
+        support.gc_collect()  # For PyPy or other GCs.
 
 ##     def test_warning(self):
 ##         # mktemp issues a warning when used
@@ -1231,6 +1226,9 @@ class TestSpooledTemporaryFile(BaseTestCase):
         self.assertTrue(f._rolled)
         self.assertEqual(os.fstat(f.fileno()).st_size, 20)
 
+    def test_class_getitem(self):
+        self.assertIsInstance(tempfile.SpooledTemporaryFile[bytes],
+                      types.GenericAlias)
 
 if tempfile.NamedTemporaryFile is not tempfile.TemporaryFile:
 

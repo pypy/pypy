@@ -3,6 +3,7 @@ import re
 import sys
 import tempfile
 
+from test.support import ALWAYS_EQ
 import unittest
 from unittest.test.testmock.support import is_instance
 from unittest import mock
@@ -262,7 +263,7 @@ class MockTest(unittest.TestCase):
 
         ret_val = mock(sentinel.Arg)
         self.assertTrue(mock.called, "called not set")
-        self.assertEqual(mock.call_count, 1, "call_count incoreect")
+        self.assertEqual(mock.call_count, 1, "call_count incorrect")
         self.assertEqual(mock.call_args, ((sentinel.Arg,), {}),
                          "call_args not set")
         self.assertEqual(mock.call_args.args, (sentinel.Arg,),
@@ -322,6 +323,8 @@ class MockTest(unittest.TestCase):
         self.assertFalse(mm != mock.ANY)
         self.assertTrue(mock.ANY == mm)
         self.assertFalse(mock.ANY != mm)
+        self.assertTrue(mm == ALWAYS_EQ)
+        self.assertFalse(mm != ALWAYS_EQ)
 
         call1 = mock.call(mock.MagicMock())
         call2 = mock.call(mock.ANY)
@@ -329,6 +332,11 @@ class MockTest(unittest.TestCase):
         self.assertFalse(call1 != call2)
         self.assertTrue(call2 == call1)
         self.assertFalse(call2 != call1)
+
+        self.assertTrue(call1 == ALWAYS_EQ)
+        self.assertFalse(call1 != ALWAYS_EQ)
+        self.assertFalse(call1 == 1)
+        self.assertTrue(call1 != 1)
 
 
     def test_assert_called_with(self):
@@ -705,6 +713,57 @@ class MockTest(unittest.TestCase):
         self.assertEqual(mock.method(), sentinel.VALUE1)
         self.assertEqual(mock.method(), sentinel.RETURN)
         self.assertRaises(StopIteration, mock.method)
+
+
+    def test_magic_method_wraps_dict(self):
+        # bpo-25597: MagicMock with wrap doesn't call wrapped object's
+        # method for magic methods with default values.
+        data = {'foo': 'bar'}
+
+        wrapped_dict = MagicMock(wraps=data)
+        self.assertEqual(wrapped_dict.get('foo'), 'bar')
+        # Accessing key gives a MagicMock
+        self.assertIsInstance(wrapped_dict['foo'], MagicMock)
+        # __contains__ method has a default value of False
+        self.assertFalse('foo' in wrapped_dict)
+
+        # return_value is non-sentinel and takes precedence over wrapped value.
+        wrapped_dict.get.return_value = 'return_value'
+        self.assertEqual(wrapped_dict.get('foo'), 'return_value')
+
+        # return_value is sentinel and hence wrapped value is returned.
+        wrapped_dict.get.return_value = sentinel.DEFAULT
+        self.assertEqual(wrapped_dict.get('foo'), 'bar')
+
+        self.assertEqual(wrapped_dict.get('baz'), None)
+        self.assertIsInstance(wrapped_dict['baz'], MagicMock)
+        self.assertFalse('bar' in wrapped_dict)
+
+        data['baz'] = 'spam'
+        self.assertEqual(wrapped_dict.get('baz'), 'spam')
+        self.assertIsInstance(wrapped_dict['baz'], MagicMock)
+        self.assertFalse('bar' in wrapped_dict)
+
+        del data['baz']
+        self.assertEqual(wrapped_dict.get('baz'), None)
+
+
+    def test_magic_method_wraps_class(self):
+
+        class Foo:
+
+            def __getitem__(self, index):
+                return index
+
+            def __custom_method__(self):
+                return "foo"
+
+
+        klass = MagicMock(wraps=Foo)
+        obj = klass()
+        self.assertEqual(obj.__getitem__(2), 2)
+        self.assertEqual(obj[2], 2)
+        self.assertEqual(obj.__custom_method__(), "foo")
 
 
     def test_exceptional_side_effect(self):
@@ -1628,10 +1687,22 @@ class MockTest(unittest.TestCase):
         self.assertNotEqual(m.side_effect, None)
 
     def test_reset_sideeffect(self):
-        m = Mock(return_value=10, side_effect=[2,3])
+        m = Mock(return_value=10, side_effect=[2, 3])
         m.reset_mock(side_effect=True)
         self.assertEqual(m.return_value, 10)
         self.assertEqual(m.side_effect, None)
+
+    def test_reset_return_with_children(self):
+        m = MagicMock(f=MagicMock(return_value=1))
+        self.assertEqual(m.f(), 1)
+        m.reset_mock(return_value=True)
+        self.assertNotEqual(m.f(), 1)
+
+    def test_reset_return_with_children_side_effect(self):
+        m = MagicMock(f=MagicMock(side_effect=[2, 3]))
+        self.assertNotEqual(m.f.side_effect, None)
+        m.reset_mock(side_effect=True)
+        self.assertEqual(m.f.side_effect, None)
 
     def test_mock_add_spec(self):
         class _One(object):
@@ -1800,6 +1871,11 @@ class MockTest(unittest.TestCase):
         self.assertEqual(list(f1), [])
         with self.assertRaises(StopIteration):
             next(f1)
+
+    def test_mock_open_next_with_readline_with_return_value(self):
+        mopen = mock.mock_open(read_data='foo\nbarn')
+        mopen.return_value.readline.return_value = 'abc'
+        self.assertEqual('abc', next(mopen()))
 
     def test_mock_open_write(self):
         # Test exception in file writing write()
@@ -2079,6 +2155,16 @@ class MockTest(unittest.TestCase):
             for mock in mocks:
                 obj = mock(spec=Something)
                 self.assertIsInstance(obj, Something)
+
+    def test_bool_not_called_when_passing_spec_arg(self):
+        class Something:
+            def __init__(self):
+                self.obj_with_bool_func = unittest.mock.MagicMock()
+
+        obj = Something()
+        with unittest.mock.patch.object(obj, 'obj_with_bool_func', autospec=True): pass
+
+        self.assertEqual(obj.obj_with_bool_func.__bool__.call_count, 0)
 
 
 if __name__ == '__main__':

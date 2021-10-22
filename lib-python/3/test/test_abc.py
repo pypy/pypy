@@ -149,6 +149,25 @@ def test_factory(abc_ABCMeta, abc_get_cache_token):
             self.assertEqual(D.foo(), 4)
             self.assertEqual(D().foo(), 4)
 
+        def test_object_new_with_one_abstractmethod(self):
+            class C(metaclass=abc_ABCMeta):
+                @abc.abstractmethod
+                def method_one(self):
+                    pass
+            msg = r"class C with abstract method method_one"
+            self.assertRaisesRegex(TypeError, msg, C)
+
+        def test_object_new_with_many_abstractmethods(self):
+            class C(metaclass=abc_ABCMeta):
+                @abc.abstractmethod
+                def method_one(self):
+                    pass
+                @abc.abstractmethod
+                def method_two(self):
+                    pass
+            msg = r"class C with abstract methods method_one, method_two"
+            self.assertRaisesRegex(TypeError, msg, C)
+
         def test_abstractmethod_integration(self):
             for abstractthing in [abc.abstractmethod, abc.abstractproperty,
                                   abc.abstractclassmethod,
@@ -307,7 +326,7 @@ def test_factory(abc_ABCMeta, abc_get_cache_token):
             token_old = abc_get_cache_token()
             A.register(B)
             token_new = abc_get_cache_token()
-            self.assertNotEqual(token_old, token_new)
+            self.assertGreater(token_new, token_old)
             self.assertTrue(isinstance(b, A))
             self.assertTrue(isinstance(b, (A,)))
 
@@ -439,6 +458,24 @@ def test_factory(abc_ABCMeta, abc_get_cache_token):
 
             with self.assertRaisesRegex(Exception, exc_msg):
                 issubclass(int, S)
+
+        def test_subclasshook(self):
+            class A(metaclass=abc.ABCMeta):
+                @classmethod
+                def __subclasshook__(cls, C):
+                    if cls is A:
+                        return 'foo' in C.__dict__
+                    return NotImplemented
+            self.assertFalse(issubclass(A, A))
+            self.assertFalse(issubclass(A, (A,)))
+            class B:
+                foo = 42
+            self.assertTrue(issubclass(B, A))
+            self.assertTrue(issubclass(B, (A,)))
+            class C:
+                spam = 42
+            self.assertFalse(issubclass(C, A))
+            self.assertFalse(issubclass(C, (A,)))
 
         def test_all_new_methods_are_called(self):
             class A(metaclass=abc_ABCMeta):

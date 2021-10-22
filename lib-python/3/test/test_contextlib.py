@@ -125,19 +125,22 @@ class ContextManagerTestCase(unittest.TestCase):
         self.assertEqual(state, [1, 42, 999])
 
     def test_contextmanager_except_stopiter(self):
-        stop_exc = StopIteration('spam')
         @contextmanager
         def woohoo():
             yield
-        try:
-            with self.assertWarnsRegex(DeprecationWarning,
-                                       "StopIteration"):
-                with woohoo():
-                    raise stop_exc
-        except Exception as ex:
-            self.assertIs(ex, stop_exc)
-        else:
-            self.fail('StopIteration was suppressed')
+
+        class StopIterationSubclass(StopIteration):
+            pass
+
+        for stop_exc in (StopIteration('spam'), StopIterationSubclass('spam')):
+            with self.subTest(type=type(stop_exc)):
+                try:
+                    with woohoo():
+                        raise stop_exc
+                except Exception as ex:
+                    self.assertIs(ex, stop_exc)
+                else:
+                    self.fail(f'{stop_exc} was suppressed')
 
     def test_contextmanager_except_pep479(self):
         code = """\
@@ -603,9 +606,9 @@ class TestBaseExitStack:
                 stack.callback(arg=1)
             with self.assertRaises(TypeError):
                 self.exit_stack.callback(arg=2)
-            with self.assertWarns(DeprecationWarning):
+            with self.assertRaises(TypeError):
                 stack.callback(callback=_exit, arg=3)
-        self.assertEqual(result, [((), {'arg': 3})])
+        self.assertEqual(result, [])
 
     def test_push(self):
         exc_raised = ZeroDivisionError

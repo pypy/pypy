@@ -10,9 +10,11 @@ import threading
 import warnings
 
 import unittest
+from unittest import mock
 TestCase = unittest.TestCase
 
 from test import support
+from test.support import socket_helper
 
 here = os.path.dirname(__file__)
 # Self-signed cert file for 'localhost'
@@ -42,7 +44,7 @@ last_chunk_extended = "0" + chunk_extension + "\r\n"
 trailers = "X-Dummy: foo\r\nX-Dumm2: bar\r\n"
 chunked_end = "\r\n"
 
-HOST = support.HOST
+HOST = socket_helper.HOST
 
 class FakeSocket:
     def __init__(self, text, fileclass=io.BytesIO, host=None, port=None):
@@ -1472,6 +1474,7 @@ class OfflineTest(TestCase):
             'UNSUPPORTED_MEDIA_TYPE',
             'REQUESTED_RANGE_NOT_SATISFIABLE',
             'EXPECTATION_FAILED',
+            'IM_A_TEAPOT',
             'MISDIRECTED_REQUEST',
             'UNPROCESSABLE_ENTITY',
             'LOCKED',
@@ -1490,6 +1493,8 @@ class OfflineTest(TestCase):
             'INSUFFICIENT_STORAGE',
             'NOT_EXTENDED',
             'NETWORK_AUTHENTICATION_REQUIRED',
+            'EARLY_HINTS',
+            'TOO_EARLY'
         ]
         for const in expected:
             with self.subTest(constant=const):
@@ -1499,8 +1504,8 @@ class OfflineTest(TestCase):
 class SourceAddressTest(TestCase):
     def setUp(self):
         self.serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.port = support.bind_port(self.serv)
-        self.source_port = support.find_unused_port()
+        self.port = socket_helper.bind_port(self.serv)
+        self.source_port = socket_helper.find_unused_port()
         self.serv.listen()
         self.conn = None
 
@@ -1532,7 +1537,7 @@ class TimeoutTest(TestCase):
 
     def setUp(self):
         self.serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        TimeoutTest.PORT = support.bind_port(self.serv)
+        TimeoutTest.PORT = socket_helper.bind_port(self.serv)
         self.serv.listen()
 
     def tearDown(self):
@@ -1664,7 +1669,7 @@ class HTTPSTest(TestCase):
         # Default settings: requires a valid cert from a trusted CA
         import ssl
         support.requires('network')
-        with support.transient_internet('self-signed.pythontest.net'):
+        with socket_helper.transient_internet('self-signed.pythontest.net'):
             h = client.HTTPSConnection('self-signed.pythontest.net', 443)
             with self.assertRaises(ssl.SSLError) as exc_info:
                 h.request('GET', '/')
@@ -1674,7 +1679,7 @@ class HTTPSTest(TestCase):
         # Switch off cert verification
         import ssl
         support.requires('network')
-        with support.transient_internet('self-signed.pythontest.net'):
+        with socket_helper.transient_internet('self-signed.pythontest.net'):
             context = ssl._create_unverified_context()
             h = client.HTTPSConnection('self-signed.pythontest.net', 443,
                                        context=context)
@@ -1688,7 +1693,7 @@ class HTTPSTest(TestCase):
     def test_networked_trusted_by_default_cert(self):
         # Default settings: requires a valid cert from a trusted CA
         support.requires('network')
-        with support.transient_internet('www.python.org'):
+        with socket_helper.transient_internet('www.python.org'):
             h = client.HTTPSConnection('www.python.org', 443)
             h.request('GET', '/')
             resp = h.getresponse()
@@ -1702,7 +1707,7 @@ class HTTPSTest(TestCase):
         import ssl
         support.requires('network')
         selfsigned_pythontestdotnet = 'self-signed.pythontest.net'
-        with support.transient_internet(selfsigned_pythontestdotnet):
+        with socket_helper.transient_internet(selfsigned_pythontestdotnet):
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
             self.assertEqual(context.check_hostname, True)
@@ -1734,7 +1739,7 @@ class HTTPSTest(TestCase):
         # We feed a "CA" cert that is unrelated to the server's cert
         import ssl
         support.requires('network')
-        with support.transient_internet('self-signed.pythontest.net'):
+        with socket_helper.transient_internet('self-signed.pythontest.net'):
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             context.load_verify_locations(CERT_localhost)
             h = client.HTTPSConnection('self-signed.pythontest.net', 443, context=context)
@@ -2029,6 +2034,23 @@ class TunnelTests(TestCase):
 
         # This test should be removed when CONNECT gets the HTTP/1.1 blessing
         self.assertNotIn(b'Host: proxy.com', self.conn.sock.data)
+
+    def test_tunnel_connect_single_send_connection_setup(self):
+        """Regresstion test for https://bugs.python.org/issue43332."""
+        with mock.patch.object(self.conn, 'send') as mock_send:
+            self.conn.set_tunnel('destination.com')
+            self.conn.connect()
+            self.conn.request('GET', '/')
+        mock_send.assert_called()
+        # Likely 2, but this test only cares about the first.
+        self.assertGreater(
+                len(mock_send.mock_calls), 1,
+                msg=f'unexpected number of send calls: {mock_send.mock_calls}')
+        proxy_setup_data_sent = mock_send.mock_calls[0][1][0]
+        self.assertIn(b'CONNECT destination.com', proxy_setup_data_sent)
+        self.assertTrue(
+                proxy_setup_data_sent.endswith(b'\r\n\r\n'),
+                msg=f'unexpected proxy data sent {proxy_setup_data_sent!r}')
 
     def test_connect_put_request(self):
         self.conn.set_tunnel('destination.com')

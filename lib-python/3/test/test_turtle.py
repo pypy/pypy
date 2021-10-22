@@ -85,7 +85,7 @@ class TurtleConfigTest(unittest.TestCase):
 
         self.assertEqual(parsed_cfg, expected)
 
-    def test_partial_config_dict_with_commments(self):
+    def test_partial_config_dict_with_comments(self):
 
         cfg_name = self.get_cfg_file(test_config_two)
         parsed_cfg = turtle.config_dict(cfg_name)
@@ -232,17 +232,9 @@ class TestVec2D(VectorComparisonMixin, unittest.TestCase):
         self.assertVectorsAlmostEqual(-vec, expected)
 
     def test_distance(self):
-        vec = Vec2D(6, 8)
-        expected = 10
-        self.assertEqual(abs(vec), expected)
-
-        vec = Vec2D(0, 0)
-        expected = 0
-        self.assertEqual(abs(vec), expected)
-
-        vec = Vec2D(2.5, 6)
-        expected = 6.5
-        self.assertEqual(abs(vec), expected)
+        self.assertEqual(abs(Vec2D(6, 8)), 10)
+        self.assertEqual(abs(Vec2D(0, 0)), 0)
+        self.assertAlmostEqual(abs(Vec2D(2.5, 6)), 6.5)
 
     def test_rotate(self):
 

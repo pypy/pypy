@@ -26,9 +26,10 @@ from itertools import product
 from textwrap import dedent
 from types import AsyncGeneratorType, FunctionType
 from operator import neg
+from test import support
 from test.support import (
     EnvironmentVarGuard, TESTFN, check_warnings, swap_attr, unlink,
-    maybe_get_event_loop_policy, cpython_only)
+    maybe_get_event_loop_policy)
 from test.support.script_helper import assert_python_ok
 from unittest.mock import MagicMock, patch
 try:
@@ -327,8 +328,8 @@ class BuiltinTest(unittest.TestCase):
         bom = b'\xef\xbb\xbf'
         compile(bom + b'print(1)\n', '', 'exec')
         compile(source='pass', filename='?', mode='exec')
-        compile(dont_inherit=0, filename='tmp', source='0', mode='eval')
-        compile('pass', '?', dont_inherit=1, mode='exec')
+        compile(dont_inherit=False, filename='tmp', source='0', mode='eval')
+        compile('pass', '?', dont_inherit=True, mode='exec')
         compile(memoryview(b"text"), "name", "exec")
         self.assertRaises(TypeError, compile)
         self.assertRaises(ValueError, compile, 'print(42)\n', '<string>', 'badmode')
@@ -832,6 +833,7 @@ class BuiltinTest(unittest.TestCase):
         self.assertEqual(hash('spam'), hash(b'spam'))
         hash((0,1,2,3))
         def f(): pass
+        hash(f)
         self.assertRaises(TypeError, hash, [])
         self.assertRaises(TypeError, hash, {})
         # Bug 1536021: Allow hash to return long objects
@@ -1015,7 +1017,12 @@ class BuiltinTest(unittest.TestCase):
         self.assertEqual(max(1, 2.0, 3), 3)
         self.assertEqual(max(1.0, 2, 3), 3)
 
-        self.assertRaises(TypeError, max)
+        with self.assertRaisesRegex(
+            TypeError,
+            'max expected at least 1 argument, got 0'
+        ):
+            max()
+
         self.assertRaises(TypeError, max, 42)
         self.assertRaises(ValueError, max, ())
         class BadSeq:
@@ -1069,7 +1076,12 @@ class BuiltinTest(unittest.TestCase):
         self.assertEqual(min(1, 2.0, 3), 1)
         self.assertEqual(min(1.0, 2, 3), 1.0)
 
-        self.assertRaises(TypeError, min)
+        with self.assertRaisesRegex(
+            TypeError,
+            'min expected at least 1 argument, got 0'
+        ):
+            min()
+
         self.assertRaises(TypeError, min, 42)
         self.assertRaises(ValueError, min, ())
         class BadSeq:
@@ -1458,6 +1470,24 @@ class BuiltinTest(unittest.TestCase):
 
         self.assertEqual(sum(range(10), 1000), 1045)
         self.assertEqual(sum(range(10), start=1000), 1045)
+        self.assertEqual(sum(range(10), 2**31-5), 2**31+40)
+        self.assertEqual(sum(range(10), 2**63-5), 2**63+40)
+
+        self.assertEqual(sum(i % 2 != 0 for i in range(10)), 5)
+        self.assertEqual(sum((i % 2 != 0 for i in range(10)), 2**31-3),
+                         2**31+2)
+        self.assertEqual(sum((i % 2 != 0 for i in range(10)), 2**63-3),
+                         2**63+2)
+        self.assertIs(sum([], False), False)
+
+        self.assertEqual(sum(i / 2 for i in range(10)), 22.5)
+        self.assertEqual(sum((i / 2 for i in range(10)), 1000), 1022.5)
+        self.assertEqual(sum((i / 2 for i in range(10)), 1000.25), 1022.75)
+        self.assertEqual(sum([0.5, 1]), 1.5)
+        self.assertEqual(sum([1, 0.5]), 1.5)
+        self.assertEqual(repr(sum([-0.0])), '0.0')
+        self.assertEqual(repr(sum([-0.0], -0.0)), '-0.0')
+        self.assertEqual(repr(sum([], -0.0)), '-0.0')
 
         self.assertRaises(TypeError, sum)
         self.assertRaises(TypeError, sum, 42)
@@ -1469,6 +1499,9 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(TypeError, sum, [[1], [2], [3]])
         self.assertRaises(TypeError, sum, [{2:3}])
         self.assertRaises(TypeError, sum, [{2:3}]*2, {2:3})
+        self.assertRaises(TypeError, sum, [], '')
+        self.assertRaises(TypeError, sum, [], b'')
+        self.assertRaises(TypeError, sum, [], bytearray())
 
         class BadSeq:
             def __getitem__(self, index):
@@ -1574,7 +1607,7 @@ class BuiltinTest(unittest.TestCase):
 
         self.assertIs(cm.exception, exception)
 
-    @cpython_only
+    @support.cpython_only
     def test_zip_result_gc(self):
         # bpo-42536: zip's tuple-reuse speed trick breaks the GC's assumptions
         # about what can be untracked. Make sure we re-track result tuples
@@ -1713,6 +1746,20 @@ class BuiltinTest(unittest.TestCase):
             self.assertRaises(TypeError, tp, 1, 2)
             self.assertRaises(TypeError, tp, a=1, b=2)
 
+    def test_warning_notimplemented(self):
+        # Issue #35712: NotImplemented is a sentinel value that should never
+        # be evaluated in a boolean context (virtually all such use cases
+        # are a result of accidental misuse implementing rich comparison
+        # operations in terms of one another).
+        # For the time being, it will continue to evaluate as truthy, but
+        # issue a deprecation warning (with the eventual intent to make it
+        # a TypeError).
+        self.assertWarns(DeprecationWarning, bool, NotImplemented)
+        with self.assertWarns(DeprecationWarning):
+            self.assertTrue(NotImplemented)
+        with self.assertWarns(DeprecationWarning):
+            self.assertFalse(not NotImplemented)
+
 
 class TestBreakpoint(unittest.TestCase):
     def setUp(self):
@@ -1847,6 +1894,7 @@ class PtyTests(unittest.TestCase):
             os.close(w)
             self.skipTest("pty.fork() raised {}".format(e))
             raise
+
         if pid == 0:
             # Child
             try:
@@ -1860,9 +1908,11 @@ class PtyTests(unittest.TestCase):
             finally:
                 # We don't want to return to unittest...
                 os._exit(0)
+
         # Parent
         os.close(w)
         os.write(fd, terminal_input)
+
         # Get results from the pipe
         with open(r, "r") as rpipe:
             lines = []
@@ -1872,6 +1922,7 @@ class PtyTests(unittest.TestCase):
                     # The other end was closed => the child exited
                     break
                 lines.append(line)
+
         # Check the result was got and corresponds to the user's terminal input
         if len(lines) != 2:
             # Something went wrong, try to get at stderr
@@ -1894,8 +1945,7 @@ class PtyTests(unittest.TestCase):
         # completion, otherwise the child process hangs on AIX.
         os.close(fd)
 
-        # Wait until the child process completes
-        os.waitpid(pid, 0)
+        support.wait_process(pid, exitcode=0)
 
         return lines
 
@@ -1967,7 +2017,7 @@ class TestSorted(unittest.TestCase):
         self.assertEqual(data, sorted(copy, key=lambda x: -x))
         self.assertNotEqual(data, copy)
         random.shuffle(copy)
-        self.assertEqual(data, sorted(copy, reverse=1))
+        self.assertEqual(data, sorted(copy, reverse=True))
         self.assertNotEqual(data, copy)
 
     def test_bad_arguments(self):

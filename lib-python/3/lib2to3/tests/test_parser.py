@@ -196,19 +196,26 @@ class TestAsyncAwait(GrammarTest):
         self.validate("""await = 1""")
         self.validate("""def async(): pass""")
 
-    def test_async_with(self):
+    def test_async_for(self):
         self.validate("""async def foo():
                              async for a in b: pass""")
 
-        self.invalid_syntax("""def foo():
-                                   async for a in b: pass""")
-
-    def test_async_for(self):
+    def test_async_with(self):
         self.validate("""async def foo():
                              async with a: pass""")
 
         self.invalid_syntax("""def foo():
                                    async with a: pass""")
+
+    def test_async_generator(self):
+        self.validate(
+            """async def foo():
+                   return (i * 2 async for i in arange(42))"""
+        )
+        self.validate(
+            """def foo():
+                   return (i * 2 async for i in arange(42))"""
+        )
 
 
 class TestRaiseChanges(GrammarTest):
@@ -544,7 +551,7 @@ class TestSetLiteral(GrammarTest):
 
 # Adapted from Python 3's Lib/test/test_unicode_identifiers.py and
 # Lib/test/test_tokenize.py:TokenizeTest.test_non_ascii_identifiers
-class TestIdentfier(GrammarTest):
+class TestIdentifier(GrammarTest):
     def test_non_ascii_identifiers(self):
         self.validate("Örter = 'places'\ngrün = 'green'")
         self.validate("蟒 = a蟒 = 锦蛇 = 1")

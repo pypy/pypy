@@ -32,12 +32,12 @@ tk.mainloop()
 
 import enum
 import sys
+import types
 
 import _tkinter # If this fails your Python may not be configured for Tk
 TclError = _tkinter.TclError
 from tkinter.constants import *
 import re
-
 
 wantobjects = 1
 
@@ -2248,7 +2248,7 @@ class Tk(Misc, Wm):
     _w = '.'
 
     def __init__(self, screenName=None, baseName=None, className='Tk',
-                 useTk=1, sync=0, use=None):
+                 useTk=True, sync=False, use=None):
         """Return a new Toplevel widget on screen SCREENNAME. A new Tcl interpreter will
         be created. BASENAME will be used for the identification of the profile file (see
         readprofile).
@@ -2266,7 +2266,7 @@ class Tk(Misc, Wm):
             baseName, ext = os.path.splitext(baseName)
             if ext not in ('.py', '.pyc'):
                 baseName = baseName + ext
-        interactive = 0
+        interactive = False
         self.tk = _tkinter.create(screenName, baseName, className, interactive, wantobjects, useTk, sync, use)
         if useTk:
             self._loadtk()
@@ -2368,7 +2368,7 @@ class Tk(Misc, Wm):
 # copied into the Pack, Place or Grid class.
 
 
-def Tcl(screenName=None, baseName=None, className='Tk', useTk=0):
+def Tcl(screenName=None, baseName=None, className='Tk', useTk=False):
     return Tk(screenName, baseName, className, useTk)
 
 
@@ -4573,6 +4573,10 @@ def _test():
     root.deiconify()
     root.mainloop()
 
+
+__all__ = [name for name, obj in globals().items()
+           if not name.startswith('_') and not isinstance(obj, types.ModuleType)
+           and name not in {'wantobjects'}]
 
 if __name__ == '__main__':
     _test()

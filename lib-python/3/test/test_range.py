@@ -4,6 +4,7 @@ import unittest
 import sys
 import pickle
 import itertools
+from test.support import ALWAYS_EQ
 
 # pure Python implementations (3 args only), for comparison
 def pyrange(start, stop, step):
@@ -89,6 +90,19 @@ class RangeTest(unittest.TestCase):
 
         r = range(-sys.maxsize, sys.maxsize, 2)
         self.assertEqual(len(r), sys.maxsize)
+
+    def test_range_constructor_error_messages(self):
+        with self.assertRaisesRegex(
+                TypeError,
+                "range expected at least 1 argument, got 0"
+        ):
+            range()
+
+        with self.assertRaisesRegex(
+                TypeError,
+                "range expected at most 3 arguments, got 6"
+        ):
+            range(1, 2, 3, 4, 5, 6)
 
     def test_large_operands(self):
         x = range(10**20, 10**20+10, 3)
@@ -289,11 +303,7 @@ class RangeTest(unittest.TestCase):
         self.assertRaises(ValueError, range(1, 2**100, 2).index, 2**87)
         self.assertEqual(range(1, 2**100, 2).index(2**87+1), 2**86)
 
-        class AlwaysEqual(object):
-            def __eq__(self, other):
-                return True
-        always_equal = AlwaysEqual()
-        self.assertEqual(range(10).index(always_equal), 0)
+        self.assertEqual(range(10).index(ALWAYS_EQ), 0)
 
     def test_user_index_method(self):
         bignum = 2*sys.maxsize
@@ -344,11 +354,7 @@ class RangeTest(unittest.TestCase):
         self.assertEqual(range(1, 2**100, 2).count(2**87), 0)
         self.assertEqual(range(1, 2**100, 2).count(2**87+1), 1)
 
-        class AlwaysEqual(object):
-            def __eq__(self, other):
-                return True
-        always_equal = AlwaysEqual()
-        self.assertEqual(range(10).count(always_equal), 10)
+        self.assertEqual(range(10).count(ALWAYS_EQ), 10)
 
         self.assertEqual(len(range(sys.maxsize, sys.maxsize+10)), 10)
 
@@ -368,26 +374,41 @@ class RangeTest(unittest.TestCase):
                                      list(r))
 
     def test_iterator_pickling(self):
-        testcases = [(13,), (0, 11), (-22, 10), (20, 3, -1),
-                     (13, 21, 3), (-2, 2, 2), (2**65, 2**65+2)]
+        testcases = [(13,), (0, 11), (-22, 10), (20, 3, -1), (13, 21, 3),
+                     (-2, 2, 2), (2**31-3, 2**31-1), (2**33, 2**33+2),
+                     (2**63-3, 2**63-1), (2**65, 2**65+2)]
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             for t in testcases:
-                it = itorg = iter(range(*t))
-                data = list(range(*t))
+                with self.subTest(proto=proto, t=t):
+                    it = itorg = iter(range(*t))
+                    data = list(range(*t))
 
+                    d = pickle.dumps(it, proto)
+                    it = pickle.loads(d)
+                    self.assertEqual(type(itorg), type(it))
+                    self.assertEqual(list(it), data)
+
+                    it = pickle.loads(d)
+                    try:
+                        next(it)
+                    except StopIteration:
+                        continue
+                    d = pickle.dumps(it, proto)
+                    it = pickle.loads(d)
+                    self.assertEqual(list(it), data[1:])
+
+    def test_iterator_pickling_overflowing_index(self):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.subTest(proto=proto):
+                it = iter(range(2**32 + 2))
+                _, _, idx = it.__reduce__()
+                self.assertEqual(idx, 0)
+                it.__setstate__(2**32 + 1)  # undocumented way to set r->index
+                _, _, idx = it.__reduce__()
+                self.assertEqual(idx, 2**32 + 1)
                 d = pickle.dumps(it, proto)
                 it = pickle.loads(d)
-                self.assertEqual(type(itorg), type(it))
-                self.assertEqual(list(it), data)
-
-                it = pickle.loads(d)
-                try:
-                    next(it)
-                except StopIteration:
-                    continue
-                d = pickle.dumps(it, proto)
-                it = pickle.loads(d)
-                self.assertEqual(list(it), data[1:])
+                self.assertEqual(next(it), 2**32 + 1)
 
     def test_exhausted_iterator_pickling(self):
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
@@ -429,9 +450,7 @@ class RangeTest(unittest.TestCase):
         self.assertIn(True, range(3))
         self.assertIn(1+0j, range(3))
 
-        class C1:
-            def __eq__(self, other): return True
-        self.assertIn(C1(), range(3))
+        self.assertIn(ALWAYS_EQ, range(3))
 
         # Objects are never coerced into other types for comparison.
         class C2:

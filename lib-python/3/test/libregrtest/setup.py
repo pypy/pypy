@@ -10,6 +10,8 @@ try:
 except ImportError:
     gc = None
 
+from test.libregrtest.utils import setup_unraisable_hook
+
 
 def setup_tests(ns):
     try:
@@ -76,6 +78,19 @@ def setup_tests(ns):
         def _test_audit_hook(name, args):
             pass
         sys.addaudithook(_test_audit_hook)
+
+    setup_unraisable_hook()
+
+    if ns.timeout is not None:
+        # For a slow buildbot worker, increase SHORT_TIMEOUT and LONG_TIMEOUT
+        support.SHORT_TIMEOUT = max(support.SHORT_TIMEOUT, ns.timeout / 40)
+        support.LONG_TIMEOUT = max(support.LONG_TIMEOUT, ns.timeout / 4)
+
+        # If --timeout is short: reduce timeouts
+        support.LOOPBACK_TIMEOUT = min(support.LOOPBACK_TIMEOUT, ns.timeout)
+        support.INTERNET_TIMEOUT = min(support.INTERNET_TIMEOUT, ns.timeout)
+        support.SHORT_TIMEOUT = min(support.SHORT_TIMEOUT, ns.timeout)
+        support.LONG_TIMEOUT = min(support.LONG_TIMEOUT, ns.timeout)
 
 
 def replace_stdout():

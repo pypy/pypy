@@ -2,13 +2,11 @@
 import os
 import stat
 import sys
-import unittest
-from unittest import mock
+import unittest.mock
 from test.support import run_unittest, unix_shell
 from test import support as test_support
 
 from distutils.spawn import find_executable
-from distutils.spawn import _nt_quote_args
 from distutils.spawn import spawn
 from distutils.errors import DistutilsExecError
 from distutils.tests import support
@@ -16,16 +14,6 @@ from distutils.tests import support
 class SpawnTestCase(support.TempdirManager,
                     support.LoggingSilencer,
                     unittest.TestCase):
-
-    def test_nt_quote_args(self):
-
-        for (args, wanted) in ((['with space', 'nospace'],
-                                ['"with space"', 'nospace']),
-                               (['nochange', 'nospace'],
-                                ['nochange', 'nospace'])):
-            res = _nt_quote_args(args)
-            self.assertEqual(res, wanted)
-
 
     @unittest.skipUnless(os.name in ('nt', 'posix'),
                          'Runs only under posix or nt')
@@ -135,6 +123,11 @@ class SpawnTestCase(support.TempdirManager,
                      unittest.mock.patch('distutils.spawn.os.defpath', ''):
                     rv = find_executable(program)
                     self.assertEqual(rv, filename)
+
+    def test_spawn_missing_exe(self):
+        with self.assertRaises(DistutilsExecError) as ctx:
+            spawn(['does-not-exist'])
+        self.assertIn("command 'does-not-exist' failed", str(ctx.exception))
 
 
 def test_suite():

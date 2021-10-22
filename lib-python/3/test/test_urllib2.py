@@ -1,5 +1,6 @@
 import unittest
 from test import support
+from test.support import socket_helper
 from test import test_urllib
 
 import os
@@ -46,6 +47,9 @@ class TrivialTests(unittest.TestCase):
 
     def test_trivial(self):
         # A couple trivial tests
+
+        # clear _opener global variable
+        self.addCleanup(urllib.request.urlcleanup)
 
         self.assertRaises(ValueError, urllib.request.urlopen, 'bogus url')
 
@@ -631,17 +635,12 @@ class OpenerDirectorTests(unittest.TestCase):
             [("http_error_302")],
             ]
         handlers = add_ordered_mock_handlers(o, meth_spec)
-
-        class Unknown:
-            def __eq__(self, other):
-                return True
-
         req = Request("http://example.com/")
         o.open(req)
         assert len(o.calls) == 2
         calls = [(handlers[0], "http_open", (req,)),
                  (handlers[2], "http_error_302",
-                  (req, Unknown(), 302, "", {}))]
+                  (req, support.ALWAYS_EQ, 302, "", {}))]
         for expected, got in zip(calls, o.calls):
             handler, method_name, args = expected
             self.assertEqual((handler, method_name), got[:2])
@@ -1290,6 +1289,10 @@ class HandlerTests(unittest.TestCase):
 
     def test_redirect_no_path(self):
         # Issue 14132: Relative redirect strips original path
+
+        # clear _opener global variable
+        self.addCleanup(urllib.request.urlcleanup)
+
         real_class = http.client.HTTPConnection
         response1 = b"HTTP/1.1 302 Found\r\nLocation: ?query\r\n\r\n"
         http.client.HTTPConnection = test_urllib.fakehttp(response1)
@@ -1786,7 +1789,7 @@ class MiscTests(unittest.TestCase):
     @unittest.skipUnless(support.is_resource_enabled('network'),
                          'test requires network access')
     def test_issue16464(self):
-        with support.transient_internet("http://www.example.com/"):
+        with socket_helper.transient_internet("http://www.example.com/"):
             opener = urllib.request.build_opener()
             request = urllib.request.Request("http://www.example.com/")
             self.assertEqual(None, request.data)

@@ -12,6 +12,9 @@ import textwrap
 import threading
 import time
 import unittest
+import weakref
+import importlib.machinery
+import importlib.util
 from test import support
 from test.support import MISSING_C_DOCSTRINGS
 from test.support.script_helper import assert_python_failure, assert_python_ok
@@ -22,6 +25,8 @@ except ImportError:
 
 # Skip this test if the _testcapi module isn't available.
 _testcapi = support.import_module('_testcapi')
+
+import _testinternalcapi
 
 # Were we compiled --with-pydebug or with #define Py_DEBUG?
 Py_DEBUG = hasattr(sys, 'gettotalrefcount')
@@ -60,8 +65,12 @@ class CAPITest(unittest.TestCase):
         self.assertEqual(out, b'')
         # This used to cause an infinite loop.
         self.assertTrue(err.rstrip().startswith(
-                         b'Fatal Python error:'
-                         b' PyThreadState_Get: no current thread'))
+                         b'Fatal Python error: '
+                         b'PyThreadState_Get: '
+                         b'the function must be called with the GIL held, '
+                         b'but the GIL is released '
+                         b'(the current Python thread state is NULL)'),
+                        err)
 
     def test_memoryview_from_NULL_pointer(self):
         self.assertRaises(ValueError, _testcapi.make_memoryview_from_NULL_pointer)
@@ -96,7 +105,7 @@ class CAPITest(unittest.TestCase):
             def __len__(self):
                 return 1
         self.assertRaises(TypeError, _posixsubprocess.fork_exec,
-                          1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17)
+                          1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
         # Issue #15736: overflow in _PySequence_BytesToCharpArray()
         class Z(object):
             def __len__(self):
@@ -104,7 +113,7 @@ class CAPITest(unittest.TestCase):
             def __getitem__(self, i):
                 return b'x'
         self.assertRaises(MemoryError, _posixsubprocess.fork_exec,
-                          1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17)
+                          1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
 
     @unittest.skipUnless(_posixsubprocess, '_posixsubprocess required for this test.')
     def test_subprocess_fork_exec(self):
@@ -114,7 +123,7 @@ class CAPITest(unittest.TestCase):
 
         # Issue #15738: crash in subprocess_fork_exec()
         self.assertRaises(TypeError, _posixsubprocess.fork_exec,
-                          Z(),[b'1'],3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17)
+                          Z(),[b'1'],3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
 
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
@@ -196,7 +205,8 @@ class CAPITest(unittest.TestCase):
             """)
             rc, out, err = assert_python_failure('-c', code)
             self.assertRegex(err.replace(b'\r', b''),
-                             br'Fatal Python error: a function returned NULL '
+                             br'Fatal Python error: _Py_CheckFunctionResult: '
+                                br'a function returned NULL '
                                 br'without setting an error\n'
                              br'Python runtime state: initialized\n'
                              br'SystemError: <built-in function '
@@ -224,8 +234,9 @@ class CAPITest(unittest.TestCase):
             """)
             rc, out, err = assert_python_failure('-c', code)
             self.assertRegex(err.replace(b'\r', b''),
-                             br'Fatal Python error: a function returned a '
-                                br'result with an error set\n'
+                             br'Fatal Python error: _Py_CheckFunctionResult: '
+                                 br'a function returned a result '
+                                 br'with an error set\n'
                              br'Python runtime state: initialized\n'
                              br'ValueError\n'
                              br'\n'
@@ -439,6 +450,37 @@ class CAPITest(unittest.TestCase):
         # Test that subtype_dealloc decref the newly assigned __class__ only once
         self.assertEqual(new_type_refcnt, sys.getrefcount(A))
 
+    def test_heaptype_with_dict(self):
+        inst = _testcapi.HeapCTypeWithDict()
+        inst.foo = 42
+        self.assertEqual(inst.foo, 42)
+        self.assertEqual(inst.dictobj, inst.__dict__)
+        self.assertEqual(inst.dictobj, {"foo": 42})
+
+        inst = _testcapi.HeapCTypeWithDict()
+        self.assertEqual({}, inst.__dict__)
+
+    def test_heaptype_with_negative_dict(self):
+        inst = _testcapi.HeapCTypeWithNegativeDict()
+        inst.foo = 42
+        self.assertEqual(inst.foo, 42)
+        self.assertEqual(inst.dictobj, inst.__dict__)
+        self.assertEqual(inst.dictobj, {"foo": 42})
+
+        inst = _testcapi.HeapCTypeWithNegativeDict()
+        self.assertEqual({}, inst.__dict__)
+
+    def test_heaptype_with_weakref(self):
+        inst = _testcapi.HeapCTypeWithWeakref()
+        ref = weakref.ref(inst)
+        self.assertEqual(ref(), inst)
+        self.assertEqual(inst.weakreflist, ref)
+
+    def test_heaptype_with_buffer(self):
+        inst = _testcapi.HeapCTypeWithBuffer()
+        b = bytes(inst)
+        self.assertEqual(b, b"1234")
+
     def test_c_subclass_of_heap_ctype_with_tpdealloc_decrefs_once(self):
         subclass_instance = _testcapi.HeapCTypeSubclass()
         type_refcnt = sys.getrefcount(_testcapi.HeapCTypeSubclass)
@@ -495,6 +537,18 @@ class CAPITest(unittest.TestCase):
         self.assertRaises(TypeError, pynumber_tobase, '123', 10)
         self.assertRaises(SystemError, pynumber_tobase, 123, 0)
 
+    def test_pyobject_repr_from_null(self):
+        s = _testcapi.pyobject_repr_from_null()
+        self.assertEqual(s, '<NULL>')
+
+    def test_pyobject_str_from_null(self):
+        s = _testcapi.pyobject_str_from_null()
+        self.assertEqual(s, '<NULL>')
+
+    def test_pyobject_bytes_from_null(self):
+        s = _testcapi.pyobject_bytes_from_null()
+        self.assertEqual(s, b'<NULL>')
+
 
 class TestPendingCalls(unittest.TestCase):
 
@@ -511,11 +565,11 @@ class TestPendingCalls(unittest.TestCase):
             #unsuccessful.
             while True:
                 if _testcapi._pending_threadfunc(callback):
-                    break;
+                    break
 
     def pendingcalls_wait(self, l, n, context = None):
         #now, stick around until l[0] has grown to 10
-        count = 0;
+        count = 0
         while len(l) != n:
             #this busy loop is where we expect to be interrupted to
             #run our callbacks.  Note that callbacks are only run on the
@@ -598,6 +652,7 @@ class SubinterpreterTest(unittest.TestCase):
             import pickle
             with open({:d}, "wb") as f:
 
+                @(lambda x:x)  # Py 3.9
                 def noop(x): return x
 
                 a = (b := f'1{{2}}3') + noop('x')  # Py 3.8 (:=) / 3.6 (f'')
@@ -656,6 +711,12 @@ class Test_testcapi(unittest.TestCase):
                     if name.startswith('test_') and not name.endswith('_code'))
 
 
+class Test_testinternalcapi(unittest.TestCase):
+    locals().update((name, getattr(_testinternalcapi, name))
+                    for name in dir(_testinternalcapi)
+                    if name.startswith('test_'))
+
+
 class PyMemDebugTests(unittest.TestCase):
     PYTHONMALLOC = 'debug'
     # '0x04c06e0' or '04C06E0'
@@ -683,7 +744,7 @@ class PyMemDebugTests(unittest.TestCase):
                  r"\n"
                  r"Enable tracemalloc to get the memory block allocation traceback\n"
                  r"\n"
-                 r"Fatal Python error: bad trailing pad byte")
+                 r"Fatal Python error: _PyMem_DebugRawFree: bad trailing pad byte")
         regex = regex.format(ptr=self.PTR_REGEX)
         regex = re.compile(regex, flags=re.DOTALL)
         self.assertRegex(out, regex)
@@ -699,14 +760,14 @@ class PyMemDebugTests(unittest.TestCase):
                  r"\n"
                  r"Enable tracemalloc to get the memory block allocation traceback\n"
                  r"\n"
-                 r"Fatal Python error: bad ID: Allocated using API 'm', verified using API 'r'\n")
+                 r"Fatal Python error: _PyMem_DebugRawFree: bad ID: Allocated using API 'm', verified using API 'r'\n")
         regex = regex.format(ptr=self.PTR_REGEX)
         self.assertRegex(out, regex)
 
     def check_malloc_without_gil(self, code):
         out = self.check(code)
-        expected = ('Fatal Python error: Python memory allocator called '
-                    'without holding the GIL')
+        expected = ('Fatal Python error: _PyMem_DebugMalloc: '
+                    'Python memory allocator called without holding the GIL')
         self.assertIn(expected, out)
 
     def test_pymem_malloc_without_gil(self):
@@ -762,6 +823,77 @@ class PyMemPymallocDebugTests(PyMemDebugTests):
 class PyMemDefaultTests(PyMemDebugTests):
     # test default allocator of Python compiled in debug mode
     PYTHONMALLOC = ''
+
+
+class Test_ModuleStateAccess(unittest.TestCase):
+    """Test access to module start (PEP 573)"""
+
+    # The C part of the tests lives in _testmultiphase, in a module called
+    # _testmultiphase_meth_state_access.
+    # This module has multi-phase initialization, unlike _testcapi.
+
+    def setUp(self):
+        fullname = '_testmultiphase_meth_state_access'  # XXX
+        origin = importlib.util.find_spec('_testmultiphase').origin
+        loader = importlib.machinery.ExtensionFileLoader(fullname, origin)
+        spec = importlib.util.spec_from_loader(fullname, loader)
+        module = importlib.util.module_from_spec(spec)
+        loader.exec_module(module)
+        self.module = module
+
+    def test_subclass_get_module(self):
+        """PyType_GetModule for defining_class"""
+        class StateAccessType_Subclass(self.module.StateAccessType):
+            pass
+
+        instance = StateAccessType_Subclass()
+        self.assertIs(instance.get_defining_module(), self.module)
+
+    def test_subclass_get_module_with_super(self):
+        class StateAccessType_Subclass(self.module.StateAccessType):
+            def get_defining_module(self):
+                return super().get_defining_module()
+
+        instance = StateAccessType_Subclass()
+        self.assertIs(instance.get_defining_module(), self.module)
+
+    def test_state_access(self):
+        """Checks methods defined with and without argument clinic
+
+        This tests a no-arg method (get_count) and a method with
+        both a positional and keyword argument.
+        """
+
+        a = self.module.StateAccessType()
+        b = self.module.StateAccessType()
+
+        methods = {
+            'clinic': a.increment_count_clinic,
+            'noclinic': a.increment_count_noclinic,
+        }
+
+        for name, increment_count in methods.items():
+            with self.subTest(name):
+                self.assertEqual(a.get_count(), b.get_count())
+                self.assertEqual(a.get_count(), 0)
+
+                increment_count()
+                self.assertEqual(a.get_count(), b.get_count())
+                self.assertEqual(a.get_count(), 1)
+
+                increment_count(3)
+                self.assertEqual(a.get_count(), b.get_count())
+                self.assertEqual(a.get_count(), 4)
+
+                increment_count(-2, twice=True)
+                self.assertEqual(a.get_count(), b.get_count())
+                self.assertEqual(a.get_count(), 0)
+
+                with self.assertRaises(TypeError):
+                    increment_count(thrice=3)
+
+                with self.assertRaises(TypeError):
+                    increment_count(1, 2, 3)
 
 
 if __name__ == "__main__":

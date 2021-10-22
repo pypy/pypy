@@ -119,7 +119,7 @@ def submodule(parent, name, pkg_dir, content=''):
     return '{}.{}'.format(parent, name), path
 
 
-def _get_code_from_pyc(pyc_path):
+def get_code_from_pyc(pyc_path):
     """Reads a pyc file and returns the unmarshalled code object within.
 
     No header validation is performed.
@@ -499,7 +499,7 @@ class CommonResourceTests(abc.ABC):
             self.execute(data01, full_path)
 
     def test_relative_path(self):
-        # A reative path is a ValueError.
+        # A relative path is a ValueError.
         with self.assertRaises(ValueError):
             self.execute(data01, '../data01/utf-8.file')
 

@@ -7,6 +7,7 @@ import time
 import unittest
 import weakref
 from test import support
+from test.support import gc_collect
 
 py_queue = support.import_fresh_module('queue', blocked=['_queue'])
 c_queue = support.import_fresh_module('queue', fresh=['_queue'])
@@ -63,7 +64,7 @@ class BlockingTestMixin:
                           block_func)
             return self.result
         finally:
-            support.join_thread(thread, 10) # make sure the thread terminates
+            support.join_thread(thread) # make sure the thread terminates
 
     # Call this instead if block_func is supposed to raise an exception.
     def do_exceptional_blocking_test(self,block_func, block_args, trigger_func,
@@ -79,7 +80,7 @@ class BlockingTestMixin:
                 self.fail("expected exception of kind %r" %
                                  expected_exception_class)
         finally:
-            support.join_thread(thread, 10) # make sure the thread terminates
+            support.join_thread(thread) # make sure the thread terminates
             if not thread.startedEvent.is_set():
                 self.fail("trigger thread ended but event never set")
 
@@ -588,6 +589,7 @@ class BaseSimpleQueueTest:
             q.put(C())
         for i in range(N):
             wr = weakref.ref(q.get())
+            gc_collect()  # For PyPy or other GCs.
             self.assertIsNone(wr())
 
 

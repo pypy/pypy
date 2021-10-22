@@ -37,6 +37,7 @@ def _supports_sched():
 
 requires_sched = unittest.skipUnless(_supports_sched(), 'requires POSIX scheduler API')
 
+
 class PosixTester(unittest.TestCase):
 
     def setUp(self):
@@ -180,7 +181,6 @@ class PosixTester(unittest.TestCase):
 
     @unittest.skipUnless(getattr(os, 'execve', None) in os.supports_fd, "test needs execve() to support the fd parameter")
     @unittest.skipUnless(hasattr(os, 'fork'), "test needs os.fork()")
-    @unittest.skipUnless(hasattr(os, 'waitpid'), "test needs os.waitpid()")
     def test_fexecve(self):
         fp = os.open(sys.executable, os.O_RDONLY)
         try:
@@ -189,7 +189,7 @@ class PosixTester(unittest.TestCase):
                 os.chdir(os.path.split(sys.executable)[0])
                 posix.execve(fp, [sys.executable, '-c', 'pass'], os.environ)
             else:
-                self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+                support.wait_process(pid, exitcode=0)
         finally:
             os.close(fp)
 
@@ -969,7 +969,6 @@ class PosixTester(unittest.TestCase):
             self.assertEqual(type(k), item_type)
             self.assertEqual(type(v), item_type)
 
-    @unittest.skipUnless(hasattr(os, "putenv"), "requires os.putenv()")
     def test_putenv(self):
         with self.assertRaises(ValueError):
             os.putenv('FRUIT\0VEGETABLE', 'cabbage')
@@ -1226,6 +1225,16 @@ class PosixTester(unittest.TestCase):
         finally:
             posix.close(f)
 
+    @unittest.skipUnless(hasattr(signal, 'SIGCHLD'), 'CLD_XXXX be placed in si_code for a SIGCHLD signal')
+    @unittest.skipUnless(hasattr(os, 'waitid_result'), "test needs os.waitid_result")
+    def test_cld_xxxx_constants(self):
+        os.CLD_EXITED
+        os.CLD_KILLED
+        os.CLD_DUMPED
+        os.CLD_TRAPPED
+        os.CLD_STOPPED
+        os.CLD_CONTINUED
+
     @unittest.skipUnless(os.symlink in os.supports_dir_fd, "test needs dir_fd support in os.symlink()")
     def test_symlink_dir_fd(self):
         f = posix.open(posix.getcwd(), posix.O_RDONLY)
@@ -1460,6 +1469,17 @@ class PosixTester(unittest.TestCase):
         open(fn, 'wb').close()
         self.assertRaises(ValueError, os.stat, fn_with_NUL)
 
+    @unittest.skipUnless(hasattr(os, "pidfd_open"), "pidfd_open unavailable")
+    def test_pidfd_open(self):
+        with self.assertRaises(OSError) as cm:
+            os.pidfd_open(-1)
+        if cm.exception.errno == errno.ENOSYS:
+            self.skipTest("system does not support pidfd_open")
+        if isinstance(cm.exception, PermissionError):
+            self.skipTest(f"pidfd_open syscall blocked: {cm.exception!r}")
+        self.assertEqual(cm.exception.errno, errno.EINVAL)
+        os.close(os.pidfd_open(os.getpid(), 0))
+
 class PosixGroupsTester(unittest.TestCase):
 
     def setUp(self):
@@ -1519,7 +1539,7 @@ class _PosixSpawnMixin:
             """
         args = self.python_args('-c', script)
         pid = self.spawn_func(args[0], args, os.environ)
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
         with open(pidfile) as f:
             self.assertEqual(f.read(), str(pid))
 
@@ -1549,7 +1569,7 @@ class _PosixSpawnMixin:
         args = self.python_args('-c', script)
         pid = self.spawn_func(args[0], args,
                               {**os.environ, 'foo': 'bar'})
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
         with open(envfile) as f:
             self.assertEqual(f.read(), 'bar')
 
@@ -1560,7 +1580,7 @@ class _PosixSpawnMixin:
             os.environ,
             file_actions=None
         )
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
 
     def test_empty_file_actions(self):
         pid = self.spawn_func(
@@ -1569,7 +1589,7 @@ class _PosixSpawnMixin:
             os.environ,
             file_actions=[]
         )
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
 
     def test_resetids_explicit_default(self):
         pid = self.spawn_func(
@@ -1578,7 +1598,7 @@ class _PosixSpawnMixin:
             os.environ,
             resetids=False
         )
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
 
     def test_resetids(self):
         pid = self.spawn_func(
@@ -1587,7 +1607,7 @@ class _PosixSpawnMixin:
             os.environ,
             resetids=True
         )
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
 
     def test_resetids_wrong_type(self):
         with self.assertRaises(TypeError):
@@ -1602,7 +1622,7 @@ class _PosixSpawnMixin:
             os.environ,
             setpgroup=os.getpgrp()
         )
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
 
     def test_setpgroup_wrong_type(self):
         with self.assertRaises(TypeError):
@@ -1623,7 +1643,7 @@ class _PosixSpawnMixin:
             os.environ,
             setsigmask=[signal.SIGUSR1]
         )
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
 
     def test_setsigmask_wrong_type(self):
         with self.assertRaises(TypeError):
@@ -1664,7 +1684,8 @@ class _PosixSpawnMixin:
         finally:
             os.close(wfd)
 
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
+
         output = os.read(rfd, 100)
         child_sid = int(output)
         parent_sid = os.getsid(os.getpid())
@@ -1687,10 +1708,7 @@ class _PosixSpawnMixin:
         finally:
             signal.signal(signal.SIGUSR1, original_handler)
 
-        pid2, status = os.waitpid(pid, 0)
-        self.assertEqual(pid2, pid)
-        self.assertTrue(os.WIFSIGNALED(status), status)
-        self.assertEqual(os.WTERMSIG(status), signal.SIGUSR1)
+        support.wait_process(pid, exitcode=-signal.SIGUSR1)
 
     def test_setsigdef_wrong_type(self):
         with self.assertRaises(TypeError):
@@ -1724,7 +1742,7 @@ class _PosixSpawnMixin:
             os.environ,
             scheduler=(None, os.sched_param(priority))
         )
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
 
     @requires_sched
     @unittest.skipIf(sys.platform.startswith(('freebsd', 'netbsd')),
@@ -1744,7 +1762,7 @@ class _PosixSpawnMixin:
             os.environ,
             scheduler=(policy, os.sched_param(priority))
         )
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
 
     def test_multiple_file_actions(self):
         file_actions = [
@@ -1756,7 +1774,7 @@ class _PosixSpawnMixin:
                               self.NOOP_PROGRAM,
                               os.environ,
                               file_actions=file_actions)
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+        support.wait_process(pid, exitcode=0)
 
     def test_bad_file_actions(self):
         args = self.NOOP_PROGRAM
@@ -1802,7 +1820,8 @@ class _PosixSpawnMixin:
         args = self.python_args('-c', script)
         pid = self.spawn_func(args[0], args, os.environ,
                               file_actions=file_actions)
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+
+        support.wait_process(pid, exitcode=0)
         with open(outfile) as f:
             self.assertEqual(f.read(), 'hello')
 
@@ -1820,7 +1839,8 @@ class _PosixSpawnMixin:
         args = self.python_args('-c', script)
         pid = self.spawn_func(args[0], args, os.environ,
                               file_actions=[(os.POSIX_SPAWN_CLOSE, 0)])
-        self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+
+        support.wait_process(pid, exitcode=0)
         with open(closefile) as f:
             self.assertEqual(f.read(), 'is closed %d' % errno.EBADF)
 
@@ -1838,7 +1858,7 @@ class _PosixSpawnMixin:
             args = self.python_args('-c', script)
             pid = self.spawn_func(args[0], args, os.environ,
                                   file_actions=file_actions)
-            self.assertEqual(os.waitpid(pid, 0), (pid, 0))
+            support.wait_process(pid, exitcode=0)
         with open(dupfile) as f:
             self.assertEqual(f.read(), 'hello')
 
@@ -1870,13 +1890,12 @@ class TestPosixSpawnP(unittest.TestCase, _PosixSpawnMixin):
         spawn_args = (program, '-I', '-S', '-c', 'pass')
         code = textwrap.dedent("""
             import os
+            from test import support
+
             args = %a
             pid = os.posix_spawnp(args[0], args, os.environ)
-            pid2, status = os.waitpid(pid, 0)
-            if pid2 != pid:
-                raise Exception(f"pid {pid2} != {pid}")
-            if status != 0:
-                raise Exception(f"status {status} != 0")
+
+            support.wait_process(pid, exitcode=0)
         """ % (spawn_args,))
 
         # Use a subprocess to test os.posix_spawnp() with a modified PATH
@@ -1886,6 +1905,233 @@ class TestPosixSpawnP(unittest.TestCase, _PosixSpawnMixin):
         assert_python_ok(*args, PATH=path)
 
 
+@unittest.skipUnless(sys.platform == "darwin", "test weak linking on macOS")
+class TestPosixWeaklinking(unittest.TestCase):
+    # These test cases verify that weak linking support on macOS works
+    # as expected. These cases only test new behaviour introduced by weak linking,
+    # regular behaviour is tested by the normal test cases.
+    #
+    # See the section on Weak Linking in Mac/README.txt for more information.
+    def setUp(self):
+        import sysconfig
+        import platform
+
+        config_vars = sysconfig.get_config_vars()
+        self.available = { nm for nm in config_vars if nm.startswith("HAVE_") and config_vars[nm] }
+        self.mac_ver = tuple(int(part) for part in platform.mac_ver()[0].split("."))
+
+    def _verify_available(self, name):
+        if name not in self.available:
+            raise unittest.SkipTest(f"{name} not weak-linked")
+
+    def test_pwritev(self):
+        self._verify_available("HAVE_PWRITEV")
+        if self.mac_ver >= (10, 16):
+            self.assertTrue(hasattr(os, "pwritev"), "os.pwritev is not available")
+            self.assertTrue(hasattr(os, "preadv"), "os.readv is not available")
+
+        else:
+            self.assertFalse(hasattr(os, "pwritev"), "os.pwritev is available")
+            self.assertFalse(hasattr(os, "preadv"), "os.readv is available")
+
+    def test_stat(self):
+        self._verify_available("HAVE_FSTATAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_FSTATAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_FSTATAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.stat("file", dir_fd=0)
+
+    def test_access(self):
+        self._verify_available("HAVE_FACCESSAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_FACCESSAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_FACCESSAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.access("file", os.R_OK, dir_fd=0)
+
+            with self.assertRaisesRegex(NotImplementedError, "follow_symlinks unavailable"):
+                os.access("file", os.R_OK, follow_symlinks=False)
+
+            with self.assertRaisesRegex(NotImplementedError, "effective_ids unavailable"):
+                os.access("file", os.R_OK, effective_ids=True)
+
+    def test_chmod(self):
+        self._verify_available("HAVE_FCHMODAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_FCHMODAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_FCHMODAT", posix._have_functions)
+            self.assertIn("HAVE_LCHMOD", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.chmod("file", 0o644, dir_fd=0)
+
+    def test_chown(self):
+        self._verify_available("HAVE_FCHOWNAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_FCHOWNAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_FCHOWNAT", posix._have_functions)
+            self.assertIn("HAVE_LCHOWN", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.chown("file", 0, 0, dir_fd=0)
+
+    def test_link(self):
+        self._verify_available("HAVE_LINKAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_LINKAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_LINKAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "src_dir_fd unavailable"):
+                os.link("source", "target",  src_dir_fd=0)
+
+            with self.assertRaisesRegex(NotImplementedError, "dst_dir_fd unavailable"):
+                os.link("source", "target",  dst_dir_fd=0)
+
+            with self.assertRaisesRegex(NotImplementedError, "src_dir_fd unavailable"):
+                os.link("source", "target",  src_dir_fd=0, dst_dir_fd=0)
+
+            # issue 41355: !HAVE_LINKAT code path ignores the follow_symlinks flag
+            with support.temp_dir() as base_path:
+                link_path = os.path.join(base_path, "link")
+                target_path = os.path.join(base_path, "target")
+                source_path = os.path.join(base_path, "source")
+
+                with open(source_path, "w") as fp:
+                    fp.write("data")
+
+                os.symlink("target", link_path)
+
+                # Calling os.link should fail in the link(2) call, and
+                # should not reject *follow_symlinks* (to match the
+                # behaviour you'd get when building on a platform without
+                # linkat)
+                with self.assertRaises(FileExistsError):
+                    os.link(source_path, link_path, follow_symlinks=True)
+
+                with self.assertRaises(FileExistsError):
+                    os.link(source_path, link_path, follow_symlinks=False)
+
+
+    def test_listdir_scandir(self):
+        self._verify_available("HAVE_FDOPENDIR")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_FDOPENDIR", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_FDOPENDIR", posix._have_functions)
+
+            with self.assertRaisesRegex(TypeError, "listdir: path should be string, bytes, os.PathLike or None, not int"):
+                os.listdir(0)
+
+            with self.assertRaisesRegex(TypeError, "scandir: path should be string, bytes, os.PathLike or None, not int"):
+                os.scandir(0)
+
+    def test_mkdir(self):
+        self._verify_available("HAVE_MKDIRAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_MKDIRAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_MKDIRAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.mkdir("dir", dir_fd=0)
+
+    def test_rename_replace(self):
+        self._verify_available("HAVE_RENAMEAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_RENAMEAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_RENAMEAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "src_dir_fd and dst_dir_fd unavailable"):
+                os.rename("a", "b", src_dir_fd=0)
+
+            with self.assertRaisesRegex(NotImplementedError, "src_dir_fd and dst_dir_fd unavailable"):
+                os.rename("a", "b", dst_dir_fd=0)
+
+            with self.assertRaisesRegex(NotImplementedError, "src_dir_fd and dst_dir_fd unavailable"):
+                os.replace("a", "b", src_dir_fd=0)
+
+            with self.assertRaisesRegex(NotImplementedError, "src_dir_fd and dst_dir_fd unavailable"):
+                os.replace("a", "b", dst_dir_fd=0)
+
+    def test_unlink_rmdir(self):
+        self._verify_available("HAVE_UNLINKAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_UNLINKAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_UNLINKAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.unlink("path", dir_fd=0)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.rmdir("path", dir_fd=0)
+
+    def test_open(self):
+        self._verify_available("HAVE_OPENAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_OPENAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_OPENAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.open("path", os.O_RDONLY, dir_fd=0)
+
+    def test_readlink(self):
+        self._verify_available("HAVE_READLINKAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_READLINKAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_READLINKAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.readlink("path",  dir_fd=0)
+
+    def test_symlink(self):
+        self._verify_available("HAVE_SYMLINKAT")
+        if self.mac_ver >= (10, 10):
+            self.assertIn("HAVE_SYMLINKAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_SYMLINKAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.symlink("a", "b",  dir_fd=0)
+
+    def test_utime(self):
+        self._verify_available("HAVE_FUTIMENS")
+        self._verify_available("HAVE_UTIMENSAT")
+        if self.mac_ver >= (10, 13):
+            self.assertIn("HAVE_FUTIMENS", posix._have_functions)
+            self.assertIn("HAVE_UTIMENSAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_FUTIMENS", posix._have_functions)
+            self.assertNotIn("HAVE_UTIMENSAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.utime("path", dir_fd=0)
+
+
 def test_main():
     try:
         support.run_unittest(
@@ -1893,6 +2139,7 @@ def test_main():
             PosixGroupsTester,
             TestPosixSpawn,
             TestPosixSpawnP,
+            TestPosixWeaklinking
         )
     finally:
         support.reap_children()

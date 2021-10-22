@@ -1,15 +1,11 @@
-What's New in IDLE 3.8.9
-Released on 2021-05-03?
+What's New in IDLE 3.9.z
+(since 3.9.0)
 =========================
 
 
 bpo-43283: Document why printing to IDLE's Shell is often slower than
 printing to a system terminal and that it can be made faster by
 pre-formatting a single string before printing.
-
-What's New in IDLE 3.8.8
-Released on 2021-02-19
-======================================
 
 bpo-23544: Disable Debug=>Stack Viewer when user code is running or
 Debugger is active, to prevent hang or crash.  Patch by Zackery Spytz.
@@ -25,10 +21,6 @@ work; add docstrings and tests with 100% coverage.
 bpo-42508: Keep IDLE running on macOS.  Remove obsolete workaround
 that prevented running files with shortcuts when using new universal2
 installers built on macOS 11.
-
-What's New in IDLE 3.8.7
-Released on 2020-12-27
-======================================
 
 bpo-42426: Fix reporting offset of the RE error in searchengine.
 
@@ -46,8 +38,8 @@ bpo-40181: In calltips, stop reminding that '/' marks the end of
 positional-only arguments.
 
 
-What's New in IDLE 3.8.6
-Released on 2020-09-??
+What's New in IDLE 3.9.0 (since 3.8.0)
+Released on 2020-10-05?
 ======================================
 
 bpo-41468: Improve IDLE run crash error message (which users should
@@ -57,18 +49,8 @@ bpo-41373: Save files loaded with no line ending, as when blank, or
 different line endings, by setting its line ending to the system
 default. Fix regression in 3.8.4 and 3.9.0b4.
 
-
-What's New in IDLE 3.8.5
-Released on 2020-07-20
-======================================
-
 bpo-41300: Save files with non-ascii chars.  Fix regression in
 3.9.0b4 and 3.8.4.
-
-
-What's New in IDLE 3.8.4
-Released on 2020-06-30
-======================================
 
 bpo-37765: Add keywords to module name completion list.  Rewrite
 Completions section of IDLE doc.
@@ -80,11 +62,6 @@ bpo-41144: Make Open Module open a special module such as os.path.
 
 bpo-40723: Make test_idle pass when run after import.
 Patch by Florian Dahlitz.
-
-
-What's New in IDLE 3.8.3
-Released on 2020-05-13
-======================================
 
 bpo-38689: IDLE will no longer freeze when inspect.signature fails
 when fetching a calltip.
@@ -103,11 +80,6 @@ bpo-39781: Selecting code context lines no longer causes a jump.
 
 bpo-39663: Add tests for pyparse find_good_parse_start().
 
-
-What's New in IDLE 3.8.2
-Released on 2020-02-17
-======================================
-
 bpo-39600: Remove duplicate font names from configuration list.
 
 bpo-38792: Close a shell calltip if a :exc:`KeyboardInterrupt`
@@ -123,11 +95,6 @@ bpo-39050: Settings dialog Help button again displays help text.
 bpo-32989: Add tests for editor newline_and_indent_event method.
 Remove unneeded arguments and dead code from pyparse
 find_good_parse_start method.
-
-
-What's New in IDLE 3.8.1
-Released on 2019-12-18
-======================================
 
 bpo-38943: Fix autocomplete windows not always appearing on some
 systems.  Patch by Johnny Najera.

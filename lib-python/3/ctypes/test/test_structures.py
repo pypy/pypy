@@ -7,6 +7,11 @@ from struct import calcsize
 import _ctypes_test
 from test import support
 
+# The following definition is meant to be used from time to time to assist
+# temporarily disabling tests on specific architectures while investigations
+# are in progress, to keep buildbots happy.
+MACHINE = platform.machine()
+
 class SubclassesTest(unittest.TestCase):
     def test_subclass(self):
         class X(Structure):

@@ -34,16 +34,17 @@ class BrokenStrException(Exception):
 class ExceptionTests(unittest.TestCase):
 
     def raise_catch(self, exc, excname):
-        try:
-            raise exc("spam")
-        except exc as err:
-            buf1 = str(err)
-        try:
-            raise exc("spam")
-        except exc as err:
-            buf2 = str(err)
-        self.assertEqual(buf1, buf2)
-        self.assertEqual(exc.__name__, excname)
+        with self.subTest(exc=exc, excname=excname):
+            try:
+                raise exc("spam")
+            except exc as err:
+                buf1 = str(err)
+            try:
+                raise exc("spam")
+            except exc as err:
+                buf2 = str(err)
+            self.assertEqual(buf1, buf2)
+            self.assertEqual(exc.__name__, excname)
 
     def testRaising(self):
         self.raise_catch(AttributeError, "AttributeError")
@@ -134,13 +135,14 @@ class ExceptionTests(unittest.TestCase):
         # these code fragments
 
         def ckmsg(src, msg):
-            try:
-                compile(src, '<fragment>', 'exec')
-            except SyntaxError as e:
-                if e.msg != msg:
-                    self.fail("expected %s, got %s" % (msg, e.msg))
-            else:
-                self.fail("failed to get expected SyntaxError")
+            with self.subTest(src=src, msg=msg):
+                try:
+                    compile(src, '<fragment>', 'exec')
+                except SyntaxError as e:
+                    if e.msg != msg:
+                        self.fail("expected %s, got %s" % (msg, e.msg))
+                else:
+                    self.fail("failed to get expected SyntaxError")
 
         s = '''if 1:
         try:
@@ -179,8 +181,8 @@ class ExceptionTests(unittest.TestCase):
         s = '''if True:\n        print()\n\texec "mixed tabs and spaces"'''
         ckmsg(s, "inconsistent use of tabs and spaces in indentation", TabError)
 
-    def testSyntaxErrorOffset(self):
-        def check(src, lineno, offset, encoding='utf-8'):
+    def check(self, src, lineno, offset, encoding='utf-8'):
+        with self.subTest(source=src, lineno=lineno, offset=offset):
             with self.assertRaises(SyntaxError) as cm:
                 compile(src, '<fragment>', 'exec')
             self.assertEqual(cm.exception.lineno, lineno)
@@ -189,8 +191,10 @@ class ExceptionTests(unittest.TestCase):
                 if not isinstance(src, str):
                     src = src.decode(encoding, 'replace')
                 line = src.split('\n')[lineno-1]
-                self.assertEqual(cm.exception.text.rstrip('\n'), line)
+                self.assertIn(line, cm.exception.text)
 
+    def testSyntaxErrorOffset(self):
+        check = self.check
         check('def fact(x):\n\treturn x!\n', 2, 10)
         check('1 +\n', 1, 4)
         check('def spam():\n  print(1)\n print(2)', 3, 10)
@@ -201,6 +205,7 @@ class ExceptionTests(unittest.TestCase):
         check(b'Python = "\xcf\xb3\xf2\xee\xed" +', 1, 18)
         check('x = "a', 1, 7)
         check('lambda x: x = 2', 1, 1)
+        check('f{a + b + c}', 1, 2)
 
         # Errors thrown by compile.c
         check('class foo:return 1', 1, 11)
@@ -218,6 +223,20 @@ class ExceptionTests(unittest.TestCase):
         check(b'\xce\xb1 = 0xI', 1, 6)
         check(b'# -*- coding: iso8859-7 -*-\n\xe1 = 0xI', 2, 6,
               encoding='iso8859-7')
+        check(b"""if 1:
+            def foo():
+                '''
+
+            def bar():
+                pass
+
+            def baz():
+                '''quux'''
+            """, 9, 20)
+        check("pass\npass\npass\n(1+)\npass\npass\npass", 4, 4)
+        check("(1+)", 1, 4)
+        check(b"\xef\xbb\xbf#coding: utf8\nprint('\xe6\x88\x91')\n", 0,
+              0 if support.use_old_parser() else -1)
 
         # Errors thrown by symtable.c
         check('x = [(yield i) for i in range(3)]', 1, 5)
@@ -228,20 +247,17 @@ class ExceptionTests(unittest.TestCase):
         check('nonlocal x', 1, 1)
         check('def f():\n  global x\n  nonlocal x', 2, 3)
 
-        # Errors thrown by ast.c
-        check('for 1 in []: pass', 1, 5)
-        check('def f(*):\n  pass', 1, 7)
-        check('[*x for x in xs]', 1, 2)
-        check('def f():\n  x, y: int', 2, 3)
-        check('(yield i) = 2', 1, 1)
-        check('foo(x for x in range(10), 100)', 1, 5)
-        check('foo(1=2)', 1, 5)
-
         # Errors thrown by future.c
         check('from __future__ import doesnt_exist', 1, 1)
         check('from __future__ import braces', 1, 1)
         check('x=1\nfrom __future__ import division', 2, 1)
-
+        check('foo(1=2)', 1, 5)
+        check('def f():\n  x, y: int', 2, 3)
+        check('[*x for x in xs]', 1, 2)
+        check('foo(x for x in range(10), 100)', 1, 5)
+        check('(yield i) = 2', 1, 1 if support.use_old_parser() else 2)
+        check('def f(*):\n  pass', 1, 7 if support.use_old_parser() else 8)
+        check('for 1 in []: pass', 1, 5)
 
     @cpython_only
     def testSettingException(self):
@@ -611,6 +627,7 @@ class ExceptionTests(unittest.TestCase):
         except MyException as e:
             pass
         obj = None
+        gc_collect()  # For PyPy or other GCs.
         obj = wr()
         self.assertIsNone(obj)
 
@@ -622,6 +639,7 @@ class ExceptionTests(unittest.TestCase):
         except MyException:
             pass
         obj = None
+        gc_collect()  # For PyPy or other GCs.
         obj = wr()
         self.assertIsNone(obj)
 
@@ -633,6 +651,7 @@ class ExceptionTests(unittest.TestCase):
         except:
             pass
         obj = None
+        gc_collect()  # For PyPy or other GCs.
         obj = wr()
         self.assertIsNone(obj)
 
@@ -645,6 +664,7 @@ class ExceptionTests(unittest.TestCase):
             except:
                 break
         obj = None
+        gc_collect()  # For PyPy or other GCs.
         obj = wr()
         self.assertIsNone(obj)
 
@@ -663,6 +683,7 @@ class ExceptionTests(unittest.TestCase):
             # must clear the latter manually for our test to succeed.
             e.__context__ = None
             obj = None
+            gc_collect()  # For PyPy or other GCs.
             obj = wr()
             # guarantee no ref cycles on CPython (don't gc_collect)
             if check_impl_detail(cpython=False):
@@ -853,6 +874,7 @@ class ExceptionTests(unittest.TestCase):
         next(g)
         testfunc(g)
         g = obj = None
+        gc_collect()  # For PyPy or other GCs.
         obj = wr()
         self.assertIsNone(obj)
 
@@ -906,7 +928,150 @@ class ExceptionTests(unittest.TestCase):
             raise Exception(MyObject())
         except:
             pass
+        gc_collect()  # For PyPy or other GCs.
         self.assertEqual(e, (None, None, None))
+
+    def test_raise_does_not_create_context_chain_cycle(self):
+        class A(Exception):
+            pass
+        class B(Exception):
+            pass
+        class C(Exception):
+            pass
+
+        # Create a context chain:
+        # C -> B -> A
+        # Then raise A in context of C.
+        try:
+            try:
+                raise A
+            except A as a_:
+                a = a_
+                try:
+                    raise B
+                except B as b_:
+                    b = b_
+                    try:
+                        raise C
+                    except C as c_:
+                        c = c_
+                        self.assertIsInstance(a, A)
+                        self.assertIsInstance(b, B)
+                        self.assertIsInstance(c, C)
+                        self.assertIsNone(a.__context__)
+                        self.assertIs(b.__context__, a)
+                        self.assertIs(c.__context__, b)
+                        raise a
+        except A as e:
+            exc = e
+
+        # Expect A -> C -> B, without cycle
+        self.assertIs(exc, a)
+        self.assertIs(a.__context__, c)
+        self.assertIs(c.__context__, b)
+        self.assertIsNone(b.__context__)
+
+    def test_no_hang_on_context_chain_cycle1(self):
+        # See issue 25782. Cycle in context chain.
+
+        def cycle():
+            try:
+                raise ValueError(1)
+            except ValueError as ex:
+                ex.__context__ = ex
+                raise TypeError(2)
+
+        try:
+            cycle()
+        except Exception as e:
+            exc = e
+
+        self.assertIsInstance(exc, TypeError)
+        self.assertIsInstance(exc.__context__, ValueError)
+        self.assertIs(exc.__context__.__context__, exc.__context__)
+
+    def test_no_hang_on_context_chain_cycle2(self):
+        # See issue 25782. Cycle at head of context chain.
+
+        class A(Exception):
+            pass
+        class B(Exception):
+            pass
+        class C(Exception):
+            pass
+
+        # Context cycle:
+        # +-----------+
+        # V           |
+        # C --> B --> A
+        with self.assertRaises(C) as cm:
+            try:
+                raise A()
+            except A as _a:
+                a = _a
+                try:
+                    raise B()
+                except B as _b:
+                    b = _b
+                    try:
+                        raise C()
+                    except C as _c:
+                        c = _c
+                        a.__context__ = c
+                        raise c
+
+        self.assertIs(cm.exception, c)
+        # Verify the expected context chain cycle
+        self.assertIs(c.__context__, b)
+        self.assertIs(b.__context__, a)
+        self.assertIs(a.__context__, c)
+
+    def test_no_hang_on_context_chain_cycle3(self):
+        # See issue 25782. Longer context chain with cycle.
+
+        class A(Exception):
+            pass
+        class B(Exception):
+            pass
+        class C(Exception):
+            pass
+        class D(Exception):
+            pass
+        class E(Exception):
+            pass
+
+        # Context cycle:
+        #             +-----------+
+        #             V           |
+        # E --> D --> C --> B --> A
+        with self.assertRaises(E) as cm:
+            try:
+                raise A()
+            except A as _a:
+                a = _a
+                try:
+                    raise B()
+                except B as _b:
+                    b = _b
+                    try:
+                        raise C()
+                    except C as _c:
+                        c = _c
+                        a.__context__ = c
+                        try:
+                            raise D()
+                        except D as _d:
+                            d = _d
+                            e = E()
+                            raise e
+
+        self.assertIs(cm.exception, e)
+        # Verify the expected context chain cycle
+        self.assertIs(e.__context__, d)
+        self.assertIs(d.__context__, c)
+        self.assertIs(c.__context__, b)
+        self.assertIs(b.__context__, a)
+        self.assertIs(a.__context__, c)
 
     def test_unicode_change_attributes(self):
         # See issue 7309. This was a crasher.
@@ -1010,7 +1175,7 @@ class ExceptionTests(unittest.TestCase):
         # finalization of these locals.
         code = """if 1:
             import sys
-            from _testcapi import get_recursion_depth
+            from _testinternalcapi import get_recursion_depth
 
             class MyException(Exception): pass
 
@@ -1094,8 +1259,9 @@ class ExceptionTests(unittest.TestCase):
         """
         with SuppressCrashReport():
             rc, out, err = script_helper.assert_python_failure("-c", code)
-            self.assertIn(b'Fatal Python error: Cannot recover from '
-                          b'MemoryErrors while normalizing exceptions.', err)
+            self.assertIn(b'Fatal Python error: _PyErr_NormalizeException: '
+                          b'Cannot recover from MemoryErrors while '
+                          b'normalizing exceptions.', err)
 
     @cpython_only
     def test_MemoryError(self):
@@ -1176,6 +1342,7 @@ class ExceptionTests(unittest.TestCase):
             self.assertNotEqual(wr(), None)
         else:
             self.fail("MemoryError not raised")
+        gc_collect()  # For PyPy or other GCs.
         self.assertEqual(wr(), None)
 
     @no_tracing
@@ -1196,6 +1363,7 @@ class ExceptionTests(unittest.TestCase):
             self.assertNotEqual(wr(), None)
         else:
             self.fail("RecursionError not raised")
+        gc_collect()  # For PyPy or other GCs.
         self.assertEqual(wr(), None)
 
     def test_errno_ENOTDIR(self):
@@ -1216,6 +1384,7 @@ class ExceptionTests(unittest.TestCase):
         with support.catch_unraisable_exception() as cm:
             del obj
 
+            gc_collect()  # For PyPy or other GCs.
             self.assertEqual(cm.unraisable.object, BrokenDel.__del__)
             self.assertIsNotNone(cm.unraisable.exc_traceback)
 
@@ -1313,6 +1482,22 @@ class ExceptionTests(unittest.TestCase):
                 next(i)
                 next(i)
 
+    @unittest.skipUnless(__debug__, "Won't work if __debug__ is False")
+    def test_assert_shadowing(self):
+        # Shadowing AssertionError would cause the assert statement to
+        # misbehave.
+        global AssertionError
+        AssertionError = TypeError
+        try:
+            assert False, 'hello'
+        except BaseException as e:
+            del AssertionError
+            self.assertIsInstance(e, AssertionError)
+            self.assertEqual(str(e), 'hello')
+        else:
+            del AssertionError
+            self.fail('Expected exception')
+
     def test_memory_error_subclasses(self):
         # bpo-41654: MemoryError instances use a freelist of objects that are
         # linked using the 'dict' attribute when they are inactive/dead.
@@ -1342,6 +1527,7 @@ class ExceptionTests(unittest.TestCase):
                 pass
 
             gc_collect()
+
 
 class ImportErrorTests(unittest.TestCase):
 

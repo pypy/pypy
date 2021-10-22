@@ -8,7 +8,6 @@ import logging
 import warnings
 import weakref
 import inspect
-import types
 
 from copy import deepcopy
 from test import support
@@ -19,7 +18,7 @@ from unittest.test.support import (
     TestEquality, TestHashing, LoggingResult, LegacyLoggingResult,
     ResultWithNoStartTestRunStopTestRun
 )
-from test.support import captured_stderr
+from test.support import captured_stderr, gc_collect
 
 
 log_foo = logging.getLogger('foo')
@@ -1351,20 +1350,6 @@ test case
             pass
         self.assertRaises(TypeError, self.assertWarnsRegex, MyWarn, lambda: True)
 
-    def testAssertWarnsModifySysModules(self):
-        # bpo-29620: handle modified sys.modules during iteration
-        class Foo(types.ModuleType):
-            @property
-            def __warningregistry__(self):
-                sys.modules['@bar@'] = 'bar'
-
-        sys.modules['@foo@'] = Foo('foo')
-        try:
-            self.assertWarns(UserWarning, warnings.warn, 'expected')
-        finally:
-            del sys.modules['@foo@']
-            del sys.modules['@bar@']
-
     def testAssertRaisesRegexMismatch(self):
         def Stub():
             raise Exception('Unexpected')
@@ -1860,6 +1845,7 @@ test case
         for method_name in ('test1', 'test2'):
             testcase = TestCase(method_name)
             testcase.run()
+            gc_collect()  # For PyPy or other GCs.
             self.assertEqual(MyException.ninstance, 0)
 
 

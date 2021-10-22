@@ -1043,7 +1043,7 @@ Test""")
 Subject: the first part of this is short,
  but_the_second_part_does_not_fit_within_maxlinelen_and_thus_should_be_on_a_line_all_by_itself""")
 
-    def test_splittable_leading_char_followed_by_overlong_unsplitable(self):
+    def test_splittable_leading_char_followed_by_overlong_unsplittable(self):
         eq = self.ndiffAssertEqual
         h = Header(', but_the_second'
             '_part_does_not_fit_within_maxlinelen_and_thus_should_be_on_a_line'
@@ -1052,7 +1052,7 @@ Subject: the first part of this is short,
 ,
  but_the_second_part_does_not_fit_within_maxlinelen_and_thus_should_be_on_a_line_all_by_itself""")
 
-    def test_multiple_splittable_leading_char_followed_by_overlong_unsplitable(self):
+    def test_multiple_splittable_leading_char_followed_by_overlong_unsplittable(self):
         eq = self.ndiffAssertEqual
         h = Header(', , but_the_second'
             '_part_does_not_fit_within_maxlinelen_and_thus_should_be_on_a_line'
@@ -1061,14 +1061,14 @@ Subject: the first part of this is short,
 , ,
  but_the_second_part_does_not_fit_within_maxlinelen_and_thus_should_be_on_a_line_all_by_itself""")
 
-    def test_trailing_splitable_on_overlong_unsplitable(self):
+    def test_trailing_splittable_on_overlong_unsplittable(self):
         eq = self.ndiffAssertEqual
         h = Header('this_part_does_not_fit_within_maxlinelen_and_thus_should_'
             'be_on_a_line_all_by_itself;')
         eq(h.encode(), "this_part_does_not_fit_within_maxlinelen_and_thus_should_"
             "be_on_a_line_all_by_itself;")
 
-    def test_trailing_splitable_on_overlong_unsplitable_with_leading_splitable(self):
+    def test_trailing_splittable_on_overlong_unsplittable_with_leading_splittable(self):
         eq = self.ndiffAssertEqual
         h = Header('; '
             'this_part_does_not_fit_within_maxlinelen_and_thus_should_'
@@ -1501,7 +1501,7 @@ Blah blah blah
         g.flatten(msg)
         self.assertEqual(b.getvalue(), source + b'>From R\xc3\xb6lli\n')
 
-    def test_mutltipart_with_bad_bytes_in_cte(self):
+    def test_multipart_with_bad_bytes_in_cte(self):
         # bpo30835
         source = textwrap.dedent("""\
             From: aperson@example.com
@@ -3263,6 +3263,11 @@ Foo
         eq = self.assertEqual
         addrs = utils.getaddresses(['User ((nested comment)) <foo@bar.com>'])
         eq(addrs[0][1], 'foo@bar.com')
+
+    def test_getaddresses_header_obj(self):
+        """Test the handling of a Header object."""
+        addrs = utils.getaddresses([Header('Al Person <aperson@dom.ain>')])
+        self.assertEqual(addrs[0][1], 'aperson@dom.ain')
 
     def test_make_msgid_collisions(self):
         # Test make_msgid uniqueness, even with multiple threads

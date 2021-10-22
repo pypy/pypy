@@ -1,4 +1,3 @@
-import io
 import unittest
 
 from importlib import resources
@@ -18,6 +17,7 @@ class PathTests:
         # Test also implicitly verifies the returned object is a pathlib.Path
         # instance.
         with resources.path(self.data, 'utf-8.file') as path:
+            self.assertTrue(path.name.endswith("utf-8.file"), repr(path))
             # pathlib.Path.read_text() was introduced in Python 3.5.
             with path.open('r', encoding='utf-8') as file:
                 text = file.read()
@@ -26,17 +26,6 @@ class PathTests:
 
 class PathDiskTests(PathTests, unittest.TestCase):
     data = data01
-
-
-class PathMemoryTests(PathTests, unittest.TestCase):
-    def setUp(self):
-        file = io.BytesIO(b'Hello, UTF-8 world!\n')
-        self.addCleanup(file.close)
-        self.data = util.create_package(
-            file=file, path=FileNotFoundError("package exists only in memory")
-        )
-        self.data.__spec__.origin = None
-        self.data.__spec__.has_location = False
 
 
 class PathZipTests(PathTests, util.ZipSetup, unittest.TestCase):

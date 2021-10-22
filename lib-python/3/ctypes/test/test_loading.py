@@ -3,7 +3,6 @@ import os
 import shutil
 import subprocess
 import sys
-import sysconfig
 import unittest
 import test.support
 from ctypes.util import find_library
@@ -92,7 +91,7 @@ class LoaderTest(unittest.TestCase):
         # NOT fit into a 32-bit integer.  FreeLibrary must be able
         # to accept this address.
 
-        # These are tests for http://www.python.org/sf/1703286
+        # These are tests for https://www.python.org/sf/1703286
         handle = LoadLibrary("advapi32")
         FreeLibrary(handle)
 

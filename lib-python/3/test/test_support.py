@@ -1,4 +1,3 @@
-import contextlib
 import errno
 import importlib
 import io
@@ -12,13 +11,43 @@ import tempfile
 import textwrap
 import time
 import unittest
+import warnings
+
 from test import support
 from test.support import script_helper
+from test.support import socket_helper
 
 TESTFN = support.TESTFN
 
 
 class TestSupport(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        orig_filter_len = len(warnings.filters)
+        cls._warnings_helper_token = support.ignore_deprecations_from(
+            "test.test_support", like=".*used in test_support.*"
+        )
+        cls._test_support_token = support.ignore_deprecations_from(
+            "test.test_support", like=".*You should NOT be seeing this.*"
+        )
+        assert len(warnings.filters) == orig_filter_len + 2
+
+    @classmethod
+    def tearDownClass(cls):
+        orig_filter_len = len(warnings.filters)
+        support.clear_ignored_deprecations(
+            cls._warnings_helper_token,
+            cls._test_support_token,
+        )
+        assert len(warnings.filters) == orig_filter_len - 2
+
+    def test_ignored_deprecations_are_silent(self):
+        """Test support.ignore_deprecations_from() silences warnings"""
+        with warnings.catch_warnings(record=True) as warning_objs:
+            _warn_about_deprecation()
+            warnings.warn("You should NOT be seeing this.", DeprecationWarning)
+            messages = [str(w.message) for w in warning_objs]
+        self.assertEqual(len(messages), 0, messages)
 
     def test_import_module(self):
         support.import_module("ftplib")
@@ -91,17 +120,17 @@ class TestSupport(unittest.TestCase):
             support.rmtree('__pycache__')
 
     def test_HOST(self):
-        s = socket.create_server((support.HOST, 0))
+        s = socket.create_server((socket_helper.HOST, 0))
         s.close()
 
     def test_find_unused_port(self):
-        port = support.find_unused_port()
-        s = socket.create_server((support.HOST, port))
+        port = socket_helper.find_unused_port()
+        s = socket.create_server((socket_helper.HOST, port))
         s.close()
 
     def test_bind_port(self):
         s = socket.socket()
-        support.bind_port(s)
+        socket_helper.bind_port(s)
         s.listen()
         s.close()
 
@@ -176,13 +205,10 @@ class TestSupport(unittest.TestCase):
             with support.temp_cwd() as temp_path:
                 pid = os.fork()
                 if pid != 0:
-                    # parent process (child has pid == 0)
+                    # parent process
 
                     # wait for the child to terminate
-                    (pid, status) = os.waitpid(pid, 0)
-                    if status != 0:
-                        raise AssertionError(f"Child process failed with exit "
-                                             f"status indication 0x{status:x}.")
+                    support.wait_process(pid, exitcode=0)
 
                     # Make sure that temp_path is still present. When the child
                     # process leaves the 'temp_cwd'-context, the __exit__()-
@@ -422,7 +448,7 @@ class TestSupport(unittest.TestCase):
             os._exit(0)
 
         t0 = time.monotonic()
-        deadline = time.monotonic() + 60.0
+        deadline = time.monotonic() + support.SHORT_TIMEOUT
 
         was_altered = support.environment_altered
         try:
@@ -497,7 +523,6 @@ class TestSupport(unittest.TestCase):
             ['-Wignore', '-X', 'dev'],
             ['-X', 'faulthandler'],
             ['-X', 'importtime'],
-            ['-X', 'showalloccount'],
             ['-X', 'showrefcount'],
             ['-X', 'tracemalloc'],
             ['-X', 'tracemalloc=3'],
@@ -675,10 +700,20 @@ class TestSupport(unittest.TestCase):
     # run_doctest
     # threading_cleanup
     # reap_threads
-    # strip_python_stderr
     # can_symlink
     # skip_unless_symlink
     # SuppressCrashReport
+
+
+def _warn_about_deprecation():
+    # In 3.10+ this lives in test.support.warnings_helper
+    warnings.warn(
+        "This is used in test_support test to ensure"
+        " support.ignore_deprecations_from() works as expected."
+        " You should not be seeing this.",
+        DeprecationWarning,
+        stacklevel=0,
+    )
 
 
 def test_main():
