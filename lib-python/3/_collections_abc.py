@@ -9,7 +9,7 @@ Unit tests are in test_collections.
 from abc import ABCMeta, abstractmethod
 import sys
 
-GenericAlias = type(list[int])
+from _pypy_generic_alias import GenericAlias
 EllipsisType = type(...)
 def _f(): pass
 FunctionType = type(_f)
