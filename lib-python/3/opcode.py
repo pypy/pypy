@@ -88,7 +88,7 @@ def_op('WITH_EXCEPT_START', 49)
 def_op('GET_AITER', 50)
 def_op('GET_ANEXT', 51)
 def_op('BEFORE_ASYNC_WITH', 52)
-
+def_op('BEGIN_FINALLY', 53)
 def_op('END_ASYNC_FOR', 54)
 def_op('INPLACE_ADD', 55)
 def_op('INPLACE_SUBTRACT', 56)
@@ -116,6 +116,8 @@ def_op('INPLACE_RSHIFT', 76)
 def_op('INPLACE_AND', 77)
 def_op('INPLACE_XOR', 78)
 def_op('INPLACE_OR', 79)
+def_op('WITH_CLEANUP_START', 80)
+def_op('WITH_CLEANUP_FINISH', 81)
 
 def_op('LIST_TO_TUPLE', 82)
 
@@ -124,7 +126,7 @@ def_op('IMPORT_STAR', 84)
 def_op('SETUP_ANNOTATIONS', 85)
 def_op('YIELD_VALUE', 86)
 def_op('POP_BLOCK', 87)
-
+def_op('END_FINALLY', 88)
 def_op('POP_EXCEPT', 89)
 
 HAVE_ARGUMENT = 90              # Opcodes from here have an argument:
@@ -202,6 +204,12 @@ hasfree.append(148)
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
 
+def_op('BUILD_LIST_UNPACK', 149)
+def_op('BUILD_MAP_UNPACK', 150)
+def_op('BUILD_MAP_UNPACK_WITH_CALL', 151)
+def_op('BUILD_TUPLE_UNPACK', 152)
+def_op('BUILD_SET_UNPACK', 153)
+
 jrel_op('SETUP_ASYNC_WITH', 154)
 
 def_op('FORMAT_VALUE', 155)
@@ -213,10 +221,10 @@ def_op('CALL_METHOD', 161)
 
 jrel_op('CALL_FINALLY', 162)
 def_op('POP_FINALLY', 163)
-def_op('LIST_EXTEND', 162)
-def_op('SET_UPDATE', 163)
-def_op('DICT_MERGE', 164)
-def_op('DICT_UPDATE', 165)
+def_op('LIST_EXTEND', 164)
+def_op('SET_UPDATE', 165)
+def_op('DICT_MERGE', 166)
+def_op('DICT_UPDATE', 167)
 
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list
