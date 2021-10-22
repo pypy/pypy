@@ -413,6 +413,8 @@ class __extend__(pyframe.PyFrame):
                 self.YIELD_FROM(oparg, next_instr)
             elif opcode == opcodedesc.GET_YIELD_FROM_ITER.index:
                 self.GET_YIELD_FROM_ITER(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_ASSERTION_ERROR.index:
+                self.LOAD_ASSERTION_ERROR(oparg, next_instr)
             elif opcode == opcodedesc.GET_AWAITABLE.index:
                 self.GET_AWAITABLE(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_ASYNC_WITH.index:
@@ -1602,6 +1604,9 @@ class __extend__(pyframe.PyFrame):
         elif not isinstance(w_iterable, GeneratorIterator):
             w_iterator = self.space.iter(w_iterable)
             self.settopvalue(w_iterator)
+
+    def LOAD_ASSERTION_ERROR(self, oparg, next_instr):
+        self.pushvalue(self.space.w_AssertionError)
 
     def GET_AWAITABLE(self, oparg, next_instr):
         from pypy.interpreter.generator import get_awaitable_iter

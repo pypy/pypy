@@ -60,3 +60,14 @@ def test_raise_in_generator():
             next(i)
 
 
+def test_assertion_error_global_ignored():
+    global AssertionError
+    class Foo(Exception):
+        pass
+    OrigAssertionError = AssertionError
+    AssertionError = Foo
+    try:
+        with pytest.raises(OrigAssertionError): # not Foo!
+            assert 0
+    finally:
+        AssertionError = OrigAssertionError

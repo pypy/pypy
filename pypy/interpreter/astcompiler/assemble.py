@@ -714,6 +714,7 @@ _static_opcode_stack_effects = {
     ops.LOAD_REVDB_VAR: 1,
 
     ops.LOAD_CLASSDEREF: 1,
+    ops.LOAD_ASSERTION_ERROR: 1,
 
     ops.CALL_FINALLY: 0,
 }

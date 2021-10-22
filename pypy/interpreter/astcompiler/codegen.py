@@ -612,7 +612,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(asrt.lineno)
         end = self.new_block()
         asrt.test.accept_jump_if(self, True, end)
-        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
+        self.emit_op(ops.LOAD_ASSERTION_ERROR)
         if asrt.msg:
             asrt.msg.walkabout(self)
             self.emit_op_arg(ops.CALL_FUNCTION, 1)
