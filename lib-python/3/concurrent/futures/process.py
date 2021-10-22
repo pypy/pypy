@@ -694,10 +694,14 @@ class ProcessPoolExecutor(_base.Executor):
             self._queue_management_thread_wakeup.wakeup()
             if wait:
                 self._queue_management_thread.join()
+                # PyPy: remove it from the dictionary of active threads since
+                # the weakref logic used in CPython depends on the gc
+                # immediately collecting the reference
+                _threads_wakeups.pop(self._queue_management_thread)
         # To reduce the risk of opening too many files, remove references to
         # objects that use file descriptors.
         self._queue_management_thread = None
-        self._call_queue = None
+        self._call_queue = None 
         self._result_queue = None
         self._processes = None
 
