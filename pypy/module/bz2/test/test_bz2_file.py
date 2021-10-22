@@ -105,10 +105,8 @@ class AppTestBZ2File: #(CheckAllocation):
         # XXX the following is fine, currently:
         #raises(ValueError, BZ2File, self.temppath, mode='ww')
 
-        BZ2File(self.temppath, mode='w', buffering=0, compresslevel=8)
+        BZ2File(self.temppath, mode='w', compresslevel=8)
         BZ2File(self.temppath, mode='wb')
-        # a large buf size
-        BZ2File(self.temppath, mode='w', buffering=4096)
 
         exc = raises(IOError, BZ2File, 'xxx', 'r')
         assert "'xxx'" in str(exc.value)
