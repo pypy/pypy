@@ -1795,6 +1795,15 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert counts[ops.BUILD_TUPLE] == 1
 
+    def test_constant_tuples_star_bug(self):
+        source = """def f(a, c):
+            return (*a, *c)
+        """
+        # very annoying bug: this was turned into
+        # (*(), *a, *(), *c) :-(
+        counts = self.count_instructions(source)
+        assert ops.LOAD_CONST not in counts
+
     def test_constant_list_star(self):
         source = """def f(a, c):
             return [u"a", 1, *a, 3, 5, 3, *c]
