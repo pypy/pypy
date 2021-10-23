@@ -119,7 +119,7 @@ def_op('INPLACE_OR', 79)
 def_op('WITH_CLEANUP_START', 80)
 def_op('WITH_CLEANUP_FINISH', 81)
 
-#def_op('LIST_TO_TUPLE', 82)
+def_op('LIST_TO_TUPLE', 82)
 
 def_op('RETURN_VALUE', 83)
 def_op('IMPORT_STAR', 84)
@@ -221,8 +221,8 @@ def_op('CALL_METHOD', 161)
 
 jrel_op('CALL_FINALLY', 162)
 def_op('POP_FINALLY', 163)
-#def_op('LIST_EXTEND', 164)
-#def_op('SET_UPDATE', 165)
+def_op('LIST_EXTEND', 164)
+def_op('SET_UPDATE', 165)
 #def_op('DICT_MERGE', 166)
 #def_op('DICT_UPDATE', 167)
 

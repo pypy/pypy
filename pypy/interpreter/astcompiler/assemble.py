@@ -602,7 +602,10 @@ _static_opcode_stack_effects = {
     ops.UNARY_INVERT: 0,
 
     ops.LIST_APPEND: -1,
+    ops.LIST_EXTEND: -1,
+    ops.LIST_TO_TUPLE: 0,
     ops.SET_ADD: -1,
+    ops.SET_UPDATE: -1,
     ops.MAP_ADD: -2,
 
     ops.BINARY_POWER: -1,

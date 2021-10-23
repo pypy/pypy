@@ -1382,7 +1382,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ifexp.orelse.walkabout(self)
         self.use_next_block(end)
 
-    def _visit_starunpack(self, node, elts, single_op, inner_op, outer_op, add_op):
+    def _visit_starunpack(self, node, elts, build_op, add_op, extend_op, is_tuple=False):
         elt_count = len(elts) if elts else 0
         contains_starred = False
         for i in range(elt_count):
@@ -1390,43 +1390,46 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if isinstance(elt, ast.Starred):
                 contains_starred = True
                 break
-        if elt_count > MAX_STACKDEPTH_CONTAINERS and not contains_starred:
-            tuplecase = False
-            if add_op == -1: # tuples
-                self.emit_op_arg(ops.BUILD_LIST, 0)
-                add_op = ops.LIST_APPEND
-                tuplecase = True
+        if is_tuple and contains_starred:
+            import pdb; pdb.set_trace()
+        if not contains_starred:
+            if elt_count > MAX_STACKDEPTH_CONTAINERS:
+                if is_tuple:
+                    self.emit_op_arg(ops.BUILD_LIST, 0)
+                    add_op = ops.LIST_APPEND
+                else:
+                    self.emit_op_arg(build_op, 0)
+                for elt in elts:
+                    elt.walkabout(self)
+                    self.emit_op_arg(add_op, 1)
+                if is_tuple:
+                    self.emit_op(ops.LIST_TO_TUPLE)
             else:
-                self.emit_op_arg(single_op, 0)
-            for elt in elts:
-                elt.walkabout(self)
-                self.emit_op_arg(add_op, 1)
-            if tuplecase:
-                self.emit_op_arg(ops.BUILD_TUPLE_UNPACK, 1)
+                for i in range(elt_count):
+                    elt = elts[i]
+                    elt.walkabout(self)
+                if is_tuple:
+                    self.emit_op_arg(ops.BUILD_TUPLE, elt_count)
+                else:
+                    self.emit_op_arg(build_op, elt_count)
             return
 
-        seen_star = 0
-        elt_subitems = 0
+        seen_star = False
         for i in range(elt_count):
             elt = elts[i]
-            is_starred = isinstance(elt, ast.Starred)
-            if is_starred:
-                if seen_star:
-                    self.emit_op_arg(inner_op, seen_star)
-                    seen_star = 0
-                    elt_subitems += 1
+            if isinstance(elt, ast.Starred):
+                if not seen_star:
+                    self.emit_op_arg(build_op, i)
+                    seen_star = True
                 elt.value.walkabout(self)
-                elt_subitems += 1
+                self.emit_op_arg(extend_op, 1)
             else:
                 elt.walkabout(self)
-                seen_star += 1
-        if elt_subitems:
-            if seen_star:
-                self.emit_op_arg(inner_op, seen_star)
-                elt_subitems += 1
-            self.emit_op_arg(outer_op, elt_subitems)
-        else:
-            self.emit_op_arg(single_op, seen_star)
+                if seen_star:
+                    self.emit_op_arg(add_op, 1)
+        assert seen_star
+        if is_tuple:
+            self.emit_op(ops.LIST_TO_TUPLE)
 
     def _visit_assignment(self, node, elts, ctx):
         elt_count = len(elts) if elts else 0
@@ -1460,7 +1463,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if tup.ctx == ast.Store:
             self._visit_assignment(tup, tup.elts, tup.ctx)
         elif tup.ctx == ast.Load:
-            self._visit_starunpack(tup, tup.elts, ops.BUILD_TUPLE, ops.BUILD_TUPLE, ops.BUILD_TUPLE_UNPACK, -1)
+            self._visit_starunpack(tup, tup.elts, ops.BUILD_LIST, ops.LIST_APPEND, ops.LIST_EXTEND, is_tuple=True)
         else:
             self.visit_sequence(tup.elts)
 
@@ -1469,8 +1472,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if l.ctx == ast.Store:
             self._visit_assignment(l, l.elts, l.ctx)
         elif l.ctx == ast.Load:
-            self._visit_starunpack(
-                l, l.elts, ops.BUILD_LIST, ops.BUILD_TUPLE, ops.BUILD_LIST_UNPACK, ops.LIST_APPEND)
+            self._visit_starunpack(l, l.elts, ops.BUILD_LIST, ops.LIST_APPEND, ops.LIST_EXTEND)
         else:
             self.visit_sequence(l.elts)
 
@@ -1545,7 +1547,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             is_unpacking = False
 
     def visit_Set(self, s):
-        self._visit_starunpack(s, s.elts, ops.BUILD_SET, ops.BUILD_SET, ops.BUILD_SET_UNPACK, ops.SET_ADD)
+        self._visit_starunpack(s, s.elts, ops.BUILD_SET, ops.SET_ADD, ops.SET_UPDATE)
 
     def visit_Name(self, name):
         self.update_position(name.lineno)

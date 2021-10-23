@@ -21,8 +21,7 @@ try:
 except ImportError:
     pass
 
-cmp_op = ('<', '<=', '==', '!=', '>', '>=', 'in', 'not in', 'is',
-        'is not', 'exception match', 'BAD')
+cmp_op = ('<', '<=', '==', '!=', '>', '>=')
 
 hasconst = []
 hasname = []
@@ -60,7 +59,7 @@ def_op('ROT_TWO', 2)
 def_op('ROT_THREE', 3)
 def_op('DUP_TOP', 4)
 def_op('DUP_TOP_TWO', 5)
-def_op('ROT_FOUR', 6)
+#def_op('ROT_FOUR', 6) # not emitted by pypy
 
 def_op('NOP', 9)
 def_op('UNARY_POSITIVE', 10)
@@ -84,6 +83,8 @@ def_op('BINARY_TRUE_DIVIDE', 27)
 def_op('INPLACE_FLOOR_DIVIDE', 28)
 def_op('INPLACE_TRUE_DIVIDE', 29)
 
+#def_op('RERAISE', 48)
+#def_op('WITH_EXCEPT_START', 49)
 def_op('GET_AITER', 50)
 def_op('GET_ANEXT', 51)
 def_op('BEFORE_ASYNC_WITH', 52)
@@ -109,15 +110,16 @@ def_op('PRINT_EXPR', 70)
 def_op('LOAD_BUILD_CLASS', 71)
 def_op('YIELD_FROM', 72)
 def_op('GET_AWAITABLE', 73)
-
+def_op('LOAD_ASSERTION_ERROR', 74)
 def_op('INPLACE_LSHIFT', 75)
 def_op('INPLACE_RSHIFT', 76)
 def_op('INPLACE_AND', 77)
 def_op('INPLACE_XOR', 78)
 def_op('INPLACE_OR', 79)
-def_op('BREAK_LOOP', 80)
-def_op('WITH_CLEANUP_START', 81)
-def_op('WITH_CLEANUP_FINISH', 82)
+def_op('WITH_CLEANUP_START', 80)
+def_op('WITH_CLEANUP_FINISH', 81)
+
+def_op('LIST_TO_TUPLE', 82)
 
 def_op('RETURN_VALUE', 83)
 def_op('IMPORT_STAR', 84)
@@ -160,9 +162,11 @@ jabs_op('POP_JUMP_IF_TRUE', 115)     # ""
 
 name_op('LOAD_GLOBAL', 116)     # Index in name list
 
-jabs_op('CONTINUE_LOOP', 119)   # Target address
-jrel_op('SETUP_LOOP', 120)      # Distance to target address
-jrel_op('SETUP_EXCEPT', 121)    # ""
+def_op('IS_OP', 117)
+def_op('CONTAINS_OP', 118)
+
+jrel_op('SETUP_EXCEPT', 120)    # ""
+jabs_op('JUMP_IF_NOT_EXC_MATCH', 121)
 jrel_op('SETUP_FINALLY', 122)   # Distance to target address
 
 def_op('LOAD_FAST', 124)        # Local variable number
@@ -217,6 +221,10 @@ def_op('CALL_METHOD', 161)
 
 jrel_op('CALL_FINALLY', 162)
 def_op('POP_FINALLY', 163)
+def_op('LIST_EXTEND', 164)
+def_op('SET_UPDATE', 165)
+#def_op('DICT_MERGE', 166)
+#def_op('DICT_UPDATE', 167)
 
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list

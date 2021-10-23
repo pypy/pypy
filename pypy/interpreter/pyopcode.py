@@ -333,6 +333,10 @@ class __extend__(pyframe.PyFrame):
                 self.INPLACE_XOR(oparg, next_instr)
             elif opcode == opcodedesc.LIST_APPEND.index:
                 self.LIST_APPEND(oparg, next_instr)
+            elif opcode == opcodedesc.LIST_EXTEND.index:
+                self.LIST_EXTEND(oparg, next_instr)
+            elif opcode == opcodedesc.LIST_TO_TUPLE.index:
+                self.LIST_TO_TUPLE(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_ATTR.index:
                 self.LOAD_ATTR(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_BUILD_CLASS.index:
@@ -385,6 +389,8 @@ class __extend__(pyframe.PyFrame):
                 self.SETUP_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
                 self.SET_ADD(oparg, next_instr)
+            elif opcode == opcodedesc.SET_UPDATE.index:
+                self.SET_UPDATE(oparg, next_instr)
             elif opcode == opcodedesc.STORE_ATTR.index:
                 self.STORE_ATTR(oparg, next_instr)
             elif opcode == opcodedesc.STORE_DEREF.index:
@@ -1468,10 +1474,25 @@ class __extend__(pyframe.PyFrame):
         v = self.peekvalue(oparg - 1)
         self.space.call_method(v, 'append', w)
 
+    def LIST_EXTEND(self, oparg, next_instr):
+        w = self.popvalue()
+        v = self.peekvalue(oparg - 1)
+        self.space.call_method(v, 'extend', w)
+
+    def LIST_TO_TUPLE(self, oparg, next_instr):
+        w_l = self.popvalue()
+        w_res = self.space.call_function(self.space.w_tuple, w_l)
+        self.pushvalue(w_res)
+
     def SET_ADD(self, oparg, next_instr):
         w_value = self.popvalue()
         w_set = self.peekvalue(oparg - 1)
         self.space.call_method(w_set, 'add', w_value)
+
+    def SET_UPDATE(self, oparg, next_instr):
+        w_update = self.popvalue()
+        w_set = self.peekvalue(oparg - 1)
+        self.space.call_method(w_set, 'update', w_update)
 
     def MAP_ADD(self, oparg, next_instr):
         w_value = self.popvalue()
