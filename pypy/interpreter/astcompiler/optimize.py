@@ -277,8 +277,6 @@ class OptimizingVisitor(ast.ASTVisitor):
         return self.new_constant(w_consts, tup)
 
     def _make_starred_tuple_const(self, consts_w, firstelt):
-        if not consts_w:
-            import pdb; pdb.set_trace()
         w_consts = self.space.newtuple(consts_w[:])
         return ast.Starred(self.new_constant(
                     w_consts, firstelt),

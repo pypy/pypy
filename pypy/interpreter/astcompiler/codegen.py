@@ -1390,8 +1390,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if isinstance(elt, ast.Starred):
                 contains_starred = True
                 break
-        if is_tuple and contains_starred:
-            import pdb; pdb.set_trace()
         if not contains_starred:
             if elt_count > MAX_STACKDEPTH_CONTAINERS:
                 if is_tuple:

@@ -294,7 +294,6 @@ class TestInterpreter:
         code = """ def f():
             return (*range(4), 4)
         """
-        import pdb; pdb.set_trace()
         assert self.codetest(code, "f", []) == (0, 1, 2, 3, 4)
 
     def test_build_list_unpack(self):
