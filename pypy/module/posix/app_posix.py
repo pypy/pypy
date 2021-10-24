@@ -136,6 +136,41 @@ class sched_param(metaclass=structseqtype):
     def __new__(cls, sched_priority):
         return structseq_new(cls, sched_priority)
 
+def waitstatus_to_exitcode(status):
+    """
+    Convert a wait status to an exit code.
+
+    On Unix:
+
+    * If WIFEXITED(status) is true, return WEXITSTATUS(status).
+    * If WIFSIGNALED(status) is true, return -WTERMSIG(status).
+    * Otherwise, raise a ValueError.
+
+    On Windows, return status shifted right by 8 bits.
+
+    On Unix, if the process is being traced or if waitpid() was called with
+    WUNTRACED option, the caller must first check if WIFSTOPPED(status) is true.
+    This function must not be called if WIFSTOPPED(status) is true.
+    """
+    if not isinstance(status, int):
+        raise TypeError("integer argument expected, got float")
+    if sys.platform == "win32":
+        return status >> 8
+    if posix.WIFEXITED(status):
+        exitcode = posix.WEXITSTATUS(status)
+        if exitcode < 0: # should not occur in practice
+            raise ValueError("invalid WEXITSTATUS: %s" % (exitcode, ))
+        return exitcode
+    elif posix.WIFSIGNALED(status):
+        signum = posix.WTERMSIG(status)
+        if signum < 0: # should not occur in practice
+            raise ValueError("invalid WTERMSIG: %s" % (exitcode, ))
+        return -signum
+    elif posix.WIFSTOPPED(status):
+        signum = posix.WSTOPSIG(status)
+        raise ValueError("process stopped by delivery of signal %s" % (signum, ))
+    raise ValueError("invalid wait status %s" % (status, ))
+
 
 if osname == 'posix':
     def wait():

@@ -22,6 +22,7 @@ corresponding Unix manual entries for more information on calls."""
         'uname_result': 'app_posix.uname_result',
         'urandom': 'app_posix.urandom',
         'terminal_size': 'app_posix.terminal_size',
+        'waitstatus_to_exitcode': 'app_posix.waitstatus_to_exitcode',
     }
     if os.name == 'nt':
         del appleveldefs['urandom'] # at interp on win32
