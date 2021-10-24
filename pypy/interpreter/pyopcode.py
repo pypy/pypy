@@ -1009,19 +1009,21 @@ class __extend__(pyframe.PyFrame):
             w_result = self.space.gt(w_1, w_2)
         elif testnum == 5:
             w_result = self.space.ge(w_1, w_2)
+        else:
+            raise BytecodeCorruption
         self.pushvalue(w_result)
 
     def IS_OP(self, oparg, next_instr):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
         res = self.space.is_w(w_1, w_2) ^ oparg
-        self.pushvalue(self.space.newbool(res))
+        self.pushvalue(self.space.newbool(bool(res)))
 
     def CONTAINS_OP(self, oparg, next_instr):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
         res = self.space.contains_w(w_2, w_1) ^ oparg
-        self.pushvalue(self.space.newbool(res))
+        self.pushvalue(self.space.newbool(bool(res)))
 
     def JUMP_IF_NOT_EXC_MATCH(self, oparg, next_instr):
         w_2 = self.popvalue()
