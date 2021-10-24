@@ -1,8 +1,8 @@
-===================================
-PyPy v7.4.0: release of 3.7 and 3.8
-===================================
+=======================================
+PyPy v7.3.7: bug-fix releas of 3.7, 3.8
+=======================================
 
-We are releasing a PyPy 7.4.0 to fix the recent 7.3.6 release's binary
+We are releasing a PyPy 7.3.7 to fix the recent 7.3.6 release's binary
 incompatibility with the previous 7.3.x releases. We mistakenly added fields
 to `PyFrameObject` and PyDateTime_CAPI` that broke the promise of binary
 compatiblity, which means that c-extension wheels compiled for 7.3.5 will not
@@ -20,7 +20,7 @@ Additionally, a few smaller bugs were fixed:
 - Fix the value of ``LIBDIR`` in ``_sysconfigdata`` in 3.8 (issue 3582_)
 
 
-You can find links to download the v7.4.0 releases here:
+You can find links to download the v7.3.7 releases here:
 
     https://pypy.org/download.html
 
