@@ -264,7 +264,7 @@ def create_package(basedir, options, _fake=False):
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
                       ('sqlite3.dll', target),
-                      ('libffi-7.dll', None),
+                      ('libffi-8.dll', None),
                      ]
         if not options.no__tkinter:
             tkinter_dir = target.join('_tkinter')

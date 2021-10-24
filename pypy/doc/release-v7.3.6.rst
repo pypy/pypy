@@ -2,15 +2,6 @@
 PyPy v7.3.6: release of python 2.7, 3.7, and 3.8-beta
 =====================================================
 
-..
-  Changelog up to commit fae737d37616
-
-.. note::
-  This is a pre-release announcement. When the release actually happens, it
-  will be announced on the `PyPy blog`_
-
-.. _`PyPy blog`: https://pypy.org/blog
-
 The PyPy team is proud to release version 7.3.6 of PyPy, which includes
 three different interpreters:
 
@@ -186,6 +177,7 @@ Python 3.7+ bugfixes
 - Fix ``_socket.sethostname()`` failure when passed bytes
 - Switch ``sys.implementation.version`` and ``sys.implementation.hexversion``
   to ``pypy_version_info`` (i.e. (7, 3.  6) not (3, 7. 10)) (issue 3129_)
+- Fix ``pypy -Wonce`` (issue 3411_)
 
 Python 3.7+ speedups and enhancements
 -------------------------------------
@@ -236,6 +228,7 @@ Python 3.7 C-API
 .. _3353: https://foss.heptapod.net/pypy/pypy/-/issues/3353
 .. _3431: https://foss.heptapod.net/pypy/pypy/-/issues/3431
 .. _3402: https://foss.heptapod.net/pypy/pypy/-/issues/3402
+.. _3411: https://foss.heptapod.net/pypy/pypy/-/issues/3411
 .. _3463: https://foss.heptapod.net/pypy/pypy/-/issues/3463
 .. _3472: https://foss.heptapod.net/pypy/pypy/-/issues/3472
 .. _3483: https://foss.heptapod.net/pypy/pypy/-/issues/3483
