@@ -94,7 +94,8 @@ alias = {
     'Batuhan Taskaya': ['isidentical'],
     'Ondrej Baranovič': ['nulano'],
     'Brad Kish': ['rtkbkish'],
-    'Michał Górny': ['mgorny']
+    'Michał Górny': ['mgorny'],
+    'David Hewitt': ['davidhewitt'],
     }
 
 alias_map = {}
