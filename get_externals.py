@@ -49,7 +49,7 @@ def parse_args():
     p.add_argument('-e', '--externals', default=host.externals,
                    help='directory in which to store dependencies',
                    )
-    p.add_argument('-b', '--branch', default=host.externals_branch,
+    p.add_argument('-b', '--branch', default='v7.3.6',
                    help='branch to check out',
                    )
     p.add_argument('-p', '--platform', default=None,
