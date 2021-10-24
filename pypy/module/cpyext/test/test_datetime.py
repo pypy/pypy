@@ -250,11 +250,6 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                  Py_DECREF(name);
                  return tzinfo;
              """),
-            ("utc_singleton_access", "METH_NOARGS",
-             """ PyDateTime_IMPORT;
-                 Py_INCREF(PyDateTime_TimeZone_UTC);
-                 return PyDateTime_TimeZone_UTC;
-             """),
         ], prologue='#include "datetime.h"\n')
         import datetime
 
@@ -264,8 +259,6 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
 
         expected = datetime.timezone(one_hour, "spam")
         assert module.new_timezone_fromoffset_and_name() == expected
-
-        assert module.utc_singleton_access() == datetime.timezone.utc
 
     def test_macros(self):
         module = self.import_extension('foo', [
