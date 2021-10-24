@@ -6,7 +6,7 @@ from distutils.spawn import find_executable
 
 so_ext = _imp.extension_suffixes()[0]
 
-mybase = os.path.dirname(os.path.dirname(__file__))
+mybase = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 # FIXME: The compiler-specific values should be exported from the build,
 # perhaps via a special __pypy__._sysconfigdata module?
