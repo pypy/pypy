@@ -608,6 +608,56 @@ def parse_command_line(argv):
     return options
 
 @hidden_applevel
+def CondaEcosystemModifyDllSearchPath_Init(argv):
+    """Conda + windows only function
+    There are 2 modes depending on CONDA_DLL_SEARCH_MODIFICATION env variable
+
+    - unset CONDA_DLL_SEARCH_MODIFICATION (Default)
+
+      In this mode, the python interpreter works as if the python interpreter
+      was called with the following conda directories.
+
+        os.add_dll_directory(join(sys.prefix, 'bin'))
+        os.add_dll_directory(join(sys.prefix, 'Scripts'))
+        os.add_dll_directory(join(sys.prefix, 'Library', 'bin'))
+        os.add_dll_directory(join(sys.prefix, 'Library', 'usr', 'bin'))
+        os.add_dll_directory(join(sys.prefix, 'Library', 'mingw-w64', 'bin'))
+
+      Search order
+        - The directory that contains the DLL (if looking for a dependency)
+        - Application (python.exe) directory
+        - Directories added with os.add_dll_directory
+        - The 5 conda directories
+        - C:\Windows\System32
+    """
+ 
+    # timing this import, it does not seem to perceptibly slow down startup
+    import os
+
+    getenv = get_getenv()
+    debug_it = bool(getenv("CONDA_DLL_SEARCH_MODIFICATION_DEBUG"))
+    enable = getenv("CONDA_DLL_SEARCH_MODIFICATION_ENABLE")
+    if enable and enable == '0':
+        return
+    sv_executable_dirname = os.path.dirname(sys.executable)
+    condaPaths = [os.path.join(sv_executable_dirname, x) for x in [
+        r'Library\ming-w64\bin',
+        r'Library\usr\bin',
+        r'Library\bin',
+        r'Scripts',
+        r'bin',
+    ]]
+    for p in condaPaths:
+        if debug_it:
+            print("CondaEcosystemModifyDllSearchPath_Init() :: "
+                  "os.add_dll_directory(%s - ExePrefix)" % p, file=sys.stderr)
+        try:
+            os.add_dll_directory(p)
+        except FileNotFoundError:
+            pass
+        
+
+@hidden_applevel
 def run_command_line(interactive,
                      inspect,
                      run_command,
@@ -741,6 +791,8 @@ def run_command_line(interactive,
 
     try:
         from os.path import abspath
+        if sys.platform == 'win32' and not getenv("SKIP_MODIFY_DLL_SEARCH_PATH"):
+            CondaEcosystemModifyDllSearchPath_Init(sys.argv) 
         if run_command != 0:
             # handle the "-c" command
             # Put '' on sys.path

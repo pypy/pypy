@@ -1731,6 +1731,32 @@ def setup_library(space):
         trunk_include.ensure(dir=True)
     copy_header_files(cts, trunk_include, use_micronumpy)
 
+def CondaEcosystemModifyDllSearchPath(add_windows_directory, add_cwd):
+    """
+    Provided CONDA_DLL_SEARCH_MODIFICATION_ENABLE is set (to anything at all!)
+    this function will modify the DLL search path so that C:\Windows\System32
+    does not appear before entries in PATH. If it does appear in PATH then it
+    gets added at the position it was in in PATH.
+    
+    This is achieved via a call to SetDefaultDllDirectories() then calls to
+    AddDllDirectory() for each entry in PATH. We also take the opportunity to
+    clean-up these PATH entries such that any '/' are replaced with '\', no
+    double quotes occour and no PATH entry ends with '\'.
+    
+    Caution: Microsoft's documentation says that the search order of entries
+    passed to AddDllDirectory is not respected and arbitrary. I do not think
+    this will be the case but it is worth bearing in mind.
+    """
+    debug_it = bool(os.getenv("CONDA_DLL_SEARCH_MODIFICATION_DEBUG"))
+    path_env = os.getenv("PATH")
+    entry_num = 0
+    num_entries = 1
+    SetDllDirectoryValue = rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS
+    enable = os.getenv("CONDA_DLL_SEARCH_MODIFICATION_ENABLE")
+    if enable is None or enable == '0':
+        return
+
+
 
 def create_extension_module(space, w_spec):
     # note: this is used both to load CPython-API-style C extension
@@ -1755,6 +1781,9 @@ def create_extension_module(space, w_spec):
                 from rpython.rlib import rwin32
                 # Allow other DLLs in the same directory
                 # use os.add_dll_directory for more locations
+                
+                # This resyncs values in PATH to AddDllDirectories
+                CondaEcosystemModifyDllSearchPath(1, 1)
                 flags = (rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
                         rwin32.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
                 dll = rdynload.dlopenex(ll_libname, flags)
