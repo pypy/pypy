@@ -6,7 +6,6 @@ extern "C" {
 
 typedef struct _frame {
     PyObject_HEAD
-    struct _frame *f_back;      /* previous frame, or NULL */
     PyCodeObject *f_code;
     PyObject *f_globals;
     PyObject *f_locals;
