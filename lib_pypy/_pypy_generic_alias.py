@@ -11,7 +11,7 @@ _ATTR_EXCEPTIONS = frozenset((
 
 class GenericAlias:
     def __new__(cls, origin, args):
-        result = super(GenericAlias, cls).__new__(GenericAlias)
+        result = super(GenericAlias, cls).__new__(cls)
         if not isinstance(args, tuple):
             args = (args, )
         result.__origin__ = origin
@@ -20,7 +20,12 @@ class GenericAlias:
         return result
 
     def __call__(self, *args, **kwargs):
-        return self.__origin__(*args, **kwargs)
+        result = self.__origin__(*args, **kwargs)
+        try:
+            result.__orig_class__ = self
+        except AttributeError:
+            pass
+        return result
 
     def __mro_entries__(self, orig_bases):
         return (self.__origin__, )
@@ -71,6 +76,8 @@ class GenericAlias:
     def __instancecheck__(self, other):
         raise TypeError("issubclass() argument 2 cannot be a parameterized generic")
 
+    def __reduce__(self):
+        return (type(self), (self.__origin__, self.__args__))
 
 def _repr_item(it):
     if it == Ellipsis:

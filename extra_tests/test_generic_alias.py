@@ -104,3 +104,13 @@ def test_new():
     assert g.__origin__ is list
     assert g.__args__ == (int, )
 
+def test_reduce():
+    g = GenericAlias.__new__(GenericAlias, list, int)
+    assert g.__reduce__() == (GenericAlias, (list, (int, )))
+
+def test_orig_class():
+    class A:
+        pass
+
+    g = GenericAlias(A, int)
+    assert g().__orig_class__ is g
