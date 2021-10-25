@@ -1,11 +1,11 @@
-=======================================
-PyPy v7.3.7: bug-fix releas of 3.7, 3.8
-=======================================
+========================================
+PyPy v7.3.7: bug-fix release of 3.7, 3.8
+========================================
 
 We are releasing a PyPy 7.3.7 to fix the recent 7.3.6 release's binary
 incompatibility with the previous 7.3.x releases. We mistakenly added fields
 to ``PyFrameObject`` and ``PyDateTime_CAPI`` that broke the promise of binary
-compatiblity, which means that c-extension wheels compiled for 7.3.5 will not
+compatibility, which means that c-extension wheels compiled for 7.3.5 will not
 work with 7.3.6 and via-versa. Please do not use 7.3.6.
 
 We have added a cursory test for binary API breakage to the
