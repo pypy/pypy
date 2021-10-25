@@ -25,6 +25,9 @@
 #include <dirent.h>
 #endif
 
+#include <grp.h>
+
+
 #if defined(__ANDROID__) && __ANDROID_API__ < 21 && !defined(SYS_getdents64)
 # include <sys/linux-syscalls.h>
 # define SYS_getdents64  __NR_getdents64
@@ -373,6 +376,9 @@ pypy_subprocess_child_exec(
            int errpipe_read, int errpipe_write,
            int close_fds, int restore_signals,
            int call_setsid,
+           int call_setgid, gid_t gid,
+           int call_setgroups, size_t groups_size, const gid_t *groups,
+           int call_setuid, uid_t uid, int child_umask,
            long *py_fds_to_keep,
 	   ssize_t num_fds_to_keep,
            int (*preexec_fn)(void*),
@@ -443,6 +449,9 @@ pypy_subprocess_child_exec(
     if (cwd)
         POSIX_CALL(chdir(cwd));
 
+    if (child_umask >= 0)
+        umask(child_umask);  /* umask() always succeeds. */
+
     /* PyPy change: moved this call to the preexec callback */
     /* if (restore_signals) */
     /*     _Py_RestoreSignals(); */
@@ -451,6 +460,21 @@ pypy_subprocess_child_exec(
     if (call_setsid)
         POSIX_CALL(setsid());
 #endif
+
+#ifdef HAVE_SETGROUPS
+    if (call_setgroups)
+        POSIX_CALL(setgroups(groups_size, groups));
+#endif /* HAVE_SETGROUPS */
+
+#ifdef HAVE_SETREGID
+    if (call_setgid)
+        POSIX_CALL(setregid(gid, gid));
+#endif /* HAVE_SETREGID */
+
+#ifdef HAVE_SETREUID
+    if (call_setuid)
+        POSIX_CALL(setreuid(uid, uid));
+#endif /* HAVE_SETREUID */
 
     reached_preexec = 1;
     if (preexec_fn != NULL) {

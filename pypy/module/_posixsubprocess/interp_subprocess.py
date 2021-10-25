@@ -16,10 +16,17 @@ thisdir = py.path.local(__file__).dirpath()
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
-        includes=['unistd.h', 'sys/syscall.h', 'sys/stat.h'])
+        includes=['unistd.h', 'sys/syscall.h', 'sys/stat.h', 'grp.h'])
     HAVE_SYS_SYSCALL_H = platform.Has("syscall")
     HAVE_SYS_STAT_H = platform.Has("stat")
     HAVE_SETSID = platform.Has("setsid")
+    HAVE_SETGROUPS = platform.Has("setgroups")
+    NGROUPS_MAX = platform.DefinedConstantInteger('NGROUPS_MAX')
+    HAVE_SETREGID = platform.Has("setregid")
+    HAVE_SETREUID = platform.Has("setreuid")
+
+    uid_t = platform.SimpleType("uid_t")
+    gid_t = platform.SimpleType("gid_t")
 
 config = platform.configure(CConfig)
 
@@ -35,6 +42,21 @@ if config['HAVE_SYS_STAT_H']:
     compile_extra.append("-DHAVE_SYS_STAT_H")
 if config['HAVE_SETSID']:
     compile_extra.append("-DHAVE_SETSID")
+HAVE_SETGROUPS = config['HAVE_SETGROUPS']
+if HAVE_SETGROUPS:
+    compile_extra.append("-DHAVE_SETGROUPS")
+HAVE_SETREGID = config['HAVE_SETREGID']
+if HAVE_SETREGID:
+    compile_extra.append("-DHAVE_SETREGID")
+HAVE_SETREUID = config['HAVE_SETREUID']
+if HAVE_SETREUID:
+    compile_extra.append("-DHAVE_SETREUID")
+gid_t = config['gid_t']
+uid_t = config['uid_t']
+if config["NGROUPS_MAX"] is not None:
+    MAX_GROUPS = config['NGROUPS_MAX']
+else:
+    MAX_GROUPS = 64
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(includes=['dirent.h'])
@@ -55,6 +77,9 @@ c_child_exec = rffi.llexternal(
     [rffi.CCHARPP, rffi.CCHARPP, rffi.CCHARPP, rffi.CCHARP,
      rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT,
      rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT,
+     rffi.INT, gid_t, # call_setgid, gid
+     rffi.INT, rffi.SIZE_T, rffi.CArrayPtr(gid_t), # call_setgroups, groups_size, groups
+     rffi.INT, uid_t, rffi.INT, # call_setuid, uid child_umask
      rffi.CArrayPtr(rffi.LONG), lltype.Signed,
      lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.INT)), rffi.VOIDP],
     lltype.Void,
@@ -103,12 +128,14 @@ def seqstr2charpp(space, w_seqstr):
 
 @unwrap_spec(p2cread=int, p2cwrite=int, c2pread=int, c2pwrite=int,
              errread=int, errwrite=int, errpipe_read=int, errpipe_write=int,
-             restore_signals=int, call_setsid=int)
+             restore_signals=int, call_setsid=int, child_umask=int)
 def fork_exec(space, w_process_args, w_executable_list,
               w_close_fds, w_fds_to_keep, w_cwd, w_env_list,
               p2cread, p2cwrite, c2pread, c2pwrite,
               errread, errwrite, errpipe_read, errpipe_write,
-              restore_signals, call_setsid, w_preexec_fn):
+              restore_signals, call_setsid,
+              w_gid, w_groups_list, w_uid, child_umask,
+              w_preexec_fn):
     """\
     fork_exec(args, executable_list, close_fds, cwd, env,
               p2cread, p2cwrite, c2pread, c2pwrite,
@@ -145,6 +172,7 @@ def fork_exec(space, w_process_args, w_executable_list,
     l_envp = lltype.nullptr(rffi.CCHARPP.TO)
     l_cwd = lltype.nullptr(rffi.CCHARP.TO)
     l_fds_to_keep = lltype.nullptr(rffi.CArrayPtr(rffi.LONG).TO)
+    l_groups = lltype.nullptr(rffi.CArrayPtr(gid_t).TO)
 
     # Convert args and env into appropriate arguments for exec()
     # These conversions are done in the parent process to avoid allocating
@@ -176,6 +204,38 @@ def fork_exec(space, w_process_args, w_executable_list,
             cwd = space.fsencode_w(w_cwd)
             l_cwd = rffi.str2charp(cwd)
 
+        call_setgroups = 0
+        num_groups = 0
+        if not space.is_none(w_groups_list):
+            if not HAVE_SETGROUPS:
+                raise oefmt(space.w_SystemError, "bad internal call, setgroups not supported")
+            groups_w = space.unpackiterable(w_groups_list)
+
+            if len(groups_w) > MAX_GROUPS:
+                raise oefmt(space.w_ValueError, "too many groups")
+            l_groups = lltype.malloc(rffi.CArrayPtr(gid_t).TO,
+                                     len(groups_w), flavor='raw')
+            for i, w_group in enumerate(groups_w):
+                l_groups[i] = rffi.cast(gid_t, space.c_uid_t_w(w_group))
+            num_groups = len(groups_w)
+            call_setgroups = 1
+
+        call_setgid = 0
+        gid = rffi.cast(gid_t, 0)
+        if not space.is_none(w_gid):
+            if not HAVE_SETREGID:
+                raise oefmt(space.w_SystemError, "bad internal call, setregid not supported")
+            call_setgid = 1
+            gid = rffi.cast(gid_t, space.c_uid_t_w(w_gid))
+
+        call_setuid = 0
+        uid = rffi.cast(uid_t, 0)
+        if not space.is_none(w_uid):
+            if not HAVE_SETREUID:
+                raise oefmt(space.w_SystemError, "bad internal call, setreuid not supported")
+            call_setuid = 1
+            uid = rffi.cast(uid_t, space.c_uid_t_w(w_uid))
+
         run_fork_hooks('before', space)
 
         try:
@@ -202,6 +262,8 @@ def fork_exec(space, w_process_args, w_executable_list,
                     p2cread, p2cwrite, c2pread, c2pwrite,
                     errread, errwrite, errpipe_read, errpipe_write,
                     close_fds, restore_signals, call_setsid,
+                    call_setgid, gid, call_setgroups, num_groups, l_groups,
+                    call_setuid, uid, child_umask,
                     l_fds_to_keep, len(fds_to_keep),
                     PreexecCallback.run_function, None)
                 os._exit(255)
@@ -222,5 +284,7 @@ def fork_exec(space, w_process_args, w_executable_list,
             rffi.free_charpp(l_exec_array)
         if l_fds_to_keep:
             lltype.free(l_fds_to_keep, flavor='raw')
+        if l_groups:
+            lltype.free(l_groups, flavor='raw')
 
     return space.newint(pid)
