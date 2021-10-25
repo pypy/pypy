@@ -1521,6 +1521,12 @@ class AppTestTypeObject:
                     return __class__
         """
 
+    def test_class_getitem(self):
+        ga = type[int]
+        assert ga.__origin__ is type
+        assert ga.__args__ == (int, )
+
+
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
 

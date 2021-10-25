@@ -434,6 +434,12 @@ class AppTestObject:
             object.__init__(E(), 42)
         print(excinfo.value)
         assert error_msg in str(excinfo.value)
+    
+    def test_class_getitem(self):
+        for cls in [type, tuple]:
+            ga = cls[int]
+            assert ga.__origin__ is cls
+            assert ga.__args__ == (int, )
 
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace

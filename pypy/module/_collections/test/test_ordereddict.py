@@ -51,3 +51,9 @@ class AppTestBasic:
 
         OrderedDict(Spam())
         assert calls == ['keys']
+
+    def test_generic_alias(self):
+        import _collections
+        ga = _collections.OrderedDict[int]
+        assert ga.__origin__ is _collections.OrderedDict
+        assert ga.__args__ == (int, )

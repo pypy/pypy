@@ -105,3 +105,9 @@ class AppTestBasic:
         class subclass(_collections.defaultdict):
             pass
         assert repr(subclass()) == 'subclass(None, {})'
+
+    def test_generic_alias(self):
+        import _collections
+        ga = _collections.defaultdict[int]
+        assert ga.__origin__ is _collections.defaultdict
+        assert ga.__args__ == (int, )

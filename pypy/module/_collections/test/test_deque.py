@@ -454,3 +454,10 @@ class AppTestBasic:
         class subclass(deque):
             pass
         assert repr(subclass()) == 'subclass([])'
+
+    def test_generic_alias(self):
+        import _collections
+        ga = _collections.deque[int]
+        print(ga)
+        assert ga.__origin__ is _collections.deque
+        assert ga.__args__ == (int, )

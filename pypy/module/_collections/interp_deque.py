@@ -11,6 +11,7 @@ from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.sliceobject import unwrap_start_stop
+from pypy.objspace.std.util import generic_alias_class_getitem
 
 
 # A `dequeobject` is composed of a doubly-linked list of `block` nodes.
@@ -600,6 +601,10 @@ Build an ordered collection accessible from endpoints only.""",
     __rmul__ = interp2app(W_Deque.rmul),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
     __contains__ = interp2app(W_Deque.contains),
+
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
+
 )
 
 # ------------------------------------------------------------

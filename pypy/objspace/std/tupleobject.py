@@ -9,7 +9,8 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
     normalize_simple_slice)
-from pypy.objspace.std.util import negate, IDTAG_SPECIAL, IDTAG_SHIFT
+from pypy.objspace.std.util import negate, IDTAG_SPECIAL, IDTAG_SHIFT, \
+    generic_alias_class_getitem
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_uint
@@ -281,6 +282,9 @@ If the argument is a tuple, the return value is the same object.""",
     __getitem__ = interp2app(W_AbstractTupleObject.descr_getitem),
 
     __getnewargs__ = interp2app(W_AbstractTupleObject.descr_getnewargs),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
+
     count = interp2app(W_AbstractTupleObject.descr_count),
     index = interp2app(W_AbstractTupleObject.descr_index)
 )
