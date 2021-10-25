@@ -10,12 +10,14 @@ _ATTR_EXCEPTIONS = frozenset((
 ))
 
 class GenericAlias:
-    def __init__(self, origin, args):
+    def __new__(cls, origin, args):
+        result = super(GenericAlias, cls).__new__(GenericAlias)
         if not isinstance(args, tuple):
             args = (args, )
-        self.__origin__ = origin
-        self.__args__ = args
-        self.__parameters__ = _make_parameters(args)
+        result.__origin__ = origin
+        result.__args__ = args
+        result.__parameters__ = _make_parameters(args)
+        return result
 
     def __call__(self, *args, **kwargs):
         return self.__origin__(*args, **kwargs)

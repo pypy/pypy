@@ -98,3 +98,9 @@ def test_subclasscheck():
 def test_instancescheck():
     with pytest.raises(TypeError):
         isinstance({}, GenericAlias(dict, int))
+
+def test_new():
+    g = GenericAlias.__new__(GenericAlias, list, int)
+    assert g.__origin__ is list
+    assert g.__args__ == (int, )
+
