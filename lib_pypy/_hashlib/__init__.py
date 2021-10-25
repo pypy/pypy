@@ -8,7 +8,7 @@ try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
 
 
-def new(name, string=b''):
+def new(name, string=b'', usedforsecurity=True):
     h = HASH(name)
     h.update(string)
     return h
@@ -136,8 +136,8 @@ del _fetch_names
 
 # shortcut functions
 def make_new_hash(name, funcname):
-    def new_hash(string=b''):
-        return new(name, string)
+    def new_hash(string=b'', usedforsecurity=True):
+        return new(name, string, usedforsecurity=True)
     new_hash.__name__ = funcname
     return builtinify(new_hash)
 
