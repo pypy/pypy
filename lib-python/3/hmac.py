@@ -12,7 +12,12 @@ except ImportError:
     from _operator import _compare_digest as compare_digest
 else:
     _openssl_md_meths = frozenset(_hashopenssl.openssl_md_meth_names)
-    compare_digest = _hashopenssl.compare_digest
+    # pypy difference: we have a _hashlib, but it does not have a
+    # compare_digest
+    if hasattr(_hashopenssl, "compare_digest"):
+        compare_digest = _hashopenssl.compare_digest
+    else:
+        from _operator import _compare_digest as compare_digest
 import hashlib as _hashlib
 
 trans_5C = bytes((x ^ 0x5C) for x in range(256))
