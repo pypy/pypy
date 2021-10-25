@@ -18,17 +18,9 @@ PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
     PyDateTimeAPI->DateTime_FromDateAndTime(year, month, day, hour, \
         min, sec, usec, Py_None, PyDateTimeAPI->DateTimeType)
 
-#define PyDateTime_FromDateAndTimeAndFold(year, month, day, hour, min, sec, usec, fold) \
-    PyDateTimeAPI->DateTime_FromDateAndTimeAndFold(year, month, day, hour, \
-        min, sec, usec, Py_None, fold, PyDateTimeAPI->DateTimeType)
-
 #define PyTime_FromTime(hour, minute, second, usecond) \
     PyDateTimeAPI->Time_FromTime(hour, minute, second, usecond, \
         Py_None, PyDateTimeAPI->TimeType)
-
-#define PyTime_FromTimeAndFold(hour, minute, second, usecond, fold) \
-    PyDateTimeAPI->Time_FromTimeAndFold(hour, minute, second, usecond, \
-        Py_None, fold, PyDateTimeAPI->TimeType)
 
 #define PyDelta_FromDSU(days, seconds, useconds) \
     PyDateTimeAPI->Delta_FromDelta(days, seconds, useconds, 1, \

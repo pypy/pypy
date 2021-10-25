@@ -61,15 +61,9 @@ def _PyDateTime_Import(space):
     datetimeAPI.c_Time_FromTime = llhelper(
         _PyTime_FromTime.api_func.functype,
         _PyTime_FromTime.api_func.get_wrapper(space))
-    datetimeAPI.c_Time_FromTimeAndFold = llhelper(
-        _PyTime_FromTimeAndFold.api_func.functype,
-        _PyTime_FromTimeAndFold.api_func.get_wrapper(space))
     datetimeAPI.c_DateTime_FromDateAndTime = llhelper(
         _PyDateTime_FromDateAndTime.api_func.functype,
         _PyDateTime_FromDateAndTime.api_func.get_wrapper(space))
-    datetimeAPI.c_DateTime_FromDateAndTimeAndFold = llhelper(
-        _PyDateTime_FromDateAndTimeAndFold.api_func.functype,
-        _PyDateTime_FromDateAndTimeAndFold.api_func.get_wrapper(space))
     datetimeAPI.c_Delta_FromDelta = llhelper(
         _PyDelta_FromDelta.api_func.functype,
         _PyDelta_FromDelta.api_func.get_wrapper(space))
@@ -254,54 +248,6 @@ def _PyDateTime_FromDateAndTime(space, year, month, day,
         space.newint(year), space.newint(month), space.newint(day),
         space.newint(hour), space.newint(minute), space.newint(second),
         space.newint(usecond), w_tzinfo)
-
-@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real,
-              rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
-              PyObject, rffi.INT_real, PyTypeObjectPtr], PyObject)
-def _PyDateTime_FromDateAndTimeAndFold(space, year, month, day,
-                                hour, minute, second, usecond,
-                                w_tzinfo, fold, w_type):
-    """Return a datetime.datetime object with the specified year, month, day, hour,
-    minute, second,  microsecond and fold.
-    """
-    year = rffi.cast(lltype.Signed, year)
-    month = rffi.cast(lltype.Signed, month)
-    day = rffi.cast(lltype.Signed, day)
-    hour = rffi.cast(lltype.Signed, hour)
-    minute = rffi.cast(lltype.Signed, minute)
-    second = rffi.cast(lltype.Signed, second)
-    usecond = rffi.cast(lltype.Signed, usecond)
-    fold = rffi.cast(lltype.Signed, fold)
-    args = Arguments(space,
-                    [space.newint(year), space.newint(month), space.newint(day),
-                     space.newint(hour), space.newint(minute), space.newint(second),
-                     space.newint(usecond), w_tzinfo],
-                    keywords=['fold'],
-                    keywords_w = [space.newint(fold)],
-                )
-    return space.call_args(w_type, args)
-
-
-@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
-              PyObject, rffi.INT_real, PyTypeObjectPtr], PyObject)
-def _PyTime_FromTimeAndFold(space, hour, minute, second, usecond,
-                                w_tzinfo, fold, w_type):
-    """Return a datetime.time object with the specified hour,
-    minute, second, microsecond, and fold.
-    """
-    hour = rffi.cast(lltype.Signed, hour)
-    minute = rffi.cast(lltype.Signed, minute)
-    second = rffi.cast(lltype.Signed, second)
-    usecond = rffi.cast(lltype.Signed, usecond)
-    fold = rffi.cast(lltype.Signed, fold)
-    args = Arguments(space,
-                    [space.newint(hour), space.newint(minute), space.newint(second),
-                     space.newint(usecond), w_tzinfo],
-                    keywords=['fold'],
-                    keywords_w = [space.newint(fold)],
-                )
-
-    return space.call_args(w_type, args)
 
 @cpython_api([PyObject], PyObject)
 def PyDateTime_FromTimestamp(space, w_args):
