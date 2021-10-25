@@ -1169,3 +1169,8 @@ class AppTestAppSetTest:
         if hasattr(frozenset.copy, 'im_func'):
             e = raises(TypeError, frozenset.copy.im_func, 42)
             assert "'set-or-frozenset'" in str(e.value)
+
+    def test_class_getitem(self):
+        for cls in set, frozenset:
+            assert set[int, str].__origin__ is set
+            assert set[int, str].__args__ == (int, str)

@@ -778,6 +778,11 @@ class AppTest_DictObject:
         assert d | e == {'spam': 1, 'eggs': 2, 'cheese': 'cheddar', 'aardvark': 'Ethel'}
         assert e | d == {'cheese': 3, 'aardvark': 'Ethel', 'spam': 1, 'eggs': 2}
 
+    def test_class_getitem(self):
+        assert dict[int, str].__origin__ is dict
+        assert dict[int, str].__args__ == (int, str)
+
+
 class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):

@@ -6,7 +6,8 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.listobject import is_plain_int1, plain_int_w
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
-from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
+from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT, \
+    generic_alias_class_getitem
 
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.objectmodel import iterkeys_with_hash, contains_with_hash
@@ -527,6 +528,9 @@ Build an unordered collection.""",
     __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = None,
 
+    __class_getitem__ = gateway.interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
+
     # comparison operators
     __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),
     __ne__ = gateway.interp2app(W_BaseSetObject.descr_ne),
@@ -652,6 +656,9 @@ Build an immutable unordered collection.""",
     __new__ = gateway.interp2app(W_FrozensetObject.descr_new2),
     __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
     __hash__ = gateway.interp2app(W_FrozensetObject.descr_hash),
+
+    __class_getitem__ = gateway.interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 
     # comparison operators
     __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),

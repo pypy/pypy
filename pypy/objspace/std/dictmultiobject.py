@@ -13,7 +13,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from pypy.interpreter.unicodehelper import decode_utf8sp
-from pypy.objspace.std.util import negate
+from pypy.objspace.std.util import negate, generic_alias_class_getitem
 
 
 UNROLL_CUTOFF = 5
@@ -435,6 +435,9 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __delitem__ = interp2app(W_DictMultiObject.descr_delitem),
 
     __or__ = interp2app(W_DictMultiObject.descr_or),
+
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 
     copy = interp2app(W_DictMultiObject.descr_copy),
     items = interp2app(W_DictMultiObject.descr_items),
