@@ -2111,39 +2111,43 @@ class CallCodeGenerator(object):
         self.args = args
         self.keywords = keywords
 
-        # the number of tuples and dictionaries on the stack
-        self.nsubargs = 0
+        self.have_starargs = False
+        # the number of dictionaries on the stack
         self.nsubkwargs = 0
         self.keyword_names_w = []
 
-    def _pack_positional_into_tuple(self):
-        if self.nargs_pushed:
-            self.codegenerator.emit_op_arg(ops.BUILD_TUPLE, self.nargs_pushed)
-            self.nsubargs += 1
+    def _make_starargs_list(self):
+        if not self.have_starargs:
+            self.codegenerator.emit_op_arg(ops.BUILD_LIST, self.nargs_pushed)
+            self.have_starargs = True
             self.nargs_pushed = 0
+        else:
+            assert self.nargs_pushed == 0
 
     def _push_args(self):
+        if (len(self.args) == 1 and not self.nargs_pushed and
+                isinstance(self.args[0], ast.Starred)):
+            self.args[0].value.walkabout(self.codegenerator)
+            self.have_starargs = True
+            return
+
         for elt in self.args:
             if isinstance(elt, ast.Starred):
                 # we have a *arg
-                self._pack_positional_into_tuple()
+                self._make_starargs_list()
                 elt.value.walkabout(self.codegenerator)
-                self.nsubargs += 1
+                self.codegenerator.emit_op_arg(ops.LIST_EXTEND, 1)
                 continue
             if self.nargs_pushed >= MAX_STACKDEPTH_CONTAINERS // 2:
                 # stack depth getting too big
-                self._pack_positional_into_tuple()
+                self._make_starargs_list()
             elt.walkabout(self.codegenerator)
-            self.nargs_pushed += 1
-        if self.nsubargs:
-            # Pack up any trailing positional arguments.
-            self._pack_positional_into_tuple()
-            if self.nsubargs > 1:
-                # If we ended up with more than one stararg, we need
-                # to concatenate them into a single sequence.
-                # XXX CPython uses BUILD_TUPLE_UNPACK_WITH_CALL, but I
-                # don't quite see the difference?
-                self.codegenerator.emit_op_arg(ops.BUILD_TUPLE_UNPACK, self.nsubargs)
+            if self.have_starargs:
+                self.codegenerator.emit_op_arg(ops.LIST_APPEND, 1)
+            else:
+                self.nargs_pushed += 1
+        if self.have_starargs:
+            self.codegenerator.emit_op(ops.LIST_TO_TUPLE)
 
     def _pack_kwargs_into_dict(self):
         if self.keyword_names_w:
@@ -2174,15 +2178,15 @@ class CallCodeGenerator(object):
                 # Pack it all up
                 self.codegenerator.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, self.nsubkwargs)
 
-    def _pack_positional_args_into_tuple(self):
+    def _make_starargs_at_end(self):
         if self.nargs_pushed == 0:
             self.codegenerator._load_constant_tuple([])
         else:
             self.codegenerator.emit_op_arg(ops.BUILD_TUPLE, self.nargs_pushed)
-        self.nsubargs += 1
+        self.have_starargs = True
 
     def _push_tuple_positional_args_if_necessary(self):
-        if self.nsubargs:
+        if self.have_starargs:
             # can't use CALL_FUNCTION_KW anyway, because we already have a
             # tuple as the positional args
             return
@@ -2192,12 +2196,12 @@ class CallCodeGenerator(object):
             if kw.arg is None:
                 # we found a **kwarg, thus we're using CALL_FUNCTION_EX, we
                 # need to pack up positional arguments first
-                self._pack_positional_args_into_tuple()
+                self._make_starargs_at_end()
                 break
-        if self.nsubargs == 0 and len(self.keywords) > MAX_STACKDEPTH_CONTAINERS // 2:
+        if not self.have_starargs and len(self.keywords) > MAX_STACKDEPTH_CONTAINERS // 2:
             # we have a huge amount of keyword args, thus we also need to use
             # CALL_FUNCTION_EX
-            self._pack_positional_args_into_tuple()
+            self._make_starargs_at_end()
 
     def emit_call(self):
         keywords = self.keywords
@@ -2208,7 +2212,7 @@ class CallCodeGenerator(object):
 
         # Repeat procedure for keyword args
         if keywords is None or len(keywords) == 0:
-            if not self.nsubargs:
+            if not self.have_starargs:
                 # no *args, no keyword args, no **kwargs
                 codegenerator.emit_op_arg(ops.CALL_FUNCTION, self.nargs_pushed)
                 return
@@ -2216,7 +2220,7 @@ class CallCodeGenerator(object):
             self._push_tuple_positional_args_if_necessary()
             self._push_kwargs()
 
-        if self.nsubkwargs == 0 and self.nsubargs == 0:
+        if self.nsubkwargs == 0 and not self.have_starargs:
             # can use CALL_FUNCTION_KW
             assert len(self.keyword_names_w) > 0 # otherwise we would have used CALL_FUNCTION
             codegenerator._load_constant_tuple(self.keyword_names_w)

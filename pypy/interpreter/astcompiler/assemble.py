@@ -735,19 +735,10 @@ def _compute_UNPACK_EX(arg):
 def _compute_BUILD_TUPLE(arg):
     return 1 - arg
 
-def _compute_BUILD_TUPLE_UNPACK(arg):
-    return 1 - arg
-
 def _compute_BUILD_LIST(arg):
     return 1 - arg
 
-def _compute_BUILD_LIST_UNPACK(arg):
-    return 1 - arg
-
 def _compute_BUILD_SET(arg):
-    return 1 - arg
-
-def _compute_BUILD_SET_UNPACK(arg):
     return 1 - arg
 
 def _compute_BUILD_MAP(arg):

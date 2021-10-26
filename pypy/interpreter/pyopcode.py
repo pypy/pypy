@@ -245,8 +245,6 @@ class __extend__(pyframe.PyFrame):
                 self.BUILD_LIST(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_LIST_FROM_ARG.index:
                 self.BUILD_LIST_FROM_ARG(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_LIST_UNPACK.index:
-                self.BUILD_LIST_UNPACK(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_MAP.index:
                 self.BUILD_MAP(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_MAP_UNPACK.index:
@@ -255,14 +253,10 @@ class __extend__(pyframe.PyFrame):
                 self.BUILD_MAP_UNPACK_WITH_CALL(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SET.index:
                 self.BUILD_SET(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_SET_UNPACK.index:
-                self.BUILD_SET_UNPACK(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SLICE.index:
                 self.BUILD_SLICE(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_TUPLE.index:
                 self.BUILD_TUPLE(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_TUPLE_UNPACK.index:
-                self.BUILD_TUPLE_UNPACK(oparg, next_instr)
             elif opcode == opcodedesc.CALL_FUNCTION.index:
                 self.CALL_FUNCTION(oparg, next_instr)
             elif opcode == opcodedesc.CALL_FUNCTION_KW.index:
@@ -1550,35 +1544,6 @@ class __extend__(pyframe.PyFrame):
             self.space.call_method(w_set, 'add', w_item)
         self.dropvalues(itemcount)
         self.pushvalue(w_set)
-
-    @jit.unroll_safe
-    def BUILD_SET_UNPACK(self, itemcount, next_instr):
-        space = self.space
-        w_set = space.newset()
-        for i in range(itemcount, 0, -1):
-            w_item = self.peekvalue(i-1)
-            space.call_method(w_set, "update", w_item)
-        self.dropvalues(itemcount)
-        self.pushvalue(w_set)
-
-    @jit.unroll_safe
-    def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
-        l = []
-        for i in range(itemcount-1, -1, -1):
-            w_item = self.peekvalue(i)
-            l.extend(self.space.fixedview(w_item))
-        self.popvalues(itemcount)
-        self.pushvalue(self.space.newtuple(l[:]))
-
-    @jit.unroll_safe
-    def BUILD_LIST_UNPACK(self, itemcount, next_instr):
-        space = self.space
-        w_sum = space.newlist([], sizehint=itemcount)
-        for i in range(itemcount-1, -1, -1):
-            w_item = self.peekvalue(i)
-            w_sum.extend(w_item)
-        self.popvalues(itemcount)
-        self.pushvalue(w_sum)
 
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
         self._build_map_unpack(itemcount, with_call=False)

@@ -2569,7 +2569,7 @@ class TestOptimizations:
             return (u"a", 1, *a, c, 1, *d, 1, 2, 3)
         """
         counts = self.count_instructions(source)
-        assert counts[ops.BUILD_TUPLE] == 1
+        assert ops.BUILD_TUPLE not in counts
 
     def test_constant_tuples_star_bug(self):
         source = """def f(a, c):
@@ -2591,7 +2591,7 @@ class TestOptimizations:
             return [u"a", 1, *a, c, 1, *d, 1, 2, 3]
         """
         counts = self.count_instructions(source)
-        assert counts[ops.BUILD_TUPLE] == 1
+        assert ops.BUILD_TUPLE not in counts
 
     def test_call_bytecodes(self):
         # check that the expected bytecodes are generated
@@ -2605,8 +2605,8 @@ class TestOptimizations:
 
         source = """def f(): x(a, b, c, *(d, 2), x=1, y=2)"""
         counts = self.count_instructions(source)
-        assert counts[ops.BUILD_TUPLE] == 2
-        assert counts[ops.BUILD_TUPLE_UNPACK] == 1
+        assert counts[ops.BUILD_TUPLE] == 1
+        assert counts[ops.LIST_TO_TUPLE] == 1
         assert counts[ops.CALL_FUNCTION_EX] == 1
 
         source = """def f(): x(a, b, c, **kwargs)"""
