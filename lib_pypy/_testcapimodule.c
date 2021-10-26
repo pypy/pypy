@@ -1658,8 +1658,10 @@ exit:
 static volatile int x;
 
 /* Ignore use of deprecated APIs */
+#ifndef PYPY_VERSION
 _Py_COMP_DIAG_PUSH
 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
+#endif
 
 /* Test the u and u# codes for PyArg_ParseTuple. May leak memory in case
    of an error.
@@ -1837,7 +1839,9 @@ test_widechar(PyObject *self, PyObject *Py_UNUSED(ignored))
 
     Py_RETURN_NONE;
 }
+#ifndef PYPY_VERSION
 _Py_COMP_DIAG_POP
+#endif
 
 #ifndef PYPY_VERSION
 static PyObject *
@@ -2088,8 +2092,8 @@ unicode_legacy_string(PyObject *self, PyObject *args)
 
     return u;
 }
-#endif // ifndef PYPY_VERSION
 _Py_COMP_DIAG_POP
+#endif // ifndef PYPY_VERSION
 
 static PyObject *
 getargs_w_star(PyObject *self, PyObject *args)
@@ -3431,6 +3435,7 @@ getbuffer_with_null_view(PyObject* self, PyObject *obj)
     Py_RETURN_NONE;
 }
 
+#ifndef PYPY_VERSION
 /* PyBuffer_SizeFromFormat() */
 static PyObject *
 test_PyBuffer_SizeFromFormat(PyObject *self, PyObject *args)
@@ -3450,6 +3455,7 @@ test_PyBuffer_SizeFromFormat(PyObject *self, PyObject *args)
 
     return PyLong_FromSsize_t(result);
 }
+#endif // ifndef PYPY_VERSION
 
 /* Test that the fatal error from not having a current thread doesn't
    cause an infinite loop.  Run via Lib/test/test_capi.py */
@@ -4605,9 +4611,7 @@ test_PyTime_AsMicroseconds(PyObject *self, PyObject *args)
     return _PyTime_AsNanosecondsObject(ms);
 }
 
-#ifndef PYPY_VERSION
 static PyObject*
-#endif // ifndef PYPY_VERSION
 pymem_buffer_overflow(PyObject *self, PyObject *args)
 {
     char *buffer;
@@ -5433,7 +5437,9 @@ static PyMethodDef TestMethods[] = {
 #endif // ifndef PYPY_VERSION
 #endif
     {"getbuffer_with_null_view", getbuffer_with_null_view, METH_O},
+#ifndef PYPY_VERSION
     {"PyBuffer_SizeFromFormat",  test_PyBuffer_SizeFromFormat, METH_VARARGS},
+#endif // ifndef PYPY_VERSION
     {"test_buildvalue_N",       test_buildvalue_N,               METH_NOARGS},
     {"test_buildvalue_issue38913", test_buildvalue_issue38913,   METH_NOARGS},
     {"get_args", get_args, METH_VARARGS},
@@ -6459,6 +6465,7 @@ heapctypewithbuffer_releasebuffer(HeapCTypeWithBufferObject *self, Py_buffer *vi
     assert(view->obj == (void*) self);
 }
 
+#ifndef PYPY_VERSION
 static PyType_Slot HeapCTypeWithBuffer_slots[] = {
     {Py_bf_getbuffer, heapctypewithbuffer_getbuffer},
     {Py_bf_releasebuffer, heapctypewithbuffer_releasebuffer},
@@ -6473,6 +6480,7 @@ static PyType_Spec HeapCTypeWithBuffer_spec = {
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     HeapCTypeWithBuffer_slots
 };
+#endif // ifndef PYPY_VERSION
 
 PyDoc_STRVAR(heapctypesubclasswithfinalizer__doc__,
 "Subclass of HeapCType with a finalizer that reassigns __class__.\n\n"
@@ -7027,11 +7035,13 @@ PyInit__testcapi(void)
     }
     PyModule_AddObject(m, "HeapCTypeWithWeakref", HeapCTypeWithWeakref);
 
+#ifndef PYPY_VERSION
     PyObject *HeapCTypeWithBuffer = PyType_FromSpec(&HeapCTypeWithBuffer_spec);
     if (HeapCTypeWithBuffer == NULL) {
         return NULL;
     }
     PyModule_AddObject(m, "HeapCTypeWithBuffer", HeapCTypeWithBuffer);
+#endif // ifndef PYPY_VERSION
 
     PyObject *HeapCTypeSetattr = PyType_FromSpec(&HeapCTypeSetattr_spec);
     if (HeapCTypeSetattr == NULL) {
