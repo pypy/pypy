@@ -42,8 +42,10 @@ _INSTALL_SCHEMES = {
         'data': '{base}',
         },
     'pypy': {
-        'stdlib': '{installed_base}/lib-{implementation_lower}',
-        'platstdlib': '{base}/lib-{implementation_lower}',
+        # used by crossenv
+        'stdlib': '{installed_base}/lib_pypy,
+        # used by crossenv
+        'platstdlib': '{base}/lib_pypy',
         'purelib': '{base}/site-packages',
         'platlib': '{base}/site-packages',
         'include': '{installed_base}/include',
@@ -62,8 +64,10 @@ _INSTALL_SCHEMES = {
         'data': '{base}',
         },
     'pypy_nt': {
-        'stdlib': '{installed_base}/lib-{implementation_lower}',
-        'platstdlib': '{base}/lib-{implementation_lower}',
+        # used by crossenv
+        'stdlib': '{installed_base}/lib_pypy',
+        # used by crossenv
+        'platstdlib': '{base}/lib_pypy',
         'purelib': '{base}/site-packages',
         'platlib': '{base}/site-packages',
         'include': '{installed_base}/include',
