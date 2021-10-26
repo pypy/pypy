@@ -1715,7 +1715,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     PyErr_SetString(PyExc_TypeError, "kwnames must be None or a tuple");
                     return NULL;
                 }
-                return _PyObject_Vectorcall(func, stack, nargs, kwnames);
+                return PyObject_Vectorcall(func, stack, nargs, kwnames);
             '''),
             ("pyvectorcall_call", "METH_VARARGS",
              # taken from _testcapimodule.c
@@ -1783,7 +1783,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     .tp_call = PyVectorcall_Call,
                     .tp_vectorcall_offset = offsetof(MethodDescriptorObject, vectorcall),
                     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
-                                Py_TPFLAGS_METHOD_DESCRIPTOR | _Py_TPFLAGS_HAVE_VECTORCALL,
+                                Py_TPFLAGS_METHOD_DESCRIPTOR | Py_TPFLAGS_HAVE_VECTORCALL,
                     .tp_descr_get = func_descr_get,
                 };
 
@@ -1814,7 +1814,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     .tp_new = MethodDescriptor2_new,
                     .tp_call = PyVectorcall_Call,
                     .tp_vectorcall_offset = offsetof(MethodDescriptor2Object, vectorcall),
-                    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | _Py_TPFLAGS_HAVE_VECTORCALL,
+                    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_VECTORCALL,
                 };
 
 
@@ -1974,7 +1974,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     PyErr_SetString(PyExc_TypeError, "kwnames must be None or a dict");
                     return NULL;
                 }
-                return _PyObject_FastCallDict(func, stack, nargs, kwargs);
+                return PyObject_VectorcallDict(func, stack, nargs, kwargs);
             ''')])
         def pyfunc(arg1, arg2):
             return [arg1, arg2]

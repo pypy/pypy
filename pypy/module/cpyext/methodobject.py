@@ -480,7 +480,7 @@ def argtuple_from_pyobject_array(space, py_args, n):
     return space.newtuple(args_w)
 
 @cpython_api([PyObject, PyObjectP, Py_ssize_t, PyObject], PyObject)
-def _PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
+def PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
 
     if w_argnames is None:
         n_kwargs = -1
@@ -499,10 +499,10 @@ def _PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
 
 @cpython_api([PyObject, PyObjectP, Py_ssize_t], PyObject)
 def _PyObject_FastCall(space, w_func, py_args, n):
-    return _PyObject_Vectorcall(space, w_func, py_args, n, lltype.nullptr(PyObject.TO))
+    return PyObject_Vectorcall(space, w_func, py_args, n, lltype.nullptr(PyObject.TO))
 
 @cpython_api([PyObject, PyObjectP, Py_ssize_t, PyObject], PyObject)
-def _PyObject_FastCallDict(space, w_func, py_args, n, w_kwargs):
+def PyObject_VectorcallDict(space, w_func, py_args, n, w_kwargs):
     w_args = argtuple_from_pyobject_array(space, py_args, n)
     w_result = space.call(w_func, w_args, w_kwargs)
     return w_result
