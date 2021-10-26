@@ -1498,6 +1498,24 @@ class AppTestTypeObject:
         assert not hasattr(TestNoOrigBases, '__orig_bases__')
         """
 
+    def test_mro_entries_bug(self):
+        class A:
+            pass
+
+        def f(): pass
+        f.__mro_entries__ = lambda bases: (A, )
+        class BuggyMcBugFace(f):
+            pass
+        assert BuggyMcBugFace.__base__ is A
+
+    def test_mro_entries_type_ignored(self):
+        class A:
+            def __mro_entries__(self, bases):
+                assert 0
+        class B(A):
+            pass
+        assert B.__base__ is A
+
     def test_classcell_missing(self):
         """
         # Some metaclasses may not pass the original namespace to type.__new__

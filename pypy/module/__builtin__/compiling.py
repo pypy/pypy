@@ -129,19 +129,29 @@ def exec_(space, w_prog, w_globals=None, w_locals=None):
     frame.exec_(w_prog, w_globals, w_locals)
 
 def _update_bases(space, w_bases, bases_w):
-    new_bases_w = []
-    changed = False
-    for w_base in bases_w:
-        w_meth = space.lookup(w_base, '__mro_entries__')
-        if w_meth is not None:
-            new_base_w = space.get_and_call_function(w_meth, w_base, w_bases)
-            if not space.isinstance_w(new_base_w, space.w_tuple):
-                raise oefmt(space.w_TypeError, "__mro_entries__ must return a tuple")
-            new_bases_w.extend(space.fixedview(new_base_w))
-            changed = True
+    new_bases_w = None
+    for i, w_base in enumerate(bases_w):
+        if space.isinstance_w(w_base, space.w_type):
+            if new_bases_w is not None:
+                new_bases_w.append(w_base)
+            continue
+        w_meth = None
+        try:
+            # one of the few places where cpython uses getattr not lookup
+            w_meth = space.getattr(w_base, space.newtext('__mro_entries__'))
+        except OperationError as e:
+            if not e.match(space, space.w_AttributeError):
+                raise
+            if new_bases_w is not None:
+                new_bases_w.append(w_base)
         else:
-            new_bases_w.append(w_base)
-    if not changed:
+            w_new_base = space.call_function(w_meth, w_bases)
+            if not space.isinstance_w(w_new_base, space.w_tuple):
+                raise oefmt(space.w_TypeError, "__mro_entries__ must return a tuple")
+            if new_bases_w is None:
+                new_bases_w = bases_w[:i]
+            new_bases_w.extend(space.fixedview(w_new_base))
+    if new_bases_w is None:
         return bases_w
     return new_bases_w[:]
 
