@@ -2125,11 +2125,12 @@ class CallCodeGenerator(object):
             assert self.nargs_pushed == 0
 
     def _push_args(self):
-        if (len(self.args) == 1 and not self.nargs_pushed and
-                isinstance(self.args[0], ast.Starred)):
-            self.args[0].value.walkabout(self.codegenerator)
-            self.have_starargs = True
-            return
+        if len(self.args) == 1 and not self.nargs_pushed:
+            arg = self.args[0]
+            if isinstance(arg, ast.Starred):
+                arg.value.walkabout(self.codegenerator)
+                self.have_starargs = True
+                return
 
         for elt in self.args:
             if isinstance(elt, ast.Starred):
