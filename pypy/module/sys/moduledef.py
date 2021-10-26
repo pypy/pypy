@@ -39,6 +39,7 @@ class Module(MixedModule):
         'maxunicode'            : 'space.newint(vm.MAXUNICODE)',
         'pypy_objspaceclass'    : 'space.newtext(repr(space))',
         'prefix'                : 'state.get(space).w_initial_prefix',
+        'platlibdir'            : 'space.newtext("lib")', # XXX for now!
         'exec_prefix'           : 'state.get(space).w_initial_prefix',
         'path'                  : 'state.get(space).w_path',
         'modules'               : 'state.get(space).w_modules',
