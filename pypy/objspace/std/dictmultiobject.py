@@ -306,6 +306,8 @@ class W_DictMultiObject(W_Root):
         return object_strategy
 
     def descr_or(self, space, w_other):
+        if not space.isinstance_w(w_other, space.w_dict):
+            return space.w_NotImplemented
         copyself = self.copy()
         update1(space, copyself, w_other)
         return copyself

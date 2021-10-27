@@ -777,6 +777,7 @@ class AppTest_DictObject:
         e = {'cheese': 'cheddar', 'aardvark': 'Ethel'}
         assert d | e == {'spam': 1, 'eggs': 2, 'cheese': 'cheddar', 'aardvark': 'Ethel'}
         assert e | d == {'cheese': 3, 'aardvark': 'Ethel', 'spam': 1, 'eggs': 2}
+        assert d.__or__(None) is NotImplemented
 
     def test_class_getitem(self):
         assert dict[int, str].__origin__ is dict
