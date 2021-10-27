@@ -140,6 +140,7 @@ testmap = [
     RegrTest('test_cgi.py'),
     RegrTest('test_cgitb.py'),
     RegrTest('test_charmapcodec.py', core=True),
+    RegrTest('test_check_c_globals.py'),
     RegrTest('test_class.py', core=True),
     RegrTest('test_clinic.py'),
     RegrTest('test_cmath.py', core=True),
@@ -252,6 +253,7 @@ testmap = [
     RegrTest('test_gdb.py', skip="not applicable"),
     RegrTest('test_generator_stop.py'),
     RegrTest('test_generators.py', core=True, usemodules='thread _weakref'),
+    RegrTest('test_genericalias.py'),
     RegrTest('test_genericclass.py'),
     RegrTest('test_genericpath.py'),
     RegrTest('test_genexps.py', core=True, usemodules='_weakref'),
@@ -262,6 +264,7 @@ testmap = [
     RegrTest('test_glob.py', core=True),
     RegrTest('test_global.py', core=True),
     RegrTest('test_grammar.py', core=True),
+    RegrTest('test_graphlib.py'),
     RegrTest('test_grp.py'),
     RegrTest('test_gzip.py', usemodules='zlib'),
     RegrTest('test_hash.py', core=True),
@@ -344,6 +347,7 @@ testmap = [
     RegrTest('test_pathlib.py'),
     RegrTest('test_pdb.py'),
     RegrTest('test_peepholer.py'),
+    RegrTest('test_peg_parser.py'),
     RegrTest('test_pickle.py', core=True),
     RegrTest('test_picklebuffer.py'),
     RegrTest('test_pickletools.py', core=False),
@@ -481,6 +485,7 @@ testmap = [
     RegrTest('test_univnewlines.py'),
     RegrTest('test_unpack.py', core=True),
     RegrTest('test_unpack_ex.py', core=True),
+    RegrTest('test_unparse.py'),
     RegrTest('test_urllib.py'),
     RegrTest('test_urllib2.py'),
     RegrTest('test_urllib2_localnet.py', usemodules="thread"),
@@ -522,7 +527,6 @@ testmap = [
     RegrTest('test_zipimport.py', usemodules='zlib zipimport'),
     RegrTest('test_zipimport_support.py', usemodules='zlib zipimport'),
     RegrTest('test_zlib.py', usemodules='zlib'),
-
 ]
 
 def check_testmap_complete():
