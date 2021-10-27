@@ -1142,10 +1142,6 @@ class W_UnicodeObject(W_Root):
 
         w_sub = self.convert_arg_to_w_unicode(space, w_old)
         w_by = self.convert_arg_to_w_unicode(space, w_new)
-        # the following two lines are for being bug-to-bug compatible
-        # with CPython: see issue #2448
-        if count >= 0 and len(input) == 0:
-            return self._empty()
         try:
             res, replacements = replace_count(input, w_sub._utf8, w_by._utf8,
                                               count, isutf8=True)

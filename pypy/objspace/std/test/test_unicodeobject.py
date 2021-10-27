@@ -486,6 +486,11 @@ class AppTestUnicodeString:
         s = "a" * (2**16)
         raises(OverflowError, s.replace, "", s)
 
+    def test_empty_replace_empty(self):
+        assert "".replace("", "a", 0) == ""
+        assert "".replace("", "a", 1) == "a"
+        assert "".replace("", "a", 121344) == "a"
+
     def test_strip(self):
         s = " a b "
         assert s.strip() == "a b"
