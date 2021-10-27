@@ -43,7 +43,7 @@ _INSTALL_SCHEMES = {
         },
     'pypy': {
         # used by crossenv
-        'stdlib': '{installed_base}/lib_pypy,
+        'stdlib': '{installed_base}/lib_pypy',
         # used by crossenv
         'platstdlib': '{base}/lib_pypy',
         'purelib': '{base}/site-packages',
