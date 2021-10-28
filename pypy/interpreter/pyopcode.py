@@ -163,8 +163,6 @@ class __extend__(pyframe.PyFrame):
             assert next_instr & 1 == 0
             opcode = ord(co_code[next_instr])
             oparg = ord(co_code[next_instr + 1])
-            if self.pycode.co_name == "g":
-                print self.last_instr, bytecode_spec.method_names[opcode], opcode, oparg
             next_instr += 2
 
             # note: the structure of the code here is such that it makes
@@ -1188,8 +1186,6 @@ class __extend__(pyframe.PyFrame):
         return next_instr
 
     def POP_JUMP_IF_FALSE(self, target, next_instr):
-        if self.pycode.co_name == "g":
-            import pdb; pdb.set_trace()
         w_value = self.popvalue()
         if not self.space.is_true(w_value):
             return target

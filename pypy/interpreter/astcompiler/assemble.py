@@ -377,8 +377,6 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
-        print "=" * 60
-        print self.name
         for block in blocks:
             block.initial_depth = -99
         blocks[0].initial_depth = 0
@@ -413,11 +411,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         if depth == -99:     # this block is never reached, skip
              return 0
 
-        print depth, block
         for instr in block.instructions:
-            print depth, instr,
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
-            print(depth)
             if depth < 0:
                 # This is really a fatal error, don't comment out this
                 # 'raise'.  It means that the stack depth computation

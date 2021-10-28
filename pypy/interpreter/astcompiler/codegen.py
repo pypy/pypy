@@ -718,10 +718,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
             self.error("'continue' outside loop", cont)
-        self.unwind_fblock(loop_fblock, False)
-        assert loop_fblock.end is not None
-        self.update_position(cont.lineno, True)
-        assert loop_fblock.end is not None
         self.update_position(cont.lineno, True)
         self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.block, True)
 
@@ -920,6 +916,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
 
     def visit_Try(self, tr):
+        self.update_position(tr.lineno)
         if tr.finalbody:
             return self._visit_try_finally(tr)
         else:
