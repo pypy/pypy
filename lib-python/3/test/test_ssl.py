@@ -2556,6 +2556,9 @@ class ThreadedEchoServer(threading.Thread):
     def __exit__(self, *args):
         self.stop()
         self.join()
+        import gc
+        for _ in range(3):
+            gc.collect()
 
     def start(self, flag=None):
         self.flag = flag
