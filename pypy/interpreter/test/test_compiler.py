@@ -69,6 +69,67 @@ class TestPythonAstCompiler:
         space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
                        'if 1:\n  x\n y\n', '?', 'exec', 0)
 
+    def test_reraise_no_match(self):
+        space = self.space
+        space.raises_w(space.w_KeyError,
+            space.appexec, [], r"""():
+            try:
+                {}[1]
+            except TypeError:
+                return 2
+            return 1
+        """)
+
+    def test_reraise_finally(self):
+        space = self.space
+        space.raises_w(space.w_KeyError,
+            space.appexec, [], r"""():
+            try:
+                raise KeyError
+            finally:
+                pass
+            return 4
+        """)
+
+    def test_reraise_return(self):
+        space = self.space
+        w_res = space.appexec([], r"""():
+            try:
+                raise KeyError
+            finally:
+                x = 7
+                return x + 1 # swallow exception
+            return 4
+        """)
+        assert space.int_w(w_res) == 8
+
+    def test_reraise_named_except_finally(self):
+        space = self.space
+        space.raises_w(space.w_KeyError,
+            space.appexec, [], r"""():
+            try:
+                raise KeyError
+            except KeyError as e:
+                raise
+            return 4
+        """)
+
+    def test_raise_in_except_bug(self):
+        space = self.space
+        w_res = space.appexec([], r"""():
+            try:
+                try:
+                    raise KeyError
+                except TypeError:
+                    for i in range(10):
+                        pass
+                    else:
+                        raise KeyError
+            except KeyError:
+                return 10
+            return 0""")
+        assert space.int_w(w_res) == 10
+
     def test_syntaxerror_attrs(self):
         w_args = self.space.appexec([], r"""():
             try:

@@ -23,7 +23,7 @@ from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
-SETUP_ASYNC_WITH POP_BLOCK END_FINALLY WITH_CLEANUP_START YIELD_VALUE
+SETUP_ASYNC_WITH POP_BLOCK WITH_CLEANUP_START YIELD_VALUE
 NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST
 '''.split():
     globals()[op] = stdlib_opcode.opmap[op]
@@ -375,6 +375,8 @@ class PyFrame(W_Root):
 
     # stack manipulation helpers
     def pushvalue(self, w_object):
+        if self.pycode.co_name == "__new__" and "W_KeyError" in str(w_object):
+            import pdb; pdb.set_trace()
         depth = self.valuestackdepth
         self.locals_cells_stack_w[depth] = ll_assert_not_none(w_object)
         self.valuestackdepth = depth + 1

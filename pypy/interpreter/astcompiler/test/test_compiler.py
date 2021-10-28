@@ -953,7 +953,7 @@ a = A()
         with a: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 5  # i.e. <= 7, there is no systematic leak
+        assert code.co_stacksize == 4  # i.e. <= 7, there is no systematic leak
 
     def test_stackeffect_bug5(self):
         source = """if 1:

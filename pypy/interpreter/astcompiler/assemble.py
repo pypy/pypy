@@ -377,6 +377,8 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
+        print "=" * 60
+        print self.name
         for block in blocks:
             block.initial_depth = -99
         blocks[0].initial_depth = 0
@@ -411,8 +413,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         if depth == -99:     # this block is never reached, skip
              return 0
 
+        print depth, block
         for instr in block.instructions:
+            print depth, instr,
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
+            print(depth)
             if depth < 0:
                 # This is really a fatal error, don't comment out this
                 # 'raise'.  It means that the stack depth computation
@@ -433,17 +438,14 @@ class PythonCodeMaker(ast.ASTVisitor):
                 elif (jump_op == ops.SETUP_FINALLY or
                       jump_op == ops.SETUP_EXCEPT or
                       jump_op == ops.SETUP_WITH or
-                      jump_op == ops.SETUP_ASYNC_WITH or
-                      jump_op == ops.CALL_FINALLY):
+                      jump_op == ops.SETUP_ASYNC_WITH):
                     if jump_op == ops.SETUP_FINALLY:
-                        target_depth += 4
+                        target_depth += 4 # XXX why is this not 1?
                     elif jump_op == ops.SETUP_EXCEPT:
-                        target_depth += 4
+                        target_depth += 4 # XXX why is this not 3?
                     elif jump_op == ops.SETUP_WITH:
-                        target_depth += 3
+                        target_depth += 1
                     elif jump_op == ops.SETUP_ASYNC_WITH:
-                        target_depth += 3
-                    elif jump_op == ops.CALL_FINALLY:
                         target_depth += 1
                     if target_depth > self._max_depth:
                         self._max_depth = target_depth
@@ -456,6 +458,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                     break
             elif jump_op == ops.RETURN_VALUE or jump_op == ops.RAISE_VARARGS:
                 # Nothing more can occur.
+                break
+            elif jump_op == ops.RERAISE:
                 break
         else:
             if block.next_block:
@@ -593,6 +597,7 @@ _static_opcode_stack_effects = {
     ops.POP_TOP: -1,
     ops.ROT_TWO: 0,
     ops.ROT_THREE: 0,
+    ops.ROT_FOUR: 0,
     ops.DUP_TOP: 1,
     ops.DUP_TOP_TWO: 2,
 
@@ -645,16 +650,9 @@ _static_opcode_stack_effects = {
 
     ops.PRINT_EXPR: -1,
 
-    ops.WITH_CLEANUP_START: 0,
-    ops.WITH_CLEANUP_FINISH: -1,
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
-    ops.BEGIN_FINALLY: 4,
-    ops.END_FINALLY: -4,     # assume always 4: we pretend that SETUP_FINALLY
-                             # pushes 4.  In truth, it would only push 1 and
-                             # the corresponding END_FINALLY only pops 1.
-    ops.POP_FINALLY: -4,     # same
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
     ops.SETUP_EXCEPT: 0,
@@ -722,7 +720,9 @@ _static_opcode_stack_effects = {
     ops.LOAD_CLASSDEREF: 1,
     ops.LOAD_ASSERTION_ERROR: 1,
 
-    ops.CALL_FINALLY: 0,
+    ops.RERAISE: -1,
+
+    ops.WITH_EXCEPT_START: 0
 }
 
 
