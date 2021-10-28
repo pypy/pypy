@@ -811,7 +811,7 @@ class PyFrame(W_Root):
                         delta_iblock += 1
                 if not in_for_loop:
                     blockstack.append(target_addr)
-            elif op == END_FINALLY:
+            elif False and op == END_FINALLY:
                 if len(blockstack) == 0:
                     raise oefmt(space.w_SystemError,
                            "blocks not properly nested in this bytecode")
