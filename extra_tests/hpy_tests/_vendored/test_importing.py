@@ -25,7 +25,7 @@ class TestImporting(HPyTest):
                 del sys.modules[name]
         return module
 
-    def test_importing_attributes(self):
+    def test_importing_attributes(self, hpy_abi, tmpdir):
         import pytest
         if not self.supports_ordinary_make_module_imports():
             pytest.skip()
@@ -40,3 +40,12 @@ class TestImporting(HPyTest):
         assert mod.__spec__.loader is mod.__loader__
         assert mod.__spec__.name == 'mytest'
         assert mod.__file__
+
+        if hpy_abi == 'cpython':
+            from sysconfig import get_config_var
+            ext = get_config_var('EXT_SUFFIX')
+        else:
+            ext = '.hpy.so'
+
+        assert repr(mod) == '<module \'mytest\' from {}>'.format(
+            repr(str(tmpdir.join('mytest' + ext))))

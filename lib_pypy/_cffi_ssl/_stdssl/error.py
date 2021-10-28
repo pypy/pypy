@@ -124,7 +124,7 @@ def pyssl_error(obj, ret):
                         if err.ws:
                             return OSError(err.ws)
                     if err.c:
-                       ffi.errno = err.c 
+                        ffi.errno = err.c 
                     errno = ffi.errno
                     return OSError(errno, os.strerror(errno))
                 else:
@@ -179,11 +179,11 @@ def fill_sslerror(obj, errtype, ssl_errno, errstr, errcode):
         if not verify_str:
             verify_str = ffi.string(lib.X509_verify_cert_error_string(verify_code)).decode()
     if verify_str and reason_str and lib_str:
-        msg = f"{verify_str}"
+        msg = f'[{lib_str}: {reason_str}] {errstr}: {verify_str}'
     elif reason_str and lib_str:
-        msg = "[%s: %s] %s" % (lib_str, reason_str, errstr)
+        msg = f"[{lib_str}: {reason_str}] {errstr}"
     elif lib_str:
-        msg = "[%s] %s" % (lib_str, errstr)
+        msg = f"[{lib_str}] {errstr}"
 
     err_value = errtype(ssl_errno, msg)
     err_value.reason = reason_str if reason_str else None

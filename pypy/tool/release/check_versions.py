@@ -33,6 +33,12 @@ def assert_in(a, b):
 
 
 pypy_versions = {
+                 '7.3.6rc3': {'python_version': ['3.8.12', '3.7.12', '2.7.18'],
+                           'date': '2021-10-12',
+                          },
+                 '7.3.6rc2': {'python_version': ['3.8.12', '3.7.12', '2.7.18'],
+                           'date': '2021-10-06',
+                          },
                  '7.3.6rc1': {'python_version': ['3.8.12', '3.7.12', '2.7.18'],
                            'date': '2021-09-13',
                           },
@@ -66,7 +72,7 @@ pypy_versions = {
                  '7.3.2': {'python_version': ['3.7.9', '3.6.9', '2.7.13'],
                            'date': '2020-09-25',
                           },
-                'nightly': {'python_version': ['2.7', '3.6', '3.7']},
+                'nightly': {'python_version': ['2.7', '3.6', '3.7', '3.8']},
                 }
 
 
@@ -101,7 +107,7 @@ arch_map={('aarch64', 'linux'): 'aarch64',
          }
 
 
-def check_versions(data, url):
+def check_versions(data, url, verbose=0):
     for d in data:
         assert_in(d['pypy_version'], pypy_versions)
         v = pypy_versions[d['pypy_version']]
@@ -123,6 +129,8 @@ def check_versions(data, url):
             assert_equal(d['date'], v['date'])
         for f in d['files']:
             download_url = f['download_url']
+            if verbose > 0:
+                print(f'checking {download_url}')
             if 'rc' not in d['pypy_version']:
                 assert_in(f['filename'], download_url)
                 assert_in(d['pypy_version'], download_url)
@@ -150,11 +158,11 @@ if __name__ == '__main__':
         print(f'checking local file "{sys.argv[1]}"')
         with open(sys.argv[1]) as fid:
             data = json.loads(fid.read())
-        check_versions(data, 'https://buildbot.pypy.org/pypy')
+        check_versions(data, 'https://buildbot.pypy.org/pypy', verbose=1)
     else:
         print('downloading versions.json')
         response = request.urlopen('https://buildbot.pypy.org/pypy/versions.json')
         assert_equal(response.getcode(), 200)
         data = json.loads(response.read())
-        check_versions(data, None)
+        check_versions(data, None, verbose=1)
     print('ok')

@@ -139,6 +139,10 @@ Bugfixes shared across versions
   the last tag (i.e. final)
 - Fix position bugs in the astcompiler stemming from the fact that
   ``SyntaxErrors`` use 1-based column offsets
+- Fix an obscure corner of ``%``-formatting when a tuple is passed in that
+  triggered infinite recursion in the ``__repr__`` of a ``named_tuple`` with an
+  ``__iter__`` (issue 3555_)
+- Fixed a PowerPC JIT bug that caused a stack overflow (issue 3463_)
 
 Speedups and enhancements shared across versions
 ------------------------------------------------
@@ -232,6 +236,7 @@ Python 3.7 C-API
 .. _3353: https://foss.heptapod.net/pypy/pypy/-/issues/3353
 .. _3431: https://foss.heptapod.net/pypy/pypy/-/issues/3431
 .. _3402: https://foss.heptapod.net/pypy/pypy/-/issues/3402
+.. _3463: https://foss.heptapod.net/pypy/pypy/-/issues/3463
 .. _3472: https://foss.heptapod.net/pypy/pypy/-/issues/3472
 .. _3483: https://foss.heptapod.net/pypy/pypy/-/issues/3483
 .. _3490: https://foss.heptapod.net/pypy/pypy/-/issues/3490
@@ -242,6 +247,7 @@ Python 3.7 C-API
 .. _3531: https://foss.heptapod.net/pypy/pypy/-/issues/3531
 .. _3538: https://foss.heptapod.net/pypy/pypy/-/issues/3538
 .. _3546: https://foss.heptapod.net/pypy/pypy/-/issues/3546
+.. _3555: https://foss.heptapod.net/pypy/pypy/-/issues/3555
 .. _`bpo 22557`: https://bugs.python.org/issue22557
 .. _`bpo 44022`: https://bugs.python.org/issue44022
 .. _`bpo 43650`: https://bugs.python.org/issue43650
