@@ -77,6 +77,7 @@ class W_GetSetPropertyEx(GetSetProperty):
             self.name, self.w_type)
 
 
+@cpython_api([PyTypeObjectPtr, lltype.Ptr(PyGetSetDef)], PyObject)
 def PyDescr_NewGetSet(space, w_type, getset):
     # Note the arguments are reversed
     return W_GetSetPropertyEx(getset, w_type)
