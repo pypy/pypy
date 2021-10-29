@@ -115,8 +115,6 @@ def_op('INPLACE_RSHIFT', 76)
 def_op('INPLACE_AND', 77)
 def_op('INPLACE_XOR', 78)
 def_op('INPLACE_OR', 79)
-def_op('WITH_CLEANUP_START', 80)
-def_op('WITH_CLEANUP_FINISH', 81)
 
 def_op('LIST_TO_TUPLE', 82)
 

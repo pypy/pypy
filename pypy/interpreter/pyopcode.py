@@ -181,20 +181,6 @@ class __extend__(pyframe.PyFrame):
                 assert not self.blockstack_non_empty()
                 self.frame_finished_execution = True  # for generators
                 raise Return
-            elif False and opcode == opcodedesc.END_FINALLY.index:
-                unroller_or_int = self.end_finally()
-                if isinstance(unroller_or_int, SApplicationException):
-                    # go on unrolling the stack
-                    block = self.unrollstack()
-                    if block is None:
-                        w_result = unroller_or_int.reraise()
-                        assert 0, "unreachable"
-                    else:
-                        next_instr = block.handle(self, unroller_or_int)
-                elif self.space.isinstance_w(unroller_or_int, self.space.w_int):
-                    # we arrived here via a CALL_FINALLY
-                    next_instr = r_uint(self.space.int_w(unroller_or_int))
-                return next_instr
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
                 return self.jump_absolute(oparg, ec)
             elif opcode == opcodedesc.RERAISE.index:
@@ -1259,31 +1245,6 @@ class __extend__(pyframe.PyFrame):
                              next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
-    def BEGIN_FINALLY(self, oparg, next_instr):
-        self.pushvalue(self.space.w_None)
-
-    def POP_FINALLY(self, oparg, next_instr):
-        DEAD
-        block = self.pop_block()
-        assert isinstance(block, SysExcInfoRestorer)
-        block.cleanupstack(self)   # restores ec.sys_exc_operror
-
-        w_result = None
-        if oparg:
-            # top value is some result, needs to be preserved
-            w_result = self.popvalue()
-        w_top = self.popvalue()
-        # do nothing in any case, but check the cases ;-)
-        if self.space.is_w(w_top, self.space.w_None):
-            pass
-        elif isinstance(w_top, SApplicationException):
-            pass
-        else:
-            assert self.space.isinstance_w(w_top, self.space.w_int)
-
-        if oparg:
-            self.pushvalue(w_result)
-
     def SETUP_WITH(self, offsettoend, next_instr):
         w_manager = self.peekvalue()
         w_enter = self.space.lookup(w_manager, "__enter__")
@@ -1313,14 +1274,14 @@ class __extend__(pyframe.PyFrame):
                 operr.get_w_value(self.space),
                 w_traceback)
         else:
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             assert 0
         self.pushvalue(w_res)
 
     def RERAISE(self, jumpby, next_instr):
         unroller = self.popvalue()
         if not isinstance(unroller, SApplicationException):
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             assert 0
         block = self.unrollstack()
         if block is None:
@@ -1329,46 +1290,6 @@ class __extend__(pyframe.PyFrame):
         else:
             next_instr = block.handle(self, unroller)
         return next_instr
-
-    def CALL_FINALLY(self, jumpby, next_instr):
-        DEAD
-        self.pushvalue(self.space.newint(intmask(next_instr)))
-        return next_instr + jumpby
-
-    def WITH_CLEANUP_START(self, oparg, next_instr):
-        DEAD
-        # see comment in END_FINALLY for stack state
-        w_unroller = self.popvalue()
-        w_exitfunc = self.popvalue()
-        self.pushvalue(w_unroller)
-        if isinstance(w_unroller, SApplicationException):
-            # app-level exception
-            operr = w_unroller.operr
-            w_traceback = operr.get_w_traceback(self.space)
-            w_res = self.call_contextmanager_exit_function(
-                w_exitfunc,
-                operr.w_type,
-                operr.get_w_value(self.space),
-                w_traceback)
-        else:
-            w_res = self.call_contextmanager_exit_function(
-                w_exitfunc,
-                self.space.w_None,
-                self.space.w_None,
-                self.space.w_None)
-        self.pushvalue(w_res)
-        # in the stack now:  [w_res, w_unroller-or-w_None..]
-
-    def WITH_CLEANUP_FINISH(self, oparg, next_instr):
-        DEAD
-        w_suppress = self.popvalue()
-        w_unroller = self.peekvalue()
-        if isinstance(w_unroller, SApplicationException):
-            if self.space.is_true(w_suppress):
-                # __exit__() returned True -> Swallow the exception.
-                self.settopvalue(self.space.w_None)
-        # this is always followed by END_FINALLY
-        # in the stack now: [w_unroller-or-w_None..]
 
     @jit.unroll_safe
     def call_function(self, oparg, w_starstar=None, has_vararg=False):
