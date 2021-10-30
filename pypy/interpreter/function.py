@@ -681,7 +681,14 @@ class ClassMethod(W_Root):
     def descr_classmethod_get(self, space, w_obj, w_klass=None):
         if space.is_none(w_klass):
             w_klass = space.type(w_obj)
-        return Method(space, self.w_function, w_klass)
+        w_func = self.w_function
+        # this creates a Method for functions etc
+        w_bound = space.get(w_func, w_klass)
+        if w_bound is not w_func:
+            return w_bound
+        # the object doesn't have a get, but it might still be callable, so
+        # make a Method object
+        return Method(space, w_func, w_klass)
 
     def descr_classmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(ClassMethod, w_subtype)
