@@ -478,20 +478,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 if instr.lineno:
                     # compute deltas
                     line = instr.lineno - current_line
-                    if line < 0:
-                        continue
                     addr = offset - current_off
-                    # Python assumes that lineno always increases with
-                    # increasing bytecode address (lnotab is unsigned
-                    # char).  Depending on when SET_LINENO instructions
-                    # are emitted this is not always true.  Consider the
-                    # code:
-                    #     a = (1,
-                    #          b)
-                    # In the bytecode stream, the assignment to "a"
-                    # occurs after the loading of "b".  This works with
-                    # the C Python compiler because it only generates a
-                    # SET_LINENO instruction for the assignment.
                     if line or addr:
                         _encode_lnotab_pair(addr, line, table)
                         current_line = instr.lineno
@@ -571,9 +558,6 @@ def _encode_lnotab_pair(addr, line, table):
         table.append(chr(255))
         table.append(chr(0))
         addr -= 255
-    # this implements CPython's logic to be complete. However, the calling code
-    # ensures that line is never negative at all. We could fix this, if we
-    # wanted.
     while line < -128:
         table.append(chr(addr))
         table.append(chr(-128 + 256))
