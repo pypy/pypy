@@ -469,18 +469,32 @@ class OperationError(Exception):
 
 
 def _break_context_cycle(space, w_value, w_context):
-    """Break reference cycles in the __context__ chain.
+    """Don't create new context chain cycles, but be prepared to not hang on
+    existing ones.
 
-    This is O(chain length) but context chains are usually very short
+    This is O(chain length) but context chains are usually very short. Uses
+    Floyd's cycle algorithm.
     """
+    w_rabbit = w_context
+    w_tortoise = w_context
+    update_tortoise_toggle = False
+    w_attrname_context = space.newtext('__context__')
+
     while True:
-        w_next = space.getattr(w_context, space.newtext('__context__'))
+        w_next = space.getattr(w_rabbit, w_attrname_context)
         if space.is_w(w_next, space.w_None):
             break
         if space.is_w(w_next, w_value):
-            space.setattr(w_context, space.newtext('__context__'), space.w_None)
+            space.setattr(w_rabbit, w_attrname_context, space.w_None)
             break
-        w_context = w_next
+        w_rabbit = w_next
+        if space.is_w(w_rabbit, w_tortoise):
+            # pre-excisting cycle, don't set anything to None
+            break
+        if update_tortoise_toggle:
+            # every other iteration
+            w_tortoise = space.getattr(w_rabbit, w_attrname_context)
+        update_tortoise_toggle = not update_tortoise_toggle
 
 
 class ClearedOpErr:

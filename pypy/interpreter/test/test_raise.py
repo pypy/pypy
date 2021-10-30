@@ -384,6 +384,20 @@ class AppTestRaiseContext:
         else:
             fail("No exception raised")
 
+    def test_preexisting_cycle(self):
+        def chain(e):
+            res = Exception()
+            res.__context__ = e
+            return res
+        def cycle():
+            try:
+                raise ValueError(1)
+            except ValueError as ex:
+                ex.__context__ = chain(chain(chain(ex))) # make cycle ourselves
+                raise TypeError(2) # shouldn't hang here
+
+        raises(TypeError, cycle)
+
     def test_reraise_cycle_broken(self):
         try:
             try:
