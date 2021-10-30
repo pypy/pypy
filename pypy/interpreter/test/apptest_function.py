@@ -699,3 +699,54 @@ def global_inner_has_pos_only():
 
 def test_posonly_annotations_crash():
     assert global_inner_has_pos_only().__annotations__ == {"x": int}
+
+def test_classmethod_of_random_callable():
+    class Callable:
+        def __call__(self, cls):
+            print(cls)
+            assert cls is Class
+            return "foo"
+    class Class:
+        f = classmethod(Callable())
+    assert Class().f() == "foo"
+
+
+def test_classmethod_of_other_descriptor():
+    class BoundWrapper:
+        def __init__(self, wrapped):
+            self.__wrapped__ = wrapped
+
+        def __call__(self, *args, **kwargs):
+            return self.__wrapped__(*args, **kwargs)
+
+    class Wrapper:
+        def __init__(self, wrapped):
+            self.__wrapped__ = wrapped
+
+        def __get__(self, instance, owner):
+            bound_function = self.__wrapped__.__get__(instance, owner)
+            return BoundWrapper(bound_function)
+
+    def decorator(wrapped):
+        return Wrapper(wrapped)
+
+    class Class:
+        @decorator
+        @classmethod
+        def inner(cls):
+            # This should already work.
+            assert cls is Class
+            return 'spam'
+
+        @classmethod
+        @decorator
+        def outer(cls):
+            # Raised TypeError with a message saying that the 'Wrapper'
+            # object is not callable.
+            assert cls is Class
+            return 'eggs'
+
+    assert Class.inner() == 'spam'
+    assert Class.outer() == 'eggs'
+    assert Class().inner() == 'spam'
+    assert Class().outer() == 'eggs'

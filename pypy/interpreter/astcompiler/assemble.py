@@ -375,6 +375,19 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Get an extra flags that should be attached to the code object."""
         raise NotImplementedError
 
+    def _stacksize_error_pos(self, depth):
+        # This case occurs if this code object uses some
+        # construction for which the stack depth computation
+        # is wrong (too high).  If you get here while working
+        # on the astcompiler, then you should at first ignore
+        # the error, and comment out the 'raise' below.  Such
+        # an error is not really bad: it is just a bit
+        # wasteful.  For release-ready versions, though, we'd
+        # like not to be wasteful. :-)
+        os.write(2, "StackDepthComputationError(POS) in %s at %s:%s depth %s\n"
+          % (self.compile_info.filename, self.name, self.first_lineno, depth))
+        raise StackDepthComputationError   # would-be-nice-not-to-have
+
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
         for block in blocks:
@@ -387,17 +400,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             depth = self._do_stack_depth_walk(block)
             if block.auto_inserted_return and depth != 0:
-                # This case occurs if this code object uses some
-                # construction for which the stack depth computation
-                # is wrong (too high).  If you get here while working
-                # on the astcompiler, then you should at first ignore
-                # the error, and comment out the 'raise' below.  Such
-                # an error is not really bad: it is just a bit
-                # wasteful.  For release-ready versions, though, we'd
-                # like not to be wasteful. :-)
-                os.write(2, "StackDepthComputationError(POS) in %s at %s:%s\n"
-                  % (self.compile_info.filename, self.name, self.first_lineno))
-                raise StackDepthComputationError   # would-be-nice-not-to-have
+                self._stacksize_error_pos(depth)
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth, source):
@@ -433,17 +436,14 @@ class PythonCodeMaker(ast.ASTVisitor):
                 elif (jump_op == ops.SETUP_FINALLY or
                       jump_op == ops.SETUP_EXCEPT or
                       jump_op == ops.SETUP_WITH or
-                      jump_op == ops.SETUP_ASYNC_WITH or
-                      jump_op == ops.CALL_FINALLY):
+                      jump_op == ops.SETUP_ASYNC_WITH):
                     if jump_op == ops.SETUP_FINALLY:
-                        target_depth += 4
+                        target_depth += 2
                     elif jump_op == ops.SETUP_EXCEPT:
-                        target_depth += 4
+                        target_depth += 4 # XXX why is this not 3?
                     elif jump_op == ops.SETUP_WITH:
-                        target_depth += 3
+                        target_depth += 1
                     elif jump_op == ops.SETUP_ASYNC_WITH:
-                        target_depth += 3
-                    elif jump_op == ops.CALL_FINALLY:
                         target_depth += 1
                     if target_depth > self._max_depth:
                         self._max_depth = target_depth
@@ -454,8 +454,13 @@ class PythonCodeMaker(ast.ASTVisitor):
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
                     break
-            elif jump_op == ops.RETURN_VALUE or jump_op == ops.RAISE_VARARGS:
-                # Nothing more can occur.
+            elif jump_op == ops.RETURN_VALUE:
+                if depth:
+                    self._stacksize_error_pos(depth)
+                break
+            elif jump_op == ops.RAISE_VARARGS:
+                break
+            elif jump_op == ops.RERAISE:
                 break
         else:
             if block.next_block:
@@ -473,20 +478,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 if instr.lineno:
                     # compute deltas
                     line = instr.lineno - current_line
-                    if line < 0:
-                        continue
                     addr = offset - current_off
-                    # Python assumes that lineno always increases with
-                    # increasing bytecode address (lnotab is unsigned
-                    # char).  Depending on when SET_LINENO instructions
-                    # are emitted this is not always true.  Consider the
-                    # code:
-                    #     a = (1,
-                    #          b)
-                    # In the bytecode stream, the assignment to "a"
-                    # occurs after the loading of "b".  This works with
-                    # the C Python compiler because it only generates a
-                    # SET_LINENO instruction for the assignment.
                     if line or addr:
                         _encode_lnotab_pair(addr, line, table)
                         current_line = instr.lineno
@@ -566,9 +558,6 @@ def _encode_lnotab_pair(addr, line, table):
         table.append(chr(255))
         table.append(chr(0))
         addr -= 255
-    # this implements CPython's logic to be complete. However, the calling code
-    # ensures that line is never negative at all. We could fix this, if we
-    # wanted.
     while line < -128:
         table.append(chr(addr))
         table.append(chr(-128 + 256))
@@ -593,6 +582,7 @@ _static_opcode_stack_effects = {
     ops.POP_TOP: -1,
     ops.ROT_TWO: 0,
     ops.ROT_THREE: 0,
+    ops.ROT_FOUR: 0,
     ops.DUP_TOP: 1,
     ops.DUP_TOP_TWO: 2,
 
@@ -645,16 +635,9 @@ _static_opcode_stack_effects = {
 
     ops.PRINT_EXPR: -1,
 
-    ops.WITH_CLEANUP_START: 0,
-    ops.WITH_CLEANUP_FINISH: -1,
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
-    ops.BEGIN_FINALLY: 4,
-    ops.END_FINALLY: -4,     # assume always 4: we pretend that SETUP_FINALLY
-                             # pushes 4.  In truth, it would only push 1 and
-                             # the corresponding END_FINALLY only pops 1.
-    ops.POP_FINALLY: -4,     # same
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
     ops.SETUP_EXCEPT: 0,
@@ -722,7 +705,9 @@ _static_opcode_stack_effects = {
     ops.LOAD_CLASSDEREF: 1,
     ops.LOAD_ASSERTION_ERROR: 1,
 
-    ops.CALL_FINALLY: 0,
+    ops.RERAISE: -1,
+
+    ops.WITH_EXCEPT_START: 0
 }
 
 

@@ -105,6 +105,25 @@ class AppTestLock(GenericTestThread):
         stop = time.time()
         assert stop - start < 30.0    # ~0.6 sec on pypy-c-jit
 
+    def test_at_fork_reinit(self):
+        import _thread as thread
+        def use_lock(lock):
+            # make sure that the lock still works normally
+            # after _at_fork_reinit()
+            lock.acquire()
+            lock.release()
+
+        # unlocked
+        for constr in [thread.allocate_lock, thread.RLock]:
+            lock = constr()
+            lock._at_fork_reinit()
+            use_lock(lock)
+
+            # locked: _at_fork_reinit() resets the lock to the unlocked state
+            lock2 = constr()
+            lock2.acquire()
+            lock2._at_fork_reinit()
+            use_lock(lock2)
 
 def test_compile_lock():
     from rpython.rlib import rgc

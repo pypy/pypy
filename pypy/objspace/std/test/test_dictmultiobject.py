@@ -779,6 +779,17 @@ class AppTest_DictObject:
         assert e | d == {'cheese': 3, 'aardvark': 'Ethel', 'spam': 1, 'eggs': 2}
         assert d.__or__(None) is NotImplemented
 
+    def test_ior(self):
+        orig = d = {'spam': 1, 'eggs': 2, 'cheese': 3}
+        e = {'cheese': 'cheddar', 'aardvark': 'Ethel'}
+        d |= e
+        assert orig == {'spam': 1, 'eggs': 2, 'cheese': 'cheddar', 'aardvark': 'Ethel'}
+
+        d = orig = {"a": 6, "b": 7}
+        d |= [("b", 43), ("c", -1j)]
+        assert orig == {"a": 6, "b": 43, "c": -1j}
+
+
     def test_class_getitem(self):
         assert dict[int, str].__origin__ is dict
         assert dict[int, str].__args__ == (int, str)

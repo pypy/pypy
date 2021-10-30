@@ -312,6 +312,10 @@ class W_DictMultiObject(W_Root):
         update1(space, copyself, w_other)
         return copyself
 
+    def descr_ior(self, space, w_other):
+        update1(space, self, w_other)
+        return self
+
 
 class W_DictObject(W_DictMultiObject):
     """ a regular dict object """
@@ -437,6 +441,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __delitem__ = interp2app(W_DictMultiObject.descr_delitem),
 
     __or__ = interp2app(W_DictMultiObject.descr_or),
+    __ior__ = interp2app(W_DictMultiObject.descr_ior),
 
     __class_getitem__ = interp2app(
         generic_alias_class_getitem, as_classmethod=True),

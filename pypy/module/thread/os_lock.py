@@ -127,6 +127,11 @@ but it needn't be locked by the same thread that unlocks it."""
             locked = "unlocked"
         return self.getrepr(space, '%s %s object' % (locked, classname))
 
+    def descr_at_fork_reinit(self, space):
+        # XXX this it not good enough! CPython leaks the underlying lock
+        self.__init__(space)
+
+
 Lock.typedef = TypeDef(
     "_thread.lock",
     __doc__="""\
@@ -151,6 +156,8 @@ will block until another thread unlocks it.  Deadlocks may ensue.""",
     acquire_lock=interp2app(Lock.descr_lock_acquire),
     release_lock=interp2app(Lock.descr_lock_release),
     locked_lock=interp2app(Lock.descr_lock_locked),
+
+    _at_fork_reinit=interp2app(Lock.descr_at_fork_reinit),
 )
 
 
@@ -291,6 +298,11 @@ class W_RLock(W_Root):
     def descr__exit__(self, space, __args__):
         self.release_w(space)
 
+    def descr_at_fork_reinit(self, space):
+        # XXX not good enough, cpython leaks the OS lock
+        self.__init__(space)
+
+
 W_RLock.typedef = TypeDef(
     "_thread.RLock",
     __new__ = interp2app(W_RLock.descr__new__.im_func),
@@ -303,4 +315,5 @@ W_RLock.typedef = TypeDef(
     __exit__ = interp2app(W_RLock.descr__exit__),
     __weakref__ = make_weakref_descr(W_RLock),
     __repr__ = interp2app(W_RLock.descr__repr__),
+    _at_fork_reinit = interp2app(W_RLock.descr_at_fork_reinit),
     )

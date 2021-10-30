@@ -181,22 +181,10 @@ class __extend__(pyframe.PyFrame):
                 assert not self.blockstack_non_empty()
                 self.frame_finished_execution = True  # for generators
                 raise Return
-            elif opcode == opcodedesc.END_FINALLY.index:
-                unroller_or_int = self.end_finally()
-                if isinstance(unroller_or_int, SApplicationException):
-                    # go on unrolling the stack
-                    block = self.unrollstack()
-                    if block is None:
-                        w_result = unroller_or_int.reraise()
-                        assert 0, "unreachable"
-                    else:
-                        next_instr = block.handle(self, unroller_or_int)
-                elif self.space.isinstance_w(unroller_or_int, self.space.w_int):
-                    # we arrived here via a CALL_FINALLY
-                    next_instr = r_uint(self.space.int_w(unroller_or_int))
-                return next_instr
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
                 return self.jump_absolute(oparg, ec)
+            elif opcode == opcodedesc.RERAISE.index:
+                return self.RERAISE(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
                 next_instr = self.FOR_ITER(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_FORWARD.index:
@@ -367,6 +355,8 @@ class __extend__(pyframe.PyFrame):
                 self.PRINT_EXPR(oparg, next_instr)
             elif opcode == opcodedesc.RAISE_VARARGS.index:
                 self.RAISE_VARARGS(oparg, next_instr)
+            elif opcode == opcodedesc.ROT_FOUR.index:
+                self.ROT_FOUR(oparg, next_instr)
             elif opcode == opcodedesc.ROT_THREE.index:
                 self.ROT_THREE(oparg, next_instr)
             elif opcode == opcodedesc.ROT_TWO.index:
@@ -375,10 +365,6 @@ class __extend__(pyframe.PyFrame):
                 self.SETUP_EXCEPT(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_FINALLY.index:
                 self.SETUP_FINALLY(oparg, next_instr)
-            elif opcode == opcodedesc.BEGIN_FINALLY.index:
-                self.BEGIN_FINALLY(oparg, next_instr)
-            elif opcode == opcodedesc.POP_FINALLY.index:
-                self.POP_FINALLY(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_WITH.index:
                 self.SETUP_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
@@ -409,10 +395,8 @@ class __extend__(pyframe.PyFrame):
                 self.UNPACK_EX(oparg, next_instr)
             elif opcode == opcodedesc.UNPACK_SEQUENCE.index:
                 self.UNPACK_SEQUENCE(oparg, next_instr)
-            elif opcode == opcodedesc.WITH_CLEANUP_START.index:
-                self.WITH_CLEANUP_START(oparg, next_instr)
-            elif opcode == opcodedesc.WITH_CLEANUP_FINISH.index:
-                self.WITH_CLEANUP_FINISH(oparg, next_instr)
+            elif opcode == opcodedesc.WITH_EXCEPT_START.index:
+                self.WITH_EXCEPT_START(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_VALUE.index:
                 self.YIELD_VALUE(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_FROM.index:
@@ -437,8 +421,6 @@ class __extend__(pyframe.PyFrame):
                 self.FORMAT_VALUE(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_STRING.index:
                 self.BUILD_STRING(oparg, next_instr)
-            elif opcode == opcodedesc.CALL_FINALLY.index:
-                next_instr = self.CALL_FINALLY(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
                 self.LOAD_REVDB_VAR(oparg, next_instr)
             else:
@@ -584,6 +566,16 @@ class __extend__(pyframe.PyFrame):
         w_2 = self.popvalue()
         w_3 = self.popvalue()
         self.pushvalue(w_1)
+        self.pushvalue(w_3)
+        self.pushvalue(w_2)
+
+    def ROT_FOUR(self, oparg, next_instr):
+        w_1 = self.popvalue()
+        w_2 = self.popvalue()
+        w_3 = self.popvalue()
+        w_4 = self.popvalue()
+        self.pushvalue(w_1)
+        self.pushvalue(w_4)
         self.pushvalue(w_3)
         self.pushvalue(w_2)
 
@@ -754,8 +746,7 @@ class __extend__(pyframe.PyFrame):
         block.cleanupstack(self)   # restores ec.sys_exc_operror
 
     def POP_BLOCK(self, oparg, next_instr):
-        block = self.pop_block()
-        block.pop_block(self)  # the block knows how to clean up the value stack
+        self.pop_block()
 
     def save_and_change_sys_exc_info(self, operationerr):
         ec = self.space.getexecutioncontext()
@@ -1254,30 +1245,6 @@ class __extend__(pyframe.PyFrame):
                              next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
-    def BEGIN_FINALLY(self, oparg, next_instr):
-        self.pushvalue(self.space.w_None)
-
-    def POP_FINALLY(self, oparg, next_instr):
-        block = self.pop_block()
-        assert isinstance(block, SysExcInfoRestorer)
-        block.cleanupstack(self)   # restores ec.sys_exc_operror
-
-        w_result = None
-        if oparg:
-            # top value is some result, needs to be preserved
-            w_result = self.popvalue()
-        w_top = self.popvalue()
-        # do nothing in any case, but check the cases ;-)
-        if self.space.is_w(w_top, self.space.w_None):
-            pass
-        elif isinstance(w_top, SApplicationException):
-            pass
-        else:
-            assert self.space.isinstance_w(w_top, self.space.w_int)
-
-        if oparg:
-            self.pushvalue(w_result)
-
     def SETUP_WITH(self, offsettoend, next_instr):
         w_manager = self.peekvalue()
         w_enter = self.space.lookup(w_manager, "__enter__")
@@ -1294,17 +1261,11 @@ class __extend__(pyframe.PyFrame):
         self.lastblock = block
         self.pushvalue(w_result)
 
-    def CALL_FINALLY(self, jumpby, next_instr):
-        self.pushvalue(self.space.newint(intmask(next_instr)))
-        return next_instr + jumpby
-
-    def WITH_CLEANUP_START(self, oparg, next_instr):
-        # see comment in END_FINALLY for stack state
+    def WITH_EXCEPT_START(self, oparg, next_instr):
         w_unroller = self.popvalue()
         w_exitfunc = self.popvalue()
         self.pushvalue(w_unroller)
         if isinstance(w_unroller, SApplicationException):
-            # app-level exception
             operr = w_unroller.operr
             w_traceback = operr.get_w_traceback(self.space)
             w_res = self.call_contextmanager_exit_function(
@@ -1313,23 +1274,22 @@ class __extend__(pyframe.PyFrame):
                 operr.get_w_value(self.space),
                 w_traceback)
         else:
-            w_res = self.call_contextmanager_exit_function(
-                w_exitfunc,
-                self.space.w_None,
-                self.space.w_None,
-                self.space.w_None)
+            #import pdb; pdb.set_trace()
+            assert 0
         self.pushvalue(w_res)
-        # in the stack now:  [w_res, w_unroller-or-w_None..]
 
-    def WITH_CLEANUP_FINISH(self, oparg, next_instr):
-        w_suppress = self.popvalue()
-        w_unroller = self.peekvalue()
-        if isinstance(w_unroller, SApplicationException):
-            if self.space.is_true(w_suppress):
-                # __exit__() returned True -> Swallow the exception.
-                self.settopvalue(self.space.w_None)
-        # this is always followed by END_FINALLY
-        # in the stack now: [w_unroller-or-w_None..]
+    def RERAISE(self, jumpby, next_instr):
+        unroller = self.popvalue()
+        if not isinstance(unroller, SApplicationException):
+            #import pdb; pdb.set_trace()
+            assert 0
+        block = self.unrollstack()
+        if block is None:
+            w_result = unroller.reraise()
+            assert 0, "unreachable"
+        else:
+            next_instr = block.handle(self, unroller)
+        return next_instr
 
     @jit.unroll_safe
     def call_function(self, oparg, w_starstar=None, has_vararg=False):
@@ -1834,10 +1794,6 @@ class FrameBlock(object):
     def cleanupstack(self, frame):
         frame.dropvaluesuntil(self.valuestackdepth)
 
-    def pop_block(self, frame):
-        # cleaning up the stack is compiled into the bytecode nowadays
-        pass
-
     # internal pickling interface, not using the standard protocol
     def _get_state_(self, space):
         return space.newtuple([space.newtext(self._opname), space.newint(self.handlerposition),
@@ -1861,9 +1817,6 @@ class SysExcInfoRestorer(FrameBlock):
     def __init__(self, operr, previous):
         self.operr = operr
         self.previous = previous
-
-    def pop_block(self, frame):
-        assert False # never called
 
     def handle(self, frame, unroller):
         assert False # never called
@@ -1897,9 +1850,6 @@ class ExceptBlock(FrameBlock):
         frame.save_and_change_sys_exc_info(operationerr)
         return r_uint(self.handlerposition)   # jump to the handler
 
-    def pop_block(self, frame):
-        pass
-
 
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
@@ -1923,7 +1873,7 @@ class FinallyBlock(FrameBlock):
         return r_uint(self.handlerposition)   # jump to the handler
 
     def pop_block(self, frame):
-        frame.save_and_change_sys_exc_info(None)
+        pass
 
 
 def source_as_str(space, w_source, funcname, what, flags):

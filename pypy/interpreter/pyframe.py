@@ -23,7 +23,7 @@ from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
-SETUP_ASYNC_WITH POP_BLOCK END_FINALLY WITH_CLEANUP_START YIELD_VALUE
+SETUP_ASYNC_WITH POP_BLOCK YIELD_VALUE
 NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST
 '''.split():
     globals()[op] = stdlib_opcode.opmap[op]
@@ -394,7 +394,7 @@ class PyFrame(W_Root):
         if we_are_translated():
             return
         if not self._check_stack_index(index):
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             assert 0
 
     def _check_stack_index(self, index):
@@ -809,7 +809,7 @@ class PyFrame(W_Root):
                         delta_iblock += 1
                 if not in_for_loop:
                     blockstack.append(target_addr)
-            elif op == END_FINALLY:
+            elif False and op == END_FINALLY:
                 if len(blockstack) == 0:
                     raise oefmt(space.w_SystemError,
                            "blocks not properly nested in this bytecode")
@@ -841,9 +841,9 @@ class PyFrame(W_Root):
         for ii in range(delta_iblock):
             block = self.pop_block()
             block.cleanupstack(self)
-            if (isinstance(block, FinallyBlock) and
-                ord(code[block.handlerposition]) == WITH_CLEANUP_START):
-                delta += 1 # Pop the exit function.
+            #if (isinstance(block, FinallyBlock) and
+            #    ord(code[block.handlerposition]) == WITH_CLEANUP_START):
+            #    delta += 1 # Pop the exit function.
 
         # fix stack depth
         while delta > 0:

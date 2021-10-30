@@ -69,17 +69,6 @@ class TestPythonAstCompiler:
         space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
                        'if 1:\n  x\n y\n', '?', 'exec', 0)
 
-    def test_syntaxerror_attrs(self):
-        w_args = self.space.appexec([], r"""():
-            try:
-                exec('if 1:\n  x\n y\n')
-            except SyntaxError as e:
-                return e.args
-        """)
-        assert self.space.unwrap(w_args) == (
-            'unindent does not match any outer indentation level',
-            ('<string>', 3, 2, ' y\n'))
-
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division, annotations\n',
                                      '<hello>', 'exec', 0)
