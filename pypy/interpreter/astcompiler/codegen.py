@@ -282,8 +282,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             finallyblock = fblock.datum
             assert isinstance(finallyblock, ast.Try)
             assert finallyblock.finalbody
+            saved_lineno = self.lineno
             self.visit_sequence(finallyblock.finalbody)
-            # XXX something lineno
+            self.lineno = saved_lineno
+            self.lineno_set = False
             if preserve_tos:
                 self.pop_frame_block(F_POP_VALUE, None)
         elif kind == F_FINALLY_END:
