@@ -28,7 +28,6 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
     # on all the '{expr}' parts.  The 'expr' part is not parsed
     # or even tokenized together with the rest of the source code!
     from pypy.interpreter.pyparser import pyparse
-    from pypy.interpreter.astcompiler.astbuilder import ast_from_node
 
     # complain if 'source' is only whitespace or an empty string
     for c in source:
@@ -37,9 +36,6 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
     else:
         astbuilder.error("f-string: empty expression not allowed", atom_node)
 
-    if astbuilder.recursive_parser is None:
-        astbuilder.error("internal error: parser not available for parsing "
-                   "the expressions inside the f-string", atom_node)
     assert isinstance(source, str)    # utf-8 encoded
 
     paren_source = '(%s)' % source  # to deal with whitespace at the start of source
@@ -62,11 +58,7 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
                                consts.PyCF_SOURCE_IS_UTF8 |
                                consts.PyCF_IGNORE_COOKIE,
                                optimize=astbuilder.compile_info.optimize)
-    parser = astbuilder.recursive_parser
-    parse_tree = parser.parse_source(paren_source, info)
-
-    ast = ast_from_node(astbuilder.space, parse_tree, info,
-                        recursive_parser=parser)
+    ast = astbuilder.recursive_parse_to_ast(paren_source, info)
     # column_offset - 1 to exclude prefixed ( in paren_source
     fixup_fstring_positions(ast, lineno, column_offset - 1)
     return ast

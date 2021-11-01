@@ -62,6 +62,14 @@ class ASTBuilder(object):
         # used in f-strings and type_ignores
         self.recursive_parser = recursive_parser
 
+    def recursive_parse_to_ast(self, source, info):
+        parser = self.recursive_parser
+        assert self.recursive_parser is not None
+        parse_tree = parser.parse_source(source, info)
+
+        return ast_from_node(self.space, parse_tree, info,
+                             recursive_parser=parser)
+
     def build_ast(self):
         """Convert an top level parse tree node into an AST mod."""
         n = self.root_node
@@ -1348,49 +1356,6 @@ class ASTBuilder(object):
                         callable_expr.col_offset, args_node.get_end_lineno(),
                         args_node.get_end_column())
 
-    def parse_number(self, raw):
-        base = 10
-        if raw.startswith("-"):
-            negative = True
-            raw = raw.lstrip("-")
-        else:
-            negative = False
-        if raw.startswith("0"):
-            if len(raw) > 2 and raw[1] in "Xx":
-                base = 16
-            elif len(raw) > 2 and raw[1] in "Bb":
-                base = 2
-            ## elif len(raw) > 2 and raw[1] in "Oo": # Fallback below is enough
-            ##     base = 8
-            elif len(raw) > 1:
-                base = 8
-            # strip leading characters
-            i = 0
-            limit = len(raw) - 1
-            while i < limit:
-                if base == 16 and raw[i] not in "0xX":
-                    break
-                if base == 8 and raw[i] not in "0oO":
-                    break
-                if base == 2 and raw[i] not in "0bB":
-                    break
-                i += 1
-            raw = raw[i:]
-            if not raw[0].isdigit():
-                raw = "0" + raw
-        if negative:
-            raw = "-" + raw
-        w_num_str = self.space.newtext(raw)
-        w_base = self.space.newint(base)
-        if raw[-1] in "jJ":
-            tp = self.space.w_complex
-            return self.space.call_function(tp, w_num_str)
-        try:
-            return self.space.call_function(self.space.w_int, w_num_str, w_base)
-        except error.OperationError as e:
-            if not e.match(self.space, self.space.w_ValueError):
-                raise
-            return self.space.call_function(self.space.w_float, w_num_str)
 
     @always_inline
     def handle_dictelement(self, node, i):
@@ -1430,7 +1395,7 @@ class ASTBuilder(object):
                 msg="Underscores in numeric literals are only supported in Python 3.6 and greater",
                 n=atom_node
             )
-            num_value = self.parse_number(first_child.get_value())
+            num_value = parse_number(self.space, first_child.get_value())
             return build(ast.Constant, num_value, self.space.w_None, atom_node)
         elif first_child_type == tokens.ELLIPSIS:
             return build(ast.Constant, self.space.w_Ellipsis, self.space.w_None, atom_node)
@@ -1631,3 +1596,48 @@ class ASTBuilder(object):
             self.set_context(expr, context)
             exprs.append(expr)
         return exprs
+
+
+def parse_number(space, raw):
+    base = 10
+    if raw.startswith("-"):
+        negative = True
+        raw = raw.lstrip("-")
+    else:
+        negative = False
+    if raw.startswith("0"):
+        if len(raw) > 2 and raw[1] in "Xx":
+            base = 16
+        elif len(raw) > 2 and raw[1] in "Bb":
+            base = 2
+        ## elif len(raw) > 2 and raw[1] in "Oo": # Fallback below is enough
+        ##     base = 8
+        elif len(raw) > 1:
+            base = 8
+        # strip leading characters
+        i = 0
+        limit = len(raw) - 1
+        while i < limit:
+            if base == 16 and raw[i] not in "0xX":
+                break
+            if base == 8 and raw[i] not in "0oO":
+                break
+            if base == 2 and raw[i] not in "0bB":
+                break
+            i += 1
+        raw = raw[i:]
+        if not raw[0].isdigit():
+            raw = "0" + raw
+    if negative:
+        raw = "-" + raw
+    w_num_str = space.newtext(raw)
+    w_base = space.newint(base)
+    if raw[-1] in "jJ":
+        tp = space.w_complex
+        return space.call_function(tp, w_num_str)
+    try:
+        return space.call_function(space.w_int, w_num_str, w_base)
+    except error.OperationError as e:
+        if not e.match(space, space.w_ValueError):
+            raise
+        return space.call_function(space.w_float, w_num_str)
