@@ -442,8 +442,11 @@ class AstValidator(ast.ASTVisitor):
         self._validate_expr(node.value)
 
     def visit_Subscript(self, node):
-        node.slice.walkabout(self)
         self._validate_expr(node.value)
+        t = node.slice
+        if isinstance(t, ast.Tuple):
+            self._validate_nonempty_seq(t.elts, "elts", "Tuple used as Subscript")
+        self._validate_expr(node.slice)
 
     def visit_RevDBMetaVar(self, node):
         pass
@@ -456,14 +459,6 @@ class AstValidator(ast.ASTVisitor):
             self._validate_expr(node.upper)
         if node.step:
             self._validate_expr(node.step)
-
-    def visit_ExtSlice(self, node):
-        self._validate_nonempty_seq(node.dims, "dims", "ExtSlice")
-        for dim in node.dims:
-            dim.walkabout(self)
-
-    def visit_Index(self, node):
-        self._validate_expr(node.value)
 
     def visit_JoinedStr(self, node):
         self._validate_exprs(node.values)

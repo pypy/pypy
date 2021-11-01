@@ -317,11 +317,8 @@ class UnparseVisitor(Utf8BuilderVisitor):
     def visit_Subscript(self, node):
         self.append_expr(node.value, PRIORITY_ATOM)
         self.append_ascii('[')
-        self.append_expr(node.slice)
+        self.append_expr(node.slice, PRIORITY_TUPLE)
         self.append_ascii(']')
-
-    def visit_Index(self, node):
-        self.append_expr(node.value, PRIORITY_TUPLE)
 
     def visit_Slice(self, node):
         if node.lower:
@@ -332,12 +329,6 @@ class UnparseVisitor(Utf8BuilderVisitor):
         if node.step:
             self.append_ascii(':')
             self.append_expr(node.step)
-
-    def visit_ExtSlice(self, node):
-        for i, slice in enumerate(node.dims):
-            if i > 0:
-                self.append_ascii(', ')
-            self.append_expr(slice)
 
     def visit_Attribute(self, node):
         value = node.value

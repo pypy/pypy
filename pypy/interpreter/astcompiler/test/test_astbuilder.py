@@ -1143,8 +1143,7 @@ class TestAstBuilder:
         assert isinstance(sub.value, ast.Name)
         assert sub.value.ctx == ast.Load
         assert sub.ctx == ast.Load
-        assert isinstance(sub.slice, ast.Index)
-        assert isinstance(sub.slice.value, ast.Name)
+        assert isinstance(sub.slice, ast.Name)
         slc = self.get_first_expr("x[:]").slice
         assert slc.upper is None
         assert slc.lower is None
@@ -1194,14 +1193,13 @@ class TestAstBuilder:
             assert isinstance(field, ast.Constant)
         sub = self.get_first_expr("x[1,2,3]")
         slc = sub.slice
-        assert isinstance(slc, ast.Index)
-        assert isinstance(slc.value, ast.Tuple)
-        assert len(slc.value.elts) == 3
-        assert slc.value.ctx == ast.Load
+        assert isinstance(slc, ast.Tuple)
+        assert len(slc.elts) == 3
+        assert slc.ctx == ast.Load
         slc = self.get_first_expr("x[1,3:4]").slice
-        assert isinstance(slc, ast.ExtSlice)
-        assert len(slc.dims) == 2
-        complex_slc = slc.dims[1]
+        assert isinstance(slc, ast.Tuple)
+        assert len(slc.elts) == 2
+        complex_slc = slc.elts[1]
         assert isinstance(complex_slc, ast.Slice)
         assert isinstance(complex_slc.lower, ast.Constant)
         assert isinstance(complex_slc.upper, ast.Constant)
@@ -1213,8 +1211,8 @@ class TestAstBuilder:
         assert self.space.is_w(e.value, self.space.w_Ellipsis)
 
         sub = self.get_first_expr("x[...]")
-        assert isinstance(sub.slice.value, ast.Constant)
-        assert self.space.is_w(sub.slice.value.value, self.space.w_Ellipsis)
+        assert isinstance(sub.slice, ast.Constant)
+        assert self.space.is_w(sub.slice.value, self.space.w_Ellipsis)
 
     def test_string(self):
         space = self.space

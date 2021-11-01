@@ -1195,8 +1195,7 @@ class ASTBuilder(object):
     def handle_slice(self, slice_node):
         first_child = slice_node.get_child(0)
         if slice_node.num_children() == 1 and first_child.type == syms.test:
-            index = self.handle_expr(first_child)
-            return ast.Index(index)
+            return self.handle_expr(first_child)
         lower = None
         upper = None
         step = None
@@ -1217,7 +1216,7 @@ class ASTBuilder(object):
                 step_child = last_child.get_child(1)
                 if step_child.type == syms.test:
                     step = self.handle_expr(step_child)
-        return ast.Slice(lower, upper, step)
+        return build(ast.Slice, lower, upper, step, slice_node)
 
     def handle_trailer(self, trailer_node, left_expr, start_node):
         result = self._handle_trailer(trailer_node, left_expr)
@@ -1239,21 +1238,11 @@ class ASTBuilder(object):
                 slice = self.handle_slice(middle.get_child(0))
                 return build(ast.Subscript, left_expr, slice, ast.Load, middle)
             slices = []
-            simple = True
             for i in range(0, middle.num_children(), 2):
                 slc = self.handle_slice(middle.get_child(i))
-                if not isinstance(slc, ast.Index):
-                    simple = False
                 slices.append(slc)
-            if not simple:
-                ext_slice = ast.ExtSlice(slices)
-                return build(ast.Subscript, left_expr, ext_slice, ast.Load, middle)
-            elts = []
-            for idx in slices:
-                assert isinstance(idx, ast.Index)
-                elts.append(idx.value)
-            tup = build(ast.Tuple, elts, ast.Load, middle)
-            return build(ast.Subscript, left_expr, ast.Index(tup), ast.Load, middle)
+            ext_slice = build(ast.Tuple, slices, ast.Load, trailer_node)
+            return build(ast.Subscript, left_expr, ext_slice, ast.Load, middle)
 
     def handle_call(self, args_node, callable_expr, genexp_allowed=True):
         arg_count = 0 # position args + iterable args unpackings

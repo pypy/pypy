@@ -206,8 +206,6 @@ class mod(AST):
             return Interactive.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Expression):
             return Expression.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_Suite):
-            return Suite.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_FunctionType):
             return FunctionType.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
@@ -325,41 +323,6 @@ class Expression(mod):
         return Expression(_body)
 
 State.ast_type('Expression', 'mod', ['body'])
-
-
-class Suite(mod):
-
-    def __init__(self, body):
-        self.body = body
-
-    def walkabout(self, visitor):
-        visitor.visit_Suite(self)
-
-    def mutate_over(self, visitor):
-        if self.body:
-            for i in range(len(self.body)):
-                if self.body[i] is not None:
-                    self.body[i] = self.body[i].mutate_over(visitor)
-        return visitor.visit_Suite(self)
-
-    def to_object(self, space):
-        w_node = space.call_function(get(space).w_Suite)
-        if self.body is None:
-            body_w = []
-        else:
-            body_w = [node.to_object(space) for node in self.body] # stmt
-        w_body = space.newlist(body_w)
-        space.setattr(w_node, space.newtext('body'), w_body)
-        return w_node
-
-    @staticmethod
-    def from_object(space, w_node):
-        w_body = get_field(space, w_node, 'body', False)
-        body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        return Suite(_body)
-
-State.ast_type('Suite', 'mod', ['body'])
 
 
 class FunctionType(mod):
@@ -2146,6 +2109,8 @@ class expr(AST):
             return List.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Tuple):
             return Tuple.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_Slice):
+            return Slice.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected expr node, got %T", w_node)
 State.ast_type('expr', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'])
@@ -3423,7 +3388,7 @@ class Subscript(expr):
         w_node = space.call_function(get(space).w_Subscript)
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.newtext('value'), w_value)
-        w_slice = self.slice.to_object(space)  # slice
+        w_slice = self.slice.to_object(space)  # expr
         space.setattr(w_node, space.newtext('slice'), w_slice)
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
         space.setattr(w_node, space.newtext('ctx'), w_ctx)
@@ -3449,7 +3414,7 @@ class Subscript(expr):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _slice = slice.from_object(space, w_slice)
+        _slice = expr.from_object(space, w_slice)
         if _slice is None:
             raise_required_value(space, w_node, 'slice')
         _ctx = expr_context.from_object(space, w_ctx)
@@ -3687,92 +3652,13 @@ class Tuple(expr):
 State.ast_type('Tuple', 'expr', ['elts', 'ctx'])
 
 
-class expr_context(AST):
-    @staticmethod
-    def from_object(space, w_node):
-        if space.isinstance_w(w_node, get(space).w_Load):
-            return 1
-        if space.isinstance_w(w_node, get(space).w_Store):
-            return 2
-        if space.isinstance_w(w_node, get(space).w_Del):
-            return 3
-        if space.isinstance_w(w_node, get(space).w_AugLoad):
-            return 4
-        if space.isinstance_w(w_node, get(space).w_AugStore):
-            return 5
-        if space.isinstance_w(w_node, get(space).w_Param):
-            return 6
-        raise oefmt(space.w_TypeError,
-                "Expected expr_context node, got %T", w_node)
-State.ast_type('expr_context', 'AST', None)
+class Slice(expr):
 
-class _Load(expr_context):
-    def to_object(self, space):
-        return space.call_function(get(space).w_Load)
-State.ast_type('Load', 'expr_context', None)
-
-class _Store(expr_context):
-    def to_object(self, space):
-        return space.call_function(get(space).w_Store)
-State.ast_type('Store', 'expr_context', None)
-
-class _Del(expr_context):
-    def to_object(self, space):
-        return space.call_function(get(space).w_Del)
-State.ast_type('Del', 'expr_context', None)
-
-class _AugLoad(expr_context):
-    def to_object(self, space):
-        return space.call_function(get(space).w_AugLoad)
-State.ast_type('AugLoad', 'expr_context', None)
-
-class _AugStore(expr_context):
-    def to_object(self, space):
-        return space.call_function(get(space).w_AugStore)
-State.ast_type('AugStore', 'expr_context', None)
-
-class _Param(expr_context):
-    def to_object(self, space):
-        return space.call_function(get(space).w_Param)
-State.ast_type('Param', 'expr_context', None)
-
-Load = 1
-Store = 2
-Del = 3
-AugLoad = 4
-AugStore = 5
-Param = 6
-
-expr_context_to_class = [
-    _Load,
-    _Store,
-    _Del,
-    _AugLoad,
-    _AugStore,
-    _Param,
-]
-
-class slice(AST):
-    @staticmethod
-    def from_object(space, w_node):
-        if space.is_w(w_node, space.w_None):
-            return None
-        if space.isinstance_w(w_node, get(space).w_Slice):
-            return Slice.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_ExtSlice):
-            return ExtSlice.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_Index):
-            return Index.from_object(space, w_node)
-        raise oefmt(space.w_TypeError,
-                "Expected slice node, got %T", w_node)
-State.ast_type('slice', 'AST', None, [])
-
-class Slice(slice):
-
-    def __init__(self, lower, upper, step):
+    def __init__(self, lower, upper, step, lineno, col_offset, end_lineno, end_col_offset):
         self.lower = lower
         self.upper = upper
         self.step = step
+        expr.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Slice(self)
@@ -3794,6 +3680,14 @@ class Slice(slice):
         space.setattr(w_node, space.newtext('upper'), w_upper)
         w_step = self.step.to_object(space) if self.step is not None else space.w_None  # expr
         space.setattr(w_node, space.newtext('step'), w_step)
+        w_lineno = space.newint(self.lineno)  # int
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
     @staticmethod
@@ -3801,77 +3695,59 @@ class Slice(slice):
         w_lower = get_field(space, w_node, 'lower', True)
         w_upper = get_field(space, w_node, 'upper', True)
         w_step = get_field(space, w_node, 'step', True)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
         _lower = expr.from_object(space, w_lower)
         _upper = expr.from_object(space, w_upper)
         _step = expr.from_object(space, w_step)
-        return Slice(_lower, _upper, _step)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, True)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        return Slice(_lower, _upper, _step, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
-State.ast_type('Slice', 'slice', ['lower', 'upper', 'step'])
+State.ast_type('Slice', 'expr', ['lower', 'upper', 'step'])
 
 
-class ExtSlice(slice):
-
-    def __init__(self, dims):
-        self.dims = dims
-
-    def walkabout(self, visitor):
-        visitor.visit_ExtSlice(self)
-
-    def mutate_over(self, visitor):
-        if self.dims:
-            for i in range(len(self.dims)):
-                if self.dims[i] is not None:
-                    self.dims[i] = self.dims[i].mutate_over(visitor)
-        return visitor.visit_ExtSlice(self)
-
-    def to_object(self, space):
-        w_node = space.call_function(get(space).w_ExtSlice)
-        if self.dims is None:
-            dims_w = []
-        else:
-            dims_w = [node.to_object(space) for node in self.dims] # slice
-        w_dims = space.newlist(dims_w)
-        space.setattr(w_node, space.newtext('dims'), w_dims)
-        return w_node
-
+class expr_context(AST):
     @staticmethod
     def from_object(space, w_node):
-        w_dims = get_field(space, w_node, 'dims', False)
-        dims_w = space.unpackiterable(w_dims)
-        _dims = [slice.from_object(space, w_item) for w_item in dims_w]
-        return ExtSlice(_dims)
+        if space.isinstance_w(w_node, get(space).w_Load):
+            return 1
+        if space.isinstance_w(w_node, get(space).w_Store):
+            return 2
+        if space.isinstance_w(w_node, get(space).w_Del):
+            return 3
+        raise oefmt(space.w_TypeError,
+                "Expected expr_context node, got %T", w_node)
+State.ast_type('expr_context', 'AST', None)
 
-State.ast_type('ExtSlice', 'slice', ['dims'])
-
-
-class Index(slice):
-
-    def __init__(self, value):
-        self.value = value
-
-    def walkabout(self, visitor):
-        visitor.visit_Index(self)
-
-    def mutate_over(self, visitor):
-        self.value = self.value.mutate_over(visitor)
-        return visitor.visit_Index(self)
-
+class _Load(expr_context):
     def to_object(self, space):
-        w_node = space.call_function(get(space).w_Index)
-        w_value = self.value.to_object(space)  # expr
-        space.setattr(w_node, space.newtext('value'), w_value)
-        return w_node
+        return space.call_function(get(space).w_Load)
+State.ast_type('Load', 'expr_context', None)
 
-    @staticmethod
-    def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        _value = expr.from_object(space, w_value)
-        if _value is None:
-            raise_required_value(space, w_node, 'value')
-        return Index(_value)
+class _Store(expr_context):
+    def to_object(self, space):
+        return space.call_function(get(space).w_Store)
+State.ast_type('Store', 'expr_context', None)
 
-State.ast_type('Index', 'slice', ['value'])
+class _Del(expr_context):
+    def to_object(self, space):
+        return space.call_function(get(space).w_Del)
+State.ast_type('Del', 'expr_context', None)
 
+Load = 1
+Store = 2
+Del = 3
+
+expr_context_to_class = [
+    _Load,
+    _Store,
+    _Del,
+]
 
 class boolop(AST):
     @staticmethod
@@ -4665,8 +4541,6 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Expression(self, node):
         return self.default_visitor(node)
-    def visit_Suite(self, node):
-        return self.default_visitor(node)
     def visit_FunctionType(self, node):
         return self.default_visitor(node)
     def visit_FunctionDef(self, node):
@@ -4775,10 +4649,6 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Slice(self, node):
         return self.default_visitor(node)
-    def visit_ExtSlice(self, node):
-        return self.default_visitor(node)
-    def visit_Index(self, node):
-        return self.default_visitor(node)
     def visit_comprehension(self, node):
         return self.default_visitor(node)
     def visit_ExceptHandler(self, node):
@@ -4813,10 +4683,6 @@ class GenericASTVisitor(ASTVisitor):
     def visit_Expression(self, node):
         self.visited(node)
         node.body.walkabout(self)
-
-    def visit_Suite(self, node):
-        self.visited(node)
-        self.visit_sequence(node.body)
 
     def visit_FunctionType(self, node):
         self.visited(node)
@@ -5094,14 +4960,6 @@ class GenericASTVisitor(ASTVisitor):
             node.upper.walkabout(self)
         if node.step:
             node.step.walkabout(self)
-
-    def visit_ExtSlice(self, node):
-        self.visited(node)
-        self.visit_sequence(node.dims)
-
-    def visit_Index(self, node):
-        self.visited(node)
-        node.value.walkabout(self)
 
     def visit_comprehension(self, node):
         self.visited(node)

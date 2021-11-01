@@ -100,13 +100,6 @@ compare_operations = misc.dict_to_switch({
     ast.IsNot: (ops.IS_OP, 1)
 })
 
-subscr_operations = misc.dict_to_switch({
-    ast.AugLoad: ops.BINARY_SUBSCR,
-    ast.Load: ops.BINARY_SUBSCR,
-    ast.AugStore: ops.STORE_SUBSCR,
-    ast.Store: ops.STORE_SUBSCR,
-    ast.Del: ops.DELETE_SUBSCR
-})
 
 class __extend__(ast.AST):
     _literal_type = False
@@ -599,34 +592,30 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # 7. store into <name>
         self.name_op(cls.name, ast.Store)
 
-    def _op_for_augassign(self, op):
-        return inplace_operations(op)
-
     def visit_AugAssign(self, assign):
         self.update_position(assign.lineno, True)
         target = assign.target
         if isinstance(target, ast.Attribute):
-            attr = ast.Attribute(target.value, target.attr, ast.AugLoad,
-                                 target.lineno, target.col_offset,
-                                 target.end_lineno, target.end_col_offset)
-            attr.walkabout(self)
+            target.value.walkabout(self)
+            self.emit_op(ops.DUP_TOP)
+            self.emit_op_name(ops.LOAD_ATTR, self.names, target.attr)
             assign.value.walkabout(self)
-            self.emit_op(self._op_for_augassign(assign.op))
-            attr.ctx = ast.AugStore
-            attr.walkabout(self)
+            self.emit_op(inplace_operations(assign.op))
+            self.emit_op(ops.ROT_TWO)
+            self.emit_op_name(ops.STORE_ATTR, self.names, target.attr)
         elif isinstance(target, ast.Subscript):
-            sub = ast.Subscript(target.value, target.slice, ast.AugLoad,
-                                target.lineno, target.col_offset,
-                                target.end_lineno, target.end_col_offset)
-            sub.walkabout(self)
+            target.value.walkabout(self)
+            target.slice.walkabout(self)
+            self.emit_op(ops.DUP_TOP_TWO)
+            self.emit_op(ops.BINARY_SUBSCR)
             assign.value.walkabout(self)
-            self.emit_op(self._op_for_augassign(assign.op))
-            sub.ctx = ast.AugStore
-            sub.walkabout(self)
+            self.emit_op(inplace_operations(assign.op))
+            self.emit_op(ops.ROT_THREE)
+            self.emit_op(ops.STORE_SUBSCR)
         elif isinstance(target, ast.Name):
             self.name_op(target.id, ast.Load)
             assign.value.walkabout(self)
-            self.emit_op(self._op_for_augassign(assign.op))
+            self.emit_op(inplace_operations(assign.op))
             self.name_op(target.id, ast.Store)
         else:
             self.error("illegal expression for augmented assignment", assign)
@@ -1088,20 +1077,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_TOP)
 
     def _annotation_eval_slice(self, target):
-        if isinstance(target, ast.Index):
-            self._annotation_evaluate(target.value)
-        elif isinstance(target, ast.Slice):
+        if isinstance(target, ast.Slice):
             for val in [target.lower, target.upper, target.step]:
                 if val:
                     self._annotation_evaluate(val)
-        elif isinstance(target, ast.ExtSlice):
-            for val in target.dims:
-                if isinstance(val, ast.Index) or isinstance(val, ast.Slice):
-                    self._annotation_eval_slice(val)
-                else:
-                    self.error("Invalid nested slice", val)
+        elif isinstance(target, ast.Tuple):
+            for val in target.elts:
+                self._annotation_eval_slice(val)
         else:
-            self.error("Invalid slice?", target)
+            self._annotation_evaluate(target)
 
     def visit_AnnAssign(self, assign):
         self.update_position(assign.lineno, True)
@@ -1766,16 +1750,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(attr.lineno)
         names = self.names
         ctx = attr.ctx
-        if ctx != ast.AugStore:
-            attr.value.walkabout(self)
-        if ctx == ast.AugLoad:
-            self.emit_op(ops.DUP_TOP)
+        attr.value.walkabout(self)
+        if ctx == ast.Load:
             self.emit_op_name(ops.LOAD_ATTR, names, attr.attr)
-        elif ctx == ast.Load:
-            self.emit_op_name(ops.LOAD_ATTR, names, attr.attr)
-        elif ctx == ast.AugStore:
-            self.emit_op(ops.ROT_TWO)
-            self.emit_op_name(ops.STORE_ATTR, names, attr.attr)
         elif ctx == ast.Store:
             self.emit_op_name(ops.STORE_ATTR, names, attr.attr)
         elif ctx == ast.Del:
@@ -1783,7 +1760,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             raise AssertionError("unknown context")
 
-    def _complex_slice(self, slc, ctx):
+    def visit_Slice(self, slc):
         if slc.lower:
             slc.lower.walkabout(self)
         else:
@@ -1798,41 +1775,22 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             arg += 1
         self.emit_op_arg(ops.BUILD_SLICE, arg)
 
-    def _nested_slice(self, slc, ctx):
-        if isinstance(slc, ast.Slice):
-            self._complex_slice(slc, ctx)
-        elif isinstance(slc, ast.Index):
-            slc.value.walkabout(self)
-        else:
-            raise AssertionError("unknown nested slice type")
-
-    def _compile_slice(self, slc, ctx):
-        if isinstance(slc, ast.Index):
-            if ctx != ast.AugStore:
-                slc.value.walkabout(self)
-        elif isinstance(slc, ast.Slice):
-            if ctx != ast.AugStore:
-                self._complex_slice(slc, ctx)
-        elif isinstance(slc, ast.ExtSlice):
-            if ctx != ast.AugStore:
-                for dim in slc.dims:
-                    self._nested_slice(dim, ctx)
-                self.emit_op_arg(ops.BUILD_TUPLE, len(slc.dims))
-        else:
-            raise AssertionError("unknown slice type")
-        if ctx == ast.AugLoad:
-            self.emit_op(ops.DUP_TOP_TWO)
-        elif ctx == ast.AugStore:
-            self.emit_op(ops.ROT_THREE)
-        self.emit_op(subscr_operations(ctx))
-
     def visit_Subscript(self, sub):
         self.update_position(sub.lineno)
-        self._check_subscripter(sub.value)
-        self._check_index(sub, sub.value, sub.slice)
-        if sub.ctx != ast.AugStore:
-            sub.value.walkabout(self)
-        self._compile_slice(sub.slice, sub.ctx)
+        ctx = sub.ctx
+        if ctx == ast.Load:
+            self._check_subscripter(sub.value)
+            self._check_index(sub, sub.value, sub.slice)
+            op = ops.BINARY_SUBSCR
+        elif ctx == ast.Store:
+            op = ops.STORE_SUBSCR
+        elif ctx == ast.Del:
+            op = ops.DELETE_SUBSCR
+        else:
+            assert 0
+        sub.value.walkabout(self)
+        sub.slice.walkabout(self)
+        self.emit_op(op)
 
     def _check_subscripter(self, sub):
         if (
@@ -1860,12 +1818,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         )
 
     def _check_index(self, node, sub, index):
-        if not (isinstance(index, ast.Index) and index.value._literal_type):
+        if not index._literal_type:
             return None
 
-        index_value = index.value
-        if isinstance(index_value, ast.Constant) and self.space.isinstance_w(
-            index_value.value, self.space.w_int
+        if isinstance(index, ast.Constant) and self.space.isinstance_w(
+            index.value, self.space.w_int
         ):
             return None
 
@@ -1895,7 +1852,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             "%s indices must be integers or slices, "
             "not %s; perhaps you missed a comma?" % (
                 sub._get_type_name(self.space),
-                index_value._get_type_name(self.space)
+                index._get_type_name(self.space)
             ),
             self.compile_info.filename,
             node.lineno,

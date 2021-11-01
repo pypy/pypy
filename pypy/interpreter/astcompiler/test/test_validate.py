@@ -351,22 +351,19 @@ class TestASTValidator:
         self.expr(attr, "must have Load context")
 
     def test_subscript(self):
-        sub = ast.Subscript(ast.Name("x", ast.Store, *POS), ast.Index(ast.Constant(self.space.wrap(3), self.space.w_None, *POS)),
+        sub = ast.Subscript(ast.Name("x", ast.Store, *POS), ast.Constant(self.space.wrap(3), self.space.w_None, *POS),
                             ast.Load, *POS)
         self.expr(sub, "must have Load context")
         x = ast.Name("x", ast.Load, *POS)
-        sub = ast.Subscript(x, ast.Index(ast.Name("y", ast.Store, *POS)),
+        sub = ast.Subscript(x, ast.Name("y", ast.Store, *POS),
                             ast.Load, *POS)
         self.expr(sub, "must have Load context")
         s = ast.Name("x", ast.Store, *POS)
         for args in (s, None, None), (None, s, None), (None, None, s):
-            sl = ast.Slice(*args)
+            sl = ast.Slice(*args + POS)
             self.expr(ast.Subscript(x, sl, ast.Load, *POS),
                       "must have Load context")
-        sl = ast.ExtSlice([])
-        self.expr(ast.Subscript(x, sl, ast.Load, *POS), "empty dims on ExtSlice")
-        sl = ast.ExtSlice([ast.Index(s)])
-        self.expr(ast.Subscript(x, sl, ast.Load, *POS), "must have Load context")
+        self.expr(ast.Subscript(x, ast.Tuple([], ast.Load, *POS), ast.Load, *POS), "empty elts on Tuple used as Subscript")
 
     def test_starred(self):
         left = ast.List([ast.Starred(ast.Name("x", ast.Load, *POS), ast.Store, *POS)],
