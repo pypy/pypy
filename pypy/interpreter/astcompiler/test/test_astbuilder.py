@@ -1981,4 +1981,9 @@ class TestAstBuilder:
             tree = self.get_ast("f'{((}')")
         assert excinfo.value.msg == "unmatched ')'"
 
-
+    def test_keyword_position(self):
+        tree = self.get_first_expr("f(a=1, **kwarg)")
+        assert tree.keywords[0].col_offset == 2
+        assert tree.keywords[0].end_col_offset == 5
+        assert tree.keywords[1].col_offset == 7
+        assert tree.keywords[1].end_col_offset == 14

@@ -4480,9 +4480,13 @@ State.ast_type('arg', 'AST', ['arg', 'annotation', 'type_comment'], ['lineno', '
 
 class keyword(AST):
 
-    def __init__(self, arg, value):
+    def __init__(self, arg, value, lineno, col_offset, end_lineno, end_col_offset):
         self.arg = arg
         self.value = value
+        self.lineno = lineno
+        self.col_offset = col_offset
+        self.end_lineno = end_lineno
+        self.end_col_offset = end_col_offset
 
     def mutate_over(self, visitor):
         self.value = self.value.mutate_over(visitor)
@@ -4497,19 +4501,35 @@ class keyword(AST):
         space.setattr(w_node, space.newtext('arg'), w_arg)
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.newtext('value'), w_value)
+        w_lineno = space.newint(self.lineno)  # int
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
     @staticmethod
     def from_object(space, w_node):
         w_arg = get_field(space, w_node, 'arg', True)
         w_value = get_field(space, w_node, 'value', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
         _arg = space.text_or_none_w(w_arg)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        return keyword(_arg, _value)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, True)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        return keyword(_arg, _value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
-State.ast_type('keyword', 'AST', ['arg', 'value'])
+State.ast_type('keyword', 'AST', ['arg', 'value'], ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'])
 
 class alias(AST):
 

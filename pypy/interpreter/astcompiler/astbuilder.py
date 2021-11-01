@@ -1315,7 +1315,7 @@ class ASTBuilder(object):
                     # a keyword argument unpacking
                     i += 1
                     expr = self.handle_expr(argument.get_child(1))
-                    keywords.append(ast.keyword(None, expr))
+                    keywords.append(build(ast.keyword, None, expr, argument))
                     doublestars_count += 1
                 elif argument.get_child(1).type == syms.comp_for:
                     # the lone generator expression
@@ -1338,7 +1338,7 @@ class ASTBuilder(object):
                     used_keywords[keyword] = None
                     self.check_forbidden_name(keyword, expr_node)
                     keyword_value = self.handle_expr(argument.get_child(2))
-                    keywords.append(ast.keyword(keyword, keyword_value))
+                    keywords.append(build(ast.keyword, keyword, keyword_value, argument))
             i += 1
         if not args:
             args = None

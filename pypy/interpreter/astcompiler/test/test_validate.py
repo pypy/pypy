@@ -102,7 +102,7 @@ class TestASTValidator:
                                 body, decorator_list, *POS)
         self.stmt(cls(bases=[ast.Name("x", ast.Store, *POS)]),
                   "must have Load context")
-        self.stmt(cls(keywords=[ast.keyword("x", ast.Name("x", ast.Store, *POS))]),
+        self.stmt(cls(keywords=[ast.keyword("x", ast.Name("x", ast.Store, *POS), *POS)]),
                   "must have Load context")
         self.stmt(cls(body=[]), "empty body on ClassDef")
         self.stmt(cls(body=[None]), "None disallowed")
@@ -212,7 +212,7 @@ class TestASTValidator:
         self.stmt(ast.Import([], *POS), "empty names on Import")
 
     def test_importfrom(self):
-        imp = ast.ImportFrom(None, [ast.alias("x", None)], -42, *POS)
+        imp = ast.ImportFrom(None, [ast.alias("x", None, *POS)], -42, *POS)
         self.stmt(imp, "Negative ImportFrom level")
         self.stmt(ast.ImportFrom(None, [], 0, *POS), "empty names on ImportFrom")
 
@@ -337,12 +337,12 @@ class TestASTValidator:
     def test_call(self):
         func = ast.Name("x", ast.Load, *POS)
         args = [ast.Name("y", ast.Load, *POS)]
-        keywords = [ast.keyword("w", ast.Name("z", ast.Load, *POS))]
+        keywords = [ast.keyword("w", ast.Name("z", ast.Load, *POS), *POS)]
         call = ast.Call(ast.Name("x", ast.Store, *POS), args, keywords, *POS)
         self.expr(call, "must have Load context")
         call = ast.Call(func, [None], keywords, *POS)
         self.expr(call, "None disallowed")
-        bad_keywords = [ast.keyword("w", ast.Name("z", ast.Store, *POS))]
+        bad_keywords = [ast.keyword("w", ast.Name("z", ast.Store, *POS), *POS)]
         call = ast.Call(func, args, bad_keywords, *POS)
         self.expr(call, "must have Load context")
 
