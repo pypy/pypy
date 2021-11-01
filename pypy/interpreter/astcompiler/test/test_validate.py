@@ -212,7 +212,7 @@ class TestASTValidator:
         self.stmt(ast.Import([], *POS), "empty names on Import")
 
     def test_importfrom(self):
-        imp = ast.ImportFrom(None, [ast.alias("x", None, *POS)], -42, *POS)
+        imp = ast.ImportFrom(None, [ast.alias("x", None)], -42, *POS)
         self.stmt(imp, "Negative ImportFrom level")
         self.stmt(ast.ImportFrom(None, [], 0, *POS), "empty names on ImportFrom")
 
