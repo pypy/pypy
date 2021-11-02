@@ -23,16 +23,23 @@ _mswsock = _ffi.dlopen('Mswsock')
 GetVersion = _kernel32.GetVersion
 NULL = _ffi.NULL
 
-from _winapi import INVALID_HANDLE_VALUE, _MAX_PATH , _Z, RaiseFromWindowsErr
+from _winapi import _MAX_PATH , _Z, RaiseFromWindowsErr
 import _winapi
 
-#
-# Error Codes
-#
-ERROR_IO_PENDING = 997
-ERROR_PIPE_BUSY = 231
-ERROR_NETNAME_DELETED = 64
+# Copy values into this namespace for exporting
+from _winapi import (
+    ERROR_IO_PENDING, 
+    ERROR_NETNAME_DELETED,
+    ERROR_OPERATION_ABORTED,
+    ERROR_SEM_TIMEOUT,
+    ERROR_PIPE_BUSY,
+    INFINITE,
+    INVALID_HANDLE_VALUE,
+)
 
+TF_REUSE_SOCKET = 0x02
+SO_UPDATE_ACCEPT_CONTEXT = 0x700B
+SO_UPDATE_CONNECT_CONTEXT = 0x7010
 SOCKET_ERROR = -1
 
 AF_INET = 2
@@ -72,8 +79,6 @@ WSAID_DISCONNECTEX[0].Data4 = [0xa0,0x31,0xf5,0x36,0xa6,0xee,0xc1,0x57]
 
 SIO_GET_EXTENSION_FUNCTION_POINTER = _WSAIORW(IOC_WS2,6)
 
-SO_UPDATE_ACCEPT_CONTEXT = 0x700B
-SO_UPDATE_CONNECT_CONTEXT = 0x7010
 INADDR_ANY   = 0x00000000
 in6addr_any = _ffi.new("struct in6_addr[1]")
 
