@@ -4,7 +4,7 @@ Pointers.
 
 import os
 
-from rpython.rlib import rposix, jit
+from rpython.rlib import rposix, jit, rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.annlowlevel import llstr
@@ -363,15 +363,26 @@ class W_CTypePointer(W_CTypePtrBase):
             result = 0
         else:
             space = self.space
+            if self.accept_str and isinstance(w_ob, OffsetInBytes):
+                lldata = llstr(w_ob.w_bytes)
+                if not rgc.can_move(lldata):
+                    # easy case - it can't move, pass it directly
+                    self.accept_str_from_offset_in_bytes(cdata, lldata,
+                                               keepalives, i, w_ob.offset)
+                    if not we_are_translated():
+                        keepalives[i] = lldata
+                        return 1
+                    return 0
+                elif rgc.pin(lldata):
+                    return self.accept_str_from_offset_in_bytes(cdata, lldata,
+                                                   keepalives, i, w_ob.offset)
+                # we failed to pin, need to make a copy
+                value = space.bytes_w(w_ob.w_bytes)
+                return self.accept_movable_str(cdata, value, keepalives, i)
             if self.accept_str and space.isinstance_w(w_ob, space.w_bytes):
                 # special case to optimize strings passed to a "char *" argument
                 value = space.bytes_w(w_ob)
-                if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
-                    self._must_be_string_of_zero_or_one(value)
-                keepalives[i] = misc.write_string_as_charp(cdata, value)
-                return True
-            if self.accept_str and isinstance(w_ob, OffsetInBytes):
-                return self.accept_str_from_offset_in_bytes(cdata, w_ob, keepalives, i)
+                return self.accept_movable_str(cdata, value, keepalives, i)
             result = self._prepare_pointer_call_argument(w_ob, cdata)
 
         if result == 0:
@@ -379,19 +390,24 @@ class W_CTypePointer(W_CTypePtrBase):
         set_mustfree_flag(cdata, result)
         return result == 1      # 0 or 2 => False, nothing to do later
 
+    def accept_movable_str(self, cdata, value, keepalives, i):
+        if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
+            self._must_be_string_of_zero_or_one(value)
+        keepalives[i] = misc.write_string_as_charp(cdata, value)
+        return 1
+
     @jit.dont_look_inside
-    def accept_str_from_offset_in_bytes(self, cdata, w_ob, keepalives, i):
+    def accept_str_from_offset_in_bytes(self, cdata, lldata, keepalives, i, offset):
         from rpython.rtyper.lltypesystem import llmemory
         from rpython.rtyper.lltypesystem.rffi import offsetof, VOIDP, VOIDPP
 
-        lldata = llstr(w_ob.w_bytes)
         addr = (llmemory.cast_ptr_to_adr(lldata) +
               offsetof(STR, 'chars') +
-              llmemory.itemoffsetof(STR.chars, 0) + llmemory.sizeof(lltype.Char) * w_ob.offset)
+              llmemory.itemoffsetof(STR.chars, 0) + llmemory.sizeof(lltype.Char) * offset)
         rffi.cast(VOIDPP, cdata)[0] = rffi.cast(VOIDP, addr)
         if not we_are_translated():
             keepalives[i] = lldata
-            return 1
+            return 3
         return 0
 
     def getcfield(self, attr):
