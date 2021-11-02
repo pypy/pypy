@@ -119,7 +119,12 @@ class PythonParser(parser.Parser):
         Everything from decoding the source to tokenizing to building the parse
         tree is handled here.
         """
-        # Detect source encoding.
+        textsrc = self._handle_encoding(bytessrc, compile_info, self.space)
+        return self._parse(textsrc, compile_info)
+
+    @staticmethod
+    def _handle_encoding(bytessrc, compile_info, space):
+        # Detect source encoding. also updates compile_info.flags
         explicit_encoding = False
         enc = None
         if compile_info.flags & consts.PyCF_SOURCE_IS_UTF8:
@@ -143,12 +148,11 @@ class PythonParser(parser.Parser):
             if enc is None:
                 enc = 'utf-8'
             try:
-                textsrc = recode_to_utf8(self.space, bytessrc, enc)
+                textsrc = recode_to_utf8(space, bytessrc, enc)
             except OperationError as e:
                 # if the codec is not found, LookupError is raised.  we
                 # check using 'is_w' not to mask potential IndexError or
                 # KeyError
-                space = self.space
                 if e.match(space, space.w_LookupError):
                     raise error.SyntaxError("Unknown encoding: %s" % enc,
                                             filename=compile_info.filename)
@@ -162,7 +166,7 @@ class PythonParser(parser.Parser):
             compile_info.encoding = enc
         if explicit_encoding:
             compile_info.flags |= consts.PyCF_FOUND_ENCODING
-        return self._parse(textsrc, compile_info)
+        return textsrc
 
     def _get_possible_arcs(self, arcs):
         # Handle func_body_suite separately for expecting an IndentationError
