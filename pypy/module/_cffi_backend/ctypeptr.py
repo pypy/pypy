@@ -364,7 +364,7 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             space = self.space
             if self.accept_str and isinstance(w_ob, OffsetInBytes):
-                lldata = llstr(w_ob.w_bytes)
+                lldata = llstr(w_ob.bytes)
                 if not rgc.can_move(lldata):
                     # easy case - it can't move, pass it directly
                     self.accept_str_from_offset_in_bytes(cdata, lldata,
@@ -377,7 +377,7 @@ class W_CTypePointer(W_CTypePtrBase):
                     return self.accept_str_from_offset_in_bytes(cdata, lldata,
                                                    keepalives, i, w_ob.offset)
                 # we failed to pin, need to make a copy
-                value = w_ob.w_bytes
+                value = w_ob.bytes
                 return self.accept_movable_str(cdata, value, keepalives, i)
             if self.accept_str and space.isinstance_w(w_ob, space.w_bytes):
                 # special case to optimize strings passed to a "char *" argument

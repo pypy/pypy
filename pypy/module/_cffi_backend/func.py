@@ -307,7 +307,7 @@ def release(space, w_cdata):
 
 class OffsetInBytes(W_Root):
     def __init__(self, bytes_w, offset):
-        self.w_bytes = bytes_w
+        self.bytes = bytes_w
         self.offset = offset
 
 OffsetInBytes.typedef = TypeDef(
