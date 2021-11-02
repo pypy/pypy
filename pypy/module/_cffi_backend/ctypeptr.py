@@ -364,21 +364,7 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             space = self.space
             if self.accept_str and isinstance(w_ob, OffsetInBytes):
-                lldata = llstr(w_ob.bytes)
-                if not rgc.can_move(lldata):
-                    # easy case - it can't move, pass it directly
-                    self.accept_str_from_offset_in_bytes(cdata, lldata,
-                                               keepalives, i, w_ob.offset)
-                    if not we_are_translated():
-                        keepalives[i] = lldata
-                        return 1
-                    return 0
-                elif rgc.pin(lldata):
-                    return self.accept_str_from_offset_in_bytes(cdata, lldata,
-                                                   keepalives, i, w_ob.offset)
-                # we failed to pin, need to make a copy
-                value = w_ob.bytes
-                return self.accept_movable_str(cdata, value, keepalives, i)
+                return self.process_str_from_offset_in_bytes(cdata, w_ob, keepalives, i)
             if self.accept_str and space.isinstance_w(w_ob, space.w_bytes):
                 # special case to optimize strings passed to a "char *" argument
                 value = space.bytes_w(w_ob)
@@ -389,6 +375,25 @@ class W_CTypePointer(W_CTypePtrBase):
             self.convert_from_object(cdata, w_ob)
         set_mustfree_flag(cdata, result)
         return result == 1      # 0 or 2 => False, nothing to do later
+
+    @jit.dont_look_inside
+    def process_str_from_offset_in_bytes(self, cdata, w_ob, keepalives, i):
+        lldata = llstr(w_ob.bytes)
+        if not rgc.can_move(lldata):
+            # easy case - it can't move, pass it directly
+            self.accept_str_from_offset_in_bytes(cdata, lldata,
+                                       keepalives, i, w_ob.offset)
+            if not we_are_translated():
+                keepalives[i] = lldata
+                return 1
+            return 0
+        elif rgc.pin(lldata):
+            return self.accept_str_from_offset_in_bytes(cdata, lldata,
+                                           keepalives, i, w_ob.offset)
+        # we failed to pin, need to make a copy
+        value = w_ob.bytes
+        return self.accept_movable_str(cdata, value, keepalives, i)
+
 
     def accept_movable_str(self, cdata, value, keepalives, i):
         if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
