@@ -377,11 +377,11 @@ class W_CTypePointer(W_CTypePtrBase):
                     return self.accept_str_from_offset_in_bytes(cdata, lldata,
                                                    keepalives, i, w_ob.offset)
                 # we failed to pin, need to make a copy
-                value = space.bytes_w(w_ob.w_bytes)
+                value = w_ob.w_bytes
                 return self.accept_movable_str(cdata, value, keepalives, i)
             if self.accept_str and space.isinstance_w(w_ob, space.w_bytes):
                 # special case to optimize strings passed to a "char *" argument
-                value = space.bytes_w(w_ob.value)
+                value = space.bytes_w(w_ob)
                 return self.accept_movable_str(cdata, value, keepalives, i)
             result = self._prepare_pointer_call_argument(w_ob, cdata)
 
