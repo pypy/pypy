@@ -1042,11 +1042,17 @@ class SSLSocket(socket):
                     "non-zero flags not allowed in calls to sendall() on %s" %
                     self.__class__)
             count = 0
-            #with memoryview(data) as view, view.cast("B") as byte_view:
-            amount = len(data)
-            while count < amount:
-                v = self._send(_offset_in_bytes(data, count), amount - count)
-                count += v
+            if type(data) is bytes:
+                amount = len(data)
+                while count < amount:
+                    v = self._send(_offset_in_bytes(data, count), amount - count)
+                    count += v
+            else:
+                with memoryview(data) as view, view.cast("B") as byte_view:
+                    amount = len(data)
+                    while count < amount:
+                        v = self._send(_offset_in_bytes(data, count), amount - count)
+                        count += v
         else:
             return super().sendall(data, flags)
 
