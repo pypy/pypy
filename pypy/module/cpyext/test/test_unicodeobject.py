@@ -188,6 +188,14 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.test_unicode_format(1, "xyz")
         assert res == "bla 1 ble xyz\n"
 
+    def test_format2(self):
+        module = self.import_extension('foo', [
+            ("format", "METH_O",
+            """
+                return PyUnicode_FromFormat("formatting 100R '%.100R'", args);
+            """)])
+        assert module.format(1.0) == "formatting 100R '1.0'"
+
     def test_fromkind(self):
         module = self.import_extension('foo', [
             ('from_ucs1', 'METH_O',
