@@ -2185,3 +2185,4 @@ class AppTestRecompiler:
         }
         """)
         assert lib.foo(_offset_in_bytes(b"foo", 0)) == ord(b"f") * 10
+        assert lib.foo(_offset_in_bytes(b"foobxo", 4)) == ord(b"x") * 10
