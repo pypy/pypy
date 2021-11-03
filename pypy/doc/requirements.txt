@@ -1,2 +1,2 @@
 sphinx-affiliates
-docutils=0.11
+docutils==0.11
