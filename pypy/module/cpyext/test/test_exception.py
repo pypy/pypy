@@ -67,3 +67,4 @@ class AppTestExceptions(AppTestCpythonExtensionBase):
              """)])
         excinfo = raises(TypeError, module.raise_exc)
         assert excinfo.value.__context__
+
