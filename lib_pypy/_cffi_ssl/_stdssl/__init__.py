@@ -536,9 +536,9 @@ class _SSLSocket(object):
                 return _decode_certificate(peer_cert)
 
     def write(self, bytestring):
-        return self._write(_str_to_ffi_buffer(bytestring), len(bytestring))
+        return self._write_with_length(_str_to_ffi_buffer(bytestring), len(bytestring))
 
-    def _write(self, b, lgt):
+    def _write_with_length(self, b, lgt):
         sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
 
