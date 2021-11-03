@@ -67,3 +67,14 @@ class AppTestExceptions(AppTestCpythonExtensionBase):
              """)])
         excinfo = raises(TypeError, module.raise_exc)
         assert excinfo.value.__context__
+
+
+    def test_formatting(self):
+        module = self.import_extension('foo', [
+            ("raise_exc", "METH_O",
+            """
+                PyErr_Format(PyExc_TypeError, "formatting 100R '%.100R'", args);
+                return NULL;
+            """)])
+        excinfo = raises(TypeError, module.raise_exc, 1.0)
+        assert str(excinfo.value) == "formatting 100R '1.0'"
