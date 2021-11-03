@@ -108,16 +108,12 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
          if (*f == '%') {
              f++;
              if (f[0]=='%') {
-                 f++;
                  continue;
              }
              while (Py_ISDIGIT((unsigned)f[0]) || f[0] == '.') f++;
              if (f[0] == 'S' || f[0] == 'R' || f[0] == 'A' || f[0] == 'V' || f[0] == 's') {
                  callcount++;
-                 f++;
              }
-             while (f[0] && f[0] != '%' && !Py_ISALPHA((unsigned)f[0]))
-                 f++;
          }
          else if (128 <= (unsigned char)*f) {
              PyErr_Format(PyExc_ValueError,
