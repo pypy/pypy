@@ -1004,7 +1004,9 @@ class SSLSocket(socket):
         else:
             return super().send(data, flags)
 
-    def _send(self, data, lgt, flags=0):
+    def _send_with_length(self, data, lgt, flags=0):
+        """ PyPy modification
+        """
         self._checkClosed()
         if self._sslobj is not None:
             if flags != 0:
@@ -1045,13 +1047,13 @@ class SSLSocket(socket):
             if type(data) is bytes:
                 amount = len(data)
                 while count < amount:
-                    v = self._send(_offset_in_bytes(data, count), amount - count)
+                    v = self._send_with_length(_offset_in_bytes(data, count), amount - count)
                     count += v
             else:
                 with memoryview(data) as view, view.cast("B") as byte_view:
-                    amount = len(data)
+                    amount = len(byte_view)
                     while count < amount:
-                        v = self._send(_offset_in_bytes(data, count), amount - count)
+                        v = self.send(byte_view[count:])
                         count += v
         else:
             return super().sendall(data, flags)
