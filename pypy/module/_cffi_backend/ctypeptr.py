@@ -354,8 +354,8 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
         # writes the pointer to cdata[0], writes the must-free flag in
-        # the byte just before cdata[0], and returns True if something
-        # must be done later to free.
+        # the byte just before cdata[0], and returns >0 if something
+        # must be done later to free. Description of flags in set_mustfree_flag
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
         from pypy.module._cffi_backend.func import OffsetInBytes
 
