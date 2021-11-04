@@ -93,7 +93,8 @@ class Token(object):
         self.end_column = end_column
 
     def __repr__(self):
-        return "Token(%s, %s)" % (self.token_type, self.value)
+        from pypy.interpreter.pyparser.pytoken import token_names
+        return "Token(%s, %s)" % (token_names.get(self.token_type, self.token_type), self.value)
 
     def __eq__(self, other):
         # for tests
