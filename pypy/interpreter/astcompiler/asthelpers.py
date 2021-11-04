@@ -70,6 +70,7 @@ class __extend__(ast.expr):
 
 
 class __extend__(ast.List):
+    _description = "list"
 
     def as_node_list(self, space):
         return self.elts

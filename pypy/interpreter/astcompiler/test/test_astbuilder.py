@@ -195,8 +195,8 @@ class TestAstBuilder:
         input = "from x import a, b,"
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast(input)
-        assert excinfo.value.msg == "trailing comma is only allowed with surronding " \
-            "parenthesis"
+        assert excinfo.value.msg == "trailing comma not allowed without surrounding " \
+            "parentheses"
         assert excinfo.value.text == input + "\n"
 
     def test_global(self):
@@ -568,7 +568,7 @@ class TestAstBuilder:
         assert isinstance(fn.args.kw_defaults[0], ast.Constant)
         input = "def f(p1, *, **k1):  pass"
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "named arguments must follows bare *"
+        assert exc.msg == "named arguments must follow bare *"
 
     def test_posonly_arguments(self):
         fn = self.get_first_stmt("def f(a, b, c, /, arg): pass")
@@ -869,7 +869,7 @@ class TestAstBuilder:
                 input = template % (expr,)
                 with pytest.raises(SyntaxError) as excinfo:
                     self.get_ast(input)
-                assert excinfo.value.msg == "cannot %s %s" % (ctx_type, type_str)
+                assert excinfo.value.msg.startswith("cannot %s %s" % (ctx_type, type_str))
 
     def test_assignment_to_forbidden_names(self):
         invalid = (
@@ -1100,12 +1100,12 @@ class TestAstBuilder:
         assert isinstance(call.args[0], ast.GeneratorExp)
         input = "f(x for x in y, 1)"
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "Generator expression must be parenthesized if not " \
-            "sole argument"
+        assert exc.msg == "Generator expression must be parenthesized"
+
         input = "f(x for x in y, )"
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "Generator expression must be parenthesized if not " \
-            "sole argument"
+        assert exc.msg == "Generator expression must be parenthesized"
+
         many_args = ", ".join("x%i" % i for i in range(256))
         input = "f(%s)" % (many_args,)
         self.get_ast(input) # doesn't crash any more
@@ -1433,7 +1433,7 @@ class TestAstBuilder:
         assert isinstance(expr.left, ast.Name)
         assert isinstance(expr.right, ast.Name)
         # imatmul is tested earlier search for @=
-    
+
     @pytest.mark.parametrize('with_async_hacks', [False, True])
     def test_asyncFunctionDef(self, with_async_hacks):
         mod = self.get_ast("async def f():\n await something()", with_async_hacks=with_async_hacks)
@@ -1454,7 +1454,7 @@ class TestAstBuilder:
         assert isinstance(func, ast.Name)
         assert func.id == 'something'
         assert func.ctx == ast.Load
-    
+
     @pytest.mark.parametrize('with_async_hacks', [False, True])
     def test_asyncFor(self, with_async_hacks):
         mod = self.get_ast("async def f():\n async for e in i: 1\n else: 2", with_async_hacks=with_async_hacks)
@@ -1475,7 +1475,7 @@ class TestAstBuilder:
         assert len(asyncfor.orelse) == 1
         assert isinstance(asyncfor.orelse[0], ast.Expr)
         assert isinstance(asyncfor.orelse[0].value, ast.Constant)
-    
+
     @pytest.mark.parametrize('with_async_hacks', [False, True])
     def test_asyncWith(self, with_async_hacks):
         mod = self.get_ast("async def f():\n async with a as b: 1", with_async_hacks=with_async_hacks)

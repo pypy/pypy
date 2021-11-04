@@ -302,8 +302,8 @@ class ASTBuilder(object):
             elif after_import_type == syms.import_as_names:
                 names_node = import_node.get_child(i)
                 if names_node.num_children() % 2 == 0:
-                    self.error("trailing comma is only allowed with "
-                               "surronding parenthesis", names_node)
+                    self.error("trailing comma not allowed without "
+                               "surrounding parentheses", names_node)
             else:
                 raise AssertionError("unknown import node")
             if star_import:
@@ -751,7 +751,7 @@ class ASTBuilder(object):
 
     def handle_keywordonly_args(self, arguments_node, i, kwonly, kwdefaults):
         if kwonly is None:
-            self.error("named arguments must follows bare *",
+            self.error("named arguments must follow bare *",
                        arguments_node.get_child(i))
         child_count = arguments_node.num_children()
         last_arg = None
@@ -1270,8 +1270,7 @@ class ASTBuilder(object):
         if (generator_count > 1 or
                 (generator_count and (keyword_count or arg_count)) or
                 (generator_count == 1 and last_is_comma)):
-            self.error("Generator expression must be parenthesized "
-                       "if not sole argument", args_node)
+            self.error("Generator expression must be parenthesized", args_node)
         args = []
         keywords = []
         used_keywords = {}
