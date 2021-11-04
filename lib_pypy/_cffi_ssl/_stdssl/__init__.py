@@ -536,11 +536,13 @@ class _SSLSocket(object):
                 return _decode_certificate(peer_cert)
 
     def write(self, bytestring):
-        b = _str_to_ffi_buffer(bytestring)
+        return self._write_with_length(_str_to_ffi_buffer(bytestring), len(bytestring))
+
+    def _write_with_length(self, b, lgt):
         sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
 
-        if len(b) > _MAX_INT:
+        if lgt > _MAX_INT:
             raise OverflowError("string longer than %d bytes" % _MAX_INT)
 
         timeout = _socket_timeout(sock)
@@ -563,7 +565,7 @@ class _SSLSocket(object):
             raise ssl_error("Underlying socket too large for select().")
 
         while True:
-            length = lib.SSL_write(self.ssl, b, len(b))
+            length = lib.SSL_write(self.ssl, b, lgt)
             err = _PySSL_errno(length<=0, self.ssl, length)
             self.err = err
 

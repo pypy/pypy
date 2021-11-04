@@ -2174,3 +2174,15 @@ class AppTestRecompiler:
         # too, but likely the check in the code ">= 1000" usually triggers
         # before that, and raise a RuntimeError too, but with the more
         # explicit message.
+
+    def test_call_function_offset_in_bytes(self):
+        from _cffi_backend import _offset_in_bytes
+        ffi, lib = self.prepare("""
+        int foo(char* arg);
+        """, "test_call_function_offset_in_bytes", """
+        int foo(char* arg) {
+            return(arg[0] * 10);
+        }
+        """)
+        assert lib.foo(_offset_in_bytes(b"foo", 0)) == ord(b"f") * 10
+        assert lib.foo(_offset_in_bytes(b"foobxo", 4)) == ord(b"x") * 10
