@@ -17,6 +17,9 @@ class TestAstBuilder:
     def setup_class(cls):
         cls.parser = pyparse.PythonParser(cls.space)
 
+    def setup_method(self, method):
+        self.info = None
+
     def get_ast(self, source, p_mode=None, flags=None, with_async_hacks=False):
         if p_mode is None:
             p_mode = "exec"
@@ -25,6 +28,7 @@ class TestAstBuilder:
         if with_async_hacks:
             flags |= consts.PyCF_ASYNC_HACKS
         info = pyparse.CompileInfo("<test>", p_mode, flags)
+        self.info = info
         tree = self.parser.parse_source(source, info)
         ast_node = ast_from_node(self.space, tree, info, self.parser)
         return ast_node
@@ -1231,23 +1235,19 @@ class TestAstBuilder:
         assert excinfo.value.offset == 6
         sentence = u"Die Männer ärgern sich!"
         source = u"# coding: utf-7\nstuff = '%s'" % (sentence,)
-        info = pyparse.CompileInfo("<test>", "exec")
-        tree = self.parser.parse_source(source.encode("utf-7"), info)
-        assert info.encoding == "utf-7"
-        s = ast_from_node(space, tree, info).body[0].value
-        assert isinstance(s, ast.Constant)
-        assert space.eq_w(s.value, space.wrap(sentence))
+        s = self.get_first_stmt(source.encode("utf-7"))
+        assert self.info.encoding == "utf-7"
+        assert isinstance(s.value, ast.Constant)
+        assert space.eq_w(s.value.value, space.wrap(sentence))
 
     def test_string_pep3120(self):
         space = self.space
         japan = u'日本'
         source = u"foo = '%s'" % japan
-        info = pyparse.CompileInfo("<test>", "exec")
-        tree = self.parser.parse_source(source.encode("utf-8"), info)
-        assert info.encoding == "utf-8"
-        s = ast_from_node(space, tree, info).body[0].value
-        assert isinstance(s, ast.Constant)
-        assert space.eq_w(s.value, space.wrap(japan))
+        s = self.get_first_stmt(source.encode("utf-8"))
+        assert self.info.encoding == "utf-8"
+        assert isinstance(s.value, ast.Constant)
+        assert space.eq_w(s.value.value, space.wrap(japan))
 
     def test_name_pep3131(self):
         assign = self.get_first_stmt("日本 = 32")
@@ -1277,19 +1277,16 @@ class TestAstBuilder:
         space = self.space
         source = u'# coding: Latin-1\nu = "Ç"\n'
         info = pyparse.CompileInfo("<test>", "exec")
-        tree = self.parser.parse_source(source.encode("Latin-1"), info)
-        assert info.encoding == "iso-8859-1"
-        s = ast_from_node(space, tree, info).body[0].value
+        s = self.get_first_stmt(source.encode("Latin-1")).value
+        assert self.info.encoding == "iso-8859-1"
         assert isinstance(s, ast.Constant)
         assert space.eq_w(s.value, space.wrap(u'Ç'))
 
     def test_string_bug(self):
         space = self.space
         source = '# -*- encoding: utf8 -*-\nstuff = "x \xc3\xa9 \\n"\n'
-        info = pyparse.CompileInfo("<test>", "exec")
-        tree = self.parser.parse_source(source, info)
-        assert info.encoding == "utf8"
-        s = ast_from_node(space, tree, info).body[0].value
+        s = self.get_first_stmt(source).value
+        assert self.info.encoding == "utf8"
         assert isinstance(s, ast.Constant)
         assert space.eq_w(s.value, space.wrap(u'x \xe9 \n'))
 
