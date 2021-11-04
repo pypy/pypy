@@ -443,7 +443,7 @@ def string_parse_literal(astbuilder, atom_node):
                 # check the initial letter for determining.
                 kind = "u" if child_str[0] == "u" else None
                 add_constant_string(astbuilder, joined_pieces,
-                                    w_next, atom_node, kind)
+                                    w_next, child, kind)
             else:
                 parse_f_string(astbuilder, joined_pieces, w_next, atom_node)
                 fmode = True
@@ -477,7 +477,7 @@ def string_parse_literal(astbuilder, atom_node):
     # an invalid mixture of bytes and unicode literals
     for node in joined_pieces:
         if isinstance(node, ast.Constant) and space.isinstance_w(node.value, space.w_bytes):
-            astbuilder.error("cannot mix bytes and nonbytes literals",
-                             atom_node)
+            astbuilder.error_ast("cannot mix bytes and nonbytes literals",
+                                 node)
     assert fmode
     return f_string_to_ast_node(astbuilder, joined_pieces, atom_node)
