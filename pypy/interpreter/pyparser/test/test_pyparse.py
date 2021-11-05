@@ -7,7 +7,7 @@ from pypy.interpreter.pyparser.error import SyntaxError, IndentationError, TabEr
 from pypy.interpreter.astcompiler import consts
 
 
-class TestPythonParser:
+class TestPythonParserOnly: # not subclassed for Peg
     spaceconfig = {}
 
     def setup_class(self):
@@ -18,25 +18,10 @@ class TestPythonParser:
             info = pyparse.CompileInfo("<test>", mode, flags=flags)
         return self.parser.parse_source(source, info)
 
-    def test_with_and_as(self):
-        py.test.raises(SyntaxError, self.parse, "with = 23")
-        py.test.raises(SyntaxError, self.parse, "as = 2")
-
-    def test_dont_imply_dedent(self):
-        info = pyparse.CompileInfo("<test>", "single",
-                                   consts.PyCF_DONT_IMPLY_DEDENT)
-        self.parse('if 1:\n  x\n', info=info)
-        self.parse('x = 5 ', info=info)
-
     def test_clear_state(self):
         assert self.parser.root is None
         tree = self.parse("name = 32")
         assert self.parser.root is None
-
-    def test_encoding_pep3120(self):
-        info = pyparse.CompileInfo("<test>", "exec")
-        tree = self.parse("""foo = '日本'""", info=info)
-        assert info.encoding == 'utf-8'
 
     def test_encoding(self):
         info = pyparse.CompileInfo("<test>", "exec")
@@ -68,6 +53,53 @@ stuff = "nothing"
         assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
                            "in position 16: ordinal not in range(128)")
 
+    def test_mode(self):
+        assert self.parse("x = 43*54").type == syms.file_input
+        tree = self.parse("43**54", "eval")
+        assert tree.type == syms.eval_input
+        py.test.raises(SyntaxError, self.parse, "x = 54", "eval")
+        tree = self.parse("x = 43", "single")
+        assert tree.type == syms.single_input
+
+    def test_universal_newlines(self):
+        fmt = 'stuff = """hello%sworld"""'
+        expected_tree = self.parse(fmt % '\n')
+        for linefeed in ["\r\n","\r"]:
+            tree = self.parse(fmt % linefeed)
+            assert expected_tree == tree
+
+    def test_end_positions(self):
+        tree = self.parse("45 * a", "eval").get_child(0)
+        assert tree.get_end_column() == 6
+
+
+class TestPythonParser:
+    spaceconfig = {}
+
+    def setup_class(self):
+        self.parser = pyparse.PythonParser(self.space)
+
+    def parse(self, source, mode="exec", info=None, flags=0):
+        if info is None:
+            info = pyparse.CompileInfo("<test>", mode, flags=flags)
+        return self.parser.parse_source(source, info)
+
+    def test_with_and_as(self):
+        py.test.raises(SyntaxError, self.parse, "with = 23")
+        py.test.raises(SyntaxError, self.parse, "as = 2")
+
+    def test_dont_imply_dedent(self):
+        info = pyparse.CompileInfo("<test>", "single",
+                                   consts.PyCF_DONT_IMPLY_DEDENT)
+        self.parse('if 1:\n  x\n', info=info)
+        self.parse('x = 5 ', info=info)
+        py.test.raises(SyntaxError, self.parse, "if 1:\n  x", info=info)
+
+    def test_encoding_pep3120(self):
+        info = pyparse.CompileInfo("<test>", "exec")
+        tree = self.parse("""foo = '日本'""", info=info)
+        assert info.encoding == 'utf-8'
+
     def test_unicode_identifier(self):
         tree = self.parse("a日本 = 32")
         tree = self.parse("日本 = 32")
@@ -75,7 +107,7 @@ stuff = "nothing"
     def test_syntax_error(self):
         parse = self.parse
         exc = py.test.raises(SyntaxError, parse, "name another for").value
-        assert exc.msg == "invalid syntax"
+        assert exc.msg.startswith("invalid syntax")
         assert exc.lineno == 1
         assert exc.offset == 6
         assert exc.text.startswith("name another for")
@@ -160,14 +192,6 @@ if 1:
     def test_mac_newline(self):
         self.parse("this_is\ra_mac\rfile")
 
-    def test_mode(self):
-        assert self.parse("x = 43*54").type == syms.file_input
-        tree = self.parse("43**54", "eval")
-        assert tree.type == syms.eval_input
-        py.test.raises(SyntaxError, self.parse, "x = 54", "eval")
-        tree = self.parse("x = 43", "single")
-        assert tree.type == syms.single_input
-
     def test_multiline_string(self):
         self.parse("''' \n '''")
         self.parse("r''' \n '''")
@@ -193,13 +217,6 @@ if 1:
 
     def test_print_function(self):
         self.parse("from __future__ import print_function\nx = print\n")
-
-    def test_universal_newlines(self):
-        fmt = 'stuff = """hello%sworld"""'
-        expected_tree = self.parse(fmt % '\n')
-        for linefeed in ["\r\n","\r"]:
-            tree = self.parse(fmt % linefeed)
-            assert expected_tree == tree
 
     def test_revdb_dollar_num(self):
         assert not self.space.config.translation.reverse_debugger
@@ -384,10 +401,6 @@ if 1:
             print x
             py.test.raises(SyntaxError, self.parse, "x = %s" % x)
 
-    def test_end_positions(self):
-        tree = self.parse("45 * a", "eval").get_child(0)
-        assert tree.get_end_column() == 6
-
     def test_relaxed_decorators(self):
         self.parse("@(1 + 2)\ndef f(x): pass") # does not crash
 
@@ -474,5 +487,12 @@ class TestPythonParserRevDB(TestPythonParser):
         py.test.raises(SyntaxError, self.parse, '$')
         py.test.raises(SyntaxError, self.parse, '$a')
         py.test.raises(SyntaxError, self.parse, '$.5')
+
+
+class TestPythonPegParser(TestPythonParser):
+    spaceconfig = {}
+
+    def setup_class(self):
+        self.parser = pyparse.PegParser(self.space)
 
 

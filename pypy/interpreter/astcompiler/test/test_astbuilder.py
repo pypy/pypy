@@ -1783,7 +1783,7 @@ class TestAstBuilder:
         for function in module.body:
             args = function.args
             all_args = []
-            all_args.extend(args.args)
+            all_args.extend(args.args or [])
             all_args.extend(args.kwonlyargs or [])
             if args.vararg:
                 all_args.append(args.vararg)
@@ -1829,7 +1829,7 @@ class TestAstBuilder:
 
     def test_func_type(self):
         func = self.get_ast("() -> int", p_mode="func_type")
-        assert len(func.argtypes) == 0
+        assert not func.argtypes
         assert isinstance(func.returns, ast.Name)
         assert func.returns.id == 'int'
 
@@ -1891,8 +1891,8 @@ class TestAstBuilder:
         assert tree.end_col_offset == len(s)
         assert tree.col_offset == 0
         gen = tree.args[0]
-        assert gen.end_col_offset == len(s) - 1
-        assert gen.col_offset == 2
+        assert gen.end_col_offset in (len(s), len(s) - 1)
+        assert gen.col_offset in (1, 2)
         assert fdef.get_source_segment(s) == s
 
         s = "(x for x in y)"
@@ -1985,3 +1985,21 @@ class TestAstBuilder:
         assert tree.keywords[0].end_col_offset == 5
         assert tree.keywords[1].col_offset == 7
         assert tree.keywords[1].end_col_offset == 14
+
+
+class TestAstBuilderPeg(TestAstBuilder):
+
+    def setup_class(cls):
+        cls.parser = pyparse.PegParser(cls.space)
+
+    def get_ast(self, source, p_mode=None, flags=None, with_async_hacks=False):
+        if p_mode is None:
+            p_mode = "exec"
+        if flags is None:
+            flags = consts.CO_FUTURE_WITH_STATEMENT
+        if with_async_hacks:
+            flags |= consts.PyCF_ASYNC_HACKS
+        info = pyparse.CompileInfo("<test>", p_mode, flags)
+        self.info = info
+        return self.parser.parse_source(source, info)
+

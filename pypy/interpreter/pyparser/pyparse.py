@@ -229,22 +229,7 @@ class PythonParser(parser.Parser):
                 next_token_seen = None
 
                 if compile_info.mode == 'single':
-                    for token in tokens_stream:
-                        if token.token_type == pygram.tokens.ENDMARKER:
-                            break
-                        if token.token_type == pygram.tokens.NEWLINE:
-                            continue
-
-                        if token.token_type == pygram.tokens.COMMENT:
-                            for token in tokens_stream:
-                                if token.token_type == pygram.tokens.NEWLINE:
-                                    break
-                        else:
-                            new_err = error.SyntaxError
-                            msg = ("multiple statements found while "
-                                   "compiling a single statement")
-                            raise new_err(msg, token.lineno, token.column,
-                                          token.line, compile_info.filename)
+                    self._check_token_stream_single(compile_info, tokens_stream)
 
             except error.TokenError as e:
                 e.filename = compile_info.filename
@@ -286,6 +271,25 @@ class PythonParser(parser.Parser):
             self.root = None
         return tree
 
+    @staticmethod
+    def _check_token_stream_single(compile_info, tokens_stream):
+        for token in tokens_stream:
+            if token.token_type == pygram.tokens.ENDMARKER:
+                break
+            if token.token_type == pygram.tokens.NEWLINE:
+                continue
+
+            if token.token_type == pygram.tokens.COMMENT:
+                for token in tokens_stream:
+                    if token.token_type == pygram.tokens.NEWLINE:
+                        break
+            else:
+                new_err = error.SyntaxError
+                msg = ("multiple statements found while "
+                       "compiling a single statement")
+                raise new_err(msg, token.lineno, token.column,
+                              token.line, compile_info.filename)
+
 SUITE_STARTERS = dict.fromkeys("def if elif else while for try except finally with class".split())
 
 def _compute_indentation_error_msg(stack):
@@ -310,3 +314,90 @@ def _compute_indentation_error_msg(stack):
                     return "expected an indented block after '%s' statement on line %s" % (
                             child.value, child.lineno)
     return "expected an indented block"
+
+
+class PegParser(object):
+    def __init__(self, space, future_flags=future.futureFlags_3_9):
+        self.space = space
+        self.future_flags = future_flags
+        self.type_ignores = []
+
+    def reset(self):
+        pass
+
+    def parse_source(self, bytessrc, compile_info):
+        """Main entry point for parsing Python source.
+
+        Everything from decoding the source to tokenizing to building the parse
+        tree is handled here.
+        """
+        textsrc = PythonParser._handle_encoding(bytessrc, compile_info, self.space)
+        return self._parse(textsrc, compile_info)
+
+    def _parse(self, textsrc, compile_info):
+        from pypy.interpreter.pyparser import rpypegparse
+        # XXX too much copy-paste
+        flags = compile_info.flags
+
+        # The tokenizer is very picky about how it wants its input.
+        source_lines = textsrc.splitlines(True)
+        if source_lines and not source_lines[-1].endswith("\n"):
+            source_lines[-1] += '\n'
+        if textsrc and textsrc[-1] == "\n":
+            flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
+
+        try:
+            # Note: we no longer pass the CO_FUTURE_* to the tokenizer,
+            # which is expected to work independently of them.  It's
+            # certainly the case for all futures in Python <= 2.7.
+            tokens = pytokenizer.generate_tokens(source_lines, flags)
+        except error.TokenError as e:
+            e.filename = compile_info.filename
+            raise
+        except error.TokenIndentationError as e:
+            e.filename = compile_info.filename
+            raise
+
+        newflags, last_future_import = (
+            future.add_future_flags(self.future_flags, tokens))
+        compile_info.last_future_import = last_future_import
+        compile_info.flags |= newflags
+
+        pp = rpypegparse.PythonParser(self.space, tokens, compile_info)
+        try:
+            for token in tokens:
+                # Special handling for TYPE_IGNOREs
+                if token.token_type == pygram.tokens.TYPE_IGNORE:
+                    self.type_ignores.append(token)
+            mode = compile_info.mode
+            if mode == "exec":
+                meth = pp.file
+            elif mode == "single":
+                meth = pp.interactive
+            elif mode == "eval":
+                meth = pp.eval
+            elif mode == "func_type":
+                meth = pp.func_type
+            else:
+                assert 0, "unknown mode"
+            res = meth()
+            if res is None:
+                pp.reset()
+                pp.call_invalid_rules = True
+                meth() # often raises
+                # we're still here, so no specific error message
+                tok = pp.diagnose()
+                if tok.token_type == pygram.tokens.INDENT:
+                    pp.raise_indentation_error("unexpected indent")
+                pp.raise_syntax_error("invalid syntax")
+            if mode == "single":
+                PythonParser._check_token_stream_single(compile_info, tokens)
+
+            assert res
+            return res
+        except error.TokenError as e:
+            e.filename = compile_info.filename
+            raise
+        except error.TokenIndentationError as e:
+            e.filename = compile_info.filename
+            raise

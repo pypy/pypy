@@ -2028,6 +2028,20 @@ x = [c for c in buggy_lnotab.__code__.co_lnotab]
 """
         self.st(func, "x", [0, 1, 8, 8])
 
+class TestPegCompiler(TestCompiler):
+    # like TestCompiler but uses the Peg parser instead of our own
+    def run(self, source):
+        import sys
+        source = str(py.code.Source(source))
+        space = self.space
+        p = pyparse.PegParser(space)
+        info = pyparse.CompileInfo("<test>", "exec")
+        ast = p.parse_source(source, info)
+        code = codegen.compile_ast(space, ast, info)
+        w_dict = space.newdict()
+        code.exec_code(space, w_dict, w_dict)
+        return w_dict
+
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
