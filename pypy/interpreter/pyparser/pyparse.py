@@ -217,6 +217,7 @@ class PythonParser(parser.Parser):
             try:
                 tokens_stream = iter(tokens)
 
+                token = None
                 for token in tokens_stream:
                     next_token_seen = token
                     # Special handling for TYPE_IGNOREs
@@ -241,7 +242,7 @@ class PythonParser(parser.Parser):
                 # Catch parse errors, pretty them up and reraise them as a
                 # SyntaxError.
                 new_err = error.IndentationError
-                if token.token_type == pygram.tokens.INDENT:
+                if e.token.token_type == pygram.tokens.INDENT:
                     msg = "unexpected indent"
                 elif e.expected == pygram.tokens.INDENT:
                     # hack a bit to find the line that starts the block. should

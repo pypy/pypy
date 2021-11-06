@@ -6,19 +6,19 @@ sys.path.insert(0, str(ROOT))
 import time
 from pypy.interpreter.pyparser import pyparse
 
+from pypy.tool.ann_override import PyPyAnnotatorPolicy
+from pypy.tool.pytest.objspace import gettestobjspace
 
+space = gettestobjspace()
 
-class FakeSpace(object):
-    pass
-
-fakespace = FakeSpace()
 
 def bench(fn, s):
-    a = time.clock()
+    a = time.time()
     info = pyparse.CompileInfo("<string>", "exec")
-    parser = pyparse.PythonParser(fakespace)
+    info.encoding = "utf-8"
+    parser = pyparse.PegParser(space)
     tree = parser._parse(s, info)
-    b = time.clock()
+    b = time.time()
     print fn, (b-a)
 
 
@@ -44,7 +44,7 @@ def entry_point(argv):
 # _____ Define and setup target ___
 
 def target(*args):
-    return entry_point, None
+    return entry_point, None, PyPyAnnotatorPolicy()
 
 if __name__ == '__main__':
     entry_point(sys.argv)
