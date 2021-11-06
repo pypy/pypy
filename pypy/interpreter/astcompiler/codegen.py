@@ -204,8 +204,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             "mismatched frame blocks"
 
     def error(self, msg, node):
-        # NB: SyntaxError's offset is 1-based!
-        raise SyntaxError(msg, node.lineno, node.col_offset + 1,
+        raise SyntaxError(msg, node.lineno, node.col_offset,
                           filename=self.compile_info.filename)
 
     def name_op(self, identifier, ctx):

@@ -98,7 +98,7 @@ def generate_tokens(lines, flags):
             if not line:
                 raise TokenError(
                     "end of file (EOF) while scanning triple-quoted string literal",
-                    strstart[2], strstart[0], strstart[1]+1,
+                    strstart[2], strstart[0], strstart[1],
                     token_list, lnum-1)
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
@@ -147,16 +147,16 @@ def generate_tokens(lines, flags):
                 last_comment = ''
             if column != indents[-1]:
                 err = "unindent does not match any outer indentation level"
-                raise TokenIndentationError(err, line, lnum, column+1, token_list)
+                raise TokenIndentationError(err, line, lnum, column, token_list)
 
         else:                                  # continued statement
             if not line:
                 if parenstack:
                     _, lnum1, start1, line1 = parenstack[0]
                     raise TokenError("parenthesis is never closed", line1,
-                                     lnum1, start1 + 1, token_list, lnum)
+                                     lnum1, start1, token_list, lnum)
                 raise TokenError("end of file (EOF) in multi-line statement", line,
-                                 lnum, 0, token_list) # XXX why is the offset 0 here?
+                                 lnum, len(line), token_list)
             continued = 0
 
         while pos < max:
@@ -170,7 +170,7 @@ def generate_tokens(lines, flags):
 
                 if start == end:
                     raise TokenError("Unknown character", line,
-                                     lnum, start + 1, token_list)
+                                     lnum, start, token_list)
 
                 pos = end
                 token, initial = line[start:end], line[start]
@@ -227,7 +227,7 @@ def generate_tokens(lines, flags):
                     elif initial in ')]}':
                         if not parenstack:
                             raise TokenError("unmatched '%s'" % initial, line,
-                                             lnum, start + 1, token_list)
+                                             lnum, start, token_list)
                         opening, lnum1, start1, line1 = parenstack.pop()
                         if not ((opening == "(" and initial == ")") or
                                 (opening == "[" and initial == "]") or
@@ -238,7 +238,7 @@ def generate_tokens(lines, flags):
                             if lnum1 != lnum:
                                 msg += " on line " + str(lnum1)
                             raise TokenError(
-                                    msg, line, lnum, start + 1, token_list)
+                                    msg, line, lnum, start, token_list)
                     if token in python_opmap:
                         punct = python_opmap[token]
                     else:
@@ -251,7 +251,7 @@ def generate_tokens(lines, flags):
                     start = pos
                 if start<max and line[start] in single_quoted:
                     raise TokenError("end of line (EOL) while scanning string literal",
-                             line, lnum, start+1, token_list)
+                             line, lnum, start, token_list)
                 tok = Token(tokens.ERRORTOKEN, line[pos], lnum, pos, line)
                 token_list.append(tok)
                 last_comment = ''

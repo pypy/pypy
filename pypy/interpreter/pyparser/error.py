@@ -2,11 +2,10 @@
 class SyntaxError(Exception):
     """Base class for exceptions raised by the parser."""
 
-    def __init__(self, msg, lineno=0, offset=0, text=None, filename=None,
+    def __init__(self, msg, lineno=0, offset=-1, text=None, filename=None,
                  lastlineno=0):
         self.msg = msg
         self.lineno = lineno
-        # NB: offset is a 1-based index!
         self.offset = offset
         self.text = text
         self.filename = filename
@@ -24,10 +23,11 @@ class SyntaxError(Exception):
             text = lines[self.lineno - 1]
         w_filename = space.newtext_or_none(self.filename)
         w_text = space.newtext_or_none(text)
+        # here we convert because Python's SyntaxError uses 1-based offsets
         return space.newtuple([space.newtext(self.msg),
                                space.newtuple([w_filename,
                                                space.newint(self.lineno),
-                                               space.newint(self.offset),
+                                               space.newint(self.offset + 1),
                                                w_text,
                                                space.newint(self.lastlineno)])])
 
