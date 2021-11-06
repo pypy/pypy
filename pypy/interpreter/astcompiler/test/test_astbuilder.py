@@ -1123,7 +1123,7 @@ class TestAstBuilder:
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast("f(True=1)")
         assert excinfo.value.msg == 'cannot assign to True'
-        assert excinfo.value.offset == 2
+        assert excinfo.value.offset == 3
 
 
     def test_attribute(self):
@@ -1230,9 +1230,9 @@ class TestAstBuilder:
         assert isinstance(s, ast.Constant)
         assert space.eq_w(s.value, space.newbytes("hi implicitly extra"))
         excinfo = pytest.raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
-        assert excinfo.value.offset == 0
+        assert excinfo.value.offset == 1
         excinfo = pytest.raises(SyntaxError, self.get_first_expr, "'foo' b'hello' 'world'")
-        assert excinfo.value.offset == 6
+        assert excinfo.value.offset == 7
         sentence = u"Die Männer ärgern sich!"
         source = u"# coding: utf-7\nstuff = '%s'" % (sentence,)
         s = self.get_first_stmt(source.encode("utf-7"))
@@ -1560,7 +1560,7 @@ class TestAstBuilder:
         assert exc.msg == ("(unicode error) 'unicodeescape' codec can't decode"
                            " bytes in position 0-1: truncated \\xXX escape")
         assert exc.lineno == 2
-        assert exc.offset == 6
+        assert exc.offset == 7
 
     def test_fstring_lineno(self):
         mod = self.get_ast('x=1\nf"{    x + 1}"')
