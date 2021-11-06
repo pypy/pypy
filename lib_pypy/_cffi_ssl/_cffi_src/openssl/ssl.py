@@ -151,7 +151,6 @@ static const long SSL3_RT_CHANGE_CIPHER_SPEC;
 static const long SSL3_RT_ALERT;
 static const long SSL3_RT_HANDSHAKE;
 static const long SSL3_RT_APPLICATION_DATA;
-static const long DTLS1_RT_HEARTBEAT;
 
 static const long SSL3_RT_HEADER;
 static const long SSL3_RT_INNER_CONTENT_TYPE;
