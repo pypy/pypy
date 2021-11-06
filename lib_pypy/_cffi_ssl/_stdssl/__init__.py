@@ -652,7 +652,7 @@ class _SSLSocket(object):
                 if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
                     break
 
-            if count <= 0:
+            if count <= 0 and not shutdown:
                 raise pyssl_error(self, count)
 
             return _bytes_with_len(dest, count)
@@ -1354,6 +1354,7 @@ class _SSLContext(object):
             lib.SSL_CTX_set_default_passwd_cb(self.ctx, Cryptography_pem_password_cb)
             lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, pw_info.handle)
 
+        prev_errno = ffi.errno
         try:
             ffi.errno = 0
             certfilebuf = _str_to_ffi_buffer(certfile)
@@ -1388,6 +1389,7 @@ class _SSLContext(object):
             if ret != 1:
                 raise ssl_error(None)
         finally:
+            ffi.errno = prev_errno
             if index >= 0:
                 del PWINFO_STORAGE[index]
             lib.SSL_CTX_set_default_passwd_cb(self.ctx, orig_passwd_cb)
@@ -1402,43 +1404,47 @@ class _SSLContext(object):
                 server_hostname, owner, session, None, None)
 
     def load_verify_locations(self, cafile=None, capath=None, cadata=None):
-        ffi.errno = 0
-        if cadata is None:
-            ca_file_type = -1
-        else:
-            if not isinstance(cadata, str):
-                ca_file_type = lib.SSL_FILETYPE_ASN1
+        prev_errno = ffi.errno
+        try:
+            ffi.errno = 0
+            if cadata is None:
+                ca_file_type = -1
             else:
-                ca_file_type = lib.SSL_FILETYPE_PEM
-                try:
-                    cadata = cadata.encode('ascii')
-                except UnicodeEncodeError:
-                    raise TypeError("cadata should be a ASCII string or a bytes-like object")
-        if cafile is None and capath is None and cadata is None:
-            raise TypeError("cafile and capath cannot be both omitted")
-        # load from cadata
-        if cadata is not None:
-            buf = _str_to_ffi_buffer(cadata)
-            self._add_ca_certs(buf, len(buf), ca_file_type)
-
-        # load cafile or capath
-        if cafile is not None or capath is not None:
-            if cafile is None:
-                cafilebuf = ffi.NULL
-            else:
-                cafilebuf = _str_to_ffi_buffer(cafile)
-            if capath is None:
-                capathbuf = ffi.NULL
-            else:
-                capathbuf = _str_to_ffi_buffer(capath)
-            ret = lib.SSL_CTX_load_verify_locations(self.ctx, cafilebuf, capathbuf)
-            if ret != 1:
-                _errno = ffi.errno
-                if _errno:
-                    lib.ERR_clear_error()
-                    raise OSError(_errno, '')
+                if not isinstance(cadata, str):
+                    ca_file_type = lib.SSL_FILETYPE_ASN1
                 else:
-                    raise ssl_error(None)
+                    ca_file_type = lib.SSL_FILETYPE_PEM
+                    try:
+                        cadata = cadata.encode('ascii')
+                    except UnicodeEncodeError:
+                        raise TypeError("cadata should be a ASCII string or a bytes-like object")
+            if cafile is None and capath is None and cadata is None:
+                raise TypeError("cafile and capath cannot be both omitted")
+            # load from cadata
+            if cadata is not None:
+                buf = _str_to_ffi_buffer(cadata)
+                self._add_ca_certs(buf, len(buf), ca_file_type)
+
+            # load cafile or capath
+            if cafile is not None or capath is not None:
+                if cafile is None:
+                    cafilebuf = ffi.NULL
+                else:
+                    cafilebuf = _str_to_ffi_buffer(cafile)
+                if capath is None:
+                    capathbuf = ffi.NULL
+                else:
+                    capathbuf = _str_to_ffi_buffer(capath)
+                ret = lib.SSL_CTX_load_verify_locations(self.ctx, cafilebuf, capathbuf)
+                if ret != 1:
+                    _errno = ffi.errno
+                    if _errno:
+                        lib.ERR_clear_error()
+                        raise OSError(_errno, '')
+                    else:
+                        raise ssl_error(None)
+        finally:
+            ffi.errno = prev_errno
 
     def _add_ca_certs(self, data, size, ca_file_type):
         biobuf = lib.BIO_new_mem_buf(data, size)
@@ -1564,33 +1570,37 @@ class _SSLContext(object):
             raise ssl_error(None)
 
     def load_dh_params(self, filepath):
-        ffi.errno = 0
-        if filepath is None:
-            raise TypeError("filepath must not be None")
-        buf = _fs_converter(filepath)
-        mode = ffi.new("char[]",b"r")
-        ffi.errno = 0
-        bio = lib.BIO_new_file(buf, mode)
-        if bio == ffi.NULL:
-            _errno = ffi.errno
-            lib.ERR_clear_error()
-            raise OSError(_errno, '')
+        prev_errno = ffi.errno
         try:
-            dh = lib.PEM_read_bio_DHparams(bio, ffi.NULL, ffi.NULL, ffi.NULL)
-        finally:
-            lib.BIO_free(bio)
-        if dh == ffi.NULL:
-            _errno = ffi.errno
-            if _errno != 0:
+            ffi.errno = 0
+            if filepath is None:
+                raise TypeError("filepath must not be None")
+            buf = _fs_converter(filepath)
+            mode = ffi.new("char[]",b"r")
+            ffi.errno = 0
+            bio = lib.BIO_new_file(buf, mode)
+            if bio == ffi.NULL:
+                _errno = ffi.errno
                 lib.ERR_clear_error()
                 raise OSError(_errno, '')
-            else:
-                raise ssl_error(None)
-        try:
-            if lib.SSL_CTX_set_tmp_dh(self.ctx, dh) == 0:
-                raise ssl_error(None)
+            try:
+                dh = lib.PEM_read_bio_DHparams(bio, ffi.NULL, ffi.NULL, ffi.NULL)
+            finally:
+                lib.BIO_free(bio)
+            if dh == ffi.NULL:
+                _errno = ffi.errno
+                if _errno != 0:
+                    lib.ERR_clear_error()
+                    raise OSError(_errno, '')
+                else:
+                    raise ssl_error(None)
+            try:
+                if lib.SSL_CTX_set_tmp_dh(self.ctx, dh) == 0:
+                    raise ssl_error(None)
+            finally:
+                lib.DH_free(dh)
         finally:
-            lib.DH_free(dh)
+            ffi.errno = prev_errno
 
     def get_ca_certs(self, binary_form=None):
         binary_mode = bool(binary_form)
