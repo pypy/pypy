@@ -652,7 +652,7 @@ class _SSLSocket(object):
                 if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
                     break
 
-            if count <= 0 and not shutdown:
+            if count <= 0:
                 raise pyssl_error(self, count)
 
             return _bytes_with_len(dest, count)
@@ -1336,6 +1336,8 @@ class _SSLContext(object):
             keyfile = certfile
         pw_info = PasswordInfo()
         index = -1
+        orig_passwd_cb = lib.SSL_CTX_get_default_passwd_cb(self.ctx)
+        orig_passwd_userdata = lib.SSL_CTX_get_default_passwd_cb_userdata(self.ctx)
         if password is not None:
 
             if callable(password):
@@ -1388,8 +1390,8 @@ class _SSLContext(object):
         finally:
             if index >= 0:
                 del PWINFO_STORAGE[index]
-            lib.SSL_CTX_set_default_passwd_cb(self.ctx, ffi.NULL)
-            lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, ffi.NULL)
+            lib.SSL_CTX_set_default_passwd_cb(self.ctx, orig_passwd_cb)
+            lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, orig_passwd_userdata)
 
 
     def _wrap_socket(self, sock, server_side, server_hostname=None, *,
