@@ -1457,7 +1457,10 @@ class _SSLContext(object):
                 if ca_file_type == lib.SSL_FILETYPE_ASN1:
                     cert = lib.d2i_X509_bio(biobuf, ffi.NULL)
                 else:
-                    cert = lib.PEM_read_bio_X509(biobuf, ffi.NULL, ffi.NULL, ffi.NULL)
+                    cert = lib.PEM_read_bio_X509(biobuf, ffi.NULL,
+                                                 lib.SSL_CTX_get_default_passwd_cb(self.ctx),
+                                                 lib.SSL_CTX_get_default_passwd_cb_userdata(self.ctx),
+                                                )
                 if not cert:
                     break
                 try:
@@ -1488,7 +1491,7 @@ class _SSLContext(object):
                   lib.ERR_GET_REASON(err) == lib.PEM_R_NO_START_LINE):
                 # EOF PEM file, not an error
                 lib.ERR_clear_error()
-            else:
+            elif err != 0:
                 raise ssl_error(None)
         finally:
             lib.BIO_free(biobuf)
