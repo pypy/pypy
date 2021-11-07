@@ -722,7 +722,7 @@ class Parser:
         else:
             # End is used only to get the proper text
             line = "".join(
-                self.get_lines(list(range(start_lineno, end_lineno + 1)))
+                self.get_lines(range(start_lineno, end_lineno + 1))
             )
 
         raise cls(
