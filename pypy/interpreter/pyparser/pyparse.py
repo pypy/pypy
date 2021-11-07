@@ -336,7 +336,7 @@ class PegParser(object):
         return self._parse(textsrc, compile_info)
 
     def _parse(self, textsrc, compile_info):
-        from pypy.interpreter.pyparser import rpypegparse
+        from pypy.interpreter.pyparser.rpypegparse import PythonParser
         # XXX too much copy-paste
         flags = compile_info.flags
 
@@ -364,7 +364,7 @@ class PegParser(object):
         compile_info.last_future_import = last_future_import
         compile_info.flags |= newflags
 
-        pp = rpypegparse.PythonParser(self.space, tokens, compile_info)
+        pp = PythonParser(self.space, tokens, compile_info)
         try:
             for token in tokens:
                 # Special handling for TYPE_IGNOREs
@@ -372,20 +372,20 @@ class PegParser(object):
                     self.type_ignores.append(token)
             mode = compile_info.mode
             if mode == "exec":
-                meth = pp.file
+                meth = PythonParser.file
             elif mode == "single":
-                meth = pp.interactive
+                meth = PythonParser.interactive
             elif mode == "eval":
-                meth = pp.eval
+                meth = PythonParser.eval
             elif mode == "func_type":
-                meth = pp.func_type
+                meth = PythonParser.func_type
             else:
                 assert 0, "unknown mode"
-            res = meth()
+            res = meth(pp)
             if res is None:
                 pp.reset()
                 pp.call_invalid_rules = True
-                meth() # often raises
+                meth(pp) # often raises
                 # we're still here, so no specific error message
                 tok = pp.diagnose()
                 if tok.token_type == pygram.tokens.INDENT:
