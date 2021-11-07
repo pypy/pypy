@@ -27,7 +27,7 @@ except ImportError:
     def which(program):
         path = os.environ['PATH'].split(os.pathsep)
         for p in path:
-            if program in os.path.list(p):
+            if program in os.listdir(p):
                 return os.path.join(p, program)
         return None
 
