@@ -327,7 +327,8 @@ class Parser:
 
     def get_last_non_whitespace_token(self):
         tok = self._tokens[0]
-        for tok in reversed(self._tokens[: self._index]):
+        for index in range(self._index - 1, -1, -1):
+            tok = self._tokens[index]
             if tok.token_type != tokens.ENDMARKER and (
                 tok.token_type < tokens.NEWLINE or tok.token_type > tokens.DEDENT
             ):
