@@ -20,6 +20,17 @@ except ImportError:
     sys.modules['_multiprocessing'] = types.ModuleType('fake _multiprocessing')
 import multiprocessing
 
+try:
+    from shutil import which
+except ImportError:
+    # shutil.which is only available on python3.3+
+    def which(program):
+        path = os.environ['PATH'].split(os.pathsep)
+        for p in path:
+            if program in os.path.list(p):
+                return os.path.join(p, program)
+        return None
+
 # do not use the long-running runsubprocess._run here, since building some of
 # the extensions enable importing them later
 os.environ['PYPY_DONT_RUN_SUBPROCESS'] = '1'
@@ -69,6 +80,9 @@ cffi_dependencies = {
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
 }
+if which('yum'):
+    cffi_dependencies['_ssl'][2].insert(0, 'yum -y install perl-IPC-Cmd perl-Digest-SHA'.split(' '))
+
 if sys.platform == 'darwin' or platform.machine() == 'aarch64':
     # TODO: use these on x86 after upgrading Docker images to manylinux2014
     cffi_dependencies['_gdbm'] = (
@@ -287,7 +301,7 @@ if __name__ == '__main__':
     parser.add_argument('--rebuild', dest='rebuild', action='store_true',
         help='Rebuild the module even if it already appears to have been built.')
     parser.add_argument('--only', dest='only', default=None,
-                        help='Only build the modules delimited by a colon. E.g. _ssl,sqlite')
+                        help='Only build the modules delimited by a comma e.g. _ssl,sqlite')
     parser.add_argument('--embed-dependencies', dest='embed_dependencies', action='store_true',
         help='embed dependencies for distribution')
     args = parser.parse_args()
