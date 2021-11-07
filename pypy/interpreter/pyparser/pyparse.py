@@ -391,8 +391,8 @@ class PegParser(object):
                 if tok.token_type == pygram.tokens.INDENT:
                     pp.raise_indentation_error("unexpected indent")
                 pp.raise_syntax_error("invalid syntax")
-            if mode == "single":
-                PythonParser._check_token_stream_single(compile_info, tokens)
+            #if mode == "single":
+            #    PythonParser._check_token_stream_single(compile_info, tokens)
 
             assert res
             return res

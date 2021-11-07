@@ -102,7 +102,7 @@ class PythonAstCompiler(PyCodeCompiler):
     def __init__(self, space, override_version=None):
         PyCodeCompiler.__init__(self, space)
         self.future_flags = future.futureFlags_3_8
-        self.parser = pyparse.PythonParser(space, self.future_flags)
+        self.parser = pyparse.PegParser(space, self.future_flags)
         self.additional_rules = {}
         self.compiler_flags = self.future_flags.allowed_flags
 
@@ -160,9 +160,7 @@ class PythonAstCompiler(PyCodeCompiler):
         space = self.space
         self.parser.reset()
         try:
-            parse_tree = self.parser.parse_source(source, info)
-            mod = astbuilder.ast_from_node(space, parse_tree, info,
-                                           recursive_parser=self.parser)
+            mod = self.parser.parse_source(source, info)
         except parseerror.TabError as e:
             raise OperationError(space.w_TabError,
                                  e.find_sourceline_and_wrap_info(space))

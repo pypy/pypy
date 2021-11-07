@@ -440,6 +440,7 @@ from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.pyparser.parser import TokenASTBase
 
 @specialize.arg(0)
 def build(cls, *args):
@@ -483,7 +484,7 @@ def obj_to_int(space, w_value, optional):
     return space.int_w(w_value)
 
 
-class AST(object):
+class AST(TokenASTBase):
     __metaclass__ = extendabletype
     _attrs_ = ['lineno', 'col_offset', 'end_lineno', 'end_col_offset']
 

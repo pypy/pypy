@@ -80,8 +80,10 @@ class DFA(object):
             b[pos] |= bit
         return str(b)
 
+class TokenASTBase(object):
+    _attrs_ = []
 
-class Token(object):
+class Token(TokenASTBase):
     def __init__(self, token_type, value, lineno, column, line, end_lineno=-1, end_column=-1):
         self.token_type = token_type
         self.value = value

@@ -15,7 +15,7 @@ from pypy.interpreter.pyparser import pytokenizer as tokenize, pytoken
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
 
 from pypy.interpreter.astcompiler import ast
-from pypy.interpreter.astcompiler.astbuilder import parse_number
+from pypy.interpreter.astcompiler.astbuilder import parse_number, ASTBuilder
 from pypy.interpreter.astcompiler import asthelpers # Side effects
 from pypy.interpreter.astcompiler import consts, misc
 
@@ -167,7 +167,7 @@ def memoize_left_rec(method):
     memoize_left_rec_wrapper.__wrapped__ = method  # type: ignore
     return memoize_left_rec_wrapper
 
-class FStringAstBuilder(object):
+class FStringAstBuilder(ASTBuilder):
     def __init__(self, space, parser, compile_info):
         self.space = space
         self.parser = parser
@@ -188,6 +188,11 @@ class FStringAstBuilder(object):
 
     def error(self, msg, node):
         # XXX bit annoying
+        from pypy.interpreter.pyparser.parser import Nonterminal, Terminal
+        if isinstance(node, Terminal):
+            pass
+        else:
+            node = node.flatten()[0]
         tok = Token(node.type, node.value, node.lineno, node.column, node.line, node.end_lineno, node.end_column)
         self.parser.raise_syntax_error_known_location(msg, tok)
 
@@ -214,6 +219,15 @@ class SlashWithDefault(object):
         self.plain_names = plain_names
         self.names_with_defaults = names_with_defaults
 
+class DictDisplaysEntry(object):
+    def __init__(self, key, value):
+        self.key = key
+        self.value = value
+
+class CmpopExprPair(object):
+    def __init__(self, cmpop, expr):
+        self.cmpop = cmpop
+        self.expr = expr
 
 class Parser:
     """Parsing base class."""
@@ -463,6 +477,7 @@ class Parser:
         self._reset(mark)
         return not ok
 
+    @specialize.argtype(3)
     def check_version(self, min_version, error_msg, node):
         """Check that the python version is high enough for a rule to apply.
 
@@ -472,9 +487,8 @@ class Parser:
                 self.py_version[1] >= min_version[1])):
             return node
         else:
-            self.raise_syntax_error_known_location(
-                "%s is only supported in Python %s and above." % (error_msg, min_version),
-                node)
+            self.raise_syntax_error(
+                "%s is only supported in Python %s and above." % (error_msg, min_version))
 
     def raise_indentation_error(self, msg):
         """Raise an indentation error."""
@@ -483,6 +497,13 @@ class Parser:
     def get_expr_name(self, node):
         """Get a descriptive name for an expression."""
         return node._get_descr(self.space)
+
+    def get_last_target(self, for_if_clauses):
+        if not for_if_clauses:
+            return None
+        last = for_if_clauses[-1]
+        assert isinstance(last, ast.comprehension)
+        return last.target
 
     def set_expr_context(self, node, context):
         """Set the context (Load, Store, Del) of an ast node."""
@@ -508,13 +529,14 @@ class Parser:
         return id
 
     def check_repeated_keywords(self, args):
-        if not args or not args[1]:
+        if not args or not args.keywords:
             return None
-        keywords = args[1]
+        keywords = args.keywords
         if len(keywords) == 1:
             return keywords
         d = {}
         for keyword in keywords:
+            assert isinstance(keyword, ast.keyword)
             if keyword.arg is None:
                 # **arg
                 continue
@@ -523,6 +545,13 @@ class Parser:
                     "keyword argument repeated: '%s'" % keyword.arg, keyword)
             d[keyword.arg] = None
         return keywords
+
+    def check_last_keyword_no_arg(self, args):
+        if not args.keywords:
+            return False
+        kw = args.keywords[-1]
+        assert isinstance(kw, ast.keyword)
+        return kw.arg is None
 
     def new_identifier(self, name):
         return misc.new_identifier(self.space, name)
@@ -541,7 +570,6 @@ class Parser:
 
     def generate_ast_for_string(self, tokens):
         """Generate AST nodes for strings."""
-        return ast.Constant(self.space.newtext(""), None, 0, 0, 0, 0)
         from pypy.interpreter.pyparser.parser import Nonterminal, Terminal
         from pypy.interpreter.astcompiler.fstring import string_parse_literal
         # bit of a hack, allow fstrings to keep using the old interface
@@ -568,7 +596,10 @@ class Parser:
         decorators
     ):
         """Set the decorators on a function or class definition."""
+        # for rpython
         if isinstance(target, ast.FunctionDef):
+            target.decorator_list = decorators
+        elif isinstance(target, ast.AsyncFunctionDef):
             target.decorator_list = decorators
         else:
             assert isinstance(target, ast.ClassDef)
@@ -576,10 +607,10 @@ class Parser:
         return target
 
     def get_comparison_ops(self, pairs):
-        return [op for op, _ in pairs]
+        return [p.cmpop for p in pairs]
 
     def get_comparators(self, pairs):
-        return [comp for _, comp in pairs]
+        return [p.expr for p in pairs]
 
     def set_arg_type_comment(self, arg, type_comment):
         if type_comment:
@@ -595,6 +626,12 @@ class Parser:
 
     def make_slash_with_default(self, plain_names, names_with_default):
         return SlashWithDefault(plain_names, names_with_default)
+
+    def dict_display_entry(self, key, value):
+        return DictDisplaysEntry(key, value)
+
+    def cmpop_expr_pair(self, cmpop, expr):
+        return CmpopExprPair(cmpop, expr)
 
     def dummy_name(self, *args):
         return ast.Name(
@@ -1089,12 +1126,11 @@ class PythonParser(Parser):
             b = self.augassign()
             if b:
                 cut = True
-                if cut:
-                    c = self._tmp_16()
-                    if c:
-                        tok = self.get_last_non_whitespace_token()
-                        end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                        return ast . AugAssign ( target = a , op = b [0] , value = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                c = self._tmp_16()
+                if c:
+                    tok = self.get_last_non_whitespace_token()
+                    end_lineno, end_col_offset = tok.end_lineno, tok.end_column
+                    return ast . AugAssign ( target = a , op = b [0] , value = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         if cut: return None
         if self.call_invalid_rules:
@@ -1136,7 +1172,7 @@ class PythonParser(Parser):
         self._index = mark
         literal = self.expect_type(51)
         if literal:
-            return [ast . MatMult]
+            return self . check_version ( ( 3 , 5 ) , "The '@' operator is" , [ast . MatMult] )
         self._index = mark
         literal = self.expect_type(40)
         if literal:
@@ -1522,7 +1558,7 @@ class PythonParser(Parser):
                 if literal_1:
                     tok = self.get_last_non_whitespace_token()
                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                    return ast . Call ( func = dn , args = z [0] if z and z [0] else None , keywords = self . check_repeated_keywords ( z ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                    return ast . Call ( func = dn , args = z . args if z and z . args else None , keywords = self . check_repeated_keywords ( z ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         dec_primary = self.dec_primary()
         if dec_primary:
@@ -1591,7 +1627,7 @@ class PythonParser(Parser):
                     if c:
                         tok = self.get_last_non_whitespace_token()
                         end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                        return ast . ClassDef ( self . check_for_forbidden_assignment_target ( a ) , bases = b [0] if b else None , keywords = b [1] if b else None , body = c , decorator_list = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                        return ast . ClassDef ( self . check_for_forbidden_assignment_target ( a ) , bases = b . args if b else None , keywords = b . keywords if b else None , body = c , decorator_list = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         return None
 
@@ -1843,7 +1879,7 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def param_maybe_default(self): # type Optional[Tuple [ast . arg , Any]]
+    def param_maybe_default(self): # type Optional[NameDefaultPair]
         # param_maybe_default: param default? ',' TYPE_COMMENT? | param default? TYPE_COMMENT? &')'
         mark = self._index
         if self._verbose: log_start(self, 'param_maybe_default')
@@ -2047,18 +2083,17 @@ class PythonParser(Parser):
                 literal_1 = self.expect_type(519)
                 if literal_1:
                     cut = True
-                    if cut:
-                        ex = self.star_expressions()
-                        if ex:
-                            literal_2 = self.expect_forced(self.expect_type(11), "':'")
-                            if literal_2:
-                                tc = self.type_comment()
-                                b = self.block()
-                                if b:
-                                    el = self.else_block()
-                                    tok = self.get_last_non_whitespace_token()
-                                    end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                                    return ast . For ( target = t , iter = ex , body = b , orelse = el , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                    ex = self.star_expressions()
+                    if ex:
+                        literal_2 = self.expect_forced(self.expect_type(11), "':'")
+                        if literal_2:
+                            tc = self.type_comment()
+                            b = self.block()
+                            if b:
+                                el = self.else_block()
+                                tok = self.get_last_non_whitespace_token()
+                                end_lineno, end_col_offset = tok.end_lineno, tok.end_column
+                                return ast . For ( target = t , iter = ex , body = b , orelse = el , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         if cut: return None
         cut = False
@@ -2071,18 +2106,17 @@ class PythonParser(Parser):
                     literal_1 = self.expect_type(519)
                     if literal_1:
                         cut = True
-                        if cut:
-                            ex = self.star_expressions()
-                            if ex:
-                                literal_2 = self.expect_type(11)
-                                if literal_2:
-                                    tc = self.type_comment()
-                                    b = self.block()
-                                    if b:
-                                        el = self.else_block()
-                                        tok = self.get_last_non_whitespace_token()
-                                        end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                                        return self . check_version ( ( 3 , 5 ) , "Async for loops are" , ast . AsyncFor ( target = t , iter = ex , body = b , orelse = el , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+                        ex = self.star_expressions()
+                        if ex:
+                            literal_2 = self.expect_type(11)
+                            if literal_2:
+                                tc = self.type_comment()
+                                b = self.block()
+                                if b:
+                                    el = self.else_block()
+                                    tok = self.get_last_non_whitespace_token()
+                                    end_lineno, end_col_offset = tok.end_lineno, tok.end_column
+                                    return self . check_version ( ( 3 , 5 ) , "Async for loops are" , ast . AsyncFor ( target = t , iter = ex , body = b , orelse = el , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
         self._index = mark
         if cut: return None
         if self.call_invalid_rules:
@@ -2118,7 +2152,7 @@ class PythonParser(Parser):
                             if b:
                                 tok = self.get_last_non_whitespace_token()
                                 end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                                return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . With ( items = a , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+                                return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . With ( items = a , body = b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
         self._index = mark
         literal = self.expect_type(520)
         if literal:
@@ -2150,7 +2184,7 @@ class PythonParser(Parser):
                                 if b:
                                     tok = self.get_last_non_whitespace_token()
                                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                                    return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . AsyncWith ( items = a , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+                                    return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . AsyncWith ( items = a , body = b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
         self._index = mark
         _async = self.expect_type(58)
         if _async:
@@ -2480,12 +2514,11 @@ class PythonParser(Parser):
             literal = self.expect_type(54)
             if literal:
                 cut = True
-                if cut:
-                    b = self.expression()
-                    if b:
-                        tok = self.get_last_non_whitespace_token()
-                        end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                        return self . check_version ( ( 3 , 8 ) , "The ':=' operator is" , ast . NamedExpr ( target = self . set_expr_context ( a , Store ) , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) )
+                b = self.expression()
+                if b:
+                    tok = self.get_last_non_whitespace_token()
+                    end_lineno, end_col_offset = tok.end_lineno, tok.end_column
+                    return self . check_version ( ( 3 , 8 ) , "The ':=' operator is" , ast . NamedExpr ( target = self . set_expr_context ( a , Store ) , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) )
         self._index = mark
         if cut: return None
         return None
@@ -2647,11 +2680,11 @@ class PythonParser(Parser):
         if literal:
             a = self.bitwise_or()
             if a:
-                return ( ast . Eq , a )
+                return self . cmpop_expr_pair ( ast . Eq , a )
         self._index = mark
         return None
 
-    def noteq_bitwise_or(self): # type Optional[tuple]
+    def noteq_bitwise_or(self): # type Optional[Any]
         # noteq_bitwise_or: '!=' bitwise_or
         mark = self._index
         if self._verbose: log_start(self, 'noteq_bitwise_or')
@@ -2659,7 +2692,7 @@ class PythonParser(Parser):
         if tok:
             a = self.bitwise_or()
             if a:
-                return self . check_barry ( tok ) and ( ast . NotEq , a )
+                return self . check_barry ( tok ) and self . cmpop_expr_pair ( ast . NotEq , a )
         self._index = mark
         return None
 
@@ -2671,7 +2704,7 @@ class PythonParser(Parser):
         if literal:
             a = self.bitwise_or()
             if a:
-                return ( ast . LtE , a )
+                return self . cmpop_expr_pair ( ast . LtE , a )
         self._index = mark
         return None
 
@@ -2683,7 +2716,7 @@ class PythonParser(Parser):
         if literal:
             a = self.bitwise_or()
             if a:
-                return ( ast . Lt , a )
+                return self . cmpop_expr_pair ( ast . Lt , a )
         self._index = mark
         return None
 
@@ -2695,7 +2728,7 @@ class PythonParser(Parser):
         if literal:
             a = self.bitwise_or()
             if a:
-                return ( ast . GtE , a )
+                return self . cmpop_expr_pair ( ast . GtE , a )
         self._index = mark
         return None
 
@@ -2707,7 +2740,7 @@ class PythonParser(Parser):
         if literal:
             a = self.bitwise_or()
             if a:
-                return ( ast . Gt , a )
+                return self . cmpop_expr_pair ( ast . Gt , a )
         self._index = mark
         return None
 
@@ -2721,7 +2754,7 @@ class PythonParser(Parser):
             if literal_1:
                 a = self.bitwise_or()
                 if a:
-                    return ( ast . NotIn , a )
+                    return self . cmpop_expr_pair ( ast . NotIn , a )
         self._index = mark
         return None
 
@@ -2733,7 +2766,7 @@ class PythonParser(Parser):
         if literal:
             a = self.bitwise_or()
             if a:
-                return ( ast . In , a )
+                return self . cmpop_expr_pair ( ast . In , a )
         self._index = mark
         return None
 
@@ -2747,7 +2780,7 @@ class PythonParser(Parser):
             if literal_1:
                 a = self.bitwise_or()
                 if a:
-                    return ( ast . IsNot , a )
+                    return self . cmpop_expr_pair ( ast . IsNot , a )
         self._index = mark
         return None
 
@@ -2759,7 +2792,7 @@ class PythonParser(Parser):
         if literal:
             a = self.bitwise_or()
             if a:
-                return ( ast . Is , a )
+                return self . cmpop_expr_pair ( ast . Is , a )
         self._index = mark
         return None
 
@@ -3075,7 +3108,7 @@ class PythonParser(Parser):
                 if literal_1:
                     tok = self.get_last_non_whitespace_token()
                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                    return ast . Call ( func = a , args = b [0] if b and b [0] else None , keywords = self . check_repeated_keywords ( b ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                    return ast . Call ( func = a , args = b . args if b and b . args else None , keywords = self . check_repeated_keywords ( b ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         a = self.primary()
         if a:
@@ -3520,7 +3553,7 @@ class PythonParser(Parser):
             if literal_1:
                 tok = self.get_last_non_whitespace_token()
                 end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                return ast . Dict ( keys = [kv [0] for kv in a] if a else None , values = [kv [1] for kv in a] if a else None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                return ast . Dict ( keys = [kv . key for kv in a] if a else None , values = [kv . value for kv in a] if a else None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         literal = self.expect_type(26)
         if literal:
@@ -3551,7 +3584,7 @@ class PythonParser(Parser):
         if literal:
             a = self.bitwise_or()
             if a:
-                return ( None , a )
+                return self . dict_display_entry ( None , a )
         self._index = mark
         kvpair = self.kvpair()
         if kvpair:
@@ -3559,7 +3592,7 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def kvpair(self): # type Optional[tuple]
+    def kvpair(self): # type Optional[Any]
         # kvpair: expression ':' expression
         mark = self._index
         if self._verbose: log_start(self, 'kvpair')
@@ -3569,7 +3602,7 @@ class PythonParser(Parser):
             if literal:
                 b = self.expression()
                 if b:
-                    return ( a , b )
+                    return self . dict_display_entry ( a , b )
         self._index = mark
         return None
 
@@ -3597,11 +3630,10 @@ class PythonParser(Parser):
                     literal_1 = self.expect_type(519)
                     if literal_1:
                         cut = True
-                        if cut:
-                            b = self.disjunction()
-                            if b:
-                                c = self._loop0_96()
-                                return self . check_version ( ( 3 , 6 ) , "Async comprehensions are" , ast . comprehension ( target = a , iter = b , ifs = c if c else None , is_async = True ) )
+                        b = self.disjunction()
+                        if b:
+                            c = self._loop0_96()
+                            return self . check_version ( ( 3 , 6 ) , "Async comprehensions are" , ast . comprehension ( target = a , iter = b , ifs = c if c else None , is_async = True ) )
         self._index = mark
         if cut: return None
         cut = False
@@ -3612,11 +3644,10 @@ class PythonParser(Parser):
                 literal_1 = self.expect_type(519)
                 if literal_1:
                     cut = True
-                    if cut:
-                        b = self.disjunction()
-                        if b:
-                            c = self._loop0_97()
-                            return ast . comprehension ( target = a , iter = b , ifs = c if c else None , is_async = False )
+                    b = self.disjunction()
+                    if b:
+                        c = self._loop0_97()
+                        return ast . comprehension ( target = a , iter = b , ifs = c if c else None , is_async = False )
         self._index = mark
         if cut: return None
         if self.call_invalid_rules:
@@ -3717,7 +3748,7 @@ class PythonParser(Parser):
                     if literal_1:
                         tok = self.get_last_non_whitespace_token()
                         end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                        return ast . DictComp ( key = a [0] , value = a [1] , generators = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                        return ast . DictComp ( key = a . key , value = a . value , generators = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         if self.call_invalid_rules:
             invalid_dict_comprehension = self.invalid_dict_comprehension()
@@ -3727,7 +3758,7 @@ class PythonParser(Parser):
         return None
 
     @memoize
-    def arguments(self): # type Optional[Tuple [list , list]]
+    def arguments(self): # type Optional[ast . Call]
         # arguments: args ','? &')' | invalid_arguments
         mark = self._index
         if self._verbose: log_start(self, 'arguments')
@@ -3744,18 +3775,24 @@ class PythonParser(Parser):
             self._index = mark
         return None
 
-    def args(self): # type Optional[Tuple [list , list]]
+    def args(self): # type Optional[ast . Call]
         # args: ','.(starred_expression | (assignment_expression | expression !':=') !'=')+ [',' kwargs] | kwargs
         mark = self._index
         if self._verbose: log_start(self, 'args')
+        tok = self.peek()
+        start_lineno, start_col_offset = tok.lineno, tok.column
         a = self._gather_99()
         if a:
             b = self._tmp_101()
-            return ( a + ( [e for e in b if isinstance ( e , ast . Starred )] if b else [] ) , ( [e for e in b if not isinstance ( e , ast . Starred )] if b else [] ) )
+            tok = self.get_last_non_whitespace_token()
+            end_lineno, end_col_offset = tok.end_lineno, tok.end_column
+            return ast . Call ( func = self . dummy_name ( ) , args = a + ( [e for e in b if isinstance ( e , ast . Starred )] if b else [] ) , keywords = ( [e for e in b if isinstance ( e , ast . keyword )] if b else [] ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         a = self.kwargs()
         if a:
-            return ( [e for e in a if isinstance ( e , ast . Starred )] , [e for e in a if not isinstance ( e , ast . Starred )] )
+            tok = self.get_last_non_whitespace_token()
+            end_lineno, end_col_offset = tok.end_lineno, tok.end_column
+            return ast . Call ( func = self . dummy_name ( ) , args = [e for e in a if isinstance ( e , ast . Starred )] , keywords = [e for e in a if isinstance ( e , ast . keyword )] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         return None
 
@@ -4106,7 +4143,7 @@ class PythonParser(Parser):
                     if self.positive_lookahead(self.t_lookahead, ):
                         tok = self.get_last_non_whitespace_token()
                         end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                        return ast . Call ( func = a , args = b [0] if b else None , keywords = self . check_repeated_keywords ( b ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                        return ast . Call ( func = a , args = b . args if b else None , keywords = self . check_repeated_keywords ( b ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         a = self.atom()
         if a:
@@ -4321,7 +4358,7 @@ class PythonParser(Parser):
             if literal:
                 literal_1 = self.expect_type(16)
                 if literal_1:
-                    return self . raise_syntax_error_known_location ( "iterable argument unpacking follows keyword argument unpacking" , a [1] [- 1] if a [1] else a [0] [- 1] , )
+                    return self . raise_syntax_error_known_location ( "iterable argument unpacking follows keyword argument unpacking" , a . keywords [- 1] if a . keywords else a . args [- 1] , )
         self._index = mark
         a = self.expression()
         if a:
@@ -4330,7 +4367,7 @@ class PythonParser(Parser):
                 literal = self.expect_type(12)
                 if literal:
                     opt = self._tmp_126()
-                    return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , b [- 1] . target )
+                    return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , self . get_last_target ( b ) )
         self._index = mark
         a = self.name()
         if a:
@@ -4346,7 +4383,7 @@ class PythonParser(Parser):
         if a:
             for_if_clauses = self.for_if_clauses()
             if for_if_clauses:
-                return self . raise_syntax_error_starting_from ( "Generator expression must be parenthesized" , a [1] [- 1] if a [1] else a [0] [- 1] )
+                return self . raise_syntax_error_starting_from ( "Generator expression must be parenthesized" , a . keywords [- 1] if a . keywords else a . args [- 1] )
         self._index = mark
         args = self.args()
         if args:
@@ -4356,7 +4393,7 @@ class PythonParser(Parser):
                 if a:
                     b = self.for_if_clauses()
                     if b:
-                        return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , b [- 1] . target , )
+                        return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , self . get_last_target ( b ) , )
         self._index = mark
         a = self.args()
         if a:
@@ -4364,7 +4401,7 @@ class PythonParser(Parser):
             if literal:
                 args = self.args()
                 if args:
-                    return self . raise_syntax_error ( "positional argument follows keyword argument unpacking" if a [1] [- 1] . arg is None else "positional argument follows keyword argument" , )
+                    return self . raise_syntax_error ( "positional argument follows keyword argument unpacking" if self . check_last_keyword_no_arg ( a ) else "positional argument follows keyword argument" , )
         self._index = mark
         return None
 
@@ -5174,7 +5211,7 @@ class PythonParser(Parser):
         a = self.expression()
         if a:
             if self.negative_lookahead(self.expect_type, 11):
-                return self . _raise_syntax_error ( "':' expected after dictionary key" , a . lineno , a . col_offset - 1 , a . end_lineno , a . end_col_offset , - 1 )
+                return self . _raise_syntax_error ( "':' expected after dictionary key" , a . lineno , a . col_offset - 1 , a . end_lineno , a . end_col_offset - 1 , )
         self._index = mark
         expression = self.expression()
         if expression:
@@ -7264,7 +7301,7 @@ class PythonParser(Parser):
         if literal:
             _tmp_179 = self._tmp_179()
             if _tmp_179:
-                return literal
+                return self.dummy_name()
         self._index = mark
         return None
 
