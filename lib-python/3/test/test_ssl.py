@@ -2510,6 +2510,14 @@ class ThreadedEchoServer(threading.Thread):
                             sys.stdout.write(err.args[1])
                         # test_pha_required_nocert is expecting this exception
                         raise ssl.SSLError('tlsv13 alert certificate required')
+                    if 'UNEXPECTED_EOF_WHILE_READING' == err.reason:
+                        # PyPy OpenSSL3 needs this, on CPython a
+                        # BrokenPipeError is raised which is caught as an
+                        # OSError. In this case do not stop the server.
+                        if self.server.chatty:
+                            handle_error("Test server failure:\n")
+                        self.close()
+                        self.running = False
                 except OSError:
                     if self.server.chatty:
                         handle_error("Test server failure:\n")
