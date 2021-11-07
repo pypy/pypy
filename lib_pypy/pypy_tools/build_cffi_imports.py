@@ -20,17 +20,6 @@ except ImportError:
     sys.modules['_multiprocessing'] = types.ModuleType('fake _multiprocessing')
 import multiprocessing
 
-try:
-    from shutil import which
-except ImportError:
-    # shutil.which is only available on python3.3+
-    def which(program):
-        path = os.environ['PATH'].split(os.pathsep)
-        for p in path:
-            if program in os.listdir(p):
-                return os.path.join(p, program)
-        return None
-
 # do not use the long-running runsubprocess._run here, since building some of
 # the extensions enable importing them later
 os.environ['PYPY_DONT_RUN_SUBPROCESS'] = '1'
@@ -80,8 +69,6 @@ cffi_dependencies = {
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
 }
-if which('yum'):
-    cffi_dependencies['_ssl'][2].insert(0, 'yum -y install perl-IPC-Cmd perl-Digest-SHA'.split(' '))
 
 if sys.platform == 'darwin' or platform.machine() == 'aarch64':
     # TODO: use these on x86 after upgrading Docker images to manylinux2014
