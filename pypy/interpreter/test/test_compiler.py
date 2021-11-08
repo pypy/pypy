@@ -1012,7 +1012,7 @@ class AppTestCompiler(object):
         excinfo = raises(SyntaxError, compile, b'# coding: utf-8\nx = b"a" b"c" b"\xfd"\n',
                "dummy", "exec")
         assert excinfo.value.lineno == 2
-        assert excinfo.value.offset == 14
+        assert excinfo.value.offset == 17
 
     def test_zeros_not_mixed_in_lambdas(self):
         import math

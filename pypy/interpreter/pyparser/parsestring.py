@@ -3,6 +3,7 @@ from rpython.rlib import rutf8
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import unicodehelper
+from pypy.interpreter.pyparser.error import SyntaxError
 from rpython.rlib.rstring import StringBuilder
 
 
@@ -108,10 +109,14 @@ def parsestr(space, encoding, s, stnode=None, astbuilder=None):
 
     substr = s[ps : q]
     # Disallow non-ascii characters (but not escapes)
-    for c in substr:
+    for i, c in enumerate(substr):
         if ord(c) > 0x80:
+            raise SyntaxError("bytes can only contain ASCII literal characters.",
+                stnode.get_lineno(),
+                stnode.get_column() + ps + 1)
+
             raise oefmt(space.w_SyntaxError,
-                        "bytes can only contain ASCII literal characters.")
+                        )
 
     if rawmode or '\\' not in substr:
         return space.newbytes(substr)
