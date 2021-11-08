@@ -28,10 +28,10 @@ statements[list]: a=statement+ { [x for l in a for x in l] }
 
 statement[list]: a=compound_stmt { [a] } | a=simple_stmts { a }
 
-statement_newline[list]:
-    | a=compound_stmt NEWLINE { [a] }
-    | simple_stmts
-    | NEWLINE { [ast.Pass(LOCATIONS)] }
+statement_newline[list]: # PyPy modification: all rules need to end with ENDMARKER`
+    | a=compound_stmt NEWLINE ENDMARKER { [a] }
+    | a=simple_stmts ENDMARKER { a }
+    | NEWLINE ENDMARKER { [ast.Pass(LOCATIONS)] }
     | ENDMARKER { None }
 
 simple_stmts[list]:

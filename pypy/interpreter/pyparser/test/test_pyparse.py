@@ -94,6 +94,8 @@ class TestPythonParser:
         self.parse('if 1:\n  x\n', info=info)
         self.parse('x = 5 ', info=info)
         py.test.raises(SyntaxError, self.parse, "if 1:\n  x", info=info)
+        excinfo = py.test.raises(SyntaxError, self.parse, "if 1:\n  x x\n", info=info)
+        import pdb; pdb.set_trace()
 
     def test_encoding_pep3120(self):
         info = pyparse.CompileInfo("<test>", "exec")

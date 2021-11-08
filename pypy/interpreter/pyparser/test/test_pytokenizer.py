@@ -132,3 +132,35 @@ whatisthis"""'''
         columns = [t.column for t in tks]
         assert columns == [0, 2, 4, 6, 8, 10, 12, 14, 16]
         assert [t.end_column - 1 for t in tks] == columns
+
+    def test_PyCF_DONT_IMPLY_DEDENT(self):
+        input = "if 1:\n  1\n"
+        # regular mode
+        tks = tokenize(input)
+        lines = input.splitlines(True)
+        del tks[-2] # new parser deletes one newline anyway
+        assert tks == [
+            Token(tokens.NAME, 'if', 1, 0, lines[0], 1, 2),
+            Token(tokens.NUMBER, '1', 1, 3, lines[0], 1, 4),
+            Token(tokens.COLON, ':', 1, 4, lines[0], 1, 5),
+            Token(tokens.NEWLINE, '', 1, 5, lines[0], -1, -1),
+            Token(tokens.INDENT, '  ', 2, 0, lines[1], 2, 2),
+            Token(tokens.NUMBER, '1', 2, 2, lines[1], 2, 3),
+            Token(tokens.NEWLINE, '', 2, 3, lines[1], -1, -1),
+            Token(tokens.DEDENT, '', 3, 0, '', -1, -1),
+            Token(tokens.ENDMARKER, '', 3, 0, '', -1, -1),
+        ]
+        # single mode
+        tks = tokenize(input, flags=consts.PyCF_DONT_IMPLY_DEDENT)
+        lines = input.splitlines(True)
+        del tks[-2] # new parser deletes one newline anyway
+        assert tks == [
+            Token(tokens.NAME, 'if', 1, 0, lines[0], 1, 2),
+            Token(tokens.NUMBER, '1', 1, 3, lines[0], 1, 4),
+            Token(tokens.COLON, ':', 1, 4, lines[0], 1, 5),
+            Token(tokens.NEWLINE, '', 1, 5, lines[0], -1, -1),
+            Token(tokens.INDENT, '  ', 2, 0, lines[1], 2, 2),
+            Token(tokens.NUMBER, '1', 2, 2, lines[1], 2, 3),
+            Token(tokens.NEWLINE, '', 2, 3, lines[1], -1, -1),
+            Token(tokens.ENDMARKER, '', 3, 0, '', -1, -1),
+        ]

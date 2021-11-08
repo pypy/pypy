@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
+from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error, pytoken
 from pypy.interpreter.astcompiler import consts
 from pypy.module.sys.version import CPYTHON_VERSION
 from rpython.rlib import rstring
@@ -359,18 +359,22 @@ class PegParser(object):
             e.filename = compile_info.filename
             raise
 
+
         newflags, last_future_import = (
             future.add_future_flags(self.future_flags, tokens))
         compile_info.last_future_import = last_future_import
         compile_info.flags |= newflags
 
+        mode = compile_info.mode
+        if mode != "single":
+            assert tokens[-2].token_type == pytoken.python_tokens['NEWLINE']
+            del tokens[-2]
         pp = PythonParser(self.space, tokens, compile_info)
         try:
             for token in tokens:
                 # Special handling for TYPE_IGNOREs
                 if token.token_type == pygram.tokens.TYPE_IGNORE:
                     self.type_ignores.append(token)
-            mode = compile_info.mode
             if mode == "exec":
                 meth = PythonParser.file
             elif mode == "single":

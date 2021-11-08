@@ -239,9 +239,6 @@ class Parser:
         self._path = "" # XXX
         self.type_ignores = []
         self.compile_info = compile_info
-        # delete final NEWLINE
-        assert tokenlist[-2].token_type == pytoken.python_tokens['NEWLINE']
-        del tokenlist[-2]
         for tok in tokenlist:
             # Special handling for TYPE_IGNOREs
             if tok.token_type == tokens.TYPE_IGNORE:
@@ -263,7 +260,7 @@ class Parser:
                     tok.token_type = index
             tok.memo = None
             self._tokens.append(tok)
-            if not self._path and tok.line:
+            if not self._path and tok.line and tok.lineno not in self._lines:
                 self._lines[tok.lineno] = tok.line
         self._index = 0
         self._highwatermark = 0

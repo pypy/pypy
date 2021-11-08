@@ -111,7 +111,7 @@ class PythonParser(Parser):
         return None
 
     def statement_newline(self): # type Optional[list]
-        # statement_newline: compound_stmt NEWLINE | simple_stmts | NEWLINE | $
+        # statement_newline: compound_stmt NEWLINE $ | simple_stmts $ | NEWLINE $ | $
         mark = self._index
         if self._verbose: log_start(self, 'statement_newline')
         tok = self.peek()
@@ -120,17 +120,23 @@ class PythonParser(Parser):
         if a:
             _newline = self.expect_type(4)
             if _newline:
-                return [a]
+                _endmarker = self.expect_type(0)
+                if _endmarker:
+                    return [a]
         self._index = mark
-        simple_stmts = self.simple_stmts()
-        if simple_stmts:
-            return simple_stmts
+        a = self.simple_stmts()
+        if a:
+            _endmarker = self.expect_type(0)
+            if _endmarker:
+                return a
         self._index = mark
         _newline = self.expect_type(4)
         if _newline:
-            tok = self.get_last_non_whitespace_token()
-            end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-            return [ast . Pass ( lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )]
+            _endmarker = self.expect_type(0)
+            if _endmarker:
+                tok = self.get_last_non_whitespace_token()
+                end_lineno, end_col_offset = tok.end_lineno, tok.end_column
+                return [ast . Pass ( lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )]
         self._index = mark
         _endmarker = self.expect_type(0)
         if _endmarker:
