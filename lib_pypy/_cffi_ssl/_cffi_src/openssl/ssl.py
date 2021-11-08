@@ -235,6 +235,8 @@ int SSL_CTX_set_cipher_list(SSL_CTX *, const char *);
 int SSL_CTX_load_verify_locations(SSL_CTX *, const char *, const char *);
 void SSL_CTX_set_default_passwd_cb(SSL_CTX *, pem_password_cb *);
 void SSL_CTX_set_default_passwd_cb_userdata(SSL_CTX *, void *);
+pem_password_cb *SSL_CTX_get_default_passwd_cb(SSL_CTX *ctx);
+void *SSL_CTX_get_default_passwd_cb_userdata(SSL_CTX *ctx);
 int SSL_CTX_use_certificate(SSL_CTX *, X509 *);
 int SSL_CTX_use_certificate_ASN1(SSL_CTX *, int, const unsigned char *);
 int SSL_CTX_use_certificate_file(SSL_CTX *, const char *, int);
