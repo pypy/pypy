@@ -146,21 +146,20 @@ On SLES11::
 
 On Mac OS X:
 
-Most of these build-time dependencies are installed alongside
-the Developer Tools. However, note that in order for the installation to
-find them you may need to run::
+Currently PyPy does not support M1 Apple Silicon (arm64). You must use the 
+x86_64 emulation mode, which requires pre-pending ``arch -x64_64`` to some
+commands, and using a seconde installation of homebrew at ``/usr/local/bin/brew``
+Most of the build-time dependencies are installed alongside
+the Developer Tools. ``libffi`` and ``openssl`` still need to be installed:
 
     xcode-select --install
-
-An exception is OpenSSL, which is no longer provided with the operating
-system. It can be obtained via Homebrew (with ``$ brew install openssl``),
-but it will not be available on the system path by default. The easiest
-way to enable it for building pypy is to set an environment variable::
-
-    export PKG_CONFIG_PATH=$(brew --prefix)/opt/openssl/lib/pkgconfig
+	# for M1 machines to use x86_64 mode
+	# softwareupdate --install-rosetta
+	# install brew
+	brew install libffi openssl pypy pkg-config
 
 After setting this, translation (described next) will find the OpenSSL libs
-as expected.
+as expected via ``pkg-config``.
 
 Set environment variables that will affect translation
 ------------------------------------------------------
