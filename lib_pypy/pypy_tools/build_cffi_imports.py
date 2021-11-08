@@ -239,7 +239,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             env['CPPFLAGS'] = \
                 '-I{}/usr/include {}'.format(deps_destdir, env.get('CPPFLAGS', ''))
             env['LDFLAGS'] = \
-                '-L{}/usr/lib {}'.format(deps_destdir, env.get('LDFLAGS', ''))
+                '-L{}/usr/lib -L{}/usr/lib64 {}'.format(deps_destdir, deps_destdir,
+                                                        env.get('LDFLAGS', ''))
 
         try:
             status, stdout, stderr = run_subprocess(str(pypy_c), args,
@@ -275,8 +276,8 @@ if __name__ == '__main__':
         sys.exit(1)
 
     tool_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    base_dir = os.path.dirname(os.path.dirname(tool_dir))
-    sys.path.insert(0, base_dir)
+    lib_pypy_dir = os.path.dirname(os.path.dirname(tool_dir))
+    sys.path.insert(0, lib_pypy_dir)
 
     class Options(object):
         pass
@@ -307,9 +308,14 @@ if __name__ == '__main__':
         only = None
     else:
         only = set(args.only.split(','))
-    failures = create_cffi_import_libraries(exename, options, basedir, only=only,
-                                            embed_dependencies=args.embed_dependencies,
-                                            rebuild=args.rebuild)
+    olddir = os.getcwd()
+    os.chdir(lib_pypy_dir)
+    try:
+        failures = create_cffi_import_libraries(exename, options, basedir,
+                        only=only, embed_dependencies=args.embed_dependencies,
+                        rebuild=args.rebuild)
+    finally:
+        os.chdir(olddir)
     if len(failures) > 0:
         print('*** failed to build the CFFI modules %r' % (
             [f[1] for f in failures],), file=sys.stderr)
