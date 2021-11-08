@@ -122,7 +122,7 @@ def pyssl_error(obj, ret):
                     # s = obj.get_socket_or_None()
                     if sys.platform == 'win32':
                         if err.ws:
-                            return OSError(err.ws)
+                            return OSError(err.ws, 'err')
                     if err.c:
                         ffi.errno = err.c 
                     errno = ffi.errno
