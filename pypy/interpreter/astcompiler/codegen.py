@@ -516,9 +516,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     @specialize.arg(2)
     def _visit_function(self, func, function_code_generator):
-        self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
-        self.visit_sequence(func.decorator_list)
+        if func.decorator_list:
+            for dec in func.decorator_list:
+                if dec.lineno > 0:
+                    self.update_position(dec.lineno)
+                dec.walkabout(self)
+
         args = func.args
 
         assert isinstance(args, ast.arguments)
@@ -1978,6 +1982,9 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
 class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, func):
+        self.first_lineno = func.lineno
+        if func.decorator_list and func.decorator_list[0].lineno > 0:
+            self.first_lineno = func.decorator_list[0].lineno
         assert isinstance(func, ast.FunctionDef)
         has_docstring = self.ensure_docstring_constant(func.body)
         args = func.args
@@ -1991,6 +1998,9 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, func):
+        self.first_lineno = func.lineno
+        if func.decorator_list and func.decorator_list[0].lineno > 0:
+            self.first_lineno = func.decorator_list[0].lineno
         assert isinstance(func, ast.AsyncFunctionDef)
         has_docstring = self.ensure_docstring_constant(func.body)
         args = func.args
