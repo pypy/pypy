@@ -74,8 +74,8 @@ if sys.platform == 'darwin' or platform.machine() == 'aarch64':
     # TODO: use these on x86 after upgrading Docker images to manylinux2014
     cffi_dependencies['_gdbm'] = (
               # this does not compile on the x86 buildbot, linker is missing '_history_list'
-              'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
-              '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
+              'http://distfiles.macports.org/gdbm/gdbm-1.19.tar.gz',
+              '37ed12214122b972e18a0d94995039e57748191939ef74115b1d41d8811364bc',
               [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
