@@ -206,6 +206,8 @@ def generate_tokens(lines, flags):
             if line[pos] in '\r\n':
                 # skip blank lines
                 continue
+            if line[pos] == '\\' and line[pos + 1] in '\r\n':
+                continue # skip lines that are only a line continuation char
             if line[pos] == '#':
                 # skip full-line comment, but still check that it is valid utf-8
                 if not verify_utf8(line):

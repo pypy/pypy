@@ -164,3 +164,10 @@ whatisthis"""'''
             Token(tokens.NEWLINE, '', 2, 3, lines[1], -1, -1),
             Token(tokens.ENDMARKER, '', 3, 0, '', -1, -1),
         ]
+
+    def test_ignore_just_linecont(self):
+        input = "pass\n    \\\n\npass"
+        tks = tokenize(input)
+        tps = [tk.token_type for tk in tks]
+        assert tps == [tokens.NAME, tokens.NEWLINE, tokens.NAME,
+                tokens.NEWLINE, tokens.NEWLINE, tokens.ENDMARKER]
