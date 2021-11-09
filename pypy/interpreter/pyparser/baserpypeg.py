@@ -455,7 +455,7 @@ class Parser:
 
     def expect_forced(self, res, expectation):
         if res is None:
-            self.raise_syntax_error("expected {expectation}")
+            self.raise_syntax_error("expected " + expectation)
         return res
 
     def positive_lookahead(self, func, *args):
