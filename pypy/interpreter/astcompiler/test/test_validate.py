@@ -363,7 +363,6 @@ class TestASTValidator:
             sl = ast.Slice(*args + POS)
             self.expr(ast.Subscript(x, sl, ast.Load, *POS),
                       "must have Load context")
-        self.expr(ast.Subscript(x, ast.Tuple([], ast.Load, *POS), ast.Load, *POS), "empty elts on Tuple used as Subscript")
 
     def test_starred(self):
         left = ast.List([ast.Starred(ast.Name("x", ast.Load, *POS), ast.Store, *POS)],

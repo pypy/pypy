@@ -1,6 +1,6 @@
 import string
 import py
-from pypy.interpreter.astcompiler import ast, astbuilder, symtable, consts
+from pypy.interpreter.astcompiler import ast, symtable, consts
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.error import SyntaxError
 
@@ -11,10 +11,9 @@ class TestSymbolTable:
         cls.parser = pyparse.PythonParser(cls.space)
 
     def mod_scope(self, source, mode="exec"):
-        info = pyparse.CompileInfo("<test>", mode,
-                                   consts.CO_FUTURE_WITH_STATEMENT)
-        tree = self.parser.parse_source(source, info)
-        module = astbuilder.ast_from_node(self.space, tree, info)
+        ec = self.space.getexecutioncontext()
+        module = ec.compiler.compile_to_ast(source, "<test>", mode, 0)
+        info = pyparse.CompileInfo("<test>", mode, 0)
         builder = symtable.SymtableBuilder(self.space, module, info)
         scope = builder.find_scope(module)
         assert isinstance(scope, symtable.ModuleScope)

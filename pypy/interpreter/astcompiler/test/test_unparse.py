@@ -1,6 +1,5 @@
 import pytest
 from pypy.interpreter.pyparser import pyparse
-from pypy.interpreter.astcompiler.astbuilder import ast_from_node
 from pypy.interpreter.astcompiler import ast, consts
 from pypy.interpreter.astcompiler.unparse import unparse, unparse_annotations
 
@@ -12,9 +11,8 @@ class TestAstUnparser:
     def get_ast(self, source, p_mode="exec", flags=None):
         if flags is None:
             flags = consts.CO_FUTURE_WITH_STATEMENT
-        info = pyparse.CompileInfo("<test>", p_mode, flags)
-        tree = self.parser.parse_source(source, info)
-        ast_node = ast_from_node(self.space, tree, info, self.parser)
+        ec = self.space.getexecutioncontext()
+        ast_node = ec.compiler.compile_to_ast(source, "?", p_mode, flags)
         return ast_node
 
     def get_first_expr(self, source, p_mode="exec", flags=None):
@@ -173,9 +171,8 @@ class TestAstUnparseAnnotations(object):
     def get_ast(self, source, p_mode="exec", flags=None):
         if flags is None:
             flags = consts.CO_FUTURE_WITH_STATEMENT
-        info = pyparse.CompileInfo("<test>", p_mode, flags)
-        tree = self.parser.parse_source(source, info)
-        ast_node = ast_from_node(self.space, tree, info, self.parser)
+        ec = self.space.getexecutioncontext()
+        ast_node = ec.compiler.compile_to_ast(source, "?", p_mode, flags)
         return ast_node
 
     def test_function(self):

@@ -5,7 +5,7 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 
 from pypy.interpreter import pycode
 from pypy.interpreter.pyparser import future, pyparse, error as parseerror
-from pypy.interpreter.astcompiler import (astbuilder, codegen, consts, misc,
+from pypy.interpreter.astcompiler import (codegen, consts, misc,
                                           optimize, ast, validate)
 from pypy.interpreter.error import OperationError, oefmt
 
@@ -20,7 +20,7 @@ class AbstractCompiler(object):
         self.space = space
         self.w_compile_hook = space.w_None
 
-    def compile(self, source, filename, mode, flags):
+    def compile(self, source, filename, mode, flags=0):
         """Compile and return an pypy.interpreter.eval.Code instance."""
         raise NotImplementedError
 
@@ -106,7 +106,7 @@ class PythonAstCompiler(PyCodeCompiler):
         self.additional_rules = {}
         self.compiler_flags = self.future_flags.allowed_flags
 
-    def compile_ast(self, node, filename, mode, flags, optimize=-1):
+    def compile_ast(self, node, filename, mode, flags=0, optimize=-1):
         if mode == 'eval':
             check = isinstance(node, ast.Expression)
         elif mode == 'exec':
@@ -152,7 +152,7 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(self.space.w_ValueError,
                                  self.space.newtext(e.message))
 
-    def compile_to_ast(self, source, filename, mode, flags, feature_version=-1):
+    def compile_to_ast(self, source, filename, mode, flags=0, feature_version=-1):
         info = pyparse.CompileInfo(filename, mode, flags, feature_version=feature_version)
         return self._compile_to_ast(source, info)
 
@@ -170,7 +170,7 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source))
         return mod
 
-    def compile(self, source, filename, mode, flags, hidden_applevel=False,
+    def compile(self, source, filename, mode, flags=0, hidden_applevel=False,
             optimize=-1):
         if optimize == -1:
             optimize = self.space.sys.get_optimize()

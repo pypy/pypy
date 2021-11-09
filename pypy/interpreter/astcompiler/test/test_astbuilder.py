@@ -8,14 +8,24 @@ import textwrap
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.error import SyntaxError
-from pypy.interpreter.astcompiler.astbuilder import ast_from_node
 from pypy.interpreter.astcompiler import ast, consts
 
 
-class TestAstBuilder:
+class TestAstBuilding:
 
     def setup_class(cls):
-        cls.parser = pyparse.PythonParser(cls.space)
+        cls.parser = pyparse.PegParser(cls.space)
+
+    def get_ast(self, source, p_mode=None, flags=None, with_async_hacks=False):
+        if p_mode is None:
+            p_mode = "exec"
+        if flags is None:
+            flags = consts.CO_FUTURE_WITH_STATEMENT
+        if with_async_hacks:
+            flags |= consts.PyCF_ASYNC_HACKS
+        info = pyparse.CompileInfo("<test>", p_mode, flags)
+        self.info = info
+        return self.parser.parse_source(source, info)
 
     def setup_method(self, method):
         self.info = None
@@ -29,8 +39,7 @@ class TestAstBuilder:
             flags |= consts.PyCF_ASYNC_HACKS
         info = pyparse.CompileInfo("<test>", p_mode, flags)
         self.info = info
-        tree = self.parser.parse_source(source, info)
-        ast_node = ast_from_node(self.space, tree, info, self.parser)
+        ast_node = self.parser.parse_source(source, info)
         return ast_node
 
     def get_first_expr(self, source, p_mode=None, flags=None):
@@ -1985,21 +1994,4 @@ class TestAstBuilder:
         assert tree.keywords[0].end_col_offset == 5
         assert tree.keywords[1].col_offset == 7
         assert tree.keywords[1].end_col_offset == 14
-
-
-class TestAstBuilderPeg(TestAstBuilder):
-
-    def setup_class(cls):
-        cls.parser = pyparse.PegParser(cls.space)
-
-    def get_ast(self, source, p_mode=None, flags=None, with_async_hacks=False):
-        if p_mode is None:
-            p_mode = "exec"
-        if flags is None:
-            flags = consts.CO_FUTURE_WITH_STATEMENT
-        if with_async_hacks:
-            flags |= consts.PyCF_ASYNC_HACKS
-        info = pyparse.CompileInfo("<test>", p_mode, flags)
-        self.info = info
-        return self.parser.parse_source(source, info)
 

@@ -11,18 +11,16 @@ from pypy.interpreter.error import OperationError
 from pypy.tool import stdlib_opcode as ops
 
 def compile_with_astcompiler(expr, mode, space):
-    p = pyparse.PythonParser(space)
+    p = pyparse.PegParser(space)
     info = pyparse.CompileInfo("<test>", mode)
-    cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info, recursive_parser=p)
+    ast = p.parse_source(expr, info)
     return codegen.compile_ast(space, ast, info)
 
 def generate_function_code(expr, space):
     from pypy.interpreter.astcompiler.ast import FunctionDef
-    p = pyparse.PythonParser(space)
+    p = pyparse.PegParser(space)
     info = pyparse.CompileInfo("<test>", 'exec')
-    cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info, recursive_parser=p)
+    ast = p.parse_source(expr, info)
     function_ast = optimize.optimize_ast(space, ast.body[0], info)
     function_ast = ast.body[0]
     assert isinstance(function_ast, FunctionDef)
