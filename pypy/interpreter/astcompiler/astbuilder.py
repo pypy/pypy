@@ -7,6 +7,7 @@ from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError
 from rpython.rlib.objectmodel import always_inline, we_are_translated, specialize
 
+
 class ASTBuilder(object):
 
     def __init__(self, space, n, compile_info, recursive_parser=None):

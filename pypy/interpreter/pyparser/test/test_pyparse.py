@@ -110,7 +110,7 @@ class TestPythonParser:
         exc = py.test.raises(SyntaxError, parse, "name another for").value
         assert exc.msg.startswith("invalid syntax")
         assert exc.lineno == 1
-        assert exc.offset == 1
+        assert exc.offset in (1, 6)
         assert exc.text.startswith("name another for")
         exc = py.test.raises(SyntaxError, parse, "x = \"blah\n\n\n").value
         assert exc.msg == "end of line (EOL) while scanning string literal"

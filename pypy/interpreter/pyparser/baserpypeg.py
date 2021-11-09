@@ -162,36 +162,6 @@ def memoize_left_rec(method):
     memoize_left_rec_wrapper.__wrapped__ = method  # type: ignore
     return memoize_left_rec_wrapper
 
-class FStringAstBuilder(ASTBuilder):
-    def __init__(self, space, parser, compile_info):
-        self.space = space
-        self.parser = parser
-        self.compile_info = compile_info
-
-    def recursive_parse_to_ast(self, str, info):
-        from pypy.interpreter.pyparser import pytokenizer as tokenize
-        from pypy.interpreter.pyparser import rpypegparse
-        tokenlist = tokenize.generate_tokens(str.splitlines(), 0)
-        parser = rpypegparse.PythonParser(self.space, tokenlist, self.compile_info, verbose=False)
-        return parser.eval()
-
-    def check_feature(self, condition, version, msg, n):
-         if condition and self.compile_info.feature_version < version:
-            return self.error(msg, n)
-
-    def error_ast(self, msg, node):
-        self.parser.raise_syntax_error_known_location(msg, node)
-
-    def error(self, msg, node):
-        # XXX bit annoying
-        from pypy.interpreter.pyparser.parser import Nonterminal, Terminal
-        if isinstance(node, Terminal):
-            pass
-        else:
-            node = node.flatten()[0]
-        tok = Token(node.type, node.value, node.lineno, node.column, node.line, node.end_lineno, node.end_column)
-        self.parser.raise_syntax_error_known_location(msg, tok)
-
 def isspace(s):
     res = True
     for c in s:
@@ -277,6 +247,34 @@ class Parser:
 
         self.py_version = (3, 9)
         self.space = space
+
+    def recursive_parse_to_ast(self, str, info):
+        from pypy.interpreter.pyparser import pytokenizer as tokenize
+        from pypy.interpreter.pyparser import rpypegparse
+        tokenlist = tokenize.generate_tokens(str.splitlines(), 0)
+        parser = rpypegparse.PythonParser(self.space, tokenlist, self.compile_info, verbose=False)
+        return parser.eval()
+
+    def deprecation_warn(self, msg, tok):
+        from pypy.interpreter import error
+        from pypy.module._warnings.interp_warnings import warn_explicit
+        space = self.space
+        try:
+            warn_explicit(
+                space, space.newtext(msg),
+                space.w_DeprecationWarning,
+                space.newtext(self.compile_info.filename),
+                tok.lineno,
+                space.w_None,
+                space.w_None,
+                space.w_None,
+                space.w_None,
+                )
+        except error.OperationError as e:
+            if e.match(space, space.w_DeprecationWarning):
+                self.raise_syntax_error_known_location(msg, tok)
+            else:
+                raise
 
 
     def parse(self, entry):
@@ -482,8 +480,9 @@ class Parser:
                 self.py_version[1] >= min_version[1])):
             return node
         else:
-            self.raise_syntax_error(
-                "%s is only supported in Python %s and above." % (error_msg, min_version))
+            self.raise_syntax_error_known_location(
+                "%s only supported in Python %s and above." % (error_msg, min_version),
+                node)
 
     def raise_indentation_error(self, msg):
         """Raise an indentation error."""
@@ -569,8 +568,8 @@ class Parser:
         from pypy.interpreter.astcompiler.fstring import string_parse_literal
         # bit of a hack, allow fstrings to keep using the old interface
         return string_parse_literal(
-            FStringAstBuilder(self.space, self, self.compile_info),
-            Nonterminal(None, -5, [Terminal.fromtoken(None, tok) for tok in tokens]))
+            self,
+            tokens)
 
     def extract_import_level(self, tokens):
         """Extract the relative import level from the tokens preceding the module name.

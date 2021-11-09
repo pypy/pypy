@@ -1,9 +1,8 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyparser import pyparse, pygram, error
-from pypy.interpreter.astcompiler.astbuilder import ast_from_node
 from pypy.interpreter.astcompiler.codegen import compile_ast
 from rpython.rlib.objectmodel import specialize
 
