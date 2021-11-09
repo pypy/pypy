@@ -861,6 +861,9 @@ atom:
     | a=NUMBER {
         ast.Constant(value=parse_number(self.space, a.value), kind=None, LOCATIONS)
      }
+    | a='$NUM' {
+        ast.RevDBMetaVar(int(tok.value[1:]), LOCATIONS)
+    }
     | &'(' (tuple | group | genexp)
     | &'[' (list | listcomp)
     | &'{' (dict | set | dictcomp | setcomp)

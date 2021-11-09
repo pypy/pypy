@@ -1982,10 +1982,10 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
 class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, func):
+        assert isinstance(func, ast.FunctionDef)
         self.first_lineno = func.lineno
         if func.decorator_list and func.decorator_list[0].lineno > 0:
             self.first_lineno = func.decorator_list[0].lineno
-        assert isinstance(func, ast.FunctionDef)
         has_docstring = self.ensure_docstring_constant(func.body)
         args = func.args
         assert isinstance(args, ast.arguments)
@@ -1998,10 +1998,10 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, func):
+        assert isinstance(func, ast.AsyncFunctionDef)
         self.first_lineno = func.lineno
         if func.decorator_list and func.decorator_list[0].lineno > 0:
             self.first_lineno = func.decorator_list[0].lineno
-        assert isinstance(func, ast.AsyncFunctionDef)
         has_docstring = self.ensure_docstring_constant(func.body)
         args = func.args
         assert isinstance(args, ast.arguments)

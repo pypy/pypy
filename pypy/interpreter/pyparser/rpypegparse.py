@@ -2370,7 +2370,7 @@ class PythonParser(Parser):
         return None
 
     def atom(self): # type Optional[Any]
-        # atom: NAME | 'True' | 'False' | 'None' | &STRING strings | NUMBER | &'(' (tuple | group | genexp) | &'[' (list | listcomp) | &'{' (dict | set | dictcomp | setcomp) | '...'
+        # atom: NAME | 'True' | 'False' | 'None' | &STRING strings | NUMBER | '$NUM' | &'(' (tuple | group | genexp) | &'[' (list | listcomp) | &'{' (dict | set | dictcomp | setcomp) | '...'
         mark = self._index
         if self._verbose: log_start(self, 'atom')
         tok = self.peek()
@@ -2407,6 +2407,12 @@ class PythonParser(Parser):
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
             return ast . Constant ( value = parse_number ( self . space , a . value ) , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+        self._index = mark
+        a = self.expect_type(64)
+        if a:
+            tok = self.get_last_non_whitespace_token()
+            end_lineno, end_col_offset = tok.end_lineno, tok.end_column
+            return ast . RevDBMetaVar ( int ( tok . value [1 :] ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         if self.positive_lookahead(PythonParser.expect_type, 7):
             _tmp_73 = self._tmp_73()
