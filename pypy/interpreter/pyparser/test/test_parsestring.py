@@ -1,5 +1,7 @@
 from pypy.interpreter.pyparser import parsestring
 from pypy.interpreter.pyparser.error import SyntaxError
+from pypy.interpreter.pyparser.parser import Terminal
+
 import py, sys
 
 class TestParsetring:
@@ -45,7 +47,8 @@ class TestParsetring:
         # second case we use a raw string, the the parser actually sees the
         # chars '\' 'x' 'e' '9'
         py.test.raises(SyntaxError,
-                       parsestring.parsestr, space, None, "b'\xe9'")
+                       parsestring.parsestr, space, None,
+                       "b'\xe9'", Terminal(None, -1, "b'\xe9'", 5, 0))
         self.parse_and_compare(r"b'\xe9'", chr(0xE9))
 
     def test_unicode(self):

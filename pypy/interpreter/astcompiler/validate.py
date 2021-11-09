@@ -443,9 +443,6 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_Subscript(self, node):
         self._validate_expr(node.value)
-        t = node.slice
-        if isinstance(t, ast.Tuple):
-            self._validate_nonempty_seq(t.elts, "elts", "Tuple used as Subscript")
         self._validate_expr(node.slice)
 
     def visit_RevDBMetaVar(self, node):

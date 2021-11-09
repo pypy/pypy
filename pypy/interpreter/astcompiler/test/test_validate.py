@@ -401,6 +401,12 @@ class TestASTValidator:
         for w_obj in space.unpackiterable(w_objs):
             self.expr(ast.Constant(w_obj, self.space.w_None, *POS), "got an invalid type in Constant")
 
+    def test_subscript_tuple(self):
+        # check that this valid code validates
+        ec = self.space.getexecutioncontext()
+        ast_node = ec.compiler.compile_to_ast("x = nd[()]", "?", "exec", 0)
+        validate.validate_ast(self.space, ast_node)
+
     def test_stdlib_validates(self):
         stdlib = os.path.join(os.path.dirname(ast.__file__), '../../../lib-python/3')
         if 0:    # enable manually for a complete test

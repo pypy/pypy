@@ -416,7 +416,7 @@ with_item[ast.withitem]:
 try_stmt[ast.Try]:
     | invalid_try_stmt
     | 'try' &&':' b=block f=finally_block {
-        ast.Try(body=b, handlers=None, orelse=None, finalbody=f, LOCATIONS)
+        ast.Try(body=b, handlers=[], orelse=None, finalbody=f, LOCATIONS)
      }
     | 'try' &&':' b=block ex=except_block+ el=[else_block] f=[finally_block] {
         ast.Try(body=b, handlers=ex, orelse=el, finalbody=f, LOCATIONS)

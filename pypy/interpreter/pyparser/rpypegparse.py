@@ -1453,7 +1453,7 @@ class PythonParser(Parser):
                     if f:
                         tok = self.get_last_non_whitespace_token()
                         end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                        return ast . Try ( body = b , handlers = None , orelse = None , finalbody = f , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                        return ast . Try ( body = b , handlers = [] , orelse = None , finalbody = f , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         literal = self.expect_type(510)
         if literal:
