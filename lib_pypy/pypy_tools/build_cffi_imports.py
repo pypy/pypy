@@ -278,9 +278,10 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             # Make sure it worked
             test_script = "print('testing {0}'); import {0}".format(key)
             if sys.platform == 'win32': 
-                externals_path = os.path.abspath(os.path.join(basedir, 'externals'))
-                test_script = ("import os; os.add_dll_directory(r'" +
-                               externals_path + r'\bin'  + "');" + test_script)
+                library_bin = os.environ.get('LIBRARY_BIN', None)
+                if library_bin and os.path.exists(library_bin):
+                    test_script = ("import os; print(os.add_dll_directory(r'" +
+                                   library_bin  + "'));" + test_script)
             status, stdout, stderr = run_subprocess(pypy3, ['-c', test_script],
                                                     env=env)
             if status != 0:
@@ -298,6 +299,11 @@ if __name__ == '__main__':
     if '__pypy__' not in sys.builtin_module_names:
         print('Call with a pypy interpreter', file=sys.stderr)
         sys.exit(1)
+
+    if 'add_dll_directory' in dir(os):
+        library_bin = os.environ.get('LIBRARY_BIN', None)
+        if library_bin and os.path.exists(library_bin):
+            print(os.add_dll_directory(library_bin))
 
     tool_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     base_dir = os.path.dirname(os.path.dirname(tool_dir))
