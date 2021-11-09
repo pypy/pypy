@@ -266,6 +266,10 @@ def generate_tokens(lines, flags):
                 end = pseudomatch
 
                 if start == end:
+                    if line[start] == "\\":
+                        raise TokenError("unexpected character after line continuation character", line,
+                                         lnum, start + 2, token_list)
+
                     raise TokenError("Unknown character", line,
                                      lnum, start + 1, token_list)
 

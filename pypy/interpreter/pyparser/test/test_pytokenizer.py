@@ -171,3 +171,8 @@ whatisthis"""'''
         tps = [tk.token_type for tk in tks]
         assert tps == [tokens.NAME, tokens.NEWLINE, tokens.NAME,
                 tokens.NEWLINE, tokens.NEWLINE, tokens.ENDMARKER]
+
+    def test_error_linecont(self):
+        check_token_error("a \\ b",
+                          "unexpected character after line continuation character",
+                          4)
