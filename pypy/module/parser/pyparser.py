@@ -59,17 +59,8 @@ class W_STType(W_Root):
 
     @unwrap_spec(filename='fsencode')
     def descr_compile(self, space, filename="<syntax-tree>"):
-        info = pyparse.CompileInfo(filename, self.mode)
-        try:
-            ast = ast_from_node(space, self.tree, info, self.recursive_parser)
-            result = compile_ast(space, ast, info)
-        except error.IndentationError as e:
-            raise OperationError(space.w_IndentationError,
-                                 e.find_sourceline_and_wrap_info(space))
-        except error.SyntaxError as e:
-            raise OperationError(space.w_SyntaxError,
-                                 e.find_sourceline_and_wrap_info(space))
-        return result
+        raise oefmt(space.w_TypeError,
+            "The compile method no longer works on PyPy 3.9, the whole module was removed in CPython 3.10")
 
 W_STType.typedef = TypeDef("parser.st",
     issuite=interp2app(W_STType.descr_issuite),

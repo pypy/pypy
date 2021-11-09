@@ -47,13 +47,6 @@ class AppTestParser(ParserModuleTest):
             assert seq[2][2] == 1
             assert seq[2][3] == 0
 
-    def test_compile(self):
-        import types
-        for code in (self.m.suite("x = 4").compile(),
-                     self.m.compilest(self.m.suite("x = 4"))):
-            assert isinstance(code, types.CodeType)
-            assert code.co_filename == "<syntax-tree>"
-
     def test_error(self):
         assert repr(self.m.ParserError) == "<class 'parser.ParserError'>"
 
