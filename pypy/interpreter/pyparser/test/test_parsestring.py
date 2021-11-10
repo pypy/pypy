@@ -130,3 +130,8 @@ class TestParsetring:
         buf = parsestring.decode_unicode_utf8(self.space,
                                               'u"\xf0\x9f\x92\x8b"', 2, 6)
         assert buf == r"\U0001f48b"
+
+    def test_parsestr_segfault(self):
+        space = self.space
+        space.raises_w(space.w_UnicodeDecodeError,
+                       parsestring.parsestr, space, None, "r'\xc2'")
