@@ -3195,10 +3195,7 @@ def wait_process(pid, *, exitcode, timeout=None):
 
 
 def use_old_parser():
-    import _testinternalcapi
-    config = _testinternalcapi.get_configs()
-    return (config['config']['_use_peg_parser'] == 0)
-
+    return False # PyPy doesn't support the old parser
 
 def skip_if_new_parser(msg):
     return unittest.skipIf(not use_old_parser(), msg)
