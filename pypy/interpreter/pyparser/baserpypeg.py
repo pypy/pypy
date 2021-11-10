@@ -810,3 +810,8 @@ class Parser:
         self.raise_syntax_error_known_range(
             'expression cannot contain assignment, perhaps you meant "=="?', a, b,
         )
+
+    def revdbmetavar(self, num, *LOCATIONS):
+        if not self.space.config.translation.reverse_debugger:
+            self.raise_syntax_error_known_location("Unkown character", *LOCATIONS)
+        return ast.RevDBMetaVar(num, *LOCATIONS)
