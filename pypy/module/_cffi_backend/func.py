@@ -4,8 +4,10 @@ from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 from rpython.rlib.objectmodel import keepalive_until_here, we_are_translated
 from rpython.rlib import jit
 
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, ClassAttr
 from pypy.module._cffi_backend import ctypeobj, cdataobj, allocator
 
 
@@ -302,3 +304,18 @@ def gcp(space, w_cdata, w_destructor, size=0):
 @unwrap_spec(w_cdata=cdataobj.W_CData)
 def release(space, w_cdata):
     w_cdata.enter_exit(True)
+
+class OffsetInBytes(W_Root):
+    def __init__(self, bytes_w, offset):
+        self.bytes = bytes_w
+        self.offset = offset
+
+OffsetInBytes.typedef = TypeDef(
+    '_cffi_backend._OffsetInBytes',
+)
+
+@unwrap_spec(offset=int)
+def offset_in_bytes(space, w_bytes, offset):
+    if not space.isinstance_w(w_bytes, space.w_bytes):
+        raise oefmt(space.w_TypeError, "must be bytes, not %T", w_bytes)
+    return OffsetInBytes(space.bytes_w(w_bytes), offset)

@@ -1174,6 +1174,20 @@ class SSLSocket(socket):
         else:
             return super().send(data, flags)
 
+    def _send_with_length(self, data, lgt, flags=0):
+        """ PyPy modification
+        """
+        self._checkClosed()
+        if self._sslobj is not None:
+            if flags != 0:
+                raise ValueError(
+                    "non-zero flags not allowed in calls to send() on %s" %
+                    self.__class__)
+            return self._sslobj._write_with_length(data, lgt)
+        else:
+            return super().send(data, flags)
+
+
     def sendto(self, data, flags_or_addr, addr=None):
         self._checkClosed()
         if self._sslobj is not None:
@@ -1191,6 +1205,8 @@ class SSLSocket(socket):
                                   self.__class__)
 
     def sendall(self, data, flags=0):
+        from _cffi_backend import _offset_in_bytes
+
         self._checkClosed()
         if self._sslobj is not None:
             if flags != 0:
@@ -1198,11 +1214,17 @@ class SSLSocket(socket):
                     "non-zero flags not allowed in calls to sendall() on %s" %
                     self.__class__)
             count = 0
-            with memoryview(data) as view, view.cast("B") as byte_view:
-                amount = len(byte_view)
+            if type(data) is bytes:
+                amount = len(data)
                 while count < amount:
-                    v = self.send(byte_view[count:])
+                    v = self._send_with_length(_offset_in_bytes(data, count), amount - count)
                     count += v
+            else:
+                with memoryview(data) as view, view.cast("B") as byte_view:
+                    amount = len(byte_view)
+                    while count < amount:
+                        v = self.send(byte_view[count:])
+                        count += v
         else:
             return super().sendall(data, flags)
 

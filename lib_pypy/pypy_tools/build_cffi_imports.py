@@ -61,21 +61,22 @@ configure_args = ['./configure',
         ]
 # please note the deliberate use of a mirror site: we can't use HTTPS
 # without an _ssl module, but the OpenSSL download site redirect HTTP
-# to HTTPS
+# to HTTPS. Use a mirror from https://www.openssl.org/source/mirror.html
 cffi_dependencies = {
-    '_ssl': ('http://distfiles.macports.org/openssl/openssl-1.1.1k.tar.gz',
-             '892a0875b9872acd04a9fde79b1f943075d5ea162415de3047c327df33fbaee5',
-             [['./config', '--prefix=/usr', 'no-shared'],
+    '_ssl': ('http://artfiles.org/openssl.org/source/openssl-3.0.0.tar.gz',
+             '59eedfcb46c25214c9bd37ed6078297b4df01d012267fe9e9eee31f61bc70536',
+             [['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
 }
+
 if sys.platform == 'darwin' or platform.machine() == 'aarch64':
     # TODO: use these on x86 after upgrading Docker images to manylinux2014
     cffi_dependencies['_gdbm'] = (
               # this does not compile on the x86 buildbot, linker is missing '_history_list'
-              'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
-              '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
+              'http://distfiles.macports.org/gdbm/gdbm-1.19.tar.gz',
+              '37ed12214122b972e18a0d94995039e57748191939ef74115b1d41d8811364bc',
               [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
@@ -261,7 +262,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             env['CPPFLAGS'] = \
                 '-I{}/usr/include {}'.format(deps_destdir, env.get('CPPFLAGS', ''))
             env['LDFLAGS'] = \
-                '-L{}/usr/lib {}'.format(deps_destdir, env.get('LDFLAGS', ''))
+                '-L{}/usr/lib -L{}/usr/lib64 {}'.format(deps_destdir, deps_destdir,
+                                                        env.get('LDFLAGS', ''))
 
         try:
             status, stdout, stderr = run_subprocess(pypy3, args, cwd=cwd, env=env)
@@ -300,8 +302,8 @@ if __name__ == '__main__':
         sys.exit(1)
 
     tool_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    base_dir = os.path.dirname(os.path.dirname(tool_dir))
-    sys.path.insert(0, base_dir)
+    lib_pypy_dir = os.path.dirname(os.path.dirname(tool_dir))
+    sys.path.insert(0, lib_pypy_dir)
 
     class Options(object):
         pass
@@ -313,7 +315,7 @@ if __name__ == '__main__':
     parser.add_argument('--rebuild', dest='rebuild', action='store_true',
         help='Rebuild the module even if it already appears to have been built.')
     parser.add_argument('--only', dest='only', default=None,
-                        help='Only build the modules delimited by a colon. E.g. _ssl,sqlite')
+                        help='Only build the modules delimited by a comma e.g. _ssl,sqlite')
     parser.add_argument('--embed-dependencies', dest='embed_dependencies', action='store_true',
         help='embed dependencies for distribution')
     args = parser.parse_args()
@@ -332,9 +334,14 @@ if __name__ == '__main__':
         only = None
     else:
         only = set(args.only.split(','))
-    failures = create_cffi_import_libraries(exename, options, basedir, only=only,
-                                            embed_dependencies=args.embed_dependencies,
-                                            rebuild=args.rebuild)
+    olddir = os.getcwd()
+    os.chdir(lib_pypy_dir)
+    try:
+        failures = create_cffi_import_libraries(exename, options, basedir,
+                        only=only, embed_dependencies=args.embed_dependencies,
+                        rebuild=args.rebuild)
+    finally:
+        os.chdir(olddir)
     if len(failures) > 0:
         print('*** failed to build the CFFI modules %r' % (
             [f[1] for f in failures],), file=sys.stderr)

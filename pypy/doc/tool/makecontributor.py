@@ -43,7 +43,6 @@ alias = {
     'Guido Wesdorp': ['guido'],
     'Michael Foord': ['mfoord'],
     'Mark Pearse': ['mwp'],
-    'Toon Verwaest': ['tverwaes'],
     'Eric van Riet Paap': ['ericvrp'],
     'Jacob Hallen': ['jacob', 'jakob', 'jacob hallen'],
     'Anders Lehmann': ['ale', 'anders'],
@@ -63,8 +62,7 @@ alias = {
                     'matthp', 'mattip', 'mattip>'],
     'Michael Cheng': ['mikefc'],
     'Richard Emslie': ['rxe'],
-    'Roberto De Ioris': ['roberto@goyle'],
-    'Roberto De Ioris': ['roberto@mrspurr'],
+    'Roberto De Ioris': ['roberto@goyle','roberto@mrspurr'],
     'Sven Hager': ['hager'],
     'Tomo Cocoa': ['cocoatomo'],
     'Romain Guillebert': ['rguillebert', 'rguillbert', 'romain', 'Guillebert Romain'],
@@ -86,7 +84,7 @@ alias = {
     'Squeaky': ['squeaky'],
     "Dodan Mihai": ['mihai.dodan@gmail.com'],
     'Wim Lavrijsen': ['wlav'],
-    'Toon Verwaest': ['toon', 'tverwaes'],
+    'Toon Verwaest': ['toon', 'tverwaes'],  #
     'Seo Sanghyeon': ['sanxiyn'],
     'Leonardo Santagada': ['santagada'],
     'Laurence Tratt': ['ltratt'],
@@ -96,7 +94,8 @@ alias = {
     'Batuhan Taskaya': ['isidentical'],
     'Ondrej Baranovič': ['nulano'],
     'Brad Kish': ['rtkbkish'],
-    'Michał Górny': ['mgorny']
+    'Michał Górny': ['mgorny'],
+    'David Hewitt': ['davidhewitt'],
     }
 
 alias_map = {}
