@@ -147,16 +147,20 @@ On SLES11::
 On Mac OS X:
 
 Currently PyPy does not support M1 Apple Silicon (arm64). You must use the 
-x86_64 emulation mode, which requires pre-pending ``arch -x64_64`` to some
-commands, and using a seconde installation of homebrew at ``/usr/local/bin/brew``
-Most of the build-time dependencies are installed alongside
-the Developer Tools. ``libffi`` and ``openssl`` still need to be installed:
+x86_64 emulation mode, which requires pre-pending ``arch -x86_64`` to some
+commands. When installed properly, homebrew will use a second installation of
+at ``/usr/local/bin/brew``. 
+
+Most of the build-time dependencies are installed alongside the Developer
+Tools. ``libffi`` and ``openssl`` still need to be installed:
+
+.. code-block:: shell
 
     xcode-select --install
 	# for M1 machines to use x86_64 mode
 	# softwareupdate --install-rosetta
-	# install brew
-	brew install libffi openssl pypy pkg-config
+	# install brew, use the arch -x86_64 prefix on M1
+	/usr/local/bin/brew install libffi openssl pypy pkg-config
 
 After setting this, translation (described next) will find the OpenSSL libs
 as expected via ``pkg-config``.
