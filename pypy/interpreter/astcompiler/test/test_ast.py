@@ -54,3 +54,8 @@ class TestAstToObject:
                                 space.wrap("_attributes"))
         assert space.eq_w(w_attrs, space.wrap(('lineno', 'col_offset', 'end_lineno', 'end_col_offset')))
         
+    def test_end_lineno_end_col_offset_None_default(self):
+        space = self.space
+        w_node = space.call_function(ast.get(space).w_Constant)
+        assert space.is_w(space.w_None, space.getattr(w_node, space.newtext("end_lineno")))
+        assert space.is_w(space.w_None, space.getattr(w_node, space.newtext("end_col_offset")))

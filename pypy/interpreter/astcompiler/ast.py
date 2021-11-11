@@ -188,6 +188,11 @@ class State:
         if attributes is not None:
             space.setitem_str(w_dict, "_attributes",
                               space.newtuple([space.newtext(a) for a in attributes]))
+            if "end_lineno" in attributes:
+                assert "end_col_offset" in attributes
+                # set default values on the type
+                space.setitem_str(w_dict, "end_lineno", space.w_None)
+                space.setitem_str(w_dict, "end_col_offset", space.w_None)
         w_type = space.call_function(
             space.w_type,
             space.newtext(name), space.newtuple([w_base]), w_dict)
