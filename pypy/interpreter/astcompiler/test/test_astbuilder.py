@@ -906,6 +906,8 @@ class TestAstBuilding:
             "from x import %s",
             "from x import y as %s",
             "for %s in x: pass",
+            "x.%s = y",
+            "x.%s += y",
         )
         for name in "__debug__",:
             for template in invalid:
@@ -922,7 +924,7 @@ class TestAstBuilding:
             "del %s",
             "del %s, a",
             "del [%s, a]",
-            "del a.__debug__",
+            "del a.%s",
         )
         for name in "__debug__",:
             for template in invalid:

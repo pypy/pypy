@@ -607,6 +607,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(assign.lineno, True)
         target = assign.target
         if isinstance(target, ast.Attribute):
+            if misc.check_forbidden_name(self.space, target.attr):
+                self.error(
+                    "cannot assign to " + target.attr,
+                    target)
             target.value.walkabout(self)
             self.emit_op(ops.DUP_TOP)
             self.emit_op_name(ops.LOAD_ATTR, self.names, target.attr)
@@ -1765,8 +1769,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if ctx == ast.Load:
             self.emit_op_name(ops.LOAD_ATTR, names, attr.attr)
         elif ctx == ast.Store:
+            if misc.check_forbidden_name(self.space, attr.attr):
+                self.error(
+                    "cannot assign to " + attr.attr,
+                    attr)
             self.emit_op_name(ops.STORE_ATTR, names, attr.attr)
         elif ctx == ast.Del:
+            if misc.check_forbidden_name(self.space, attr.attr):
+                self.error(
+                    "cannot delete " + attr.attr,
+                    attr)
             self.emit_op_name(ops.DELETE_ATTR, names, attr.attr)
         else:
             raise AssertionError("unknown context")
@@ -2158,11 +2170,11 @@ class CallCodeGenerator(object):
 
     def _push_kwargs(self):
         for kw in self.keywords:
-            if misc.check_forbidden_name(self, kw.arg):
+            assert isinstance(kw, ast.keyword)
+            if misc.check_forbidden_name(self.space, kw.arg):
                 self.codegenerator.error(
                     "cannot assign to " + kw.arg,
                     kw)
-            assert isinstance(kw, ast.keyword)
             if kw.arg is None:
                 # if we see **args or if the number of keywords is huge,
                 # pack up keywords on the stack so far
