@@ -341,11 +341,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def name_op(self, identifier, ctx, node):
         """Generate an operation appropriate for the scope of the identifier."""
         # node is used only for the possible syntax error
-        if misc.check_forbidden_name(self.space, identifier):
-            if ctx == ast.Store:
-                self.error("cannot assign to " + identifier, node)
-            if ctx == ast.Del:
-                self.error("cannot delete " + identifier, node)
+        self.check_forbidden_name(identifier, node, ctx)
 
         scope = self.scope.lookup(identifier)
         op = ops.NOP
@@ -607,10 +603,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(assign.lineno, True)
         target = assign.target
         if isinstance(target, ast.Attribute):
-            if misc.check_forbidden_name(self.space, target.attr):
-                self.error(
-                    "cannot assign to " + target.attr,
-                    target)
+            self.check_forbidden_name(target.attr, target)
             target.value.walkabout(self)
             self.emit_op(ops.DUP_TOP)
             self.emit_op_name(ops.LOAD_ATTR, self.names, target.attr)
@@ -714,7 +707,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Break(self, br):
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
-            self.error("'break' outside loop", br)
+            self.error("'break' not properly in loop", br)
         self.unwind_fblock(loop_fblock, False)
         assert loop_fblock.end is not None
         self.update_position(br.lineno, True)
@@ -723,7 +716,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Continue(self, cont):
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
-            self.error("'continue' outside loop", cont)
+            self.error("'continue' not properly in loop", cont)
         self.update_position(cont.lineno, True)
         self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.block, True)
 
@@ -1761,6 +1754,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._compile_comprehension(dictcomp, "<dictcomp>",
                                     ComprehensionCodeGenerator)
 
+    def check_forbidden_name(self, name, node, ctx=ast.Store):
+        if misc.check_forbidden_name(self.space, name):
+            if ctx == ast.Store:
+                self.error("cannot assign to " + name, node)
+            else:
+                assert ctx == ast.Del
+                self.error("cannot delete " + name, node)
+
     def visit_Attribute(self, attr):
         self.update_position(attr.lineno)
         names = self.names
@@ -1768,17 +1769,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         attr.value.walkabout(self)
         if ctx == ast.Load:
             self.emit_op_name(ops.LOAD_ATTR, names, attr.attr)
-        elif ctx == ast.Store:
-            if misc.check_forbidden_name(self.space, attr.attr):
-                self.error(
-                    "cannot assign to " + attr.attr,
-                    attr)
+            return
+        self.check_forbidden_name(attr.attr, attr, ctx)
+        if ctx == ast.Store:
             self.emit_op_name(ops.STORE_ATTR, names, attr.attr)
         elif ctx == ast.Del:
-            if misc.check_forbidden_name(self.space, attr.attr):
-                self.error(
-                    "cannot delete " + attr.attr,
-                    attr)
             self.emit_op_name(ops.DELETE_ATTR, names, attr.attr)
         else:
             raise AssertionError("unknown context")
@@ -2171,10 +2166,7 @@ class CallCodeGenerator(object):
     def _push_kwargs(self):
         for kw in self.keywords:
             assert isinstance(kw, ast.keyword)
-            if misc.check_forbidden_name(self.space, kw.arg):
-                self.codegenerator.error(
-                    "cannot assign to " + kw.arg,
-                    kw)
+            self.codegenerator.check_forbidden_name(kw.arg, kw)
             if kw.arg is None:
                 # if we see **args or if the number of keywords is huge,
                 # pack up keywords on the stack so far
