@@ -220,24 +220,20 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print(stderr.decode('utf-8'))
                 continue
 
-            env['CPPFLAGS'] = \
-                '-I{}/usr/include {}'.format(deps_destdir, env.get('CPPFLAGS', ''))
-            env['LDFLAGS'] = \
-                '-L{}/usr/lib {}'.format(deps_destdir, env.get('LDFLAGS', ''))
+            env['CPPFLAGS'] = '-I{}/usr/include {}'.format(
+                            deps_destdir, env.get('CPPFLAGS', ''))
+            env['LDFLAGS'] = '-L{}/usr/lib64 -L{}/usr/lib {}'.format(
+                            deps_destdir, deps_destdir, env.get('LDFLAGS', ''))
 
         try:
-            status, stdout, stderr = run_subprocess(str(pypy_c), args,
+            status, bld_stdout, bld_stderr = run_subprocess(str(pypy_c), args,
                                                     cwd=cwd, env=env)
             if status != 0:
                 print("stdout:")
-                print(stdout, file=sys.stderr)
+                print(bld_stdout, file=sys.stderr)
                 print("stderr:")
-                print(stderr, file=sys.stderr)
+                print(bld_stderr, file=sys.stderr)
                 raise RuntimeError('building {} failed'.format(key))
-            else:
-                bld_stdout = stdout
-                bld_stderr = stderr
-                
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
@@ -249,9 +245,9 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             if status != 0:
                 failures.append((key, module))
                 print("build stdout:")
-                print(stdout, file=sys.stderr)
+                print(bld_stdout, file=sys.stderr)
                 print("build stderr:")
-                print(stderr, file=sys.stderr)
+                print(bld_stderr, file=sys.stderr)
                 print("test stdout:")
                 print(stdout, file=sys.stderr)
                 print("test stderr:")
