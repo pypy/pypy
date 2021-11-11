@@ -644,7 +644,7 @@ class PythonParser(Parser):
         a = self.name()
         if a:
             b = self._tmp_28()
-            return ast . alias ( name = self . check_for_forbidden_assignment_target ( a ) , asname = self . check_for_forbidden_assignment_target ( b ) )
+            return ast . alias ( name = self . extract_id ( a ) , asname = self . extract_id ( b ) )
         self._index = mark
         return None
 
@@ -665,7 +665,7 @@ class PythonParser(Parser):
         a = self.dotted_name()
         if a:
             b = self._tmp_31()
-            return ast . alias ( name = a , asname = self . check_for_forbidden_assignment_target ( b ) )
+            return ast . alias ( name = a , asname = self . extract_id ( b ) )
         self._index = mark
         return None
 
@@ -677,7 +677,7 @@ class PythonParser(Parser):
         a = self.name()
         if a:
             if self.negative_lookahead(PythonParser.expect_type, 23):
-                return self . check_for_forbidden_assignment_target ( a )
+                return self . extract_id ( a )
         self._index = mark
         a = self.dotted_name()
         if a:
@@ -827,7 +827,7 @@ class PythonParser(Parser):
                     if c:
                         tok = self.get_last_non_whitespace_token()
                         end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                        return ast . ClassDef ( self . check_for_forbidden_assignment_target ( a ) , bases = b . args if b else None , keywords = b . keywords if b else None , body = c , decorator_list = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                        return ast . ClassDef ( self . extract_id ( a ) , bases = b . args if b else None , keywords = b . keywords if b else None , body = c , decorator_list = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         return None
 
@@ -875,7 +875,7 @@ class PythonParser(Parser):
                             if b:
                                 tok = self.get_last_non_whitespace_token()
                                 end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                                return ast . FunctionDef ( name = self . check_for_forbidden_assignment_target ( n ) , args = params or self . make_arguments ( None , None , None , [] , None ) , returns = a , body = b , decorator_list = None , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                                return ast . FunctionDef ( name = self . extract_id ( n ) , args = params or self . make_arguments ( None , None , None , [] , None ) , returns = a , body = b , decorator_list = None , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         _async = self.expect_type(58)
         if _async:
@@ -896,7 +896,7 @@ class PythonParser(Parser):
                                 if b:
                                     tok = self.get_last_non_whitespace_token()
                                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                                    return self . check_version ( ( 3 , 5 ) , "Async functions are" , ast . AsyncFunctionDef ( name = self . check_for_forbidden_assignment_target ( n ) , args = params or self . make_arguments ( None , None , None , [] , None ) , returns = a , body = b , decorator_list = None , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) )
+                                    return self . check_version ( ( 3 , 5 ) , "Async functions are" , ast . AsyncFunctionDef ( name = self . extract_id ( n ) , args = params or self . make_arguments ( None , None , None , [] , None ) , returns = a , body = b , decorator_list = None , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) )
         self._index = mark
         return None
 
@@ -1111,7 +1111,7 @@ class PythonParser(Parser):
             b = self.annotation()
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-            return ast . arg ( arg = self . check_for_forbidden_assignment_target ( a ) , annotation = b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . arg ( arg = self . extract_id ( a ) , annotation = b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         return None
 
@@ -1493,7 +1493,7 @@ class PythonParser(Parser):
                     if b:
                         tok = self.get_last_non_whitespace_token()
                         end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                        return ast . ExceptHandler ( type = e , name = self . check_for_forbidden_assignment_target ( t ) , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                        return ast . ExceptHandler ( type = e , name = self . extract_id ( t ) , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         literal = self.expect_type(522)
         if literal:
@@ -2679,7 +2679,7 @@ class PythonParser(Parser):
         if a:
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-            return ast . arg ( arg = self . check_for_forbidden_assignment_target ( a ) , annotation = None , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . arg ( arg = self . extract_id ( a ) , annotation = None , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         return None
 
@@ -3059,7 +3059,7 @@ class PythonParser(Parser):
                 if b:
                     tok = self.get_last_non_whitespace_token()
                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                    return ast . keyword ( arg = self . check_for_forbidden_assignment_target ( a ) , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                    return ast . keyword ( arg = self . extract_id ( a ) , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         a = self.starred_expression()
         if a:
@@ -3086,7 +3086,7 @@ class PythonParser(Parser):
                 if b:
                     tok = self.get_last_non_whitespace_token()
                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                    return ast . keyword ( arg = self . check_for_forbidden_assignment_target ( a ) , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                    return ast . keyword ( arg = self . extract_id ( a ) , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         literal = self.expect_type(36)
         if literal:

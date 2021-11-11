@@ -71,15 +71,15 @@ class ForbiddenNameAssignment(Exception):
         self.node = node
 
 
-def check_forbidden_name(space, name, node=None):
+def check_forbidden_name(space, name):
     """Raise an error if the name cannot be assigned to."""
-    if name in ("None", "__debug__"):
-        raise ForbiddenNameAssignment(name, node)
+    if name == "__debug__":
+        return True
     if name in ("async", "await"):
         space.warn(space.newtext(
             "'async' and 'await' will become reserved keywords"
             " in Python 3.7"), space.w_DeprecationWarning)
-    # XXX Warn about using True and False
+    return False
 
 
 def dict_to_switch(d):

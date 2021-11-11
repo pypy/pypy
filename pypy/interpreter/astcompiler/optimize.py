@@ -235,7 +235,7 @@ class OptimizingVisitor(ast.ASTVisitor):
 
     def visit_Name(self, name):
         """Turn loading None, True, and False into a constant lookup."""
-        if name.ctx == ast.Del:
+        if name.ctx == ast.Del or name.ctx == ast.Store:
             return name
         space = self.space
         w_const = None

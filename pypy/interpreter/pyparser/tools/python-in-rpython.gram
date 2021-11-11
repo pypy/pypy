@@ -169,13 +169,13 @@ import_from_targets[List[ast.alias]]:
 import_from_as_names[List[ast.alias]]:
     | a=','.import_from_as_name+ { a }
 import_from_as_name[ast.alias]:
-    | a=NAME b=['as' z=NAME { z }] { ast.alias(name=self.check_for_forbidden_assignment_target(a), asname=self.check_for_forbidden_assignment_target(b)) }
+    | a=NAME b=['as' z=NAME { z }] { ast.alias(name=self.extract_id(a), asname=self.extract_id(b)) }
 dotted_as_names[List[ast.alias]]:
     | a=','.dotted_as_name+ { a }
 dotted_as_name[ast.alias]:
-    | a=dotted_name b=['as' z=NAME { z }] { ast.alias(name=a, asname=self.check_for_forbidden_assignment_target(b)) }
+    | a=dotted_name b=['as' z=NAME { z }] { ast.alias(name=a, asname=self.extract_id(b)) }
 dotted_name[str]:
-    | a=NAME ! '.' { self.check_for_forbidden_assignment_target(a) } # single name without following dots
+    | a=NAME ! '.' { self.extract_id(a) } # single name without following dots
     | a=dotted_name '.' b=NAME { a + "." + b.id }
     | a=NAME { a.id }
 
@@ -216,7 +216,7 @@ class_def_raw[ast.ClassDef]:
     | invalid_class_def_raw
     | 'class' a=NAME b=['(' z=[arguments] ')' { z }] &&':' c=block {
         ast.ClassDef(
-            self.check_for_forbidden_assignment_target(a),
+            self.extract_id(a),
             bases=b.args if b else None,
             keywords=b.keywords if b else None,
             body=c,
@@ -236,7 +236,7 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
     | invalid_def_raw
     | 'def' n=NAME '(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
         ast.FunctionDef(
-            name=self.check_for_forbidden_assignment_target(n),
+            name=self.extract_id(n),
             args=params or self.make_arguments(None, None, None, [], None),
             returns=a,
             body=b,
@@ -250,7 +250,7 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
             (3, 5),
             "Async functions are",
             ast.AsyncFunctionDef(
-                name=self.check_for_forbidden_assignment_target(n),
+                name=self.extract_id(n),
                 args=params or self.make_arguments(None, None, None, [], None),
                 returns=a,
                 body=b,
@@ -330,7 +330,7 @@ param_with_default[NameDefaultPair]:
 param_maybe_default[NameDefaultPair]:
     | a=param c=default? ',' tc=TYPE_COMMENT? { self.name_default_pair(a, c, tc) }
     | a=param c=default? tc=TYPE_COMMENT? &')' { self.name_default_pair(a, c, tc) }
-param[ast.arg]: a=NAME b=annotation? { ast.arg(arg=self.check_for_forbidden_assignment_target(a), annotation=b, type_comment=None, LOCATIONS) }
+param[ast.arg]: a=NAME b=annotation? { ast.arg(arg=self.extract_id(a), annotation=b, type_comment=None, LOCATIONS) }
 annotation: ':' a=expression { a }
 default: '=' a=expression { a }
 
@@ -428,7 +428,7 @@ try_stmt[ast.Try]:
 except_block[ast.ExceptHandler]:
     | invalid_except_stmt_indent
     | 'except' e=expression t=['as' z=NAME { z }] ':' b=block {
-        ast.ExceptHandler(type=e, name=self.check_for_forbidden_assignment_target(t), body=b, LOCATIONS) }
+        ast.ExceptHandler(type=e, name=self.extract_id(t), body=b, LOCATIONS) }
     | 'except' ':' b=block { ast.ExceptHandler(type=None, name=None, body=b, LOCATIONS) }
     | invalid_except_stmt
 finally_block[list]:
@@ -936,7 +936,7 @@ lambda_param_maybe_default[NameDefaultPair]:
     | a=lambda_param c=default? ',' { self.name_default_pair(a, c, None) }
     | a=lambda_param c=default? &':' { self.name_default_pair(a, c, None) }
 lambda_param[ast.arg]: a=NAME {
-    ast.arg(arg=self.check_for_forbidden_assignment_target(a), annotation=None, type_comment=None, LOCATIONS)
+    ast.arg(arg=self.extract_id(a), annotation=None, type_comment=None, LOCATIONS)
 }
 
 # LITERALS
@@ -1042,12 +1042,12 @@ starred_expression:
 
 kwarg_or_starred:
     | invalid_kwarg
-    | a=NAME '=' b=expression { ast.keyword(arg=self.check_for_forbidden_assignment_target(a), value=b, LOCATIONS) }
+    | a=NAME '=' b=expression { ast.keyword(arg=self.extract_id(a), value=b, LOCATIONS) }
     | a=starred_expression { a }
 
 kwarg_or_double_starred:
     | invalid_kwarg
-    | a=NAME '=' b=expression { ast.keyword(arg=self.check_for_forbidden_assignment_target(a), value=b, LOCATIONS) }   # XXX Unreachable
+    | a=NAME '=' b=expression { ast.keyword(arg=self.extract_id(a), value=b, LOCATIONS) }
     | '**' a=expression { ast.keyword(arg=None, value=a, LOCATIONS) }
 
 # ASSIGNMENT TARGETS

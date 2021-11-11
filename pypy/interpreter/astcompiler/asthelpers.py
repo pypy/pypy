@@ -15,7 +15,8 @@ class __extend__(ast.AST):
     def as_node_list(self, space):
         raise AssertionError("only for expressions")
 
-    def set_context(self, space, ctx):
+    def set_context_copy(self, ctx):
+        """ make a copy of the node, with ctx set """
         raise AssertionError("should only be on expressions")
 
     def get_source_segment(self, source, padded=False):
@@ -43,6 +44,10 @@ class __extend__(ast.AST):
         res.append(s[end_lineno][:end_col_offset])
         return "".join(res)
 
+    def location(self):
+        return (self.lineno, self.col_offset, self.end_lineno, self.end_col_offset)
+
+
 class __extend__(ast.expr):
 
     constant = False
@@ -58,15 +63,8 @@ class __extend__(ast.expr):
     def as_node_list(self, space):
         return None
 
-    def set_context(self, space, ctx):
-        d = self._get_descr(space)
-        if d is None:
-            d = "%r" % (self,)
-        if ctx == ast.Del:
-            msg = "cannot delete %s" % (d,)
-        else:
-            msg = "cannot assign to %s" % (d,)
-        raise UnacceptableExpressionContext(self, msg)
+    def set_context_copy(self, ctx):
+        assert 0, "should be unreachable"
 
 
 class __extend__(ast.List):
@@ -75,33 +73,41 @@ class __extend__(ast.List):
     def as_node_list(self, space):
         return self.elts
 
-    def set_context(self, space, ctx):
-        if self.elts:
-            for elt in self.elts:
-                elt.set_context(space, ctx)
-        self.ctx = ctx
+    def set_context_copy(self, ctx):
+        return ast.List(
+            set_context_copy_list(self.elts, ctx),
+            ctx,
+            *self.location())
 
 
 class __extend__(ast.Attribute):
 
-    def set_context(self, space, ctx):
-        if ctx == ast.Store:
-            misc.check_forbidden_name(space, self.attr, self)
+    def set_context_copy(self, ctx):
+        return ast.Attribute(
+            self.value,
+            self.attr,
+            ctx,
+            *self.location())
         self.ctx = ctx
 
 
 class __extend__(ast.Subscript):
 
-    def set_context(self, space, ctx):
-        self.ctx = ctx
+    def set_context_copy(self, ctx):
+        return ast.Subscript(
+            self.value,
+            self.slice,
+            ctx,
+            *self.location())
 
 
 class __extend__(ast.Name):
 
-    def set_context(self, space, ctx):
-        if ctx == ast.Store:
-            misc.check_forbidden_name(space, self.id, self)
-        self.ctx = ctx
+    def set_context_copy(self, ctx):
+        return ast.Name(
+            self.id,
+            ctx,
+            *self.location())
 
 
 class __extend__(ast.Tuple):
@@ -112,11 +118,12 @@ class __extend__(ast.Tuple):
     def as_node_list(self, space):
         return self.elts
 
-    def set_context(self, space, ctx):
-        if self.elts:
-            for elt in self.elts:
-                elt.set_context(space, ctx)
-        self.ctx = ctx
+    def set_context_copy(self, ctx):
+        return ast.Tuple(
+            set_context_copy_list(self.elts, ctx),
+            ctx,
+            *self.location())
+
 
 class __extend__(ast.Lambda):
 
@@ -186,9 +193,12 @@ class __extend__(ast.Starred):
 
     _description = "starred expression"
 
-    def set_context(self, space, ctx):
-        self.ctx = ctx
-        self.value.set_context(space, ctx)
+    def set_context_copy(self, ctx):
+        return ast.Starred(
+            self.value.set_context_copy(ctx),
+            ctx,
+            *self.location())
+
 
 class __extend__(ast.IfExp):
 
@@ -222,4 +232,10 @@ class __extend__(ast.Constant):
 
     def _get_type_name(self, space):
         return space.type(self.value).name
+
+
+def set_context_copy_list(elts, ctx):
+    if elts is None:
+        return elts
+    return [elt.set_context_copy(ctx) for elt in elts]
 

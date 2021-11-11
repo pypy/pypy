@@ -8,6 +8,7 @@ import textwrap
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.error import SyntaxError
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import ast, consts
 
 
@@ -888,6 +889,10 @@ class TestAstBuilding:
         invalid = (
             "%s = x",
             "%s, x = y",
+            "[%s, x] = y",
+            "[%s, x] = y",
+            "*%s, x = y",
+            "[*%s, x] = y",
             "def %s(): pass",
             "class %s(): pass",
             "def f(%s): pass",
@@ -905,9 +910,32 @@ class TestAstBuilding:
         for name in "__debug__",:
             for template in invalid:
                 input = template % (name,)
-                with pytest.raises(SyntaxError) as excinfo:
-                    self.get_ast(input)
-                assert excinfo.value.msg == "cannot assign to %s" % (name,)
+                ast = self.get_ast(input) # error now caught during codegen!
+                ec = self.space.getexecutioncontext()
+                with pytest.raises(OperationError) as excinfo:
+                    ec.compiler.compile_ast(ast, "", "exec")
+                msg = self.space.text_w(self.space.repr(excinfo.value.get_w_value(self.space)))
+                assert ("cannot assign to %s" % (name,)) in msg
+
+    def test_delete_forbidden_name(self):
+        invalid = (
+            "del %s",
+            "del %s, a",
+            "del [%s, a]",
+            "del a.__debug__",
+        )
+        for name in "__debug__",:
+            for template in invalid:
+                input = template % (name,)
+                ast = self.get_ast(input) # error now caught during codegen!
+                ec = self.space.getexecutioncontext()
+                with pytest.raises(OperationError) as excinfo:
+                    ec.compiler.compile_ast(ast, "", "exec")
+                msg = self.space.text_w(self.space.repr(excinfo.value.get_w_value(self.space)))
+                assert ("cannot delete %s" % (name,)) in msg
+
+    def test_assign_bug(self):
+        self.get_ast("direct = (__debug__ and optimize == 0)") # used to crash
 
     def test_lambda(self):
         lam = self.get_first_expr("lambda x: expr")

@@ -493,27 +493,14 @@ class Parser:
         return node._get_descr(self.space)
 
     def set_expr_context(self, node, context):
-        """Set the context (Load, Store, Del) of an ast node."""
-        try:
-            node.set_context(self.space, context)
-        except ast.UnacceptableExpressionContext as e:
-            self.raise_syntax_error_known_location(e.msg, e.node)
-        except misc.ForbiddenNameAssignment as e:
-            self.raise_syntax_error_known_location("cannot assign to %s" % (e.name,), e.node)
-        return node
+        """make a copy of node, changing context"""
+        return node.set_context_copy(context)
 
-    def check_for_forbidden_assignment_target(self, name):
-        from pypy.interpreter.astcompiler import misc # Side effects
+    def extract_id(self, name):
         if name is None:
             return None
         assert isinstance(name, ast.Name)
-        id = name.id
-        try:
-            misc.check_forbidden_name(self.space, id)
-        except misc.ForbiddenNameAssignment as e:
-            self.raise_syntax_error_known_location(
-                "cannot assign to %s" % (e.name,), name)
-        return id
+        return name.id
 
     def check_repeated_keywords(self, args):
         if not args or not args.keywords:
@@ -592,12 +579,32 @@ class Parser:
         """Set the decorators on a function or class definition."""
         # for rpython
         if isinstance(target, ast.FunctionDef):
-            target.decorator_list = decorators
+            return ast.FunctionDef(
+                target.name,
+                target.args,
+                target.body,
+                decorators,
+                target.returns,
+                target.type_comment,
+                *target.location())
         elif isinstance(target, ast.AsyncFunctionDef):
-            target.decorator_list = decorators
+            return ast.AsyncFunctionDef(
+                target.name,
+                target.args,
+                target.body,
+                decorators,
+                target.returns,
+                target.type_comment,
+                *target.location())
         else:
             assert isinstance(target, ast.ClassDef)
-            target.decorator_list = decorators
+            return ast.ClassDef(
+                target.name,
+                target.bases,
+                target.keywords,
+                target.body,
+                decorators,
+                *target.location())
         return target
 
     def get_comparison_ops(self, pairs):
@@ -607,12 +614,16 @@ class Parser:
         return [p.expr for p in pairs]
 
     def set_arg_type_comment(self, arg, type_comment):
-        if type_comment:
-            arg.type_comment = type_comment
-        return arg
+        if type_comment is None:
+            return arg
+        return ast.arg(
+            arg.arg,
+            arg.annotation,
+            type_comment,
+            *arg.location())
 
     def name_default_pair(self, arg, value, type_comment):
-        self.set_arg_type_comment(arg, type_comment)
+        arg = self.set_arg_type_comment(arg, type_comment)
         return NameDefaultPair(arg, value)
 
     def make_star_etc(self, a, b, c):
