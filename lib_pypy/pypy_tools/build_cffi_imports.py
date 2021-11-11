@@ -234,6 +234,10 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print("stderr:")
                 print(stderr, file=sys.stderr)
                 raise RuntimeError('building {} failed'.format(key))
+            else:
+                bld_stdout = stdout
+                bld_stderr = stderr
+                
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
@@ -244,9 +248,13 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                          env=env)
             if status != 0:
                 failures.append((key, module))
-                print("stdout:")
+                print("build stdout:")
                 print(stdout, file=sys.stderr)
-                print("stderr:")
+                print("build stderr:")
+                print(stderr, file=sys.stderr)
+                print("test stdout:")
+                print(stdout, file=sys.stderr)
+                print("test stderr:")
                 print(stderr, file=sys.stderr)
         if os.path.exists(deps_destdir):
             shutil.rmtree(deps_destdir, ignore_errors=True)
