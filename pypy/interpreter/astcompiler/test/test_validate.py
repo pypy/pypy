@@ -425,3 +425,4 @@ class TestASTValidator:
             ec = self.space.getexecutioncontext()
             ast_node = ec.compiler.compile_to_ast(source, fn, "exec", 0)
             ec.compiler.validate_ast(ast_node)
+            ast_node.to_object(self.space) # does not crash

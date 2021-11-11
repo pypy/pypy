@@ -245,12 +245,14 @@ class Module(mod):
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         if self.type_ignores is None:
             type_ignores_w = []
         else:
             type_ignores_w = [node.to_object(space) for node in self.type_ignores] # type_ignore
         w_type_ignores = space.newlist(type_ignores_w)
+        assert w_type_ignores is not None
         space.setattr(w_node, space.newtext('type_ignores'), w_type_ignores)
         return w_node
 
@@ -289,6 +291,7 @@ class Interactive(mod):
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         return w_node
 
@@ -317,6 +320,7 @@ class Expression(mod):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Expression)
         w_body = self.body.to_object(space)  # expr
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         return w_node
 
@@ -355,8 +359,10 @@ class FunctionType(mod):
         else:
             argtypes_w = [node.to_object(space) for node in self.argtypes] # expr
         w_argtypes = space.newlist(argtypes_w)
+        assert w_argtypes is not None
         space.setattr(w_node, space.newtext('argtypes'), w_argtypes)
         w_returns = self.returns.to_object(space)  # expr
+        assert w_returns is not None
         space.setattr(w_node, space.newtext('returns'), w_returns)
         return w_node
 
@@ -471,32 +477,42 @@ class FunctionDef(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_FunctionDef)
         w_name = space.newtext(self.name)  # identifier
+        assert w_name is not None
         space.setattr(w_node, space.newtext('name'), w_name)
         w_args = self.args.to_object(space)  # arguments
+        assert w_args is not None
         space.setattr(w_node, space.newtext('args'), w_args)
         if self.body is None:
             body_w = []
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         if self.decorator_list is None:
             decorator_list_w = []
         else:
             decorator_list_w = [node.to_object(space) for node in self.decorator_list] # expr
         w_decorator_list = space.newlist(decorator_list_w)
+        assert w_decorator_list is not None
         space.setattr(w_node, space.newtext('decorator_list'), w_decorator_list)
         w_returns = self.returns.to_object(space) if self.returns is not None else space.w_None  # expr
+        assert w_returns is not None
         space.setattr(w_node, space.newtext('returns'), w_returns)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = self.type_comment if self.type_comment is not None else space.w_None  # string
+        assert w_type_comment is not None
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -564,32 +580,42 @@ class AsyncFunctionDef(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_AsyncFunctionDef)
         w_name = space.newtext(self.name)  # identifier
+        assert w_name is not None
         space.setattr(w_node, space.newtext('name'), w_name)
         w_args = self.args.to_object(space)  # arguments
+        assert w_args is not None
         space.setattr(w_node, space.newtext('args'), w_args)
         if self.body is None:
             body_w = []
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         if self.decorator_list is None:
             decorator_list_w = []
         else:
             decorator_list_w = [node.to_object(space) for node in self.decorator_list] # expr
         w_decorator_list = space.newlist(decorator_list_w)
+        assert w_decorator_list is not None
         space.setattr(w_node, space.newtext('decorator_list'), w_decorator_list)
         w_returns = self.returns.to_object(space) if self.returns is not None else space.w_None  # expr
+        assert w_returns is not None
         space.setattr(w_node, space.newtext('returns'), w_returns)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = self.type_comment if self.type_comment is not None else space.w_None  # string
+        assert w_type_comment is not None
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -661,38 +687,47 @@ class ClassDef(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ClassDef)
         w_name = space.newtext(self.name)  # identifier
+        assert w_name is not None
         space.setattr(w_node, space.newtext('name'), w_name)
         if self.bases is None:
             bases_w = []
         else:
             bases_w = [node.to_object(space) for node in self.bases] # expr
         w_bases = space.newlist(bases_w)
+        assert w_bases is not None
         space.setattr(w_node, space.newtext('bases'), w_bases)
         if self.keywords is None:
             keywords_w = []
         else:
             keywords_w = [node.to_object(space) for node in self.keywords] # keyword
         w_keywords = space.newlist(keywords_w)
+        assert w_keywords is not None
         space.setattr(w_node, space.newtext('keywords'), w_keywords)
         if self.body is None:
             body_w = []
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         if self.decorator_list is None:
             decorator_list_w = []
         else:
             decorator_list_w = [node.to_object(space) for node in self.decorator_list] # expr
         w_decorator_list = space.newlist(decorator_list_w)
+        assert w_decorator_list is not None
         space.setattr(w_node, space.newtext('decorator_list'), w_decorator_list)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -744,14 +779,19 @@ class Return(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Return)
         w_value = self.value.to_object(space) if self.value is not None else space.w_None  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -795,14 +835,19 @@ class Delete(stmt):
         else:
             targets_w = [node.to_object(space) for node in self.targets] # expr
         w_targets = space.newlist(targets_w)
+        assert w_targets is not None
         space.setattr(w_node, space.newtext('targets'), w_targets)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -850,18 +895,25 @@ class Assign(stmt):
         else:
             targets_w = [node.to_object(space) for node in self.targets] # expr
         w_targets = space.newlist(targets_w)
+        assert w_targets is not None
         space.setattr(w_node, space.newtext('targets'), w_targets)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = self.type_comment if self.type_comment is not None else space.w_None  # string
+        assert w_type_comment is not None
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -908,18 +960,25 @@ class AugAssign(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_AugAssign)
         w_target = self.target.to_object(space)  # expr
+        assert w_target is not None
         space.setattr(w_node, space.newtext('target'), w_target)
         w_op = operator_to_class[self.op - 1]().to_object(space)  # operator
+        assert w_op is not None
         space.setattr(w_node, space.newtext('op'), w_op)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -972,20 +1031,28 @@ class AnnAssign(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_AnnAssign)
         w_target = self.target.to_object(space)  # expr
+        assert w_target is not None
         space.setattr(w_node, space.newtext('target'), w_target)
         w_annotation = self.annotation.to_object(space)  # expr
+        assert w_annotation is not None
         space.setattr(w_node, space.newtext('annotation'), w_annotation)
         w_value = self.value.to_object(space) if self.value is not None else space.w_None  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_simple = space.newint(self.simple)  # int
+        assert w_simple is not None
         space.setattr(w_node, space.newtext('simple'), w_simple)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1045,30 +1112,39 @@ class For(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_For)
         w_target = self.target.to_object(space)  # expr
+        assert w_target is not None
         space.setattr(w_node, space.newtext('target'), w_target)
         w_iter = self.iter.to_object(space)  # expr
+        assert w_iter is not None
         space.setattr(w_node, space.newtext('iter'), w_iter)
         if self.body is None:
             body_w = []
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         if self.orelse is None:
             orelse_w = []
         else:
             orelse_w = [node.to_object(space) for node in self.orelse] # stmt
         w_orelse = space.newlist(orelse_w)
+        assert w_orelse is not None
         space.setattr(w_node, space.newtext('orelse'), w_orelse)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = self.type_comment if self.type_comment is not None else space.w_None  # string
+        assert w_type_comment is not None
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1132,30 +1208,39 @@ class AsyncFor(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_AsyncFor)
         w_target = self.target.to_object(space)  # expr
+        assert w_target is not None
         space.setattr(w_node, space.newtext('target'), w_target)
         w_iter = self.iter.to_object(space)  # expr
+        assert w_iter is not None
         space.setattr(w_node, space.newtext('iter'), w_iter)
         if self.body is None:
             body_w = []
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         if self.orelse is None:
             orelse_w = []
         else:
             orelse_w = [node.to_object(space) for node in self.orelse] # stmt
         w_orelse = space.newlist(orelse_w)
+        assert w_orelse is not None
         space.setattr(w_node, space.newtext('orelse'), w_orelse)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = self.type_comment if self.type_comment is not None else space.w_None  # string
+        assert w_type_comment is not None
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1216,26 +1301,33 @@ class While(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_While)
         w_test = self.test.to_object(space)  # expr
+        assert w_test is not None
         space.setattr(w_node, space.newtext('test'), w_test)
         if self.body is None:
             body_w = []
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         if self.orelse is None:
             orelse_w = []
         else:
             orelse_w = [node.to_object(space) for node in self.orelse] # stmt
         w_orelse = space.newlist(orelse_w)
+        assert w_orelse is not None
         space.setattr(w_node, space.newtext('orelse'), w_orelse)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1290,26 +1382,33 @@ class If(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_If)
         w_test = self.test.to_object(space)  # expr
+        assert w_test is not None
         space.setattr(w_node, space.newtext('test'), w_test)
         if self.body is None:
             body_w = []
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         if self.orelse is None:
             orelse_w = []
         else:
             orelse_w = [node.to_object(space) for node in self.orelse] # stmt
         w_orelse = space.newlist(orelse_w)
+        assert w_orelse is not None
         space.setattr(w_node, space.newtext('orelse'), w_orelse)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1367,22 +1466,29 @@ class With(stmt):
         else:
             items_w = [node.to_object(space) for node in self.items] # withitem
         w_items = space.newlist(items_w)
+        assert w_items is not None
         space.setattr(w_node, space.newtext('items'), w_items)
         if self.body is None:
             body_w = []
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = self.type_comment if self.type_comment is not None else space.w_None  # string
+        assert w_type_comment is not None
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1438,22 +1544,29 @@ class AsyncWith(stmt):
         else:
             items_w = [node.to_object(space) for node in self.items] # withitem
         w_items = space.newlist(items_w)
+        assert w_items is not None
         space.setattr(w_node, space.newtext('items'), w_items)
         if self.body is None:
             body_w = []
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = self.type_comment if self.type_comment is not None else space.w_None  # string
+        assert w_type_comment is not None
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1500,16 +1613,22 @@ class Raise(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Raise)
         w_exc = self.exc.to_object(space) if self.exc is not None else space.w_None  # expr
+        assert w_exc is not None
         space.setattr(w_node, space.newtext('exc'), w_exc)
         w_cause = self.cause.to_object(space) if self.cause is not None else space.w_None  # expr
+        assert w_cause is not None
         space.setattr(w_node, space.newtext('cause'), w_cause)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1570,32 +1689,40 @@ class Try(stmt):
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         if self.handlers is None:
             handlers_w = []
         else:
             handlers_w = [node.to_object(space) for node in self.handlers] # excepthandler
         w_handlers = space.newlist(handlers_w)
+        assert w_handlers is not None
         space.setattr(w_node, space.newtext('handlers'), w_handlers)
         if self.orelse is None:
             orelse_w = []
         else:
             orelse_w = [node.to_object(space) for node in self.orelse] # stmt
         w_orelse = space.newlist(orelse_w)
+        assert w_orelse is not None
         space.setattr(w_node, space.newtext('orelse'), w_orelse)
         if self.finalbody is None:
             finalbody_w = []
         else:
             finalbody_w = [node.to_object(space) for node in self.finalbody] # stmt
         w_finalbody = space.newlist(finalbody_w)
+        assert w_finalbody is not None
         space.setattr(w_node, space.newtext('finalbody'), w_finalbody)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1645,16 +1772,22 @@ class Assert(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Assert)
         w_test = self.test.to_object(space)  # expr
+        assert w_test is not None
         space.setattr(w_node, space.newtext('test'), w_test)
         w_msg = self.msg.to_object(space) if self.msg is not None else space.w_None  # expr
+        assert w_msg is not None
         space.setattr(w_node, space.newtext('msg'), w_msg)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1702,14 +1835,19 @@ class Import(stmt):
         else:
             names_w = [node.to_object(space) for node in self.names] # alias
         w_names = space.newlist(names_w)
+        assert w_names is not None
         space.setattr(w_node, space.newtext('names'), w_names)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1752,22 +1890,29 @@ class ImportFrom(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ImportFrom)
         w_module = space.newtext_or_none(self.module)  # identifier
+        assert w_module is not None
         space.setattr(w_node, space.newtext('module'), w_module)
         if self.names is None:
             names_w = []
         else:
             names_w = [node.to_object(space) for node in self.names] # alias
         w_names = space.newlist(names_w)
+        assert w_names is not None
         space.setattr(w_node, space.newtext('names'), w_names)
         w_level = space.newint(self.level)  # int
+        assert w_level is not None
         space.setattr(w_node, space.newtext('level'), w_level)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1812,14 +1957,19 @@ class Global(stmt):
         else:
             names_w = [space.newtext(node) for node in self.names] # identifier
         w_names = space.newlist(names_w)
+        assert w_names is not None
         space.setattr(w_node, space.newtext('names'), w_names)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1860,14 +2010,19 @@ class Nonlocal(stmt):
         else:
             names_w = [space.newtext(node) for node in self.names] # identifier
         w_names = space.newlist(names_w)
+        assert w_names is not None
         space.setattr(w_node, space.newtext('names'), w_names)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1905,14 +2060,19 @@ class Expr(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Expr)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1949,12 +2109,16 @@ class Pass(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Pass)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -1987,12 +2151,16 @@ class Break(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Break)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2025,12 +2193,16 @@ class Continue(stmt):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Continue)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2141,20 +2313,26 @@ class BoolOp(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_BoolOp)
         w_op = boolop_to_class[self.op - 1]().to_object(space)  # boolop
+        assert w_op is not None
         space.setattr(w_node, space.newtext('op'), w_op)
         if self.values is None:
             values_w = []
         else:
             values_w = [node.to_object(space) for node in self.values] # expr
         w_values = space.newlist(values_w)
+        assert w_values is not None
         space.setattr(w_node, space.newtext('values'), w_values)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2198,16 +2376,22 @@ class NamedExpr(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_NamedExpr)
         w_target = self.target.to_object(space)  # expr
+        assert w_target is not None
         space.setattr(w_node, space.newtext('target'), w_target)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2253,18 +2437,25 @@ class BinOp(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_BinOp)
         w_left = self.left.to_object(space)  # expr
+        assert w_left is not None
         space.setattr(w_node, space.newtext('left'), w_left)
         w_op = operator_to_class[self.op - 1]().to_object(space)  # operator
+        assert w_op is not None
         space.setattr(w_node, space.newtext('op'), w_op)
         w_right = self.right.to_object(space)  # expr
+        assert w_right is not None
         space.setattr(w_node, space.newtext('right'), w_right)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2312,16 +2503,22 @@ class UnaryOp(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_UnaryOp)
         w_op = unaryop_to_class[self.op - 1]().to_object(space)  # unaryop
+        assert w_op is not None
         space.setattr(w_node, space.newtext('op'), w_op)
         w_operand = self.operand.to_object(space)  # expr
+        assert w_operand is not None
         space.setattr(w_node, space.newtext('operand'), w_operand)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2366,16 +2563,22 @@ class Lambda(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Lambda)
         w_args = self.args.to_object(space)  # arguments
+        assert w_args is not None
         space.setattr(w_node, space.newtext('args'), w_args)
         w_body = self.body.to_object(space)  # expr
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2422,18 +2625,25 @@ class IfExp(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_IfExp)
         w_test = self.test.to_object(space)  # expr
+        assert w_test is not None
         space.setattr(w_node, space.newtext('test'), w_test)
         w_body = self.body.to_object(space)  # expr
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         w_orelse = self.orelse.to_object(space)  # expr
+        assert w_orelse is not None
         space.setattr(w_node, space.newtext('orelse'), w_orelse)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2492,20 +2702,26 @@ class Dict(expr):
         else:
             keys_w = [node.to_object(space) if node is not None else space.w_None for node in self.keys] # expr
         w_keys = space.newlist(keys_w)
+        assert w_keys is not None
         space.setattr(w_node, space.newtext('keys'), w_keys)
         if self.values is None:
             values_w = []
         else:
             values_w = [node.to_object(space) for node in self.values] # expr
         w_values = space.newlist(values_w)
+        assert w_values is not None
         space.setattr(w_node, space.newtext('values'), w_values)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2553,14 +2769,19 @@ class Set(expr):
         else:
             elts_w = [node.to_object(space) for node in self.elts] # expr
         w_elts = space.newlist(elts_w)
+        assert w_elts is not None
         space.setattr(w_node, space.newtext('elts'), w_elts)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2603,20 +2824,26 @@ class ListComp(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ListComp)
         w_elt = self.elt.to_object(space)  # expr
+        assert w_elt is not None
         space.setattr(w_node, space.newtext('elt'), w_elt)
         if self.generators is None:
             generators_w = []
         else:
             generators_w = [node.to_object(space) for node in self.generators] # comprehension
         w_generators = space.newlist(generators_w)
+        assert w_generators is not None
         space.setattr(w_node, space.newtext('generators'), w_generators)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2663,20 +2890,26 @@ class SetComp(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_SetComp)
         w_elt = self.elt.to_object(space)  # expr
+        assert w_elt is not None
         space.setattr(w_node, space.newtext('elt'), w_elt)
         if self.generators is None:
             generators_w = []
         else:
             generators_w = [node.to_object(space) for node in self.generators] # comprehension
         w_generators = space.newlist(generators_w)
+        assert w_generators is not None
         space.setattr(w_node, space.newtext('generators'), w_generators)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2725,22 +2958,29 @@ class DictComp(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_DictComp)
         w_key = self.key.to_object(space)  # expr
+        assert w_key is not None
         space.setattr(w_node, space.newtext('key'), w_key)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         if self.generators is None:
             generators_w = []
         else:
             generators_w = [node.to_object(space) for node in self.generators] # comprehension
         w_generators = space.newlist(generators_w)
+        assert w_generators is not None
         space.setattr(w_node, space.newtext('generators'), w_generators)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2791,20 +3031,26 @@ class GeneratorExp(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_GeneratorExp)
         w_elt = self.elt.to_object(space)  # expr
+        assert w_elt is not None
         space.setattr(w_node, space.newtext('elt'), w_elt)
         if self.generators is None:
             generators_w = []
         else:
             generators_w = [node.to_object(space) for node in self.generators] # comprehension
         w_generators = space.newlist(generators_w)
+        assert w_generators is not None
         space.setattr(w_node, space.newtext('generators'), w_generators)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2846,14 +3092,19 @@ class Await(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Await)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2893,14 +3144,19 @@ class Yield(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Yield)
         w_value = self.value.to_object(space) if self.value is not None else space.w_None  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2937,14 +3193,19 @@ class YieldFrom(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_YieldFrom)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -2989,26 +3250,33 @@ class Compare(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Compare)
         w_left = self.left.to_object(space)  # expr
+        assert w_left is not None
         space.setattr(w_node, space.newtext('left'), w_left)
         if self.ops is None:
             ops_w = []
         else:
             ops_w = [cmpop_to_class[node - 1]().to_object(space) for node in self.ops] # cmpop
         w_ops = space.newlist(ops_w)
+        assert w_ops is not None
         space.setattr(w_node, space.newtext('ops'), w_ops)
         if self.comparators is None:
             comparators_w = []
         else:
             comparators_w = [node.to_object(space) for node in self.comparators] # expr
         w_comparators = space.newlist(comparators_w)
+        assert w_comparators is not None
         space.setattr(w_node, space.newtext('comparators'), w_comparators)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3063,26 +3331,33 @@ class Call(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Call)
         w_func = self.func.to_object(space)  # expr
+        assert w_func is not None
         space.setattr(w_node, space.newtext('func'), w_func)
         if self.args is None:
             args_w = []
         else:
             args_w = [node.to_object(space) for node in self.args] # expr
         w_args = space.newlist(args_w)
+        assert w_args is not None
         space.setattr(w_node, space.newtext('args'), w_args)
         if self.keywords is None:
             keywords_w = []
         else:
             keywords_w = [node.to_object(space) for node in self.keywords] # keyword
         w_keywords = space.newlist(keywords_w)
+        assert w_keywords is not None
         space.setattr(w_node, space.newtext('keywords'), w_keywords)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3126,14 +3401,19 @@ class RevDBMetaVar(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_RevDBMetaVar)
         w_metavar = space.newint(self.metavar)  # int
+        assert w_metavar is not None
         space.setattr(w_node, space.newtext('metavar'), w_metavar)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3174,18 +3454,25 @@ class FormattedValue(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_FormattedValue)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_conversion = space.newint(self.conversion)  # int
+        assert w_conversion is not None
         space.setattr(w_node, space.newtext('conversion'), w_conversion)
         w_format_spec = self.format_spec.to_object(space) if self.format_spec is not None else space.w_None  # expr
+        assert w_format_spec is not None
         space.setattr(w_node, space.newtext('format_spec'), w_format_spec)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3235,14 +3522,19 @@ class JoinedStr(expr):
         else:
             values_w = [node.to_object(space) for node in self.values] # expr
         w_values = space.newlist(values_w)
+        assert w_values is not None
         space.setattr(w_node, space.newtext('values'), w_values)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3280,16 +3572,22 @@ class Constant(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Constant)
         w_value = self.value  # constant
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
-        w_kind = self.kind  # string
+        w_kind = self.kind if self.kind is not None else space.w_None  # string
+        assert w_kind is not None
         space.setattr(w_node, space.newtext('kind'), w_kind)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3332,18 +3630,25 @@ class Attribute(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Attribute)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_attr = space.newtext(self.attr)  # identifier
+        assert w_attr is not None
         space.setattr(w_node, space.newtext('attr'), w_attr)
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
+        assert w_ctx is not None
         space.setattr(w_node, space.newtext('ctx'), w_ctx)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3393,18 +3698,25 @@ class Subscript(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Subscript)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_slice = self.slice.to_object(space)  # expr
+        assert w_slice is not None
         space.setattr(w_node, space.newtext('slice'), w_slice)
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
+        assert w_ctx is not None
         space.setattr(w_node, space.newtext('ctx'), w_ctx)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3452,16 +3764,22 @@ class Starred(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Starred)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
+        assert w_ctx is not None
         space.setattr(w_node, space.newtext('ctx'), w_ctx)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3504,16 +3822,22 @@ class Name(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Name)
         w_id = space.newtext(self.id)  # identifier
+        assert w_id is not None
         space.setattr(w_node, space.newtext('id'), w_id)
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
+        assert w_ctx is not None
         space.setattr(w_node, space.newtext('ctx'), w_ctx)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3564,16 +3888,22 @@ class List(expr):
         else:
             elts_w = [node.to_object(space) for node in self.elts] # expr
         w_elts = space.newlist(elts_w)
+        assert w_elts is not None
         space.setattr(w_node, space.newtext('elts'), w_elts)
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
+        assert w_ctx is not None
         space.setattr(w_node, space.newtext('ctx'), w_ctx)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3623,16 +3953,22 @@ class Tuple(expr):
         else:
             elts_w = [node.to_object(space) for node in self.elts] # expr
         w_elts = space.newlist(elts_w)
+        assert w_elts is not None
         space.setattr(w_node, space.newtext('elts'), w_elts)
         w_ctx = expr_context_to_class[self.ctx - 1]().to_object(space)  # expr_context
+        assert w_ctx is not None
         space.setattr(w_node, space.newtext('ctx'), w_ctx)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -3681,18 +4017,25 @@ class Slice(expr):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Slice)
         w_lower = self.lower.to_object(space) if self.lower is not None else space.w_None  # expr
+        assert w_lower is not None
         space.setattr(w_node, space.newtext('lower'), w_lower)
         w_upper = self.upper.to_object(space) if self.upper is not None else space.w_None  # expr
+        assert w_upper is not None
         space.setattr(w_node, space.newtext('upper'), w_upper)
         w_step = self.step.to_object(space) if self.step is not None else space.w_None  # expr
+        assert w_step is not None
         space.setattr(w_node, space.newtext('step'), w_step)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -4083,16 +4426,20 @@ class comprehension(AST):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_comprehension)
         w_target = self.target.to_object(space)  # expr
+        assert w_target is not None
         space.setattr(w_node, space.newtext('target'), w_target)
         w_iter = self.iter.to_object(space)  # expr
+        assert w_iter is not None
         space.setattr(w_node, space.newtext('iter'), w_iter)
         if self.ifs is None:
             ifs_w = []
         else:
             ifs_w = [node.to_object(space) for node in self.ifs] # expr
         w_ifs = space.newlist(ifs_w)
+        assert w_ifs is not None
         space.setattr(w_node, space.newtext('ifs'), w_ifs)
         w_is_async = space.newint(self.is_async)  # int
+        assert w_is_async is not None
         space.setattr(w_node, space.newtext('is_async'), w_is_async)
         return w_node
 
@@ -4156,22 +4503,29 @@ class ExceptHandler(excepthandler):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_ExceptHandler)
         w_type = self.type.to_object(space) if self.type is not None else space.w_None  # expr
+        assert w_type is not None
         space.setattr(w_node, space.newtext('type'), w_type)
         w_name = space.newtext_or_none(self.name)  # identifier
+        assert w_name is not None
         space.setattr(w_node, space.newtext('name'), w_name)
         if self.body is None:
             body_w = []
         else:
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
+        assert w_body is not None
         space.setattr(w_node, space.newtext('body'), w_body)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -4245,34 +4599,41 @@ class arguments(AST):
         else:
             posonlyargs_w = [node.to_object(space) for node in self.posonlyargs] # arg
         w_posonlyargs = space.newlist(posonlyargs_w)
+        assert w_posonlyargs is not None
         space.setattr(w_node, space.newtext('posonlyargs'), w_posonlyargs)
         if self.args is None:
             args_w = []
         else:
             args_w = [node.to_object(space) for node in self.args] # arg
         w_args = space.newlist(args_w)
+        assert w_args is not None
         space.setattr(w_node, space.newtext('args'), w_args)
         w_vararg = self.vararg.to_object(space) if self.vararg is not None else space.w_None  # arg
+        assert w_vararg is not None
         space.setattr(w_node, space.newtext('vararg'), w_vararg)
         if self.kwonlyargs is None:
             kwonlyargs_w = []
         else:
             kwonlyargs_w = [node.to_object(space) for node in self.kwonlyargs] # arg
         w_kwonlyargs = space.newlist(kwonlyargs_w)
+        assert w_kwonlyargs is not None
         space.setattr(w_node, space.newtext('kwonlyargs'), w_kwonlyargs)
         if self.kw_defaults is None:
             kw_defaults_w = []
         else:
             kw_defaults_w = [node.to_object(space) if node is not None else space.w_None for node in self.kw_defaults] # expr
         w_kw_defaults = space.newlist(kw_defaults_w)
+        assert w_kw_defaults is not None
         space.setattr(w_node, space.newtext('kw_defaults'), w_kw_defaults)
         w_kwarg = self.kwarg.to_object(space) if self.kwarg is not None else space.w_None  # arg
+        assert w_kwarg is not None
         space.setattr(w_node, space.newtext('kwarg'), w_kwarg)
         if self.defaults is None:
             defaults_w = []
         else:
             defaults_w = [node.to_object(space) for node in self.defaults] # expr
         w_defaults = space.newlist(defaults_w)
+        assert w_defaults is not None
         space.setattr(w_node, space.newtext('defaults'), w_defaults)
         return w_node
 
@@ -4323,18 +4684,25 @@ class arg(AST):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_arg)
         w_arg = space.newtext(self.arg)  # identifier
+        assert w_arg is not None
         space.setattr(w_node, space.newtext('arg'), w_arg)
         w_annotation = self.annotation.to_object(space) if self.annotation is not None else space.w_None  # expr
+        assert w_annotation is not None
         space.setattr(w_node, space.newtext('annotation'), w_annotation)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = self.type_comment if self.type_comment is not None else space.w_None  # string
+        assert w_type_comment is not None
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -4380,16 +4748,22 @@ class keyword(AST):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_keyword)
         w_arg = space.newtext_or_none(self.arg)  # identifier
+        assert w_arg is not None
         space.setattr(w_node, space.newtext('arg'), w_arg)
         w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
         space.setattr(w_node, space.newtext('value'), w_value)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
         space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
         w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
         space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
         w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
         space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
@@ -4428,8 +4802,10 @@ class alias(AST):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_alias)
         w_name = space.newtext(self.name)  # identifier
+        assert w_name is not None
         space.setattr(w_node, space.newtext('name'), w_name)
         w_asname = space.newtext_or_none(self.asname)  # identifier
+        assert w_asname is not None
         space.setattr(w_node, space.newtext('asname'), w_asname)
         return w_node
 
@@ -4463,8 +4839,10 @@ class withitem(AST):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_withitem)
         w_context_expr = self.context_expr.to_object(space)  # expr
+        assert w_context_expr is not None
         space.setattr(w_node, space.newtext('context_expr'), w_context_expr)
         w_optional_vars = self.optional_vars.to_object(space) if self.optional_vars is not None else space.w_None  # expr
+        assert w_optional_vars is not None
         space.setattr(w_node, space.newtext('optional_vars'), w_optional_vars)
         return w_node
 
@@ -4506,8 +4884,10 @@ class TypeIgnore(type_ignore):
     def to_object(self, space):
         w_node = space.call_function(get(space).w_TypeIgnore)
         w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_tag = self.tag  # string
+        assert w_tag is not None
         space.setattr(w_node, space.newtext('tag'), w_tag)
         return w_node
 

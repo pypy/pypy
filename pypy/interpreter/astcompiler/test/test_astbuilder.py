@@ -17,17 +17,6 @@ class TestAstBuilding:
     def setup_class(cls):
         cls.parser = pyparse.PegParser(cls.space)
 
-    def get_ast(self, source, p_mode=None, flags=None, with_async_hacks=False):
-        if p_mode is None:
-            p_mode = "exec"
-        if flags is None:
-            flags = consts.CO_FUTURE_WITH_STATEMENT
-        if with_async_hacks:
-            flags |= consts.PyCF_ASYNC_HACKS
-        info = pyparse.CompileInfo("<test>", p_mode, flags)
-        self.info = info
-        return self.parser.parse_source(source, info)
-
     def setup_method(self, method):
         self.info = None
 
@@ -41,6 +30,7 @@ class TestAstBuilding:
         info = pyparse.CompileInfo("<test>", p_mode, flags)
         self.info = info
         ast_node = self.parser.parse_source(source, info)
+        ast_node.to_object(self.space) # does not crash
         return ast_node
 
     def get_first_expr(self, source, p_mode=None, flags=None):
@@ -80,6 +70,9 @@ class TestAstBuilding:
         assert len(mod.body) == 3
         for stmt in mod.body:
             assert isinstance(stmt, ast.Assign)
+
+    def test_constant_kind_bug(self):
+        d = self.get_first_expr("None") # used to crash in to_object
 
     def test_del(self):
         d = self.get_first_stmt("del x")

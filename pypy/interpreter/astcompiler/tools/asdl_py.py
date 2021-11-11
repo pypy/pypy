@@ -130,8 +130,13 @@ class ASTNodeVisitor(ASDLVisitor):
     def get_value_converter(self, field, value):
         if field.type in self.data.simple_types:
             return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
+        elif field.type == "string":
+            # that's a wrapped string, but it can be optional
+            if field.opt:
+                return "%s if %s is not None else space.w_None" % (value, value)
+            return value
         elif field.type in ("object", "singleton", "constant",
-                            "bytes", "string"):
+                            "bytes"):
             return value
         elif field.type == "bool":
             return "space.newbool(%s)" % (value,)
@@ -225,6 +230,7 @@ class ASTNodeVisitor(ASDLVisitor):
             wrapping_code = self.get_field_converter(field)
             for line in wrapping_code:
                 self.emit(line, 2)
+            self.emit("assert w_%s is not None" % field.name, 2)
             self.emit("space.setattr(w_node, space.newtext(%r), w_%s)" % (
                     str(field.name), field.name), 2)
         self.emit("return w_node", 2)
