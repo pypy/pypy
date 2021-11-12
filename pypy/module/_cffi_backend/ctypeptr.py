@@ -378,18 +378,19 @@ class W_CTypePointer(W_CTypePtrBase):
 
     @jit.dont_look_inside
     def process_str_from_offset_in_bytes(self, cdata, w_ob, keepalives, i):
-        lldata = llstr(w_ob.bytes)
-        if not rgc.can_move(lldata):
-            # easy case - it can't move, pass it directly
-            self.accept_str_from_offset_in_bytes(cdata, lldata,
-                                       keepalives, i, w_ob.offset)
-            if not we_are_translated():
-                keepalives[i] = lldata
-                return 1
-            return 0
-        elif rgc.pin(lldata):
-            return self.accept_str_from_offset_in_bytes(cdata, lldata,
+        if not rgc.must_split_gc_address_space():
+            lldata = llstr(w_ob.bytes)
+            if not rgc.can_move(lldata):
+                # easy case - it can't move, pass it directly
+                self.accept_str_from_offset_in_bytes(cdata, lldata,
                                            keepalives, i, w_ob.offset)
+                if not we_are_translated():
+                    keepalives[i] = lldata
+                    return 1
+                return 0
+            elif rgc.pin(lldata):
+                return self.accept_str_from_offset_in_bytes(cdata, lldata,
+                                               keepalives, i, w_ob.offset)
         # we failed to pin, need to make a copy
         value = w_ob.bytes
         return self.accept_movable_str(cdata, value, keepalives, i)
