@@ -28,6 +28,13 @@ class TestAstToObject:
         w_op = space.getattr(w_node, space.wrap("op"))
         assert space.isinstance_w(w_op, ast.get(space).w_operator)
 
+    def test_to_object_does_not_add_optional_attributes(self, space):
+        val1 = ast.Constant(space.wrap(1), None, lineno=1, col_offset=1, end_lineno=-1, end_col_offset=-1)
+        w_const = val1.to_object(space)
+        w_dict = w_const.getdict(space)
+        space.raises_w(space.w_KeyError, space.getitem, w_dict, space.newtext("kind"))
+        space.is_w(space.getattr(w_const, space.newtext("kind")), space.w_None)
+
     def test_from_object(self, space):
         value = space.wrap(42)
         w_node = space.call_function(ast.get(space).w_Constant)
@@ -37,6 +44,10 @@ class TestAstToObject:
         space.setattr(w_node, space.wrap('col_offset'), space.wrap(1))
         node = ast.Constant.from_object(space, w_node)
         assert node.value is value
+
+    def test_docstring(self, space):
+        doc = space.text_w(space.getattr(ast.get(space).w_arguments, space.newtext("__doc__")))
+        assert doc == "arguments(arg* posonlyargs, arg* args, arg? vararg, arg* kwonlyargs, expr* kw_defaults, arg? kwarg, expr* defaults)"
 
     def test_fields(self, space):
         w_fields = space.getattr(ast.get(space).w_FunctionDef,

@@ -18,6 +18,7 @@ class Module(MixedModule):
 def _setup():
     defs = Module.interpleveldefs
     defs['AST'] = "pypy.interpreter.astcompiler.ast.get(space).w_AST"
-    for (name, base, fields, attributes) in ast.State.AST_TYPES:
+    for tup in ast.State.AST_TYPES:
+        name = tup[0]
         defs[name] = "pypy.interpreter.astcompiler.ast.get(space).w_" + name
 _setup()

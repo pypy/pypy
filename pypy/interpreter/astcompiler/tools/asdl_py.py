@@ -48,6 +48,21 @@ def is_simple_sum(sum):
             return False
     return True
 
+def asdl_of(name, obj):
+    if isinstance(obj, asdl.Product) or isinstance(obj, asdl.Constructor):
+        fields = ", ".join(map(str, obj.fields))
+        if fields:
+            fields = "({})".format(fields)
+        return "{}{}".format(name, fields)
+    else:
+        if is_simple_sum(obj):
+            types = " | ".join(type.name for type in obj.types)
+        else:
+            sep = "\n{}| ".format(" " * (len(name) + 1))
+            types = sep.join(
+                asdl_of(type.name, type) for type in obj.types
+            )
+        return "{} = {}".format(name, types)
 
 class ASTNodeVisitor(ASDLVisitor):
 
@@ -66,13 +81,15 @@ class ASTNodeVisitor(ASDLVisitor):
                 self.emit("return %i" % (i+1,), 3)
             self.emit("raise oefmt(space.w_TypeError,", 2)
             self.emit("        \"Expected %s node, got %%T\", w_node)" % (base,), 2)
-            self.emit("State.ast_type('%s', 'AST', None)" % (base,))
+            doc = asdl_of(base, sum)
+            self.emit("State.ast_type('%s', 'AST', None, doc=%r)" % (base, doc))
             self.emit("")
             for i, cons in enumerate(sum.types):
                 self.emit("class _%s(%s):" % (cons.name, base))
                 self.emit("def to_object(self, space):", 1)
                 self.emit("return space.call_function(get(space).w_%s)" % (cons.name,), 2)
-                self.emit("State.ast_type('%s', '%s', None)" % (cons.name, base))
+                doc = asdl_of(cons.name, cons)
+                self.emit("State.ast_type('%s', '%s', None, doc=%r)" % (cons.name, base, doc))
                 self.emit("")
             for i, cons in enumerate(sum.types):
                 self.emit("%s = %i" % (cons.name, i + 1))
@@ -102,8 +119,11 @@ class ASTNodeVisitor(ASDLVisitor):
                           % (typ.name,), 3)
             self.emit("raise oefmt(space.w_TypeError,", 2)
             self.emit("        \"Expected %s node, got %%T\", w_node)" % (base,), 2)
-            self.emit("State.ast_type(%r, 'AST', None, %s)" %
-                      (base, [attr.name for attr in sum.attributes]))
+            doc = asdl_of(base, sum)
+            defaults = [x.name for x in sum.attributes if x.opt]
+            self.emit("State.ast_type(%r, 'AST', None, %s, default_none_fields=%r, doc=%r)" %
+                      (base, [attr.name for attr in sum.attributes], 
+                       defaults, doc))
             self.emit("")
             for cons in sum.types:
                 self.visit(cons, base, sum.attributes)
@@ -123,8 +143,11 @@ class ASTNodeVisitor(ASDLVisitor):
             attr_names = ', %s' % ([a.name for a in product.attributes],)
         else:
             attr_names = ''
-        self.emit("State.ast_type(%r, 'AST', %s%s)" %
-                  (name, [f.name for f in product.fields], attr_names))
+        doc = asdl_of(name, product)
+        defaults = [x.name for x in product.fields + product.attributes if x.opt]
+        self.emit("State.ast_type(%r, 'AST', %s%s, default_none_fields=%r, doc=%r)" %
+                  (name, [f.name for f in product.fields], attr_names,
+                   defaults, doc))
         self.emit("")
 
     def get_value_converter(self, field, value):
@@ -227,12 +250,18 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("w_node = space.call_function(get(space).w_%s)" % name, 2)
         all_fields = fields + extras if extras else fields
         for field in all_fields:
+            # bit of a mess
             wrapping_code = self.get_field_converter(field)
             for line in wrapping_code:
                 self.emit(line, 2)
             self.emit("assert w_%s is not None" % field.name, 2)
-            self.emit("space.setattr(w_node, space.newtext(%r), w_%s)" % (
-                    str(field.name), field.name), 2)
+            setter = "space.setattr(w_node, space.newtext(%r), w_%s)" % (
+                    str(field.name), field.name)
+            if field.opt and field.type == "string":
+                self.emit("if self.%s:" % (field.name, ), 2)
+                self.emit(setter, 3)
+            else:
+                self.emit(setter, 2)
         self.emit("return w_node", 2)
         self.emit("")
         self.emit("@staticmethod", 1)
@@ -296,8 +325,11 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("")
         self.make_mutate_over(cons, cons.name)
         self.make_converters(cons.fields, cons.name, extra_attributes)
-        self.emit("State.ast_type(%r, '%s', %s)" %
-                  (cons.name, base, [f.name for f in cons.fields]))
+        doc = asdl_of(cons.name, cons)
+        defaults = [x.name for x in cons.fields if x.opt]
+        self.emit("State.ast_type(%r, '%s', %s, default_none_fields=%r, doc=%r)" %
+                  (cons.name, base, [f.name for f in cons.fields],
+                   defaults, doc))
         self.emit("")
 
     def visitField(self, field):
@@ -609,15 +641,15 @@ class State:
     AST_TYPES = []
 
     @classmethod
-    def ast_type(cls, name, base, fields, attributes=None):
-        cls.AST_TYPES.append((name, base, fields, attributes))
+    def ast_type(cls, name, base, fields, attributes=None, default_none_fields=None, doc=None):
+        cls.AST_TYPES.append((name, base, fields, attributes, default_none_fields, doc))
 
     def __init__(self, space):
         self.w_AST = space.gettypeobject(W_AST.typedef)
-        for (name, base, fields, attributes) in self.AST_TYPES:
-            self.make_new_type(space, name, base, fields, attributes)
+        for info in self.AST_TYPES:
+            self.make_new_type(space, *info)
 
-    def make_new_type(self, space, name, base, fields, attributes):
+    def make_new_type(self, space, name, base, fields, attributes, default_none_fields, doc):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
         space.setitem_str(w_dict, '__module__', space.newtext('_ast'))
@@ -627,15 +659,15 @@ class State:
         if attributes is not None:
             space.setitem_str(w_dict, "_attributes",
                               space.newtuple([space.newtext(a) for a in attributes]))
-            if "end_lineno" in attributes:
-                assert "end_col_offset" in attributes
-                # set default values on the type
-                space.setitem_str(w_dict, "end_lineno", space.w_None)
-                space.setitem_str(w_dict, "end_col_offset", space.w_None)
+        if default_none_fields:
+            for field in default_none_fields:
+                space.setitem_str(w_dict, field, space.w_None)
         w_type = space.call_function(
             space.w_type,
             space.newtext(name), space.newtuple([w_base]), w_dict)
         setattr(self, 'w_%s' % name, w_type)
+        if doc is not None:
+            space.setattr(w_type, space.newtext("__doc__"), space.newtext(doc))
 
 def get(space):
     return space.fromcache(State)
