@@ -60,10 +60,10 @@ def get_primitive_op_src(fullopname):
         def op_function(x, y):
             if not isinstance(x, str) or len(x) != 1:
                 raise TypeError("%r arg must be a char, got %r instead" % (
-                    fullopname, typname, type(x).__name__))
+                    fullopname, type(x).__name__))
             if not isinstance(y, str) or len(y) != 1:
                 raise TypeError("%r arg must be a char, got %r instead" % (
-                    fullopname, typname, type(y).__name__))
+                    fullopname, type(y).__name__))
             return func(x, y)
 
     else:
