@@ -2029,6 +2029,14 @@ x = [c for c in buggy_lnotab.__code__.co_lnotab]
     def test_revdb_metavar(self):
         self.error_test("7 * $0", SyntaxError)
 
+    def test_bug_arguments(self):
+        func = """
+def brokenargs(a=1, /, b=2, *, c):
+    return [a, b, c]
+x = brokenargs(c=3)
+"""
+        self.st(func, "x", [1, 2, 3])
+
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block

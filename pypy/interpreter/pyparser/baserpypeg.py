@@ -685,11 +685,9 @@ class Parser:
             slash_without_default, slash_with_default)
         posargs = self.make_posargs(plain_names, names_with_default)
 
-        posdefaults = (
-            self.get_defaults(slash_with_default.names_with_defaults)
-                if slash_with_default else []
-            + self.get_defaults(names_with_default)
-        )
+        posdefaults = (self.get_defaults(slash_with_default.names_with_defaults)
+                if slash_with_default else [])
+        posdefaults.extend(self.get_defaults(names_with_default))
 
         vararg = star_etc.vararg if star_etc else None
 
