@@ -259,19 +259,19 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print(stderr.decode('utf-8'))
                 continue
 
-            env['CPPFLAGS'] = \
-                '-I{}/usr/include {}'.format(deps_destdir, env.get('CPPFLAGS', ''))
-            env['LDFLAGS'] = \
-                '-L{}/usr/lib -L{}/usr/lib64 {}'.format(deps_destdir, deps_destdir,
-                                                        env.get('LDFLAGS', ''))
+            env['CPPFLAGS'] = '-I{}/usr/include {}'.format(
+                            deps_destdir, env.get('CPPFLAGS', ''))
+            env['LDFLAGS'] = '-L{}/usr/lib64 -L{}/usr/lib {}'.format(
+                            deps_destdir, deps_destdir, env.get('LDFLAGS', ''))
 
         try:
-            status, stdout, stderr = run_subprocess(pypy3, args, cwd=cwd, env=env)
+            status, bld_stdout, bld_stderr = run_subprocess(str(pypy_c), args,
+                                                    cwd=cwd, env=env)
             if status != 0:
                 print("stdout:")
                 print(stdout.decode('utf-8'), file=sys.stderr)
                 print("stderr:")
-                print(stderr.decode('utf-8'), file=sys.stderr)
+                print(bld_stderr.decode('utf-8'), file=sys.stderr)
                 raise RuntimeError('building {} failed'.format(key))
         except:
             import traceback;traceback.print_exc()
@@ -287,9 +287,13 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                                                     env=env)
             if status != 0:
                 failures.append((key, module))
-                print("stdout:")
+                print("build stdout:")
+                print(bld_stdout.decode('utf-8'), file=sys.stderr)
+                print("build stderr:")
+                print(bld_stderr, file=sys.stderr)
+                print("test stdout:")
                 print(stdout.decode('utf-8'), file=sys.stderr)
-                print("stderr:")
+                print("test stderr:")
                 print(stderr.decode('utf-8'), file=sys.stderr)
         if os.path.exists(deps_destdir):
             shutil.rmtree(deps_destdir, ignore_errors=True)

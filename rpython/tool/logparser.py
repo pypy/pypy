@@ -412,7 +412,7 @@ def print_summary(log, out):
         if a is None:
             a = 'normal-execution'
         s = " " * (50 - len(a))
-        print >>outfile, a, s, str(b*100/total) + "%"
+        print >>outfile, a, s, "%.2f" % (b*100./total) + "%"
     if out != '-':
         outfile.close()
 

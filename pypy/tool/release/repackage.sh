@@ -5,7 +5,7 @@ pmaj=3  # python main version: 2 or 3
 pmin=8  # python minor version
 maj=7
 min=3
-rev=6
+rev=7
 #rc=rc3  # comment this line for actual release
 
 function maybe_exit {
