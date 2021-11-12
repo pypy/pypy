@@ -3773,7 +3773,7 @@ class PythonParser(Parser):
         if a:
             literal = self.expect_type(22)
             if literal:
-                return self . raise_syntax_error_known_location ( "cannot assign to %s" % ( self . get_expr_name ( a ) , ) , a )
+                return self . raise_syntax_error_known_location ( self . get_invalid_target_msg ( a , "assign" ) , a )
         self._index = mark
         _loop0_135 = self._loop0_135()
         a = self.yield_expr()
@@ -3822,7 +3822,7 @@ class PythonParser(Parser):
         if literal:
             a = self.star_expressions()
             if a:
-                return self . raise_syntax_error_known_location ( "cannot delete %s" % ( self . get_expr_name ( a ) , ) , a )
+                return self . raise_syntax_error_known_location ( self . get_invalid_target_msg ( a , "delete" ) , a ) ,
         self._index = mark
         return None
 
@@ -4006,7 +4006,7 @@ class PythonParser(Parser):
                 a = self.expression()
                 if a:
                     if self.positive_lookahead(PythonParser._tmp_146, ):
-                        return self . raise_syntax_error_known_location ( "cannot assign to %s" % ( self . get_expr_name ( a ) , ) , a )
+                        return self . raise_syntax_error_known_location ( self . get_invalid_target_msg ( a , "assign" ) , a )
         self._index = mark
         return None
 
@@ -4019,7 +4019,7 @@ class PythonParser(Parser):
         if literal:
             a = self.star_expressions()
             if a:
-                return self . raise_syntax_error_known_location ( "cannot assign to %s" % ( self . get_expr_name ( a ) , ) , a )
+                return self . raise_syntax_error_known_location ( self . get_invalid_target_msg ( a , "for" ) , a )
         self._index = mark
         return None
 

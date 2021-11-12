@@ -1259,7 +1259,7 @@ invalid_assignment[NoReturn]:
     | a=expression ':' expression {
         self.raise_syntax_error_known_location("illegal target for annotation", a) }
     | (star_targets '=')* a=star_expressions '=' {
-        self.raise_syntax_error_known_location("cannot assign to %s" % (self.get_expr_name(a), ), a)
+        self.raise_syntax_error_known_location(self.get_invalid_target_msg(a, "assign"), a)
      }
     | (star_targets '=')* a=yield_expr '=' {
         self.raise_syntax_error_known_location("assignment to yield expression not possible", a)
@@ -1275,7 +1275,7 @@ invalid_ann_assign_target[ast.AST]:
     | '(' a=invalid_ann_assign_target ')' { a }
 invalid_del_stmt[NoReturn]:
     | 'del' a=star_expressions {
-        self.raise_syntax_error_known_location("cannot delete %s" % (self.get_expr_name(a), ), a)
+        self.raise_syntax_error_known_location(self.get_invalid_target_msg(a, "delete"), a),
      }
 invalid_block[NoReturn]:
     | NEWLINE !INDENT { self.raise_indentation_error("expected an indented block") }
@@ -1326,12 +1326,12 @@ invalid_double_type_comments[NoReturn]:
      }
 invalid_with_item[NoReturn]:
     | expression 'as' a=expression &(',' | ')' | ':') {
-        self.raise_syntax_error_known_location("cannot assign to %s" % (self.get_expr_name(a), ), a)
+        self.raise_syntax_error_known_location(self.get_invalid_target_msg(a, "assign"), a)
      }
 
 invalid_for_target[NoReturn]:
     | ASYNC? 'for' a=star_expressions {
-        self.raise_syntax_error_known_location("cannot assign to %s" % (self.get_expr_name(a), ), a)
+        self.raise_syntax_error_known_location(self.get_invalid_target_msg(a, "for"), a)
      }
 
 invalid_group[NoReturn]:

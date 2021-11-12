@@ -929,6 +929,29 @@ class TestAstBuilding:
                 msg = self.space.text_w(self.space.repr(excinfo.value.get_w_value(self.space)))
                 assert ("cannot delete %s" % (name,)) in msg
 
+    def test_cannot_delete_messages(self):
+        invalid = [
+            ("del (1, x)", "cannot delete literal"),
+            ("del [x, z, a, {1, 2}]", "cannot delete set display"),
+            ("del [a, (b, *c)]", "cannot delete starred"),
+        ]
+        for wrong, msg in invalid:
+            with pytest.raises(SyntaxError) as excinfo:
+                self.get_ast(wrong)
+            assert msg in excinfo.value.msg
+
+    def test_cannot_assign_messages(self):
+        invalid = [
+            ("(1, x) = 5", "cannot assign to literal"),
+            ("[x, z, a, {1, 2}] = 12", "cannot assign to set display"),
+            ("for (1, x) in []: pass", "cannot assign to literal"),
+            ("with foo as (1, 2): pass", "cannot assign to literal"),
+        ]
+        for wrong, msg in invalid:
+            with pytest.raises(SyntaxError) as excinfo:
+                self.get_ast(wrong)
+            assert msg in excinfo.value.msg
+
     def test_assign_bug(self):
         self.get_ast("direct = (__debug__ and optimize == 0)") # used to crash
 

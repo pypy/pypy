@@ -492,6 +492,47 @@ class Parser:
         """Get a descriptive name for an expression."""
         return node._get_descr(self.space)
 
+    def get_invalid_target_msg(self, node, assignment_type):
+        what = self._get_invalid_target(node, assignment_type)
+        if what is None:
+            return "invalid syntax"
+        if assignment_type == "delete":
+            return "cannot delete " + self.get_expr_name(what)
+        else:
+            assert assignment_type in ("assign", "for")
+            return "cannot assign to " + self.get_expr_name(what)
+
+    def _get_invalid_target(self, node, assignment_type):
+        def loop(self, lst, assignment_type):
+            for elt in lst:
+                elt = self._get_invalid_target(elt, assignment_type)
+                if elt is not None:
+                    return elt
+            return None
+        if isinstance(node, ast.List):
+            return loop(self, node.elts, assignment_type)
+        elif isinstance(node, ast.Tuple):
+            return loop(self, node.elts, assignment_type)
+        elif isinstance(node, ast.Starred):
+            if assignment_type == "delete":
+                return node
+            return None
+        elif isinstance(node, ast.Compare):
+            if assignment_type == "for":
+                if node.ops[0] == ast.In:
+                    return self._get_invalid_target(node.left, "assign")
+                return None
+            return node
+        elif isinstance(node, ast.Name):
+            return None
+        elif isinstance(node, ast.Subscript):
+            return None
+        elif isinstance(node, ast.Attribute):
+            return None
+        else:
+            return node
+
+
     def set_expr_context(self, node, context):
         """make a copy of node, changing context"""
         return node.set_context_copy(context)
