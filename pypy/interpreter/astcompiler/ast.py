@@ -97,22 +97,8 @@ class W_AST(W_Root):
         w_dict = self.w_dict
         if w_dict is None:
             w_dict = space.newdict()
-        w_type = space.type(self)
-        w_fields = space.getattr(w_type, space.newtext("_fields"))
-        for w_name in space.fixedview(w_fields):
-            try:
-                space.setitem(w_dict, w_name,
-                          space.getattr(self, w_name))
-            except OperationError:
-                pass
-        w_attrs = space.findattr(w_type, space.newtext("_attributes"))
-        if w_attrs:
-            for w_name in space.fixedview(w_attrs):
-                try:
-                    space.setitem(w_dict, w_name,
-                              space.getattr(self, w_name))
-                except OperationError:
-                    pass
+        else:
+            w_dict = space.call_method(w_dict, "copy")
         return space.newtuple([space.type(self),
                                space.newtuple([]),
                                w_dict])
