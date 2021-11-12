@@ -94,13 +94,15 @@ def parsestr(space, encoding, s, stnode=None, astbuilder=None):
         if saw_f:
             return W_FString(s[ps:q], rawmode, stnode)
         elif rawmode:
-            v = unicodehelper.str_decode_utf8(s[ps:q], 'strict', True, None)
-            return space.newtext(*v)
+            length = unicodehelper.check_utf8_or_raise(space, s, ps, q)
+            return space.newutf8(s[ps:q], length)
         else:
             if encoding is None:
                 substr = s[ps:q]
             else:
-                unicodehelper.check_utf8_or_raise(space, s, ps, q)
+                length = unicodehelper.check_utf8_or_raise(space, s, ps, q)
+                if "\\" not in s: # fast path, no escapes
+                    return space.newutf8(s[ps:q], length)
                 substr = decode_unicode_utf8(space, s, ps, q)
             r = decode_unicode_escape(space, substr, astbuilder, stnode)
             v, length, pos = r

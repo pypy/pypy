@@ -49,6 +49,8 @@ class Module(MixedModule):
         'from_buffer': 'func.from_buffer',
         'gcp': 'func.gcp',
 
+        '_offset_in_bytes': 'func.offset_in_bytes',
+
         'string': 'func.string',
         'unpack': 'func.unpack',
         'buffer': 'cbuffer.MiniBuffer',

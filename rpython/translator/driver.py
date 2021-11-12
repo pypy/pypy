@@ -510,8 +510,8 @@ class TranslationDriver(SimpleTaskEngine):
                     # HACK: copy libcffi-7.dll which is required for venvs
                     # At some point, we should stop doing this, and instead
                     # use the artifact from packaging the build instead
-                    libffi = py.path.local.sysfind('libffi-7.dll')
-                    shutil.copyfile(str(libffi), os.getcwd() + r'\libffi-7.dll')
+                    libffi = py.path.local.sysfind('libffi-8.dll')
+                    shutil.copyfile(str(libffi), os.getcwd() + r'\libffi-8.dll')
             self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
 

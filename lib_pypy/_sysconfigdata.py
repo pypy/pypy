@@ -6,11 +6,6 @@ from distutils.spawn import find_executable
 
 so_ext = _imp.extension_suffixes()[0]
 
-mybase = os.path.dirname(os.path.dirname(__file__))
-
-# FIXME: The compiler-specific values should be exported from the build,
-# perhaps via a special __pypy__._sysconfigdata module?
-
 pydot = '%d.%d' % sys.version_info[:2]
 
 build_time_vars = {
@@ -34,24 +29,28 @@ build_time_vars = {
     'AR': "ar",
     'ARFLAGS': "rc",
     'EXE': "",
-    # This should point to where the libpypy3-c.so file lives, on CPython
-    # it points to "mybase/lib". But that would require rethinking the PyPy
-    # packaging process which copies pypy3 and libpypy3-c.so to the
-    # "mybase/bin" directory. Only when making a portable build (the default
-    # for the linux buildbots) is there even a "mybase/lib" created, even so
-    # the mybase/bin layout is left untouched.
-    'LIBDIR': os.path.join(mybase, 'bin'),
-    'LDLIBRARY': 'libpypy3-c.so',
     'VERSION': pydot,
     'LDVERSION': pydot,
     'Py_DEBUG': 0,  # cpyext never uses this
     'Py_ENABLE_SHARED': 0,  # if 1, will add python so to link like -lpython3.7
     'SIZEOF_VOID_P': struct.calcsize("P"),
 }
+
+# LIBDIR should point to where the libpypy3-c.so file lives, on CPython
+# it points to "mybase/lib". But that would require rethinking the PyPy
+# packaging process which copies pypy3 and libpypy3-c.so to the
+# "mybase/bin" directory. Only when making a portable build (the default
+# for the linux buildbots) is there even a "mybase/lib" created, even so
+# the mybase/bin layout is left untouched.
+mybase = sys.base_prefix
 if sys.platform == 'win32':
+    build_time_vars['LDLIBRARY'] = 'libpypy3-c.dll'
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include')
+    build_time_vars['LIBDIR'] = mybase
 else:
+    build_time_vars['LDLIBRARY'] = 'libpypy3-c.so',
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include', 'pypy' + pydot)
+    build_time_vars['LIBDIR'] = os.path.join(mybase, 'bin')
 
 if find_executable("gcc"):
     build_time_vars.update({

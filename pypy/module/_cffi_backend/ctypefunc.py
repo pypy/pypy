@@ -195,6 +195,10 @@ class W_CTypeFunc(W_CTypePtrBase):
                     raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
                     if flag == 1:
                         lltype.free(raw_cdata, flavor='raw')
+                    elif flag == 3:
+                        rgc.unpin(keepalives[i])
+                        if not we_are_translated():
+                            lltype.free(keepalives[i])
                     elif flag >= 4:
                         llobj = keepalives[i]
                         assert llobj     # not NULL
@@ -208,12 +212,18 @@ def get_mustfree_flag(data):
     return ord(rffi.ptradd(data, -1)[0])
 
 def set_mustfree_flag(data, flag):
+    """ Set a flag for future handling of the pointer after the call,
+    possible values are:
+    0 - not set
+    1 - free the argument
+    2 - file argument
+    3 - unpin the keepalive
+    4, 5, 6 - free the keepalive slot, different values returned from
+              rffi.get_nonmovingbuffer_ll_final_null
+    """
     rffi.ptradd(data, -1)[0] = chr(flag)
 
 # ____________________________________________________________
-
-
-USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
 
 
 # ----------
