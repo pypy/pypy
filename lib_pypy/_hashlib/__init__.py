@@ -9,13 +9,13 @@ except ImportError: builtinify = lambda f: f
 
 
 def new(name, string=b'', usedforsecurity=True):
-    h = HASH(name)
+    h = HASH(name, usedforsecurity=usedforsecurity)
     h.update(string)
     return h
-
+# TODO: missing HASHXOF class for OPENSSL_HAS_SHAKE, not commonly used?
 class HASH(object):
 
-    def __init__(self, name, copy_from=None):
+    def __init__(self, name, copy_from=None, usedforsecurity=True):
         self.ctx = ffi.NULL
         self.name = name
         digest_type = self.digest_type_by_name()
@@ -26,14 +26,16 @@ class HASH(object):
         # and use a custom lock only when needed.
         self.lock = Lock()
 
+        # Start EVPnew
         ctx = lib.Cryptography_EVP_MD_CTX_new()
         if ctx == ffi.NULL:
             raise MemoryError
         ctx = ffi.gc(ctx, lib.Cryptography_EVP_MD_CTX_free)
 
+
         try:
             if copy_from is not None:
-                # cpython uses EVP_MD_CTX_copy(...)
+                # cpython uses EVP_MD_CTX_copy(...) and calls this from EVP_copy
                 if not lib.EVP_MD_CTX_copy_ex(ctx, copy_from):
                     raise ValueError
             else:
@@ -43,6 +45,9 @@ class HASH(object):
         except:
             # no need to gc ctx! 
             raise
+        if not usedforsecurity and lib.EVP_MD_CTX_FLAG_NON_FIPS_ALLOW:
+            lib.EVP_MD_CTX_set_flags(ctx, lib.EVP_MD_CTX_FLAG_NON_FIPS_ALLOW)
+        # End EVPnew
 
     def digest_type_by_name(self):
         c_name = _str_to_ffi_buffer(self.name)
@@ -164,12 +169,12 @@ if hasattr(lib, 'PKCS5_PBKDF2_HMAC'):
             raise ValueError("iteration value must be greater than 0.")
         if iterations >= sys.maxsize:
             raise OverflowError("iteration value is too great.")
-        buf = ffi.new("unsigned char[]", dklen)
+        key = ffi.new("unsigned char[]", dklen)
         c_password = ffi.from_buffer(bytes(password))
         c_salt = ffi.from_buffer(bytes(salt))
         r = lib.PKCS5_PBKDF2_HMAC(c_password, len(c_password),
                 ffi.cast("unsigned char*",c_salt), len(c_salt),
-                iterations, digest, dklen, buf)
+                iterations, digest, dklen, key)
         if r == 0:
             raise ValueError
         return _bytes_with_len(buf, dklen)

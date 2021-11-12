@@ -13,7 +13,7 @@ def make_blake_hash(class_name, cffi_mod):
         def __new__(cls, _string=None, *, digest_size=MAX_DIGEST_SIZE,
                     key=None, salt=None, person=None, fanout=1, depth=1,
                     leaf_size=None, node_offset=None, node_depth=0,
-                    inner_size=0, last_node=False):
+                    inner_size=0, last_node=False, usedforsecurity=True):
             self = super().__new__(cls)
 
             self._param = _ffi.new("blake_param*")
