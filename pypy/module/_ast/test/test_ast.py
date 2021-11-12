@@ -584,3 +584,7 @@ from __future__ import generators""")
 
             assert len(tree_1.type_ignores) == 6
             assert len(tree_2.type_ignores) == 6
+
+    def test_fstring_self_documenting_feature_version(self):
+        raises(SyntaxError, self.get_ast, "f'{x=}'", feature_version=7)
+        self.get_ast("'f{x=}'", feature_version=7)

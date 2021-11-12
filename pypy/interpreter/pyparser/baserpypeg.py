@@ -245,7 +245,7 @@ class Parser:
 
         self.call_invalid_rules = False
 
-        self.py_version = (3, 9)
+        self.py_version = (3, compile_info.feature_version)
         self.space = space
 
     def recursive_parse_to_ast(self, str, info):
@@ -475,8 +475,8 @@ class Parser:
         """Check that the python version is high enough for a rule to apply.
 
         """
-        if (self.py_version[0] >= min_version[0] or
-            (self.py_version[0] == self.min_version[0] and
+        if (self.py_version[0] > min_version[0] or
+            (self.py_version[0] == min_version[0] and
                 self.py_version[1] >= min_version[1])):
             return node
         else:
