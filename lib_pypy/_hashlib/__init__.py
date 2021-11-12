@@ -12,12 +12,15 @@ def new(name, string=b'', usedforsecurity=True):
     h = HASH(name, usedforsecurity=usedforsecurity)
     h.update(string)
     return h
-# TODO: missing HASHXOF class for OPENSSL_HAS_SHAKE, not commonly used?
+
+
 class HASH(object):
 
-    def __init__(self, name, copy_from=None, usedforsecurity=True):
+    def __init__(self, name=None, copy_from=None, usedforsecurity=True):
         self.ctx = ffi.NULL
-        self.name = name
+        if name is None:
+            raise TypeError("cannot create '%s' instance" % type(self).__name__)
+        self.name = str(name).lower()
         digest_type = self.digest_type_by_name()
         self.digest_size = lib.EVP_MD_size(digest_type)
 
@@ -104,6 +107,9 @@ class HASH(object):
         finally:
             lib.Cryptography_EVP_MD_CTX_free(ctx)
 
+class HASHXOF(HASH):
+    pass
+
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
 class NameFetcher:
@@ -126,7 +132,6 @@ def _fetch_names():
 def hash_name_mapper_callback(obj_name, userdata):
     if not obj_name:
         return
-    name_fetcher = ffi.from_handle(userdata)
     # Ignore aliased names, they pollute the list and OpenSSL appears
     # to have a its own definition of alias as the resulting list
     # still contains duplicate and alternate names for several
@@ -134,6 +139,9 @@ def hash_name_mapper_callback(obj_name, userdata):
     if obj_name.alias != 0:
         return
     name = _str_from_buf(obj_name.name)
+    if name in ('blake2b512', 'sha3-512'):
+        return
+    name_fetcher = ffi.from_handle(userdata)
     name_fetcher.meth_names.append(name)
 
 openssl_md_meth_names = _fetch_names()
@@ -177,4 +185,4 @@ if hasattr(lib, 'PKCS5_PBKDF2_HMAC'):
                 iterations, digest, dklen, key)
         if r == 0:
             raise ValueError
-        return _bytes_with_len(buf, dklen)
+        return _bytes_with_len(key, dklen)

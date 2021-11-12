@@ -53,12 +53,16 @@ def make_blake_hash(class_name, cffi_mod):
             if leaf_size is not None:
                 if leaf_size > 0xFFFFFFFF:
                     raise OverflowError("leaf_size is too large")
+                if leaf_size < 0:
+                    raise ValueError("value must be positive")
                 # NB: Simple assignment here would be incorrect on big
                 # endian platforms.
                 _lib.store32(_ffi.addressof(self._param, 'leaf_length'),
                              leaf_size)
 
             if node_offset is not None:
+                if node_offset < 0:
+                    raise ValueError("value must be positive")
                 if class_name == 'blake2s':
                     if node_offset > 0xFFFFFFFFFFFF:
                         # maximum 2**48 - 1

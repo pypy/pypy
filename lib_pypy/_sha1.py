@@ -344,10 +344,11 @@ digest_size = 20
 digestsize = 20
 blocksize = 1
 
-def sha1(arg=None):
+def sha1(arg=None, usedforsecurity=True):
     """Return a new sha crypto object.
 
     If arg is present, the method call update(arg) is made.
+    usedforsecurity is ignored
     """
 
     crypto = sha()

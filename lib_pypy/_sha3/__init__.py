@@ -7,7 +7,7 @@ SHA3_LANESIZE = (20 * 8) # ExtractLane needs max uint64_t[20] extra.
 class _sha3:
     _keccak_init = None  # Overridden in subclasses
 
-    def __new__(cls, string=None):
+    def __new__(cls, string=None, usedforsecurity=True):
         self = super().__new__(cls)
         self._hash_state = _ffi.new("Keccak_HashInstance*")
 
@@ -66,6 +66,8 @@ class _shake(_sha3):
     def digest(self, length):
         if length >= (1 << 29):
             raise ValueError("length is too large")
+        if length < 0:
+            raise ValueError("value must be positive")
         # ExtractLane needs at least SHA3_MAX_DIGESTSIZE + SHA3_LANESIZE and
         # SHA_LANESIZE extra space.
         digest = _ffi.new("char[]", length + SHA3_LANESIZE)
