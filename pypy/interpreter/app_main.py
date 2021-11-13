@@ -755,8 +755,7 @@ def run_command_line(interactive,
             # executing the interactive prompt, if we're running a script we
             # put it's directory on sys.path
             if not isolated:
-                fullpath = abspath('.')
-                sys.path.insert(0, fullpath)
+                sys.path.insert(0, '')
 
             if interactive or sys.stdin.isatty():
                 # If stdin is a tty or if "-i" is specified, we print a
@@ -965,6 +964,7 @@ if __name__ == '__main__':
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
+    WE_ARE_TRANSLATED = False
 
     if len(sys.argv) > 1 and sys.argv[1] == '--argparse-only':
         import io
@@ -978,6 +978,7 @@ if __name__ == '__main__':
             raise
         except BaseException as e:
             print('Error', file=sys.__stdout__)
+            print(repr(e), file=sys.__stdout__)
             raise
         else:
             print('Return', file=sys.__stdout__)
@@ -1011,7 +1012,6 @@ if __name__ == '__main__':
         import os
         return os.path.abspath(os.path.join(s, '..'))
 
-    WE_ARE_TRANSLATED = False
     import os
     reset = []
     if 'PYTHONINSPECT_' in os.environ:
