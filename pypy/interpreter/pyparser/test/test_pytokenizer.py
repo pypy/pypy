@@ -176,3 +176,23 @@ whatisthis"""'''
         check_token_error("a \\ b",
                           "unexpected character after line continuation character",
                           4)
+
+    def test_error_integers(self):
+        check_token_error("0b106",
+                "invalid digit '6' in binary literal",
+                5)
+        check_token_error("0b6",
+                "invalid digit '6' in binary literal",
+                3)
+        check_token_error("0b \n",
+                "invalid binary literal",
+                2)
+        check_token_error("0o129",
+                "invalid digit '9' in octal literal",
+                5)
+        check_token_error("0o9",
+                "invalid digit '9' in octal literal",
+                3)
+        check_token_error("0o \n",
+                "invalid octal literal",
+                2)

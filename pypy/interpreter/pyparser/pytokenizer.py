@@ -279,6 +279,7 @@ def generate_tokens(lines, flags):
                    (initial == '.' and token != '.' and token != '...')):
                     # ordinary number
                     token_list.append(Token(tokens.NUMBER, token, lnum, start, line, lnum, end))
+                    _maybe_raise_number_error(token, line, lnum, start, end, token_list)
                     last_comment = ''
                 elif initial in '\r\n':
                     if not parenstack:
@@ -429,6 +430,36 @@ def generate_tokens(lines, flags):
     token_list.append(Token(tokens.ENDMARKER, '', lnum, pos, line))
     return token_list
 
+def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
+    ch = _get_next_or_nul(line, end)
+    if end == start + 1 and token[0] == "0":
+        if ch == "b":
+            token = "0b"
+            end += 1
+            ch = _get_next_or_nul(line, end)
+            if not ch.isdigit():
+                raise TokenError("invalid binary literal",
+                        line, lnum, end, token_list)
+        if ch == "o":
+            token = "0o"
+            end += 1
+            ch = _get_next_or_nul(line, end)
+            if not ch.isdigit():
+                raise TokenError("invalid octal literal",
+                        line, lnum, end, token_list)
+    if ch.isdigit():
+        # either an invalid binary or octal number
+        if token.startswith("0b"):
+            raise TokenError("invalid digit '%s' in binary literal" % (ch, ),
+                    line, lnum, end + 1, token_list)
+        elif token.startswith("0o"):
+            raise TokenError("invalid digit '%s' in octal literal" % (ch, ),
+                    line, lnum, end + 1, token_list)
+
+def _get_next_or_nul(line, end):
+    if end < len(line):
+        return line[end]
+    return chr(0)
 
 def universal_newline(line):
     # show annotator that indexes below are non-negative
