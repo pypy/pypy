@@ -56,6 +56,9 @@ class TestPythonAstCompiler:
             space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
                            ')', '?', mode, 0)
 
+    def test_compile_bug(self):
+        self.compiler.compile_command("if 1: pass", "", "single", 0)
+
     def test_hidden_applevel(self):
         code = self.compiler.compile("def f(x): pass", "<test>", "exec", 0,
                                      True)

@@ -111,18 +111,17 @@ class PythonParser(Parser):
         return None
 
     def statement_newline(self): # type Optional[list]
-        # statement_newline: compound_stmt NEWLINE $ | simple_stmts $ | NEWLINE $ | $
+        # statement_newline: compound_stmt NEWLINE? $ | simple_stmts $ | NEWLINE $ | $
         mark = self._index
         if self._verbose: log_start(self, 'statement_newline')
         tok = self.peek()
         start_lineno, start_col_offset = tok.lineno, tok.column
         a = self.compound_stmt()
         if a:
-            _newline = self.expect_type(4)
-            if _newline:
-                _endmarker = self.expect_type(0)
-                if _endmarker:
-                    return [a]
+            opt = self.expect_type(4)
+            _endmarker = self.expect_type(0)
+            if _endmarker:
+                return [a]
         self._index = mark
         a = self.simple_stmts()
         if a:
