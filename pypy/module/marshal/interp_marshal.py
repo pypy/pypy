@@ -49,9 +49,14 @@ def load(space, w_f):
 def loads(space, w_str):
     """Convert a string back to a value.  Extra characters in the string are
 ignored."""
-    u = StringUnmarshaller(space, w_str)
-    obj = u.load_w_obj()
-    return obj
+    if space.is_w(space.type(w_str), space.w_bytes):
+        u = StringUnmarshaller(space, w_str)
+        obj = u.load_w_obj()
+        return obj
+    else:
+        w_io = space.getbuiltinmodule("_io")
+        w_f = space.call_method(w_io, "BytesIO", w_str)
+        return load(space, w_f)
 
 
 class AbstractReaderWriter(object):
@@ -446,9 +451,9 @@ class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
     def __init__(self, space, w_str):
         Unmarshaller.__init__(self, space, None)
-        self.buf = space.readbuf_w(w_str)
+        self.bufstr = space.bytes_w(w_str)
         self.bufpos = 0
-        self.limit = self.buf.getlength()
+        self.limit = len(self.bufstr)
 
     def raise_eof(self):
         space = self.space
@@ -460,14 +465,14 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        return self.buf.getslice(pos, 1, newpos - pos)
+        return self.bufstr[pos : newpos]
 
     def get1(self):
         pos = self.bufpos
         if pos >= self.limit:
             self.raise_eof()
         self.bufpos = pos + 1
-        return self.buf.getitem(pos)
+        return self.bufstr[pos]
 
     def get_int(self):
         pos = self.bufpos
@@ -475,10 +480,10 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        a = ord(self.buf.getitem(pos))
-        b = ord(self.buf.getitem(pos+1))
-        c = ord(self.buf.getitem(pos+2))
-        d = ord(self.buf.getitem(pos+3))
+        a = ord(self.bufstr[pos])
+        b = ord(self.bufstr[pos+1])
+        c = ord(self.bufstr[pos+2])
+        d = ord(self.bufstr[pos+3])
         if d & 0x80:
             d -= 0x100
         x = a | (b<<8) | (c<<16) | (d<<24)
@@ -490,10 +495,10 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        a = ord(self.buf.getitem(pos))
-        b = ord(self.buf.getitem(pos+1))
-        c = ord(self.buf.getitem(pos+2))
-        d = ord(self.buf.getitem(pos+3))
+        a = ord(self.bufstr[pos])
+        b = ord(self.bufstr[pos+1])
+        c = ord(self.bufstr[pos+2])
+        d = ord(self.bufstr[pos+3])
         x = a | (b<<8) | (c<<16) | (d<<24)
         if x >= 0:
             return x
