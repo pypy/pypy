@@ -480,16 +480,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.pyparser.parser import TokenASTBase
 
-@specialize.arg(0)
-def build(cls, *args):
-    ''' works like calling cls, but replace the four positions that come at the
-    end of the arguments with the positions in the concrete syntax tree node
-    passed as the last argument. '''
-    newargs = args[:-1] + (args[-1].get_lineno(), args[-1].get_column(),
-        args[-1].get_end_lineno(), args[-1].get_end_column())
-    return cls(*newargs)
-
-
 def raise_required_value(space, w_obj, name):
     raise oefmt(space.w_ValueError,
                 "field %s is required for %T", name, w_obj)
@@ -531,15 +521,6 @@ class AST(TokenASTBase):
 
     def mutate_over(self, visitor):
         raise AssertionError("mutate_over() implementation not provided")
-
-    def copy_location(self, node_start, node_end=None):
-        if node_end is None:
-            node_end = node_start
-        self.lineno = node_start.get_lineno()
-        self.col_offset = node_start.get_column()
-        self.end_lineno = node_end.get_end_lineno()
-        self.end_col_offset = node_end.get_end_column()
-        return self
 
 
 class NodeVisitorNotImplemented(Exception):

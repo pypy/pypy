@@ -270,16 +270,10 @@ params:
 
 parameters[ast.arguments]:
     | a=slash_no_default b=param_no_default* c=param_with_default* d=[star_etc] {
-        self.check_version(
-            (3, 8), "Positional only arguments are", self.make_arguments(a, None, b, c, d)
-        )
+        self.make_arguments(a, None, b, c, d)
      }
     | a=slash_with_default b=param_with_default* c=[star_etc] {
-        self.check_version(
-            (3, 8),
-            "Positional only arguments are",
-            self.make_arguments(None, a, None, b, c),
-        )
+        self.make_arguments(None, a, None, b, c)
      }
     | a=param_no_default+ b=param_with_default* c=[star_etc] {
         self.make_arguments(None, None, a, b, c)
@@ -523,12 +517,12 @@ finally_block[list]:
 #     }
 #
 #signed_number:
-#    | a=NUMBER { ast.Constant(value=parse_number(self.space, a.value), LOCATIONS) }
+#    | a=NUMBER { ast.Constant(value=self.parse_number(a), LOCATIONS) }
 #    | '-' a=NUMBER {
 #        ast.UnaryOp(
 #            op=ast.USub(),
 #            operand=ast.Constant(
-#                value=ast.parse_number(self.space, a.value),
+#                value=ast.self.parse_number(a),
 #                lineno=a.lineno,
 #                col_offset=a.column,
 #                end_lineno=a.end_lineno,
@@ -859,7 +853,7 @@ atom:
      }
     | &STRING strings
     | a=NUMBER {
-        ast.Constant(value=parse_number(self.space, a.value), kind=None, LOCATIONS)
+        ast.Constant(value=self.parse_number(a), kind=None, LOCATIONS)
      }
     | a='$NUM' {
         self.revdbmetavar(int(tok.value[1:]), LOCATIONS)
@@ -978,12 +972,12 @@ for_if_clauses[List[ast.comprehension]]:
     | a=for_if_clause+ { a }
 
 for_if_clause[ast.comprehension]:
-    | ASYNC 'for' a=star_targets 'in' ~ b=disjunction c=('if' z=disjunction { z })* {
+    | x=ASYNC 'for' a=star_targets 'in' ~ b=disjunction c=('if' z=disjunction { z })* {
         self.check_version(
             (3, 6),
             "Async comprehensions are",
-            ast.comprehension(target=a, iter=b, ifs=c if c else None, is_async=True)
-        )
+            x
+        ) and ast.comprehension(target=a, iter=b, ifs=c if c else None, is_async=True)
      }
     | 'for' a=star_targets 'in' ~ b=disjunction c=('if' z=disjunction { z })* {
        ast.comprehension(target=a, iter=b, ifs=c if c else None, is_async=False) }

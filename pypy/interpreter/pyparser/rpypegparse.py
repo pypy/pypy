@@ -924,13 +924,13 @@ class PythonParser(Parser):
             b = self._loop0_38()
             c = self._loop0_39()
             d = self.star_etc()
-            return self . check_version ( ( 3 , 8 ) , "Positional only arguments are" , self . make_arguments ( a , None , b , c , d ) )
+            return self . make_arguments ( a , None , b , c , d )
         self._index = mark
         a = self.slash_with_default()
         if a:
             b = self._loop0_40()
             c = self.star_etc()
-            return self . check_version ( ( 3 , 8 ) , "Positional only arguments are" , self . make_arguments ( None , a , None , b , c ) , )
+            return self . make_arguments ( None , a , None , b , c )
         self._index = mark
         a = self._loop1_41()
         if a:
@@ -2406,7 +2406,7 @@ class PythonParser(Parser):
         if a:
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-            return ast . Constant ( value = parse_number ( self . space , a . value ) , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = self . parse_number ( a ) , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         a = self.expect_type(64)
         if a:
@@ -2827,8 +2827,8 @@ class PythonParser(Parser):
         mark = self._index
         if self._verbose: log_start(self, 'for_if_clause')
         cut = False
-        _async = self.expect_type(58)
-        if _async:
+        x = self.expect_type(58)
+        if x:
             literal = self.expect_type(518)
             if literal:
                 a = self.star_targets()
@@ -2839,7 +2839,7 @@ class PythonParser(Parser):
                         b = self.disjunction()
                         if b:
                             c = self._loop0_96()
-                            return self . check_version ( ( 3 , 6 ) , "Async comprehensions are" , ast . comprehension ( target = a , iter = b , ifs = c if c else None , is_async = True ) )
+                            return self . check_version ( ( 3 , 6 ) , "Async comprehensions are" , x ) and ast . comprehension ( target = a , iter = b , ifs = c if c else None , is_async = True )
         self._index = mark
         if cut: return None
         cut = False

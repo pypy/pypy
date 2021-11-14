@@ -10,7 +10,7 @@ from pypy.interpreter.pyparser import pytokenizer as tokenize, pytoken
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
 
 from pypy.interpreter.astcompiler import ast
-from pypy.interpreter.astcompiler.astbuilder import parse_number, ASTBuilder
+from pypy.interpreter.astcompiler.astbuilder import parse_number
 from pypy.interpreter.astcompiler import asthelpers # Side effects
 from pypy.interpreter.astcompiler import consts, misc
 
@@ -349,7 +349,7 @@ class Parser:
                         if seen == n:
                             break
 
-        return [lines[n] for n in line_numbers]
+        return [lines.get(n, "?\n") for n in line_numbers]
 
     def _reset(self, index):
         if index == self._index:
@@ -543,6 +543,11 @@ class Parser:
         assert isinstance(name, ast.Name)
         return name.id
 
+    def parse_number(self, tok):
+        if "_" in tok.value:
+            self.check_version((3, 6), "Underscores in numeric literals are", tok)
+        return parse_number(self.space, tok.value)
+
     def check_repeated_keywords(self, args):
         if not args or not args.keywords:
             return None
@@ -722,6 +727,14 @@ class Parser:
         star_etc,
     ):
         """Build a function definition arguments."""
+        if slash_without_default or slash_with_default:
+            if slash_without_default:
+                arg = slash_without_default[-1]
+            else:
+                assert slash_with_default
+                arg = slash_with_default.names_with_defaults[-1].arg
+            self.check_version(
+                (3, 8), "Positional only arguments are", arg)
         posonlyargs = self.make_posonlyargs(
             slash_without_default, slash_with_default)
         posargs = self.make_posargs(plain_names, names_with_default)
@@ -865,3 +878,4 @@ class Parser:
         if not self.space.config.translation.reverse_debugger:
             self._raise_syntax_error("Unkown character", lineno, col_offset, end_lineno, end_col_offset)
         return ast.RevDBMetaVar(num, lineno, col_offset, end_lineno, end_col_offset)
+

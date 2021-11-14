@@ -1,12 +1,4 @@
-from pypy.interpreter.astcompiler import ast, consts, misc
-from pypy.interpreter.astcompiler.ast import build
-from pypy.interpreter.astcompiler import asthelpers # Side effects
-from pypy.interpreter.astcompiler import fstring
 from pypy.interpreter import error
-from pypy.interpreter.pyparser.pygram import syms, tokens
-from pypy.interpreter.pyparser.error import SyntaxError
-from rpython.rlib.objectmodel import always_inline, we_are_translated, specialize
-
 
 def parse_number(space, raw):
     base = 10

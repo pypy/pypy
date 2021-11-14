@@ -9,16 +9,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.pyparser.parser import TokenASTBase
 
-@specialize.arg(0)
-def build(cls, *args):
-    ''' works like calling cls, but replace the four positions that come at the
-    end of the arguments with the positions in the concrete syntax tree node
-    passed as the last argument. '''
-    newargs = args[:-1] + (args[-1].get_lineno(), args[-1].get_column(),
-        args[-1].get_end_lineno(), args[-1].get_end_column())
-    return cls(*newargs)
-
-
 def raise_required_value(space, w_obj, name):
     raise oefmt(space.w_ValueError,
                 "field %s is required for %T", name, w_obj)
@@ -61,15 +51,6 @@ class AST(TokenASTBase):
     def mutate_over(self, visitor):
         raise AssertionError("mutate_over() implementation not provided")
 
-    def copy_location(self, node_start, node_end=None):
-        if node_end is None:
-            node_end = node_start
-        self.lineno = node_start.get_lineno()
-        self.col_offset = node_start.get_column()
-        self.end_lineno = node_end.get_end_lineno()
-        self.end_col_offset = node_end.get_end_column()
-        return self
-
 
 class NodeVisitorNotImplemented(Exception):
     pass
@@ -97,8 +78,22 @@ class W_AST(W_Root):
         w_dict = self.w_dict
         if w_dict is None:
             w_dict = space.newdict()
-        else:
-            w_dict = space.call_method(w_dict, "copy")
+        w_type = space.type(self)
+        w_fields = space.getattr(w_type, space.newtext("_fields"))
+        for w_name in space.fixedview(w_fields):
+            try:
+                space.setitem(w_dict, w_name,
+                          space.getattr(self, w_name))
+            except OperationError:
+                pass
+        w_attrs = space.findattr(w_type, space.newtext("_attributes"))
+        if w_attrs:
+            for w_name in space.fixedview(w_attrs):
+                try:
+                    space.setitem(w_dict, w_name,
+                              space.getattr(self, w_name))
+                except OperationError:
+                    pass
         return space.newtuple([space.type(self),
                                space.newtuple([]),
                                w_dict])
