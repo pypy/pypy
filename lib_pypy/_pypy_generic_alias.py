@@ -42,6 +42,8 @@ class GenericAlias:
         return f"{_repr_item(self.__origin__)}[{inner}]"
 
     def __eq__(self, other):
+        if not isinstance(other, GenericAlias):
+            return NotImplemented
         return self.__origin__ == other.__origin__ and self.__args__ == other.__args__
 
     def __getitem__(self, items):

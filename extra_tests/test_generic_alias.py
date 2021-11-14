@@ -1,6 +1,6 @@
 import pytest
 from types import GenericAlias
-from typing import TypeVar
+from typing import TypeVar, Any
 T = TypeVar('T')
 K = TypeVar('K')
 V = TypeVar('V')
@@ -114,3 +114,8 @@ def test_orig_class():
 
     g = GenericAlias(A, int)
     assert g().__orig_class__ is g
+
+def test_cmp_not_implemented():
+    g = GenericAlias(list, int)
+    assert not (g == Any)
+    assert g != Any
