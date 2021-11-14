@@ -70,6 +70,12 @@ def saferecursive(func, defl, TLS=TLS):
             del seeing[seeingkey]
     return safe
 
+f = file("safe_equal.txt", "w")
+import pypyjit
+def p(hook):
+    print >> f, "J", hook
+pypyjit.set_compile_hook(p)
+
 #safe_equal = saferecursive(operator.eq, True)
 def safe_equal(x, y, TLS=TLS):
     # a specialized version for performance
@@ -77,14 +83,19 @@ def safe_equal(x, y, TLS=TLS):
         seeing = TLS.seeing_eq
     except AttributeError:
         seeing = TLS.seeing_eq = {}
+        TLS.entered = 0
     seeingkey = (id(x), id(y))
     if seeingkey in seeing:
         return True
     seeing[seeingkey] = True
+    TLS.entered += 1
+    print >> f, "E", TLS.entered, len(seeing)
     try:
         return x == y
     finally:
         del seeing[seeingkey]
+        TLS.entered -= 1
+        print >> f, "L", TLS.entered, len(seeing)
 
 
 class frozendict(dict):
@@ -101,6 +112,7 @@ class LowLevelType(object):
     __slots__ = ['__dict__', '__cached_hash']
 
     def __eq__(self, other):
+        print >> f, "C", self, other
         if isinstance(other, Typedef):
             return other.__eq__(self)
         return self.__class__ is other.__class__ and (

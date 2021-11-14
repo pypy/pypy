@@ -472,6 +472,9 @@ def codepoints_in_utf8(value, start=0, end=sys.maxint):
     """Return the number of codepoints in the UTF-8 byte string
     'value[start:end]'.  Assumes 0 <= start <= len(value) and start <= end.
     """
+    printon = value == 'ab\xc3\x82\xc2\x84'
+    if printon:
+        import pdb; pdb.set_trace()
     if end > len(value):
         end = len(value)
     assert 0 <= start <= end
@@ -482,6 +485,8 @@ def codepoints_in_utf8(value, start=0, end=sys.maxint):
         signedchar = rffi.cast(rffi.SIGNEDCHAR, ord(value[i]))
         if rffi.cast(lltype.Signed, signedchar) >= -0x40:
             length += 1
+        if printon:
+            print i, signedchar, length, ord(value[i]), rffi.cast(lltype.Signed, signedchar)
     return length
 
 

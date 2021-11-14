@@ -105,6 +105,7 @@ def test_utf8_in_chars(ch, txt):
 
 @given(strategies.text(), strategies.integers(min_value=0),
                           strategies.integers(min_value=0))
+@example(u'ab\xc2\x84', 0, 4)
 def test_codepoints_in_utf8(u, start, len1):
     end = start + len1
     if end > len(u):
