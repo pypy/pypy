@@ -8,55 +8,6 @@ from pypy.interpreter.pyparser.error import SyntaxError
 from rpython.rlib.objectmodel import always_inline, we_are_translated, specialize
 
 
-class ASTBuilder(object):
-
-    def __init__(self, space, n, compile_info, recursive_parser=None):
-        self.space = space
-        self.compile_info = compile_info
-        self.root_node = n
-        # used in f-strings and type_ignores
-        self.recursive_parser = recursive_parser
-
-    def recursive_parse_to_ast(self, source, info):
-        raise NotImplementedError
-
-    def error(self, msg, n):
-        """Raise a SyntaxError with the lineno and column set to n's."""
-        # 0-based to 1-based conversion
-        raise SyntaxError(msg, n.get_lineno(), n.get_column() + 1,
-                          filename=self.compile_info.filename,
-                          text=n.get_line())
-
-    def error_ast(self, msg, ast_node):
-        # 0-based to 1-based conversion
-        raise SyntaxError(msg, ast_node.lineno, ast_node.col_offset + 1,
-                          filename=self.compile_info.filename)
-
-    def check_feature(self, condition, version, msg, n):
-        if condition and self.compile_info.feature_version < version:
-            return self.error(msg, n)
-
-    def deprecation_warn(self, msg, n):
-        from pypy.module._warnings.interp_warnings import warn_explicit
-        space = self.space
-        try:
-            warn_explicit(
-                space, space.newtext(msg),
-                space.w_DeprecationWarning,
-                space.newtext(self.compile_info.filename),
-                n.get_lineno(),
-                space.w_None,
-                space.w_None,
-                space.w_None,
-                space.w_None,
-                )
-        except error.OperationError as e:
-            if e.match(space, space.w_DeprecationWarning):
-                self.error(msg, n)
-            else:
-                raise
-
-
 def parse_number(space, raw):
     base = 10
     if raw.startswith("-"):
