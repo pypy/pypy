@@ -1,3 +1,4 @@
+# coding: utf-8
 # Used by genpytokenize.py to generate the parser in pytokenize.py
 from pypy.interpreter.pyparser.automata import DFA, DEFAULT
 
@@ -236,4 +237,42 @@ def finalizeTempDfa (tempStates):
         for tempArc in tempArcs:
             arcMap[tempArc[0]] = stateMap[tempArc[1]]
     return states, accepts
+
+def _dot(states, final, r):
+    for i, state in enumerate(states):
+        shape = "circle"
+        color = ""
+        if final[i]:
+            shape = "doublecircle"
+            color = ", fillcolor=green"
+        r.append('s%s [label="", shape="%s"%s];' % (i, shape, color))
+        if isinstance(state, dict):
+            stateiter = state.iteritems()
+        else:
+            stateiter = state
+        for char, target in stateiter:
+            if char is EMPTY:
+                char = "ε"
+            elif char is DEFAULT:
+                char = "default"
+            elif type(char) is str and len(char) == 1 and ord(char) < 32:
+                char = ord(char)
+            elif char == "\\":
+                char = "\\\\"
+            elif char == '"':
+                char = '\\"'
+            r.append('s%s -> s%s [label="%s"];' % (i, target, char))
+
+def view(states, final):
+    from dotviewer import graphclient
+    import tempfile
+    r = ["digraph G {"]
+    _dot(states, final, r)
+    r.append("}")
+    with tempfile.NamedTemporaryFile() as f:
+        fn = f.name
+        print fn
+        with open(fn, "w") as f:
+            f.write("\n".join(r))
+        graphclient.display_dot_file(fn)
 
