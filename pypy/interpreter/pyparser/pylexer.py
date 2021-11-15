@@ -231,11 +231,18 @@ def finalizeTempDfa (tempStates):
 def _dot(states, final, r):
     for i, state in enumerate(states):
         if isinstance(state, dict):
+            # dfa
             stateiter = state.iteritems()
             is_final = final[i]
         else:
-            stateiter = state
-            is_final = i == final
+            # nfa or temp dfa
+            assert isinstance(state, list)
+            if isinstance(state[0], frozenset):
+                stateiter = [x[:-1] for x in state[1]]
+                is_final = state[-1]
+            else:
+                stateiter = state
+                is_final = i == final
         shape = "circle"
         color = ""
         if is_final:
@@ -255,7 +262,7 @@ def _dot(states, final, r):
                 char = '\\"'
             r.append('s%s -> s%s [label="%s"];' % (i, target, char))
 
-def view(states, final):
+def view(states, final=None):
     from dotviewer import graphclient
     import tempfile
     r = ["digraph G {"]
