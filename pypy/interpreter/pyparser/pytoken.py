@@ -2,11 +2,13 @@
 
 python_tokens = {}
 python_opmap = {}
+token_names = {}
 
 def _add_tok(name, *values):
     index = len(python_tokens)
     assert index < 256
     python_tokens[name] = index
+    token_names[index] = name
     for value in values:
         python_opmap[value] = index
 

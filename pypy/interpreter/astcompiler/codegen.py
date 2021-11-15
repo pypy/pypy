@@ -305,8 +305,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.load_const(self.space.w_None)
                 excepthandler = fblock.datum
                 assert isinstance(excepthandler, ast.ExceptHandler)
-                self.name_op(excepthandler.name, ast.Store)
-                self.name_op(excepthandler.name, ast.Del)
+                self.name_op(excepthandler.name, ast.Store, excepthandler)
+                self.name_op(excepthandler.name, ast.Del, excepthandler)
         elif kind == F_POP_VALUE:
             if preserve_tos:
                 self.emit_op(ops.ROT_TWO)
@@ -338,8 +338,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         raise SyntaxError(msg, node.lineno, node.col_offset + 1,
                           filename=self.compile_info.filename)
 
-    def name_op(self, identifier, ctx):
+    def name_op(self, identifier, ctx, node):
         """Generate an operation appropriate for the scope of the identifier."""
+        # node is used only for the possible syntax error
+        self.check_forbidden_name(identifier, node, ctx)
+
         scope = self.scope.lookup(identifier)
         op = ops.NOP
         container = self.names
@@ -400,7 +403,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if doc_expr is not None:
                 start = 1
                 doc_expr.walkabout(self)
-                self.name_op("__doc__", ast.Store)
+                self.name_op("__doc__", ast.Store, doc_expr)
                 self.scope.doc_removable = True
             for i in range(start, len(body)):
                 body[i].walkabout(self)
@@ -516,9 +519,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     @specialize.arg(2)
     def _visit_function(self, func, function_code_generator):
-        self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
-        self.visit_sequence(func.decorator_list)
+        if func.decorator_list:
+            for dec in func.decorator_list:
+                if dec.lineno > 0:
+                    self.update_position(dec.lineno)
+                dec.walkabout(self)
+
         args = func.args
 
         assert isinstance(args, ast.arguments)
@@ -545,7 +552,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if func.decorator_list:
             for i in range(len(func.decorator_list)):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
-        self.name_op(func.name, ast.Store)
+        self.name_op(func.name, ast.Store, func)
 
     def visit_FunctionDef(self, func):
         self._visit_function(func, FunctionCodeGenerator)
@@ -590,12 +597,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for i in range(len(cls.decorator_list)):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         # 7. store into <name>
-        self.name_op(cls.name, ast.Store)
+        self.name_op(cls.name, ast.Store, cls)
 
     def visit_AugAssign(self, assign):
         self.update_position(assign.lineno, True)
         target = assign.target
         if isinstance(target, ast.Attribute):
+            self.check_forbidden_name(target.attr, target)
             target.value.walkabout(self)
             self.emit_op(ops.DUP_TOP)
             self.emit_op_name(ops.LOAD_ATTR, self.names, target.attr)
@@ -613,10 +621,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.ROT_THREE)
             self.emit_op(ops.STORE_SUBSCR)
         elif isinstance(target, ast.Name):
-            self.name_op(target.id, ast.Load)
+            self.name_op(target.id, ast.Load, target)
             assign.value.walkabout(self)
             self.emit_op(inplace_operations(assign.op))
-            self.name_op(target.id, ast.Store)
+            self.name_op(target.id, ast.Store, target)
         else:
             self.error("illegal expression for augmented assignment", assign)
 
@@ -699,7 +707,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Break(self, br):
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
-            self.error("'break' outside loop", br)
+            self.error("'break' not properly in loop", br)
         self.unwind_fblock(loop_fblock, False)
         assert loop_fblock.end is not None
         self.update_position(br.lineno, True)
@@ -708,7 +716,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Continue(self, cont):
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
-            self.error("'continue' outside loop", cont)
+            self.error("'continue' not properly in loop", cont)
         self.update_position(cont.lineno, True)
         self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.block, True)
 
@@ -833,7 +841,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 ##         del name
                 #
                 cleanup_end = self.new_block()
-                self.name_op(handler.name, ast.Store)
+                self.name_op(handler.name, ast.Store, handler)
                 self.emit_op(ops.POP_TOP)
                 # second try
                 self.emit_jump(ops.SETUP_FINALLY, cleanup_end)
@@ -846,16 +854,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op(ops.POP_EXCEPT)
                 # name = None; del name
                 self.load_const(self.space.w_None)
-                self.name_op(handler.name, ast.Store)
-                self.name_op(handler.name, ast.Del)
+                self.name_op(handler.name, ast.Store, handler)
+                self.name_op(handler.name, ast.Del, handler)
                 self.emit_jump(ops.JUMP_FORWARD, end)
 
                 # finally
                 self.use_next_block(cleanup_end)
                 # name = None; del name
                 self.load_const(self.space.w_None)
-                self.name_op(handler.name, ast.Store)
-                self.name_op(handler.name, ast.Del)
+                self.name_op(handler.name, ast.Store, handler)
+                self.name_op(handler.name, ast.Del, handler)
 
                 self.emit_op(ops.RERAISE)
             else:
@@ -913,7 +921,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             return self._visit_try_except(tr)
 
-    def _import_as(self, alias):
+    def _import_as(self, alias, imp):
         # in CPython this is roughly compile_import_as
         # The IMPORT_NAME opcode was already generated.  This function
         # merely needs to bind the result to a name.
@@ -937,10 +945,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     break
                 self.emit_op(ops.ROT_TWO)
                 self.emit_op(ops.POP_TOP)
-            self.name_op(alias.asname, ast.Store)
+            self.name_op(alias.asname, ast.Store, imp)
             self.emit_op(ops.POP_TOP)
             return
-        self.name_op(alias.asname, ast.Store)
+        self.name_op(alias.asname, ast.Store, imp)
 
     def visit_Import(self, imp):
         self.update_position(imp.lineno, True)
@@ -953,14 +961,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # If there's no asname then we store the root module.  If there is
             # an asname, _import_as stores the last module of the chain into it.
             if alias.asname:
-                self._import_as(alias)
+                self._import_as(alias, imp)
             else:
                 dot = alias.name.find(".")
                 if dot < 0:
                     store_name = alias.name
                 else:
                     store_name = alias.name[:dot]
-                self.name_op(store_name, ast.Store)
+                self.name_op(store_name, ast.Store, imp)
 
     def visit_ImportFrom(self, imp):
         self.update_position(imp.lineno, True)
@@ -1008,7 +1016,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     store_name = alias.asname
                 else:
                     store_name = alias.name
-                self.name_op(store_name, ast.Store)
+                self.name_op(store_name, ast.Store, imp)
             self.emit_op(ops.POP_TOP)
 
     def visit_Assign(self, assign):
@@ -1053,7 +1061,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 assert isinstance(target, ast.Name)
                 if target.id not in seen_names:
                     seen_names[target.id] = True
-                    self.name_op(target.id, ast.Store)
+                    self.name_op(target.id, ast.Store, target)
                 else:
                     self.emit_op(ops.POP_TOP)
             return True
@@ -1561,7 +1569,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Name(self, name):
         self.update_position(name.lineno)
-        self.name_op(name.id, name.ctx)
+        self.name_op(name.id, name.ctx, name)
 
     def visit_keyword(self, keyword):
         if keyword.arg is not None:
@@ -1746,6 +1754,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._compile_comprehension(dictcomp, "<dictcomp>",
                                     ComprehensionCodeGenerator)
 
+    def check_forbidden_name(self, name, node, ctx=ast.Store):
+        if misc.check_forbidden_name(self.space, name):
+            if ctx == ast.Store:
+                self.error("cannot assign to " + name, node)
+            else:
+                assert ctx == ast.Del
+                self.error("cannot delete " + name, node)
+
     def visit_Attribute(self, attr):
         self.update_position(attr.lineno)
         names = self.names
@@ -1753,7 +1769,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         attr.value.walkabout(self)
         if ctx == ast.Load:
             self.emit_op_name(ops.LOAD_ATTR, names, attr.attr)
-        elif ctx == ast.Store:
+            return
+        self.check_forbidden_name(attr.attr, attr, ctx)
+        if ctx == ast.Store:
             self.emit_op_name(ops.STORE_ATTR, names, attr.attr)
         elif ctx == ast.Del:
             self.emit_op_name(ops.DELETE_ATTR, names, attr.attr)
@@ -1979,6 +1997,9 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, func):
         assert isinstance(func, ast.FunctionDef)
+        self.first_lineno = func.lineno
+        if func.decorator_list and func.decorator_list[0].lineno > 0:
+            self.first_lineno = func.decorator_list[0].lineno
         has_docstring = self.ensure_docstring_constant(func.body)
         args = func.args
         assert isinstance(args, ast.arguments)
@@ -1992,6 +2013,9 @@ class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, func):
         assert isinstance(func, ast.AsyncFunctionDef)
+        self.first_lineno = func.lineno
+        if func.decorator_list and func.decorator_list[0].lineno > 0:
+            self.first_lineno = func.decorator_list[0].lineno
         has_docstring = self.ensure_docstring_constant(func.body)
         args = func.args
         assert isinstance(args, ast.arguments)
@@ -2055,13 +2079,13 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self.lineno = self.first_lineno
         self.argcount = 1
         # load (global) __name__ ...
-        self.name_op("__name__", ast.Load)
+        self.name_op("__name__", ast.Load, None)
         # ... and store it as __module__
-        self.name_op("__module__", ast.Store)
+        self.name_op("__module__", ast.Store, None)
         # store the qualname
         w_qualname = self.space.newtext(self.qualname)
         self.load_const(w_qualname)
-        self.name_op("__qualname__", ast.Store)
+        self.name_op("__qualname__", ast.Store, None)
         self._maybe_setup_annotations()
         # compile the body proper
         self._handle_body(cls.body)
@@ -2071,7 +2095,7 @@ class ClassCodeGenerator(PythonCodeGenerator):
             # Return the cell where to store __class__
             self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["__class__"])
             self.emit_op(ops.DUP_TOP)
-            self.name_op("__classcell__", ast.Store)
+            self.name_op("__classcell__", ast.Store, None)
         else:
             # This happens when nobody references the cell
             self.load_const(self.space.w_None)
@@ -2142,6 +2166,7 @@ class CallCodeGenerator(object):
     def _push_kwargs(self):
         for kw in self.keywords:
             assert isinstance(kw, ast.keyword)
+            self.codegenerator.check_forbidden_name(kw.arg, kw)
             if kw.arg is None:
                 # if we see **args or if the number of keywords is huge,
                 # pack up keywords on the stack so far

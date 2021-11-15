@@ -374,6 +374,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.pop_scope()
         assert not self.stack
 
+    def error(self, msg, node):
+        # NB: SyntaxError's offset is 1-based!
+        raise SyntaxError(msg, node.lineno, node.col_offset + 1,
+                          filename=self.compile_info.filename)
+
     def push_scope(self, scope, node):
         """Push a child scope."""
         if self.stack:
@@ -606,7 +611,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self.scope.note_await(comp)
 
     def _visit_comprehension(self, node, kind, comps, *consider):
-        from pypy.interpreter.error import OperationError
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
         self.scope.comp_iter_expr += 1
@@ -628,7 +632,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if new_scope.is_generator:
             msg = "'yield' inside %s" % kind
             space = self.space
-            raise SyntaxError(msg, node.lineno, node.col_offset)
+            self.error(msg, node)
 
         new_scope.is_generator |= isinstance(node, ast.GeneratorExp)
 
@@ -674,16 +678,25 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if arguments.kwonlyargs:
             self._handle_params(arguments.kwonlyargs, True)
         if arguments.vararg:
+            self.check_forbidden_name(arguments.vararg.arg, arguments.vararg)
             self.note_symbol(arguments.vararg.arg, SYM_PARAM)
             scope.note_variable_arg(arguments.vararg)
         if arguments.kwarg:
+            self.check_forbidden_name(arguments.kwarg.arg, arguments.kwarg)
             self.note_symbol(arguments.kwarg.arg, SYM_PARAM)
             scope.note_keywords_arg(arguments.kwarg)
+
+    def check_forbidden_name(self, name, node):
+        if misc.check_forbidden_name(self.space, name):
+            self.error(
+                "cannot assign to " + name,
+                node)
 
     def _handle_params(self, params, is_toplevel):
         for param in params:
             assert isinstance(param, ast.arg)
             arg = param.arg
+            self.check_forbidden_name(arg, param)
             self.note_symbol(arg, SYM_PARAM)
 
     def _visit_annotations(self, func):
@@ -732,17 +745,17 @@ class SymtableBuilder(ast.GenericASTVisitor):
         assert isinstance(target, ast.Name)
         name = target.id
         if scope.comp_iter_expr > 0:
-            raise SyntaxError(
+            self.error(
                 "assignment expression cannot be used in a comprehension iterable expression",
-                node.lineno, node.col_offset)
+                node)
         if isinstance(scope, ComprehensionScope):
             for i in range(len(self.stack) - 1, -1, -1):
                 parent = self.stack[i]
                 if isinstance(parent, ComprehensionScope):
                     if parent.lookup_role(name) & SYM_COMP_ITER:
-                        raise SyntaxError(
+                        self.error(
                             "assignment expression cannot rebind comprehension iteration variable '%s'" % name,
-                            node.lineno, node.col_offset)
+                            node)
                     continue
 
                 if isinstance(parent, FunctionScope):
@@ -757,9 +770,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
                     parent.note_symbol(name, SYM_GLOBAL)
                     scope.note_symbol(name, SYM_GLOBAL)
                 elif isinstance(parent, ClassScope):
-                    raise SyntaxError(
+                    self.error(
                         "assignment expression within a comprehension cannot be used in a class body",
-                        node.lineno, node.col_offset)
+                        node)
 
         node.target.walkabout(self)
         node.value.walkabout(self)

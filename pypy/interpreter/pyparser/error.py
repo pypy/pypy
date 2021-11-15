@@ -44,6 +44,12 @@ class SyntaxError(Exception):
             # XXX do the right thing about continuation lines, which
             # XXX are their own fun, sometimes giving offset >
             # XXX len(text) for example (right now, avoid crashing)
+
+            # this also converts the byte-based self.offset to a
+            # codepoint-based index into the decoded unicode-version of
+            # self.text
+
+            # XXX stop using runicode here!
             def replace_error_handler(errors, encoding, msg, s, startpos, endpos):
                 # must return unicode
                 return u'\ufffd', endpos

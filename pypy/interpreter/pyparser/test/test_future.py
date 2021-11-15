@@ -167,11 +167,6 @@ def test_lots_of_continuation_lines():
     f = run(s, (8, 23))
     assert f == 0
 
-def test_continuation_lines_raise():
-    s = "   \\\n  \t\\\nfrom __future__ import with_statement\n"
-    f = run(s)
-    assert f == 0     # because of the INDENT
-
 def test_continuation_lines_in_docstring_single_quoted():
     s = '"\\\n\\\n\\\n\\\n\\\n\\\n"\nfrom  __future__ import division\n'
     f = run(s, (8, 24))

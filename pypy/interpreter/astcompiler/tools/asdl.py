@@ -84,6 +84,17 @@ class Field(AST):
         else:
             return 'Field({0.type}, {0.name}{1})'.format(self, extra)
 
+    def __str__(self):
+        if self.seq:
+            extra = "*"
+        elif self.opt:
+            extra = "?"
+        else:
+            extra = ""
+
+        return "{}{} {}".format(self.type, extra, self.name)
+
+
 class Sum(AST):
     def __init__(self, types, attributes=None):
         self.types = types

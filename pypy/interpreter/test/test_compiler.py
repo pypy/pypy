@@ -56,6 +56,9 @@ class TestPythonAstCompiler:
             space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
                            ')', '?', mode, 0)
 
+    def test_compile_bug(self):
+        self.compiler.compile_command("if 1: pass", "", "single", 0)
+
     def test_hidden_applevel(self):
         code = self.compiler.compile("def f(x): pass", "<test>", "exec", 0,
                                      True)
@@ -802,20 +805,20 @@ with somtehing as stuff:
                 if isinstance(w_const, PyCode):
                     return w_const
 
-        snippet = 'def f(a, b, m=1, n=2, **kwargs): pass'
+        snippet = 'def f(a, b, m=1, n=2, **kwargs):\n pass\n'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
         sig = cpython_code_signature(co)
         assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', [])
 
-        snippet = 'def f(a, b, *, m=1, n=2, **kwargs): pass'
+        snippet = 'def f(a, b, *, m=1, n=2, **kwargs):\n pass\n'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
         sig = cpython_code_signature(co)
         assert sig == Signature(['a', 'b'], None, 'kwargs', ['m', 'n'])
 
         # a variant with varargname, which was buggy before issue2996
-        snippet = 'def f(*args, offset=42): pass'
+        snippet = 'def f(*args, offset=42):\n pass\n'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
         sig = cpython_code_signature(co)
@@ -1012,7 +1015,7 @@ class AppTestCompiler(object):
         excinfo = raises(SyntaxError, compile, b'# coding: utf-8\nx = b"a" b"c" b"\xfd"\n',
                "dummy", "exec")
         assert excinfo.value.lineno == 2
-        assert excinfo.value.offset == 14
+        assert excinfo.value.offset == 17
 
     def test_zeros_not_mixed_in_lambdas(self):
         import math

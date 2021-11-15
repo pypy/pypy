@@ -2,7 +2,7 @@ from __future__ import division
 import py, sys
 from pytest import raises
 import pytest
-from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
+from pypy.interpreter.astcompiler import codegen, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
 from pypy.interpreter.pycode import PyCode
@@ -11,18 +11,16 @@ from pypy.interpreter.error import OperationError
 from pypy.tool import stdlib_opcode as ops
 
 def compile_with_astcompiler(expr, mode, space):
-    p = pyparse.PythonParser(space)
+    p = pyparse.PegParser(space)
     info = pyparse.CompileInfo("<test>", mode)
-    cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info, recursive_parser=p)
+    ast = p.parse_source(expr, info)
     return codegen.compile_ast(space, ast, info)
 
 def generate_function_code(expr, space):
     from pypy.interpreter.astcompiler.ast import FunctionDef
-    p = pyparse.PythonParser(space)
+    p = pyparse.PegParser(space)
     info = pyparse.CompileInfo("<test>", 'exec')
-    cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info, recursive_parser=p)
+    ast = p.parse_source(expr, info)
     function_ast = optimize.optimize_ast(space, ast.body[0], info)
     function_ast = ast.body[0]
     assert isinstance(function_ast, FunctionDef)
@@ -2027,6 +2025,17 @@ def buggy_lnotab():
 x = [c for c in buggy_lnotab.__code__.co_lnotab]
 """
         self.st(func, "x", [0, 1, 8, 8])
+
+    def test_revdb_metavar(self):
+        self.error_test("7 * $0", SyntaxError)
+
+    def test_bug_arguments(self):
+        func = """
+def brokenargs(a=1, /, b=2, *, c):
+    return [a, b, c]
+x = brokenargs(c=3)
+"""
+        self.st(func, "x", [1, 2, 3])
 
 
 class TestDeadCodeGetsRemoved(TestCompiler):

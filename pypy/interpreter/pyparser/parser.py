@@ -80,8 +80,10 @@ class DFA(object):
             b[pos] |= bit
         return str(b)
 
+class TokenASTBase(object):
+    _attrs_ = []
 
-class Token(object):
+class Token(TokenASTBase):
     def __init__(self, token_type, value, lineno, column, line, end_lineno=-1, end_column=-1):
         self.token_type = token_type
         self.value = value
@@ -93,7 +95,8 @@ class Token(object):
         self.end_column = end_column
 
     def __repr__(self):
-        return "Token(%s, %s)" % (self.token_type, self.value)
+        from pypy.interpreter.pyparser.pytoken import token_names
+        return "Token(%s, %s)" % (token_names.get(self.token_type, self.token_type), self.value)
 
     def __eq__(self, other):
         # for tests
