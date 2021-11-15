@@ -121,9 +121,15 @@ def closure(states, start, result = frozenset()):
 
 # ______________________________________________________________________
 
-def nfaToDfa(states, start, finish):
+def _pick_end_label(labels, closure):
+    if not isinstance(labels, dict):
+        return labels in closure
+    return frozenset({labels[x] for x in closure if x in labels})
+
+def nfaToDfa(states, start, labels):
+    # labels : {end_state : label} | end_state
     startClosure = closure(states, start)
-    crntTempState = [startClosure, [], finish in startClosure]
+    crntTempState = [startClosure, [], _pick_end_label(labels, startClosure)]
     tempStates = [crntTempState]
     index = 0
     while index < len(tempStates):
@@ -147,7 +153,7 @@ def nfaToDfa(states, start, finish):
                     break
             else:
                 arrow = len(tempStates)
-                newState = [targetStates, [], finish in targetStates]
+                newState = [targetStates, [], _pick_end_label(labels, targetStates)]
                 tempStates.append(newState)
             crntArcs[arcIndex][1] = arrow
         index += 1
@@ -230,6 +236,7 @@ def finalizeTempDfa (tempStates):
 
 def _dot(states, final, r):
     for i, state in enumerate(states):
+        extrainfo = ""
         if isinstance(state, dict):
             # dfa
             stateiter = state.iteritems()
@@ -243,12 +250,14 @@ def _dot(states, final, r):
             else:
                 stateiter = state
                 is_final = i == final
+        if isinstance(is_final, frozenset):
+            extrainfo = "\\n" + " ".join(sorted(is_final))
         shape = "circle"
         color = ""
         if is_final:
             shape = "doublecircle"
             color = ", fillcolor=green"
-        r.append('s%s [label="%s", shape="%s"%s];' % (i, i, shape, color))
+        r.append('s%s [label="%s%s", shape="%s"%s];' % (i, i, extrainfo, shape, color))
         for char, target in stateiter:
             if char is EMPTY:
                 char = "ε"
