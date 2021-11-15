@@ -74,6 +74,7 @@ class DFA:
             return self.states[crntState * self.max_char + ord(item)]
 
     def recognize(self, inVec, pos = 0):
+        self.last_state = -1
         crntState = self.start
         lastAccept = False
         i = pos
@@ -86,10 +87,12 @@ class DFA:
             if crntState != ERROR_STATE:
                 pass
             elif accept:
+                self.last_state = crntState
                 return i
             elif lastAccept:
                 # This is now needed b/c of exception cases where there are
                 # transitions to dead states
+                self.last_state = crntState
                 return i - 1
             else:
                 return -1
@@ -97,6 +100,7 @@ class DFA:
             lastAccept = accept
         # if self.states[crntState][1]:
         if self.accepts[crntState]:
+            self.last_state = crntState
             return i + 1
         elif lastAccept:
             return i

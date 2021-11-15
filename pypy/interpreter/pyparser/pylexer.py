@@ -244,7 +244,7 @@ def _dot(states, final, r):
         else:
             # nfa or temp dfa
             assert isinstance(state, list)
-            if isinstance(state[0], frozenset):
+            if state and isinstance(state[0], frozenset):
                 stateiter = [x[:-1] for x in state[1]]
                 is_final = state[-1]
             else:
@@ -258,18 +258,26 @@ def _dot(states, final, r):
             shape = "doublecircle"
             color = ", fillcolor=green"
         r.append('s%s [label="%s%s", shape="%s"%s];' % (i, i, extrainfo, shape, color))
+        grouping = {}
         for char, target in stateiter:
             if char is EMPTY:
                 char = "ε"
+                r.append('s%s -> s%s [label="ε"];' % (i, target))
+                continue
             elif char is DEFAULT:
                 char = "default"
+                r.append('s%s -> s%s [label="default", color=green];' % (i, target))
+                continue
             elif type(char) is str and len(char) == 1 and ord(char) < 32:
                 char = ord(char)
             elif char == "\\":
-                char = "\\\\"
+                char = " \\\\ "
             elif char == '"':
-                char = '\\"'
-            r.append('s%s -> s%s [label="%s"];' % (i, target, char))
+                char = ' \\" '
+            grouping.setdefault(target, []).append(char)
+        for target, grouping in grouping.iteritems():
+            r.append('s%s -> s%s [label="%s"];' % (i, target, "".join(sorted(grouping))))
+
 
 def view(states, final=None):
     from dotviewer import graphclient
