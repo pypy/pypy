@@ -1,6 +1,9 @@
 from pypy.interpreter import error
+from rpython.rlib import rutf8, objectmodel
 
 def parse_number(space, raw):
+    from pypy.objspace.std.intobject import _string_to_int_or_long
+    from pypy.objspace.std.floatobject import _string_to_float
     base = 10
     if raw.startswith("-"):
         negative = True
@@ -32,14 +35,17 @@ def parse_number(space, raw):
             raw = "0" + raw
     if negative:
         raw = "-" + raw
-    w_num_str = space.newtext(raw)
-    w_base = space.newint(base)
+    # by construction this should not be able to fail: the tokenizer only
+    # recognizes ascii characters as parts of a number
+    if not objectmodel.we_are_translated():
+        rutf8.check_ascii(raw)
+    w_num_str = space.newtext(raw, len(raw))
     if raw[-1] in "jJ":
         tp = space.w_complex
         return space.call_function(tp, w_num_str)
     try:
-        return space.call_function(space.w_int, w_num_str, w_base)
+        return _string_to_int_or_long(space, w_num_str, raw, base)
     except error.OperationError as e:
         if not e.match(space, space.w_ValueError):
             raise
-        return space.call_function(space.w_float, w_num_str)
+        return space.newfloat(_string_to_float(space, w_num_str, raw))

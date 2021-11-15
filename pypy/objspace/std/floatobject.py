@@ -212,19 +212,6 @@ class W_FloatObject(W_Root):
     @staticmethod
     @unwrap_spec(w_x=WrappedDefault(0.0))
     def descr__new__(space, w_floattype, w_x, __posonly__):
-        def _string_to_float(space, w_source, string):
-            try:
-                string = _remove_underscores(string)
-            except ValueError:
-                pass
-            else:
-                try:
-                    return rfloat.string_to_float(string)
-                except ParseStringError as e:
-                    pass
-            raise oefmt(space.w_ValueError,
-                        "could not convert string to float: %R", w_source)
-
         w_value = w_x     # 'x' is the keyword argument name in CPython
         if space.lookup(w_value, "__float__") is not None:
             w_obj = space.float(w_value)
@@ -769,6 +756,19 @@ def _remove_underscores(string):
     if prev == "_": # not allowed at end
         raise ValueError
     return "".join(res)
+
+def _string_to_float(space, w_source, string):
+    try:
+        string = _remove_underscores(string)
+    except ValueError:
+        pass
+    else:
+        try:
+            return rfloat.string_to_float(string)
+        except ParseStringError as e:
+            pass
+    raise oefmt(space.w_ValueError,
+                "could not convert string to float: %R", w_source)
 
 
 def _hash_float(space, v):
