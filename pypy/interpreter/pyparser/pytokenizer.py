@@ -1,7 +1,6 @@
 from pypy.interpreter.pyparser import automata
 from pypy.interpreter.pyparser.parser import Token
-from pypy.interpreter.pyparser.pygram import tokens
-from pypy.interpreter.pyparser.pytoken import python_opmap
+from pypy.interpreter.pyparser.pygram import tokens, python_opmap
 from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError
 from pypy.interpreter.pyparser.pytokenize import tabsize, whiteSpaceDFA, \
     triple_quoted, endDFAs, single_quoted, pseudoDFA
@@ -242,8 +241,7 @@ def generate_tokens(lines, flags):
                     if token in python_opmap:
                         punct = python_opmap[token]
                     else:
-                        assert 0, "unreachable?"
-                        punct = tokens.OP
+                        assert 0, "unreachable"
                     token_list.append(Token(punct, token, lnum, start, line))
                     last_comment = ''
             else:

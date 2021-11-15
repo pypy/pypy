@@ -10,6 +10,9 @@ def _add_tok(name, *values):
     for value in values:
         python_opmap[value] = index
 
+# NB: the numbers generated here aren't used any more! instead we directly use
+# the numbers the parser expects to save a dict lookup. see code in pygram
+
 _add_tok('ENDMARKER')
 _add_tok('NAME')
 _add_tok('NUMBER')

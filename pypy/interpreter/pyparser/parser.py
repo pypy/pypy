@@ -355,7 +355,7 @@ class Parser(object):
 
     def add_token(self, token):
         label_index = self.grammar.classify(token)
-        sym_id = 0 # for the annotator
+        i = 0 # for the annotator
         while True:
             dfa = self.stack.dfa
             state_index = self.stack.state
@@ -395,7 +395,7 @@ class Parser(object):
                     # If only one possible input would satisfy, attach it to the
                     # error.
                     if len(arcs) == 1:
-                        expected = sym_id
+                        expected = i
                         expected_str = self.grammar.token_to_error_string.get(
                                 arcs[0][0], None)
                     else:

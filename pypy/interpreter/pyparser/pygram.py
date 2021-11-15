@@ -7,6 +7,17 @@ class PythonGrammar(parser.Grammar):
     TOKENS = pytoken.python_tokens
     OPERATOR_MAP = pytoken.python_opmap
 
+    def classify(self, token):
+        """Find the label for a token."""
+        if token.token_type == self.KEYWORD_TOKEN:
+            label_index = self.keyword_ids.get(token.value, -1)
+            if label_index != -1:
+                return label_index
+        label_index = token.token_type
+        if label_index == -1 or (label_index == tokens.REVDBMETAVAR and not self.revdb):
+            raise ParseError("invalid token", token)
+        return label_index
+
 def _get_python_grammar():
     here = os.path.dirname(__file__)
     fp = open(os.path.join(here, "data", "Grammar2.7"))
@@ -19,26 +30,29 @@ def _get_python_grammar():
 
 
 python_grammar = _get_python_grammar()
+python_grammar.revdb = False
 python_grammar_no_print = python_grammar.shared_copy()
+python_grammar_no_print.revdb = False
 python_grammar_no_print.keyword_ids = python_grammar_no_print.keyword_ids.copy()
 del python_grammar_no_print.keyword_ids["print"]
 
 python_grammar_revdb = python_grammar.shared_copy()
+python_grammar_revdb.revdb = True
 python_grammar_no_print_revdb = python_grammar_no_print.shared_copy()
-copied_token_ids = python_grammar.token_ids.copy()
-python_grammar_revdb.token_ids = copied_token_ids
-python_grammar_no_print_revdb.token_ids = copied_token_ids
+python_grammar_no_print_revdb.revdb = True
 
-metavar_token_id = pytoken.python_tokens['REVDBMETAVAR']
-# the following line affects python_grammar_no_print too, since they share the
-# dict
-del python_grammar.token_ids[metavar_token_id]
 
 class _Tokens(object):
     pass
 for tok_name, idx in pytoken.python_tokens.iteritems():
-    setattr(_Tokens, tok_name, idx)
+    setattr(_Tokens, tok_name, python_grammar.token_ids.get(idx, -1))
+    if tok_name == "NAME":
+        PythonGrammar.KEYWORD_TOKEN = python_grammar.token_ids[idx]
 tokens = _Tokens()
+
+python_opmap = {}
+for op, idx in pytoken.python_opmap.iteritems():
+    python_opmap[op] = python_grammar.token_ids.get(idx, -1)
 
 class _Symbols(object):
     pass
