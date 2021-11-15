@@ -122,39 +122,31 @@ def closure(states, start, result = frozenset()):
 # ______________________________________________________________________
 
 def nfaToDfa(states, start, finish):
-    tempStates = []
     startClosure = closure(states, start)
     crntTempState = [startClosure, [], finish in startClosure]
-    tempStates.append(crntTempState)
+    tempStates = [crntTempState]
     index = 0
     while index < len(tempStates):
         crntTempState = tempStates[index]
         crntClosure, crntArcs, crntAccept = crntTempState
-        for index2 in range(0, len(states)):
-            if index2 in crntClosure:
-                for label, nfaArrow in states[index2]:
-                    if label == EMPTY:
-                        continue
-                    foundTempArc = False
-                    for tempArc in crntArcs:
-                        if tempArc[0] == label:
-                            foundTempArc = True
-                            break
-                    if not foundTempArc:
-                        tempArc = [label, -1, frozenset()]
-                        crntArcs.append(tempArc)
-                    tempArc[2] = closure(states, nfaArrow, tempArc[2])
+        for index2 in sorted(crntClosure):
+            for label, nfaArrow in states[index2]:
+                if label == EMPTY:
+                    continue
+                for tempArc in crntArcs:
+                    if tempArc[0] == label:
+                        break
+                else:
+                    tempArc = [label, -1, frozenset()]
+                    crntArcs.append(tempArc)
+                tempArc[2] = closure(states, nfaArrow, tempArc[2])
         for arcIndex in range(0, len(crntArcs)):
             label, arrow, targetStates = crntArcs[arcIndex]
-            targetFound = False
-            arrow = 0
-            for destTempState in tempStates:
+            for arrow, destTempState in enumerate(tempStates):
                 if destTempState[0] == targetStates:
-                    targetFound = True
                     break
-                arrow += 1
-            if not targetFound:
-                assert arrow == len(tempStates)
+            else:
+                arrow = len(tempStates)
                 newState = [targetStates, [], finish in targetStates]
                 tempStates.append(newState)
             crntArcs[arcIndex][1] = arrow
@@ -168,14 +160,12 @@ def nfaToDfa(states, start, finish):
 def sameState (s1, s2):
     """sameState(s1, s2)
     Note:
-    state := [ nfaclosure : Long, [ arc ], accept : Boolean ]
-    arc := [ label, arrow : Int, nfaClosure : Long ]
+    state := [ nfaclosure : frozenset[int], [ arc ], accept : Boolean ]
+    arc := [ label, arrow : Int, nfaClosure : frozenset[int] ]
     """
     if (len(s1[1]) != len(s2[1])) or (s1[2] != s2[2]):
         return False
-    for arcIndex in range(0, len(s1[1])):
-        arc1 = s1[1][arcIndex]
-        arc2 = s2[1][arcIndex]
+    for arc1, arc2 in zip(s1[1], s2[1]):
         if arc1[:-1] != arc2[:-1]:
             return False
     return True
@@ -186,7 +176,7 @@ def simplifyTempDfa (tempStates):
     """simplifyTempDfa (tempStates)
     """
     changes = True
-    deletedStates = []
+    deletedStates = set()
     while changes:
         changes = False
         for i in range(1, len(tempStates)):
@@ -196,7 +186,7 @@ def simplifyTempDfa (tempStates):
                 if j in deletedStates:
                     continue
                 if sameState(tempStates[i], tempStates[j]):
-                    deletedStates.append(i)
+                    deletedStates.add(i)
                     for k in range(0, len(tempStates)):
                         if k in deletedStates:
                             continue
@@ -214,7 +204,7 @@ def finalizeTempDfa (tempStates):
     """finalizeTempDfa (tempStates)
     
     Input domain:
-    tempState := [ nfaClosure : Long, [ tempArc ], accept : Boolean ]
+    tempState := [ nfaClosure : frozenset[int], [ tempArc ], accept : Boolean ]
     tempArc := [ label, arrow, nfaClosure ]
 
     Output domain:
@@ -240,16 +230,18 @@ def finalizeTempDfa (tempStates):
 
 def _dot(states, final, r):
     for i, state in enumerate(states):
-        shape = "circle"
-        color = ""
-        if final[i]:
-            shape = "doublecircle"
-            color = ", fillcolor=green"
-        r.append('s%s [label="", shape="%s"%s];' % (i, shape, color))
         if isinstance(state, dict):
             stateiter = state.iteritems()
+            is_final = final[i]
         else:
             stateiter = state
+            is_final = i == final
+        shape = "circle"
+        color = ""
+        if is_final:
+            shape = "doublecircle"
+            color = ", fillcolor=green"
+        r.append('s%s [label="%s", shape="%s"%s];' % (i, i, shape, color))
         for char, target in stateiter:
             if char is EMPTY:
                 char = "ε"
