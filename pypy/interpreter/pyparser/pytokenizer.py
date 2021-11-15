@@ -175,7 +175,7 @@ def generate_tokens(lines, flags):
                 pos = end
                 token, initial = line[start:end], line[start]
                 if initial in numchars or \
-                   (initial == '.' and token != '.'):      # ordinary number
+                   (initial == '.' and end > start + 1): # ordinary number, the second condition rules out "."
                     token_list.append(Token(tokens.NUMBER, token, lnum, start, line))
                     last_comment = ''
                 elif initial in '\r\n':
@@ -242,6 +242,7 @@ def generate_tokens(lines, flags):
                     if token in python_opmap:
                         punct = python_opmap[token]
                     else:
+                        assert 0, "unreachable?"
                         punct = tokens.OP
                     token_list.append(Token(punct, token, lnum, start, line))
                     last_comment = ''
