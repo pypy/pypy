@@ -405,9 +405,9 @@ def test_unpack_buffer():
     exc = raises(TypeError, struct.unpack_from, "ii", None)
     assert str(exc.value) == "a bytes-like object is required, not None"
     exc = raises(struct.error, struct.unpack_from, "ii", b'')
-    assert str(exc.value) == "unpack_from requires a buffer of at least 8 bytes"
+    assert str(exc.value).startswith("unpack_from requires a buffer of at least 8 bytes")
     exc = raises(struct.error, struct.unpack_from, "ii", memoryview(b''))
-    assert str(exc.value) == "unpack_from requires a buffer of at least 8 bytes"
+    assert str(exc.value).startswith("unpack_from requires a buffer of at least 8 bytes")
 
 def test_iter_unpack():
     import array
