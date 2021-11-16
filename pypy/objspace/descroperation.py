@@ -417,7 +417,7 @@ class DescrOperation(object):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
-            if space.eq_w(w_item, w_next):
+            if space.eq_w(w_next, w_item):
                 return space.w_True
 
     def sequence_count(space, w_container, w_item):

@@ -1671,7 +1671,7 @@ class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
             w_found = self.w_dict.getitem(w_key)
         if w_found is None:
             return space.w_False
-        return space.newbool(space.eq_w(w_value, w_found))
+        return space.newbool(space.eq_w(w_found, w_value))
 
 
 def new_dict_keys(space, w_type, w_dict):

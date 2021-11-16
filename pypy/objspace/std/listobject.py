@@ -780,7 +780,7 @@ class ListStrategy(object):
         tp = space.type(w_item)
         while i < stop and i < w_list.length():
             find_jmp.jit_merge_point(tp=tp, strategy_type=type(self))
-            if space.eq_w(w_item, w_list.getitem(i)):
+            if space.eq_w(w_list.getitem(i), w_item):
                 return i
             i += 1
         raise ValueError
