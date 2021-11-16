@@ -32,7 +32,7 @@ class AppTestEpoll(object):
             self.space.call_method(socket, "close")
 
     def w_socket_pair(self):
-        import socket
+        import _socket as socket
 
         server_socket = socket.socket()
         server_socket.bind(('127.0.0.1', 0))
@@ -42,7 +42,9 @@ class AppTestEpoll(object):
         raises(socket.error,
             client.connect, ('127.0.0.1', server_socket.getsockname()[1])
         )
-        server, addr = server_socket.accept()
+        fd, addr = server_socket._accept()
+        server = socket.socket(server_socket.family, server_socket.type,
+                      server_socket.proto, fileno=fd)
 
         self.sockets.extend([server_socket, client, server])
         return client, server
