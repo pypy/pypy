@@ -78,7 +78,7 @@ class CTypeSpace(object):
         if include_dirs is not None:
             self.include_dirs = include_dirs[:]
         else:
-            self.inlucde_dirs = []
+            self.include_dirs = []
 
     def include(self, other):
         self.ctx.include(other.ctx)
