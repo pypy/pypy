@@ -38,8 +38,6 @@ ARCH = get_arch()
 USE_ZIPFILE_MODULE = ARCH == 'win32'
 
 STDLIB_VER = "3"
-IMPLEMENTATION = "pypy3.8"
-
 POSIX_EXE = 'pypy3'
 
 
@@ -194,16 +192,18 @@ def create_package(basedir, options, _fake=False):
             ' with --override_pypy_c' % pypy_c)
     builddir = py.path.local(options.builddir)
     pypydir = builddir.ensure(name, dir=True)
+    if _fake:
+        python_ver = '3.6'
+    else:
+        python_ver = get_python_ver(pypy_c)
+    IMPLEMENTATION = 'pypy{}'.format(python_ver)
     if ARCH == 'win32':
         target = pypydir.join('Lib')
     else:
         target = pypydir.join('lib').join(IMPLEMENTATION)
     os.makedirs(str(target))
-    if _fake:
-        python_ver = '3.6'
-    else:
+    if not _fake:
         generate_sysconfigdata(pypy_c, str(target))
-        python_ver = get_python_ver(pypy_c)
     if not options.no_cffi:
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),

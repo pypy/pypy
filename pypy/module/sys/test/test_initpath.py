@@ -13,7 +13,8 @@ def build_hierarchy_srctree(prefix):
     return a, b
 
 def build_hierarchy_package(prefix):
-    b = prefix.join('lib', 'pypy3.8').ensure(dir=1)
+    dot_ver = 'pypy%d.%d' % CPYTHON_VERSION[:2]
+    b = prefix.join('lib', dot_ver).ensure(dir=1)
     b.join('site.py').ensure(dir=0)
     return b
 
