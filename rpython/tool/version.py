@@ -1,3 +1,4 @@
+from __future__ import print_function
 import py
 import os
 from subprocess import Popen, PIPE
@@ -47,7 +48,7 @@ def _get_hg_version(hgexe, root):
 
     try:
         p = Popen([str(hgexe), 'version', '-q'],
-                  stdout=PIPE, stderr=PIPE, env=env)
+                  stdout=PIPE, stderr=PIPE, env=env, universal_newlines=True)
     except OSError as e:
         maywarn(e)
         return default_retval
@@ -57,14 +58,16 @@ def _get_hg_version(hgexe, root):
         return default_retval
 
     p = Popen([str(hgexe), 'id', '-i', root],
-              stdout=PIPE, stderr=PIPE, env=env)
+              stdout=PIPE, stderr=PIPE, env=env,
+              universal_newlines=True)
     hgid = p.stdout.read().strip()
     if p.wait() != 0:
         maywarn(p.stderr.read())
         hgid = '?'
 
     p = Popen([str(hgexe), 'id', '-t', root],
-              stdout=PIPE, stderr=PIPE, env=env)
+              stdout=PIPE, stderr=PIPE, env=env,
+              universal_newlines=True)
     hgtags = [t for t in p.stdout.read().strip().split() if t != 'tip']
     if p.wait() != 0:
         maywarn(p.stderr.read())
@@ -75,7 +78,8 @@ def _get_hg_version(hgexe, root):
     else:
         # use the branch instead
         p = Popen([str(hgexe), 'id', '-b', root],
-                  stdout=PIPE, stderr=PIPE, env=env)
+                  stdout=PIPE, stderr=PIPE, env=env,
+                  universal_newlines=True)
         hgbranch = p.stdout.read().strip()
         if p.wait() != 0:
             maywarn(p.stderr.read())
@@ -87,7 +91,7 @@ def _get_hg_archive_version(path):
     with open(path) as fp:
         # reverse the order since there may be more than one tag
         # and the latest tag will be first, so make it last instead
-        data = dict(x.split(': ', 1) for x in fp.read().splitlines()[::-1])
+        data = dict((x.split(': ', 1) for x in fp.read().splitlines()[::-1]))
     if 'tag' in data:
         return data['tag'], data['node']
     else:
@@ -104,7 +108,8 @@ def _get_git_version(root):
     try:
         p = Popen(
             [str(gitexe), 'rev-parse', 'HEAD'],
-            stdout=PIPE, stderr=PIPE, cwd=root
+            stdout=PIPE, stderr=PIPE, cwd=root,
+            universal_newlines=True,
             )
     except OSError as e:
         maywarn(e, 'Git')
@@ -115,12 +120,13 @@ def _get_git_version(root):
     revision_id = p.stdout.read().strip()[:12]
     p = Popen(
         [str(gitexe), 'describe', '--tags', '--exact-match'],
-        stdout=PIPE, stderr=PIPE, cwd=root
+        stdout=PIPE, stderr=PIPE, cwd=root,
+        universal_newlines=True,
         )
     if p.wait() != 0:
         p = Popen(
             [str(gitexe), 'branch'], stdout=PIPE, stderr=PIPE,
-            cwd=root
+            cwd=root, universal_newlines=True,
             )
         if p.wait() != 0:
             maywarn(p.stderr.read(), 'Git')
@@ -137,4 +143,4 @@ def _get_git_version(root):
 
 
 if __name__ == '__main__':
-    print get_repo_version_info()
+    print(get_repo_version_info())
