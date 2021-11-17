@@ -1,6 +1,9 @@
 #ifndef Py_PYTHON_H
 #define Py_PYTHON_H
 
+#include "patchlevel.h"
+#include <pyconfig.h>
+
 /* Compat stuff */
 #ifdef __GNUC__
 #define _GNU_SOURCE 1
@@ -11,9 +14,6 @@
 # include <math.h>
 # include <errno.h>
 # include <unistd.h>
-# define Py_DEPRECATED(VERSION_UNUSED) __attribute__((__deprecated__))
-# define PyAPI_FUNC(RTYPE) __attribute__((visibility("default"))) RTYPE
-# define PyAPI_DATA(RTYPE) extern PyAPI_FUNC(RTYPE)
 # define Py_LOCAL_INLINE(type) static inline type
 #else
 # ifdef _MSC_VER
@@ -24,15 +24,6 @@
 # endif
 # include <io.h>
 # include <sys/types.h>   /* for 'off_t' */
-# define Py_DEPRECATED(VERSION_UNUSED)
-# ifdef Py_BUILD_CORE
-#  define PyAPI_FUNC(RTYPE) __declspec(dllexport) RTYPE
-#  define PyAPI_DATA(RTYPE) extern __declspec(dllexport) RTYPE
-# else
-#  define PyAPI_FUNC(RTYPE) __declspec(dllimport) RTYPE
-#  define PyAPI_DATA(RTYPE) extern __declspec(dllimport) RTYPE
-# endif
-# define Py_LOCAL_INLINE(type) static __inline type __fastcall
 #endif
 
 /* Deprecated DL_IMPORT and DL_EXPORT macros */
@@ -60,19 +51,16 @@
 #define statichere static
 
 #define Py_MEMCPY memcpy
+#include "pyport.h"
 
 #include "pypy_macros.h"
-
-#include "patchlevel.h"
-#include <pyconfig.h>
+#include "pymacro.h"
 
 #include "object.h"
 #include "typeslots.h"
 #include "abstract.h"
 #include "pymath.h"
-#include "pyport.h"
 #include "pytime.h"
-#include "pymacro.h"
 #include "warnings.h"
 
 #include <stdarg.h>
