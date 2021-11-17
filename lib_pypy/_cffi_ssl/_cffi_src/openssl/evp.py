@@ -30,6 +30,8 @@ static const int EVP_MAX_MD_SIZE;
 static const int EVP_CTRL_AEAD_SET_IVLEN;
 static const int EVP_CTRL_AEAD_GET_TAG;
 static const int EVP_CTRL_AEAD_SET_TAG;
+// only on OpenSSL 1.1.1+
+static const int EVP_MD_CTX_FLAG_NON_FIPS_ALLOW;
 
 static const int Cryptography_HAS_SCRYPT;
 static const int Cryptography_HAS_EVP_PKEY_DHX;
@@ -161,6 +163,8 @@ EVP_PKEY *EVP_PKEY_new_raw_public_key(int, ENGINE *, const unsigned char *,
                                       size_t);
 int EVP_PKEY_get_raw_private_key(const EVP_PKEY *, unsigned char *, size_t *);
 int EVP_PKEY_get_raw_public_key(const EVP_PKEY *, unsigned char *, size_t *);
+/* OpenSSL 1.1.1+ */
+void EVP_MD_CTX_set_flags(EVP_MD_CTX *ctx, int flags);
 """
 
 CUSTOMIZATIONS = """

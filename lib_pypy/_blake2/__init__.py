@@ -13,7 +13,7 @@ def make_blake_hash(class_name, cffi_mod):
         def __new__(cls, _string=None, *, digest_size=MAX_DIGEST_SIZE,
                     key=None, salt=None, person=None, fanout=1, depth=1,
                     leaf_size=None, node_offset=None, node_depth=0,
-                    inner_size=0, last_node=False):
+                    inner_size=0, last_node=False, usedforsecurity=True):
             self = super().__new__(cls)
 
             self._param = _ffi.new("blake_param*")
@@ -53,12 +53,16 @@ def make_blake_hash(class_name, cffi_mod):
             if leaf_size is not None:
                 if leaf_size > 0xFFFFFFFF:
                     raise OverflowError("leaf_size is too large")
+                if leaf_size < 0:
+                    raise ValueError("value must be positive")
                 # NB: Simple assignment here would be incorrect on big
                 # endian platforms.
                 _lib.store32(_ffi.addressof(self._param, 'leaf_length'),
                              leaf_size)
 
             if node_offset is not None:
+                if node_offset < 0:
+                    raise ValueError("value must be positive")
                 if class_name == 'blake2s':
                     if node_offset > 0xFFFFFFFFFFFF:
                         # maximum 2**48 - 1
