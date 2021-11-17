@@ -62,13 +62,23 @@ Used in:  Py_SAFE_DOWNCAST
 typedef uintptr_t       Py_uintptr_t;
 typedef intptr_t        Py_intptr_t;
 
+/* CPython does this differently */
+#ifdef _WIN64
+typedef long long Py_ssize_t;
+typedef long long Py_hash_t;
+typedef unsigned long long Py_uhash_t;
+#else
+typedef long Py_ssize_t;
+typedef long Py_hash_t;
+typedef unsigned long Py_uhash_t;
+#endif
+
 
 /* Py_hash_t is the same size as a pointer. */
-#define SIZEOF_PY_HASH_T SIZEOF_SIZE_T
-typedef Py_ssize_t Py_hash_t;
+#define SIZEOF_PY_HASH_T sizeof(Py_hash_t)
+/* typedef Py_ssize_t Py_hash_t; */
 /* Py_uhash_t is the unsigned equivalent needed to calculate numeric hash. */
-#define SIZEOF_PY_UHASH_T SIZEOF_SIZE_T
-typedef size_t Py_uhash_t;
+#define SIZEOF_PY_UHASH_T sizeof(Py_uhash_t)
 
 /* Largest possible value of size_t. */
 #define PY_SIZE_MAX SIZE_MAX
@@ -125,6 +135,98 @@ typedef size_t Py_uhash_t;
 #else
 #endif
 
+/* Py_DEPRECATED(version)
+ * Declare a variable, type, or function deprecated.
+ * The macro must be placed before the declaration.
+ * Usage:
+ *    Py_DEPRECATED(3.3) extern int old_var;
+ *    Py_DEPRECATED(3.4) typedef int T1;
+ *    Py_DEPRECATED(3.8) PyAPI_FUNC(int) Py_OldFunction(void);
+ */
+#if defined(__GNUC__) \
+    && ((__GNUC__ >= 4) || (__GNUC__ == 3) && (__GNUC_MINOR__ >= 1))
+#define Py_DEPRECATED(VERSION_UNUSED) __attribute__((__deprecated__))
+#elif defined(_MSC_VER)
+#define Py_DEPRECATED(VERSION) __declspec(deprecated( \
+                                          "deprecated in " #VERSION))
+#else
+#define Py_DEPRECATED(VERSION_UNUSED)
+#endif
+
+/* Declarations for symbol visibility.
+
+  PyAPI_FUNC(type): Declares a public Python API function and return type
+  PyAPI_DATA(type): Declares public Python data and its type
+  PyMODINIT_FUNC:   A Python module init function.  If these functions are
+                    inside the Python core, they are private to the core.
+                    If in an extension module, it may be declared with
+                    external linkage depending on the platform.
+
+  As a number of platforms support/require "__declspec(dllimport/dllexport)",
+  we support a HAVE_DECLSPEC_DLL macro to save duplication.
+*/
+
+/*
+  All windows ports, except cygwin, are handled in PC/pyconfig.h.
+
+  Cygwin is the only other autoconf platform requiring special
+  linkage handling and it uses __declspec().
+*/
+#if defined(__CYGWIN__)
+#       define HAVE_DECLSPEC_DLL
+#endif
+
+#include "exports.h"
+
+/* only get special linkage if built as shared or platform is Cygwin */
+#if defined(Py_ENABLE_SHARED) || defined(__CYGWIN__)
+#       if defined(HAVE_DECLSPEC_DLL)
+#               if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
+#                       define PyAPI_FUNC(RTYPE) Py_EXPORTED_SYMBOL RTYPE
+#                       define PyAPI_DATA(RTYPE) extern Py_EXPORTED_SYMBOL RTYPE
+        /* module init functions inside the core need no external linkage */
+        /* except for Cygwin to handle embedding */
+#                       if defined(__CYGWIN__)
+#                               define PyMODINIT_FUNC Py_EXPORTED_SYMBOL PyObject*
+#                       else /* __CYGWIN__ */
+#                               define PyMODINIT_FUNC PyObject*
+#                       endif /* __CYGWIN__ */
+#               else /* Py_BUILD_CORE */
+        /* Building an extension module, or an embedded situation */
+        /* public Python functions and data are imported */
+        /* Under Cygwin, auto-import functions to prevent compilation */
+        /* failures similar to those described at the bottom of 4.1: */
+        /* http://docs.python.org/extending/windows.html#a-cookbook-approach */
+#                       if !defined(__CYGWIN__)
+#                               define PyAPI_FUNC(RTYPE) Py_IMPORTED_SYMBOL RTYPE
+#                       endif /* !__CYGWIN__ */
+#                       define PyAPI_DATA(RTYPE) extern Py_IMPORTED_SYMBOL RTYPE
+        /* module init functions outside the core must be exported */
+#                       if defined(__cplusplus)
+#                               define PyMODINIT_FUNC extern "C" Py_EXPORTED_SYMBOL PyObject*
+#                       else /* __cplusplus */
+#                               define PyMODINIT_FUNC Py_EXPORTED_SYMBOL PyObject*
+#                       endif /* __cplusplus */
+#               endif /* Py_BUILD_CORE */
+#       endif /* HAVE_DECLSPEC_DLL */
+#endif /* Py_ENABLE_SHARED */
+
+/* If no external linkage macros defined by now, create defaults */
+#ifndef PyAPI_FUNC
+#       define PyAPI_FUNC(RTYPE) Py_EXPORTED_SYMBOL RTYPE
+#endif
+#ifndef PyAPI_DATA
+#       define PyAPI_DATA(RTYPE) extern Py_EXPORTED_SYMBOL RTYPE
+#endif
+#ifndef PyMODINIT_FUNC
+#       if defined(__cplusplus)
+#               define PyMODINIT_FUNC extern "C" Py_EXPORTED_SYMBOL PyObject*
+#       else /* __cplusplus */
+#               define PyMODINIT_FUNC Py_EXPORTED_SYMBOL PyObject*
+#       endif /* __cplusplus */
+#endif
+
+
 /*
  * Hide GCC attributes from compilers that don't support them.
  */
@@ -160,6 +262,32 @@ typedef size_t Py_uhash_t;
 #endif
 
 #define Py_VA_COPY va_copy
+
+/* Mark a function which cannot return. Example:
+   PyAPI_FUNC(void) _Py_NO_RETURN PyThread_exit_thread(void);
+
+   XLC support is intentionally omitted due to bpo-40244 */
+#if defined(__clang__) || \
+    (defined(__GNUC__) && \
+     ((__GNUC__ >= 3) || \
+      (__GNUC__ == 2) && (__GNUC_MINOR__ >= 5)))
+#  define _Py_NO_RETURN __attribute__((__noreturn__))
+#elif defined(_MSC_VER)
+#  define _Py_NO_RETURN __declspec(noreturn)
+#else
+#  define _Py_NO_RETURN
+#endif
+
+
+// Preprocessor check for a builtin preprocessor function. Always return 0
+// if __has_builtin() macro is not defined.
+//
+// __has_builtin() is available on clang and GCC 10.
+#ifdef __has_builtin
+#  define _Py__has_builtin(x) __has_builtin(x)
+#else
+#  define _Py__has_builtin(x) 0
+#endif
 
 
 #endif /* Py_PYPORT_H */

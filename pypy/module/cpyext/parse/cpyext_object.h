@@ -1,14 +1,5 @@
 #pragma once
 
-/* CPython defines Py_ssize_t in pyport.h as intptr_t */
-#ifdef _WIN64
-typedef long long Py_ssize_t;
-typedef long long Py_hash_t;
-#else
-typedef long Py_ssize_t;
-typedef long Py_hash_t;
-#endif
-
 #define PyObject_HEAD  \
     Py_ssize_t ob_refcnt;        \
     Py_ssize_t ob_pypy_link;     \

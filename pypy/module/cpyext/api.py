@@ -770,8 +770,19 @@ class CpyextTypeSpace(CTypeSpace):
         return decorate
 
 
-CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h', 'stddef.h']
-cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS)
+CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h',
+                       'stddef.h', 'pyport.h']
+cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS, include_dirs = [include_dir])
+# Ideally, we would parse pyport.h but that is beyond the parser.
+cts.parse_source("""
+#ifdef _WIN64
+typedef long long Py_ssize_t;
+typedef long long Py_hash_t;
+#else
+typedef long Py_ssize_t;
+typedef long Py_hash_t;
+#endif
+""", configure=False)
 cts.parse_header(parse_dir / 'cpyext_object.h', configure=False)
 cts.parse_header(parse_dir / 'cpyext_descrobject.h', configure=False)
 cts.configure_types()
@@ -1241,7 +1252,7 @@ def attach_c_functions(space, eci, prefix):
         _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
         state.C.flag_setters[attr] = setter
-        
+
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -1543,7 +1554,7 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
     for attr in dir(pygram.syms):
         val = getattr(pygram.syms, attr)
         graminit_h.write('#define {} {}'.format(attr, val))
-    
+
 
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
