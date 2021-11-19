@@ -480,3 +480,11 @@ class AppTestBinascii(object):
         assert issubclass(binascii.Error, ValueError)
         raises(binascii.Error, binascii.a2b_hex, b'u')
         raises(binascii.Error, binascii.a2b_hex, b'bo')
+
+    def test_deprecated(self):
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            self.binascii.b2a_hqx(b'abc')
+        assert len(w) == 1
+

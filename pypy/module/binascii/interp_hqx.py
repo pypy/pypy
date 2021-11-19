@@ -108,6 +108,7 @@ hqx_encoding = (
 @unwrap_spec(bin='bufferstr')
 def b2a_hqx(space, bin):
     "Encode .hqx data."
+    space.warn(space.newtext("binascii.b2a_hqx() is deprecated"), space.w_DeprecationWarning)
     extra = (len(bin) + 2) // 3
     try:
         newlength = ovfcheck(len(bin) + extra)
