@@ -30,7 +30,7 @@ WINDOWS_SCHEME = {
 INSTALL_SCHEMES = {
     'unix_prefix': {
         'purelib': '$base/lib/$implementation_lower$py_version_short/site-packages',
-        'platlib': '$platbase/@platlibdir/$implementation_lower$py_version_short/site-packages',
+        'platlib': '$platbase/$platlibdir/$implementation_lower$py_version_short/site-packages',
         'headers': '$base/include/$implementation_lower$py_version_short$abiflags/$dist_name',
         'scripts': '$base/bin',
         'data'   : '$base',
