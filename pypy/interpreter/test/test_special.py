@@ -14,3 +14,11 @@ class AppTestSpecialTestCase:
         assert repr(NotImplemented) == 'NotImplemented'
         assert NotImplemented.__class__.__name__ == 'NotImplementedType'
         assert NotImplemented.__reduce__() == 'NotImplemented'
+
+    def test_deprecated(self):
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            bool(NotImplemented)
+        assert len(w) == 1
+

@@ -23,3 +23,11 @@ class NotImplemented(W_Root):
         return space.newtext('NotImplemented')
 
     descr__reduce__ = descr__repr__
+
+    def descr_bool(self, space):
+        space.warn(
+            space.newtext("NotImplemented should not be used in a boolean context"),
+            space.w_DeprecationWarning
+        )
+        return space.w_True
+

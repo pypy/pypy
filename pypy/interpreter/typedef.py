@@ -976,6 +976,7 @@ NotImplemented.typedef = TypeDef("NotImplementedType",
     __new__ = interp2app(NotImplemented.descr_new_notimplemented),
     __repr__ = interp2app(NotImplemented.descr__repr__),
     __reduce__ = interp2app(NotImplemented.descr__reduce__),
+    __bool__ = interp2app(NotImplemented.descr_bool),
 )
 NotImplemented.typedef.acceptable_as_base_class = False
 
