@@ -224,17 +224,17 @@ class AppTestFcntl:
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, True)
             assert res == 0
             assert buf[0] != 0
-            expected = buf.tostring()
+            expected = buf.tobytes()
 
             buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf)
             assert res == 0
-            assert buf.tostring() == expected
+            assert buf.tobytes() == expected
 
             buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, memoryview(buf))
             assert res == 0
-            assert buf.tostring() == expected
+            assert buf.tobytes() == expected
 
             raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, (), False)
 
