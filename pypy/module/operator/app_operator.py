@@ -10,7 +10,7 @@ def countOf(a,b):
     'countOf(a, b) -- Return the number of times b occurs in a.'
     count = 0
     for x in a:
-        if x == b:
+        if x is b or x == b:
             count += 1
     return count
 

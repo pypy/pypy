@@ -358,3 +358,9 @@ class AppTestOperator:
         import _operator as operator
         assert repr(operator.methodcaller("foo", "bar", baz=42)) == (
             "operator.methodcaller('foo', 'bar', baz=42)")
+
+    def test_countOf(self):
+        from _operator import countOf
+        assert countOf([1, 2, 1, 1, 4], 1) == 3
+        nan = float('nan')
+        assert countOf([nan, nan, 4, nan], nan) == 3
