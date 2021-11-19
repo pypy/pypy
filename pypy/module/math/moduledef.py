@@ -10,6 +10,7 @@ class Module(MixedModule):
        'prod'      : 'app_math.prod',
        'comb'      : 'app_math.comb',
        'perm'      : 'app_math.perm',
+       'lcm'       : 'app_math.lcm',
     }
 
     interpleveldefs = {

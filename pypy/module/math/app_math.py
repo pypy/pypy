@@ -235,3 +235,17 @@ def perm(n, k=None, /):
     for x in range(n, n - k, -1):
         res *= x
     return res
+
+def lcm(*integers):
+    import math
+    if not integers:
+        return 1
+    if len(integers) == 1:
+        return abs(integers[0])
+    if len(integers) == 2:
+        a, b = integers
+        return abs(a // math.gcd(a, b) * b)
+    res = integers[0]
+    for i in range(1, len(integers)):
+        res = abs(res // math.gcd(res, integers[i]) * integers[i])
+    return res

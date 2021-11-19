@@ -381,6 +381,13 @@ class AppTestMath:
         assert math.gcd(36) == 36
         assert math.gcd(-36) == 36
 
+    def test_lcm(self):
+        import math
+        assert math.lcm() == 1
+        assert math.lcm(-5) == 5
+        assert math.lcm(5) == 5
+        assert math.lcm(6, 10) == 30
+        assert math.lcm(6, 10, 14) == 70
 
     def test_inf_nan(self):
         import math
