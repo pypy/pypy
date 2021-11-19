@@ -1106,3 +1106,4 @@ class AppTestBytesObject:
         assert b'abc'.removesuffix(b'x') == b'abc'
         assert b'abc'.removesuffix(b'bc') == b'a'
         assert b'abc'.removesuffix(b'') == b'abc'
+        assert b'spam'.removesuffix(b'am') == b'sp'

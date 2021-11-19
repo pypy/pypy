@@ -827,7 +827,7 @@ class StringMethods(object):
         suffix = self._op_val(space, w_suffix)
         selfval = self._val(space)
         if suffix and endswith(selfval, suffix):
-            end = len(suffix) - 1
+            end = len(selfval) - len(suffix)
             assert end >= 0
             return self._new(selfval[:end])
         return self._new(selfval)

@@ -1433,7 +1433,7 @@ class W_UnicodeObject(W_Root):
         suffix = w_suffix._utf8
         selfval = self._utf8
         if suffix and endswith(selfval, suffix):
-            end = len(suffix) - 1
+            end = len(selfval) - len(suffix)
             assert end >= 0
             return W_UnicodeObject(selfval[:end], self._length - w_suffix._length)
         if type(self) is W_UnicodeObject:
