@@ -2120,6 +2120,7 @@ class CallCodeGenerator(object):
         # the number of dictionaries on the stack
         self.nsubkwargs = 0
         self.keyword_names_w = []
+        self.seen_keyword_names = {}
 
     def _make_starargs_list(self):
         if not self.have_starargs:
@@ -2174,6 +2175,11 @@ class CallCodeGenerator(object):
                 kw.value.walkabout(self.codegenerator)
                 self.nsubkwargs += 1
                 continue
+            else:
+                if kw.arg in self.seen_keyword_names:
+                    self.codegenerator.error(
+                            "keyword argument repeated: '%s'" % (kw.arg, ), kw)
+                self.seen_keyword_names[kw.arg] = None
             if len(self.keyword_names_w) > MAX_STACKDEPTH_CONTAINERS // 2:
                 self._pack_kwargs_into_dict()
             w_name = self.space.newtext(kw.arg)

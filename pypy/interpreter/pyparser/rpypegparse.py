@@ -757,7 +757,7 @@ class PythonParser(Parser):
                 if literal_1:
                     tok = self.get_last_non_whitespace_token()
                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                    return ast . Call ( func = dn , args = z . args if z and z . args else None , keywords = self . check_repeated_keywords ( z ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                    return ast . Call ( func = dn , args = z . args if z and z . args else None , keywords = z . keywords if z and z . keywords else None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         dec_primary = self.dec_primary()
         if dec_primary:
@@ -2307,7 +2307,7 @@ class PythonParser(Parser):
                 if literal_1:
                     tok = self.get_last_non_whitespace_token()
                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                    return ast . Call ( func = a , args = b . args if b and b . args else None , keywords = self . check_repeated_keywords ( b ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                    return ast . Call ( func = a , args = b . args if b and b . args else None , keywords = b . keywords if b and b . keywords else None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         a = self.primary()
         if a:
@@ -3348,7 +3348,7 @@ class PythonParser(Parser):
                     if self.positive_lookahead(PythonParser.t_lookahead, ):
                         tok = self.get_last_non_whitespace_token()
                         end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                        return ast . Call ( func = a , args = b . args if b else None , keywords = self . check_repeated_keywords ( b ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                        return ast . Call ( func = a , args = b . args if b else None , keywords = b . keywords if b and b . keywords else None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         a = self.atom()
         if a:

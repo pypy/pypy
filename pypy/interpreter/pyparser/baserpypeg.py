@@ -548,24 +548,6 @@ class Parser:
             self.check_version((3, 6), "Underscores in numeric literals are", tok)
         return parse_number(self.space, tok.value)
 
-    def check_repeated_keywords(self, args):
-        if not args or not args.keywords:
-            return None
-        keywords = args.keywords
-        if len(keywords) == 1:
-            return keywords
-        d = {}
-        for keyword in keywords:
-            assert isinstance(keyword, ast.keyword)
-            if keyword.arg is None:
-                # **arg
-                continue
-            if keyword.arg in d:
-                self.raise_syntax_error_known_location(
-                    "keyword argument repeated: '%s'" % keyword.arg, keyword)
-            d[keyword.arg] = None
-        return keywords
-
     def get_last_target(self, for_if_clauses):
         if not for_if_clauses:
             return None

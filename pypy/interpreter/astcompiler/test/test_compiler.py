@@ -93,8 +93,9 @@ class BaseTestCompiler:
 
     st = simple_test
 
-    def error_test(self, source, exc_type):
-        py.test.raises(exc_type, self.simple_test, source, None, None)
+    def error_test(self, source, exc_type, msg_part=""):
+        excinfo = py.test.raises(exc_type, self.simple_test, source, None, None)
+        assert msg_part in excinfo.value.msg
 
 
 class TestCompiler(BaseTestCompiler):
@@ -2036,6 +2037,10 @@ def brokenargs(a=1, /, b=2, *, c):
 x = brokenargs(c=3)
 """
         self.st(func, "x", [1, 2, 3])
+
+    def test_keyword_repeated(self):
+        yield self.error_test, "f(a=c, a=d)", SyntaxError, "keyword argument repeated: 'a'"
+        yield self.error_test, "class A(metaclass=c, metaclass=d): pass", SyntaxError, "keyword argument repeated: 'metaclass'"
 
 
 class TestDeadCodeGetsRemoved(TestCompiler):

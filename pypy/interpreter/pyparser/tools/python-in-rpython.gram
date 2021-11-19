@@ -198,7 +198,7 @@ decorator:
      }
 dec_maybe_call:
     | dn=dec_primary '(' z=[arguments] ')' {
-        ast.Call(func=dn, args=z.args if z and z.args else None, keywords=self.check_repeated_keywords(z), LOCATIONS)
+        ast.Call(func=dn, args=z.args if z and z.args else None, keywords=z.keywords if z and z.keywords else None, LOCATIONS)
      }
     | dec_primary
 dec_primary:
@@ -819,7 +819,7 @@ primary:
         ast.Call(
             func=a,
             args=b.args if b and b.args else None,
-            keywords=self.check_repeated_keywords(b),
+            keywords=b.keywords if b and b.keywords else None,
             LOCATIONS,
         )
      }
@@ -1098,7 +1098,7 @@ t_primary:
         ast.Call(
             func=a,
             args=b.args if b else None,
-            keywords=self.check_repeated_keywords(b),
+            keywords=b.keywords if b and b.keywords else None,
             LOCATIONS,
         )
      }

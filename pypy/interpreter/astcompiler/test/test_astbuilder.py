@@ -1170,8 +1170,8 @@ class TestAstBuilding:
         self.get_ast(input) # doesn't crash any more
         exc = pytest.raises(SyntaxError, self.get_ast, "f((a+b)=c)").value
         assert exc.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
-        exc = pytest.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
-        assert exc.msg == "keyword argument repeated: 'a'"
+        exc = pytest.raises(SyntaxError, self.get_ast, "deff f(a=1, a=2): pass").value
+        assert  'invalid syntax' in exc.msg # used to be "keyword argument repeated: 'a'"
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast("f((x)=1)")
         assert excinfo.value.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
