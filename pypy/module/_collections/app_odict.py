@@ -119,6 +119,15 @@ class OrderedDict(dict):
             return dict.__eq__(self, other) and all(map(_eq, self, other))
         return dict.__eq__(self, other)
 
+    def __or__(self, other):
+        if not isinstance(other, dict):
+            return NotImplemented
+        copyself = self.copy()
+        copyself.update(other)
+        return copyself
+
+    # for __ior__ the dict implementation is fine
+
     __ne__ = object.__ne__
 
     def keys(self):

@@ -57,3 +57,18 @@ class AppTestBasic:
         ga = _collections.OrderedDict[int]
         assert ga.__origin__ is _collections.OrderedDict
         assert ga.__args__ == (int, )
+
+    def test_or(self):
+        from _collections import OrderedDict
+        d1 = OrderedDict({1: 2, 3: 4})
+        d2 = OrderedDict({1: 4, 5: 6})
+        assert type(d1 | d2) is OrderedDict
+        assert d1 | d2 == {1: 4, 3: 4, 5: 6}
+
+    def test_ior(self):
+        from _collections import OrderedDict
+        orig = d = OrderedDict({'spam': 1, 'eggs': 2, 'cheese': 3})
+        e = {'cheese': 'cheddar', 'aardvark': 'Ethel'}
+        d |= e
+        assert orig == {'spam': 1, 'eggs': 2, 'cheese': 'cheddar', 'aardvark': 'Ethel'}
+
