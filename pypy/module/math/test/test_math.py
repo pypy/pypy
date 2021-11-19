@@ -376,6 +376,11 @@ class AppTestMath:
 
         assert math.gcd(-self.maxint-1, 3) == 1
         assert math.gcd(-self.maxint-1, -self.maxint-1) == self.maxint+1
+        assert math.gcd() == 0
+        assert math.gcd(2, 4, 6, 8) == 2
+        assert math.gcd(36) == 36
+        assert math.gcd(-36) == 36
+
 
     def test_inf_nan(self):
         import math

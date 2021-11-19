@@ -585,9 +585,25 @@ only close to themselves."""
               diff <= abs_tol)
     return space.newbool(result)
 
+def gcd(space, args_w):
+    """greatest common divisor"""
+    if len(args_w) == 0:
+        return space.newint(0)
+    if len(args_w) == 1:
+        return space.abs(args_w[0])
+    if len(args_w) == 2:
+        return gcd_two(space, args_w[0], args_w[1])
+    return _gcd_many(space, args_w)
 
-def gcd(space, w_a, w_b):
-    """greatest common divisor of a and b"""
+def _gcd_many(space, args_w):
+    w_res = args_w[0]
+    # could jit this, but do we care?
+    for i in range(1, len(args_w)):
+        w_res = gcd_two(space, w_res, args_w[i])
+    return w_res
+
+
+def gcd_two(space, w_a, w_b):
     from rpython.rlib import rbigint
     w_a = space.abs(space.index(w_a))
     w_b = space.abs(space.index(w_b))
