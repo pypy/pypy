@@ -577,13 +577,13 @@ class AppTestListObject(object):
         foo_list = [foo1, foo2, foo3]
         foo42 in foo_list
         logger_copy = logger[:]  # prevent re-evaluation during pytest error print
-        assert logger_copy == [(foo42, foo1), (foo42, foo2), (foo42, foo3)]
+        assert logger_copy == [(foo1, foo42), (foo2, foo42), (foo3, foo42)]
 
         del logger[:]
         foo2_bis = Foo(2, '2 bis')
         foo2_bis in foo_list
         logger_copy = logger[:]  # prevent re-evaluation during pytest error print
-        assert logger_copy == [(foo2_bis, foo1), (foo2_bis, foo2)]
+        assert logger_copy == [(foo1, foo2_bis), (foo2, foo2_bis)]
 
     def test_call_list(self):
         assert list('') == []
