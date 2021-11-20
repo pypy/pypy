@@ -181,6 +181,9 @@ whatisthis"""'''
         check_token_error("0b106",
                 "invalid digit '6' in binary literal",
                 5)
+        check_token_error("0b10_6",
+                "invalid digit '6' in binary literal",
+                5)
         check_token_error("0b6",
                 "invalid digit '6' in binary literal",
                 3)
@@ -190,9 +193,20 @@ whatisthis"""'''
         check_token_error("0o129",
                 "invalid digit '9' in octal literal",
                 5)
+        check_token_error("0o12_9",
+                "invalid digit '9' in octal literal",
+                5)
         check_token_error("0o9",
                 "invalid digit '9' in octal literal",
                 3)
         check_token_error("0o \n",
                 "invalid octal literal",
                 2)
+        check_token_error("0x1__ \n",
+                "invalid hexadecimal literal",
+                4)
+        check_token_error("1_ \n",
+                "invalid decimal literal",
+                2)
+        tokenize("1 2 \n") # does not raise
+        tokenize("1 _ \n") # does not raise

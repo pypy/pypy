@@ -447,19 +447,44 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
             if not ch.isdigit():
                 raise TokenError("invalid octal literal",
                         line, lnum, end, token_list)
-    if ch.isdigit():
         # either an invalid binary or octal number
-        if token.startswith("0b"):
+    if token.startswith("0b"):
+        ch = _skip_underscore(ch, line, end)
+        if ch.isdigit():
             raise TokenError("invalid digit '%s' in binary literal" % (ch, ),
                     line, lnum, end + 1, token_list)
-        elif token.startswith("0o"):
+        elif ch == "_":
+            raise TokenError("invalid binary literal",
+                    line, lnum, end, token_list)
+
+    elif token.startswith("0o"):
+        ch = _skip_underscore(ch, line, end)
+        if ch.isdigit():
             raise TokenError("invalid digit '%s' in octal literal" % (ch, ),
+                    line, lnum, end + 1, token_list)
+        elif ch == "_":
+            raise TokenError("invalid octal literal",
+                    line, lnum, end, token_list)
+
+    elif token.startswith("0x"):
+        if ch == "_":
+            raise TokenError("invalid hexadecimal literal",
+                    line, lnum, end + 1, token_list)
+
+    else:
+        if ch == "_":
+            raise TokenError("invalid decimal literal",
                     line, lnum, end + 1, token_list)
 
 def _get_next_or_nul(line, end):
     if end < len(line):
         return line[end]
     return chr(0)
+
+def _skip_underscore(ch, line, end):
+    if ch == "_":
+        return _get_next_or_nul(line, end + 1)
+    return ch
 
 def universal_newline(line):
     # show annotator that indexes below are non-negative
