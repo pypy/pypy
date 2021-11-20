@@ -47,6 +47,15 @@ class W_DictProxyObject(W_Root):
         return space.newtext(b"mappingproxy(%s)" %
                                 (space.utf8_w(space.repr(self.w_mapping)),))
 
+    def descr_or(self, space, w_other):
+        if isinstance(w_other, W_DictProxyObject):
+            w_other = w_other.w_mapping
+        if not space.isinstance_w(w_other, space.w_dict):
+            return space.w_NotImplemented
+        w_copyself = self.copy_w(space)
+        space.call_method(w_copyself, "update", w_other)
+        return w_copyself
+
     @unwrap_spec(w_default=WrappedDefault(None))
     def get_w(self, space, w_key, w_default):
         return space.call_method(self.w_mapping, "get", w_key, w_default)
@@ -86,6 +95,7 @@ W_DictProxyObject.typedef = TypeDef(
     __iter__=interp2app(W_DictProxyObject.descr_iter),
     __str__=interp2app(W_DictProxyObject.descr_str),
     __repr__=interp2app(W_DictProxyObject.descr_repr),
+    __or__=interp2app(W_DictProxyObject.descr_or),
     get=interp2app(W_DictProxyObject.get_w),
     keys=interp2app(W_DictProxyObject.keys_w),
     values=interp2app(W_DictProxyObject.values_w),

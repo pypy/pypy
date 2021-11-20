@@ -77,6 +77,21 @@ class AppTestUserObject:
         #
         {}.update(proxy)
 
+    def test_or(self):
+        dictproxy = type(int.__dict__)
+        mapping = orig = dictproxy(dict(a=1, b=2, c=3))
+        mapping2 = mapping | dict(a=2, d=5)
+        assert type(mapping2) is dict
+        assert mapping2 == dict(a=2, b=2, c=3, d=5)
+
+        mapping2 = mapping | dictproxy(dict(a=2, d=5))
+        assert type(mapping2) is dict
+        assert mapping2 == dict(a=2, b=2, c=3, d=5)
+
+        mapping = dictproxy(dict(a=1, b=2, c=3))
+        mapping |= dict(a=2, d=5)
+        assert mapping is not orig
+
 
 class AppTestUserObjectMethodCache(AppTestUserObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
