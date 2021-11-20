@@ -55,7 +55,7 @@ class __extend__(ast.expr):
     _type_name = None
 
     def _get_descr(self, space):
-        return self._description
+        return self._description or "???" # better than a crash
 
     def _get_type_name(self, space):
         return self._type_name
@@ -199,6 +199,8 @@ class __extend__(ast.Starred):
             ctx,
             *self.location())
 
+class __extend__(ast.NamedExpr):
+    _description = "named expression"
 
 class __extend__(ast.IfExp):
 

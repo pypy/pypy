@@ -934,6 +934,7 @@ class TestAstBuilding:
             ("del (1, x)", "cannot delete literal"),
             ("del [x, z, a, {1, 2}]", "cannot delete set display"),
             ("del [a, (b, *c)]", "cannot delete starred"),
+            ("del (a := 5)", "cannot delete named expression"),
         ]
         for wrong, msg in invalid:
             with pytest.raises(SyntaxError) as excinfo:
