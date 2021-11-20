@@ -49,7 +49,7 @@ class AppTestUnicodeData:
         assert int(unicodedata.unidata_version.split(".")[0]) >= 8
         cases = [
             ('3400', '4DB5'),
-            ('4E00', '9FEF'),
+            ('4E00', '9FFC'),
             ('20000', '2A6D6'),
             ('2A700', '2B734'),
             ('2B740', '2CEA1'),
@@ -172,3 +172,6 @@ class AppTestUnicodeData:
         import unicodedata
         assert unicodedata.name(chr(0x32ff)) == 'SQUARE ERA NAME REIWA'
 
+    def test_13_0_change(self):
+        import unicodedata
+        assert unicodedata.lookup('CIRCLED CC')
