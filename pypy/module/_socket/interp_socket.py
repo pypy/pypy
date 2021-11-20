@@ -1134,6 +1134,7 @@ if_indextoname(index) -- return the corresponding interface name
     type = GetSetProperty(W_Socket.get_type_w),
     proto = GetSetProperty(W_Socket.get_proto_w),
     family = GetSetProperty(W_Socket.get_family_w),
+    timeout = GetSetProperty(W_Socket.gettimeout_w),
     **socketmethods
     )
 
