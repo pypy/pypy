@@ -111,11 +111,11 @@ def verify_identifier(token, line, lnum, start, token_list, flags):
         if not unicodedb.isxidcontinue(ch):
             raise_invalid_unicode_char(ch, token, line, lnum, start + pos, token_list)
         pos = it.get_pos()
-    return -2
 
 def raise_invalid_unicode_char(code, token, line, lnum, start, token_list):
     # valid utf-8, but it gives a unicode char that cannot
     # be used in identifiers
+    assert code >= 0
     raise TokenError(
         "invalid character '%s' (U+%s)" % (
             rutf8.unichr_as_utf8(code), hex(code)[2:].upper()
