@@ -1936,7 +1936,7 @@ x = [lineno for addr, lineno in linestarts]
 
     def test_error_in_dead_code(self):
         self.error_test("if 0: break", SyntaxError)
-        self.error_test("while 0: continue", SyntaxError)
+        self.error_test("while 0: lambda x, x: 1", SyntaxError)
         self.error_test("if 0:\n if 0:\n  [x async for x in b]", SyntaxError)
         self.error_test("[(i, j) for i in range(5) for j in range(5) if True or (i:=10)]", SyntaxError)
 
@@ -1955,6 +1955,9 @@ def buggy_lnotab():
 x = [c for c in buggy_lnotab.__code__.co_lnotab]
 """
         self.st(func, "x", [0, 1, 8, 8])
+
+    def test_while_false_break(self):
+        self.st("x=1\nwhile False: break", "x", 1)
 
 
 class TestDeadCodeGetsRemoved(TestCompiler):
