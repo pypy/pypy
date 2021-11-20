@@ -274,7 +274,7 @@ def test_compress_copy():
     rzlib.deflateEnd(copied)
     assert bytes1 + bytes_copy == compressed
 
-@py.test.mark.skipif(rzlib.ZLIB_VERSION in ('1.2.3', '1.2.8'), reason='does not error check')
+@py.test.mark.skipif(rzlib.ZLIB_VERSION in ('1.2.3', '1.2.8', '1.2.7'), reason='does not error check')
 def test_unsuccessful_compress_copy():
     """
     Errors during unsuccesful deflateCopy operations raise RZlibErrors.
