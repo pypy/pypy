@@ -365,6 +365,8 @@ class TkApp(object):
             return FromTclString(result)
 
     def split(self, arg):
+        warnings.warn("split() is deprecated; consider using splitlist() instead",
+                      DeprecationWarning)
         if isinstance(arg, Tcl_Obj):
             objc = tkffi.new("int*")
             objv = tkffi.new("Tcl_Obj***")
