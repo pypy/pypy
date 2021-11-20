@@ -293,3 +293,17 @@ class TestArray(BaseTestPyPyC):
             f37 = getarrayitem_raw_f(i8, i36, descr=...)
             ...
         """)
+
+    def test_listcomp_with_and_result_empty_list_is_jitted(self):
+        def main():
+            data = [[1.0], [None]] * 100000
+            res = []
+            value = 0.0
+            for d in data:
+                if d[0] is not None and d[0] <= value:
+                    res.append(d)
+            return len(res)
+        log = self.run(main, [])
+        assert log.result == 0
+        loop, = log.loops_by_filename(self.filepath) # there is one, that's enough
+
