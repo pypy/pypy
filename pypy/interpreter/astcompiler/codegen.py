@@ -777,7 +777,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         test_constant = wh.test.as_constant_truth(self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
             with self.all_dead_code():
+                end = self.new_block()
+                loop = self.new_block()
+                self.push_frame_block(F_WHILE_LOOP, loop, end)
                 self.visit_sequence(wh.body)
+                self.pop_frame_block(F_WHILE_LOOP, loop)
             self.visit_sequence(wh.orelse)
         else:
             end = self.new_block()
