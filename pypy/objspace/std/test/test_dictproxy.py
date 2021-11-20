@@ -65,7 +65,6 @@ class AppTestUserObject:
         raises(TypeError, "proxy['a'] = 4")
         raises(TypeError, "del proxy['a']")
         raises(AttributeError, "proxy.clear()")
-        raises(TypeError, reversed, proxy)
         #
         class D(dict):
             def copy(self): return 3
@@ -91,6 +90,11 @@ class AppTestUserObject:
         mapping = dictproxy(dict(a=1, b=2, c=3))
         mapping |= dict(a=2, d=5)
         assert mapping is not orig
+
+    def test_reversed(self):
+        dictproxy = type(int.__dict__)
+        mapping = dictproxy(dict(a=1, b=2, c=3))
+        assert list(reversed(mapping)) == ['c', 'b', 'a']
 
 
 class AppTestUserObjectMethodCache(AppTestUserObject):

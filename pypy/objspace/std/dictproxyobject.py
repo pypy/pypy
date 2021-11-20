@@ -72,6 +72,9 @@ class W_DictProxyObject(W_Root):
     def copy_w(self, space):
         return space.call_method(self.w_mapping, "copy")
 
+    def descr_reversed(self, space):
+        return space.call_method(self.w_mapping, "__reversed__")
+
 cmp_methods = {}
 def make_cmp_method(op):
     def descr_op(self, space, w_other):
@@ -96,6 +99,7 @@ W_DictProxyObject.typedef = TypeDef(
     __str__=interp2app(W_DictProxyObject.descr_str),
     __repr__=interp2app(W_DictProxyObject.descr_repr),
     __or__=interp2app(W_DictProxyObject.descr_or),
+    __reversed__ = interp2app(W_DictProxyObject.descr_reversed),
     get=interp2app(W_DictProxyObject.get_w),
     keys=interp2app(W_DictProxyObject.keys_w),
     values=interp2app(W_DictProxyObject.values_w),
