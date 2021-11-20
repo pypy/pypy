@@ -1441,6 +1441,7 @@ class AppTestPosix:
 
     def test_urandom(self):
         os = self.posix
+        raises(ValueError, os.urandom, -1)
         s = os.urandom(5)
         assert isinstance(s, bytes)
         assert len(s) == 5

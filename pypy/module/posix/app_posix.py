@@ -202,6 +202,8 @@ if osname == 'posix':
         Return a string of n random bytes suitable for cryptographic use.
 
         """
+        if n < 0:
+            raise ValueError("negative argument not allowed")
         try:
             with open('/dev/urandom', 'rb', buffering=0) as fd:
                 return fd.read(n)

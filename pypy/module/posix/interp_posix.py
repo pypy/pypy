@@ -2503,6 +2503,8 @@ def urandom(space, size):
     Return a string of 'size' random bytes suitable for cryptographic use.
     """
     context = get(space).random_context
+    if size < 0:
+        raise oefmt(space.w_ValueError, "negative argument not allowed")
     try:
         # urandom() takes a final argument that should be a regular function,
         # not a bound method like 'getexecutioncontext().checksignals'.
