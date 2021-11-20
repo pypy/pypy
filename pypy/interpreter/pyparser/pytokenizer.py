@@ -91,14 +91,38 @@ def bad_utf8(location_msg, line, lnum, pos, token_list, flags):
     return TokenError(msg, line, lnum, pos, token_list)
 
 
-def verify_identifier(token):
-    # 1=ok; 0=not an identifier; -1=bad utf-8
+def verify_identifier(token, line, lnum, start, token_list, flags):
+    # -2=ok; positive=not an identifier; -1=bad utf-8
+    from pypy.module.unicodedata.interp_ucd import unicodedb
     try:
         rutf8.check_utf8(token, False)
     except rutf8.CheckError:
-        return -1
-    from pypy.objspace.std.unicodeobject import _isidentifier
-    return _isidentifier(token)
+        raise bad_utf8("identifier", line, lnum, start + 1,
+                       token_list, flags)
+    if not token:
+        return
+    first = token[0]
+    it = rutf8.Utf8StringIterator(token)
+    code = it.next()
+    if not (unicodedb.isxidstart(code) or first == '_'):
+        raise_invalid_unicode_char(code, token, line, lnum, start, token_list)
+    pos = it.get_pos()
+    for ch in it:
+        if not unicodedb.isxidcontinue(ch):
+            raise_invalid_unicode_char(ch, token, line, lnum, start + pos, token_list)
+        pos = it.get_pos()
+    return -2
+
+def raise_invalid_unicode_char(code, token, line, lnum, start, token_list):
+    # valid utf-8, but it gives a unicode char that cannot
+    # be used in identifiers
+    raise TokenError(
+        "invalid character '%s' (U+%s)" % (
+            rutf8.unichr_as_utf8(code), hex(code)[2:].upper()
+        ),
+        line, lnum, start + 1, token_list
+    )
+
 
 
 DUMMY_DFA = automata.DFA([], [])
@@ -338,15 +362,7 @@ def generate_tokens(lines, flags):
                         last_comment = ''
                 elif (initial in namechars or              # ordinary name
                       ord(initial) >= 0x80):               # unicode identifier
-                    valid = verify_identifier(token)
-                    if valid <= 0:
-                        if valid == -1:
-                            raise bad_utf8("identifier", line, lnum, start + 1,
-                                           token_list, flags)
-                        # valid utf-8, but it gives a unicode char that cannot
-                        # be used in identifiers
-                        raise TokenError("invalid character in identifier",
-                                         line, lnum, start + 1, token_list)
+                    verify_identifier(token, line, lnum, start, token_list, flags)
                     # inside 'async def' function or no async_hacks
                     # so recognize them unconditionally.
                     if not async_hacks or async_def:

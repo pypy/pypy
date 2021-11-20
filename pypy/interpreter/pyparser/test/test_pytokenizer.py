@@ -210,3 +210,9 @@ whatisthis"""'''
                 2)
         tokenize("1 2 \n") # does not raise
         tokenize("1 _ \n") # does not raise
+
+
+    def test_invalid_identifier(self):
+        check_token_error("aänc€",
+                "invalid character '€' (U+20AC)",
+                6)
