@@ -94,7 +94,10 @@ def PyLong_AsLong(space, w_long):
     Get a C long int from an int object or any object that has an __int__
     method.  Return -1 and set an error if overflow occurs.
     """
-    val = space.int_w(space.int(w_long))
+    if space.lookup(w_long, '__index__'):
+        val = space.int_w(space.index(w_long))
+    else:
+        val = space.int_w(space.int(w_long))
     if need_to_check and (val > LONG_MAX or val < LONG_MIN):
         # On win64 space.int_w will succeed for 8-byte ints
         # but long is 4 bytes. So we must check manually

@@ -7,7 +7,7 @@ import pytest
 
 from rpython.rlib.unicodedata import (
     unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0,
-    unicodedb_8_0_0, unicodedb_11_0_0, unicodedb_12_1_0)
+    unicodedb_8_0_0, unicodedb_11_0_0, unicodedb_12_1_0, unicodedb_13_0_0)
 
 
 class TestUnicodeData(object):
@@ -181,3 +181,7 @@ def test_turkish_i(db):
 
 def test_era_reiwa():
     assert unicodedb_12_1_0.name(0x32ff) == 'SQUARE ERA NAME REIWA'
+
+def test_unicode13():
+    assert unicodedb_13_0_0.name(0x1fa97) == 'ACCORDION'
+    assert unicodedb_13_0_0.name(0xd04) == 'MALAYALAM LETTER VEDIC ANUSVARA'
