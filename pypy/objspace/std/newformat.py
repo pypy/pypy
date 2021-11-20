@@ -606,6 +606,9 @@ def make_formatting_class(for_unicode):
             if self._type != "s":
                 self._unknown_presentation(w_string)
             if self._sign != "\0":
+                if self._sign == " ":
+                    raise oefmt(space.w_ValueError,
+                                "Space not allowed in string format specifier")
                 raise oefmt(space.w_ValueError,
                             "Sign not allowed in string format specifier")
             if self._alternate:

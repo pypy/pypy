@@ -540,3 +540,7 @@ class AppTestInternalMethods:
         assert '{0:c}'.format(42) == '*'
         assert '{0:c}'.format(1234) == '\u04d2'
         raises(OverflowError, '{0:c}'.format, -1)
+
+    def test_error(self):
+        info = raises(ValueError, "{: }".format, '')
+        assert info.value.args[0].startswith("Space")
