@@ -75,10 +75,10 @@ typedef unsigned long Py_uhash_t;
 
 
 /* Py_hash_t is the same size as a pointer. */
-#define SIZEOF_PY_HASH_T sizeof(Py_hash_t)
+#define SIZEOF_PY_HASH_T SIZEOF_SIZE_T
 /* typedef Py_ssize_t Py_hash_t; */
 /* Py_uhash_t is the unsigned equivalent needed to calculate numeric hash. */
-#define SIZEOF_PY_UHASH_T sizeof(Py_uhash_t)
+#define SIZEOF_PY_UHASH_T SIZEOF_SIZE_T
 
 /* Largest possible value of size_t. */
 #define PY_SIZE_MAX SIZE_MAX
@@ -89,6 +89,41 @@ typedef unsigned long Py_uhash_t;
 #define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 
 #include <stdarg.h>
+
+/* Py_LOCAL can be used instead of static to get the fastest possible calling
+ * convention for functions that are local to a given module.
+ *
+ * Py_LOCAL_INLINE does the same thing, and also explicitly requests inlining,
+ * for platforms that support that.
+ *
+ * If PY_LOCAL_AGGRESSIVE is defined before python.h is included, more
+ * "aggressive" inlining/optimization is enabled for the entire module.  This
+ * may lead to code bloat, and may slow things down for those reasons.  It may
+ * also lead to errors, if the code relies on pointer aliasing.  Use with
+ * care.
+ *
+ * NOTE: You can only use this for functions that are entirely local to a
+ * module; functions that are exported via method tables, callbacks, etc,
+ * should keep using static.
+ */
+
+#if defined(_MSC_VER)
+#  if defined(PY_LOCAL_AGGRESSIVE)
+   /* enable more aggressive optimization for MSVC */
+   /* active in both release and debug builds - see bpo-43271 */
+#  pragma optimize("gt", on)
+#endif
+   /* ignore warnings if the compiler decides not to inline a function */
+#  pragma warning(disable: 4710)
+   /* fastest possible local call under MSVC */
+#  define Py_LOCAL(type) static type __fastcall
+#  define Py_LOCAL_INLINE(type) static __inline type __fastcall
+#else
+#  define Py_LOCAL(type) static type
+#  define Py_LOCAL_INLINE(type) static inline type
+#endif
+
+
 
 /* CPython needs this for the c-extension datetime, which is pure python on PyPy
    downstream packages assume it is here (Pandas for instance) */

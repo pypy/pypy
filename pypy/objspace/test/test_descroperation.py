@@ -890,3 +890,7 @@ class AppTest_Descroperation:
         # previously triggered an OverflowError
         d = {BigHash(): None}
         assert BigHash() in d
+
+    def test_class_getitem(self):
+        excinfo = raises(TypeError, "int[int]")
+        assert "object is not subscriptable" in str(excinfo.value)

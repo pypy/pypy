@@ -14,7 +14,6 @@
 # include <math.h>
 # include <errno.h>
 # include <unistd.h>
-# define Py_LOCAL_INLINE(type) static inline type
 #else
 # ifdef _MSC_VER
 #  include <crtdefs.h>
