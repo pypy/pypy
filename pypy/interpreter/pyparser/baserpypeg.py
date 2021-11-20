@@ -248,12 +248,26 @@ class Parser:
         self.py_version = (3, compile_info.feature_version)
         self.space = space
 
+    def parse_meth_or_raise(self, meth):
+        res = meth(self)
+        if res is None:
+            self.reset()
+            self.call_invalid_rules = True
+            meth(self) # often raises
+            # we're still here, so no specific error message
+            tok = self.diagnose()
+            if tok.token_type == tokens.INDENT:
+                self.raise_indentation_error("unexpected indent")
+            self.raise_syntax_error("invalid syntax")
+        assert res
+        return res
+
     def recursive_parse_to_ast(self, str, info):
         from pypy.interpreter.pyparser import pytokenizer as tokenize
         from pypy.interpreter.pyparser import rpypegparse
         tokenlist = tokenize.generate_tokens(str.splitlines(), 0)
         parser = rpypegparse.PythonParser(self.space, tokenlist, self.compile_info, verbose=False)
-        return parser.eval()
+        return parser.parse_meth_or_raise(rpypegparse.PythonParser.eval)
 
     def deprecation_warn(self, msg, tok):
         from pypy.interpreter import error

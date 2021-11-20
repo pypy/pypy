@@ -214,3 +214,5 @@ def test_crash_debugging():
         eval('f"{pow(x, k, j)="')
     with raises(SyntaxError):
         eval('f"{pow(x, k, j)=    "')
+    with raises(SyntaxError):
+        eval("f'{4:{/5}}'")

@@ -385,24 +385,12 @@ class PegParser(object):
                 meth = PythonParser.func_type
             else:
                 assert 0, "unknown mode"
-            res = meth(pp)
-            if res is None:
-                pp.reset()
-                pp.call_invalid_rules = True
-                meth(pp) # often raises
-                # we're still here, so no specific error message
-                tok = pp.diagnose()
-                if tok.token_type == pygram.tokens.INDENT:
-                    pp.raise_indentation_error("unexpected indent")
-                pp.raise_syntax_error("invalid syntax")
-            #if mode == "single":
-            #    PythonParser._check_token_stream_single(compile_info, tokens)
-
-            assert res
-            return res
+            return pp.parse_meth_or_raise(meth)
         except error.TokenError as e:
             e.filename = compile_info.filename
             raise
         except error.TokenIndentationError as e:
             e.filename = compile_info.filename
             raise
+
+
