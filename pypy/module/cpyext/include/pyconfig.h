@@ -33,32 +33,6 @@ extern "C" {
 #endif
 #endif
 
-#ifndef Py_BUILD_CORE /* not building the core - must be an ext */
-#  if defined(_MSC_VER) && !defined(_CFFI_)
-   /* So MSVC users need not specify the .lib file in
-    * their Makefile (other compilers are generally
-    * taken care of by distutils.) 
-    */
-#    ifdef _DEBUG
-#      error("debug first with cpython")    
-#      pragma comment(lib,"python38.lib")
-#    else
-#      pragma comment(lib,"python38.lib")
-#    endif /* _DEBUG */
-#    define HAVE_COPYSIGN 1
-#    define copysign _copysign
-#    ifdef MS_WIN64
-       typedef __int64 ssize_t;
-#    else
-       typedef _W64 int ssize_t;
-#    endif
-#define HAVE_SSIZE_T 1
-
-
-#    endif
-#endif /* _MSC_VER */
-
-
 
 #ifdef __cplusplus
 }

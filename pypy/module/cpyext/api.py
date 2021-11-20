@@ -772,6 +772,13 @@ class CpyextTypeSpace(CTypeSpace):
 
 CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h',
                        'stddef.h', 'pyport.h']
+
+# Subtle. There are two pyconfig.h, one in PC (for windows, includes a pragma
+# to link python*.lib), one in include. The dirs in include_dir purposely avoid
+# the one in PC, since at this stage python*.lib may not exist.
+# copy_header_files() will use the PC one on windows, which will then be used
+# for all translated c-extension compilation
+
 cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS, include_dirs = [include_dir])
 # Ideally, we would parse pyport.h but that is beyond the parser.
 cts.parse_source("""
