@@ -9,7 +9,9 @@ from pypy.interpreter.pyparser import pyparse
 
 
 class FakeSpace(object):
-    pass
+    class config:
+        class translation:
+            reverse_debugger = False
 
 fakespace = FakeSpace()
 
@@ -23,21 +25,22 @@ def bench(fn, s):
 
 
 def entry_point(argv):
-    if len(argv) == 2:
-        fn = argv[1]
+    if len(argv) >= 2:
+        fns = argv[1:]
     else:
-        fn = "../../../../rpython/rlib/unicodedata/unicodedb_5_2_0.py"
-    fd = os.open(fn, os.O_RDONLY, 0777)
-    res = []
-    while True:
-        s = os.read(fd, 4096)
-        if not s:
-            break
-        res.append(s)
-    os.close(fd)
-    s = "".join(res)
-    print len(s)
-    bench(fn, s)
+        fns = ["../../../../rpython/rlib/unicodedata/unicodedb_5_2_0.py"]
+    for fn in fns:
+        fd = os.open(fn, os.O_RDONLY, 0777)
+        res = []
+        while True:
+            s = os.read(fd, 4096)
+            if not s:
+                break
+            res.append(s)
+        os.close(fd)
+        s = "".join(res)
+        print len(s)
+        bench(fn, s)
 
     return 0
 
