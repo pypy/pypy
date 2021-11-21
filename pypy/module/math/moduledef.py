@@ -64,5 +64,6 @@ class Module(MixedModule):
        'lgamma'         : 'interp_math.lgamma',
        'isclose'        : 'interp_math.isclose',
        'gcd'            : 'interp_math.gcd',
+       'nextafter'      : 'interp_math.nextafter',
 }
 

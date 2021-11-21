@@ -621,3 +621,9 @@ def gcd_two(space, w_a, w_b):
     else:
         g = rbigint.gcd_binary(a, b)
         return space.newint(g)
+
+def nextafter(space, w_a, w_b):
+    """ Return the next floating-point value after x towards y. """
+    a = _get_double(space, w_a)
+    b = _get_double(space, w_b)
+    return space.newfloat(rfloat.nextafter(a, b))
