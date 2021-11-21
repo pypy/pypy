@@ -282,3 +282,39 @@ def test_log2():
     assert 1.584 < rfloat.log2(3.0) < 1.585
     py.test.raises(ValueError, rfloat.log2, 0)
     py.test.raises(ValueError, rfloat.log2, -1)
+
+def test_nextafter():
+    from rpython.rlib.rfloat import nextafter
+
+    INF = float("inf")
+    NAN = float("nan")
+    assert nextafter(4503599627370496.0, -INF) == 4503599627370495.5
+    assert nextafter(4503599627370496.0, INF) == 4503599627370497.0
+    assert nextafter(9223372036854775808.0, 0.0) == 9223372036854774784.0
+    assert nextafter(-9223372036854775808.0, 0.0) == -9223372036854774784.0
+
+    # around 1.0
+    assert nextafter(1.0, -INF) == float.fromhex('0x1.fffffffffffffp-1')
+    assert nextafter(1.0, INF)== float.fromhex('0x1.0000000000001p+0')
+
+    # x == y: y is returned
+    assert nextafter(2.0, 2.0) == 2.0
+
+    # around 0.0
+    smallest_subnormal = sys.float_info.min * sys.float_info.epsilon
+    assert nextafter(+0.0, INF) == smallest_subnormal
+    assert nextafter(-0.0, INF) == smallest_subnormal
+    assert nextafter(+0.0, -INF) == -smallest_subnormal
+    assert nextafter(-0.0, -INF) == -smallest_subnormal
+
+    # around infinity
+    largest_normal = sys.float_info.max
+    assert nextafter(INF, 0.0) == largest_normal
+    assert nextafter(-INF, 0.0) == -largest_normal
+    assert nextafter(largest_normal, INF) == INF
+    assert nextafter(-largest_normal, -INF) == -INF
+
+    # NaN
+    assert math.isnan(nextafter(NAN, 1.0))
+    assert math.isnan(nextafter(1.0, NAN))
+    assert math.isnan(nextafter(NAN, NAN))
