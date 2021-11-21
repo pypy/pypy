@@ -817,7 +817,7 @@ Return a new XML parser object."""
         encoding = space.text_w(w_encoding)
     else:
         raise oefmt(space.w_TypeError,
-                    "ParserCreate() argument 1 must be str or None, not %T",
+                    "ParserCreate() argument 'encoding' must be str or None, not %T",
                     w_encoding)
 
     if space.is_none(w_namespace_separator):
@@ -834,7 +834,7 @@ Return a new XML parser object."""
                         "omitted, or None")
     else:
         raise oefmt(space.w_TypeError,
-                    "ParserCreate() argument 2 must be str or None, not %T",
+                    "ParserCreate() argument 'namespace_separator' must be str or None, not %T",
                     w_namespace_separator)
 
     # Explicitly passing None means no interning is desired.
