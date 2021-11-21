@@ -216,10 +216,12 @@ class _AppTestSelect:
             skip("no select.poll() on this platform")
         pollster = select.poll()
         pollster.register(1)
-        raises(OverflowError, pollster.register, 0, -1)
+        raises(ValueError, pollster.register, 0, -1)
         raises(OverflowError, pollster.register, 0, 1 << 64)
         pollster.register(0, 32768) # SHRT_MAX + 1
-        exc = raises(OverflowError, pollster.register, 0, -32768 - 1)
+        exc = raises(ValueError, pollster.register, 0, -32768 - 1)
+        assert "positive" in str(exc.value)
+        exc = raises(OverflowError, pollster.register, 0, 1000000)
         assert "unsigned" in str(exc.value)
         pollster.register(0, 65535) # USHRT_MAX
         raises(OverflowError, pollster.register, 0, 65536) # USHRT_MAX + 1
@@ -228,7 +230,7 @@ class _AppTestSelect:
         exc = raises(TypeError, pollster.poll, '123')
         assert str(exc.value) == 'timeout must be an integer or None'
 
-        raises(OverflowError, pollster.modify, 1, -1)
+        raises(ValueError, pollster.modify, 1, -1)
         raises(OverflowError, pollster.modify, 1, 1 << 64)
 
 
