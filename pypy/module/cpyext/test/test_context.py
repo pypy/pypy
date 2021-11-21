@@ -47,7 +47,48 @@ class AppTestContext(AppTestCpythonExtensionBase):
 
              '''
              ),
+            ("get_value", "METH_VARARGS",
+             '''
+                /* equivalent to cython's 
+                   Cython/Includes/cpython/contextvars.pxd
+                */
+                PyObject *var, *value=NULL, *default_value=NULL;
+                if (!PyArg_ParseTuple(args, "O|O:get_value", &var, &default_value)) {
+                    return NULL;
+                }
+                if (PyContextVar_Get(var, NULL, &value) < 0) {
+                    return NULL;
+                }
+                if (value == NULL) {
+                    if (default_value == NULL)
+                        Py_RETURN_NONE;
+                    return default_value;
+                }
+                // Py_XDECREF(default_value);
+                return value;
+             '''
+             ),
+            ("get_value_no_default", "METH_VARARGS",
+             '''
+                /* equivalent to cython's 
+                   Cython/Includes/cpython/contextvars.pxd
+                */
+                PyObject *var, *value=NULL, *default_value=NULL;
+                if (!PyArg_ParseTuple(args, "O|O:get_value_no_default", &var,
+                                      &default_value)) {
+                    return NULL;
+                }
+                if (PyContextVar_Get(var, default_value, &value) < 0) {
+                    return NULL;
+                }
+                if (value == NULL) {
+                    Py_RETURN_NONE;
+                }
+                return value;
+             '''
+             ),
             ])
+
         var = module.new("testme", 3)
         tok = module.set(var, 4)
         assert tok.var is var
@@ -59,4 +100,23 @@ class AppTestContext(AppTestCpythonExtensionBase):
         five = module.get(var, 5)
         assert five == 5
 
+        # cython tests
+        import contextvars
+        pycvar = contextvars.ContextVar("pycvar")
+        cvar = module.new("cvar")
+        cvar_with_default = module.new("cvar_wd", "DEFAULT")
 
+        assert module.get_value(cvar) is None
+        assert module.get_value(cvar, "default") == "default"
+        assert module.get_value(pycvar) is None
+        assert module.get_value(pycvar, "default") == "default"
+        assert module.get_value(cvar_with_default) == "DEFAULT"
+        assert module.get_value(cvar_with_default, "default") == "DEFAULT"
+
+        assert module.get_value_no_default(cvar) is None
+        assert module.get_value_no_default(cvar, "default") == "default"
+        assert module.get_value_no_default(pycvar) is None
+        assert module.get_value_no_default(pycvar, "default") == "default"
+        assert module.get_value_no_default(cvar_with_default) == "DEFAULT"
+        # this is the only variant that gives a different answer
+        assert module.get_value_no_default(cvar_with_default, "default") == "default"
