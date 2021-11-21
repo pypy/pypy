@@ -5,6 +5,8 @@ from pypy.module.cpyext.api import (cpython_api, PyObject, PyObjectP,
     CONST_STRING)
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from rpython.rtyper.lltypesystem import rffi
+from pypy.module.cpyext.pyobject import incref
+from pypy.interpreter.error import OperationError
 
 @cpython_api([CONST_STRING, PyObject], PyObject)
 def PyContextVar_New(space, name, default):
@@ -43,16 +45,19 @@ def PyContextVar_Get(space, w_ovar, default, val):
             if not isinstance(ovar, ContextVar):
                 raise TypeError('an instance of ContextVar was expected') 
             return ovar.get(default)
-            """)
+        """)
     else:
-        w_ret = space.appexec([w_ovar], """(ovar,):
-            from _contextvars import ContextVar
-            if not isinstance(ovar, ContextVar):
-                raise TypeError('an instance of ContextVar was expected') 
-            return ovar.get()
+        try:
+            w_ret = space.appexec([w_ovar], """(ovar,):
+                from _contextvars import ContextVar
+                if not isinstance(ovar, ContextVar):
+                    raise TypeError('an instance of ContextVar was expected') 
+                return ovar.get()
             """)
-    if space.is_none(w_ret):
-        val[0] = rffi.cast(PyObject, 0)
-    else:
-        val[0] = make_ref(space, w_ret)
+        except OperationError as e:
+            if e.match(space, space.w_LookupError):
+                val[0] = rffi.cast(PyObject, 0)
+                return 0
+            raise e
+    val[0] = make_ref(space, w_ret)
     return 0
