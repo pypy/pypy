@@ -590,6 +590,7 @@ def gcd(space, args_w):
     if len(args_w) == 0:
         return space.newint(0)
     if len(args_w) == 1:
+        space.index(args_w[0]) # for the error
         return space.abs(args_w[0])
     if len(args_w) == 2:
         return gcd_two(space, args_w[0], args_w[1])

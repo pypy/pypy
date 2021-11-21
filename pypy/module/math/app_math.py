@@ -12,6 +12,8 @@ def factorial(x):
         fl = int(x)
         if fl != x:
             raise ValueError("float arguments must be integral")
+        import warnings
+        warnings.warn("Using factorial() with floats is deprecated", DeprecationWarning)
         x = fl
     if x > sys.maxsize:
         raise OverflowError("Too large for a factorial")
@@ -244,8 +246,14 @@ def lcm(*integers):
         return abs(integers[0])
     if len(integers) == 2:
         a, b = integers
+        if a == 0 or b == 0:
+            return 0
         return abs(a // math.gcd(a, b) * b)
     res = integers[0]
+    if res == 0:
+        return res
     for i in range(1, len(integers)):
+        if integers[i] == 0:
+            return 0
         res = abs(res // math.gcd(res, integers[i]) * integers[i])
     return res

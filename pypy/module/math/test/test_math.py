@@ -371,6 +371,7 @@ class AppTestMath:
         assert math.gcd(0, -10) == 10
         assert math.gcd(0, 0) == 0
         raises(TypeError, math.gcd, 0, 0.0)
+        raises(TypeError, math.gcd, 0.0)
         assert math.gcd(-3**10*5**20*11**8, 2**5*3**5*7**20) == 3**5
         assert math.gcd(64, 200) == 8
 
@@ -388,6 +389,10 @@ class AppTestMath:
         assert math.lcm(5) == 5
         assert math.lcm(6, 10) == 30
         assert math.lcm(6, 10, 14) == 210
+        assert math.lcm(0, 0) == 0
+        assert math.lcm(0, 1) == 0
+        assert math.lcm(1, 0) == 0
+        assert math.lcm(3, 5, 7, 0) == 0
 
     def test_inf_nan(self):
         import math
