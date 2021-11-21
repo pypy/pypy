@@ -230,17 +230,6 @@ _pypy_decode_ascii_surrogateescape(const char *arg, size_t *size)
 wchar_t*
 pypy_char2wchar(const char* arg, size_t *size)
 {
-#if 0 && defined(__APPLE__)
-    wchar_t *wstr;
-    wstr = _Py_DecodeUTF8_surrogateescape(arg, strlen(arg));
-    if (size != NULL) {
-        if (wstr != NULL)
-            *size = wcslen(wstr);
-        else
-            *size = (size_t)-1;
-    }
-    return wstr;
-#else
     wchar_t *res;
     size_t argsize;
     size_t count;
@@ -307,10 +296,11 @@ pypy_char2wchar(const char* arg, size_t *size)
     out = res;
     memset(&mbs, 0, sizeof mbs);
     while (argsize) {
-        size_t converted = mbrtowc(out, (char*)in, argsize, &mbs);
-        if (converted == 0)
+        size_t converted = mbrtowc(out, (char *)in, argsize, &mbs);
+        if (converted == 0) {
             /* Reached end of string; null char stored. */
             break;
+        }
         if (converted == (size_t)-2) {
             /* Incomplete character. This should never happen,
                since we provide everything that we have -
@@ -328,7 +318,8 @@ pypy_char2wchar(const char* arg, size_t *size)
             memset(&mbs, 0, sizeof mbs);
             continue;
         }
-        if (*out >= 0xd800 && *out <= 0xdfff) {
+        if ((*out >= 0xd800 && *out <= 0xdfff) || *out > 0x10ffff) {
+            /* bpo-35883: glibc mbstowcs() can return values above 0x10ffff */
             /* Surrogate character.  Escape the original
                byte sequence with surrogateescape. */
             argsize -= converted;
@@ -355,7 +346,6 @@ pypy_char2wchar(const char* arg, size_t *size)
 oom:
     fprintf(stderr, "out of memory\n");
     return NULL;
-#endif   /* __APPLE__ */
 }
 
 /* Decode a byte string from the locale encoding with the
@@ -437,39 +427,6 @@ oom:
 char*
 pypy_wchar2char(const wchar_t *text, size_t *error_pos)
 {
-#if 0 && defined(__APPLE__)
-    Py_ssize_t len;
-    PyObject *unicode, *bytes = NULL;
-    char *cpath;
-
-    unicode = PyUnicode_FromWideChar(text, wcslen(text));
-    if (unicode == NULL)
-        return NULL;
-
-    bytes = PyUnicode_EncodeUTF8(PyUnicode_AS_UNICODE(unicode),
-                                 PyUnicode_GET_SIZE(unicode),
-                                 "surrogateescape");
-    Py_DECREF(unicode);
-    if (bytes == NULL) {
-        PyErr_Clear();
-        if (error_pos != NULL)
-            *error_pos = (size_t)-1;
-        return NULL;
-    }
-
-    len = PyBytes_GET_SIZE(bytes);
-    cpath = PyMem_Malloc(len+1);
-    if (cpath == NULL) {
-        PyErr_Clear();
-        Py_DECREF(bytes);
-        if (error_pos != NULL)
-            *error_pos = (size_t)-1;
-        return NULL;
-    }
-    memcpy(cpath, PyBytes_AsString(bytes), len + 1);
-    Py_DECREF(bytes);
-    return cpath;
-#else   /* __APPLE__ */
     const size_t len = wcslen(text);
     char *result = NULL, *bytes = NULL;
     size_t i, size, converted;
@@ -538,7 +495,6 @@ pypy_wchar2char(const wchar_t *text, size_t *error_pos)
         bytes = result;
     }
     return result;
-#endif   /* __APPLE__ */
 }
 
 /* Encode a (wide) character string to the locale encoding with the
