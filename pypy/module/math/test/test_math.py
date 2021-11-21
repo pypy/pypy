@@ -431,37 +431,3 @@ class AppTestMath:
         with raises(ValueError):
             math.isqrt(-1)
 
-    def test_nextafter(self):
-        import sys, math
-        INF = float("inf")
-        NAN = float("nan")
-        assert math.nextafter(4503599627370496.0, -INF) == 4503599627370495.5
-        assert math.nextafter(4503599627370496.0, INF) == 4503599627370497.0
-        assert math.nextafter(9223372036854775808.0, 0.0) == 9223372036854774784.0
-        assert math.nextafter(-9223372036854775808.0, 0.0) == -9223372036854774784.0
-
-        # around 1.0
-        assert math.nextafter(1.0, -INF) == float.fromhex('0x1.fffffffffffffp-1')
-        assert math.nextafter(1.0, INF)== float.fromhex('0x1.0000000000001p+0')
-
-        # x == y: y is returned
-        assert math.nextafter(2.0, 2.0) == 2.0
-
-        # around 0.0
-        smallest_subnormal = sys.float_info.min * sys.float_info.epsilon
-        assert math.nextafter(+0.0, INF) == smallest_subnormal
-        assert math.nextafter(-0.0, INF) == smallest_subnormal
-        assert math.nextafter(+0.0, -INF) == -smallest_subnormal
-        assert math.nextafter(-0.0, -INF) == -smallest_subnormal
-
-        # around infinity
-        largest_normal = sys.float_info.max
-        assert math.nextafter(INF, 0.0) == largest_normal
-        assert math.nextafter(-INF, 0.0) == -largest_normal
-        assert math.nextafter(largest_normal, INF) == INF
-        assert math.nextafter(-largest_normal, -INF) == -INF
-
-        # NaN
-        assert math.isnan(math.nextafter(NAN, 1.0))
-        assert math.isnan(math.nextafter(1.0, NAN))
-        assert math.isnan(math.nextafter(NAN, NAN))

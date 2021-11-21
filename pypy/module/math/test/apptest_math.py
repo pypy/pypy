@@ -1,5 +1,6 @@
 import pytest
 import math
+import sys
 
 def test_product():
     assert math.prod([1, 2, 3]) == 6
@@ -69,3 +70,58 @@ def test_dist():
     assert dist((1, 2, 3), (4, 2, -1)) == 5.0
     with pytest.raises(TypeError):
         math.dist(p=(1, 2, 3), q=(2, 3, 4)) # posonly args :-/
+
+def test_nextafter():
+    INF = float("inf")
+    NAN = float("nan")
+    assert math.nextafter(4503599627370496.0, -INF) == 4503599627370495.5
+    assert math.nextafter(4503599627370496.0, INF) == 4503599627370497.0
+    assert math.nextafter(9223372036854775808.0, 0.0) == 9223372036854774784.0
+    assert math.nextafter(-9223372036854775808.0, 0.0) == -9223372036854774784.0
+
+    # around 1.0
+    assert math.nextafter(1.0, -INF) == float.fromhex('0x1.fffffffffffffp-1')
+    assert math.nextafter(1.0, INF)== float.fromhex('0x1.0000000000001p+0')
+
+    # x == y: y is returned
+    assert math.nextafter(2.0, 2.0) == 2.0
+
+    # around 0.0
+    smallest_subnormal = sys.float_info.min * sys.float_info.epsilon
+    assert math.nextafter(+0.0, INF) == smallest_subnormal
+    assert math.nextafter(-0.0, INF) == smallest_subnormal
+    assert math.nextafter(+0.0, -INF) == -smallest_subnormal
+    assert math.nextafter(-0.0, -INF) == -smallest_subnormal
+
+    # around infinity
+    largest_normal = sys.float_info.max
+    assert math.nextafter(INF, 0.0) == largest_normal
+    assert math.nextafter(-INF, 0.0) == -largest_normal
+    assert math.nextafter(largest_normal, INF) == INF
+    assert math.nextafter(-largest_normal, -INF) == -INF
+
+    # NaN
+    assert math.isnan(math.nextafter(NAN, 1.0))
+    assert math.isnan(math.nextafter(1.0, NAN))
+    assert math.isnan(math.nextafter(NAN, NAN))
+
+def test_ulp():
+    INF = float("inf")
+    NAN = float("nan")
+    FLOAT_MAX = sys.float_info.max
+    assert math.ulp(1.0) == sys.float_info.epsilon
+    assert math.ulp(2 ** 52) == 1.0
+    assert math.ulp(2 ** 53) == 2.0
+    assert math.ulp(2 ** 64) == 4096.0
+
+    assert math.ulp(0.0) == sys.float_info.min * sys.float_info.epsilon
+    assert math.ulp(FLOAT_MAX) == FLOAT_MAX - math.nextafter(FLOAT_MAX, -INF)
+
+    # special cases
+    assert math.ulp(INF) == INF
+    assert math.isnan(math.ulp(math.nan))
+
+    # negative number: ulp(-x) == ulp(x)
+    for x in (0.0, 1.0, 2 ** 52, 2 ** 64, INF):
+        assert math.ulp(-x) == math.ulp(x)
+

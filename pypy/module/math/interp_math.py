@@ -627,3 +627,22 @@ def nextafter(space, w_a, w_b):
     a = _get_double(space, w_a)
     b = _get_double(space, w_b)
     return space.newfloat(rfloat.nextafter(a, b))
+
+def ulp(space, w_x):
+    """Return the value of the least significant bit of the
+    float x.
+    """
+    x = _get_double(space, w_x)
+    if math.isnan(x):
+        return w_x
+    x = math.fabs(float(x))
+    if math.isinf(x):
+        return space.newfloat(x)
+
+    x2 = rfloat.nextafter(x, rfloat.INFINITY)
+    if math.isinf(x2):
+        # special case: x is the largest positive representable float
+        x2 = rfloat.nextafter(x, -rfloat.INFINITY)
+        return space.newfloat(x - x2)
+    return space.newfloat(x2 - x)
+
