@@ -1408,10 +1408,12 @@ class W_BaseDictMultiIterObject(W_Root):
 
         w_dict = self.iteratorimplementation.w_dict
         w_clone = self.clone_for_pickling(space, w_dict)
+        assert isinstance(w_clone, W_BaseDictMultiIterObject)
 
         # spool until we have the same pos
         for x in xrange(self.iteratorimplementation.pos):
             w_clone.descr_next(space)
+
         w_res = space.call_function(space.w_list, w_clone)
         w_ret = space.newtuple([new_inst, space.newtuple([w_res])])
         return w_ret
