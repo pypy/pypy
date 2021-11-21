@@ -81,7 +81,9 @@ syntax: regexp
 ^lib_pypy/.+.o$
 ^lib_pypy/.+.so$
 ^lib_pypy/.+.pyd$
+^lib_pypy/.+/Release/
 ^lib_pypy/Release/
+^lib_pypy/.+.exp$
 ^pypy/doc/discussion/.+\.html$
 ^include/.+\.h$
 ^include/.+\.inl$

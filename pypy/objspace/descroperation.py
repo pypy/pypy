@@ -323,7 +323,13 @@ class DescrOperation(object):
             if space.is_w(w_obj, space.w_type):
                 from pypy.objspace.std.util import generic_alias_class_getitem
                 return generic_alias_class_getitem(space, w_obj, w_key)
-            w_descr = space.getattr(w_obj, space.newtext('__class_getitem__'))
+            try:
+                w_descr = space.getattr(w_obj, space.newtext('__class_getitem__'))
+            except OperationError as e:
+                if e.match(space, space.w_AttributeError):
+                    w_descr = None
+                else:
+                    raise e
         if w_descr is None:
             raise oefmt(space.w_TypeError,
                         "'%T' object is not subscriptable (key %R)",
