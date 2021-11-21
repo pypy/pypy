@@ -62,9 +62,9 @@ class AppTestContext(AppTestCpythonExtensionBase):
                 if (value == NULL) {
                     if (default_value == NULL)
                         Py_RETURN_NONE;
+                    Py_INCREF(default_value);
                     return default_value;
                 }
-                // Py_XDECREF(default_value);
                 return value;
              '''
              ),
@@ -105,6 +105,7 @@ class AppTestContext(AppTestCpythonExtensionBase):
         pycvar = contextvars.ContextVar("pycvar")
         cvar = module.new("cvar")
         cvar_with_default = module.new("cvar_wd", "DEFAULT")
+        
 
         assert module.get_value(cvar) is None
         assert module.get_value(cvar, "default") == "default"
@@ -119,4 +120,6 @@ class AppTestContext(AppTestCpythonExtensionBase):
         assert module.get_value_no_default(pycvar, "default") == "default"
         assert module.get_value_no_default(cvar_with_default) == "DEFAULT"
         # this is the only variant that gives a different answer
-        assert module.get_value_no_default(cvar_with_default, "default") == "default"
+        ret = module.get_value_no_default(cvar_with_default, "default")
+        print('ret', ret)
+        assert ret == "default"
