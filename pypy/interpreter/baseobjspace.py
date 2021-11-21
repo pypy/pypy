@@ -1942,8 +1942,8 @@ class ObjSpace(object):
     def c_ushort_w(self, w_obj):
         value = self.int_w(w_obj)
         if value < 0:
-            raise oefmt(self.w_OverflowError,
-                "can't convert negative value to C unsigned short")
+            raise oefmt(self.w_ValueError,
+                "value must be positive")
         elif value > USHRT_MAX:
             raise oefmt(self.w_OverflowError,
                 "Python int too large for C unsigned short")
