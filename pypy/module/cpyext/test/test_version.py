@@ -8,7 +8,7 @@ only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_
 def test_pragma_version():
     from pypy.module.sys.version import CPYTHON_VERSION
     rootdir = py.path.local(__file__).join('..', '..')
-    pyconfig_h = rootdir.join('include', 'pyconfig.h')
+    pyconfig_h = rootdir.join('PC', 'pyconfig.h')
     version = '%d%d' % (CPYTHON_VERSION[0], CPYTHON_VERSION[1])
     pragma = 'pragma comment(lib,"python%s.lib")' % version
     assert pragma in pyconfig_h.read()
