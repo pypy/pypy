@@ -167,6 +167,19 @@ def display_exception(e):
 
         # call sys.excepthook
         hook = getattr(sys, 'excepthook', originalexcepthook)
+        try:
+            sys.audit("sys.excepthook", hook, etype, evalue, etraceback)
+        except RuntimeError:
+            return
+        except Exception as e:
+            # CPython uses _PyErr_WriteUnraisableMsg("in audit hook", NULL)
+            try:
+                initstdio()
+                import __pypy__
+                __pypy__.writeunraisable("in audit hook", e, None)
+            except Exception as e:
+                # Too bad
+                pass
         hook(etype, evalue, etraceback)
         return # done
 

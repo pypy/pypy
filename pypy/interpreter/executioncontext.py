@@ -273,6 +273,7 @@ class ExecutionContext(object):
     @jit.dont_look_inside
     def settrace(self, w_func):
         """Set the global trace function."""
+        # self.space.audit("sys.settrace", [])
         if self.space.is_w(w_func, self.space.w_None):
             self.w_tracefunc = None
         else:
@@ -287,6 +288,7 @@ class ExecutionContext(object):
 
     def setprofile(self, w_func):
         """Set the global trace function."""
+        # self.space.audit("sys.setprofile", [])
         if self.space.is_w(w_func, self.space.w_None):
             self.profilefunc = None
             self.w_profilefuncarg = None

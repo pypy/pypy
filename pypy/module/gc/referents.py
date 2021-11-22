@@ -115,12 +115,12 @@ def get_rpy_type_index(space, w_obj):
 @unwrap_spec(w_generation=WrappedDefault(None))
 def get_objects(space, w_generation=None):
     """Return a list of all app-level objects."""
+    space.audit('gc.get_objects', [space.newint(-1)])
     if not space.is_w(w_generation, space.w_None):
         raise oefmt(space.w_NotImplementedError,
                  "get_objects(generation=None) accepts only None on PyPy")
     if not rgc.has_gcflag_extra():
         raise missing_operation(space)
-    space.audit('gc.get_objects', [space.newint(-1)])
     result_w = rgc.do_get_objects(try_cast_gcref_to_w_root)
     return space.newlist(result_w)
 
