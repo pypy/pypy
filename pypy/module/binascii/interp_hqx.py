@@ -67,6 +67,10 @@ table_a2b_hqx = ''.join(map(chr, table_a2b_hqx))
 def a2b_hqx(space, ascii):
     """Decode .hqx coding.  Returns (bin, done)."""
 
+    space.warn(
+        space.newtext("binascii.a2b_hqx() is deprecated"),
+        space.w_DeprecationWarning,
+    ) 
     # overestimate the resulting length
     res = StringBuilder(len(ascii))
     done = 0
@@ -137,6 +141,10 @@ def b2a_hqx(space, bin):
 @unwrap_spec(hexbin='bufferstr')
 def rledecode_hqx(space, hexbin):
     "Decode hexbin RLE-coded string."
+    space.warn(
+        space.newtext("binascii.rledecode_hqx() is deprecated"),
+        space.w_DeprecationWarning,
+    ) 
 
     # that's a guesstimation of the resulting length
     res = StringBuilder(len(hexbin))
@@ -170,6 +178,10 @@ def rledecode_hqx(space, hexbin):
 def rlecode_hqx(space, data):
     "Binhex RLE-code binary data."
 
+    space.warn(
+        space.newtext("binascii.rlecode_hqx() is deprecated"),
+        space.w_DeprecationWarning,
+    ) 
     # that's a guesstimation of the resulting length
     res = StringBuilder(len(data))
 
