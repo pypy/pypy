@@ -589,6 +589,7 @@ class TestNamedTuple(unittest.TestCase):
         a.w = 5
         self.assertEqual(a.__dict__, {'w': 5})
 
+    @support.cpython_only
     def test_field_descriptor(self):
         Point = namedtuple('Point', 'x y')
         p = Point(11, 22)
@@ -597,15 +598,14 @@ class TestNamedTuple(unittest.TestCase):
         self.assertRaises(AttributeError, Point.x.__set__, p, 33)
         self.assertRaises(AttributeError, Point.x.__delete__, p)
 
-        if type(Point.x) is not property: # no _tuplegetter, eg on PyPy
-            class NewPoint(tuple):
-                x = pickle.loads(pickle.dumps(Point.x))
-                y = pickle.loads(pickle.dumps(Point.y))
+        class NewPoint(tuple):
+            x = pickle.loads(pickle.dumps(Point.x))
+            y = pickle.loads(pickle.dumps(Point.y))
 
-            np = NewPoint([1, 2])
+        np = NewPoint([1, 2])
 
-            self.assertEqual(np.x, 1)
-            self.assertEqual(np.y, 2)
+        self.assertEqual(np.x, 1)
+        self.assertEqual(np.y, 2)
 
 
 ################################################################################
