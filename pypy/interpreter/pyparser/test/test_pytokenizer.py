@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -* -
 import pytest
 from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.pyparser import pytokenizer
