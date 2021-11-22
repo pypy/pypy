@@ -1217,10 +1217,23 @@ class AppTestDictViews:
         reduced = it.__reduce__()
         rebuild, args = reduced
         new = rebuild(*args)
-        items = set(new)
+        items = list(new)
         assert len(items) == 2
-        items.add(first)
-        assert items == set(d)
+        items.insert(0, first)
+        assert items == list(d)
+
+    def test_pickle_reversed(self):
+        for meth in dict.keys, dict.values, dict.items:
+            d = {1: 1, 2: 2, 3: 4}
+            it = iter(reversed(meth(d)))
+            first = next(it)
+            reduced = it.__reduce__()
+            rebuild, args = reduced
+            new = rebuild(*args)
+            items = list(new)
+            assert len(items) == 2
+            items.insert(0, first)
+            assert items == list(reversed(meth(d)))
 
 
 class AppTestStrategies(object):

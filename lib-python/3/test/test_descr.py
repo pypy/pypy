@@ -4357,6 +4357,7 @@ order (MRO) for bases """
         except TypeError:
             self.fail("setattr through direct base types should be legal")
 
+    @support.impl_detail("this is only unsafe on CPython")
     def test_carloverre_multi_inherit_invalid(self):
         class A(type):
             def __setattr__(cls, key, value):
