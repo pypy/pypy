@@ -866,8 +866,8 @@ def _make_missing_wrapper(name):
     assert name not in globals()
     class missing_wrapper(W_PyCWrapperObject):
         def call(self, space, w_self, __args__):
-            msg = "cpyext: missing slot wrapper %s for class %s" %(
-                    name, space.getfulltypename(w_self))
+            msg = "cpyext: missing slot wrapper %s" %(
+                    name)
             print msg
             raise NotImplementedError("Slot wrapper " + name)
     missing_wrapper.__name__ = name
