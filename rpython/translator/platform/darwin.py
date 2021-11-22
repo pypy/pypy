@@ -8,8 +8,10 @@ import os
 # the @rpath handling used in Darwin._args_for_shared is only availabe
 # since 10.5, so we use that as minimum requirement. Bumped to 10.7
 # to allow the use of thread-local in __thread in C.
+# Bumped to 10.9 2021-11-22 to match CPython,
+# see https://github.com/python/cpython/blob/42205ee51
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.7'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.9'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
