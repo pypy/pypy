@@ -9,6 +9,9 @@ import os
 # since 10.5, so we use that as minimum requirement. Bumped to 10.7
 # to allow the use of thread-local in __thread in C.
 #
+# Keep in sync with MACOSX_DEPLOYMENT_TARGET, for pypy see
+# lib_pypy/_sysconfigdata.py
+#
 DARWIN_VERSION_MIN = '-mmacosx-version-min=10.7'
 
 class Darwin(posix.BasePosix):

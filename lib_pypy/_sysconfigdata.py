@@ -65,5 +65,11 @@ if sys.platform[:6] == "darwin":
     build_time_vars['LDLIBRARY'] = 'libpypy3-c.dylib'
     if "CXX" in build_time_vars:
         build_time_vars['CXX'] += ' -arch %s' % (arch,)
-    build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
+    # This was added to solve problems that may have been
+    # solved elsewhere. Can we remove it? See cibuildwheel PR 185 and
+    # pypa/wheel. Need to check: interaction with build_cffi_imports.py
+    #
+    # In any case, keep this in sync with DARWIN_VERSION_MIN in
+    # rpython/translator/platform/darwin.py and Lib/_osx_support.py
+    build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.9'
 
