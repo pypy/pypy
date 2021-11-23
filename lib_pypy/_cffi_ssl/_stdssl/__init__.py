@@ -1616,13 +1616,14 @@ class _SSLContext(object):
             raise ssl_error(None)
 
     def load_dh_params(self, filepath):
+        sys.audit("open", filepath, 'rb', 0)
         prev_errno = ffi.errno
         try:
             ffi.errno = 0
             if filepath is None:
                 raise TypeError("filepath must not be None")
             buf = _fs_converter(filepath)
-            mode = ffi.new("char[]",b"r")
+            mode = ffi.new("char[]",b"rb")
             ffi.errno = 0
             bio = lib.BIO_new_file(buf, mode)
             if bio == ffi.NULL:

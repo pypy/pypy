@@ -290,9 +290,17 @@ def set_contextvar_context(space, w_obj):
     return space.w_None
 
 
-@unwrap_spec(where='text')
+@unwrap_spec(where='text', with_traceback=bool)
 def write_unraisable(space, where, w_exc, w_obj):
-    OperationError(space.type(w_exc), w_exc).write_unraisable(space, where, w_obj)
+    """write_unraisable(where, exc, obj)
+       Equivalent to CPython's _PyErr_WriteUnraisableMsg()
+
+       where: msg to write
+       exc:   error raised
+       obj:   object to print its repr
+    """
+    OperationError(space.type(w_exc), w_exc).write_unraisable(
+                            space, where, w_obj, with_traceback=True)
 
 def _testing_clear_audithooks(space):
     if we_are_translated():

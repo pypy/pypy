@@ -195,7 +195,7 @@ def fill_sslerror(obj, errtype, ssl_errno, errstr, errcode):
     return err_value
 
 def pyerr_write_unraisable(exc, obj):
-    write_unraisable('ssl', exc, obj)
+    write_unraisable('in ssl', exc, obj)
 
 SSL_AD_NAMES = [
     "ACCESS_DENIED",

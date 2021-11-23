@@ -359,7 +359,9 @@ def test_gc():
 
     sys.addaudithook(hook)
 
-    gc.get_objects(generation=1)
+    # gc.get_objects(generation=1)
+    # PyPy does not accept an integer argument to get_objects
+    gc.get_objects(generation=None)
 
     x = object()
     y = [x]

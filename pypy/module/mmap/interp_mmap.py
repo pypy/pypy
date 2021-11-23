@@ -286,6 +286,9 @@ if rmmap._POSIX:
     def mmap(space, w_subtype, fileno, length, flags=rmmap.MAP_SHARED,
              prot=rmmap.PROT_WRITE | rmmap.PROT_READ,
              access=rmmap._ACCESS_DEFAULT, offset=0):
+        space.audit("mmap.__new__", [
+            space.newint(fileno), space.newint(length), 
+            space.newint(access), space.newint(offset)])
         self = space.allocate_instance(W_MMap, w_subtype)
         try:
             W_MMap.__init__(self, space,
@@ -303,6 +306,9 @@ elif rmmap._MS_WINDOWS:
                  access=int, offset=OFF_T)
     def mmap(space, w_subtype, fileno, length, tagname="",
              access=rmmap._ACCESS_DEFAULT, offset=0):
+        space.audit("mmap.__new__", [
+            space.newint(fileno), space.newint(length), 
+            space.newint(access), space.newint(offset)])
         self = space.allocate_instance(W_MMap, w_subtype)
         try:
             W_MMap.__init__(self, space,
