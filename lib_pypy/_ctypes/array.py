@@ -13,10 +13,14 @@ class ArrayMeta(_CDataMeta):
         if cls == (_CData,): # this is the Array class defined below
             res._ffiarray = None
             return res
-        if not hasattr(res, '_length_') or not isinstance(res._length_, int):
+        if not hasattr(res, '_length_'):
             raise AttributeError(
                 "class must define a '_length_' attribute, "
                 "which must be a positive integer")
+        if not isinstance(res._length_, int):
+            raise TypeError("The '_length_' attribute must be an integer")
+        if res._length_ < 0:
+            raise ValueError("The '_length_' attribute must not be negative")
         ffiarray = res._ffiarray = _rawffi.Array(res._type_._ffishape_)
         subletter = getattr(res._type_, '_type_', None)
         if subletter == 'c':
