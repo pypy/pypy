@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, interp2app
+from pypy.objspace.std.util import generic_alias_class_getitem
 
 class W_DictProxyObject(W_Root):
     "Read-only proxy for mappings."
@@ -100,6 +101,8 @@ W_DictProxyObject.typedef = TypeDef(
     __repr__=interp2app(W_DictProxyObject.descr_repr),
     __or__=interp2app(W_DictProxyObject.descr_or),
     __reversed__ = interp2app(W_DictProxyObject.descr_reversed),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
     get=interp2app(W_DictProxyObject.get_w),
     keys=interp2app(W_DictProxyObject.keys_w),
     values=interp2app(W_DictProxyObject.values_w),

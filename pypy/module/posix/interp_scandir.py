@@ -9,6 +9,7 @@ from pypy.interpreter.error import (OperationError, oefmt, wrap_oserror,
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import BufferInterfaceNotFound
+from pypy.objspace.std.util import generic_alias_class_getitem
 
 from pypy.module.posix.interp_posix import (path_or_fd, build_stat_result,
                                             _WIN32, dup)
@@ -412,5 +413,7 @@ W_DirEntry.typedef = TypeDef(
     is_symlink = interp2app(W_DirEntry.descr_is_symlink),
     stat = interp2app(W_DirEntry.descr_stat),
     inode = interp2app(W_DirEntry.descr_inode),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 )
 W_DirEntry.typedef.acceptable_as_base_class = False

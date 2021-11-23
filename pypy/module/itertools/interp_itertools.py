@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.objspace.std.util import generic_alias_class_getitem
 from rpython.rlib import jit
 
 from pypy.module.__builtin__.functional import W_Filter, W_Map
@@ -548,14 +549,16 @@ def chain_from_iterable(space, w_cls, w_arg):
     return r
 
 W_Chain.typedef = TypeDef(
-        'itertools.chain',
-        __new__  = interp2app(W_Chain___new__),
-        __iter__ = interp2app(W_Chain.iter_w),
-        __next__ = interp2app(W_Chain.next_w),
-        __reduce__ = interp2app(W_Chain.descr_reduce),
-        __setstate__ = interp2app(W_Chain.descr_setstate),
-        from_iterable = interp2app(chain_from_iterable, as_classmethod=True),
-        __doc__  = """Make an iterator that returns elements from the first iterable
+    'itertools.chain',
+    __new__  = interp2app(W_Chain___new__),
+    __iter__ = interp2app(W_Chain.iter_w),
+    __next__ = interp2app(W_Chain.next_w),
+    __reduce__ = interp2app(W_Chain.descr_reduce),
+    __setstate__ = interp2app(W_Chain.descr_setstate),
+    from_iterable = interp2app(chain_from_iterable, as_classmethod=True),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
+    __doc__  = """Make an iterator that returns elements from the first iterable
     until it is exhausted, then proceeds to the next iterable, until
     all of the iterables are exhausted. Used for treating consecutive
     sequences as a single sequence.
@@ -566,7 +569,7 @@ W_Chain.typedef = TypeDef(
         for it in iterables:
             for element in it:
                 yield element
-    """)
+""")
 
 
 class W_ZipLongest(W_Map):

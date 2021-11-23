@@ -4,6 +4,7 @@ except ImportError: builtinify = lambda f: f
 
 try: from reprlib import recursive_repr as _recursive_repr
 except ImportError: _recursive_repr = lambda: (lambda f: f)
+from _pypy_generic_alias import GenericAlias
 
 
 sentinel = object()
@@ -125,6 +126,9 @@ class partial(object):
             self.__dict__.clear()
         else:
             self.__dict__.update(d)
+
+    def __class_getitem__(self, item):
+        return GenericAlias(self, item)
 
 
 @builtinify

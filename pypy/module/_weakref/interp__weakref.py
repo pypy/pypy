@@ -4,6 +4,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, ObjSpace
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.executioncontext import AsyncAction, report_error
+from pypy.objspace.std.util import generic_alias_class_getitem
 from rpython.rlib import jit, rgc
 from rpython.rlib.rshrinklist import AbstractShrinkList
 from rpython.rlib.objectmodel import specialize
@@ -282,6 +283,8 @@ which is called with 'obj' as an argument when it is about to be finalized.""",
     __call__ = interp2app(W_Weakref.descr_call),
     __repr__ = interp2app(W_WeakrefBase.descr__repr__),
     __callback__ = GetSetProperty(W_Weakref.descr_callback),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 )
 
 

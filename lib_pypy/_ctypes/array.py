@@ -4,6 +4,7 @@ import _rawffi
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import CArgObject, as_ffi_pointer
+from _pypy_generic_alias import GenericAlias
 import sys, __pypy__, struct
 
 class ArrayMeta(_CDataMeta):
@@ -277,6 +278,9 @@ class Array(_CData, metaclass=ArrayMeta):
         fmt = obj._type_._getformat()
         itemsize = sizeof(obj._type_)
         return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
+
+    def __class_getitem__(self, item):
+        return GenericAlias(self, item)
 
 ARRAY_CACHE = {}
 

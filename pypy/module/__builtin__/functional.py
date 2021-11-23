@@ -13,6 +13,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from rpython.rlib import jit, rarithmetic
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, intmask
+from pypy.objspace.std.util import generic_alias_class_getitem
 
 
 def get_len_of_range(lo, hi, step):
@@ -329,6 +330,8 @@ W_Enumerate.typedef = TypeDef("enumerate",
     __iter__=interp2app(W_Enumerate.descr___iter__),
     __next__=interp2app(W_Enumerate.descr_next),
     __reduce__=interp2app(W_Enumerate.descr___reduce__),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 )
 
 

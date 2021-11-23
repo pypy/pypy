@@ -10,6 +10,7 @@ from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
 from rpython.rlib.objectmodel import instantiate, not_rpython
 from rpython.tool.sourcetools import compile2, func_with_new_name
+from pypy.objspace.std.util import generic_alias_class_getitem
 
 
 class TypeDef(object):
@@ -911,6 +912,8 @@ AsyncGenerator.typedef = TypeDef("async_generator",
                                   AsyncGenerator.descr_set__qualname__,
                                   doc="qualified name of the async generator"),
     __weakref__ = make_weakref_descr(AsyncGenerator),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 )
 assert not AsyncGenerator.typedef.acceptable_as_base_class  # no __new__
 

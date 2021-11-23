@@ -332,7 +332,7 @@ class DescrOperation(object):
                     raise e
         if w_descr is None:
             raise oefmt(space.w_TypeError,
-                        "'%T' object is not subscriptable (key %R)",
+                        "'%R' object is not subscriptable (key %R)",
                         w_obj, w_key)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 

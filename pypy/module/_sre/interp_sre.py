@@ -5,6 +5,7 @@ from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.objspace.std.util import generic_alias_class_getitem
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rarithmetic import intmask, int_between
 from rpython.rlib import jit, rutf8
@@ -633,6 +634,8 @@ W_SRE_Pattern.typedef = TypeDef(
     groups       = interp_attrproperty('num_groups', W_SRE_Pattern,
         wrapfn="newint"),
     pattern      = interp_attrproperty_w('w_pattern', W_SRE_Pattern),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 )
 W_SRE_Pattern.typedef.acceptable_as_base_class = False
 
@@ -864,6 +867,8 @@ W_SRE_Match.typedef = TypeDef(
     lastgroup    = GetSetProperty(W_SRE_Match.fget_lastgroup),
     lastindex    = GetSetProperty(W_SRE_Match.fget_lastindex),
     regs         = GetSetProperty(W_SRE_Match.fget_regs),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 )
 W_SRE_Match.typedef.acceptable_as_base_class = False
 
