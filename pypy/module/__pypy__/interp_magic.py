@@ -290,12 +290,12 @@ def set_contextvar_context(space, w_obj):
     return space.w_None
 
 
-@unwrap_spec(where='text', with_traceback=bool)
+@unwrap_spec(where='text')
 def write_unraisable(space, where, w_exc, w_obj):
     """write_unraisable(where, exc, obj)
        Equivalent to CPython's _PyErr_WriteUnraisableMsg()
 
-       where: msg to write
+       where: msg to write (text)
        exc:   error raised
        obj:   object to print its repr
     """
