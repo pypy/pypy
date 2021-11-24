@@ -2143,6 +2143,44 @@ class TestAddSubparsers(TestCase):
                               wrap\N{NO-BREAK SPACE}at non-breaking spaces
         '''))
 
+    def test_help_blank(self):
+        # Issue 24444
+        parser = ErrorRaisingArgumentParser(
+            prog='PROG', description='main description')
+        parser.add_argument(
+            'foo',
+            help='    ')
+        self.assertEqual(parser.format_help(), textwrap.dedent('''\
+            usage: PROG [-h] foo
+
+            main description
+
+            positional arguments:
+              foo         \
+
+
+            optional arguments:
+              -h, --help  show this help message and exit
+        '''))
+
+        parser = ErrorRaisingArgumentParser(
+            prog='PROG', description='main description')
+        parser.add_argument(
+            'foo', choices=[],
+            help='%(choices)s')
+        self.assertEqual(parser.format_help(), textwrap.dedent('''\
+            usage: PROG [-h] {}
+
+            main description
+
+            positional arguments:
+              {}          \
+
+
+            optional arguments:
+              -h, --help  show this help message and exit
+        '''))
+
     def test_help_alternate_prefix_chars(self):
         parser = self._get_parser(prefix_chars='+:/')
         self.assertEqual(parser.format_usage(),
@@ -5388,13 +5426,11 @@ class TestExitOnError(TestCase):
             self.parser.parse_args('--integers a'.split())
 
 
-def test_main():
-    support.run_unittest(__name__)
+def tearDownModule():
     # Remove global references to avoid looking like we have refleaks.
     RFile.seen = {}
     WFile.seen = set()
 
 
-
 if __name__ == '__main__':
-    test_main()
+    unittest.main()

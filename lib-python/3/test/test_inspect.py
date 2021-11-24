@@ -23,7 +23,7 @@ try:
 except ImportError:
     ThreadPoolExecutor = None
 
-from test.support import run_unittest, TESTFN, DirsOnSysPath, cpython_only
+from test.support import TESTFN, DirsOnSysPath, cpython_only
 from test.support import MISSING_C_DOCSTRINGS, ALWAYS_EQ
 from test.support.script_helper import assert_python_ok, assert_python_failure
 from test import inspect_fodder as mod
@@ -496,6 +496,15 @@ class TestRetrievingSourceCode(GetSourceBase):
         self.assertEqual(inspect.getmodule(str), sys.modules["builtins"])
         # Check filename override
         self.assertEqual(inspect.getmodule(None, modfile), mod)
+
+    def test_getmodule_file_not_found(self):
+        # See bpo-45406
+        def _getabsfile(obj, _filename):
+            raise FileNotFoundError('bad file')
+        with unittest.mock.patch('inspect.getabsfile', _getabsfile):
+            f = inspect.currentframe()
+            self.assertIsNone(inspect.getmodule(f))
+            inspect.getouterframes(f)  # smoke test
 
     def test_getframeinfo_get_first_line(self):
         frame_info = inspect.getframeinfo(self.fodderModule.fr, 50)
@@ -3220,6 +3229,17 @@ class TestSignatureObject(unittest.TestCase):
             pass
         self.assertEqual(str(inspect.signature(foo)), '()')
 
+        def foo(a: list[str]) -> tuple[str, float]:
+            pass
+        self.assertEqual(str(inspect.signature(foo)),
+                         '(a: list[str]) -> tuple[str, float]')
+
+        from typing import Tuple
+        def foo(a: list[str]) -> Tuple[str, float]:
+            pass
+        self.assertEqual(str(inspect.signature(foo)),
+                         '(a: list[str]) -> Tuple[str, float]')
+
     def test_signature_str_positional_only(self):
         P = inspect.Parameter
         S = inspect.Signature
@@ -4102,18 +4122,5 @@ def foo():
             self.assertInspectEqual(path, module)
 
 
-def test_main():
-    run_unittest(
-        TestDecorators, TestRetrievingSourceCode, TestOneliners, TestBlockComments,
-        TestBuggyCases, TestInterpreterStack, TestClassesAndFunctions, TestPredicates,
-        TestGetcallargsFunctions, TestGetcallargsMethods,
-        TestGetcallargsUnboundMethods, TestGetattrStatic, TestGetGeneratorState,
-        TestNoEOL, TestSignatureObject, TestSignatureBind, TestParameterObject,
-        TestBoundArguments, TestSignaturePrivateHelpers,
-        TestSignatureDefinitions, TestIsDataDescriptor,
-        TestGetClosureVars, TestUnwrap, TestMain, TestReload,
-        TestGetCoroutineState, TestGettingSourceOfToplevelFrames
-    )
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

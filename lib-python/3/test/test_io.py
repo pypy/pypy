@@ -71,6 +71,10 @@ MEMORY_SANITIZER = (
     '--with-memory-sanitizer' in _config_args
 )
 
+ADDRESS_SANITIZER = (
+    '-fsanitize=address' in _cflags
+)
+
 # Does io.IOBase finalizer log the exception if the close() method fails?
 # The exception is ignored silently by default in release build.
 IOBASE_EMITS_UNRAISABLE = (hasattr(sys, "gettotalrefcount") or sys.flags.dev_mode)
@@ -1541,7 +1545,7 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
 class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
     tp = io.BufferedReader
 
-    @unittest.skipIf(MEMORY_SANITIZER, "MSan defaults to crashing "
+    @unittest.skipIf(MEMORY_SANITIZER or ADDRESS_SANITIZER, "sanitizer defaults to crashing "
                      "instead of returning NULL for malloc failure.")
     def test_constructor(self):
         BufferedReaderTest.test_constructor(self)
@@ -1890,7 +1894,7 @@ class BufferedWriterTest(unittest.TestCase, CommonBufferedTests):
 class CBufferedWriterTest(BufferedWriterTest, SizeofTest):
     tp = io.BufferedWriter
 
-    @unittest.skipIf(MEMORY_SANITIZER, "MSan defaults to crashing "
+    @unittest.skipIf(MEMORY_SANITIZER or ADDRESS_SANITIZER, "sanitizer defaults to crashing "
                      "instead of returning NULL for malloc failure.")
     def test_constructor(self):
         BufferedWriterTest.test_constructor(self)
@@ -2389,7 +2393,7 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
 class CBufferedRandomTest(BufferedRandomTest, SizeofTest):
     tp = io.BufferedRandom
 
-    @unittest.skipIf(MEMORY_SANITIZER, "MSan defaults to crashing "
+    @unittest.skipIf(MEMORY_SANITIZER or ADDRESS_SANITIZER, "sanitizer defaults to crashing "
                      "instead of returning NULL for malloc failure.")
     def test_constructor(self):
         BufferedRandomTest.test_constructor(self)

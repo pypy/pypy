@@ -194,6 +194,10 @@ class ExceptionTests(unittest.TestCase):
                 line = src.split('\n')[lineno-1]
                 self.assertIn(line, cm.exception.text)
 
+    def test_error_offset_continuation_characters(self):
+        check = self.check
+        check('"\\\n"(1 for c in I,\\\n\\', 3, 22)
+
     def testSyntaxErrorOffset(self):
         is_pypy = check_impl_detail(pypy=True)
         check = self.check

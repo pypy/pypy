@@ -25,4 +25,23 @@ Process for upgrading the stdlib to a new cpython version
 10. fix issues. Note especially changes in datetime.py, venv/__init__.py, and others.
 11. commit --close-branch
 12. merge to default / py3k
-12. merge to default / py3k
+13. merge to default / py3k
+14. update version numbers in sys/version.py and cpyext/include/patch_level.h
+
+Process for updateing a point release if the diff is small
+==========================================================
+
+In cpython, do `git diff -r <current> -r <newer> Lib > <outfile>`
+so for instance `git diff -r v3.9.7 -r v3.9.9 Lib > /tmp/patch3.9.9`
+
+In pypy, cd into `lib-python/3`
+Then do 
+patch -p2 -i <outfile>
+
+If patch asks about reveresed patches, reply "no" and apply anyway "yes"
+
+Carefully note the failures in the *.rej files and try to resolve the conflicts.
+Delete all the *.orig files, and look for files that should be added to version control
+Look for removed files that should be deleted from version control
+
+Then update sys/version.py, cpyext/include/patchlevel.h, and ./stdlib-version.txt
