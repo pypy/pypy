@@ -9,7 +9,7 @@ def test_simple():
         try:
             raise ValueError
         except Exception as e:
-            __pypy__.write_unraisable("testplace", e, None)
+            __pypy__.write_unraisable("in: testplace", e, None)
         output = stringio.getvalue()
         assert "Exception ignored in: testplace\n" in output
         assert "ValueError" in output
@@ -47,7 +47,7 @@ def test_custom_unraisablehook_fails():
             raise ValueError
         except Exception as e:
             obj = object()
-            __pypy__.write_unraisable("testplace", e, obj)
+            __pypy__.write_unraisable("never used", e, obj)
         output = stringio.getvalue()
         print(output)
         assert "Exception ignored in sys.unraisablehook" in output
