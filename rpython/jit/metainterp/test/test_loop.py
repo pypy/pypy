@@ -1184,8 +1184,8 @@ class LoopTest(object):
         f2 = Func()
         f2.fval = 2
 
-        driver = JitDriver(reds=['i', 'func', 'c', 'l'], greens=[])
-        def f(l, func, c):
+        driver = JitDriver(reds=['i', 'c', 'l', 'func'], greens=['promoteint'])
+        def f(l, func, c, promoteint):
             i = 0
             while i < len(l):
                 subl = l[i]
@@ -1201,24 +1201,33 @@ class LoopTest(object):
                 assert cellvalue is not None
 
                 # calling one of the two funcs
-                if func.fval == 1:
+                # two variants:
+                # - if we promote the int, then the erroneous bridge goes to
+                #   the preamble
+                # - if we don't the erroneous bridge goes to the main loop
+                # both cases are wrong
+                if promoteint:
+                    x = promote(func.fval)
+                else:
+                    x = func.fval
+                if x == 1:
                     promote(type(cellvalue) is type(lcontent))
                 else:
                     promote(type(lcontent) is not WNone)
                 i += 1
-                driver.jit_merge_point(i=i, func=func, c=c, l=l)
+                driver.jit_merge_point(i=i, func=func, c=c, l=l, promoteint=promoteint)
 
-        def main():
+        def main(promoteint):
             set_param(None, 'retrace_limit', 0)
             set_param(None, 'threshold', 8)
             List().content1 = WNone() # ensure annotator doesn't think the fields are constants
             Cell().value = None
             List().content2 = Int()
-            f(l, f1, c_w_none)
+            f(l, f1, c_w_none, promoteint)
             print "=================================================================="
+            f(l + [l1, l2], f2, c_int, promoteint)
 
-            f(l + [l1, l2], f2, c_int)
-        self.meta_interp(main, [])
+        self.meta_interp(main, [True]) # can change argument to False, both fails
         self.check_trace_count_at_most(10)
 
 

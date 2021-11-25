@@ -340,6 +340,7 @@ class OptUnroll(Optimization):
                 virtual_state = self.get_virtual_state(args)
                 continue
 
+            import pdb; pdb.set_trace()
             short_preamble = target_token.short_preamble
             extra = self.inline_short_preamble(args + virtuals, args,
                                 short_preamble, self.optimizer.patchguardop,
