@@ -112,7 +112,7 @@ def _get_system_version():
             # else: fall back to the default behaviour
     if not _SYSTEM_VERSION:
         # minimum supported MACOSX_DEPLOYMENT_TARGET version
-        return '10.7'
+        return '10.9'
     return _SYSTEM_VERSION
 
 _SYSTEM_VERSION_TUPLE = None
