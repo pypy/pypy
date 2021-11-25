@@ -1,15 +1,7 @@
 from rpython.rlib import jit
 from rpython.rlib.jit import JitDriver, we_are_jitted
 from rpython.jit.tl.threadedcode.traverse_stack import *
-
-@jit.dont_look_inside
-def emit_jump(pc, t):
-    return pc
-
-
-@jit.dont_look_inside
-def emit_ret(pc, w_x):
-    return pc
+from rpython.jit.tl.threadedcode.tlib import *
 
 class W_Object:
 
@@ -127,41 +119,7 @@ class W_StringObject(W_Object):
 class OperationError(Exception):
     pass
 
-# ____________________________________________________________
-
-OPNAMES = []
-HASARG = []
-
-def define_op(name, has_arg=False):
-    globals()[name] = len(OPNAMES)
-    OPNAMES.append(name)
-    HASARG.append(has_arg)
-
-define_op("CONST_INT", True)
-define_op("DUP")
-define_op("POP")
-
-define_op("LT")
-define_op("EQ")
-
-define_op("ADD")
-define_op("SUB")
-define_op("MUL")
-define_op("DIV")
-define_op("MOD")
-
-define_op("EXIT")
-define_op("JUMP", True)
-define_op("JUMP_IF", True)
-
-define_op("CALL", True)
-define_op("CALL_JIT", True)
-define_op("CALL_NORMAL", True)
-define_op("RET", True)
-define_op("NEWSTR", True)
-
-
-# ____________________________________________________________
+from rpython.jit.tl.threadedcode.tla_opcode import *
 
 def get_printable_location_tc(pc, entry_state, bytecode, tstack):
     op = ord(bytecode[pc])
@@ -347,18 +305,21 @@ class Frame(object):
     @jit.dont_look_inside
     def CALL(self, t):
         res = self.interp(t)
+        _ = self.pop()
         if res is not None:
             self.push(res)
 
     @jit.dont_look_inside
     def CALL_NORMAL(self, t):
         res = self.interp_normal(t)
+        _ = self.pop()
         if res is not None:
             self.push(res)
 
     @jit.dont_look_inside
     def CALL_JIT(self, t):
         res = self.interp_jit(t)
+        _ = self.pop()
         if res is not None:
             self.push(res)
 
@@ -472,7 +433,7 @@ class Frame(object):
             pc += 1
 
             if opcode == CONST_INT:
-                self.CONST_INT(pc)
+                self._CONST_INT(pc)
                 pc += 1
 
             elif opcode == POP:
@@ -532,6 +493,14 @@ class Frame(object):
                 target = ord(bytecode[pc])
                 pc += 1
                 if self._is_true():
+                    if target < pc:
+                        jitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
+                    pc = target
+
+            elif opcode == JUMP_IF_FLS:
+                target = ord(bytecode[pc])
+                pc += 1
+                if not self._is_true():
                     if target < pc:
                         jitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
                     pc = target
@@ -599,6 +568,12 @@ class Frame(object):
                 target = ord(bytecode[pc])
                 pc += 1
                 if self.is_true():
+                    pc = target
+
+            elif opcode == JUMP_IF_FLS:
+                target = ord(bytecode[pc])
+                pc += 1
+                if not self.is_true():
                     pc = target
 
             elif opcode == EXIT:
@@ -708,6 +683,25 @@ class Frame(object):
                         tstack = t_push(target, tstack)
                 else:
                     if self.is_true():
+                        if target < pc:
+                            entry_state = target; self.save_state()
+                            tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                                                      pc=target, tstack=tstack, self=self)
+                        pc = target
+            elif opcode == JUMP_IF_FLS:
+                target = ord(bytecode[pc])
+                pc += 1
+                if we_are_jitted():
+                    if self.is_true():
+                        tstack = t_push(target, tstack)
+                    else:
+                        tstack = t_push(pc, tstack)
+                        pc = target
+
+                else:
+                    if self.is_true():
+                        pass
+                    else:
                         if target < pc:
                             entry_state = target; self.save_state()
                             tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,

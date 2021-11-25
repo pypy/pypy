@@ -162,6 +162,30 @@ class TestFrame:
         res =  interp(code, W_IntObject(42))
         assert res.intvalue == 0
 
+    def test_fib(self):
+        code = [
+            tla.CALL, 3,
+            tla.EXIT,
+            tla.DUP1, 0,
+            tla.CONST_INT, 2,
+            tla.LT,
+            tla.JUMP_IF, 27,
+            tla.DUP1, 0,
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.CALL, 3,
+            tla.DUP1, 1,
+            tla.CONST_INT, 2,
+            tla.SUB,
+            tla.CALL, 3,
+            tla.ADD,
+            tla.RET, 1,
+            tla.DUP1, 0,
+            tla.RET, 1,
+        ]
+        res =  interp(code, W_IntObject(5))
+
+
 
 from rpython.jit.metainterp.test.support import LLJitMixin
 

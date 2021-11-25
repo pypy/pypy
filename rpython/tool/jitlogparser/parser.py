@@ -1,4 +1,4 @@
-import re, sys
+import re, sys, random
 
 from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.tool.oparser import OpParser
@@ -47,7 +47,10 @@ class Op(object):
         self.descr = descr
         self._is_guard = name.startswith('guard_')
         if self._is_guard:
-            self.guard_no = int(self.descr[len('<Guard0x'):-1], 16)
+            try:
+                self.guard_no = int(self.descr[len('<Guard0x'):-1], 16)
+            except ValueError:
+                self.guard_no = int(self.descr[len('<ResumeGuardExcDescr object at 0x'):-1], 16)
         self.failargs = failargs
 
     def as_json(self):
@@ -447,7 +450,7 @@ def import_log(logname, ParserCls=SimpleParser):
     if not cat:
         cat = extract_category(log, 'jit-log-rewritten')
     if not cat:
-        cat = extract_category(log, 'jit-log-noopt')        
+        cat = extract_category(log, 'jit-log-noopt')
     for entry in cat:
         parser = ParserCls(entry, None, {}, 'lltype', None,
                            nonstrict=True)
@@ -521,4 +524,3 @@ def mangle_descr(descr):
 
 if __name__ == '__main__':
     import_log(sys.argv[1])
-
