@@ -19,7 +19,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.tl.threadedcode.traverse_stack import TStack, t_push, t_empty, t_is_empty
+from rpython.jit.tl.threadedcode.traverse_stack import TStack, t_push, t_empty
 from rpython.jit.tl.threadedcode.frame import Frame
 
 
@@ -98,7 +98,7 @@ class BasicTests:
                 elif op == JUMP:
                     t = int(bytecode[pc])
                     if we_are_jitted():
-                        if t_is_empty(tstack):
+                        if tstack.t_is_empty():
                             pc = t
                         else:
                             pc, tstack = tstack.t_pop()
@@ -125,7 +125,7 @@ class BasicTests:
                         pc += 1
                 elif op == EXIT:
                     if we_are_jitted():
-                        if t_is_empty(tstack):
+                        if tstack.t_is_empty():
                             return x
                         else:
                             pc, tstack = tstack.t_pop()
@@ -232,7 +232,7 @@ class BasicTests:
                 elif op == JUMP:
                     t = int(bytecode[pc])
                     if we_are_jitted():
-                        if t_is_empty(tstack):
+                        if tstack.t_is_empty():
                             pc = t
                         else:
                             pc, tstack = tstack.t_pop()
@@ -263,10 +263,10 @@ class BasicTests:
                         pc += 1
                 elif op == EXIT:
                     if we_are_jitted():
-                        if t_is_empty(tstack):
+                        if tstack.t_is_empty():
                             v = frame.pop()
-                            pc = emit_ret(pc, v)
                             pc, tstack = entry_state
+                            pc = emit_ret(pc, v)
                             restore_state(frame)
                             myjitdriver.can_enter_jit(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                                       frame=frame)
@@ -366,7 +366,7 @@ class BasicTests:
                 elif op == JUMP:
                     t = int(bytecode[pc])
                     if we_are_jitted():
-                        if t_is_empty(tstack):
+                        if tstack.t_is_empty():
                             pc = t
                         else:
                             pc, tstack = tstack.t_pop()
@@ -397,10 +397,10 @@ class BasicTests:
                         pc += 1
                 elif op == EXIT:
                     if we_are_jitted():
-                        if t_is_empty(tstack):
+                        if tstack.t_is_empty():
                             v = frame.pop()
-                            pc = emit_ret(pc, v)
                             pc, tstack = entry_state
+                            pc = emit_ret(pc, v)
                             restore_state(frame)
                             myjitdriver.can_enter_jit(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                                       frame=frame)
