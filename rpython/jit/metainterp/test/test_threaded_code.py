@@ -23,9 +23,6 @@ from rpython.jit.tl.threadedcode.traverse_stack import TStack, t_push, t_empty
 from rpython.jit.tl.threadedcode.frame import Frame
 
 
-def compile_threaded_code():
-    pass
-
 class BasicTests:
     @pytest.mark.skip(reason="currently the case that red variables are"
                       "number cannot work correctly")
