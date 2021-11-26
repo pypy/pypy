@@ -414,6 +414,8 @@ class AppTestArray(object):
                         except ValueError:
                             assert not ok
                     del arr
+        # make sure array.__del__ is called before the leak check
+        import gc; gc.collect()
 
     def test_getslice_large_step(self):
         import sys
