@@ -491,7 +491,7 @@ class OptRewrite(Optimization):
                 raise InvalidLoop('A GUARD_VALUE (%s) was proven to '
                                   'always fail' % r)
         if not self.optimizer.can_replace_guards:
-            return old_guard_op
+            return op
         descr = compile.ResumeGuardDescr()
         op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                          args=[old_guard_op.getarg(0), op.getarg(1)],
