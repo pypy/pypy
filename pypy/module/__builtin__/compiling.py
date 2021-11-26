@@ -141,7 +141,7 @@ def build_class(space, w_func, w_name, __args__):
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
-        w_namespace = space.newdict()
+        w_namespace = space.newdict(module=True)
     else:
         keywords = kwds_w.keys()
         args = Arguments(space,
