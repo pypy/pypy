@@ -395,6 +395,7 @@ class AppTestArray(object):
         assert repr(a[2:1:-1]) == "array('i', [20])"
         assert repr(a[2:-1:-1]) == "array('i')"
         assert repr(a[-1:0:-1]) == "array('i', [20, 21])"
+        del a
 
         for a in range(-4, 5):
             for b in range(-4, 5):
@@ -412,6 +413,7 @@ class AppTestArray(object):
                             assert repr(arr) == repr(self.array('i', lst))
                         except ValueError:
                             assert not ok
+                    del arr
 
     def test_getslice_large_step(self):
         import sys

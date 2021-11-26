@@ -182,6 +182,7 @@ class W_ArrayBase(W_Root):
     def __del__(self):
         if self._buffer:
             lltype.free(self._buffer, flavor='raw')
+            self._buffer = lltype.nullptr(rffi.CCHARP.TO)
 
     def setlen(self, size, zero=False, overallocate=True):
         if self._buffer:
