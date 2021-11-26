@@ -490,6 +490,8 @@ class OptRewrite(Optimization):
                 r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
                 raise InvalidLoop('A GUARD_VALUE (%s) was proven to '
                                   'always fail' % r)
+        if not self.optimizer.can_replace_guards:
+            return old_guard_op
         descr = compile.ResumeGuardDescr()
         op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                          args=[old_guard_op.getarg(0), op.getarg(1)],
@@ -559,7 +561,8 @@ class OptRewrite(Optimization):
                                            compile.ResumeAtPositionDescr):
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
-            if old_guard_op.getopnum() == rop.GUARD_NONNULL:
+            if (self.optimizer.can_replace_guards and
+                    old_guard_op.getopnum() == rop.GUARD_NONNULL):
                 # it was a guard_nonnull, which we replace with a
                 # guard_nonnull_class.
                 descr = compile.ResumeGuardDescr()

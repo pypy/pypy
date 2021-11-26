@@ -22,8 +22,8 @@ class TestOptimizeBridge(BaseTest):
         loop.operations[0].setdescr(mid_label_descr)
         loop.operations[-1].setdescr(mid_label_descr)
         info.preamble.operations[0].setdescr(start_label_descr)
-        #guards = [op for op in loop.operations if op.is_guard()]
-        #assert len(guards) == 1, "more than one guard in the loop"
+        guards = [op for op in loop.operations if op.is_guard()]
+        assert len(guards) == 1, "more than one guard in the loop"
         bridge = self.parse(bridge_ops)
         bridge.operations[-1].setdescr(jitcell_token)
         self.add_guard_future_condition(bridge)
@@ -117,25 +117,3 @@ class TestOptimizeBridge(BaseTest):
         self.optimize(loop, bridge, expected,
                       jump_values=[None, self.simpleaddr],
                       bridge_values=[None, self.simpleaddr])
-
-    def test_short_preamble_mutates_stuff(self):
-        loop = """
-        [p1, p2]
-        i0 = getfield_gc_i(p2, descr=valuedescr3)
-        guard_value(i0, 1) []
-        p3 = getfield_gc_r(p1, descr=nextdescr3)
-        guard_class(p3, ConstClass(node_vtable)) []
-        jump(p1, p2)
-        """
-        bridge = """
-        [p1, p2]
-        i0 = getfield_gc_i(p2, descr=valuedescr3)
-        guard_value(i0, 2) []
-        p3 = getfield_gc_r(p1, descr=nextdescr3)
-        guard_nonnull(p3) []
-        jump(p1, p2)
-        """
-        self.optimize(loop, bridge, bridge,
-                      jump_values=[self.simpleaddr, None],
-                      bridge_values=[self.simpleaddr, None])
-

@@ -1227,7 +1227,9 @@ class LoopTest(object):
             print "=================================================================="
             f(l + [l1, l2], f2, c_int, promoteint)
 
-        self.meta_interp(main, [True]) # can change argument to False, both fails
+        self.meta_interp(main, [True])
+        self.check_trace_count_at_most(10)
+        self.meta_interp(main, [False])
         self.check_trace_count_at_most(10)
 
 
