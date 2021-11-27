@@ -405,6 +405,11 @@ class StdObjSpace(ObjSpace):
     def _newtext_memo(self, s, lgt):
         if s is None:
             return self.w_None # can happen during annotation
+        # try to see whether we exist as an interned string, but don't intern
+        # if not
+        w_u = self.interned_strings.get(s)
+        if w_u is not None:
+            return w_u
         if lgt < 0:
             lgt = rutf8.codepoints_in_utf8(s)
         return W_UnicodeObject(s, lgt)
