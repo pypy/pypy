@@ -1152,7 +1152,7 @@ def descr___subclasses__(space, w_type):
 def descr___prepare__(space, __args__):
     # XXX: space.newdict(strdict=True)? (XXX: which should be
     # UnicodeDictStrategy but is currently BytesDictStrategy)
-    return space.newdict()
+    return space.newdict(module=True)
 
 # ____________________________________________________________
 
