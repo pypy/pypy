@@ -1,4 +1,5 @@
 import pytest
+import sys
 
 @pytest.fixture
 def tempfile(tmpdir):
@@ -210,6 +211,44 @@ def test_f_lineno_set_4():
         sys.settrace(None)
         assert False, 'did not raise'
     assert output == [2, 7]
+
+def test_jump_forwards_out_of_with_block():
+    class tracecontext:
+        """Context manager that traces its enter and exit."""
+        def __init__(self, output, value):
+            self.output = output
+            self.value = value
+
+        def __enter__(self):
+            self.output.append(self.value)
+
+        def __exit__(self, *exc_info):
+            self.output.append(-self.value)
+
+    def jump_forwards_out_of_with_block(output):
+        with tracecontext(output, 1):
+            output.append(2)
+        output.append(3)
+    output = []
+    tracer = JumpTracer(jump_forwards_out_of_with_block, 2, 3)
+    sys.settrace(tracer.trace)
+    jump_forwards_out_of_with_block(output)
+    sys.settrace(None)
+    assert output == [1, 3]
+
+def test_jump_forwards_out_of_try_finally_block():
+    def jump_forwards_out_of_try_finally_block(output):
+        try:
+            output.append(2)
+        finally:
+            output.append(4)
+        output.append(5)
+    output = []
+    tracer = JumpTracer(jump_forwards_out_of_try_finally_block, 2, 5)
+    sys.settrace(tracer.trace)
+    jump_forwards_out_of_try_finally_block(output)
+    sys.settrace(None)
+    assert output == [5]
 
 def test_f_lineno_set_firstline():
     seen = []

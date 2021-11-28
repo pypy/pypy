@@ -751,12 +751,14 @@ class PyFrame(W_Root):
             if kind == JUMP_BLOCKSTACK_LOOP:
                 self.popvalue()
             elif kind == JUMP_BLOCKSTACK_TRY:
-                import pdb; pdb.set_trace()
+                self.pop_block().cleanupstack(self)
             elif kind == JUMP_BLOCKSTACK_WITH:
-                import pdb; pdb.set_trace()
+                self.pop_block().cleanupstack(self)
+                self.popvalue()
             else:
                 assert kind == JUMP_BLOCKSTACK_EXCEPT
-                import pdb; pdb.set_trace()
+                raise OperationError(space.w_ValueError, space.newtext(
+                    "can't jump out of an 'except' block"))
             start_block_stack = start_block_stack[:-1]
 
         d.f_lineno = new_lineno
