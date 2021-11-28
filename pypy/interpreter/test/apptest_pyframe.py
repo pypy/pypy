@@ -112,7 +112,6 @@ class JumpTracer:
         return self.trace
 
 def test_f_lineno_set(tempfile):
-    skip("broken atm")
     def tracer(f, *args):
         def y(f, *args):
             return y
@@ -139,8 +138,6 @@ def test_f_lineno_set(tempfile):
     # assert did not crash
 
 def test_f_lineno_set_2():
-    skip("this test is known to crash CPython (verified in 3.6.9).  "
-         "Now it crashes PyPy too. Too bad?")
     counter = [0]
     errors = []
 
@@ -168,10 +165,9 @@ def test_f_lineno_set_2():
     assert x == 42
     assert len(errors) == 1
     assert str(errors[0]).startswith(
-        "can't jump into or out of an 'expect' or 'finally' block")
+        "can't jump into an 'except' block as there's no exception")
 
 def test_f_lineno_set_3():
-    skip("broken atm")
     def jump_in_nested_finally(output):
         try:
             output.append(2)
@@ -192,7 +188,6 @@ def test_f_lineno_set_3():
     assert output == [2, 9]
 
 def test_f_lineno_set_4():
-    skip("broken atm")
     def jump_in_nested_finally(output):
         try:
             output.append(2)

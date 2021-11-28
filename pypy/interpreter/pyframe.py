@@ -25,6 +25,9 @@ from pypy.tool import stdlib_opcode
 for op in '''DUP_TOP POP_TOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 SETUP_ASYNC_WITH POP_BLOCK YIELD_VALUE
 NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST
+JUMP_IF_FALSE_OR_POP JUMP_IF_TRUE_OR_POP POP_JUMP_IF_FALSE POP_JUMP_IF_TRUE
+JUMP_IF_NOT_EXC_MATCH JUMP_ABSOLUTE JUMP_FORWARD GET_ITER GET_AITER
+RETURN_VALUE RERAISE RAISE_VARARGS POP_EXCEPT
 '''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 
@@ -681,15 +684,6 @@ class PyFrame(W_Root):
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Change the line number of the instruction currently being executed."
-        def _get_arg(code, addr):
-            # read backwards for EXTENDED_ARG
-            oparg = ord(code[addr + 1])
-            if addr >= 2 and ord(code[addr - 2]) == EXTENDED_ARG:
-                oparg |= ord(code[addr - 1]) << 8
-                if addr >= 4 and ord(code[addr - 4]) == EXTENDED_ARG:
-                    raise ValueError("fix me please!")
-            return oparg
-
         try:
             new_lineno = space.int_w(w_new_lineno)
         except OperationError:
@@ -719,140 +713,54 @@ class PyFrame(W_Root):
         if new_lineno < line:
             raise oefmt(space.w_ValueError,
                         "line %d comes before the current code block", new_lineno)
-        elif new_lineno == line:
-            new_lasti = 0
-        else:
-            # Find the bytecode offset for the start of the given
-            # line, or the first code-owning line after it.
-            lnotab = self.pycode.co_lnotab
-            addr = 0
-            new_lasti = -1
-            for offset in xrange(0, len(lnotab), 2):
-                addr += ord(lnotab[offset])
-                line_offset = ord(lnotab[offset + 1])
-                if line_offset >= 0x80:
-                    line_offset -= 0x100
-                line += line_offset
-                if line >= new_lineno:
-                    new_lasti = addr
-                    new_lineno = line
-                    break
+
+        lines = marklines(self.pycode)
+        x = first_line_not_before(lines, new_lineno)
+
 
         # If we didn't reach the requested line, return an error.
-        if new_lasti == -1:
+        if x == -1:
             raise oefmt(space.w_ValueError,
                         "line %d comes after the current code block", new_lineno)
+        new_lineno = x
 
-        min_addr = min(new_lasti, self.last_instr)
-        max_addr = max(new_lasti, self.last_instr)
+        blocks = markblocks(self.pycode)
+        start_block_stack = blocks[self.last_instr // 2]
+        best_block_stack = None
 
-        # You can't jump onto a line with an 'except' statement on it -
-        # they expect to have an exception on the top of the stack, which
-        # won't be true if you jump to them.  They always start with code
-        # that either pops the exception using POP_TOP (plain 'except:'
-        # lines do this) or duplicates the exception on the stack using
-        # DUP_TOP (if there's an exception type specified).  See compile.c,
-        # 'com_try_except' for the full details.  There aren't any other
-        # cases (AFAIK) where a line's code can start with DUP_TOP or
-        # POP_TOP, but if any ever appear, they'll be subject to the same
-        # restriction (but with a different error message).
-        if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
-            raise oefmt(space.w_ValueError,
-                        "can't jump to 'except' line as there's no exception")
+        error = "cannot find bytecode for specified line"
+        for i in range(len(lines)):
+            if lines[i] == new_lineno:
+                target_block_stack = blocks[i]
+                if compatible_block_stack(start_block_stack, target_block_stack):
+                    error = None
+                    if best_block_stack is None or len(target_block_stack) > len(best_block_stack):
+                        best_block_stack = target_block_stack
+                        best_addr = i * 2
+                elif error is not None:
+                    if target_block_stack:
+                        error = explain_incompatible_block_stack(target_block_stack)
+                    else:
+                        error = "code may be unreachable"
+        if error is not None:
+            raise OperationError(space.w_ValueError, space.newtext(error))
 
-        # You can't jump into or out of a 'finally' block because the 'try'
-        # block leaves something on the stack for the END_FINALLY to clean
-        # up.      So we walk the bytecode, maintaining a simulated blockstack.
-        # 'blockstack' is a stack of the bytecode addresses of the starts of
-        # the 'finally' blocks
-
-        # follow the logic of CPython 3.6.9 exactly, which is quite
-        # messy already. (it might have bugs though)
-
-        blockstack = []     # current blockstack (addresses of SETUP_*)
-        prevop = NOP
-        delta_iblock = delta = 0
-        addr = 0
-        while addr < len(code):
-            assert addr & 1 == 0
-            op = ord(code[addr])
-            if op in (SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
-                      SETUP_ASYNC_WITH, FOR_ITER):
-                oparg = _get_arg(code, addr)
-                target_addr = addr + oparg + 2
-                assert target_addr < len(code)
-                # Police block-jumping (you can't jump into the middle of a
-                # block) and ensure that the blockstack finishes up in a
-                # sensible state (by popping any blocks we're jumping out of).
-                # We look at all the blockstack operations between the current
-                # position and the new one, and keep track of how many blocks
-                # we drop out of on the way. By also keeping track of the
-                # lowest blockstack position we see, we can tell whether the
-                # jump goes into any blocks without coming out again - in that
-                # case we raise an exception below.
-                first_in = addr < self.last_instr and self.last_instr < target_addr
-                second_in = addr < new_lasti and new_lasti < target_addr
-                if not first_in and second_in:
-                    raise oefmt(space.w_ValueError,
-                        "can't jump into the middle of a block")
-                in_for_loop = op == FOR_ITER or ord(code[target_addr]) == END_ASYNC_FOR
-                if first_in and not second_in:
-                    if not delta_iblock:
-                        if in_for_loop:
-                            # Pop the iterators of any 'for' and 'async for' loop
-                            # we're jumping out of.
-                            delta += 1
-                        elif prevop == LOAD_CONST:
-                            # Pops None pushed before SETUP_FINALLY.
-                            delta += 1
-                    if not in_for_loop:
-                        delta_iblock += 1
-                if not in_for_loop:
-                    blockstack.append(target_addr)
-            elif False and op == END_FINALLY:
-                if len(blockstack) == 0:
-                    raise oefmt(space.w_SystemError,
-                           "blocks not properly nested in this bytecode")
-                target_addr = blockstack.pop()
-                assert target_addr < addr
-                first_in = target_addr <= self.last_instr and self.last_instr <= addr
-                second_in = target_addr <= new_lasti and new_lasti <= addr
-                if first_in != second_in:
-                    op = ord(code[target_addr])
-                    raise oefmt(space.w_ValueError,
-                        "can't jump %s %s block",
-                        "into" if second_in else "out of",
-                        "an 'except'" if op == DUP_TOP or op == POP_TOP else
-                        "a 'finally'")
-            prevop = op
-            addr += 2
-
-        # Verify that the blockstack tracking code didn't get lost.
-        if len(blockstack) != 0:
-            raise oefmt(space.w_SystemError,
-                        "blocks not properly nested in this bytecode")
-
-        # now we know we're not jumping into or out of a place which
-        # needs a SysExcInfoRestorer.  Check that we're not jumping
-        # *into* a block, but only (potentially) out of some blocks.
-
-        # Pop any blocks that we're jumping out of.
-        from pypy.interpreter.pyopcode import FinallyBlock
-        for ii in range(delta_iblock):
-            block = self.pop_block()
-            block.cleanupstack(self)
-            #if (isinstance(block, FinallyBlock) and
-            #    ord(code[block.handlerposition]) == WITH_CLEANUP_START):
-            #    delta += 1 # Pop the exit function.
-
-        # fix stack depth
-        while delta > 0:
-            self.popvalue()
-            delta -= 1
+        while len(start_block_stack) > len(best_block_stack):
+            kind = start_block_stack[-1]
+            if kind == JUMP_BLOCKSTACK_LOOP:
+                self.popvalue()
+            elif kind == JUMP_BLOCKSTACK_TRY:
+                import pdb; pdb.set_trace()
+            elif kind == JUMP_BLOCKSTACK_WITH:
+                import pdb; pdb.set_trace()
+            else:
+                assert kind == JUMP_BLOCKSTACK_EXCEPT
+                import pdb; pdb.set_trace()
+            start_block_stack = start_block_stack[:-1]
 
         d.f_lineno = new_lineno
-        assert new_lasti & 1 == 0
-        self.last_instr = new_lasti
+        assert best_addr & 1 == 0
+        self.last_instr = best_addr
 
     def get_last_lineno(self):
         "Returns the line number of the instruction currently being executed."
@@ -953,6 +861,148 @@ class PyFrame(W_Root):
             code.co_filename, self.get_last_lineno(), code.co_name)
         return self.getrepr(space, "frame", moreinfo)
 
+# ____________________________________________________________
+
+JUMP_BLOCKSTACK_WITH = 'w'
+JUMP_BLOCKSTACK_LOOP = 'l'
+JUMP_BLOCKSTACK_TRY = 't'
+JUMP_BLOCKSTACK_EXCEPT = 'e'
+
+def marklines(code):
+    res = [-1] * (len(code.co_code) // 2)
+
+    lnotab = code.co_lnotab
+    addr = 0
+    line = code.co_firstlineno
+    res[0] = line
+    for offset in xrange(0, len(lnotab), 2):
+        addr += ord(lnotab[offset])
+        line_offset = ord(lnotab[offset + 1])
+        if line_offset >= 0x80:
+            line_offset -= 0x100
+        line += line_offset
+        res[addr // 2] = line
+    return res
+
+def first_line_not_before(lines, line):
+    result = sys.maxint
+    for index, l in enumerate(lines):
+        if l < result and l >= line:
+            result = l
+    if result == sys.maxint:
+        return -1
+    return result
+
+def markblocks(code):
+    blocks = [None] * ((len(code.co_code) // 2) + 1)
+    blocks[0] = ''
+    todo = True
+    while todo:
+        todo = False
+        for i in range(0, len(code.co_code), 2):
+            block_stack = blocks[i // 2]
+            if block_stack is None:
+                continue
+            opcode = ord(code.co_code[i])
+            if (
+                opcode == JUMP_IF_FALSE_OR_POP or
+                opcode == JUMP_IF_TRUE_OR_POP or
+                opcode == POP_JUMP_IF_FALSE or
+                opcode == POP_JUMP_IF_TRUE or
+                opcode == JUMP_IF_NOT_EXC_MATCH
+            ):
+                j = _get_arg(code.co_code, i)
+                if blocks[j // 2] is None and j < i:
+                    todo = True
+                assert blocks[j // 2] is None or blocks[j // 2] == block_stack
+                blocks[j // 2] = block_stack
+                blocks[i // 2 + 1] = block_stack
+            elif opcode == JUMP_ABSOLUTE:
+                j = _get_arg(code.co_code, i)
+                if blocks[j // 2] is None and j < i:
+                    todo = True
+                assert blocks[j // 2] is None or blocks[j // 2] == block_stack
+                blocks[j // 2] = block_stack
+            elif (
+                opcode == SETUP_FINALLY or
+                opcode == SETUP_EXCEPT
+            ):
+                j = _get_arg(code.co_code, i) + i + 2
+                stack = block_stack + JUMP_BLOCKSTACK_EXCEPT
+                assert blocks[j // 2] is None or blocks[j // 2] == stack
+                blocks[j // 2] = stack
+                block_stack = block_stack + JUMP_BLOCKSTACK_TRY
+                blocks[i // 2 + 1] = block_stack
+            elif (
+                opcode == SETUP_WITH or
+                opcode == SETUP_ASYNC_WITH
+            ):
+                j = _get_arg(code.co_code, i) + i + 2
+                stack = block_stack + JUMP_BLOCKSTACK_EXCEPT
+                assert blocks[j // 2] is None or blocks[j // 2] == stack
+                blocks[j // 2] = stack
+                block_stack = block_stack + JUMP_BLOCKSTACK_WITH
+                blocks[i // 2 + 1] = block_stack
+            elif opcode == JUMP_FORWARD:
+                j = _get_arg(code.co_code, i) + i + 2
+                assert blocks[j // 2] is None or blocks[j // 2] == block_stack
+                blocks[j // 2] = block_stack
+            elif (
+                opcode == GET_ITER or
+                opcode == GET_AITER
+            ):
+                block_stack = block_stack + JUMP_BLOCKSTACK_LOOP
+                blocks[i // 2 + 1] = block_stack
+            elif opcode == FOR_ITER:
+                blocks[i // 2 + 1] = block_stack
+                block_stack = block_stack[:-1]
+                j = _get_arg(code.co_code, i) + i + 2
+                assert blocks[j // 2] is None or blocks[j // 2] == block_stack
+                blocks[j // 2] = block_stack
+            elif (
+                opcode == POP_BLOCK or
+                opcode == POP_EXCEPT
+            ):
+                block_stack = block_stack[:-1]
+                blocks[i // 2 + 1] = block_stack
+            elif opcode == END_ASYNC_FOR:
+                block_stack = block_stack[:-2]
+                blocks[i // 2 + 1] = block_stack
+            elif (
+                opcode == RETURN_VALUE or
+                opcode == RAISE_VARARGS or
+                opcode == RERAISE
+            ):
+                pass
+            else:
+                blocks[i // 2 + 1] = block_stack
+    return blocks
+
+def _get_arg(code, addr):
+    # read backwards for EXTENDED_ARG
+    oparg = ord(code[addr + 1])
+    if addr >= 2 and ord(code[addr - 2]) == EXTENDED_ARG:
+        oparg |= ord(code[addr - 1]) << 8
+        if addr >= 4 and ord(code[addr - 4]) == EXTENDED_ARG:
+            raise ValueError("fix me please!")
+    return oparg
+
+def compatible_block_stack(from_stack, to_stack):
+    if to_stack is None:
+        return False
+    return from_stack[:len(to_stack)] == to_stack
+
+def explain_incompatible_block_stack(to_stack):
+    kind = to_stack[-1]
+    if kind == JUMP_BLOCKSTACK_LOOP:
+        return "can't jump into the body of a for loop"
+    elif kind == JUMP_BLOCKSTACK_TRY:
+        return "can't jump into the body of a try statement"
+    elif kind == JUMP_BLOCKSTACK_WITH:
+        return "can't jump into the body of a with statement"
+    else:
+        assert kind == JUMP_BLOCKSTACK_EXCEPT
+        return "can't jump into an 'except' block as there's no exception"
 # ____________________________________________________________
 
 def get_block_class(opname):
