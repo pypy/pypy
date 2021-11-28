@@ -34,14 +34,19 @@ class AppTestMarshalMore:
 
     def test_unmarshal_ascii(self):
         import marshal
-        s = marshal.loads(b"a\x04\x00\x00\x00ab\xc2\x84")
-        assert s == u"ab\xc2\x84"
-        #s = marshal.loads(b"A\x04\x00\x00\x00ab\xc2\x84")
-        #assert s == u"ab\xc2\x84"
-        #s = marshal.loads(b"z\x04ab\xc2\x84")
-        #assert s == u"ab\xc2\x84"
-        #s = marshal.loads(b"Z\x04ab\xc2\x84")
-        #assert s == u"ab\xc2\x84"
+        s = marshal.loads(b"a\x04\x00\x00\x00abcd")
+        assert s == u"abcd"
+
+    def test_marshal_ascii(self):
+        import marshal
+        s = marshal.dumps("a")
+        assert s.endswith(b"\x01a")
+        s = marshal.dumps("a" * 1000)
+        assert s == b"\xe1\xe8\x03\x00\x00" + b"a" * 1000
+        for x in ("?" * 255, "a" * 1000, "xyza"):
+            s = marshal.dumps(x)
+            s1 = marshal.dumps((x, x)) # check that sharing works
+            assert s1 == b")\x02" + s + b"r\x00\x00\x00\x00"
 
     def test_shared_string(self):
         import marshal
