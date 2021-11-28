@@ -759,7 +759,7 @@ class PyFrame(W_Root):
                 assert kind == JUMP_BLOCKSTACK_EXCEPT
                 raise OperationError(space.w_ValueError, space.newtext(
                     "can't jump out of an 'except' block"))
-            start_block_stack = start_block_stack[:-1]
+            start_block_stack = pop_simulated_stack(start_block_stack)
 
         d.f_lineno = new_lineno
         assert best_addr & 1 == 0
@@ -958,7 +958,7 @@ def markblocks(code):
                 blocks[i // 2 + 1] = block_stack
             elif opcode == FOR_ITER:
                 blocks[i // 2 + 1] = block_stack
-                block_stack = block_stack[:-1]
+                block_stack = pop_simulated_stack(block_stack)
                 j = _get_arg(code.co_code, i) + i + 2
                 assert blocks[j // 2] is None or blocks[j // 2] == block_stack
                 blocks[j // 2] = block_stack
@@ -966,10 +966,10 @@ def markblocks(code):
                 opcode == POP_BLOCK or
                 opcode == POP_EXCEPT
             ):
-                block_stack = block_stack[:-1]
+                block_stack = pop_simulated_stack(block_stack)
                 blocks[i // 2 + 1] = block_stack
             elif opcode == END_ASYNC_FOR:
-                block_stack = block_stack[:-2]
+                block_stack = pop_simulated_stack(block_stack, 2)
                 blocks[i // 2 + 1] = block_stack
             elif (
                 opcode == RETURN_VALUE or
@@ -980,6 +980,11 @@ def markblocks(code):
             else:
                 blocks[i // 2 + 1] = block_stack
     return blocks
+
+def pop_simulated_stack(stack, offset=1):
+    end = len(stack) - offset
+    assert end >= 0
+    return stack[:end]
 
 def _get_arg(code, addr):
     # read backwards for EXTENDED_ARG
