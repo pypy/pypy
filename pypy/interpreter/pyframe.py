@@ -729,6 +729,7 @@ class PyFrame(W_Root):
         best_block_stack = None
 
         error = "cannot find bytecode for specified line"
+        best_addr = -1
         for i in range(len(lines)):
             if lines[i] == new_lineno:
                 target_block_stack = blocks[i]
