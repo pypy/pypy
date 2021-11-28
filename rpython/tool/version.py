@@ -1,4 +1,5 @@
 from __future__ import print_function
+import time
 import py
 import os
 from subprocess import Popen, PIPE
@@ -15,9 +16,21 @@ def maywarn(err, repo_type='Mercurial'):
     log = AnsiLogger("version")
     log.WARNING('Errors getting %s information: %s' % (repo_type, err))
 
+CACHED_RESULT = None
+CACHED_ARGS = None
+
 def get_repo_version_info(hgexe=None, root=rpythonroot):
     '''Obtain version information by invoking the 'hg' or 'git' commands.'''
+    global CACHED_RESULT, CACHED_ARGS
+    key = (hgexe, root)
+    if CACHED_RESULT is not None and CACHED_ARGS == key:
+        return CACHED_RESULT
+    res = _get_repo_version_info(hgexe, root)
+    CACHED_RESULT = res
+    CACHED_ARGS = key
+    return res
 
+def _get_repo_version_info(hgexe, root):
     # Try to see if we can get info from Git if hgexe is not specified.
     if not hgexe:
         if os.path.isdir(os.path.join(root, '.git')):
@@ -57,33 +70,19 @@ def _get_hg_version(hgexe, root):
         maywarn('command does not identify itself as Mercurial')
         return default_retval
 
-    p = Popen([str(hgexe), 'id', '-i', root],
+    p = Popen([str(hgexe), 'id', '--template', r"{id}\n{tags}\n{branch}\n", root],
               stdout=PIPE, stderr=PIPE, env=env,
               universal_newlines=True)
-    hgid = p.stdout.read().strip()
+    hgout = p.stdout.read().strip()
     if p.wait() != 0:
         maywarn(p.stderr.read())
-        hgid = '?'
-
-    p = Popen([str(hgexe), 'id', '-t', root],
-              stdout=PIPE, stderr=PIPE, env=env,
-              universal_newlines=True)
-    hgtags = [t for t in p.stdout.read().strip().split() if t != 'tip']
-    if p.wait() != 0:
-        maywarn(p.stderr.read())
-        hgtags = ['?']
+        hgout = '?\n?\n?'
+    hgid, hgtags, hgbranch = hgout.strip().split("\n", 3)
+    hgtags = [t for t in hgtags.strip().split() if t != 'tip']
 
     if hgtags:
         return hgtags[0], hgid
     else:
-        # use the branch instead
-        p = Popen([str(hgexe), 'id', '-b', root],
-                  stdout=PIPE, stderr=PIPE, env=env,
-                  universal_newlines=True)
-        hgbranch = p.stdout.read().strip()
-        if p.wait() != 0:
-            maywarn(p.stderr.read())
-
         return hgbranch, hgid
 
 

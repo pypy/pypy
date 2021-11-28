@@ -132,7 +132,7 @@ class PyCode(eval.Code):
         self.co_code = code
         self.co_consts_w = consts
         self.co_names_w = [
-            space.new_interned_w_str(space.newtext(aname))
+            space.new_interned_str(aname)
             for aname in names]
         self.co_varnames = varnames
         self.co_freevars = freevars
