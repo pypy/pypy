@@ -838,6 +838,16 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
+        if not we_are_translated():
+            res = []
+            size = 0
+            while True:
+                c = cp[size]
+                if c == lastchar:
+                    return assert_str0("".join(res))
+                res.append(c)
+                size += 1
+
         size = 0
         while cp[size] != lastchar:
             size += 1
