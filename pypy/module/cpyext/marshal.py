@@ -14,4 +14,4 @@ def PyMarshal_ReadObjectFromString(space, p, size):
 @cpython_api([PyObject, rffi.INT_real], PyObject, header=_HEADER)
 def PyMarshal_WriteObjectToString(space, w_x, version):
     from pypy.module.marshal.interp_marshal import dumps
-    return dumps(space, w_x, version)
+    return dumps(space, w_x, rffi.cast(lltype.Signed(version)))
