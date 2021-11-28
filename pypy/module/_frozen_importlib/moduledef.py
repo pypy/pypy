@@ -70,7 +70,8 @@ class Module(MixedModule):
             # must (re)compile the source
             ec = space.getexecutioncontext()
             code_w = ec.compiler.compile(source, *args)
-            w_bin = interp_marshal.dumps(space, code_w, space.wrap(2))
+            w_bin = interp_marshal.dumps(
+                space, code_w)
             content = source + '\x00' + space.bytes_w(w_bin)
             with open(cachename, 'wb') as f:
                 f.write(content)
