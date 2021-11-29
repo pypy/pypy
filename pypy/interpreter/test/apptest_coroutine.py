@@ -871,3 +871,27 @@ def test_await_multiple_times_same_gen():
             await coro
 
     run_async(run())
+
+def test_async_generator_wrapped_value_is_real_type():
+    def tracer(frame, evt, *args):
+        str(args) # used to crash when seeing the AsyncGenValueWrapper
+        return tracer
+
+    async def async_gen():
+        yield -2
+
+    async def async_test():
+        a = 2
+        async for i in async_gen():
+            a = 4
+        else:
+            a = 6
+
+    def run():
+        x = async_test()
+        try:
+            sys.settrace(tracer)
+            x.send(None)
+        finally:
+            sys.settrace(None)
+    raises(StopIteration, run)
