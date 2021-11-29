@@ -1379,15 +1379,42 @@ class ObjSpace(object):
             filename = '?'
         from pypy.interpreter.pycode import PyCode
         if isinstance(statement, str):
-            compiler = self.createcompiler()
-            statement = compiler.compile(statement, filename, 'exec', 0,
-                                         hidden_applevel=hidden_applevel)
+            statement = self._cached_compile(filename, statement, 'exec', 0, hidden_applevel)
         if not isinstance(statement, PyCode):
             raise TypeError('space.exec_(): expected a string, code or PyCode object')
         w_key = self.newtext('__builtins__')
         if not self.contains_w(w_globals, w_key):
             self.setitem(w_globals, w_key, self.builtin)
         return statement.exec_code(self, w_globals, w_locals)
+
+
+    @not_rpython
+    def _cached_compile(self, filename, source, *args):
+        import os
+        from hashlib import md5
+        from rpython.config.translationoption import CACHE_DIR
+        from pypy.module.marshal import interp_marshal
+        from pypy.interpreter.pycode import default_magic
+
+        cachename = os.path.join(
+            CACHE_DIR, "applevel_exec_" + md5('%d%s%s' % (
+            default_magic, filename, source)).hexdigest())
+        try:
+            if self.config.translating:
+                raise IOError("don't use the cache when translating pypy")
+            with open(cachename, 'rb') as f:
+                w_bin = self.newbytes(f.read())
+                code_w = interp_marshal.loads(self, w_bin)
+        except IOError:
+            # must (re)compile the source
+            ec = self.getexecutioncontext()
+            code_w = ec.compiler.compile(source, filename, *args)
+            w_bin = interp_marshal.dumps(self, code_w)
+            content = self.bytes_w(w_bin)
+            with open(cachename, 'wb') as f:
+                f.write(content)
+        return code_w
+
 
     @not_rpython
     def appdef(self, source):

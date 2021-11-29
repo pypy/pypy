@@ -507,6 +507,7 @@ from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator, Coroutine
 from pypy.interpreter.generator import CoroutineWrapper, AIterWrapper
 from pypy.interpreter.generator import AsyncGenerator
+from pypy.interpreter.generator import AsyncGenValueWrapper
 from pypy.interpreter.generator import AsyncGenASend, AsyncGenAThrow
 from pypy.interpreter.nestedscope import Cell, descr_new_cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
@@ -916,6 +917,9 @@ AsyncGenerator.typedef = TypeDef("async_generator",
         generic_alias_class_getitem, as_classmethod=True),
 )
 assert not AsyncGenerator.typedef.acceptable_as_base_class  # no __new__
+
+AsyncGenValueWrapper.typedef = TypeDef("async_generator_wrapped_value")
+assert not AsyncGenValueWrapper.typedef.acceptable_as_base_class
 
 CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
     __iter__     = interp2app(CoroutineWrapper.descr__iter__),
