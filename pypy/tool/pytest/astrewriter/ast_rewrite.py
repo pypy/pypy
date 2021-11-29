@@ -1,53 +1,6 @@
 """Rewrite assertion AST to produce nice error messages"""
-from __future__ import absolute_import, division, print_function
 from pypy.interpreter.astcompiler import ast
 import itertools
-import marshal
-import sys
-
-from .ast_util import callbinrepr
-
-
-# pytest caches rewritten pycs in __pycache__.
-if hasattr(sys, "pypy_version_info"):
-    impl = "pypy"
-elif sys.platform == "java":
-    impl = "jython"
-else:
-    impl = "cpython"
-ver = sys.version_info
-PYTEST_TAG = "%s-%s%s-PYTEST" % (impl, ver[0], ver[1])
-del ver, impl
-
-PYC_EXT = ".py" + (__debug__ and "c" or "o")
-PYC_TAIL = "." + PYTEST_TAG + PYC_EXT
-
-
-def _write_pyc(state, co, source_stat, pyc):
-    # Technically, we don't have to have the same pyc format as
-    # (C)Python, since these "pycs" should never be seen by builtin
-    # import. However, there's little reason deviate, and I hope
-    # sometime to be able to use imp.load_compiled to load them. (See
-    # the comment in load_module above.)
-    import struct
-    try:
-        fp = open(pyc, "wb")
-    except IOError:
-        err = sys.exc_info()[1].errno
-        state.trace("error writing pyc file at %s: errno=%s" % (pyc, err))
-        # we ignore any failure to write the cache file
-        # there are many reasons, permission-denied, __pycache__ being a
-        # file etc.
-        return False
-    try:
-        fp.write(imp.get_magic())
-        mtime = int(source_stat.mtime)
-        size = source_stat.size & 0xFFFFFFFF
-        fp.write(struct.pack("<ll", mtime, size))
-        marshal.dump(co, fp)
-    finally:
-        fp.close()
-    return True
 
 
 def rewrite_asserts(space, source, filename):
@@ -61,65 +14,9 @@ def rewrite_asserts(space, source, filename):
     co = c.compile_ast(tree, filename, 'exec', 0)
     return co
 
-
-def create_module(filename, co, pyc=None):
-    """Create a module from a code object created by rewrite_asserts()"""
-    mod = type(sys)(filename)
-    mod.__file__ = co.co_filename
-    if pyc is not None:
-        mod.__cached__ = pyc
-    mod.__loader__ = None
-    exec(co, mod.__dict__)
-    return mod
-
-
-def _make_rewritten_pyc(state, source_stat, pyc, co):
-    """Try to dump rewritten code to *pyc*."""
-    import os
-    if sys.platform.startswith("win"):
-        # Windows grants exclusive access to open files and doesn't have atomic
-        # rename, so just write into the final file.
-        _write_pyc(state, co, source_stat, pyc)
-    else:
-        # When not on windows, assume rename is atomic. Dump the code object
-        # into a file specific to this process and atomically replace it.
-        proc_pyc = pyc + "." + str(os.getpid())
-        if _write_pyc(state, co, source_stat, proc_pyc):
-            os.rename(proc_pyc, pyc)
-
-
-def _read_pyc(source, pyc, trace=lambda x: None):
-    """Possibly read a pytest pyc containing rewritten code.
-
-    Return rewritten code if successful or None if not.
-    """
-    import struct
-    try:
-        fp = open(pyc, "rb")
-    except IOError:
-        return None
-    with fp:
-        try:
-            mtime = int(source.mtime())
-            size = source.size()
-            data = fp.read(12)
-        except EnvironmentError as e:
-            trace('_read_pyc(%s): EnvironmentError %s' % (source, e))
-            return None
-        # Check for invalid or out of date pyc file.
-        if (len(data) != 12 or data[:4] != imp.get_magic() or
-                struct.unpack("<ll", data[4:]) != (mtime, size)):
-            trace('_read_pyc(%s): invalid or out of date pyc' % source)
-            return None
-        try:
-            co = marshal.load(fp)
-        except Exception as e:
-            trace('_read_pyc(%s): marshal.load error %s' % (source, e))
-            return None
-        if not isinstance(co, types.CodeType):
-            trace('_read_pyc(%s): not a code object' % source)
-            return None
-        return co
+def rewrite_asserts_ast(space, tree):
+    AssertionRewriter(space).run(tree)
+    return tree
 
 
 unary_map = {
@@ -233,10 +130,8 @@ class AssertionRewriter(ast.ASTVisitor):
 
     """
 
-    def __init__(self, space, module_path):
-        super(AssertionRewriter, self).__init__()
+    def __init__(self, space):
         self.space = space
-        self.module_path = module_path
 
     def visit(self, node):
         return getattr(self, "visit_" + type(node).__name__, self.default_visitor)(node)
@@ -299,8 +194,7 @@ class AssertionRewriter(ast.ASTVisitor):
                       not isinstance(field, ast.expr)):
                     nodes.append(field)
 
-    @staticmethod
-    def is_rewrite_disabled(docstring):
+    def is_rewrite_disabled(self, docstring):
         return "PYTEST_DONT_REWRITE" in self.space.text_w(docstring)
 
     def variable(self):

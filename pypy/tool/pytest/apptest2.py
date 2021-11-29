@@ -11,7 +11,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
 from pypy.tool.pytest import objspace
 from pypy.tool.pytest import appsupport
-from pypy.tool.pytest.astrewriter.ast_rewrite import rewrite_asserts
+from pypy.tool.pytest.astrewriter.ast_rewrite import rewrite_asserts_ast
 
 
 class AppTestModule(pytest.Module):
@@ -30,13 +30,11 @@ class AppTestModule(pytest.Module):
         w_name = space.newtext(str(self.fspath.purebasename))
         w_fname = space.newtext(fname)
         if self.rewrite_asserts:
-            w_code = rewrite_asserts(space, source, fname)
-            w_mod = Module(space, w_name)
-            w_dict = w_mod.getdict(space)
-            space.setitem(w_dict, space.newtext('__file__'), space.newtext(filename))
-            space.exec_(w_code, w_dict, w_dict, filename=filename)
-        else:
-            w_mod = create_module(space, w_name, fname, source)
+            # actually a w_code, but works fine with space.exec_
+            source = space._cached_compile(
+                fname, source, "exec", 0, False,
+                ast_transform=rewrite_asserts_ast)
+        w_mod = create_module(space, w_name, fname, source)
         mod_dict = w_mod.getdict(space).unwrap(space)
         items = []
         for name, w_obj in mod_dict.items():
