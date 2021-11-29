@@ -518,11 +518,11 @@ class AssertionRewriter(ast.ASTVisitor):
         arg_expls = []
         new_args = []
         new_kwargs = []
-        for arg in call.args:
+        for arg in call.args or []:
             res, expl = self.visit(arg)
             arg_expls.append(expl)
             new_args.append(res)
-        for keyword in call.keywords:
+        for keyword in call.keywords or []:
             res, expl = self.visit(keyword.value)
             new_kwargs.append(ast.keyword(keyword.arg, res))
             if keyword.arg:

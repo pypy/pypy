@@ -110,6 +110,7 @@ def call_reprcompare(space, w_ops, w_results, w_expls, w_each_obj):
             done = True
         if done:
             break
+    # XXX disabled for now
     #w_custom = callbinrepr(ops_w[i], each_obj_w[i], each_obj_w[i + 1])
     #if w_custom is not None:
     #    return w_custom
