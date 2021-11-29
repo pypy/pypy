@@ -10,7 +10,7 @@ def rewrite_asserts(space, source, filename):
     """
     c = space.createcompiler()
     tree = c.compile_to_ast(source, filename, "exec", 0)
-    AssertionRewriter(space, filename).run(tree)
+    AssertionRewriter(space).run(tree)
     co = c.compile_ast(tree, filename, 'exec', 0)
     return co
 
