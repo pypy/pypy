@@ -4,7 +4,7 @@ from pypy.tool.pytest.astrewriter import ast_rewrite
 def get_assert_explanation(space, src):
     fn = "?"
     w_code = ast_rewrite.rewrite_asserts(space, src, fn)
-    w_d = space.newdict()
+    w_d = space.newdict(module=True)
     excinfo = space.raises_w(space.w_AssertionError, space.exec_, w_code, w_d, w_d)
     return space.text_w(space.getitem(space.getattr(excinfo.value.get_w_value(space), space.newtext("args")), space.newint(0)))
 
@@ -49,3 +49,16 @@ def test_boolop(space):
     src = "x = 1; y = 2; assert x == 2 and y == 3"
     expl = get_assert_explanation(space, src)
     assert expl == 'assert (1 == 2)'
+
+def test_attribute(space):
+    src = """
+class A:
+    x = 1
+
+def f():
+    a = A
+    assert a.x == 2
+f()
+"""
+    expl = get_assert_explanation(space, src)
+    assert expl == "assert 1 == 2\n +  where 1 = <class 'A'>.x"

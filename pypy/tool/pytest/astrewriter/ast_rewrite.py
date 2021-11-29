@@ -520,7 +520,7 @@ class AssertionRewriter(ast.ASTVisitor):
         return starred, '*' + expl
 
     def visit_Attribute(self, attr):
-        if not isinstance(attr.ctx, ast.Load):
+        if attr.ctx != ast.Load:
             return self.default_visitor(attr)
         value, value_expl = self.visit(attr.value)
         res = self.assign(b(ast.Attribute, value, attr.attr, ast.Load))
