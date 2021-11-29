@@ -6,7 +6,7 @@
 
 import threading
 import functools
-import collections
+import collections.abc
 import weakref
 import sys
 import io
@@ -164,7 +164,7 @@ def parse_filter_spec_lzma(id, preset=m.LZMA_PRESET_DEFAULT, **kwargs):
     return ret
 
 def parse_filter_spec(spec):
-    if not isinstance(spec, collections.Mapping):
+    if not isinstance(spec, collections.abc.Mapping):
         raise TypeError("Filter specifier must be a dict or dict-like object")
     ret = ffi.new('lzma_filter*')
     try:
