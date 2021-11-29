@@ -664,7 +664,7 @@ class W_LongRangeIterator(W_AbstractRangeIterator):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
-        w_args = space.newtuple([self.w_start, self.w_step, self.w_len])
+        w_args = space.newtuple([self.w_start, self.w_step, self.w_len, self.w_index])
         return space.newtuple([mod.get('longrangeiter_new'), w_args, self.w_index])
 
 
@@ -697,7 +697,7 @@ class W_IntRangeIterator(W_AbstractRangeIterator):
         new_inst = mod.get('intrangeiter_new')
         nt = space.newtuple
 
-        tup = [space.newint(self.start), self.get_remaining(space), space.newint(self.step)]
+        tup = [space.newint(self.current), self.get_remaining(space), space.newint(self.step)]
         return nt([new_inst, nt(tup), space.newint(self.current)])
 
     def get_remaining(self, space):
@@ -747,6 +747,7 @@ class W_IntRangeOneArgIterator(W_IntRangeIterator):
     _immutable_fields_ = ['stop']
 
     def __init__(self, space, stop):
+        self.start = 0
         self.current = 0
         self.stop = stop
         self.step = 1
