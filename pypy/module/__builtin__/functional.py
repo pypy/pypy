@@ -635,6 +635,9 @@ class W_AbstractRangeIterator(W_Root):
     def descr_reduce(self, space):
         raise NotImplementedError
 
+    @unwrap_spec(index=int)
+    def descr_setstate(self, space, index):
+        raise NotImplementedError
 
 class W_LongRangeIterator(W_AbstractRangeIterator):
     def __init__(self, space, w_start, w_step, w_len, w_index=None):
@@ -661,14 +664,14 @@ class W_LongRangeIterator(W_AbstractRangeIterator):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
-        w_args = space.newtuple([self.w_start, self.w_step, self.w_len,
-                                 self.w_index])
-        return space.newtuple([mod.get('longrangeiter_new'), w_args])
+        w_args = space.newtuple([self.w_start, self.w_step, self.w_len])
+        return space.newtuple([mod.get('longrangeiter_new'), w_args, self.w_index])
 
 
 class W_IntRangeIterator(W_AbstractRangeIterator):
 
     def __init__(self, space, current, remaining, step):
+        self.start = current
         self.current = current
         self.remaining = remaining
         self.step = step
@@ -694,17 +697,26 @@ class W_IntRangeIterator(W_AbstractRangeIterator):
         new_inst = mod.get('intrangeiter_new')
         nt = space.newtuple
 
-        tup = [space.newint(self.current), self.get_remaining(space), space.newint(self.step)]
-        return nt([new_inst, nt(tup)])
+        tup = [space.newint(self.start), self.get_remaining(space), space.newint(self.step)]
+        return nt([new_inst, nt(tup), space.newint(self.current)])
 
     def get_remaining(self, space):
         return space.newint(self.remaining)
+
+    @unwrap_spec(index=int)
+    def descr_setstate(self, space, index=-1):
+        if index < 0:
+            index = 0
+        elif index > self.remaining * self.step:
+            index = self.remaining
+        self.current = index
 
 
 class W_IntRangeStepOneIterator(W_IntRangeIterator):
     _immutable_fields_ = ['stop']
 
     def __init__(self, space, start, stop):
+        self.start = start
         self.current = start
         self.stop = stop
         self.step = 1
@@ -718,6 +730,14 @@ class W_IntRangeStepOneIterator(W_IntRangeIterator):
 
     def get_remaining(self, space):
         return space.newint(self.stop - self.current)
+
+    @unwrap_spec(index=int)
+    def descr_setstate(self, space, index=-1):
+        if index < 0:
+            index = 0
+        elif index > self.stop:
+            index = self.stop
+        self.current = index
 
 
 class W_IntRangeOneArgIterator(W_IntRangeIterator):
@@ -743,11 +763,12 @@ class W_IntRangeOneArgIterator(W_IntRangeIterator):
         return space.newint(self.stop - self.current)
 
 
-W_AbstractRangeIterator.typedef = TypeDef("rangeiterator",
+W_AbstractRangeIterator.typedef = TypeDef("range_iterator",
     __iter__        = interp2app(W_AbstractRangeIterator.descr_iter),
     __length_hint__ = interpindirect2app(W_AbstractRangeIterator.descr_len),
     __next__        = interpindirect2app(W_AbstractRangeIterator.descr_next),
     __reduce__      = interpindirect2app(W_AbstractRangeIterator.descr_reduce),
+    __setstate__    = interpindirect2app(W_AbstractRangeIterator.descr_setstate),
 )
 W_AbstractRangeIterator.typedef.acceptable_as_base_class = False
 

@@ -427,7 +427,11 @@ class AppTestRange:
         callable, args, idx = x.__reduce__()
         y = callable(*args)
         y.__setstate__(idx)
-        assert list(y) == list(x)
+        ylist = list(y)
+        xlist = list(x)
+        print(ylist)
+        print(xlist)
+        assert ylist == xlist
 
     def test_range_iter_reduce_one(self):
         x = iter(range(2, 9))
