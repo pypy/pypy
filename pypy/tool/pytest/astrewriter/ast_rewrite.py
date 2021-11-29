@@ -122,29 +122,6 @@ def _read_pyc(source, pyc, trace=lambda x: None):
         return co
 
 
-def _should_repr_global_name(obj):
-    return not hasattr(obj, "__name__") and not callable(obj)
-
-
-def _format_boolop(explanations, is_or):
-    explanation = "(" + (is_or and " or " or " and ").join(explanations) + ")"
-    return explanation.replace('%', '%%')
-
-
-def _call_reprcompare(ops, results, expls, each_obj):
-    for i, res, expl in zip(range(len(ops)), results, expls):
-        try:
-            done = not res
-        except Exception:
-            done = True
-        if done:
-            break
-    custom = callbinrepr(ops[i], each_obj[i], each_obj[i + 1])
-    if custom is not None:
-        return custom
-    return expl
-
-
 unary_map = {
     ast.Not: "not %s",
     ast.Invert: "~%s",
@@ -465,7 +442,7 @@ class AssertionRewriter(ast.ASTVisitor):
         res_var = self.variable()
         expl_list = self.assign(b(ast.List, [], ast.Load))
         app = b(ast.Attribute, expl_list, "append", ast.Load)
-        is_or = int(isinstance(boolop.op, ast.Or))
+        is_or = boolop.op == ast.Or
         body = save = self.statements
         fail_save = self.on_failure
         levels = len(boolop.values) - 1
@@ -492,7 +469,7 @@ class AssertionRewriter(ast.ASTVisitor):
                 self.statements = body = inner
         self.statements = save
         self.on_failure = fail_save
-        expl_template = self.helper("format_boolop", expl_list, b(ast.Num, is_or))
+        expl_template = self.helper("format_boolop", expl_list, b(ast.Num, self.space.newint(is_or)))
         expl = self.pop_format_context(expl_template)
         return b(ast.Name, res_var, ast.Load), self.explanation_param(expl)
 

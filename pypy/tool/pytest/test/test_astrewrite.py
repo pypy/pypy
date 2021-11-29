@@ -33,7 +33,6 @@ f()
     assert expl == 'assert 15 == (1 == 2)\n +  where 15 = g()'
 
 def test_list(space):
-
     src = """
 x = 1
 y = 2
@@ -42,3 +41,11 @@ assert [1, 1, x] == [1, 1, y]
     expl = get_assert_explanation(space, src)
     # diff etc disabled for now
     assert expl == 'assert [1, 1, 1] == [1, 1, 2]'
+
+def test_boolop(space):
+    src = "x = 1; y = 2; assert x == 1 and y == 3"
+    expl = get_assert_explanation(space, src)
+    assert expl == 'assert (1 == 1 and 2 == 3)'
+    src = "x = 1; y = 2; assert x == 2 and y == 3"
+    expl = get_assert_explanation(space, src)
+    assert expl == 'assert (1 == 2)'

@@ -95,8 +95,13 @@ def should_repr_global_name(space, w_obj):
             space.findattr(w_obj, space.newtext("__name__")) is None and
             not space.callable_w(w_obj))
 
-def format_boolop(space, __args__):
-    import pdb; pdb.set_trace()
+
+@unwrap_spec(is_or=bool)
+def format_boolop(space, w_explanations, is_or):
+    explanations_w = space.unpackiterable(w_explanations)
+    explanation = "(" + (is_or and " or " or " and ").join([space.text_w(w_e) for w_e in explanations_w]) + ")"
+    return space.newtext(explanation.replace('%', '%%'))
+
 
 def call_reprcompare(space, w_ops, w_results, w_expls, w_each_obj):
     ops_w = space.unpackiterable(w_ops)
