@@ -237,14 +237,17 @@ def test_parseerror_lineno():
         eval('\n\nf"{,}"')
     assert excinfo.value.lineno == 3
     assert excinfo.value.offset == 4
+    assert excinfo.value.msg == "f-string: invalid syntax"
     with raises(SyntaxError) as excinfo:
         eval('f"\\\n\\\n{,}"')
     assert excinfo.value.lineno == 3
     assert excinfo.value.offset == 2
     assert excinfo.value.text == '{,}"'
+    assert excinfo.value.msg == "f-string: invalid syntax"
     with raises(SyntaxError) as excinfo:
         eval('''f"""{
 ,}"""''')
     assert excinfo.value.lineno == 2
     assert excinfo.value.offset == 1
     assert excinfo.value.text == ',}"""'
+    assert excinfo.value.msg == "f-string: invalid syntax"
