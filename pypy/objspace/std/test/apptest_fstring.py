@@ -17,6 +17,15 @@ def test_ast_lineno_and_col_offset():
     assert y_ast.lineno == 2
     assert y_ast.col_offset == 9
 
+def test_ast_lineno_and_col_offset_duplicate():
+    m = ast.parse("\nf'a{x}bc{x}de'")
+    x_ast = m.body[0].value.values[1].value
+    y_ast = m.body[0].value.values[3].value
+    assert x_ast.lineno == 2
+    assert x_ast.col_offset == 4
+    assert y_ast.lineno == 2
+    assert y_ast.col_offset == 9
+
 def test_ast_lineno_and_col_offset_unicode():
     s = "\nf'α{χ}βγ{ψ}δε'"
     assert s.encode('utf-8') ==b"\nf'\xce\xb1{\xcf\x87}\xce\xb2\xce\xb3{\xcf\x88}\xce\xb4\xce\xb5'"

@@ -55,7 +55,7 @@ def f_string_compile(astbuilder, source, atom_node, fstr, start_offset):
         # CPython has an equivalent hack :-(
         value = stnode.get_value()
         if value is not None:
-            offset = value.find(source) # start_offset + fstr.content_offset
+            offset = start_offset + fstr.content_offset
             assert offset >= 0
             last_nl = max(0, value.rfind('\n', 0, offset))
             column_offset = offset - last_nl + stnode.get_column()
