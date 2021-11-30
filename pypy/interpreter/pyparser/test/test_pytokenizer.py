@@ -217,3 +217,6 @@ whatisthis"""'''
         check_token_error("aänc€",
                 "invalid character '€' (U+20AC)",
                 6)
+        check_token_error("a\xc2\xa0b",
+                "invalid non-printable character U+00A0",
+                2)

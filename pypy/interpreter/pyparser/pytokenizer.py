@@ -113,15 +113,19 @@ def verify_identifier(token, line, lnum, start, token_list, flags):
         pos = it.get_pos()
 
 def raise_invalid_unicode_char(code, token, line, lnum, start, token_list):
+    from pypy.module.unicodedata.interp_ucd import unicodedb
     # valid utf-8, but it gives a unicode char that cannot
     # be used in identifiers
     assert code >= 0
-    raise TokenError(
-        "invalid character '%s' (U+%s)" % (
-            rutf8.unichr_as_utf8(code), hex(code)[2:].upper()
-        ),
-        line, lnum, start + 1, token_list
-    )
+    h = hex(code)[2:].upper()
+    if len(h) < 4:
+        h = "0" * (4 - len(h)) + h
+    if not unicodedb.isprintable(code):
+        msg = "invalid non-printable character U+%s" % h
+    else:
+        msg = "invalid character '%s' (U+%s)" % (
+            rutf8.unichr_as_utf8(code), h)
+    raise TokenError(msg, line, lnum, start + 1, token_list)
 
 
 
