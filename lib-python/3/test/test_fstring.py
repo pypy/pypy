@@ -948,10 +948,10 @@ x = (
                              "Bf''",
                              "BF''",]
         double_quote_cases = [case.replace("'", '"') for case in single_quote_cases]
+        # PyPy change: producing "invalid syntax" sounds better than the weird
+        # thing about EOF
         error_msg = (
             'invalid syntax'
-            if use_old_parser()
-            else 'unexpected EOF while parsing'
         )
         self.assertAllRaise(SyntaxError, error_msg,
                             single_quote_cases + double_quote_cases)
