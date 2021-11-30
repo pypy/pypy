@@ -251,3 +251,18 @@ def test_parseerror_lineno():
     assert excinfo.value.offset == 1
     assert excinfo.value.text == ',}"""'
     assert excinfo.value.msg == "f-string: invalid syntax"
+
+def test_joined_positions():
+    expr = """('a'
+    "b"
+    f"wat2"
+)
+"""
+    t = ast.parse(expr)
+    # check the fstring
+    fstring = t.body[0].value
+    for x in fstring, fstring.values[0]:
+        assert fstring.lineno == 1
+        assert fstring.col_offset == 1
+        assert fstring.end_lineno == 3
+        assert fstring.end_col_offset == 11

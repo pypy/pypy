@@ -26,13 +26,20 @@ def add_constant_string(astbuilder, joined_pieces, w_string, token,
     space = astbuilder.space
     is_unicode = space.isinstance_w(w_string, space.w_unicode)
     # Implement implicit string concatenation.
+    start_lineno = token.lineno
+    start_column = token.column
+    end_lineno = token.end_lineno
+    end_column = token.end_column
     if joined_pieces:
         prev = joined_pieces[-1]
         if isinstance(prev, ast.Constant):
             if is_unicode is space.isinstance_w(prev.value, space.w_unicode):
                 w_string = space.add(prev.value, w_string)
-                del joined_pieces[-1]                
-    joined_pieces.append(build(ast.Constant, w_string, space.newtext_or_none(kind), token))
+                start_lineno = joined_pieces[-1].lineno
+                start_column = joined_pieces[-1].col_offset
+                del joined_pieces[-1]
+    joined_pieces.append(ast.Constant(w_string, space.newtext_or_none(kind),
+        start_lineno, start_column, end_lineno, end_column))
 
 def f_string_compile(astbuilder, source, token, fstr, start_offset):
     # Note: a f-string is kept as a single literal up to here.
