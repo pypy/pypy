@@ -49,10 +49,17 @@ def f_string_compile(astbuilder, source, atom_node, fstr, start_offset):
 
     lineno = 0
     column_offset = 0
+    # overview:
+    # here's the input, after the | in a simple case, no newlines:
+    # |a + f" ??? {x}"
+    # offset of the f" that starts the f-string is fstr.stnode.get_column()
+    # offset of the start of the content of the f-string is +
+    # fstr.content_offset
+    # offset of the content of the {curly parens} we are parsing now is
+    # start_offset
     if fstr.stnode:
         stnode = fstr.stnode
         lineno = stnode.get_lineno() - 1 # one-based
-        # CPython has an equivalent hack :-(
         value = stnode.get_value()
         if value is not None:
             offset = start_offset + fstr.content_offset
@@ -69,9 +76,11 @@ def f_string_compile(astbuilder, source, atom_node, fstr, start_offset):
     try:
         parse_tree = parser.parse_source(paren_source, info)
     except parseerror.SyntaxError as e:
+        # same logic as fixup_fstring_positions
+        if e.lineno == 1:
+            e.offset += column_offset - 1
         e.lineno += lineno
-        e.offset -= 1 # get rid of '('
-        e.text = source
+        e.text = None # better to get it from the source
         raise
 
     ast = ast_from_node(astbuilder.space, parse_tree, info,
