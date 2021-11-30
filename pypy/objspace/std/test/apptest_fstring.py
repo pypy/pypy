@@ -165,3 +165,8 @@ def test_parseerror_lineno():
         eval('f"\\\n\\\n{,}"')
     assert excinfo.value.lineno == 3
     assert excinfo.value.offset == 2
+    with raises(SyntaxError) as excinfo:
+        eval('''f"""{
+,}"""''')
+    assert excinfo.value.lineno == 2
+    assert excinfo.value.offset == 1
