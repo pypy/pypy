@@ -600,6 +600,9 @@ class W_Range(W_Root):
     def descr_bool(self, space):
         return space.nonzero(self.w_length)
 
+    def descr_setstate(self, space, w_index):
+        return self.descr_index(space, w_index)
+
 W_Range.typedef = TypeDef("range",
     __new__          = interp2app(W_Range.descr_new.im_func),
     __repr__         = interp2app(W_Range.descr_repr),
@@ -635,8 +638,7 @@ class W_AbstractRangeIterator(W_Root):
     def descr_reduce(self, space):
         raise NotImplementedError
 
-    @unwrap_spec(index=int)
-    def descr_setstate(self, space, index):
+    def descr_setstate(self, space, w_index):
         raise NotImplementedError
 
 class W_LongRangeIterator(W_AbstractRangeIterator):
@@ -667,6 +669,12 @@ class W_LongRangeIterator(W_AbstractRangeIterator):
         w_args = space.newtuple([self.w_start, self.w_step, self.w_len, self.w_index])
         return space.newtuple([mod.get('longrangeiter_new'), w_args, self.w_index])
 
+    def descr_setstate(self, space, w_index):
+        if space.is_true(space.lt(w_index, space.newint(0))):
+            w_index = space.newint(0)
+        elif space.is_true(space.lt(self.w_len, w_index)):
+            w_index = self.w_len
+        self.w_index = w_index
 
 class W_IntRangeIterator(W_AbstractRangeIterator):
 
@@ -703,8 +711,8 @@ class W_IntRangeIterator(W_AbstractRangeIterator):
     def get_remaining(self, space):
         return space.newint(self.remaining)
 
-    @unwrap_spec(index=int)
-    def descr_setstate(self, space, index=-1):
+    def descr_setstate(self, space, w_index):
+        index = space.int_w(w_index)
         if index < 0:
             index = 0
         elif index > self.remaining * self.step:
@@ -731,8 +739,8 @@ class W_IntRangeStepOneIterator(W_IntRangeIterator):
     def get_remaining(self, space):
         return space.newint(self.stop - self.current)
 
-    @unwrap_spec(index=int)
-    def descr_setstate(self, space, index=-1):
+    def descr_setstate(self, space, w_index):
+        index = space.int_w(w_index)
         if index < 0:
             index = 0
         elif index > self.stop:
