@@ -600,9 +600,6 @@ class W_Range(W_Root):
     def descr_bool(self, space):
         return space.nonzero(self.w_length)
 
-    def descr_setstate(self, space, w_index):
-        return self.descr_index(space, w_index)
-
 W_Range.typedef = TypeDef("range",
     __new__          = interp2app(W_Range.descr_new.im_func),
     __repr__         = interp2app(W_Range.descr_repr),
@@ -706,18 +703,18 @@ class W_IntRangeIterator(W_AbstractRangeIterator):
         nt = space.newtuple
 
         tup = [space.newint(self.current), self.get_remaining(space), space.newint(self.step)]
-        return nt([new_inst, nt(tup), space.newint(self.current)])
+        return nt([new_inst, nt(tup), self.get_remaining(space)])
 
     def get_remaining(self, space):
         return space.newint(self.remaining)
 
-    def descr_setstate(self, space, w_index):
-        index = space.int_w(w_index)
-        if index < 0:
-            index = 0
-        elif index > self.remaining * self.step:
-            index = self.remaining
-        self.current = index
+    def descr_setstate(self, space, w_remaining):
+        remaining = space.int_w(w_remaining)
+        if remaining < 0:
+            remaining = 0
+        if remaining > self.remaining:
+            remaining = self.remaining
+        self.remaining = remaining
 
 
 class W_IntRangeStepOneIterator(W_IntRangeIterator):
@@ -741,8 +738,8 @@ class W_IntRangeStepOneIterator(W_IntRangeIterator):
 
     def descr_setstate(self, space, w_index):
         index = space.int_w(w_index)
-        if index < 0:
-            index = 0
+        if index < self.start:
+            index = self.start 
         elif index > self.stop:
             index = self.stop
         self.current = index
@@ -755,7 +752,6 @@ class W_IntRangeOneArgIterator(W_IntRangeIterator):
     _immutable_fields_ = ['stop']
 
     def __init__(self, space, stop):
-        self.start = 0
         self.current = 0
         self.stop = stop
         self.step = 1
@@ -771,6 +767,13 @@ class W_IntRangeOneArgIterator(W_IntRangeIterator):
     def get_remaining(self, space):
         return space.newint(self.stop - self.current)
 
+    def descr_setstate(self, space, w_index):
+        index = space.int_w(w_index)
+        if index < 0:
+            index = 0
+        elif index > self.stop:
+            index = self.stop
+        self.current = index
 
 W_AbstractRangeIterator.typedef = TypeDef("range_iterator",
     __iter__        = interp2app(W_AbstractRangeIterator.descr_iter),
