@@ -190,13 +190,13 @@ class __extend__(pyframe.PyFrame):
             elif opcode == opcodedesc.JUMP_FORWARD.index:
                 next_instr = self.JUMP_FORWARD(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_IF_FALSE_OR_POP.index:
-                next_instr = self.JUMP_IF_FALSE_OR_POP(oparg, next_instr)
+                return self.JUMP_IF_FALSE_OR_POP(oparg, next_instr, ec)
             elif opcode == opcodedesc.JUMP_IF_TRUE_OR_POP.index:
-                next_instr = self.JUMP_IF_TRUE_OR_POP(oparg, next_instr)
+                return self.JUMP_IF_TRUE_OR_POP(oparg, next_instr, ec)
             elif opcode == opcodedesc.POP_JUMP_IF_FALSE.index:
-                next_instr = self.POP_JUMP_IF_FALSE(oparg, next_instr)
+                return self.POP_JUMP_IF_FALSE(oparg, next_instr, ec)
             elif opcode == opcodedesc.POP_JUMP_IF_TRUE.index:
-                next_instr = self.POP_JUMP_IF_TRUE(oparg, next_instr)
+                return self.POP_JUMP_IF_TRUE(oparg, next_instr, ec)
             elif opcode == opcodedesc.JUMP_IF_NOT_EXC_MATCH.index:
                 next_instr = self.JUMP_IF_NOT_EXC_MATCH(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_ADD.index:
@@ -1171,28 +1171,36 @@ class __extend__(pyframe.PyFrame):
         next_instr += jumpby
         return next_instr
 
-    def POP_JUMP_IF_FALSE(self, target, next_instr):
+    def POP_JUMP_IF_FALSE(self, target, next_instr, ec):
         w_value = self.popvalue()
         if not self.space.is_true(w_value):
+            if target < next_instr:
+                return self.jump_absolute(target, ec)
             return target
         return next_instr
 
-    def POP_JUMP_IF_TRUE(self, target, next_instr):
+    def POP_JUMP_IF_TRUE(self, target, next_instr, ec):
         w_value = self.popvalue()
         if self.space.is_true(w_value):
+            if target < next_instr:
+                return self.jump_absolute(target, ec)
             return target
         return next_instr
 
-    def JUMP_IF_FALSE_OR_POP(self, target, next_instr):
+    def JUMP_IF_FALSE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if not self.space.is_true(w_value):
+            if target < next_instr:
+                return self.jump_absolute(target, ec)
             return target
         self.popvalue()
         return next_instr
 
-    def JUMP_IF_TRUE_OR_POP(self, target, next_instr):
+    def JUMP_IF_TRUE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if self.space.is_true(w_value):
+            if target < next_instr:
+                return self.jump_absolute(target, ec)
             return target
         self.popvalue()
         return next_instr

@@ -1,5 +1,5 @@
 from pypy.interpreter.astcompiler import ast, consts
-from pypy.interpreter.pyparser import parsestring
+from pypy.interpreter.pyparser import parsestring, error as parseerror
 from pypy.interpreter import error
 from pypy.interpreter import unicodehelper
 from rpython.rlib.rstring import StringBuilder
@@ -34,7 +34,7 @@ def add_constant_string(astbuilder, joined_pieces, w_string, token,
                 del joined_pieces[-1]                
     joined_pieces.append(build(ast.Constant, w_string, space.newtext_or_none(kind), token))
 
-def f_string_compile(astbuilder, source, token, fstr):
+def f_string_compile(astbuilder, source, token, fstr, start_offset):
     # Note: a f-string is kept as a single literal up to here.
     # At this point only, we recursively call the AST compiler
     # on all the '{expr}' parts.  The 'expr' part is not parsed
@@ -54,23 +54,38 @@ def f_string_compile(astbuilder, source, token, fstr):
 
     lineno = 0
     column_offset = 0
+    # overview:
+    # here's the input, after the | in a simple case, no newlines:
+    # |a + f" ??? {x}"
+    # offset of the f" that starts the f-string is fstr.stnode.get_column()
+    # offset of the start of the content of the f-string is +
+    # fstr.content_offset
+    # offset of the content of the {curly parens} we are parsing now is
+    # start_offset
     if fstr.token:
         token = fstr.token
         lineno = token.lineno - 1 # one-based
-        # CPython has an equivalent hack :-(
         value = token.value
         if value is not None:
-            offset = value.find(source)
+            offset = start_offset + fstr.content_offset
             assert offset >= 0
-            last_nl = max(0, value.rfind('\n', 0, offset))
-            column_offset = offset - last_nl + token.column
-            lineno += value.count('\n', 0, last_nl+1)
+            after_last_nl = max(0, value.rfind('\n', 0, offset) + 1)
+            column_offset = offset - after_last_nl + token.column
+            lineno += value.count('\n', 0, after_last_nl)
 
     info = pyparse.CompileInfo("<fstring>", "eval",
                                consts.PyCF_SOURCE_IS_UTF8 |
                                consts.PyCF_IGNORE_COOKIE,
                                optimize=astbuilder.compile_info.optimize)
-    ast = astbuilder.recursive_parse_to_ast(paren_source, info)
+    try:
+        ast = astbuilder.recursive_parse_to_ast(paren_source, info)
+    except parseerror.SyntaxError as e:
+        # same logic as fixup_fstring_positions
+        if e.lineno == 1:
+            e.offset += column_offset - 1
+        e.lineno += lineno
+        e.text = None # better to get it from the source
+        raise
     # column_offset - 1 to exclude prefixed ( in paren_source
     fixup_fstring_positions(ast, lineno, column_offset - 1)
     return ast
@@ -238,7 +253,7 @@ def fstring_find_expr(astbuilder, fstr, token, rec):
     # Compile the expression as soon as possible, so we show errors
     # related to the expression before errors related to the
     # conversion or format_spec.
-    expr = f_string_compile(astbuilder, s[expr_start:i], token, fstr)
+    expr = f_string_compile(astbuilder, s[expr_start:i], token, fstr, expr_start)
     assert isinstance(expr, ast.Expression)
 
     # Check for the equal sign (debugging expr)

@@ -535,7 +535,38 @@ def _invoke_binop(space, w_impl, w_obj1, w_obj2):
 class PrintCache(object):
     def __init__(self, space):
         self.w_print = space.getattr(space.builtin, space.newtext("print"))
+def _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat):
+    w_typ1 = space.type(w_obj1)
+    w_typ2 = space.type(w_obj2)
+    w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
+    if space.is_w(w_typ1, w_typ2):
+        w_right_impl = None
+    else:
+        w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
+        # the logic to decide if the reverse operation should be tried
+        # before the direct one is very obscure.  For now, and for
+        # sanity reasons, we just compare the two places where the
+        # __xxx__ and __rxxx__ methods where found by identity.
+        # Note that space.is_w() is potentially not happy if one of them
+        # is None...
+        if w_right_src and (w_left_src is not w_right_src) and w_left_src:
+            # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
+            # see objspace/std/test/test_unicodeobject.*concat_overrides
+            # and objspace/test/test_descrobject.*rmul_overrides.
+            # For cases like "unicode + string subclass".
+            if ((seq_bug_compat and w_typ1.flag_sequence_bug_compat
+                                and not w_typ2.flag_sequence_bug_compat)
+                    # the non-bug-compat part is the following check:
+                    or space.issubtype_w(w_typ2, w_typ1)):
+                if (not space.abstract_issubclass_w(w_left_src, w_right_src) and
+                    not space.abstract_issubclass_w(w_typ1, w_right_src)):
+                    w_obj1, w_obj2 = w_obj2, w_obj1
+                    w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
+    w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
+    if w_res is not None:
+        return w_res
+    return _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
 
 # regular methods def helpers
 
@@ -552,39 +583,11 @@ def _make_binop_impl(symbol, specialnames):
         printerrormsg = errormsg + '. Did you mean "print(<-number>)"?'
 
     def binop_impl(space, w_obj1, w_obj2):
+        w_res = _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat)
+        if w_res is not None:
+            return w_res
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
-        w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
-        if space.is_w(w_typ1, w_typ2):
-            w_right_impl = None
-        else:
-            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
-            # the logic to decide if the reverse operation should be tried
-            # before the direct one is very obscure.  For now, and for
-            # sanity reasons, we just compare the two places where the
-            # __xxx__ and __rxxx__ methods where found by identity.
-            # Note that space.is_w() is potentially not happy if one of them
-            # is None...
-            if w_right_src and (w_left_src is not w_right_src) and w_left_src:
-                # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
-                # see objspace/std/test/test_unicodeobject.*concat_overrides
-                # and objspace/test/test_descrobject.*rmul_overrides.
-                # For cases like "unicode + string subclass".
-                if ((seq_bug_compat and w_typ1.flag_sequence_bug_compat
-                                    and not w_typ2.flag_sequence_bug_compat)
-                        # the non-bug-compat part is the following check:
-                        or space.issubtype_w(w_typ2, w_typ1)):
-                    if (not space.abstract_issubclass_w(w_left_src, w_right_src) and
-                        not space.abstract_issubclass_w(w_typ1, w_right_src)):
-                        w_obj1, w_obj2 = w_obj2, w_obj1
-                        w_left_impl, w_right_impl = w_right_impl, w_left_impl
-
-        w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
-        if w_res is not None:
-            return w_res
-        w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
-        if w_res is not None:
-            return w_res
         if printerrormsg is not None and w_obj1 is space.fromcache(PrintCache).w_print:
             raise oefmt(space.w_TypeError, printerrormsg, w_typ1, w_typ2)
         raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
@@ -672,6 +675,9 @@ def _make_inplace_impl(symbol, specialnames):
         noninplacespacemethod += '_'     # not too clean
     seq_bug_compat = (symbol == '+=' or symbol == '*=')
     rhs_method = '__r' + specialname[3:]
+    lhs_method = '__' + specialname[3:]
+    errormsg = "unsupported operand type(s) for %s: '%%N' and '%%N'" % (
+        symbol.replace('%', '%%'),)
 
     def inplace_impl(space, w_lhs, w_rhs):
         w_impl = space.lookup(w_lhs, specialname)
@@ -693,8 +699,15 @@ def _make_inplace_impl(symbol, specialnames):
             w_res = space.get_and_call_function(w_impl, w_lhs, w_rhs)
             if _check_notimplemented(space, w_res):
                 return w_res
-        # XXX fix the error message we get here
-        return getattr(space, noninplacespacemethod)(w_lhs, w_rhs)
+
+        w_res = _call_binop_impl(space, w_lhs, w_rhs, lhs_method,
+                                 rhs_method, seq_bug_compat)
+        if w_res is not None:
+            return w_res
+
+        w_typ1 = space.type(w_lhs)
+        w_typ2 = space.type(w_rhs)
+        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
 
     return func_with_new_name(inplace_impl, 'inplace_%s_impl'%specialname.strip('_'))
 

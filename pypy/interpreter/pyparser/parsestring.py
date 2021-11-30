@@ -8,12 +8,15 @@ from rpython.rlib.rstring import StringBuilder
 
 
 class W_FString(W_Root):
-    def __init__(self, unparsed, raw_mode, token):
+    def __init__(self, unparsed, raw_mode, token, content_offset=0):
         assert isinstance(unparsed, str)    # utf-8 encoded string
         self.unparsed = unparsed     # but the quotes are removed
         self.raw_mode = raw_mode
         self.current_index = 0       # for astcompiler.fstring
         self.token = token
+        # offset behind the start of the string, after f" (or however it
+        # starts)
+        self.content_offset = content_offset
 
 
 
@@ -93,7 +96,7 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
     assert 0 <= ps <= q
     if unicode_literal:
         if saw_f:
-            return W_FString(s[ps:q], rawmode, token)
+            return W_FString(s[ps:q], rawmode, token, ps)
         elif rawmode:
             length = unicodehelper.check_utf8_or_raise(space, s, ps, q)
             return space.newutf8(s[ps:q], length)
