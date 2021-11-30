@@ -138,3 +138,11 @@ def test_truncation_crash():
     test_str="0123456789012345678\u00F6"
     assert f"{test_str:.20}" == test_str
 
+
+def test_parseerror_lineno():
+    with raises(SyntaxError) as excinfo:
+        eval('\n\nf"{,}"')
+    assert excinfo.value.lineno == 3
+    with raises(SyntaxError) as excinfo:
+        eval('f"\\\n\\\n{,}"')
+    assert excinfo.value.lineno == 3

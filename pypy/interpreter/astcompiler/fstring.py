@@ -1,5 +1,5 @@
 from pypy.interpreter.astcompiler import ast, consts
-from pypy.interpreter.pyparser import parsestring
+from pypy.interpreter.pyparser import parsestring, error as parseerror
 from pypy.interpreter import error
 from pypy.interpreter import unicodehelper
 from rpython.rlib.rstring import StringBuilder
@@ -25,7 +25,7 @@ def add_constant_string(astbuilder, joined_pieces, w_string, atom_node):
 def f_constant_string(astbuilder, joined_pieces, w_u, atom_node):
     add_constant_string(astbuilder, joined_pieces, w_u, atom_node)
 
-def f_string_compile(astbuilder, source, atom_node, fstr):
+def f_string_compile(astbuilder, source, atom_node, fstr, start_offset):
     # Note: a f-string is kept as a single literal up to here.
     # At this point only, we recursively call the AST compiler
     # on all the '{expr}' parts.  The 'expr' part is not parsed
@@ -55,7 +55,7 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
         # CPython has an equivalent hack :-(
         value = stnode.get_value()
         if value is not None:
-            offset = value.find(source)
+            offset = value.find(source) # start_offset + fstr.content_offset
             assert offset >= 0
             last_nl = max(0, value.rfind('\n', 0, offset))
             column_offset = offset - last_nl + stnode.get_column()
@@ -66,7 +66,13 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
                                consts.PyCF_IGNORE_COOKIE,
                                optimize=astbuilder.compile_info.optimize)
     parser = astbuilder.recursive_parser
-    parse_tree = parser.parse_source(paren_source, info)
+    try:
+        parse_tree = parser.parse_source(paren_source, info)
+    except parseerror.SyntaxError as e:
+        e.lineno += lineno
+        e.offset -= 1 # get rid of '('
+        e.text = source
+        raise
 
     ast = ast_from_node(astbuilder.space, parse_tree, info,
                         recursive_parser=parser)
@@ -211,7 +217,7 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # Compile the expression as soon as possible, so we show errors
     # related to the expression before errors related to the
     # conversion or format_spec.
-    expr = f_string_compile(astbuilder, s[expr_start:i], atom_node, fstr)
+    expr = f_string_compile(astbuilder, s[expr_start:i], atom_node, fstr, expr_start)
     assert isinstance(expr, ast.Expression)
 
     # Check for a conversion char, if present.
