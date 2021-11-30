@@ -64,9 +64,9 @@ def f_string_compile(astbuilder, source, atom_node, fstr, start_offset):
         if value is not None:
             offset = start_offset + fstr.content_offset
             assert offset >= 0
-            last_nl = max(0, value.rfind('\n', 0, offset))
-            column_offset = offset - last_nl + stnode.get_column()
-            lineno += value.count('\n', 0, last_nl+1)
+            after_last_nl = max(0, value.rfind('\n', 0, offset) + 1)
+            column_offset = offset - after_last_nl + stnode.get_column()
+            lineno += value.count('\n', 0, after_last_nl)
 
     info = pyparse.CompileInfo("<fstring>", "eval",
                                consts.PyCF_SOURCE_IS_UTF8 |
