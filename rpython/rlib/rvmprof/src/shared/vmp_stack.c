@@ -506,6 +506,9 @@ static void * libhandle = NULL;
 #elif __x86_64__
 #define PREFIX "x86_64"
 #define LIBUNWIND_SUFFIX "-x86_64"
+#elif __powerpc64__
+#define PREFIX "ppc64"
+#define LIBUNWIND_SUFFIX "-ppc64"
 #endif
 #define U_PREFIX "_U"
 #define UL_PREFIX "_UL"
@@ -566,7 +569,15 @@ loaded_libunwind:
         if ((unw_is_signal_frame = dlsym(libhandle, UL_PREFIX PREFIX "_is_signal_frame")) == NULL) {
             goto bail_out;
         }
-        if ((unw_getcontext = dlsym(libhandle, U_PREFIX PREFIX "_getcontext")) == NULL) {
+#if __powerpc64__
+//getcontext() naming follows a different pattern on PPC64
+#define U_PREFIX
+#define PREFIX
+#define USCORE
+#else
+#define USCORE "_"
+#endif
+        if ((unw_getcontext = dlsym(libhandle, U_PREFIX PREFIX USCORE "getcontext")) == NULL) {
             goto bail_out;
         }
     }
