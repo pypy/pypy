@@ -531,7 +531,7 @@ def see_typedef(space, typedef):
             space.wrap(value)
 
 class FakeCompiler(object):
-    def compile(self, code, name, mode, flags):
+    def compile(self, code, name, mode, flags, optimize=-1):
         return FakePyCode()
 FakeObjSpace.default_compiler = FakeCompiler()
 
