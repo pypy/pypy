@@ -85,9 +85,11 @@ class W_Random(W_Root):
 
     @unwrap_spec(k=int)
     def getrandbits(self, space, k):
-        if k <= 0:
+        if k < 0:
             raise oefmt(space.w_ValueError,
-                        "number of bits must be greater than zero")
+                        "number of bits must be non-negative")
+        if k == 0:
+            return space.newint(0)
         bytes = ((k - 1) // 32 + 1) * 4
         bytesarray = rstring.StringBuilder(bytes)
         for i in range(0, bytes, 4):

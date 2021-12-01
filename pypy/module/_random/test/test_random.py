@@ -113,6 +113,9 @@ class AppTestRandom:
             k = rnd.getrandbits(n)
             assert 0 <= k < 2 ** n
         assert rnd.getrandbits(30) != 0 # Fails every 1e10 runs
+        assert rnd.getrandbits(0) == 0
+        raises(ValueError, rnd.getrandbits, -1)
+
 
     def test_subclass(self):
         import _random
