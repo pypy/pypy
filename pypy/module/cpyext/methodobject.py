@@ -137,7 +137,7 @@ class W_PyCFunctionObject(W_Root):
             if length == 0:
                 return self.call_noargs(space, w_self, __args__)
             raise oefmt(space.w_TypeError,
-                        "%s() takes no arguments", self.name)
+                        "%s() takes no arguments (%d given)", self.name, length)
         elif flags & METH_O:
             if length != 1:
                 raise oefmt(space.w_TypeError,

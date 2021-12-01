@@ -25,7 +25,8 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              ),
             ])
         assert mod.getarg_NO() is None
-        raises(TypeError, mod.getarg_NO, 1)
+        excinfo = raises(TypeError, mod.getarg_NO, 1)
+        assert "(1 given)" in str(excinfo.value)
         raises(TypeError, mod.getarg_NO, 1, 1)
 
     def test_call_METH_O(self):
