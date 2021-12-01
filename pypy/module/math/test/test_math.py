@@ -393,6 +393,7 @@ class AppTestMath:
         assert math.lcm(0, 1) == 0
         assert math.lcm(1, 0) == 0
         assert math.lcm(3, 5, 7, 0) == 0
+        raises(TypeError, math.lcm, 12.0)
 
     def test_inf_nan(self):
         import math
