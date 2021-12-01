@@ -86,7 +86,7 @@ varnames: ()
 cellvars: ()
 freevars: ()
 nlocals: 0
-flags: 2097219
+flags: 33554499
 consts: ("'doc string'", 'None')
 
 >>> def keywordonly_args(a,b,*,k1):
