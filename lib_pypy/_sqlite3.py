@@ -752,6 +752,7 @@ class Connection(object):
             bck_conn = target._db
             if not bck_conn:
                 raise ProgrammingError("cannot operate on closed connection")
+            self._check_closed()
             bck_handle = _lib.sqlite3_backup_init(bck_conn, b"main", self._db, name.encode("utf-8"))
             if not bck_handle:
                 raise target._get_exception()
@@ -1206,10 +1207,7 @@ class Statement(object):
         if cvt is not None:
             param = cvt(param)
 
-        try:
-            param = adapt(param)
-        except:
-            pass  # And use previous value
+        param = adapt(param)
 
         if param is None:
             rc = _lib.sqlite3_bind_null(self._statement, idx)
