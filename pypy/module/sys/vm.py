@@ -434,8 +434,25 @@ class AuditHolder(object):
         w_args = space.newtuple(args_w)
         hooks_w = self.hooks_w
         assert hooks_w is not None
-        for w_hook in hooks_w:
-            space.call_function(w_hook, w_event, w_args)
+        ec = space.getexecutioncontext()
+        # don't trace audithooks by default
+        ec.is_tracing += 1
+        try:
+            for w_hook in hooks_w:
+                w_cantrace = space.findattr(w_hook, space.newtext("__cantrace__"))
+                if w_cantrace is None:
+                    cantrace = False
+                else:
+                    cantrace = space.is_true(w_cantrace)
+                if cantrace:
+                    ec.is_tracing -= 1
+                try:
+                    space.call_function(w_hook, w_event, w_args)
+                finally:
+                    if cantrace:
+                        ec.is_tracing += 1
+        finally:
+            ec.is_tracing -= 1
 
 
 @unwrap_spec(event="text")
