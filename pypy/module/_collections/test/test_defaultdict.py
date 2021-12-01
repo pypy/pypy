@@ -111,3 +111,13 @@ class AppTestBasic:
         ga = _collections.defaultdict[int]
         assert ga.__origin__ is _collections.defaultdict
         assert ga.__args__ == (int, )
+
+    def test_union(self):
+        import _collections
+        d1 = _collections.defaultdict(int)
+        d1[1], d1[2]
+        d2 = _collections.defaultdict(str)
+        d2[2], d2[3]
+        d = d1 | d2
+        assert d.default_factory is int
+        assert d == {1: 0, 2: "", 3: ""}
