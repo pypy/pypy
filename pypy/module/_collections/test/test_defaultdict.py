@@ -121,3 +121,7 @@ class AppTestBasic:
         d = d1 | d2
         assert d.default_factory is int
         assert d == {1: 0, 2: "", 3: ""}
+
+        d = dict(d1) | d2
+        assert d.default_factory is str
+        assert d == {1: 0, 2: "", 3: ""}

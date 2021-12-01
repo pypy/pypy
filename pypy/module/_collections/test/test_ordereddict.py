@@ -64,6 +64,8 @@ class AppTestBasic:
         d2 = OrderedDict({1: 4, 5: 6})
         assert type(d1 | d2) is OrderedDict
         assert d1 | d2 == {1: 4, 3: 4, 5: 6}
+        assert type(dict(d1) | d2) is OrderedDict
+        assert d1 | d2 == {1: 4, 3: 4, 5: 6}
 
     def test_ior(self):
         from _collections import OrderedDict

@@ -126,6 +126,8 @@ class OrderedDict(dict):
         copyself.update(other)
         return copyself
 
+    __ror__ = __or__
+
     # for __ior__ the dict implementation is fine
 
     __ne__ = object.__ne__

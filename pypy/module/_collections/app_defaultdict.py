@@ -69,4 +69,9 @@ class defaultdict(dict):
         copyself.update(other)
         return copyself
 
+    def __ror__(self, other):
+        res = type(self)(self.default_factory, other)
+        res.update(self)
+        return res
+
     # for __ior__ the dict implementation is fine
