@@ -271,6 +271,8 @@ class Connection(object):
             _lib.sqlite3_close(self._db)
 
     def close(self):
+        if not self.__initialized:
+            raise ProgrammingError("Base Connection.__init__ not called.")
         self._check_thread()
 
         self.__do_all_statements(Statement._finalize, True)
@@ -431,6 +433,7 @@ class Connection(object):
 
     def iterdump(self):
         from sqlite3.dump import _iterdump
+        self._check_closed()
         return _iterdump(self)
 
     def _begin(self):
@@ -708,6 +711,8 @@ class Connection(object):
     total_changes = property(__get_total_changes)
 
     def __get_isolation_level(self):
+        if not self.__initialized:
+            raise ProgrammingError("Base Connection.__init__ not called")
         return self._isolation_level
 
     def __set_isolation_level(self, val):

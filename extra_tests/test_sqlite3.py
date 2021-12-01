@@ -419,3 +419,16 @@ def test_empty_statement():
         r = cur.execute(sql)
         assert r.description is None
         assert cur.fetchall() == []
+
+def test_uninit_connection():
+    con = _sqlite3.Connection.__new__(_sqlite3.Connection)
+    with pytest.raises(_sqlite3.ProgrammingError):
+        con.isolation_level
+    with pytest.raises(_sqlite3.ProgrammingError):
+        con.total_changes
+    with pytest.raises(_sqlite3.ProgrammingError):
+        con.in_transaction
+    with pytest.raises(_sqlite3.ProgrammingError):
+        con.iterdump()
+    with pytest.raises(_sqlite3.ProgrammingError):
+        con.close()
