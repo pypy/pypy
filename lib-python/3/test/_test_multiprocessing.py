@@ -3662,6 +3662,8 @@ class _TestHeap(BaseTestCase):
         while blocks:
             blocks.pop()
 
+        support.gc_collect() # for PyPy and other GCs
+
         self.assertEqual(heap._n_frees, heap._n_mallocs)
         self.assertEqual(len(heap._pending_free_blocks), 0)
         self.assertEqual(len(heap._arenas), 0)
