@@ -119,7 +119,7 @@ class W_StringObject(W_Object):
 class OperationError(Exception):
     pass
 
-from rpython.jit.tl.threadedcode.tla_opcode import *
+from rpython.jit.tl.threadedcode.tlaopcode import *
 
 def get_printable_location_tc(pc, entry_state, bytecode, tstack):
     op = ord(bytecode[pc])
@@ -181,18 +181,6 @@ class Frame(object):
 
     @jit.dont_look_inside
     def pop(self):
-        stackpos = self.stackpos - 1
-        assert stackpos >= 0
-        self.stackpos = stackpos
-        res = self.stack[stackpos]
-        self.stack[stackpos] = None
-        return res
-
-    def _push(self, w_x):
-        self.stack[self.stackpos] = w_x
-        self.stackpos += 1
-
-    def _pop(self):
         stackpos = self.stackpos - 1
         assert stackpos >= 0
         self.stackpos = stackpos
@@ -327,6 +315,18 @@ class Frame(object):
     def RET(self, n):
         self.drop(n-1)
         return self.pop()
+
+    def _push(self, w_x):
+        self.stack[self.stackpos] = w_x
+        self.stackpos += 1
+
+    def _pop(self):
+        stackpos = self.stackpos - 1
+        assert stackpos >= 0
+        self.stackpos = stackpos
+        res = self.stack[stackpos]
+        self.stack[stackpos] = None
+        return res
 
     def _is_true(self):
         w_x = self.pop()
@@ -727,16 +727,12 @@ class Frame(object):
                 assert False, 'Unknown opcode: %d' % opcode
 
 
-def run(bytecode, w_arg):
+def run(bytecode, w_arg, entry=None):
     frame = Frame(bytecode)
     frame.push(w_arg)
     frame.push(w_arg)
-    w_result = frame.interp()
-    return w_result
-
-def run_tr(bytecode, w_arg):
-    frame = Frame(bytecode)
-    frame.push(w_arg)
-    frame.push(w_arg)
-    w_result = frame.interp_jit()
+    if entry == "tracing" or entry == "tr":
+        w_result = frame.interp_jit()
+    else:
+        w_result = frame.interp()
     return w_result

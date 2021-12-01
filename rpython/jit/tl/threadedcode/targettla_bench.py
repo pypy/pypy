@@ -60,17 +60,16 @@ def entry_point(args):
     bytecode = load_bytecode(filename)
     times = []
 
-    if init == "baseline":
-        interp = tla.run
-    elif init == "tracing":
-        interp = tla.run_tr
+    entry = None
+    if init == "tracing":
+        entry = "tracing"
 
     for i in range(warmup):
-        w_res = interp(bytecode, w_x)
+        w_res = interp(bytecode, w_x, entry)
 
     for i in range(iteration):
         s = time()
-        w_res = interp(bytecode, w_x)
+        w_res = interp(bytecode, w_x, entry)
         e = time()
         times.append(e - s)
 
