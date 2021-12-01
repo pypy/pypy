@@ -7,6 +7,8 @@ from pypy.interpreter.astcompiler.assemble import _opcode_stack_effect
 @unwrap_spec(opcode=int)
 def stack_effect(space, opcode, w_oparg=None):
     "Compute the stack effect of the opcode."
+    if opcode == stdlib_opcode.EXTENDED_ARG:
+        return space.newint(0)
     if opcode >= stdlib_opcode.HAVE_ARGUMENT:
         if space.is_none(w_oparg):
             raise oefmt(space.w_ValueError,

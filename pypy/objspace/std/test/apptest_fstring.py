@@ -266,3 +266,21 @@ def test_joined_positions():
         assert fstring.col_offset == 1
         assert fstring.end_lineno == 3
         assert fstring.end_col_offset == 11
+
+def test_tokenerror_lineno():
+    with raises(SyntaxError) as excinfo:
+        eval('\n\nf"{$}"')
+    assert excinfo.value.lineno == 3
+    assert excinfo.value.offset == 4
+    with raises(SyntaxError) as excinfo:
+        eval('f"\\\n\\\n{$}"')
+    assert excinfo.value.lineno == 3
+    assert excinfo.value.offset == 2
+    assert excinfo.value.text == '{$}"'
+    with raises(SyntaxError) as excinfo:
+        eval('''f"""{
+$}"""''')
+    assert excinfo.value.lineno == 2
+    assert excinfo.value.offset == 1
+    assert excinfo.value.text == '$}"""'
+

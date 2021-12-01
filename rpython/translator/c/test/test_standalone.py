@@ -1149,37 +1149,6 @@ class TestStandalone(StandaloneTests):
         out = cbuilder.cmdexec('')
         assert out.strip() == 'ok'
 
-    def test_int_manipulation(self):
-        # Distilled from micronumpy.descriptor._compute_hash
-        # which, for some version of gcc8 compiler produced
-        # out1 == out2
-        from rpython.rlib.rarithmetic import intmask
-        
-        def entry_point(argv):
-            if len(argv) < 4:
-                print 'need 3 arguments, not %s' % str(argv)
-                return -1
-            flags = 0
-            x = 0x345678
-            y = 0x345678
-            s = str(argv[1])[0]
-            y = intmask((1000003 * y) ^ ord(s))
-            y = intmask((1000003 * y) ^ ord(str(argv[2])[0]))
-            y = (1000003 * y)
-            y = intmask(y ^ flags)
-            y = intmask((1000003 * y) ^ int(argv[3]))
-            print y
-            return 0
-
-        t, cbuilder = self.compile(entry_point)
-        arg2 = '>'
-        if sys.platform == 'win32':
-            # windows interprets > as redirection, escape with ^
-            arg2 = '^>'
-        out1 = cbuilder.cmdexec(args=['i', arg2, '64'])
-        out2 = cbuilder.cmdexec(args=['f', arg2, '64'])
-        assert out1 != out2
-
     def test_gcc_precompiled_header(self):
         if sys.platform == 'win32':
             py.test.skip("no win")
