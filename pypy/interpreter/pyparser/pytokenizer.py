@@ -468,18 +468,18 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
                         line, lnum, end, token_list)
         # either an invalid binary or octal number
     if token.startswith("0b"):
-        ch = _skip_underscore(ch, line, end)
-        if ch.isdigit():
-            raise TokenError("invalid digit '%s' in binary literal" % (ch, ),
+        nextch = _skip_underscore(ch, line, end)
+        if nextch.isdigit():
+            raise TokenError("invalid digit '%s' in binary literal" % (nextch, ),
                     line, lnum, end + 1, token_list)
         elif ch == "_":
             raise TokenError("invalid binary literal",
                     line, lnum, end, token_list)
 
     elif token.startswith("0o"):
-        ch = _skip_underscore(ch, line, end)
-        if ch.isdigit():
-            raise TokenError("invalid digit '%s' in octal literal" % (ch, ),
+        nextch = _skip_underscore(ch, line, end)
+        if nextch.isdigit():
+            raise TokenError("invalid digit '%s' in octal literal" % (nextch, ),
                     line, lnum, end + 1, token_list)
         elif ch == "_":
             raise TokenError("invalid octal literal",

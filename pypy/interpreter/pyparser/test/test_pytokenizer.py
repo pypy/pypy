@@ -209,6 +209,9 @@ whatisthis"""'''
         check_token_error("1_ \n",
                 "invalid decimal literal",
                 2)
+        check_token_error("0b1_ \n",
+                "invalid binary literal",
+                3)
         tokenize("1 2 \n") # does not raise
         tokenize("1 _ \n") # does not raise
 
