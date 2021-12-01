@@ -584,12 +584,12 @@ set_typedef = W_SetObject.typedef
 
 
 class W_FrozensetObject(W_BaseSetObject):
-    hash = 0
+    hash = -1
 
     def _cleanup_(self):
         # in case there are frozenset objects existing during
         # translation, make sure we don't translate a cached hash
-        self.hash = 0
+        self.hash = -1
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_FrozensetObject):
@@ -622,11 +622,12 @@ class W_FrozensetObject(W_BaseSetObject):
         return w_obj
 
     def descr_hash(self, space):
-        multi = r_uint(1822399083) + r_uint(1822399083) + 1
-        if self.hash != 0:
+        if self.hash != -1:
             return space.newint(self.hash)
+        multi = r_uint(1822399083) + r_uint(1822399083) + 1
         hash = r_uint(1927868237)
         hash *= r_uint(self.length() + 1)
+        # jit driver, maybe?
         w_iterator = self.iter()
         while True:
             w_item = w_iterator.next_entry()
@@ -635,8 +636,9 @@ class W_FrozensetObject(W_BaseSetObject):
             h = space.hash_w(w_item)
             value = (r_uint(h ^ (h << 16) ^ 89869747)  * multi)
             hash = hash ^ value
+        hash ^= (hash >> 11) ^ (hash >> 25)
         hash = hash * 69069 + 907133923
-        if hash == 0:
+        if hash == -1:
             hash = 590923713
         hash = intmask(hash)
         self.hash = hash

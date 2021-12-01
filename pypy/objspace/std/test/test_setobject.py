@@ -1174,3 +1174,11 @@ class AppTestAppSetTest:
         for cls in set, frozenset:
             assert set[int, str].__origin__ is set
             assert set[int, str].__args__ == (int, str)
+
+    def test_frozenset_hash_like_cpython(self):
+        import sys
+        if sys.maxsize != 2**63 - 1:
+            skip("64 bit only")
+        assert hash(frozenset()) == 133146708735736
+        h = hash(frozenset([1, 2, 9]))
+        assert h == (-5390384031640186368)
