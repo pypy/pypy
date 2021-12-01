@@ -77,6 +77,7 @@ class structseqtype(type):
 
 builtin_dict = dict
 
+@hidden_applevel
 def structseq_new(cls, sequence, dict={}):
     dict = builtin_dict(dict)
     # visible fields

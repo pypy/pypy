@@ -893,4 +893,4 @@ class AppTest_Descroperation:
 
     def test_class_getitem(self):
         excinfo = raises(TypeError, "int[int]")
-        assert "object is not subscriptable" in str(excinfo.value)
+        assert "'type' object is not subscriptable" in str(excinfo.value)
