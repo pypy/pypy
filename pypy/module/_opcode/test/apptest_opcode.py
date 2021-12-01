@@ -9,3 +9,4 @@ def test_errors():
 
 def test_call_function():
     assert opcode.stack_effect(opcode.opmap["CALL_FUNCTION"], 3) == -3
+    assert opcode.stack_effect(opcode.opmap["EXTENDED_ARG"], 3) == 0

@@ -246,3 +246,21 @@ def test_parseerror_lineno():
     assert excinfo.value.lineno == 2
     assert excinfo.value.offset == 1
     assert excinfo.value.text == ',}"""'
+
+def test_tokenerror_lineno():
+    with raises(SyntaxError) as excinfo:
+        eval('\n\nf"{$}"')
+    assert excinfo.value.lineno == 3
+    assert excinfo.value.offset == 4
+    with raises(SyntaxError) as excinfo:
+        eval('f"\\\n\\\n{$}"')
+    assert excinfo.value.lineno == 3
+    assert excinfo.value.offset == 2
+    assert excinfo.value.text == '{$}"'
+    with raises(SyntaxError) as excinfo:
+        eval('''f"""{
+$}"""''')
+    assert excinfo.value.lineno == 2
+    assert excinfo.value.offset == 1
+    assert excinfo.value.text == '$}"""'
+
