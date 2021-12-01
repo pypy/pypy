@@ -936,7 +936,7 @@ class Cursor(object):
             pass
         try:
             if not isinstance(sql, basestring):
-                raise ValueError("operation parameter must be str or unicode")
+                raise TypeError("operation parameter must be str or unicode, not %s" % (type(sql).__name__, ))
             try:
                 del self.__description
             except AttributeError:
@@ -1130,7 +1130,7 @@ class Statement(object):
         self._in_use_token = None
 
         if not isinstance(sql, basestring):
-            raise Warning("SQL is of wrong type. Must be string or unicode.")
+            raise TypeError("sql argument must be str, not %s" % (type(sql).__name__, ))
         if '\0' in sql:
             raise ValueError("the query contains a null character")
 

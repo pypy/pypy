@@ -12,7 +12,7 @@ pypy_only = pytest.mark.skipif('__pypy__' not in sys.builtin_module_names,
     reason="PyPy-only test")
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def con():
     con = _sqlite3.connect(':memory:')
     yield con
@@ -36,9 +36,9 @@ def test_list_ddl(con):
 
 @pypy_only
 def test_connect_takes_same_positional_args_as_Connection(con):
-    from inspect import getargspec
-    clsargs = getargspec(_sqlite3.Connection.__init__).args[1:]  # ignore self
-    conargs = getargspec(_sqlite3.connect).args
+    from inspect import getfullargspec
+    clsargs = getfullargspec(_sqlite3.Connection.__init__).args[1:]  # ignore self
+    conargs = getfullargspec(_sqlite3.connect).args
     assert clsargs == conargs
 
 def test_total_changes_after_close(con):
@@ -169,15 +169,12 @@ def test_on_conflict_rollback_executemany(con):
         pytest.fail("_sqlite3 knew nothing about the implicit ROLLBACK")
 
 def test_statement_arg_checking(con):
-    with pytest.raises(_sqlite3.Warning) as e:
+    with pytest.raises(TypeError) as e:
         con(123)
-    assert str(e.value).startswith('SQL is of wrong type. Must be string')
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(TypeError) as e:
         con.execute(123)
-    assert str(e.value).startswith('operation parameter must be str')
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(TypeError) as e:
         con.executemany(123, 123)
-    assert str(e.value).startswith('operation parameter must be str')
     with pytest.raises(ValueError) as e:
         con.executescript(123)
     assert str(e.value).startswith('script argument must be unicode')
