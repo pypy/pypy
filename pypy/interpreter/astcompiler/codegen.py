@@ -1469,7 +1469,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     seen_star = True
                     elts[i] = elt.value
                 elif is_starred:
-                    self.error("two starred expressions in assignment", node)
+                    self.error("multiple starred expressions in assignment", elt)
             if not seen_star:
                 self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
         self.visit_sequence(elts)

@@ -1193,10 +1193,11 @@ def foo():
     def test_extended_unpacking_fail(self):
         exc = py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
                              None, None).value
-        assert exc.msg == "two starred expressions in assignment"
+        assert exc.msg == "multiple starred expressions in assignment"
         exc = py.test.raises(SyntaxError, self.simple_test,
                              "[*b, *c] = range(10)", None, None).value
-        assert exc.msg == "two starred expressions in assignment"
+        assert exc.msg == "multiple starred expressions in assignment"
+        assert exc.offset == 6
 
         exc = py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
                              None, None).value
