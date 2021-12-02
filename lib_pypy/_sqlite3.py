@@ -532,7 +532,7 @@ class Connection(object):
             if _lib.sqlite3_libversion_number() < 3008003:
                 raise NotSupportedError(
                         "deterministic=True requires SQLite 3.8.3 or higher")
-                flags |= _lib.SQLITE_DETERMINISTIC
+            flags |= _lib.SQLITE_DETERMINISTIC
         ret = _lib.sqlite3_create_function(self._db, name, nargs,
                                            flags, _ffi.NULL,
                                            closure, _ffi.NULL, _ffi.NULL)
