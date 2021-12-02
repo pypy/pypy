@@ -10,3 +10,7 @@ def test_errors():
 def test_call_function():
     assert opcode.stack_effect(opcode.opmap["CALL_FUNCTION"], 3) == -3
     assert opcode.stack_effect(opcode.opmap["EXTENDED_ARG"], 3) == 0
+
+def test_invalid_opcode():
+    pytest.raises(ValueError, opcode.stack_effect, 0)
+    pytest.raises(ValueError, opcode.stack_effect, 0, 0)
