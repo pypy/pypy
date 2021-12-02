@@ -19,7 +19,9 @@ else:
     try:
         fp, filename, description = imp.find_module('_ctypes_test', path=[output_dir])
         with fp:
-            imp.load_module('_ctypes_test', fp, filename, description)
+            mod = imp.load_module('_ctypes_test', fp, filename, description)
+        # for some reason __file__ is not set here, set it manually
+        mod.__file__ = filename
     except ImportError:
         if os.name == 'nt':
             # hack around finding compilers on win32
