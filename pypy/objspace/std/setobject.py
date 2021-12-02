@@ -638,9 +638,9 @@ class W_FrozensetObject(W_BaseSetObject):
             hash = hash ^ value
         hash ^= (hash >> 11) ^ (hash >> 25)
         hash = hash * 69069 + 907133923
+        hash = intmask(hash)
         if hash == -1:
             hash = 590923713
-        hash = intmask(hash)
         self.hash = hash
 
         return space.newint(hash)
