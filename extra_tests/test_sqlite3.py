@@ -216,6 +216,13 @@ def test_returning_blob_must_own_memory(con):
     val = cur.fetchone()[0]
     assert isinstance(val, bytes)
 
+def test_function_arg_str_null_char(con):
+    con.create_function("strlen", 1, lambda a: len(a))
+    cur = con.execute("select strlen(?)", ["x\0y"])
+    val = cur.fetchone()[0]
+    assert val == 3
+
+
 def test_description_after_fetchall(con):
     cur = con.cursor()
     assert cur.description is None

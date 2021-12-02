@@ -1189,19 +1189,6 @@ class Statement(object):
             _lib.sqlite3_reset(self._statement)
             self._in_use_token = None
 
-    if sys.version_info[0] < 3:
-        def __check_decodable(self, param):
-            if self.__con.text_factory in (unicode, OptimizedUnicode,
-                                           _unicode_text_factory):
-                for c in param:
-                    if ord(c) & 0x80 != 0:
-                        raise self.__con.ProgrammingError(
-                            "You must not use 8-bit bytestrings unless "
-                            "you use a text_factory that can interpret "
-                            "8-bit bytestrings (like text_factory = str). "
-                            "It is highly recommended that you instead "
-                            "just switch your application to Unicode strings.")
-
     def __set_param(self, idx, param):
         cvt = converters.get(type(param))
         if cvt is not None:
@@ -1218,12 +1205,8 @@ class Statement(object):
                 rc = _lib.sqlite3_bind_int64(self._statement, idx, param)
         elif isinstance(param, float):
             rc = _lib.sqlite3_bind_double(self._statement, idx, param)
-        elif isinstance(param, unicode):
-            param = param.encode("utf-8")
-            rc = _lib.sqlite3_bind_text(self._statement, idx, param,
-                                        len(param), _SQLITE_TRANSIENT)
         elif isinstance(param, str):
-            self.__check_decodable(param)
+            param = param.encode("utf-8")
             rc = _lib.sqlite3_bind_text(self._statement, idx, param,
                                         len(param), _SQLITE_TRANSIENT)
         elif isinstance(param, (buffer, bytes)):
@@ -1397,7 +1380,8 @@ def _convert_params(con, nargs, params):
             val = _lib.sqlite3_value_double(params[i])
         elif typ == _lib.SQLITE_TEXT:
             val = _lib.sqlite3_value_text(params[i])
-            val = _ffi.string(val).decode('utf-8')
+            length = _lib.sqlite3_value_bytes(params[i])
+            val = _ffi.buffer(val, length)[:].decode('utf-8')
         elif typ == _lib.SQLITE_BLOB:
             blob = _lib.sqlite3_value_blob(params[i])
             blob_len = _lib.sqlite3_value_bytes(params[i])
@@ -1415,10 +1399,8 @@ def _convert_result(con, val):
         _lib.sqlite3_result_int64(con, int(val))
     elif isinstance(val, float):
         _lib.sqlite3_result_double(con, val)
-    elif isinstance(val, unicode):
-        val = val.encode('utf-8')
-        _lib.sqlite3_result_text(con, val, len(val), _SQLITE_TRANSIENT)
     elif isinstance(val, str):
+        val = val.encode('utf-8')
         _lib.sqlite3_result_text(con, val, len(val), _SQLITE_TRANSIENT)
     elif isinstance(val, (buffer, bytes)):
         _lib.sqlite3_result_blob(con, bytes(val), len(val), _SQLITE_TRANSIENT)
