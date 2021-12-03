@@ -70,6 +70,8 @@ class defaultdict(dict):
         return copyself
 
     def __ror__(self, other):
+        if not isinstance(other, dict):
+            return NotImplemented
         res = type(self)(self.default_factory, other)
         res.update(self)
         return res

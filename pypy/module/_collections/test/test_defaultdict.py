@@ -125,3 +125,6 @@ class AppTestBasic:
         d = dict(d1) | d2
         assert d.default_factory is str
         assert d == {1: 0, 2: "", 3: ""}
+
+        raises(TypeError, "d1 | list(d2.items())")
+        raises(TypeError, "list(d2.items()) | d1")
