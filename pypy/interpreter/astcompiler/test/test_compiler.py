@@ -2066,7 +2066,8 @@ class TestDeadCodeGetsRemoved(TestCompiler):
         pass
 
     test_fstring_encoding = test_fstring_encoding_r = test_kwonly = \
-        test_no_indent = test_many_args = test_var_annot_rhs = lambda self: None
+        test_no_indent = test_many_args = test_var_annot_rhs = \
+        test_extended_unpacking_fail = lambda self: None
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
