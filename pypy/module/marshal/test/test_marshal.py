@@ -265,6 +265,14 @@ class AppTestMarshal:
         res = marshal.loads(b'I\xf7\xe6\xd5\xc4\xb3\xa2\x91\x80')
         assert res == -0x7f6e5d4c3b2a1909
 
+    def test_co_filename_bug(self):
+        import marshal
+        code = compile('pass', 'tmp-\udcff.py', "exec")
+        res = marshal.dumps(code) # must not crash
+        code2 = marshal.loads(res)
+        assert code.co_filename == code2.co_filename
+
+
 @pytest.mark.skipif('config.option.runappdirect or sys.maxint > 2 ** 32')
 class AppTestSmallLong(AppTestMarshal):
     spaceconfig = AppTestMarshal.spaceconfig.copy()

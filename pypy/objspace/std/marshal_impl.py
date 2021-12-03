@@ -398,7 +398,7 @@ def marshal_pycode(space, w_pycode, m):
     _marshal_tuple(space, co_varnames_w, m)  # more lists, now of w_unicodes
     _marshal_tuple(space, co_freevars_w, m)
     _marshal_tuple(space, co_cellvars_w, m)
-    _marshal_unicode(space, x.co_filename, m)
+    marshal(space, x.w_filename, m)
     _marshal_unicode(space, x.co_name, m)
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_lnotab)
@@ -435,7 +435,9 @@ def unmarshal_pycode(space, u, tc):
     varnames    = _unmarshal_strlist(u)
     freevars    = _unmarshal_strlist(u)
     cellvars    = _unmarshal_strlist(u)
-    filename    = space.utf8_0_w(u.load_w_obj())
+    w_fn = u.load_w_obj()
+    filename    = space.bytes0_w(space.fsencode(w_fn))
+
     name        = space.utf8_w(u.load_w_obj())
     firstlineno = u.get_int()
     lnotab      = space.bytes_w(u.load_w_obj())
