@@ -283,4 +283,10 @@ $}"""''')
     assert excinfo.value.lineno == 2
     assert excinfo.value.offset == 1
     assert excinfo.value.text == '$}"""'
+    with raises(SyntaxError) as excinfo:
+        eval("f'''{\xa0}'''")
+    assert excinfo.value.lineno == 1
+    print(excinfo.value.offset)
+    assert excinfo.value.offset == 5
+    assert 'f-string: invalid non-printable character U+00A0' in str(excinfo.value)
 

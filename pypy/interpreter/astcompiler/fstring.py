@@ -92,7 +92,7 @@ def f_string_compile(astbuilder, source, token, fstr, start_offset):
             e.offset += column_offset - 1
         e.lineno += lineno
         e.text = None # better to get it from the source
-        e.msg = "f-string: invalid syntax"
+        e.msg = "f-string: " + e.msg
         raise
     # column_offset - 1 to exclude prefixed ( in paren_source
     fixup_fstring_positions(ast, lineno, column_offset - 1)
