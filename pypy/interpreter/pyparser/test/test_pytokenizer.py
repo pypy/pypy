@@ -206,6 +206,9 @@ whatisthis"""'''
         check_token_error("0x1__ \n",
                 "invalid hexadecimal literal",
                 4)
+        check_token_error("0x\n",
+                "invalid hexadecimal literal",
+                2)
         check_token_error("1_ \n",
                 "invalid decimal literal",
                 2)

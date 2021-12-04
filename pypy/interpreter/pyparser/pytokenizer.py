@@ -459,14 +459,20 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
             if not ch.isdigit():
                 raise TokenError("invalid binary literal",
                         line, lnum, end, token_list)
-        if ch == "o":
+        elif ch == "o":
             token = "0o"
             end += 1
             ch = _get_next_or_nul(line, end)
             if not ch.isdigit():
                 raise TokenError("invalid octal literal",
                         line, lnum, end, token_list)
-        # either an invalid binary or octal number
+        elif ch == "x":
+            token = "0x"
+            end += 1
+            ch = _get_next_or_nul(line, end)
+            if not ch.isdigit():
+                raise TokenError("invalid hexadecimal literal",
+                        line, lnum, end, token_list)
     if token.startswith("0b"):
         nextch = _skip_underscore(ch, line, end)
         if nextch.isdigit():
