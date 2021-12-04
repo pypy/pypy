@@ -989,7 +989,7 @@ class UnicodeData_Handler:
             return -1
         return space.int_w(w_code)
 
-@unwrap_spec(errors='text_or_none', w_final=WrappedDefault(False))
+@unwrap_spec(errors='text_or_none', w_final=WrappedDefault(True))
 def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
     string = space.getarg_w('s*', w_string).as_str()
 
@@ -1025,7 +1025,7 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 # ____________________________________________________________
 # Raw Unicode escape (accepts bytes or str)
 
-@unwrap_spec(errors='text_or_none', w_final=WrappedDefault(False))
+@unwrap_spec(errors='text_or_none', w_final=WrappedDefault(True))
 def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
     string = space.getarg_w('s*', w_string).as_str()
     if errors is None:

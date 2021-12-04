@@ -761,13 +761,13 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
         if pos == len(s):
             if final:
                 # we have a backslash at the end of the string, stop here
-                build.append_char('\\')
+                builder.append_char('\\')
             else:
                 pos -= 1
             break
         ch = s[pos]
         if ch == "\\":
-            build.append_char('\\')
+            builder.append_char('\\')
             pos += 1
             continue
         if s[pos] == 'u':
