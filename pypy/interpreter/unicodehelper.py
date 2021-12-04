@@ -751,34 +751,25 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
     pos = 0
     while pos < len(s):
         ch = s[pos]
+        pos += 1
 
         # Non-escape characters are interpreted as Unicode ordinals
         if ch != '\\':
             builder.append_code(ord(ch))
-            pos += 1
             continue
 
-        # \u-escapes are only interpreted iff the number of leading
-        # backslashes is odd
-        bs = pos
-        while pos < len(s):
-            pos += 1
-            if pos == len(s) or s[pos] != '\\':
-                break
-            builder.append_char('\\')
-
-        # we have a backslash at the end of the string, stop here
-        if pos >= len(s):
-            builder.append_char('\\')
+        if pos == len(s):
+            if final:
+                # we have a backslash at the end of the string, stop here
+                build.append_char('\\')
+            else:
+                pos -= 1
             break
-
-        if ((pos - bs) & 1 == 0 or pos >= len(s) or
-                (s[pos] != 'u' and s[pos] != 'U')):
-            builder.append_char('\\')
-            builder.append_code(ord(s[pos]))
+        ch = s[pos]
+        if ch == "\\":
+            build.append_char('\\')
             pos += 1
             continue
-
         if s[pos] == 'u':
             digits = 4
             message = "truncated \\uXXXX escape"
@@ -786,6 +777,9 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
             digits = 8
             message = "truncated \\UXXXXXXXX escape"
         pos += 1
+        if pos + digits > len(s) and not final:
+            pos -= 2
+            break
         pos, s = hexescape(builder, s, pos, digits,
                            "rawunicodeescape", errorhandler, message, errors)
 

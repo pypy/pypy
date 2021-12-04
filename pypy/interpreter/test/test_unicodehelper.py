@@ -8,6 +8,7 @@ from pypy.interpreter.unicodehelper import (
 from pypy.interpreter.unicodehelper import str_decode_utf8, utf8_encode_latin_1
 from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
 from pypy.interpreter.unicodehelper import utf8_encode_latin_1, str_decode_unicode_escape
+from pypy.interpreter.unicodehelper import str_decode_raw_unicode_escape
 from pypy.interpreter import unicodehelper as uh
 from pypy.module._codecs.interp_codecs import CodecState
 
@@ -97,3 +98,11 @@ def test_unicode_escape_incremental_bug(space):
         assert lgt1 + lgt2 == len(data)
         assert input == (result1 + result2).decode("utf-8")
 
+def test_raw_unicode_escape_incremental_bug(space):
+    input = u"xҰa𐀂"
+    data = b'x\\u04b0a\\U00010002'
+    for i in range(1, len(data)):
+        result1, _, lgt1 = str_decode_raw_unicode_escape(data[:i], 'strict', False, None)
+        result2, _, lgt2 = str_decode_raw_unicode_escape(data[lgt1:i] + data[i:], 'strict', True, None)
+        assert lgt1 + lgt2 == len(data)
+        assert input == (result1 + result2).decode("utf-8")
