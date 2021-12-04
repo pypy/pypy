@@ -46,9 +46,10 @@ class TestParsetring:
         # you can use escapes to get the non-ASCII ones (note that in the
         # second case we use a raw string, the the parser actually sees the
         # chars '\' 'x' 'e' '9'
-        py.test.raises(SyntaxError,
+        excinfo = py.test.raises(SyntaxError,
                        parsestring.parsestr, space, None,
-                       "b'\xe9'", Terminal(None, -1, "b'\xe9'", 5, 0))
+                       "b'     \xe9'", Terminal(None, -1, "b'     \xe9'", 5, 0))
+        assert excinfo.value.offset == 8
         self.parse_and_compare(r"b'\xe9'", chr(0xE9))
 
     def test_unicode(self):

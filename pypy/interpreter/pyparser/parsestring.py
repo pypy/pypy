@@ -118,7 +118,7 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
         if ord(c) > 0x80:
             raise SyntaxError("bytes can only contain ASCII literal characters.",
                 token.lineno,
-                token.column + ps + 1)
+                token.column + ps + i + 1)
             raise oefmt(space.w_SyntaxError,
                         )
 
