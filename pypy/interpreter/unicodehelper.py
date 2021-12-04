@@ -595,13 +595,15 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
             continue
 
         # - Escapes
-        pos += 1
-        if pos >= len(s):
+        if pos + 1 >= len(s):
+            if not final:
+                break
             message = "\\ at end of string"
             r, pos, rettype, s = errorhandler(errors, "unicodeescape",
                                     message, s, pos - 1, len(s))
             builder.append(r)
             continue
+        pos += 1
 
         ch = s[pos]
         pos += 1
@@ -648,18 +650,27 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
         # \xXX
         elif ch == 'x':
             digits = 2
+            if pos + digits > len(s) and not final:
+                pos -= 2
+                break
             message = "truncated \\xXX escape"
             pos, s = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
         # \uXXXX
         elif ch == 'u':
             digits = 4
+            if pos + digits > len(s) and not final:
+                pos -= 2
+                break
             message = "truncated \\uXXXX escape"
             pos, s = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
         #  \UXXXXXXXX
         elif ch == 'U':
             digits = 8
+            if pos + digits > len(s) and not final:
+                pos -= 2
+                break
             message = "truncated \\UXXXXXXXX escape"
             pos, s = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
@@ -686,11 +697,18 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
                     pos = look + 1
                     builder.append_code(code)
                 else:
+                    if not final:
+                        pos -= 2
+                        break
                     r, pos, rettype, s = errorhandler(errors, "unicodeescape",
                                             message, s, pos - 1, look + 1)
                     builder.append(r)
             else:
+                if not final:
+                    pos -= 2
+                    break
                 r, pos, rettype, s = errorhandler(errors, "unicodeescape",
+
                                         message, s, pos - 1, look + 1)
                 builder.append(r)
         else:
