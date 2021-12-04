@@ -353,7 +353,7 @@ class W_FloatObject(W_Root):
                         if digit & half_eps:
                             round_up = False
                             if (digit & (3 * half_eps - 1) or
-                                (half_eps == 8 and
+                                (half_eps == 8 and key_digit + 1 < float_digits and
                                  _hex_digit(s, key_digit + 1, co_end, float_digits) & 1)):
                                 round_up = True
                             else:
