@@ -317,34 +317,6 @@ class CStandaloneBuilder(CBuilder):
             return res.out, res.err
         return res.out
 
-    def build_main_for_shared(self, shared_library_name, entrypoint, exe_name):
-        import time
-        time.sleep(1)
-        self.shared_library_name = shared_library_name
-        # build main program
-        eci = self.get_eci()
-        kw = {}
-        if self.translator.platform.cc == 'gcc':
-            kw['libraries'] = [self.shared_library_name.purebasename[3:]]
-            kw['library_dirs'] = [self.targetdir]
-        else:
-            kw['libraries'] = [self.shared_library_name.new(ext='')]
-        eci = eci.merge(ExternalCompilationInfo(
-            separate_module_sources=['''
-                int %s(int argc, char* argv[]);
-
-                int main(int argc, char* argv[])
-                { return %s(argc, argv); }
-                ''' % (entrypoint, entrypoint)
-                ],
-            **kw
-            ))
-        eci = eci.convert_sources_to_files(
-            cache_dir=self.targetdir)
-        return self.translator.platform.compile(
-            [], eci,
-            outputfilename=exe_name)
-
     def compile(self, exe_name=None):
         assert self.c_source_filename
         assert not self._compiled
@@ -363,9 +335,8 @@ class CStandaloneBuilder(CBuilder):
         self.translator.platform.execute_makefile(self.targetdir,
                                                   extra_opts)
         if shared:
-            self.shared_library_name = self.executable_name.new(
-                purebasename='lib' + self.executable_name.purebasename,
-                ext=self.translator.platform.so_ext)
+            self.shared_library_name = ('lib' + self.executable_name.basename +
+                                        '.' + self.translator.platform.so_ext)
         self._compiled = True
         return self.executable_name
 
