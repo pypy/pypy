@@ -78,7 +78,10 @@ def really_run_setup_and_program(dirname, venv_dir_and_paths, python_snippet):
         env = os.environ.copy()
         env['PYTHONPATH'] = paths
         subprocess.check_call((vp, 'setup.py', 'clean'), env=env)
-        subprocess.check_call((vp, 'setup.py', 'install'), env=env)
+        # there's a setuptools/easy_install bug that causes this to fail when the build/install occur together and
+        # we're in the same directory with the build (it tries to look up dependencies for itself on PyPI);
+        # subsequent runs will succeed because this test doesn't properly clean up the build- use pip for now.
+        subprocess.check_call((vp, '-m', 'pip', 'install', '.'), env=env)
         subprocess.check_call((vp, str(python_f)), env=env)
     finally:
         os.chdir(olddir)
