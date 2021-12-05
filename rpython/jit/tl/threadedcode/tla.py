@@ -119,7 +119,7 @@ class W_StringObject(W_Object):
 class OperationError(Exception):
     pass
 
-from rpython.jit.tl.threadedcode.tlaopcode import *
+from rpython.jit.tl.threadedcode.bytecode import *
 
 def get_printable_location_tc(pc, entry_state, bytecode, tstack):
     op = ord(bytecode[pc])
@@ -131,25 +131,16 @@ def get_printable_location_tc(pc, entry_state, bytecode, tstack):
     return "%s: %s %s" % (pc, name, arg)
 
 def get_printable_location(pc, bytecode):
-    op = ord(bytecode[pc])
-    name = OPNAMES[op]
-    if HASARG[op]:
-        arg = str(ord(bytecode[pc + 1]))
-    else:
-        arg = ''
-    return "%s: %s %s" % (pc, name, arg)
+    return get_printable_location_tc(pc, None, bytecode, None)
+
+tcjitdriver = JitDriver(
+    greens=['pc', 'entry_state', 'bytecode', 'tstack'], reds=['self'],
+    get_printable_location=get_printable_location_tc, threaded_code_gen=True)
 
 
-tcjitdriver = JitDriver(greens=['pc', 'entry_state', 'bytecode', 'tstack'],
-                        reds=['self'],
-                        get_printable_location=get_printable_location_tc,
-                        threaded_code_gen=True)
-
-
-jitdriver = JitDriver(greens=['pc', 'bytecode',],
-                      reds=['self'],
-                      get_printable_location=get_printable_location,
-                      is_recursive=True)
+tjjitdriver = JitDriver(
+    greens=['pc', 'bytecode',], reds=['self'],
+    get_printable_location=get_printable_location, is_recursive=True)
 
 
 class Frame(object):
@@ -425,7 +416,7 @@ class Frame(object):
     def interp_jit(self, pc=0):
         bytecode = self.bytecode
         while pc < len(bytecode):
-            jitdriver.jit_merge_point(pc=pc, bytecode=bytecode, self=self)
+            tjjitdriver.jit_merge_point(pc=pc, bytecode=bytecode, self=self)
 
             # print get_printable_location(pc, bytecode)
             # self.print_stack()
@@ -486,7 +477,7 @@ class Frame(object):
             elif opcode == JUMP:
                 target = ord(bytecode[pc])
                 if target < pc:
-                    jitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
+                    tjjitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
                 pc = target
 
             elif opcode == JUMP_IF:
@@ -494,7 +485,7 @@ class Frame(object):
                 pc += 1
                 if self._is_true():
                     if target < pc:
-                        jitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
+                        tjjitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
                     pc = target
 
             elif opcode == JUMP_IF_FLS:
@@ -502,7 +493,7 @@ class Frame(object):
                 pc += 1
                 if not self._is_true():
                     if target < pc:
-                        jitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
+                        tjjitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
                     pc = target
 
             elif opcode == EXIT:
