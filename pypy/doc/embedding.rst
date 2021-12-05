@@ -7,8 +7,7 @@ C. It was developed in collaboration with Roberto De Ioris from the `uwsgi`_
 project. The `PyPy uwsgi plugin`_ is a good example of using the embedding API.
 
 **NOTE**: You need a PyPy compiled with the option ``--shared``, i.e.
-with a ``libpypy-c.so`` or ``pypy-c.dll`` file.  This is the default in
-recent versions of PyPy.
+with a ``libpypy*-c.so`` or ``pypy*-c.dll`` file.  This is the default.
 
 .. note::
 
@@ -19,9 +18,10 @@ recent versions of PyPy.
 
 .. __: https://cffi.readthedocs.org/en/latest/embedding.html
 
-The resulting shared library exports very few functions, however they are
-enough to accomplish everything you need, provided you follow a few principles.
-The API is:
+The resulting shared library exports very few functions. These are defined in
+``PyPy.h`` which was removed in v7.3.8, but `is still available`_.
+They are enough to accomplish everything you need, provided you follow a few
+principles. The API is:
 
 .. function:: void rpython_startup_code(void);
 
@@ -66,7 +66,7 @@ The API is:
 
 .. function:: int pypy_execute_source_ptr(char* source, void* ptr);
 
-   .. note:: Not available in PyPy <= 2.2.1
+   .. note:: added in PyPy 2.3.1, June 2014 
    
    Just like the above, except it registers a magic argument in the source
    scope as ``c_argument``, where ``void*`` is encoded as Python int.
@@ -231,7 +231,8 @@ communicate via this single C structure that defines your API.
 Finding pypy_home
 -----------------
 
-**You can usually skip this section if you are running PyPy >= 5.5.**
+**You can usually skip this section if you are running PyPy >= 5.5, released
+Oct 2016** 
 
 The function pypy_setup_home() takes as first parameter the path to a
 file from which it can deduce the location of the standard library.
@@ -282,3 +283,4 @@ from the main thread) and call ``pypy_init_threads`` from the main thread.
 .. _`uwsgi`: https://uwsgi-docs.readthedocs.org/en/latest/
 .. _`PyPy uwsgi plugin`: https://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
 .. _`how to compile PyPy`: getting-started.html
+.. _`is still available`: pypy.h.html
