@@ -415,6 +415,8 @@ def test_unicode_error_position():
         u"\xe4\xe4\xe4%\xe4" % {}
     assert str(info.value) == "unsupported format character '\xe4' (0xe4) at index 4"
 
+def test_g_strip_trailing_zero_bug():
+    assert "%.3g" % 1505.0 == "1.5e+03"
 def test_ascii():
     assert "<%a>" % "test" == "<'test'>"
     assert "<%a>" % "\t\x80" == "<'\\t\\x80'>"

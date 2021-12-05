@@ -40,7 +40,8 @@ class StandaloneTests(object):
     config = None
 
     def compile(self, entry_point, debug=True, shared=False,
-                stackcheck=False, entrypoints=None, local_icon=None):
+                stackcheck=False, entrypoints=None, local_icon=None,
+                exe_name=None):
         t = TranslationContext(self.config)
         ann = t.buildannotator()
         ann.build_types(entry_point, [s_list_of_strings])
@@ -67,7 +68,8 @@ class StandaloneTests(object):
             kwds = {}
         cbuilder = CStandaloneBuilder(t, entry_point, t.config, **kwds)
         if debug:
-            cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+            cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES,
+                                     exe_name=exe_name)
         else:
             cbuilder.generate_source()
         cbuilder.compile()
@@ -908,9 +910,12 @@ class TestStandalone(StandaloneTests):
         def entry_point(argv):
             f(argv)
             return 0
-        t, cbuilder = self.compile(entry_point, shared=True)
+        # Make sure the '.' in exe_name is propagated
+        t, cbuilder = self.compile(entry_point, shared=True, exe_name='pypy3.7')
+        assert 'pypy3.7' in str(cbuilder.executable_name)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
+        assert 'pypy3.7' in str(cbuilder.shared_library_name)
         #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"

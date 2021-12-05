@@ -468,7 +468,7 @@ class TranslationDriver(SimpleTaskEngine):
             newexename = './' + newexename
         newname = py.path.local(newexename)
         if suffix:
-            newname = newname.new(purebasename = newname.purebasename + suffix)
+            newname = newname.new(basename = newname.basename + suffix)
         return newname
 
     def create_exe(self):
@@ -489,7 +489,7 @@ class TranslationDriver(SimpleTaskEngine):
                     # Copy pypyw.exe
                     newexename = mkexename(self.compute_exe_name(suffix='w'))
                     exe = py.path.local(exename)
-                    exename = exe.new(purebasename=exe.purebasename + 'w')
+                    exename = exe.new(basename=exe.basename + 'w')
                     shutil_copy(str(exename), str(newexename))
                     # for pypy, the import library is renamed and moved to
                     # libs/python32.lib, according to the pragma in pyconfig.h

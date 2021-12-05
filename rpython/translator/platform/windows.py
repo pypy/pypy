@@ -317,12 +317,12 @@ class MsvcPlatform(Platform):
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
         else:
-            exe_name = exe_name.new(ext=self.exe_ext)
+            exe_name = exe_name + self.exe_ext
 
         if shared:
-            so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
+            so_name = exe_name.new(purebasename='lib' + exe_name.basename,
                                    ext=self.so_ext)
-            wtarget_name = exe_name.new(purebasename=exe_name.purebasename + 'w',
+            wtarget_name = exe_name.new(purebasename=exe_name.basename + 'w',
                                    ext=self.exe_ext)
             target_name = so_name.basename
         else:
