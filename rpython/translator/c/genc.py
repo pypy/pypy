@@ -335,8 +335,9 @@ class CStandaloneBuilder(CBuilder):
         self.translator.platform.execute_makefile(self.targetdir,
                                                   extra_opts)
         if shared:
-            self.shared_library_name = ('lib' + self.executable_name.basename +
-                                        '.' + self.translator.platform.so_ext)
+            self.shared_library_name = self.executable_name.new(
+                purebasename='lib' + self.executable_name.basename,
+                ext=self.translator.platform.so_ext)
         self._compiled = True
         return self.executable_name
 
