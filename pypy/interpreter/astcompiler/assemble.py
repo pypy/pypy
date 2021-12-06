@@ -698,6 +698,8 @@ _static_opcode_stack_effects = {
 
     ops.SETUP_ANNOTATIONS: 0,
 
+    ops.DICT_MERGE: -1,
+
     # TODO
     ops.BUILD_LIST_FROM_ARG: 1,
     ops.LOAD_REVDB_VAR: 1,

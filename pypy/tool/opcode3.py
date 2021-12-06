@@ -216,7 +216,7 @@ def_op('CALL_METHOD', 161)
 
 def_op('LIST_EXTEND', 164)
 def_op('SET_UPDATE', 165)
-#def_op('DICT_MERGE', 166)
+def_op('DICT_MERGE', 166)
 #def_op('DICT_UPDATE', 167)
 
 # pypy modification, experimental bytecode

@@ -338,6 +338,25 @@ class TestInterpreter:
         assert "TypeError:" in resg4
         assert "got multiple values for keyword argument 'a'" in resg4
 
+    @py.test.mark.xfail
+    def test_build_map_unpack_with_call_mapping_lies_about_length(self):
+        """
+        class M:
+            def keys(self):
+                return ['a', 'b', 'c']
+            def __getitem__(self, key):
+                return 1
+            def __len__(self):
+                return 2
+
+        def f(**kwargs): return kwargs
+        def g():
+            return f(**{'a': 3}, **M())
+        """
+        resg = self.codetest(code, 'g', [])
+        assert "TypeError:" in resg
+        assert "got multiple values for keyword argument 'a'" in resg
+
 try:
     from hypothesis import given, strategies
 except ImportError:

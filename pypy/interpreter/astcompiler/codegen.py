@@ -2122,7 +2122,7 @@ class CallCodeGenerator(object):
 
         self.have_starargs = False
         # the number of dictionaries on the stack
-        self.nsubkwargs = 0
+        self.have_kwargs = False
         self.keyword_names_w = []
         self.seen_keyword_names = {}
 
@@ -2166,7 +2166,9 @@ class CallCodeGenerator(object):
             # XXX use BUILD_MAP for size 1?
             self.codegenerator.emit_op_arg(ops.BUILD_CONST_KEY_MAP, len(self.keyword_names_w))
             self.keyword_names_w = []
-            self.nsubkwargs += 1
+            if self.have_kwargs: # we already have a map, merge the new one in
+                self.codegenerator.emit_op(ops.DICT_MERGE)
+            self.have_kwargs = True
 
     def _push_kwargs(self):
         for kw in self.keywords:
@@ -2176,24 +2178,22 @@ class CallCodeGenerator(object):
                 # if we see **args or if the number of keywords is huge,
                 # pack up keywords on the stack so far
                 self._pack_kwargs_into_dict()
+                if not self.have_kwargs:
+                    # no kwargs, build an empty dict
+                    self.codegenerator.emit_op_arg(ops.BUILD_MAP, 0)
                 kw.value.walkabout(self.codegenerator)
-                self.nsubkwargs += 1
+                self.codegenerator.emit_op(ops.DICT_MERGE)
+                self.have_kwargs = True
                 continue
-            else:
-                if kw.arg in self.seen_keyword_names:
-                    self.codegenerator.error(
-                            "keyword argument repeated: '%s'" % (kw.arg, ), kw)
-                self.seen_keyword_names[kw.arg] = None
+            if kw.arg in self.seen_keyword_names:
+                self.codegenerator.error(
+                        "keyword argument repeated: '%s'" % (kw.arg, ), kw)
+            self.seen_keyword_names[kw.arg] = None
             if len(self.keyword_names_w) > MAX_STACKDEPTH_CONTAINERS // 2:
                 self._pack_kwargs_into_dict()
             w_name = self.space.newtext(kw.arg)
             self.keyword_names_w.append(misc.intern_if_common_string(self.space, w_name))
             kw.value.walkabout(self.codegenerator)
-        if self.nsubkwargs:
-            self._pack_kwargs_into_dict()
-            if self.nsubkwargs > 1:
-                # Pack it all up
-                self.codegenerator.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, self.nsubkwargs)
 
     def _make_starargs_at_end(self):
         if self.nargs_pushed == 0:
@@ -2237,12 +2237,12 @@ class CallCodeGenerator(object):
             self._push_tuple_positional_args_if_necessary()
             self._push_kwargs()
 
-        if self.nsubkwargs == 0 and not self.have_starargs:
+        if not self.have_kwargs and not self.have_starargs:
             # can use CALL_FUNCTION_KW
             assert len(self.keyword_names_w) > 0 # otherwise we would have used CALL_FUNCTION
             codegenerator._load_constant_tuple(self.keyword_names_w)
             codegenerator.emit_op_arg(ops.CALL_FUNCTION_KW, self.nargs_pushed + len(self.keyword_names_w))
         else:
             self._pack_kwargs_into_dict()
-            codegenerator.emit_op_arg(ops.CALL_FUNCTION_EX, int(self.nsubkwargs > 0))
+            codegenerator.emit_op_arg(ops.CALL_FUNCTION_EX, int(self.have_kwargs))
 

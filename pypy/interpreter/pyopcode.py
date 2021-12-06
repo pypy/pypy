@@ -343,6 +343,8 @@ class __extend__(pyframe.PyFrame):
                 self.MAKE_FUNCTION(oparg, next_instr)
             elif opcode == opcodedesc.MAP_ADD.index:
                 self.MAP_ADD(oparg, next_instr)
+            elif opcode == opcodedesc.DICT_MERGE.index:
+                self.DICT_MERGE(oparg, next_instr)
             elif opcode == opcodedesc.NOP.index:
                 self.NOP(oparg, next_instr)
             elif opcode == opcodedesc.POP_BLOCK.index:
@@ -1342,6 +1344,7 @@ class __extend__(pyframe.PyFrame):
         finally:
             self.dropvalues(nargs + 1)
         self.pushvalue(w_result)
+
     @jit.unroll_safe
     def CALL_FUNCTION_KW(self, n_arguments, next_instr):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
@@ -1463,6 +1466,29 @@ class __extend__(pyframe.PyFrame):
         w_key = self.popvalue()
         w_dict = self.peekvalue(oparg - 1)
         self.space.setitem(w_dict, w_key, w_value)
+
+    def DICT_MERGE(self, oparg, next_instr):
+        w_dict = self.peekvalue(1)
+        w_item = self.peekvalue(0)
+        space = self.space
+        expected_length = space.len_w(w_dict)
+        if not space.ismapping_w(w_item):
+            raise oefmt(space.w_TypeError,
+                        "argument after ** must be a mapping, not %T",
+                        w_item)
+        try:
+            expected_length += space.len_w(w_item)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            # no length, but a mapping. read keys and take *their* length. if
+            # that raises, too bad
+            w_keys = space.call_method(w_item, "keys")
+            expected_length += space.len_w(w_keys)
+        space.call_method(w_dict, 'update', w_item)
+        if space.len_w(w_dict) < expected_length:
+            self._build_map_unpack_error(2)
+        self.popvalue()
 
     def SET_LINENO(self, lineno, next_instr):
         pass
