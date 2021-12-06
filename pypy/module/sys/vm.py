@@ -27,7 +27,7 @@ purposes only."""
     return getframe(space, depth)
 
 
-@jit.look_inside_iff(lambda space, depth: jit.isconstant(depth))
+#@jit.look_inside_iff(lambda space, depth: jit.isconstant(depth))
 def getframe(space, depth):
     ec = space.getexecutioncontext()
     f = ec.gettopframe_nohidden()
