@@ -123,15 +123,15 @@ from rpython.jit.tl.threadedcode.bytecode import *
 
 def get_printable_location_tc(pc, entry_state, bytecode, tstack):
     op = ord(bytecode[pc])
-    name = OPNAMES[op]
-    if HASARG[op]:
+    name = bytecodes[op]
+    if hasarg[op]:
         arg = str(ord(bytecode[pc + 1]))
     else:
         arg = ''
     return "%s: %s %s" % (pc, name, arg)
 
 def get_printable_location(pc, bytecode):
-    return get_printable_location_tc(pc, None, bytecode, None)
+    return get_printable_location_tc(pc, 0, bytecode, t_empty())
 
 tcjitdriver = JitDriver(
     greens=['pc', 'entry_state', 'bytecode', 'tstack'], reds=['self'],
