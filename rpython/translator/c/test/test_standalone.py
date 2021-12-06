@@ -915,6 +915,8 @@ class TestStandalone(StandaloneTests):
         assert 'pypy3.7' in str(cbuilder.executable_name)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
+        # it must be something with a '.basename' to make the driver.py happy
+        assert not isinstance(cbuilder.shared_library_name, str)
         assert 'pypy3.7' in str(cbuilder.shared_library_name)
         #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
