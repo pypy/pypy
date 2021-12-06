@@ -235,10 +235,6 @@ class __extend__(pyframe.PyFrame):
                 self.BUILD_LIST_FROM_ARG(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_MAP.index:
                 self.BUILD_MAP(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_MAP_UNPACK.index:
-                self.BUILD_MAP_UNPACK(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_MAP_UNPACK_WITH_CALL.index:
-                self.BUILD_MAP_UNPACK_WITH_CALL(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SET.index:
                 self.BUILD_SET(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SLICE.index:
@@ -345,6 +341,8 @@ class __extend__(pyframe.PyFrame):
                 self.MAP_ADD(oparg, next_instr)
             elif opcode == opcodedesc.DICT_MERGE.index:
                 self.DICT_MERGE(oparg, next_instr)
+            elif opcode == opcodedesc.DICT_UPDATE.index:
+                self.DICT_UPDATE(oparg, next_instr)
             elif opcode == opcodedesc.NOP.index:
                 self.NOP(oparg, next_instr)
             elif opcode == opcodedesc.POP_BLOCK.index:
@@ -1490,6 +1488,11 @@ class __extend__(pyframe.PyFrame):
             self._build_map_unpack_error(2)
         self.popvalue()
 
+    def DICT_UPDATE(self, oparg, next_instr):
+        w_dict = self.peekvalue(1)
+        w_item = self.peekvalue(0)
+        space.call_method(w_dict, "update", w_item)
+
     def SET_LINENO(self, lineno, next_instr):
         pass
 
@@ -1538,36 +1541,6 @@ class __extend__(pyframe.PyFrame):
             self.space.call_method(w_set, 'add', w_item)
         self.dropvalues(itemcount)
         self.pushvalue(w_set)
-
-    def BUILD_MAP_UNPACK(self, itemcount, next_instr):
-        self._build_map_unpack(itemcount, with_call=False)
-
-    def BUILD_MAP_UNPACK_WITH_CALL(self, oparg, next_instr):
-        num_maps = oparg # XXX CPython generates better error messages
-        self._build_map_unpack(num_maps, with_call=True)
-
-    @jit.unroll_safe
-    def _build_map_unpack(self, itemcount, with_call):
-        space = self.space
-        w_dict = space.newdict()
-        expected_length = 0
-        for i in range(itemcount-1, -1, -1):
-            w_item = self.peekvalue(i)
-            if not space.ismapping_w(w_item):
-                if not with_call:
-                    raise oefmt(space.w_TypeError,
-                                "'%T' object is not a mapping", w_item)
-                else:
-                    raise oefmt(space.w_TypeError,
-                                "argument after ** must be a mapping, not %T",
-                                w_item)
-            if with_call:
-                expected_length += space.len_w(w_item)
-            space.call_method(w_dict, 'update', w_item)
-        if with_call and space.len_w(w_dict) < expected_length:
-            self._build_map_unpack_error(itemcount)
-        self.popvalues(itemcount)
-        self.pushvalue(w_dict)
 
     @jit.dont_look_inside
     def _build_map_unpack_error(self, itemcount):

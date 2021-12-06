@@ -699,6 +699,7 @@ _static_opcode_stack_effects = {
     ops.SETUP_ANNOTATIONS: 0,
 
     ops.DICT_MERGE: -1,
+    ops.DICT_UPDATE: -1,
 
     # TODO
     ops.BUILD_LIST_FROM_ARG: 1,
@@ -730,12 +731,6 @@ def _compute_BUILD_SET(arg):
 
 def _compute_BUILD_MAP(arg):
     return 1 - 2 * arg
-
-def _compute_BUILD_MAP_UNPACK(arg):
-    return 1 - arg
-
-def _compute_BUILD_MAP_UNPACK_WITH_CALL(arg):
-    return 1 - (arg & 0xFF)
 
 def _compute_MAKE_FUNCTION(arg):
     return -1 - bool(arg & 0x01) - bool(arg & 0x02) - bool(arg & 0x04) - bool(arg & 0x08)

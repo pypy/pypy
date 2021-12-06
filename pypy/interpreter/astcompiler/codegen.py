@@ -1520,31 +1520,37 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     d.values[i].walkabout(self)
                     self.emit_op_arg(ops.MAP_ADD, 1)
                 return
-            if len(d.keys) < 0xffff:
-                all_constant_keys_w = []
-                for key in d.keys:
-                    if key is None:
-                        constant_key = None
-                    else:
-                        constant_key = key.as_constant(
-                            self.space, self.compile_info)
-                    if constant_key is None:
-                        all_constant_keys_w = None
-                        break
-                    else:
-                        all_constant_keys_w.append(constant_key)
+            assert len(d.keys) < 0xffff
+            all_constant_keys_w = []
+            for key in d.keys:
+                if key is None:
+                    constant_key = None
+                else:
+                    constant_key = key.as_constant(
+                        self.space, self.compile_info)
+                if constant_key is None:
+                    all_constant_keys_w = None
+                    break
+                else:
+                    all_constant_keys_w.append(constant_key)
             for i in range(len(d.values)):
                 key = d.keys[i]
                 is_unpacking = key is None
                 if elements == 0xFFFF or (elements and is_unpacking):
                     assert all_constant_keys_w is None
                     self.emit_op_arg(ops.BUILD_MAP, elements)
-                    containers += 1
+                    if containers > 0:
+                        self.emit_op(ops.DICT_UPDATE)
+                    else:
+                        containers = 1
                     elements = 0
                 if is_unpacking:
                     assert all_constant_keys_w is None
                     d.values[i].walkabout(self)
-                    containers += 1
+                    if containers > 0:
+                        self.emit_op(ops.DICT_UPDATE)
+                    else:
+                        containers = 1
                 else:
                     if not all_constant_keys_w:
                         key.walkabout(self)
@@ -1555,18 +1561,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 w_tup = self.space.newtuple(all_constant_keys_w)
                 self.load_const(w_tup)
                 self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, elements)
+                containers = 1
             else:
                 self.emit_op_arg(ops.BUILD_MAP, elements)
-                containers += 1
-        # If there is more than one dict, they need to be merged into
-        # a new dict. If there is one dict and it's an unpacking, then
-        #it needs to be copied into a new dict.
-        while containers > 1 or is_unpacking:
-            assert all_constant_keys_w is None
-            oparg = min(containers, 255)
-            self.emit_op_arg(ops.BUILD_MAP_UNPACK, oparg)
-            containers -= (oparg - 1)
-            is_unpacking = False
+                if containers > 0:
+                    self.emit_op(ops.DICT_UPDATE)
+                else:
+                    containers = 1
+        assert containers == 1
 
     def visit_Set(self, s):
         self._visit_starunpack(s, s.elts, ops.BUILD_SET, ops.SET_ADD, ops.SET_UPDATE)
