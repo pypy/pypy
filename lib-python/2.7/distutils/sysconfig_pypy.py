@@ -25,7 +25,8 @@ python_build = False
 
 def get_python_inc(plat_specific=0, prefix=None):
     from os.path import join as j
-    return j(sys.prefix, 'include')
+    # Changed for PyPy from sys.prefix
+    return j(sys.base_prefix, 'include')
 
 def get_python_version():
     """Return a string containing the major and minor Python version,
