@@ -6,7 +6,7 @@ def define_op(name, has_arg=False):
     bytecodes.append(name)
     hasarg.append(has_arg)
 
-bytecodes_has_args = [
+_bytecodes_has_args = [
     ('CONST_INT', True),
     ('DUP', False),
     ('POP', False),
@@ -28,16 +28,27 @@ bytecodes_has_args = [
     ('NEWSTR', True)
 ]
 
-for bytecode, has_arg in bytecodes_has_args:
+for bytecode, has_arg in _bytecodes_has_args:
     define_op(bytecode, has_arg)
 
 class CompilerContext(object):
     def __init__(self):
         self.data = []
+        self.stack = []
+        self.names_to_numbers = {}
         self.functions = {}
 
     def register_function(self, pos, f):
         self.functions[pos] = f
+
+    def register_constant(self, val):
+        self.stack.append(val)
+        return len(self.stack) - 1
+
+    def register_assignment(self, var, val):
+        self.names_to_numbers[var] = val
+        self.stack.append(val)
+        return len(self.stack) - 1
 
     def emit(self, bc, arg=0):
         self.data.append(chr(bc))
