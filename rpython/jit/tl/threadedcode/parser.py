@@ -25,7 +25,7 @@ class Program(Node):
         self.exprs = exprs
 
     def __repr__(self):
-        return "Program({})".format(self.exprs)
+        return "Program([{}])".format(self.exprs)
 
     def compile(self, ctx):
         pass
@@ -82,7 +82,7 @@ class Assignment(Node):
         return "Assignment('{}', {})".format(
             self.varname, self.expr)
 
-    def compile(self):
+    def compile(self, ctx):
         pass
 
 class Function(Node):
@@ -94,6 +94,9 @@ class Function(Node):
     def __repr__(self):
         return "Function('{}', {}, {})".format(
             self.funcname, self.args, self.body)
+
+    def compile(self, ctx):
+        pass
 
 
 class FunApp(Node):
@@ -138,7 +141,7 @@ class Transformer(object):
             body = self.visit_expr(node.children[4])
             return Function(funcname, formal_args, body)
 
-        pass
+        raise NotImplementedError
 
     def visit_simple_expr(self, node):
         children = node.children
