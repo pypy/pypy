@@ -466,10 +466,12 @@ class TranslationDriver(SimpleTaskEngine):
         newexename = self.exe_name % self.get_info()
         if '/' not in newexename and '\\' not in newexename:
             newexename = './' + newexename
-        newname = py.path.local(newexename)
         if suffix:
-            newname = newname.new(purebasename = newname.purebasename + suffix)
-        return newname
+            # Replace the last `.sfx` with the suffix
+            newname = py.path.local(newexename.split('.', -1)[0])
+            newname = newname.new(basename = newname.basename + suffix)
+            return newname
+        return py.path.local(newexename)
 
     def create_exe(self):
         """ Copy the compiled executable into current directory, which is
@@ -489,7 +491,8 @@ class TranslationDriver(SimpleTaskEngine):
                     # Copy pypyw.exe
                     newexename = mkexename(self.compute_exe_name(suffix='w'))
                     exe = py.path.local(exename)
-                    exename = exe.new(purebasename=exe.purebasename + 'w')
+                    # Split off the last '.exe', add 'w.exe'
+                    exename = str(exe).split('.', -1)[0] + 'w.exe'
                     shutil_copy(str(exename), str(newexename))
                     # for pypy, the import library is renamed and moved to
                     # libs/python32.lib, according to the pragma in pyconfig.h

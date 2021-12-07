@@ -48,8 +48,6 @@ def test_ctr():
 
 
 def test_create_exe():
-    if not os.name == 'nt':
-        py.test.skip('Windows only test')
 
     dst_name = udir.join('dst/pypy.exe')
     src_name = udir.join('src/dydy2.exe')
@@ -79,8 +77,9 @@ def test_create_exe():
     td.create_exe()
     assert dst_name.read() == 'exe'
     assert dst_name.new(ext='dll').read() == 'dll'
-    assert dst_name.new(ext='lib').read() == 'lib'
-    assert dst_name.new(purebasename=dst_name.purebasename + 'w').read() == 'wexe'
+    if os.name == 'nt':
+        assert dst_name.new(ext='lib').read() == 'lib'
+        assert dst_name.new(purebasename=dst_name.purebasename + 'w').read() == 'wexe'
 
 def test_shutil_copy():
     if os.name == 'nt':

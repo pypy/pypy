@@ -49,7 +49,10 @@ def load(space, w_f):
 def loads(space, w_str):
     """Convert a string back to a value.  Extra characters in the string are
 ignored."""
-    u = StringUnmarshaller(space, w_str)
+    return _loads(space, w_str)
+
+def _loads(space, w_str, hidden_applevel=False):
+    u = StringUnmarshaller(space, w_str, hidden_applevel=hidden_applevel)
     obj = u.load_w_obj()
     return obj
 
@@ -328,6 +331,7 @@ def _make_unmarshaller_dispatch():
 
 class Unmarshaller(_Base):
     _dispatch = _make_unmarshaller_dispatch()
+    hidden_applevel = False
 
     def __init__(self, space, reader):
         self.space = space
@@ -444,11 +448,12 @@ class Unmarshaller(_Base):
 
 class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
-    def __init__(self, space, w_str):
+    def __init__(self, space, w_str, hidden_applevel=False):
         Unmarshaller.__init__(self, space, None)
         self.buf = space.readbuf_w(w_str)
         self.bufpos = 0
         self.limit = self.buf.getlength()
+        self.hidden_applevel = hidden_applevel
 
     def raise_eof(self):
         space = self.space
