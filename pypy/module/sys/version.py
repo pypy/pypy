@@ -22,7 +22,6 @@ import pypy
 pypydir = pypy.pypydir
 pypyroot = os.path.dirname(pypydir)
 del pypy
-from rpython.tool.version import get_repo_version_info
 
 import time as t
 gmtime = t.gmtime()
@@ -57,6 +56,7 @@ def get_version_info(space):
     return space.call_function(w_version_info, space.wrap(CPYTHON_VERSION))
 
 def _make_version_template(PYPY_VERSION=PYPY_VERSION):
+    from rpython.tool.version import get_repo_version_info
     ver = "%d.%d.%d" % (PYPY_VERSION[0], PYPY_VERSION[1], PYPY_VERSION[2])
     if PYPY_VERSION[3] != "final":
         ver = ver + "-%s%d" %(PYPY_VERSION[3], PYPY_VERSION[4])
@@ -70,9 +70,9 @@ def _make_version_template(PYPY_VERSION=PYPY_VERSION):
         ver)
     assert template.count('%') == 1     # only for the "%s" near the end
     return template
-_VERSION_TEMPLATE = _make_version_template()
 
 def get_version(space):
+    _VERSION_TEMPLATE = _make_version_template()
     from rpython.rlib import compilerinfo
     return space.newtext(_VERSION_TEMPLATE % compilerinfo.get_compiler_info())
 
@@ -111,6 +111,7 @@ def get_subversion_info(space):
     return space.wrap(('PyPy', '', ''))
 
 def get_repo_info(space):
+    from rpython.tool.version import get_repo_version_info
     info = get_repo_version_info(root=pypyroot)
     if info:
         repo_tag, repo_version = info
