@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function 
 """ packages PyPy, provided that it's already built.
-It uses 'pypy/goal/pypy3-c' and parts of the rest of the working
+It uses 'pypy/goal/pypy%d.%d-c' and parts of the rest of the working
 copy.  Usage:
 
     package.py [--options] --archive-name=pypy-VER-PLATFORM
@@ -38,7 +38,7 @@ ARCH = get_arch()
 USE_ZIPFILE_MODULE = ARCH == 'win32'
 
 STDLIB_VER = "3"
-POSIX_EXE = 'pypy3'
+POSIX_EXE = 'pypy3.9'
 
 
 from lib_pypy.pypy_tools.build_cffi_imports import (create_cffi_import_libraries,
@@ -360,7 +360,7 @@ def create_package(basedir, options, _fake=False):
         os.chdir(str(bindir))
         try:
             os.symlink(POSIX_EXE, 'pypy')
-            os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver))
+            os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver[0]))
             os.symlink(POSIX_EXE, 'python')
             os.symlink(POSIX_EXE, 'python{}'.format(python_ver))
             os.symlink(POSIX_EXE, 'python{}'.format(python_ver[0]))
@@ -463,7 +463,7 @@ def package(*args, **kwds):
     parser.add_argument('--targetdir', type=str, default='',
         help='destination dir for archive')
     parser.add_argument('--override_pypy_c', type=str, default='',
-        help='use as pypy3 exe instead of pypy/goal/pypy3-c')
+        help='use as pypy3 exe, default is %s' % POSIX_EXE)
     parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
                         dest='embed_dependencies',
                         action=NegateAction,

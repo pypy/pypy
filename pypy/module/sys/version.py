@@ -1,9 +1,11 @@
 """
 Version numbers exposed by PyPy through the 'sys' module.
 """
+
+# Push imports into the functions so this can be imported by python3
+# to fish out CPYTHON_VERSION
+
 import os
-from rpython.rlib import compilerinfo
-from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
 CPYTHON_VERSION            = (3, 9, 9, "final", 0)
@@ -30,36 +32,26 @@ del t
 
 # ____________________________________________________________
 
-app = gateway.applevel('''
-"NOT_RPYTHON"
-from _structseq import structseqtype, structseqfield
-class version_info(metaclass=structseqtype):
-    __module__ = 'sys'
-    name = 'sys.version_info'
-
-    major        = structseqfield(0, "Major release number")
-    minor        = structseqfield(1, "Minor release number")
-    micro        = structseqfield(2, "Patch release number")
-    releaselevel = structseqfield(3,
-                       "'alpha', 'beta', 'candidate', or 'release'")
-    serial       = structseqfield(4, "Serial release number")
-
-class pypy_version_info(metaclass=structseqtype):
-    __module__ = 'sys'
-    name = 'sys.pypy_version_info'
-
-    major        = structseqfield(0, "Major release number")
-    minor        = structseqfield(1, "Minor release number")
-    micro        = structseqfield(2, "Patch release number")
-    releaselevel = structseqfield(3,
-                       "'alpha', 'beta', 'candidate', or 'release'")
-    serial       = structseqfield(4, "Serial release number")
-''')
-
 def get_api_version(space):
     return space.newint(CPYTHON_API_VERSION)
 
 def get_version_info(space):
+    from pypy.interpreter import gateway
+    app = gateway.applevel('''
+    "NOT_RPYTHON"
+    from _structseq import structseqtype, structseqfield
+    class version_info(metaclass=structseqtype):
+        __module__ = 'sys'
+        name = 'sys.version_info'
+
+        major        = structseqfield(0, "Major release number")
+        minor        = structseqfield(1, "Minor release number")
+        micro        = structseqfield(2, "Patch release number")
+        releaselevel = structseqfield(3,
+                           "'alpha', 'beta', 'candidate', or 'release'")
+        serial       = structseqfield(4, "Serial release number")
+    ''')
+
     w_version_info = app.wget(space, "version_info")
     # run at translation time
     return space.call_function(w_version_info, space.wrap(CPYTHON_VERSION))
@@ -81,6 +73,7 @@ def _make_version_template(PYPY_VERSION=PYPY_VERSION):
 _VERSION_TEMPLATE = _make_version_template()
 
 def get_version(space):
+    from rpython.rlib import compilerinfo
     return space.newtext(_VERSION_TEMPLATE % compilerinfo.get_compiler_info())
 
 def get_winver(space):
@@ -92,6 +85,22 @@ def get_hexversion(space):
     return space.newint(tuple2hex(CPYTHON_VERSION))
 
 def get_pypy_version_info(space):
+    from pypy.interpreter import gateway
+    app = gateway.applevel('''
+    "NOT_RPYTHON"
+    from _structseq import structseqtype, structseqfield
+    class pypy_version_info(metaclass=structseqtype):
+        __module__ = 'sys'
+        name = 'sys.pypy_version_info'
+
+        major        = structseqfield(0, "Major release number")
+        minor        = structseqfield(1, "Minor release number")
+        micro        = structseqfield(2, "Patch release number")
+        releaselevel = structseqfield(3,
+                           "'alpha', 'beta', 'candidate', or 'release'")
+        serial       = structseqfield(4, "Serial release number")
+    ''')
+
     ver = PYPY_VERSION
     w_pypy_version_info = app.wget(space, "pypy_version_info")
     # run at translation time
