@@ -1,4 +1,5 @@
-# Copied from cffi/c/test_c.py
+# Copied from <cffi>/c/test_c.py
+# Make sure the files are identical starting from the # ________ line below
 
 
 # ____________________________________________________________
