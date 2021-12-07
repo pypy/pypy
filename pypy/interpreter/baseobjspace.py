@@ -1389,7 +1389,7 @@ class ObjSpace(object):
 
 
     @not_rpython
-    def _cached_compile(self, filename, source, *args):
+    def _cached_compile(self, filename, source, mode, flags, hidden_applevel):
         import os
         from hashlib import md5
         from rpython.config.translationoption import CACHE_DIR
@@ -1404,11 +1404,11 @@ class ObjSpace(object):
                 raise IOError("don't use the cache when translating pypy")
             with open(cachename, 'rb') as f:
                 w_bin = self.newbytes(f.read())
-                code_w = interp_marshal.loads(self, w_bin)
+                code_w = interp_marshal._loads(self, w_bin, hidden_applevel)
         except IOError:
             # must (re)compile the source
             ec = self.getexecutioncontext()
-            code_w = ec.compiler.compile(source, filename, *args)
+            code_w = ec.compiler.compile(source, filename, mode, flags, hidden_applevel)
             w_bin = interp_marshal.dumps(self, code_w)
             content = self.bytes_w(w_bin)
             with open(cachename, 'wb') as f:
