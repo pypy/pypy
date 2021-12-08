@@ -904,30 +904,43 @@ class TestStandalone(StandaloneTests):
         # The traceback stops at f() because it's the first function that
         # captures the AssertionError, which makes the program abort.
 
-    def test_shared(self, monkeypatch):
+    def test_shared1(self, monkeypatch):
         def f(argv):
             print len(argv)
         def entry_point(argv):
             f(argv)
             return 0
         # Make sure the '.' in exe_name is propagated
-        t, cbuilder = self.compile(entry_point, shared=True, exe_name='pypy3.7')
-        assert 'pypy3.7' in str(cbuilder.executable_name)
+        t, cbuilder = self.compile(entry_point, shared=True, exe_name='pypy3.9')
+        assert 'pypy3.9' in str(cbuilder.executable_name)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
         # it must be something with a '.basename' to make the driver.py happy
         assert not isinstance(cbuilder.shared_library_name, str)
-        assert 'pypy3.7' in str(cbuilder.shared_library_name)
+        assert 'pypy3.9' in str(cbuilder.shared_library_name)
         #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
         if sys.platform == 'win32':
-            # Make sure we have a test_1w.exe
+            assert 'pypy3.9.exe' not in str(cbuilder.shared_library_name)
+            assert 'pypy3.9.exe' in str(cbuilder.executable_name)
+            # Make sure we have a pypy3.9w.exe
             # Since stdout, stderr are piped, we will get output
             exe = cbuilder.executable_name
             wexe = exe.new(purebasename=exe.purebasename + 'w')
             out, err = cbuilder.cmdexec("a b", exe = wexe)
             assert out == "3"
+
+    def test_shared2(self, monkeypatch):
+        def f(argv):
+            print len(argv)
+        def entry_point(argv):
+            f(argv)
+            return 0
+        # Make sure the '.exe' in exe_name is not propagated
+        t, cbuilder = self.compile(entry_point, shared=True, exe_name='pypy')
+        assert 'pypy' == cbuilder.executable_name.purebasename
+        assert 'libpypy' == cbuilder.shared_library_name.purebasename
 
     def test_gcc_options(self):
         # check that the env var CC is correctly interpreted, even if

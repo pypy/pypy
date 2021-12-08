@@ -468,8 +468,8 @@ class TranslationDriver(SimpleTaskEngine):
             newexename = './' + newexename
         if suffix:
             # Replace the last `.sfx` with the suffix
-            newname = py.path.local(newexename.split('.', -1)[0])
-            newname = newname.new(basename = newname.basename + suffix)
+            newname = py.path.local(newexename.rsplit('.', 1)[0])
+            newname = newname.new(basename=newname.basename + suffix)
             return newname
         return py.path.local(newexename)
 
@@ -492,7 +492,8 @@ class TranslationDriver(SimpleTaskEngine):
                     newexename = mkexename(self.compute_exe_name(suffix='w'))
                     exe = py.path.local(exename)
                     # Split off the last '.exe', add 'w.exe'
-                    exename = str(exe).split('.', -1)[0] + 'w.exe'
+                    exename = str(exe).rsplit('.', 1)[0] + 'w.exe'
+                    self.log.info("copied: %s to %s" % (exename, newexename,))
                     shutil_copy(str(exename), str(newexename))
                     # for pypy, the import library is renamed and moved to
                     # libs/python32.lib, according to the pragma in pyconfig.h
