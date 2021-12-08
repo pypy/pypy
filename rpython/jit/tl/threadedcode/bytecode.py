@@ -8,6 +8,7 @@ def define_op(name, has_arg=False):
 
 _bytecodes_has_args = [
     ('CONST_INT', True),
+    ('CONST_FLOAT', True),
     ('DUP', False),
     ('POP', False),
     ('LT', False),
@@ -20,12 +21,12 @@ _bytecodes_has_args = [
     ('EXIT', False),
     ('JUMP', True),
     ('JUMP_IF', True),
-    ('JUMP_IF_FLS', True),
     ('CALL', True),
     ('CALL_JIT', True),
     ('CALL_NORMAL', True),
     ('RET', True),
-    ('NEWSTR', True)
+    ('NEWSTR', True),
+    ('PRINT', True)
 ]
 
 for bytecode, has_arg in _bytecodes_has_args:
