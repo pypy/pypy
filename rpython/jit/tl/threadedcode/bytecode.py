@@ -26,7 +26,7 @@ _bytecodes_has_args = [
     ('CALL_NORMAL', True),
     ('RET', True),
     ('NEWSTR', True),
-    ('PRINT', True)
+    ('PRINT', False)
 ]
 
 for bytecode, has_arg in _bytecodes_has_args:
