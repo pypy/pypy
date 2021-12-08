@@ -1,4 +1,4 @@
-from rpython.jit.tl.threadedcode.bytecode import bytecodes
+from rpython.jit.tl.threadedcode import tla
 
 # code = [
 #     tla.DUP,
@@ -15,22 +15,22 @@ from rpython.jit.tl.threadedcode.bytecode import bytecodes
 #     ]
 
 code = [
-    bytecodes.DUP,
-    bytecodes.CONST_INT, 1,
-    bytecodes.SUB,
-    bytecodes.DUP,
-    bytecodes.CONST_INT, 1,
-    bytecodes.LT,
-    bytecodes.JUMP_IF, 12,
-    bytecodes.JUMP, 1,
-    bytecodes.POP,
-    bytecodes.CONST_INT, 1,
-    bytecodes.SUB,
-    bytecodes.DUP,
-    bytecodes.DUP,
-    bytecodes.CONST_INT, 1,
-    bytecodes.LT,
-    bytecodes.JUMP_IF, 25,
-    bytecodes.JUMP, 1,
-    bytecodes.EXIT
+    tla.DUP,
+    tla.CONST_INT, 1,
+    tla.SUB,
+    tla.DUP,
+    tla.CONST_INT, 1,
+    tla.LT,
+    tla.JUMP_IF, 12,
+    tla.JUMP, 1,
+    tla.POP,
+    tla.CONST_INT, 1,
+    tla.SUB,
+    tla.DUP,
+    tla.DUP,
+    tla.CONST_INT, 1,
+    tla.LT,
+    tla.JUMP_IF, 25,
+    tla.JUMP, 1,
+    tla.EXIT
 ]
