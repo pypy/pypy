@@ -4,6 +4,7 @@ This is what the buildbot runs to execute the pypyjit tests
 on top of pypy-c.
 """
 
+import json
 import sys, os
 import subprocess
 
@@ -11,10 +12,9 @@ rootdir = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
 os.environ['PYTHONPATH'] = rootdir
 os.environ['PYTEST_PLUGINS'] = ''
 
-if sys.platform == 'win32':
-    pypyopt = "--pypy=pypy/goal/pypy3-c.exe"
-else:
-    pypyopt = "--pypy=pypy/goal/pypy3-c"
+config_json = subprocess.check_output([sys.executable, 'testrunner/get_info.py'])
+config_dict = json.loads(config_json)
+pypyopt = "--pypy=%s" % config_dict['target_path']
 
 popen = subprocess.Popen(
     [sys.executable, "pypy/test_all.py",
