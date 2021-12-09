@@ -204,6 +204,9 @@ def create_package(basedir, options, _fake=False):
     os.makedirs(str(target))
     if not _fake:
         generate_sysconfigdata(pypy_c, str(target))
+    if ARCH == 'win32':
+        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
+                            os.environ.get('PATH', '')
     if not options.no_cffi:
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
@@ -244,9 +247,6 @@ def create_package(basedir, options, _fake=False):
     pypydir.ensure('include', dir=True)
 
     if ARCH == 'win32':
-        # Needed for py.path.local.sysfind, not for loading
-        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
-                                 os.environ.get('PATH', '')
         src, tgt, _ = binaries[0]
         pypyw = src.new(purebasename=src.purebasename + 'w')
         if pypyw.exists():
