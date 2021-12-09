@@ -1466,35 +1466,54 @@ class __extend__(pyframe.PyFrame):
         self.space.setitem(w_dict, w_key, w_value)
 
     def DICT_MERGE(self, oparg, next_instr):
-        w_dict = self.peekvalue(1)
-        w_item = self.peekvalue(0)
+        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+        # XXX need more jit-friendly implementation
         space = self.space
-        expected_length = space.len_w(w_dict)
-        if not space.ismapping_w(w_item):
-            raise oefmt(space.w_TypeError,
-                        "argument after ** must be a mapping, not %T",
-                        w_item)
-        try:
-            expected_length += space.len_w(w_item)
-        except OperationError as e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            # no length, but a mapping. read keys and take *their* length. if
-            # that raises, too bad
-            w_keys = space.call_method(w_item, "keys")
-            expected_length += space.len_w(w_keys)
-        space.call_method(w_dict, 'update', w_item)
-        if space.len_w(w_dict) < expected_length:
-            self._build_map_unpack_error(2)
-        self.popvalue()
+        w_dict = self.peekvalue(1)
+        w_item = self.popvalue()
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise oefmt(self.space.w_RuntimeError,
+                        "expected a dict, got %T", w_dict)
+        if not space.isinstance_w(w_item, space.w_dict):
+            if not space.ismapping_w(w_item):
+                raise oefmt(space.w_TypeError,
+                            "argument after ** must be a mapping, not %T",
+                            w_item)
+            try:
+                w_item = space.call_function(space.w_dict, w_item)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise oefmt(space.w_TypeError,
+                            "argument after ** must be a mapping, not %T",
+                            w_item)
+        w_iterator = space.iter(space.call_method(w_item, "items"))
+        while True:
+            try:
+                w_nextitem = space.next(w_iterator)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
+            w_key, w_value = space.fixedview_unroll(w_nextitem, 2)
+            if space.contains_w(w_dict, w_key):
+                if not space.isinstance_w(w_key, space.w_unicode):
+                    raise oefmt(space.w_TypeError,
+                            "keywords must be strings, not '%T'", w_key)
+                raise oefmt(space.w_TypeError,
+                    "got multiple values for keyword argument %R",
+                    w_key)
+            space.setitem(w_dict, w_key, w_value)
 
     def DICT_UPDATE(self, oparg, next_instr):
-        w_dict = self.peekvalue(1)
-        w_item = self.peekvalue(0)
+        w_item = self.popvalue()
+        space = self.space
+        if not space.ismapping_w(w_item):
+            raise oefmt(space.w_TypeError,
+                        "'%T' object is not a mapping",
+                        w_item)
+        w_dict = self.peekvalue()
         space.call_method(w_dict, "update", w_item)
-
-    def SET_LINENO(self, lineno, next_instr):
-        pass
 
     # overridden by faster version in the standard object space.
     LOOKUP_METHOD = LOAD_ATTR
@@ -1541,23 +1560,6 @@ class __extend__(pyframe.PyFrame):
             self.space.call_method(w_set, 'add', w_item)
         self.dropvalues(itemcount)
         self.pushvalue(w_set)
-
-    @jit.dont_look_inside
-    def _build_map_unpack_error(self, itemcount):
-        space = self.space
-        w_set = space.newset()
-        for i in range(itemcount-1, -1, -1):
-            w_item = self.peekvalue(i)
-            w_inter = space.call_method(w_set, 'intersection', w_item)
-            if space.is_true(w_inter):
-                w_key = space.next(space.iter(w_inter))
-                if not space.isinstance_w(w_key, space.w_unicode):
-                    raise oefmt(space.w_TypeError,
-                            "keywords must be strings, not '%T'", w_key)
-                raise oefmt(space.w_TypeError,
-                    "got multiple values for keyword argument %R",
-                    w_key)
-            space.call_method(w_set, 'update', w_item)
 
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts

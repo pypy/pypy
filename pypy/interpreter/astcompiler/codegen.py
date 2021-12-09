@@ -1545,12 +1545,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                         containers = 1
                     elements = 0
                 if is_unpacking:
+                    if containers == 0:
+                        self.emit_op_arg(ops.BUILD_MAP, 0)
+                        containers = 1
                     assert all_constant_keys_w is None
                     d.values[i].walkabout(self)
-                    if containers > 0:
-                        self.emit_op(ops.DICT_UPDATE)
-                    else:
-                        containers = 1
+                    self.emit_op(ops.DICT_UPDATE)
                 else:
                     if not all_constant_keys_w:
                         key.walkabout(self)

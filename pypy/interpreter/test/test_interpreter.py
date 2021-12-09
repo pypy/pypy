@@ -338,9 +338,8 @@ class TestInterpreter:
         assert "TypeError:" in resg4
         assert "got multiple values for keyword argument 'a'" in resg4
 
-    @py.test.mark.xfail
     def test_build_map_unpack_with_call_mapping_lies_about_length(self):
-        """
+        code = """
         class M:
             def keys(self):
                 return ['a', 'b', 'c']
