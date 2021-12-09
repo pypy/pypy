@@ -1201,7 +1201,6 @@ class BytecodeTests(unittest.TestCase):
     def test_from_traceback_dis(self):
         tb = get_tb()
         b = dis.Bytecode.from_traceback(tb)
-        import pdb; pdb.set_trace()
         self.assertEqual(b.dis(), dis_traceback)
 
 
