@@ -12,11 +12,11 @@ from pypy.module.sys.version import CPYTHON_VERSION
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 if sys.platform.startswith('win'):
     TARGET_NAME = r'pypy%d.%d-c.exe' % CPYTHON_VERSION[:2]
-    VENV_TARGET = 'pypy%d.%d.exe' % CPYTHON_VERSION[:2]
+    VENV_TARGET = 'pypy3.exe'
     TARGET_DIR = 'Scripts'
 else:
     TARGET_NAME = 'pypy%d.%d-c' % CPYTHON_VERSION[:2]
-    VENV_TARGET = 'pypy%d.%d' % CPYTHON_VERSION[:2]
+    VENV_TARGET = 'pypy3'  # virtualenv does not create pypy3.9
     TARGET_DIR = 'bin'
 VENV_DIR = 'pypy-venv'
 
