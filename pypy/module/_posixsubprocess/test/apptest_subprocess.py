@@ -3,7 +3,7 @@ import sys
 import pytest
 
 if sys.platform == 'win32':
-    if pytest.__version__[0]] < '3':
+    if pytest.__version__[0] < '3':
         pytest.skip("not used on win32")
     else:
         pytestmark = pytest.mark.skip("not used on win32")
