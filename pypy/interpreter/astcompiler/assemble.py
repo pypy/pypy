@@ -649,7 +649,7 @@ _static_opcode_stack_effects = {
     ops.IS_OP: -1,
     ops.CONTAINS_OP: -1,
 
-    ops.LOOKUP_METHOD: 1,
+    ops.LOAD_METHOD: 1,
 
     ops.LOAD_NAME: 1,
     ops.STORE_NAME: -1,

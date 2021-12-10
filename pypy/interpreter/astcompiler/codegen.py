@@ -1631,7 +1631,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         attr_lookup = call.func
         assert isinstance(attr_lookup, ast.Attribute)
         attr_lookup.value.walkabout(self)
-        self.emit_op_name(ops.LOOKUP_METHOD, self.names, attr_lookup.attr)
+        self.emit_op_name(ops.LOAD_METHOD, self.names, attr_lookup.attr)
         self.visit_sequence(call.args)
         arg_count = len(call.args) if call.args is not None else 0
         if not call.keywords:

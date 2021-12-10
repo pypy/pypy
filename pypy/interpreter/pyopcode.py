@@ -333,8 +333,8 @@ class __extend__(pyframe.PyFrame):
                 self.LOAD_GLOBAL(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_NAME.index:
                 self.LOAD_NAME(oparg, next_instr)
-            elif opcode == opcodedesc.LOOKUP_METHOD.index:
-                self.LOOKUP_METHOD(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_METHOD.index:
+                self.LOAD_METHOD(oparg, next_instr)
             elif opcode == opcodedesc.MAKE_FUNCTION.index:
                 self.MAKE_FUNCTION(oparg, next_instr)
             elif opcode == opcodedesc.MAP_ADD.index:
@@ -1516,7 +1516,7 @@ class __extend__(pyframe.PyFrame):
         space.call_method(w_dict, "update", w_item)
 
     # overridden by faster version in the standard object space.
-    LOOKUP_METHOD = LOAD_ATTR
+    LOAD_METHOD = LOAD_ATTR
     CALL_METHOD = CALL_FUNCTION
     CALL_METHOD_KW = CALL_FUNCTION_KW
 
