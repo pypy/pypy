@@ -1879,6 +1879,14 @@ class FinallyBlock(FrameBlock):
         # set the current value of sys_exc_info to operationerr,
         # saving the old value in a custom type of FrameBlock
         frame.save_and_change_sys_exc_info(operationerr)
+        if frame.get_w_f_trace() is not None:
+            # force a line trace event next, by setting instr_prev_plus_one to
+            # a high value, simulating a backward jump to the line trace logic
+            # in executioncontext (CPython has the same code, see
+            # test_trace_generator_finalisation for why it's needed)
+            debugdata = frame.getdebug()
+            assert debugdata is not None
+            debugdata.instr_prev_plus_one = len(frame.pycode.co_code) + 1
         return r_uint(self.handlerposition)   # jump to the handler
 
     def pop_block(self, frame):

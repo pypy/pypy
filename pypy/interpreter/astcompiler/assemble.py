@@ -201,7 +201,6 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.argcount = 0
         self.posonlyargcount = 0
         self.kwonlyargcount = 0
-        self.lineno_set = False
         self.lineno = 0
         self.add_none_to_final_return = True
 
@@ -238,9 +237,7 @@ class PythonCodeMaker(ast.ASTVisitor):
     def emit_op(self, op):
         """Emit an opcode without an argument."""
         instr = Instruction(op)
-        if not self.lineno_set:
-            instr.lineno = self.lineno
-            self.lineno_set = True
+        instr.lineno = self.lineno
         if not self.is_dead_code():
             self.current_block.instructions.append(instr)
             if op == ops.RETURN_VALUE:
@@ -250,9 +247,7 @@ class PythonCodeMaker(ast.ASTVisitor):
     def emit_op_arg(self, op, arg):
         """Emit an opcode with an integer argument."""
         instr = Instruction(op, arg)
-        if not self.lineno_set:
-            instr.lineno = self.lineno
-            self.lineno_set = True
+        instr.lineno = self.lineno
         if not self.is_dead_code():
             self.current_block.instructions.append(instr)
 
@@ -302,11 +297,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         index = self.add_const(obj)
         self.emit_op_arg(ops.LOAD_CONST, index)
 
-    def update_position(self, lineno, force=False):
-        """Possibly change the lineno for the next instructions."""
-        if force or lineno > self.lineno:
-            self.lineno = lineno
-            self.lineno_set = False
+    def update_position(self, lineno):
+        """Change the lineno for the next instructions."""
+        self.lineno = lineno
 
     def _resolve_block_targets(self, blocks):
         """Compute the arguments of jump instructions."""
@@ -479,7 +472,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                     # compute deltas
                     line = instr.lineno - current_line
                     addr = offset - current_off
-                    if line or addr:
+                    if line:
                         _encode_lnotab_pair(addr, line, table)
                         current_line = instr.lineno
                         current_off = offset

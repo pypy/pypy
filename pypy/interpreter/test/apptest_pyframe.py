@@ -509,15 +509,15 @@ def test_trace_generator_finalisation():
 
     d = {}
     exec("""if 1:
-    def g():
+    def called_generator_with_finally(): # line 2
         try:
             yield True
         finally:
             pass
 
-    def f():
+    def f(): # line 8
         try:
-            gen = g()
+            gen = called_generator_with_finally()
             next(gen)
             gen.close()
         except:
