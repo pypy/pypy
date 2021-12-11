@@ -49,6 +49,15 @@ class Scope(object):
         self.contains_annotated = False
         self._in_try_body_depth = 0
 
+    def error(self, msg, ast_node=None):
+        if ast_node is None:
+            lineno = self.lineno
+            col_offset = self.col_offset
+        else:
+            lineno = ast_node.lineno
+            col_offset = ast_node.col_offset
+        raise SyntaxError(msg, lineno, col_offset)
+
     def lookup(self, name):
         """Find the scope of identifier 'name'."""
         return self.symbols.get(self.mangle(name), SCOPE_UNKNOWN)
@@ -64,7 +73,7 @@ class Scope(object):
         self.note_symbol("_[%d]" % (self.temp_name_counter,), SYM_ASSIGNED)
         self.temp_name_counter += 1
 
-    def note_symbol(self, identifier, role):
+    def note_symbol(self, identifier, role, ast_node=None):
         """Record that identifier occurs in this scope."""
         mangled = self.mangle(identifier)
         new_role = role
@@ -73,7 +82,7 @@ class Scope(object):
             if old_role & SYM_PARAM and role & SYM_PARAM:
                 err = "duplicate argument '%s' in function definition" % \
                     (identifier,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
+                self.error(err, ast_node)
             new_role |= old_role
         self.roles[mangled] = new_role
         if role & SYM_PARAM:
@@ -90,8 +99,7 @@ class Scope(object):
 
     def note_yield(self, yield_node):
         """Called when a yield is found."""
-        raise SyntaxError("'yield' outside function", yield_node.lineno,
-                          yield_node.col_offset)
+        self.error("'yield' outside function", yield_node)
 
     def note_yieldFrom(self, yieldFrom_node):
         """Called when a yield from is found."""
@@ -105,8 +113,7 @@ class Scope(object):
 
     def note_return(self, ret):
         """Called when a return statement is found."""
-        raise SyntaxError("return outside function", ret.lineno,
-                          ret.col_offset)
+        self.error("return outside function", ret)
 
     def note_import_star(self, imp):
         """Called when a star import is found."""
@@ -242,11 +249,11 @@ class FunctionScope(Scope):
         self.return_with_value = False
         self.import_star = None
 
-    def note_symbol(self, identifier, role):
+    def note_symbol(self, identifier, role, ast_node=None):
         # Special-case super: it counts as a use of __class__
         if role == SYM_USED and identifier == 'super':
-            self.note_symbol('__class__', SYM_USED)
-        return Scope.note_symbol(self, identifier, role)
+            self.note_symbol('__class__', SYM_USED, ast_node)
+        return Scope.note_symbol(self, identifier, role, ast_node)
 
     def note_yield(self, yield_node):
         self.is_generator = True
@@ -264,8 +271,7 @@ class FunctionScope(Scope):
     def note_return(self, ret):
         if ret.value:
             if self.is_coroutine and self.is_generator:
-                raise SyntaxError("'return' with value in async generator",
-                                  ret.lineno, ret.col_offset)
+                self.error("'return' with value in async generator", ret)
             self.return_with_value = True
             self.ret = ret
 
@@ -377,9 +383,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
         name = ".%d" % (pos,)
         self.note_symbol(name, SYM_PARAM)
 
-    def note_symbol(self, identifier, role):
+    def note_symbol(self, identifier, role, ast_node=None):
         """Note the identifer on the current scope."""
-        mangled = self.scope.note_symbol(identifier, role)
+        mangled = self.scope.note_symbol(identifier, role, ast_node)
         if role & SYM_GLOBAL:
             if mangled in self.globs:
                 role |= self.globs[mangled]
@@ -530,6 +536,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
                     msg = "name '%s' is used prior to global declaration" % \
                         (name,)
                 raise SyntaxError(msg, glob.lineno, glob.col_offset)
+            if old_role & SYM_PARAM:
+                err = "name '%s' is local and global" % (name,)
+                self.scope.error(err, glob)
             self.note_symbol(name, SYM_GLOBAL)
 
     def visit_Nonlocal(self, nonl):
@@ -656,7 +665,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         for param in params:
             assert isinstance(param, ast.arg)
             arg = param.arg
-            self.note_symbol(arg, SYM_PARAM)
+            self.note_symbol(arg, SYM_PARAM, param)
 
     def _visit_annotations(self, func):
         args = func.args
