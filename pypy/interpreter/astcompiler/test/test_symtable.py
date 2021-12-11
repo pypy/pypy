@@ -260,7 +260,6 @@ class TestSymbolTable:
     def test_global(self):
         scp = self.func_scope("def f():\n   global x\n   x = 4")
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_EXPLICIT
-        input = "def f(x):\n   global x"
         scp = self.func_scope("""def f():
     y = 3
     def x():
@@ -272,8 +271,10 @@ class TestSymbolTable:
         xscp, zscp = scp.children
         assert xscp.lookup("y") == symtable.SCOPE_GLOBAL_EXPLICIT
         assert zscp.lookup("y") == symtable.SCOPE_FREE
+        input = "def f(x):\n   global x"
         exc = py.test.raises(SyntaxError, self.func_scope, input).value
         assert exc.msg == "name 'x' is local and global"
+        assert exc.lineno == 2
 
     def test_optimization(self):
         assert not self.mod_scope("").can_be_optimized

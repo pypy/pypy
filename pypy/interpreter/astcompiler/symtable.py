@@ -441,6 +441,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
                         (name,)
                 misc.syntax_warning(self.space, msg, self.compile_info.filename,
                                     glob.lineno, glob.col_offset)
+            if old_role & SYM_PARAM:
+                err = "name '%s' is local and global" % (name,)
+                self.scope.error(err, glob)
             self.note_symbol(name, SYM_GLOBAL)
 
     def visit_Lambda(self, lamb):
