@@ -337,6 +337,7 @@ def f():
     nonlocal x"""
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.msg == "no binding for nonlocal 'x' found"
+        assert exc.lineno == 4
 
         src = str(py.code.Source("""
                      def f(x):
@@ -344,6 +345,7 @@ def f():
                  """))
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.msg == "name 'x' is parameter and nonlocal"
+        assert exc.lineno == 3
         #
         src = str(py.code.Source("""
                      def f():

@@ -47,6 +47,7 @@ class Scope(object):
         self.nested = False
         self.doc_removable = False
         self.contains_annotated = False
+        self.nonlocal_directives = {} # name -> ast node
         self._in_try_body_depth = 0
 
     def error(self, msg, ast_node=None):
@@ -103,13 +104,11 @@ class Scope(object):
 
     def note_yieldFrom(self, yieldFrom_node):
         """Called when a yield from is found."""
-        raise SyntaxError("'yield' outside function", yieldFrom_node.lineno,
-                          yieldFrom_node.col_offset)
+        self.error("'yield' outside function", yieldFrom_node)
 
     def note_await(self, await_node):
         """Called when await is found."""
-        raise SyntaxError("'await' outside function", await_node.lineno,
-                          await_node.col_offset)
+        self.error("'await' outside function", await_node)
 
     def note_return(self, ret):
         """Called when a return statement is found."""
@@ -143,7 +142,7 @@ class Scope(object):
         elif flags & SYM_NONLOCAL:
             if name not in bound:
                 err = "no binding for nonlocal '%s' found" % (name,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
+                self.error(err, self.nonlocal_directives.get(name, None))
             self.symbols[name] = SCOPE_FREE
             self.free_vars.append(name)
             free[name] = None
@@ -311,8 +310,7 @@ class AsyncFunctionScope(FunctionScope):
         self.is_coroutine = True
 
     def note_yieldFrom(self, yield_node):
-        raise SyntaxError("'yield from' inside async function", yield_node.lineno,
-                          yield_node.col_offset)
+        self.error("'yield from' inside async function", yield_node)
 
 
 class ClassScope(Scope):
@@ -357,6 +355,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
             raise
         self.pop_scope()
         assert not self.stack
+
+    def error(self, msg, node):
+        # NB: SyntaxError's offset is 1-based!
+        raise SyntaxError(msg, node.lineno, node.col_offset + 1,
+                          filename=self.compile_info.filename)
 
     def push_scope(self, scope, node):
         """Push a child scope."""
@@ -439,13 +442,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
             old_role = self.scope.lookup_role(name)
             if assign.simple:
                 if old_role & SYM_GLOBAL:
-                    raise SyntaxError(
+                    self.error(
                         "annotated name '%s' can't be global" % name,
-                        assign.lineno, assign.col_offset)
+                        assign)
                 if old_role & SYM_NONLOCAL:
-                    raise SyntaxError(
+                    self.error(
                         "annotated name '%s' can't be nonlocal" % name,
-                        assign.lineno, assign.col_offset)
+                        assign)
             scope = SYM_BLANK
             if assign.simple:
                 scope |= SYM_ANNOTATED
@@ -476,8 +479,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
             if self._visit_alias(alias):
                 if self.scope.note_import_star(imp):
                     msg = "import * only allowed at module level"
-                    raise SyntaxError(msg, imp.lineno, imp.col_offset,
-                                      filename=self.compile_info.filename)
+                    self.error(msg, imp)
 
     def _visit_alias(self, alias):
         assert isinstance(alias, ast.alias)
@@ -516,14 +518,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
                    name == '__class__'):
                 msg = ("'global __class__' inside a class statement is not "
                        "implemented in PyPy")
-                raise SyntaxError(msg, glob.lineno, glob.col_offset,
-                                  filename=self.compile_info.filename)
+                self.error(msg, glob)
             if old_role & SYM_PARAM:
                 msg = "name '%s' is parameter and global" % (name,)
-                raise SyntaxError(msg, glob.lineno, glob.col_offset)
+                self.error(msg, glob)
             if old_role & SYM_NONLOCAL:
                 msg = "name '%s' is nonlocal and global" % (name,)
-                raise SyntaxError(msg, glob.lineno, glob.col_offset)
+                self.error(msg, glob)
 
             if old_role & (SYM_USED | SYM_ASSIGNED | SYM_ANNOTATED):
                 if old_role & SYM_ASSIGNED:
@@ -535,10 +536,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 else:
                     msg = "name '%s' is used prior to global declaration" % \
                         (name,)
-                raise SyntaxError(msg, glob.lineno, glob.col_offset)
-            if old_role & SYM_PARAM:
-                err = "name '%s' is local and global" % (name,)
-                self.scope.error(err, glob)
+                self.error(msg, glob)
             self.note_symbol(name, SYM_GLOBAL)
 
     def visit_Nonlocal(self, nonl):
@@ -555,7 +553,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 msg = "annotated name '%s' can't be nonlocal" \
                     % (name,)
             if msg is not "":
-                raise SyntaxError(msg, nonl.lineno, nonl.col_offset)
+                self.error(msg, nonl)
 
             if (old_role & (SYM_USED | SYM_ASSIGNED) and not
                     (name == '__class__' and
@@ -566,9 +564,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 else:
                     msg = "name '%s' is used prior to nonlocal declaration" % \
                         (name,)
-                raise SyntaxError(msg, nonl.lineno, nonl.col_offset)
+                self.error(msg, nonl)
 
             self.note_symbol(name, SYM_NONLOCAL)
+            if name not in self.scope.nonlocal_directives:
+                self.scope.nonlocal_directives[name] = nonl
 
     def visit_Lambda(self, lamb):
         args = lamb.args
