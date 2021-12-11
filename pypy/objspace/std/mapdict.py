@@ -1293,7 +1293,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                 # also a dict attribute, use the latter, caching its storageindex.
                 # If not, we loose.  We could do better in this case too,
                 # but we don't care too much; the common case of a method
-                # invocation is handled by LOOKUP_METHOD_xxx below.
+                # invocation is handled by LOAD_METHOD_xxx below.
                 attrname = name
                 attrkind = DICT
             #
@@ -1310,7 +1310,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
     return space.getattr(w_obj, w_name)
 LOAD_ATTR_slowpath._dont_inline_ = True
 
-def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
+def LOAD_METHOD_mapdict(f, nameindex, w_obj):
     pycode = f.getcode()
     entry = pycode._mapdict_caches[nameindex]
     if entry.is_valid_for_obj(w_obj):
@@ -1321,7 +1321,7 @@ def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
             return True
     return False
 
-def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
+def LOAD_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
                                             w_obj, w_type, w_method):
     # if the layout has a dict itself, then mapdict is not used for normal
     # attributes. Then the cache won't be able to spot changes to the dict.
@@ -1340,5 +1340,5 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
     _fill_cache(pycode, nameindex, map, version_tag, None, w_method)
 
 # XXX fix me: if a function contains a loop with both LOAD_ATTR and
-# XXX LOOKUP_METHOD on the same attribute name, it keeps trashing and
+# XXX LOAD_METHOD on the same attribute name, it keeps trashing and
 # XXX rebuilding the cache

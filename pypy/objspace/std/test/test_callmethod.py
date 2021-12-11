@@ -14,7 +14,7 @@ class TestCallMethod:
     def test_optimizations_enabled(self):
         # check that the callmethod module is really enabled.
         from pypy.objspace.std import callmethod
-        assert (self.space.FrameClass.LOOKUP_METHOD.__func__ ==
-                callmethod.LOOKUP_METHOD)
+        assert (self.space.FrameClass.LOAD_METHOD.__func__ ==
+                callmethod.LOAD_METHOD)
         assert (self.space.FrameClass.CALL_METHOD.__func__ ==
                 callmethod.CALL_METHOD)

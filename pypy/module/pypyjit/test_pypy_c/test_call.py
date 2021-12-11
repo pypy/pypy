@@ -130,12 +130,12 @@ class TestCall(BaseTestPyPyC):
         # first, we test the entry bridge
         # -------------------------------
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
-        ops = entry_bridge.ops_by_id('meth1', opcode='LOOKUP_METHOD')
+        ops = entry_bridge.ops_by_id('meth1', opcode='LOAD_METHOD')
         assert log.opnames(ops) == ['guard_value', 'getfield_gc_r',
                                     'guard_value',
                                     'guard_not_invalidated']
-        # the second LOOKUP_METHOD is folded away
-        assert list(entry_bridge.ops_by_id('meth2', opcode='LOOKUP_METHOD')) == []
+        # the second LOAD_METHOD is folded away
+        assert list(entry_bridge.ops_by_id('meth2', opcode='LOAD_METHOD')) == []
         #
         # then, the actual loop
         # ----------------------

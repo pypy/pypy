@@ -200,26 +200,21 @@ hasfree.append(148)
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
 
-def_op('BUILD_MAP_UNPACK', 150)
-def_op('BUILD_MAP_UNPACK_WITH_CALL', 151)
-
 jrel_op('SETUP_ASYNC_WITH', 154)
 
 def_op('FORMAT_VALUE', 155)
 def_op('BUILD_CONST_KEY_MAP', 156)
 def_op('BUILD_STRING', 157)
 
-#name_op('LOAD_METHOD', 160)
+name_op('LOAD_METHOD', 160)
 def_op('CALL_METHOD', 161)
 
 def_op('LIST_EXTEND', 164)
 def_op('SET_UPDATE', 165)
-#def_op('DICT_MERGE', 166)
-#def_op('DICT_UPDATE', 167)
+def_op('DICT_MERGE', 166)
+def_op('DICT_UPDATE', 167)
 
 # pypy modification, experimental bytecode
-def_op('LOOKUP_METHOD', 201)          # Index in name list
-hasname.append(201)
 def_op('BUILD_LIST_FROM_ARG', 203)
 def_op('CALL_METHOD_KW', 204)
 def_op('LOAD_REVDB_VAR', 205)         # reverse debugger (syntax example: $5)

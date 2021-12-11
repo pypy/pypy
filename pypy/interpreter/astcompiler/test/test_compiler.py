@@ -2028,6 +2028,15 @@ x = [c for c in buggy_lnotab.__code__.co_lnotab]
 """
         self.st(func, "x", [0, 1, 8, 8])
 
+    def test_lnotab_backwards_in_expr(self):
+        func = """
+def expr_lines(x):
+    return (x +
+        1)
+x = [c for c in expr_lines.__code__.co_lnotab]
+"""
+        self.st(func, "x", [0, 1, 2, 1, 2, 255])
+
     def test_revdb_metavar(self):
         self.error_test("7 * $0", SyntaxError)
 

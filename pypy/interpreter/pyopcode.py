@@ -235,10 +235,6 @@ class __extend__(pyframe.PyFrame):
                 self.BUILD_LIST_FROM_ARG(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_MAP.index:
                 self.BUILD_MAP(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_MAP_UNPACK.index:
-                self.BUILD_MAP_UNPACK(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_MAP_UNPACK_WITH_CALL.index:
-                self.BUILD_MAP_UNPACK_WITH_CALL(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SET.index:
                 self.BUILD_SET(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SLICE.index:
@@ -337,12 +333,16 @@ class __extend__(pyframe.PyFrame):
                 self.LOAD_GLOBAL(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_NAME.index:
                 self.LOAD_NAME(oparg, next_instr)
-            elif opcode == opcodedesc.LOOKUP_METHOD.index:
-                self.LOOKUP_METHOD(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_METHOD.index:
+                self.LOAD_METHOD(oparg, next_instr)
             elif opcode == opcodedesc.MAKE_FUNCTION.index:
                 self.MAKE_FUNCTION(oparg, next_instr)
             elif opcode == opcodedesc.MAP_ADD.index:
                 self.MAP_ADD(oparg, next_instr)
+            elif opcode == opcodedesc.DICT_MERGE.index:
+                self.DICT_MERGE(oparg, next_instr)
+            elif opcode == opcodedesc.DICT_UPDATE.index:
+                self.DICT_UPDATE(oparg, next_instr)
             elif opcode == opcodedesc.NOP.index:
                 self.NOP(oparg, next_instr)
             elif opcode == opcodedesc.POP_BLOCK.index:
@@ -1342,6 +1342,7 @@ class __extend__(pyframe.PyFrame):
         finally:
             self.dropvalues(nargs + 1)
         self.pushvalue(w_result)
+
     @jit.unroll_safe
     def CALL_FUNCTION_KW(self, n_arguments, next_instr):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
@@ -1464,11 +1465,58 @@ class __extend__(pyframe.PyFrame):
         w_dict = self.peekvalue(oparg - 1)
         self.space.setitem(w_dict, w_key, w_value)
 
-    def SET_LINENO(self, lineno, next_instr):
-        pass
+    def DICT_MERGE(self, oparg, next_instr):
+        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+        # XXX need more jit-friendly implementation
+        space = self.space
+        w_dict = self.peekvalue(1)
+        w_item = self.popvalue()
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise oefmt(self.space.w_RuntimeError,
+                        "expected a dict, got %T", w_dict)
+        if not space.isinstance_w(w_item, space.w_dict):
+            if not space.ismapping_w(w_item):
+                raise oefmt(space.w_TypeError,
+                            "argument after ** must be a mapping, not %T",
+                            w_item)
+            try:
+                w_item = space.call_function(space.w_dict, w_item)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise oefmt(space.w_TypeError,
+                            "argument after ** must be a mapping, not %T",
+                            w_item)
+        w_iterator = space.iter(space.call_method(w_item, "items"))
+        while True:
+            try:
+                w_nextitem = space.next(w_iterator)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
+            w_key, w_value = space.fixedview_unroll(w_nextitem, 2)
+            if space.contains_w(w_dict, w_key):
+                if not space.isinstance_w(w_key, space.w_unicode):
+                    raise oefmt(space.w_TypeError,
+                            "keywords must be strings, not '%T'", w_key)
+                raise oefmt(space.w_TypeError,
+                    "got multiple values for keyword argument %R",
+                    w_key)
+            space.setitem(w_dict, w_key, w_value)
+
+    def DICT_UPDATE(self, oparg, next_instr):
+        w_item = self.popvalue()
+        space = self.space
+        if not space.ismapping_w(w_item):
+            raise oefmt(space.w_TypeError,
+                        "'%T' object is not a mapping",
+                        w_item)
+        w_dict = self.peekvalue()
+        space.call_method(w_dict, "update", w_item)
 
     # overridden by faster version in the standard object space.
-    LOOKUP_METHOD = LOAD_ATTR
+    LOAD_METHOD = LOAD_ATTR
     CALL_METHOD = CALL_FUNCTION
     CALL_METHOD_KW = CALL_FUNCTION_KW
 
@@ -1512,53 +1560,6 @@ class __extend__(pyframe.PyFrame):
             self.space.call_method(w_set, 'add', w_item)
         self.dropvalues(itemcount)
         self.pushvalue(w_set)
-
-    def BUILD_MAP_UNPACK(self, itemcount, next_instr):
-        self._build_map_unpack(itemcount, with_call=False)
-
-    def BUILD_MAP_UNPACK_WITH_CALL(self, oparg, next_instr):
-        num_maps = oparg # XXX CPython generates better error messages
-        self._build_map_unpack(num_maps, with_call=True)
-
-    @jit.unroll_safe
-    def _build_map_unpack(self, itemcount, with_call):
-        space = self.space
-        w_dict = space.newdict()
-        expected_length = 0
-        for i in range(itemcount-1, -1, -1):
-            w_item = self.peekvalue(i)
-            if not space.ismapping_w(w_item):
-                if not with_call:
-                    raise oefmt(space.w_TypeError,
-                                "'%T' object is not a mapping", w_item)
-                else:
-                    raise oefmt(space.w_TypeError,
-                                "argument after ** must be a mapping, not %T",
-                                w_item)
-            if with_call:
-                expected_length += space.len_w(w_item)
-            space.call_method(w_dict, 'update', w_item)
-        if with_call and space.len_w(w_dict) < expected_length:
-            self._build_map_unpack_error(itemcount)
-        self.popvalues(itemcount)
-        self.pushvalue(w_dict)
-
-    @jit.dont_look_inside
-    def _build_map_unpack_error(self, itemcount):
-        space = self.space
-        w_set = space.newset()
-        for i in range(itemcount-1, -1, -1):
-            w_item = self.peekvalue(i)
-            w_inter = space.call_method(w_set, 'intersection', w_item)
-            if space.is_true(w_inter):
-                w_key = space.next(space.iter(w_inter))
-                if not space.isinstance_w(w_key, space.w_unicode):
-                    raise oefmt(space.w_TypeError,
-                            "keywords must be strings, not '%T'", w_key)
-                raise oefmt(space.w_TypeError,
-                    "got multiple values for keyword argument %R",
-                    w_key)
-            space.call_method(w_set, 'update', w_item)
 
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
@@ -1878,6 +1879,14 @@ class FinallyBlock(FrameBlock):
         # set the current value of sys_exc_info to operationerr,
         # saving the old value in a custom type of FrameBlock
         frame.save_and_change_sys_exc_info(operationerr)
+        if frame.get_w_f_trace() is not None:
+            # force a line trace event next, by setting instr_prev_plus_one to
+            # a high value, simulating a backward jump to the line trace logic
+            # in executioncontext (CPython has the same code, see
+            # test_trace_generator_finalisation for why it's needed)
+            debugdata = frame.getdebug()
+            assert debugdata is not None
+            debugdata.instr_prev_plus_one = len(frame.pycode.co_code) + 1
         return r_uint(self.handlerposition)   # jump to the handler
 
     def pop_block(self, frame):

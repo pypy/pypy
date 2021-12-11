@@ -3,7 +3,7 @@ Two bytecodes to speed up method calls.  Here is how a method call looks
 like: (on the left, without the new bytecodes; on the right, with them)
 
     <push self>                    <push self>
-    LOAD_ATTR       name           LOOKUP_METHOD   name
+    LOAD_ATTR       name           LOAD_METHOD   name
     <push arg 0>                   <push arg 0>
     ...                            ...
     <push arg n-1>                 <push arg n-1>
@@ -12,17 +12,17 @@ like: (on the left, without the new bytecodes; on the right, with them)
 
 from pypy.interpreter import function
 from rpython.rlib import jit
-from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict, \
-    LOOKUP_METHOD_mapdict_fill_cache_method
+from pypy.objspace.std.mapdict import LOAD_METHOD_mapdict, \
+    LOAD_METHOD_mapdict_fill_cache_method
 
 
 # This module exports two extra methods for StdObjSpaceFrame implementing
-# the LOOKUP_METHOD and CALL_METHOD opcodes in an efficient way, as well
+# the LOAD_METHOD and CALL_METHOD opcodes in an efficient way, as well
 # as a version of space.call_method() that uses the same approach.
 # See pypy.objspace.std.objspace for where these functions are used from.
 
 
-def LOOKUP_METHOD(f, nameindex, *ignored):
+def LOAD_METHOD(f, nameindex, *ignored):
     from pypy.objspace.std.typeobject import MutableCell
     #   stack before                 after
     #  --------------    --fast-method----fallback-case------------
@@ -36,7 +36,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
 
     if not jit.we_are_jitted():
         # mapdict has an extra-fast version of this function
-        if LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
+        if LOAD_METHOD_mapdict(f, nameindex, w_obj):
             return
 
     w_name = f.getname_w(nameindex)
@@ -73,7 +73,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
                     f.pushvalue(w_obj)
                     if not jit.we_are_jitted():
                         # let mapdict cache stuff
-                        LOOKUP_METHOD_mapdict_fill_cache_method(
+                        LOAD_METHOD_mapdict_fill_cache_method(
                             space, f.getcode(), name, nameindex, w_obj, w_type,
                             w_descr_cell)
                     return
