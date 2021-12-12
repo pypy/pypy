@@ -678,7 +678,8 @@ class SyntaxTestCase(unittest.TestCase):
             """
         with support.check_warnings((".*assigned to before global declaration",
                                      SyntaxWarning)):
-            self._check_error(source, "local and global", lineno=2)
+            # Changed in PyPy 7.3.8 to do like Python3 and error on lineno=3
+            self._check_error(source, "local and global", lineno=3)
 
     def test_misuse_global(self):
         source = """if 1:
