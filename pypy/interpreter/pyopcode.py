@@ -1467,43 +1467,10 @@ class __extend__(pyframe.PyFrame):
 
     def DICT_MERGE(self, oparg, next_instr):
         from pypy.objspace.std.dictmultiobject import W_DictMultiObject
-        # XXX need more jit-friendly implementation
         space = self.space
         w_dict = self.peekvalue(1)
         w_item = self.popvalue()
-        if not space.isinstance_w(w_dict, space.w_dict):
-            raise oefmt(self.space.w_RuntimeError,
-                        "expected a dict, got %T", w_dict)
-        if not space.isinstance_w(w_item, space.w_dict):
-            if not space.ismapping_w(w_item):
-                raise oefmt(space.w_TypeError,
-                            "argument after ** must be a mapping, not %T",
-                            w_item)
-            try:
-                w_item = space.call_function(space.w_dict, w_item)
-            except OperationError as e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                raise oefmt(space.w_TypeError,
-                            "argument after ** must be a mapping, not %T",
-                            w_item)
-        w_iterator = space.iter(space.call_method(w_item, "items"))
-        while True:
-            try:
-                w_nextitem = space.next(w_iterator)
-            except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break
-            w_key, w_value = space.fixedview_unroll(w_nextitem, 2)
-            if space.contains_w(w_dict, w_key):
-                if not space.isinstance_w(w_key, space.w_unicode):
-                    raise oefmt(space.w_TypeError,
-                            "keywords must be strings, not '%T'", w_key)
-                raise oefmt(space.w_TypeError,
-                    "got multiple values for keyword argument %R",
-                    w_key)
-            space.setitem(w_dict, w_key, w_value)
+        _dict_merge(space, w_dict, w_item)
 
     def DICT_UPDATE(self, oparg, next_instr):
         w_item = self.popvalue()
@@ -1953,6 +1920,50 @@ def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
 
     return w_globals, w_locals
 
+def _dict_merge(space, w_dict, w_item):
+    l1 = space.len_w(w_dict)
+    unroll_safe = jit.isvirtual(w_dict) and l1 < 10
+    if not space.isinstance_w(w_dict, space.w_dict):
+        raise oefmt(space.w_RuntimeError,
+                    "expected a dict, got %T", w_dict)
+    if not space.isinstance_w(w_item, space.w_dict):
+        unroll_safe = False
+        if not space.ismapping_w(w_item):
+            raise oefmt(space.w_TypeError,
+                        "argument after ** must be a mapping, not %T",
+                        w_item)
+        try:
+            w_item = space.call_function(space.w_dict, w_item)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise oefmt(space.w_TypeError,
+                        "argument after ** must be a mapping, not %T",
+                        w_item)
+    else:
+        l2 = space.len_w(w_item)
+        unroll_safe = jit.isvirtual(w_item) and l2 < 10
+    _dict_merge_loop(space, w_dict, w_item, unroll_safe)
+
+@jit.look_inside_iff(lambda space, w_dict, w_item, unroll_safe: unroll_safe)
+def _dict_merge_loop(space, w_dict, w_item, unroll_safe):
+    w_iterator = space.iter(space.call_method(w_item, "items"))
+    while True:
+        try:
+            w_nextitem = space.next(w_iterator)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        w_key, w_value = space.fixedview_unroll(w_nextitem, 2)
+        if space.contains_w(w_dict, w_key):
+            if not space.isinstance_w(w_key, space.w_unicode):
+                raise oefmt(space.w_TypeError,
+                        "keywords must be strings, not '%T'", w_key)
+            raise oefmt(space.w_TypeError,
+                "got multiple values for keyword argument %R",
+                w_key)
+        space.setitem(w_dict, w_key, w_value)
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
