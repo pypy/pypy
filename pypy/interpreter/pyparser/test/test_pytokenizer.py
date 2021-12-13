@@ -215,6 +215,9 @@ whatisthis"""'''
         check_token_error("0b1_ \n",
                 "invalid binary literal",
                 3)
+        check_token_error("01212 \n",
+                "leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
+                1)
         tokenize("1 2 \n") # does not raise
         tokenize("1 _ \n") # does not raise
 

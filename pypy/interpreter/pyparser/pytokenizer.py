@@ -431,6 +431,9 @@ def generate_tokens(lines, flags):
                 if start<max and line[start] in single_quoted:
                     raise TokenError("end of line (EOL) while scanning string literal",
                              line, lnum, start+1, token_list)
+                if line[pos] == "0":
+                    raise TokenError("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
+                            line, lnum, pos+1, token_list)
                 tok = Token(tokens.ERRORTOKEN, line[pos], lnum, pos, line)
                 token_list.append(tok)
                 last_comment = ''

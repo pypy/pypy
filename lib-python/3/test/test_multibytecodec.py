@@ -182,6 +182,7 @@ class Test_IncrementalEncoder(unittest.TestCase):
                              'little'))
 
     def test_setstate_validates_input_size(self):
+        import pdb; pdb.set_trace()
         encoder = codecs.getincrementalencoder('euc_jp')()
         pending_size_nine = int.from_bytes(
             b"\x09"
