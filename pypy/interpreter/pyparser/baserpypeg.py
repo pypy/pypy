@@ -251,14 +251,14 @@ class Parser:
     def parse_meth_or_raise(self, meth):
         res = meth(self)
         if res is None:
+            tok = self.diagnose()
             self.reset()
             self.call_invalid_rules = True
             meth(self) # often raises
             # we're still here, so no specific error message
-            tok = self.diagnose()
             if tok.token_type == tokens.INDENT:
                 self.raise_indentation_error("unexpected indent")
-            self.raise_syntax_error("invalid syntax")
+            self.raise_syntax_error_known_location("invalid syntax", tok)
         assert res
         return res
 
@@ -780,7 +780,6 @@ class Parser:
             line = "".join(
                 self.get_lines(range(start_lineno, end_lineno + 1))
             )
-
         raise cls(
             message,
             start_lineno, start_col_offset + 1, line, self.compile_info.filename, lastlineno=end_lineno

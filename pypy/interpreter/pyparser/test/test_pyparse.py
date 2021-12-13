@@ -476,6 +476,11 @@ stuff = "nothing"
         info = py.test.raises(SyntaxError, self.parse, "print 1)")
         assert "unmatched" in info.value.msg
 
+    def test_error_exec_without_parens_bug(self):
+        info = py.test.raises(SyntaxError, self.parse, "exec {1:(foo.)}")
+        assert "Missing parentheses in call to 'exec'" in info.value.msg
+        assert info.value.offset == 6
+
 class TestPythonParserRevDB(TestPythonParser):
     spaceconfig = {"translation.reverse_debugger": True}
 

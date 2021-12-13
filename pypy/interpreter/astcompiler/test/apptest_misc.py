@@ -27,3 +27,9 @@ def test_error_message_ast():
         compile(m, 'fn', 'exec')
     assert "expected some sort of expr, got" in str(excinfo.value)
 
+def test_weird_exec_bug():
+    with pytest.raises(SyntaxError) as excinfo:
+        compile('exec {1:(foo.)}', 'fn', 'exec')
+    print(excinfo.value.offset)
+    assert excinfo.value.offset == 6
+
