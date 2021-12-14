@@ -401,7 +401,8 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
     def _do_errcheck(self, result, args):
         # The 'errcheck' protocol
         if self._errcheck_:
-            v = self._errcheck_(result, self, tuple(args))
+            args = tuple(args)
+            v = self._errcheck_(result, self, args)
             # If the errcheck funtion failed, let it throw
             # If the errcheck function returned newargs unchanged,
             # continue normal processing.
