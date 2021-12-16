@@ -385,7 +385,7 @@ def create_package(basedir, options, _fake=False):
                 os.chdir(str(name))
                 if not os.path.exists('lib'):
                     os.mkdir('lib')
-                make_portable()
+                make_portable(copytree, python_ver)
                 os.chdir(str(builddir))
         if USE_ZIPFILE_MODULE:
             import zipfile
@@ -405,13 +405,13 @@ def create_package(basedir, options, _fake=False):
                       "will contain your uid and gid. If you are building the "
                       "actual release for the PyPy website, you may want to be "
                       "using another platform...", file=sys.stderr)
-                e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --numeric-owner -cjf ' + archive + " " + name)
             elif sys.platform.startswith('freebsd'):
-                e = os.system('tar --uname=root --gname=wheel -cvjf ' + archive + " " + name)
+                e = os.system('tar --uname=root --gname=wheel -cjf ' + archive + " " + name)
             elif sys.platform == 'cygwin':
-                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cjf ' + archive + " " + name)
             else:
-                e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --owner=root --group=root --numeric-owner -cjf ' + archive + " " + name)
             if e:
                 raise OSError('"tar" returned exit status %r' % e)
     finally:
