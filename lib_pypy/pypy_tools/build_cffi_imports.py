@@ -62,8 +62,8 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS. Use a mirror from https://www.openssl.org/source/mirror.html
 cffi_dependencies = {
-    '_ssl': ('http://artfiles.org/openssl.org/source/openssl-3.0.0.tar.gz',
-             '59eedfcb46c25214c9bd37ed6078297b4df01d012267fe9e9eee31f61bc70536',
+    '_ssl': ('http://artfiles.org/openssl.org/source/openssl-3.0.1.tar.gz',
+             'c311ad853353bce796edad01a862c50a8a587f62e7e2100ef465ab53ec9b06d1',
              [['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
