@@ -113,16 +113,20 @@ def make_portable(copytree, python_ver):
         print('Set RPATH of {0} to {1}'.format(binary, rpath))
 
     # copy tcl/tk shared files, search /usr and copy the containing dir...
+    # this assumes there is only one version of tcl/tk
+    # TODO: parse the version of tcl/tk from the dependencies above
     found_tk = found_tcl = False
     for path, dirs, files in os.walk('/usr'):
         if not found_tk and 'tk.tcl' in files:
             print('Found tk shared files at: %s' % (path))
             found_tk = True
-            copytree(path, 'lib/tk')
+            target = 'lib/{}'.format(os.path.split(path)[-1])
+            copytree(path, target)
         if not found_tcl and 'init.tcl' in files:
             print('Found tcl shared files at: %s' % (path))
             found_tcl = True
-            copytree(path, 'lib/tcl')
+            target = 'lib/{}'.format(os.path.split(path)[-1])
+            copytree(path, target)
 
     return deps
 
