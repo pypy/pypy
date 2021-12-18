@@ -104,6 +104,91 @@ class W_IntObject(W_Object):
         else:
             raise OperationError
 
+class W_FloatObject(W_Object):
+
+    def __init__(self, floatvalue):
+        self.floatvalue = floatvalue
+
+    def __repr__(self):
+        return self.getrepr()
+
+    def getrepr(self):
+        return str(self.floatvalue)
+
+    def is_true(self):
+        return self.floatvalue != 0.0
+
+    def add(self, w_other):
+        if isinstance(w_other, W_FloatObject):
+            sum = self.floatvalue + w_other.floatvalue
+            return W_FloatObject(sum)
+        else:
+            raise OperationError
+
+    def sub(self, w_other):
+        if isinstance(w_other, W_FloatObject):
+            sum = self.floatvalue - w_other.floatvalue
+            return W_FloatObject(sum)
+        else:
+            raise OperationError
+
+    def mul(self, w_other):
+        if isinstance(w_other, W_FloatObject):
+            sum = self.floatvalue * w_other.floatvalue
+            return W_FloatObject(sum)
+        else:
+            raise OperationError
+
+    def div(self, w_other):
+        if isinstance(w_other, W_FloatObject):
+            sum = self.floatvalue / w_other.floatvalue
+            return W_FloatObject(sum)
+        else:
+            raise OperationError
+
+    def mod(self, w_other):
+        if isinstance(w_other, W_FloatObject):
+            sum = self.floatvalue % w_other.floatvalue
+            return W_FloatObject(sum)
+        else:
+            raise OperationError
+
+    def eq(self, w_other):
+        if isinstance(w_other, W_FloatObject):
+            if self.floatvalue == w_other.floatvalue:
+                return W_IntObject(1)
+            else:
+                return W_IntObject(0)
+        else:
+            raise OperationError
+
+    def lt(self, w_other):
+        if isinstance(w_other, W_FloatObject):
+            if self.floatvalue < w_other.floatvalue:
+                return W_IntObject(1)
+            else:
+                return W_IntObject(0)
+        else:
+            raise OperationError
+
+    def gt(self, w_other):
+        if isinstance(w_other, W_FloatObject):
+            if self.floatvalue > w_other.floatvalue:
+                return W_IntObject(1)
+            else:
+                return W_IntObject(0)
+        else:
+            raise OperationError
+
+    def le(self, w_other):
+        if isinstance(w_other, W_FloatObject):
+            if self.floatvalue <= w_other.floatvalue:
+                return W_IntObject(1)
+            else:
+                return W_IntObject(0)
+        else:
+            raise OperationError
+
 class W_StringObject(W_Object):
 
     def __init__(self, strvalue):
