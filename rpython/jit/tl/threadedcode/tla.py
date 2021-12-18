@@ -366,7 +366,6 @@ class Frame(object):
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.gt(w_y)
-        print "w_x: %d > w_y: %d ==> %d" % (w_x.intvalue, w_y.intvalue, w_z.intvalue)
         self.push(w_z)
 
     @jit.dont_look_inside
