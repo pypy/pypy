@@ -1,5 +1,5 @@
 from rpython.rlib import jit
-from rpython.rlib.jit import JitDriver, we_are_jitted
+from rpython.rlib.jit import JitDriver, we_are_jitted, we_are_translated
 from rpython.jit.tl.threadedcode.traverse_stack import *
 from rpython.jit.tl.threadedcode.tlib import *
 
@@ -147,10 +147,10 @@ class Frame(object):
 
     def __init__(self, bytecode):
         self.bytecode = bytecode
-        self.stack = [None] * 20
+        self.stack = [None] * 256
         self.stackpos = 0
 
-        self.saved_stack = [None] * 20
+        self.saved_stack = [None] * 256
         self.saved_stackpos = 0
 
     @jit.not_in_trace
@@ -191,7 +191,13 @@ class Frame(object):
 
     @jit.not_in_trace
     def print_stack(self):
-        print self.stack
+        out = "["
+        for elem in self.stack:
+            if elem is None:
+                break
+            out = "%s, %s" % (out, elem)
+        out = "%s ]" % (out)
+        print out
 
     @jit.dont_look_inside
     def is_true(self):
@@ -204,6 +210,14 @@ class Frame(object):
         if isinstance(pc, int):
             x = ord(self.bytecode[pc])
             self.push(W_IntObject(x))
+        else:
+            raise OperationError
+
+    @jit.dont_look_inside
+    def CONST_FLOAT(self, pc):
+        if isinstance(pc, float):
+            x = ord(self.bytecode[pc])
+            self.push(W_FloatObject(x))
         else:
             raise OperationError
 
@@ -249,6 +263,13 @@ class Frame(object):
         self.push(w_x)
 
     @jit.dont_look_inside
+    def DUPN(self, pc):
+        n = ord(self.bytecode[pc])
+        w_x = self.take(n)
+        self.push(w_x)
+        self.push(w_x)
+
+    @jit.dont_look_inside
     def LT(self):
         w_y = self.pop()
         w_x = self.pop()
@@ -260,6 +281,7 @@ class Frame(object):
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.gt(w_y)
+        print "w_x: %d > w_y: %d ==> %d" % (w_x.intvalue, w_y.intvalue, w_z.intvalue)
         self.push(w_z)
 
     @jit.dont_look_inside
@@ -307,6 +329,11 @@ class Frame(object):
         self.drop(n-1)
         return self.pop()
 
+    @jit.dont_look_inside
+    def PRINT(self):
+        v = self.pop()
+        print v
+
     def _push(self, w_x):
         self.stack[self.stackpos] = w_x
         self.stackpos += 1
@@ -319,6 +346,10 @@ class Frame(object):
         self.stack[stackpos] = None
         return res
 
+    def _take(self,n):
+        assert len(self.stack) is not 0
+        return self.stack[self.stackpos - n - 1]
+
     def _is_true(self):
         w_x = self.pop()
         res = w_x.is_true()
@@ -328,6 +359,13 @@ class Frame(object):
         if isinstance(pc, int):
             x = ord(self.bytecode[pc])
             self._push(W_IntObject(x))
+        else:
+            raise OperationError
+
+    def _CONST_FLOAT(self, pc):
+        if isinstance(pc, float):
+            x = ord(self.bytecode[pc])
+            self._push(W_FloatObject(x))
         else:
             raise OperationError
 
@@ -363,6 +401,12 @@ class Frame(object):
 
     def _DUP(self):
         w_x = self._pop()
+        self._push(w_x)
+        self._push(w_x)
+
+    def _DUPN(self, pc):
+        n = ord(self.bytecode[pc])
+        w_x = self._take(n)
         self._push(w_x)
         self._push(w_x)
 
@@ -413,6 +457,10 @@ class Frame(object):
         self.drop(n-1)
         return self._pop()
 
+    def _PRINT(self):
+        v = self.pop()
+        print v
+
     def interp_jit(self, pc=0):
         bytecode = self.bytecode
         while pc < len(bytecode):
@@ -433,8 +481,15 @@ class Frame(object):
             elif opcode == DUP:
                 self._DUP()
 
+            elif opcode == DUPN:
+                self._DUPN(pc)
+                pc += 1
+
             elif opcode == LT:
                 self._LT()
+
+            elif opcode == GT:
+                self._GT()
 
             elif opcode == EQ:
                 self._EQ()
@@ -477,7 +532,7 @@ class Frame(object):
             elif opcode == JUMP:
                 target = ord(bytecode[pc])
                 if target < pc:
-                    tjjitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
+                    tjjitdriver.can_enter_jit(pc=target, bytecode=bytecode, self=self)
                 pc = target
 
             elif opcode == JUMP_IF:
@@ -485,19 +540,14 @@ class Frame(object):
                 pc += 1
                 if self._is_true():
                     if target < pc:
-                        tjjitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
-                    pc = target
-
-            elif opcode == JUMP_IF_FLS:
-                target = ord(bytecode[pc])
-                pc += 1
-                if not self._is_true():
-                    if target < pc:
-                        tjjitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
+                        tjjitdriver.can_enter_jit(pc=target, bytecode=bytecode, self=self)
                     pc = target
 
             elif opcode == EXIT:
                 return self._pop()
+
+            elif opcode == PRINT:
+                self._PRINT()
 
             else:
                 assert False, 'Unknown opcode: %d' % opcode
@@ -520,8 +570,15 @@ class Frame(object):
             elif opcode == DUP:
                 self.DUP()
 
+            elif opcode == DUPN:
+                self.DUPN(pc)
+                pc += 1
+
             elif opcode == LT:
                 self.LT()
+
+            elif opcode == GT:
+                self.GT()
 
             elif opcode == EQ:
                 self.EQ()
@@ -561,14 +618,11 @@ class Frame(object):
                 if self.is_true():
                     pc = target
 
-            elif opcode == JUMP_IF_FLS:
-                target = ord(bytecode[pc])
-                pc += 1
-                if not self.is_true():
-                    pc = target
-
             elif opcode == EXIT:
                 return self.pop()
+
+            elif opcode == PRINT:
+                self.PRINT()
 
             else:
                 assert False, 'Unknown opcode: %d' % opcode
@@ -579,8 +633,8 @@ class Frame(object):
         bytecode = self.bytecode
 
         while pc < len(bytecode):
-            tcjitdriver.jit_merge_point(pc=pc, entry_state=entry_state, bytecode=bytecode,
-                                        tstack=tstack, self=self)
+            tcjitdriver.jit_merge_point(bytecode=bytecode, entry_state=entry_state,
+                                        pc=pc, tstack=tstack, self=self)
             # print get_printable_location_tc(pc, entry_state, bytecode, tstack)
             # self.print_stack()
             opcode = ord(bytecode[pc])
@@ -596,8 +650,15 @@ class Frame(object):
             elif opcode == DUP:
                 self.DUP()
 
+            elif opcode == DUPN:
+                self.DUPN(pc)
+                pc += 1
+
             elif opcode == LT:
                 self.LT()
+
+            elif opcode == GT:
+                self.GT()
 
             elif opcode == EQ:
                 self.EQ()
@@ -679,25 +740,6 @@ class Frame(object):
                             tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                       pc=target, tstack=tstack, self=self)
                         pc = target
-            elif opcode == JUMP_IF_FLS:
-                target = ord(bytecode[pc])
-                pc += 1
-                if we_are_jitted():
-                    if self.is_true():
-                        tstack = t_push(target, tstack)
-                    else:
-                        tstack = t_push(pc, tstack)
-                        pc = target
-
-                else:
-                    if self.is_true():
-                        pass
-                    else:
-                        if target < pc:
-                            entry_state = target; self.save_state()
-                            tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
-                                                      pc=target, tstack=tstack, self=self)
-                        pc = target
 
             elif opcode == EXIT:
                 if we_are_jitted():
@@ -714,8 +756,11 @@ class Frame(object):
                 else:
                     return self.pop()
 
+            elif opcode == PRINT:
+                self.PRINT()
+
             else:
-                assert False, 'Unknown opcode: %d' % opcode
+                assert False, 'Unknown opcode: %s' % bytecodes[opcode]
 
 
 def run(bytecode, w_arg, entry=None):
