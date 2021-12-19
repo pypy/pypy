@@ -1222,7 +1222,8 @@ def attach_c_functions(space, eci, prefix):
         '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
-        '_PyPy_tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        mangle_name(prefix, '_Py_tuple_new'),
+        [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
     if we_are_translated():
         eci_flags = eci
