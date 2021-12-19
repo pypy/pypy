@@ -93,8 +93,23 @@ done:
 static PyObject *
 tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 
+/* 
+ * Mangle to _PyPy_tuple_new for translation.
+ * For tests, we want to mangle as if it were a c-api function so
+ * it will not be confused with the host's similarly named function
+ */
+#ifdef CPYEXT_TESTS
+#define _Py_tuple_new _cpyexttest_tuple_new
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_tuple_new _PyPy_tuple_new
+#endif  /* CPYEXT_TESTS */
 PyObject *
-_PyPy_tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+_Py_tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     PyObject *arg = NULL;
     static char *kwlist[] = {"sequence", 0};
@@ -117,7 +132,7 @@ tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     Py_ssize_t i, n;
 
     assert(PyType_IsSubtype(type, &PyTuple_Type));
-    tmp = _PyPy_tuple_new(&PyTuple_Type, args, kwds);
+    tmp = _Py_tuple_new(&PyTuple_Type, args, kwds);
     if (tmp == NULL)
         return NULL;
     assert(PyTuple_Check(tmp));

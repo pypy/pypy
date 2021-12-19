@@ -322,7 +322,7 @@ def create_package(basedir, options, _fake=False):
     copytree(str(basedir.join('lib_pypy')), str(target),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
                                            '*_cffi.c', '*.o', '*.pyd-*', '*.obj',
-                                           '*.lib', '*.exp', '*.manifest'))
+                                           '*.lib', '*.exp', '*.manifest', '__pycache__'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:

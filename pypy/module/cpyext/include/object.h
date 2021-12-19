@@ -418,8 +418,6 @@ PyAPI_FUNC(int) PyObject_CallFinalizerFromDealloc(PyObject *);
 #define _Py_REF_DEBUG_COMMA
 #define _Py_CHECK_REFCNT(OP)    /* a semicolon */;
 
-typedef PyObject *(*vectorcallfunc)(PyObject *callable, PyObject *const *args,
-                                    size_t nargsf, PyObject *kwnames);
 
 /* PyPy internal ----------------------------------- */
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
