@@ -145,17 +145,12 @@ PY_SSIZE_T_MAX PY_SSIZE_T_MIN
 """.split()
 
 for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
-             'TYPE', 'BYTES'):
+             'TYPE', 'BYTES', 'FLOAT'):
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
 
 #pystrtod.h flags
 for name in ('SIGN', 'ADD_DOT_0', 'ALT'):
     constant_names.append('Py_DTSF_%s' % name)
-
-# PyPy-specific flags
-for name in ('FLOAT',):
-    constant_names.append('Py_TPPYPYFLAGS_%s_SUBCLASS' % name)
-
 
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))

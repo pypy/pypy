@@ -21,7 +21,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS,
     Py_TPFLAGS_BYTES_SUBCLASS,
-    Py_TPPYPYFLAGS_FLOAT_SUBCLASS,
+    Py_TPFLAGS_FLOAT_SUBCLASS,
     )
 
 from rpython.tool.cparser import CTypeSpace
@@ -466,9 +466,9 @@ def inherit_special(space, pto, w_obj, base_pto):
         flags |= Py_TPFLAGS_LIST_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_dict):
         flags |= Py_TPFLAGS_DICT_SUBCLASS
-    # the following types are a pypy-specific extensions, using tp_pypy_flags
+    # bpo-46131, maybe resolved for CPython 3.11?
     elif space.issubtype_w(w_obj, space.w_float):
-        pto.c_tp_pypy_flags = rffi.cast(rffi.LONG, widen(pto.c_tp_pypy_flags) | Py_TPPYPYFLAGS_FLOAT_SUBCLASS)
+        flags |= Py_TPFLAGS_FLOAT_SUBCLASS
     pto.c_tp_flags = rffi.cast(rffi.ULONG, flags)
 
 def check_descr(space, w_self, w_type):
