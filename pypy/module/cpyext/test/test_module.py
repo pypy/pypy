@@ -90,13 +90,62 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         module = self.import_module(name='multiphase', use_imp=True)
         assert module.check_getdef_same()
 
-    def test_slots(self):
+    def test_slots1(self):
         from types import ModuleType
         body = """
         static PyModuleDef multiphase_def;
 
         static PyObject* multiphase_create(PyObject *spec, PyModuleDef *def) {
             PyObject *module = PyModule_New("altname");
+            PyObject_SetAttrString(module, "create_spec", spec);
+            PyObject_SetAttrString(module, "create_def_eq",
+                                   PyBool_FromLong(def == &multiphase_def));
+            return module;
+        }
+
+        static int multiphase_exec(PyObject* module) {
+            Py_INCREF(Py_True);
+            PyObject_SetAttrString(module, "exec_called", Py_True);
+            return 0;
+        }
+
+        static PyModuleDef_Slot multiphase_slots[] = {
+            {Py_mod_create, multiphase_create},
+            {Py_mod_exec, multiphase_exec},
+            {0, NULL}
+        };
+
+        static PyModuleDef multiphase_def = {
+            PyModuleDef_HEAD_INIT,                      /* m_base */
+            "multiphase",                               /* m_name */
+            "example docstring",                        /* m_doc */
+            0,                                          /* m_size */
+            NULL,                                       /* m_methods */
+            multiphase_slots,                           /* m_slots */
+            NULL,                                       /* m_traverse */
+            NULL,                                       /* m_clear */
+            NULL,                                       /* m_free */
+        };
+        """
+        init = """
+        return PyModuleDef_Init(&multiphase_def);
+        """
+        module = self.import_module(name='multiphase', body=body, init=init,
+                                    use_imp=True)
+        assert module.create_spec
+        assert module.create_spec is module.__spec__
+        assert module.create_def_eq
+        assert module.exec_called
+
+    def test_slots2(self):
+        from types import ModuleType
+        body = """
+        static PyModuleDef multiphase_def;
+
+        static PyObject* multiphase_create(PyObject *spec, PyModuleDef *def) {
+            PyObject *name = PyUnicode_FromString("altname");
+            PyObject *module = PyModule_NewObject(name);
+            Py_DECREF(name);
             PyObject_SetAttrString(module, "create_spec", spec);
             PyObject_SetAttrString(module, "create_def_eq",
                                    PyBool_FromLong(def == &multiphase_def));
