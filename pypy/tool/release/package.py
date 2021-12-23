@@ -131,6 +131,15 @@ def get_python_ver(pypy_c, quiet=False):
     ver = subprocess.check_output([str(pypy_c), '-c',
              'import sysconfig as s; print(s.get_python_version())'], **kwds)
     return ver.strip()
+
+def get_platlibdir(pypy_c, quiet=False):
+    kwds = {'universal_newlines': True}
+    if quiet:
+        kwds['stderr'] = subprocess.NULL
+    ver = subprocess.check_output([str(pypy_c), '-c',
+             'import sysconfig as s; print(s.get_config_var("platlibdir"))'], **kwds)
+    return ver.strip()
+
     
 def generate_sysconfigdata(pypy_c, stdlib):
     """Create a _sysconfigdata_*.py file that is platform specific and can be
@@ -200,7 +209,7 @@ def create_package(basedir, options, _fake=False):
     if ARCH == 'win32':
         target = pypydir.join('Lib')
     else:
-        target = pypydir.join('lib').join(IMPLEMENTATION)
+        target = pypydir.join(get_platlibdir(pypy_c)).join(IMPLEMENTATION)
     os.makedirs(str(target))
     if not _fake:
         generate_sysconfigdata(pypy_c, str(target))
