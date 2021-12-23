@@ -328,8 +328,10 @@ def main(args=None, *, _wrap_timer=None):
         callback = None
         if verbose:
             def callback(number, time_taken):
-                msg = "{num} loops -> {secs:.{prec}g} secs"
-                print(msg.format(num=number, secs=time_taken, prec=precision))
+                msg = "{num} loop{s} -> {secs:.{prec}g} secs"
+                plural = (number != 1)
+                print(msg.format(num=number, s='s' if plural else '',
+                                  secs=time_taken, prec=precision))
         try:
             number, _ = t.autorange(callback)
         except:
@@ -340,14 +342,34 @@ def main(args=None, *, _wrap_timer=None):
             print()
 
     try:
-        timings = t.repeat(repeat, number)
+        raw_timings = t.repeat(repeat, number)
     except:
         t.print_exc()
         return 1
-    if verbose:
-        print("raw times:", " ".join(["%.*g" % (precision, x) for x in timings]))
 
-    timings = [dt / number for dt in timings]
+    def format_time(dt, stdev=None):
+        unit = time_unit
+
+        if unit is not None:
+            scale = units[unit]
+        else:
+            scales = [(scale, unit) for unit, scale in units.items()]
+            scales.sort(reverse=True)
+            for scale, unit in scales:
+                if dt >= scale:
+                    break
+
+        if stdev is None:
+            return "%.*g %s" % (precision, dt / scale, unit)
+        else:
+            return "%.*g +- %.*g %s" % (precision, dt / scale,
+                                        precision, stdev / scale, unit)
+
+    if verbose:
+        print("raw times: %s" % ", ".join(map(format_time, raw_timings)))
+        print()
+
+    timings = [dt / number for dt in raw_timings]
 
     def _avg(l):
         return math.fsum(l) / len(l)
@@ -356,22 +378,20 @@ def main(args=None, *, _wrap_timer=None):
         return (math.fsum([(x - avg) ** 2 for x in l]) / len(l)) ** 0.5
 
     average = _avg(timings)
-
-    if time_unit is None:
-        scales = [(scale, unit) for unit, scale in units.items()]
-        scales.sort()
-        for scale, time_unit in scales:
-            if average * scale >= 1.0:
-                 break
-    else:
-        print(time_unit)
-        scale = units[time_unit]
-
     stdev = _stdev(timings)
-    print("%s loops, average of %d: %.*g +- %.*g %s per loop (using standard deviation)"
-          % (number, repeat,
-             precision, average * scale,
-             precision, stdev * scale, time_unit))
+
+    print("%s loops, average of %d: %s per loop (using standard deviation)"
+          % (number, repeat, format_time(average, stdev)))
+
+    best = min(timings)
+    worst = max(timings)
+    if worst >= best * 4:
+        import warnings
+        warnings.warn_explicit("The test results are likely unreliable. "
+                               "The worst time (%s) was more than four times "
+                               "slower than the best time (%s)."
+                               % (format_time(worst), format_time(best)),
+                               UserWarning, '', 0)
     return None
 
 if __name__ == "__main__":
