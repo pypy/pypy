@@ -65,7 +65,11 @@ def PyLong_AsUnsignedLong(space, w_long):
     except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
-        raise
+        if (e.match(space, space.w_OverflowError) and 
+                space.isinstance_w(w_long, space.w_int)):
+            raise oefmt(space.w_OverflowError,
+                "Python int too large to convert to C unsigned long")
+        raise e
     if need_to_check and val > ULONG_MAX:
         # On win64 space.uint_w will succeed for 8-byte ints
         # but long is 4 bytes. So we must check manually
@@ -94,10 +98,19 @@ def PyLong_AsLong(space, w_long):
     Get a C long int from an int object or any object that has an __int__
     method.  Return -1 and set an error if overflow occurs.
     """
-    if space.lookup(w_long, '__index__'):
-        val = space.int_w(space.index(w_long))
-    else:
-        val = space.int_w(space.int(w_long))
+    try:
+        if space.lookup(w_long, '__index__'):
+            val = space.int_w(space.index(w_long))
+        else:
+            val = space.int_w(space.int(w_long))
+    except OperationError as e:
+        if e.match(space, space.w_ValueError):
+            e.w_type = space.w_OverflowError
+        if (e.match(space, space.w_OverflowError) and 
+                space.isinstance_w(w_long, space.w_int)):
+            raise oefmt(space.w_OverflowError,
+                "Python int too large to convert to C long")
+        raise e
     if need_to_check and (val > LONG_MAX or val < LONG_MIN):
         # On win64 space.int_w will succeed for 8-byte ints
         # but long is 4 bytes. So we must check manually

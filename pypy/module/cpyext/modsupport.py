@@ -32,6 +32,7 @@ def module_dealloc(space, py_obj):
     _dealloc(space, py_obj)
 
 PyModule_Check, PyModule_CheckExact = build_type_checkers("Module", Module)
+
 @cpython_api([CONST_STRING], PyObject)
 def PyModule_New(space, name):
     """
@@ -39,6 +40,14 @@ def PyModule_New(space, name):
     Only the module's __doc__ and __name__ attributes are filled in;
     the caller is responsible for providing a __file__ attribute."""
     return Module(space, space.newtext(rffi.charp2str(name)))
+
+@cpython_api([PyObject], PyObject)
+def PyModule_NewObject(space, w_name):
+    """
+    Return a new module object with the __name__ attribute set to name.
+    Only the module's __doc__ and __name__ attributes are filled in;
+    the caller is responsible for providing a __file__ attribute."""
+    return Module(space, w_name)
 
 @cpython_api([PyModuleDef, rffi.INT_real], PyObject)
 def PyModule_Create2(space, module, api_version):
