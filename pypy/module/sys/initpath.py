@@ -105,7 +105,7 @@ def find_pyvenv_cfg(dirname):
     return ''
 
 
-def find_stdlib(state, executable):
+def find_stdlib(state, platlibdir, executable):
     """
     Find and compute the stdlib path, starting from the directory where
     ``executable`` is and going one level up until we find it.  Return a
@@ -128,7 +128,7 @@ def find_stdlib(state, executable):
             if home:
                 dirname = home
                 search_pyvenv_cfg = 0
-        newpath = compute_stdlib_path_maybe(state, dirname)
+        newpath = compute_stdlib_path_maybe(state, platlibdir, dirname)
         if newpath is not None:
             return newpath, dirname
         search = dirname    # walk to the parent directory
@@ -144,7 +144,7 @@ def _checkfile(path, fname):
     if not os.path.isfile(pth):
         raise OSError(errno.EEXIST, pth)
 
-def compute_stdlib_path_packaged(state, prefix):
+def compute_stdlib_path_packaged(state, platlibdir, prefix):
     """
     Compute the paths for the stdlib rooted at ``prefix``. ``prefix``
     must at least contain a directory called ``lib/pypyX.Y``.
@@ -160,7 +160,7 @@ def compute_stdlib_path_packaged(state, prefix):
             lib_python = os.path.join(prefix, 'Lib')
         else:
             dirname = 'pypy%d.%d' % CPYTHON_VERSION[:2]
-            lib_python = os.path.join(prefix, 'lib')
+            lib_python = os.path.join(prefix, platlibdir)
             lib_python = os.path.join(lib_python, dirname)
         python_std_lib = os.path.join(prefix, lib_python)
         # In a source checkout, the directory will exist but site.py will not
@@ -168,7 +168,7 @@ def compute_stdlib_path_packaged(state, prefix):
         _checkfile(python_std_lib, 'site.py')
     return compute_lib_pypy_path(state, python_std_lib, prefix, use_lib_pypy=False)
 
-def compute_stdlib_path_sourcetree(state, prefix):
+def compute_stdlib_path_sourcetree(state, platlibdir, prefix):
     """
     Compute the paths for the stdlib rooted at ``prefix``. ``prefix``
     must at least contain a directory called ``lib-python/X.Y`` and
@@ -205,15 +205,15 @@ def compute_lib_pypy_path(state, python_std_lib, prefix, use_lib_pypy=True):
     return importlist
 
 
-def compute_stdlib_path_maybe(state, prefix):
+def compute_stdlib_path_maybe(state, platlibdir, prefix):
     """Return the stdlib path rooted at ``prefix``, or None if it cannot
     be found.
     """
     try:
-        return compute_stdlib_path_packaged(state, prefix)
+        return compute_stdlib_path_packaged(state, platlibdir, prefix)
     except OSError:
         try:
-            return compute_stdlib_path_sourcetree(state, prefix)
+            return compute_stdlib_path_sourcetree(state, platlibdir, prefix)
         except OSError:
             return None
 
@@ -232,14 +232,14 @@ def pypy_resolvedirof(space, filename):
 def pypy_find_stdlib(space, executable):
     path, prefix = None, None
     if executable != '*':
-        path, prefix = find_stdlib(get_state(space), executable)
+        path, prefix = find_stdlib(get_state(space), space.config.objspace.platlibdir, executable)
     if path is None:
         if space.config.translation.shared:
             dynamic_location = pypy_init_home()
             if dynamic_location:
                 dyn_path = rffi.charp2str(dynamic_location)
                 pypy_init_free(dynamic_location)
-                path, prefix = find_stdlib(get_state(space), dyn_path)
+                path, prefix = find_stdlib(get_state(space), space.config.objspace.platlibdir, dyn_path)
         if path is None:
             return space.w_None
     w_prefix = space.newfilename(prefix)

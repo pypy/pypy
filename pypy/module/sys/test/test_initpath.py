@@ -1,3 +1,4 @@
+import pytest
 import py
 import os.path
 from pypy.module.sys.initpath import (compute_stdlib_path_sourcetree,
@@ -12,9 +13,9 @@ def build_hierarchy_srctree(prefix):
     b = prefix.join('lib-python', dirname).ensure(dir=1)
     return a, b
 
-def build_hierarchy_package(prefix):
+def build_hierarchy_package(prefix, platlibdir="lib"):
     dot_ver = 'pypy%d.%d' % CPYTHON_VERSION[:2]
-    b = prefix.join('lib', dot_ver).ensure(dir=1)
+    b = prefix.join(platlibdir, dot_ver).ensure(dir=1)
     b.join('site.py').ensure(dir=0)
     return b
 
@@ -22,24 +23,25 @@ def test_find_stdlib(tmpdir):
     bin_dir = tmpdir.join('bin').ensure(dir=True)
     pypy = bin_dir.join('pypy3').ensure(file=True)
     build_hierarchy_srctree(tmpdir)
-    path, prefix = find_stdlib(None, str(pypy))
+    path, prefix = find_stdlib(None, "lib", str(pypy))
     assert prefix == tmpdir
     # if executable is None look for stdlib based on the working directory
     # see lib-python/2.7/test/test_sys.py:test_executable
-    _, prefix = find_stdlib(None, '')
+    _, prefix = find_stdlib(None, "lib", '')
     cwd = os.path.dirname(os.path.realpath(__file__))
     assert prefix is not None
     assert cwd.startswith(str(prefix))
 
-def test_find_stdlib_package(tmpdir):
+@pytest.mark.parametrize("platlibdir", ["lib", "lib64"])
+def test_find_stdlib_package(tmpdir, platlibdir):
     bin_dir = tmpdir.join('bin').ensure(dir=True)
     pypy = bin_dir.join('pypy3').ensure(file=True)
-    build_hierarchy_package(tmpdir)
-    path, prefix = find_stdlib(None, str(pypy))
+    build_hierarchy_package(tmpdir, platlibdir)
+    path, prefix = find_stdlib(None, platlibdir, str(pypy))
     assert prefix == tmpdir
     # if executable is None look for stdlib based on the working directory
     # see lib-python/2.7/test/test_sys.py:test_executable
-    _, prefix = find_stdlib(None, '')
+    _, prefix = find_stdlib(None, platlibdir, '')
     cwd = os.path.dirname(os.path.realpath(__file__))
     assert prefix is not None
     assert cwd.startswith(str(prefix))
@@ -51,7 +53,7 @@ def test_find_stdlib_follow_symlink(tmpdir):
     build_hierarchy_srctree(pypydir)
     pypy_sym = tmpdir.join('pypy3_sym')
     os.symlink(str(pypy), str(pypy_sym))
-    path, prefix = find_stdlib(None, str(pypy_sym))
+    path, prefix = find_stdlib(None, "lib", str(pypy_sym))
     assert prefix == pypydir
 
 def test_pypy_init_home():
@@ -63,7 +65,7 @@ def test_pypy_init_home():
 
 def test_compute_stdlib_path(tmpdir):
     dirs = build_hierarchy_srctree(tmpdir)
-    path = compute_stdlib_path_sourcetree(None, str(tmpdir))
+    path = compute_stdlib_path_sourcetree(None, "lib", str(tmpdir))
     # we get at least 'dirs'
     assert path[:len(dirs)] == map(str, dirs)
 
@@ -147,5 +149,5 @@ def test_find_stdlib_follow_pyvenv_cfg(tmpdir):
     build_hierarchy_srctree(otherdir)
     for homedir in [otherdir, otherdir.join('bin')]:
         mydir.join('pyvenv.cfg').write('home = %s\n' % (homedir,))
-        _, prefix = find_stdlib(None, str(pypy))
+        _, prefix = find_stdlib(None, "lib", str(pypy))
         assert prefix == otherdir
