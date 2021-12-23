@@ -4,7 +4,8 @@ from pypy.module.cpyext.api import (
     METH_NOARGS, METH_O, METH_VARARGS, build_type_checkers,
     parse_dir, bootstrap_function, generic_cpy_call, cts, cpython_api,
     generic_cpy_call_dont_convert_result, slot_function)
-from pypy.module.cpyext.pyobject import PyObject, as_pyobj, make_typedescr
+from pypy.module.cpyext.pyobject import (PyObject, as_pyobj, make_typedescr,
+    keepalive_until_here)
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
@@ -149,31 +150,30 @@ def create_module_from_def_and_spec(space, moddef, w_spec, name):
     return w_mod
 
 
-def exec_def(space, w_mod, mod_as_pyobj):
+def exec_def(space, mod, moddef):
     from pypy.module.cpyext.pyerrors import PyErr_Occurred
-    mod = rffi.cast(PyModuleObject, mod_as_pyobj)
-    moddef = mod.c_md_def
     cur_slot = rffi.cast(rffi.CArrayPtr(PyModuleDef_Slot), moddef.c_m_slots)
     if moddef.c_m_size >= 0 and not mod.c_md_state:
         # Always set md_state, to use as marker for exec_extension_module()
         # (cf. CPython's PyModule_ExecDef)
         mod.c_md_state = lltype.malloc(
             rffi.VOIDP.TO, moddef.c_m_size, flavor='raw', zero=True)
+    pyobj = rffi.cast(PyObject, mod)
     while cur_slot and rffi.cast(lltype.Signed, cur_slot[0].c_slot):
         if rffi.cast(lltype.Signed, cur_slot[0].c_slot) == 2:
             execf = rffi.cast(execfunctype, cur_slot[0].c_value)
-            res = generic_cpy_call_dont_convert_result(space, execf, w_mod)
+            res = generic_cpy_call_dont_convert_result(space, execf, pyobj)
             state = space.fromcache(State)
             if rffi.cast(lltype.Signed, res):
                 state.check_and_raise_exception()
                 raise oefmt(space.w_SystemError,
-                            "execution of module %S failed without "
-                            "setting an exception", w_mod.w_name)
+                            "execution of module %s failed without setting an "
+                            "exception", rffi.constcharp2str(moddef.c_m_name))
             else:
                 if state.clear_exception():
                     raise oefmt(space.w_SystemError,
-                                "execution of module %S raised unreported "
-                                "exception", w_mod.w_name)
+                                "execution of module %s raised unreported "
+                                "exception", rffi.constcharp2str(moddef.c_m_name))
         cur_slot = rffi.ptradd(cur_slot, 1)
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
@@ -245,4 +245,13 @@ def PyModule_AddFunctions(space, w_mod, methods):
     convert_method_defs(space, dict_w, methods, None, w_mod, name=name)
     for key, w_value in dict_w.items():
         space.setattr(w_mod, space.newtext(key), w_value)
+    return 0
+
+@cpython_api([PyObject, PyModuleDef], rffi.INT_real, error=-1)
+def PyModule_ExecDef(space, w_mod, c_def):
+    if not isinstance(w_mod, Module):
+        raise oefmt(space.w_SystemError, "PyModule_ExecDef(): not a module")
+    py_mod = rffi.cast(PyModuleObject, as_pyobj(space, w_mod))
+    exec_def(space, py_mod, c_def)
+    keepalive_until_here(w_mod)
     return 0
