@@ -404,7 +404,6 @@ def proxy_bytes(space, w_obj):
 proxy_typedef_dict['__bytes__'] = interp2app(proxy_bytes)
 callable_proxy_typedef_dict['__bytes__'] = interp2app(proxy_bytes)
 
-
 # neither is __reversed__
 def proxy_reversed(space, w_obj):
     w_obj = force(space, w_obj)
