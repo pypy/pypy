@@ -194,6 +194,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                "Enable the HPy/cpyext API in the hpy_universal module",
                default=True),
 
+    StrOption("platlibdir",
+              "Configure the platlibdir at translation time",
+              cmdline="--platlibdir",
+              default="lib"),
+
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),

@@ -39,7 +39,6 @@ class Module(MixedModule):
         'maxunicode'            : 'space.newint(vm.MAXUNICODE)',
         'pypy_objspaceclass'    : 'space.newtext(repr(space))',
         'prefix'                : 'state.get(space).w_initial_prefix',
-        'platlibdir'            : 'space.newtext("lib")', # XXX for now!
         'exec_prefix'           : 'state.get(space).w_initial_prefix',
         'path'                  : 'state.get(space).w_path',
         'modules'               : 'state.get(space).w_modules',
@@ -182,6 +181,7 @@ class Module(MixedModule):
             rootdir = os.path.dirname(pypydir)
             for attr in ['prefix', 'exec_prefix', 'base_prefix', 'base_exec_prefix']:
                 space.setitem(self.w_dict, space.wrap(attr), space.wrap(rootdir))
+        space.setitem(self.w_dict, space.wrap("platlibdir"), space.wrap(space.config.objspace.platlibdir))
 
 
     def flush_std_files(self, space):

@@ -234,6 +234,20 @@ class AppTestAppSysTests:
         import sys
         sys.audit("os.chdir", "bla", 1, 2, 12) # does not crash
 
+    def test_platlibdir(self):
+        import sys
+        assert sys.platlibdir == "lib" # default
+
+
+class AppTestPlatlibdirNotDefault:
+    spaceconfig = {
+        "platlibdir": "lib64"
+    }
+
+    def test_platlibdir(self):
+        import sys
+        assert sys.platlibdir == "lib64"
+
 
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {
