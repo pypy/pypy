@@ -398,12 +398,19 @@ for opname, _, arity, special_methods in ObjSpace.MethodTable:
             callable_proxy_typedef_dict[special_method] = interp2app(func)
 
 # __bytes__ is not yet a space operation
-def proxy_unicode(space, w_obj):
+def proxy_bytes(space, w_obj):
     w_obj = force(space, w_obj)
     return space.call_method(w_obj, '__bytes__')
-proxy_typedef_dict['__bytes__'] = interp2app(proxy_unicode)
-callable_proxy_typedef_dict['__bytes__'] = interp2app(proxy_unicode)
+proxy_typedef_dict['__bytes__'] = interp2app(proxy_bytes)
+callable_proxy_typedef_dict['__bytes__'] = interp2app(proxy_bytes)
 
+
+# neither is __reversed__
+def proxy_reversed(space, w_obj):
+    w_obj = force(space, w_obj)
+    return space.call_method(w_obj, '__reversed__')
+proxy_typedef_dict['__reversed__'] = interp2app(proxy_reversed)
+callable_proxy_typedef_dict['__reversed__'] = interp2app(proxy_reversed)
 
 W_Proxy.typedef = TypeDef("weakproxy",
     __new__ = interp2app(descr__new__proxy),

@@ -465,6 +465,15 @@ class AppTestProxy(object):
         assert "__bytes__" in dir(_weakref.proxy(instance))
         assert bytes(_weakref.proxy(instance)) == b"string"
 
+    def test_reversed(self):
+        import _weakref
+        class C(object):
+            def __reversed__(self):
+                return b"string"
+        instance = C()
+        assert "__reversed__" in dir(_weakref.proxy(instance))
+        assert reversed(_weakref.proxy(instance)) == b"string"
+
     def test_eq(self):
         import _weakref
         class A(object):
