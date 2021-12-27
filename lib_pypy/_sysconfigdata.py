@@ -48,7 +48,7 @@ if sys.platform == 'win32':
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include')
     build_time_vars['LIBDIR'] = mybase
 else:
-    build_time_vars['LDLIBRARY'] = 'libpypy3-c.so',
+    build_time_vars['LDLIBRARY'] = 'libpypy3-c.so'
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include', 'pypy' + pydot)
     build_time_vars['LIBDIR'] = os.path.join(mybase, 'bin')
 

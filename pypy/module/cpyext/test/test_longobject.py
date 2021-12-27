@@ -36,6 +36,9 @@ class TestLongObject(BaseApiTest):
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsLong(space, w_value)
         assert excinfo.value.w_type is space.w_OverflowError
+        msg = "Python int too large to convert to C long"
+        print(space.text_w(excinfo.value.get_w_value(space)))
+        assert space.text_w(excinfo.value.get_w_value(space)) == msg
         value = PyLong_AsUnsignedLong(space, w_value)
         assert value == (maxlong - 1) * 2
 

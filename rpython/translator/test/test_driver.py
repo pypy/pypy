@@ -70,6 +70,7 @@ def test_create_exe():
 
     class CBuilder(object):
         shared_library_name = dll_name 
+        executable_name_w = wsrc_name 
 
     td = TranslationDriver(exe_name=str(dst_name))
     td.c_entryp = str(src_name)
