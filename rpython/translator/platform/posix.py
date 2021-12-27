@@ -139,10 +139,10 @@ class BasePosix(Platform):
             exe_name = cfiles[0].new(ext=self.exe_ext)
         else:
             # Do not remove '.7' from pypy3.7
-            # exe_name = exe_name.new(ext=self.exe_ext)
             exe_name = exe_name + self.exe_ext
 
         linkflags = self.makefile_link_flags()
+        m = GnuMakefile(path)
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
@@ -151,6 +151,7 @@ class BasePosix(Platform):
         if shared:
             libname = exe_name.basename
             target_name = 'lib' + exe_name.basename + '.' + self.so_ext
+            m.so_name = path.join(target_name)
         else:
             target_name = exe_name.basename
 
@@ -163,7 +164,6 @@ class BasePosix(Platform):
         if config and config.translation.lto:
             cflags = ('-flto',) + cflags
 
-        m = GnuMakefile(path)
         m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 

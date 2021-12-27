@@ -489,12 +489,10 @@ class TranslationDriver(SimpleTaskEngine):
                 self.log.info("copied: %s to %s" % (soname, newsoname,))
                 if sys.platform == 'win32':
                     # Copy pypyw.exe
-                    newexename = mkexename(self.compute_exe_name(suffix='w'))
-                    exe = py.path.local(exename)
-                    # Split off the last '.exe', add 'w.exe'
-                    exename = str(exe).rsplit('.', 1)[0] + 'w.exe'
-                    self.log.info("copied: %s to %s" % (exename, newexename,))
-                    shutil_copy(str(exename), str(newexename))
+                    exename_w = self.cbuilder.executable_name_w
+                    newexename_w = mkexename(self.compute_exe_name(suffix='w'))
+                    self.log.info("copied: %s to %s" % (exename_w, newexename_w,))
+                    shutil_copy(str(exename_w), str(newexename_w))
                     # for pypy, the import library is renamed and moved to
                     # libs/python32.lib, according to the pragma in pyconfig.h
                     libname = self.config.translation.libname
