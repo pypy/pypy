@@ -334,17 +334,6 @@ class CStandaloneBuilder(CBuilder):
             extra_opts += ["lldebug0"]
         self.translator.platform.execute_makefile(self.targetdir,
                                                   extra_opts)
-        if shared:
-            if self.translator.platform.exe_ext:
-                # Use the purebasename to cut of the '.exe'
-                self.shared_library_name = self.executable_name.new(
-                    purebasename='lib' + self.executable_name.purebasename,
-                    ext=self.translator.platform.so_ext)
-            else:
-                # Use the basename to not split pypy3.9
-                self.shared_library_name = self.executable_name.new(
-                    purebasename='lib' + self.executable_name.basename,
-                    ext=self.translator.platform.so_ext)
         self._compiled = True
         return self.executable_name
 
@@ -505,6 +494,10 @@ class CStandaloneBuilder(CBuilder):
         #                           ,
         #                           self.eci, profbased=self.getprofbased()
         self.executable_name = mk.exe_name
+        if self.config.translation.shared:
+            self.shared_library_name = mk.so_name
+        if sys.platform == 'win32':
+            self.executable_name_w = mk.wtarget_name
 
 # ____________________________________________________________
 

@@ -313,28 +313,25 @@ class MsvcPlatform(Platform):
             path = cfiles[0].dirpath()
 
         rpypath = py.path.local(rpydir)
+        m = NMakefile(path)
 
         if exe_name is None:
-            exe_name = cfiles[0].new(ext=self.exe_ext)
-        else:
-            exe_name = exe_name + '.' + self.exe_ext
-
+            exe_name = cfiles[0].new(ext='')
         if shared:
-            so_name = exe_name.new(
-               purebasename='lib' + exe_name.purebasename,
-               ext=self.so_ext)
-            wtarget_name = exe_name.new(
-                dirname=exe_name.dirname,
-                purebasename=exe_name.purebasename + 'w',
-                ext=self.exe_ext,
-            )
-
+            so_name = exe_name.new(purebasename='lib' + exe_name.basename,
+                                   ext=self.so_ext)
+            wtarget_name = exe_name.new(purebasename=exe_name.basename + 'w',
+                                   ext=self.exe_ext)
             target_name = so_name.basename
+            m.so_name = path.join(target_name)
+            m.wtarget_name = path.join(wtarget_name.basename)
+            m.exe_name = path.join(exe_name.basename + '.' + self.exe_ext)
         else:
-            target_name = exe_name.basename
+            target_name = exe_name.basename + '.' + self.exe_ext
+            wtarget_name = exe_name.basename + 'w.' + self.exe_ext
+            m.exe_name = path.join(target_name)
+            m.wtarget_name = path.join(wtarget_name)
 
-        m = NMakefile(path)
-        m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 
         linkflags = list(self.link_flags)
@@ -365,7 +362,7 @@ class MsvcPlatform(Platform):
         definitions = [
             ('RPYDIR', '"%s"' % rpydir),
             ('TARGET', target_name),
-            ('DEFAULT_TARGET', exe_name.basename),
+            ('DEFAULT_TARGET', m.exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
             ('LIBS', self._libs(eci.libraries)),
