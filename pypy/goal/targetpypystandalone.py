@@ -349,7 +349,7 @@ class PyPyTarget(object):
         # ugly hack to modify target goal from compile_* to build_cffi_imports
         # this should probably get cleaned up and merged with driver.create_exe
         from rpython.tool.runsubprocess import run_subprocess
-        from rpython.translator.driver import taskdef, mkexename
+        from rpython.translator.driver import taskdef
         import types
 
         compile_goal, = driver.backend_select_goals(['compile'])
@@ -362,7 +362,7 @@ class PyPyTarget(object):
                 argv = [filename, '--embed-dependencies']
             else:
                 argv = [filename,]
-            exe_name = mkexename(driver.compute_exe_name())
+            exe_name = py.path.local(driver.c_entryp)
             status, out, err = run_subprocess(str(exe_name), argv)
             sys.stdout.write(out)
             sys.stderr.write(err)

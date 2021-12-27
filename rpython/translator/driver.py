@@ -479,7 +479,7 @@ class TranslationDriver(SimpleTaskEngine):
         """
         if self.exe_name is not None:
             exename = self.c_entryp
-            newexename = mkexename(self.compute_exe_name())
+            newexename = py.path.local(exename.basename)
             shutil_copy(str(exename), str(newexename))
             self.log.info("copied: %s to %s" % (exename, newexename,))
             if self.cbuilder.shared_library_name is not None:
@@ -490,7 +490,7 @@ class TranslationDriver(SimpleTaskEngine):
                 if sys.platform == 'win32':
                     # Copy pypyw.exe
                     exename_w = self.cbuilder.executable_name_w
-                    newexename_w = mkexename(self.compute_exe_name(suffix='w'))
+                    newexename_w = py.path.local(exename_w.basename)
                     self.log.info("copied: %s to %s" % (exename_w, newexename_w,))
                     shutil_copy(str(exename_w), str(newexename_w))
                     # for pypy, the import library is renamed and moved to
@@ -612,11 +612,6 @@ class TranslationDriver(SimpleTaskEngine):
                         prereq()
                     from rpython.translator.goal import unixcheckpoint
                     unixcheckpoint.restartable_point(auto='run')
-
-def mkexename(name):
-    if sys.platform == 'win32':
-        name = name.new(ext='exe')
-    return name
 
 if os.name == 'posix':
     def shutil_copy(src, dst):
