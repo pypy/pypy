@@ -91,7 +91,7 @@ def _open(space, w_file, mode, buffering, encoding, errors, newline, closefd,
             space.newtext(
                 "line buffering (buffering=1) isn't supported in "
                 "binary mode, the default buffer size will be used"
-            ), space.w_DeprecationWarning
+            ), space.w_RuntimeWarning
         )
 
     rawmode = ""
