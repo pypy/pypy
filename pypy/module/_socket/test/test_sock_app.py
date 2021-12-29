@@ -762,6 +762,7 @@ class AppTestSocket:
     def test_invalid_fd(self):
         import _socket
         raises(ValueError, _socket.socket, fileno=-1)
+        raises(ValueError, _socket.socket, fileno=42.5)
 
     def test_socket_non_inheritable(self):
         import _socket, os

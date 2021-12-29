@@ -247,7 +247,13 @@ class W_Socket(W_Root):
                     finally:
                         lltype.free(info_charptr, flavor='raw')
                 else:
-                    fd = space.c_filedescriptor_w(w_fileno)
+                    if space.isinstance_w(w_fileno, space.w_float):
+                        raise oefmt(space.w_ValueError,
+                            "integer argument expected, got float")
+                    fd = space.int_w(w_fileno)
+                    if ((_WIN32 and fd == rsocket.INVALID_SOCKET) or (fd < 0)):
+                        raise oefmt(space.w_ValueError,
+                            "negative file descriptor")
                     if family == -1:
                         family = rsocket.get_socket_family(fd)
                     if type == -1:
