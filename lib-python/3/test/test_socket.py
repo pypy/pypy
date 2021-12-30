@@ -1817,7 +1817,10 @@ class GeneralModuleTests(unittest.TestCase):
             socket.socket(socket.AF_INET, socket.SOCK_STREAM, fileno=42.5)
 
     def test_socket_fileno_rejects_other_types(self):
-        with self.assertRaisesRegex(TypeError, "integer is required"):
+        # PyPy is more helpful
+        # msg = "integer is required"
+        msg = "expected integer, got str object"
+        with self.assertRaisesRegex(TypeError, msg):
             socket.socket(socket.AF_INET, socket.SOCK_STREAM, fileno="foo")
 
     def test_socket_fileno_rejects_invalid_socket(self):

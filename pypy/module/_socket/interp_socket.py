@@ -248,7 +248,7 @@ class W_Socket(W_Root):
                         lltype.free(info_charptr, flavor='raw')
                 else:
                     if space.isinstance_w(w_fileno, space.w_float):
-                        raise oefmt(space.w_ValueError,
+                        raise oefmt(space.w_TypeError,
                             "integer argument expected, got float")
                     fd = space.int_w(w_fileno)
                     if ((_WIN32 and fd == rsocket.INVALID_SOCKET) or (fd < 0)):
