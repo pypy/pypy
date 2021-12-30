@@ -214,6 +214,18 @@ def test_getaddrinfo(space, w_socket):
         ''')
     assert space.unwrap(w_l) == True
 
+def test_getaddrinfo_ipv6(space, w_socket):
+    host = 'fe80::1%1'
+    port = 80
+    w_l = space.appexec([w_socket, space.newtext(host), space.newint(port)],
+                        "(_socket, host, port): return _socket.getaddrinfo(host, port)")
+    w_tup = space.getitem(w_l, space.newint(0))
+    w_tup2 = space.getitem(w_tup, space.newint(4))
+    w_canon = space.getitem(w_tup2, space.newint(0))
+    canon_name = space.text_w(w_canon)
+    # Includes the scope ID, CPython removes it
+    # See issue 3628
+    assert '%' in canon_name
 
 @pytest.mark.skipif("not hasattr(socket, 'sethostname')")
 def test_sethostname(space, w_socket):
