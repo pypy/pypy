@@ -48,13 +48,13 @@ def test_ctr():
 
 
 def test_create_exe():
-
-    dst_name = udir.join('dst/pypy.exe')
+    dst_name = udir.join('dst/pypy-c.exe')
+    exe_name = udir.join('dst/pypy-%(backend)s.exe')
     src_name = udir.join('src/dydy2.exe')
     wsrc_name = udir.join('src/dydy2w.exe')
-    dll_name = udir.join('src/pypy.dll')
-    lib_name = udir.join('src/pypy.lib')
-    pdb_name = udir.join('src/pypy.pdb')
+    dll_name = udir.join('src/pypy-c.dll')
+    lib_name = udir.join('src/pypy-c.lib')
+    pdb_name = udir.join('src/pypy-c.pdb')
     src_name.ensure()
     src_name.write('exe')
     wsrc_name.ensure()
@@ -72,7 +72,7 @@ def test_create_exe():
         shared_library_name = dll_name 
         executable_name_w = wsrc_name 
 
-    td = TranslationDriver(exe_name=str(dst_name))
+    td = TranslationDriver(exe_name=str(exe_name))
     td.c_entryp = str(src_name)
     td.cbuilder = CBuilder()
     td.create_exe()

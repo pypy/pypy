@@ -479,7 +479,7 @@ class TranslationDriver(SimpleTaskEngine):
         """
         if self.exe_name is not None:
             exename = self.c_entryp
-            newexename = py.path.local(self.exe_name)
+            newexename = py.path.local(self.exe_name % self.get_info())
             shutil_copy(str(exename), str(newexename))
             self.log.info("copied: %s to %s" % (exename, newexename,))
             if self.cbuilder.shared_library_name is not None:
