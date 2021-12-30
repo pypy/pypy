@@ -44,6 +44,7 @@ class AppTestPwd:
         import pwd
         raises(TypeError, pwd.getpwnam)
         raises(TypeError, pwd.getpwnam, 42)
+        raises(TypeError, pwd.getpwnam, b'root')
         raises(KeyError, pwd.getpwnam, '~invalid~')
         assert pwd.getpwnam('root').pw_name == 'root'
 
