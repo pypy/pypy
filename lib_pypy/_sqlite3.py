@@ -186,9 +186,12 @@ class _StatementCache(object):
         self.cache = OrderedDict()
 
     def get(self, sql):
+        notincache = object()
         try:
             stat = self.cache[sql]
         except KeyError:
+            stat = notincache
+        if stat is notincache:
             stat = Statement(self.connection, sql)
             self.cache[sql] = stat
             if len(self.cache) > self.maxcount:
