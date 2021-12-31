@@ -27,8 +27,9 @@ class datum(Structure):
         Structure.__init__(self, text, len(text))
 
 class dbm(object):
-    def __init__(self, dbmobj):
+    def __init__(self, dbmobj, flags):
         self._aobj = dbmobj
+        self._flags = flags
 
     def close(self):
         if not self._aobj:
@@ -77,7 +78,11 @@ class dbm(object):
         dat = datum(key)
         data = datum(value)
         status = getattr(lib, funcs['store'])(self._aobj, dat, data, lib.DBM_REPLACE)
-        if getattr(lib, funcs['error'])(self._aobj):
+        err = getattr(lib, funcs['error'])(self._aobj)
+        if err == 15:
+            getattr(lib, funcs['clearerr'])(self._aobj)
+            raise RuntimeError('asdf')
+        elif err:
             getattr(lib, funcs['clearerr'])(self._aobj)
             raise error("")
         return status
@@ -112,7 +117,10 @@ class dbm(object):
         dat = datum(key)
         status = getattr(lib, funcs['delete'])(self._aobj, dat)
         if status < 0:
-            raise KeyError(key)
+            getattr(lib, funcs['clearerr'])(self._aobj)
+            if self._flags & os.O_RDWR:
+                raise KeyError(key)
+            raise error('cannot delete item from database')
 
     def __enter__(self):
         return self
@@ -164,8 +172,12 @@ _init_func('error', (c_void_p,), restype=c_int)
 _init_func('delete', (c_void_p, datum), restype=c_int)
 _init_func('clearerr', (c_void_p,), restype=c_int)
 
+
+
 lib.DBM_INSERT = 0
 lib.DBM_REPLACE = 1
+lib.DBM_NOT_FOUND = 15
+
 
 def open(filename, flag='r', mode=0o666):
     "open a DBM database"
@@ -197,6 +209,7 @@ def open(filename, flag='r', mode=0o666):
         if isinstance(filename, bytes):
             filename = filename.decode()
         raise error("Could not open file %s.db" % filename, filename)
-    return dbm(a_db)
+    
+    return dbm(a_db, openflag)
 
 __all__ = ('datum', 'dbm', 'error', 'funcs', 'open', 'library')
