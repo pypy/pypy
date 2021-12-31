@@ -4,8 +4,10 @@ import ctypes.util
 from ctypes import Structure, c_char, c_char_p, c_int, c_void_p, CDLL, POINTER
 
 class error(IOError):
-    def __init__(self, msg):
-        self.msg = msg  
+    def __init__(self, msg, filename=None):
+        self.msg = msg
+        if filename:
+            self.filename = filename 
 
     def __str__(self):
         return self.msg
@@ -191,8 +193,10 @@ def open(filename, flag='r', mode=0o666):
         raise error("arg 2 to open should be 'r', 'w', 'c', or 'n'")
 
     a_db = getattr(lib, funcs['open'])(filename, openflag, mode)
-    if a_db == 0:
-        raise error("Could not open file %s.db" % filename)
+    if a_db == 0 or a_db is None:
+        if isinstance(filename, bytes):
+            filename = filename.decode()
+        raise error("Could not open file %s.db" % filename, filename)
     return dbm(a_db)
 
 __all__ = ('datum', 'dbm', 'error', 'funcs', 'open', 'library')
