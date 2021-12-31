@@ -1203,7 +1203,7 @@ class Statement(object):
 
         try:
             param = adapt(param)
-        except:
+        except Exception:
             pass  # And use previous value
 
         if param is None:
