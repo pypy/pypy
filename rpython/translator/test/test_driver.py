@@ -75,16 +75,20 @@ def test_compile_c(host, suffix):
                                        path=targetdir,
                                        shared=True,
                                       )
+            # "compile" the needed outputs
             src_name = udir.join('src/pypy-c' + suffix)
             src_name.ensure()
             src_name.write('exe')
-            wsrc_name = udir.join('src/pypy-cw.exe')
-            wsrc_name.ensure()
-            wsrc_name.write('wexe')
             dll_name = udir.join('src/pypy-c.dll')
             dll_name.ensure()
             dll_name.write('dll')
             self.shared_library_name = dll_name
+
+            # mock the additional windows artifacts as well
+            wsrc_name = udir.join('src/pypy-cw.exe')
+            wsrc_name.ensure()
+            wsrc_name.write('wexe')
+            self.executable_name_w = wsrc_name
             lib_name = udir.join('src/pypy-c.lib')
             lib_name.ensure()
             lib_name.write('lib')
