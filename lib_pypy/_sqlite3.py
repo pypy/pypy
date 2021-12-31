@@ -748,7 +748,7 @@ class Connection(object):
             if pages == 0:
                 pages = -1
             bck_conn = target._db
-            if not bck_conn:
+            if not bck_conn or not self._db:
                 raise ProgrammingError("cannot operate on closed connection")
             bck_handle = _lib.sqlite3_backup_init(bck_conn, b"main", self._db, name.encode("utf-8"))
             if not bck_handle:
