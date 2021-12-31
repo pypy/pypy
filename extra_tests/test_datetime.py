@@ -164,7 +164,7 @@ def test_check_arg_types():
     class Number:
         def __init__(self, value):
             self.value = int(value)
-        def __int__(self):
+        def __index__(self):
             return self.value
 
     class SubInt(int):
