@@ -1,5 +1,6 @@
 """Additional tests for datetime."""
 import pytest
+import warnings
 
 import datetime
 import sys
@@ -178,7 +179,10 @@ def test_check_arg_types():
             SubInt(10),
             Number(SubInt(10)),
     ]:
-        dtxx = datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "",
+                                    DeprecationWarning)
+            dtxx = datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
         assert dt10 == dtxx
         assert type(dtxx.month) is int
         assert type(dtxx.second) is int
@@ -244,7 +248,7 @@ def test_raises_if_passed_naive_datetime_and_start_or_end_time_defined():
 def test_future_types_newint():
     # Issue 2193
     class newint(int):
-        def __int__(self):
+        def __index__(self):
             return self
 
     dt_from_ints = datetime.datetime(2015, 12, 31, 12, 34, 56)

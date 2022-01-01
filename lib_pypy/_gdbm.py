@@ -71,10 +71,9 @@ class gdbm(object):
             self.__check_closed()
             self.__size = -1
             res = lib.gdbm_delete(self.__ll_dbm, _fromstr(key))
-            if res == lib.GDBM_ITEM_NOT_FOUND:
-                print('key', key, 'res', res)
-                raise KeyError(key)
-            elif res < 0:
+            if res <0:
+                if lib.gdbm_errno == lib.GDBM_ITEM_NOT_FOUND:
+                    raise KeyError(key)
                 self.__raise_from_errno()
 
     def __contains__(self, key):
