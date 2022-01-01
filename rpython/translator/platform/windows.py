@@ -204,13 +204,21 @@ class MsvcPlatform(Platform):
             self.cc = cc
 
         # Try to find a masm assembler
-        returncode, stdout, stderr = _run_subprocess('ml.exe' if not x64 else 'ml64.exe', [],
-                                                     env=self.c_environ)
-        r = re.search('Macro Assembler', stderr)
+        # Dilemma: raise now or later if masm is not found. Postponing the
+        # exception means we can use a fake compiler for testing on linux
+        # but may mean cryptic error messages and wasted build time.
+        try:
+            returncode, stdout, stderr = _run_subprocess(
+                'ml.exe' if not x64 else 'ml64.exe', [], env=self.c_environ)
+            r = re.search('Macro Assembler', stderr)
+        except OSError:
+            r = None
+            masm32 = "'Could not find ml.exe'"
+            masm64 = "'Could not find ml.exe'"
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
             masm32 = 'c:/masm32/bin/ml.exe'
             masm64 = 'c:/masm64/bin/ml64.exe'
-        else:
+        elif r:
             masm32 = 'ml.exe'
             masm64 = 'ml64.exe'
 
