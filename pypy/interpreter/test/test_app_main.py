@@ -231,6 +231,7 @@ class TestParseCommandLine:
                 check_hash_based_pycs=val)
 
     def test_jit_off(self, monkeypatch):
+        get_python3()
         try:
             import __pypy__
         except:
