@@ -126,7 +126,9 @@ need the underlying win32 handle to exist beyond the lifetime of the
 handle object."""
         key = self.as_int()
         self.hkey = rwin32.NULL_HANDLE
-        return space.newint(key)
+        w_ret = space.newint(key)
+        space.audit("winreg.PyHKEY.Detach",  [w_ret])
+        return w_ret
 
 
 @unwrap_spec(key=int)
@@ -223,8 +225,7 @@ If you don't know whether a FlushKey() call is required, it probably isn't."""
             raiseWindowsError(space, ret, 'RegFlushKey')
 
 
-@unwrap_spec(subkey="unicode", filename="unicode")
-def LoadKey(space, w_hkey, subkey, filename):
+def LoadKey(space, w_hkey, w_subkey, w_filename):
     """LoadKey(key, sub_key, file_name) - Creates a subkey under the specified key
 and stores registration information from a specified file into that subkey.
 
@@ -244,17 +245,23 @@ in fileName is relative to the remote computer.
 The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree"""
     # XXX should filename use space.fsencode_w?
     hkey = hkey_w(w_hkey, space)
-    with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
+    space.audit("winreg.LoadKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            w_subkey, w_filename])
+    utf8 = space.utf8_w(w_subkey)
+    uni_len = space.len_w(w_subkey)
+    with rffi.scoped_utf82wcharp(utf8, uni_len) as wide_subkey:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
-        with rffi.scoped_unicode2wcharp(filename) as wide_filename:
+        utf8 = space.utf8_w(w_filename)
+        uni_len = space.len_w(w_filename)
+        with rffi.scoped_utf82wcharp(utf8, uni_len) as wide_filename:
             c_filename = rffi.cast(rffi.CWCHARP, wide_filename)
             ret = rwinreg.RegLoadKeyW(hkey, c_subkey, c_filename)
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegLoadKey')
 
 
-@unwrap_spec(filename="unicode")
-def SaveKey(space, w_hkey, filename):
+def SaveKey(space, w_hkey, w_filename):
     """
 SaveKey(key, file_name) - Saves the specified key, and all its subkeys to the
 specified file.
@@ -270,7 +277,12 @@ file_name is relative to the remote computer.
 The caller of this method must possess the SeBackupPrivilege security
 privilege. This function passes NULL for security_attributes to the API."""
     hkey = hkey_w(w_hkey, space)
-    with rffi.scoped_unicode2wcharp(filename) as wide_filename:
+    space.audit("winreg.SaveKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            w_filename])
+    utf8 = space.utf8_w(w_filename)
+    uni_len = space.len_w(w_filename)
+    with rffi.scoped_utf82wcharp(utf8, uni_len) as wide_filename:
         c_filename = rffi.cast(rffi.CWCHARP, wide_filename)
         ret = rwinreg.RegSaveKeyW(hkey, c_filename, None)
         if ret != 0:
@@ -303,6 +315,9 @@ KEY_SET_VALUE access."""
     state = space.fromcache(CodecState)
     errh = state.encode_error_handler
     utf8 = space.utf8_w(w_subkey)
+    space.audit("winreg.SetValue",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            w_subkey, space.newint(typ), w_value])
     subkeyW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=True)
     utf8 = space.utf8_w(w_value)
     valueW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=True)
@@ -336,6 +351,9 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
         subkey = None
     else:
         subkey = space.utf8_w(w_subkey).decode('utf8')
+    space.audit("winreg.QueryValue",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            w_subkey, space.newtext('')])
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
@@ -528,8 +546,8 @@ def convert_from_regdata(space, buf, buflen, typ):
             return space.newbytes(buf[0:buflen])
 
 
-@unwrap_spec(value_name="unicode", typ=int)
-def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
+@unwrap_spec(typ=int)
+def SetValueEx(space, w_hkey, w_value_name, w_reserved, typ, w_value):
     """
 SetValueEx(key, value_name, reserved, type, value) - Stores data in the value
 field of an open registry key.
@@ -566,8 +584,13 @@ Value lengths are limited by available memory. Long values (more than
 the configuration registry.  This helps the registry perform efficiently."""
     hkey = hkey_w(w_hkey, space)
     buf, buflen = convert_to_regdata(space, w_value, typ)
+    space.audit("winreg.SetValue",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            w_value_name, space.newint(typ), w_value])
     try:
-        with rffi.scoped_unicode2wcharp(value_name) as wide_vn:
+        utf8 = space.utf8_w(w_value_name)
+        uni_len = space.len_w(w_value_name)
+        with rffi.scoped_utf82wcharp(utf8, uni_len) as wide_vn:
             c_vn = rffi.cast(rffi.CWCHARP, wide_vn)
             ret = rwinreg.RegSetValueExW(hkey, c_vn, 0, typ, buf, buflen)
     finally:
@@ -589,6 +612,9 @@ value_name is a string indicating the value to query"""
         subkey = None
     else:
         subkey = space.utf8_w(w_subkey).decode('utf8')
+    space.audit("winreg.QueryValue",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            space.newtext(''), w_subkey])
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
@@ -624,8 +650,7 @@ value_name is a string indicating the value to query"""
                     ])
 
 
-@unwrap_spec(subkey="unicode")
-def CreateKey(space, w_hkey, subkey):
+def CreateKey(space, w_hkey, w_subkey):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
 key is an already open key, or one of the predefined HKEY_* constants
@@ -638,17 +663,24 @@ If the key already exists, this function opens the existing key
 The return value is the handle of the opened key.
 If the function fails, an exception is raised."""
     hkey = hkey_w(w_hkey, space)
-    with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
+    space.audit("winreg.CreateKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            w_subkey, space.newint(rwinreg.KEY_WRITE)])
+    utf8 = space.utf8_w(w_subkey)
+    uni_len = space.len_w(w_subkey)
+    with rffi.scoped_utf82wcharp(utf8, uni_len) as wide_subkey:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
             ret = rwinreg.RegCreateKeyW(hkey, c_subkey, rethkey)
             if ret != 0:
                 raiseWindowsError(space, ret, 'CreateKey')
-            return W_HKEY(space, rethkey[0])
+            w_ret = W_HKEY(space, rethkey[0])
+        space.audit("winreg.OpenKey/result", [space.newint(w_ret.as_int())])
+        return w_ret
 
 
-@unwrap_spec(sub_key="unicode", reserved=int, access=r_uint)
-def CreateKeyEx(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_WRITE):
+@unwrap_spec(reserved=int, access=r_uint)
+def CreateKeyEx(space, w_key, w_sub_key, reserved=0, access=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
 key is an already open key, or one of the predefined HKEY_* constants
@@ -661,7 +693,12 @@ If the key already exists, this function opens the existing key
 The return value is the handle of the opened key.
 If the function fails, an exception is raised."""
     hkey = hkey_w(w_key, space)
-    with rffi.scoped_unicode2wcharp(sub_key) as wide_sub_key:
+    space.audit("winreg.CreateKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            w_sub_key, space.newint(access)])
+    utf8 = space.utf8_w(w_sub_key)
+    uni_len = space.len_w(w_sub_key)
+    with rffi.scoped_utf82wcharp(utf8, uni_len) as wide_sub_key:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_sub_key)
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
             ret = rwinreg.RegCreateKeyExW(hkey, c_subkey, reserved, None, 0,
@@ -669,11 +706,12 @@ If the function fails, an exception is raised."""
                                           lltype.nullptr(rwin32.LPDWORD.TO))
             if ret != 0:
                 raiseWindowsError(space, ret, 'CreateKeyEx')
-            return W_HKEY(space, rethkey[0])
+            w_ret = W_HKEY(space, rethkey[0])
+        space.audit("winreg.OpenKey/result", [space.newint(w_ret.as_int())])
+        return w_ret
 
 
-@unwrap_spec(subkey="unicode")
-def DeleteKey(space, w_hkey, subkey):
+def DeleteKey(space, w_hkey, w_subkey):
     """
 DeleteKey(key, subkey) - Deletes the specified key.
 
@@ -686,21 +724,29 @@ This method can not delete keys with subkeys.
 If the method succeeds, the entire key, including all of its values,
 is removed.  If the method fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_hkey, space)
-    with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
+    space.audit("winreg.DeleteKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            w_subkey, space.newint(0)])
+    utf8 = space.utf8_w(w_subkey)
+    uni_len = space.len_w(w_subkey)
+    with rffi.scoped_utf82wcharp(utf8, uni_len) as wide_subkey:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         ret = rwinreg.RegDeleteKeyW(hkey, c_subkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegDeleteKey')
 
 
-@unwrap_spec(subkey="unicode")
-def DeleteValue(space, w_hkey, subkey):
+def DeleteValue(space, w_hkey, w_subkey):
     """DeleteValue(key, value) - Removes a named value from a registry key.
 
 key is an already open key, or any one of the predefined HKEY_* constants.
 value is a string that identifies the value to remove."""
     hkey = hkey_w(w_hkey, space)
-    with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
+    space.audit("winreg.DeleteValue",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)), w_subkey])
+    utf8 = space.utf8_w(w_subkey)
+    uni_len = space.len_w(w_subkey)
+    with rffi.scoped_utf82wcharp(utf8, uni_len) as wide_subkey:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         ret = rwinreg.RegDeleteValueW(hkey, c_subkey)
         if ret != 0:
@@ -724,7 +770,12 @@ If the function fails, an EnvironmentError exception is raised."""
     utf8 = space.utf8_w(w_sub_key)
     state = space.fromcache(CodecState)
     errh = state.encode_error_handler
-    subkeyW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=True)
+    space.audit("winreg.OpenKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            w_sub_key, space.newint(access)])
+    
+    subkeyW = utf8_encode_utf_16(
+        utf8 + '\x00', 'strict', errh, allow_surrogates=True)
     with rffi.scoped_nonmovingbuffer(subkeyW) as subkeyP0:
         subkeyP = rffi.cast(rffi.CWCHARP, rffi.ptradd(subkeyP0, 2))
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
@@ -732,7 +783,9 @@ If the function fails, an EnvironmentError exception is raised."""
                                         rethkey)
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegOpenKeyEx')
-            return W_HKEY(space, rethkey[0])
+            w_ret = W_HKEY(space, rethkey[0])
+            space.audit("winreg.OpenKey/result", [space.newint(w_ret.as_int())])
+            return w_ret
 
 
 @unwrap_spec(index=int)
@@ -751,6 +804,9 @@ value_data is an object that holds the value data, and whose type depends
  on the underlying registry type.
 data_type is an integer that identifies the type of the value data."""
     hkey = hkey_w(w_hkey, space)
+    space.audit("winreg.EnumValue",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            space.newint(index)])
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
 
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as valueSize:
@@ -815,6 +871,9 @@ The function retrieves the name of one subkey each time it is called.
 It is typically called repeatedly until an EnvironmentError exception is
 raised, indicating no more values are available."""
     hkey = hkey_w(w_hkey, space)
+    space.audit("winreg.EnumKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            space.newint(index)])
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
 
     # The Windows docs claim that the max key name length is 255
@@ -848,6 +907,8 @@ An integer that identifies the number of values this key has.
 A long integer that identifies when the key was last modified (if available)
  as 100's of nanoseconds since Jan 1, 1600."""
     hkey = hkey_w(w_hkey, space)
+    space.audit("winreg.QueryInfoKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey))])
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as nSubKeys:
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as nValues:
             with lltype.scoped_alloc(rwin32.PFILETIME.TO, 1) as ft:
@@ -879,6 +940,8 @@ key is the predefined handle to connect to.
 The return value is the handle of the opened key.
 If the function fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_hkey, space)
+    space.audit("winreg.ConnectRegistry",  [
+            w_machine, space.newint(rffi.cast(rffi.SIZE_T, hkey))])
     if space.is_none(w_machine):
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
             ret = rwinreg.RegConnectRegistryW(None, hkey, rethkey)
@@ -903,6 +966,7 @@ def ExpandEnvironmentStrings(space, w_source):
     "string = ExpandEnvironmentStrings(string) - Expand environment vars."
     try:
         source, source_ulen = space.utf8_len_w(w_source)
+        space.audit("winreg.ConnectRegistry", [w_source])
         res, res_ulen = rwinreg.ExpandEnvironmentStrings(source, source_ulen)
         return space.newutf8(res, res_ulen)
     except WindowsError as e:
@@ -948,11 +1012,13 @@ def DisableReflectionKey(space, w_key):
     If the key is not on the reflection list, the function succeeds but has no
     effect.  Disabling reflection for a key does not affect reflection of any
     subkeys."""
+    hkey = hkey_w(w_key, space)
+    space.audit("winreg.DisableReflectionKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey))])
     if not _RegDisableReflectionKey.check():
         raise oefmt(space.w_NotImplementedError,
                     "not implemented on this platform")
     else:
-        hkey = hkey_w(w_key, space)
         ret = _RegDisableReflectionKey.call(hkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegDisableReflectionKey')
@@ -963,11 +1029,13 @@ def EnableReflectionKey(space, w_key):
     Will generally raise NotImplemented if executed on a 32-bit Operating
     System.  Restoring reflection for a key does not affect reflection of any
     subkeys."""
+    hkey = hkey_w(w_key, space)
+    space.audit("winreg.EnableReflectionKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey))])
     if not _RegEnableReflectionKey.check():
         raise oefmt(space.w_NotImplementedError,
                     "not implemented on this platform")
     else:
-        hkey = hkey_w(w_key, space)
         ret = _RegEnableReflectionKey.call(hkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegEnableReflectionKey')
@@ -977,11 +1045,13 @@ def QueryReflectionKey(space, w_key):
     """bool = QueryReflectionKey(hkey) - Determines the reflection state for
     the specified key.  Will generally raise NotImplemented if executed on a
     32-bit Operating System."""
+    hkey = hkey_w(w_key, space)
+    space.audit("winreg.QueryReflectionKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey))])
     if not _RegQueryReflectionKey.check():
         raise oefmt(space.w_NotImplementedError,
                     "not implemented on this platform")
     else:
-        hkey = hkey_w(w_key, space)
         with lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as isDisabled:
             ret = _RegQueryReflectionKey.call(hkey, isDisabled)
             if ret != 0:
@@ -989,8 +1059,8 @@ def QueryReflectionKey(space, w_key):
             return space.newbool(intmask(isDisabled[0]) != 0)
 
 
-@unwrap_spec(sub_key="unicode", access=r_uint, reserved=int)
-def DeleteKeyEx(space, w_key, sub_key, access=rwinreg.KEY_WOW64_64KEY, reserved=0):
+@unwrap_spec(access=r_uint, reserved=int)
+def DeleteKeyEx(space, w_key, w_sub_key, access=rwinreg.KEY_WOW64_64KEY, reserved=0):
     """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
 
     key is an already open key, or any one of the predefined HKEY_* constants.
@@ -1005,13 +1075,17 @@ def DeleteKeyEx(space, w_key, sub_key, access=rwinreg.KEY_WOW64_64KEY, reserved=
     If the method succeeds, the entire key, including all of its values,
     is removed.  If the method fails, a WindowsError exception is raised.
     On unsupported Windows versions, NotImplementedError is raised."""
+    hkey = hkey_w(w_key, space)
+    space.audit("winreg.DeleteKey",  [
+            space.newint(rffi.cast(rffi.SIZE_T, hkey)),
+            w_sub_key, space.newint(0)])
     if not _RegDeleteKeyExW.check():
         raise oefmt(space.w_NotImplementedError,
                     "not implemented on this platform")
-    else:
-        hkey = hkey_w(w_key, space)
-        with rffi.scoped_unicode2wcharp(sub_key) as wide_subkey:
-            c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
-            ret = _RegDeleteKeyExW.call(hkey, c_subkey, access, reserved)
-            if ret != 0:
-                raiseWindowsError(space, ret, 'RegDeleteKeyEx')
+    utf8 = space.utf8_w(w_sub_key)
+    uni_len = space.len_w(w_sub_key)
+    with rffi.scoped_utf82wcharp(utf8, uni_len) as wide_subkey:
+        c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
+        ret = _RegDeleteKeyExW.call(hkey, c_subkey, access, reserved)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegDeleteKeyEx')
