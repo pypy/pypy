@@ -1,3 +1,5 @@
+import pytest
+
 class AppTestBreakpoint:
     def setup_class(cls):
         cls.w_import_mock_pdb = cls.space.appexec([], """():
@@ -92,6 +94,7 @@ class AppTestBreakpoint:
                 assert str(excinfo.value) == "lost sys.breakpointhook"
 
 
+    @pytest.mark.dont_track_allocations('putenv intentionally keeps strings alive')
     def test_env_default(self):
         import os
         try:
@@ -106,6 +109,7 @@ class AppTestBreakpoint:
             del os.environ['PYTHONBREAKPOINT']
 
 
+    @pytest.mark.dont_track_allocations('putenv intentionally keeps strings alive')
     def test_env_disable(self):
         import os
         try:
@@ -124,6 +128,7 @@ class AppTestBreakpoint:
             del os.environ['PYTHONBREAKPOINT']
 
 
+    @pytest.mark.dont_track_allocations('putenv intentionally keeps strings alive')
     def test_env_other(self):
         import os
         try:
@@ -140,6 +145,7 @@ class AppTestBreakpoint:
             del os.environ['PYTHONBREAKPOINT']
 
 
+    @pytest.mark.dont_track_allocations('putenv intentionally keeps strings alive')
     def test_env_nonexistent(self):
         import os
         import warnings
