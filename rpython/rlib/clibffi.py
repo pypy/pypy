@@ -29,7 +29,7 @@ _MSVC = platform.name == "msvc"
 _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
 _WIN64 = _WIN32 and is_emulated_long
-_MAC_OS = platform.name == "darwin"
+_MAC_OS = platform.name.startswith("darwin")
 
 _LITTLE_ENDIAN = sys.byteorder == 'little'
 _BIG_ENDIAN = sys.byteorder == 'big'
@@ -67,7 +67,7 @@ if not _WIN32:
     includes = ['ffi.h']
 
     if _MAC_OS:
-        pre_include_bits = ['#define MACOSX']
+        pre_include_bits = ['#define MACOSX\n#define USE_FFI_CLOSURE_ALLOC 1']
     else:
         pre_include_bits = []
 
@@ -324,8 +324,8 @@ c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
 # Note: the RFFI_ALT_ERRNO flag matches the one in pyjitpl.direct_libffi_call
 CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
-c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
-                                                   CALLBACK_TP, rffi.VOIDP],
+c_ffi_prep_closure_loc = external('ffi_prep_closure_loc', [FFI_CLOSUREP, FFI_CIFP,
+                                                       CALLBACK_TP, rffi.VOIDP, FFI_CLOSUREP],
                               rffi.INT)
 
 FFI_STRUCT_P = lltype.Ptr(lltype.Struct('FFI_STRUCT',
@@ -530,9 +530,10 @@ class CallbackFuncPtr(AbstractFuncPtr):
                                          track_allocation=False)
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
         self.ll_userdata.addarg = additional_arg
-        res = c_ffi_prep_closure(self.ll_closure, self.ll_cif,
+        res = c_ffi_prep_closure_loc(self.ll_closure, self.ll_cif,
                                  ll_callback, rffi.cast(rffi.VOIDP,
-                                                        self.ll_userdata))
+                                                        self.ll_userdata),
+                                 self.ll_closure)
         if not res == FFI_OK:
             raise LibFFIError
 
