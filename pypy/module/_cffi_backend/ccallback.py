@@ -3,7 +3,7 @@ Callbacks.
 """
 import sys, os, py
 
-from rpython.rlib import clibffi, jit, objectmodel
+from rpython.rlib import clibffi, jit, objectmodel, rmmap
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -216,9 +216,11 @@ class W_CDataCallback(W_ExternPython):
         with self as ptr:
             closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, ptr)
             unique_id = self.hide_object()
+            rmmap.write_protect(0)
             res = clibffi.c_ffi_prep_closure_loc(closure_ptr, cif_descr.cif,
                                                  invoke_callback,
                                                  unique_id, closure_ptr)
+            rmmap.write_protect(1)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise oefmt(space.w_SystemError,
                         "libffi failed to build this callback")
