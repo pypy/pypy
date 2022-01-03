@@ -148,8 +148,9 @@ class ThreadRunningTests(BasicThreadTest):
 
             self.assertEqual(str(cm.unraisable.exc_value), "task failed")
             self.assertIs(cm.unraisable.object, task)
-            self.assertEqual(cm.unraisable.err_msg,
-                             "Exception ignored in thread started by")
+            # PyPy: use a regex since PyPy adds the thread ID
+            self.assertRegex(cm.unraisable.err_msg,
+                             "Exception ignored in thread .* started by")
             self.assertIsNotNone(cm.unraisable.exc_traceback)
 
 

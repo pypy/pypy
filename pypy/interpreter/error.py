@@ -275,8 +275,7 @@ class OperationError(Exception):
             if with_traceback:
                 first_line = 'Exception ignored %s' % (where, )
             else:
-                first_line = 'Exception ignored in: %s' % (
-                    where, )
+                first_line = 'Exception ignored in: %s' % (where, )
         else:
             first_line = ''
         info_w = [

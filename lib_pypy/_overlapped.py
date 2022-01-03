@@ -397,8 +397,7 @@ class Overlapped(object):
         else:
             self.error = _kernel32.GetLastError()
 
-        if self.error == (_winapi.ERROR_SUCCESS or
-                          self.error == _winapi.ERROR_IO_PENDING):
+        if self.error in (_winapi.ERROR_SUCCESS, _winapi.ERROR_IO_PENDING):
             return None
         else:
             self.type = OverlappedType.TYPE_NOT_STARTED
@@ -429,8 +428,7 @@ class Overlapped(object):
         else:
             self.error = _kernel32.GetLastError()
 
-        if self.error == (_winapi.ERROR_SUCCESS or
-                          self.error == _winapi.ERROR_IO_PENDING):
+        if self.error in (_winapi.ERROR_SUCCESS, _winapi.ERROR_IO_PENDING):
             return None
         else:
             self.type = OverlappedType.TYPE_NOT_STARTED
@@ -467,8 +465,7 @@ class Overlapped(object):
         else:
             self.error = _kernel32.GetLastError()
 
-        if self.error == (_winapi.ERROR_SUCCESS or
-                          self.error == _winapi.ERROR_IO_PENDING):
+        if self.error in (_winapi.ERROR_SUCCESS, _winapi.ERROR_IO_PENDING):
             return None
         else:
             self.type = OverlappedType.TYPE_NOT_STARTED

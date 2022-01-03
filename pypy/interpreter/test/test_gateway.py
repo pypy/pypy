@@ -529,13 +529,9 @@ class TestGateway:
             return space.newbytes(filename)
         app_f = gateway.interp2app_temp(f, unwrap_spec=['fsencode'])
         w_app_f = space.wrap(app_f)
-        if sys.platform == 'win32':
-            raises(gateway.OperationError, space.call_function,
-                   w_app_f, w(u'\udc80'))
-        else:
-            assert space.eq_w(
-                space.call_function(w_app_f, w(u'\udc80')),
-                space.newbytes('\x80'))
+        assert space.eq_w(
+            space.call_function(w_app_f, w(u'\udc80')),
+            space.newbytes('\x80'))
 
     def test_interp2app_unwrap_spec_typechecks(self):
         from rpython.rlib.rarithmetic import r_longlong
