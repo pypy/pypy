@@ -59,6 +59,8 @@ if _POSIX:
     constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_FIXED',
                       'PROT_READ', 'PROT_WRITE',
                       'MS_SYNC']
+    if sys.platform == 'darwin':
+        constant_names.append('MAP_JIT')
     opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
                           'PROT_EXEC',
                           'MAP_DENYWRITE', 'MAP_EXECUTABLE']
@@ -752,6 +754,8 @@ if _POSIX:
 
     def alloc_hinted(hintp, map_size):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
+        if sys.platform == 'darwin':
+            flags |= MAP_JIT
         prot = PROT_EXEC | PROT_READ | PROT_WRITE
         if we_are_translated():
             flags = NonConstant(flags)
