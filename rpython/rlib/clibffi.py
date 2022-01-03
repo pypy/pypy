@@ -9,7 +9,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask, is_emulated_long
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rmmap import alloc
+from rpython.rlib.rmmap import alloc, write_protect
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLOpenError, DLLHANDLE
 from rpython.rlib import jit, rposix
@@ -445,15 +445,19 @@ class ClosureHeap(object):
             chunk = rffi.ptradd(chunk, 1)
 
     def alloc(self):
+        write_protect(0)
         if not self.free_list:
             self._more()
         p = self.free_list
         self.free_list = rffi.cast(rffi.VOIDPP, p)[0]
+        write_protect(1)
         return rffi.cast(FFI_CLOSUREP, p)
 
     def free(self, p):
+        write_protect(0)
         rffi.cast(rffi.VOIDPP, p)[0] = self.free_list
         self.free_list = rffi.cast(rffi.VOIDP, p)
+        write_protect(1)
 
 closureHeap = ClosureHeap()
 
@@ -530,10 +534,12 @@ class CallbackFuncPtr(AbstractFuncPtr):
                                          track_allocation=False)
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
         self.ll_userdata.addarg = additional_arg
+        write_protect(0)
         res = c_ffi_prep_closure_loc(self.ll_closure, self.ll_cif,
                                  ll_callback, rffi.cast(rffi.VOIDP,
                                                         self.ll_userdata),
                                  self.ll_closure)
+        write_protect(1)
         if not res == FFI_OK:
             raise LibFFIError
 
