@@ -216,9 +216,9 @@ class W_CDataCallback(W_ExternPython):
         with self as ptr:
             closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, ptr)
             unique_id = self.hide_object()
-            res = clibffi.c_ffi_prep_closure(closure_ptr, cif_descr.cif,
-                                             invoke_callback,
-                                             unique_id)
+            res = clibffi.c_ffi_prep_closure_loc(closure_ptr, cif_descr.cif,
+                                                 invoke_callback,
+                                                 unique_id, closure_ptr)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise oefmt(space.w_SystemError,
                         "libffi failed to build this callback")
