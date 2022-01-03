@@ -990,7 +990,7 @@ class TestClassesAndFunctions(unittest.TestCase):
             self.assertFullArgSpecEquals(_pickle.Pickler.dump, ['self', 'obj'],
                                      formatted='(self, obj)')
 
-        self.assertFullArgSpecEquals(_pickle.Pickler(io.BytesIO()).dump, ['self', 'obj'],
+            self.assertFullArgSpecEquals(_pickle.Pickler(io.BytesIO()).dump, ['self', 'obj'],
                                      formatted='(self, obj)')
 
         self.assertFullArgSpecEquals(
