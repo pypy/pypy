@@ -94,7 +94,7 @@ class AppTestUserObject:
     def test_reversed(self):
         dictproxy = type(int.__dict__)
         mapping = dictproxy(dict(a=1, b=2, c=3))
-        assert list(reversed(mapping)) == ['c', 'b', 'a']
+        assert list(reversed(mapping)) == list(reversed(list(mapping)))
 
 
 class AppTestUserObjectMethodCache(AppTestUserObject):
