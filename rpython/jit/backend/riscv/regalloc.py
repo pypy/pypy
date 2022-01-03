@@ -6,6 +6,9 @@ from rpython.jit.backend.llsupport.regalloc import (
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
     SHAMT_MAX, SINT12_IMM_MAX, SINT12_IMM_MIN)
+from rpython.jit.backend.riscv.instruction_util import (
+    COND_BEQ, COND_BGE, COND_BGEU, COND_BLT, COND_BLTU, COND_BNE,
+    get_negated_branch_inst)
 from rpython.jit.backend.riscv.locations import (
     ConstFloatLoc, ImmLocation, StackLocation, get_fp_offset)
 from rpython.jit.codewriter import longlong
@@ -516,6 +519,70 @@ class Regalloc(BaseRegalloc):
         # Note[#dont_free_vars]: Do not call `possibly_free_vars_for_op` or
         # `free_temp_vars`.
         return [l0, l1] + self._prepare_guard_arglocs(op)
+
+    def _gen_prepare_guard_op_guard_bool_op(guard_true):
+        def _prepare_guard_op_guard_bool_op(self, op, guard_op):
+            boxes = op.getarglist()
+
+            opnum = op.getopnum()
+            if (opnum == rop.INT_EQ or opnum == rop.PTR_EQ or
+                opnum == rop.INSTANCE_PTR_EQ):
+                guard_branch_inst = COND_BEQ
+            elif (opnum == rop.INT_NE or opnum == rop.PTR_NE or
+                  opnum == rop.INSTANCE_PTR_NE):
+                guard_branch_inst = COND_BNE
+            elif opnum == rop.INT_LT:
+                guard_branch_inst = COND_BLT
+            elif opnum == rop.INT_LE:
+                boxes = [boxes[1], boxes[0]]
+                guard_branch_inst = COND_BGE
+            elif opnum == rop.INT_GT:
+                boxes = [boxes[1], boxes[0]]
+                guard_branch_inst = COND_BLT
+            elif opnum == rop.INT_GE:
+                guard_branch_inst = COND_BGE
+            elif opnum == rop.UINT_LT:
+                guard_branch_inst = COND_BLTU
+            elif opnum == rop.UINT_LE:
+                if check_plus_one_imm_box(boxes[1]):
+                    boxes = [boxes[0], ConstInt(boxes[1].getint() + 1)]
+                    guard_branch_inst = COND_BLTU
+                else:
+                    boxes = [boxes[1], boxes[0]]
+                    guard_branch_inst = COND_BGEU
+            elif opnum == rop.UINT_GT:
+                boxes = [boxes[1], boxes[0]]
+                guard_branch_inst = COND_BLTU
+            elif opnum == rop.UINT_GE:
+                if check_plus_one_imm_box(boxes[0]):
+                    boxes = [boxes[1], ConstInt(boxes[0].getint() + 1)]
+                    guard_branch_inst = COND_BLTU
+                else:
+                    guard_branch_inst = COND_BGEU
+            elif opnum == rop.INT_IS_ZERO:
+                boxes = [boxes[0], ConstInt(0)]
+                guard_branch_inst = COND_BEQ
+            elif opnum == rop.INT_IS_TRUE:
+                boxes = [boxes[0], ConstInt(0)]
+                guard_branch_inst = COND_BNE
+            else:
+                assert False, 'unexpected case'
+
+            locs = [self.make_sure_var_in_reg(v, boxes) for v in boxes]
+
+            if not guard_true:
+                guard_branch_inst = get_negated_branch_inst(guard_branch_inst)
+
+            # Note[#dont_free_vars]: Do not call `possibly_free_vars_for_op` or
+            # `free_temp_vars`.
+            guard_arglocs = self._prepare_guard_arglocs(guard_op)
+
+            arglocs = locs + guard_arglocs
+            return arglocs, guard_branch_inst
+        return _prepare_guard_op_guard_bool_op
+
+    prepare_guard_op_guard_true  = _gen_prepare_guard_op_guard_bool_op(True)
+    prepare_guard_op_guard_false = _gen_prepare_guard_op_guard_bool_op(False)
 
     def _prepare_op_same_as(self, op):
         boxes = op.getarglist()

@@ -6,6 +6,8 @@ from rpython.jit.backend.riscv.arch import (
     PC_REL_MAX, PC_REL_MIN, SINT12_IMM_MAX, SINT12_IMM_MIN)
 from rpython.jit.backend.riscv.instruction_builder import (
     gen_all_instr_assemblers)
+from rpython.jit.backend.riscv.instruction_util import (
+    COND_BEQ, COND_BGE, COND_BGEU, COND_BLT, COND_BLTU, COND_BNE)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.udir import udir
@@ -204,6 +206,17 @@ class AbstractRISCVBuilder(object):
         self.ADDI(rd, rd, lower)
 
 gen_all_instr_assemblers(AbstractRISCVBuilder)
+
+BRANCH_BUILDER = {
+    COND_BEQ: AbstractRISCVBuilder.BEQ,
+    COND_BNE: AbstractRISCVBuilder.BNE,
+
+    COND_BGE: AbstractRISCVBuilder.BGE,
+    COND_BLT: AbstractRISCVBuilder.BLT,
+
+    COND_BGEU: AbstractRISCVBuilder.BGEU,
+    COND_BLTU: AbstractRISCVBuilder.BLTU,
+}
 
 
 class InstrBuilder(BlockBuilderMixin, AbstractRISCVBuilder):

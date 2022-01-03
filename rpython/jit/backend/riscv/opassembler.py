@@ -4,6 +4,7 @@ from rpython.jit.backend.llsupport.assembler import BaseAssembler, GuardToken
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import JITFRAME_FIXED_SIZE
+from rpython.jit.backend.riscv.codebuilder import BRANCH_BUILDER
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
 from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.jit.metainterp.resoperation import rop
@@ -278,6 +279,16 @@ class OpAssembler(BaseAssembler):
         else:
             self.mc.BEQ(l0.value, l1.value, 8)
         self._emit_pending_guard(op, arglocs[2:])
+
+    def _emit_guard_op_guard_bool_op(self, op, guard_op, arglocs,
+                                     guard_branch_inst):
+        l0 = arglocs[0]
+        l1 = arglocs[1]
+        BRANCH_BUILDER[guard_branch_inst](self.mc, l0.value, l1.value, 8)
+        self._emit_pending_guard(guard_op, arglocs[2:])
+
+    emit_guard_op_guard_true  = _emit_guard_op_guard_bool_op
+    emit_guard_op_guard_false = _emit_guard_op_guard_bool_op
 
     def _emit_op_same_as(self, op, arglocs):
         l0, res = arglocs

@@ -7,9 +7,12 @@ from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
     ABI_STACK_ALIGN, FLEN, JITFRAME_FIXED_SIZE, XLEN)
 from rpython.jit.backend.riscv.codebuilder import InstrBuilder
-from rpython.jit.backend.riscv.instruction_util import check_simm21_arg
-from rpython.jit.backend.riscv.opassembler import OpAssembler, asm_operations
-from rpython.jit.backend.riscv.regalloc import Regalloc, regalloc_operations
+from rpython.jit.backend.riscv.instruction_util import (
+    can_fuse_into_compare_and_branch, check_simm21_arg)
+from rpython.jit.backend.riscv.opassembler import (
+    OpAssembler, asm_guard_operations, asm_operations)
+from rpython.jit.backend.riscv.regalloc import (
+    Regalloc, regalloc_guard_operations, regalloc_operations)
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.jit.metainterp.resoperation import rop
@@ -128,6 +131,24 @@ class AssemblerRISCV(OpAssembler):
                 # If this op does not have side effects and its result is
                 # unused, it is safe to ignore this op.
                 pass
+            elif (can_fuse_into_compare_and_branch(opnum) and
+                  i < len(operations) - 1 and
+                  regalloc.next_op_can_accept_cc(operations, i)):
+                guard_op = operations[i + 1]  # guard_* or cond_call*
+                guard_num = guard_op.getopnum()
+                arglocs, guard_branch_inst = \
+                        regalloc_guard_operations[guard_num](regalloc, op,
+                                                             guard_op)
+                if arglocs is not None:
+                    asm_guard_operations[guard_num](self, op, guard_op, arglocs,
+                                                    guard_branch_inst)
+                regalloc.next_instruction()  # Advance one more
+                # Free argument vars of the guard op (if no longer used).
+                if guard_op.is_guard():
+                    regalloc.possibly_free_vars(guard_op.getfailargs())
+                regalloc.possibly_free_vars_for_op(guard_op)
+                # Free the return var of the guard op (if no longer used).
+                regalloc.possibly_free_var(guard_op)
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op)
                 if arglocs is not None:
