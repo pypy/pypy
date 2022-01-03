@@ -66,14 +66,14 @@ class AppTestAST:
         mod = ast.Module()
         raises(AttributeError, getattr, mod, "body")
         exc = raises(TypeError, com, mod).value
-        assert str(exc) == "required field \"body\" missing from Module"
+        assert str(exc) == "required field 'body' missing from Module"
         expr = ast.Name()
         expr.id = "hi"
         expr.ctx = ast.Load()
         expr.lineno = 4
         exc = raises(TypeError, com, ast.Module([ast.Expr(expr)], [])).value
         assert (str(exc) == "required field \"lineno\" missing from stmt" or # cpython
-                str(exc) == "required field \"lineno\" missing from Expr")   # pypy, better
+                str(exc) == "required field 'lineno' missing from Expr")   # pypy, better
 
     def test_int(self):
         ast = self.ast
@@ -476,7 +476,7 @@ from __future__ import generators""")
         empty_yield_from = ast.parse("def f():\n yield from g()")
         empty_yield_from.body[0].body[0].value.value = None
         exc = raises(ValueError, compile, empty_yield_from, "<test>", "exec")
-        assert "field value is required" in str(exc.value)
+        assert "field 'value' is required for YieldFrom" in str(exc.value)
 
     def test_compare(self):
         import ast as ast_utils
