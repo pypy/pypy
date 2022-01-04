@@ -42,26 +42,6 @@ if hasattr(os, "fork"):
         res = os.WEXITSTATUS(status1)
         assert res == 13
 
-    def test_fork_hook_creates_thread_bug():
-        import threading
-        def daemon():
-            while 1:
-                time.sleep(10)
-
-        daemon_thread = None
-        def create_thread():
-            nonlocal daemon_thread
-            daemon_thread = threading.Thread(name="b", target=daemon, daemon=True)
-            daemon_thread.start()
-
-        os.register_at_fork(after_in_child=create_thread)
-        pid = os.fork()
-        if pid == 0:   # child
-            os._exit(daemon_thread._ident in threading._active)
-
-        pid1, status1 = os.waitpid(pid, 0)
-        assert status1
-
 
 def test_cpu_count():
     cc = posix.cpu_count()
