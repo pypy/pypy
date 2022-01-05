@@ -1,7 +1,7 @@
 import py, pytest, sys, os, textwrap
 from inspect import isclass
 
-LOOK_FOR_PYTHON3 = 'python3.8'
+LOOK_FOR_PYTHON3 = 'python3.9'
 PYTHON3 = os.getenv('PYTHON3') or py.path.local.sysfind(LOOK_FOR_PYTHON3)
 if PYTHON3 is not None:
     PYTHON3 = str(PYTHON3)
