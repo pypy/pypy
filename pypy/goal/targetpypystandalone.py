@@ -78,10 +78,6 @@ def create_entry_point(space, w_dict):
                                         for s in argv[1:]])
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
-                # try to pull it all in
-            ##    from pypy.interpreter import main, interactive, error
-            ##    con = interactive.PyPyConsole(space)
-            ##    con.interact()
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
