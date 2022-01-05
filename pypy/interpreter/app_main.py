@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # This is pure Python code that handles the main entry point into "pypy3".
 # See test/test_app_main.
 
@@ -431,6 +431,7 @@ default_options = dict.fromkeys(
     "unbuffered"), 0)
 default_options["check_hash_based_pycs"] = "default"
 default_options["dev_mode"] = False # needs to be bool
+default_options["utf8_mode"] = -1
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -452,6 +453,11 @@ def X_option(options, xoption, iterargv):
     options["_xoptions"].append(xoption)
     if xoption == "dev":
         options["dev_mode"] = True
+    elif xoption.startswith("utf8"):
+        if xoption == "utf8" or xoption == "utf8=1":
+            options["utf8_mode"] = 1
+        elif xoption == "utf8=0":
+            options["utf8_mode"] = 0
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -589,6 +595,30 @@ def parse_command_line(argv):
         parse_env('PYTHONOPTIMIZE', "optimize", options)
         if getenv('PYTHONDEVMODE'):
             options["dev_mode"] = True
+        val = getenv('PYTHONUTF8')
+        if not val:
+            pass
+        elif val == "0":
+            if options["utf8_mode"] == -1: # don't overwrite -X value
+                options["utf8_mode"] = 0
+        elif val == "1":
+            if options["utf8_mode"] == -1: # don't overwrite -X value
+                options["utf8_mode"] = 1
+        else:
+            initstdio()
+            sys.stderr.write(
+                "Fatal Python error: invalid PYTHONUTF8 environment variable value %r\n" % val)
+            raise SystemExit(1)
+    if options["utf8_mode"] == -1: # neither env var nor -X utf8
+        import _locale
+        lc = _locale.setlocale(_locale.LC_CTYPE, None)
+        import os
+        os.write(1, ("LOCALE" + " " + str(lc) + "\n").encode("utf-8"))
+        if lc == 'C' or lc == 'POSIX':
+            options["utf8_mode"] = 1
+        else:
+            options["utf8_mode"] = 0
+
     if (options["interactive"] or
         (not options["ignore_environment"] and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
@@ -623,6 +653,7 @@ def run_command_line(interactive,
                      quiet,
                      isolated,
                      dev_mode,
+                     utf8_mode,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the PyPy level for the compiler package
@@ -633,6 +664,8 @@ def run_command_line(interactive,
 
     readenv = not ignore_environment
     io_encoding = getenv("PYTHONIOENCODING") if readenv else None
+    if not io_encoding and utf8_mode:
+        io_encoding = "utf-8:surrogateescape"
     initstdio(io_encoding, unbuffered)
 
     if 'faulthandler' in sys.builtin_module_names:

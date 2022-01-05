@@ -215,12 +215,31 @@ class TestParseCommandLine:
         self.check(['-X', 'dev', '-c', 'pass'], {}, sys_argv=['-c'],
                    run_command='pass', _xoptions=['dev'], dev_mode=True)
 
-    def test_sysflags_envvar(self, monkeypatch):
+    def test_sysflags_utf8mode(self):
+        self.check(['-X', 'utf8', '-c', 'pass'], {}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8'], utf8_mode=True)
+        self.check(['-X', 'utf8=1', '-c', 'pass'], {}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8=1'], utf8_mode=True)
+        self.check(['-X', 'utf8=0', '-c', 'pass'], {}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8=0'], utf8_mode=False)
+
+    def test_sysflags_envvar(self):
         expected = {"no_user_site": True}
         self.check(['-c', 'pass'], {'PYTHONNOUSERSITE': '1'}, sys_argv=['-c'],
                    run_command='pass', **expected)
         self.check(['-c', 'pass'], {'PYTHONDEVMODE': '1'}, sys_argv=['-c'],
                    run_command='pass', dev_mode=True)
+
+    def test_sysflags_utf8mode_envvar(self):
+        self.check(['-c', 'pass'], {'PYTHONUTF8': '1'}, sys_argv=['-c'],
+                   run_command='pass', utf8_mode=True)
+        self.check(['-c', 'pass'], {'PYTHONUTF8': '0'}, sys_argv=['-c'],
+                   run_command='pass', utf8_mode=False)
+        # -X takes precedence
+        self.check(['-X', 'utf8', '-c', 'pass'], {'PYTHONUTF8': '0'}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8'], utf8_mode=True)
+        self.check(['-X', 'utf8=0', '-c', 'pass'], {'PYTHONUTF8': '1'}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8=0'], utf8_mode=False)
 
     def test_check_hash_based_pycs(self):
         for val in ['default', 'always', 'never']:
