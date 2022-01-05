@@ -1036,10 +1036,10 @@ class TestNonInteractive:
 
     def test_pythonioencoding2(self):
         for encoding, expected in [
-            ("ascii:", "strict"),
-            (":surrogateescape", "surrogateescape"),
+            ("ascii:", "ascii:strict"),
+            (":surrogateescape", "utf-8:surrogateescape"),
         ]:
-            p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
+            p = getscript_in_dir("import sys; print(sys.stdout.encoding + ':' + sys.stdout.errors, end='')")
             env = os.environ.copy()
             env["PYTHONIOENCODING"] = encoding
             data = self.run(p, env=env)

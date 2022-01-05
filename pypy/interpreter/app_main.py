@@ -338,6 +338,10 @@ def initstdio(encoding=None, unbuffered=False):
     try:
         if encoding and ':' in encoding:
             encoding, errors = encoding.split(':', 1)
+            if encoding == '':
+                encoding = 'utf-8'
+            if errors == '':
+                errors = 'strict'
             errors = errors or None
         else:
             errors = None
