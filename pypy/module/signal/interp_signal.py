@@ -469,8 +469,10 @@ def valid_signals(space):
 @unwrap_spec(signalnum=int)
 def raise_signal(space, signalnum):
     'Send a signal to the executing process.'
-    c_raise(signalnum)
-
+    with rposix.SuppressIPH():
+        err = c_raise(signalnum)
+    if err != 0:
+        raise exception_from_saved_errno(space, space.w_OSError)
 
 @unwrap_spec(signalnum=int)
 def strsignal(space, signalnum):
