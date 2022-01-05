@@ -258,14 +258,16 @@ def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
     if fd != -1:
         try:
             os.fstat(fd)
-            flags = rposix.get_status_flags(fd)
+            if not WIN32:
+                flags = rposix.get_status_flags(fd)
         except OSError as e:
             if e.errno == errno.EBADF:
                 raise oefmt(space.w_ValueError, "invalid fd")
             raise wrap_oserror(space, e, eintr_retry=False)
-        if flags & rposix.O_NONBLOCK == 0:
-            raise oefmt(space.w_ValueError,
-                        "the fd %d must be in non-blocking mode", fd)
+        if not WIN32:
+            if flags & rposix.O_NONBLOCK == 0:
+                raise oefmt(space.w_ValueError,
+                            "the fd %d must be in non-blocking mode", fd)
 
     flags = 0
     if not warn_on_full_buffer:
