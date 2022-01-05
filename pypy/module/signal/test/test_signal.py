@@ -225,7 +225,7 @@ class AppTestSignal:
         import _signal as signal
         with open(self.temppath, 'wb') as f:
             fd = f.fileno()
-        raises(ValueError, signal.set_wakeup_fd, fd)
+        raises((ValueError, OSError), signal.set_wakeup_fd, fd)
 
     def test_siginterrupt(self):
         import _signal as signal, os, time
@@ -273,11 +273,12 @@ class AppTestSignal:
                 raise AssertionError("did not raise!")
 
     def test_valid_signals(self):
-        import signal
+        import signal, sys
         s = signal.valid_signals()
         assert isinstance(s, set)
         assert signal.Signals.SIGINT in s
-        assert signal.Signals.SIGALRM in s
+        if sys.platform != "win32":
+            assert signal.Signals.SIGALRM in s
         assert 0 not in s
         assert signal.NSIG not in s
         assert len(s) < signal.NSIG

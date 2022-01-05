@@ -255,12 +255,7 @@ def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
                     "set_wakeup_fd only works in main thread or with "
                     "__pypy__.thread.enable_signals()")
 
-    if WIN32:
-        # fd can be a socket handle on win32.  We assume on Windows
-        # that 'fd' is valid, either as a file or a socket descriptor,
-        # and don't bother doing checking here.  XXX fix me!
-        pass
-    elif fd != -1:
+    if fd != -1:
         try:
             os.fstat(fd)
             flags = rposix.get_status_flags(fd)
