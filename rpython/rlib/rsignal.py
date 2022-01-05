@@ -111,8 +111,7 @@ if sys.platform != 'win32':
 c_pthread_kill = external('pthread_kill', [lltype.Signed, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
 
-HAVE_STRSIGNAL = rffi_platform.Has("strsignal")
-if HAVE_STRSIGNAL:
+if sys.platform != 'win32':
     c_strsignal = external('strsignal', [rffi.INT], rffi.CCHARP)
     def strsignal(signum):
         res = c_strsignal(signum)
