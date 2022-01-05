@@ -612,8 +612,6 @@ def parse_command_line(argv):
     if options["utf8_mode"] == -1: # neither env var nor -X utf8
         import _locale
         lc = _locale.setlocale(_locale.LC_CTYPE, None)
-        import os
-        os.write(1, ("LOCALE" + " " + str(lc) + "\n").encode("utf-8"))
         if lc == 'C' or lc == 'POSIX':
             options["utf8_mode"] = 1
         else:
