@@ -18,7 +18,7 @@ class TestCheckSignals:
             pytest.skip("requires SIGUSR1 in signal")
 
     def test_checksignals(self):
-        os = self.posix
+        import os
         space = self.space
         w_received = space.appexec([], """():
             import _signal as signal
@@ -56,7 +56,7 @@ class AppTestSignal:
     def test_exported_names(self):
         import sys, _signal
         _signal.__dict__   # crashes if the interpleveldefs are invalid
-        if sys.platform != 'win32':
+        if sys.platform == 'win32':
             assert _signal.CTRL_BREAK_EVENT == 1
             assert _signal.CTRL_C_EVENT == 0
 
