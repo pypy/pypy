@@ -106,37 +106,20 @@ def test_filename_none():
 
 
 def test_warn_unicode():
-    old = sys.stderr, warnings.showwarning
+    stderr = sys.stderr
+    g = {'warnings': warnings,
+         '__name__': 'pytest.py',
+    }
     try:
-        class Grab:
-            def write(self, u):
-                self.data.append(u)
-        sys.stderr = Grab()
-        sys.stderr.data = data = []
-        if sys.version_info > (3, 0, 0):
-            # Copy from lib-python/3/warnings.py
-            def orig_showwarning(message, category, filename, lineno, file=None, line=None):
-                msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
-                warnings._showwarnmsg_impl(msg)
-            warnings.showwarning = orig_showwarning
-            _unicode = str
-        else:
-            warnings.showwarning = warnings._show_warning
-            _unicode = unicode
-        # ^^^ disables any catch_warnings() issued by the test runner
-        _warnings.warn_explicit("9238exbexn8", Warning,
-                                "<string>", 1421, module_globals=globals())
-        assert data   # the warning was not swallowed
-        assert isinstance(''.join(data), str)
-        _warnings.warn_explicit(u"\u1234\u5678", UserWarning,
-                                "<str2>", 831, module_globals=globals())
-        assert isinstance(''.join(data), _unicode)
-        assert ''.join(data).endswith(
-                         u'<str2>:831: UserWarning: \u1234\u5678\n')
+        sys.stderr = io.StringIO()
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            warnings.warn_explicit(u"\u1234\u5678", UserWarning,
+                                "<str2>", 831)
+        result = sys.stderr.getvalue()
     finally:
-        sys.stderr, warnings.showwarning = old
-
-
+        sys.stderr = stderr
+    assert result.endswith(u'<str2>:831: UserWarning: \u1234\u5678\n')
 
 def test_bad_category():
     raises(TypeError, _warnings.warn, "text", 123)
@@ -197,7 +180,7 @@ def test_filename_from_co():
         sys.stderr = io.StringIO()
         with warnings.catch_warnings():
             warnings.simplefilter("always")
-        eval("warnings.warn('test')", g)
+            eval("warnings.warn('test')", g)
         result = sys.stderr.getvalue()
     finally:
         sys.stderr = stderr
