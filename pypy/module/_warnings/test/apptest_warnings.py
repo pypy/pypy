@@ -185,19 +185,19 @@ def test_once_is_not_broken():
         assert len(w) == 1
 
 def test_filename_from_co():
-    import sys
-    import _warnings
 
     # Make sure the filename comes from code.co_filename when
     # __filename__ is missing and __module__ is __main__
     # like when run with -c
     stderr = sys.stderr
-    g = {'_warnings': _warnings,
+    g = {'warnings': warnings,
          '__name__': 'pytest.py',
     }
     try:
         sys.stderr = io.StringIO()
-        eval("_warnings.warn('test')", g)
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+        eval("warnings.warn('test')", g)
         result = sys.stderr.getvalue()
     finally:
         sys.stderr = stderr
