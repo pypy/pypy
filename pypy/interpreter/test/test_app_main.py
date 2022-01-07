@@ -104,9 +104,13 @@ class TestParseCommandLine:
             if key not in expected:
                 if key == "check_hash_based_pycs":
                     assert value == "default"
-                    continue
-                assert not value, (
-                    "option %r has unexpectedly the value %r" % (key, value))
+                elif key == "utf8_mode":
+                    import _locale
+                    lc = "C" # _locale.setlocale(_locale.LC_CTYPE, None)
+                    assert value == (lc == "C" or lc == "POSIX")
+                else:
+                    assert not value, (
+                        "option %r has unexpectedly the value %r" % (key, value))
 
     def check(self, argv, env, **expected):
         p = subprocess.Popen([get_python3(), app_main,
