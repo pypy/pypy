@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.rstr import STR, copy_string_to_raw
 from rpython.rtyper.lltypesystem.rlist import LIST_OF
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
                               nonmoving_raw_ptr_for_resizable_list,
                               ll_for_resizable_list)
@@ -195,6 +195,7 @@ class RawByteBuffer(RawBuffer):
     def __init__(self, length):
         self._length = length
         self._buf = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw', zero=True)
+        rgc.add_memory_pressure(length)
         self.readonly = False
 
     def getlength(self):
