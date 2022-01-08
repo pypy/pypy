@@ -1071,7 +1071,9 @@ class TestNonInteractive:
     def test_pythonioencoding_c_locale(self):
         for encoding, expected in [
             (None, "surrogateescape"),
-            ("", "surrogateescape")
+            ("", "surrogateescape"),
+            (":strict", "strict"),
+            (":", "surrogateescape")
         ]:
             p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
             env = os.environ.copy()
@@ -1079,7 +1081,7 @@ class TestNonInteractive:
             if encoding is not None:
                 env["PYTHONIOENCODING"] = encoding
             data = self.run(p, env=env)
-            assert data == "surrogateescape"
+            assert data == expected
 
     def test_sys_exit_pythonioencoding(self):
         if sys.version_info < (2, 7):

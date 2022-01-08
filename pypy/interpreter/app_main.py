@@ -662,7 +662,7 @@ def run_command_line(interactive,
 
     readenv = not ignore_environment
     io_encoding = getenv("PYTHONIOENCODING") if readenv else None
-    if not io_encoding and utf8_mode:
+    if (not io_encoding or io_encoding == ":") and utf8_mode:
         io_encoding = "utf-8:surrogateescape"
     initstdio(io_encoding, unbuffered)
 
