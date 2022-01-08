@@ -75,6 +75,10 @@ def test_ignore():
         assert list(__warningregistry__) == ['version']
 
 def test_show_source_line():
+    # Something is wrong with pytest 4.0.0 (which is the version run for -D
+    # pypy tests: it cannot redirect sys.stderr
+    if pytest.__version__ == '4.0.0':
+        pytest.skip("fails on this version of pytest")
 
     def inner(message, stacklevel=1):
         warnings.warn(message, stacklevel=stacklevel)
@@ -106,6 +110,10 @@ def test_filename_none():
 
 
 def test_warn_unicode():
+    # Something is wrong with pytest 4.0.0 (which is the version run for -D
+    # pypy tests: it cannot redirect sys.stderr
+    if pytest.__version__ == '4.0.0':
+        pytest.skip("fails on this version of pytest")
     stderr = sys.stderr
     g = {'warnings': warnings,
          '__name__': 'pytest.py',
@@ -172,6 +180,12 @@ def test_filename_from_co():
     # Make sure the filename comes from code.co_filename when
     # __filename__ is missing and __module__ is __main__
     # like when run with -c
+
+    # Something is wrong with pytest 4.0.0 (which is the version run for -D
+    # pypy tests: it cannot redirect sys.stderr
+    if pytest.__version__ == '4.0.0':
+        pytest.skip("fails on this version of pytest")
+    import pdb;pdb.set_trace()
     stderr = sys.stderr
     g = {'warnings': warnings,
          '__name__': 'pytest.py',
