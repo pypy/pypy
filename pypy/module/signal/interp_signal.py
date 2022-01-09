@@ -255,26 +255,41 @@ def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
                     "set_wakeup_fd only works in main thread or with "
                     "__pypy__.thread.enable_signals()")
 
+    send_flags = 0
     if fd != -1:
-        try:
-            os.fstat(fd)
-            if not WIN32:
+        if WIN32:
+            from rpython.rlib._rsocket_rffi import SOL_SOCKET, SO_TYPE
+            from rpython.rlib.rsocket import getsockopt_int, SocketError
+            # it could be a socket fd or a file fd
+            try:
+                type = getsockopt_int(fd, SOL_SOCKET, SO_TYPE)
+                is_socket = True
+            except SocketError as e:
+                is_socket = False
+            if is_socket:
+                send_flags |= PYPYSIG_USE_SEND
+            else:
+                try:
+                    os.fstat(fd)
+                except OSError as e:
+                    if e.errno == errno.EBADF:
+                        raise oefmt(space.w_ValueError, "invalid fd")
+        else:
+            try:
+                os.fstat(fd)
                 flags = rposix.get_status_flags(fd)
-        except OSError as e:
-            if e.errno == errno.EBADF:
-                raise oefmt(space.w_ValueError, "invalid fd")
-            raise wrap_oserror(space, e, eintr_retry=False)
-        if not WIN32:
+            except OSError as e:
+                if e.errno == errno.EBADF:
+                    raise oefmt(space.w_ValueError, "invalid fd")
+                raise wrap_oserror(space, e, eintr_retry=False)
             if flags & rposix.O_NONBLOCK == 0:
                 raise oefmt(space.w_ValueError,
                             "the fd %d must be in non-blocking mode", fd)
 
-    flags = 0
     if not warn_on_full_buffer:
-        flags |= PYPYSIG_NO_WARN_FULL
-    old_fd = pypysig_set_wakeup_fd(fd, flags)
+        send_flags |= PYPYSIG_NO_WARN_FULL
+    old_fd = pypysig_set_wakeup_fd(fd, send_flags)
     return space.newint(intmask(old_fd))
-
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
