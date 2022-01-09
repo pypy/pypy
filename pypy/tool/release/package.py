@@ -208,8 +208,10 @@ def create_package(basedir, options, _fake=False):
     IMPLEMENTATION = 'pypy{}'.format(python_ver)
     if ARCH == 'win32':
         target = pypydir.join('Lib')
+    elif _fake:
+        target = pypydir.join('lib', IMPLEMENTATION)
     else:
-        target = pypydir.join(get_platlibdir(pypy_c)).join(IMPLEMENTATION)
+        target = pypydir.join(get_platlibdir(pypy_c), IMPLEMENTATION)
     os.makedirs(str(target))
     if not _fake:
         generate_sysconfigdata(pypy_c, str(target))
