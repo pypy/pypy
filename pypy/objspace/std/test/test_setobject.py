@@ -142,6 +142,14 @@ class TestW_SetObject:
         assert sorted(self.space.listview_int(w_b)) == [1,2,3,4,5]
         assert self.space.listview_bytes(w_b) is None
 
+    def test_cpyext_add_frozen(self, space):
+        t1 = W_FrozensetObject(space)
+        assert space.len_w(t1) == 0
+        res = t1.cpyext_add_frozen(space.newint(1))
+        assert res
+        assert space.len_w(t1) == 1
+
+
 class AppTestAppSetTest:
 
     def setup_class(self):

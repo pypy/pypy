@@ -134,8 +134,9 @@ class Bootstrapper(object):
         except OperationError as e:
             if not e.match(space, space.w_SystemExit):
                 ident = rthread.get_ident()
-                where = 'in thread %d started by ' % ident
-                e.write_unraisable(space, where, w_callable, with_traceback=True)
+                # PyPy adds the thread ident
+                where = 'thread %d started by ' % ident
+                e.write_unraisable(space, where, w_callable)
             e.clear(space)
         # clean up space.threadlocals to remove the ExecutionContext
         # entry corresponding to the current thread
@@ -158,12 +159,6 @@ def reinit_threads(space):
     space.threadlocals.reinit_threads(space)
     bootstrapper.reinit()
     rthread.thread_after_fork()
-
-    # Clean the threading module after a fork()
-    w_modules = space.sys.get('modules')
-    w_threading = space.finditem_str(w_modules, 'threading')
-    if w_threading is not None:
-        space.call_method(w_threading, "_after_fork")
 
 def start_new_thread(space, w_callable, w_args, w_kwargs=None):
     """Start a new thread and return its identifier.  The thread will call the

@@ -186,9 +186,12 @@ class _StatementCache(object):
         self.cache = OrderedDict()
 
     def get(self, sql):
+        notincache = object()
         try:
             stat = self.cache[sql]
         except KeyError:
+            stat = notincache
+        if stat is notincache:
             stat = Statement(self.connection, sql)
             self.cache[sql] = stat
             if len(self.cache) > self.maxcount:
@@ -750,7 +753,7 @@ class Connection(object):
             if pages == 0:
                 pages = -1
             bck_conn = target._db
-            if not bck_conn:
+            if not bck_conn or not self._db:
                 raise ProgrammingError("cannot operate on closed connection")
             self._check_closed()
             bck_handle = _lib.sqlite3_backup_init(bck_conn, b"main", self._db, name.encode("utf-8"))

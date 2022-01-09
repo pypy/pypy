@@ -1324,7 +1324,8 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         coro = self.loop.create_connection(asyncio.Protocol, 'fe80::1%1', 80)
         t, p = self.loop.run_until_complete(coro)
         try:
-            sock.connect.assert_called_with(('fe80::1', 80, 0, 1))
+            # PyPy preserves the scope ID "%lo" in the address name
+            sock.connect.assert_called_with(('fe80::1%lo', 80, 0, 1))
             _, kwargs = m_socket.socket.call_args
             self.assertEqual(kwargs['family'], m_socket.AF_INET6)
             self.assertEqual(kwargs['type'], m_socket.SOCK_STREAM)

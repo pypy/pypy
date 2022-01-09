@@ -64,12 +64,6 @@ class UnixCCompiler(CCompiler):
 
     if sys.platform[:6] == "darwin":
         executables['ranlib'] = ["ranlib"]
-        executables['linker_so'] += ['-undefined', 'dynamic_lookup']
-
-        for k, v in executables.items():
-            if v and v[0] == 'cc':
-                v += ['-arch', arch]
-
 
     # Needed for the filename generation methods provided by the base
     # class, CCompiler.  NB. whoever instantiates/uses a particular

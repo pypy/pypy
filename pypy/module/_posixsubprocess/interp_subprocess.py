@@ -197,8 +197,10 @@ def fork_exec(space, w_process_args, w_executable_list,
         if not space.is_none(w_preexec_fn):
             preexec.space = space
             preexec.w_preexec_fn = w_preexec_fn
+            need_after_fork = 1
         else:
             preexec.w_preexec_fn = None
+            need_after_fork = 0
 
         if not space.is_none(w_cwd):
             cwd = space.fsencode_w(w_cwd)
@@ -236,7 +238,8 @@ def fork_exec(space, w_process_args, w_executable_list,
             call_setuid = 1
             uid = rffi.cast(uid_t, space.c_uid_t_w(w_uid))
 
-        run_fork_hooks('before', space)
+        if need_after_fork:
+            run_fork_hooks('before', space)
 
         try:
             try:
@@ -269,7 +272,8 @@ def fork_exec(space, w_process_args, w_executable_list,
                 os._exit(255)
         finally:
             # parent process
-            run_fork_hooks('parent', space)
+            if need_after_fork:
+                run_fork_hooks('parent', space)
 
     finally:
         preexec.w_preexec_fn = None

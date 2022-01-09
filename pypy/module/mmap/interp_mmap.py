@@ -119,9 +119,12 @@ class W_MMap(W_Root):
 
     @unwrap_spec(offset=int, size=int)
     def flush(self, offset=0, size=0):
+        # flush() should return None on success, raise an
+        # exception on error under all platforms.
         self.check_valid()
         try:
-            return self.space.newint(self.mmap.flush(offset, size))
+            self.mmap.flush(offset, size)
+            return self.space.w_None
         except RValueError as v:
             raise mmap_error(self.space, v)
         except OSError as e:
@@ -268,7 +271,7 @@ class W_MMap(W_Root):
         if start < 0 or start >= self.mmap.size:
             raise oefmt(space.w_ValueError, "madvise start out of bounds")
         if length < 0:
-            raise oefmt(space.w_ValueError, "madvise length can't be negative")
+            raise oefmt(space.w_ValueError, "madvise length invalid, can't be negative")
         try:
             end = rarithmetic.ovfcheck(start + length)
         except OverflowError:
@@ -361,6 +364,7 @@ ALLOCATIONGRANULARITY = rmmap.ALLOCATIONGRANULARITY
 ACCESS_READ  = rmmap.ACCESS_READ
 ACCESS_WRITE = rmmap.ACCESS_WRITE
 ACCESS_COPY  = rmmap.ACCESS_COPY
+ACCESS_DEFAULT  = rmmap._ACCESS_DEFAULT
 
 
 @objectmodel.dont_inline

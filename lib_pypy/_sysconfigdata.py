@@ -23,7 +23,8 @@ build_time_vars = {
     'OPT': "-DNDEBUG -O2",
     'CFLAGS': "-DNDEBUG -O2",
     'CCSHARED': "-fPIC",
-    'LDSHARED': "cc -pthread -shared",
+    'LDFLAGS': "-Wl,-Bsymbolic-functions",
+    'LDSHARED': "cc -pthread -shared -Wl,-Bsymbolic-functions",
     'EXT_SUFFIX': so_ext,
     'SHLIB_SUFFIX': ".so",
     'AR': "ar",
@@ -48,7 +49,7 @@ if sys.platform == 'win32':
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include')
     build_time_vars['LIBDIR'] = mybase
 else:
-    build_time_vars['LDLIBRARY'] = 'libpypy3-c.so',
+    build_time_vars['LDLIBRARY'] = 'libpypy3-c.so'
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include', 'pypy' + pydot)
     build_time_vars['LIBDIR'] = os.path.join(mybase, 'bin')
 
@@ -56,7 +57,7 @@ if find_executable("gcc"):
     build_time_vars.update({
         "CC": "gcc -pthread",
         "GNULD": "yes",
-        "LDSHARED": "gcc -pthread -shared",
+        "LDSHARED": "gcc -pthread -shared" + " " + build_time_vars["LDFLAGS"] ,
     })
     if find_executable("g++"):
         build_time_vars["CXX"] = "g++ -pthread"
@@ -65,7 +66,8 @@ if sys.platform[:6] == "darwin":
     # Fix this if we ever get M1 support
     arch = 'x86_64'
     build_time_vars['CC'] += ' -arch %s' % (arch,)
-    build_time_vars['LDSHARED'] = build_time_vars['CC'] + ' -shared -undefined dynamic_lookup'
+    build_time_vars["LDFLAGS"] = "-undefined dynamic_lookup"
+    build_time_vars["LDSHARED"] = build_time_vars['CC'] + " -shared " + build_time_vars["LDFLAGS"]
     build_time_vars['LDLIBRARY'] = 'libpypy3-c.dylib'
     if "CXX" in build_time_vars:
         build_time_vars['CXX'] += ' -arch %s' % (arch,)

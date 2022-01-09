@@ -1,18 +1,12 @@
 # spaceconfig = {"usemodules": ["_posixsubprocess", "signal", "fcntl", "select", "time", "struct"]}
-import sys
 import pytest
 
-if sys.platform == 'win32':
-    if pytest.__version__[0] < '3':
-        pytest.skip("not used on win32")
-    else:
-        pytestmark = pytest.mark.skip("not used on win32")
+_posixsubprocess = pytest.importorskip('_posixsubprocess')
 
 from os.path import dirname
 import traceback  # Work around a recursion limit
 import subprocess
 import os
-import _posixsubprocess
 import posix
 import errno
 try:
@@ -66,10 +60,10 @@ def test_cpython_issue15736():
         def __getitem__(self, i):
             return b'x'
     pytest.raises(MemoryError, _posixsubprocess.fork_exec,
-           1,Z(),3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
+           1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
     n = 1
     pytest.raises(OverflowError, _posixsubprocess.fork_exec,
-           1,Z(),3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
+           1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
 
 def test_pass_fds_make_inheritable():
     fd1, fd2 = posix.pipe()

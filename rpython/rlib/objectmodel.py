@@ -198,7 +198,9 @@ def enforceargs(*types_, **kwds):
             'not enough types provided: expected %d, got %d' %
             (len(types), len(srcargs)))
 
-        s_types = [None if typ is None else get_annotation(typ) for typ in types]
+        s_types = [None if typ is None else
+                   NOT_CONSTANT if typ is NOT_CONSTANT else
+                   get_annotation(typ) for typ in types]
         result._annenforceargs_ = types
         return result
     return decorator

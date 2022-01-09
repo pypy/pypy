@@ -444,8 +444,7 @@ class ReferencesTestCase(TestBase):
                 return weakref.proxy(not_an_iterator)
         a = A()
 
-        msg = "Weakref proxy referenced a non-iterator"
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaises(TypeError):
             list(a)
 
     def test_proxy_reversed(self):
@@ -1721,6 +1720,7 @@ class MappingTestCase(TestBase):
         self.assertIs(type(tmp4), weakref.WeakValueDictionary)
 
         del a
+        gc_collect()  # For PyPy or other GCs.
         self.assertNotIn(2, tmp1)
         self.assertNotIn(2, tmp2)
         self.assertNotIn(1, tmp3)
@@ -1773,6 +1773,7 @@ class MappingTestCase(TestBase):
         self.assertIs(type(tmp4), weakref.WeakKeyDictionary)
 
         del o1
+        gc_collect()  # For PyPy or other GCs.
         self.assertNotIn(4, tmp1.values())
         self.assertNotIn(4, tmp2.values())
         self.assertNotIn(1, tmp3.values())

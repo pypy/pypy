@@ -234,7 +234,7 @@ def test_buffer_warning(tempfile):
     with warnings.catch_warnings(record=True) as collector:
         warnings.simplefilter("always")
         with _io.open(tempfile, "wb", buffering=1) as f:
-            ...
+            pass
 
     assert len(collector) == 1
     assert isinstance(collector[0].message, RuntimeWarning)

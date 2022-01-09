@@ -297,16 +297,17 @@ class TestTimeit(unittest.TestCase):
     def test_main_verbose(self):
         s = self.run_main(switches=['-v'])
         self.assertIn(dedent("""\
-                1 loops -> 1 secs
+                1 loop -> 1 secs
 
-                raw times: 1 1 1 1 1 1 1
+                raw times: 1 sec, 1 sec, 1 sec, 1 sec, 1 sec, 1 sec, 1 sec
+
                 1 loops, average of 7: 1 +- 0 sec per loop (using standard deviation)
             """), s)
 
     def test_main_very_verbose(self):
         s = self.run_main(seconds_per_increment=0.000_030, switches=['-vv'])
         self.assertIn(dedent("""\
-                1 loops -> 3e-05 secs
+                1 loop -> 3e-05 secs
                 2 loops -> 6e-05 secs
                 5 loops -> 0.00015 secs
                 10 loops -> 0.0003 secs
@@ -320,7 +321,7 @@ class TestTimeit(unittest.TestCase):
                 5000 loops -> 0.15 secs
                 10000 loops -> 0.3 secs
 
-                raw times: 0.3 0.3 0.3 0.3 0.3 0.3 0.3
+                raw times: 300 msec, 300 msec, 300 msec, 300 msec, 300 msec, 300 msec, 300 msec
             """), s)
 
     def test_main_with_time_unit(self):

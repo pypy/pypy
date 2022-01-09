@@ -85,11 +85,14 @@ def lookup_special(space, w_obj, meth):
         return space.w_None
     return space.get(w_descr, w_obj)
 
-def do_what_I_mean(space, w_crash=None):
-    if not space.is_none(w_crash):
-        raise ValueError    # RPython-level, uncaught
+def do_what_I_mean(space):
+    "Return 42"
     return space.newint(42)
 
+def _internal_crash(space, w_crash=None):
+    """for testing purposes, raise an interpreter-level ValueError. Should turn
+    into a SystemError automatically"""
+    raise ValueError    # RPython-level, uncaught
 
 def strategy(space, w_obj):
     """ strategy(dict or list or set or instance)

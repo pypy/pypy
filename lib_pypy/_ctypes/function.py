@@ -333,7 +333,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                     from __pypy__ import write_unraisable
                     write_unraisable(
                         "on converting result of ctypes callback function",
-                        e, self.callable, True)
+                        e, self.callable)
             return
 
         if argtypes is None:

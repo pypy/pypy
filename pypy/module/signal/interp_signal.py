@@ -255,22 +255,19 @@ def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
                     "set_wakeup_fd only works in main thread or with "
                     "__pypy__.thread.enable_signals()")
 
-    if WIN32:
-        # fd can be a socket handle on win32.  We assume on Windows
-        # that 'fd' is valid, either as a file or a socket descriptor,
-        # and don't bother doing checking here.  XXX fix me!
-        pass
-    elif fd != -1:
+    if fd != -1:
         try:
             os.fstat(fd)
-            flags = rposix.get_status_flags(fd)
+            if not WIN32:
+                flags = rposix.get_status_flags(fd)
         except OSError as e:
             if e.errno == errno.EBADF:
                 raise oefmt(space.w_ValueError, "invalid fd")
             raise wrap_oserror(space, e, eintr_retry=False)
-        if flags & rposix.O_NONBLOCK == 0:
-            raise oefmt(space.w_ValueError,
-                        "the fd %d must be in non-blocking mode", fd)
+        if not WIN32:
+            if flags & rposix.O_NONBLOCK == 0:
+                raise oefmt(space.w_ValueError,
+                            "the fd %d must be in non-blocking mode", fd)
 
     flags = 0
     if not warn_on_full_buffer:
@@ -474,8 +471,10 @@ def valid_signals(space):
 @unwrap_spec(signalnum=int)
 def raise_signal(space, signalnum):
     'Send a signal to the executing process.'
-    c_raise(signalnum)
-
+    with rposix.SuppressIPH():
+        err = c_raise(signalnum)
+    if err != 0:
+        raise exception_from_saved_errno(space, space.w_OSError)
 
 @unwrap_spec(signalnum=int)
 def strsignal(space, signalnum):

@@ -584,12 +584,13 @@ set_typedef = W_SetObject.typedef
 
 
 class W_FrozensetObject(W_BaseSetObject):
-    hash = -1
+    DEFAULT_HASH = -1
+    hash = DEFAULT_HASH
 
     def _cleanup_(self):
         # in case there are frozenset objects existing during
         # translation, make sure we don't translate a cached hash
-        self.hash = -1
+        self.hash = self.DEFAULT_HASH
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_FrozensetObject):
@@ -646,7 +647,7 @@ class W_FrozensetObject(W_BaseSetObject):
         return space.newint(hash)
 
     def cpyext_add_frozen(self, w_key):
-        if self.hash != 0:
+        if self.hash != self.DEFAULT_HASH:
             return False
         self.add(w_key)
         return True

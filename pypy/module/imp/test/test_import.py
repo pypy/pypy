@@ -1014,17 +1014,18 @@ class TestPycStuff:
         assert s.no_nul
 
     def test_pyc_magic_changes2(self):
-        from pypy.tool import stdlib_opcode
+        from pypy.tool.lib_pypy import LIB_PYTHON
         from pypy.interpreter.pycode import default_magic
         from hashlib import sha1
+        opcode_path = LIB_PYTHON.join('opcode.py')
         h = sha1()
         # very simple test: hard-code the hash of pypy/stdlib_opcode.py and the
         # default magic. if you change stdlib_opcode, please update the hash
         # below, as well as incrementing the magic number in pycode.py
-        with open(stdlib_opcode.__file__.rstrip("c"), "rb") as f:
+        with opcode_path.open("rb") as f:
             h.update(f.read())
-        assert h.hexdigest() == 'e7480938678ad1eb61dfcc30ef6088059b8ad182'
-        assert default_magic == 0xa0d0100
+        assert h.hexdigest() == '185474ff4ebfc525329471949723d7328f59fb79'
+        assert default_magic == 0xa0d0130
 
 
 
