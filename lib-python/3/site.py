@@ -344,16 +344,24 @@ def getsitepackages(prefixes=None):
         if not prefix or prefix in seen:
             continue
         seen.add(prefix)
-        # ZZZ CPython does new sys.platlibdir stuff here
+        libdirs = [sys.platlibdir]
+        if sys.platlibdir != "lib":
+            libdirs.append("lib")
+
         implementation = _get_implementation().lower()
         ver = sys.version_info
         if os.sep == '/':
-            sitepackages.append(os.path.join(prefix, "lib",
-                                        f"{implementation}{ver[0]}.{ver[1]}",
-                                        "site-packages"))
+            for libdir in libdirs:
+                path = os.path.join(prefix, libdir,
+                                            f"{implementation}{ver[0]}.{ver[1]}",
+                                            "site-packages")
+                sitepackages.append(path)
         else:
             sitepackages.append(prefix)
-            sitepackages.append(os.path.join(prefix, "lib", "site-packages"))
+
+            for libdir in libdirs:
+                path = os.path.join(prefix, libdir, "site-packages")
+                sitepackages.append(path)
     return sitepackages
 
 def addsitepackages(known_paths, prefixes=None):

@@ -24,7 +24,7 @@ class State:
         srcdir = os.path.dirname(pypydir)
         self.w_initial_prefix = space.newtext(srcdir)
         # Initialize the default path
-        path = compute_stdlib_path_sourcetree(self, srcdir)
+        path = compute_stdlib_path_sourcetree(self, space.config.objspace.platlibdir, srcdir)
         self.w_path = space.newlist([space.newfilename(p) for p in path])
 
 def get(space):
