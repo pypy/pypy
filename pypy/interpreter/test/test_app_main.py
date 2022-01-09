@@ -104,9 +104,13 @@ class TestParseCommandLine:
             if key not in expected:
                 if key == "check_hash_based_pycs":
                     assert value == "default"
-                    continue
-                assert not value, (
-                    "option %r has unexpectedly the value %r" % (key, value))
+                elif key == "utf8_mode":
+                    import _locale
+                    lc = "C" # _locale.setlocale(_locale.LC_CTYPE, None)
+                    assert value == (lc == "C" or lc == "POSIX")
+                else:
+                    assert not value, (
+                        "option %r has unexpectedly the value %r" % (key, value))
 
     def check(self, argv, env, **expected):
         p = subprocess.Popen([get_python3(), app_main,
@@ -215,12 +219,31 @@ class TestParseCommandLine:
         self.check(['-X', 'dev', '-c', 'pass'], {}, sys_argv=['-c'],
                    run_command='pass', _xoptions=['dev'], dev_mode=True)
 
-    def test_sysflags_envvar(self, monkeypatch):
+    def test_sysflags_utf8mode(self):
+        self.check(['-X', 'utf8', '-c', 'pass'], {}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8'], utf8_mode=True)
+        self.check(['-X', 'utf8=1', '-c', 'pass'], {}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8=1'], utf8_mode=True)
+        self.check(['-X', 'utf8=0', '-c', 'pass'], {}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8=0'], utf8_mode=False)
+
+    def test_sysflags_envvar(self):
         expected = {"no_user_site": True}
         self.check(['-c', 'pass'], {'PYTHONNOUSERSITE': '1'}, sys_argv=['-c'],
                    run_command='pass', **expected)
         self.check(['-c', 'pass'], {'PYTHONDEVMODE': '1'}, sys_argv=['-c'],
                    run_command='pass', dev_mode=True)
+
+    def test_sysflags_utf8mode_envvar(self):
+        self.check(['-c', 'pass'], {'PYTHONUTF8': '1'}, sys_argv=['-c'],
+                   run_command='pass', utf8_mode=True)
+        self.check(['-c', 'pass'], {'PYTHONUTF8': '0'}, sys_argv=['-c'],
+                   run_command='pass', utf8_mode=False)
+        # -X takes precedence
+        self.check(['-X', 'utf8', '-c', 'pass'], {'PYTHONUTF8': '0'}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8'], utf8_mode=True)
+        self.check(['-X', 'utf8=0', '-c', 'pass'], {'PYTHONUTF8': '1'}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8=0'], utf8_mode=False)
 
     def test_check_hash_based_pycs(self):
         for val in ['default', 'always', 'never']:
@@ -1036,10 +1059,10 @@ class TestNonInteractive:
 
     def test_pythonioencoding2(self):
         for encoding, expected in [
-            ("ascii:", "strict"),
-            (":surrogateescape", "surrogateescape"),
+            ("ascii:", "ascii:strict"),
+            (":surrogateescape", "utf-8:surrogateescape"),
         ]:
-            p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
+            p = getscript_in_dir("import sys; print(sys.stdout.encoding + ':' + sys.stdout.errors, end='')")
             env = os.environ.copy()
             env["PYTHONIOENCODING"] = encoding
             data = self.run(p, env=env)
@@ -1048,7 +1071,9 @@ class TestNonInteractive:
     def test_pythonioencoding_c_locale(self):
         for encoding, expected in [
             (None, "surrogateescape"),
-            ("", "surrogateescape")
+            ("", "surrogateescape"),
+            (":strict", "strict"),
+            (":", "surrogateescape")
         ]:
             p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
             env = os.environ.copy()
@@ -1056,7 +1081,7 @@ class TestNonInteractive:
             if encoding is not None:
                 env["PYTHONIOENCODING"] = encoding
             data = self.run(p, env=env)
-            assert data == "surrogateescape"
+            assert data == expected
 
     def test_sys_exit_pythonioencoding(self):
         if sys.version_info < (2, 7):
