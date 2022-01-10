@@ -224,7 +224,6 @@ class UTF8ModeTests(unittest.TestCase):
         check('utf8', [arg_utf8])
         for loc in POSIX_LOCALES:
             with self.subTest(LC_ALL=loc):
-                import pdb; pdb.set_trace()
                 check('utf8', [arg_utf8], LC_ALL=loc)
 
         if sys.platform == 'darwin' or support.is_android:
