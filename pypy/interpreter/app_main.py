@@ -1020,6 +1020,7 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--argparse-only':
         import io
         del sys.argv[:2]
+        del bargv[:2]
         sys.stdout = sys.stderr = io.StringIO()
         try:
             options = parse_command_line(bargv, sys.argv)
