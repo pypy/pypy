@@ -543,7 +543,17 @@ def parse_env(name, key, options):
             newval = max(1, newval)
             options[key] = max(options[key], newval)
 
-def parse_command_line(argv):
+def parse_command_line(bargv, argv):
+    # bargv is the bytes version, argv is decoded via the default locale
+    # logic: parse arguments argv. if utf8-mode is enabled, re-decode bargv
+    # with utf-8, then parse arguments again
+    options = _parse_command_line(argv)
+    if options["utf8_mode"]:
+        argv = [b.decode("utf-8", "surrogateescape") for b in bargv]
+        return _parse_command_line(argv)
+    return options
+
+def _parse_command_line(argv):
     getenv = get_getenv()
     options = default_options.copy()
     options['warnoptions'] = []
@@ -976,7 +986,7 @@ def setup_bootstrap_path(executable):
     sys.executable = executable
 
 @hidden_applevel
-def entry_point(executable, argv):
+def entry_point(executable, bargv, argv):
     # note that before calling 'import site', we are limited because we
     # cannot import stdlib modules. In particular, we cannot use unicode
     # stuffs (because we need to be able to import encodings). The full stdlib
@@ -984,7 +994,7 @@ def entry_point(executable, argv):
     setup_bootstrap_path(executable)
     sys.pypy_initfsencoding()
     try:
-        cmdline = parse_command_line(argv)
+        cmdline = parse_command_line(bargv, argv)
     except CommandLineError as e:
         initstdio()
         print_error(str(e))
@@ -995,18 +1005,24 @@ def entry_point(executable, argv):
     return run_command_line(**cmdline)
 
 
-if __name__ == '__main__':
+def main():
+    import os
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
+    global WE_ARE_TRANSLATED
     WE_ARE_TRANSLATED = False
+
+    # emulate passing bytes by using fsencode
+    bargv = [os.fsencode(a) for a in sys.argv]
+
 
     if len(sys.argv) > 1 and sys.argv[1] == '--argparse-only':
         import io
         del sys.argv[:2]
         sys.stdout = sys.stderr = io.StringIO()
         try:
-            options = parse_command_line(sys.argv)
+            options = parse_command_line(bargv, sys.argv)
         except SystemExit:
             print('SystemExit', file=sys.__stdout__)
             print(sys.stdout.getvalue(), file=sys.__stdout__)
@@ -1031,7 +1047,6 @@ if __name__ == '__main__':
 
     # debugging only
     def pypy_find_executable(s):
-        import os
         return os.path.abspath(s)
 
     def pypy_find_stdlib(s):
@@ -1044,10 +1059,8 @@ if __name__ == '__main__':
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always
         # interpreter/app_main.py anyway
-        import os
         return os.path.abspath(os.path.join(s, '..'))
 
-    import os
     reset = []
     if 'PYTHONINSPECT_' in os.environ:
         reset.append(('PYTHONINSPECT', os.environ.get('PYTHONINSPECT', '')))
@@ -1055,8 +1068,6 @@ if __name__ == '__main__':
     if 'PYTHONWARNINGS_' in os.environ:
         reset.append(('PYTHONWARNINGS', os.environ.get('PYTHONWARNINGS', '')))
         os.environ['PYTHONWARNINGS'] = os.environ['PYTHONWARNINGS_']
-    del os # make sure that os is not available globally, because this is what
-           # happens in "real life" outside the tests
 
     # when run as __main__, this module is often executed by a Python
     # interpreter that have a different list of builtin modules.
@@ -1081,7 +1092,7 @@ if __name__ == '__main__':
     sys.cpython_path = sys.path[:]
 
     try:
-        sys.exit(int(entry_point(sys.argv[0], sys.argv[1:])))
+        sys.exit(int(entry_point(sys.argv[0], bargv[1:], sys.argv[1:])))
     finally:
         # restore the normal prompt (which was changed by _pypy_interact), in
         # case we are dropping to CPython's prompt
@@ -1092,3 +1103,5 @@ if __name__ == '__main__':
         assert old_argv is sys.argv
         assert old_path is sys.path
 
+if __name__ == '__main__':
+    main()
