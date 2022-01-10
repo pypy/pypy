@@ -1036,6 +1036,7 @@ def main():
             print('Return', file=sys.__stdout__)
         print(options, file=sys.__stdout__)
         print(sys.argv, file=sys.__stdout__)
+        return
 
     # Testing python on python is hard:
     # Some code above (run_command_line) will create a new module
