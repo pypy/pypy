@@ -76,7 +76,9 @@ def create_entry_point(space, w_dict):
                 w_executable = space.newfilename(argv[0])
                 w_argv = space.newlist([space.newfilename(s)
                                         for s in argv[1:]])
-                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
+                w_bargv = space.newlist([space.newbytes(s)
+                                        for s in argv[1:]])
+                w_exitcode = space.call_function(w_entry_point, w_executable, w_bargv, w_argv)
                 exitcode = space.int_w(w_exitcode)
             except OperationError as e:
                 debug("OperationError:")
