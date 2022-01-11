@@ -106,7 +106,7 @@ class TestParseCommandLine:
                     assert value == "default"
                 elif key == "utf8_mode":
                     import _locale
-                    lc = "C" # _locale.setlocale(_locale.LC_CTYPE, None)
+                    lc = _locale.setlocale(_locale.LC_CTYPE, None)
                     assert value == (lc == "C" or lc == "POSIX")
                 else:
                     assert not value, (
@@ -570,6 +570,11 @@ class TestInteraction:
         child = self.spawn(['-u', '-c', line])
         child.expect('789')    # expect to see it before the timeout hits
         child.sendline('X')
+
+    def test_unbuffered_write_through(self):
+        line = 'import os,sys;sys.stdout.write("a");os._exit(0)'
+        child = self.spawn(['-u', '-c', line])
+        child.expect('a')
 
     def test_file_modes(self):
         child = self.spawn(['-c', 'import sys; print(sys.stdout.mode)'])
@@ -1276,7 +1281,8 @@ class AppTestAppMain:
         try:
             import app_main
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', exename)
-            app_main.entry_point(pypy_c, [self.foo_py])
+            assert isinstance(self.foo_py, str)
+            app_main.entry_point(pypy_c, [self.foo_py.encode("utf-8")], [self.foo_py])
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path

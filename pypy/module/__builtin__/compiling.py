@@ -105,10 +105,8 @@ If only globals is given, locals defaults to it.
         ec = space.getexecutioncontext()
         code = ec.compiler.compile(source.lstrip(' \t'), "<string>", 'eval',
                                    flags)
-
-    # XXX: skip adding of __builtins__ to w_globals. it requires a
-    # costly gettopframe_nohidden() here and nobody seems to miss its
-    # absence
+    if space.finditem_str(w_globals, "__builtins__") is None:
+        space.setitem_str(w_globals, "__builtins__", space.builtin)
 
     return code.exec_code(space, w_globals, w_locals)
 
