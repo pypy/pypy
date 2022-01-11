@@ -571,6 +571,11 @@ class TestInteraction:
         child.expect('789')    # expect to see it before the timeout hits
         child.sendline('X')
 
+    def test_unbuffered_write_through(self):
+        line = 'import os,sys;sys.stdout.write("a");os._exit(0)'
+        child = self.spawn(['-u', '-c', line])
+        child.expect('a')
+
     def test_file_modes(self):
         child = self.spawn(['-c', 'import sys; print(sys.stdout.mode)'])
         child.expect('w')

@@ -396,7 +396,8 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     # it does if you explicitly open a file in text mode.
     newline = None if sys.platform == 'win32' else '\n'
     stream = _io.TextIOWrapper(buf, encoding, errors, newline=newline,
-                              line_buffering=unbuffered or raw.isatty())
+                              line_buffering=unbuffered or raw.isatty(),
+                              write_through=unbuffered)
     stream.mode = mode
     return stream
 
