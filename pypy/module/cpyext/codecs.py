@@ -38,9 +38,9 @@ def PyCodec_Encode(space, w_object, encoding, errors):
     encoding using the error handling method defined by errors.  errors may
     be NULL to use the default method defined for the codec.  Raises a
     LookupError if no encoder can be found."""
-    w_encoding = space.newtext(rffi.constcharp2str(encoding))
+    w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.newtext(rffi.constcharp2str(errors))
+        w_errors = space.newtext(rffi.charp2str(errors))
         return space.call_method(w_object, "encode", w_encoding, w_errors)
     else:
         return space.call_method(w_object, "encode", w_encoding)
@@ -54,9 +54,9 @@ def PyCodec_Decode(space, w_object, encoding, errors):
     encoding using the error handling method defined by errors.  errors may
     be NULL to use the default method defined for the codec.  Raises a
     LookupError if no encoder can be found."""
-    w_encoding = space.newtext(rffi.constcharp2str(encoding))
+    w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.newtext(rffi.constcharp2str(errors))
+        w_errors = space.newtext(rffi.charp2str(errors))
         return space.call_method(w_object, "decode", w_encoding, w_errors)
     else:
         return space.call_method(w_object, "decode", w_encoding)

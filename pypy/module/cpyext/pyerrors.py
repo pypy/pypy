@@ -335,7 +335,7 @@ def PyErr_WarnExplicit(space, w_category, message, filename, lineno, module, w_r
     filename is decoded from the filesystem encoding
     (sys.getfilesystemencoding())."""
     if w_category is None:
-        w_category = space.PyExc_UserWarning
+        w_category = space.w_UserWarning
     w_message = space.newtext(rffi.charp2str(message))
     # XXX use fsencode
     w_filename = space.newtext(rffi.charp2str(filename))
