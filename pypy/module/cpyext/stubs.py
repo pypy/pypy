@@ -273,17 +273,6 @@ def PyErr_SyntaxLocation(space, filename, lineno):
     raise NotImplementedError
 
 
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.CCHARP, PyObject], rffi.INT_real, error=-1)
-def PyErr_WarnExplicit(space, category, message, filename, lineno, module, registry):
-    """Issue a warning message with explicit control over all warning attributes.  This
-    is a straightforward wrapper around the Python function
-    warnings.warn_explicit(), see there for more information.  The module
-    and registry arguments may be set to NULL to get the default effect
-    described there. message and module are UTF-8 encoded strings,
-    filename is decoded from the filesystem encoding
-    (sys.getfilesystemencoding())."""
-    raise NotImplementedError
-
 
 @cpython_api([rffi.INT_real], rffi.INT_real, error=-1)
 def PySignal_SetWakeupFd(space, fd):

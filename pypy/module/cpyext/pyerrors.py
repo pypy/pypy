@@ -323,6 +323,36 @@ def PyErr_Warn(space, w_category, message):
     Deprecated; use PyErr_WarnEx() instead."""
     return PyErr_WarnEx(space, w_category, message, 1)
 
+@cpython_api(
+    [PyObject, CONST_STRING, CONST_STRING, rffi.INT_real, CONST_STRING, PyObject],
+    rffi.INT_real, error=-1)
+def PyErr_WarnExplicit(space, w_category, message, filename, lineno, module, w_registry):
+    """Issue a warning message with explicit control over all warning attributes.  This
+    is a straightforward wrapper around the Python function
+    warnings.warn_explicit(), see there for more information.  The module
+    and registry arguments may be set to NULL to get the default effect
+    described there. message and module are UTF-8 encoded strings,
+    filename is decoded from the filesystem encoding
+    (sys.getfilesystemencoding())."""
+    if w_category is None:
+        w_category = space.PyExc_UserWarning
+    w_message = space.newtext(rffi.charp2str(message))
+    # XXX use fsencode
+    w_filename = space.newtext(rffi.charp2str(filename))
+    w_lineno = space.newint(rffi.cast(lltype.Signed, lineno))
+    if module:
+        w_module = space.newtext(rffi.charp2str(module))
+    else:
+        w_module = space.w_None 
+    if w_registry is None:
+        w_registry = space.w_None
+    w_warnings = PyImport_Import(space, space.newtext("warnings"))
+    w_warn = space.getattr(w_warnings, space.newtext("warn_explicit"))
+    space.call_function(w_warn, w_message, w_category, w_filename, w_lineno,
+                        w_module, w_registry)
+    return 0
+
+
 @cpython_api([rffi.INT_real], lltype.Void)
 def PyErr_PrintEx(space, set_sys_last_vars):
     """Print a standard traceback to sys.stderr and clear the error indicator.
