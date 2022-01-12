@@ -43,6 +43,12 @@ PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 #define PyTimeZone_FromOffsetAndName(offset, name) \
     PyDateTimeAPI->TimeZone_FromTimeZone(offset, name)
 
+
+/* Issue 3627: PEP 495 defines PyDateTime_GET_FOLD but CPython implemented
+ * PyDateTime_DATE_GET_FOLD
+ */
+#define PyDateTime_DATE_GET_FOLD PyDateTime_GET_FOLD
+
 #ifdef __cplusplus
 }
 #endif

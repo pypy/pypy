@@ -1,9 +1,12 @@
+import pytest
+import sys
 
 class AppTestSelectSignal:
     spaceconfig = {
         "usemodules": ['select', 'time', 'signal'],
     }
 
+    @pytest.mark.skipif(sys.platform=="win32", reason="not supported on windows")
     def test_pep475_retry(self):
         import select, time
         import _signal as signal

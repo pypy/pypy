@@ -75,10 +75,14 @@ def test_ignore():
         assert list(__warningregistry__) == ['version']
 
 def test_show_source_line():
-    try:
-        from test.test_warnings.data.stacklevel import inner
-    except ImportError:
-        skip('no test, missing stdlib tests on cpython?')
+    # Something is wrong with pytest 4.0.0 (which is the version run for -D
+    # pypy tests: it cannot redirect sys.stderr
+    if pytest.__version__ == '4.0.0':
+        pytest.skip("fails on this version of pytest")
+
+    def inner(message, stacklevel=1):
+        warnings.warn(message, stacklevel=stacklevel)
+    
     # With showarning() missing, make sure that output is okay.
     saved = warnings.showwarning
     try:
@@ -106,6 +110,10 @@ def test_filename_none():
 
 
 def test_warn_unicode():
+    # Something is wrong with pytest 4.0.0 (which is the version run for -D
+    # pypy tests: it cannot redirect sys.stderr
+    if pytest.__version__ == '4.0.0':
+        pytest.skip("fails on this version of pytest")
     old = sys.stderr, warnings.showwarning
     try:
         class Grab:
@@ -135,7 +143,6 @@ def test_warn_unicode():
                          u'<str2>:831: UserWarning: \u1234\u5678\n')
     finally:
         sys.stderr, warnings.showwarning = old
-
 
 
 def test_bad_category():

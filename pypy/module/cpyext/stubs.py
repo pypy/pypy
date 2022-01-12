@@ -74,26 +74,6 @@ def PyCodec_KnownEncoding(space, encoding):
     raise NotImplementedError
 
 
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyCodec_Encode(space, object, encoding, errors):
-    """Generic codec based encoding API.
-
-    object is passed through the encoder function found for the given
-    encoding using the error handling method defined by errors.  errors may
-    be NULL to use the default method defined for the codec.  Raises a
-    LookupError if no encoder can be found."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyCodec_Decode(space, object, encoding, errors):
-    """Generic codec based decoding API.
-
-    object is passed through the decoder function found for the given
-    encoding using the error handling method defined by errors.  errors may
-    be NULL to use the default method defined for the codec.  Raises a
-    LookupError if no encoder can be found."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP], PyObject)
 def PyCodec_StreamReader(space, encoding, stream, errors):
     """Get a StreamReader factory function for the given encoding."""
@@ -292,17 +272,6 @@ def PyErr_SyntaxLocation(space, filename, lineno):
     omitted."""
     raise NotImplementedError
 
-
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.CCHARP, PyObject], rffi.INT_real, error=-1)
-def PyErr_WarnExplicit(space, category, message, filename, lineno, module, registry):
-    """Issue a warning message with explicit control over all warning attributes.  This
-    is a straightforward wrapper around the Python function
-    warnings.warn_explicit(), see there for more information.  The module
-    and registry arguments may be set to NULL to get the default effect
-    described there. message and module are UTF-8 encoded strings,
-    filename is decoded from the filesystem encoding
-    (sys.getfilesystemencoding())."""
-    raise NotImplementedError
 
 
 @cpython_api([rffi.INT_real], rffi.INT_real, error=-1)

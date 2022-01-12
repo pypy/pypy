@@ -324,6 +324,9 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
 
                  PyDateTime_DATE_GET_MICROSECOND(obj);
                  PyDateTime_DATE_GET_MICROSECOND(dt);
+                
+                 PyDateTime_GET_FOLD(obj);
+                 PyDateTime_DATE_GET_FOLD(obj);
 
                  return obj;
              """),

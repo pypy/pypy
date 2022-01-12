@@ -18,7 +18,7 @@ class TestCheckSignals:
             pytest.skip("requires SIGUSR1 in signal")
 
     def test_checksignals(self):
-        os = self.posix
+        import os
         space = self.space
         w_received = space.appexec([], """():
             import _signal as signal
@@ -44,7 +44,7 @@ class TestCheckSignals:
 
 class AppTestSignal:
     spaceconfig = {
-        "usemodules": ['signal', 'time'] + (['fcntl'] if os.name != 'nt' else []),
+        "usemodules": ['signal', 'time', '_socket'] + (['fcntl'] if os.name != 'nt' else []),
     }
 
     def setup_class(cls):
@@ -56,7 +56,7 @@ class AppTestSignal:
     def test_exported_names(self):
         import sys, _signal
         _signal.__dict__   # crashes if the interpleveldefs are invalid
-        if sys.platform != 'win32':
+        if sys.platform == 'win32':
             assert _signal.CTRL_BREAK_EVENT == 1
             assert _signal.CTRL_C_EVENT == 0
 
@@ -229,6 +229,24 @@ class AppTestSignal:
             old_wakeup = signal.set_wakeup_fd(old_wakeup)
         #
         signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    def test_set_wakeup_fd_socket_result(self):
+        import _socket as socket
+        import _signal as signal
+        sock1 = socket.socket()
+        sock2 = socket.socket()
+        try:
+            sock1.setblocking(False)
+            fd1 = sock1.fileno()
+            sock2.setblocking(False)
+            fd2 = sock2.fileno()
+
+            signal.set_wakeup_fd(fd1)
+            signal.set_wakeup_fd(fd2) == fd1
+            assert signal.set_wakeup_fd(-1) == fd2
+        finally:
+            sock1.close()
+            sock2.close()
 
     def test_set_wakeup_fd_invalid(self):
         import _signal as signal
