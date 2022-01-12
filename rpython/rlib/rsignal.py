@@ -75,6 +75,7 @@ pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
 pypysig_setflag = external('pypysig_setflag', [rffi.INT], lltype.Void)
 pypysig_reinstall = external('pypysig_reinstall', [rffi.INT], lltype.Void)
 PYPYSIG_WITH_NUL_BYTE = 0x01   # flags for the 2nd argument to set_wakeup_fd()
+PYPYSIG_USE_SEND = 0x02
 PYPYSIG_NO_WARN_FULL  = 0x04
 pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd',
                                  [rffi.INT, rffi.INT], rffi.INT)
@@ -139,6 +140,7 @@ else:
 if sys.platform != 'win32':
     c_sigset_t = rffi.COpaquePtr('sigset_t', compilation_info=eci)
     c_sigemptyset = external('sigemptyset', [c_sigset_t], rffi.INT)
+    c_sigfillset = external('sigfillset', [c_sigset_t], rffi.INT)
     c_sigaddset = external('sigaddset', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigismember = external('sigismember', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigwait = external('sigwait', [c_sigset_t, rffi.INTP], rffi.INT,

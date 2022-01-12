@@ -312,7 +312,9 @@ class Overlapped(object):
         wsabuff = _ffi.new("WSABUF[1]")
         lgt = len(self.write_buffer)
         wsabuff[0].len = lgt
-        wsabuff[0].buf = _ffi.new('CHAR[]', self.write_buffer)
+        # Keep contents alive until WSASend is complete
+        contents = _ffi.new('CHAR[]', self.write_buffer)
+        wsabuff[0].buf = contents
         nwritten = _ffi.new("LPDWORD")
 
         result = _winsock2.WSASend(handle, wsabuff, _int2dword(1), nwritten,
