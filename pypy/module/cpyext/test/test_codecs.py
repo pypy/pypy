@@ -4,6 +4,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.codecs import (
     PyCodec_IncrementalEncoder, PyCodec_IncrementalDecoder,
     PyCodec_Encoder, PyCodec_Decoder)
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class TestCodecs(BaseApiTest):
     def test_incremental(self, space):
@@ -24,3 +25,29 @@ class TestCodecs(BaseApiTest):
             assert encoder(u"\u1234") == (b"\xe1\x88\xb4", 1)
             assert decoder(b"\xe1\x88\xb4") == (u"\u1234", 3)
         """)
+
+class AppTestUnicodeObject(AppTestCpythonExtensionBase):
+    def test_encode_decode(self):
+        module = self.import_extension('foo', [
+            ("encode", "METH_VARARGS",
+             """
+                PyObject *obj=NULL;
+                const char *encoding=NULL;
+                const char *errors=NULL;
+                if (!PyArg_ParseTuple(args, "Os|s:foo.encode", &obj, &encoding, &errors))
+                    return NULL;
+                return PyCodec_Encode(obj, encoding, errors);
+            """),
+            ("decode", "METH_VARARGS",
+             """
+                PyObject *obj=NULL;
+                const char *encoding=NULL;
+                const char *errors=NULL;
+                if (!PyArg_ParseTuple(args, "Os|s:foo.decode", &obj, &encoding, &errors))
+                    return NULL;
+                return PyCodec_Decode(obj, encoding, errors);
+            """),])
+        assert module.decode(b'abc', 'latin-1') == 'abc'
+        assert module.encode('abc', 'latin-1') == b'abc'
+        assert module.decode(b'abc', 'latin-1', 'strict') == 'abc'
+        assert module.encode('abc', 'latin-1', 'strict') == b'abc'
