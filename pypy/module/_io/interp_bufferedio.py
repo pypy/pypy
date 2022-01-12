@@ -194,14 +194,14 @@ class BufferedMixin:
         self.write_end = -1
 
     def _make_buffer(self, space, size):
-        if space.config.translation.split_gc_address_space:
-            # When using split GC address space, it is not possible to get the
-            # raw address of a GC buffer. Therefore we use a buffer backed by
-            # raw memory.
-            return RawByteBuffer(size)
-        else:
+        #if space.config.translation.split_gc_address_space:
+        #    # When using split GC address space, it is not possible to get the
+        #    # raw address of a GC buffer. Therefore we use a buffer backed by
+        #    # raw memory.
+        return RawByteBuffer(size)
+        #else:
             # TODO: test whether using the raw buffer is faster
-            return ByteBuffer(size)
+        #    return ByteBuffer(size)
 
     def _init(self, space):
         if self.buffer_size <= 0:
@@ -385,6 +385,9 @@ class BufferedMixin:
                         e.chain_exceptions(space, flush_operr)
                     raise
         self.maybe_unregister_rpython_finalizer_io(space)
+        buffer = self.buffer
+        if isinstance(buffer, RawByteBuffer):
+            buffer.close()
 
     def _dealloc_warn_w(self, space, w_source):
         space.call_method(self.w_raw, "_dealloc_warn", w_source)
@@ -739,6 +742,12 @@ class BufferedMixin:
                     break
             else:
                 pos = -1
+        elif isinstance(buffer, RawByteBuffer):
+            for pos in range(self.pos, self.pos+have):
+                if buffer._buf[pos] == '\n':
+                    break
+            else:
+                pos = -1            
         else:
             for pos in range(self.pos, self.pos+have):
                 if buffer[pos] == '\n':

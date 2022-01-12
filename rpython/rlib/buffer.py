@@ -215,10 +215,14 @@ class RawByteBuffer(RawBuffer):
     def get_raw_address(self):
         return self._buf
 
-    def __del__(self):
+    def close(self, deregister=True):
         lltype.free(self._buf, flavor='raw')
         self._buf = lltype.nullptr(rffi.CCHARP.TO)
+        if deregister:
+            rgc.may_ignore_finalizer(self)
 
+    def __del__(self):
+        self.close(False)
 
 class GCBuffer(Buffer):
     """
