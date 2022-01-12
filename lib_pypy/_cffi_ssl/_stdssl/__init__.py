@@ -336,6 +336,11 @@ class _SSLSocket(object):
         lib.ERR_clear_error()
         self.ssl = ssl = ffi.gc(lib.SSL_new(ctx), lib.SSL_free)
 
+        # bpo43522 and OpenSSL < 1.1.1l: copy hostflags manually
+        if OPENSSL_VERSION_INFO < (1, 1, 1, 12):  # 12 == 'l'
+            params = lib.SSL_CTX_get0_param(ctx);
+            lib.X509_VERIFY_PARAM_set_hostflags(params, ctx.hostflags);
+
         self._app_data_handle = ffi.new_handle(self)
         lib.SSL_set_app_data(ssl, ffi.cast("char*", self._app_data_handle))
         if sock:
