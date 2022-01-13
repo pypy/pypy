@@ -349,19 +349,8 @@ class Parser:
         if self._lines:
             lines = self._lines
         else:
-            assert 0
-            n = len(line_numbers)
-            lines = {}
-            count = 0
-            seen = 0
-            with open(self._path) as f:
-                for l in f:
-                    count += 1
-                    if count in line_numbers:
-                        seen += 1
-                        lines[count] = l
-                        if seen == n:
-                            break
+            # cannot happen, except for empty strings
+            return []
 
         return [lines.get(n, "?\n") for n in line_numbers]
 

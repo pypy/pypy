@@ -508,4 +508,8 @@ class TestPythonPegParser(TestPythonParser):
                 "async with a:\n    pass", "single",
                 flags=consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_ALLOW_TOP_LEVEL_AWAIT)
 
+    def test_crash_eval_empty(self):
+        # used to crash
+        py.test.raises(SyntaxError, self.parse,
+                       '', 'eval', flags=consts.PyCF_DONT_IMPLY_DEDENT)
 
