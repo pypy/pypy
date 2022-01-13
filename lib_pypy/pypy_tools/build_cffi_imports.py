@@ -64,7 +64,9 @@ configure_args = ['./configure',
 cffi_dependencies = {
     '_ssl': ('http://artfiles.org/openssl.org/source/openssl-1.1.1m.tar.gz',
              'f89199be8b23ca45fc7cb9f1d8d3ee67312318286ad030f5316aca6462db6c96',
-             [['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
+             [
+              # ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],  #for openssl3
+              ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
