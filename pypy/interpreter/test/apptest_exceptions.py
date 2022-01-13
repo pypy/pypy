@@ -62,6 +62,9 @@ def test_raise_in_generator():
 
 def test_assertion_error_global_ignored():
     global AssertionError
+    if 'pytest' in str(AssertionError):
+        # test can only work untranslated with the python AssertionError
+        skip('needs the python AssertionError, not the pytest one')
     class Foo(Exception):
         pass
     OrigAssertionError = AssertionError
