@@ -47,10 +47,10 @@ def test_start_new_session():
         assert parent_pgid != child_pgid
 
 def test_cpython_issue15736():
-    import sys
     n = 0
     class Z(object):
         def __len__(self):
+            import sys
             return sys.maxsize + n
         def __getitem__(self, i):
             return b'x'
