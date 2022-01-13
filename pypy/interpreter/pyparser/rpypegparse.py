@@ -4061,7 +4061,7 @@ class PythonParser(Parser):
         return None
 
     def invalid_with_stmt(self): # type Optional[None]
-        # invalid_with_stmt: ASYNC? 'with' ','.(expression ['as' star_target])+ &&':' | ASYNC? 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' &&':'
+        # invalid_with_stmt: ASYNC? 'with' ','.(expression ['as' star_target])+ &&':' block | ASYNC? 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' &&':' block
         mark = self._index
         if self._verbose: log_start(self, 'invalid_with_stmt')
         opt = self.expect_type(58)
@@ -4071,7 +4071,9 @@ class PythonParser(Parser):
             if _gather_147:
                 literal_1 = self.expect_forced(self.expect_type(11), "':'")
                 if literal_1:
-                    assert 0, 'unreachable'
+                    block = self.block()
+                    if block:
+                        return self . dummy_name ( )
         self._index = mark
         opt = self.expect_type(58)
         literal = self.expect_type(520)
@@ -4085,7 +4087,9 @@ class PythonParser(Parser):
                     if literal_2:
                         literal_3 = self.expect_forced(self.expect_type(11), "':'")
                         if literal_3:
-                            assert 0, 'unreachable'
+                            block = self.block()
+                            if block:
+                                return self . dummy_name ( )
         self._index = mark
         return None
 

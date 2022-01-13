@@ -1341,8 +1341,8 @@ invalid_import_from_targets[NoReturn]:
      }
 
 invalid_with_stmt[None]:
-    | [ASYNC] 'with' ','.(expression ['as' star_target])+ &&':' { UNREACHABLE }
-    | [ASYNC] 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' &&':' { UNREACHABLE }
+    | [ASYNC] 'with' ','.(expression ['as' star_target])+ &&':' block { self.dummy_name() }
+    | [ASYNC] 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' &&':' block { self.dummy_name() }
 invalid_with_stmt_indent[NoReturn]:
     | [ASYNC] a='with' ','.(expression ['as' star_target])+ ':' NEWLINE !INDENT {
         self.raise_indentation_error(

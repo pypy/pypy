@@ -481,6 +481,7 @@ stuff = "nothing"
         assert "Missing parentheses in call to 'exec'" in info.value.msg
         assert info.value.offset == 6
 
+
 class TestPythonParserRevDB(TestPythonParser):
     spaceconfig = {"translation.reverse_debugger": True}
 
@@ -500,5 +501,11 @@ class TestPythonPegParser(TestPythonParser):
 
     def setup_class(self):
         self.parser = pyparse.PegParser(self.space)
+
+    def test_crash_with(self):
+        # used to crash
+        py.test.raises(SyntaxError, self.parse,
+                "async with a:\n    pass", "single",
+                flags=consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_ALLOW_TOP_LEVEL_AWAIT)
 
 
