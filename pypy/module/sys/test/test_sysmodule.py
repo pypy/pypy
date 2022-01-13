@@ -1,5 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 import codecs
+import pytest
 import sys
 
 def test_stdin_exists(space):
@@ -234,17 +235,25 @@ class AppTestAppSysTests:
         import sys
         sys.audit("os.chdir", "bla", 1, 2, 12) # does not crash
 
+    @pytest.mark.skipif(sys.platform=="win32", reason="platlibdir is posix only")
     def test_platlibdir(self):
+        if self.appdirect:
+            skip("only relevant for untranslated tests")
         import sys
         assert sys.platlibdir == "lib" # default
 
 
+@pytest.mark.skipif(sys.platform=="win32", reason="platlibdir is posix only")
 class AppTestPlatlibdirNotDefault:
     spaceconfig = {
         "platlibdir": "lib64"
     }
+    def setup_class(cls):
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
     def test_platlibdir(self):
+        if self.appdirect:
+            skip("only relevant for untranslated tests")
         import sys
         assert sys.platlibdir == "lib64"
 
