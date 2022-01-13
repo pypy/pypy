@@ -344,7 +344,7 @@ class PegParser(object):
         source_lines = textsrc.splitlines(True)
         if source_lines and not source_lines[-1].endswith("\n"):
             source_lines[-1] += '\n'
-        if textsrc and textsrc[-1] == "\n":
+        if textsrc and textsrc[-1] == "\n" or compile_info.mode != "single":
             flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
 
         try:

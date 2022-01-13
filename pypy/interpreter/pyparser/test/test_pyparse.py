@@ -513,3 +513,8 @@ class TestPythonPegParser(TestPythonParser):
         py.test.raises(SyntaxError, self.parse,
                        '', 'eval', flags=consts.PyCF_DONT_IMPLY_DEDENT)
 
+
+    def test_dont_imply_dedent_ignored_on_exec(self):
+        self.parse(
+            "if 1: \n pass", "exec",
+            flags=consts.PyCF_DONT_IMPLY_DEDENT)
