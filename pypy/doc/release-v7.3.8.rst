@@ -3,7 +3,7 @@ PyPy v7.3.8: release of python 2.7, 3.7, 3.8, and 3.9-beta
 ==========================================================
 
 ..
-    Changelog up to commit 9c5e19c424af
+    Changelog up to commit f25e844fc6c6
 
 .. note::
      This is a pre-release announcement. When the release actually happens, it
@@ -37,8 +37,10 @@ release. This is a micro release, all APIs are compatible with the other 7.3
 releases. Highlights of the release, since the release of 7.3.7 in late October 2021,
 include:
 
-  - Improvement in ssl
-
+  - Improvement in ssl's use of CFFI buffers to speed up ``recv`` and ``recvinto``
+  - PyPy3.9 uses a python version of the peg parser (which is part of CPython
+    3.10), which brought with it a cleanup of the lexer and parser in general
+  - Fixed a regression in PyPy3.8 when JITting empty list comprehenshions
 
 We recommend updating. You can find links to download the v7.3.8 releases here:
 
@@ -106,9 +108,22 @@ Changelog
 
 Bugfixes shared across versions
 -------------------------------
+- Fix error formatting of in-place TypeErrors (``a += 'aa'`` )
+- Fix corner case in ``float.fromhex`` (bpo44954_)
+- Copy ``dtoa`` changes from CPython (bpo40780_)
+- Use ``symtable`` to improve the position of "duplicate argument" errors
 
 Speedups and enhancements shared across versions
 ------------------------------------------------
+- Add unicodedata version 13, use 3.2 by default
+- Use 10.9 as a minimum macOS target to match CPython
+- Only compute the ``Some*`` annotation types once, not every time we call a
+  type checked function
+- Update version of pycparser to 2.21
+- Update vendored vmprof to support ppc64
+- Update CFFI to 1.15.0, no real changes
+- Stop doing guard strengthening with guards that come from inlining the short
+  preamble. doing that can lead to endless bridges (issue 3598_)
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -123,6 +138,15 @@ Python 3.7+ bugfixes
 - Fix error generation on ``_ssl`` in Windows
 - Properly handle ``_PYTHON_SYSCONFIGDATA_NAME`` when importing ``_sysconfigdata``
 - Restore broken revdb GC support
+- Fix ``sys.path[0]`` to be ``''`` (not the actual full path) when run interactively
+- Add ``_socket.socket.timeout`` getter
+- Fix overflow detection on ``array.array`` on windows (issue 3604_)
+- Add a typedef for ``AsyncGenValueWrapper`` since you can reach it with a
+  trace hook, leading to a segfault
+- Add an ``index`` value to ``iter(range()).__reduce__`` for compatibility
+- Fix position of syntax errors raised while parsing f-string subexpressions
+- Fix stack effect of ``EXTENDED_ARG``
+- Fix incrementality in the unicode escape handler
 
 Python 3.7+ speedups and enhancements
 -------------------------------------
@@ -130,22 +154,50 @@ Python 3.7+ speedups and enhancements
 - Use buffer pinning to improve CFFI-based ``_ssl`` performance
 - Add a fast path in the parser for unicode literals with no ``\\`` escapes
 - Prepare ``_ssl`` for OpenSSL3
+- In glibc ``mbstowcs()`` can return values above 0x10ffff (bpo35883_)
+- Speed up ``new_interned_str`` by using better caching detection
+- When building a class, make sure to use a specialized ``moduledict``, not a
+  regular empty dict
+- Implement ``_opcode.stack_effect``
+- Share more ``W_UnicodeObject`` prebuilt instances, shrink the binary by over 1MB
 
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
 
 - Added ``PyDescr_NewGetSet``,
 - Fix segfault when using format strings in ``PyUnicode_FromFormat`` and ``PyErr_Format`` (issue 3593_)
+- ``_PyObject_LookupAttrId`` does not raise ``AttributeError``
+- Fix cpyext implementation of ``contextvars.get``
+- Deprecate ``PyPy.h``, mention the contents in the embedding docs (issue 3608_)
+- Remove duplicate definition of ``Py_hash_t``, document diff to CPython (issue 3612_)
 
 Python 3.8+ bugfixes
 --------------------
+- Fixed a regression when JITting empty list comprehenshions (issue 3598_)
+- Unwrapping an unsigned short raises ``ValueError`` on negative numbers
+- Make properties unpicklable
 
 Python 3.8+ speedups and enhancements
 -------------------------------------
+- Implement reversed items and values iterator pickling, fix reversed keys
+  iterator pickling
+- Add more auditing events, while skipping CPython-specific tracing and
+  attribute-modifaction tracing
+- Make sure that all bytecodes that can close a loop go via ``jump_absolute``,
+  so the JIT can trace them
 
 Python 3.8 C-API
 ~~~~~~~~~~~~~~~~
-
+- Add ``exports.h`` and refactor headers to more closely follow CPython
+- ``PyLong_AsLong`` tries ``__index__`` first (issue 3585_)
 
 .. _3589: https://foss.heptapod.net/pypy/pypy/-/issues/3589
+.. _3598: https://foss.heptapod.net/pypy/pypy/-/issues/3598
+.. _3585: https://foss.heptapod.net/pypy/pypy/-/issues/3585
 .. _3593: https://foss.heptapod.net/pypy/pypy/-/issues/3593
+.. _3604: https://foss.heptapod.net/pypy/pypy/-/issues/3604
+.. _3608: https://foss.heptapod.net/pypy/pypy/-/issues/3608
+.. _3612: https://foss.heptapod.net/pypy/pypy/-/issues/3612
+.. _bpo35883: https://bugs.python.org/issue35883
+.. _bpo44954: https://bugs.python.org/issue44954
+.. _bpo40780: https://bugs.python.org/issue40780
