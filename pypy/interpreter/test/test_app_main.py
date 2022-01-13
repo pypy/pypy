@@ -120,7 +120,7 @@ class TestParseCommandLine:
 
         res = p.wait()
         outcome = p.stdout.readline()
-        if outcome == 'SystemExit\n':
+        if outcome == 'SystemExit\n' or outcome == "Error\n":
             output = p.stdout.read()
             assert expected['output_contains'] in output
         else:
@@ -192,6 +192,10 @@ class TestParseCommandLine:
         self.check([], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
         self.check(['-O'], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
         self.check(['-OOO'], {'PYTHONOPTIMIZE': 'abc'}, sys_argv=[''], run_stdin=True, optimize=3)
+
+    def test_error(self):
+        self.check(['-a'], {}, output_contains="Unknown option: -a")
+        self.check(['--abc'], {}, output_contains="Unknown option --abc")
 
     def test_sysflags(self):
         flags = (
