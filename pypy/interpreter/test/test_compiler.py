@@ -40,12 +40,10 @@ class TestPythonAstCompiler:
             assert c2 is not None
             assert c8 is not None
             assert c9 is not None
-            c3 = self.compiler.compile_command('if 1:\n  x', '?', mode, 0)
             c4 = self.compiler.compile_command('x = (', '?', mode, 0)
             c5 = self.compiler.compile_command('x = (\n', '?', mode, 0)
             c6 = self.compiler.compile_command('x = (\n\n', '?', mode, 0)
             c7 = self.compiler.compile_command('x = """a\n', '?', mode, 0)
-            assert c3 is None
             assert c4 is None
             assert c5 is None
             assert c6 is None
@@ -55,6 +53,8 @@ class TestPythonAstCompiler:
                            'if 1:\n  x x', '?', mode, 0)
             space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
                            ')', '?', mode, 0)
+        c3 = self.compiler.compile_command('if 1:\n  x', '?', 'single', 0)
+        assert c3 is None
 
     def test_compile_bug(self):
         self.compiler.compile_command("if 1: pass", "", "single", 0)
