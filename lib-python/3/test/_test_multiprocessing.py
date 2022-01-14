@@ -2755,6 +2755,9 @@ class _TestPoolWorkerLifetime(BaseTestCase):
     ALLOWED_TYPES = ('processes', )
 
     def test_pool_worker_lifetime(self):
+        sm = multiprocessing.get_start_method()
+        if sm == 'fork' and sys.implementation.name == 'pypy':
+            self.skipTest("race condition on PyPy")
         p = multiprocessing.Pool(3, maxtasksperchild=10)
         self.assertEqual(3, len(p._pool))
         origworkerpids = [w.pid for w in p._pool]
