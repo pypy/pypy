@@ -323,7 +323,7 @@ typedef union _gc_head {
 
 /* dummy GC macros */
 #define _PyGC_FINALIZED(o) 1
-#define PyType_IS_GC(tp) 1
+#define PyType_IS_GC(t) PyType_HasFeature((t), Py_TPFLAGS_HAVE_GC)
 
 #define PyObject_GC_Track(o)      do { } while(0)
 #define PyObject_GC_UnTrack(o)    do { } while(0)
