@@ -1940,9 +1940,14 @@ def _dict_merge(space, w_dict, w_item):
             raise oefmt(space.w_TypeError,
                         "argument after ** must be a mapping, not %T",
                         w_item)
+        l2 = space.len_w(w_item)
     else:
         l2 = space.len_w(w_item)
-        unroll_safe = jit.isvirtual(w_item) and l2 < 10
+        unroll_safe = unroll_safe and jit.isvirtual(w_item) and l2 < 10
+    if l2 == 0:
+        return
+    if l1 == 0:
+        return space.call_method(w_dict, "update", w_item)
     _dict_merge_loop(space, w_dict, w_item, unroll_safe)
 
 @jit.look_inside_iff(lambda space, w_dict, w_item, unroll_safe: unroll_safe)
