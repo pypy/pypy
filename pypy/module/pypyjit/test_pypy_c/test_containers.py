@@ -1,3 +1,4 @@
+import pytest
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
@@ -50,6 +51,7 @@ class TestDicts(BaseTestPyPyC):
             ...
         """)
 
+    @pytest.skip("no strdicts on pypy3")
     def test_non_virtual_dict(self):
         def main(n):
             i = 0

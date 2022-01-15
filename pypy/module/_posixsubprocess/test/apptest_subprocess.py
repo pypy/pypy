@@ -56,6 +56,7 @@ def test_cpython_issue15736():
     n = 0
     class Z(object):
         def __len__(self):
+            import sys
             return sys.maxsize + n
         def __getitem__(self, i):
             return b'x'

@@ -32,7 +32,9 @@ class TestGenerators(BaseTestPyPyC):
             jump(..., descr=...)
             """)
         assert loop.match_by_id("subtract", """
-            i2 = int_sub(i1, 42)
+            setfield_gc(p20, ..., descr=<FieldS pypy.interpreter.pyframe.PyFrame.inst_last_instr .*>)
+            i2 = int_sub_ovf(i1, 42)
+            guard_no_overflow(descr=...)
             """)
 
     def test_simple_generator2(self):

@@ -68,7 +68,7 @@ class W_UnicodeObject(W_Root):
             # explicit surrogate characters---which .decode('utf-8') doesn't
             # special-case in Python 2, which is exactly what we want here
             try:
-                if runicode.MAXUNICODE == 0xffff:
+                if sys.maxunicode == 0xffff:
                     # can't use .decode('utf-8') because it will add surrogates
                     real_length = rutf8.check_utf8(utf8str, True)
                 else:
