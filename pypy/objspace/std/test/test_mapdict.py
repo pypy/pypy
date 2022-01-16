@@ -438,7 +438,6 @@ def test_special():
     obj.delweakref()
 
 
-
 def test_slots():
     cls = Class()
     obj = cls.instantiate()
@@ -1258,6 +1257,17 @@ class AppTestWithMapDict(object):
         res = list(d.iteritems())
         assert res == [('x', 'a'), ('y', 1), ('z', 'b')]
 
+    def test_copy(self):
+        class A(object):
+            pass
+
+        # an instance with unboxed storage
+        a = A()
+        a.x = "a"
+        a.y = 1
+        a.z = "b"
+        assert a.__dict__.copy() == {"x": "a", "y": 1, "z": "b"}
+
 
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
@@ -1733,3 +1743,4 @@ class TestMapDictImplementationUsingnewdict(BaseTestRDictImplementation):
     def test_setdefault_fast(self):
         # mapdict can't pass this, which is fine
         pass
+

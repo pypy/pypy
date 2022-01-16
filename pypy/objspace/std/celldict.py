@@ -8,7 +8,8 @@ from rpython.rlib import jit, rerased, objectmodel
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import (
     DictStrategy, ObjectDictStrategy, _never_equal_to_string,
-    create_iterator_classes)
+    create_iterator_classes, BytesDictStrategy,
+    W_DictObject)
 from pypy.objspace.std.typeobject import (
     MutableCell, IntMutableCell, ObjectMutableCell, write_cell, unwrap_cell)
 
@@ -168,6 +169,15 @@ class ModuleDictStrategy(DictStrategy):
 
     def wrapvalue(space, value):
         return unwrap_cell(space, value)
+
+    def copy(self, w_dict):
+        strategy = self.space.fromcache(BytesDictStrategy)
+        str_dict = strategy.unerase(strategy.get_empty_storage())
+
+        d = self.unerase(w_dict.dstorage)
+        for key, cell in d.iteritems():
+            str_dict[key] = unwrap_cell(self.space, cell)
+        return W_DictObject(strategy.space, strategy, strategy.erase(str_dict))
 
 
 create_iterator_classes(ModuleDictStrategy)
