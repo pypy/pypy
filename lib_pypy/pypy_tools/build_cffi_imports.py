@@ -292,7 +292,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print("build stdout:")
                 print(bld_stdout.decode('utf-8'), file=sys.stderr)
                 print("build stderr:")
-                print(bld_stderr, file=sys.stderr)
+                print(bld_stderr.decode('utf-8'), file=sys.stderr)
                 print("test stdout:")
                 print(stdout.decode('utf-8'), file=sys.stderr)
                 print("test stderr:")
