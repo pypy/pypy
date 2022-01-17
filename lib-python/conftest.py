@@ -208,8 +208,6 @@ testmap = [
     RegrTest('test_doctest2.py'),
     RegrTest('test_docxmlrpc.py'),
     RegrTest('test_dtrace.py'),
-    RegrTest('test_dummy_thread.py', core=True),
-    RegrTest('test_dummy_threading.py', core=True),
     RegrTest('test_dynamic.py'),
     RegrTest('test_dynamicclassattribute.py'),
     RegrTest('test_eintr.py'),
