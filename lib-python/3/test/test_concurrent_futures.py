@@ -414,6 +414,7 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
         for t in executor._threads:
             t.join()
 
+    @support.impl_detail("depends on gc semantics", pypy=False)
     def test_del_shutdown(self):
         executor = futures.ThreadPoolExecutor(max_workers=5)
         res = executor.map(abs, range(-5, 5))
@@ -444,23 +445,19 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
 
 
     def test_thread_names_assigned(self):
-        executor = futures.ThreadPoolExecutor(
-            max_workers=5, thread_name_prefix='SpecialPool')
-        executor.map(abs, range(-5, 5))
-        threads = executor._threads
-        del executor
-        support.gc_collect()  # For PyPy or other GCs.
+        with futures.ThreadPoolExecutor(
+            max_workers=5, thread_name_prefix='SpecialPool') as executor:
+            executor.map(abs, range(-5, 5))
+            threads = executor._threads
 
         for t in threads:
             self.assertRegex(t.name, r'^SpecialPool_[0-4]$')
             t.join()
 
     def test_thread_names_default(self):
-        executor = futures.ThreadPoolExecutor(max_workers=5)
-        executor.map(abs, range(-5, 5))
-        threads = executor._threads
-        del executor
-        support.gc_collect()  # For PyPy or other GCs.
+        with futures.ThreadPoolExecutor(max_workers=5) as executor:
+            executor.map(abs, range(-5, 5))
+            threads = executor._threads
 
         for t in threads:
             # Ensure that our default name is reasonably sane and unique when
