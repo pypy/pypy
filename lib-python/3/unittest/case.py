@@ -252,7 +252,7 @@ class _AssertWarnsContext(_AssertRaisesBaseContext):
     def __enter__(self):
         # The __warningregistry__'s need to be in a pristine state for tests
         # to work properly.
-        for v in sys.modules.values():
+        for v in list(sys.modules.values()):
             if getattr(v, '__warningregistry__', None):
                 v.__warningregistry__ = {}
         self.warnings_manager = warnings.catch_warnings(record=True)
@@ -652,12 +652,20 @@ class TestCase(object):
 
     def debug(self):
         """Run the test without collecting errors in a TestResult"""
-        self.setUp()
-        getattr(self, self._testMethodName)()
-        self.tearDown()
+        testMethod = getattr(self, self._testMethodName)
+        if (getattr(self.__class__, "__unittest_skip__", False) or
+            getattr(testMethod, "__unittest_skip__", False)):
+            # If the class or method was skipped.
+            skip_why = (getattr(self.__class__, '__unittest_skip_why__', '')
+                        or getattr(testMethod, '__unittest_skip_why__', ''))
+            raise SkipTest(skip_why)
+
+        self._callSetUp()
+        self._callTestMethod(testMethod)
+        self._callTearDown()
         while self._cleanups:
-            function, args, kwargs = self._cleanups.pop(-1)
-            function(*args, **kwargs)
+            function, args, kwargs = self._cleanups.pop()
+            self._callCleanup(function, *args, **kwargs)
 
     def skipTest(self, reason):
         """Skip this test."""

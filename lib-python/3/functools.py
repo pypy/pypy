@@ -739,6 +739,7 @@ def _compose_mro(cls, types):
     # Remove entries which are already present in the __mro__ or unrelated.
     def is_related(typ):
         return (typ not in bases and hasattr(typ, '__mro__')
+                                 and not isinstance(typ, GenericAlias)
                                  and issubclass(cls, typ))
     types = [n for n in types if is_related(n)]
     # Remove entries which are strict bases of other entries (they will end up
@@ -836,6 +837,9 @@ def singledispatch(func):
             dispatch_cache[cls] = impl
         return impl
 
+    def _is_valid_dispatch_type(cls):
+        return isinstance(cls, type) and not isinstance(cls, GenericAlias)
+
     def register(cls, func=None):
         """generic_func.register(cls, func) -> func
 
@@ -843,9 +847,15 @@ def singledispatch(func):
 
         """
         nonlocal cache_token
-        if func is None:
-            if isinstance(cls, type):
+        if _is_valid_dispatch_type(cls):
+            if func is None:
                 return lambda f: register(cls, f)
+        else:
+            if func is not None:
+                raise TypeError(
+                    f"Invalid first argument to `register()`. "
+                    f"{cls!r} is not a class."
+                )
             ann = getattr(cls, '__annotations__', {})
             if not ann:
                 raise TypeError(
@@ -858,11 +868,12 @@ def singledispatch(func):
             # only import typing if annotation parsing is necessary
             from typing import get_type_hints
             argname, cls = next(iter(get_type_hints(func).items()))
-            if not isinstance(cls, type):
+            if not _is_valid_dispatch_type(cls):
                 raise TypeError(
                     f"Invalid annotation for {argname!r}. "
                     f"{cls!r} is not a class."
                 )
+
         registry[cls] = func
         if cache_token is None and hasattr(cls, '__abstractmethods__'):
             cache_token = get_cache_token()
@@ -901,11 +912,24 @@ class singledispatchmethod:
         self.dispatcher = singledispatch(func)
         self.func = func
 
+        # bpo-45678: special-casing for classmethod/staticmethod in Python <=3.9,
+        # as functools.update_wrapper doesn't work properly in singledispatchmethod.__get__
+        # if it is applied to an unbound classmethod/staticmethod
+        if isinstance(func, (staticmethod, classmethod)):
+            self._wrapped_func = func.__func__
+        else:
+            self._wrapped_func = func
     def register(self, cls, method=None):
         """generic_method.register(cls, func) -> func
 
         Registers a new implementation for the given *cls* on a *generic_method*.
         """
+        # bpo-39679: in Python <= 3.9, classmethods and staticmethods don't
+        # inherit __annotations__ of the wrapped function (fixed in 3.10+ as
+        # a side-effect of bpo-43682) but we need that for annotation-derived
+        # singledispatches. So we add that just-in-time here.
+        if isinstance(cls, (staticmethod, classmethod)):
+            cls.__annotations__ = getattr(cls.__func__, '__annotations__', {})
         return self.dispatcher.register(cls, func=method)
 
     def __get__(self, obj, cls=None):
@@ -915,7 +939,7 @@ class singledispatchmethod:
 
         _method.__isabstractmethod__ = self.__isabstractmethod__
         _method.register = self.register
-        update_wrapper(_method, self.func)
+        update_wrapper(_method, self._wrapped_func)
         return _method
 
     @property

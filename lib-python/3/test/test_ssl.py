@@ -589,13 +589,16 @@ class BasicSocketTests(unittest.TestCase):
         self.assertLessEqual(patch, 63)
         self.assertGreaterEqual(status, 0)
         self.assertLessEqual(status, 15)
-        # Version string as returned by {Open,Libre}SSL, the format might change
-        if IS_LIBRESSL:
-            self.assertTrue(s.startswith("LibreSSL {:d}".format(major)),
-                            (s, t, hex(n)))
+        libressl_ver = f"LibreSSL {major:d}"
+        if major >= 3:
+            # 3.x uses 0xMNN00PP0L
+            openssl_ver = f"OpenSSL {major:d}.{minor:d}.{patch:d}"
         else:
-            self.assertTrue(s.startswith("OpenSSL {:d}.{:d}.{:d}".format(major, minor, fix)),
-                            (s, t, hex(n)))
+            openssl_ver = f"OpenSSL {major:d}.{minor:d}.{fix:d}"
+        self.assertTrue(
+            s.startswith((openssl_ver, libressl_ver)),
+            (s, t, hex(n))
+        )
 
     @support.cpython_only
     def test_refcycle(self):
@@ -2281,6 +2284,7 @@ class SimpleBackgroundTests(unittest.TestCase):
         self.ssl_io_loop(sock, incoming, outgoing, sslobj.unwrap)
 
 
+@support.requires_resource('network')
 class NetworkedTests(unittest.TestCase):
 
     def test_timeout_connect_ex(self):
@@ -4812,7 +4816,7 @@ class TestSSLDebug(unittest.TestCase):
                 s.connect((HOST, server.port))
 
 
-def test_main(verbose=False):
+def setUpModule():
     if support.verbose:
         plats = {
             'Mac': platform.mac_ver,
@@ -4843,20 +4847,9 @@ def test_main(verbose=False):
         if not os.path.exists(filename):
             raise support.TestFailed("Can't read certificate file %r" % filename)
 
-    tests = [
-        ContextTests, BasicSocketTests, SSLErrorTests, MemoryBIOTests,
-        SSLObjectTests, SimpleBackgroundTests, ThreadedTests,
-        TestPostHandshakeAuth, TestSSLDebug
-    ]
-
-    if support.is_resource_enabled('network'):
-        tests.append(NetworkedTests)
-
     thread_info = support.threading_setup()
-    try:
-        support.run_unittest(*tests)
-    finally:
-        support.threading_cleanup(*thread_info)
+    unittest.addModuleCleanup(support.threading_cleanup, *thread_info)
+
 
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

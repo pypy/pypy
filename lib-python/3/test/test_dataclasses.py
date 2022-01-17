@@ -7,9 +7,10 @@ from dataclasses import *
 import pickle
 import inspect
 import builtins
+import types
 import unittest
 from unittest.mock import Mock
-from typing import ClassVar, Any, List, Union, Tuple, Dict, Generic, TypeVar, Optional
+from typing import ClassVar, Any, List, Union, Tuple, Dict, Generic, TypeVar, Optional, Protocol
 from typing import get_type_hints
 from collections import deque, OrderedDict, namedtuple
 from functools import total_ordering
@@ -1124,6 +1125,8 @@ class TestCase(unittest.TestCase):
         self.assertEqual(repr(InitVar[int]), 'dataclasses.InitVar[int]')
         self.assertEqual(repr(InitVar[List[int]]),
                          'dataclasses.InitVar[typing.List[int]]')
+        self.assertEqual(repr(InitVar[list[int]]),
+                         'dataclasses.InitVar[list[int]]')
 
     def test_init_var_inheritance(self):
         # Note that this deliberately tests that a dataclass need not
@@ -1347,6 +1350,17 @@ class TestCase(unittest.TestCase):
                     astuple(obj)
                 with self.assertRaisesRegex(TypeError, 'should be called on dataclass instances'):
                     replace(obj, x=0)
+
+    def test_is_dataclass_genericalias(self):
+        @dataclass
+        class A(types.GenericAlias):
+            origin: type
+            args: type
+        self.assertTrue(is_dataclass(A))
+        a = A(list, int)
+        self.assertTrue(is_dataclass(type(a)))
+        self.assertTrue(is_dataclass(a))
+
 
     def test_helper_fields_with_class_instance(self):
         # Check that we can call fields() on either a class or instance,
@@ -2123,6 +2137,26 @@ class TestInit(unittest.TestCase):
             def __init__(self, x):
                 self.x = 2 * x
         self.assertEqual(C(5).x, 10)
+
+    def test_inherit_from_protocol(self):
+        # Dataclasses inheriting from protocol should preserve their own `__init__`.
+        # See bpo-45081.
+
+        class P(Protocol):
+            a: int
+
+        @dataclass
+        class C(P):
+            a: int
+
+        self.assertEqual(C(5).a, 5)
+
+        @dataclass
+        class D(P):
+            def __init__(self, a):
+                self.a = a * 2
+
+        self.assertEqual(D(5).a, 10)
 
 
 class TestRepr(unittest.TestCase):

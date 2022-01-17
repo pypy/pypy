@@ -193,6 +193,10 @@ class ExceptionTests(unittest.TestCase):
                 line = src.split('\n')[lineno-1]
                 self.assertIn(line, cm.exception.text)
 
+    def test_error_offset_continuation_characters(self):
+        check = self.check
+        check('"\\\n"(1 for c in I,\\\n\\', 3, 22)
+
     def testSyntaxErrorOffset(self):
         check = self.check
         check('def fact(x):\n\treturn x!\n', 2, 10)
@@ -1209,7 +1213,7 @@ class ExceptionTests(unittest.TestCase):
                 # tstate->recursion_depth is equal to (recursion_limit - 1)
                 # and is equal to recursion_limit when _gen_throw() calls
                 # PyErr_NormalizeException().
-                recurse(setrecursionlimit(depth + 2) - depth - 1)
+                recurse(setrecursionlimit(depth + 2) - depth)
             finally:
                 sys.setrecursionlimit(recursionlimit)
                 print('Done.')
@@ -1238,6 +1242,52 @@ class ExceptionTests(unittest.TestCase):
         self.assertIn(b'RecursionError: maximum recursion depth exceeded '
                       b'while normalizing an exception', err)
         self.assertIn(b'Done.', out)
+
+    def test_recursion_in_except_handler(self):
+
+        def set_relative_recursion_limit(n):
+            depth = 1
+            while True:
+                try:
+                    sys.setrecursionlimit(depth)
+                except RecursionError:
+                    depth += 1
+                else:
+                    break
+            sys.setrecursionlimit(depth+n)
+
+        def recurse_in_except():
+            try:
+                1/0
+            except:
+                recurse_in_except()
+
+        def recurse_after_except():
+            try:
+                1/0
+            except:
+                pass
+            recurse_after_except()
+
+        def recurse_in_body_and_except():
+            try:
+                recurse_in_body_and_except()
+            except:
+                recurse_in_body_and_except()
+
+        recursionlimit = sys.getrecursionlimit()
+        try:
+            set_relative_recursion_limit(10)
+            for func in (recurse_in_except, recurse_after_except, recurse_in_body_and_except):
+                with self.subTest(func=func):
+                    try:
+                        func()
+                    except RecursionError:
+                        pass
+                    else:
+                        self.fail("Should have raised a RecursionError")
+        finally:
+            sys.setrecursionlimit(recursionlimit)
 
     @cpython_only
     def test_recursion_normalizing_with_no_memory(self):

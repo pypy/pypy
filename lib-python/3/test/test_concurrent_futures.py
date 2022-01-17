@@ -564,6 +564,14 @@ create_executor_tests(ProcessPoolShutdownTest,
 
 
 class WaitTests:
+    def test_20369(self):
+        # See https://bugs.python.org/issue20369
+        future = self.executor.submit(time.sleep, 1.5)
+        done, not_done = futures.wait([future, future],
+                            return_when=futures.ALL_COMPLETED)
+        self.assertEqual({future}, done)
+        self.assertEqual(set(), not_done)
+
 
     def test_first_completed(self):
         future1 = self.executor.submit(mul, 21, 2)
@@ -895,6 +903,20 @@ class ThreadPoolExecutorTest(ThreadPoolMixin, ExecutorTest, BaseTestCase):
         executor.submit(mul, 3, 14).result()
         self.assertEqual(len(executor._threads), 1)
         executor.shutdown(wait=True)
+
+    @unittest.skipUnless(hasattr(os, 'register_at_fork'), 'need os.register_at_fork')
+    def test_hang_global_shutdown_lock(self):
+        # bpo-45021: _global_shutdown_lock should be reinitialized in the child
+        # process, otherwise it will never exit
+        def submit(pool):
+            pool.submit(submit, pool)
+
+        with futures.ThreadPoolExecutor(1) as pool:
+            pool.submit(submit, pool)
+
+            for _ in range(50):
+                with futures.ProcessPoolExecutor(1, mp_context=get_context('fork')) as workers:
+                    workers.submit(tuple)
 
 
 class ProcessPoolExecutorTest(ExecutorTest):
@@ -1500,16 +1522,10 @@ class FutureTests(BaseTestCase):
         self.assertEqual(f.exception(), e)
 
 
-_threads_key = None
-
 def setUpModule():
-    global _threads_key
-    _threads_key = support.threading_setup()
-
-
-def tearDownModule():
-    support.threading_cleanup(*_threads_key)
-    multiprocessing.util._cleanup_tests()
+    unittest.addModuleCleanup(multiprocessing.util._cleanup_tests)
+    thread_info = support.threading_setup()
+    unittest.addModuleCleanup(support.threading_cleanup, *thread_info)
 
 
 if __name__ == "__main__":

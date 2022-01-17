@@ -740,6 +740,17 @@ class BaseExceptionReportingTests:
         err = self.get_report(Exception(''))
         self.assertIn('Exception\n', err)
 
+    def test_exception_modulename_not_unicode(self):
+        class X(Exception):
+            def __str__(self):
+                return "I am X"
+
+        X.__module__ = 42
+
+        err = self.get_report(X())
+        exp = f'<unknown>.{X.__qualname__}: I am X\n'
+        self.assertEqual(exp, err)
+
     def test_syntax_error_various_offsets(self):
         for offset in range(-5, 10):
             for add in [0, 2]:
@@ -758,6 +769,19 @@ class BaseExceptionReportingTests:
                 err = self.get_report(SyntaxError("msg", ("file.py", 1, offset+add, text)))
                 exp = "\n".join(expected)
                 self.assertEqual(exp, err)
+
+    def test_format_exception_only_qualname(self):
+        class A:
+            class B:
+                class X(Exception):
+                    def __str__(self):
+                        return "I am X"
+                    pass
+        err = self.get_report(A.B.X())
+        str_value = 'I am X'
+        str_name = '.'.join([A.B.X.__module__, A.B.X.__qualname__])
+        exp = "%s: %s\n" % (str_name, str_value)
+        self.assertEqual(exp, err)
 
 
 class PyExcReportingTests(BaseExceptionReportingTests, unittest.TestCase):

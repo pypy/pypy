@@ -449,11 +449,9 @@ async def wait_for(fut, timeout, *, loop=None):
 
         await _cancel_and_wait(fut, loop=loop)
         try:
-            fut.result()
+            return fut.result()
         except exceptions.CancelledError as exc:
             raise exceptions.TimeoutError() from exc
-        else:
-            raise exceptions.TimeoutError()
 
     waiter = loop.create_future()
     timeout_handle = loop.call_later(timeout, _release_waiter, waiter)
@@ -489,11 +487,9 @@ async def wait_for(fut, timeout, *, loop=None):
             # exception, we should re-raise it
             # See https://bugs.python.org/issue40607
             try:
-                fut.result()
+                return fut.result()
             except exceptions.CancelledError as exc:
                 raise exceptions.TimeoutError() from exc
-            else:
-                raise exceptions.TimeoutError()
     finally:
         timeout_handle.cancel()
 
@@ -580,15 +576,16 @@ def as_completed(fs, *, loop=None, timeout=None):
     if futures.isfuture(fs) or coroutines.iscoroutine(fs):
         raise TypeError(f"expect an iterable of futures, not {type(fs).__name__}")
 
+    if loop is not None:
+        warnings.warn("The loop argument is deprecated since Python 3.8, "
+                      "and scheduled for removal in Python 3.10.",
+                      DeprecationWarning, stacklevel=2)
+
     from .queues import Queue  # Import here to avoid circular import problem.
     done = Queue(loop=loop)
 
     if loop is None:
         loop = events.get_event_loop()
-    else:
-        warnings.warn("The loop argument is deprecated since Python 3.8, "
-                      "and scheduled for removal in Python 3.10.",
-                      DeprecationWarning, stacklevel=2)
     todo = {ensure_future(f, loop=loop) for f in set(fs)}
     timeout_handle = None
 
@@ -756,6 +753,10 @@ def gather(*coros_or_futures, loop=None, return_exceptions=False):
                       "and scheduled for removal in Python 3.10.",
                       DeprecationWarning, stacklevel=2)
 
+    return _gather(*coros_or_futures, loop=loop, return_exceptions=return_exceptions)
+
+
+def _gather(*coros_or_futures, loop=None, return_exceptions=False):
     if not coros_or_futures:
         if loop is None:
             loop = events.get_event_loop()

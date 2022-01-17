@@ -8,6 +8,7 @@ import logging
 import warnings
 import weakref
 import inspect
+import types
 
 from copy import deepcopy
 from test import support
@@ -610,6 +611,8 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
                  'Tests shortDescription() for a method with a longer '
                  'docstring.')
 
+    @unittest.skipIf(sys.flags.optimize >= 2,
+                     "Docstrings are omitted with -O2 and above")
     def testShortDescriptionWhitespaceTrimming(self):
         """
             Tests shortDescription() whitespace is trimmed, so that the first
@@ -1349,6 +1352,20 @@ test case
         class MyWarn(Warning):
             pass
         self.assertRaises(TypeError, self.assertWarnsRegex, MyWarn, lambda: True)
+
+    def testAssertWarnsModifySysModules(self):
+        # bpo-29620: handle modified sys.modules during iteration
+        class Foo(types.ModuleType):
+            @property
+            def __warningregistry__(self):
+                sys.modules['@bar@'] = 'bar'
+
+        sys.modules['@foo@'] = Foo('foo')
+        try:
+            self.assertWarns(UserWarning, warnings.warn, 'expected')
+        finally:
+            del sys.modules['@foo@']
+            del sys.modules['@bar@']
 
     def testAssertRaisesRegexMismatch(self):
         def Stub():

@@ -953,7 +953,13 @@ def func2():
     def test_invalid_line_continuation_error_position(self):
         self._check_error(r"a = 3 \ 4",
                           "unexpected character after line continuation character",
-                          lineno=1, offset=(10 if support.use_old_parser() else 9))
+                          lineno=1, offset=8)
+        self._check_error('1,\\#\n2',
+                          "unexpected character after line continuation character",
+                          lineno=1, offset=4)
+        self._check_error('\nfgdfgf\n1,\\#\n2\n',
+                          "unexpected character after line continuation character",
+                          lineno=3, offset=4)
 
     def test_invalid_line_continuation_left_recursive(self):
         # Check bpo-42218: SyntaxErrors following left-recursive rules
@@ -997,6 +1003,14 @@ while 1:
                      break
 """
         self._check_error(source, "too many statically nested blocks")
+
+    @support.cpython_only
+    def test_error_on_parser_stack_overflow(self):
+        source = "-" * 100000 + "4"
+        for mode in ["exec", "eval", "single"]:
+            with self.subTest(mode=mode):
+                with self.assertRaises(MemoryError):
+                    compile(source, "<string>", mode)
 
 
 def test_main():
