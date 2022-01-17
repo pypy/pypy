@@ -447,7 +447,6 @@ testmap = [
     RegrTest('test_tempfile.py'),
     RegrTest('test_textwrap.py'),
     RegrTest('test_thread.py', usemodules="thread", core=True),
-    RegrTest('test_threaded_import.py', usemodules="thread", core=True),
     RegrTest('test_threadedtempfile.py', usemodules="thread", core=False),
     RegrTest('test_threading.py', usemodules="thread", core=True),
     RegrTest('test_threading_local.py', usemodules="thread", core=True),
