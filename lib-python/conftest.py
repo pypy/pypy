@@ -330,7 +330,6 @@ testmap = [
     RegrTest('test_netrc.py'),
     RegrTest('test_nis.py'),
     RegrTest('test_nntplib.py'),
-    RegrTest('test_normalization.py'),
     RegrTest('test_ntpath.py'),
     RegrTest('test_numeric_tower.py'),
     RegrTest('test_opcodes.py', core=True),
