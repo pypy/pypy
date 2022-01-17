@@ -114,20 +114,6 @@ def checkwarnings(*filters, quiet=False):
     return decorator
 
 
-#backported from https://github.com/python/cpython/pull/22987
-ATTLIST_XML = """\
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE Foo [
-<!ELEMENT foo (bar*)>
-<!ELEMENT bar (#PCDATA)*>
-<!ATTLIST bar xml:lang CDATA "eng">
-<!ENTITY qux "quux">
-]>
-<foo>
-<bar>&qux;</bar>
-</foo>
-"""
-
 class ModuleTest(unittest.TestCase):
     def test_sanity(self):
         # Import sanity.
@@ -342,7 +328,7 @@ class ElementTreeTest(unittest.TestCase):
         self.serialize_check(element, '<tag key="value" />') # 5
         with self.assertRaises(ValueError) as cm:
             element.remove(subelement)
-        self.assertTrue(str(cm.exception).startswith('list.remove('))
+        self.assertEqual(str(cm.exception), 'list.remove(x): x not in list')
         self.serialize_check(element, '<tag key="value" />') # 6
         element[0:0] = [subelement, subelement, subelement]
         self.serialize_check(element[1], '<subtag />')
@@ -1347,13 +1333,6 @@ class ElementTreeTest(unittest.TestCase):
                 serialized = serialize(ET.XML('<%s></%s>' % (elem,elem)),
                                        method='html')
                 self.assertEqual(serialized, expected)
-
-    # backported from https://github.com/python/cpython/pull/22987
-    def test_attlist_default(self):
-        # Test default attribute values; See BPO 42151.
-        root = ET.fromstring(ATTLIST_XML)
-        self.assertEqual(root[0].attrib,
-                         {'{http://www.w3.org/XML/1998/namespace}lang': 'eng'})
 
     def test_dump_attribute_order(self):
         # See BPO 34160

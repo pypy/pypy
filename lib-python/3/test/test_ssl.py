@@ -590,7 +590,6 @@ class BasicSocketTests(unittest.TestCase):
         self.assertGreaterEqual(status, 0)
         self.assertLessEqual(status, 15)
         libressl_ver = f"LibreSSL {major:d}"
-        openssl_ver = f"OpenSSL {major:d}.{minor:d}.{fix:d}"
         if major >= 3:
             # 3.x uses 0xMNN00PP0L
             openssl_ver = f"OpenSSL {major:d}.{minor:d}.{patch:d}"
@@ -4178,7 +4177,7 @@ class ThreadedTests(unittest.TestCase):
                                    sni_name=hostname)
         self.assertIs(stats['client_npn_protocol'], None)
 
-    @unittest.skipIf(ssl.HAS_NPN, "NPN support partially removed for SSL 1.1.1")
+    @unittest.skipUnless(ssl.HAS_NPN, "NPN support needed for this test")
     def test_npn_protocols(self):
         server_protocols = ['http/1.1', 'spdy/2']
         protocol_tests = [
