@@ -350,7 +350,6 @@ testmap = [
     RegrTest('test_pickletools.py', core=False),
     RegrTest('test_pipes.py'),
     RegrTest('test_pkg.py', core=True),
-    RegrTest('test_pkgimport.py', core=True),
     RegrTest('test_pkgutil.py'),
     RegrTest('test_platform.py'),
     RegrTest('test_plistlib.py'),
