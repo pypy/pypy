@@ -26,7 +26,11 @@ except ImportError:
 # Skip this test if the _testcapi module isn't available.
 _testcapi = support.import_module('_testcapi')
 
-import _testinternalcapi
+# CPython internals
+try:
+    import _testinternalcapi
+except ImportError:
+    _testinternalcapi = None
 
 # Were we compiled --with-pydebug or with #define Py_DEBUG?
 Py_DEBUG = hasattr(sys, 'gettotalrefcount')
@@ -768,6 +772,7 @@ class Test_testcapi(unittest.TestCase):
                     if name.startswith('test_') and name not in skips and not name.endswith('_code'))
 
 
+@unittest.skipIf(support.check_impl_detail(pypy=True),
 class Test_testinternalcapi(unittest.TestCase):
     locals().update((name, getattr(_testinternalcapi, name))
                     for name in dir(_testinternalcapi)

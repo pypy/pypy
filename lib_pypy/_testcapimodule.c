@@ -335,6 +335,19 @@ static PyTypeObject _HashInheritanceTester_Type = {
 };
 
 static PyObject*
+pycompilestring(PyObject* self, PyObject *obj) {
+    if (PyBytes_CheckExact(obj) == 0) {
+        PyErr_SetString(PyExc_ValueError, "Argument must be a bytes object");
+        return NULL;
+    }
+    const char *the_string = PyBytes_AsString(obj);
+    if (the_string == NULL) {
+        return NULL;
+    }
+    return Py_CompileString(the_string, "<string>", Py_file_input);
+}
+
+static PyObject*
 test_lazy_hash_inheritance(PyObject* self, PyObject *Py_UNUSED(ignored))
 {
     PyTypeObject *type;
@@ -957,6 +970,12 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
     Py_DECREF(res);
+    if (Py_REFCNT(arg) != 1) {
+        PyErr_Format(TestError, "test_buildvalue_N: "
+                     "arg was not decrefed in successful "
+                     "Py_BuildValue(\"%s\")", fmt);
+        return -1;
+    }
 
     Py_INCREF(arg);
     res = Py_BuildValue(fmt, raise_error, NULL, arg);
@@ -966,6 +985,12 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
     PyErr_Clear();
+    if (Py_REFCNT(arg) != 1) {
+        PyErr_Format(TestError, "test_buildvalue_N: "
+                     "arg was not decrefed in failed "
+                     "Py_BuildValue(\"%s\")", fmt);
+        return -1;
+    }
     Py_DECREF(arg);
     return 0;
 }
@@ -987,6 +1012,10 @@ test_buildvalue_N(PyObject *self, PyObject *Py_UNUSED(ignored))
     if (res != arg) {
         return raiseTestError("test_buildvalue_N",
                               "Py_BuildValue(\"N\") returned wrong result");
+    }
+    if (Py_REFCNT(arg) != 2) {
+        return raiseTestError("test_buildvalue_N",
+                              "arg was not decrefed in Py_BuildValue(\"N\")");
     }
     Py_DECREF(res);
     Py_DECREF(arg);
@@ -2358,13 +2387,11 @@ datetime_check_tzinfo(PyObject *self, PyObject *args) {
 }
 
 
-#ifndef PYPY_VERSION
 /* Makes three variations on timezone representing UTC-5:
    1. timezone with offset and name from PyDateTimeAPI
    2. timezone with offset and name from PyTimeZone_FromOffsetAndName
    3. timezone with offset (no name) from PyTimeZone_FromOffset
 */
-
 static PyObject *
 make_timezones_capi(PyObject *self, PyObject *args) {
     PyObject *offset = PyDelta_FromDSU(0, -18000, 0);
@@ -2423,7 +2450,6 @@ get_timezone_utc_capi(PyObject* self, PyObject *args) {
         return PyDateTimeAPI->TimeZone_UTC;
     }
 }
-#endif /* PYPY_VERSION */
 
 static PyObject *
 get_date_fromdate(PyObject *self, PyObject *args)
@@ -2717,7 +2743,7 @@ _make_call(void *callable)
     PyObject *rc;
     int success;
     PyGILState_STATE s = PyGILState_Ensure();
-    rc = PyObject_CallFunction((PyObject *)callable, NULL);
+    rc = _PyObject_CallNoArg((PyObject *)callable);
     success = (rc != NULL);
     Py_XDECREF(rc);
     PyGILState_Release(s);
@@ -5161,7 +5187,7 @@ encode_locale_ex(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_ValueError, "unsupported error handler");
         break;
     default:
-        PyErr_SetString(PyExc_ValueError, "unknow error code");
+        PyErr_SetString(PyExc_ValueError, "unknown error code");
         break;
     }
     return res;
@@ -5204,7 +5230,7 @@ decode_locale_ex(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_ValueError, "unsupported error handler");
         break;
     default:
-        PyErr_SetString(PyExc_ValueError, "unknow error code");
+        PyErr_SetString(PyExc_ValueError, "unknown error code");
         break;
     }
     return res;
@@ -5373,11 +5399,9 @@ static PyMethodDef TestMethods[] = {
     {"datetime_check_datetime",     datetime_check_datetime,     METH_VARARGS},
     {"datetime_check_delta",     datetime_check_delta,           METH_VARARGS},
     {"datetime_check_tzinfo",     datetime_check_tzinfo,         METH_VARARGS},
-#ifndef PYPY_VERSION
     {"make_timezones_capi",     make_timezones_capi,             METH_NOARGS},
     {"get_timezones_offset_zero",   get_timezones_offset_zero,   METH_NOARGS},
     {"get_timezone_utc_capi",    get_timezone_utc_capi,          METH_VARARGS},
-#endif // ifndef PYPY_VERSION
     {"get_date_fromdate",        get_date_fromdate,              METH_VARARGS},
     {"get_datetime_fromdateandtime", get_datetime_fromdateandtime, METH_VARARGS},
     {"get_datetime_fromdateandtimeandfold", get_datetime_fromdateandtimeandfold, METH_VARARGS},
@@ -5421,9 +5445,7 @@ static PyMethodDef TestMethods[] = {
     {"pyobject_repr_from_null", pyobject_repr_from_null, METH_NOARGS},
     {"pyobject_str_from_null",  pyobject_str_from_null, METH_NOARGS},
     {"pyobject_bytes_from_null", pyobject_bytes_from_null, METH_NOARGS},
-#ifndef PYPY_VERSION
     {"test_string_from_format", (PyCFunction)test_string_from_format, METH_NOARGS},
-#endif // ifndef PYPY_VERSION
     {"test_with_docstring",     test_with_docstring,             METH_NOARGS,
      PyDoc_STR("This is a pretty normal docstring.")},
     {"test_string_to_double",   test_string_to_double,           METH_NOARGS},
@@ -5437,9 +5459,7 @@ static PyMethodDef TestMethods[] = {
 #endif // ifndef PYPY_VERSION
 #endif
     {"getbuffer_with_null_view", getbuffer_with_null_view, METH_O},
-#ifndef PYPY_VERSION
     {"PyBuffer_SizeFromFormat",  test_PyBuffer_SizeFromFormat, METH_VARARGS},
-#endif // ifndef PYPY_VERSION
     {"test_buildvalue_N",       test_buildvalue_N,               METH_NOARGS},
     {"test_buildvalue_issue38913", test_buildvalue_issue38913,   METH_NOARGS},
     {"get_args", get_args, METH_VARARGS},
@@ -5501,7 +5521,6 @@ static PyMethodDef TestMethods[] = {
     {"test_u_code",             test_u_code,                     METH_NOARGS},
     {"test_Z_code",             test_Z_code,                     METH_NOARGS},
     {"test_widechar",           test_widechar,                   METH_NOARGS},
-#ifndef PYPY_VERSION
     {"unicode_aswidechar",      unicode_aswidechar,              METH_VARARGS},
     {"unicode_aswidecharstring",unicode_aswidecharstring,        METH_VARARGS},
     {"unicode_asucs4",          unicode_asucs4,                  METH_VARARGS},
@@ -5512,7 +5531,6 @@ static PyMethodDef TestMethods[] = {
     {"unicode_encodedecimal",   unicode_encodedecimal,           METH_VARARGS},
     {"unicode_transformdecimaltoascii", unicode_transformdecimaltoascii, METH_VARARGS},
     {"unicode_legacy_string",   unicode_legacy_string,           METH_VARARGS},
-#endif // ifndef PYPY_VERSION
     {"_test_thread_state",      test_thread_state,               METH_VARARGS},
 #ifndef PYPY_VERSION
     {"_pending_threadfunc",     pending_threadfunc,              METH_VARARGS},
@@ -5536,7 +5554,6 @@ static PyMethodDef TestMethods[] = {
     {"pytime_object_to_time_t", test_pytime_object_to_time_t,  METH_VARARGS},
     {"pytime_object_to_timeval", test_pytime_object_to_timeval,  METH_VARARGS},
     {"pytime_object_to_timespec", test_pytime_object_to_timespec,  METH_VARARGS},
-#ifndef PYPY_VERSION
     {"with_tp_del",             with_tp_del,                     METH_VARARGS},
 #endif
     {"create_cfunction",        create_cfunction,                METH_NOARGS},
@@ -5596,6 +5613,7 @@ static PyMethodDef TestMethods[] = {
         return_null_without_error, METH_NOARGS},
     {"return_result_with_error",
         return_result_with_error, METH_NOARGS},
+    {"Py_CompileString",     pycompilestring, METH_O},
     {"PyTime_FromSeconds", test_pytime_fromseconds,  METH_VARARGS},
     {"PyTime_FromSecondsObject", test_pytime_fromsecondsobject,  METH_VARARGS},
     {"PyTime_AsSecondsDouble", test_pytime_assecondsdouble, METH_VARARGS},
@@ -5605,8 +5623,6 @@ static PyMethodDef TestMethods[] = {
 #endif
     {"PyTime_AsMilliseconds", test_PyTime_AsMilliseconds, METH_VARARGS},
     {"PyTime_AsMicroseconds", test_PyTime_AsMicroseconds, METH_VARARGS},
-#ifndef PYPY_VERSION
-#endif // ifndef PYPY_VERSION
     {"pymem_buffer_overflow", pymem_buffer_overflow, METH_NOARGS},
     {"pymem_api_misuse", pymem_api_misuse, METH_NOARGS},
     {"pymem_malloc_without_gil", pymem_malloc_without_gil, METH_NOARGS},
@@ -6496,7 +6512,6 @@ heapctypesubclasswithfinalizer_init(PyObject *self, PyObject *args, PyObject *kw
     return 0;
 }
 
-#ifndef PYPY_VERSION
 static void
 heapctypesubclasswithfinalizer_finalize(PyObject *self)
 {
@@ -6559,7 +6574,6 @@ static PyType_Spec HeapCTypeSubclassWithFinalizer_spec = {
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_FINALIZE,
     HeapCTypeSubclassWithFinalizer_slots
 };
-#endif // ifndef PYPY_VERSION
 
 typedef struct {
     PyObject_HEAD
@@ -7035,13 +7049,11 @@ PyInit__testcapi(void)
     }
     PyModule_AddObject(m, "HeapCTypeWithWeakref", HeapCTypeWithWeakref);
 
-#ifndef PYPY_VERSION
     PyObject *HeapCTypeWithBuffer = PyType_FromSpec(&HeapCTypeWithBuffer_spec);
     if (HeapCTypeWithBuffer == NULL) {
         return NULL;
     }
     PyModule_AddObject(m, "HeapCTypeWithBuffer", HeapCTypeWithBuffer);
-#endif // ifndef PYPY_VERSION
 
     PyObject *HeapCTypeSetattr = PyType_FromSpec(&HeapCTypeSetattr_spec);
     if (HeapCTypeSetattr == NULL) {
@@ -7053,7 +7065,6 @@ PyInit__testcapi(void)
     if (subclass_with_finalizer_bases == NULL) {
         return NULL;
     }
-#ifndef PYPY_VERSION
     PyObject *HeapCTypeSubclassWithFinalizer = PyType_FromSpecWithBases(
         &HeapCTypeSubclassWithFinalizer_spec, subclass_with_finalizer_bases);
     if (HeapCTypeSubclassWithFinalizer == NULL) {
@@ -7071,7 +7082,6 @@ PyInit__testcapi(void)
         return NULL;
 
     PyState_AddModule(m, &_testcapimodule);
-#endif // ifndef PYPY_VERSION
     return m;
 }
 
