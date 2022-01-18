@@ -1686,11 +1686,6 @@ exit:
 
 static volatile int x;
 
-/* Ignore use of deprecated APIs */
-#ifndef PYPY_VERSION
-_Py_COMP_DIAG_PUSH
-_Py_COMP_DIAG_IGNORE_DEPR_DECLS
-#endif
 
 /* Test the u and u# codes for PyArg_ParseTuple. May leak memory in case
    of an error.
@@ -1872,7 +1867,6 @@ test_widechar(PyObject *self, PyObject *Py_UNUSED(ignored))
 _Py_COMP_DIAG_POP
 #endif
 
-#ifndef PYPY_VERSION
 static PyObject *
 unicode_aswidechar(PyObject *self, PyObject *args)
 {
@@ -1924,8 +1918,6 @@ unicode_aswidecharstring(PyObject *self, PyObject *args)
         return NULL;
     return Py_BuildValue("(Nn)", result, size);
 }
-
-#ifndef PYPY_VERSION
 
 static PyObject *
 unicode_asucs4(PyObject *self, PyObject *args)
@@ -2020,6 +2012,7 @@ unicode_findchar(PyObject *self, PyObject *args)
         return PyLong_FromSsize_t(result);
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
 unicode_copycharacters(PyObject *self, PyObject *args)
 {
@@ -2048,11 +2041,13 @@ unicode_copycharacters(PyObject *self, PyObject *args)
 
     return Py_BuildValue("(Nn)", to_copy, copied);
 }
-#endif  /* PYPY_VERSION */
+#endif
 
 /* Ignore use of deprecated APIs */
+#ifndef PYPY_VERSION
 _Py_COMP_DIAG_PUSH
 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
+#endif
 
 static PyObject *
 unicode_encodedecimal(PyObject *self, PyObject *args)
@@ -2121,6 +2116,7 @@ unicode_legacy_string(PyObject *self, PyObject *args)
 
     return u;
 }
+#ifndef PYPY_VERSION
 _Py_COMP_DIAG_POP
 #endif // ifndef PYPY_VERSION
 
@@ -2728,6 +2724,7 @@ test_PyDateTime_DELTA_GET(PyObject *self, PyObject *obj)
     return Py_BuildValue("(lll)", days, seconds, microseconds);
 }
 
+#ifndef PYPY_VERSION
 /* test_thread_state spawns a thread of its own, and that thread releases
  * `thread_done` when it's finished.  The driver code has to know when the
  * thread finishes, because the thread uses a PyObject (the callable) that
@@ -2808,6 +2805,7 @@ test_thread_state(PyObject *self, PyObject *args)
         return NULL;
     Py_RETURN_NONE;
 }
+#endif
 
 #ifndef PYPY_VERSION
 /* test Py_AddPendingCalls using threads */
@@ -2845,6 +2843,7 @@ pending_threadfunc(PyObject *self, PyObject *arg)
     }
     Py_RETURN_TRUE;
 }
+#endif  /* PYPY_VERSION */
 
 /* Some tests of PyUnicode_FromFormat().  This needs more tests. */
 static PyObject *
@@ -2852,6 +2851,10 @@ test_string_from_format(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     PyObject *result;
     char *msg;
+
+#ifdef PYPY_VERSION
+#define _PyUnicode_EqualToASCIIString(a, b) (PyUnicode_CompareWithASCIIString(a, b) == 0)
+#endif
 
 #define CHECK_1_FORMAT(FORMAT, TYPE)                                \
     result = PyUnicode_FromFormat(FORMAT, (TYPE)1);                 \
@@ -2885,7 +2888,6 @@ test_string_from_format(PyObject *self, PyObject *Py_UNUSED(ignored))
 
 #undef CHECK_1_FORMAT
 }
-#endif  /* PYPY_VERSION */
 
 
 static PyObject *
@@ -3461,7 +3463,7 @@ getbuffer_with_null_view(PyObject* self, PyObject *obj)
     Py_RETURN_NONE;
 }
 
-#ifndef PYPY_VERSION
+#if !defined(PYPY_VERSION)
 /* PyBuffer_SizeFromFormat() */
 static PyObject *
 test_PyBuffer_SizeFromFormat(PyObject *self, PyObject *args)
@@ -3481,7 +3483,7 @@ test_PyBuffer_SizeFromFormat(PyObject *self, PyObject *args)
 
     return PyLong_FromSsize_t(result);
 }
-#endif // ifndef PYPY_VERSION
+#endif
 
 /* Test that the fatal error from not having a current thread doesn't
    cause an infinite loop.  Run via Lib/test/test_capi.py */
@@ -5385,7 +5387,9 @@ pynumber_tobase(PyObject *module, PyObject *args)
 }
 
 
+#ifndef PYPY_VERSION
 static PyObject *test_buildvalue_issue38913(PyObject *, PyObject *);
+#endif
 
 static PyMethodDef TestMethods[] = {
     {"raise_exception",         raise_exception,                 METH_VARARGS},
@@ -5459,9 +5463,13 @@ static PyMethodDef TestMethods[] = {
 #endif // ifndef PYPY_VERSION
 #endif
     {"getbuffer_with_null_view", getbuffer_with_null_view, METH_O},
+#ifndef PYPY_VERSION
     {"PyBuffer_SizeFromFormat",  test_PyBuffer_SizeFromFormat, METH_VARARGS},
+#endif
     {"test_buildvalue_N",       test_buildvalue_N,               METH_NOARGS},
+#ifndef PYPY_VERSION
     {"test_buildvalue_issue38913", test_buildvalue_issue38913,   METH_NOARGS},
+#endif
     {"get_args", get_args, METH_VARARGS},
     {"get_kwargs", (PyCFunction)(void(*)(void))get_kwargs, METH_VARARGS|METH_KEYWORDS},
     {"getargs_tuple",           getargs_tuple,                   METH_VARARGS},
@@ -5527,12 +5535,14 @@ static PyMethodDef TestMethods[] = {
     {"unicode_asutf8",          unicode_asutf8,                  METH_VARARGS},
     {"unicode_asutf8andsize",   unicode_asutf8andsize,           METH_VARARGS},
     {"unicode_findchar",        unicode_findchar,                METH_VARARGS},
+#ifndef PYPY_VERSION
     {"unicode_copycharacters",  unicode_copycharacters,          METH_VARARGS},
+#endif // ifndef PYPY_VERSION
     {"unicode_encodedecimal",   unicode_encodedecimal,           METH_VARARGS},
     {"unicode_transformdecimaltoascii", unicode_transformdecimaltoascii, METH_VARARGS},
     {"unicode_legacy_string",   unicode_legacy_string,           METH_VARARGS},
-    {"_test_thread_state",      test_thread_state,               METH_VARARGS},
 #ifndef PYPY_VERSION
+    {"_test_thread_state",      test_thread_state,               METH_VARARGS},
     {"_pending_threadfunc",     pending_threadfunc,              METH_VARARGS},
 #endif // ifndef PYPY_VERSION
 #ifdef HAVE_GETTIMEOFDAY
@@ -5554,6 +5564,7 @@ static PyMethodDef TestMethods[] = {
     {"pytime_object_to_time_t", test_pytime_object_to_time_t,  METH_VARARGS},
     {"pytime_object_to_timeval", test_pytime_object_to_timeval,  METH_VARARGS},
     {"pytime_object_to_timespec", test_pytime_object_to_timespec,  METH_VARARGS},
+#ifndef PYPY_VERSION
     {"with_tp_del",             with_tp_del,                     METH_VARARGS},
 #endif
     {"create_cfunction",        create_cfunction,                METH_NOARGS},
@@ -6481,7 +6492,6 @@ heapctypewithbuffer_releasebuffer(HeapCTypeWithBufferObject *self, Py_buffer *vi
     assert(view->obj == (void*) self);
 }
 
-#ifndef PYPY_VERSION
 static PyType_Slot HeapCTypeWithBuffer_slots[] = {
     {Py_bf_getbuffer, heapctypewithbuffer_getbuffer},
     {Py_bf_releasebuffer, heapctypewithbuffer_releasebuffer},
@@ -6496,8 +6506,8 @@ static PyType_Spec HeapCTypeWithBuffer_spec = {
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     HeapCTypeWithBuffer_slots
 };
-#endif // ifndef PYPY_VERSION
 
+#ifndef PYPY_VERSION
 PyDoc_STRVAR(heapctypesubclasswithfinalizer__doc__,
 "Subclass of HeapCType with a finalizer that reassigns __class__.\n\n"
 "__class__ is set to plain HeapCTypeSubclass during finalization.\n"
@@ -6574,6 +6584,8 @@ static PyType_Spec HeapCTypeSubclassWithFinalizer_spec = {
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_FINALIZE,
     HeapCTypeSubclassWithFinalizer_slots
 };
+
+#endif
 
 typedef struct {
     PyObject_HEAD
@@ -7065,6 +7077,8 @@ PyInit__testcapi(void)
     if (subclass_with_finalizer_bases == NULL) {
         return NULL;
     }
+
+#ifndef PYPY_VERSION
     PyObject *HeapCTypeSubclassWithFinalizer = PyType_FromSpecWithBases(
         &HeapCTypeSubclassWithFinalizer_spec, subclass_with_finalizer_bases);
     if (HeapCTypeSubclassWithFinalizer == NULL) {
@@ -7072,6 +7086,7 @@ PyInit__testcapi(void)
     }
     Py_DECREF(subclass_with_finalizer_bases);
     PyModule_AddObject(m, "HeapCTypeSubclassWithFinalizer", HeapCTypeSubclassWithFinalizer);
+#endif
 
     if (PyType_Ready(&ContainerNoGC_type) < 0) {
         return NULL;
@@ -7081,11 +7096,14 @@ PyInit__testcapi(void)
                            (PyObject *) &ContainerNoGC_type) < 0)
         return NULL;
 
+#ifndef PYPY_VERSION
     PyState_AddModule(m, &_testcapimodule);
+#endif
     return m;
 }
 
 
+#ifndef PYPY_VERSION
 /* Test the C API exposed when PY_SSIZE_T_CLEAN is not defined */
 
 #undef Py_BuildValue
@@ -7126,3 +7144,4 @@ test_buildvalue_issue38913(PyObject *self, PyObject *Py_UNUSED(ignored))
     PyErr_Clear();
     Py_RETURN_NONE;
 }
+#endif

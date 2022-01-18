@@ -7,7 +7,7 @@ from pypy.module.cpyext.api import (
     PyVarObjectFields, Py_ssize_t, CONST_STRING)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, from_ref,
+    PyObject, make_ref, from_ref,
     make_typedescr, get_typedescr)
 # Type PyByteArrayObject represents a mutable array of bytes.
 # The Python API is that of a sequence;

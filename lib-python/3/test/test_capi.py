@@ -773,6 +773,7 @@ class Test_testcapi(unittest.TestCase):
 
 
 @unittest.skipIf(support.check_impl_detail(pypy=True),
+    "_testinternalcapi is CPython only")
 class Test_testinternalcapi(unittest.TestCase):
     locals().update((name, getattr(_testinternalcapi, name))
                     for name in dir(_testinternalcapi)
