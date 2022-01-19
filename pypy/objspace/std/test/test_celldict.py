@@ -141,6 +141,16 @@ class AppTestModuleDict(object):
         name = next(__pypy__.reversed_dict(__pypy__.__dict__))
         assert isinstance(name, str)
 
+    def test_copy(self):
+        m = type(__builtins__)("abc")
+        m.s = 12
+        m.s = 123 # int cell
+        m.x = object
+        d = m.__dict__
+        d["s"] = 12
+        d1 = d.copy()
+        assert d1 == {"__name__": "abc", "__doc__": None, "s": 12, "x": object, "__package__": None, "__loader__": None, "__spec__": None}
+
 
 class TestModuleDictImplementation(BaseTestRDictImplementation):
     StrategyClass = ModuleDictStrategy

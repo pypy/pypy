@@ -571,6 +571,13 @@ class DictStrategy(object):
                 break
             w_updatedict.setitem(w_key, w_value)
 
+    def copy(self, w_dict):
+        # fallback
+        iteritems = self.iteritems(w_dict)
+        w_copy = W_DictMultiObject.allocate_and_init_instance(self.space)
+        DictStrategy.rev_update1_dict_dict(self, w_dict, w_copy)
+        return w_copy
+
     def prepare_update(self, w_dict, num_extra):
         pass
 
@@ -724,6 +731,9 @@ class EmptyDictStrategy(DictStrategy):
             return w_default
         else:
             raise KeyError
+
+    def copy(self, w_dict):
+        return W_DictMultiObject.allocate_and_init_instance(self.space)
 
     # ---------- iterator interface ----------------
 
@@ -1081,6 +1091,10 @@ class AbstractTypedStrategy(object):
         w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(d_new)
 
+    def copy(self, w_dict):
+        dstorage = self.unerase(w_dict.dstorage)
+        return W_DictObject(self.space, self, self.erase(dstorage.copy()))
+
     # --------------- iterator interface -----------------
 
     def getiterkeys(self, w_dict):
@@ -1338,7 +1352,12 @@ def update1(space, w_dict, w_data):
 
 
 def update1_dict_dict(space, w_dict, w_data):
-    w_data.get_strategy().rev_update1_dict_dict(w_data, w_dict)
+    if isinstance(w_dict.get_strategy(), EmptyDictStrategy):
+        w_copy = w_data.get_strategy().copy(w_data)
+        w_dict.set_strategy(w_copy.get_strategy())
+        w_dict.dstorage = w_copy.dstorage
+    else:
+        w_data.get_strategy().rev_update1_dict_dict(w_data, w_dict)
 
 
 def update1_pairs(space, w_dict, data_w):
