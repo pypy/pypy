@@ -3,7 +3,7 @@ PyPy v7.3.8: release of python 2.7, 3.7, 3.8, and 3.9-beta
 ==========================================================
 
 ..
-    Changelog up to commit f25e844fc6c6
+    Changelog up to commit 58144a0105d3
 
 .. note::
      This is a pre-release announcement. When the release actually happens, it
@@ -41,6 +41,13 @@ include:
   - PyPy3.9 uses a python version of the peg parser (which is part of CPython
     3.10), which brought with it a cleanup of the lexer and parser in general
   - Fixed a regression in PyPy3.8 when JITting empty list comprehenshions
+  - Tweaked some issues around changing the file layout after packaging to make
+    PyPy more compatible with CPython
+  - RPython now allows the target executable to have a ``.`` in its name, so
+    PyPy3.9 will produce a ``pypy3.9-c`` and ``libpypy3.9-c.so``. Changing the
+    name of the shared object to be version-specific (it used to be
+    ``libpypy3-c.so``) will allow it to live alongside other versions.
+  - Building PyPy3.9+ accepts a ``--platlibdir`` argument like CPython.
 
 We recommend updating. You can find links to download the v7.3.8 releases here:
 
@@ -112,6 +119,7 @@ Bugfixes shared across versions
 - Fix corner case in ``float.fromhex`` (bpo44954_)
 - Copy ``dtoa`` changes from CPython (bpo40780_)
 - Use ``symtable`` to improve the position of "duplicate argument" errors
+- Add ``__builtins__`` to globals ``dict`` when calling ``eval`` (issue 3584_)
 
 Speedups and enhancements shared across versions
 ------------------------------------------------
@@ -124,6 +132,9 @@ Speedups and enhancements shared across versions
 - Update CFFI to 1.15.0, no real changes
 - Stop doing guard strengthening with guards that come from inlining the short
   preamble. doing that can lead to endless bridges (issue 3598_)
+- Split `__pypy__.do_what_I_mean()`` into the original plus ``__pypy__._internal_crash``
+  to make the meaning more clear. These are functions useful for internal
+  testing (issue 3617_).
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -147,6 +158,15 @@ Python 3.7+ bugfixes
 - Fix position of syntax errors raised while parsing f-string subexpressions
 - Fix stack effect of ``EXTENDED_ARG``
 - Fix incrementality in the unicode escape handler
+- Like CPython, limit ``pwd.getpwnam`` to ``str`` (issue 3624_)
+- Only use ``run_fork_hooks`` in ``_posixprocess.fork_exec`` if ``preexec_fn``
+  is used (issue 3630_)
+- Remove redundant call to ``threading._after_fork`` (issue 3623_)
+- Fix filename in exception raised sometimes when running code with ``-c``
+- Fixes for the ``signal`` module on windows so that ``raise_signal`` will not
+  segfault
+- Detail about ``PYTHONIOENCODING``: if the encoding or the error is ommitted,
+  always use ``utf-8/strict`` (instead of asking the locale)
 
 Python 3.7+ speedups and enhancements
 -------------------------------------
@@ -160,22 +180,35 @@ Python 3.7+ speedups and enhancements
   regular empty dict
 - Implement ``_opcode.stack_effect``
 - Share more ``W_UnicodeObject`` prebuilt instances, shrink the binary by over 1MB
+- Fix the ctypes errcheck_ protocol
+- Various fixes in the windows-only ``_overlapped`` module (issue 3625_)
+- Implement ``-X utf8``
 
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
 
-- Added ``PyDescr_NewGetSet``,
+- Added ``PyDescr_NewGetSet``, ``PyModule_NewObject``, ``PyModule_ExecDef``
 - Fix segfault when using format strings in ``PyUnicode_FromFormat`` and ``PyErr_Format`` (issue 3593_)
 - ``_PyObject_LookupAttrId`` does not raise ``AttributeError``
 - Fix cpyext implementation of ``contextvars.get``
 - Deprecate ``PyPy.h``, mention the contents in the embedding docs (issue 3608_)
 - Remove duplicate definition of ``Py_hash_t``, document diff to CPython (issue 3612_)
+- Fix overflow error message when converting Python ``int`` to C ``int``
 
 Python 3.8+ bugfixes
 --------------------
 - Fixed a regression when JITting empty list comprehenshions (issue 3598_)
 - Unwrapping an unsigned short raises ``ValueError`` on negative numbers
 - Make properties unpicklable
+- When packaging, fix finding dependencies of shared objects for portable
+  builds and fix location of tcl/tk runtimes (issue 3616_). Also ignore
+  ``__pycache__`` directories.
+- Match CPython errors in ``_io.open`` and ``socket.socket(fileno=fileno)``
+- Add ``LDFLAGS`` to ``sysconfig`` values
+- PyPy reports the IPv6 scope ID in ``getaddrinfo`` where CPython does not. Fix
+  stdlib tests to allow PyPy's repr. bpo35545_ touches on this. (issue 3628_)
+- Fix small bugs when raising errors in various stdlib modules that caused
+  stdlib test failures
 
 Python 3.8+ speedups and enhancements
 -------------------------------------
@@ -185,19 +218,37 @@ Python 3.8+ speedups and enhancements
   attribute-modifaction tracing
 - Make sure that all bytecodes that can close a loop go via ``jump_absolute``,
   so the JIT can trace them
+- Add more auditing events
 
 Python 3.8 C-API
 ~~~~~~~~~~~~~~~~
 - Add ``exports.h`` and refactor headers to more closely follow CPython
 - ``PyLong_AsLong`` tries ``__index__`` first (issue 3585_)
+- Redo ``PyTypeObject`` to be able to use the ``tp_vectorcall`` slot without
+  changing ABI compatibility (issue 3618_) by appropriating the PyPy-only
+  ``tp_pypy_flags`` slot. Users should upgrade Cython to 0.2.26 to avoid a
+  compiler warning.
+- Add ``PyCompilerFlags.cf_feature_version`` (bpo35766_)
 
 .. _3589: https://foss.heptapod.net/pypy/pypy/-/issues/3589
+.. _3584: https://foss.heptapod.net/pypy/pypy/-/issues/3584
 .. _3598: https://foss.heptapod.net/pypy/pypy/-/issues/3598
 .. _3585: https://foss.heptapod.net/pypy/pypy/-/issues/3585
 .. _3593: https://foss.heptapod.net/pypy/pypy/-/issues/3593
 .. _3604: https://foss.heptapod.net/pypy/pypy/-/issues/3604
 .. _3608: https://foss.heptapod.net/pypy/pypy/-/issues/3608
 .. _3612: https://foss.heptapod.net/pypy/pypy/-/issues/3612
+.. _3616: https://foss.heptapod.net/pypy/pypy/-/issues/3616
+.. _3617: https://foss.heptapod.net/pypy/pypy/-/issues/3617
+.. _3618: https://foss.heptapod.net/pypy/pypy/-/issues/3618
+.. _3623: https://foss.heptapod.net/pypy/pypy/-/issues/3623
+.. _3624: https://foss.heptapod.net/pypy/pypy/-/issues/3624
+.. _3625: https://foss.heptapod.net/pypy/pypy/-/issues/3625
+.. _3628: https://foss.heptapod.net/pypy/pypy/-/issues/3628
+.. _3630: https://foss.heptapod.net/pypy/pypy/-/issues/3630
 .. _bpo35883: https://bugs.python.org/issue35883
 .. _bpo44954: https://bugs.python.org/issue44954
 .. _bpo40780: https://bugs.python.org/issue40780
+.. _bpo35766: https://bugs.python.org/issue35766
+.. _bpo35545: https://bugs.python.org/issue35545
+.. _errcheck: https://docs.python.org/3/library/ctypes.html#ctypes._FuncPtr.errcheck
