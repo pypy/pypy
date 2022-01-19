@@ -250,8 +250,7 @@ class W_DictMultiObject(W_Root):
 
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""
-        strategy = self.get_strategy()
-        return strategy.copy(self)
+        return self.copy()
 
     def descr_items(self, space):
         """D.items() -> list of D's (key, value) pairs, as 2-tuples"""
@@ -408,7 +407,7 @@ class W_ModuleDictObject(W_DictMultiObject):
 
 def _add_indirections():
     dict_methods = "getitem getitem_str setitem setdefault \
-                    popitem delitem clear \
+                    popitem delitem clear copy \
                     length w_keys values items \
                     iterkeys itervalues iteritems \
                     listview_bytes listview_ascii listview_int \
