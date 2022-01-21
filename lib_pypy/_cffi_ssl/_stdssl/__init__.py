@@ -20,7 +20,7 @@ from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
 from _cffi_ssl._stdssl.utility import (_str_with_len, _bytes_with_len,
     _str_to_ffi_buffer, _str_from_buf, _cstr_decode_fs)
 from _cffi_ssl._stdssl.error import (
-    ssl_error, pyssl_error, SSLError, SSLCertVerificationError,
+    ssl_error, pyssl_error, SSLError,
     SSLZeroReturnError, SSLWantReadError, SSLWantWriteError, SSLSyscallError,
     SSLEOFError)
 from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
