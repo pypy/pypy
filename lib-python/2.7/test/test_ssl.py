@@ -372,13 +372,17 @@ class BasicSocketTests(unittest.TestCase):
         self.assertLessEqual(patch, 63)
         self.assertGreaterEqual(status, 0)
         self.assertLessEqual(status, 15)
-        # Version string as returned by {Open,Libre}SSL, the format might change
-        if IS_LIBRESSL:
-            self.assertTrue(s.startswith("LibreSSL {:d}".format(major)),
-                            (s, t, hex(n)))
+        libressl_ver = "LibreSSL {}" % major
+        if major >= 3:
+            # 3.x uses 0xMNN00PP0L
+            openssl_ver = "OpenSSL {}.{}.{}" % (major, minor, patch)
         else:
-            self.assertTrue(s.startswith("OpenSSL {:d}.{:d}.{:d}".format(major, minor, fix)),
-                            (s, t))
+            openssl_ver = "OpenSSL {}.{}.{}" % (major, minor, fix)
+        self.assertTrue(
+            s.startswith((openssl_ver, libressl_ver)),
+            (s, t, hex(n))
+        )
+
 
     @support.cpython_only
     def test_refcycle(self):
