@@ -1331,7 +1331,7 @@ class _SSLContext(object):
             if cadata is None:
                 ca_file_type = -1
             else:
-                if not isinstance(cadata, str):
+                if not isinstance(cadata, unicode):
                     ca_file_type = lib.SSL_FILETYPE_ASN1
                 else:
                     ca_file_type = lib.SSL_FILETYPE_PEM
