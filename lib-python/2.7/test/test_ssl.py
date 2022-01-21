@@ -374,12 +374,12 @@ class BasicSocketTests(unittest.TestCase):
         self.assertLessEqual(patch, 63)
         self.assertGreaterEqual(status, 0)
         self.assertLessEqual(status, 15)
-        libressl_ver = "LibreSSL {}" % major
+        libressl_ver = "LibreSSL {}".format(major)
         if major >= 3:
             # 3.x uses 0xMNN00PP0L
-            openssl_ver = "OpenSSL {}.{}.{}" % (major, minor, patch)
+            openssl_ver = "OpenSSL {}.{}.{}".format(major, minor, patch)
         else:
-            openssl_ver = "OpenSSL {}.{}.{}" % (major, minor, fix)
+            openssl_ver = "OpenSSL {}.{}.{}".format(major, minor, fix)
         self.assertTrue(
             s.startswith((openssl_ver, libressl_ver)),
             (s, t, hex(n))
