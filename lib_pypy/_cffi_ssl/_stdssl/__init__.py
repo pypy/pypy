@@ -361,8 +361,9 @@ class _SSLSocket(object):
                 else:
                     lib.SSL_set_post_handshake_auth(ssl, 1)
 
-        if server_hostname is not None:
-            self._ssl_configure_hostname(server_hostname)
+        if HAS_SNI and self.server_hostname:
+            name = _str_to_ffi_buffer(self.server_hostname)
+            lib.SSL_set_tlsext_host_name(ssl, name)
 
         # If the socket is in non-blocking mode or timeout mode, set the BIO
         # to non-blocking mode (blocking is the default)
@@ -392,32 +393,6 @@ class _SSLSocket(object):
         self._owner = None
         self.server_hostname = None
         self.socket = None
-
-    def _ssl_configure_hostname(self, server_hostname):
-        # Disable OpenSSL's special mode with leading dot in hostname:
-        # When name starts with a dot (e.g ".example.com"), it will be
-        # matched by a certificate valid for any sub-domain of name.
-        length = len(server_hostname)
-        if length == 0 or server_hostname[0] == '.':
-            raise ValueError("server_hostname cannot be an empty string or "
-                             "start with a leading dot.")
-
-        # inet_pton is not available on all platforms
-        ip = lib.a2i_IPADDRESS(server_hostname)
-        if not ip:
-            lib.ERR_clear_error()
-            if not lib.SSL_set_tlsext_host_name(self.ssl, server_hostname):
-                raise ssl_error(None)
-        if self.ctx.check_hostname:
-            param = lib.SSL_get0_param(self.ssl)
-            if not ip:
-                if not lib.X509_VERIFY_PARAM_set1_host(
-                        param, server_hostname, len(server_hostname)):
-                    raise ssl_error(None)
-            else:
-                if not lib.X509_VERIFY_PARAM_set1_ip(
-                        param, lib.ASN1_STRING_data(ip), lib.ASN1_STRING_length(ip)):
-                    raise ssl_error(None)
 
     @property
     def owner(self):
