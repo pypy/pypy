@@ -1361,7 +1361,7 @@ class _SSLContext(object):
                     _errno = ffi.errno
                     if _errno:
                         lib.ERR_clear_error()
-                        raise OSError(_errno, '')
+                        raise IOError(_errno, '')
                     else:
                         raise ssl_error(None)
         finally:
