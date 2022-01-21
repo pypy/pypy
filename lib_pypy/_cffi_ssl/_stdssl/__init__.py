@@ -117,13 +117,13 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1 = 3
     PROTOCOL_TLSv1_1 = 4
     PROTOCOL_TLSv1_2 = 5
-protocol_tls_client = 0x10
-protocol_tls_server = 0x11
-has_sslv2 = bool(lib.cryptography_has_ssl2)
-has_sslv3 = sslv3_method_ok
-has_tlsv1 = true # xxx
-has_tlsv1_1 = bool(lib.cryptography_has_tlsv1_1)
-has_tlsv1_2 = bool(lib.cryptography_has_tlsv1_2)
+PROTOCOL_TLS_CLIENT = 0x10
+PROTOCOL_TLS_SERVER = 0x11
+HAS_SSLv2 = bool(lib.Cryptography_HAS_SSL2)
+HAS_SSLv3 = SSLv3_method_ok
+HAS_TLSv1 = True # XXX
+HAS_TLSv1_1 = bool(lib.Cryptography_HAS_TLSv1_1)
+HAS_TLSv1_2 = bool(lib.Cryptography_HAS_TLSv1_2)
 HAS_TLSv1_3 = bool(lib.Cryptography_HAS_TLSv1_3)
 
 # Values brute-copied from CPython 3.7. They're documented as meaningless.
@@ -380,10 +380,6 @@ class _SSLSocket(object):
 
         if sock:
             self.socket = weakref.ref(sock)
-        if owner is not None:
-            self.owner = owner
-        if session is not None:
-            self.session = session
 
         return self
 
@@ -1014,9 +1010,9 @@ for name in SSL_CTX_STATS_NAMES:
 
 class _SSLContext(object):
     __slots__ = ('ctx', '_check_hostname', 'servername_callback',
-                 'alpn_protocols', '_alpn_protocols_handle',
+                 'alpn_protocols', '_alpn_protocols_handle', '_protocol',
                  'npn_protocols', 'set_hostname', '_post_handshake_auth',
-                 '_set_hostname_handle', '_npn_protocols_handle')
+                 '_set_hostname_handle', '_npn_protocols_handle', 'hostflags')
     def __new__(cls, protocol):
         self = object.__new__(cls)
         self.ctx = ffi.NULL
@@ -1093,6 +1089,7 @@ class _SSLContext(object):
                 key = lib.EC_KEY_new_by_curve_name(lib.NID_X9_62_prime256v1)
                 lib.SSL_CTX_set_tmp_ecdh(self.ctx, key)
                 lib.EC_KEY_free(key)
+        params = lib.SSL_CTX_get0_param(self.ctx);
         if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
             # Improve trust chain building when cross-signed intermediate
             # certificates are present. See https://bugs.python.org/issue23476.
@@ -1177,7 +1174,6 @@ class _SSLContext(object):
             if not lib.X509_VERIFY_PARAM_clear_flags(param, clear):
                 raise ssl_error(None)
         if set:
-            param = lib.X509_STORE_get0_param(store)
             if not lib.X509_VERIFY_PARAM_set_flags(param, set):
                 raise ssl_error(None)
 

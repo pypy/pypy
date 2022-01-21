@@ -61,7 +61,7 @@ def ssl_error(errstr, errcode=0):
     if errstr is None:
         errcode = lib.ERR_peek_last_error()
     try:
-        return fill_sslerror(SSLError, errcode, errstr, errcode)
+        return fill_sslerror(None, SSLError, errcode, errstr, errcode)
     finally:
         lib.ERR_clear_error()
 
@@ -90,27 +90,27 @@ def pyssl_error(obj, ret):
     e = lib.ERR_peek_last_error()
 
     if obj.ssl != ffi.NULL:
-        err = lib.SSL_get_error(obj.ssl, ret)
+        err = obj.err
 
-        if err == SSL_ERROR_ZERO_RETURN:
+        if err.ssl == SSL_ERROR_ZERO_RETURN:
             errtype = SSLZeroReturnError
-            errstr = "TLS/SSL connection has been closed"
+            errstr = "TLS/SSL connection has been closed (EOF)"
             errval = SSL_ERROR_ZERO_RETURN
-        elif err == SSL_ERROR_WANT_READ:
+        elif err.ssl == SSL_ERROR_WANT_READ:
             errtype = SSLWantReadError
             errstr = "The operation did not complete (read)"
             errval = SSL_ERROR_WANT_READ
-        elif err == SSL_ERROR_WANT_WRITE:
+        elif err.ssl == SSL_ERROR_WANT_WRITE:
             errtype = SSLWantWriteError
             errstr = "The operation did not complete (write)"
             errval = SSL_ERROR_WANT_WRITE
-        elif err == SSL_ERROR_WANT_X509_LOOKUP:
+        elif err.ssl == SSL_ERROR_WANT_X509_LOOKUP:
             errstr = "The operation did not complete (X509 lookup)"
             errval = SSL_ERROR_WANT_X509_LOOKUP
-        elif err == SSL_ERROR_WANT_CONNECT:
+        elif err.ssl == SSL_ERROR_WANT_CONNECT:
             errstr = "The operation did not complete (connect)"
             errval = SSL_ERROR_WANT_CONNECT
-        elif err == SSL_ERROR_SYSCALL:
+        elif err.ssl == SSL_ERROR_SYSCALL:
             if e == 0:
                 if ret == 0 or obj.socket is None:
                     errtype = SSLEOFError
@@ -120,7 +120,11 @@ def pyssl_error(obj, ret):
                     # the underlying BIO reported an I/0 error
                     lib.ERR_clear_error()
                     # s = obj.get_socket_or_None()
-                    # XXX: Windows?
+                    if sys.platform == 'win32':
+                        if err.ws:
+                            return OSError(err.ws, os.strerror(err.ws))
+                    if err.c:
+                        ffi.errno = err.c 
                     errno = ffi.errno
                     return SSLError(errno, os.strerror(errno))
                 else:
@@ -130,12 +134,18 @@ def pyssl_error(obj, ret):
             else:
                 errstr = _str_from_buf(lib.ERR_lib_error_string(e))
                 errval = SSL_ERROR_SYSCALL
-        elif err == SSL_ERROR_SSL:
+        elif err.ssl == SSL_ERROR_SSL:
             errval = SSL_ERROR_SSL
-            if errcode != 0:
-                errstr = _str_from_buf(lib.ERR_lib_error_string(errcode))
-            else:
+            if e == 0:
                 errstr = "A failure in the SSL library occurred"
+            else:
+                errstr = _str_from_buf(lib.ERR_lib_error_string(errcode))
+            err_lib = lib.ERR_GET_LIB(e)
+            err_reason = lib.ERR_GET_REASON(e)
+            reason_str = ERR_CODES_TO_NAMES.get((err_lib, err_reason), None)
+            if (lib.ERR_GET_LIB(e) == lib.ERR_LIB_SSL and 
+                    reason_str == 'CERTIFICATE_VERIFY_FAILED'):
+                errtype = SSLCertVerificationError
         else:
             errstr = "Invalid error code"
             errval = SSL_ERROR_INVALID_ERROR_CODE
@@ -162,16 +172,16 @@ def fill_sslerror(obj, errtype, ssl_errno, errstr, errcode):
         if lib.Cryptography_HAS_102_VERIFICATION_ERROR_CODES:
             if verify_code == lib.X509_V_ERR_HOSTNAME_MISMATCH:
                 verify_str = ("Hostname mismatch, certificate is not "
-                              f"valid for '{obj.server_hostname}'.")
+                              "valid for '{}'.".format(obj.server_hostname))
             elif verify_code == lib.X509_V_ERR_IP_ADDRESS_MISMATCH :
                 verify_str = ("IP address mismatch, certificate is not "
-                              f"valid for '{obj.server_hostname}'.")
+                              "valid for '{}'.".format(obj.server_hostname))
         if not verify_str:
             verify_str = ffi.string(lib.X509_verify_cert_error_string(verify_code)).decode()
     if verify_str and reason_str and lib_str:
-        msg = f'[{lib_str}: {reason_str}] {errstr}: {verify_str}'
+        msg = "[%s: %s] %s: %s" % (lib_str, reason_str, errstr, verify_str)
     elif reason_str and lib_str:
-        msg = f"[{lib_str}: {reason_str}] {errstr}"
+        msg = "[%s: %s] %s" % (lib_str, reason_str, errstr)
     elif lib_str:
         msg = "[%s] %s" % (lib_str, errstr)
 
