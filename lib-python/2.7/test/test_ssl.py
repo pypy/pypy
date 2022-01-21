@@ -3032,7 +3032,7 @@ else:
 
         def test_dh_params(self):
             # Check we can get a connection with ephemeral Diffie-Hellman
-            context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+            context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
             context.load_cert_chain(CERTFILE)
             context.load_dh_params(DHFILE)
             context.set_ciphers("kEDH")
@@ -3123,10 +3123,10 @@ else:
                 (['abc', 'def'], 'abc')
             ]
             for client_protocols, expected in protocol_tests:
-                server_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+                server_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
                 server_context.load_cert_chain(CERTFILE)
                 server_context.set_npn_protocols(server_protocols)
-                client_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+                client_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
                 client_context.load_cert_chain(CERTFILE)
                 client_context.set_npn_protocols(client_protocols)
                 stats = server_params_test(client_context, server_context,
