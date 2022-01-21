@@ -266,8 +266,7 @@ def _get_crl_dp(certificate):
     for i in range(count):
         dp = lib.sk_DIST_POINT_value(dps, i);
         if not dp.distpoint:
-            # Ignore empty DP value, CVE-2019-5010
-            continue
+            return None
         gns = dp.distpoint.name.fullname;
 
         jcount = lib.sk_GENERAL_NAME_num(gns)

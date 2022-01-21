@@ -30,7 +30,6 @@ static const int CRYPTO_MEM_CHECK_DISABLE;
 """
 
 FUNCTIONS = """
-int CRYPTO_mem_ctrl(int);
 
 void OPENSSL_cleanup(void);
 
@@ -130,4 +129,11 @@ void *Cryptography_realloc_wrapper(void *ptr, size_t size, const char *path,
 void Cryptography_free_wrapper(void *ptr, const char *path, int line) {
     free(ptr);
 }
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_300
+#else
+static const int CRYPTO_MEM_CHECK_ON=0;
+static const int CRYPTO_MEM_CHECK_OFF=0;
+static const int CRYPTO_MEM_CHECK_ENABLE=0;
+static const int CRYPTO_MEM_CHECK_DISABLE=0;
+#endif
 """
