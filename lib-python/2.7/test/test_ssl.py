@@ -1056,9 +1056,15 @@ class ContextTests(unittest.TestCase):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
         self.assertRaises(TypeError, ctx.load_verify_locations, cadata=object)
 
-        with self.assertRaisesRegexp(ssl.SSLError, "no start line"):
+        with self.assertRaisesRegexp(
+            ssl.SSLError,
+            "no start line: cadata does not contain a certificate"
+        ):
             ctx.load_verify_locations(cadata=u"broken")
-        with self.assertRaisesRegexp(ssl.SSLError, "not enough data"):
+        with self.assertRaisesRegexp(
+            ssl.SSLError,
+            "not enough data: cadata does not contain a certificate"
+        ):
             ctx.load_verify_locations(cadata=b"broken")
 
 
@@ -1697,7 +1703,7 @@ class NetworkedTests(unittest.TestCase):
     def test_context_setget(self):
         # Check that the context of a connected socket can be replaced.
         with support.transient_internet(REMOTE_HOST):
-            ctx1 = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+            ctx1 = ssl.SSLContext(ssl.PROTOCOL_TLS)
             ctx2 = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             s = socket.socket(socket.AF_INET)
             with closing(ctx1.wrap_socket(s)) as ss:

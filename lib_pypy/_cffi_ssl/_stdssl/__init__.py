@@ -1391,19 +1391,23 @@ class _SSLContext(object):
                 loaded += 1
 
             err = lib.ERR_peek_last_error()
-            if (ca_file_type == lib.SSL_FILETYPE_ASN1 and
-                loaded > 0 and
+            if loaded == 0:
+                if ca_file_type == lib.SSL_FILETYPE_PEM:
+                    msg = "no start line: cadata does not contain a certificate"
+                else:
+                    msg = "not enough data: cadata does not contain a certificate"
+                raise ssl_error(msg)
+            elif (ca_file_type == lib.SSL_FILETYPE_ASN1 and
                 lib.ERR_GET_LIB(err) == lib.ERR_LIB_ASN1 and
                 lib.ERR_GET_REASON(err) == lib.ASN1_R_HEADER_TOO_LONG):
                 # EOF ASN1 file, not an error
                 lib.ERR_clear_error()
             elif (ca_file_type == lib.SSL_FILETYPE_PEM and
-                  loaded > 0 and
                   lib.ERR_GET_LIB(err) == lib.ERR_LIB_PEM and
                   lib.ERR_GET_REASON(err) == lib.PEM_R_NO_START_LINE):
                 # EOF PEM file, not an error
                 lib.ERR_clear_error()
-            else:
+            elif err:
                 raise ssl_error(None)
         finally:
             lib.BIO_free(biobuf)
