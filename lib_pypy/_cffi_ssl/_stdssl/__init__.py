@@ -1126,6 +1126,8 @@ class _SSLContext(object):
         options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
         options |= lib.SSL_OP_SINGLE_DH_USE
         options |= lib.SSL_OP_SINGLE_ECDH_USE
+        if lib.Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF:
+            options |= lib.SSL_OP_IGNORE_UNEXPECTED_EOF
         lib.SSL_CTX_set_options(self.ctx, options)
         lib.SSL_CTX_set_session_id_context(self.ctx, b"Python", len(b"Python"))
 
@@ -1241,6 +1243,53 @@ class _SSLContext(object):
     if HAS_CTRL_GET_MAX_PROTO_VERSION:
         def set_min_max_proto_version(self, arg, what):
             v = int(arg)
+            if self.protocol != PROTOCOL_TLS:
+                raise ValueError("The context's protocol doesn't support"
+                    "modification of highest and lowest version.")
+            if what == 0:
+                if v == PROTO_MINIMUM_SUPPORTED:
+                    v = 0
+                elif v == PROTO_MAXIMUM_SUPPORTED:
+                    # Emulate max for set_min_proto_version
+                    v = PROTO_MAXIMUM_AVAILABLE
+                result = lib.SSL_CTX_set_min_proto_version(self.ctx, v)
+            else:
+                if v == PROTO_MAXIMUM_SUPPORTED:
+                    v = 0
+                elif v == PROTO_MINIMUM_SUPPORTED:
+                    # Emulate max for set_min_proto_version
+                    v = PROTO_MINIMUM_AVAILABLE
+                result = lib.SSL_CTX_set_max_proto_version(self.ctx, v)
+            if result == 0:
+                raise ValueError('Unsupported protocol version 0x%x' % v)
+            return 0
+
+        @property
+        def minimum_version(self):
+            v = lib.SSL_CTX_get_min_proto_version(self.ctx)
+            if v == 0:
+                v = PROTO_MINIMUM_SUPPORTED
+            return v
+
+        @minimum_version.setter
+        def minimum_version(self, arg):
+            return self.set_min_max_proto_version(arg, 0);
+
+        @property
+        def maximum_version(self):
+            v = lib.SSL_CTX_get_max_proto_version(self.ctx)
+            if v == 0:
+                v = PROTO_MAXIMUM_SUPPORTED
+            return v
+
+        @maximum_version.setter
+        def maximum_version(self, arg):
+            return self.set_min_max_proto_version(arg, 1);
+         
+
+    @property
+    def protocol(self):
+        return self._protocol
             if self.protocol not in (PROTOCOL_TLS_CLIENT, PROTOCOL_TLS_SERVER,
                                      PROTOCOL_TLS):
                 raise ValueError("The context's protocol doesn't support"

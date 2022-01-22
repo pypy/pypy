@@ -60,19 +60,25 @@ configure_args = ['./configure',
         ]
 # please note the deliberate use of a mirror site: we can't use HTTPS
 # without an _ssl module, but the OpenSSL download site redirect HTTP
-# to HTTPS. Use a mirror from https://www.openssl.org/source/mirror.html
+# to HTTPS
 cffi_dependencies = {
-    '_ssl': ('http://artfiles.org/openssl.org/source/openssl-1.1.1m.tar.gz',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1m.tar.gz',
              'f89199be8b23ca45fc7cb9f1d8d3ee67312318286ad030f5316aca6462db6c96',
              [
-              # ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],  #for openssl3
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.1.tar.gz',
+              'c311ad853353bce796edad01a862c50a8a587f62e7e2100ef465ab53ec9b06d1',
+              [
+               ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
+               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+              ]),
 }
+cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
-if sys.platform == 'darwin' or platform.machine() == 'aarch64':
     # TODO: use these on x86 after upgrading Docker images to manylinux2014
     cffi_dependencies['_gdbm'] = (
               # this does not compile on the x86 buildbot, linker is missing '_history_list'
