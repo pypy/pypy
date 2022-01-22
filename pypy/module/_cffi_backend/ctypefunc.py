@@ -213,9 +213,6 @@ def set_mustfree_flag(data, flag):
 # ____________________________________________________________
 
 
-USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
-
-
 # ----------
 # We attach to the classes small methods that return a 'ffi_type'
 

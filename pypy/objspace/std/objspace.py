@@ -357,14 +357,28 @@ class StdObjSpace(ObjSpace):
         assert isinstance(s, str)
         return W_BytesObject(s)
 
+    @specialize.arg_or_var(1)
     def newtext(self, s):
         assert isinstance(s, str)
+        if is_annotation_constant(s):
+            return self._newtext_memo(s)
         return W_BytesObject(s) # Python3 this is unicode
 
     def newtext_or_none(self, s):
         if s is None:
             return self.w_None
         return self.newtext(s)
+
+    @specialize.memo()
+    def _newtext_memo(self, s):
+        if s is None:
+            return self.w_None # can happen during annotation
+        # try to see whether we exist as an interned string, but don't intern
+        # if not
+        w_t = self.interned_strings.get(s)
+        if w_t is not None:
+            return w_t
+        return W_BytesObject(s)
 
     def newutf8(self, utf8s, length):
         assert utf8s is not None

@@ -122,6 +122,28 @@ def _get_peer_alt_names(certificate):
                 else:
                     v = _str_with_len(buf, length)
                 peer_alt_names.append(("Registered ID", v))
+            elif _type == lib.GEN_IPADD:
+                # OpenSSL < 3.0.0 adds a trailing \n to IPv6. 3.0.0 removed
+                # the trailing newline. Keep it
+                v = "IP Address"
+                ip = _string_from_asn1(name.d.ip)
+                if name.d.ip.length == 4:
+                    ip_str = '%d.%d.%d.%d' %(ord(ip[0]), ord(ip[1]),
+                                             ord(ip[2]), ord(ip[3]))
+                elif name.d.ip.length == 16:
+                    ip_str = "%X:%X:%X:%X:%X:%X:%X:%X\n" %(
+                        ord(ip[0]) << 8 | ord(ip[1]),
+                        ord(ip[2]) << 8 | ord(ip[3]),
+                        ord(ip[4]) << 8 | ord(ip[5]),
+                        ord(ip[6]) << 8 | ord(ip[7]),
+                        ord(ip[8]) << 8 | ord(ip[9]),
+                        ord(ip[10]) << 8 | ord(ip[11]),
+                        ord(ip[12]) << 8 | ord(ip[13]),
+                        ord(ip[14]) << 8 | ord(ip[15]),
+                    )
+                else:
+                    ip_str = '<invalid>'
+                peer_alt_names.append((v, ip_str))
             else:
                 # for everything else, we use the OpenSSL print form
                 if _type not in (lib.GEN_OTHERNAME, lib.GEN_X400, \
@@ -266,8 +288,7 @@ def _get_crl_dp(certificate):
     for i in range(count):
         dp = lib.sk_DIST_POINT_value(dps, i);
         if not dp.distpoint:
-            # Ignore empty DP value, CVE-2019-5010
-            continue
+            return None
         gns = dp.distpoint.name.fullname;
 
         jcount = lib.sk_GENERAL_NAME_num(gns)

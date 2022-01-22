@@ -362,8 +362,8 @@ class PyPyTarget(object):
                 argv = [filename, '--embed-dependencies']
             else:
                 argv = [filename,]
-            status, out, err = run_subprocess(str(driver.compute_exe_name()),
-                                              argv)
+            exe_name = py.path.local(driver.c_entryp)
+            status, out, err = run_subprocess(str(exe_name), argv)
             sys.stdout.write(out)
             sys.stderr.write(err)
             # otherwise, ignore errors

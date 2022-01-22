@@ -8,8 +8,10 @@ import os
 # the @rpath handling used in Darwin._args_for_shared is only availabe
 # since 10.5, so we use that as minimum requirement. Bumped to 10.7
 # to allow the use of thread-local in __thread in C.
+# Bumped to 10.9 2021-11-22 to match CPython,
+# see https://github.com/python/cpython/blob/42205ee51
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.7'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.9'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
@@ -25,6 +27,9 @@ class Darwin(posix.BasePosix):
     so_ext = 'dylib'
     DEFAULT_CC = 'clang'
     rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path/']
+
+    def get_multiarch(self):
+        return 'darwin'
 
     def get_rpath_flags(self, rel_libdirs):
         # needed for cross compiling on ARM, needs fixing if relevant for darwin
@@ -55,18 +60,6 @@ class Darwin(posix.BasePosix):
         return self._pkg_config("libffi", "--libs-only-L",
                                 ['/usr/lib'],
                                 check_result_dir=True)
-
-    def include_dirs_for_openssl(self):
-        dirs = self._include_dirs_for_openssl()
-        if 'PYPY_LOCALBASE' in os.environ:
-            return [os.environ['PYPY_LOCALBASE'] + '/include'] + dirs
-        return dirs
-
-    def library_dirs_for_openssl(self):
-        dirs = self._library_dirs_for_openssl()
-        if 'PYPY_LOCALBASE' in os.environ:
-            return [os.environ['PYPY_LOCALBASE'] + '/lib'] + dirs
-        return dirs
 
     def _include_dirs_for_openssl(self):
         return self._pkg_config("openssl", "--cflags-only-I",

@@ -286,15 +286,17 @@ def do_warn_explicit(space, w_category, w_message, context_w,
     if action == "error":
         raise OperationError(w_category, w_message)
 
+    if action == 'ignore':
+        return
+
     # Store in the registry that we've been here, *except* when the action is
     # "always".
     warned = False
     if action != 'always':
         if not space.is_w(w_registry, space.w_None):
             space.setitem(w_registry, w_key, space.w_True)
-        if action == 'ignore':
-            return
-        elif action == 'once':
+
+        if action == 'once':
             if space.is_w(w_registry, space.w_None):
                 w_registry = get_once_registry(space)
             warned = update_registry(space, w_registry, w_text, w_category)

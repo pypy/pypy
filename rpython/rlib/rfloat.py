@@ -2,17 +2,25 @@
 
 import math, struct
 from math import acosh, asinh, atanh, log1p, expm1
+import sys
 
 from rpython.annotator.model import SomeString, SomeChar
 from rpython.rlib import objectmodel, unroll
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.tool import rffi_platform
+from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import not_rpython
 
 
+if sys.platform == 'win32':
+    libraries = []
+else:
+    libraries = ["m"]
+
 class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(includes=["float.h"])
+    _compilation_info_ = ExternalCompilationInfo(
+            includes=["float.h", "math.h"], libraries=libraries)
 
 float_constants = ["DBL_MAX", "DBL_MIN", "DBL_EPSILON"]
 int_constants = ["DBL_MAX_EXP", "DBL_MAX_10_EXP",
@@ -24,6 +32,10 @@ for const in float_constants:
 for const in int_constants:
     setattr(CConfig, const, rffi_platform.DefinedConstantInteger(const))
 del float_constants, int_constants, const
+
+nextafter = rffi.llexternal(
+    'nextafter', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+    compilation_info=CConfig._compilation_info_, sandboxsafe=True)
 
 globals().update(rffi_platform.configure(CConfig))
 

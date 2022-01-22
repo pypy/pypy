@@ -466,10 +466,12 @@ class TranslationDriver(SimpleTaskEngine):
         newexename = self.exe_name % self.get_info()
         if '/' not in newexename and '\\' not in newexename:
             newexename = './' + newexename
-        newname = py.path.local(newexename)
         if suffix:
-            newname = newname.new(purebasename = newname.purebasename + suffix)
-        return newname
+            # Replace the last `.sfx` with the suffix
+            newname = py.path.local(newexename.rsplit('.', 1)[0])
+            newname = newname.new(basename=newname.basename + suffix)
+            return newname
+        return py.path.local(newexename)
 
     def create_exe(self):
         """ Copy the compiled executable into current directory, which is
@@ -477,7 +479,7 @@ class TranslationDriver(SimpleTaskEngine):
         """
         if self.exe_name is not None:
             exename = self.c_entryp
-            newexename = mkexename(self.compute_exe_name())
+            newexename = py.path.local(exename.basename)
             shutil_copy(str(exename), str(newexename))
             self.log.info("copied: %s to %s" % (exename, newexename,))
             if self.cbuilder.shared_library_name is not None:
@@ -485,12 +487,12 @@ class TranslationDriver(SimpleTaskEngine):
                 newsoname = newexename.new(basename=soname.basename)
                 shutil_copy(str(soname), str(newsoname))
                 self.log.info("copied: %s to %s" % (soname, newsoname,))
-                if sys.platform == 'win32':
+                if hasattr(self.cbuilder, 'executable_name_w'):
                     # Copy pypyw.exe
-                    newexename = mkexename(self.compute_exe_name(suffix='w'))
-                    exe = py.path.local(exename)
-                    exename = exe.new(purebasename=exe.purebasename + 'w')
-                    shutil_copy(str(exename), str(newexename))
+                    exename_w = self.cbuilder.executable_name_w
+                    newexename_w = py.path.local(exename_w.basename)
+                    self.log.info("copied: %s to %s" % (exename_w, newexename_w,))
+                    shutil_copy(str(exename_w), str(newexename_w))
                     # for pypy, the import library is renamed and moved to
                     # libs/python32.lib, according to the pragma in pyconfig.h
                     libname = self.config.translation.libname
@@ -507,11 +509,15 @@ class TranslationDriver(SimpleTaskEngine):
                         newname = newexename.new(basename=soname.basename)
                         shutil.copyfile(str(name), str(newname.new(ext=ext)))
                         self.log.info("copied: %s" % (newname,))
-                    # HACK: copy libcffi-7.dll which is required for venvs
+                    # HACK: copy libcffi-*.dll which is required for venvs
                     # At some point, we should stop doing this, and instead
                     # use the artifact from packaging the build instead
-                    libffi = py.path.local.sysfind('libffi-7.dll')
-                    shutil.copyfile(str(libffi), os.getcwd() + r'\libffi-7.dll')
+                    libffi = py.path.local.sysfind('libffi-8.dll')
+                    if sys.platform == 'win32' and not libffi:
+                        raise RuntimeError('could not find libffi')
+                    elif libffi:
+                        # in tests, we can mock using windows without libffi
+                        shutil.copyfile(str(libffi), os.getcwd() + r'\libffi-8.dll')
             self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
 
@@ -610,11 +616,6 @@ class TranslationDriver(SimpleTaskEngine):
                         prereq()
                     from rpython.translator.goal import unixcheckpoint
                     unixcheckpoint.restartable_point(auto='run')
-
-def mkexename(name):
-    if sys.platform == 'win32':
-        name = name.new(ext='exe')
-    return name
 
 if os.name == 'posix':
     def shutil_copy(src, dst):

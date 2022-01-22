@@ -464,7 +464,7 @@ if HAS_AF_NETLINK:
             return rffi.cast(lltype.Unsigned, groups)
 
         def __repr__(self):
-            return '<NETLINKAddress %r>' % (self.get_pid(), self.get_groups())
+            return '<NETLINKAddress %r %r>' % (self.get_pid(), self.get_groups())
 
 # ____________________________________________________________
 

@@ -26,6 +26,8 @@
   #define PC_FROM_UCONTEXT uc_mcontext.psw.addr
 #elif defined(__aarch64__)
   #define PC_FROM_UCONTEXT uc_mcontext.pc
+#elif defined(__powerpc64__)
+  #define PC_FROM_UCONTEXT uc_mcontext.gp_regs[PT_NIP]
 #else
   /* linux, gnuc */
   #define PC_FROM_UCONTEXT uc_mcontext.gregs[REG_RIP]

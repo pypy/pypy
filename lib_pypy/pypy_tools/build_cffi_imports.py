@@ -59,13 +59,23 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl': ('http://distfiles.macports.org/openssl/openssl-1.1.1k.tar.gz',
-             '892a0875b9872acd04a9fde79b1f943075d5ea162415de3047c327df33fbaee5',
-             [['./config', '--prefix=/usr', 'no-shared'],
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1m.tar.gz',
+             'f89199be8b23ca45fc7cb9f1d8d3ee67312318286ad030f5316aca6462db6c96',
+             [
+              ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.1.tar.gz',
+              'c311ad853353bce796edad01a862c50a8a587f62e7e2100ef465ab53ec9b06d1',
+              [
+               ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
+               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+              ]),
 }
+cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
+
 if sys.platform == 'darwin':
     # this does not compile on the buildbot, linker is missing '_history_list'
     cffi_dependencies['gdbm'] = (
@@ -220,19 +230,19 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print(stderr.decode('utf-8'))
                 continue
 
-            env['CPPFLAGS'] = \
-                '-I{}/usr/include {}'.format(deps_destdir, env.get('CPPFLAGS', ''))
-            env['LDFLAGS'] = \
-                '-L{}/usr/lib {}'.format(deps_destdir, env.get('LDFLAGS', ''))
+            env['CPPFLAGS'] = '-I{}/usr/include {}'.format(
+                            deps_destdir, env.get('CPPFLAGS', ''))
+            env['LDFLAGS'] = '-L{}/usr/lib64 -L{}/usr/lib {}'.format(
+                            deps_destdir, deps_destdir, env.get('LDFLAGS', ''))
 
         try:
-            status, stdout, stderr = run_subprocess(str(pypy_c), args,
+            status, bld_stdout, bld_stderr = run_subprocess(str(pypy_c), args,
                                                     cwd=cwd, env=env)
             if status != 0:
                 print("stdout:")
-                print(stdout, file=sys.stderr)
+                print(bld_stdout, file=sys.stderr)
                 print("stderr:")
-                print(stderr, file=sys.stderr)
+                print(bld_stderr, file=sys.stderr)
                 raise RuntimeError('building {} failed'.format(key))
         except:
             import traceback;traceback.print_exc()
@@ -244,9 +254,13 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                          env=env)
             if status != 0:
                 failures.append((key, module))
-                print("stdout:")
+                print("build stdout:")
+                print(bld_stdout, file=sys.stderr)
+                print("build stderr:")
+                print(bld_stderr, file=sys.stderr)
+                print("test stdout:")
                 print(stdout, file=sys.stderr)
-                print("stderr:")
+                print("test stderr:")
                 print(stderr, file=sys.stderr)
         if os.path.exists(deps_destdir):
             shutil.rmtree(deps_destdir, ignore_errors=True)

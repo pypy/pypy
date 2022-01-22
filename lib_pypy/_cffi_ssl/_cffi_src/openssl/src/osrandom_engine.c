@@ -17,8 +17,9 @@
 #include <poll.h>
 #endif
 
-#ifndef OPENSSL_NO_ENGINE
-/* OpenSSL has ENGINE support so build the engine. */
+#if CRYPTOGRAPHY_NEEDS_OSRANDOM_ENGINE
+/* OpenSSL has ENGINE support and is older than 1.1.1d (the first version that
+ * properly implements fork safety in its RNG) so build the engine. */
 static const char *Cryptography_osrandom_engine_id = "osrandom";
 
 /****************************************************************************
@@ -251,7 +252,7 @@ static int osrandom_init(ENGINE *e) {
 #if !defined(__APPLE__)
     getentropy_works = CRYPTOGRAPHY_OSRANDOM_GETENTROPY_WORKS;
 #else
-    if (&getentropy != NULL) {
+    if (__builtin_available(macOS 10.12, *)) {
         getentropy_works = CRYPTOGRAPHY_OSRANDOM_GETENTROPY_WORKS;
     } else {
         getentropy_works = CRYPTOGRAPHY_OSRANDOM_GETENTROPY_FALLBACK;
@@ -277,7 +278,11 @@ static int osrandom_rand_bytes(unsigned char *buffer, int size) {
         while (size > 0) {
             /* OpenBSD and macOS restrict maximum buffer size to 256. */
             len = size > 256 ? 256 : size;
+/* on mac, availability is already checked using `__builtin_available` above */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
             res = getentropy(buffer, (size_t)len);
+#pragma clang diagnostic pop
             if (res < 0) {
                 ERR_Cryptography_OSRandom_error(
                     CRYPTOGRAPHY_OSRANDOM_F_RAND_BYTES,
@@ -524,7 +529,7 @@ static int osrandom_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void)) 
             ENGINEerr(ENGINE_F_ENGINE_CTRL, ENGINE_R_INVALID_ARGUMENT);
             return 0;
         }
-        strncpy((char *)p, name, len);
+        strcpy((char *)p, name);
         return (int)len;
     default:
         ENGINEerr(ENGINE_F_ENGINE_CTRL, ENGINE_R_CTRL_COMMAND_NOT_IMPLEMENTED);
@@ -646,7 +651,7 @@ int Cryptography_add_osrandom_engine(void) {
  * to compile the osrandom engine, but we do need some
  * placeholders */
 static const char *Cryptography_osrandom_engine_id = "no-engine-support";
-static const char *Cryptography_osrandom_engine_name = "osrandom_engine disabled due to no engine support";
+static const char *Cryptography_osrandom_engine_name = "osrandom_engine disabled";
 
 int Cryptography_add_osrandom_engine(void) {
     return 0;

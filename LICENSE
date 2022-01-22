@@ -31,7 +31,7 @@ directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2021
+PyPy Copyright holders 2003-2022
 --------------------------------
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -100,6 +100,7 @@ copyrighted by one or more of the following people and organizations:
   Alex Martelli
   Ondrej Baranovič
   Spenser Bauman
+  Yusuke Izawa
   Michal Bendowski
   Jan de Mooij
   Stefan Beyer
@@ -141,7 +142,6 @@ copyrighted by one or more of the following people and organizations:
   Andreas Stührk
   Jean-Philippe St. Pierre
   Stian Andreassen
-  Yusuke Izawa
   Guido van Rossum
   Pavel Vinogradov
   William Leslie
@@ -178,6 +178,7 @@ copyrighted by one or more of the following people and organizations:
   Lukas Renggli
   Dusty Phillips
   Guenter Jantzen
+  Bert Freudenberg
   Amit Regmi
   Ned Batchelder
   Jasper Schulz
@@ -269,6 +270,7 @@ copyrighted by one or more of the following people and organizations:
   Jacek Generowicz
   Sylvain Thenault
   Alejandro J. Cura
+  Roberto De Ioris
   Andrew Dalke
   Gabriel
   Nathan Taylor
@@ -372,6 +374,7 @@ copyrighted by one or more of the following people and organizations:
   alexprengere
   Dennis Sweeney
   Kevin Lee
+  h-vertini
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -476,6 +479,9 @@ copyrighted by one or more of the following people and organizations:
   Christoph Reiter
   Chris Burr
   Brad Kish
+  David Hewitt
+  Michael Cho
+  Isuru Fernando
 
   Heinrich-Heine University, Germany
   Open End AB (formerly AB Strakt), Sweden

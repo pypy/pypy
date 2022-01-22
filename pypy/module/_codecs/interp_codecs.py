@@ -686,7 +686,7 @@ class UnicodeData_Handler:
         return space.int_w(w_code)
 
 @unwrap_spec(string='bufferstr', errors='text_or_none',
-             w_final=WrappedDefault(False))
+             w_final=WrappedDefault(True))
 def unicode_escape_decode(space, string, errors="strict", w_final=None):
     from pypy.interpreter import unicodehelper
 
