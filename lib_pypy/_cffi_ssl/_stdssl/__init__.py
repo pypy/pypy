@@ -117,8 +117,6 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1 = 3
     PROTOCOL_TLSv1_1 = 4
     PROTOCOL_TLSv1_2 = 5
-PROTOCOL_TLS_CLIENT = 0x10
-PROTOCOL_TLS_SERVER = 0x11
 HAS_SSLv2 = bool(lib.Cryptography_HAS_SSL2)
 HAS_SSLv3 = SSLv3_method_ok
 HAS_TLSv1 = True # XXX
@@ -1003,10 +1001,6 @@ class _SSLContext(object):
             method = lib.SSLv2_method()
         elif protocol == PROTOCOL_SSLv23:
             method = lib.TLS_method()
-        elif protocol == PROTOCOL_TLS_CLIENT:
-            method = lib.TLS_client_method()
-        elif protocol == PROTOCOL_TLS_SERVER:
-            method = lib.TLS_server_method()
         else:
             raise ValueError("invalid protocol version")
 
@@ -1020,12 +1014,8 @@ class _SSLContext(object):
 
         # Don't check host name by default
         self._check_hostname = False
-        if 0 and protocol == PROTOCOL_TLS_CLIENT:
-            self._check_hostname = True
-            self.verify_mode = CERT_REQUIRED
-        else:
-            self._check_hostname = False
-            self.verify_mode = CERT_NONE
+        self._check_hostname = False
+        self.verify_mode = CERT_NONE
 
         # Defaults
         options = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
@@ -1155,8 +1145,7 @@ class _SSLContext(object):
     if HAS_CTRL_GET_MAX_PROTO_VERSION:
         def set_min_max_proto_version(self, arg, what):
             v = int(arg)
-            if self.protocol not in (PROTOCOL_TLS_CLIENT, PROTOCOL_TLS_SERVER,
-                                     PROTOCOL_TLS):
+            if self.protocol != PROTOCOL_TLS:
                 raise ValueError("The context's protocol doesn't support"
                     "modification of highest and lowest version.")
             if what == 0:
@@ -1432,8 +1421,6 @@ class _SSLContext(object):
 
     @sni_callback.setter
     def sni_callback(self, cb):
-        if self._protocol == PROTOCOL_TLS_CLIENT:
-            raise ValueError('sni_callback cannot be set on TLS_CLIENT context')
         if not HAS_SNI:
             raise NotImplementedError("The TLS extension servername callback, "
                     "SSL_CTX_set_tlsext_servername_callback, "
