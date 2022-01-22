@@ -29,6 +29,7 @@ PROTOCOLS = sorted(ssl._PROTOCOL_NAMES)
 HOST = support.HOST
 IS_LIBRESSL = ssl.OPENSSL_VERSION.startswith('LibreSSL')
 IS_OPENSSL_1_1 = not IS_LIBRESSL and ssl.OPENSSL_VERSION_INFO >= (1, 1, 0)
+IS_OPENSSL_3 = not IS_LIBRESSL and ssl.OPENSSL_VERSION_INFO >= (3,)
 
 
 def data_file(*name):
@@ -172,6 +173,8 @@ def skip_if_openssl_cnf_minprotocol_gt_tls11(func):
     """
     @functools.wraps(func)
     def f(*args, **kwargs):
+        if IS_OPENSSL_3:
+            raise unittest.SkipTest('OpenSSL 3 effectively disables TLS < 1.2')
         openssl_cnf = os.environ.get("OPENSSL_CONF", "/etc/ssl/openssl.cnf")
         try:
             with open(openssl_cnf, "r") as config:
