@@ -3,7 +3,7 @@ PyPy v7.3.8: release of python 2.7, 3.7, 3.8, and 3.9-beta
 ==========================================================
 
 ..
-    Changelog up to commit 58144a0105d3
+    Changelog up to commit c859fcd9d243
 
 .. note::
      This is a pre-release announcement. When the release actually happens, it
@@ -27,7 +27,7 @@ wish to share. The release includes four different interpreters:
     release of this interpreter, and we are removing the "beta" tag.
 
   - PyPy3.9, which is an interpreter supporting the syntax and the features of
-    Python 3.9, including the stdlib for CPython 3.9.9. As this is our first
+    Python 3.9, including the stdlib for CPython 3.9.10. As this is our first
     release of this interpreter, we relate to this as "beta" quality. We
     welcome testing of this version, if you discover incompatibilites, please
     report them so we can gain confidence in the version.
@@ -38,8 +38,8 @@ releases. Highlights of the release, since the release of 7.3.7 in late October 
 include:
 
   - Improvement in ssl's use of CFFI buffers to speed up ``recv`` and ``recvinto``
-  - PyPy3.9 uses a python version of the peg parser (which is part of CPython
-    3.10), which brought with it a cleanup of the lexer and parser in general
+  - PyPy3.9 uses a python version of the peg parser which brought with it a
+    cleanup of the lexer and parser in general
   - Fixed a regression in PyPy3.8 when JITting empty list comprehenshions
   - Tweaked some issues around changing the file layout after packaging to make
     PyPy more compatible with CPython
@@ -63,11 +63,12 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
 on PyPy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from 7 new contributors,
+previous release, we have accepted contributions from 6 new contributors,
 thanks for pitching in, and welcome to the project!
 
 If you are a python library maintainer and use C-extensions, please consider
-making a CFFI_ / cppyy_ version of your library that would be performant on PyPy.
+making a HPy_ / CFFI_ / cppyy_ version of your library that would be performant
+on PyPy.
 In any case both `cibuildwheel`_ and the `multibuild system`_ support
 building wheels for PyPy.
 
@@ -124,7 +125,7 @@ Bugfixes shared across versions
 Speedups and enhancements shared across versions
 ------------------------------------------------
 - Add unicodedata version 13, use 3.2 by default
-- Use 10.9 as a minimum macOS target to match CPython
+- Use 10.9 as a minimum ``MACOSX_DEPLOYMENT_TARGET`` to match CPython
 - Only compute the ``Some*`` annotation types once, not every time we call a
   type checked function
 - Update version of pycparser to 2.21
@@ -135,6 +136,7 @@ Speedups and enhancements shared across versions
 - Split `__pypy__.do_what_I_mean()`` into the original plus ``__pypy__._internal_crash``
   to make the meaning more clear. These are functions useful for internal
   testing (issue 3617_).
+- Prepare ``_ssl`` for OpenSSL3
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -167,13 +169,13 @@ Python 3.7+ bugfixes
   segfault
 - Detail about ``PYTHONIOENCODING``: if the encoding or the error is ommitted,
   always use ``utf-8/strict`` (instead of asking the locale)
+- Fix for bpo43522_, use embedded OpenSSL to 1.1.1m
 
 Python 3.7+ speedups and enhancements
 -------------------------------------
 
 - Use buffer pinning to improve CFFI-based ``_ssl`` performance
 - Add a fast path in the parser for unicode literals with no ``\\`` escapes
-- Prepare ``_ssl`` for OpenSSL3
 - In glibc ``mbstowcs()`` can return values above 0x10ffff (bpo35883_)
 - Speed up ``new_interned_str`` by using better caching detection
 - When building a class, make sure to use a specialized ``moduledict``, not a
@@ -187,13 +189,19 @@ Python 3.7+ speedups and enhancements
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
 
-- Added ``PyDescr_NewGetSet``, ``PyModule_NewObject``, ``PyModule_ExecDef``
-- Fix segfault when using format strings in ``PyUnicode_FromFormat`` and ``PyErr_Format`` (issue 3593_)
+- Added ``PyDescr_NewGetSet``, ``PyModule_NewObject``, ``PyModule_ExecDef``,
+  ``PyCodec_Decode``, ``PyCodec_Encode``, ``PyErr_WarnExplicit``,
+  ``PyDateTime_TimeZone_UTC``
+- Fix segfault when using format strings in ``PyUnicode_FromFormat`` and
+  ``PyErr_Format`` (issue 3593_)
 - ``_PyObject_LookupAttrId`` does not raise ``AttributeError``
 - Fix cpyext implementation of ``contextvars.get``
 - Deprecate ``PyPy.h``, mention the contents in the embedding docs (issue 3608_)
 - Remove duplicate definition of ``Py_hash_t``, document diff to CPython (issue 3612_)
 - Fix overflow error message when converting Python ``int`` to C ``int``
+- Alias ``PyDateTime_DATE_GET_FOLD``, which CPython uses instead of the
+  documented ``PyDateTime_GET_FOLD`` (issue 3627_)
+- Add some ``_PyHASH*`` macros (issue 3590_)
 
 Python 3.8+ bugfixes
 --------------------
@@ -234,6 +242,7 @@ Python 3.8 C-API
 .. _3584: https://foss.heptapod.net/pypy/pypy/-/issues/3584
 .. _3598: https://foss.heptapod.net/pypy/pypy/-/issues/3598
 .. _3585: https://foss.heptapod.net/pypy/pypy/-/issues/3585
+.. _3590: https://foss.heptapod.net/pypy/pypy/-/issues/3590
 .. _3593: https://foss.heptapod.net/pypy/pypy/-/issues/3593
 .. _3604: https://foss.heptapod.net/pypy/pypy/-/issues/3604
 .. _3608: https://foss.heptapod.net/pypy/pypy/-/issues/3608
@@ -245,10 +254,12 @@ Python 3.8 C-API
 .. _3624: https://foss.heptapod.net/pypy/pypy/-/issues/3624
 .. _3625: https://foss.heptapod.net/pypy/pypy/-/issues/3625
 .. _3628: https://foss.heptapod.net/pypy/pypy/-/issues/3628
+.. _3627: https://foss.heptapod.net/pypy/pypy/-/issues/3627
 .. _3630: https://foss.heptapod.net/pypy/pypy/-/issues/3630
 .. _bpo35883: https://bugs.python.org/issue35883
 .. _bpo44954: https://bugs.python.org/issue44954
 .. _bpo40780: https://bugs.python.org/issue40780
 .. _bpo35766: https://bugs.python.org/issue35766
+.. _bpo43522: https://bugs.python.org/issue43522
 .. _bpo35545: https://bugs.python.org/issue35545
 .. _errcheck: https://docs.python.org/3/library/ctypes.html#ctypes._FuncPtr.errcheck
