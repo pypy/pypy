@@ -25,7 +25,7 @@ int OCSP_response_status(OCSP_RESPONSE *);
 OCSP_BASICRESP *OCSP_response_get1_basic(OCSP_RESPONSE *);
 int OCSP_BASICRESP_get_ext_count(OCSP_BASICRESP *);
 const ASN1_OCTET_STRING *OCSP_resp_get0_signature(const OCSP_BASICRESP *);
-Cryptography_STACK_OF_X509 *OCSP_resp_get0_certs(const OCSP_BASICRESP *);
+const Cryptography_STACK_OF_X509 *OCSP_resp_get0_certs(const OCSP_BASICRESP *);
 const ASN1_GENERALIZEDTIME *OCSP_resp_get0_produced_at(
     const OCSP_BASICRESP *);
 const OCSP_CERTID *OCSP_SINGLERESP_get0_id(const OCSP_SINGLERESP *);
