@@ -59,7 +59,7 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl1': ('http://distfiles.macports.org/openssl/openssl-1.1.1m.tar.gz',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1m.tar.gz',
              'f89199be8b23ca45fc7cb9f1d8d3ee67312318286ad030f5316aca6462db6c96',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
@@ -74,7 +74,7 @@ cffi_dependencies = {
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
 }
-cffi_dependencies['_ssl'] = cffi_dependencies['_ssl3']
+cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
 if sys.platform == 'darwin':
     # this does not compile on the buildbot, linker is missing '_history_list'
