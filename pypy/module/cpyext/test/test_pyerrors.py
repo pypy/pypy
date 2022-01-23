@@ -71,6 +71,18 @@ class TestExceptions(BaseApiTest):
         assert ": UserWarning: this is a warning" in err
         rffi.free_charp(message)
 
+    def test_WarnExplicit(self, space, api, capfd):
+        message = rffi.str2charp("this is a warning")
+        filename = rffi.str2charp("file.py")
+        lineno = 12
+        module = None
+        api.PyErr_WarnExplicit(None, message, filename, lineno, None, None)
+        space.call_method(space.sys.get('stderr'), "flush")
+        out, err = capfd.readouterr()
+        assert ": UserWarning: this is a warning" in err
+        rffi.free_charp(message)
+        rffi.free_charp(filename)
+
     def test_print_err(self, space, api, capfd):
         api.PyErr_SetObject(space.w_Exception, space.wrap("cpyext is cool"))
         api.PyErr_Print()

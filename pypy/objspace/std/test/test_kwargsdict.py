@@ -203,3 +203,13 @@ class AppTestKwargsDictStrategy(object):
         assert set(d) == set(['λ', o])
         assert "ObjectDictStrategy" in self.get_strategy(d)
         """
+
+    def test_popitem_bug(self):
+        def f(**args):
+            return args
+        d = f(a=1, b=2)
+        x = d.popitem()
+        assert x == ('b', 2)
+        x = d.popitem()
+        assert x == ('a', 1)
+        raises(KeyError, d.popitem)

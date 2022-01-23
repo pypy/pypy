@@ -159,12 +159,6 @@ def reinit_threads(space):
     bootstrapper.reinit()
     rthread.thread_after_fork()
 
-    # Clean the threading module after a fork()
-    w_modules = space.sys.get('modules')
-    w_threading = space.finditem_str(w_modules, 'threading')
-    if w_threading is not None:
-        space.call_method(w_threading, "_after_fork")
-
 def start_new_thread(space, w_callable, w_args, w_kwargs=None):
     """Start a new thread and return its identifier.  The thread will call the
 function with positional arguments from the tuple args and keyword arguments

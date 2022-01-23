@@ -113,3 +113,10 @@ def test_int_roundtrip(space):
 
     assert type(w_res) is W_IntObject
     assert w_res.intval == w_a.intval == a
+
+def test_hidden_applevel(space):
+    w_s = interp_marshal.dumps(space, space.appdef('''(): pass''').code)
+    w_c = interp_marshal._loads(space, w_s)
+    assert w_c.hidden_applevel == False
+    w_c = interp_marshal._loads(space, w_s, hidden_applevel=True)
+    assert w_c.hidden_applevel == True

@@ -188,6 +188,48 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.test_unicode_format(1, "xyz")
         assert res == "bla 1 ble xyz\n"
 
+    def test_format_obj(self):
+        module = self.import_extension('foo', [
+            ("format_obj", "METH_VARARGS",
+            """
+                char *fmt = PyUnicode_AsUTF8(PyTuple_GetItem(args, 0));
+                return PyUnicode_FromFormat(fmt, PyTuple_GetItem(args, 1));
+            """),
+            ("format_d_str", "METH_VARARGS",
+            """
+                char *fmt = PyUnicode_AsUTF8(PyTuple_GetItem(args, 0));
+                if (PyObject_Size(args) != 3) {
+                    PyErr_SetString(PyExc_RuntimeError, "bad args");
+                    return NULL;
+                }
+                long d = PyLong_AsLong(PyTuple_GetItem(args, 1));
+                char *s2 = PyUnicode_AsUTF8(PyTuple_GetItem(args, 2));
+                return PyUnicode_FromFormat(fmt, d, s2);
+            """),
+            ("format_str_str", "METH_VARARGS",
+            """
+                char *fmt = PyUnicode_AsUTF8(PyTuple_GetItem(args, 0));
+                if (PyObject_Size(args) != 3) {
+                    PyErr_SetString(PyExc_RuntimeError, "bad args");
+                    return NULL;
+                }
+                char *s1 = PyUnicode_AsUTF8(PyTuple_GetItem(args, 1));
+                char *s2 = PyUnicode_AsUTF8(PyTuple_GetItem(args, 2));
+                return PyUnicode_FromFormat(fmt, s1, s2);
+            """),
+            ("format_parsing", "METH_NOARGS",
+            """
+                /* From getargs.c */ 
+                char *fmt = "%.150s%s takes %s %d argument%s (%ld given)";
+                return PyUnicode_FromFormat(fmt, "add", "()", "exactly", 2, "s", 1);
+            """),
+            ])
+        assert module.format_obj("formatting 100R '%.100R'", 1.0) == "formatting 100R '1.0'"
+        assert module.format_d_str("id:%d, name:%s", 12, "abc") == "id:12, name:abc"
+        ret = module.format_str_str("%.200s%s takes no arguments", "abc", "def")
+        assert ret == "abcdef takes no arguments"
+        assert module.format_parsing() == "add() takes exactly 2 arguments (1 given)";
+
     def test_fromkind(self):
         module = self.import_extension('foo', [
             ('from_ucs1', 'METH_O',

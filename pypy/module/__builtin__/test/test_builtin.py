@@ -39,6 +39,11 @@ class AppTestBuiltinApp:
         assert bytes is not str
         assert isinstance(eval("b'hi'"), bytes)
 
+    def test_eval_adds_builtins(self):
+        d = {}
+        eval('1', d)
+        assert "__builtins__" in d
+
     def test_import(self):
         m = __import__('sys')
         assert m.__name__ == "sys"

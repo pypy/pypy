@@ -1805,7 +1805,7 @@ class AppTestUnicodeFilename:
                      '\u65e5\u672c.txt') # "Japan"
         try:
             f = file(ufilename, 'w')
-        except UnicodeEncodeError:
+        except (UnicodeEncodeError, IOError):
             pytest.skip("encoding not good enough")
         f.write("test")
         f.close()

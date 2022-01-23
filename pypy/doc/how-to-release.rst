@@ -79,13 +79,14 @@ To change the version, you need to edit three files:
 Other steps
 -----------
 
-
 * Make sure the RPython builds on the buildbot pass with no failures
 
 * Maybe bump the SOABI number in module/imp/importing. This has many
   implications, so make sure the PyPy community agrees to the change.
   Wheels will use the major.minor release numbers in the name, so bump
   them if there is an incompatible change to cpyext.
+
+* Make sure the binary-testing_ CI is clean, or that the failures are understood.
 
 * Update and write documentation
 
@@ -143,10 +144,10 @@ Other steps
 
 * RELEASE !  
 
-  * update pypy.org (under extradoc/pypy.org), rebuild and commit, using the
-    hashes produced from the ``repackage.sh`` script or by hand
+  * update pypy.org_ with the checksum hashes produced from the
+    ``repackage.sh`` script or by hand and the download pages
 
-  * post announcement on morepypy.blogspot.com
+  * post announcement on pypy.org
   * send announcements to twitter.com, pypy-dev, python-list,
     python-announce, python-dev ...
 
@@ -162,3 +163,5 @@ Other steps
 .. _cibuildwheel: https://github.com/joerick/cibuildwheel
 .. _`pypy3.6-feedstock`: https://github.com/conda-forge/pypy3.6-feedstock
 .. _`pypy-meta-feedstock`: https://github.com/conda-forge/pypy-meta-feedstock
+.. _binary-testing: https://github.com/pypy/binary-testing/actions
+.. _pypy.org: https://github.com/pypy/pypy.org

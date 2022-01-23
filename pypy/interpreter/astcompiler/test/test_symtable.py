@@ -66,6 +66,10 @@ class TestSymbolTable:
         input = "def f(x, x): pass"
         exc = py.test.raises(SyntaxError, self.mod_scope, input).value
         assert exc.msg == "duplicate argument 'x' in function definition"
+        input = "def f(x,\nx): pass"
+        exc = py.test.raises(SyntaxError, self.mod_scope, input).value
+        assert exc.msg == "duplicate argument 'x' in function definition"
+        assert exc.lineno == 2
 
     def test_function_defaults(self):
         scp = self.mod_scope("y = w = 4\ndef f(x=y, *, z=w): return x")
@@ -297,8 +301,8 @@ class TestSymbolTable:
 
         src = "def f(x):\n   global x"
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
-        assert exc.lineno == 2
         assert exc.msg == "name 'x' is parameter and global"
+        assert exc.lineno == 2
 
     def test_global_nested(self):
         src = """
@@ -333,6 +337,7 @@ def f():
     nonlocal x"""
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.msg == "no binding for nonlocal 'x' found"
+        assert exc.lineno == 4
 
         src = str(py.code.Source("""
                      def f(x):
@@ -340,6 +345,7 @@ def f():
                  """))
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.msg == "name 'x' is parameter and nonlocal"
+        assert exc.lineno == 3
         #
         src = str(py.code.Source("""
                      def f():

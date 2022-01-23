@@ -82,6 +82,7 @@
 #include <locale.h>
 #include <ctype.h>
 
+#include "pyhash.h"
 #include "boolobject.h"
 #include "floatobject.h"
 #include "complexobject.h"

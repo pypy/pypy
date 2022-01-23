@@ -1,6 +1,8 @@
 #pragma once
 
-/* CPython defines Py_ssize_t in pyport.h as intptr_t */
+/* CPython defines Py_ssize_t, Py_hash_t in pyport.h 
+ * This file is included in object.h, which appears in Python.h before pyport.h
+ */
 #ifdef _WIN64
 typedef long long Py_ssize_t;
 typedef long long Py_hash_t;

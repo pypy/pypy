@@ -109,14 +109,14 @@ def str_decode_locale_strict(s):
     with lltype.scoped_alloc(rffi.SIZE_TP.TO, 1) as sizep:
         with rffi.scoped_str2charp(s) as sbuf:
             ubuf = pypy_char2wchar_strict(sbuf, sizep)
-        try:
-            if not ubuf:
-                errmsg = _errmsg("pypy_char2wchar_strict")
-                errorhandler('strict', 'filesystemencoding', errmsg, s, 0, 1)
-            size = rffi.cast(lltype.Signed, sizep[0])
-            return rawwcharp2utf8en(ubuf, size), size
-        finally:
-            pypy_char2wchar_free(ubuf)
+            try:
+                if not ubuf:
+                    errmsg = _errmsg("pypy_char2wchar_strict")
+                    errorhandler('strict', 'filesystemencoding', errmsg, s, 0, 1)
+                size = rffi.cast(lltype.Signed, sizep[0])
+                return rawwcharp2utf8en(ubuf, size), size
+            finally:
+                pypy_char2wchar_free(ubuf)
 
 
 def str_decode_locale_surrogateescape(s):
@@ -131,14 +131,14 @@ def str_decode_locale_surrogateescape(s):
     with lltype.scoped_alloc(rffi.SIZE_TP.TO, 1) as sizep:
         with rffi.scoped_str2charp(s) as sbuf:
             ubuf = pypy_char2wchar(sbuf, sizep)
-        try:
-            if not ubuf:
-                errmsg = _errmsg("pypy_char2wchar")
-                errorhandler('strict', 'filesystemencoding', errmsg, s, 0, 1)
-            size = rffi.cast(lltype.Signed, sizep[0])
-            return rawwcharp2utf8en(ubuf, size), size
-        finally:
-            pypy_char2wchar_free(ubuf)
+            try:
+                if not ubuf:
+                    errmsg = _errmsg("pypy_char2wchar")
+                    errorhandler('strict', 'filesystemencoding', errmsg, s, 0, 1)
+                size = rffi.cast(lltype.Signed, sizep[0])
+                return rawwcharp2utf8en(ubuf, size), size
+            finally:
+                pypy_char2wchar_free(ubuf)
 
 def str_decode_locale(s, errors):
     if errors == 'strict':

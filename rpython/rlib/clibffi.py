@@ -103,11 +103,9 @@ elif _MINGW:
          dict(prefix=r'c:\\mingw64', include_dir='include', library_dir='lib'),
          ])
 else:
-    USE_C_LIBFFI_MSVC = True
-    # libffidir = py.path.local(cdir).join('src', 'libffi_msvc')
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
-        libraries = ['kernel32', 'libffi-7'],
+        libraries = ['kernel32', 'libffi-8'],
         separate_module_sources = separate_module_sources,
         post_include_bits = post_include_bits,
         )

@@ -345,7 +345,8 @@ class OptimizingVisitor(ast.ASTVisitor):
         for i in range(len(elts)):
             elt = elts[i]
             if isinstance(elt, ast.Starred):
-                if const_since_last_star_w is not None:
+                if (const_since_last_star_w is not None and
+                        len(const_since_last_star_w) > 0):
                     firstelt = elts[after_last_star_index]
                     new_elts.append(self._make_starred_tuple_const(
                         const_since_last_star_w, firstelt))

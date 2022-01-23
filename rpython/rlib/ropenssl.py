@@ -38,12 +38,14 @@ include_dirs = []
 library_dirs = []
 
 #
-# Work around the fact that since 10.11, OS X no longer ships
-# openssl system-wide, and Homebrew does not install it system-wide.
+# Work around the facts that 
+# - since 10.11, OS X no longer ships openssl system-wide,
+# - Homebrew does not install it system-wide.
+# - on the docker buildbot images, openssl is in /usr/local
 #
 # Make sure your PKG_CONFIG_PATH looks in the right direction, though.
 #
-if sys.platform == 'darwin':
+if sys.platform in ('posix', 'darwin'):
     include_dirs = platform.include_dirs_for_openssl()
     library_dirs = platform.library_dirs_for_openssl()
 

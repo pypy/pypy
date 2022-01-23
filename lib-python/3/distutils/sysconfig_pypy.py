@@ -61,9 +61,10 @@ _config_vars = None
 
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
-    from _sysconfigdata import build_time_vars
+    name = os.environ.get('_PYTHON_SYSCONFIGDATA_NAME', '_sysconfigdata')
+    _temp = __import__(name, globals(), locals(), ['build_time_vars'], 0)
     global _config_vars
-    _config_vars = build_time_vars
+    _config_vars = _temp.build_time_vars
 
 
 def _init_nt():

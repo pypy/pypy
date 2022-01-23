@@ -72,7 +72,7 @@ import pypy.module.cpyext.marshal
 import pypy.module.cpyext.genobject
 import pypy.module.cpyext.namespaceobject
 import pypy.module.cpyext.pystrhex
-import pypy.module.cpyext.context
+import pypy.module.cpyext.contextvars
 
 # now that all rffi_platform.Struct types are registered, configure them
 api.configure_types()
