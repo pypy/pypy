@@ -32,6 +32,7 @@ static const long Cryptography_HAS_SIGALGS;
 static const long Cryptography_HAS_PSK;
 static const long Cryptography_HAS_CIPHER_DETAILS;
 static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION;
+static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF;
 
 /* Internally invented symbol to tell us if SNI is supported */
 static const long Cryptography_HAS_TLSEXT_HOSTNAME;
@@ -85,6 +86,7 @@ static const long SSL_OP_MSIE_SSLV2_RSA_PADDING;
 static const long SSL_OP_SSLEAY_080_CLIENT_DH_BUG;
 static const long SSL_OP_TLS_D5_BUG;
 static const long SSL_OP_TLS_BLOCK_PADDING_BUG;
+static const long SSL_OP_IGNORE_UNEXPECTED_EOF;
 static const long SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
 static const long SSL_OP_CIPHER_SERVER_PREFERENCE;
 static const long SSL_OP_TLS_ROLLBACK_BUG;
@@ -805,6 +807,15 @@ static const long TLS_ST_OK = 0;
 #define TLS_client_method SSLv23_client_method
 #endif
 
+/* SSLv23_method(), SSLv23_server_method() and SSLv23_client_method() were
+   deprecated and the preferred TLS_method(), TLS_server_method() and
+   TLS_client_method() functions were introduced in OpenSSL 1.1.0. */
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
+#define TLS_method SSLv23_method
+#define TLS_server_method SSLv23_server_method
+#define TLS_client_method SSLv23_client_method
+#endif
+
 /* LibreSSL 2.9.1 added only the DTLS_*_method functions */
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 && !CRYPTOGRAPHY_LIBRESSL_291_OR_GREATER
 static const long Cryptography_HAS_GENERIC_DTLS_METHOD = 0;
@@ -938,9 +949,10 @@ int (*SSL_CTX_set_max_early_data)(SSL_CTX *, uint32_t) = NULL;
 static const long Cryptography_HAS_TLSv1_3 = 1;
 #endif
 
-#ifdef X509_CHECK_FLAG_NEVER_CHECK_SUBJECT
-static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT = 1;
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_300
+static const long SSL_OP_IGNORE_UNEXPECTED_EOF = 0;
+static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF = 0;
 #else
-static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT = 0;
+static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF = 1;
 #endif
 """
