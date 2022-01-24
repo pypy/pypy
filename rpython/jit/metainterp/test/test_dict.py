@@ -394,12 +394,13 @@ class DictTests:
                 if n & 7 == 0:
                     n -= len(d)
                 d = {}
-                d[k1] = None
+                d[k1] = n
                 d = d.copy()
+                n += d[k1] - n # + 0
                 n -= 1
             return len(d)
         self.meta_interp(f, [100], backendopt=True)
-        self.check_simple_loop(call_may_force_i=0, call_i=0, new=0)
+        self.check_simple_loop(call_may_force_i=0, call_n=0, new_array_clear=0, new=0)
 
     def test_loop_over_virtual_dict_gives_constants(self):
         def fn(n):
