@@ -386,7 +386,7 @@ class DictTests:
         class Key:
             pass
 
-        k1 = Key()
+        k1 = "key"
         def f(n):
             d = {}
             while n > 0:
