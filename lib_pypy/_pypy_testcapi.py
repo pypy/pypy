@@ -106,7 +106,7 @@ def compile_shared(csource, modulename, output_dir):
     # module in sys.modules
     fp, filename, description = imp.find_module(modulename, path=[output_dir])
     with fp:
-        imp.load_module(modulename, fp, filename, description)
+        mod = imp.load_module(modulename, fp, filename, description)
 
     # If everything went fine up to now, write the name of this new
     # directory to 'hashed_fn', for future processes (and to avoid a
@@ -118,3 +118,4 @@ def compile_shared(csource, modulename, output_dir):
             f.write(os.path.basename(output_dir))
     except IOError:
         pass
+    return mod

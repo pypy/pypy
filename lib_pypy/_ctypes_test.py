@@ -20,8 +20,6 @@ else:
         fp, filename, description = imp.find_module('_ctypes_test', path=[output_dir])
         with fp:
             mod = imp.load_module('_ctypes_test', fp, filename, description)
-        # for some reason __file__ is not set here, set it manually
-        mod.__file__ = filename
     except ImportError:
         if os.name == 'nt':
             # hack around finding compilers on win32
@@ -29,5 +27,9 @@ else:
                 import setuptools
             except ImportError:
                 pass
-        print('could not find _ctypes_test in %s' % output_dir)
-        _pypy_testcapi.compile_shared('_ctypes_test.c', '_ctypes_test', output_dir)
+        mod = _pypy_testcapi.compile_shared(cfile, '_ctypes_test', output_dir)
+        fp, filename, description = imp.find_module('_ctypes_test', path=[output_dir])
+    # importing via load_module skips setting the __file__
+    mod.__file__ = filename
+    
+
