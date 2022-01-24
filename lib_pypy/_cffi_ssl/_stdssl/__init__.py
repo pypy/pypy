@@ -59,7 +59,7 @@ del ver, version_info, status, patch, fix, minor, major
 HAS_ECDH = True
 HAS_SNI = bool(lib.Cryptography_HAS_TLSEXT_HOSTNAME)
 HAS_ALPN = bool(lib.Cryptography_HAS_ALPN)
-HAS_NPN = bool(lib.OPENSSL_NPN_NEGOTIATED)
+HAS_NPN = False # bool(lib.OPENSSL_NPN_NEGOTIATED)
 HAS_CTRL_GET_MAX_PROTO_VERSION = bool(lib.Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION)
 HAS_TLS_UNIQUE = True
 
@@ -1714,7 +1714,7 @@ class _SSLContext(object):
             lib.SSL_CTX_set_next_protos_advertised_cb(self.ctx, advertise_npn_callback, handle)
             lib.SSL_CTX_set_next_proto_select_cb(self.ctx, select_npn_callback, handle)
         else:
-            raise NotImplementedError("The NPN extension requires OpenSSL 1.0.1 or later.")
+            raise NotImplementedError("The NPN extension has been dropped.")
 
     def _wrap_bio(self, incoming, outgoing, server_side, server_hostname, *,
             owner=None, session=None):
