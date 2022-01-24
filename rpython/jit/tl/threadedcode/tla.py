@@ -307,6 +307,12 @@ class Frame(object):
             raise OperationError
 
     @jit.dont_look_inside
+    def POP1(self):
+        v = self.pop()
+        _ = self.pop()
+        self.push(v)
+
+    @jit.dont_look_inside
     def ADD(self):
         w_y = self.pop()
         w_x = self.pop()
@@ -414,7 +420,7 @@ class Frame(object):
 
     @jit.dont_look_inside
     def PRINT(self):
-        v = self.pop()
+        v = self.take(0)
         print v.getrepr()
 
     def _push(self, w_x):
@@ -455,6 +461,11 @@ class Frame(object):
             self._push(W_FloatObject(x))
         else:
             raise OperationError
+
+    def _POP1(self):
+        v = self._pop()
+        _ = self._pop()
+        self._push(v)
 
     def _ADD(self):
         w_y = self._pop()
@@ -546,8 +557,8 @@ class Frame(object):
         return v
 
     def _PRINT(self):
-        v = self.pop()
-        print v
+        v = self._take(0)
+        print v.getrepr()
 
     def interp_jit(self, pc=0):
         bytecode = self.bytecode
@@ -565,6 +576,9 @@ class Frame(object):
 
             elif opcode == POP:
                 self._pop()
+
+            elif opcode == POP1:
+                self._POP1()
 
             elif opcode == DUP:
                 self._DUP()
@@ -655,6 +669,9 @@ class Frame(object):
             elif opcode == POP:
                 self.pop()
 
+            elif opcode == POP1:
+                self.POP1()
+
             elif opcode == DUP:
                 self.DUP()
 
@@ -734,6 +751,9 @@ class Frame(object):
 
             elif opcode == POP:
                 self.pop()
+
+            elif opcode == POP1:
+                self.POP1()
 
             elif opcode == DUP:
                 self.DUP()

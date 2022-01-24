@@ -12,6 +12,7 @@ _bytecodes_has_args = [
     ('DUP', False),
     ('DUPN', True),
     ('POP', False),
+    ('POP1', False),
     ('LT', False),
     ('GT', False),
     ('EQ', False),
