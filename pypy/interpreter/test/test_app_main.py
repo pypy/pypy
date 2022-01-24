@@ -1,7 +1,7 @@
 """
 Tests for the entry point of pypy3-c, app_main.py.
 """
-from __future__ import with_statement
+from __future__ import with_statement, print_function
 import py
 import sys, os, re, runpy, subprocess
 import shutil
@@ -104,9 +104,13 @@ class TestParseCommandLine:
             if key not in expected:
                 if key == "check_hash_based_pycs":
                     assert value == "default"
-                    continue
-                assert not value, (
-                    "option %r has unexpectedly the value %r" % (key, value))
+                elif key == "utf8_mode":
+                    import _locale
+                    lc = _locale.setlocale(_locale.LC_CTYPE, None)
+                    assert value == (lc == "C" or lc == "POSIX")
+                else:
+                    assert not value, (
+                        "option %r has unexpectedly the value %r" % (key, value))
 
     def check(self, argv, env, **expected):
         p = subprocess.Popen([get_python3(), app_main,
@@ -116,7 +120,7 @@ class TestParseCommandLine:
 
         res = p.wait()
         outcome = p.stdout.readline()
-        if outcome == 'SystemExit\n':
+        if outcome == 'SystemExit\n' or outcome == "Error\n":
             output = p.stdout.read()
             assert expected['output_contains'] in output
         else:
@@ -143,10 +147,10 @@ class TestParseCommandLine:
         self.check(['-S', '-O', '--info'], {}, output_contains='translation')
         self.check(['-S', '-O', '--version'], {}, output_contains='Python')
         self.check(['-S', '-OV'], {}, output_contains='Python')
-        self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
-                   run_stdin=True, no_site=1)
-        self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
-                   run_stdin=True, no_site=1)
+        # self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
+        #            run_stdin=True, no_site=1, jit_off='off')
+        # self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
+        #            run_stdin=True, no_site=1)
         self.check(['-c', 'pass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass','x'], {}, sys_argv=['-c','x'], run_command='pass')
@@ -189,6 +193,10 @@ class TestParseCommandLine:
         self.check(['-O'], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
         self.check(['-OOO'], {'PYTHONOPTIMIZE': 'abc'}, sys_argv=[''], run_stdin=True, optimize=3)
 
+    def test_error(self):
+        self.check(['-a'], {}, output_contains="Unknown option: -a")
+        self.check(['--abc'], {}, output_contains="Unknown option --abc")
+
     def test_sysflags(self):
         flags = (
             ("debug", "-d", "1"),
@@ -215,12 +223,31 @@ class TestParseCommandLine:
         self.check(['-X', 'dev', '-c', 'pass'], {}, sys_argv=['-c'],
                    run_command='pass', _xoptions=['dev'], dev_mode=True)
 
-    def test_sysflags_envvar(self, monkeypatch):
+    def test_sysflags_utf8mode(self):
+        self.check(['-X', 'utf8', '-c', 'pass'], {}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8'], utf8_mode=True)
+        self.check(['-X', 'utf8=1', '-c', 'pass'], {}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8=1'], utf8_mode=True)
+        self.check(['-X', 'utf8=0', '-c', 'pass'], {}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8=0'], utf8_mode=False)
+
+    def test_sysflags_envvar(self):
         expected = {"no_user_site": True}
         self.check(['-c', 'pass'], {'PYTHONNOUSERSITE': '1'}, sys_argv=['-c'],
                    run_command='pass', **expected)
         self.check(['-c', 'pass'], {'PYTHONDEVMODE': '1'}, sys_argv=['-c'],
                    run_command='pass', dev_mode=True)
+
+    def test_sysflags_utf8mode_envvar(self):
+        self.check(['-c', 'pass'], {'PYTHONUTF8': '1'}, sys_argv=['-c'],
+                   run_command='pass', utf8_mode=True)
+        self.check(['-c', 'pass'], {'PYTHONUTF8': '0'}, sys_argv=['-c'],
+                   run_command='pass', utf8_mode=False)
+        # -X takes precedence
+        self.check(['-X', 'utf8', '-c', 'pass'], {'PYTHONUTF8': '0'}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8'], utf8_mode=True)
+        self.check(['-X', 'utf8=0', '-c', 'pass'], {'PYTHONUTF8': '1'}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['utf8=0'], utf8_mode=False)
 
     def test_check_hash_based_pycs(self):
         for val in ['default', 'always', 'never']:
@@ -231,8 +258,11 @@ class TestParseCommandLine:
                 check_hash_based_pycs=val)
 
     def test_jit_off(self, monkeypatch):
-        # skip if untranslated
         get_python3()
+        try:
+            import __pypy__
+        except:
+            py.test.skip('PyPy only test')
         options = [None]
         def set_jit_option(_, option, *args):
             options[0] = option
@@ -267,7 +297,7 @@ class TestInteraction:
                         pexpect.__version__,))
 
         kwds.setdefault('timeout', 10)
-        print 'SPAWN:', ' '.join([args[0]] + args[1]), kwds
+        print('SPAWN:', ' '.join([args[0]] + args[1]), kwds)
         child = pexpect.spawn(*args, **kwds)
         child.logfile = sys.stdout
         return child
@@ -545,6 +575,11 @@ class TestInteraction:
         child.expect('789')    # expect to see it before the timeout hits
         child.sendline('X')
 
+    def test_unbuffered_write_through(self):
+        line = 'import os,sys;sys.stdout.write("a");os._exit(0)'
+        child = self.spawn(['-u', '-c', line])
+        child.expect('a')
+
     def test_file_modes(self):
         child = self.spawn(['-c', 'import sys; print(sys.stdout.mode)'])
         child.expect('w')
@@ -578,7 +613,7 @@ class TestInteraction:
         child.sendline('"test.mymodule" in sys.modules')
         child.expect('False')
         child.sendline('sys.path[0]')
-        child.expect("''")
+        child.expect(os.path.dirname(app_main))
 
     def test_option_i_noexit(self):
         child = self.spawn(['-i', '-c', 'import sys; sys.exit(1)'])
@@ -686,7 +721,7 @@ class TestNonInteractive:
                 py.test.skip('app_main cannot run on non-pypy for windows')
         cmdline = '%s %s "%s" %s %s' % (get_python3(), python_flags,
                                      app_main, python_flags, cmdline)
-        print 'POPEN:', cmdline
+        print('POPEN:', cmdline)
         process = subprocess.Popen(
             cmdline,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -875,7 +910,7 @@ class TestNonInteractive:
             # stdout flushed automatically here
             """)
         cmdline = '%s -E "%s" %s' % (get_python3(), app_main, path)
-        print 'POPEN:', cmdline
+        print('POPEN:', cmdline)
         child_in, child_out_err = os.popen4(cmdline)
         data = child_out_err.read(11)
         assert data == '\x00(STDOUT)\n\x00'    # from stderr
@@ -1033,10 +1068,10 @@ class TestNonInteractive:
 
     def test_pythonioencoding2(self):
         for encoding, expected in [
-            ("ascii:", "strict"),
-            (":surrogateescape", "surrogateescape"),
+            ("ascii:", "ascii:strict"),
+            (":surrogateescape", "utf-8:surrogateescape"),
         ]:
-            p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
+            p = getscript_in_dir("import sys; print(sys.stdout.encoding + ':' + sys.stdout.errors, end='')")
             env = os.environ.copy()
             env["PYTHONIOENCODING"] = encoding
             data = self.run(p, env=env)
@@ -1045,7 +1080,9 @@ class TestNonInteractive:
     def test_pythonioencoding_c_locale(self):
         for encoding, expected in [
             (None, "surrogateescape"),
-            ("", "surrogateescape")
+            ("", "surrogateescape"),
+            (":strict", "strict"),
+            (":", "surrogateescape")
         ]:
             p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
             env = os.environ.copy()
@@ -1053,7 +1090,7 @@ class TestNonInteractive:
             if encoding is not None:
                 env["PYTHONIOENCODING"] = encoding
             data = self.run(p, env=env)
-            assert data == "surrogateescape"
+            assert data == expected
 
     def test_sys_exit_pythonioencoding(self):
         if sys.version_info < (2, 7):
@@ -1248,7 +1285,8 @@ class AppTestAppMain:
         try:
             import app_main
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', exename)
-            app_main.entry_point(pypy_c, [self.foo_py])
+            assert isinstance(self.foo_py, str)
+            app_main.entry_point(pypy_c, [self.foo_py.encode("utf-8")], [self.foo_py])
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path

@@ -213,3 +213,13 @@ class AppTestKwargsDictStrategy(object):
         assert list(reversed(d.keys())) == ['c', 'b', 'a']
         assert list(reversed(d.values())) == [4, 3, 2]
         assert list(reversed(d.items())) == [('c', 4), ('b', 3), ('a', 2)]
+
+    def test_popitem_bug(self):
+        def f(**args):
+            return args
+        d = f(a=1, b=2)
+        x = d.popitem()
+        assert x == ('b', 2)
+        x = d.popitem()
+        assert x == ('a', 1)
+        raises(KeyError, d.popitem)

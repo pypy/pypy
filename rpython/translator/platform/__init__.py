@@ -254,6 +254,24 @@ class Platform(object):
     def _library_dirs_for_libffi(self):
         raise NotImplementedError("Needs to be overwritten")
 
+    def include_dirs_for_openssl(self):
+        dirs = self._include_dirs_for_openssl()
+        if 'PYPY_LOCALBASE' in os.environ:
+            return [os.environ['PYPY_LOCALBASE'] + '/include'] + dirs
+        return dirs
+
+    def library_dirs_for_openssl(self):
+        dirs = self._library_dirs_for_openssl()
+        if 'PYPY_LOCALBASE' in os.environ:
+            return [os.environ['PYPY_LOCALBASE'] + '/lib'] + dirs
+        return dirs
+
+    def _include_dirs_for_openssl(self):
+        return []
+
+    def _library_dirs_for_openssl(self):
+        return []
+
     def check___thread(self):
         return True
 

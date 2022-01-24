@@ -255,29 +255,41 @@ def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
                     "set_wakeup_fd only works in main thread or with "
                     "__pypy__.thread.enable_signals()")
 
-    if WIN32:
-        # fd can be a socket handle on win32.  We assume on Windows
-        # that 'fd' is valid, either as a file or a socket descriptor,
-        # and don't bother doing checking here.  XXX fix me!
-        pass
-    elif fd != -1:
-        try:
-            os.fstat(fd)
-            flags = rposix.get_status_flags(fd)
-        except OSError as e:
-            if e.errno == errno.EBADF:
-                raise oefmt(space.w_ValueError, "invalid fd")
-            raise wrap_oserror(space, e, eintr_retry=False)
-        if flags & rposix.O_NONBLOCK == 0:
-            raise oefmt(space.w_ValueError,
-                        "the fd %d must be in non-blocking mode", fd)
+    send_flags = 0
+    if fd != -1:
+        if WIN32:
+            from rpython.rlib._rsocket_rffi import SOL_SOCKET, SO_TYPE
+            from rpython.rlib.rsocket import getsockopt_int, SocketError
+            # it could be a socket fd or a file fd
+            try:
+                type = getsockopt_int(fd, SOL_SOCKET, SO_TYPE)
+                is_socket = True
+            except SocketError as e:
+                is_socket = False
+            if is_socket:
+                send_flags |= PYPYSIG_USE_SEND
+            else:
+                try:
+                    os.fstat(fd)
+                except OSError as e:
+                    if e.errno == errno.EBADF:
+                        raise oefmt(space.w_ValueError, "invalid fd")
+        else:
+            try:
+                os.fstat(fd)
+                flags = rposix.get_status_flags(fd)
+            except OSError as e:
+                if e.errno == errno.EBADF:
+                    raise oefmt(space.w_ValueError, "invalid fd")
+                raise wrap_oserror(space, e, eintr_retry=False)
+            if flags & rposix.O_NONBLOCK == 0:
+                raise oefmt(space.w_ValueError,
+                            "the fd %d must be in non-blocking mode", fd)
 
-    flags = 0
     if not warn_on_full_buffer:
-        flags |= PYPYSIG_NO_WARN_FULL
-    old_fd = pypysig_set_wakeup_fd(fd, flags)
+        send_flags |= PYPYSIG_NO_WARN_FULL
+    old_fd = pypysig_set_wakeup_fd(fd, send_flags)
     return space.newint(intmask(old_fd))
-
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
@@ -474,8 +486,10 @@ def valid_signals(space):
 @unwrap_spec(signalnum=int)
 def raise_signal(space, signalnum):
     'Send a signal to the executing process.'
-    c_raise(signalnum)
-
+    with rposix.SuppressIPH():
+        err = c_raise(signalnum)
+    if err != 0:
+        raise exception_from_saved_errno(space, space.w_OSError)
 
 @unwrap_spec(signalnum=int)
 def strsignal(space, signalnum):

@@ -22,18 +22,18 @@ from pypy.objspace.std.marshal_impl import marshal, get_unmarshallers
 Py_MARSHAL_VERSION = 4
 
 
-@unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
-def dump(space, w_data, w_f, w_version):
+@unwrap_spec(version=int)
+def dump(space, w_data, w_f, version=Py_MARSHAL_VERSION):
     """Write the 'data' object into the open file 'f'."""
     # same implementation as CPython 3.x.
-    w_string = dumps(space, w_data, w_version)
+    w_string = dumps(space, w_data, version)
     space.call_method(w_f, 'write', w_string)
 
-@unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
-def dumps(space, w_data, w_version):
+@unwrap_spec(version=int)
+def dumps(space, w_data, version=Py_MARSHAL_VERSION):
     """Return the string that would have been written to a file
 by dump(data, file)."""
-    m = StringMarshaller(space, space.int_w(w_version))
+    m = StringMarshaller(space, version)
     m.dump_w_obj(w_data)
     return space.newbytes(m.get_value())
 
@@ -49,7 +49,10 @@ def load(space, w_f):
 def loads(space, w_str):
     """Convert a string back to a value.  Extra characters in the string are
 ignored."""
-    u = StringUnmarshaller(space, w_str)
+    return _loads(space, w_str)
+
+def _loads(space, w_str, hidden_applevel=False):
+    u = StringUnmarshaller(space, w_str, hidden_applevel=hidden_applevel)
     obj = u.load_w_obj()
     return obj
 
@@ -328,6 +331,7 @@ def _make_unmarshaller_dispatch():
 
 class Unmarshaller(_Base):
     _dispatch = _make_unmarshaller_dispatch()
+    hidden_applevel = False
 
     def __init__(self, space, reader):
         self.space = space
@@ -444,11 +448,12 @@ class Unmarshaller(_Base):
 
 class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
-    def __init__(self, space, w_str):
+    def __init__(self, space, w_str, hidden_applevel=False):
         Unmarshaller.__init__(self, space, None)
         self.buf = space.readbuf_w(w_str)
         self.bufpos = 0
         self.limit = self.buf.getlength()
+        self.hidden_applevel = hidden_applevel
 
     def raise_eof(self):
         space = self.space

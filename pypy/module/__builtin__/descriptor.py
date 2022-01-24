@@ -249,6 +249,9 @@ class W_Property(W_Root):
                              space.isabstractmethod_w(self.w_fset) or
                              space.isabstractmethod_w(self.w_fdel))
 
+    def descr_reduce(self, space):
+        raise oefmt(space.w_TypeError, "cannot pickle 'property' object")
+
 W_Property.typedef = TypeDef(
     'property',
     __doc__ = '''\
@@ -268,6 +271,7 @@ class C(object):
     __set__ = interp2app(W_Property.set),
     __delete__ = interp2app(W_Property.delete),
     __isabstractmethod__ = GetSetProperty(W_Property.descr_isabstract),
+    __reduce__ = interp2app(W_Property.descr_reduce),
     fdel = interp_attrproperty_w('w_fdel', W_Property),
     fget = interp_attrproperty_w('w_fget', W_Property),
     fset = interp_attrproperty_w('w_fset', W_Property),

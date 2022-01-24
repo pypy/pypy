@@ -75,6 +75,7 @@ pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
 pypysig_setflag = external('pypysig_setflag', [rffi.INT], lltype.Void)
 pypysig_reinstall = external('pypysig_reinstall', [rffi.INT], lltype.Void)
 PYPYSIG_WITH_NUL_BYTE = 0x01   # flags for the 2nd argument to set_wakeup_fd()
+PYPYSIG_USE_SEND = 0x02
 PYPYSIG_NO_WARN_FULL  = 0x04
 pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd',
                                  [rffi.INT, rffi.INT], rffi.INT)
@@ -111,8 +112,7 @@ if sys.platform != 'win32':
 c_pthread_kill = external('pthread_kill', [lltype.Signed, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
 
-HAVE_STRSIGNAL = rffi_platform.Has("strsignal")
-if HAVE_STRSIGNAL:
+if sys.platform != 'win32':
     c_strsignal = external('strsignal', [rffi.INT], rffi.CCHARP)
     def strsignal(signum):
         res = c_strsignal(signum)

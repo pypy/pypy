@@ -197,6 +197,11 @@ def test_build_class():
         r"BadMeta.__prepare__() must return a mapping, not NoneType"
     )
 
+def test_make_sure_namespace_in_class_is_moduledict():
+    import __pypy__
+    class A:
+        assert __pypy__.strategy(locals()) == "ModuleDictStrategy"
+
 def test_compile_feature_version():
     co = compile('1+2', '?', 'eval', _feature_version=-1)
     assert eval(co) == 3

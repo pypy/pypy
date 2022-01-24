@@ -897,7 +897,7 @@ def create_iterator_classes(dictimpl,
             return IterClassReversed(self.space, self, w_dict)
 
         def w_iterreversed(self, w_dict):
-            return W_DictMultiIterKeysObject(
+            return W_DictMultiIterKeysReversedObject(
                     self.space,
                     iterreversed(self, w_dict))
         dictimpl.w_iterreversed = w_iterreversed
@@ -1407,23 +1407,20 @@ class W_BaseDictMultiIterObject(W_Root):
         new_inst = mod.get('dictiter_surrogate_new')
 
         w_dict = self.iteratorimplementation.w_dict
-
-        if isinstance(self, W_DictMultiIterKeysObject):
-            w_clone = W_DictMultiIterKeysObject(space, w_dict.iterkeys())
-        elif isinstance(self, W_DictMultiIterValuesObject):
-            w_clone = W_DictMultiIterValuesObject(space, w_dict.itervalues())
-        elif isinstance(self, W_DictMultiIterItemsObject):
-            w_clone = W_DictMultiIterItemsObject(space, w_dict.iteritems())
-        else:
-            raise oefmt(space.w_TypeError,
-                        "unsupported dictiter type '%R' during pickling", self)
+        w_clone = self.clone_for_pickling(space, w_dict)
+        assert isinstance(w_clone, W_BaseDictMultiIterObject)
 
         # spool until we have the same pos
         for x in xrange(self.iteratorimplementation.pos):
             w_clone.descr_next(space)
+
         w_res = space.call_function(space.w_list, w_clone)
         w_ret = space.newtuple([new_inst, space.newtuple([w_res])])
         return w_ret
+
+    def clone_for_pickling(self, space, w_dict):
+        raise oefmt(space.w_TypeError,
+                    "unsupported dictiter type '%R' during pickling", self)
 
     def _cleanup_(self):
         raise Exception("seeing a prebuilt %r object" % (
@@ -1438,6 +1435,14 @@ class W_DictMultiIterKeysObject(W_BaseDictMultiIterObject):
             return w_key
         raise OperationError(space.w_StopIteration, space.w_None)
 
+    def clone_for_pickling(self, space, w_dict):
+        return W_DictMultiIterKeysObject(space, w_dict.iterkeys())
+
+
+class W_DictMultiIterKeysReversedObject(W_DictMultiIterKeysObject):
+    def clone_for_pickling(self, space, w_dict):
+        return w_dict.descr_reversed(space)
+
 class W_DictMultiIterValuesObject(W_BaseDictMultiIterObject):
     def descr_next(self, space):
         iteratorimplementation = self.iteratorimplementation
@@ -1445,6 +1450,9 @@ class W_DictMultiIterValuesObject(W_BaseDictMultiIterObject):
         if w_value is not None:
             return w_value
         raise OperationError(space.w_StopIteration, space.w_None)
+
+    def clone_for_pickling(self, space, w_dict):
+        return W_DictMultiIterValuesObject(space, w_dict.itervalues())
 
 class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
     def descr_next(self, space):
@@ -1454,6 +1462,9 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
             return space.newtuple([w_key, w_value])
         raise OperationError(space.w_StopIteration, space.w_None)
 
+    def clone_for_pickling(self, space, w_dict):
+        return W_DictMultiIterItemsObject(space, w_dict.iteritems())
+
 class W_DictMultiIterValuesReversedObject(W_BaseDictMultiIterObject):
     def descr_next(self, space):
         iteratorimplementation = self.iteratorimplementation
@@ -1461,6 +1472,9 @@ class W_DictMultiIterValuesReversedObject(W_BaseDictMultiIterObject):
         if w_key is not None:
             return iteratorimplementation.w_dict.getitem(w_key)
         raise OperationError(space.w_StopIteration, space.w_None)
+
+    def clone_for_pickling(self, space, w_dict):
+        return W_DictMultiIterValuesReversedObject(space, w_dict.iterreversed())
 
 class W_DictMultiIterItemsReversedObject(W_BaseDictMultiIterObject):
     def descr_next(self, space):
@@ -1470,6 +1484,9 @@ class W_DictMultiIterItemsReversedObject(W_BaseDictMultiIterObject):
             w_value = iteratorimplementation.w_dict.getitem(w_key)
             return space.newtuple([w_key, w_value])
         raise OperationError(space.w_StopIteration, space.w_None)
+
+    def clone_for_pickling(self, space, w_dict):
+        return W_DictMultiIterItemsReversedObject(space, w_dict.iterreversed())
 
 
 W_DictMultiIterItemsObject.typedef = TypeDef(

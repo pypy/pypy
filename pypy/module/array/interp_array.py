@@ -1,3 +1,4 @@
+import sys
 from rpython.rlib import jit, rgc, rutf8
 from rpython.rlib.buffer import RawBuffer, SubBuffer
 from rpython.rlib.objectmodel import keepalive_until_here
@@ -16,6 +17,7 @@ from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, make_weakref_descr)
 from pypy.interpreter.unicodehelper import wcharpsize2utf8
 
+WIN64 = sys.platform == "win32" and sys.maxint > 2**32
 
 @unwrap_spec(typecode='text')
 def w_array(space, w_cls, typecode, __args__):
@@ -182,6 +184,7 @@ class W_ArrayBase(W_Root):
     def __del__(self):
         if self._buffer:
             lltype.free(self._buffer, flavor='raw')
+            self._buffer = lltype.nullptr(rffi.CCHARP.TO)
 
     def setlen(self, size, zero=False, overallocate=True):
         if self._buffer:
@@ -874,7 +877,7 @@ class TypeCode(object):
         return self.unwrap == 'int_w' or self.unwrap == 'bigint_w'
 
 
-if rffi.sizeof(rffi.UINT) == rffi.sizeof(rffi.ULONG):
+if rffi.sizeof(rffi.UINT) == rffi.sizeof(rffi.ULONG) and not WIN64:
     # 32 bits: UINT can't safely overflow into a C long (rpython int)
     # via int_w, handle it like ULONG below
     _UINTTypeCode = \

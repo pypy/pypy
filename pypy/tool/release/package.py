@@ -204,6 +204,9 @@ def create_package(basedir, options, _fake=False):
     else:
         generate_sysconfigdata(pypy_c, str(target))
         python_ver = get_python_ver(pypy_c)
+    if ARCH == 'win32':
+        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
+                            os.environ.get('PATH', '')
     if not options.no_cffi:
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
@@ -244,9 +247,6 @@ def create_package(basedir, options, _fake=False):
     pypydir.ensure('include', dir=True)
 
     if ARCH == 'win32':
-        # Needed for py.path.local.sysfind, not for loading
-        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
-                                 os.environ.get('PATH', '')
         src, tgt, _ = binaries[0]
         pypyw = src.new(purebasename=src.purebasename + 'w')
         if pypyw.exists():
@@ -264,7 +264,7 @@ def create_package(basedir, options, _fake=False):
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
                       ('sqlite3.dll', target),
-                      ('libffi-7.dll', None),
+                      ('libffi-8.dll', None),
                      ]
         if not options.no__tkinter:
             tkinter_dir = target.join('_tkinter')
@@ -322,7 +322,7 @@ def create_package(basedir, options, _fake=False):
     copytree(str(basedir.join('lib_pypy')), str(target),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
                                            '*_cffi.c', '*.o', '*.pyd-*', '*.obj',
-                                           '*.lib', '*.exp', '*.manifest'))
+                                           '*.lib', '*.exp', '*.manifest', '__pycache__'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
@@ -385,7 +385,7 @@ def create_package(basedir, options, _fake=False):
                 os.chdir(str(name))
                 if not os.path.exists('lib'):
                     os.mkdir('lib')
-                make_portable()
+                make_portable(copytree, python_ver)
                 os.chdir(str(builddir))
         if USE_ZIPFILE_MODULE:
             import zipfile
@@ -405,13 +405,13 @@ def create_package(basedir, options, _fake=False):
                       "will contain your uid and gid. If you are building the "
                       "actual release for the PyPy website, you may want to be "
                       "using another platform...", file=sys.stderr)
-                e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --numeric-owner -cjf ' + archive + " " + name)
             elif sys.platform.startswith('freebsd'):
-                e = os.system('tar --uname=root --gname=wheel -cvjf ' + archive + " " + name)
+                e = os.system('tar --uname=root --gname=wheel -cjf ' + archive + " " + name)
             elif sys.platform == 'cygwin':
-                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cjf ' + archive + " " + name)
             else:
-                e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --owner=root --group=root --numeric-owner -cjf ' + archive + " " + name)
             if e:
                 raise OSError('"tar" returned exit status %r' % e)
     finally:

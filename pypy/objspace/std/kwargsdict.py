@@ -129,6 +129,8 @@ class KwargsDictStrategy(DictStrategy):
 
     def popitem(self, w_dict):
         keys, values_w = self.unerase(w_dict.dstorage)
+        if not keys:
+            raise KeyError
         key = keys.pop()
         w_value = values_w.pop()
         return self.wrap(key), w_value

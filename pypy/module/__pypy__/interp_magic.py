@@ -85,11 +85,14 @@ def lookup_special(space, w_obj, meth):
         return space.w_None
     return space.get(w_descr, w_obj)
 
-def do_what_I_mean(space, w_crash=None):
-    if not space.is_none(w_crash):
-        raise ValueError    # RPython-level, uncaught
+def do_what_I_mean(space):
+    "Return 42"
     return space.newint(42)
 
+def _internal_crash(space, w_crash=None):
+    """for testing purposes, raise an interpreter-level ValueError. Should turn
+    into a SystemError automatically"""
+    raise ValueError    # RPython-level, uncaught
 
 def strategy(space, w_obj):
     """ strategy(dict or list or set or instance)
@@ -292,7 +295,15 @@ def set_contextvar_context(space, w_obj):
 
 @unwrap_spec(where='text')
 def write_unraisable(space, where, w_exc, w_obj):
-    OperationError(space.type(w_exc), w_exc).write_unraisable(space, where, w_obj)
+    """write_unraisable(where, exc, obj)
+       Equivalent to CPython's _PyErr_WriteUnraisableMsg()
+
+       where: msg to write (text)
+       exc:   error raised
+       obj:   object to print its repr
+    """
+    OperationError(space.type(w_exc), w_exc).write_unraisable(
+                            space, where, w_obj, with_traceback=True)
 
 def _testing_clear_audithooks(space):
     if we_are_translated():

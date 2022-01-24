@@ -156,9 +156,9 @@ class AppTestJitFeatures(object):
         for x in supported_types:
             assert x in ['floats', 'singlefloats', 'longlong']
 
-    def test_do_what_I_mean_error(self):
+    def test_internal_error(self):
         if not self.runappdirect:
             skip("we don't wrap a random exception inside SystemError "
                  "when untranslated, because it makes testing harder")
-        from __pypy__ import do_what_I_mean
-        raises(SystemError, do_what_I_mean, 1)
+        from __pypy__ import _internal_crash
+        raises(SystemError, _internal_crash, 1)

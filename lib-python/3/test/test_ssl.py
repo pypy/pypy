@@ -586,13 +586,17 @@ class BasicSocketTests(unittest.TestCase):
         self.assertLessEqual(patch, 63)
         self.assertGreaterEqual(status, 0)
         self.assertLessEqual(status, 15)
-        # Version string as returned by {Open,Libre}SSL, the format might change
-        if IS_LIBRESSL:
-            self.assertTrue(s.startswith("LibreSSL {:d}".format(major)),
-                            (s, t, hex(n)))
+        libressl_ver = f"LibreSSL {major:d}"
+        openssl_ver = f"OpenSSL {major:d}.{minor:d}.{fix:d}"
+        if major >= 3:
+            # 3.x uses 0xMNN00PP0L
+            openssl_ver = f"OpenSSL {major:d}.{minor:d}.{patch:d}"
         else:
-            self.assertTrue(s.startswith("OpenSSL {:d}.{:d}.{:d}".format(major, minor, fix)),
-                            (s, t, hex(n)))
+            openssl_ver = f"OpenSSL {major:d}.{minor:d}.{fix:d}"
+        self.assertTrue(
+            s.startswith((openssl_ver, libressl_ver)),
+            (s, t, hex(n))
+        )
 
     @support.cpython_only
     def test_refcycle(self):
@@ -2518,6 +2522,14 @@ class ThreadedEchoServer(threading.Thread):
                             sys.stdout.write(err.args[1])
                         # test_pha_required_nocert is expecting this exception
                         raise ssl.SSLError('tlsv13 alert certificate required')
+                    if 'UNEXPECTED_EOF_WHILE_READING' == err.reason:
+                        # PyPy OpenSSL3 needs this, on CPython a
+                        # BrokenPipeError is raised which is caught as an
+                        # OSError. In this case do not stop the server.
+                        if self.server.chatty:
+                            handle_error("Test server failure:\n")
+                        self.close()
+                        self.running = False
                 except OSError:
                     if self.server.chatty:
                         handle_error("Test server failure:\n")

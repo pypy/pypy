@@ -123,7 +123,7 @@ def pyssl_error(obj, ret):
                     # s = obj.get_socket_or_None()
                     if sys.platform == 'win32':
                         if err.ws:
-                            return OSError(err.ws)
+                            return OSError(err.ws, os.strerror(err.ws))
                     if err.c:
                         ffi.errno = err.c 
                     errno = ffi.errno
@@ -195,7 +195,7 @@ def fill_sslerror(obj, errtype, ssl_errno, errstr, errcode):
     return err_value
 
 def pyerr_write_unraisable(exc, obj):
-    write_unraisable('ssl', exc, obj)
+    write_unraisable('in ssl', exc, obj)
 
 SSL_AD_NAMES = [
     "ACCESS_DENIED",

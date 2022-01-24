@@ -256,9 +256,9 @@ def generate_tokens(lines, flags):
 
         while pos < max:
             pseudomatch = pseudoDFA.recognize(line, pos)
+            start = whiteSpaceDFA.recognize(line, pos)
             if pseudomatch >= 0:                            # scan for tokens
                 # JDR: Modified
-                start = whiteSpaceDFA.recognize(line, pos)
                 if start < 0:
                     start = pos
                 end = pseudomatch
@@ -399,7 +399,6 @@ def generate_tokens(lines, flags):
                     token_list.append(Token(punct, token, lnum, start, line, lnum, end))
                     last_comment = ''
             else:
-                start = whiteSpaceDFA.recognize(line, pos)
                 if start < 0:
                     start = pos
                 if start<max and line[start] in single_quoted:

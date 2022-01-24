@@ -204,13 +204,21 @@ class MsvcPlatform(Platform):
             self.cc = cc
 
         # Try to find a masm assembler
-        returncode, stdout, stderr = _run_subprocess('ml.exe' if not x64 else 'ml64.exe', [],
-                                                     env=self.c_environ)
-        r = re.search('Macro Assembler', stderr)
+        # Dilemma: raise now or later if masm is not found. Postponing the
+        # exception means we can use a fake compiler for testing on linux
+        # but may mean cryptic error messages and wasted build time.
+        try:
+            returncode, stdout, stderr = _run_subprocess(
+                'ml.exe' if not x64 else 'ml64.exe', [], env=self.c_environ)
+            r = re.search('Macro Assembler', stderr)
+        except OSError:
+            r = None
+            masm32 = "'Could not find ml.exe'"
+            masm64 = "'Could not find ml.exe'"
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
             masm32 = 'c:/masm32/bin/ml.exe'
             masm64 = 'c:/masm64/bin/ml64.exe'
-        else:
+        elif r:
             masm32 = 'ml.exe'
             masm64 = 'ml64.exe'
 
@@ -313,23 +321,25 @@ class MsvcPlatform(Platform):
             path = cfiles[0].dirpath()
 
         rpypath = py.path.local(rpydir)
+        m = NMakefile(path)
 
         if exe_name is None:
-            exe_name = cfiles[0].new(ext=self.exe_ext)
-        else:
-            exe_name = exe_name.new(ext=self.exe_ext)
-
+            exe_name = cfiles[0].new(ext='')
         if shared:
-            so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
+            so_name = exe_name.new(purebasename='lib' + exe_name.basename,
                                    ext=self.so_ext)
-            wtarget_name = exe_name.new(purebasename=exe_name.purebasename + 'w',
+            wtarget_name = exe_name.new(purebasename=exe_name.basename + 'w',
                                    ext=self.exe_ext)
             target_name = so_name.basename
+            m.so_name = path.join(target_name)
+            m.wtarget_name = path.join(wtarget_name.basename)
+            m.exe_name = path.join(exe_name.basename + '.' + self.exe_ext)
         else:
-            target_name = exe_name.basename
+            target_name = exe_name.basename + '.' + self.exe_ext
+            wtarget_name = exe_name.basename + 'w.' + self.exe_ext
+            m.exe_name = path.join(target_name)
+            m.wtarget_name = path.join(wtarget_name)
 
-        m = NMakefile(path)
-        m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 
         linkflags = list(self.link_flags)
@@ -360,7 +370,7 @@ class MsvcPlatform(Platform):
         definitions = [
             ('RPYDIR', '"%s"' % rpydir),
             ('TARGET', target_name),
-            ('DEFAULT_TARGET', exe_name.basename),
+            ('DEFAULT_TARGET', m.exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
             ('LIBS', self._libs(eci.libraries)),
@@ -479,13 +489,13 @@ class MsvcPlatform(Platform):
         if manifest and not shared:
             linkflags.append('/MANIFESTINPUT:pypy.manifest')
         m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
-                [ '$(CC_LINK) $(LDFLAGS) $(LDFLAGSEXTRA)' + 
-                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + 
+                [ '$(CC_LINK) $(LDFLAGS) $(LDFLAGSEXTRA)' +
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' +
                   linkobjs,
                 ])
         m.rule('debugmode_$(TARGET)', ['$(OBJECTS)'] + extra_deps,
-                [ '$(CC_LINK) /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + 
-                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + 
+                [ '$(CC_LINK) /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' +
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' +
                   linkobjs,
                 ])
 

@@ -579,3 +579,8 @@ class AppTestBuiltinApp:
         raises(AttributeError, "s.abcde")
         raises(AttributeError, "s.abcde = 42")
         raises(AttributeError, "del s.abcde")
+
+    def test_cant_pickle_property(self):
+        import pickle
+        p = property(1, 2, 3)
+        raises(TypeError, pickle.dumps, p)

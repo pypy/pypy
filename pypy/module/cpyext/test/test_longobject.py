@@ -36,6 +36,9 @@ class TestLongObject(BaseApiTest):
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsLong(space, w_value)
         assert excinfo.value.w_type is space.w_OverflowError
+        msg = "Python int too large to convert to C long"
+        print(space.text_w(excinfo.value.get_w_value(space)))
+        assert space.text_w(excinfo.value.get_w_value(space)) == msg
         value = PyLong_AsUnsignedLong(space, w_value)
         assert value == (maxlong - 1) * 2
 
@@ -375,6 +378,17 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         raises(OverflowError, module.as_long, LONG_MAX+ 1)
         assert module.as_long(LONG_MIN) == LONG_MIN
         raises(OverflowError, module.as_long, LONG_MIN - 1)
+        class A:
+            def __index__(self):
+                return 42
+
+            def __int__(self):
+                return 21
+
+        a = A()
+        assert int(a) == 21
+        # new for python3.8: first try __index__
+        assert module.as_long(a) == 42
 
     def test_strtol(self):
         module = self.import_extension('foo', [

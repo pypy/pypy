@@ -34,8 +34,8 @@ def check_true(s_arg, bookeeper):
 
 def w_root_as_pyobj(w_obj, space):
     from rpython.rlib.debug import check_annotation
-    # make sure that translation crashes if we see this while not translating
-    # with cpyext
+    # make sure that translation crashes if we see this while translating
+    # without cpyext
     check_annotation(space.config.objspace.usemodules.cpyext, check_true)
     # default implementation of _cpyext_as_pyobj
     return rawrefcount.from_obj(PyObject, w_obj)

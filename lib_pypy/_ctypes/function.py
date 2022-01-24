@@ -322,10 +322,18 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                     raise
             except Exception as e:
                 from __pypy__ import write_unraisable
-                write_unraisable('calling ctypes callback function', e, self.callable) 
+                write_unraisable('in calling ctypes callback function', e, self.callable) 
                 return 0
             if self._restype_ is not None:
-                return res
+                if self._restype_._ffishape_ == 'O':
+                    return res
+                try:
+                    return self._restype_(res).value
+                except Exception as e:
+                    from __pypy__ import write_unraisable
+                    write_unraisable(
+                        "on converting result of ctypes callback function",
+                        e, self.callable)
             return
 
         if argtypes is None:
@@ -399,7 +407,8 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
     def _do_errcheck(self, result, args):
         # The 'errcheck' protocol
         if self._errcheck_:
-            v = self._errcheck_(result, self, tuple(args))
+            args = tuple(args)
+            v = self._errcheck_(result, self, args)
             # If the errcheck funtion failed, let it throw
             # If the errcheck function returned newargs unchanged,
             # continue normal processing.

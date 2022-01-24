@@ -2,7 +2,7 @@ import sys, errno
 from rpython.rlib import rsocket, rweaklist
 from rpython.rlib.buffer import RawByteBuffer
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import intmask, widen
+from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
     RSocketError, SOMAXCONN, HAS_SO_PROTOCOL,
@@ -247,7 +247,13 @@ class W_Socket(W_Root):
                     finally:
                         lltype.free(info_charptr, flavor='raw')
                 else:
-                    fd = space.c_filedescriptor_w(w_fileno)
+                    if space.isinstance_w(w_fileno, space.w_float):
+                        raise oefmt(space.w_TypeError,
+                            "integer argument expected, got float")
+                    fd = space.int_w(w_fileno)
+                    if ((_WIN32 and r_uint(fd) == rsocket.INVALID_SOCKET) or (fd < 0)):
+                        raise oefmt(space.w_ValueError,
+                            "negative file descriptor")
                     if family == -1:
                         family = rsocket.get_socket_family(fd)
                     if type == -1:
@@ -1146,6 +1152,7 @@ if_indextoname(index) -- return the corresponding interface name
     type = GetSetProperty(W_Socket.get_type_w),
     proto = GetSetProperty(W_Socket.get_proto_w),
     family = GetSetProperty(W_Socket.get_family_w),
+    timeout = GetSetProperty(W_Socket.gettimeout_w),
     **socketmethods
     )
 

@@ -824,6 +824,7 @@ class TestMktemp(BaseTestCase):
         self.do_create(suf="b")
         self.do_create(pre="a", suf="b")
         self.do_create(pre="aa", suf=".txt")
+        support.gc_collect()  # For PyPy or other GCs.
 
     def test_many(self):
         # mktemp can choose many usable file names (stochastic)
@@ -1451,6 +1452,8 @@ class TestTemporaryDirectory(BaseTestCase):
 
     def test_warnings_on_cleanup(self):
         # ResourceWarning will be triggered by __del__
+        # reset to a clean state in case other tests left unclosed files around
+        support.gc_collect()
         with self.do_create() as dir:
             d = self.do_create(dir=dir, recurse=3)
             name = d.name

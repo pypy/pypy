@@ -145,17 +145,12 @@ PY_SSIZE_T_MAX PY_SSIZE_T_MIN
 """.split()
 
 for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
-             'TYPE', 'BYTES'):
+             'TYPE', 'BYTES', 'FLOAT'):
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
 
 #pystrtod.h flags
 for name in ('SIGN', 'ADD_DOT_0', 'ALT'):
     constant_names.append('Py_DTSF_%s' % name)
-
-# PyPy-specific flags
-for name in ('FLOAT',):
-    constant_names.append('Py_TPPYPYFLAGS_%s_SUBCLASS' % name)
-
 
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
@@ -770,8 +765,26 @@ class CpyextTypeSpace(CTypeSpace):
         return decorate
 
 
-CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h', 'stddef.h']
-cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS)
+CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h',
+                       'stddef.h', 'pyport.h']
+
+# Subtle. There are two pyconfig.h, one in PC (for windows, includes a pragma
+# to link python*.lib), one in include. The dirs in include_dir purposely avoid
+# the one in PC, since at this stage python*.lib may not exist.
+# copy_header_files() will use the PC one on windows, which will then be used
+# for all translated c-extension compilation
+
+cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS, include_dirs = [include_dir])
+# Ideally, we would parse pyport.h but that is beyond the parser.
+cts.parse_source("""
+#ifdef _WIN64
+typedef long long Py_ssize_t;
+typedef long long Py_hash_t;
+#else
+typedef long Py_ssize_t;
+typedef long Py_hash_t;
+#endif
+""", configure=False)
 cts.parse_header(parse_dir / 'cpyext_object.h', configure=False)
 cts.parse_header(parse_dir / 'cpyext_descrobject.h', configure=False)
 cts.configure_types()
@@ -1209,7 +1222,8 @@ def attach_c_functions(space, eci, prefix):
         '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
-        '_PyPy_tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        mangle_name(prefix, '_Py_tuple_new'),
+        [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
     if we_are_translated():
         eci_flags = eci
@@ -1241,7 +1255,7 @@ def attach_c_functions(space, eci, prefix):
         _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
         state.C.flag_setters[attr] = setter
-        
+
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -1543,7 +1557,7 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
     for attr in dir(pygram.syms):
         val = getattr(pygram.syms, attr)
         graminit_h.write('#define {} {}'.format(attr, val))
-    
+
 
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
@@ -1858,18 +1872,19 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
 
 @jit.dont_look_inside
 def exec_extension_module(space, w_mod):
-    from pypy.module.cpyext.modsupport import exec_def
+    from pypy.module.cpyext.modsupport import exec_def, PyModuleObject
     if not space.config.objspace.usemodules.cpyext:
         return
     if not isinstance(w_mod, Module):
         return
     space.getbuiltinmodule("cpyext")
-    mod_as_pyobj = rawrefcount.from_obj(PyObject, w_mod)
-    if mod_as_pyobj:
-        if cts.cast('PyModuleObject*', mod_as_pyobj).c_md_state:
+    mod = cts.cast('PyModuleObject*', rawrefcount.from_obj(PyObject, w_mod))
+    if mod:
+        if mod.c_md_state:
             # already initialised
             return
-        return exec_def(space, w_mod, mod_as_pyobj)
+        moddef = mod.c_md_def
+        return exec_def(space, mod, moddef)
 
 def invoke_pyos_inputhook(space):
     state = space.fromcache(State)

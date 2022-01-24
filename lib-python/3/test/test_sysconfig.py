@@ -230,7 +230,7 @@ class TestSysConfig(unittest.TestCase):
 
     def test_get_scheme_names(self):
         wanted = ('nt', 'nt_user', 'osx_framework_user', 'posix_home',
-                  'posix_prefix', 'posix_user', 'pypy', 'pypy_nt')
+                  'posix_prefix', 'posix_user')
         self.assertEqual(get_scheme_names(), wanted)
 
     @skip_unless_symlink
@@ -271,7 +271,8 @@ class TestSysConfig(unittest.TestCase):
     def test_ldshared_value(self):
         ldflags = sysconfig.get_config_var('LDFLAGS')
         ldshared = sysconfig.get_config_var('LDSHARED')
-
+        assert ldflags
+        assert ldshared
         self.assertIn(ldflags, ldshared)
 
     @unittest.skipUnless(sys.platform == "darwin", "test only relevant on MacOSX")

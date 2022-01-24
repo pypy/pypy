@@ -32,6 +32,7 @@ static const long Cryptography_HAS_SIGALGS;
 static const long Cryptography_HAS_PSK;
 static const long Cryptography_HAS_CIPHER_DETAILS;
 static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION;
+static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF;
 
 /* Internally invented symbol to tell us if SNI is supported */
 static const long Cryptography_HAS_TLSEXT_HOSTNAME;
@@ -85,6 +86,7 @@ static const long SSL_OP_MSIE_SSLV2_RSA_PADDING;
 static const long SSL_OP_SSLEAY_080_CLIENT_DH_BUG;
 static const long SSL_OP_TLS_D5_BUG;
 static const long SSL_OP_TLS_BLOCK_PADDING_BUG;
+static const long SSL_OP_IGNORE_UNEXPECTED_EOF;
 static const long SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
 static const long SSL_OP_CIPHER_SERVER_PREFERENCE;
 static const long SSL_OP_TLS_ROLLBACK_BUG;
@@ -151,7 +153,6 @@ static const long SSL3_RT_CHANGE_CIPHER_SPEC;
 static const long SSL3_RT_ALERT;
 static const long SSL3_RT_HANDSHAKE;
 static const long SSL3_RT_APPLICATION_DATA;
-static const long DTLS1_RT_HEARTBEAT;
 
 static const long SSL3_RT_HEADER;
 static const long SSL3_RT_INNER_CONTENT_TYPE;
@@ -252,6 +253,8 @@ int SSL_CTX_set_cipher_list(SSL_CTX *, const char *);
 int SSL_CTX_load_verify_locations(SSL_CTX *, const char *, const char *);
 void SSL_CTX_set_default_passwd_cb(SSL_CTX *, pem_password_cb *);
 void SSL_CTX_set_default_passwd_cb_userdata(SSL_CTX *, void *);
+pem_password_cb *SSL_CTX_get_default_passwd_cb(SSL_CTX *ctx);
+void *SSL_CTX_get_default_passwd_cb_userdata(SSL_CTX *ctx);
 int SSL_CTX_use_certificate(SSL_CTX *, X509 *);
 int SSL_CTX_use_certificate_ASN1(SSL_CTX *, int, const unsigned char *);
 int SSL_CTX_use_certificate_file(SSL_CTX *, const char *, int);
@@ -937,6 +940,12 @@ int (*SSL_CTX_set_max_early_data)(SSL_CTX *, uint32_t) = NULL;
 static const long Cryptography_HAS_TLSv1_3 = 1;
 #endif
 
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_300
+static const long SSL_OP_IGNORE_UNEXPECTED_EOF = 0;
+static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF = 0;
+#else
+static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF = 1;
+#endif
 #ifdef X509_CHECK_FLAG_NEVER_CHECK_SUBJECT
 static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT = 1;
 #else

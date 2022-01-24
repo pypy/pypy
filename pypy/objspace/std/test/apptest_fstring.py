@@ -17,6 +17,23 @@ def test_ast_lineno_and_col_offset():
     assert y_ast.lineno == 2
     assert y_ast.col_offset == 9
 
+    m = ast.parse("\na + f'a{x}bc{y}de'")
+    x_ast = m.body[0].value.right.values[1].value
+    y_ast = m.body[0].value.right.values[3].value
+    assert x_ast.lineno == 2
+    assert x_ast.col_offset == 8
+    assert y_ast.lineno == 2
+    assert y_ast.col_offset == 13
+
+def test_ast_lineno_and_col_offset_duplicate():
+    m = ast.parse("\nf'a{x}bc{x}de'")
+    x_ast = m.body[0].value.values[1].value
+    y_ast = m.body[0].value.values[3].value
+    assert x_ast.lineno == 2
+    assert x_ast.col_offset == 4
+    assert y_ast.lineno == 2
+    assert y_ast.col_offset == 9
+
 def test_ast_lineno_and_col_offset_unicode():
     s = "\nf'α{χ}βγ{ψ}δε'"
     assert s.encode('utf-8') ==b"\nf'\xce\xb1{\xcf\x87}\xce\xb2\xce\xb3{\xcf\x88}\xce\xb4\xce\xb5'"
@@ -36,7 +53,7 @@ def test_ast_mutiline_lineno_and_col_offset():
     assert x_ast.lineno == 3
     assert x_ast.col_offset == 5
     assert y_ast.lineno == 4
-    assert y_ast.col_offset == 5
+    assert y_ast.col_offset == 4
     assert z_ast.lineno == 6
     assert z_ast.col_offset == 0
 
@@ -207,10 +224,43 @@ def test_debug_conversion():
     assert f'{C()=:x}' == 'C()=FORMAT-x'
     assert f'{C()=!r:*^20}' == 'C()=********REPR********'
 
-
-
 def test_crash_debugging():
     with raises(SyntaxError):
         eval('f"{pow(x, k, j)="')
     with raises(SyntaxError):
         eval('f"{pow(x, k, j)=    "')
+
+def test_parseerror_lineno():
+    with raises(SyntaxError) as excinfo:
+        eval('\n\nf"{,}"')
+    assert excinfo.value.lineno == 3
+    assert excinfo.value.offset == 4
+    with raises(SyntaxError) as excinfo:
+        eval('f"\\\n\\\n{,}"')
+    assert excinfo.value.lineno == 3
+    assert excinfo.value.offset == 2
+    assert excinfo.value.text == '{,}"'
+    with raises(SyntaxError) as excinfo:
+        eval('''f"""{
+,}"""''')
+    assert excinfo.value.lineno == 2
+    assert excinfo.value.offset == 1
+    assert excinfo.value.text == ',}"""'
+
+def test_tokenerror_lineno():
+    with raises(SyntaxError) as excinfo:
+        eval('\n\nf"{$}"')
+    assert excinfo.value.lineno == 3
+    assert excinfo.value.offset == 4
+    with raises(SyntaxError) as excinfo:
+        eval('f"\\\n\\\n{$}"')
+    assert excinfo.value.lineno == 3
+    assert excinfo.value.offset == 2
+    assert excinfo.value.text == '{$}"'
+    with raises(SyntaxError) as excinfo:
+        eval('''f"""{
+$}"""''')
+    assert excinfo.value.lineno == 2
+    assert excinfo.value.offset == 1
+    assert excinfo.value.text == '$}"""'
+

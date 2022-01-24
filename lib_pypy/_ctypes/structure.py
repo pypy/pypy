@@ -323,9 +323,8 @@ class StructOrUnion(_CData, metaclass=StructOrUnionMeta):
         memmove(addr, origin, self._fficompositesize_)
 
     def _to_ffi_param(self):
-        newparam = StructOrUnion.__new__(type(self))
-        self._copy_to(newparam._buffer.buffer)
-        return newparam._buffer
+        # Do not copy, like CPython
+        return self._buffer
 
     def __buffer__(self, flags):
         fmt = type(self)._getformat()

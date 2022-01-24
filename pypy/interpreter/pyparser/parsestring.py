@@ -7,12 +7,15 @@ from rpython.rlib.rstring import StringBuilder
 
 
 class W_FString(W_Root):
-    def __init__(self, unparsed, raw_mode, stnode):
+    def __init__(self, unparsed, raw_mode, stnode, content_offset=0):
         assert isinstance(unparsed, str)    # utf-8 encoded string
         self.unparsed = unparsed     # but the quotes are removed
         self.raw_mode = raw_mode
         self.current_index = 0       # for astcompiler.fstring
         self.stnode = stnode
+        # offset behind the start of the string, after f" (or however it
+        # starts)
+        self.content_offset = content_offset
 
 
 
@@ -92,15 +95,17 @@ def parsestr(space, encoding, s, stnode=None, astbuilder=None):
     assert 0 <= ps <= q
     if unicode_literal:
         if saw_f:
-            return W_FString(s[ps:q], rawmode, stnode)
+            return W_FString(s[ps:q], rawmode, stnode, ps)
         elif rawmode:
-            v = unicodehelper.str_decode_utf8(s[ps:q], 'strict', True, None)
-            return space.newtext(*v)
+            length = unicodehelper.check_utf8_or_raise(space, s, ps, q)
+            return space.newutf8(s[ps:q], length)
         else:
             if encoding is None:
                 substr = s[ps:q]
             else:
-                unicodehelper.check_utf8_or_raise(space, s, ps, q)
+                length = unicodehelper.check_utf8_or_raise(space, s, ps, q)
+                if "\\" not in s: # fast path, no escapes
+                    return space.newutf8(s[ps:q], length)
                 substr = decode_unicode_utf8(space, s, ps, q)
             r = decode_unicode_escape(space, substr, astbuilder, stnode)
             v, length, pos = r

@@ -137,7 +137,10 @@ class NumberTestCase(unittest.TestCase):
         for t in signed_types + unsigned_types:
             self.assertRaises(TypeError, t, 3.14)
             self.assertRaises(TypeError, t, f)
-            with self.assertWarns(DeprecationWarning):
+            # PyPy: does not warn. The deprecated behaviour will be removed
+            # in 3.10 and this will raise instead
+            # with self.assertWarns(DeprecationWarning):
+            if 1:
                 self.assertEqual(t(d).value, 2)
             self.assertEqual(t(i).value, 2)
 

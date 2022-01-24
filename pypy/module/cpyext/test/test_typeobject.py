@@ -2074,28 +2074,42 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             pass
         assert module.test_flags(MyList, Py_TPFLAGS_LIST_SUBCLASS) == 0
 
-    def test_has_pypy_subclass_flag(self):
+    def test_newgetset(self):
+        # Taken from the yara-python project
         module = self.import_extension('foo', [
-           ("test_pypy_flags", "METH_VARARGS",
-            '''
-                long long in_flag, my_flag;
-                PyObject * obj;
-                if (!PyArg_ParseTuple(args, "OL", &obj, &in_flag))
-                    return NULL;
-                if (!PyType_Check(obj))
-                {
-                    PyErr_SetString(PyExc_ValueError, "input must be type");
+            ('newexc', 'METH_NOARGS',
+             """
+                PyObject *YaraWarningError = PyErr_NewException("foo.YaraWarningError", PyExc_Exception, NULL);
+
+                PyTypeObject *YaraWarningError_type = (PyTypeObject *) YaraWarningError;
+                PyObject* descr = PyDescr_NewGetSet(YaraWarningError_type,
+                                                    YaraWarningError_getsetters);
+                if (PyDict_SetItem(YaraWarningError_type->tp_dict,
+                                   PyDescr_NAME(descr), descr) < 0) {
+                    Py_DECREF(descr);
                     return NULL;
                 }
-                my_flag = ((PyTypeObject*)obj)->tp_pypy_flags;
-                if ((my_flag & in_flag) != in_flag)
-                    return PyLong_FromLong(-1);
-                return PyLong_FromLong(0);
-            '''),])
-        # copied from object.h
-        Py_TPPYPYFLAGS_FLOAT_SUBCLASS = (1<<0)
+                return YaraWarningError;
+            """),
+            ], prologue="""
+                static PyObject* YaraWarningError_getwarnings(PyObject *self, void* closure)
+                {
+                  PyObject *args = PyObject_GetAttrString(self, "args");
+                  if (!args) {
+                    return NULL;
+                  }
 
-        class MyFloat(float):
-            pass
-        assert module.test_pypy_flags(float, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
-        assert module.test_pypy_flags(MyFloat, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
+                  PyObject* ret = PyTuple_GetItem(args, 0);
+                  Py_XINCREF(ret);
+                  Py_XDECREF(args);
+                  return ret;
+                }
+
+                static PyGetSetDef YaraWarningError_getsetters[] = {
+                  {"warnings", YaraWarningError_getwarnings, NULL, NULL, NULL},
+                  {NULL}
+                };
+             """)
+        errtype = module.newexc()
+        err = errtype("abc")
+        assert err.warnings == "abc"

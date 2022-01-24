@@ -124,11 +124,11 @@ c_ferror = llexternal('ferror', [FILEP], rffi.INT)
 c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
 
 c_stdin = rffi.CExternVariable(FILEP, 'stdin', eci, c_type='FILE*',
-                               getter_only=True)
+                               getter_only=True, declare_as_extern=False)
 c_stdout = rffi.CExternVariable(FILEP, 'stdout', eci, c_type='FILE*',
-                                getter_only=True)
+                                getter_only=True, declare_as_extern=False)
 c_stderr = rffi.CExternVariable(FILEP, 'stderr', eci, c_type='FILE*',
-                                getter_only=True)
+                                getter_only=True, declare_as_extern=False)
 
 
 def _error(ll_file):

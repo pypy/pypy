@@ -199,7 +199,9 @@ class W_FileIO(W_RawIOBase):
             if fd >= 0:
                 self.fd = fd
                 self.closefd = bool(closefd)
+                space.audit("open", [space.newint(fd), space.newtext(mode), space.newint(closefd)])
             else:
+                space.audit("open", [w_name, space.newtext(mode), space.newint(1)])
                 self.closefd = True
                 if not closefd:
                     raise oefmt(space.w_ValueError,

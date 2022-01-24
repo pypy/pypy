@@ -1,14 +1,5 @@
 #pragma once
 
-/* CPython defines Py_ssize_t in pyport.h as intptr_t */
-#ifdef _WIN64
-typedef long long Py_ssize_t;
-typedef long long Py_hash_t;
-#else
-typedef long Py_ssize_t;
-typedef long Py_hash_t;
-#endif
-
 #define PyObject_HEAD  \
     Py_ssize_t ob_refcnt;        \
     Py_ssize_t ob_pypy_link;     \
@@ -86,6 +77,8 @@ typedef struct bufferinfo {
 typedef int (*getbufferproc)(PyObject *, Py_buffer *, int);
 typedef void (*releasebufferproc)(PyObject *, Py_buffer *);
 /* end Py3k buffer interface */
+typedef PyObject *(*vectorcallfunc)(PyObject *callable, PyObject *const *args,
+                                    size_t nargsf, PyObject *kwnames);
 
 typedef int (*objobjproc)(PyObject *, PyObject *);
 typedef int (*visitproc)(PyObject *, void *);
@@ -289,13 +282,9 @@ typedef struct _typeobject {
     unsigned int tp_version_tag;
 
     destructor tp_finalize;
+    vectorcallfunc tp_vectorcall;
 
     printfunc tp_print; // deprecated, but stays around for compatibility
-
-    /* PyPy specific extra fields: make sure that they are ALWAYS at the end,
-       for compatibility with CPython */
-    long tp_pypy_flags;
-
 } PyTypeObject;
 
 typedef struct{

@@ -117,6 +117,3 @@ class TestOptimizeBridge(BaseTest):
         self.optimize(loop, bridge, expected,
                       jump_values=[None, self.simpleaddr],
                       bridge_values=[None, self.simpleaddr])
-
-    def test_virtual_state_guard_needed(self):
-        pass

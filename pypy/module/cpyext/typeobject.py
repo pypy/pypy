@@ -21,7 +21,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS,
     Py_TPFLAGS_BYTES_SUBCLASS,
-    Py_TPPYPYFLAGS_FLOAT_SUBCLASS,
+    Py_TPFLAGS_FLOAT_SUBCLASS,
     )
 
 from rpython.tool.cparser import CTypeSpace
@@ -77,9 +77,11 @@ class W_GetSetPropertyEx(GetSetProperty):
             self.name, self.w_type)
 
 
+@cpython_api([PyTypeObjectPtr, lltype.Ptr(PyGetSetDef)], PyObject, result_is_ll=True)
 def PyDescr_NewGetSet(space, w_type, getset):
     # Note the arguments are reversed
-    return W_GetSetPropertyEx(getset, w_type)
+    w_descr = W_GetSetPropertyEx(getset, w_type)
+    return make_ref(space, w_descr, w_type)
 
 def make_GetSet(space, getsetprop):
     py_getsetdef = lltype.malloc(PyGetSetDef, flavor='raw')
@@ -247,7 +249,7 @@ def convert_getset_defs(space, dict_w, getsets, w_type):
             if not name:
                 break
             name = rffi.constcharp2str(name)
-            w_descr = PyDescr_NewGetSet(space, w_type, getset)
+            w_descr = W_GetSetPropertyEx(getset, w_type)
             dict_w[name] = w_descr
 
 def convert_member_defs(space, dict_w, members, w_type):
@@ -464,9 +466,9 @@ def inherit_special(space, pto, w_obj, base_pto):
         flags |= Py_TPFLAGS_LIST_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_dict):
         flags |= Py_TPFLAGS_DICT_SUBCLASS
-    # the following types are a pypy-specific extensions, using tp_pypy_flags
+    # bpo-46131, maybe resolved for CPython 3.11?
     elif space.issubtype_w(w_obj, space.w_float):
-        pto.c_tp_pypy_flags = rffi.cast(rffi.LONG, widen(pto.c_tp_pypy_flags) | Py_TPPYPYFLAGS_FLOAT_SUBCLASS)
+        flags |= Py_TPFLAGS_FLOAT_SUBCLASS
     pto.c_tp_flags = rffi.cast(rffi.ULONG, flags)
 
 def check_descr(space, w_self, w_type):

@@ -114,7 +114,8 @@ class TestEval(BaseApiTest):
         w_globals = space.newdict()
         assert 42 * 43 == space.unwrap(
             run("42 * 43", Py_eval_input, w_globals, w_globals))
-        assert PyObject_Size(space, w_globals) == 0
+        # __builtins__ is added
+        assert PyObject_Size(space, w_globals) == 1
 
         assert run("a = 42 * 43", Py_single_input,
                    w_globals, w_globals) == space.w_None
@@ -124,6 +125,7 @@ class TestEval(BaseApiTest):
     def test_run_string_flags(self, space):
         flags = lltype.malloc(PyCompilerFlags, flavor='raw')
         flags.c_cf_flags = rffi.cast(rffi.INT, consts.PyCF_SOURCE_IS_UTF8)
+        flags.c_cf_feature_version = rffi.cast(rffi.INT, -1)
         w_globals = space.newdict()
         buf = rffi.str2charp("a = 'caf\xc3\xa9'")
         try:

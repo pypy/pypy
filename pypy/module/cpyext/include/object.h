@@ -217,6 +217,7 @@ given type object has a specified feature.
 #define Py_TPFLAGS_IS_ABSTRACT (1L<<20)
 
 /* These flags are used to determine if a type is a subclass. */
+#define Py_TPFLAGS_FLOAT_SUBCLASS       (1UL << 23)
 #define Py_TPFLAGS_LONG_SUBCLASS        (1UL << 24)
 #define Py_TPFLAGS_LIST_SUBCLASS        (1UL << 25)
 #define Py_TPFLAGS_TUPLE_SUBCLASS       (1UL << 26)
@@ -227,9 +228,6 @@ given type object has a specified feature.
 #define Py_TPFLAGS_TYPE_SUBCLASS        (1UL << 31)
 
 
-/* These are conceptually the same as the flags above, but they are
-   PyPy-specific and are stored inside tp_pypy_flags */
-#define Py_TPPYPYFLAGS_FLOAT_SUBCLASS (1L<<0)
 
     
 #define Py_TPFLAGS_DEFAULT  ( \
@@ -251,8 +249,6 @@ PyAPI_FUNC(long) PyType_GetFlags(PyTypeObject*);
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
 #endif
 #define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
-
-#define _PyPy_Type_FastSubclass(t,f) (((t)->tp_pypy_flags & (f)) != 0)
 
 #if !defined(Py_LIMITED_API)
 PyAPI_FUNC(void*) PyType_GetSlot(PyTypeObject*, int);
@@ -409,8 +405,6 @@ PyAPI_FUNC(int) PyObject_CallFinalizerFromDealloc(PyObject *);
 #define _Py_REF_DEBUG_COMMA
 #define _Py_CHECK_REFCNT(OP)    /* a semicolon */;
 
-typedef PyObject *(*vectorcallfunc)(PyObject *callable, PyObject *const *args,
-                                    size_t nargsf, PyObject *kwnames);
 
 /* PyPy internal ----------------------------------- */
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);

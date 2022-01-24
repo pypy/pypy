@@ -443,7 +443,8 @@ def unmarshal_pycode(space, u, tc):
     PyCode.__init__(w_codeobj,
                   space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
-                  name, firstlineno, lnotab, freevars, cellvars)
+                  name, firstlineno, lnotab, freevars, cellvars,
+                  hidden_applevel=u.hidden_applevel)
     return w_codeobj
 
 

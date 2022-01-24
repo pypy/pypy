@@ -42,6 +42,7 @@ if hasattr(os, "fork"):
         res = os.WEXITSTATUS(status1)
         assert res == 13
 
+
 def test_cpu_count():
     cc = posix.cpu_count()
     assert cc is None or (isinstance(cc, int) and cc > 0)

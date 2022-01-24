@@ -4,8 +4,10 @@ from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 from rpython.rlib.objectmodel import keepalive_until_here, we_are_translated
 from rpython.rlib import jit
 
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, ClassAttr
 from pypy.module._cffi_backend import ctypeobj, cdataobj, allocator
 
 
@@ -236,24 +238,28 @@ def memmove(space, w_dest, w_src, n):
     # cases...
     src_buf = None
     src_data = lltype.nullptr(rffi.CCHARP.TO)
-    if isinstance(w_src, cdataobj.W_CData):
-        src_data = unsafe_escaping_ptr_for_ptr_or_array(w_src)
-        src_is_ptr = True
+    if space.isinstance_w(w_src, space.w_bytes):
+        src_is_ptr = False
+        src_string = space.bytes_w(w_src)
     else:
-        src_buf = _fetch_as_read_buffer(space, w_src)
-        try:
-            src_data = src_buf.get_raw_address()
+        if isinstance(w_src, cdataobj.W_CData):
+            src_data = unsafe_escaping_ptr_for_ptr_or_array(w_src)
             src_is_ptr = True
-        except ValueError:
-            src_is_ptr = False
-
-    if src_is_ptr:
-        src_string = None
-    else:
-        if n == src_buf.getlength():
-            src_string = src_buf.as_str()
         else:
-            src_string = src_buf.getslice(0, 1, n)
+            src_buf = _fetch_as_read_buffer(space, w_src)
+            try:
+                src_data = src_buf.get_raw_address()
+                src_is_ptr = True
+            except ValueError:
+                src_is_ptr = False
+
+        if src_is_ptr:
+            src_string = None
+        else:
+            if n == src_buf.getlength():
+                src_string = src_buf.as_str()
+            else:
+                src_string = src_buf.getslice(0, 1, n)
 
     dest_buf = None
     dest_data = lltype.nullptr(rffi.CCHARP.TO)
@@ -298,3 +304,18 @@ def gcp(space, w_cdata, w_destructor, size=0):
 @unwrap_spec(w_cdata=cdataobj.W_CData)
 def release(space, w_cdata):
     w_cdata.enter_exit(True)
+
+class OffsetInBytes(W_Root):
+    def __init__(self, bytes_w, offset):
+        self.bytes = bytes_w
+        self.offset = offset
+
+OffsetInBytes.typedef = TypeDef(
+    '_cffi_backend._OffsetInBytes',
+)
+
+@unwrap_spec(offset=int)
+def offset_in_bytes(space, w_bytes, offset):
+    if not space.isinstance_w(w_bytes, space.w_bytes):
+        raise oefmt(space.w_TypeError, "must be bytes, not %T", w_bytes)
+    return OffsetInBytes(space.bytes_w(w_bytes), offset)
