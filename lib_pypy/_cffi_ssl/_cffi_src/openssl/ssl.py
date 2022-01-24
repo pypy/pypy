@@ -807,15 +807,6 @@ static const long TLS_ST_OK = 0;
 #define TLS_client_method SSLv23_client_method
 #endif
 
-/* SSLv23_method(), SSLv23_server_method() and SSLv23_client_method() were
-   deprecated and the preferred TLS_method(), TLS_server_method() and
-   TLS_client_method() functions were introduced in OpenSSL 1.1.0. */
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
-#define TLS_method SSLv23_method
-#define TLS_server_method SSLv23_server_method
-#define TLS_client_method SSLv23_client_method
-#endif
-
 /* LibreSSL 2.9.1 added only the DTLS_*_method functions */
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 && !CRYPTOGRAPHY_LIBRESSL_291_OR_GREATER
 static const long Cryptography_HAS_GENERIC_DTLS_METHOD = 0;
@@ -954,5 +945,10 @@ static const long SSL_OP_IGNORE_UNEXPECTED_EOF = 0;
 static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF = 0;
 #else
 static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF = 1;
+#endif
+#ifdef X509_CHECK_FLAG_NEVER_CHECK_SUBJECT
+static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT = 1;
+#else
+static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT = 0;
 #endif
 """
