@@ -10,7 +10,6 @@
 __all__ = ['c_lexer', 'c_parser', 'c_ast']
 __version__ = '2.21'
 
-# from subprocess import check_output  # moved to internal function
 import io
 from subprocess import check_output
 from .c_parser import CParser
@@ -89,3 +88,4 @@ def parse_file(filename, use_cpp=False, cpp_path='cpp', cpp_args='',
     if parser is None:
         parser = CParser()
     return parser.parse(text, filename)
+

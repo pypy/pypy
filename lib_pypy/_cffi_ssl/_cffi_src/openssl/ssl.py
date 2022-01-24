@@ -32,6 +32,7 @@ static const long Cryptography_HAS_SIGALGS;
 static const long Cryptography_HAS_PSK;
 static const long Cryptography_HAS_CIPHER_DETAILS;
 static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION;
+static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF;
 
 /* Internally invented symbol to tell us if SNI is supported */
 static const long Cryptography_HAS_TLSEXT_HOSTNAME;
@@ -85,6 +86,7 @@ static const long SSL_OP_MSIE_SSLV2_RSA_PADDING;
 static const long SSL_OP_SSLEAY_080_CLIENT_DH_BUG;
 static const long SSL_OP_TLS_D5_BUG;
 static const long SSL_OP_TLS_BLOCK_PADDING_BUG;
+static const long SSL_OP_IGNORE_UNEXPECTED_EOF;
 static const long SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
 static const long SSL_OP_CIPHER_SERVER_PREFERENCE;
 static const long SSL_OP_TLS_ROLLBACK_BUG;
@@ -938,6 +940,12 @@ int (*SSL_CTX_set_max_early_data)(SSL_CTX *, uint32_t) = NULL;
 static const long Cryptography_HAS_TLSv1_3 = 1;
 #endif
 
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_300
+static const long SSL_OP_IGNORE_UNEXPECTED_EOF = 0;
+static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF = 0;
+#else
+static const long Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF = 1;
+#endif
 #ifdef X509_CHECK_FLAG_NEVER_CHECK_SUBJECT
 static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT = 1;
 #else

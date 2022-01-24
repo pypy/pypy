@@ -66,6 +66,7 @@ Contributors
   Alex Martelli
   Ondrej Baranovič
   Spenser Bauman
+  Yusuke Izawa
   Michal Bendowski
   Jan de Mooij
   Stefan Beyer
@@ -107,7 +108,6 @@ Contributors
   Andreas Stührk
   Jean-Philippe St. Pierre
   Stian Andreassen
-  Yusuke Izawa
   Guido van Rossum
   Pavel Vinogradov
   William Leslie
@@ -144,6 +144,7 @@ Contributors
   Lukas Renggli
   Dusty Phillips
   Guenter Jantzen
+  Bert Freudenberg
   Amit Regmi
   Ned Batchelder
   Jasper Schulz
@@ -235,6 +236,7 @@ Contributors
   Jacek Generowicz
   Sylvain Thenault
   Alejandro J. Cura
+  Roberto De Ioris
   Andrew Dalke
   Gabriel
   Nathan Taylor
@@ -338,6 +340,7 @@ Contributors
   alexprengere
   Dennis Sweeney
   Kevin Lee
+  h-vertini
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -442,3 +445,6 @@ Contributors
   Christoph Reiter
   Chris Burr
   Brad Kish
+  David Hewitt
+  Michael Cho
+  Isuru Fernando
