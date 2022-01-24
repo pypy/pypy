@@ -232,10 +232,10 @@ class Frame(object):
 
     def __init__(self, bytecode):
         self.bytecode = bytecode
-        self.stack = [None] * 256
+        self.stack = [None] * 10240
         self.stackpos = 0
 
-        self.saved_stack = [None] * 256
+        self.saved_stack = [None] * 10240
         self.saved_stackpos = 0
 
     @jit.not_in_trace
@@ -352,7 +352,6 @@ class Frame(object):
         n = ord(self.bytecode[pc])
         w_x = self.take(n)
         self.push(w_x)
-        self.push(w_x)
 
     @jit.dont_look_inside
     def LT(self):
@@ -390,33 +389,33 @@ class Frame(object):
     @jit.dont_look_inside
     def CALL(self, t):
         res = self.interp(t)
-        _ = self.pop()
-        if res is not None:
+        if res:
             self.push(res)
 
     @jit.dont_look_inside
     def CALL_NORMAL(self, t):
         res = self.interp_normal(t)
         _ = self.pop()
-        if res is not None:
+        if res:
             self.push(res)
 
     @jit.dont_look_inside
     def CALL_JIT(self, t):
         res = self.interp_jit(t)
-        _ = self.pop()
-        if res is not None:
+        if res:
             self.push(res)
 
     @jit.dont_look_inside
     def RET(self, n):
-        self.drop(n-1)
-        return self.pop()
+        v = self.pop()
+        for _ in range(n):
+            self.pop()
+        return v
 
     @jit.dont_look_inside
     def PRINT(self):
         v = self.pop()
-        print v
+        print v.getrepr()
 
     def _push(self, w_x):
         self.stack[self.stackpos] = w_x
@@ -433,6 +432,10 @@ class Frame(object):
     def _take(self,n):
         assert len(self.stack) is not 0
         return self.stack[self.stackpos - n - 1]
+
+    def _drop(self, n):
+        for _ in range(n):
+            self.pop()
 
     def _is_true(self):
         w_x = self.pop()
@@ -538,8 +541,9 @@ class Frame(object):
             self._push(res)
 
     def _RET(self, n):
-        self.drop(n-1)
-        return self._pop()
+        v = self._pop()
+        self._drop(n)
+        return v
 
     def _PRINT(self):
         v = self.pop()
@@ -790,7 +794,8 @@ class Frame(object):
                         w_x = self.pop()
                         pc = emit_ret(pc, w_x)
                 else:
-                    return self.pop()
+                    argnum = ord(bytecode[pc])
+                    return self.RET(argnum)
 
             elif opcode == JUMP:
                 t = ord(bytecode[pc])
@@ -849,7 +854,6 @@ class Frame(object):
 
 def run(bytecode, w_arg, entry=None):
     frame = Frame(bytecode)
-    frame.push(w_arg)
     frame.push(w_arg)
     if entry == "tracing" or entry == "tr":
         w_result = frame.interp_jit()
