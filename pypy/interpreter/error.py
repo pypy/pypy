@@ -416,13 +416,16 @@ class OperationError(Exception):
 
     def chain_exceptions(self, space, context):
         """Attach another OperationError as __context__."""
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
         self.normalize_exception(space)
         w_value = self.get_w_value(space)
         context.normalize_exception(space)
         w_context = context.get_w_value(space)
         if not space.is_w(w_value, w_context):
+            if not isinstance(w_value, W_BaseException):
+                raise oefmt(space.w_SystemError, "not an instance of Exception: %T", w_value)
             _break_context_cycle(space, w_value, w_context)
-            space.setattr(w_value, space.newtext('__context__'), w_context)
+            w_value.descr_setcontext(space, w_context)
 
     def chain_exceptions_from_cause(self, space, exception):
         # XXX does this code really make sense?
@@ -472,12 +475,15 @@ def _break_context_cycle(space, w_value, w_context):
 
     This is O(chain length) but context chains are usually very short
     """
+    from pypy.module.exceptions.interp_exceptions import W_BaseException
     while True:
-        w_next = space.getattr(w_context, space.newtext('__context__'))
-        if space.is_w(w_next, space.w_None):
+        if not isinstance(w_context, W_BaseException):
+            raise oefmt(space.w_SystemError, "not an instance of Exception: %T", w_context)
+        w_next = w_context.descr_getcontext(space)
+        if space.is_none(w_next):
             break
         if space.is_w(w_next, w_value):
-            space.setattr(w_context, space.newtext('__context__'), space.w_None)
+            w_context.descr_setcontext(space, space.w_None)
             break
         w_context = w_next
 
