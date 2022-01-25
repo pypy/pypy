@@ -385,18 +385,47 @@ class AppTestRaiseContext:
             fail("No exception raised")
 
     def test_preexisting_cycle(self):
-        def chain(e):
-            res = Exception()
+        def chain(e, i=0):
+            res = Exception(i)
             res.__context__ = e
             return res
         def cycle():
             try:
                 raise ValueError(1)
             except ValueError as ex:
-                ex.__context__ = chain(chain(chain(ex))) # make cycle ourselves
+                start = curr = Exception()
+                for i in range(chainlength):
+                    curr = chain(curr, i) # make cycle ourselves
+                start.__context__ = curr
+                for i in range(prelength):
+                    curr = chain(curr, i + chainlength)
+                ex.__context__ = curr
                 raise TypeError(2) # shouldn't hang here
+        for chainlength in range(2, 7):
+            for prelength in range(2, 7):
+                print(chainlength, prelength)
+                raises(TypeError, cycle)
 
-        raises(TypeError, cycle)
+    def test_long_cycle_broken(self):
+        def chain(e, i=0):
+            res = Exception(i)
+            res.__context__ = e
+            return res
+        def cycle():
+            try:
+                raise ValueError(1)
+            except ValueError as ex:
+                start = curr = TypeError()
+                for i in range(chainlength):
+                    curr = chain(curr, i) # make cycle ourselves
+                ex.__context__ = curr
+                raise start
+        for chainlength in range(2, 7):
+            print(chainlength)
+            exc = raises(TypeError, cycle).value
+            for i in range(chainlength + 1):
+                exc = exc.__context__
+            assert exc.__context__ is None # got broken
 
     def test_reraise_cycle_broken(self):
         try:

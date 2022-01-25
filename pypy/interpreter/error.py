@@ -499,7 +499,7 @@ def _break_context_cycle(space, w_value, w_context):
             # every other iteration
             if not isinstance(w_tortoise, W_BaseException):
                 raise oefmt(space.w_SystemError, "not an instance of Exception: %T", w_tortoise)
-            w_tortoise = w_rabbit.descr_getcontext(space)
+            w_tortoise = w_tortoise.descr_getcontext(space)
         update_tortoise_toggle = not update_tortoise_toggle
 
 
