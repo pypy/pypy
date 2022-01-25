@@ -71,7 +71,21 @@ class __extend__(pyframe.PyFrame):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
         except OperationError as operr:
-            operr.record_context(self.space, ec)
+            try:
+                operr.record_context(self.space, ec)
+            except OperationError as operr2:
+                # this should be unreachable! but we don't want to crash if it
+                # still happens
+                operr.normalize_exception(self.space)
+                operr2.normalize_exception(self.space)
+                # NB: don't *raise* it, it's handled by the
+                # handle_operation_error call below (otherwise some higher up
+                # except block handles it)
+                operr = oefmt(
+                    self.space.w_TypeError,
+                    "couldn't record exception context for exception '%T', got: %R",
+                    operr.get_w_value(self.space),
+                    operr2.get_w_value(self.space))
             next_instr = self.handle_operation_error(ec, operr)
         except RaiseWithExplicitTraceback as e:
             next_instr = self.handle_operation_error(ec, e.operr,
