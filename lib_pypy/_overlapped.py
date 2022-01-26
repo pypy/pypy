@@ -10,7 +10,7 @@ import _winapi
 from _winapi import _Z, RaiseFromWindowsErr
 
 if sys.platform != 'win32':
-    raise ImportError("The '_overlapped' module is only available on Windows")
+    raise ModuleNotFoundError("The '_overlapped' module is only available on Windows", name='_overlapped')
 
 # Declare external Win32 functions
 

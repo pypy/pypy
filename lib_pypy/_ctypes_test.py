@@ -4,7 +4,7 @@ import os
 try:
     import cpyext
 except ImportError:
-    raise ImportError("No module named '_ctypes_test'")
+    raise ModuleNotFoundError("No module named '_ctypes_test'", name='_ctypes_test')
 try:
     import _ctypes
     _ctypes.PyObj_FromPtr = None

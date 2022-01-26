@@ -8,7 +8,7 @@ syslog facility.
 
 import sys
 if sys.platform == 'win32':
-    raise ImportError("No syslog on Windows")
+    raise ModuleNotFoundError("No syslog on Windows", name="syslog")
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
