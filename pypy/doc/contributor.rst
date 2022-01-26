@@ -336,7 +336,6 @@ Contributors
   alexprengere
   Dennis Sweeney
   Kevin Lee
-  "Miss Islington (bot)"
   h-vertini
   Anna Ravencroft
   Dinu Gherman
