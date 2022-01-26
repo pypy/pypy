@@ -4,7 +4,7 @@ the SystemConfiguration framework.
 """
 import sys
 if sys.platform != 'darwin':
-    raise ImportError('Requires Mac OS X')
+    raise ModuleNotFoundError('Requires Mac OS X', name='_scproxy')
 
 from ctypes import c_int32, c_int64, c_void_p, c_char_p, c_int, cdll
 from ctypes import pointer, create_string_buffer

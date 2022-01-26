@@ -13,7 +13,7 @@ except ImportError as e:
           "If you have a compiler installed, you can try to rebuild it by running:\n" + \
           "cd %s\n" % os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) + \
           "%s _ssl_build.py\n" % sys.executable
-    raise ImportError(str(e) + msg)
+    raise ModuleNotFoundError(str(e) + msg, name='_cffi_ssl')
 
 from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
     _decode_certificate, _certificate_to_der)
