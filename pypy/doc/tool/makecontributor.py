@@ -14,7 +14,7 @@ import mercurial.ui
 ROOT = py.path.local(__file__).join('..', '..', '..', '..')
 author_re = re.compile('(.*) <.*>')
 pair_programming_re = re.compile(r'^\((.*?)\)')
-excluded = set(["pypy", "convert-repo", "hgattic"])
+excluded = set(["pypy", "convert-repo", "hgattic", '"Miss Islington (bot)"'])
 
 alias = {
     'Anders Chrigstrom': ['arre'],
