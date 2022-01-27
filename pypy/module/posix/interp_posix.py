@@ -214,9 +214,13 @@ def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
         elif space.isinstance_w(w_result, space.w_bytes):
             return _path_from_bytes(space, w_result)
 
-    raise oefmt(space.w_TypeError,
-        "illegal type for path parameter (should be "
-        "%s, not %T)", allowed_types, w_value)
+        raise oefmt(space.w_TypeError,
+            'expected %T.__fspath__() to return str or bytes, not %T',
+            w_value,
+            w_result
+            )
+    raise oefmt(
+        space.w_TypeError, "path should be %s, not %T", allowed_types, w_value)
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):
@@ -257,7 +261,7 @@ def unwrap_fd(space, w_value, allowed_types='integer'):
             raise
     if result == -1:
         # -1 is used as sentinel value for not a fd
-        raise oefmt(space.w_ValueError, "invalid file descriptor: -1")
+        raise oefmt(space.w_OSError, "invalid file descriptor: -1")
     return result
 
 def _unwrap_dirfd(space, w_value):
@@ -701,6 +705,7 @@ def dup2(space, fd, fd2, inheritable=1):
         rposix.dup2(fd, fd2, inheritable)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
+    return space.newint(fd2)
 
 @unwrap_spec(mode=c_int,
     dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=bool,
