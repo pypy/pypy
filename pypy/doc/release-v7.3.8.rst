@@ -30,8 +30,9 @@ wish to share. The release includes four different interpreters:
   - PyPy3.9, which is an interpreter supporting the syntax and the features of
     Python 3.9, including the stdlib for CPython 3.9.10. As this is our first
     release of this interpreter, we relate to this as "beta" quality. We
-    welcome testing of this version, if you discover incompatibilites, please
-    report them so we can gain confidence in the version.
+    welcome testing of this version, if you discover incompatibilities, please
+    report them so we can gain confidence in the version. There is still a known
+    `speed regression`_ around ``**kwargs`` handling in 3.9.
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the other 7.3
@@ -264,3 +265,4 @@ Python 3.8 C-API
 .. _bpo43522: https://bugs.python.org/issue43522
 .. _bpo35545: https://bugs.python.org/issue35545
 .. _errcheck: https://docs.python.org/3/library/ctypes.html#ctypes._FuncPtr.errcheck
+.. _`speed regression`_: https://foss.heptapod.net/pypy/pypy/-/issues/3649
