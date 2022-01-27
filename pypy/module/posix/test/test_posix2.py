@@ -1619,6 +1619,14 @@ class AppTestPosix:
         retP = [x.name for x in self.posix.scandir(self.Path('.'))]
         assert retU == retP
 
+    def test_scandir_fd(self):
+        os = self.posix
+        fd = os.open(self.Path('.'), os.O_RDONLY)
+        with os.scandir(fd) as it:
+            entries = list(it)
+        names = os.listdir(fd)
+        assert len(entries) == len(names)
+
     def test_execv_no_args(self):
         posix = self.posix
         with raises(ValueError):

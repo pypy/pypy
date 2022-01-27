@@ -1070,7 +1070,7 @@ entries '.' and '..' even if they are present in the directory."""
             raise oefmt(space.w_TypeError,
                 "listdir: illegal type for path argument")
         try:
-            result = rposix.fdlistdir(os.dup(path.as_fd))
+            result = rposix.fdlistdir(rposix.dup(path.as_fd, inheritable=False))
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
         return space.newlist([space.newfilename(f) for f in result])
