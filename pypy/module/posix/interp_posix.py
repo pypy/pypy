@@ -1859,7 +1859,7 @@ def parse_utime_args(space, w_times, w_ns):
         mtime_s, mtime_ns = convert_seconds(space, times_w[1])
     else:
         args_w = space.fixedview(w_ns)
-        if len(args_w) != 2:
+        if len(args_w) != 2 or not space.isinstance_w(w_ns, space.w_tuple):
             raise oefmt(space.w_TypeError,
                 "utime: 'ns' must be a tuple of two ints")
         atime_s, atime_ns = convert_ns(space, args_w[0])

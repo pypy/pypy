@@ -574,6 +574,8 @@ class AppTestPosix:
             os.utime('xxx', 3)
         with raises(TypeError):
             os.utime('xxx', [5, 5])
+        with raises(TypeError):
+            os.utime('xxx', ns=[5, 5])
         with raises(OSError) as exc:
             os.utime('somefilewhichihopewouldneverappearhere', None)
         assert exc.value.errno == errno.ENOENT
