@@ -803,6 +803,7 @@ class ThreadTests(BaseTestCase):
                 # Daemon threads must never add it to _shutdown_locks.
                 self.assertNotIn(tstate_lock, threading._shutdown_locks)
 
+    @cpython_only
     def test_locals_at_exit(self):
         # bpo-19466: thread locals must not be deleted before destructors
         # are called
