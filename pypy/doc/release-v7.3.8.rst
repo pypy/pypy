@@ -20,7 +20,8 @@ wish to share. The release includes four different interpreters:
     backported security updates)
 
   - PyPy3.7,  which is an interpreter supporting the syntax and the features of
-    Python 3.7, including the stdlib for CPython 3.7.12.
+    Python 3.7, including the stdlib for CPython 3.7.12. This will be the last
+    release of PyPy3.7.
 
   - PyPy3.8, which is an interpreter supporting the syntax and the features of
     Python 3.8, including the stdlib for CPython 3.8.12. This is our third
@@ -38,7 +39,7 @@ releases. Highlights of the release, since the release of 7.3.7 in late October 
 include:
 
   - Improvement in ssl's use of CFFI buffers to speed up ``recv`` and ``recvinto``
-  - PyPy3.9 uses a python version of the peg parser which brought with it a
+  - PyPy3.9 uses an RPython version of the PEG parser which brought with it a
     cleanup of the lexer and parser in general
   - Fixed a regression in PyPy3.8 when JITting empty list comprehenshions
   - Tweaked some issues around changing the file layout after packaging to make
@@ -124,7 +125,7 @@ Bugfixes shared across versions
 
 Speedups and enhancements shared across versions
 ------------------------------------------------
-- Add unicodedata version 13, use 3.2 by default
+- Add unicodedata version 13, make 3.2 the basis of unicodedata compression
 - Use 10.9 as a minimum ``MACOSX_DEPLOYMENT_TARGET`` to match CPython
 - Only compute the ``Some*`` annotation types once, not every time we call a
   type checked function
@@ -134,7 +135,7 @@ Speedups and enhancements shared across versions
 - Stop doing guard strengthening with guards that come from inlining the short
   preamble. doing that can lead to endless bridges (issue 3598_)
 - Split `__pypy__.do_what_I_mean()`` into the original plus ``__pypy__._internal_crash``
-  to make the meaning more clear. These are functions useful for internal
+  to make the meaning more clear. These are functions only useful for internal
   testing (issue 3617_).
 - Prepare ``_ssl`` for OpenSSL3
 
@@ -205,7 +206,6 @@ Python 3.7 C-API
 
 Python 3.8+ bugfixes
 --------------------
-- Fixed a regression when JITting empty list comprehenshions (issue 3598_)
 - Unwrapping an unsigned short raises ``ValueError`` on negative numbers
 - Make properties unpicklable
 - When packaging, fix finding dependencies of shared objects for portable
@@ -223,10 +223,11 @@ Python 3.8+ speedups and enhancements
 - Implement reversed items and values iterator pickling, fix reversed keys
   iterator pickling
 - Add more auditing events, while skipping CPython-specific tracing and
-  attribute-modifaction tracing
+  attribute-modification tracing
+- Fixed a speed regression when JITting empty list comprehensions (issue
+  3598_)
 - Make sure that all bytecodes that can close a loop go via ``jump_absolute``,
   so the JIT can trace them
-- Add more auditing events
 
 Python 3.8 C-API
 ~~~~~~~~~~~~~~~~

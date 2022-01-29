@@ -1,4 +1,5 @@
 import stat
+import sys
 from errno import ENOENT, ENOTDIR
 from rpython.rlib import rgc
 from rpython.rlib import rposix, rposix_scandir, rposix_stat
@@ -110,17 +111,16 @@ class W_ScandirIterator(W_Root):
         dirp = self.dirp
         if dirp:
             self.dirp = rposix_scandir.NULL_DIRP
+            if not _WIN32 and self.dirfd != -1:
+                rposix.c_rewinddir(dirp)
             rposix_scandir.closedir(dirp)
+            self.dirfd = -1
 
     def iter_w(self):
         return self
 
     def fail(self, err=None):
-        dirp = self.dirp
-        if dirp:
-            self.dirfd = -1
-            self.dirp = rposix_scandir.NULL_DIRP
-            rposix_scandir.closedir(dirp)
+        self._close()
         if err is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         else:
