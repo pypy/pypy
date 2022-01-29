@@ -1648,11 +1648,18 @@ class AppTestPosix:
 
     def test_scandir_fd(self):
         os = self.posix
-        fd = os.open(self.Path('.'), os.O_RDONLY)
-        with os.scandir(fd) as it:
-            entries = list(it)
-        names = os.listdir(fd)
-        assert len(entries) == len(names)
+        fd = None
+        try:
+            fd = os.open(self.Path('.'), os.O_RDONLY)
+        except PermissionError:
+            skip("Cannot open '.'")
+        try:
+            with os.scandir(fd) as it:
+                entries = list(it)
+            names = os.listdir(fd)
+            assert len(entries) == len(names)
+        finally:
+            os.close(fd)
 
     def test_execv_no_args(self):
         posix = self.posix
