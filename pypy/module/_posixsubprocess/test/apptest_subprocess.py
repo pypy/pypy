@@ -167,7 +167,7 @@ def test_restore_signals():
             args = [b'cat', b'/proc/self/status']
             executable_list=[b'/usr/bin/cat']
             close_fds = True
-            fds_to_keep = [errpipe_write]
+            fds_to_keep = (errpipe_write,)
             cwd = None
             env_list = None
             p2cread = p2cwrite = -1
@@ -203,9 +203,9 @@ def test_restore_signals():
     for line in check_output(True).splitlines():
         if line.startswith(b'SigIgn'):
             sig_ign_mask1 = line
-    for line in check_output(True).splitlines():
+    for line in check_output(False).splitlines():
         if line.startswith(b'SigIgn'):
             sig_ign_mask2 = line
-    assert sig_ign_mask1 
+    assert b'1' not in sig_ign_mask1
     assert sig_ign_mask2 
     assert sig_ign_mask1 != sig_ign_mask2        
