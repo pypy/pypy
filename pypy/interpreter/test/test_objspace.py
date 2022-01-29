@@ -432,12 +432,12 @@ class TestModuleMinimal:
         w2 = space.new_interned_w_str(w0)
         assert w2 is w0
 
-    def test_exitfunc_catches_exceptions(self):
+    def test_atexit_catches_exceptions(self):
         from pypy.tool.pytest.objspace import maketestobjspace
         space = maketestobjspace()
         space.appexec([], """():
-            import sys
-            sys.exitfunc = lambda: this_is_an_unknown_name
+            import atexit
+            atexit.register(lambda: this_is_an_unknown_name)
         """)
         ret = space.finish()
         assert ret == 0

@@ -462,7 +462,12 @@ class ObjSpace(object):
         ret = 0
         self.wait_for_thread_shutdown()
         w_atexit = self.getbuiltinmodule('atexit')
-        self.call_method(w_atexit, '_run_exitfuncs')
+        try:
+            self.call_method(w_atexit, '_run_exitfuncs')
+        except OperationError:
+            # discard exceptions, see call_py_exitfuncs in pylifecycle.c in
+            # CPython
+            pass
         self.sys.finalizing = True
         if self.sys.flush_std_files(self) < 0:
             ret = -1
