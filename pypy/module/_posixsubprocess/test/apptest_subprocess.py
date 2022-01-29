@@ -148,4 +148,64 @@ def test_issue_3630():
         assert 'before' in contents
     finally:
         os.remove(tmpfile)
-        
+
+def test_restore_signals():
+    import posix as os
+    # Copied from lib-python/3/subprocess.execute_child
+    # when calling subprocess.check_output(['cat', '/proc/self/status'],
+    #       restore_signals=True, universal_newlines=True)
+    def check_output(restore_signals):
+        c2pread, c2pwrite = os.pipe()
+        errpipe_read, errpipe_write = os.pipe()
+        try:
+            low_fds_to_close = []
+            while errpipe_write < 3:
+                low_fds_to_close.append(errpipe_write)
+                errpipe_write = os.dup(errpipe_write)
+            for low_fd in low_fds_to_close:
+                os.close(low_fd)
+            args = [b'cat', b'/proc/self/status']
+            executable_list=[b'/usr/bin/cat']
+            close_fds = True
+            fds_to_keep = [errpipe_write]
+            cwd = None
+            env_list = None
+            p2cread = p2cwrite = -1
+            errread = errwrite = -1
+            call_setsid = False
+            preexec_fn = None
+            pid = _posixsubprocess.fork_exec(args, executable_list, close_fds,
+                        fds_to_keep, cwd, env_list, p2cread, p2cwrite, c2pread,
+                        c2pwrite, errread, errwrite, errpipe_read,
+                        errpipe_write, restore_signals, call_setsid,
+                        preexec_fn)
+            os.close(errpipe_write)
+            # Wait for exec to fail or succeed; possibly raising an
+            # exception (limited in size)
+            errpipe_data = bytearray()
+            while True:
+                part = os.read(errpipe_read, 50000)
+                errpipe_data += part
+                if not part or len(errpipe_data) > 50000:
+                    break
+            if errpipe_data:
+                newpid, sts = os.waitpid(pid, 0)
+                raise RuntimeError('running commande returned %s' % sts)
+            out = os.read(c2pread, 50000)
+        finally:
+            os.close(c2pwrite)
+            os.close(c2pread)
+            os.close(errpipe_read)
+        return out
+
+    sig_ign_mask1 = ''
+    sig_ign_mask2 = ''
+    for line in check_output(True).splitlines():
+        if line.startswith(b'SigIgn'):
+            sig_ign_mask1 = line
+    for line in check_output(True).splitlines():
+        if line.startswith(b'SigIgn'):
+            sig_ign_mask2 = line
+    assert sig_ign_mask1 
+    assert sig_ign_mask2 
+    assert sig_ign_mask1 != sig_ign_mask2        
