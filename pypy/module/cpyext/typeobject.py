@@ -21,7 +21,6 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS,
     Py_TPFLAGS_BYTES_SUBCLASS,
-    Py_TPFLAGS_FLOAT_SUBCLASS,
     )
 
 from rpython.tool.cparser import CTypeSpace
@@ -39,7 +38,7 @@ from pypy.module.cpyext.slotdefs import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
-    PyGetSetDef, PyMemberDef, PyMappingMethods,
+    PyGetSetDef, PyMemberDef, PyMappingMethods, printfunc,
     PyNumberMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
@@ -466,9 +465,10 @@ def inherit_special(space, pto, w_obj, base_pto):
         flags |= Py_TPFLAGS_LIST_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_dict):
         flags |= Py_TPFLAGS_DICT_SUBCLASS
-    # bpo-46131, maybe resolved for CPython 3.11?
     elif space.issubtype_w(w_obj, space.w_float):
-        flags |= Py_TPFLAGS_FLOAT_SUBCLASS
+        # Py3.8 v7.3.7 compatibility. tp_pypy_flags
+        # in v7.3.7 was repurposed to tp_print in v7.3.8
+        pto.c_tp_print = rffi.cast(printfunc, 1)
     pto.c_tp_flags = rffi.cast(rffi.ULONG, flags)
 
 def check_descr(space, w_self, w_type):

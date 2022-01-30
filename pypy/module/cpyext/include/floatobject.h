@@ -32,8 +32,7 @@ typedef struct {
                 return PyFloat_FromDouble(-Py_HUGE_VAL);        \
         } while(0)
 
-#define PyFloat_Check(op) \
-		 PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_FLOAT_SUBCLASS)
+#define PyFloat_Check(op) PyObject_TypeCheck(op, &PyFloat_Type)
 #define PyFloat_CheckExact(op) (Py_TYPE(op) == &PyFloat_Type)
 
 

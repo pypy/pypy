@@ -145,7 +145,7 @@ PY_SSIZE_T_MAX PY_SSIZE_T_MIN
 """.split()
 
 for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
-             'TYPE', 'BYTES', 'FLOAT'):
+             'TYPE', 'BYTES'):
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
 
 #pystrtod.h flags
