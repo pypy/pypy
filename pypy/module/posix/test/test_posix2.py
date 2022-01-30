@@ -575,6 +575,8 @@ class AppTestPosix:
             os.utime('xxx', 3)
         with raises(TypeError):
             os.utime('xxx', [5, 5])
+        with raises(TypeError):
+            os.utime('xxx', ns=[5, 5])
         with raises(OSError) as exc:
             os.utime('somefilewhichihopewouldneverappearhere', None)
         assert exc.value.errno == errno.ENOENT
@@ -1680,11 +1682,18 @@ class AppTestPosix:
 
     def test_scandir_fd(self):
         os = self.posix
-        fd = os.open(self.Path('.'), os.O_RDONLY)
-        with os.scandir(fd) as it:
-            entries = list(it)
-        names = os.listdir(fd)
-        assert len(entries) == len(names)
+        fd = None
+        try:
+            fd = os.open(self.Path('.'), os.O_RDONLY)
+        except PermissionError:
+            skip("Cannot open '.'")
+        try:
+            with os.scandir(fd) as it:
+                entries = list(it)
+            names = os.listdir(fd)
+            assert len(entries) == len(names)
+        finally:
+            os.close(fd)
 
     def test_execv_no_args(self):
         posix = self.posix
