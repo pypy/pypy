@@ -66,8 +66,10 @@ _pos_int_from_ascii(char *name)
     return num;
 }
 
-void pypysig_default(int signum)
+static
+void local_pypysig_default(int signum)
 {
+    /* copied from pyypsig_default */
 #ifdef SA_RESTART
     /* assume sigaction exists */
     struct sigaction context;
@@ -462,13 +464,13 @@ pypy_subprocess_child_exec(
     if (restore_signals) {
         /* inline _Py_RestoreSignals(); */
 #ifdef SIGPIPE
-        pypysig_default(SIGPIPE);
+        local_pypysig_default(SIGPIPE);
 #endif
 #ifdef SIGXFZ
-        pypysig_default(SIGXFZ);
+        local_pypysig_default(SIGXFZ);
 #endif
 #ifdef SIGXFSZ
-        pypysig_default(SIGXFSZ);
+        local_pypysig_default(SIGXFSZ);
 #endif
     }
 
