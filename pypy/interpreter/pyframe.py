@@ -657,6 +657,8 @@ class PyFrame(W_Root):
             w_value = self.space.finditem_str(w_locals, name)
             if w_value is not None:
                 cell.set(w_value)
+            else:
+                cell.set(None)
 
     @jit.unroll_safe
     def init_cells(self):
