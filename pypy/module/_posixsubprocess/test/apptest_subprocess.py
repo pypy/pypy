@@ -171,7 +171,9 @@ def test_issue_3630():
             return _posixsubprocess.fork_exec(
                 args, [os.fsencode(path)], True, passfds, None, None,
                 -1, -1, -1, -1, -1, -1, errpipe_read, errpipe_write,
-                False, False, preexec_fn)
+                False, False,
+                None, None, None, -1,
+                preexec_fn)
         finally:
             os.close(errpipe_read)
             os.close(errpipe_write)
@@ -230,7 +232,7 @@ def test_issue_3630():
 
 def test_restore_signals():
     import posix as os
-    # Copied from lib-python/3/subprocess.execute_child
+    # Copied from lib-python/3/subprocess._execute_child
     # when calling subprocess.check_output(['cat', '/proc/self/status'],
     #       restore_signals=True, universal_newlines=True)
     def check_output(restore_signals):
@@ -250,13 +252,15 @@ def test_restore_signals():
             cwd = None
             env_list = None
             p2cread = p2cwrite = -1
-            errread = errwrite = -1
+            errread = errwrite = umask = -1
             call_setsid = False
             preexec_fn = None
+            gid = gids = uid = None
             pid = _posixsubprocess.fork_exec(args, executable_list, close_fds,
                         fds_to_keep, cwd, env_list, p2cread, p2cwrite, c2pread,
                         c2pwrite, errread, errwrite, errpipe_read,
                         errpipe_write, restore_signals, call_setsid,
+                        gid, gids, uid, umask,
                         preexec_fn)
             os.close(errpipe_write)
             # Wait for exec to fail or succeed; possibly raising an
