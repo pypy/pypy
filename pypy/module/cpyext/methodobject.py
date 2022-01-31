@@ -3,10 +3,11 @@ from rpython.rlib import jit
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.function import ClassMethod, Method, StaticMethod
+from pypy.interpreter.function import ClassMethod, _Method, StaticMethod
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import (
-    GetSetProperty, TypeDef, interp_attrproperty, interp_attrproperty_w)
+    GetSetProperty, TypeDef, interp_attrproperty, interp_attrproperty_w,
+    descr_generic_ne, make_weakref_descr)
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_FASTCALL,
@@ -344,17 +345,51 @@ class W_PyCWrapperObject(W_Root):
                                   (self.method_name,
                                    self.w_objclass.name))
 
+class CMethod(_Method):
+    # Differentiate this from an app-level class Method
+    # so isinstance(c-class-meth, type(app-class-method)) is False
+    def descr_method__new__(space, w_subtype, w_function, w_instance):
+        if space.is_w(w_instance, space.w_None):
+            w_instance = None
+        if w_instance is None:
+            raise oefmt(space.w_TypeError, "self must not be None")
+        method = space.allocate_instance(CMethod, w_subtype)
+        _Method.__init__(method, space, w_function, w_instance)
+        return method
+
+    pass
+
+CMethod.typedef = TypeDef(
+    "builtin method",
+    __doc__ = """instancemethod(function, instance, class)
+
+Create an instance method object.""",
+    __new__ = interp2app(CMethod.descr_method__new__.im_func),
+    __call__ = interp2app(CMethod.descr_method_call),
+    __get__ = interp2app(CMethod.descr_method_get),
+    __func__ = interp_attrproperty_w('w_function', cls=CMethod),
+    __self__ = interp_attrproperty_w('w_instance', cls=CMethod),
+    __getattribute__ = interp2app(CMethod.descr_method_getattribute),
+    __eq__ = interp2app(CMethod.descr_method_eq),
+    __ne__ = descr_generic_ne,
+    __hash__ = interp2app(CMethod.descr_method_hash),
+    __repr__ = interp2app(CMethod.descr_method_repr),
+    __reduce__ = interp2app(CMethod.descr_method__reduce__),
+    __weakref__ = make_weakref_descr(CMethod),
+    )
+CMethod.typedef.acceptable_as_base_class = False
+
 
 def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
     if w_obj is None or space.is_w(w_obj, space.w_None):
         return w_function
     else:
-        return Method(space, w_function, w_obj)
+        return CMethod(space, w_function, w_obj)
 
 def cclassmethod_descr_get(space, w_function, w_obj, w_cls=None):
     if not w_cls:
         w_cls = space.type(w_obj)
-    return Method(space, w_function, w_cls)
+    return CMethod(space, w_function, w_cls)
 
 
 W_PyCFunctionObject.typedef = TypeDef(
@@ -382,7 +417,7 @@ W_PyCMethodObject.typedef = TypeDef(
 W_PyCMethodObject.typedef.acceptable_as_base_class = False
 
 W_PyCClassMethodObject.typedef = TypeDef(
-    'classmethod',
+    'builtin_function_or_method',
     __get__ = interp2app(cclassmethod_descr_get),
     __call__ = interp2app(W_PyCClassMethodObject.descr_call),
     __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject,
