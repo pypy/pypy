@@ -25,13 +25,21 @@ PyCFunctionFast = cts.gettype('_PyCFunctionFast')
 PyCFunctionKwArgs = cts.gettype('PyCFunctionWithKeywords')
 PyCFunctionKwArgsFast = cts.gettype('_PyCFunctionFastWithKeywords')
 PyCFunctionObject = cts.gettype('PyCFunctionObject*')
+PyCMethodObject = cts.gettype('PyCMethodObject*')
 
 @bootstrap_function
-def init_methodobject(space):
+def init_functionobject(space):
     make_typedescr(W_PyCFunctionObject.typedef,
                    basestruct=PyCFunctionObject.TO,
                    attach=cfunction_attach,
                    dealloc=cfunction_dealloc)
+
+@bootstrap_function
+def init_methodobject(space):
+    make_typedescr(W_PyCMethodObject.typedef,
+                   basestruct=PyCMethodObject.TO,
+                   attach=cmethod_attach,
+                   dealloc=cmethod_dealloc)
 
 def cfunction_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, W_PyCFunctionObject)
@@ -45,6 +53,25 @@ def cfunction_dealloc(space, py_obj):
     py_func = rffi.cast(PyCFunctionObject, py_obj)
     decref(space, py_func.c_m_self)
     decref(space, py_func.c_m_module)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
+
+def cmethod_attach(space, py_obj, w_obj, w_userdata=None):
+    assert isinstance(w_obj, W_PyCMethodObject)
+    py_func = rffi.cast(PyCFunctionObject, py_obj)
+    py_func.c_m_ml = w_obj.ml
+    py_func.c_m_self = make_ref(space, w_obj.w_self)
+    py_func.c_m_module = make_ref(space, w_obj.w_module)
+    py_meth = rffi.cast(PyCMethodObject, py_obj)
+    py_meth.c_mm_class = w_obj.w_objclass
+
+@slot_function([PyObject], lltype.Void)
+def cmethod_dealloc(space, py_obj):
+    py_func = rffi.cast(PyCFunctionObject, py_obj)
+    decref(space, py_func.c_func)
+    decref(space, py_func.c_m_module)
+    py_meth = rffi.cast(PyCMethodObject, py_obj)
+    decref(space, py_meth.c_mm_class)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 

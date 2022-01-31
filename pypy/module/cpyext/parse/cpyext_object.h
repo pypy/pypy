@@ -314,3 +314,8 @@ typedef struct _heaptypeobject {
     PyBufferProcs as_buffer;
     PyObject *ht_name, *ht_slots, *ht_qualname;
 } PyHeapTypeObject;
+
+typedef struct {
+    PyCFunctionObject func;
+    PyTypeObject *mm_class; /* Class that defines this method */
+} PyCMethodObject;
