@@ -108,6 +108,7 @@
 #include "pythread.h"
 #include "traceback.h"
 #include "pylifecycle.h"
+#include "genericaliasobject.h"
 
 /* Missing definitions */
 #include "missing.h"

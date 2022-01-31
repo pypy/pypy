@@ -126,6 +126,7 @@ static PyMethodDef foo_methods[] = {
     {"classmeth", (PyCFunction)foo_classmeth, METH_NOARGS|METH_CLASS,  NULL},
     {"fake_classmeth", (PyCFunction)foo_classmeth, METH_NOARGS,  NULL},
     {"unset_string_member", (PyCFunction)foo_unset, METH_NOARGS, NULL},
+    {"__class_getitem__", (PyCFunction)Py_GenericAlias, METH_O|METH_CLASS, "See PEP 585"},
     {NULL, NULL}                 /* sentinel */
 };
 

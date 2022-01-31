@@ -1047,3 +1047,8 @@ def PyType_Modified(space, w_obj):
         return
     if w_obj.is_cpytype():
         w_obj.mutated(None)
+
+@cpython_api([PyObject, PyObject], PyObject, header='genericaliasobject.h')
+def Py_GenericAlias(space, w_cls, w_item):
+    from pypy.objspace.std.util import generic_alias_class_getitem
+    return generic_alias_class_getitem(space, w_cls, w_item)

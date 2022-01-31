@@ -135,6 +135,12 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = module.fooType.classmeth()
         assert obj is module.fooType
 
+    def test_class_getitem(self):
+        module = self.import_module(name='foo')
+        f = module.fooType.__class_getitem__
+        out = f(42)
+        assert str(out) == 'foo.foo[42]'
+
     def test_methoddescr(self):
         module = self.import_module(name='foo')
         descr = module.fooType.copy

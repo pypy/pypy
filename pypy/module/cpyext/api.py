@@ -132,6 +132,7 @@ udir.join(pypy_decl).write("/* Will be filled later */\n")
 udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_marshal_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
+udir.join('genericaliasobject.h').write("/* Will be filled later */\n")
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING
@@ -1472,23 +1473,42 @@ def mangle_name(prefix, name):
     else:
         raise ValueError("Error converting '%s'" % name)
 
-def write_header(header_name, decls):
-    lines = [
-        '#include "cpyext_object.h"',
-        '''
-#ifdef _WIN64
-#define Signed   Py_ssize_t          /* xxx temporary fix */
-#define Unsigned unsigned long long  /* xxx temporary fix */
-#else
-#define Signed   Py_ssize_t     /* xxx temporary fix */
-#define Unsigned unsigned long  /* xxx temporary fix */
-#endif
-        '''] + decls + [
-        '',
-        '#undef Signed    /* xxx temporary fix */',
-        '#undef Unsigned  /* xxx temporary fix */',
-        '']
+def write_header(header_name, decls, needs_signed=True, add_guards=False):
     decl_h = udir.join(header_name)
+    lines = []
+    if add_guards:
+        guard = 'Py_' + header_name.replace('.', '_').upper()
+        lines += ['#ifndef ' + guard,
+                  '#define ' + guard,
+                  '#ifdef __cplusplus',
+                  'extern "C" {',
+                  '#endif', ''
+                 ]
+    if needs_signed:
+        lines += [
+            '',
+            '#include "cpyext_object.h"',
+            '',
+            '#ifdef _WIN64',
+            '#define Signed   Py_ssize_t          /* xxx temporary fix */',
+            '#define Unsigned unsigned long long  /* xxx temporary fix */',
+            '#else',
+            '#define Signed   Py_ssize_t     /* xxx temporary fix */',
+            '#define Unsigned unsigned long  /* xxx temporary fix */',
+            '#endif',
+            ] + decls + [
+            '',
+            '#undef Signed    /* xxx temporary fix */',
+            '#undef Unsigned  /* xxx temporary fix */',
+            '']
+    else:
+        lines += decls
+    if add_guards:
+        lines += ['#ifdef __cplusplus',
+                  '}',
+                  '#endif',
+                  '#endif /* !' + guard + ' */',
+                 ]
     decl_h.write('\n'.join(lines))
 
 def generate_decls_and_callbacks(db, prefix=''):
@@ -1554,7 +1574,12 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
         decls[header].append('PyAPI_DATA(%s) %s;' % (typ, name))
 
     for header_name, header_decls in decls.iteritems():
-        write_header(header_name, header_decls)
+        # Hardcoded :(
+        if header_name in ('genericaliasobject.h',):
+            write_header(header_name, header_decls,
+                         needs_signed=False, add_guards=True)
+        else:
+            write_header(header_name, header_decls)
 
     # generate graminit.h
     graminit_h = udir.join('graminit.h')
