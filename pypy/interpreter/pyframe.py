@@ -517,14 +517,14 @@ class PyFrame(W_Root):
         'Classname object'"""
         # XXX this is super annoying to compute every time we do a function call!
         # CPython has a similar function, PyEval_GetFuncName
-        from pypy.interpreter.function import Function, Method
+        from pypy.interpreter.function import Function, _Method
         if fnname is not None:
             return fnname + '()'
         if w_function is None:
             return None
         if isinstance(w_function, Function):
             return w_function.name + '()'
-        if isinstance(w_function, Method):
+        if isinstance(w_function, _Method):
             return self._guess_function_name_parens(None, w_function.w_function)
         return self.space.type(w_function).getname(self.space) + ' object'
 

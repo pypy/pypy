@@ -40,7 +40,8 @@ class InstanceMethod(W_Root):
         return self.getrepr(space, '<instancemethod %s>' %
                             (self.w_function.getname(space),))
 
-InstanceMethod.typedef = TypeDef("instancemethod",
+InstanceMethod.typedef = TypeDef(
+    "cinstancemethod",
     __new__ = interp2app(InstanceMethod.descr_new),
     __call__ = interp2app(InstanceMethod.descr_call,
                           descrmismatch='__call__'),

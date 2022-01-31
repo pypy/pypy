@@ -132,8 +132,15 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
 
     def test_classmethod(self):
         module = self.import_module(name="foo")
-        obj = module.fooType.classmeth()
+        classmeth = module.fooType.classmeth
+        obj = classmeth()
         assert obj is module.fooType
+        class _C:
+            def _m(self): pass
+        MethodType = type(_C()._m)
+        print(type(classmeth).mro())
+        print(MethodType.mro())
+        assert not isinstance(classmeth, MethodType)
 
     def test_class_getitem(self):
         module = self.import_module(name='foo')
