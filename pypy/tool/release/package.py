@@ -336,9 +336,6 @@ def create_package(basedir, options, _fake=False):
                                            '*.lib', '*.exp', '*.manifest', '__pycache__'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
-    for file in ['_testcapimodule.c', '_ctypes_test.c']:
-        shutil.copyfile(str(basedir.join('lib_pypy', file)),
-                        str(target.join(file)))
     # Use original LICENCE file
     base_file = str(basedir.join('LICENSE'))
     with open(base_file) as fid:
