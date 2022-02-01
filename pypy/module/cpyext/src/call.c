@@ -1,6 +1,8 @@
 #include "Python.h"
 #include <signal.h>
 
+#define _PyTuple_ITEMS PySequence_Fast_ITEMS
+
 PyObject*
 _Py_CheckFunctionResult(PyObject *callable, PyObject *result, const char *where)
 {

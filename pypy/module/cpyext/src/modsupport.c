@@ -6,6 +6,12 @@
 #define FLAG_SIZE_T 1
 typedef double va_double;
 
+// Fast inlined version of PyType_HasFeature()
+static inline int
+_PyType_HasFeature(PyTypeObject *type, unsigned long feature) {
+    return ((type->tp_flags & feature) != 0);
+}
+
 static PyObject *va_build_value(const char *, va_list, int);
 
 /* Package context -- the full module name for package imports
