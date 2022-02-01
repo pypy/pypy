@@ -952,8 +952,8 @@ def PyType_FromSpecWithBases(space, module, spec, bases):
     res.c_ht_qualname = res.c_ht_name
     incref(space, res.c_ht_qualname)
     if module:
-        res.c_ht_module = make_ref(space, module)
-        incref(space, res.c_ht_module)
+        incref(space, module)
+        res.c_ht_module = module
     typ.c_tp_name = spec.c_name
     slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
     if not bases:
