@@ -12,8 +12,8 @@ PyInterpreterStateStruct = lltype.ForwardReference()
 PyInterpreterState = lltype.Ptr(PyInterpreterStateStruct)
 cpython_struct(
     "PyInterpreterState",
-    [('next', PyInterpreterState)],
-    [('modules_by_index', PyObject)],
+    [('next', PyInterpreterState),
+     ('modules_by_index', PyObject)],
     PyInterpreterStateStruct)
 PyThreadState = lltype.Ptr(cpython_struct(
     "PyThreadState",
@@ -387,11 +387,11 @@ def _PyInterpreterState_GET(space):
 @cpython_api([PyObject, PyModuleDef], rffi.INT_real, error=-1)
 def PyState_AddModule(space, w_module, moddef):
     if not moddef:
-        raise oefmt(space.w_FatalError, "module definition is NULL")
+        raise oefmt(space.w_SystemError, "module definition is NULL")
     interp = _PyInterpreterState_GET(space)
     index = widen(moddef.c_m_base.c_m_index)
     if index < 0:
-        raise oefmt(space.w_FatalError, "module index < 0")
+        raise oefmt(space.w_SystemError, "module index < 0")
     if not interp.c_modules_by_index:
         w_by_index = space.newlist([])
         interp.c_modules_by_index = make_ref(space, w_by_index)
@@ -400,7 +400,7 @@ def PyState_AddModule(space, w_module, moddef):
     if index < space.len_w(w_by_index):
         w_module_seen = space.getitem(w_by_index, space.newint(index))
         if space.eq_w(w_module_seen, w_module):
-            raise oefmt(space.w_FatalError, "module %R already added", w_module)
+            raise oefmt(space.w_SystemError, "module %R already added", w_module)
     while space.len_w(w_by_index) <= index:
         space.call_method(w_by_index, 'append', space.w_None)
     space.setitem(w_by_index, space.newint(index), w_module)
@@ -414,11 +414,11 @@ def PyState_RemoveModule(space, moddef):
                     "PyState_RemoveModule called on module with slots")
     index = widen(moddef.c_m_base.c_m_index)
     if index == 0:
-        raise oefmt(space.w_FatalError, "invalid module index")
+        raise oefmt(space.w_SystemError, "invalid module index")
     if not interp.c_modules_by_index:
-        raise oefmt(space.w_FatalError, "Interpreters module-list not accessible.")
+        raise oefmt(space.w_SystemError, "Interpreters module-list not accessible.")
     w_by_index = from_ref(space, interp.c_modules_by_index)
     if index > space.len_w(w_by_index):
-        raise oefmt(space.w_FatalError, "Module index out of bounds.")
+        raise oefmt(space.w_SystemError, "Module index out of bounds.")
     space.setitem(w_by_index, space.newint(index), space.w_None)
     return 0
