@@ -601,7 +601,12 @@ class PyFrame(W_Root):
             try:
                 w_value = cell.get()
             except ValueError:
-                pass
+                w_name = self.space.newtext(name)
+                try:
+                    self.space.delitem(d.w_locals, w_name)
+                except OperationError as e:
+                    if not e.match(self.space, self.space.w_KeyError):
+                        raise
             else:
                 self.space.setitem_str(d.w_locals, name, w_value)
 
@@ -640,6 +645,8 @@ class PyFrame(W_Root):
             w_value = self.space.finditem_str(w_locals, name)
             if w_value is not None:
                 cell.set(w_value)
+            else:
+                cell.set(None)
 
     @jit.unroll_safe
     def init_cells(self):
@@ -931,6 +938,8 @@ class PyFrame(W_Root):
         for i in range(len(self.locals_cells_stack_w)):
             w_oldvalue = self.locals_cells_stack_w[i]
             if isinstance(w_oldvalue, Cell):
+                # we can't mutate w_oldvalue here, because that could still be
+                # shared by an inner/outer function
                 w_newvalue = Cell(
                     None, w_oldvalue.family)
             else:
