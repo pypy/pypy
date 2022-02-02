@@ -18,6 +18,7 @@ struct _is;
 
 typedef struct _is {
     struct _is *next;
+    PyObject * modules_by_index;
 } PyInterpreterState;
 
 typedef struct _ts {
@@ -37,6 +38,7 @@ enum {PyGILState_LOCKED, PyGILState_UNLOCKED};
 typedef int PyGILState_STATE;
 
 #define PyThreadState_GET() PyThreadState_Get()
+PyAPI_FUNC(PyObject*) PyState_FindModule(struct PyModuleDef*);
 
 #ifdef __cplusplus
 }

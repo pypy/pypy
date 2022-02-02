@@ -250,6 +250,14 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
         module.__spec__.loader.exec_module(module)
         assert ex_class is module.Example
 
+    def test_try_registration(self):
+        module = self.import_module(name=self.name, use_imp=True)
+        assert module.call_state_registration_func(0) is None
+        with pytest.raises(SystemError):
+            module.call_state_registration_func(1)
+        with pytest.raises(SystemError):
+            module.call_state_registration_func(2)
+
     def w_load_from_name(self, name, origin=None, use_prefix=True):
         from importlib import machinery, util
         if not origin:

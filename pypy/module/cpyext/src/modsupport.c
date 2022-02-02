@@ -659,4 +659,22 @@ PyType_GetModuleState(PyTypeObject *type)
     return PyModule_GetState(m);
 }
 
-
+PyObject*
+PyState_FindModule(struct PyModuleDef* module)
+{
+    Py_ssize_t index = module->m_base.m_index;
+    PyThreadState *tstate = PyThreadState_Get();
+    PyInterpreterState *state = tstate->interp;
+    PyObject *res;
+    if (module->m_slots) {
+        return NULL;
+    }
+    if (index == 0)
+        return NULL;
+    if (state->modules_by_index == NULL)
+        return NULL;
+    if (index >= PyList_GET_SIZE(state->modules_by_index))
+        return NULL;
+    res = PyList_GET_ITEM(state->modules_by_index, index);
+    return res==Py_None ? NULL : res;
+}

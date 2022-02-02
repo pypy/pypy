@@ -586,7 +586,7 @@ FUNCTIONS_BY_HEADER = defaultdict(dict)
 
 # These are C symbols which cpyext will export, but which are defined in .c
 # files somewhere in the implementation of cpyext (rather than being defined in
-# RPython).
+# RPython). Their name will be mangled by a #define
 SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
