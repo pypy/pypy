@@ -922,16 +922,16 @@ class TestUnicode(BaseApiTest):
 
 
     def test_locale(self, space):
-        # Input is bytes
-        w_input = space.newbytes("test")
-        with rffi.scoped_str2charp('strict') as errors:
-            w_ret = PyUnicode_DecodeLocale(space, w_input, errors)
-            assert space.utf8_w(w_ret) == 'test'
-        with rffi.scoped_str2charp('surrogateescape') as errors:
-            w_ret = PyUnicode_DecodeLocale(space, w_input, errors)
-            assert space.utf8_w(w_ret) == 'test'
+        # Input is char *
+        with rffi.scoped_str2charp('test') as test:
+            with rffi.scoped_str2charp('strict') as errors:
+                w_ret = PyUnicode_DecodeLocale(space, test, errors)
+                assert space.utf8_w(w_ret) == 'test'
+            with rffi.scoped_str2charp('surrogateescape') as errors:
+                w_ret = PyUnicode_DecodeLocale(space, test, errors)
+                assert space.utf8_w(w_ret) == 'test'
 
-        # Input is unicode
+        # Input is w_unicode
         w_input = space.newtext("test", 4)
         with rffi.scoped_str2charp('strict') as errors:
             w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
