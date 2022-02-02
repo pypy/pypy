@@ -2724,7 +2724,6 @@ test_PyDateTime_DELTA_GET(PyObject *self, PyObject *obj)
     return Py_BuildValue("(lll)", days, seconds, microseconds);
 }
 
-#ifndef PYPY_VERSION
 /* test_thread_state spawns a thread of its own, and that thread releases
  * `thread_done` when it's finished.  The driver code has to know when the
  * thread finishes, because the thread uses a PyObject (the callable) that
@@ -2805,9 +2804,7 @@ test_thread_state(PyObject *self, PyObject *args)
         return NULL;
     Py_RETURN_NONE;
 }
-#endif
 
-#ifndef PYPY_VERSION
 /* test Py_AddPendingCalls using threads */
 static int _pending_callback(void *arg)
 {
@@ -2843,7 +2840,6 @@ pending_threadfunc(PyObject *self, PyObject *arg)
     }
     Py_RETURN_TRUE;
 }
-#endif  /* PYPY_VERSION */
 
 /* Some tests of PyUnicode_FromFormat().  This needs more tests. */
 static PyObject *
@@ -2851,10 +2847,6 @@ test_string_from_format(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     PyObject *result;
     char *msg;
-
-#ifdef PYPY_VERSION
-#define _PyUnicode_EqualToASCIIString(a, b) (PyUnicode_CompareWithASCIIString(a, b) == 0)
-#endif
 
 #define CHECK_1_FORMAT(FORMAT, TYPE)                                \
     result = PyUnicode_FromFormat(FORMAT, (TYPE)1);                 \
@@ -5541,10 +5533,8 @@ static PyMethodDef TestMethods[] = {
     {"unicode_encodedecimal",   unicode_encodedecimal,           METH_VARARGS},
     {"unicode_transformdecimaltoascii", unicode_transformdecimaltoascii, METH_VARARGS},
     {"unicode_legacy_string",   unicode_legacy_string,           METH_VARARGS},
-#ifndef PYPY_VERSION
     {"_test_thread_state",      test_thread_state,               METH_VARARGS},
     {"_pending_threadfunc",     pending_threadfunc,              METH_VARARGS},
-#endif // ifndef PYPY_VERSION
 #ifdef HAVE_GETTIMEOFDAY
     {"profile_int",             profile_int,                     METH_NOARGS},
 #endif
