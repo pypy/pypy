@@ -31,16 +31,34 @@ extern "C" {
 #define METH_FASTCALL  0x0080
 #endif
 
+/* METH_METHOD means the function stores an
+ * additional reference to the class that defines it;
+ * both self and class are passed to it.
+ * It uses PyCMethodObject instead of PyCFunctionObject.
+ * May not be combined with METH_NOARGS, METH_O, METH_CLASS or METH_STATIC.
+ */
+
+#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x03090000
+#define METH_METHOD 0x0200
+#endif
+
+
 #define PyCFunction_New(ml, self) PyCFunction_NewEx((ml), (self), NULL)
+#define PyCFunction_NewEx(ML, SELF, MOD) PyCMethod_New((ML), (SELF), (MOD), NULL)
+
 
 /* Macros for direct access to these values. Type checks are *not*
    done, so use with care. */
 #define PyCFunction_GET_FUNCTION(func) \
         (((PyCFunctionObject *)func) -> m_ml -> ml_meth)
 #define PyCFunction_GET_SELF(func) \
-	(((PyCFunctionObject *)func) -> m_self)
+        (((PyCFunctionObject *)func) -> m_ml -> ml_flags & METH_STATIC ? \
+         NULL : ((PyCFunctionObject *)func) -> m_self)
 #define PyCFunction_GET_FLAGS(func) \
-	(((PyCFunctionObject *)func) -> m_ml -> ml_flags)
+        (((PyCFunctionObject *)func) -> m_ml -> ml_flags)
+#define PyCFunction_GET_CLASS(func) \
+    (((PyCFunctionObject *)func) -> m_ml -> ml_flags & METH_METHOD ? \
+         ((PyCMethodObject *)func) -> mm_class : NULL)
 
 #ifdef __cplusplus
 }

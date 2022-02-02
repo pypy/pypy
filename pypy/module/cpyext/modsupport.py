@@ -8,7 +8,7 @@ from pypy.module.cpyext.pyobject import (PyObject, as_pyobj, make_typedescr,
     keepalive_until_here)
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
-    W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
+    W_PyCFunctionObject, W_PyCMethodObject,
     PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
@@ -204,10 +204,10 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                                     "method cannot be both class and static")
                     w_obj = PyDescr_NewClassMethod(space, w_type, method)
                 elif flags & METH_STATIC:
-                    w_func = PyCFunction_NewEx(space, method, None, None)
+                    w_func = W_PyCFunctionObject(space, method, None, None)
                     w_obj = PyStaticMethod_New(space, w_func)
                 else:
-                    w_obj = PyDescr_NewMethod(space, w_type, method)
+                    w_obj = W_PyCMethodObject(space, method, w_type, None, None)
 
             dict_w[methodname] = w_obj
 

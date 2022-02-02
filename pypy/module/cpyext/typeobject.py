@@ -26,7 +26,7 @@ from pypy.module.cpyext.api import (
 
 from rpython.tool.cparser import CTypeSpace
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
-    PyCFunction_NewEx, PyCFunction, PyMethodDef,
+    PyCFunction, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject, extract_doc, extract_txtsig,
     W_PyCWrapperObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
@@ -233,7 +233,7 @@ def methoddescr_realize(space, obj):
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCMethodObject, w_type)
-    w_obj.__init__(space, method, w_type)
+    w_obj.__init__(space, method, w_type, None, None)
     track_reference(space, obj, w_obj)
     return w_obj
 
@@ -437,7 +437,7 @@ def add_tp_new_wrapper(space, dict_w, pto):
     if "__new__" in dict_w:
         return
     pyo = rffi.cast(PyObject, pto)
-    dict_w["__new__"] = PyCFunction_NewEx(space, get_new_method_def(space),
+    dict_w["__new__"] = W_PyCFunctionObject(space, get_new_method_def(space),
                                           from_ref(space, pyo), None)
 
 def inherit_special(space, pto, w_obj, base_pto):
