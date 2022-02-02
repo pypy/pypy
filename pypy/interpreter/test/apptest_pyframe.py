@@ -949,3 +949,24 @@ def test_clear_locals():
     inner.clear()
     assert not outer.f_locals
     assert not inner.f_locals
+
+
+def test_locals2fast_del_cell_var():
+    import sys
+    def t(frame, event, *args):
+        if 'a' in frame.f_locals:
+            del frame.f_locals['a']
+        return t
+    def f():
+        def g(): a
+        a = 1
+        a = 2
+        return a
+
+    sys.settrace(t)
+    try:
+        with pytest.raises(UnboundLocalError):
+            f()
+    finally:
+        sys.settrace(None)
+
