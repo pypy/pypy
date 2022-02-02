@@ -917,7 +917,6 @@ def _ll_dict_resize_to(d, num_extra):
     else:
         ll_dict_reindex(d, new_size)
 
-@jit.dont_look_inside
 def ll_ensure_indexes(d):
     num = d.lookup_function_no
     if num == FUNC_MUST_REINDEX:
@@ -926,6 +925,7 @@ def ll_ensure_indexes(d):
         ll_assert((num & FUNC_MASK) != FUNC_MUST_REINDEX,
                   "bad combination in lookup_function_no")
 
+@jit.look_inside_iff(lambda d: jit.isvirtual(d))
 def ll_dict_create_initial_index(d):
     """Create the initial index for a dictionary.  The common case is
     that 'd' is empty.  The uncommon case is that it is a prebuilt
@@ -1356,6 +1356,7 @@ def ll_dict_clear(d):
     # old_entries.delete() XXX
 ll_dict_clear.oopspec = 'odict.clear(d)'
 
+@jit.look_inside_iff(lambda dic1, dic2: jit.isvirtual(dic1) and jit.isvirtual(dic2))
 def ll_dict_update(dic1, dic2):
     if dic1 == dic2:
         return
@@ -1372,7 +1373,6 @@ def ll_dict_update(dic1, dic2):
             index = dic1.lookup_function(dic1, key, hash, FLAG_STORE)
             _ll_dict_setitem_lookup_done(dic1, key, value, hash, index)
         i += 1
-ll_dict_update.oopspec = 'odict.update(dic1, dic2)'
 
 def ll_prepare_dict_update(d, num_extra):
     # Prescale 'd' for 'num_extra' items, assuming that most items don't
