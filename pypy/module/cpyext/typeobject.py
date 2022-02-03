@@ -233,7 +233,7 @@ def methoddescr_realize(space, obj):
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCMethodObject, w_type)
-    w_obj.__init__(space, method, w_type, None, None)
+    w_obj.__init__(space, method, None, None, w_type)
     track_reference(space, obj, w_obj)
     return w_obj
 
