@@ -397,6 +397,9 @@ def PyState_AddModule(space, w_module, moddef):
         interp.c_modules_by_index = make_ref(space, w_by_index)
     else:
         w_by_index = from_ref(space, interp.c_modules_by_index)
+    if moddef.c_m_slots:
+        raise oefmt(space.w_SystemError,
+                    "PyState_AddModule called on module with slots");
     if index < space.len_w(w_by_index):
         w_module_seen = space.getitem(w_by_index, space.newint(index))
         if space.eq_w(w_module_seen, w_module):
