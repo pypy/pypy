@@ -140,7 +140,7 @@ if 1:
         def __exit__(self, *tp):
             __tracebackhide__ = True
             if tp[0] is None:
-                pytest.fail("DID NOT RAISE")
+                raise AssertionError("DID NOT RAISE")
             self.value = tp[1]
             return issubclass(tp[0], self.expected_exception)
 

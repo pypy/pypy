@@ -207,7 +207,7 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                     w_func = W_PyCFunctionObject(space, method, None, None)
                     w_obj = StaticMethod(w_func)
                 else:
-                    w_obj = W_PyCMethodObject(space, method, w_type)
+                    w_obj = W_PyCMethodObject(space, method, None, None, w_type)
 
             dict_w[methodname] = w_obj
 

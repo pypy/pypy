@@ -138,7 +138,7 @@ constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_FASTCALL METH_O
-Py_TPFLAGS_HEAPTYPE
+Py_TPFLAGS_HEAPTYPE METH_METHOD
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
 Py_CLEANUP_SUPPORTED PyBUF_READ
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
@@ -587,7 +587,7 @@ FUNCTIONS_BY_HEADER = defaultdict(dict)
 
 # These are C symbols which cpyext will export, but which are defined in .c
 # files somewhere in the implementation of cpyext (rather than being defined in
-# RPython).
+# RPython). Their name will be mangled by a #define
 SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
@@ -651,7 +651,7 @@ SYMBOLS_C = [
     'PyTraceMalloc_Track', 'PyTraceMalloc_Untrack',
     'PyBytes_FromFormat', 'PyBytes_FromFormatV',
 
-    'PyType_FromSpec',
+    'PyType_FromSpec', 'PyType_GetModule', 'PyType_GetModuleState',
     'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
@@ -807,6 +807,7 @@ PyTypeObject = cts.gettype('PyTypeObject')
 PyTypeObjectPtr = cts.gettype('PyTypeObject *')
 PyObjectStruct = cts.gettype('PyObject')
 PyObject = cts.gettype('PyObject *')
+PyObjectC = cts.gettype('PyObject const *')
 PyObjectFields = (("ob_refcnt", lltype.Signed),
                   ("ob_pypy_link", lltype.Signed),
                   ("ob_type", PyTypeObjectPtr))

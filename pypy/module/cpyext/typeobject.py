@@ -26,7 +26,7 @@ from pypy.module.cpyext.api import (
 
 from rpython.tool.cparser import CTypeSpace
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
-    PyCFunction_NewEx, PyCFunction, PyMethodDef,
+    PyCFunction, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject, extract_doc, extract_txtsig,
     W_PyCWrapperObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
@@ -233,7 +233,7 @@ def methoddescr_realize(space, obj):
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCMethodObject, w_type)
-    w_obj.__init__(space, method, w_type)
+    w_obj.__init__(space, method, None, None, w_type)
     track_reference(space, obj, w_obj)
     return w_obj
 
@@ -437,7 +437,7 @@ def add_tp_new_wrapper(space, dict_w, pto):
     if "__new__" in dict_w:
         return
     pyo = rffi.cast(PyObject, pto)
-    dict_w["__new__"] = PyCFunction_NewEx(space, get_new_method_def(space),
+    dict_w["__new__"] = W_PyCFunctionObject(space, get_new_method_def(space),
                                           from_ref(space, pyo), None)
 
 def inherit_special(space, pto, w_obj, base_pto):
@@ -927,6 +927,12 @@ def get_ht_slot(ht, slotnum):
     PyType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)""",
     result_is_ll=True)
 def PyType_FromSpecWithBases(space, spec, bases):
+    return PyType_FromSpecWithBases(space, None, spec, bases)
+
+@cts.decl("""PyObject *
+    PyType_FromModuleAndSpec(PyObject *, PyType_Spec *spec, PyObject *bases)""",
+    result_is_ll=True)
+def PyType_FromSpecWithBases(space, module, spec, bases):
     from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
     state = space.fromcache(State)
     p_type = cts.cast('PyTypeObject*', make_ref(space, space.w_type))
@@ -945,6 +951,9 @@ def PyType_FromSpecWithBases(space, spec, bases):
     res.c_ht_name = make_ref(space, space.newtext(name))
     res.c_ht_qualname = res.c_ht_name
     incref(space, res.c_ht_qualname)
+    if module:
+        incref(space, module)
+        res.c_ht_module = module
     typ.c_tp_name = spec.c_name
     slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
     if not bases:
@@ -1008,7 +1017,6 @@ def PyType_FromSpecWithBases(space, spec, bases):
         w_type = from_ref(space, res)
         w_type.setdictvalue(space, '__module__', space.newtext(modname))
     return res
-
 
 @cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP)
 def PyType_GetSlot(space, typ, slot):

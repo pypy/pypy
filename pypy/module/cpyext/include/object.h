@@ -198,6 +198,9 @@ not implemented for a given type combination.
 
 
 PyAPI_FUNC(PyObject*) PyType_FromSpec(PyType_Spec*);
+PyAPI_FUNC(PyObject *) PyType_GetModule(struct _typeobject *);
+PyAPI_FUNC(void *) PyType_GetModuleState(struct _typeobject *);
+
 
 
 /* Flag bits for printing: */

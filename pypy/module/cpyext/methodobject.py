@@ -11,7 +11,7 @@ from pypy.interpreter.typedef import (
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_FASTCALL,
-    METH_NOARGS, METH_O, METH_STATIC, METH_VARARGS,
+    METH_NOARGS, METH_O, METH_STATIC, METH_VARARGS, METH_METHOD,
     PyObject, bootstrap_function, cpython_api, generic_cpy_call,
     CANNOT_FAIL, slot_function, cts, build_type_checkers,
     PyObjectP, Py_ssize_t)
@@ -26,13 +26,21 @@ PyCFunctionFast = cts.gettype('_PyCFunctionFast')
 PyCFunctionKwArgs = cts.gettype('PyCFunctionWithKeywords')
 PyCFunctionKwArgsFast = cts.gettype('_PyCFunctionFastWithKeywords')
 PyCFunctionObject = cts.gettype('PyCFunctionObject*')
+PyCMethodObject = cts.gettype('PyCMethodObject*')
 
 @bootstrap_function
-def init_methodobject(space):
+def init_functionobject(space):
     make_typedescr(W_PyCFunctionObject.typedef,
                    basestruct=PyCFunctionObject.TO,
                    attach=cfunction_attach,
                    dealloc=cfunction_dealloc)
+
+@bootstrap_function
+def init_methodobject(space):
+    make_typedescr(W_PyCMethodObject.typedef,
+                   basestruct=PyCMethodObject.TO,
+                   attach=cmethod_attach,
+                   dealloc=cmethod_dealloc)
 
 def cfunction_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, W_PyCFunctionObject)
@@ -46,6 +54,25 @@ def cfunction_dealloc(space, py_obj):
     py_func = rffi.cast(PyCFunctionObject, py_obj)
     decref(space, py_func.c_m_self)
     decref(space, py_func.c_m_module)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
+
+def cmethod_attach(space, py_obj, w_obj, w_userdata=None):
+    assert isinstance(w_obj, W_PyCMethodObject)
+    py_func = rffi.cast(PyCFunctionObject, py_obj)
+    py_func.c_m_ml = w_obj.ml
+    py_func.c_m_self = make_ref(space, w_obj.w_self)
+    py_func.c_m_module = make_ref(space, w_obj.w_module)
+    py_meth = rffi.cast(PyCMethodObject, py_obj)
+    py_meth.c_mm_class = w_obj.w_objclass
+
+@slot_function([PyObject], lltype.Void)
+def cmethod_dealloc(space, py_obj):
+    py_func = rffi.cast(PyCFunctionObject, py_obj)
+    decref(space, py_func.c_func)
+    decref(space, py_func.c_m_module)
+    py_meth = rffi.cast(PyCMethodObject, py_obj)
+    decref(space, py_meth.c_mm_class)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
@@ -130,6 +157,8 @@ class W_PyCFunctionObject(W_Root):
                         "%s() takes no keyword arguments", self.name)
         elif flags & METH_FASTCALL:
             if flags & METH_KEYWORDS:
+                if flags & METH_METHOD:
+                    return self.call_keywords_fastcall_method(space, w_self, __args__)
                 return self.call_keywords_fastcall(space, w_self, __args__)
             return self.call_varargs_fastcall(space, w_self, __args__)
         elif flags & METH_KEYWORDS:
@@ -195,6 +224,16 @@ class W_PyCFunctionObject(W_Root):
         finally:
             decref(space, py_args)
 
+    def call_keywords_fastcall_method(self, space, w_self, __args__):
+        func = rffi.cast(PyCFunctionKwArgsFast, self.ml.c_ml_meth)
+        py_args, len_args, w_kwnames = w_fastcall_args_from_args(space, __args__)
+        try:
+            return generic_cpy_call(space, func, w_self,
+                                    py_args.c_ob_item, len_args, w_kwnames)
+        finally:
+            decref(space, py_args)
+
+
     def get_doc(self, space):
         c_doc = self.ml.c_ml_doc
         if c_doc:
@@ -226,8 +265,8 @@ class W_PyCFunctionObject(W_Root):
 
 class W_PyCMethodObject(W_PyCFunctionObject):
 
-    def __init__(self, space, ml, w_type):
-        W_PyCFunctionObject.__init__(self, space, ml, w_self=None)
+    def __init__(self, space, ml, w_self, w_module, w_type):
+        W_PyCFunctionObject.__init__(self, space, ml, w_self, w_module)
         self.space = space
         self.w_objclass = w_type
 
@@ -444,9 +483,21 @@ W_PyCWrapperObject.typedef = TypeDef(
 W_PyCWrapperObject.typedef.acceptable_as_base_class = False
 
 
-@cpython_api([lltype.Ptr(PyMethodDef), PyObject, PyObject], PyObject)
-def PyCFunction_NewEx(space, ml, w_self, w_name):
-    return W_PyCFunctionObject(space, ml, w_self, w_name)
+@cpython_api([lltype.Ptr(PyMethodDef), PyObject, PyObject, PyObject], PyObject)
+def PyCMethod_New(space, ml, w_self, w_name, w_type):
+    flags = rffi.cast(lltype.Signed, ml.c_ml_flags)
+    if flags & METH_METHOD:
+        if w_type is None:
+            raise oefmt(space.w_SystemError,
+                "attempting to create PyCMethod with a METH_METHOD "
+                "flag but no class");
+        return W_PyCMethodObject(space, ml, w_self, w_name, w_type)
+    else:
+        if w_type:
+            raise oefmt(space.w_SystemError,
+                "attempting to create PyCFunction with class "
+                "but no METH_METHOD flag");
+        return W_PyCFunctionObject(space, ml, w_self, w_name)
 
 @cts.decl("PyCFunction PyCFunction_GetFunction(PyObject *)")
 def PyCFunction_GetFunction(space, w_obj):
@@ -471,7 +522,7 @@ def PyClassMethod_New(space, w_func):
     PyObject *
     PyDescr_NewMethod(PyTypeObject *type, PyMethodDef *method)""")
 def PyDescr_NewMethod(space, w_type, method):
-    return W_PyCMethodObject(space, method, w_type)
+    return W_PyCMethodObject(space, method, None, None, w_type)
 
 @cts.decl("""
     PyObject *
@@ -514,7 +565,8 @@ def argtuple_from_pyobject_array(space, py_args, n):
         args_w[i] = from_ref(space, py_args[i])
     return space.newtuple(args_w)
 
-@cpython_api([PyObject, PyObjectP, Py_ssize_t, PyObject], PyObject)
+@cts.decl("PyObject *PyObject_Vectorcall(PyObject *, PyObject *const *, "
+          "size_t, PyObject *)")
 def PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
 
     if w_argnames is None:
@@ -532,11 +584,13 @@ def PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
     w_result = space.call(w_func, w_args, w_kwargs)
     return w_result
 
-@cpython_api([PyObject, PyObjectP, Py_ssize_t], PyObject)
+@cts.decl("PyObject *_PyObject_FastCall(PyObject *, PyObject *const *, "
+          "size_t)")
 def _PyObject_FastCall(space, w_func, py_args, n):
     return PyObject_Vectorcall(space, w_func, py_args, n, lltype.nullptr(PyObject.TO))
 
-@cpython_api([PyObject, PyObjectP, Py_ssize_t, PyObject], PyObject)
+@cts.decl("PyObject *PyObject_VectorcallDict(PyObject *, PyObject *const *, "
+          "size_t, PyObject *)")
 def PyObject_VectorcallDict(space, w_func, py_args, n, w_kwargs):
     w_args = argtuple_from_pyobject_array(space, py_args, n)
     w_result = space.call(w_func, w_args, w_kwargs)

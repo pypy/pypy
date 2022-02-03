@@ -6,6 +6,12 @@
 #define FLAG_SIZE_T 1
 typedef double va_double;
 
+// Fast inlined version of PyType_HasFeature()
+static inline int
+_PyType_HasFeature(PyTypeObject *type, unsigned long feature) {
+    return ((type->tp_flags & feature) != 0);
+}
+
 static PyObject *va_build_value(const char *, va_list, int);
 
 /* Package context -- the full module name for package imports
@@ -617,4 +623,58 @@ PyModuleDef_Init(struct PyModuleDef* def)
         def->m_base.m_index = max_module_number;
     }
     return (PyObject*)def;
+}
+
+PyObject *
+PyType_GetModule(PyTypeObject *type)
+{
+    assert(PyType_Check(type));
+    if (!_PyType_HasFeature(type, Py_TPFLAGS_HEAPTYPE)) {
+        PyErr_Format(
+            PyExc_TypeError,
+            "PyType_GetModule: Type '%s' is not a heap type",
+            type->tp_name);
+        return NULL;
+    }
+
+    PyHeapTypeObject* et = (PyHeapTypeObject*)type;
+    if (!et->ht_module) {
+        PyErr_Format(
+            PyExc_TypeError,
+            "PyType_GetModule: Type '%s' has no associated module",
+            type->tp_name);
+        return NULL;
+    }
+    return et->ht_module;
+
+}
+
+void *
+PyType_GetModuleState(PyTypeObject *type)
+{
+    PyObject *m = PyType_GetModule(type);
+    if (m == NULL) {
+        return NULL;
+    }
+    return PyModule_GetState(m);
+}
+
+PyObject*
+PyState_FindModule(struct PyModuleDef* module)
+{
+    Py_ssize_t index = module->m_base.m_index;
+    PyThreadState *tstate = PyThreadState_Get();
+    PyInterpreterState *state = tstate->interp;
+    PyObject *res;
+    if (module->m_slots) {
+        return NULL;
+    }
+    if (index == 0)
+        return NULL;
+    if (state->modules_by_index == NULL)
+        return NULL;
+    if (index >= PyList_GET_SIZE(state->modules_by_index))
+        return NULL;
+    res = PyList_GET_ITEM(state->modules_by_index, index);
+    return res==Py_None ? NULL : res;
 }

@@ -1,8 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rarithmetic import widen
-from pypy.module.cpyext.pyobject import (PyObject, make_ref, make_typedescr,
-    decref, as_pyobj, incref)
+from pypy.module.cpyext.pyobject import (PyObject, make_ref, make_typedescr, decref)
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cpython_struct,
     PyObjectFields, cts, parse_dir, bootstrap_function, slot_function,
     Py_TPFLAGS_HEAPTYPE)
