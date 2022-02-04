@@ -3,7 +3,7 @@ PyPy v7.3.8: release of python 2.7, 3.7, 3.8, and 3.9-beta
 ==========================================================
 
 ..
-    Changelog up to commit c859fcd9d243
+    Changelog up to commit 0360402c9455
 
 .. note::
      This is a pre-release announcement. When the release actually happens, it
@@ -38,17 +38,19 @@ release. This is a micro release, all APIs are compatible with the other 7.3
 releases. Highlights of the release, since the release of 7.3.7 in late October 2021,
 include:
 
-  - Improvement in ssl's use of CFFI buffers to speed up ``recv`` and ``recvinto``
   - PyPy3.9 uses an RPython version of the PEG parser which brought with it a
     cleanup of the lexer and parser in general
   - Fixed a regression in PyPy3.8 when JITting empty list comprehenshions
   - Tweaked some issues around changing the file layout after packaging to make
-    PyPy more compatible with CPython
+    the on-disk layout of PyPy3.8 more compatible with CPython. This requires
+    ``setuptools>=58.1.0``
   - RPython now allows the target executable to have a ``.`` in its name, so
     PyPy3.9 will produce a ``pypy3.9-c`` and ``libpypy3.9-c.so``. Changing the
     name of the shared object to be version-specific (it used to be
     ``libpypy3-c.so``) will allow it to live alongside other versions.
   - Building PyPy3.9+ accepts a ``--platlibdir`` argument like CPython.
+  - Improvement in ssl's use of CFFI buffers to speed up ``recv`` and ``recvinto``
+  - Update the packaged OpenSSL to 1.1.1m
 
 We recommend updating. You can find links to download the v7.3.8 releases here:
 
@@ -122,6 +124,7 @@ Bugfixes shared across versions
 - Copy ``dtoa`` changes from CPython (bpo40780_)
 - Use ``symtable`` to improve the position of "duplicate argument" errors
 - Add ``__builtins__`` to globals ``dict`` when calling ``eval`` (issue 3584_)
+- Update embedded OpenSSL to 1.1.1m (bpo43522_) 
 
 Speedups and enhancements shared across versions
 ------------------------------------------------
@@ -170,7 +173,21 @@ Python 3.7+ bugfixes
   segfault
 - Detail about ``PYTHONIOENCODING``: if the encoding or the error is ommitted,
   always use ``utf-8/strict`` (instead of asking the locale)
-- Fix for bpo43522_, use embedded OpenSSL to 1.1.1m
+- Disallow overriding the ``__context__`` descriptor from ``BaseException``
+  when chaining exceptions (issue 3644_)
+- Replace ``raise ImportError`` with ``raise ModuleNotFoundError`` where
+  appropriate in pure-python equivalents of CPython builtin modules
+- Add missing ``rewinddir()`` at the end of ``os.scandir``
+- ``os.dup2`` now returns ``fd2``
+- Make ``__fspath__`` errors compatible with CPython
+- Fix handling of backslash in raw unicode escape decoders that don't
+  start valid escape sequences (issue 3652_)
+- Add missing equivalent of ``_Py_RestoreSignals()`` call in ``fork_exec``
+- Catch exceptions in ``atexit`` functions to avoid crashing the interpreter at
+  shutdown
+- Update ``fast2locals`` to deal with the fact that it's now possible to
+  delete cell vars (was forbidden in python2) (issue 3656_)
+delete cell vars (was forbidden in python2).
 
 Python 3.7+ speedups and enhancements
 -------------------------------------
@@ -186,13 +203,14 @@ Python 3.7+ speedups and enhancements
 - Fix the ctypes errcheck_ protocol
 - Various fixes in the windows-only ``_overlapped`` module (issue 3625_)
 - Implement ``-X utf8``
+- Add ``WITH_DYLD`` to ``sysconfig`` for darwin
 
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
 
 - Added ``PyDescr_NewGetSet``, ``PyModule_NewObject``, ``PyModule_ExecDef``,
   ``PyCodec_Decode``, ``PyCodec_Encode``, ``PyErr_WarnExplicit``,
-  ``PyDateTime_TimeZone_UTC``
+  ``PyDateTime_TimeZone_UTC``, ``PyUnicode_DecodeLocaleAndSize``
 - Fix segfault when using format strings in ``PyUnicode_FromFormat`` and
   ``PyErr_Format`` (issue 3593_)
 - ``_PyObject_LookupAttrId`` does not raise ``AttributeError``
@@ -203,6 +221,7 @@ Python 3.7 C-API
 - Alias ``PyDateTime_DATE_GET_FOLD``, which CPython uses instead of the
   documented ``PyDateTime_GET_FOLD`` (issue 3627_)
 - Add some ``_PyHASH*`` macros (issue 3590_)
+- Fix signature of ``PyUnicode_DecodeLocale`` (issue 3661_)
 
 Python 3.8+ bugfixes
 --------------------
@@ -217,6 +236,8 @@ Python 3.8+ bugfixes
   stdlib tests to allow PyPy's repr. bpo35545_ touches on this. (issue 3628_)
 - Fix small bugs when raising errors in various stdlib modules that caused
   stdlib test failures
+- Update bundled ``setuptools`` to ``58.1.0`` to get the fix for the new PyPy
+  layout
 
 Python 3.8+ speedups and enhancements
 -------------------------------------
@@ -238,6 +259,8 @@ Python 3.8 C-API
   ``tp_pypy_flags`` slot. Users should upgrade Cython to 0.2.26 to avoid a
   compiler warning.
 - Add ``PyCompilerFlags.cf_feature_version`` (bpo35766_)
+- Distinguish between a c-api ``CMethod`` and an app-level ``Method``, which
+  is important for obscure reasons
 
 .. _3589: https://foss.heptapod.net/pypy/pypy/-/issues/3589
 .. _3584: https://foss.heptapod.net/pypy/pypy/-/issues/3584
@@ -257,6 +280,11 @@ Python 3.8 C-API
 .. _3628: https://foss.heptapod.net/pypy/pypy/-/issues/3628
 .. _3627: https://foss.heptapod.net/pypy/pypy/-/issues/3627
 .. _3630: https://foss.heptapod.net/pypy/pypy/-/issues/3630
+.. _3644: https://foss.heptapod.net/pypy/pypy/-/issues/3644
+.. _3642: https://foss.heptapod.net/pypy/pypy/-/issues/3642
+.. _3652: https://foss.heptapod.net/pypy/pypy/-/issues/3652
+.. _3656: https://foss.heptapod.net/pypy/pypy/-/issues/3656
+.. _3661: https://foss.heptapod.net/pypy/pypy/-/issues/3661
 .. _bpo35883: https://bugs.python.org/issue35883
 .. _bpo44954: https://bugs.python.org/issue44954
 .. _bpo40780: https://bugs.python.org/issue40780
