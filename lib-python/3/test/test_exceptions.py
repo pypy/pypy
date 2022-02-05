@@ -1246,6 +1246,7 @@ class ExceptionTests(unittest.TestCase):
                       b'while normalizing an exception', err)
         self.assertIn(b'Done.', out)
 
+    @cpython_only
     def test_recursion_in_except_handler(self):
 
         def set_relative_recursion_limit(n):
