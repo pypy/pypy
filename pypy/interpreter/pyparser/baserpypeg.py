@@ -759,8 +759,12 @@ class Parser:
             start_lineno = tok.lineno
             start_col_offset = tok.column
         if end_lineno == -1:
-            end_lineno = tok.end_lineno
-            end_column = tok.end_column
+            if tok.end_lineno != -1:
+                end_lineno = tok.end_lineno
+                end_column = tok.end_column
+            else:
+                end_lineno = start_lineno
+                end_column = start_col_offset
 
         if line_from_token:
             line = tok.line

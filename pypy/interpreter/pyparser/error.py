@@ -6,7 +6,7 @@ class SyntaxError(Exception):
                  lastlineno=0):
         self.msg = msg
         self.lineno = lineno
-        # NB: offset is a 1-based index!
+        # NB: offset is a 1-based index into the bytes source
         self.offset = offset
         self.text = text
         self.filename = filename
@@ -38,7 +38,7 @@ class SyntaxError(Exception):
                     except:  # we can't allow any exceptions here!
                         return None""")
         elif text is not None:
-            from rpython.rlib.runicode import str_decode_utf_8_impl
+            from pypy.interpreter.unicodehelper import _str_decode_utf8_slowpath
             # text may not be UTF-8 in case of decoding errors.
             # adjust the encoded text offset to a decoded offset
             # XXX do the right thing about continuation lines, which
@@ -49,19 +49,22 @@ class SyntaxError(Exception):
             # codepoint-based index into the decoded unicode-version of
             # self.text
 
-            # XXX stop using runicode here!
             def replace_error_handler(errors, encoding, msg, s, startpos, endpos):
                 # must return unicode
-                return u'\ufffd', endpos
+                return b'\xef\xbf\xbd', endpos, 'b', s
             if offset > len(text):
                 offset = len(text)
-            replacedtext, _ = str_decode_utf_8_impl(text, offset,
-                             'replace', False, replace_error_handler, True)
-            offset = len(replacedtext)
-            if len(text) != offset:
-                replacedtext, _ = str_decode_utf_8_impl(text, len(text),
-                             'replace', False, replace_error_handler, True)
-            w_text = space.newtext(replacedtext.encode('utf8'), len(replacedtext))
+            else:
+                offset = offset - 1 # 1-based to 0-based
+            # slightly inefficient, call the decoder both for text[:offset] and
+            # the whole text
+            _, offset, _ = _str_decode_utf8_slowpath(
+                    text[:offset], 'replace', False, replace_error_handler,
+                    True)
+            offset += 1 # convert to 1-based
+            replacedtext, length, _ = _str_decode_utf8_slowpath(
+                    text, 'replace', False, replace_error_handler, True)
+            w_text = space.newutf8(replacedtext, length)
         return space.newtuple([
             space.newtext(self.msg),
             space.newtuple([

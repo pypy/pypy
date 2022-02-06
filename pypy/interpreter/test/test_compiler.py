@@ -959,6 +959,11 @@ class AppTestCompiler(object):
         raises(SyntaxError, eval, b'\xff\x20')
         raises(SyntaxError, eval, b'\xef\xbb\x20')
 
+    def test_unicode_identifier_error_offset(self):
+        info = raises(SyntaxError, eval, b'\xe2\x82\xac = 1')
+        assert info.value.offset == 1
+        assert raises(SyntaxError, eval, b'\xc3\xa4 + \xe2\x82\xac').value.offset == 5
+
     def test_import_nonascii(self):
         c = compile('from os import 日本', '', 'exec')
         assert ('日本',) in c.co_consts
