@@ -10,6 +10,9 @@ except ImportError: builtinify = lambda f: f
 
 def new(name, string=b''):
     h = HASH(name)
+    if isinstance(string, memoryview):
+        # issue 2756: ffi.from_buffer() cannot handle memoryviews
+        string = string.tobytes()
     h.update(string)
     return h
 
