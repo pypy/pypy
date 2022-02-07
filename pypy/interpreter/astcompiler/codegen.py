@@ -418,6 +418,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if doc_expr is not None:
                 start = 1
                 doc_expr.walkabout(self)
+                if doc_expr.lineno > 0:
+                    self.update_position(doc_expr.lineno)
                 self.name_op("__doc__", ast.Store, doc_expr)
                 self.scope.doc_removable = True
             self._visit_body(body, start)
