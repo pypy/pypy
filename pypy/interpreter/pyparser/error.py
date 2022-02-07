@@ -50,21 +50,23 @@ class SyntaxError(Exception):
             # self.text
 
             def replace_error_handler(errors, encoding, msg, s, startpos, endpos):
-                # must return unicode
                 return b'\xef\xbf\xbd', endpos, 'b', s
-            if offset > len(text):
-                offset = len(text)
-            else:
-                offset = offset - 1 # 1-based to 0-based
-            # slightly inefficient, call the decoder both for text[:offset] and
-            # the whole text
-            _, offset, _ = _str_decode_utf8_slowpath(
-                    text[:offset], 'replace', False, replace_error_handler,
-                    True)
-            offset += 1 # convert to 1-based
-            replacedtext, length, _ = _str_decode_utf8_slowpath(
+
+            replacedtext, unilength, _ = _str_decode_utf8_slowpath(
                     text, 'replace', False, replace_error_handler, True)
-            w_text = space.newutf8(replacedtext, length)
+            if offset > len(text):
+                offset = unilength
+            elif offset >= 1:
+                offset = offset - 1 # 1-based to 0-based
+                assert offset >= 0
+                # slightly inefficient, call the decoder for text[:offset] too
+                _, offset, _ = _str_decode_utf8_slowpath(
+                        text[:offset], 'replace', False, replace_error_handler,
+                        True)
+                offset += 1 # convert to 1-based
+            else:
+                offset = 0
+            w_text = space.newutf8(replacedtext, unilength)
         return space.newtuple([
             space.newtext(self.msg),
             space.newtuple([
