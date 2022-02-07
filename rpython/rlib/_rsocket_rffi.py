@@ -1432,7 +1432,7 @@ else:
 
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
-        return rffi.charp2str(gai_strerror(errno))
+        return rffi.constcharp2str(gai_strerror(errno))
 
     def socket_strerror_unicode(errno):
         return socket_strerror_str(errno).decode('latin-1')
