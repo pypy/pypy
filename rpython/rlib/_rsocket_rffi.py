@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
-from rpython.rtyper.lltypesystem.rffi import CCHARP
+from rpython.rtyper.lltypesystem.rffi import CCHARP, CONST_CCHARP
 from rpython.rlib import jit
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as target_platform
@@ -1164,7 +1164,7 @@ def external_c(name, args, result, **kwargs):
 
 if _POSIX:
     dup = external('dup', [socketfd_type], socketfd_type, save_err=SAVE_ERR)
-    gai_strerror = external('gai_strerror', [rffi.INT], CCHARP)
+    gai_strerror = external('gai_strerror', [rffi.INT], CONST_CCHARP)
 
 #h_errno = c_int.in_dll(socketdll, 'h_errno')
 #
