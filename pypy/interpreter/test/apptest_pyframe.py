@@ -545,6 +545,7 @@ def test_trace_generator_finalisation():
                     (6, 'return'),
                     (12, 'return')]
 
+
 def test_dont_trace_on_reraise():
     import sys
     l = []
@@ -566,6 +567,40 @@ def test_dont_trace_on_reraise():
     sys.settrace(None)
     assert len(l) == 1
     assert issubclass(l[0][0], Exception)
+
+def test_dont_trace_on_reraise2():
+    import sys
+    l = []
+    got_exc = []
+    def trace(frame, event, arg):
+        l.append((frame.f_lineno, event))
+        if event == 'exception':
+            got_exc.append(arg)
+        return trace
+
+
+    d = {}
+    exec("""
+def b(reraise): # line 2
+    try:
+        try:
+            raise Exception(exc)
+        except Exception as e:
+            if reraise:
+                raise
+            print("after raise") # Not run, line 9
+    except:
+        pass
+    """, d)
+
+    sys.settrace(trace)
+    d['b'](True)
+    sys.settrace(None)
+    assert l == [(2, 'call'), (3, 'line'), (4, 'line'),
+                 (5, 'line'), (5, 'exception'), (6, 'line'),
+                 (7, 'line'), (8, 'line'), # not 9!
+                 (10, 'line'), (11, 'line'),
+                 (11, 'return')]
 
 def test_trace_changes_locals():
     import sys

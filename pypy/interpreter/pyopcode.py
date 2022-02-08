@@ -3,6 +3,7 @@ Implementation of a part of the standard Python opcodes.
 
 The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
+import sys
 
 from rpython.rlib import jit, rstackovf, rstring
 from rpython.rlib.debug import check_nonneg
@@ -1860,14 +1861,17 @@ class FinallyBlock(FrameBlock):
         # set the current value of sys_exc_info to operationerr,
         # saving the old value in a custom type of FrameBlock
         frame.save_and_change_sys_exc_info(operationerr)
-        if frame.get_w_f_trace() is not None:
-            # force a line trace event next, by setting instr_prev_plus_one to
-            # a high value, simulating a backward jump to the line trace logic
-            # in executioncontext (CPython has the same code, see
-            # test_trace_generator_finalisation for why it's needed)
-            debugdata = frame.getdebug()
-            assert debugdata is not None
-            debugdata.instr_prev_plus_one = len(frame.pycode.co_code) + 1
+        d = frame.getdebug()
+        if d is not None and d.w_f_trace is not None:
+            needs_new_execution_window = not (d.instr_lb <= frame.last_instr < d.instr_ub)
+            needs_line_update = d.instr_lb == frame.last_instr or frame.last_instr < d.instr_prev_plus_one
+            # logic taken from CPython, see test_trace_generator_finalisation
+
+            # Make sure that we trace line after exception if we are in a new execution
+            # window or we don't need a line update and we are not in the first instruction
+            # of the line.
+            if needs_new_execution_window or (not needs_line_update and d.instr_lb > 0):
+                d.instr_prev_plus_one = sys.maxint
         return r_uint(self.handlerposition)   # jump to the handler
 
     def pop_block(self, frame):
