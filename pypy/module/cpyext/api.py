@@ -1252,7 +1252,7 @@ def attach_c_functions(space, eci, prefix):
            )
     state.C.flag_setters = {}
     for c_name, attr in _flags:
-        _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
+        _, setter = rffi.CExternVariable(rffi.INT_real, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
         state.C.flag_setters[attr] = setter
 
@@ -1274,7 +1274,7 @@ def init_flags(space):
     state = space.fromcache(State)
     for _, attr in _flags:
         f = state.C.flag_setters[attr]
-        f(space.sys.get_flag(attr))
+        f(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call

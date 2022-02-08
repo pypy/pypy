@@ -56,6 +56,11 @@ class HASH(object):
         return "<%s HASH object at 0x%s>" % (self.name, id(self))
 
     def update(self, string):
+        if isinstance(string, str):
+            raise TypeError("Unicode-objects must be encoded before hashing")
+        elif isinstance(string, memoryview):
+            # issue 2756: ffi.from_buffer() cannot handle memoryviews
+            string = string.tobytes()
         buf = ffi.from_buffer(string)
         with self.lock:
             # XXX try to not release the GIL for small requests

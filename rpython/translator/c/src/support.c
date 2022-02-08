@@ -12,7 +12,9 @@
 #define Sign_bit 0x80000000
 #define NAN_WORD0 0x7ff80000
 #define NAN_WORD1 0
+#ifndef PY_UINT32_T
 #define PY_UINT32_T unsigned int
+#endif
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define IEEE_8087

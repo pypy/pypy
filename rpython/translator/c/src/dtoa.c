@@ -122,9 +122,15 @@
 #define HAVE_UINT32_T
 #define HAVE_INT32_T
 #define HAVE_UINT64_T
+#ifndef PY_UINT32_T
 #define PY_UINT32_T unsigned int
+#endif
+#ifndef PY_INT32_T
 #define PY_INT32_T int
+#endif
+#ifndef PY_UINT64_T
 #define PY_UINT64_T unsigned long long
+#endif
 #include <limits.h>
 #include <stdlib.h>
 #include <errno.h>
