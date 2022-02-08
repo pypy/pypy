@@ -31,7 +31,6 @@ def test___init__():
     class Person(Structure):
         _fields_ = (("name", c_char*10),
                     ("age", c_int))
-
         def __init__(self, name, surname, age):
             self.name = name + b' ' + surname
             self.age = age
@@ -221,3 +220,18 @@ def test_memoryview_endian():
     mv = memoryview(c_les)
     assert mv.format == 'B'
 
+def test_deepcopy_struct():
+    # issue 3022: missing __new__ on StructureInstanceAutoFree
+    import copy
+
+    class struct_a(Structure):
+        pass
+        
+    class struct_b(Structure):
+        pass
+        
+    struct_a._fields_ = [('first',struct_b)]
+
+    a = struct_a()
+    b = copy.deepcopy(a)
+    assert isinstance(b.first, struct_b)

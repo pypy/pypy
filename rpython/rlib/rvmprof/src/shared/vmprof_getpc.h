@@ -52,7 +52,7 @@
 // the needed __BSD_VISIBLE.
 #ifdef __APPLE__
 #include <limits.h>
-#define _XOPEN_SOURCE 500
+#define _XOPEN_SOURCE 700
 #endif
 
 #include "vmprof_config.h"
