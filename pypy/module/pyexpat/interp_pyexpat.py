@@ -720,7 +720,7 @@ information passed to the ExternalEntityRefHandler."""
     # Error management
 
     def set_error(self, space, code):
-        err = rffi.constcharpsize2str(XML_ErrorString(code), 200)
+        err = rffi.constcharp2str(XML_ErrorString(code))
         lineno = XML_GetCurrentLineNumber(self.itself)
         colno = XML_GetCurrentColumnNumber(self.itself)
         msg = "%s: line %d, column %d" % (err, lineno, colno)
