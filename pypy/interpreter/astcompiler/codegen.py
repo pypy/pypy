@@ -553,6 +553,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.update_position(dec.lineno)
                 dec.walkabout(self)
 
+        if func.lineno > 0:
+            self.update_position(func.lineno)
+
         args = func.args
 
         assert isinstance(args, ast.arguments)
