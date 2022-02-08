@@ -125,7 +125,10 @@ Bugfixes shared across versions
 - Copy ``dtoa`` changes from CPython (bpo40780_)
 - Use ``symtable`` to improve the position of "duplicate argument" errors
 - Add ``__builtins__`` to globals ``dict`` when calling ``eval`` (issue 3584_)
-- Update embedded OpenSSL to 1.1.1m (bpo43522_) 
+- Update embedded OpenSSL to 1.1.1m (bpo43522_)
+- Avoid using ``epoll_event`` directly from RPython since it is a ``packed struct``
+- Clean up some compilation warnings around `const char *`` conversions to
+  ``char *``
 
 Speedups and enhancements shared across versions
 ------------------------------------------------
@@ -142,6 +145,8 @@ Speedups and enhancements shared across versions
   to make the meaning more clear. These are functions only useful for internal
   testing (issue 3617_).
 - Prepare ``_ssl`` for OpenSSL3
+- Improve ``x << y`` where ``x`` and ``y`` are ints but the results doesn't fit
+  into a machine word: don't convert ``y`` to ``rbigint`` and back to int
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -189,6 +194,7 @@ Python 3.7+ bugfixes
 - Update ``fast2locals`` to deal with the fact that it's now possible to
   delete cell vars (was forbidden in python2) (issue 3656_)
 delete cell vars (was forbidden in python2).
+- Allow hashing memoryviews (issue 2756_)
 
 Python 3.7+ speedups and enhancements
 -------------------------------------
@@ -263,6 +269,7 @@ Python 3.8 C-API
 - Distinguish between a c-api ``CMethod`` and an app-level ``Method``, which
   is important for obscure reasons
 
+.. _2756: https://foss.heptapod.net/pypy/pypy/-/issues/2756
 .. _3589: https://foss.heptapod.net/pypy/pypy/-/issues/3589
 .. _3584: https://foss.heptapod.net/pypy/pypy/-/issues/3584
 .. _3598: https://foss.heptapod.net/pypy/pypy/-/issues/3598
