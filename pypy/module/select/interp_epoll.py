@@ -35,6 +35,7 @@ eci = ExternalCompilationInfo(
             }
             int ret = epoll_wait(epfd, events, maxevents, timeout);
             if (ret < 0) {
+                free(events);
                 return ret;
             }
             for (int i=0; i<ret; i++) {
