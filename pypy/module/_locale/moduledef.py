@@ -22,7 +22,7 @@ class Module(MixedModule):
         interpleveldefs.update({
             'nl_langinfo':              'interp_locale.nl_langinfo',
             })
-    if rlocale.HAVE_LIBINTL:
+    if rlocale.HAVE_LIBINTL and not sys.platform == 'darwin':
         interpleveldefs.update({
             'gettext':                  'interp_locale.gettext',
             'dgettext':                 'interp_locale.dgettext',

@@ -214,9 +214,13 @@ def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
         elif space.isinstance_w(w_result, space.w_bytes):
             return _path_from_bytes(space, w_result)
 
-    raise oefmt(space.w_TypeError,
-        "illegal type for path parameter (should be "
-        "%s, not %T)", allowed_types, w_value)
+        raise oefmt(space.w_TypeError,
+            'expected %T.__fspath__() to return str or bytes, not %T',
+            w_value,
+            w_result
+            )
+    raise oefmt(
+        space.w_TypeError, "path should be %s, not %T", allowed_types, w_value)
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):
@@ -257,7 +261,7 @@ def unwrap_fd(space, w_value, allowed_types='integer'):
             raise
     if result == -1:
         # -1 is used as sentinel value for not a fd
-        raise oefmt(space.w_ValueError, "invalid file descriptor: -1")
+        raise oefmt(space.w_OSError, "invalid file descriptor: -1")
     return result
 
 def _unwrap_dirfd(space, w_value):
@@ -701,6 +705,7 @@ def dup2(space, fd, fd2, inheritable=1):
         rposix.dup2(fd, fd2, inheritable)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
+    return space.newint(fd2)
 
 @unwrap_spec(mode=c_int,
     dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=bool,
@@ -1070,7 +1075,7 @@ entries '.' and '..' even if they are present in the directory."""
             raise oefmt(space.w_TypeError,
                 "listdir: illegal type for path argument")
         try:
-            result = rposix.fdlistdir(os.dup(path.as_fd))
+            result = rposix.fdlistdir(rposix.dup(path.as_fd, inheritable=False))
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
         return space.newlist([space.newfilename(f) for f in result])
@@ -1847,14 +1852,14 @@ def parse_utime_args(space, w_times, w_ns):
         atime_ns = mtime_ns = 0
     elif not space.is_w(w_times, space.w_None):
         times_w = space.fixedview(w_times)
-        if len(times_w) != 2:
+        if len(times_w) != 2 or not space.isinstance_w(w_times, space.w_tuple):
             raise oefmt(space.w_TypeError,
                 "utime: 'times' must be either a tuple of two ints or None")
         atime_s, atime_ns = convert_seconds(space, times_w[0])
         mtime_s, mtime_ns = convert_seconds(space, times_w[1])
     else:
         args_w = space.fixedview(w_ns)
-        if len(args_w) != 2:
+        if len(args_w) != 2 or not space.isinstance_w(w_ns, space.w_tuple):
             raise oefmt(space.w_TypeError,
                 "utime: 'ns' must be a tuple of two ints")
         atime_s, atime_ns = convert_ns(space, args_w[0])

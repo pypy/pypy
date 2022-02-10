@@ -4,7 +4,7 @@ import os
 try:
     import cpyext
 except ImportError:
-    raise ImportError("No module named '_testmultiphase'")
+    raise ModuleNotFoundError("No module named '_testmultiphase'", name='_testmultiphase')
 import _pypy_testcapi
 cfile = '_testmultiphase.c'
 thisdir = os.path.dirname(__file__)
