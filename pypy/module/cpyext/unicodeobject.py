@@ -767,8 +767,8 @@ def PyUnicode_EncodeLocale(space, w_obj, errors):
     ulen = space.len_w(w_obj)
     return space.newbytes(utf8_encode_locale(utf8, ulen, s))
 
-@cpython_api([PyObject, CONST_STRING], PyObject)
-def PyUnicode_DecodeLocale(space, w_obj, errors):
+@cpython_api([CONST_STRING, CONST_STRING], PyObject)
+def PyUnicode_DecodeLocale(space, obj, errors):
     from pypy.module._codecs.locale import str_decode_locale 
     if errors:
         s = rffi.charp2str(errors)
@@ -777,7 +777,20 @@ def PyUnicode_DecodeLocale(space, w_obj, errors):
     if not s in ('strict', 'surrogateescape'):
         raise oefmt(space.w_ValueError, "only 'strict' and 'surrogateescape' "
                     "error handlers are supported, not '%s'", s)
-    utf8 = space.utf8_w(w_obj)
+    utf8 = rffi.charp2str(obj)
+    return space.newtext(*str_decode_locale(utf8, s))
+
+@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
+def PyUnicode_DecodeLocaleAndSize(space, obj, length, errors):
+    from pypy.module._codecs.locale import str_decode_locale 
+    if errors:
+        s = rffi.charp2str(errors)
+    else:
+        s = 'strict'
+    if not s in ('strict', 'surrogateescape'):
+        raise oefmt(space.w_ValueError, "only 'strict' and 'surrogateescape' "
+                    "error handlers are supported, not '%s'", s)
+    utf8 = rffi.charpsize2str(obj, length)
     return space.newtext(*str_decode_locale(utf8, s))
 
 @cpython_api([PyObject, PyObjectP], rffi.INT_real, error=0)

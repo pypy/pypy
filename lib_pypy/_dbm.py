@@ -152,7 +152,7 @@ if sys.platform != 'darwin':
             if libpath:
                 break
         else:
-            raise ImportError("Cannot find dbm library")
+            raise ModuleNotFoundError("Cannot find dbm library", name='_dbm')
     lib = CDLL(libpath) # Linux
     _platform = 'bdb'
 else:

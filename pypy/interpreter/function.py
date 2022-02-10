@@ -530,7 +530,7 @@ def descr_function_get(space, w_function, w_obj, w_cls=None):
         return Method(space, w_function, w_obj)
 
 
-class Method(W_Root):
+class _Method(W_Root):
     """A method is a function bound to a specific instance."""
     _immutable_fields_ = ['w_function', 'w_instance']
 
@@ -539,15 +539,6 @@ class Method(W_Root):
         assert w_instance is not None   # unbound methods only exist in Python 2
         self.w_function = w_function
         self.w_instance = w_instance
-
-    def descr_method__new__(space, w_subtype, w_function, w_instance):
-        if space.is_w(w_instance, space.w_None):
-            w_instance = None
-        if w_instance is None:
-            raise oefmt(space.w_TypeError, "self must not be None")
-        method = space.allocate_instance(Method, w_subtype)
-        Method.__init__(method, space, w_function, w_instance)
-        return method
 
     def __repr__(self):
         return u"bound method %s" % (self.w_function.getname(self.space),)
@@ -592,7 +583,7 @@ class Method(W_Root):
 
     def descr_method_eq(self, w_other):
         space = self.space
-        if not isinstance(w_other, Method):
+        if not isinstance(w_other, _Method):
             return space.w_NotImplemented
         if not space.is_w(self.w_instance, w_other.w_instance):
             return space.w_False
@@ -621,6 +612,15 @@ class Method(W_Root):
             tup = [w_instance, space.newtext(w_function.getname(space))]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
+class Method(_Method):
+    def descr_method__new__(space, w_subtype, w_function, w_instance):
+        if space.is_w(w_instance, space.w_None):
+            w_instance = None
+        if w_instance is None:
+            raise oefmt(space.w_TypeError, "self must not be None")
+        method = space.allocate_instance(Method, w_subtype)
+        _Method.__init__(method, space, w_function, w_instance)
+        return method
 
 class StaticMethod(W_Root):
     """The staticmethod objects."""
@@ -723,7 +723,7 @@ class BuiltinFunction(Function):
 
 def is_builtin_code(w_func):
     from pypy.interpreter.gateway import BuiltinCode
-    if isinstance(w_func, Method):
+    if isinstance(w_func, _Method):
         w_func = w_func.w_function
     if isinstance(w_func, Function):
         code = w_func.getcode()

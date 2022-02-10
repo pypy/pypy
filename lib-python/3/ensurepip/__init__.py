@@ -9,7 +9,7 @@ import subprocess
 
 __all__ = ["version", "bootstrap"]
 
-_SETUPTOOLS_VERSION = "56.0.0"
+_SETUPTOOLS_VERSION = "58.1.0"
 
 _PIP_VERSION = "21.1.1"
 

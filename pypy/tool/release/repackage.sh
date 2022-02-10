@@ -5,8 +5,8 @@ pmaj=3  # python main version: 2 or 3
 pmin=8  # python minor version
 maj=7
 min=3
-rev=7
-#rc=rc3  # comment this line for actual release
+rev=8
+rc=rc1  # comment this line for actual release
 
 function maybe_exit {
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
@@ -48,7 +48,7 @@ fi
 function repackage_builds {
     # Download latest builds from the buildmaster, rename the top
     # level directory, and repackage ready to be uploaded 
-    for plat in linux linux64 osx64 aarch64 s390x # linux-armhf-raspbian linux-armel
+    for plat in linux linux64 osx64 # s390x aarch64 linux-armhf-raspbian linux-armel
       do
         echo downloading package for $plat
         if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2

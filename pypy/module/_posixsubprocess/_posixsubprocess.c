@@ -9,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -51,7 +52,6 @@
 
 #define POSIX_CALL(call)   do { if ((call) == -1) goto error; } while (0)
 
-
 /* Convert ASCII to a positive int, no libc call. no overflow. -1 on error. */
 static int
 _pos_int_from_ascii(char *name)
@@ -66,6 +66,24 @@ _pos_int_from_ascii(char *name)
     return num;
 }
 
+static
+void local_pypysig_default(int signum)
+{
+    /* copied from pyypsig_default */
+#ifdef SA_RESTART
+    /* assume sigaction exists */
+    struct sigaction context;
+    context.sa_handler = SIG_DFL;
+    sigemptyset(&context.sa_mask);
+    context.sa_flags = 0;
+    sigaction(signum, &context, NULL);
+#else
+    signal(signum, SIG_DFL);
+#endif
+#ifdef HAVE_SIGINTERRUPT
+    siginterrupt(signum, 1);
+#endif
+}
 
 #if defined(__FreeBSD__)
 /* When /dev/fd isn't mounted it is often a static directory populated
@@ -442,10 +460,20 @@ pypy_subprocess_child_exec(
 
     if (cwd)
         POSIX_CALL(chdir(cwd));
+    
+    if (restore_signals) {
+        /* inline _Py_RestoreSignals(); */
+#ifdef SIGPIPE
+        local_pypysig_default(SIGPIPE);
+#endif
+#ifdef SIGXFZ
+        local_pypysig_default(SIGXFZ);
+#endif
+#ifdef SIGXFSZ
+        local_pypysig_default(SIGXFSZ);
+#endif
+    }
 
-    /* PyPy change: moved this call to the preexec callback */
-    /* if (restore_signals) */
-    /*     _Py_RestoreSignals(); */
 
 #ifdef HAVE_SETSID
     if (call_setsid)
