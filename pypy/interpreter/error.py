@@ -416,13 +416,16 @@ class OperationError(Exception):
 
     def chain_exceptions(self, space, context):
         """Attach another OperationError as __context__."""
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
         self.normalize_exception(space)
         w_value = self.get_w_value(space)
         context.normalize_exception(space)
         w_context = context.get_w_value(space)
         if not space.is_w(w_value, w_context):
+            if not isinstance(w_value, W_BaseException):
+                raise oefmt(space.w_SystemError, "not an instance of Exception: %T", w_value)
             _break_context_cycle(space, w_value, w_context)
-            space.setattr(w_value, space.newtext('__context__'), w_context)
+            w_value.descr_setcontext(space, w_context)
 
     def chain_exceptions_from_cause(self, space, exception):
         # XXX does this code really make sense?
@@ -474,17 +477,19 @@ def _break_context_cycle(space, w_value, w_context):
     This is O(chain length) but context chains are usually very short. Uses
     Floyd's cycle algorithm.
     """
+    from pypy.module.exceptions.interp_exceptions import W_BaseException
     w_rabbit = w_context
     w_tortoise = w_context
     update_tortoise_toggle = False
-    w_attrname_context = space.newtext('__context__')
 
     while True:
-        w_next = space.getattr(w_rabbit, w_attrname_context)
-        if space.is_w(w_next, space.w_None):
+        if not isinstance(w_rabbit, W_BaseException):
+            raise oefmt(space.w_SystemError, "not an instance of Exception: %T", w_rabbit)
+        w_next = w_rabbit.descr_getcontext(space)
+        if space.is_none(w_next):
             break
         if space.is_w(w_next, w_value):
-            space.setattr(w_rabbit, w_attrname_context, space.w_None)
+            w_rabbit.descr_setcontext(space, space.w_None)
             break
         w_rabbit = w_next
         if space.is_w(w_rabbit, w_tortoise):
@@ -492,7 +497,9 @@ def _break_context_cycle(space, w_value, w_context):
             break
         if update_tortoise_toggle:
             # every other iteration
-            w_tortoise = space.getattr(w_rabbit, w_attrname_context)
+            if not isinstance(w_tortoise, W_BaseException):
+                raise oefmt(space.w_SystemError, "not an instance of Exception: %T", w_tortoise)
+            w_tortoise = w_tortoise.descr_getcontext(space)
         update_tortoise_toggle = not update_tortoise_toggle
 
 

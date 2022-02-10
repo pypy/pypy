@@ -8,8 +8,8 @@ from pypy.module.cpyext.pyobject import (PyObject, as_pyobj, make_typedescr,
     keepalive_until_here)
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
-    W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
-    PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New)
+    W_PyCFunctionObject, W_PyCMethodObject,
+    PyMethodDef, W_PyCClassMethodObject, StaticMethod)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import oefmt
@@ -202,12 +202,12 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                     if flags & METH_STATIC:
                         raise oefmt(space.w_ValueError,
                                     "method cannot be both class and static")
-                    w_obj = PyDescr_NewClassMethod(space, w_type, method)
+                    w_obj = W_PyCClassMethodObject(space, method, w_type)
                 elif flags & METH_STATIC:
-                    w_func = PyCFunction_NewEx(space, method, None, None)
-                    w_obj = PyStaticMethod_New(space, w_func)
+                    w_func = W_PyCFunctionObject(space, method, None, None)
+                    w_obj = StaticMethod(w_func)
                 else:
-                    w_obj = PyDescr_NewMethod(space, w_type, method)
+                    w_obj = W_PyCMethodObject(space, method, None, None, w_type)
 
             dict_w[methodname] = w_obj
 

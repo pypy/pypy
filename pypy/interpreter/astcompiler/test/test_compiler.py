@@ -2037,6 +2037,27 @@ x = [c for c in expr_lines.__code__.co_lnotab]
 """
         self.st(func, "x", [0, 1, 2, 1, 2, 255])
 
+    def test_lineno_docstring_class(self):
+        func = """
+def expr_lines(x):
+    class A:
+        "abc"
+x = [c for c in expr_lines.__code__.co_consts[1].co_lnotab]
+"""
+        self.st(func, "x", [8, 1])
+
+    def test_lineno_funcdef(self):
+        func = '''def f():
+    @decorator
+    def my_function(
+        x=x
+    ):
+        pass
+x = [c for c in f.__code__.co_lnotab]
+'''
+        self.st(func, 'x', [0, 1, 2, 2, 2, 255])
+
+
     def test_revdb_metavar(self):
         self.error_test("7 * $0", SyntaxError)
 

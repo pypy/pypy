@@ -313,4 +313,10 @@ typedef struct _heaptypeobject {
     PySequenceMethods as_sequence;
     PyBufferProcs as_buffer;
     PyObject *ht_name, *ht_slots, *ht_qualname;
+    PyObject *ht_module;
 } PyHeapTypeObject;
+
+typedef struct {
+    PyCFunctionObject func;
+    PyTypeObject *mm_class; /* Class that defines this method */
+} PyCMethodObject;

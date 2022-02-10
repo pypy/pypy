@@ -1,16 +1,19 @@
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, cpython_struct)
-from pypy.module.cpyext.pyobject import PyObject, decref, make_ref
-from pypy.interpreter.error import OperationError
+from pypy.module.cpyext.pyobject import PyObject, decref, make_ref, from_ref
+from pypy.module.cpyext.modsupport import PyModuleDef
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rthread
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import widen
 
 PyInterpreterStateStruct = lltype.ForwardReference()
 PyInterpreterState = lltype.Ptr(PyInterpreterStateStruct)
 cpython_struct(
     "PyInterpreterState",
-    [('next', PyInterpreterState)],
+    [('next', PyInterpreterState),
+     ('modules_by_index', PyObject)],
     PyInterpreterStateStruct)
 PyThreadState = lltype.Ptr(cpython_struct(
     "PyThreadState",
@@ -376,3 +379,49 @@ def _Py_IsFinalizing(space):
     """From CPython >= 3.7.  On py3.6, it is present anyway and used to
     implement _Py_Finalizing as a macro."""
     return space.sys.finalizing
+
+def _PyInterpreterState_GET(space):
+    tstate = PyThreadState_Get(space)
+    return tstate.c_interp
+
+@cpython_api([PyObject, PyModuleDef], rffi.INT_real, error=-1)
+def PyState_AddModule(space, w_module, moddef):
+    if not moddef:
+        raise oefmt(space.w_SystemError, "module definition is NULL")
+    interp = _PyInterpreterState_GET(space)
+    index = widen(moddef.c_m_base.c_m_index)
+    if index < 0:
+        raise oefmt(space.w_SystemError, "module index < 0")
+    if not interp.c_modules_by_index:
+        w_by_index = space.newlist([])
+        interp.c_modules_by_index = make_ref(space, w_by_index)
+    else:
+        w_by_index = from_ref(space, interp.c_modules_by_index)
+    if moddef.c_m_slots:
+        raise oefmt(space.w_SystemError,
+                    "PyState_AddModule called on module with slots");
+    if index < space.len_w(w_by_index):
+        w_module_seen = space.getitem(w_by_index, space.newint(index))
+        if space.eq_w(w_module_seen, w_module):
+            raise oefmt(space.w_SystemError, "module %R already added", w_module)
+    while space.len_w(w_by_index) <= index:
+        space.call_method(w_by_index, 'append', space.w_None)
+    space.setitem(w_by_index, space.newint(index), w_module)
+    return 0
+
+@cpython_api([PyModuleDef], rffi.INT_real, error=-1)
+def PyState_RemoveModule(space, moddef):
+    interp = _PyInterpreterState_GET(space)
+    if moddef.c_m_slots:
+        raise oefmt(space.w_SystemError,
+                    "PyState_RemoveModule called on module with slots")
+    index = widen(moddef.c_m_base.c_m_index)
+    if index == 0:
+        raise oefmt(space.w_SystemError, "invalid module index")
+    if not interp.c_modules_by_index:
+        raise oefmt(space.w_SystemError, "Interpreters module-list not accessible.")
+    w_by_index = from_ref(space, interp.c_modules_by_index)
+    if index > space.len_w(w_by_index):
+        raise oefmt(space.w_SystemError, "Module index out of bounds.")
+    space.setitem(w_by_index, space.newint(index), space.w_None)
+    return 0

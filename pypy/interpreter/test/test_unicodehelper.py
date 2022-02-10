@@ -84,7 +84,7 @@ def test_latin1_shortcut_bug(space):
     sin = u"a\xac\u1234\u20ac\u8000"
     assert utf8_encode_latin_1(sin.encode("utf-8"), "backslashreplace", handler) == sin.encode("latin-1", "backslashreplace")
 
-def test_unicode_escape_incremental_bug(space):
+def test_unicode_escape_incremental_bug():
     class FakeUnicodeDataHandler:
         def call(self, name):
             assert name == "QUESTION MARK"
@@ -98,7 +98,7 @@ def test_unicode_escape_incremental_bug(space):
         assert lgt1 + lgt2 == len(data)
         assert input == (result1 + result2).decode("utf-8")
 
-def test_raw_unicode_escape_incremental_bug(space):
+def test_raw_unicode_escape_incremental_bug():
     input = u"xҰa𐀂"
     data = b'x\\u04b0a\\U00010002'
     for i in range(1, len(data)):
@@ -106,3 +106,10 @@ def test_raw_unicode_escape_incremental_bug(space):
         result2, _, lgt2 = str_decode_raw_unicode_escape(data[lgt1:i] + data[i:], 'strict', True, None)
         assert lgt1 + lgt2 == len(data)
         assert input == (result1 + result2).decode("utf-8")
+
+def test_raw_unicode_escape_backslash_without_escape():
+    data = b'[:/?#[\\]@]\\'
+    result, _, l = str_decode_raw_unicode_escape(data, 'strict', True, None)
+    assert l == len(data)
+    assert result == data
+

@@ -132,12 +132,13 @@ udir.join(pypy_decl).write("/* Will be filled later */\n")
 udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_marshal_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
+udir.join('genericaliasobject.h').write("/* Will be filled later */\n")
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_FASTCALL METH_O
-Py_TPFLAGS_HEAPTYPE
+Py_TPFLAGS_HEAPTYPE METH_METHOD
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
 Py_CLEANUP_SUPPORTED PyBUF_READ
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
@@ -586,7 +587,7 @@ FUNCTIONS_BY_HEADER = defaultdict(dict)
 
 # These are C symbols which cpyext will export, but which are defined in .c
 # files somewhere in the implementation of cpyext (rather than being defined in
-# RPython).
+# RPython). Their name will be mangled by a #define
 SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
@@ -650,7 +651,7 @@ SYMBOLS_C = [
     'PyTraceMalloc_Track', 'PyTraceMalloc_Untrack',
     'PyBytes_FromFormat', 'PyBytes_FromFormatV',
 
-    'PyType_FromSpec',
+    'PyType_FromSpec', 'PyType_GetModule', 'PyType_GetModuleState',
     'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
@@ -806,6 +807,7 @@ PyTypeObject = cts.gettype('PyTypeObject')
 PyTypeObjectPtr = cts.gettype('PyTypeObject *')
 PyObjectStruct = cts.gettype('PyObject')
 PyObject = cts.gettype('PyObject *')
+PyObjectC = cts.gettype('PyObject const *')
 PyObjectFields = (("ob_refcnt", lltype.Signed),
                   ("ob_pypy_link", lltype.Signed),
                   ("ob_type", PyTypeObjectPtr))
@@ -1257,7 +1259,7 @@ def attach_c_functions(space, eci, prefix):
            )
     state.C.flag_setters = {}
     for c_name, attr in _flags:
-        _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
+        _, setter = rffi.CExternVariable(rffi.INT_real, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
         state.C.flag_setters[attr] = setter
 
@@ -1279,7 +1281,7 @@ def init_flags(space):
     state = space.fromcache(State)
     for _, attr in _flags:
         f = state.C.flag_setters[attr]
-        f(space.sys.get_flag(attr))
+        f(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
@@ -1472,23 +1474,42 @@ def mangle_name(prefix, name):
     else:
         raise ValueError("Error converting '%s'" % name)
 
-def write_header(header_name, decls):
-    lines = [
-        '#include "cpyext_object.h"',
-        '''
-#ifdef _WIN64
-#define Signed   Py_ssize_t          /* xxx temporary fix */
-#define Unsigned unsigned long long  /* xxx temporary fix */
-#else
-#define Signed   Py_ssize_t     /* xxx temporary fix */
-#define Unsigned unsigned long  /* xxx temporary fix */
-#endif
-        '''] + decls + [
-        '',
-        '#undef Signed    /* xxx temporary fix */',
-        '#undef Unsigned  /* xxx temporary fix */',
-        '']
+def write_header(header_name, decls, needs_signed=True, add_guards=False):
     decl_h = udir.join(header_name)
+    lines = []
+    if add_guards:
+        guard = 'Py_' + header_name.replace('.', '_').upper()
+        lines += ['#ifndef ' + guard,
+                  '#define ' + guard,
+                  '#ifdef __cplusplus',
+                  'extern "C" {',
+                  '#endif', ''
+                 ]
+    if needs_signed:
+        lines += [
+            '',
+            '#include "cpyext_object.h"',
+            '',
+            '#ifdef _WIN64',
+            '#define Signed   Py_ssize_t          /* xxx temporary fix */',
+            '#define Unsigned unsigned long long  /* xxx temporary fix */',
+            '#else',
+            '#define Signed   Py_ssize_t     /* xxx temporary fix */',
+            '#define Unsigned unsigned long  /* xxx temporary fix */',
+            '#endif',
+            ] + decls + [
+            '',
+            '#undef Signed    /* xxx temporary fix */',
+            '#undef Unsigned  /* xxx temporary fix */',
+            '']
+    else:
+        lines += decls
+    if add_guards:
+        lines += ['#ifdef __cplusplus',
+                  '}',
+                  '#endif',
+                  '#endif /* !' + guard + ' */',
+                 ]
     decl_h.write('\n'.join(lines))
 
 def generate_decls_and_callbacks(db, prefix=''):
@@ -1554,7 +1575,12 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
         decls[header].append('PyAPI_DATA(%s) %s;' % (typ, name))
 
     for header_name, header_decls in decls.iteritems():
-        write_header(header_name, header_decls)
+        # Hardcoded :(
+        if header_name in ('genericaliasobject.h',):
+            write_header(header_name, header_decls,
+                         needs_signed=False, add_guards=True)
+        else:
+            write_header(header_name, header_decls)
 
     # generate graminit.h
     graminit_h = udir.join('graminit.h')

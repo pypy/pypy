@@ -211,7 +211,7 @@ class MsvcPlatform(Platform):
             returncode, stdout, stderr = _run_subprocess(
                 'ml.exe' if not x64 else 'ml64.exe', [], env=self.c_environ)
             r = re.search('Macro Assembler', stderr)
-        except OSError:
+        except (EnvironmentError, OSError):
             r = None
             masm32 = "'Could not find ml.exe'"
             masm64 = "'Could not find ml.exe'"

@@ -13,8 +13,6 @@ extern "C" {
 #define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 
 #define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
-#define Py_RETURN_NOTIMPLEMENTED \
-    return Py_INCREF(Py_NotImplemented), Py_NotImplemented
 
 /*
 CPython has this for backwards compatibility with really old extensions, and now
@@ -28,6 +26,38 @@ we have it for compatibility with CPython.
 #define PyVarObject_HEAD_INIT(type, size)	\
 	PyObject_HEAD_INIT(type) size,
 
+/* Cast argument to PyVarObject* type. */
+#define _PyVarObject_CAST(op) ((PyVarObject*)(op))
+/* Cast argument to PyObject* type. */
+#define _PyObject_CAST(op) ((PyObject*)(op))
+#define _PyObject_CAST_CONST(op) ((const PyObject*)(op))
+
+#define Py_REFCNT(ob)           (_PyObject_CAST(ob)->ob_refcnt)
+#define Py_TYPE(ob)             (_PyObject_CAST(ob)->ob_type)
+#define Py_SIZE(ob)             (_PyVarObject_CAST(ob)->ob_size)
+
+static inline int _Py_IS_TYPE(const PyObject *ob, const PyTypeObject *type) {
+    return ob->ob_type == type;
+}
+#define Py_IS_TYPE(ob, type) _Py_IS_TYPE(_PyObject_CAST_CONST(ob), type)
+
+static inline void _Py_SET_REFCNT(PyObject *ob, Py_ssize_t refcnt) {
+    ob->ob_refcnt = refcnt;
+}
+#define Py_SET_REFCNT(ob, refcnt) _Py_SET_REFCNT(_PyObject_CAST(ob), refcnt)
+
+static inline void _Py_SET_TYPE(PyObject *ob, PyTypeObject *type) {
+    ob->ob_type = type;
+}
+#define Py_SET_TYPE(ob, type) _Py_SET_TYPE(_PyObject_CAST(ob), type)
+
+static inline void _Py_SET_SIZE(PyVarObject *ob, Py_ssize_t size) {
+    ob->ob_size = size;
+}
+#define Py_SET_SIZE(ob, size) _Py_SET_SIZE(_PyVarObject_CAST(ob), size)
+
+PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
+
 #ifdef PYPY_DEBUG_REFCOUNT
 /* Slow version, but useful for debugging */
 #define Py_INCREF(ob)   (Py_IncRef((PyObject *)(ob)))
@@ -36,63 +66,72 @@ we have it for compatibility with CPython.
 #define Py_XDECREF(ob)  (Py_DecRef((PyObject *)(ob)))
 #else
 /* Fast version */
-#define Py_INCREF(ob)   (((PyObject *)(ob))->ob_refcnt++)
-#define Py_DECREF(op)                                   \
-    do {                                                \
-        PyObject *_py_decref_tmp = (PyObject *)(op);    \
-        if (--(_py_decref_tmp)->ob_refcnt != 0)         \
-            ;                                           \
-        else                                            \
-            _Py_Dealloc(_py_decref_tmp);                \
-    } while (0)
+static inline void _Py_INCREF(PyObject *op)
+{
+    op->ob_refcnt++;
+}
 
-#define Py_XINCREF(op)                                \
-    do {                                              \
-        PyObject *_py_xincref_tmp = (PyObject *)(op); \
-        if (_py_xincref_tmp != NULL)                  \
-            Py_INCREF(_py_xincref_tmp);               \
-    } while (0)
+#define Py_INCREF(op) _Py_INCREF(_PyObject_CAST(op))
 
-#define Py_XDECREF(op)                                \
-    do {                                              \
-        PyObject *_py_xdecref_tmp = (PyObject *)(op); \
-        if (_py_xdecref_tmp != NULL)                  \
-            Py_DECREF(_py_xdecref_tmp);               \
-    } while (0)
+static inline void _Py_DECREF(PyObject *op)
+{
+    if (--op->ob_refcnt != 0) {
+    }
+    else {
+        _Py_Dealloc(op);
+    }
+}
 
-#endif
+#define Py_DECREF(op) _Py_DECREF(_PyObject_CAST(op))
+
+/* Function to use in case the object pointer can be NULL: */
+static inline void _Py_XINCREF(PyObject *op)
+{
+    if (op != NULL) {
+        Py_INCREF(op);
+    }
+}
+
+#define Py_XINCREF(op) _Py_XINCREF(_PyObject_CAST(op))
+
+static inline void _Py_XDECREF(PyObject *op)
+{
+    if (op != NULL) {
+        Py_DECREF(op);
+    }
+}
+
+#define Py_XDECREF(op) _Py_XDECREF(_PyObject_CAST(op))
+
 PyAPI_FUNC(void) Py_IncRef(PyObject *);
 PyAPI_FUNC(void) Py_DecRef(PyObject *);
 extern void *_pypy_rawrefcount_w_marker_deallocating;
-PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
 
 
 #define Py_CLEAR(op)                            \
     do {                                        \
-        PyObject *_py_tmp = (PyObject *)(op);   \
+        PyObject *_py_tmp = _PyObject_CAST(op); \
         if (_py_tmp != NULL) {                  \
             (op) = NULL;                        \
             Py_DECREF(_py_tmp);                 \
         }                                       \
     } while (0)
+#endif
 
+#ifndef Py_LIMITED_API
 #define Py_SETREF(op, op2)                      \
     do {                                        \
-        PyObject *_py_tmp = (PyObject *)(op);   \
+        PyObject *_py_tmp = _PyObject_CAST(op); \
         (op) = (op2);                           \
         Py_DECREF(_py_tmp);                     \
     } while (0)
 
 #define Py_XSETREF(op, op2)                     \
     do {                                        \
-        PyObject *_py_tmp = (PyObject *)(op);   \
+        PyObject *_py_tmp = _PyObject_CAST(op); \
         (op) = (op2);                           \
         Py_XDECREF(_py_tmp);                    \
     } while (0)
-
-#define Py_REFCNT(ob)		(((PyObject*)(ob))->ob_refcnt)
-#define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
-#define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
 
 #define _Py_NewReference(op)                                        \
     ( ((PyObject *)(op))->ob_refcnt = 1,                            \
@@ -101,12 +140,7 @@ PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
 #define _Py_ForgetReference(ob) /* nothing */
 
 #define Py_None (&_Py_NoneStruct)
-
-
-static inline void _Py_SET_TYPE(PyObject *ob, PyTypeObject *type) {
-    ob->ob_type = type;
-}
-#define Py_SET_TYPE(ob, type) _Py_SET_TYPE((PyObject*)(ob), type)
+#endif
 
 
 /*
@@ -114,6 +148,10 @@ Py_NotImplemented is a singleton used to signal that an operation is
 not implemented for a given type combination.
 */
 #define Py_NotImplemented (&_Py_NotImplementedStruct)
+
+/* Macro for returning Py_NotImplemented from a function */
+#define Py_RETURN_NOTIMPLEMENTED \
+    return Py_INCREF(Py_NotImplemented), Py_NotImplemented
 
 /* Rich comparison opcodes */
 /*
@@ -160,6 +198,9 @@ not implemented for a given type combination.
 
 
 PyAPI_FUNC(PyObject*) PyType_FromSpec(PyType_Spec*);
+PyAPI_FUNC(PyObject *) PyType_GetModule(struct _typeobject *);
+PyAPI_FUNC(void *) PyType_GetModuleState(struct _typeobject *);
+
 
 
 /* Flag bits for printing: */

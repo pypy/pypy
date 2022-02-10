@@ -767,8 +767,8 @@ def PyUnicode_EncodeLocale(space, w_obj, errors):
     ulen = space.len_w(w_obj)
     return space.newbytes(utf8_encode_locale(utf8, ulen, s))
 
-@cpython_api([PyObject, CONST_STRING], PyObject)
-def PyUnicode_DecodeLocale(space, w_obj, errors):
+@cpython_api([CONST_STRING, CONST_STRING], PyObject)
+def PyUnicode_DecodeLocale(space, obj, errors):
     from pypy.module._codecs.locale import str_decode_locale 
     if errors:
         s = rffi.charp2str(errors)
@@ -777,7 +777,20 @@ def PyUnicode_DecodeLocale(space, w_obj, errors):
     if not s in ('strict', 'surrogateescape'):
         raise oefmt(space.w_ValueError, "only 'strict' and 'surrogateescape' "
                     "error handlers are supported, not '%s'", s)
-    utf8 = space.utf8_w(w_obj)
+    utf8 = rffi.charp2str(obj)
+    return space.newtext(*str_decode_locale(utf8, s))
+
+@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
+def PyUnicode_DecodeLocaleAndSize(space, obj, length, errors):
+    from pypy.module._codecs.locale import str_decode_locale 
+    if errors:
+        s = rffi.charp2str(errors)
+    else:
+        s = 'strict'
+    if not s in ('strict', 'surrogateescape'):
+        raise oefmt(space.w_ValueError, "only 'strict' and 'surrogateescape' "
+                    "error handlers are supported, not '%s'", s)
+    utf8 = rffi.charpsize2str(obj, length)
     return space.newtext(*str_decode_locale(utf8, s))
 
 @cpython_api([PyObject, PyObjectP], rffi.INT_real, error=0)
@@ -1174,6 +1187,44 @@ def PyUnicode_Concat(space, w_left, w_right):
     """Concat two strings giving a new Unicode string."""
     return space.add(w_left, w_right)
 
+@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL)
+def _PyUnicode_EqualToASCIIString(space, w_uni, string):
+    """Test whether a unicode is equal to ASCII string.  Return 1 if true,
+   0 otherwise.  The right argument must be ASCII-encoded string.
+   Any error occurs inside will be cleared before return."""
+    utf8 = space.utf8_w(w_uni)
+    lgt = space.len_w(w_uni)
+    i = 0
+    # Compare Unicode string and source character set string
+    for ch in rutf8.Utf8StringIterator(utf8):
+        if string[i] == '\0':
+            break
+        s = ord(string[i])
+        if ch != s:
+            if ch != s:
+                return 0
+        i += 1
+    if i < lgt:
+        return 0  # uni is longer
+    if string[i] != '\0':
+        return 0  # str is longer
+    return 1
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def _PyUnicode_EQ(space, w_aa, w_bb):
+    if not space.isinstance_w(w_aa, space.w_unicode) or not space.isinstance_w(w_bb, space.w_unicode):
+        raise oefmt(space.w_TypeError, "_PyUnicode_EQ(aa, bb) must be called with two str instances")
+    aa = space.utf8_w(w_aa)
+    la = space.len_w(w_aa)
+    bb = space.utf8_w(w_bb)
+    lb = space.len_w(w_bb)
+    if la != lb:
+        return 0
+    if la == 0:
+        return 1
+    if aa == bb:
+        return 1
+    return 0 
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL)
 def PyUnicode_CompareWithASCIIString(space, w_uni, string):
     """Compare a unicode object, uni, with string and return -1, 0, 1 for less

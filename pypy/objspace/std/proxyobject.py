@@ -2,7 +2,7 @@
 """
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError, oefmt
-
+from pypy.module.exceptions import interp_exceptions
 
 def transparent_class(name, BaseCls):
     class W_Transparent(BaseCls):
@@ -64,3 +64,4 @@ def transparent_class(name, BaseCls):
     return W_Transparent
 
 W_Transparent = transparent_class('W_Transparent', baseobjspace.W_Root)
+W_TransparentBaseException = transparent_class('W_TransparentBaseException', interp_exceptions.W_BaseException)

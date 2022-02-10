@@ -464,7 +464,12 @@ class ObjSpace(object):
         ret = 0
         self.wait_for_thread_shutdown()
         w_atexit = self.getbuiltinmodule('atexit')
-        self.call_method(w_atexit, '_run_exitfuncs')
+        try:
+            self.call_method(w_atexit, '_run_exitfuncs')
+        except OperationError:
+            # discard exceptions, see call_py_exitfuncs in pylifecycle.c in
+            # CPython
+            pass
         self.sys.finalizing = True
         if self.sys.flush_std_files(self) < 0:
             ret = -1
@@ -1198,8 +1203,8 @@ class ObjSpace(object):
         return self.call_args(w_callable, args)
 
     def _try_fetch_pycode(self, w_func):
-        from pypy.interpreter.function import Function, Method
-        if isinstance(w_func, Method):
+        from pypy.interpreter.function import Function, _Method
+        if isinstance(w_func, _Method):
             w_func = w_func.w_function
         if isinstance(w_func, Function):
             return w_func.code
@@ -1209,8 +1214,8 @@ class ObjSpace(object):
         nargs = len(args_w) # used for pruning funccall versions
         if not self.config.objspace.disable_call_speedhacks and nargs < 5:
             # start of hack for performance
-            from pypy.interpreter.function import Function, Method
-            if isinstance(w_func, Method):
+            from pypy.interpreter.function import Function, _Method
+            if isinstance(w_func, _Method):
                 if nargs < 4:
                     func = w_func.w_function
                     if isinstance(func, Function):
@@ -1225,7 +1230,7 @@ class ObjSpace(object):
 
     def call_valuestack(self, w_func, nargs, frame, methodcall=False):
         # methodcall is only used for better error messages in argument.py
-        from pypy.interpreter.function import Function, Method, is_builtin_code
+        from pypy.interpreter.function import Function, _Method, is_builtin_code
         if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
             # call_valuestack().
@@ -1234,7 +1239,7 @@ class ObjSpace(object):
 
         if not self.config.objspace.disable_call_speedhacks:
             # start of hack for performance
-            if isinstance(w_func, Method):
+            if isinstance(w_func, _Method):
                 # reuse callable stack place for w_inst
                 frame.settopvalue(w_func.w_instance, nargs)
                 nargs += 1

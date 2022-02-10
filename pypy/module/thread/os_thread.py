@@ -135,8 +135,8 @@ class Bootstrapper(object):
             if not e.match(space, space.w_SystemExit):
                 ident = rthread.get_ident()
                 # PyPy adds the thread ident
-                where = 'thread %d started by ' % ident
-                e.write_unraisable(space, where, w_callable)
+                where = 'in thread %d started by ' % ident
+                e.write_unraisable(space, where, w_callable, with_traceback=True)
             e.clear(space)
         # clean up space.threadlocals to remove the ExecutionContext
         # entry corresponding to the current thread

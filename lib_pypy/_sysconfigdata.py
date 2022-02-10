@@ -52,6 +52,23 @@ else:
     build_time_vars['LDLIBRARY'] = 'libpypy3-c.so'
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include', 'pypy' + pydot)
     build_time_vars['LIBDIR'] = os.path.join(mybase, 'bin')
+    # try paths relative to sys.base_prefix first
+    tzpaths = [
+        os.path.join(mybase, 'share', 'zoneinfo'),
+        os.path.join(mybase, 'lib', 'zoneinfo'),
+        os.path.join(mybase, 'share', 'lib', 'zoneinfo'),
+        os.path.join(mybase, '..', 'etc', 'zoneinfo'),
+    ]
+    # add absolute system paths if sys.base_prefix != "/usr"
+    # (then we'd be adding duplicates)
+    if mybase != '/usr':
+        tzpaths.extend([
+            '/usr/share/zoneinfo',
+            '/usr/lib/zoneinfo',
+            '/usr/share/lib/zoneinfo',
+            '/etc/zoneinfo',
+        ])
+    build_time_vars['TZPATH'] = ':'.join(tzpaths)
 
 if find_executable("gcc"):
     build_time_vars.update({

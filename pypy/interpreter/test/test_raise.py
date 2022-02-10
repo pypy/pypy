@@ -385,18 +385,47 @@ class AppTestRaiseContext:
             fail("No exception raised")
 
     def test_preexisting_cycle(self):
-        def chain(e):
-            res = Exception()
+        def chain(e, i=0):
+            res = Exception(i)
             res.__context__ = e
             return res
         def cycle():
             try:
                 raise ValueError(1)
             except ValueError as ex:
-                ex.__context__ = chain(chain(chain(ex))) # make cycle ourselves
+                start = curr = Exception()
+                for i in range(chainlength):
+                    curr = chain(curr, i) # make cycle ourselves
+                start.__context__ = curr
+                for i in range(prelength):
+                    curr = chain(curr, i + chainlength)
+                ex.__context__ = curr
                 raise TypeError(2) # shouldn't hang here
+        for chainlength in range(2, 7):
+            for prelength in range(2, 7):
+                print(chainlength, prelength)
+                raises(TypeError, cycle)
 
-        raises(TypeError, cycle)
+    def test_long_cycle_broken(self):
+        def chain(e, i=0):
+            res = Exception(i)
+            res.__context__ = e
+            return res
+        def cycle():
+            try:
+                raise ValueError(1)
+            except ValueError as ex:
+                start = curr = TypeError()
+                for i in range(chainlength):
+                    curr = chain(curr, i) # make cycle ourselves
+                ex.__context__ = curr
+                raise start
+        for chainlength in range(2, 7):
+            print(chainlength)
+            exc = raises(TypeError, cycle).value
+            for i in range(chainlength + 1):
+                exc = exc.__context__
+            assert exc.__context__ is None # got broken
 
     def test_reraise_cycle_broken(self):
         try:
@@ -518,6 +547,28 @@ class AppTestRaiseContext:
             assert isinstance(e.__context__, ValueError)
         else:
             assert False, "should have raised"
+
+    def test_context_setter_ignored(self):
+        class MyExc(Exception):
+            def __setattr__(self, name, value):
+                assert name != "__context__"
+
+        with raises(MyExc) as excinfo:
+            try:
+                raise KeyError
+            except KeyError:
+                raise MyExc
+        assert isinstance(excinfo.value.__context__, KeyError)
+
+    def test_context_getter_ignored(self):
+        class MyExc(Exception):
+            __context__ = property(None, None, None)
+
+        with raises(KeyError):
+            try:
+                raise MyExc
+            except MyExc:
+                raise KeyError
 
 
 class AppTestTraceback:
