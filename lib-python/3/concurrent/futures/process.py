@@ -659,13 +659,28 @@ class ProcessPoolExecutor(_base.Executor):
             _threads_wakeups[self._executor_manager_thread] = \
                 self._executor_manager_thread_wakeup
 
-    def _adjust_process_count(self):
+    def _adjust_process_count_cpython(self):
         # if there's an idle process, we don't need to spawn a new one.
         if self._idle_worker_semaphore.acquire(blocking=False):
-            return
-
+           return
         process_count = len(self._processes)
         if process_count < self._max_workers:
+        # for process_count in range(len(self._processes), self._max_workers):
+            print('starting process', process_count)
+            p = self._mp_context.Process(
+                target=_process_worker,
+                args=(self._call_queue,
+                      self._result_queue,
+                      self._initializer,
+                      self._initargs))
+            p.start()
+            self._processes[p.pid] = p
+
+    def _adjust_process_count(self):
+        # PyPy: create all the processes in the first call to avoid hanging
+        # after using os.fork. See unused _adjust_process_count_cpython above
+        process_count = len(self._processes)
+        for _ in range(process_count, self._max_workers):
             p = self._mp_context.Process(
                 target=_process_worker,
                 args=(self._call_queue,
