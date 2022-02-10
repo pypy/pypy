@@ -47,7 +47,8 @@ class AppTestPyexpat:
         import pyexpat
         xml = "\0\r\n"
         parser = pyexpat.ParserCreate()
-        raises(pyexpat.ExpatError, "parser.Parse(xml, True)")
+        exc = raises(pyexpat.ExpatError, "parser.Parse(xml, True)")
+        assert 'unclosed token: line 2, column 0' in exc.value[0]
 
     def test_encoding_argument(self):
         import pyexpat
