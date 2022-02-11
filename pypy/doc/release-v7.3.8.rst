@@ -33,7 +33,7 @@ wish to share. The release includes four different interpreters:
     welcome testing of this version, if you discover incompatibilities, please
     report them so we can gain confidence in the version. There is still a known
     `speed regression`_ around ``**kwargs`` handling in 3.9, and we slightly
-    modified the concurrent future's ProcessExcecutorPool to start all the
+    modified the concurrent future's ``ProcessExcecutorPool`` to start all the
     worker processes when the first task is recieved (like on Python3.8) to
     avoid an apparent race condition when using ``fork`` and threads (issue
     3650_).

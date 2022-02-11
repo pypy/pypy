@@ -1,8 +1,8 @@
 #! /bin/bash
 
 # Edit these appropriately before running this script
-pmaj=2  # python main version: 2 or 3
-pmin=7  # python minor version
+pmaj=3  # python main version: 2 or 3
+pmin=9  # python minor version
 maj=7
 min=3
 rev=8
