@@ -232,10 +232,10 @@ class Frame(object):
 
     def __init__(self, bytecode):
         self.bytecode = bytecode
-        self.stack = [None] * 10240
+        self.stack = [None] * 2048
         self.stackpos = 0
 
-        self.saved_stack = [None] * 10240
+        self.saved_stack = [None] * 2048
         self.saved_stackpos = 0
 
     @jit.not_in_trace
@@ -275,14 +275,19 @@ class Frame(object):
             self.pop()
 
     @jit.not_in_trace
-    def print_stack(self):
-        out = "["
+    def dump(self):
+        out = ""
         for elem in self.stack:
             if elem is None:
                 break
-            out = "%s, %s" % (out, elem)
-        out = "%s ]" % (out)
-        print out
+            if isinstance(elem, W_IntObject):
+                out = "%s, %s" % (str(elem.intvalue), out)
+            elif isinstance(elem, W_FloatObject):
+                out = "%s, %s" % (str(elem.floatvalue), out)
+            elif isinstance(elem, W_StringObject):
+                out = "%s, %s" % (elem.strvalue, out)
+        out = "[" + out + "]"
+        print "stackpos:", str(self.stackpos), out
 
     @jit.dont_look_inside
     def is_true(self):
@@ -566,7 +571,7 @@ class Frame(object):
             tjjitdriver.jit_merge_point(pc=pc, bytecode=bytecode, self=self)
 
             # print get_printable_location(pc, bytecode)
-            # self.print_stack()
+            # self.dump()
             opcode = ord(bytecode[pc])
             pc += 1
 
@@ -658,7 +663,7 @@ class Frame(object):
         bytecode = self.bytecode
         while pc < len(bytecode):
             # print get_printable_location_tc(pc, entry_state, bytecode, tstack)
-            # self.print_stack()
+            # self.dump()
             opcode = ord(bytecode[pc])
             pc += 1
 
@@ -741,7 +746,7 @@ class Frame(object):
             tcjitdriver.jit_merge_point(bytecode=bytecode, entry_state=entry_state,
                                         pc=pc, tstack=tstack, self=self)
             # print get_printable_location_tc(pc, entry_state, bytecode, tstack)
-            # self.print_stack()
+            # self.dump()
             opcode = ord(bytecode[pc])
             pc += 1
 
@@ -805,7 +810,7 @@ class Frame(object):
                 if we_are_jitted():
                     if tstack.t_is_empty():
                         w_x = self.pop()
-                        pc = entry_state;  self.restore_state()
+                        pc = entry_state; # self.restore_state()
                         pc = emit_ret(pc, w_x)
                         tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                   pc=pc, tstack=tstack, self=self)
@@ -854,8 +859,8 @@ class Frame(object):
                 if we_are_jitted():
                     if tstack.t_is_empty():
                         w_x = self.pop()
-                        pc = entry_state;  self.restore_state()
-                        pc = emit_ret(pc, w_x)
+                        pc = entry_state; # self.restore_state()
+                        pc = emit_ret(entry_state, w_x)
                         tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                   pc=pc, tstack=tstack, self=self)
                     else:
@@ -879,4 +884,5 @@ def run(bytecode, w_arg, entry=None):
         w_result = frame.interp_jit()
     else:
         w_result = frame.interp()
+    frame.dump()
     return w_result
