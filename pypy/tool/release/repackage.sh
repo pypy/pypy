@@ -45,10 +45,17 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     fi
 fi
 
+if [ -v rc ]
+then
+    wanted="\"$maj.$min.$rev${rc/rc/-candidate}\""
+else
+    wanted="\"$maj.$min.$rev\""
+fi
+
 function repackage_builds {
     # Download latest builds from the buildmaster, rename the top
     # level directory, and repackage ready to be uploaded 
-    for plat in linux linux64 osx64 # s390x aarch64 linux-armhf-raspbian linux-armel
+    for plat in linux linux64 osx64 s390x # aarch64 linux-armhf-raspbian linux-armel
       do
         echo downloading package for $plat
         if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2
@@ -76,12 +83,6 @@ function repackage_builds {
             actual_ver=$(grep PYPY_VERSION pypy-c-jit-*-$plat/include/patchlevel.h |cut -f3 -d' ')
         else
             actual_ver=$(grep PYPY_VERSION pypy-c-jit-*-$plat/include/pypy$pmaj.$pmin/patchlevel.h |cut -f3 -d' ')
-        fi
-        if [ -v rc ]
-        then
-            wanted="\"$maj.$min.$rev${rc/rc/-candidate}\""
-        else
-            wanted="\"$maj.$min.$rev\""
         fi
         if [ $actual_ver != $wanted ]
         then
@@ -116,10 +117,10 @@ function repackage_builds {
         unzip -q pypy-c-jit-latest-$plat.zip
         rm pypy-c-jit-latest-$plat.zip
         actual_ver=$(grep PYPY_VERSION pypy-c-jit-*-$plat/include/patchlevel.h |cut -f3 -d' ')
-        if [ $actual_ver != "\"$maj.$min.$rev\"" ]
+        if [ $actual_ver != $wanted ]
         then
             echo xxxxxxxxxxxxxxxxxxxxxx
-            echo version mismatch, expected "\"$maj.$min.$rev\"", got $actual_ver for $plat
+            echo version mismatch, expected $wanted, got $actual_ver for $plat
             echo xxxxxxxxxxxxxxxxxxxxxx
             rm -rf pypy-c-jit-*-$plat
             continue
