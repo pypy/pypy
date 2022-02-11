@@ -18,6 +18,14 @@ from rpython.jit.metainterp.resoperation import (
     rop, OpHelpers, ResOperation, InputArgRef, InputArgInt,
     InputArgFloat, InputArgVector, GuardResOp)
 
+class TokenMapError(Exception):
+    """Raised when KeyError happens at taking a TargetToken from token_map"""
+    def __init__(self, key=None,
+                 message="KeyError happens when taking token from token_map"):
+        self.key = key
+        self.message = message
+        if key is not None:
+            self.message = "{}, key is {}" % (message, key)
 
 class mark(object):
     JUMP = "emit_jump"
@@ -116,13 +124,13 @@ class TraceSplitOpt(object):
                     current, target = op.getarg(1), op.getarg(2)
                     assert isinstance(current, ConstInt)
                     assert isinstance(target, ConstInt)
-                    target_token = token_map[target.getint()]
+                    target_token = self.get_from_token_map(target.getint(), token_map)
 
                     jump_op = ResOperation(rop.JUMP, inputargs, target_token)
                     label_op, current_ops = current_ops[0], current_ops[1:]
                     info = TraceSplitInfo(target_token, label_op, inputargs, self.resumekey)
 
-                    next_token = token_map[current.getint()]
+                    next_token = self.get_from_token_map(current.getint(), token_map)
                     t_lst.append((info, current_ops + [jump_op]))
                     current_ops = [ResOperation(rop.LABEL, inputargs, next_token)]
                     if len(fdescr_stack) > 0:
@@ -161,7 +169,7 @@ class TraceSplitOpt(object):
                     info = TraceSplitInfo(target_token, label_op, inputargs, self.resumekey)
                     t_lst.append((info, current_ops + ret_ops))
 
-                    next_token = token_map[current.getint()]
+                    next_token = self.get_from_token_map(current.getint(), token_map)
                     current_ops = [ResOperation(rop.LABEL, inputargs, next_token)]
                     if len(fdescr_stack) > 0:
                         self.resumekey = fdescr_stack.pop()
@@ -192,6 +200,12 @@ class TraceSplitOpt(object):
 
         return t_lst
 
+    def get_from_token_map(self, key, token_map):
+        try:
+            return token_map[key]
+        except KeyError:
+            raise TokenMapError(key=key)
+
     def create_token_dic(self, ops, orig_token):
         def myeq(x, y):
             return x == y
@@ -218,6 +232,12 @@ class TraceSplitOpt(object):
                         token_map[target] = self._create_token(orig_token)
                     if current not in token_map:
                         token_map[current] = self._create_token(orig_token)
+                elif name.find(mark.RET) != -1:
+                    target, retval = op.getarg(1), op.getarg(2)
+                    assert isinstance(target, ConstInt)
+                    target = target.getint()
+                    if target not in token_map:
+                        token_map[target] = self._create_token(orig_token)
 
         return token_map
 
