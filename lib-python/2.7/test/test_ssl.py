@@ -30,7 +30,23 @@ HOST = support.HOST
 IS_LIBRESSL = ssl.OPENSSL_VERSION.startswith('LibreSSL')
 IS_OPENSSL_1_1 = not IS_LIBRESSL and ssl.OPENSSL_VERSION_INFO >= (1, 1, 0)
 IS_OPENSSL_3 = not IS_LIBRESSL and ssl.OPENSSL_VERSION_INFO >= (3,)
+IS_LIBRESSL = ssl.OPENSSL_VERSION.startswith('LibreSSL')
+IS_OPENSSL_1_1_0 = not IS_LIBRESSL and ssl.OPENSSL_VERSION_INFO >= (1, 1, 0)
+IS_OPENSSL_1_1_1 = not IS_LIBRESSL and ssl.OPENSSL_VERSION_INFO >= (1, 1, 1)
+IS_OPENSSL_3_0_0 = not IS_LIBRESSL and ssl.OPENSSL_VERSION_INFO >= (3, 0, 0)
 
+PROTOCOL_TO_TLS_VERSION = {}
+for proto, ver in (
+    ("PROTOCOL_SSLv23", "PROTO_SSLv3"),
+    ("PROTOCOL_TLSv1", "PROTO_TLSv1"),
+    ("PROTOCOL_TLSv1_1", "PROTO_TLSv1_1"),
+):
+    try:
+        proto = getattr(ssl, proto)
+        ver = getattr(ssl.ver)
+    except AttributeError:
+        continue
+    PROTOCOL_TO_TLS_VERSION[proto] = ver
 
 def data_file(*name):
     return os.path.join(os.path.dirname(__file__), *name)
@@ -85,6 +101,34 @@ OP_SINGLE_DH_USE = getattr(ssl, "OP_SINGLE_DH_USE", 0)
 OP_SINGLE_ECDH_USE = getattr(ssl, "OP_SINGLE_ECDH_USE", 0)
 OP_CIPHER_SERVER_PREFERENCE = getattr(ssl, "OP_CIPHER_SERVER_PREFERENCE", 0)
 OP_ENABLE_MIDDLEBOX_COMPAT = getattr(ssl, "OP_ENABLE_MIDDLEBOX_COMPAT", 0)
+OP_IGNORE_UNEXPECTED_EOF = getattr(ssl, "OP_IGNORE_UNEXPECTED_EOF", 0)
+
+# Ubuntu has patched OpenSSL and changed behavior of security level 2
+# see https://bugs.python.org/issue41561#msg389003
+def is_ubuntu():
+    try:
+        # Assume that any references of "ubuntu" implies Ubuntu-like distro
+        # The workaround is not required for 18.04, but doesn't hurt either.
+        with open("/etc/os-release") as f:
+            return "ubuntu" in f.read()
+    except OSError:
+        return False
+
+if is_ubuntu():
+    def seclevel_workaround(*ctxs):
+        """"Lower security level to '1' and allow all ciphers for TLS 1.0/1"""
+        for ctx in ctxs:
+            if (
+                hasattr(ctx, "minimum_version") and
+                ctx.minimum_version <= ssl._ssl.PROTO_TLSv1_1
+            ):
+                ctx.set_ciphers("@SECLEVEL=1:ALL")
+else:
+    def seclevel_workaround(*ctxs):
+        pass
+
+
+
 
 
 def handle_error(prefix):
@@ -2136,16 +2180,29 @@ else:
         server_context = ssl.SSLContext(server_protocol)
         server_context.options |= server_options
 
+        min_version = PROTOCOL_TO_TLS_VERSION.get(client_protocol, None)
+        if (min_version is not None
+        # SSLContext.minimum_version is only available on recent OpenSSL
+        # (setter added in OpenSSL 1.1.0, getter added in OpenSSL 1.1.1)
+        and hasattr(server_context, 'minimum_version')
+        and server_protocol == ssl.PROTOCOL_TLS
+        and server_context.minimum_version > min_version):
+            # If OpenSSL configuration is strict and requires more recent TLS
+            # version, we have to change the minimum to test old TLS versions.
+            server_context.minimum_version = min_version
+
         # NOTE: we must enable "ALL" ciphers on the client, otherwise an
         # SSLv23 client will send an SSLv3 hello (rather than SSLv2)
         # starting from OpenSSL 1.0.0 (see issue #8322).
-        if client_context.protocol == ssl.PROTOCOL_SSLv23:
+        if client_context.protocol == ssl.PROTOCOL_TLS:
             client_context.set_ciphers("ALL")
+
+        seclevel_workaround(server_context, client_context)
 
         for ctx in (client_context, server_context):
             ctx.verify_mode = certsreqs
-            ctx.load_cert_chain(CERTFILE)
-            ctx.load_verify_locations(CERTFILE)
+            ctx.load_cert_chain(SIGNED_CERTFILE)
+            ctx.load_verify_locations(SIGNING_CA)
         try:
             stats = server_params_test(client_context, server_context,
                                        chatty=False, connectionchatty=False)
