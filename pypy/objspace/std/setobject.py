@@ -409,12 +409,7 @@ class W_SetObject(W_BaseSetObject):
 
     def _newobj(self, space, w_iterable):
         """Make a new set by taking ownership of 'w_iterable'."""
-        if type(self) is W_SetObject:
-            return W_SetObject(space, w_iterable)
-        w_type = space.type(self)
-        w_obj = space.allocate_instance(W_SetObject, w_type)
-        W_SetObject.__init__(w_obj, space, w_iterable)
-        return w_obj
+        return W_SetObject(space, w_iterable)
 
     @staticmethod
     def descr_new(space, w_settype, __args__):
