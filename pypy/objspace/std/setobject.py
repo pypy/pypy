@@ -562,10 +562,10 @@ Build an unordered collection.""",
     __rxor__ = gateway.interp2app(W_BaseSetObject.descr_rxor),
 
     # mutating operators
-    __isub__ = gateway.interp2app(W_BaseSetObject.descr_inplace_sub),
-    __iand__ = gateway.interp2app(W_BaseSetObject.descr_inplace_and),
-    __ior__ = gateway.interp2app(W_BaseSetObject.descr_inplace_or),
-    __ixor__ = gateway.interp2app(W_BaseSetObject.descr_inplace_xor),
+    __isub__ = gateway.interp2app(W_SetObject.descr_inplace_sub),
+    __iand__ = gateway.interp2app(W_SetObject.descr_inplace_and),
+    __ior__ = gateway.interp2app(W_SetObject.descr_inplace_or),
+    __ixor__ = gateway.interp2app(W_SetObject.descr_inplace_xor),
 
     # non-mutating methods
     __reduce__ = gateway.interp2app(W_BaseSetObject.descr_reduce),
@@ -579,15 +579,15 @@ Build an unordered collection.""",
     isdisjoint = gateway.interp2app(W_BaseSetObject.descr_isdisjoint),
 
     # mutating methods
-    add = gateway.interp2app(W_BaseSetObject.descr_add),
-    clear = gateway.interp2app(W_BaseSetObject.descr_clear),
-    difference_update = gateway.interp2app(W_BaseSetObject.descr_difference_update),
-    discard = gateway.interp2app(W_BaseSetObject.descr_discard),
-    intersection_update = gateway.interp2app(W_BaseSetObject.descr_intersection_update),
-    pop = gateway.interp2app(W_BaseSetObject.descr_pop),
-    remove = gateway.interp2app(W_BaseSetObject.descr_remove),
-    symmetric_difference_update = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference_update),
-    update = gateway.interp2app(W_BaseSetObject.descr_update)
+    add = gateway.interp2app(W_SetObject.descr_add),
+    clear = gateway.interp2app(W_SetObject.descr_clear),
+    difference_update = gateway.interp2app(W_SetObject.descr_difference_update),
+    discard = gateway.interp2app(W_SetObject.descr_discard),
+    intersection_update = gateway.interp2app(W_SetObject.descr_intersection_update),
+    pop = gateway.interp2app(W_SetObject.descr_pop),
+    remove = gateway.interp2app(W_SetObject.descr_remove),
+    symmetric_difference_update = gateway.interp2app(W_SetObject.descr_symmetric_difference_update),
+    update = gateway.interp2app(W_SetObject.descr_update)
     )
 set_typedef = W_SetObject.typedef
 
