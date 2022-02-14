@@ -1085,7 +1085,10 @@ class AppTestAppSetTest:
         assert "frozenset" in str(e.value)
         if hasattr(frozenset.copy, 'im_func'):
             e = raises(TypeError, frozenset.copy.im_func, 42)
-            assert "'set-or-frozenset'" in str(e.value)
+            assert "'frozenset' object expected, got 'int' instead" in str(e.value)
+        if hasattr(set.copy, 'im_func'):
+            e = raises(TypeError, set.copy.im_func, 42)
+            assert "'set' object expected, got 'int' instead" in str(e.value)
 
     def test_cant_mutate_frozenset_via_set(self):
         x = frozenset()
