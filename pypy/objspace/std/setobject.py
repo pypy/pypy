@@ -278,30 +278,6 @@ class W_BaseSetObject(W_Root):
         return self.symmetric_difference(w_other)
     descr_rxor = descr_xor # symmetric
 
-    def descr_inplace_sub(self, space, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            return space.w_NotImplemented
-        self.difference_update(w_other)
-        return self
-
-    def descr_inplace_and(self, space, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            return space.w_NotImplemented
-        self.intersect_update(w_other)
-        return self
-
-    def descr_inplace_or(self, space, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            return space.w_NotImplemented
-        self.update(w_other)
-        return self
-
-    def descr_inplace_xor(self, space, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            return space.w_NotImplemented
-        self.descr_symmetric_difference_update(space, w_other)
-        return self
-
     def descr_copy(self, space):
         """Return a shallow copy of a set."""
         if type(self) is W_FrozensetObject:
@@ -419,16 +395,6 @@ class W_BaseSetObject(W_Root):
                 return space.w_False
         return space.w_True
 
-    def descr_add(self, space, w_other):
-        """Add an element to a set.
-
-        This has no effect if the element is already present."""
-        self.add(w_other)
-
-    def descr_clear(self, space):
-        """Remove all elements from this set."""
-        self.clear()
-
     @gateway.unwrap_spec(others_w='args_w')
     def descr_difference_update(self, space, others_w):
         """Update the set, removing elements found in others."""
@@ -438,6 +404,65 @@ class W_BaseSetObject(W_Root):
             else:
                 w_other_as_set = self._newobj(space, w_other)
                 self.difference_update(w_other_as_set)
+
+
+
+class W_SetObject(W_BaseSetObject):
+
+    #overridden here so the error is reported correctly
+    def __init__(self, space, w_iterable=None):
+        """Initialize the set by taking ownership of 'setdata'."""
+        W_BaseSetObject.__init__(self, space, w_iterable)
+
+    def _newobj(self, space, w_iterable):
+        """Make a new set by taking ownership of 'w_iterable'."""
+        if type(self) is W_SetObject:
+            return W_SetObject(space, w_iterable)
+        w_type = space.type(self)
+        w_obj = space.allocate_instance(W_SetObject, w_type)
+        W_SetObject.__init__(w_obj, space, w_iterable)
+        return w_obj
+
+    @staticmethod
+    def descr_new(space, w_settype, __args__):
+        w_obj = space.allocate_instance(W_SetObject, w_settype)
+        W_SetObject.__init__(w_obj, space)
+        return w_obj
+
+    def descr_inplace_sub(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
+        self.difference_update(w_other)
+        return self
+
+    def descr_inplace_and(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
+        self.intersect_update(w_other)
+        return self
+
+    def descr_inplace_or(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
+        self.update(w_other)
+        return self
+
+    def descr_inplace_xor(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
+        self.descr_symmetric_difference_update(space, w_other)
+        return self
+
+
+    def descr_add(self, space, w_other):
+        """Add an element to a set.
+
+        This has no effect if the element is already present."""
+        self.add(w_other)
+
+    def descr_clear(self, space):
+        """Remove all elements from this set."""
+        self.clear()
 
     def _discard_from_set(self, space, w_item):
         """
@@ -505,29 +530,6 @@ class W_BaseSetObject(W_Root):
                 self.update(w_other)
             else:
                 _update_from_iterable(space, self, w_other)
-
-
-class W_SetObject(W_BaseSetObject):
-
-    #overridden here so the error is reported correctly
-    def __init__(self, space, w_iterable=None):
-        """Initialize the set by taking ownership of 'setdata'."""
-        W_BaseSetObject.__init__(self, space, w_iterable)
-
-    def _newobj(self, space, w_iterable):
-        """Make a new set by taking ownership of 'w_iterable'."""
-        if type(self) is W_SetObject:
-            return W_SetObject(space, w_iterable)
-        w_type = space.type(self)
-        w_obj = space.allocate_instance(W_SetObject, w_type)
-        W_SetObject.__init__(w_obj, space, w_iterable)
-        return w_obj
-
-    @staticmethod
-    def descr_new(space, w_settype, __args__):
-        w_obj = space.allocate_instance(W_SetObject, w_settype)
-        W_SetObject.__init__(w_obj, space)
-        return w_obj
 
 W_SetObject.typedef = TypeDef("set",
     __doc__ = """set(iterable) --> set object
