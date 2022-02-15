@@ -660,7 +660,7 @@ class AppTestAppSetTest:
             s = subset([2])
             assert s.x == ([2],)
             t = s | base([5])
-            assert type(t) is base
+            assert type(t) is base, 'base is %s, type(t) is %s' % (base, type(t))
             assert not hasattr(t, 'x')
 
     def test_reverse_ops(self):
@@ -1176,7 +1176,15 @@ class AppTestAppSetTest:
         assert "frozenset" in str(e.value)
         if hasattr(frozenset.copy, 'im_func'):
             e = raises(TypeError, frozenset.copy.im_func, 42)
-            assert "'set-or-frozenset'" in str(e.value)
+            assert "'frozenset' object expected, got 'int' instead" in str(e.value)
+        if hasattr(set.copy, 'im_func'):
+            e = raises(TypeError, set.copy.im_func, 42)
+            assert "'set' object expected, got 'int' instead" in str(e.value)
+
+    def test_cant_mutate_frozenset_via_set(self):
+        x = frozenset()
+        raises(TypeError, set.add, x, 1)
+        raises(TypeError, set.__ior__, x, set([2]))
 
     def test_class_getitem(self):
         for cls in set, frozenset:
