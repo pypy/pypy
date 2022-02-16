@@ -3,7 +3,7 @@ from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.rstring import find
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.jit.metainterp.history import (
-    ConstInt, ConstFloat, RefFrontendOp, IntFrontendOp, FloatFrontendOp)
+    ConstInt, ConstFloat, RefFrontendOp, IntFrontendOp, FloatFrontendOp, INT, REF, FLOAT, VOID)
 from rpython.jit.metainterp import compile, jitprof, history
 from rpython.jit.metainterp.history import TargetToken
 from rpython.jit.metainterp.optimizeopt.optimizer import (
@@ -117,8 +117,11 @@ class TraceSplitOpt(object):
 
                 current_ops.append(op)
             elif rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
-                arg = op.getarg(0)
-                name = self._get_name_from_arg(arg)
+                name = self._get_name_from_arg(op.getarg(0))
+                numargs = op.numargs()
+                lastarg = op.getarg(numargs - 1)
+                if lastarg.type is INT and lastarg.value is 1:
+                    op.setarg(numargs - 1, ConstInt(0))
                 if name.find(mark.JUMP) != -1:
                     pseudo_ops.append(op)
                     current, target = op.getarg(1), op.getarg(2)
@@ -242,6 +245,8 @@ class TraceSplitOpt(object):
         return token_map
 
     def _create_token(self, token):
+        # TODO: need to consider whether the target of a current jump or ret
+        # is the loop/function header or not
         if self.first_cut:
             self.first_cut = False
             return token

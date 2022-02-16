@@ -265,7 +265,7 @@ class Frame(object):
         return res
 
     @jit.dont_look_inside
-    def take(self,n):
+    def take(self, n):
         assert len(self.stack) is not 0
         return self.stack[self.stackpos - n - 1]
 
@@ -290,13 +290,17 @@ class Frame(object):
         print "stackpos:", str(self.stackpos), out
 
     @jit.dont_look_inside
-    def is_true(self):
+    def is_true(self, dummy):
+        if dummy:
+            return self.take(0).is_true()
         w_x = self.pop()
         res = w_x.is_true()
         return res
 
     @jit.dont_look_inside
-    def CONST_INT(self, pc):
+    def CONST_INT(self, pc, dummy):
+        if dummy:
+            return
         if isinstance(pc, int):
             x = ord(self.bytecode[pc])
             self.push(W_IntObject(x))
@@ -304,7 +308,9 @@ class Frame(object):
             raise OperationError
 
     @jit.dont_look_inside
-    def CONST_FLOAT(self, pc):
+    def CONST_FLOAT(self, pc, dummy):
+        if dummy:
+            return
         if isinstance(pc, float):
             x = ord(self.bytecode[pc])
             self.push(W_FloatObject(x))
@@ -312,80 +318,110 @@ class Frame(object):
             raise OperationError
 
     @jit.dont_look_inside
-    def POP1(self):
+    def POP(self, dummy):
+        if dummy:
+            return self.take(0)
+        return self.pop()
+
+    @jit.dont_look_inside
+    def POP1(self, dummy):
+        if dummy:
+            return
         v = self.pop()
         _ = self.pop()
         self.push(v)
 
     @jit.dont_look_inside
-    def ADD(self):
+    def ADD(self, dummy):
+        if dummy:
+            return
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.add(w_y)
         self.push(w_z)
 
     @jit.dont_look_inside
-    def SUB(self):
+    def SUB(self, dummy):
+        if dummy:
+            return
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.sub(w_y)
         self.push(w_z)
 
     @jit.dont_look_inside
-    def MUL(self):
+    def MUL(self, dummy):
+        if dummy:
+            return
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.mul(w_y)
         self.push(w_z)
 
     @jit.dont_look_inside
-    def DIV(self):
+    def DIV(self, dummy):
+        if dummy:
+            return
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.div(w_y)
         self.push(w_z)
 
     @jit.dont_look_inside
-    def MOD(self):
+    def MOD(self, dummy):
+        if dummy:
+            return
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.mod(w_y)
         self.push(w_z)
 
     @jit.dont_look_inside
-    def DUP(self):
+    def DUP(self, dummy):
+        if dummy:
+            return
         w_x = self.pop()
         self.push(w_x)
         self.push(w_x)
 
     @jit.dont_look_inside
-    def DUPN(self, pc):
+    def DUPN(self, pc, dummy):
+        if dummy:
+            return
         n = ord(self.bytecode[pc])
         w_x = self.take(n)
         self.push(w_x)
 
     @jit.dont_look_inside
-    def LT(self):
+    def LT(self, dummy):
+        if dummy:
+            return
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.lt(w_y)
         self.push(w_z)
 
     @jit.dont_look_inside
-    def GT(self):
+    def GT(self, dummy):
+        if dummy:
+            return
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.gt(w_y)
         self.push(w_z)
 
     @jit.dont_look_inside
-    def EQ(self):
+    def EQ(self, dummy):
+        if dummy:
+            return
         w_y = self.pop()
         w_x = self.pop()
         self.push(w_x.eq(w_y))
 
     @jit.dont_look_inside
-    def NE(self):
+    def NE(self, dummy):
+        if dummy:
+            return
         w_y = self.pop()
         w_x = self.pop()
         if w_x.eq(w_y).intvalue:
@@ -394,11 +430,15 @@ class Frame(object):
             self.push(W_IntObject(0))
 
     @jit.dont_look_inside
-    def RETURN(self):
+    def RETURN(self, dummy):
+        if dummy:
+            return
         return self.pop()
 
     @jit.dont_look_inside
-    def CALL(self, t):
+    def CALL(self, t, dummy):
+        if dummy:
+            return
         res = self.interp(t)
         if res:
             self.push(res)
@@ -406,7 +446,6 @@ class Frame(object):
     @jit.dont_look_inside
     def CALL_NORMAL(self, t):
         res = self.interp_normal(t)
-        _ = self.pop()
         if res:
             self.push(res)
 
@@ -417,14 +456,18 @@ class Frame(object):
             self.push(res)
 
     @jit.dont_look_inside
-    def RET(self, n):
+    def RET(self, n, dummy):
+        if dummy:
+            return
         v = self.pop()
         for _ in range(n):
             self.pop()
         return v
 
     @jit.dont_look_inside
-    def PRINT(self):
+    def PRINT(self, dummy):
+        if dummy:
+            return
         v = self.take(0)
         print v.getrepr()
 
@@ -668,45 +711,45 @@ class Frame(object):
             pc += 1
 
             if opcode == CONST_INT:
-                self.CONST_INT(pc)
+                self.CONST_INT(pc, dummy=False)
                 pc += 1
 
             elif opcode == POP:
-                self.pop()
+                self.POP(dummy=False)
 
             elif opcode == POP1:
-                self.POP1()
+                self.POP1(dummy=False)
 
             elif opcode == DUP:
-                self.DUP()
+                self.DUP(dummy=False)
 
             elif opcode == DUPN:
-                self.DUPN(pc)
+                self.DUPN(pc, dummy=False)
                 pc += 1
 
             elif opcode == LT:
-                self.LT()
+                self.LT(dummy=False)
 
             elif opcode == GT:
-                self.GT()
+                self.GT(dummy=False)
 
             elif opcode == EQ:
-                self.EQ()
+                self.EQ(dummy=False)
 
             elif opcode == ADD:
-                self.ADD()
+                self.ADD(dummy=False)
 
             elif opcode == SUB:
-                self.SUB()
+                self.SUB(dummy=False)
 
             elif opcode == DIV:
-                self.DIV()
+                self.DIV(dummy=False)
 
             elif opcode == MUL:
-                self.MUL()
+                self.MUL(dummy=False)
 
             elif opcode == MOD:
-                self.MOD()
+                self.MOD(dummy=False)
 
             elif opcode == CALL:
                 t = ord(bytecode[pc])
@@ -716,7 +759,7 @@ class Frame(object):
             elif opcode == RET:
                 argnum = ord(bytecode[pc])
                 pc += 1
-                return self.RET(argnum)
+                return self.RET(argnum, dummy=False)
 
             elif opcode == JUMP:
                 target = ord(bytecode[pc])
@@ -725,14 +768,14 @@ class Frame(object):
             elif opcode == JUMP_IF:
                 target = ord(bytecode[pc])
                 pc += 1
-                if self.is_true():
+                if self.is_true(dummy=False):
                     pc = target
 
             elif opcode == EXIT:
-                return self.pop()
+                return self.POP(dummy=False)
 
             elif opcode == PRINT:
-                self.PRINT()
+                self.PRINT(dummy=False)
 
             else:
                 assert False, 'Unknown opcode: %d' % opcode
@@ -751,56 +794,95 @@ class Frame(object):
             pc += 1
 
             if opcode == CONST_INT:
-                self.CONST_INT(pc)
+                if we_are_jitted():
+                    self.CONST_INT(pc, dummy=True)
+                else:
+                    self.CONST_INT(pc, dummy=False)
                 pc += 1
 
             elif opcode == POP:
-                self.pop()
+                if we_are_jitted():
+                    self.POP(dummy=True)
+                else:
+                    self.POP(dummy=False)
 
             elif opcode == POP1:
-                self.POP1()
+                if we_are_jitted():
+                    self.POP1(dummy=True)
+                else:
+                    self.POP1(dummy=False)
 
             elif opcode == DUP:
-                self.DUP()
+                if we_are_jitted():
+                    self.DUP(dummy=True)
+                else:
+                    self.DUP(dummy=False)
 
             elif opcode == DUPN:
-                self.DUPN(pc)
+                if we_are_jitted():
+                    self.DUPN(pc, dummy=True)
+                else:
+                    self.DUPN(pc, dummy=False)
                 pc += 1
 
             elif opcode == LT:
-                self.LT()
+                if we_are_jitted():
+                    self.LT(dummy=True)
+                else:
+                    self.LT(dummy=False)
 
             elif opcode == GT:
-                self.GT()
+                if we_are_jitted():
+                    self.GT(dummy=True)
+                else:
+                    self.GT(dummy=False)
 
             elif opcode == EQ:
-                self.EQ()
+                if we_are_jitted():
+                    self.EQ(dummy=True)
+                else:
+                    self.EQ(dummy=False)
 
             elif opcode == ADD:
-                self.ADD()
+                if we_are_jitted():
+                    self.ADD(dummy=True)
+                else:
+                    self.ADD(dummy=False)
 
             elif opcode == SUB:
-                self.SUB()
+                if we_are_jitted():
+                    self.SUB(dummy=True)
+                else:
+                    self.SUB(dummy=False)
 
             elif opcode == DIV:
-                self.DIV()
+                if we_are_jitted():
+                    self.DIV(dummy=True)
+                else:
+                    self.DIV(dummy=False)
 
             elif opcode == MUL:
-                self.MUL()
+                if we_are_jitted():
+                    self.MUL(dummy=True)
+                else:
+                    self.MUL(dummy=False)
 
             elif opcode == MOD:
-                self.MOD()
+                if we_are_jitted():
+                    self.MOD(dummy=True)
+                else:
+                    self.MOD(dummy=False)
 
             elif opcode == CALL:
                 t = ord(bytecode[pc])
                 pc += 1
                 if we_are_jitted():
-                    self.CALL(t)
+                    self.CALL(t, dummy=True)
                 else:
                     entry_state = t; # self.save_state()
                     tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                               pc=t, tstack=tstack, self=self)
-                    self.CALL(t)
+                    self.CALL(t, dummy=False)
 
             elif opcode == CALL_NORMAL:
                 t = ord(bytecode[pc])
@@ -815,18 +897,18 @@ class Frame(object):
             elif opcode == RET:
                 if we_are_jitted():
                     if tstack.t_is_empty():
-                        w_x = self.pop()
+                        w_x = self.POP(dummy=True)
                         pc = entry_state; # self.restore_state()
                         pc = emit_ret(pc, w_x)
                         tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                   pc=pc, tstack=tstack, self=self)
                     else:
+                        w_x = self.POP(dummy=True)
                         pc, tstack = tstack.t_pop()
-                        w_x = self.pop()
                         pc = emit_ret(pc, w_x)
                 else:
                     argnum = ord(bytecode[pc])
-                    return self.RET(argnum)
+                    return self.RET(argnum, dummy=False)
 
             elif opcode == JUMP:
                 t = ord(bytecode[pc])
@@ -839,7 +921,7 @@ class Frame(object):
                     pc = emit_jump(pc, t)
                 else:
                     if t < pc:
-                        entry_state = t; self.save_state()
+                        entry_state = t; # self.save_state()
                         tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                   pc=t, tstack=tstack, self=self)
                     pc = t
@@ -848,36 +930,40 @@ class Frame(object):
                 target = ord(bytecode[pc])
                 pc += 1
                 if we_are_jitted():
-                    if self.is_true():
+                    if self.is_true(dummy=True):
                         tstack = t_push(pc, tstack)
                         pc = target
                     else:
                         tstack = t_push(target, tstack)
                 else:
-                    if self.is_true():
+                    if self.is_true(dummy=False):
                         if target < pc:
                             entry_state = target; self.save_state()
-                            tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                            tier1driver.can_enter_jit(bytecode=bytecode,
+                                                      entry_state=entry_state,
                                                       pc=target, tstack=tstack, self=self)
                         pc = target
 
             elif opcode == EXIT:
                 if we_are_jitted():
                     if tstack.t_is_empty():
-                        w_x = self.pop()
+                        w_x = self.POP(dummy=True)
                         pc = entry_state; # self.restore_state()
                         pc = emit_ret(entry_state, w_x)
                         tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                   pc=pc, tstack=tstack, self=self)
                     else:
+                        w_x = self.POP(dummy=True)
                         pc, tstack = tstack.t_pop()
-                        w_x = self.pop()
                         pc = emit_ret(pc, w_x)
                 else:
-                    return self.pop()
+                    return self.POP(dummy=False)
 
             elif opcode == PRINT:
-                self.PRINT()
+                if we_are_jitted():
+                    self.PRINT(dummy=True)
+                else:
+                    self.PRINT(dummy=False)
 
             else:
                 assert False, 'Unknown opcode: %s' % bytecodes[opcode]
@@ -885,7 +971,7 @@ class Frame(object):
 
 def run(bytecode, w_arg, entry=None):
     frame = Frame(bytecode)
-    frame.push(w_arg)
+    frame.push(w_arg); frame.push(w_arg)
     if entry == "tracing" or entry == "tr":
         w_result = frame.interp_jit()
     else:
