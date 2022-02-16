@@ -461,9 +461,18 @@ class HTTPResponse(io.BufferedIOBase):
 
         if amt is not None:
             # Amount is given, implement using readinto
-            b = bytearray(amt)
-            n = self.readinto(b)
-            return memoryview(b)[:n].tobytes()
+            if self.length is not None:
+                lgt = min(amt, self.length)
+            else:
+                lgt = amt
+            try:
+                r = self._safe_read(lgt)
+            except IncompleteRead:
+                self._close_conn()
+                raise
+            if self.length is not None:
+                self.length -= len(r)
+            return r
         else:
             # Amount is not given (unbounded read) so we must check self.length
             # and self.chunked
