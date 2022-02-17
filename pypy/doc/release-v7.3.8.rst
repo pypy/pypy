@@ -3,7 +3,7 @@ PyPy v7.3.8: release of python 2.7, 3.7, 3.8, and 3.9-beta
 ==========================================================
 
 ..
-    Changelog up to commit 0360402c9455
+    Changelog up to commit 0db7d7a9cbf1
 
 .. note::
      This is a pre-release announcement. When the release actually happens, it
@@ -31,12 +31,7 @@ wish to share. The release includes four different interpreters:
     Python 3.9, including the stdlib for CPython 3.9.10. As this is our first
     release of this interpreter, we relate to this as "beta" quality. We
     welcome testing of this version, if you discover incompatibilities, please
-    report them so we can gain confidence in the version. There is still a known
-    `speed regression`_ around ``**kwargs`` handling in 3.9, and we slightly
-    modified the concurrent future's ``ProcessExcecutorPool`` to start all the
-    worker processes when the first task is recieved (like on Python3.8) to
-    avoid an apparent race condition when using ``fork`` and threads (issue
-    3650_).
+    report them so we can gain confidence in the version. 
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the other 7.3
@@ -105,19 +100,29 @@ This PyPy release supports:
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 64 bits, OpenBSD, FreeBSD)
 
-  * 64-bit **ARM** machines running Linux.
-
-  * big- and little-endian variants of **PPC64** running Linux,
+  * 64-bit **ARM** machines running Linux. A shoutout to Huawei for sponsoring
+    the VM running the tests.
 
   * **s390x** running Linux
 
-PyPy support Windows 32-bit and ARM 32 bit processors, but does not
-release binaries. Please reach out to us if you wish to sponsor releases for
-those platforms. It also supports s390x, and big and little-endian variants of
-PPC64 running Linux.
+  * big- and little-endian variants of **PPC64** running Linux,
+
+PyPy support Windows 32-bit, PPC64 big- and little-endian, and ARM 32 bit, but
+does not release binaries. Please reach out to us if you wish to sponsor
+releases for those platforms.
 
 .. _`PyPy and CPython 3.7.4`: https://speed.pypy.org
 .. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
+
+Known Issues with PyPy3.9
+=========================
+- There is still a known `speed regression`_ around ``**kwargs`` handling
+- We slightly modified the concurrent future's ``ProcessExcecutorPool`` to
+  start all the worker processes when the first task is recieved (like on
+  Python3.8) to avoid an apparent race condition when using ``fork`` and
+  threads (issue 3650_).
+- Some of the code trace reporting with ``pypy -m trace --trace`` is slightly
+  off. See issues 3673_ and 3674_.
 
 Changelog
 =========
@@ -133,6 +138,8 @@ Bugfixes shared across versions
 - Avoid using ``epoll_event`` directly from RPython since it is a ``packed struct``
 - Clean up some compilation warnings around `const char *`` conversions to
   ``char *``
+- Make sure that frozensets cannot be mutated by using methods from set (issue
+  3676_)
 
 Speedups and enhancements shared across versions
 ------------------------------------------------
@@ -151,6 +158,10 @@ Speedups and enhancements shared across versions
 - Prepare ``_ssl`` for OpenSSL3
 - Improve ``x << y`` where ``x`` and ``y`` are ints but the results doesn't fit
   into a machine word: don't convert ``y`` to ``rbigint`` and back to int
+- Avoid updating counter when using `--jit off`.
+- Speed up ``str`` -> ``float`` conversion for the fast path (ascii, no ``'_'``, no
+  ``INF``, no leading or trailing whitespace). PyPy with `--jit off`` is now
+  faster than CPython for this fastpath (issue 3682_).
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -249,6 +260,7 @@ Python 3.8+ bugfixes
   stdlib test failures
 - Update bundled ``setuptools`` to ``58.1.0`` to get the fix for the new PyPy
   layout
+- Fix ``multiprocessing.sharedmemory`` on windows (issue 3678_).
 
 Python 3.8+ speedups and enhancements
 -------------------------------------
@@ -298,6 +310,11 @@ Python 3.8 C-API
 .. _3650: https://foss.heptapod.net/pypy/pypy/-/issues/3650
 .. _3656: https://foss.heptapod.net/pypy/pypy/-/issues/3656
 .. _3661: https://foss.heptapod.net/pypy/pypy/-/issues/3661
+.. _3673: https://foss.heptapod.net/pypy/pypy/-/issues/3673
+.. _3674: https://foss.heptapod.net/pypy/pypy/-/issues/3674
+.. _3676: https://foss.heptapod.net/pypy/pypy/-/issues/3676
+.. _3678: https://foss.heptapod.net/pypy/pypy/-/issues/3678
+.. _3682: https://foss.heptapod.net/pypy/pypy/-/issues/3682
 .. _bpo35883: https://bugs.python.org/issue35883
 .. _bpo44954: https://bugs.python.org/issue44954
 .. _bpo40780: https://bugs.python.org/issue40780
