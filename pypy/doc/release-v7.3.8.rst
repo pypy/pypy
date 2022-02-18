@@ -116,13 +116,15 @@ releases for those platforms.
 
 Known Issues with PyPy3.9
 =========================
+
 - There is still a known `speed regression`_ around ``**kwargs`` handling
 - We slightly modified the concurrent future's ``ProcessExcecutorPool`` to
   start all the worker processes when the first task is recieved (like on
   Python3.8) to avoid an apparent race condition when using ``fork`` and
   threads (issue 3650_).
-- Some of the code trace reporting with ``pypy -m trace --trace`` is slightly
-  off. See issues 3673_ and 3674_.
+- There are sime issues with line tracing using ``sys.settrace``, traced lines
+  can be slightly off in some rare situations. This can affect code coverage
+  reporting. See issues 3673_ and 3674_.
 
 Changelog
 =========
@@ -322,4 +324,4 @@ Python 3.8 C-API
 .. _bpo43522: https://bugs.python.org/issue43522
 .. _bpo35545: https://bugs.python.org/issue35545
 .. _errcheck: https://docs.python.org/3/library/ctypes.html#ctypes._FuncPtr.errcheck
-.. _`speed regression`_: https://foss.heptapod.net/pypy/pypy/-/issues/3649
+.. _`speed regression`: https://foss.heptapod.net/pypy/pypy/-/issues/3649
