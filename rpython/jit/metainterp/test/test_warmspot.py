@@ -1,7 +1,7 @@
 import py
 from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.warmspot import get_stats
-from rpython.rlib.jit import JitDriver, set_param, unroll_safe, jit_callback
+from rpython.rlib.jit import JitDriver, set_param, unroll_safe, jit_callback, set_user_param
 from rpython.jit.backend.llgraph import runner
 
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -574,6 +574,26 @@ class TestLLWarmspot(LLJitMixin):
         e = py.test.raises(AssertionError, self.meta_interp, f, [42])
         assert str(e.value) == ("there are multiple jit_merge_points "
                                 "with the same jitdriver")
+
+    def test_jit_off_returns_early(self):
+        from rpython.jit.metainterp.counter import DeterministicJitCounter
+        driver = JitDriver(greens = ['s'], reds = ['i'], name='jit')
+
+        def loop(i, s):
+            set_user_param(driver, "off")
+            while i > s:
+                driver.jit_merge_point(i=i, s=s)
+                i -= 1
+
+        def main(s):
+            loop(30, s)
+
+        fn = DeterministicJitCounter.lookup_chain
+        DeterministicJitCounter.lookup_chain = None
+        try:
+            self.meta_interp(main, [5]) # must not crash
+        finally:
+            DeterministicJitCounter.lookup_chain = fn
 
 
 class TestWarmspotDirect(object):

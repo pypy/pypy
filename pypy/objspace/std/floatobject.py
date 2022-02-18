@@ -214,7 +214,8 @@ class W_FloatObject(W_Root):
     def descr__new__(space, w_floattype, w_x, __posonly__):
         def _string_to_float(space, w_source, string):
             try:
-                string = _remove_underscores(string)
+                if "_" in string:
+                    string = _remove_underscores(string)
             except ValueError:
                 pass
             else:
