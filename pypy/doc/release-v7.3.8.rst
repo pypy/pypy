@@ -32,7 +32,11 @@ wish to share. The release includes four different interpreters:
     release of this interpreter, we relate to this as "beta" quality. We
     welcome testing of this version, if you discover incompatibilities, please
     report them so we can gain confidence in the version. There is still a known
-    `speed regression`_ around ``**kwargs`` handling in 3.9.
+    `speed regression`_ around ``**kwargs`` handling in 3.9, and we slightly
+    modified the concurrent future's ``ProcessExcecutorPool`` to start all the
+    worker processes when the first task is recieved (like on Python3.8) to
+    avoid an apparent race condition when using ``fork`` and threads (issue
+    3650_).
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the other 7.3
@@ -291,6 +295,7 @@ Python 3.8 C-API
 .. _3644: https://foss.heptapod.net/pypy/pypy/-/issues/3644
 .. _3642: https://foss.heptapod.net/pypy/pypy/-/issues/3642
 .. _3652: https://foss.heptapod.net/pypy/pypy/-/issues/3652
+.. _3650: https://foss.heptapod.net/pypy/pypy/-/issues/3650
 .. _3656: https://foss.heptapod.net/pypy/pypy/-/issues/3656
 .. _3661: https://foss.heptapod.net/pypy/pypy/-/issues/3661
 .. _bpo35883: https://bugs.python.org/issue35883
