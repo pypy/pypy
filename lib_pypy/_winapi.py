@@ -439,6 +439,32 @@ def malloc(size):
 def free(voidptr):
     _kernel32.HeapFree(_kernel32.GetProcessHeap(),0, voidptr)
 
+def CreateFileMapping(*args):
+    handle = _kernel32.CreateFileMappingW(*args)
+    if handle == INVALID_HANDLE_VALUE:
+        RaiseFromWindowsErr(0)
+    return _handle2int(handle)
+
+def OpenFileMapping(*args):
+    handle = _kernel32.OpenFileMappingW(*args)
+    if not handle:
+        RaiseFromWindowsErr(0)
+    return _handle2int(handle)
+
+def MapViewOfFile(handle, *args):
+    address = _kernel32.MapViewOfFile(_int2handle(handle), *args)
+    if not address:
+        RaiseFromWindowsErr(0)
+    return address
+        
+def VirtualQuerySize(address):
+    mem_basic_info = _ffi.new("MEMORY_BASIC_INFORMATION[1]")
+  
+    size_of_buf = _kernel32.VirtualQuery(address, mem_basic_info, _ffi.sizeof(mem_basic_info))
+    if size_of_buf == 0:
+        RaiseFromWindowsErr(0)
+    return mem_basic_info[0].RegionSize
+    
 # #define macros from WinBase.h and elsewhere
 STD_INPUT_HANDLE = -10
 STD_OUTPUT_HANDLE = -11
@@ -477,6 +503,7 @@ ERROR_IO_PENDING        = 997
 ERROR_NOT_FOUND          = 1168
 ERROR_CONNECTION_REFUSED = 1225
 ERROR_CONNECTION_ABORTED = 1236
+ERROR_ALREADY_EXISTS = 0xB7
 
 
 PIPE_ACCESS_INBOUND = 0x00000001
@@ -559,3 +586,41 @@ FILE_TYPE_PIPE = 3
 FILE_TYPE_REMOTE = 32768
 FILE_TYPE_UNKNOWN = 0
 
+# Used in CreateFileMapping
+PAGE_EXECUTE_READ = 0x20
+PAGE_EXECUTE_READWRITE = 0x40
+PAGE_EXECUTE_WRITECOPY = 0x80
+PAGE_READONLY = 0x02
+PAGE_READWRITE = 0x04
+PAGE_WRITECOPY = 0x08
+SEC_COMMIT = 0x8000000
+SEC_IMAGE = 0x1000000
+SEC_IMAGE_NO_EXECUTE = 0x11000000
+SEC_LARGE_PAGES = 0x80000000
+SEC_NOCACHE = 0x10000000
+SEC_RESERVE = 0x4000000
+SEC_WRITECOMBINE = 0x40000000
+
+# Used in MapViewOfFile
+STANDARD_RIGHTS_REQUIRED     = 0x000F0000
+SECTION_QUERY                = 0x0001
+SECTION_MAP_WRITE            = 0x0002
+SECTION_MAP_READ             = 0x0004
+SECTION_MAP_EXECUTE          = 0x0008
+SECTION_EXTEND_SIZE          = 0x0010
+SECTION_MAP_EXECUTE_EXPLICIT = 0x0020 
+SECTION_ALL_ACCESS = (STANDARD_RIGHTS_REQUIRED|SECTION_QUERY|
+                            SECTION_MAP_WRITE |
+                            SECTION_MAP_READ |
+                            SECTION_MAP_EXECUTE |
+                            SECTION_EXTEND_SIZE)
+
+
+FILE_MAP_WRITE           = SECTION_MAP_WRITE
+FILE_MAP_READ            = SECTION_MAP_READ
+FILE_MAP_ALL_ACCESS      = SECTION_ALL_ACCESS
+FILE_MAP_EXECUTE         = SECTION_MAP_EXECUTE_EXPLICIT
+FILE_MAP_COPY            = 0x00000001
+FILE_MAP_RESERVE         = 0x80000000
+FILE_MAP_TARGETS_INVALID = 0x40000000
+FILE_MAP_LARGE_PAGES     = 0x20000000

@@ -759,7 +759,8 @@ def _remove_underscores(string):
 
 def _string_to_float(space, w_source, string):
     try:
-        string = _remove_underscores(string)
+        if "_" in string:
+            string = _remove_underscores(string)
     except ValueError:
         pass
     else:
@@ -769,7 +770,6 @@ def _string_to_float(space, w_source, string):
             pass
     raise oefmt(space.w_ValueError,
                 "could not convert string to float: %R", w_source)
-
 
 def _hash_float(space, v):
     if not isfinite(v):
