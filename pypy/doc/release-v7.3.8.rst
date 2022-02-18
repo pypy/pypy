@@ -7,7 +7,7 @@ PyPy v7.3.8: release of python 2.7, 3.7, 3.8, and 3.9-beta
 
 .. note::
      This is a pre-release announcement. When the release actually happens, it
-  will be announced on the `PyPy blog`_
+     will be announced on the `PyPy blog`_
 
 .. _`PyPy blog`: https://pypy.org/blog
 
@@ -210,7 +210,6 @@ Python 3.7+ bugfixes
   shutdown
 - Update ``fast2locals`` to deal with the fact that it's now possible to
   delete cell vars (was forbidden in python2) (issue 3656_)
-delete cell vars (was forbidden in python2).
 - Allow hashing memoryviews (issue 2756_)
 
 Python 3.7+ speedups and enhancements
