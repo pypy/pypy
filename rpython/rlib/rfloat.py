@@ -51,25 +51,27 @@ def string_to_float(s):
     """
     from rpython.rlib.rstring import strip_spaces, ParseStringError
 
-    s = strip_spaces(s)
     if not s:
         raise ParseStringError(INVALID_MSG)
-
-    low = s.lower()
-    if low == "-inf" or low == "-infinity":
-        return -INFINITY
-    elif low == "inf" or low == "+inf":
-        return INFINITY
-    elif low == "infinity" or low == "+infinity":
-        return INFINITY
-    elif low == "nan" or low == "+nan":
-        return NAN
-    elif low == "-nan":
-        return -NAN
-
+    def iswhitespace(ch):
+        return (ch == ' ' or ch == '\f' or ch == '\n' or ch == '\r' or
+            ch == '\t' or ch == '\v')
+    if iswhitespace(s[0]) or iswhitespace(s[-1]):
+        s = strip_spaces(s)
     try:
         return rstring_to_float(s)
     except ValueError:
+        low = s.lower()
+        if low == "-inf" or low == "-infinity":
+            return -INFINITY
+        elif low == "inf" or low == "+inf":
+            return INFINITY
+        elif low == "infinity" or low == "+infinity":
+            return INFINITY
+        elif low == "nan" or low == "+nan":
+            return NAN
+        elif low == "-nan":
+            return -NAN
         raise ParseStringError(INVALID_MSG)
 
 def rstring_to_float(s):

@@ -457,6 +457,13 @@ def MapViewOfFile(handle, *args):
         RaiseFromWindowsErr(0)
     return address
         
+def VirtualQuerySize(address):
+    mem_basic_info = _ffi.new("MEMORY_BASIC_INFORMATION[1]")
+  
+    size_of_buf = _kernel32.VirtualQuery(address, mem_basic_info, _ffi.sizeof(mem_basic_info))
+    if size_of_buf == 0:
+        RaiseFromWindowsErr(0)
+    return mem_basic_info[0].RegionSize
     
 # #define macros from WinBase.h and elsewhere
 STD_INPUT_HANDLE = -10
