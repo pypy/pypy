@@ -40,7 +40,7 @@ include:
 
   - PyPy3.9 uses an RPython version of the PEG parser which brought with it a
     cleanup of the lexer and parser in general
-  - Fixed a regression in PyPy3.8 when JITting empty list comprehenshions
+  - Fixed a regression in PyPy3.8 when JITting empty list comprehensions
   - Tweaked some issues around changing the file layout after packaging to make
     the on-disk layout of PyPy3.8 more compatible with CPython. This requires
     ``setuptools>=58.1.0``
@@ -119,7 +119,7 @@ Known Issues with PyPy3.9
 
 - There is still a known `speed regression`_ around ``**kwargs`` handling
 - We slightly modified the concurrent future's ``ProcessExcecutorPool`` to
-  start all the worker processes when the first task is recieved (like on
+  start all the worker processes when the first task is received (like on
   Python3.8) to avoid an apparent race condition when using ``fork`` and
   threads (issue 3650_).
 
@@ -150,12 +150,12 @@ Speedups and enhancements shared across versions
 - Update vendored vmprof to support ppc64
 - Update CFFI to 1.15.0, no real changes
 - Stop doing guard strengthening with guards that come from inlining the short
-  preamble. doing that can lead to endless bridges (issue 3598_)
+  preamble. Doing that can lead to endless bridges (issue 3598_)
 - Split `__pypy__.do_what_I_mean()`` into the original plus ``__pypy__._internal_crash``
   to make the meaning more clear. These are functions only useful for internal
   testing (issue 3617_).
 - Prepare ``_ssl`` for OpenSSL3
-- Improve ``x << y`` where ``x`` and ``y`` are ints but the results doesn't fit
+- Improve ``x << y`` where ``x`` and ``y`` are ``ints`` but the results doesn't fit
   into a machine word: don't convert ``y`` to ``rbigint`` and back to int
 - Avoid updating counter when using `--jit off`.
 - Speed up ``str`` -> ``float`` conversion for the fast path (ascii, no ``'_'``, no
@@ -164,7 +164,7 @@ Speedups and enhancements shared across versions
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-We are no longer backporting changes to the ``cpyext`` compatiblity layer to
+We are no longer backporting changes to the ``cpyext`` compatibility layer to
 PyPy2.7.
 
 
@@ -191,7 +191,7 @@ Python 3.7+ bugfixes
 - Fix filename in exception raised sometimes when running code with ``-c``
 - Fixes for the ``signal`` module on windows so that ``raise_signal`` will not
   segfault
-- Detail about ``PYTHONIOENCODING``: if the encoding or the error is ommitted,
+- Detail about ``PYTHONIOENCODING``: if the encoding or the error is omitted,
   always use ``utf-8/strict`` (instead of asking the locale)
 - Disallow overriding the ``__context__`` descriptor from ``BaseException``
   when chaining exceptions (issue 3644_)
@@ -206,7 +206,7 @@ Python 3.7+ bugfixes
 - Catch exceptions in ``atexit`` functions to avoid crashing the interpreter at
   shutdown
 - Update ``fast2locals`` to deal with the fact that it's now possible to
-  delete cell vars (was forbidden in python2) (issue 3656_)
+  delete cell vars (was forbidden in Python2) (issue 3656_)
 - Allow hashing memoryviews (issue 2756_)
 
 Python 3.7+ speedups and enhancements
@@ -253,7 +253,8 @@ Python 3.8+ bugfixes
 - Match CPython errors in ``_io.open`` and ``socket.socket(fileno=fileno)``
 - Add ``LDFLAGS`` to ``sysconfig`` values
 - PyPy reports the IPv6 scope ID in ``getaddrinfo`` where CPython does not. Fix
-  stdlib tests to allow PyPy's repr. bpo35545_ touches on this. (issue 3628_)
+  stdlib tests to allow PyPy's ``__repr__``. bpo35545_ touches on this. (issue
+  3628_)
 - Fix small bugs when raising errors in various stdlib modules that caused
   stdlib test failures
 - Update bundled ``setuptools`` to ``58.1.0`` to get the fix for the new PyPy
@@ -280,7 +281,7 @@ Python 3.8 C-API
   ``tp_pypy_flags`` slot. Users should upgrade Cython to 0.2.26 to avoid a
   compiler warning.
 - Add ``PyCompilerFlags.cf_feature_version`` (bpo35766_)
-- Distinguish between a c-api ``CMethod`` and an app-level ``Method``, which
+- Distinguish between a C-API ``CMethod`` and an app-level ``Method``, which
   is important for obscure reasons
 
 .. _2756: https://foss.heptapod.net/pypy/pypy/-/issues/2756
