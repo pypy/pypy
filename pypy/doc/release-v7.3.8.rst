@@ -122,9 +122,6 @@ Known Issues with PyPy3.9
   start all the worker processes when the first task is recieved (like on
   Python3.8) to avoid an apparent race condition when using ``fork`` and
   threads (issue 3650_).
-- There are sime issues with line tracing using ``sys.settrace``, traced lines
-  can be slightly off in some rare situations. This can affect code coverage
-  reporting. See issues 3673_ and 3674_.
 
 Changelog
 =========
@@ -311,8 +308,6 @@ Python 3.8 C-API
 .. _3650: https://foss.heptapod.net/pypy/pypy/-/issues/3650
 .. _3656: https://foss.heptapod.net/pypy/pypy/-/issues/3656
 .. _3661: https://foss.heptapod.net/pypy/pypy/-/issues/3661
-.. _3673: https://foss.heptapod.net/pypy/pypy/-/issues/3673
-.. _3674: https://foss.heptapod.net/pypy/pypy/-/issues/3674
 .. _3676: https://foss.heptapod.net/pypy/pypy/-/issues/3676
 .. _3678: https://foss.heptapod.net/pypy/pypy/-/issues/3678
 .. _3682: https://foss.heptapod.net/pypy/pypy/-/issues/3682
