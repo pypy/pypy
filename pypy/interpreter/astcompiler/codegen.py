@@ -878,6 +878,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
                 # finally
                 self.use_next_block(cleanup_end)
+                # this is a hack! we emit a NOP to distinguish this from a
+                # "regular" finally. the reason for that is that we do not want
+                # to emit a line trace event if sys.settrace is set for the
+                # following instructions, and the interpeter can use the NOP to
+                # detect this case. CPython has really complicated and broken
+                # logic for this situation instead. See code in
+                # FinallyBlock.handle.
+                self.emit_op(ops.NOP)
                 # name = None; del name
                 self.load_const(self.space.w_None)
                 self.name_op(handler.name, ast.Store, handler)
