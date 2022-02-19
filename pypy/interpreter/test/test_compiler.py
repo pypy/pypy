@@ -473,6 +473,23 @@ def testing():
         w_fline = space.getitem(w_d, space.wrap('fline'))
         assert space.int_w(w_fline) == 3
 
+    def test_firstlineno_decorators_class(self):
+        snippet = str(py.code.Source(r'''
+            def foo(x): return x
+            def f():
+                @foo       # line 4
+                @foo       # line 5
+                class AWrong:
+                    pass   # line 7
+            Aline = f.__code__.co_consts[1].co_firstlineno
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        code.exec_code(space, w_d, w_d)
+        w_fline = space.getitem(w_d, space.wrap('Aline'))
+        assert space.int_w(w_fline) == 4
+
     def test_mangling(self):
         snippet = str(py.code.Source(r'''
             __g = "42"

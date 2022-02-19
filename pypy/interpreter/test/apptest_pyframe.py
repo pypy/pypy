@@ -602,6 +602,56 @@ def b(reraise): # line 2
                  (10, 'line'), (11, 'line'),
                  (11, 'return')]
 
+def test_issue_3673():
+    import sys
+    l = []
+    got_exc = []
+    def trace(frame, event, arg):
+        l.append((frame.f_lineno, event))
+        if event == 'exception':
+            got_exc.append(arg)
+        return trace
+
+
+    d = {}
+    exec("""def regression():
+    try: # line 2
+        a = 1
+        try:
+            raise Exception("foo")
+        finally:
+            b = 123
+    except:
+        a = 99
+    assert a == 99 and b == 123
+    """, d)
+    sys.settrace(trace)
+    d['regression']()
+    sys.settrace(None)
+    goal = [(1, 'call'), (2, 'line'), (3, 'line'), (4, 'line'),
+                 (5, 'line'), (5, 'exception'), (7, 'line'), (8, 'line'),
+                 (9, 'line'), (10, 'line'), (10, 'return')]
+    assert l == goal
+
+    d = {}
+    exec("""def regression():
+    try:
+        a = 1
+        try:
+            g() # not defined
+        finally:
+            b = 123
+    except:
+        a = 99
+    assert a == 99 and b == 123
+    """, d)
+    l = []
+    sys.settrace(trace)
+    d['regression']()
+    sys.settrace(None)
+    print(l)
+    assert l == goal
+
 def test_trace_changes_locals():
     import sys
     def trace(frame, what, arg):

@@ -1863,15 +1863,27 @@ class FinallyBlock(FrameBlock):
         frame.save_and_change_sys_exc_info(operationerr)
         d = frame.getdebug()
         if d is not None and d.w_f_trace is not None:
-            needs_new_execution_window = not (d.instr_lb <= frame.last_instr < d.instr_ub)
-            needs_line_update = d.instr_lb == frame.last_instr or frame.last_instr < d.instr_prev_plus_one
-            # logic taken from CPython, see test_trace_generator_finalisation
+            # we mostly want to force a line trace event next, by setting
+            # instr_prev_plus_one to a high value, simulating a backward jump
+            # to the line trace logic in executioncontext (CPython has the same
+            # code, see test_trace_generator_finalisation for why it's needed)
 
-            # Make sure that we trace line after exception if we are in a new execution
-            # window or we don't need a line update and we are not in the first instruction
-            # of the line.
-            if needs_new_execution_window or (not needs_line_update and d.instr_lb > 0):
-                d.instr_prev_plus_one = sys.maxint
+            # however, we do not want to do that for the artificial non-source
+            # try:...finally: e = None; del e blocks that are introduced for
+            # delete the names of exceptions in cases like
+            # 'except ExceptionClass as e:' because then the line numbers of
+            # that finally: are the last line of the except block, which would
+            # randomly get a trace event. we detect this by having the bytecode
+            # compiler insert a NOP in such a finally. See tests
+            # test_issue_3673 and test_dont_trace_on_reraise2
+            code = frame.pycode
+            opcode = ord(code.co_code[self.handlerposition])
+            debugdata = frame.getdebug()
+            assert debugdata is not None
+            if opcode != opcodedesc.NOP.index:
+                debugdata.instr_prev_plus_one = len(frame.pycode.co_code) + 1
+            else:
+                debugdata.instr_prev_plus_one = 1
         return r_uint(self.handlerposition)   # jump to the handler
 
     def pop_block(self, frame):
