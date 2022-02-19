@@ -232,12 +232,37 @@ class AppTestPosix:
         with raises(TypeError) as excinfo:
             self.posix.stat(2.)
         assert "should be string, bytes, os.PathLike or integer, not float" in str(excinfo.value)
-        with raises(ValueError):
+        with raises(OSError):
             self.posix.stat(-1)
         with raises(ValueError):
             self.posix.stat(b"abc\x00def")
         with raises(ValueError):
             self.posix.stat(u"abc\x00def")
+
+    def test_path_t_convertor(self):
+        posix = self.posix
+
+        class FakePath:
+            """Simple implementing of the path protocol.
+            """
+            def __init__(self, path):
+                self.path = path
+
+            def __repr__(self):
+                return '<FakePath {}>'.format(self.path)
+
+            def __fspath__(self):
+                if (isinstance(self.path, BaseException) or
+                    isinstance(self.path, type) and
+                        issubclass(self.path, BaseException)):
+                    raise self.path
+                else:
+                    return self.path
+        fd = posix.open(self.path, posix.O_RDONLY, 0o777)
+        with raises(TypeError) as exc:
+            posix.stat(FakePath(fd))
+        assert 'to return str or bytes' in exc.value.args[0]
+
 
     if hasattr(__import__(os.name), "statvfs"):
         def test_statvfs(self):
@@ -547,6 +572,10 @@ class AppTestPosix:
         import errno
         with raises(TypeError):
             os.utime('xxx', 3)
+        with raises(TypeError):
+            os.utime('xxx', [5, 5])
+        with raises(TypeError):
+            os.utime('xxx', ns=[5, 5])
         with raises(OSError) as exc:
             os.utime('somefilewhichihopewouldneverappearhere', None)
         assert exc.value.errno == errno.ENOENT
@@ -1619,6 +1648,21 @@ class AppTestPosix:
         retP = [x.name for x in self.posix.scandir(self.Path('.'))]
         assert retU == retP
 
+    def test_scandir_fd(self):
+        os = self.posix
+        fd = None
+        try:
+            fd = os.open(self.Path('.'), os.O_RDONLY)
+        except PermissionError:
+            skip("Cannot open '.'")
+        try:
+            with os.scandir(fd) as it:
+                entries = list(it)
+            names = os.listdir(fd)
+            assert len(entries) == len(names)
+        finally:
+            os.close(fd)
+
     def test_execv_no_args(self):
         posix = self.posix
         with raises(ValueError):
@@ -1805,7 +1849,7 @@ class AppTestUnicodeFilename:
                      '\u65e5\u672c.txt') # "Japan"
         try:
             f = file(ufilename, 'w')
-        except UnicodeEncodeError:
+        except (UnicodeEncodeError, IOError):
             pytest.skip("encoding not good enough")
         f.write("test")
         f.close()
@@ -1858,3 +1902,5 @@ class AppTestPep475Retry:
 
         assert signalled != []
         assert got.startswith(b'h')
+
+        

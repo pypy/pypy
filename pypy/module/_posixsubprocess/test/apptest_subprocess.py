@@ -1,15 +1,12 @@
 # spaceconfig = {"usemodules": ["_posixsubprocess", "signal", "fcntl", "select", "time", "struct"]}
-import sys
 import pytest
 
-if sys.platform == 'win32':
-    pytest.skip("not used on win32")
+_posixsubprocess = pytest.importorskip('_posixsubprocess')
 
 from os.path import dirname
 import traceback  # Work around a recursion limit
 import subprocess
 import os
-import _posixsubprocess
 import posix
 
 directory = dirname(__file__)
@@ -50,18 +47,18 @@ def test_start_new_session():
         assert parent_pgid != child_pgid
 
 def test_cpython_issue15736():
-    import sys
     n = 0
     class Z(object):
         def __len__(self):
+            import sys
             return sys.maxsize + n
         def __getitem__(self, i):
             return b'x'
     raises(MemoryError, _posixsubprocess.fork_exec,
-           1,Z(),3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17)
+           1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17)
     n = 1
     raises(OverflowError, _posixsubprocess.fork_exec,
-           1,Z(),3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17)
+           1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17)
 
 def test_pass_fds_make_inheritable():
     fd1, fd2 = posix.pipe()
@@ -75,3 +72,80 @@ def test_pass_fds_make_inheritable():
     assert res == b"K"
     posix.close(fd1)
     posix.close(fd2)
+
+
+def test_issue_3630():
+    import time
+    # Make sure the registered callback functions are not called unless
+    # fork_exec has a preexec_fn
+
+    tmpfile = 'fork_exec.txt'
+    with open(tmpfile, 'w'):
+        pass
+
+
+    # from multiprocessing.util.py
+    def spawnv_passfds(path, args, passfds, preexec_fn=None):
+        passfds = tuple(sorted(map(int, fds_to_pass)))
+        errpipe_read, errpipe_write = os.pipe()
+        try:
+            return _posixsubprocess.fork_exec(
+                args, [os.fsencode(path)], True, passfds, None, None,
+                -1, -1, -1, -1, -1, -1, errpipe_read, errpipe_write,
+                False, False, preexec_fn)
+        finally:
+            os.close(errpipe_read)
+            os.close(errpipe_write)
+
+    def preexec_fn():
+        pass
+    
+    def before():
+        with open(tmpfile, mode='a') as fid:
+            fid.write('before\n')
+        print('before hook done')
+
+    def parent():
+        print('parent hook')
+        for i in range(10):
+            time.sleep(0.1)
+            with open(tmpfile, mode='r') as fid:
+                if 'child' in fid.read():
+                    break
+        else:
+            print('tmpfile not updated')
+        with open(tmpfile, mode='a') as fid:
+            fid.write('parent\n')
+        print('parent hook done')
+
+    def child():
+        with open(tmpfile, mode='a') as fid:
+            fid.write('child\n')
+        print('child hook done')
+
+    os.register_at_fork(before=before, after_in_parent=parent, after_in_child=child)
+    fds_to_pass = []
+    try:
+        fds_to_pass.append(sys.stderr.fileno())
+    except Exception:
+        pass
+    
+    r, w = os.pipe()
+    fds_to_pass.append(r)
+    args = ['ls', '.']
+    
+    try:
+        spawnv_passfds('ls', args, fds_to_pass)
+        with open(tmpfile, mode='r') as fid:
+            contents = fid.read()
+        assert len(contents) == 0
+
+        spawnv_passfds('ls', args, fds_to_pass, preexec_fn=preexec_fn)
+        with open(tmpfile, mode='r') as fid:
+            contents = fid.read()
+        assert 'child' in contents
+        assert 'parent' in contents
+        assert 'before' in contents
+    finally:
+        os.remove(tmpfile)
+        

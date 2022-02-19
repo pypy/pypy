@@ -1236,7 +1236,7 @@ def attach_c_functions(space, eci, prefix):
            )
     state.C.flag_setters = {}
     for c_name, attr in _flags:
-        _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
+        _, setter = rffi.CExternVariable(rffi.INT_real, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
         state.C.flag_setters[attr] = setter
         
@@ -1258,7 +1258,7 @@ def init_flags(space):
     state = space.fromcache(State)
     for _, attr in _flags:
         f = state.C.flag_setters[attr]
-        f(space.sys.get_flag(attr))
+        f(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
@@ -1836,18 +1836,19 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
 
 @jit.dont_look_inside
 def exec_extension_module(space, w_mod):
-    from pypy.module.cpyext.modsupport import exec_def
+    from pypy.module.cpyext.modsupport import exec_def, PyModuleObject
     if not space.config.objspace.usemodules.cpyext:
         return
     if not isinstance(w_mod, Module):
         return
     space.getbuiltinmodule("cpyext")
-    mod_as_pyobj = rawrefcount.from_obj(PyObject, w_mod)
-    if mod_as_pyobj:
-        if cts.cast('PyModuleObject*', mod_as_pyobj).c_md_state:
+    mod = cts.cast('PyModuleObject*', rawrefcount.from_obj(PyObject, w_mod))
+    if mod:
+        if mod.c_md_state:
             # already initialised
             return
-        return exec_def(space, w_mod, mod_as_pyobj)
+        moddef = mod.c_md_def
+        return exec_def(space, mod, moddef)
 
 def invoke_pyos_inputhook(space):
     state = space.fromcache(State)

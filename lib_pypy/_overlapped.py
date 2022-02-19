@@ -10,7 +10,7 @@ import _winapi
 from _winapi import _Z, RaiseFromWindowsErr
 
 if sys.platform != 'win32':
-    raise ImportError("The '_overlapped' module is only available on Windows")
+    raise ModuleNotFoundError("The '_overlapped' module is only available on Windows", name='_overlapped')
 
 # Declare external Win32 functions
 
@@ -312,7 +312,9 @@ class Overlapped(object):
         wsabuff = _ffi.new("WSABUF[1]")
         lgt = len(self.write_buffer)
         wsabuff[0].len = lgt
-        wsabuff[0].buf = _ffi.new('CHAR[]', self.write_buffer)
+        # Keep contents alive until WSASend is complete
+        contents = _ffi.new('CHAR[]', self.write_buffer)
+        wsabuff[0].buf = contents
         nwritten = _ffi.new("LPDWORD")
 
         result = _winsock2.WSASend(handle, wsabuff, _int2dword(1), nwritten,
@@ -397,8 +399,7 @@ class Overlapped(object):
         else:
             self.error = _kernel32.GetLastError()
 
-        if self.error == (_winapi.ERROR_SUCCESS or
-                          self.error == _winapi.ERROR_IO_PENDING):
+        if self.error in (_winapi.ERROR_SUCCESS, _winapi.ERROR_IO_PENDING):
             return None
         else:
             self.type = OverlappedType.TYPE_NOT_STARTED
@@ -429,8 +430,7 @@ class Overlapped(object):
         else:
             self.error = _kernel32.GetLastError()
 
-        if self.error == (_winapi.ERROR_SUCCESS or
-                          self.error == _winapi.ERROR_IO_PENDING):
+        if self.error in (_winapi.ERROR_SUCCESS, _winapi.ERROR_IO_PENDING):
             return None
         else:
             self.type = OverlappedType.TYPE_NOT_STARTED
@@ -467,8 +467,7 @@ class Overlapped(object):
         else:
             self.error = _kernel32.GetLastError()
 
-        if self.error == (_winapi.ERROR_SUCCESS or
-                          self.error == _winapi.ERROR_IO_PENDING):
+        if self.error in (_winapi.ERROR_SUCCESS, _winapi.ERROR_IO_PENDING):
             return None
         else:
             self.type = OverlappedType.TYPE_NOT_STARTED

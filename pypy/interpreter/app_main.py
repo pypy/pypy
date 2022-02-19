@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # This is pure Python code that handles the main entry point into "pypy3".
 # See test/test_app_main.
 
@@ -338,6 +338,10 @@ def initstdio(encoding=None, unbuffered=False):
     try:
         if encoding and ':' in encoding:
             encoding, errors = encoding.split(':', 1)
+            if encoding == '':
+                encoding = 'utf-8'
+            if errors == '':
+                errors = 'strict'
             errors = errors or None
         else:
             errors = None
@@ -392,7 +396,8 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     # it does if you explicitly open a file in text mode.
     newline = None if sys.platform == 'win32' else '\n'
     stream = _io.TextIOWrapper(buf, encoding, errors, newline=newline,
-                              line_buffering=unbuffered or raw.isatty())
+                              line_buffering=unbuffered or raw.isatty(),
+                              write_through=unbuffered)
     stream.mode = mode
     return stream
 
@@ -427,6 +432,7 @@ default_options = dict.fromkeys(
     "unbuffered"), 0)
 default_options["check_hash_based_pycs"] = "default"
 default_options["dev_mode"] = False # needs to be bool
+default_options["utf8_mode"] = -1
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -448,6 +454,11 @@ def X_option(options, xoption, iterargv):
     options["_xoptions"].append(xoption)
     if xoption == "dev":
         options["dev_mode"] = True
+    elif xoption.startswith("utf8"):
+        if xoption == "utf8" or xoption == "utf8=1":
+            options["utf8_mode"] = 1
+        elif xoption == "utf8=0":
+            options["utf8_mode"] = 0
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -533,7 +544,17 @@ def parse_env(name, key, options):
             newval = max(1, newval)
             options[key] = max(options[key], newval)
 
-def parse_command_line(argv):
+def parse_command_line(bargv, argv):
+    # bargv is the bytes version, argv is decoded via the default locale
+    # logic: parse arguments argv. if utf8-mode is enabled, re-decode bargv
+    # with utf-8, then parse arguments again
+    options = _parse_command_line(argv)
+    if options["utf8_mode"]:
+        argv = [b.decode("utf-8", "surrogateescape") for b in bargv]
+        return _parse_command_line(argv)
+    return options
+
+def _parse_command_line(argv):
     getenv = get_getenv()
     options = default_options.copy()
     options['warnoptions'] = []
@@ -554,6 +575,8 @@ def parse_command_line(argv):
         # it as a single argument
         elif arg in cmdline_options:
             argv = handle_argument(arg, options, iterargv)
+        elif arg.startswith("--"):
+            raise CommandLineError('Unknown option %s' % (arg,))
         #
         # Else interpret the rest of the argument character by character
         else:
@@ -585,6 +608,28 @@ def parse_command_line(argv):
         parse_env('PYTHONOPTIMIZE', "optimize", options)
         if getenv('PYTHONDEVMODE'):
             options["dev_mode"] = True
+        val = getenv('PYTHONUTF8')
+        if not val:
+            pass
+        elif val == "0":
+            if options["utf8_mode"] == -1: # don't overwrite -X value
+                options["utf8_mode"] = 0
+        elif val == "1":
+            if options["utf8_mode"] == -1: # don't overwrite -X value
+                options["utf8_mode"] = 1
+        else:
+            initstdio()
+            sys.stderr.write(
+                "Fatal Python error: invalid PYTHONUTF8 environment variable value %r\n" % val)
+            raise SystemExit(1)
+    if options["utf8_mode"] == -1: # neither env var nor -X utf8
+        import _locale
+        lc = _locale.setlocale(_locale.LC_CTYPE, None)
+        if lc == 'C' or lc == 'POSIX':
+            options["utf8_mode"] = 1
+        else:
+            options["utf8_mode"] = 0
+
     if (options["interactive"] or
         (not options["ignore_environment"] and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
@@ -619,6 +664,7 @@ def run_command_line(interactive,
                      quiet,
                      isolated,
                      dev_mode,
+                     utf8_mode,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the PyPy level for the compiler package
@@ -629,6 +675,8 @@ def run_command_line(interactive,
 
     readenv = not ignore_environment
     io_encoding = getenv("PYTHONIOENCODING") if readenv else None
+    if (not io_encoding or io_encoding == ":") and utf8_mode:
+        io_encoding = "utf-8:surrogateescape"
     initstdio(io_encoding, unbuffered)
 
     if 'faulthandler' in sys.builtin_module_names:
@@ -941,7 +989,7 @@ def setup_bootstrap_path(executable):
     sys.executable = executable
 
 @hidden_applevel
-def entry_point(executable, argv):
+def entry_point(executable, bargv, argv):
     # note that before calling 'import site', we are limited because we
     # cannot import stdlib modules. In particular, we cannot use unicode
     # stuffs (because we need to be able to import encodings). The full stdlib
@@ -949,7 +997,7 @@ def entry_point(executable, argv):
     setup_bootstrap_path(executable)
     sys.pypy_initfsencoding()
     try:
-        cmdline = parse_command_line(argv)
+        cmdline = parse_command_line(bargv, argv)
     except CommandLineError as e:
         initstdio()
         print_error(str(e))
@@ -960,18 +1008,25 @@ def entry_point(executable, argv):
     return run_command_line(**cmdline)
 
 
-if __name__ == '__main__':
+def main():
+    import os
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
+    global WE_ARE_TRANSLATED
     WE_ARE_TRANSLATED = False
+
+    # emulate passing bytes by using fsencode
+    bargv = [os.fsencode(a) for a in sys.argv]
+
 
     if len(sys.argv) > 1 and sys.argv[1] == '--argparse-only':
         import io
         del sys.argv[:2]
+        del bargv[:2]
         sys.stdout = sys.stderr = io.StringIO()
         try:
-            options = parse_command_line(sys.argv)
+            options = parse_command_line(bargv, sys.argv)
         except SystemExit:
             print('SystemExit', file=sys.__stdout__)
             print(sys.stdout.getvalue(), file=sys.__stdout__)
@@ -984,6 +1039,7 @@ if __name__ == '__main__':
             print('Return', file=sys.__stdout__)
         print(options, file=sys.__stdout__)
         print(sys.argv, file=sys.__stdout__)
+        return
 
     # Testing python on python is hard:
     # Some code above (run_command_line) will create a new module
@@ -996,7 +1052,6 @@ if __name__ == '__main__':
 
     # debugging only
     def pypy_find_executable(s):
-        import os
         return os.path.abspath(s)
 
     def pypy_find_stdlib(s):
@@ -1009,10 +1064,8 @@ if __name__ == '__main__':
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always
         # interpreter/app_main.py anyway
-        import os
         return os.path.abspath(os.path.join(s, '..'))
 
-    import os
     reset = []
     if 'PYTHONINSPECT_' in os.environ:
         reset.append(('PYTHONINSPECT', os.environ.get('PYTHONINSPECT', '')))
@@ -1020,8 +1073,6 @@ if __name__ == '__main__':
     if 'PYTHONWARNINGS_' in os.environ:
         reset.append(('PYTHONWARNINGS', os.environ.get('PYTHONWARNINGS', '')))
         os.environ['PYTHONWARNINGS'] = os.environ['PYTHONWARNINGS_']
-    del os # make sure that os is not available globally, because this is what
-           # happens in "real life" outside the tests
 
     # when run as __main__, this module is often executed by a Python
     # interpreter that have a different list of builtin modules.
@@ -1046,7 +1097,7 @@ if __name__ == '__main__':
     sys.cpython_path = sys.path[:]
 
     try:
-        sys.exit(int(entry_point(sys.argv[0], sys.argv[1:])))
+        sys.exit(int(entry_point(sys.argv[0], bargv[1:], sys.argv[1:])))
     finally:
         # restore the normal prompt (which was changed by _pypy_interact), in
         # case we are dropping to CPython's prompt
@@ -1057,3 +1108,5 @@ if __name__ == '__main__':
         assert old_argv is sys.argv
         assert old_path is sys.path
 
+if __name__ == '__main__':
+    main()

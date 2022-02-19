@@ -140,6 +140,8 @@ def setup_context(space, stacklevel):
             w_argv = space.sys.getdictvalue(space, 'argv')
             if w_argv and space.len_w(w_argv) > 0:
                 w_filename = space.getitem(w_argv, space.newint(0))
+                if space.eq_w(w_filename, space.newtext("-c")) and frame:
+                    w_filename = space.newtext(frame.getcode().co_filename)
                 if not space.is_true(w_filename):
                     w_filename = space.newtext('__main__')
             else:

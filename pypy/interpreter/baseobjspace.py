@@ -462,7 +462,12 @@ class ObjSpace(object):
         ret = 0
         self.wait_for_thread_shutdown()
         w_atexit = self.getbuiltinmodule('atexit')
-        self.call_method(w_atexit, '_run_exitfuncs')
+        try:
+            self.call_method(w_atexit, '_run_exitfuncs')
+        except OperationError:
+            # discard exceptions, see call_py_exitfuncs in pylifecycle.c in
+            # CPython
+            pass
         self.sys.finalizing = True
         if self.sys.flush_std_files(self) < 0:
             ret = -1
@@ -1376,7 +1381,7 @@ class ObjSpace(object):
                 raise IOError("don't use the cache when translating pypy")
             with open(cachename, 'rb') as f:
                 w_bin = self.newbytes(f.read())
-                w_code = interp_marshal.loads(self, w_bin)
+                w_code = interp_marshal._loads(self, w_bin, hidden_applevel)
         except IOError:
             # must (re)compile the source
             ec = self.getexecutioncontext()

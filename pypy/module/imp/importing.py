@@ -103,7 +103,10 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
         ec = space.getexecutioncontext()
         source = _readall(space, os.path.join(lib_pypy, modulename + '.py'))
         pathname = "<frozen %s>" % modulename
-        code_w = ec.compiler.compile(source, pathname, 'exec', 0)
+        # *must* pass optimize here, otherwise can get strange bootstrapping
+        # problems, because compile would try to get the sys.flags, which might
+        # not be there yet
+        code_w = ec.compiler.compile(source, pathname, 'exec', 0, optimize=0)
         w_mod = add_module(space, space.newtext(modulename))
         assert isinstance(w_mod, Module) # XXX why is that necessary?
         space.setitem(space.sys.get('modules'), w_mod.w_name, w_mod)

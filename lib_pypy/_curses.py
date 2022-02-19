@@ -3,7 +3,7 @@
 import sys
 if sys.platform == 'win32':
     #This module does not exist in windows
-    raise ImportError('No module named _curses')
+    raise ModuleNotFoundError('No module named _curses', name='_curses')
 import locale
 from functools import wraps
 

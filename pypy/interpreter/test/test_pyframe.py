@@ -112,6 +112,20 @@ class AppTestPyFrame:
         if hasattr(self, "check_no_w_locals"): # not appdirect
             assert self.check_no_w_locals(fh.frame)
 
+    def test_del_cell_locals_bug(self):
+        """
+        def f():
+            x = object()
+
+            def foo():
+                print(x)
+
+            locals()
+            del x
+            assert "x" not in locals()
+        f()
+        """
+
     def test_repr(self):
         import sys
         def a_name(a, b, c):

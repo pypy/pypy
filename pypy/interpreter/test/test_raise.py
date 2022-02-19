@@ -505,6 +505,28 @@ class AppTestRaiseContext:
         else:
             assert False, "should have raised"
 
+    def test_context_setter_ignored(self):
+        class MyExc(Exception):
+            def __setattr__(self, name, value):
+                assert name != "__context__"
+
+        with raises(MyExc) as excinfo:
+            try:
+                raise KeyError
+            except KeyError:
+                raise MyExc
+        assert isinstance(excinfo.value.__context__, KeyError)
+
+    def test_context_getter_ignored(self):
+        class MyExc(Exception):
+            __context__ = property(None, None, None)
+
+        with raises(KeyError):
+            try:
+                raise MyExc
+            except MyExc:
+                raise KeyError
+
 
 class AppTestTraceback:
 

@@ -13,7 +13,7 @@ except ImportError as e:
           "If you have a compiler installed, you can try to rebuild it by running:\n" + \
           "cd %s\n" % os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) + \
           "%s _ssl_build.py\n" % sys.executable
-    raise ImportError(str(e) + msg)
+    raise ModuleNotFoundError(str(e) + msg, name='_cffi_ssl')
 
 from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
     _decode_certificate, _certificate_to_der)
@@ -333,6 +333,11 @@ class _SSLSocket(object):
 
         lib.ERR_clear_error()
         self.ssl = ssl = ffi.gc(lib.SSL_new(ctx), lib.SSL_free)
+
+        # bpo43522 and OpenSSL < 1.1.1l: copy hostflags manually
+        if OPENSSL_VERSION_INFO < (1, 1, 1, 12):  # 12 == 'l'
+            params = lib.SSL_CTX_get0_param(ctx)
+            lib.X509_VERIFY_PARAM_set_hostflags(params, sslctx.hostflags);
 
         self._app_data_handle = ffi.new_handle(self)
         lib.SSL_set_app_data(ssl, ffi.cast("char*", self._app_data_handle))
@@ -1121,6 +1126,8 @@ class _SSLContext(object):
         options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
         options |= lib.SSL_OP_SINGLE_DH_USE
         options |= lib.SSL_OP_SINGLE_ECDH_USE
+        if lib.Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF:
+            options |= lib.SSL_OP_IGNORE_UNEXPECTED_EOF
         lib.SSL_CTX_set_options(self.ctx, options)
         lib.SSL_CTX_set_session_id_context(self.ctx, b"Python", len(b"Python"))
 

@@ -17,7 +17,7 @@ ffi.cdef('char *crypt(char *word, char *salt);')
 try:
     lib = ffi.dlopen('crypt')
 except OSError:
-    raise ImportError('crypt not available')
+    raise ModuleNotFoundError('crypt not available', name='crypt')
 
 
 @builtinify

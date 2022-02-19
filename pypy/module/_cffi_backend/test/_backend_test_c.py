@@ -1,7 +1,11 @@
+# Copied from <cffi>/c/test_c.py
+# Make sure the files are identical starting from the # ________ line below
+
+
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.14.6", ("This test_c.py file is for testing a version"
+assert __version__ == "1.15.0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):

@@ -595,13 +595,15 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
             continue
 
         # - Escapes
-        pos += 1
-        if pos >= len(s):
+        if pos + 1 >= len(s):
+            if not final:
+                break
             message = "\\ at end of string"
             r, pos, rettype, s = errorhandler(errors, "unicodeescape",
                                     message, s, pos - 1, len(s))
             builder.append(r)
             continue
+        pos += 1
 
         ch = s[pos]
         pos += 1
@@ -648,18 +650,27 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
         # \xXX
         elif ch == 'x':
             digits = 2
+            if pos + digits > len(s) and not final:
+                pos -= 2
+                break
             message = "truncated \\xXX escape"
             pos, s = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
         # \uXXXX
         elif ch == 'u':
             digits = 4
+            if pos + digits > len(s) and not final:
+                pos -= 2
+                break
             message = "truncated \\uXXXX escape"
             pos, s = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
         #  \UXXXXXXXX
         elif ch == 'U':
             digits = 8
+            if pos + digits > len(s) and not final:
+                pos -= 2
+                break
             message = "truncated \\UXXXXXXXX escape"
             pos, s = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
@@ -686,11 +697,18 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
                     pos = look + 1
                     builder.append_code(code)
                 else:
+                    if not final:
+                        pos -= 2
+                        break
                     r, pos, rettype, s = errorhandler(errors, "unicodeescape",
                                             message, s, pos - 1, look + 1)
                     builder.append(r)
             else:
+                if not final:
+                    pos -= 2
+                    break
                 r, pos, rettype, s = errorhandler(errors, "unicodeescape",
+
                                         message, s, pos - 1, look + 1)
                 builder.append(r)
         else:
@@ -733,41 +751,40 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
     pos = 0
     while pos < len(s):
         ch = s[pos]
+        pos += 1
 
         # Non-escape characters are interpreted as Unicode ordinals
         if ch != '\\':
             builder.append_code(ord(ch))
-            pos += 1
             continue
 
-        # \u-escapes are only interpreted iff the number of leading
-        # backslashes is odd
-        bs = pos
-        while pos < len(s):
-            pos += 1
-            if pos == len(s) or s[pos] != '\\':
-                break
-            builder.append_char('\\')
-
-        # we have a backslash at the end of the string, stop here
-        if pos >= len(s):
-            builder.append_char('\\')
+        if pos == len(s):
+            if final:
+                # we have a backslash at the end of the string, stop here
+                builder.append_char('\\')
+            else:
+                pos -= 1
             break
-
-        if ((pos - bs) & 1 == 0 or pos >= len(s) or
-                (s[pos] != 'u' and s[pos] != 'U')):
+        ch = s[pos]
+        if ch == "\\":
             builder.append_char('\\')
-            builder.append_code(ord(s[pos]))
             pos += 1
             continue
-
         if s[pos] == 'u':
             digits = 4
             message = "truncated \\uXXXX escape"
-        else:
+        elif s[pos] == 'U':
             digits = 8
             message = "truncated \\UXXXXXXXX escape"
+        else:
+            builder.append_char('\\')
+            builder.append_char(ch)
+            pos += 1
+            continue
         pos += 1
+        if pos + digits > len(s) and not final:
+            pos -= 2
+            break
         pos, s = hexescape(builder, s, pos, digits,
                            "rawunicodeescape", errorhandler, message, errors)
 

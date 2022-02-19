@@ -138,17 +138,20 @@ class BasePosix(Platform):
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
         else:
-            exe_name = exe_name.new(ext=self.exe_ext)
+            # Do not remove '.7' from pypy3.7
+            exe_name = exe_name + self.exe_ext
 
         linkflags = self.makefile_link_flags()
+        m = GnuMakefile(path)
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
         linkflags += self._exportsymbols_link_flags()
 
         if shared:
-            libname = exe_name.new(ext='').basename
-            target_name = 'lib' + exe_name.new(ext=self.so_ext).basename
+            libname = exe_name.basename
+            target_name = 'lib' + exe_name.basename + '.' + self.so_ext
+            m.so_name = path.join(target_name)
         else:
             target_name = exe_name.basename
 
@@ -161,7 +164,6 @@ class BasePosix(Platform):
         if config and config.translation.lto:
             cflags = ('-flto',) + cflags
 
-        m = GnuMakefile(path)
         m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 
@@ -196,7 +198,7 @@ class BasePosix(Platform):
         m.comment('automatically generated makefile')
         definitions = [
             ('RPYDIR', '"%s"' % rpydir),
-            ('TARGET', target_name),
+            ('TARGET', str(target_name)),
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
@@ -251,7 +253,7 @@ class BasePosix(Platform):
         m.rule(*postcompile_rule)
 
         if shared:
-            m.definition('SHARED_IMPORT_LIB', libname),
+            m.definition('SHARED_IMPORT_LIB', str(libname)),
             m.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
             m.rule('main.c', '',
                    'echo "'

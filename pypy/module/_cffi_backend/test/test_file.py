@@ -10,18 +10,19 @@ def test_same_file():
     dest = py.path.local(__file__).join('..', '_backend_test_c.py').read()
     #
     source = source[source.index('# _____________'):]
+    dest = dest[dest.index('# _____________'):]
     if source.strip() != dest.strip():
         raise AssertionError(
             "Update test/_backend_test_c.py by copying it from " +
             url + " and killing the import lines at the start")
 
-def test_egginfo_version():
+def test_metadata_version():
     from pypy.module._cffi_backend import VERSION
     line = "Version: %s\n" % VERSION
-    eggfile = py.path.local(__file__).join('..', '..', '..', '..', '..',
-                                           'lib_pypy', 'cffi.egg-info',
-                                           'PKG-INFO')
-    assert line in eggfile.readlines()
+    metadatafile = py.path.local(__file__).join('..', '..', '..', '..', '..',
+                                           'lib_pypy', 'cffi.dist-info',
+                                           'METADATA')
+    assert line in metadatafile.readlines()
 
 def test_app_version():
     from pypy.module import _cffi_backend
