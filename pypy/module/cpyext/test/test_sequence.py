@@ -381,6 +381,6 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
         a = A()
         assert a[12] == 42
         assert module.test_get_item(a, 0) == 42
-        assert module.test_get_item(b'a', 0) == 'a'
+        assert module.test_get_item(b'a', 0) == ord('a')
         raises(IndexError, module.test_get_item, b'a', -2)
         raises(IndexError, module.test_get_item, b'a', 1)
