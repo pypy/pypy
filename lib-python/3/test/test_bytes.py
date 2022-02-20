@@ -1632,12 +1632,12 @@ class ByteArrayTest(BaseBytesTest, unittest.TestCase):
         b += b
         b += b
         b += b
-        self.assertEquals(len(v), 80)
+        self.assertEqual(len(v), 80)
         self.assertIn(v[5], (100, bytes([100])))
         self.assertIn(v[79], (9, bytes([9])))
         del b[10:]
         self.assertRaises(IndexError, lambda: v[10])
-        self.assertEquals(len(v), 10)
+        self.assertEqual(len(v), 10)
 
     @test.support.cpython_only
     def test_obsolete_write_lock(self):
