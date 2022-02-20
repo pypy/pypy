@@ -16,8 +16,9 @@ import sys
 
 def _abstract_method_error(typ):
     methods = ", ".join(sorted(typ.__abstractmethods__))
-    err = "Can't instantiate abstract class %s with abstract methods %s"
-    raise TypeError(err % (typ.__name__, methods))
+    method_s = 's' if len(typ.__abstractmethods__) > 1 else ''
+    err = "Can't instantiate abstract class %s with abstract method%s %s"
+    raise TypeError(err % (typ.__name__, method_s, methods))
 
 def reduce_1(obj, proto):
     import copyreg

@@ -25,7 +25,7 @@ def test_error_message_ast():
     m = ast.Module([ast.Expr(ast.expr(**pos), **pos)], [])
     with pytest.raises(TypeError) as excinfo:
         compile(m, 'fn', 'exec')
-    assert "expected some sort of expr, got" in str(excinfo.value)
+    assert "expected some sort of expr, but got" in str(excinfo.value)
 
 def test_weird_exec_bug():
     with pytest.raises(SyntaxError) as excinfo:

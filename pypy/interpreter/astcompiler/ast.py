@@ -2263,7 +2263,7 @@ class expr(AST):
         if space.isinstance_w(w_node, get(space).w_Slice):
             return Slice.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "expected some sort of expr, got %R", w_node)
+                "expected some sort of expr, but got %R", w_node)
 State.ast_type('expr', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='expr = BoolOp(boolop op, expr* values)\n     | NamedExpr(expr target, expr value)\n     | BinOp(expr left, operator op, expr right)\n     | UnaryOp(unaryop op, expr operand)\n     | Lambda(arguments args, expr body)\n     | IfExp(expr test, expr body, expr orelse)\n     | Dict(expr* keys, expr* values)\n     | Set(expr* elts)\n     | ListComp(expr elt, comprehension* generators)\n     | SetComp(expr elt, comprehension* generators)\n     | DictComp(expr key, expr value, comprehension* generators)\n     | GeneratorExp(expr elt, comprehension* generators)\n     | Await(expr value)\n     | Yield(expr? value)\n     | YieldFrom(expr value)\n     | Compare(expr left, cmpop* ops, expr* comparators)\n     | Call(expr func, expr* args, keyword* keywords)\n     | RevDBMetaVar(int metavar)\n     | FormattedValue(expr value, int? conversion, expr? format_spec)\n     | JoinedStr(expr* values)\n     | Constant(constant value, string? kind)\n     | Attribute(expr value, identifier attr, expr_context ctx)\n     | Subscript(expr value, expr slice, expr_context ctx)\n     | Starred(expr value, expr_context ctx)\n     | Name(identifier id, expr_context ctx)\n     | List(expr* elts, expr_context ctx)\n     | Tuple(expr* elts, expr_context ctx)\n     | Slice(expr? lower, expr? upper, expr? step)')
 
 class BoolOp(expr):
