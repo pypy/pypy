@@ -59,7 +59,7 @@ Example_demo(ExampleObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-#include "clinic/_testmultiphase.c.h"
+#include "_testmultiphase.c.h"
 
 static PyMethodDef Example_methods[] = {
     {"demo",            (PyCFunction)Example_demo,  METH_VARARGS,
