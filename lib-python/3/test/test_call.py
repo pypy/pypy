@@ -9,6 +9,7 @@ import struct
 import collections
 import itertools
 import gc
+import sys
 
 
 class FunctionCalls(unittest.TestCase):
@@ -532,7 +533,11 @@ class TestPEP590(unittest.TestCase):
         # additionally that no new tuple is created for this call.
         args = tuple(range(5))
         f = _testcapi.MethodDescriptorNopGet()
-        self.assertIs(f(*args), args)
+        if sys.implementation.name == 'pypy':
+            # processing via cpyext creates a new tuple
+            self.assertEqual(f(*args), args)
+        else:
+            self.assertIs(f(*args), args)
 
     def test_vectorcall(self):
         # Test a bunch of different ways to call objects:
