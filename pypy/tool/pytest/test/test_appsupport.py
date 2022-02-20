@@ -118,7 +118,7 @@ def test_apptest_fail_plain(testdir):
     result = testdir.runpytest(p)
     assert result.ret == 1
     result.stdout.fnmatch_lines([
-        "*E*(application-level) AssertionError",
+        "*E*(application-level) AssertionError*",
     ])
 
 def test_apptest_spaceconfig(testdir):
