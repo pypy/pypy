@@ -273,10 +273,9 @@ class W_MMap(W_Root):
         if w_length is None:
             length = self.mmap.size
         else:
-            length = space.w_int(w_length)
+            length = space.int_w(w_length)
         if length < 0:
             raise oefmt(space.w_ValueError, "madvise length invalid, can't be negative")
-        import pdb;pdb.set_trace()
         try:
             end = rarithmetic.ovfcheck(start + length)
         except OverflowError:
