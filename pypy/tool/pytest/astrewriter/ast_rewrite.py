@@ -399,7 +399,7 @@ class AssertionRewriter(ast.ASTVisitor):
             new_args.append(res)
         for keyword in call.keywords or []:
             res, expl = self.visit(keyword.value)
-            new_kwargs.append(ast.keyword(keyword.arg, res))
+            new_kwargs.append(b(ast.keyword, keyword.arg, res))
             if keyword.arg:
                 arg_expls.append(keyword.arg + "=" + expl)
             else:  # **args have `arg` keywords with an .arg of None
