@@ -257,8 +257,8 @@ class W_MMap(W_Root):
             return iterate()
         """)
 
-    @unwrap_spec(flags=int, start=int, length=int)
-    def descr_madvise(self, space, flags, start=0, length=sys.maxint):
+    @unwrap_spec(flags=int, start=int)
+    def descr_madvise(self, space, flags, start=0, w_length=None):
         """
         madvise(option[, start[, length]])
 
@@ -270,12 +270,17 @@ class W_MMap(W_Root):
         """
         if start < 0 or start >= self.mmap.size:
             raise oefmt(space.w_ValueError, "madvise start out of bounds")
+        if w_length is None:
+            length = self.mmap.size
+        else:
+            length = space.w_int(w_length)
         if length < 0:
             raise oefmt(space.w_ValueError, "madvise length invalid, can't be negative")
+        import pdb;pdb.set_trace()
         try:
             end = rarithmetic.ovfcheck(start + length)
         except OverflowError:
-            length = self.mmap.size - start
+            raise oefmt(space.w_OverflowError, "madvise length too large")
         else:
             if end > self.mmap.size:
                 length = self.mmap.size - start
