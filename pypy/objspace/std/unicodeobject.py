@@ -1508,7 +1508,7 @@ def encode_object(space, w_obj, encoding, errors):
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_codec_info = lookup_text_codec(space, 'encode', encoding)
-    if space.sys.get_flag('dev_mode'):
+    if errors is not None and space.sys.get_flag('dev_mode'):
         lookup_error(space, errors)
     w_encfunc = space.getitem(w_codec_info, space.newint(0))
     w_retval = _call_codec(space, w_encfunc, w_obj, "encoding", encoding, errors)
@@ -1545,7 +1545,7 @@ def decode_object(space, w_obj, encoding, errors=None):
             return space.newutf8(s, lgt)
     if encoding is None:
         encoding = space.sys.defaultencoding
-    if space.sys.get_flag('dev_mode'):
+    if errors is not None and space.sys.get_flag('dev_mode'):
         lookup_error(space, errors)
     w_codec_info = lookup_text_codec(space, 'decode', encoding)
     w_encfunc = space.getitem(w_codec_info, space.newint(1))
