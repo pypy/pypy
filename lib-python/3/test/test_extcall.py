@@ -262,10 +262,10 @@ What about willful misconduct?
       ...
     TypeError: h() got an unexpected keyword argument 'e'
 
-    >>> h(*h)
+    >>> h(*h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: test.test_extcall.h() argument after * must be an iterable, not function
+    TypeError: ...argument after * must be an iterable, not function
 
     >>> h(1, *h)
     Traceback (most recent call last):
@@ -283,31 +283,31 @@ What about willful misconduct?
     TypeError: dir() argument after * must be an iterable, not function
 
     >>> nothing = None
-    >>> nothing(*h)
+    >>> nothing(*h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: None argument after * must be an iterable, \
+    TypeError: ...argument after * must be an iterable, \
 not function
 
     >>> h(**h)
     Traceback (most recent call last):
       ...
-    TypeError: test.test_extcall.h() argument after ** must be a mapping, not function
+    TypeError: argument after ** must be a mapping, not function
 
     >>> h(**[])
     Traceback (most recent call last):
       ...
-    TypeError: test.test_extcall.h() argument after ** must be a mapping, not list
+    TypeError: argument after ** must be a mapping, not list
 
-    >>> h(a=1, **h)
+    >>> h(a=1, **h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: test.test_extcall.h() argument after ** must be a mapping, not function
+    TypeError: ...argument after ** must be a mapping, not function
 
-    >>> h(a=1, **[])
+    >>> h(a=1, **[])  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: test.test_extcall.h() argument after ** must be a mapping, not list
+    TypeError: ...argument after ** must be a mapping, not list
 
     >>> h(**{'a': 1}, **h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
@@ -319,16 +319,15 @@ not function
       ...
     TypeError: ...argument after ** must be a mapping, not list
 
-    >>> dir(**h)
+    >>> dir(**h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: dir() argument after ** must be a mapping, not function
+    TypeError: ...argument after ** must be a mapping, not function
 
-    >>> nothing(**h)
+    >>> nothing(**h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: None argument after ** must be a mapping, \
-not function
+    TypeError: ...argument after ** must be a mapping, not function
 
     >>> dir(b=1, **{'b': 1})                   #doctest: +ELLIPSIS
     Traceback (most recent call last):
@@ -519,6 +518,10 @@ Same with keyword only args:
     TypeError: f() missing 5 required keyword-only arguments: 'a', 'b', 'c', 'd', and 'e'
 
 """
+
+# Adjusted for PyPy:
+# - exceptions sometimes use different or no repr for the functions that caused
+#   them
 
 import sys
 from test import support
