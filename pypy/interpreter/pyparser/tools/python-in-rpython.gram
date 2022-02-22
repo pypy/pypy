@@ -1330,7 +1330,7 @@ invalid_for_target[NoReturn]:
 
 invalid_group[NoReturn]:
     | '(' a=starred_expression ')' {
-        self.raise_syntax_error_known_location("cannot use starred expression here", a)
+        self.raise_syntax_error_known_location("can't use starred expression here", a)
      }
     | '(' a='**' expression ')' {
         self.raise_syntax_error_known_location("cannot use double starred expression here", a)
