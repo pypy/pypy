@@ -653,6 +653,7 @@ class StructTest(unittest.TestCase):
         s2 = struct.Struct(s.format.encode())
         self.assertEqual(s2.format, s.format)
 
+    @support.impl_detail(pypy=False, msg="PyPy does not clean up at shutdown")
     def test_struct_cleans_up_at_runtime_shutdown(self):
         code = """if 1:
             import struct
