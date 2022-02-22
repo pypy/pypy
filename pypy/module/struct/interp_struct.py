@@ -167,7 +167,7 @@ fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
     if buf_length - offset < s_size:
         raise oefmt(get_error(space),
                     "unpack_from requires a buffer of at least %d bytes for "
-                    "unpacking %d bytes at offest %d "
+                    "unpacking %d bytes at offset %d "
                     "(actual buffer size is %d)",
                     r_uint(s_size + offset), s_size, offset, buf_length)
     buf = SubBuffer(buf, offset, s_size)
