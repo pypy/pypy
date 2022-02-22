@@ -7,10 +7,10 @@
     "date": "2022-02-19",
     "files": [
       {
-        "filename": "pypy3.9-v7.3.8-aarch64.tar.bz2",
+        "filename": "pypy3.9-v7.3.8-aarch64-portable.tar.bz2",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.8-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.8-aarch64-portable.tar.bz2"
       },
       {
         "filename": "pypy3.9-v7.3.8-linux32.tar.bz2",
@@ -52,10 +52,10 @@
     "date": "2022-02-19",
     "files": [
       {
-        "filename": "pypy3.8-v7.3.8-aarch64.tar.bz2",
+        "filename": "pypy3.8-v7.3.8-aarch64-portable.tar.bz2",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.8-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.8-aarch64-portable.tar.bz2"
       },
       {
         "filename": "pypy3.8-v7.3.8-linux32.tar.bz2",
@@ -97,10 +97,10 @@
     "date": "2022-02-19",
     "files": [
       {
-        "filename": "pypy3.7-v7.3.8-aarch64.tar.bz2",
+        "filename": "pypy3.7-v7.3.8-aarch64-portable.tar.bz2",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.7-v7.3.8-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.7-v7.3.8-aarch64-portable.tar.bz2"
       },
       {
         "filename": "pypy3.7-v7.3.8-linux32.tar.bz2",
@@ -142,10 +142,10 @@
     "date": "2022-02-19",
     "files": [
       {
-        "filename": "pypy2.7-v7.3.8-aarch64.tar.bz2",
+        "filename": "pypy2.7-v7.3.8-aarch64-portable.tar.bz2",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.8-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.8-aarch64-portable.tar.bz2"
       },
       {
         "filename": "pypy2.7-v7.3.8-linux32.tar.bz2",
