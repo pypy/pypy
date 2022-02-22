@@ -74,3 +74,10 @@ class AppTestBasic:
         d |= e
         assert orig == {'spam': 1, 'eggs': 2, 'cheese': 'cheddar', 'aardvark': 'Ethel'}
 
+    def test_mixed_type_or_bug(self):
+        from _collections import OrderedDict
+        d = {1: 1} | OrderedDict({1: 2})
+        assert type(d) is OrderedDict
+        assert d == OrderedDict({1: 2})
+
+
