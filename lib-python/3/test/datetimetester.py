@@ -5775,8 +5775,7 @@ class IranTest(ZoneInfoTest):
 class CapiTest(unittest.TestCase):
     def setUp(self):
         # Since the C API is not present in the _Pure tests, skip all tests
-        # but run them on PyPy
-        if self.__class__.__name__.endswith('Pure') and sys.implementation.name != 'pypy':
+        if self.__class__.__name__.endswith('Pure'):
             self.skipTest('Not relevant in pure Python')
 
         # This *must* be called, and it must be called first, so until either

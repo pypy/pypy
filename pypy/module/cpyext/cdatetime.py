@@ -47,19 +47,13 @@ def _PyDateTime_Import(space):
     datetimeAPI.c_TimeType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
 
-    w_delta = space.getattr(w_datetime, space.newtext("timedelta"))
+    w_type = space.getattr(w_datetime, space.newtext("timedelta"))
     datetimeAPI.c_DeltaType = rffi.cast(
-        PyTypeObjectPtr, make_ref(space, w_delta))
+        PyTypeObjectPtr, make_ref(space, w_type))
 
-    w_tzinfo = space.getattr(w_datetime, space.newtext("tzinfo"))
+    w_type = space.getattr(w_datetime, space.newtext("tzinfo"))
     datetimeAPI.c_TZInfoType = rffi.cast(
-        PyTypeObjectPtr, make_ref(space, w_tzinfo))
-
-    # singleton
-    w_timezone = space.getattr(w_datetime, space.newtext("timezone"))
-    w_d0 = space.call_function(w_delta)
-    w_tzobj = space.call_function(w_timezone, w_d0)
-    datetimeAPI.c_TimeZone_UTC = make_ref(space, w_tzobj)
+        PyTypeObjectPtr, make_ref(space, w_type))
 
     datetimeAPI.c_Date_FromDate = llhelper(
         _PyDate_FromDate.api_func.functype,
