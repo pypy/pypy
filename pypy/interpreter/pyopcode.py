@@ -843,7 +843,14 @@ class __extend__(pyframe.PyFrame):
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
-        items = self.space.fixedview_unroll(w_iterable, itemcount)
+        try:
+            items = self.space.fixedview_unroll(w_iterable, itemcount)
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_TypeError):
+                raise
+            raise oefmt(self.space.w_TypeError,
+                    "cannot unpack non-iterable %T object",
+                    w_iterable)
         self.pushrevvalues(itemcount, items)
 
     @jit.unroll_safe
@@ -852,7 +859,14 @@ class __extend__(pyframe.PyFrame):
         left = oparg & 0xFF
         right = (oparg & 0xFF00) >> 8
         w_iterable = self.popvalue()
-        items = self.space.fixedview(w_iterable)
+        try:
+            items = self.space.fixedview(w_iterable)
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_TypeError):
+                raise
+            raise oefmt(self.space.w_TypeError,
+                    "cannot unpack non-iterable %T object",
+                    w_iterable)
         itemcount = len(items)
         count = left + right
         if count > itemcount:
