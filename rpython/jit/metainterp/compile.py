@@ -1088,8 +1088,8 @@ def compile_trace(metainterp, resumekey, runtime_boxes, ends_with_jump=False):
     metainterp.retrace_needed(new_trace, info)
     return None
 
-def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
-                            ends_with_jump=False):
+def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
+                           ends_with_jump=False):
     """
     Try to execute a baseline (or method)  JIT compilation by splitting
     a given trace generated from a method-traversal interpreter
@@ -1098,11 +1098,11 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     jitdriver_sd = metainterp.jitdriver_sd
     inputargs = metainterp.history.inputargs[:]
     trace = metainterp.history.trace
-    jitdriver_sd = metainterp.jitdriver_sd
     enable_opts = jitdriver_sd.warmstate.enable_opts
     call_pure_results = metainterp.call_pure_results
     resumestorage = resumekey.get_resumestorage()
 
+    trace.tracing_done()
     metainterp_sd.jitlog.start_new_trace(metainterp_sd,
         faildescr=resumekey, entry_bridge=False,
         jd_name=jitdriver_sd.jitdriver.name)
@@ -1139,7 +1139,7 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
             newops, info.inputargs)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
-        debug_print('InvalidLoop in splitting a trace')
+        debug_print('InvalidLoop in compile_loop_and_split')
         return None
 
     try:

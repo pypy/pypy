@@ -2852,7 +2852,7 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         runtime_args = original_boxes[num_green_args:]
-        target_token = compile.compile_trace_and_split(
+        target_token = compile.compile_loop_and_split(
             self, greenkey, self.resumekey, runtime_args)
         if target_token is not None:
             assert isinstance(target_token, TargetToken)
