@@ -120,7 +120,7 @@ class TraceSplitOpt(object):
                 name = self._get_name_from_arg(op.getarg(0))
                 numargs = op.numargs()
                 lastarg = op.getarg(numargs - 1)
-                if lastarg.type is INT and lastarg.value is 1:
+                if isinstance(lastarg, ConstInt) and lastarg.getint() == 1:
                     op.setarg(numargs - 1, ConstInt(0))
                 if name.find(mark.JUMP) != -1:
                     pseudo_ops.append(op)
@@ -226,19 +226,19 @@ class TraceSplitOpt(object):
             if rop.is_call(opnum):
                 arg = op.getarg(0)
                 name = self._get_name_from_arg(arg)
-                if name.find(mark.JUMP) != -1:
-                    current, target = op.getarg(1), op.getarg(2)
-                    assert isinstance(current, ConstInt)
-                    assert isinstance(target, ConstInt)
-                    current, target = current.getint(), target.getint()
+                if mark.is_pseudo_jump(name):
+                    nextbox, targetbox = op.getarg(1), op.getarg(2)
+                    assert isinstance(nextbox, ConstInt)
+                    assert isinstance(targetbox, ConstInt)
+                    next, target = nextbox.getint(), targetbox.getint()
                     if target not in token_map:
                         token_map[target] = self._create_token(orig_token)
-                    if current not in token_map:
-                        token_map[current] = self._create_token(orig_token)
-                elif name.find(mark.RET) != -1:
-                    target, retval = op.getarg(1), op.getarg(2)
-                    assert isinstance(target, ConstInt)
-                    target = target.getint()
+                    if next not in token_map:
+                        token_map[next] = self._create_token(orig_token)
+                elif mark.is_pseudo_ret(name):
+                    targetbox, retvalbox = op.getarg(1), op.getarg(2)
+                    assert isinstance(targetbox, ConstInt)
+                    target = targetbox.getint()
                     if target not in token_map:
                         token_map[target] = self._create_token(orig_token)
 
