@@ -12,7 +12,7 @@ CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 # make sure to keep PYPY_VERSION in sync with:
 #    module/cpyext/include/patchlevel.h
 #    doc/conf.py
-PYPY_VERSION               = (7, 3, 9, "alpha", 0)
+PYPY_VERSION               = (7, 3, 10, "alpha", 0)
 
 
 import pypy
