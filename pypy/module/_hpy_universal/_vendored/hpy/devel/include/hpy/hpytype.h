@@ -64,9 +64,15 @@ typedef struct {
 */
 #define HPy_TPFLAGS_INTERNAL_PURE (1UL << 8)
 
+#define HPy_TPFLAGS_INTERNAL_IS_HPY_TYPE (1UL << 7)
+
+
 /* Set if the type allows subclassing */
 #define HPy_TPFLAGS_BASETYPE (1UL << 10)
 
+/* If set, the object will be tracked by CPython's GC. Probably irrelevant for
+   GC-based alternative implementations */
+#define HPy_TPFLAGS_HAVE_GC (1UL << 14)
 
 /* A macro for creating (static inline) helper functions for custom types.
 

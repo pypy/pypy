@@ -1,23 +1,29 @@
 #ifndef HPY_UNIVERSAL_HPYDEF_H
 #define HPY_UNIVERSAL_HPYDEF_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stddef.h> /* to make sure "offsetof" is available for our users */
 
 #include "hpy/hpyfunc.h"
 #include "hpy/autogen_hpyslot.h"
+#include "hpy/cpy_types.h"
+
+typedef void* (*HPyCFunction)();
 
 typedef struct {
     HPySlot_Slot slot;     // The slot to fill
-    void *impl;            // Function pointer to the implementation
-    void *cpy_trampoline;  // Used by CPython to call impl
+    HPyCFunction impl;     // Function pointer to the implementation
+    cpy_PyCFunction cpy_trampoline;  // Used by CPython to call impl
 } HPySlot;
 
 typedef struct {
     const char *name;             // The name of the built-in function/method
-    const char *doc;              // The __doc__ attribute, or NULL
-    void *impl;                   // Function pointer to the implementation
-    void *cpy_trampoline;         // Used by CPython to call impl
+    HPyCFunction impl;            // Function pointer to the implementation
+    cpy_PyCFunction cpy_trampoline;         // Used by CPython to call impl
     HPyFunc_Signature signature;  // Indicates impl's expected the signature
+    const char *doc;              // The __doc__ attribute, or NULL
 } HPyMeth;
 
 typedef enum {
@@ -62,10 +68,10 @@ typedef struct {
 
 typedef struct {
     const char *name;
-    void *getter_impl;            // Function pointer to the implementation
-    void *setter_impl;            // Same; this may be NULL
-    void *getter_cpy_trampoline;  // Used by CPython to call getter_impl
-    void *setter_cpy_trampoline;  // Same; this may be NULL
+    HPyCFunction getter_impl;            // Function pointer to the implementation
+    HPyCFunction setter_impl;            // Same; this may be NULL
+    cpy_getter getter_cpy_trampoline;  // Used by CPython to call getter_impl
+    cpy_setter setter_cpy_trampoline;  // Same; this may be NULL
     const char *doc;
     void *closure;
 } HPyGetSet;
@@ -115,26 +121,26 @@ typedef struct {
 // this is the actual implementation, after we determined the SIG
 #define _HPyDef_SLOT(SYM, IMPL, SLOT, SIG)                              \
     HPyFunc_DECLARE(IMPL, SIG);                                         \
-    HPyFunc_TRAMPOLINE(SYM##_trampoline, IMPL, SIG);                    \
+    HPyFunc_TRAMPOLINE(SYM##_trampoline, IMPL, SIG);             \
     HPyDef SYM = {                                                      \
         .kind = HPyDef_Kind_Slot,                                       \
         .slot = {                                                       \
             .slot = SLOT,                                               \
-            .impl = IMPL,                                               \
-            .cpy_trampoline = SYM##_trampoline                          \
+            .impl = (HPyCFunction)IMPL,                                 \
+            .cpy_trampoline = (cpy_PyCFunction)SYM##_trampoline         \
         }                                                               \
     };
 
 
 #define HPyDef_METH(SYM, NAME, IMPL, SIG, ...)                          \
     HPyFunc_DECLARE(IMPL, SIG);                                         \
-    HPyFunc_TRAMPOLINE(SYM##_trampoline, IMPL, SIG);                    \
+    HPyFunc_TRAMPOLINE(SYM##_trampoline, IMPL, SIG);             \
     HPyDef SYM = {                                                      \
         .kind = HPyDef_Kind_Meth,                                       \
         .meth = {                                                       \
             .name = NAME,                                               \
-            .impl = IMPL,                                               \
-            .cpy_trampoline = SYM##_trampoline,                         \
+            .impl = (HPyCFunction)IMPL,                                 \
+            .cpy_trampoline = (cpy_PyCFunction)SYM##_trampoline,        \
             .signature = SIG,                                           \
             __VA_ARGS__                                                 \
         }                                                               \
@@ -151,47 +157,50 @@ typedef struct {
         }                                           \
     };
 
-#define HPyDef_GET(SYM, NAME, GETIMPL, ...)                                 \
-    HPyFunc_DECLARE(GETIMPL, HPyFunc_GETTER);                               \
-    HPyFunc_TRAMPOLINE(SYM##_get_trampoline, GETIMPL, HPyFunc_GETTER);      \
-    HPyDef SYM = {                                                          \
-        .kind = HPyDef_Kind_GetSet,                                         \
-        .getset = {                                                         \
-            .name = NAME,                                                   \
-            .getter_impl = GETIMPL,                                         \
-            .getter_cpy_trampoline = SYM##_get_trampoline,                  \
-            __VA_ARGS__                                                     \
-        }                                                                   \
+#define HPyDef_GET(SYM, NAME, GETIMPL, ...)                                     \
+    HPyFunc_DECLARE(GETIMPL, HPyFunc_GETTER);                                   \
+    HPyFunc_TRAMPOLINE(SYM##_get_trampoline, GETIMPL, HPyFunc_GETTER); \
+    HPyDef SYM = {                                                              \
+        .kind = HPyDef_Kind_GetSet,                                             \
+        .getset = {                                                             \
+            .name = NAME,                                                       \
+            .getter_impl = (HPyCFunction)GETIMPL,                               \
+            .getter_cpy_trampoline = (cpy_getter)SYM##_get_trampoline,          \
+            __VA_ARGS__                                                         \
+        }                                                                       \
     };
 
-#define HPyDef_SET(SYM, NAME, SETIMPL, ...)                                 \
-    HPyFunc_DECLARE(SETIMPL, HPyFunc_SETTER);                               \
-    HPyFunc_TRAMPOLINE(SYM##_set_trampoline, SETIMPL, HPyFunc_SETTER);      \
-    HPyDef SYM = {                                                          \
-        .kind = HPyDef_Kind_GetSet,                                         \
-        .getset = {                                                         \
-            .name = NAME,                                                   \
-            .setter_impl = SETIMPL,                                         \
-            .setter_cpy_trampoline = SYM##_set_trampoline,                  \
-            __VA_ARGS__                                                     \
-        }                                                                   \
+#define HPyDef_SET(SYM, NAME, SETIMPL, ...)                                     \
+    HPyFunc_DECLARE(SETIMPL, HPyFunc_SETTER);                                   \
+    HPyFunc_TRAMPOLINE(SYM##_set_trampoline, SETIMPL, HPyFunc_SETTER); \
+    HPyDef SYM = {                                                              \
+        .kind = HPyDef_Kind_GetSet,                                             \
+        .getset = {                                                             \
+            .name = NAME,                                                       \
+            .setter_impl = (HPyCFunction)SETIMPL,                               \
+            .setter_cpy_trampoline = (cpy_setter)SYM##_set_trampoline,          \
+            __VA_ARGS__                                                         \
+        }                                                                       \
     };
 
-#define HPyDef_GETSET(SYM, NAME, GETIMPL, SETIMPL, ...)                     \
-    HPyFunc_DECLARE(GETIMPL, HPyFunc_GETTER);                               \
-    HPyFunc_DECLARE(SETIMPL, HPyFunc_SETTER);                               \
-    HPyFunc_TRAMPOLINE(SYM##_get_trampoline, GETIMPL, HPyFunc_GETTER);      \
-    HPyFunc_TRAMPOLINE(SYM##_set_trampoline, SETIMPL, HPyFunc_SETTER);      \
-    HPyDef SYM = {                                                          \
-        .kind = HPyDef_Kind_GetSet,                                         \
-        .getset = {                                                         \
-            .name = NAME,                                                   \
-            .getter_impl = GETIMPL,                                         \
-            .setter_impl = SETIMPL,                                         \
-            .getter_cpy_trampoline = SYM##_get_trampoline,                  \
-            .setter_cpy_trampoline = SYM##_set_trampoline,                  \
-            __VA_ARGS__                                                     \
-        }                                                                   \
+#define HPyDef_GETSET(SYM, NAME, GETIMPL, SETIMPL, ...)                         \
+    HPyFunc_DECLARE(GETIMPL, HPyFunc_GETTER);                                   \
+    HPyFunc_TRAMPOLINE(SYM##_get_trampoline, GETIMPL, HPyFunc_GETTER); \
+    HPyFunc_DECLARE(SETIMPL, HPyFunc_SETTER);                                   \
+    HPyFunc_TRAMPOLINE(SYM##_set_trampoline, SETIMPL, HPyFunc_SETTER); \
+    HPyDef SYM = {                                                              \
+        .kind = HPyDef_Kind_GetSet,                                             \
+        .getset = {                                                             \
+            .name = NAME,                                                       \
+            .getter_impl = (HPyCFunction)GETIMPL,                               \
+            .setter_impl = (HPyCFunction)SETIMPL,                               \
+            .getter_cpy_trampoline = (cpy_getter)SYM##_get_trampoline,          \
+            .setter_cpy_trampoline = (cpy_setter)SYM##_set_trampoline,          \
+            __VA_ARGS__                                                         \
+        }                                                                       \
     };
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* HPY_UNIVERSAL_HPYDEF_H */

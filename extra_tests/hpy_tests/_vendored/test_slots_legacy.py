@@ -1,5 +1,4 @@
 """ HPyType slot tests on legacy types. """
-import pytest
 
 from .support import HPyTest
 from .test_hpytype_legacy import LegacyPointTemplate
@@ -173,7 +172,6 @@ class TestCustomLegacySlotsFeatures(HPyTest):
         assert p.x == 123
         assert p.y == 456
 
-    @pytest.mark.xfail
     def test_legacy_slots_getsets(self):
         mod = self.make_module("""
             #include <Python.h>

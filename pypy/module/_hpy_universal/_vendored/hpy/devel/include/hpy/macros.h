@@ -52,3 +52,20 @@ typedef enum {
             return HPy_Dup(ctx, ctx->h_True);                           \
         return HPy_Dup(ctx, ctx->h_False);                              \
     } while (0)
+
+
+#if !defined(SIZEOF_PID_T) || SIZEOF_PID_T == SIZEOF_INT
+    #define _HPy_PARSE_PID "i"
+    #define HPyLong_FromPid HPyLong_FromLong
+    #define HPyLong_AsPid HPyLong_AsLong
+#elif SIZEOF_PID_T == SIZEOF_LONG
+    #define _HPy_PARSE_PID "l"
+    #define HPyLong_FromPid HPyLong_FromLong
+    #define HPyLong_AsPid HPyLong_AsLong
+#elif defined(SIZEOF_LONG_LONG) && SIZEOF_PID_T == SIZEOF_LONG_LONG
+    #define _HPy_PARSE_PID "L"
+    #define HPyLong_FromPid HPyLong_FromLongLong
+    #define HPyLong_AsPid HPyLong_AsLongLong
+#else
+#error "sizeof(pid_t) is neither sizeof(int), sizeof(long) or sizeof(long long)"
+#endif /* SIZEOF_PID_T */

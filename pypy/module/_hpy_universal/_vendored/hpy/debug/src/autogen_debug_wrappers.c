@@ -312,14 +312,29 @@ void debug_ctx_Err_SetObject(HPyContext *dctx, DHPy h_type, DHPy h_value)
     HPyErr_SetObject(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), DHPy_unwrap(dctx, h_value));
 }
 
+DHPy debug_ctx_Err_SetFromErrnoWithFilename(HPyContext *dctx, DHPy h_type, const char *filename_fsencoded)
+{
+    return DHPy_open(dctx, HPyErr_SetFromErrnoWithFilename(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), filename_fsencoded));
+}
+
+void debug_ctx_Err_SetFromErrnoWithFilenameObjects(HPyContext *dctx, DHPy h_type, DHPy filename1, DHPy filename2)
+{
+    HPyErr_SetFromErrnoWithFilenameObjects(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), DHPy_unwrap(dctx, filename1), DHPy_unwrap(dctx, filename2));
+}
+
 int debug_ctx_Err_Occurred(HPyContext *dctx)
 {
     return HPyErr_Occurred(get_info(dctx)->uctx);
 }
 
-DHPy debug_ctx_Err_NoMemory(HPyContext *dctx)
+int debug_ctx_Err_ExceptionMatches(HPyContext *dctx, DHPy exc)
 {
-    return DHPy_open(dctx, HPyErr_NoMemory(get_info(dctx)->uctx));
+    return HPyErr_ExceptionMatches(get_info(dctx)->uctx, DHPy_unwrap(dctx, exc));
+}
+
+void debug_ctx_Err_NoMemory(HPyContext *dctx)
+{
+    HPyErr_NoMemory(get_info(dctx)->uctx);
 }
 
 void debug_ctx_Err_Clear(HPyContext *dctx)
@@ -335,6 +350,11 @@ DHPy debug_ctx_Err_NewException(HPyContext *dctx, const char *name, DHPy base, D
 DHPy debug_ctx_Err_NewExceptionWithDoc(HPyContext *dctx, const char *name, const char *doc, DHPy base, DHPy dict)
 {
     return DHPy_open(dctx, HPyErr_NewExceptionWithDoc(get_info(dctx)->uctx, name, doc, DHPy_unwrap(dctx, base), DHPy_unwrap(dctx, dict)));
+}
+
+int debug_ctx_Err_WarnEx(HPyContext *dctx, DHPy category, const char *message, HPy_ssize_t stack_level)
+{
+    return HPyErr_WarnEx(get_info(dctx)->uctx, DHPy_unwrap(dctx, category), message, stack_level);
 }
 
 int debug_ctx_IsTrue(HPyContext *dctx, DHPy h)
@@ -385,6 +405,11 @@ DHPy debug_ctx_GetItem_i(HPyContext *dctx, DHPy obj, HPy_ssize_t idx)
 DHPy debug_ctx_GetItem_s(HPyContext *dctx, DHPy obj, const char *key)
 {
     return DHPy_open(dctx, HPy_GetItem_s(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), key));
+}
+
+int debug_ctx_Contains(HPyContext *dctx, DHPy container, DHPy key)
+{
+    return HPy_Contains(get_info(dctx)->uctx, DHPy_unwrap(dctx, container), DHPy_unwrap(dctx, key));
 }
 
 int debug_ctx_SetItem(HPyContext *dctx, DHPy obj, DHPy key, DHPy value)
@@ -512,14 +537,19 @@ int debug_ctx_Unicode_Check(HPyContext *dctx, DHPy h)
     return HPyUnicode_Check(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
 }
 
+DHPy debug_ctx_Unicode_AsASCIIString(HPyContext *dctx, DHPy h)
+{
+    return DHPy_open(dctx, HPyUnicode_AsASCIIString(get_info(dctx)->uctx, DHPy_unwrap(dctx, h)));
+}
+
+DHPy debug_ctx_Unicode_AsLatin1String(HPyContext *dctx, DHPy h)
+{
+    return DHPy_open(dctx, HPyUnicode_AsLatin1String(get_info(dctx)->uctx, DHPy_unwrap(dctx, h)));
+}
+
 DHPy debug_ctx_Unicode_AsUTF8String(HPyContext *dctx, DHPy h)
 {
     return DHPy_open(dctx, HPyUnicode_AsUTF8String(get_info(dctx)->uctx, DHPy_unwrap(dctx, h)));
-}
-
-const char *debug_ctx_Unicode_AsUTF8AndSize(HPyContext *dctx, DHPy h, HPy_ssize_t *size)
-{
-    return HPyUnicode_AsUTF8AndSize(get_info(dctx)->uctx, DHPy_unwrap(dctx, h), size);
 }
 
 DHPy debug_ctx_Unicode_FromWideChar(HPyContext *dctx, const wchar_t *w, HPy_ssize_t size)
@@ -530,6 +560,31 @@ DHPy debug_ctx_Unicode_FromWideChar(HPyContext *dctx, const wchar_t *w, HPy_ssiz
 DHPy debug_ctx_Unicode_DecodeFSDefault(HPyContext *dctx, const char *v)
 {
     return DHPy_open(dctx, HPyUnicode_DecodeFSDefault(get_info(dctx)->uctx, v));
+}
+
+DHPy debug_ctx_Unicode_DecodeFSDefaultAndSize(HPyContext *dctx, const char *v, HPy_ssize_t size)
+{
+    return DHPy_open(dctx, HPyUnicode_DecodeFSDefaultAndSize(get_info(dctx)->uctx, v, size));
+}
+
+DHPy debug_ctx_Unicode_EncodeFSDefault(HPyContext *dctx, DHPy h)
+{
+    return DHPy_open(dctx, HPyUnicode_EncodeFSDefault(get_info(dctx)->uctx, DHPy_unwrap(dctx, h)));
+}
+
+HPy_UCS4 debug_ctx_Unicode_ReadChar(HPyContext *dctx, DHPy h, HPy_ssize_t index)
+{
+    return HPyUnicode_ReadChar(get_info(dctx)->uctx, DHPy_unwrap(dctx, h), index);
+}
+
+DHPy debug_ctx_Unicode_DecodeASCII(HPyContext *dctx, const char *s, HPy_ssize_t size, const char *errors)
+{
+    return DHPy_open(dctx, HPyUnicode_DecodeASCII(get_info(dctx)->uctx, s, size, errors));
+}
+
+DHPy debug_ctx_Unicode_DecodeLatin1(HPyContext *dctx, const char *s, HPy_ssize_t size, const char *errors)
+{
+    return DHPy_open(dctx, HPyUnicode_DecodeLatin1(get_info(dctx)->uctx, s, size, errors));
 }
 
 int debug_ctx_List_Check(HPyContext *dctx, DHPy h)
@@ -577,11 +632,6 @@ cpy_PyObject *debug_ctx_AsPyObject(HPyContext *dctx, DHPy h)
     return HPy_AsPyObject(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
 }
 
-void debug_ctx_CallDestroyAndThenDealloc(HPyContext *dctx, void *func, cpy_PyObject *self)
-{
-    _HPy_CallDestroyAndThenDealloc(get_info(dctx)->uctx, func, self);
-}
-
 HPyListBuilder debug_ctx_ListBuilder_New(HPyContext *dctx, HPy_ssize_t initial_size)
 {
     return HPyListBuilder_New(get_info(dctx)->uctx, initial_size);
@@ -620,6 +670,16 @@ DHPy debug_ctx_TupleBuilder_Build(HPyContext *dctx, HPyTupleBuilder builder)
 void debug_ctx_TupleBuilder_Cancel(HPyContext *dctx, HPyTupleBuilder builder)
 {
     HPyTupleBuilder_Cancel(get_info(dctx)->uctx, builder);
+}
+
+void debug_ctx_Field_Store(HPyContext *dctx, DHPy target_object, HPyField *target_field, DHPy h)
+{
+    HPyField_Store(get_info(dctx)->uctx, DHPy_unwrap(dctx, target_object), target_field, DHPy_unwrap(dctx, h));
+}
+
+DHPy debug_ctx_Field_Load(HPyContext *dctx, DHPy source_object, HPyField source_field)
+{
+    return DHPy_open(dctx, HPyField_Load(get_info(dctx)->uctx, DHPy_unwrap(dctx, source_object), source_field));
 }
 
 void debug_ctx_Dump(HPyContext *dctx, DHPy h)

@@ -131,9 +131,9 @@
  *
  */
 
+#include "hpy.h"
 #include <limits.h>
 #include <stdio.h>
-#include "hpy.h"
 
 #define _BREAK_IF_OPTIONAL(current_arg) if (HPy_IsNull(current_arg)) break;
 #define _ERR_STRING_MAX_LENGTH 512

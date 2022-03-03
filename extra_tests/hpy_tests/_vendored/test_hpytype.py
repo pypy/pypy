@@ -234,6 +234,36 @@ class TestType(HPyTest):
         p2 = mod.Point(4, 2)
         assert p2.foo() == 42
 
+    def test_HPy_New_initialize_to_zero(self):
+        mod = self.make_module("""
+            @DEFINE_PointObject
+            @DEFINE_Point_xy
+
+            HPyDef_METH(newPoint, "newPoint", newPoint_impl, HPyFunc_NOARGS)
+            static HPy newPoint_impl(HPyContext *ctx, HPy self)
+            {
+                HPy h_pointClass = HPy_GetAttr_s(ctx, self, "Point");
+                if (HPy_IsNull(h_pointClass))
+                    return HPy_NULL;
+
+                PointObject *point;
+                HPy h_point = HPy_New(ctx, h_pointClass, &point);
+                HPy_Close(ctx, h_pointClass);
+                return h_point;
+            }
+
+            @EXPORT(newPoint)
+            @EXPORT_POINT_TYPE(&Point_x, &Point_y)
+            @INIT
+        """)
+        # this is suboptimal: if we don't initialized the memory after
+        # allocation, it might be 0 anyway. Try to allocate several Points to
+        # increase the chances that the test don't pass by chance
+        for i in range(10):
+            p = mod.newPoint()
+            assert p.x == 0
+            assert p.y == 0
+
     def test_refcount(self):
         import pytest
         import sys
