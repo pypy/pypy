@@ -261,6 +261,8 @@ def create_package(basedir, options, _fake=False):
         print('Picking {} as python.exe'.format(src))
         binaries.append((src, 'pypy.exe', None))
         print('Picking {} as pypy.exe'.format(src))
+        binaries.append((src, 'pypy{}.exe'.format(python_ver), None))
+        print('Picking {} as pypy{}.exe'.format(src, python_ver))
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
                       ('sqlite3.dll', target),
