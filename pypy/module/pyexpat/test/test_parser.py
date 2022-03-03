@@ -31,11 +31,9 @@ class AppTestPyexpat:
         for attr in ('buffer_text', 'namespace_prefixes', 'ordered_attributes',
                      'specified_attributes'):
             test_setget(p, attr)
-        test_setget(p, 'returns_unicode', True)
 
     def test_version(self):
         import pyexpat
-        assert isinstance(pyexpat.__version__, str)
         assert pyexpat.EXPAT_VERSION.startswith('expat_')
         assert isinstance(pyexpat.version_info, tuple)
         assert isinstance(pyexpat.version_info[0], int)
@@ -48,7 +46,7 @@ class AppTestPyexpat:
         xml = "\0\r\n"
         parser = pyexpat.ParserCreate()
         exc = raises(pyexpat.ExpatError, "parser.Parse(xml, True)")
-        assert 'unclosed token: line 2, column 0' in exc.value[0]
+        assert 'unclosed token: line 2, column 0' in exc.value.args[0]
 
     def test_encoding_argument(self):
         import pyexpat
@@ -91,7 +89,7 @@ class AppTestPyexpat:
         p = pyexpat.ParserCreate()
         p.buffer_size = 150
         assert p.buffer_size == 150
-        raises(TypeError, setattr, p, 'buffer_size', sys.maxint + 1)
+        raises(OverflowError, setattr, p, 'buffer_size', sys.maxsize + 1)
 
     def test_encoding_xml(self):
         # use one of the few encodings built-in in expat
@@ -101,7 +99,6 @@ class AppTestPyexpat:
         def gotText(text):
             assert text == u"caf\xe9"
         p.CharacterDataHandler = gotText
-        assert p.returns_unicode
         p.Parse(xml)
 
     def test_explicit_encoding(self):
@@ -122,26 +119,6 @@ class AppTestPyexpat:
             assert text == u"caf\xe9"
         p.CharacterDataHandler = gotText
         p.Parse(xml)
-
-    def test_mbcs(self):
-        xml = "<?xml version='1.0' encoding='gbk'?><p/>"
-        import pyexpat
-        p = pyexpat.ParserCreate()
-        exc = raises(ValueError, p.Parse, xml)
-        assert str(exc.value) == "multi-byte encodings are not supported"
-
-    def test_invalid_error(self):
-        xml = '<fran\xe7ais>Comment \xe7a va ? Tr\xe8s bien ?</fran\xe7ais>'
-        import pyexpat
-        p = pyexpat.ParserCreate()
-        def f(*args): pass
-        p.StartElementHandler = f
-        exc = raises((UnicodeDecodeError, pyexpat.ExpatError), p.Parse, xml)
-        if isinstance(exc.value, UnicodeDecodeError):
-            assert exc.value.start == 4
-        else:
-            assert exc.value.offset == 5
-            assert exc.value.lineno == 1
 
     def test_external_entity(self):
         xml = ('<!DOCTYPE doc [\n'
@@ -174,11 +151,11 @@ class AppTestPyexpat:
 
     def test_read_chunks(self):
         import pyexpat
-        import StringIO
-        from contextlib import closing
+        from _io import BytesIO
 
-        xml = '<xml>' + (' ' * 4096) + '</xml>'
-        with closing(StringIO.StringIO(xml)) as sio:
+        xml = b'<xml>' + (b' ' * 4096) + b'</xml>'
+        sio = BytesIO(xml)
+        try:
             class FakeReader():
                 def __init__(self):
                     self.read_count = 0
@@ -192,6 +169,8 @@ class AppTestPyexpat:
             p = pyexpat.ParserCreate()
             p.ParseFile(fake_reader)
             assert fake_reader.read_count == 4
+        finally:
+            sio.close()
 
     def test_entities(self):
         import pyexpat
@@ -221,50 +200,3 @@ class AppTestPyexpat:
         </rdf:RDF>
         """, True)
 
-class AppTestPyexpat2:
-    spaceconfig = dict(usemodules=['pyexpat', 'itertools', '_socket',
-                                   'time', 'struct', 'binascii'])
-
-    def setup_class(cls):
-        import py, sys
-        if sys.platform != 'linux2':
-            py.test.skip("even if we add all the crazy includes to run ctypes, it ends with MallocMismatch")
-
-    def test_django_bug(self):
-        xml_str = '<?xml version="1.0" standalone="no"?><!DOCTYPE example SYSTEM "http://example.com/example.dtd"><root/>'
-
-        from xml.dom import pulldom
-        from xml.sax import handler
-        from xml.sax.expatreader import ExpatParser as _ExpatParser
-        from StringIO import StringIO
-
-        class DefusedExpatParser(_ExpatParser):
-            def start_doctype_decl(self, name, sysid, pubid, has_internal_subset):
-                raise DTDForbidden(name, sysid, pubid)
-
-            def external_entity_ref_handler(self, context, base, sysid, pubid):
-                raise ExternalReferenceForbidden(context, base, sysid, pubid)
-
-            def reset(self):
-                _ExpatParser.reset(self)
-                parser = self._parser
-                parser.StartDoctypeDeclHandler = self.start_doctype_decl
-                parser.ExternalEntityRefHandler = self.external_entity_ref_handler
-
-
-        class DTDForbidden(ValueError):
-            pass
-
-
-        class ExternalReferenceForbidden(ValueError):
-            pass
-
-        stream = pulldom.parse(StringIO(xml_str), DefusedExpatParser())
-
-        try:
-            for event, node in stream:
-                print(event, node)
-        except DTDForbidden:
-            pass
-        else:
-            raise Exception("should raise DTDForbidden")
