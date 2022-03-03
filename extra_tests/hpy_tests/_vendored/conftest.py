@@ -5,16 +5,6 @@ from hpy.debug.leakdetector import LeakDetector
 
 IS_VALGRIND_RUN = False
 
-def pytest_addoption(parser):
-    parser.addoption(
-        "--compiler-v", action="store_true",
-        help="Print to stdout the commands used to invoke the compiler")
-    parser.addoption(
-        "--subprocess-v", action="store_true",
-        help="Print to stdout the stdout and stderr of Python subprocesses"
-             "executed via run_python_subprocess")
-
-
 @pytest.hookimpl(trylast=True)
 def pytest_configure(config):
     global IS_VALGRIND_RUN
@@ -28,7 +18,7 @@ def hpy_devel(request):
     from hpy.devel import HPyDevel
     return HPyDevel()
 
-@pytest.fixture(params=['cpython', 'universal', 'debug'])
+@pytest.fixture(params=['universal', 'debug'])
 def hpy_abi(request):
     abi = request.param
     if abi == 'debug':
