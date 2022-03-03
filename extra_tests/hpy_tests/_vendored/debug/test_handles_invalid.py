@@ -33,6 +33,8 @@ def test_no_invalid_handle(compiler, hpy_debug_capture):
     assert hpy_debug_capture.invalid_handles_count == 0
 
 
+@pytest.mark.skipif(sys.implementation.name == 'pypy',
+    reason="Cannot recover from use-after-close on pypy")
 def test_cant_use_closed_handle(compiler, hpy_debug_capture):
     mod = compiler.make_module("""
         HPyDef_METH(f, "f", f_impl, HPyFunc_O, .doc="double close")
@@ -154,3 +156,4 @@ def test_invalid_handle_crashes_python_if_no_hook(compiler, python_subprocess, f
     """)
     result = python_subprocess.run(mod, "mod.f(42);")
     assert result.returncode == fatal_exit_code
+
