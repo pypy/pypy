@@ -146,7 +146,9 @@ typedef struct _HPyContext_s {
     struct _HPy_s h_ResourceWarning;
     struct _HPy_s h_BaseObjectType;
     struct _HPy_s h_TypeType;
+    struct _HPy_s h_BoolType;
     struct _HPy_s h_LongType;
+    struct _HPy_s h_FloatType;
     struct _HPy_s h_UnicodeType;
     struct _HPy_s h_TupleType;
     struct _HPy_s h_ListType;
@@ -211,11 +213,15 @@ typedef struct _HPyContext_s {
     void * ctx_FatalError;
     void * ctx_Err_SetString;
     void * ctx_Err_SetObject;
+    void * ctx_Err_SetFromErrnoWithFilename;
+    void * ctx_Err_SetFromErrnoWithFilenameObjects;
     void * ctx_Err_Occurred;
+    void * ctx_Err_ExceptionMatches;
     void * ctx_Err_NoMemory;
     void * ctx_Err_Clear;
     void * ctx_Err_NewException;
     void * ctx_Err_NewExceptionWithDoc;
+    void * ctx_Err_WarnEx;
     void * ctx_IsTrue;
     void * ctx_Type_FromSpec;
     void * ctx_Type_GenericNew;
@@ -228,6 +234,7 @@ typedef struct _HPyContext_s {
     void * ctx_GetItem;
     void * ctx_GetItem_i;
     void * ctx_GetItem_s;
+    void * ctx_Contains;
     void * ctx_SetItem;
     void * ctx_SetItem_i;
     void * ctx_SetItem_s;
@@ -253,10 +260,17 @@ typedef struct _HPyContext_s {
     void * ctx_Bytes_FromStringAndSize;
     void * ctx_Unicode_FromString;
     void * ctx_Unicode_Check;
+    void * ctx_Unicode_AsASCIIString;
+    void * ctx_Unicode_AsLatin1String;
     void * ctx_Unicode_AsUTF8String;
     void * ctx_Unicode_AsUTF8AndSize;
     void * ctx_Unicode_FromWideChar;
     void * ctx_Unicode_DecodeFSDefault;
+    void * ctx_Unicode_DecodeFSDefaultAndSize;
+    void * ctx_Unicode_EncodeFSDefault;
+    void * ctx_Unicode_ReadChar;
+    void * ctx_Unicode_DecodeASCII;
+    void * ctx_Unicode_DecodeLatin1;
     void * ctx_List_Check;
     void * ctx_List_New;
     void * ctx_List_Append;
@@ -268,7 +282,6 @@ typedef struct _HPyContext_s {
     void * ctx_FromPyObject;
     void * ctx_AsPyObject;
     void * ctx_CallRealFunctionFromTrampoline;
-    void * ctx_CallDestroyAndThenDealloc;
     void * ctx_ListBuilder_New;
     void * ctx_ListBuilder_Set;
     void * ctx_ListBuilder_Build;
@@ -281,6 +294,8 @@ typedef struct _HPyContext_s {
     void * ctx_Tracker_Add;
     void * ctx_Tracker_ForgetAll;
     void * ctx_Tracker_Close;
+    void * ctx_Field_Store;
+    void * ctx_Field_Load;
     void * ctx_Dump;
 } _struct_HPyContext_s;
 
