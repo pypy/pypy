@@ -10,7 +10,7 @@ extern "C" {
 #include "hpy/autogen_hpyslot.h"
 #include "hpy/cpy_types.h"
 
-typedef void* (*HPyCFunction)();
+typedef void* (*HPyCFunction)(void);
 
 typedef struct {
     HPySlot_Slot slot;     // The slot to fill
