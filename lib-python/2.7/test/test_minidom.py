@@ -2,6 +2,7 @@
 
 import copy
 import pickle
+import pyexpat
 from StringIO import StringIO
 from test import support
 import unittest
