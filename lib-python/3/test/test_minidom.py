@@ -2,6 +2,7 @@
 
 import copy
 import pickle
+import pyexpat
 import io
 from test import support
 import unittest
@@ -1147,8 +1148,14 @@ class MinidomTest(unittest.TestCase):
 
         # Verify that character decoding errors raise exceptions instead
         # of crashing
-        self.assertRaises(UnicodeDecodeError, parseString,
-                b'<fran\xe7ais>Comment \xe7a va ? Tr\xe8s bien ?</fran\xe7ais>')
+        if pyexpat.version_info >= (2, 4, 5):
+            self.assertRaises(ExpatError, parseString,
+                    b'<fran\xe7ais></fran\xe7ais>')
+            self.assertRaises(ExpatError, parseString,
+                    b'<franais>Comment \xe7a va ? Tr\xe8s bien ?</franais>')
+        else:
+            self.assertRaises(UnicodeDecodeError, parseString,
+                    b'<fran\xe7ais>Comment \xe7a va ? Tr\xe8s bien ?</fran\xe7ais>')
 
         doc.unlink()
 
