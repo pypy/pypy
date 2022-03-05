@@ -380,3 +380,21 @@ class TestInstance(BaseTestPyPyC):
 """)
 
 
+    def test_namedtuple_construction(self):
+        def main():
+            from collections import namedtuple
+            A = namedtuple("A", "x y")
+            res = 0
+            for i in range(2000):
+                assert i >= 0
+                res += A(i, 0).x # ID: nt
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match_by_id('nt', """
+        p60 = force_token()
+        p61 = force_token()
+        i80 = int_add_ovf(i60, i65)
+        guard_no_overflow(descr=...)
+        --TICK--
+        """)
+
