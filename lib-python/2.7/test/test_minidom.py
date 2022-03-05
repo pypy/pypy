@@ -13,6 +13,7 @@ import xml.parsers.expat
 
 from xml.dom.minidom import parse, Node, Document, parseString
 from xml.dom.minidom import getDOMImplementation
+from xml.parsers.expat import ExpatError
 
 
 tstfile = support.findfile("test.xml", subdir="xmltestdata")
