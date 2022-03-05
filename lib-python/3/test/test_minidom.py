@@ -11,6 +11,7 @@ import xml.dom.minidom
 
 from xml.dom.minidom import parse, Node, Document, parseString
 from xml.dom.minidom import getDOMImplementation
+from xml.parsers.expat import ExpatError
 
 
 tstfile = support.findfile("test.xml", subdir="xmltestdata")
@@ -1600,7 +1601,12 @@ class MinidomTest(unittest.TestCase):
         self.confirm(doc2.namespaceURI == xml.dom.EMPTY_NAMESPACE)
 
     def testExceptionOnSpacesInXMLNSValue(self):
-        with self.assertRaisesRegex(ValueError, 'Unsupported syntax'):
+        if pyexpat.version_info >= (2, 4, 5):
+            context = self.assertRaisesRegex(ExpatError, 'syntax error')
+        else:
+            context = self.assertRaisesRegex(ValueError, 'Unsupported syntax')
+
+        with context:
             parseString('<element xmlns:abc="http:abc.com/de f g/hi/j k"><abc:foo /></element>')
 
     def testDocRemoveChild(self):
