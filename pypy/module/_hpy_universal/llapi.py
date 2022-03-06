@@ -410,10 +410,9 @@ typedef struct {
 typedef void cpy_PyMethodDef;
 
 typedef struct {
-    void *dummy; // this is needed because we put a comma after HPyModuleDef_HEAD_INIT :(
-    const char* m_name;
-    const char* m_doc;
-    HPy_ssize_t m_size;
+    const char* name;
+    const char* doc;
+    HPy_ssize_t size;
     cpy_PyMethodDef *legacy_methods;
     HPyDef **defines;
 } HPyModuleDef;
