@@ -164,6 +164,12 @@ def create_package(basedir, options, _fake=False):
         print('Picking {} as pypy.exe'.format(src))
         binaries.append((src, 'pypy{}.exe'.format(python_ver), None))
         print('Picking {} as pypy{}.exe'.format(src, python_ver))
+        binaries.append((src, 'python{}.exe'.format(python_ver), None))
+        print('Picking {} as python{}.exe'.format(src, python_ver))
+        binaries.append((src, 'pypy{}.exe'.format(python_ver[0]), None))
+        print('Picking {} as pypy{}.exe'.format(src, python_ver[0]))
+        binaries.append((src, 'python{}.exe'.format(python_ver[0]), None))
+        print('Picking {} as python{}.exe'.format(src, python_ver[0]))
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
                       ('sqlite3.dll', lib_pypy),
@@ -262,6 +268,7 @@ def create_package(basedir, options, _fake=False):
         os.chdir(str(bindir))
         try:
             os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver))
+            os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver[0]))
             os.symlink(POSIX_EXE, 'python')
             os.symlink(POSIX_EXE, 'python{}'.format(python_ver))
             os.symlink(POSIX_EXE, 'python{}'.format(python_ver[0]))
