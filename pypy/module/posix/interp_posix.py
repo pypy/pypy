@@ -1039,7 +1039,7 @@ else:
         from rpython.rlib.rposix import _as_bytes
         name = _as_bytes(name)
         value = _as_bytes(value)
-        if "=" in name:
+        if len(name) == 0 or "=" in name:
             raise ValueError
         return rposix.putenv(name, value)
 
