@@ -117,7 +117,6 @@ class TestParseCommandLine:
                               '--argparse-only'] + list(argv),
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              env=env)
-
         res = p.wait()
         outcome = p.stdout.readline()
         if outcome == 'SystemExit\n' or outcome == "Error\n":
@@ -130,74 +129,77 @@ class TestParseCommandLine:
             self.check_options(app_options, **expected)
 
     def test_all_combinations_I_can_think_of(self):
-        self.check([], {}, sys_argv=[''], run_stdin=True)
-        self.check(['-'], {}, sys_argv=['-'], run_stdin=True)
-        self.check(['-S'], {}, sys_argv=[''], run_stdin=True, no_site=1)
-        self.check(['-OO'], {}, sys_argv=[''], run_stdin=True, optimize=2)
-        self.check(['-O', '-O'], {}, sys_argv=[''], run_stdin=True, optimize=2)
-        self.check(['-SO'], {}, sys_argv=[''], run_stdin=True,
+        env = os.environ.copy()
+        self.check([], env, sys_argv=[''], run_stdin=True)
+        self.check(['-'], env, sys_argv=['-'], run_stdin=True)
+        self.check(['-S'], env, sys_argv=[''], run_stdin=True, no_site=1)
+        self.check(['-OO'], env, sys_argv=[''], run_stdin=True, optimize=2)
+        self.check(['-O', '-O'], env, sys_argv=[''], run_stdin=True, optimize=2)
+        self.check(['-SO'], env, sys_argv=[''], run_stdin=True,
                    no_site=1, optimize=1)
-        self.check(['-i'], {}, sys_argv=[''], run_stdin=True,
+        self.check(['-i'], env, sys_argv=[''], run_stdin=True,
                    interactive=1, inspect=1)
-        self.check(['-?'], {}, output_contains='usage:')
-        self.check(['-h'], {}, output_contains='usage:')
-        self.check(['-S', '-O', '-h'], {}, output_contains='usage:')
-        self.check(['-S', '-hO'], {}, output_contains='usage:')
-        self.check(['-S', '-O', '--help'], {}, output_contains='usage:')
-        self.check(['-S', '-O', '--info'], {}, output_contains='translation')
-        self.check(['-S', '-O', '--version'], {}, output_contains='Python')
-        self.check(['-S', '-OV'], {}, output_contains='Python')
+        self.check(['-?'], env, output_contains='usage:')
+        self.check(['-h'], env, output_contains='usage:')
+        self.check(['-S', '-O', '-h'], env, output_contains='usage:')
+        self.check(['-S', '-hO'], env, output_contains='usage:')
+        self.check(['-S', '-O', '--help'], env, output_contains='usage:')
+        self.check(['-S', '-O', '--info'], env, output_contains='translation')
+        self.check(['-S', '-O', '--version'], env, output_contains='Python')
+        self.check(['-S', '-OV'], env, output_contains='Python')
         # self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
         #            run_stdin=True, no_site=1, jit_off='off')
         # self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
         #            run_stdin=True, no_site=1)
-        self.check(['-c', 'pass'], {}, sys_argv=['-c'], run_command='pass')
-        self.check(['-cpass'], {}, sys_argv=['-c'], run_command='pass')
-        self.check(['-cpass','x'], {}, sys_argv=['-c','x'], run_command='pass')
-        self.check(['-Sc', 'pass'], {}, sys_argv=['-c'], run_command='pass',
+        self.check(['-c', 'pass'], env, sys_argv=['-c'], run_command='pass')
+        self.check(['-cpass'], env, sys_argv=['-c'], run_command='pass')
+        self.check(['-cpass','x'], env, sys_argv=['-c','x'], run_command='pass')
+        self.check(['-Sc', 'pass'], env, sys_argv=['-c'], run_command='pass',
                    no_site=1)
-        self.check(['-Scpass'], {}, sys_argv=['-c'], run_command='pass', no_site=1)
-        self.check(['-c', '', ''], {}, sys_argv=['-c', ''], run_command='')
-        self.check(['-mfoo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+        self.check(['-Scpass'], env, sys_argv=['-c'], run_command='pass', no_site=1)
+        self.check(['-c', '', ''], env, sys_argv=['-c', ''], run_command='')
+        self.check(['-mfoo', 'bar', 'baz'], env, sys_argv=['-m', 'bar', 'baz'],
                    run_module='foo')
-        self.check(['-m', 'foo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+        self.check(['-m', 'foo', 'bar', 'baz'], env, sys_argv=['-m', 'bar', 'baz'],
                    run_module='foo')
-        self.check(['-Smfoo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+        self.check(['-Smfoo', 'bar', 'baz'], env, sys_argv=['-m', 'bar', 'baz'],
                    run_module='foo', no_site=1)
-        self.check(['-Sm', 'foo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+        self.check(['-Sm', 'foo', 'bar', 'baz'], env, sys_argv=['-m', 'bar', 'baz'],
                    run_module='foo', no_site=1)
-        self.check(['-', 'foo', 'bar'], {}, sys_argv=['-', 'foo', 'bar'],
+        self.check(['-', 'foo', 'bar'], env, sys_argv=['-', 'foo', 'bar'],
                    run_stdin=True)
-        self.check(['foo', 'bar'], {}, sys_argv=['foo', 'bar'])
-        self.check(['foo', '-i'], {}, sys_argv=['foo', '-i'])
-        self.check(['-i', 'foo'], {}, sys_argv=['foo'], interactive=1, inspect=1)
-        self.check(['--', 'foo'], {}, sys_argv=['foo'])
-        self.check(['--', '-i', 'foo'], {}, sys_argv=['-i', 'foo'])
-        self.check(['--', '-', 'foo'], {}, sys_argv=['-', 'foo'], run_stdin=True)
-        self.check(['-Wbog'], {}, sys_argv=[''], warnoptions=['bog'], run_stdin=True)
-        self.check(['-W', 'ab', '-SWc'], {}, sys_argv=[''], warnoptions=['ab', 'c'],
+        self.check(['foo', 'bar'], env, sys_argv=['foo', 'bar'])
+        self.check(['foo', '-i'], env, sys_argv=['foo', '-i'])
+        self.check(['-i', 'foo'], env, sys_argv=['foo'], interactive=1, inspect=1)
+        self.check(['--', 'foo'], env, sys_argv=['foo'])
+        self.check(['--', '-i', 'foo'], env, sys_argv=['-i', 'foo'])
+        self.check(['--', '-', 'foo'], env, sys_argv=['-', 'foo'], run_stdin=True)
+        self.check(['-Wbog'], env, sys_argv=[''], warnoptions=['bog'], run_stdin=True)
+        self.check(['-W', 'ab', '-SWc'], env, sys_argv=[''], warnoptions=['ab', 'c'],
                    run_stdin=True, no_site=1)
-        self.check(['-X', 'foo'], {}, sys_argv=[''], _xoptions=['foo'],
+        self.check(['-X', 'foo'], env, sys_argv=[''], _xoptions=['foo'],
                    run_stdin=True)
-        self.check(['-X', 'foo=bar', '-Xbaz'], {}, sys_argv=[''],
+        self.check(['-X', 'foo=bar', '-Xbaz'], env, sys_argv=[''],
                    _xoptions=['foo=bar', 'baz'], run_stdin=True)
 
-        self.check([], {'PYTHONDEBUG': '1'}, sys_argv=[''], run_stdin=True, debug=1)
-        self.check([], {'PYTHONDONTWRITEBYTECODE': '1'}, sys_argv=[''], run_stdin=True, dont_write_bytecode=1)
-        self.check([], {'PYTHONNOUSERSITE': '1'}, sys_argv=[''], run_stdin=True, no_user_site=1)
-        self.check([], {'PYTHONUNBUFFERED': '1'}, sys_argv=[''], run_stdin=True, unbuffered=1)
-        self.check([], {'PYTHONVERBOSE': '1'}, sys_argv=[''], run_stdin=True, verbose=1)
-        self.check([], {'PYTHONOPTIMIZE': '1'}, sys_argv=[''], run_stdin=True, optimize=1)
-        self.check([], {'PYTHONOPTIMIZE': '0'}, sys_argv=[''], run_stdin=True, optimize=1)
-        self.check([], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
-        self.check(['-O'], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
-        self.check(['-OOO'], {'PYTHONOPTIMIZE': 'abc'}, sys_argv=[''], run_stdin=True, optimize=3)
+        self.check([], dict(env, PYTHONDEBUG='1'), sys_argv=[''], run_stdin=True, debug=1)
+        self.check([], dict(env, PYTHONDONTWRITEBYTECODE='1'), sys_argv=[''], run_stdin=True, dont_write_bytecode=1)
+        self.check([], dict(env, PYTHONNOUSERSITE='1'), sys_argv=[''], run_stdin=True, no_user_site=1)
+        self.check([], dict(env, PYTHONUNBUFFERED='1'), sys_argv=[''], run_stdin=True, unbuffered=1)
+        self.check([], dict(env, PYTHONVERBOSE='1'), sys_argv=[''], run_stdin=True, verbose=1)
+        self.check([], dict(env, PYTHONOPTIMIZE='1'), sys_argv=[''], run_stdin=True, optimize=1)
+        self.check([], dict(env, PYTHONOPTIMIZE='0'), sys_argv=[''], run_stdin=True, optimize=1)
+        self.check([], dict(env, PYTHONOPTIMIZE='10'), sys_argv=[''], run_stdin=True, optimize=10)
+        self.check(['-O'], dict(env, PYTHONOPTIMIZE='10'), sys_argv=[''], run_stdin=True, optimize=10)
+        self.check(['-OOO'], dict(env, PYTHONOPTIMIZE='abc'), sys_argv=[''], run_stdin=True, optimize=3)
 
     def test_error(self):
-        self.check(['-a'], {}, output_contains="Unknown option: -a")
-        self.check(['--abc'], {}, output_contains="Unknown option --abc")
+        env = os.environ.copy()
+        self.check(['-a'], env, output_contains="Unknown option: -a")
+        self.check(['--abc'], env, output_contains="Unknown option --abc")
 
     def test_sysflags(self):
+        env = os.environ.copy()
         flags = (
             ("debug", "-d", "1"),
             (["inspect", "interactive"], "-i", "1"),
@@ -218,46 +220,51 @@ class TestParseCommandLine:
                     expected[flag1] = int(value)
             else:
                 expected = {flag: int(value)}
-            self.check([opt, '-c', 'pass'], {}, sys_argv=['-c'],
+            self.check([opt, '-c', 'pass'], env, sys_argv=['-c'],
                        run_command='pass', **expected)
-        self.check(['-X', 'dev', '-c', 'pass'], {}, sys_argv=['-c'],
+        self.check(['-X', 'dev', '-c', 'pass'], env, sys_argv=['-c'],
                    run_command='pass', _xoptions=['dev'], dev_mode=True)
 
     def test_sysflags_utf8mode(self):
-        self.check(['-X', 'utf8', '-c', 'pass'], {}, sys_argv=['-c'],
+        env = os.environ.copy()
+        self.check(['-X', 'utf8', '-c', 'pass'], env, sys_argv=['-c'],
                    run_command='pass', _xoptions=['utf8'], utf8_mode=True)
-        self.check(['-X', 'utf8=1', '-c', 'pass'], {}, sys_argv=['-c'],
+        self.check(['-X', 'utf8=1', '-c', 'pass'], env, sys_argv=['-c'],
                    run_command='pass', _xoptions=['utf8=1'], utf8_mode=True)
-        self.check(['-X', 'utf8=0', '-c', 'pass'], {}, sys_argv=['-c'],
+        self.check(['-X', 'utf8=0', '-c', 'pass'], env, sys_argv=['-c'],
                    run_command='pass', _xoptions=['utf8=0'], utf8_mode=False)
 
     def test_sysflags_envvar(self):
+        env = os.environ.copy()
         expected = {"no_user_site": True}
-        self.check(['-c', 'pass'], {'PYTHONNOUSERSITE': '1'}, sys_argv=['-c'],
+        self.check(['-c', 'pass'], dict(env, PYTHONNOUSERSITE='1'), sys_argv=['-c'],
                    run_command='pass', **expected)
-        self.check(['-c', 'pass'], {'PYTHONDEVMODE': '1'}, sys_argv=['-c'],
+        self.check(['-c', 'pass'], dict(env, PYTHONDEVMODE='1'), sys_argv=['-c'],
                    run_command='pass', dev_mode=True)
 
     def test_sysflags_utf8mode_envvar(self):
-        self.check(['-c', 'pass'], {'PYTHONUTF8': '1'}, sys_argv=['-c'],
+        env = os.environ.copy()
+        self.check(['-c', 'pass'], dict(env, PYTHONUTF8='1'), sys_argv=['-c'],
                    run_command='pass', utf8_mode=True)
-        self.check(['-c', 'pass'], {'PYTHONUTF8': '0'}, sys_argv=['-c'],
+        self.check(['-c', 'pass'], dict(env, PYTHONUTF8='0'), sys_argv=['-c'],
                    run_command='pass', utf8_mode=False)
         # -X takes precedence
-        self.check(['-X', 'utf8', '-c', 'pass'], {'PYTHONUTF8': '0'}, sys_argv=['-c'],
+        self.check(['-X', 'utf8', '-c', 'pass'], dict(env, PYTHONUTF8='0'), sys_argv=['-c'],
                    run_command='pass', _xoptions=['utf8'], utf8_mode=True)
-        self.check(['-X', 'utf8=0', '-c', 'pass'], {'PYTHONUTF8': '1'}, sys_argv=['-c'],
+        self.check(['-X', 'utf8=0', '-c', 'pass'], dict(env, PYTHONUTF8='1'), sys_argv=['-c'],
                    run_command='pass', _xoptions=['utf8=0'], utf8_mode=False)
 
     def test_check_hash_based_pycs(self):
+        env = os.environ.copy()
         for val in ['default', 'always', 'never']:
             self.check(
                 ['--check-hash-based-pycs', val],
-                {},
+                env,
                 sys_argv=[''], run_stdin=True,
                 check_hash_based_pycs=val)
 
     def test_jit_off(self, monkeypatch):
+        env = os.environ.copy()
         get_python3()
         try:
             import __pypy__
@@ -268,7 +275,7 @@ class TestParseCommandLine:
             options[0] = option
         from pypy.interpreter import app_main
         monkeypatch.setattr(app_main, 'set_jit_option', set_jit_option, raising=False)
-        self.check(['-X', 'jit-off'], {}, sys_argv=[''], run_stdin=True)
+        self.check(['-X', 'jit-off'], env, sys_argv=[''], run_stdin=True)
         assert options == ["off"]
 
 class TestInteraction:
