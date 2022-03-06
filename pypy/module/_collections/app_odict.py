@@ -129,7 +129,7 @@ class OrderedDict(dict):
     def __ror__(self, other):
         if not isinstance(other, dict):
             return NotImplemented
-        copy = OrderedDict(other)
+        copy = type(self)(other)
         copy.update(self)
         return copy
 

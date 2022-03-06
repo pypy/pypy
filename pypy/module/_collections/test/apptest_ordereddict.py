@@ -2,6 +2,9 @@
 
 from _collections import OrderedDict
 
+class MyODict(OrderedDict):
+    pass
+
 def test_ordereddict_present():
     assert issubclass(OrderedDict, dict)
     assert hasattr(OrderedDict, 'move_to_end')
@@ -55,10 +58,10 @@ def test_generic_alias():
 
 def test_or():
     d1 = OrderedDict({1: 2, 3: 4})
-    d2 = OrderedDict({1: 4, 5: 6})
+    d2 = MyODict({1: 4, 5: 6})
     assert type(d1 | d2) is OrderedDict
     assert d1 | d2 == {1: 4, 3: 4, 5: 6}
-    assert type(dict(d1) | d2) is OrderedDict
+    assert type(dict(d1) | d2) is MyODict
     assert d1 | d2 == {1: 4, 3: 4, 5: 6}
 
 def test_ior():
