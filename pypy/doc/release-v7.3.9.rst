@@ -3,7 +3,7 @@ PyPy v7.3.9: release of python 2.7, 3.7, 3.8, and 3.9-beta
 ==========================================================
 
 ..
-      Changelog up to commit 
+      Changelog up to commit c2aaf05ecb6b
 
 .. note::
         This is a pre-release announcement. When the release actually happens, it
@@ -119,6 +119,8 @@ Changes shared across versions
 -------------------------------
 - Update the bundled libexpat to 2.4.6
 - Update the bundled sqlite3 to 3.38.0 (issue 3690_).
+- Add more aliases for pypy: pypy2.exe, pypy2.7.exe, python2.7.exe on windows
+  for pypy2.7 and comparable aliases on posix and other pythons (issues 
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
