@@ -158,7 +158,10 @@ def warn_about_missing_assertion(mode):
     try:
         assert False
     except AssertionError:
-        pass
+        return
+    except Exception as e:
+        import sys
+        assert sys.version_info.major == 3 and sys.version_info.minor >= 9
     else:
         if mode == "rewrite":
             specifically = ("assertions which are not in test modules "

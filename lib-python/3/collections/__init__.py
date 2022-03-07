@@ -38,6 +38,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from __pypy__ import newdict
+except ImportError:
+    newdict = lambda _: {}
+
 
 def __getattr__(name):
     # For backwards compatibility, continue to make the collections ABCs
@@ -389,7 +394,9 @@ def namedtuple(typename, field_names, *, rename=False, defaults=None, module=Non
     # Create all the named tuple methods to be added to the class namespace
 
     s = f'def __new__(_cls, {arg_list}): return _tuple_new(_cls, ({arg_list}))'
-    namespace = {'_tuple_new': tuple_new, '__name__': f'namedtuple_{typename}'}
+    namespace = newdict('module')
+    namespace['_tuple_new'] = tuple_new
+    namespace['__name__'] = f'namedtuple_{typename}'
     # Note: exec() has the side-effect of interning the field names
     exec(s, namespace)
     __new__ = namespace['__new__']
