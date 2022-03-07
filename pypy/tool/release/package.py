@@ -100,9 +100,9 @@ def copytree(src, dst, ignore=None):
                 shutil.copy2(srcname, dstname)
         # catch the Error from the recursive copytree so that we can
         # continue with other files
-        except Error, err:
+        except Error as err:
             errors.extend(err.args[0])
-        except EnvironmentError, why:
+        except EnvironmentError as why:
             errors.append((srcname, dstname, str(why)))
     try:
         shutil.copystat(src, dst)
@@ -113,7 +113,7 @@ def copytree(src, dst, ignore=None):
         else:
             errors.append((src, dst, str(why)))
     if errors:
-        raise Error, errors
+        raise Error(errors)
 
 
 
@@ -361,7 +361,7 @@ def create_package(basedir, options, _fake=False):
             shutil.copy(str(source), str(archive))
         else:
             open(str(archive), 'wb').close()
-        os.chmod(str(archive), 0755)
+        os.chmod(str(archive), 0o755)
     if not _fake and not ARCH == 'win32':
         # create a link to pypy, python
         old_dir = os.getcwd()
@@ -369,7 +369,7 @@ def create_package(basedir, options, _fake=False):
         try:
             os.symlink(POSIX_EXE, 'pypy')
             os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver))
-            os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver[0]))
+            # os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver[0]))
             os.symlink(POSIX_EXE, 'python')
             os.symlink(POSIX_EXE, 'python{}'.format(python_ver))
             os.symlink(POSIX_EXE, 'python{}'.format(python_ver[0]))
@@ -487,15 +487,15 @@ def package(*args, **kwds):
                             'dependent shared objects and mangling RPATH')
     options = parser.parse_args(args)
 
-    if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
+    if "PYPY_PACKAGE_NOKEEPDEBUG" in os.environ:
         options.keep_debug = False
-    if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
+    if "PYPY_PACKAGE_WITHOUTTK" in os.environ:
         options.no__tkinter = True
-    if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
+    if "PYPY_EMBED_DEPENDENCIES" in os.environ:
         options.embed_dependencies = True
-    elif os.environ.has_key("PYPY_NO_EMBED_DEPENDENCIES"):
+    elif "PYPY_NO_EMBED_DEPENDENCIES" in os.environ:
         options.embed_dependencies = False
-    if os.environ.has_key("PYPY_MAKE_PORTABLE"):
+    if "PYPY_MAKE_PORTABLE" in os.environ:
         options.make_portable = True
     if not options.builddir:
         # The import actually creates the udir directory
