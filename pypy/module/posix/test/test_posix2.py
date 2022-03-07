@@ -275,6 +275,18 @@ class AppTestPosix:
             ]:
                 assert hasattr(st, field)
 
+        def test_statvfs_result(self):
+            st = self.posix.statvfs_result(
+                (4096, 4096, 20971520, 17750785, 17750785, 1600000, 1275269,
+                    1275269, 4096, 255, 99999))
+            with raises(IndexError):
+                st[10]
+            assert st.f_fsid == 99999
+            st = self.posix.statvfs_result(
+                (4096, 4096, 20971520, 17750785, 17750785, 1600000, 1275269,
+                    1275269, 4096, 255))
+            assert st.f_fsid is None
+
     def test_open_exception(self):
         posix = self.posix
         try:

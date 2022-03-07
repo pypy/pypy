@@ -51,8 +51,6 @@ class Module(MixedModule):
 
         'ExpatError':    'space.fromcache(interp_pyexpat.Cache).w_error',
         'error':         'space.fromcache(interp_pyexpat.Cache).w_error',
-
-        '__version__':   'space.newtext("85819")',
         }
 
     submodules = {

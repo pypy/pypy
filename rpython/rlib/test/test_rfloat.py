@@ -274,6 +274,14 @@ def test_string_to_float():
                     py.test.raises(ParseStringError, string_to_float, s)
     py.test.raises(ParseStringError, string_to_float, "")
 
+def test_string_to_float_nan():
+    nan = float('nan')
+    pinf = float('inf')
+    for s in ['nan', '+nan', '-nan', 'NAN', '+nAn']:
+        assert math.isnan(string_to_float(s))
+    for s in ['inf', '+inf', '-inf', '-infinity', '   -infiNITy  ']:
+        assert math.isinf(string_to_float(s))
+
 def test_log2():
     from rpython.rlib import rfloat
     assert rfloat.log2(1.0) == 0.0
