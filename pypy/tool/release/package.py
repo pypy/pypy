@@ -376,7 +376,7 @@ def create_package(basedir, options, _fake=False):
         os.chdir(str(bindir))
         try:
             os.symlink(POSIX_EXE, 'pypy')
-            os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver[0]))
+            # os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver))
             os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver[0]))
             os.symlink(POSIX_EXE, 'python')
             os.symlink(POSIX_EXE, 'python{}'.format(python_ver))
