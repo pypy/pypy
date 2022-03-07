@@ -380,3 +380,27 @@ class TestInstance(BaseTestPyPyC):
 """)
 
 
+    def test_namedtuple_construction(self):
+        def main():
+            from collections import namedtuple
+            A = namedtuple("A", "x y")
+            res = 0
+            i = 0
+            while i < 2000:
+                res += A(i, 0).x
+                i += 1
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, 2000)
+            guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
+            p1 = force_token()
+            p2 = force_token()
+            i20 = int_add_ovf(i19, i5)
+            guard_no_overflow(descr=...)
+            i9 = int_add(i5, 1)
+            --TICK--
+            jump(..., descr=...)
+        """)
+

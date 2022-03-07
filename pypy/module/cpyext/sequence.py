@@ -178,6 +178,11 @@ def PySequence_GetItem(space, w_obj, i):
     if i < 0:
         l = PySequence_Length(space, w_obj)
         i += l
+        if i < 0:
+            # Prevent things like 'abc'[-4] from turning into 'abc'[-1]
+            # since this can end up calling space.getitem()
+            raise oefmt(space.w_IndexError,
+                "%T index out of range")
     return PySequence_ITEM(space, w_obj, i)
 
 @cpython_api([PyObject], PyObject)
