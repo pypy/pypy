@@ -78,6 +78,13 @@ class stat_result(metaclass=structseqtype):
 
 
 class statvfs_result(metaclass=structseqtype):
+    """
+    Result from statvfs or fstatvfs.
+
+    This object may be accessed either as a tuple of
+      (bsize, frsize, blocks, bfree, bavail, files, ffree, favail, flag, namemax),
+    or via the attributes f_bsize, f_frsize, f_blocks, f_bfree, and so on.
+    """
 
     name = "os.statvfs_result"
     __module__ = "os"
@@ -92,7 +99,7 @@ class statvfs_result(metaclass=structseqtype):
     f_favail = structseqfield(7)
     f_flag = structseqfield(8)
     f_namemax = structseqfield(9)
-    f_fsid = structseqfield(10)
+    f_fsid = structseqfield(20) # gap to make it a non-indexed field
 
 
 class uname_result(metaclass=structseqtype):

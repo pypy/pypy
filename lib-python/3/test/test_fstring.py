@@ -10,6 +10,7 @@
 import ast
 import os
 import re
+import sys
 import types
 import decimal
 import unittest
@@ -1281,7 +1282,10 @@ x = (
         self.assertEqual(x, 10)
 
     def test_invalid_syntax_error_message(self):
-        err_msg = "invalid syntax" if use_old_parser() else "f-string: invalid syntax"
+        if sys.implementation.name == 'pypy':
+            err_msg = "f-string: Unknown character"
+        else:
+            err_msg = "invalid syntax" if use_old_parser() else "f-string: invalid syntax"
         with self.assertRaisesRegex(SyntaxError, err_msg):
             compile("f'{a $ b}'", "?", "exec")
 

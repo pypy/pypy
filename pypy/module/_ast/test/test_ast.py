@@ -600,3 +600,7 @@ from __future__ import generators""")
     def test_crash_bug(self):
         import ast
         raises(SyntaxError, ast.parse, 'def fa(\n    a = 1,  # type: A\n    /\n):\n    pass\n\ndef fab(\n    a,  # type: A\n    /,\n    b,  # type: B\n):\n    pass\n\ndef fav(\n    a,  # type: A\n    /,\n    *v,  # type: V\n):\n    pass\n\ndef fak(\n    a,  # type: A\n    /,\n    **k,  # type: K\n):\n    pass\n\ndef favk(\n    a,  # type: A\n    /,\n    *v,  # type: V\n    **k,  # type: K\n):\n    pass\n\n', feature_version=4)
+
+    def test_module(self):
+        import ast
+        assert ast.expr.__module__ == 'ast'

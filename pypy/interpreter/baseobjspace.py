@@ -959,23 +959,11 @@ class ObjSpace(object):
                         w_obj.getclass(self))
         return w_obj
 
-    def _iter_unpackiterable(self, w_iterable):
-        try:
-            return self.iter(w_iterable)
-        except OperationError as e:
-            if e.got_any_traceback():
-                raise
-            if not e.match(self, self.w_TypeError):
-                raise
-            raise oefmt(self.w_TypeError,
-                    "cannot unpack non-iterable %T object",
-                    w_iterable)
-
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable into a real (interpreter-level) list.
 
         Raise an OperationError(w_ValueError) if the length is wrong."""
-        w_iterator = self._iter_unpackiterable(w_iterable)
+        w_iterator = self.iter(w_iterable)
         if expected_length == -1:
             if self.is_generator(w_iterator):
                 # special hack for speed
@@ -1047,7 +1035,7 @@ class ObjSpace(object):
         # Like unpackiterable(), but for the cases where we have
         # an expected_length and want to unroll when JITted.
         # Returns a fixed-size list.
-        w_iterator = self._iter_unpackiterable(w_iterable)
+        w_iterator = self.iter(w_iterable)
         assert expected_length != -1
         return self._unpackiterable_known_length_jitlook(w_iterator,
                                                          expected_length)
@@ -1394,31 +1382,46 @@ class ObjSpace(object):
 
 
     @not_rpython
-    def _cached_compile(self, filename, source, mode, flags, hidden_applevel):
+    def _cached_compile(self, filename, source, mode, flags, hidden_applevel, ast_transform=None):
         import os
         from hashlib import md5
         from rpython.config.translationoption import CACHE_DIR
+        from rpython.tool.gcc_cache import try_atomic_write
         from pypy.module.marshal import interp_marshal
         from pypy.interpreter.pycode import default_magic
+        h = md5(str(default_magic))
+        h.update(filename)
+        h.update(source)
+        h.update(mode)
+        h.update(str(flags))
+        h.update(str(hidden_applevel))
+        addition = ''
+        if ast_transform:
+            addition = ast_transform.func_name
 
         cachename = os.path.join(
-            CACHE_DIR, "applevel_exec_" + md5('%d%s%s' % (
-            default_magic, filename, source)).hexdigest())
+            CACHE_DIR, "applevel_exec_%s_%s" % (addition, h.hexdigest()))
         try:
             if self.config.translating:
                 raise IOError("don't use the cache when translating pypy")
             with open(cachename, 'rb') as f:
                 w_bin = self.newbytes(f.read())
-                code_w = interp_marshal._loads(self, w_bin, hidden_applevel)
+                w_code = interp_marshal._loads(self, w_bin, hidden_applevel)
         except IOError:
             # must (re)compile the source
             ec = self.getexecutioncontext()
-            code_w = ec.compiler.compile(source, filename, mode, flags, hidden_applevel)
-            w_bin = interp_marshal.dumps(self, code_w)
+            if ast_transform:
+                c = self.createcompiler()
+                tree = c.compile_to_ast(source, filename, "exec", 0)
+                tree = ast_transform(self, tree)
+                w_code = c.compile_ast(tree, filename, 'exec', 0)
+            else:
+                w_code = ec.compiler.compile(
+                    source, filename, mode, flags, hidden_applevel)
+            w_bin = interp_marshal.dumps(self, w_code)
             content = self.bytes_w(w_bin)
-            with open(cachename, 'wb') as f:
-                f.write(content)
-        return code_w
+            try_atomic_write(cachename, content)
+        return w_code
 
 
     @not_rpython

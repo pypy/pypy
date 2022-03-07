@@ -909,3 +909,10 @@ class AppTestMMap:
 
         m.madvise(mmap.MADV_NORMAL)
         m.close()
+
+    def test_repr(self):
+        import mmap
+        m = mmap.mmap(-1, 1024)
+        assert repr(m) == "<mmap.mmap closed=False, access=ACCESS_DEFAULT, length=1024, pos=0, offset=0>"
+        m.close()
+        assert repr(m) == "<mmap.mmap closed=True>"

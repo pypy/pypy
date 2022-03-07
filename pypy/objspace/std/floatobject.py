@@ -441,6 +441,12 @@ class W_FloatObject(W_Root):
     def descr_trunc(self, space):
         return newint_from_float(space, self.floatval)
 
+    def descr_floor(self, space):
+        return newint_from_float(space, math.floor(self.floatval))
+
+    def descr_ceil(self, space):
+        return newint_from_float(space, math.ceil(self.floatval))
+
     def descr_neg(self, space):
         return W_FloatObject(-self.floatval)
 
@@ -700,6 +706,8 @@ Convert a string or number to a floating point number, if possible.''',
     __int__ = interp2app(W_FloatObject.descr_trunc),
     __float__ = interp2app(W_FloatObject.descr_float),
     __trunc__ = interp2app(W_FloatObject.descr_trunc),
+    __floor__ = interp2app(W_FloatObject.descr_floor),
+    __ceil__ = interp2app(W_FloatObject.descr_ceil),
     __neg__ = interp2app(W_FloatObject.descr_neg),
     __pos__ = interp2app(W_FloatObject.descr_pos),
     __abs__ = interp2app(W_FloatObject.descr_abs),

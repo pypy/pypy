@@ -126,7 +126,12 @@ class OrderedDict(dict):
         copyself.update(other)
         return copyself
 
-    __ror__ = __or__
+    def __ror__(self, other):
+        if not isinstance(other, dict):
+            return NotImplemented
+        copy = type(self)(other)
+        copy.update(self)
+        return copy
 
     # for __ior__ the dict implementation is fine
 

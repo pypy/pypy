@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function 
+from __future__ import print_function
 """ packages PyPy, provided that it's already built.
 It uses 'pypy/goal/pypy%d.%d-c' and parts of the rest of the working
 copy.  Usage:
@@ -272,6 +272,14 @@ def create_package(basedir, options, _fake=False):
         print('Picking {} as python.exe'.format(src))
         binaries.append((src, 'pypy.exe', None))
         print('Picking {} as pypy.exe'.format(src))
+        binaries.append((src, 'pypy{}.exe'.format(python_ver), None))
+        print('Picking {} as pypy{}.exe'.format(src, python_ver))
+        binaries.append((src, 'python{}.exe'.format(python_ver), None))
+        print('Picking {} as python{}.exe'.format(src, python_ver))
+        binaries.append((src, 'pypy{}.exe'.format(python_ver[0]), None))
+        print('Picking {} as pypy{}.exe'.format(src, python_ver[0]))
+        binaries.append((src, 'python{}.exe'.format(python_ver[0]), None))
+        print('Picking {} as python{}.exe'.format(src, python_ver[0]))
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
                       ('sqlite3.dll', target),
@@ -363,11 +371,12 @@ def create_package(basedir, options, _fake=False):
             open(str(archive), 'wb').close()
         os.chmod(str(archive), 0o755)
     if not _fake and not ARCH == 'win32':
-        # create a link to pypy, python 
+        # create a link to pypy, python
         old_dir = os.getcwd()
         os.chdir(str(bindir))
         try:
             os.symlink(POSIX_EXE, 'pypy')
+            # os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver))
             os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver[0]))
             os.symlink(POSIX_EXE, 'python')
             os.symlink(POSIX_EXE, 'python{}'.format(python_ver))

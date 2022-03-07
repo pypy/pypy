@@ -1478,7 +1478,8 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
     return encoding, errors
 
 def encode_object(space, w_obj, encoding, errors):
-    from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
+    from pypy.module._codecs.interp_codecs import(
+            _call_codec, lookup_text_codec, lookup_error)
     if errors is None or errors == 'strict':
         # fast paths
         utf8 = space.utf8_w(w_obj)
@@ -1507,6 +1508,8 @@ def encode_object(space, w_obj, encoding, errors):
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_codec_info = lookup_text_codec(space, 'encode', encoding)
+    if errors is not None and space.sys.get_flag('dev_mode'):
+        lookup_error(space, errors)
     w_encfunc = space.getitem(w_codec_info, space.newint(0))
     w_retval = _call_codec(space, w_encfunc, w_obj, "encoding", encoding, errors)
     if not space.isinstance_w(w_retval, space.w_bytes):
@@ -1519,7 +1522,8 @@ def encode_object(space, w_obj, encoding, errors):
 
 
 def decode_object(space, w_obj, encoding, errors=None):
-    from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
+    from pypy.module._codecs.interp_codecs import(
+            _call_codec, lookup_text_codec, lookup_error)
     # in all cases, call space.charbuf_w() first.  This will fail with a
     # TypeError if w_obj is of a random type.  Do this even if we're not
     # going to use 's'
@@ -1541,6 +1545,8 @@ def decode_object(space, w_obj, encoding, errors=None):
             return space.newutf8(s, lgt)
     if encoding is None:
         encoding = space.sys.defaultencoding
+    if errors is not None and space.sys.get_flag('dev_mode'):
+        lookup_error(space, errors)
     w_codec_info = lookup_text_codec(space, 'decode', encoding)
     w_encfunc = space.getitem(w_codec_info, space.newint(1))
     w_retval = _call_codec(space, w_encfunc, w_obj, "decoding", encoding, errors)

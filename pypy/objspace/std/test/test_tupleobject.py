@@ -473,3 +473,9 @@ class AppTestW_TupleObject:
     def test_tuple_new_pos_only(self):
         with raises(TypeError):
             tuple(sequence=[])
+
+    def test_error_not_iteratable(self):
+        with raises(TypeError) as excinfo:
+            tuple(1)
+        assert str(excinfo.value) == "'int' object is not iterable"
+

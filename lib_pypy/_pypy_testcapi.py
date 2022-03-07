@@ -1,6 +1,8 @@
-import os, sys, imp
+import os, sys
+
 import tempfile, binascii
 import importlib.machinery
+from importlib.util import spec_from_file_location, module_from_spec
 
 
 def _get_hashed_filename(cfile):
@@ -104,9 +106,9 @@ def compile_shared(csource, modulename, output_dir):
 
     # Now import the newly created library, it will replace the original
     # module in sys.modules
-    fp, filename, description = imp.find_module(modulename, path=[output_dir])
-    with fp:
-        mod = imp.load_module(modulename, fp, filename, description)
+    spec = spec_from_file_location(modulename,
+                                   os.path.join(output_dir, output_filename))
+    mod = module_from_spec(spec)
 
     # If everything went fine up to now, write the name of this new
     # directory to 'hashed_fn', for future processes (and to avoid a

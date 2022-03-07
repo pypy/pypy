@@ -3787,7 +3787,7 @@ class PythonParser(Parser):
             if augassign:
                 _tmp_136 = self._tmp_136()
                 if _tmp_136:
-                    return self . raise_syntax_error_known_location ( "%s is an illegal expression for augmented assignment" % ( self . get_expr_name ( a ) , ) , a )
+                    return self . raise_syntax_error_known_location ( "'%s' is an illegal expression for augmented assignment" % ( self . get_expr_name ( a ) , ) , a )
         self._index = mark
         return None
 
@@ -4032,7 +4032,7 @@ class PythonParser(Parser):
             if a:
                 literal_1 = self.expect_type(8)
                 if literal_1:
-                    return self . raise_syntax_error_known_location ( "cannot use starred expression here" , a )
+                    return self . raise_syntax_error_known_location ( "can't use starred expression here" , a )
         self._index = mark
         literal = self.expect_type(7)
         if literal:

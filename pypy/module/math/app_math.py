@@ -243,14 +243,16 @@ def lcm(*integers):
         return abs(index(integers[0]))
     if len(integers) == 2:
         a, b = integers
+        a, b = index(a), index(b)
         if a == 0 or b == 0:
             return 0
         return abs(a // math.gcd(a, b) * b)
-    res = integers[0]
+    res = index(integers[0])
     if res == 0:
         return res
     for i in range(1, len(integers)):
-        if integers[i] == 0:
+        v = index(integers[i])
+        if v == 0:
             return 0
-        res = abs(res // math.gcd(res, integers[i]) * integers[i])
+        res = abs(res // math.gcd(res, v) * v)
     return res

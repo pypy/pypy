@@ -580,6 +580,10 @@ class AppTestAppFloatTest:
         assert math.trunc(-100.999) == -100
         raises(OverflowError, math.trunc, float("inf"))
 
+    def test_floor_ceil(self):
+        import math
+        assert math.floor(1.5) == float(1.5).__floor__()
+        assert math.ceil(1.5) == float(1.5).__ceil__()
 
     def test_call_special(self):
         assert 5 .__add__(3.14) is NotImplemented

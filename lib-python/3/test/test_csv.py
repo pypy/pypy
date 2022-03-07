@@ -883,8 +883,11 @@ class TestDialectValidity(unittest.TestCase):
         mydialect.quotechar = 4
         with self.assertRaises(csv.Error) as cm:
             mydialect()
-        self.assertEqual(str(cm.exception),
-                         '"quotechar" must be string or None, not int')
+        if sys.implementation.name == 'pypy':
+            msg = '"quotechar" must be string, not int'
+        else:
+            msg = '"quotechar" must be string or None, not int'
+        self.assertEqual(str(cm.exception), msg)
 
     def test_delimiter(self):
         class mydialect(csv.Dialect):
@@ -924,8 +927,11 @@ class TestDialectValidity(unittest.TestCase):
         mydialect.delimiter = None
         with self.assertRaises(csv.Error) as cm:
             mydialect()
-        self.assertEqual(str(cm.exception),
-                         '"delimiter" must be string, not NoneType')
+        if sys.implementation.name == 'pypy':
+            msg = '"delimiter" must be a 1-character string'
+        else:
+            msg = '"delimiter" must be string, not NoneType'
+        self.assertEqual(str(cm.exception), msg)
 
     def test_escapechar(self):
         class mydialect(csv.Dialect):
@@ -942,12 +948,16 @@ class TestDialectValidity(unittest.TestCase):
         with self.assertRaisesRegex(csv.Error, '"escapechar" must be a 1-character string'):
             mydialect()
 
+        if sys.implementation.name == 'pypy':
+            start = '"escapechar" must be string, not '
+        else:
+            start = '"escapechar" must be string or None, not '
         mydialect.escapechar = b"*"
-        with self.assertRaisesRegex(csv.Error, '"escapechar" must be string or None, not bytes'):
+        with self.assertRaisesRegex(csv.Error, start + 'bytes'):
             mydialect()
 
         mydialect.escapechar = 4
-        with self.assertRaisesRegex(csv.Error, '"escapechar" must be string or None, not int'):
+        with self.assertRaisesRegex(csv.Error, start + 'int'):
             mydialect()
 
     def test_lineterminator(self):

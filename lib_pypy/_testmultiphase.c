@@ -59,7 +59,7 @@ Example_demo(ExampleObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-#include "clinic/_testmultiphase.c.h"
+#include "_testmultiphase.c.h"
 
 static PyMethodDef Example_methods[] = {
     {"demo",            (PyCFunction)Example_demo,  METH_VARARGS,
@@ -104,7 +104,9 @@ Example_setattr(ExampleObject *self, const char *name, PyObject *v)
 
 static PyType_Slot Example_Type_slots[] = {
     {Py_tp_doc, "The Example type"},
+#ifndef PYPY_VERSION    
     {Py_tp_finalize, Example_finalize},
+#endif
     {Py_tp_traverse, Example_traverse},
     {Py_tp_getattro, Example_getattro},
     {Py_tp_setattr, Example_setattr},

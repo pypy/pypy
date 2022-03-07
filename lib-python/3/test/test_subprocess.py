@@ -1943,7 +1943,7 @@ class POSIXProcessTestCase(BaseTestCase):
         with self.assertRaises(ValueError):
             subprocess.check_call(ZERO_RETURN_CMD, extra_groups=[-1])
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises((ValueError, OverflowError)):
             subprocess.check_call(ZERO_RETURN_CMD,
                                   cwd=os.curdir, env=os.environ,
                                   extra_groups=[2**64])
