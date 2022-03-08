@@ -665,7 +665,8 @@ class Frame(object):
 
             elif opcode == CALL:
                 t = ord(bytecode[pc])
-                pc += 1
+                argnum = ord(bytecode[pc + 1])
+                pc += 2
                 if we_are_jitted():
                     self.CALL(t, dummy=False)
                 else:
@@ -756,6 +757,9 @@ class Frame(object):
                     self.PRINT(dummy=True)
                 else:
                     self.PRINT(dummy=False)
+
+            elif opcode == NOP:
+                continue
 
             else:
                 assert False, 'Unknown opcode: %s' % bytecodes[opcode]
