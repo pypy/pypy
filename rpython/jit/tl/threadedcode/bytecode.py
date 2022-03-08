@@ -7,6 +7,7 @@ def define_op(name, has_arg=False):
     hasarg.append(has_arg)
 
 _bytecodes_has_args = [
+    ('NOP', False),
     ('CONST_INT', True),
     ('CONST_FLOAT', True),
     ('DUP', False),
