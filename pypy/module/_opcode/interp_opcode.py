@@ -1,11 +1,12 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.tool import stdlib_opcode
-from pypy.interpreter.astcompiler.assemble import _opcode_stack_effect
+from pypy.interpreter.astcompiler.assemble import (_opcode_stack_effect,
+    _opcode_stack_effect_jump)
 
 
 @unwrap_spec(opcode=int)
-def stack_effect(space, opcode, w_oparg=None):
+def stack_effect(space, opcode, w_oparg=None, w_jump=None):
     "Compute the stack effect of the opcode."
     if opcode == stdlib_opcode.EXTENDED_ARG:
         return space.newint(0)
@@ -20,7 +21,17 @@ def stack_effect(space, opcode, w_oparg=None):
                 "stack_effect: opcode does not permit oparg but oparg was specified")
         oparg = -1
     try:
-        return space.newint(_opcode_stack_effect(opcode, oparg))
+        withoutjump = _opcode_stack_effect(opcode, oparg)
     except KeyError:
         raise oefmt(space.w_ValueError,
             "invalid opcode or oparg")
+    hasjump = opcode in stdlib_opcode.hasjrel or opcode in stdlib_opcode.hasjabs
+    if hasjump:
+        withjump = _opcode_stack_effect_jump(opcode)
+        if space.is_none(w_jump):
+            return space.newint(max(withoutjump, withjump))
+        elif space.is_true(w_jump):
+            return space.newint(withjump)
+        else:
+            return space.newint(withoutjump)
+    return space.newint(withoutjump)

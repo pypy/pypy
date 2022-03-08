@@ -14,3 +14,8 @@ def test_call_function():
 def test_invalid_opcode():
     pytest.raises(ValueError, opcode.stack_effect, 0)
     pytest.raises(ValueError, opcode.stack_effect, 0, 0)
+
+def test_jump():
+    assert opcode.stack_effect(opcode.opmap["FOR_ITER"], 0, jump=True) == -2
+    assert opcode.stack_effect(opcode.opmap["FOR_ITER"], 0, jump=False) == 1
+    assert opcode.stack_effect(opcode.opmap["FOR_ITER"], 0) == 1
