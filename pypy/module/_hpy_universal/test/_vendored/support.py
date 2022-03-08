@@ -5,6 +5,13 @@ import textwrap
 
 PY2 = sys.version_info[0] == 2
 
+# True if `sys.executable` is set to a value that allows a Python equivalent to
+# the current Python to be launched via, e.g., `python_subprocess.run(...)`.
+# By default is `True` if sys.executable is set to a true value.
+SUPPORTS_SYS_EXECUTABLE = False
+# True if we are running on the CPython debug build
+IS_PYTHON_DEBUG_BUILD = False
+
 def reindent(s, indent):
     s = textwrap.dedent(s)
     return ''.join(' '*indent + line if line.strip() else line
@@ -18,10 +25,9 @@ class DefaultExtensionTemplate(object):
         NULL
     };
     static HPyModuleDef moduledef = {
-        HPyModuleDef_HEAD_INIT,
-        .m_name = "%(name)s",
-        .m_doc = "some test for hpy",
-        .m_size = -1,
+        .name = "%(name)s",
+        .doc = "some test for hpy",
+        .size = -1,
         .legacy_methods = %(legacy_methods)s,
         .defines = moduledefs
     };
@@ -129,6 +135,12 @@ class Spec(object):
     def __init__(self, name, origin):
         self.name = name
         self.origin = origin
+
+
+class HPyModule(object):
+    def __init__(self, name, so_file):
+        self.name = name
+        self.so_filename = so_file
 
 
 class ExtensionCompiler:

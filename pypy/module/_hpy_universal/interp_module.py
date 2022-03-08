@@ -22,7 +22,7 @@ def debug_HPyModule_Create(space, handles, ctx, hpydef):
 @specialize.arg(0)
 def _hpymodule_create(handles, hpydef):
     space = handles.space
-    modname = rffi.constcharp2str(hpydef.c_m_name)
+    modname = rffi.constcharp2str(hpydef.c_name)
     w_mod = Module(space, space.newtext(modname))
     #
     # add the functions defined in hpydef.c_legacy_methods
@@ -49,8 +49,8 @@ def _hpymodule_create(handles, hpydef):
                 space, handles, name, sig, doc, hpymeth.c_impl, w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1
-    if hpydef.c_m_doc:
-        w_doc = space.newtext(rffi.constcharp2str(hpydef.c_m_doc))
+    if hpydef.c_doc:
+        w_doc = space.newtext(rffi.constcharp2str(hpydef.c_doc))
     else:
         w_doc = space.w_None
     space.setattr(w_mod, space.newtext('__doc__'), w_doc)

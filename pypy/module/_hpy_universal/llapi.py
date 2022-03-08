@@ -307,18 +307,20 @@ typedef int HPyFunc_Signature;
 
 /* hpydef.h */
 
+typedef void* (*HPyCFunction)(void);
+
 typedef struct {
     HPySlot_Slot slot;     // The slot to fill
-    void *impl;            // Function pointer to the implementation
+    HPyCFunction impl;     // Function pointer to the implementation
     void *cpy_trampoline;  // Used by CPython to call impl
 } HPySlot;
 
 typedef struct {
     const char *name;             // The name of the built-in function/method
-    const char *doc;              // The __doc__ attribute, or NULL
-    void *impl;                   // Function pointer to the implementation
+    HPyCFunction impl;            // Function pointer to the implementation
     void *cpy_trampoline;         // Used by CPython to call impl
     HPyFunc_Signature signature;  // Indicates impl's expected the signature
+    const char *doc;              // The __doc__ attribute, or NULL
 } HPyMeth;
 
 typedef enum {
@@ -410,12 +412,11 @@ typedef struct {
 typedef void cpy_PyMethodDef;
 
 typedef struct {
-    void *dummy; // this is needed because we put a comma after HPyModuleDef_HEAD_INIT :(
-    const char* m_name;
-    const char* m_doc;
-    HPy_ssize_t m_size;
+    const char* name;
+    const char* doc;
+    HPy_ssize_t size;
     cpy_PyMethodDef *legacy_methods;
-    HPyDef **defines;
+    HPyDef **defines;   /* points to an array of 'HPyDef *' */
 } HPyModuleDef;
 
 /* hpytype.h */
