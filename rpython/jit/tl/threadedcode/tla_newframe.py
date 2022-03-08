@@ -454,7 +454,7 @@ class Frame(object):
                     self.PRINT(dummy=True)
 
             elif opcode == NOP:
-                pass
+                continue
 
             else:
                 assert False, 'Unknown opcode: %s' % bytecodes[opcode]
