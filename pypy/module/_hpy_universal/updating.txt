@@ -1,0 +1,15 @@
+How to update HPy
+=================
+
+* Optional: start from a clean pypy repo, running `hg purge`
+* Get a clean checkout of the appropriate version in the hpy repo
+* Run `python setup.py dist_info` there (under Python 3.*)
+* Run update_vendored.sh. If some patches don't apply, copy them somewhere,
+  delete them and try again. Then recreate the patches manually :-(
+* Commit: don't forget to `hg add` the new files and `hg rm --after` any that was
+  deleted.
+* Run `make autogen` in the hpy repo.
+* Manually copy the context declaration from hpy/tools/autogen/autogen_pypy.txt
+  to pypy/module/_hpy_universal/llapi.py
+* Fix failing own tests and translation, if needed.
+* Implement the new features, manually updating the own tests as you go.
