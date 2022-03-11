@@ -15,16 +15,18 @@ def get_printable_location_tier1(pc, entry_state, bytecode, tstack):
         arg = ''
     return "%s: %s %s, tstack: %d" % (pc, name, arg, tstack.pc)
 
+
 def get_printable_location(pc, bytecode):
     return get_printable_location_tier1(pc, 0, bytecode, t_empty())
 
 
 tier1driver = JitDriver(
     greens=['pc', 'entry_state', 'bytecode', 'tstack'], reds=['self'],
-    get_printable_location=get_printable_location_tier1, threaded_code_gen=True, is_recursive=True)
+    get_printable_location=get_printable_location_tier1, threaded_code_gen=True,
+    is_recursive=True)
 
 
-tjjitdriver = JitDriver(
+tier2driver = JitDriver(
     greens=['pc', 'bytecode',], reds=['self'],
     get_printable_location=get_printable_location, is_recursive=True)
 
@@ -40,8 +42,20 @@ class Frame(object):
         self.stack[self.stackpos] = w_x
         self.stackpos += 1
 
+    def _push(self, w_x):
+        self.stack[self.stackpos] = w_x
+        self.stackpos += 1
+
     @jit.dont_look_inside
     def pop(self):
+        stackpos = self.stackpos - 1
+        assert stackpos >= 0
+        self.stackpos = stackpos
+        res = self.stack[stackpos]
+        self.stack[stackpos] = None
+        return res
+
+    def _pop(self):
         stackpos = self.stackpos - 1
         assert stackpos >= 0
         self.stackpos = stackpos
@@ -56,10 +70,21 @@ class Frame(object):
         assert w_x is not None
         return w_x
 
+    def _take(self, n):
+        assert len(self.stack) is not 0
+        w_x = self.stack[self.stackpos - n - 1]
+        assert w_x is not None
+        return w_x
+
     @jit.dont_look_inside
     def drop(self, n):
         for _ in range(n):
             self.pop()
+
+    @jit.unroll_safe
+    def _drop(self, n):
+        for _ in range(n):
+            self._pop()
 
     @jit.dont_look_inside
     def rotate_two(self):
@@ -95,10 +120,21 @@ class Frame(object):
         res = w_x.is_true()
         return res
 
+    def _is_true(self):
+        w_x = self._pop()
+        return w_x.is_true()
+
     @jit.dont_look_inside
     def CONST_INT(self, pc, dummy):
         if dummy:
             return
+        if isinstance(pc, int):
+            x = ord(self.bytecode[pc])
+            self.push(W_IntObject(x))
+        else:
+            raise OperationError
+
+    def _CONST_INT(self, pc):
         if isinstance(pc, int):
             x = ord(self.bytecode[pc])
             self.push(W_IntObject(x))
@@ -115,10 +151,20 @@ class Frame(object):
         else:
             raise OperationError
 
+    def _CONST_FLOAT(self, pc):
+        if isinstance(pc, float):
+            x = ord(self.bytecode[pc])
+            self.push(W_FloatObject(x))
+        else:
+            raise OperationError
+
     @jit.dont_look_inside
     def PUSH(self, w_x, dummy):
         if dummy:
             return
+        self.push(w_x)
+
+    def _PUSH(self, w_x):
         self.push(w_x)
 
     @jit.dont_look_inside
@@ -134,6 +180,11 @@ class Frame(object):
         for _ in range(n):
             self.pop()
 
+    @jit.unroll_safe
+    def _DROP(self, n):
+        for _ in range(n):
+            self._pop()
+
     @jit.dont_look_inside
     def POP1(self, dummy):
         if dummy:
@@ -141,6 +192,11 @@ class Frame(object):
         v = self.pop()
         _ = self.pop()
         self.push(v)
+
+    def _POP1(self):
+        v = self._pop()
+        _ = self._pop()
+        self._push(v)
 
     @jit.dont_look_inside
     def ADD(self, dummy):
@@ -151,6 +207,12 @@ class Frame(object):
         w_z = w_x.add(w_y)
         self.push(w_z)
 
+    def _ADD(self):
+        w_y = self._pop()
+        w_x = self._pop()
+        w_z = w_x.add(w_y)
+        self._push(w_z)
+
     @jit.dont_look_inside
     def SUB(self, dummy):
         if dummy:
@@ -159,6 +221,12 @@ class Frame(object):
         w_x = self.pop()
         w_z = w_x.sub(w_y)
         self.push(w_z)
+
+    def _SUB(self):
+        w_y = self._pop()
+        w_x = self._pop()
+        w_z = w_x.sub(w_y)
+        self._push(w_z)
 
     @jit.dont_look_inside
     def MUL(self, dummy):
@@ -169,6 +237,14 @@ class Frame(object):
         w_z = w_x.mul(w_y)
         self.push(w_z)
 
+    def _MUL(self, dummy):
+        if dummy:
+            return
+        w_y = self._pop()
+        w_x = self._pop()
+        w_z = w_x.mul(w_y)
+        self._push(w_z)
+
     @jit.dont_look_inside
     def DIV(self, dummy):
         if dummy:
@@ -178,14 +254,26 @@ class Frame(object):
         w_z = w_x.div(w_y)
         self.push(w_z)
 
-    @jit.dont_look_inside
-    def MOD(self, dummy):
+    def _DIV(self, dummy):
         if dummy:
             return
+        w_y = self._pop()
+        w_x = self.pop()
+        w_z = w_x._div(w_y)
+        self._push(w_z)
+
+    @jit.dont_look_inside
+    def MOD(self):
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.mod(w_y)
         self.push(w_z)
+
+    def _MOD(self):
+        w_y = self._pop()
+        w_x = self._pop()
+        w_z = w_x.mod(w_y)
+        self._push(w_z)
 
     @jit.dont_look_inside
     def DUP(self, dummy):
@@ -195,6 +283,11 @@ class Frame(object):
         self.push(w_x)
         self.push(w_x)
 
+    def _DUP(self, dummy):
+        w_x = self._pop()
+        self._push(w_x)
+        self._push(w_x)
+
     @jit.dont_look_inside
     def DUPN(self, pc, dummy):
         if dummy:
@@ -202,6 +295,11 @@ class Frame(object):
         n = ord(self.bytecode[pc])
         w_x = self.take(n)
         self.push(w_x)
+
+    def _DUPN(self, pc):
+        n = ord(self.bytecode[pc])
+        w_x = self._take(n)
+        self._push(w_x)
 
     @jit.dont_look_inside
     def LT(self, dummy):
@@ -212,6 +310,12 @@ class Frame(object):
         w_z = w_x.lt(w_y)
         self.push(w_z)
 
+    def _LT(self):
+        w_y = self._pop()
+        w_x = self._pop()
+        w_z = w_x.lt(w_y)
+        self._push(w_z)
+
     @jit.dont_look_inside
     def GT(self, dummy):
         if dummy:
@@ -221,12 +325,23 @@ class Frame(object):
         w_z = w_x.gt(w_y)
         self.push(w_z)
 
+    def _GT(self):
+        w_y = self._pop()
+        w_x = self._pop()
+        w_z = w_x.gt(w_y)
+        self.push(w_z)
+
     @jit.dont_look_inside
     def EQ(self, dummy):
         if dummy:
             return
         w_y = self.pop()
         w_x = self.pop()
+        self.push(w_x.eq(w_y))
+
+    def _EQ(self):
+        w_y = self._pop()
+        w_x = self._pop()
         self.push(w_x.eq(w_y))
 
     @jit.dont_look_inside
@@ -240,6 +355,14 @@ class Frame(object):
         else:
             self.push(W_IntObject(0))
 
+    def _NE(self):
+        w_y = self._pop()
+        w_x = self._pop()
+        if w_x.eq(w_y).intvalue:
+            self._push(W_IntObject(1))
+        else:
+            self._push(W_IntObject(0))
+
     @jit.dont_look_inside
     def CALL(self, oldframe, t, argnum, dummy):
         if dummy:
@@ -249,11 +372,21 @@ class Frame(object):
         if w_x:
             oldframe.push(w_x)
 
+    def _CALL(self, oldframe, t, argnum):
+        w_x = self._interp(t)
+        oldframe._drop(argnum)
+        if w_x:
+            oldframe._push(w_x)
+
     @jit.dont_look_inside
     def RET(self, n, dummy):
         if dummy:
             return
         v = self.pop()
+        return v
+
+    def _RET(self, n):
+        v = self._pop()
         return v
 
     @jit.dont_look_inside
@@ -263,27 +396,149 @@ class Frame(object):
         v = self.take(0)
         print v.getrepr()
 
+    def _PRINT(self, dummy):
+        if dummy:
+            return
+        v = self._take(0)
+        print v.getrepr()
+
     @jit.dont_look_inside
     def FRAME_RESET(self, o, l, n, dummy):
         if dummy:
             return
 
+        assert n >= 0
         ret = self.stack[self.stackpos - n - l - 1]
         old_base = self.stackpos - n - l - o - 1
         new_base = self.stackpos - n
-        i = 0
-        while i != n:
+
+        for i in range(n):
             self.stack[old_base + i] = self.stack[new_base + i]
-            i += 1
+
         self.stackpos = old_base + n + 1
 
+    @jit.unroll_safe
+    def _FRAME_RESET(self, o, l, n, dummy):
+        if dummy:
+            return
+
+        assert n >= 0
+        ret = self.stack[self.stackpos - n - l - 1]
+        old_base = self.stackpos - n - l - o - 1
+        new_base = self.stackpos - n
+
+        for i in range(n):
+            self.stack[old_base + i] = self.stack[new_base + i]
+
+        self.stackpos = old_base + n + 1
+
+    def _interp(self, pc=0):
+        while pc < len(bytecode):
+            tier2driver.jit_merge_point(bytecode=bytecode, pc=pc, self=self)
+
+            opcode = ord(bytecode[pc])
+            pc += 1
+
+            if opcode == CONST_INT:
+                self._CONST_INT(pc)
+                pc += 1
+
+            elif opcode == POP:
+                self._POP()
+
+            elif opcode == POP1:
+                self._POP1()
+
+            elif opcode == DUP:
+                self._DUP()
+
+            elif opcode == DUPN:
+                self._DUPN(pc)
+                pc += 1
+
+            elif opcode == LT:
+                self._LT()
+
+            elif opcode == GT:
+                self._GT()
+
+            elif opcode == EQ:
+                self._EQ()
+
+            elif opcode == ADD:
+                self._ADD()
+
+            elif opcode == SUB:
+                self._SUB()
+
+            elif opcode == DIV:
+                self._DIV()
+
+            elif opcode == MUL:
+                self._MUL()
+
+            elif opcode == MOD:
+                self._MOD()
+
+            elif opcode == CALL:
+                t = ord(bytecode[pc])
+                argnum = ord(bytecode[pc + 1])
+                pc += 2
+
+                # create a new frame
+                frame = Frame(bytecode)
+                i = self.stackpos - argnum - 1
+                assert i >= 0
+                frame.stack = self.stack[i:]
+                frame.stackpos = argnum + 1
+
+                tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
+                frame.CALL(self, t, argnum)
+
+            elif opcode == RET:
+                argnum = hint(ord(bytecode[pc]), promote=True)
+                pc += 1
+                return self._RET(argnum,)
+
+            elif opcode == JUMP:
+                t = ord(bytecode[pc])
+                pc += 1
+                if t < pc:
+                    tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=self)
+
+                pc = t
+
+            elif opcode == JUMP_IF:
+                t = ord(bytecode[pc])
+                pc += 1
+                if self.is_true():
+                    if t < pc:
+                        tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=self)
+                    pc = t
+
+            elif opcode == EXIT:
+                return self._POP()
+
+            elif opcode == PRINT:
+                self._PRINT()
+
+            elif opcode == FRAME_RESET:
+                raise NotImplementedError
+
+            elif opcode == NOP:
+                continue
+
+            else:
+                assert False, 'Unknown opcode: %s' % bytecodes[opcode]
+
+
     def interp(self, pc=0, dummy=False):
+        if dummy:
+            return
+
         tstack = t_empty()
         entry_state = pc
         bytecode = self.bytecode
-
-        if dummy:
-            return
 
         while pc < len(bytecode):
             tier1driver.jit_merge_point(bytecode=bytecode, entry_state=entry_state,
