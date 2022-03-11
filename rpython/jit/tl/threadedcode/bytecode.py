@@ -30,6 +30,7 @@ _bytecodes_has_args = [
     ('CALL_NORMAL', True),
     ('RET', True),
     ('NEWSTR', True),
+    ('FRAME_RESET', True),
     ('PRINT', False)
 ]
 
