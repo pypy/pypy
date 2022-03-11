@@ -43,22 +43,3 @@ class TestMapping(BaseApiTest):
         assert api.PyMapping_HasKey(w_d, w_d) == 0
         # and no error is set
 
-
-class AppTestMapping(AppTestCpythonExtensionBase):
-
-    def test_getitemstring_returns_new_but_borrowed_ref(self):
-        module = self.import_extension('foo', [
-           ("test_mapping", "METH_O",
-            '''
-                PyObject *value = PyMapping_GetItemString(args, "a");
-                /* officially, "value" can have a refcount equal to one,
-                   but some code out there assumes that it has a refcnt
-                   of at least two --- which is bogus --- because it
-                   is generally kept alive by the container. */
-                PyObject *refcnt = PyLong_FromLong(value->ob_refcnt);
-                Py_DECREF(value);
-                return refcnt;
-            '''),])
-        d = {"a": 42}
-        res = module.test_mapping(d)
-        assert res > 1
