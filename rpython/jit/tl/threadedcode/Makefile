@@ -1,15 +1,11 @@
-SOURCE = loop.tla.py loopabit.tla.py call.tla.py callabit.tla.py \
-	callabit_baseline_tracing.tla.py callabit_baseline_only.tla.py callabit_baseline_interp.tla.py
+SOURCE = lang/sum.tla.py lang/fact.tla.py lang/fib.tla.py lang/ack.tla.py \
+	lang/tak.tla.py lang/gcd.tla.py
 
 .PHONY: compile
 compile: targettla-c targettla_bench-c
 
 .PHONY: targettla-c
 targettla-c: targettla.py tla.py
-	rpython -Ojit --make-jobs=12 $<
-
-.PHONY: targettla_bench-c
-targettla_bench-c: targettla_bench.py tla.py
 	rpython -Ojit --make-jobs=12 $<
 
 %.tla: %.tla.py

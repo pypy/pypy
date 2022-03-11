@@ -1,7 +1,8 @@
 from rpython.jit.tl.threadedcode import tla
 
 code = [
-        tla.DUP, tla.NOP,
+	tla.DUP,
+	tla.NOP,
 	tla.DUP,
 	tla.CALL, 10, 1,
 	tla.PRINT,

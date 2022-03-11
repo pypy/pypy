@@ -1,4 +1,4 @@
-from rpython.jit.tl.threadedcode import tla_newframe as tla
+from rpython.jit.tl.threadedcode import tla
 
 code = [
     tla.CONST_INT, 2,

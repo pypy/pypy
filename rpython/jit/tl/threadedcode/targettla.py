@@ -1,10 +1,12 @@
 import py
 py.path.local(__file__)
+import time
+
 from rpython.jit.tl.threadedcode import tla
 from rpython.rlib import jit
 
 def entry_point(args):
-    usage = "Usage: %s filename x" % (args[0],)
+    usage = "Usage: %s filename x n" % (args[0],)
 
     if len(args) < 3:
         print usage
@@ -22,9 +24,18 @@ def entry_point(args):
 
     filename = args[1]
     x = int(args[2])
+    try:
+        n = int(args[3])
+    except Exception:
+        n = 100
     w_x = tla.W_IntObject(x)
     bytecode = load_bytecode(filename)
-    w_res = tla.run(bytecode, w_x)
+    w_res = tla.W_IntObject(0)
+    for _ in range(n):
+        n1 = time.time()
+        w_res = tla.run(bytecode, w_x)
+        n2 = time.time()
+        print (n2 * 1e4 - n1 * 1e4)
     print w_res.getrepr()
     return 0
 
