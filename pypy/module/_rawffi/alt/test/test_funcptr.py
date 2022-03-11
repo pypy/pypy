@@ -303,14 +303,18 @@ class AppTestFFI(BaseAppTestFFI):
             }
         """
         import sys
+        if sys.platform == 'win32':
+            maxlong = 2 ** 31 - 1
+        else:
+            maxlong = sys.maxsize
         from _rawffi.alt import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy_ul', [types.ulong, types.ulong],
                                 types.ulong)
-        assert sum_xy(sys.maxsize, 12) == sys.maxsize+12
-        assert sum_xy(sys.maxsize+1, 12) == sys.maxsize+13
+        assert sum_xy(maxlong, 12) == maxlong + 12
+        assert sum_xy(maxlong + 1, 12) == maxlong + 13
         #
-        res = sum_xy(sys.maxsize*2+3, 0)
+        res = sum_xy(maxlong * 2 + 3, 0)
         assert res == 1
 
     def test_unsigned_short_args(self):
