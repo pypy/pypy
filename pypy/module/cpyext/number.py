@@ -50,7 +50,7 @@ def PyNumber_AsSsize_t(space, w_obj, w_exc):
         if e.match(space, space.w_OverflowError):
             if not w_exc:
                 if space.isinstance_w(w_obj, space.w_long):
-                    if w_obj.longval() < 0:
+                    if w_obj.bigint_w(space).sign < 0:
                         return PY_SSIZE_T_MIN
                     else:
                         return PY_SSIZE_T_MAX
