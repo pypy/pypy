@@ -120,19 +120,13 @@ class AppTestMMap:
     def test_readline(self):
         from mmap import mmap
         import os
-        f = open(self.tmpname + "e", "wb+")
-
-        f.write(b"foo\n")
-        f.flush()
-        m = mmap(f.fileno(), 4)
-        if os.name == "nt":
-            # windows replaces \n with \r. it's time to change to \n only MS!
-            assert m.readline() == b"foo\r"
-        elif os.name == "posix":
-            assert m.readline() == b"foo\n"
-        assert m.readline() == b""
-        m.close()
-        f.close()
+        with open(self.tmpname + "e", "wb+") as f:
+            f.write(b"foo\n")
+            f.flush()
+            with mmap(f.fileno(), 4) as m:
+                result = m.readline()
+                assert result == b"foo\n"
+                assert m.readline() == b""
 
     def test_read(self):
         from mmap import mmap
@@ -545,20 +539,22 @@ class AppTestMMap:
         f.close()
 
     def test_memoryview(self):
-        from mmap import mmap, PROT_READ
+        from mmap import mmap
         filename = self.tmpname + "y"
-        f = open(filename, "bw+")
-        f.write(b"foobar")
-        f.flush()
-        m = mmap(f.fileno(), 6)
-        b = memoryview(m)
-        assert len(b) == 6
-        assert b.readonly is False
-        assert b[3] == ord(b"b")
-        assert b[:] == b"foobar"
-        del b  # For CPython: "exported pointers exist"
-        m.close()
-        f.close()
+        with open(filename, "bw+") as f:
+            f.write(b"foobar")
+            f.flush()
+            with mmap(f.fileno(), 6) as m:
+                b = memoryview(m)
+                assert len(b) == 6
+                assert b.readonly is False
+                assert b[3] == ord(b"b")
+                assert b[:] == b"foobar"
+                del b  # For CPython: "exported pointers exist"
+        try:
+            from mmap import PROT_READ
+        except ImportError:
+            skip('no PROT_READ') 
         with open(filename, "rb") as f:
             m = mmap(f.fileno(), 6, prot=PROT_READ)
             b = memoryview(m)
@@ -570,16 +566,15 @@ class AppTestMMap:
     def test_offset(self):
         from mmap import mmap, ALLOCATIONGRANULARITY
         filename = self.tmpname + "y"
-        f = open(filename, "wb+")
-        f.write(b"foobar" * ALLOCATIONGRANULARITY)
-        f.flush()
-        size = ALLOCATIONGRANULARITY
-        offset = 2 * ALLOCATIONGRANULARITY
-        m = mmap(f.fileno(), size, offset=offset)
-        assert m[:] == (b"foobar" * ALLOCATIONGRANULARITY)[offset:offset+size]
-        assert len(m) == size
-        m.close()
-        f.close()
+        with open(filename, "wb+") as f:
+            f.write(b"foobar" * ALLOCATIONGRANULARITY)
+            f.flush()
+            size = ALLOCATIONGRANULARITY
+            offset = 2 * ALLOCATIONGRANULARITY
+            m = mmap(f.fileno(), size, offset=offset)
+            assert m[:] == (b"foobar" * ALLOCATIONGRANULARITY)[offset:offset+size]
+            assert len(m) == size
+            m.close()
 
     def test_offset_more(self):
         from mmap import mmap, ALLOCATIONGRANULARITY
@@ -903,7 +898,7 @@ class AppTestMMap:
         m = mmap.mmap(-1, 1024)
         if not hasattr(m, "madvise"):
             m.close()
-            py.test.skip("no madvise")
+            skip("no madvise")
 
         m.madvise(mmap.MADV_NORMAL)
         m.close()
