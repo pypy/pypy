@@ -134,6 +134,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         cls.special_char = get_special_char()
         cls.w_special_char = space.wrap(cls.special_char)
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
 
     def test_occurred(self):
@@ -225,7 +226,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
 
     def test_SetFromErrno(self):
         import sys
-        if sys.platform != 'win32':
+        if not self.runappdirect:
             skip("callbacks through ll2ctypes modify errno")
         import errno, os
 
