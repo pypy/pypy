@@ -2,7 +2,7 @@ import _imp
 import os
 import sys
 import struct
-from distutils.spawn import find_executable
+from shutil import which
 
 so_ext = _imp.extension_suffixes()[0]
 
@@ -48,13 +48,13 @@ build_time_vars = {
     'SIZEOF_VOID_P': struct.calcsize("P"),
 }
 
-if find_executable("gcc"):
+if which("gcc"):
     build_time_vars.update({
         "CC": "gcc -pthread",
         "GNULD": "yes",
         "LDSHARED": "gcc -pthread -shared",
     })
-    if find_executable("g++"):
+    if which("g++"):
         build_time_vars["CXX"] = "g++ -pthread"
 
 if sys.platform[:6] == "darwin":
