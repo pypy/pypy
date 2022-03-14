@@ -200,6 +200,7 @@ class AppTestEpoll(object):
     def test_unregister_closed(self):
         import select
         import time
+        import errno
 
         client, server = self.socket_pair()
 
@@ -213,7 +214,9 @@ class AppTestEpoll(object):
         assert then - now < self.timeout
 
         server.close()
-        ep.unregister(fd)
+        with raises(OSError) as cm:
+            ep.unregister(fd)
+        assert cm.value.errno == errno.EBADF
 
     def test_close_twice(self):
         import select
