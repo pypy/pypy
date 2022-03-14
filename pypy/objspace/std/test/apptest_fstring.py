@@ -287,6 +287,6 @@ $}"""''')
         eval("f'''{\xa0}'''")
     assert excinfo.value.lineno == 1
     print(excinfo.value.offset)
-    assert excinfo.value.offset == 5
+    assert excinfo.value.offset == 6
     assert 'f-string: invalid non-printable character U+00A0' in str(excinfo.value)
 
