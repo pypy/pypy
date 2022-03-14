@@ -132,6 +132,9 @@ class TestPythonParser:
         assert exc.msg == "unmatched ')'"
         assert exc.lineno == 1
         assert exc.offset == 4
+        exc = py.test.raises(SyntaxError, parse, "\\").value
+        assert exc.msg == "unexpected EOF while parsing"
+        
 
     def test_is(self):
         self.parse("x is y")
