@@ -137,9 +137,15 @@ class W_ExternPython(W_CData):
         try:
             w_args = self.prepare_args_tuple(ll_args)
             w_res = space.call(self.w_callable, w_args)
-            extra_line = ", trying to convert the result back to C"
+        except OperationError as e:
+            self.handle_applevel_exception(e, ll_res, extra_line)
+        extra_line = ", trying to convert the result back to C"
+        try:
             self.convert_result(ll_res, w_res)
         except OperationError as e:
+            # XXX we need to add a traceback "as-if" the call to
+            # self.w_callable failed, so we need the parent frame of e,
+            # something like e.get_w_traceback(space).frame.get_f_back()
             self.handle_applevel_exception(e, ll_res, extra_line)
 
     @jit.unroll_safe
@@ -166,8 +172,13 @@ class W_ExternPython(W_CData):
 
     def print_error(self, operr, extra_line):
         space = self.space
-        operr.write_unraisable(space, "from cffi callback", self.w_callable,
-                               with_traceback=True, extra_line=extra_line)
+        # Emulate _PyErr_WriteUnraisableMsg
+        obj_repr = space.text_w(space.repr(self.w_callable))
+        if extra_line:
+            s = "%s %s%s:" % ("from cffi callback", obj_repr, extra_line)
+        else:
+            s = "%s %s:" % ("from cffi callback", obj_repr)
+        operr.write_unraisable(space, s, None, with_traceback=True)
 
     @jit.dont_look_inside
     def handle_applevel_exception(self, e, ll_res, extra_line):
