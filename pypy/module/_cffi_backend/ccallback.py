@@ -139,6 +139,7 @@ class W_ExternPython(W_CData):
             w_res = space.call(self.w_callable, w_args)
         except OperationError as e:
             self.handle_applevel_exception(e, ll_res, extra_line)
+            return
         extra_line = ", trying to convert the result back to C"
         try:
             self.convert_result(ll_res, w_res)
