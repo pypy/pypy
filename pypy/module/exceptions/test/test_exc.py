@@ -463,8 +463,11 @@ class AppTestExc(object):
 
                 source = source.replace("foo", "(foo.)")
                 exc = raises(SyntaxError, exec_, source)
+                print('source "%s"' % source)
+                print('custom_msg "%s"' % custom_msg)
+                print('exc.value.msg "%s"' % exc.value.msg)
                 assert (custom_msg not in exc.value.msg) == (
-                    ('print (' in source or 'exec (' in source))
+                    ('print ' in source or 'exec ' in source))
 
     def test_bug_print_heuristic_shadows_better_message(self):
         def exec_(s): exec(s)
