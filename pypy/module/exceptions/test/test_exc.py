@@ -492,7 +492,7 @@ class AppTestExc(object):
             "Missing parentheses in call to 'print'. Did you mean print(p)?")
         check("print %", "invalid syntax")
         check("print 1 1",
-            "Missing parentheses in call to 'print'")
+            "Missing parentheses in call to 'print'. Did you mean 'print(...)'?")
 
     def test_print_and_operators(self):
         with raises(TypeError) as excinfo:
