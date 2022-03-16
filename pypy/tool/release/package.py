@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function 
+from __future__ import print_function
 """ packages PyPy, provided that it's already built.
 It uses 'pypy/goal/pypy3-c' and parts of the rest of the working
 copy.  Usage:
@@ -73,7 +73,7 @@ def get_python_ver(pypy_c, quiet=False):
     ver = subprocess.check_output([str(pypy_c), '-c',
              'import sysconfig as s; print(s.get_python_version())'], **kwds)
     return ver.strip()
-    
+
 def generate_sysconfigdata(pypy_c, lib_pypy):
     """Create a _sysconfigdata_*.py file that is platform specific and can be
     parsed by non-python tools. Used in cross-platform package building and
@@ -200,6 +200,12 @@ def create_package(basedir, options, _fake=False):
         print('Picking {} as pypy.exe'.format(src))
         binaries.append((src, 'pypy{}.exe'.format(python_ver), None))
         print('Picking {} as pypy{}.exe'.format(src, python_ver))
+        binaries.append((src, 'python{}.exe'.format(python_ver), None))
+        print('Picking {} as python{}.exe'.format(src, python_ver))
+        binaries.append((src, 'pypy{}.exe'.format(python_ver[0]), None))
+        print('Picking {} as pypy{}.exe'.format(src, python_ver[0]))
+        binaries.append((src, 'python{}.exe'.format(python_ver[0]), None))
+        print('Picking {} as python{}.exe'.format(src, python_ver[0]))
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
                       ('sqlite3.dll', lib_pypy),
