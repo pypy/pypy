@@ -277,7 +277,9 @@ def create_package(basedir, options, _fake=False):
         if not options.no__tkinter:
             tkinter_dir = target.join('_tkinter')
             win_extras += [('tcl86t.dll', tkinter_dir), ('tk86t.dll', tkinter_dir)]
-
+            # for testing, copy the dlls to the `base_dir` as well
+            tkinter_dir = basedir.join('lib_pypy', '_tkinter')
+            win_extras += [('tcl86t.dll', tkinter_dir), ('tk86t.dll', tkinter_dir)]
         for extra, target_dir in win_extras:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
