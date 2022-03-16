@@ -259,11 +259,13 @@ class Frame(object):
             return
         w_y = self._pop()
         w_x = self.pop()
-        w_z = w_x._div(w_y)
+        w_z = w_x.div(w_y)
         self._push(w_z)
 
     @jit.dont_look_inside
-    def MOD(self):
+    def MOD(self, dummy):
+        if dummy:
+            return
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.mod(w_y)
