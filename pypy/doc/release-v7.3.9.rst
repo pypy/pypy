@@ -3,7 +3,7 @@ PyPy v7.3.9 security release
 ============================
 
 ..
-      Changelog up to commit bc01502e1c79
+      Changelog up to commit 56b47ca908aa
 
 .. note::
         This is a pre-release announcement. When the release actually happens, it
@@ -13,9 +13,9 @@ PyPy v7.3.9 security release
 
 The PyPy team is proud to release version 7.3.9 of PyPy. This is a security
 release to match the recent `CPython release`_ and updates the portable pypy
-tarballs with ``bzip2 1.0.8`` and ``libexpat 2.4.7``. Along the way this
-release fixes some issues discovered after the 7.3.8 release and updates
-``sqlite3`` to 3.38.0. It includes:
+tarballs with ``bzip2 1.0.8``, ``openssl1.1.1n``, and ``libexpat 2.4.7``. Along
+the way this release fixes some issues discovered after the 7.3.8 release and
+updates ``sqlite3`` to 3.38.0. It includes:
 
   - PyPy2.7, which is an interpreter supporting the syntax and the features of
     Python 2.7 including the stdlib for CPython 2.7.18+ (the ``+`` is for
@@ -121,6 +121,7 @@ Changes shared across versions
 - Update the bundled libexpat to 2.4.7
 - Update the bundled bzip2 to 1.0.8
 - Update the bundled sqlite3 to 3.38.0 (issue 3690_).
+- Update the bundled openssl to 1.1.1n
 - Add more aliases for pypy: pypy2.exe, pypy2.7.exe, python2.7.exe on windows
   for pypy2.7 and comparable aliases on posix and other pythons (issues 3693_
   and 3696_)
@@ -135,13 +136,19 @@ Python 3.7+ bugfixes
   a length-10 tuple (issue 3686_).
 - Fix ``sys._base_executable`` when inside a virtualenv on windows (issue
   3323_)
+- Use ``shutil.which`` instead of ``distutils.spawn.find_executable`` in
+  ``sysconfig`` (issue 3703_)
 
+Python 3.8+ C-API (cpyext) fixes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Fix overflow return value in ``PyNumber_AsSsize_t`` on windows
 
 .. _3323: https://foss.heptapod.net/pypy/pypy/-/issues/3323
 .. _3650: https://foss.heptapod.net/pypy/pypy/-/issues/3650
 .. _3686: https://foss.heptapod.net/pypy/pypy/-/issues/3686
 .. _3693: https://foss.heptapod.net/pypy/pypy/-/issues/3693
 .. _3696: https://foss.heptapod.net/pypy/pypy/-/issues/3696
+.. _3703: https://foss.heptapod.net/pypy/pypy/-/issues/3703
 .. _bpo35545: https://bugs.python.org/issue35545
 .. _errcheck: https://docs.python.org/3/library/ctypes.html#ctypes._FuncPtr.errcheck
 .. _`speed regression`: https://foss.heptapod.net/pypy/pypy/-/issues/3649
