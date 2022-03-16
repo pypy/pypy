@@ -49,6 +49,12 @@ def PyNumber_AsSsize_t(space, w_obj, w_exc):
     except OperationError as e:
         if e.match(space, space.w_OverflowError):
             if not w_exc:
+                if space.isinstance_w(w_obj, space.w_long):
+                    if w_obj.bigint_w(space).sign < 0:
+                        return PY_SSIZE_T_MIN
+                    else:
+                        return PY_SSIZE_T_MAX
+                # XXX not sure this is ever reached?
                 # CPython does _PyLong_Sign(value) < 0 which is equivalent to
                 # Py_SIZE(value) < 0 which is value->ob_size
                 pyobj = make_ref(space, w_obj)

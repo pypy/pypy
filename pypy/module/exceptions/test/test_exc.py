@@ -463,8 +463,11 @@ class AppTestExc(object):
 
                 source = source.replace("foo", "(foo.)")
                 exc = raises(SyntaxError, exec_, source)
+                print('source "%s"' % source)
+                print('custom_msg "%s"' % custom_msg)
+                print('exc.value.msg "%s"' % exc.value.msg)
                 assert (custom_msg not in exc.value.msg) == (
-                    ('print (' in source or 'exec (' in source))
+                    ('print ' in source or 'exec ' in source))
 
     def test_bug_print_heuristic_shadows_better_message(self):
         def exec_(s): exec(s)
@@ -492,7 +495,7 @@ class AppTestExc(object):
             "Missing parentheses in call to 'print'. Did you mean print(p)?")
         check("print %", "invalid syntax")
         check("print 1 1",
-            "Missing parentheses in call to 'print'")
+            "Missing parentheses in call to 'print'. Did you mean 'print(...)'?")
 
     def test_print_and_operators(self):
         with raises(TypeError) as excinfo:

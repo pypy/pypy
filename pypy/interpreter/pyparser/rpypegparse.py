@@ -3672,7 +3672,7 @@ class PythonParser(Parser):
             if self.negative_lookahead(PythonParser.expect_type, 7):
                 b = self.expression_without_invalid()
                 if b:
-                    return self . raise_syntax_error_known_range ( "Missing parentheses in call to '%s'. Did you mean '%s'(...)?" % ( a . id , a . id ) , a , b , ) if a . id in ( "exec" , "print" ) else None
+                    return self . raise_syntax_error_known_range ( "Missing parentheses in call to '%s'. Did you mean '%s(...)'?" % ( a . id , a . id ) , a , b , ) if a . id in ( "exec" , "print" ) else None
         self._index = mark
         return None
 

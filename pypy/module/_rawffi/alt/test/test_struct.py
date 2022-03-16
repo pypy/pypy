@@ -1,8 +1,8 @@
+import sys
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module._rawffi.alt.interp_ffitype import app_types, W_FFIType
 from pypy.module._rawffi.alt.interp_struct import compute_size_and_alignement, W_Field
 from pypy.module._rawffi.alt.test.test_funcptr import BaseAppTestFFI
-
 
 class TestStruct(object):
 
@@ -139,7 +139,10 @@ class AppTestStruct(BaseAppTestFFI):
     def test_getfield_setfield_signed_types(self):
         import sys
         from _rawffi.alt import _StructDescr, Field, types
-        longsize = types.slong.sizeof()
+        if sys.platform == 'win32':
+            maxlong = 2 ** 31 - 1
+        else:
+            maxlong = sys.maxsize
         fields = [
             Field('sbyte', types.sbyte),
             Field('sshort', types.sshort),
@@ -154,15 +157,19 @@ class AppTestStruct(BaseAppTestFFI):
         assert struct.getfield('sshort') == -32768
         struct.setfield('sint', 43)
         assert struct.getfield('sint') == 43
-        struct.setfield('slong', sys.maxsize+1)
-        assert struct.getfield('slong') == -sys.maxsize-1
-        struct.setfield('slong', sys.maxsize*3)
-        assert struct.getfield('slong') == sys.maxsize-2
+        struct.setfield('slong', maxlong + 1)
+        assert struct.getfield('slong') == -maxlong - 1
+        struct.setfield('slong', maxlong * 3)
+        assert struct.getfield('slong') == maxlong - 2
 
     def test_getfield_setfield_unsigned_types(self):
         import sys
         from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
+        if sys.platform == 'win32':
+            maxlong = 2 ** 31 - 1
+        else:
+            maxlong = sys.maxsize
         fields = [
             Field('ubyte', types.ubyte),
             Field('ushort', types.ushort),
@@ -181,20 +188,19 @@ class AppTestStruct(BaseAppTestFFI):
         struct.setfield('uint', 43)
         assert struct.getfield('uint') == 43
         struct.setfield('ulong', -1)
-        assert struct.getfield('ulong') == sys.maxsize*2 + 1
-        struct.setfield('ulong', sys.maxsize*2 + 2)
+        assert struct.getfield('ulong') == maxlong * 2 + 1
+        struct.setfield('ulong', maxlong * 2 + 2)
         assert struct.getfield('ulong') == 0
         struct.setfield('char', b'a')
         assert struct.getfield('char') == b'a'
         struct.setfield('unichar', u'\u1234')
         assert struct.getfield('unichar') == u'\u1234'
         struct.setfield('ptr', -1)
-        assert struct.getfield('ptr') == sys.maxsize*2 + 1
+        assert struct.getfield('ptr') == sys.maxsize * 2 + 1
     
     def test_getfield_setfield_longlong(self):
         import sys
         from _rawffi.alt import _StructDescr, Field, types
-        longsize = types.slong.sizeof()
         fields = [
             Field('slonglong', types.slonglong),
             Field('ulonglong', types.ulonglong),
@@ -211,7 +217,6 @@ class AppTestStruct(BaseAppTestFFI):
     def test_getfield_setfield_float(self):
         import sys
         from _rawffi.alt import _StructDescr, Field, types
-        longsize = types.slong.sizeof()
         fields = [
             Field('x', types.double),
             ]
@@ -225,7 +230,6 @@ class AppTestStruct(BaseAppTestFFI):
     def test_getfield_setfield_singlefloat(self):
         import sys
         from _rawffi.alt import _StructDescr, Field, types
-        longsize = types.slong.sizeof()
         fields = [
             Field('x', types.float),
             ]
@@ -261,7 +265,6 @@ class AppTestStruct(BaseAppTestFFI):
 
     def test_pointer_to_incomplete_struct(self):
         from _rawffi.alt import _StructDescr, Field, types
-        longsize = types.slong.sizeof()
         fields = [
             Field('x', types.slong),
             Field('y', types.slong),

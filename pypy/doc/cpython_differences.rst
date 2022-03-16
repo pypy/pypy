@@ -169,6 +169,8 @@ Two examples::
 
     class D(dict):
         def __getitem__(self, key):
+            if key == 'print':
+                return print
             return "%r from D" % (key,)
 
     class A(object):
@@ -177,15 +179,17 @@ Two examples::
     a = A()
     a.__dict__ = D()
     a.foo = "a's own foo"
-    print a.foo
+    print(a.foo)
     # CPython => a's own foo
     # PyPy => 'foo' from D
 
+    print('==========')
+
     glob = D(foo="base item")
     loc = {}
-    exec "print foo" in glob, loc
-    # CPython => base item
-    # PyPy => 'foo' from D
+    exec("print(foo)", glob, loc)
+    # CPython => base item, and never looks up "print" in D
+    # PyPy => 'foo' from D, and looks up "print" in D
 
 
 Mutating classes of objects which are already used as dictionary keys

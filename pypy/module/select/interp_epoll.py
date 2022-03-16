@@ -147,11 +147,9 @@ class W_Epoll(W_Root):
             self.epfd = -1
             self.may_unregister_rpython_finalizer(self.space)
 
-    def epoll_ctl(self, space, ctl, w_fd, eventmask, ignore_ebadf=False):
+    def epoll_ctl(self, space, ctl, w_fd, eventmask):
         fd = space.c_filedescriptor_w(w_fd)
         result = pypy_epoll_ctl(self.epfd, ctl, fd, rffi.cast(rffi.UINT, eventmask))
-        if ignore_ebadf and get_saved_errno() == errno.EBADF:
-            result = 0
         if result < 0:
             raise exception_from_saved_errno(space, space.w_IOError)
 
@@ -172,7 +170,7 @@ class W_Epoll(W_Root):
 
     def descr_unregister(self, space, w_fd):
         self.check_closed(space)
-        self.epoll_ctl(space, EPOLL_CTL_DEL, w_fd, 0, ignore_ebadf=True)
+        self.epoll_ctl(space, EPOLL_CTL_DEL, w_fd, 0)
 
     @unwrap_spec(eventmask=int)
     def descr_modify(self, space, w_fd, eventmask):

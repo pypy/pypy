@@ -1,9 +1,9 @@
-==========================================================
-PyPy v7.3.9: release of python 2.7, 3.7, 3.8, and 3.9-beta
-==========================================================
+============================
+PyPy v7.3.9 security release
+============================
 
 ..
-      Changelog up to commit 
+      Changelog up to commit 56b47ca908aa
 
 .. note::
         This is a pre-release announcement. When the release actually happens, it
@@ -11,10 +11,11 @@ PyPy v7.3.9: release of python 2.7, 3.7, 3.8, and 3.9-beta
 
 .. _`PyPy blog`: https://pypy.org/blog
 
-The PyPy team is proud to release version 7.3.9 of PyPy. This is a bug-fix
-for PyPy3.7 v7.3.8, since it broke ABI compatibility. Along the way this
-release updates dependencies and fixes some issues discovered after the 7.3.8
-release. It includes:
+The PyPy team is proud to release version 7.3.9 of PyPy. This is a security
+release to match the recent `CPython release`_ and updates the portable pypy
+tarballs with ``bzip2 1.0.8``, ``openssl1.1.1n``, and ``libexpat 2.4.7``. Along
+the way this release fixes some issues discovered after the 7.3.8 release and
+updates ``sqlite3`` to 3.38.0. It includes:
 
   - PyPy2.7, which is an interpreter supporting the syntax and the features of
     Python 2.7 including the stdlib for CPython 2.7.18+ (the ``+`` is for
@@ -37,7 +38,6 @@ release. This is a micro release, all APIs are compatible with the other 7.3
 releases. Highlights of the release, since the release of 7.3.8 in February 2022,
 include:
 
-  - Fixed an ABI incompatibility in ``PyDateTime_CAPI`` in PyPy3.7
   - Fixed some failing stdlib tests on PyPy3.9
   - Update the bundled libexpat to 2.4.6 and sqlite3 to 3.38.0
 
@@ -73,6 +73,7 @@ building wheels for PyPy.
 .. _`cibuildwheel`: https://github.com/joerick/cibuildwheel
 .. _blog: https://pypy.org/blog
 .. _HPy: https://hpyproject.org/
+.. _`CPython release`: https://discuss.python.org/t/py-day-is-coming-a-joint-security-release-spree-for-python-3-7-3-8-3-9-and-3-10-on-march-14th
 
 What is PyPy?
 =============
@@ -117,15 +118,17 @@ Changelog
 
 Changes shared across versions
 -------------------------------
-- Update the bundled libexpat to 2.4.6
+- Update the bundled libexpat to 2.4.7
+- Update the bundled bzip2 to 1.0.8
 - Update the bundled sqlite3 to 3.38.0 (issue 3690_).
+- Update the bundled openssl to 1.1.1n
+- Add more aliases for pypy: pypy2.exe, pypy2.7.exe, python2.7.exe on windows
+  for pypy2.7 and comparable aliases on posix and other pythons (issues 3693_
+  and 3696_)
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Fix to raise an exception when calling ``PySequence_GetItem('a', -2)``
-- Fixed a bug with the PyPy3.7 7.3.8 release which added the missing
-  ``TimeZone_UTC`` field to ``PyDateTime_CAPI``, which broke binary
-  compatibility.
 
 Python 3.7+ bugfixes
 --------------------
@@ -133,11 +136,19 @@ Python 3.7+ bugfixes
   a length-10 tuple (issue 3686_).
 - Fix ``sys._base_executable`` when inside a virtualenv on windows (issue
   3323_)
+- Use ``shutil.which`` instead of ``distutils.spawn.find_executable`` in
+  ``sysconfig`` (issue 3703_)
 
+Python 3.8+ C-API (cpyext) fixes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Fix overflow return value in ``PyNumber_AsSsize_t`` on windows
 
 .. _3323: https://foss.heptapod.net/pypy/pypy/-/issues/3323
 .. _3650: https://foss.heptapod.net/pypy/pypy/-/issues/3650
 .. _3686: https://foss.heptapod.net/pypy/pypy/-/issues/3686
+.. _3693: https://foss.heptapod.net/pypy/pypy/-/issues/3693
+.. _3696: https://foss.heptapod.net/pypy/pypy/-/issues/3696
+.. _3703: https://foss.heptapod.net/pypy/pypy/-/issues/3703
 .. _bpo35545: https://bugs.python.org/issue35545
 .. _errcheck: https://docs.python.org/3/library/ctypes.html#ctypes._FuncPtr.errcheck
 .. _`speed regression`: https://foss.heptapod.net/pypy/pypy/-/issues/3649
