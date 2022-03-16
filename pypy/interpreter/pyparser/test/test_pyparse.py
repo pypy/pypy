@@ -133,8 +133,7 @@ class TestPythonParser:
         assert exc.lineno == 1
         assert exc.offset == 4
         exc = py.test.raises(SyntaxError, parse, "\\").value
-        assert exc.msg == "unexpected EOF while parsing"
-        
+        assert exc.msg == "end of file (EOF) in multi-line statement"
 
     def test_is(self):
         self.parse("x is y")

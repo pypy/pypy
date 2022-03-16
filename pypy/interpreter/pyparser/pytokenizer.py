@@ -179,7 +179,7 @@ def generate_tokens(lines, flags):
     pos = 0
     lines.append("")
     strstart = (0, 0, "")
-    for line in lines:
+    for lines_index, line in enumerate(lines):
         lnum = lnum + 1
         line = universal_newline(line)
         pos, max = 0, len(line)
@@ -234,8 +234,10 @@ def generate_tokens(lines, flags):
             if line[pos] in '\r\n':
                 # skip blank lines
                 continue
-            if line[pos] == '\\' and line[pos + 1] in '\r\n':
-                continue # skip lines that are only a line continuation char
+            if line[pos] == '\\' and line[pos + 1] in '\r\n' and lines[lines_index + 1] != "":
+                # skip lines that are only a line continuation char, but only
+                # if there are further lines
+                continue
             if line[pos] == '#':
                 # skip full-line comment, but still check that it is valid utf-8
                 if not verify_utf8(line):
