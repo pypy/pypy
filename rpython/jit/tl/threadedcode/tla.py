@@ -6,7 +6,7 @@ from rpython.jit.tl.threadedcode.tlib import *
 from rpython.jit.tl.threadedcode.object import *
 from rpython.jit.tl.threadedcode.bytecode import *
 
-def get_printable_location_tier1(pc, entry_state, bytecode, tstack):
+def get_printable_location_tier1(pc, call_entry, bytecode, tstack):
     op = ord(bytecode[pc])
     name = bytecodes[op]
     if hasarg[op]:
@@ -21,7 +21,7 @@ def get_printable_location(pc, bytecode):
 
 
 tier1driver = JitDriver(
-    greens=['pc', 'entry_state', 'bytecode', 'tstack'], reds=['self'],
+    greens=['pc', 'call_entry', 'bytecode', 'tstack'], reds=['self'],
     get_printable_location=get_printable_location_tier1, threaded_code_gen=True,
     is_recursive=True)
 
@@ -537,14 +537,14 @@ class Frame(object):
             return
 
         tstack = t_empty()
-        entry_state = pc
+        call_entry = pc
         bytecode = self.bytecode
 
         while pc < len(bytecode):
-            tier1driver.jit_merge_point(bytecode=bytecode, entry_state=entry_state,
+            tier1driver.jit_merge_point(bytecode=bytecode, call_entry=call_entry,
                                         pc=pc, tstack=tstack, self=self)
 
-            # print get_printable_location_tier1(pc, entry_state, bytecode, tstack)
+            # print get_printable_location_tier1(pc, call_entry, bytecode, tstack)
             # self.dump()
 
             opcode = ord(bytecode[pc])
@@ -645,8 +645,8 @@ class Frame(object):
                 if we_are_jitted():
                     frame.CALL(self, t, argnum, dummy=True)
                 else:
-                    entry_state = t
-                    tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                    call_entry = t
+                    tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
                                               pc=t, tstack=tstack, self=frame)
                     frame.CALL(self, t, argnum, dummy=False)
 
@@ -656,9 +656,10 @@ class Frame(object):
                 if we_are_jitted():
                     if tstack.t_is_empty():
                         w_x = self.RET(argnum, dummy=True)
-                        pc = entry_state
+                        pc = call_entry
                         pc = emit_ret(pc, w_x)
-                        tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                        tier1driver.can_enter_jit(bytecode=bytecode,
+                                                  call_entry=call_entry,
                                                   pc=pc, tstack=tstack, self=self)
                     else:
                         w_x = self.RET(argnum, dummy=True)
@@ -673,7 +674,8 @@ class Frame(object):
                 if we_are_jitted():
                     if tstack.t_is_empty():
                         if t < pc:
-                            tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                            tier1driver.can_enter_jit(bytecode=bytecode,
+                                                      call_entry=call_entry,
                                                       pc=t, tstack=tstack, self=self)
                         pc = t
 
@@ -683,8 +685,8 @@ class Frame(object):
                         pc = emit_jump(pc, t)
                 else:
                     if t < pc:
-                        entry_state = t
-                        tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                        tier1driver.can_enter_jit(bytecode=bytecode,
+                                                  call_entry=call_entry,
                                                   pc=t, tstack=tstack, self=self)
                     pc = t
 
@@ -700,8 +702,9 @@ class Frame(object):
                 else:
                     if self.is_true(dummy=False):
                         if target < pc:
-                            entry_state = target
-                            tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                            call_entry = target
+                            tier1driver.can_enter_jit(bytecode=bytecode,
+                                                      call_entry=call_entry,
                                                       pc=target, tstack=tstack, self=self)
                         pc = target
 
@@ -709,9 +712,10 @@ class Frame(object):
                 if we_are_jitted():
                     if tstack.t_is_empty():
                         w_x = self.POP(dummy=True)
-                        pc = entry_state
+                        pc = call_entry
                         pc = emit_ret(pc, w_x)
-                        tier1driver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                        tier1driver.can_enter_jit(bytecode=bytecode,
+                                                  call_entry=call_entry,
                                                   pc=pc, tstack=tstack, self=self)
                     else:
                         w_x = self.POP(dummy=True)
