@@ -1,7 +1,8 @@
 import pytest
 from hpy.debug.leakdetector import LeakDetector
-from test.support import SUPPORTS_SYS_EXECUTABLE, IS_PYTHON_DEBUG_BUILD
-from test.conftest import IS_VALGRIND_RUN
+from ..support import SUPPORTS_SYS_EXECUTABLE, IS_PYTHON_DEBUG_BUILD
+from ..conftest import IS_VALGRIND_RUN
+import sys
 
 @pytest.fixture
 def hpy_abi():
