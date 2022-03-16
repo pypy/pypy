@@ -2279,7 +2279,6 @@ datetime_check_tzinfo(PyObject *self, PyObject *args) {
 }
 
 
-#ifndef PYPY_VERSION
 /* Makes three variations on timezone representing UTC-5:
    1. timezone with offset and name from PyDateTimeAPI
    2. timezone with offset and name from PyTimeZone_FromOffsetAndName
@@ -2344,7 +2343,6 @@ get_timezone_utc_capi(PyObject* self, PyObject *args) {
         return PyDateTimeAPI->TimeZone_UTC;
     }
 }
-#endif /* PYPY_VERSION */
 
 
 /* test_thread_state spawns a thread of its own, and that thread releases
@@ -4694,11 +4692,9 @@ static PyMethodDef TestMethods[] = {
     {"datetime_check_datetime",     datetime_check_datetime,     METH_VARARGS},
     {"datetime_check_delta",     datetime_check_delta,           METH_VARARGS},
     {"datetime_check_tzinfo",     datetime_check_tzinfo,         METH_VARARGS},
-#ifndef PYPY_VERSION
     {"make_timezones_capi",     make_timezones_capi,             METH_NOARGS},
     {"get_timezones_offset_zero",   get_timezones_offset_zero,   METH_NOARGS},
     {"get_timezone_utc_capi",    get_timezone_utc_capi,            METH_VARARGS},
-#endif
     {"test_list_api",           (PyCFunction)test_list_api,      METH_NOARGS},
     {"test_dict_iteration",     (PyCFunction)test_dict_iteration,METH_NOARGS},
 #ifndef PYPY_VERSION
