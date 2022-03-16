@@ -70,6 +70,6 @@ def test_assertion_error_global_ignored():
     AssertionError = Foo
     try:
         with pytest.raises(OrigAssertionError): # not Foo!
-            assert 0
+            exec("assert 0") # to stop the pytest ast rewriting from touching it
     finally:
         AssertionError = OrigAssertionError
