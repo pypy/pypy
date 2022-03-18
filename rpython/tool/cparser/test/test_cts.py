@@ -179,6 +179,33 @@ def test_nested_struct():
     assert isinstance(bar, lltype.Struct)
     hash(bar)  # bar is hashable
 
+def test_aliased_struct():
+    cdef = """
+    
+    typedef long Py_ssize_t;
+
+    typedef struct _object {
+        Py_ssize_t ob_refcnt;
+        Py_ssize_t ob_pypy_link;
+        struct _typeobject *ob_type;
+    } PyObject;
+
+    typedef struct  _varobject {
+        Py_ssize_t ob_refcnt;
+        Py_ssize_t ob_pypy_link;
+        struct _typeobject *ob_type;
+    } PyVarObject;
+
+
+    typedef struct _typeobject {
+        PyVarObject ob_base;
+    } PyTypeObject;
+    """
+    cts = parse_source(cdef)
+    bar = cts.gettype('PyTypeObject')
+    assert isinstance(bar, lltype.Struct)
+    hash(bar)  # bar is hashable
+
 def test_named_struct():
     cdef = """
     struct foo {
