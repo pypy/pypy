@@ -556,7 +556,7 @@ class Parser(object):
             if not self._options.get('override'):
                 raise FFIError(
                     "multiple declarations of %s (for interactive usage, "
-                    "try cdef(xx, override=True))" % (name,))
+                    "try self.parse(xx, override=True))" % (name,))
         assert '__dotdotdot__' not in name.split()
         self._declarations[name] = (obj, quals)
         if included:

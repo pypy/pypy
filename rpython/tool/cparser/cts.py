@@ -81,9 +81,9 @@ class CTypeSpace(object):
         self.structs.update(other.structs)
         self.includes.append(other)
 
-    def parse_source(self, source, configure=True):
+    def parse_source(self, source, configure=True, override=False):
         self.sources.append(source)
-        self.ctx.parse(source)
+        self.ctx.parse(source, override=override)
         if configure:
             self.configure_types()
 
@@ -293,7 +293,7 @@ class FunctionDeclaration(object):
     def get_llresult(self, cts):
         return cts.convert_type(self.tp.result)
 
-def parse_source(source, includes=None, headers=None, configure_now=True):
+def parse_source(source, includes=None, headers=None, configure_now=True, override=False):
     cts = CTypeSpace(headers=headers, includes=includes)
-    cts.parse_source(source)
+    cts.parse_source(source, override=override)
     return cts
