@@ -173,6 +173,9 @@ class Frame(object):
             return self.take(0)
         return self.pop()
 
+    def _POP(self):
+        return self.pop()
+
     @jit.dont_look_inside
     def DROP(self, n, dummy):
         if dummy:
@@ -237,9 +240,7 @@ class Frame(object):
         w_z = w_x.mul(w_y)
         self.push(w_z)
 
-    def _MUL(self, dummy):
-        if dummy:
-            return
+    def _MUL(self):
         w_y = self._pop()
         w_x = self._pop()
         w_z = w_x.mul(w_y)
@@ -254,9 +255,7 @@ class Frame(object):
         w_z = w_x.div(w_y)
         self.push(w_z)
 
-    def _DIV(self, dummy):
-        if dummy:
-            return
+    def _DIV(self):
         w_y = self._pop()
         w_x = self.pop()
         w_z = w_x.div(w_y)
@@ -285,7 +284,7 @@ class Frame(object):
         self.push(w_x)
         self.push(w_x)
 
-    def _DUP(self, dummy):
+    def _DUP(self):
         w_x = self._pop()
         self._push(w_x)
         self._push(w_x)
@@ -398,9 +397,7 @@ class Frame(object):
         v = self.take(0)
         print v.getrepr()
 
-    def _PRINT(self, dummy):
-        if dummy:
-            return
+    def _PRINT(self):
         v = self._take(0)
         print v.getrepr()
 
@@ -435,8 +432,12 @@ class Frame(object):
         self.stackpos = old_base + n + 1
 
     def _interp(self, pc=0):
+        bytecode = self.bytecode
+
         while pc < len(bytecode):
             tier2driver.jit_merge_point(bytecode=bytecode, pc=pc, self=self)
+
+            # print get_printable_location(pc, bytecode)
 
             opcode = ord(bytecode[pc])
             pc += 1
@@ -495,7 +496,7 @@ class Frame(object):
                 frame.stackpos = argnum + 1
 
                 tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
-                frame.CALL(self, t, argnum)
+                frame._CALL(self, t, argnum)
 
             elif opcode == RET:
                 argnum = hint(ord(bytecode[pc]), promote=True)
@@ -513,7 +514,7 @@ class Frame(object):
             elif opcode == JUMP_IF:
                 t = ord(bytecode[pc])
                 pc += 1
-                if self.is_true():
+                if self._is_true():
                     if t < pc:
                         tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=self)
                     pc = t
@@ -745,6 +746,9 @@ class Frame(object):
 def run(bytecode, w_arg, entry=None):
     frame = Frame(bytecode)
     frame.push(w_arg); frame.push(w_arg)
-    w_result = frame.interp()
+    if entry == "tracing":
+        w_result = frame._interp()
+    else:
+        w_result = frame.interp()
     # frame.dump()
     return w_result
