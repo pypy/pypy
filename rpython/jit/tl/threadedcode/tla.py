@@ -373,6 +373,13 @@ class Frame(object):
         if w_x:
             oldframe.push(w_x)
 
+    def CALL_ASSEMBLER(self, oldframe, t, argnum, bytecode, tstack, dummy):
+        "Special handler to be compiled to call_assembler_r"
+        w_x = self.interp_CALL_ASSEMBLER(t, t, bytecode, tstack, dummy)
+        oldframe.DROP(argnum, dummy)
+        if w_x:
+            oldframe.PUSH(w_x, dummy)
+
     def _CALL(self, oldframe, t, argnum):
         w_x = self._interp(t)
         oldframe._drop(argnum)
@@ -534,6 +541,11 @@ class Frame(object):
             else:
                 assert False, 'Unknown opcode: %s' % bytecodes[opcode]
 
+    @jit.dont_look_inside
+    def interp_CALL_ASSEMBLER(self, pc, call_entry, bytecode, tstack, dummy):
+        if dummy:
+            return self.take(0)
+        return self.interp(pc, dummy)
 
     def interp(self, pc=0, dummy=False):
         if dummy:
@@ -646,12 +658,14 @@ class Frame(object):
                 frame.stackpos = argnum + 1
 
                 if we_are_jitted():
-                    frame.CALL(self, t, argnum, dummy=True)
+                    # frame.CALL(self, t, argnum, dummy=True)
+                    frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=True)
                 else:
                     call_entry = t
                     tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
                                               pc=t, tstack=tstack, self=frame)
-                    frame.CALL(self, t, argnum, dummy=False)
+                    # frame.CALL(self, t, argnum, dummy=False)
+                    frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=False)
 
             elif opcode == RET:
                 argnum = hint(ord(bytecode[pc]), promote=True)
