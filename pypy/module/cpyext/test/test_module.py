@@ -76,6 +76,41 @@ class AppTestModuleObject(AppTestCpythonExtensionBase):
             """)
         assert 'foo' in module.check___file__()
 
+    def test_PyModule_AddType(self):
+        module = self.import_extension('foo', [
+            ('is_ascii', "METH_O",
+             '''
+                if (!PyUnicode_Check(args)) {
+                    Py_RETURN_FALSE;
+                }
+                if (PyUnicode_IS_ASCII(args)) {
+                    Py_RETURN_TRUE;
+                }
+                Py_RETURN_FALSE;
+             '''),
+            ], prologue="""
+                #include <Python.h>
+                PyTypeObject PyUnicodeSubtype = {
+                    PyObject_HEAD_INIT(NULL)
+                    0,                            /* ob_size */
+                    "foo.subtype",                /* tp_name*/
+                    sizeof(PyUnicodeObject),      /* tp_basicsize*/
+                    0                             /* tp_itemsize */
+                    };
+
+            """, more_init = '''
+                PyUnicodeSubtype.tp_alloc = NULL;
+                PyUnicodeSubtype.tp_free = NULL;
+
+                PyUnicodeSubtype.tp_flags = Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE;
+                PyUnicodeSubtype.tp_itemsize = sizeof(char);
+                PyUnicodeSubtype.tp_base = &PyUnicode_Type;
+                PyModule_AddType(mod, &PyUnicodeSubtype);
+            ''')
+
+        a = module.subtype('abc')
+        assert module.is_ascii(a) is True
+
 
 class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def test_basic(self):
