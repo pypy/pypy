@@ -17,13 +17,19 @@ def get_printable_location_tier1(pc, call_entry, bytecode, tstack):
 
 
 def get_printable_location(pc, bytecode):
-    return get_printable_location_tier1(pc, 0, bytecode, t_empty())
+    op = ord(bytecode[pc])
+    name = bytecodes[op]
+    if hasarg[op]:
+        arg = str(ord(bytecode[pc + 1]))
+    else:
+        arg = ''
+    return "%s: %s %s" % (pc, name, arg)
 
 
 tier1driver = JitDriver(
     greens=['pc', 'call_entry', 'bytecode', 'tstack'], reds=['self'],
-    get_printable_location=get_printable_location_tier1, threaded_code_gen=True,
-    is_recursive=True)
+    get_printable_location=get_printable_location_tier1,
+    threaded_code_gen=True)
 
 
 tier2driver = JitDriver(
@@ -32,10 +38,30 @@ tier2driver = JitDriver(
 
 
 class Frame(object):
-    def __init__(self, bytecode, stack = [None] * 20480, stackpos = 0):
+    def __init__(self, bytecode, stack=[None] * 1024, stackpos=0):
         self.bytecode = bytecode
         self.stack = stack
         self.stackpos = stackpos
+
+    @jit.unroll_safe
+    def copy(self, argnum, dummy=False):
+
+        # frame = Frame(bytecode)
+        # i = self.stackpos - argnum - 1
+        # assert i >= 0
+        # frame.stack = self.stack[i:]
+        # frame.stackpos = argnum + 1
+
+        oldstack = self.stack
+        oldstackpos = self.stackpos
+        framepos = oldstackpos - argnum - 1
+        assert framepos >= 0
+
+        newstack = [None] * 1024
+        for i in range(framepos, oldstackpos):
+            newstack[i - framepos] = oldstack[i]
+
+        return Frame(self.bytecode, newstack, argnum + 1)
 
     @jit.dont_look_inside
     def push(self, w_x):
@@ -496,12 +522,7 @@ class Frame(object):
                 pc += 2
 
                 # create a new frame
-                frame = Frame(bytecode)
-                i = self.stackpos - argnum - 1
-                assert i >= 0
-                frame.stack = self.stack[i:]
-                frame.stackpos = argnum + 1
-
+                frame = self.copy(argnum)
                 tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
                 frame._CALL(self, t, argnum)
 
@@ -651,11 +672,7 @@ class Frame(object):
                 pc += 2
 
                 # create a new frame
-                frame = Frame(bytecode)
-                i = self.stackpos - argnum - 1
-                assert i >= 0
-                frame.stack = self.stack[i:]
-                frame.stackpos = argnum + 1
+                frame = self.copy(argnum)
 
                 if we_are_jitted():
                     # frame.CALL(self, t, argnum, dummy=True)
