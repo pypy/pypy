@@ -8,7 +8,6 @@ from pypy.module.cpyext.api import (
     cpython_struct, ferror)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
-from pypy.module.cpyext.funcobject import PyCodeObject
 from pypy.module.cpyext.frameobject import PyFrameObject
 from pypy.module.__builtin__ import compiling
 

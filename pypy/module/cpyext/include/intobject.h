@@ -14,7 +14,7 @@ typedef struct {
 
 #define PyInt_Check(op) \
 		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_INT_SUBCLASS)
-#define PyInt_CheckExact(op) ((op)->ob_type == &PyInt_Type)
+#define PyInt_CheckExact(op) (Py_TYPE(op) == &PyInt_Type)
 
 PyAPI_FUNC(PyObject *) PyInt_FromLong(long);
 PyAPI_FUNC(void) _PyPy_int_dealloc(PyObject *);

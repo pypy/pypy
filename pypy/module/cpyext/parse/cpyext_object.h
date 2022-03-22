@@ -7,21 +7,18 @@ typedef long long Py_ssize_t;
 typedef long Py_ssize_t;
 #endif
 
-#define PyObject_HEAD  \
-    Py_ssize_t ob_refcnt;        \
-    Py_ssize_t ob_pypy_link;     \
-    struct _typeobject *ob_type;
-
-#define PyObject_VAR_HEAD		\
-	PyObject_HEAD			\
-	Py_ssize_t ob_size; /* Number of items in variable part */
+#define PyObject_HEAD     PyObject    ob_base;
+#define PyObject_VAR_HEAD PyVarObject ob_base;
 
 typedef struct _object {
-    PyObject_HEAD
+    Py_ssize_t ob_refcnt;
+    Py_ssize_t ob_pypy_link;
+    struct _typeobject *ob_type;
 } PyObject;
 
 typedef struct {
-	PyObject_VAR_HEAD
+    PyObject ob_base;
+	Py_ssize_t ob_size; /* Number of items in variable part */
 } PyVarObject;
 
 struct _typeobject;

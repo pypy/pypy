@@ -761,11 +761,9 @@ PyTypeObject = cts.gettype('PyTypeObject')
 PyTypeObjectPtr = cts.gettype('PyTypeObject *')
 PyObjectStruct = cts.gettype('PyObject')
 PyObject = cts.gettype('PyObject *')
-PyObjectFields = (("ob_refcnt", lltype.Signed),
-                  ("ob_pypy_link", lltype.Signed),
-                  ("ob_type", PyTypeObjectPtr))
-PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
+PyObjectFields = (("ob_base", PyObjectStruct),)
 PyVarObjectStruct = cts.gettype('PyVarObject')
+PyVarObjectFields = (("ob_base", PyVarObjectStruct),)
 PyVarObject = cts.gettype('PyVarObject *')
 
 Py_buffer = cts.gettype('Py_buffer')
@@ -779,7 +777,12 @@ def is_PyObject(TYPE):
     if TYPE == PyObject:
         return True
     assert not isinstance(TYPE.TO, lltype.ForwardReference)
-    return hasattr(TYPE.TO, 'c_ob_refcnt') and hasattr(TYPE.TO, 'c_ob_type')
+    base = getattr(TYPE.TO, 'c_ob_base', None)
+    if not base:
+        return False
+    # PyVarObject? It has a second c_ob_base for the PyObject
+    base = getattr(base, 'c_ob_base', base)
+    return hasattr(base, 'c_ob_refcnt') and hasattr(base, 'c_ob_type')
 
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)

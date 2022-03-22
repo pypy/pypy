@@ -36,7 +36,7 @@ get_buf(PyBufferObject *self, void **ptr, Py_ssize_t *size,
             (buffer_type == ANY_BUFFER))
             proc = (readbufferproc)bp->bf_getwritebuffer;
         else if (buffer_type == CHAR_BUFFER) {
-            if (!PyType_HasFeature(self->ob_type,
+            if (!PyType_HasFeature(((PyObject*)self)->ob_type,
                         Py_TPFLAGS_HAVE_GETCHARBUFFER)) {
             PyErr_SetString(PyExc_TypeError,
                 "Py_TPFLAGS_HAVE_GETCHARBUFFER needed");
