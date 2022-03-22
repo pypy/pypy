@@ -417,11 +417,10 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_extension('test', [
            ("hack_tp_dict", "METH_VARARGS",
             '''
-                 PyTypeObject *type, *obj;
+                 PyTypeObject *type;
                  PyObject *a1 = PyLong_FromLong(1);
                  PyObject *a2 = PyLong_FromLong(2);
-                 PyObject *value;
-                 PyObject * key;
+                 PyObject *obj, *value, *key;
                  if (!PyArg_ParseTuple(args, "OO", &obj, &key))
                      return NULL;
                  type = obj->ob_type;

@@ -1270,9 +1270,9 @@ array_tofile(arrayobject *self, PyObject *f)
         PyErr_SetString(PyExc_TypeError, "arg must be open file");
         return NULL;
     }
-    if (self->ob_size > 0) {
+    if (Py_SIZE(self) > 0) {
         if (fwrite(self->ob_item, self->ob_descr->itemsize,
-                   self->ob_size, fp) != (size_t)self->ob_size) {
+                   Py_SIZE(self), fp) != (size_t)Py_SIZE(self)) {
             PyErr_SetFromErrno(PyExc_IOError);
             clearerr(fp);
             return NULL;
@@ -1326,7 +1326,7 @@ array_fromlist(arrayobject *self, PyObject *list)
             if ((*self->ob_descr->setitem)(self,
                             Py_SIZE(self) - n + i, v) != 0) {
                 Py_SIZE(self) -= n;
-                if (itemsize && (self->ob_size > PY_SSIZE_T_MAX / itemsize)) {
+                if (itemsize && (Py_SIZE(self) > PY_SSIZE_T_MAX / itemsize)) {
                     return PyErr_NoMemory();
                 }
                 PyMem_RESIZE(item, char,
@@ -1417,7 +1417,7 @@ values,as if it had been read from a file using the fromfile() method).");
 static PyObject *
 array_tostring(arrayobject *self, PyObject *unused)
 {
-    if (self->ob_size <= PY_SSIZE_T_MAX / self->ob_descr->itemsize) {
+    if (Py_SIZE(self) <= PY_SSIZE_T_MAX / self->ob_descr->itemsize) {
         return PyString_FromStringAndSize(self->ob_item,
                             Py_SIZE(self) * self->ob_descr->itemsize);
     } else {
@@ -2604,10 +2604,10 @@ initarray(void)
 {
     PyObject *m;
 
-    ArrayBasetype.ob_type = &PyType_Type;
+    Py_TYPE(&ArrayBasetype) = &PyType_Type;
     Arraytype.tp_base = &ArrayBasetype;
-    Arraytype.ob_type = &PyType_Type;
-    PyArrayIter_Type.ob_type = &PyType_Type;
+    Py_TYPE(&Arraytype)= &PyType_Type;
+    Py_TYPE(&PyArrayIter_Type) = &PyType_Type;
     m = Py_InitModule3("array", a_methods, module_doc);
     if (m == NULL)
         return;
