@@ -821,14 +821,6 @@ class ObjSpace(object):
             w_result = self.newint(r_uint(compute_unique_id(w_obj)))
         return w_result
 
-    def hash_w(self, w_obj):
-        """shortcut for space.int_w(space.hash(w_obj))"""
-        return self.int_w(self.hash(w_obj))
-
-    def len_w(self, w_obj):
-        """shortcut for space.int_w(space.len(w_obj))"""
-        return self.int_w(self.len(w_obj))
-
     def contains_w(self, w_container, w_item):
         """shortcut for space.is_true(space.contains(w_container, w_item))"""
         return self.is_true(self.contains(w_container, w_item))
