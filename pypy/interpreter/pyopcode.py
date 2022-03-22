@@ -1328,40 +1328,6 @@ class __extend__(pyframe.PyFrame):
             next_instr = block.handle(self, unroller)
         return next_instr
 
-    @jit.unroll_safe
-    def call_function(self, oparg, w_starstar=None, has_vararg=False):
-        n_arguments = oparg & 0xff
-        n_keywords = (oparg>>8) & 0xff
-        if n_keywords:
-            keywords = [None] * n_keywords
-            keywords_w = [None] * n_keywords
-            while True:
-                n_keywords -= 1
-                if n_keywords < 0:
-                    break
-                w_value = self.popvalue()
-                w_key = self.popvalue()
-                key = self.space.text_w(w_key)
-                keywords[n_keywords] = key
-                keywords_w[n_keywords] = w_value
-        else:
-            keywords = None
-            keywords_w = None
-        if has_vararg:
-            w_star = self.popvalue()
-        else:
-            w_star = None
-        arguments = self.popvalues(n_arguments)
-        w_function  = self.popvalue()
-        args = self.argument_factory(arguments, keywords, keywords_w, w_star,
-                                     w_starstar, w_function=w_function)
-        if self.get_is_being_profiled() and function.is_builtin_code(w_function):
-            w_result = self.space.call_args_and_c_profile(self, w_function,
-                                                          args)
-        else:
-            w_result = self.space.call_args(w_function, args)
-        self.pushvalue(w_result)
-
     def CALL_FUNCTION(self, oparg, next_instr):
         # Only positional arguments
         nargs = oparg & 0xff
