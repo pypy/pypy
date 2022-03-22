@@ -1931,11 +1931,14 @@ def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
     return w_globals, w_locals
 
 def _dict_merge(space, w_dict, w_item):
+    # xxx maybe this function should just be in dictmultiobject.py
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject, update1
     l1 = space.len_w(w_dict)
     unroll_safe = jit.isvirtual(w_dict) and l1 < 10
     if not space.isinstance_w(w_dict, space.w_dict):
         raise oefmt(space.w_RuntimeError,
                     "expected a dict, got %T", w_dict)
+    assert isinstance(w_dict, W_DictMultiObject)
     if not space.isinstance_w(w_item, space.w_dict):
         unroll_safe = False
         if not space.ismapping_w(w_item):
@@ -1957,7 +1960,8 @@ def _dict_merge(space, w_dict, w_item):
     if l2 == 0:
         return
     if l1 == 0:
-        return space.call_method(w_dict, "update", w_item)
+        update1(space, w_dict, w_item)
+        return
     _dict_merge_loop(space, w_dict, w_item, unroll_safe)
 
 @jit.look_inside_iff(lambda space, w_dict, w_item, unroll_safe: unroll_safe)
@@ -1972,9 +1976,6 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe):
             break
         w_key, w_value = space.fixedview_unroll(w_nextitem, 2)
         if space.contains_w(w_dict, w_key):
-            if not space.isinstance_w(w_key, space.w_unicode):
-                raise oefmt(space.w_TypeError,
-                        "keywords must be strings, not '%T'", w_key)
             raise oefmt(space.w_TypeError,
                 "got multiple values for keyword argument %R",
                 w_key)
