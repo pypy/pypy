@@ -620,9 +620,9 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
                              flavor='raw', zero=True,
                              add_memory_pressure=True)
     pto = heaptype.c_ht_type
-    pto.c_ob_refcnt = 1
-    pto.c_ob_pypy_link = 0
-    pto.c_ob_type = metatype
+    rffi.cast(PyObject, pto).c_ob_refcnt = 1
+    rffi.cast(PyObject, pto).c_ob_pypy_link = 0
+    rffi.cast(PyObject, pto).c_ob_type = metatype
     pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_HEAPTYPE)
     pto.c_tp_as_async = heaptype.c_as_async
     pto.c_tp_as_number = heaptype.c_as_number
@@ -795,9 +795,10 @@ def _type_realize(space, py_obj):
         py_type.c_tp_base = rffi.cast(PyTypeObjectPtr, base)
 
     finish_type_1(space, py_type)
+    ob_type = rffi.cast(PyObject, py_type).c_ob_type
 
-    if py_type.c_ob_type:
-        w_metatype = from_ref(space, rffi.cast(PyObject, py_type.c_ob_type))
+    if ob_type:
+        w_metatype = from_ref(space, rffi.cast(PyObject, ob_type))
     else:
         # Somehow the tp_base type is created with no ob_type, notably
         # PyString_Type and PyBaseString_Type
@@ -834,8 +835,9 @@ def finish_type_1(space, pto, bases_w=None):
     base_pyo = rffi.cast(PyObject, base)
     if base and not widen(base.c_tp_flags) & Py_TPFLAGS_READY:
         type_realize(space, base_pyo)
-    if base and not pto.c_ob_type: # will be filled later
-        pto.c_ob_type = base.c_ob_type
+    pto_pyobj = rffi.cast(PyObject, pto)
+    if base and not pto_pyobj.c_ob_type: # will be filled later
+        pto_pyobj.c_ob_type = rffi.cast(PyObject, base).c_ob_type
     if not pto.c_tp_bases:
         if bases_w is None:
             if not base:
