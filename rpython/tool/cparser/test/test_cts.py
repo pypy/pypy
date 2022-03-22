@@ -184,34 +184,24 @@ def test_aliased_struct():
     
     typedef long Py_ssize_t;
 
-
-    typedef struct _object PyObject;
-    typedef void (*destructor)(PyObject *);
-
-    typedef struct  _varobject {
-        Py_ssize_t ob_refcnt;
-        Py_ssize_t ob_pypy_link;
-        struct _typeobject *ob_type;
-        Py_ssize_t ob_size;
-    } PyVarObject;
-
-
-    typedef struct _typeobject {
-        PyVarObject ob_base;
-        const char *tp_name;
-        Py_ssize_t tp_basicsize, tp_itemsize;
-        destructor tp_dealloc;
-    } PyTypeObject;
-
     typedef struct _object {
         Py_ssize_t ob_refcnt;
         Py_ssize_t ob_pypy_link;
         struct _typeobject *ob_type;
     } PyObject;
 
+    typedef struct  _varobject {
+        Py_ssize_t ob_refcnt;
+        Py_ssize_t ob_pypy_link;
+        struct _typeobject *ob_type;
+    } PyVarObject;
 
+
+    typedef struct _typeobject {
+        PyVarObject ob_base;
+    } PyTypeObject;
     """
-    cts = parse_source(cdef, override=True)
+    cts = parse_source(cdef)
     bar = cts.gettype('PyTypeObject')
     assert isinstance(bar, lltype.Struct)
     hash(bar)  # bar is hashable
