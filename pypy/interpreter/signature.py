@@ -23,6 +23,13 @@ class Signature(object):
             pass
         return -1
 
+    @jit.elidable
+    def find_w_argname(self, w_name):
+        for i, name in enumerate(self.argnames):
+            if w_name.eq_unwrapped(name):
+                return i
+        return -1
+
     def num_argnames(self):
         return len(self.argnames) - self.kwonlyargcount
 

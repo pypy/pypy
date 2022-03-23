@@ -205,14 +205,8 @@ class W_Weakref(W_WeakrefBase):
         # to a frozen object, so it will never die.
         self.w_hash = None
 
-    def descr__init__weakref(self, space, w_obj, w_callable=None,
-                             __args__=None):
-        if __args__.arguments_w:
-            raise oefmt(space.w_TypeError,
-                        "__init__ expected at most 2 arguments")
-        if __args__.keywords:
-            raise oefmt(space.w_TypeError,
-                        "ref() does not take keyword arguments")
+    def descr__init__weakref(self, space, w_obj, w_callable=None):
+        pass
 
     def descr_hash(self):
         if self.w_hash is not None:

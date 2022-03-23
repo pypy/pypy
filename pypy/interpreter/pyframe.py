@@ -530,10 +530,10 @@ class PyFrame(W_Root):
         return Arguments(
                 self.space, self.peekvalues(nargs), methodcall=methodcall, fnname_parens=fnname_parens)
 
-    def argument_factory(self, arguments, keywords, keywords_w, w_star, w_starstar, methodcall=False, w_function=None, fnname=None):
+    def argument_factory(self, arguments, keyword_names_w, keywords_w, w_star, w_starstar, methodcall=False, w_function=None, fnname=None):
         fnname_parens = self._guess_function_name_parens(fnname, w_function)
         return Arguments(
-                self.space, arguments, keywords, keywords_w, w_star,
+                self.space, arguments, keyword_names_w, keywords_w, w_star,
                 w_starstar, methodcall=methodcall, fnname_parens=fnname_parens)
 
     def hide(self):
