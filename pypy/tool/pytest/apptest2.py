@@ -106,7 +106,7 @@ class AppTestFunction(pytest.Item):
     def execute_appex(self, space, w_func):
         space.getexecutioncontext().set_sys_exc_info(None)
         sig = w_func.code._signature
-        if sig.varargname or sig.kwargname or sig.kwonlyargnames:
+        if sig.varargname or sig.kwargname or sig.num_kwonlyargnames():
             raise ValueError(
                 'Test functions may not use *args, **kwargs or '
                 'keyword-only args')

@@ -52,7 +52,7 @@ class TestBuiltinCode:
             pass
         code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace,
                                                    "kwonly", W_Root])
-        assert code.signature() == Signature([], kwonlyargnames=['x'])
+        assert code.signature() == Signature(['x'], kwonlyargcount=1)
         assert space.int_w(space.getattr(
             code, space.newtext('co_kwonlyargcount'))) == 1
 

@@ -2,7 +2,7 @@ import _imp
 import os
 import sys
 import struct
-from distutils.spawn import find_executable
+from shutil import which
 
 so_ext = _imp.extension_suffixes()[0]
 
@@ -53,13 +53,13 @@ else:
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include', 'pypy' + pydot)
     build_time_vars['LIBDIR'] = os.path.join(mybase, 'bin')
 
-if find_executable("gcc"):
+if which("gcc"):
     build_time_vars.update({
         "CC": "gcc -pthread",
         "GNULD": "yes",
         "LDSHARED": "gcc -pthread -shared" + " " + build_time_vars["LDFLAGS"] ,
     })
-    if find_executable("g++"):
+    if which("g++"):
         build_time_vars["CXX"] = "g++ -pthread"
 
 if sys.platform[:6] == "darwin":

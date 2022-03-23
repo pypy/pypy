@@ -28,12 +28,12 @@ class TestSignature(object):
         assert sig.has_kwarg()
         assert sig.scope_length() == 4
         assert sig.getallvarnames() == ["a", "b", "c", "c"]
-        sig = Signature(["a", "b", "c"], "d", "c", ["kwonly"])
+        sig = Signature(["a", "b", "c", "kwonly"], "d", "e", 1)
         assert sig.num_argnames() == 3
         assert sig.has_vararg()
         assert sig.has_kwarg()
         assert sig.scope_length() == 6
-        assert sig.getallvarnames() == ["a", "b", "c", "d", "kwonly", "c"]
+        assert sig.getallvarnames() == ["a", "b", "c", "kwonly", "d", "e"]
 
     def test_eq(self):
         sig1 = Signature(["a", "b", "c"], "d", "c")
@@ -42,7 +42,7 @@ class TestSignature(object):
 
 
     def test_find_argname(self):
-        sig = Signature(["a", "b", "c"], None, None, ["kwonly"])
+        sig = Signature(["a", "b", "c", "kwonly"], None, None, 1)
         assert sig.find_argname("a") == 0
         assert sig.find_argname("b") == 1
         assert sig.find_argname("c") == 2
@@ -619,7 +619,7 @@ class TestArgumentsNormal(object):
         space = DummySpace()
         # def __init__(self, *args, obj=None, name=None): ...
         #                           |-> kwonly
-        sig = Signature(['self'], 'args', None, ['obj', 'name'], 0)
+        sig = Signature(['self', 'obj', 'name'], 'args', None, 2, 0)
 
         # __init__("fake_self", *("abc, ))
         args = Arguments(space, ["abc"], [], [])
