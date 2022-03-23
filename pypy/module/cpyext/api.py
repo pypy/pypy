@@ -315,14 +315,14 @@ class ApiFunction(BaseApiFunction):
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
                  c_name=None, cdecl=None, gil=None,
                  result_borrowed=False, result_is_ll=False):
+        from rpython.flowspace.bytecode import cpython_code_signature
         BaseApiFunction.__init__(self, argtypes, restype, callable)
         self.error_value = error
         self.c_name = c_name
         self.cdecl = cdecl
 
         # extract the signature from the (CPython-level) code object
-        from pypy.interpreter import pycode
-        sig = pycode.cpython_code_signature(callable.func_code)
+        sig = cpython_code_signature(callable.func_code)
         assert sig.argnames[0] == 'space'
         self.argnames = sig.argnames[1:]
         if gil == 'pygilstate_ensure':

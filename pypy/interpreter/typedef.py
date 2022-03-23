@@ -177,6 +177,7 @@ def make_descr_typecheck_wrapper(tag, func, extraargs=(), cls=None,
 
 @specialize.memo()
 def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
+    from rpython.flowspace.bytecode import cpython_code_signature
     # - if cls is None, the wrapped object is passed to the function
     # - if cls is a class, an unwrapped instance is passed
     # - if cls is a string, XXX unused?
@@ -207,8 +208,7 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
 
     name = func.__name__
     extra = ', '.join(extraargs)
-    from pypy.interpreter import pycode
-    sig = pycode.cpython_code_signature(func.func_code)
+    sig = cpython_code_signature(func.func_code)
     argnames = sig.argnames
     if use_closure:
         if argnames[1] == 'space':
