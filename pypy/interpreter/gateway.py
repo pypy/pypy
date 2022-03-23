@@ -393,7 +393,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_kwonly(self, typ):
         self.run_args.append("None")
 
-    def _make_unwrap_activation_class(self, unwrap_spec, app_sig, cache={}):
+    def _make_unwrap_activation_class(self, unwrap_spec, cache={}):
         try:
             key = tuple(unwrap_spec)
             activation_factory_cls, run_args = cache[key]
@@ -430,7 +430,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def make_activation(unwrap_spec, func, app_sig):
         emit = UnwrapSpec_EmitRun(app_sig)
         emit.apply_over(unwrap_spec)
-        activation_uw_cls = emit._make_unwrap_activation_class(unwrap_spec, app_sig)
+        activation_uw_cls = emit._make_unwrap_activation_class(unwrap_spec)
         return activation_uw_cls(func)
     make_activation = staticmethod(make_activation)
 
