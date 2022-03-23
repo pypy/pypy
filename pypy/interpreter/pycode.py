@@ -57,7 +57,6 @@ def make_signature(code):
     if kwonlyargcount > 0:
         kwonlyargs = list(varnames[argcount:argcount + kwonlyargcount])
         argcount += kwonlyargcount
-        assert posonlyargcount >= -1
     else:
         kwonlyargs = None
     if code.co_flags & CO_VARARGS:
