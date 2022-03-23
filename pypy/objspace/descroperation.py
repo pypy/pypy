@@ -248,7 +248,7 @@ class DescrOperation(object):
                 return True
             # call __len__
             w_res = space.get_and_call_function(w_descr, w_obj)
-            return space._check_len_result(space.int(w_res)) != 0
+            return space._check_len_result(space.index(w_res)) != 0
         # call __bool__
         w_res = space.get_and_call_function(w_descr, w_obj)
         # more shortcuts for common cases
@@ -276,10 +276,10 @@ class DescrOperation(object):
 
     def len_w(space, w_obj):
         w_res = space._len(w_obj)
-        return space._check_len_result(space.int(w_res))
+        return space._check_len_result(space.index(w_res))
 
     def len(space, w_obj):
-        w_res = space.int(space._len(w_obj))
+        w_res = space.index(space._len(w_obj))
         # check for error or overflow
         space._check_len_result(w_res)
         return w_res
