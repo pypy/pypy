@@ -266,8 +266,6 @@ class Arguments(object):
 
         # check for missing arguments and fill them from the kwds,
         # or with defaults, if available
-        missing_positional = []
-        missing_kwonly = []
         more_filling = (input_argcount < co_argcount + co_kwonlyargcount)
         def_first = 0
         if more_filling:
@@ -296,6 +294,8 @@ class Arguments(object):
                                 avail, kwonly_given)
 
         if more_filling:
+            missing_positional = None
+            missing_kwonly = None
             # then, fill the posonly arguments with defaults_w (if needed)
             for i in range(input_argcount, co_argcount):
                 if scope_w[i] is not None:
@@ -304,6 +304,8 @@ class Arguments(object):
                 if defnum >= 0:
                     scope_w[i] = defaults_w[defnum]
                 else:
+                    if missing_positional is None:
+                        missing_positional = []
                     missing_positional.append(signature.argnames[i])
 
             # finally, fill kwonly arguments with w_kw_defs (if needed)
@@ -312,18 +314,22 @@ class Arguments(object):
                     continue
                 name = signature.argnames[i]
                 if w_kw_defs is None:
+                    if missing_kwonly is None:
+                        missing_kwonly = []
                     missing_kwonly.append(name)
                     continue
                 w_def = self.space.finditem_str(w_kw_defs, name)
                 if w_def is not None:
                     scope_w[i] = w_def
                 else:
+                    if missing_kwonly is None:
+                        missing_kwonly = []
                     missing_kwonly.append(name)
 
-        if missing_positional:
-            raise ArgErrMissing(missing_positional, True)
-        if missing_kwonly:
-            raise ArgErrMissing(missing_kwonly, False)
+            if missing_positional:
+                raise ArgErrMissing(missing_positional, True)
+            if missing_kwonly:
+                raise ArgErrMissing(missing_kwonly, False)
 
 
     def parse_into_scope(self, w_firstarg,
