@@ -48,14 +48,8 @@ def make_signature(code):
     """Return a Signature instance."""
     argcount = code.co_argcount
     varnames = code.co_varnames
-    if we_are_translated():
-        posonlyargcount = code.co_posonlyargcount
-        kwonlyargcount = code.co_kwonlyargcount
-    else:
-        # for compatibility with CPython 2.7 code objects
-        # XXX really?
-        posonlyargcount = getattr(code, 'co_posonlyargcount', 0)
-        kwonlyargcount = getattr(code, 'co_kwonlyargcount', 0)
+    posonlyargcount = code.co_posonlyargcount
+    kwonlyargcount = code.co_kwonlyargcount
     assert argcount >= 0     # annotator hint
     assert kwonlyargcount >= 0
     assert posonlyargcount >= 0
