@@ -707,6 +707,7 @@ class BuiltinCode(Code):
     def __init__(self, func, unwrap_spec=None, self_type=None,
                  descrmismatch=None, doc=None):
         from rpython.rlib import rutf8
+        from rpython.flowspace.bytecode import cpython_code_signature
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         Code.__init__(self, func.__name__)
@@ -730,15 +731,10 @@ class BuiltinCode(Code):
         # (function, cls) use function to check/unwrap argument of type cls
 
         # First extract the signature from the (CPython-level) code object
-        from pypy.interpreter import pycode
-        sig = pycode.cpython_code_signature(func.func_code)
+        sig = cpython_code_signature(func.func_code)
         argnames = sig.argnames
         varargname = sig.varargname
         kwargname = sig.kwargname
-        if sig.posonlyargcount:
-            import pdb; pdb.set_trace()
-        if sig.kwonlyargnames:
-            import pdb; pdb.set_trace()
         self._argnames = argnames
 
         if unwrap_spec is None:
