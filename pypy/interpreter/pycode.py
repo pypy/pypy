@@ -46,19 +46,14 @@ default_magic = pypy_incremental_magic | (ord('\r')<<16) | (ord('\n')<<24)
 
 def make_signature(code):
     """Return a Signature instance."""
-    argcount = code.co_argcount
+    kwonlyargcount = code.co_kwonlyargcount
+    argcount = code.co_argcount + kwonlyargcount
     varnames = code.co_varnames
     posonlyargcount = code.co_posonlyargcount
-    kwonlyargcount = code.co_kwonlyargcount
     assert argcount >= 0     # annotator hint
     assert kwonlyargcount >= 0
     assert posonlyargcount >= 0
     argnames = list(varnames[:argcount])
-    if kwonlyargcount > 0:
-        kwonlyargs = list(varnames[argcount:argcount + kwonlyargcount])
-        argcount += kwonlyargcount
-    else:
-        kwonlyargs = None
     if code.co_flags & CO_VARARGS:
         varargname = varnames[argcount]
         argcount += 1
@@ -68,7 +63,7 @@ def make_signature(code):
         kwargname = code.co_varnames[argcount]
     else:
         kwargname = None
-    return Signature(argnames, varargname, kwargname, kwonlyargs, posonlyargcount)
+    return Signature(argnames, varargname, kwargname, kwonlyargcount, posonlyargcount)
 
 class CodeHookCache(object):
     def __init__(self, space):

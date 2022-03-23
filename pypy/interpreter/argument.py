@@ -182,7 +182,7 @@ class Arguments(object):
         # so all values coming from there can be assumed constant. It assumes
         # that the length of the defaults_w does not vary too much.
         co_posonlyargcount = signature.posonlyargcount
-        co_argcount = signature.num_argnames() # expected formal arguments, without */**
+        co_argcount = signature.num_argnames()
         co_kwonlyargcount = signature.num_kwonlyargnames()
         too_many_args = False
 
@@ -310,7 +310,7 @@ class Arguments(object):
             for i in range(co_argcount, co_argcount + co_kwonlyargcount):
                 if scope_w[i] is not None:
                     continue
-                name = signature.kwonlyargnames[i - co_argcount]
+                name = signature.argnames[i]
                 if w_kw_defs is None:
                     missing_kwonly.append(name)
                     continue
