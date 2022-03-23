@@ -258,7 +258,7 @@ def from_ref(space, ref):
     assert is_pyobj(ref)
     if not ref:
         return None
-    w_obj = rawrefcount.to_obj(W_Root, ref)
+    w_obj = rawrefcount.to_obj(W_Root, rffi.cast(PyObject, ref))
     if w_obj is not None:
         if w_obj is not w_marker_deallocating:
             return w_obj

@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import fatalerror_notb
 from pypy.module.cpyext.api import (
-    cpython_api, Py_ssize_t, build_type_checkers_flags,
+    cpython_api, Py_ssize_t, build_type_checkers_flags, PyVarObject,
     PyVarObjectFields, cpython_struct, bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, decref, incref, BaseCpyTypedescr,
@@ -74,11 +74,12 @@ def tuple_attach(space, py_obj, w_obj, w_userdata=None):
     """
     items_w = space.fixedview(w_obj)
     py_tup = rffi.cast(PyTupleObject, py_obj)
+    py_varobj = rffi.cast(PyVarObject, py_obj)
     length = len(items_w)
-    if py_tup.c_ob_size < length:
+    if py_varobj.c_ob_size < length:
         raise oefmt(space.w_ValueError,
             "tuple_attach called on object with ob_size %d but trying to store %d",
-            py_tup.c_ob_size, length)
+            py_varobj.c_ob_size, length)
     i = 0
     try:
         while i < length:
@@ -100,7 +101,7 @@ def tuple_realize(space, py_obj):
     W_TupleObjects).
     """
     py_tup = rffi.cast(PyTupleObject, py_obj)
-    l = py_tup.c_ob_size
+    l = rffi.cast(PyVarObject, py_tup).c_ob_size
     p = py_tup.c_ob_item
     items_w = [None] * l
     for i in range(l):
@@ -134,7 +135,7 @@ def PyTuple_SetItem(space, ref, index, py_obj):
         decref(space, py_obj)
         PyErr_BadInternalCall(space)
     tupleobj = rffi.cast(PyTupleObject, ref)
-    size = tupleobj.c_ob_size
+    size = rffi.cast(PyVarObject, tupleobj).c_ob_size
     if index < 0 or index >= size:
         decref(space, py_obj)
         raise oefmt(space.w_IndexError, "tuple assignment index out of range")
@@ -155,7 +156,7 @@ def PyTuple_GetItem(space, ref, index):
     if not tuple_check_ref(space, ref):
         PyErr_BadInternalCall(space)
     ref = rffi.cast(PyTupleObject, ref)
-    size = ref.c_ob_size
+    size = rffi.cast(PyVarObject, ref).c_ob_size
     if index < 0 or index >= size:
         raise oefmt(space.w_IndexError, "tuple index out of range")
     return ref.c_ob_item[index]     # borrowed ref
@@ -165,7 +166,7 @@ def PyTuple_Size(space, ref):
     """Take a pointer to a tuple object, and return the size of that tuple."""
     if not tuple_check_ref(space, ref):
         PyErr_BadInternalCall(space)
-    ref = rffi.cast(PyTupleObject, ref)
+    ref = rffi.cast(PyVarObject, ref)
     return ref.c_ob_size
 
 
@@ -186,7 +187,7 @@ def _PyTuple_Resize(space, p_ref, newsize):
     if not tuple_check_ref(space, ref):
         PyErr_BadInternalCall(space)
     oldref = rffi.cast(PyTupleObject, ref)
-    oldsize = oldref.c_ob_size
+    oldsize = rffi.cast(PyVarObject, oldref).c_ob_size
     if oldsize == newsize:
         return 0
     ptup = state.ccall("PyTuple_New", newsize)
