@@ -35,6 +35,19 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 default_magic = (0xf303 + 7) | 0x0a0d0000               # this PyPy's magic
                                                         # (from CPython 2.7.0)
 
+def make_signature(code):
+    """Return a Signature instance."""
+    argcount = code.co_argcount
+    varnames = code.co_varnames
+    assert argcount >= 0     # annotator hint
+    argnames = list(varnames[:argcount])
+    if code.co_flags & CO_VARARGS:
+        varargname = varnames[argcount]
+        argcount += 1
+    else:
+        varargname = None
+    kwargname = varnames[argcount] if code.co_flags & CO_VARKEYWORDS else None
+    return Signature(argnames, varargname, kwargname)
 
 class CodeHookCache(object):
     def __init__(self, space):
@@ -80,7 +93,7 @@ class PyCode(eval.Code):
         self.w_globals = None
         self.hidden_applevel = hidden_applevel
         self.magic = magic
-        self._signature = cpython_code_signature(self)
+        self._signature = make_signature(self)
         self._initialize()
         self._init_ready()
         self.new_code_hook()
