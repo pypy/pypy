@@ -814,7 +814,7 @@ with somtehing as stuff:
             py.test.fail("Did not raise")
 
     def test_signature_kwargname(self):
-        from pypy.interpreter.pycode import cpython_code_signature
+        from pypy.interpreter.pycode import make_signature
         from pypy.interpreter.signature import Signature
 
         def find_func(code):
@@ -825,20 +825,20 @@ with somtehing as stuff:
         snippet = 'def f(a, b, m=1, n=2, **kwargs):\n pass\n'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
-        sig = cpython_code_signature(co)
+        sig = make_signature(co)
         assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', [])
 
         snippet = 'def f(a, b, *, m=1, n=2, **kwargs):\n pass\n'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
-        sig = cpython_code_signature(co)
+        sig = make_signature(co)
         assert sig == Signature(['a', 'b'], None, 'kwargs', ['m', 'n'])
 
         # a variant with varargname, which was buggy before issue2996
         snippet = 'def f(*args, offset=42):\n pass\n'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
-        sig = cpython_code_signature(co)
+        sig = make_signature(co)
         assert sig == Signature([], 'args', None, ['offset'])
 
 

@@ -44,19 +44,12 @@ assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
 default_magic = pypy_incremental_magic | (ord('\r')<<16) | (ord('\n')<<24)
 
-# cpython_code_signature helper
-def cpython_code_signature(code):
+def make_signature(code):
     """Return a Signature instance."""
     argcount = code.co_argcount
     varnames = code.co_varnames
-    if we_are_translated():
-        posonlyargcount = code.co_posonlyargcount
-        kwonlyargcount = code.co_kwonlyargcount
-    else:
-        # for compatibility with CPython 2.7 code objects
-        # XXX really?
-        posonlyargcount = getattr(code, 'co_posonlyargcount', 0)
-        kwonlyargcount = getattr(code, 'co_kwonlyargcount', 0)
+    posonlyargcount = code.co_posonlyargcount
+    kwonlyargcount = code.co_kwonlyargcount
     assert argcount >= 0     # annotator hint
     assert kwonlyargcount >= 0
     assert posonlyargcount >= 0
@@ -150,7 +143,7 @@ class PyCode(eval.Code):
         self.w_globals = None
         self.hidden_applevel = hidden_applevel
         self.magic = magic
-        self._signature = cpython_code_signature(self)
+        self._signature = make_signature(self)
         self._initialize()
         self._init_ready()
         self.new_code_hook()
