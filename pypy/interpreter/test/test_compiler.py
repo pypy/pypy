@@ -817,20 +817,20 @@ with somtehing as stuff:
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
         sig = make_signature(co)
-        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', [])
+        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs')
 
         snippet = 'def f(a, b, *, m=1, n=2, **kwargs): pass'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
         sig = make_signature(co)
-        assert sig == Signature(['a', 'b'], None, 'kwargs', ['m', 'n'])
+        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', 2)
 
         # a variant with varargname, which was buggy before issue2996
         snippet = 'def f(*args, offset=42): pass'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
         sig = make_signature(co)
-        assert sig == Signature([], 'args', None, ['offset'])
+        assert sig == Signature(['offset'], 'args', None, 1)
 
 
 class AppTestCompiler(object):
