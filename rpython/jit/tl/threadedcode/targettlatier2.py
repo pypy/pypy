@@ -12,27 +12,15 @@ def entry_point(args):
         print usage
         return 2
 
-    debug = False
-    i = 0
-    while True:
-        if not i < len(args):
-            break
-
+    for i in range(len(args)):
         if args[i] == "--jit":
             if len(args) == i + 1:
                 print "missing argument after --jit"
                 return 2
-            jitarg = args[i+1]
-            if jitarg == "tracing":
-                jit_flg = "tracing"
+            jitarg = args[i + 1]
             del args[i:i+2]
             jit.set_user_param(None, jitarg)
-            continue
-        elif args[i] == "--debug":
-            debug = True
-            del args[i]
-            continue
-        i += 1
+            break
 
     filename = args[1]
     x = int(args[2])
@@ -45,7 +33,7 @@ def entry_point(args):
     w_res = tla.W_IntObject(0)
     for _ in range(n):
         n1 = time.time()
-        w_res = tla.run(bytecode, w_x, debug=debug)
+        w_res = tla.run(bytecode, w_x, entry="tracing")
         n2 = time.time()
         print (n2 * 1e4 - n1 * 1e4)
     print w_res.getrepr()
