@@ -3,7 +3,7 @@ import pytest
 
 from rpython.jit.tl.threadedcode import tla
 from rpython.jit.tl.threadedcode.tla import \
-    W_Object, W_IntObject, W_StringObject, Frame
+    W_Object, W_IntObject, W_StringObject, W_RetAddrObject, Frame
 
 def assemble(mylist):
     return ''.join([chr(x) for x in mylist])
@@ -11,6 +11,12 @@ def assemble(mylist):
 def interp(mylist, w_arg):
     bytecode = assemble(mylist)
     return tla.run(bytecode, w_arg)
+
+def assert_stack(stack1, stack2):
+    for x, y in zip(stack1, stack2):
+        if x is None and y is None:
+            continue
+        assert x.eq(y)
 
 class TestFrame:
 
@@ -81,6 +87,29 @@ class TestFrame:
         res = interp(code, W_IntObject(34))
         assert res.intvalue == 34 + 12
 
+    def test_frame_reset(self):
+        stack = [
+            W_IntObject(10), # ?
+            W_IntObject(0),  # old acc
+            W_IntObject(10), # old n
+            W_IntObject(-1), # dummy ret_addr
+            W_IntObject(10), # local acc
+            W_IntObject(9)   # local n
+        ]
+        code = [ tla.FRAME_RESET, 2, 2, 2, ]
+        frame = Frame(assemble(code))
+        frame.stack = stack
+        frame.stackpos = len(stack)
+        frame.interp()
+
+        assert_stack(frame.stack, [ W_IntObject(10),
+                                    W_IntObject(10),
+                                    W_IntObject(9),
+                                    W_IntObject(-1), # dummy ret_addr
+                                    None,
+                                    None
+                                   ])
+
     def test_simple_loop(self):
         code = [
             tla.DUP,
@@ -143,7 +172,7 @@ class TestLLType(LLJitMixin):
         res = self.meta_interp(interp_w, [42])
         assert res == -10
 
-    def test_jit_double_loop(self):
+    def test_jit_loopabit(self):
         code = [
             tla.DUP,
             tla.CONST_INT, 1,
@@ -182,7 +211,7 @@ class TestLLType(LLJitMixin):
             tla.POP1,
             tla.EXIT,
             tla.DUPN, 1,
-            tla.CONST_INT, 1,
+            tla.CONST_INT, 0,
             tla.GT,
             tla.JUMP_IF, 21,
             tla.DUPN, 1,
@@ -205,8 +234,8 @@ class TestLLType(LLJitMixin):
             assert isinstance(w_result, W_IntObject)
             return w_result.intvalue
 
-        res = self.meta_interp(interp_w, [10])
-        assert res == 55
+        res = self.meta_interp(interp_w, [5])
+        assert res == 15
 
     def test_jit_fib(self):
         code = [
