@@ -15,7 +15,6 @@ def get_printable_location_tier1(pc, call_entry, bytecode, tstack):
         arg = ''
     return "%s: %s %s, tstack: %d" % (pc, name, arg, tstack.pc)
 
-
 def get_printable_location(pc, bytecode):
     op = ord(bytecode[pc])
     name = bytecodes[op]
@@ -38,30 +37,26 @@ tier2driver = JitDriver(
 
 
 class Frame(object):
-    def __init__(self, bytecode, stack=[None] * 1024, stackpos=0):
+    def __init__(self, bytecode, stack=[None] * 128, stackpos=0):
         self.bytecode = bytecode
         self.stack = stack
         self.stackpos = stackpos
 
     @jit.unroll_safe
-    def copy(self, argnum, dummy=False):
-
-        # frame = Frame(bytecode)
-        # i = self.stackpos - argnum - 1
-        # assert i >= 0
-        # frame.stack = self.stack[i:]
-        # frame.stackpos = argnum + 1
+    def copy_frame(self, argnum, dummy=False):
 
         oldstack = self.stack
         oldstackpos = self.stackpos
         framepos = oldstackpos - argnum - 1
         assert framepos >= 0
 
-        newstack = [None] * 1024
+        newstack = [None] * len(self.stack)
         for i in range(framepos, oldstackpos):
+            # j = oldstackpos - i - 1
             newstack[i - framepos] = oldstack[i]
 
-        return Frame(self.bytecode, newstack, argnum + 1)
+        newstack[argnum + 1] = oldstack[oldstackpos - 1]
+        return Frame(self.bytecode, newstack, argnum + 2)
 
     @jit.dont_look_inside
     def push(self, w_x):
@@ -134,17 +129,16 @@ class Frame(object):
         for i in range(self.stackpos):
             w_x = self.stack[i]
             if isinstance(w_x, W_Object):
-                out = "%s, %s" % (w_x.getrepr(), out)
+                out = "%s, %s" % (out, w_x.getrepr())
         out = "[" + out + "]"
-        print "stackpos:", str(self.stackpos), out
+        print "stackpos: %d %s" % (self.stackpos, out)
 
     @jit.dont_look_inside
     def is_true(self, dummy):
         if dummy:
             return self.take(0).is_true()
         w_x = self.pop()
-        res = w_x.is_true()
-        return res
+        return w_x.is_true()
 
     def _is_true(self):
         w_x = self._pop()
@@ -432,7 +426,7 @@ class Frame(object):
 
     def _PRINT(self):
         v = self._take(0)
-        print v.getrepr()
+        # print v.getrepr()
 
     @jit.dont_look_inside
     def FRAME_RESET(self, o, l, n, dummy):
@@ -521,8 +515,8 @@ class Frame(object):
                 pc += 2
 
                 # create a new frame
-                frame = self.copy(argnum)
-                tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
+                frame = self.copy_frame(argnum)
+                # tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
                 frame._CALL(self, t, argnum)
 
             elif opcode == RET:
@@ -675,17 +669,17 @@ class Frame(object):
                 pc += 2
 
                 # create a new frame
-                frame = self.copy(argnum)
+                frame = self.copy_frame(argnum)
 
                 if we_are_jitted():
-                    # frame.CALL(self, t, argnum, dummy=True)
-                    frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=True)
+                    frame.CALL(self, t, argnum, dummy=True)
+                    # frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=True)
                 else:
                     call_entry = t
                     tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
                                               pc=t, tstack=tstack, self=frame)
-                    # frame.CALL(self, t, argnum, dummy=False)
-                    frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=False)
+                    frame.CALL(self, t, argnum, dummy=False)
+                    # frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=False)
 
             elif opcode == RET:
                 argnum = hint(ord(bytecode[pc]), promote=True)
@@ -784,7 +778,7 @@ class Frame(object):
                 assert False, 'Unknown opcode: %s' % bytecodes[opcode]
 
 
-def run(bytecode, w_arg, entry=None):
+def run(bytecode, w_arg, entry=None, debug=False):
     frame = Frame(bytecode)
     frame.push(w_arg); frame.push(w_arg)
     if entry == "tracing":
