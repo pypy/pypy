@@ -439,30 +439,29 @@ class Frame(object):
         if dummy:
             return
 
-        assert n >= 0
-        ret = self.stack[self.stackpos - n - l - 1]
-        old_base = self.stackpos - n - l - o - 1
-        new_base = self.stackpos - n
+        ret = self.stack[self.stackpos - n - 1]
+        old_base = self.stackpos - n
+        new_base = self.stackpos - o - n - l - 1
 
         for i in range(n):
-            self.stack[old_base + i] = self.stack[new_base + i]
+            self.stack[new_base + i] = self.stack[old_base + i]
+            self.stack[old_base + i] = None
 
-        self.stackpos = old_base + n + 1
+        self.stack[new_base + n] = ret
+        self.stackpos = new_base + n + 1
 
     @jit.unroll_safe
-    def _FRAME_RESET(self, o, l, n, dummy):
-        if dummy:
-            return
-
-        assert n >= 0
-        ret = self.stack[self.stackpos - n - l - 1]
-        old_base = self.stackpos - n - l - o - 1
-        new_base = self.stackpos - n
+    def _FRAME_RESET(self, o, l, n):
+        ret = self.stack[self.stackpos - n - 1]
+        old_base = self.stackpos - n
+        new_base = self.stackpos - o - n - l - 1
 
         for i in range(n):
-            self.stack[old_base + i] = self.stack[new_base + i]
+            self.stack[new_base + i] = self.stack[old_base + i]
+            self.stack[old_base + i] = None
 
-        self.stackpos = old_base + n + 1
+        self.stack[new_base + n] = ret
+        self.stackpos = new_base + n + 1
 
     def _interp(self, pc=0):
         bytecode = self.bytecode
@@ -554,7 +553,11 @@ class Frame(object):
                 self._PRINT()
 
             elif opcode == FRAME_RESET:
-                raise NotImplementedError
+                old_arity = ord(bytecode[pc])
+                local_size = ord(bytecode[pc+1])
+                new_arity = ord(bytecode[pc+2])
+                pc += 3
+                self._FRAME_RESET(old_arity, local_size, new_arity)
 
             elif opcode == NOP:
                 continue
@@ -765,7 +768,14 @@ class Frame(object):
                     self.PRINT(dummy=True)
 
             elif opcode == FRAME_RESET:
-                raise NotImplementedError
+                old_arity = ord(bytecode[pc])
+                local_size = ord(bytecode[pc+1])
+                new_arity = ord(bytecode[pc+2])
+                pc += 3
+                if we_are_jitted():
+                    self.FRAME_RESET(old_arity, local_size, new_arity, dummy=True)
+                else:
+                    self.FRAME_RESET(old_arity, local_size, new_arity, dummy=False)
 
             elif opcode == NOP:
                 continue
