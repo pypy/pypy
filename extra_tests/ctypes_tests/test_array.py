@@ -62,3 +62,15 @@ def test_output_complex_test():
     TP = POINTER(A)
     x = TP(A())
     assert x[0] != b''
+
+def test_non_int():
+    class Index():
+        def __index__(self):
+            return 42
+
+    t0 = c_int * 42
+    t1 = c_int * Index()
+    assert t0 == t1
+    with pytest.raises(TypeError) as exc:
+        c_int * 4.5
+    assert 'non-int of type float' in str(exc.value)
