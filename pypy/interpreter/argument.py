@@ -427,6 +427,7 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keyword_names
                 raise_type_error(space, fnname_parens,
                             "got multiple values for keyword argument '%S'",
                             w_key)
+        assert isinstance(w_key, space.UnicodeObjectCls)
         keyword_names_w[i] = w_key
         if is_dict:
             # issue 2435: bug-to-bug compatibility with cpython. for a subclass of
