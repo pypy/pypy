@@ -1,5 +1,5 @@
 SOURCE = lang/sum.tla.py lang/fact.tla.py lang/fib.tla.py lang/ack.tla.py \
-	lang/tak.tla.py lang/gcd.tla.py
+	lang/tak.tla.py lang/gcd.tla.py lang/sum-tail.tla.py lang/fib-tail.tla.py
 
 .PHONY: compile
 compile: targettla-c targettla_bench-c
