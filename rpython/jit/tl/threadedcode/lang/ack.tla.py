@@ -1,8 +1,8 @@
 from rpython.jit.tl.threadedcode import tla
 
 code = [
-    tla.CONST_INT, 4,
-    tla.CONST_INT, 12,
+    tla.CONST_INT, 5,
+    tla.CONST_INT, 18,
     tla.DUPN, 1,
     tla.DUPN, 1,
     tla.CALL, 16, 2,
