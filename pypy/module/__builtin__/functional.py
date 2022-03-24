@@ -192,7 +192,7 @@ def min_max(space, args, implementation_of):
         for n in range(len(kwds_w)):
             if space.eq_w(kwds_w[n], space.newtext("key")):
                 w_key = args.keywords_w[n]
-            if space.eq_w(kwds_w[n], space.newtext("default")):
+            elif space.eq_w(kwds_w[n], space.newtext("default")):
                 w_default = args.keywords_w[n]
             else:
                 raise oefmt(space.w_TypeError,
