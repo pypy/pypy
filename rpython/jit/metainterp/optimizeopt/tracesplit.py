@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem.llmemory import AddressAsInt
 from rpython.rlib.rjitlog import rjitlog as jl
-from rpython.rlib.rstring import find
+from rpython.rlib.rstring import find, endswith
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.jit.metainterp.history import (
     ConstInt, ConstFloat, RefFrontendOp, IntFrontendOp, FloatFrontendOp, INT, REF, FLOAT, VOID)
@@ -25,7 +25,7 @@ class TokenMapError(Exception):
         self.key = key
         self.message = message
         if key is not None:
-            self.message = "{}, key is {}" % (message, key)
+            self.message = "%s, key is %d" % (message, key)
 
 class mark(object):
     JUMP = "emit_jump"
@@ -86,8 +86,9 @@ class TraceSplitOpt(object):
         self.optimizations = optimizations
         self.resumekey = resumekey
         self.first_cut = True
+        self.token_map = None
 
-    def split_ops(self, trace, ops, inputargs, token):
+    def split_ops(self, trace, oplist, inputargs, token):
         "Threaded code: splitting the given ops into several op lists"
 
         t_lst = []                # result
@@ -96,16 +97,23 @@ class TraceSplitOpt(object):
         pseudo_ops = []           # for removing useless guards
         fdescr_stack = []         # for bridges
 
-        ops = self.remove_guards(ops)
-        token_map = self.create_token_dic(ops, token)
+        oplist = self.remove_guards(oplist)
+        self.token_map = self.create_token_dic(oplist, token)
 
-        current_ops.append(
-            ResOperation(rop.LABEL, inputargs, token))
+        label_op = ResOperation(rop.LABEL, inputargs, token)
+        current_ops.append(label_op)
 
-        for op in ops:
+        opindex = 0
+
+        while True:
+            if opindex >= len(oplist):
+                break
+            op = oplist[opindex]
+            opindex += 1
+
             opnum = op.getopnum()
             if op.is_guard():
-                if self._is_guard_marked(op, ops, mark.IS_TRUE):
+                if self._is_guard_marked(op, oplist, mark.IS_TRUE):
                     descr = op.getdescr()
                     fdescr_stack.append(descr)
                     failargs = op.getfailargs()
@@ -122,23 +130,23 @@ class TraceSplitOpt(object):
                 lastarg = op.getarg(numargs - 1)
                 if isinstance(lastarg, ConstInt) and lastarg.getint() == 1:
                     op.setarg(numargs - 1, ConstInt(0))
-                if name.find(mark.JUMP) != -1:
+                if endswith(name, mark.JUMP): # name.find(mark.JUMP) != -1
                     pseudo_ops.append(op)
                     current, target = op.getarg(1), op.getarg(2)
                     assert isinstance(current, ConstInt)
                     assert isinstance(target, ConstInt)
-                    target_token = self.get_from_token_map(target.getint(), token_map)
+                    target_token = self.get_from_token_map(target.getint())
 
                     jump_op = ResOperation(rop.JUMP, inputargs, target_token)
                     label_op, current_ops = current_ops[0], current_ops[1:]
                     info = TraceSplitInfo(target_token, label_op, inputargs, self.resumekey)
 
-                    next_token = self.get_from_token_map(current.getint(), token_map)
+                    next_token = self.get_from_token_map(current.getint())
                     t_lst.append((info, current_ops + [jump_op]))
                     current_ops = [ResOperation(rop.LABEL, inputargs, next_token)]
                     if len(fdescr_stack) > 0:
                         self.resumekey = fdescr_stack.pop()
-                elif name.find(mark.RET) != -1:
+                elif endswith(name, mark.RET): # name.find(mark.RET) != -1
                     pseudo_ops.append(op)
                     jd_no = self.jitdriver_sd.index
                     result_type = self.jitdriver_sd.result_type
@@ -169,15 +177,42 @@ class TraceSplitOpt(object):
                     target_token = self._create_token(token)
 
                     label_op, current_ops = current_ops[0], current_ops[1:]
-                    info = TraceSplitInfo(target_token, label_op, inputargs, self.resumekey)
+                    info = TraceSplitInfo(target_token, label_op, inputargs,
+                                          self.resumekey)
                     t_lst.append((info, current_ops + ret_ops))
 
-                    next_token = self.get_from_token_map(current.getint(), token_map)
+                    next_token = self.get_from_token_map(current.getint())
                     current_ops = [ResOperation(rop.LABEL, inputargs, next_token)]
                     if len(fdescr_stack) > 0:
                         self.resumekey = fdescr_stack.pop()
-                elif name.find(mark.IS_TRUE) != -1:
+                elif endswith(name, mark.IS_TRUE): # name.find(mark.IS_TRUE) != -1
                     pseudo_ops.append(op)
+                    current_ops.append(op)
+                elif endswith(name, "CALL_ASSEMBLER"):
+                    # a hack to convert recursive calls to an op using `call_assembler_x'
+                    pseudo_ops.append(op)
+                    jd = self.jitdriver_sd
+
+                    arglist = op.getarglist()
+                    num_green_args = jd.num_green_args
+                    num_red_args = jd.num_red_args
+                    greenargs = arglist[1+num_red_args:num_green_args+1]
+                    args = arglist[1:num_red_args+1]
+
+                    target = greenargs[1]
+                    assert isinstance(target, ConstInt)
+                    try:
+                        token = self.get_from_token_map(target.getint())
+                    except TokenMapError:
+                        current_ops.append(op)
+                        continue
+                    jitcell_token = token.original_jitcell_token
+
+                    calldescr = op.getdescr()
+                    opnum = OpHelpers.call_assembler_for_descr(calldescr)
+                    newop = op.copy_and_change(opnum, args, jitcell_token)
+                    oplist = self.change_call_op(newop, op, oplist, opindex)
+                    op = newop
                     current_ops.append(op)
                 else:
                     current_ops.append(op)
@@ -193,7 +228,8 @@ class TraceSplitOpt(object):
             elif op.getopnum() == rop.JUMP:
                 target_token = self._create_token(token)
                 label = ResOperation(rop.LABEL, inputargs, target_token)
-                info = TraceSplitInfo(target_token, label, inputargs, faildescr=self.resumekey)
+                info = TraceSplitInfo(target_token, label, inputargs,
+                                      faildescr=self.resumekey)
                 current_ops.append(op)
                 t_lst.append((info, current_ops))
                 current_ops = []
@@ -203,9 +239,12 @@ class TraceSplitOpt(object):
 
         return t_lst
 
-    def get_from_token_map(self, key, token_map):
+    def get_from_token_map(self, key):
+        if self.token_map is None:
+            raise Exception("token_map is None")
+
         try:
-            return token_map[key]
+            return self.token_map[key]
         except KeyError:
             raise TokenMapError(key=key)
 
@@ -295,6 +334,38 @@ class TraceSplitOpt(object):
                     l = copy_transitively(ops_body, arg)
 
         return l + ops_bridge
+
+    def change_call_op(self, newcallop, oldcallop, oplist, opindex):
+        assert oplist[opindex] != oldcallop
+        assert opindex < len(oplist)
+
+        newoplist = oplist[:]
+        assert len(newoplist) == len(oplist)
+        index = opindex
+        while index < len(oplist):
+            op = oplist[index]
+            if op == newcallop:
+                newoplist[index] = newcallop
+                continue
+
+            numargs = op.numargs()
+            for i in range(numargs):
+                arg = op.getarg(i)
+                if arg is oldcallop:
+                    op.setarg(i, newcallop)
+            if op.is_guard():
+                failargs = op.getfailargs()
+                newfailargs = []
+                for failarg in failargs:
+                    if failarg is oldcallop:
+                        newfailargs.append(newcallop)
+                    else:
+                        newfailargs.append(failarg)
+                op.setfailargs(newfailargs)
+            newoplist[index] = op
+            index += 1
+
+        return newoplist
 
     def _has_op(self, op1, oplist):
         for op2 in oplist:

@@ -509,14 +509,15 @@ class Frame(object):
             elif opcode == MOD:
                 self._MOD()
 
-            elif opcode == CALL:
+            elif opcode == CALL or opcode == CALL_ASSEMBLER:
                 t = ord(bytecode[pc])
                 argnum = ord(bytecode[pc + 1])
                 pc += 2
 
                 # create a new frame
                 frame = self.copy_frame(argnum)
-                # tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
+                if t < pc:
+                    tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
                 frame._CALL(self, t, argnum)
 
             elif opcode == RET:
@@ -673,13 +674,28 @@ class Frame(object):
 
                 if we_are_jitted():
                     frame.CALL(self, t, argnum, dummy=True)
-                    # frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=True)
                 else:
                     call_entry = t
                     tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
                                               pc=t, tstack=tstack, self=frame)
                     frame.CALL(self, t, argnum, dummy=False)
-                    # frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=False)
+
+            elif opcode == CALL_ASSEMBLER:
+                t = ord(bytecode[pc])
+                argnum = ord(bytecode[pc + 1])
+                pc += 2
+
+                # create a new frame
+                frame = self.copy_frame(argnum)
+
+                if we_are_jitted():
+                    # resursive call hack
+                    frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=True)
+                else:
+                    call_entry = t
+                    tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
+                                              pc=t, tstack=tstack, self=frame)
+                    frame.CALL_ASSEMBLER(self, t, argnum, bytecode, t_empty(), dummy=False)
 
             elif opcode == RET:
                 argnum = hint(ord(bytecode[pc]), promote=True)

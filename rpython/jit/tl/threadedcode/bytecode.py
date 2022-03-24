@@ -26,12 +26,16 @@ _bytecodes_has_args = [
     ('JUMP', True),
     ('JUMP_IF', True),
     ('CALL', True),
+    ('CALL_ASSEMBLER', True),
     ('CALL_JIT', True),
     ('CALL_NORMAL', True),
     ('RET', True),
     ('NEWSTR', True),
     ('FRAME_RESET', True),
-    ('PRINT', False)
+    ('PRINT', False),
+    ('LOAD', True),
+    ('STORE', True),
+    ('BUILD_LIST', True)
 ]
 
 for bytecode, has_arg in _bytecodes_has_args:
