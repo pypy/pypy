@@ -1132,7 +1132,6 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
                                   call_pure_results=call_pure_results,
                                   enable_opts=enable_opts,
                                   body_token=body_token)
-
     try:
         splitted = data.split(
             metainterp_sd, jitdriver_sd, metainterp.box_names_memo,
@@ -1142,15 +1141,10 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         debug_print('InvalidLoop in compile_loop_and_split')
         return None
 
-    try:
-        (body_info, body_ops), bridges = splitted[0], splitted[1:]
-    except Exception:
-        metainterp_sd.jitlog.trace_aborted()
-        debug_print("splitted trace length: %d" % (len(splitted)))
-        return None
+    (body_info, body_ops), bridges = splitted[0], splitted[1:]
 
-    debug_print('Loop after splitting')
-    metainterp_sd.logger_noopt.log_loop(body_info.inputargs, body_ops)
+    # debug_print('Loop after splitting')
+    # metainterp_sd.logger_noopt.log_loop(body_info.inputargs, body_ops)
 
     # compiling loop body
     body = create_empty_loop(metainterp)
@@ -1165,11 +1159,14 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
                          body_info.inputargs, metainterp.box_names_memo)
     record_loop_or_bridge(metainterp_sd, body)
 
+    if len(bridges) == 0:
+        return body_token
+
     # compiling bridge
     metainterp.resumekey_original_loop_token = body_jitcell_token
     for (bridge_info, bridge_ops) in bridges:
-        metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
-                                              descr=bridge_info.faildescr)
+        # metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
+        #                                       descr=bridge_info.faildescr)
         bridge = create_empty_loop(metainterp)
         bridge.original_jitcell_token = bridge_info.target_token.original_jitcell_token
         bridge.inputargs = bridge_info.inputargs
