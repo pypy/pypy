@@ -49,18 +49,18 @@ def test_set_new():
     keys = [a, b, c]
     values = [1, 2, 3]
     storage = strategy.erase((keys, values))
-    d = W_DictObject(space, strategy, storage)
-    assert d.getitem(a) == 1
-    assert d.getitem(b) == 2
-    assert d.getitem(c) == 3
-    assert d.getitem(d) is None
-    assert d.setitem(d, 4) is None
-    assert d.getitem(a) == 1
-    assert d.getitem(b) == 2
-    assert d.getitem(c) == 3
-    assert d.getitem(d) == 4
-    assert d.w_keys() == [a, b, c, d]
-    assert d.values() == [1, 2, 3, 4]
+    di = W_DictObject(space, strategy, storage)
+    assert di.getitem(a) == 1
+    assert di.getitem(b) == 2
+    assert di.getitem(c) == 3
+    assert di.getitem(d) is None
+    assert di.setitem(d, 4) is None
+    assert di.getitem(a) == 1
+    assert di.getitem(b) == 2
+    assert di.getitem(c) == 3
+    assert di.getitem(d) == 4
+    assert di.w_keys() == [a, b, c, d]
+    assert di.values() == [1, 2, 3, 4]
 
 def test_limit_size():
     storage = strategy.get_empty_storage()
