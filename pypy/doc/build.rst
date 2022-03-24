@@ -146,21 +146,49 @@ On SLES11::
 
 On Mac OS X:
 
-Most of these build-time dependencies are installed alongside
-the Developer Tools. However, note that in order for the installation to
-find them you may need to run::
+Currently PyPy does not support M1 Apple Silicon (arm64). You must use the 
+x86_64 emulation mode, which requires pre-pending ``arch -x86_64`` to some
+commands. When installed properly, homebrew will use a second installation 
+at ``/usr/local/bin/brew``. 
+
+Most of the build-time dependencies are installed alongside the Developer
+Tools. ``libffi`` and ``openssl`` still need to be installed, and a
+brew-provided pypy will speed up translation:
+
+.. code-block:: shell
 
     xcode-select --install
+	# for M1 machines to use x86_64 mode
+	# softwareupdate --install-rosetta
+	# install brew, use the arch -x86_64 prefix on M1
+	/usr/local/bin/brew install libffi openssl pypy pkg-config
 
-An exception is OpenSSL, which is no longer provided with the operating
-system. It can be obtained via Homebrew (with ``$ brew install openssl``),
-but it will not be available on the system path by default. The easiest
-way to enable it for building pypy is to set an environment variable::
+After setting this up, translation (described next) will find the libs as
+expected via ``pkg-config``.
 
-    export PKG_CONFIG_PATH=$(brew --prefix)/opt/openssl/lib/pkgconfig
+Set environment variables that will affect translation
+------------------------------------------------------
 
-After setting this, translation (described next) will find the OpenSSL libs
-as expected.
+The following environment variables can be used to tweak the result:
+
++------------------------+-----------------------------------------------------------+
+| value                  | result                                                    |
++------------------------+-----------------------------------------------------------+
+| CC                     | compiler to use                                           |
++------------------------+-----------------------------------------------------------+
+| PYPY_MULTIARCH         | pypy 3.7+: ends up in ``sys.platform._multiarch``         |
+|                        | on posix                                                  |
++------------------------+-----------------------------------------------------------+
+| PYPY_USESSION_DIR      | base directory for temporary files, usually ``$TMP``      |
++------------------------+-----------------------------------------------------------+
+| PYPY_USESSION_BASENAME | each call to ``from rpython.tools import udir`` will get  |
+|                        | a temporary directory                                     |
+|                        | ``$PYPY_USESSION_DIR/usession-$PYPY_USESSION_BASENAME-N`` |
+|                        | where ``N`` increments on each call                       |
++------------------------+-----------------------------------------------------------+
+| PYPY_USESSION_KEEP     | how many old temporary directories to keep, any older     |
+|                        | ones will be deleted. Defaults to 3                       |
++------------------------+-----------------------------------------------------------+
 
 Run the translation
 -------------------

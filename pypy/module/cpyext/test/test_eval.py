@@ -114,7 +114,8 @@ class TestEval(BaseApiTest):
         w_globals = space.newdict()
         assert 42 * 43 == space.unwrap(
             run("42 * 43", Py_eval_input, w_globals, w_globals))
-        assert PyObject_Size(space, w_globals) == 0
+        # __builtins__ is added
+        assert PyObject_Size(space, w_globals) == 1
 
         assert run("a = 42 * 43", Py_single_input,
                    w_globals, w_globals) == space.w_None

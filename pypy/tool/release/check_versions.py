@@ -33,6 +33,30 @@ def assert_in(a, b):
 
 
 pypy_versions = {
+                 '7.3.8': {'python_version': ['3.9.10', '3.8.12', '3.7.12', '2.7.18'],
+                           'date': '2022-02-19',
+                          },
+                 '7.3.8rc2': {'python_version': ['3.9.10', '3.8.12', '3.7.12', '2.7.18'],
+                           'date': '2022-02-11',
+                          },
+                 '7.3.8rc1': {'python_version': ['3.9.10', '3.8.12', '3.7.12', '2.7.18'],
+                           'date': '2022-01-26',
+                          },
+                 '7.3.7': {'python_version': ['3.8.12', '3.7.12'],
+                           'date': '2021-10-25',
+                          },
+                 '7.3.6': {'python_version': ['3.8.12', '3.7.12', '2.7.18'],
+                           'date': '2021-10-17',
+                          },
+                 '7.3.6rc3': {'python_version': ['3.8.12', '3.7.12', '2.7.18'],
+                           'date': '2021-10-12',
+                          },
+                 '7.3.6rc2': {'python_version': ['3.8.12', '3.7.12', '2.7.18'],
+                           'date': '2021-10-06',
+                          },
+                 '7.3.6rc1': {'python_version': ['3.8.12', '3.7.12', '2.7.18'],
+                           'date': '2021-09-13',
+                          },
                  '7.3.5': {'python_version': ['3.7.10', '2.7.18'],
                            'date': '2021-05-23',
                           },
@@ -63,7 +87,7 @@ pypy_versions = {
                  '7.3.2': {'python_version': ['3.7.9', '3.6.9', '2.7.13'],
                            'date': '2020-09-25',
                           },
-                'nightly': {'python_version': ['2.7', '3.6', '3.7']},
+                'nightly': {'python_version': ['2.7', '3.6', '3.7', '3.8', '3.9']},
                 }
 
 
@@ -98,8 +122,10 @@ arch_map={('aarch64', 'linux'): 'aarch64',
          }
 
 
-def check_versions(data, url):
+def check_versions(data, url, verbose=0):
     for d in data:
+        if verbose > 0:
+            print(f"checking {d['pypy_version']} {d['python_version']}")
         assert_in(d['pypy_version'], pypy_versions)
         v = pypy_versions[d['pypy_version']]
         assert_in(d['python_version'], v['python_version'])
@@ -120,6 +146,8 @@ def check_versions(data, url):
             assert_equal(d['date'], v['date'])
         for f in d['files']:
             download_url = f['download_url']
+            if verbose > 0:
+                print(f'     checking {download_url}', end='')
             if 'rc' not in d['pypy_version']:
                 assert_in(f['filename'], download_url)
                 assert_in(d['pypy_version'], download_url)
@@ -141,17 +169,21 @@ def check_versions(data, url):
             except error.HTTPError as e:
                 raise ValueError(f"could not open {f['download_url']}") from None
             assert_equal(r.getcode(), 200)
+            if verbose > 0:
+                print(f' ok')
+        if verbose > 0:
+            print(f"{d['pypy_version']} {d['python_version']} ok")
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         print(f'checking local file "{sys.argv[1]}"')
         with open(sys.argv[1]) as fid:
             data = json.loads(fid.read())
-        check_versions(data, 'https://buildbot.pypy.org/pypy')
+        check_versions(data, 'https://buildbot.pypy.org/pypy', verbose=1)
     else:
         print('downloading versions.json')
         response = request.urlopen('https://buildbot.pypy.org/pypy/versions.json')
         assert_equal(response.getcode(), 200)
         data = json.loads(response.read())
-        check_versions(data, None)
+        check_versions(data, None, verbose=1)
     print('ok')

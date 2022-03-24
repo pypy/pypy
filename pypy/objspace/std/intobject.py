@@ -595,10 +595,14 @@ class W_IntObject(W_AbstractIntObject):
     descr_or, descr_ror = _make_generic_descr_binop('or', ovf=False)
     descr_xor, descr_rxor = _make_generic_descr_binop('xor', ovf=False)
 
-    def _make_descr_binop(func, ovf=True, ovf2small=None):
+    def _make_descr_binop(func, ovf=True, ovf2small=None, ovf_func=None):
         opname = func.__name__[1:]
         if ovf:
-            ovf2long = _make_ovf2long(opname, ovf2small)
+            if ovf_func:
+                ovf2long = ovf_func
+                assert not ovf2small # must be part of ovf_func
+            else:
+                ovf2long = _make_ovf2long(opname, ovf2small)
 
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
@@ -632,8 +636,20 @@ class W_IntObject(W_AbstractIntObject):
 
         return descr_binop, descr_rbinop
 
+    def _ovf2long_lshift(space, x, w_x, y, w_y):
+        if _recover_with_smalllong(space):
+            return _lshift_ovf2small(space, x, y)
+
+        from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
+        if w_x is None or not isinstance(w_x, W_AbstractLongObject):
+            w_x = W_LongObject.fromint(space, x)
+
+        # crucially, *don't* convert w_y to W_LongObject, it will just be
+        # converted back (huge lshifts always overflow)
+        return w_x._int_lshift(space, y)
+
     descr_lshift, descr_rlshift = _make_descr_binop(
-        _lshift, ovf2small=_lshift_ovf2small)
+        _lshift, ovf_func=_ovf2long_lshift)
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)

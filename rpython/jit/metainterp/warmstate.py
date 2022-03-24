@@ -438,6 +438,8 @@ class WarmEnterState(object):
             can_enter_jit() hint, and at the start of a function
             with a different threshold.
             """
+            if increment_threshold == 0:
+                return # jit is off
             # Look for the cell corresponding to the current greenargs.
             # Search for the JitCell that is of the correct subclass of
             # BaseJitCell, and that stores a key that compares equal.

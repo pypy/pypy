@@ -1,7 +1,7 @@
 import sys
 import os
-import traceback
 import socket
+import traceback
 from _pypy_openssl import ffi
 from _pypy_openssl import lib
 
@@ -27,14 +27,13 @@ class SSLError(socket.error):
         if self.strerror and isinstance(self.strerror, str):
             return self.strerror
         return str(self.args)
-# these are expected on socket in python2 as well
-if sys.version_info[0] < 3:
-    socket.sslerror = SSLError
-    for v in [ 'SSL_ERROR_ZERO_RETURN', 'SSL_ERROR_WANT_READ',
-         'SSL_ERROR_WANT_WRITE', 'SSL_ERROR_WANT_X509_LOOKUP', 'SSL_ERROR_SYSCALL',
-         'SSL_ERROR_SSL', 'SSL_ERROR_WANT_CONNECT', 'SSL_ERROR_EOF',
-         'SSL_ERROR_INVALID_ERROR_CODE' ]:
-        setattr(socket, v, locals()[v]) 
+# these are expected on socket as well
+socket.sslerror = SSLError
+for v in [ 'SSL_ERROR_ZERO_RETURN', 'SSL_ERROR_WANT_READ',
+     'SSL_ERROR_WANT_WRITE', 'SSL_ERROR_WANT_X509_LOOKUP', 'SSL_ERROR_SYSCALL',
+     'SSL_ERROR_SSL', 'SSL_ERROR_WANT_CONNECT', 'SSL_ERROR_EOF',
+     'SSL_ERROR_INVALID_ERROR_CODE' ]:
+    setattr(socket, v, locals()[v])
 
 class SSLZeroReturnError(SSLError):
     """ SSL/TLS session closed cleanly. """
@@ -59,7 +58,7 @@ def ssl_error(errstr, errcode=0):
     if errstr is None:
         errcode = lib.ERR_peek_last_error()
     try:
-        return fill_sslerror(SSLError, errcode, errstr, errcode)
+        return fill_sslerror(None, SSLError, errcode, errstr, errcode)
     finally:
         lib.ERR_clear_error()
 
@@ -88,27 +87,27 @@ def pyssl_error(obj, ret):
     e = lib.ERR_peek_last_error()
 
     if obj.ssl != ffi.NULL:
-        err = lib.SSL_get_error(obj.ssl, ret)
+        err = obj.err
 
-        if err == SSL_ERROR_ZERO_RETURN:
+        if err.ssl == SSL_ERROR_ZERO_RETURN:
             errtype = SSLZeroReturnError
-            errstr = "TLS/SSL connection has been closed"
+            errstr = "TLS/SSL connection has been closed (EOF)"
             errval = SSL_ERROR_ZERO_RETURN
-        elif err == SSL_ERROR_WANT_READ:
+        elif err.ssl == SSL_ERROR_WANT_READ:
             errtype = SSLWantReadError
             errstr = "The operation did not complete (read)"
             errval = SSL_ERROR_WANT_READ
-        elif err == SSL_ERROR_WANT_WRITE:
+        elif err.ssl == SSL_ERROR_WANT_WRITE:
             errtype = SSLWantWriteError
             errstr = "The operation did not complete (write)"
             errval = SSL_ERROR_WANT_WRITE
-        elif err == SSL_ERROR_WANT_X509_LOOKUP:
+        elif err.ssl == SSL_ERROR_WANT_X509_LOOKUP:
             errstr = "The operation did not complete (X509 lookup)"
             errval = SSL_ERROR_WANT_X509_LOOKUP
-        elif err == SSL_ERROR_WANT_CONNECT:
+        elif err.ssl == SSL_ERROR_WANT_CONNECT:
             errstr = "The operation did not complete (connect)"
             errval = SSL_ERROR_WANT_CONNECT
-        elif err == SSL_ERROR_SYSCALL:
+        elif err.ssl == SSL_ERROR_SYSCALL:
             if e == 0:
                 if ret == 0 or obj.socket is None:
                     errtype = SSLEOFError
@@ -118,7 +117,11 @@ def pyssl_error(obj, ret):
                     # the underlying BIO reported an I/0 error
                     lib.ERR_clear_error()
                     # s = obj.get_socket_or_None()
-                    # XXX: Windows?
+                    if sys.platform == 'win32':
+                        if err.ws:
+                            return OSError(err.ws, os.strerror(err.ws))
+                    if err.c:
+                        ffi.errno = err.c 
                     errno = ffi.errno
                     return SSLError(errno, os.strerror(errno))
                 else:
@@ -128,19 +131,19 @@ def pyssl_error(obj, ret):
             else:
                 errstr = _str_from_buf(lib.ERR_lib_error_string(e))
                 errval = SSL_ERROR_SYSCALL
-        elif err == SSL_ERROR_SSL:
+        elif err.ssl == SSL_ERROR_SSL:
             errval = SSL_ERROR_SSL
-            if errcode != 0:
-                errstr = _str_from_buf(lib.ERR_lib_error_string(errcode))
-            else:
+            if e == 0:
                 errstr = "A failure in the SSL library occurred"
+            else:
+                errstr = _str_from_buf(lib.ERR_lib_error_string(errcode))
         else:
             errstr = "Invalid error code"
             errval = SSL_ERROR_INVALID_ERROR_CODE
-    return fill_sslerror(errtype, errval, errstr, e)
+    return fill_sslerror(obj, errtype, errval, errstr, e)
 
 
-def fill_sslerror(errtype, ssl_errno, errstr, errcode):
+def fill_sslerror(obj, errtype, ssl_errno, errstr, errcode):
     reason_str = None
     lib_str = None
     if errcode != 0:

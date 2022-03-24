@@ -343,8 +343,10 @@ class TestInstance(BaseTestPyPyC):
             guard_value(p67, ConstPtr(ptr68), descr=...) # promote map
             guard_not_invalidated(descr=...)
             p69 = getfield_gc_r(p63, descr=...) # value0
-            f71 = getarrayitem_gc_f(p69, 0, descr=...) # x
-            f73 = getarrayitem_gc_f(p69, 1, descr=...) # y
+            i71 = getarrayitem_gc_i(p69, 0, descr=...) # x
+            f71 = convert_longlong_bytes_to_float(i71)
+            i73 = getarrayitem_gc_i(p69, 1, descr=...) # y
+            f73 = convert_longlong_bytes_to_float(i73)
             f74 = float_add(f71, f73) # add them
             f75 = float_add(f57, f74)
             --TICK--
@@ -367,12 +369,38 @@ class TestInstance(BaseTestPyPyC):
             guard_value(p60, ConstPtr(ptr61), descr=...)
             guard_not_invalidated(descr=...)
             p62 = getfield_gc_r(p56, descr=...) # value
-            f64 = getarrayitem_gc_f(p62, 0, descr=...) # x
+            i64 = getarrayitem_gc_i(p62, 0, descr=...) # x
+            f64 = convert_longlong_bytes_to_float(i64)
             f66 = float_add(f64, 3.400000) 
+            i66 = convert_float_bytes_to_longlong(f66)
             i68 = getfield_raw_i(..., descr=...)
-            setarrayitem_gc(p62, 0, f66, descr=...) # store x
+            setarrayitem_gc(p62, 0, i66, descr=...) # store x
             i71 = int_lt(i68, 0)
             guard_false(i71, descr=...)
 """)
 
+
+    def test_namedtuple_construction(self):
+        def main():
+            from collections import namedtuple
+            A = namedtuple("A", "x y")
+            res = 0
+            i = 0
+            while i < 2000:
+                res += A(i, 0).x
+                i += 1
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, 2000)
+            guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
+            p1 = force_token()
+            p2 = force_token()
+            i20 = int_add_ovf(i19, i5)
+            guard_no_overflow(descr=...)
+            i9 = int_add(i5, 1)
+            --TICK--
+            jump(..., descr=...)
+        """)
 

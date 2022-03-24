@@ -125,9 +125,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     # checks for checking interp2app func argument names wrt unwrap_spec
     # and synthetizing an app-level signature
 
-    def __init__(self, original_sig):
-        self.func = original_sig.func
-        self.orig_arg = iter(original_sig.argnames).next
+    def __init__(self, func, argnames):
+        self.func = func
+        self.orig_arg = iter(argnames).next
 
     def visit_self(self, cls, app_sig):
         self.visit__W_Root(cls, app_sig)
@@ -634,6 +634,7 @@ class BuiltinCode(Code):
     def __init__(self, func, unwrap_spec=None, self_type=None,
                  descrmismatch=None, doc=None):
         from rpython.rlib import rutf8
+        from rpython.flowspace.bytecode import cpython_code_signature
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         Code.__init__(self, func.__name__)
@@ -657,8 +658,7 @@ class BuiltinCode(Code):
         # (function, cls) use function to check/unwrap argument of type cls
 
         # First extract the signature from the (CPython-level) code object
-        from pypy.interpreter import pycode
-        sig = pycode.cpython_code_signature(func.func_code)
+        sig = cpython_code_signature(func.func_code)
         argnames = sig.argnames
         varargname = sig.varargname
         kwargname = sig.kwargname
@@ -681,10 +681,9 @@ class BuiltinCode(Code):
             assert descrmismatch is None, (
                 "descrmismatch without a self-type specified")
 
-        orig_sig = SignatureBuilder(func, argnames, varargname, kwargname)
         app_sig = SignatureBuilder(func)
 
-        UnwrapSpec_Check(orig_sig).apply_over(unwrap_spec, app_sig)
+        UnwrapSpec_Check(func, argnames).apply_over(unwrap_spec, app_sig)
         self.sig = app_sig.signature()
         argnames = self.sig.argnames
         varargname = self.sig.varargname
@@ -965,8 +964,9 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     else:
         assert isinstance(unwrap_spec, dict)
         unwrap_spec = unwrap_spec.copy()
-    unwrap_spec['self'] = base_cls
-    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f))
+    unwrap_spec['self'] = 'self'
+    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f),
+                      self_type=base_cls)
 
 class interp2app(W_Root):
     """Build a gateway that calls 'f' at interp-level."""
@@ -977,11 +977,11 @@ class interp2app(W_Root):
 
     @not_rpython
     def __new__(cls, f, app_name=None, unwrap_spec=None, descrmismatch=None,
-                as_classmethod=False, doc=None):
+                as_classmethod=False, doc=None, self_type=None):
 
         # f must be a function whose name does NOT start with 'app_'
-        self_type = None
         if hasattr(f, 'im_func'):
+            assert self_type in (None, f.im_class)
             self_type = f.im_class
             f = f.im_func
         if not isinstance(f, types.FunctionType):

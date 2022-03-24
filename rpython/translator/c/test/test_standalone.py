@@ -40,7 +40,8 @@ class StandaloneTests(object):
     config = None
 
     def compile(self, entry_point, debug=True, shared=False,
-                stackcheck=False, entrypoints=None, local_icon=None):
+                stackcheck=False, entrypoints=None, local_icon=None,
+                exe_name=None):
         t = TranslationContext(self.config)
         ann = t.buildannotator()
         ann.build_types(entry_point, [s_list_of_strings])
@@ -67,7 +68,8 @@ class StandaloneTests(object):
             kwds = {}
         cbuilder = CStandaloneBuilder(t, entry_point, t.config, **kwds)
         if debug:
-            cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+            cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES,
+                                     exe_name=exe_name)
         else:
             cbuilder.generate_source()
         cbuilder.compile()
@@ -902,25 +904,44 @@ class TestStandalone(StandaloneTests):
         # The traceback stops at f() because it's the first function that
         # captures the AssertionError, which makes the program abort.
 
-    def test_shared(self, monkeypatch):
+    def test_shared1(self, monkeypatch):
         def f(argv):
             print len(argv)
         def entry_point(argv):
             f(argv)
             return 0
-        t, cbuilder = self.compile(entry_point, shared=True)
+        # Make sure the '.' in exe_name is propagated
+        t, cbuilder = self.compile(entry_point, shared=True, exe_name='pypy3.9')
+        assert 'pypy3.9' in str(cbuilder.executable_name)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
+        assert 'exe' not in str(cbuilder.shared_library_name)
+        # it must be something with a '.basename' to make the driver.py happy
+        assert not isinstance(cbuilder.shared_library_name, str)
+        assert 'pypy3.9' in str(cbuilder.shared_library_name)
         #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
         if sys.platform == 'win32':
-            # Make sure we have a test_1w.exe
+            assert 'pypy3.9.exe' not in str(cbuilder.shared_library_name)
+            assert 'pypy3.9.exe' in str(cbuilder.executable_name)
+            # Make sure we have a pypy3.9w.exe
             # Since stdout, stderr are piped, we will get output
             exe = cbuilder.executable_name
             wexe = exe.new(purebasename=exe.purebasename + 'w')
             out, err = cbuilder.cmdexec("a b", exe = wexe)
             assert out == "3"
+
+    def test_shared2(self, monkeypatch):
+        def f(argv):
+            print len(argv)
+        def entry_point(argv):
+            f(argv)
+            return 0
+        # Make sure the '.exe' in exe_name is not propagated
+        t, cbuilder = self.compile(entry_point, shared=True, exe_name='pypy')
+        assert 'pypy' == cbuilder.executable_name.purebasename
+        assert 'libpypy' == cbuilder.shared_library_name.purebasename
 
     def test_gcc_options(self):
         # check that the env var CC is correctly interpreted, even if
@@ -1148,37 +1169,6 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         out = cbuilder.cmdexec('')
         assert out.strip() == 'ok'
-
-    def test_int_manipulation(self):
-        # Distilled from micronumpy.descriptor._compute_hash
-        # which, for some version of gcc8 compiler produced
-        # out1 == out2
-        from rpython.rlib.rarithmetic import intmask
-        
-        def entry_point(argv):
-            if len(argv) < 4:
-                print 'need 3 arguments, not %s' % str(argv)
-                return -1
-            flags = 0
-            x = 0x345678
-            y = 0x345678
-            s = str(argv[1])[0]
-            y = intmask((1000003 * y) ^ ord(s))
-            y = intmask((1000003 * y) ^ ord(str(argv[2])[0]))
-            y = (1000003 * y)
-            y = intmask(y ^ flags)
-            y = intmask((1000003 * y) ^ int(argv[3]))
-            print y
-            return 0
-
-        t, cbuilder = self.compile(entry_point)
-        arg2 = '>'
-        if sys.platform == 'win32':
-            # windows interprets > as redirection, escape with ^
-            arg2 = '^>'
-        out1 = cbuilder.cmdexec(args=['i', arg2, '64'])
-        out2 = cbuilder.cmdexec(args=['f', arg2, '64'])
-        assert out1 != out2
 
     def test_gcc_precompiled_header(self):
         if sys.platform == 'win32':

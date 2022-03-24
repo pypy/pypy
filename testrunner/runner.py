@@ -331,7 +331,7 @@ class RunParam(object):
 
         reldir = self.reltoroot(p)
         if p.check():
-            entries = [p1 for p1 in p.listdir() if p1.check(dotfile=0)]
+            entries = [p1 for p1 in p.listdir(fil=lambda x: 'test_pypy_c' not in str(x)) if p1.check(dotfile=0)]
         else:
             entries = []
         entries.sort()

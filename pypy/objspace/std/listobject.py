@@ -867,10 +867,16 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def extend(self, w_list, w_any):
+        from pypy.objspace.std.tupleobject import W_AbstractTupleObject
         space = self.space
         if type(w_any) is W_ListObject or (isinstance(w_any, W_ListObject) and
                                            space._uses_list_iter(w_any)):
             self._extend_from_list(w_list, w_any)
+        elif (isinstance(w_any, W_AbstractTupleObject) and
+                not w_any.user_overridden_class and
+                w_any.length() < UNROLL_CUTOFF
+        ):
+            self._extend_from_tuple(w_list, w_any.tolist())
         elif space.is_generator(w_any):
             w_any.unpack_into_w(w_list)
         else:
@@ -878,6 +884,18 @@ class ListStrategy(object):
 
     def _extend_from_list(self, w_list, w_other):
         raise NotImplementedError
+
+    @jit.look_inside_iff(lambda self, w_list, tup_w:
+            jit.loop_unrolling_heuristic(tup_w, len(tup_w), UNROLL_CUTOFF))
+    def _extend_from_tuple(self, w_list, tup_w):
+        try:
+            newsize_hint = ovfcheck(w_list.length() + len(tup_w))
+        except OverflowError:
+            pass
+        else:
+            w_list._resize_hint(newsize_hint)
+        for w_element in tup_w:
+            w_list.append(w_element)
 
     def _extend_from_iterable(self, w_list, w_iterable):
         """Extend w_list from a generic iterable"""
@@ -2098,7 +2116,7 @@ class AsciiListStrategy(ListStrategy):
 
     def sort(self, w_list, reverse):
         l = self.unerase(w_list.lstorage)
-        sorter = UnicodeSort(l, len(l))
+        sorter = StringSort(l, len(l))
         sorter.sort()
         if reverse:
             l.reverse()
@@ -2138,7 +2156,6 @@ TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
 FloatBaseTimSort = make_timsort_class()
 IntOrFloatBaseTimSort = make_timsort_class()
-UnicodeBaseTimSort = make_timsort_class()
 
 
 class KeyContainer(W_Root):
@@ -2172,11 +2189,6 @@ class IntOrFloatSort(IntOrFloatBaseTimSort):
         fa = longlong2float.maybe_decode_longlong_as_float(a)
         fb = longlong2float.maybe_decode_longlong_as_float(b)
         return fa < fb
-
-
-class UnicodeSort(UnicodeBaseTimSort):
-    def lt(self, a, b):
-        return a < b
 
 
 class CustomCompareSort(SimpleSort):

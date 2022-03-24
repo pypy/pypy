@@ -162,7 +162,7 @@ class W_Socket(W_Root):
             self.register_finalizer(space)
 
     def _finalize_(self):
-        is_open = self.sock.fd >= 0
+        is_open = self.sock.fd != rsocket.INVALID_SOCKET
         if is_open and self.space.sys.track_resources:
             w_repr = self.space.repr(self)
             str_repr = self.space.text_w(w_repr)

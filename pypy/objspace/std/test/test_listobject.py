@@ -482,6 +482,15 @@ class TestW_ListObject(object):
         for element in l[2:]:
             assert element is l[1]
 
+    def test_tuple_extend_shortcut(self, space, monkeypatch):
+        from pypy.objspace.std import listobject
+        w = self.space.wrap
+        w_list = W_ListObject(space, [w(5)])
+        w_tup = space.newtuple([w(6), w(7)])
+        monkeypatch.setattr(listobject, "_do_extend_from_iterable", None)
+        space.call_method(w_list, "extend", w_tup) # does not crash because of the shortcut
+        assert space.unwrap(w_list) == [5, 6, 7]
+
 
 class AppTestListObject(object):
     #spaceconfig = {"objspace.std.withliststrategies": True}  # it's the default

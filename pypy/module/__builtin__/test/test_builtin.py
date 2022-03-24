@@ -51,6 +51,11 @@ class AppTestBuiltinApp:
         assert bytes is str
         assert isinstance(eval("b'hi'"), str)
 
+    def test_eval_adds_builtins(self):
+        d = {}
+        eval('1', d)
+        assert "__builtins__" in d
+
     def test_import(self):
         m = __import__('pprint')
         assert m.pformat({}) == '{}'

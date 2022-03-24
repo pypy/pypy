@@ -253,7 +253,8 @@ def build_statvfs_result(space, st):
     vals_w = [None] * len(rposix_stat.STATVFS_FIELDS)
     for i, (name, _) in STATVFS_FIELDS:
         vals_w[i] = space.newint(getattr(st, name))
-    w_tuple = space.newtuple(vals_w)
+    # f_fsid is not python2-compatible
+    w_tuple = space.newtuple(vals_w[:-1])
     w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.newtext('statvfs_result'))
     return space.call_function(w_statvfs_result, w_tuple)
 
@@ -833,6 +834,22 @@ def _env2interp(space, w_env):
         w_value = space.getitem(w_env, w_key)
         env[space.text0_w(w_key)] = space.text0_w(w_value)
     return env
+
+def _env2interp(space, w_env):
+    env = {}
+    w_keys = space.call_method(w_env, 'keys')
+    for w_key in space.unpackiterable(w_keys):
+        w_value = space.getitem(w_env, w_key)
+        key = space.text0_w(w_key)
+        val = space.text0_w(w_value)
+        # Search from index 1 because on Windows starting '=' is allowed for
+        # defining hidden environment variables
+        if len(key) == 0 or '=' in key[1:]:
+            raise oefmt(space.w_ValueError,
+                "illegal environment variable name")
+        env[key] = val
+    return env
+
 
 @unwrap_spec(command='fsencode')
 def execve(space, command, w_args, w_env):
