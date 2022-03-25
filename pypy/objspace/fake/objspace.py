@@ -150,6 +150,12 @@ class FakeObjSpace(ObjSpace):
         is_root(w_obj)
         return NonConstant(False)
 
+    def hash_w(self, w_obj):
+        return NonConstant(32)
+
+    def len_w(self, w_obj):
+        return NonConstant(37)
+
     def utf8_len_w(self, space):
         return NonConstant((NonConstant("utf8len_foobar"), NonConstant(14)))
 
