@@ -111,6 +111,8 @@ class DummySpace(object):
     class sys:
         defaultencoding = 'utf-8'
 
+    UnicodeObjectCls = W_Uni
+
     def newtuple(self, items):
         return tuple(items)
 
