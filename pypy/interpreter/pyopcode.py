@@ -1339,7 +1339,7 @@ class __extend__(pyframe.PyFrame):
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
         if n_keywords:
-            keywords = [None] * n_keywords
+            keyword_names_w = [None] * n_keywords
             keywords_w = [None] * n_keywords
             while True:
                 n_keywords -= 1
@@ -1347,11 +1347,10 @@ class __extend__(pyframe.PyFrame):
                     break
                 w_value = self.popvalue()
                 w_key = self.popvalue()
-                key = self.space.text_w(w_key)
-                keywords[n_keywords] = key
+                keyword_names_w[n_keywords] = w_key
                 keywords_w[n_keywords] = w_value
         else:
-            keywords = None
+            keyword_names_w = None
             keywords_w = None
         if has_vararg:
             w_star = self.popvalue()
@@ -1359,7 +1358,7 @@ class __extend__(pyframe.PyFrame):
             w_star = None
         arguments = self.popvalues(n_arguments)
         w_function  = self.popvalue()
-        args = self.argument_factory(arguments, keywords, keywords_w, w_star,
+        args = self.argument_factory(arguments, keyword_names_w, keywords_w, w_star,
                                      w_starstar, w_function=w_function)
         if self.get_is_being_profiled() and function.is_builtin_code(w_function):
             w_result = self.space.call_args_and_c_profile(self, w_function,
@@ -1385,17 +1384,17 @@ class __extend__(pyframe.PyFrame):
         # the immutability of the tuple is lost
         w_tup_varnames = space.interp_w(W_AbstractTupleObject, self.popvalue())
         n_keywords = space.len_w(w_tup_varnames)
-        keywords = [None] * n_keywords
+        keyword_names_w = [None] * n_keywords
         keywords_w = [None] * n_keywords
         for i in range(n_keywords):
-            keywords[i] = space.text_w(w_tup_varnames.getitem(space, i))
+            keyword_names_w[i] = w_tup_varnames.getitem(space, i)
             w_value = self.peekvalue(n_keywords - 1 - i)
             keywords_w[i] = w_value
         self.dropvalues(n_keywords)
         n_arguments -= n_keywords
         arguments = self.popvalues(n_arguments)
         w_function  = self.popvalue()
-        args = self.argument_factory(arguments, keywords, keywords_w, None, None,
+        args = self.argument_factory(arguments, keyword_names_w, keywords_w, None, None,
                                      w_function=w_function)
         if self.get_is_being_profiled() and function.is_builtin_code(w_function):
             w_result = self.space.call_args_and_c_profile(self, w_function,

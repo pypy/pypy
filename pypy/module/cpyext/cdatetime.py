@@ -286,7 +286,7 @@ def _PyDateTime_FromDateAndTimeAndFold(space, year, month, day,
                     [space.newint(year), space.newint(month), space.newint(day),
                      space.newint(hour), space.newint(minute), space.newint(second),
                      space.newint(usecond), w_tzinfo],
-                    keywords=['fold'],
+                    keyword_names_w=[space.newtext('fold')],
                     keywords_w = [space.newint(fold)],
                 )
     return space.call_args(w_type, args)
@@ -307,7 +307,7 @@ def _PyTime_FromTimeAndFold(space, hour, minute, second, usecond,
     args = Arguments(space,
                     [space.newint(hour), space.newint(minute), space.newint(second),
                      space.newint(usecond), w_tzinfo],
-                    keywords=['fold'],
+                    keyword_names_w=[space.newtext('fold')],
                     keywords_w = [space.newint(fold)],
                 )
 

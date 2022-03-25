@@ -358,7 +358,7 @@ class TestPythonAstCompiler:
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
-        filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
+        filter_arg = Arguments(space, [ space.wrap('error') ], [space.newtext("module")],
                                [space.wrap("<tmp>")])
 
         for code in ('''
@@ -390,7 +390,7 @@ def wrong3():
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
-        filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
+        filter_arg = Arguments(space, [ space.wrap('error') ], [space.newtext("module")],
                                [space.wrap("<tmp>")])
         for code in ['''
 def testing():
