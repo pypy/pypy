@@ -309,3 +309,11 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
             mod.callfunc(mod.func_NOARGS, (), {'a': 'a'})
         with raises(TypeError):
             mod.callfunc(mod.func_NOARGS, (1, 2, 3))
+
+    def test_wrapper(self):
+        # Copy the Cython 3.0.0alpha10 version of specmethodstring tests
+        from types import MethodWrapperType
+        mod = self.import_module(name="specmethdocstring")
+        c = mod.C()
+        print(c.__iter__.__doc__)
+        assert c.__iter__.__doc__ == "usable docstring"
