@@ -468,10 +468,30 @@ class Frame(object):
         lst = [init] * size.intvalue
         self.push(W_ListObject(lst))
 
+    def _BUILD_LIST(self):
+        size = self.pop()
+        init = self.pop()
+
+        assert isinstance(size, W_IntObject)
+        lst = [init] * size.intvalue
+        self.push(W_ListObject(lst))
+
     @jit.dont_look_inside
     def LOAD(self, dummy):
         if dummy:
             return
+        w_index = self.pop()
+        w_lst = self.pop()
+
+        assert isinstance(w_index, W_IntObject)
+        assert isinstance(w_lst, W_ListObject)
+
+        assert w_index.intvalue < len(w_lst.listvalue), \
+            "w_index: %d out of bounds %d" % (w_index.intvalue, len(w_lst.listvalue))
+        w_x = w_lst.listvalue[w_index.intvalue]
+        self.push(w_x)
+
+    def _LOAD(self):
         w_index = self.pop()
         w_lst = self.pop()
 
@@ -485,6 +505,17 @@ class Frame(object):
     def STORE(self, dummy):
         if dummy:
             return
+        w_index = self.pop()
+        w_lst = self.pop()
+        w_x = self.pop()
+
+        assert isinstance(w_lst, W_ListObject)
+        assert isinstance(w_index, W_IntObject)
+
+        w_lst.listvalue[w_index.intvalue] = w_x
+        self.push(w_lst)
+
+    def _STORE(self):
         w_index = self.pop()
         w_lst = self.pop()
         w_x = self.pop()
@@ -546,6 +577,15 @@ class Frame(object):
 
             elif opcode == MOD:
                 self._MOD()
+
+            elif opcode == BUILD_LIST:
+                self._BUILD_LIST()
+
+            elif opcode == LOAD:
+                self._LOAD()
+
+            elif opcode == STORE:
+                self._STORE()
 
             elif opcode == CALL or opcode == CALL_ASSEMBLER:
                 t = ord(bytecode[pc])
@@ -704,13 +744,22 @@ class Frame(object):
                     self.MOD(dummy=False)
 
             elif opcode == BUILD_LIST:
-                self.BUILD_LIST(dummy=False)
+                if we_are_jitted():
+                    self.BUILD_LIST(dummy=True)
+                else:
+                    self.BUILD_LIST(dummy=False)
 
             elif opcode == LOAD:
-                self.LOAD(dummy=False)
+                if we_are_jitted():
+                    self.LOAD(dummy=True)
+                else:
+                    self.LOAD(dummy=False)
 
             elif opcode == STORE:
-                self.STORE(dummy=False)
+                if we_are_jitted():
+                    self.STORE(dummy=True)
+                else:
+                    self.STORE(dummy=False)
 
             elif opcode == CALL:
                 t = ord(bytecode[pc])

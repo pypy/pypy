@@ -216,4 +216,4 @@ class W_ListObject(W_Object):
         return "<List %s>" % (id(self.listvalue))
 
     def is_true(self):
-        return False
+        return True
