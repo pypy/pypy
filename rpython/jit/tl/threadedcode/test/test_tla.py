@@ -3,7 +3,7 @@ import pytest
 
 from rpython.jit.tl.threadedcode import tla
 from rpython.jit.tl.threadedcode.tla import \
-    W_Object, W_IntObject, W_StringObject, W_RetAddrObject, Frame
+    W_Object, W_IntObject, W_StringObject, Frame
 
 def assemble(mylist):
     return ''.join([chr(x) for x in mylist])
@@ -102,13 +102,16 @@ class TestFrame:
         frame.stackpos = len(stack)
         frame.interp()
 
-        assert_stack(frame.stack, [ W_IntObject(10),
-                                    W_IntObject(10),
-                                    W_IntObject(9),
-                                    W_IntObject(-1), # dummy ret_addr
-                                    None,
-                                    None
-                                   ])
+        expected = [
+            W_IntObject(10),
+            W_IntObject(10),
+            W_IntObject(9),
+            W_IntObject(-1), # dummy ret_addr
+            None,
+            None
+        ]
+
+        assert_stack(frame.stack, expected)
 
     def test_simple_loop(self):
         code = [
@@ -205,7 +208,7 @@ class TestLLType(LLJitMixin):
             tla.NOP,
             tla.DUP,
             tla.DUP,
-            tla.CALL, 10, 1,
+            tla.CALL_ASSEMBLER, 10, 1,
             tla.PRINT,
             tla.POP1,
             tla.POP1,
@@ -220,7 +223,7 @@ class TestLLType(LLJitMixin):
             tla.CONST_INT, 1,
             tla.SUB,
             tla.DUP,
-            tla.CALL, 10, 1,
+            tla.CALL_ASSEMBLER, 10, 1,
             tla.DUPN, 3,
             tla.DUPN, 1,
             tla.ADD,
@@ -228,7 +231,6 @@ class TestLLType(LLJitMixin):
             tla.POP1,
             tla.RET, 1,
         ]
-
         def interp_w(intvalue):
             w_result = interp(code, W_IntObject(intvalue))
             assert isinstance(w_result, W_IntObject)
@@ -289,58 +291,64 @@ class TestLLType(LLJitMixin):
             tla.DUPN, 2,
             tla.DUPN, 2,
             tla.DUPN, 2,
-            tla.CALL, 20, 3,
+            tla.CALL, 21, 3,
+            tla.PRINT,
             tla.POP1,
             tla.POP1,
             tla.POP1,
             tla.POP1,
             tla.EXIT,
             tla.DUPN, 3,
+            tla.CONST_INT, 1,
+            tla.SUB,
             tla.DUPN, 3,
+            tla.DUPN, 1,
             tla.LT,
-            tla.JUMP_IF, 86,
-            tla.DUPN, 3,
-            tla.CONST_INT, 1,
-            tla.SUB,
-            tla.DUP,
-            tla.DUPN, 4,
-            tla.DUPN, 4,
-            tla.CALL, 20, 3,
+            tla.JUMP_IF, 37,
+            tla.DUPN, 2,
+            tla.JUMP, 94,
             tla.DUPN, 4,
             tla.CONST_INT, 1,
             tla.SUB,
             tla.DUP,
             tla.DUPN, 5,
-            tla.DUPN, 8,
-            tla.CALL, 20, 3,
+            tla.DUPN, 5,
+            tla.CALL, 21, 3,
             tla.DUPN, 5,
             tla.CONST_INT, 1,
             tla.SUB,
             tla.DUP,
+            tla.DUPN, 6,
             tla.DUPN, 9,
-            tla.DUPN, 9,
-            tla.CALL, 20, 3,
+            tla.CALL, 21, 3,
+            tla.DUPN, 6,
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.DUP,
+            tla.DUPN, 10,
+            tla.DUPN, 10,
+            tla.CALL, 21, 3,
             tla.DUPN, 4,
             tla.DUPN, 3,
             tla.DUPN, 2,
-            tla.FRAME_RESET, 3, 6, 3,
-            tla.JUMP, 20,
+            tla.FRAME_RESET, 3, 7, 3,
+            tla.JUMP, 21,
             tla.POP1,
             tla.POP1,
             tla.POP1,
             tla.POP1,
             tla.POP1,
             tla.POP1,
-            tla.JUMP, 88,
-            tla.DUPN, 1,
+            tla.POP1,
             tla.RET, 3,
         ]
-        def interp_w(intvalue):
+    def interp_w(intvalue):
             w_result = interp(code, W_IntObject(intvalue))
             assert isinstance(w_result, W_IntObject)
             return w_result.intvalue
 
-        res = self.meta_interp(interp_w, [6])
+    res = self.meta_interp(interp_w, [6])
+
 
     def test_jit_ack(self):
         code = [
@@ -445,6 +453,75 @@ class TestLLType(LLJitMixin):
             tla.POP1,
             tla.POP1,
             tla.POP1,
+            tla.RET, 2,
+        ]
+
+        def interp_w(intvalue):
+            w_result = interp(code, W_IntObject(intvalue))
+            assert isinstance(w_result, W_IntObject)
+            return w_result.intvalue
+
+        res = self.meta_interp(interp_w, [6])
+
+    def test_jit_sumfib(self):
+        code = [
+            tla.CONST_INT, 10,
+            tla.CONST_INT, 0,
+            tla.DUPN, 1,
+            tla.DUPN, 1,
+            tla.CALL_ASSEMBLER, 56, 2,
+            tla.PRINT,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.EXIT,
+            tla.DUPN, 1,
+            tla.CONST_INT, 1,
+            tla.LT,
+            tla.JUMP_IF, 52,
+            tla.DUPN, 1,
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.DUP,
+            tla.CALL_ASSEMBLER, 16, 1,
+            tla.DUPN, 3,
+            tla.CONST_INT, 2,
+            tla.SUB,
+            tla.DUP,
+            tla.CALL_ASSEMBLER, 16, 1,
+            tla.DUPN, 2,
+            tla.DUPN, 1,
+            tla.ADD,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.JUMP, 54,
+            tla.CONST_INT, 1,
+            tla.RET, 1,
+            tla.DUPN, 2,
+            tla.CONST_INT, 1,
+            tla.LT,
+            tla.JUMP_IF, 95,
+            tla.CONST_INT, 10,
+            tla.DUP,
+            tla.CALL_ASSEMBLER, 16, 1,
+            tla.DUPN, 4,
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.DUPN, 4,
+            tla.DUPN, 2,
+            tla.ADD,
+            tla.DUPN, 1,
+            tla.DUPN, 1,
+            tla.FRAME_RESET, 2, 4, 2,
+            tla.JUMP, 56,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.JUMP, 97,
+            tla.DUPN, 1,
             tla.RET, 2,
         ]
 
