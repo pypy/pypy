@@ -421,8 +421,7 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keyword_names
                 raise_type_error(space, fnname_parens,
                             "keywords must be strings, not '%T'",
                             w_key)
-            else:
-                raise
+            raise
         else:
             if ((existingkeywords_w and
                  contains_w_names(w_key, existingkeywords_w)) or
