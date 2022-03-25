@@ -342,12 +342,12 @@ class TestLLType(LLJitMixin):
             tla.POP1,
             tla.RET, 3,
         ]
-    def interp_w(intvalue):
+        def interp_w(intvalue):
             w_result = interp(code, W_IntObject(intvalue))
             assert isinstance(w_result, W_IntObject)
             return w_result.intvalue
 
-    res = self.meta_interp(interp_w, [6])
+        res = self.meta_interp(interp_w, [6])
 
 
     def test_jit_ack(self):
@@ -523,6 +523,92 @@ class TestLLType(LLJitMixin):
             tla.JUMP, 97,
             tla.DUPN, 1,
             tla.RET, 2,
+        ]
+
+        def interp_w(intvalue):
+            w_result = interp(code, W_IntObject(intvalue))
+            assert isinstance(w_result, W_IntObject)
+            return w_result.intvalue
+
+        res = self.meta_interp(interp_w, [6])
+
+    def test_jit_ary(self):
+
+        code = [
+            tla.CONST_INT, 100,
+            tla.CONST_INT, 1,
+            tla.DUP,
+            tla.DUPN, 2,
+            tla.BUILD_LIST,
+            tla.CONST_INT, 2,
+            tla.DUP,
+            tla.DUPN, 4,
+            tla.BUILD_LIST,
+            tla.CONST_INT, 3,
+            tla.DUP,
+            tla.DUPN, 6,
+            tla.BUILD_LIST,
+            tla.CONST_INT, 0,
+            tla.DUP,
+            tla.DUPN, 8,
+            tla.DUPN, 7,
+            tla.DUPN, 6,
+            tla.DUPN, 5,
+            tla.CALL, 50, 5,
+            tla.DUP,
+            tla.CONST_INT, 0,
+            tla.LOAD,
+            tla.PRINT,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.EXIT,
+            tla.DUPN, 4,
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.DUP,
+            tla.DUPN, 7,
+            tla.LT,
+            tla.JUMP_IF, 109,
+            tla.DUPN, 4,
+            tla.DUPN, 7,
+            tla.LOAD,
+            tla.DUPN, 4,
+            tla.DUPN, 8,
+            tla.LOAD,
+            tla.DUPN, 1,
+            tla.DUPN, 1,
+            tla.ADD,
+            tla.DUP,
+            tla.DUPN, 6,
+            tla.DUPN, 11,
+            tla.STORE,
+            tla.DUPN, 10,
+            tla.CONST_INT, 1,
+            tla.ADD,
+            tla.DUP,
+            tla.DUPN, 11,
+            tla.DUPN, 11,
+            tla.DUPN, 11,
+            tla.DUPN, 11,
+            tla.FRAME_RESET, 5, 6, 5,
+            tla.JUMP, 50,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.POP1,
+            tla.JUMP, 111,
+            tla.DUPN, 2,
+            tla.POP1,
+            tla.RET, 5,
         ]
 
         def interp_w(intvalue):
