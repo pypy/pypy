@@ -1128,7 +1128,8 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
                              original_jitcell_token=body_jitcell_token)
     body_jitcell_token.target_tokens = [body_token]
 
-    data = SimpleSplitCompileData(trace, resumestorage,
+    data = SimpleSplitCompileData(trace,
+                                  resumestorage=resumestorage,
                                   call_pure_results=call_pure_results,
                                   enable_opts=enable_opts,
                                   body_token=body_token)
@@ -1141,23 +1142,28 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         debug_print('InvalidLoop in compile_loop_and_split')
         return None
 
-    (body_info, body_ops), bridges = splitted[0], splitted[1:]
+    (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:]
 
     # debug_print('Loop after splitting')
     # metainterp_sd.logger_noopt.log_loop(body_info.inputargs, body_ops)
 
     # compiling loop body
-    body = create_empty_loop(metainterp)
-    body.original_jitcell_token = body_jitcell_token
-    body.inputargs = body_info.inputargs
-    body_start_label = ResOperation(rop.LABEL, body_info.inputargs,
-                                    descr=body_token)
-    body.operations = [body_start_label] + body_ops
+    new_body = create_empty_loop(metainterp)
+    new_body.original_jitcell_token = body_jitcell_token
+    new_body.inputargs = new_body_info.inputargs
+
+    if new_body_ops[-1].getopnum() == rop.JUMP:
+        body_start_label = ResOperation(rop.LABEL, new_body_info.inputargs,
+                                        descr=body_token)
+        new_body.operations = [body_start_label] + new_body_ops
+    else:
+        new_body.operations = new_body_ops
+
     if not we_are_translated():
-        body.check_consistency()
-    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, body, "loop",
-                         body_info.inputargs, metainterp.box_names_memo)
-    record_loop_or_bridge(metainterp_sd, body)
+        new_body.check_consistency()
+    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, new_body, "loop",
+                         new_body_info.inputargs, metainterp.box_names_memo)
+    record_loop_or_bridge(metainterp_sd, new_body)
 
     if len(bridges) == 0:
         return body_token
@@ -1167,13 +1173,13 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     for (bridge_info, bridge_ops) in bridges:
         # metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
         #                                       descr=bridge_info.faildescr)
-        bridge = create_empty_loop(metainterp)
-        bridge.original_jitcell_token = bridge_info.target_token.original_jitcell_token
-        bridge.inputargs = bridge_info.inputargs
-        bridge.operations = bridge_ops
+        new_bridge = create_empty_loop(metainterp)
+        new_bridge.original_jitcell_token = bridge_info.target_token.original_jitcell_token
+        new_bridge.inputargs = bridge_info.inputargs
+        new_bridge.operations = bridge_ops
         resumekey = bridge_info.faildescr
         assert isinstance(resumekey, AbstractResumeGuardDescr)
-        resumekey.compile_and_attach(metainterp, bridge, inputargs)
+        resumekey.compile_and_attach(metainterp, new_bridge, inputargs)
 
     return body_token
 
