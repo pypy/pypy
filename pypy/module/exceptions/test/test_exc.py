@@ -309,7 +309,7 @@ class AppTestExc(object):
         assert ImportError("message", path="y").path == "y"
         with raises(TypeError) as e:
             ImportError(invalid="z")
-        assert "'invalid' is an invalid keyword argument for ImportError()" in str(e.value)
+        assert "__init__() got an unexpected keyword argument 'invalid'" in str(e.value)
         assert ImportError("message").msg == "message"
         assert ImportError("message").args == ("message", )
         assert ImportError("message", "foo").msg is None
@@ -506,11 +506,11 @@ class AppTestExc(object):
         assert 'Did you mean "print(<-number>)"?' in str(excinfo.value)
 
     def test_importerror_kwarg_error(self):
-        msg = "'invalid' is an invalid keyword argument for ImportError()"
+        msg = "__init__() got an unexpected keyword argument 'invalid'"
         exc = raises(TypeError,
                      ImportError,
                      'test', invalid='keyword', another=True)
-        assert str(exc.value) == msg
+        assert str(exc.value) == "__init__() got 2 unexpected keyword arguments"
 
         exc = raises(TypeError, ImportError, 'test', invalid='keyword')
         assert str(exc.value) == msg

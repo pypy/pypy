@@ -52,7 +52,7 @@ class TestBuiltinCode:
             pass
         code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace,
                                                    "kwonly", W_Root])
-        assert code.signature() == Signature([], kwonlyargnames=['x'])
+        assert code.signature() == Signature(['x'], kwonlyargcount=1)
         assert space.int_w(space.getattr(
             code, space.newtext('co_kwonlyargcount'))) == 1
 
@@ -126,7 +126,7 @@ class TestGateway:
         gg = gateway.app2interp_temp(app_general)
         args = gateway.Arguments(self.space, [w(6), w(7)])
         assert self.space.int_w(gg(self.space, w(3), args)) == 23
-        args = gateway.Arguments(self.space, [w(6)], ['hello', 'world'], [w(7), w(8)])
+        args = gateway.Arguments(self.space, [w(6)], [self.space.newtext('hello'), self.space.newtext('world')], [w(7), w(8)])
         assert self.space.int_w(gg(self.space, w(3), args)) == 213
 
     def test_app2interp_future(self):

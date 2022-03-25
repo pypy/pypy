@@ -21,10 +21,10 @@ we have it for compatibility with CPython.
 #define staticforward static
 
 #define PyObject_HEAD_INIT(type)	\
-	1, 0, type,
+	{ 1, 0, type },
 
 #define PyVarObject_HEAD_INIT(type, size)	\
-	PyObject_HEAD_INIT(type) size,
+	{ PyObject_HEAD_INIT(type) size },
 
 /* Cast argument to PyVarObject* type. */
 #define _PyVarObject_CAST(op) ((PyVarObject*)(op))

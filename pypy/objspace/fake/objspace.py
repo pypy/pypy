@@ -82,6 +82,10 @@ class W_UnicodeObject(W_MyObject):
     def _len(self):
         return self._length
 
+    def eq_w(self, w_other):
+        return NonConstant(True)
+
+
 class W_MyType(W_MyObject):
     name = "foobar"
     flag_map_or_seq = '?'
@@ -175,6 +179,11 @@ class FakeObjSpace(ObjSpace):
 
     def _freeze_(self):
         return True
+
+    def view_as_kwargs(self, w_obj):
+        return [W_UnicodeObject()] * 3, [W_UnicodeObject()] * 3
+
+    UnicodeObjectCls = W_UnicodeObject
 
     def float_w(self, w_obj, allow_conversion=True):
         is_root(w_obj)

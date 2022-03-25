@@ -49,25 +49,28 @@ class SignatureBuilder(object):
         self.varargname = varargname
         self.kwargname = kwargname
         self.posonlyargcount = 0
-        self.kwonlyargnames = None
+        self.kwonlystartindex = -1
 
     def append(self, argname):
-        if self.kwonlyargnames is None:
-            self.argnames.append(argname)
-        else:
-            self.kwonlyargnames.append(argname)
+        self.argnames.append(argname)
 
     def marker_posonly(self):
-        assert self.kwonlyargnames is None
+        assert self.posonlyargcount == 0
+        assert self.kwonlystartindex == -1
         self.posonlyargcount = len(self.argnames)
 
     def marker_kwonly(self):
-        assert self.kwonlyargnames is None
-        self.kwonlyargnames = []
+        assert self.kwonlystartindex == -1
+        self.kwonlystartindex = len(self.argnames)
 
     def signature(self):
-        return Signature(self.argnames, self.varargname, self.kwargname,
-                         self.kwonlyargnames, self.posonlyargcount)
+        if self.kwonlystartindex == -1:
+            kwonlyargcount = 0
+        else:
+            kwonlyargcount = len(self.argnames) - self.kwonlystartindex
+        return Signature(self.argnames,
+                         self.varargname, self.kwargname,
+                         kwonlyargcount, self.posonlyargcount)
 
 #________________________________________________________________
 
@@ -390,7 +393,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_kwonly(self, typ):
         self.run_args.append("None")
 
-    def _make_unwrap_activation_class(self, unwrap_spec, app_sig, cache={}):
+    def _make_unwrap_activation_class(self, unwrap_spec, cache={}):
         try:
             key = tuple(unwrap_spec)
             activation_factory_cls, run_args = cache[key]
@@ -427,7 +430,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def make_activation(unwrap_spec, func, app_sig):
         emit = UnwrapSpec_EmitRun(app_sig)
         emit.apply_over(unwrap_spec)
-        activation_uw_cls = emit._make_unwrap_activation_class(unwrap_spec, app_sig)
+        activation_uw_cls = emit._make_unwrap_activation_class(unwrap_spec)
         return activation_uw_cls(func)
     make_activation = staticmethod(make_activation)
 
@@ -1140,7 +1143,7 @@ class interp2app(W_Root):
         #
         sig = self._code.sig
         first_defined = 0
-        allposargnames = sig.argnames
+        allposargnames = sig.argnames[:sig.num_argnames()]
         n_allposargnames = len(allposargnames)
         while (first_defined < n_allposargnames and
                allposargnames[first_defined] not in alldefs_w):
@@ -1151,7 +1154,7 @@ class interp2app(W_Root):
         if alldefs_w:
             kw_defs_w = []
             for name, w_def in sorted(alldefs_w.items()):
-                assert name in sig.kwonlyargnames
+                assert name in sig.argnames[-sig.kwonlyargcount:]
                 w_name = space.newtext(name)
                 kw_defs_w.append((w_name, w_def))
 

@@ -63,7 +63,7 @@ is printed without a trailing newline before reading."""
     sys.audit("builtins.input/result", res)
     return res
 
-def print_(*args, **kwargs):
+def print_(*args, sep=' ', end='\n', file=None, flush=False):
     r"""print(value, ..., sep=' ', end='\n', file=sys.stdout, flush=False)
 
     Prints the values to a stream, or to sys.stdout by default.
@@ -73,32 +73,19 @@ def print_(*args, **kwargs):
     end:   string appended after the last value, default a newline.
     flush: whether to forcibly flush the stream.
     """
-    fp = kwargs.pop("file", None)
+    fp = file
     if fp is None:
         fp = sys.stdout
         if fp is None:
             return
-    def write(data):
-        fp.write(str(data))
-    sep = kwargs.pop("sep", None)
-    if sep is not None:
-        if not isinstance(sep, str):
-            raise TypeError("sep must be None or a string")
-    end = kwargs.pop("end", None)
-    if end is not None:
-        if not isinstance(end, str):
-            raise TypeError("end must be None or a string")
-    flush = kwargs.pop('flush', None)
-    if kwargs:
-        raise TypeError("invalid keyword arguments to print()")
-    if sep is None:
-        sep = " "
-    if end is None:
-        end = "\n"
+    if not isinstance(sep, str):
+        raise TypeError("sep must be None or a string")
+    if not isinstance(end, str):
+        raise TypeError("end must be None or a string")
     for i, arg in enumerate(args):
         if i:
-            write(sep)
-        write(arg)
-    write(end)
+            fp.write(sep)
+        fp.write(str(arg))
+    fp.write(end)
     if flush:
         fp.flush()

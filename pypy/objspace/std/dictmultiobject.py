@@ -1219,19 +1219,6 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     def wrapkey(space, key):
         return space.newbytes(key)
 
-    ##@jit.look_inside_iff(lambda self, w_dict:
-    ##                     w_dict_unrolling_heuristic(w_dict))
-    ##def view_as_kwargs(self, w_dict):
-    ##    return (None, None) # XXX: fix me to return unicode keys
-    ##    d = self.unerase(w_dict.dstorage)
-    ##    l = len(d)
-    ##    keys, values = [None] * l, [None] * l
-    ##    i = 0
-    ##    for key, val in d.iteritems():
-    ##        keys[i] = key
-    ##        values[i] = val
-    ##        i += 1
-    ##    return keys, values
 
 create_iterator_classes(BytesDictStrategy)
 
@@ -1275,10 +1262,6 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         assert key is not None
         return self.getitem(w_dict, self.space.newtext(key))
 
-    ## def listview_ascii(self, w_dict):
-    ##     XXX reimplement.  Also warning: must return a list of _ascii_
-    ##     return self.unerase(w_dict.dstorage).keys()
-
     def wrapkey(space, key):
         return key
 
@@ -1290,7 +1273,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         keys, values = [None] * l, [None] * l
         i = 0
         for w_key, val in d.iteritems():
-            keys[i] = self.space.utf8_w(w_key)
+            keys[i] = w_key
             values[i] = val
             i += 1
         return keys, values

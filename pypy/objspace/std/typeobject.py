@@ -683,7 +683,7 @@ class W_TypeObject(W_Root):
 
         # maybe invoke the __init__ of the type
         if (call_init and not (space.is_w(self, space.w_type) and
-            not __args__.keywords and len(__args__.arguments_w) == 1)):
+            not __args__.keyword_names_w and len(__args__.arguments_w) == 1)):
             w_descr = space.lookup(w_newobject, '__init__')
             if w_descr is not None:    # see test_crash_mro_without_object_2
                 w_result = space.get_and_call_args(w_descr, w_newobject,

@@ -188,21 +188,21 @@ def min_max_multiple_args(space, args_w, w_key, implementation_of):
 def min_max(space, args, implementation_of):
     w_key = None
     w_default = None
-    if bool(args.keywords):
-        kwds = args.keywords
-        for n in range(len(kwds)):
-            if kwds[n] == "key":
+    if bool(args.keyword_names_w):
+        kwds_w = args.keyword_names_w
+        for n in range(len(kwds_w)):
+            if space.eq_w(kwds_w[n], space.newtext("key")):
                 w_key = args.keywords_w[n]
-            elif kwds[n] == "default":
+            elif space.eq_w(kwds_w[n], space.newtext("default")):
                 w_default = args.keywords_w[n]
             else:
                 raise oefmt(space.w_TypeError,
                             "%s() got unexpected keyword argument",
                             implementation_of)
     #
-    args_w = args.arguments_w
     if space.is_w(w_key, space.w_None):
         w_key = None
+    args_w = args.arguments_w
     if len(args_w) > 1:
         if w_default is not None:
             raise oefmt(space.w_TypeError,
