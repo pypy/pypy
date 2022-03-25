@@ -123,7 +123,7 @@ class Frame(object):
         self.push(w_2)
         self.push(w_3)
 
-    @jit.not_rpython
+    @jit.not_in_trace
     def dump(self):
         out = ""
         for i in range(self.stackpos):
@@ -457,6 +457,44 @@ class Frame(object):
         self.stack[new_base + n] = ret
         self.stackpos = new_base + n + 1
 
+    @jit.dont_look_inside
+    def BUILD_LIST(self, dummy):
+        if dummy:
+            return
+        size = self.pop()
+        init = self.pop()
+
+        assert isinstance(size, W_IntObject)
+        lst = [init] * size.intvalue
+        self.push(W_ListObject(lst))
+
+    @jit.dont_look_inside
+    def LOAD(self, dummy):
+        if dummy:
+            return
+        w_index = self.pop()
+        w_lst = self.pop()
+
+        assert isinstance(w_index, W_IntObject)
+        assert isinstance(w_lst, W_ListObject)
+
+        w_x = w_lst.listvalue[w_index.intvalue]
+        self.push(w_x)
+
+    @jit.dont_look_inside
+    def STORE(self, dummy):
+        if dummy:
+            return
+        w_index = self.pop()
+        w_lst = self.pop()
+        w_x = self.pop()
+
+        assert isinstance(w_lst, W_ListObject)
+        assert isinstance(w_index, W_IntObject)
+
+        w_lst.listvalue[w_index.intvalue] = w_x
+        self.push(w_lst)
+
     def _interp(self, pc=0):
         bytecode = self.bytecode
 
@@ -564,6 +602,7 @@ class Frame(object):
     def interp_CALL_ASSEMBLER(self, pc, call_entry, bytecode, tstack, dummy):
         if dummy:
             return self.take(0)
+
         return self.interp(pc, dummy)
 
     def interp(self, pc=0, dummy=False):
@@ -663,6 +702,15 @@ class Frame(object):
                     self.MOD(dummy=True)
                 else:
                     self.MOD(dummy=False)
+
+            elif opcode == BUILD_LIST:
+                self.BUILD_LIST(dummy=False)
+
+            elif opcode == LOAD:
+                self.LOAD(dummy=False)
+
+            elif opcode == STORE:
+                self.STORE(dummy=False)
 
             elif opcode == CALL:
                 t = ord(bytecode[pc])

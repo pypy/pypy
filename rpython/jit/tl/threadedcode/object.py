@@ -1,7 +1,11 @@
+from rpython.rlib.jit import we_are_translated
+
 class OperationError(Exception):
     pass
 
 class W_Object:
+
+    count = -1
 
     def getrepr(self):
         """
@@ -197,3 +201,19 @@ class W_StringObject(W_Object):
 
     def is_true(self):
         return len(self.strvalue) != 0
+
+
+class W_ListObject(W_Object):
+
+    def __init__(self, listvalue):
+        self.listvalue = listvalue
+
+    def getrepr(self):
+        if we_are_translated():
+            self.count += 1
+            str = "<List %d>" % self.count
+            return str
+        return "<List %s>" % (id(self.listvalue))
+
+    def is_true(self):
+        return False
