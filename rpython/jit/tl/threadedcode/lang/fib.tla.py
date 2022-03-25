@@ -4,7 +4,7 @@ code = [
     tla.NOP,
     tla.DUP,
     tla.DUP,
-    tla.CALL_ASSEMBLER, 10, 1,
+    tla.CALL, 10, 1,
     tla.PRINT,
     tla.POP1,
     tla.POP1,
@@ -17,12 +17,12 @@ code = [
     tla.CONST_INT, 1,
     tla.SUB,
     tla.DUP,
-    tla.CALL_ASSEMBLER, 10, 1,
+    tla.CALL, 10, 1,
     tla.DUPN, 3,
     tla.CONST_INT, 2,
     tla.SUB,
     tla.DUP,
-    tla.CALL_ASSEMBLER, 10, 1,
+    tla.CALL, 10, 1,
     tla.DUPN, 2,
     tla.DUPN, 1,
     tla.ADD,
@@ -34,3 +34,4 @@ code = [
     tla.CONST_INT, 1,
     tla.RET, 1,
 ]
+
