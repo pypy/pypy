@@ -412,9 +412,10 @@ def contains_w_names(w_key, keys_w):
 def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keyword_names_w,
         keywords_w, existingkeywords_w, is_dict, fnname_parens):
     i = 0
+    seen = {}
     for w_key in keys_w:
         try:
-            space.text_w(w_key) # check that it's possible
+            key = space.text_w(w_key)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise_type_error(space, fnname_parens,
@@ -423,10 +424,14 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keyword_names
             else:
                 raise
         else:
-            if existingkeywords_w and contains_w_names(w_key, existingkeywords_w):
+            if ((existingkeywords_w and
+                 contains_w_names(w_key, existingkeywords_w)) or
+                key in seen
+            ):
                 raise_type_error(space, fnname_parens,
                             "got multiple values for keyword argument '%S'",
                             w_key)
+        seen[key] = None
         assert isinstance(w_key, space.UnicodeObjectCls)
         keyword_names_w[i] = w_key
         if is_dict:
