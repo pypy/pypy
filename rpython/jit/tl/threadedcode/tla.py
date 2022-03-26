@@ -179,6 +179,31 @@ class Frame(object):
             raise OperationError
 
     @jit.dont_look_inside
+    def CONST_N(self, pc, dummy):
+        if dummy:
+            return
+        if isinstance(pc, int):
+            a = ord(self.bytecode[pc])
+            b = ord(self.bytecode[pc+1])
+            c = ord(self.bytecode[pc+2])
+            d = ord(self.bytecode[pc+3])
+            x = a << 24 | b << 16 | c << 8 | d
+            self.push(W_IntObject(x))
+        else:
+            raise OperationError
+
+    def _CONST_N(self, pc):
+        if isinstance(pc, int):
+            a = ord(self.bytecode[pc])
+            b = ord(self.bytecode[pc+1])
+            c = ord(self.bytecode[pc+2])
+            d = ord(self.bytecode[pc+3])
+            x = a << 24 | b << 16 | c << 8 | d
+            self.push(W_IntObject(x))
+        else:
+            raise OperationError
+
+    @jit.dont_look_inside
     def PUSH(self, w_x, dummy):
         if dummy:
             return
@@ -541,6 +566,10 @@ class Frame(object):
                 self._CONST_INT(pc)
                 pc += 1
 
+            elif opcode == CONST_N:
+                self._CONST_N(pc)
+                pc += 4
+
             elif opcode == POP:
                 self._POP()
 
@@ -669,6 +698,13 @@ class Frame(object):
                 else:
                     self.CONST_INT(pc, dummy=False)
                 pc += 1
+
+            elif opcode == CONST_N:
+                if we_are_jitted():
+                    self.CONST_N(pc, dummy=True)
+                else:
+                    self.CONST_N(pc, dummy=False)
+                pc += 4
 
             elif opcode == POP:
                 if we_are_jitted():

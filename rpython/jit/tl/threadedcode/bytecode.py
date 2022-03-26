@@ -10,6 +10,7 @@ _bytecodes_has_args = [
     ('NOP', False),
     ('CONST_INT', True),
     ('CONST_FLOAT', True),
+    ('CONST_N', True),
     ('DUP', False),
     ('DUPN', True),
     ('POP', False),
