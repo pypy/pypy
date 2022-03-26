@@ -304,6 +304,15 @@ class UnionTests(BaseTestCase):
         u = Union[list[int], dict[str, float]]
         self.assertEqual(repr(u), 'typing.Union[list[int], dict[str, float]]')
 
+        u = Union[None, str]
+        self.assertEqual(repr(u), 'typing.Optional[str]')
+        u = Union[str, None]
+        self.assertEqual(repr(u), 'typing.Optional[str]')
+        u = Union[None, str, int]
+        self.assertEqual(repr(u), 'typing.Union[NoneType, str, int]')
+        u = Optional[str]
+        self.assertEqual(repr(u), 'typing.Optional[str]')
+
     def test_cannot_subclass(self):
         with self.assertRaises(TypeError):
             class C(Union):
@@ -2446,10 +2455,18 @@ class ForwardRefTests(BaseTestCase):
         with self.assertRaises(TypeError):
             issubclass(int, fr)
 
+    def test_forwardref_only_str_arg(self):
+        with self.assertRaises(TypeError):
+            typing.ForwardRef(1)  # only `str` type is allowed
+
     def test_forward_equality(self):
         fr = typing.ForwardRef('int')
         self.assertEqual(fr, typing.ForwardRef('int'))
         self.assertNotEqual(List['int'], List[int])
+        self.assertNotEqual(fr, typing.ForwardRef('int', module=__name__))
+        frm = typing.ForwardRef('int', module=__name__)
+        self.assertEqual(frm, typing.ForwardRef('int', module=__name__))
+        self.assertNotEqual(frm, typing.ForwardRef('int', module='__other_name__'))
 
     def test_forward_equality_gth(self):
         c1 = typing.ForwardRef('C')
@@ -2485,6 +2502,14 @@ class ForwardRefTests(BaseTestCase):
         self.assertEqual(hash(c1), hash(c2))
         self.assertEqual(hash(c1_gth), hash(c2_gth))
         self.assertEqual(hash(c1), hash(c1_gth))
+
+        c3 = typing.ForwardRef('int', module=__name__)
+        c4 = typing.ForwardRef('int', module='__other_name__')
+
+        self.assertNotEqual(hash(c3), hash(c1))
+        self.assertNotEqual(hash(c3), hash(c1_gth))
+        self.assertNotEqual(hash(c3), hash(c4))
+        self.assertEqual(hash(c3), hash(typing.ForwardRef('int', module=__name__)))
 
     def test_forward_equality_namespace(self):
         class A:
@@ -2613,6 +2638,20 @@ class ForwardRefTests(BaseTestCase):
 
         self.assertEqual(get_type_hints(foo, globals(), locals()),
                          {'a': Callable[..., T]})
+
+    def test_special_forms_forward(self):
+
+        class C:
+            a: Annotated['ClassVar[int]', (3, 5)] = 4
+            b: Annotated['Final[int]', "const"] = 4
+
+        class CF:
+            b: List['Final[int]'] = 4
+
+        self.assertEqual(get_type_hints(C, globals())['a'], ClassVar[int])
+        self.assertEqual(get_type_hints(C, globals())['b'], Final[int])
+        with self.assertRaises(TypeError):
+            get_type_hints(CF, globals()),
 
     def test_syntax_error(self):
 
@@ -3230,11 +3269,10 @@ class CollectionsAbcTests(BaseTestCase):
         self.assertNotIsInstance(42, typing.Container)
 
     def test_collection(self):
-        if hasattr(typing, 'Collection'):
-            self.assertIsInstance(tuple(), typing.Collection)
-            self.assertIsInstance(frozenset(), typing.Collection)
-            self.assertIsSubclass(dict, typing.Collection)
-            self.assertNotIsInstance(42, typing.Collection)
+        self.assertIsInstance(tuple(), typing.Collection)
+        self.assertIsInstance(frozenset(), typing.Collection)
+        self.assertIsSubclass(dict, typing.Collection)
+        self.assertNotIsInstance(42, typing.Collection)
 
     def test_abstractset(self):
         self.assertIsInstance(set(), typing.AbstractSet)
@@ -4136,6 +4174,13 @@ class RETests(BaseTestCase):
 
 class AnnotatedTests(BaseTestCase):
 
+    def test_new(self):
+        with self.assertRaisesRegex(
+            TypeError,
+            'Type Annotated cannot be instantiated',
+        ):
+            Annotated()
+
     def test_repr(self):
         self.assertEqual(
             repr(Annotated[int, 4, 5]),
@@ -4220,6 +4265,14 @@ class AnnotatedTests(BaseTestCase):
         A.x = 5
         self.assertEqual(C.x, 5)
 
+    def test_special_form_containment(self):
+        class C:
+            classvar: Annotated[ClassVar[int], "a decoration"] = 4
+            const: Annotated[Final[int], "Const"] = 4
+
+        self.assertEqual(get_type_hints(C, globals())['classvar'], ClassVar[int])
+        self.assertEqual(get_type_hints(C, globals())['const'], Final[int])
+
     def test_hash_eq(self):
         self.assertEqual(len({Annotated[int, 4, 5], Annotated[int, 4, 5]}), 1)
         self.assertNotEqual(Annotated[int, 4, 5], Annotated[int, 5, 4])
@@ -4242,6 +4295,10 @@ class AnnotatedTests(BaseTestCase):
     def test_cannot_check_subclass(self):
         with self.assertRaises(TypeError):
             issubclass(int, Annotated[int, "positive"])
+
+    def test_too_few_type_args(self):
+        with self.assertRaisesRegex(TypeError, 'at least two arguments'):
+            Annotated[int]
 
     def test_pickle(self):
         samples = [typing.Any, typing.Union[int, str],
@@ -4317,8 +4374,9 @@ class AllTests(BaseTestCase):
         self.assertIn('ValuesView', a)
         self.assertIn('cast', a)
         self.assertIn('overload', a)
-        if hasattr(contextlib, 'AbstractContextManager'):
-            self.assertIn('ContextManager', a)
+        # Context managers.
+        self.assertIn('ContextManager', a)
+        self.assertIn('AsyncContextManager', a)
         # Check that io and re are not exported.
         self.assertNotIn('io', a)
         self.assertNotIn('re', a)
@@ -4332,8 +4390,6 @@ class AllTests(BaseTestCase):
         self.assertIn('SupportsComplex', a)
 
     def test_all_exported_names(self):
-        import typing
-
         actual_all = set(typing.__all__)
         computed_all = {
             k for k, v in vars(typing).items()
