@@ -3,7 +3,7 @@ PyPy v7.3.9 security release
 ============================
 
 ..
-      Changelog up to commit 56b47ca908aa
+      Changelog up to commit caa2915dcf05
 
 .. note::
         This is a pre-release announcement. When the release actually happens, it
@@ -22,14 +22,14 @@ updates ``sqlite3`` to 3.38.0. It includes:
     backported security updates)
 
   - PyPy3.7,  which is an interpreter supporting the syntax and the features of
-    Python 3.7, including the stdlib for CPython 3.7.12. This will be the last
+    Python 3.7, including the stdlib for CPython 3.7.13. This will be the last
     release of PyPy3.7.
 
   - PyPy3.8, which is an interpreter supporting the syntax and the features of
-    Python 3.8, including the stdlib for CPython 3.8.12.
+    Python 3.8, including the stdlib for CPython 3.8.13.
 
   - PyPy3.9, which is an interpreter supporting the syntax and the features of
-    Python 3.9, including the stdlib for CPython 3.9.10. We relate to this as
+    Python 3.9, including the stdlib for CPython 3.9.12. We relate to this as
     "beta" quality. We welcome testing of this version, if you discover
     incompatibilities, please report them so we can gain confidence in the version. 
 
@@ -125,6 +125,9 @@ Changes shared across versions
 - Add more aliases for pypy: pypy2.exe, pypy2.7.exe, python2.7.exe on windows
   for pypy2.7 and comparable aliases on posix and other pythons (issues 3693_
   and 3696_)
+- Refactor argument parsing to avoid unwrapping (unboxing) and rewrapping
+  kwargs (Python 3.8+)
+- Add RPython support for a starting value in ``enumerate(iterable, start)``
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -142,6 +145,10 @@ Python 3.7+ bugfixes
 Python 3.8+ C-API (cpyext) fixes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Fix overflow return value in ``PyNumber_AsSsize_t`` on windows
+- Adopted `PEP 3123`_ declarations to avoid `-Wstrict-aliasing` compiler
+  warnings
+- Allocate a ``wrapperbase`` struct and assign it to ``d_base`` of
+  ``PyWrapperDescrObject``
 
 .. _3323: https://foss.heptapod.net/pypy/pypy/-/issues/3323
 .. _3650: https://foss.heptapod.net/pypy/pypy/-/issues/3650
