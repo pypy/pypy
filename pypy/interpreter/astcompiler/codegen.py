@@ -2198,16 +2198,17 @@ class CallCodeGenerator(object):
             self.have_kwargs = True
 
     def _push_kwargs(self):
-        if len(self.keywords) == 1 and self.keywords[0].arg is None:
-            # exactly a **kwarg, no need to copy dicts around
-            # (cpython cannot do this, because the call machinery really
-            # *needs* a dict. but in argument.py deals with non-dicts just
-            # fine)
+        if len(self.keywords) == 1:
             kw = self.keywords[0]
             assert isinstance(kw, ast.keyword)
-            kw.value.walkabout(self.codegenerator)
-            self.have_kwargs = True
-            return
+            if kw.arg is None:
+                # exactly a **kwarg, no need to copy dicts around
+                # (cpython cannot do this, because the call machinery really
+                # *needs* a dict. but in argument.py deals with non-dicts just
+                # fine)
+                kw.value.walkabout(self.codegenerator)
+                self.have_kwargs = True
+                return
         for kw in self.keywords:
             assert isinstance(kw, ast.keyword)
             self.codegenerator.check_forbidden_name(kw.arg, kw)
