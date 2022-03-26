@@ -2739,6 +2739,8 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert ops.BUILD_TUPLE not in counts # LOAD_CONST used instead
         assert counts[ops.CALL_FUNCTION_EX] == 1
+        assert ops.DICT_MERGE not in counts
+        assert ops.BUILD_MAP not in counts
 
         source = """def f(): x.m(a, b, c)"""
         counts = self.count_instructions(source)
