@@ -2204,6 +2204,7 @@ class CallCodeGenerator(object):
             # *needs* a dict. but in argument.py deals with non-dicts just
             # fine)
             kw = self.keywords[0]
+            assert isinstance(kw, ast.keyword)
             kw.value.walkabout(self.codegenerator)
             self.have_kwargs = True
             return
