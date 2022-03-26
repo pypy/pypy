@@ -469,8 +469,8 @@ class Frame(object):
         self.push(W_ListObject(lst))
 
     def _BUILD_LIST(self):
-        size = self.pop()
-        init = self.pop()
+        size = self._pop()
+        init = self._pop()
 
         assert isinstance(size, W_IntObject)
         lst = [init] * size.intvalue
@@ -480,8 +480,8 @@ class Frame(object):
     def LOAD(self, dummy):
         if dummy:
             return
-        w_index = self.pop()
-        w_lst = self.pop()
+        w_index = self._pop()
+        w_lst = self._pop()
 
         assert isinstance(w_index, W_IntObject)
         assert isinstance(w_lst, W_ListObject)
@@ -492,8 +492,8 @@ class Frame(object):
         self.push(w_x)
 
     def _LOAD(self):
-        w_index = self.pop()
-        w_lst = self.pop()
+        w_index = self._pop()
+        w_lst = self._pop()
 
         assert isinstance(w_index, W_IntObject)
         assert isinstance(w_lst, W_ListObject)
@@ -516,9 +516,9 @@ class Frame(object):
         self.push(w_lst)
 
     def _STORE(self):
-        w_index = self.pop()
-        w_lst = self.pop()
-        w_x = self.pop()
+        w_index = self._pop()
+        w_lst = self._pop()
+        w_x = self._pop()
 
         assert isinstance(w_lst, W_ListObject)
         assert isinstance(w_index, W_IntObject)
