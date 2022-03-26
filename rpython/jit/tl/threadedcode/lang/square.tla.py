@@ -1,11 +1,11 @@
 from rpython.jit.tl.threadedcode import tla
 
 code = [
-    tla.CONST_INT, 255,
-    tla.CONST_INT, 255,
+    tla.CONST_N, 0, 0, 7, 0,
+    tla.CONST_N, 0, 0, 7, 0,
     tla.DUPN, 1,
     tla.DUPN, 1,
-    tla.CALL, 16, 2,
+    tla.CALL, 22, 2,
     tla.PRINT,
     tla.POP1,
     tla.POP1,
@@ -14,15 +14,15 @@ code = [
     tla.DUPN, 2,
     tla.CONST_INT, 1,
     tla.GT,
-    tla.JUMP_IF, 27,
+    tla.JUMP_IF, 33,
     tla.DUPN, 1,
-    tla.JUMP, 45,
+    tla.JUMP, 51,
     tla.DUPN, 2,
     tla.CONST_INT, 1,
     tla.SUB,
     tla.DUP,
     tla.DUPN, 3,
-    tla.CALL, 16, 2,
+    tla.CALL, 22, 2,
     tla.DUPN, 3,
     tla.DUPN, 1,
     tla.ADD,
@@ -30,4 +30,3 @@ code = [
     tla.POP1,
     tla.RET, 2,
 ]
-
