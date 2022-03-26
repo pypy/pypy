@@ -1,5 +1,5 @@
 from ctypes import *
-import unittest, sys
+import unittest
 from test import support
 
 ################################################################
@@ -13,10 +13,6 @@ try:
     from sys import getrefcount as grc
 except ImportError:
     grc = None
-if sys.version_info > (2, 4):
-    c_py_ssize_t = c_size_t
-else:
-    c_py_ssize_t = c_int
 
 @support.cpython_only
 class PythonAPITestCase(unittest.TestCase):
@@ -25,7 +21,7 @@ class PythonAPITestCase(unittest.TestCase):
         PyBytes_FromStringAndSize = pythonapi.PyBytes_FromStringAndSize
 
         PyBytes_FromStringAndSize.restype = py_object
-        PyBytes_FromStringAndSize.argtypes = c_char_p, c_py_ssize_t
+        PyBytes_FromStringAndSize.argtypes = c_char_p, c_size_t
 
         self.assertEqual(PyBytes_FromStringAndSize(b"abcdefghi", 3), b"abc")
 

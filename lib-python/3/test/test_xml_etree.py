@@ -643,6 +643,14 @@ class ElementTreeTest(unittest.TestCase):
                     'junk after document element: line 1, column 12')
             del cm, it
 
+        # Not exhausting the iterator still closes the resource (bpo-43292)
+        with support.check_no_resource_warning(self):
+            it = iterparse(TESTFN)
+            del it
+
+        with self.assertRaises(FileNotFoundError):
+            iterparse("nonexistent")
+
     def test_writefile(self):
         elem = ET.Element("tag")
         elem.text = "text"
@@ -742,6 +750,15 @@ class ElementTreeTest(unittest.TestCase):
                 ('end-ns', 'p'),
                 ('end-ns', ''),
             ])
+
+    def test_initialize_parser_without_target(self):
+        # Explicit None
+        parser = ET.XMLParser(target=None)
+        self.assertIsInstance(parser.target, ET.TreeBuilder)
+
+        # Implicit None
+        parser2 = ET.XMLParser()
+        self.assertIsInstance(parser2.target, ET.TreeBuilder)
 
     def test_children(self):
         # Test Element children iteration

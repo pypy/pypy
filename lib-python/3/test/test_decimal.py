@@ -33,24 +33,14 @@ import unittest
 import numbers
 import locale
 from test.support import (run_unittest, run_doctest, is_resource_enabled,
-                          requires_IEEE_754, requires_docstrings)
-from test.support import (import_fresh_module, TestFailed,
+                          requires_IEEE_754, requires_docstrings,
+                          import_fresh_module, TestFailed,
                           run_with_locale, cpython_only, check_impl_detail,
-                          darwin_malloc_err_warning)
+                          darwin_malloc_err_warning,
+                          check_sanitizer)
 import random
 import inspect
 import threading
-import sysconfig
-_cflags = sysconfig.get_config_var('CFLAGS') or ''
-_config_args = sysconfig.get_config_var('CONFIG_ARGS') or ''
-MEMORY_SANITIZER = (
-    '-fsanitize=memory' in _cflags or
-    '--with-memory-sanitizer' in _config_args
-)
-
-ADDRESS_SANITIZER = (
-    '-fsanitize=address' in _cflags
-)
 
 
 if sys.platform == 'darwin':
@@ -4108,11 +4098,6 @@ class ContextInputValidation(unittest.TestCase):
         self.assertRaises(TypeError, Context, flags=(0,1))
         self.assertRaises(TypeError, Context, traps=(1,0))
 
-    def test_context_from_signaldict(self):
-        ctx = self.decimal.Context()
-        ctx2 = self.decimal.Context(flags=ctx.flags)
-        assert ctx.flags == ctx2.flags
-
 class CContextInputValidation(ContextInputValidation):
     decimal = C
 class PyContextInputValidation(ContextInputValidation):
@@ -5517,7 +5502,8 @@ class CWhitebox(unittest.TestCase):
     # Issue 41540:
     @unittest.skipIf(sys.platform.startswith("aix"),
                      "AIX: default ulimit: test is flaky because of extreme over-allocation")
-    @unittest.skipIf(MEMORY_SANITIZER or ADDRESS_SANITIZER, "sanitizer defaults to crashing "
+    @unittest.skipIf(check_sanitizer(address=True, memory=True),
+                     "ASAN/MSAN sanitizer defaults to crashing "
                      "instead of returning NULL for malloc failure.")
     def test_maxcontext_exact_arith(self):
 
@@ -5658,6 +5644,9 @@ class SignatureTest(unittest.TestCase):
                     # parameter names:
                     p_names = list(p_sig.parameters.keys())
                     c_names = [tr(x) for x in c_sig.parameters.keys()]
+
+                    self.assertEqual(c_names, p_names,
+                                     msg="parameter name mismatch in %s" % p_func)
 
                     p_kind = [x.kind for x in p_sig.parameters.values()]
                     c_kind = [x.kind for x in c_sig.parameters.values()]
