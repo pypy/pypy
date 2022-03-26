@@ -80,6 +80,8 @@ def print_(*args, sep=' ', end='\n', file=None, flush=False):
             return
     if not isinstance(sep, str):
         raise TypeError("sep must be None or a string")
+    if end is None:
+        end = '\n'
     if not isinstance(end, str):
         raise TypeError("end must be None or a string")
     for i, arg in enumerate(args):

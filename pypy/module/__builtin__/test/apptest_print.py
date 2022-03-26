@@ -1,13 +1,16 @@
+import pytest
+
+class filelike():
+    def __init__(self):
+        self.written = ''
+        self.flushed = 0
+    def write(self, str):
+        self.written += str
+    def flush(self):
+        self.flushed += 1
+
 def test_print_flush():
     # operation of the flush flag
-    class filelike():
-        def __init__(self):
-            self.written = ''
-            self.flushed = 0
-        def write(self, str):
-            self.written += str
-        def flush(self):
-            self.flushed += 1
 
     f = filelike()
     print(1, file=f, end='', flush=True)
@@ -24,3 +27,8 @@ def test_print_flush():
             raise RuntimeError
     with pytest.raises(RuntimeError):
         print(1, file=noflush(), flush=True)
+
+def test_end_None():
+    f = filelike()
+    print(1, file=f, end=None)
+    assert f.written == '1\n'
