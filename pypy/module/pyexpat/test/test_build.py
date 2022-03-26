@@ -21,7 +21,7 @@ def test_build():
         parser = interp_pyexpat.XML_ParserCreate("test")
         interp_pyexpat.XML_ParserFree(parser)
         res = interp_pyexpat.XML_ErrorString(3)
-        os.write(1, rffi.charp2str(res))
+        os.write(1, rffi.constcharp2str(res))
         return 0
 
     t = TranslationContext()

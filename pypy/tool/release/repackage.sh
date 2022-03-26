@@ -2,11 +2,11 @@
 
 # Edit these appropriately before running this script
 pmaj=3  # python main version: 2 or 3
-pmin=8  # python minor version
+pmin=9  # python minor version
 maj=7
 min=3
-rev=7
-#rc=rc3  # comment this line for actual release
+rev=8
+# rc=rc2  # comment this line for actual release
 
 function maybe_exit {
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
@@ -45,10 +45,17 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     fi
 fi
 
+if [ -v rc ]
+then
+    wanted="\"$maj.$min.$rev${rc/rc/-candidate}\""
+else
+    wanted="\"$maj.$min.$rev\""
+fi
+
 function repackage_builds {
     # Download latest builds from the buildmaster, rename the top
     # level directory, and repackage ready to be uploaded 
-    for plat in linux linux64 osx64 aarch64 s390x # linux-armhf-raspbian linux-armel
+    for plat in linux linux64 osx64 s390x aarch64 # linux-armhf-raspbian linux-armel
       do
         echo downloading package for $plat
         if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2
@@ -77,10 +84,10 @@ function repackage_builds {
         else
             actual_ver=$(grep PYPY_VERSION pypy-c-jit-*-$plat/include/pypy$pmaj.$pmin/patchlevel.h |cut -f3 -d' ')
         fi
-        if [ $actual_ver != "\"$maj.$min.$rev\"" ]
+        if [ $actual_ver != $wanted ]
         then
             echo xxxxxxxxxxxxxxxxxxxxxx
-            echo version mismatch, expected "\"$maj.$min.$rev\"", got $actual_ver for $plat
+            echo version mismatch, expected $wanted, got $actual_ver for $plat
             echo xxxxxxxxxxxxxxxxxxxxxx
             exit -1
             rm -rf pypy-c-jit-*-$plat
@@ -110,10 +117,10 @@ function repackage_builds {
         unzip -q pypy-c-jit-latest-$plat.zip
         rm pypy-c-jit-latest-$plat.zip
         actual_ver=$(grep PYPY_VERSION pypy-c-jit-*-$plat/include/patchlevel.h |cut -f3 -d' ')
-        if [ $actual_ver != "\"$maj.$min.$rev\"" ]
+        if [ $actual_ver != $wanted ]
         then
             echo xxxxxxxxxxxxxxxxxxxxxx
-            echo version mismatch, expected "\"$maj.$min.$rev\"", got $actual_ver for $plat
+            echo version mismatch, expected $wanted, got $actual_ver for $plat
             echo xxxxxxxxxxxxxxxxxxxxxx
             rm -rf pypy-c-jit-*-$plat
             continue

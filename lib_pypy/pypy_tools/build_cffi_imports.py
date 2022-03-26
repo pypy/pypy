@@ -59,13 +59,23 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl': ('http://distfiles.macports.org/openssl/openssl-1.1.1k.tar.gz',
-             '892a0875b9872acd04a9fde79b1f943075d5ea162415de3047c327df33fbaee5',
-             [['./config', '--prefix=/usr', 'no-shared'],
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1n.tar.gz',
+             '40dceb51a4f6a5275bde0e6bf20ef4b91bfc32ed57c0552e2e8e15463372b17a',
+             [
+              ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.1.tar.gz',
+              'c311ad853353bce796edad01a862c50a8a587f62e7e2100ef465ab53ec9b06d1',
+              [
+               ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
+               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+              ]),
 }
+cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
+
 if sys.platform == 'darwin':
     # this does not compile on the buildbot, linker is missing '_history_list'
     cffi_dependencies['gdbm'] = (

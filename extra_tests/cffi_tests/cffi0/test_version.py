@@ -19,6 +19,7 @@ def test_version():
     version_info = '.'.join(str(i) for i in cffi.__version_info__)
     version_info = version_info.replace('.beta.', 'b')
     version_info = version_info.replace('.plus', '+')
+    version_info = version_info.replace('.rc', 'rc')
     assert v == version_info
     #v = BACKEND_VERSIONS.get(v, v)
     assert v == _cffi_backend.__version__

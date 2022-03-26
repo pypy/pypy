@@ -245,7 +245,7 @@ class DescrOperation(object):
                 return True
             # call __len__
             w_res = space.get_and_call_function(w_descr, w_obj)
-            return space._check_len_result(w_res) != 0
+            return space._check_len_result(space.int(w_res)) != 0
         # call __nonzero__
         w_res = space.get_and_call_function(w_descr, w_obj)
         # more shortcuts for common cases
@@ -268,16 +268,25 @@ class DescrOperation(object):
         else:
             return space.w_False
 
-    def len(space, w_obj):
+    def _len(space, w_obj):
         w_descr = space.lookup(w_obj, '__len__')
         if w_descr is None:
             raise oefmt(space.w_TypeError, "'%T' has no length", w_obj)
-        w_res = space.get_and_call_function(w_descr, w_obj)
-        return space.newint(space._check_len_result(w_res))
+        return space.get_and_call_function(w_descr, w_obj)
 
-    def _check_len_result(space, w_obj):
+    def len_w(space, w_obj):
+        w_res = space._len(w_obj)
+        return space._check_len_result(space.int(w_res))
+
+    def len(space, w_obj):
+        w_res = space.int(space._len(w_obj))
+        # check for error or overflow
+        space._check_len_result(w_res)
+        return w_res
+
+    def _check_len_result(space, w_int):
         # Will complain if result is too big.
-        result = space.int_w(space.int(w_obj))
+        result = space.int_w(w_int)
         if result < 0:
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
         return result
@@ -429,14 +438,15 @@ class DescrOperation(object):
             if space.eq_w(w_item, w_next):
                 return space.w_True
 
-    def hash(space, w_obj):
+    def hash_w(space, w_obj):
+        """compute the unwrapped hash of w_obj"""
         w_hash = space.lookup(w_obj, '__hash__')
         if w_hash is None:
             # xxx there used to be logic about "do we have __eq__ or __cmp__"
             # here, but it does not really make sense, as 'object' has a
             # default __hash__.  This path should only be taken under very
             # obscure circumstances.
-            return default_identity_hash(space, w_obj)
+            return space.int_w(default_identity_hash(space, w_obj))
         if space.is_w(w_hash, space.w_None):
             raise oefmt(space.w_TypeError,
                         "unhashable type: '%T'", w_obj)
@@ -450,11 +460,14 @@ class DescrOperation(object):
             h = bigint.hash()
         else:
             raise oefmt(space.w_TypeError,
-                        "__hash__() should return an int or long")
+                        "__hash__() should return an int or long not '%T'", w_result)
         # turn -1 into -2 without using a condition, which would
         # create a potential bridge in the JIT
         h -= (h == -1)
-        return space.newint(h)
+        return h
+
+    def hash(space, w_obj):
+        return space.newint(space.hash_w(w_obj))
 
     def cmp(space, w_v, w_w):
 

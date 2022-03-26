@@ -11,6 +11,7 @@ __all__ = ['c_lexer', 'c_parser', 'c_ast']
 __version__ = '2.21'
 
 import io
+from subprocess import check_output
 from .c_parser import CParser
 
 
@@ -28,7 +29,6 @@ def preprocess_file(filename, cpp_path='cpp', cpp_args=''):
         When successful, returns the preprocessed file's contents.
         Errors from cpp will be printed out.
     """
-    from subprocess import check_output
     path_list = [cpp_path]
     if isinstance(cpp_args, list):
         path_list += cpp_args

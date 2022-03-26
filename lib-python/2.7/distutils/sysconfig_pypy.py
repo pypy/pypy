@@ -8,8 +8,6 @@ get_config_vars().keys().  Additional convenience functions are also
 available.
 """
 
-__revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
-
 import sys
 import os
 import imp
@@ -24,8 +22,20 @@ python_build = False
 
 
 def get_python_inc(plat_specific=0, prefix=None):
-    from os.path import join as j
-    return j(sys.prefix, 'include')
+    """Return the directory containing installed Python header files.
+
+    If 'plat_specific' is false (the default), this is the path to the
+    non-platform-specific header files, i.e. Python.h and so on;
+    otherwise, this is the path to platform-specific header files
+    (namely pyconfig.h). These are identical on PyPy.
+
+    If 'prefix' is supplied, use it.
+    """
+    if prefix is None:
+        # PyPy extension to try base_prefix (if inside virtualenv)
+        prefix = getattr(sys, 'base_prefix', sys.prefix)
+
+    return os.path.join(prefix, 'include')
 
 def get_python_version():
     """Return a string containing the major and minor Python version,

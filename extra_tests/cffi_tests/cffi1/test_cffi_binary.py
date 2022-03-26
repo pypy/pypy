@@ -11,6 +11,8 @@ def test_no_unknown_exported_symbols():
     for line in g:
         if not line.startswith('0'):
             continue
+        if line[line.find(' ') + 1] == 'l':
+            continue
         if '*UND*' in line:
             continue
         name = line.split()[-1]

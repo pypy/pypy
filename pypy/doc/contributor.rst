@@ -5,9 +5,9 @@ Contributors
 ::
 
   Armin Rigo
-  Maciej Fijalkowski
-  Carl Friedrich Bolz-Tereick
+  Maciej Fijałkowski
   Matti Picus
+  Carl Friedrich Bolz-Tereick
   Antonio Cuni
   Amaury Forgeot d'Arc
   Ronan Lamy
@@ -21,7 +21,7 @@ Contributors
   David Schneider
   Holger Krekel
   Christian Tismer
-  Hakan Ardo
+  Håkan Ardö
   Benjamin Peterson
   Wim Lavrijsen
   Anders Chrigstrom
@@ -33,6 +33,7 @@ Contributors
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
+  Edd Barrett
   Aurelien Campeas
   Niklaus Haldimann
   Camillo Bruni
@@ -66,15 +67,16 @@ Contributors
   Alex Martelli
   Ondrej Baranovič
   Spenser Bauman
+  Yusuke Izawa
   Michal Bendowski
   Jan de Mooij
   Stefan Beyer
   Tyler Wade
   Vincent Legoll
-  Michael Foord
-  Stephan Diehl
-  muke101
   Simon Cross
+  Michael Foord
+  muke101
+  Stephan Diehl
   Jean-Paul Calderone
   Stefan Schwarzer
   Tomek Meka
@@ -87,7 +89,6 @@ Contributors
   Yannick Jadoul
   Squeaky
   Timo Paulssen
-  Edd Barrett
   Marius Gedminas
   Laurence Tratt
   Alexandre Fayolle
@@ -99,6 +100,7 @@ Contributors
   John Witulski
   Jeremy Thurgood
   Julian Berman
+  Adrian Kuhn
   Dario Bertini
   Greg Price
   Ivan Sichmann Freitas
@@ -107,7 +109,6 @@ Contributors
   Andreas Stührk
   Jean-Philippe St. Pierre
   Stian Andreassen
-  Yusuke Izawa
   Guido van Rossum
   Pavel Vinogradov
   William Leslie
@@ -117,17 +118,17 @@ Contributors
   Tobias Oberstein
   marky1991
   Boris Feigin
-  Adrian Kuhn
   tav
   Taavi Burns
   Joannah Nanjekye
   Georg Brandl
+  Michał Górny
   quejebo
   Vanessa Freudenberg
-  Michał Górny
   Gerald Klix
   Wanja Saatkamp
   Mike Blume
+  olliemath
   Oscar Nierstrasz
   Rami Chowdhury
   Stefan H. Muller
@@ -166,7 +167,6 @@ Contributors
   Lucian Branescu Mihaila
   anatoly techtonik
   Mariano Anaya
-  olliemath
   Olivier Dormond
   Jared Grubb
   Karl Bartel
@@ -184,6 +184,7 @@ Contributors
   Aaron Iles
   Christian Hudon
   Daniel Patrick
+  Ricky Zhou
   Justas Sadzevicius
   Gasper Zejn
   Neil Shepperd
@@ -193,7 +194,6 @@ Contributors
   Berkin Ilbeyi
   Mihnea Saracin
   Matt Jackson
-  Ricky Zhou
   Jonathan David Riehl
   Anders Qvist
   Beatrice During
@@ -235,6 +235,7 @@ Contributors
   Jacek Generowicz
   Sylvain Thenault
   Alejandro J. Cura
+  Roberto De Ioris
   Andrew Dalke
   Gabriel
   Nathan Taylor
@@ -290,8 +291,6 @@ Contributors
   Dan Colish
   Akira Li
   Bobby Impollonia
-  roberto@goyle
-  Roberto De Ioris
   timo
   Anna Katrina Dominguez
   Juan Francisco Cantero Hurtado
@@ -318,7 +317,6 @@ Contributors
   afteryu
   Andrew Stepanov
   Radu Ciorba
-  Ian Clester
   Carl Bordum Hansen
   Paul Ganssle
   Michal Kuffa
@@ -331,13 +329,14 @@ Contributors
   dakarpov@gmail.com
   Sreepathi Pai
   Georges Racinet
-  Bolutife Ogunsola
   ashwinahuja
+  Bolutife Ogunsola
   cjmcdonald@google.com
   Alex Orange
   alexprengere
   Dennis Sweeney
   Kevin Lee
+  h-vertini
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -429,16 +428,21 @@ Contributors
   paugier
   bernd.schoeller@inf.ethz.ch
   Sam Edwards
-  Ihar Shabes
-  kotus9
-  mark doerr
-  Tomas Hrnciar
   Joannah Nanjekye nanjekyejoannah@gmail.com
   Alex Kashirin
+  Ihar Shabes
+  kotus9
   Mike Kaplinskiy
   Henri Tuhola
+  mark doerr
+  Tomas Hrnciar
   shaolo1
   Chris AtLee
   Christoph Reiter
   Chris Burr
   Brad Kish
+  Michael Cho
+  Ian Clester
+  David Hewitt
+  h-vetinari
+  Isuru Fernando

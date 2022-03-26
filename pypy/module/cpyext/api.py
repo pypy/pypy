@@ -315,14 +315,14 @@ class ApiFunction(BaseApiFunction):
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
                  c_name=None, cdecl=None, gil=None,
                  result_borrowed=False, result_is_ll=False):
+        from rpython.flowspace.bytecode import cpython_code_signature
         BaseApiFunction.__init__(self, argtypes, restype, callable)
         self.error_value = error
         self.c_name = c_name
         self.cdecl = cdecl
 
         # extract the signature from the (CPython-level) code object
-        from pypy.interpreter import pycode
-        sig = pycode.cpython_code_signature(callable.func_code)
+        sig = cpython_code_signature(callable.func_code)
         assert sig.argnames[0] == 'space'
         self.argnames = sig.argnames[1:]
         if gil == 'pygilstate_ensure':
@@ -1220,7 +1220,7 @@ def attach_c_functions(space, eci, prefix):
            )
     state.C.flag_setters = {}
     for c_name, attr in _flags:
-        _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
+        _, setter = rffi.CExternVariable(rffi.INT_real, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
         state.C.flag_setters[attr] = setter
         
@@ -1242,7 +1242,7 @@ def init_flags(space):
     state = space.fromcache(State)
     for _, attr in _flags:
         f = state.C.flag_setters[attr]
-        f(space.sys.get_flag(attr))
+        f(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call

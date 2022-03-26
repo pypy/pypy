@@ -35,6 +35,13 @@ def braindead_deindent(self):
 
 py.code.Source.deindent = braindead_deindent
 
+def get_marker(item, name):
+    try:
+        return item.get_closest_marker(name=name)
+    except AttributeError:
+        # pytest < 3.6
+        return item.get_marker(name=name)
+
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
@@ -183,7 +190,7 @@ def pytest_runtest_setup(item):
         config = item.config
         appdirect = (config.getoption('runappdirect') or
             config.getoption('direct_apptest'))
-        if (item.get_marker(name='pypy_only') and
+        if (get_marker(item, name='pypy_only') and
                 appdirect and not '__pypy__' in sys.builtin_module_names):
             pytest.skip('PyPy-specific test')
         appclass = item.getparent(py.test.Class)

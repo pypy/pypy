@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function 
+from __future__ import print_function
 """ packages PyPy, provided that it's already built.
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
@@ -21,7 +21,6 @@ sys.path.insert(0,basedir)
 import py
 import fnmatch
 import subprocess
-import glob
 import platform
 from pypy.tool.release.smartstrip import smartstrip
 from pypy.tool.release.make_portable import make_portable
@@ -66,11 +65,14 @@ def fix_permissions(dirname):
         os.system("chmod -R g-w %s" % dirname)
 
 
-def pypy_runs(pypy_c, quiet=False):
-    kwds = {}
+def get_python_ver(pypy_c, quiet=False):
+    kwds = {'universal_newlines': True}
     if quiet:
-        kwds['stderr'] = subprocess.PIPE
-    return subprocess.call([str(pypy_c), '-c', 'pass'], **kwds) == 0
+        kwds['stderr'] = subprocess.NULL
+    ver = subprocess.check_output([str(pypy_c), '-c',
+             'import sysconfig as s; print(s.get_python_version())'], **kwds)
+    return ver.strip()
+
 
 def create_package(basedir, options, _fake=False):
     retval = 0
@@ -95,8 +97,17 @@ def create_package(basedir, options, _fake=False):
             ' Please compile pypy first, using translate.py,'
             ' or check that you gave the correct path'
             ' with --override_pypy_c' % pypy_c)
-    if not _fake and not pypy_runs(pypy_c):
-        raise OSError("Running %r failed!" % (str(pypy_c),))
+    builddir = py.path.local(options.builddir)
+    pypydir = builddir.ensure(name, dir=True)
+    lib_pypy = pypydir.join('lib_pypy')
+    # do not create lib_pypy yet, it will be created by the copytree below
+    if _fake:
+        python_ver = '2.7'
+    else:
+        python_ver = get_python_ver(pypy_c)
+    if ARCH == 'win32':
+        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
+                            os.environ.get('PATH', '')
     if not options.no_cffi:
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
@@ -131,24 +142,34 @@ def create_package(basedir, options, _fake=False):
                                 'not find it' % (str(libpypy_c),))
         binaries.append((libpypy_c, libpypy_name, None))
     #
-    builddir = py.path.local(options.builddir)
-    pypydir = builddir.ensure(name, dir=True)
-    lib_pypy = pypydir.join('lib_pypy')
-    # do not create lib_pypy yet, it will be created by the copytree below
 
     includedir = basedir.join('include')
     shutil.copytree(str(includedir), str(pypydir.join('include')))
     pypydir.ensure('include', dir=True)
 
     if ARCH == 'win32':
-        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
-                            os.environ.get('PATH', '')
         src, tgt, _ = binaries[0]
         pypyw = src.new(purebasename=src.purebasename + 'w')
         if pypyw.exists():
             tgt = py.path.local(tgt)
             binaries.append((pypyw, tgt.new(purebasename=tgt.purebasename + 'w').basename, None))
             print("Picking %s" % str(pypyw))
+            binaries.append((pypyw, 'pythonw.exe', None))
+            print('Picking {} as pythonw.exe'.format(pypyw))
+            binaries.append((pypyw, 'pypyw.exe', None))
+            print('Picking {} as pypyw.exe'.format(pypyw))
+        binaries.append((src, 'python.exe', None))
+        print('Picking {} as python.exe'.format(src))
+        binaries.append((src, 'pypy.exe', None))
+        print('Picking {} as pypy.exe'.format(src))
+        binaries.append((src, 'pypy{}.exe'.format(python_ver), None))
+        print('Picking {} as pypy{}.exe'.format(src, python_ver))
+        binaries.append((src, 'python{}.exe'.format(python_ver), None))
+        print('Picking {} as python{}.exe'.format(src, python_ver))
+        binaries.append((src, 'pypy{}.exe'.format(python_ver[0]), None))
+        print('Picking {} as pypy{}.exe'.format(src, python_ver[0]))
+        binaries.append((src, 'python{}.exe'.format(python_ver[0]), None))
+        print('Picking {} as python{}.exe'.format(src, python_ver[0]))
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
                       ('sqlite3.dll', lib_pypy),
@@ -157,8 +178,10 @@ def create_package(basedir, options, _fake=False):
         if not options.no__tkinter:
             tkinter_dir = lib_pypy.join('_tkinter')
             win_extras += [('tcl86t.dll', tkinter_dir), ('tk86t.dll', tkinter_dir)]
-
-        for extra,target_dir in win_extras:
+            # for testing, copy the dlls to the `base_dir` as well
+            tkinter_dir = basedir.join('lib_pypy', '_tkinter')
+            win_extras += [('tcl86t.dll', tkinter_dir), ('tk86t.dll', tkinter_dir)]
+        for extra, target_dir in win_extras:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
@@ -231,35 +254,39 @@ def create_package(basedir, options, _fake=False):
     else:
         bindir = pypydir.join('bin')
         bindir.ensure(dir=True)
-    for source, target, target_dir in binaries:
+    for source, dst, target_dir in binaries:
         if target_dir:
-            archive = target_dir.join(target)
+            archive = target_dir.join(dst)
         else:
-            archive = bindir.join(target)
+            archive = bindir.join(dst)
         if not _fake:
             shutil.copy(str(source), str(archive))
         else:
             open(str(archive), 'wb').close()
         os.chmod(str(archive), 0755)
-    #if not _fake and not ARCH == 'win32':
-    #    # create the pypy3 symlink
-    #    old_dir = os.getcwd()
-    #    os.chdir(str(bindir))
-    #    try:
-    #        os.symlink(POSIX_EXE, 'pypy3')
-    #    finally:
-    #        os.chdir(old_dir)
+    if not _fake and not ARCH == 'win32':
+        # create a link to pypy, python
+        old_dir = os.getcwd()
+        os.chdir(str(bindir))
+        try:
+            os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver))
+            os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver[0]))
+            os.symlink(POSIX_EXE, 'python')
+            os.symlink(POSIX_EXE, 'python{}'.format(python_ver))
+            os.symlink(POSIX_EXE, 'python{}'.format(python_ver[0]))
+        finally:
+            os.chdir(old_dir)
     fix_permissions(pypydir)
 
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
         if not _fake:
-            for source, target, target_dir in binaries:
+            for source, dst, target_dir in binaries:
                 if target_dir:
-                    archive = target_dir.join(target)
+                    archive = target_dir.join(dst)
                 else:
-                    archive = bindir.join(target)
+                    archive = bindir.join(dst)
                 smartstrip(archive, keep_debug=options.keep_debug)
 
             # make the package portable by adding rpath=$ORIGIN/..lib,
@@ -288,13 +315,13 @@ def create_package(basedir, options, _fake=False):
                       "will contain your uid and gid. If you are building the "
                       "actual release for the PyPy website, you may want to be "
                       "using another platform...", file=sys.stderr)
-                e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --numeric-owner -cjf ' + archive + " " + name)
             elif sys.platform.startswith('freebsd'):
-                e = os.system('tar --uname=root --gname=wheel -cvjf ' + archive + " " + name)
+                e = os.system('tar --uname=root --gname=wheel -cjf ' + archive + " " + name)
             elif sys.platform == 'cygwin':
-                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cjf ' + archive + " " + name)
             else:
-                e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --owner=root --group=root --numeric-owner -cjf ' + archive + " " + name)
             if e:
                 raise OSError('"tar" returned exit status %r' % e)
     finally:
@@ -325,8 +352,6 @@ def package(*args, **kwds):
     args = list(args)
     if args:
         args[0] = str(args[0])
-    else:
-        args.append('--help')
     for key, module in sorted(cffi_build_scripts.items()):
         if module is not None:
             parser.add_argument('--without-' + key,
