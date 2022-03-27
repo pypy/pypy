@@ -157,7 +157,7 @@ class Frame(object):
     def _CONST_INT(self, pc):
         if isinstance(pc, int):
             x = ord(self.bytecode[pc])
-            self.push(W_IntObject(x))
+            self._push(W_IntObject(x))
         else:
             raise OperationError
 
@@ -174,7 +174,7 @@ class Frame(object):
     def _CONST_FLOAT(self, pc):
         if isinstance(pc, float):
             x = ord(self.bytecode[pc])
-            self.push(W_FloatObject(x))
+            self._push(W_FloatObject(x))
         else:
             raise OperationError
 
@@ -199,7 +199,7 @@ class Frame(object):
             c = ord(self.bytecode[pc+2])
             d = ord(self.bytecode[pc+3])
             x = a << 24 | b << 16 | c << 8 | d
-            self.push(W_IntObject(x))
+            self._push(W_IntObject(x))
         else:
             raise OperationError
 
@@ -219,7 +219,7 @@ class Frame(object):
         return self.pop()
 
     def _POP(self):
-        return self.pop()
+        return self._pop()
 
     @jit.dont_look_inside
     def DROP(self, n, dummy):
@@ -524,7 +524,7 @@ class Frame(object):
         assert isinstance(w_lst, W_ListObject)
 
         w_x = w_lst.listvalue[w_index.intvalue]
-        self.push(w_x)
+        self._push(w_x)
 
     @jit.dont_look_inside
     def STORE(self, dummy):
@@ -623,14 +623,14 @@ class Frame(object):
 
                 # create a new frame
                 frame = self.copy_frame(argnum)
-                if t < pc:
-                    tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
+                #if t < pc:
+                #    tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
                 frame._CALL(self, t, argnum)
 
             elif opcode == RET:
                 argnum = hint(ord(bytecode[pc]), promote=True)
                 pc += 1
-                return self._RET(argnum,)
+                return self._RET(argnum)
 
             elif opcode == JUMP:
                 t = ord(bytecode[pc])
@@ -927,10 +927,10 @@ class Frame(object):
                 assert False, 'Unknown opcode: %s' % bytecodes[opcode]
 
 
-def run(bytecode, w_arg, entry=None, debug=False):
+def run(bytecode, w_arg, debug=False, tier=None):
     frame = Frame(bytecode)
     frame.push(w_arg); frame.push(w_arg)
-    if entry == "tracing":
+    if tier >= 2:
         w_result = frame._interp()
     else:
         w_result = frame.interp()

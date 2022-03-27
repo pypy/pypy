@@ -13,6 +13,7 @@ def entry_point(args):
         return 2
 
     debug = False
+    tier = 1
     i = 0
     while True:
         if not i < len(args):
@@ -23,14 +24,16 @@ def entry_point(args):
                 print "missing argument after --jit"
                 return 2
             jitarg = args[i+1]
-            if jitarg == "tracing":
-                jit_flg = "tracing"
             del args[i:i+2]
             jit.set_user_param(None, jitarg)
             continue
         elif args[i] == "--debug":
             debug = True
             del args[i]
+            continue
+        elif args[i] == "--tier":
+            tier = int(args[i+1])
+            del args[i:i+2]
             continue
         i += 1
 
@@ -40,12 +43,13 @@ def entry_point(args):
         n = int(args[3])
     except Exception:
         n = 100
+        tier = 1
     w_x = tla.W_IntObject(x)
     bytecode = load_bytecode(filename)
     w_res = tla.W_IntObject(0)
     for _ in range(n):
         n1 = time.time()
-        w_res = tla.run(bytecode, w_x, debug=debug)
+        w_res = tla.run(bytecode, w_x, debug=debug, tier=tier)
         n2 = time.time()
         print (n2 * 1e4 - n1 * 1e4)
     print w_res.getrepr()
