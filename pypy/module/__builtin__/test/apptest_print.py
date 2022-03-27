@@ -32,3 +32,8 @@ def test_end_None():
     f = filelike()
     print(1, file=f, end=None)
     assert f.written == '1\n'
+
+def test_sep_None():
+    f = filelike()
+    print(1, 2, 3, file=f, sep=None)
+    assert f.written == '1 2 3\n'
