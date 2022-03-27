@@ -300,7 +300,7 @@ class W_PyCWrapperObject(W_Root):
         py_obj = make_ref(space, self)
         py_methoddescr = cts.cast('PyWrapperDescrObject*', py_obj)
         if py_methoddescr.c_d_base and py_methoddescr.c_d_base.c_doc:
-            doc = rffi.constcharp2str(py_methoddescr.c_d_base.c_doc)
+            doc = rffi.charp2str(py_methoddescr.c_d_base.c_doc)
         else:
             doc = self.doc
         if doc:
