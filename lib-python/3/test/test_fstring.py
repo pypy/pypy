@@ -749,6 +749,7 @@ x = (
     def test_misformed_unicode_character_name(self):
         # These test are needed because unicode names are parsed
         # differently inside f-strings.
+        import pdb; pdb.set_trace()
         self.assertAllRaise(SyntaxError, r"\(unicode error\) 'unicodeescape' codec can't decode bytes in position .*: malformed \\N character escape",
                             [r"f'\N'",
                              r"f'\N '",

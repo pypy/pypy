@@ -389,7 +389,10 @@ def fstring_find_literal(astbuilder, fstr, token, rec):
                 i -= 1
                 break
     assert 0 <= i <= len(s)
-    assert i == len(s) or s[i] == '{' or s[i] == '}'
+    # this is in theory true as well, for valid strings:
+    # assert i == len(s) or s[i] == '{' or s[i] == '}'
+    # but for mal-formed escapes it can be false. in that case the
+    # decode_unicode_escape call below produces an error
     builder.append(s[literal_start:i])
 
     fstr.current_index = i
