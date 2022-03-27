@@ -2,7 +2,7 @@ from rpython.jit.tl.threadedcode import tla
 
 code = [
     tla.CONST_N, 0, 0, 32, 0,
-    tla.CONST_INT, 1,
+    tla.CONST_INT, 2,
     tla.DUP,
     tla.DUPN, 2,
     tla.BUILD_LIST,
@@ -21,7 +21,7 @@ code = [
     tla.DUPN, 1,
     tla.CALL, 98, 2,
     tla.DUPN, 6,
-    tla.CONST_INT, 11,
+    tla.CONST_INT, 17,
     tla.LOAD,
     tla.PRINT,
     tla.POP1,
@@ -37,7 +37,7 @@ code = [
     tla.POP1,
     tla.EXIT,
     tla.DUPN, 2,
-    tla.CONST_N, 0, 0, 32, 0,
+    tla.CONST_N, 0, 0, 31, 255,
     tla.LT,
     tla.JUMP_IF, 68,
     tla.DUPN, 3,
@@ -60,7 +60,7 @@ code = [
     tla.POP1,
     tla.RET, 3,
     tla.DUPN, 1,
-    tla.CONST_N, 0, 0, 32, 0,
+    tla.CONST_N, 0, 0, 31, 255,
     tla.LT,
     tla.JUMP_IF, 112,
     tla.DUPN, 2,
@@ -69,7 +69,7 @@ code = [
     tla.DUPN, 2,
     tla.LOAD,
     tla.DUP,
-    tla.CONST_INT, 0,
+    tla.CONST_INT, 1,
     tla.LT,
     tla.JUMP_IF, 157,
     tla.DUPN, 2,
@@ -101,4 +101,3 @@ code = [
     tla.POP1,
     tla.RET, 2,
 ]
-
