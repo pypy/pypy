@@ -523,7 +523,7 @@ uses a single data structure to keep track of try-finally and loops,
 so we need to be sure that a break is actually inside a loop.  If it
 isn't, there should be a syntax error.
 
-   >>> try:
+   >>> try:          # doctest: +ELLIPSIS
    ...     print(1)
    ...     break
    ...     print(2)
@@ -531,7 +531,7 @@ isn't, there should be a syntax error.
    ...     print(3)
    Traceback (most recent call last):
      ...
-   SyntaxError: 'break' outside loop
+   SyntaxError: 'break' ...
 
 Misuse of the nonlocal and global statement can lead to a few unique syntax errors.
 
@@ -611,23 +611,23 @@ This tests assignment-context; there was a bug in Python 2.5 where compiling
 a complex 'if' (one with 'elif') would fail to notice an invalid suite,
 leading to spurious errors.
 
-   >>> if 1:
+   >>> if 1:  # doctest: +ELLIPSIS
    ...   x() = 1
    ... elif 1:
    ...   pass
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call...
 
-   >>> if 1:
+   >>> if 1:  # doctest: +ELLIPSIS
    ...   pass
    ... elif 1:
    ...   x() = 1
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call...
 
-   >>> if 1:
+   >>> if 1: # doctest: +ELLIPSIS
    ...   x() = 1
    ... elif 1:
    ...   pass
@@ -635,9 +635,9 @@ leading to spurious errors.
    ...   pass
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call...
 
-   >>> if 1:
+   >>> if 1:  # doctest: +ELLIPSIS
    ...   pass
    ... elif 1:
    ...   x() = 1
@@ -645,9 +645,9 @@ leading to spurious errors.
    ...   pass
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call...
 
-   >>> if 1:
+   >>> if 1:  # doctest: +ELLIPSIS
    ...   pass
    ... elif 1:
    ...   pass
@@ -655,7 +655,7 @@ leading to spurious errors.
    ...   x() = 1
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call...
 
 Make sure that the old "raise X, Y[, Z]" form is gone:
    >>> raise X, Y
@@ -673,23 +673,23 @@ PyPy-specific extension
 >>> f(a=23, a=234)
 Traceback (most recent call last):
    ...
-SyntaxError: keyword argument repeated: a
+SyntaxError: keyword argument repeated: 'a'
 
->>> {1, 2, 3} = 42
+>>> {1, 2, 3} = 42  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to set display
+SyntaxError: cannot assign to set display...
 
->>> {1: 2, 3: 4} = 42
+>>> {1: 2, 3: 4} = 42  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to dict display
+SyntaxError: cannot assign to dict display...
 
->>> f'{x}' = 42
+>>> f'{x}' = 42  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to f-string expression
+SyntaxError: cannot assign to f-string expression...
 
->>> f'{x}-{y}' = 42
+>>> f'{x}-{y}' = 42  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to f-string expression
+SyntaxError: cannot assign to f-string expression...
 
 >>> from t import x,
 Traceback (most recent call last):
