@@ -3740,6 +3740,16 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeChar)
 
+    def test_enumerate_startindex(self):
+        def f():
+            for i, x in enumerate(['a', 'b', 'c', 'd'], 5):
+                if i == 7:
+                    return x
+            return '?'
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeChar)
+
     def test_context_manager(self):
         class C:
             def __init__(self):
