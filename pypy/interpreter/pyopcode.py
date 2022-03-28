@@ -1959,21 +1959,21 @@ def _dict_merge(space, w_dict, w_item):
 @jit.look_inside_iff(lambda space, w_dict, w_item, unroll_safe: unroll_safe)
 def _dict_merge_loop(space, w_dict, w_item, unroll_safe):
     try:
-        w_iterator = space.iter(space.call_method(w_item, "items"))
+        w_iterator = space.iter(space.call_method(w_item, "keys"))
     except OperationError as e:
-        if not e.match(space, space.w_TypeError):
+        if not e.match(space, space.w_AttributeError):
             raise
         raise oefmt(space.w_TypeError,
                     "argument after ** must be a mapping, not %T",
                     w_item)
     while True:
         try:
-            w_nextitem = space.next(w_iterator)
+            w_key = space.next(w_iterator)
         except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             break
-        w_key, w_value = space.fixedview_unroll(w_nextitem, 2)
+        w_value = space.getitem(w_item, w_key)
         if space.contains_w(w_dict, w_key):
             raise oefmt(space.w_TypeError,
                 "got multiple values for keyword argument %R",
