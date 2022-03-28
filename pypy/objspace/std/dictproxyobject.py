@@ -57,6 +57,17 @@ class W_DictProxyObject(W_Root):
         space.call_method(w_copyself, "update", w_other)
         return w_copyself
 
+    def descr_ror(self, space, w_other):
+        if isinstance(w_other, W_DictProxyObject):
+            w_other = w_other.w_mapping
+        if not space.isinstance_w(w_other, space.w_dict):
+            return space.w_NotImplemented
+        return space.call_method(w_other, "__or__", self.w_mapping)
+
+    def descr_ior(self, space, w_other):
+        raise oefmt(space.w_TypeError,
+            "'|=' is not supported by mappingproxy; use '|' instead")
+
     @unwrap_spec(w_default=WrappedDefault(None))
     def get_w(self, space, w_key, w_default):
         return space.call_method(self.w_mapping, "get", w_key, w_default)
@@ -100,6 +111,8 @@ W_DictProxyObject.typedef = TypeDef(
     __str__=interp2app(W_DictProxyObject.descr_str),
     __repr__=interp2app(W_DictProxyObject.descr_repr),
     __or__=interp2app(W_DictProxyObject.descr_or),
+    __ror__=interp2app(W_DictProxyObject.descr_ror),
+    __ior__=interp2app(W_DictProxyObject.descr_ior),
     __reversed__ = interp2app(W_DictProxyObject.descr_reversed),
     __class_getitem__ = interp2app(
         generic_alias_class_getitem, as_classmethod=True),
