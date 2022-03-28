@@ -1217,7 +1217,7 @@ class Statement(object):
             param = param.encode("utf-8")
             rc = _lib.sqlite3_bind_text(self._statement, idx, param,
                                         len(param), _SQLITE_TRANSIENT)
-        elif isinstance(param, (buffer, bytes)):
+        elif isinstance(param, (buffer, bytes, bytearray)):
             param = bytes(param)
             rc = _lib.sqlite3_bind_blob(self._statement, idx, param,
                                         len(param), _SQLITE_TRANSIENT)
@@ -1424,7 +1424,11 @@ def _function_callback(real_cb, context, nargs, c_params):
         msg = b"user-defined function raised exception"
         _lib.sqlite3_result_error(context, msg, len(msg))
     else:
-        _convert_result(context, val)
+        try:
+            _convert_result(context, val)
+        except Exception:
+            msg = b"user-defined function raised exception"
+            _lib.sqlite3_result_error(context, msg, len(msg))
 
 converters = {}
 adapters = {}
