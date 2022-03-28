@@ -1205,7 +1205,12 @@ class Statement(object):
             if -2147483648 <= param <= 2147483647:
                 rc = _lib.sqlite3_bind_int(self._statement, idx, param)
             else:
-                rc = _lib.sqlite3_bind_int64(self._statement, idx, param)
+                try:
+                    rc = _lib.sqlite3_bind_int64(self._statement, idx, param)
+                except OverflowError:
+                    raise OverflowError(
+                        "Python int too large to convert to SQLite INTEGER"
+                    )
         elif isinstance(param, float):
             rc = _lib.sqlite3_bind_double(self._statement, idx, param)
         elif isinstance(param, str):
