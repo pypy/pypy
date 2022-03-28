@@ -346,6 +346,10 @@ class W_UnicodeObject(W_Root):
         assert isinstance(w_other, W_UnicodeObject)
         return self._utf8 == w_other._utf8
 
+    def eq_unwrapped(self, other):
+        # for argument.py
+        return self._utf8 == other
+
     def descr_eq(self, space, w_other):
         try:
             res = self._utf8 == self.convert_arg_to_w_unicode(space, w_other,
@@ -407,17 +411,13 @@ class W_UnicodeObject(W_Root):
         return space.newbool(res)
 
     def _parse_format_arg(self, space, w_kwds, __args__):
-        for i in range(len(__args__.keywords)):
-            try:     # pff
-                arg = __args__.keywords[i]
-            except UnicodeDecodeError:
-                continue   # uh, just skip that
-            space.setitem(w_kwds, space.newtext(arg),
-                          __args__.keywords_w[i])
+        for i in range(len(__args__.keyword_names_w)):
+            w_arg = __args__.keyword_names_w[i]
+            space.setitem(w_kwds, w_arg, __args__.keywords_w[i])
 
     def descr_format(self, space, __args__):
         w_kwds = space.newdict()
-        if __args__.keywords:
+        if __args__.keyword_names_w:
             self._parse_format_arg(space, w_kwds, __args__)
         return newformat.format_method(space, self, __args__.arguments_w,
                                        w_kwds, True)

@@ -6,9 +6,8 @@ from pypy.objspace.std.listobject import (
     ListStrategy, UNROLL_CUTOFF, W_ListObject, ObjectListStrategy)
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t, PyObject, PyObjectP,
-    generic_cpy_call)
-from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
-from pypy.module.cpyext.pyobject import as_pyobj, incref
+    generic_cpy_call, PyVarObject, PyObject)
+from pypy.module.cpyext.pyobject import make_ref, from_ref, as_pyobj, incref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import tupleobject
 
@@ -91,8 +90,8 @@ def PySequence_Fast_GET_SIZE(space, py_obj):
     py_obj = rffi.cast(PyObject, py_obj)
     if PyTuple_Check(space, py_obj):
         from pypy.module.cpyext.tupleobject import PyTupleObject
-        py_tuple = rffi.cast(PyTupleObject, py_obj)
-        return py_tuple.c_ob_size
+        py_varobj = rffi.cast(PyVarObject, py_obj)
+        return py_varobj.c_ob_size
     else:
         from pypy.module.cpyext.listobject import PyList_GET_SIZE
         w_obj = from_ref(space, py_obj)

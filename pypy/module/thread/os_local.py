@@ -78,7 +78,7 @@ class Local(W_Root):
     def descr_local__new__(space, w_subtype, __args__):
         from pypy.objspace.std.typeobject import _precheck_for_new
         w_subtype = _precheck_for_new(space, w_subtype)
-        if __args__.arguments_w or __args__.keywords:
+        if __args__.arguments_w or __args__.keyword_names_w:
             w_parent_init, _ = space.lookup_in_type_where(w_subtype, '__init__')
             if w_parent_init is space.w_object:
                 raise oefmt(space.w_TypeError,

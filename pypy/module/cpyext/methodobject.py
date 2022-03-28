@@ -50,15 +50,15 @@ def cfunction_dealloc(space, py_obj):
     _dealloc(space, py_obj)
 
 def w_kwargs_from_args(space, __args__):
-    if __args__.keywords is None:
+    if __args__.keyword_names_w is None:
         return None
     # CCC: we should probably have a @jit.look_inside_iff if the
     # keyword count is constant, as we do in Arguments.unpack
     w_kwargs = space.newdict()
-    for i in range(len(__args__.keywords)):
-        key = __args__.keywords[i]
+    for i in range(len(__args__.keyword_names_w)):
+        w_key = __args__.keyword_names_w[i]
         w_obj = __args__.keywords_w[i]
-        space.setitem(w_kwargs, space.newtext(key), w_obj)
+        space.setitem(w_kwargs, w_key, w_obj)
     return w_kwargs
 
 def w_fastcall_args_from_args(space, __args__):
@@ -66,9 +66,9 @@ def w_fastcall_args_from_args(space, __args__):
     # keyword arguments into a single tuple object (to be passed raw)
     state = space.fromcache(State)
 
-    if __args__.keywords is not None and len(__args__.keywords) > 0:
+    if __args__.keyword_names_w is not None and len(__args__.keyword_names_w) > 0:
         py_args = tuple_from_args_w(space, __args__.arguments_w + __args__.keywords_w)
-        w_kwnames = space.newtuple([space.newtext(k) for k in __args__.keywords])
+        w_kwnames = space.newtuple(__args__.keyword_names_w)
     else:
         py_args = tuple_from_args_w(space, __args__.arguments_w)
         w_kwnames = None
@@ -125,7 +125,7 @@ class W_PyCFunctionObject(W_Root):
     def call(self, space, w_self, __args__):
         flags = self.flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST)
         length = len(__args__.arguments_w)
-        if not flags & METH_KEYWORDS and __args__.keywords:
+        if not flags & METH_KEYWORDS and __args__.keyword_names_w:
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
         elif flags & METH_FASTCALL:
@@ -325,7 +325,7 @@ class W_PyCWrapperObject(W_Root):
         if length != arity:
             raise oefmt(self.space.w_TypeError, "expected %d arguments, got %d",
                         arity, length)
-        if __args__.keywords:
+        if __args__.keyword_names_w:
             raise oefmt(self.space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.method_name)
@@ -335,7 +335,7 @@ class W_PyCWrapperObject(W_Root):
         if not min <= length <= max:
             raise oefmt(self.space.w_TypeError, "expected %d-%d arguments, got %d",
                         min, max, length)
-        if __args__.keywords:
+        if __args__.keyword_names_w:
             raise oefmt(self.space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.method_name)
@@ -344,6 +344,17 @@ class W_PyCWrapperObject(W_Root):
         return self.space.newtext("<slot wrapper '%s' of '%s' objects>" %
                                   (self.method_name,
                                    self.w_objclass.name))
+
+    def descr_get_doc(self, space):
+        py_obj = make_ref(space, self)
+        py_methoddescr = cts.cast('PyWrapperDescrObject*', py_obj)
+        if py_methoddescr.c_d_base and py_methoddescr.c_d_base.c_doc:
+            doc = rffi.constcharp2str(py_methoddescr.c_d_base.c_doc)
+        else:
+            doc = self.doc
+        if doc:
+            return space.newtext(doc)
+        return space.w_None
 
 class CMethod(_Method):
     # Differentiate this from an app-level class Method
@@ -435,8 +446,7 @@ W_PyCWrapperObject.typedef = TypeDef(
     __get__ = interp2app(cmethod_descr_get),
     __name__ = interp_attrproperty('method_name', cls=W_PyCWrapperObject,
         wrapfn="newtext_or_none"),
-    __doc__ = interp_attrproperty('doc', cls=W_PyCWrapperObject,
-        wrapfn="newtext_or_none"),
+    __doc__ = GetSetProperty(W_PyCWrapperObject.descr_get_doc),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCWrapperObject),
     __repr__ = interp2app(W_PyCWrapperObject.descr_method_repr),
     # XXX missing: __getattribute__

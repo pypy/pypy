@@ -8,7 +8,7 @@ from pypy.module.cpyext.bytesobject import (
     new_empty_str, PyBytesObject, _PyBytes_Resize, PyBytes_Concat,
     _PyBytes_Eq, PyBytes_ConcatAndDel, _PyBytes_Join)
 from pypy.module.cpyext.api import (PyObjectP, PyObject, Py_ssize_tP,
-                  Py_buffer, Py_bufferP, generic_cpy_call)
+    Py_buffer, Py_bufferP, generic_cpy_call, PyVarObject)
 from pypy.module.cpyext.pyobject import decref, from_ref, make_ref
 from pypy.module.cpyext.buffer import PyObject_AsCharBuffer
 from pypy.module.cpyext.unicodeobject import (PyUnicode_AsEncodedObject,
@@ -367,10 +367,10 @@ class TestBytes(BaseApiTest):
              """),
             ('has_nb_add', "METH_O",
              '''
-                if (args->ob_type->tp_as_number == NULL) {
+                if (Py_TYPE(args)->tp_as_number == NULL) {
                     Py_RETURN_FALSE;
                 }
-                if (args->ob_type->tp_as_number->nb_add == NULL) {
+                if (Py_TYPE(args)->tp_as_number->nb_add == NULL) {
                     Py_RETURN_FALSE;
                 }
                 Py_RETURN_TRUE;
@@ -473,14 +473,16 @@ class TestBytes(BaseApiTest):
         ar[0] = rffi.cast(PyObject, py_str)
         _PyBytes_Resize(space, ar, 3)
         py_str = rffi.cast(PyBytesObject, ar[0])
-        assert py_str.c_ob_size == 3
+        py_obj = rffi.cast(PyVarObject, ar[0])
+        assert py_obj.c_ob_size == 3
         assert py_str.c_ob_sval[1] == 'b'
         assert py_str.c_ob_sval[3] == '\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_str)
         _PyBytes_Resize(space, ar, 10)
         py_str = rffi.cast(PyBytesObject, ar[0])
-        assert py_str.c_ob_size == 10
+        py_obj = rffi.cast(PyVarObject, ar[0])
+        assert py_obj.c_ob_size == 10
         assert py_str.c_ob_sval[1] == 'b'
         assert py_str.c_ob_sval[10] == '\x00'
         decref(space, ar[0])
@@ -488,9 +490,9 @@ class TestBytes(BaseApiTest):
 
     def test_string_buffer(self, space):
         py_str = new_empty_str(space, 10)
-        c_buf = py_str.c_ob_type.c_tp_as_buffer
-        assert c_buf
         py_obj = rffi.cast(PyObject, py_str)
+        c_buf = py_obj.c_ob_type.c_tp_as_buffer
+        assert c_buf
         size = rffi.sizeof(Py_buffer)
         ref = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw', zero=True)
         ref = rffi.cast(Py_bufferP, ref)

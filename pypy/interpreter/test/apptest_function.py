@@ -699,3 +699,11 @@ def global_inner_has_pos_only():
 
 def test_posonly_annotations_crash():
     assert global_inner_has_pos_only().__annotations__ == {"x": int}
+
+def test_duplicate_key_kwargs():
+    def f(**d): pass
+    class A:
+        def keys(self): return ['a', 'a', 'b']
+        def __getitem__(self, key): 1
+    with pytest.raises(TypeError):
+        f(**A())

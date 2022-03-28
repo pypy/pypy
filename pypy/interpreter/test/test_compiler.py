@@ -358,7 +358,7 @@ class TestPythonAstCompiler:
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
-        filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
+        filter_arg = Arguments(space, [ space.wrap('error') ], [space.newtext("module")],
                                [space.wrap("<tmp>")])
 
         for code in ('''
@@ -390,7 +390,7 @@ def wrong3():
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
-        filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
+        filter_arg = Arguments(space, [ space.wrap('error') ], [space.newtext("module")],
                                [space.wrap("<tmp>")])
         for code in ['''
 def testing():
@@ -805,7 +805,7 @@ with somtehing as stuff:
             py.test.fail("Did not raise")
 
     def test_signature_kwargname(self):
-        from pypy.interpreter.pycode import cpython_code_signature
+        from pypy.interpreter.pycode import make_signature
         from pypy.interpreter.signature import Signature
 
         def find_func(code):
@@ -816,21 +816,21 @@ with somtehing as stuff:
         snippet = 'def f(a, b, m=1, n=2, **kwargs): pass'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
-        sig = cpython_code_signature(co)
-        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', [])
+        sig = make_signature(co)
+        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs')
 
         snippet = 'def f(a, b, *, m=1, n=2, **kwargs): pass'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
-        sig = cpython_code_signature(co)
-        assert sig == Signature(['a', 'b'], None, 'kwargs', ['m', 'n'])
+        sig = make_signature(co)
+        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', 2)
 
         # a variant with varargname, which was buggy before issue2996
         snippet = 'def f(*args, offset=42): pass'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
-        sig = cpython_code_signature(co)
-        assert sig == Signature([], 'args', None, ['offset'])
+        sig = make_signature(co)
+        assert sig == Signature(['offset'], 'args', None, 1)
 
 
 class AppTestCompiler(object):

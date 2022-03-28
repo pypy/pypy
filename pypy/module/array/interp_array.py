@@ -29,7 +29,7 @@ def w_array(space, w_cls, typecode, __args__):
     typecode = typecode[0]
 
     if space.is_w(w_cls, space.gettypeobject(W_ArrayBase.typedef)):
-        if __args__.keywords:
+        if __args__.keyword_names_w:
             raise oefmt(space.w_TypeError,
                         "array.array() does not take keyword arguments")
 
