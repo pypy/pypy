@@ -1130,6 +1130,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # the PEP requires that certain parts of the target be evaluated at runtime
         # to avoid silent annotation-related errors
         if isinstance(target, ast.Name):
+            self.check_forbidden_name(target.id, assign)
             # if it's just a simple name and we're not in a function, store
             # the annotation in __annotations__
             if assign.simple and not isinstance(self.scope, symtable.FunctionScope):

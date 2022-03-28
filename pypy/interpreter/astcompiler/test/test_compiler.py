@@ -2076,6 +2076,9 @@ x = brokenargs(c=3)
     def test_while_false_break(self):
         self.st("x=1\nwhile False: break", "x", 1)
 
+    def test_cant_annotate_debug(self):
+        self.error_test("__debug__ : int", SyntaxError, "cannot assign to __debug__")
+
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
