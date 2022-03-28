@@ -901,6 +901,7 @@ class TestAstBuilding:
             "for %s in x: pass",
             "x.%s = y",
             "x.%s += y",
+            "%s += 1",
         )
         for name in "__debug__",:
             for template in invalid:

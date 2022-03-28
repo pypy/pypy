@@ -1787,6 +1787,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if misc.check_forbidden_name(self.space, name):
             if ctx == ast.Store:
                 self.error("cannot assign to " + name, node)
+            elif ctx == ast.Load:
+                # XXX not in CPython, but needed for __debug__ += 1
+                pass
             else:
                 assert ctx == ast.Del
                 self.error("cannot delete " + name, node)
