@@ -15,7 +15,7 @@ The PyPy team is proud to release version 7.3.9 of PyPy. This is a security
 release to match the recent `CPython release`_ and updates the portable pypy
 tarballs with ``bzip2 1.0.8``, ``openssl1.1.1n``, and ``libexpat 2.4.7``. Along
 the way this release fixes some issues discovered after the 7.3.8 release and
-updates ``sqlite3`` to 3.38.0. It includes:
+updates ``sqlite3`` to 3.38.2. It includes:
 
   - PyPy2.7, which is an interpreter supporting the syntax and the features of
     Python 2.7 including the stdlib for CPython 2.7.18+ (the ``+`` is for
@@ -39,7 +39,7 @@ releases. Highlights of the release, since the release of 7.3.8 in February 2022
 include:
 
   - Fixed some failing stdlib tests on PyPy3.9
-  - Update the bundled libexpat to 2.4.6 and sqlite3 to 3.38.0
+  - Update the bundled libexpat to 2.4.6 and sqlite3 to 3.38.2
 
 We recommend updating. You can find links to download the v7.3.9 releases here:
 
@@ -107,7 +107,6 @@ releases for those platforms.
 Known Issues with PyPy3.9
 =========================
 
-- There is still a known `speed regression`_ around ``**kwargs`` handling
 - We slightly modified the concurrent future's ``ProcessExcecutorPool`` to
   start all the worker processes when the first task is received (like on
   Python3.8) to avoid an apparent race condition when using ``fork`` and
@@ -120,7 +119,7 @@ Changes shared across versions
 -------------------------------
 - Update the bundled libexpat to 2.4.7
 - Update the bundled bzip2 to 1.0.8
-- Update the bundled sqlite3 to 3.38.0 (issue 3690_).
+- Update the bundled sqlite3 to 3.38.2 (issues 3690_, 3714_).
 - Update the bundled openssl to 1.1.1n
 - Add more aliases for pypy: pypy2.exe, pypy2.7.exe, python2.7.exe on windows
   for pypy2.7 and comparable aliases on posix and other pythons (issues 3693_
@@ -153,9 +152,11 @@ Python 3.8+ C-API (cpyext) fixes
 .. _3323: https://foss.heptapod.net/pypy/pypy/-/issues/3323
 .. _3650: https://foss.heptapod.net/pypy/pypy/-/issues/3650
 .. _3686: https://foss.heptapod.net/pypy/pypy/-/issues/3686
+.. _3690: https://foss.heptapod.net/pypy/pypy/-/issues/3690
 .. _3693: https://foss.heptapod.net/pypy/pypy/-/issues/3693
 .. _3696: https://foss.heptapod.net/pypy/pypy/-/issues/3696
 .. _3703: https://foss.heptapod.net/pypy/pypy/-/issues/3703
+.. _3714: https://foss.heptapod.net/pypy/pypy/-/issues/3714
 .. _bpo35545: https://bugs.python.org/issue35545
 .. _errcheck: https://docs.python.org/3/library/ctypes.html#ctypes._FuncPtr.errcheck
 .. _`speed regression`: https://foss.heptapod.net/pypy/pypy/-/issues/3649
