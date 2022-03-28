@@ -432,6 +432,8 @@ class StartupTests:
     def test_everyone_has___loader__(self):
         # Issue #17098: all modules should have __loader__ defined.
         for name, module in sys.modules.items():
+            if name in ('_frozen_importlib', 'zipimport'):
+                continue
             if isinstance(module, types.ModuleType):
                 with self.subTest(name=name):
                     self.assertTrue(hasattr(module, '__loader__'),
@@ -443,6 +445,8 @@ class StartupTests:
 
     def test_everyone_has___spec__(self):
         for name, module in sys.modules.items():
+            if name in ('_frozen_importlib', 'zipimport'):
+                continue
             if isinstance(module, types.ModuleType):
                 with self.subTest(name=name):
                     self.assertTrue(hasattr(module, '__spec__'))
