@@ -223,9 +223,9 @@ def fstring_find_expr(astbuilder, fstr, token, rec):
                     continue
                 # don't get out of the loop for just < or > if they are single
                 # chars (ie not part of a two-char token).
-                if ch in "<>":
-                    i += 1
-                    continue
+            if ch in "<>":
+                i += 1
+                continue
             # Normal way out of this loop.
             break
         elif ch in ']})':
