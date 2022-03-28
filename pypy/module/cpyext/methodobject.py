@@ -296,6 +296,17 @@ class W_PyCWrapperObject(W_Root):
                                   (self.method_name,
                                    self.w_objclass.name))
 
+    def descr_get_doc(self, space):
+        py_obj = make_ref(space, self)
+        py_methoddescr = cts.cast('PyWrapperDescrObject*', py_obj)
+        if py_methoddescr.c_d_base and py_methoddescr.c_d_base.c_doc:
+            doc = rffi.charp2str(py_methoddescr.c_d_base.c_doc)
+        else:
+            doc = self.doc
+        if doc:
+            return space.newtext(doc)
+        return space.w_None
+
 
 def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
     asking_for_bound = (space.is_none(w_cls) or
@@ -354,8 +365,7 @@ W_PyCWrapperObject.typedef = TypeDef(
     __get__ = interp2app(cmethod_descr_get),
     __name__ = interp_attrproperty('method_name', cls=W_PyCWrapperObject,
         wrapfn="newtext_or_none"),
-    __doc__ = interp_attrproperty('doc', cls=W_PyCWrapperObject,
-        wrapfn="newtext_or_none"),
+    __doc__ = GetSetProperty(W_PyCWrapperObject.descr_get_doc),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCWrapperObject),
     __repr__ = interp2app(W_PyCWrapperObject.descr_method_repr),
     # XXX missing: __getattribute__
