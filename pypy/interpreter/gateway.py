@@ -144,9 +144,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     # checks for checking interp2app func argument names wrt unwrap_spec
     # and synthetizing an app-level signature
 
-    def __init__(self, original_sig):
-        self.func = original_sig.func
-        self.orig_arg = iter(original_sig.argnames).next
+    def __init__(self, func, argnames):
+        self.func = func
+        self.orig_arg = iter(argnames).next
 
     def visit_self(self, cls, app_sig):
         self.visit__W_Root(cls, app_sig)
@@ -757,10 +757,9 @@ class BuiltinCode(Code):
             assert descrmismatch is None, (
                 "descrmismatch without a self-type specified")
 
-        orig_sig = SignatureBuilder(func, argnames, varargname, kwargname)
         app_sig = SignatureBuilder(func)
 
-        UnwrapSpec_Check(orig_sig).apply_over(unwrap_spec, app_sig)
+        UnwrapSpec_Check(func, argnames).apply_over(unwrap_spec, app_sig)
         self.sig = app_sig.signature()
         argnames = self.sig.argnames
         varargname = self.sig.varargname
