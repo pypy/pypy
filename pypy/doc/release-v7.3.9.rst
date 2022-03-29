@@ -2,15 +2,6 @@
 PyPy v7.3.9 security release
 ============================
 
-..
-      Changelog up to commit caa2915dcf05
-
-.. note::
-        This is a pre-release announcement. When the release actually happens, it
-     will be announced on the `PyPy blog`_
-
-.. _`PyPy blog`: https://pypy.org/blog
-
 The PyPy team is proud to release version 7.3.9 of PyPy. This is a security
 release to match the recent `CPython release`_ and updates the portable pypy
 tarballs with ``bzip2 1.0.8``, ``openssl1.1.1n``, and ``libexpat 2.4.7``. Along
