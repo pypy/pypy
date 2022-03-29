@@ -559,6 +559,25 @@ PyModule_AddObject(PyObject *m, const char *name, PyObject *o)
 }
 
 int
+PyModule_AddType(PyObject *module, PyTypeObject *type)
+{
+    if (PyType_Ready(type) < 0) {
+        return -1;
+    }
+
+    const char *name = _PyType_Name(type);
+    assert(name != NULL);
+
+    Py_INCREF(type);
+    if (PyModule_AddObject(module, name, (PyObject *)type) < 0) {
+        Py_DECREF(type);
+        return -1;
+    }
+
+    return 0;
+}
+
+int
 PyModule_AddIntConstant(PyObject *m, const char *name, long value)
 {
     PyObject *o = PyLong_FromLong(value);

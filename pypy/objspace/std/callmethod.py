@@ -108,10 +108,10 @@ def CALL_METHOD_KW(f, n_arguments, *ignored):
     # the immutability of the tuple is lost
     w_tup_varnames = space.interp_w(W_AbstractTupleObject, f.popvalue())
     n_keywords = space.len_w(w_tup_varnames)
-    keywords = [None] * n_keywords
+    keyword_names_w = [None] * n_keywords
     keywords_w = [None] * n_keywords
     for i in range(n_keywords):
-        keywords[i] = space.text_w(w_tup_varnames.getitem(space, i))
+        keyword_names_w[i] = w_tup_varnames.getitem(space, i)
         w_value = f.peekvalue(n_keywords - 1 - i)
         keywords_w[i] = w_value
     f.dropvalues(n_keywords)
@@ -122,7 +122,7 @@ def CALL_METHOD_KW(f, n_arguments, *ignored):
         f.popvalue_maybe_none()    # removes w_self, which is None
     w_callable = f.popvalue()
     args = f.argument_factory(
-            arguments, keywords, keywords_w, None, None,
+            arguments, keyword_names_w, keywords_w, None, None,
             methodcall=w_self is not None, w_function=w_callable)
     if f.get_is_being_profiled() and function.is_builtin_code(w_callable):
         w_result = f.space.call_args_and_c_profile(f, w_callable, args)

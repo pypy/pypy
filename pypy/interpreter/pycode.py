@@ -38,35 +38,22 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 320 # bump it by 16
+pypy_incremental_magic = 336 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
 default_magic = pypy_incremental_magic | (ord('\r')<<16) | (ord('\n')<<24)
 
-# cpython_code_signature helper
-def cpython_code_signature(code):
+def make_signature(code):
     """Return a Signature instance."""
-    argcount = code.co_argcount
+    kwonlyargcount = code.co_kwonlyargcount
+    argcount = code.co_argcount + kwonlyargcount
     varnames = code.co_varnames
-    if we_are_translated():
-        posonlyargcount = code.co_posonlyargcount
-        kwonlyargcount = code.co_kwonlyargcount
-    else:
-        # for compatibility with CPython 2.7 code objects
-        # XXX really?
-        posonlyargcount = getattr(code, 'co_posonlyargcount', 0)
-        kwonlyargcount = getattr(code, 'co_kwonlyargcount', 0)
+    posonlyargcount = code.co_posonlyargcount
     assert argcount >= 0     # annotator hint
     assert kwonlyargcount >= 0
     assert posonlyargcount >= 0
     argnames = list(varnames[:argcount])
-    if kwonlyargcount > 0:
-        kwonlyargs = list(varnames[argcount:argcount + kwonlyargcount])
-        argcount += kwonlyargcount
-        assert posonlyargcount >= -1
-    else:
-        kwonlyargs = None
     if code.co_flags & CO_VARARGS:
         varargname = varnames[argcount]
         argcount += 1
@@ -76,7 +63,7 @@ def cpython_code_signature(code):
         kwargname = code.co_varnames[argcount]
     else:
         kwargname = None
-    return Signature(argnames, varargname, kwargname, kwonlyargs, posonlyargcount)
+    return Signature(argnames, varargname, kwargname, kwonlyargcount, posonlyargcount)
 
 class CodeHookCache(object):
     def __init__(self, space):
@@ -150,7 +137,7 @@ class PyCode(eval.Code):
         self.w_globals = None
         self.hidden_applevel = hidden_applevel
         self.magic = magic
-        self._signature = cpython_code_signature(self)
+        self._signature = make_signature(self)
         self._initialize()
         self._init_ready()
         self.new_code_hook()

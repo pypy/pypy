@@ -21,10 +21,10 @@ we have it for compatibility with CPython.
 #define staticforward static
 
 #define PyObject_HEAD_INIT(type)	\
-	1, 0, type,
+	{ 1, 0, type },
 
 #define PyVarObject_HEAD_INIT(type, size)	\
-	PyObject_HEAD_INIT(type) size,
+	{ PyObject_HEAD_INIT(type) size },
 
 /* Cast argument to PyVarObject* type. */
 #define _PyVarObject_CAST(op) ((PyVarObject*)(op))
@@ -201,8 +201,6 @@ PyAPI_FUNC(PyObject*) PyType_FromSpec(PyType_Spec*);
 PyAPI_FUNC(PyObject *) PyType_GetModule(struct _typeobject *);
 PyAPI_FUNC(void *) PyType_GetModuleState(struct _typeobject *);
 
-
-
 /* Flag bits for printing: */
 #define Py_PRINT_RAW    1       /* No string quotes etc. */
 
@@ -311,6 +309,10 @@ PyAPI_FUNC(void*) PyType_GetSlot(PyTypeObject*, int);
 #define PyType_Check(op) \
     PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
 #define PyType_CheckExact(op) (Py_TYPE(op) == &PyType_Type)
+
+
+PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
+
 
 /* objimpl.h ----------------------------------------------*/
 #define PyObject_New(type, typeobj) \

@@ -179,6 +179,27 @@ def test_nested_struct():
     assert isinstance(bar, lltype.Struct)
     hash(bar)  # bar is hashable
 
+def test_nested_struct_2():
+    cdef = """
+    typedef struct _object {
+        int ob_refcnt;
+        struct _typeobject *ob_type;
+    } PyObject;
+
+    typedef struct  _varobject {
+        PyObject ob_base;
+        int ob_size;
+    } PyVarObject;
+
+    typedef struct _typeobject {
+        PyVarObject ob_base;
+    } PyTypeObject;
+    """
+    cts = parse_source(cdef)
+    bar = cts.gettype('PyTypeObject')
+    assert isinstance(bar, lltype.Struct)
+    hash(bar)  # bar is hashable
+
 def test_named_struct():
     cdef = """
     struct foo {

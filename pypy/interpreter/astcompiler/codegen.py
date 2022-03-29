@@ -1130,6 +1130,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # the PEP requires that certain parts of the target be evaluated at runtime
         # to avoid silent annotation-related errors
         if isinstance(target, ast.Name):
+            self.check_forbidden_name(target.id, assign)
             # if it's just a simple name and we're not in a function, store
             # the annotation in __annotations__
             if assign.simple and not isinstance(self.scope, symtable.FunctionScope):
@@ -1786,6 +1787,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if misc.check_forbidden_name(self.space, name):
             if ctx == ast.Store:
                 self.error("cannot assign to " + name, node)
+            elif ctx == ast.Load:
+                # XXX not in CPython, but needed for __debug__ += 1
+                pass
             else:
                 assert ctx == ast.Del
                 self.error("cannot delete " + name, node)
@@ -2198,6 +2202,17 @@ class CallCodeGenerator(object):
             self.have_kwargs = True
 
     def _push_kwargs(self):
+        if len(self.keywords) == 1:
+            kw = self.keywords[0]
+            assert isinstance(kw, ast.keyword)
+            if kw.arg is None:
+                # exactly a **kwarg, no need to copy dicts around
+                # (cpython cannot do this, because the call machinery really
+                # *needs* a dict. but in argument.py deals with non-dicts just
+                # fine)
+                kw.value.walkabout(self.codegenerator)
+                self.have_kwargs = True
+                return
         for kw in self.keywords:
             assert isinstance(kw, ast.keyword)
             self.codegenerator.check_forbidden_name(kw.arg, kw)

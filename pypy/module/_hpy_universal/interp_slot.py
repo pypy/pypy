@@ -30,7 +30,7 @@ class W_SlotWrapper(W_Root):
         if length != arity:
             raise oefmt(space.w_TypeError, "expected %d arguments, got %d",
                         arity, length)
-        if __args__.keywords:
+        if __args__.keyword_names_w:
             raise oefmt(space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.name)
@@ -40,7 +40,7 @@ class W_SlotWrapper(W_Root):
         if not min <= length <= max:
             raise oefmt(space.w_TypeError, "expected %d-%d arguments, got %d",
                         min, max, length)
-        if __args__.keywords:
+        if __args__.keyword_names_w:
             raise oefmt(space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.name)
@@ -322,12 +322,12 @@ class W_wrap_init(object):
                     args_h[i] = self.handles.new(__args__.arguments_w[i + 1])
                     i += 1
                 h_kw = 0
-                if __args__.keywords:
+                if __args__.keyword_names_w:
                     w_kw = space.newdict()
-                    for i in range(len(__args__.keywords)):
-                        key = __args__.keywords[i]
+                    for i in range(len(__args__.keyword_names_w)):
+                        w_key = __args__.keyword_names_w[i]
                         w_value = __args__.keywords_w[i]
-                        space.setitem_str(w_kw, key, w_value)
+                        space.setitem(w_kw, w_key, w_value)
                     h_kw = self.handles.new(w_kw)
                 fptr = llapi.cts.cast('HPyFunc_initproc', self.cfuncptr)
                 try:

@@ -1328,40 +1328,6 @@ class __extend__(pyframe.PyFrame):
             next_instr = block.handle(self, unroller)
         return next_instr
 
-    @jit.unroll_safe
-    def call_function(self, oparg, w_starstar=None, has_vararg=False):
-        n_arguments = oparg & 0xff
-        n_keywords = (oparg>>8) & 0xff
-        if n_keywords:
-            keywords = [None] * n_keywords
-            keywords_w = [None] * n_keywords
-            while True:
-                n_keywords -= 1
-                if n_keywords < 0:
-                    break
-                w_value = self.popvalue()
-                w_key = self.popvalue()
-                key = self.space.text_w(w_key)
-                keywords[n_keywords] = key
-                keywords_w[n_keywords] = w_value
-        else:
-            keywords = None
-            keywords_w = None
-        if has_vararg:
-            w_star = self.popvalue()
-        else:
-            w_star = None
-        arguments = self.popvalues(n_arguments)
-        w_function  = self.popvalue()
-        args = self.argument_factory(arguments, keywords, keywords_w, w_star,
-                                     w_starstar, w_function=w_function)
-        if self.get_is_being_profiled() and function.is_builtin_code(w_function):
-            w_result = self.space.call_args_and_c_profile(self, w_function,
-                                                          args)
-        else:
-            w_result = self.space.call_args(w_function, args)
-        self.pushvalue(w_result)
-
     def CALL_FUNCTION(self, oparg, next_instr):
         # Only positional arguments
         nargs = oparg & 0xff
@@ -1380,17 +1346,17 @@ class __extend__(pyframe.PyFrame):
         # the immutability of the tuple is lost
         w_tup_varnames = space.interp_w(W_AbstractTupleObject, self.popvalue())
         n_keywords = space.len_w(w_tup_varnames)
-        keywords = [None] * n_keywords
+        keyword_names_w = [None] * n_keywords
         keywords_w = [None] * n_keywords
         for i in range(n_keywords):
-            keywords[i] = space.text_w(w_tup_varnames.getitem(space, i))
+            keyword_names_w[i] = w_tup_varnames.getitem(space, i)
             w_value = self.peekvalue(n_keywords - 1 - i)
             keywords_w[i] = w_value
         self.dropvalues(n_keywords)
         n_arguments -= n_keywords
         arguments = self.popvalues(n_arguments)
         w_function  = self.popvalue()
-        args = self.argument_factory(arguments, keywords, keywords_w, None, None,
+        args = self.argument_factory(arguments, keyword_names_w, keywords_w, None, None,
                                      w_function=w_function)
         if self.get_is_being_profiled() and function.is_builtin_code(w_function):
             w_result = self.space.call_args_and_c_profile(self, w_function,
@@ -1965,50 +1931,50 @@ def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
     return w_globals, w_locals
 
 def _dict_merge(space, w_dict, w_item):
+    # xxx maybe this function should just be in dictmultiobject.py
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject, update1
     l1 = space.len_w(w_dict)
     unroll_safe = jit.isvirtual(w_dict) and l1 < 10
     if not space.isinstance_w(w_dict, space.w_dict):
         raise oefmt(space.w_RuntimeError,
                     "expected a dict, got %T", w_dict)
+    assert isinstance(w_dict, W_DictMultiObject)
+    l2 = space.len_w(w_item)
     if not space.isinstance_w(w_item, space.w_dict):
         unroll_safe = False
         if not space.ismapping_w(w_item):
             raise oefmt(space.w_TypeError,
                         "argument after ** must be a mapping, not %T",
                         w_item)
-        try:
-            w_item = space.call_function(space.w_dict, w_item)
-        except OperationError as e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            raise oefmt(space.w_TypeError,
-                        "argument after ** must be a mapping, not %T",
-                        w_item)
-        l2 = space.len_w(w_item)
     else:
+        if l1 == 0:
+            update1(space, w_dict, w_item)
+            return
         l2 = space.len_w(w_item)
         unroll_safe = unroll_safe and jit.isvirtual(w_item) and l2 < 10
     if l2 == 0:
         return
-    if l1 == 0:
-        return space.call_method(w_dict, "update", w_item)
     _dict_merge_loop(space, w_dict, w_item, unroll_safe)
 
 @jit.look_inside_iff(lambda space, w_dict, w_item, unroll_safe: unroll_safe)
 def _dict_merge_loop(space, w_dict, w_item, unroll_safe):
-    w_iterator = space.iter(space.call_method(w_item, "items"))
+    try:
+        w_iterator = space.iter(space.call_method(w_item, "keys"))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        raise oefmt(space.w_TypeError,
+                    "argument after ** must be a mapping, not %T",
+                    w_item)
     while True:
         try:
-            w_nextitem = space.next(w_iterator)
+            w_key = space.next(w_iterator)
         except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             break
-        w_key, w_value = space.fixedview_unroll(w_nextitem, 2)
+        w_value = space.getitem(w_item, w_key)
         if space.contains_w(w_dict, w_key):
-            if not space.isinstance_w(w_key, space.w_unicode):
-                raise oefmt(space.w_TypeError,
-                        "keywords must be strings, not '%T'", w_key)
             raise oefmt(space.w_TypeError,
                 "got multiple values for keyword argument %R",
                 w_key)

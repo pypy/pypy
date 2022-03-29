@@ -2076,6 +2076,9 @@ x = brokenargs(c=3)
     def test_while_false_break(self):
         self.st("x=1\nwhile False: break", "x", 1)
 
+    def test_cant_annotate_debug(self):
+        self.error_test("__debug__ : int", SyntaxError, "cannot assign to __debug__")
+
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
@@ -2737,8 +2740,15 @@ class TestOptimizations:
 
         source = """def f(): x(**kwargs)"""
         counts = self.count_instructions(source)
-        assert ops.BUILD_TUPLE not in counts # LOAD_CONST used instead
         assert counts[ops.CALL_FUNCTION_EX] == 1
+        assert ops.DICT_MERGE not in counts
+        assert ops.BUILD_MAP not in counts
+
+        source = """def f(): x(a, b, c, **kwargs)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_FUNCTION_EX] == 1
+        assert ops.DICT_MERGE not in counts
+        assert ops.BUILD_MAP not in counts
 
         source = """def f(): x.m(a, b, c)"""
         counts = self.count_instructions(source)

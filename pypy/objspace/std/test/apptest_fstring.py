@@ -290,3 +290,13 @@ $}"""''')
     assert excinfo.value.offset == 6
     assert 'f-string: invalid non-printable character U+00A0' in str(excinfo.value)
 
+def test_fstring_escape_N_bug():
+    with raises(SyntaxError) as excinfo:
+        eval(r"f'\N '")
+    with raises(SyntaxError) as excinfo:
+        eval(r"f'\N  '")
+
+def test_fstring_no_closing_brace():
+    with raises(SyntaxError) as excinfo:
+        eval(r"f'{<'")
+    assert excinfo.value.msg == "f-string: expecting '}'"

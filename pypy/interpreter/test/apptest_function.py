@@ -750,3 +750,13 @@ def test_classmethod_of_other_descriptor():
     assert Class.outer() == 'eggs'
     assert Class().inner() == 'spam'
     assert Class().outer() == 'eggs'
+
+def test_duplicate_key_kwargs():
+    def f(**d): pass
+    class A:
+        def keys(self): return ['a', 'a', 'b']
+        def items(self): return [('a', None), ('a', None), ('b', None)]
+        def __getitem__(self, key): 1
+        def __len__(self): return 3
+    with pytest.raises(TypeError):
+        f(**A())

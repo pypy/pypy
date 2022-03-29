@@ -59,37 +59,37 @@ SyntaxError: cannot assign to __debug__
 Traceback (most recent call last):
 SyntaxError: cannot assign to __debug__
 
->>> f() = 1
+>>> f() = 1  # doctest: +ELLIPSIS 
 Traceback (most recent call last):
-SyntaxError: cannot assign to function call
+SyntaxError: cannot assign to function call ...
 
 >>> del f()
 Traceback (most recent call last):
 SyntaxError: cannot delete function call
 
->>> a + 1 = 2
+>>> a + 1 = 2  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to operator
+SyntaxError: cannot assign to operator...
 
->>> (x for x in x) = 1
+>>> (x for x in x) = 1  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to generator expression
+SyntaxError: cannot assign to generator expression...
 
->>> 1 = 1
+>>> 1 = 1  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to literal
+SyntaxError: cannot assign to literal...
 
->>> "abc" = 1
+>>> "abc" = 1  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to literal
+SyntaxError: cannot assign to literal...
 
->>> b"" = 1
+>>> b"" = 1  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to literal
+SyntaxError: cannot assign to literal...
 
->>> ... = 1
+>>> ... = 1  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to Ellipsis
+SyntaxError: cannot assign to Ellipsis...
 
 >>> `1` = 1
 Traceback (most recent call last):
@@ -112,9 +112,9 @@ SyntaxError: cannot assign to True
 Traceback (most recent call last):
 SyntaxError: cannot assign to __debug__
 
->>> (a, *True, c) = (1, 2, 3)
+>>> (a, *True, c) = (1, 2, 3)  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to True
+SyntaxError: ...
 
 >>> (a, *__debug__, c) = (1, 2, 3)
 Traceback (most recent call last):
@@ -179,9 +179,9 @@ SyntaxError: cannot assign to function call
 Traceback (most recent call last):
 SyntaxError: cannot assign to operator
 
->>> for (x, *(y, z.d())) in b: pass
+>>> for (x, *(y, z.d())) in b: pass  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to function call
+SyntaxError: ...
 
 >>> for a, b() in c: pass
 Traceback (most recent call last):
@@ -211,17 +211,17 @@ SyntaxError: cannot assign to function call
 Traceback (most recent call last):
 SyntaxError: cannot assign to operator
 
->>> with a as (x, *(y, z.d())): pass
+>>> with a as (x, *(y, z.d())): pass  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to function call
+SyntaxError: ...
 
 >>> with a as b, c as d(): pass
 Traceback (most recent call last):
 SyntaxError: cannot assign to function call
 
->>> with a as b
+>>> with a as b  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: ...
 
 >>> p = p =
 Traceback (most recent call last):
@@ -284,27 +284,27 @@ From ast_for_call():
 >>> L = range(10)
 >>> f(x for x in L)
 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
->>> f(x for x in L, 1)
+>>> f(x for x in L, 1)  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized if not sole argument
->>> f(x for x in L, y=1)
+SyntaxError: Generator expression must be parenthesized...
+>>> f(x for x in L, y=1)  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized if not sole argument
->>> f(x for x in L, *[])
+SyntaxError: Generator expression must be parenthesized...
+>>> f(x for x in L, *[])  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized if not sole argument
->>> f(x for x in L, **{})
+SyntaxError: Generator expression must be parenthesized...
+>>> f(x for x in L, **{})  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized if not sole argument
->>> f(L, x for x in L)
+SyntaxError: Generator expression must be parenthesized...
+>>> f(L, x for x in L)  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized if not sole argument
->>> f(x for x in L, y for y in L)
+SyntaxError: Generator expression must be parenthesized...
+>>> f(x for x in L, y for y in L)  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized if not sole argument
->>> f(x for x in L,)
+SyntaxError: Generator expression must be parenthesized...
+>>> f(x for x in L,)  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized if not sole argument
+SyntaxError: Generator expression must be parenthesized...
 >>> f((x for x in L), 1)
 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 >>> class C(x for x in L):  # doctest: +ELLIPSIS
@@ -523,7 +523,7 @@ uses a single data structure to keep track of try-finally and loops,
 so we need to be sure that a break is actually inside a loop.  If it
 isn't, there should be a syntax error.
 
-   >>> try:
+   >>> try:          # doctest: +ELLIPSIS
    ...     print(1)
    ...     break
    ...     print(2)
@@ -531,7 +531,7 @@ isn't, there should be a syntax error.
    ...     print(3)
    Traceback (most recent call last):
      ...
-   SyntaxError: 'break' outside loop
+   SyntaxError: 'break' ...
 
 Misuse of the nonlocal and global statement can lead to a few unique syntax errors.
 
@@ -611,23 +611,23 @@ This tests assignment-context; there was a bug in Python 2.5 where compiling
 a complex 'if' (one with 'elif') would fail to notice an invalid suite,
 leading to spurious errors.
 
-   >>> if 1:
+   >>> if 1:  # doctest: +ELLIPSIS
    ...   x() = 1
    ... elif 1:
    ...   pass
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call...
 
-   >>> if 1:
+   >>> if 1:  # doctest: +ELLIPSIS
    ...   pass
    ... elif 1:
    ...   x() = 1
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call...
 
-   >>> if 1:
+   >>> if 1: # doctest: +ELLIPSIS
    ...   x() = 1
    ... elif 1:
    ...   pass
@@ -635,9 +635,9 @@ leading to spurious errors.
    ...   pass
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call...
 
-   >>> if 1:
+   >>> if 1:  # doctest: +ELLIPSIS
    ...   pass
    ... elif 1:
    ...   x() = 1
@@ -645,9 +645,9 @@ leading to spurious errors.
    ...   pass
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call...
 
-   >>> if 1:
+   >>> if 1:  # doctest: +ELLIPSIS
    ...   pass
    ... elif 1:
    ...   pass
@@ -655,7 +655,7 @@ leading to spurious errors.
    ...   x() = 1
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call...
 
 Make sure that the old "raise X, Y[, Z]" form is gone:
    >>> raise X, Y
@@ -673,23 +673,23 @@ PyPy-specific extension
 >>> f(a=23, a=234)
 Traceback (most recent call last):
    ...
-SyntaxError: keyword argument repeated: a
+SyntaxError: keyword argument repeated: 'a'
 
->>> {1, 2, 3} = 42
+>>> {1, 2, 3} = 42  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to set display
+SyntaxError: cannot assign to set display...
 
->>> {1: 2, 3: 4} = 42
+>>> {1: 2, 3: 4} = 42  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to dict display
+SyntaxError: cannot assign to dict display...
 
->>> f'{x}' = 42
+>>> f'{x}' = 42  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to f-string expression
+SyntaxError: cannot assign to f-string expression...
 
->>> f'{x}-{y}' = 42
+>>> f'{x}-{y}' = 42  # doctest: +ELLIPSIS
 Traceback (most recent call last):
-SyntaxError: cannot assign to f-string expression
+SyntaxError: cannot assign to f-string expression...
 
 >>> from t import x,
 Traceback (most recent call last):
@@ -753,6 +753,7 @@ Corner-cases that used to crash:
 """
 
 import re
+import sys
 import unittest
 
 from test import support
@@ -784,7 +785,11 @@ class SyntaxTestCase(unittest.TestCase):
             self.fail("compile() did not raise SyntaxError")
 
     def test_curly_brace_after_primary_raises_immediately(self):
-        self._check_error("f{", "invalid syntax", mode="single")
+        if sys.implementation.name == 'pypy':
+            msg = "parenthesis is never closed"
+        else:
+            msg = "invalid syntax"
+        self._check_error("f{", msg, mode="single")
 
     def test_assign_call(self):
         self._check_error("f() = 1", "assign")
@@ -872,12 +877,15 @@ class SyntaxTestCase(unittest.TestCase):
                           "outside function")
 
     def test_break_outside_loop(self):
-        self._check_error("if 0: break",             "outside loop")
-        self._check_error("if 0: break\nelse:  x=1",  "outside loop")
-        self._check_error("if 1: pass\nelse: break", "outside loop")
-        self._check_error("class C:\n  if 0: break", "outside loop")
-        self._check_error("class C:\n  if 1: pass\n  else: break",
-                          "outside loop")
+        if sys.implementation.name == 'pypy':
+            msg = "in loop"
+        else:
+            msg = "outside loop"
+        self._check_error("if 0: break",             msg)
+        self._check_error("if 0: break\nelse:  x=1", msg)
+        self._check_error("if 1: pass\nelse: break", msg)
+        self._check_error("class C:\n  if 0: break", msg)
+        self._check_error("class C:\n  if 1: pass\n  else: break", msg)
 
     def test_continue_outside_loop(self):
         self._check_error("if 0: continue",             "not properly in loop")
@@ -952,7 +960,11 @@ def func2():
     finally:
         pass
 """
-        self._check_error(code, "invalid syntax")
+        if sys.implementation.name == 'pypy':
+            msg = "expected ':'"
+        else:
+            msg = "invalid syntax"
+        self._check_error(code, msg)
 
     def test_invalid_line_continuation_error_position(self):
         self._check_error(r"a = 3 \ 4",
@@ -970,8 +982,11 @@ def func2():
         # (t_primary_raw in this case) need to be tested explicitly
         self._check_error("A.\u018a\\ ",
                           "unexpected character after line continuation character")
-        self._check_error("A.\u03bc\\\n",
-                          "unexpected EOF while parsing")
+        if sys.implementation.name == 'pypy':
+            msg = "end of file \(EOF\) in multi-line statement"
+        else:
+            msg = "unexpected EOF while parsing"
+        self._check_error("A.\u03bc\\\n", msg)
 
     @support.cpython_only
     def test_syntax_error_on_deeply_nested_blocks(self):

@@ -89,12 +89,12 @@ class W_ExtensionFunctionMixin(object):
         # XXX: if there are no keywords, should we pass HPy_NULL or an empty
         # dict?
         h_kw = 0
-        if __args__.keywords:
+        if __args__.keyword_names_w:
             w_kw = space.newdict()
-            for i in range(len(__args__.keywords)):
-                key = __args__.keywords[i]
+            for i in range(len(__args__.keyword_names_w)):
+                w_key = __args__.keyword_names_w[i]
                 w_value = __args__.keywords_w[i]
-                space.setitem_str(w_kw, key, w_value)
+                space.setitem(w_kw, w_key, w_value)
             h_kw = self.handles.new(w_kw)
 
         fptr = llapi.cts.cast('HPyFunc_keywords', self.cfuncptr)
@@ -116,7 +116,7 @@ class W_ExtensionFunctionMixin(object):
         if sig == llapi.HPyFunc_KEYWORDS:
             return self.call_varargs_kw(space, h_self, __args__, skip_args, has_keywords=True)
 
-        if __args__.keywords:
+        if __args__.keyword_names_w:
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
 

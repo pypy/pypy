@@ -87,9 +87,16 @@ class AppTestUserObject:
         assert type(mapping2) is dict
         assert mapping2 == dict(a=2, b=2, c=3, d=5)
 
+        # __ior__ raises
+        with raises(TypeError):
+            mapping = dictproxy(dict(a=1, b=2, c=3))
+            mapping |= 'not a dict'
+            
+        # __ror__
         mapping = dictproxy(dict(a=1, b=2, c=3))
-        mapping |= dict(a=2, d=5)
-        assert mapping is not orig
+        res = dict(a=2, d=5) | mapping
+        assert res == dict(a=1, b=2, c=3, d=5)
+
 
     def test_reversed(self):
         dictproxy = type(int.__dict__)

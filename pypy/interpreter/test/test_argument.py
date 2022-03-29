@@ -1,11 +1,28 @@
 # -*- coding: utf-8 -*-
 import py
 import pytest
-from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
+from pypy.interpreter.argument import (Arguments as RegularArguments, ArgErr, ArgErrUnknownKwds,
         ArgErrMultipleValues, ArgErrMissing, ArgErrTooMany, ArgErrTooManyMethod,
         ArgErrPosonlyAsKwds)
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
+
+class Arguments(RegularArguments):
+    def __init__(self, space, args_w, keywords=None, keywords_w=None,
+                 w_stararg=None, w_starstararg=None,
+                 methodcall=False, fnname_parens=None):
+        if keywords:
+            keyword_names_w = [space.newtext(name) for name in keywords]
+        else:
+            keyword_names_w = None
+        if isinstance(w_starstararg, dict):
+            w_starstararg = {space.newtext(name) if isinstance(name, str) else name: value for name, value in w_starstararg.iteritems()}
+        RegularArguments.__init__(self, space, args_w, keyword_names_w, keywords_w,
+                w_stararg, w_starstararg, methodcall, fnname_parens)
+
+    @property
+    def keywords(self):
+        return [self.space.text_w(w_name) for w_name in self.keyword_names_w]
 
 
 class TestSignature(object):
@@ -28,12 +45,12 @@ class TestSignature(object):
         assert sig.has_kwarg()
         assert sig.scope_length() == 4
         assert sig.getallvarnames() == ["a", "b", "c", "c"]
-        sig = Signature(["a", "b", "c"], "d", "c", ["kwonly"])
+        sig = Signature(["a", "b", "c", "kwonly"], "d", "e", 1)
         assert sig.num_argnames() == 3
         assert sig.has_vararg()
         assert sig.has_kwarg()
         assert sig.scope_length() == 6
-        assert sig.getallvarnames() == ["a", "b", "c", "d", "kwonly", "c"]
+        assert sig.getallvarnames() == ["a", "b", "c", "kwonly", "d", "e"]
 
     def test_eq(self):
         sig1 = Signature(["a", "b", "c"], "d", "c")
@@ -42,7 +59,7 @@ class TestSignature(object):
 
 
     def test_find_argname(self):
-        sig = Signature(["a", "b", "c"], None, None, ["kwonly"])
+        sig = Signature(["a", "b", "c", "kwonly"], None, None, 1)
         assert sig.find_argname("a") == 0
         assert sig.find_argname("b") == 1
         assert sig.find_argname("c") == 2
@@ -68,9 +85,33 @@ class dummy_wrapped_dict(dict):
 class kwargsdict(dict):
     pass
 
+class W_Uni(object):
+    def __init__(self, s):
+        self._utf8 = s
+
+    def eq_w(self, w_other):
+        return self._utf8 == w_other._utf8
+
+    __eq__ = eq_w
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(self._utf8)
+
+    def eq_unwrapped(self, other):
+        return self._utf8 == other
+
+    def __repr__(self):
+        return "W_Uni(%r)" % (self._utf8, )
+
+
 class DummySpace(object):
     class sys:
         defaultencoding = 'utf-8'
+
+    UnicodeObjectCls = W_Uni
 
     def newtuple(self, items):
         return tuple(items)
@@ -112,18 +153,32 @@ class DummySpace(object):
     def finditem_str(self, obj, key):
         return obj.get(key, None)
 
-    def wrap(self, obj, lgt=-1):
+    def wrap(self, obj):
         return obj
-    newtext = wrap
+
+    def newtext(self, s, _=-1):
+        return W_Uni(s)
 
     def text_w(self, s):
-        return self.utf8_w(s)
+        if not isinstance(s, W_Uni):
+            raise OperationError(self.w_TypeError, '%s is not a str' % s)
+        return s._utf8
 
     def utf8_w(self, s):
-        return s
+        return s._utf8
+
+    def str(self, obj):
+        if type(obj) is W_Uni:
+            return obj
+        return W_Uni(str(obj))
 
     def len(self, x):
         return len(x)
+
+    def len_w(self, obj):
+        if type(obj) is W_Uni:
+            return len(obj._utf8)
+        return len(obj)
 
     def int_w(self, x, allow_conversion=True):
         return x
@@ -172,7 +227,7 @@ class TestArgumentsNormal(object):
         args_w = []
         args = Arguments(space, args_w)
         assert args.arguments_w is args_w
-        assert args.keywords is None
+        assert args.keyword_names_w is None
         assert args.keywords_w is None
 
         assert args.firstarg() is None
@@ -191,7 +246,7 @@ class TestArgumentsNormal(object):
         args1 = args.prepend("thingy")
         assert args1 is not args
         assert args1.arguments_w == ["thingy", "0"]
-        assert args1.keywords is args.keywords
+        assert args1.keyword_names_w is args.keyword_names_w
         assert args1.keywords_w is args.keywords_w
 
     def test_fixedunpacked(self):
@@ -315,7 +370,7 @@ class TestArgumentsNormal(object):
             args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
             l = [None, None, None]
             args._match_signature(None, l, Signature(["a", "b"], None, "**"))
-            assert l == [1, 2, {'c': 3}]
+            assert l == [1, 2, {space.newtext('c'): 3}]
 
     def test_match_kwds2(self):
         space = DummySpace()
@@ -330,7 +385,7 @@ class TestArgumentsNormal(object):
             args = Arguments(space, [1, 2], keywords, keywords_w, w_starstararg=w_kwds)
             l = [None, None, None, None]
             args._match_signature(None, l, Signature(["a", "b", "c"], None, "**"))
-            assert l == [1, 2, 3, {'d': 4}]
+            assert l == [1, 2, 3, {space.newtext('d'): 4}]
 
     def test_match_kwds_creates_kwdict(self):
         space = DummySpace()
@@ -345,7 +400,7 @@ class TestArgumentsNormal(object):
             args = Arguments(space, [1, 2], keywords, keywords_w, w_starstararg=w_kwds)
             l = [None, None, None, None]
             args._match_signature(None, l, Signature(["a", "b", "c"], None, "**"))
-            assert l == [1, 2, 3, {'d': 4}]
+            assert l == [1, 2, 3, {space.newtext('d'): 4}]
             assert isinstance(l[-1], kwargsdict)
 
     def test_duplicate_kwds(self):
@@ -353,35 +408,22 @@ class TestArgumentsNormal(object):
         with pytest.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"], [1], w_starstararg={"a": 2}, fnname_parens="foo()")
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value.get_w_value(space) == "foo() got multiple values for keyword argument 'a'"
+        assert space.text_w(excinfo.value.get_w_value(space)) == "foo() got multiple values for keyword argument 'a'"
 
     def test_starstararg_wrong_type(self):
         space = DummySpace()
         with pytest.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"], [1], w_starstararg="hello", fnname_parens="bar()")
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value.get_w_value(space) == "bar() argument after ** must be a mapping, not str"
+        assert space.text_w(excinfo.value.get_w_value(space)) == "bar() argument after ** must be a mapping, not str"
 
     def test_unwrap_error(self):
         space = DummySpace()
         valuedummy = object()
-        def utf8_w(w):
-            if w is None:
-                raise OperationError(TypeError, None)
-            if w is valuedummy:
-                raise OperationError(ValueError, None)
-            return bytes(w, 'utf-8')
-        space.utf8_w = utf8_w
-        space.text_w = utf8_w
         with py.test.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"], [1], w_starstararg={None: 1}, fnname_parens="f1()")
         assert excinfo.value.w_type is TypeError
         assert excinfo.value._w_value is None
-        with py.test.raises(OperationError) as excinfo:
-            Arguments(space, [], ["a"], [1], w_starstararg={valuedummy: 1}, fnname_parens="f2()")
-        assert excinfo.value.w_type is ValueError
-        assert excinfo.value._w_value is None
-
 
     def test_blindargs(self):
         space = DummySpace()
@@ -397,7 +439,7 @@ class TestArgumentsNormal(object):
                              w_starstararg=w_kwds)
             l = [None, None, None]
             args._match_signature(None, l, Signature(["a", "b"], None, "**"), blindargs=2)
-            assert l == [1, 2, {'a':3, 'b': 4}]
+            assert l == [1, 2, {space.newtext('a'): 3, space.newtext('b'): 4}]
             args = Arguments(space, [1, 2], keywords[:], keywords_w[:],
                              w_starstararg=w_kwds)
             l = [None, None, None]
@@ -459,7 +501,7 @@ class TestArgumentsNormal(object):
             args.parse_obj("obj", "foo",
                            Signature(["a", "b"], None, None))
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value.get_w_value(space) == "foo() msg"
+        assert space.text_w(excinfo.value.get_w_value(space)) == "foo() msg"
 
 
     def test_args_parsing_into_scope(self):
@@ -515,14 +557,14 @@ class TestArgumentsNormal(object):
             args.parse_into_scope("obj", [None, None], "foo",
                                   Signature(["a", "b"], None, None))
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value.get_w_value(space) == "foo() msg"
+        assert space.text_w(excinfo.value.get_w_value(space)) == "foo() msg"
 
     def test_topacked_frompacked(self):
         space = DummySpace()
         args = Arguments(space, [1], ['a', 'b'], [2, 3])
         w_args, w_kwds = args.topacked()
         assert w_args == (1,)
-        assert w_kwds == {'a': 2, 'b': 3}
+        assert w_kwds == {space.newtext('a'): 2, space.newtext('b'): 3}
         args1 = Arguments.frompacked(space, w_args, w_kwds)
         assert args.arguments_w == [1]
         assert set(args.keywords) == set(['a', 'b'])
@@ -534,15 +576,6 @@ class TestArgumentsNormal(object):
         assert w_args == (1, )
         assert not w_kwds
 
-    def test_argument_unicode(self):
-        space = DummySpace()
-        w_starstar = space.wrap({u'abc': 5})
-        args = Arguments(space, [], w_starstararg=w_starstar)
-        l = [None]
-        args._match_signature(None, l, Signature(['abc']))
-        assert len(l) == 1
-        assert l[0] == space.wrap(5)
-
     def test_starstarargs_special(self):
         class kwargs(object):
             def __init__(self, k, v):
@@ -551,7 +584,7 @@ class TestArgumentsNormal(object):
         class MyDummySpace(DummySpace):
             def view_as_kwargs(self, kw):
                 if isinstance(kw, kwargs):
-                    return kw.k, kw.v
+                    return [W_Uni(n) for n in kw.k], kw.v
                 return None, None
         space = MyDummySpace()
         for i in range(3):
@@ -587,18 +620,18 @@ class TestArgumentsNormal(object):
             args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
             l = [None, None, None]
             args._match_signature(None, l, Signature(["a", "b"], None, "**"))
-            assert l == [1, 2, {'c': 3}]
+            assert l == [1, 2, {space.newtext('c'): 3}]
         with pytest.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"],
                       [1], w_starstararg=kwargs(["a"], [2]))
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value.get_w_value(space) == "got multiple values for keyword argument 'a'"
+        assert space.text_w(excinfo.value.get_w_value(space)) == "got multiple values for keyword argument 'a'"
 
         with pytest.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"],
                       [1], w_starstararg=kwargs(["a"], [2]), fnname_parens="foo()")
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value.get_w_value(space) == "foo() got multiple values for keyword argument 'a'"
+        assert space.text_w(excinfo.value.get_w_value(space)) == "foo() got multiple values for keyword argument 'a'"
 
     def test_posonly(self):
         space = DummySpace()
@@ -619,7 +652,7 @@ class TestArgumentsNormal(object):
         space = DummySpace()
         # def __init__(self, *args, obj=None, name=None): ...
         #                           |-> kwonly
-        sig = Signature(['self'], 'args', None, ['obj', 'name'], 0)
+        sig = Signature(['self', 'obj', 'name'], 'args', None, 2, 0)
 
         # __init__("fake_self", *("abc, ))
         args = Arguments(space, ["abc"], [], [])
@@ -647,7 +680,7 @@ class TestArgumentsNormal(object):
         args = Arguments(space, [1, 2, 3, 4, 5, 6], ["x"], [7])
         l = [None] * 7
         args._match_signature(None, l, sig)
-        assert l == [1, 2, 3, 4, 5, 6, {'x': 7}]
+        assert l == [1, 2, 3, 4, 5, 6, {space.newtext('x'): 7}]
 
 class TestErrorHandling(object):
     def test_missing_args(self):
@@ -813,27 +846,15 @@ class TestErrorHandling(object):
 
     def test_unknown_keywords(self):
         space = DummySpace()
-        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [0], None)
+        err = ArgErrUnknownKwds(space, 1, [space.newtext('a'), space.newtext('b')], [0])
         s = err.getmsg()
         assert s == "got an unexpected keyword argument 'b'"
-        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [1], None)
+        err = ArgErrUnknownKwds(space, 1, [space.newtext('a'), space.newtext('b')], [1])
         s = err.getmsg()
         assert s == "got an unexpected keyword argument 'a'"
-        err = ArgErrUnknownKwds(space, 2, ['a', 'b', 'c'],
-                                [0], None)
+        err = ArgErrUnknownKwds(space, 2, [space.newtext('a'), space.newtext('b')], [0])
         s = err.getmsg()
         assert s == "got 2 unexpected keyword arguments"
-
-    def test_unknown_unicode_keyword(self):
-        class DummySpaceUnicode(DummySpace):
-            class sys:
-                defaultencoding = 'utf-8'
-        space = DummySpaceUnicode()
-        err = ArgErrUnknownKwds(space, 1, ['a', None, 'b', 'c'],
-                                [0, 3, 2],
-                                [unichr(0x1234), u'b', u'c'])
-        s = err.getmsg()
-        assert s == "got an unexpected keyword argument '%s'" % unichr(0x1234).encode('utf-8')
 
     def test_multiple_values(self):
         err = ArgErrMultipleValues('bla')

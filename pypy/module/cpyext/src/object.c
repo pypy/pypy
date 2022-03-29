@@ -146,3 +146,17 @@ PyObject_CallFinalizerFromDealloc(PyObject *self)
     }
     return 0;
 }
+
+const char *
+_PyType_Name(PyTypeObject *type)
+{
+    assert(type->tp_name != NULL);
+    const char *s = strrchr(type->tp_name, '.');
+    if (s == NULL) {
+        s = type->tp_name;
+    }
+    else {
+        s++;
+    }
+    return s;
+}

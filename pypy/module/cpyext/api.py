@@ -330,14 +330,14 @@ class ApiFunction(BaseApiFunction):
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
                  c_name=None, cdecl=None, gil=None,
                  result_borrowed=False, result_is_ll=False):
+        from rpython.flowspace.bytecode import cpython_code_signature
         BaseApiFunction.__init__(self, argtypes, restype, callable)
         self.error_value = error
         self.c_name = c_name
         self.cdecl = cdecl
 
         # extract the signature from the (CPython-level) code object
-        from pypy.interpreter import pycode
-        sig = pycode.cpython_code_signature(callable.func_code)
+        sig = cpython_code_signature(callable.func_code)
         assert sig.argnames[0] == 'space'
         self.argnames = sig.argnames[1:]
         if gil == 'pygilstate_ensure':
@@ -808,11 +808,9 @@ PyTypeObjectPtr = cts.gettype('PyTypeObject *')
 PyObjectStruct = cts.gettype('PyObject')
 PyObject = cts.gettype('PyObject *')
 PyObjectC = cts.gettype('PyObject const *')
-PyObjectFields = (("ob_refcnt", lltype.Signed),
-                  ("ob_pypy_link", lltype.Signed),
-                  ("ob_type", PyTypeObjectPtr))
-PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
+PyObjectFields = (("ob_base", PyObjectStruct),)
 PyVarObjectStruct = cts.gettype('PyVarObject')
+PyVarObjectFields = (("ob_base", PyVarObjectStruct),)
 PyVarObject = cts.gettype('PyVarObject *')
 
 Py_buffer = cts.gettype('Py_buffer')
@@ -826,7 +824,12 @@ def is_PyObject(TYPE):
     if TYPE == PyObject:
         return True
     assert not isinstance(TYPE.TO, lltype.ForwardReference)
-    return hasattr(TYPE.TO, 'c_ob_refcnt') and hasattr(TYPE.TO, 'c_ob_type')
+    base = getattr(TYPE.TO, 'c_ob_base', None)
+    if not base:
+        return False
+    # PyVarObject? It has a second c_ob_base for the PyObject
+    base = getattr(base, 'c_ob_base', base)
+    return hasattr(base, 'c_ob_refcnt') and hasattr(base, 'c_ob_type')
 
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)
