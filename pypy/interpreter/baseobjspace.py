@@ -1278,20 +1278,23 @@ class ObjSpace(object):
         from pypy.interpreter.generator import GeneratorIterator
         return isinstance(w_obj, GeneratorIterator)
 
-    def callable(self, w_obj):
+    def callable_w(self, w_obj):
         if self.lookup(w_obj, "__call__") is not None:
             if self.is_oldstyle_instance(w_obj):
                 # ugly old style class special treatment, but well ...
                 try:
                     self.getattr(w_obj, self.newtext("__call__"))
-                    return self.w_True
+                    return True
                 except OperationError as e:
                     if not e.match(self, self.w_AttributeError):
                         raise
-                    return self.w_False
+                    return False
             else:
-                return self.w_True
-        return self.w_False
+                return True
+        return False
+
+    def callable(self, w_obj):
+        return self.newbool(self.callable_w(w_obj))
 
     def issequence_w(self, w_obj):
         if self.is_oldstyle_instance(w_obj):
