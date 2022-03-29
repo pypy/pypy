@@ -249,7 +249,7 @@ if 1:
         py.test.raises(SyntaxError, self.parse, 'f()\n# blah\nblah()', "single")
         py.test.raises(SyntaxError, self.parse, 'f()\nxy # blah\nblah()', "single")
         py.test.raises(SyntaxError, self.parse, 'x = 5 # comment\nx = 6\n', "single")
-    
+
     def test_unpack(self):
         self.parse('[*{2}, 3, *[4]]')
         self.parse('{*{2}, 3, *[4]}')
@@ -521,19 +521,8 @@ class TestPythonPegParser(TestPythonParser):
             "if 1: \n pass", "exec",
             flags=consts.PyCF_DONT_IMPLY_DEDENT)
 
-    def test_nonparen_genexp_in_call(self):
-        with py.test.raises(SyntaxError) as info:
-            self.parse("""\
-f(x for x in l)
-if 1:
-pass
-""")
-        assert info.value.msg == "expected an indented block after 'if' statement on line 2"
-        with py.test.raises(SyntaxError) as info:
-            self.parse("""f(1, x for x in y for z in a if
+    def test_pattern_matching_experiment(self):
+        self.parse("""match x:
+                case 1:
+                    print('hello')""")
 
-b)""")
-        assert info.value.msg == 'Generator expression must be parenthesized'
-        assert info.value.lineno == 1
-        assert info.value.offset == 6
-        assert info.value.lastlineno == 3
