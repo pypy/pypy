@@ -1395,6 +1395,51 @@ class ObjSpace(object):
             self.setitem(w_globals, w_key, self.builtin)
         return statement.exec_code(self, w_globals, w_locals)
 
+
+    @not_rpython
+    def _cached_compile(self, filename, source, mode, flags, hidden_applevel, ast_transform=None):
+        import os
+        from hashlib import md5
+        from rpython.config.translationoption import CACHE_DIR
+        from rpython.tool.gcc_cache import try_atomic_write
+        from pypy.module.marshal import interp_marshal
+        from pypy.interpreter.pycode import default_magic
+        h = md5(str(default_magic))
+        h.update(filename)
+        h.update(source)
+        h.update(mode)
+        h.update(str(flags))
+        h.update(str(hidden_applevel))
+        addition = ''
+        if ast_transform:
+            addition = ast_transform.func_name
+
+        cachename = os.path.join(
+            CACHE_DIR, "applevel_exec_%s_%s" % (addition, h.hexdigest()))
+        try:
+            if self.config.translating:
+                raise IOError("don't use the cache when translating pypy")
+            with open(cachename, 'rb') as f:
+                w_bin = self.newbytes(f.read())
+                w_code = interp_marshal.loads(self, w_bin)
+        except IOError:
+            # must (re)compile the source
+            ec = self.getexecutioncontext()
+            if ast_transform:
+                c = self.createcompiler()
+                tree = c.compile_to_ast(source, filename, "exec", 0)
+                tree = ast_transform(self, tree)
+                w_code = c.compile_ast(tree, filename, 'exec', 0)
+            else:
+                w_code = ec.compiler.compile(
+                    source, filename, mode, flags)
+            w_bin = interp_marshal.dumps(
+                self, w_code, self.newint(interp_marshal.Py_MARSHAL_VERSION))
+            content = self.bytes_w(w_bin)
+            try_atomic_write(cachename, content)
+        return w_code
+
+
     @not_rpython
     def appdef(self, source):
         '''Create interp-level function object from app-level source.

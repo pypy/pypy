@@ -11,6 +11,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
 from pypy.tool.pytest import objspace
 from pypy.tool.pytest import appsupport
+from pypy.tool.pytest.astrewriter.ast_rewrite import rewrite_asserts_ast
 
 
 class AppTestModule(pytest.Module):

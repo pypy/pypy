@@ -2,7 +2,6 @@
 from __future__ import absolute_import, division, print_function
 from pypy.interpreter.astcompiler import ast
 import itertools
-import marshal
 import sys
 
 def ast_Call(a, b, c):
