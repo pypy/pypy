@@ -174,9 +174,8 @@ class AssertionRewriter(ast.ASTVisitor):
         lineno = 1
         for item in mod.body:
             if (expect_docstring and isinstance(item, ast.Expr) and
-                    isinstance(item.value, ast.Constant) and
-                    self.space.isinstance_w(item.value.value, self.space.w_str)):
-                doc = item.value.value
+                    isinstance(item.value, ast.Str)):
+                doc = item.value.s
                 if self.is_rewrite_disabled(doc):
                     return
                 expect_docstring = False
