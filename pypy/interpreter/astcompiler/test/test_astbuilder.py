@@ -948,6 +948,8 @@ class TestAstBuilding:
             ("[x, z, a, {1, 2}] = 12", "cannot assign to set display"),
             ("for (1, x) in []: pass", "cannot assign to literal"),
             ("with foo as (1, 2): pass", "cannot assign to literal"),
+            ("(a, *True, c) = (1, 2, 3)", "cannot assign to True"),
+            ("for (x, *(y, z.d())) in b: pass", "cannot assign to function call"),
         ]
         for wrong, msg in invalid:
             with pytest.raises(SyntaxError) as excinfo:

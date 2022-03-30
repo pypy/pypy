@@ -519,7 +519,7 @@ class Parser:
         elif isinstance(node, ast.Starred):
             if assignment_type == "delete":
                 return node
-            return None
+            return self._get_invalid_target(node.value, assignment_type)
         elif isinstance(node, ast.Compare):
             if assignment_type == "for":
                 if node.ops[0] == ast.In:
