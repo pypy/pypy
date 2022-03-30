@@ -311,6 +311,9 @@ class DescrOperation(object):
                 raise oefmt(space.w_TypeError,
                             "'%T' object is not iterable", w_obj)
             return space.newseqiter(w_obj)
+        if space.is_w(w_descr, space.w_None):
+            raise oefmt(space.w_TypeError,
+                        "'%T' object is not iterable", w_obj)
         w_iter = space.get_and_call_function(w_descr, w_obj)
         w_next = space.lookup(w_iter, '__next__')
         if w_next is None:

@@ -601,6 +601,14 @@ def test_invalid_iterator():
             return self
     raises(TypeError, iter, x())
 
+def test_iterator_is_None():
+    class x(object):
+        __iter__ = None
+    with raises(TypeError) as info:
+        iter(x())
+    assert str(info.value) == "'x' object is not iterable"
+
+
 def test_attribute_error():
     class classmethodonly(classmethod):
         def __get__(self, instance, type):
