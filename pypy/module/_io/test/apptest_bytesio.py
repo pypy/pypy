@@ -4,7 +4,7 @@ def test_init():
     raises(TypeError, _io.BytesIO, u"12345")
     buf = "1234567890"
     b = _io.BytesIO(buf)
-    assert b.getvalue() == buf
+    assert b.getvalue() == buf + "x"
     b = _io.BytesIO(None)
     assert b.getvalue() == ""
     b.__init__(buf * 2)

@@ -75,9 +75,9 @@ def pytest_addoption(parser):
     group.addoption('--raise-operr', action="store_true",
             default=False, dest="raise_operr",
             help="Show the interp-level OperationError in app-level tests")
-    group.addoption('--applevel-rewrite', action="store_true",
-            default=False, dest="applevel_rewrite",
-            help="Use assert rewriting in app-level test files (slow)")
+    group.addoption('--no-applevel-rewrite', action="store_false",
+            default=True, dest="applevel_rewrite",
+            help="Don't use assert rewriting in app-level test files")
 
 @pytest.fixture(scope='class')
 def spaceconfig(request):
