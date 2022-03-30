@@ -1065,6 +1065,25 @@ class MapDictStrategy(DictStrategy):
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
 
+    def copy(self, w_dict):
+        w_obj = self.unerase(w_dict.dstorage)
+        curr_map = w_obj._get_mapdict_map()
+        attrs = []
+        while True:
+            curr_map = curr_map.search(DICT)
+            if curr_map is None:
+                break
+            attrs.append(curr_map)
+            curr_map = curr_map.back
+
+        strategy = self.space.fromcache(BytesDictStrategy)
+        str_dict = strategy.unerase(strategy.get_empty_storage())
+        while attrs:
+            map = attrs.pop()
+            str_dict[map.name] = map._prim_direct_read(w_obj)
+        return W_DictObject(strategy.space, strategy, strategy.erase(str_dict))
+
+
     # XXX could implement a more efficient w_keys based on space.newlist_bytes
 
     def iterkeys(self, w_dict):
