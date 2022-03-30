@@ -22,7 +22,7 @@ class AppTestBufferedReader:
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.read() == "a\nb\nc"
+        assert f.read() == "a\nb\ncd"
         raises(ValueError, f.read, -2)
         f.close()
         #
