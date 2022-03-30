@@ -3,7 +3,8 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    W_DictObject, BytesDictStrategy, ObjectDictStrategy)
+    W_DictObject, BytesDictStrategy, ObjectDictStrategy, EmptyDictStrategy,
+    update1_dict_dict)
 
 
 class TestW_DictObject(object):
@@ -182,6 +183,17 @@ class TestW_DictObject(object):
         # w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
         # w_l = self.space.call_method(w_d, "keys")
         # assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
+
+    def test_update_empty_does_copy(self, monkeypatch):
+        w = self.space.wrap
+        wb = self.space.newbytes
+        w_empty = self.space.newdict()
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(1), wb("a")), (w(2), wb("b"))])
+        monkeypatch.setattr(EmptyDictStrategy, "setitem", None)
+        update1_dict_dict(self.space, w_empty, w_d)
+        assert self.space.eq_w(w_empty, w_d)
+
 
 class AppTest_DictObject:
     def setup_class(cls):
