@@ -265,7 +265,7 @@ class Parser:
     def recursive_parse_to_ast(self, str, info):
         from pypy.interpreter.pyparser import pytokenizer as tokenize
         from pypy.interpreter.pyparser import rpypegparse
-        tokenlist = tokenize.generate_tokens(str.splitlines(), 0)
+        tokenlist = tokenize.generate_tokens(str.splitlines(True), 0)
         parser = rpypegparse.PythonParser(self.space, tokenlist, self.compile_info, verbose=False)
         return parser.parse_meth_or_raise(rpypegparse.PythonParser.eval)
 
