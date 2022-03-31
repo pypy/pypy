@@ -1,7 +1,6 @@
 import pytest
 import time
 from rpython.rlib.rgil import yield_thread
-from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
 from pypy.module.thread.os_lock import allocate_lock
 from pypy.module.thread.os_thread import start_new_thread

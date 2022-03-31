@@ -7,7 +7,6 @@ import sys
 import signal
 
 from rpython.tool.udir import udir
-from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
@@ -19,7 +18,6 @@ else:
     USEMODULES += ['_rawffi', 'thread', 'signal', '_cffi_backend']
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=USEMODULES)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -1167,6 +1165,7 @@ class AppTestPosix:
 
 class AppTestEnvironment(object):
     def setup_class(cls):
+        space = cls.space
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_python = space.wrap(sys.executable)
@@ -1279,7 +1278,7 @@ class AppTestUnicodeFilename:
             pytest.skip("encoding not good enough")
         f.write("test")
         f.close()
-        cls.space = space
+        space = cls.space
         cls.w_filename = space.wrap(ufilename)
         cls.w_posix = space.appexec([], GET_POSIX)
 
