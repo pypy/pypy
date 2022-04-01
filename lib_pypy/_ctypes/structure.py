@@ -4,7 +4,7 @@ from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
 from _ctypes.array import Array, swappedorder, byteorder
 from _ctypes.pointer import _Pointer
-import inspect, __pypy__
+import __pypy__
 
 
 def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
@@ -28,7 +28,7 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
                 raise TypeError('bit fields not allowed for type ' + tp.__name__)
 
     all_fields = []
-    for cls in reversed(inspect.getmro(superclass)):
+    for cls in reversed(superclass.__mro__):
         # The first field comes from the most base class
         all_fields.extend(getattr(cls, '_fields_', []))
     all_fields.extend(_fields_)
