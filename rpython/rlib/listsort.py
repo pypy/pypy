@@ -85,11 +85,7 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
             if listlength is None:
                 listlength = length(list)
             self.listlength = listlength
-            if not listlength:
-                self.scratch_list = None
-            else:
-                scratchsize = min((len(list) + 1) // 2, 256)
-                self.scratch_list = [getitem(list, 0)] * scratchsize
+            self.scratch_list = None
 
         def setitem(self, item, val):
             setitem(self.list, item, val)
@@ -628,17 +624,22 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
 
         def copyitems(self, sorter):
             "Make a copy of the slice of the original list."
-            if sorter.scratch_list is None or self.len > len(sorter.scratch_list):
+            if sorter.scratch_list is None or self.len > length(sorter.scratch_list):
+                listlength = length(self.list)
+                scratchsize = min((listlength + 1) // 2, 256)
+                if self.len > scratchsize:
+                    scratchsize = self.len
                 start = self.base
-                stop  = self.base + self.len
+                stop  = self.base + scratchsize
+                if stop > listlength:
+                    stop = listlength
                 assert 0 <= start <= stop     # annotator hint
                 scratch_list = sorter.scratch_list = getitem_slice(self.list, start, stop)
             else:
                 scratch_list = sorter.scratch_list
                 base = self.base
-                # XXX we want arraycopy but it's lltype only so far
                 for i in range(self.len):
-                    scratch_list[i] = self.list[base + i]
+                    setitem(scratch_list, i, getitem(self.list, base + i))
             self.list = scratch_list
             self.base = 0
 
