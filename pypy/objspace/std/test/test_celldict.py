@@ -136,6 +136,18 @@ class AppTestModuleDict(object):
         assert "s" not in d
         assert F() not in d
 
+    def test_copy(self):
+        m = type(__builtins__)("abc")
+        m.s = 12
+        m.s = 123 # int cell
+        m.x = object
+        d = m.__dict__
+        d["s"] = 12
+        d1 = d.copy()
+        # whole bunch of extra stuff in there, so check this way
+        assert d1 == dict(list(d.items()))
+        assert d1["s"] == 12
+
     def test_reversed(self):
         import __pypy__
         name = next(__pypy__.reversed_dict(__pypy__.__dict__))
