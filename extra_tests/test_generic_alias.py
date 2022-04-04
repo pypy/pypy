@@ -123,3 +123,12 @@ def test_cmp_not_implemented():
     g = GenericAlias(list, int)
     assert not (g == Any)
     assert g != Any
+
+def test_cant_write_attributes():
+    g = GenericAlias(list, int)
+    with pytest.raises(AttributeError):
+        g.__origin__ = dict
+    with pytest.raises(AttributeError):
+        g.__args__ = (1, )
+    with pytest.raises(AttributeError):
+        g.__parameters__ = (2, )

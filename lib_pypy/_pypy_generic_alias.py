@@ -14,10 +14,22 @@ class GenericAlias:
         result = super(GenericAlias, cls).__new__(cls)
         if not isinstance(args, tuple):
             args = (args, )
-        result.__origin__ = origin
-        result.__args__ = args
-        result.__parameters__ = _make_parameters(args)
+        result._origin = origin
+        result._args = args
+        result._parameters = _make_parameters(args)
         return result
+
+    @property
+    def __origin__(self):
+        return object.__getattribute__(self, "_origin")
+
+    @property
+    def __args__(self):
+        return object.__getattribute__(self, "_args")
+
+    @property
+    def __parameters__(self):
+        return object.__getattribute__(self, "_parameters")
 
     def __call__(self, *args, **kwargs):
         result = self.__origin__(*args, **kwargs)
