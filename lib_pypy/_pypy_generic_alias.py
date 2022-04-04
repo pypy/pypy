@@ -83,9 +83,9 @@ class GenericAlias:
         return hash(self.__origin__) ^ hash(self.__args__)
 
     def __dir__(self):
-        res = dir(self.__origin__)
-        res.extend(_ATTR_EXCEPTIONS)
-        return res
+        cls = type(self)
+        dir_origin = set(dir(self.__origin__))
+        return sorted(_ATTR_EXCEPTIONS | dir_origin)
 
     def __subclasscheck__(self, other):
         raise TypeError("issubclass() argument 2 cannot be a parameterized generic")

@@ -66,6 +66,8 @@ def test_dir():
     g = GenericAlias(dict, int)
     assert set(dir(dict)).issubset(set(dir(g)))
     assert "__origin__" in dir(g)
+    # Make sure the list does not have repeats
+    assert len(set(dir(g))) == len(dir(g))
 
 def test_parameters():
     g = GenericAlias(dict, (int, V))
