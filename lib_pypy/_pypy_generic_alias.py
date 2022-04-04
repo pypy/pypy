@@ -10,6 +10,9 @@ _ATTR_EXCEPTIONS = frozenset((
 ))
 
 class GenericAlias:
+
+    __slots__ = ("__weakref__", "_origin", "_args", "_parameters", "_hash")
+
     def __new__(cls, origin, args):
         result = super(GenericAlias, cls).__new__(cls)
         if not isinstance(args, tuple):

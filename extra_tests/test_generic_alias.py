@@ -132,3 +132,5 @@ def test_cant_write_attributes():
         g.__args__ = (1, )
     with pytest.raises(AttributeError):
         g.__parameters__ = (2, )
+    with pytest.raises(AttributeError):
+        g.test = 127
