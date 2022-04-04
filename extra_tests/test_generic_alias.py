@@ -134,3 +134,12 @@ def test_cant_write_attributes():
         g.__parameters__ = (2, )
     with pytest.raises(AttributeError):
         g.test = 127
+
+def test_orig_class_writing_gives_typeerror():
+    class A:
+        def __new__(cls):
+            return int
+
+    g = GenericAlias(A, int)
+    assert g() is int # does not crash
+

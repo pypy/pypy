@@ -38,7 +38,7 @@ class GenericAlias:
         result = self.__origin__(*args, **kwargs)
         try:
             result.__orig_class__ = self
-        except AttributeError:
+        except (AttributeError, TypeError):
             pass
         return result
 
