@@ -48,6 +48,10 @@ def test_repr():
     g = GenericAlias(dict, ())
     assert repr(g) == "dict[()]"
 
+def test_repr_bug():
+    l = list[list[int]]
+    assert repr(l) == 'list[list[int]]'
+
 def test_equality():
     g = GenericAlias(dict, int)
     assert g == GenericAlias(dict, int)

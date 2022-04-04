@@ -84,6 +84,8 @@ class GenericAlias:
 def _repr_item(it):
     if it == Ellipsis:
         return "..."
+    if type(it) is GenericAlias:
+        return repr(it)
     try:
         qualname = getattr(it, "__qualname__")
         module = getattr(it, "__module__")
