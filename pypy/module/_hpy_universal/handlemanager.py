@@ -93,7 +93,9 @@ CONSTANTS = [
     # Types
     ('BaseObjectType', lambda space: space.w_object),
     ('TypeType', lambda space: space.w_type),
+    ('BoolType', lambda space: space.w_bool),
     ('LongType', lambda space: space.w_int),
+    ('FloatType', lambda space: space.w_float),
     ('UnicodeType', lambda space: space.w_unicode),
     ('TupleType', lambda space: space.w_tuple),
     ('ListType', lambda space: space.w_list),
