@@ -127,6 +127,10 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
             attach_legacy_members(space, slotdef.c_pfunc, w_type)
         elif slotnum == cpyts.macros['Py_tp_getset']:
             attach_legacy_getsets(space, slotdef.c_pfunc, w_type)
+        elif slotnum == cpyts.macros['Py_tp_dealloc']:
+            # XXX fixme: cpyext does not have a slotdef for tp_dealloc
+            # for now, fail to reassign rather than segfaulting in attach_legacy_slot
+            break;
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum)
         i += 1
