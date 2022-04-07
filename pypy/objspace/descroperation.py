@@ -291,6 +291,9 @@ class DescrOperation(object):
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
         return result
 
+    # the following assumes that all the built-in __iter__ methods return a
+    # something with a next
+    @use_special_method_shortcut('__iter__')
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
         if w_descr is None:

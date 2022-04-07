@@ -26,3 +26,10 @@ class Test_DescrOperation:
         assert space.issubtype_w(w_sub, w_base)
         w_inst = space.call_function(w_sub)
         assert space.isinstance_w(w_inst, w_base)
+
+    def test_shortcut(self, monkeypatch, space):
+        w_l = space.wrap([1, 2, 3, 4])
+        monkeypatch.setattr(space, "lookup", None)
+        w_iter = space.iter(w_l)
+        w_first = space.next(w_iter)
+        assert space.int_w(w_first) == 1
