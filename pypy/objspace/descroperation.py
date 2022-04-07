@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.typedef import default_identity_hash
+from pypy.interpreter.typedef import default_identity_hash, use_special_method_shortcut
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
 from rpython.rlib.objectmodel import specialize
@@ -306,6 +306,7 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError, "iter() returned non-iterator")
         return w_iter
 
+    @use_special_method_shortcut('next')
     def next(space, w_obj):
         w_descr = space.lookup(w_obj, 'next')
         if w_descr is None:
@@ -313,6 +314,7 @@ class DescrOperation(object):
                         "'%T' object is not an iterator", w_obj)
         return space.get_and_call_function(w_descr, w_obj)
 
+    @use_special_method_shortcut('__getitem__')
     def getitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__getitem__')
         if w_descr is None:
@@ -321,6 +323,7 @@ class DescrOperation(object):
                         w_obj, w_key)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
+    @use_special_method_shortcut('__setitem__')
     def setitem(space, w_obj, w_key, w_val):
         w_descr = space.lookup(w_obj, '__setitem__')
         if w_descr is None:
@@ -328,6 +331,7 @@ class DescrOperation(object):
                         "'%T' object does not support item assignment", w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_key, w_val)
 
+    @use_special_method_shortcut('__delitem__')
     def delitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__delitem__')
         if w_descr is None:
@@ -335,6 +339,7 @@ class DescrOperation(object):
                         "'%T' object does not support item deletion", w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
+    @use_special_method_shortcut('__getslice__')
     def getslice(space, w_obj, w_start, w_stop):
         w_descr = space.lookup(w_obj, '__getslice__')
         if w_descr is None:
@@ -343,6 +348,7 @@ class DescrOperation(object):
         w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
         return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
 
+    @use_special_method_shortcut('__setslice__')
     def setslice(space, w_obj, w_start, w_stop, w_sequence):
         w_descr = space.lookup(w_obj, '__setslice__')
         if w_descr is None:
@@ -351,6 +357,7 @@ class DescrOperation(object):
         w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
         return space.get_and_call_function(w_descr, w_obj, w_start, w_stop, w_sequence)
 
+    @use_special_method_shortcut('__delslice__')
     def delslice(space, w_obj, w_start, w_stop):
         w_descr = space.lookup(w_obj, '__delslice__')
         if w_descr is None:
@@ -416,6 +423,8 @@ class DescrOperation(object):
                 return w_res
         return space.pow(w_lhs, w_rhs, space.w_None)
 
+    # the following assumes that all the built-in contains methods return a bool
+    @use_special_method_shortcut('__contains__')
     def contains(space, w_container, w_item):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
@@ -834,6 +843,7 @@ def _make_inplace_impl(symbol, specialnames):
 def _make_unaryop_impl(symbol, specialnames):
     specialname, = specialnames
     errormsg = "unsupported operand type for unary %s: '%%T'" % symbol
+    @use_special_method_shortcut(specialname)
     def unaryop_impl(space, w_obj):
         w_impl = space.lookup(w_obj, specialname)
         if w_impl is None:

@@ -8,7 +8,7 @@ from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
 
 from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
-from rpython.rlib.objectmodel import instantiate, not_rpython
+from rpython.rlib.objectmodel import instantiate, not_rpython, try_inline
 from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
@@ -45,6 +45,8 @@ class TypeDef(object):
         if __total_ordering__ == 'auto':
             self.auto_total_ordering()
 
+        self._install_shortcuts()
+
     def add_entries(self, **rawdict):
         # xxx fix the names of the methods to match what app-level expects
         for key, value in rawdict.items():
@@ -66,6 +68,28 @@ class TypeDef(object):
 
     def __repr__(self):
         return "<%s name=%r>" % (self.__class__.__name__, self.name)
+
+    def _install_shortcuts(self):
+        rawdict = self.rawdict
+        # guess the class # XXX should this be done in a more official way?
+        rpy_cls = None
+        for key, val in rawdict.iteritems():
+            ncls = None
+            if isinstance(val, interp2app):
+                ncls = val.self_type
+                if ncls:
+                    # check they are all the same
+                    if not (rpy_cls is None or rpy_cls is ncls):
+                        print "cannot find single base, found %r and %r, giving up" % (rpy_cls, ncls)
+                        return
+                    rpy_cls = ncls
+        for name, shortcut_name, fallback in SHORTCUTS:
+            if name not in rawdict:
+                continue
+            if rawdict[name]._staticdefs:
+                continue
+            shortcut_func = rawdict[name]._code.activation._make_descroperation_shortcut(name, rpy_cls)
+            setattr(rpy_cls, shortcut_name, shortcut_func)
 
 
 # generic special cmp methods defined on top of __lt__ and __eq__, used by
@@ -155,6 +179,10 @@ def _getusercls(cls, reallywantdict=False):
     class subcls(cls):
         user_overridden_class = True
         objectmodel.import_from_mixin(base_mixin)
+
+    for name, shortcut_name, meth in SHORTCUTS:
+        setattr(subcls, shortcut_name, meth)
+
     for copycls in copy_methods:
         _copy_methods(copycls, subcls)
     subcls.__name__ = name
@@ -164,6 +192,25 @@ def _copy_methods(copycls, subcls):
     for key, value in copycls.__dict__.items():
         if (not key.startswith('__') or key == '__del__'):
             setattr(subcls, key, value)
+
+# ____________________________________________________________
+# descroperation shortcuts
+
+SHORTCUTS = []
+
+def use_special_method_shortcut(name):
+    def wrapper(func):
+        def shortcut_fallback(self, space, *args_w):
+            return func(space, self, *args_w)
+        shortcut_fallback.func_name = "shortcut_fallback_%s" % name
+        shortcut_name = "shortcut_%s" % name
+        SHORTCUTS.append((name, shortcut_name, shortcut_fallback))
+        @try_inline
+        def call_shortcut(space, self, *args_w):
+            return getattr(self, shortcut_name)(space, *args_w)
+        setattr(W_Root, shortcut_name, shortcut_fallback)
+        return call_shortcut
+    return wrapper
 
 
 # ____________________________________________________________
