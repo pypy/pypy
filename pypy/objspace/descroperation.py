@@ -342,7 +342,6 @@ class DescrOperation(object):
                         "'%T' object does not support item deletion", w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
-    @use_special_method_shortcut('__getslice__')
     def getslice(space, w_obj, w_start, w_stop):
         w_descr = space.lookup(w_obj, '__getslice__')
         if w_descr is None:
@@ -351,7 +350,6 @@ class DescrOperation(object):
         w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
         return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
 
-    @use_special_method_shortcut('__setslice__')
     def setslice(space, w_obj, w_start, w_stop, w_sequence):
         w_descr = space.lookup(w_obj, '__setslice__')
         if w_descr is None:
@@ -360,7 +358,6 @@ class DescrOperation(object):
         w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
         return space.get_and_call_function(w_descr, w_obj, w_start, w_stop, w_sequence)
 
-    @use_special_method_shortcut('__delslice__')
     def delslice(space, w_obj, w_start, w_stop):
         w_descr = space.lookup(w_obj, '__delslice__')
         if w_descr is None:
@@ -753,17 +750,20 @@ def _make_binop_impl(symbol, specialnames):
         # makes a few assumptions: if the two rpython types are the same, then
         # the left and the right implementations are the same too, and result
         # for builtin types should never be NotImplemented
-        w_res = space.lookup(left)
-        if w_res is not None:
+        w_impl = space.lookup(w_obj1, left)
+        if w_impl is not None:
             w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
-            if not _check_notimplemented(space, w_res):
+            if _check_notimplemented(space, w_res):
                 return w_res
+        w_typ1 = space.type(w_obj1)
+        w_typ2 = space.type(w_obj2)
         raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
 
     def binop_impl(space, w_obj1, w_obj2):
         # shortcut: rpython classes are the same
-        if type(w_obj1) is type(w_obj2):
-            return shortcut_binop(space, w_obj1, w_obj2)
+        if type(w_obj1) is type(w_obj2) and not w_obj1.user_overridden_class:
+            w_res = shortcut_binop(space, w_obj1, w_obj2)
+            return w_res
         w_res = _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat)
         if w_res is not None:
             return w_res
