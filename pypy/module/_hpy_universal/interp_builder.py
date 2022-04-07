@@ -52,6 +52,7 @@ class W_TupleBuilder(W_Root):
     def __init__(self, initial_size):
         self.items_w = [None] * initial_size
         make_sure_not_resized(self.items_w)
+        self.initial_size = initial_size
 
 @API.func("HPyTupleBuilder HPyTupleBuilder_New(HPyContext *ctx, HPy_ssize_t initial_size)",
           error_value=0)
@@ -78,8 +79,8 @@ def HPyTupleBuilder_Build(space, handles, ctx, builder):
 
 @API.func("void HPyTupleBuilder_Cancel(HPyContext *ctx, HPyTupleBuilder builder)")
 def HPyTupleBuilder_Cancel(space, handles, ctx, builder):
-    # XXX write a test
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return
-    raise NotImplementedError
-
+    w_builder = handles.deref(builder)
+    assert isinstance(w_builder, W_TupleBuilder)
+    for i in range(w_builder.initial_size):
+        w_builder.items_w[i] = None
+    
