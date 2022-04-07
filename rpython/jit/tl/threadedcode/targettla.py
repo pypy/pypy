@@ -51,7 +51,7 @@ def entry_point(args):
         n1 = time.time()
         w_res = tla.run(bytecode, w_x, debug=debug, tier=tier)
         n2 = time.time()
-        print (n2 * 1e4 - n1 * 1e4)
+        print n2 - n1
     print w_res.getrepr()
     return 0
 

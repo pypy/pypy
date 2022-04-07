@@ -106,6 +106,15 @@ class W_IntObject(W_Object):
         else:
             raise OperationError
 
+    def ge(self, w_other):
+        if isinstance(w_other, W_IntObject):
+            if self.intvalue >= w_other.intvalue:
+                return W_IntObject(1)
+            else:
+                return W_IntObject(0)
+        else:
+            raise OperationError
+
 class W_FloatObject(W_Object):
 
     def __init__(self, floatvalue):
@@ -149,11 +158,7 @@ class W_FloatObject(W_Object):
             raise OperationError
 
     def mod(self, w_other):
-        if isinstance(w_other, W_FloatObject):
-            sum = self.floatvalue % w_other.floatvalue
-            return W_FloatObject(sum)
-        else:
-            raise OperationError
+        raise OperationError
 
     def eq(self, w_other):
         if isinstance(w_other, W_FloatObject):
@@ -185,6 +190,15 @@ class W_FloatObject(W_Object):
     def le(self, w_other):
         if isinstance(w_other, W_FloatObject):
             if self.floatvalue <= w_other.floatvalue:
+                return W_IntObject(1)
+            else:
+                return W_IntObject(0)
+        else:
+            raise OperationError
+
+    def ge(self, w_other):
+        if isinstance(w_other, W_FloatObject):
+            if self.floatvalue >= w_other.floatvalue:
                 return W_IntObject(1)
             else:
                 return W_IntObject(0)

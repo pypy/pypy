@@ -136,7 +136,8 @@ class Frame(object):
     @jit.dont_look_inside
     def is_true(self, dummy):
         if dummy:
-            return self.take(0).is_true()
+            # return self.take(0).is_true()
+            return True
         w_x = self.pop()
         return w_x.is_true()
 
@@ -165,15 +166,15 @@ class Frame(object):
     def CONST_FLOAT(self, pc, dummy):
         if dummy:
             return
-        if isinstance(pc, float):
-            x = ord(self.bytecode[pc])
+        if isinstance(pc, int):
+            x = float(ord(self.bytecode[pc]))
             self.push(W_FloatObject(x))
         else:
             raise OperationError
 
     def _CONST_FLOAT(self, pc):
-        if isinstance(pc, float):
-            x = ord(self.bytecode[pc])
+        if isinstance(pc, int):
+            x = float(ord(self.bytecode[pc]))
             self._push(W_FloatObject(x))
         else:
             raise OperationError
@@ -353,13 +354,13 @@ class Frame(object):
             return
         w_y = self.pop()
         w_x = self.pop()
-        w_z = w_x.lt(w_y)
+        w_z = w_x.le(w_y)
         self.push(w_z)
 
     def _LT(self):
         w_y = self._pop()
         w_x = self._pop()
-        w_z = w_x.lt(w_y)
+        w_z = w_x.le(w_y)
         self._push(w_z)
 
     @jit.dont_look_inside
@@ -368,13 +369,13 @@ class Frame(object):
             return
         w_y = self.pop()
         w_x = self.pop()
-        w_z = w_x.gt(w_y)
+        w_z = w_x.ge(w_y)
         self.push(w_z)
 
     def _GT(self):
         w_y = self._pop()
         w_x = self._pop()
-        w_z = w_x.gt(w_y)
+        w_z = w_x.ge(w_y)
         self.push(w_z)
 
     @jit.dont_look_inside
@@ -418,9 +419,11 @@ class Frame(object):
         if w_x:
             oldframe.push(w_x)
 
-    def CALL_ASSEMBLER(self, oldframe, t, argnum, bytecode, tstack, dummy):
+    def CALL_ASSEMBLER(self, oldframe, t, argnum, bytecode,
+                       tstack, dummy):
         "Special handler to be compiled to call_assembler_r"
-        w_x = self.interp_CALL_ASSEMBLER(t, t, bytecode, tstack, dummy)
+        w_x = self.interp_CALL_ASSEMBLER(t, t, bytecode,
+                                         tstack, dummy)
         oldframe.DROP(argnum, dummy)
         if w_x:
             oldframe.PUSH(w_x, dummy)
@@ -699,6 +702,13 @@ class Frame(object):
                     self.CONST_INT(pc, dummy=False)
                 pc += 1
 
+            elif opcode == CONST_FLOAT:
+                if we_are_jitted():
+                    self.CONST_FLOAT(pc, dummy=True)
+                else:
+                    self.CONST_FLOAT(pc, dummy=False)
+                pc += 1
+
             elif opcode == CONST_N:
                 if we_are_jitted():
                     self.CONST_N(pc, dummy=True)
@@ -860,7 +870,8 @@ class Frame(object):
                         pc = t
 
                     else:
-                        pc, tstack = tstack.t_pop()
+                        if t < pc:
+                            pc, tstack = tstack.t_pop()
                     if t < pc:
                         pc = emit_jump(pc, t)
                 else:
