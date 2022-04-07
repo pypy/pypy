@@ -291,7 +291,7 @@ class DescrOperation(object):
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
         return result
 
-    # the following assumes that all the built-in __iter__ methods return a
+    # the following assumes that all the built-in __iter__ methods return
     # something with a next
     @use_special_method_shortcut('__iter__')
     def iter(space, w_obj):
@@ -748,7 +748,22 @@ def _make_binop_impl(symbol, specialnames):
         symbol.replace('%', '%%'),)
     seq_bug_compat = (symbol == '+' or symbol == '*')
 
+    @use_special_method_shortcut(left)
+    def shortcut_binop(space, w_obj1, w_obj2):
+        # makes a few assumptions: if the two rpython types are the same, then
+        # the left and the right implementations are the same too, and result
+        # for builtin types should never be NotImplemented
+        w_res = space.lookup(left)
+        if w_res is not None:
+            w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
+            if not _check_notimplemented(space, w_res):
+                return w_res
+        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
+
     def binop_impl(space, w_obj1, w_obj2):
+        # shortcut: rpython classes are the same
+        if type(w_obj1) is type(w_obj2):
+            return shortcut_binop(space, w_obj1, w_obj2)
         w_res = _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat)
         if w_res is not None:
             return w_res

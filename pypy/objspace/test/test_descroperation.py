@@ -33,3 +33,10 @@ class Test_DescrOperation:
         w_iter = space.iter(w_l)
         w_first = space.next(w_iter)
         assert space.int_w(w_first) == 1
+
+    def test_shortcut_binop(self, monkeypatch, space):
+        w_x = space.newutf8('abc', 3)
+        w_y = space.newutf8('def', 3)
+        monkeypatch.setattr(space, "lookup", None)
+        assert space.utf8_w(space.add(w_x, w_y)) == 'abcdef'
+

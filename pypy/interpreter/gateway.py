@@ -433,7 +433,8 @@ class BuiltinActivation(object):
         assert emit.rpy_cls is rpy_cls
         d = {}
         d['func'] = self.behavior
-        assert name.strip('_') in self.behavior.__name__
+        if "div" not in name:
+            assert name.strip('_') in self.behavior.__name__
         source = """if 1:
             def shortcut_%s(self, space, *args_w): # for %s
                 assert not self.user_overridden_class
