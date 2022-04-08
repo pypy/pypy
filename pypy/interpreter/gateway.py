@@ -1128,6 +1128,8 @@ class interp2app(W_Root):
                     assert not self.user_overridden_class
                     if checkerfunc:
                         assert checkerfunc(space, w_res)
+                if w_res is None:
+                    return space.w_None
                 return w_res
             """ % (name, ", ".join(emit.extraargs),
                    rpy_cls, ', '.join(emit.run_args))
