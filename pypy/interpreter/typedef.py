@@ -87,12 +87,13 @@ class TypeDef(object):
                             assert issubclass(rpy_cls, ncls)
         if rpy_cls is None:
             return
-        for name, shortcut_name, fallback in SHORTCUTS:
+        for name, shortcut_name, fallback, checkerfunc in SHORTCUTS:
             if name not in rawdict:
                 continue
             if rawdict[name]._staticdefs:
                 continue
-            shortcut_func = rawdict[name]._make_descroperation_shortcut(name, rpy_cls)
+            shortcut_func = rawdict[name]._make_descroperation_shortcut(
+                    name, rpy_cls, checkerfunc)
             setattr(rpy_cls, shortcut_name, shortcut_func)
 
 
@@ -184,7 +185,7 @@ def _getusercls(cls, reallywantdict=False):
         user_overridden_class = True
         objectmodel.import_from_mixin(base_mixin)
 
-    for name, shortcut_name, meth in SHORTCUTS:
+    for name, shortcut_name, meth, _ in SHORTCUTS:
         setattr(subcls, shortcut_name, meth)
 
     for copycls in copy_methods:
@@ -202,7 +203,7 @@ def _copy_methods(copycls, subcls):
 
 SHORTCUTS = []
 
-def use_special_method_shortcut(name):
+def use_special_method_shortcut(name, checkerfunc=None):
     """
     use a shortcut for implementations of the special method 'name' for
     built-in types in the decorated descroperation function. The behaviour for
@@ -215,13 +216,16 @@ def use_special_method_shortcut(name):
     means if the descroperation method contains extra logic after the
     get_and_call_function it will be ignored (which is often safe for built-in
     types).
+
+    checkerfunc is a non-translation only safety: it's called with the space
+    and the result of the get_and_call_function call and must return True.
     """
     def wrapper(func):
         def shortcut_fallback(self, space, *args_w):
             return func(space, self, *args_w)
         shortcut_fallback.func_name = "shortcut_fallback_%s" % name
         shortcut_name = "shortcut_%s" % name
-        SHORTCUTS.append((name, shortcut_name, shortcut_fallback))
+        SHORTCUTS.append((name, shortcut_name, shortcut_fallback, checkerfunc))
         @try_inline
         def call_shortcut(space, self, *args_w):
             return getattr(self, shortcut_name)(space, *args_w)

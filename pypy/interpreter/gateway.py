@@ -1111,7 +1111,7 @@ class interp2app(W_Root):
     # descroperation shortcut
     _shortcut = None
 
-    def _make_descroperation_shortcut(self, name, rpy_cls):
+    def _make_descroperation_shortcut(self, name, rpy_cls, checkerfunc):
         if self._shortcut:
             return self._shortcut
         emit = UnwrapSpec_EmitShortcut(rpy_cls)
@@ -1120,11 +1120,15 @@ class interp2app(W_Root):
         d = {}
         f = self._code.activation.behavior
         d['func'] = f
-        if "div" not in name:
-            assert name.strip('_') in f.__name__
+        d['checkerfunc'] = checkerfunc
+        d['we_are_translated'] = we_are_translated
         source = """def shortcut_%s(self, space, %s): # for %s
-                assert not self.user_overridden_class
-                return func(%s)
+                w_res = func(%s)
+                if not we_are_translated():
+                    assert not self.user_overridden_class
+                    if checkerfunc:
+                        assert checkerfunc(space, w_res)
+                return w_res
             """ % (name, ", ".join(emit.extraargs),
                    rpy_cls, ', '.join(emit.run_args))
         exec compile2(source) in d

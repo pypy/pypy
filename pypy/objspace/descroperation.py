@@ -299,9 +299,8 @@ class DescrOperation(object):
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
         return result
 
-    # the following assumes that all the built-in __iter__ methods return
-    # something with a next
-    @use_special_method_shortcut('__iter__')
+    @use_special_method_shortcut('__iter__',
+            lambda space, w_iter: space.lookup(w_iter, 'next') is not None)
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
         if w_descr is None:
@@ -431,8 +430,8 @@ class DescrOperation(object):
                 return w_res
         return space.pow(w_lhs, w_rhs, space.w_None)
 
-    # the following assumes that all the built-in contains methods return a bool
-    @use_special_method_shortcut('__contains__')
+    @use_special_method_shortcut('__contains__',
+            lambda space, w_res: space.is_w(space.type(w_res), space.w_bool))
     def contains(space, w_container, w_item):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
@@ -753,7 +752,8 @@ def _make_binop_impl(symbol, specialnames):
         symbol.replace('%', '%%'),)
     seq_bug_compat = (symbol == '+' or symbol == '*')
 
-    @use_special_method_shortcut(left)
+    @use_special_method_shortcut(left,
+            lambda space, w_res: w_res is not space.w_NotImplemented)
     def shortcut_binop(space, w_obj1, w_obj2):
         # makes a few assumptions: if the two rpython types are the same, then
         # the left and the right implementations are the same too, and result
@@ -891,8 +891,8 @@ for targetname, specialname, checkerspec in [
     msg = "unsupported operand type for %(targetname)s(): '%%T'"
     msg = msg % locals()
     source = """if 1:
-        # works only because all builtin-types will return the correct type
-        @use_special_method_shortcut(%(specialname)r)
+        @use_special_method_shortcut(%(specialname)r,
+            lambda space, w_result: %(checker)s)
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
@@ -919,8 +919,9 @@ for targetname, specialname in [
     ('hex', '__hex__')]:
 
     source = """if 1:
-        # works only because all builtin-types will return the correct type
-        @use_special_method_shortcut(%(specialname)r)
+        @use_special_method_shortcut(%(specialname)r,
+            lambda space, w_res: space.isinstance_w(w_res, space.w_text)
+        )
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
