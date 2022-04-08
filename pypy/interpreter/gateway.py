@@ -395,10 +395,13 @@ class UnwrapSpec_EmitShortcut(UnwrapSpec_EmitRun):
         UnwrapSpecEmit.__init__(self)
         self.run_args = []
         self.rpy_cls = rpy_cls
+        self.extraargs = []
 
     def scopenext(self):
         x = self.succ()
-        return "args_w[%d]" % (x - 1, )
+        res = "w_%d" % (x - 1, )
+        self.extraargs.append(res)
+        return res
 
     def visit_self(self, typ):
         x = self.succ()
@@ -1119,11 +1122,11 @@ class interp2app(W_Root):
         d['func'] = f
         if "div" not in name:
             assert name.strip('_') in f.__name__
-        source = """if 1:
-            def shortcut_%s(self, space, *args_w): # for %s
+        source = """def shortcut_%s(self, space, %s): # for %s
                 assert not self.user_overridden_class
                 return func(%s)
-            """ % (name, rpy_cls, ', '.join(emit.run_args))
+            """ % (name, ", ".join(emit.extraargs),
+                   rpy_cls, ', '.join(emit.run_args))
         exec compile2(source) in d
         shortcut = d['shortcut_%s' % name]
         self._shortcut = shortcut
