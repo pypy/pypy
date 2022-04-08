@@ -29,7 +29,12 @@ class Test_DescrOperation:
 
     def test_shortcut(self, monkeypatch, space):
         w_l = space.wrap([1, 2, 3, 4])
-        monkeypatch.setattr(space, "lookup", None)
+        oldlookup = space.lookup
+        def lookup(obj, name):
+            if name == "iter":
+                return None
+            return oldlookup(obj, name)
+        monkeypatch.setattr(space, "lookup", lookup)
         w_iter = space.iter(w_l)
         w_first = space.next(w_iter)
         assert space.int_w(w_first) == 1
@@ -42,7 +47,12 @@ class Test_DescrOperation:
 
     def test_shortcut_dictiter(self, monkeypatch, space):
         w_x = space.wrap({'a': 1})
-        monkeypatch.setattr(space, "lookup", None)
+        oldlookup = space.lookup
+        def lookup(obj, name):
+            if name == "iter":
+                return None
+            return oldlookup(obj, name)
+        monkeypatch.setattr(space, "lookup", lookup)
         w_iter = space.iter(w_x)
         w_first = space.next(w_iter)
         assert space.utf8_w(w_first) == 'a'
