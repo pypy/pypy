@@ -67,3 +67,7 @@ class Test_DescrOperation:
         from pypy.module.__builtin__.interp_classobj import W_InstanceObject, W_ClassObject
         for key in W_InstanceObject.__dict__.keys() + W_ClassObject.__dict__.keys():
             assert not key.startswith("shortcut_")
+
+    def test_shortcut_generatoriterator(self):
+        from pypy.interpreter.generator import GeneratorIterator
+        assert 'shortcut_next' in GeneratorIterator.__dict__

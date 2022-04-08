@@ -547,7 +547,6 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
 from pypy.interpreter.pytraceback import PyTraceback
-from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
@@ -843,28 +842,6 @@ PyTraceback.typedef = TypeDef("traceback",
     tb_next = interp_attrproperty_w('next', cls=PyTraceback),
     )
 assert not PyTraceback.typedef.acceptable_as_base_class  # no __new__
-
-GeneratorIterator.typedef = TypeDef("generator",
-    __repr__   = interp2app(GeneratorIterator.descr__repr__),
-    __reduce__   = interp2app(GeneratorIterator.descr__reduce__),
-    __setstate__ = interp2app(GeneratorIterator.descr__setstate__),
-    next       = interp2app(GeneratorIterator.descr_next,
-                            descrmismatch='next'),
-    send       = interp2app(GeneratorIterator.descr_send,
-                            descrmismatch='send'),
-    throw      = interp2app(GeneratorIterator.descr_throw,
-                            descrmismatch='throw'),
-    close      = interp2app(GeneratorIterator.descr_close,
-                            descrmismatch='close'),
-    __iter__   = interp2app(GeneratorIterator.descr__iter__,
-                            descrmismatch='__iter__'),
-    gi_running = interp_attrproperty('running', cls=GeneratorIterator, wrapfn="newbool"),
-    gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
-    gi_code    = GetSetProperty(GeneratorIterator.descr_gi_code),
-    __name__   = GetSetProperty(GeneratorIterator.descr__name__),
-    __weakref__ = make_weakref_descr(GeneratorIterator),
-)
-assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
 
 Cell.typedef = TypeDef("cell",
     __cmp__      = interp2app(Cell.descr__cmp__),
