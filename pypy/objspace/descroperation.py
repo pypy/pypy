@@ -784,7 +784,26 @@ def _make_binop_impl(symbol, specialnames):
 def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
+
+    @use_special_method_shortcut(left,
+            lambda space, w_res: w_res is not space.w_NotImplemented)
+    def shortcut_comparison(space, w_obj1, w_obj2):
+        # see shortcut_binop
+        w_impl = space.lookup(w_obj1, left)
+        if w_impl is not None:
+            w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
+            if _check_notimplemented(space, w_res):
+                return w_res
+        w_res = _cmp(space, w_obj1, w_obj2, symbol)
+        res = space.int_w(w_res)
+        return space.newbool(op(res, 0))
+
+
     def comparison_impl(space, w_obj1, w_obj2):
+        # shortcut, rpython classes are the same
+        if left == right and type(w_obj1) is type(w_obj2) and not w_obj1.user_overridden_class:
+            w_res = shortcut_comparison(space, w_obj1, w_obj2)
+            return w_res
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
@@ -838,7 +857,7 @@ def _make_inplace_impl(symbol, specialnames):
         w_impl = space.lookup(w_lhs, specialname)
         if w_impl is not None:
             # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
-            # see objspace/test/test_descrobject.*rmul_overrides.
+            # see objspace/test/apptest_descroperation.*rmul_overrides.
             # For cases like "list += object-overriding-__radd__".
             if (seq_bug_compat and space.type(w_lhs).flag_sequence_bug_compat
                            and not space.type(w_rhs).flag_sequence_bug_compat):
