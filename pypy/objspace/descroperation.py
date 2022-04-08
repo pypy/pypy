@@ -103,9 +103,15 @@ class Object(object):
         name = space.text_w(w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
-            if space.is_data_descr(w_descr):
-                space.set(w_descr, w_obj, w_value)
-                return
+            # shortcut for:
+            # if space.is_data_descr(w_descr):
+            #     return space.set(w_descr, w_obj, w_value)
+            w_set = space.lookup(w_descr, '__set__')
+            if w_set is not None:
+                return space.get_and_call_function(w_set, w_descr, w_obj, w_value)
+            if space.lookup(w_descr, '__delete__') is not None:
+                raise oefmt(space.w_AttributeError,
+                            "'%T' object is not a descriptor with set", w_descr)
         if w_obj.setdictvalue(space, name, w_value):
             return
         raiseattrerror(space, w_obj, name, w_descr)
