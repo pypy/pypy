@@ -387,7 +387,7 @@ class UnwrapSpec_EmitShortcut(UnwrapSpec_EmitRun):
     # emit a special method shortcut. the calling function always has the signature:
     # def shortcut_meth(self, space, *args_w):
     #     return underlying_function(...correct args...)
-    # example
+    # example for 'next':
     # def shortcut_next(self, space, *args_w):
     #     return descr_next(self, space)
 
@@ -403,11 +403,11 @@ class UnwrapSpec_EmitShortcut(UnwrapSpec_EmitRun):
     def visit_self(self, typ):
         x = self.succ()
         assert x == 0
-        assert self.rpy_cls is typ
+        assert issubclass(self.rpy_cls, typ)
         self.run_args.append("self") # no need to check, done implicitly
 
     def visit__W_Root(self, el):
-        if el is self.rpy_cls:
+        if issubclass(self.rpy_cls, el) and self.n == 0:
             return self.visit_self(el)
         return UnwrapSpec_EmitRun.visit__W_Root(self, el)
 
@@ -418,33 +418,10 @@ class BuiltinActivation(object):
     @not_rpython
     def __init__(self, behavior, unwrap_spec):
         self.behavior = behavior
-        self.unwrap_spec = unwrap_spec # should not be seen after translation
-        self._shortcut = None
 
     def _run(self, space, scope_w):
         """Subclasses with behavior specific for an unwrap spec are generated"""
         raise TypeError("abstract")
-
-    def _make_descroperation_shortcut(self, name, rpy_cls):
-        if self._shortcut:
-            return self._shortcut
-        emit = UnwrapSpec_EmitShortcut(rpy_cls)
-        emit.apply_over(self.unwrap_spec)
-        assert emit.rpy_cls is rpy_cls
-        d = {}
-        d['func'] = self.behavior
-        if "div" not in name:
-            assert name.strip('_') in self.behavior.__name__
-        source = """if 1:
-            def shortcut_%s(self, space, *args_w): # for %s
-                assert not self.user_overridden_class
-                return func(%s)
-            """ % (name, rpy_cls, ', '.join(emit.run_args))
-        print source
-        exec compile2(source) in d
-        shortcut = d['shortcut_%s' % name]
-        self._shortcut = shortcut
-        return shortcut
 
 #________________________________________________________________
 
@@ -1126,6 +1103,31 @@ class interp2app(W_Root):
 
     def getcache(self, space):
         return space.fromcache(GatewayCache)
+
+
+    # descroperation shortcut
+    _shortcut = None
+
+    def _make_descroperation_shortcut(self, name, rpy_cls):
+        if self._shortcut:
+            return self._shortcut
+        emit = UnwrapSpec_EmitShortcut(rpy_cls)
+        emit.apply_over(self._code._unwrap_spec)
+        assert emit.rpy_cls is rpy_cls
+        d = {}
+        f = self._code.activation.behavior
+        d['func'] = f
+        if "div" not in name:
+            assert name.strip('_') in f.__name__
+        source = """if 1:
+            def shortcut_%s(self, space, *args_w): # for %s
+                assert not self.user_overridden_class
+                return func(%s)
+            """ % (name, rpy_cls, ', '.join(emit.run_args))
+        exec compile2(source) in d
+        shortcut = d['shortcut_%s' % name]
+        self._shortcut = shortcut
+        return shortcut
 
 
 class GatewayCache(SpaceCache):

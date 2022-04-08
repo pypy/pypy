@@ -237,6 +237,8 @@ class DescrOperation(object):
                         w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
+    # would be cool to shortcut this too, but old-style classes return int from
+    # __nonzero__
     def is_true(space, w_obj):
         w_descr = space.lookup(w_obj, "__nonzero__")
         if w_descr is None:
@@ -883,6 +885,8 @@ for targetname, specialname, checkerspec in [
     msg = "unsupported operand type for %(targetname)s(): '%%T'"
     msg = msg % locals()
     source = """if 1:
+        # works only because all builtin-types will return the correct type
+        @use_special_method_shortcut(%(specialname)r)
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
@@ -909,6 +913,8 @@ for targetname, specialname in [
     ('hex', '__hex__')]:
 
     source = """if 1:
+        # works only because all builtin-types will return the correct type
+        @use_special_method_shortcut(%(specialname)r)
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:

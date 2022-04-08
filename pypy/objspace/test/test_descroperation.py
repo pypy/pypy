@@ -40,3 +40,15 @@ class Test_DescrOperation:
         monkeypatch.setattr(space, "lookup", None)
         assert space.utf8_w(space.add(w_x, w_y)) == 'abcdef'
 
+    def test_shortcut_dictiter(self, monkeypatch, space):
+        w_x = space.wrap({'a': 1})
+        monkeypatch.setattr(space, "lookup", None)
+        w_iter = space.iter(w_x)
+        w_first = space.next(w_iter)
+        assert space.utf8_w(w_first) == 'a'
+
+    def test_shortcut_str_getitem(self, monkeypatch, space):
+        w_x = space.newbytes('abc')
+        monkeypatch.setattr(space, "lookup", None)
+        w_first = space.getitem(w_x, space.newint(0))
+        assert space.bytes_w(w_first) == 'a'

@@ -78,17 +78,21 @@ class TypeDef(object):
             if isinstance(val, interp2app):
                 ncls = val.self_type
                 if ncls:
-                    # check they are all the same
-                    if not (rpy_cls is None or rpy_cls is ncls):
-                        print "cannot find single base, found %r and %r, giving up" % (rpy_cls, ncls)
-                        return
-                    rpy_cls = ncls
+                    if rpy_cls is None:
+                        rpy_cls = ncls
+                    else:
+                        if issubclass(ncls, rpy_cls):
+                            rpy_cls = ncls # use most specific class
+                        else:
+                            assert issubclass(rpy_cls, ncls)
+        if rpy_cls is None:
+            return
         for name, shortcut_name, fallback in SHORTCUTS:
             if name not in rawdict:
                 continue
             if rawdict[name]._staticdefs:
                 continue
-            shortcut_func = rawdict[name]._code.activation._make_descroperation_shortcut(name, rpy_cls)
+            shortcut_func = rawdict[name]._make_descroperation_shortcut(name, rpy_cls)
             setattr(rpy_cls, shortcut_name, shortcut_func)
 
 
@@ -199,6 +203,19 @@ def _copy_methods(copycls, subcls):
 SHORTCUTS = []
 
 def use_special_method_shortcut(name):
+    """
+    use a shortcut for implementations of the special method 'name' for
+    built-in types in the decorated descroperation function. The behaviour for
+    builtin types will be equivalent to:
+
+        w_descr = space.lookup(w_obj, name)
+        return space.get_and_call_function(w_descr, w_obj)
+
+    but only if the special method name exists in the type. Note that this
+    means if the descroperation method contains extra logic after the
+    get_and_call_function it will be ignored (which is often safe for built-in
+    types).
+    """
     def wrapper(func):
         def shortcut_fallback(self, space, *args_w):
             return func(space, self, *args_w)
