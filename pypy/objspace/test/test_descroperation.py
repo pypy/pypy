@@ -52,3 +52,8 @@ class Test_DescrOperation:
         monkeypatch.setattr(space, "lookup", None)
         w_first = space.getitem(w_x, space.newint(0))
         assert space.bytes_w(w_first) == 'a'
+
+    def test_no_shortcut_classobj(self):
+        from pypy.module.__builtin__.interp_classobj import W_InstanceObject, W_ClassObject
+        for key in W_InstanceObject.__dict__.keys() + W_ClassObject.__dict__.keys():
+            assert not key.startswith("shortcut_")
