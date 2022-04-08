@@ -45,6 +45,12 @@ class Test_DescrOperation:
         monkeypatch.setattr(space, "lookup", None)
         assert space.utf8_w(space.add(w_x, w_y)) == 'abcdef'
 
+    def test_shortcut_eq(self, monkeypatch, space):
+        w_x = space.newutf8('abc', 3)
+        w_y = space.newutf8('def', 3)
+        monkeypatch.setattr(space, "lookup", None)
+        assert not space.eq_w(w_x, w_y)
+
     def test_shortcut_dictiter(self, monkeypatch, space):
         w_x = space.wrap({'a': 1})
         oldlookup = space.lookup
