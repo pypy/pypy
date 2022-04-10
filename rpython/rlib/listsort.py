@@ -85,6 +85,7 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
             if listlength is None:
                 listlength = length(list)
             self.listlength = listlength
+            self.scratch_list = None
 
         def setitem(self, item, val):
             setitem(self.list, item, val)
@@ -105,18 +106,20 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
         # the input (nothing is lost or duplicated).
 
         def binarysort(self, a, sorted=1):
+            abase = a.base
+            alist = a.list
             for start in xrange(a.base + sorted, a.base + a.len):
                 # set l to where list[start] belongs
-                l = a.base
+                l = abase
                 r = start
-                pivot = a.getitem(r)
+                pivot = getitem(alist, r)
                 # Invariants:
                 # pivot >= all in [base, l).
                 # pivot  < all in [r, start).
                 # The second is vacuously true at the start.
                 while l < r:
                     p = l + ((r - l) >> 1)
-                    if self.lt(pivot, a.getitem(p)):
+                    if self.lt(pivot, getitem(alist, p)):
                         r = p
                     else:
                         l = p+1
@@ -127,8 +130,8 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
                 # first slot after them -- that's why this sort is stable.
                 # Slide over to make room.
                 for p in xrange(start, l, -1):
-                    a.setitem(p, a.getitem(p-1))
-                a.setitem(l, pivot)
+                    setitem(alist, p, getitem(alist, p-1))
+                setitem(alist, l, pivot)
 
         # Compute the length of the run in the slice "a".
         # "A run" is the longest ascending sequence, with
@@ -146,7 +149,7 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
         # sequence without violating stability (strict > ensures there are no equal
         # elements to get out of order).
 
-        def count_run(self, a):
+        def count_run(self, a, resultrun):
             if a.len <= 1:
                 n = a.len
                 descending = False
@@ -166,7 +169,8 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
                             break
                         else:
                             n += 1
-            return ListSlice(a.list, a.base, n), descending
+            resultrun.len = n
+            return descending
 
         # Locate the proper position of key in a sorted vector; if the vector
         # contains an element equal to key, return the position immediately to the
@@ -295,7 +299,7 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
             assert a.len > 0 and b.len > 0 and a.base + a.len == b.base
             min_gallop = self.min_gallop
             dest = a.base
-            a = a.copyitems()
+            a.copyitems(self)
 
             # Invariant: elements in "a" are waiting to be reinserted into the list
             # at "dest".  They should be merged with the elements of "b".
@@ -398,7 +402,7 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
             assert a.len > 0 and b.len > 0 and a.base + a.len == b.base
             min_gallop = self.min_gallop
             dest = b.base + b.len
-            b = b.copyitems()
+            b.copyitems(self)
 
             # Invariant: elements in "b" are waiting to be reinserted into the list
             # before "dest".  They should be merged with the elements of "a".
@@ -572,9 +576,9 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
         # Entry point.
 
         def sort(self):
-            remaining = ListSlice(self.list, 0, self.listlength)
-            if remaining.len < 2:
+            if self.listlength < 2:
                 return
+            remaining = ListSlice(self.list, 0, self.listlength)
 
             # March over the array once, left to right, finding natural runs,
             # and extending short natural runs to minrun elements.
@@ -583,7 +587,8 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
 
             while remaining.len > 0:
                 # Identify next run.
-                run, descending = self.count_run(remaining)
+                run = ListSlice(remaining.list, remaining.base, remaining.len)
+                descending = self.count_run(remaining, run)
                 if descending:
                     run.reverse()
                 # If short, extend to min(minrun, nremaining).
@@ -617,12 +622,26 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
             return "<ListSlice base=%s len=%s %s>" % (
                     self.base, self.len, self.list[self.base: self.base+self.len])
 
-        def copyitems(self):
+        def copyitems(self, sorter):
             "Make a copy of the slice of the original list."
-            start = self.base
-            stop  = self.base + self.len
-            assert 0 <= start <= stop     # annotator hint
-            return ListSlice(getitem_slice(self.list, start, stop), 0, self.len)
+            if sorter.scratch_list is None or self.len > length(sorter.scratch_list):
+                listlength = length(self.list)
+                scratchsize = min((listlength + 1) // 2, 256)
+                if self.len > scratchsize:
+                    scratchsize = self.len
+                start = self.base
+                stop  = self.base + scratchsize
+                if stop > listlength:
+                    stop = listlength
+                assert 0 <= start <= stop     # annotator hint
+                scratch_list = sorter.scratch_list = getitem_slice(self.list, start, stop)
+            else:
+                scratch_list = sorter.scratch_list
+                base = self.base
+                for i in range(self.len):
+                    setitem(scratch_list, i, getitem(self.list, base + i))
+            self.list = scratch_list
+            self.base = 0
 
         def advance(self, n):
             self.base += n
