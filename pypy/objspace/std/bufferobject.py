@@ -10,9 +10,8 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 
-
-class W_Buffer(W_Root):
-    """The 'buffer' type: a wrapper around an interp-level buffer"""
+class W_AbstractBuffer(W_Root):
+    # base class, particularly for _cffi_backend.buffer
 
     def __init__(self, buf):
         assert isinstance(buf, Buffer)
@@ -36,23 +35,6 @@ class W_Buffer(W_Root):
     def descr_getbuffer(self, space, w_flags):
         space.check_buf_flags(space.int_w(w_flags), self.buf.readonly)
         return self
-
-    @staticmethod
-    @unwrap_spec(offset=int, size=int)
-    def descr_new_buffer(space, w_subtype, w_object, offset=0, size=-1):
-        try:
-            buf = w_object.readbuf_w(space)
-        except BufferInterfaceNotFound:
-            raise oefmt(space.w_TypeError, "expected a readable buffer object")
-        if offset == 0 and size == -1:
-            return W_Buffer(buf)
-        # handle buffer slices
-        if offset < 0:
-            raise oefmt(space.w_ValueError, "offset must be zero or positive")
-        if size < -1:
-            raise oefmt(space.w_ValueError, "size must be zero or positive")
-        buf = SubBuffer(buf, offset, size)
-        return W_Buffer(buf)
 
     def descr_len(self, space):
         return space.newint(self.buf.getlength())
@@ -89,15 +71,6 @@ class W_Buffer(W_Root):
     def descr_str(self, space):
         return space.newbytes(self.buf.as_str())
 
-    def descr_add(self, space, w_other):
-        try:
-            other = w_other.readbuf_w(space)
-        except BufferInterfaceNotFound:
-            raise oefmt(space.w_TypeError, "bad argument type for built-in operation")
-        if self.buf.getlength() < 1:
-            return w_other
-        return space.newbytes(self.buf.as_str() + other.as_str())
-
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
             if not isinstance(w_other, W_Buffer):
@@ -115,6 +88,36 @@ class W_Buffer(W_Root):
     descr_le = _make_descr__cmp('le')
     descr_gt = _make_descr__cmp('gt')
     descr_ge = _make_descr__cmp('ge')
+
+
+class W_Buffer(W_AbstractBuffer):
+    """The 'buffer' type: a wrapper around an interp-level buffer"""
+
+    @staticmethod
+    @unwrap_spec(offset=int, size=int)
+    def descr_new_buffer(space, w_subtype, w_object, offset=0, size=-1):
+        try:
+            buf = w_object.readbuf_w(space)
+        except BufferInterfaceNotFound:
+            raise oefmt(space.w_TypeError, "expected a readable buffer object")
+        if offset == 0 and size == -1:
+            return W_Buffer(buf)
+        # handle buffer slices
+        if offset < 0:
+            raise oefmt(space.w_ValueError, "offset must be zero or positive")
+        if size < -1:
+            raise oefmt(space.w_ValueError, "size must be zero or positive")
+        buf = SubBuffer(buf, offset, size)
+        return W_Buffer(buf)
+
+    def descr_add(self, space, w_other):
+        try:
+            other = w_other.readbuf_w(space)
+        except BufferInterfaceNotFound:
+            raise oefmt(space.w_TypeError, "bad argument type for built-in operation")
+        if self.buf.getlength() < 1:
+            return w_other
+        return space.newbytes(self.buf.as_str() + other.as_str())
 
     def descr_hash(self, space):
         x = compute_hash(self.buf.as_str())

@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct
-from pypy.objspace.std.bufferobject import W_Buffer
+from pypy.objspace.std.bufferobject import W_AbstractBuffer
 from pypy.interpreter.buffer import SimpleView
 
 from rpython.rlib.buffer import LLBuffer
@@ -11,14 +11,14 @@ from rpython.rlib.buffer import LLBuffer
 
 # Override the typedef to narrow down the interface that's exposed to app-level
 
-class MiniBuffer(W_Buffer):
+class MiniBuffer(W_AbstractBuffer):
     def __init__(self, buffer, keepalive=None):
-        W_Buffer.__init__(self, buffer)
+        W_AbstractBuffer.__init__(self, buffer)
         self.keepalive = keepalive
 
     def descr_setitem(self, space, w_index, w_obj):
         try:
-            W_Buffer.descr_setitem(self, space, w_index, w_obj)
+            W_AbstractBuffer.descr_setitem(self, space, w_index, w_obj)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 e.w_type = space.w_ValueError
