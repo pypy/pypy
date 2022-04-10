@@ -8,7 +8,7 @@ from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
 
 from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
-from rpython.rlib.objectmodel import instantiate, not_rpython, try_inline
+from rpython.rlib.objectmodel import instantiate, not_rpython, try_inline, dont_inline
 from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
@@ -87,14 +87,28 @@ class TypeDef(object):
                             assert issubclass(rpy_cls, ncls)
         if rpy_cls is None:
             return
+        if '_descroperation_shortcuts_installed' in rpy_cls.__dict__:
+            return
+        rpy_cls._descroperation_shortcuts_installed = True
         for name, shortcut_name, fallback, checkerfunc in SHORTCUTS:
-            if name not in rawdict:
-                continue
-            if rawdict[name]._staticdefs:
+            if name not in rawdict or rawdict[name]._staticdefs:
+                if W_Root not in rpy_cls.__bases__:
+
+                    shortcut = getattr(rpy_cls, shortcut_name).im_func
+                    if shortcut is not fallback:
+                        assert shortcut.source_typedef in self.all_bases(), \
+                                "getting a wrong shortcut %s for class %s from some base class that is not W_Root" % (name, rpy_cls)
                 continue
             shortcut_func = rawdict[name]._make_descroperation_shortcut(
                     name, rpy_cls, checkerfunc)
+            shortcut_func.source_typedef = self
             setattr(rpy_cls, shortcut_name, shortcut_func)
+
+    def all_bases(self):
+        for base in self.bases:
+            yield base
+            for up in base.all_bases():
+                yield up
 
 
 # generic special cmp methods defined on top of __lt__ and __eq__, used by
@@ -221,6 +235,7 @@ def use_special_method_shortcut(name, checkerfunc=None):
     and the result of the get_and_call_function call and must return True.
     """
     def wrapper(func):
+        @dont_inline
         def shortcut_fallback(self, space, *args_w):
             return func(space, self, *args_w)
         shortcut_fallback.func_name = "shortcut_fallback_%s" % name
