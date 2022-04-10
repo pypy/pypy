@@ -45,6 +45,13 @@ class Test_DescrOperation:
         monkeypatch.setattr(space, "lookup", None)
         assert space.utf8_w(space.add(w_x, w_y)) == 'abcdef'
 
+    def test_shortcut_binop_not_implemented(self, monkeypatch, space):
+        from pypy.interpreter.error import OperationError
+        w_x = space.newutf8('abc', 3)
+        w_y = space.newutf8('def', 3)
+        with raises(OperationError):
+            assert space.utf8_w(space.mul(w_x, w_y)) == 'abcdef'
+
     def test_shortcut_eq(self, monkeypatch, space):
         w_x = space.newutf8('abc', 3)
         w_y = space.newutf8('def', 3)

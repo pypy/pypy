@@ -752,12 +752,10 @@ def _make_binop_impl(symbol, specialnames):
         symbol.replace('%', '%%'),)
     seq_bug_compat = (symbol == '+' or symbol == '*')
 
-    @use_special_method_shortcut(left,
-            lambda space, w_res: w_res is not space.w_NotImplemented)
+    @use_special_method_shortcut(left)
     def shortcut_binop(space, w_obj1, w_obj2):
         # makes a few assumptions: if the two rpython types are the same, then
-        # the left and the right implementations are the same too, and result
-        # for builtin types should never be NotImplemented
+        # the left and the right implementations are the same too
         w_impl = space.lookup(w_obj1, left)
         if w_impl is not None:
             w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
@@ -771,7 +769,8 @@ def _make_binop_impl(symbol, specialnames):
         # shortcut: rpython classes are the same
         if type(w_obj1) is type(w_obj2) and not w_obj1.user_overridden_class:
             w_res = shortcut_binop(space, w_obj1, w_obj2)
-            return w_res
+            if _check_notimplemented(space, w_res):
+                return w_res
         w_res = _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat)
         if w_res is not None:
             return w_res
@@ -785,8 +784,7 @@ def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
 
-    @use_special_method_shortcut(left,
-            lambda space, w_res: w_res is not space.w_NotImplemented)
+    @use_special_method_shortcut(left)
     def shortcut_comparison(space, w_obj1, w_obj2):
         # see shortcut_binop
         w_impl = space.lookup(w_obj1, left)
@@ -803,7 +801,8 @@ def _make_comparison_impl(symbol, specialnames):
         # shortcut, rpython classes are the same
         if left == right and type(w_obj1) is type(w_obj2) and not w_obj1.user_overridden_class:
             w_res = shortcut_comparison(space, w_obj1, w_obj2)
-            return w_res
+            if _check_notimplemented(space, w_res):
+                return w_res
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
