@@ -87,6 +87,8 @@ class TypeDef(object):
                             assert issubclass(rpy_cls, ncls)
         if rpy_cls is None:
             return
+        if 'micronumpy' in rpy_cls.__module__:
+            return
         if '_descroperation_shortcuts_installed' in rpy_cls.__dict__:
             return
         rpy_cls._descroperation_shortcuts_installed = True
