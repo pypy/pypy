@@ -9,7 +9,9 @@ def define_op(name, has_arg=False):
 _bytecodes_has_args = [
     ('NOP', False),
     ('CONST_INT', True),
+    ('CONST_NEG_INT', True),
     ('CONST_FLOAT', True),
+    ('CONST_NEG_FLOAT', True),
     ('CONST_N', True),
     ('DUP', False),
     ('DUPN', True),
@@ -25,18 +27,27 @@ _bytecodes_has_args = [
     ('MOD', False),
     ('EXIT', False),
     ('JUMP', True),
+    ('JUMP_N', True),
     ('JUMP_IF', True),
+    ('JUMP_IF_N', True),
     ('CALL', True),
     ('CALL_ASSEMBLER', True),
-    ('CALL_JIT', True),
-    ('CALL_NORMAL', True),
+    ('CALL_TIER2', True),
+    ('CALL_TIER0', True),
     ('RET', True),
     ('NEWSTR', True),
     ('FRAME_RESET', True),
     ('PRINT', False),
     ('LOAD', True),
     ('STORE', True),
-    ('BUILD_LIST', True)
+    ('BUILD_LIST', True),
+    ('RAND_INT', False),
+    ('FLOAT_TO_INT', False),
+    ('INT_TO_FLOAT', False),
+    ('ABS_FLOAT', False),
+    ('SIN', False),
+    ('COS', False),
+    ('SQRT', False)
 ]
 
 for bytecode, has_arg in _bytecodes_has_args:
@@ -87,3 +98,7 @@ class Bytecode(object):
                 lines.append(" " + arg)
 
         return '\n'.join(lines)
+
+def compile(file_name):
+    # see ../tlopcode.py
+    pass

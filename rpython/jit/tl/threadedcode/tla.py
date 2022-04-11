@@ -1,8 +1,13 @@
+import math
+import sys
+
 from rpython.rlib import jit
-from rpython.rlib.jit import JitDriver, we_are_jitted, we_are_translated, hint
+from rpython.rlib.jit import JitDriver, we_are_jitted, hint
+from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rrandom import Random
+
 from rpython.jit.tl.threadedcode.traverse_stack import *
 from rpython.jit.tl.threadedcode.tlib import *
-
 from rpython.jit.tl.threadedcode.object import *
 from rpython.jit.tl.threadedcode.bytecode import *
 
@@ -125,13 +130,13 @@ class Frame(object):
 
     @jit.not_in_trace
     def dump(self):
-        out = ""
+        sys.stderr.write("stackpos: %d " % self.stackpos)
+        sys.stderr.write("[")
         for i in range(self.stackpos):
             w_x = self.stack[i]
             if isinstance(w_x, W_Object):
-                out = "%s, %s" % (out, w_x.getrepr())
-        out = "[" + out + "]"
-        print "stackpos: %d %s" % (self.stackpos, out)
+                sys.stderr.write(w_x.getrepr() + ", ")
+        sys.stderr.write("]\n")
 
     @jit.dont_look_inside
     def is_true(self, dummy):
@@ -146,36 +151,48 @@ class Frame(object):
         return w_x.is_true()
 
     @jit.dont_look_inside
-    def CONST_INT(self, pc, dummy):
+    def CONST_INT(self, pc, neg=False, dummy=False):
         if dummy:
             return
         if isinstance(pc, int):
             x = ord(self.bytecode[pc])
-            self.push(W_IntObject(x))
+            if neg:
+                self.push(W_IntObject(-x))
+            else:
+                self.push(W_IntObject(x))
         else:
             raise OperationError
 
-    def _CONST_INT(self, pc):
+    def _CONST_INT(self, pc, neg=False):
         if isinstance(pc, int):
             x = ord(self.bytecode[pc])
-            self._push(W_IntObject(x))
+            if neg:
+                self._push(W_IntObject(-x))
+            else:
+                self._push(W_IntObject(x))
         else:
             raise OperationError
 
     @jit.dont_look_inside
-    def CONST_FLOAT(self, pc, dummy):
+    def CONST_FLOAT(self, pc, neg=False, dummy=False):
         if dummy:
             return
         if isinstance(pc, int):
             x = float(ord(self.bytecode[pc]))
-            self.push(W_FloatObject(x))
+            if neg:
+                self.push(W_FloatObject(-x))
+            else:
+                self.push(W_FloatObject(x))
         else:
             raise OperationError
 
-    def _CONST_FLOAT(self, pc):
+    def _CONST_FLOAT(self, pc, neg=False):
         if isinstance(pc, int):
             x = float(ord(self.bytecode[pc]))
-            self._push(W_FloatObject(x))
+            if neg:
+                self._push(W_FloatObject(-x))
+            else:
+                self._push(W_FloatObject(x))
         else:
             raise OperationError
 
@@ -493,7 +510,7 @@ class Frame(object):
         init = self.pop()
 
         assert isinstance(size, W_IntObject)
-        lst = [init] * size.intvalue
+        lst = [init] * int(size.intvalue)
         self.push(W_ListObject(lst))
 
     def _BUILD_LIST(self):
@@ -501,22 +518,21 @@ class Frame(object):
         init = self._pop()
 
         assert isinstance(size, W_IntObject)
-        lst = [init] * size.intvalue
+        lst = [init] * int(size.intvalue)
         self.push(W_ListObject(lst))
 
     @jit.dont_look_inside
     def LOAD(self, dummy):
         if dummy:
             return
-        w_index = self._pop()
-        w_lst = self._pop()
+        w_index = self.pop()
+        w_lst = self.pop()
 
         assert isinstance(w_index, W_IntObject)
         assert isinstance(w_lst, W_ListObject)
 
-        assert w_index.intvalue < len(w_lst.listvalue), \
-            "w_index: %d out of bounds %d" % (w_index.intvalue, len(w_lst.listvalue))
-        w_x = w_lst.listvalue[w_index.intvalue]
+        assert w_index.intvalue < len(w_lst.listvalue)
+        w_x = w_lst.listvalue[int(w_index.intvalue)]
         self.push(w_x)
 
     def _LOAD(self):
@@ -526,7 +542,7 @@ class Frame(object):
         assert isinstance(w_index, W_IntObject)
         assert isinstance(w_lst, W_ListObject)
 
-        w_x = w_lst.listvalue[w_index.intvalue]
+        w_x = w_lst.listvalue[int(w_index.intvalue)]
         self._push(w_x)
 
     @jit.dont_look_inside
@@ -540,7 +556,7 @@ class Frame(object):
         assert isinstance(w_lst, W_ListObject)
         assert isinstance(w_index, W_IntObject)
 
-        w_lst.listvalue[w_index.intvalue] = w_x
+        w_lst.listvalue[int(w_index.intvalue)] = w_x
         self.push(w_lst)
 
     def _STORE(self):
@@ -551,8 +567,139 @@ class Frame(object):
         assert isinstance(w_lst, W_ListObject)
         assert isinstance(w_index, W_IntObject)
 
-        w_lst.listvalue[w_index.intvalue] = w_x
+        w_lst.listvalue[int(w_index.intvalue)] = w_x
         self.push(w_lst)
+
+    @jit.dont_look_inside
+    def RAND_INT(self, dummy):
+        if dummy:
+            return
+
+        w_x = self.pop()
+        r = None
+        if isinstance(w_x, W_IntObject):
+            r = Random(r_uint(w_x.intvalue))
+        elif isinstance(w_x, W_FloatObject):
+            r = Random(r_uint(w_x.floatvalue))
+        else:
+            raise OperationError
+        r = Random(r_uint(w_x.intvalue))
+        w_r = W_IntObject(r.random())
+        self.push(w_r)
+
+    def _RAND_INT(self):
+        w_x = self._pop()
+        r = None
+        if isinstance(w_x, W_IntObject):
+            r = Random(r_uint(w_x.intvalue))
+        elif isinstance(w_x, W_FloatObject):
+            r = Random(r_uint(w_x.floatvalue))
+        else:
+            raise OperationError
+        w_r = W_IntObject(r.random())
+        self._push(w_r)
+
+    @jit.dont_look_inside
+    def COS(self, dummy):
+        if dummy:
+            return
+
+        w_x = self.pop()
+        w_c = None
+        if isinstance(w_x, W_IntObject):
+            w_c = W_FloatObject(math.cos(w_x.intvalue))
+        elif isinstance(w_x, W_FloatObject):
+            w_c = W_FloatObject(math.cos(w_x.floatvalue))
+        else:
+            raise OperationError
+        self.push(w_c)
+
+    def _COS(self):
+        w_x = self._pop()
+        w_c = None
+        if isinstance(w_x, W_IntObject):
+            w_c = W_FloatObject(math.cos(w_x.intvalue))
+        elif isinstance(w_x, W_FloatObject):
+            w_c = W_FloatObject(math.cos(w_x.floatvalue))
+        else:
+            raise OperationError
+        self._push(w_c)
+
+    @jit.dont_look_inside
+    def SIN(self, dummy):
+        if dummy:
+            return
+
+        w_x = self.pop()
+        w_c = None
+        if isinstance(w_x, W_IntObject):
+            w_c = W_FloatObject(math.sin(w_x.intvalue))
+        elif isinstance(w_x, W_FloatObject):
+            w_c = W_FloatObject(math.sin(w_x.floatvalue))
+        else:
+            raise OperationError
+        self.push(w_c)
+
+    def _SIN(self):
+        w_x = self._pop()
+        w_c = None
+        if isinstance(w_x, W_IntObject):
+            w_c = W_FloatObject(math.sin(w_x.intvalue))
+        elif isinstance(w_x, W_FloatObject):
+            w_c = W_FloatObject(math.sin(w_x.floatvalue))
+        else:
+            raise OperationError
+        self._push(w_c)
+
+    def SQRT(self, dummy):
+        if dummy:
+            return
+        w_x = self.pop()
+
+    @jit.dont_look_inside
+    def INT_TO_FLOAT(self, dummy):
+        if dummy:
+            return
+
+        w_x = self.pop()
+        assert isinstance(w_x, W_IntObject)
+        w_x = W_FloatObject(float(w_x.intvalue))
+        self.push(w_x)
+
+    def _INT_TO_FLOAT(self):
+        w_x = self.pop()
+        assert isinstance(w_x, W_IntObject)
+        w_x = W_FloatObject(float(w_x.intvalue))
+        self.push(w_x)
+
+    @jit.dont_look_inside
+    def FLOAT_TO_INT(self, dummy):
+        if dummy:
+            return
+
+        w_x = self.pop()
+        assert isinstance(w_x, W_FloatObject)
+        w_x = W_IntObject(int(w_x.floatvalue))
+        self.push(w_x)
+
+    def _FLOAT_TO_INT(self):
+        w_x = self.pop()
+        assert isinstance(w_x, W_FloatObject)
+        w_x = W_IntObject(int(w_x.floatvalue))
+        self.push(w_x)
+
+    @jit.dont_look_inside
+    def ABS_FLOAT(self, dummy):
+        if dummy:
+            return
+        w_x = self.pop()
+        assert isinstance(w_x, W_FloatObject)
+        self.push(W_FloatObject(abs(w_x.floatvalue)))
+
+    def _ABS_FLOAT(self):
+        w_x = self._pop()
+        assert isinstance(w_x, W_FloatObject)
+        self._push(W_FloatObject(abs(w_x.floatvalue)))
 
     def _interp(self, pc=0):
         bytecode = self.bytecode
@@ -626,8 +773,8 @@ class Frame(object):
 
                 # create a new frame
                 frame = self.copy_frame(argnum)
-                #if t < pc:
-                #    tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
+                # if t < pc:
+                #     tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
                 frame._CALL(self, t, argnum)
 
             elif opcode == RET:
@@ -689,7 +836,7 @@ class Frame(object):
             tier1driver.jit_merge_point(bytecode=bytecode, call_entry=call_entry,
                                         pc=pc, tstack=tstack, self=self)
 
-            # print get_printable_location_tier1(pc, call_entry, bytecode, tstack)
+            # print >> sys.err, get_printable_location_tier1(pc, call_entry, bytecode, tstack)
             # self.dump()
 
             opcode = ord(bytecode[pc])
@@ -702,11 +849,25 @@ class Frame(object):
                     self.CONST_INT(pc, dummy=False)
                 pc += 1
 
+            elif opcode == CONST_NEG_INT:
+                if we_are_jitted():
+                    self.CONST_INT(pc, neg=True, dummy=True)
+                else:
+                    self.CONST_INT(pc, neg=True, dummy=False)
+                pc += 1
+
             elif opcode == CONST_FLOAT:
                 if we_are_jitted():
                     self.CONST_FLOAT(pc, dummy=True)
                 else:
                     self.CONST_FLOAT(pc, dummy=False)
+                pc += 1
+
+            elif opcode == CONST_NEG_FLOAT:
+                if we_are_jitted():
+                    self.CONST_FLOAT(pc, neg=True, dummy=True)
+                else:
+                    self.CONST_FLOAT(pc, neg=True, dummy=False)
                 pc += 1
 
             elif opcode == CONST_N:
@@ -807,6 +968,54 @@ class Frame(object):
                 else:
                     self.STORE(dummy=False)
 
+            elif opcode == RAND_INT:
+                if we_are_jitted():
+                    self.RAND_INT(dummy=True)
+                else:
+                    self.RAND_INT(dummy=False)
+
+            elif opcode == SIN:
+                if we_are_jitted():
+                    self.SIN(dummy=True)
+                else:
+                    self.SIN(dummy=False)
+
+            elif opcode == COS:
+                if we_are_jitted():
+                    self.COS(dummy=True)
+                else:
+                    self.COS(dummy=False)
+
+            elif opcode == RAND_INT:
+                if we_are_jitted():
+                    self.RAND_INT(dummy=True)
+                else:
+                    self.RAND_INT(dummy=False)
+
+            elif opcode == ABS_FLOAT:
+                if we_are_jitted():
+                    self.ABS_FLOAT(dummy=True)
+                else:
+                    self.ABS_FLOAT(dummy=False)
+
+            elif opcode == SQRT:
+                if we_are_jitted():
+                    self.SQRT(dummy=True)
+                else:
+                    self.SQRT(dummy=False)
+
+            elif opcode == INT_TO_FLOAT:
+                if we_are_jitted():
+                    self.INT_TO_FLOAT(dummy=True)
+                else:
+                    self.INT_TO_FLOAT(dummy=False)
+
+            elif opcode == FLOAT_TO_INT:
+                if we_are_jitted():
+                    self.FLOAT_TO_INT(dummy=True)
+                else:
+                    self.FLOAT_TO_INT(dummy=False)
+
             elif opcode == CALL:
                 t = ord(bytecode[pc])
                 argnum = ord(bytecode[pc + 1])
@@ -819,8 +1028,9 @@ class Frame(object):
                     frame.CALL(self, t, argnum, dummy=True)
                 else:
                     call_entry = t
-                    tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
-                                              pc=t, tstack=tstack, self=frame)
+                    if t < pc:
+                        tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
+                                                  pc=t, tstack=tstack, self=frame)
                     frame.CALL(self, t, argnum, dummy=False)
 
             elif opcode == CALL_ASSEMBLER:
@@ -836,8 +1046,9 @@ class Frame(object):
                     frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=True)
                 else:
                     call_entry = t
-                    tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
-                                              pc=t, tstack=tstack, self=frame)
+                    if t < pc:
+                        tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
+                                                  pc=t, tstack=tstack, self=frame)
                     frame.CALL_ASSEMBLER(self, t, argnum, bytecode, t_empty(), dummy=False)
 
             elif opcode == RET:

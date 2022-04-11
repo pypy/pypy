@@ -1,7 +1,7 @@
 import py
 py.path.local(__file__)
-import time
 
+from rpython.rlib.rtime import time
 from rpython.jit.tl.threadedcode import tla
 from rpython.rlib import jit
 
@@ -48,9 +48,9 @@ def entry_point(args):
     bytecode = load_bytecode(filename)
     w_res = tla.W_IntObject(0)
     for _ in range(n):
-        n1 = time.time()
+        n1 = time()
         w_res = tla.run(bytecode, w_x, debug=debug, tier=tier)
-        n2 = time.time()
+        n2 = time()
         print n2 - n1
     print w_res.getrepr()
     return 0

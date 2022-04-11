@@ -35,6 +35,10 @@ class W_IntObject(W_Object):
     def is_true(self):
         return self.intvalue != 0
 
+    def sqrt(self):
+        from math import sqrt
+        return W_IntObject(sqrt(self.floatvalue))
+
     def add(self, w_other):
         if isinstance(w_other, W_IntObject):
             sum = self.intvalue + w_other.intvalue
@@ -51,7 +55,7 @@ class W_IntObject(W_Object):
 
     def mul(self, w_other):
         if isinstance(w_other, W_IntObject):
-            sum = self.intvalue * w_other.intvalue
+            sum = int(self.intvalue * w_other.intvalue)
             return W_IntObject(sum)
         else:
             raise OperationError
@@ -64,11 +68,7 @@ class W_IntObject(W_Object):
             raise OperationError
 
     def mod(self, w_other):
-        if isinstance(w_other, W_IntObject):
-            sum = self.intvalue % w_other.intvalue
-            return W_IntObject(sum)
-        else:
-            raise OperationError
+        raise OperationError
 
     def eq(self, w_other):
         if isinstance(w_other, W_IntObject):
@@ -128,6 +128,10 @@ class W_FloatObject(W_Object):
 
     def is_true(self):
         return self.floatvalue != 0.0
+
+    def sqrt(self):
+        from math import sqrt
+        return W_FloatObject(sqrt(self.floatvalue))
 
     def add(self, w_other):
         if isinstance(w_other, W_FloatObject):
