@@ -626,6 +626,8 @@ class TestAstBuilder:
         assert isinstance(dec, ast.Name)
         assert dec.id == "dec"
         assert dec.ctx == ast.Load
+        assert definition.lineno == 2
+        assert dec.lineno == 1
         #
         definition = self.get_first_stmt("@mod.hi.dec\n%s" % (stmt,))
         assert len(definition.decorator_list) == 1
@@ -637,6 +639,8 @@ class TestAstBuilder:
         assert dec.value.attr == "hi"
         assert isinstance(dec.value.value, ast.Name)
         assert dec.value.value.id == "mod"
+        assert definition.lineno == 2
+        assert dec.lineno == 1
         #
         definition = self.get_first_stmt("@dec\n@dec2\n%s" % (stmt,))
         assert len(definition.decorator_list) == 2
@@ -644,7 +648,11 @@ class TestAstBuilder:
             assert isinstance(dec, ast.Name)
             assert dec.ctx == ast.Load
         assert definition.decorator_list[0].id == "dec"
+        assert definition.decorator_list[0].lineno == 1
         assert definition.decorator_list[1].id == "dec2"
+        assert definition.decorator_list[1].lineno == 2
+        assert definition.lineno == 3
+        #
         definition = self.get_first_stmt("@dec()\n%s" % (stmt,))
         assert len(definition.decorator_list) == 1
         dec = definition.decorator_list[0]
@@ -653,6 +661,8 @@ class TestAstBuilder:
         assert dec.func.id == "dec"
         assert dec.args is None
         assert dec.keywords is None
+        assert definition.lineno == 2
+        assert dec.lineno == 1
         #
         definition = self.get_first_stmt("@dec(a, b)\n%s" % (stmt,))
         assert len(definition.decorator_list) == 1
@@ -661,6 +671,8 @@ class TestAstBuilder:
         assert dec.func.id == "dec"
         assert len(dec.args) == 2
         assert dec.keywords is None
+        assert definition.lineno == 2
+        assert dec.lineno == 1
 
     def test_annassign(self):
         simple = self.get_first_stmt('a: int')

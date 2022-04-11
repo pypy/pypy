@@ -604,10 +604,6 @@ class ASTBuilder(object):
             node = self.handle_async_funcdef(definition, decorators)
         else:
             raise AssertionError("unkown decorated")
-        node.lineno = decorated_node.get_lineno()
-        node.col_offset = decorated_node.get_column()
-        node.end_lineno = decorated_node.get_end_lineno()
-        node.end_col_offset = decorated_node.get_end_column()
         return node
 
     def handle_decorators(self, decorators_node):
