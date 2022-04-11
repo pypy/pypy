@@ -5,9 +5,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.interpreter.unicodehelper import decode_utf8sp
-from pypy.objspace.std import frame, transparent, callmethod
 from pypy.objspace.descroperation import (
     DescrOperation, get_attribute_name, raiseattrerror)
+from pypy.objspace.std import frame, transparent, callmethod
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int

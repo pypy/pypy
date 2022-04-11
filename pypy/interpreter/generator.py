@@ -2,6 +2,9 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import SApplicationException, Yield
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr, interp_attrproperty, GetSetProperty
+from pypy.interpreter.typedef import interp_attrproperty_w
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import jit, rgc, rweakref
 from rpython.rlib.objectmodel import specialize
@@ -343,6 +346,31 @@ class GeneratorIterator(GeneratorOrCoroutine):
     unpack_into = _create_unpack_into()
     unpack_into_w = _create_unpack_into()
 
+GeneratorIterator.typedef = TypeDef("generator",
+    __repr__   = interp2app(GeneratorIterator.descr__repr__),
+    #__reduce__   = interp2app(GeneratorIterator.descr__reduce__),
+    #__setstate__ = interp2app(GeneratorIterator.descr__setstate__),
+    __next__   = interp2app(GeneratorIterator.descr_next,
+                            descrmismatch='__next__'),
+    send       = interp2app(GeneratorIterator.descr_send,
+                            descrmismatch='send'),
+    throw      = interp2app(GeneratorIterator.descr_throw,
+                            descrmismatch='throw'),
+    close      = interp2app(GeneratorIterator.descr_close,
+                            descrmismatch='close'),
+    __iter__   = interp2app(GeneratorIterator.descr__iter__,
+                            descrmismatch='__iter__'),
+    gi_running = interp_attrproperty('running', cls=GeneratorIterator, wrapfn="newbool"),
+    gi_frame   = GetSetProperty(GeneratorIterator.descr_gicr_frame),
+    gi_code    = interp_attrproperty_w('pycode', cls=GeneratorIterator),
+    gi_yieldfrom=GetSetProperty(GeneratorIterator.descr_delegate),
+    __name__   = GetSetProperty(GeneratorIterator.descr__name__,
+                                GeneratorIterator.descr_set__name__),
+    __qualname__ = GetSetProperty(GeneratorIterator.descr__qualname__,
+                                  GeneratorIterator.descr_set__qualname__),
+    __weakref__ = make_weakref_descr(GeneratorIterator),
+)
+assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
 
 class Coroutine(GeneratorOrCoroutine):
     "A coroutine object."
@@ -386,6 +414,33 @@ class Coroutine(GeneratorOrCoroutine):
             space.call_function(w_f, self)
         GeneratorOrCoroutine._finalize_(self)
 
+Coroutine.typedef = TypeDef("coroutine",
+    __repr__   = interp2app(Coroutine.descr__repr__),
+    #__reduce__   = interp2app(Coroutine.descr__reduce__),
+    #__setstate__ = interp2app(Coroutine.descr__setstate__),
+    send       = interp2app(Coroutine.descr_send,
+                            descrmismatch='send'),
+    throw      = interp2app(Coroutine.descr_throw,
+                            descrmismatch='throw'),
+    close      = interp2app(Coroutine.descr_close,
+                            descrmismatch='close'),
+    __await__  = interp2app(Coroutine.descr__await__,
+                            descrmismatch='__await__'),
+    cr_running = interp_attrproperty('running', cls=Coroutine, wrapfn="newbool"),
+    cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame),
+    cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
+    cr_await=GetSetProperty(Coroutine.descr_delegate),
+    cr_origin  = interp_attrproperty_w('w_cr_origin', cls=Coroutine),
+    __name__   = GetSetProperty(Coroutine.descr__name__,
+                                Coroutine.descr_set__name__,
+                                doc="name of the coroutine"),
+    __qualname__ = GetSetProperty(Coroutine.descr__qualname__,
+                                  Coroutine.descr_set__qualname__,
+                                  doc="qualified name of the coroutine"),
+    __weakref__ = make_weakref_descr(Coroutine),
+)
+assert not Coroutine.typedef.acceptable_as_base_class  # no __new__
+
 
 class CoroutineWrapper(W_Root):
     _immutable_ = True
@@ -411,6 +466,15 @@ class CoroutineWrapper(W_Root):
         return self.coroutine.descr_close()
     descr_close.__doc__ = Coroutine.descr_close.__doc__
 
+CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
+    __iter__     = interp2app(CoroutineWrapper.descr__iter__),
+    __next__     = interp2app(CoroutineWrapper.descr__next__),
+    send         = interp2app(CoroutineWrapper.descr_send),
+    throw        = interp2app(CoroutineWrapper.descr_throw),
+    close        = interp2app(CoroutineWrapper.descr_close),
+)
+assert not CoroutineWrapper.typedef.acceptable_as_base_class  # no __new__
+
 
 class AIterWrapper(W_Root):
     # NB. this type was added in CPython 3.5.2
@@ -427,6 +491,14 @@ class AIterWrapper(W_Root):
 
     def descr__next__(self, space):
         raise stopiteration_value(space, self.w_aiter)
+
+AIterWrapper.typedef = TypeDef("aiter_wrapper",
+    __await__    = interp2app(AIterWrapper.descr__await__),
+    __iter__     = interp2app(AIterWrapper.descr__iter__),
+    __next__     = interp2app(AIterWrapper.descr__next__),
+)
+assert not AIterWrapper.typedef.acceptable_as_base_class  # no __new__
+
 
 def stopiteration_value(space, w_value):
     # Mess.  The obvious line, "OperationError(w_StopIteration, w_value)",
@@ -574,10 +646,42 @@ class AsyncGenerator(GeneratorOrCoroutine):
         self.init_hooks()
         return AsyncGenAThrow(self, None, None, None)
 
+AsyncGenerator.typedef = TypeDef("async_generator",
+    __repr__   = interp2app(AsyncGenerator.descr__repr__),
+    #__reduce__   = interp2app(Coroutine.descr__reduce__),
+    #__setstate__ = interp2app(Coroutine.descr__setstate__),
+    asend      = interp2app(AsyncGenerator.descr_asend,
+                            descrmismatch='asend'),
+    athrow     = interp2app(AsyncGenerator.descr_athrow,
+                            descrmismatch='athrow'),
+    aclose     = interp2app(AsyncGenerator.descr_aclose,
+                            descrmismatch='aclose'),
+    __aiter__  = interp2app(AsyncGenerator.descr__aiter__,
+                            descrmismatch='__aiter__'),
+    __anext__  = interp2app(AsyncGenerator.descr__anext__,
+                            descrmismatch='__anext__'),
+    ag_running = interp_attrproperty('running', cls=AsyncGenerator, wrapfn="newbool"),
+    ag_frame   = GetSetProperty(AsyncGenerator.descr_gicr_frame),
+    ag_code    = interp_attrproperty_w('pycode', cls=AsyncGenerator),
+    ag_await=GetSetProperty(AsyncGenerator.descr_delegate),
+    __name__   = GetSetProperty(AsyncGenerator.descr__name__,
+                                AsyncGenerator.descr_set__name__,
+                                doc="name of the async generator"),
+    __qualname__ = GetSetProperty(AsyncGenerator.descr__qualname__,
+                                  AsyncGenerator.descr_set__qualname__,
+                                  doc="qualified name of the async generator"),
+    __weakref__ = make_weakref_descr(AsyncGenerator),
+)
+assert not AsyncGenerator.typedef.acceptable_as_base_class  # no __new__
+
+
 
 class AsyncGenValueWrapper(W_Root):
     def __init__(self, w_value):
         self.w_value = w_value
+
+AsyncGenValueWrapper.typedef = TypeDef("async_generator_wrapped_value")
+assert not AsyncGenValueWrapper.typedef.acceptable_as_base_class
 
 
 class AsyncGenABase(W_Root):
@@ -664,6 +768,15 @@ class AsyncGenASend(AsyncGenABase):
             self.state = self.ST_CLOSED
             raise
 
+AsyncGenASend.typedef = TypeDef("async_generator_asend",
+    __await__    = interp2app(AsyncGenASend.descr__iter__),
+    __iter__     = interp2app(AsyncGenASend.descr__iter__),
+    __next__     = interp2app(AsyncGenASend.descr__next__),
+    close        = interp2app(AsyncGenASend.descr_close),
+    send         = interp2app(AsyncGenASend.descr_send),
+    throw        = interp2app(AsyncGenASend.descr_throw),
+)
+
 
 class AsyncGenAThrow(AsyncGenABase):
 
@@ -744,3 +857,13 @@ class AsyncGenAThrow(AsyncGenABase):
                 # Ignore this error.
                 raise OperationError(space.w_StopIteration, space.w_None)
         raise e
+
+AsyncGenAThrow.typedef = TypeDef("async_generator_athrow",
+    __await__    = interp2app(AsyncGenAThrow.descr__iter__),
+    __iter__     = interp2app(AsyncGenAThrow.descr__iter__),
+    __next__     = interp2app(AsyncGenAThrow.descr__next__),
+    close        = interp2app(AsyncGenAThrow.descr_close),
+    send         = interp2app(AsyncGenAThrow.descr_send),
+    throw        = interp2app(AsyncGenAThrow.descr_throw),
+)
+
