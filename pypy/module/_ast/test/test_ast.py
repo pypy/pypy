@@ -369,13 +369,15 @@ from __future__ import generators""")
         src = """
 @deco(a, b)
 @deco2
+@deco3()
 def f():
     pass
 """
         mod = self.get_ast(src)
-        print(mod.body[0].lineno)
-        assert mod.body[0].lineno == 4
+        assert mod.body[0].lineno == 5
         assert mod.body[0].decorator_list[0].lineno == 2
+        for dec in mod.body[0].decorator_list:
+            assert dec.col_offset == 1
 
     def test_missing_name(self):
         import _ast as ast

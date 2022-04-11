@@ -615,7 +615,10 @@ class ASTBuilder(object):
         if decorator_node.num_children() == 3:
             dec = dec_name
         elif decorator_node.num_children() == 5:
-            dec = build(ast.Call, dec_name, None, None, decorator_node)
+            dec = ast.Call(
+                dec_name, None, None, dec_name.lineno, dec_name.col_offset,
+                decorator_node.get_end_lineno(),
+                decorator_node.get_end_column())
         else:
             dec = self.handle_call(decorator_node.get_child(3), dec_name)
         return dec
