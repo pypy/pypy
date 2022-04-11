@@ -675,9 +675,7 @@ def _make_comparison_impl(symbol, specialnames):
             w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
             if _check_notimplemented(space, w_res):
                 return w_res
-        w_res = _cmp(space, w_obj1, w_obj2, symbol)
-        res = space.int_w(w_res)
-        return space.newbool(op(res, 0))
+        return _no_special_method_found_cmp(space, w_obj1, w_obj2, w_obj1, w_obj2)
 
 
     def comparison_impl(space, w_obj1, w_obj2):
@@ -710,7 +708,9 @@ def _make_comparison_impl(symbol, specialnames):
         w_res = _invoke_comparison(space, w_right_impl, w_obj2, w_obj1)
         if w_res is not None:
             return w_res
-        #
+        return _no_special_method_found_cmp(space, w_obj1, w_obj2, w_orig_obj1, w_orig_obj2)
+
+    def _no_special_method_found_cmp(space, w_obj1, w_obj2, w_orig_obj1, w_orig_obj2):
         # we did not find any special method, let's do the default logic for
         # == and !=
         if left == '__eq__':
