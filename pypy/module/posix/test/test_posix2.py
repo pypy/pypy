@@ -1731,6 +1731,7 @@ class AppTestPosix:
 class AppTestNt(object):
     spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
+        space = cls.space
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_Path = space.appexec([], """():
@@ -1873,6 +1874,7 @@ def check_fsencoding(space, pytestconfig):
 class AppTestPosixUnicode:
     spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
+        space = cls.space
         cls.w_posix = space.appexec([], GET_POSIX)
 
     def test_stat_unicode(self):
@@ -1935,6 +1937,7 @@ class AppTestPep475Retry:
             cls._keepalive_g = g
             return space.wrap(g.fileno())
 
+        space = cls.space
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_fd_data_after_delay = cls.space.wrap(
             interp2app(fd_data_after_delay))
