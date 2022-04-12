@@ -1492,6 +1492,8 @@ class TestAstBuilder:
         assert len(asyncdef.body) == 1
         asyncfor = asyncdef.body[0]
         assert isinstance(asyncfor, ast.AsyncFor)
+        assert asyncfor.lineno == 2
+        assert asyncfor.col_offset == 1
         assert isinstance(asyncfor.target, ast.Name)
         assert isinstance(asyncfor.iter, ast.Name)
         assert len(asyncfor.body) == 1

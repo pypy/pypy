@@ -423,13 +423,15 @@ class ASTBuilder(object):
         else:
             return self.space.w_None, False
 
-    def handle_for_stmt(self, for_node, is_async):
+    def handle_for_stmt(self, for_node, is_async, posnode=None):
         self.check_feature(
             is_async,
             version=5,
             msg="Async for loops are only supported in Python 3.5 and greater",
             n=for_node
         )
+        if posnode is None:
+            posnode = for_node
         target_node = for_node.get_child(1)
         target_as_exprlist = self.handle_exprlist(target_node, ast.Store)
         if target_node.num_children() == 1:
@@ -444,9 +446,9 @@ class ASTBuilder(object):
         else:
             otherwise = None
         if is_async:
-            return build(ast.AsyncFor, target, expr, body, otherwise, type_comment, for_node)
+            return build(ast.AsyncFor, target, expr, body, otherwise, type_comment, posnode)
         else:
-            return build(ast.For, target, expr, body, otherwise, type_comment, for_node)
+            return build(ast.For, target, expr, body, otherwise, type_comment, posnode)
 
     def handle_except_clause(self, exc, body):
         test = None
@@ -591,7 +593,7 @@ class ASTBuilder(object):
         elif ch.type == syms.with_stmt:
             return self.handle_with_stmt(ch, 1, posnode=node)
         elif ch.type == syms.for_stmt:
-            return self.handle_for_stmt(ch, 1)
+            return self.handle_for_stmt(ch, 1, posnode=node)
         else:
             raise AssertionError("invalid async statement")
 
