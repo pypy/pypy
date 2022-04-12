@@ -310,11 +310,14 @@ def getweakrefs(space, w_obj):
 #_________________________________________________________________
 # Proxy
 
-class W_Proxy(W_WeakrefBase):
+class W_AbstractProxy(W_WeakrefBase):
+    pass
+
+class W_Proxy(W_AbstractProxy):
     def descr__hash__(self, space):
         raise oefmt(space.w_TypeError, "unhashable type")
 
-class W_CallableProxy(W_WeakrefBase):
+class W_CallableProxy(W_AbstractProxy):
     def descr__call__(self, space, __args__):
         w_obj = force(space, self)
         return space.call_args(w_obj, __args__)
@@ -341,7 +344,7 @@ def descr__new__callableproxy(space, w_subtype, w_obj, w_callable=None):
 
 
 def force(space, proxy):
-    if not isinstance(proxy, W_Proxy):
+    if not isinstance(proxy, W_AbstractProxy):
         return proxy
     w_obj = proxy.dereference()
     if w_obj is None:
