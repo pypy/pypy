@@ -673,6 +673,19 @@ class TestAstBuilder:
         assert dec.keywords is None
         assert definition.lineno == 2
         assert dec.lineno == 1
+        #
+        definition = self.get_first_stmt("@dec(a for a in b)\n%s" % (stmt,))
+        assert len(definition.decorator_list) == 1
+        dec = definition.decorator_list[0]
+        assert isinstance(dec, ast.Call)
+        assert dec.func.id == "dec"
+        assert dec.keywords is None
+        assert definition.lineno == 2
+        assert dec.lineno == 1
+        assert len(dec.args) == 1
+        assert isinstance(dec.args[0], ast.GeneratorExp)
+        assert dec.args[0].col_offset == 4
+
 
     def test_annassign(self):
         simple = self.get_first_stmt('a: int')
@@ -1118,6 +1131,7 @@ class TestAstBuilder:
         call = self.get_first_expr("f(x for x in y)")
         assert len(call.args) == 1
         assert isinstance(call.args[0], ast.GeneratorExp)
+        assert call.args[0].col_offset == 1
         input = "f(x for x in y, 1)"
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast(input)
@@ -1355,6 +1369,8 @@ class TestAstBuilder:
         gen = self.get_first_expr(brack("x for x in y"))
         assert isinstance(gen, ast_type)
         assert isinstance(gen.elt, ast.Name)
+        assert gen.col_offset == 0
+        assert gen.end_col_offset == 14
         assert gen.elt.ctx == ast.Load
         assert len(gen.generators) == 1
         comp = gen.generators[0]
@@ -1920,8 +1936,8 @@ class TestAstBuilder:
         assert tree.end_col_offset == len(s)
         assert tree.col_offset == 0
         gen = tree.args[0]
-        assert gen.end_col_offset == len(s) - 1
-        assert gen.col_offset == 2
+        assert gen.end_col_offset == len(s)
+        assert gen.col_offset == 1
         assert fdef.get_source_segment(s) == s
 
         s = "(x for x in y)"

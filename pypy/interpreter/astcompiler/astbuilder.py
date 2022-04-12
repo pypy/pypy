@@ -624,7 +624,10 @@ class ASTBuilder(object):
                 decorator_node.get_end_lineno(),
                 decorator_node.get_end_column())
         else:
-            dec = self.handle_call(decorator_node.get_child(3), dec_name)
+            dec = self.handle_call(
+                decorator_node.get_child(3), dec_name,
+                lpar_node=decorator_node.get_child(2),
+                rpar_node=decorator_node.get_child(4))
         return dec
 
     def handle_dotted_name(self, dotted_name_node):
@@ -1231,7 +1234,10 @@ class ASTBuilder(object):
             if trailer_node.num_children() == 2:
                 return build(ast.Call, left_expr, None, None, trailer_node)
             else:
-                return self.handle_call(trailer_node.get_child(1), left_expr)
+                return self.handle_call(
+                    trailer_node.get_child(1), left_expr,
+                    lpar_node=first_child,
+                    rpar_node=trailer_node.get_child(2))
         elif first_child.type == tokens.DOT:
             attr = self.new_identifier(trailer_node.get_child(1).get_value())
             return build(ast.Attribute, left_expr, attr, ast.Load, trailer_node)
@@ -1257,7 +1263,8 @@ class ASTBuilder(object):
             tup = build(ast.Tuple, elts, ast.Load, middle)
             return build(ast.Subscript, left_expr, ast.Index(tup), ast.Load, middle)
 
-    def handle_call(self, args_node, callable_expr, genexp_allowed=True):
+    def handle_call(self, args_node, callable_expr, genexp_allowed=True,
+                    lpar_node=None, rpar_node=None):
         arg_count = 0 # position args + iterable args unpackings
         keyword_count = 0 # keyword args + keyword args unpackings
         generator_count = 0
@@ -1329,7 +1336,9 @@ class ASTBuilder(object):
                     doublestars_count += 1
                 elif argument.get_child(1).type == syms.comp_for:
                     # the lone generator expression
-                    args.append(self.handle_genexp(argument))
+                    arg = self.handle_genexp(argument)
+                    arg.copy_location(lpar_node, rpar_node)
+                    args.append(arg)
                 else:
                     # a keyword argument
                     tks = expr_node.flatten()
