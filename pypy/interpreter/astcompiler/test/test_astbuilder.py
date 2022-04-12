@@ -1514,6 +1514,8 @@ class TestAstBuilder:
         asyncwith = asyncdef.body[0]
         assert isinstance(asyncwith, ast.AsyncWith)
         assert len(asyncwith.items) == 1
+        assert asyncwith.lineno == 2
+        assert asyncwith.col_offset == 1
         asyncitem = asyncwith.items[0]
         assert isinstance(asyncitem, ast.withitem)
         assert isinstance(asyncitem.context_expr, ast.Name)

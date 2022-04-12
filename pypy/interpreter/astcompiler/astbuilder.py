@@ -497,22 +497,24 @@ class ASTBuilder(object):
             target = None
         return ast.withitem(test, target)
 
-    def handle_with_stmt(self, with_node, is_async):
+    def handle_with_stmt(self, with_node, is_async, posnode=None):
         self.check_feature(
             is_async,
             version=5,
             msg="Async with statements are only supported in Python 3.5 and greater",
             n=with_node
         )
+        if posnode is None:
+            posnode = with_node
         body = self.handle_suite(with_node.get_child(-1))
         type_comment, has_type_comment = self.handle_type_comment(with_node.get_child(-2))
         num_children = with_node.num_children() - has_type_comment
         items = [self.handle_with_item(with_node.get_child(i))
                  for i in range(1, num_children-2, 2)]
         if is_async:
-            return build(ast.AsyncWith, items, body, type_comment, with_node)
+            return build(ast.AsyncWith, items, body, type_comment, posnode)
         else:
-            return build(ast.With, items, body, type_comment, with_node)
+            return build(ast.With, items, body, type_comment, posnode)
 
     def handle_classdef(self, classdef_node, decorators=None):
         name_node = classdef_node.get_child(1)
@@ -587,7 +589,7 @@ class ASTBuilder(object):
         if ch.type == syms.funcdef:
             return self.handle_funcdef_impl(ch, 1, posnode=node)
         elif ch.type == syms.with_stmt:
-            return self.handle_with_stmt(ch, 1)
+            return self.handle_with_stmt(ch, 1, posnode=node)
         elif ch.type == syms.for_stmt:
             return self.handle_for_stmt(ch, 1)
         else:
