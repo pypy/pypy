@@ -29,6 +29,32 @@ def get_printable_location(pc, bytecode):
         arg = ''
     return "%s: %s %s" % (pc, name, arg)
 
+def _construct_value(bytecode, pc):
+    a = ord(bytecode[pc])
+    b = ord(bytecode[pc+1])
+    c = ord(bytecode[pc+2])
+    d = ord(bytecode[pc+3])
+    return a << 24 | b << 16 | c << 8 | d
+
+@jit.unroll_safe
+def _power_01(n):
+    acc = 1
+    for i in range(n):
+        acc = acc * 0.1
+    return acc
+
+@jit.unroll_safe
+def _construct_float(bytecode, pc):
+    literals = [0] * 9
+    for i in range(9):
+        assert pc + i < len(bytecode)
+        literals[i] = ord(bytecode[pc+i])
+
+    int_val = _construct_value(bytecode, pc)
+    float_val = _construct_value(bytecode, pc+4)
+
+    decimal = literals[8]
+    return float(int_val + (float_val * _power_01(decimal)))
 
 tier1driver = JitDriver(
     greens=['pc', 'call_entry', 'bytecode', 'tstack'], reds=['self'],
@@ -178,7 +204,7 @@ class Frame(object):
         if dummy:
             return
         if isinstance(pc, int):
-            x = float(ord(self.bytecode[pc]))
+            x = _construct_float(self.bytecode, pc)
             if neg:
                 self.push(W_FloatObject(-x))
             else:
@@ -188,7 +214,7 @@ class Frame(object):
 
     def _CONST_FLOAT(self, pc, neg=False):
         if isinstance(pc, int):
-            x = float(ord(self.bytecode[pc]))
+            x = _construct_float(self.bytecode, pc)
             if neg:
                 self._push(W_FloatObject(-x))
             else:
@@ -201,22 +227,14 @@ class Frame(object):
         if dummy:
             return
         if isinstance(pc, int):
-            a = ord(self.bytecode[pc])
-            b = ord(self.bytecode[pc+1])
-            c = ord(self.bytecode[pc+2])
-            d = ord(self.bytecode[pc+3])
-            x = a << 24 | b << 16 | c << 8 | d
+            x = _construct_value(self.bytecode, pc)
             self.push(W_IntObject(x))
         else:
             raise OperationError
 
     def _CONST_N(self, pc):
         if isinstance(pc, int):
-            a = ord(self.bytecode[pc])
-            b = ord(self.bytecode[pc+1])
-            c = ord(self.bytecode[pc+2])
-            d = ord(self.bytecode[pc+3])
-            x = a << 24 | b << 16 | c << 8 | d
+            x = _construct_value(self.bytecode, pc)
             self._push(W_IntObject(x))
         else:
             raise OperationError
@@ -651,10 +669,28 @@ class Frame(object):
             raise OperationError
         self._push(w_c)
 
+    @jit.dont_look_inside
     def SQRT(self, dummy):
         if dummy:
             return
         w_x = self.pop()
+        if isinstance(w_x, W_IntObject):
+            w_x = W_FloatObject(math.sqrt(w_x.intvalue))
+        elif isinstance(w_x, W_FloatObject):
+            w_x = W_FloatObject(math.sqrt(w_x.floatvalue))
+        else:
+            raise OperationError
+        self.push(w_x)
+
+    def _SQRT(self):
+        w_x = self._pop()
+        if isinstance(w_x, W_IntObject):
+            w_x = W_FloatObject(math.sqrt(w_x.intvalue))
+        elif isinstance(w_x, W_FloatObject):
+            w_x = W_FloatObject(math.sqrt(w_x.floatvalue))
+        else:
+            raise OperationError
+        self._push(w_x)
 
     @jit.dont_look_inside
     def INT_TO_FLOAT(self, dummy):
@@ -662,8 +698,8 @@ class Frame(object):
             return
 
         w_x = self.pop()
-        assert isinstance(w_x, W_IntObject)
-        w_x = W_FloatObject(float(w_x.intvalue))
+        if isinstance(w_x, W_IntObject):
+            w_x = W_FloatObject(float(w_x.intvalue))
         self.push(w_x)
 
     def _INT_TO_FLOAT(self):
@@ -716,6 +752,18 @@ class Frame(object):
                 self._CONST_INT(pc)
                 pc += 1
 
+            elif opcode == CONST_NEG_INT:
+                self._CONST_INT(pc, neg=True)
+                pc += 1
+
+            elif opcode == CONST_FLOAT:
+                self._CONST_FLOAT(pc)
+                pc += 9
+
+            elif opcode == CONST_NEG_FLOAT:
+                self._CONST_FLOAT(pc, neg=True)
+                pc += 9
+
             elif opcode == CONST_N:
                 self._CONST_N(pc)
                 pc += 4
@@ -766,10 +814,40 @@ class Frame(object):
             elif opcode == STORE:
                 self._STORE()
 
-            elif opcode == CALL or opcode == CALL_ASSEMBLER:
-                t = ord(bytecode[pc])
-                argnum = ord(bytecode[pc + 1])
-                pc += 2
+            elif opcode == RAND_INT:
+                self._RAND_INT()
+
+            elif opcode == SIN:
+                self._SIN()
+
+            elif opcode == COS:
+                self._COS()
+
+            elif opcode == RAND_INT:
+                self._RAND_INT()
+
+            elif opcode == ABS_FLOAT:
+                self._ABS_FLOAT()
+
+            elif opcode == SQRT:
+                self._SQRT()
+
+            elif opcode == INT_TO_FLOAT:
+                self._INT_TO_FLOAT()
+
+            elif opcode == FLOAT_TO_INT:
+                self._FLOAT_TO_INT()
+
+            elif opcode == CALL or opcode == CALL_ASSEMBLER or opcode == CALL_N:
+
+                if opcode == CALL_N:
+                    t = _construct_value(bytecode, pc)
+                    argnum = ord(bytecode[pc + 4])
+                    pc += 5
+                else:
+                    t = ord(bytecode[pc])
+                    argnum = ord(bytecode[pc + 1])
+                    pc += 2
 
                 # create a new frame
                 frame = self.copy_frame(argnum)
@@ -836,7 +914,7 @@ class Frame(object):
             tier1driver.jit_merge_point(bytecode=bytecode, call_entry=call_entry,
                                         pc=pc, tstack=tstack, self=self)
 
-            # print >> sys.err, get_printable_location_tier1(pc, call_entry, bytecode, tstack)
+            # print get_printable_location_tier1(pc, call_entry, bytecode, tstack)
             # self.dump()
 
             opcode = ord(bytecode[pc])
@@ -861,14 +939,14 @@ class Frame(object):
                     self.CONST_FLOAT(pc, dummy=True)
                 else:
                     self.CONST_FLOAT(pc, dummy=False)
-                pc += 1
+                pc += 9
 
             elif opcode == CONST_NEG_FLOAT:
                 if we_are_jitted():
                     self.CONST_FLOAT(pc, neg=True, dummy=True)
                 else:
                     self.CONST_FLOAT(pc, neg=True, dummy=False)
-                pc += 1
+                pc += 9
 
             elif opcode == CONST_N:
                 if we_are_jitted():
@@ -1016,10 +1094,16 @@ class Frame(object):
                 else:
                     self.FLOAT_TO_INT(dummy=False)
 
-            elif opcode == CALL:
-                t = ord(bytecode[pc])
-                argnum = ord(bytecode[pc + 1])
-                pc += 2
+            elif opcode == CALL or opcode == CALL_N:
+
+                if opcode == CALL_N:
+                    t = _construct_value(bytecode, pc)
+                    argnum = ord(bytecode[pc + 4])
+                    pc += 5
+                else:
+                    t = ord(bytecode[pc])
+                    argnum = ord(bytecode[pc + 1])
+                    pc += 2
 
                 # create a new frame
                 frame = self.copy_frame(argnum)
@@ -1069,9 +1153,15 @@ class Frame(object):
                 else:
                     return self.RET(argnum, dummy=False)
 
-            elif opcode == JUMP:
-                t = ord(bytecode[pc])
-                pc += 1
+            elif opcode == JUMP or opcode == JUMP_N:
+
+                if opcode == JUMP_N:
+                    t = _construct_value(bytecode, pc)
+                    pc += 4
+                else:
+                    t = ord(bytecode[pc])
+                    pc += 1
+
                 if we_are_jitted():
                     if tstack.t_is_empty():
                         if t < pc:
@@ -1092,9 +1182,16 @@ class Frame(object):
                                                   pc=t, tstack=tstack, self=self)
                     pc = t
 
-            elif opcode == JUMP_IF:
-                target = ord(bytecode[pc])
-                pc += 1
+            elif opcode == JUMP_IF or opcode == JUMP_IF_N:
+
+                if opcode == JUMP_IF_N:
+                    target = _construct_value(bytecode, pc)
+                    pc += 4
+
+                else:
+                    target = ord(bytecode[pc])
+                    pc += 1
+
                 if we_are_jitted():
                     if self.is_true(dummy=True):
                         tstack = t_push(pc, tstack)

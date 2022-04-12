@@ -57,6 +57,9 @@ class W_IntObject(W_Object):
         if isinstance(w_other, W_IntObject):
             sum = int(self.intvalue * w_other.intvalue)
             return W_IntObject(sum)
+        elif isinstance(w_other, W_FloatObject):
+            sum = int(self.intvalue * w_other.floatvalue)
+            return W_FloatObject(sum)
         else:
             raise OperationError
 
