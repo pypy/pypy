@@ -65,7 +65,7 @@ class ASTNodeVisitor(ASDLVisitor):
                           % (cons.name,), 2)
                 self.emit("return %i" % (i+1,), 3)
             self.emit("raise oefmt(space.w_TypeError,", 2)
-            self.emit("        \"expected some sort of %s, got %%R\", w_node)" % (base,), 2)
+            self.emit("        \"expected some sort of %s, but got %%R\", w_node)" % (base,), 2)
             self.emit("State.ast_type('%s', 'AST', None)" % (base,))
             self.emit("")
             for i, cons in enumerate(sum.types):
@@ -101,7 +101,7 @@ class ASTNodeVisitor(ASDLVisitor):
                 self.emit("return %s.from_object(space, w_node)"
                           % (typ.name,), 3)
             self.emit("raise oefmt(space.w_TypeError,", 2)
-            self.emit("        \"expected some sort of %s, got %%R\", w_node)" % (base,), 2)
+            self.emit("        \"expected some sort of %s, but got %%R\", w_node)" % (base,), 2)
             self.emit("State.ast_type(%r, 'AST', None, %s)" %
                       (base, [attr.name for attr in sum.attributes]))
             self.emit("")
