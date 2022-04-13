@@ -13,12 +13,14 @@ class W_Object:
         """
         raise NotImplementedError
 
+    def getvalue(self):
+        raise NotImplementedError
+
     def is_true(self):
         raise NotImplementedError
 
     def add(self, w_other):
         raise NotImplementedError
-
 
 
 class W_IntObject(W_Object):
@@ -29,6 +31,9 @@ class W_IntObject(W_Object):
     def __repr__(self):
         return self.getrepr()
 
+    def getvalue(self):
+        return self.intvalue
+
     def getrepr(self):
         return str(self.intvalue)
 
@@ -37,7 +42,7 @@ class W_IntObject(W_Object):
 
     def sqrt(self):
         from math import sqrt
-        return W_IntObject(sqrt(self.floatvalue))
+        return W_IntObject(int(sqrt(self.intvalue)))
 
     def add(self, w_other):
         if isinstance(w_other, W_IntObject):
@@ -65,7 +70,7 @@ class W_IntObject(W_Object):
 
     def div(self, w_other):
         if isinstance(w_other, W_IntObject):
-            sum = self.intvalue / w_other.intvalue
+            sum = self.intvalue // w_other.intvalue
             return W_IntObject(sum)
         else:
             raise OperationError
@@ -125,6 +130,9 @@ class W_FloatObject(W_Object):
 
     def __repr__(self):
         return self.getrepr()
+
+    def getvalue(self):
+        return self.floatvalue
 
     def getrepr(self):
         return str(self.floatvalue)
@@ -217,6 +225,9 @@ class W_StringObject(W_Object):
     def __init__(self, strvalue):
         self.strvalue = strvalue
 
+    def getvalue(self):
+        return self.strvalue
+
     def getrepr(self):
         return self.strvalue
 
@@ -229,6 +240,9 @@ class W_ListObject(W_Object):
     def __init__(self, listvalue):
         self.listvalue = listvalue
 
+    def getvalue(self):
+        return self.listvalue
+
     def getrepr(self):
         if we_are_translated():
             self.count += 1
@@ -238,3 +252,11 @@ class W_ListObject(W_Object):
 
     def is_true(self):
         return True
+
+
+class W_RetAddrObject(W_Object):
+    def __init__(self, addrvalue):
+        self.addrvalue = addrvalue
+
+    def getrepr(self):
+        return str(self.addrvalue)

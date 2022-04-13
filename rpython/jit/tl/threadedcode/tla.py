@@ -74,7 +74,7 @@ class Frame(object):
         self.stackpos = stackpos
 
     @jit.unroll_safe
-    def copy_frame(self, argnum, dummy=False):
+    def copy_frame(self, argnum, retaddr, dummy=False):
 
         oldstack = self.stack
         oldstackpos = self.stackpos
@@ -86,7 +86,7 @@ class Frame(object):
             # j = oldstackpos - i - 1
             newstack[i - framepos] = oldstack[i]
 
-        newstack[argnum + 1] = oldstack[oldstackpos - 1]
+        newstack[argnum + 1] = W_RetAddrObject(retaddr)
         return Frame(self.bytecode, newstack, argnum + 2)
 
     @jit.dont_look_inside
@@ -95,7 +95,8 @@ class Frame(object):
         self.stackpos += 1
 
     def _push(self, w_x):
-        self.stack[self.stackpos] = w_x
+        stackpos = jit.promote(self.stackpos)
+        self.stack[stackpos] = w_x
         self.stackpos += 1
 
     @jit.dont_look_inside
@@ -108,7 +109,7 @@ class Frame(object):
         return res
 
     def _pop(self):
-        stackpos = self.stackpos - 1
+        stackpos = jit.promote(self.stackpos) - 1
         assert stackpos >= 0
         self.stackpos = stackpos
         res = self.stack[stackpos]
@@ -191,7 +192,8 @@ class Frame(object):
 
     def _CONST_INT(self, pc, neg=False):
         if isinstance(pc, int):
-            x = ord(self.bytecode[pc])
+            bytecode = jit.promote_string(self.bytecode)
+            x = ord(bytecode[pc])
             if neg:
                 self._push(W_IntObject(-x))
             else:
@@ -214,7 +216,8 @@ class Frame(object):
 
     def _CONST_FLOAT(self, pc, neg=False):
         if isinstance(pc, int):
-            x = _construct_float(self.bytecode, pc)
+            bytecode = jit.promote_string(self.bytecode)
+            x = _construct_float(bytecode, pc)
             if neg:
                 self._push(W_FloatObject(-x))
             else:
@@ -227,14 +230,16 @@ class Frame(object):
         if dummy:
             return
         if isinstance(pc, int):
-            x = _construct_value(self.bytecode, pc)
+            bytecode = jit.promote_string(self.bytecode)
+            x = _construct_value(bytecode, pc)
             self.push(W_IntObject(x))
         else:
             raise OperationError
 
     def _CONST_N(self, pc):
         if isinstance(pc, int):
-            x = _construct_value(self.bytecode, pc)
+            bytecode = jit.promote_string(self.bytecode)
+            x = _construct_value(bytecode, pc)
             self._push(W_IntObject(x))
         else:
             raise OperationError
@@ -379,7 +384,8 @@ class Frame(object):
         self.push(w_x)
 
     def _DUPN(self, pc):
-        n = ord(self.bytecode[pc])
+        bytecode = jit.promote_string(self.bytecode)
+        n = ord(bytecode[pc])
         w_x = self._take(n)
         self._push(w_x)
 
@@ -411,7 +417,7 @@ class Frame(object):
         w_y = self._pop()
         w_x = self._pop()
         w_z = w_x.ge(w_y)
-        self.push(w_z)
+        self._push(w_z)
 
     @jit.dont_look_inside
     def EQ(self, dummy):
@@ -586,36 +592,14 @@ class Frame(object):
         assert isinstance(w_index, W_IntObject)
 
         w_lst.listvalue[int(w_index.intvalue)] = w_x
-        self.push(w_lst)
+        self._push(w_lst)
 
     @jit.dont_look_inside
     def RAND_INT(self, dummy):
-        if dummy:
-            return
-
-        w_x = self.pop()
-        r = None
-        if isinstance(w_x, W_IntObject):
-            r = Random(r_uint(w_x.intvalue))
-        elif isinstance(w_x, W_FloatObject):
-            r = Random(r_uint(w_x.floatvalue))
-        else:
-            raise OperationError
-        r = Random(r_uint(w_x.intvalue))
-        w_r = W_IntObject(r.random())
-        self.push(w_r)
+        raise NotImplementedError
 
     def _RAND_INT(self):
-        w_x = self._pop()
-        r = None
-        if isinstance(w_x, W_IntObject):
-            r = Random(r_uint(w_x.intvalue))
-        elif isinstance(w_x, W_FloatObject):
-            r = Random(r_uint(w_x.floatvalue))
-        else:
-            raise OperationError
-        w_r = W_IntObject(r.random())
-        self._push(w_r)
+        raise NotImplementedError
 
     @jit.dont_look_inside
     def COS(self, dummy):
@@ -623,7 +607,6 @@ class Frame(object):
             return
 
         w_x = self.pop()
-        w_c = None
         if isinstance(w_x, W_IntObject):
             w_c = W_FloatObject(math.cos(w_x.intvalue))
         elif isinstance(w_x, W_FloatObject):
@@ -634,7 +617,6 @@ class Frame(object):
 
     def _COS(self):
         w_x = self._pop()
-        w_c = None
         if isinstance(w_x, W_IntObject):
             w_c = W_FloatObject(math.cos(w_x.intvalue))
         elif isinstance(w_x, W_FloatObject):
@@ -649,7 +631,6 @@ class Frame(object):
             return
 
         w_x = self.pop()
-        w_c = None
         if isinstance(w_x, W_IntObject):
             w_c = W_FloatObject(math.sin(w_x.intvalue))
         elif isinstance(w_x, W_FloatObject):
@@ -660,7 +641,6 @@ class Frame(object):
 
     def _SIN(self):
         w_x = self._pop()
-        w_c = None
         if isinstance(w_x, W_IntObject):
             w_c = W_FloatObject(math.sin(w_x.intvalue))
         elif isinstance(w_x, W_FloatObject):
@@ -850,7 +830,7 @@ class Frame(object):
                     pc += 2
 
                 # create a new frame
-                frame = self.copy_frame(argnum)
+                frame = self.copy_frame(argnum, pc)
                 # if t < pc:
                 #     tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
                 frame._CALL(self, t, argnum)
@@ -858,7 +838,8 @@ class Frame(object):
             elif opcode == RET:
                 argnum = hint(ord(bytecode[pc]), promote=True)
                 pc += 1
-                return self._RET(argnum)
+                w_x = self._RET(argnum)
+                return w_x
 
             elif opcode == JUMP:
                 t = ord(bytecode[pc])
@@ -1106,7 +1087,7 @@ class Frame(object):
                     pc += 2
 
                 # create a new frame
-                frame = self.copy_frame(argnum)
+                frame = self.copy_frame(argnum, pc)
 
                 if we_are_jitted():
                     frame.CALL(self, t, argnum, dummy=True)
@@ -1123,7 +1104,7 @@ class Frame(object):
                 pc += 2
 
                 # create a new frame
-                frame = self.copy_frame(argnum)
+                frame = self.copy_frame(argnum, pc)
 
                 if we_are_jitted():
                     # resursive call hack
@@ -1141,8 +1122,7 @@ class Frame(object):
                 if we_are_jitted():
                     if tstack.t_is_empty():
                         w_x = self.RET(argnum, dummy=True)
-                        pc = call_entry
-                        pc = emit_ret(pc, w_x)
+                        pc = emit_ret(call_entry, w_x)
                         tier1driver.can_enter_jit(bytecode=bytecode,
                                                   call_entry=call_entry,
                                                   pc=pc, tstack=tstack, self=self)
