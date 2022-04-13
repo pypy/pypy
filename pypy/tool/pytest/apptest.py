@@ -14,7 +14,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method
 from rpython.tool.runsubprocess import run_subprocess
 from pypy.tool.pytest import appsupport
-from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.tool.udir import udir
 from pypy import pypydir
 from inspect import getmro
