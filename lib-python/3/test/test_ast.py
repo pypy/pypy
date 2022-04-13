@@ -575,12 +575,16 @@ class AST_Tests(unittest.TestCase):
             compile(m, "<test>", "exec")
         self.assertIn("but got <_ast.expr", str(cm.exception))
 
-    def test_invalid_identitifer(self):
+    def test_invalid_identifier(self):
+        if sys.implementation.name == "pypy":
+            msg = "expected str, got int object"
+        else:
+            msg = "identifier must be of type str"
         m = ast.Module([ast.Expr(ast.Name(42, ast.Load()))], [])
         ast.fix_missing_locations(m)
         with self.assertRaises(TypeError) as cm:
             compile(m, "<test>", "exec")
-        self.assertIn("identifier must be of type str", str(cm.exception))
+        self.assertIn(msg, str(cm.exception))
 
     def test_empty_yield_from(self):
         # Issue 16546: yield from value is not optional.
