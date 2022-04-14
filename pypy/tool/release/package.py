@@ -519,8 +519,9 @@ def package(*args, **kwds):
                         action=NegateAction,
                         default=embed_dependencies_default,
                         help='whether to embed dependencies in CFFI modules. '
-                            f'Defaults to {embed_dependencies_default} on this platform. '
-                            'Uses environment PYPY_EMBED_DEPENDENCIES and PYPY_NO_EMBED_DEPENDENCIES',
+                            'Defaults to {} on this platform. Uses environment '
+                            'PYPY_EMBED_DEPENDENCIES and PYPY_NO_EMBED_DEPENDENCIES'
+                            .format(embed_dependencies_default)
                         )
     parser.add_argument('--make-portable', '--no-make-portable',
                         dest='make_portable',
@@ -528,15 +529,16 @@ def package(*args, **kwds):
                         default=make_portable_default,
                         help='make the package portable by shipping '
                             'dependent shared objects and mangling RPATH. '
-                            f'Defaults to {make_portable_default} on this platform. '
-                            'Uses environment PYPY_MAKE_PORTABLE and PYPY_NO_MAKE_PORTABLE',
+                            'Defaults to {} on this platform. Uses environment '
+                            'PYPY_MAKE_PORTABLE and PYPY_NO_MAKE_PORTABLE'
+                            .format(make_portable_default)
                         )
     if ARCH == 'win32':
         parser.add_argument('--copy-dlls', '--no-copy-dlls', dest='copy_dlls',
                             action=NegateAction,
                             default=copy_dlls_default,
                             help='copy support dlls into the package.'
-                            f'Defaults to True. '
+                            'Defaults to True. '
                             'Uses environment PYPY_PACKAGE_NO_DLLS to override the default.'
                            )
     options = parser.parse_args(args)
