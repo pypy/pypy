@@ -285,8 +285,9 @@ def create_package(basedir, options, _fake=False):
         if options.copy_dlls:
             win_extras +=[
                           ('sqlite3.dll', target),
-                          ('ssl.dll', target),
-                          ('crypto.dll', target),
+                          # Needs fixing for openssl3
+                          ('libssl-1_1.dll', target),
+                          ('libcrypto-1_1.dll', target),
                           ('libffi-8.dll', None),
                          ]
             if not options.no__tkinter:
