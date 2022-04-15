@@ -8,7 +8,7 @@ from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
 
 from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
-from rpython.rlib.objectmodel import instantiate, not_rpython
+from rpython.rlib.objectmodel import instantiate, not_rpython, try_inline, dont_inline
 from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
@@ -52,6 +52,8 @@ class TypeDef(object):
             self.auto_total_ordering()
         self.variable_sized = variable_sized
 
+        self._install_shortcuts()
+
     def add_entries(self, **rawdict):
         # xxx fix the names of the methods to match what app-level expects
         for key, value in rawdict.items():
@@ -73,6 +75,49 @@ class TypeDef(object):
 
     def __repr__(self):
         return "<%s name=%r>" % (self.__class__.__name__, self.name)
+
+    def _install_shortcuts(self):
+        rawdict = self.rawdict
+        # guess the class # XXX should this be done in a more official way?
+        rpy_cls = None
+        for key, val in rawdict.iteritems():
+            ncls = None
+            if isinstance(val, interp2app):
+                ncls = val.self_type
+                if ncls:
+                    if rpy_cls is None:
+                        rpy_cls = ncls
+                    else:
+                        if issubclass(ncls, rpy_cls):
+                            rpy_cls = ncls # use most specific class
+                        else:
+                            assert issubclass(rpy_cls, ncls)
+        if rpy_cls is None:
+            return
+        if 'micronumpy' in rpy_cls.__module__:
+            return
+        if '_descroperation_shortcuts_installed' in rpy_cls.__dict__:
+            return
+        rpy_cls._descroperation_shortcuts_installed = True
+        for name, shortcut_name, fallback, checkerfunc in SHORTCUTS:
+            if name not in rawdict or rawdict[name]._staticdefs:
+                if W_Root not in rpy_cls.__bases__:
+
+                    shortcut = getattr(rpy_cls, shortcut_name).im_func
+                    if shortcut is not fallback:
+                        assert shortcut.source_typedef in self.all_bases(), \
+                                "getting a wrong shortcut %s for class %s from some base class that is not W_Root" % (name, rpy_cls)
+                continue
+            shortcut_func = rawdict[name]._make_descroperation_shortcut(
+                    name, rpy_cls, checkerfunc)
+            shortcut_func.source_typedef = self
+            setattr(rpy_cls, shortcut_name, shortcut_func)
+
+    def all_bases(self):
+        for base in self.bases:
+            yield base
+            for up in base.all_bases():
+                yield up
 
 
 # generic special cmp methods defined on top of __lt__ and __eq__, used by
@@ -161,6 +206,10 @@ def _getusercls(cls):
     class subcls(cls):
         user_overridden_class = True
         objectmodel.import_from_mixin(base_mixin)
+
+    for name, shortcut_name, meth, _ in SHORTCUTS:
+        setattr(subcls, shortcut_name, meth)
+
     for copycls in copy_methods:
         _copy_methods(copycls, subcls)
     subcls.__name__ = name
@@ -170,6 +219,42 @@ def _copy_methods(copycls, subcls):
     for key, value in copycls.__dict__.items():
         if (not key.startswith('__') or key == '__del__'):
             setattr(subcls, key, value)
+
+# ____________________________________________________________
+# descroperation shortcuts
+
+SHORTCUTS = []
+
+def use_special_method_shortcut(name, checkerfunc=None):
+    """
+    use a shortcut for implementations of the special method 'name' for
+    built-in types in the decorated descroperation function. The behaviour for
+    builtin types will be equivalent to:
+
+        w_descr = space.lookup(w_obj, name)
+        return space.get_and_call_function(w_descr, w_obj)
+
+    but only if the special method name exists in the type. Note that this
+    means if the descroperation method contains extra logic after the
+    get_and_call_function it will be ignored (which is often safe for built-in
+    types).
+
+    checkerfunc is a non-translation only safety: it's called with the space
+    and the result of the get_and_call_function call and must return True.
+    """
+    def wrapper(func):
+        @dont_inline
+        def shortcut_fallback(self, space, *args_w):
+            return func(space, self, *args_w)
+        shortcut_fallback.func_name = "shortcut_fallback_%s" % name
+        shortcut_name = "shortcut_%s" % name
+        SHORTCUTS.append((name, shortcut_name, shortcut_fallback, checkerfunc))
+        @try_inline
+        def call_shortcut(space, self, *args_w):
+            return getattr(self, shortcut_name)(space, *args_w)
+        setattr(W_Root, shortcut_name, shortcut_fallback)
+        return call_shortcut
+    return wrapper
 
 
 # ____________________________________________________________
@@ -503,11 +588,6 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
 from pypy.interpreter.pytraceback import PyTraceback
-from pypy.interpreter.generator import GeneratorIterator, Coroutine
-from pypy.interpreter.generator import CoroutineWrapper, AIterWrapper
-from pypy.interpreter.generator import AsyncGenerator
-from pypy.interpreter.generator import AsyncGenValueWrapper
-from pypy.interpreter.generator import AsyncGenASend, AsyncGenAThrow
 from pypy.interpreter.nestedscope import Cell, descr_new_cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
@@ -834,122 +914,6 @@ PyTraceback.typedef = TypeDef("traceback",
     )
 PyTraceback.typedef.acceptable_as_base_class = False
 
-GeneratorIterator.typedef = TypeDef("generator",
-    __repr__   = interp2app(GeneratorIterator.descr__repr__),
-    #__reduce__   = interp2app(GeneratorIterator.descr__reduce__),
-    #__setstate__ = interp2app(GeneratorIterator.descr__setstate__),
-    __next__   = interp2app(GeneratorIterator.descr_next,
-                            descrmismatch='__next__'),
-    send       = interp2app(GeneratorIterator.descr_send,
-                            descrmismatch='send'),
-    throw      = interp2app(GeneratorIterator.descr_throw,
-                            descrmismatch='throw'),
-    close      = interp2app(GeneratorIterator.descr_close,
-                            descrmismatch='close'),
-    __iter__   = interp2app(GeneratorIterator.descr__iter__,
-                            descrmismatch='__iter__'),
-    gi_running = interp_attrproperty('running', cls=GeneratorIterator, wrapfn="newbool"),
-    gi_frame   = GetSetProperty(GeneratorIterator.descr_gicr_frame),
-    gi_code    = interp_attrproperty_w('pycode', cls=GeneratorIterator),
-    gi_yieldfrom=GetSetProperty(GeneratorIterator.descr_delegate),
-    __name__   = GetSetProperty(GeneratorIterator.descr__name__,
-                                GeneratorIterator.descr_set__name__),
-    __qualname__ = GetSetProperty(GeneratorIterator.descr__qualname__,
-                                  GeneratorIterator.descr_set__qualname__),
-    __weakref__ = make_weakref_descr(GeneratorIterator),
-)
-assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
-
-Coroutine.typedef = TypeDef("coroutine",
-    __repr__   = interp2app(Coroutine.descr__repr__),
-    #__reduce__   = interp2app(Coroutine.descr__reduce__),
-    #__setstate__ = interp2app(Coroutine.descr__setstate__),
-    send       = interp2app(Coroutine.descr_send,
-                            descrmismatch='send'),
-    throw      = interp2app(Coroutine.descr_throw,
-                            descrmismatch='throw'),
-    close      = interp2app(Coroutine.descr_close,
-                            descrmismatch='close'),
-    __await__  = interp2app(Coroutine.descr__await__,
-                            descrmismatch='__await__'),
-    cr_running = interp_attrproperty('running', cls=Coroutine, wrapfn="newbool"),
-    cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame),
-    cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
-    cr_await=GetSetProperty(Coroutine.descr_delegate),
-    cr_origin  = interp_attrproperty_w('w_cr_origin', cls=Coroutine),
-    __name__   = GetSetProperty(Coroutine.descr__name__,
-                                Coroutine.descr_set__name__,
-                                doc="name of the coroutine"),
-    __qualname__ = GetSetProperty(Coroutine.descr__qualname__,
-                                  Coroutine.descr_set__qualname__,
-                                  doc="qualified name of the coroutine"),
-    __weakref__ = make_weakref_descr(Coroutine),
-)
-assert not Coroutine.typedef.acceptable_as_base_class  # no __new__
-
-AsyncGenerator.typedef = TypeDef("async_generator",
-    __repr__   = interp2app(AsyncGenerator.descr__repr__),
-    #__reduce__   = interp2app(Coroutine.descr__reduce__),
-    #__setstate__ = interp2app(Coroutine.descr__setstate__),
-    asend      = interp2app(AsyncGenerator.descr_asend,
-                            descrmismatch='asend'),
-    athrow     = interp2app(AsyncGenerator.descr_athrow,
-                            descrmismatch='athrow'),
-    aclose     = interp2app(AsyncGenerator.descr_aclose,
-                            descrmismatch='aclose'),
-    __aiter__  = interp2app(AsyncGenerator.descr__aiter__,
-                            descrmismatch='__aiter__'),
-    __anext__  = interp2app(AsyncGenerator.descr__anext__,
-                            descrmismatch='__anext__'),
-    ag_running = interp_attrproperty('running', cls=AsyncGenerator, wrapfn="newbool"),
-    ag_frame   = GetSetProperty(AsyncGenerator.descr_gicr_frame),
-    ag_code    = interp_attrproperty_w('pycode', cls=AsyncGenerator),
-    ag_await=GetSetProperty(AsyncGenerator.descr_delegate),
-    __name__   = GetSetProperty(AsyncGenerator.descr__name__,
-                                AsyncGenerator.descr_set__name__,
-                                doc="name of the async generator"),
-    __qualname__ = GetSetProperty(AsyncGenerator.descr__qualname__,
-                                  AsyncGenerator.descr_set__qualname__,
-                                  doc="qualified name of the async generator"),
-    __weakref__ = make_weakref_descr(AsyncGenerator),
-)
-assert not AsyncGenerator.typedef.acceptable_as_base_class  # no __new__
-
-AsyncGenValueWrapper.typedef = TypeDef("async_generator_wrapped_value")
-assert not AsyncGenValueWrapper.typedef.acceptable_as_base_class
-
-CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
-    __iter__     = interp2app(CoroutineWrapper.descr__iter__),
-    __next__     = interp2app(CoroutineWrapper.descr__next__),
-    send         = interp2app(CoroutineWrapper.descr_send),
-    throw        = interp2app(CoroutineWrapper.descr_throw),
-    close        = interp2app(CoroutineWrapper.descr_close),
-)
-assert not CoroutineWrapper.typedef.acceptable_as_base_class  # no __new__
-
-AIterWrapper.typedef = TypeDef("aiter_wrapper",
-    __await__    = interp2app(AIterWrapper.descr__await__),
-    __iter__     = interp2app(AIterWrapper.descr__iter__),
-    __next__     = interp2app(AIterWrapper.descr__next__),
-)
-assert not AIterWrapper.typedef.acceptable_as_base_class  # no __new__
-
-AsyncGenASend.typedef = TypeDef("async_generator_asend",
-    __await__    = interp2app(AsyncGenASend.descr__iter__),
-    __iter__     = interp2app(AsyncGenASend.descr__iter__),
-    __next__     = interp2app(AsyncGenASend.descr__next__),
-    close        = interp2app(AsyncGenASend.descr_close),
-    send         = interp2app(AsyncGenASend.descr_send),
-    throw        = interp2app(AsyncGenASend.descr_throw),
-)
-AsyncGenAThrow.typedef = TypeDef("async_generator_athrow",
-    __await__    = interp2app(AsyncGenAThrow.descr__iter__),
-    __iter__     = interp2app(AsyncGenAThrow.descr__iter__),
-    __next__     = interp2app(AsyncGenAThrow.descr__next__),
-    close        = interp2app(AsyncGenAThrow.descr_close),
-    send         = interp2app(AsyncGenAThrow.descr_send),
-    throw        = interp2app(AsyncGenAThrow.descr_throw),
-)
 
 Cell.typedef = TypeDef("cell",
     __total_ordering__ = 'auto',

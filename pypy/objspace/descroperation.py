@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt, oefmt_attribute_error
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.typedef import default_identity_hash
+from pypy.interpreter.typedef import default_identity_hash, use_special_method_shortcut
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
@@ -106,9 +106,15 @@ class Object(object):
         name = get_attribute_name(space, w_obj, w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
-            if space.is_data_descr(w_descr):
-                space.set(w_descr, w_obj, w_value)
-                return
+            # shortcut for:
+            # if space.is_data_descr(w_descr):
+            #     return space.set(w_descr, w_obj, w_value)
+            w_set = space.lookup(w_descr, '__set__')
+            if w_set is not None:
+                return space.get_and_call_function(w_set, w_descr, w_obj, w_value)
+            if space.lookup(w_descr, '__delete__') is not None:
+                raise oefmt(space.w_AttributeError,
+                            "'%T' object is not a descriptor with set", w_descr)
         if w_obj.setdictvalue(space, name, w_value):
             return
         raiseattrerror(space, w_obj, w_name, w_descr)
@@ -240,6 +246,8 @@ class DescrOperation(object):
                         w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
+    # would be cool to shortcut this too, but old-style classes return int from
+    # __nonzero__
     def is_true(space, w_obj):
         w_descr = space.lookup(w_obj, "__bool__")
         if w_descr is None:
@@ -302,6 +310,8 @@ class DescrOperation(object):
                 return False
         return True
 
+    @use_special_method_shortcut('__iter__',
+            lambda space, w_iter: space.lookup(w_iter, '__next__') is not None)
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
         if w_descr is None:
@@ -320,6 +330,7 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError, "iter() returned non-iterator")
         return w_iter
 
+    @use_special_method_shortcut('__next__')
     def next(space, w_obj):
         w_descr = space.lookup(w_obj, '__next__')
         if w_descr is None:
@@ -327,6 +338,7 @@ class DescrOperation(object):
                         "'%T' object is not an iterator", w_obj)
         return space.get_and_call_function(w_descr, w_obj)
 
+    @use_special_method_shortcut('__getitem__')
     def getitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__getitem__')
         if w_descr is None and space.isinstance_w(w_obj, space.w_type):
@@ -343,6 +355,7 @@ class DescrOperation(object):
                         w_obj, w_key)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
+    @use_special_method_shortcut('__setitem__')
     def setitem(space, w_obj, w_key, w_val):
         w_descr = space.lookup(w_obj, '__setitem__')
         if w_descr is None:
@@ -350,6 +363,7 @@ class DescrOperation(object):
                         "'%T' object does not support item assignment", w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_key, w_val)
 
+    @use_special_method_shortcut('__delitem__')
     def delitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__delitem__')
         if w_descr is None:
@@ -411,6 +425,8 @@ class DescrOperation(object):
                 return w_res
         return space.pow(w_lhs, w_rhs, space.w_None)
 
+    @use_special_method_shortcut('__contains__',
+            lambda space, w_res: space.is_w(space.type(w_res), space.w_bool))
     def contains(space, w_container, w_item):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
@@ -593,7 +609,25 @@ def _make_binop_impl(symbol, specialnames):
     if symbol == "-":
         printerrormsg = errormsg + '. Did you mean "print(<-number>)"?'
 
+    @use_special_method_shortcut(left)
+    def shortcut_binop(space, w_obj1, w_obj2):
+        # makes a few assumptions: if the two rpython types are the same, then
+        # the left and the right implementations are the same too
+        w_impl = space.lookup(w_obj1, left)
+        if w_impl is not None:
+            w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
+            if _check_notimplemented(space, w_res):
+                return w_res
+        w_typ1 = space.type(w_obj1)
+        w_typ2 = space.type(w_obj2)
+        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
+
     def binop_impl(space, w_obj1, w_obj2):
+        # shortcut: rpython classes are the same
+        if type(w_obj1) is type(w_obj2) and not w_obj1.user_overridden_class:
+            w_res = shortcut_binop(space, w_obj1, w_obj2)
+            if _check_notimplemented(space, w_res):
+                return w_res
         w_res = _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat)
         if w_res is not None:
             return w_res
@@ -632,9 +666,26 @@ def _invoke_comparison(space, w_descr, w_obj1, w_obj2):
 def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
+
+    @use_special_method_shortcut(left)
+    def shortcut_comparison(space, w_obj1, w_obj2):
+        # see shortcut_binop
+        w_impl = space.lookup(w_obj1, left)
+        if w_impl is not None:
+            w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
+            if _check_notimplemented(space, w_res):
+                return w_res
+        return _no_special_method_found_cmp(space, w_obj1, w_obj2, w_obj1, w_obj2)
+
+
     def comparison_impl(space, w_obj1, w_obj2):
         w_orig_obj1 = w_obj1
         w_orig_obj2 = w_obj2
+        # shortcut, rpython classes are the same
+        if left == right and type(w_obj1) is type(w_obj2) and not w_obj1.user_overridden_class:
+            w_res = shortcut_comparison(space, w_obj1, w_obj2)
+            if _check_notimplemented(space, w_res):
+                return w_res
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
@@ -657,7 +708,9 @@ def _make_comparison_impl(symbol, specialnames):
         w_res = _invoke_comparison(space, w_right_impl, w_obj2, w_obj1)
         if w_res is not None:
             return w_res
-        #
+        return _no_special_method_found_cmp(space, w_obj1, w_obj2, w_orig_obj1, w_orig_obj2)
+
+    def _no_special_method_found_cmp(space, w_obj1, w_obj2, w_orig_obj1, w_orig_obj2):
         # we did not find any special method, let's do the default logic for
         # == and !=
         if left == '__eq__':
@@ -694,7 +747,7 @@ def _make_inplace_impl(symbol, specialnames):
         w_impl = space.lookup(w_lhs, specialname)
         if w_impl is not None:
             # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
-            # see objspace/test/test_descrobject.*rmul_overrides.
+            # see objspace/test/apptest_descroperation.*rmul_overrides.
             # For cases like "list += object-overriding-__radd__".
             if (seq_bug_compat and space.type(w_lhs).flag_sequence_bug_compat
                            and not space.type(w_rhs).flag_sequence_bug_compat):
@@ -725,6 +778,7 @@ def _make_inplace_impl(symbol, specialnames):
 def _make_unaryop_impl(symbol, specialnames):
     specialname, = specialnames
     errormsg = "unsupported operand type for unary %s: '%%T'" % symbol
+    @use_special_method_shortcut(specialname)
     def unaryop_impl(space, w_obj):
         w_impl = space.lookup(w_obj, specialname)
         if w_impl is None:
@@ -745,6 +799,8 @@ for targetname, specialname, checkerspec in [
     msg = "unsupported operand type for %(targetname)s(): '%%T'"
     msg = msg % locals()
     source = """if 1:
+        @use_special_method_shortcut(%(specialname)r,
+            lambda space, w_result: %(checker)s)
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
@@ -769,6 +825,9 @@ for targetname, specialname in [
     ('repr', '__repr__')]:
 
     source = """if 1:
+        @use_special_method_shortcut(%(specialname)r,
+            lambda space, w_res: space.isinstance_w(w_res, space.w_text)
+        )
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
