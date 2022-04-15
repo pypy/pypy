@@ -29,3 +29,55 @@ class Test_DescrOperation:
         w_inst = space.call_function(w_sub)
         assert space.isinstance_w(w_inst, w_base)
 
+    def test_shortcut(self, monkeypatch, space):
+        w_l = space.wrap([1, 2, 3, 4])
+        oldlookup = space.lookup
+        def lookup(obj, name):
+            if name == "iter":
+                return None
+            return oldlookup(obj, name)
+        monkeypatch.setattr(space, "lookup", lookup)
+        w_iter = space.iter(w_l)
+        w_first = space.next(w_iter)
+        assert space.int_w(w_first) == 1
+
+    def test_shortcut_binop(self, monkeypatch, space):
+        w_x = space.newutf8('abc', 3)
+        w_y = space.newutf8('def', 3)
+        monkeypatch.setattr(space, "lookup", None)
+        assert space.utf8_w(space.add(w_x, w_y)) == 'abcdef'
+
+    def test_shortcut_binop_not_implemented(self, monkeypatch, space):
+        from pypy.interpreter.error import OperationError
+        w_x = space.newutf8('abc', 3)
+        w_y = space.newutf8('def', 3)
+        with raises(OperationError):
+            assert space.utf8_w(space.mul(w_x, w_y)) == 'abcdef'
+
+    def test_shortcut_eq(self, monkeypatch, space):
+        w_x = space.newutf8('abc', 3)
+        w_y = space.newutf8('def', 3)
+        monkeypatch.setattr(space, "lookup", None)
+        assert not space.eq_w(w_x, w_y)
+
+    def test_shortcut_dictiter(self, monkeypatch, space):
+        w_x = space.wrap({'a': 1})
+        oldlookup = space.lookup
+        def lookup(obj, name):
+            if name == "iter":
+                return None
+            return oldlookup(obj, name)
+        monkeypatch.setattr(space, "lookup", lookup)
+        w_iter = space.iter(w_x)
+        w_first = space.next(w_iter)
+        assert space.utf8_w(w_first) == 'a'
+
+    def test_shortcut_str_getitem(self, monkeypatch, space):
+        w_x = space.newbytes('abc')
+        monkeypatch.setattr(space, "lookup", None)
+        w_first = space.getitem(w_x, space.newint(0))
+        assert space.int_w(w_first) == ord('a')
+
+    def test_shortcut_generatoriterator(self):
+        from pypy.interpreter.generator import GeneratorIterator
+        assert 'shortcut___next__' in GeneratorIterator.__dict__
