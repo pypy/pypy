@@ -61,3 +61,22 @@ ffi = build_ffi_for_binding(
 
 if __name__ == '__main__':
     ffi.compile(verbose=True)
+    if sys.platform == 'win32':
+        # copy dlls from externals to the pwd
+        # maybe we should link to libraries instead of the dlls
+        # to avoid this mess
+        import os, glob, shutil
+        path_parts = os.environ['PATH'].split(';')
+        candidates = [x for x in path_parts if 'externals' in x]
+
+        def copy_from_path(dll):
+            for c in candidates:
+                files = glob.glob(os.path.join(c, dll + '*.dll'))
+                if files:
+                    for fname in files:
+                        print('copying', fname)
+                        shutil.copy(fname, '.')
+
+        if candidates:
+            for lib in libraries:
+                copy_from_path(lib)
