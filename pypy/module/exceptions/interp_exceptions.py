@@ -449,9 +449,10 @@ class W_KeyError(W_LookupError):
             return space.str(space.newtuple(self.args_w))
 
 W_KeyError.typedef = TypeDef(
-    'exceptions.KeyError',
+    'KeyError',
     W_LookupError.typedef,
     __doc__ = W_KeyError.__doc__,
+    __module__ = 'builtins',
     __new__ = _new(W_KeyError),
     __str__ = interp2app(W_KeyError.key_error_str),
 )
