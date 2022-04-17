@@ -939,9 +939,9 @@ class ObjSpace(object):
             return None
         if not isinstance(w_obj, RequiredClass):   # or obj is None
             raise oefmt(self.w_TypeError,
-                        "'%s' object expected, got '%N' instead",
+                        "'%s' object expected, got '%T' instead",
                         wrappable_class_name(RequiredClass),
-                        w_obj.getclass(self))
+                        w_obj)
         return w_obj
 
     def unpackiterable(self, w_iterable, expected_length=-1):
