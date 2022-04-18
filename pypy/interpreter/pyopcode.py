@@ -898,14 +898,14 @@ class __extend__(pyframe.PyFrame):
         self.space.delitem(self.get_w_globals(), w_varname)
 
     def LOAD_NAME(self, nameindex, next_instr):
+        varname = self.getname_u(nameindex)
         if self.getorcreatedebug().w_locals is not self.get_w_globals():
-            varname = self.getname_u(nameindex)
             w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
                                               varname)
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
-        self.LOAD_GLOBAL(nameindex, next_instr)    # fall-back
+        self.pushvalue(self._load_global(varname))
 
     @always_inline
     def _load_global(self, varname):
