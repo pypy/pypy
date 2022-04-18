@@ -152,3 +152,141 @@ class AppTestCellDict(object):
         del d["a"]
         d[object()] = 5
         assert d.values() == [5]
+
+class TestCellCache(object):
+    FakeString = FakeString
+
+    def test_basic_property_cache(self):
+        strategy = ModuleDictStrategy(space)
+        storage = strategy.get_empty_storage()
+        d = W_ModuleDictObject(space, strategy, storage)
+
+        key = "a"
+        w_key = self.FakeString(key)
+        d.setitem(w_key, 1)
+        c = d.get_global_cache(key)
+        c2 = d.get_global_cache(key)
+        assert c2 is c
+
+        assert c.getvalue(space) == 1
+        assert d.getitem(w_key) == 1
+        assert d.get_strategy().getdictvalue_no_unwrapping(d, key) == 1
+
+        d.setitem(w_key, 2)
+        c2 = d.get_global_cache(key)
+        assert c2 is c
+        assert c.getvalue(space) == 2
+
+        assert d.getitem(w_key) == 2
+        assert d.get_strategy().getdictvalue_no_unwrapping(d, key).w_value == 2
+
+        d.setitem(w_key, 3)
+        c2 = d.get_global_cache(key)
+        assert c2 is c
+        assert c.getvalue(space) == 3
+        assert d.getitem(w_key) == 3
+        assert d.get_strategy().getdictvalue_no_unwrapping(d, key).w_value == 3
+
+    def test_delitem(self):
+        strategy = ModuleDictStrategy(space)
+        storage = strategy.get_empty_storage()
+        d = W_ModuleDictObject(space, strategy, storage)
+
+        key = "a"
+        w_key = self.FakeString(key)
+        d.setitem(w_key, 1)
+        c = d.get_global_cache(key)
+        assert c.getvalue(space) == 1
+
+        d.delitem(w_key)
+        assert c.getvalue(space) is None
+        assert c.valid
+        c2 = d.get_global_cache(key)
+        assert c2 is c
+
+        d.setitem(w_key, 2)
+        c2 = d.get_global_cache(key)
+        assert c2 is c
+        assert c.getvalue(space) == 2
+
+    def test_devolve(self):
+        strategy = ModuleDictStrategy(space)
+        storage = strategy.get_empty_storage()
+        d = W_ModuleDictObject(space, strategy, storage)
+
+        key = "a"
+        w_key = self.FakeString(key)
+        d.setitem(w_key, 1)
+        c = d.get_global_cache(key)
+        assert c.getvalue(space) == 1
+        assert c.valid
+
+        d.setitem(5, 1)
+        assert not c.valid
+
+    # _____________________________________________
+
+    class FakePycode:
+        def __init__(self):
+            self._globals_caches = [None]
+
+    class FakeBuiltin:
+        def getdictvalue(self, space, name):
+            return name
+
+    class FakeFrame:
+        w_value = None
+        debugdata = None
+
+        def __init__(self, code, builtin):
+            self.pycode = code
+            self.builtin = builtin
+            self.space = space
+
+        def pushvalue(self, w_value):
+            self.w_top_of_stack = w_value
+
+        def getdebug(self):
+            return self.debugdata
+
+        def getname_u(self, i):
+            assert i == 0
+            return "a"
+
+        def _load_global(self, index):
+            return -17
+
+        def get_builtin(self):
+            return self.builtin
+
+    def test_bytecode_simple(self):
+        from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
+        strategy = ModuleDictStrategy(space)
+        storage = strategy.get_empty_storage()
+        d = W_ModuleDictObject(space, strategy, storage)
+        key = "a"
+        w_key = self.FakeString(key)
+        d.setitem(w_key, 1)
+
+        code = self.FakePycode()
+        code.w_globals = d
+        frame = self.FakeFrame(code, self.FakeBuiltin())
+
+        LOAD_GLOBAL_cached(frame, 0, None)
+        assert frame.w_top_of_stack == -17 # went the _load_global route
+
+        LOAD_GLOBAL_cached(frame, 0, None)
+        assert frame.w_top_of_stack == 1
+
+        d.setitem(w_key, 2)
+        LOAD_GLOBAL_cached(frame, 0, None)
+        assert frame.w_top_of_stack == 2
+
+        d.delitem(w_key)
+        LOAD_GLOBAL_cached(frame, 0, None)
+        assert frame.w_top_of_stack == 'a' # from builtin
+
+        d.setitem(w_key, 6)
+        LOAD_GLOBAL_cached(frame, 0, None)
+        assert frame.w_top_of_stack == 6
+

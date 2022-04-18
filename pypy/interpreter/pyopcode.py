@@ -924,7 +924,10 @@ class __extend__(pyframe.PyFrame):
 
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
-        self.pushvalue(self._load_global(self.getname_u(nameindex)))
+        #self.pushvalue(self._load_global(self.getname_u(nameindex)))
+        #return
+        from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
+        LOAD_GLOBAL_cached(self, nameindex, next_instr)
 
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_cells_stack_w[varindex] is None:
