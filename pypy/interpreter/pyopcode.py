@@ -889,9 +889,11 @@ class __extend__(pyframe.PyFrame):
         self.space.delattr(w_obj, w_attributename)
 
     def STORE_GLOBAL(self, nameindex, next_instr):
-        varname = self.getname_u(nameindex)
-        w_newvalue = self.popvalue()
-        self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        #varname = self.getname_u(nameindex)
+        #w_newvalue = self.popvalue()
+        #self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        from pypy.objspace.std.celldict import STORE_GLOBAL_cached
+        STORE_GLOBAL_cached(self, nameindex, next_instr)
 
     def DELETE_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)

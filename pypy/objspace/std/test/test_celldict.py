@@ -246,6 +246,9 @@ class TestCellCache(object):
         def pushvalue(self, w_value):
             self.w_top_of_stack = w_value
 
+        def popvalue(self):
+            return self.w_top_of_stack
+
         def getdebug(self):
             return self.debugdata
 
@@ -259,7 +262,7 @@ class TestCellCache(object):
         def get_builtin(self):
             return self.builtin
 
-    def test_bytecode_simple(self):
+    def test_bytecode_load(self):
         from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
         strategy = ModuleDictStrategy(space)
         storage = strategy.get_empty_storage()
@@ -290,3 +293,24 @@ class TestCellCache(object):
         LOAD_GLOBAL_cached(frame, 0, None)
         assert frame.w_top_of_stack == 6
 
+    def test_bytecode_store(self):
+        from pypy.objspace.std.celldict import STORE_GLOBAL_cached
+        strategy = ModuleDictStrategy(space)
+        storage = strategy.get_empty_storage()
+        d = W_ModuleDictObject(space, strategy, storage)
+        key = "a"
+        w_key = self.FakeString(key)
+        d.setitem(w_key, 1)
+
+        code = self.FakePycode()
+        code.w_globals = d
+        frame = self.FakeFrame(code, self.FakeBuiltin())
+
+        frame.w_top_of_stack = 7
+        STORE_GLOBAL_cached(frame, 0, None)
+        assert d.getitem(w_key) == 7
+
+        frame.getname_u = None # the rest still works due to the cache
+        frame.w_top_of_stack = 9
+        STORE_GLOBAL_cached(frame, 0, None)
+        assert d.getitem(w_key) == 9

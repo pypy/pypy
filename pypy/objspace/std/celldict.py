@@ -265,3 +265,28 @@ def LOAD_GLOBAL_cached(self, nameindex, next_instr):
 def _load_global_fallback(self, nameindex, next_instr):
     varname = self.getname_u(nameindex)
     self.pushvalue(self._load_global(varname))
+
+def STORE_GLOBAL_cached(self, nameindex, next_instr):
+    w_newvalue = self.popvalue()
+    if jit.we_are_jitted() or self.getdebug() is not None:
+        varname = self.getname_u(nameindex)
+        self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        return
+    pycode = self.pycode
+    cache_wref = pycode._globals_caches[nameindex]
+    if cache_wref is not None:
+        cache = cache_wref()
+        if cache and cache.valid:
+            w_value = write_cell(self.space, cache.cell, w_newvalue)
+            if w_value is None:
+                return
+
+    varname = self.getname_u(nameindex)
+    w_globals = self.pycode.w_globals
+    self.space.setitem_str(w_globals, varname, w_newvalue)
+    if isinstance(w_globals, W_ModuleDictObject):
+        cache = w_globals.get_global_cache(varname)
+        if cache is not None:
+            assert cache.valid and cache.ref is not None
+            pycode._globals_caches[nameindex] = cache.ref
+
