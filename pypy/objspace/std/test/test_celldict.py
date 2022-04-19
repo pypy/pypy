@@ -262,6 +262,9 @@ class TestCellCache(object):
         def get_builtin(self):
             return self.builtin
 
+    class FakeDebugData:
+        pass
+
     def test_bytecode_load(self):
         from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
         strategy = ModuleDictStrategy(space)
@@ -292,6 +295,28 @@ class TestCellCache(object):
         d.setitem(w_key, 6)
         LOAD_GLOBAL_cached(frame, 0, None)
         assert frame.w_top_of_stack == 6
+
+    def test_bytecode_load_works_with_debugdata(self):
+        from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
+        strategy = ModuleDictStrategy(space)
+        storage = strategy.get_empty_storage()
+        d = W_ModuleDictObject(space, strategy, storage)
+        key = "a"
+        w_key = self.FakeString(key)
+        d.setitem(w_key, 1)
+
+        code = self.FakePycode()
+        code.w_globals = d
+        frame = self.FakeFrame(code, self.FakeBuiltin())
+        frame.debugdata = self.FakeDebugData()
+        frame.debugdata.w_globals = d
+
+        LOAD_GLOBAL_cached(frame, 0, None)
+        assert frame.w_top_of_stack == -17 # went the _load_global route
+
+        LOAD_GLOBAL_cached(frame, 0, None)
+        assert frame.w_top_of_stack == 1 # works!
+
 
     def test_bytecode_store(self):
         from pypy.objspace.std.celldict import STORE_GLOBAL_cached

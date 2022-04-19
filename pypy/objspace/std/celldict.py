@@ -234,10 +234,12 @@ class GlobalCache(object):
         return unwrap_cell(space, self.cell)
 
 def LOAD_GLOBAL_cached(self, nameindex, next_instr):
-    if jit.we_are_jitted() or self.getdebug() is not None:
+    pycode = self.pycode
+    if jit.we_are_jitted() or (
+            self.debugdata is not None and
+            self.debugdata.w_globals is not pycode.w_globals):
         _load_global_fallback(self, nameindex, next_instr)
         return
-    pycode = self.pycode
     cache_wref = pycode._globals_caches[nameindex]
     if cache_wref is not None:
         cache = cache_wref()
