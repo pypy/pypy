@@ -197,6 +197,7 @@ class ModuleDictStrategy(DictStrategy):
         return W_DictObject(strategy.space, strategy, strategy.erase(str_dict))
 
     def get_global_cache(self, w_dict, key):
+        space = w_dict.space
         if self.caches is None:
             cache = None
             self.caches = {}
@@ -205,6 +206,21 @@ class ModuleDictStrategy(DictStrategy):
         if cache is None:
             cell = self.getdictvalue_no_unwrapping(w_dict, key)
             cache = GlobalCache(cell)
+            if (not space.config.objspace.honor__builtins__ and
+                    cell is None and
+                    w_dict is not space.builtin.w_dict):
+                w_builtin_dict = space.builtin.w_dict
+                assert isinstance(w_builtin_dict, W_ModuleDictObject)
+                builtin_strategy = w_builtin_dict.mstrategy
+                if isinstance(builtin_strategy, ModuleDictStrategy):
+                    cell = builtin_strategy.getdictvalue_no_unwrapping(
+                            w_builtin_dict, key)
+                    # logic: if the global is not defined but the builtin is,
+                    # cache it. otherwise don't cache the builtin ever
+                    if cell is not None:
+                        builtincache = builtin_strategy.get_global_cache(
+                                w_builtin_dict, key)
+                        cache.builtincache = builtincache
             self.caches[key] = cache
         return cache
 
@@ -228,6 +244,7 @@ class GlobalCache(object):
         self.cell = cell
         self.valid = True
         self.ref = weakref.ref(self)
+        self.builtincache = None
 
     @objectmodel.always_inline
     def getvalue(self, space):
@@ -249,6 +266,12 @@ def LOAD_GLOBAL_cached(self, nameindex, next_instr):
                 if w_value is None:
                     # the cache is valid. this means it's not in the globals
                     # and we check the builtins next
+                    builtincache = cache.builtincache
+                    if builtincache is not None:
+                        w_value = builtincache.getvalue(self.space)
+                        if w_value is not None or cache.valid:
+                            self.pushvalue(w_value)
+                            return
                     w_value = self.get_builtin().getdictvalue(
                             self.space, self.getname_u(nameindex))
                 self.pushvalue(w_value)

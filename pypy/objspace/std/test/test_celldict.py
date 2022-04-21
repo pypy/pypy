@@ -156,13 +156,16 @@ class AppTestCellDict(object):
 class TestCellCache(object):
     FakeString = FakeString
 
-    def test_basic_property_cache(self):
+    def moduledict_and_key(self):
         strategy = ModuleDictStrategy(space)
         storage = strategy.get_empty_storage()
         d = W_ModuleDictObject(space, strategy, storage)
-
         key = "a"
         w_key = self.FakeString(key)
+        return d, key, w_key
+
+    def test_basic_property_cache(self):
+        d, key, w_key = self.moduledict_and_key()
         d.setitem(w_key, 1)
         c = d.get_global_cache(key)
         c2 = d.get_global_cache(key)
@@ -188,12 +191,8 @@ class TestCellCache(object):
         assert d.get_strategy().getdictvalue_no_unwrapping(d, key).w_value == 3
 
     def test_delitem(self):
-        strategy = ModuleDictStrategy(space)
-        storage = strategy.get_empty_storage()
-        d = W_ModuleDictObject(space, strategy, storage)
+        d, key, w_key = self.moduledict_and_key()
 
-        key = "a"
-        w_key = self.FakeString(key)
         d.setitem(w_key, 1)
         c = d.get_global_cache(key)
         assert c.getvalue(space) == 1
@@ -208,6 +207,41 @@ class TestCellCache(object):
         c2 = d.get_global_cache(key)
         assert c2 is c
         assert c.getvalue(space) == 2
+
+    def test_getcache_and_builtins(self):
+        space = FakeSpace()
+        strategy = ModuleDictStrategy(space)
+        storage = strategy.get_empty_storage()
+        builtindict = W_ModuleDictObject(space, strategy, storage)
+        builtindict.setitem_str("len", 2)
+        builtindict.setitem_str("list", 19)
+        class FakeModule:
+            w_dict = builtindict
+        space.builtin = FakeModule()
+        storage = strategy.get_empty_storage()
+        d = W_ModuleDictObject(space, strategy, storage)
+
+        # just in the builtins
+        c = d.get_global_cache("len")
+        assert c.cell is None
+        assert c.builtincache.cell == 2
+
+        # in both dicts
+        d.setitem_str("list", 23)
+        c = d.get_global_cache("list")
+        assert c.cell == 23
+        assert c.builtincache is None
+
+        # not in the builtins but in the normal dict
+        d.setitem_str("a", 45)
+        c = d.get_global_cache("a")
+        assert c.cell == 45
+        assert c.builtincache is None
+
+        # not in either dict
+        c = d.get_global_cache("b")
+        assert c.cell is None
+        assert c.builtincache is None
 
     def test_devolve(self):
         strategy = ModuleDictStrategy(space)
@@ -267,11 +301,7 @@ class TestCellCache(object):
 
     def test_bytecode_load(self):
         from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
-        strategy = ModuleDictStrategy(space)
-        storage = strategy.get_empty_storage()
-        d = W_ModuleDictObject(space, strategy, storage)
-        key = "a"
-        w_key = self.FakeString(key)
+        d, key, w_key = self.moduledict_and_key()
         d.setitem(w_key, 1)
 
         code = self.FakePycode()
@@ -298,11 +328,7 @@ class TestCellCache(object):
 
     def test_bytecode_load_works_with_debugdata(self):
         from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
-        strategy = ModuleDictStrategy(space)
-        storage = strategy.get_empty_storage()
-        d = W_ModuleDictObject(space, strategy, storage)
-        key = "a"
-        w_key = self.FakeString(key)
+        d, key, w_key = self.moduledict_and_key()
         d.setitem(w_key, 1)
 
         code = self.FakePycode()
@@ -317,14 +343,9 @@ class TestCellCache(object):
         LOAD_GLOBAL_cached(frame, 0, None)
         assert frame.w_top_of_stack == 1 # works!
 
-
     def test_bytecode_store(self):
         from pypy.objspace.std.celldict import STORE_GLOBAL_cached
-        strategy = ModuleDictStrategy(space)
-        storage = strategy.get_empty_storage()
-        d = W_ModuleDictObject(space, strategy, storage)
-        key = "a"
-        w_key = self.FakeString(key)
+        d, key, w_key = self.moduledict_and_key()
         d.setitem(w_key, 1)
 
         code = self.FakePycode()
