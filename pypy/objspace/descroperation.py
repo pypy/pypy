@@ -276,6 +276,7 @@ class DescrOperation(object):
         else:
             return space.w_False
 
+    @use_special_method_shortcut('__len__')
     def _len(space, w_obj):
         w_descr = space.lookup(w_obj, '__len__')
         if w_descr is None:
