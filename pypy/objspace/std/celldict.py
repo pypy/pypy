@@ -317,6 +317,9 @@ def STORE_GLOBAL_cached(self, nameindex, next_instr):
     w_globals = self.pycode.w_globals
     self.space.setitem_str(w_globals, varname, w_newvalue)
     if isinstance(w_globals, W_ModuleDictObject):
+        # the following can never be true, becaus W_ModuleDictObject can't be
+        # user-subclassed, but let's be safe
+        assert not w_globals.user_overridden_class
         cache = w_globals.get_global_cache(varname)
         if cache is not None:
             assert cache.valid and cache.ref is not None
