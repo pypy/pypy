@@ -251,31 +251,39 @@ class GlobalCache(object):
         return unwrap_cell(space, self.cell)
 
 def LOAD_GLOBAL_cached(self, nameindex, next_instr):
+    w_value = _LOAD_GLOBAL_cached(self, nameindex, next_instr)
+    self.pushvalue(w_value)
+
+@objectmodel.always_inline
+def _LOAD_GLOBAL_cached(self, nameindex, next_instr):
     pycode = self.pycode
     if jit.we_are_jitted() or (
             self.debugdata is not None and
             self.debugdata.w_globals is not pycode.w_globals):
-        _load_global_fallback(self, nameindex, next_instr)
-        return
+        varname = self.getname_u(nameindex)
+        return _load_global_fallback(self, varname)
     cache_wref = pycode._globals_caches[nameindex]
     if cache_wref is not None:
         cache = cache_wref()
         if cache:
             w_value = cache.getvalue(self.space)
-            if w_value is not None or cache.valid:
-                if w_value is None:
-                    # the cache is valid. this means it's not in the globals
-                    # and we check the builtins next
-                    builtincache = cache.builtincache
-                    if builtincache is not None:
-                        w_value = builtincache.getvalue(self.space)
-                        if w_value is not None or cache.valid:
-                            self.pushvalue(w_value)
-                            return
+            if w_value is not None:
+                return w_value
+            if cache.valid:
+                # the cache is valid. this means it's not in the globals
+                # and we check the builtins next
+                builtincache = cache.builtincache
+                if builtincache is not None:
+                    w_value = builtincache.getvalue(self.space)
+                    if w_value is not None:
+                        return w_value
+                    varname = self.getname_u(nameindex)
                     w_value = self.get_builtin().getdictvalue(
-                            self.space, self.getname_u(nameindex))
-                self.pushvalue(w_value)
-                return
+                            self.space, varname)
+                    if w_value is not None:
+                        return w_value
+                    else:
+                        self._load_global_failed(varname)
     # either no cache or an invalid cache
     w_globals = pycode.w_globals
     varname = self.getname_u(nameindex)
@@ -284,12 +292,11 @@ def LOAD_GLOBAL_cached(self, nameindex, next_instr):
         if cache is not None:
             assert cache.valid and cache.ref is not None
             pycode._globals_caches[nameindex] = cache.ref
-    _load_global_fallback(self, nameindex, next_instr)
+    return _load_global_fallback(self, varname)
 
 @objectmodel.dont_inline
-def _load_global_fallback(self, nameindex, next_instr):
-    varname = self.getname_u(nameindex)
-    self.pushvalue(self._load_global(varname))
+def _load_global_fallback(self, varname):
+    return self._load_global(varname)
 
 def STORE_GLOBAL_cached(self, nameindex, next_instr):
     w_newvalue = self.popvalue()
