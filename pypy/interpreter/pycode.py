@@ -136,6 +136,7 @@ class PyCode(eval.Code):
         self._compute_flatcall()
 
         init_mapdict_cache(self)
+        self._globals_caches = [None] * len(self.co_names_w)
 
     def _init_ready(self):
         "This is a hook for the vmprof module, which overrides this method."
