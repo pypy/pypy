@@ -886,29 +886,27 @@ class __extend__(pyframe.PyFrame):
         self.space.delattr(w_obj, w_attributename)
 
     def STORE_GLOBAL(self, nameindex, next_instr):
-        varname = self.getname_u(nameindex)
-        w_newvalue = self.popvalue()
-        self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        #varname = self.getname_u(nameindex)
+        #w_newvalue = self.popvalue()
+        #self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        from pypy.objspace.std.celldict import STORE_GLOBAL_cached
+        STORE_GLOBAL_cached(self, nameindex, next_instr)
 
     def DELETE_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
         self.space.delitem(self.get_w_globals(), w_varname)
 
     def LOAD_NAME(self, nameindex, next_instr):
-        w_varname = self.getname_w(nameindex)
-        varname = self.space.text_w(w_varname)
+        from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
         if self.getorcreatedebug().w_locals is not self.get_w_globals():
+            w_varname = self.getname_w(nameindex)
+            varname = self.space.text_w(w_varname)
             w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
                                               varname)
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
-        # fall-back
-        w_value = self._load_global(varname)
-        if w_value is None:
-            raise oefmt_name_error(self.space, w_varname,
-                        "name %R is not defined")
-        self.pushvalue(w_value)
+        LOAD_GLOBAL_cached(self, nameindex, next_instr)
 
     @always_inline
     def _load_global(self, varname):
@@ -916,6 +914,10 @@ class __extend__(pyframe.PyFrame):
         if w_value is None:
             # not in the globals, now look in the built-ins
             w_value = self.get_builtin().getdictvalue(self.space, varname)
+            if w_value is None:
+                # XXX re-wrapping
+                w_varname = self.space.newtext(varname)
+                self._load_global_failed(w_varname)
         return w_value
 
     @dont_inline
@@ -927,11 +929,8 @@ class __extend__(pyframe.PyFrame):
 
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
-        w_varname = self.getname_w(nameindex)
-        w_value = self._load_global(self.space.text_w(w_varname))
-        if w_value is None:
-            self._load_global_failed(w_varname)
-        self.pushvalue(w_value)
+        from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
+        LOAD_GLOBAL_cached(self, nameindex, next_instr)
 
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_cells_stack_w[varindex] is None:

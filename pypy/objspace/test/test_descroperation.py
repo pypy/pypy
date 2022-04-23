@@ -47,7 +47,7 @@ class Test_DescrOperation:
         monkeypatch.setattr(space, "lookup", None)
         assert space.utf8_w(space.add(w_x, w_y)) == 'abcdef'
 
-    def test_shortcut_binop_not_implemented(self, monkeypatch, space):
+    def test_shortcut_binop_not_implemented(self, space):
         from pypy.interpreter.error import OperationError
         w_x = space.newutf8('abc', 3)
         w_y = space.newutf8('def', 3)
@@ -81,3 +81,9 @@ class Test_DescrOperation:
     def test_shortcut_generatoriterator(self):
         from pypy.interpreter.generator import GeneratorIterator
         assert 'shortcut___next__' in GeneratorIterator.__dict__
+
+    def test_shortcut_len(self, monkeypatch, space):
+        monkeypatch.setattr(space, "lookup", None)
+        for val in "abc", [1, 2, 3], {'a', 'b', 'c'}, dict(a=1, b=2, d=3):
+            assert space.len_w(space.wrap(val)) == 3
+

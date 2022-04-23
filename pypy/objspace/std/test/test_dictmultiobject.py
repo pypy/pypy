@@ -1488,6 +1488,7 @@ class Config:
         class std:
             methodcachesizeexp = 11
             withmethodcachecounter = False
+        honor__builtins__ = False
 
 FakeSpace.config = Config()
 

@@ -207,7 +207,7 @@ def _getusercls(cls):
         user_overridden_class = True
         objectmodel.import_from_mixin(base_mixin)
 
-    for name, shortcut_name, meth, _ in SHORTCUTS:
+    for _, shortcut_name, meth, _ in SHORTCUTS:
         setattr(subcls, shortcut_name, meth)
 
     for copycls in copy_methods:
