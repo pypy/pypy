@@ -403,10 +403,6 @@ class TestCellCache(object):
         LOAD_GLOBAL_cached(frame, 0, None)
         assert frame.w_top_of_stack == 2
 
-        d.delitem(w_key)
-        LOAD_GLOBAL_cached(frame, 0, None)
-        assert frame.w_top_of_stack == 'a' # from builtin
-
         d.setitem(w_key, 6)
         LOAD_GLOBAL_cached(frame, 0, None)
         assert frame.w_top_of_stack == 6
