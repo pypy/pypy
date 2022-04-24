@@ -310,7 +310,7 @@ def _LOAD_GLOBAL_cached(self, nameindex, next_instr):
                     if w_value is not None:
                         return w_value
                     else:
-                        self._load_global_failed(varname)
+                        self._load_global_failed(self.space.newtext(varname))
     # either no cache or an invalid cache
     w_globals = pycode.w_globals
     varname = self.getname_u(nameindex)
