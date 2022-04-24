@@ -9,11 +9,15 @@ in which it does not work.
 from __future__ import with_statement
 import sys
 from rpython.annotator import model as annmodel
-from rpython.rlib.rarithmetic import r_int64, intmask
+from rpython.rlib.rarithmetic import r_int64, intmask, r_longlong, r_int
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
+if r_longlong is r_int:
+    r_rettype = int
+else:
+    r_rettype = r_longlong
 
 # -------- implement longlong2float and float2longlong --------
 UINT_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.UINT))
@@ -26,7 +30,7 @@ def longlong2float(llval):
     return struct.unpack('@d', struct.pack('@q', llval))[0]
 
 def float2longlong(floatval):
-    return struct.unpack('@q', struct.pack('@d', floatval))[0]
+    return r_rettype(struct.unpack('@q', struct.pack('@d', floatval))[0])
 
 def uint2singlefloat_emulator(ival):
     with lltype.scoped_alloc(FLOAT_ARRAY_PTR.TO, 1) as f_array:
