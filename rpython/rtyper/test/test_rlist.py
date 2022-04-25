@@ -311,22 +311,36 @@ class TestRlist(BaseRtypingTest):
         assert self.ll_to_list(res) == [5, 6, 7, 8, 9]
 
     def test_slice(self):
-        def dummyfn():
+        def dummyfn(i):
             l = [5, 6, 7, 8, 9]
-            return l[:2], l[1:4], l[3:]
-        res = self.interpret(dummyfn, [])
-        assert self.ll_to_list(res.item0) == [5, 6]
-        assert self.ll_to_list(res.item1) == [6, 7, 8]
-        assert self.ll_to_list(res.item2) == [8, 9]
+            if i == 0:
+                return l[:2]
+            elif i == 1:
+                return l[1:4]
+            else:
+                return l[3:]
+        res = self.interpret(dummyfn, [0])
+        assert self.ll_to_list(res) == [5, 6]
+        res = self.interpret(dummyfn, [1])
+        assert self.ll_to_list(res) == [6, 7, 8]
+        res = self.interpret(dummyfn, [2])
+        assert self.ll_to_list(res) == [8, 9]
 
-        def dummyfn():
+        def dummyfn(i):
             l = [5, 6, 7, 8]
             l.append(9)
-            return l[:2], l[1:4], l[3:]
-        res = self.interpret(dummyfn, [])
-        assert self.ll_to_list(res.item0) == [5, 6]
-        assert self.ll_to_list(res.item1) == [6, 7, 8]
-        assert self.ll_to_list(res.item2) == [8, 9]
+            if i == 0:
+                return l[:2]
+            elif i == 1:
+                return l[1:4]
+            else:
+                return l[3:]
+        res = self.interpret(dummyfn, [0])
+        assert self.ll_to_list(res) == [5, 6]
+        res = self.interpret(dummyfn, [1])
+        assert self.ll_to_list(res) == [6, 7, 8]
+        res = self.interpret(dummyfn, [2])
+        assert self.ll_to_list(res) == [8, 9]
 
     def test_getslice_not_constant_folded(self):
         l = list('abcdef')
@@ -1522,6 +1536,28 @@ class TestRlist(BaseRtypingTest):
 
         def f():
             return [A()], [B()]
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        s_A_list = s.items[0]
+        s_B_list = s.items[1]
+
+        r_A_list = rtyper.getrepr(s_A_list)
+        assert isinstance(r_A_list, self.rlist.FixedSizeListRepr)
+        r_B_list = rtyper.getrepr(s_B_list)
+        assert isinstance(r_B_list, self.rlist.FixedSizeListRepr)
+
+        assert r_A_list.lowleveltype == r_B_list.lowleveltype
+
+    def test_type_erase_gcref(self):
+        class A(object):
+            pass
+
+        def f():
+            return [A()], [str(A())]
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])

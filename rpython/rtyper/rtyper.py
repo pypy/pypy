@@ -54,7 +54,6 @@ class RPythonTyper(object):
         self.reprs = {}
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
-        self._dict_traits = {}
         self.rootclass_repr = RootClassRepr(self)
         self.rootclass_repr.setup()
         self.instance_reprs = {}

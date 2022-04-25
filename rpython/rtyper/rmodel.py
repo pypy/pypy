@@ -417,9 +417,10 @@ def getgcflavor(classdef):
 
 def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)item_repr
     from rpython.rtyper import rclass
-    if (isinstance(item_repr, rclass.InstanceRepr) and
-        getattr(item_repr, 'gcflavor', 'gc') == 'gc'):
-        return item_repr, rclass.getinstancerepr(rtyper, None)
+    from rpython.rtyper.lltypesystem import rgcref
+    if (isinstance(item_repr.lowleveltype, Ptr) and
+            item_repr.lowleveltype.TO._gckind == 'gc'):
+        return item_repr, rgcref.GCRefRepr.make(item_repr)
     else:
         return item_repr, item_repr
 
