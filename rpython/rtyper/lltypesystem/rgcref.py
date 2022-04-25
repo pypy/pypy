@@ -21,10 +21,11 @@ class GCRefRepr(Repr):
         self.r_base = r_base
         self._ll_eq_func = UNKNOWN
         self._ll_hash_func = UNKNOWN
-        ll_base_str = r_base.ll_str
-        def ll_str(ptr):
-            return ll_base_str(lltype.cast_opaque_ptr(r_base.lowleveltype, ptr))
-        self.ll_str = ll_str
+        if hasattr(r_base, 'll_str'):
+            ll_base_str = r_base.ll_str
+            def ll_str(ptr):
+                return ll_base_str(lltype.cast_opaque_ptr(r_base.lowleveltype, ptr))
+            self.ll_str = ll_str
 
     def convert_const(self, x):
         return lltype.cast_opaque_ptr(llmemory.GCREF, self.r_base.convert_const(x))
