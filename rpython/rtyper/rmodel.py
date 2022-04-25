@@ -420,7 +420,7 @@ def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)i
     from rpython.rtyper.lltypesystem import rgcref
     if (isinstance(item_repr.lowleveltype, Ptr) and
             item_repr.lowleveltype.TO._gckind == 'gc'):
-        return item_repr, rgcref.GCRefRepr.make(item_repr)
+        return item_repr, rgcref.GCRefRepr.make(item_repr, rtyper.gcrefreprcache)
     else:
         return item_repr, item_repr
 

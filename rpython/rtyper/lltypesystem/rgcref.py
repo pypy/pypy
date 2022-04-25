@@ -8,14 +8,12 @@ UNKNOWN = object()
 class GCRefRepr(Repr):
     lowleveltype = llmemory.GCREF
 
-    _cache = {}
-
-    @classmethod
-    def make(cls, r_base):
+    @staticmethod
+    def make(r_base, cache):
         try:
-            return cls._cache[r_base]
+            return cache[r_base]
         except KeyError:
-            res = cls._cache[r_base] = GCRefRepr(r_base)
+            res = cache[r_base] = GCRefRepr(r_base)
             return res
 
 

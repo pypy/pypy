@@ -70,6 +70,7 @@ class RPythonTyper(object):
         self.isinstance_helpers = {}
         self.exceptiondata = ExceptionData(self)
         self.custom_trace_funcs = []
+        self.gcrefreprcache = {}
 
         try:
             self.seed = int(os.getenv('RTYPERSEED'))
