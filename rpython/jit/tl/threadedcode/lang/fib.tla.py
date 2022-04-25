@@ -1,10 +1,10 @@
 from rpython.jit.tl.threadedcode import tla
 
 code = [
-    tla.NOP,
+    tla.CONST_INT, 7,
     tla.DUP,
+    tla.CALL_ASSEMBLER, 11, 1,
     tla.DUP,
-    tla.CALL, 10, 1,
     tla.PRINT,
     tla.POP1,
     tla.POP1,
@@ -12,17 +12,17 @@ code = [
     tla.DUPN, 1,
     tla.CONST_INT, 1,
     tla.LT,
-    tla.JUMP_IF, 46,
+    tla.JUMP_IF, 47,
     tla.DUPN, 1,
     tla.CONST_INT, 1,
     tla.SUB,
     tla.DUP,
-    tla.CALL, 10, 1,
+    tla.CALL_ASSEMBLER, 11, 1,
     tla.DUPN, 3,
     tla.CONST_INT, 2,
     tla.SUB,
     tla.DUP,
-    tla.CALL, 10, 1,
+    tla.CALL_ASSEMBLER, 11, 1,
     tla.DUPN, 2,
     tla.DUPN, 1,
     tla.ADD,
@@ -30,8 +30,7 @@ code = [
     tla.POP1,
     tla.POP1,
     tla.POP1,
-    tla.JUMP, 48,
+    tla.JUMP, 49,
     tla.CONST_INT, 1,
     tla.RET, 1,
 ]
-
