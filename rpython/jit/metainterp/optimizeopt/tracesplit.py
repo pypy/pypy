@@ -202,21 +202,17 @@ class TraceSplitOpt(object):
                     arglist = op.getarglist()
                     num_green_args = jd.num_green_args
                     num_red_args = jd.num_red_args
-                    greenargs = arglist[1+num_red_args:num_green_args+1]
+                    greenargs = arglist[1 + num_red_args:1 + num_red_args + num_green_args]
                     args = arglist[1:num_red_args+1]
 
                     target = greenargs[1]
                     assert isinstance(target, ConstInt)
-                    try:
-                        token = self.get_from_token_map(target.getint())
-                    except TokenMapError:
-                        residual_ops.append(op)
-                        continue
-                    jitcell_token = token.original_jitcell_token
+                    warmrunnerstate = jd.warmstate
+                    new_token = warmrunnerstate.get_assembler_token(greenargs)
 
                     calldescr = op.getdescr()
                     opnum = OpHelpers.call_assembler_for_descr(calldescr)
-                    newop = op.copy_and_change(opnum, args, jitcell_token)
+                    newop = op.copy_and_change(opnum, args, new_token)
                     oplist = self._change_call_op(newop, op, oplist, opindex)
                     op = newop
                     residual_ops.append(op)
