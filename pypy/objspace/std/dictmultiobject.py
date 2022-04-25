@@ -348,6 +348,13 @@ class W_ModuleDictObject(W_DictMultiObject):
     def set_strategy(self, strategy):
         self.mstrategy = strategy
 
+    def get_global_cache(self, key):
+        from pypy.objspace.std.celldict import ModuleDictStrategy
+        strategy = self.mstrategy
+        if isinstance(strategy, ModuleDictStrategy):
+            return strategy.get_global_cache(self, key)
+        else:
+            return None
 
 
 # called below DictStrategy

@@ -10,7 +10,7 @@ from rpython.rlib.objectmodel import we_are_translated, not_rpython
 class Module(W_Root):
     """A module."""
 
-    _immutable_fields_ = ["w_dict?", "w_userclass?"]
+    _immutable_fields_ = ["w_dict", "w_userclass?"]
 
     _frozen = False
     w_userclass = None

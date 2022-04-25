@@ -16,7 +16,6 @@ def gettestobjspace(**kwds):
         # in this case the test should be skipped
         py.test.skip(str(e))
     if getattr(option, 'runappdirect', None):
-        skip_on_incompatible_interpreter(kwds)
         return TinyObjSpace()
     key = config.getkey()
     try:
