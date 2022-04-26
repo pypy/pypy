@@ -90,6 +90,7 @@ def test_assemble_cast_consts():
     ssarepr = SSARepr("test")
     S = lltype.GcStruct('S')
     s = lltype.malloc(S)
+    np = lltype.nullptr(S)
     F = lltype.FuncType([], lltype.Signed)
     f = lltype.functionptr(F, 'f')
     ssarepr.insns = [
@@ -97,20 +98,27 @@ def test_assemble_cast_consts():
         ('int_return', Constant(unichr(0x1234), lltype.UniChar)),
         ('int_return', Constant(f, lltype.Ptr(F))),
         ('ref_return', Constant(s, lltype.Ptr(S))),
+        ('ref_return', Constant(np, lltype.Ptr(S))),
+        ('ref_return', Constant(s, lltype.Ptr(S))),
+        ('ref_return', Constant(np, lltype.Ptr(S))),
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
     assert jitcode.code == ("\x00\x58"
                             "\x01\xFF"
                             "\x01\xFE"
-                            "\x02\xFF")
+                            "\x02\xFF"
+                            "\x02\xFE"
+                            "\x02\xFF"
+                            "\x02\xFE")
     assert assembler.insns == {'int_return/c': 0,
                                'int_return/i': 1,
                                'ref_return/r': 2}
     f_int = ptr2int(f)
     assert jitcode.constants_i == [0x1234, f_int]
     s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-    assert jitcode.constants_r == [s_gcref]
+    np_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, np)
+    assert jitcode.constants_r == [s_gcref, np_gcref]
 
 def test_assemble_loop():
     ssarepr = SSARepr("test")
