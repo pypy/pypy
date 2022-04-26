@@ -55,6 +55,8 @@ class GCRefRepr(Repr):
             self._ll_hash_func = ll_hash_func
         return self._ll_hash_func
 
+    def get_ll_dummyval_obj(self, rtyper, s_value):
+        return DummyValueBuilderGCRef(rtyper)
 
 class __extend__(pairtype(GCRefRepr, Repr)):
     def convert_from_to((r_from, r_to), v, llops):
@@ -67,3 +69,38 @@ class __extend__(pairtype(Repr, GCRefRepr)):
         if r_from != r_to.r_base:
             v = pair(r_from, r_to.r_base).convert_from_to(v, llops)
         return llops.genop('cast_opaque_ptr', [v], r_to.lowleveltype)
+
+
+class DummyValueBuilderGCRef(object):
+
+    def __init__(self, rtyper):
+        self.rtyper = rtyper
+
+    def _freeze_(self):
+        return True
+
+    def __hash__(self):
+        return hash(llmemory.GCREF)
+
+    def __eq__(self, other):
+        return (isinstance(other, DummyValueBuilderGCRef) and
+                self.rtyper is other.rtyper)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    @property
+    def ll_dummy_value(self):
+        try:
+            return self.rtyper.cache_dummy_values[llmemory.GCREF]
+        except KeyError:
+            from rpython.rtyper import rclass
+            from rpython.rtyper.rmodel import DummyValueBuilder
+            rinstbase = rclass.getinstancerepr(self.rtyper, None)
+            TYPE = rinstbase.lowleveltype
+            val = DummyValueBuilder(self.rtyper, TYPE.TO).ll_dummy_value
+            p = lltype.cast_opaque_ptr(llmemory.GCREF, val)
+            self.rtyper.cache_dummy_values[llmemory.GCREF] = p
+            return p
+
+
