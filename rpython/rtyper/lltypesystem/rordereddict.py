@@ -202,7 +202,7 @@ class OrderedDictRepr(AbstractDictRepr):
             key_repr = self._key_repr_computer()
             self.external_key_repr, self.key_repr = self.pickkeyrepr(key_repr)
         if 'value_repr' not in self.__dict__:
-            self.external_value_repr, self.value_repr = self.pickrepr(self._value_repr_computer())
+            self.external_value_repr, self.value_repr = rmodel.externalvsinternal(self.rtyper, self._value_repr_computer(), gcref=True)
         if isinstance(self.DICT, lltype.GcForwardReference):
             DICTKEY = self.key_repr.lowleveltype
             DICTVALUE = self.value_repr.lowleveltype
@@ -1405,6 +1405,8 @@ def recast(P, v):
     # XXX this function is a terrible hack
     if P is llmemory.GCREF:
         return lltype.cast_opaque_ptr(llmemory.GCREF, v)
+    if lltype.typeOf(v) is llmemory.GCREF:
+        return lltype.cast_opaque_ptr(P, v)
     if isinstance(P, lltype.Ptr):
         return lltype.cast_pointer(P, v)
     else:
