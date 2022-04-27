@@ -1110,7 +1110,7 @@ class Frame(object):
 
                 if we_are_jitted():
                     # resursive call hack
-                    frame.CALL_ASSEMBLER(self, t, argnum, bytecode, tstack, dummy=True)
+                    frame.CALL_ASSEMBLER(self, t, argnum, bytecode, t_empty(), dummy=True)
                 else:
                     call_entry = t
                     if t < pc:
