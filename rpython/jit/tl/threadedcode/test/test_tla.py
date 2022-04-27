@@ -194,7 +194,16 @@ class TestLLType(LLJitMixin):
             return w_result.intvalue
 
         res = self.meta_interp(interp_w, [1])
-        assert res.intvalue == 4
+        assert res == 4
+
+    def test_jit_tarai(self):
+        code = read_code('../lang/tarai.tla.py')
+        def interp_w(intvalue):
+            w_result = interp(code, W_IntObject(intvalue))
+            assert isinstance(w_result, W_IntObject)
+            return w_result.intvalue
+
+        res = self.meta_interp(interp_w, [1])
 
     def test_jit_ack(self):
         code =read_code('../lang/ack.tla.py')
