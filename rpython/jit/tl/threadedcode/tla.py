@@ -125,7 +125,8 @@ class Frame(object):
 
     def _take(self, n):
         assert len(self.stack) is not 0
-        w_x = self.stack[self.stackpos - n - 1]
+        stackpos = jit.promote(self.stackpos)
+        w_x = self.stack[stackpos - n - 1]
         assert w_x is not None
         return w_x
 
@@ -515,9 +516,10 @@ class Frame(object):
 
     @jit.unroll_safe
     def _FRAME_RESET(self, o, l, n):
-        ret = self.stack[self.stackpos - n - 1]
-        old_base = self.stackpos - n
-        new_base = self.stackpos - o - n - l - 1
+        stackpos = jit.promote(self.stackpos)
+        ret = self.stack[stackpos - n - 1]
+        old_base = stackpos - n
+        new_base = stackpos - o - n - l - 1
 
         for i in range(n):
             self.stack[new_base + i] = self.stack[old_base + i]
