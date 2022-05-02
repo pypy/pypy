@@ -276,10 +276,14 @@ else:
 
 if not _WIN32:
     libc_name = ctypes.util.find_library('c')
-    assert libc_name is not None, "Cannot find C library, ctypes.util.find_library('c') returned None"
+    if libc_name is None and sys.platform == 'darwin':
+        def get_libc_name():
+            return '/usr/lib/libc.dylib'
+    else:
+        assert libc_name is not None, "Cannot find C library, ctypes.util.find_library('c') returned None"
 
-    def get_libc_name():
-        return libc_name
+        def get_libc_name():
+            return libc_name
 elif _MSVC:
     get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 
