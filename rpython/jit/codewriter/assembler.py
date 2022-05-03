@@ -26,6 +26,10 @@ class Assembler(object):
         self._descr_dict = {}
         self._count_jitcodes = 0
         self._seen_raw_objects = set()
+        self.all_liveness = []
+        self.all_liveness_length = 0
+        self.all_liveness_positions = {}
+        self.num_liveness_ops = 0
 
     def assemble(self, ssarepr, jitcode=None):
         """Take the 'ssarepr' representation of the code and assemble
@@ -136,11 +140,16 @@ class Assembler(object):
             return
         if insn[0] == '-live-':
             key = len(self.code)
+            self.startpoints.add(key)
+            self.num_liveness_ops += 1
             live_i = self.get_liveness_info(insn[1:], 'int')
             live_r = self.get_liveness_info(insn[1:], 'ref')
             live_f = self.get_liveness_info(insn[1:], 'float')
             assert key not in self.liveness
             self.liveness[key] = live_i, live_r, live_f
+            num = self.insns.setdefault('live/', len(self.insns))
+            self.code.append(chr(num))
+            self._encode_liveness(live_i, live_r, live_f)
             return
         startposition = len(self.code)
         self.code.append("temporary placeholder")
@@ -219,6 +228,22 @@ class Assembler(object):
                 lives.add(chr(reg.index))
         return lives
 
+    def _encode_liveness(self, live_i, live_r, live_f):
+        from rpython.jit.codewriter.liveness import encode_offset, encode_liveness
+        key = (frozenset(live_i), frozenset(live_r), frozenset(live_f))
+        try:
+            pos = self.all_liveness_positions[key]
+        except KeyError:
+            pos = self.all_liveness_positions[key] = self.all_liveness_length
+            self.all_liveness.append(chr(len(live_i)) + chr(len(live_r)) + chr(len(live_f)))
+            self.all_liveness_length += 3
+            for live in live_i, live_r, live_f:
+                liveness = encode_liveness(live)
+                if liveness:
+                    self.all_liveness.append(liveness)
+                    self.all_liveness_length += len(liveness)
+        encode_offset(pos, self.code)
+
     def fix_labels(self):
         for name, pos in self.tlabel_positions:
             assert self.code[pos  ] == "temp 1"
@@ -248,7 +273,6 @@ class Assembler(object):
                       self.count_regs['int'],
                       self.count_regs['ref'],
                       self.count_regs['float'],
-                      liveness=self.liveness,
                       startpoints=self.startpoints,
                       alllabels=self.alllabels,
                       resulttypes=self.resulttypes)

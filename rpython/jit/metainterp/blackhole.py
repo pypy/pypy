@@ -1,5 +1,6 @@
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+from rpython.jit.codewriter.liveness import OFFSET_SIZE
 from rpython.jit.metainterp.compile import ResumeAtPositionDescr
 from rpython.jit.metainterp.jitexc import get_llexception, reraise
 from rpython.jit.metainterp import jitexc
@@ -17,6 +18,7 @@ from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
 
+SIZE_LIVE_OP = OFFSET_SIZE + 1
 
 def arguments(*argtypes, **kwds):
     resulttype = kwds.pop('returns', None)
@@ -64,6 +66,7 @@ class BlackholeInterpBuilder(object):
         for key, value in insns.items():
             assert self._insns[value] is None
             self._insns[value] = key
+        self.op_live = insns.get('live/', -1)
         self.op_catch_exception = insns.get('catch_exception/L', -1)
         self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
         #
@@ -371,7 +374,7 @@ class BlackholeInterpreter(object):
         self.exception_last_value = lltype.nullptr(rclass.OBJECT)
 
     def get_current_position_info(self):
-        return self.jitcode.get_live_vars_info(self.position)
+        return self.jitcode.get_live_vars_info(self.position, self.builder.op_live)
 
     def handle_exception_in_frame(self, e):
         # This frame raises an exception.  First try to see if
@@ -380,6 +383,9 @@ class BlackholeInterpreter(object):
         position = self.position
         if position < len(code):
             opcode = ord(code[position])
+            if opcode == self.builder.op_live: # live, skip it
+                position += SIZE_LIVE_OP
+                opcode = ord(code[position])
             if opcode == self.op_catch_exception:
                 # store the exception on 'self', and jump to the handler
                 self.exception_last_value = e
@@ -1560,6 +1566,10 @@ class BlackholeInterpreter(object):
     def bhimpl_rvmprof_code(leaving, unique_id):
         from rpython.rlib.rvmprof import cintf
         cintf.jit_rvmprof_code(leaving, unique_id)
+
+    @arguments("pc", returns="L")
+    def bhimpl_live(pc):
+        return pc + OFFSET_SIZE
 
     # ----------
     # helpers to resume running in blackhole mode when a guard failed

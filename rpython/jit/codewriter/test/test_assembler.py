@@ -20,10 +20,11 @@ def test_assemble_simple():
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
-    assert jitcode.code == ("\x00\x00\x01\x02"
-                            "\x01\x02")
-    assert assembler.insns == {'int_add/ii>i': 0,
-                               'int_return/i': 1}
+    assert jitcode.code == ("\x01\x00\x01\x02"
+                            "\x02\x02")
+    assert assembler.insns == {'live/': 0,
+                               'int_add/ii>i': 1,
+                               'int_return/i': 2}
     assert jitcode.num_regs_i() == 3
     assert jitcode.num_regs_r() == 0
     assert jitcode.num_regs_f() == 0
@@ -39,12 +40,13 @@ def test_assemble_consts():
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
-    assert jitcode.code == ("\x00\x0D"
-                            "\x01\x12"   # use int_return/c for one-byte consts
-                            "\x01\xFC"
-                            "\x00\xFF"   # use int_return/i for larger consts
-                            "\x00\xFE")
-    assert assembler.insns == {'int_return/i': 0,
+    assert jitcode.code == ("\x01\x0D"
+                            "\x02\x12"   # use int_return/c for one-byte consts
+                            "\x02\xFC"
+                            "\x01\xFF"   # use int_return/i for larger consts
+                            "\x01\xFE")
+    assert assembler.insns == {'live/': 0,
+                               'int_return/i': 0,
                                'int_return/c': 1}
     assert jitcode.constants_i == [128, -129]
 
@@ -58,11 +60,11 @@ def test_assemble_float_consts():
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
-    assert jitcode.code == ("\x00\x0D"
-                            "\x00\xFF"
-                            "\x00\xFE"
-                            "\x00\xFD")
-    assert assembler.insns == {'float_return/f': 0}
+    assert jitcode.code == ("\x10\x0D"
+                            "\x10\xFF"
+                            "\x10\xFE"
+                            "\x10\xFD")
+    assert assembler.insns == {'live/': 0, 'float_return/f': 0}
     assert jitcode.constants_f == [longlong.getfloatstorage(18.0),
                                    longlong.getfloatstorage(-4.0),
                                    longlong.getfloatstorage(128.1)]

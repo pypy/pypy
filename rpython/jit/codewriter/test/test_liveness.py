@@ -1,6 +1,9 @@
 from rpython.jit.codewriter.liveness import compute_liveness
+from rpython.jit.codewriter.liveness import encode_offset, decode_offset
+from rpython.jit.codewriter.liveness import encode_liveness, LivenessIterator
 from rpython.jit.codewriter.format import unformat_assembler, assert_format
 
+from hypothesis import strategies, given, example
 
 class TestFlatten:
 
@@ -270,3 +273,69 @@ class TestFlatten:
             int_add %i0, $1 -> %i0
             goto L2
         """)
+
+class TestEncodeDecode(object):
+    @given(strategies.integers(min_value=0, max_value=2**32-1), strategies.binary(), strategies.binary())
+    def test_encode_decode_offset(self, x, prefix, postfix):
+        l = []
+        encode_offset(x, l)
+        data = prefix + "".join(l) + postfix
+        assert decode_offset(data, len(prefix)) == x
+
+    def test_liveness_encoding(self):
+        res = encode_liveness({})
+        assert res == ''
+        res = encode_liveness({0})
+        assert res == '\x01'
+        res = encode_liveness({1})
+        assert res == '\x02'
+        res = encode_liveness({2})
+        assert res == '\x04'
+        res = encode_liveness({3})
+        assert res == '\x08'
+        res = encode_liveness({1, 2})
+        assert res == '\x06'
+        res = encode_liveness({8})
+        assert res == '\x00\x01'
+        res = encode_liveness({1, 9})
+        assert res == '\x02\x02'
+
+    def test_liveness_iterator(self):
+        liveness = '\x04\x01'
+        l = list(LivenessIterator(0, 2, liveness))
+        assert l == [2, 8]
+
+    @example({0, 9})
+    @given(strategies.sets(strategies.integers(min_value=0, max_value=255), min_size=1))
+    def test_encode_decode_liveness(self, live):
+        res = encode_liveness(live)
+        l = list(LivenessIterator(0, len(live), res))
+        s = set(l)
+        assert len(l) == len(s)
+        assert s == live
+
+    @given(strategies.sets(strategies.integers(min_value=0, max_value=255)),
+           strategies.sets(strategies.integers(min_value=0, max_value=255)),
+           strategies.sets(strategies.integers(min_value=0, max_value=255)))
+    def test_encode_decode_liveness_3(self, live_i, live_r, live_f):
+        all_liveness = encode_liveness(live_i) + encode_liveness(live_r) + encode_liveness(live_f)
+        offset = 0
+        length_i = len(live_i)
+        length_r = len(live_r)
+        length_f = len(live_f)
+        if length_i:
+            it = LivenessIterator(offset, length_i, all_liveness)
+            s = set(it)
+            assert s == live_i
+            offset = it.offset
+        if length_r:
+            it = LivenessIterator(offset, length_r, all_liveness)
+            s = set(it)
+            assert s == live_r
+            offset = it.offset
+        if length_f:
+            it = LivenessIterator(offset, length_f, all_liveness)
+            s = set(it)
+            assert s == live_f
+            offset = it.offset
+

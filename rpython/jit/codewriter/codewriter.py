@@ -52,6 +52,7 @@ class CodeWriter(object):
         #
         # step 3b: compute the liveness around certain operations
         before = ssarepr.insns[:]
+        jitcode.before_liveness = format_assembler(ssarepr)
         compute_liveness(ssarepr)
         #
         # step 4: "assemble" it into a JitCode, which contains a sequence
@@ -77,7 +78,9 @@ class CodeWriter(object):
             if not count % 500:
                 log.info("Produced %d jitcodes" % count)
         self.assembler.finished(self.callcontrol.callinfocollection)
-        log.info("there are %d JitCode instances." % count)
+        log.info("There are %d JitCode instances." % count)
+        log.info("There are %d -live- ops. Size of liveness is %s bytes" % (
+            self.assembler.num_liveness_ops, self.assembler.all_liveness_length))
         return all_jitcodes
 
     def setup_vrefinfo(self, vrefinfo):
