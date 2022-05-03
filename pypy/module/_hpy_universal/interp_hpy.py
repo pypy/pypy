@@ -30,6 +30,7 @@ from pypy.module._hpy_universal import (
     interp_type,
     interp_tracker,
     interp_import,
+    interp_field,
     )
 
 # ~~~ Some info on the debug mode ~~~

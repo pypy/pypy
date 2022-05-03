@@ -500,6 +500,9 @@ def fill_slot(handles, w_type, hpyslot):
     elif slot_num == HPySlot_Slot.HPy_tp_destroy:
         w_type.tp_destroy = llapi.cts.cast('HPyFunc_destroyfunc', hpyslot.c_impl)
         return
+    elif slot_num == HPySlot_Slot.HPy_tp_traverse:
+        # XXX
+        return
     elif slot_num == HPySlot_Slot.HPy_tp_richcompare:
         for methname, opval in CMP_SLOTS:
             cls = get_cmp_wrapper_cls(handles, methname, opval)

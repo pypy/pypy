@@ -71,6 +71,11 @@ typedef struct _HPyTracker_s {
 } _struct_HPyTracker_s;
 typedef HPy_ssize_t HPyTracker;
 
+typedef struct _HPyField_s {
+    HPy_ssize_t _i;
+};
+typedef HPy_ssize_t HPyField;
+
 typedef struct _HPyContext_s {
     const char *name; // used just to make debugging and testing easier
     void *_private;   // used by implementations to store custom data
