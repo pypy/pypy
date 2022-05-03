@@ -20,6 +20,7 @@ def compute_liveness(ssarepr):
     label2alive = {}
     while _compute_liveness_must_continue(ssarepr, label2alive):
         pass
+    remove_repeated_live(ssarepr)
 
 def _compute_liveness_must_continue(ssarepr, label2alive):
     alive = set()
@@ -77,3 +78,40 @@ def _compute_liveness_must_continue(ssarepr, label2alive):
                     follow_label(label)
 
     return must_continue
+
+def remove_repeated_live(ssarepr):
+    last_i_pos = None
+    i = 0
+    res = []
+    while i < len(ssarepr.insns):
+        insn = ssarepr.insns[i]
+        if insn[0] != '-live-':
+            res.append(insn)
+            i += 1
+            continue
+        last_i_pos = i
+        i += 1
+        labels = []
+        lives = [insn]
+        # collect lives and labels
+        while i < len(ssarepr.insns):
+            next = ssarepr.insns[i]
+            if next[0] == '-live-':
+                lives.append(next)
+                i += 1
+            elif isinstance(next[0], Label):
+                labels.append(next)
+                i += 1
+            else:
+                break
+        if len(lives) == 1:
+            res.extend(labels)
+            res.append(lives[0])
+            continue
+        liveset = set()
+        for live in lives:
+            liveset.update(live[1:])
+        res.extend(labels)
+        res.append(('-live-', ) + tuple(sorted(liveset)))
+    ssarepr.insns = res
+

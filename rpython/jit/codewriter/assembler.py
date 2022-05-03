@@ -136,10 +136,10 @@ class Assembler(object):
             return
         if insn[0] == '-live-':
             key = len(self.code)
-            live_i, live_r, live_f = self.liveness.get(key, ("", "", ""))
-            live_i = self.get_liveness_info(live_i, insn[1:], 'int')
-            live_r = self.get_liveness_info(live_r, insn[1:], 'ref')
-            live_f = self.get_liveness_info(live_f, insn[1:], 'float')
+            live_i = self.get_liveness_info(insn[1:], 'int')
+            live_r = self.get_liveness_info(insn[1:], 'ref')
+            live_f = self.get_liveness_info(insn[1:], 'float')
+            assert key not in self.liveness
             self.liveness[key] = live_i, live_r, live_f
             return
         startposition = len(self.code)
@@ -208,12 +208,12 @@ class Assembler(object):
         self.code[startposition] = chr(num)
         self.startpoints.add(startposition)
 
-    def get_liveness_info(self, prevlives, args, kind):
+    def get_liveness_info(self, args, kind):
         """Return a string whose characters are register numbers.
         We sort the numbers, too, to increase the chances of duplicate
         strings (which are collapsed into a single string during translation).
         """
-        lives = set(prevlives)    # set of characters
+        lives = set()    # set of characters
         for reg in args:
             if isinstance(reg, Register) and reg.kind == kind:
                 lives.add(chr(reg.index))

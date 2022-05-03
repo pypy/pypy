@@ -232,3 +232,41 @@ class TestFlatten:
             L1:
             bar %i1
         """)
+
+    def test_live_duplicate(self):
+        self.liveness_test("""
+            -live- L1
+            -live- %i12
+            foo %i0
+            ---
+            L1:
+            bar %i1
+        """, """
+            -live- %i0, %i1, %i12, L1
+            foo %i0
+            ---
+            L1:
+            bar %i1
+        """)
+        self.liveness_test("""
+            goto_if_not %i3, L1
+            -live-
+            L2:
+            -live-
+            L3:
+            -live- %i19
+            int_return %i0
+            ---
+            L1:
+            int_add %i0, $1 -> %i0
+            goto L2
+        """, """
+            goto_if_not %i3, L1
+            L2:
+            -live- %i0, %i19
+            int_return %i0
+            ---
+            L1:
+            int_add %i0, $1 -> %i0
+            goto L2
+        """)

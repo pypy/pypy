@@ -225,8 +225,7 @@ def test_liveness():
     i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
     ssarepr.insns = [
         ('int_add', i0, Constant(10, lltype.Signed), '->', i1),
-        ('-live-', i0, i1),
-        ('-live-', i1, i2),
+        ('-live-', i0, i1, i2),
         ('int_add', i0, Constant(3, lltype.Signed), '->', i2),
         ('-live-', i2),
         ]
