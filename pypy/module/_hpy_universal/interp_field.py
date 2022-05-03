@@ -21,7 +21,7 @@ class UntranslatedHPyFieldStorage(object):
         raise Exception('You should not use UntranslatedHPyFieldStorage '
                         'from translated code')
 
-    def store(self, pf, w_obj):
+    def store(self, pf, handles, h):
         # we need an ID to uniquely identify the HPyField pointed by pf: we
         # can just use its address. If later another object has the same
         # HPyField* we can safely override it, because it means that the
@@ -31,14 +31,22 @@ class UntranslatedHPyFieldStorage(object):
         # HPyField_Store keeps the object alive forever. That's bad but we
         # don't care for now, since it's used only by a few tests.
         unique_id = rffi.cast(lltype.Signed, pf)
-        self._fields[unique_id] = w_obj
-        pf[0] = unique_id
+        if h == 0:
+            pf[0] = 0
+            self._fields.pop(unique_id, None)
+        else:
+            w_obj = handles.deref(h)
+            pf[0] = unique_id
+            self._fields[unique_id] = w_obj
 
-    def load(self, f):
+
+    def load(self, handles, f):
         if f not in self._fields:
-            # we are trying to read a field which was never written to: this is basically a segfault :)
+            # we are trying to read a field which was never written to: this
+            # is basically a segfault :)
             assert False, 'boom'
-        return self._fields[f]
+        w_obj = self._fields[f]
+        return handles.new(w_obj)
 
 _STORAGE = UntranslatedHPyFieldStorage()
 
@@ -48,12 +56,10 @@ def HPyField_Store(space, handles, ctx, h_target, pf, h):
     if we_are_translated():
         assert False # XXX
     #
-    w_obj = handles.deref(h)
-    _STORAGE.store(pf, w_obj)
+    _STORAGE.store(pf, handles, h)
 
 @API.func("HPy HPyField_Load(HPyContext *ctx, HPy source_object, HPyField source_field)")
 def HPyField_Load(space, handles, ctx, h_source, f):
     if we_are_translated():
         assert False # XXX
-    w_obj = _STORAGE.load(f)
-    return handles.new(w_obj)
+    return _STORAGE.load(handles, f)
