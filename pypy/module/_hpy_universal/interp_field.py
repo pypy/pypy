@@ -2,6 +2,8 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal import llapi
+from pypy.module._hpy_universal.interp_type import W_HPyObject, W_HPyTypeObject
 
 class UntranslatedHPyFieldStorage(object):
     """
@@ -30,7 +32,7 @@ class UntranslatedHPyFieldStorage(object):
         # NOTE: with he current strategy, self._fields is never cleared so an
         # HPyField_Store keeps the object alive forever. That's bad but we
         # don't care for now, since it's used only by a few tests.
-        unique_id = rffi.cast(lltype.Signed, pf)
+        unique_id = llapi.cts.cast('long', pf)
         if h == 0:
             pf[0] = 0
             self._fields.pop(unique_id, None)
@@ -38,7 +40,6 @@ class UntranslatedHPyFieldStorage(object):
             w_obj = handles.deref(h)
             pf[0] = unique_id
             self._fields[unique_id] = w_obj
-
 
     def load(self, handles, f):
         if f not in self._fields:
@@ -63,3 +64,33 @@ def HPyField_Load(space, handles, ctx, h_source, f):
     if we_are_translated():
         assert False # XXX
     return _STORAGE.load(handles, f)
+
+def is_hpy_object(w_obj):
+    return isinstance(w_obj, W_HPyObject)
+
+def hpy_get_referents(space, w_obj):
+    """
+    NOT_RPYTHON. Called by gc.get_referents, only for hpy objects and only for tests
+    """
+    w_type = space.type(w_obj)
+    assert is_hpy_object(w_obj)
+    assert isinstance(w_type, W_HPyTypeObject)
+    if w_type.tp_traverse:
+        ll_collect_fields = _collect_fields.get_llhelper(space)
+        assert _collect_fields.allfields == []
+        NULL = llapi.cts.cast('void *', 0)
+        w_type.tp_traverse(w_obj.hpy_data, ll_collect_fields, NULL)
+        result = _collect_fields.allfields
+        _collect_fields.allfields = []
+        return result
+
+
+@API.func("int _collect_fields(HPyField *f, void *arg)",
+          error_value=API.int(-1), is_helper=True)
+def _collect_fields(space, handles, f, arg):
+    assert not we_are_translated()
+    unique_id = llapi.cts.cast('long', f)
+    w_obj = _STORAGE._fields[unique_id]
+    _collect_fields.allfields.append(w_obj)
+    return API.int(0)
+_collect_fields.allfields = []

@@ -487,6 +487,7 @@ typedef struct {
     void *internal;
 } HPy_buffer;
 
+typedef int (*HPyFunc_visitproc)(HPyField *, void *);
 
 /* autogen_hpyfunc_declare.h */
 
@@ -522,6 +523,7 @@ typedef int (*HPyFunc_setter)(HPyContext *ctx, HPy, HPy, void *);
 typedef int (*HPyFunc_objobjproc)(HPyContext *ctx, HPy, HPy);
 typedef int (*HPyFunc_getbufferproc)(HPyContext *ctx, HPy, HPy_buffer *, int);
 typedef void (*HPyFunc_releasebufferproc)(HPyContext *ctx, HPy, HPy_buffer *);
+typedef int (*HPyFunc_traverseproc)(void *object, HPyFunc_visitproc visit, void *arg);
 typedef void (*HPyFunc_destroyfunc)(void *);
 """)
 

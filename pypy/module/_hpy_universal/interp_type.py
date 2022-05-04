@@ -34,6 +34,7 @@ class W_HPyObject(W_ObjectObject):
 class W_HPyTypeObject(W_TypeObject):
     basicsize = 0
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
+    tp_traverse = lltype.nullptr(llapi.cts.gettype('HPyFunc_traverseproc').TO)
 
     def __init__(self, space, name, bases_w, dict_w, basicsize=0,
                  is_legacy=False):
