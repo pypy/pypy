@@ -127,6 +127,15 @@ def check_inheritance_constraints(space, w_type):
             "A legacy type should not inherit its memory layout from a"
             " pure type")
 
+def check_have_gc_and_tp_traverse(space, spec):
+    # if we specify HPy_TPFLAGS_HAVE_GC, we must provide a tp_traverse
+    have_gc = widen(spec.c_flags) & llapi.HPy_TPFLAGS_HAVE_GC
+    if have_gc and not has_tp_traverse(spec):
+        raise oefmt(space.w_ValueError,
+                    "You must provide an HPy_tp_traverse slot if you specify "
+                    "HPy_TPFLAGS_HAVE_GC")
+
+
 
 @API.func("HPy HPyType_FromSpec(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, handles, ctx, spec, params):
@@ -140,6 +149,7 @@ def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
 def _hpytype_fromspec(handles, spec, params):
     space = handles.space
     check_legacy_consistent(space, spec)
+    check_have_gc_and_tp_traverse(space, spec)
 
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
@@ -211,6 +221,23 @@ def add_slot_defs(handles, w_result, c_defines):
         getbuffer_cls = get_slot_cls(handles, W_wrap_getbuffer)
         if w_buffer_wrapper and isinstance(w_buffer_wrapper, getbuffer_cls):
             w_buffer_wrapper.rbp = rbp
+
+def has_tp_traverse(spec):
+    if not spec.c_defines:
+        return False
+    p = spec.c_defines
+    i = 0
+    HPyDef_Kind = llapi.cts.gettype('HPyDef_Kind')
+    rbp = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
+    while p[i]:
+        kind = rffi.cast(lltype.Signed, p[i].c_kind)
+        if kind == HPyDef_Kind.HPyDef_Kind_Slot:
+            hpyslot = llapi.cts.cast('_pypy_HPyDef_as_slot*', p[i]).c_slot
+            slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
+            if slot_num == HPySlot_Slot.HPy_tp_traverse:
+                return True
+        i += 1
+    return False
 
 def _create_new_type(
         space, w_typetype, name, bases_w, dict_w, basicsize, is_legacy):

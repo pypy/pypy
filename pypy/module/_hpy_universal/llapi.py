@@ -565,6 +565,7 @@ HPyFunc_O        = 4
 HPyType_SpecParam_Kind = cts.gettype('HPyType_SpecParam_Kind')
 
 HPy_TPFLAGS_INTERNAL_PURE = (1 << 8)
+HPy_TPFLAGS_HAVE_GC =  1 << 14
 
 # HPy API functions which are implemented directly in C
 pypy_HPy_FatalError = rffi.llexternal('pypy_HPy_FatalError',
