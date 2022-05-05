@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rgc
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.interp_type import W_HPyObject, W_HPyTypeObject
