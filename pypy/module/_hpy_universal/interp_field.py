@@ -1,5 +1,6 @@
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import rgc
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import llapi
@@ -54,16 +55,30 @@ _STORAGE = UntranslatedHPyFieldStorage()
 
 @API.func("void HPyField_Store(HPyContext *ctx, HPy h_target, HPyField *pf, HPy h)")
 def HPyField_Store(space, handles, ctx, h_target, pf, h):
-    if we_are_translated():
-        assert False # XXX
+    if not we_are_translated():
+        # just for tests
+        _STORAGE.store(pf, handles, h)
+        return
     #
-    _STORAGE.store(pf, handles, h)
+    # real implementation
+    w_obj = handles.deref(h)
+    gcref = rgc.cast_instance_to_gcref(w_obj)
+    pf[0] = rffi.cast(lltype.Signed, gcref)
+
 
 @API.func("HPy HPyField_Load(HPyContext *ctx, HPy source_object, HPyField source_field)")
 def HPyField_Load(space, handles, ctx, h_source, f):
-    if we_are_translated():
-        assert False # XXX
-    return _STORAGE.load(handles, f)
+    if not we_are_translated():
+        # just for tests
+        return _STORAGE.load(handles, f)
+    #
+    # real implementation
+    gcref = rffi.cast(llmemory.GCREF, f)
+    w_obj = rgc.try_cast_gcref_to_instance(W_Root, gcref)
+    # if w_obj is None it means that the gcref didn't contain a W_Root, but
+    # this should not be possible
+    assert w_obj is not None
+    return handles.new(w_obj)
 
 def is_hpy_object(w_obj):
     return isinstance(w_obj, W_HPyObject)
