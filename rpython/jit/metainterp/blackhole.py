@@ -408,6 +408,9 @@ class BlackholeInterpreter(object):
         code = self.jitcode.code
         position = self.position
         opcode = ord(code[position])
+        if opcode == self.builder.op_live:
+            position += SIZE_LIVE_OP
+            opcode = ord(code[position])
         if opcode == self.op_rvmprof_code:
             arg1 = self.registers_i[ord(code[position + 1])]
             arg2 = self.registers_i[ord(code[position + 2])]

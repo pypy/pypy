@@ -1601,6 +1601,9 @@ class MIFrame(object):
         code = self.bytecode
         position = self.pc
         opcode = ord(code[position])
+        if opcode == self.metainterp.staticdata.op_live:
+            position += SIZE_LIVE_OP
+            opcode = ord(code[position])
         if opcode == self.metainterp.staticdata.op_rvmprof_code:
             arg1 = self.registers_i[ord(code[position + 1])].getint()
             arg2 = self.registers_i[ord(code[position + 2])].getint()
