@@ -70,6 +70,7 @@ class Assembler(object):
 
     def emit_const(self, const, kind, allow_short=False):
         value = const.value
+        value_key = value
         if kind == 'int':
             TYPE = const.concretetype
             if isinstance(TYPE, lltype.Ptr):
@@ -99,6 +100,11 @@ class Assembler(object):
         elif kind == 'ref':
             value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
             constants = self.constants_r
+            if not value:
+                # nullptr
+                value_key = None
+            else:
+                value_key = value._obj.container
         elif kind == 'float':
             if const.concretetype == lltype.Float:
                 value = longlong.getfloatstorage(value)
@@ -109,15 +115,17 @@ class Assembler(object):
         else:
             raise AssemblerError('unimplemented %r in %r' %
                                  (const, self.ssareprname))
-        key = (kind, Constant(value))
-        if key not in self.constants_dict:
+        key = (kind, Constant(value_key))
+        try:
+            val = self.constants_dict[key]
+        except KeyError:
             constants.append(value)
             val = 256 - len(constants)
             assert val >= 0, "too many constants"
             self.constants_dict[key] = val
         # emit the constant normally, as one byte that is an index in the
         # list of constants
-        self.code.append(chr(self.constants_dict[key]))
+        self.code.append(chr(val))
         return False
 
     def write_insn(self, insn):
