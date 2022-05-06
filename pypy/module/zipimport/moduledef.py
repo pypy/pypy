@@ -1,7 +1,7 @@
 import os
 from rpython.rlib.objectmodel import we_are_translated
-from pypy.module._frozen_importlib.moduledef import Module as FrozenImportlibModule
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.interpreter.frozenmodule import compile_bootstrap_module
 from pypy.module.sys import initpath
 
 lib_python = os.path.join(os.path.dirname(__file__),
@@ -20,7 +20,7 @@ class Module(MixedModule):
 
         super(Module, self).install()
         space = self.space
-        FrozenImportlibModule._compile_bootstrap_module(
+        compile_bootstrap_module(
             space, 'zipimport', self.w_name, self.w_dict,
             directory=".")
 
