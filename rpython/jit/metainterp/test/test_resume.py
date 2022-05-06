@@ -886,9 +886,8 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
         class Whatever:
             def __eq__(self, other):
                 return True
-        class MyInfo:
-            @staticmethod
-            def enumerate_vars(callback_i, callback_r, callback_f, _):
+        def enumerate_vars(callback_i, callback_r, callback_f):
+                # preserve indentation
                 index = 0
                 while not self.done_reading():
                     tagged = self.resumecodereader.peek()
@@ -915,8 +914,7 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
         pc = self.resumecodereader.next_item()
         jitcode_pos = self.resumecodereader.next_item()
 
-        import pdb; pdb.set_trace()
-        self._prepare_next_section(MyInfo())
+        enumerate_vars(self._callback_i, self._callback_r, self._callback_f)
         return self.lst
 
     def write_an_int(self, count_i, box):
