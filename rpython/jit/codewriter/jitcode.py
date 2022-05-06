@@ -51,34 +51,20 @@ class JitCode(AbstractDescr):
     def num_regs_f(self):
         return ord(self.c_num_regs_f)
 
-    def has_liveness_info(self, pc):
-        return self.code[pc] == xxx
-
-    def _live_vars(self, pc, all_liveness):
+    def _live_vars(self, pc, all_liveness, op_live):
+        from rpython.jit.codewriter.liveness import LivenessIterator
         # for testing only
-        assert self.code[pc] == xxx
-        offset = self.get_live_vars_info(pc)
-        length_i = ord(all_liveness[offset])
-        length_r = ord(all_liveness[offset + 1])
-        length_f = ord(all_liveness[offset + 2])
+        if ord(self.code[pc]) != op_live:
+            self._missing_liveness(pc)
+        offset = self.get_live_vars_info(pc, op_live)
         lst_i = []
         lst_r = []
         lst_f = []
-        if length_i:
-            it = LivenessIterator(offset, length, all_liveness)
-            for index in it:
-                list_i.append("%%i%d" % (index, ))
-            offset = it.offset
-        if length_r:
-            it = LivenessIterator(offset, length, all_liveness)
-            for index in it:
-                list_r.append("%%r%d" % (index, ))
-            offset = it.offset
-        if length_f:
-            it = LivenessIterator(offset, length, all_liveness)
-            for index in it:
-                list_f.append("%%f%d" % (index, ))
-            offset = it.offset
+        enumerate_vars(offset, all_liveness,
+                lambda index: lst_i.append("%%i%d" % (index, )),
+                lambda index: lst_r.append("%%r%d" % (index, )),
+                lambda index: lst_f.append("%%f%d" % (index, )),
+                None)
         return ' '.join(lst_i + lst_r + lst_f)
 
     def get_live_vars_info(self, pc, op_live):
@@ -99,7 +85,6 @@ class JitCode(AbstractDescr):
         if we_are_translated():
             print msg
             raise AssertionError
-        import pdb; pdb.set_trace()
         raise MissingLiveness("%s\n%s" % (msg, self.dump()))
 
     def follow_jump(self, position):

@@ -218,9 +218,7 @@ class Assembler(object):
         self.startpoints.add(startposition)
 
     def get_liveness_info(self, args, kind):
-        """Return a string whose characters are register numbers.
-        We sort the numbers, too, to increase the chances of duplicate
-        strings (which are collapsed into a single string during translation).
+        """Return a set whose characters are register numbers.
         """
         lives = set()    # set of characters
         for reg in args:
