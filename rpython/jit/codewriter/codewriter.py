@@ -51,8 +51,6 @@ class CodeWriter(object):
         ssarepr = flatten_graph(graph, regallocs, cpu=self.callcontrol.cpu)
         #
         # step 3b: compute the liveness around certain operations
-        before = ssarepr.insns[:]
-        jitcode.before_liveness = format_assembler(ssarepr)
         compute_liveness(ssarepr)
         #
         # step 4: "assemble" it into a JitCode, which contains a sequence
