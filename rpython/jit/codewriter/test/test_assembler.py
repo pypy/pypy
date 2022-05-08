@@ -233,16 +233,16 @@ def test_liveness():
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
     assert jitcode.code == ("\x00\x00\x0A\x01"   # ends at 4
-                            "\x01\x00\x00\x00\x00"
+                            "\x01\x00\x00"
                             "\x00\x00\x03\x02"  # ends at 13
-                            "\x01\x04\x00\x00\x00")
+                            "\x01\x04\x00")
     assert assembler.insns == {'int_add/ic>i': 0, 'live/': 1}
     all_liveness = "".join(assembler.all_liveness)
     op_live = assembler.insns['live/']
     with pytest.raises(MissingLiveness):
         jitcode._live_vars(0, all_liveness, op_live)
     assert jitcode._live_vars(4, all_liveness, op_live) == '%i0 %i1 %i2'
-    assert jitcode._live_vars(13, all_liveness, op_live) == '%i2'
+    assert jitcode._live_vars(11, all_liveness, op_live) == '%i2'
 
 def test_assemble_error_string_constant():
     ssarepr = SSARepr("test")

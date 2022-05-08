@@ -122,22 +122,18 @@ def remove_repeated_live(ssarepr):
 # liveness is encoded as a 4 byte offset into the single string all_liveness
 # (which is stored on the metainterp_sd)
 
-OFFSET_SIZE = 4
+OFFSET_SIZE = 2
 
 def encode_offset(pos, code):
-    assert OFFSET_SIZE == 4
+    assert OFFSET_SIZE == 2
     code.append(chr(pos & 0xff))
     code.append(chr((pos >> 8) & 0xff))
-    code.append(chr((pos >> 16) & 0xff))
-    code.append(chr((pos >> 24) & 0xff))
-    assert (pos >> 32) == 0
+    assert (pos >> 16) == 0
 
 def decode_offset(jitcode, pc):
-    assert OFFSET_SIZE == 4
+    assert OFFSET_SIZE == 2
     return (ord(jitcode[pc]) |
-           (ord(jitcode[pc + 1]) << 8) |
-           (ord(jitcode[pc + 2]) << 16) |
-           (ord(jitcode[pc + 3]) << 24))
+           (ord(jitcode[pc + 1]) << 8))
 
 
 # within the string of all_liveness, we encode the bitsets of which of the 256

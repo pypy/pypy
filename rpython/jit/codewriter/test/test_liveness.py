@@ -1,4 +1,4 @@
-from rpython.jit.codewriter.liveness import compute_liveness
+from rpython.jit.codewriter.liveness import compute_liveness, OFFSET_SIZE
 from rpython.jit.codewriter.liveness import encode_offset, decode_offset
 from rpython.jit.codewriter.liveness import encode_liveness, LivenessIterator
 from rpython.jit.codewriter.format import unformat_assembler, assert_format
@@ -275,7 +275,7 @@ class TestFlatten:
         """)
 
 class TestEncodeDecode(object):
-    @given(strategies.integers(min_value=0, max_value=2**32-1), strategies.binary(), strategies.binary())
+    @given(strategies.integers(min_value=0, max_value=2**(8 * OFFSET_SIZE)-1), strategies.binary(), strategies.binary())
     def test_encode_decode_offset(self, x, prefix, postfix):
         l = []
         encode_offset(x, l)

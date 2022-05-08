@@ -63,8 +63,8 @@ def test_loop():
         return b
     cw = CodeWriter()
     jitcode = cw.transform_func_to_jitcode(f, [5, 6])
-    assert jitcode.code == ("\x00\x00\x00\x00\x00"
-                            "\x01\x00\x00\x15\x00"   # ends at 5
+    assert jitcode.code == ("\x00\x00\x00"
+                            "\x01\x00\x00\x13\x00"
                             "\x02\x01\x00\x01"
                             "\x03\x00\x01\x00"
                             "\x04\x00\x00"
