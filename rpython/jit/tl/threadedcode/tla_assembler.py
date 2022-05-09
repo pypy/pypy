@@ -2,7 +2,7 @@
 
 import sys
 import py
-from rpython.jit.tl.tla.test_tla import assemble
+from rpython.jit.tl.threadedcode.bytecode import assemble
 py.path.local(__file__)
 
 def usage():
