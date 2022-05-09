@@ -85,7 +85,6 @@ def PyUnicode_CheckExact(space, ref):
     w_obj = from_ref(space, rffi.cast(PyObject, ref))
     w_obj_type = space.type(w_obj)
     return space.is_w(w_obj_type, space.w_unicode)
- 
 
 def new_empty_unicode(space, length):
     """
@@ -755,7 +754,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
 @cpython_api([PyObject, CONST_STRING], PyObject)
 def PyUnicode_EncodeLocale(space, w_obj, errors):
-    from pypy.module._codecs.locale import utf8_encode_locale 
+    from pypy.module._codecs.locale import utf8_encode_locale
     if errors:
         s = rffi.charp2str(errors)
     else:
@@ -769,7 +768,7 @@ def PyUnicode_EncodeLocale(space, w_obj, errors):
 
 @cpython_api([CONST_STRING, CONST_STRING], PyObject)
 def PyUnicode_DecodeLocale(space, obj, errors):
-    from pypy.module._codecs.locale import str_decode_locale 
+    from pypy.module._codecs.locale import str_decode_locale
     if errors:
         s = rffi.charp2str(errors)
     else:
@@ -782,7 +781,7 @@ def PyUnicode_DecodeLocale(space, obj, errors):
 
 @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
 def PyUnicode_DecodeLocaleAndSize(space, obj, length, errors):
-    from pypy.module._codecs.locale import str_decode_locale 
+    from pypy.module._codecs.locale import str_decode_locale
     if errors:
         s = rffi.charp2str(errors)
     else:
@@ -1014,7 +1013,13 @@ make_conversion_functions('UTF32', 'utf-32', only_for_asstring=True)
 make_conversion_functions('ASCII', 'ascii')
 make_conversion_functions('Latin1', 'latin-1')
 if sys.platform == 'win32':
+    from pypy.module._codecs.interp_codecs import code_page_encode
     make_conversion_functions('MBCS', 'mbcs')
+    @cpython_api([rffi.INT_real, PyObject, CONST_STRING], PyObject)
+    def PyUnicode_EncodeCodePage(space, code_page, w_obj, errors):
+        res = code_page_encode(space, widen(code_page), w_obj,
+                               rffi.charp2str(errors))
+        return space.listview(res)[0]
 
 @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, INTP_real], PyObject)
 def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
@@ -1421,7 +1426,7 @@ def PyUnicode_New(space, size, maxchar):
     else:
         unicode_size = rffi.sizeof(PyUnicodeObject.TO)
         data = rffi.ptradd(rffi.cast(rffi.CCHARP, pyobj), unicode_size)
-        set_data(pyobj, cts.cast('void *', data)) 
+        set_data(pyobj, cts.cast('void *', data))
     if is_sharing:
         set_wbuffer(pyobj, rffi.cast(rffi.CWCHARP, get_data(pyobj)))
     if not is_ascii:
@@ -1429,7 +1434,7 @@ def PyUnicode_New(space, size, maxchar):
     set_ready(pyobj, True)
     return pyobj
 
-@cts.decl("""Py_ssize_t PyUnicode_FindChar(PyObject *str, Py_UCS4 ch, 
+@cts.decl("""Py_ssize_t PyUnicode_FindChar(PyObject *str, Py_UCS4 ch,
           Py_ssize_t start, Py_ssize_t end, int direction)""", error=-1)
 def PyUnicode_FindChar(space, ref, ch, start, end, direction):
     if not pyunicode_check(ref):
@@ -1458,7 +1463,7 @@ def PyUnicode_ReadChar(space, ref, index):
     w_obj = from_ref(space, ref)
     w_ch = space.getitem(w_obj, space.newint(index))
     return space.int_w(space.ord(w_ch))
-        
+
 @cts.decl("int PyUnicode_WriteChar(PyObject *unicode, Py_ssize_t index, Py_UCS4 ch)", error=-1)
 def PyUnicode_WriteChar(space, ref, index, ch):
     """ Write a single ch at index before ref is ready. In order for this to
@@ -1489,11 +1494,11 @@ def PyUnicode_WriteChar(space, ref, index, ch):
     end = rutf8.next_codepoint_pos(as_str, index)
     ch_as_utf8 = rutf8.unichr_as_utf8(ch)
     if len(ch_as_utf8) != end - start:
-        raise oefmt(space.w_ValueError, 
+        raise oefmt(space.w_ValueError,
                     'cannot write ch to string, would need to reallocate')
     j = 0
     for i in range(start, end):
         utf8[i] = ch_as_utf8[j]
         j += 1
     return 0
- 
+

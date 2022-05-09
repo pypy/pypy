@@ -318,7 +318,12 @@ def PyInterpreterState_Next(space, interp):
     """Return the next interpreter state object after interp from the list of all
     such objects.
     """
+    # PyPy does not support multiple interpreters
     return lltype.nullptr(PyInterpreterState.TO)
+
+@cpython_api([PyInterpreterState], rffi.LONG, error=CANNOT_FAIL)
+def PyInterpreterState_GetID(space, interp):
+    return 0
 
 @cpython_api([PyInterpreterState], PyThreadState, error=CANNOT_FAIL,
              gil="around")
