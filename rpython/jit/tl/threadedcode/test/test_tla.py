@@ -3,18 +3,16 @@ import pytest
 import os
 
 from rpython.jit.tl.threadedcode import tla
+from rpython.jit.tl.threadedcode.bytecode import Bytecode, assemble
 from rpython.jit.tl.threadedcode.tla import \
     W_Object, W_IntObject, W_StringObject, Frame
 
-def assemble(mylist):
-    return ''.join([chr(x) for x in mylist])
-
 def interp(mylist, w_arg):
-    bytecode = assemble(mylist)
+    bytecode = Bytecode(assemble(mylist))
     return tla.run(bytecode, w_arg)
 
 def interp_tier2(mylist, w_arg):
-    bytecode = assemble(mylist)
+    bytecode = Bytecode(assemble(mylist))
     return tla.run(bytecode, w_arg, tier=2)
 
 def read_code(name):
@@ -206,7 +204,7 @@ class TestLLType(LLJitMixin):
         res = self.meta_interp(interp_w, [1])
 
     def test_jit_ack(self):
-        code =read_code('../lang/ack.tla.py')
+        code = read_code('../lang/ack.tla.py')
         def interp_w(intvalue):
             w_result = interp(code, W_IntObject(intvalue))
             assert isinstance(w_result, W_IntObject)
