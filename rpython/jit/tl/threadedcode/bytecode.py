@@ -7,49 +7,49 @@ def define_op(name, has_arg=False):
     hasarg.append(has_arg)
 
 _bytecodes_has_args = [
-    ('NOP', False),
-    ('CONST_INT', True),
-    ('CONST_NEG_INT', True),
-    ('CONST_FLOAT', True),
-    ('CONST_NEG_FLOAT', True),
-    ('CONST_N', True),
-    ('CONST_NEG_N', True),
-    ('DUP', False),
-    ('DUPN', True),
-    ('POP', False),
-    ('POP1', False),
-    ('LT', False),
-    ('GT', False),
-    ('EQ', False),
-    ('ADD', False),
-    ('SUB', False),
-    ('MUL', False),
-    ('DIV', False),
-    ('MOD', False),
-    ('EXIT', False),
-    ('JUMP', True),
-    ('JUMP_N', True),
-    ('JUMP_IF', True),
-    ('JUMP_IF_N', True),
-    ('CALL', True),
-    ('CALL_N', True),
-    ('CALL_ASSEMBLER', True),
-    ('CALL_TIER2', True),
-    ('CALL_TIER0', True),
-    ('RET', True),
-    ('NEWSTR', True),
-    ('FRAME_RESET', True),
-    ('PRINT', False),
-    ('LOAD', True),
-    ('STORE', True),
-    ('BUILD_LIST', True),
-    ('RAND_INT', False),
-    ('FLOAT_TO_INT', False),
-    ('INT_TO_FLOAT', False),
-    ('ABS_FLOAT', False),
-    ('SIN', False),
-    ('COS', False),
-    ('SQRT', False)
+    ('NOP', 0),
+    ('CONST_INT', 1),
+    ('CONST_NEG_INT', 1),
+    ('CONST_FLOAT', 9),
+    ('CONST_NEG_FLOAT', 9),
+    ('CONST_N', 4),
+    ('CONST_NEG_N', 4),
+    ('DUP', 0),
+    ('DUPN', 1),
+    ('POP', 0),
+    ('POP1', 0),
+    ('LT', 0),
+    ('GT', 0),
+    ('EQ', 0),
+    ('ADD', 0),
+    ('SUB', 0),
+    ('MUL', 0),
+    ('DIV', 0),
+    ('MOD', 0),
+    ('EXIT', 0),
+    ('JUMP', 1),
+    ('JUMP_N', 4),
+    ('JUMP_IF', 1),
+    ('JUMP_IF_N', 4),
+    ('CALL', 2),
+    ('CALL_N', 4),
+    ('CALL_ASSEMBLER', 2),
+    ('CALL_TIER2', 2),
+    ('CALL_TIER0', 2),
+    ('RET', 1),
+    ('NEWSTR', 1),
+    ('FRAME_RESET', 3),
+    ('PRINT', 0),
+    ('LOAD', 0),
+    ('STORE', 0),
+    ('BUILD_LIST', 0),
+    ('RAND_INT', 4),
+    ('FLOAT_TO_INT', 0),
+    ('INT_TO_FLOAT', 0),
+    ('ABS_FLOAT', 1),
+    ('SIN', 0),
+    ('COS', 0),
+    ('SQRT', 0)
 ]
 
 for bytecode, has_arg in _bytecodes_has_args:
@@ -75,31 +75,49 @@ class CompilerContext(object):
         return len(self.stack) - 1
 
     def emit(self, bc, arg=0):
-        self.data.append(chr(bc))
-        self.data.append(chr(arg))
+        raise NotImplementedError
 
     def create_bytecode(self):
-        return Bytecode("".join(self.data), self.functions)
+        raise NotImplementedError
 
 class Bytecode(object):
-    _immutable_fields_ = ['code', 'functions[*]']
+    _immutable_ = True
 
-    def __init__(self, code, functions):
+    def __init__(self, code):
         self.code = code
-        self.functions = functions
+
+    def __len__(self):
+        return len(self.code)
+
+    def __getitem__(self, i):
+        return self.code[i]
+
+    def __setitem__(self, i, w_x):
+        self.code[i] = w_x
 
     def dump(self):
         lines = []
         i = 0
-        for i in range(0, len(self.code), 2):
-            c = self.code[i]
-            name, has_arg = bytecodes[c]
-            lines.append(name)
-            if has_arg:
-                arg = self.code[i + 1]
-                lines.append(" " + arg)
+        while i < len(self.code):
+            c = ord(self.code[i])
+            name, arg_num = _bytecodes_has_args[c]
+            op_str = name
+            if arg_num:
+                arg_str = ""
+                for j in range(arg_num):
+                    arg = ord(self.code[j + 1])
+                    arg_str = arg_str + ", " + str(arg)
+                op_str = op_str + arg_str
+                i += arg_num
+            lines.append(op_str + ",")
+            i += 1
 
         return '\n'.join(lines)
+
+
+def assemble(mylist):
+    return ''.join([chr(x) for x in mylist])
+
 
 def compile(file_name):
     # see ../tlopcode.py

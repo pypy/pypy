@@ -14,11 +14,18 @@ from rpython.jit.tl.threadedcode.bytecode import *
 def get_printable_location_tier1(pc, call_entry, bytecode, tstack):
     op = ord(bytecode[pc])
     name = bytecodes[op]
+
     if hasarg[op]:
         arg = str(ord(bytecode[pc + 1]))
     else:
         arg = ''
-    return "%s: %s %s, tstack: %d" % (pc, name, arg, tstack.pc)
+
+    if not tstack.t_is_empty():
+        targ = str(tstack.pc)
+    else:
+        targ = 'Nan'
+
+    return "%s: %s %s, tstack: %s" % (pc, name, arg, targ)
 
 def get_printable_location(pc, bytecode):
     op = ord(bytecode[pc])
@@ -68,7 +75,7 @@ tier2driver = JitDriver(
 
 
 class Frame(object):
-    def __init__(self, bytecode, stack=[None] * 128, stackpos=0):
+    def __init__(self, bytecode, stack=[None] * 64, stackpos=0):
         self.bytecode = bytecode
         self.stack = stack
         self.stackpos = stackpos
@@ -85,9 +92,10 @@ class Frame(object):
         for i in range(framepos, oldstackpos):
             # j = oldstackpos - i - 1
             newstack[i - framepos] = oldstack[i]
+        newstack[argnum + 1] = W_IntObject(retaddr)
 
-        newstack[argnum + 1] = W_RetAddrObject(retaddr)
-        return Frame(self.bytecode, newstack, argnum + 2)
+        bytecode = jit.promote(self.bytecode)
+        return Frame(bytecode, newstack, argnum + 2)
 
     @jit.dont_look_inside
     def push(self, w_x):
@@ -140,22 +148,6 @@ class Frame(object):
         for _ in range(n):
             self._pop()
 
-    @jit.dont_look_inside
-    def rotate_two(self):
-        w_1 = self.pop()
-        w_2 = self.pop()
-        self.push(w_2)
-        self.push(w_1)
-
-    @jit.dont_look_inside
-    def rotate_three(self):
-        w_1 = self.pop()
-        w_2 = self.pop()
-        w_3 = self.pop()
-        self.push(w_1)
-        self.push(w_2)
-        self.push(w_3)
-
     @jit.not_in_trace
     def dump(self):
         sys.stderr.write("stackpos: %d " % self.stackpos)
@@ -169,7 +161,6 @@ class Frame(object):
     @jit.dont_look_inside
     def is_true(self, dummy):
         if dummy:
-            # return self.take(0).is_true()
             return True
         w_x = self.pop()
         return w_x.is_true()
@@ -193,7 +184,7 @@ class Frame(object):
 
     def _CONST_INT(self, pc, neg=False):
         if isinstance(pc, int):
-            bytecode = jit.promote_string(self.bytecode)
+            bytecode = jit.promote(self.bytecode)
             x = ord(bytecode[pc])
             if neg:
                 self._push(W_IntObject(-x))
@@ -217,7 +208,7 @@ class Frame(object):
 
     def _CONST_FLOAT(self, pc, neg=False):
         if isinstance(pc, int):
-            bytecode = jit.promote_string(self.bytecode)
+            bytecode = jit.promote(self.bytecode)
             x = _construct_float(bytecode, pc)
             if neg:
                 self._push(W_FloatObject(-x))
@@ -231,7 +222,7 @@ class Frame(object):
         if dummy:
             return
         if isinstance(pc, int):
-            bytecode = jit.promote_string(self.bytecode)
+            bytecode = jit.promote(self.bytecode)
             x = _construct_value(bytecode, pc)
             self.push(W_IntObject(x))
         else:
@@ -239,7 +230,7 @@ class Frame(object):
 
     def _CONST_N(self, pc):
         if isinstance(pc, int):
-            bytecode = jit.promote_string(self.bytecode)
+            bytecode = jit.promote(self.bytecode)
             x = _construct_value(bytecode, pc)
             self._push(W_IntObject(x))
         else:
@@ -385,7 +376,7 @@ class Frame(object):
         self.push(w_x)
 
     def _DUPN(self, pc):
-        bytecode = jit.promote_string(self.bytecode)
+        bytecode = jit.promote(self.bytecode)
         n = ord(bytecode[pc])
         w_x = self._take(n)
         self._push(w_x)
@@ -885,13 +876,14 @@ class Frame(object):
 
         return self.interp(pc, dummy)
 
+
     def interp(self, pc=0, dummy=False):
         if dummy:
             return
 
         tstack = t_empty()
         call_entry = pc
-        bytecode = self.bytecode
+        bytecode = jit.promote(self.bytecode)
 
         while pc < len(bytecode):
             tier1driver.jit_merge_point(bytecode=bytecode, call_entry=call_entry,
@@ -1096,7 +1088,8 @@ class Frame(object):
                 else:
                     call_entry = t
                     if t < pc:
-                        tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
+                        tier1driver.can_enter_jit(bytecode=bytecode,
+                                                  call_entry=t,
                                                   pc=t, tstack=tstack, self=frame)
                     frame.CALL(self, t, argnum, dummy=False)
 
@@ -1114,7 +1107,8 @@ class Frame(object):
                 else:
                     call_entry = t
                     if t < pc:
-                        tier1driver.can_enter_jit(bytecode=bytecode, call_entry=t,
+                        tier1driver.can_enter_jit(bytecode=bytecode,
+                                                  call_entry=t,
                                                   pc=t, tstack=tstack, self=frame)
                     frame.CALL_ASSEMBLER(self, t, argnum, bytecode, t_empty(), dummy=False)
 
@@ -1151,10 +1145,9 @@ class Frame(object):
                                                       call_entry=call_entry,
                                                       pc=t, tstack=tstack, self=self)
                         pc = t
-
                     else:
-                        if t < pc:
-                            pc, tstack = tstack.t_pop()
+                        pc, tstack = tstack.t_pop()
+
                     if t < pc:
                         pc = emit_jump(pc, t)
                 else:
@@ -1230,10 +1223,9 @@ class Frame(object):
 
 def run(bytecode, w_arg, debug=False, tier=None):
     frame = Frame(bytecode)
-    frame.push(w_arg); frame.push(w_arg)
+    frame.push(w_arg)
     if tier >= 2:
         w_result = frame._interp()
     else:
         w_result = frame.interp()
-    # frame.dump()
     return w_result

@@ -2,8 +2,9 @@ import py
 py.path.local(__file__)
 
 from rpython.rlib.rtime import time
-from rpython.jit.tl.threadedcode import tla
 from rpython.rlib import jit
+from rpython.jit.tl.threadedcode import tla
+from rpython.jit.tl.threadedcode.bytecode import Bytecode
 
 def entry_point(args):
     usage = "Usage: %s filename x n" % (args[0],)
@@ -39,11 +40,11 @@ def entry_point(args):
 
     filename = args[1]
     x = int(args[2])
-    try:
+
+    n = 100
+    if len(args) > 3:
         n = int(args[3])
-    except Exception:
-        n = 100
-        tier = 1
+
     w_x = tla.W_IntObject(x)
     bytecode = load_bytecode(filename)
     w_res = tla.W_IntObject(0)
@@ -60,7 +61,7 @@ def load_bytecode(filename):
     f = open_file_as_stream(filename)
     bytecode = f.readall()
     f.close()
-    return bytecode
+    return Bytecode(bytecode)
 
 def target(driver, args):
     return entry_point
