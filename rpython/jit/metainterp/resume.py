@@ -96,7 +96,7 @@ def _ensure_parent_resumedata(framestack, n, t, snapshot):
     _ensure_parent_resumedata(framestack, n - 1, t, s)
     target.parent_snapshot = s
 
-def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
+def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t, after_residual_call=False):
     n = len(framestack) - 1
     result = t.length()
     if virtualizable_boxes is not None:
@@ -108,8 +108,9 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
     if n >= 0:
         top = framestack[n]
         snapshot = t.create_top_snapshot(top.jitcode, top.pc,
-                    top, False, virtualizable_boxes,
-                    virtualref_boxes)
+                    top, virtualizable_boxes,
+                    virtualref_boxes,
+                    after_residual_call=after_residual_call)
         _ensure_parent_resumedata(framestack, n, t,snapshot)
     else:
         snapshot = t.create_empty_top_snapshot(
@@ -934,8 +935,9 @@ class AbstractResumeDataReader(object):
     virtual_int_default = None
 
 
-    def _init(self, cpu, storage):
-        self.cpu = cpu
+    def _init(self, metainterp_sd, storage):
+        self.cpu = metainterp_sd.cpu
+        self.metainterp_sd = metainterp_sd
         self.resumecodereader = resumecode.Reader(storage.rd_numb)
         items_resume_section = self.resumecodereader.next_item()
         self.items_resume_section = items_resume_section
@@ -1036,12 +1038,15 @@ class AbstractResumeDataReader(object):
             self.setarrayitem_int(array, index, fieldnum, arraydescr)
 
     def _prepare_next_section(self, info):
+        from rpython.jit.codewriter.jitcode import enumerate_vars
         # Use info.enumerate_vars(), normally dispatching to
         # rpython.jit.codewriter.jitcode.  Some tests give a different 'info'.
-        info.enumerate_vars(self._callback_i,
-                            self._callback_r,
-                            self._callback_f,
-                            self.unique_id)  # <-- annotation hack
+        enumerate_vars(info,
+                self.metainterp_sd.liveness_info,
+                self._callback_i,
+                self._callback_r,
+                self._callback_f,
+                self.unique_id)  # <-- annotation hack
 
     def _callback_i(self, register_index):
         value = self.next_int()
@@ -1080,7 +1085,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     VirtualCache = get_VirtualCache_class('BoxReader')
 
     def __init__(self, storage, deadframe, metainterp):
-        self._init(metainterp.cpu, storage)
+        self._init(metainterp.staticdata, storage)
         self.deadframe = deadframe
         self.metainterp = metainterp
         self.liveboxes = [None] * self.count
@@ -1325,13 +1330,14 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
                               deadframe, all_virtuals=None):
     # The initialization is stack-critical code: it must not be interrupted by
     # StackOverflow, otherwise the jit_virtual_refs are left in a dangling state.
+    metainterp_sd = blackholeinterpbuilder.metainterp_sd
     rstack._stack_criticalcode_start()
     try:
-        resumereader = ResumeDataDirectReader(blackholeinterpbuilder.metainterp_sd,
+        resumereader = ResumeDataDirectReader(metainterp_sd,
                                               storage, deadframe, all_virtuals)
         vinfo = jitdriver_sd.virtualizable_info
         ginfo = jitdriver_sd.greenfield_info
-        vrefinfo = blackholeinterpbuilder.metainterp_sd.virtualref_info
+        vrefinfo = metainterp_sd.virtualref_info
         resumereader.consume_vref_and_vable(vrefinfo, vinfo, ginfo)
     finally:
         rstack._stack_criticalcode_stop()
@@ -1371,7 +1377,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     #             2: resuming from the GUARD_NOT_FORCED
 
     def __init__(self, metainterp_sd, storage, deadframe, all_virtuals=None):
-        self._init(metainterp_sd.cpu, storage)
+        self._init(metainterp_sd, storage)
         self.deadframe = deadframe
         self.callinfocollection = metainterp_sd.callinfocollection
         if all_virtuals is None:        # common case

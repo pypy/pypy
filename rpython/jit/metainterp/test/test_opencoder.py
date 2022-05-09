@@ -35,7 +35,7 @@ class FakeFrame(object):
         self.jitcode = jitcode
         self.boxes = boxes
 
-    def get_list_of_active_boxes(self, flag, new_array, encode):
+    def get_list_of_active_boxes(self, flag, new_array, encode, after_residual_call=False):
         a = new_array(len(self.boxes))
         for i, box in enumerate(self.boxes):
             a[i] = encode(box)
