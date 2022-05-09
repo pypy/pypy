@@ -21,7 +21,7 @@ from pypy.module.cpyext.pyobject import (
     make_typedescr, get_typedescr, as_pyobj, pyobj_has_w_obj, BaseCpyTypedescr)
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import (
-    CodecState, latin_1_decode, utf_16_decode, utf_32_decode, code_page_encode)
+    CodecState, latin_1_decode, utf_16_decode, utf_32_decode)
 from pypy.objspace.std import unicodeobject
 from rpython.rlib.debug import fatalerror
 import sys
@@ -1013,6 +1013,7 @@ make_conversion_functions('UTF32', 'utf-32', only_for_asstring=True)
 make_conversion_functions('ASCII', 'ascii')
 make_conversion_functions('Latin1', 'latin-1')
 if sys.platform == 'win32':
+    from pypy.module._codecs.interp_codecs import code_page_encode
     make_conversion_functions('MBCS', 'mbcs')
     @cpython_api([rffi.INT_real, PyObject, CONST_STRING], PyObject)
     def PyUnicode_EncodeCodePage(space, code_page, w_obj, errors):
