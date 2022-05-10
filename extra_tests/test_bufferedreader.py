@@ -102,7 +102,12 @@ def test_stateful(params, chunk_size, StreamCls):
 def test_buffered_reader_concurrency_bug():
     import subprocess
     import threading
-    process=subprocess.Popen("true", stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+    import sys
+    if sys.platform == 'win32':
+        cmd = "cmd /c color"
+    else:
+        cmd = "true"
+    process=subprocess.Popen(cmd, stdin=subprocess.PIPE,stdout=subprocess.PIPE)
     threading.Timer(1, process.communicate).start()
     while 1:
         try:
