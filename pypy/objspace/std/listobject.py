@@ -2180,21 +2180,6 @@ class IntOrFloatSort(IntOrFloatBaseTimSort):
         return fa < fb
 
 
-class CustomCompareSort(SimpleSort):
-    def lt(self, a, b):
-        space = self.space
-        w_cmp = self.w_cmp
-        w_result = space.call_function(w_cmp, a, b)
-        try:
-            result = space.int_w(w_result)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                raise oefmt(space.w_TypeError,
-                            "comparison function must return int")
-            raise
-        return result < 0
-
-
 class CustomKeySort(SimpleSort):
     def lt(self, a, b):
         assert isinstance(a, KeyContainer)
