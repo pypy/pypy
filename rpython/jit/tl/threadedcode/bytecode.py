@@ -85,6 +85,7 @@ class Bytecode(object):
 
     def __init__(self, code):
         self.code = code
+        self.counts = [0] * len(code)
 
     def __len__(self):
         return len(self.code)
@@ -92,8 +93,8 @@ class Bytecode(object):
     def __getitem__(self, i):
         return self.code[i]
 
-    def __setitem__(self, i, w_x):
-        self.code[i] = w_x
+    def __setitem__(self, i, v):
+        self.code[i] = v
 
     def dump(self):
         lines = []
@@ -113,7 +114,6 @@ class Bytecode(object):
             i += 1
 
         return '\n'.join(lines)
-
 
 def assemble(mylist):
     return ''.join([chr(x) for x in mylist])
