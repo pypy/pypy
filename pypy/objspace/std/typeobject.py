@@ -130,6 +130,10 @@ class Layout(object):
         return (self.typedef, self.newslotnames, self.base_layout,
                 hasdict, weakrefable)
 
+    def __repr__(self):
+        # for debugging
+        return "Layout(%s, %s, %s, %s)" % (self.typedef, self.nslots, self.newslotnames, self.base_layout)
+
 
 # possible values of compares_by_identity_status
 UNKNOWN = 0

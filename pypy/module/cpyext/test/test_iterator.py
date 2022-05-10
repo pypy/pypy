@@ -25,6 +25,12 @@ class TestIterator(BaseApiTest):
         assert excinfo.value.w_type is space.w_TypeError
 
 
+    def test_reversed(self, space, api):
+        arg = space.wrap([1, 2, 3])
+        rev = api.PyObject_Call(api.PyReversed_Type, space.newtuple([arg]), None)
+        app_rev = [space.int_w(x) for x in space.listview(rev)]
+        assert app_rev == [3, 2, 1]
+
 class AppTestIterator(AppTestCpythonExtensionBase):
     def test_noniterable_object_with_mapping_interface(self):
         module = self.import_extension('foo', [

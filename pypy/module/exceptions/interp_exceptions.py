@@ -456,6 +456,7 @@ W_KeyError.typedef = TypeDef(
     __new__ = _new(W_KeyError),
     __str__ = interp2app(W_KeyError.key_error_str),
 )
+W_KeyError.typedef.applevel_subclasses_base = W_LookupError.typedef.applevel_subclasses_base
 
 
 class W_StopIteration(W_Exception):
