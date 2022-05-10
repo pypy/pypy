@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rrandom import Random
 
 from rpython.jit.tl.threadedcode.traverse_stack import TStack, t_empty, t_push
-from rpython.jit.tl.threadedcode.tlib import emit_jump, emit_ret, Counter
+from rpython.jit.tl.threadedcode.tlib import emit_jump, emit_ret
 from rpython.jit.tl.threadedcode.object import W_Object, W_IntObject, \
     W_FloatObject, W_StringObject, W_ListObject, OperationError
 from rpython.jit.tl.threadedcode.bytecode import *
