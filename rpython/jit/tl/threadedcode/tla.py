@@ -6,9 +6,10 @@ from rpython.rlib.jit import JitDriver, we_are_jitted, hint
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rrandom import Random
 
-from rpython.jit.tl.threadedcode.traverse_stack import *
-from rpython.jit.tl.threadedcode.tlib import *
-from rpython.jit.tl.threadedcode.object import *
+from rpython.jit.tl.threadedcode.traverse_stack import TStack, t_empty, t_push
+from rpython.jit.tl.threadedcode.tlib import emit_jump, emit_ret, Counter
+from rpython.jit.tl.threadedcode.object import W_Object, W_IntObject, \
+    W_FloatObject, W_StringObject, W_ListObject, OperationError
 from rpython.jit.tl.threadedcode.bytecode import *
 
 def get_printable_location_tier1(pc, call_entry, bytecode, tstack):
@@ -811,21 +812,22 @@ class Frame(object):
             elif opcode == FLOAT_TO_INT:
                 self._FLOAT_TO_INT()
 
-            elif opcode == CALL or opcode == CALL_ASSEMBLER or opcode == CALL_N:
-
-                if opcode == CALL_N:
-                    t = _construct_value(bytecode, pc)
-                    argnum = ord(bytecode[pc + 4])
-                    pc += 5
-                else:
-                    t = ord(bytecode[pc])
-                    argnum = ord(bytecode[pc + 1])
-                    pc += 2
+            elif opcode == CALL_ASSEMBLER:
+                t = ord(bytecode[pc])
+                argnum = ord(bytecode[pc + 1])
+                pc += 2
 
                 # create a new frame
                 frame = self.copy_frame(argnum, pc)
-                # if t < pc:
-                #     tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=frame)
+                frame._CALL(self, t, argnum)
+
+            elif opcode == CALL_N:
+                t = _construct_value(bytecode, pc)
+                argnum = ord(bytecode[pc + 4])
+                pc += 5
+
+                # create a new frame
+                frame = self.copy_frame(argnum, pc)
                 frame._CALL(self, t, argnum)
 
             elif opcode == RET:
@@ -845,6 +847,16 @@ class Frame(object):
             elif opcode == JUMP_IF:
                 t = ord(bytecode[pc])
                 pc += 1
+
+                if self._is_true():
+                    if t < pc:
+                        tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=self)
+                    pc = t
+
+            elif opcode == JUMP_IF_N:
+                t = _construct_value(bytecode, pc)
+                pc += 4
+
                 if self._is_true():
                     if t < pc:
                         tier2driver.can_enter_jit(bytecode=bytecode, pc=t, self=self)
@@ -1021,12 +1033,6 @@ class Frame(object):
                 else:
                     self.STORE(dummy=False)
 
-            elif opcode == RAND_INT:
-                if we_are_jitted():
-                    self.RAND_INT(dummy=True)
-                else:
-                    self.RAND_INT(dummy=False)
-
             elif opcode == SIN:
                 if we_are_jitted():
                     self.SIN(dummy=True)
@@ -1069,16 +1075,10 @@ class Frame(object):
                 else:
                     self.FLOAT_TO_INT(dummy=False)
 
-            elif opcode == CALL or opcode == CALL_N:
-
-                if opcode == CALL_N:
-                    t = _construct_value(bytecode, pc)
-                    argnum = ord(bytecode[pc + 4])
-                    pc += 5
-                else:
-                    t = ord(bytecode[pc])
-                    argnum = ord(bytecode[pc + 1])
-                    pc += 2
+            elif opcode == CALL:
+                t = _construct_value(bytecode, pc)
+                argnum = ord(bytecode[pc + 1])
+                pc += 2
 
                 # create a new frame
                 frame = self.copy_frame(argnum, pc)
@@ -1088,9 +1088,26 @@ class Frame(object):
                 else:
                     call_entry = t
                     if t < pc:
-                        tier1driver.can_enter_jit(bytecode=bytecode,
-                                                  call_entry=t,
-                                                  pc=t, tstack=tstack, self=frame)
+                        tier1driver.can_enter_jit(
+                            bytecode=bytecode, call_entry=t, pc=t, tstack=tstack, self=frame)
+                    frame.CALL(self, t, argnum, dummy=False)
+
+            elif opcode == CALL_N:
+
+                t = _construct_value(bytecode, pc)
+                argnum = ord(bytecode[pc + 4])
+                pc += 5
+
+                # create a new frame
+                frame = self.copy_frame(argnum, pc)
+
+                if we_are_jitted():
+                    frame.CALL(self, t, argnum, dummy=True)
+                else:
+                    call_entry = t
+                    if t < pc:
+                        tier1driver.can_enter_jit(
+                            bytecode=bytecode, call_entry=t, pc=t, tstack=tstack, self=frame)
                     frame.CALL(self, t, argnum, dummy=False)
 
             elif opcode == CALL_ASSEMBLER:
@@ -1102,14 +1119,12 @@ class Frame(object):
                 frame = self.copy_frame(argnum, pc)
 
                 if we_are_jitted():
-                    # resursive call hack
                     frame.CALL_ASSEMBLER(self, t, argnum, bytecode, t_empty(), dummy=True)
                 else:
                     call_entry = t
                     if t < pc:
-                        tier1driver.can_enter_jit(bytecode=bytecode,
-                                                  call_entry=t,
-                                                  pc=t, tstack=tstack, self=frame)
+                        tier1driver.can_enter_jit(
+                            bytecode=bytecode, call_entry=t, pc=t, tstack=tstack, self=frame)
                     frame.CALL_ASSEMBLER(self, t, argnum, bytecode, t_empty(), dummy=False)
 
             elif opcode == RET:
@@ -1129,21 +1144,16 @@ class Frame(object):
                 else:
                     return self.RET(argnum, dummy=False)
 
-            elif opcode == JUMP or opcode == JUMP_N:
+            elif opcode == JUMP:
+                t = ord(bytecode[pc])
 
-                if opcode == JUMP_N:
-                    t = _construct_value(bytecode, pc)
-                    pc += 4
-                else:
-                    t = ord(bytecode[pc])
-                    pc += 1
+                pc += 1
 
                 if we_are_jitted():
                     if tstack.t_is_empty():
                         if t < pc:
-                            tier1driver.can_enter_jit(bytecode=bytecode,
-                                                      call_entry=call_entry,
-                                                      pc=t, tstack=tstack, self=self)
+                            tier1driver.can_enter_jit(
+                                bytecode=bytecode, call_entry=call_entry, pc=t, tstack=tstack, self=self)
                         pc = t
                     else:
                         pc, tstack = tstack.t_pop()
@@ -1152,20 +1162,34 @@ class Frame(object):
                         pc = emit_jump(pc, t)
                 else:
                     if t < pc:
-                        tier1driver.can_enter_jit(bytecode=bytecode,
-                                                  call_entry=call_entry,
-                                                  pc=t, tstack=tstack, self=self)
+                        tier1driver.can_enter_jit(
+                            bytecode=bytecode, call_entry=call_entry, pc=t, tstack=tstack, self=self)
                     pc = t
 
-            elif opcode == JUMP_IF or opcode == JUMP_IF_N:
+            elif opcode == JUMP_N:
+                t = _construct_value(bytecode, pc)
+                pc += 4
 
-                if opcode == JUMP_IF_N:
-                    target = _construct_value(bytecode, pc)
-                    pc += 4
+                if we_are_jitted():
+                    if tstack.t_is_empty():
+                        if t < pc:
+                            tier1driver.can_enter_jit(
+                                bytecode=bytecode, call_entry=call_entry, pc=t, tstack=tstack, self=self)
+                        pc = t
+                    else:
+                        pc, tstack = tstack.t_pop()
 
+                    if t < pc:
+                        pc = emit_jump(pc, t)
                 else:
-                    target = ord(bytecode[pc])
-                    pc += 1
+                    if t < pc:
+                        tier1driver.can_enter_jit(
+                            bytecode=bytecode, call_entry=call_entry, pc=t, tstack=tstack, self=self)
+                    pc = t
+
+            elif opcode == JUMP_IF:
+                target = ord(bytecode[pc])
+                pc += 1
 
                 if we_are_jitted():
                     if self.is_true(dummy=True):
@@ -1177,9 +1201,26 @@ class Frame(object):
                     if self.is_true(dummy=False):
                         if target < pc:
                             call_entry = target
-                            tier1driver.can_enter_jit(bytecode=bytecode,
-                                                      call_entry=call_entry,
-                                                      pc=target, tstack=tstack, self=self)
+                            tier1driver.can_enter_jit(
+                                bytecode=bytecode, call_entry=call_entry, pc=target, tstack=tstack, self=self)
+                        pc = target
+
+            elif opcode == JUMP_IF_N:
+                target = _construct_value(bytecode, pc)
+                pc += 4
+
+                if we_are_jitted():
+                    if self.is_true(dummy=True):
+                        tstack = t_push(pc, tstack)
+                        pc = target
+                    else:
+                        tstack = t_push(target, tstack)
+                else:
+                    if self.is_true(dummy=False):
+                        if target < pc:
+                            call_entry = target
+                            tier1driver.can_enter_jit(
+                                bytecode=bytecode, call_entry=call_entry, pc=target, tstack=tstack, self=self)
                         pc = target
 
             elif opcode == EXIT:
