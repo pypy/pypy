@@ -1,7 +1,7 @@
 from rpython.jit.tl.threadedcode import tla
 
 code = [
-    tla.CONST_INT, 12,
+    tla.CONST_INT, 10,
     tla.CONST_INT, 5,
     tla.CONST_INT, 3,
     tla.DUPN, 2,

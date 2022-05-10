@@ -164,6 +164,16 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 
 class TestLLType(LLJitMixin):
 
+    def test_jit_loop(self):
+        code = read_code('../lang/loop.tla.py')
+        def interp_w(intvalue):
+            w_result = interp(code, W_IntObject(intvalue))
+            assert isinstance(w_result, W_IntObject)
+            return w_result.intvalue
+
+        res = self.meta_interp(interp_w, [100])
+        assert res == 0
+
     def test_jit_sum(self):
         code = read_code('../lang/sum.tla.py')
         def interp_w(intvalue):
@@ -171,7 +181,7 @@ class TestLLType(LLJitMixin):
             assert isinstance(w_result, W_IntObject)
             return w_result.intvalue
 
-        res = self.meta_interp(interp_w, [1])
+        res = self.meta_interp(interp_w, [10])
         assert res == 55
 
     def test_jit_fib(self):
@@ -181,7 +191,7 @@ class TestLLType(LLJitMixin):
             assert isinstance(w_result, W_IntObject)
             return w_result.intvalue
 
-        res = self.meta_interp(interp_w, [1])
+        res = self.meta_interp(interp_w, [7])
         assert res == 8
 
     def test_jit_tak(self):
