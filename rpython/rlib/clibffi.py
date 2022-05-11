@@ -318,6 +318,9 @@ VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
 c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, FFI_ABI, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
+c_ffi_closure_alloc = external('ffi_closure_alloc', [rffi.SIZE_T, rffi.VOIDPP],
+                               rffi.VOIDP, _nowrapper=True)
+c_ffi_closure_free = external('ffi_closure_free', [rffi.VOIDP], lltype.Void, _nowrapper=True)
 if 0 and _MSVC:
     c_ffi_call_return_type = rffi.INT
 else:
@@ -329,7 +332,7 @@ c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
 CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure_loc = external('ffi_prep_closure_loc', [FFI_CLOSUREP, FFI_CIFP,
-                                                       CALLBACK_TP, rffi.VOIDP, FFI_CLOSUREP],
+                                                       CALLBACK_TP, rffi.VOIDP, rffi.VOIDP],
                               rffi.INT)
 
 FFI_STRUCT_P = lltype.Ptr(lltype.Struct('FFI_STRUCT',
@@ -432,39 +435,6 @@ class StackCheckError(ValueError):
 class LibFFIError(Exception):
     pass
 
-CHUNK = 4096
-CLOSURES = rffi.CArrayPtr(FFI_CLOSUREP.TO)
-
-class ClosureHeap(object):
-
-    def __init__(self):
-        self.free_list = lltype.nullptr(rffi.VOIDP.TO)
-
-    def _more(self):
-        chunk = rffi.cast(CLOSURES, alloc(CHUNK))
-        count = CHUNK//rffi.sizeof(FFI_CLOSUREP.TO)
-        for i in range(count):
-            rffi.cast(rffi.VOIDPP, chunk)[0] = self.free_list
-            self.free_list = rffi.cast(rffi.VOIDP, chunk)
-            chunk = rffi.ptradd(chunk, 1)
-
-    def alloc(self):
-        write_protect(0)
-        if not self.free_list:
-            self._more()
-        p = self.free_list
-        self.free_list = rffi.cast(rffi.VOIDPP, p)[0]
-        write_protect(1)
-        return rffi.cast(FFI_CLOSUREP, p)
-
-    def free(self, p):
-        write_protect(0)
-        rffi.cast(rffi.VOIDPP, p)[0] = self.free_list
-        self.free_list = rffi.cast(rffi.VOIDP, p)
-        write_protect(1)
-
-closureHeap = ClosureHeap()
-
 FUNCFLAG_STDCALL   = 0    # on Windows: for WINAPI calls
 FUNCFLAG_CDECL     = 1    # on Windows: for __cdecl calls
 FUNCFLAG_PYTHONAPI = 4
@@ -533,24 +503,25 @@ class CallbackFuncPtr(AbstractFuncPtr):
     def __init__(self, argtypes, restype, func, additional_arg=0,
                  flags=FUNCFLAG_CDECL):
         AbstractFuncPtr.__init__(self, "callback", argtypes, restype, flags)
-        self.ll_closure = closureHeap.alloc()
+        self.ll_code = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
+        self.ll_closure = rffi.cast(FFI_CLOSUREP,
+            c_ffi_closure_alloc(rffi.sizeof(FFI_CLOSUREP.TO), self.ll_code))
         self.ll_userdata = lltype.malloc(USERDATA_P.TO, flavor='raw',
                                          track_allocation=False)
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
         self.ll_userdata.addarg = additional_arg
-        write_protect(0)
         res = c_ffi_prep_closure_loc(self.ll_closure, self.ll_cif,
                                  ll_callback, rffi.cast(rffi.VOIDP,
                                                         self.ll_userdata),
-                                 self.ll_closure)
-        write_protect(1)
+                                 self.ll_code[0])
         if not res == FFI_OK:
             raise LibFFIError
 
     def __del__(self):
         AbstractFuncPtr.__del__(self)
         if self.ll_closure:
-            closureHeap.free(self.ll_closure)
+            c_ffi_closure_free(self.ll_closure)
+            lltype.free(self.ll_code, flavor='raw')
             self.ll_closure = lltype.nullptr(FFI_CLOSUREP.TO)
         if self.ll_userdata:
             lltype.free(self.ll_userdata, flavor='raw', track_allocation=False)
