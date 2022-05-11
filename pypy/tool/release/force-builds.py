@@ -69,6 +69,8 @@ def main(options):
 
     if options.minimal:
         builders = JIT_BUILDERS
+    elif options.branch.startswith('release'):
+        builders = OWN_BUILDERS + JIT_BUILDERS
     else:
         builders = RPYTHON_BUILDERS + OWN_BUILDERS + JIT_BUILDERS
 
