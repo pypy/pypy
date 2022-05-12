@@ -617,7 +617,6 @@ class ObjSpace(object):
         self.install_mixedmodule('imp')
         self.sys = self.install_mixedmodule('sys')
         self.builtin = self.install_mixedmodule('__builtin__')
-        self.setitem(self.builtin.w_dict, self.newtext('__builtins__'), self.builtin)
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         exception_types_w = self.export_builtin_exceptions()
