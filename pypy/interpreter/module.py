@@ -44,6 +44,10 @@ class Module(W_Root):
     def install(self):
         """installs this module into space.builtin_modules"""
         modulename = self.space.text0_w(self.w_name)
+        if modulename in self.space.builtin_modules:
+            raise ValueError(
+                "duplicate interp-level module enabled for the "
+                "app-level module %r" % (modulename,))
         self.space.builtin_modules[modulename] = self
 
     @not_rpython

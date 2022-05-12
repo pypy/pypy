@@ -169,7 +169,7 @@ class MixedModule(Module):
 @not_rpython
 def getinterpevalloader(pkgroot, spec):
     def ifileloader(space):
-        d = {'space':space}
+        d = {'space': space}
         # EVIL HACK (but it works, and this is not RPython :-)
         while 1:
             try:

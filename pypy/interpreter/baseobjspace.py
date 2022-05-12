@@ -632,7 +632,7 @@ class ObjSpace(object):
         from pypy.module.__builtin__.moduledef import Module
         w_name = self.newtext('__builtin__')
         self.builtin = Module(self, w_name)
-        w_builtin = self.wrap(self.builtin)
+        w_builtin = self.builtin
         w_builtin.install()
         self.setitem(self.builtin.w_dict, self.newtext('__builtins__'), w_builtin)
 
@@ -650,15 +650,15 @@ class ObjSpace(object):
         # install mixed modules
         for mixedname in self.get_builtinmodule_to_install():
             if mixedname not in bootstrap_modules:
-                self.install_mixedmodule(mixedname, installed_builtin_modules)
+                self.install_mixedmodule(mixedname)
 
-        installed_builtin_modules.sort()
         w_builtin_module_names = self.newtuple(
-            [self.wrap(fn) for fn in installed_builtin_modules])
+            [self.newtext(name) for name in sorted(self.builtin_modules)])
 
         # force this value into the dict without unlazyfying everything
         self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
                      w_builtin_module_names)
+
 
     def get_builtin_types(self):
         """Get a dictionary mapping the names of builtin types to the type
@@ -680,13 +680,8 @@ class ObjSpace(object):
         return exc_types_w
 
     @not_rpython
-    def install_mixedmodule(self, mixedname, installed_builtin_modules):
-        modname = self.setbuiltinmodule(mixedname)
-        if modname:
-            assert modname not in installed_builtin_modules, (
-                "duplicate interp-level module enabled for the "
-                "app-level module %r" % (modname,))
-            installed_builtin_modules.append(modname)
+    def install_mixedmodule(self, mixedname):
+        self.setbuiltinmodule(mixedname)
 
     @not_rpython
     def setup_builtin_modules(self):
