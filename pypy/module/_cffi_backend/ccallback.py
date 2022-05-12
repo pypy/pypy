@@ -205,10 +205,9 @@ class W_CDataCallback(W_ExternPython):
 
     def __init__(self, space, ctype, w_callable, w_error, w_onerror):
         raw_code = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
-        raw_closure = rffi.cast(rffi.CCHARP,
-            clibffi.c_ffi_closure_alloc(rffi.sizeof(clibffi.FFI_CLOSUREP.TO), raw_code))
+        raw_closure = clibffi.c_ffi_closure_alloc(rffi.cast(rffi.SIZE_T, rffi.sizeof(clibffi.FFI_CLOSUREP.TO)), raw_code)
         self._closure = Closure(raw_closure, raw_code)
-        W_ExternPython.__init__(self, space, raw_closure, ctype,
+        W_ExternPython.__init__(self, space, rffi.cast(rffi.CCHARP, raw_code[0]), ctype,
                                 w_callable, w_error, w_onerror)
         self.key_pycode = space._try_fetch_pycode(w_callable)
         #
@@ -218,13 +217,11 @@ class W_CDataCallback(W_ExternPython):
                         "%s: callback with unsupported argument or "
                         "return type or with '...'", self.getfunctype().name)
         with self as ptr:
-            closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, ptr)
+            closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, raw_closure)
             unique_id = self.hide_object()
-            rmmap.write_protect(0)
             res = clibffi.c_ffi_prep_closure_loc(closure_ptr, cif_descr.cif,
                                                  invoke_callback,
                                                  unique_id, raw_code[0])
-            rmmap.write_protect(1)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise oefmt(space.w_SystemError,
                         "libffi failed to build this callback")

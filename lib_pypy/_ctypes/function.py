@@ -289,6 +289,7 @@ class CFuncPtr(_CData):
 
     def __call__(self, *args, **kwargs):
         argtypes = self._argtypes_
+        is_variadic_call = False
         if self.callable is not None:
             if len(args) == len(argtypes):
                 pass
@@ -299,9 +300,11 @@ class CFuncPtr(_CData):
                         "This function takes at least %d argument%s (%s given)"
                         % (len(argtypes), plural, len(args)))
                 else:
+                    # For cdecl functions we treat extra arguments as variadic
                     # For cdecl functions, we allow more actual arguments
                     # than the length of the argtypes tuple.
-                    args = args[:len(self._argtypes_)]
+                    is_variadic_call = True
+                    XXX
             else:
                 plural = len(self._argtypes_) > 1 and "s" or ""
                 raise TypeError(

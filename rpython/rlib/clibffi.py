@@ -318,6 +318,8 @@ VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
 c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, FFI_ABI, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
+c_ffi_prep_cif_var = external('ffi_prep_cif_var', [FFI_CIFP, FFI_ABI, rffi.UINT, rffi.UINT,
+                                           FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
 c_ffi_closure_alloc = external('ffi_closure_alloc', [rffi.SIZE_T, rffi.VOIDPP],
                                rffi.VOIDP, _nowrapper=True)
 c_ffi_closure_free = external('ffi_closure_free', [rffi.VOIDP], lltype.Void, _nowrapper=True)
@@ -455,7 +457,7 @@ class AbstractFuncPtr(object):
 
     _immutable_fields_ = ['argtypes', 'restype']
 
-    def __init__(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
+    def __init__(self, name, argtypes, restype, flags=FUNCFLAG_CDECL, variadic_args=0):
         self.name = name
         self.argtypes = argtypes
         self.restype = restype
@@ -477,10 +479,17 @@ class AbstractFuncPtr(object):
                 elif restype.c_size <= 8:
                     restype = ffi_type_sint64
 
-        res = c_ffi_prep_cif(self.ll_cif,
-                             rffi.cast(rffi.USHORT, get_call_conv(flags,False)),
-                             rffi.cast(rffi.UINT, argnum), restype,
-                             self.ll_argtypes)
+        if variadic_args > 0:
+            res = c_ffi_prep_cif_var(self.ll_cif,
+                                     rffi.cast(rffi.USHORT, get_call_conv(flags,False)),
+                                     rffi.cast(rffi.UINT, argnum - variadic_args),
+                                     rffi.cast(rffi.UINT, argnum), restype,
+                                     self.ll_argtypes)
+        else:
+            res = c_ffi_prep_cif(self.ll_cif,
+                                 rffi.cast(rffi.USHORT, get_call_conv(flags,False)),
+                                 rffi.cast(rffi.UINT, argnum), restype,
+                                 self.ll_argtypes)
         if not res == FFI_OK:
             raise LibFFIError
 
@@ -501,11 +510,12 @@ class CallbackFuncPtr(AbstractFuncPtr):
     # additional_arg should really be a non-heap type like a integer,
     # it cannot be any kind of movable gc reference
     def __init__(self, argtypes, restype, func, additional_arg=0,
-                 flags=FUNCFLAG_CDECL):
-        AbstractFuncPtr.__init__(self, "callback", argtypes, restype, flags)
+                 flags=FUNCFLAG_CDECL, variadic_args=0):
+        AbstractFuncPtr.__init__(self, "callback", argtypes, restype, flags,
+                                 variadic_args)
         self.ll_code = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
         self.ll_closure = rffi.cast(FFI_CLOSUREP,
-            c_ffi_closure_alloc(rffi.sizeof(FFI_CLOSUREP.TO), self.ll_code))
+            c_ffi_closure_alloc(rffi.cast(rffi.SIZE_T, rffi.sizeof(FFI_CLOSUREP.TO)), self.ll_code))
         self.ll_userdata = lltype.malloc(USERDATA_P.TO, flavor='raw',
                                          track_allocation=False)
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
@@ -516,6 +526,9 @@ class CallbackFuncPtr(AbstractFuncPtr):
                                  self.ll_code[0])
         if not res == FFI_OK:
             raise LibFFIError
+
+    def get_closure(self):
+        return self.ll_code[0]
 
     def __del__(self):
         AbstractFuncPtr.__del__(self)
@@ -530,8 +543,8 @@ class CallbackFuncPtr(AbstractFuncPtr):
 class RawFuncPtr(AbstractFuncPtr):
 
     def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL,
-                 keepalive=None):
-        AbstractFuncPtr.__init__(self, name, argtypes, restype, flags)
+                 keepalive=None, variadic_args=0):
+        AbstractFuncPtr.__init__(self, name, argtypes, restype, flags, variadic_args)
         self.keepalive = keepalive
         self.funcsym = funcsym
 
@@ -553,9 +566,9 @@ class FuncPtr(AbstractFuncPtr):
     ll_result = lltype.nullptr(rffi.VOIDP.TO)
 
     def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL,
-                 keepalive=None):
+                 keepalive=None, variadic_args=0):
         # initialize each one of pointers with null
-        AbstractFuncPtr.__init__(self, name, argtypes, restype, flags)
+        AbstractFuncPtr.__init__(self, name, argtypes, restype, flags, variadic_args)
         self.keepalive = keepalive
         self.funcsym = funcsym
         self.argnum = len(self.argtypes)
@@ -639,25 +652,25 @@ class RawCDLL(object):
     def __init__(self, handle):
         self.lib = handle
 
-    def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
+    def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL, variadic_args=0):
         # these arguments are already casted to proper ffi
         # structures!
         return FuncPtr(name, argtypes, restype, dlsym(self.lib, name),
-                       flags=flags, keepalive=self)
+                       flags=flags, keepalive=self, variadic_args=variadic_args)
 
-    def getrawpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
+    def getrawpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL, variadic_args=0):
         # these arguments are already casted to proper ffi
         # structures!
         return RawFuncPtr(name, argtypes, restype, dlsym(self.lib, name),
-                          flags=flags, keepalive=self)
+                          flags=flags, keepalive=self, variadic_args=variadic_args)
 
     def getrawpointer_byordinal(self, ordinal, argtypes, restype,
-                                flags=FUNCFLAG_CDECL):
+                                flags=FUNCFLAG_CDECL, variadic_args=0):
         # these arguments are already casted to proper ffi
         # structures!
         return RawFuncPtr(name, argtypes, restype,
                           dlsym_byordinal(self.lib, ordinal), flags=flags,
-                          keepalive=self)
+                          keepalive=self, variadic_args=variadic_args)
 
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
