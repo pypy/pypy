@@ -7,6 +7,8 @@ from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.unicodehelper import wcharpsize2utf8
 from pypy.interpreter.unicodehelper import wrap_unicode_out_of_range_error
+# XXX should be moved
+from pypy.interpreter.astcompiler.misc import dict_to_switch
 
 from rpython.rlib.clibffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -62,6 +64,8 @@ if _MS_WINDOWS:
     TYPEMAP['v'] = ffi_type_sshort
     TYPEMAP_PTR_LETTERS += 'X'
     TYPEMAP_NUMBER_LETTERS += 'v'
+
+TYPEMAP_FUNCTION = dict_to_switch(TYPEMAP)
 
 def size_alignment(ffi_type):
     return intmask(ffi_type.c_size), intmask(ffi_type.c_alignment)
@@ -582,7 +586,7 @@ def _create_new_accessor(func_name, name):
             raise oefmt(space.w_ValueError, "Expecting string of length one")
         tp_letter = tp_letter[0] # fool annotator
         try:
-            return space.newint(intmask(getattr(TYPEMAP[tp_letter], name)))
+            return space.newint(intmask(getattr(TYPEMAP_FUNCTION(tp_letter), name)))
         except KeyError:
             raise oefmt(space.w_ValueError, "Unknown type specification %s",
                         tp_letter)
