@@ -1,3 +1,4 @@
+# encoding: utf-8
 from __future__ import print_function
 # NOTE: run this script with LANG=en_US.UTF-8
 # works with pip install mercurial==3.0
@@ -13,26 +14,26 @@ import mercurial.ui
 ROOT = py.path.local(__file__).join('..', '..', '..', '..')
 author_re = re.compile('(.*) <.*>')
 pair_programming_re = re.compile(r'^\((.*?)\)')
-excluded = set(["pypy", "convert-repo", "hgattic"])
+excluded = set(["pypy", "convert-repo", "hgattic", '"Miss Islington (bot)"'])
 
 alias = {
     'Anders Chrigstrom': ['arre'],
     'Antonio Cuni': ['antocuni', 'anto'],
     'Armin Rigo': ['arigo', 'arfigo', 'armin', 'arigato'],
-    'Maciej Fijalkowski': ['fijal'],
+    'Maciej Fijałkowski': ['fijal', 'Maciej Fijalkowski'],
     'Carl Friedrich Bolz-Tereick': ['Carl Friedrich Bolz', 'cfbolz', 'cf', 'cbolz'],
     'Samuele Pedroni': ['pedronis', 'samuele', 'samule'],
     'Richard Plangger': ['planrich', 'plan_rich'],
     'Remi Meier': ['remi'],
     'Michael Hudson-Doyle': ['mwh', 'Michael Hudson'],
     'Holger Krekel': ['hpk', 'holger krekel', 'holger', 'hufpk'],
-    "Amaury Forgeot d'Arc": ['afa', 'amauryfa@gmail.com'],
+    "Amaury Forgeot d'Arc": ['afa', 'amauryfa@gmail.com', 'amaury'],
     'Alex Gaynor': ['alex', 'agaynor'],
     'David Schneider': ['bivab', 'david'],
     'Christian Tismer': ['chris', 'christian', 'tismer',
                          'tismer@christia-wjtqxl.localdomain'],
     'Benjamin Peterson': ['benjamin'],
-    'Hakan Ardo': ['hakan', 'hakanardo'],
+    'Håkan Ardö': ['hakan', 'hakanardo', 'Hakan Ardo'],
     'Niklaus Haldimann': ['nik'],
     'Alexander Schremmer': ['xoraxax'],
     'Anders Hammarquist': ['iko'],
@@ -42,11 +43,10 @@ alias = {
     'Guido Wesdorp': ['guido'],
     'Michael Foord': ['mfoord'],
     'Mark Pearse': ['mwp'],
-    'Toon Verwaest': ['tverwaes'],
     'Eric van Riet Paap': ['ericvrp'],
     'Jacob Hallen': ['jacob', 'jakob', 'jacob hallen'],
     'Anders Lehmann': ['ale', 'anders'],
-    'Bert Freudenberg': ['bert'],
+    'Vanessa Freudenberg': ['bert', 'Bert Freudenberg'],
     'Boris Feigin': ['boris', 'boria'],
     'Valentino Volonghi': ['valentino', 'dialtone'],
     'Aurelien Campeas': ['aurelien', 'aureliene'],
@@ -62,8 +62,7 @@ alias = {
                     'matthp', 'mattip', 'mattip>'],
     'Michael Cheng': ['mikefc'],
     'Richard Emslie': ['rxe'],
-    'Roberto De Ioris': ['roberto@goyle'],
-    'Roberto De Ioris': ['roberto@mrspurr'],
+    'Roberto De Ioris': ['roberto@goyle','roberto@mrspurr'],
     'Sven Hager': ['hager'],
     'Tomo Cocoa': ['cocoatomo'],
     'Romain Guillebert': ['rguillebert', 'rguillbert', 'romain', 'Guillebert Romain'],
@@ -85,7 +84,7 @@ alias = {
     'Squeaky': ['squeaky'],
     "Dodan Mihai": ['mihai.dodan@gmail.com'],
     'Wim Lavrijsen': ['wlav'],
-    'Toon Verwaest': ['toon', 'tverwaes'],
+    'Toon Verwaest': ['toon', 'tverwaes'],  #
     'Seo Sanghyeon': ['sanxiyn'],
     'Leonardo Santagada': ['santagada'],
     'Laurence Tratt': ['ltratt'],
@@ -95,7 +94,12 @@ alias = {
     'Batuhan Taskaya': ['isidentical'],
     'Ondrej Baranovič': ['nulano'],
     'Brad Kish': ['rtkbkish'],
-    'Michał Górny': ['mgorny']
+    'Michał Górny': ['mgorny'],
+    'David Hewitt': ['davidhewitt'],
+    'Adrian Kuhn': ['akuhn'],
+    'David Malcolm': ['dmalcolm'],
+    'Simon Cross': ['hodgestar'],
+    'Łukasz Langa': ['ambv'],
     }
 
 alias_map = {}
@@ -150,7 +154,7 @@ def main(show_numbers):
 
     # uncomment the next lines to get the list of nicknamed which could not be
     # parsed from commit logs
-    ## items = ignored_nicknames.items()
+    ## items = list(ignored_nicknames.items())
     ## items.sort(key=operator.itemgetter(1), reverse=True)
     ## for name, n in items:
     ##     if show_numbers:

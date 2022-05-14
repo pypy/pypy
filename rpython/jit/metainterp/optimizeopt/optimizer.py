@@ -211,7 +211,6 @@ class Optimizer(Optimization):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
-        self.interned_refs = new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.pendingfields = None # set temporarily to a list, normally by
                                   # heap.py, as we're about to generate a guard
@@ -228,6 +227,8 @@ class Optimizer(Optimization):
         self._really_emitted_operation = None
 
         self._last_guard_op = None
+
+        self.can_replace_guards = True
 
         self.set_optimizations(optimizations)
         self.setup()
@@ -262,7 +263,11 @@ class Optimizer(Optimization):
     def notice_guard_future_condition(self, op):
         self.patchguardop = op
 
+    def cant_replace_guards(self):
+        return CantReplaceGuards(self)
+
     def replace_guard(self, op, value):
+        assert self.can_replace_guards
         assert isinstance(value, info.NonNullPtrInfo)
         if value.last_guard_pos == -1:
             return
@@ -786,3 +791,17 @@ class Optimizer(Optimization):
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)
+
+
+class CantReplaceGuards(object):
+    def __init__(self, optimizer):
+        self.optimizer = optimizer
+
+    def __enter__(self, *args):
+        self.oldval = self.optimizer.can_replace_guards
+        self.optimizer.can_replace_guards = False
+
+    def __exit__(self, *args):
+        self.optimizer.can_replace_guards = self.oldval
+
+

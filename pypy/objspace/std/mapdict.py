@@ -505,16 +505,16 @@ class UnboxedPlainAttribute(PlainAttribute):
         space = self.space
         assert type(w_value) is self.typ
         if type(w_value) is space.IntObjectCls:
-            return longlong2float(space.int_w(w_value))
+            return space.int_w(w_value)
         else:
-            return space.float_w(w_value)
+            return float2longlong(space.float_w(w_value))
 
     def _box(self, val):
         space = self.space
         if self.typ is space.IntObjectCls:
-            return space.newint(float2longlong(val))
+            return space.newint(val)
         else:
-            return space.newfloat(val)
+            return space.newfloat(longlong2float(val))
 
     def _convert_to_boxed(self, obj):
         new_obj = obj._get_mapdict_map().copy(obj)
@@ -1064,6 +1064,25 @@ class MapDictStrategy(DictStrategy):
         w_key = self.space.newtext(key)
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
+
+    def copy(self, w_dict):
+        w_obj = self.unerase(w_dict.dstorage)
+        curr_map = w_obj._get_mapdict_map()
+        attrs = []
+        while True:
+            curr_map = curr_map.search(DICT)
+            if curr_map is None:
+                break
+            attrs.append(curr_map)
+            curr_map = curr_map.back
+
+        strategy = self.space.fromcache(BytesDictStrategy)
+        str_dict = strategy.unerase(strategy.get_empty_storage())
+        while attrs:
+            map = attrs.pop()
+            str_dict[map.name] = map._prim_direct_read(w_obj)
+        return W_DictObject(strategy.space, strategy, strategy.erase(str_dict))
+
 
     # XXX could implement a more efficient w_keys based on space.newlist_bytes
 

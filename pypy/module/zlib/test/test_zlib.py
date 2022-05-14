@@ -93,6 +93,11 @@ class AppTestZlib(object):
         v = self.zlib.crc32('', -1)
         assert v == -1
 
+    def test_crc32_negative_start_bug(self):
+        v1 = self.zlib.crc32(b'ham', 0xffffffff)
+        v2 = self.zlib.crc32(b'ham', -1)
+        assert v1 == v2
+
     def test_crc32_negative_long_start(self):
         v = self.zlib.crc32('', -1L)
         assert v == -1

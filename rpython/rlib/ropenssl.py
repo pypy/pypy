@@ -38,12 +38,14 @@ include_dirs = []
 library_dirs = []
 
 #
-# Work around the fact that since 10.11, OS X no longer ships
-# openssl system-wide, and Homebrew does not install it system-wide.
+# Work around the facts that 
+# - since 10.11, OS X no longer ships openssl system-wide,
+# - Homebrew does not install it system-wide.
+# - on the docker buildbot images, openssl is in /usr/local
 #
 # Make sure your PKG_CONFIG_PATH looks in the right direction, though.
 #
-if sys.platform == 'darwin':
+if sys.platform in ('posix', 'darwin'):
     include_dirs = platform.include_dirs_for_openssl()
     library_dirs = platform.library_dirs_for_openssl()
 
@@ -98,7 +100,7 @@ X509_NAME = rffi.COpaquePtr('X509_NAME')
 X509_VERIFY_PARAM = rffi.COpaquePtr('X509_VERIFY_PARAM')
 stack_st_X509_OBJECT = rffi.COpaquePtr('STACK_OF(X509_OBJECT)')
 DIST_POINT = rffi.COpaquePtr('DIST_POINT')
-stack_st_DIST_POINT = rffi.COpaquePtr('STACK_OF(X509_OBJECT)')
+stack_st_DIST_POINT = rffi.COpaquePtr('STACK_OF(DIST_POINT)')
 DH = rffi.COpaquePtr('DH')
 EC_KEY = rffi.COpaquePtr('EC_KEY')
 AUTHORITY_INFO_ACCESS = rffi.COpaquePtr('AUTHORITY_INFO_ACCESS')

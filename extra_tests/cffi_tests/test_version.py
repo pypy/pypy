@@ -6,10 +6,10 @@ import urllib2
 import cffi
 import pypy
 
-egg_info = py.path.local(pypy.__file__)/'../../lib_pypy/cffi.egg-info/PKG-INFO'
+metadata = py.path.local(pypy.__file__)/'../../lib_pypy/cffi.dist-info/METADATA'
 
-def test_egg_version():
-    info = Parser().parsestr(egg_info.read())
+def test_metadata():
+    info = Parser().parsestr(metadata.read())
     assert info['version'] == cffi.__version__
 
 def test_pycparser_version():

@@ -543,8 +543,8 @@ def get_config_vars(*args):
         # multi-architecture, multi-os-version installers
         if sys.platform == 'darwin':
             import _osx_support
-            #PyPy only - hardcode to 10.7, like in distutils/sysconfig_pypy.py
-            _CONFIG_VARS['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
+            #PyPy only - hardcode to 10.9, like in distutils/sysconfig_pypy.py
+            _CONFIG_VARS['MACOSX_DEPLOYMENT_TARGET'] = '10.9'
             _osx_support.customize_config_vars(_CONFIG_VARS)
 
         # PyPy:

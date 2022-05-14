@@ -216,7 +216,7 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(getarrayitem_gc_i=1)
         res = self.interp_operations(fn, [-7, 1, 1])
         assert res == -7 * 2
-        self.check_operations_history(getarrayitem_gc_i=1)
+        self.check_operations_history(getarrayitem_gc_i=0)
 
     def test_array_caching_float(self):
         a1 = [0.0, 0.0]
@@ -252,7 +252,7 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(getarrayitem_gc_f=1)
         res = self.interp_operations(fn, [-7, 1, 1])
         assert res == (-7 + 0.01) * 2
-        self.check_operations_history(getarrayitem_gc_f=1)
+        self.check_operations_history(getarrayitem_gc_f=0)
 
     def test_array_caching_while_tracing_invalidation(self):
         a1 = [0, 0]

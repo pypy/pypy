@@ -159,6 +159,9 @@ class TestGateway:
             def method_with_unwrap_spec(self, space, x):
                 pass
 
+            def method_with_args(self, space, __args__):
+                pass
+
         class A(BaseA):
             def method(self, space, x):
                 return space.wrap(x + 2)
@@ -169,6 +172,9 @@ class TestGateway:
             def method_with_unwrap_spec(self, space, x):
                 return space.wrap(x + 2)
 
+            def method_with_args(self, space, __args__):
+                return space.wrap(42)
+
         class B(BaseA):
             def method(self, space, x):
                 return space.wrap(x + 1)
@@ -178,6 +184,9 @@ class TestGateway:
 
             def method_with_unwrap_spec(self, space, x):
                 return space.wrap(x + 1)
+
+            def method_with_args(self, space, __args__):
+                return space.wrap(43)
 
         class FakeTypeDef(object):
             rawdict = {}
@@ -211,6 +220,17 @@ class TestGateway:
             BaseA.method_with_unwrap_spec)
         w_e = space.wrap(meth_with_unwrap_spec)
         assert space.int_w(space.call_function(w_e, w_a, space.wrap(4))) == 4 + 2
+
+        meth_with_args = gateway.interpindirect2app(
+            BaseA.method_with_args)
+        w_f = space.wrap(meth_with_args)
+        assert space.int_w(space.call_function(w_f, w_a)) == 42
+        assert space.int_w(space.call_function(w_f, w_b,
+                                        space.wrap("ignored"))) == 43
+        # check that the optimization works even though we are using
+        # interpindirect2app:
+        assert isinstance(meth_with_args._code,
+                          gateway.BuiltinCodePassThroughArguments1)
 
     def test_interp2app_unwrap_spec(self):
         space = self.space

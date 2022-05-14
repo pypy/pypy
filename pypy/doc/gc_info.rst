@@ -59,7 +59,7 @@ For a real-world example of usage of this API, you can look at the 3rd-party
 module `pypytools.gc.custom`_, which also provides a ``with customgc.nogc()``
 context manager to mark sections where the GC is forbidden.
 
-.. _`pypytools.gc.custom`: https://bitbucket.org/antocuni/pypytools/src/0273afc3e8bedf0eb1ef630c3bc69e8d9dd661fe/pypytools/gc/custom.py?at=default&fileviewer=file-view-default
+.. _`pypytools.gc.custom`: https://github.com/antocuni/pypytools/blob/master/pypytools/gc/custom.py
 
 
 Fragmentation

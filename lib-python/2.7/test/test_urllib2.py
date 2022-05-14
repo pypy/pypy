@@ -137,6 +137,7 @@ def test_password_manager(self):
     >>> add("Some Realm", "http://example.com/ni", "ni", "ni")
     >>> add("c", "http://example.com/foo", "foo", "ni")
     >>> add("c", "http://example.com/bar", "bar", "nini")
+    >>> add("c", "http://example.com/foo/bar", "foobar", "nibar")
     >>> add("b", "http://example.com/", "first", "blah")
     >>> add("b", "http://example.com/", "second", "spam")
     >>> add("a", "http://example.com", "1", "a")
@@ -158,6 +159,22 @@ def test_password_manager(self):
     ('foo', 'ni')
     >>> mgr.find_user_password("c", "http://example.com/bar")
     ('bar', 'nini')
+    >>> mgr.find_user_password("c", "http://example.com/foo/")
+    ('foo', 'ni')
+    >>> mgr.find_user_password("c", "http://example.com/foo/bar")
+    ('foo', 'ni')
+    >>> mgr.find_user_password("c", "http://example.com/foo/baz")
+    ('foo', 'ni')
+    >>> mgr.find_user_password("c", "http://example.com/foobar")
+    (None, None)
+
+    >>> add("c", "http://example.com/baz/", "baz", "ninini")
+    >>> mgr.find_user_password("c", "http://example.com/baz")
+    (None, None)
+    >>> mgr.find_user_password("c", "http://example.com/baz/")
+    ('baz', 'ninini')
+    >>> mgr.find_user_password("c", "http://example.com/baz/bar")
+    ('baz', 'ninini')
 
     Actually, this is really undefined ATM
 ##     Currently, we use the highest-level path where more than one match:

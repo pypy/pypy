@@ -5,9 +5,9 @@ Contributors
 ::
 
   Armin Rigo
-  Maciej Fijalkowski
-  Carl Friedrich Bolz-Tereick
+  Maciej Fijałkowski
   Matti Picus
+  Carl Friedrich Bolz-Tereick
   Antonio Cuni
   Amaury Forgeot d'Arc
   Ronan Lamy
@@ -21,10 +21,10 @@ Contributors
   David Schneider
   Holger Krekel
   Christian Tismer
-  Hakan Ardo
+  Håkan Ardö
   Benjamin Peterson
-  Anders Chrigstrom
   Wim Lavrijsen
+  Anders Chrigstrom
   Eric van Riet Paap
   Dan Villiom Podlaski Christiansen
   Remi Meier
@@ -33,6 +33,7 @@ Contributors
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
+  Edd Barrett
   Aurelien Campeas
   Niklaus Haldimann
   Camillo Bruni
@@ -51,28 +52,31 @@ Contributors
   Guido Wesdorp
   Lawrence Oluyede
   Bartosz Skowron
-  Daniel Roberts
   Stefano Rivera
+  Daniel Roberts
   Adrien Di Mascio
   Niko Matsakis
   Alexander Hesse
   Ludovic Aubry
+  Batuhan Taskaya
   stian
   Jacob Hallen
   Jason Creighton
   Mark Young
   Andrew Lawrence
   Alex Martelli
-  Spenser Bauman
-  Michal Bendowski
   Ondrej Baranovič
+  Spenser Bauman
+  Yusuke Izawa
+  Michal Bendowski
   Jan de Mooij
   Stefan Beyer
   Tyler Wade
   Vincent Legoll
-  Michael Foord
-  Stephan Diehl
   Simon Cross
+  Michael Foord
+  muke101
+  Stephan Diehl
   Jean-Paul Calderone
   Stefan Schwarzer
   Tomek Meka
@@ -85,10 +89,8 @@ Contributors
   Yannick Jadoul
   Squeaky
   Timo Paulssen
-  Edd Barrett
   Marius Gedminas
   Laurence Tratt
-  Batuhan Taskaya
   Alexandre Fayolle
   Nicolas Truessel
   Simon Burton
@@ -98,12 +100,13 @@ Contributors
   John Witulski
   Jeremy Thurgood
   Julian Berman
+  Adrian Kuhn
   Dario Bertini
   Greg Price
   Ivan Sichmann Freitas
   Mark Pearse
-  Andreas Stührk
   Tobias Pape
+  Andreas Stührk
   Jean-Philippe St. Pierre
   Stian Andreassen
   Guido van Rossum
@@ -115,22 +118,21 @@ Contributors
   Tobias Oberstein
   marky1991
   Boris Feigin
-  Adrian Kuhn
   tav
   Taavi Burns
   Joannah Nanjekye
   Georg Brandl
+  Michał Górny
   quejebo
-  muke101
-  Bert Freudenberg
+  Vanessa Freudenberg
   Gerald Klix
   Wanja Saatkamp
   Mike Blume
+  olliemath
   Oscar Nierstrasz
   Rami Chowdhury
   Stefan H. Muller
   Dodan Mihai
-  Michał Górny
   Tim Felgentreff
   Eugene Oden
   Colin Valliant
@@ -182,6 +184,7 @@ Contributors
   Aaron Iles
   Christian Hudon
   Daniel Patrick
+  Ricky Zhou
   Justas Sadzevicius
   Gasper Zejn
   Neil Shepperd
@@ -200,7 +203,6 @@ Contributors
   Faye Zhao
   Pauli Virtanen
   Mike Pavone
-  Ricky Zhou
   Alan McIntyre
   Alexander Sedov
   Alex Perry
@@ -211,6 +213,8 @@ Contributors
   Reuben Cummings
   Robert Zaremba
   David C Ellis
+  cptpcrd
+  Felix C. Stegerman
   Jens-Uwe Mager
   Dan Stromberg
   Carl Meyer
@@ -231,6 +235,7 @@ Contributors
   Jacek Generowicz
   Sylvain Thenault
   Alejandro J. Cura
+  Roberto De Ioris
   Andrew Dalke
   Gabriel
   Nathan Taylor
@@ -244,7 +249,6 @@ Contributors
   Thomas Hisch
   Barry Hart
   Tomasz Dziopa
-  cptpcrd
   Lutz Paelike
   Ignas Mikalajunas
   Martin Blais
@@ -273,8 +277,9 @@ Contributors
   Miro Hrončok
   Antoine Dupre
   Bernd Schoeller
-  olliemath
   Catalin Fierut
+  nimaje
+  Pierre-Yves DAVID
   Gustavo Niemeyer
   Andrew Thompson
   Joshua Gilbert
@@ -286,8 +291,6 @@ Contributors
   Dan Colish
   Akira Li
   Bobby Impollonia
-  roberto@goyle
-  Roberto De Ioris
   timo
   Anna Katrina Dominguez
   Juan Francisco Cantero Hurtado
@@ -326,12 +329,14 @@ Contributors
   dakarpov@gmail.com
   Sreepathi Pai
   Georges Racinet
-  Bolutife Ogunsola
   ashwinahuja
+  Bolutife Ogunsola
   cjmcdonald@google.com
   Alex Orange
   alexprengere
   Dennis Sweeney
+  Kevin Lee
+  h-vertini
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -423,15 +428,21 @@ Contributors
   paugier
   bernd.schoeller@inf.ethz.ch
   Sam Edwards
-  Ihar Shabes
-  kotus9
-  mark doerr
-  Tomas Hrnciar
   Joannah Nanjekye nanjekyejoannah@gmail.com
   Alex Kashirin
+  Ihar Shabes
+  kotus9
   Mike Kaplinskiy
   Henri Tuhola
+  mark doerr
+  Tomas Hrnciar
   shaolo1
   Chris AtLee
   Christoph Reiter
   Chris Burr
+  Brad Kish
+  Michael Cho
+  Ian Clester
+  David Hewitt
+  h-vetinari
+  Isuru Fernando

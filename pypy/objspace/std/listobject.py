@@ -729,6 +729,7 @@ class W_ListObject(W_Root):
         sorter.w_cmp = w_cmp
 
         try:
+            strategy = self.strategy
             # The list is temporarily made empty, so that mutations performed
             # by comparison functions can't affect the slice of memory we're
             # sorting (allowing mutations during sorting is an IndexError or
@@ -737,10 +738,11 @@ class W_ListObject(W_Root):
 
             # wrap each item in a KeyContainer if needed
             if has_key:
-                for i in range(sorter.listlength):
-                    w_item = sorter.list[i]
-                    w_keyitem = space.call_function(w_key, w_item)
-                    sorter.list[i] = KeyContainer(w_keyitem, w_item)
+                # XXX inefficient for unwrapped strategies:
+                # we wrap the elements twice, once for the key, and once to get
+                # KeyContainers. Then unwrap carefully in the __init__ call below.
+                # Could type-specialize this.
+                _compute_keys_for_sorting(strategy, sorter.list, w_key)
 
             # Reverse sort stability achieved by initially reversing the list,
             # applying a stable forward sort, then reversing the final result.
@@ -771,9 +773,37 @@ class W_ListObject(W_Root):
         if mucked:
             raise oefmt(space.w_ValueError, "list modified during sort")
 
-def get_printable_location(strategy_type, tp):
+def get_printable_location_sortkey(strategy_type, tp):
+    return "_compute_keys_for_sorting [%s, %s]" % (strategy_type, tp.getname(tp.space), )
+
+sortkey_jmp = jit.JitDriver(
+    greens=['strategy_type', 'tp'],
+    reds='auto',
+    name='_compute_keys_for_sorting',
+    get_printable_location=get_printable_location_sortkey)
+
+def _compute_keys_for_sorting(strategy, list_w, w_callable):
+    space = strategy.space
+    i = 0
+    # XXX would like a new API space.greenkey_for_callable here
+    # (also in min/max and map/filter)
+    tp = space.type(w_callable)
+    while i < len(list_w):
+        # bit weird: we have a list_w at this point, but we still specialize on
+        # the strategy to distinguish the cases better
+        sortkey_jmp.jit_merge_point(tp=tp, strategy_type=type(strategy))
+        w_item = list_w[i]
+        w_keyitem = space.call_function(w_callable, w_item)
+        list_w[i] = KeyContainer(w_keyitem, w_item)
+        i += 1
+
+def get_printable_location_find(strategy_type, tp):
     return "list.find [%s, %s]" % (strategy_type, tp.getname(tp.space), )
-find_jmp = jit.JitDriver(greens=['strategy_type', 'tp'], reds='auto', name='list.find', get_printable_location=get_printable_location)
+find_jmp = jit.JitDriver(
+    greens=['strategy_type', 'tp'],
+    reds='auto',
+    name='list.find',
+    get_printable_location=get_printable_location_find)
 
 class ListStrategy(object):
 
@@ -867,10 +897,16 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def extend(self, w_list, w_any):
+        from pypy.objspace.std.tupleobject import W_AbstractTupleObject
         space = self.space
         if type(w_any) is W_ListObject or (isinstance(w_any, W_ListObject) and
                                            space._uses_list_iter(w_any)):
             self._extend_from_list(w_list, w_any)
+        elif (isinstance(w_any, W_AbstractTupleObject) and
+                not w_any.user_overridden_class and
+                w_any.length() < UNROLL_CUTOFF
+        ):
+            self._extend_from_tuple(w_list, w_any.tolist())
         elif space.is_generator(w_any):
             w_any.unpack_into_w(w_list)
         else:
@@ -878,6 +914,18 @@ class ListStrategy(object):
 
     def _extend_from_list(self, w_list, w_other):
         raise NotImplementedError
+
+    @jit.look_inside_iff(lambda self, w_list, tup_w:
+            jit.loop_unrolling_heuristic(tup_w, len(tup_w), UNROLL_CUTOFF))
+    def _extend_from_tuple(self, w_list, tup_w):
+        try:
+            newsize_hint = ovfcheck(w_list.length() + len(tup_w))
+        except OverflowError:
+            pass
+        else:
+            w_list._resize_hint(newsize_hint)
+        for w_element in tup_w:
+            w_list.append(w_element)
 
     def _extend_from_iterable(self, w_list, w_iterable):
         """Extend w_list from a generic iterable"""
@@ -2098,7 +2146,7 @@ class AsciiListStrategy(ListStrategy):
 
     def sort(self, w_list, reverse):
         l = self.unerase(w_list.lstorage)
-        sorter = UnicodeSort(l, len(l))
+        sorter = StringSort(l, len(l))
         sorter.sort()
         if reverse:
             l.reverse()
@@ -2138,7 +2186,6 @@ TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
 FloatBaseTimSort = make_timsort_class()
 IntOrFloatBaseTimSort = make_timsort_class()
-UnicodeBaseTimSort = make_timsort_class()
 
 
 class KeyContainer(W_Root):
@@ -2172,11 +2219,6 @@ class IntOrFloatSort(IntOrFloatBaseTimSort):
         fa = longlong2float.maybe_decode_longlong_as_float(a)
         fb = longlong2float.maybe_decode_longlong_as_float(b)
         return fa < fb
-
-
-class UnicodeSort(UnicodeBaseTimSort):
-    def lt(self, a, b):
-        return a < b
 
 
 class CustomCompareSort(SimpleSort):

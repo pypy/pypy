@@ -113,6 +113,30 @@ class TestExceptionTransform:
         result = f(8)
         assert result == 2
 
+    def test_type_checking_catching_does_no_calls(self):
+        def one(x):
+            if x == 1:
+                raise ValueError()
+            elif x == 2:
+                raise TypeError()
+            return x - 5
+
+        def foo(x):
+            x = one(x)
+            try:
+                x = one(x)
+            except ValueError:
+                return 1 + x
+            except TypeError:
+                return 2 + x
+            except:
+                return 3 + x
+            return 4 + x
+        t, g = self.transform_func(foo, [int])
+        s = summary(g)
+        assert s['direct_call'] == 2 # two calls to one, 0 to ll_issubclass
+        assert s['int_between'] == 2 # subclass checks done directly
+
     def test_bare_except(self):
         def one(x):
             if x == 1:

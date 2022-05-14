@@ -17,7 +17,7 @@ from _cffi_backend import __version__
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.14.6", ("This test_c.py file is for testing a version"
+assert __version__ == "1.15.0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):

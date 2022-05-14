@@ -1,3 +1,4 @@
+# encoding: utf-8
 import pytest
 try:
     from hypothesis import given, strategies
@@ -11,7 +12,7 @@ from rpython.rlib import rutf8
 
 from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
-from pypy.interpreter.unicodehelper import utf8_encode_latin_1
+from pypy.interpreter.unicodehelper import utf8_encode_latin_1, str_decode_unicode_escape
 from pypy.interpreter import unicodehelper as uh
 from pypy.module._codecs.interp_codecs import CodecState
 
@@ -104,3 +105,18 @@ def test_latin1_shortcut_bug(space):
 
     sin = u"a\xac\u1234\u20ac\u8000"
     assert utf8_encode_latin_1(sin.encode("utf-8"), "backslashreplace", handler) == sin.encode("latin-1", "backslashreplace")
+
+def test_unicode_escape_incremental_bug(space):
+    class FakeUnicodeDataHandler:
+        def call(self, name):
+            assert name == "QUESTION MARK"
+            return ord("?")
+    unicodedata_handler = FakeUnicodeDataHandler()
+    input = u"äҰ𐀂?"
+    data = b'\\xe4\\u04b0\\U00010002\\N{QUESTION MARK}'
+    for i in range(1, len(data)):
+        result1, lgt1, _ = str_decode_unicode_escape(data[:i], 'strict', False, None, unicodedata_handler)
+        result2, lgt2, _ = str_decode_unicode_escape(data[lgt1:i] + data[i:], 'strict', True, None, unicodedata_handler)
+        assert lgt1 + lgt2 == len(data)
+        assert input == (result1 + result2).decode("utf-8")
+

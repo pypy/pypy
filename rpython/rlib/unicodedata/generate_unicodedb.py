@@ -595,6 +595,13 @@ def writeUnicodedata(version, version_tuple, table, outfile, base):
                         " 0x2A700 <= code <= 0x2B734 or"
                         " 0x2B740 <= code <= 0x2CEA1 or"
                         " 0x2CEB0 <= code <= 0x2EBE0)")
+    elif version_tuple == (13, 0, 0):
+        cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
+                        " 0x4E00 <= code <= 0x9FFC or"
+                        " 0x20000 <= code <= 0x2A6D6 or"
+                        " 0x2A700 <= code <= 0x2B734 or"
+                        " 0x2B740 <= code <= 0x2CEA1 or"
+                        " 0x2CEB0 <= code <= 0x2EBE0)")
     else:
         raise ValueError("please look up CJK ranges and fix the script, e.g. here: https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)")
 

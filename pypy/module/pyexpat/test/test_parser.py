@@ -47,7 +47,8 @@ class AppTestPyexpat:
         import pyexpat
         xml = "\0\r\n"
         parser = pyexpat.ParserCreate()
-        raises(pyexpat.ExpatError, "parser.Parse(xml, True)")
+        exc = raises(pyexpat.ExpatError, "parser.Parse(xml, True)")
+        assert 'unclosed token: line 2, column 0' in exc.value[0]
 
     def test_encoding_argument(self):
         import pyexpat
@@ -129,14 +130,18 @@ class AppTestPyexpat:
         exc = raises(ValueError, p.Parse, xml)
         assert str(exc.value) == "multi-byte encodings are not supported"
 
-    def test_decode_error(self):
+    def test_invalid_error(self):
         xml = '<fran\xe7ais>Comment \xe7a va ? Tr\xe8s bien ?</fran\xe7ais>'
         import pyexpat
         p = pyexpat.ParserCreate()
         def f(*args): pass
         p.StartElementHandler = f
-        exc = raises(UnicodeDecodeError, p.Parse, xml)
-        assert exc.value.start == 4
+        exc = raises((UnicodeDecodeError, pyexpat.ExpatError), p.Parse, xml)
+        if isinstance(exc.value, UnicodeDecodeError):
+            assert exc.value.start == 4
+        else:
+            assert exc.value.offset == 5
+            assert exc.value.lineno == 1
 
     def test_external_entity(self):
         xml = ('<!DOCTYPE doc [\n'

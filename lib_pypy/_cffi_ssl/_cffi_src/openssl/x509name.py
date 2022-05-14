@@ -25,7 +25,7 @@ FUNCTIONS = """
 X509_NAME *X509_NAME_new(void);
 void X509_NAME_free(X509_NAME *);
 
-unsigned long X509_NAME_hash(X509_NAME *);
+// unsigned long X509_NAME_hash(X509_NAME *);
 
 int i2d_X509_NAME(X509_NAME *, unsigned char **);
 int X509_NAME_add_entry_by_txt(X509_NAME *, const char *, int,

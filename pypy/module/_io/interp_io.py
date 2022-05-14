@@ -55,11 +55,11 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
 
     reading = writing = appending = updating = text = binary = universal = False
 
-    uniq_mode = {}
-    for flag in mode:
-        uniq_mode[flag] = None
-    if len(uniq_mode) != len(mode):
-        raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
+    for i in range(1, len(mode)):
+        flag = mode[i]
+        if mode.find(flag, 0, i) != -1:
+            raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
+            
     for flag in mode:
         if flag == "r":
             reading = True

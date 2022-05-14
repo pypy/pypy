@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.typedef import default_identity_hash
+from pypy.interpreter.typedef import default_identity_hash, use_special_method_shortcut
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
 from rpython.rlib.objectmodel import specialize
@@ -103,9 +103,15 @@ class Object(object):
         name = space.text_w(w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
-            if space.is_data_descr(w_descr):
-                space.set(w_descr, w_obj, w_value)
-                return
+            # shortcut for:
+            # if space.is_data_descr(w_descr):
+            #     return space.set(w_descr, w_obj, w_value)
+            w_set = space.lookup(w_descr, '__set__')
+            if w_set is not None:
+                return space.get_and_call_function(w_set, w_descr, w_obj, w_value)
+            if space.lookup(w_descr, '__delete__') is not None:
+                raise oefmt(space.w_AttributeError,
+                            "'%T' object is not a descriptor with set", w_descr)
         if w_obj.setdictvalue(space, name, w_value):
             return
         raiseattrerror(space, w_obj, name, w_descr)
@@ -237,6 +243,8 @@ class DescrOperation(object):
                         w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
+    # would be cool to shortcut this too, but old-style classes return int from
+    # __nonzero__
     def is_true(space, w_obj):
         w_descr = space.lookup(w_obj, "__nonzero__")
         if w_descr is None:
@@ -245,7 +253,7 @@ class DescrOperation(object):
                 return True
             # call __len__
             w_res = space.get_and_call_function(w_descr, w_obj)
-            return space._check_len_result(w_res) != 0
+            return space._check_len_result(space.int(w_res)) != 0
         # call __nonzero__
         w_res = space.get_and_call_function(w_descr, w_obj)
         # more shortcuts for common cases
@@ -268,20 +276,32 @@ class DescrOperation(object):
         else:
             return space.w_False
 
-    def len(space, w_obj):
+    @use_special_method_shortcut('__len__')
+    def _len(space, w_obj):
         w_descr = space.lookup(w_obj, '__len__')
         if w_descr is None:
             raise oefmt(space.w_TypeError, "'%T' has no length", w_obj)
-        w_res = space.get_and_call_function(w_descr, w_obj)
-        return space.newint(space._check_len_result(w_res))
+        return space.get_and_call_function(w_descr, w_obj)
 
-    def _check_len_result(space, w_obj):
+    def len_w(space, w_obj):
+        w_res = space._len(w_obj)
+        return space._check_len_result(space.int(w_res))
+
+    def len(space, w_obj):
+        w_res = space.int(space._len(w_obj))
+        # check for error or overflow
+        space._check_len_result(w_res)
+        return w_res
+
+    def _check_len_result(space, w_int):
         # Will complain if result is too big.
-        result = space.int_w(space.int(w_obj))
+        result = space.int_w(w_int)
         if result < 0:
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
         return result
 
+    @use_special_method_shortcut('__iter__',
+            lambda space, w_iter: space.lookup(w_iter, 'next') is not None)
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
         if w_descr is None:
@@ -297,6 +317,7 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError, "iter() returned non-iterator")
         return w_iter
 
+    @use_special_method_shortcut('next')
     def next(space, w_obj):
         w_descr = space.lookup(w_obj, 'next')
         if w_descr is None:
@@ -304,6 +325,7 @@ class DescrOperation(object):
                         "'%T' object is not an iterator", w_obj)
         return space.get_and_call_function(w_descr, w_obj)
 
+    @use_special_method_shortcut('__getitem__')
     def getitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__getitem__')
         if w_descr is None:
@@ -312,6 +334,7 @@ class DescrOperation(object):
                         w_obj, w_key)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
+    @use_special_method_shortcut('__setitem__')
     def setitem(space, w_obj, w_key, w_val):
         w_descr = space.lookup(w_obj, '__setitem__')
         if w_descr is None:
@@ -319,6 +342,7 @@ class DescrOperation(object):
                         "'%T' object does not support item assignment", w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_key, w_val)
 
+    @use_special_method_shortcut('__delitem__')
     def delitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__delitem__')
         if w_descr is None:
@@ -407,6 +431,8 @@ class DescrOperation(object):
                 return w_res
         return space.pow(w_lhs, w_rhs, space.w_None)
 
+    @use_special_method_shortcut('__contains__',
+            lambda space, w_res: space.is_w(space.type(w_res), space.w_bool))
     def contains(space, w_container, w_item):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
@@ -429,14 +455,15 @@ class DescrOperation(object):
             if space.eq_w(w_item, w_next):
                 return space.w_True
 
-    def hash(space, w_obj):
+    def hash_w(space, w_obj):
+        """compute the unwrapped hash of w_obj"""
         w_hash = space.lookup(w_obj, '__hash__')
         if w_hash is None:
             # xxx there used to be logic about "do we have __eq__ or __cmp__"
             # here, but it does not really make sense, as 'object' has a
             # default __hash__.  This path should only be taken under very
             # obscure circumstances.
-            return default_identity_hash(space, w_obj)
+            return space.int_w(default_identity_hash(space, w_obj))
         if space.is_w(w_hash, space.w_None):
             raise oefmt(space.w_TypeError,
                         "unhashable type: '%T'", w_obj)
@@ -450,11 +477,14 @@ class DescrOperation(object):
             h = bigint.hash()
         else:
             raise oefmt(space.w_TypeError,
-                        "__hash__() should return an int or long")
+                        "__hash__() should return an int or long not '%T'", w_result)
         # turn -1 into -2 without using a condition, which would
         # create a potential bridge in the JIT
         h -= (h == -1)
-        return space.newint(h)
+        return h
+
+    def hash(space, w_obj):
+        return space.newint(space.hash_w(w_obj))
 
     def cmp(space, w_v, w_w):
 
@@ -681,6 +711,40 @@ def old_slice_range(space, w_obj, w_start, w_stop):
                 w_stop = space.add(w_stop, w_length)
     return w_start, w_stop
 
+
+def _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat):
+    w_typ1 = space.type(w_obj1)
+    w_typ2 = space.type(w_obj2)
+    w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
+    if _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
+        w_right_impl = None
+    else:
+        w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
+        # the logic to decide if the reverse operation should be tried
+        # before the direct one is very obscure.  For now, and for
+        # sanity reasons, we just compare the two places where the
+        # __xxx__ and __rxxx__ methods where found by identity.
+        # Note that space.is_w() is potentially not happy if one of them
+        # is None...
+        if w_right_src and (w_left_src is not w_right_src) and w_left_src:
+            # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
+            # see objspace/std/test/test_unicodeobject.*concat_overrides
+            # and objspace/test/test_descrobject.*rmul_overrides.
+            # For cases like "unicode + string subclass".
+            if ((seq_bug_compat and w_typ1.flag_sequence_bug_compat
+                                and not w_typ2.flag_sequence_bug_compat)
+                    # the non-bug-compat part is the following check:
+                    or space.issubtype_w(w_typ2, w_typ1)):
+                if (not space.abstract_issubclass_w(w_left_src, w_right_src) and
+                    not space.abstract_issubclass_w(w_typ1, w_right_src)):
+                    w_obj1, w_obj2 = w_obj2, w_obj1
+                    w_left_impl, w_right_impl = w_right_impl, w_left_impl
+
+    w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
+    if w_res is not None:
+        return w_res
+    return _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
+
 # regular methods def helpers
 
 def _make_binop_impl(symbol, specialnames):
@@ -689,40 +753,30 @@ def _make_binop_impl(symbol, specialnames):
         symbol.replace('%', '%%'),)
     seq_bug_compat = (symbol == '+' or symbol == '*')
 
-    def binop_impl(space, w_obj1, w_obj2):
+    @use_special_method_shortcut(left)
+    def shortcut_binop(space, w_obj1, w_obj2):
+        # makes a few assumptions: if the two rpython types are the same, then
+        # the left and the right implementations are the same too
+        w_impl = space.lookup(w_obj1, left)
+        if w_impl is not None:
+            w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
+            if _check_notimplemented(space, w_res):
+                return w_res
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
-        w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
-        if _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
-            w_right_impl = None
-        else:
-            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
-            # the logic to decide if the reverse operation should be tried
-            # before the direct one is very obscure.  For now, and for
-            # sanity reasons, we just compare the two places where the
-            # __xxx__ and __rxxx__ methods where found by identity.
-            # Note that space.is_w() is potentially not happy if one of them
-            # is None...
-            if w_right_src and (w_left_src is not w_right_src) and w_left_src:
-                # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
-                # see objspace/std/test/test_unicodeobject.*concat_overrides
-                # and objspace/test/test_descrobject.*rmul_overrides.
-                # For cases like "unicode + string subclass".
-                if ((seq_bug_compat and w_typ1.flag_sequence_bug_compat
-                                    and not w_typ2.flag_sequence_bug_compat)
-                        # the non-bug-compat part is the following check:
-                        or space.issubtype_w(w_typ2, w_typ1)):
-                    if (not space.abstract_issubclass_w(w_left_src, w_right_src) and
-                        not space.abstract_issubclass_w(w_typ1, w_right_src)):
-                        w_obj1, w_obj2 = w_obj2, w_obj1
-                        w_left_impl, w_right_impl = w_right_impl, w_left_impl
+        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
 
-        w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
+    def binop_impl(space, w_obj1, w_obj2):
+        # shortcut: rpython classes are the same
+        if type(w_obj1) is type(w_obj2) and not w_obj1.user_overridden_class:
+            w_res = shortcut_binop(space, w_obj1, w_obj2)
+            if _check_notimplemented(space, w_res):
+                return w_res
+        w_res = _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat)
         if w_res is not None:
             return w_res
-        w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
-        if w_res is not None:
-            return w_res
+        w_typ1 = space.type(w_obj1)
+        w_typ2 = space.type(w_obj2)
         raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
 
     return func_with_new_name(binop_impl, "binop_%s_impl"%left.strip('_'))
@@ -730,7 +784,26 @@ def _make_binop_impl(symbol, specialnames):
 def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
+
+    @use_special_method_shortcut(left)
+    def shortcut_comparison(space, w_obj1, w_obj2):
+        # see shortcut_binop
+        w_impl = space.lookup(w_obj1, left)
+        if w_impl is not None:
+            w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
+            if _check_notimplemented(space, w_res):
+                return w_res
+        w_res = _cmp(space, w_obj1, w_obj2, symbol)
+        res = space.int_w(w_res)
+        return space.newbool(op(res, 0))
+
+
     def comparison_impl(space, w_obj1, w_obj2):
+        # shortcut, rpython classes are the same
+        if left == right and type(w_obj1) is type(w_obj2) and not w_obj1.user_overridden_class:
+            w_res = shortcut_comparison(space, w_obj1, w_obj2)
+            if _check_notimplemented(space, w_res):
+                return w_res
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
@@ -776,12 +849,15 @@ def _make_inplace_impl(symbol, specialnames):
         noninplacespacemethod += '_'     # not too clean
     seq_bug_compat = (symbol == '+=' or symbol == '*=')
     rhs_method = '__r' + specialname[3:]
+    lhs_method = '__' + specialname[3:]
+    errormsg = "unsupported operand type(s) for %s: '%%N' and '%%N'" % (
+        symbol.replace('%', '%%'),)
 
     def inplace_impl(space, w_lhs, w_rhs):
         w_impl = space.lookup(w_lhs, specialname)
         if w_impl is not None:
             # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
-            # see objspace/test/test_descrobject.*rmul_overrides.
+            # see objspace/test/apptest_descroperation.*rmul_overrides.
             # For cases like "list += object-overriding-__radd__".
             if (seq_bug_compat and space.type(w_lhs).flag_sequence_bug_compat
                            and not space.type(w_rhs).flag_sequence_bug_compat):
@@ -797,14 +873,22 @@ def _make_inplace_impl(symbol, specialnames):
             w_res = space.get_and_call_function(w_impl, w_lhs, w_rhs)
             if _check_notimplemented(space, w_res):
                 return w_res
-        # XXX fix the error message we get here
-        return getattr(space, noninplacespacemethod)(w_lhs, w_rhs)
+
+        w_res = _call_binop_impl(space, w_lhs, w_rhs, lhs_method,
+                                 rhs_method, seq_bug_compat)
+        if w_res is not None:
+            return w_res
+
+        w_typ1 = space.type(w_lhs)
+        w_typ2 = space.type(w_rhs)
+        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
 
     return func_with_new_name(inplace_impl, 'inplace_%s_impl'%specialname.strip('_'))
 
 def _make_unaryop_impl(symbol, specialnames):
     specialname, = specialnames
     errormsg = "unsupported operand type for unary %s: '%%T'" % symbol
+    @use_special_method_shortcut(specialname)
     def unaryop_impl(space, w_obj):
         w_impl = space.lookup(w_obj, specialname)
         if w_impl is None:
@@ -826,6 +910,8 @@ for targetname, specialname, checkerspec in [
     msg = "unsupported operand type for %(targetname)s(): '%%T'"
     msg = msg % locals()
     source = """if 1:
+        @use_special_method_shortcut(%(specialname)r,
+            lambda space, w_result: %(checker)s)
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
@@ -852,6 +938,9 @@ for targetname, specialname in [
     ('hex', '__hex__')]:
 
     source = """if 1:
+        @use_special_method_shortcut(%(specialname)r,
+            lambda space, w_res: space.isinstance_w(w_res, space.w_text)
+        )
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:

@@ -1425,15 +1425,16 @@ def pipepager(text, cmd):
 
 def tempfilepager(text, cmd):
     """Page through text by invoking a program on a temporary file."""
+    import shutil
     import tempfile
-    filename = tempfile.mktemp()
-    file = open(filename, 'w')
-    file.write(_encode(text))
-    file.close()
+    tempdir = tempfile.mkdtemp()
     try:
+        filename = os.path.join(tempdir, 'pydoc.out')
+        with open(filename, 'w') as file:
+            file.write(_encode(text))
         os.system(cmd + ' "' + filename + '"')
     finally:
-        os.unlink(filename)
+        shutil.rmtree(tempdir)
 
 def ttypager(text):
     """Page through text on a text terminal."""
