@@ -7,15 +7,13 @@ from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.unicodehelper import wcharpsize2utf8
 from pypy.interpreter.unicodehelper import wrap_unicode_out_of_range_error
-# XXX should be moved
-from pypy.interpreter.astcompiler.misc import dict_to_switch
 
 from rpython.rlib.clibffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import rutf8
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, dict_to_switch
 import rpython.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
