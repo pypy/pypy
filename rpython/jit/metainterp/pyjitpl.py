@@ -2370,7 +2370,8 @@ class MetaInterp(object):
             guard_op = self.history.record(opnum, moreargs, None)
         after_residual_call = (opnum == rop.GUARD_EXCEPTION or
                                opnum == rop.GUARD_NO_EXCEPTION or
-                               opnum == rop.GUARD_NOT_FORCED)
+                               opnum == rop.GUARD_NOT_FORCED or
+                               opnum == rop.GUARD_ALWAYS_FAILS)
         self.capture_resumedata(resumepc, after_residual_call)
         # ^^^ records extra to history
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
