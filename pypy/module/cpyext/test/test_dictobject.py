@@ -416,7 +416,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("contains", "METH_VARARGS",
              """
-             PyObject *d, *key, *result;
+             PyObject *d, *key;
              if (!PyArg_ParseTuple(args, "OO", &d, &key)) {
                 return NULL;
              }
