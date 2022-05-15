@@ -6,6 +6,7 @@ from rpython.rtyper.lltypesystem.lltype import typeOf, _ptr, Ptr, ContainerType
 from rpython.rtyper.lltypesystem.lltype import GcOpaqueType
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.memory.lltypelayout import convert_offset_to_int
+from rpython.rtyper.lltypesystem import llgroup
 
 class Info:
     pass
@@ -53,6 +54,7 @@ def values_to_nodes(database, values):
     nodes = []
     for value in values:
         if isinstance(typeOf(value), Ptr):
+            if not hasattr(value, '_obj'): continue
             container = value._obj
             if isinstance(typeOf(container), ContainerType):
                 if isinstance(typeOf(container), GcOpaqueType):
@@ -76,10 +78,15 @@ def guess_size_obj(obj):
             try:
                 length = len(ptr)
             except TypeError:
-                print "couldn't find size of", ptr
-                return 0
+                if TYPE._hints.get("nolength", False) and hasattr(obj, "items"):
+                    length = len(obj.items)
+                else:
+                    print "couldn't find size of", ptr
+                    return 0
     else:
         length = None
+    if type(TYPE) is llgroup.GroupType:
+        return sum(guess_size_obj(m) for m in obj.members)
     #print obj, ', length =', length
     r = convert_offset_to_int(llmemory.sizeof(TYPE, length))
     #print '\tr =', r
@@ -116,7 +123,7 @@ def make_report_static_size(database, nodes, grouper, recursive=None):
     from rpython.rtyper.lltypesystem import lltype
     # sort structs that belongs to user-defined RPython classes first
     def nodekey(node):
-        if isinstance(node.T, lltype.Struct) and node.T._name.startswith('pypy.'):
+        if isinstance(node.getTYPE(), lltype.Struct) and node.getTYPE()._name.startswith('pypy.'):
             return (0, node)
         else:
             return (1, node)
@@ -162,8 +169,7 @@ def aggregate_values_by_module_and_type(database, count_modules_separately=False
         if not graph:
             continue
         nodes_set = modules.setdefault(guess_module(graph) or '<unknown>', set())
-        assert len(node.funcgens) == 1
-        nodes_set.update(values_to_nodes(database, node.funcgens[0].all_cached_consts))
+        nodes_set.update(values_to_nodes(database, node.funcgen.all_cached_consts))
     modules = modules.items()
     # make sure that gc modules are reported latest to avoid them eating all objects
     def gc_module_key(tup):

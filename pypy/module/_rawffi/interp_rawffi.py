@@ -14,7 +14,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import rutf8
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, dict_to_switch
 import rpython.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
@@ -62,6 +62,8 @@ TYPEMAP_FLOAT_LETTERS = "fd" # XXX long doubles are not propperly supported in
 if _MS_WINDOWS:
     TYPEMAP['X'] = ffi_type_pointer
     TYPEMAP_PTR_LETTERS += 'X'
+
+TYPEMAP_FUNCTION = dict_to_switch(TYPEMAP)
 
 def size_alignment(ffi_type):
     return intmask(ffi_type.c_size), intmask(ffi_type.c_alignment)
@@ -583,7 +585,7 @@ def _create_new_accessor(func_name, name):
             raise oefmt(space.w_ValueError, "Expecting string of length one")
         tp_letter = tp_letter[0] # fool annotator
         try:
-            return space.newint(intmask(getattr(TYPEMAP[tp_letter], name)))
+            return space.newint(intmask(getattr(TYPEMAP_FUNCTION(tp_letter), name)))
         except KeyError:
             raise oefmt(space.w_ValueError, "Unknown type specification %s",
                         tp_letter)

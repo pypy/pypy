@@ -211,7 +211,6 @@ class Optimizer(Optimization):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
-        self.interned_refs = new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.pendingfields = None # set temporarily to a list, normally by
                                   # heap.py, as we're about to generate a guard
