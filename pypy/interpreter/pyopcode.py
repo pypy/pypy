@@ -1375,6 +1375,7 @@ class __extend__(pyframe.PyFrame):
         finally:
             self.dropvalues(nargs + 1)
         self.pushvalue(w_result)
+
     @jit.unroll_safe
     def CALL_FUNCTION_KW(self, n_arguments, next_instr):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
