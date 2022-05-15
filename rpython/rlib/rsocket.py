@@ -13,7 +13,7 @@ from rpython.rlib.buffer import LLBuffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import (
     specialize, instantiate, keepalive_until_here)
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint, widen
 from rpython.rlib import rthread, rposix
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
@@ -477,7 +477,7 @@ _FAMILIES = None
 
 def instantiate_family(family):
     for f, cls in UNROLLING_FAMILIES:
-        if f == family:
+        if widen(f) == widen(family):
             return instantiate(cls)
     return instantiate(Address)
 
