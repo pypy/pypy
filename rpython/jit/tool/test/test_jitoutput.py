@@ -60,6 +60,7 @@ abort: compiling:       11
 abort: vable escape:    12
 abort: bad loop:        135
 abort: force quasi-immut: 3
+abort: segmenting trace: 0
 nvirtuals:              13
 nvholes:                14
 nvreused:               15

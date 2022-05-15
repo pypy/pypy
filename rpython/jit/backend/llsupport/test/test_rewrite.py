@@ -1621,3 +1621,15 @@ class TestFramework(RewriteTests):
                       %(cdescr.basesize + 109 * cdescr.itemsize)d,   \
                       %(cdescr.itemsize)d)
         """)
+
+    def test_guard_always_fails(self):
+        self.check_rewrite("""
+        [i1, i2, i3]
+        guard_always_fails(descr=guarddescr) [i1, i2, i3]
+        """, """
+        [i1, i2, i3]
+        i4 = same_as_i(0)
+        guard_value(i4, 1, descr=guarddescr) [i1, i2, i3]
+        """)
+
+

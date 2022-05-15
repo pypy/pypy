@@ -300,6 +300,9 @@ class Trace(BaseTrace):
         self._ops[self._pos] = rffi.cast(model.STORAGE_TP, v)
         self._pos += 1
 
+    def tag_overflow_imminent(self):
+        return self._pos > get_model(self).MAX_VALUE * 0.8
+
     def tracing_done(self):
         from rpython.rlib.debug import debug_start, debug_stop, debug_print
         if self.tag_overflow:
