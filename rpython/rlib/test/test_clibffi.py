@@ -418,14 +418,18 @@ class TestCLibffi(BaseFfiTest):
         c_file.write(py.code.Source('''
         #include "src/precommondefs.h"
         #include <stdarg.h>
+        #include <stdio.h>
         RPY_EXPORTED
         Signed fun(Signed n, ...) {
             va_list ptr;
             int sum = 0;
+            printf("n: %ld\\n", n);
 
             va_start(ptr, n);
-            for (int i = 0; i < n; i++)
+            for (int i = 0; i < n; i++) {
                 sum += va_arg(ptr, Signed);
+                printf("Arg %d: %ld\\n", i, va_arg(ptr, Signed));
+            }
             va_end(ptr);
             return sum;
         }
@@ -447,7 +451,7 @@ class TestCLibffi(BaseFfiTest):
                   rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 2))],
                  rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 3)))
         assert buffer[3] == 3 + 15
-
+        lltype.free(buffer, flavor='raw')
 
 class TestWin32Handles(BaseFfiTest):
     def setup_class(cls):
