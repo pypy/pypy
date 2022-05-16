@@ -427,8 +427,9 @@ class TestCLibffi(BaseFfiTest):
 
             va_start(ptr, n);
             for (int i = 0; i < n; i++) {
-                sum += va_arg(ptr, Signed);
-                printf("Arg %d: %ld\\n", i, va_arg(ptr, Signed));
+                Signed foo = va_arg(ptr, Signed);
+                sum += foo;
+                printf("Arg %d: %ld\\n", i, foo);
             }
             va_end(ptr);
             return sum;
