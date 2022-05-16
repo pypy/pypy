@@ -501,6 +501,16 @@ def _make_ovf2long(opname, ovf2small=None):
 
     return ovf2long
 
+def _bit_length(val):
+    bits = 0
+    if val < 0:
+        # warning, "-val" overflows here
+        val = -((val + 1) >> 1)
+        bits = 1
+    while val:
+        bits += 1
+        val >>= 1
+    return bits
 
 class W_IntObject(W_AbstractIntObject):
 
@@ -611,16 +621,7 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([wrapint(space, self.intval)])
 
     def descr_bit_length(self, space):
-        val = self.intval
-        bits = 0
-        if val < 0:
-            # warning, "-val" overflows here
-            val = -((val + 1) >> 1)
-            bits = 1
-        while val:
-            bits += 1
-            val >>= 1
-        return space.newint(bits)
+        return space.newint(_bit_length(self.intval))
 
     def descr_repr(self, space):
         res = str(self.intval)
