@@ -136,7 +136,11 @@ class NameFetcher:
 def _fetch_names():
     name_fetcher = NameFetcher()
     handle = ffi.new_handle(name_fetcher)
-    lib.EVP_MD_do_all(hash_name_mapper_callback, handle)
+    if lib.OPENSSL_VERSION_NUMBER >= int(0x30000000):
+        lib.EVP_MD_do_all_provided(ffi.cast("OSSL_LIB_CTX*", 0),
+                                   _openssl_hash_name_mapper, handle)
+    else:
+        lib.EVP_MD_do_all(_openssl_hash_name_mapper, handle)
     if name_fetcher.error:
         raise name_fetcher.error
     meth_names = name_fetcher.meth_names
@@ -145,18 +149,29 @@ def _fetch_names():
 
 name_mapping = {
     'blake2s256': 'blake2s',
-    'blake2b512': 'blake2b'
+    'blake2b512': 'blake2b',
+    'shake128': 'shake_128',
+    'shake256': 'shake_256',
     }
     
-@ffi.callback("void(EVP_MD*, const char *, const char *, void*)")
-def hash_name_mapper_callback(evp_md, from_name, to_name, userdata):
+if lib.OPENSSL_VERSION_NUMBER >= int(0x30000000):
+    @ffi.callback("void(EVP_MD*, void*)")
+    def _openssl_hash_name_mapper(evp_md, userdata):
+        return __openssl_hash_name_mapper(evp_md, userdata)
+    
+else:
+    @ffi.callback("void(EVP_MD*, const char *, const char *, void*)")
+    def _openssl_hash_name_mapper(evp_md, from_name, to_name, userdata):
+        return __openssl_hash_name_mapper(evp_md, userdata)
+
+def __openssl_hash_name_mapper(evp_md, userdata):
     if not evp_md:
         return
+    nid = lib.EVP_MD_nid(evp_md)
+    if nid == lib.NID_undef:
+        return
     name_fetcher = ffi.from_handle(userdata)
-    # Ignore aliased names, they pollute the list and OpenSSL appears
-    # to have a its own definition of alias as the resulting list
-    # still contains duplicate and alternate names for several
-    # algorithms.
+    from_name = lib.OBJ_nid2ln(nid)
     lowered = _str_from_buf(from_name).lower().replace('-', '_')
     name = name_mapping.get(lowered, lowered)
     name_fetcher.meth_names.append(name)
