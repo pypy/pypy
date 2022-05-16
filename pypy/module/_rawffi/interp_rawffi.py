@@ -161,8 +161,8 @@ class W_CDLL(W_Root):
         self.w_cache = space.newdict()
         self.space = space
 
-    @unwrap_spec(flags=int)
-    def ptr(self, space, w_name, w_argtypes, w_restype, flags=FUNCFLAG_CDECL):
+    @unwrap_spec(flags=int, variadic_args=int)
+    def ptr(self, space, w_name, w_argtypes, w_restype, flags=FUNCFLAG_CDECL, variadic_args=0):
         """ Get a pointer for function name with provided argtypes
         and restype
         """
@@ -195,7 +195,7 @@ class W_CDLL(W_Root):
 
             try:
                 ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
-                                              flags)
+                                              flags, variadic_args)
             except KeyError:
                 raise oefmt(space.w_AttributeError,
                             "No symbol %s found in library %s",
@@ -207,7 +207,7 @@ class W_CDLL(W_Root):
             ordinal = space.int_w(w_name)
             try:
                 ptr = self.cdll.getrawpointer_byordinal(ordinal, ffi_argtypes,
-                                                        ffi_restype, flags)
+                                                        ffi_restype, flags, variadic_args)
             except KeyError:
                 raise oefmt(space.w_AttributeError,
                             "No symbol %d found in library %s",
