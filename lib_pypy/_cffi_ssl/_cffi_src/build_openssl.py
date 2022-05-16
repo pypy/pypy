@@ -59,6 +59,8 @@ ffi = build_ffi_for_binding(
         # This goes first so we can define some cryptography-wide symbols.
         "cryptography",
 
+        # Provider comes early as well so we define OSSL_LIB_CTX
+        "provider",
         "aes",
         "asn1",
         "bignum",
