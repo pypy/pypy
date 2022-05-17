@@ -62,9 +62,12 @@ def HPyField_Store(space, handles, ctx, h_target, pf, h):
         return
     #
     # real implementation
-    w_obj = handles.deref(h)
-    gcref = rgc.cast_instance_to_gcref(w_obj)
-    pf[0] = rffi.cast(lltype.Signed, gcref)
+    if h == handles.NULL:
+        pf[0] = 0
+    else:
+        w_obj = handles.deref(h)
+        gcref = rgc.cast_instance_to_gcref(w_obj)
+        pf[0] = rffi.cast(lltype.Signed, gcref)
 
 
 @API.func("HPy HPyField_Load(HPyContext *ctx, HPy source_object, HPyField source_field)")

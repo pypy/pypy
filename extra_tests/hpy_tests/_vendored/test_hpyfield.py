@@ -17,7 +17,6 @@ class PairTemplate(DefaultExtensionTemplate):
                 HPyField a;
                 HPyField b;
             } PairObject;
-        
             HPyType_HELPERS(PairObject);
         """
 

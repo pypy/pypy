@@ -106,6 +106,8 @@ CONSTANT_NAMES = unrolling_iterable([name for name, _ in CONSTANTS])
 DUMMY_FUNC = lltype.FuncType([], lltype.Void)
 
 class AbstractHandleManager(object):
+    NULL = 0
+
     def __init__(self, space, ctx, is_debug):
         self.space = space
         self.ctx = ctx
