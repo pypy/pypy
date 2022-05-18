@@ -810,7 +810,7 @@ class __extend__(SomeIterator):
         position = getbookkeeper().position_key
         if s_None.contains(self.s_container):
             return s_ImpossibleValue     # so far
-        if self.variant == ("enumerate",):
+        if self.variant and self.variant[0] == "enumerate":
             s_item = self.s_container.getanyitem(position)
             return SomeTuple((SomeInteger(nonneg=True), s_item))
         variant = self.variant

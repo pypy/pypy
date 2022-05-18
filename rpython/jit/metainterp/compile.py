@@ -214,7 +214,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 # ____________________________________________________________
 
 def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
-                        cut_at):
+                        cut_at, patch_jumpop_at_end=True):
     jitdriver_sd = metainterp.jitdriver_sd
     metainterp_sd = metainterp.staticdata
     jitcell_token = make_jitcell_token(jitdriver_sd)
@@ -233,11 +233,12 @@ def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
     loop.inputargs = loop_info.inputargs
     if loop_info.quasi_immutable_deps:
         loop.quasi_immutable_deps = loop_info.quasi_immutable_deps
-    jump_op = ops[-1]
     target_token = TargetToken(jitcell_token)
     target_token.original_jitcell_token = jitcell_token
     label = ResOperation(rop.LABEL, loop_info.inputargs[:], descr=target_token)
-    jump_op.setdescr(target_token)
+    if patch_jumpop_at_end:
+        jump_op = ops[-1]
+        jump_op.setdescr(target_token)
     loop.operations = [label] + ops
     if not we_are_translated():
         loop.check_consistency()
@@ -713,7 +714,12 @@ class AbstractResumeGuardDescr(ResumeDescr):
         # loop itself may contain temporarily recursion into other
         # jitdrivers.
         from rpython.jit.metainterp.pyjitpl import MetaInterp
-        metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
+        loop_token = self.rd_loop_token.loop_token_wref()
+        force_finish_trace = False
+        if loop_token:
+            force_finish_trace = bool(loop_token.retraced_count & loop_token.FORCE_BRIDGE_SEGMENTING)
+        metainterp = MetaInterp(metainterp_sd, jitdriver_sd,
+                force_finish_trace=force_finish_trace)
         metainterp.handle_guard_failure(self, deadframe)
     _trace_and_compile_from_bridge._dont_inline_ = True
 

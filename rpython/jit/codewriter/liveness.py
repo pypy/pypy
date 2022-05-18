@@ -20,6 +20,7 @@ def compute_liveness(ssarepr):
     label2alive = {}
     while _compute_liveness_must_continue(ssarepr, label2alive):
         pass
+    remove_repeated_live(ssarepr)
 
 def _compute_liveness_must_continue(ssarepr, label2alive):
     alive = set()
@@ -77,3 +78,119 @@ def _compute_liveness_must_continue(ssarepr, label2alive):
                     follow_label(label)
 
     return must_continue
+
+def remove_repeated_live(ssarepr):
+    last_i_pos = None
+    i = 0
+    res = []
+    while i < len(ssarepr.insns):
+        insn = ssarepr.insns[i]
+        if insn[0] != '-live-':
+            res.append(insn)
+            i += 1
+            continue
+        last_i_pos = i
+        i += 1
+        labels = []
+        lives = [insn]
+        # collect lives and labels
+        while i < len(ssarepr.insns):
+            next = ssarepr.insns[i]
+            if next[0] == '-live-':
+                lives.append(next)
+                i += 1
+            elif isinstance(next[0], Label):
+                labels.append(next)
+                i += 1
+            else:
+                break
+        if len(lives) == 1:
+            res.extend(labels)
+            res.append(lives[0])
+            continue
+        liveset = set()
+        for live in lives:
+            liveset.update(live[1:])
+        res.extend(labels)
+        res.append(('-live-', ) + tuple(sorted(liveset)))
+    ssarepr.insns = res
+
+
+# ____________________________________________________________
+# helper functions for compactly encoding and decoding liveness info
+
+# liveness is encoded as a 4 byte offset into the single string all_liveness
+# (which is stored on the metainterp_sd)
+
+OFFSET_SIZE = 2
+
+def encode_offset(pos, code):
+    assert OFFSET_SIZE == 2
+    code.append(chr(pos & 0xff))
+    code.append(chr((pos >> 8) & 0xff))
+    assert (pos >> 16) == 0
+
+def decode_offset(jitcode, pc):
+    assert OFFSET_SIZE == 2
+    return (ord(jitcode[pc]) |
+           (ord(jitcode[pc + 1]) << 8))
+
+
+# within the string of all_liveness, we encode the bitsets of which of the 256
+# registers are live as follows: first three byte with the number of set bits
+# for each of the categories ints, refs, floats followed by the necessary
+# number of bytes to store them (this number of bytes is implicit), for each of
+# the categories
+# | len live_i | len live_r | len live_f
+# | bytes for live_i | bytes for live_r | bytes for live_f
+
+def encode_liveness(live):
+    live = sorted(live) # ints in range(256)
+    liveness = []
+    offset = 0
+    char = 0
+    i = 0
+    while i < len(live):
+        x = ord(live[i])
+        x -= offset
+        if x >= 8:
+            liveness.append(chr(char))
+            char = 0
+            offset += 8
+            continue
+        char |= 1 << x
+        assert 0 <= char < 256
+        i += 1
+    if char:
+        liveness.append(chr(char))
+    return "".join(liveness)
+
+class LivenessIterator(object):
+    def __init__(self, offset, length, all_liveness):
+        self.all_liveness = all_liveness
+        self.offset = offset
+        assert length
+        self.length = length
+        self.curr_byte = 0
+        self.count = 0
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if not self.length:
+            raise StopIteration
+        self.length -= 1
+        count = self.count
+        all_liveness = self.all_liveness
+        curr_byte = self.curr_byte
+        # find next bit set
+        while 1:
+            if (count & 7) == 0:
+                curr_byte = self.curr_byte = ord(all_liveness[self.offset])
+                self.offset += 1
+            if (curr_byte >> (count & 7)) & 1:
+                self.count = count + 1
+                return count
+            count += 1
+

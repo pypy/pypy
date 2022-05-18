@@ -300,6 +300,9 @@ class Trace(BaseTrace):
         self._ops[self._pos] = rffi.cast(model.STORAGE_TP, v)
         self._pos += 1
 
+    def tag_overflow_imminent(self):
+        return self._pos > get_model(self).MAX_VALUE * 0.8
+
     def tracing_done(self):
         from rpython.rlib.debug import debug_start, debug_stop, debug_print
         if self.tag_overflow:
@@ -418,9 +421,10 @@ class Trace(BaseTrace):
     def _encode_cast(self, i):
         return rffi.cast(get_model(self).STORAGE_TP, self._encode(i))
 
-    def create_top_snapshot(self, jitcode, pc, frame, flag, vable_boxes, vref_boxes):
+    def create_top_snapshot(self, jitcode, pc, frame, vable_boxes, vref_boxes, after_residual_call=False):
         self._total_snapshots += 1
-        array = frame.get_list_of_active_boxes(flag, self.new_array, self._encode_cast)
+        array = frame.get_list_of_active_boxes(False, self.new_array, self._encode_cast,
+                after_residual_call=after_residual_call)
         vable_array = self._list_of_boxes(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
         s = TopSnapshot(combine_uint(jitcode.index, pc), array, vable_array,

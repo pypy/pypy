@@ -375,19 +375,51 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
             cache[key] = activation_cls, self.run_args
             return activation_cls
 
+    @staticmethod
     def make_activation(unwrap_spec, func):
         emit = UnwrapSpec_EmitRun()
         emit.apply_over(unwrap_spec)
         activation_uw_cls = emit._make_unwrap_activation_class(unwrap_spec)
-        return activation_uw_cls(func)
-    make_activation = staticmethod(make_activation)
+        return activation_uw_cls(func, unwrap_spec)
+
+
+class UnwrapSpec_EmitShortcut(UnwrapSpec_EmitRun):
+    # emit a special method shortcut. the calling function always has the signature:
+    # def shortcut_meth(self, space, *args_w):
+    #     return underlying_function(...correct args...)
+    # example for 'next':
+    # def shortcut_next(self, space, *args_w):
+    #     return descr_next(self, space)
+
+    def __init__(self, rpy_cls):
+        UnwrapSpecEmit.__init__(self)
+        self.run_args = []
+        self.rpy_cls = rpy_cls
+        self.extraargs = []
+
+    def scopenext(self):
+        x = self.succ()
+        res = "w_%d" % (x - 1, )
+        self.extraargs.append(res)
+        return res
+
+    def visit_self(self, typ):
+        x = self.succ()
+        assert x == 0
+        assert issubclass(self.rpy_cls, typ)
+        self.run_args.append("self") # no need to check, done implicitly
+
+    def visit__W_Root(self, el):
+        if issubclass(self.rpy_cls, el) and self.n == 0:
+            return self.visit_self(el)
+        return UnwrapSpec_EmitRun.visit__W_Root(self, el)
 
 
 class BuiltinActivation(object):
     _immutable_ = True
 
     @not_rpython
-    def __init__(self, behavior):
+    def __init__(self, behavior, unwrap_spec):
         self.behavior = behavior
 
     def _run(self, space, scope_w):
@@ -1017,6 +1049,7 @@ class interp2app(W_Root):
             argnames = self._code._argnames
             defaults = f.func_defaults
             self._staticdefs = zip(argnames[-len(defaults):], defaults)
+        self.self_type = self_type
         return self
 
     @not_rpython
@@ -1073,6 +1106,37 @@ class interp2app(W_Root):
 
     def getcache(self, space):
         return space.fromcache(GatewayCache)
+
+
+    # descroperation shortcut
+    _shortcut = None
+
+    def _make_descroperation_shortcut(self, name, rpy_cls, checkerfunc):
+        if self._shortcut:
+            return self._shortcut
+        emit = UnwrapSpec_EmitShortcut(rpy_cls)
+        emit.apply_over(self._code._unwrap_spec)
+        assert emit.rpy_cls is rpy_cls
+        d = {}
+        f = self._code.activation.behavior
+        d['func'] = f
+        d['checkerfunc'] = checkerfunc
+        d['we_are_translated'] = we_are_translated
+        source = """def shortcut_%s(self, space, %s): # for %s
+                w_res = func(%s)
+                if not we_are_translated():
+                    assert not self.user_overridden_class
+                    if checkerfunc:
+                        assert checkerfunc(space, w_res)
+                if w_res is None:
+                    return space.w_None
+                return w_res
+            """ % (name, ", ".join(emit.extraargs),
+                   rpy_cls, ', '.join(emit.run_args))
+        exec compile2(source) in d
+        shortcut = d['shortcut_%s' % name]
+        self._shortcut = shortcut
+        return shortcut
 
 
 class GatewayCache(SpaceCache):

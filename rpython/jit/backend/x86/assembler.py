@@ -28,7 +28,7 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
     RegLoc, FrameLoc, ConstFloatLoc, ImmedLoc, AddressLoc, imm,
     imm0, imm1, FloatImmedLoc, RawEbpLoc, RawEspLoc)
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, dict_to_switch
 from rpython.jit.backend.x86 import rx86, codebuf, callbuilder
 from rpython.jit.backend.x86.vector_ext import VectorAssemblerMixin
 from rpython.jit.backend.x86.callbuilder import follow_jump
@@ -1226,12 +1226,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def regalloc_perform_llong(self, op, arglocs, resloc):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
-        genop_llong_list[oopspecindex](self, op, arglocs, resloc)
+        genop_llong_list(oopspecindex)(self, op, arglocs, resloc)
 
     def regalloc_perform_math(self, op, arglocs, resloc):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
-        genop_math_list[oopspecindex](self, op, arglocs, resloc)
+        genop_math_list(oopspecindex)(self, op, arglocs, resloc)
 
     def regalloc_perform_guard(self, guard_op, faillocs, arglocs, resloc,
                                frame_depth):
@@ -2719,7 +2719,6 @@ genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
 genop_llong_list = {}
 genop_math_list = {}
-genop_tlref_list = {}
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 import itertools
@@ -2746,6 +2745,9 @@ for name, value in iterate:
         opname = name[len('genop_'):]
         num = getattr(rop, opname.upper())
         genop_list[num] = value
+
+genop_llong_list = dict_to_switch(genop_llong_list)
+genop_math_list = dict_to_switch(genop_math_list)
 
 # XXX: ri386 migration shims:
 def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
