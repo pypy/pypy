@@ -77,7 +77,8 @@ def llexternal(name, args, result, _callable=None,
                _nowrapper=False, calling_conv=None,
                elidable_function=False, macro=None,
                random_effects_on_gcobjs='auto',
-               save_err=RFFI_ERR_NONE):
+               save_err=RFFI_ERR_NONE,
+               natural_arity=-1):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -101,6 +102,9 @@ def llexternal(name, args, result, _callable=None,
                   by the JIT.  If 'c', it can be seen (depending on
                   releasegil=False).  For tests only, or if _nowrapper,
                   it defaults to 'c'.
+
+    natural_arity: on platforms where it matters, you have to provide the natural
+                   arity for variadic calls. Important examples are OS X on M1
     """
     if calling_conv is None:
         if sys.platform == 'win32' and not _nowrapper:
@@ -118,7 +122,8 @@ def llexternal(name, args, result, _callable=None,
                 name, macro, ext_type, compilation_info)
         else:
             _callable = ll2ctypes.LL2CtypesCallable(ext_type,
-                'c' if calling_conv == 'unknown' else calling_conv)
+                'c' if calling_conv == 'unknown' else calling_conv,
+                natural_arity)
     else:
         assert macro is None, "'macro' is useless if you specify '_callable'"
     if elidable_function:
