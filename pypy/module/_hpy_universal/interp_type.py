@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib.debug import make_sure_not_resized
@@ -16,20 +16,84 @@ from rpython.rlib.rutf8 import surrogate_in_utf8
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 
+
+# ========== Implementation of HPy objects ==========
+#
+# HPy objects are instances of HPy types, defined in C. One pecularity of HPy
+# objects is that they need a certain amount of "C memory" which contains the
+# user data.
+#
+# From C, you can access the "C memory" by calling HPy_AsStruct on a handle:
+# the invariant is that the pointer returned by HPy_AsStruct is valid for the
+# whole lifetime of the handle, so we need to ensure that the GC doesn't move
+# the memory.
+#
+# The current solution is to use HPY_STORAGE to hold the user data: it is a
+# varsized GcStruct wrapping the char array 'data'.  Moreover, HPY_STORAGE is
+# allocated using nonmovable=True, because it's the easiest way to ensure that
+# the memory never moves. See below for more ideas.
+#
+# We need a GcStruct instead of a raw-malloc because we want to install a
+# custom GC tracer, which calls the user-defined tp_traverse in order to trace
+# all the HPyField.
+#
+# Note that this is suboptimal; currently, an HPy object is represented this
+# way:
+#
+#   1. a W_HPyObject allocated in the nursery, which contains a pointer to (2)
+#   2. a HPY_STORAGE allocted as non-movable, which contains a GC header + a
+#      word to store the array size + the data itself
+#
+# So, for each HPy object, we do two allocations and we waste 3 words (one for
+# the pointer, one for the HPY_STORAGE GC header, one for HPY_STORAGE array
+# size).  This means that there is room for at least two improvments:
+#
+#   1. RPython support for varsized instances, so that we can inline the user
+#      data directly inside W_HPyObject
+#
+#   2. better support for GC pinning, so that we don't have to allocate the
+#      HPY_STORAGE as nonmovable
+
+HPY_STORAGE = lltype.GcStruct('HPyStorage',
+                                 ('data', lltype.Array(lltype.Char)))
+
+DATA_OFS = llmemory.offsetof(HPY_STORAGE, 'data')
+DATA_ITEM0_OFS = llmemory.itemoffsetof(HPY_STORAGE.data, 0)
+
+def storage_alloc(size):
+    """
+    Allocate an HPY_STORAGE containing 'size' bytes of user data. The memory is
+    guaranteed to be zeroed.
+    """
+    # ideally we sould like to use lltype.malloc(..., zero=True), but this is
+    # not supported by the GC transformer if it's varsized, see
+    # rpython/memory/gctransform/framework.py:gen_zero_gc_pointers
+    s = lltype.malloc(HPY_STORAGE, size, nonmovable=True) #, zero=True)
+    raw_mem = storage_get_raw_data(s)
+    rffi.c_memset(raw_mem, 0, size)  # manually zero the memory
+    return s
+
+def storage_get_raw_data(storage):
+    base_adr = llmemory.cast_ptr_to_adr(storage)
+    data_adr = base_adr + DATA_OFS + DATA_ITEM0_OFS
+    raw_mem = rffi.cast(rffi.VOIDP, data_adr)
+    return raw_mem
+
+# =====================================================
+
+
 class W_HPyObject(W_ObjectObject):
-    hpy_data = lltype.nullptr(rffi.VOIDP.TO)
+    hpy_storage = lltype.nullptr(HPY_STORAGE)
+
+    def get_raw_data(self):
+        return storage_get_raw_data(self.hpy_storage)
 
     def _finalize_(self):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
         if w_type.tp_destroy:
-            w_type.tp_destroy(self.hpy_data)
+            w_type.tp_destroy(self.get_raw_data())
 
-    @rgc.must_be_light_finalizer
-    def __del__(self):
-        if self.hpy_data:
-            lltype.free(self.hpy_data, flavor='raw')
-            self.hpy_data = lltype.nullptr(rffi.VOIDP.TO)
 
 class W_HPyTypeObject(W_TypeObject):
     basicsize = 0
@@ -52,7 +116,7 @@ def HPy_AsStruct(space, handles, ctx, h):
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this
         raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
-    return w_obj.hpy_data
+    return w_obj.get_raw_data()
 
 @API.func("void *HPy_AsStructLegacy(HPyContext *ctx, HPy h)")
 def HPy_AsStructLegacy(space, handles, ctx, h):
@@ -60,14 +124,14 @@ def HPy_AsStructLegacy(space, handles, ctx, h):
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this
         raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
-    return w_obj.hpy_data
+    return w_obj.get_raw_data()
 
 @API.func("HPy _HPy_New(HPyContext *ctx, HPy h_type, void **data)")
 def _HPy_New(space, handles, ctx, h_type, data):
     w_type = handles.deref(h_type)
     w_result = _create_instance(space, w_type)
     data = llapi.cts.cast('void**', data)
-    data[0] = w_result.hpy_data
+    data[0] = w_result.get_raw_data()
     h = handles.new(w_result)
     return h
 
@@ -254,8 +318,7 @@ def _create_instance(space, w_type):
     assert isinstance(w_type, W_HPyTypeObject)
     w_result = space.allocate_instance(W_HPyObject, w_type)
     w_result.space = space
-    w_result.hpy_data = lltype.malloc(
-        rffi.VOIDP.TO, w_type.basicsize, zero=True, flavor='raw')
+    w_result.hpy_storage = storage_alloc(w_type.basicsize)
     if w_type.tp_destroy:
         w_result.register_finalizer(space)
     return w_result

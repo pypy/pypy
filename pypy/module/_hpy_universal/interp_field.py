@@ -62,6 +62,7 @@ def HPyField_Store(space, handles, ctx, h_target, pf, h):
         return
     #
     # real implementation
+    # XXX write barrier?
     if h == handles.NULL:
         pf[0] = 0
     else:
@@ -98,7 +99,7 @@ def hpy_get_referents(space, w_obj):
         ll_collect_fields = _collect_fields.get_llhelper(space)
         assert _collect_fields.allfields == []
         NULL = llapi.cts.cast('void *', 0)
-        w_type.tp_traverse(w_obj.hpy_data, ll_collect_fields, NULL)
+        w_type.tp_traverse(w_obj.get_raw_data(), ll_collect_fields, NULL)
         result = _collect_fields.allfields
         _collect_fields.allfields = []
         return result
@@ -107,6 +108,9 @@ def hpy_get_referents(space, w_obj):
 @API.func("int _collect_fields(HPyField *f, void *arg)",
           error_value=API.int(-1), is_helper=True)
 def _collect_fields(space, handles, f, arg):
+    """
+    Only for tests, see hpy_get_referents
+    """
     assert not we_are_translated()
     unique_id = llapi.cts.cast('long', f)
     w_obj = _STORAGE._fields[unique_id]
