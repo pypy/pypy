@@ -325,6 +325,9 @@ class RecursiveTests:
                     assert len(op.getdescr()._debug_suboperations) <= length + 5
 
     def test_inline_trace_limit(self):
+        import sys
+        from rpython.rlib import rstackovf, nonconst
+        sys.setrecursionlimit(3000)
         myjitdriver = JitDriver(greens=['recurse'], reds=['n'],
                 get_printable_location=lambda recurse: "recurse" if recurse else "loop")
         def main(recurse, n):
