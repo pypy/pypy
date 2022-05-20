@@ -4043,20 +4043,21 @@ class BaseLLtypeTests(BasicTests):
         assert res == 42
         self.check_operations_history(record_exact_value_r=1)
 
-    def test_record_exact_value_int(self):
-        @dont_look_inside
-        def make(x):
-            if x > 0:
-                return 16
-            else:
-                return x
+    def test_record_exact_value_int_constant(self):
+        class A:
+            pass
         def f(x):
-            y = make(x)
-            record_exact_value(y >= 0, True)
-            return y < 0
+            a = A()
+            if x == 1:
+                a.x = 1
+            else:
+                a.x = x
+            record_exact_value(a.x, 1)
+            return a.x
         res = self.interp_operations(f, [1])
-        assert res == 0
-        self.check_operations_history(record_exact_value_i=1)
+        assert res == 1
+        # don't need to record, it's already a Const
+        self.check_operations_history(record_exact_value_i=0)
 
     def test_generator(self):
         def g(n):
