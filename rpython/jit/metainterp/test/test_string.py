@@ -1014,19 +1014,27 @@ class TestLLtypeUnicode(TestLLtype):
             while z < 10:
                 jitdriver.jit_merge_point(x=x, res=res, z=z)
                 s = pick(x)
-                byteindex = s.find(pick_s(x))
-                if byteindex < 0:
+                if x & 1:
+                    index = s.find(pick_s(x))
+                else:
+                    index = s.rfind(pick_s(x))
+                if index < 0:
                     return -1001
-                if byteindex >= len(s):  # no guard
+                if index >= len(s):  # no guard
                     return -106
-                res += ord(s[byteindex])
+                res += ord(s[index])
                 z += 1
             return res
         res = self.meta_interp(f, [1], backendopt=True)
         assert res == f(1)
-        self.check_simple_loop(guard_false=1)  # only one guard, to check for -1
+        # guard_true(len(search_string) <= 1)
+        # guard_false(len(search_string) == 0)
+        # guard_false(res >= 0)
+        # guard_true(z < 10)
+        self.check_simple_loop(guard_true=2, guard_false=2)
+
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == f(10)
-        # one guard to check whether the search string is len == 1, one to check for result -1
+        # guard_false(len(search_string) <= 1), guard_false(res >= 0)
         self.check_simple_loop(guard_false=2)
 
