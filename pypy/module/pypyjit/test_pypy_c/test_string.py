@@ -338,22 +338,27 @@ class TestString(BaseTestPyPyC):
             guard_true(i95, descr=...)
         ''')
 
-    def test_decode_encode(self):
+    def test_find(self):
         log = self.run("""
         def main(n):
             global s
-            u = b'ab\xc3\xa4\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa7\xe2\x80\x8d\xf0\x9f\x91\xa6'.decode("utf-8")
+            b = b'abaaac' * 10000
             count = 0
-            for i in range(n):
-                b = (u + unicode(i)).encode("utf-8")
-                u = b.decode("utf-8") # ID: decode
+            start = 0
+            while 1:
+                start = b.find('a', start)
+                if start < 0:
+                    break
+                b[start] # ID: index
                 count += 1
+                start += 1
             return count
         """, [10000])
         loop, = log.loops_by_filename(self.filepath)
-        # No call to _check_utf8 is necessary, because the bytes come from
-        # W_UnicodeObject.utf8_w.
-        assert loop.match_by_id('decode', '''
-            i95 = int_ge(i86, 0)
-            guard_true(i95, descr=...)
+        # no bounds check, the < 0 is done by the check for end of string.
+        # the >= len is not necessary, because find has a record_exact_value
+        # that records the fact that this is always true.
+        assert loop.match_by_id('index', '''
+            i2 = strgetitem(p1, i1)
         ''')
+
