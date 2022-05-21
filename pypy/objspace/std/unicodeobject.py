@@ -131,6 +131,7 @@ class W_UnicodeObject(W_Root):
         return self._utf8
 
     def utf8_w(self, space):
+        jit.record_known_result(self._length, rutf8._check_utf8, self._utf8, True, 0, -1)
         return self._utf8
 
     def listview_ascii(self):

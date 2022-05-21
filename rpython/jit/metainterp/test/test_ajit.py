@@ -2,7 +2,6 @@ import math
 import sys
 
 import py
-import weakref
 
 from rpython.rlib import rgc
 from rpython.jit.codewriter.policy import StopAtXPolicy
@@ -14,7 +13,8 @@ from rpython.rlib import rerased
 from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual, set_param, record_exact_class)
+    isconstant, isvirtual, set_param, record_exact_class, record_known_result,
+    record_exact_value)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -2870,7 +2870,6 @@ class BasicTests:
         self.check_target_token_count(5)
 
     def test_max_unroll_loops(self):
-        from rpython.jit.metainterp.optimize import InvalidLoop
         from rpython.jit.metainterp import optimizeopt
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i'])
         #
@@ -3989,6 +3988,91 @@ class BaseLLtypeTests(BasicTests):
         assert res1 == res2
         # here it works again
         self.check_operations_history(guard_class=0, record_exact_class=1)
+
+    def test_record_known_result(self):
+        @elidable
+        def f(x):
+            return x + 1
+        @elidable
+        def g(x):
+            return x - 1
+
+        def call_f(x):
+            y = f(x)
+            record_known_result(x, g, y)
+            a = g(y)
+            return a
+
+        myjitdriver = JitDriver(greens=[], reds=['x', 'res'])
+        def main(x):
+            res = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(x=x, res=res)
+                res += x
+                x = call_f(x) - 1
+            return res
+        res = self.meta_interp(main, [10], backendopt=True)
+        assert res == main(10)
+        self.check_resops(call_i=2)  # two calls to f, both get removed by the backend
+
+
+    def test_record_exact_value(self):
+        class A(object):
+            _immutable_fields_ = ['x']
+
+        a = A()
+        b = A()
+        a.x = 42
+        b.x = 233
+
+        @dont_look_inside
+        def make(x):
+            if x > 0:
+                return a
+            else:
+                return b
+        def f(x):
+            inst = make(x)
+            if x > 0:
+                record_exact_value(inst, a)
+            else:
+                record_exact_value(inst, b)
+            return inst.x
+        res = self.interp_operations(f, [1])
+        assert res == 42
+        self.check_operations_history(record_exact_value_r=1)
+
+    def test_record_exact_value_int_constant(self):
+        class A:
+            pass
+        def f(x):
+            a = A()
+            if x == 1:
+                a.x = 1
+            else:
+                a.x = x
+            record_exact_value(a.x, 1)
+            return a.x
+        res = self.interp_operations(f, [1])
+        assert res == 1
+        # don't need to record, it's already a Const
+        self.check_operations_history(record_exact_value_i=0)
+
+    def test_record_exact_value_int_constant_bogus(self):
+        class A:
+            pass
+        def f(x):
+            a = A()
+            if x == 1:
+                a.x = 1
+            else:
+                a.x = x
+            record_exact_value(a.x, 12)
+            return a.x
+        # the actual exception is a weird AttributeError, caused by the way
+        # that interp_operations fakes stuff. just check that there is one
+        with py.test.raises(Exception):
+            self.interp_operations(f, [1])
 
     def test_generator(self):
         def g(n):

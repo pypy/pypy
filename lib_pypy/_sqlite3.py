@@ -1200,10 +1200,6 @@ class Statement(object):
                             "just switch your application to Unicode strings.")
 
     def __set_param(self, idx, param):
-        cvt = converters.get(type(param))
-        if cvt is not None:
-            param = cvt(param)
-
         try:
             param = adapt(param)
         except Exception:

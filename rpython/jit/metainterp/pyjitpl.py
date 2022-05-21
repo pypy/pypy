@@ -332,6 +332,47 @@ class MIFrame(object):
             debug_print("record_exact_class with non-constant second argument, ignored",
                     name, loc)
 
+    @arguments("box", "box", "boxes2", "descr", "orgpc")
+    def opimpl_record_known_result_i_ir_v(self, resbox, funcbox, argboxes,
+                                     calldescr, pc):
+        allboxes = self._build_allboxes(funcbox, argboxes, calldescr)
+        allboxes = [resbox] + allboxes
+        # this is a weird op! we don't want to execute anything, so just record
+        # an operation
+        self.metainterp._record_helper_nonpure_varargs(rop.RECORD_KNOWN_RESULT, None, calldescr, allboxes)
+
+    @arguments("box", "box")
+    def opimpl_record_exact_value_r(self, box, const_box):
+        return self._record_exact_value(rop.RECORD_EXACT_VALUE_R, box, const_box)
+
+    @arguments("box", "box")
+    def opimpl_record_exact_value_i(self, box, const_box):
+        return self._record_exact_value(rop.RECORD_EXACT_VALUE_I, box, const_box)
+
+    def _record_exact_value(self, opnum, box, const_box):
+        invalid = False
+        if isinstance(const_box, Const):
+            if not isinstance(box, Const):
+                self.execute(opnum, box, const_box)
+                return
+            elif box.same_constant(const_box):
+                return
+            invalid = True # really an interpreter programming error
+            error = "record_exact_value with two different constant, this is a bug!"
+        else:
+            error = "record_exact_value with non-constant second argument, ignored"
+        if have_debug_prints():
+            if len(self.metainterp.framestack) >= 2:
+                # caller of ll_record_exact_value
+                name = self.metainterp.framestack[-2].jitcode.name
+            else:
+                name = self.jitcode.name
+            loc = self.metainterp.jitdriver_sd.warmstate.get_location_str(self.greenkey)
+            debug_print(error, name, loc)
+        if invalid:
+            raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+
+
     @arguments("box")
     def _opimpl_any_return(self, box):
         self.metainterp.finishframe(box)
