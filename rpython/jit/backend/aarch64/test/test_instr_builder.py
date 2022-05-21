@@ -1,3 +1,5 @@
+
+import sys, py
 from hypothesis import given, settings, strategies as st, assume
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.aarch64 import codebuilder
@@ -19,6 +21,10 @@ class CodeBuilder(codebuilder.InstrBuilder):
 
 
 class TestInstrBuilder(object):
+
+    def setup_class(cls):
+        if sys.platform == 'darwin':
+            py.test.skip("needs porting")
 
     @settings(max_examples=20)
     @given(r1=st.sampled_from(r.registers))

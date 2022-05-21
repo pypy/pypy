@@ -538,26 +538,6 @@ def no_collect(func):
     func._gc_no_collect_ = True
     return func
 
-def emits_assembler(func):
-    """ Decorator that wraps function in a start of wrtiting assembler then
-    end of writing assembler. Also ensures no GIL can be released during this
-    operation.
-
-    On most platforms this is a no-op, however on apple silicon it's important
-    for security reasons
-    """
-    from rpython.rlib.rmmap import enter_assembler_writing, leave_assembler_writing
-
-    def emit_assembler_wrapper(*args, **kwds):
-        enter_assembler_writing()
-        try:
-            return func(*args, **kwds)
-        finally:
-            leave_assembler_writing()
-
-    emit_assembler_wrapper.__name__ == "WRAPPED_" + func.__name__
-    return no_release_gil(emit_assembler_wrapper)
-
 def must_be_light_finalizer(func):
     """Mark a __del__ method as being a destructor, calling only a limited
     set of operations.  See pypy/doc/discussion/finalizer-order.rst.  
