@@ -571,6 +571,9 @@ class LLFrame(object):
     def op_jit_record_exact_class(self, *args):
         pass
 
+    def op_jit_record_exact_value(self, *args):
+        pass
+
     def op_jit_conditional_call(self, *args):
         raise NotImplementedError("should not be called while not jitted")
 
