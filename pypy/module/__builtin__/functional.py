@@ -910,7 +910,7 @@ class W_Filter(W_Root):
     def descr_reduce(self, space):
         w_filter = space.getattr(space.getbuiltinmodule('builtins'),
                 space.newtext('filter'))
-        args_w = [space.w_None if self.w_predicate is not None else self.w_predicate,
+        args_w = [space.w_None if self.w_predicate is None else self.w_predicate,
                   self.w_iterable]
         return space.newtuple([w_filter, space.newtuple(args_w)])
 

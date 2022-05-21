@@ -1193,10 +1193,6 @@ class Statement(object):
             self._in_use_token = None
 
     def __set_param(self, idx, param):
-        cvt = converters.get(type(param))
-        if cvt is not None:
-            param = cvt(param)
-
         param = adapt(param)
 
         if param is None:

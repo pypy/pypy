@@ -1,3 +1,4 @@
+
 import py
 
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -988,3 +989,52 @@ class TestLLtypeUnicode(TestLLtype):
             d = {s: s + s}
             return len(d[s])
         assert self.interp_operations(f, [222]) == 6
+
+    def test_str_find(self):
+        jitdriver = JitDriver(greens=['x'], reds=['z', 'res'])
+        s1 = "aaaaaaef"
+        s2 = "aaaaaaaaaaaaaaaaaaaaeebbbbbbbbbbbbbbbbbbef"
+
+        @dont_look_inside
+        def pick(x):
+            if x > 0:
+                return s1
+            else:
+                return s2
+
+        @dont_look_inside
+        def pick_s(z):
+            if z < 5:
+                return "e"
+            return "ef"
+
+        def f(x):
+            z = 0
+            res = 0
+            while z < 10:
+                jitdriver.jit_merge_point(x=x, res=res, z=z)
+                s = pick(x)
+                if x & 1:
+                    index = s.find(pick_s(x))
+                else:
+                    index = s.rfind(pick_s(x))
+                if index < 0:
+                    return -1001
+                if index >= len(s):  # no guard
+                    return -106
+                res += ord(s[index])
+                z += 1
+            return res
+        res = self.meta_interp(f, [1], backendopt=True)
+        assert res == f(1)
+        # guard_true(len(search_string) <= 1)
+        # guard_false(len(search_string) == 0)
+        # guard_false(res >= 0)
+        # guard_true(z < 10)
+        self.check_simple_loop(guard_true=2, guard_false=2)
+
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == f(10)
+        # guard_false(len(search_string) <= 1), guard_false(res >= 0)
+        self.check_simple_loop(guard_false=2)
+

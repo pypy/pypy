@@ -137,7 +137,7 @@ def vector_repr(self, num):
         return 'v' + str(num)
     if hasattr(self, '_vec_debug_info'):
         vecinfo = self._vec_debug_info
-        count = vecinfo.count 
+        count = vecinfo.count
         datatype = vecinfo.datatype
         bytesize = vecinfo.bytesize
     elif self.vector == -2:
@@ -322,7 +322,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         "shallow copy: the returned operation is meant to be used in place of self"
         # XXX specialize
         from rpython.jit.metainterp.history import DONT_CHANGE
-        
+
         if args is None:
             args = self.getarglist_copy()
         if descr is None:
@@ -1144,6 +1144,8 @@ _oplist = [
     'QUASIIMMUT_FIELD/1d/n',    # [objptr], descr=SlowMutateDescr
     'ASSERT_NOT_NONE/1/n',      # [objptr]
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
+    'RECORD_EXACT_VALUE_R/2/n',   # [objptr, objptr]
+    'RECORD_EXACT_VALUE_I/2/n',   # [int, int]
     'KEEPALIVE/1/n',
     'SAVE_EXCEPTION/0/r',
     'SAVE_EXC_CLASS/0/i',       # XXX kill me
@@ -1166,6 +1168,8 @@ _oplist = [
     # nursery malloc, non-const number of bytes, zeroed
     # note that the number of bytes must be well known to be small enough
     # to fulfill allocating in the nursery rules (and no card markings)
+
+    'RECORD_KNOWN_RESULT/*d/n',   # arguments known_result, funcarg1, funcarg2, funcarg3, descr is calldescr
     '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
