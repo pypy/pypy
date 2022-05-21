@@ -61,7 +61,7 @@ class CPU_ARM64(AbstractLLCPU):
                 mc.B_ofs(tgt)
                 mc.copy_to_raw_memory(jmp)
         finally:
-            rmmap.leave_assembler_writing
+            rmmap.leave_assembler_writing()
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []
 
