@@ -677,11 +677,22 @@ def _check_map_size(size):
         raise RTypeError("memory mapped size must be positive")
 
 if _DARWIN:
+
+    class Nester(object):
+        def __init__(self):
+            self.counter = 0
+
+    nester = Nester()
+
     def enter_assembler_writing():
-        c_pthread_jit_write_protect_np(0)
+        if nester.counter == 0:
+            c_pthread_jit_write_protect_np(0)
+        nester.counter += 1
 
     def leave_assembler_writing():
-        c_pthread_jit_write_protect_np(1)
+        nester.counter -= 1
+        if nester.counter == 0:
+            c_pthread_jit_write_protect_np(1)
 
 else:
     def enter_assembler_writing():

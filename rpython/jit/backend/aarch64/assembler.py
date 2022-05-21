@@ -27,6 +27,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import rgc, rmmap
 
+
 class AssemblerARM64(ResOpAssembler):
     def __init__(self, cpu, translate_support_code=False):
         ResOpAssembler.__init__(self, cpu, translate_support_code)
@@ -1518,15 +1519,15 @@ def not_implemented(msg):
 
 
 def notimplemented_op(self, op, arglocs):
-    print "[ARM64/asm] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void, "[ARM64/asm] %s not implemented" % op.getopname())
     raise NotImplementedError(op)
 
 def notimplemented_comp_op(self, op, arglocs):
-    print "[ARM64/asm] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void, "[ARM64/asm] %s not implemented" % op.getopname())
     raise NotImplementedError(op)
 
 def notimplemented_guard_op(self, op, guard_op, fcond, arglocs):
-    print "[ARM64/asm] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void, "[ARM64/asm] %s not implemented" % op.getopname())
     raise NotImplementedError(op)
 
 asm_operations = [notimplemented_op] * (rop._LAST + 1)
