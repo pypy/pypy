@@ -1200,11 +1200,13 @@ def _jit_record_known_result(result, function, *args):
 
 @specialize.arg(1)
 def record_known_result(result, func, *args):
+    """ Assure the JIT that func(*args) will produce result. func must be an
+    elidable function. """
     from rpython.rtyper.lltypesystem.lloperation import llop
     if not we_are_translated():
         # consistency check
         assert func(*args) == result
-        assert func._elidable_function_  # could be lifted
+        assert func._elidable_function_
         return
     if not we_are_jitted():
         return
