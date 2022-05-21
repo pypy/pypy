@@ -2870,7 +2870,6 @@ class BasicTests:
         self.check_target_token_count(5)
 
     def test_max_unroll_loops(self):
-        from rpython.jit.metainterp.optimize import InvalidLoop
         from rpython.jit.metainterp import optimizeopt
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i'])
         #
@@ -4058,6 +4057,22 @@ class BaseLLtypeTests(BasicTests):
         assert res == 1
         # don't need to record, it's already a Const
         self.check_operations_history(record_exact_value_i=0)
+
+    def test_record_exact_value_int_constant_bogus(self):
+        class A:
+            pass
+        def f(x):
+            a = A()
+            if x == 1:
+                a.x = 1
+            else:
+                a.x = x
+            record_exact_value(a.x, 12)
+            return a.x
+        # the actual exception is a weird AttributeError, caused by the way
+        # that interp_operations fakes stuff. just check that there is one
+        with py.test.raises(Exception):
+            self.interp_operations(f, [1])
 
     def test_generator(self):
         def g(n):

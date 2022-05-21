@@ -350,23 +350,27 @@ class MIFrame(object):
         return self._record_exact_value(rop.RECORD_EXACT_VALUE_I, box, const_box)
 
     def _record_exact_value(self, opnum, box, const_box):
+        invalid = False
         if isinstance(const_box, Const):
-            if isinstance(box, Const):
-                if not box.same_constant(const_box):
-                    debug_print("record_exact_value with two different constant, this is a bug!",
-                            name, loc)
-                    raise InvalidLoop # really a programming error
+            if not isinstance(box, Const):
+                self.execute(opnum, box, const_box)
                 return
-            self.execute(opnum, box, const_box)
-        elif have_debug_prints():
+            elif box.same_constant(const_box):
+                return
+            invalid = True # really an interpreter programming error
+            error = "record_exact_value with two different constant, this is a bug!"
+        else:
+            error = "record_exact_value with non-constant second argument, ignored"
+        if have_debug_prints():
             if len(self.metainterp.framestack) >= 2:
                 # caller of ll_record_exact_value
                 name = self.metainterp.framestack[-2].jitcode.name
             else:
                 name = self.jitcode.name
             loc = self.metainterp.jitdriver_sd.warmstate.get_location_str(self.greenkey)
-            debug_print("record_exact_value with non-constant second argument, ignored",
-                    name, loc)
+            debug_print(error, name, loc)
+        if invalid:
+            raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
 
 
     @arguments("box")
