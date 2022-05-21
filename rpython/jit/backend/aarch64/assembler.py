@@ -25,6 +25,7 @@ from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.rlib import rgc
 
 class AssemblerARM64(ResOpAssembler):
     def __init__(self, cpu, translate_support_code=False):
@@ -33,6 +34,7 @@ class AssemblerARM64(ResOpAssembler):
         self.wb_slowpath = [0, 0, 0, 0, 0]
         self.stack_check_slowpath = 0
 
+    @rgc.emits_assembler
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
@@ -120,6 +122,7 @@ class AssemblerARM64(ResOpAssembler):
         return AsmInfo(ops_offset, rawstart + loop_head,
                        size_excluding_failure_stuff - loop_head)
 
+    @rgc.emits_assembler
     def assemble_bridge(self, logger, faildescr, inputargs, operations,
                         original_loop_token, log):
         if not we_are_translated():
@@ -1462,6 +1465,7 @@ class AssemblerARM64(ResOpAssembler):
                                 expected_size=expected_size)
 
     # ../x86/assembler.py:668
+    @rgc.emits_assembler
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
         old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs

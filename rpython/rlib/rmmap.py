@@ -677,11 +677,17 @@ def _check_map_size(size):
         raise RTypeError("memory mapped size must be positive")
 
 if _DARWIN:
-    def write_protect(flag):
-        c_pthread_jit_write_protect_np(flag)
+    def enter_assembler_writing():
+        c_pthread_jit_write_protect_np(0)
+
+    def leave_assembler_writing():
+        c_pthread_jit_write_protect_np(1)
 
 else:
-    def write_protect(flag):
+    def enter_assembler_writing():
+        pass
+
+    def leave_assembler_writing():
         pass
 
 if _POSIX:

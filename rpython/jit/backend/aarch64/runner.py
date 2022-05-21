@@ -1,4 +1,5 @@
 
+from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.jit.backend.aarch64.assembler import AssemblerARM64
 from rpython.jit.backend.aarch64 import registers as r
@@ -44,6 +45,7 @@ class CPU_ARM64(AbstractLLCPU):
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
 
+    @rgc.emits_assembler
     def invalidate_loop(self, looptoken):
         """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
         bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;

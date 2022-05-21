@@ -94,6 +94,7 @@ class BaseAssembler(object):
     def stitch_bridge(self, faildescr, target):
         raise NotImplementedError
 
+    @rgc.emits_assembler
     def setup_once(self):
         # the address of the function called by 'new'
         gc_ll_descr = self.cpu.gc_ll_descr
