@@ -479,6 +479,7 @@ def bloom(mask, c):
     return mask & (1 << (ord(c) & (BLOOM_WIDTH - 1)))
 
 @specialize.argtype(0, 1)
+@jit.elidable
 def _search(value, other, start, end, mode):
     assert value is not None
     if isinstance(value, unicode):
