@@ -56,7 +56,7 @@ static void *slp_switch(void *(*save_state)(void*, void*),
     "blr %[save_state]\n"	/* call save_state(), from x19-x28    */
 
     /* skip the rest if the return value is null */
-    "cbz x0, zero\n"
+    "cbz x0, 0f\n"
 
     "mov sp, x0\n"			/* change the stack pointer */
 
@@ -67,7 +67,7 @@ static void *slp_switch(void *(*save_state)(void*, void*),
     "blr %[restore_state]\n"/* call restore_state()               */
 
     /* The stack's content is now restored. */
-    "zero:\n"
+    "0:\n"
 
     /* Restore all saved registers */
     "ldp x20, x11, [sp, 16]\n"
