@@ -146,10 +146,8 @@ On SLES11::
 
 On Mac OS X:
 
-Currently PyPy does not support M1 Apple Silicon (arm64). You must use the 
-x86_64 emulation mode, which requires pre-pending ``arch -x86_64`` to some
-commands. When installed properly, homebrew will use a second installation 
-at ``/usr/local/bin/brew``. 
+Currently PyPy supports both Apple Silicon (M1, Arm64) and X86_64 building.
+.
 
 Most of the build-time dependencies are installed alongside the Developer
 Tools. ``libffi`` and ``openssl`` still need to be installed, and a
@@ -158,9 +156,6 @@ brew-provided pypy will speed up translation:
 .. code-block:: shell
 
     xcode-select --install
-	# for M1 machines to use x86_64 mode
-	# softwareupdate --install-rosetta
-	# install brew, use the arch -x86_64 prefix on M1
 	/usr/local/bin/brew install libffi openssl pypy pkg-config
 
 After setting this up, translation (described next) will find the libs as
