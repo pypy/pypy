@@ -11,7 +11,7 @@ import os
 # Bumped to 10.9 2021-11-22 to match CPython,
 # see https://github.com/python/cpython/blob/42205ee51
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.9'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=12.0'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
@@ -122,3 +122,10 @@ class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"
     link_flags = Darwin.link_flags + ('-arch', 'x86_64')
     cflags = Darwin.cflags + ('-arch', 'x86_64')
+
+class Darwin_arm64(Darwin):
+    name = 'darwin_arm64'
+    link_flags = Darwin.link_flags + ('-arch', 'arm64')
+    cflags = Darwin.cflags + ('-arch', 'arm64')
+
+    

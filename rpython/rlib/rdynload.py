@@ -14,7 +14,7 @@ import sys, os, string
 _MSVC = platform.name == "msvc"
 _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
-_MAC_OS = platform.name == "darwin"
+_MAC_OS = platform.name.startswith("darwin")
 _FREEBSD = sys.platform.startswith("freebsd")
 _NETBSD = sys.platform.startswith("netbsd")
 
