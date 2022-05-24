@@ -166,7 +166,7 @@ class ExecutionContext(object):
 
     @jit.unroll_safe
     def run_trace_func(self, frame):
-        code = frame.pycode
+        code = frame.getcode() # promote the frame!
         d = frame.getorcreatedebug()
         if d.instr_lb <= frame.last_instr < d.instr_ub:
             if frame.last_instr < d.instr_prev_plus_one:

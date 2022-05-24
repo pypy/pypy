@@ -343,6 +343,7 @@ def _make_ovf2long(opname, ovf2small=None):
 
     return ovf2long
 
+@jit.elidable
 def _bit_length(val):
     bits = 0
     if val < 0:

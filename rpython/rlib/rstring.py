@@ -480,6 +480,17 @@ def bloom(mask, c):
 
 @specialize.argtype(0, 1)
 def _search(value, other, start, end, mode):
+    if isinstance(value, str) and isinstance(other, str):
+        return _search_elidable(value, other, start, end, mode)
+    return _search_normal(value, other, start, end, mode)
+
+@specialize.argtype(0, 1)
+@jit.elidable
+def _search_elidable(value, other, start, end, mode):
+    return _search_normal(value, other, start, end, mode)
+
+@specialize.argtype(0, 1)
+def _search_normal(value, other, start, end, mode):
     assert value is not None
     if isinstance(value, unicode):
         NUL = u'\0'
