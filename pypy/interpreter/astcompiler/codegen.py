@@ -486,9 +486,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     @specialize.arg(2)
     def _visit_function(self, func, function_code_generator):
-        self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
-        self.visit_sequence(func.decorator_list)
+        if func.decorator_list:
+            for dec in func.decorator_list:
+                if dec.lineno > 0:
+                    self.update_position(dec.lineno)
+                dec.walkabout(self)
+
+        if func.lineno > 0:
+            self.update_position(func.lineno)
+
         args = func.args
 
         assert isinstance(args, ast.arguments)
