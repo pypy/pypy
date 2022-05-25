@@ -792,6 +792,8 @@ class W_Map(W_Root):
     _error_name = "map"
     _immutable_fields_ = ["w_fun", "iterators_w"]
 
+    @jit.look_inside_iff(lambda self, space, w_fun, args_w:
+            jit.isconstant(len(args_w)) and len(args_w) <= 2)
     def __init__(self, space, w_fun, args_w):
         self.space = space
         self.w_fun = w_fun
