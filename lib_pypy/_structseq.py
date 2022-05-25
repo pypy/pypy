@@ -12,9 +12,11 @@ class structseqfield(object):
     cannot be accessed like this, but only by name.
     """
     def __init__(self, index, doc=None, default=None):
+        # these attributes should not be overwritten after setting them for the
+        # first time, to make them immutable
         self.__name__ = '?'
-        self.index    = index    # patched to None if not positional
-        self._index   = index
+        self.index    = index
+        # self.is_positional = True/False, set later
         self.__doc__  = doc
         if default:
             self._default = default
@@ -27,7 +29,7 @@ class structseqfield(object):
     def __get__(self, obj, typ=None):
         if obj is None:
             return self
-        if self.index is None:
+        if not self.is_positional:
             return obj.__dict__[self.__name__]
         else:
             return obj[self.index]
@@ -43,8 +45,8 @@ class structseqtype(type):
         fields_by_index = {}
         for name, field in dict.items():
             if isinstance(field, structseqfield):
-                assert field._index not in fields_by_index
-                fields_by_index[field._index] = field
+                assert field.index not in fields_by_index
+                fields_by_index[field.index] = field
                 field.__name__ = name
         dict['n_fields'] = len(fields_by_index)
 
@@ -52,6 +54,7 @@ class structseqtype(type):
         n_sequence_fields = 0
         while extra_fields and extra_fields[0][0] == n_sequence_fields:
             num, field = extra_fields.pop(0)
+            field.is_positional = True
             assert not hasattr(field, "_default")
             n_sequence_fields += 1
         dict['n_sequence_fields'] = n_sequence_fields
@@ -59,7 +62,7 @@ class structseqtype(type):
 
         extra_fields = [field for index, field in extra_fields]
         for field in extra_fields:
-            field.index = None     # no longer relevant
+            field.is_positional = False
             if not hasattr(field, "_default"):
                 field._default = make_none
 
@@ -133,7 +136,7 @@ def structseq_repr(self):
     fields = {}
     for field in type(self).__dict__.values():
         if isinstance(field, structseqfield):
-            fields[field._index] = field
+            fields[field.index] = field
     parts = ["%s=%r" % (fields[index].__name__, value)
              for index, value in enumerate(self)]
     return "%s(%s)" % (self._name, ", ".join(parts))
