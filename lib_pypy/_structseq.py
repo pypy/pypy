@@ -4,17 +4,20 @@ and posixmodule for example uses.
 """
 from __pypy__ import hidden_applevel
 
+make_none = lambda self: None
+
 class structseqfield(object):
     """Definition of field of a structseq.  The 'index' is for positional
     tuple-like indexing.  Fields whose index is after a gap in the numbers
     cannot be accessed like this, but only by name.
     """
-    def __init__(self, index, doc=None, default=lambda self: None):
+    def __init__(self, index, doc=None, default=None):
         self.__name__ = '?'
         self.index    = index    # patched to None if not positional
         self._index   = index
         self.__doc__  = doc
-        self._default = default
+        if default:
+            self._default = default
 
     def __repr__(self):
         return '<field %s (%s)>' % (self.__name__,
@@ -48,7 +51,8 @@ class structseqtype(type):
         extra_fields = sorted(fields_by_index.iteritems())
         n_sequence_fields = 0
         while extra_fields and extra_fields[0][0] == n_sequence_fields:
-            extra_fields.pop(0)
+            num, field = extra_fields.pop(0)
+            assert not hasattr(field, "_default")
             n_sequence_fields += 1
         dict['n_sequence_fields'] = n_sequence_fields
         dict['n_unnamed_fields'] = 0     # no fully anonymous fields in PyPy
@@ -56,6 +60,8 @@ class structseqtype(type):
         extra_fields = [field for index, field in extra_fields]
         for field in extra_fields:
             field.index = None     # no longer relevant
+            if not hasattr(field, "_default"):
+                field._default = make_none
 
         assert '__new__' not in dict
         dict['_extra_fields'] = tuple(extra_fields)

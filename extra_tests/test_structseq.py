@@ -57,6 +57,13 @@ def test_structseqtype():
     with pytest.raises(TypeError):
         foo((1, ) * 6)
 
+def test_default_only_nonpositional():
+    with pytest.raises(AssertionError):
+        class foo:
+            __metaclass__ = structseqtype
+            f1 = structseqfield(0, "a", default=lambda self: 0)
+
+
 def test_trace_get():
     l = []
     def trace(frame, event, *args):
