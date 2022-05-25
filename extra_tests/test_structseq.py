@@ -72,6 +72,10 @@ def test_dict_extra_keys_ignored():
     t = foo((1, 2, 3), dict(a=2))
     assert not hasattr(t, 'a') # follow CPython
 
+def test_dict_mapdict():
+    import __pypy__
+    t = foo((1, 2, 3, 4), dict(f6=12))
+    assert __pypy__.strategy(t.__dict__) == 'MapDictStrategy'
 
 def test_default_only_nonpositional():
     with pytest.raises(AssertionError):
