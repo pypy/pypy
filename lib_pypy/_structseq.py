@@ -2,6 +2,7 @@
 Implementation helper: a struct that looks like a tuple.  See timemodule
 and posixmodule for example uses.
 """
+from __pypy__ import hidden_applevel
 
 class structseqfield(object):
     """Definition of field of a structseq.  The 'index' is for positional
@@ -19,6 +20,7 @@ class structseqfield(object):
         return '<field %s (%s)>' % (self.__name__,
                                     self.__doc__ or 'undocumented')
 
+    @hidden_applevel
     def __get__(self, obj, typ=None):
         if obj is None:
             return self
