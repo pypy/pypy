@@ -1,3 +1,5 @@
+# those tests only work after transation with the new _structseq changes, since
+# _structseq is frozen in
 import pytest
 
 import sys
@@ -76,6 +78,10 @@ def test_dict_mapdict():
     import __pypy__
     t = foo((1, 2, 3, 4), dict(f6=12))
     assert __pypy__.strategy(t.__dict__) == 'MapDictStrategy'
+
+def test_dict_structseqfield_immutable():
+    import __pypy__
+    assert __pypy__.strategy(foo.f5).count("immutable") == 4
 
 def test_default_only_nonpositional():
     with pytest.raises(AssertionError):
