@@ -1,3 +1,5 @@
+import pytest
+
 import sys
 from _structseq import structseqtype, structseqfield
 
@@ -7,12 +9,53 @@ class foo:
     f2 = structseqfield(1, "b")
     f3 = structseqfield(2, "c")
 
+    f5 = structseqfield(4, "nonconsecutive")
+    f6 = structseqfield(5, "nonconsecutive2", default=lambda self: -15)
+
 def test_structseqtype():
     t = foo((1, 2, 3))
+    assert isinstance(t, tuple)
     assert t.f1 == 1
     assert t.f2 == 2
     assert t.f3 == 3
-    assert isinstance(t, tuple)
+    assert t.f5 is None
+
+    t = foo((1, 2, 3, 4))
+    assert t.f1 == 1
+    assert t.f2 == 2
+    assert t.f3 == 3
+    assert t.f5 == 4
+    assert t.f6 == -15
+    assert tuple(t) == (1, 2, 3) # only positional
+
+    t = foo((1, 2, 3), dict(f5=4))
+    assert t.f1 == 1
+    assert t.f2 == 2
+    assert t.f3 == 3
+    assert t.f5 == 4
+    assert t.f6 == -15
+    assert tuple(t) == (1, 2, 3) # only positional
+
+    t = foo((1, 2, 3, 4, 5))
+    assert t.f1 == 1
+    assert t.f2 == 2
+    assert t.f3 == 3
+    assert t.f5 == 4
+    assert t.f6 == 5
+    assert tuple(t) == (1, 2, 3) # only positional
+
+    t = foo((1, 2, 3), dict(f5=4, f6=12))
+    assert t.f1 == 1
+    assert t.f2 == 2
+    assert t.f3 == 3
+    assert t.f5 == 4
+    assert t.f6 == 12
+    assert tuple(t) == (1, 2, 3) # only positional
+
+    with pytest.raises(TypeError):
+        foo((1, ))
+    with pytest.raises(TypeError):
+        foo((1, ) * 6)
 
 def test_trace_get():
     l = []
