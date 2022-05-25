@@ -11,10 +11,12 @@ class structseqfield(object):
     tuple-like indexing.  Fields whose index is after a gap in the numbers
     cannot be accessed like this, but only by name.
     """
+    __name__ = "?"
+
     def __init__(self, index, doc=None, default=None):
         # these attributes should not be overwritten after setting them for the
         # first time, to make them immutable
-        self.__name__ = '?'
+        # self.__name__ is set later
         self.index    = index
         # self.is_positional = True/False, set later
         self.__doc__  = doc

@@ -81,7 +81,7 @@ def test_dict_mapdict():
 
 def test_dict_structseqfield_immutable():
     import __pypy__
-    assert __pypy__.strategy(foo.f5).count("immutable") == 4
+    assert __pypy__.strategy(foo.f5).count("immutable") == 5
 
 def test_default_only_nonpositional():
     with pytest.raises(AssertionError):
