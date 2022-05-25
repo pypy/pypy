@@ -56,6 +56,9 @@ def test_structseqtype():
         foo((1, ))
     with pytest.raises(TypeError):
         foo((1, ) * 6)
+    with pytest.raises(TypeError):
+        foo((1, 2, 3, 4), dict(f5=5))
+
 
 def test_default_only_nonpositional():
     with pytest.raises(AssertionError):

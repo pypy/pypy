@@ -76,9 +76,10 @@ class structseqtype(type):
 
 builtin_dict = dict
 
-def structseq_new(cls, sequence, dict={}):
+def structseq_new(cls, sequence, dict=None):
     sequence = tuple(sequence)
-    dict = builtin_dict(dict)
+    if dict is None:
+        dict = {}
     N = cls.n_sequence_fields
     if len(sequence) < N:
         if N < cls.n_fields:
