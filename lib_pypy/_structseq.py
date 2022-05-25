@@ -96,18 +96,27 @@ def structseq_new(cls, sequence, dict=None):
                 msg = "exactly"
             raise TypeError("expected a sequence with %s %d items" % (
                 msg, cls.n_fields))
-        for field, value in zip(cls._extra_fields, sequence[N:]):
-            name = field.__name__
+        result = tuple.__new__(cls, sequence[:N])
+        difference = len(sequence) - N
+        for i in range(len(sequence) - N):
+            name = cls._extra_fields[i].__name__
             if name in dict:
                 raise TypeError("duplicate value for %r" % (name,))
-            dict[name] = value
-        sequence = sequence[:N]
-    result = tuple.__new__(cls, sequence)
-    object.__setattr__(result, '__dict__', dict)
-    for field in cls._extra_fields:
+            result.__dict__[name] = sequence[N + i]
+        startindex = len(sequence) - N
+        if startindex == len(cls._extra_fields):
+            return result
+    else:
+        result = tuple.__new__(cls, sequence)
+        startindex = 0
+    for i in range(startindex, len(cls._extra_fields)):
+        field = cls._extra_fields[i]
         name = field.__name__
-        if name not in dict:
-            dict[name] = field._default(result)
+        try:
+            value = dict[name]
+        except KeyError:
+            value = field._default(result)
+        result.__dict__[name] = value
     return result
 
 def structseq_reduce(self):

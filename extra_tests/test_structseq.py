@@ -42,7 +42,7 @@ def test_structseqtype():
     assert t.f3 == 3
     assert t.f5 == 4
     assert t.f6 == 5
-    assert tuple(t) == (1, 2, 3) # only positional
+    assert tuple(t) == (1, 2, 3)
 
     t = foo((1, 2, 3), dict(f5=4, f6=12))
     assert t.f1 == 1
@@ -50,7 +50,15 @@ def test_structseqtype():
     assert t.f3 == 3
     assert t.f5 == 4
     assert t.f6 == 12
-    assert tuple(t) == (1, 2, 3) # only positional
+    assert tuple(t) == (1, 2, 3)
+
+    t = foo((1, 2, 3, 4), dict(f6=12))
+    assert t.f1 == 1
+    assert t.f2 == 2
+    assert t.f3 == 3
+    assert t.f5 == 4
+    assert t.f6 == 12
+    assert tuple(t) == (1, 2, 3)
 
     with pytest.raises(TypeError):
         foo((1, ))
@@ -58,6 +66,11 @@ def test_structseqtype():
         foo((1, ) * 6)
     with pytest.raises(TypeError):
         foo((1, 2, 3, 4), dict(f5=5))
+
+
+def test_dict_extra_keys_ignored():
+    t = foo((1, 2, 3), dict(a=2))
+    assert not hasattr(t, 'a') # follow CPython
 
 
 def test_default_only_nonpositional():
