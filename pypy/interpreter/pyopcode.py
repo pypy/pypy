@@ -1027,10 +1027,21 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
 
     def IS_OP(self, oparg, next_instr):
+        space = self.space
         w_2 = self.popvalue()
         w_1 = self.popvalue()
-        res = self.space.is_w(w_1, w_2) ^ oparg
-        self.pushvalue(self.space.newbool(bool(res)))
+        res = self.space.is_w(w_1, w_2)
+        if oparg:
+            if res:
+                w_res = space.w_False
+            else:
+                w_res = space.w_True
+        else:
+            if res:
+                w_res = space.w_True
+            else:
+                w_res = space.w_False
+        self.pushvalue(w_res)
 
     def CONTAINS_OP(self, oparg, next_instr):
         w_2 = self.popvalue()
