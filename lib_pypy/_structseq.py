@@ -20,7 +20,7 @@ class structseqfield(object):
         self.index    = index
         # self.is_positional = True/False, set later
         self.__doc__  = doc
-        if default:
+        if default: # also written below
             self._default = default
 
     def __repr__(self):
