@@ -640,6 +640,8 @@ Equivalent to stat(path, follow_symlinks=False)."""
     return do_stat(space, "lstat", path, dir_fd, False)
 
 class StatState(object):
+    _immutable_fields_ = ["stat_float_times?"]
+
     def __init__(self, space):
         self.stat_float_times = True
 
