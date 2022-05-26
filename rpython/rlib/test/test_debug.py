@@ -6,7 +6,8 @@ from rpython.rlib.debug import (check_annotation, make_sure_not_resized,
                              check_nonneg, IntegerCanBeNegative,
                              mark_dict_non_null,
                              check_list_of_chars,
-                             NotAListOfChars)
+                             NotAListOfChars,
+                             check_not_access_directly)
 from rpython.rlib import debug
 from rpython.rtyper.test.test_llinterp import interpret, gengraph
 
@@ -176,3 +177,26 @@ def test_debug_print_traceback():
     assert stderr.count('entry_point') == 1
     assert stderr.count('ggg') == 11
     assert stderr.count('recovery') == 0
+
+def test_check_not_access_directly():
+    from rpython.rlib import jit
+    class Root:
+        def f(self):
+            check_not_access_directly(self)
+    class Frame(Root):
+        _virtualizable_ = []
+        def meth(self):
+            return self.f()
+    class C(Root):
+        def meth(self):
+            return self.f()
+
+    def f(n):
+        if n == 0:
+            x = Frame()
+            x = jit.hint(x, access_directly=True)
+        else:
+            x = C()
+        x.f()
+    with pytest.raises(AssertionError):
+        interpret(f, [9])
