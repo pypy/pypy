@@ -519,7 +519,6 @@ STATVFS_FIELDS = unrolling_iterable(enumerate(rposix_stat.STATVFS_FIELDS))
 def build_stat_result(space, st):
     FIELDS = STAT_FIELDS    # also when not translating at all
     lst = [None] * rposix_stat.N_INDEXABLE_FIELDS
-    w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
     for i, (name, TYPE) in FIELDS:
         if i < rposix_stat.N_INDEXABLE_FIELDS:
