@@ -1,4 +1,4 @@
-from rpython.rlib import rgc
+from rpython.rlib import rgc, rmmap
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.llsupport.symbolic import WORD
@@ -11,6 +11,7 @@ GCREFTRACER = lltype.GcStruct(
     rtti=True)
 
 def gcrefs_trace(gc, obj_addr, callback, arg):
+    rmmap.enter_assembler_writing()
     obj = llmemory.cast_adr_to_ptr(obj_addr, lltype.Ptr(GCREFTRACER))
     i = 0
     length = obj.array_length
@@ -19,6 +20,7 @@ def gcrefs_trace(gc, obj_addr, callback, arg):
         p = rffi.cast(llmemory.Address, addr + i * WORD)
         gc._trace_callback(callback, arg, p)
         i += 1
+    rmmap.leave_assembler_writing()
 lambda_gcrefs_trace = lambda: gcrefs_trace
 
 def make_framework_tracer(array_base_addr, gcrefs):

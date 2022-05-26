@@ -1,4 +1,4 @@
-import os
+import os, sys
 from rpython.tool.udir import udir
 import tempfile
 
@@ -40,7 +40,11 @@ main:
     def assemble(self, *args):
         res = self.body % (self.instr)
         self.file.write(res)
-        os.system("as --fatal-warnings %s %s -o %s/a.out" % (self.asm_opts, self.file, udir))
+        if sys.platform == 'darwin':
+            fatal_warnings = ''
+        else:
+            fatal_warnings = '--fatal-warnings'
+        os.system("as " + fatal_warnings + " %s %s -o %s/a.out" % (self.asm_opts, self.file, udir))
 
     #def __del__(self):
     #    self.file.close()

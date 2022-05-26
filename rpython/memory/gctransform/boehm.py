@@ -201,6 +201,9 @@ class BoehmGCTransformer(GCTransformer):
                   [rmodel.inputconst(lltype.Bool, True)],
                   resultvar=op.result)
 
+    def gct_gc_move_out_of_nursery(self, hop):
+        hop.genop("same_as", [hop.spaceop.args[0]], resultvar=hop.spaceop.result)
+
     def gct_gc_identityhash(self, hop):
         v_obj = hop.spaceop.args[0]
         if not self.translator.config.translation.reverse_debugger:

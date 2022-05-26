@@ -176,7 +176,7 @@ class ExecutionContext(object):
 
     @jit.unroll_safe
     def run_trace_func(self, frame):
-        code = frame.pycode
+        code = frame.getcode() # promote the frame!
         d = frame.getorcreatedebug()
         line = d.f_lineno
         if not (d.instr_lb <= frame.last_instr < d.instr_ub):

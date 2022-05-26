@@ -1492,6 +1492,35 @@ class TestLL2Ctypes(object):
         assert rffi.cast(lltype.Signed, f2) == rffi.cast(lltype.Signed, f1)
         #assert f2 == f1  -- fails, would be nice but oh well
 
+    def test_variadic_call(self):
+        c_source = py.code.Source("""
+        #include <stdio.h>
+        #include <stdarg.h>
+
+        long variadic_sum(long n, ...) {
+            va_list ptr;
+            int sum = 0;
+            printf("n: %ld\\n", n);
+
+            va_start(ptr, n);
+            for (int i = 0; i < n; i++) {
+                long foo = va_arg(ptr, long);
+                sum += foo;
+                printf("Arg %d: %ld\\n", i, foo);
+            }
+            va_end(ptr);
+            return sum;
+        }
+        """)
+        eci = ExternalCompilationInfo(
+            separate_module_sources=[c_source],
+            post_include_bits=[
+            'RPY_EXTERN long variadic_sum(long n, ...);'
+            ])
+        variadic_sum = rffi.llexternal('variadic_sum', [lltype.Signed] * 4,
+            lltype.Signed, compilation_info=eci, natural_arity=1)
+        assert variadic_sum(3, 1, 20, 300) == 321
+
 
 class TestPlatform(object):
     def test_lib_on_libpaths(self):

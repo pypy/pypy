@@ -6,6 +6,7 @@ from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
 from rpython.rtyper.annlowlevel import hlstr, hlunicode
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_hash
+from rpython.rlib.rmmap import enter_assembler_writing, leave_assembler_writing
 from rpython.jit.metainterp import history, compile
 from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.jit.metainterp.support import adr2int, ptr2int
@@ -129,7 +130,11 @@ class AbstractLLCPU(AbstractCPU):
                 if size > frame.jf_frame_info.jfi_frame_depth:
                     # update the frame_info size, which is for whatever reason
                     # not up to date
+                    # frame info lives on assembler stack, so we need to enable
+                    # writing
+                    enter_assembler_writing()
                     frame.jf_frame_info.update_frame_depth(base_ofs, size)
+                    leave_assembler_writing()
                 new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
                 frame.jf_forward = new_frame
                 i = 0

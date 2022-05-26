@@ -145,36 +145,6 @@ class TestCLibffi(BaseFfiTest):
         del libc
         gc.collect()
         assert not ALLOCATED
-
-    def test_closure_heap(self):
-        ch = ClosureHeap()
-
-        assert not ch.free_list
-        a = ch.alloc()
-        assert ch.free_list        
-        b = ch.alloc()
-        
-        chunks = [a, b]
-        p = ch.free_list
-        while p:
-            chunks.append(p)
-            p = rffi.cast(rffi.VOIDPP, p)[0]
-        closure_size = rffi.sizeof(FFI_CLOSUREP.TO)
-        assert len(chunks) == CHUNK//closure_size
-        for i in range(len(chunks) -1 ):
-            s = rffi.cast(rffi.UINT, chunks[i+1])
-            e = rffi.cast(rffi.UINT, chunks[i])
-            assert (e-s) >= rffi.sizeof(FFI_CLOSUREP.TO)
-
-        ch.free(a)
-        assert ch.free_list == rffi.cast(rffi.VOIDP, a)
-        snd = rffi.cast(rffi.VOIDPP, a)[0]
-        assert snd == chunks[2]
-
-        ch.free(b)
-        assert ch.free_list == rffi.cast(rffi.VOIDP, b)
-        snd = rffi.cast(rffi.VOIDPP, b)[0]
-        assert snd == rffi.cast(rffi.VOIDP, a)
         
     def test_callback(self):
         size_t = cast_type_to_ffitype(rffi.SIZE_T)
@@ -207,7 +177,7 @@ class TestCLibffi(BaseFfiTest):
         qsort.push_arg(rffi.cast(rffi.VOIDP, to_sort))
         qsort.push_arg(rffi.sizeof(rffi.INT))
         qsort.push_arg(4)
-        qsort.push_arg(ptr.ll_closure)
+        qsort.push_arg(ptr.get_closure())
         qsort.call(lltype.Void)
         assert ([rffi.cast(lltype.Signed, to_sort[i]) for i in range(4)] ==
                 [1,2,3,4])
@@ -438,6 +408,51 @@ class TestCLibffi(BaseFfiTest):
 
         gc.collect()
         assert not ALLOCATED
+
+    def test_variadic_args(self):
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.translator.platform import platform
+        from rpython.tool.udir import udir
+
+        c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
+        c_file.write(py.code.Source('''
+        #include "src/precommondefs.h"
+        #include <stdarg.h>
+        #include <stdio.h>
+        RPY_EXPORTED
+        Signed fun(Signed n, ...) {
+            va_list ptr;
+            int sum = 0;
+            printf("n: %ld\\n", n);
+
+            va_start(ptr, n);
+            for (int i = 0; i < n; i++) {
+                Signed foo = va_arg(ptr, Signed);
+                sum += foo;
+                printf("Arg %d: %ld\\n", i, foo);
+            }
+            va_end(ptr);
+            return sum;
+        }
+        '''))
+
+        eci = ExternalCompilationInfo(include_dirs=[cdir])
+        lib_name = str(platform.compile([c_file], eci, 'x4', standalone=False))
+
+        lib = CDLL(lib_name)
+        signed = cast_type_to_ffitype(rffi.SIGNED)
+        fun = lib.getrawpointer('fun', [signed, signed, signed], signed, variadic_args=2)
+
+        buffer = lltype.malloc(rffi.SIGNEDP.TO, 4, flavor='raw')
+        buffer[0] = 2
+        buffer[1] = 3
+        buffer[2] = 15
+        buffer[3] = 100
+        fun.call([rffi.cast(rffi.VOIDP, buffer), rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 1)),
+                  rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 2))],
+                 rffi.cast(rffi.VOIDP, rffi.ptradd(buffer, 3)))
+        assert buffer[3] == 3 + 15
+        lltype.free(buffer, flavor='raw')
 
 class TestWin32Handles(BaseFfiTest):
     def setup_class(cls):
