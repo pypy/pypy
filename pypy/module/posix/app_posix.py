@@ -50,6 +50,14 @@ class stat_result(metaclass=structseqtype):
     if "st_flags" in posix._statfields:
         st_flags = structseqfield(23, "user defined flags for file")
 
+    # nsec_xtime
+    if "nsec_atime" in posix._statfields:
+        nsec_atime = structseqfield(40, "nanoseconds part of time of last access")
+    if "nsec_mtime" in posix._statfields:
+        nsec_mtime = structseqfield(41, "nanoseconds part of time of last modification")
+    if "nsec_ctime" in posix._statfields:
+        nsec_ctime = structseqfield(42, "nanoseconds part of time of last change")
+
     def __init__(self, *args, **kw):
         # If we have been initialized from a tuple,
         # st_?time might be set to None. Initialize it
