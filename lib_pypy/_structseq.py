@@ -43,25 +43,19 @@ class structseqtype(type):
                 assert field._index not in fields_by_index
                 fields_by_index[field._index] = field
                 field.__name__ = name
-        n_fields = len(fields_by_index)
-        dict['n_fields'] = n_fields
+        dict['n_fields'] = len(fields_by_index)
 
         extra_fields = sorted(fields_by_index.items())
         n_sequence_fields = 0
-        invis_fields = []
-        if 'n_sequence_fields' in dict:
-            n_sequence_fields = dict['n_sequence_fields']
-            extra_fields = extra_fields[n_sequence_fields:]
-        else:
-            while extra_fields and extra_fields[0][0] == n_sequence_fields:
-                extra_fields.pop(0)
-                n_sequence_fields += 1
+        while extra_fields and extra_fields[0][0] == n_sequence_fields:
+            extra_fields.pop(0)
+            n_sequence_fields += 1
 
         dict['n_sequence_fields'] = n_sequence_fields
         dict['n_unnamed_fields'] = 0     # no fully anonymous fields in PyPy
 
         extra_fields = [field for index, field in extra_fields]
-        for i,field in enumerate(extra_fields):
+        for field in extra_fields:
             field.index = None     # no longer relevant
 
         dict['_extra_fields'] = tuple(extra_fields)
@@ -80,35 +74,33 @@ builtin_dict = dict
 def structseq_new(cls, sequence, dict={}):
     dict = builtin_dict(dict)
     # visible fields
-    visible_count = cls.n_sequence_fields
+    N = cls.n_sequence_fields
     # total fields (unnamed are not yet supported, extra fields not included)
-    real_count = cls.n_fields
-    if visible_count == 1:
+    if N == 1:
         sequence = tuple([sequence])
     else:
         sequence = tuple(sequence)
-    length = len(sequence)
-    if length < visible_count:
-        if visible_count < real_count:
+    if len(sequence) < N:
+        if N < cls.n_fields:
             msg = "at least"
         else:
             msg = "exactly"
         raise TypeError("expected a sequence with %s %d items. has %d" % (
-            msg, visible_count, length))
-    if length > visible_count:
-        if length > real_count:
-            if visible_count < real_count:
+            msg, N, len(sequence)))
+    if len(sequence) > N:
+        if len(sequence) > cls.n_fields:
+            if N < cls.n_fields:
                 msg = "at most"
             else:
                 msg = "exactly"
             raise TypeError("expected a sequence with %s %d items. has %d" \
-                            % (msg, real_count, length))
-        for field, value in zip(cls._extra_fields, sequence[visible_count:]):
+                            % (msg, cls.n_fields, len(sequence)))
+        for field, value in zip(cls._extra_fields, sequence[N:]):
             name = field.__name__
             if name in dict:
                 raise TypeError("duplicate value for %r" % (name,))
             dict[name] = value
-        sequence = sequence[:visible_count]
+        sequence = sequence[:N]
     result = tuple.__new__(cls, sequence)
     object.__setattr__(result, '__dict__', dict)
     for field in cls._extra_fields:
