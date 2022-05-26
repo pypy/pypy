@@ -391,3 +391,16 @@ class TestMisc(BaseTestPyPyC):
         # the following assertion fails if the loop was cancelled due
         # to "abort: vable escape"
         assert len(loops) == 1
+
+    def test_forward_jump_absolute_doesnt_start_loops(self):
+        def main():
+            def f(x):
+                for i in range(x):
+                    break # jump_absolute, forward
+
+            for i in range(1000000):
+                f(i)
+
+        log = self.run(main, [])
+        loops = log.loops_by_filename(self.filepath)
+        assert len(loops) == 1
