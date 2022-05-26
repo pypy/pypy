@@ -318,6 +318,7 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_arg):
         assert not s_arg.flags.get('access_directly', False)
+        return s_arg
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
