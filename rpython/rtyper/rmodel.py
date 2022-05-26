@@ -417,6 +417,8 @@ def getgcflavor(classdef):
 def externalvsinternal(rtyper, item_repr, gcref=False): # -> external_item_repr, (internal_)item_repr
     from rpython.rtyper import rclass
     from rpython.rtyper.lltypesystem import rgcref
+    if rtyper is None or rtyper.annotator.translator.config.translation.gc == "ref":
+        gcref = False # refcounting GC cannot deal with gcrefs
     if (gcref and isinstance(item_repr.lowleveltype, Ptr) and
             item_repr.lowleveltype.TO._gckind == 'gc'):
         return item_repr, rgcref.GCRefRepr.make(item_repr, rtyper.gcrefreprcache)
