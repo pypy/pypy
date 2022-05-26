@@ -4,7 +4,8 @@ from rpython.rlib.rarithmetic import most_neg_value_of_same_type
 from rpython.rlib.rarithmetic import check_support_int128
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
-from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
+from rpython.rlib.objectmodel import we_are_translated, specialize, \
+        not_rpython, newlist_hint
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import extregistry
@@ -355,7 +356,7 @@ class rbigint(object):
         sign = -1 if msb >= 0x80 and signed else 1
         accum = _widen_digit(0)
         accumbits = 0
-        digits = []
+        digits = newlist_hint(len(s) * 8 // LONG_BIT + 1)
         carry = 1
 
         for i in itr:

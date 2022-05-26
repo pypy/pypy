@@ -25,6 +25,8 @@ from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.rlib import rgc, rmmap
+
 
 class AssemblerARM64(ResOpAssembler):
     def __init__(self, cpu, translate_support_code=False):
@@ -33,7 +35,17 @@ class AssemblerARM64(ResOpAssembler):
         self.wb_slowpath = [0, 0, 0, 0, 0]
         self.stack_check_slowpath = 0
 
+    @rgc.no_release_gil
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
+                      operations, looptoken, log):
+        rmmap.enter_assembler_writing()
+        try:
+            return self._assemble_loop(jd_id, unique_id, logger, loopname, inputargs,
+                operations, looptoken, log)
+        finally:
+            rmmap.leave_assembler_writing()
+
+    def _assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt._debug_nbargs = len(inputargs)
@@ -120,7 +132,17 @@ class AssemblerARM64(ResOpAssembler):
         return AsmInfo(ops_offset, rawstart + loop_head,
                        size_excluding_failure_stuff - loop_head)
 
+    @rgc.no_release_gil
     def assemble_bridge(self, logger, faildescr, inputargs, operations,
+                        original_loop_token, log):
+        rmmap.enter_assembler_writing()
+        try:
+            return self._assemble_bridge(logger, faildescr, inputargs, operations,
+                            original_loop_token, log)
+        finally:
+            rmmap.leave_assembler_writing()
+
+    def _assemble_bridge(self, logger, faildescr, inputargs, operations,
                         original_loop_token, log):
         if not we_are_translated():
             # Arguments should be unique
@@ -1462,25 +1484,30 @@ class AssemblerARM64(ResOpAssembler):
                                 expected_size=expected_size)
 
     # ../x86/assembler.py:668
+    @rgc.no_release_gil
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
-        # some minimal sanity checking
-        old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
-        new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
-        assert old_nbargs == new_nbargs
-        # we overwrite the instructions at the old _ll_function_addr
-        # to start with a JMP to the new _ll_function_addr.
-        # Ideally we should rather patch all existing CALLs, but well.
-        oldadr = oldlooptoken._ll_function_addr
-        target = newlooptoken._ll_function_addr
-        # copy frame-info data
-        baseofs = self.cpu.get_baseofs_of_frame_field()
-        newlooptoken.compiled_loop_token.update_frame_info(
-            oldlooptoken.compiled_loop_token, baseofs)
-        mc = InstrBuilder()
-        mc.B(target)
-        mc.copy_to_raw_memory(oldadr)
-        #
-        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
+        rmmap.enter_assembler_writing()
+        try:
+            # some minimal sanity checking
+            old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
+            new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
+            assert old_nbargs == new_nbargs
+            # we overwrite the instructions at the old _ll_function_addr
+            # to start with a JMP to the new _ll_function_addr.
+            # Ideally we should rather patch all existing CALLs, but well.
+            oldadr = oldlooptoken._ll_function_addr
+            target = newlooptoken._ll_function_addr
+            # copy frame-info data
+            baseofs = self.cpu.get_baseofs_of_frame_field()
+            newlooptoken.compiled_loop_token.update_frame_info(
+                oldlooptoken.compiled_loop_token, baseofs)
+            mc = InstrBuilder()
+            mc.B(target)
+            mc.copy_to_raw_memory(oldadr)
+            #
+            jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
+        finally:
+            rmmap.leave_assembler_writing()
 
 
 
@@ -1492,15 +1519,15 @@ def not_implemented(msg):
 
 
 def notimplemented_op(self, op, arglocs):
-    print "[ARM64/asm] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void, "[ARM64/asm] %s not implemented" % op.getopname())
     raise NotImplementedError(op)
 
 def notimplemented_comp_op(self, op, arglocs):
-    print "[ARM64/asm] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void, "[ARM64/asm] %s not implemented" % op.getopname())
     raise NotImplementedError(op)
 
 def notimplemented_guard_op(self, op, guard_op, fcond, arglocs):
-    print "[ARM64/asm] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void, "[ARM64/asm] %s not implemented" % op.getopname())
     raise NotImplementedError(op)
 
 asm_operations = [notimplemented_op] * (rop._LAST + 1)

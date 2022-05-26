@@ -600,14 +600,6 @@ class ObjSpace(object):
         self._builtinmodule_list = modules
         return self._builtinmodule_list
 
-    ALL_BUILTIN_MODULES = [
-        'posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
-        'math', 'array', 'select',
-        '_random', '_sre', 'time', '_socket', 'errno',
-        'unicodedata',
-        'parser', 'fcntl', '_codecs', 'binascii'
-    ]
-
     # These modules are treated like CPython treats built-in modules,
     # i.e. they always shadow any xx.py.  The other modules are treated
     # like CPython treats extension modules, and are loaded in sys.path

@@ -8,7 +8,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.renamer import Renamer
 from rpython.jit.metainterp.resume import AccumInfo
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, dict_to_switch
 from rpython.jit.metainterp.jitexc import NotAProfitableLoop
 from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
@@ -978,7 +978,7 @@ class Pair(Pack):
                    self.right is other.right
 
 class AccumPack(Pack):
-    SUPPORTED = { rop.INT_ADD: '+', }
+    SUPPORTED = staticmethod(dict_to_switch({ rop.INT_ADD: '+', }))
 
     def __init__(self, nodes, operator, position):
         Pack.__init__(self, nodes)

@@ -760,7 +760,7 @@ class UsingFrameworkTest(object):
             qsort.push_arg(rffi.cast(rffi.VOIDP, to_sort))
             qsort.push_arg(rffi.cast(rffi.SIZE_T, 4))
             qsort.push_arg(rffi.cast(rffi.SIZE_T, rffi.sizeof(lltype.Signed)))
-            qsort.push_arg(rffi.cast(rffi.VOIDP, ptr.ll_closure))
+            qsort.push_arg(rffi.cast(rffi.VOIDP, ptr.get_closure()))
             qsort.call(lltype.Void)
             result = [to_sort[i] for i in range(4)] == [1, 2, 3, 4]
             lltype.free(to_sort, flavor='raw')

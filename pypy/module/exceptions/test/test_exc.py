@@ -264,3 +264,13 @@ class AppTestExc(object):
         assert str(UnicodeEncodeError.__new__(UnicodeEncodeError)) == ""
         assert str(UnicodeDecodeError.__new__(UnicodeDecodeError)) == ""
         assert str(UnicodeTranslateError.__new__(UnicodeTranslateError)) == ""
+
+    def test_multiple_inheritance_bug(self):
+        class OptionError(AttributeError, KeyError):
+            pass # does not crash
+        assert issubclass(OptionError, Exception)
+        assert issubclass(OptionError, AttributeError)
+        assert issubclass(OptionError, KeyError)
+        assert issubclass(OptionError, LookupError)
+        assert issubclass(OptionError, StandardError)
+

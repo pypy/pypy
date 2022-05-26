@@ -422,14 +422,27 @@ class TestW_ListObject(object):
         monkeypatch.setattr(self.space, "eq_w", None)
         w = self.space.wrap
         intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7)])
-        res = intlist.find(w(4), 0, 7)
+        res = intlist.find_or_count(w(4), 0, 7)
         assert res == 3
-        res = intlist.find(w(4), 0, 100)
+        res = intlist.find_or_count(w(4), 0, 100)
         assert res == 3
         with py.test.raises(ValueError):
-            intlist.find(w(4), 4, 7)
+            intlist.find_or_count(w(4), 4, 7)
         with py.test.raises(ValueError):
-            intlist.find(w(4), 0, 2)
+            intlist.find_or_count(w(4), 0, 2)
+
+    def test_count_fast_on_intlist(self, monkeypatch):
+        monkeypatch.setattr(self.space, "eq_w", None)
+        w = self.space.wrap
+        intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7), w(4)])
+        res = intlist.find_or_count(w(4), 0, 7, count=True)
+        assert res == 1
+        res = intlist.find_or_count(w(4), 0, 100, count=True)
+        assert res == 2
+        res = intlist.find_or_count(w(4), 4, 7, count=True)
+        assert res == 0
+        res = intlist.find_or_count(w(4), 0, 2, count=True)
+        assert res == 0
 
     def test_intlist_to_object_too_much_wrapping(self):
         w = self.space.wrap
@@ -1259,6 +1272,42 @@ class AppTestListObject(object):
         assert c.count('l') == 2
         assert c.count('h') == 1
         assert c.count('w') == 0
+
+        c = [0, 1, 2, 2, 3]
+        assert c.count(2) == 2
+        assert c.count(1) == 1
+        assert c.count(0) == 1
+        assert c.count(10) == 0
+
+        c = [0., 1., 2., 2., 3., 0.0, -0.0]
+        assert c.count(2) == 2
+        assert c.count(1) == 1
+        assert c.count(0) == 3
+        assert c.count(10) == 0
+        assert c.count('abc') == 0
+
+        c = [0, 1, 2, 2., 3, 0.0, -0.0]
+        assert c.count(2) == 2
+        assert c.count(1) == 1
+        assert c.count(0) == 3
+        assert c.count(10) == 0
+        assert c.count(2.) == 2
+        assert c.count(1.) == 1
+        assert c.count(0.) == 3
+        assert c.count(-0.) == 3
+        assert c.count(10.) == 0
+        assert c.count('abc') == 0
+
+        c = [0, "abc", 1, 2, 2., 3, 0.0, -0.0, None]
+        assert c.count(2) == 2
+        assert c.count(2.) == 2
+        assert c.count(1) == 1
+        assert c.count(1.) == 1
+        assert c.count(0) == 3
+        assert c.count(0.0) == 3
+        assert c.count(-0.0) == 3
+        assert c.count(10) == 0
+        assert c.count('abc') == 1
 
     def test_insert(self):
         c = list('hello world')

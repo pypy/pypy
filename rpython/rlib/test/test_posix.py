@@ -4,12 +4,16 @@ from rpython.rtyper.annlowlevel import hlstr
 from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import is_valid_int
 
-import os
+import os, sys
 exec('import %s as posix' % os.name)
 
 def setup_module(module):
     testf = udir.join('test.txt')
     module.path = testf.strpath
+
+def skip_if_os_x():
+    if sys.platform == 'darwin':
+        py.test.skip("Bogus test on OS X")
 
 class TestPosix(BaseRtypingTest):
 
@@ -225,6 +229,7 @@ class TestPosix(BaseRtypingTest):
 
     @py.test.mark.skipif("not hasattr(os, 'getgroups')")
     def test_getgroups(self):
+        skip_if_os_x()
         def f():
             return os.getgroups()
         ll_a = self.interpret(f, [])
@@ -232,6 +237,7 @@ class TestPosix(BaseRtypingTest):
 
     @py.test.mark.skipif("not hasattr(os, 'setgroups')")
     def test_setgroups(self):
+        skip_if_os_x()
         def f():
             try:
                 os.setgroups(os.getgroups())
@@ -241,6 +247,7 @@ class TestPosix(BaseRtypingTest):
 
     @py.test.mark.skipif("not hasattr(os, 'initgroups')")
     def test_initgroups(self):
+        skip_if_os_x()
         def f():
             try:
                 os.initgroups('sUJJeumz', 4321)

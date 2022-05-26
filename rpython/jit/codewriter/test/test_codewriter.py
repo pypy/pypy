@@ -63,25 +63,29 @@ def test_loop():
         return b
     cw = CodeWriter()
     jitcode = cw.transform_func_to_jitcode(f, [5, 6])
-    assert jitcode.code == ("\x00\x00\x00\x10\x00"   # ends at 5
-                            "\x01\x01\x00\x01"
-                            "\x02\x00\x01\x00"
-                            "\x03\x00\x00"
-                            "\x04\x01")
-    assert cw.assembler.insns == {'goto_if_not_int_gt/icL': 0,
-                                  'int_add/ii>i': 1,
-                                  'int_sub/ic>i': 2,
-                                  'goto/L': 3,
-                                  'int_return/i': 4}
+    assert jitcode.code == ("\x00\x00\x00"
+                            "\x01\x00\x00\x13\x00"
+                            "\x02\x01\x00\x01"
+                            "\x03\x00\x01\x00"
+                            "\x04\x00\x00"
+                            "\x05\x01")
+    assert cw.assembler.insns == {'live/': 0,
+                                  'goto_if_not_int_gt/icL': 1,
+                                  'int_add/ii>i': 2,
+                                  'int_sub/ic>i': 3,
+                                  'goto/L': 4,
+                                  'int_return/i': 5}
     assert jitcode.num_regs_i() == 2
     assert jitcode.num_regs_r() == 0
     assert jitcode.num_regs_f() == 0
-    assert jitcode._live_vars(0) == '%i0 %i1'
+    all_liveness = "".join(cw.assembler.all_liveness)
+    op_live = cw.assembler.insns['live/']
+    assert jitcode._live_vars(0, all_liveness, op_live) == '%i0 %i1'
     #
     from rpython.jit.codewriter.jitcode import MissingLiveness
-    for i in range(len(jitcode.code)+1):
+    for i in jitcode._startpoints:
         if i != 0:
-            py.test.raises(MissingLiveness, jitcode._live_vars, i)
+            py.test.raises(MissingLiveness, jitcode._live_vars, i, all_liveness, 0)
 
 def test_call():
     def ggg(x):

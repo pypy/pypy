@@ -17,7 +17,7 @@ from pypy.module._rawffi.interp_rawffi import got_libffi_error, wrap_dlopenerror
 
 import os
 if os.name == 'nt':
-    def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
+    def _getfunc(space, CDLL, w_name, w_argtypes, w_restype, variadic_args=0):
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
             space, w_argtypes, w_restype)
         if (space.isinstance_w(w_name, space.w_bytes) or
@@ -25,7 +25,7 @@ if os.name == 'nt':
             name = space.text_w(w_name)
             try:
                 func = CDLL.cdll.getpointer(name, argtypes, restype,
-                                            flags = CDLL.flags)
+                                            flags=CDLL.flags, variadic_args=variadic_args)
             except KeyError:
                 raise oefmt(space.w_AttributeError,
                             "No symbol %s found in library %s",
@@ -39,7 +39,7 @@ if os.name == 'nt':
             try:
                 func = CDLL.cdll.getpointer_by_ordinal(
                     ordinal, argtypes, restype,
-                    flags = CDLL.flags)
+                    flags=CDLL.flags, variadic_args=variadic_args)
             except KeyError:
                 raise oefmt(space.w_AttributeError,
                             "No ordinal %d found in library %s",
@@ -52,14 +52,14 @@ if os.name == 'nt':
             raise oefmt(space.w_TypeError,
                         "function name must be a string or integer")
 else:
-    @unwrap_spec(name='text')
-    def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
+    @unwrap_spec(name='text', variadic_args=int)
+    def _getfunc(space, CDLL, w_name, w_argtypes, w_restype, variadic_args=0):
         name = space.text_w(w_name)
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
             space, w_argtypes, w_restype)
         try:
             func = CDLL.cdll.getpointer(name, argtypes, restype,
-                                        flags = CDLL.flags)
+                                        flags=CDLL.flags, variadic_args=variadic_args)
         except KeyError:
             raise oefmt(space.w_AttributeError,
                         "No symbol %s found in library %s", name, CDLL.name)
@@ -296,15 +296,16 @@ def unpack_argtypes(space, w_argtypes, w_restype):
     restype = unwrap_ffitype(space, w_restype, allow_void=True)
     return argtypes_w, argtypes, w_restype, restype
 
-@unwrap_spec(addr=r_uint, name='text', flags=int)
+@unwrap_spec(addr=r_uint, name='text', flags=int, variadic_args=int)
 def descr_fromaddr(space, w_cls, addr, name, w_argtypes,
-                    w_restype, flags=libffi.FUNCFLAG_CDECL):
+                    w_restype, flags=libffi.FUNCFLAG_CDECL, variadic_args=0):
     argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
                                                                w_argtypes,
                                                                w_restype)
     addr = rffi.cast(rffi.VOIDP, addr)
     try:
-        func = libffi.Func(name, argtypes, restype, addr, flags)
+        func = libffi.Func(name, argtypes, restype, addr, flags,
+                           variadic_args=variadic_args)
         return W_FuncPtr(func, argtypes_w, w_restype)
     except LibFFIError:
         raise got_libffi_error(space)
@@ -337,8 +338,9 @@ class W_CDLL(W_Root):
         except OSError as e:
             raise wrap_oserror(space, e)
 
-    def getfunc(self, space, w_name, w_argtypes, w_restype):
-        return _getfunc(space, self, w_name, w_argtypes, w_restype)
+    @unwrap_spec(variadic_args=int)
+    def getfunc(self, space, w_name, w_argtypes, w_restype, variadic_args=0):
+        return _getfunc(space, self, w_name, w_argtypes, w_restype, variadic_args=variadic_args)
 
     @unwrap_spec(name='text')
     def getaddressindll(self, space, name):

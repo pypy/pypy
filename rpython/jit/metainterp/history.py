@@ -413,6 +413,8 @@ class JitCellToken(AbstractDescr):
     was compiled; but the LoopDescr remains alive and points to the
     generated assembler.
     """
+    FORCE_BRIDGE_SEGMENTING = 1 # stored in retraced_count
+
     target_tokens = None
     failed_states = None
     retraced_count = 0
@@ -443,6 +445,12 @@ class JitCellToken(AbstractDescr):
 
     def dump(self):
         self.compiled_loop_token.cpu.dump_loop_token(self)
+
+    def get_retraced_count(self):
+        return self.retraced_count >> 1
+
+    def set_retraced_count(self, value):
+        self.retraced_count = (value << 1) | (self.retraced_count & 1)
 
 class TargetToken(AbstractDescr):
     _ll_loop_code = 0     # for the backend.  If 0, we know that it is
@@ -714,6 +722,9 @@ class History(object):
 
     def trace_tag_overflow(self):
         return self.trace.tag_overflow
+
+    def trace_tag_overflow_imminent(self):
+        return self.trace.tag_overflow_imminent()
 
     def get_trace_position(self):
         return self.trace.cut_point()

@@ -15,6 +15,7 @@ else:
 
 error = OSError
 
+# keep in sync with the code in interp_posix.make_stat_result
 
 class stat_result:
     __metaclass__ = structseqtype
