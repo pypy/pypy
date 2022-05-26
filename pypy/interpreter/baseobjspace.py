@@ -76,7 +76,7 @@ class W_Root(object):
         # True. otherwise every call to getclass (and other methods) has an
         # extra indirection due to a much more complicated function set
         check_not_access_directly(self)
-        return space.gettypeobject(self.typedef)
+        return space.gettypefor(self.__class__)
 
     def setclass(self, space, w_subtype):
         raise oefmt(space.w_TypeError,
