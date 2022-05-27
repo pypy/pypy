@@ -319,7 +319,7 @@ class Entry(ExtRegistryEntry):
                                                 s_x.can_be_None,
                                                 flags)
                 else:
-                    assert s_access_directly.const == False
+                    assert s_access_directly.const == False or virtualizable is None
                     assert not fresh_virtualizable
                     if 'access_directly' in s_x.flags:
                         flags = s_x.flags.copy()
