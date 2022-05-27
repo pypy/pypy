@@ -310,7 +310,7 @@ class Entry(ExtRegistryEntry):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
                 virtualizable = classdesc.get_param('_virtualizable_')
-                if s_access_directly.const is True and virtualizable is not None:
+                if s_access_directly.const == True and virtualizable is not None:
                     flags = s_x.flags.copy()
                     flags['access_directly'] = True
                     if fresh_virtualizable:
@@ -319,7 +319,7 @@ class Entry(ExtRegistryEntry):
                                                 s_x.can_be_None,
                                                 flags)
                 else:
-                    assert s_access_directly.const is False
+                    assert s_access_directly.const == False
                     assert not fresh_virtualizable
                     if 'access_directly' in s_x.flags:
                         flags = s_x.flags.copy()
