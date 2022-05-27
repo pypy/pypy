@@ -320,10 +320,12 @@ class Entry(ExtRegistryEntry):
                                                 flags)
                 else:
                     assert s_access_directly.const == False or virtualizable is None
-                    assert not fresh_virtualizable
-                    if 'access_directly' in s_x.flags:
+                    if 'access_directly' in s_x.flags or 'fresh_virtualizable' in s_x.flags:
                         flags = s_x.flags.copy()
-                        del flags['access_directly']
+                        if 'access_directly' in flags:
+                            del flags['access_directly']
+                        if 'fresh_virtualizable' in flags:
+                            del flags['fresh_virtualizable']
                         s_x = annmodel.SomeInstance(s_x.classdef,
                                                     s_x.can_be_None,
                                                     flags)

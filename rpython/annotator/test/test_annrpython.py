@@ -3338,6 +3338,30 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.build_types(f, [int])
 
+    def test_access_direct_no_virtualizable(self):
+        from rpython.rlib import jit, debug
+        class Root:
+            def f(self):
+                debug.check_not_access_directly(self)
+        class Frame(Root):
+            # not a virtualizble
+            def meth(self):
+                return self.f()
+        class C(Root):
+            def meth(self):
+                return self.f()
+
+        def f(n):
+            if n == 0:
+                x = Frame()
+                x = jit.hint(x, access_directly=True, fresh_virtualizable=True)
+                x.foo = 1
+            else:
+                x = C()
+            x.meth()
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+
     def test_weakref(self):
         import weakref
 
