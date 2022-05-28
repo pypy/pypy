@@ -301,15 +301,16 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_x, **kwds_s):
         from rpython.annotator import model as annmodel
         s_x = annmodel.not_const(s_x)
-        access_directly = 's_access_directly' in kwds_s
+        s_access_directly = kwds_s.get('s_access_directly')
         fresh_virtualizable = 's_fresh_virtualizable' in kwds_s
-        if access_directly or fresh_virtualizable:
-            assert access_directly, "lone fresh_virtualizable hint"
+        if s_access_directly or fresh_virtualizable:
+            assert isinstance(s_access_directly, annmodel.SomeBool) and s_access_directly.is_constant()
+            assert s_access_directly, "lone fresh_virtualizable hint"
             if isinstance(s_x, annmodel.SomeInstance):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
                 virtualizable = classdesc.get_param('_virtualizable_')
-                if virtualizable is not None:
+                if s_access_directly.const == True and virtualizable is not None:
                     flags = s_x.flags.copy()
                     flags['access_directly'] = True
                     if fresh_virtualizable:
@@ -317,6 +318,17 @@ class Entry(ExtRegistryEntry):
                     s_x = annmodel.SomeInstance(s_x.classdef,
                                                 s_x.can_be_None,
                                                 flags)
+                else:
+                    assert s_access_directly.const == False or virtualizable is None
+                    if 'access_directly' in s_x.flags or 'fresh_virtualizable' in s_x.flags:
+                        flags = s_x.flags.copy()
+                        if 'access_directly' in flags:
+                            del flags['access_directly']
+                        if 'fresh_virtualizable' in flags:
+                            del flags['fresh_virtualizable']
+                        s_x = annmodel.SomeInstance(s_x.classdef,
+                                                    s_x.can_be_None,
+                                                    flags)
         return s_x
 
     def specialize_call(self, hop, **kwds_i):

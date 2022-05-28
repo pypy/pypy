@@ -139,7 +139,10 @@ class StdObjSpace(ObjSpace):
             w_currently_in_repr = ec._py_repr = W_IdentityDict(self)
         return w_currently_in_repr
 
+    @specialize.memo()
     def gettypefor(self, cls):
+        if not hasattr(cls, "typedef") or cls.typedef is None:
+            return None
         return self.gettypeobject(cls.typedef)
 
     def gettypeobject(self, typedef):
