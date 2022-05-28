@@ -749,7 +749,7 @@ def _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat):
 
 def _make_binop_impl(symbol, specialnames):
     left, right = specialnames
-    errormsg = "unsupported operand type(s) for %s: '%%N' and '%%N'" % (
+    errormsg = "unsupported operand type(s) for %s: '%%T' and '%%T'" % (
         symbol.replace('%', '%%'),)
     seq_bug_compat = (symbol == '+' or symbol == '*')
 
@@ -762,9 +762,7 @@ def _make_binop_impl(symbol, specialnames):
             w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
             if _check_notimplemented(space, w_res):
                 return w_res
-        w_typ1 = space.type(w_obj1)
-        w_typ2 = space.type(w_obj2)
-        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
+        raise oefmt(space.w_TypeError, errormsg, w_obj1, w_obj2)
 
     def binop_impl(space, w_obj1, w_obj2):
         # shortcut: rpython classes are the same
@@ -775,9 +773,7 @@ def _make_binop_impl(symbol, specialnames):
         w_res = _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat)
         if w_res is not None:
             return w_res
-        w_typ1 = space.type(w_obj1)
-        w_typ2 = space.type(w_obj2)
-        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
+        raise oefmt(space.w_TypeError, errormsg, w_obj1, w_obj2)
 
     return func_with_new_name(binop_impl, "binop_%s_impl"%left.strip('_'))
 
@@ -850,7 +846,7 @@ def _make_inplace_impl(symbol, specialnames):
     seq_bug_compat = (symbol == '+=' or symbol == '*=')
     rhs_method = '__r' + specialname[3:]
     lhs_method = '__' + specialname[3:]
-    errormsg = "unsupported operand type(s) for %s: '%%N' and '%%N'" % (
+    errormsg = "unsupported operand type(s) for %s: '%%T' and '%%T'" % (
         symbol.replace('%', '%%'),)
 
     def inplace_impl(space, w_lhs, w_rhs):
@@ -879,9 +875,7 @@ def _make_inplace_impl(symbol, specialnames):
         if w_res is not None:
             return w_res
 
-        w_typ1 = space.type(w_lhs)
-        w_typ2 = space.type(w_rhs)
-        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
+        raise oefmt(space.w_TypeError, errormsg, w_lhs, w_rhs)
 
     return func_with_new_name(inplace_impl, 'inplace_%s_impl'%specialname.strip('_'))
 
