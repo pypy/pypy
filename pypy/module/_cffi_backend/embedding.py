@@ -133,7 +133,7 @@ static void _cffi_init_once(void)
 """
 
 do_startup = do_includes + r"""
-RPY_EXPORTED void rpython_startup_code(void);
+RPY_EXPORTED int rpython_startup_code(void);
 RPY_EXPORTED int pypy_setup_home(char *, int);
 
 static unsigned char _cffi_ready = 0;
@@ -148,12 +148,18 @@ static void _cffi_init_error(const char *msg, const char *extra)
 
 static void _cffi_init(void)
 {
-    rpython_startup_code();
-    RPyGilAllocate();
+    if (rpython_startup_code() == 67) {
+        /* pypy was already initialized, probably because we are running
+           pypy which calls into some C code which independently happens
+           to be using a CFFI embedded module */
+    }
+    else {
+        RPyGilAllocate();
 
-    if (pypy_setup_home(NULL, 1) != 0) {
-        _cffi_init_error("pypy_setup_home() failed", "");
-        return;
+        if (pypy_setup_home(NULL, 1) != 0) {
+            _cffi_init_error("pypy_setup_home() failed", "");
+            return;
+        }
     }
     _cffi_ready = 1;
 }
