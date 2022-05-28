@@ -180,23 +180,14 @@ def test_debug_print_traceback():
 
 def test_check_not_access_directly():
     from rpython.rlib import jit
-    class Root:
-        def f(self):
-            check_not_access_directly(self)
-    class Frame(Root):
+    class Frame(object):
         _virtualizable_ = []
         def meth(self):
-            return self.f()
-    class C(Root):
-        def meth(self):
-            return self.f()
+            check_not_access_directly(self)
 
     def f(n):
-        if n == 0:
-            x = Frame()
-            x = jit.hint(x, access_directly=True)
-        else:
-            x = C()
-        x.f()
+        x = Frame()
+        x = jit.hint(x, access_directly=True)
+        x.meth()
     with pytest.raises(AssertionError):
         interpret(f, [9])
