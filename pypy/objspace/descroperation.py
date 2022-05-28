@@ -711,7 +711,9 @@ def old_slice_range(space, w_obj, w_start, w_stop):
                 w_stop = space.add(w_stop, w_length)
     return w_start, w_stop
 
-
+# specialize on the special method names to use the lookup_in_type_where fast
+# paths
+@specialize.arg(3, 4)
 def _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat):
     w_typ1 = space.type(w_obj1)
     w_typ2 = space.type(w_obj2)
