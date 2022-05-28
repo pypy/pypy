@@ -76,15 +76,19 @@ class structseqtype(type):
         dict['__setattr__'] = structseq_setattr
         dict['__repr__'] = structseq_repr
         dict['__str__'] = structseq_repr
-        dict['_name'] = dict.get('name', '')
+        dict['_name'] = dict.get('name', classname)
         return type.__new__(metacls, classname, (tuple,), dict)
 
 
 builtin_dict = dict
 
-def structseq_new(cls, sequence, dict=None):
-    if dict is None:
+MISSING = object()
+
+def structseq_new(cls, sequence, dict=MISSING):
+    if dict is MISSING:
         dict = {}
+    elif not isinstance(dict, builtin_dict):
+        raise TypeError(cls._name + " takes a dict as second arg, if any")
     N = cls.n_sequence_fields
     # total fields (unnamed are not yet supported, extra fields not included)
     if N == 1:
