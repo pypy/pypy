@@ -7,7 +7,6 @@ def set_attribute(classdesc, value, attr="_static_lookup_cache"):
     cls = classdesc.pyobj
     if attr in cls.__dict__:
         return
-    print "setting", cls, attr, value
     classdesc.classdict[attr] = Constant(value)
     classdesc.immutable_fields.add(attr)
     classdesc.classdef.add_source_for_attribute(attr, classdesc)
@@ -25,7 +24,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         from pypy.objspace.std import typeobject
         from pypy.interpreter import baseobjspace
         assert attr not in self.lookups
-        print "found constant lookup", attr
         cached = "cached_%s" % attr
         clsdef = bookkeeper.getuniqueclassdef(StaticLookupCache)
         classdesc = clsdef.classdesc
@@ -114,8 +112,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
             for attr in self.lookups:
                 cached = "cached_%s" % attr
                 w_value = w_type._lookup(attr)
-                if w_value is not None:
-                    print cls, attr, w_value
                 setattr(cls._static_lookup_cache, cached, w_value)
                 source = InstanceSource(bookkeeper, cls._static_lookup_cache)
                 clsdef.add_source_for_attribute(cached, source)
