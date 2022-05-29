@@ -6,7 +6,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash, use_special_method_shortcut
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.rlib import jit
 
 @specialize.memo()
@@ -70,13 +70,19 @@ def raiseattrerror(space, w_obj, name, w_descr=None):
 
 # Helpers for old-style and mix-style mixup
 
+@always_inline
 def _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
+    from pypy.objspace.std.typeobject import W_TypeObject
+    # micro-optimization, call on the instances instead of using space.is_w so
+    # we can inline it
     if (space.is_oldstyle_instance(w_obj1) and
         space.is_oldstyle_instance(w_obj2)):
         assert isinstance(w_obj1, W_InstanceObject)
         assert isinstance(w_obj2, W_InstanceObject)
-        return space.is_w(w_obj1.w_class, w_obj2.w_class)
-    return space.is_w(w_typ1, w_typ2)
+        return w_obj1.w_class.is_w(space, w_obj2.w_class)
+    assert isinstance(w_typ1, W_TypeObject)
+    assert isinstance(w_typ2, W_TypeObject)
+    return w_typ1.is_w(space, w_typ2)
 
 
 class Object(object):
