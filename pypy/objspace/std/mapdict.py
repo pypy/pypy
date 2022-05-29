@@ -460,8 +460,9 @@ class PlainAttribute(AbstractAttribute):
         return new_obj
 
     def repr(self):
-        return "<PlainAttribute %s %s %s %s>" % (
+        return "<PlainAttribute %s %s %s%s %s>" % (
                 self.name, attrkind_name(self.attrkind), self.storageindex,
+                " immutable" if not self.ever_mutated else "",
                 self.back.repr())
 
 
@@ -587,9 +588,11 @@ class UnboxedPlainAttribute(PlainAttribute):
                 unboxed[self.listindex] = val
 
     def repr(self):
-        return "<UnboxedPlainAttribute %s %s %s %s %s>" % (
+        return "<UnboxedPlainAttribute %s %s %s %s%s %s>" % (
                 self.name, attrkind_name(self.attrkind), self.storageindex,
-                self.listindex, self.back.repr())
+                self.listindex,
+                " immutable" if not self.ever_mutated else "",
+                self.back.repr())
 
 
 class CachedAttributeHolder(object):

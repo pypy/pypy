@@ -404,3 +404,18 @@ class TestMisc(BaseTestPyPyC):
         log = self.run(main, [])
         loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
+
+    def test_stat_result_virtual(self):
+        def main(n):
+            import os
+            res = 0
+            for i in range(n):
+                res += os.path.islink(__file__) # ID: islink
+            return res
+        log = self.run(main, [3000])
+        loop, = log.loops_by_id("islink")
+        opnames = log.opnames(loop.allops())
+        # one left (used to be 20+)
+        assert opnames.count('new_with_vtable') == 1
+        assert opnames.count('new') == 0
+        assert opnames.count('new_array_clear') == 0

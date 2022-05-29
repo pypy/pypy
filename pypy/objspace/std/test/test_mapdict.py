@@ -328,6 +328,10 @@ def test_attr_immutability(monkeypatch):
     assert obj.checkstorage == [10, 30]
     assert obj.map.ever_mutated == True
     assert obj.map.back.ever_mutated == False
+    assert obj.map.repr().startswith(
+        "<PlainAttribute b DICT 1 "
+        "<PlainAttribute a DICT 0 immutable "
+        "<DictTerminator w_cls=")
 
     indices = []
 

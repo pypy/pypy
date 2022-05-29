@@ -42,8 +42,11 @@ def codepoint_at_pos_dont_look_inside(utf8, p):
     return rutf8.codepoint_at_pos(utf8, p)
 
 
-joindriver = jit.JitDriver(greens = ['selfisnotempty', 'tpfirst', 'tplist'], reds = 'auto',
-                           name='joindriver')
+def get_printable_location(selfisnotempty, tpfirst, greenkey):
+    return "unicode.join [selfisnotempty=%s, tpfirst=%s, %s]" % (
+            selfisnotempty, tpfirst, greenkey.iterator_greenkey_printable())
+joindriver = jit.JitDriver(greens = ['selfisnotempty', 'tpfirst', 'greenkey'], reds = 'auto',
+                           name='joindriver', get_printable_location=get_printable_location)
 
 class BadUtf8(Exception):
     pass
@@ -690,9 +693,9 @@ class W_UnicodeObject(W_Root):
         size = 1
         selfisnotempty = self._length != 0
         tpfirst = space.type(w_first)
-        tplist = space.type(w_iterable)
+        greenkey = space.iterator_greenkey(w_iter)
         while 1:
-            joindriver.jit_merge_point(tpfirst=tpfirst, tplist=tplist, selfisnotempty=selfisnotempty)
+            joindriver.jit_merge_point(tpfirst=tpfirst, greenkey=greenkey, selfisnotempty=selfisnotempty)
             try:
                 w_element = space.next(w_iter)
             except OperationError as e:

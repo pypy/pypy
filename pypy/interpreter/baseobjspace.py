@@ -4,7 +4,7 @@ import py
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit, types, rutf8
-from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.debug import make_sure_not_resized, check_not_access_directly
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
 from rpython.rlib.signature import signature
@@ -72,7 +72,11 @@ class W_Root(object):
 
     # to be used directly only by space.type implementations
     def getclass(self, space):
-        return space.gettypeobject(self.typedef)
+        # make sure that we never annotate this with access_directly set to
+        # True. otherwise every call to getclass (and other methods) has an
+        # extra indirection due to a much more complicated function set
+        check_not_access_directly(self)
+        return space.gettypefor(self.__class__)
 
     def setclass(self, space, w_subtype):
         raise oefmt(space.w_TypeError,

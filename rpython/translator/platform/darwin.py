@@ -125,3 +125,10 @@ class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"
     link_flags = Darwin.link_flags + ('-arch', 'x86_64')
     cflags = Darwin.cflags + ('-arch', 'x86_64')
+
+class Darwin_arm64(Darwin):
+    name = 'darwin_arm64'
+    link_flags = Darwin.link_flags + ('-arch', 'arm64')
+    cflags = Darwin.cflags + ('-arch', 'arm64')
+
+    

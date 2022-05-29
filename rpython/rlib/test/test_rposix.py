@@ -62,6 +62,7 @@ class TestPosixFunction:
         compile(f, (str, float))(str(fname), t1)
         assert t1 == os.stat(str(fname)).st_mtime
 
+    @py.test.mark.skipif("sys.platform == 'darwin'")
     def test_utime_negative_fraction(self):
         def f(fname, t1):
             os.utime(fname, (t1, t1))
@@ -804,14 +805,16 @@ def test_sched_get_priority_max():
     assert rposix.sched_get_priority_max(rposix.SCHED_FIFO) != -1
     assert rposix.sched_get_priority_max(rposix.SCHED_RR) != -1
     assert rposix.sched_get_priority_max(rposix.SCHED_OTHER) != -1
-    assert rposix.sched_get_priority_max(rposix.SCHED_BATCH) != -1
+    if sys.platform != 'darwin':
+        assert rposix.sched_get_priority_max(rposix.SCHED_BATCH) != -1
 
 @rposix_requires('sched_get_priority_min')
 def test_sched_get_priority_min():
     assert rposix.sched_get_priority_min(rposix.SCHED_FIFO) != -1
     assert rposix.sched_get_priority_min(rposix.SCHED_RR) != -1
     assert rposix.sched_get_priority_min(rposix.SCHED_OTHER) != -1
-    assert rposix.sched_get_priority_min(rposix.SCHED_BATCH) != -1
+    if sys.platform != 'darwin':
+        assert rposix.sched_get_priority_min(rposix.SCHED_BATCH) != -1
 
 @rposix_requires('sched_get_priority_min')
 def test_os_sched_priority_max_greater_than_min():
