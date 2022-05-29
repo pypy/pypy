@@ -126,7 +126,7 @@ class X86_64_XMMRegisterManager(X86XMMRegisterManager):
     save_around_call_regs = all_regs
 
 class X86_64_WIN_XMMRegisterManager(X86_64_XMMRegisterManager):
-    # xmm15 reserved for scratch use
+    # xmm5 reserved for scratch use
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4]
     save_around_call_regs = all_regs
 
