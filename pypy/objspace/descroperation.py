@@ -5,7 +5,7 @@ from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash, use_special_method_shortcut
 from rpython.tool.sourcetools import compile2, func_with_new_name
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.rlib import jit
 
 @specialize.memo()
@@ -71,8 +71,14 @@ def get_attribute_name(space, w_obj, w_name):
             raiseattrerror(space, w_obj, w_name)
         raise
 
+@always_inline
 def _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
-    return space.is_w(w_typ1, w_typ2)
+    from pypy.objspace.std.typeobject import W_TypeObject
+    # micro-optimization, call on the instances instead of using space.is_w so
+    # we can inline it
+    assert isinstance(w_typ1, W_TypeObject)
+    assert isinstance(w_typ2, W_TypeObject)
+    return w_typ1.is_w(space, w_typ2)
 
 
 class Object(object):
@@ -563,6 +569,10 @@ def _invoke_binop(space, w_impl, w_obj1, w_obj2):
 class PrintCache(object):
     def __init__(self, space):
         self.w_print = space.getattr(space.builtin, space.newtext("print"))
+
+# specialize on the special method names to use the lookup_in_type_where fast
+# paths
+@specialize.arg(3, 4)
 def _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat):
     w_typ1 = space.type(w_obj1)
     w_typ2 = space.type(w_obj2)
@@ -600,7 +610,7 @@ def _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat):
 
 def _make_binop_impl(symbol, specialnames):
     left, right = specialnames
-    errormsg = "unsupported operand type(s) for %s: '%%N' and '%%N'" % (
+    errormsg = "unsupported operand type(s) for %s: '%%T' and '%%T'" % (
         symbol.replace('%', '%%'),)
     seq_bug_compat = (symbol == '+' or symbol == '*')
 
@@ -619,9 +629,7 @@ def _make_binop_impl(symbol, specialnames):
             w_res = space.get_and_call_function(w_impl, w_obj1, w_obj2)
             if _check_notimplemented(space, w_res):
                 return w_res
-        w_typ1 = space.type(w_obj1)
-        w_typ2 = space.type(w_obj2)
-        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
+        raise oefmt(space.w_TypeError, errormsg, w_obj1, w_obj2)
 
     def binop_impl(space, w_obj1, w_obj2):
         # shortcut: rpython classes are the same
@@ -632,11 +640,9 @@ def _make_binop_impl(symbol, specialnames):
         w_res = _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat)
         if w_res is not None:
             return w_res
-        w_typ1 = space.type(w_obj1)
-        w_typ2 = space.type(w_obj2)
+        raise oefmt(space.w_TypeError, errormsg, w_obj1, w_obj2)
         if printerrormsg is not None and w_obj1 is space.fromcache(PrintCache).w_print:
             raise oefmt(space.w_TypeError, printerrormsg, w_typ1, w_typ2)
-        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
 
     return func_with_new_name(binop_impl, "binop_%s_impl"%left.strip('_'))
 
@@ -741,7 +747,7 @@ def _make_inplace_impl(symbol, specialnames):
     seq_bug_compat = (symbol == '+=' or symbol == '*=')
     rhs_method = '__r' + specialname[3:]
     lhs_method = '__' + specialname[3:]
-    errormsg = "unsupported operand type(s) for %s: '%%N' and '%%N'" % (
+    errormsg = "unsupported operand type(s) for %s: '%%T' and '%%T'" % (
         symbol.replace('%', '%%'),)
 
     def inplace_impl(space, w_lhs, w_rhs):
@@ -770,9 +776,7 @@ def _make_inplace_impl(symbol, specialnames):
         if w_res is not None:
             return w_res
 
-        w_typ1 = space.type(w_lhs)
-        w_typ2 = space.type(w_rhs)
-        raise oefmt(space.w_TypeError, errormsg, w_typ1, w_typ2)
+        raise oefmt(space.w_TypeError, errormsg, w_lhs, w_rhs)
 
     return func_with_new_name(inplace_impl, 'inplace_%s_impl'%specialname.strip('_'))
 
