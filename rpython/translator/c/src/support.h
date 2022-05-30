@@ -70,6 +70,6 @@ double _PyPy_dg_stdnan(int sign);
 #  define RPyFxItem(ptr, index, fixedsize)   ((ptr)[index])
 #  define RPyNLenItem(array, index)          ((array)->items[index])
 #  define RPyBareItem(array, index)          ((array)[index])
-#endif
+#endif /* RPY_LL_ASSERT || RPY_SANDBOXED */
 
 #endif  /* _SRC_SUPPORT_H */
