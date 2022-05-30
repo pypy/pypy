@@ -1748,3 +1748,19 @@ class TestMapDictImplementationUsingnewdict(BaseTestRDictImplementation):
         # mapdict can't pass this, which is fine
         pass
 
+def test_correct_method_sharing(space):
+    from pypy.objspace.std import bytesobject, objectobject, unicodeobject
+    # see long comment in typedef.py, _getusercls
+
+    # first check that random subclasses share code
+    w_bytessub = space.call_function(space.w_type, space.newtext("bytessub"), space.newtuple([space.w_bytes]), space.newdict())
+    w_unicodesub = space.call_function(space.w_type, space.newtext("unicodesub"), space.newtuple([space.w_unicode]), space.newdict())
+    w_inst1 = space.allocate_instance(bytesobject.W_BytesObject, w_bytessub)
+    w_inst2 = space.allocate_instance(unicodeobject.W_UnicodeObject, w_unicodesub)
+    assert w_inst1.getclass.im_func is w_inst2.getclass.im_func
+
+    # but object doesn't!
+    w_objectsub = space.call_function(space.w_type, space.newtext("objectsub"), space.newtuple([space.w_object]), space.newdict())
+    w_inst2 = space.allocate_instance(objectobject.W_ObjectObject, w_objectsub)
+    assert w_inst1.getclass.im_func is not w_inst2.getclass.im_func
+
