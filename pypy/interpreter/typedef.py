@@ -179,37 +179,55 @@ def _getusercls(cls, reallywantdict=False):
     from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
             MapdictDictSupport, MapdictWeakrefSupport,
             _make_storage_mixin_size_n, MapdictStorageMixin)
+    # some subtleties here: We want w_obj.getclass to be a small func
+    # set, ie less than 5 different implementations. That way, it can be
+    # inlined into its callers. This means we cannot give every single
+    # user-defined subclass its own getclass, instead we use the same function
+    # for all of them. This has the effect that the call to
+    # w_obj._get_mapdict_map() in BaseUserClassMapdict.getclass is an
+    # *indirect* call. That's fine, however, we want the object subclasses to
+    # work somewhat better than the rest, so W_ObjectObjectUserDictWeakrefable
+    # should have a *copy* of getclass. This is all achieved by using
+    # _share_methods (which shares functions, does not create copies) instead of
+    # import_from_mixin, which *does* copy functions. There is a test for all
+    # of this in test_mapdict.py, test_correct_method_sharing
     typedef = cls.typedef
     name = cls.__name__ + "User"
+    isobjectsubclass = cls is W_ObjectObject
 
-    if cls is W_ObjectObject or cls is W_InstanceObject:
+    if isobjectsubclass or cls is W_InstanceObject:
         base_mixin = _make_storage_mixin_size_n()
     else:
         base_mixin = MapdictStorageMixin
-    copy_methods = [BaseUserClassMapdict]
+    if not isobjectsubclass:
+        shared_methods = [BaseUserClassMapdict]
+    else:
+        shared_methods = []
     if reallywantdict or not typedef.hasdict:
         # the type has no dict, mapdict to provide the dict
-        copy_methods.append(MapdictDictSupport)
+        shared_methods.append(MapdictDictSupport)
         name += "Dict"
     if not typedef.weakrefable:
         # the type does not support weakrefs yet, mapdict to provide weakref
         # support
-        copy_methods.append(MapdictWeakrefSupport)
+        shared_methods.append(MapdictWeakrefSupport)
         name += "Weakrefable"
 
     class subcls(cls):
         user_overridden_class = True
         objectmodel.import_from_mixin(base_mixin)
+        if isobjectsubclass:
+            objectmodel.import_from_mixin(BaseUserClassMapdict)
 
     for _, shortcut_name, meth, _ in SHORTCUTS:
         setattr(subcls, shortcut_name, meth)
 
-    for copycls in copy_methods:
-        _copy_methods(copycls, subcls)
+    for copycls in shared_methods:
+        _share_methods(copycls, subcls)
     subcls.__name__ = name
     return subcls
 
-def _copy_methods(copycls, subcls):
+def _share_methods(copycls, subcls):
     for key, value in copycls.__dict__.items():
         if (not key.startswith('__') or key == '__del__'):
             setattr(subcls, key, value)
@@ -265,7 +283,6 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     from rpython.flowspace.bytecode import cpython_code_signature
     # - if cls is None, the wrapped object is passed to the function
     # - if cls is a class, an unwrapped instance is passed
-    # - if cls is a string, XXX unused?
     if cls is None and use_closure:
         return func
     if hasattr(func, 'im_func'):
@@ -309,33 +326,6 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     exec source.compile() in miniglobals
     return miniglobals['descr_typecheck_%s' % func.__name__]
 
-@specialize.arg(0)
-def make_objclass_getter(tag, func, cls):
-    if func and hasattr(func, 'im_func'):
-        assert not cls or cls is func.im_class
-        cls = func.im_class
-    return _make_objclass_getter(cls)
-
-@specialize.memo()
-def _make_objclass_getter(cls):
-    if not cls:
-        return None, cls
-    miniglobals = {}
-    if isinstance(cls, str):
-        assert cls.startswith('<'), "pythontype typecheck should begin with <"
-        cls_name = cls[1:]
-        typeexpr = "space.w_%s" % cls_name
-    else:
-        miniglobals['cls'] = cls
-        typeexpr = "space.gettypeobject(cls.typedef)"
-    source = """if 1:
-        def objclass_getter(space):
-            return %s
-        \n""" % (typeexpr,)
-    exec compile2(source) in miniglobals
-    res = miniglobals['objclass_getter'], cls
-    return res
-
 class GetSetProperty(W_Root):
     _immutable_fields_ = ["fget", "fset", "fdel"]
     w_objclass = None
@@ -343,32 +333,33 @@ class GetSetProperty(W_Root):
     @specialize.arg(7)
     def __init__(self, fget, fset=None, fdel=None, doc=None,
                  cls=None, use_closure=False, tag=None, name=None):
-        objclass_getter, cls = make_objclass_getter(tag, fget, cls)
+        if fget and hasattr(fget, 'im_func'):
+            assert not cls or cls is fget.im_class
+            cls = fget.im_class
         fget = make_descr_typecheck_wrapper((tag, 0), fget,
                                             cls=cls, use_closure=use_closure)
         fset = make_descr_typecheck_wrapper((tag, 1), fset, ('w_value',),
                                             cls=cls, use_closure=use_closure)
         fdel = make_descr_typecheck_wrapper((tag, 2), fdel,
                                             cls=cls, use_closure=use_closure)
-        self._init(fget, fset, fdel, doc, cls, objclass_getter, use_closure,
+        self._init(fget, fset, fdel, doc, cls, use_closure,
                    name)
 
-    def _init(self, fget, fset, fdel, doc, cls, objclass_getter, use_closure,
+    def _init(self, fget, fset, fdel, doc, cls, use_closure,
               name):
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
         self.doc = doc
         self.reqcls = cls
-        self.objclass_getter = objclass_getter
         self.use_closure = use_closure
         self.name = name if name is not None else '<generic property>'
 
     def copy_for_type(self, w_objclass):
-        if self.objclass_getter is None:
+        if self.reqcls is None:
             new = instantiate(GetSetProperty)
             new._init(self.fget, self.fset, self.fdel, self.doc, self.reqcls,
-                      None, self.use_closure, self.name)
+                      self.use_closure, self.name)
             new.w_objclass = w_objclass
             return new
         else:
@@ -429,14 +420,14 @@ class GetSetProperty(W_Root):
                 self.reqcls, Arguments(space, [w_obj,
                                                space.newtext(self.name)]))
 
-    def descr_get_objclass(space, property):
-        if property.w_objclass is not None:
-            return property.w_objclass
-        if property.objclass_getter is not None:
-            return property.objclass_getter(space)
+    def descr_get_objclass(self, space):
+        if self.w_objclass is not None:
+            return self.w_objclass
+        if self.reqcls is not None:
+            return space.gettypeobject(self.reqcls.typedef)
         # NB. this is an AttributeError to make inspect.py happy
         raise oefmt(space.w_AttributeError,
-                    "generic property has no __objclass__")
+                    "generic self has no __objclass__")
 
     def spacebind(self, space):
         if hasattr(space, '_see_getsetproperty'):

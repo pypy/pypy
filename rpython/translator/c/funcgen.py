@@ -528,25 +528,36 @@ class FunctionCodeGenerator(object):
                 result = gencsupp.emit_void(result)
         return result
 
+    def _field_stat(self, op, structdef, access_kind):
+        prefix = ''
+        if self.db.all_field_names is not None:
+            if hasattr(structdef, 'c_struct_field_name'):
+                fieldname = structdef.c_struct_field_name(op.args[1].value)
+                self.db.all_field_names.add(fieldname)
+                prefix = 'rpy_access_stats.%s_%s++;\n' % (fieldname, access_kind)
+        return prefix
+
     def OP_GETFIELD(self, op, ampersand='', accessing_mem=True):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
         baseexpr_is_const = isinstance(op.args[0], Constant)
+        prefix = self._field_stat(op, structdef, "read")
         expr = ampersand + structdef.ptr_access_expr(self.expr(op.args[0]),
                                                      op.args[1].value,
                                                      baseexpr_is_const)
-        return self.generic_get(op, expr, accessing_mem=accessing_mem)
+        return prefix + self.generic_get(op, expr, accessing_mem=accessing_mem)
 
     def OP_BARE_SETFIELD(self, op):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
         baseexpr_is_const = isinstance(op.args[0], Constant)
+        prefix = self._field_stat(op, structdef, "write")
         expr = structdef.ptr_access_expr(self.expr(op.args[0]),
                                          op.args[1].value,
                                          baseexpr_is_const)
-        return self.generic_set(op, expr)
+        return prefix + self.generic_set(op, expr)
 
     def OP_GETSUBSTRUCT(self, op):
         RESULT = self.lltypemap(op.result).TO

@@ -309,6 +309,22 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputarg(hop.args_r[0], arg=0)
 
+def check_not_access_directly(arg):
+    """ check that arg does not have the access_directly=True hint set """
+    return arg
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_not_access_directly
+
+    def compute_result_annotation(self, s_arg):
+        assert not s_arg.flags.get('access_directly', False)
+        return s_arg
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
+
+
 def make_sure_not_resized(arg):
     """ Function checking whether annotation of SomeList is never resized,
     useful for debugging. Does nothing when run directly

@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.backend.x86 import rx86
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
+from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64, WIN64
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -353,7 +353,10 @@ X86_64_SCRATCH_REG = r11
 
 # XXX: a GPR scratch register is definitely needed, but we could probably do
 # without an xmm scratch reg.
-X86_64_XMM_SCRATCH_REG = xmm15
+if WIN64:
+    X86_64_XMM_SCRATCH_REG = xmm5
+else:
+    X86_64_XMM_SCRATCH_REG = xmm15
 
 # note: 'r' is after 'i' in this list, for _binaryop()
 unrolling_location_codes = unrolling_iterable(list("irbsmajx"))

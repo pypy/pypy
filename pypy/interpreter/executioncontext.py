@@ -7,6 +7,8 @@ from rpython.rlib import jit, rgc, objectmodel
 TICK_COUNTER_STEP = 100
 
 def app_profile_call(space, w_callable, frame, event, w_arg):
+    # from here on, frame is just a normal w_object
+    frame = jit.hint(frame, access_directly=False)
     space.call_function(w_callable,
                         frame,
                         space.newtext(event), w_arg)
@@ -343,6 +345,8 @@ class ExecutionContext(object):
                 if event == 'line':
                     d.is_in_line_tracing = True
                 try:
+                    # from here on, frame is just a normal w_object
+                    frame = jit.hint(frame, access_directly=False)
                     w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
                     if space.is_w(w_result, space.w_None):
                         # bug-to-bug compatibility with CPython

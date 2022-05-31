@@ -145,6 +145,8 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline=None),
     BoolOption("countmallocs", "Count mallocs and frees", default=False,
                cmdline=None),
+    BoolOption("countfieldaccess", "Count field access for C structs",
+            default=False),
     ChoiceOption("fork_before",
                  "(UNIX) Create restartable checkpoint before step",
                  ["annotate", "rtype", "backendopt", "database", "source",

@@ -11,7 +11,7 @@ import os
 # Bumped to 10.9 2021-11-22 to match CPython,
 # see https://github.com/python/cpython/blob/42205ee51
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=12.0'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.9'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
