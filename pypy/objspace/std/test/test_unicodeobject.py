@@ -824,6 +824,10 @@ class AppTestUnicodeString:
         # CESU-8
         raises(UnicodeDecodeError, b'\xed\xa0\xbc\xed\xb2\xb1'.decode, 'utf-8')
 
+    def test_encode_fast_path_bug_position(self):
+        info = raises(UnicodeEncodeError, "ää\ud800".encode, "utf-8")
+        assert info.value.start == 2 # used to be 4
+
     def test_codecs_errors(self):
         # Error handling (encoding)
         raises(UnicodeError, 'Andr\202 x'.encode, 'ascii')
