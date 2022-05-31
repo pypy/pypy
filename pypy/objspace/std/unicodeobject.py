@@ -1215,7 +1215,9 @@ def encode_object(space, w_obj, encoding, errors):
         if ((encoding is None and space.sys.defaultencoding == 'utf8') or
              encoding == 'utf-8' or encoding == 'utf8' or encoding == 'UTF-8'):
             utf8 = space.utf8_w(w_obj)
-            if rutf8.has_surrogates(utf8):
+            if isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii():
+                pass # nothing to do
+            elif rutf8.has_surrogates(utf8):
                 utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
             return space.newbytes(utf8)
         if ((encoding == "latin1" or encoding == "latin-1") and
