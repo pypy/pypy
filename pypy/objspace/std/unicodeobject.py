@@ -1468,9 +1468,11 @@ def encode_object(space, w_obj, encoding, errors):
     if errors is None or errors == 'strict':
         # fast paths
         utf8 = space.utf8_w(w_obj)
-        if encoding is None or encoding == 'utf-8':
+        if (encoding is None or encoding == 'utf-8' or
+                encoding == 'utf8' or encoding == 'UTF-8'):
             try:
-                rutf8.check_utf8(utf8, False)
+                if not (isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
+                    rutf8.check_utf8(utf8, False)
             except rutf8.CheckError as a:
                 eh = unicodehelper.encode_error_handler(space)
                 eh(None, "utf-8", "surrogates not allowed", utf8,
