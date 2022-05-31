@@ -1092,11 +1092,11 @@ def _STORECHAR(result, CH, byteorder):
     hi = chr(((CH) >> 8) & 0xff)
     lo = chr((CH) & 0xff)
     if byteorder == 'little':
-        result.append(lo)
-        result.append(hi)
+        result.append_char(lo)
+        result.append_char(hi)
     else:
-        result.append(hi)
-        result.append(lo)
+        result.append_char(hi)
+        result.append_char(lo)
 
 def unicode_encode_utf_16_helper(s, errors,
                                  errorhandler=None,
