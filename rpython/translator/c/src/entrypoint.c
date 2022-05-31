@@ -106,6 +106,7 @@ int pypy_main_function(int argc, char *argv[])
     }
 
     pypy_malloc_counters_results();
+    pypy_print_field_stats();
 
 #ifdef RPY_WITH_GIL
     RPyGilRelease();

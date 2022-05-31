@@ -186,37 +186,55 @@ def _getusercls(cls):
     from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
             MapdictDictSupport, MapdictWeakrefSupport,
             _make_storage_mixin_size_n, MapdictStorageMixin)
+    # some subtleties here: We want w_obj.getclass to be a small func
+    # set, ie less than 5 different implementations. That way, it can be
+    # inlined into its callers. This means we cannot give every single
+    # user-defined subclass its own getclass, instead we use the same function
+    # for all of them. This has the effect that the call to
+    # w_obj._get_mapdict_map() in BaseUserClassMapdict.getclass is an
+    # *indirect* call. That's fine, however, we want the object subclasses to
+    # work somewhat better than the rest, so W_ObjectObjectUserDictWeakrefable
+    # should have a *copy* of getclass. This is all achieved by using
+    # _share_methods (which shares functions, does not create copies) instead of
+    # import_from_mixin, which *does* copy functions. There is a test for all
+    # of this in test_mapdict.py, test_correct_method_sharing
     typedef = cls.typedef
     name = cls.__name__ + "User"
+    isobjectsubclass = cls is W_ObjectObject
 
-    if cls is W_ObjectObject:
+    if isobjectsubclass:
         base_mixin = _make_storage_mixin_size_n()
     else:
         base_mixin = MapdictStorageMixin
-    copy_methods = [BaseUserClassMapdict]
+    if not isobjectsubclass:
+        shared_methods = [BaseUserClassMapdict]
+    else:
+        shared_methods = []
     if not typedef.hasdict:
         # the type has no dict, mapdict to provide the dict
-        copy_methods.append(MapdictDictSupport)
+        shared_methods.append(MapdictDictSupport)
         name += "Dict"
     if not typedef.weakrefable:
         # the type does not support weakrefs yet, mapdict to provide weakref
         # support
-        copy_methods.append(MapdictWeakrefSupport)
+        shared_methods.append(MapdictWeakrefSupport)
         name += "Weakrefable"
 
     class subcls(cls):
         user_overridden_class = True
         objectmodel.import_from_mixin(base_mixin)
+        if isobjectsubclass:
+            objectmodel.import_from_mixin(BaseUserClassMapdict)
 
     for _, shortcut_name, meth, _ in SHORTCUTS:
         setattr(subcls, shortcut_name, meth)
 
-    for copycls in copy_methods:
-        _copy_methods(copycls, subcls)
+    for copycls in shared_methods:
+        _share_methods(copycls, subcls)
     subcls.__name__ = name
     return subcls
 
-def _copy_methods(copycls, subcls):
+def _share_methods(copycls, subcls):
     for key, value in copycls.__dict__.items():
         if (not key.startswith('__') or key == '__del__'):
             setattr(subcls, key, value)

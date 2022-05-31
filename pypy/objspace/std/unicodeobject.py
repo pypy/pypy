@@ -1484,30 +1484,15 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
 def encode_object(space, w_obj, encoding, errors):
     from pypy.module._codecs.interp_codecs import(
             _call_codec, lookup_text_codec, lookup_error)
-    if errors is None or errors == 'strict':
-        # fast paths
-        utf8 = space.utf8_w(w_obj)
-        if encoding is None or encoding == 'utf-8':
-            try:
-                rutf8.check_utf8(utf8, False)
-            except rutf8.CheckError as a:
-                eh = unicodehelper.encode_error_handler(space)
-                eh(None, "utf-8", "surrogates not allowed", utf8,
-                    a.pos, a.pos + 1)
-                assert False, "always raises"
-            return space.newbytes(utf8)
-        if ((encoding == "latin1" or encoding == "latin-1") and
-                isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
-            return space.newbytes(w_obj._utf8)
-        elif encoding == 'ascii':
-            try:
-                if not (isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
-                    rutf8.check_ascii(utf8)
-            except rutf8.CheckError as a:
-                eh = unicodehelper.encode_error_handler(space)
-                eh(None, "ascii", "ordinal not in range(128)", utf8,
-                    a.pos, a.pos + 1)
-                assert False, "always raises"
+    # fast paths, only ascii, in the other cases it's too easy to mess up
+    # the errors
+    if ((errors is None or errors == 'strict') and
+            isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
+        utf8 = w_obj.utf8_w(space)
+        if (encoding is None or encoding == 'utf-8' or
+                encoding == 'utf8' or encoding == 'UTF-8' or
+                encoding == "latin1" or encoding == "latin-1" or
+                encoding == 'ascii'):
             return space.newbytes(utf8)
     if encoding is None:
         encoding = space.sys.defaultencoding
