@@ -12,7 +12,18 @@ from rpython.jit.tl.threadedcode.object import W_Object, W_IntObject, \
     W_FloatObject, W_StringObject, W_ListObject, OperationError
 from rpython.jit.tl.threadedcode.bytecode import *
 
-def get_printable_location_tier1(pc, call_entry, bytecode, tstack):
+
+TRACE_THRESHOLD = 20
+
+class ContinueInTracingJIT(Exception):
+    def __init__(self, pc):
+        self.pc = pc
+
+class ContinueInThreadedJIT(Exception):
+    def __init__(self, pc):
+        self.pc = pc
+
+def get_printable_location_tier1(pc, entry, bytecode, tstack):
     op = ord(bytecode[pc])
     name = bytecodes[op]
 
@@ -21,12 +32,10 @@ def get_printable_location_tier1(pc, call_entry, bytecode, tstack):
     else:
         arg = ''
 
-    if not tstack.t_is_empty():
-        targ = str(tstack.pc)
+    if tstack.t_is_empty():
+        return "%s: %s %s, tstack: None" % (pc, name, arg)
     else:
-        targ = 'Nan'
-
-    return "%s: %s %s, tstack: %s" % (pc, name, arg, targ)
+        return "%s: %s %s, tstack: %d" % (pc, name, arg, tstack.pc)
 
 def get_printable_location(pc, bytecode):
     op = ord(bytecode[pc])
@@ -712,6 +721,7 @@ class Frame(object):
         self._push(W_FloatObject(abs(w_x.floatvalue)))
 
     def _interp(self, pc=0):
+        "tracing interpreter"
         bytecode = self.bytecode
 
         while pc < len(bytecode):
@@ -1149,7 +1159,11 @@ class Frame(object):
             elif opcode == JUMP:
                 t = ord(bytecode[pc])
 
-                pc += 1
+                # if t < pc:
+                #     # pc is incremented just after fetching opcode
+                #     if bytecode.counts[pc-1] == TRACE_THRESHOLD:
+                #         raise ContinueInTracingJIT(pc-1)
+                #     bytecode.counts[pc-1] += 1
 
                 if we_are_jitted():
                     if tstack.t_is_empty():
@@ -1161,7 +1175,7 @@ class Frame(object):
                         pc, tstack = tstack.t_pop()
 
                     if t < pc:
-                        pc = emit_jump(pc, t)
+                        emit_jump(pc, t)
                 else:
                     if t < pc:
                         tier1driver.can_enter_jit(
@@ -1272,3 +1286,27 @@ def run(bytecode, w_arg, debug=False, tier=None):
     else:
         w_result = frame.interp()
     return w_result
+
+
+# def run(bytecode, w_arg, debug=False, tier=1):
+#     frame = Frame(bytecode)
+#     frame.push(w_arg)
+#     if tier >= 2:
+#         w_result = frame._interp()
+#         return w_result
+#     else:
+#         pc = 0
+#         while True:
+#             try:
+#                 w_result = frame.interp(pc=pc)
+#                 return w_result
+#             except ContinueInTracingJIT as e:
+#                 print "switching to tracing", e.pc
+#                 pc = e.pc
+
+#             try:
+#                 w_result = frame._interp(pc=pc)
+#                 return w_result
+#             except ContinueInThreadedJIT as e:
+#                 print "swiching to threaded", e.pc
+#                 pc = e.pc
