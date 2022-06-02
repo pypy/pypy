@@ -306,7 +306,7 @@ class PyCode(eval.Code):
     def descr_code__eq__(self, w_other):
         space = self.space
         if not isinstance(w_other, PyCode):
-            return space.w_False
+            return space.w_NotImplemented
         areEqual = (self.co_name == w_other.co_name and
                     self.co_argcount == w_other.co_argcount and
                     self.co_nlocals == w_other.co_nlocals and
@@ -330,6 +330,12 @@ class PyCode(eval.Code):
                 return space.w_False
 
         return space.w_True
+
+    def descr_code__ne__(self, w_other):
+        space = self.space
+        if not isinstance(w_other, PyCode):
+            return space.w_NotImplemented
+        return space.not_(self.descr_code__eq__(w_other))
 
     def descr_code__hash__(self):
         space = self.space

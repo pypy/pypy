@@ -560,15 +560,26 @@ class Method(W_Root):
         space = self.space
         if not isinstance(w_other, Method):
             return space.w_NotImplemented
+        return space.newbool(self._eq(w_other))
+
+    def descr_method_ne(self, w_other):
+        space = self.space
+        if not isinstance(w_other, Method):
+            return space.w_NotImplemented
+        return space.newbool(not self._eq(w_other))
+
+    def _eq(self, w_other):
+        space = self.space
+        if not space.eq_w(self.w_function, w_other.w_function):
+            return False
         if self.w_instance is None:
             if w_other.w_instance is not None:
-                return space.w_False
+                return False
+            return True
         else:
             if w_other.w_instance is None:
-                return space.w_False
-            if not space.eq_w(self.w_instance, w_other.w_instance):
-                return space.w_False
-        return space.newbool(space.eq_w(self.w_function, w_other.w_function))
+                return False
+            return space.eq_w(self.w_instance, w_other.w_instance)
 
     def is_w(self, space, other):
         if self.w_instance is not None:
