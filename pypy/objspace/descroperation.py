@@ -640,9 +640,9 @@ def _make_binop_impl(symbol, specialnames):
         w_res = _call_binop_impl(space, w_obj1, w_obj2, left, right, seq_bug_compat)
         if w_res is not None:
             return w_res
-        raise oefmt(space.w_TypeError, errormsg, w_obj1, w_obj2)
         if printerrormsg is not None and w_obj1 is space.fromcache(PrintCache).w_print:
-            raise oefmt(space.w_TypeError, printerrormsg, w_typ1, w_typ2)
+            raise oefmt(space.w_TypeError, printerrormsg, w_obj1, w_obj2)
+        raise oefmt(space.w_TypeError, errormsg, w_obj1, w_obj2)
 
     return func_with_new_name(binop_impl, "binop_%s_impl"%left.strip('_'))
 
