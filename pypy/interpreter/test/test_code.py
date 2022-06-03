@@ -263,6 +263,16 @@ class AppTestCodeIntrospection:
         assert d['f'](4).__code__.co_flags & 0x10
         assert d['f'].__code__.co_flags & 0x10 == 0
 
+    def test_code_eq_non_code(self):
+        class A(object):
+            def __eq__(self, other):
+                return 23
+            def __ne__(self, other):
+                return 41
+        def f(): pass
+        assert (f.__code__ == A()) == 23
+        assert (f.__code__ != A()) == 41
+
     def test_issue1844(self):
         import types
         args = (1, 0, 0, 1, 0, 0, b'', (), (), (), '', 'operator', 0, b'')
