@@ -908,10 +908,13 @@ PyTraceback.typedef.acceptable_as_base_class = False
 
 
 Cell.typedef = TypeDef("cell",
-    __total_ordering__ = 'auto',
     __new__      = interp2app(descr_new_cell),
-    __lt__       = interp2app(Cell.descr__lt__),
-    __eq__       = interp2app(Cell.descr__eq__),
+    __eq__       = interp2app(Cell.descr_eq),
+    __ne__       = interp2app(Cell.descr_ne),
+    __lt__       = interp2app(Cell.descr_lt),
+    __gt__       = interp2app(Cell.descr_gt),
+    __le__       = interp2app(Cell.descr_le),
+    __ge__       = interp2app(Cell.descr_ge),
     __hash__     = None,
     __reduce__   = interp2app(Cell.descr__reduce__),
     __repr__     = interp2app(Cell.descr__repr__),

@@ -6,6 +6,19 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.mixedmodule import MixedModule
 
 
+def make_cell_cmp(op):
+    import operator
+    cmp = getattr(operator, op)
+    def descr_cell_(self, space, w_other):
+        if not isinstance(w_other, Cell):
+            return space.w_NotImplemented
+        if self.w_value is None or w_other.w_value is None:
+            return space.newbool(cmp(self._cmp_one_empty(w_other), 0))
+        return getattr(space, op)(self.w_value, w_other.w_value)
+    descr_cell_.func_name += op
+    return descr_cell_
+
+
 class Cell(W_Root):
     "A simple container for a wrapped value."
 
@@ -49,24 +62,21 @@ class Cell(W_Root):
             raise ValueError("delete() on an empty cell")
         self.w_value = None
 
-    def descr__lt__(self, space, w_other):
-        if not isinstance(w_other, Cell):
-            return space.w_NotImplemented
+    def _cmp_one_empty(self, w_other):
         if self.w_value is None:
-            # an empty cell is alway less than a non-empty one
             if w_other.w_value is None:
-                return space.w_False
-            return space.w_True
-        elif w_other.w_value is None:
-            return space.w_False
-        return space.lt(self.w_value, w_other.w_value)
+                return 0
+            return -1
+        else:
+            assert w_other.w_value is None
+            return 1
 
-    def descr__eq__(self, space, w_other):
-        if not isinstance(w_other, Cell):
-            return space.w_NotImplemented
-        if self.w_value is None or w_other.w_value is None:
-            return space.newbool(self.w_value == w_other.w_value)
-        return space.eq(self.w_value, w_other.w_value)
+    descr_eq = make_cell_cmp("eq")
+    descr_ne = make_cell_cmp("ne")
+    descr_lt = make_cell_cmp("lt")
+    descr_gt = make_cell_cmp("gt")
+    descr_ge = make_cell_cmp("ge")
+    descr_le = make_cell_cmp("le")
 
     def descr__reduce__(self, space):
         w_mod = space.getbuiltinmodule('_pickle_support')
