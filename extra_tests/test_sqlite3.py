@@ -5,6 +5,8 @@ from __future__ import absolute_import
 import pytest
 import sys
 import gc
+from datetime import date
+from unittest import mock
 
 _sqlite3 = pytest.importorskip('_sqlite3')
 
@@ -12,7 +14,7 @@ pypy_only = pytest.mark.skipif('__pypy__' not in sys.builtin_module_names,
     reason="PyPy-only test")
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def con():
     con = _sqlite3.connect(':memory:')
     yield con
@@ -436,3 +438,36 @@ def test_uninit_connection():
         con.iterdump()
     with pytest.raises(_sqlite3.ProgrammingError):
         con.close()
+
+@pytest.mark.parametrize(
+        "param,bta,call_count",
+        (
+            (bytearray([1, 2, 3]), True, 0),
+            (3.14, True, 0),
+            (42, True, 0),
+            ("i <3 pypy", True, 0),
+            (None, True, 0),
+            (date(2063, 4, 5), False, 1),
+        ),
+)
+def test_need_adapt_optimization(param, bta, call_count, con):
+    adapters = dict(_sqlite3.adapters)
+
+    def adapter(param):
+        """dummy adapter that adapts only non-basetypes"""
+        if param in _sqlite3.BASE_TYPES:
+            return param
+        return str(param)
+
+    assert _sqlite3.BASE_TYPE_ADAPTED == False
+    _sqlite3.register_adapter(type(param), adapter)
+
+    with mock.patch('_sqlite3.adapt') as mock_adapt:
+        cur = con.cursor()
+        cur.execute("SELECT ?", (param,))
+
+        assert _sqlite3.BASE_TYPE_ADAPTED == bta
+        assert mock_adapt.call_count == call_count
+
+    globals()['_sqlite3'].adapters = adapters
+    globals()['_sqlite3'].BASE_TYPE_ADAPTED = False

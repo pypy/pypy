@@ -112,6 +112,11 @@ _STMT_TYPE_OTHER = 4
 _STMT_TYPE_SELECT = 5
 _STMT_TYPE_INVALID = 6
 
+# flag that signals if base types need adaption
+BASE_TYPE_ADAPTED = False
+
+# set of base types that are supported by SQLite3
+BASE_TYPES = {bytearray, float, int, str, NoneType}
 
 class Error(StandardError):
     pass
@@ -1193,7 +1198,8 @@ class Statement(object):
             self._in_use_token = None
 
     def __set_param(self, idx, param):
-        param = adapt(param)
+        if not BASE_TYPE_ADAPTED or type(param) not in BASE_TYPES:
+            param = adapt(param)
 
         if param is None:
             rc = _lib.sqlite3_bind_null(self._statement, idx)
@@ -1435,6 +1441,11 @@ class PrepareProtocol(object):
 
 
 def register_adapter(typ, callable):
+    global BASE_TYPE_ADAPTED
+
+    if typ in BASE_TYPES:
+        BASE_TYPE_ADAPTED = True
+
     adapters[typ, PrepareProtocol] = callable
 
 
