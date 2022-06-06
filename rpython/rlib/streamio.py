@@ -113,7 +113,12 @@ def fdopen_as_stream(fd, mode, buffering=-1, signal_checker=None):
 @specialize.argtype(0)
 def open_path_helper(path, os_flags, append, signal_checker=None):
     # XXX for now always return DiskFile
-    fd = os.open(path, os_flags, 0666)
+    # XXX libffi on darwin does not support rposix.open, but windows passes
+    # in a FileEncoder/FileDecoder as path, which does not translate
+    if sys.platform == "win32":
+        fd = rposix.open(path, os_flags, 0666)
+    else:
+        fd = os.open(path, os_flags, 0666)
     if append:
         try:
             os.lseek(fd, 0, 2)
