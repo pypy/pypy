@@ -44,8 +44,11 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         classdesc.immutable_fields.add(cached)
         classdesc.classdict[cached] = Constant((None, None))
         clsdef.add_source_for_attribute(cached, classdesc)
+        space = self.space
+        w_moduletype = space.type(space.sys)
         for w_t in self.types_w:
-            if not (w_t.is_heaptype() or w_t.is_cpytype()):
+            if not (w_t.is_heaptype() or w_t.is_cpytype() or
+                        space.issubtype_w(w_t, w_moduletype)):
                 setattr(w_t, cached, w_t._lookup_where(attr))
                 source = InstanceSource(bookkeeper, w_t)
                 clsdef.add_source_for_attribute(cached, source)
@@ -90,12 +93,17 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
 
     def event(self, bookkeeper, what, x):
         from pypy.objspace.std import typeobject
-        from pypy.interpreter import baseobjspace
+        from pypy.interpreter import baseobjspace, module
         if what == "classdef_setup" and issubclass(x.classdesc.pyobj, baseobjspace.W_Root):
             classdesc = x.classdesc
             cls = classdesc.pyobj
+            # Module is weird in python3! it's the only builtin type where you
+            # can change the __class__ of an object, therefore the lookup cache
+            # is going to give wrong results, as the new class might override
+            # things differently
             if (getattr(cls, "typedef", None) is None or
-                    cls.user_overridden_class):
+                    cls.user_overridden_class or
+                    issubclass(cls, module.Module)):
                 set_attribute(classdesc, None)
                 return
             w_type = self.space.gettypeobject(cls.typedef)
@@ -119,8 +127,11 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
             clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
             self.types_w.add(x)
             #print "TYPE", x
+            space = self.space
+            w_moduletype = space.type(space.sys)
             for attr in self.lookups_where:
-                if not (x.is_heaptype() or x.is_cpytype()):
+                if not (x.is_heaptype() or x.is_cpytype() or
+                        space.issubtype_w(x, w_moduletype)):
                     cached = "cached_where_%s" % attr
                     setattr(x, cached, x._lookup_where(attr))
                     source = InstanceSource(bookkeeper, x)
