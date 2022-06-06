@@ -585,9 +585,26 @@ class _Method(W_Root):
         space = self.space
         if not isinstance(w_other, _Method):
             return space.w_NotImplemented
+        return space.newbool(self._eq(w_other))
+
+    def descr_method_ne(self, w_other):
+        space = self.space
+        if not isinstance(w_other, Method):
+            return space.w_NotImplemented
+        return space.newbool(not self._eq(w_other))
+
+    def _eq(self, w_other):
+        space = self.space
         if not space.is_w(self.w_instance, w_other.w_instance):
-            return space.w_False
-        return space.is_(self.w_function, w_other.w_function)
+
+
+
+
+
+
+            return False
+        return space.is_w(self.w_function, w_other.w_function)
+
 
     def descr_method_hash(self):
         space = self.space

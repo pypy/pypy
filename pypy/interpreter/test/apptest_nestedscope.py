@@ -1,4 +1,5 @@
 from pytest import raises
+import types
 
 def test_nested_scope():
     x = 42
@@ -148,10 +149,21 @@ def test_compare_cells():
     assert g2 >= g1
     assert not g1 == g2
     assert g1 != g2
+    assert g1 == g1
+    assert not g1 != g1
     #
     assert empty_cell_1 == empty_cell_2
+    assert empty_cell_1 <= empty_cell_2
+    assert empty_cell_1 >= empty_cell_2
     assert not empty_cell_1 != empty_cell_2
     assert empty_cell_1 < g1
+    assert not g1 < empty_cell_1
+    assert g1 > empty_cell_1
+    assert not empty_cell_1 > g1
+    assert empty_cell_1 <= g1
+    assert not g1 <= empty_cell_1
+    assert g1 >= empty_cell_1
+    assert not empty_cell_1 >= g1
 
 def test_leaking_class_locals():
     def f(x):
@@ -199,6 +211,11 @@ def test_unbound_local_after_del():
     """
 
 def test_new_cell():
-    import types
     c = types.CellType(1)
     assert c.cell_contents == 1
+
+def test_cell_richcmp():
+    class A:
+        def __le__(self, other):
+            return 12
+    assert (types.CellType(A()) <= types.CellType(A())) == 12

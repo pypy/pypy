@@ -48,9 +48,7 @@ class TypeDef(object):
         self.acceptable_as_base_class = '__new__' in rawdict
         self.applevel_subclasses_base = None
         self.add_entries(**rawdict)
-        assert __total_ordering__ in (None, 'auto'), "Unknown value for __total_ordering"
-        if __total_ordering__ == 'auto':
-            self.auto_total_ordering()
+        assert __total_ordering__ in (None, ), "__total_ordering__ was buggy, mostly unused, and has been removed"
         self.variable_sized = variable_sized
 
         self._install_shortcuts()
@@ -61,14 +59,6 @@ class TypeDef(object):
             if isinstance(value, (interp2app, GetSetProperty)):
                 value.name = key
         self.rawdict.update(rawdict)
-
-    def auto_total_ordering(self):
-        assert '__lt__' in self.rawdict, "__total_ordering='auto' requires __lt__"
-        assert '__eq__' in self.rawdict, "__total_ordering='auto' requires __eq__"
-        self.add_entries(__le__ = auto__le__,
-                         __gt__ = auto__gt__,
-                         __ge__ = auto__ge__,
-                         __ne__ = auto__ne__)
 
     def _freeze_(self):
         # hint for the annotator: track individual constant instances of TypeDef
@@ -120,25 +110,6 @@ class TypeDef(object):
             for up in base.all_bases():
                 yield up
 
-
-# generic special cmp methods defined on top of __lt__ and __eq__, used by
-# automatic total ordering
-
-@interp2app
-def auto__le__(space, w_self, w_other):
-    return space.not_(space.lt(w_other, w_self))
-
-@interp2app
-def auto__gt__(space, w_self, w_other):
-    return space.lt(w_other, w_self)
-
-@interp2app
-def auto__ge__(space, w_self, w_other):
-    return space.not_(space.lt(w_self, w_other))
-
-@interp2app
-def auto__ne__(space, w_self, w_other):
-    return space.not_(space.eq(w_self, w_other))
 
 
 # ____________________________________________________________
@@ -701,7 +672,7 @@ assert not BuiltinCode.typedef.acceptable_as_base_class  # no __new__
 PyCode.typedef = TypeDef('code',
     __new__ = interp2app(PyCode.descr_code__new__.im_func),
     __eq__ = interp2app(PyCode.descr_code__eq__),
-    __ne__ = descr_generic_ne,
+    __ne__ = interp2app(PyCode.descr_code__ne__),
     __hash__ = interp2app(PyCode.descr_code__hash__),
     __reduce__ = interp2app(PyCode.descr__reduce__),
     __repr__ = interp2app(PyCode.repr),
@@ -825,7 +796,7 @@ Create an instance method object.""",
     __self__ = interp_attrproperty_w('w_instance', cls=Method),
     __getattribute__ = interp2app(Method.descr_method_getattribute),
     __eq__ = interp2app(Method.descr_method_eq),
-    __ne__ = descr_generic_ne,
+    __ne__ = interp2app(Method.descr_method_ne),
     __hash__ = interp2app(Method.descr_method_hash),
     __repr__ = interp2app(Method.descr_method_repr),
     __reduce__ = interp2app(Method.descr_method__reduce__),
@@ -909,10 +880,13 @@ PyTraceback.typedef.acceptable_as_base_class = False
 
 
 Cell.typedef = TypeDef("cell",
-    __total_ordering__ = 'auto',
     __new__      = interp2app(descr_new_cell),
-    __lt__       = interp2app(Cell.descr__lt__),
-    __eq__       = interp2app(Cell.descr__eq__),
+    __eq__       = interp2app(Cell.descr_eq),
+    __ne__       = interp2app(Cell.descr_ne),
+    __lt__       = interp2app(Cell.descr_lt),
+    __gt__       = interp2app(Cell.descr_gt),
+    __le__       = interp2app(Cell.descr_le),
+    __ge__       = interp2app(Cell.descr_ge),
     __hash__     = None,
     __reduce__   = interp2app(Cell.descr__reduce__),
     __repr__     = interp2app(Cell.descr__repr__),
