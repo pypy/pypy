@@ -17,7 +17,7 @@ from _cffi_backend import __version__
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.15.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.15.1", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -1331,9 +1331,11 @@ def test_callback_exception():
     except ImportError:
         import io as cStringIO    # Python 3
     import linecache
-    def matches(istr, ipattern, ipattern38):
+    def matches(istr, ipattern, ipattern38, ipattern311):
         if sys.version_info >= (3, 8):
             ipattern = ipattern38
+        if sys.version_info >= (3, 11):
+            ipattern = ipattern311
         str, pattern = istr, ipattern
         while '$' in pattern:
             i = pattern.index('$')
@@ -1387,6 +1389,16 @@ Traceback (most recent call last):
   File "$", line $, in check_value
     $
 ValueError: 42
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>:
+Traceback (most recent call last):
+  File "$", line $, in Zcb1
+    $
+    $
+  File "$", line $, in check_value
+    $
+    $
+ValueError: 42
 """)
         sys.stderr = cStringIO.StringIO()
         bigvalue = 20000
@@ -1399,6 +1411,13 @@ OverflowError: integer 60000 does not fit 'short'
 Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
 Traceback (most recent call last):
   File "$", line $, in test_callback_exception
+    $
+OverflowError: integer 60000 does not fit 'short'
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
     $
 OverflowError: integer 60000 does not fit 'short'
 """)
@@ -1449,6 +1468,19 @@ Traceback (most recent call last):
   File "$", line $, in test_callback_exception
     $
 TypeError: $integer$
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+    $
+OverflowError: integer 60000 does not fit 'short'
+Exception ignored during handling of the above exception by 'onerror':
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+    $
+TypeError: $integer$
 """)
         #
         sys.stderr = cStringIO.StringIO()
@@ -1476,6 +1508,19 @@ OverflowError: integer 60000 does not fit 'short'
 Exception ignored during handling of the above exception by 'onerror':
 Traceback (most recent call last):
   File "$", line $, in oops
+    $
+AttributeError: 'str' object has no attribute 'append$
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+    $
+OverflowError: integer 60000 does not fit 'short'
+Exception ignored during handling of the above exception by 'onerror':
+Traceback (most recent call last):
+  File "$", line $, in oops
+    $
     $
 AttributeError: 'str' object has no attribute 'append$
 """)
@@ -3453,6 +3498,18 @@ def test_bitfield_as_ppc_gcc():
     _test_bitfield_details(flag=SF_GCC_X86_BITFIELDS|SF_GCC_BIG_ENDIAN)
 
 
+def buffer_warning(cdata):
+    import warnings
+    buf = buffer(cdata)
+    bytes = len(buf)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        buffer(cdata, bytes)
+        assert len(w) == 0
+        buffer(cdata, bytes + 1)
+        assert len(w) <= 1
+        return len(w) == 1
+
 def test_struct_array_no_length():
     BInt = new_primitive_type("int")
     BIntP = new_pointer_type(BInt)
@@ -3567,6 +3624,7 @@ def test_struct_array_no_length():
     assert p.a[1] == 20
     assert p.a[2] == 30
     assert p.a[3] == 0
+    assert buffer_warning(p)
     #
     # struct of struct of varsized array
     BStruct2 = new_struct_type("bar")
@@ -3575,6 +3633,20 @@ def test_struct_array_no_length():
     for i in range(2):   # try to detect heap overwrites
         p = newp(new_pointer_type(BStruct2), [100, [200, list(range(50))]])
         assert p.tail.y[49] == 49
+    assert buffer_warning(p)
+    assert not buffer_warning(cast(new_pointer_type(BStruct2), p))
+    assert not buffer_warning(cast(BIntP, p))
+
+def test_more_buffer_warning():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BArray = new_array_type(BCharP, 10)   # char[10]
+    p = newp(BArray)
+    assert buffer_warning(p)
+    assert not buffer_warning(cast(BCharP, p))
+    p = newp(BCharP)
+    assert buffer_warning(p)
+    assert not buffer_warning(cast(BCharP, p))
 
 
 def test_struct_array_no_length_explicit_position():
