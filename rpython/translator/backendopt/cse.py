@@ -15,7 +15,7 @@ def has_side_effects(op):
         return True
 
 
-def storesink_graph(graph):
+def cse_graph(graph):
     """ remove superfluous getfields. use a super-local method: all non-join
     blocks inherit the heap information from their (single) predecessor
     """
@@ -35,7 +35,7 @@ def storesink_graph(graph):
             cache = {}
 
         if block.operations:
-            changed_block = _storesink_block(block, cache, inputlink)
+            changed_block = _cse_block(block, cache, inputlink)
             added_some_same_as = changed_block or added_some_same_as
         for link in block.exits:
             if len(entrymap[link.target]) == 1:
@@ -70,7 +70,7 @@ def _translate_cache(cache, link):
             new_cache[_translate_arg(var), field] = _translate_arg(res)
     return new_cache
 
-def _storesink_block(block, cache, inputlink):
+def _cse_block(block, cache, inputlink):
     def clear_cache_for(cache, concretetype, fieldname):
         for k in cache.keys():
             if k[0].concretetype == concretetype and k[1] == fieldname:

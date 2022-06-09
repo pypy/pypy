@@ -9,7 +9,7 @@ from rpython.translator import simplify
 from rpython.translator.backendopt import mallocprediction
 from rpython.translator.backendopt.removeassert import remove_asserts
 from rpython.translator.backendopt.support import log
-from rpython.translator.backendopt.storesink import storesink_graph
+from rpython.translator.backendopt.cse import cse_graph
 from rpython.translator.backendopt import gilanalysis
 from rpython.flowspace.model import checkgraph
 
@@ -106,9 +106,9 @@ def backend_optimizations(translator, graphs=None, secondary=False,
             print "after clever inlining and malloc removal"
             print_statistics(translator.graphs[0], translator)
 
-    if config.storesink:
+    if config.cse:
         for graph in graphs:
-            storesink_graph(graph)
+            cse_graph(graph)
 
     if config.profile_based_inline and not secondary:
         threshold = config.profile_based_inline_threshold

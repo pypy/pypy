@@ -1,12 +1,12 @@
 
 import py
 from rpython.translator.translator import TranslationContext, graphof
-from rpython.translator.backendopt.storesink import storesink_graph
+from rpython.translator.backendopt.cse import cse_graph
 from rpython.translator.backendopt import removenoops
 from rpython.flowspace.model import checkgraph
 from rpython.conftest import option
 
-class TestStoreSink(object):
+class TestCSE(object):
     def translate(self, func, argtypes):
         t = TranslationContext()
         t.buildannotator().build_types(func, argtypes)
@@ -19,7 +19,7 @@ class TestStoreSink(object):
         graph = graphof(t, f)
         removenoops.remove_same_as(graph)
         checkgraph(graph)
-        storesink_graph(graph)
+        cse_graph(graph)
         checkgraph(graph)
         if option.view:
             t.view()
