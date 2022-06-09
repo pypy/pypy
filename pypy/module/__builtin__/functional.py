@@ -964,7 +964,7 @@ is true. If function is None, return the items that are true.""")
 class W_Zip(W_Map):
     _error_name = "zip"
     
-    def __init__(self, space, w_fun, args_w, strict):
+    def __init__(self, space, w_fun, args_w, strict=False):
         self.strict = strict
         W_Map.__init__(self, space, w_fun, args_w)
 
@@ -974,7 +974,22 @@ class W_Zip(W_Map):
         # while the latter just raises a TypeError in this situation.
         if len(self.iterators_w) == 0:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        return W_Map.next_w(self)
+        try:
+            return W_Map.next_w(self)
+        except OperationError as e1:
+            if not e1.match(self.space, self.space.w_StopIteration) or not self.strict:
+                raise
+            for i, w_elem in enumerate(self.iterators_w):
+                try:
+                    self.space.next(w_elem)
+                except OperationError as e2:
+                    if not e2.match(self.space, self.space.w_StopIteration):
+                        raise
+                else:
+                    plural = " " if i == 1 else "s 1-"
+                    raise oefmt(self.space.w_ValueError, "zip() argument %d is longer than argument%s%d", i+1, plural, i)
+            raise e1
+
 
     def descr_reduce(self, space):
         w_zip = space.getattr(space.getbuiltinmodule('builtins'),
