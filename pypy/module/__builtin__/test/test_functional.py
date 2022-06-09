@@ -117,6 +117,12 @@ class AppTestZip:
     def test_three_lists(self):
         assert list(zip([1,2,3], [1,2], [1,2,3])) == [(1,1,1), (2,2,2)]
 
+    def test_strict_same_length(self):
+        assert list(zip([1,2,3], [1,2, 3], [1,2,3], strict=True)) == [(1,1,1), (2,2,2), (3,3,3)]
+
+    # def test_strict_different_length(self):
+        # assert list(zip([1,2,3], [1,2], [1,2,3])) == [(1,1,1), (2,2,2)]
+
     def test_bad_length_hint(self):
         class Foo(object):
             def __length_hint__(self):

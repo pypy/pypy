@@ -963,6 +963,10 @@ is true. If function is None, return the items that are true.""")
 
 class W_Zip(W_Map):
     _error_name = "zip"
+    
+    def __init__(self, space, w_fun, args_w, strict):
+        self.strict = strict
+        W_Map.__init__(self, space, w_fun, args_w)
 
     def next_w(self):
         # argh.  zip(*args) is almost like map(None, *args) except
@@ -978,9 +982,10 @@ class W_Zip(W_Map):
         return space.newtuple([w_zip, space.newtuple(self.iterators_w)])
 
 
-def W_Zip___new__(space, w_subtype, args_w):
+@unwrap_spec(strict=bool)
+def W_Zip___new__(space, w_subtype, args_w, __kwonly__, strict=False):
     r = space.allocate_instance(W_Zip, w_subtype)
-    r.__init__(space, None, args_w)
+    r.__init__(space, None, args_w, strict)
     return r
 
 W_Zip.typedef = TypeDef(
