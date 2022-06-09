@@ -3,7 +3,7 @@ import py
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.cse import cse_graph
 from rpython.translator.backendopt import removenoops
-from rpython.flowspace.model import checkgraph
+from rpython.flowspace.model import checkgraph, summary
 from rpython.conftest import option
 
 class TestCSE(object):
@@ -13,23 +13,25 @@ class TestCSE(object):
         t.buildrtyper().specialize()
         return t
 
-    def check(self, f, argtypes, no_getfields=0):
+    def check(self, f, argtypes, fullopts=False, **expected):
+        from rpython.translator.backendopt import inline, all, constfold
         t = self.translate(f, argtypes)
         getfields = 0
         graph = graphof(t, f)
+        if option.view:
+            t.view()
+        if fullopts:
+            all.backend_optimizations(t)
         removenoops.remove_same_as(graph)
         checkgraph(graph)
         cse_graph(graph)
-        checkgraph(graph)
         if option.view:
             t.view()
-        for block in graph.iterblocks():
-            for op in block.operations:
-                if op.opname == 'getfield':
-                    getfields += 1
-        if no_getfields != getfields:
-            py.test.fail("Expected %d, got %d getfields" %
-                         (no_getfields, getfields))
+        checkgraph(graph)
+        s = summary(graph)
+        for key, val in expected.items():
+            assert s.get(key, 0) == val
+        assert "same_as" not in s
 
     def test_infrastructure(self):
         class A(object):
@@ -40,7 +42,7 @@ class TestCSE(object):
             a.x = i
             return a.x
 
-        self.check(f, [int], 0)
+        self.check(f, [int], getfield=0)
 
     def test_simple(self):
         class A(object):
@@ -51,7 +53,7 @@ class TestCSE(object):
             a.x = i
             return a.x + a.x
 
-        self.check(f, [int], 0)
+        self.check(f, [int], getfield=0)
 
     def test_irrelevant_setfield(self):
         class A(object):
@@ -65,7 +67,7 @@ class TestCSE(object):
             two = a.x
             return one + two
 
-        self.check(f, [int], 0)
+        self.check(f, [int], getfield=0)
 
     def test_relevant_setfield(self):
         class A(object):
@@ -81,7 +83,7 @@ class TestCSE(object):
             two = a.x
             return one + two
 
-        self.check(f, [int], 2)
+        self.check(f, [int], getfield=2)
 
     def test_different_concretetype(self):
         class A(object):
@@ -99,7 +101,7 @@ class TestCSE(object):
             two = a.x
             return one + two
 
-        self.check(f, [int], 0)
+        self.check(f, [int], getfield=0)
 
     def test_subclass(self):
         class A(object):
@@ -117,7 +119,7 @@ class TestCSE(object):
             two = a.x
             return one + two
 
-        self.check(f, [int], 1)
+        self.check(f, [int], getfield=1)
 
     def test_bug_1(self):
         class A(object):
@@ -131,7 +133,7 @@ class TestCSE(object):
                 return True
             return n
 
-        self.check(f, [int], 0)
+        self.check(f, [int], getfield=0)
 
 
     def test_cfg_splits(self):
@@ -149,7 +151,7 @@ class TestCSE(object):
                     j = a.x * 5
             return j
 
-        self.check(f, [int], 0)
+        self.check(f, [int], getfield=0)
 
     def test_malloc_does_not_invalidate(self):
         class A(object):
@@ -163,7 +165,7 @@ class TestCSE(object):
             b = B()
             return a.x
 
-        self.check(f, [int], 0)
+        self.check(f, [int], getfield=0)
 
     def test_debug_assert_not_none(self):
         from rpython.rlib.debug import ll_assert_not_none
@@ -183,5 +185,5 @@ class TestCSE(object):
             ll_assert_not_none(a1)
             return a.x
 
-        self.check(f, [int], 0)
+        self.check(f, [int], getfield=0)
 
