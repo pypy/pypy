@@ -187,3 +187,11 @@ class TestCSE(object):
 
         self.check(f, [int], getfield=0)
 
+    def test_simple_intops(self):
+        def f(i):
+            x = (i + 1) * (i + 1)
+            y = (i + 1) * (i + 1)
+            return x - y
+
+        self.check(f, [int], int_add=1, int_mul=1)
+
