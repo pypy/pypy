@@ -976,20 +976,38 @@ class W_Zip(W_Map):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         try:
             return W_Map.next_w(self)
-        except OperationError as e1:
-            if not e1.match(self.space, self.space.w_StopIteration) or not self.strict:
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_StopIteration) or not self.strict:
                 raise
-            for i, w_elem in enumerate(self.iterators_w):
-                try:
-                    self.space.next(w_elem)
-                except OperationError as e2:
-                    if not e2.match(self.space, self.space.w_StopIteration):
-                        raise
-                else:
-                    plural = " " if i == 1 else "s 1-"
-                    raise oefmt(self.space.w_ValueError, "zip() argument %d is longer than argument%s%d", i+1, plural, i)
-            raise e1
+            if len(self.iterators_w) == 1:
+                pass
+            # elif len(self.iterators_w) == 2:
+                # TODO: handwrite
+            else:
+                self._validate_strict()
+            raise e
 
+    def _validate_strict(self):
+        # keep validation in its own function so the loop doesn't prevent the
+        # JIT from inlining W_Zip.next_w
+        first_index = -1
+        for i, w_elem in enumerate(self.iterators_w):
+            if i == 0:
+                first_index = w_elem.index
+            elif w_elem.index < first_index:
+                plural = " " if i == 1 else "s 1-"
+                raise oefmt(self.space.w_ValueError, "zip() argument %d is shorter than argument%s%d", i+1, plural, i)
+
+        first_long = -1
+        for i, w_elem in enumerate(self.iterators_w):
+            try:
+                self.space.next(w_elem)
+            except OperationError as e:
+                if not e.match(self.space, self.space.w_StopIteration):
+                    raise
+            else:
+                plural = " " if i == 1 else "s 1-"
+                raise oefmt(self.space.w_ValueError, "zip() argument %d is longer than argument%s%d", i+1, plural, i)
 
     def descr_reduce(self, space):
         w_zip = space.getattr(space.getbuiltinmodule('builtins'),

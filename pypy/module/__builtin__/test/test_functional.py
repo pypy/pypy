@@ -123,7 +123,6 @@ class AppTestZip:
         assert list(zip([1,2,3], [1,2, 3], [1,2,3], strict=True)) == [(1,1,1), (2,2,2), (3,3,3)]
 
 
-    @pytest.mark.skip("FIXME: match CPython error messages")
     def test_strict_different_length_shorter_singular(self):
         with raises(ValueError) as exinfo:
             l = list()
@@ -131,7 +130,6 @@ class AppTestZip:
         assert "zip() argument 2 is shorter than argument 1" in str(exinfo.value)
         assert l == [(1,1), (2,2)]
 
-    @pytest.mark.skip("FIXME: match CPython error messages")
     def test_strict_different_length_shorter_plural(self):
         with raises(ValueError) as exinfo:
             l = list()
@@ -143,7 +141,6 @@ class AppTestZip:
         with raises(ValueError) as exinfo:
             l = list()
             l.extend(zip([1,2], [1,2,3], strict=True))
-        print(str(exinfo.value))
         assert "zip() argument 2 is longer than argument 1" in str(exinfo.value)
         assert l == [(1,1), (2,2)]
 
