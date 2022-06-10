@@ -489,6 +489,9 @@ class W_CData(W_Root):
     def descr_exit(self, args_w):
         self.enter_exit(True)
 
+    def get_maximum_buffer_size(self):
+        return -1
+
 
 class W_CDataMem(W_CData):
     """This is used only by the results of cffi.cast('int', x)
@@ -554,20 +557,27 @@ class W_CDataNewOwning(W_CData):
 
 class W_CDataNewStd(W_CDataNewOwning):
     """Subclass using the standard allocator, lltype.malloc()/lltype.free()"""
-    _attrs_ = ['explicitly_freed']
-    explicitly_freed = False
+    _attrs_ = ['datasize']    # changed to -1 after being explicitly freed
+
+    def __init__(self, space, cdata, ctype, length, datasize):
+        W_CDataNewOwning.__init__(self, space, cdata, ctype, length)
+        assert datasize >= 0
+        self.datasize = datasize
 
     @rgc.must_be_light_finalizer
     def __del__(self):
-        if not self.explicitly_freed:
+        if self.datasize >= 0:
             lltype.free(self._ptr, flavor='raw')
 
     def _do_exit(self):
-        if not self.explicitly_freed:
-            rgc.add_memory_pressure(-self._sizeof(), self)
-            self.explicitly_freed = True
+        if self.datasize >= 0:
+            rgc.add_memory_pressure(-self.datasize, self)
+            self.datasize = -1
             rgc.may_ignore_finalizer(self)
             lltype.free(self._ptr, flavor='raw')
+
+    def get_maximum_buffer_size(self):
+        return self.datasize
 
 
 class W_CDataNewNonStd(W_CDataNewOwning):
@@ -619,6 +629,9 @@ class W_CDataPtrToStructOrUnion(W_CData):
             structobj = self.structobj
             if isinstance(structobj, W_CDataNewOwning):
                 structobj._do_exit()
+
+    def get_maximum_buffer_size(self):
+        return self.structobj._sizeof()
 
 
 class W_CDataSliced(W_CData):

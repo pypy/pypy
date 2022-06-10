@@ -255,7 +255,7 @@ class W_DictMultiObject(W_Root):
         if w_key is None:
             raise oefmt(space.w_KeyError, "popitem(): dictionary is empty")
         self.internal_delitem(w_key)
-        return space.newtuple([w_key, w_value])
+        return space.newtuple2(w_key, w_value)
 
     def descr_clear(self, space):
         """D.clear() -> None.  Remove all items from D."""
@@ -285,7 +285,7 @@ class W_DictMultiObject(W_Root):
             w_key, w_value = self.popitem()
         except KeyError:
             raise oefmt(space.w_KeyError, "popitem(): dictionary is empty")
-        return space.newtuple([w_key, w_value])
+        return space.newtuple2(w_key, w_value)
 
     @unwrap_spec(w_default=WrappedDefault(None))
     def descr_setdefault(self, space, w_key, w_default):
@@ -519,7 +519,7 @@ class DictStrategy(object):
         while True:
             w_key, w_value = iterator.next_item()
             if w_key is not None:
-                result.append(self.space.newtuple([w_key, w_value]))
+                result.append(self.space.newtuple2(w_key, w_value))
             else:
                 return result
 
@@ -1066,7 +1066,7 @@ class AbstractTypedStrategy(object):
     def items(self, w_dict):
         space = self.space
         dict_w = self.unerase(w_dict.dstorage)
-        return [space.newtuple([self.wrap(key), w_value])
+        return [space.newtuple2(self.wrap(key), w_value)
                 for (key, w_value) in dict_w.iteritems()]
 
     def popitem(self, w_dict):
@@ -1424,7 +1424,7 @@ class W_BaseDictMultiIterObject(W_Root):
             w_clone.descr_next(space)
 
         w_res = space.call_function(space.w_list, w_clone)
-        w_ret = space.newtuple([new_inst, space.newtuple([w_res])])
+        w_ret = space.newtuple2(new_inst, space.newtuple([w_res]))
         return w_ret
 
     def clone_for_pickling(self, space, w_dict):
@@ -1468,7 +1468,7 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
         iteratorimplementation = self.iteratorimplementation
         w_key, w_value = iteratorimplementation.next_item()
         if w_key is not None:
-            return space.newtuple([w_key, w_value])
+            return space.newtuple2(w_key, w_value)
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def clone_for_pickling(self, space, w_dict):

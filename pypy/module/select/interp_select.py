@@ -100,16 +100,16 @@ class Poll(W_Root):
                     continue
                 message, lgt = e.get_msg_utf8()
                 raise OperationError(space.w_OSError,
-                                     space.newtuple([space.newint(e.errno),
-                                                 space.newtext(message, lgt)]))
+                                     space.newtuple2(space.newint(e.errno),
+                                                 space.newtext(message, lgt)))
             finally:
                 self.running = False
             break
 
         retval_w = []
         for fd, revents in retval:
-            retval_w.append(space.newtuple([space.newint(fd),
-                                            space.newint(revents)]))
+            retval_w.append(space.newtuple2(space.newint(fd),
+                                            space.newint(revents)))
         return space.newlist(retval_w)
 
 pollmethods = {}
@@ -171,8 +171,8 @@ def _call_select(space, iwtd_w, owtd_w, ewtd_w,
         err = _c.geterrno()
         if err != errno.EINTR:
             msg, length = _c.socket_strerror_utf8(err)
-            raise OperationError(space.w_OSError, space.newtuple([
-                space.newint(err), space.newtext(msg, length)]))
+            raise OperationError(space.w_OSError, space.newtuple2(
+                space.newint(err), space.newtext(msg, length)))
         # got EINTR, automatic retry
         space.getexecutioncontext().checksignals()
         if timeout > 0.0:

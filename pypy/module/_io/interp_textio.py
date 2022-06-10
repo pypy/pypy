@@ -182,7 +182,7 @@ class W_IncrementalNewlineDecoder(W_Root):
 
     def getstate_w(self, space):
         w_buffer, flag = self.getstate_u(space)
-        return space.newtuple([w_buffer, space.newint(flag)])
+        return space.newtuple2(w_buffer, space.newint(flag))
 
     def setstate_w(self, space, w_state):
         w_buffer, w_flag = space.unpackiterable(w_state, 2)
@@ -191,7 +191,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         flag >>= 1
 
         if self.w_decoder and not space.is_w(self.w_decoder, space.w_None):
-            w_state = space.newtuple([w_buffer, space.newint(flag)])
+            w_state = space.newtuple2(w_buffer, space.newint(flag))
             space.call_method(self.w_decoder, "setstate", w_state)
 
 W_IncrementalNewlineDecoder.typedef = TypeDef(
@@ -1105,8 +1105,8 @@ class W_TextIOWrapper(W_TextIOBase):
             space.call_method(self.w_decoder, "reset")
         else:
             space.call_method(self.w_decoder, "setstate",
-                              space.newtuple([space.newbytes(""),
-                                              space.newint(cookie.dec_flags)]))
+                              space.newtuple2(space.newbytes(""),
+                                              space.newint(cookie.dec_flags)))
 
     def _encoder_reset(self, space, start_of_stream):
         if start_of_stream:

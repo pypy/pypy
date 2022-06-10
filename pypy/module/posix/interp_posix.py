@@ -1161,7 +1161,7 @@ def pipe(space):
         rposix.c_close(fd2)
         rposix.c_close(fd1)
         raise wrap_oserror(space, e, eintr_retry=False)
-    return space.newtuple([space.newint(fd1), space.newint(fd2)])
+    return space.newtuple2(space.newint(fd1), space.newint(fd2))
 
 @unwrap_spec(flags=c_int)
 def pipe2(space, flags):
@@ -1636,12 +1636,12 @@ def openpty(space):
         if slave_fd >= 0:
             rposix.c_close(slave_fd)
         raise wrap_oserror(space, e, eintr_retry=False)
-    return space.newtuple([space.newint(master_fd), space.newint(slave_fd)])
+    return space.newtuple2(space.newint(master_fd), space.newint(slave_fd))
 
 def forkpty(space):
     pid, master_fd = _run_forking_function(space, "P")
-    return space.newtuple([space.newint(pid),
-                           space.newint(master_fd)])
+    return space.newtuple2(space.newint(pid),
+                           space.newint(master_fd))
 
 @unwrap_spec(pid=c_int, options=c_int)
 def waitpid(space, pid, options):
@@ -1655,7 +1655,7 @@ def waitpid(space, pid, options):
             break
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
-    return space.newtuple([space.newint(pid), space.newint(status)])
+    return space.newtuple2(space.newint(pid), space.newint(status))
 
 # missing: waitid()
 

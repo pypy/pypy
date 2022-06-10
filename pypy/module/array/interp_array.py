@@ -533,7 +533,7 @@ class W_ArrayBase(W_Root):
         """
         w_ptr = space.newint(self._buffer_as_unsigned())
         w_len = space.newint(self.len)
-        return space.newtuple([w_ptr, w_len])
+        return space.newtuple2(w_ptr, w_len)
 
     @unwrap_spec(protocol=int)
     def descr_reduce_ex(self, space, protocol):

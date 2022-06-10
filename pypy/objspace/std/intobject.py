@@ -344,15 +344,15 @@ def _divmod(space, x, y):
         raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
     # no overflow possible
     m = x % y
-    return space.newtuple([space.newint(z), space.newint(m)])
+    return space.newtuple2(space.newint(z), space.newint(m))
 
 
 def _divmod_ovf2small(space, x, y):
     from pypy.objspace.std.smalllongobject import W_SmallLongObject
     a = r_longlong(x)
     b = r_longlong(y)
-    return space.newtuple([W_SmallLongObject(a // b),
-                           W_SmallLongObject(a % b)])
+    return space.newtuple2(W_SmallLongObject(a // b),
+                           W_SmallLongObject(a % b))
 
 
 def _lshift(space, a, b):

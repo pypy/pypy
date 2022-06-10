@@ -289,8 +289,8 @@ class Function(W_Root):
         code = self.code
         if isinstance(code, BuiltinCode):
             new_inst = mod.get('builtin_function')
-            return space.newtuple([new_inst,
-                                   space.newtuple([space.newtext(code.identifier)])])
+            return space.newtuple2(new_inst,
+                                   space.newtuple([space.newtext(code.identifier)]))
 
         new_inst = mod.get('func_new')
         if self.closure is None:
@@ -627,7 +627,7 @@ class _Method(W_Root):
             w_builtins = space.getbuiltinmodule('builtins')
             new_inst = space.getattr(w_builtins, space.newtext('getattr'))
             tup = [w_instance, space.newtext(w_function.getname(space))]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple2(new_inst, space.newtuple(tup))
 
 class Method(_Method):
     def descr_method__new__(space, w_subtype, w_function, w_instance):

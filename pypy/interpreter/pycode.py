@@ -458,7 +458,7 @@ class PyCode(eval.Code):
             space.newtuple([space.newtext(v) for v in self.co_cellvars]),
             space.newint(self.magic),
         ]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple2(new_inst, space.newtuple(tup))
 
     def descr_replace(self, space, __args__):
         """ replace(self, /, *, co_argcount=-1, co_posonlyargcount=-1, co_kwonlyargcount=-1, co_nlocals=-1, co_stacksize=-1, co_flags=-1, co_firstlineno=-1, co_code=None, co_consts=None, co_names=None, co_varnames=None, co_freevars=None, co_cellvars=None, co_filename=None, co_name=None, co_lnotab=None)
@@ -530,10 +530,10 @@ def _convert_const(space, w_a):
     w_type = space.type(w_a)
     if space.is_w(w_type, space.w_unicode):
         # unicodes are supposed to compare by value, but not equal to bytes
-        return space.newtuple([w_type, w_a])
+        return space.newtuple2(w_type, w_a)
     if space.is_w(w_type, space.w_bytes):
         # and vice versa
-        return space.newtuple([w_type, w_a])
+        return space.newtuple2(w_type, w_a)
     if type(w_a) is PyCode:
         return w_a
     # for tuples and frozensets convert recursively

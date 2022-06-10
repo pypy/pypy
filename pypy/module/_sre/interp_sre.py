@@ -387,7 +387,7 @@ class W_SRE_Pattern(W_Root):
     def subn_w(self, w_repl, w_string, count=0):
         w_item, n = self.subx(w_repl, w_string, count)
         space = self.space
-        return space.newtuple([w_item, space.newint(n)])
+        return space.newtuple2(w_item, space.newint(n))
 
     def subx(self, w_ptemplate, w_string, count):
         space = self.space
@@ -740,8 +740,8 @@ class W_SRE_Match(W_Root):
     def new_charindex_tuple(self, start, end):
         start = self.bytepos_to_charindex(start)
         end = self.bytepos_to_charindex(end)
-        return self.space.newtuple([self.space.newint(start),
-                                    self.space.newint(end)])
+        return self.space.newtuple2(self.space.newint(start),
+                                    self.space.newint(end))
 
     def bytepos_to_charindex(self, bytepos):
         # Transform a 'byte position', as returned by all methods from

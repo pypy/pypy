@@ -1443,6 +1443,9 @@ class FakeSpace:
     def newtuple(self, l):
         return tuple(l)
 
+    def newtuple2(self, a, b):
+        return a, b
+
     def newdict(self, module=False, instance=False):
         return W_DictObject.allocate_and_init_instance(
                 self, module=module, instance=instance)

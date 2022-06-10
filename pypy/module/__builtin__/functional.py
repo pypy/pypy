@@ -306,14 +306,14 @@ class W_Enumerate(W_Root):
             self.w_index = space.add(w_index, space.newint(1))
         if w_item is None:
             w_item = space.next(self.w_iter_or_list)
-        return space.newtuple([w_index, w_item])
+        return space.newtuple2(w_index, w_item)
 
     def descr___reduce__(self, space):
         w_index = self.w_index
         if w_index is None:
             w_index = space.newint(self.index)
-        return space.newtuple([space.type(self),
-                               space.newtuple([self.w_iter_or_list, w_index])])
+        return space.newtuple2(space.type(self),
+                               space.newtuple2(self.w_iter_or_list, w_index))
 
 # exported through _pickle_support
 def _make_enumerate(space, w_iter_or_list, w_index):
@@ -396,9 +396,9 @@ class W_ReversedIterator(W_Root):
                 space.newtuple([self.w_sequence]),
                 w_state])
         else:
-            return space.newtuple([
+            return space.newtuple2(
                 space.type(self),
-                space.newtuple([space.newtuple([])])])
+                space.newtuple([space.newtuple([])]))
 
     def descr___setstate__(self, space, w_state):
         self.remaining = space.int_w(w_state)

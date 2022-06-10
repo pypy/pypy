@@ -389,7 +389,7 @@ class W_LongObject(W_AbstractLongObject):
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "integer division or modulo by zero")
-        return space.newtuple([newlong(space, div), newlong(space, mod)])
+        return space.newtuple2(newlong(space, div), newlong(space, mod))
 
     def _int_divmod(self, space, other):
         try:
@@ -397,7 +397,7 @@ class W_LongObject(W_AbstractLongObject):
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
-        return space.newtuple([newlong(space, div), newlong(space, mod)])
+        return space.newtuple2(newlong(space, div), newlong(space, mod))
 
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod, _int_divmod)
 

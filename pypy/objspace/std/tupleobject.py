@@ -403,3 +403,12 @@ def wraptuple(space, list_w):
         except NotSpecialised:
             pass
     return W_TupleObject(list_w)
+
+def wraptuple2(space, w_a, w_b):
+    if space.config.objspace.std.withspecialisedtuple:
+        from specialisedtupleobject import makespecialisedtuple2, NotSpecialised
+        try:
+            return makespecialisedtuple2(space, w_a, w_b)
+        except NotSpecialised:
+            pass
+    return W_TupleObject([w_a, w_b])

@@ -839,8 +839,8 @@ class BuiltinCode(Code):
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
         builtin_code = mod.get('builtin_code')
-        return space.newtuple([builtin_code,
-                               space.newtuple([space.newtext(self.identifier)])])
+        return space.newtuple2(builtin_code,
+                               space.newtuple([space.newtext(self.identifier)]))
 
     @staticmethod
     def find(space, identifier):

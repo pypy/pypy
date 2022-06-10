@@ -6436,3 +6436,18 @@ class TestOptimizeBasic(BaseTestBasic):
         guard_true(i3) []
         """
         self.optimize_loop(ops, expected)
+
+    def test_float_abs_abs_folds_to_abs(self):
+        ops = """
+        [f1]
+        f2 = float_abs(f1)
+        f3 = float_abs(f2)
+        f4 = float_abs(f3)
+        escape_f(f3)
+        """
+        expected = """
+        [f1]
+        f2 = float_abs(f1)
+        escape_f(f2)
+        """
+        self.optimize_loop(ops, expected)

@@ -650,7 +650,7 @@ class W_FloatObject(W_Root):
         w_num = space.newlong_from_rbigint(num)
         w_den = space.newlong_from_rbigint(den)
         # Try to return int
-        return space.newtuple([space.int(w_num), space.int(w_den)])
+        return space.newtuple2(space.int(w_num), space.int(w_den))
 
     def descr_hex(self, space):
         """float.hex() -> string
