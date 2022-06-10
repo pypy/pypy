@@ -162,7 +162,7 @@ def frexp(space, w_x):
        If x is 0, m and e are both 0.  Else 0.5 <= abs(m) < 1.0.
     """
     mant, expo = math1_w(space, math.frexp, w_x)
-    return space.newtuple([space.newfloat(mant), space.newint(expo)])
+    return space.newtuple2(space.newfloat(mant), space.newint(expo))
 
 degToRad = math.pi / 180.0
 
@@ -281,7 +281,7 @@ def modf(space, w_x):
        of x.  The integer part is returned as a real.
     """
     frac, intpart = math1_w(space, math.modf, w_x)
-    return space.newtuple([space.newfloat(frac), space.newfloat(intpart)])
+    return space.newtuple2(space.newfloat(frac), space.newfloat(intpart))
 
 def exp(space, w_x):
     """exp(x)

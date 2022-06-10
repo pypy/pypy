@@ -540,7 +540,7 @@ class DescrOperation(object):
                 space.len_w(w_res) != 2):
                 raise oefmt(space.w_TypeError,
                             "coercion should return None or 2-tuple")
-            w_res = space.newtuple([space.getitem(w_res, space.newint(1)), space.getitem(w_res, space.newint(0))])
+            w_res = space.newtuple2(space.getitem(w_res, space.newint(1)), space.getitem(w_res, space.newint(0)))
         elif (not space.isinstance_w(w_res, space.w_tuple) or
             space.len_w(w_res) != 2):
             raise oefmt(space.w_TypeError,

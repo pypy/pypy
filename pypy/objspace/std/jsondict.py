@@ -144,7 +144,7 @@ class JsonDictStrategy(DictStrategy):
         storage_w = self.unerase(w_dict.dstorage)
         res = [None] * len(storage_w)
         for index, w_key in enumerate(self.jsonmap.get_keys_in_order()):
-            res[index] = space.newtuple([w_key, storage_w[index]])
+            res[index] = space.newtuple2(w_key, storage_w[index])
         return res
 
     def getiterkeys(self, w_dict):

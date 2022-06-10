@@ -636,7 +636,7 @@ def pipe(space):
         fd1, fd2 = os.pipe()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.newint(fd1), space.newint(fd2)])
+    return space.newtuple2(space.newint(fd1), space.newint(fd2))
 
 @unwrap_spec(mode=c_int)
 def chmod(space, w_path, mode):
@@ -803,12 +803,12 @@ def openpty(space):
         master_fd, slave_fd = os.openpty()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.newint(master_fd), space.newint(slave_fd)])
+    return space.newtuple2(space.newint(master_fd), space.newint(slave_fd))
 
 def forkpty(space):
     pid, master_fd = _run_forking_function(space, "P")
-    return space.newtuple([space.newint(pid),
-                           space.newint(master_fd)])
+    return space.newtuple2(space.newint(pid),
+                           space.newint(master_fd))
 
 @unwrap_spec(pid=c_int, options=c_int)
 def waitpid(space, pid, options):
@@ -820,7 +820,7 @@ def waitpid(space, pid, options):
         pid, status = os.waitpid(pid, options)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.newint(pid), space.newint(status)])
+    return space.newtuple2(space.newint(pid), space.newint(status))
 
 @unwrap_spec(status=c_int)
 def _exit(space, status):

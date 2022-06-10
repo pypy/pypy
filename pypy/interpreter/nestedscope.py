@@ -64,7 +64,7 @@ class Cell(W_Root):
         mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('cell_new')
         if self.w_value is None:    # when would this happen?
-            return space.newtuple([new_inst, space.newtuple([])])
+            return space.newtuple2(new_inst, space.newtuple([]))
         tup = [self.w_value]
         return space.newtuple([new_inst, space.newtuple([]),
                                space.newtuple(tup)])

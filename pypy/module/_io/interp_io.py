@@ -16,7 +16,7 @@ class Cache:
     def __init__(self, space):
         self.w_unsupportedoperation = space.new_exception_class(
             "io.UnsupportedOperation",
-            space.newtuple([space.w_ValueError, space.w_IOError]))
+            space.newtuple2(space.w_ValueError, space.w_IOError))
 
 class W_BlockingIOError(W_IOError):
     def __init__(self, space):

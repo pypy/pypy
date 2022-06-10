@@ -363,4 +363,4 @@ if rlocale.HAVE_LIBINTL:
 if sys.platform == 'win32':
     def getdefaultlocale(space):
         language, encoding = rlocale.getdefaultlocale()
-        return space.newtuple([space.newtext(language), space.newtext(encoding)])
+        return space.newtuple2(space.newtext(language), space.newtext(encoding))
