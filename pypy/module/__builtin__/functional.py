@@ -981,8 +981,20 @@ class W_Zip(W_Map):
                 raise
             if len(self.iterators_w) == 1:
                 pass
-            # elif len(self.iterators_w) == 2:
-                # TODO: handwrite
+            elif len(self.iterators_w) == 2:
+                adjective = None
+                if self.iterators_w[0].index > self.iterators_w[1].index:
+                    adjective = "shorter"
+                else:
+                    try:
+                        self.space.next(self.iterators_w[1])
+                    except OperationError as e:
+                        if not e.match(self.space, self.space.w_StopIteration):
+                            raise
+                    else:
+                        adjective = "longer"
+                if adjective:
+                    raise oefmt(self.space.w_ValueError, "zip() argument 2 is %s than argument 1", adjective)
             else:
                 self._validate_strict()
             raise e
