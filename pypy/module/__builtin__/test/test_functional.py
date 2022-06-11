@@ -120,7 +120,11 @@ class AppTestZip:
         assert list(zip([1,2,3], [1,2], [1,2,3])) == [(1,1,1), (2,2,2)]
 
     def test_strict_same_length(self):
-        assert list(zip([1,2,3], [1,2, 3], [1,2,3], strict=True)) == [(1,1,1), (2,2,2), (3,3,3)]
+        assert list(zip(strict=True)) == []
+        assert list(zip([1,2,3], strict=True)) == [(1,), (2,), (3,)]
+        assert list(zip([1,2,3], [1,2,3], strict=True)) == [(1,1), (2,2), (3,3)]
+        assert list(zip([1,2,3], [1,2,3], strict=True)) == [(1,1), (2,2), (3,3)]
+        assert list(zip([1,2,3], [1,2,3], [1,2,3], strict=True)) == [(1,1,1), (2,2,2), (3,3,3)]
 
 
     def test_strict_different_length_shorter_singular(self):

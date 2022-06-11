@@ -970,38 +970,35 @@ class W_Zip(W_Root):
         self.strict = strict
         self.space = space
         self.iterators_w = build_iterators_from_args(space, args_w, self._error_name)
+        self._iteration_progress = 0
 
     def iter_w(self):
         return self
 
     def next_w(self):
-        # argh.  zip(*args) is almost like map(None, *args) except
-        # that the former needs a special case for len(args)==0
-        # while the latter just raises a TypeError in this situation.
         iterators_w = self.iterators_w
         length = len(iterators_w)
         if length == 0:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        if length == 1:
+            return self.space.newtuple([self.space.next(iterators_w[0])])
 
         try:
-            objects = []
-            if length == 1:
-                objects.append(self.space.next(iterators_w[0]))
-            elif length == 2:
-                objects.append(self.space.next(iterators_w[0]))
-                objects.append(self.space.next(iterators_w[1]))
+            objects = [None] * length
+            self._iteration_progress = 0
+            if length == 2:
+                objects[0] = self.space.next(iterators_w[0])
+                self._iteration_progress = 1
+                objects[1] = self.space.next(iterators_w[1])
             else:
                 self._get_objects(objects)
             return self.space.newtuple(objects)
         except OperationError as e:
             if not e.match(self.space, self.space.w_StopIteration) or not self.strict:
                 raise
-            if length == 1:
-                pass
+            if self._iteration_progress:
+                self._raise_strict_error(self._iteration_progress, "shorter")
             elif length == 2:
-                if len(objects):
-                    self._raise_strict_error(1, "shorter")
-
                 try:
                     self.space.next(iterators_w[1])
                 except OperationError as e:
@@ -1015,8 +1012,9 @@ class W_Zip(W_Root):
 
     def _get_objects(self, objects):
         # the loop is out of the way of the JIT
-        for w_elem in self.iterators_w:
-            objects.append(self.space.next(w_elem))
+        for i, w_elem in enumerate(self.iterators_w):
+            objects[i] = self.space.next(w_elem)
+            self._iteration_progress += 1
 
     def _raise_strict_error(self, index, adjective):
         plural = " " if index == 1 else "s 1-"
@@ -1025,10 +1023,6 @@ class W_Zip(W_Root):
     def _validate_strict(self, objects):
         # keep validation in its own function so the loop doesn't prevent the
         # JIT from inlining W_Zip.next_w
-        length = len(objects)
-        if length:
-            self._raise_strict_error(length, "shorter")
-
         for i, w_elem in enumerate(self.iterators_w):
             try:
                 self.space.next(w_elem)
