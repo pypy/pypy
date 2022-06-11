@@ -369,8 +369,8 @@ class W_ComplexObject(W_Root):
                              + sign + str_format(self.imagval) + 'j)')
 
     def descr_hash(self, space):
-        hashreal = _hash_float(space, self.realval)
-        hashimg = _hash_float(space, self.imagval)   # 0 if self.imagval == 0
+        hashreal = _hash_float(self.realval)
+        hashimg = _hash_float(self.imagval)   # 0 if self.imagval == 0
         h = intmask(hashreal + HASH_IMAG * hashimg)
         h -= (h == -1)
         return space.newint(h)

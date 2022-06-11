@@ -75,7 +75,7 @@ def make_specialised_class(typetuple):
                     # get the correct hash for float which is an
                     # integer & other less frequent cases
                     from pypy.objspace.std.floatobject import _hash_float
-                    lane = uhash_type(_hash_float(space, value))
+                    lane = uhash_type(_hash_float(value))
                 elif typetuple[i] == int:
                     # hash for int which is different from the hash
                     # given by rpython
