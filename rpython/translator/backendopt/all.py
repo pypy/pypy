@@ -109,6 +109,9 @@ def backend_optimizations(translator, graphs=None, secondary=False,
     if config.cse:
         for graph in graphs:
             cse_graph(graph)
+        if config.print_statistics:
+            print "after load/store forwarding and CSE"
+            print_statistics(translator.graphs[0], translator)
 
     if config.profile_based_inline and not secondary:
         threshold = config.profile_based_inline_threshold
