@@ -99,7 +99,7 @@ def cse_graph(graph):
     """ remove superfluous getfields. use a super-local method: all non-join
     blocks inherit the heap information from their (single) predecessor
     """
-    added_some_same_as = False
+    number_same_as = 0
     entrymap = mkentrymap(graph)
 
     # all merge blocks are starting points
@@ -115,15 +115,15 @@ def cse_graph(graph):
             cache = Cache()
 
         if block.operations:
-            changed_block = cache.cse_block(block, inputlink)
-            added_some_same_as = changed_block or added_some_same_as
+            number_same_as += cache.cse_block(block, inputlink)
         for link in block.exits:
             if len(entrymap[link.target]) == 1:
                 new_cache = cache.translate_cache(link)
                 todo.append((link.target, new_cache, link))
 
     assert visited == len(entrymap)
-    if added_some_same_as:
+    if number_same_as:
         removenoops.remove_same_as(graph)
         simplify.transform_dead_op_vars(graph)
+    return number_same_as
 

@@ -107,8 +107,11 @@ def backend_optimizations(translator, graphs=None, secondary=False,
             print_statistics(translator.graphs[0], translator)
 
     if config.cse:
+        removed = 0
         for graph in graphs:
-            cse_graph(graph)
+            removed += cse_graph(graph)
+            log.dot()
+        log.cse("removed %s operations" % removed)
         if config.print_statistics:
             print "after load/store forwarding and CSE"
             print_statistics(translator.graphs[0], translator)
