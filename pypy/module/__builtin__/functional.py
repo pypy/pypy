@@ -991,6 +991,7 @@ class W_Zip(W_Root):
 
         try:
             self._iteration_progress = 0
+            objects = None
             if length == 2:
                 w_a = self.space.next(iterators_w[0])
                 self._iteration_progress = 1
