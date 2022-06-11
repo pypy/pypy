@@ -225,3 +225,19 @@ class TestCSE(object):
 
         self.check(f, [int], getfield=2)
 
+    def test_cast_pointer(self):
+        class Cls(object):
+            pass
+        class Sub(Cls):
+            pass
+        cls1 = Cls()
+        cls2 = Sub()
+        cls2.user_overridden_class = True
+        cls3 = Sub()
+        cls3.user_overridden_class = False
+        class A(object):
+            pass
+        def f(i):
+            a = A()
+            return type(a) is A
+        self.check(f, [int], getfield=0)

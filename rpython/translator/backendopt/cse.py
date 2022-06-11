@@ -81,36 +81,42 @@ class Cache(object):
         return self.variable_families.find_rep(var)
 
     def cse_block(self, block, inputlink):
-        added_some_same_as = False
+        number_same_as = 0
         for op in block.operations:
-            if can_fold(op):
+            if op.opname == "cast_pointer":
+                # cast_pointer is a pretty strange operation! it introduces
+                # more aliases, that confuse the CSE pass. Therefore we unify
+                # the two variables in variable_families, to improve the
+                # folding.
+                self.variable_families.union(op.args[0], op.result)
+                # don't do anything further
+            elif can_fold(op):
                 key = (op.opname, op.result.concretetype,
                        tuple([self._var_rep(arg) for arg in op.args]))
                 res = self.purecache.get(key, None)
                 if res is not None:
                     self._replace_with(op, res)
-                    added_some_same_as = True
+                    number_same_as += 1
                 else:
                     self.purecache[key] = op.result
-
             elif op.opname == 'getfield':
                 key = (self._var_rep(op.args[0]), op.args[1].value)
                 res = self.heapcache.get(key, None)
                 if res is not None:
                     self._replace_with(op, res)
-                    added_some_same_as = True
+                    number_same_as += 1
                 else:
                     self.heapcache[key] = op.result
             elif op.opname in ('setarrayitem', 'setinteriorfield', "malloc", "malloc_varsize"):
                 pass
             elif op.opname == 'setfield':
-                target = op.args[0]
                 field = op.args[1].value
-                self.clear_for(target.concretetype, field)
+                self.clear_for(op.args[0].concretetype, field)
+                target = self._var_rep(op.args[0])
                 self.heapcache[target, field] = op.args[2]
             elif has_side_effects(op):
                 self.heapcache.clear()
-        return added_some_same_as
+        return number_same_as
 
 def cse_graph(graph):
     """ remove superfluous getfields. use a super-local method: all non-join
