@@ -791,34 +791,35 @@ W_AbstractRangeIterator.typedef = TypeDef("range_iterator",
 W_AbstractRangeIterator.typedef.acceptable_as_base_class = False
 
 
+@jit.look_inside_iff(lambda space, args_w, error_name:
+        jit.isconstant(len(args_w)) and len(args_w) <= 2)
+def build_iterators_from_args(space, args_w, error_name):
+    iterators_w = []
+    i = 0
+    for iterable_w in args_w:
+        try:
+            iterator_w = space.iter(iterable_w)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_TypeError,
+                            "%s argument #%d must support iteration",
+                            error_name, i + 1)
+            else:
+                raise
+        else:
+            iterators_w.append(iterator_w)
+
+        i += 1
+    return iterators_w
+
 class W_Map(W_Root):
     _error_name = "map"
     _immutable_fields_ = ["w_fun", "iterators_w"]
 
-    @jit.look_inside_iff(lambda self, space, w_fun, args_w:
-            jit.isconstant(len(args_w)) and len(args_w) <= 2)
     def __init__(self, space, w_fun, args_w):
         self.space = space
         self.w_fun = w_fun
-
-        iterators_w = []
-        i = 0
-        for iterable_w in args_w:
-            try:
-                iterator_w = space.iter(iterable_w)
-            except OperationError as e:
-                if e.match(self.space, self.space.w_TypeError):
-                    raise oefmt(space.w_TypeError,
-                                "%s argument #%d must support iteration",
-                                self._error_name, i + 1)
-                else:
-                    raise
-            else:
-                iterators_w.append(iterator_w)
-
-            i += 1
-
-        self.iterators_w = iterators_w
+        self.iterators_w = build_iterators_from_args(space, args_w, self._error_name)
 
     def iter_w(self):
         return self
@@ -961,26 +962,93 @@ Return an iterator yielding those items of iterable for which function(item)
 is true. If function is None, return the items that are true.""")
 
 
-class W_Zip(W_Map):
+class W_Zip(W_Root):
     _error_name = "zip"
+    _immutable_fields_ = ["w_fun", "iterators_w", "strict"]
+
+    def __init__(self, space, args_w, strict=False):
+        self.strict = strict
+        self.space = space
+        self.iterators_w = build_iterators_from_args(space, args_w, self._error_name)
+        self._iteration_progress = 0
+
+    def iter_w(self):
+        return self
 
     def next_w(self):
-        # argh.  zip(*args) is almost like map(None, *args) except
-        # that the former needs a special case for len(args)==0
-        # while the latter just raises a TypeError in this situation.
-        if len(self.iterators_w) == 0:
+        iterators_w = self.iterators_w
+        length = len(iterators_w)
+        if length == 0:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        return W_Map.next_w(self)
+        if length == 1:
+            return self.space.newtuple([self.space.next(iterators_w[0])])
+
+        try:
+            objects = [None] * length
+            self._iteration_progress = 0
+            if length == 2:
+                objects[0] = self.space.next(iterators_w[0])
+                self._iteration_progress = 1
+                objects[1] = self.space.next(iterators_w[1])
+            else:
+                self._get_objects(objects)
+            return self.space.newtuple(objects)
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_StopIteration) or not self.strict:
+                raise
+            if self._iteration_progress:
+                self._raise_strict_error(self._iteration_progress, "shorter")
+            elif length == 2:
+                try:
+                    self.space.next(iterators_w[1])
+                except OperationError as e:
+                    if not e.match(self.space, self.space.w_StopIteration):
+                        raise
+                else:
+                    self._raise_strict_error(1, "longer")
+            else:
+                self._validate_strict(objects)
+            raise e
+
+    def _get_objects(self, objects):
+        # the loop is out of the way of the JIT
+        for i, w_elem in enumerate(self.iterators_w):
+            objects[i] = self.space.next(w_elem)
+            self._iteration_progress += 1
+
+    def _raise_strict_error(self, index, adjective):
+        plural = " " if index == 1 else "s 1-"
+        raise oefmt(self.space.w_ValueError, "zip() argument %d is %s than argument%s%d", index+1, adjective, plural, index)
+
+    def _validate_strict(self, objects):
+        # keep validation in its own function so the loop doesn't prevent the
+        # JIT from inlining W_Zip.next_w
+        for i, w_elem in enumerate(self.iterators_w):
+            try:
+                self.space.next(w_elem)
+            except OperationError as e:
+                if not e.match(self.space, self.space.w_StopIteration):
+                    raise
+            else:
+                self._raise_strict_error(i, "longer")
 
     def descr_reduce(self, space):
         w_zip = space.getattr(space.getbuiltinmodule('builtins'),
                 space.newtext('zip'))
         return space.newtuple([w_zip, space.newtuple(self.iterators_w)])
 
+    def iterator_greenkey(self, space):
+        # XXX in theory we should tupleize the greenkeys of the callable and
+        # the sub-iterators, but much more work
+        if len(self.iterators_w) > 0:
+            return space.iterator_greenkey(self.iterators_w[0])
+        return None
 
-def W_Zip___new__(space, w_subtype, args_w):
+
+@unwrap_spec(strict=bool)
+def W_Zip___new__(space, w_subtype, args_w, __kwonly__, strict=False):
     r = space.allocate_instance(W_Zip, w_subtype)
-    r.__init__(space, None, args_w)
+    r.__init__(space, args_w, strict)
     return r
 
 W_Zip.typedef = TypeDef(
