@@ -1,4 +1,4 @@
-
+from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.flowspace.model import mkentrymap, Variable
 from rpython.translator.backendopt import removenoops
@@ -27,6 +27,7 @@ class Cache(object):
         # (opname, concretetype of result, args) -> previous (life) result
         self.purecache = purecache
         self.heapcache = heapcache
+        self.variable_families = UnionFind()
 
     def translate_cache(self, link):
         if link.target.operations == (): # exit or except block:
@@ -61,16 +62,33 @@ class Cache(object):
             if k[0].concretetype == concretetype and k[1] == fieldname:
                 del self.heapcache[k]
 
+    def _replace_with(self, op, res):
+        op.opname = 'same_as'
+        op.args = [res]
+        self.variable_families.union(res, op.result)
+
+    def _var_rep(self, var):
+        # return the representative variable for var. All variables that must
+        # be equal to each other always have the same representative. The
+        # representative's definition dominates the use of all variables that
+        # it represents. casted pointers are considered the same objects.
+        # NB: it's very important to use _var_rep only when computing keys in
+        # the *cache dictionaries, never to actually put any new variable into
+        # the graph, because the concretetypes can change when calling
+        # _var_rep.
+        if not isinstance(var, Variable):
+            return var
+        return self.variable_families.find_rep(var)
+
     def cse_block(self, block, inputlink):
         added_some_same_as = False
         for op in block.operations:
             if can_fold(op):
                 key = (op.opname, op.result.concretetype,
-                       tuple(op.args))
+                       tuple([self._var_rep(arg) for arg in op.args]))
                 res = self.purecache.get(key, None)
                 if res is not None:
-                    op.opname = 'same_as'
-                    op.args = [res]
+                    self._replace_with(op, res)
                     added_some_same_as = True
                 else:
                     self.purecache[key] = op.result
@@ -79,8 +97,7 @@ class Cache(object):
                 tup = (op.args[0], op.args[1].value)
                 res = self.heapcache.get(tup, None)
                 if res is not None:
-                    op.opname = 'same_as'
-                    op.args = [res]
+                    self._replace_with(op, res)
                     added_some_same_as = True
                 else:
                     self.heapcache[tup] = op.result
