@@ -1,5 +1,3 @@
-
-import py
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.cse import cse_graph
 from rpython.translator.backendopt import removenoops
@@ -193,5 +191,6 @@ class TestCSE(object):
             y = (i + 1) * (i + 1)
             return x - y
 
-        self.check(f, [int], int_add=1, int_mul=1)
+        # int_mul should be 1 too, but later
+        self.check(f, [int], int_add=1, int_mul=2)
 

@@ -14,15 +14,18 @@ def has_side_effects(op):
     except AttributeError:
         return True
 
+def can_fold(op):
+    return getattr(llop, op.opname).canfold
+
 
 class Cache(object):
-    def __init__(self, heapcache=None):
-        #if purecache is None:
-        #    purecache = {}
+    def __init__(self, purecache=None, heapcache=None):
+        if purecache is None:
+            purecache = {}
         if heapcache is None:
             heapcache = {}
         # (opname, concretetype of result, args) -> previous (life) result
-        #self.purecache = purecache
+        self.purecache = purecache
         self.heapcache = heapcache
 
     def translate_cache(self, link):
@@ -46,7 +49,7 @@ class Cache(object):
         for (var, field), res in self.heapcache.iteritems():
             if var in local_versions or not isinstance(var, Variable):
                 new_cache[_translate_arg(var), field] = _translate_arg(res)
-        return Cache(new_cache)
+        return Cache(heapcache=new_cache)
 
     def clear_for(self, concretetype, fieldname):
         for k in self.heapcache.keys():
@@ -56,7 +59,18 @@ class Cache(object):
     def cse_block(self, block, inputlink):
         added_some_same_as = False
         for op in block.operations:
-            if op.opname == 'getfield':
+            if can_fold(op):
+                key = (op.opname, op.result.concretetype,
+                       tuple(op.args))
+                res = self.purecache.get(key, None)
+                if res is not None:
+                    op.opname = 'same_as'
+                    op.args = [res]
+                    added_some_same_as = True
+                else:
+                    self.purecache[key] = op.result
+
+            elif op.opname == 'getfield':
                 tup = (op.args[0], op.args[1].value)
                 res = self.heapcache.get(tup, None)
                 if res is not None:
