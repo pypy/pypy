@@ -1149,17 +1149,21 @@ Base 0 means to interpret the base from the string as an integer literal.
 
 
 def _hash_int(a):
-    sign = 1
-    if a < 0:
-        sign = -1
-        a = -a
+    # write it without branches for the benefit of the jit
+    # it needs to give numbers that are equivalent to the hash function of
+    # rbigint
 
+    # compute the sign
+    sign = 1 - ((a < 0) << 1)
     x = r_uint(a)
+    # take absolute value
+    x *= r_uint(sign)
     # efficient x % HASH_MODULUS: as HASH_MODULUS is a Mersenne
     # prime
     x = (x & HASH_MODULUS) + (x >> HASH_BITS)
-    if x >= HASH_MODULUS:
-        x -= HASH_MODULUS
 
+    # if x >= HASH_MODULUS:
+    #    x -= HASH_MODULUS
+    x -= HASH_MODULUS * (x >= HASH_MODULUS)
     h = intmask(intmask(x) * sign)
     return h - (h == -1)
