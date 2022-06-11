@@ -829,13 +829,19 @@ class W_Map(W_Root):
         iterators_w = self.iterators_w
         length = len(iterators_w)
         if length == 1:
-            objects = [self.space.next(iterators_w[0])]
+            w_a = self.space.next(iterators_w[0])
+            if self.w_fun is not None:
+                return self.space.call_function(self.w_fun, w_a)
+            w_objects = self.space.newtuple([w_a])
         elif length == 2:
-            objects = [self.space.next(iterators_w[0]),
-                       self.space.next(iterators_w[1])]
+            w_a = self.space.next(iterators_w[0])
+            w_b = self.space.next(iterators_w[1])
+            if self.w_fun is not None:
+                return self.space.call_function(self.w_fun, w_a, w_b)
+            w_objects = space.newtuple2(w_a, w_b)
         else:
             objects = self._get_objects()
-        w_objects = self.space.newtuple(objects)
+            w_objects = self.space.newtuple(objects)
         if self.w_fun is None:
             return w_objects
         else:
@@ -984,15 +990,16 @@ class W_Zip(W_Root):
             return self.space.newtuple([self.space.next(iterators_w[0])])
 
         try:
-            objects = [None] * length
             self._iteration_progress = 0
             if length == 2:
-                objects[0] = self.space.next(iterators_w[0])
+                w_a = self.space.next(iterators_w[0])
                 self._iteration_progress = 1
-                objects[1] = self.space.next(iterators_w[1])
+                w_b = self.space.next(iterators_w[1])
+                return self.space.newtuple2(w_a, w_b)
             else:
+                objects = [None] * length
                 self._get_objects(objects)
-            return self.space.newtuple(objects)
+                return self.space.newtuple(objects)
         except OperationError as e:
             if not e.match(self.space, self.space.w_StopIteration) or not self.strict:
                 raise

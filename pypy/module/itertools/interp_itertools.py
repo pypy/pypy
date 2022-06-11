@@ -595,10 +595,10 @@ class W_ZipLongest(W_Map):
     def next_w(self):
         # common case: 2 arguments
         if len(self.iterators_w) == 2:
-            objects = [self._fetch(0), self._fetch(1)]
+            return self.space.newtuple2(self._fetch(0), self._fetch(1))
         else:
             objects = self._get_objects()
-        return self.space.newtuple(objects)
+            return self.space.newtuple(objects)
 
     def _get_objects(self):
         # the loop is out of the way of the JIT
