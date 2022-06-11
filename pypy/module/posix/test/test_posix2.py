@@ -1186,6 +1186,7 @@ class AppTestPosix:
             assert os.WEXITSTATUS(status1) == expected
 
     if sys.platform != 'win32':
+        @pytest.mark.skipif("config.option.runappdirect and sys.platform == 'darwin'")
         def test_symlink(self):
             posix = self.posix
             bytes_dir = self.bytes_dir

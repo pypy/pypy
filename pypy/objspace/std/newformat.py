@@ -259,8 +259,8 @@ def make_template_formatting_class(for_unicode):
                     if w_obj is not None:
                         w_obj = space.getattr(w_obj, w_attr)
                     else:
-                        self.parser_list_w.append(space.newtuple([
-                            space.w_True, w_attr]))
+                        self.parser_list_w.append(space.newtuple2(
+                            space.w_True, w_attr))
                 elif c == "[":
                     got_bracket = False
                     i += 1
@@ -282,8 +282,8 @@ def make_template_formatting_class(for_unicode):
                     if w_obj is not None:
                         w_obj = space.getitem(w_obj, w_item)
                     else:
-                        self.parser_list_w.append(space.newtuple([
-                            space.w_False, w_item]))
+                        self.parser_list_w.append(space.newtuple2(
+                            space.w_False, w_item))
                 else:
                     raise oefmt(space.w_ValueError,
                                 "Only '[' and '.' may follow ']'")
@@ -313,8 +313,8 @@ def make_template_formatting_class(for_unicode):
             self.parser_list_w = []
             self._resolve_lookups(None, name, i, end)
             #
-            return space.newtuple([w_first,
-                                   space.iter(space.newlist(self.parser_list_w))])
+            return space.newtuple2(w_first,
+                                   space.iter(space.newlist(self.parser_list_w)))
 
         def _convert(self, w_obj, conversion):
             space = self.space

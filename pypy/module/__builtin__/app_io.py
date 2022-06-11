@@ -86,10 +86,13 @@ def print_(*args, sep=' ', end='\n', file=None, flush=False):
         end = '\n'
     if not isinstance(end, str):
         raise TypeError("end must be None or a string")
-    for i, arg in enumerate(args):
-        if i:
-            fp.write(sep)
-        fp.write(str(arg))
+    if len(args) == 1:
+        fp.write(str(args[0]))
+    else:
+        for i, arg in enumerate(args):
+            if i:
+                fp.write(sep)
+            fp.write(str(arg))
     fp.write(end)
     if flush:
         fp.flush()

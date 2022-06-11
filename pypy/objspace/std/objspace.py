@@ -326,6 +326,10 @@ class StdObjSpace(ObjSpace):
         make_sure_not_resized(list_w)
         return wraptuple(self, list_w)
 
+    def newtuple2(self, w_a, w_b):
+        from pypy.objspace.std.tupleobject import wraptuple2
+        return wraptuple2(self, w_a, w_b)
+
     def newlist(self, list_w, sizehint=-1):
         assert not list_w or sizehint == -1
         return W_ListObject(self, list_w, sizehint)

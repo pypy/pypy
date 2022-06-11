@@ -186,7 +186,7 @@ def get_once_registry(space):
     return w_registry
 
 def update_registry(space, w_registry, w_text, w_category):
-    w_key = space.newtuple([w_text, w_category])
+    w_key = space.newtuple2(w_text, w_category)
     return already_warned(space, w_registry, w_key, should_set=True)
 
 def already_warned(space, w_registry, w_key, should_set=False):
