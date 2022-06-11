@@ -45,11 +45,16 @@ class Cache(object):
                 return res
             else:
                 return arg
-        new_cache = {}
+        heapcache = {}
         for (var, field), res in self.heapcache.iteritems():
             if var in local_versions or not isinstance(var, Variable):
-                new_cache[_translate_arg(var), field] = _translate_arg(res)
-        return Cache(heapcache=new_cache)
+                heapcache[_translate_arg(var), field] = _translate_arg(res)
+        purecache = {}
+        for (var, concretetype, args), res in self.purecache.iteritems():
+            if var in local_versions or not isinstance(var, Variable):
+                args = tuple([_translate_arg(arg) for arg in args])
+                purecache[_translate_arg(var), concretetype, args] = _translate_arg(res)
+        return Cache(purecache, heapcache)
 
     def clear_for(self, concretetype, fieldname):
         for k in self.heapcache.keys():

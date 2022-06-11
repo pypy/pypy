@@ -194,3 +194,12 @@ class TestCSE(object):
         # int_mul should be 1 too, but later
         self.check(f, [int], int_add=1, int_mul=2)
 
+    def test_pure_split(self):
+        def f(i, j):
+            k = i + 1
+            if j:
+                return i + 1
+            return k * (i + 1)
+
+        self.check(f, [int, int], int_add=1)
+
