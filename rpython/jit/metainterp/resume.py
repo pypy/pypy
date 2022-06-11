@@ -1359,6 +1359,7 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
     return curbh
 
 def force_from_resumedata(metainterp_sd, storage, deadframe, vinfo, ginfo):
+    metainterp_sd.profiler.count(jitprof.Counters.FORCE_VIRTUALIZABLES)
     resumereader = ResumeDataDirectReader(metainterp_sd, storage, deadframe)
     resumereader.handling_async_forcing()
     vrefinfo = metainterp_sd.virtualref_info
