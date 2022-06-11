@@ -203,3 +203,25 @@ class TestCSE(object):
 
         self.check(f, [int, int], int_add=1)
 
+    def test_two_getfields(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+        a1 = A()
+        a1.next = B()
+        a1.next.x = 1
+        a2 = A()
+        a2.next = B()
+        a2.next.x = 5
+
+
+        def f(i):
+            if i:
+                a = a1
+            else:
+                a = a2
+            return a.next.x + a.next.x + i
+
+        self.check(f, [int], getfield=2)
+

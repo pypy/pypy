@@ -94,13 +94,13 @@ class Cache(object):
                     self.purecache[key] = op.result
 
             elif op.opname == 'getfield':
-                tup = (op.args[0], op.args[1].value)
-                res = self.heapcache.get(tup, None)
+                key = (self._var_rep(op.args[0]), op.args[1].value)
+                res = self.heapcache.get(key, None)
                 if res is not None:
                     self._replace_with(op, res)
                     added_some_same_as = True
                 else:
-                    self.heapcache[tup] = op.result
+                    self.heapcache[key] = op.result
             elif op.opname in ('setarrayitem', 'setinteriorfield', "malloc", "malloc_varsize"):
                 pass
             elif op.opname == 'setfield':
