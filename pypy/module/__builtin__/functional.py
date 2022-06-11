@@ -813,13 +813,12 @@ def build_iterators_from_args(space, args_w, error_name):
     return iterators_w
 
 class W_Map(W_Root):
-    _error_name = "map"
     _immutable_fields_ = ["w_fun", "iterators_w"]
 
     def __init__(self, space, w_fun, args_w):
         self.space = space
         self.w_fun = w_fun
-        self.iterators_w = build_iterators_from_args(space, args_w, self._error_name)
+        self.iterators_w = build_iterators_from_args(space, args_w, "map")
 
     def iter_w(self):
         return self
@@ -830,21 +829,14 @@ class W_Map(W_Root):
         length = len(iterators_w)
         if length == 1:
             w_a = self.space.next(iterators_w[0])
-            if self.w_fun is not None:
-                return self.space.call_function(self.w_fun, w_a)
-            w_objects = self.space.newtuple([w_a])
+            return self.space.call_function(self.w_fun, w_a)
         elif length == 2:
             w_a = self.space.next(iterators_w[0])
             w_b = self.space.next(iterators_w[1])
-            if self.w_fun is not None:
-                return self.space.call_function(self.w_fun, w_a, w_b)
-            w_objects = space.newtuple2(w_a, w_b)
+            return self.space.call_function(self.w_fun, w_a, w_b)
         else:
             objects = self._get_objects()
             w_objects = self.space.newtuple(objects)
-        if self.w_fun is None:
-            return w_objects
-        else:
             return self.space.call(self.w_fun, w_objects)
 
     def _get_objects(self):
@@ -969,13 +961,12 @@ is true. If function is None, return the items that are true.""")
 
 
 class W_Zip(W_Root):
-    _error_name = "zip"
     _immutable_fields_ = ["w_fun", "iterators_w", "strict"]
 
     def __init__(self, space, args_w, strict=False):
         self.strict = strict
         self.space = space
-        self.iterators_w = build_iterators_from_args(space, args_w, self._error_name)
+        self.iterators_w = build_iterators_from_args(space, args_w, "zip")
         self._iteration_progress = 0
 
     def iter_w(self):
@@ -1046,8 +1037,8 @@ class W_Zip(W_Root):
         return space.newtuple([w_zip, space.newtuple(self.iterators_w)])
 
     def iterator_greenkey(self, space):
-        # XXX in theory we should tupleize the greenkeys of the callable and
-        # the sub-iterators, but much more work
+        # XXX in theory we should tupleize the greenkeys of all the
+        # sub-iterators, but much more work
         if len(self.iterators_w) > 0:
             return space.iterator_greenkey(self.iterators_w[0])
         return None
