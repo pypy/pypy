@@ -247,6 +247,12 @@ def revdb_time(space):
     from rpython.rlib import revdb
     return space.newint(revdb.current_time())
 
+def last_crash_time(space):
+    operr = space.getexecutioncontext().gettopframe()._exc_info_unroll(space, False)
+    if operr is None:
+        return space.newint(-1)
+    return space.newint(operr._revdb_time)
+
 def pyos_inputhook(space):
     """Call PyOS_InputHook() from the CPython C API."""
     if not space.config.objspace.usemodules.cpyext:

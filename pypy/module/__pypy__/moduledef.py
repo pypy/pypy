@@ -164,6 +164,7 @@ class Module(MixedModule):
         if self.space.config.translation.reverse_debugger:
             self.extra_interpdef('revdb_stop', 'interp_magic.revdb_stop')
             self.extra_interpdef('revdb_time', 'interp_magic.revdb_time')
+            self.extra_interpdef('last_crash_time', 'interp_magic.last_crash_time')
         else:
             self.extra_interpdef('revdb_stop', 'space.w_None')
             self.extra_interpdef('revdb_time', 'space.w_None')

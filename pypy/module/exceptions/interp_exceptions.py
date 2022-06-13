@@ -77,8 +77,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib import rwin32, revdb
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import rwin32
 
 
 def readwrite_attrproperty_w(name, cls):
@@ -101,10 +100,6 @@ class W_BaseException(W_Root):
 
     def __init__(self, space):
         self.w_message = space.w_None
-        if we_are_translated():
-            self._revdb_time = revdb.current_time()
-        else:
-            self._revdb_time = 0
 
     def descr_init(self, space, args_w):
         self.args_w = args_w
@@ -188,9 +183,6 @@ class W_BaseException(W_Root):
         space.warn(space.newtext(msg), space.w_DeprecationWarning)
         return self.w_message
 
-    def descr_get_revdb_time(self, space):
-        return space.newint(self._revdb_time)
-
     def descr_message_set(self, space, w_new):
         space.setitem(self.getdict(space), space.newtext("message"), w_new)
 
@@ -230,7 +222,6 @@ W_BaseException.typedef = TypeDef(
     message = GetSetProperty(W_BaseException.descr_message_get,
                             W_BaseException.descr_message_set,
                             W_BaseException.descr_message_del),
-    revdb_time = GetSetProperty(W_BaseException.descr_get_revdb_time),
     args = GetSetProperty(W_BaseException.descr_getargs,
                           W_BaseException.descr_setargs),
 )

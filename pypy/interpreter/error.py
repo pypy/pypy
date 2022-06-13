@@ -5,7 +5,7 @@ import sys
 import traceback
 from errno import EINTR
 
-from rpython.rlib import jit
+from rpython.rlib import jit, revdb
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib import rstack, rstackovf
@@ -40,6 +40,9 @@ class OperationError(Exception):
         self.w_type = w_type
         if not we_are_translated():
             self.debug_excs = []
+            self._revdb_time = 0
+        else:
+            self._revdb_time = revdb.current_time()
 
     def clear(self, space):
         # XXX remove this method.  The point is that we cannot always
