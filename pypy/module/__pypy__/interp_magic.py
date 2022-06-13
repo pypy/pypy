@@ -243,6 +243,10 @@ def revdb_stop(space):
     from pypy.interpreter.reverse_debugging import stop_point
     stop_point()
 
+def revdb_time(space):
+    from rpython.rlib import revdb
+    return space.newint(revdb.current_time())
+
 def pyos_inputhook(space):
     """Call PyOS_InputHook() from the CPython C API."""
     if not space.config.objspace.usemodules.cpyext:

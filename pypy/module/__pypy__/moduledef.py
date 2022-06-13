@@ -163,5 +163,7 @@ class Module(MixedModule):
                                     'space.wrap(%r)' % features)
         if self.space.config.translation.reverse_debugger:
             self.extra_interpdef('revdb_stop', 'interp_magic.revdb_stop')
+            self.extra_interpdef('revdb_time', 'interp_magic.revdb_time')
         else:
             self.extra_interpdef('revdb_stop', 'space.w_None')
+            self.extra_interpdef('revdb_time', 'space.w_None')
