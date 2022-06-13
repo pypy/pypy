@@ -78,6 +78,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rwin32, revdb
+from rpython.rlib.objectmodel import we_are_translated
 
 
 def readwrite_attrproperty_w(name, cls):
