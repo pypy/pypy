@@ -201,7 +201,7 @@ class BufferedMixin:
             return RawByteBuffer(size)
         else:
             # TODO: test whether using the raw buffer is faster
-            return ByteBuffer(size)
+            return RawByteBuffer(size)
 
     def _init(self, space):
         if self.buffer_size <= 0:
