@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.buffer import SimpleView
 
-from rpython.rlib.buffer import ByteBuffer, RawByteBuffer, SubBuffer
+from rpython.rlib.buffer import ByteBuffer, RawByteBuffer, SubBuffer, LLBuffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -653,62 +653,63 @@ class BufferedMixin:
         if n <= current_size:
             return self._read_fast(n)
 
-        result_buffer = RawByteBuffer(n)
-        remaining = n
-        written = 0
-        if current_size:
-            self.output_slice(space, result_buffer,
-                written, self.buffer[self.pos:self.pos + current_size])
-            remaining -= current_size
-            written += current_size
-            self.pos += current_size
+        with rffi.scoped_alloc_buffer(n) as result_buf:
+            llbuf = LLBuffer(result_buf.raw, n)
+            remaining = n
+            written = 0
+            if current_size:
+                self.output_slice(space, llbuf,
+                    written, self.buffer[self.pos:self.pos + current_size])
+                remaining -= current_size
+                written += current_size
+                self.pos += current_size
 
-        # Flush the write buffer if necessary
-        if self.writable:
-            self._flush_and_rewind_unlocked(space)
-        self._reader_reset_buf()
+            # Flush the write buffer if necessary
+            if self.writable:
+                self._flush_and_rewind_unlocked(space)
+            self._reader_reset_buf()
 
-        # Read whole blocks, and don't buffer them
-        while remaining > 0:
-            r = self.buffer_size * (remaining // self.buffer_size)
-            if r == 0:
-                break
-            try:
-                size = self._raw_read(space, result_buffer, written, r)
-            except BlockingIOError:
-                if written == 0:
-                    return None
-                size = 0
-            if size == 0:
-                return result_buffer[0:written]
-            remaining -= size
-            written += size
-
-        self.pos = 0
-        self.raw_pos = 0
-        self.read_end = 0
-
-        while remaining > 0 and self.read_end < self.buffer_size:
-            try:
-                size = self._fill_buffer(space)
-            except BlockingIOError:
-                # EOF or read() would block
-                if written == 0:
-                    return None
-                size = 0
-            if size == 0:
-                break
-
-            if remaining > 0:
-                if size > remaining:
-                    size = remaining
-                self.output_slice(space, result_buffer,
-                    written, self.buffer[self.pos:self.pos + size])
-                self.pos += size
-                written += size
+            # Read whole blocks, and don't buffer them
+            while remaining > 0:
+                r = self.buffer_size * (remaining // self.buffer_size)
+                if r == 0:
+                    break
+                try:
+                    size = self._raw_read(space, llbuf, written, r)
+                except BlockingIOError:
+                    if written == 0:
+                        return None
+                    size = 0
+                if size == 0:
+                    return result_buf.str(written)
                 remaining -= size
+                written += size
 
-        return result_buffer[0:written]
+            self.pos = 0
+            self.raw_pos = 0
+            self.read_end = 0
+
+            while remaining > 0 and self.read_end < self.buffer_size:
+                try:
+                    size = self._fill_buffer(space)
+                except BlockingIOError:
+                    # EOF or read() would block
+                    if written == 0:
+                        return None
+                    size = 0
+                if size == 0:
+                    break
+
+                if remaining > 0:
+                    if size > remaining:
+                        size = remaining
+                    self.output_slice(space, llbuf,
+                        written, self.buffer[self.pos:self.pos + size])
+                    self.pos += size
+                    written += size
+                    remaining -= size
+
+            return result_buf.str(written)
 
     def _read_fast(self, n):
         """Read n bytes from the buffer if it can, otherwise return None.
