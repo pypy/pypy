@@ -474,7 +474,7 @@ def package(*args, **kwds):
     if "PYPY_EMBED_DEPENDENCIES" in os.environ:
         embed_dependencies_default = True
     elif "PYPY_NO_EMBED_DEPENDENCIES" in os.environ:
-        options.embed_dependencies = False
+        embed_dependencies_default = False
     if "PYPY_MAKE_PORTABLE" in os.environ:
         make_portable_default = True
     if "PYPY_NO_MAKE_PORTABLE" in os.environ:
@@ -486,11 +486,17 @@ def package(*args, **kwds):
     if args:
         args[0] = str(args[0])
     for key, module in sorted(cffi_build_scripts.items()):
-        if module is not None:
+        if module is not None and key != '_tkinter':
             parser.add_argument('--without-' + key,
                     dest='no_' + key,
                     action='store_true',
                     help='do not build and package the %r cffi module' % (key,))
+            
+    parser.add_argument('--without-_tkinter',
+            dest='no__tkinter',
+            default=no__tkinter_default,
+            action='store_true',
+            help='do not build and package the _tkinter cffi module')
     parser.add_argument('--without-cffi', dest='no_cffi', action='store_true',
         help='skip building *all* the cffi modules listed above')
     parser.add_argument('--keep-debug', '--no-keep-debug', dest='keep_debug',
