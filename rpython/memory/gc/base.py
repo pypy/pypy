@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.objectmodel import specialize
 from rpython.memory.gcheader import GCHeaderBuilder
 from rpython.memory.support import DEFAULT_CHUNK_SIZE
 from rpython.memory.support import get_address_stack, get_address_deque
@@ -13,6 +14,18 @@ TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
                              ('size', lltype.Signed),
                              ('links', lltype.Array(lltype.Signed)))
 ARRAY_TYPEID_MAP = lltype.GcArray(lltype.Ptr(TYPEID_MAP))
+
+@specialize.memo()
+def assert_callback_is_a_function(callback):
+    """
+    The specialize:arg(2) in GCBase.trace allows callbacks to be either PBC
+    functions or bound methods.  This function ensures that bound methods are
+    NOT allowed because we want to be able to @specialize.memo() on it in
+    other parts of the code (in particular, for hpy_customtrace).
+    """
+    import types
+    assert type(callback) is types.FunctionType
+
 
 class GCBase(object):
     _alloc_flavor_ = "raw"
@@ -227,8 +240,9 @@ class GCBase(object):
         """Enumerate the locations inside the given obj that can contain
         GC pointers.  For each such location, callback(pointer, arg) is
         called, where 'pointer' is an address inside the object.
-        Typically, 'callback' is a bound method and 'arg' can be None.
+        'callback' must be a function, it cannot be a bound method.
         """
+        assert_callback_is_a_function(callback)
         typeid = self.get_type_id(obj)
         #
         # First, look if we need more than the simple fixed-size tracing
