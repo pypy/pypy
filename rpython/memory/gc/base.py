@@ -15,17 +15,6 @@ TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
                              ('links', lltype.Array(lltype.Signed)))
 ARRAY_TYPEID_MAP = lltype.GcArray(lltype.Ptr(TYPEID_MAP))
 
-@specialize.memo()
-def assert_callback_is_a_function(callback):
-    """
-    The specialize:arg(2) in GCBase.trace allows callbacks to be either PBC
-    functions or bound methods.  This function ensures that bound methods are
-    NOT allowed because we want to be able to @specialize.memo() on it in
-    other parts of the code (in particular, for hpy_customtrace).
-    """
-    import types
-    assert type(callback) is types.FunctionType
-
 
 class GCBase(object):
     _alloc_flavor_ = "raw"
@@ -236,13 +225,43 @@ class GCBase(object):
     def set_max_heap_size(self, size):
         raise NotImplementedError
 
+    @staticmethod
+    @specialize.memo()
+    def assert_callback_is_a_function(callback):
+        """
+        The specialize:arg(2) in gc.trace() allows callbacks to be either PBC
+        functions or bound methods.  This function ensures that bound methods are
+        NOT allowed because we want to be able to @specialize.memo() on it in
+        other parts of the code (in particular, for hpy_customtrace).
+        """
+        import types
+        assert type(callback) is types.FunctionType
+
+    @staticmethod
+    @specialize.memo()
+    def make_callback(meth_name):
+        """
+        Create a callback suitable for gc.trace which calls the given meth_name on
+        the passed argument.
+
+        The intended usage is:
+            self.trace(obj, self.make_callback('foo'), self)
+        or, equivalently:
+            gc.trace(obj, gc.make_callback('foo'), gc)
+        """
+        def callback(pointer, gc):
+            meth = getattr(gc, meth_name)
+            meth(pointer)
+        callback.__name__ = 'gc_callback_%s' % meth_name
+        return callback
+
     def trace(self, obj, callback, arg):
         """Enumerate the locations inside the given obj that can contain
         GC pointers.  For each such location, callback(pointer, arg) is
         called, where 'pointer' is an address inside the object.
         'callback' must be a function, it cannot be a bound method.
         """
-        assert_callback_is_a_function(callback)
+        self.assert_callback_is_a_function(callback)
         typeid = self.get_type_id(obj)
         #
         # First, look if we need more than the simple fixed-size tracing
@@ -435,7 +454,7 @@ class GCBase(object):
             pending = self._debug_pending
             while pending.non_empty():
                 obj = pending.pop()
-                self.trace(obj, self._debug_callback2, None)
+                self.trace(obj, self.make_callback('_debug_callback2'), self)
             self._debug_seen.delete()
             self._debug_pending.delete()
 
@@ -445,10 +464,12 @@ class GCBase(object):
             seen.add(obj)
             self.debug_check_object(obj)
             self._debug_pending.append(obj)
+
     @staticmethod
     def _debug_callback(obj, self):
         self._debug_record(obj)
-    def _debug_callback2(self, pointer, ignored):
+
+    def _debug_callback2(self, pointer):
         obj = pointer.address[0]
         ll_assert(bool(obj), "NULL address from self.trace()")
         self._debug_record(obj)

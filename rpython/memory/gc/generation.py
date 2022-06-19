@@ -208,7 +208,7 @@ class GenerationGC(SemiSpaceGC):
             # due to inlining).
             maxlength_for_minimal_nursery = (self.min_nursery_size // 4 //
                                              raw_malloc_usage(itemsize))
-            
+
             # The actual maximum length for our nursery depends on how
             # many times our nursery is bigger than the minimal size.
             # The computation is done in this roundabout way so that
@@ -591,7 +591,7 @@ class GenerationGC(SemiSpaceGC):
         if tid & GCFLAG_NO_YOUNG_PTRS:
             ll_assert(not self.is_in_nursery(obj),
                       "nursery object with GCFLAG_NO_YOUNG_PTRS")
-            self.trace(obj, self._debug_no_nursery_pointer, None)
+            self.trace(obj, self.make_callback('_debug_no_nursery_pointer'), self)
         elif not self.is_in_nursery(obj):
             ll_assert(self._d_oopty.contains(obj),
                       "missing from old_objects_pointing_to_young")
@@ -603,7 +603,7 @@ class GenerationGC(SemiSpaceGC):
             ll_assert(self._d_lgro.contains(obj),
                       "missing from last_generation_root_objects")
 
-    def _debug_no_nursery_pointer(self, root, ignored):
+    def _debug_no_nursery_pointer(self, root):
         ll_assert(not self.is_in_nursery(root.address[0]),
                   "GCFLAG_NO_YOUNG_PTRS but found a young pointer")
     def _debug_no_gen1or2_pointer(self, root, ignored):
