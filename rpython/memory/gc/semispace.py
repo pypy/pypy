@@ -413,9 +413,9 @@ class SemiSpaceGC(MovingGCBase):
         return self._make_a_copy_with_tid(obj, objsize, tid)
 
     def trace_and_copy(self, obj):
-        self.trace(obj, self._trace_copy, None)
+        self.trace(obj, self.make_callback('_trace_copy'), self)
 
-    def _trace_copy(self, pointer, ignored):
+    def _trace_copy(self, pointer):
         pointer.address[0] = self.copy(pointer.address[0])
 
     def surviving(self, obj):
@@ -522,7 +522,7 @@ class SemiSpaceGC(MovingGCBase):
         while self.objects_with_finalizers.non_empty():
             x = self.objects_with_finalizers.popleft()
             fq_nr = self.objects_with_finalizers.popleft()
-            ll_assert(self._finalization_state(x) != 1, 
+            ll_assert(self._finalization_state(x) != 1,
                       "bad finalization state 1")
             if self.surviving(x):
                 new_with_finalizer.append(self.get_forwarding_address(x))
