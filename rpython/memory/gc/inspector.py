@@ -141,9 +141,9 @@ class BaseWalker(object):
 
     def unobj(self, obj):
         gc = self.gc
-        gc.trace(obj, self._unref, None)
+        gc.trace(obj, gc.make_callback('_unref'), self)
 
-    def _unref(self, pointer, _):
+    def _unref(self, pointer):
         obj = pointer.address[0]
         self.unadd(obj)
 
@@ -188,9 +188,9 @@ class MemoryPressureCounter(BaseWalker):
             ofs = gc.get_memory_pressure_ofs(typeid)
             val = (obj + ofs).signed[0]
             self.count += val
-        gc.trace(obj, self._ref, None)
+        gc.trace(obj, gc.make_callback('_ref'), self)
 
-    def _ref(self, pointer, _):
+    def _ref(self, pointer):
         obj = pointer.address[0]
         self.add(obj)
 
@@ -246,11 +246,11 @@ class HeapDumper(BaseWalker):
         self.write(llmemory.cast_adr_to_int(obj))
         self.write(gc.get_member_index(typeid))
         self.write(gc.get_size_incl_hash(obj))
-        gc.trace(obj, self._writeref, None)
+        gc.trace(obj, gc.make_callback('_writeref'), self)
         self.write(-1)
     processobj = writeobj
 
-    def _writeref(self, pointer, _):
+    def _writeref(self, pointer):
         obj = pointer.address[0]
         self.write(llmemory.cast_adr_to_int(obj))
         self.add(obj)
