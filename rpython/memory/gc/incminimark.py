@@ -867,7 +867,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # nursery. "Next area" in this case is the space between the
                 # pinned object in front of nusery_top and the pinned object
                 # after that. Graphically explained:
-                # 
+                #
                 #     |- allocating totalsize failed in this area
                 #     |     |- nursery_top
                 #     |     |    |- pinned object in front of nursery_top,
@@ -1341,7 +1341,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _debug_check_object_marking(self, obj):
         if self.header(obj).tid & GCFLAG_VISITED != 0:
             # A black object.  Should NEVER point to a white object.
-            self.trace(obj, self._debug_check_not_white, None)
+            self.trace(obj, self.make_callback('_debug_check_not_white'), self, None)
             # During marking, all visited (black) objects should always have
             # the GCFLAG_TRACK_YOUNG_PTRS flag set, for the write barrier to
             # trigger --- at least if they contain any gc ptr.  We are just
@@ -1921,7 +1921,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.header(obj).tid &= ~GCFLAG_PINNED_OBJECT_PARENT_KNOWN
 
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
-        self.trace(obj, self._trace_drag_out, obj)
+        self.trace(obj, self.make_callback('_trace_drag_out'), self, obj)
 
     def collect_roots_in_nursery(self, any_pinned_object_from_earlier):
         # we don't need to trace prebuilt GcStructs during a minor collect:
@@ -2047,7 +2047,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """obj must not be in the nursery.  This copies all the
         young objects it references out of the nursery.
         """
-        self.trace(obj, self._trace_drag_out, obj)
+        self.trace(obj, self.make_callback('_trace_drag_out'), self, obj)
 
     def trace_and_drag_out_of_nursery_partial(self, obj, start, stop):
         """Like trace_and_drag_out_of_nursery(), but limited to the array
@@ -2056,7 +2056,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         ll_assert(start < stop, "empty or negative range "
                                 "in trace_and_drag_out_of_nursery_partial()")
         #print 'trace_partial:', start, stop, '\t', obj
-        self.trace_partial(obj, start, stop, self._trace_drag_out, obj)
+        self.trace_partial(obj, start, stop,
+                           self.make_callback('_trace_drag_out'), self, obj)
 
 
     def _trace_drag_out1(self, root):
@@ -2731,7 +2732,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Trace the content of the object and put all objects it references
             # into the 'objects_to_trace' list.
-            self.trace(obj, self._collect_ref_rec, None)
+            self.trace(obj, self.make_callback('_collect_ref_rec'), self, None)
 
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + self.get_size(obj)
@@ -2873,7 +2874,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 state = self._finalization_state(y)
                 if state == 0:
                     self._bump_finalization_state_from_0_to_1(y)
-                    self.trace(y, self._append_if_nonnull, pending)
+                    self.trace(y, self._append_if_nonnull, pending, None)
                 elif state == 2:
                     self._recursively_bump_finalization_state_from_2_to_3(y)
             self._recursively_bump_finalization_state_from_1_to_2(x)
@@ -2950,7 +2951,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             hdr = self.header(y)
             if hdr.tid & GCFLAG_FINALIZATION_ORDERING:     # state 2 ?
                 hdr.tid &= ~GCFLAG_FINALIZATION_ORDERING   # change to state 3
-                self.trace(y, self._append_if_nonnull, pending)
+                self.trace(y, self._append_if_nonnull, pending, None)
 
     def _recursively_bump_finalization_state_from_1_to_2(self, obj):
         # recursively convert objects from state 1 to state 2.
