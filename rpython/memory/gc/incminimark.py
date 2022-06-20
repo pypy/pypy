@@ -2908,7 +2908,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.old_objects_with_finalizers.delete()
         self.old_objects_with_finalizers = new_with_finalizer
 
-    def _append_if_nonnull(pointer, stack):
+    def _append_if_nonnull(pointer, stack, ignored):
         stack.append(pointer.address[0])
     _append_if_nonnull = staticmethod(_append_if_nonnull)
 

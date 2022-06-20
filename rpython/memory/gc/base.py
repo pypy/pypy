@@ -334,9 +334,9 @@ class GCBase(object):
             self.custom_trace_dispatcher(obj, typeid, callback, arg1, arg2)
     _trace_slow_path._annspecialcase_ = 'specialize:arg(2)'
 
-    def _trace_callback(self, callback, arg, addr):
+    def _trace_callback(self, callback, arg1, arg2, addr):
         if self.is_valid_gc_object(addr.address[0]):
-            callback(addr, arg)
+            callback(addr, arg1, arg2)
     _trace_callback._annspecialcase_ = 'specialize:arg(1)'
 
     def trace_partial(self, obj, start, stop, callback, arg1, arg2):
