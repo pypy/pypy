@@ -343,6 +343,12 @@ class _SpecialForm(_Final, _root=True):
     def __call__(self, *args, **kwds):
         raise TypeError(f"Cannot instantiate {self!r}")
 
+    def __or__(self, other):
+        return Union[self, other]
+
+    def __ror__(self, other):
+        return Union[other, self]
+
     def __instancecheck__(self, obj):
         raise TypeError(f"{self} cannot be used with isinstance()")
 
@@ -649,6 +655,12 @@ class TypeVar(_Final, _Immutable, _root=True):
         if def_mod != 'typing':
             self.__module__ = def_mod
 
+    def __or__(self, right):
+        return Union[self, right]
+
+    def __ror__(self, right):
+        return Union[self, right]
+
     def __repr__(self):
         if self.__covariant__:
             prefix = '+'
@@ -756,6 +768,12 @@ class _GenericAlias(_BaseGenericAlias, _root=True):
     def __hash__(self):
         return hash((self.__origin__, self.__args__))
 
+    def __or__(self, right):
+        return Union[self, right]
+
+    def __ror__(self, left):
+        return Union[left, self]
+
     @_tp_cache
     def __getitem__(self, params):
         if self.__origin__ in (Generic, Protocol):
@@ -855,6 +873,11 @@ class _SpecialGenericAlias(_BaseGenericAlias, _root=True):
     def __reduce__(self):
         return self._name
 
+    def __or__(self, right):
+        return Union[self, right]
+
+    def __ror__(self, left):
+        return Union[left, self]
 
 class _CallableGenericAlias(_GenericAlias, _root=True):
     def __repr__(self):
@@ -1113,6 +1136,11 @@ def _no_init_or_replace_init(self, *args, **kwargs):
     cls.__init__(self, *args, **kwargs)
 
 
+def _caller(depth=1, default='__main__'):
+    try:
+        return sys._getframe(depth + 1).f_globals.get('__name__', default)
+    except (AttributeError, ValueError):  # For platforms without _getframe()
+        return None
 
 def _allow_reckless_class_cheks():
     """Allow instance and class checks for special stdlib modules.
@@ -2047,31 +2075,44 @@ _TypedDict = type.__new__(_TypedDictMeta, 'TypedDict', (), {})
 TypedDict.__mro_entries__ = lambda bases: (_TypedDict,)
 
 
-def NewType(name, tp):
+class NewType:
     """NewType creates simple unique types with almost zero
     runtime overhead. NewType(name, tp) is considered a subtype of tp
     by static type checkers. At runtime, NewType(name, tp) returns
-    a dummy function that simply returns its argument. Usage::
-
+    a dummy callable that simply returns its argument. Usage::
         UserId = NewType('UserId', int)
-
         def name_by_id(user_id: UserId) -> str:
             ...
-
         UserId('user')          # Fails type check
-
         name_by_id(42)          # Fails type check
         name_by_id(UserId(42))  # OK
-
         num = UserId(5) + 1     # type: int
     """
 
-    def new_type(x):
+    def __init__(self, name, tp):
+        self.__qualname__ = name
+        if '.' in name:
+            name = name.rpartition('.')[-1]
+        self.__name__ = name
+        self.__supertype__ = tp
+        def_mod = _caller()
+        if def_mod != 'typing':
+            self.__module__ = def_mod
+
+    def __repr__(self):
+        return f'{self.__module__}.{self.__qualname__}'
+
+    def __call__(self, x):
         return x
 
-    new_type.__name__ = name
-    new_type.__supertype__ = tp
-    return new_type
+    def __reduce__(self):
+        return self.__qualname__
+
+    def __or__(self, other):
+        return Union[self, other]
+
+    def __ror__(self, other):
+        return Union[other, self]
 
 
 # Python-version-specific alias (Python 2: unicode; Python 3: str)

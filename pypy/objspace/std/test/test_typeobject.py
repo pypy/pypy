@@ -1544,6 +1544,78 @@ class AppTestTypeObject:
         assert ga.__origin__ is type
         assert ga.__args__ == (int, )
 
+    def test_or_types_operator(self):
+        """
+        import typing
+
+        class Example:
+            pass
+
+        assert (int | str) == typing.Union[int, str]
+        assert (int | int | str) == typing.Union[str, int]
+        assert (int | list) != typing.Union[int, str]
+        assert (str | int) == typing.Union[int, str]
+        assert (int | None) == typing.Union[int, None]
+        assert (None | int) == typing.Union[int, None]
+        assert (int | str | list) == typing.Union[int, str, list]
+        assert (int | (str | list)) == typing.Union[int, str, list]
+        assert (str | (int | list)) == typing.Union[int, str, list]
+        assert (typing.List | typing.Tuple) == typing.Union[typing.List, typing.Tuple]
+        assert (typing.Tuple | typing.List) == typing.Union[typing.List, typing.Tuple]
+        assert list | str == typing.Union[list, str]
+        assert typing.List | str == typing.Union[typing.List, str]
+        assert (typing.List[int] | typing.Tuple[int]) == typing.Union[typing.List[int], typing.Tuple[int]]
+        assert (typing.List[int] | None) == typing.Union[typing.List[int], None]
+        assert (None | typing.List[int]) == typing.Union[None, typing.List[int]]
+        assert (str | float | int | complex | int) == ((int | str) | (float | complex))
+        assert (typing.Union[str, int, typing.List[int]]) == (str | int | typing.List[int])
+        assert typing.IO | str == typing.Union[typing.IO, str]
+        assert (int | int) == int
+        assert (BaseException | bool | bytes | complex | float | int | list | map | set) == typing.Union[BaseException, bool, bytes, complex, float, int, list, map, set]
+
+        with raises(TypeError):
+            int | 3
+
+        with raises(TypeError):
+            3 | int
+
+        with raises(TypeError):
+            Example() | int
+
+        with raises(TypeError):
+            (int | str) < typing.Union[str, int]
+
+        with raises(TypeError):
+            (int | str) < (int | bool)
+
+        with raises(TypeError):
+            (int | str) <= (int | str)
+
+        class Proto(typing.Protocol):
+            def meth(self) -> int:
+                ...
+        assert Proto | str == typing.Union[Proto, str]
+
+        assert typing.Any | str == typing.Union[typing.Any, str]
+        assert typing.NoReturn | str == typing.Union[typing.NoReturn, str]
+        assert typing.Optional[int] | str == typing.Union[typing.Optional[int], str]
+        assert typing.Optional[int] | str == typing.Union[int, str, None]
+        assert typing.Union[int, bool] | str == typing.Union[int, bool, str]
+        UserId = typing.NewType('UserId', int)
+        assert UserId | str == typing.Union[UserId, str]
+        """
+
+    def test_or_type_repr(self):
+        """
+        import typing
+        print(type(int | str))
+        print(type(typing.Union[typing.Union[int, str]]))
+        print(type(typing.List[int]))
+        print(type(list[int]))
+        # assert repr(int | None) == "int | None"
+        # assert repr(int | typing.GenericAlias(list, int)) == "int | list[int]"
+        """
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

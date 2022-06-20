@@ -774,6 +774,13 @@ class W_TypeObject(W_Root):
             return space.w_NotImplemented
         return space.newbool(not space.is_w(self, w_other))
 
+    def descr_or(self, space, w_other):
+        w_builtins = space.getbuiltinmodule('typing')
+        w_union = space.getattr(w_builtins, space.newtext("Union"))
+        w_getitem = space.getattr(w_union, space.newtext("__getitem__"))
+        w_tuple = space.newtuple2(self, w_other)
+        return space.call_function(w_getitem, w_tuple)
+
 
 def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
@@ -1187,6 +1194,7 @@ W_TypeObject.typedef = TypeDef("type",
     __getattribute__ = gateway.interp2app(W_TypeObject.descr_getattribute),
     __ne__ = gateway.interp2app(W_TypeObject.descr_ne),
     __prepare__ = gateway.interp2app(descr___prepare__, as_classmethod=True),
+    __or__ = gateway.interp2app(W_TypeObject.descr_or),
 )
 
 
