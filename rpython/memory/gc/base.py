@@ -245,19 +245,19 @@ class GCBase(object):
         the passed argument.
 
         The intended usage is:
-            self.trace(obj, self.make_callback('foo'), self)
+            self.trace(obj, self.make_callback('foo'), self, None)
         or, equivalently:
-            gc.trace(obj, gc.make_callback('foo'), gc)
+            gc.trace(obj, gc.make_callback('foo'), gc, None)
         """
-        def callback(pointer, gc):
-            meth = getattr(gc, meth_name)
-            meth(pointer)
+        def callback(pointer, arg1, arg2):
+            meth = getattr(arg1, meth_name)
+            meth(pointer, arg2)
         callback.__name__ = 'gc_callback_%s' % meth_name
         return callback
 
-    def trace(self, obj, callback, arg):
+    def trace(self, obj, callback, arg1, arg2):
         """Enumerate the locations inside the given obj that can contain
-        GC pointers.  For each such location, callback(pointer, arg) is
+        GC pointers.  For each such location, callback(pointer, arg1, arg2) is
         called, where 'pointer' is an address inside the object.
         'callback' must be a function, it cannot be a bound method.
         """
@@ -275,11 +275,11 @@ class GCBase(object):
                 item = obj + llmemory.gcarrayofptr_itemsoffset
                 while length > 0:
                     if self.points_to_valid_gc_object(item):
-                        callback(item, arg)
+                        callback(item, arg1, arg2)
                     item += llmemory.gcarrayofptr_singleitemoffset
                     length -= 1
                 return
-            self._trace_slow_path(obj, callback, arg)
+            self._trace_slow_path(obj, callback, arg1, arg2)
         #
         # Do the tracing on the fixed-size part of the object.
         offsets = self.offsets_to_gc_pointers(typeid)
@@ -287,11 +287,11 @@ class GCBase(object):
         while i < len(offsets):
             item = obj + offsets[i]
             if self.points_to_valid_gc_object(item):
-                callback(item, arg)
+                callback(item, arg1, arg2)
             i += 1
     trace._annspecialcase_ = 'specialize:arg(2)'
 
-    def _trace_slow_path(self, obj, callback, arg):
+    def _trace_slow_path(self, obj, callback, arg1, arg2):
         typeid = self.get_type_id(obj)
         if self.has_gcptr_in_varsize(typeid):
             length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
@@ -305,7 +305,7 @@ class GCBase(object):
                     while length > 0:
                         itemobj0 = item + offsets0
                         if self.points_to_valid_gc_object(itemobj0):
-                            callback(itemobj0, arg)
+                            callback(itemobj0, arg1, arg2)
                         item += itemlength
                         length -= 1
                 elif len_offsets == 2:   # common path #2
@@ -314,10 +314,10 @@ class GCBase(object):
                     while length > 0:
                         itemobj0 = item + offsets0
                         if self.points_to_valid_gc_object(itemobj0):
-                            callback(itemobj0, arg)
+                            callback(itemobj0, arg1, arg2)
                         itemobj1 = item + offsets1
                         if self.points_to_valid_gc_object(itemobj1):
-                            callback(itemobj1, arg)
+                            callback(itemobj1, arg1, arg2)
                         item += itemlength
                         length -= 1
                 else:                    # general path
@@ -326,12 +326,12 @@ class GCBase(object):
                         while j < len_offsets:
                             itemobj = item + offsets[j]
                             if self.points_to_valid_gc_object(itemobj):
-                                callback(itemobj, arg)
+                                callback(itemobj, arg1, arg2)
                             j += 1
                         item += itemlength
                         length -= 1
         if self.has_custom_trace(typeid):
-            self.custom_trace_dispatcher(obj, typeid, callback, arg)
+            self.custom_trace_dispatcher(obj, typeid, callback, arg1, arg2)
     _trace_slow_path._annspecialcase_ = 'specialize:arg(2)'
 
     def _trace_callback(self, callback, arg, addr):
@@ -339,10 +339,11 @@ class GCBase(object):
             callback(addr, arg)
     _trace_callback._annspecialcase_ = 'specialize:arg(1)'
 
-    def trace_partial(self, obj, start, stop, callback, arg):
+    def trace_partial(self, obj, start, stop, callback, arg1, arg2):
         """Like trace(), but only walk the array part, for indices in
         range(start, stop).  Must only be called if has_gcptr_in_varsize().
         """
+        self.assert_callback_is_a_function(callback)
         length = stop - start
         typeid = self.get_type_id(obj)
         if self.is_gcarrayofgcptr(typeid):
@@ -351,7 +352,7 @@ class GCBase(object):
             item += llmemory.gcarrayofptr_singleitemoffset * start
             while length > 0:
                 if self.points_to_valid_gc_object(item):
-                    callback(item, arg)
+                    callback(item, arg1, arg2)
                 item += llmemory.gcarrayofptr_singleitemoffset
                 length -= 1
             return
@@ -366,7 +367,7 @@ class GCBase(object):
             while j < len(offsets):
                 itemobj = item + offsets[j]
                 if self.points_to_valid_gc_object(itemobj):
-                    callback(itemobj, arg)
+                    callback(itemobj, arg1, arg2)
                 j += 1
             item += itemlength
             length -= 1
@@ -454,7 +455,7 @@ class GCBase(object):
             pending = self._debug_pending
             while pending.non_empty():
                 obj = pending.pop()
-                self.trace(obj, self.make_callback('_debug_callback2'), self)
+                self.trace(obj, self.make_callback('_debug_callback2'), self, None)
             self._debug_seen.delete()
             self._debug_pending.delete()
 
@@ -469,7 +470,7 @@ class GCBase(object):
     def _debug_callback(obj, self):
         self._debug_record(obj)
 
-    def _debug_callback2(self, pointer):
+    def _debug_callback2(self, pointer, ignored):
         obj = pointer.address[0]
         ll_assert(bool(obj), "NULL address from self.trace()")
         self._debug_record(obj)
