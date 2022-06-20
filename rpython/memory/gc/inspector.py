@@ -41,7 +41,7 @@ def get_rpy_roots(gc):
 
 # ---------- implementation of rpython.rlib.rgc.get_rpy_referents() ----------
 
-def _append_rpy_referent(pointer, gc):
+def _append_rpy_referent(pointer, gc, ignored):
     # Can use the gc list, but should not allocate!
     # It is essential that the list is not resizable!
     lst = gc._list_rpy
@@ -190,7 +190,7 @@ class MemoryPressureCounter(BaseWalker):
             self.count += val
         gc.trace(obj, gc.make_callback('_ref'), self, None)
 
-    def _ref(self, pointer):
+    def _ref(self, pointer, ignored):
         obj = pointer.address[0]
         self.add(obj)
 

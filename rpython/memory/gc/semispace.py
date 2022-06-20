@@ -567,7 +567,7 @@ class SemiSpaceGC(MovingGCBase):
         self.objects_with_finalizers = new_with_finalizer
         return scan
 
-    def _append_if_nonnull(pointer, stack):
+    def _append_if_nonnull(pointer, stack, ignored):
         stack.append(pointer.address[0])
     _append_if_nonnull = staticmethod(_append_if_nonnull)
 
@@ -722,7 +722,7 @@ class SemiSpaceGC(MovingGCBase):
         self._ll_typeid_map[idx].count += 1
         totsize = self.get_size(adr) + self.size_gc_header()
         self._ll_typeid_map[idx].size += llmemory.raw_malloc_usage(totsize)
-        self.trace(adr, self.track_heap_parent, adr, None)
+        self.trace(adr, self.make_callback('track_heap_parent'), self, adr)
 
     @staticmethod
     def _track_heap_root(obj, self):
