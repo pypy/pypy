@@ -770,11 +770,11 @@ class W_TypeObject(W_Root):
             space, self, w_name, "type object '%N' has no attribute %R")
 
     def descr_or(self, space, w_other):
-        w_builtins = space.getbuiltinmodule('typing')
-        w_union = space.getattr(w_builtins, space.newtext("Union"))
-        w_getitem = space.getattr(w_union, space.newtext("__getitem__"))
+        w_builtins = space.getbuiltinmodule('builtins')
+        w_mod = space.call_method(w_builtins, '__import__', space.newtext("typing"))
+        w_union = space.getattr(w_mod, space.newtext("Union"))
         w_tuple = space.newtuple2(self, w_other)
-        return space.call_function(w_getitem, w_tuple)
+        return space.call_method(w_union, "__getitem__", w_tuple)
 
 
 def descr__new__(space, w_typetype, __args__):
