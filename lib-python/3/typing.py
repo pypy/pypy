@@ -815,6 +815,20 @@ class TypeVar( _Final, _Immutable, _TypeVarLike, _root=True):
         if def_mod != 'typing':
             self.__module__ = def_mod
 
+    def __or__(self, right):
+        return Union[self, right]
+
+    def __ror__(self, right):
+        return Union[self, right]
+
+    def __repr__(self):
+        if self.__covariant__:
+            prefix = '+'
+        elif self.__contravariant__:
+            prefix = '-'
+        else:
+            prefix = '~'
+        return prefix + self.__name__
 
 class ParamSpecArgs(_Final, _Immutable, _root=True):
     """The args for a ParamSpec object.
@@ -2453,17 +2467,12 @@ class NewType:
     runtime overhead. NewType(name, tp) is considered a subtype of tp
     by static type checkers. At runtime, NewType(name, tp) returns
     a dummy callable that simply returns its argument. Usage::
-
         UserId = NewType('UserId', int)
-
         def name_by_id(user_id: UserId) -> str:
             ...
-
         UserId('user')          # Fails type check
-
         name_by_id(42)          # Fails type check
         name_by_id(UserId(42))  # OK
-
         num = UserId(5) + 1     # type: int
     """
 
