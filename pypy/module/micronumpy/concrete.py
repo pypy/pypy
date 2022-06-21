@@ -440,7 +440,7 @@ offset_of_step = llmemory.offsetof(OBJECTSTORE, 'step')
 
 V_OBJECTSTORE = lltype.nullptr(OBJECTSTORE)
 
-def customtrace(gc, obj, callback, arg):
+def customtrace(gc, obj, callback, arg1, arg2):
     #debug_print('in customtrace w/obj', obj)
     length = (obj + offset_of_length).signed[0]
     step = (obj + offset_of_step).signed[0]
@@ -448,7 +448,7 @@ def customtrace(gc, obj, callback, arg):
     #debug_print('tracing', length, 'objects in ndarray.storage')
     i = 0
     while i < length:
-        gc._trace_callback(callback, arg, storage)
+        gc._trace_callback(callback, arg1, arg2, storage)
         storage += step
         i += 1
 

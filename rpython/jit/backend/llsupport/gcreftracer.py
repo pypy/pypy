@@ -10,14 +10,14 @@ GCREFTRACER = lltype.GcStruct(
     ('array_length', lltype.Signed),
     rtti=True)
 
-def gcrefs_trace(gc, obj_addr, callback, arg):
+def gcrefs_trace(gc, obj_addr, callback, arg1, arg2):
     obj = llmemory.cast_adr_to_ptr(obj_addr, lltype.Ptr(GCREFTRACER))
     i = 0
     length = obj.array_length
     addr = obj.array_base_addr
     while i < length:
         p = rffi.cast(llmemory.Address, addr + i * WORD)
-        gc._trace_callback(callback, arg, p)
+        gc._trace_callback(callback, arg1, arg2, p)
         i += 1
 lambda_gcrefs_trace = lambda: gcrefs_trace
 

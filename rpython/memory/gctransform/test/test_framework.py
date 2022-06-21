@@ -155,7 +155,7 @@ def test_custom_trace_function_no_collect():
     class Glob:
         pass
     glob = Glob()
-    def trace_func(gc, obj, callback, arg):
+    def trace_func(gc, obj, callback, arg1, arg2):
         glob.foo = (gc, obj)
     lambda_trace_func = lambda: trace_func
     def entrypoint(argv):
