@@ -222,7 +222,8 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
         data = compile.SimpleSplitCompileData(trace, None,
                                               enable_opts=self.enable_opts,
                                               body_token=token)
-        loops = data.split(self.metainterp_sd, self.jitdriver_sd, {}, ops, info.inputargs)
+        # loops = data.split(self.metainterp_sd, self.jitdriver_sd, {}, ops, info.inputargs)
+        loops = data.split(self.metainterp_sd, self.jitdriver_sd, {})
         original_loop, bridges = loops[0], loops[1:]
         original_loop_info, original_loop = original_loop
 
@@ -564,7 +565,7 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         """
 
         trace, info, ops, token = self.optimize(ops)
-        optimized = self.create_opt().remove_guards(ops)
+        optimized = self.create_opt().remove_ops_assoc_pseudo_op(ops)
 
         exp = parse(expected, namespace=self.namespace)
 

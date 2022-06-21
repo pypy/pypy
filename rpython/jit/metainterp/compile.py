@@ -153,10 +153,11 @@ class SimpleSplitCompileData(CompileData):
         self.inline_short_preamble = inline_short_preamble
         self.body_token = body_token
 
-    def split(self, metainterp_sd, jitdriver_sd, optimizations, ops, inputargs):
-        from rpython.jit.metainterp.optimizeopt.tracesplit import TraceSplitOpt
-        opt = TraceSplitOpt(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.split_ops(self.trace, ops, inputargs, self.body_token)
+    def split(self, metainterp_sd, jitdriver_sd, optimizations):
+        from rpython.jit.metainterp.optimizeopt.tracesplit import TraceSplitOpt, OptTraceSplit
+        # opt = TraceSplitOpt(metainterp_sd, jitdriver_sd, optimizations)
+        opt = OptTraceSplit(metainterp_sd, jitdriver_sd, optimizations)
+        return opt.split(self.trace, self.resumestorage, self.body_token)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     from rpython.conftest import option
@@ -1107,22 +1108,6 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         faildescr=resumekey, entry_bridge=False,
         jd_name=jitdriver_sd.jitdriver.name)
 
-    data = SimpleCompileData(trace, resumestorage,
-                             call_pure_results=call_pure_results,
-                             enable_opts=enable_opts)
-    try:
-        info, newops = data.optimize_trace(
-            metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
-    except InvalidLoop:
-        metainterp_sd.jitlog.trace_aborted()
-        # XXX I am fairly convinced that optimize_bridge cannot actually raise
-        # InvalidLoop
-        debug_print('InvalidLoop in compile_trace_and_split')
-        return None
-
-    debug_print('Loop before splitting')
-    metainterp_sd.logger_noopt.log_loop(info.inputargs, newops)
-
     body_jitcell_token = make_jitcell_token(jitdriver_sd)
     body_token = TargetToken(body_jitcell_token,
                              original_jitcell_token=body_jitcell_token)
@@ -1135,14 +1120,26 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
                                   body_token=body_token)
     try:
         splitted = data.split(
-            metainterp_sd, jitdriver_sd, metainterp.box_names_memo,
-            newops, info.inputargs)
+            metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         debug_print('InvalidLoop in compile_loop_and_split')
         return None
 
     (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:]
+
+    # data = SimpleCompileData(trace, resumestorage,
+    #                          call_pure_results=call_pure_results,
+    #                          enable_opts=enable_opts)
+    # try:
+    #     info, newops = data.optimize_trace(
+    #         metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
+    # except InvalidLoop:
+    #     metainterp_sd.jitlog.trace_aborted()
+    #     # XXX I am fairly convinced that optimize_bridge cannot actually raise
+    #     # InvalidLoop
+    #     debug_print('InvalidLoop in compile_trace_and_split')
+    #     return None
 
     # debug_print('Loop after splitting')
     # metainterp_sd.logger_noopt.log_loop(body_info.inputargs, body_ops)
