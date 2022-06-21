@@ -1608,12 +1608,14 @@ class AppTestTypeObject:
     def test_or_type_repr(self):
         """
         import typing
-        print(type(int | str))
-        print(type(typing.Union[typing.Union[int, str]]))
-        print(type(typing.List[int]))
-        print(type(list[int]))
-        # assert repr(int | None) == "int | None"
-        # assert repr(int | typing.GenericAlias(list, int)) == "int | list[int]"
+        assert repr(int | None) == "int | None"
+        assert repr(None | int) == "None | int"
+        assert repr(int | typing.GenericAlias(list, int)) == "int | list[int]"
+        assert repr(int | list[int]) == "int | list[int]"
+        assert repr(int | str | list[int]) == "int | str | list[int]"
+        assert repr(int | typing.List[int]) == "typing.Union[int, typing.List[int]]"
+        assert repr(int | str | typing.List[int]) == "typing.Union[int, str, typing.List[int]]"
+        assert repr(int | str | typing.Union[int]) == "int | str"
         """
 
 

@@ -958,6 +958,14 @@ class _UnionGenericAlias(_GenericAlias, _root=True):
 
     def __repr__(self):
         args = self.__args__
+
+        # NOTE: This is a pypy modification to match the __repr__ implementation
+        # in C unions from CPython
+        if not [a for a in args if not isinstance(a, (type, GenericAlias))]:
+            def __type_repr(t):
+                return "None" if t == type(None) else _type_repr(t)
+            return " | ".join([__type_repr(a) for a in args])
+
         if len(args) == 2:
             if args[0] is type(None):
                 return f'typing.Optional[{_type_repr(args[1])}]'
