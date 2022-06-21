@@ -9,8 +9,6 @@ _ATTR_EXCEPTIONS = frozenset((
     "__deepcopy__",
 ))
 
-import typing
-
 class GenericAlias:
 
     __slots__ = ("__weakref__", "_origin", "_args", "_parameters", "_hash")
@@ -99,6 +97,7 @@ class GenericAlias:
         return (type(self), (self.__origin__, self.__args__))
 
     def __or__(self, other):
+        import typing
         return typing.Union[self, other]
 
 def _repr_item(it):

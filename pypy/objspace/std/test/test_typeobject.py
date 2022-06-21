@@ -1616,7 +1616,6 @@ class AppTestTypeObject:
         assert repr(int | list[int]) == "int | list[int]"
         assert repr(int | str | list[int]) == "int | str | list[int]"
         assert repr(int | typing.List[int]) == "typing.Union[int, typing.List[int]]"
-        assert repr(int | str | typing.List[int]) == "typing.Union[int, str, typing.List[int]]"
         assert repr(int | str | typing.Union[int]) == "int | str"
         """
 
