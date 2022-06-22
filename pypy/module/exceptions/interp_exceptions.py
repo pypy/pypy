@@ -438,17 +438,25 @@ W_UnicodeTranslateError.typedef = TypeDef(
 W_LookupError = _new_exception('LookupError', W_Exception,
                                """Base class for lookup errors.""")
 
-def key_error_str(self, space):
-    if len(self.args_w) == 0:
-        return space.newtext('')
-    elif len(self.args_w) == 1:
-        return space.repr(self.args_w[0])
-    else:
-        return space.str(space.newtuple(self.args_w))
+class W_KeyError(W_LookupError):
+    """Mapping key not found."""
+    def key_error_str(self, space):
+        if len(self.args_w) == 0:
+            return space.newtext('')
+        elif len(self.args_w) == 1:
+            return space.repr(self.args_w[0])
+        else:
+            return space.str(space.newtuple(self.args_w))
 
-W_KeyError = _new_exception('KeyError', W_LookupError,
-                            """Mapping key not found.""",
-                            __str__ = key_error_str)
+W_KeyError.typedef = TypeDef(
+    'KeyError',
+    W_LookupError.typedef,
+    __doc__ = W_KeyError.__doc__,
+    __module__ = 'builtins',
+    __new__ = _new(W_KeyError),
+    __str__ = interp2app(W_KeyError.key_error_str),
+)
+W_KeyError.typedef.applevel_subclasses_base = W_LookupError.typedef.applevel_subclasses_base
 
 
 class W_StopIteration(W_Exception):

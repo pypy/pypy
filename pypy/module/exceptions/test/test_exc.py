@@ -553,3 +553,11 @@ class AppTestExc(object):
             blub
         exc = info.value
         assert exc.name == "blub"
+
+    def test_multiple_inheritance_bug(self):
+        class OptionError(AttributeError, KeyError):
+            pass # does not crash
+        assert issubclass(OptionError, Exception)
+        assert issubclass(OptionError, AttributeError)
+        assert issubclass(OptionError, KeyError)
+        assert issubclass(OptionError, LookupError)

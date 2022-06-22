@@ -7,7 +7,7 @@ modules on Windows.
 import sys
 
 if sys.platform != 'win32':
-    raise ImportError("The '_winapi' module is only available on Windows", name="_winapi")
+    raise ModuleNotFoundError("The '_winapi' module is only available on Windows", name="_winapi")
 
 # Declare external Win32 functions
 

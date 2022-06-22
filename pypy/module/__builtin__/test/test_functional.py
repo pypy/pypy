@@ -1,3 +1,5 @@
+import pytest
+
 class AppTestMap:
     def test_trivial_map_one_seq(self):
         assert list(map(lambda x: x+2, [1, 2, 3, 4])) == [3, 4, 5, 6]
@@ -117,6 +119,42 @@ class AppTestZip:
     def test_three_lists(self):
         assert list(zip([1,2,3], [1,2], [1,2,3])) == [(1,1,1), (2,2,2)]
 
+    def test_strict_same_length(self):
+        assert list(zip(strict=True)) == []
+        assert list(zip([1,2,3], strict=True)) == [(1,), (2,), (3,)]
+        assert list(zip([1,2,3], [1,2,3], strict=True)) == [(1,1), (2,2), (3,3)]
+        assert list(zip([1,2,3], [1,2,3], strict=True)) == [(1,1), (2,2), (3,3)]
+        assert list(zip([1,2,3], [1,2,3], [1,2,3], strict=True)) == [(1,1,1), (2,2,2), (3,3,3)]
+
+
+    def test_strict_different_length_shorter_singular(self):
+        with raises(ValueError) as exinfo:
+            l = list()
+            l.extend(zip([1,2,3], [1,2], strict=True))
+        assert "zip() argument 2 is shorter than argument 1" in str(exinfo.value)
+        assert l == [(1,1), (2,2)]
+
+    def test_strict_different_length_shorter_plural(self):
+        with raises(ValueError) as exinfo:
+            l = list()
+            l.extend(zip([1,2,3], [1,2,3], [1,2], strict=True))
+        assert "zip() argument 3 is shorter than arguments 1-2" in str(exinfo.value)
+        assert l == [(1,1,1), (2,2,2)]
+
+    def test_strict_different_length_longer_singular(self):
+        with raises(ValueError) as exinfo:
+            l = list()
+            l.extend(zip([1,2], [1,2,3], strict=True))
+        assert "zip() argument 2 is longer than argument 1" in str(exinfo.value)
+        assert l == [(1,1), (2,2)]
+
+    def test_strict_different_length_longer_plural(self):
+        with raises(ValueError) as exinfo:
+            l = list()
+            l.extend(zip([1,2], [1,2], [1,2,3], strict=True))
+        assert "zip() argument 3 is longer than arguments 1-2" in str(exinfo.value)
+        assert l == [(1,1,1), (2,2,2)]
+
     def test_bad_length_hint(self):
         class Foo(object):
             def __length_hint__(self):
@@ -143,6 +181,13 @@ class AppTestFilter:
     def test_function(self):
         assert list(filter(lambda x: x != "a", "a small text")) == list(" smll text")
         assert list(filter(lambda x: x < 20, [3, 33, 5, 55])) == [3, 5]
+
+    def test_filter_reduce(self):
+        it = iter([1, 2, 3, 4, 5])
+        f = filter(None, it)
+        assert f.__reduce__() == (filter, (None, it))
+        f = filter(bool, it)
+        assert f.__reduce__() == (filter, (bool, it))
 
 class AppTestFilter2:
     def test_filter(self):

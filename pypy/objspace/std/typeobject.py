@@ -130,6 +130,10 @@ class Layout(object):
         return (self.typedef, self.newslotnames, self.base_layout,
                 hasdict, weakrefable)
 
+    def __repr__(self):
+        # for debugging
+        return "Layout(%s, %s, %s, %s)" % (self.typedef, self.nslots, self.newslotnames, self.base_layout)
+
 
 # possible values of compares_by_identity_status
 UNKNOWN = 0
@@ -863,23 +867,6 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     _set_names(space, w_type)
     _init_subclass(space, w_type, __args__)
     return w_type
-
-def _calculate_metaclass(space, w_metaclass, bases_w):
-    """Determine the most derived metatype"""
-    w_winner = w_metaclass
-    for base in bases_w:
-        w_typ = space.type(base)
-        if space.is_w(w_typ, space.w_classobj):
-            continue # special-case old-style classes
-        if space.issubtype_w(w_winner, w_typ):
-            continue
-        if space.issubtype_w(w_typ, w_winner):
-            w_winner = w_typ
-            continue
-        msg = ("metaclass conflict: the metaclass of a derived class must be "
-               "a (non-strict) subclass of the metaclasses of all its bases")
-        raise oefmt(space.w_TypeError, msg)
-    return w_winner
 
 def _store_type_in_classcell(space, w_type, w_classcell, dict_w):
     from pypy.interpreter.nestedscope import Cell

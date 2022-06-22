@@ -24,7 +24,7 @@ class AppTestModule(pytest.Module):
         spaceconfig = extract_spaceconfig_from_source(source)
         space = objspace.gettestobjspace(**spaceconfig)
         w_rootdir = space.newtext(
-            os.path.join(pypydir, 'tool', 'pytest', 'ast-rewriter'))
+            os.path.join(pypydir, 'tool', 'pytest', 'astrewriter'))
         w_source = space.newtext(source)
         fname = str(self.fspath)
         w_name = space.newtext(str(self.fspath.purebasename))

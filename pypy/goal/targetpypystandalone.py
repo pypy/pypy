@@ -418,7 +418,7 @@ class PyPyTarget(object):
         w_dict = app.getwdict(self.space)
         entry_point, _ = create_entry_point(self.space, w_dict)
 
-        return entry_point, None, PyPyAnnotatorPolicy()
+        return entry_point, None, PyPyAnnotatorPolicy(self.space)
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',

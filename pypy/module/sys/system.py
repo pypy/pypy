@@ -33,6 +33,8 @@ class int_info(metaclass=structseqtype):
     sizeof_digit = structseqfield(1)
 
 class hash_info(metaclass=structseqtype):
+    __module__ = 'sys'
+    name = 'sys.hash_info'
     width = structseqfield(0)
     modulus = structseqfield(1)
     inf = structseqfield(2)

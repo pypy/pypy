@@ -184,6 +184,10 @@ class BaseJitCell(object):
         this particular function.  (We only set this flag when aborting
         due to a trace too long, so we use the same flag as a hint to
         also mean "please trace from here as soon as possible".)
+
+        JC_FORCE_FINISH: when from a cell with that flag set, if the trace
+        becomes too long, "segment" it, ie finish it with a guard_always_fails.
+        this prevents re-tracing and failing this again and again.
     """
     flags = 0     # JC_xxx flags
     wref_procedure_token = None

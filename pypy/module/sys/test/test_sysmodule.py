@@ -188,6 +188,7 @@ class AppTestAppSysTests:
         assert isinstance(li.nan, int)
         assert isinstance(li.imag, int)
         assert isinstance(li.algorithm, str)
+        assert str(li).startswith('sys.hash_info(')
 
     def test_sys_flags(self):
         import sys

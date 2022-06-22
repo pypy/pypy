@@ -349,8 +349,8 @@ class W_ComplexObject(W_Root):
         return w_obj
 
     def descr___getnewargs__(self, space):
-        return space.newtuple([space.newfloat(self.realval),
-                               space.newfloat(self.imagval)])
+        return space.newtuple2(space.newfloat(self.realval),
+                               space.newfloat(self.imagval))
 
     def descr_repr(self, space):
         if self.realval == 0 and math.copysign(1., self.realval) == 1.:
@@ -369,8 +369,8 @@ class W_ComplexObject(W_Root):
                              + sign + str_format(self.imagval) + 'j)')
 
     def descr_hash(self, space):
-        hashreal = _hash_float(space, self.realval)
-        hashimg = _hash_float(space, self.imagval)   # 0 if self.imagval == 0
+        hashreal = _hash_float(self.realval)
+        hashimg = _hash_float(self.imagval)   # 0 if self.imagval == 0
         h = intmask(hashreal + HASH_IMAG * hashimg)
         h -= (h == -1)
         return space.newint(h)
@@ -379,7 +379,7 @@ class W_ComplexObject(W_Root):
         w_other = self._to_complex(space, w_other)
         if w_other is None:
             return space.w_NotImplemented
-        return space.newtuple([self, w_other])
+        return space.newtuple2(self, w_other)
 
     def descr_format(self, space, w_format_spec):
         return newformat.run_formatter(space, w_format_spec, "format_complex",

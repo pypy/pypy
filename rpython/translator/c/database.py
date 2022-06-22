@@ -65,6 +65,10 @@ class LowLevelDatabase(object):
         self.completed = False
 
         self.instrument_ncounter = 0
+        if translator and translator.config.translation.countfieldaccess:
+            self.all_field_names = set()
+        else:
+            self.all_field_names = None
 
     def gettypedefnode(self, T, varlength=None):
         if varlength is None:

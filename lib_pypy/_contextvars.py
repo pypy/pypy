@@ -162,9 +162,8 @@ class ContextVar(metaclass=Unsubclassable):
 
         token._used = True
 
-    @classmethod
-    def __class_getitem__(self, key):
-        return self
+    def __class_getitem__(self, item):
+        return GenericAlias(self, item)
 
     def __repr__(self):
         default = ''

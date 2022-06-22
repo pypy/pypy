@@ -301,15 +301,16 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_x, **kwds_s):
         from rpython.annotator import model as annmodel
         s_x = annmodel.not_const(s_x)
-        access_directly = 's_access_directly' in kwds_s
+        s_access_directly = kwds_s.get('s_access_directly')
         fresh_virtualizable = 's_fresh_virtualizable' in kwds_s
-        if access_directly or fresh_virtualizable:
-            assert access_directly, "lone fresh_virtualizable hint"
+        if s_access_directly or fresh_virtualizable:
+            assert isinstance(s_access_directly, annmodel.SomeBool) and s_access_directly.is_constant()
+            assert s_access_directly, "lone fresh_virtualizable hint"
             if isinstance(s_x, annmodel.SomeInstance):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
                 virtualizable = classdesc.get_param('_virtualizable_')
-                if virtualizable is not None:
+                if s_access_directly.const == True and virtualizable is not None:
                     flags = s_x.flags.copy()
                     flags['access_directly'] = True
                     if fresh_virtualizable:
@@ -317,6 +318,17 @@ class Entry(ExtRegistryEntry):
                     s_x = annmodel.SomeInstance(s_x.classdef,
                                                 s_x.can_be_None,
                                                 flags)
+                else:
+                    assert s_access_directly.const == False or virtualizable is None
+                    if 'access_directly' in s_x.flags or 'fresh_virtualizable' in s_x.flags:
+                        flags = s_x.flags.copy()
+                        if 'access_directly' in flags:
+                            del flags['access_directly']
+                        if 'fresh_virtualizable' in flags:
+                            del flags['fresh_virtualizable']
+                        s_x = annmodel.SomeInstance(s_x.classdef,
+                                                    s_x.can_be_None,
+                                                    flags)
         return s_x
 
     def specialize_call(self, hop, **kwds_i):
@@ -1192,6 +1204,84 @@ class Entry(ExtRegistryEntry):
         v_cls = hop.inputarg(classrepr, arg=1)
         hop.exception_is_here()
         return hop.gendirectcall(ll_record_exact_class, v_inst, v_cls)
+
+
+def _jit_record_known_result(result, function, *args):
+    pass  # special-cased below
+
+
+@specialize.arg(1)
+def record_known_result(result, func, *args):
+    """ Assure the JIT that func(*args) will produce result. func must be an
+    elidable function. """
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    if not we_are_translated():
+        # consistency check
+        assert func(*args) == result
+        assert func._elidable_function_
+        return
+    if not we_are_jitted():
+        return
+    # make sure the call is annotated
+    if NonConstant(False):
+        func(*args)
+    return _jit_record_known_result(result, func, *args)
+
+class Entry(ExtRegistryEntry):
+    _about_ = _jit_record_known_result
+
+    def compute_result_annotation(self, *args_s):
+        from rpython.annotator import model as annmodel
+        self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
+                                         args_s[1], args_s[2:])
+        return annmodel.SomeNone()
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+
+        args_v = hop.inputargs(hop.args_r[0], lltype.Void, *hop.args_r[2:])
+        args_v[1] = hop.args_r[1].get_concrete_llfn(hop.args_s[1],
+                                                    hop.args_s[2:], hop.spaceop)
+        hop.exception_cannot_occur()
+        return hop.genop("jit_record_known_result", args_v, resulttype=lltype.Void)
+
+
+def record_exact_value(value, const_value):
+    """
+    Assure the JIT that value is the same as const_value
+    """
+    assert value == const_value
+    return const_value
+
+def ll_record_exact_value(ll_value, ll_const_value):
+    from rpython.rlib.debug import ll_assert
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    from rpython.rtyper.lltypesystem import lltype
+    ll_assert(ll_value == ll_const_value, "record_exact_value called with two different arguments")
+    llop.jit_record_exact_value(lltype.Void, ll_value, ll_const_value)
+    return ll_const_value
+
+class Entry(ExtRegistryEntry):
+    _about_ = record_exact_value
+
+    def compute_result_annotation(self, s_val, s_const_val):
+        from rpython.annotator import model as annmodel
+        # produce error if types are incompatible
+        s_common = annmodel.unionof(s_val, s_const_val)
+        # we need to keep this annotation around for specialize_call().
+        # The easiest is to use this union as the return value.
+        return s_common
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper import rclass
+
+        r_common = hop.r_result    # from the union of the two annotations
+        v_inst = hop.inputarg(r_common, arg=0)
+        v_const_inst = hop.inputarg(r_common, arg=1)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_record_exact_value, v_inst, v_const_inst)
+
 
 def _jit_conditional_call(condition, function, *args):
     pass           # special-cased below

@@ -355,21 +355,16 @@ class BaseInliner(object):
     def generic_exception_matching(self, afterblock, copiedexceptblock):
         #XXXXX don't look: insert blocks that do exception matching
         #for the cases where direct matching did not work
-        exc_match = Constant(
-            self.translator.rtyper.exceptiondata.fn_exception_match)
-        exc_match.concretetype = typeOf(exc_match.value)
         blocks = []
         for i, link in enumerate(afterblock.exits[1:]):
             etype = copiedexceptblock.inputargs[0].copy()
             evalue = copiedexceptblock.inputargs[1].copy()
             passon_vars = self.passon_vars(i)
             block = Block([etype, evalue] + passon_vars)
-            res = Variable()
-            res.concretetype = Bool
             cexitcase = Constant(link.llexitcase)
             cexitcase.concretetype = typeOf(cexitcase.value)
-            args = [exc_match, etype, cexitcase]
-            block.operations.append(SpaceOperation("direct_call", args, res))
+            res = self.translator.rtyper.exceptiondata.generate_exception_match(
+                    block.operations, etype, cexitcase)
             block.exitswitch = res
             linkargs = self.find_args_in_exceptional_case(link, link.target,
                                                           etype, evalue, afterblock,

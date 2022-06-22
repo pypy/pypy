@@ -181,6 +181,7 @@ class PyCode(eval.Code):
         self._compute_flatcall()
 
         init_mapdict_cache(self)
+        self._globals_caches = [None] * len(self.co_names_w)
 
     def _init_ready(self):
         "This is a hook for the vmprof module, which overrides this method."
@@ -334,7 +335,7 @@ class PyCode(eval.Code):
     def descr_code__eq__(self, w_other):
         space = self.space
         if not isinstance(w_other, PyCode):
-            return space.w_False
+            return space.w_NotImplemented
         areEqual = (self.co_name == w_other.co_name and
                     self.co_argcount == w_other.co_argcount and
                     self.co_posonlyargcount == w_other.co_posonlyargcount and
@@ -360,6 +361,12 @@ class PyCode(eval.Code):
                 return space.w_False
 
         return space.w_True
+
+    def descr_code__ne__(self, w_other):
+        space = self.space
+        if not isinstance(w_other, PyCode):
+            return space.w_NotImplemented
+        return space.not_(self.descr_code__eq__(w_other))
 
     def descr_code__hash__(self):
         space = self.space
@@ -451,7 +458,7 @@ class PyCode(eval.Code):
             space.newtuple([space.newtext(v) for v in self.co_cellvars]),
             space.newint(self.magic),
         ]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple2(new_inst, space.newtuple(tup))
 
     def descr_replace(self, space, __args__):
         """ replace(self, /, *, co_argcount=-1, co_posonlyargcount=-1, co_kwonlyargcount=-1, co_nlocals=-1, co_stacksize=-1, co_flags=-1, co_firstlineno=-1, co_code=None, co_consts=None, co_names=None, co_varnames=None, co_freevars=None, co_cellvars=None, co_filename=None, co_name=None, co_lnotab=None)
@@ -523,10 +530,10 @@ def _convert_const(space, w_a):
     w_type = space.type(w_a)
     if space.is_w(w_type, space.w_unicode):
         # unicodes are supposed to compare by value, but not equal to bytes
-        return space.newtuple([w_type, w_a])
+        return space.newtuple2(w_type, w_a)
     if space.is_w(w_type, space.w_bytes):
         # and vice versa
-        return space.newtuple([w_type, w_a])
+        return space.newtuple2(w_type, w_a)
     if type(w_a) is PyCode:
         return w_a
     # for tuples and frozensets convert recursively

@@ -1078,6 +1078,15 @@ class TestUnicode(BaseApiTest):
         assert space.type(w_bytes) is space.w_bytes
         assert space.utf8_w(w_bytes) == "abc?"
 
+    def test_codepage(self, space):
+        if sys.platform != 'win32':
+            py.test.skip("codepage encoding only exists on Windows")
+        chars = "abc"
+        w_obj = space.newtext(chars)
+        w_bytes = PyUnicode_EncodeCodePage(space, 932, w_obj, None)
+        assert space.type(w_bytes) is space.w_bytes
+        assert space.utf8_w(w_bytes) == "abc"
+
     def test_escape(self, space):
         def test(ustr):
             w_ustr = space.wrap(ustr.decode('Unicode-Escape'))

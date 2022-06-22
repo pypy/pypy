@@ -8,9 +8,9 @@ For building PyPy, we recommend installing a pre-built PyPy first (see
 lot longer to run -- depending on your architecture, between two and three
 times as long.
 
-Even when using PyPy to build PyPy, translation is time-consuming -- 30
-minutes on a fast machine -- and RAM-hungry.  You will need **at least** 2 GB
-of memory on a 32-bit machine and 4GB on a 64-bit machine.
+Even when using PyPy to build PyPy, translation is time-consuming -- 20
+minutes on a fast machine -- and RAM-hungry.  You will need **at least** 3 GB
+of memory on a 32-bit machine and 6GB on a 64-bit machine.
 
 Before you start
 ----------------
@@ -146,10 +146,8 @@ On SLES11::
 
 On Mac OS X:
 
-Currently PyPy does not support M1 Apple Silicon (arm64). You must use the 
-x86_64 emulation mode, which requires pre-pending ``arch -x86_64`` to some
-commands. When installed properly, homebrew will use a second installation 
-at ``/usr/local/bin/brew``. 
+Currently PyPy supports both Apple Silicon (M1, Arm64) and X86_64 building.
+
 
 Most of the build-time dependencies are installed alongside the Developer
 Tools. ``libffi`` and ``openssl`` still need to be installed, and a
@@ -158,9 +156,6 @@ brew-provided pypy will speed up translation:
 .. code-block:: shell
 
     xcode-select --install
-	# for M1 machines to use x86_64 mode
-	# softwareupdate --install-rosetta
-	# install brew, use the arch -x86_64 prefix on M1
 	/usr/local/bin/brew install libffi openssl pypy pkg-config
 
 After setting this up, translation (described next) will find the libs as
@@ -177,7 +172,7 @@ The following environment variables can be used to tweak the result:
 | CC                     | compiler to use                                           |
 +------------------------+-----------------------------------------------------------+
 | PYPY_MULTIARCH         | pypy 3.7+: ends up in ``sys.platform._multiarch``         |
-|                        | on posix                                                  |
+|                        | on posix, defaults to ``x86_64-linux-gnu``                |
 +------------------------+-----------------------------------------------------------+
 | PYPY_USESSION_DIR      | base directory for temporary files, usually ``$TMP``      |
 +------------------------+-----------------------------------------------------------+
@@ -273,45 +268,24 @@ imported the first time.
 
 ::
 
-    cd pypy/tool/release
-    ./package.py --archive-name=pypy-VER-PLATFORM
+    python pypy/tool/release/package.py --archive-name=pypy-VER-PLATFORM
 
 This creates a clean and prepared hierarchy, as well as a ``.tar.bz2``
-with the same content; both are found by default in
-``/tmp/usession-YOURNAME/build/``.  You can then either move the file
-hierarchy or unpack the ``.tar.bz2`` at the correct place.
+with the same content; the directory to find these will be printed out.  You
+can then either move the file hierarchy or unpack the ``.tar.bz2`` at the
+correct place.
 
 It is recommended to use package.py because custom scripts will
 invariably become out-of-date.  If you want to write custom scripts
 anyway, note an easy-to-miss point: some modules are written with CFFI,
 and require some compilation.  If you install PyPy as root without
-pre-compiling them, normal users will get errors:
-
-* PyPy 2.5.1 or earlier: normal users would see permission errors.
-  Installers need to run ``pypy -c "import gdbm"`` and other similar
-  commands at install time; the exact list is in
-  :source:`pypy/tool/release/package.py`.  Users
-  seeing a broken installation of PyPy can fix it after-the-fact if they
-  have sudo rights, by running once e.g. ``sudo pypy -c "import gdbm``.
-
-* PyPy 2.6 and later: anyone would get ``ImportError: no module named
-  _gdbm_cffi``.  Installers need to run ``pypy _gdbm_build.py`` in the
-  ``lib_pypy`` directory during the installation process (plus others;
-  see the exact list in :source:`pypy/tool/release/package.py`).
-  Users seeing a broken
-  installation of PyPy can fix it after-the-fact, by running ``pypy
-  /path/to/lib_pypy/_gdbm_build.py``.  This command produces a file
-  called ``_gdbm_cffi.pypy-41.so`` locally, which is a C extension
-  module for PyPy.  You can move it at any place where modules are
-  normally found: e.g. in your project's main directory, or in a
-  directory that you add to the env var ``PYTHONPATH``.
-
+pre-compiling them, normal users will get errors.
 
 Installation
 ------------
 
 PyPy dynamically finds the location of its libraries depending on the location
-of the executable. The directory hierarchy of a typical PyPy installation
+of the executable. The directory hierarchy of a typical PyPy2 installation
 looks like this::
 
     ./bin/pypy
@@ -320,10 +294,16 @@ looks like this::
     ./lib-python/2.7
     ./site-packages/
 
+A PyPy3.8+ installation will match the CPython layout::
+
+    ./bin/
+    ./include/pypy3.8/include
+    ./lib/pypy3.8
+
 The hierarchy shown above is relative to a PREFIX directory. PREFIX is
 computed by starting from the directory where the executable resides, and
 "walking up" the filesystem until we find a directory containing ``lib_pypy``
-and ``lib-python/2.7``.
+and ``lib-python/2.7`` (on pypy2).
 
 To install PyPy system wide on unix-like systems, it is recommended to put the
 whole hierarchy alone (e.g. in ``/opt/pypy``) and put a symlink to the

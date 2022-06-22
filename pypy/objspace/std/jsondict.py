@@ -110,6 +110,12 @@ class JsonDictStrategy(DictStrategy):
         return w_dict.popitem()
 
     def switch_to_unicode_strategy(self, w_dict):
+        storage = self._make_unicode_dict(w_dict)
+        strategy = self.space.fromcache(UnicodeDictStrategy)
+        w_dict.set_strategy(strategy)
+        w_dict.dstorage = storage
+
+    def _make_unicode_dict(self, w_dict):
         strategy = self.space.fromcache(UnicodeDictStrategy)
         values_w = self.unerase(w_dict.dstorage)
         storage = strategy.get_empty_storage()
@@ -120,8 +126,12 @@ class JsonDictStrategy(DictStrategy):
             assert w_key is not None
             assert type(w_key) is self.space.UnicodeObjectCls
             d_new[w_key] = values_w[index]
-        w_dict.set_strategy(strategy)
-        w_dict.dstorage = storage
+        return storage
+
+    def copy(self, w_dict):
+        storage = self._make_unicode_dict(w_dict)
+        strategy = self.space.fromcache(UnicodeDictStrategy)
+        return W_DictObject(strategy.space, strategy, storage)
 
     def w_keys(self, w_dict):
         return self.space.newlist(self.jsonmap.get_keys_in_order())
@@ -134,7 +144,7 @@ class JsonDictStrategy(DictStrategy):
         storage_w = self.unerase(w_dict.dstorage)
         res = [None] * len(storage_w)
         for index, w_key in enumerate(self.jsonmap.get_keys_in_order()):
-            res[index] = space.newtuple([w_key, storage_w[index]])
+            res[index] = space.newtuple2(w_key, storage_w[index])
         return res
 
     def getiterkeys(self, w_dict):

@@ -181,6 +181,9 @@ if sys.platform == 'win32':
 class TestBasic(EmbeddingTests):
     def test_empty(self):
         empty_cffi = self.prepare_module('empty')
+        self.compile('empty-test', [empty_cffi])
+        output = self.execute('empty-test')
+        assert output == 'OK\n'
 
     def test_basic(self):
         add1_cffi = self.prepare_module('add1')

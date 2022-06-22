@@ -320,6 +320,14 @@ class OptRewrite(Optimization):
     def postprocess_FLOAT_NEG(self, op):
         self.optimizer.pure_from_args(rop.FLOAT_NEG, [op], op.getarg(0))
 
+    def optimize_FLOAT_ABS(self, op):
+        v = get_box_replacement(op.getarg(0))
+        arg_op = self.optimizer.as_operation(v)
+        if arg_op is not None and arg_op.getopnum() == rop.FLOAT_ABS:
+            self.make_equal_to(op, v)
+        else:
+            return self.emit(op)
+
     def optimize_guard(self, op, constbox):
         box = op.getarg(0)
         if box.type == 'i':
@@ -545,6 +553,15 @@ class OptRewrite(Optimization):
         self.make_constant_class(op.getarg(0), expectedclassbox,
                                  update_last_guard=False)
 
+    def optimize_record_exact_value(self, op):
+        box = op.getarg(0)
+        expectedconstbox = op.getarg(1)
+        assert isinstance(expectedconstbox, Const)
+        self.make_constant(box, expectedconstbox)
+
+    optimize_RECORD_EXACT_VALUE_R = optimize_record_exact_value
+    optimize_RECORD_EXACT_VALUE_I = optimize_record_exact_value
+
     def optimize_GUARD_CLASS(self, op):
         expectedclassbox = op.getarg(1)
         info = self.ensure_ptr_info_arg0(op)
@@ -746,7 +763,10 @@ class OptRewrite(Optimization):
     def _optimize_call_arrayop(self, op, source_box, dest_box,
                                source_start_box, dest_start_box, length_box):
         length = self.get_constant_box(length_box)
-        if length and length.getint() == 0:
+        if not length:
+            return False
+        length_int = length.getint()
+        if length_int == 0:
             return True  # 0-length arraycopy or arraymove
 
         source_info = getptrinfo(source_box)
@@ -755,19 +775,31 @@ class OptRewrite(Optimization):
         dest_start_box = self.get_constant_box(dest_start_box)
         extrainfo = op.getdescr().get_extra_info()
         if (source_start_box and dest_start_box
-            and length and ((dest_info and dest_info.is_virtual()) or
-                            length.getint() <= 8) and
-            ((source_info and source_info.is_virtual()) or length.getint() <= 8)
+            and ((dest_info and dest_info.is_virtual()) or
+                            length_int <= 8) and
+            ((source_info and source_info.is_virtual()) or length_int <= 8)
             and extrainfo.single_write_descr_array is not None): #<-sanity check
             source_start = source_start_box.getint()
             dest_start = dest_start_box.getint()
             arraydescr = extrainfo.single_write_descr_array
             if arraydescr.is_array_of_structs():
-                return False        # not supported right now
-
+                # for array of structs, only support if both are virtual
+                # and it's not a memmove
+                if not ((source_info and source_info.is_virtual()) and
+                        (dest_info and dest_info.is_virtual()) and
+                        source_info is not dest_info):
+                    return False
+                all_fdescrs = arraydescr.get_all_fielddescrs()
+                if all_fdescrs is None:
+                    return False
+                for index in range(length_int):
+                    for fdescr in all_fdescrs:
+                        box = source_info.getinteriorfield_virtual(source_start + index, fdescr)
+                        dest_info.setinteriorfield_virtual(dest_start + index, fdescr, box)
+                return True
             index_current = 0
             index_delta = +1
-            index_stop = length.getint()
+            index_stop = length_int
             if (source_box is dest_box and        # ARRAYMOVE only
                     source_start < dest_start):   # iterate in reverse order
                 index_current = index_stop - 1

@@ -223,7 +223,7 @@ class PyPyConsole(code.InteractiveConsole):
         opcode = ord(frame.pycode.co_code[next_instr])
         oparg = ord(frame.pycode.co_code[next_instr+1])
 
-        argrepr = reprargstring(self.space, frame.pycode, opcode, oparg)
+        argrepr = reprargstring(self.space, frame.pycode, next_instr, opcode, oparg)
         oprepr = opcode3.opname[opcode] + argrepr.ljust(5)
         print '\t%-19s %s' % (str(frame.pycode.co_name) + ':',
                               oprepr)
@@ -251,7 +251,7 @@ class IncompleteInput(Exception):
     pass
 
 
-def reprargstring(space, pycode, opcode, oparg):
+def reprargstring(space, pycode, next_instr, opcode, oparg):
     """ return a string representation of any arguments. (empty for no args)"""
     from pypy.tool import opcode3
     if oparg is None:
@@ -263,7 +263,7 @@ def reprargstring(space, pycode, opcode, oparg):
     elif opcode in opcode3.hasname:
         s +=  '(' + pycode.co_names[oparg] + ')'
     elif opcode in opcode3.hasjrel:
-        s +=  '(to ' + repr(self.index + oparg) + ')'
+        s +=  '(to ' + repr(next_instr + oparg) + ')'
     elif opcode in opcode3.haslocal:
         s +=  '(' + pycode.co_varnames[oparg] + ')'
     elif opcode in opcode3.hascompare:

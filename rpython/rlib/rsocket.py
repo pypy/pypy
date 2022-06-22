@@ -10,9 +10,10 @@ a drop-in replacement for the 'socket' module.
 from errno import EINVAL
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.buffer import LLBuffer
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import (
     specialize, instantiate, keepalive_until_here)
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint, widen
 from rpython.rlib import rthread, rposix
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
@@ -471,14 +472,19 @@ if HAS_AF_NETLINK:
 HAVE_SOCK_NONBLOCK = "SOCK_NONBLOCK" in constants
 HAVE_SOCK_CLOEXEC = "SOCK_CLOEXEC" in constants
 
-def familyclass(family):
-    return _FAMILIES.get(family, Address)
-af_get = familyclass
+UNROLLING_FAMILIES = unrolling_iterable(_FAMILIES.items())
+_FAMILIES = None
+
+def instantiate_family(family):
+    for f, cls in UNROLLING_FAMILIES:
+        if widen(f) == widen(family):
+            return instantiate(cls)
+    return instantiate(Address)
 
 def make_address(addrptr, addrlen, result=None):
     family = rffi.cast(lltype.Signed, addrptr.c_sa_family)
     if result is None:
-        result = instantiate(familyclass(family))
+        result = instantiate_family(family)
     elif result.family != family:
         raise RSocketError("address family mismatched")
     # copy into a new buffer the address that 'addrptr' points to
@@ -504,16 +510,15 @@ def makeipv4addr(s_addr, result=None):
     return result
 
 def make_null_address(family):
-    klass = familyclass(family)
-    result = instantiate(klass)
-    buf = lltype.malloc(rffi.CCHARP.TO, klass.maxlen, flavor='raw', zero=True,
+    result = instantiate_family(family)
+    buf = lltype.malloc(rffi.CCHARP.TO, result.maxlen, flavor='raw', zero=True,
                         track_allocation=False)
     # Initialize the family to the correct value.  Avoids surprizes on
     # Windows when calling a function that unexpectedly does not set
     # the output address (e.g. recvfrom() on a connected IPv4 socket).
     rffi.setintfield(rffi.cast(_c.sockaddr_ptr, buf), 'c_sa_family', family)
     result.setdata(buf, 0)
-    return result, klass.maxlen
+    return result, result.maxlen
 
 # ____________________________________________________________
 

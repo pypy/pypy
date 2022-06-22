@@ -42,8 +42,11 @@ def codepoint_at_pos_dont_look_inside(utf8, p):
     return rutf8.codepoint_at_pos(utf8, p)
 
 
-joindriver = jit.JitDriver(greens = ['selfisnotempty', 'tpfirst', 'tplist'], reds = 'auto',
-                           name='joindriver')
+def get_printable_location(selfisnotempty, tpfirst, greenkey):
+    return "unicode.join [selfisnotempty=%s, tpfirst=%s, %s]" % (
+            selfisnotempty, tpfirst, greenkey.iterator_greenkey_printable())
+joindriver = jit.JitDriver(greens = ['selfisnotempty', 'tpfirst', 'greenkey'], reds = 'auto',
+                           name='joindriver', get_printable_location=get_printable_location)
 
 class BadUtf8(Exception):
     pass
@@ -131,6 +134,7 @@ class W_UnicodeObject(W_Root):
         return self._utf8
 
     def utf8_w(self, space):
+        jit.record_known_result(self._length, rutf8._check_utf8, self._utf8, True, 0, -1)
         return self._utf8
 
     def listview_ascii(self):
@@ -689,9 +693,9 @@ class W_UnicodeObject(W_Root):
         size = 1
         selfisnotempty = self._length != 0
         tpfirst = space.type(w_first)
-        tplist = space.type(w_iterable)
+        greenkey = space.iterator_greenkey(w_iter)
         while 1:
-            joindriver.jit_merge_point(tpfirst=tpfirst, tplist=tplist, selfisnotempty=selfisnotempty)
+            joindriver.jit_merge_point(tpfirst=tpfirst, greenkey=greenkey, selfisnotempty=selfisnotempty)
             try:
                 w_element = space.next(w_iter)
             except OperationError as e:
@@ -1480,30 +1484,15 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
 def encode_object(space, w_obj, encoding, errors):
     from pypy.module._codecs.interp_codecs import(
             _call_codec, lookup_text_codec, lookup_error)
-    if errors is None or errors == 'strict':
-        # fast paths
-        utf8 = space.utf8_w(w_obj)
-        if encoding is None or encoding == 'utf-8':
-            try:
-                rutf8.check_utf8(utf8, False)
-            except rutf8.CheckError as a:
-                eh = unicodehelper.encode_error_handler(space)
-                eh(None, "utf-8", "surrogates not allowed", utf8,
-                    a.pos, a.pos + 1)
-                assert False, "always raises"
-            return space.newbytes(utf8)
-        if ((encoding == "latin1" or encoding == "latin-1") and
-                isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
-            return space.newbytes(w_obj._utf8)
-        elif encoding == 'ascii':
-            try:
-                if not (isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
-                    rutf8.check_ascii(utf8)
-            except rutf8.CheckError as a:
-                eh = unicodehelper.encode_error_handler(space)
-                eh(None, "ascii", "ordinal not in range(128)", utf8,
-                    a.pos, a.pos + 1)
-                assert False, "always raises"
+    # fast paths, only ascii, in the other cases it's too easy to mess up
+    # the errors
+    if ((errors is None or errors == 'strict') and
+            isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
+        utf8 = w_obj.utf8_w(space)
+        if (encoding is None or encoding == 'utf-8' or
+                encoding == 'utf8' or encoding == 'UTF-8' or
+                encoding == "latin1" or encoding == "latin-1" or
+                encoding == 'ascii'):
             return space.newbytes(utf8)
     if encoding is None:
         encoding = space.sys.defaultencoding

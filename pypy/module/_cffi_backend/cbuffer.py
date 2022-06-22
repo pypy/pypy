@@ -101,6 +101,7 @@ def _memcmp(buf1, buf2, length):
 
 @unwrap_spec(w_cdata=cdataobj.W_CData, size=int)
 def MiniBuffer___new__(space, w_subtype, w_cdata, size=-1):
+    explicit_size = size >= 0
     ctype = w_cdata.ctype
     if isinstance(ctype, ctypeptr.W_CTypePointer):
         if size < 0:
@@ -119,6 +120,16 @@ def MiniBuffer___new__(space, w_subtype, w_cdata, size=-1):
     if size < 0:
         raise oefmt(space.w_TypeError,
                     "don't know the size pointed to by '%s'", ctype.name)
+
+    if explicit_size:
+        max_size = w_cdata.get_maximum_buffer_size()
+        if max_size >= 0 and size > max_size:
+            msg = ("ffi.buffer(cdata, bytes): creating a buffer of %d "
+                   "bytes over a cdata that owns only %d bytes.  This "
+                   "will crash if you access the extra memory")
+            msg = msg % (size, max_size)
+            space.warn(space.newtext(msg), space.w_UserWarning)
+
     ptr = w_cdata.unsafe_escaping_ptr()    # w_cdata kept alive by MiniBuffer()
     return MiniBuffer(LLBuffer(ptr, size), w_cdata)
 

@@ -2028,6 +2028,18 @@ x = [c for c in buggy_lnotab.__code__.co_lnotab]
 """
         self.st(func, "x", [0, 1, 8, 8])
 
+    def test_lineno_funcdef(self):
+        func = '''def f():
+    @decorator
+    def my_function(
+        x=x
+    ):
+        pass
+x = [c for c in f.__code__.co_lnotab]
+'''
+        # XXX: 3.7 value, CPython 3.8 has [0, 1, 2, 2, 2, 255]
+        self.st(func, 'x', [0, 1, 2, 2])
+
     def test_lnotab_backwards_in_expr(self):
         func = """
 def expr_lines(x):

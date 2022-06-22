@@ -99,7 +99,9 @@ class __extend__(PyFrame):
         except Return:
             return self.popvalue()
 
-    def jump_absolute(self, jumpto, ec):
+    def jump_absolute(self, jumpto, next_instr, ec):
+        if jumpto >= next_instr: # no backward jump, just normal
+            return jumpto
         if we_are_jitted():
             #
             # assume that only threads are using the bytecode counter
