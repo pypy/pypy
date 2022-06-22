@@ -203,6 +203,9 @@ class ASTNodeVisitor(ASDLVisitor):
                     # the expr.from_object() method should accept w_None and
                     # return None; nothing more to do here
                     pass
+                elif field.type == 'pattern':
+                    # TODO: figure out why this was crashing
+                    pass
                 elif field.type == 'arg':
                     # the method arg.from_object() doesn't accept w_None
                     extractor += (
