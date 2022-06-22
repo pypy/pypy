@@ -224,26 +224,24 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
                                               body_token=token)
         # loops = data.split(self.metainterp_sd, self.jitdriver_sd, {}, ops, info.inputargs)
         loops = data.split(self.metainterp_sd, self.jitdriver_sd, {})
-        original_loop, bridges = loops[0], loops[1:]
-        original_loop_info, original_loop = original_loop
+        orig_loop, bridges = loops[0], loops[1:]
+        orig_loop_info, orig_loop_ops = orig_loop
 
         fdescr_stack = []
-        i = 0
-        for op in ops:
+        for op in orig_loop_ops:
             opnum = op.getopnum()
             if rop.is_guard(opnum):
-                faildescr = op.getdescr()
-                assert isinstance(faildescr, compile.ResumeGuardDescr)
-                fdescr_stack.append(faildescr)
-            elif rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
-                calleebox = op.getarg(0)
-                if isinstance(calleebox, ConstInt):
-                    adr = str(calleebox.getaddr())
-                    if adr.find(mark.JUMP) != -1 or adr.find(mark.RET) != -1:
-                        faildescr = fdescr_stack.pop()
-                        bridge_info, _ = bridges[i]
-                        assert bridge_info.faildescr == faildescr
-                        i += 1
+                fdescr = op.getdescr()
+                assert isinstance(fdescr, compile.ResumeGuardDescr)
+                fdescr_stack.append(fdescr)
+
+        for bridge_info, bridge_ops in bridges:
+            assert bridge_info.faildescr == fdescr_stack.pop()
+            for op in bridge_ops:
+                if rop.is_guard(op.getopnum()):
+                    fdescr = op.getdescr()
+                    assert isinstance(fdescr, compile.ResumeGuardDescr)
+                    fdescr_stack.append(fdescr)
 
     def assert_equal_split(self, ops, bodyops, bridgeops,
                            call_pure_results=None):
@@ -448,6 +446,7 @@ class TestOptTraceSplit(BaseTestTraceSplit):
     def test_trace_split_not_nested_branch_1(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
+        setattr(self.jitdriver_sd, "num_red_args", 1)
 
         ops2 = """
         [p0]
