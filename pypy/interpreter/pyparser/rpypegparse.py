@@ -1861,7 +1861,7 @@ class PythonParser(Parser):
         if a:
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-            return ast . Constant ( value = self . parse_number ( a ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = self . parse_number ( a ) , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         literal = self.expect_type(15)
         if literal:
@@ -1869,7 +1869,7 @@ class PythonParser(Parser):
             if a:
                 tok = self.get_last_non_whitespace_token()
                 end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                return ast . UnaryOp ( op = ast . USub ( ) , operand = ast . Constant ( value = ast . self . parse_number ( a ) , lineno = a . lineno , col_offset = a . column , end_lineno = a . end_lineno , end_col_offset = a . end_column ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                return ast . UnaryOp ( op = ast . USub ( ) , operand = ast . Constant ( value = ast . self . parse_number ( a ) , kind = None , lineno = a . lineno , col_offset = a . column , end_lineno = a . end_lineno , end_col_offset = a . end_column ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         return None
 
