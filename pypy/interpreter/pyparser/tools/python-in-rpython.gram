@@ -517,12 +517,13 @@ complex_number:
      }
 
 signed_number:
-    | a=NUMBER { ast.Constant(value=self.parse_number(a), LOCATIONS) }
+    | a=NUMBER { ast.Constant(value=self.parse_number(a), kind=None, LOCATIONS) }
     | '-' a=NUMBER {
         ast.UnaryOp(
             op=ast.USub(),
             operand=ast.Constant(
                 value=ast.self.parse_number(a),
+                kind=None,
                 lineno=a.lineno,
                 col_offset=a.column,
                 end_lineno=a.end_lineno,
