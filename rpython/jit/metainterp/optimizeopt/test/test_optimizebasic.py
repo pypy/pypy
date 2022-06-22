@@ -4126,7 +4126,7 @@ class TestOptimizeBasic(BaseTestBasic):
         [i0]
         i1 = int_lshift(0, i0)
         i2 = int_rshift(0, i0)
-        i3 = int_rshift(i0, 0)
+        i3 = int_lshift(i0, 0)
         i4 = int_rshift(i0, 0)
         jump(i1, i2, i3, i4)
         """
@@ -4135,6 +4135,20 @@ class TestOptimizeBasic(BaseTestBasic):
         jump(0, 0, i0, i0)
         """
         self.optimize_loop(ops, expected)
+
+    def test_ushift_zero(self):
+        ops = """
+        [i0]
+        i2 = uint_rshift(0, i0)
+        i4 = uint_rshift(i0, 0)
+        jump(i2, i4)
+        """
+        expected = """
+        [i0]
+        jump(0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
     def test_bound_and(self):
         ops = """

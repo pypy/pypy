@@ -256,6 +256,17 @@ class OptRewrite(Optimization):
         else:
             return self.emit(op)
 
+    def optimize_UINT_RSHIFT(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+
+        if b2.equal(0):
+            self.make_equal_to(op, op.getarg(0))
+        elif b1.equal(0):
+            self.make_constant_int(op, 0)
+        else:
+            return self.emit(op)
+
     def optimize_INT_XOR(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
