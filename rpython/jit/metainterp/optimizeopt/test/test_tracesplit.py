@@ -182,14 +182,20 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
     def create_opt(self):
         return TraceSplitOpt(self.metainterp_sd, self.jitdriver_sd, {}, None)
 
-    def split(self, ops, call_pure_results=None, split_func=None):
-        trace, info, ops, token = self.optimize(ops, call_pure_results)
-        data = compile.SimpleSplitCompileData(trace, None,
-                                              enable_opts=self.enable_opts,
-                                              body_token=token)
-        return data.split(self.metainterp_sd, self.jitdriver_sd, {}, ops, info.inputargs)
+    def split(self, ops, call_pure_results=None):
+        # trace, info, ops, token = self.optimize(ops, call_pure_results)
+        loop = self.parse(ops)
+        jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+        token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
+        if loop.operations[-1].getopnum() == rop.JUMP:
+            loop.operations[-1].setdescr(token)
+        call_pure_results = self._convert_call_pure_results(call_pure_results)
+        trace = convert_loop_to_trace(loop, self.metainterp_sd)
+        data = compile.SimpleSplitCompileData(
+            trace, None, enable_opts=self.enable_opts, body_token=token)
+        return data.optimize_trace(self.metainterp_sd, self.jitdriver_sd, {})
 
-    def optimize_and_split(self, ops, call_pure_results=None, split_func=None):
+    def optimize_and_split(self, ops, call_pure_results=None):
         """
         - ops: operations represented as a string
         - call_pure_results
@@ -223,7 +229,7 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
                                               enable_opts=self.enable_opts,
                                               body_token=token)
         # loops = data.split(self.metainterp_sd, self.jitdriver_sd, {}, ops, info.inputargs)
-        loops = data.split(self.metainterp_sd, self.jitdriver_sd, {})
+        loops = data.optimize_trace(self.metainterp_sd, self.jitdriver_sd, {})
         orig_loop, bridges = loops[0], loops[1:]
         orig_loop_info, orig_loop_ops = orig_loop
 
@@ -277,10 +283,10 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
 
 class TestOptTraceSplit(BaseTestTraceSplit):
 
-    @pytest.mark.skip()
     def test_trace_split_real_trace_1(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
+        setattr(self.jitdriver_sd, "num_red_args", 1)
 
         ops = """
         [p0]
@@ -318,7 +324,7 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         debug_merge_point(0, 0, '4: JUMP_IF 8')
         p19 = call_r(ConstClass(pop), p0, descr=popdescr)
         i21 = call_i(ConstClass(is_true_ptr), p0, p19, descr=istruedescr)
-        guard_true(i21, descr=<Guard0x7f86266bc140>) [p0]
+        guard_true(i21, descr=<Guard0x7f86266bc140>) [i21, p0]
         debug_merge_point(0, 0, '8: CONST_INT 1')
         i29 = call_i(ConstClass(func_ptr), p0, 9, descr=calldescr)
         debug_merge_point(0, 0, '10: SUB ')

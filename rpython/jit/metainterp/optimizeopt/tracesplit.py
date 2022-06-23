@@ -77,46 +77,27 @@ class TraceSplitInfo(BasicLoopInfo):
     def set_faildescr(self, faildescr):
         self.faildescr = faildescr
 
-class OptTraceSplit(Optimization):
+class OptTraceSplit(Optimizer):
 
     def __init__(self, metainterp_sd, jitdriver_sd,
                  optimizations=None, resumekey=None):
+        Optimizer.__init__(self, metainterp_sd, jitdriver_sd)
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
         self.trace = None
         self.optimizations = optimizations
         self.resumekey = resumekey
 
-        self.optimizer = self
-
         self.inputargs = None
         self.token = None
         self.token_map = {}
-        self.replaces_guard = {}
-        self.replaces_call = {}
 
-        self._really_emitted_operation = None
-        self._newoperations = []
         self._pseudoops = []
         self._newopsandinfo = []
         self._fdescrstack = []
 
         self.set_optimizations(optimizations)
         self.setup()
-
-    def set_optimizations(self, optimizations):
-        if optimizations:
-            self.first_optimization = optimizations[0]
-            for i in range(1, len(optimizations)):
-                optimizations[i - 1].next_optimization = optimizations[i]
-            optimizations[-1].next_optimization = self
-            for o in optimizations:
-                o.optimizer = self
-                o.last_emitted_operation = None
-                o.setup()
-        else:
-            optimizations = []
-            self.first_optimization = self
 
     def split(self, trace, resumestorage, call_pure_results):
         traceiter = trace.get_iter()
@@ -132,19 +113,22 @@ class OptTraceSplit(Optimization):
         jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
         self.token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
 
+        self.emit(ResOperation(rop.LABEL, self.inputargs, self.token))
+
         already_setup_current_token = False
         while not trace.done():
             self._really_emitted_operation = None
             op = trace.next()
 
-            if not already_setup_current_token and \
-               op.getopnum() == rop.DEBUG_MERGE_POINT:
-                arglist = op.getarglist()
-                greens = arglist[2+self.jitdriver_sd.num_red_args:]
-                box = greens[0]
-                assert isinstance(box, ConstInt)
-                self.token_map[box.get_int()] = self.token
-                already_setup_current_token = True
+            # if not already_setup_current_token and \
+            #    op.getopnum() == rop.DEBUG_MERGE_POINT:
+            #     arglist = op.getarglist()
+            #     print "arglist", arglist
+            #     greens = arglist[2+self.jitdriver_sd.num_red_args:]
+            #     box = greens[0]
+            #     assert isinstance(box, ConstInt)
+            #     self.token_map[box.get_int()] = self.token
+            #     already_setup_current_token = True
 
             if op.getopnum() in (rop.FINISH, rop.JUMP):
                 last_op = op
@@ -164,26 +148,9 @@ class OptTraceSplit(Optimization):
             self.flush()
             if last_op:
                 self.send_extra_operation(last_op)
-        # self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
+
+        self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
         return self._newopsandinfo
-
-    def send_extra_operation(self, op, opt=None):
-        if opt is None:
-            opt = self.first_optimization
-        opt_results = []
-        while opt is not None:
-            opt_result = opt.propagate_forward(op)
-            if opt_result is None:
-                op = None
-                break
-            opt_results.append(opt_result)
-            op = opt_result.op
-            opt = opt.next_optimization
-        for opt_result in reversed(opt_results):
-            opt_result.callback()
-
-    def emit(self, op):
-        self._newoperations.append(op)
 
     def emit_pseudoop(self, op):
         self._pseudoops.append(op)
@@ -219,7 +186,9 @@ class OptTraceSplit(Optimization):
             self.handle_call_assembler(op)
         elif endswith(name, mark.IS_TRUE):
             self.emit_pseudoop(op)
-        self.emit(op)
+            self.emit(op)
+        else:
+            self.emit(op)
 
     optimize_CALL_I = optimize_CALL_N
     optimize_CALL_F = optimize_CALL_N
@@ -287,7 +256,7 @@ class OptTraceSplit(Optimization):
         self.token_map[current.getint()] = next_token
 
         self._newopsandinfo.append((info, residual_ops + [jump_op]))
-        self.emit(ResOperation(rop.LABEL, inputargs, next_token))
+        # self.emit(ResOperation(rop.LABEL, inputargs, next_token))
         if len(self._fdescrstack) > 0:
             self.resumekey = self._fdescrstack.pop()
 
@@ -464,7 +433,7 @@ class TraceSplitOpt(object):
                     self._newopsandinfo.append((info, residual_ops + ret_ops))
                     # t_lst.append((info, residual_ops + ret_ops))
 
-                    next_token = self.get_from_token_map(current.getint())
+                    next_token = self.get_from_token_map(currejnt.getint())
                     residual_ops = [ResOperation(rop.LABEL, inputargs, next_token)]
                     if len(fdescr_stack) > 0:
                         self.resumekey = fdescr_stack.pop()
