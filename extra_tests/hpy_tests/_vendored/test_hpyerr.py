@@ -183,7 +183,7 @@ class TestErr(HPyTest):
         assert err.value.filename == file1
         assert err.value.filename2 == file2
 
-    def xtest_HPyErr_SetFromErrnoWithFilename(self):
+    def test_HPyErr_SetFromErrnoWithFilename(self):
         import pytest
         import errno
         mod = self.make_module("""

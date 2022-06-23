@@ -132,7 +132,7 @@ class TestHPyField(HPyTest):
         p = mod.Pair("hello", "world")
         assert not gc.is_tracked(p)
 
-    def test_tp_traversex(self):
+    def test_tp_traverse(self):
         import sys
         import gc
         mod = self.make_module("""
