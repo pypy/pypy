@@ -2132,6 +2132,16 @@ x = brokenargs(c=3)
         self.error_test("__debug__ : int", SyntaxError, "cannot assign to __debug__")
         self.error_test("object.__debug__ : int", SyntaxError, "cannot assign to __debug__")
 
+    def test_match(self):
+        func = """
+def f(x):
+    match x:
+        case 1: return "hello"
+        # case a: return a
+    return x
+res=f(1), f(2)
+"""
+        self.st(func, "res", ("hello", 2))
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
