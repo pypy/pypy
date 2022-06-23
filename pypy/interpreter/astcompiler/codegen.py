@@ -1956,6 +1956,29 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             and isinstance(self.scope, symtable.ModuleScope)
         )
 
+    def visit_Match(self, match):
+        if not match.cases:
+            return
+
+        end = self.new_block()
+        next = self.new_block()
+        match.subject.walkabout(self)
+        for i, case in enumerate(match.cases):
+            if i < len(match.cases) - 1:
+                self.emit_op(ops.DUP_TOP)
+            case.pattern.walkabout(self)
+            self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
+            # TODO: handle case.guard
+            for stmt in case.body:
+                stmt.walkabout(self)
+            self.emit_jump(ops.JUMP_FORWARD, end)
+            self.use_next_block(next)
+            next = self.new_block()
+        self.use_next_block(end)
+
+    def visit_MatchValue(self, match_value):
+        match_value.value.walkabout(self)
+        self.emit_op_arg(ops.COMPARE_OP, 2)
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
