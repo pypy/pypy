@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rgc
+from rpython.rlib.debug import ll_assert
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._hpy_universal.apiset import API
@@ -62,10 +63,14 @@ def HPyField_Store(space, handles, ctx, h_target, pf, h):
         return
     #
     # real implementation
-    # XXX write barrier?
     if h == handles.NULL:
         pf[0] = 0
     else:
+        w_target = handles.deref(h_target)
+        ll_assert(isinstance(w_target, W_HPyObject), 'h_target is not a valid HPy object')
+        assert isinstance(w_target, W_HPyObject)
+        rgc.ll_writebarrier(w_target.hpy_storage)
+        #
         w_obj = handles.deref(h)
         gcref = rgc.cast_instance_to_gcref(w_obj)
         pf[0] = rffi.cast(lltype.Signed, gcref)

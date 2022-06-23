@@ -74,8 +74,10 @@ def startup(space, w_mod):
     """
     Initialize _hpy_universal. This is called by moduledef.Module.__init__
     """
+    from pypy.module._hpy_universal.interp_type import setup_hpy_storage
     state = State.get(space)
     state.setup(space)
+    setup_hpy_storage()
     if not hasattr(space, 'is_fake_objspace'):
         # the following lines break test_ztranslation :(
         handles = state.get_handle_manager(debug=False)

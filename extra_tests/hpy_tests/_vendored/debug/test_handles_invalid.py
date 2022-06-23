@@ -109,7 +109,7 @@ def test_cant_use_closed_handle(compiler, hpy_debug_capture):
         assert hpy_debug_capture.invalid_handles_count == 6
 
 
-def test_keeping_and_reusing_argument_handle(compiler, hpy_debug_capture):
+def xtest_keeping_and_reusing_argument_handle(compiler, hpy_debug_capture):
     mod = compiler.make_module("""
         HPy keep;
 
@@ -157,4 +157,3 @@ def test_invalid_handle_crashes_python_if_no_hook(compiler, python_subprocess, f
     """)
     result = python_subprocess.run(mod, "mod.f(42);")
     assert result.returncode == fatal_exit_code
-

@@ -1,7 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.debug import make_sure_not_resized, debug_print
 from rpython.rlib.objectmodel import specialize
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -54,8 +55,11 @@ HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 #   2. better support for GC pinning, so that we don't have to allocate the
 #      HPY_STORAGE as nonmovable
 
-HPY_STORAGE = lltype.GcStruct('HPyStorage',
-                                 ('data', lltype.Array(lltype.Char)))
+HPY_STORAGE = lltype.GcStruct(
+    'HPyStorage',
+    ('tp_traverse', llapi.cts.gettype('HPyFunc_traverseproc')),
+    ('data', lltype.Array(lltype.Char)),
+)
 
 DATA_OFS = llmemory.offsetof(HPY_STORAGE, 'data')
 DATA_ITEM0_OFS = llmemory.itemoffsetof(HPY_STORAGE.data, 0)
@@ -69,6 +73,7 @@ def storage_alloc(size):
     # not supported by the GC transformer if it's varsized, see
     # rpython/memory/gctransform/framework.py:gen_zero_gc_pointers
     s = lltype.malloc(HPY_STORAGE, size, nonmovable=True) #, zero=True)
+    s.tp_traverse = llapi.cts.cast('HPyFunc_traverseproc', 0) # set by _create_instance
     raw_mem = storage_get_raw_data(s)
     rffi.c_memset(raw_mem, 0, size)  # manually zero the memory
     return s
@@ -78,6 +83,81 @@ def storage_get_raw_data(storage):
     data_adr = base_adr + DATA_OFS + DATA_ITEM0_OFS
     raw_mem = rffi.cast(rffi.VOIDP, data_adr)
     return raw_mem
+
+def hpy_customtrace(gc, adr, callback, arg1, arg2):
+    storage = llmemory.cast_adr_to_ptr(adr, lltype.Ptr(HPY_STORAGE))
+    if storage.tp_traverse:
+        trace_one_field = make_trace_one_field(callback)
+        ll_trace_one_field = trace_one_field.get_llhelper()
+        trace_one_field.gc = gc
+        trace_one_field.arg1 = arg1
+        trace_one_field.arg2 = arg2
+        #
+        data_adr = (adr + DATA_OFS + DATA_ITEM0_OFS)
+        data_ptr = llmemory.cast_adr_to_ptr(data_adr, rffi.VOIDP)
+        NULL = rffi.cast(rffi.VOIDP, 0)
+        storage.tp_traverse(data_ptr, ll_trace_one_field, NULL)
+hpy_customtrace._skip_collect_analyzer_ = True
+#               ^^^
+# the GC makes a sanity check to ensure that customtrace functions cannot call
+# the GC itself, but here it is confused by the call to tp_traverse, which it
+# cannot analyze and thus assumes to have random effects. We know by design
+# that tp_traverse cannot invoke the GC (because we don't pass a ctx to it),
+# so we just bypass the sanity check. This measn that you need to be extra
+# cautions when modifying hpy_customtrace, and double check that you don't
+# insert any operation which can actually collect.
+
+@specialize.memo()
+def make_trace_one_field(callback):
+    """
+    Create a ll callback for hpy_customtrace. In particular:
+
+    1. a class TraceOneField_gc_callback_xxx, specialized on the given callback;
+    2. a singleton of this class;
+    3. an llhelper with the right C signature which fishes the arguments from
+       the singleton and calls 'callback'.
+    4. the singleton is returned, and you can call .get_llhelper() to get the
+       ll callback
+
+    Note that the arguments for the callback (gc, arg1, arg2) are passed by
+    setting fields on the singleton. This works because we know that the GC
+    does not do concurrent calls to the callback, and it's much easier than
+    trying to pack these three arguments into the single void* arg thich
+    ll_trace_one_field receives.
+    """
+    # 1. the class specialized on the callback
+    class TraceOneField(object):
+        @staticmethod
+        def get_llhelper():
+            return llhelper(FUNC, ll_trace_one_field)
+    TraceOneField.__name__ = 'TraceOneField_%s' % callback.__name__
+
+    # 2. the singleton
+    trace_one_field = TraceOneField()
+
+    # 3. the llhelper
+    def ll_trace_one_field(field_ptr, ignored):
+        gc = trace_one_field.gc
+        arg1 = trace_one_field.arg1
+        arg2 = trace_one_field.arg2
+        #data = llmemory.NULL # XXX somehow convert 'f' into Address
+        #data = trace_one_field.data
+        field_adr = llmemory.cast_ptr_to_adr(field_ptr)
+        gc._trace_callback(callback, arg1, arg2, field_adr)
+        return API.int(0)
+    #
+    sig = "int trace_one_field(HPyField *f, void *ignored)"
+    d = API.cts.parse_func(sig)
+    ARGS = d.get_llargs(API.cts)
+    RESULT = d.get_llresult(API.cts)
+    FUNC = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+
+    # 4. return the singleton
+    return trace_one_field
+
+
+def setup_hpy_storage():
+    rgc.register_custom_trace_hook(HPY_STORAGE, lambda: hpy_customtrace)
 
 # =====================================================
 
@@ -319,6 +399,7 @@ def _create_instance(space, w_type):
     w_result = space.allocate_instance(W_HPyObject, w_type)
     w_result.space = space
     w_result.hpy_storage = storage_alloc(w_type.basicsize)
+    w_result.hpy_storage.tp_traverse = w_type.tp_traverse
     if w_type.tp_destroy:
         w_result.register_finalizer(space)
     return w_result

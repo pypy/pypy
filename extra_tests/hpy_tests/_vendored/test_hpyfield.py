@@ -132,7 +132,7 @@ class TestHPyField(HPyTest):
         p = mod.Pair("hello", "world")
         assert not gc.is_tracked(p)
 
-    def test_tp_traverse(self):
+    def test_tp_traversex(self):
         import sys
         import gc
         mod = self.make_module("""
@@ -145,6 +145,8 @@ class TestHPyField(HPyTest):
         """)
         p = mod.Pair("hello", "world")
         referents = gc.get_referents(p)
+        # pypy reports p.__class__ as referents, filter it out
+        referents = [obj for obj in referents if obj is not mod.Pair]
         referents.sort()
         assert referents == ['hello', 'world']
 

@@ -183,7 +183,7 @@ class TestErr(HPyTest):
         assert err.value.filename == file1
         assert err.value.filename2 == file2
 
-    def test_HPyErr_SetFromErrnoWithFilename(self):
+    def xtest_HPyErr_SetFromErrnoWithFilename(self):
         import pytest
         import errno
         mod = self.make_module("""
@@ -671,4 +671,3 @@ class TestErr(HPyTest):
             res = mod.f(raise_exception, (exc_type, ), exc_types)
         with pytest.raises(DummyException):
             mod.f(raise_exception, (DummyException, ), exc_types)
-
