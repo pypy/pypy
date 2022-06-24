@@ -2096,8 +2096,7 @@ x = brokenargs(c=3)
 def f(x):
     match x:
         case 1: return "hello"
-        # case a: return a
-    return x
+        case a: return a
 res=f(1), f(2)
 """
         self.st(func, "res", ("hello", 2))

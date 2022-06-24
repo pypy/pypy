@@ -1963,11 +1963,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         end = self.new_block()
         next = self.new_block()
         match.subject.walkabout(self)
+        last_index_for_dup = len(match.cases) - 1
+        if isinstance(match.cases[-1], ast.MatchAs) and not match.cases[-1].pattern:
+            last_index_for_dup -= 1
         for i, case in enumerate(match.cases):
-            if i < len(match.cases) - 1:
+            # TODO: we can be more precise than `len(cases)-1` by checking the
+            # if the last case is a wildcard
+            if i < last_index_for_dup:
                 self.emit_op(ops.DUP_TOP)
             case.pattern.walkabout(self)
-            self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
+            # TODO: this is not the correct solution
+            if not isinstance(case.pattern, ast.MatchAs):
+                self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
+            if i < last_index_for_dup:
+                self.emit_op(ops.POP_TOP)
             # TODO: handle case.guard
             for stmt in case.body:
                 stmt.walkabout(self)
@@ -1979,6 +1988,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_MatchValue(self, match_value):
         match_value.value.walkabout(self)
         self.emit_op_arg(ops.COMPARE_OP, 2)
+
+    def visit_MatchAs(self, match_as):
+        # TODO: handle match_as.pattern
+        if not match_as.name:
+            return
+        self.name_op(match_as.name, ast.Store, match_as)
+
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
