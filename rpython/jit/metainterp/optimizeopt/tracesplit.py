@@ -99,8 +99,9 @@ class OptTraceSplit(Optimizer):
         self.set_optimizations(optimizations)
         self.setup()
 
-    def split(self, trace, resumestorage, call_pure_results):
+    def split(self, trace, resumestorage, call_pure_results, token):
         traceiter = trace.get_iter()
+        self.token = token
         return self.propagate_all_forward(traceiter, call_pure_results)
 
     def propagate_all_forward(self, trace, call_pure_results=None, flush=True):
@@ -110,8 +111,6 @@ class OptTraceSplit(Optimizer):
         self.call_pure_results = call_pure_results
         last_op = None
         i = 0
-        jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
-        self.token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
 
         self.emit(ResOperation(rop.LABEL, self.inputargs, self.token))
 
@@ -120,34 +119,45 @@ class OptTraceSplit(Optimizer):
             self._really_emitted_operation = None
             op = trace.next()
 
-            # if not already_setup_current_token and \
-            #    op.getopnum() == rop.DEBUG_MERGE_POINT:
-            #     arglist = op.getarglist()
-            #     print "arglist", arglist
-            #     greens = arglist[2+self.jitdriver_sd.num_red_args:]
-            #     box = greens[0]
-            #     assert isinstance(box, ConstInt)
-            #     self.token_map[box.get_int()] = self.token
-            #     already_setup_current_token = True
+            if not already_setup_current_token and \
+               op.getopnum() == rop.DEBUG_MERGE_POINT:
+                arglist = op.getarglist()
+                greens = arglist[2+self.jitdriver_sd.num_red_args:]
+                box = greens[0]
+                assert isinstance(box, ConstInt)
+                self.token_map[box.getint()] = self.token
+                already_setup_current_token = True
 
             if op.getopnum() in (rop.FINISH, rop.JUMP):
                 last_op = op
                 break
+
+            if op.getopnum() in (rop.CALL_I, rop.CALL_R, rop.CALL_N):
+                name = self._get_name_from_arg(op.getarg(0))
+                if len(self._fdescrstack) == 0:
+                    if endswith(name, mark.RET):
+                        self.handle_emit_ret(op, emit_label=False)
+                        break
+                    elif endswith(name, mark.JUMP):
+                        self.handle_emit_jump(op, emit_label=False)
+                        break
+
             self.send_extra_operation(op)
             trace.kill_cache_at(deadranges[i + trace.start_index])
             if op.type != 'v':
                 i += 1
-
-        token = self._create_token(self.token)
-        label = ResOperation(rop.LABEL, self.inputargs, token)
-        info = TraceSplitInfo(token, label, self.inputargs, self.resumekey)
-        self._newopsandinfo.append((info, self._newoperations + [last_op]))
 
         # accumulate counters
         if flush:
             self.flush()
             if last_op:
                 self.send_extra_operation(last_op)
+
+        if len(self._newoperations) > 0:
+            token = self._create_token(self.token)
+            label = ResOperation(rop.LABEL, self.inputargs, token)
+            info = TraceSplitInfo(token, label, self.inputargs, self.resumekey)
+            self._newopsandinfo.append((info, self._newoperations))
 
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
         return self._newopsandinfo
@@ -194,7 +204,7 @@ class OptTraceSplit(Optimizer):
     optimize_CALL_F = optimize_CALL_N
     optimize_CALL_R = optimize_CALL_N
 
-    def handle_emit_ret(self, op):
+    def handle_emit_ret(self, op, emit_label=True):
         inputargs = self.inputargs
         jd_no = self.jitdriver_sd.index
         result_type = self.jitdriver_sd.result_type
@@ -220,8 +230,8 @@ class OptTraceSplit(Optimizer):
             ResOperation(rop.FINISH, exits, finishtoken)
         ]
 
-        current = op.getarg(1)
-        assert isinstance(current, ConstInt)
+        currentbox = op.getarg(1)
+        assert isinstance(currentbox, ConstInt)
         target_token = self._create_token(self.token)
 
         label_op, residual_ops = self._newoperations[0], self._newoperations[1:]
@@ -230,22 +240,21 @@ class OptTraceSplit(Optimizer):
         self._newoperations = []
 
         next_token = self._create_token(self.token)
-        self.token_map[current.getint()] = next_token
+        self.token_map[currentbox.getint()] = next_token
 
-        self.emit(ResOperation(rop.LABEL, inputargs, next_token))
+        if emit_label:
+            self.emit(ResOperation(rop.LABEL, inputargs, next_token))
         if len(self._fdescrstack) > 0:
             self.resumekey = self._fdescrstack.pop()
 
-    def handle_emit_jump(self, op):
+    def handle_emit_jump(self, op, emit_label=True):
         # backward jump
         inputargs = self.inputargs
-        current, target = op.getarg(1), op.getarg(2)
-        assert isinstance(current, ConstInt)
-        assert isinstance(target, ConstInt)
+        currentbox, targetbox = op.getarg(1), op.getarg(2)
+        assert isinstance(currentbox, ConstInt)
+        assert isinstance(targetbox, ConstInt)
 
-        # target_token = self.get_from_token_map(target.getint())
-        target_token = self._create_token(self.token)
-        self.token_map[target.getint()] = target_token
+        target_token = self.get_from_token_map(targetbox.getint())
 
         jump_op = ResOperation(rop.JUMP, inputargs, target_token)
         label_op, residual_ops = self._newoperations[0], self._newoperations[1:]
@@ -253,10 +262,11 @@ class OptTraceSplit(Optimizer):
         self._newoperations = []
 
         next_token = self._create_token(self.token)
-        self.token_map[current.getint()] = next_token
+        self.token_map[currentbox.getint()] = next_token
 
         self._newopsandinfo.append((info, residual_ops + [jump_op]))
-        # self.emit(ResOperation(rop.LABEL, inputargs, next_token))
+        if emit_label:
+            self.emit(ResOperation(rop.LABEL, inputargs, next_token))
         if len(self._fdescrstack) > 0:
             self.resumekey = self._fdescrstack.pop()
 
