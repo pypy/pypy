@@ -144,8 +144,7 @@ class SimpleSplitCompileData(CompileData):
 
     def __init__(self, trace, resumestorage=None,
                  call_pure_results=None, enable_opts=None,
-                 inline_short_preamble=False,
-                 body_token=None):
+                 inline_short_preamble=False, body_token=None):
         self.trace = trace
         self.resumestorage = resumestorage
         self.call_pure_results = call_pure_results
@@ -153,11 +152,13 @@ class SimpleSplitCompileData(CompileData):
         self.inline_short_preamble = inline_short_preamble
         self.body_token = body_token
 
-    def split(self, metainterp_sd, jitdriver_sd, optimizations):
-        from rpython.jit.metainterp.optimizeopt.tracesplit import TraceSplitOpt, OptTraceSplit
+    def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
+        from rpython.jit.metainterp.optimizeopt.tracesplit import OptTraceSplit
+        # from rpython.jit.metainterp.optimizeopt.tracesplit import TraceSplitOpt
         # opt = TraceSplitOpt(metainterp_sd, jitdriver_sd, optimizations)
         opt = OptTraceSplit(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.split(self.trace, self.resumestorage, self.body_token)
+        return opt.split(self.trace, self.resumestorage, self.call_pure_results,
+                         self.body_token)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     from rpython.conftest import option
@@ -1099,7 +1100,8 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     jitdriver_sd = metainterp.jitdriver_sd
     inputargs = metainterp.history.inputargs[:]
     trace = metainterp.history.trace
-    enable_opts = jitdriver_sd.warmstate.enable_opts
+    # XXX: When applying trace split, turn off all other optimizations
+    enable_opts = "" # jitdriver_sd.warmstate.enable_opts
     call_pure_results = metainterp.call_pure_results
     resumestorage = resumekey.get_resumestorage()
 
@@ -1119,7 +1121,7 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
                                   enable_opts=enable_opts,
                                   body_token=body_token)
     try:
-        splitted = data.split(
+        splitted = data.optimize_trace(
             metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
@@ -1127,6 +1129,12 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         return None
 
     (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:]
+
+    # DEBUG
+    # metainterp_sd.logger_noopt.log_loop(new_body_info.inputargs, new_body_ops)
+    # for bridge_info, bridge_ops in bridges:
+    #     metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
+    #                                           descr=bridge_info.faildescr)
 
     # data = SimpleCompileData(trace, resumestorage,
     #                          call_pure_results=call_pure_results,
@@ -1168,8 +1176,6 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     # compiling bridge
     metainterp.resumekey_original_loop_token = body_jitcell_token
     for (bridge_info, bridge_ops) in bridges:
-        # metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
-        #                                       descr=bridge_info.faildescr)
         new_bridge = create_empty_loop(metainterp)
         new_bridge.original_jitcell_token = bridge_info.target_token.original_jitcell_token
         new_bridge.inputargs = bridge_info.inputargs
