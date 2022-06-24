@@ -253,6 +253,7 @@ class GCBase(object):
             meth = getattr(arg1, meth_name)
             meth(pointer, arg2)
         callback.__name__ = 'gc_callback_%s' % meth_name
+        callback._always_inline_ = True
         return callback
 
     def trace(self, obj, callback, arg1, arg2):
