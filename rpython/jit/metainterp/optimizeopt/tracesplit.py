@@ -134,6 +134,11 @@ class OptTraceSplit(Optimizer):
 
             if op.getopnum() in (rop.CALL_I, rop.CALL_R, rop.CALL_N):
                 name = self._get_name_from_arg(op.getarg(0))
+                numargs = op.numargs()
+                lastarg = op.getarg(numargs - 1)
+                if isinstance(lastarg, ConstInt) and lastarg.getint() == 1:
+                    op.setarg(numargs - 1, ConstInt(0))
+
                 if len(self._fdescrstack) == 0:
                     if endswith(name, mark.RET):
                         self.handle_emit_ret(op, emit_label=False)
