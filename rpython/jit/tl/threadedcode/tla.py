@@ -1089,7 +1089,7 @@ class Frame(object):
                     self.FLOAT_TO_INT(dummy=False)
 
             elif opcode == CALL:
-                t = _construct_value(bytecode, pc)
+                t = ord(bytecode[pc])
                 argnum = ord(bytecode[pc + 1])
                 pc += 2
 
@@ -1145,12 +1145,12 @@ class Frame(object):
                 pc += 1
                 if we_are_jitted():
                     if tstack.t_is_empty():
-                        w_x = self.RET(argnum, dummy=True)
+                        w_x = self.POP(dummy=True)
                         pc = emit_ret(entry, w_x)
                         tier1driver.can_enter_jit(
                             bytecode=bytecode, entry=entry, pc=pc, tstack=tstack, self=self)
                     else:
-                        w_x = self.RET(argnum, dummy=True)
+                        w_x = self.POP(dummy=True)
                         pc, tstack = tstack.t_pop()
                         pc = emit_ret(pc, w_x)
                 else:
