@@ -1128,7 +1128,7 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         debug_print('InvalidLoop in compile_loop_and_split')
         return None
 
-    (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:]
+    (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:-1]
 
     # DEBUG
     # metainterp_sd.logger_noopt.log_loop(new_body_info.inputargs, new_body_ops)
