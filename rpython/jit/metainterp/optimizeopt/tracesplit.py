@@ -93,6 +93,7 @@ class OptTraceSplit(Optimizer):
         self.token_map = {}
 
         self._pseudoops = []
+        self._specialguardop = []
         self._newopsandinfo = []
         self._fdescrstack = []
 
@@ -118,9 +119,21 @@ class OptTraceSplit(Optimizer):
         while not trace.done():
             self._really_emitted_operation = None
             op = trace.next()
+            opnum = op.getopnum()
+
+            # remove real ops related to pseudo ops
+            can_emit = True
+            for arg in op.getarglist():
+                if arg in self._pseudoops:
+                    can_emit = False
+                    self.emit_pseudoop(op)
+                    break
+
+            if not can_emit:
+                continue
 
             if not already_setup_current_token and \
-               op.getopnum() == rop.DEBUG_MERGE_POINT:
+               opnum == rop.DEBUG_MERGE_POINT:
                 arglist = op.getarglist()
                 greens = arglist[2+self.jitdriver_sd.num_red_args:]
                 box = greens[0]
@@ -128,24 +141,25 @@ class OptTraceSplit(Optimizer):
                 self.token_map[box.getint()] = self.token
                 already_setup_current_token = True
 
-            if op.getopnum() in (rop.FINISH, rop.JUMP):
+            if opnum in (rop.FINISH, rop.JUMP):
                 last_op = op
                 break
 
-            if op.getopnum() in (rop.CALL_I, rop.CALL_R, rop.CALL_N):
-                name = self._get_name_from_arg(op.getarg(0))
+            # shallow tracing: turn on flags
+            if rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
                 numargs = op.numargs()
                 lastarg = op.getarg(numargs - 1)
                 if isinstance(lastarg, ConstInt) and lastarg.getint() == 1:
                     op.setarg(numargs - 1, ConstInt(0))
 
-                if len(self._fdescrstack) == 0:
-                    if endswith(name, mark.RET):
-                        self.handle_emit_ret(op, emit_label=False)
-                        break
-                    elif endswith(name, mark.JUMP):
-                        self.handle_emit_jump(op, emit_label=False)
-                        break
+                # TODO: precisely remove the last several ops
+                # if len(self._fdescrstack) == 0:
+                #     if endswith(name, mark.RET):
+                #         self.handle_emit_ret(op, emit_label=False)
+                #         break
+                #     elif endswith(name, mark.JUMP):
+                #         self.handle_emit_jump(op, emit_label=False)
+                #         break
 
             self.send_extra_operation(op)
             trace.kill_cache_at(deadranges[i + trace.start_index])
@@ -174,15 +188,15 @@ class OptTraceSplit(Optimizer):
         dispatch_opt(self, op)
 
     def optimize_GUARD_VALUE(self, op):
-        descr = op.getdescr()
-        if not descr:
-            descr = compile.invent_fail_descr_for_op(op.getopnum(), self)
-            op.setdescr(descr)
-
-        if self._is_guard_marked(op, mark.IS_TRUE):
-            self._fdescrstack.append(descr)
-
         self.emit(op)
+        if self._is_guard_marked(op, mark.IS_TRUE):
+            newfailargs = []
+            for farg in op.getfailargs():
+                if not farg in self._specialguardop:
+                    newfailargs.append(farg)
+
+                op.setfailargs(newfailargs)
+            self._fdescrstack.append(op.getdescr())
 
     optimize_GUARD_TRUE = optimize_GUARD_VALUE
     optimize_GUARD_FALSE = optimize_GUARD_VALUE
@@ -196,12 +210,17 @@ class OptTraceSplit(Optimizer):
         elif endswith(name, mark.RET):
             self.emit_pseudoop(op)
             self.handle_emit_ret(op)
-        elif endswith(name, mark.CALL_ASSEMBLER):
-            self.emit_pseudoop(op)
-            self.handle_call_assembler(op)
         elif endswith(name, mark.IS_TRUE):
-            self.emit_pseudoop(op)
+            self._specialguardop.append(op)
             self.emit(op)
+        else:
+            self.emit(op)
+
+    def optimize_CALL_MAY_FORCE_R(self, op):
+        arg0 = op.getarg(0)
+        name = self._get_name_from_arg(arg0)
+        if endswith(name, mark.CALL_ASSEMBLER):
+            self.handle_call_assembler(op)
         else:
             self.emit(op)
 
@@ -289,7 +308,7 @@ class OptTraceSplit(Optimizer):
         new_token = warmrunnerstate.get_assembler_token(greenargs)
         opnum = OpHelpers.call_assembler_for_descr(op.getdescr())
         newop = op.copy_and_change(opnum, args, new_token)
-        # oplist = self._change_call_op(newop, op, oplist, opindex)
+        op.set_forwarded(newop)
         self.emit(newop)
 
     def get_from_token_map(self, key):
