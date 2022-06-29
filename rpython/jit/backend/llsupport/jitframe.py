@@ -101,12 +101,12 @@ LENGTHOFS = llmemory.arraylengthoffset(JITFRAME.jf_frame)
 SIGN_SIZE = llmemory.sizeof(lltype.Signed)
 UNSIGN_SIZE = llmemory.sizeof(lltype.Unsigned)
 
-def jitframe_trace(gc, obj_addr, callback, arg):
-    gc._trace_callback(callback, arg, obj_addr + getofs('jf_descr'))
-    gc._trace_callback(callback, arg, obj_addr + getofs('jf_force_descr'))
-    gc._trace_callback(callback, arg, obj_addr + getofs('jf_savedata'))
-    gc._trace_callback(callback, arg, obj_addr + getofs('jf_guard_exc'))
-    gc._trace_callback(callback, arg, obj_addr + getofs('jf_forward'))
+def jitframe_trace(gc, obj_addr, callback, arg1, arg2):
+    gc._trace_callback(callback, arg1, arg2, obj_addr + getofs('jf_descr'))
+    gc._trace_callback(callback, arg1, arg2,obj_addr + getofs('jf_force_descr'))
+    gc._trace_callback(callback, arg1, arg2, obj_addr + getofs('jf_savedata'))
+    gc._trace_callback(callback, arg1, arg2, obj_addr + getofs('jf_guard_exc'))
+    gc._trace_callback(callback, arg1, arg2, obj_addr + getofs('jf_forward'))
 
     if IS_32BIT:
         MAX = 32
@@ -128,7 +128,7 @@ def jitframe_trace(gc, obj_addr, callback, arg):
                 frame_lgt = (obj_addr + getofs('jf_frame') + LENGTHOFS) \
                     .signed[0]
                 ll_assert(index < frame_lgt, "bogus frame field get")
-                gc._trace_callback(callback, arg,
+                gc._trace_callback(callback, arg1, arg2,
                                    obj_addr + getofs('jf_frame') +
                                    BASEITEMOFS + SIGN_SIZE * index)
             bitindex += 1
