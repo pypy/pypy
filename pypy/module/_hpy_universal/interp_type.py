@@ -127,7 +127,7 @@ def make_trace_one_field(callback):
     """
     # 1. the class specialized on the callback
     sig = "int ll_trace_one_field(HPyField *f, void *ignored)"
-    _, FUNC, _ = API.parse_signature(sig, error_value=-1)
+    _, FUNC, _ = API.parse_signature(sig, error_value=API.int(-1))
 
     class TraceOneField(object):
         @staticmethod
