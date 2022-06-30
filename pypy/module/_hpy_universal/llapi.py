@@ -71,6 +71,11 @@ typedef struct _HPyTracker_s {
 } _struct_HPyTracker_s;
 typedef HPy_ssize_t HPyTracker;
 
+typedef struct _HPyField_s {
+    HPy_ssize_t _i;
+};
+typedef HPy_ssize_t HPyField;
+
 typedef struct _HPyContext_s {
     const char *name; // used just to make debugging and testing easier
     void *_private;   // used by implementations to store custom data
@@ -482,6 +487,7 @@ typedef struct {
     void *internal;
 } HPy_buffer;
 
+typedef int (*HPyFunc_visitproc)(HPyField *, void *);
 
 /* autogen_hpyfunc_declare.h */
 
@@ -517,6 +523,7 @@ typedef int (*HPyFunc_setter)(HPyContext *ctx, HPy, HPy, void *);
 typedef int (*HPyFunc_objobjproc)(HPyContext *ctx, HPy, HPy);
 typedef int (*HPyFunc_getbufferproc)(HPyContext *ctx, HPy, HPy_buffer *, int);
 typedef void (*HPyFunc_releasebufferproc)(HPyContext *ctx, HPy, HPy_buffer *);
+typedef int (*HPyFunc_traverseproc)(void *object, HPyFunc_visitproc visit, void *arg);
 typedef void (*HPyFunc_destroyfunc)(void *);
 """)
 
@@ -558,6 +565,7 @@ HPyFunc_O        = 4
 HPyType_SpecParam_Kind = cts.gettype('HPyType_SpecParam_Kind')
 
 HPy_TPFLAGS_INTERNAL_PURE = (1 << 8)
+HPy_TPFLAGS_HAVE_GC =  1 << 14
 
 # HPy API functions which are implemented directly in C
 pypy_HPy_FatalError = rffi.llexternal('pypy_HPy_FatalError',

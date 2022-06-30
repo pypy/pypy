@@ -1,7 +1,8 @@
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.debug import make_sure_not_resized, debug_print
 from rpython.rlib.objectmodel import specialize
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -16,24 +17,163 @@ from rpython.rlib.rutf8 import surrogate_in_utf8
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 
+
+# ========== Implementation of HPy objects ==========
+#
+# HPy objects are instances of HPy types, defined in C. One pecularity of HPy
+# objects is that they need a certain amount of "C memory" which contains the
+# user data.
+#
+# From C, you can access the "C memory" by calling HPy_AsStruct on a handle:
+# the invariant is that the pointer returned by HPy_AsStruct is valid for the
+# whole lifetime of the handle, so we need to ensure that the GC doesn't move
+# the memory.
+#
+# The current solution is to use HPY_STORAGE to hold the user data: it is a
+# varsized GcStruct wrapping the char array 'data'.  Moreover, HPY_STORAGE is
+# allocated using nonmovable=True, because it's the easiest way to ensure that
+# the memory never moves. See below for more ideas.
+#
+# We need a GcStruct instead of a raw-malloc because we want to install a
+# custom GC tracer, which calls the user-defined tp_traverse in order to trace
+# all the HPyField.
+#
+# Note that this is suboptimal; currently, an HPy object is represented this
+# way:
+#
+#   1. a W_HPyObject allocated in the nursery, which contains a pointer to (2)
+#   2. a HPY_STORAGE allocted as non-movable, which contains a GC header + a
+#      word to store the array size + the data itself
+#
+# So, for each HPy object, we do two allocations and we waste 3 words (one for
+# the pointer, one for the HPY_STORAGE GC header, one for HPY_STORAGE array
+# size).  This means that there is room for at least two improvments:
+#
+#   1. RPython support for varsized instances, so that we can inline the user
+#      data directly inside W_HPyObject
+#
+#   2. better support for GC pinning, so that we don't have to allocate the
+#      HPY_STORAGE as nonmovable
+
+HPY_STORAGE = lltype.GcStruct(
+    'HPyStorage',
+    ('tp_traverse', llapi.cts.gettype('HPyFunc_traverseproc')),
+    ('data', lltype.Array(lltype.Char)),
+)
+
+DATA_OFS = llmemory.offsetof(HPY_STORAGE, 'data')
+DATA_ITEM0_OFS = llmemory.itemoffsetof(HPY_STORAGE.data, 0)
+
+def storage_alloc(size):
+    """
+    Allocate an HPY_STORAGE containing 'size' bytes of user data. The memory is
+    guaranteed to be zeroed.
+    """
+    # ideally we sould like to use lltype.malloc(..., zero=True), but this is
+    # not supported by the GC transformer if it's varsized, see
+    # rpython/memory/gctransform/framework.py:gen_zero_gc_pointers
+    s = lltype.malloc(HPY_STORAGE, size, nonmovable=True) #, zero=True)
+    s.tp_traverse = llapi.cts.cast('HPyFunc_traverseproc', 0) # set by _create_instance
+    raw_mem = storage_get_raw_data(s)
+    rffi.c_memset(raw_mem, 0, size)  # manually zero the memory
+    return s
+
+def storage_get_raw_data(storage):
+    base_adr = llmemory.cast_ptr_to_adr(storage)
+    data_adr = base_adr + DATA_OFS + DATA_ITEM0_OFS
+    raw_mem = rffi.cast(rffi.VOIDP, data_adr)
+    return raw_mem
+
+def hpy_customtrace(gc, adr, callback, arg1, arg2):
+    storage = llmemory.cast_adr_to_ptr(adr, lltype.Ptr(HPY_STORAGE))
+    if storage.tp_traverse:
+        trace_one_field = make_trace_one_field(callback)
+        ll_trace_one_field = trace_one_field.get_llhelper()
+        trace_one_field.gc = gc
+        trace_one_field.arg1 = arg1
+        trace_one_field.arg2 = arg2
+        #
+        data_adr = (adr + DATA_OFS + DATA_ITEM0_OFS)
+        data_ptr = llmemory.cast_adr_to_ptr(data_adr, rffi.VOIDP)
+        NULL = rffi.cast(rffi.VOIDP, 0)
+        storage.tp_traverse(data_ptr, ll_trace_one_field, NULL)
+hpy_customtrace._skip_collect_analyzer_ = True
+#               ^^^
+# the GC makes a sanity check to ensure that customtrace functions cannot call
+# the GC itself, but here it is confused by the call to tp_traverse, which it
+# cannot analyze and thus assumes to have random effects. We know by design
+# that tp_traverse cannot invoke the GC (because we don't pass a ctx to it),
+# so we just bypass the sanity check. This measn that you need to be extra
+# cautions when modifying hpy_customtrace, and double check that you don't
+# insert any operation which can actually collect.
+
+@specialize.memo()
+def make_trace_one_field(callback):
+    """
+    Create a ll callback for hpy_customtrace. In particular:
+
+    1. a class TraceOneField_gc_callback_xxx, specialized on the given callback;
+    2. a singleton of this class;
+    3. an llhelper with the right C signature which fishes the arguments from
+       the singleton and calls 'callback'.
+    4. the singleton is returned, and you can call .get_llhelper() to get the
+       ll callback
+
+    Note that the arguments for the callback (gc, arg1, arg2) are passed by
+    setting fields on the singleton. This works because we know that the GC
+    does not do concurrent calls to the callback, and it's much easier than
+    trying to pack these three arguments into the single void* arg thich
+    ll_trace_one_field receives.
+    """
+    # 1. the class specialized on the callback
+    sig = "int ll_trace_one_field(HPyField *f, void *ignored)"
+    _, FUNC, _ = API.parse_signature(sig, error_value=-1)
+
+    class TraceOneField(object):
+        @staticmethod
+        def get_llhelper():
+            return llhelper(FUNC, ll_trace_one_field)
+    TraceOneField.__name__ = 'TraceOneField_%s' % callback.__name__
+
+    # 2. the singleton
+    trace_one_field = TraceOneField()
+
+    # 3. the llhelper
+    def ll_trace_one_field(field_ptr, ignored):
+        gc = trace_one_field.gc
+        arg1 = trace_one_field.arg1
+        arg2 = trace_one_field.arg2
+        field_adr = llmemory.cast_ptr_to_adr(field_ptr)
+        gc._trace_callback(callback, arg1, arg2, field_adr)
+        return API.int(0)
+
+    # 4. return the singleton
+    return trace_one_field
+
+
+def setup_hpy_storage():
+    rgc.register_custom_trace_hook(HPY_STORAGE, lambda: hpy_customtrace)
+
+# =====================================================
+
+
 class W_HPyObject(W_ObjectObject):
-    hpy_data = lltype.nullptr(rffi.VOIDP.TO)
+    hpy_storage = lltype.nullptr(HPY_STORAGE)
+
+    def get_raw_data(self):
+        return storage_get_raw_data(self.hpy_storage)
 
     def _finalize_(self):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
         if w_type.tp_destroy:
-            w_type.tp_destroy(self.hpy_data)
+            w_type.tp_destroy(self.get_raw_data())
 
-    @rgc.must_be_light_finalizer
-    def __del__(self):
-        if self.hpy_data:
-            lltype.free(self.hpy_data, flavor='raw')
-            self.hpy_data = lltype.nullptr(rffi.VOIDP.TO)
 
 class W_HPyTypeObject(W_TypeObject):
     basicsize = 0
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
+    tp_traverse = lltype.nullptr(llapi.cts.gettype('HPyFunc_traverseproc').TO)
 
     def __init__(self, space, name, bases_w, dict_w, basicsize=0,
                  is_legacy=False):
@@ -51,7 +191,7 @@ def HPy_AsStruct(space, handles, ctx, h):
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this
         raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
-    return w_obj.hpy_data
+    return w_obj.get_raw_data()
 
 @API.func("void *HPy_AsStructLegacy(HPyContext *ctx, HPy h)")
 def HPy_AsStructLegacy(space, handles, ctx, h):
@@ -59,14 +199,14 @@ def HPy_AsStructLegacy(space, handles, ctx, h):
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this
         raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
-    return w_obj.hpy_data
+    return w_obj.get_raw_data()
 
 @API.func("HPy _HPy_New(HPyContext *ctx, HPy h_type, void **data)")
 def _HPy_New(space, handles, ctx, h_type, data):
     w_type = handles.deref(h_type)
     w_result = _create_instance(space, w_type)
     data = llapi.cts.cast('void**', data)
-    data[0] = w_result.hpy_data
+    data[0] = w_result.get_raw_data()
     h = handles.new(w_result)
     return h
 
@@ -126,6 +266,15 @@ def check_inheritance_constraints(space, w_type):
             "A legacy type should not inherit its memory layout from a"
             " pure type")
 
+def check_have_gc_and_tp_traverse(space, spec):
+    # if we specify HPy_TPFLAGS_HAVE_GC, we must provide a tp_traverse
+    have_gc = widen(spec.c_flags) & llapi.HPy_TPFLAGS_HAVE_GC
+    if have_gc and not has_tp_traverse(spec):
+        raise oefmt(space.w_ValueError,
+                    "You must provide an HPy_tp_traverse slot if you specify "
+                    "HPy_TPFLAGS_HAVE_GC")
+
+
 
 @API.func("HPy HPyType_FromSpec(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, handles, ctx, spec, params):
@@ -139,6 +288,7 @@ def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
 def _hpytype_fromspec(handles, spec, params):
     space = handles.space
     check_legacy_consistent(space, spec)
+    check_have_gc_and_tp_traverse(space, spec)
 
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
@@ -211,6 +361,23 @@ def add_slot_defs(handles, w_result, c_defines):
         if w_buffer_wrapper and isinstance(w_buffer_wrapper, getbuffer_cls):
             w_buffer_wrapper.rbp = rbp
 
+def has_tp_traverse(spec):
+    if not spec.c_defines:
+        return False
+    p = spec.c_defines
+    i = 0
+    HPyDef_Kind = llapi.cts.gettype('HPyDef_Kind')
+    rbp = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
+    while p[i]:
+        kind = rffi.cast(lltype.Signed, p[i].c_kind)
+        if kind == HPyDef_Kind.HPyDef_Kind_Slot:
+            hpyslot = llapi.cts.cast('_pypy_HPyDef_as_slot*', p[i]).c_slot
+            slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
+            if slot_num == HPySlot_Slot.HPy_tp_traverse:
+                return True
+        i += 1
+    return False
+
 def _create_new_type(
         space, w_typetype, name, bases_w, dict_w, basicsize, is_legacy):
     pos = surrogate_in_utf8(name)
@@ -226,8 +393,8 @@ def _create_instance(space, w_type):
     assert isinstance(w_type, W_HPyTypeObject)
     w_result = space.allocate_instance(W_HPyObject, w_type)
     w_result.space = space
-    w_result.hpy_data = lltype.malloc(
-        rffi.VOIDP.TO, w_type.basicsize, zero=True, flavor='raw')
+    w_result.hpy_storage = storage_alloc(w_type.basicsize)
+    w_result.hpy_storage.tp_traverse = w_type.tp_traverse
     if w_type.tp_destroy:
         w_result.register_finalizer(space)
     return w_result

@@ -473,7 +473,7 @@ SLOTS = unrolling_iterable([
 #   ('tp_setattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_setattro',                '__xxx__',       AGS.W_SlotWrapper_...),
 #    ('tp_str',                     '__str__',       W_wrap_unaryfunc),
-#   ('tp_traverse',                '__xxx__',       AGS.W_SlotWrapper_...),
+#   tp_traverse  SPECIAL-CASED
     ('nb_matrix_multiply',         '__matmul__',    W_wrap_binaryfunc),
     ('nb_inplace_matrix_multiply', '__imatmul__',   W_wrap_binaryfunc),
 #    ('am_await',                   '__await__',     W_wrap_unaryfunc),
@@ -499,6 +499,9 @@ def fill_slot(handles, w_type, hpyslot):
         return
     elif slot_num == HPySlot_Slot.HPy_tp_destroy:
         w_type.tp_destroy = llapi.cts.cast('HPyFunc_destroyfunc', hpyslot.c_impl)
+        return
+    elif slot_num == HPySlot_Slot.HPy_tp_traverse:
+        w_type.tp_traverse = llapi.cts.cast('HPyFunc_traverseproc', hpyslot.c_impl)
         return
     elif slot_num == HPySlot_Slot.HPy_tp_richcompare:
         for methname, opval in CMP_SLOTS:

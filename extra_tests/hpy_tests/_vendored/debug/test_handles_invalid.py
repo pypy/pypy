@@ -157,4 +157,3 @@ def test_invalid_handle_crashes_python_if_no_hook(compiler, python_subprocess, f
     """)
     result = python_subprocess.run(mod, "mod.f(42);")
     assert result.returncode == fatal_exit_code
-

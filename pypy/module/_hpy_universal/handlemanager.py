@@ -106,6 +106,8 @@ CONSTANT_NAMES = unrolling_iterable([name for name, _ in CONSTANTS])
 DUMMY_FUNC = lltype.FuncType([], lltype.Void)
 
 class AbstractHandleManager(object):
+    NULL = 0
+
     def __init__(self, space, ctx, is_debug):
         self.space = space
         self.ctx = ctx
@@ -190,6 +192,9 @@ class HandleManager(AbstractHandleManager):
         for func in API.all_functions:
             if func.cpyext and not space.config.objspace.hpy_cpyext_API:
                 # ignore cpyext functions if hpy_cpyext_API is False
+                continue
+            if func.is_helper:
+                # helper functions don't go into the context
                 continue
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename

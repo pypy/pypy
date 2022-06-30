@@ -4,6 +4,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import unwrap_spec, interp2app, WrappedDefault
 from pypy.interpreter.error import oefmt, wrap_oserror
 from rpython.rlib.objectmodel import we_are_translated
+from pypy.module._hpy_universal.interp_field import is_hpy_object, hpy_get_referents
 
 
 class W_GcRef(W_Root):
@@ -132,8 +133,14 @@ def get_referents(space, args_w):
     space.audit('gc.get_referents', args_w)
     result_w = []
     for w_obj in args_w:
-        gcref = rgc.cast_instance_to_gcref(w_obj)
-        _list_w_obj_referents(gcref, result_w)
+        if not we_are_translated() and is_hpy_object(w_obj):
+            # special case for hpy, only for tests. See
+            # e.g. test_fields.test_tp_traverse
+            result_w += hpy_get_referents(space, w_obj)
+        else:
+            # normal case
+            gcref = rgc.cast_instance_to_gcref(w_obj)
+            _list_w_obj_referents(gcref, result_w)
     rgc.assert_no_more_gcflags()
     return space.newlist(result_w)
 

@@ -671,4 +671,3 @@ class TestErr(HPyTest):
             res = mod.f(raise_exception, (exc_type, ), exc_types)
         with pytest.raises(DummyException):
             mod.f(raise_exception, (DummyException, ), exc_types)
-

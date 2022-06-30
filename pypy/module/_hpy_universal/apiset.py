@@ -58,7 +58,8 @@ class APISet(object):
             return error_value
 
 
-    def func(self, cdecl, cpyext=False, func_name=None, error_value=None):
+    def func(self, cdecl, cpyext=False, func_name=None, error_value=None,
+             is_helper=False):
         """
         Declare an HPy API function.
 
@@ -90,6 +91,10 @@ class APISet(object):
 
             - a specific value: in this case, the lltype must exactly match
               what is specified for the function type.
+
+        is_helper=True is for functions which are not in the ctx. Useful if
+        you need a ll_helper with a specific C signature, for example to use
+        as a C callback.
         """
         if self.frozen:
             raise RuntimeError(
@@ -135,6 +140,7 @@ class APISet(object):
             fn.basename = self.prefix.sub(r'', fn.__name__)
 
             fn.cpyext = cpyext
+            fn.is_helper = is_helper
             # record it into the API
             self.all_functions.append(fn)
             return fn
