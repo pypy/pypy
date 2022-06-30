@@ -611,6 +611,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # detect if one of the custom trace functions uses the GC
         # (it must not!)
         for TP, func in rtyper.custom_trace_funcs:
+            if getattr(func, '_skip_collect_analyzer_', False):
+                continue
             def no_op_callback(obj, arg1, arg2):
                 pass
             def ll_check_no_collect(obj):
