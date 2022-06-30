@@ -777,8 +777,7 @@ def command_compilewatch(cmd, expression):
         try:
             code = compile(expression, 'eval')
             marshalled_code = space.bytes_w(interp_marshal.dumps(
-                space, code,
-                space.newint(interp_marshal.Py_MARSHAL_VERSION)))
+                space, code))
         except OperationError as e:
             revdb.send_watch(e.errorstr(space), ok_flag=0)
         else:
