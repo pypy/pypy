@@ -5,6 +5,7 @@ import py
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+from rpython.jit.codewriter.liveness import OFFSET_SIZE
 from rpython.jit.metainterp import history, compile, resume, executor, jitexc
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
@@ -25,6 +26,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper import rclass
 from rpython.rlib.objectmodel import compute_unique_id
 
+SIZE_LIVE_OP = OFFSET_SIZE + 1
 
 # ____________________________________________________________
 
@@ -126,9 +128,11 @@ class MIFrame(object):
             else: raise AssertionError(box.type)
 
     def get_current_position_info(self):
-        return self.jitcode.get_live_vars_info(self.pc)
+        return self.jitcode.get_live_vars_info(self.pc, self.metainterp.staticdata.op_live)
 
-    def get_list_of_active_boxes(self, in_a_call, new_array, encode):
+    def get_list_of_active_boxes(self, in_a_call, new_array, encode, after_residual_call=False):
+        from rpython.jit.codewriter.liveness import decode_offset
+        from rpython.jit.codewriter.liveness import LivenessIterator
         if in_a_call:
             # If we are not the topmost frame, self._result_argcode contains
             # the type of the result of the call instruction in the bytecode.
@@ -143,25 +147,47 @@ class MIFrame(object):
             elif argcode == 'f':
                 self.registers_f[index] = history.CONST_FZERO
             self._result_argcode = '?'     # done
-        #
-        info = self.get_current_position_info()
+        if in_a_call or after_residual_call:
+            pc = self.pc # live instruction afterwards
+        else:
+            # there needs to be a live instruction before
+            pc = self.pc - SIZE_LIVE_OP
+        assert ord(self.jitcode.code[pc]) == self.metainterp.staticdata.op_live
+        if not we_are_translated():
+            assert pc in self.jitcode._startpoints
+        offset = decode_offset(self.jitcode.code, pc + 1)
+        all_liveness = self.metainterp.staticdata.liveness_info
+        length_i = ord(all_liveness[offset])
+        length_r = ord(all_liveness[offset + 1])
+        length_f = ord(all_liveness[offset + 2])
+        offset += 3
+
         start_i = 0
-        start_r = start_i + info.get_register_count_i()
-        start_f = start_r + info.get_register_count_r()
-        total   = start_f + info.get_register_count_f()
+        start_r = start_i + length_i
+        start_f = start_r + length_r
+        total   = start_f + length_f
         # allocate a list of the correct size
         env = new_array(total)
         make_sure_not_resized(env)
         # fill it now
-        for i in range(info.get_register_count_i()):
-            index = info.get_register_index_i(i)
-            env[start_i + i] = encode(self.registers_i[index])
-        for i in range(info.get_register_count_r()):
-            index = info.get_register_index_r(i)
-            env[start_r + i] = encode(self.registers_r[index])
-        for i in range(info.get_register_count_f()):
-            index = info.get_register_index_f(i)
-            env[start_f + i] = encode(self.registers_f[index])
+        if length_i:
+            it = LivenessIterator(offset, length_i, all_liveness)
+            for index in it:
+                env[start_i] = encode(self.registers_i[index])
+                start_i += 1
+            offset = it.offset
+        if length_r:
+            it = LivenessIterator(offset, length_r, all_liveness)
+            for index in it:
+                env[start_r] = encode(self.registers_r[index])
+                start_r += 1
+            offset = it.offset
+        if length_f:
+            it = LivenessIterator(offset, length_f, all_liveness)
+            for index in it:
+                env[start_f] = encode(self.registers_f[index])
+                start_f += 1
+            offset = it.offset
         return env
 
     def replace_active_box_in_frame(self, oldbox, newbox):
@@ -305,6 +331,47 @@ class MIFrame(object):
             loc = self.metainterp.jitdriver_sd.warmstate.get_location_str(self.greenkey)
             debug_print("record_exact_class with non-constant second argument, ignored",
                     name, loc)
+
+    @arguments("box", "box", "boxes2", "descr", "orgpc")
+    def opimpl_record_known_result_i_ir_v(self, resbox, funcbox, argboxes,
+                                     calldescr, pc):
+        allboxes = self._build_allboxes(funcbox, argboxes, calldescr)
+        allboxes = [resbox] + allboxes
+        # this is a weird op! we don't want to execute anything, so just record
+        # an operation
+        self.metainterp._record_helper_nonpure_varargs(rop.RECORD_KNOWN_RESULT, None, calldescr, allboxes)
+
+    @arguments("box", "box")
+    def opimpl_record_exact_value_r(self, box, const_box):
+        return self._record_exact_value(rop.RECORD_EXACT_VALUE_R, box, const_box)
+
+    @arguments("box", "box")
+    def opimpl_record_exact_value_i(self, box, const_box):
+        return self._record_exact_value(rop.RECORD_EXACT_VALUE_I, box, const_box)
+
+    def _record_exact_value(self, opnum, box, const_box):
+        invalid = False
+        if isinstance(const_box, Const):
+            if not isinstance(box, Const):
+                self.execute(opnum, box, const_box)
+                return
+            elif box.same_constant(const_box):
+                return
+            invalid = True # really an interpreter programming error
+            error = "record_exact_value with two different constant, this is a bug!"
+        else:
+            error = "record_exact_value with non-constant second argument, ignored"
+        if have_debug_prints():
+            if len(self.metainterp.framestack) >= 2:
+                # caller of ll_record_exact_value
+                name = self.metainterp.framestack[-2].jitcode.name
+            else:
+                name = self.jitcode.name
+            loc = self.metainterp.jitdriver_sd.warmstate.get_location_str(self.greenkey)
+            debug_print(error, name, loc)
+        if invalid:
+            raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+
 
     @arguments("box")
     def _opimpl_any_return(self, box):
@@ -1627,10 +1694,17 @@ class MIFrame(object):
         from rpython.rlib.rvmprof import cintf
         cintf.jit_rvmprof_code(leaving, box_unique_id.getint())
 
+    @arguments()
+    def opimpl_live(self):
+        self.pc += OFFSET_SIZE
+
     def handle_rvmprof_enter_on_resume(self):
         code = self.bytecode
         position = self.pc
         opcode = ord(code[position])
+        if opcode == self.metainterp.staticdata.op_live:
+            position += SIZE_LIVE_OP
+            opcode = ord(code[position])
         if opcode == self.metainterp.staticdata.op_rvmprof_code:
             arg1 = self.registers_i[ord(code[position + 1])].getint()
             arg2 = self.registers_i[ord(code[position + 2])].getint()
@@ -2007,6 +2081,7 @@ class MetaInterpStaticData(object):
             name, argcodes = key.split('/')
             opimpl = _get_opimpl_method(name, argcodes)
             self.opcode_implementations[value] = opimpl
+        self.op_live = insns.get('live/', -1)
         self.op_catch_exception = insns.get('catch_exception/L', -1)
         self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
 
@@ -2029,6 +2104,7 @@ class MetaInterpStaticData(object):
         self.setup_descrs(asm.descrs)
         self.setup_indirectcalltargets(asm.indirectcalltargets)
         self.setup_list_of_addr2name(asm.list_of_addr2name)
+        self.liveness_info = "".join(asm.all_liveness)
         #
         self.jitdrivers_sd = codewriter.callcontrol.jitdrivers_sd
         self.virtualref_info = codewriter.callcontrol.virtualref_info
@@ -2277,6 +2353,9 @@ class MetaInterp(object):
             position = frame.pc    # <-- just after the insn that raised
             if position < len(code):
                 opcode = ord(code[position])
+                if opcode == self.staticdata.op_live: # live, skip it
+                    position += SIZE_LIVE_OP
+                    opcode = ord(code[position])
                 if opcode == self.staticdata.op_catch_exception:
                     # found a 'catch_exception' instruction;
                     # jump to the handler
@@ -2330,14 +2409,18 @@ class MetaInterp(object):
                                            lltype.nullptr(llmemory.GCREF.TO))
         else:
             guard_op = self.history.record(opnum, moreargs, None)
-        self.capture_resumedata(resumepc)
+        after_residual_call = (opnum == rop.GUARD_EXCEPTION or
+                               opnum == rop.GUARD_NO_EXCEPTION or
+                               opnum == rop.GUARD_NOT_FORCED or
+                               opnum == rop.GUARD_ALWAYS_FAILS)
+        self.capture_resumedata(resumepc, after_residual_call)
         # ^^^ records extra to history
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
         # count
         #self.attach_debug_info(guard_op)
         return guard_op
 
-    def capture_resumedata(self, resumepc=-1):
+    def capture_resumedata(self, resumepc, after_residual_call=False):
         virtualizable_boxes = None
         if (self.jitdriver_sd.virtualizable_info is not None or
             self.jitdriver_sd.greenfield_info is not None):
@@ -2349,7 +2432,8 @@ class MetaInterp(object):
             if resumepc >= 0:
                 frame.pc = resumepc
         resume.capture_resumedata(self.framestack, virtualizable_boxes,
-                                  self.virtualref_boxes, self.history.trace)
+                                  self.virtualref_boxes, self.history.trace,
+                                  after_residual_call)
         if self.framestack:
             self.framestack[-1].pc = saved_pc
 

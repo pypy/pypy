@@ -134,6 +134,14 @@ class TestUnicodeObject:
         w_b = encode_object(self.space, self.space.newutf8("abc", 3), "ascii", "strict")
         assert self.space.bytes_w(w_b) == "abc"
 
+    def test_utf8_ascii_encode_shortcut_ascii(self, monkeypatch):
+        from rpython.rlib import rutf8
+        from pypy.objspace.std.unicodeobject import encode_object
+        monkeypatch.setattr(rutf8, "check_utf8", None)
+        for enc in ["utf-8", "UTF-8", "utf8"]:
+            w_b = encode_object(self.space, self.space.newutf8("abc", 3), enc, "strict")
+            assert self.space.bytes_w(w_b) == "abc"
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
@@ -815,6 +823,10 @@ class AppTestUnicodeString:
         raises(UnicodeDecodeError, b'\xf4\x90\x80\x80'.decode, 'utf-8')
         # CESU-8
         raises(UnicodeDecodeError, b'\xed\xa0\xbc\xed\xb2\xb1'.decode, 'utf-8')
+
+    def test_encode_fast_path_bug_position(self):
+        info = raises(UnicodeEncodeError, "ää\ud800".encode, "utf-8")
+        assert info.value.start == 2 # used to be 4
 
     def test_codecs_errors(self):
         # Error handling (encoding)

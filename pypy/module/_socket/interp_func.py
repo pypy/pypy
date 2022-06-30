@@ -153,7 +153,7 @@ def getnameinfo(space, w_sockaddr, flags):
         host, servport = rsocket.getnameinfo(addr, flags)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.newtuple([space.newtext(host), space.newtext(servport)])
+    return space.newtuple2(space.newtext(host), space.newtext(servport))
 
 @unwrap_spec(fd=int)
 def dup(space, fd):
@@ -179,10 +179,10 @@ def socketpair(space, family=rsocket.socketpair_default_family,
                                           inheritable=False)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.newtuple([
+    return space.newtuple2(
         W_Socket(space, sock1),
         W_Socket(space, sock2)
-    ])
+    )
 
 # The following 4 functions refuse all negative numbers.
 # They also check that the argument is not too large, but note that

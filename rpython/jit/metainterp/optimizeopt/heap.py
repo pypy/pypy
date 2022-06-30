@@ -479,11 +479,16 @@ class OptHeap(Optimization):
     def force_all_lazy_sets(self):
         items = self.cached_fields.items()
         if not we_are_translated():
+            # stability for tests
             items.sort(key=str, reverse=True)
         for descr, cf in items:
             cf.force_lazy_set(self, descr)
         for submap in self.cached_arrayitems.itervalues():
-            for index, cf in submap.iteritems():
+            items = submap.items()
+            if not we_are_translated():
+                # stability for tests
+                items.sort(key=lambda item: item[0])
+            for index, cf in items:
                 cf.force_lazy_set(self, None)
 
     def force_lazy_sets_for_guard(self):

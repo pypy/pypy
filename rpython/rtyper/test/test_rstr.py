@@ -151,6 +151,38 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(fn, [ch])
             assert res == fn(ch)
 
+    def test_char_index_0(self):
+        def fn(c):
+            return c[0]
+        x = self.interpret(fn, [self.constchar(65)])
+        assert x == chr(65)
+        def f():
+            return ord(fn('a')) + ord(fn('b'))
+        t, typer, fgraph = self.gengraph(f, [], backendopt=True)
+        # all constant folded
+        assert not summary(fgraph)
+
+        def fn(c):
+            return c[-1] # not optimized, works anyway
+        x = self.interpret(fn, [self.constchar(65)])
+        assert x == chr(65)
+
+    def test_char_index_0_checked(self):
+        constchar = self.constchar
+        errorres = constchar(ord('?'))
+        def fn(c):
+            try:
+                return c[0]
+            except IndexError:
+                return errorres
+        x = self.interpret(fn, [constchar(65)])
+        assert x == constchar(65)
+        def f():
+            return ord(fn(constchar(65))) + ord(constchar(66))
+        t, typer, fgraph = self.gengraph(f, [], backendopt=True)
+        # all constant folded
+        assert not summary(fgraph)
+
     def test_isdigit(self):
         const = self.const
 

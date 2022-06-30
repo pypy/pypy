@@ -2,7 +2,7 @@ import math
 import operator
 import sys
 
-from rpython.rlib import rarithmetic, rfloat
+from rpython.rlib import rarithmetic, rfloat, jit
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
 from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
@@ -437,7 +437,7 @@ class W_FloatObject(W_Root):
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_hash(self, space):
-        h = _hash_float(space, self.floatval)
+        h = _hash_float(self.floatval)
         return space.newint(h)
 
     def descr_format(self, space, w_spec):
@@ -650,7 +650,7 @@ class W_FloatObject(W_Root):
         w_num = space.newlong_from_rbigint(num)
         w_den = space.newlong_from_rbigint(den)
         # Try to return int
-        return space.newtuple([space.int(w_num), space.int(w_den)])
+        return space.newtuple2(space.int(w_num), space.int(w_den))
 
     def descr_hex(self, space):
         """float.hex() -> string
@@ -771,8 +771,8 @@ def _remove_underscores(string):
         raise ValueError
     return "".join(res)
 
-
-def _hash_float(space, v):
+@jit.elidable
+def _hash_float(v):
     if not isfinite(v):
         if math.isinf(v):
             return HASH_INF if v > 0 else -HASH_INF

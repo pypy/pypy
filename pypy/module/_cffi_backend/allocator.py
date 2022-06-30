@@ -25,7 +25,7 @@ class W_Allocator(W_Root):
             else:
                 ptr = lltype.malloc(rffi.CCHARP.TO, datasize,
                                     flavor='raw', zero=False)
-            w_res = cdataobj.W_CDataNewStd(space, ptr, ctype, length)
+            w_res = cdataobj.W_CDataNewStd(space, ptr, ctype, length, datasize)
             rgc.add_memory_pressure(datasize, w_res)
             return w_res
         else:

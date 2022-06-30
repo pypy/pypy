@@ -40,6 +40,13 @@ def braindead_deindent(self):
 
 py.code.Source.deindent = braindead_deindent
 
+def get_marker(item, name):
+    try:
+        return item.get_closest_marker(name=name)
+    except AttributeError:
+        # pytest < 3.6
+        return item.get_marker(name=name)
+
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 

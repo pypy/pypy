@@ -20,7 +20,6 @@ This object may be accessed either as a tuple of
     nswap,inblock,oublock,msgsnd,msgrcv,nsignals,nvcsw,nivcsw)
 or via the attributes ru_utime, ru_stime, ru_maxrss, and so on."""
 
-    __metaclass__ = _structseq.structseqtype
     name = "resource.struct_rusage"
 
     ru_utime = _structseq.structseqfield(0,    "user time used")

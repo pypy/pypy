@@ -7,7 +7,6 @@
 #ifdef _MSC_VER
 #include <math.h>
 #include <float.h>
-#define copysign _copysign
 #endif
 
 #ifdef __cplusplus

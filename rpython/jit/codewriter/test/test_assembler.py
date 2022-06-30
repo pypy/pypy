@@ -1,3 +1,4 @@
+import pytest
 import py, struct, sys
 from rpython.jit.codewriter.assembler import Assembler, AssemblerError
 from rpython.jit.codewriter.flatten import SSARepr, Label, TLabel, Register
@@ -90,6 +91,7 @@ def test_assemble_cast_consts():
     ssarepr = SSARepr("test")
     S = lltype.GcStruct('S')
     s = lltype.malloc(S)
+    np = lltype.nullptr(S)
     F = lltype.FuncType([], lltype.Signed)
     f = lltype.functionptr(F, 'f')
     ssarepr.insns = [
@@ -97,20 +99,27 @@ def test_assemble_cast_consts():
         ('int_return', Constant(unichr(0x1234), lltype.UniChar)),
         ('int_return', Constant(f, lltype.Ptr(F))),
         ('ref_return', Constant(s, lltype.Ptr(S))),
+        ('ref_return', Constant(np, lltype.Ptr(S))),
+        ('ref_return', Constant(s, lltype.Ptr(S))),
+        ('ref_return', Constant(np, lltype.Ptr(S))),
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
     assert jitcode.code == ("\x00\x58"
                             "\x01\xFF"
                             "\x01\xFE"
-                            "\x02\xFF")
+                            "\x02\xFF"
+                            "\x02\xFE"
+                            "\x02\xFF"
+                            "\x02\xFE")
     assert assembler.insns == {'int_return/c': 0,
                                'int_return/i': 1,
                                'ref_return/r': 2}
     f_int = ptr2int(f)
     assert jitcode.constants_i == [0x1234, f_int]
     s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-    assert jitcode.constants_r == [s_gcref]
+    np_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, np)
+    assert jitcode.constants_r == [s_gcref, np_gcref]
 
 def test_assemble_loop():
     ssarepr = SSARepr("test")
@@ -217,21 +226,23 @@ def test_liveness():
     i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
     ssarepr.insns = [
         ('int_add', i0, Constant(10, lltype.Signed), '->', i1),
-        ('-live-', i0, i1),
-        ('-live-', i1, i2),
+        ('-live-', i0, i1, i2),
         ('int_add', i0, Constant(3, lltype.Signed), '->', i2),
         ('-live-', i2),
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
     assert jitcode.code == ("\x00\x00\x0A\x01"   # ends at 4
-                            "\x00\x00\x03\x02")  # ends at 8
-    assert assembler.insns == {'int_add/ic>i': 0}
-    for i in range(8):
-        if i != 4:
-            py.test.raises(MissingLiveness, jitcode._live_vars, i)
-    assert jitcode._live_vars(4) == '%i0 %i1 %i2'
-    assert jitcode._live_vars(8) == '%i2'
+                            "\x01\x00\x00"
+                            "\x00\x00\x03\x02"  # ends at 13
+                            "\x01\x04\x00")
+    assert assembler.insns == {'int_add/ic>i': 0, 'live/': 1}
+    all_liveness = "".join(assembler.all_liveness)
+    op_live = assembler.insns['live/']
+    with pytest.raises(MissingLiveness):
+        jitcode._live_vars(0, all_liveness, op_live)
+    assert jitcode._live_vars(4, all_liveness, op_live) == '%i0 %i1 %i2'
+    assert jitcode._live_vars(11, all_liveness, op_live) == '%i2'
 
 def test_assemble_error_string_constant():
     ssarepr = SSARepr("test")

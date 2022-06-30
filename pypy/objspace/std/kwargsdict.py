@@ -1,17 +1,13 @@
 """dict implementation specialized for keyword argument dicts.
 
-Based on two lists containing unwrapped key value pairs.
+Based on two lists containing key value pairs.
 """
 
 from rpython.rlib import jit, rerased, objectmodel, rutf8
 
 from pypy.objspace.std.dictmultiobject import (
     DictStrategy, EmptyDictStrategy, ObjectDictStrategy, UnicodeDictStrategy,
-    create_iterator_classes)
-
-
-def _wrapkey(space, key):
-    return space.newtext(key)
+    create_iterator_classes, W_DictObject)
 
 
 class EmptyKwargsDictStrategy(EmptyDictStrategy):
@@ -21,17 +17,15 @@ class EmptyKwargsDictStrategy(EmptyDictStrategy):
         w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
+    def copy(self, w_dict):
+        dstorage = self.unerase(w_dict.dstorage)
+        return W_DictObject(self.space, self, self.get_empty_storage())
+
 
 class KwargsDictStrategy(DictStrategy):
     erase, unerase = rerased.new_erasing_pair("kwargsdict")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
-
-    def wrap(self, key):
-        return _wrapkey(self.space, key)
-
-    def unwrap(self, wrapped):
-        return self.space.text_w(wrapped)
 
     def get_empty_storage(self):
         d = ([], [])
@@ -46,39 +40,38 @@ class KwargsDictStrategy(DictStrategy):
 
     def setitem(self, w_dict, w_key, w_value):
         if self.is_correct_type(w_key):
-            self.setitem_str(w_dict, self.unwrap(w_key), w_value)
+            self.setitem_correct(w_dict, w_key, w_value)
             return
         else:
             self.switch_to_object_strategy(w_dict)
             w_dict.setitem(w_key, w_value)
 
-    def setitem_str(self, w_dict, key, w_value):
-        self._setitem_str_indirection(w_dict, key, w_value)
+    def setitem_correct(self, w_dict, w_key, w_value):
+        self._setitem_correct_indirection(w_dict, w_key, w_value)
 
-    @jit.look_inside_iff(lambda self, w_dict, key, w_value:
-            jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
-    def _setitem_str_indirection(self, w_dict, key, w_value):
-        keys, values_w = self.unerase(w_dict.dstorage)
-        for i in range(len(keys)):
-            if keys[i] == key:
+    @jit.look_inside_iff(lambda self, w_dict, w_key, w_value:
+            jit.isconstant(self.length(w_dict)) and jit.isconstant(w_key))
+    def _setitem_correct_indirection(self, w_dict, w_key, w_value):
+        keys_w, values_w = self.unerase(w_dict.dstorage)
+        for i in range(len(keys_w)):
+            if keys_w[i].eq_w(w_key):
                 values_w[i] = w_value
                 break
         else:
             # limit the size so that the linear searches don't become too long
-            if len(keys) >= 16:
+            if len(keys_w) >= 16:
                 self.switch_to_unicode_strategy(w_dict)
-                w_dict.setitem_str(key, w_value)
+                w_dict.setitem(w_key, w_value)
             else:
-                keys.append(key)
+                keys_w.append(w_key)
                 values_w.append(w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
         if self.is_correct_type(w_key):
-            key = self.unwrap(w_key)
-            w_result = self.getitem_str(w_dict, key)
+            w_result = self.getitem_correct(w_dict, w_key)
             if w_result is not None:
                 return w_result
-            self.setitem_str(w_dict, key, w_default)
+            self.setitem_correct(w_dict, w_key, w_default)
             return w_default
         else:
             self.switch_to_object_strategy(w_dict)
@@ -92,22 +85,22 @@ class KwargsDictStrategy(DictStrategy):
     def length(self, w_dict):
         return len(self.unerase(w_dict.dstorage)[0])
 
-    def getitem_str(self, w_dict, key):
-        return self._getitem_str_indirection(w_dict, key)
+    def getitem_correct(self, w_dict, w_key):
+        return self._getitem_correct_indirection(w_dict, w_key)
 
-    @jit.look_inside_iff(lambda self, w_dict, key:
-            jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
-    def _getitem_str_indirection(self, w_dict, key):
-        keys, values_w = self.unerase(w_dict.dstorage)
-        for i in range(len(keys)):
-            if keys[i] == key:
+    @jit.look_inside_iff(lambda self, w_dict, w_key:
+            jit.isconstant(self.length(w_dict)) and jit.isconstant(w_key))
+    def _getitem_correct_indirection(self, w_dict, w_key):
+        keys_w, values_w = self.unerase(w_dict.dstorage)
+        for i in range(len(keys_w)):
+            if keys_w[i].eq_w(w_key):
                 return values_w[i]
         return None
 
     def getitem(self, w_dict, w_key):
         space = self.space
         if self.is_correct_type(w_key):
-            return self.getitem_str(w_dict, self.unwrap(w_key))
+            return self.getitem_correct(w_dict, w_key)
         elif self._never_equal_to(space.type(w_key)):
             return None
         else:
@@ -116,51 +109,51 @@ class KwargsDictStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         l = self.unerase(w_dict.dstorage)[0]
-        return self.space.newlist_text(l[:])
+        return self.space.newlist(l[:])
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage)[1][:] # to make non-resizable
 
     def items(self, w_dict):
         space = self.space
-        keys, values_w = self.unerase(w_dict.dstorage)
-        return [space.newtuple([self.wrap(keys[i]), values_w[i]])
-                for i in range(len(keys))]
+        keys_w, values_w = self.unerase(w_dict.dstorage)
+        return [space.newtuple2(keys_w[i], values_w[i])
+                for i in range(len(keys_w))]
 
     def popitem(self, w_dict):
-        keys, values_w = self.unerase(w_dict.dstorage)
-        if not keys:
+        keys_w, values_w = self.unerase(w_dict.dstorage)
+        if not keys_w:
             raise KeyError
-        key = keys.pop()
+        w_key = keys_w.pop()
         w_value = values_w.pop()
-        return self.wrap(key), w_value
+        return w_key, w_value
 
     def clear(self, w_dict):
         w_dict.dstorage = self.get_empty_storage()
 
     def switch_to_object_strategy(self, w_dict):
         strategy = self.space.fromcache(ObjectDictStrategy)
-        keys, values_w = self.unerase(w_dict.dstorage)
+        keys_w, values_w = self.unerase(w_dict.dstorage)
         d_new = strategy.unerase(strategy.get_empty_storage())
-        for i in range(len(keys)):
-            d_new[self.wrap(keys[i])] = values_w[i]
+        for i in range(len(keys_w)):
+            d_new[keys_w[i]] = values_w[i]
         w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(d_new)
 
     def switch_to_unicode_strategy(self, w_dict):
         strategy = self.space.fromcache(UnicodeDictStrategy)
-        keys, values_w = self.unerase(w_dict.dstorage)
+        keys_w, values_w = self.unerase(w_dict.dstorage)
         storage = strategy.get_empty_storage()
         w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
-        for i in range(len(keys)):
+        for i in range(len(keys_w)):
             # NB: this can turn the dict into an object strategy, if a key is
             # not ASCII!
-            w_dict.setitem_str(keys[i], values_w[i])
+            w_dict.setitem(keys_w[i], values_w[i])
 
     def view_as_kwargs(self, w_dict):
-        keys, values_w = self.unerase(w_dict.dstorage)
-        return keys[:], values_w[:] # copy to make non-resizable
+        keys_w, values_w = self.unerase(w_dict.dstorage)
+        return keys_w[:], values_w[:] # copy to make non-resizable
 
     def getiterkeys(self, w_dict):
         return iter(self.unerase(w_dict.dstorage)[0])
@@ -169,16 +162,19 @@ class KwargsDictStrategy(DictStrategy):
         return iter(self.unerase(w_dict.dstorage)[1])
 
     def getiteritems_with_hash(self, w_dict):
-        keys, values_w = self.unerase(w_dict.dstorage)
-        return ZipItemsWithHash(keys, values_w)
+        keys_w, values_w = self.unerase(w_dict.dstorage)
+        return ZipItemsWithHash(keys_w, values_w)
+
+    def copy(self, w_dict):
+        dstorage = self.unerase(w_dict.dstorage)
+        return W_DictObject(self.space, self,
+                self.erase((dstorage[0][:], dstorage[1][:])))
 
     def getiterreversed(self, w_dict):
         l = self.unerase(w_dict.dstorage)[0]
         l = l[:] # inefficient, but who cares
         l.reverse()
         return iter(l)
-
-    wrapkey = _wrapkey
 
 
 class ZipItemsWithHash(object):
@@ -196,7 +192,7 @@ class ZipItemsWithHash(object):
         if i >= len(self.list1):
             raise StopIteration
         self.i = i + 1
-        key = self.list1[i]
-        return (key, self.list2[i], objectmodel.compute_hash(key))
+        w_key = self.list1[i]
+        return (w_key, self.list2[i], w_key.hash_w())
 
 create_iterator_classes(KwargsDictStrategy)

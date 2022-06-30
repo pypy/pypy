@@ -213,6 +213,7 @@ f'{a * f"-{x()}-"}'"""
         NOTE: this is currently broken, always sets location of the first
         expression.
         """
+        # pypy3.8 does set the correct locations!
         expr = """
 a = 10
 f'{a * x()} {a * x()} {a * x()}'
@@ -262,9 +263,9 @@ f'{a * x()} {a * x()} {a * x()}'
         self.assertEqual(binop.lineno, 3)
         self.assertEqual(binop.left.lineno, 3)
         self.assertEqual(binop.right.lineno, 3)
-        self.assertEqual(binop.col_offset, 3)  # FIXME: this is wrong
-        self.assertEqual(binop.left.col_offset, 3)  # FIXME: this is wrong
-        self.assertEqual(binop.right.col_offset, 7)  # FIXME: this is wrong
+        self.assertEqual(binop.col_offset, 13)
+        self.assertEqual(binop.left.col_offset, 13)
+        self.assertEqual(binop.right.col_offset, 17)
         # check the third binop location
         binop = t.body[1].value.values[4].value
         self.assertEqual(type(binop), ast.BinOp)
@@ -274,9 +275,9 @@ f'{a * x()} {a * x()} {a * x()}'
         self.assertEqual(binop.lineno, 3)
         self.assertEqual(binop.left.lineno, 3)
         self.assertEqual(binop.right.lineno, 3)
-        self.assertEqual(binop.col_offset, 3)  # FIXME: this is wrong
-        self.assertEqual(binop.left.col_offset, 3)  # FIXME: this is wrong
-        self.assertEqual(binop.right.col_offset, 7)  # FIXME: this is wrong
+        self.assertEqual(binop.col_offset, 23)
+        self.assertEqual(binop.left.col_offset, 23)
+        self.assertEqual(binop.right.col_offset, 27)
 
     def test_ast_line_numbers_multiline_fstring(self):
         # See bpo-30465 for details.
@@ -324,8 +325,10 @@ non-important content
         self.assertEqual(binop.lineno, 4)
         self.assertEqual(binop.left.lineno, 4)
         self.assertEqual(binop.right.lineno, 6)
-        self.assertEqual(binop.col_offset, 4)
-        self.assertEqual(binop.left.col_offset, 4)
+        # the cpython value is wrong, it needs to be 3 not 4 in the next two
+        # lines
+        self.assertEqual(binop.col_offset, 3)
+        self.assertEqual(binop.left.col_offset, 3)
         self.assertEqual(binop.right.col_offset, 7)
 
     def test_docstring(self):

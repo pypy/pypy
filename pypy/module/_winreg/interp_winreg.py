@@ -643,11 +643,11 @@ value_name is a string indicating the value to query"""
                         raiseWindowsError(space, ret, 'RegQueryValueEx')
                     length = intmask(dataSize[0])
                     ret_type = intmask(retType[0])
-                    return space.newtuple([
+                    return space.newtuple2(
                         convert_from_regdata(space, dataBuf,
                                              length, ret_type),
                         space.newint(intmask(ret_type)),
-                    ])
+                    )
 
 
 def CreateKey(space, w_hkey, w_subkey):

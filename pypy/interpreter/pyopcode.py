@@ -210,7 +210,7 @@ class __extend__(pyframe.PyFrame):
                     next_instr = r_uint(self.space.int_w(unroller_or_int))
                 return next_instr
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
-                return self.jump_absolute(oparg, ec)
+                return self.jump_absolute(oparg, next_instr, ec)
             elif opcode == opcodedesc.FOR_ITER.index:
                 next_instr = self.FOR_ITER(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_FORWARD.index:
@@ -886,29 +886,27 @@ class __extend__(pyframe.PyFrame):
         self.space.delattr(w_obj, w_attributename)
 
     def STORE_GLOBAL(self, nameindex, next_instr):
-        varname = self.getname_u(nameindex)
-        w_newvalue = self.popvalue()
-        self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        #varname = self.getname_u(nameindex)
+        #w_newvalue = self.popvalue()
+        #self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        from pypy.objspace.std.celldict import STORE_GLOBAL_cached
+        STORE_GLOBAL_cached(self, nameindex, next_instr)
 
     def DELETE_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
         self.space.delitem(self.get_w_globals(), w_varname)
 
     def LOAD_NAME(self, nameindex, next_instr):
-        w_varname = self.getname_w(nameindex)
-        varname = self.space.text_w(w_varname)
+        from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
         if self.getorcreatedebug().w_locals is not self.get_w_globals():
+            w_varname = self.getname_w(nameindex)
+            varname = self.space.text_w(w_varname)
             w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
                                               varname)
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
-        # fall-back
-        w_value = self._load_global(varname)
-        if w_value is None:
-            raise oefmt_name_error(self.space, w_varname,
-                        "name %R is not defined")
-        self.pushvalue(w_value)
+        LOAD_GLOBAL_cached(self, nameindex, next_instr)
 
     @always_inline
     def _load_global(self, varname):
@@ -916,6 +914,10 @@ class __extend__(pyframe.PyFrame):
         if w_value is None:
             # not in the globals, now look in the built-ins
             w_value = self.get_builtin().getdictvalue(self.space, varname)
+            if w_value is None:
+                # XXX re-wrapping
+                w_varname = self.space.newtext(varname)
+                self._load_global_failed(w_varname)
         return w_value
 
     @dont_inline
@@ -927,11 +929,8 @@ class __extend__(pyframe.PyFrame):
 
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
-        w_varname = self.getname_w(nameindex)
-        w_value = self._load_global(self.space.text_w(w_varname))
-        if w_value is None:
-            self._load_global_failed(w_varname)
-        self.pushvalue(w_value)
+        from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
+        LOAD_GLOBAL_cached(self, nameindex, next_instr)
 
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_cells_stack_w[varindex] is None:
@@ -1164,7 +1163,7 @@ class __extend__(pyframe.PyFrame):
         from pypy.interpreter.reverse_debugging import jump_backward
         jump_backward(self, jumpto)
 
-    def jump_absolute(self, jumpto, ec):
+    def jump_absolute(self, jumpto, next_instr, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
         if self.space.reverse_debugging:
@@ -1178,34 +1177,26 @@ class __extend__(pyframe.PyFrame):
     def POP_JUMP_IF_FALSE(self, target, next_instr, ec):
         w_value = self.popvalue()
         if not self.space.is_true(w_value):
-            if target < next_instr:
-                return self.jump_absolute(target, ec)
-            return target
+            return self.jump_absolute(target, next_instr, ec)
         return next_instr
 
     def POP_JUMP_IF_TRUE(self, target, next_instr, ec):
         w_value = self.popvalue()
         if self.space.is_true(w_value):
-            if target < next_instr:
-                return self.jump_absolute(target, ec)
-            return target
+            return self.jump_absolute(target, next_instr, ec)
         return next_instr
 
     def JUMP_IF_FALSE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if not self.space.is_true(w_value):
-            if target < next_instr:
-                return self.jump_absolute(target, ec)
-            return target
+            return self.jump_absolute(target, next_instr, ec)
         self.popvalue()
         return next_instr
 
     def JUMP_IF_TRUE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if self.space.is_true(w_value):
-            if target < next_instr:
-                return self.jump_absolute(target, ec)
-            return target
+            return self.jump_absolute(target, next_instr, ec)
         self.popvalue()
         return next_instr
 
@@ -1339,7 +1330,7 @@ class __extend__(pyframe.PyFrame):
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
         if n_keywords:
-            keywords = [None] * n_keywords
+            keyword_names_w = [None] * n_keywords
             keywords_w = [None] * n_keywords
             while True:
                 n_keywords -= 1
@@ -1347,11 +1338,10 @@ class __extend__(pyframe.PyFrame):
                     break
                 w_value = self.popvalue()
                 w_key = self.popvalue()
-                key = self.space.text_w(w_key)
-                keywords[n_keywords] = key
+                keyword_names_w[n_keywords] = w_key
                 keywords_w[n_keywords] = w_value
         else:
-            keywords = None
+            keyword_names_w = None
             keywords_w = None
         if has_vararg:
             w_star = self.popvalue()
@@ -1359,7 +1349,7 @@ class __extend__(pyframe.PyFrame):
             w_star = None
         arguments = self.popvalues(n_arguments)
         w_function  = self.popvalue()
-        args = self.argument_factory(arguments, keywords, keywords_w, w_star,
+        args = self.argument_factory(arguments, keyword_names_w, keywords_w, w_star,
                                      w_starstar, w_function=w_function)
         if self.get_is_being_profiled() and function.is_builtin_code(w_function):
             w_result = self.space.call_args_and_c_profile(self, w_function,
@@ -1377,6 +1367,7 @@ class __extend__(pyframe.PyFrame):
         finally:
             self.dropvalues(nargs + 1)
         self.pushvalue(w_result)
+
     @jit.unroll_safe
     def CALL_FUNCTION_KW(self, n_arguments, next_instr):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
@@ -1385,17 +1376,17 @@ class __extend__(pyframe.PyFrame):
         # the immutability of the tuple is lost
         w_tup_varnames = space.interp_w(W_AbstractTupleObject, self.popvalue())
         n_keywords = space.len_w(w_tup_varnames)
-        keywords = [None] * n_keywords
+        keyword_names_w = [None] * n_keywords
         keywords_w = [None] * n_keywords
         for i in range(n_keywords):
-            keywords[i] = space.text_w(w_tup_varnames.getitem(space, i))
+            keyword_names_w[i] = w_tup_varnames.getitem(space, i)
             w_value = self.peekvalue(n_keywords - 1 - i)
             keywords_w[i] = w_value
         self.dropvalues(n_keywords)
         n_arguments -= n_keywords
         arguments = self.popvalues(n_arguments)
         w_function  = self.popvalue()
-        args = self.argument_factory(arguments, keywords, keywords_w, None, None,
+        args = self.argument_factory(arguments, keyword_names_w, keywords_w, None, None,
                                      w_function=w_function)
         if self.get_is_being_profiled() and function.is_builtin_code(w_function):
             w_result = self.space.call_args_and_c_profile(self, w_function,

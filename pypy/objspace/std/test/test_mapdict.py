@@ -328,6 +328,10 @@ def test_attr_immutability(monkeypatch):
     assert obj.checkstorage == [10, 30]
     assert obj.map.ever_mutated == True
     assert obj.map.back.ever_mutated == False
+    assert obj.map.repr().startswith(
+        "<PlainAttribute b DICT 1 "
+        "<PlainAttribute a DICT 0 immutable "
+        "<DictTerminator w_cls=")
 
     indices = []
 
@@ -439,7 +443,6 @@ def test_special():
     assert obj.getweakref() is None
     obj.setweakref(space, lifeline1)
     obj.delweakref()
-
 
 
 def test_slots():
@@ -1271,6 +1274,17 @@ class AppTestWithMapDict(object):
         res = list(d.items())
         assert res == [('x', 'a'), ('y', 1), ('z', 'b')]
 
+    def test_copy(self):
+        class A(object):
+            pass
+
+        # an instance with unboxed storage
+        a = A()
+        a.x = "a"
+        a.y = 1
+        a.z = "b"
+        assert a.__dict__.copy() == {"x": "a", "y": 1, "z": "b"}
+
     def test_iter_reversed(self):
         class A(object):
             pass
@@ -1771,3 +1785,20 @@ class TestMapDictImplementationUsingnewdict(BaseTestRDictImplementation):
     def test_setdefault_fast(self):
         # mapdict can't pass this, which is fine
         pass
+
+def test_correct_method_sharing(space):
+    from pypy.objspace.std import bytesobject, objectobject, unicodeobject
+    # see long comment in typedef.py, _getusercls
+
+    # first check that random subclasses share code
+    w_bytessub = space.call_function(space.w_type, space.newtext("bytessub"), space.newtuple([space.w_bytes]), space.newdict())
+    w_unicodesub = space.call_function(space.w_type, space.newtext("unicodesub"), space.newtuple([space.w_unicode]), space.newdict())
+    w_inst1 = space.allocate_instance(bytesobject.W_BytesObject, w_bytessub)
+    w_inst2 = space.allocate_instance(unicodeobject.W_UnicodeObject, w_unicodesub)
+    assert w_inst1.getclass.im_func is w_inst2.getclass.im_func
+
+    # but object doesn't!
+    w_objectsub = space.call_function(space.w_type, space.newtext("objectsub"), space.newtuple([space.w_object]), space.newdict())
+    w_inst2 = space.allocate_instance(objectobject.W_ObjectObject, w_objectsub)
+    assert w_inst1.getclass.im_func is not w_inst2.getclass.im_func
+

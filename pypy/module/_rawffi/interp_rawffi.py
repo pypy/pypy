@@ -14,7 +14,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import rutf8
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, dict_to_switch
 import rpython.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
@@ -62,6 +62,8 @@ TYPEMAP_FLOAT_LETTERS = "fd" # XXX long doubles are not propperly supported in
 if _MS_WINDOWS:
     TYPEMAP['X'] = ffi_type_pointer
     TYPEMAP_PTR_LETTERS += 'X'
+
+TYPEMAP_FUNCTION = dict_to_switch(TYPEMAP)
 
 def size_alignment(ffi_type):
     return intmask(ffi_type.c_size), intmask(ffi_type.c_alignment)
@@ -166,8 +168,8 @@ class W_CDLL(W_Root):
         self.w_cache = space.newdict()
         self.space = space
 
-    @unwrap_spec(flags=int)
-    def ptr(self, space, w_name, w_argtypes, w_restype, flags=FUNCFLAG_CDECL):
+    @unwrap_spec(flags=int, variadic_args=int)
+    def ptr(self, space, w_name, w_argtypes, w_restype, flags=FUNCFLAG_CDECL, variadic_args=0):
         """ Get a pointer for function name with provided argtypes
         and restype
         """
@@ -200,7 +202,7 @@ class W_CDLL(W_Root):
 
             try:
                 ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
-                                              flags)
+                                              flags, variadic_args)
             except KeyError:
                 raise oefmt(space.w_AttributeError,
                             "No symbol %s found in library %s",
@@ -212,7 +214,7 @@ class W_CDLL(W_Root):
             ordinal = space.int_w(w_name)
             try:
                 ptr = self.cdll.getrawpointer_byordinal(ordinal, ffi_argtypes,
-                                                        ffi_restype, flags)
+                                                        ffi_restype, flags, variadic_args)
             except KeyError:
                 raise oefmt(space.w_AttributeError,
                             "No symbol %d found in library %s",
@@ -342,8 +344,8 @@ class W_DataShape(W_Root):
 
     @unwrap_spec(n=int)
     def descr_size_alignment(self, space, n=1):
-        return space.newtuple([space.newint(self.size * n),
-                               space.newint(self.alignment)])
+        return space.newtuple2(space.newint(self.size * n),
+                               space.newint(self.alignment))
 
 
 class W_DataInstance(W_Root):
@@ -583,7 +585,7 @@ def _create_new_accessor(func_name, name):
             raise oefmt(space.w_ValueError, "Expecting string of length one")
         tp_letter = tp_letter[0] # fool annotator
         try:
-            return space.newint(intmask(getattr(TYPEMAP[tp_letter], name)))
+            return space.newint(intmask(getattr(TYPEMAP_FUNCTION(tp_letter), name)))
         except KeyError:
             raise oefmt(space.w_ValueError, "Unknown type specification %s",
                         tp_letter)

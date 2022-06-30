@@ -126,8 +126,10 @@ class X86_64_XMMRegisterManager(X86XMMRegisterManager):
     save_around_call_regs = all_regs
 
 class X86_64_WIN_XMMRegisterManager(X86_64_XMMRegisterManager):
-    # xmm15 reserved for scratch use
+    # xmm5 reserved for scratch use
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4]
+    # experiment: do more SciPy tests pass if saving all xmm registers?
+    # save_around_call_regs = all_regs
 
 class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
@@ -1326,11 +1328,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # Do we have a temp var?
         if IS_X86_64:
             tmpreg = X86_64_SCRATCH_REG
-            if WIN64:
-                # XXX perhaps use this for all_regs and do xmmtmp = None?
-                xmmtmp = xmm5
-            else:
-                xmmtmp = X86_64_XMM_SCRATCH_REG
+            xmmtmp = X86_64_XMM_SCRATCH_REG
         else:
             tmpreg = None
             xmmtmp = None

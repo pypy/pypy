@@ -17,7 +17,7 @@ typedef struct {
 struct _typeobject;
 typedef void (*freefunc)(void *);
 typedef void (*destructor)(PyObject *);
-typedef int (*printfunc)(PyObject *, FILE *, int);
+typedef Py_ssize_t printfunc;
 typedef PyObject *(*getattrfunc)(PyObject *, char *);
 typedef PyObject *(*getattrofunc)(PyObject *, PyObject *);
 typedef int (*setattrfunc)(PyObject *, char *, PyObject *);

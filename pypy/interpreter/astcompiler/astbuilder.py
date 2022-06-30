@@ -423,13 +423,15 @@ class ASTBuilder(object):
         else:
             return self.space.w_None, False
 
-    def handle_for_stmt(self, for_node, is_async):
+    def handle_for_stmt(self, for_node, is_async, posnode=None):
         self.check_feature(
             is_async,
             version=5,
             msg="Async for loops are only supported in Python 3.5 and greater",
             n=for_node
         )
+        if posnode is None:
+            posnode = for_node
         target_node = for_node.get_child(1)
         target_as_exprlist = self.handle_exprlist(target_node, ast.Store)
         if target_node.num_children() == 1:
@@ -444,9 +446,9 @@ class ASTBuilder(object):
         else:
             otherwise = None
         if is_async:
-            return build(ast.AsyncFor, target, expr, body, otherwise, type_comment, for_node)
+            return build(ast.AsyncFor, target, expr, body, otherwise, type_comment, posnode)
         else:
-            return build(ast.For, target, expr, body, otherwise, type_comment, for_node)
+            return build(ast.For, target, expr, body, otherwise, type_comment, posnode)
 
     def handle_except_clause(self, exc, body):
         test = None
@@ -497,22 +499,24 @@ class ASTBuilder(object):
             target = None
         return ast.withitem(test, target)
 
-    def handle_with_stmt(self, with_node, is_async):
+    def handle_with_stmt(self, with_node, is_async, posnode=None):
         self.check_feature(
             is_async,
             version=5,
             msg="Async with statements are only supported in Python 3.5 and greater",
             n=with_node
         )
+        if posnode is None:
+            posnode = with_node
         body = self.handle_suite(with_node.get_child(-1))
         type_comment, has_type_comment = self.handle_type_comment(with_node.get_child(-2))
         num_children = with_node.num_children() - has_type_comment
         items = [self.handle_with_item(with_node.get_child(i))
                  for i in range(1, num_children-2, 2)]
         if is_async:
-            return build(ast.AsyncWith, items, body, type_comment, with_node)
+            return build(ast.AsyncWith, items, body, type_comment, posnode)
         else:
-            return build(ast.With, items, body, type_comment, with_node)
+            return build(ast.With, items, body, type_comment, posnode)
 
     def handle_classdef(self, classdef_node, decorators=None):
         name_node = classdef_node.get_child(1)
@@ -587,9 +591,9 @@ class ASTBuilder(object):
         if ch.type == syms.funcdef:
             return self.handle_funcdef_impl(ch, 1, posnode=node)
         elif ch.type == syms.with_stmt:
-            return self.handle_with_stmt(ch, 1)
+            return self.handle_with_stmt(ch, 1, posnode=node)
         elif ch.type == syms.for_stmt:
-            return self.handle_for_stmt(ch, 1)
+            return self.handle_for_stmt(ch, 1, posnode=node)
         else:
             raise AssertionError("invalid async statement")
 
@@ -604,10 +608,6 @@ class ASTBuilder(object):
             node = self.handle_async_funcdef(definition, decorators)
         else:
             raise AssertionError("unkown decorated")
-        node.lineno = decorated_node.get_lineno()
-        node.col_offset = decorated_node.get_column()
-        node.end_lineno = decorated_node.get_end_lineno()
-        node.end_col_offset = decorated_node.get_end_column()
         return node
 
     def handle_decorators(self, decorators_node):
@@ -619,9 +619,15 @@ class ASTBuilder(object):
         if decorator_node.num_children() == 3:
             dec = dec_name
         elif decorator_node.num_children() == 5:
-            dec = build(ast.Call, dec_name, None, None, decorator_node)
+            dec = ast.Call(
+                dec_name, None, None, dec_name.lineno, dec_name.col_offset,
+                decorator_node.get_end_lineno(),
+                decorator_node.get_end_column())
         else:
-            dec = self.handle_call(decorator_node.get_child(3), dec_name)
+            dec = self.handle_call(
+                decorator_node.get_child(3), dec_name,
+                lpar_node=decorator_node.get_child(2),
+                rpar_node=decorator_node.get_child(4))
         return dec
 
     def handle_dotted_name(self, dotted_name_node):
@@ -1228,7 +1234,10 @@ class ASTBuilder(object):
             if trailer_node.num_children() == 2:
                 return build(ast.Call, left_expr, None, None, trailer_node)
             else:
-                return self.handle_call(trailer_node.get_child(1), left_expr)
+                return self.handle_call(
+                    trailer_node.get_child(1), left_expr,
+                    lpar_node=first_child,
+                    rpar_node=trailer_node.get_child(2))
         elif first_child.type == tokens.DOT:
             attr = self.new_identifier(trailer_node.get_child(1).get_value())
             return build(ast.Attribute, left_expr, attr, ast.Load, trailer_node)
@@ -1254,7 +1263,8 @@ class ASTBuilder(object):
             tup = build(ast.Tuple, elts, ast.Load, middle)
             return build(ast.Subscript, left_expr, ast.Index(tup), ast.Load, middle)
 
-    def handle_call(self, args_node, callable_expr, genexp_allowed=True):
+    def handle_call(self, args_node, callable_expr, genexp_allowed=True,
+                    lpar_node=None, rpar_node=None):
         arg_count = 0 # position args + iterable args unpackings
         keyword_count = 0 # keyword args + keyword args unpackings
         generator_count = 0
@@ -1326,7 +1336,9 @@ class ASTBuilder(object):
                     doublestars_count += 1
                 elif argument.get_child(1).type == syms.comp_for:
                     # the lone generator expression
-                    args.append(self.handle_genexp(argument))
+                    arg = self.handle_genexp(argument)
+                    arg.copy_location(lpar_node, rpar_node)
+                    args.append(arg)
                 else:
                     # a keyword argument
                     tks = expr_node.flatten()

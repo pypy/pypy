@@ -78,14 +78,21 @@ def print_(*args, sep=' ', end='\n', file=None, flush=False):
         fp = sys.stdout
         if fp is None:
             return
+    if sep is None:
+        sep = ' '
     if not isinstance(sep, str):
         raise TypeError("sep must be None or a string")
+    if end is None:
+        end = '\n'
     if not isinstance(end, str):
         raise TypeError("end must be None or a string")
-    for i, arg in enumerate(args):
-        if i:
-            fp.write(sep)
-        fp.write(str(arg))
+    if len(args) == 1:
+        fp.write(str(args[0]))
+    else:
+        for i, arg in enumerate(args):
+            if i:
+                fp.write(sep)
+            fp.write(str(arg))
     fp.write(end)
     if flush:
         fp.flush()

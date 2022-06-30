@@ -2,6 +2,7 @@
 
 import functools
 
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rbigint import SHIFT, _load_unsigned_digit, rbigint
@@ -75,7 +76,7 @@ class W_AbstractLongObject(W_AbstractIntObject):
                                        newformat.LONG_KIND)
 
     def descr_hash(self, space):
-        return space.newint(_hash_long(space, self.asbigint()))
+        return space.newint(_hash_long(self.asbigint()))
 
     def descr_str(self, space):
         res = self.asbigint().str()
@@ -389,7 +390,7 @@ class W_LongObject(W_AbstractLongObject):
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "integer division or modulo by zero")
-        return space.newtuple([newlong(space, div), newlong(space, mod)])
+        return space.newtuple2(newlong(space, div), newlong(space, mod))
 
     def _int_divmod(self, space, other):
         try:
@@ -397,7 +398,7 @@ class W_LongObject(W_AbstractLongObject):
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
-        return space.newtuple([newlong(space, div), newlong(space, mod)])
+        return space.newtuple2(newlong(space, div), newlong(space, mod))
 
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod, _int_divmod)
 
@@ -408,7 +409,8 @@ class W_LongObject(W_AbstractLongObject):
 # us apply extra optimizations to the hash function.
 _HASH_SHIFT = SHIFT % HASH_BITS
 
-def _hash_long(space, v):
+@jit.elidable
+def _hash_long(v):
     i = v.numdigits() - 1
     if i == -1:
         return 0

@@ -4,17 +4,24 @@ and posixmodule for example uses.
 """
 from __pypy__ import hidden_applevel
 
+make_none = lambda self: None
+
 class structseqfield(object):
     """Definition of field of a structseq.  The 'index' is for positional
     tuple-like indexing.  Fields whose index is after a gap in the numbers
     cannot be accessed like this, but only by name.
     """
-    def __init__(self, index, doc=None, default=lambda self: None):
-        self.__name__ = '?'
-        self.index    = index    # patched to None if not positional
-        self._index   = index
+    __name__ = "?"
+
+    def __init__(self, index, doc=None, default=None):
+        # these attributes should not be overwritten after setting them for the
+        # first time, to make them immutable
+        # self.__name__ is set later
+        self.index    = index
+        # self.is_positional = True/False, set later
         self.__doc__  = doc
-        self._default = default
+        if default: # also written below
+            self._default = default
 
     def __repr__(self):
         return '<field %s (%s)>' % (self.__name__,
@@ -24,7 +31,7 @@ class structseqfield(object):
     def __get__(self, obj, typ=None):
         if obj is None:
             return self
-        if self.index is None:
+        if not self.is_positional:
             return obj.__dict__[self.__name__]
         else:
             return obj[self.index]
@@ -40,29 +47,27 @@ class structseqtype(type):
         fields_by_index = {}
         for name, field in dict.items():
             if isinstance(field, structseqfield):
-                assert field._index not in fields_by_index
-                fields_by_index[field._index] = field
+                assert field.index not in fields_by_index
+                fields_by_index[field.index] = field
                 field.__name__ = name
-        n_fields = len(fields_by_index)
-        dict['n_fields'] = n_fields
+        dict['n_fields'] = len(fields_by_index)
 
         extra_fields = sorted(fields_by_index.items())
         n_sequence_fields = 0
-        invis_fields = []
-        if 'n_sequence_fields' in dict:
-            n_sequence_fields = dict['n_sequence_fields']
-            extra_fields = extra_fields[n_sequence_fields:]
-        else:
-            while extra_fields and extra_fields[0][0] == n_sequence_fields:
-                extra_fields.pop(0)
-                n_sequence_fields += 1
+        while extra_fields and extra_fields[0][0] == n_sequence_fields:
+            num, field = extra_fields.pop(0)
+            field.is_positional = True
+            assert not hasattr(field, "_default")
+            n_sequence_fields += 1
 
         dict['n_sequence_fields'] = n_sequence_fields
         dict['n_unnamed_fields'] = 0     # no fully anonymous fields in PyPy
 
         extra_fields = [field for index, field in extra_fields]
-        for i,field in enumerate(extra_fields):
-            field.index = None     # no longer relevant
+        for field in extra_fields:
+            field.is_positional = False
+            if not hasattr(field, "_default"):
+                field._default = make_none
 
         dict['_extra_fields'] = tuple(extra_fields)
         if '__new__' not in dict:
@@ -71,51 +76,61 @@ class structseqtype(type):
         dict['__setattr__'] = structseq_setattr
         dict['__repr__'] = structseq_repr
         dict['__str__'] = structseq_repr
-        dict['_name'] = dict.get('name', '')
+        dict['_name'] = dict.get('name', classname)
         return type.__new__(metacls, classname, (tuple,), dict)
 
 
 builtin_dict = dict
 
-def structseq_new(cls, sequence, dict={}):
-    dict = builtin_dict(dict)
-    # visible fields
-    visible_count = cls.n_sequence_fields
+MISSING = object()
+
+def structseq_new(cls, sequence, dict=MISSING):
+    if dict is MISSING:
+        dict = {}
+    elif not isinstance(dict, builtin_dict):
+        raise TypeError(cls._name + " takes a dict as second arg, if any")
+    N = cls.n_sequence_fields
     # total fields (unnamed are not yet supported, extra fields not included)
-    real_count = cls.n_fields
-    if visible_count == 1:
+    if N == 1:
         sequence = tuple([sequence])
     else:
         sequence = tuple(sequence)
-    length = len(sequence)
-    if length < visible_count:
-        if visible_count < real_count:
+    if len(sequence) < N:
+        if N < cls.n_fields:
             msg = "at least"
         else:
             msg = "exactly"
         raise TypeError("expected a sequence with %s %d items. has %d" % (
-            msg, visible_count, length))
-    if length > visible_count:
-        if length > real_count:
-            if visible_count < real_count:
+            msg, N, len(sequence)))
+    if len(sequence) > N:
+        if len(sequence) > cls.n_fields:
+            if N < cls.n_fields:
                 msg = "at most"
             else:
                 msg = "exactly"
             raise TypeError("expected a sequence with %s %d items. has %d" \
-                            % (msg, real_count, length))
-        for field, value in zip(cls._extra_fields, sequence[visible_count:]):
-            name = field.__name__
+                            % (msg, cls.n_fields, len(sequence)))
+        result = tuple.__new__(cls, sequence[:N])
+        difference = len(sequence) - N
+        for i in range(len(sequence) - N):
+            name = cls._extra_fields[i].__name__
             if name in dict:
                 raise TypeError("duplicate value for %r" % (name,))
-            dict[name] = value
-        sequence = sequence[:visible_count]
-    result = tuple.__new__(cls, sequence)
-    object.__setattr__(result, '__dict__', dict)
-    for field in cls._extra_fields:
+            result.__dict__[name] = sequence[N + i]
+        startindex = len(sequence) - N
+        if startindex == len(cls._extra_fields):
+            return result
+    else:
+        result = tuple.__new__(cls, sequence)
+        startindex = 0
+    for i in range(startindex, len(cls._extra_fields)):
+        field = cls._extra_fields[i]
         name = field.__name__
-        if name not in dict:
-            dict[name] = field._default(result)
-
+        try:
+            value = dict[name]
+        except KeyError:
+            value = field._default(result)
+        result.__dict__[name] = value
     return result
 
 def structseq_reduce(self):
@@ -130,13 +145,11 @@ def structseq_setattr(self, attr, value):
 
 def structseq_repr(self):
     fields = {}
-    visible_count = self.n_sequence_fields
     for field in type(self).__dict__.values():
-        if isinstance(field, structseqfield) and \
-           field._index <= visible_count:
-            fields[field._index] = field
+        if isinstance(field, structseqfield):
+            fields[field.index] = field
     parts = ["%s=%r" % (fields[index].__name__, value)
-            for index, value in enumerate(self[:visible_count])]
+             for index, value in enumerate(self)]
     return "%s(%s)" % (self._name, ", ".join(parts))
 
 

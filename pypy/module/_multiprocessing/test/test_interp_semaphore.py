@@ -2,7 +2,6 @@ import pytest
 import time
 import sys
 from rpython.rlib.rgil import yield_thread
-from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
 from pypy.module.thread.os_lock import _set_sentinel
 from pypy.module.thread.os_thread import start_new_thread

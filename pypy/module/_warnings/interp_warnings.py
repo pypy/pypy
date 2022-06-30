@@ -1,5 +1,4 @@
-
-from rpython.rlib import rutf8
+from rpython.rlib import rutf8, jit
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
@@ -84,6 +83,7 @@ def is_internal_frame(space, frame):
     # unhappy about, but I can't do anything more than say "bah"
     return "importlib" in code.co_filename and "_bootstrap" in code.co_filename
 
+@jit.unroll_safe # usually runs once, or a small number of times
 def next_external_frame(space, frame):
     ec = space.getexecutioncontext()
     while True:
@@ -91,8 +91,8 @@ def next_external_frame(space, frame):
         if frame is None or not is_internal_frame(space, frame):
             return frame
 
-def setup_context(space, stacklevel):
-    # Setup globals and lineno
+@jit.look_inside_iff(lambda space, stacklevel: jit.isconstant(stacklevel))
+def _get_frame(space, stacklevel):
     ec = space.getexecutioncontext()
 
     # Direct copy of CPython's logic, which has grown its own notion of
@@ -106,6 +106,11 @@ def setup_context(space, stacklevel):
         while stacklevel > 1 and frame:
             frame = next_external_frame(space, frame)
             stacklevel -= 1
+    return frame
+
+def setup_context(space, stacklevel):
+    # Setup globals and lineno
+    frame = _get_frame(space, stacklevel)
 
     if frame:
         w_globals = frame.get_w_globals()
@@ -186,7 +191,7 @@ def get_once_registry(space):
     return w_registry
 
 def update_registry(space, w_registry, w_text, w_category):
-    w_key = space.newtuple([w_text, w_category])
+    w_key = space.newtuple2(w_text, w_category)
     return already_warned(space, w_registry, w_key, should_set=True)
 
 def already_warned(space, w_registry, w_key, should_set=False):

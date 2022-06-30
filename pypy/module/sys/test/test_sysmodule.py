@@ -187,6 +187,7 @@ class AppTestAppSysTests:
         assert isinstance(li.nan, int)
         assert isinstance(li.imag, int)
         assert isinstance(li.algorithm, str)
+        assert str(li).startswith('sys.hash_info(')
 
     def test_sys_flags(self):
         import sys
@@ -233,6 +234,8 @@ class AppTestAppSysTests:
     def test_audit(self):
         import sys
         sys.audit("os.chdir", "bla", 1, 2, 12) # does not crash
+
+
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {
         "usemodules": ["struct"],

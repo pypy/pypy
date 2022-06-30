@@ -144,6 +144,13 @@ class AppTestFilter:
         assert list(filter(lambda x: x != "a", "a small text")) == list(" smll text")
         assert list(filter(lambda x: x < 20, [3, 33, 5, 55])) == [3, 5]
 
+    def test_filter_reduce(self):
+        it = iter([1, 2, 3, 4, 5])
+        f = filter(None, it)
+        assert f.__reduce__() == (filter, (None, it))
+        f = filter(bool, it)
+        assert f.__reduce__() == (filter, (bool, it))
+
 class AppTestFilter2:
     def test_filter(self):
         it = filter(None, [])

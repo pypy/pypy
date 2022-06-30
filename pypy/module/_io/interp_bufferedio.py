@@ -635,6 +635,7 @@ class BufferedMixin:
         return size
 
     def _fill_buffer(self, space):
+        self._check_closed(space)
         start = self.read_end
         if start == -1:
             start = 0

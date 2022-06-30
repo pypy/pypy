@@ -567,8 +567,9 @@ class TestAstBuilder:
         assert len(fn.args.kw_defaults) == 1
         assert isinstance(fn.args.kw_defaults[0], ast.Constant)
         input = "def f(p1, *, **k1):  pass"
-        exc = pytest.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "named arguments must follows bare *"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
+        assert excinfo.value.msg == "named arguments must follows bare *"
 
     def test_posonly_arguments(self):
         fn = self.get_first_stmt("def f(a, b, c, /, arg): pass")
@@ -613,49 +614,78 @@ class TestAstBuilder:
         fundef3 += "lastarg):\n  pass\n"
         self.get_first_stmt(fundef3)
 
-    def test_decorators(self):
-        to_examine = (("def f(): pass", ast.FunctionDef),
-                      ("class x: pass", ast.ClassDef))
-        for stmt, node in to_examine:
-            definition = self.get_first_stmt("@dec\n%s" % (stmt,))
-            assert isinstance(definition, node)
-            assert len(definition.decorator_list) == 1
-            dec = definition.decorator_list[0]
+    @pytest.mark.parametrize(['stmt', 'node'], [
+        ("def f(): pass", ast.FunctionDef),
+        ("class x: pass", ast.ClassDef),
+    ])
+    def test_decorators(self, stmt, node):
+        definition = self.get_first_stmt("@dec\n%s" % (stmt,))
+        assert isinstance(definition, node)
+        assert len(definition.decorator_list) == 1
+        dec = definition.decorator_list[0]
+        assert isinstance(dec, ast.Name)
+        assert dec.id == "dec"
+        assert dec.ctx == ast.Load
+        assert definition.lineno == 2
+        assert dec.lineno == 1
+        #
+        definition = self.get_first_stmt("@mod.hi.dec\n%s" % (stmt,))
+        assert len(definition.decorator_list) == 1
+        dec = definition.decorator_list[0]
+        assert isinstance(dec, ast.Attribute)
+        assert dec.ctx == ast.Load
+        assert dec.attr == "dec"
+        assert isinstance(dec.value, ast.Attribute)
+        assert dec.value.attr == "hi"
+        assert isinstance(dec.value.value, ast.Name)
+        assert dec.value.value.id == "mod"
+        assert definition.lineno == 2
+        assert dec.lineno == 1
+        #
+        definition = self.get_first_stmt("@dec\n@dec2\n%s" % (stmt,))
+        assert len(definition.decorator_list) == 2
+        for dec in definition.decorator_list:
             assert isinstance(dec, ast.Name)
-            assert dec.id == "dec"
             assert dec.ctx == ast.Load
-            definition = self.get_first_stmt("@mod.hi.dec\n%s" % (stmt,))
-            assert len(definition.decorator_list) == 1
-            dec = definition.decorator_list[0]
-            assert isinstance(dec, ast.Attribute)
-            assert dec.ctx == ast.Load
-            assert dec.attr == "dec"
-            assert isinstance(dec.value, ast.Attribute)
-            assert dec.value.attr == "hi"
-            assert isinstance(dec.value.value, ast.Name)
-            assert dec.value.value.id == "mod"
-            definition = self.get_first_stmt("@dec\n@dec2\n%s" % (stmt,))
-            assert len(definition.decorator_list) == 2
-            for dec in definition.decorator_list:
-                assert isinstance(dec, ast.Name)
-                assert dec.ctx == ast.Load
-            assert definition.decorator_list[0].id == "dec"
-            assert definition.decorator_list[1].id == "dec2"
-            definition = self.get_first_stmt("@dec()\n%s" % (stmt,))
-            assert len(definition.decorator_list) == 1
-            dec = definition.decorator_list[0]
-            assert isinstance(dec, ast.Call)
-            assert isinstance(dec.func, ast.Name)
-            assert dec.func.id == "dec"
-            assert dec.args is None
-            assert dec.keywords is None
-            definition = self.get_first_stmt("@dec(a, b)\n%s" % (stmt,))
-            assert len(definition.decorator_list) == 1
-            dec = definition.decorator_list[0]
-            assert isinstance(dec, ast.Call)
-            assert dec.func.id == "dec"
-            assert len(dec.args) == 2
-            assert dec.keywords is None
+        assert definition.decorator_list[0].id == "dec"
+        assert definition.decorator_list[0].lineno == 1
+        assert definition.decorator_list[1].id == "dec2"
+        assert definition.decorator_list[1].lineno == 2
+        assert definition.lineno == 3
+        #
+        definition = self.get_first_stmt("@dec()\n%s" % (stmt,))
+        assert len(definition.decorator_list) == 1
+        dec = definition.decorator_list[0]
+        assert isinstance(dec, ast.Call)
+        assert isinstance(dec.func, ast.Name)
+        assert dec.func.id == "dec"
+        assert dec.args is None
+        assert dec.keywords is None
+        assert definition.lineno == 2
+        assert dec.lineno == 1
+        #
+        definition = self.get_first_stmt("@dec(a, b)\n%s" % (stmt,))
+        assert len(definition.decorator_list) == 1
+        dec = definition.decorator_list[0]
+        assert isinstance(dec, ast.Call)
+        assert dec.func.id == "dec"
+        assert len(dec.args) == 2
+        assert dec.keywords is None
+        assert definition.lineno == 2
+        assert dec.lineno == 1
+        #
+        definition = self.get_first_stmt("@dec(a for a in b)\n%s" % (stmt,))
+        assert len(definition.decorator_list) == 1
+        dec = definition.decorator_list[0]
+        assert isinstance(dec, ast.Call)
+        assert dec.func.id == "dec"
+        assert dec.keywords is None
+        assert definition.lineno == 2
+        assert dec.lineno == 1
+        assert len(dec.args) == 1
+        assert isinstance(dec.args[0], ast.GeneratorExp)
+        assert dec.args[0].col_offset == 4
+
 
     def test_annassign(self):
         simple = self.get_first_stmt('a: int')
@@ -685,40 +715,42 @@ class TestAstBuilder:
         assert isinstance(subscript, ast.AnnAssign)
         assert isinstance(subscript.target, ast.Subscript)
 
-        exc_tuple = pytest.raises(SyntaxError, self.get_ast, 'a, b: int').value
-        assert exc_tuple.msg == "only single target (not tuple) can be annotated"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast('a, b: int')
+        assert excinfo.value.msg == "only single target (not tuple) can be annotated"
 
-        exc_list = pytest.raises(SyntaxError, self.get_ast, '[]: int').value
-        assert exc_list.msg == "only single target (not list) can be annotated"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast('[]: int')
+        assert excinfo.value.msg == "only single target (not list) can be annotated"
 
-        exc_bad_target = pytest.raises(SyntaxError, self.get_ast, '{}: int').value
-        assert exc_bad_target.msg == "illegal target for annotation"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast('{}: int')
+        assert excinfo.value.msg == "illegal target for annotation"
 
 
-    def test_augassign(self):
-        aug_assigns = (
-            ("+=", ast.Add),
-            ("-=", ast.Sub),
-            ("/=", ast.Div),
-            ("//=", ast.FloorDiv),
-            ("%=", ast.Mod),
-            ("@=", ast.MatMult),
-            ("<<=", ast.LShift),
-            (">>=", ast.RShift),
-            ("&=", ast.BitAnd),
-            ("|=", ast.BitOr),
-            ("^=", ast.BitXor),
-            ("*=", ast.Mult),
-            ("**=", ast.Pow)
-        )
-        for op, ast_type in aug_assigns:
-            input = "x %s 4" % (op,)
-            assign = self.get_first_stmt(input)
-            assert isinstance(assign, ast.AugAssign)
-            assert assign.op is ast_type
-            assert isinstance(assign.target, ast.Name)
-            assert assign.target.ctx == ast.Store
-            assert isinstance(assign.value, ast.Constant)
+    @pytest.mark.parametrize("op, ast_type", [
+        ("+=", ast.Add),
+        ("-=", ast.Sub),
+        ("/=", ast.Div),
+        ("//=", ast.FloorDiv),
+        ("%=", ast.Mod),
+        ("@=", ast.MatMult),
+        ("<<=", ast.LShift),
+        (">>=", ast.RShift),
+        ("&=", ast.BitAnd),
+        ("|=", ast.BitOr),
+        ("^=", ast.BitXor),
+        ("*=", ast.Mult),
+        ("**=", ast.Pow)
+    ])
+    def test_augassign(self, op, ast_type):
+        input = "x %s 4" % (op,)
+        assign = self.get_first_stmt(input)
+        assert isinstance(assign, ast.AugAssign)
+        assert assign.op is ast_type
+        assert isinstance(assign.target, ast.Name)
+        assert assign.target.ctx == ast.Store
+        assert isinstance(assign.value, ast.Constant)
 
     def test_assign(self):
         assign = self.get_first_stmt("hi = 32")
@@ -985,7 +1017,8 @@ class TestAstBuilder:
 
     def test_flufl(self):
         source = "x <> y"
-        pytest.raises(SyntaxError, self.get_ast, source)
+        with pytest.raises(SyntaxError):
+            self.get_ast(source)
         comp = self.get_first_expr(source,
                                    flags=consts.CO_FUTURE_BARRY_AS_BDFL)
         assert isinstance(comp, ast.Compare)
@@ -1098,21 +1131,26 @@ class TestAstBuilder:
         call = self.get_first_expr("f(x for x in y)")
         assert len(call.args) == 1
         assert isinstance(call.args[0], ast.GeneratorExp)
+        assert call.args[0].col_offset == 1
         input = "f(x for x in y, 1)"
-        exc = pytest.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "Generator expression must be parenthesized if not " \
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
+        assert excinfo.value.msg == "Generator expression must be parenthesized if not " \
             "sole argument"
         input = "f(x for x in y, )"
-        exc = pytest.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "Generator expression must be parenthesized if not " \
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
+        assert excinfo.value.msg == "Generator expression must be parenthesized if not " \
             "sole argument"
         many_args = ", ".join("x%i" % i for i in range(256))
         input = "f(%s)" % (many_args,)
         self.get_ast(input) # doesn't crash any more
-        exc = pytest.raises(SyntaxError, self.get_ast, "f((a+b)=c)").value
-        assert exc.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
-        exc = pytest.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
-        assert exc.msg == "keyword argument repeated: 'a'"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast("f((a+b)=c)")
+        assert excinfo.value.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast("f(a=c, a=d)")
+        assert excinfo.value.msg == "keyword argument repeated: 'a'"
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast("f((x)=1)")
         assert excinfo.value.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
@@ -1227,7 +1265,8 @@ class TestAstBuilder:
         s = self.get_first_expr("b'hi' b' implicitly' b' extra'")
         assert isinstance(s, ast.Constant)
         assert space.eq_w(s.value, space.newbytes("hi implicitly extra"))
-        pytest.raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
+        with pytest.raises(SyntaxError):
+            self.get_first_expr("b'hello' 'world'")
         sentence = u"Die Männer ärgern sich!"
         source = u"# coding: utf-7\nstuff = '%s'" % (sentence,)
         info = pyparse.CompileInfo("<test>", "exec")
@@ -1305,8 +1344,8 @@ class TestAstBuilder:
         assert space.eq_w(get_num("2"), space.wrap(2))
         assert space.eq_w(get_num("13j"), space.wrap(13j))
         assert space.eq_w(get_num("13J"), space.wrap(13J))
-        assert space.eq_w(get_num("0o53"), space.wrap(053))
-        assert space.eq_w(get_num("0o0053"), space.wrap(053))
+        assert space.eq_w(get_num("0o53"), space.wrap(0o53))
+        assert space.eq_w(get_num("0o0053"), space.wrap(0O53))
         for num in ("0x53", "0X53", "0x0000053", "0X00053"):
             assert space.eq_w(get_num(num), space.wrap(0x53))
         assert space.eq_w(get_num("0Xb0d2"), space.wrap(0xb0d2))
@@ -1314,19 +1353,15 @@ class TestAstBuilder:
         assert space.eq_w(get_num("0"), space.wrap(0))
         assert space.eq_w(get_num("00000"), space.wrap(0))
         for num in ("0o53", "0O53", "0o0000053", "0O00053"):
-            assert space.eq_w(get_num(num), space.wrap(053))
+            assert space.eq_w(get_num(num), space.wrap(0o53))
         for num in ("0b00101", "0B00101", "0b101", "0B101"):
             assert space.eq_w(get_num(num), space.wrap(5))
 
-        pytest.raises(SyntaxError, self.get_ast, "0x")
-        pytest.raises(SyntaxError, self.get_ast, "0b")
-        pytest.raises(SyntaxError, self.get_ast, "0o")
-        pytest.raises(SyntaxError, self.get_ast, "32L")
-        pytest.raises(SyntaxError, self.get_ast, "32l")
-        pytest.raises(SyntaxError, self.get_ast, "0L")
-        pytest.raises(SyntaxError, self.get_ast, "-0xAAAAAAL")
-        pytest.raises(SyntaxError, self.get_ast, "053")
-        pytest.raises(SyntaxError, self.get_ast, "00053")
+    @pytest.mark.parametrize('literal',
+        ["0x", "0b", "0o", "32L", "32l", "0L", "-0xAAAAAAL", "053", "00053"])
+    def test_bad_number(self, literal):
+        with pytest.raises(SyntaxError):
+            self.get_ast(literal)
 
     def check_comprehension(self, brackets, ast_type):
         def brack(s):
@@ -1334,6 +1369,8 @@ class TestAstBuilder:
         gen = self.get_first_expr(brack("x for x in y"))
         assert isinstance(gen, ast_type)
         assert isinstance(gen.elt, ast.Name)
+        assert gen.col_offset == 0
+        assert gen.end_col_offset == 14
         assert gen.elt.ctx == ast.Load
         assert len(gen.generators) == 1
         comp = gen.generators[0]
@@ -1422,8 +1459,10 @@ class TestAstBuilder:
         assert isinstance(if2, ast.Name)
 
     def test_cpython_issue12983(self):
-        pytest.raises(SyntaxError, self.get_ast, r"""b'\x'""")
-        pytest.raises(SyntaxError, self.get_ast, r"""b'\x0'""")
+        with pytest.raises(SyntaxError):
+            self.get_ast(r"""b'\x'""")
+        with pytest.raises(SyntaxError):
+            self.get_ast(r"""b'\x0'""")
 
     def test_matmul(self):
         mod = self.get_ast("a @ b")
@@ -1435,7 +1474,7 @@ class TestAstBuilder:
         assert isinstance(expr.left, ast.Name)
         assert isinstance(expr.right, ast.Name)
         # imatmul is tested earlier search for @=
-    
+
     @pytest.mark.parametrize('with_async_hacks', [False, True])
     def test_asyncFunctionDef(self, with_async_hacks):
         mod = self.get_ast("async def f():\n await something()", with_async_hacks=with_async_hacks)
@@ -1456,7 +1495,7 @@ class TestAstBuilder:
         assert isinstance(func, ast.Name)
         assert func.id == 'something'
         assert func.ctx == ast.Load
-    
+
     @pytest.mark.parametrize('with_async_hacks', [False, True])
     def test_asyncFor(self, with_async_hacks):
         mod = self.get_ast("async def f():\n async for e in i: 1\n else: 2", with_async_hacks=with_async_hacks)
@@ -1469,6 +1508,8 @@ class TestAstBuilder:
         assert len(asyncdef.body) == 1
         asyncfor = asyncdef.body[0]
         assert isinstance(asyncfor, ast.AsyncFor)
+        assert asyncfor.lineno == 2
+        assert asyncfor.col_offset == 1
         assert isinstance(asyncfor.target, ast.Name)
         assert isinstance(asyncfor.iter, ast.Name)
         assert len(asyncfor.body) == 1
@@ -1477,7 +1518,7 @@ class TestAstBuilder:
         assert len(asyncfor.orelse) == 1
         assert isinstance(asyncfor.orelse[0], ast.Expr)
         assert isinstance(asyncfor.orelse[0].value, ast.Constant)
-    
+
     @pytest.mark.parametrize('with_async_hacks', [False, True])
     def test_asyncWith(self, with_async_hacks):
         mod = self.get_ast("async def f():\n async with a as b: 1", with_async_hacks=with_async_hacks)
@@ -1491,6 +1532,8 @@ class TestAstBuilder:
         asyncwith = asyncdef.body[0]
         assert isinstance(asyncwith, ast.AsyncWith)
         assert len(asyncwith.items) == 1
+        assert asyncwith.lineno == 2
+        assert asyncwith.col_offset == 1
         asyncitem = asyncwith.items[0]
         assert isinstance(asyncitem, ast.withitem)
         assert isinstance(asyncitem.context_expr, ast.Name)
@@ -1893,8 +1936,8 @@ class TestAstBuilder:
         assert tree.end_col_offset == len(s)
         assert tree.col_offset == 0
         gen = tree.args[0]
-        assert gen.end_col_offset == len(s) - 1
-        assert gen.col_offset == 2
+        assert gen.end_col_offset == len(s)
+        assert gen.col_offset == 1
         assert fdef.get_source_segment(s) == s
 
         s = "(x for x in y)"

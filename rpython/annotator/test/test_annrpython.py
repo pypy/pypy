@@ -3314,6 +3314,54 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         py.test.raises(AnnotatorError, a.build_types, f, [])
 
+    def test_access_direct_eq_False(self):
+        from rpython.rlib import jit, debug
+        class Root:
+            def f(self):
+                debug.check_not_access_directly(self)
+        class Frame(Root):
+            _virtualizable_ = []
+            def meth(self):
+                self = jit.hint(self, access_directly=False)
+                return self.f()
+        class C(Root):
+            def meth(self):
+                return self.f()
+
+        def f(n):
+            if n == 0:
+                x = Frame()
+                x = jit.hint(x, access_directly=True)
+            else:
+                x = C()
+            x.meth()
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+
+    def test_access_direct_no_virtualizable(self):
+        from rpython.rlib import jit, debug
+        class Root:
+            def f(self):
+                debug.check_not_access_directly(self)
+        class Frame(Root):
+            # not a virtualizble
+            def meth(self):
+                return self.f()
+        class C(Root):
+            def meth(self):
+                return self.f()
+
+        def f(n):
+            if n == 0:
+                x = Frame()
+                x = jit.hint(x, access_directly=True, fresh_virtualizable=True)
+                x.foo = 1
+            else:
+                x = C()
+            x.meth()
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+
     def test_weakref(self):
         import weakref
 
@@ -3734,6 +3782,16 @@ class TestAnnotateTestCase:
         def f():
             for i, x in enumerate(['a', 'b', 'c', 'd']):
                 if i == 2:
+                    return x
+            return '?'
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeChar)
+
+    def test_enumerate_startindex(self):
+        def f():
+            for i, x in enumerate(['a', 'b', 'c', 'd'], 5):
+                if i == 7:
                     return x
             return '?'
         a = self.RPythonAnnotator()

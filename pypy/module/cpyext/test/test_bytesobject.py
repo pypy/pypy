@@ -8,7 +8,7 @@ from pypy.module.cpyext.bytesobject import (
     new_empty_str, PyBytesObject, _PyBytes_Resize, PyBytes_Concat,
     _PyBytes_Eq, PyBytes_ConcatAndDel, _PyBytes_Join)
 from pypy.module.cpyext.api import (PyObjectP, PyObject, Py_ssize_tP,
-                  Py_buffer, Py_bufferP, generic_cpy_call)
+    Py_buffer, Py_bufferP, generic_cpy_call, PyVarObject)
 from pypy.module.cpyext.pyobject import decref, from_ref, make_ref
 from pypy.module.cpyext.buffer import PyObject_AsCharBuffer
 from pypy.module.cpyext.unicodeobject import (PyUnicode_AsEncodedObject,
@@ -490,9 +490,9 @@ class TestBytes(BaseApiTest):
 
     def test_string_buffer(self, space):
         py_str = new_empty_str(space, 10)
-        c_buf = py_str.c_ob_type.c_tp_as_buffer
-        assert c_buf
         py_obj = rffi.cast(PyObject, py_str)
+        c_buf = py_obj.c_ob_type.c_tp_as_buffer
+        assert c_buf
         size = rffi.sizeof(Py_buffer)
         ref = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw', zero=True)
         ref = rffi.cast(Py_bufferP, ref)

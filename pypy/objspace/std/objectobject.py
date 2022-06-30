@@ -107,7 +107,7 @@ class W_ObjectObject(W_Root):
 
 
 def _excess_args(__args__):
-    return bool(__args__.arguments_w) or bool(__args__.keywords)
+    return bool(__args__.arguments_w) or bool(__args__.keyword_names_w)
 
 @specialize.memo()
 def _object_new(space):

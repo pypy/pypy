@@ -179,6 +179,14 @@ class AppTestItertools(object):
             assert next(it) == x
         raises(StopIteration, next, it)
 
+    def test_filterfalse_reduce(self):
+        import itertools
+        it = iter([1, 2, 3, 4, 5])
+        f = itertools.filterfalse(None, it)
+        assert f.__reduce__() == (itertools.filterfalse, (None, it))
+        f = itertools.filterfalse(bool, it)
+        assert f.__reduce__() == (itertools.filterfalse, (bool, it))
+
     def test_filterfalse_wrongargs(self):
         import itertools
 

@@ -28,7 +28,8 @@ class BaseTestRffi:
         }
         """)
 
-        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source],
+                                      pre_include_bits=("int someexternalfunction(int);",))
         z = llexternal('someexternalfunction', [Signed], Signed,
                        compilation_info=eci)
 
@@ -89,7 +90,7 @@ class BaseTestRffi:
         assert xf() == 3
 
     def test_unicode(self):
-        eci = ExternalCompilationInfo(includes=['string.h'])
+        eci = ExternalCompilationInfo(includes=['string.h', 'wchar.h'])
         z = llexternal('wcslen', [CWCHARP], Signed, compilation_info=eci)
 
         def f():
@@ -200,7 +201,8 @@ class BaseTestRffi:
             return (l);
         }
         """
-        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source],
+                                      pre_include_bits=('int f(char**);',))
         z = llexternal('f', [CCHARPP], Signed, compilation_info=eci)
 
         def f():
@@ -222,6 +224,7 @@ class BaseTestRffi:
            char two;
            int three;
         };
+        int f(struct xx*);
         #endif
         """
         h_file = udir.join("structxx.h")
@@ -284,7 +287,7 @@ class BaseTestRffi:
 
     def test_extra_include_dirs(self):
         udir.ensure("incl", dir=True)
-        udir.join("incl", "incl.h").write("#define C 3")
+        udir.join("incl", "incl.h").write("#define C 3\nint fun();")
         c_source = py.code.Source("""
         #include <incl.h>
         int fun ()
@@ -320,6 +323,7 @@ class BaseTestRffi:
         struct stuff {
            char data[38];
         };
+        char get(struct stuff *);
         #endif /* _OPAQUE_H */
         """)
 

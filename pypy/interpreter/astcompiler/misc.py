@@ -1,5 +1,5 @@
 from pypy.interpreter import gateway
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import dict_to_switch
 from rpython.rlib.unroll import unrolling_iterable
 
 
@@ -80,22 +80,6 @@ def check_forbidden_name(space, name, node=None):
             "'async' and 'await' will become reserved keywords"
             " in Python 3.7"), space.w_DeprecationWarning)
     # XXX Warn about using True and False
-
-
-def dict_to_switch(d):
-    """Convert of dictionary with integer keys to a switch statement."""
-    def lookup(query):
-        if we_are_translated():
-            for key, value in unrolling_iteritems:
-                if key == query:
-                    return value
-            else:
-                raise KeyError
-        else:
-            return d[query]
-    lookup._always_inline_ = True
-    unrolling_iteritems = unrolling_iterable(d.iteritems())
-    return lookup
 
 
 def mangle(name, klass):

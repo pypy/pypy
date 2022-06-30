@@ -173,10 +173,11 @@ def build_class(space, w_func, w_name, __args__):
             raise
         w_namespace = space.newdict(module=True)
     else:
-        keywords = kwds_w.keys()
+        # XXX mess
+        keyword_names_w = [space.newtext(kwd) for kwd in kwds_w.keys()]
         args = Arguments(space,
                          args_w=[w_name, w_bases],
-                         keywords=keywords,
+                         keyword_names_w=keyword_names_w,
                          keywords_w=kwds_w.values())
         w_namespace = space.call_args(w_prep, args)
     if not space.ismapping_w(w_namespace):
@@ -195,10 +196,10 @@ def build_class(space, w_func, w_name, __args__):
     w_cell = frame.run()
     if bases_w is not orig_bases_w:
         space.setitem(w_namespace, space.newtext("__orig_bases__"), w_orig_bases)
-    keywords = kwds_w.keys()
+    keyword_names_w = [space.newtext(kwd) for kwd in kwds_w.keys()]
     args = Arguments(space,
                      args_w=[w_name, w_bases, w_namespace],
-                     keywords=keywords,
+                     keyword_names_w=keyword_names_w,
                      keywords_w=kwds_w.values())
     try:
         w_class = space.call_args(w_meta, args)

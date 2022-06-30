@@ -186,6 +186,8 @@ class CBuilder(object):
         defines = defines.copy()
         if self.config.translation.countmallocs:
             defines['COUNT_OP_MALLOCS'] = 1
+        if self.config.translation.countfieldaccess:
+            defines['RPY_COUNT_FIELDACCESS'] = 1
         if self.config.translation.sandbox:
             defines['RPY_SANDBOXED'] = 1
         if self.config.translation.reverse_debugger:
@@ -707,6 +709,8 @@ class SourceGenerator:
                     print >> fc, MARKER
                 print >> fc, '/***********************************************************/'
         print >> f
+        if self.database.all_field_names is not None:
+            gen_fieldstats(f, self)
 
 
 def gen_structdef(f, database):
@@ -891,3 +895,38 @@ def gen_source(database, modulename, targetdir,
     headers_to_precompile.insert(0, singleheader)
 
     return eci, filename, sg.getextrafiles(), headers_to_precompile
+
+def gen_fieldstats(f, sg):
+    with sg.write_on_maybe_separate_source(f, 'fieldstats.c') as fc:
+        print >> fc, '#include "singleheader.h"'
+        print >> fc, '#include "src/g_include.h"'
+        print >> fc, "struct rpy_access_stats_type0 rpy_access_stats = {"
+        print >> fc, ", ".join(["0"] * len(sg.database.all_field_names) * 2)
+        print >> fc, "};"
+        print >> fc, ""
+        print >> fc, "void _pypy_print_field_stats() {"
+        print >> fc, '\tPYPY_DEBUG_START("stats-fields", 0);'
+        print >> fc, '\tif (PYPY_HAVE_DEBUG_PRINTS) {'
+        for kind in "read", "write":
+            for fieldname in sorted(sg.database.all_field_names):
+                print >> fc, '\t\tfprintf(PYPY_DEBUG_FILE, "%s %s %%ld\\n", rpy_access_stats.%s_%s);' % (
+                        kind, fieldname, fieldname, kind)
+        print >> fc, '\t}'
+        print >> fc, '\tPYPY_DEBUG_STOP("stats-fields", 0);'
+        print >> fc, "}"
+
+    # XXX hack, add something to structdef.h later
+    filepath = sg.path.join('structdef.h')
+    content = filepath.read().splitlines()
+    assert content[-1] == "#endif"
+    content = content[:-1]
+    content.append("struct rpy_access_stats_type0 {")
+    for fieldname in sorted(sg.database.all_field_names):
+        content.append("\tlong %s_read;" % fieldname)
+        content.append("\tlong %s_write;" % fieldname)
+    content.append("};")
+    # XXX should go to forwarddecl really
+    content.append("RPY_EXTERN struct rpy_access_stats_type0 rpy_access_stats;")
+    content.append("RPY_EXTERN void _pypy_print_field_stats();")
+    content.append("#endif")
+    filepath.write("\n".join(content))

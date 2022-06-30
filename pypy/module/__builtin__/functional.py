@@ -187,21 +187,21 @@ def min_max_multiple_args(space, args_w, w_key, implementation_of):
 def min_max(space, args, implementation_of):
     w_key = None
     w_default = None
-    if bool(args.keywords):
-        kwds = args.keywords
-        for n in range(len(kwds)):
-            if kwds[n] == "key":
+    if bool(args.keyword_names_w):
+        kwds_w = args.keyword_names_w
+        for n in range(len(kwds_w)):
+            if space.eq_w(kwds_w[n], space.newtext("key")):
                 w_key = args.keywords_w[n]
-            elif kwds[n] == "default":
+            elif space.eq_w(kwds_w[n], space.newtext("default")):
                 w_default = args.keywords_w[n]
             else:
                 raise oefmt(space.w_TypeError,
                             "%s() got unexpected keyword argument",
                             implementation_of)
     #
-    args_w = args.arguments_w
     if space.is_w(w_key, space.w_None):
         w_key = None
+    args_w = args.arguments_w
     if len(args_w) > 1:
         if w_default is not None:
             raise oefmt(space.w_TypeError,
@@ -306,14 +306,14 @@ class W_Enumerate(W_Root):
             self.w_index = space.add(w_index, space.newint(1))
         if w_item is None:
             w_item = space.next(self.w_iter_or_list)
-        return space.newtuple([w_index, w_item])
+        return space.newtuple2(w_index, w_item)
 
     def descr___reduce__(self, space):
         w_index = self.w_index
         if w_index is None:
             w_index = space.newint(self.index)
-        return space.newtuple([space.type(self),
-                               space.newtuple([self.w_iter_or_list, w_index])])
+        return space.newtuple2(space.type(self),
+                               space.newtuple2(self.w_iter_or_list, w_index))
 
 # exported through _pickle_support
 def _make_enumerate(space, w_iter_or_list, w_index):
@@ -396,9 +396,9 @@ class W_ReversedIterator(W_Root):
                 space.newtuple([self.w_sequence]),
                 w_state])
         else:
-            return space.newtuple([
+            return space.newtuple2(
                 space.type(self),
-                space.newtuple([space.newtuple([])])])
+                space.newtuple([space.newtuple([])]))
 
     def descr___setstate__(self, space, w_state):
         self.remaining = space.int_w(w_state)
@@ -792,6 +792,8 @@ class W_Map(W_Root):
     _error_name = "map"
     _immutable_fields_ = ["w_fun", "iterators_w"]
 
+    @jit.look_inside_iff(lambda self, space, w_fun, args_w:
+            jit.isconstant(len(args_w)) and len(args_w) <= 2)
     def __init__(self, space, w_fun, args_w):
         self.space = space
         self.w_fun = w_fun
@@ -877,38 +879,68 @@ Make an iterator that computes the function using arguments from
 each of the iterables.  Stops when the shortest iterable is exhausted.""")
 
 class W_Filter(W_Root):
-    reverse = False
+    reverse = False # set to True in itertools
 
     def __init__(self, space, w_predicate, w_iterable):
         self.space = space
         if space.is_w(w_predicate, space.w_None):
-            self.no_predicate = True
+            self.w_predicate = None
         else:
-            self.no_predicate = False
             self.w_predicate = w_predicate
-        self.iterable = space.iter(w_iterable)
+        self.w_iterable = space.iter(w_iterable)
 
     def iter_w(self):
         return self
 
     def next_w(self):
-        while True:
-            w_obj = self.space.next(self.iterable)  # may raise w_StopIteration
-            if self.no_predicate:
-                pred = self.space.is_true(w_obj)
-            else:
-                w_pred = self.space.call_function(self.w_predicate, w_obj)
-                pred = self.space.is_true(w_pred)
-            if pred ^ self.reverse:
-                return w_obj
+        # unroll one iteration in case the filter mostly returns true
+        w_obj = self.space.next(self.w_iterable)  # may raise w_StopIteration
+        if self.w_predicate is None:
+            pred = self.space.is_true(w_obj)
+        else:
+            w_pred = self.space.call_function(self.w_predicate, w_obj)
+            pred = self.space.is_true(w_pred)
+        if pred ^ self.reverse:
+            return w_obj
+        # otherwise, use a jit driver
+        return _filter_jitdriver(self.space, self.w_iterable,
+                self.w_predicate, self.reverse)
 
     def descr_reduce(self, space):
         w_filter = space.getattr(space.getbuiltinmodule('builtins'),
                 space.newtext('filter'))
-        args_w = [space.w_None if self.no_predicate else self.w_predicate,
-                  self.iterable]
+        args_w = [space.w_None if self.w_predicate is None else self.w_predicate,
+                  self.w_iterable]
         return space.newtuple([w_filter, space.newtuple(args_w)])
 
+def get_printable_location(reverse, likely_pycode, greenkey):
+    return "filter [reverse=%s, %s]" % (
+            reverse, greenkey.iterator_greenkey_printable())
+
+filter_jitdriver = jit.JitDriver(name='filter',
+        greens=['reverse', 'callable_greenkey', 'greenkey'], reds='auto',
+        get_printable_location=get_printable_location)
+
+def _filter_jitdriver(space, w_iterable, w_predicate, reverse):
+    callable_greenkey = None
+    if w_predicate is not None:
+        callable_greenkey = space._try_fetch_pycode(w_predicate)
+        if callable_greenkey is None:
+            callable_greenkey = space.type(w_predicate)
+    greenkey = space.iterator_greenkey(w_iterable)
+    while True:
+        filter_jitdriver.jit_merge_point(
+                reverse=reverse,
+                callable_greenkey=callable_greenkey,
+                greenkey=greenkey)
+        w_obj = space.next(w_iterable)  # may raise w_StopIteration
+        if w_predicate is None:
+            pred = space.is_true(w_obj)
+        else:
+            w_pred = space.call_function(w_predicate, w_obj)
+            pred = space.is_true(w_pred)
+        if pred ^ reverse:
+            return w_obj
 
 def W_Filter___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_Filter, w_subtype)

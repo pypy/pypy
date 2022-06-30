@@ -672,6 +672,14 @@ def test_method_identity():
     assert x is B.m
     assert id(x) == id(B.m)
 
+def test_method_ne_NotImplemented():
+    class A(object):
+        def __ne__(self, other):
+            return "ABC"
+    meth = A.__ne__
+    assert meth.__ne__(1) is NotImplemented
+    assert (meth != A()) == "ABC"
+
 def test_posonly():
     def posonlyfunc(a, b, c, /, d):
         return (a, b, c, d)
@@ -699,3 +707,11 @@ def global_inner_has_pos_only():
 
 def test_posonly_annotations_crash():
     assert global_inner_has_pos_only().__annotations__ == {"x": int}
+
+def test_duplicate_key_kwargs():
+    def f(**d): pass
+    class A:
+        def keys(self): return ['a', 'a', 'b']
+        def __getitem__(self, key): 1
+    with pytest.raises(TypeError):
+        f(**A())

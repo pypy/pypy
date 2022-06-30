@@ -506,6 +506,7 @@ class TestMMap:
 def test_alloc_free():
     map_size = 65536
     data = alloc(map_size)
+
     for i in range(0, map_size, 171):
         data[i] = chr(i & 0xff)
     for i in range(0, map_size, 171):

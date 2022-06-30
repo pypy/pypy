@@ -31,6 +31,7 @@ from pypy.interpreter.pyparser import pygram
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
+from pypy.module.__builtin__.functional import W_ReversedIterator
 #from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.__pypy__.interp_buffer import W_Bufferable
 from rpython.rlib.entrypoint import entrypoint_lowlevel
@@ -745,6 +746,7 @@ def build_exported_objects():
         'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCWrapperObject.typedef)',
         'PyInstanceMethod_Type': 'space.gettypeobject(cpyext.classobject.InstanceMethod.typedef)',
         'PyBufferable_Type': 'space.gettypeobject(W_Bufferable.typedef)',
+        'PyReversed_Type': 'space.gettypeobject(W_ReversedIterator.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
@@ -1253,11 +1255,16 @@ def attach_c_functions(space, eci, prefix):
             link_files = link_files,
             library_dirs = library_dirs,
            )
-    state.C.flag_setters = {}
+    flag_setters = {}
     for c_name, attr in _flags:
         _, setter = rffi.CExternVariable(rffi.INT_real, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
-        state.C.flag_setters[attr] = setter
+        flag_setters[attr] = setter
+    unroll_flag_setters = unrolling_iterable(flag_setters.items())
+    def init_flags(space):
+        for attr, setter in unroll_flag_setters:
+            setter(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
+    state.C.init_flags = init_flags
 
 
 def init_function(func):
@@ -1273,11 +1280,9 @@ def run_bootstrap_functions(space):
         func(space)
 
 @init_function
-def init_flags(space):
+def call_init_flags(space):
     state = space.fromcache(State)
-    for _, attr in _flags:
-        f = state.C.flag_setters[attr]
-        f(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
+    state.C.init_flags(space)
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call

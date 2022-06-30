@@ -59,7 +59,10 @@ class FutureTest(unittest.TestCase):
     def test_badfuture7(self):
         with self.assertRaises(SyntaxError) as cm:
             from test import badsyntax_future7
-        self.check_syntax_error(cm.exception, "badsyntax_future7", 3, 53)
+        # PyPy reports 54, which puts the caret under the f in from __future__
+        # CPython reports 53, which puts the caret just befort the f
+        # self.check_syntax_error(cm.exception, "badsyntax_future7", 3, 53)
+        self.check_syntax_error(cm.exception, "badsyntax_future7", 3, 54)
 
     def test_badfuture8(self):
         with self.assertRaises(SyntaxError) as cm:

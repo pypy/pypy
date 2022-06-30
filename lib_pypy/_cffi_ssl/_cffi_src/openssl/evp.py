@@ -60,6 +60,9 @@ int EVP_DigestFinal_ex(EVP_MD_CTX *, unsigned char *, unsigned int *);
 int EVP_DigestFinalXOF(EVP_MD_CTX *, unsigned char *, size_t);
 const EVP_MD *EVP_get_digestbyname(const char *);
 int EVP_MD_size(const EVP_MD *);
+void EVP_MD_do_all(void (*) (const EVP_MD *, const char *, const char *, void *), void *);
+void EVP_MD_do_all_provided(OSSL_LIB_CTX *, void (*)(EVP_MD *, void *), void *);
+int EVP_MD_nid(const EVP_MD *);
 
 EVP_PKEY *EVP_PKEY_new(void);
 void EVP_PKEY_free(EVP_PKEY *);
@@ -201,6 +204,10 @@ static const long Cryptography_HAS_EVP_PKEY_get_set_tls_encodedpoint = 0;
 size_t (*EVP_PKEY_get1_tls_encodedpoint)(EVP_PKEY *, unsigned char **) = NULL;
 int (*EVP_PKEY_set1_tls_encodedpoint)(EVP_PKEY *, const unsigned char *,
                                       size_t) = NULL;
+#endif
+
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_300
+void (*EVP_MD_do_all_provided)(OSSL_LIB_CTX *, void (*)(EVP_MD *, void *), void *) = NULL;
 #endif
 
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_111

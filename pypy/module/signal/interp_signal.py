@@ -325,7 +325,7 @@ def double_from_timeval(tv):
 def itimer_retval(space, val):
     w_value = space.newfloat(double_from_timeval(val.c_it_value))
     w_interval = space.newfloat(double_from_timeval(val.c_it_interval))
-    return space.newtuple([w_value, w_interval])
+    return space.newtuple2(w_value, w_interval)
 
 
 class Cache:

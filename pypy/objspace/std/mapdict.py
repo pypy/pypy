@@ -5,11 +5,12 @@ from rpython.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 from rpython.rlib.longlong2float import longlong2float, float2longlong
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.typedef import _share_methods
 from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string,
-    W_DictObject, BytesDictStrategy, UnicodeDictStrategy
+    W_DictObject, UnicodeDictStrategy
 )
 from pypy.objspace.std.typeobject import MutableCell
 
@@ -460,8 +461,9 @@ class PlainAttribute(AbstractAttribute):
         return new_obj
 
     def repr(self):
-        return "<PlainAttribute %s %s %s %s>" % (
+        return "<PlainAttribute %s %s %s%s %s>" % (
                 self.name, attrkind_name(self.attrkind), self.storageindex,
+                " immutable" if not self.ever_mutated else "",
                 self.back.repr())
 
 
@@ -587,9 +589,11 @@ class UnboxedPlainAttribute(PlainAttribute):
                 unboxed[self.listindex] = val
 
     def repr(self):
-        return "<UnboxedPlainAttribute %s %s %s %s %s>" % (
+        return "<UnboxedPlainAttribute %s %s %s %s%s %s>" % (
                 self.name, attrkind_name(self.attrkind), self.storageindex,
-                self.listindex, self.back.repr())
+                self.listindex,
+                " immutable" if not self.ever_mutated else "",
+                self.back.repr())
 
 
 class CachedAttributeHolder(object):
@@ -829,20 +833,27 @@ class MapdictStorageMixin(object):
         self._set_mapdict_map(map)
 
 class ObjectWithoutDict(W_Root):
-    # mainly for tests
+    # only used for tests
     objectmodel.import_from_mixin(MapdictStorageMixin)
 
     objectmodel.import_from_mixin(BaseUserClassMapdict)
     objectmodel.import_from_mixin(MapdictWeakrefSupport)
+
+    @objectmodel.not_rpython # make sure it doesn't get accidentally translated
+    def getclass(self, space):
+        return self._get_mapdict_map().terminator.w_cls
 
 
 class Object(W_Root):
-    # mainly for tests
+    # used for tests, and to have a fake object that can be used to back
+    # instance dictionaries
     objectmodel.import_from_mixin(MapdictStorageMixin)
 
-    objectmodel.import_from_mixin(BaseUserClassMapdict)
-    objectmodel.import_from_mixin(MapdictWeakrefSupport)
-    objectmodel.import_from_mixin(MapdictDictSupport)
+_share_methods(BaseUserClassMapdict, Object)
+_share_methods(MapdictWeakrefSupport, Object)
+_share_methods(MapdictDictSupport, Object)
+
+assert Object.getclass.im_func is BaseUserClassMapdict.getclass.im_func
 
 
 SUBCLASSES_NUM_FIELDS = 5
@@ -1065,6 +1076,25 @@ class MapDictStrategy(DictStrategy):
         w_key = self.space.newtext(key)
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
+
+    def copy(self, w_dict):
+        w_obj = self.unerase(w_dict.dstorage)
+        curr_map = w_obj._get_mapdict_map()
+        attrs = []
+        while True:
+            curr_map = curr_map.search(DICT)
+            if curr_map is None:
+                break
+            attrs.append(curr_map)
+            curr_map = curr_map.back
+
+        strategy = self.space.fromcache(UnicodeDictStrategy)
+        str_dict = strategy.unerase(strategy.get_empty_storage())
+        while attrs:
+            map = attrs.pop()
+            str_dict[self.space.newtext(map.name)] = map._prim_direct_read(w_obj)
+        return W_DictObject(self.space, strategy, strategy.erase(str_dict))
+
 
     # XXX could implement a more efficient w_keys based on space.newlist_bytes
 

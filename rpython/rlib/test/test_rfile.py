@@ -90,7 +90,7 @@ class TestFile(BaseRtypingTest):
         f(sys.version_info >= (2, 7, 9))
         self.interpret(f, [True])
 
-    @py.test.mark.skipif("sys.platform == 'win32'")
+    @py.test.mark.skipif("sys.platform == 'win32' or sys.platform == 'darwin'")
     # http://msdn.microsoft.com/en-us/library/86cebhfs.aspx
     def test_open_buffering_line(self):
         fname = str(self.tmpdir.join('file_1a'))
@@ -108,7 +108,7 @@ class TestFile(BaseRtypingTest):
         os.unlink(fname)
         self.interpret(f, [])
 
-    @py.test.mark.skipif("sys.platform == 'win32'")
+    @py.test.mark.skipif("sys.platform == 'win32' or sys.platform == 'darwin'")
     # http://msdn.microsoft.com/en-us/library/86cebhfs.aspx
     def test_fdopen_buffering_line(self):
         fname = str(self.tmpdir.join('file_1a'))
@@ -128,6 +128,7 @@ class TestFile(BaseRtypingTest):
         os.unlink(fname)
         self.interpret(f, [])
 
+    @py.test.mark.skipif('sys.platform == "darwin"')
     def test_open_buffering_full(self):
         fname = str(self.tmpdir.join('file_1b'))
 
@@ -146,6 +147,7 @@ class TestFile(BaseRtypingTest):
         os.unlink(fname)
         self.interpret(f, [])
 
+    @py.test.mark.skipif('sys.platform == "darwin"')
     def test_fdopen_buffering_full(self):
         fname = str(self.tmpdir.join('file_1b'))
 
@@ -514,6 +516,7 @@ class TestPopen(object):
         f.close()
         assert s == '42\n'
 
+    @py.test.mark.skipif('sys.platform == "darwin"')
     def test_pclose(self):
         retval = 32
         printval = 42
@@ -530,6 +533,8 @@ class TestPopenR(BaseRtypingTest):
     def setup_class(cls):
         if sys.platform == 'win32':
             py.test.skip("not for win32")
+        if sys.platform == 'darwin':
+            py.test.skip("not for os x")
 
     def test_popen(self):
         printval = 42

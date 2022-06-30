@@ -110,10 +110,19 @@ def fdopen_as_stream(fd, mode, buffering=-1, signal_checker=None):
     return construct_stream_tower(stream, buffering, universal, reading,
                                   writing, binary)
 
+# XXX libffi on darwin does not support rposix.open untranslated, since it uses
+# vararg but it is needed here to support FileEncoder (for unicode path). There
+# are untranlated tests that need rposix.open here, they will be skipped on
+# darwin
+if sys.platform == "darwin" and not we_are_translated():
+    helper_open = os.open
+else:
+    helper_open = rposix.open
+
 @specialize.argtype(0)
 def open_path_helper(path, os_flags, append, signal_checker=None):
     # XXX for now always return DiskFile
-    fd = rposix.open(path, os_flags, 0666)
+    fd = helper_open(path, os_flags, 0666)
     if append:
         try:
             os.lseek(fd, 0, 2)

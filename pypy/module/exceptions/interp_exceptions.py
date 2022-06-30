@@ -330,17 +330,10 @@ class W_ImportError(W_Exception):
     w_msg = None
 
     @jit.unroll_safe
-    def descr_init(self, space, __args__):
-        args_w, kw_w = __args__.unpack()
-        self.w_name = kw_w.pop('name', space.w_None)
-        self.w_path = kw_w.pop('path', space.w_None)
-        if kw_w:
-            for keyword in __args__.keywords:
-                if keyword in kw_w:
-                    raise oefmt(
-                        space.w_TypeError,
-                        "'%s' is an invalid keyword argument for %T()",
-                        keyword, self)
+    @unwrap_spec(w_name=WrappedDefault(None), w_path=WrappedDefault(None))
+    def descr_init(self, space, args_w, __kwonly__, w_name=None, w_path=None):
+        self.w_name = w_name
+        self.w_path = w_path
         if len(args_w) == 1:
             self.w_msg = args_w[0]
         else:
@@ -445,17 +438,25 @@ W_UnicodeTranslateError.typedef = TypeDef(
 W_LookupError = _new_exception('LookupError', W_Exception,
                                """Base class for lookup errors.""")
 
-def key_error_str(self, space):
-    if len(self.args_w) == 0:
-        return space.newtext('')
-    elif len(self.args_w) == 1:
-        return space.repr(self.args_w[0])
-    else:
-        return space.str(space.newtuple(self.args_w))
+class W_KeyError(W_LookupError):
+    """Mapping key not found."""
+    def key_error_str(self, space):
+        if len(self.args_w) == 0:
+            return space.newtext('')
+        elif len(self.args_w) == 1:
+            return space.repr(self.args_w[0])
+        else:
+            return space.str(space.newtuple(self.args_w))
 
-W_KeyError = _new_exception('KeyError', W_LookupError,
-                            """Mapping key not found.""",
-                            __str__ = key_error_str)
+W_KeyError.typedef = TypeDef(
+    'KeyError',
+    W_LookupError.typedef,
+    __doc__ = W_KeyError.__doc__,
+    __module__ = 'builtins',
+    __new__ = _new(W_KeyError),
+    __str__ = interp2app(W_KeyError.key_error_str),
+)
+W_KeyError.typedef.applevel_subclasses_base = W_LookupError.typedef.applevel_subclasses_base
 
 
 class W_StopIteration(W_Exception):

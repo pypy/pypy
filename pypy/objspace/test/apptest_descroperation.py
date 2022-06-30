@@ -1,3 +1,4 @@
+from pytest import raises
 import sys
 import operator
 
@@ -312,6 +313,19 @@ def test_unordeable_types():
     raises(TypeError, "0.0 < zz()")
     raises(TypeError, "0j < zz()")
 
+def test_correct_order_error_msg():
+    class A(object):
+        def __lt__(self, other):
+            return NotImplemented
+        __gt__ = __lt__
+
+    class B(A):
+        pass
+
+    with raises(TypeError) as e:
+        A() < B()
+    assert str(e.value) == "'<' not supported between instances of 'A' and 'B'"
+
 def test_equality_among_different_types():
     class A(object): pass
     class zz(object): pass
@@ -587,6 +601,14 @@ def test_invalid_iterator():
             return self
     raises(TypeError, iter, x())
 
+def test_iterator_is_None():
+    class x(object):
+        __iter__ = None
+    with raises(TypeError) as info:
+        iter(x())
+    assert str(info.value) == "'x' object is not iterable"
+
+
 def test_attribute_error():
     class classmethodonly(classmethod):
         def __get__(self, instance, type):
@@ -841,3 +863,7 @@ def test_64bit_hash():
     # previously triggered an OverflowError
     d = {BigHash(): None}
     assert BigHash() in d
+
+def test_class_getitem():
+    excinfo = raises(TypeError, "int[int]")
+    assert "object is not subscriptable" in str(excinfo.value)

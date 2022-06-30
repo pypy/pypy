@@ -41,7 +41,7 @@ def get_rpy_roots(gc):
 
 # ---------- implementation of rpython.rlib.rgc.get_rpy_referents() ----------
 
-def _append_rpy_referent(pointer, gc):
+def _append_rpy_referent(pointer, gc, ignored):
     # Can use the gc list, but should not allocate!
     # It is essential that the list is not resizable!
     lst = gc._list_rpy
@@ -56,7 +56,7 @@ def _append_rpy_referent(pointer, gc):
 def _do_append_rpy_referents(gc, gcref, lst):
     gc._count_rpy = 0
     gc._list_rpy = lst
-    gc.trace(llmemory.cast_ptr_to_adr(gcref), _append_rpy_referent, gc)
+    gc.trace(llmemory.cast_ptr_to_adr(gcref), _append_rpy_referent, gc, None)
     gc._list_rpy = None
     return gc._count_rpy
 
@@ -141,9 +141,9 @@ class BaseWalker(object):
 
     def unobj(self, obj):
         gc = self.gc
-        gc.trace(obj, self._unref, None)
+        gc.trace(obj, gc.make_callback('_unref'), self, None)
 
-    def _unref(self, pointer, _):
+    def _unref(self, pointer, ignored):
         obj = pointer.address[0]
         self.unadd(obj)
 
@@ -188,9 +188,9 @@ class MemoryPressureCounter(BaseWalker):
             ofs = gc.get_memory_pressure_ofs(typeid)
             val = (obj + ofs).signed[0]
             self.count += val
-        gc.trace(obj, self._ref, None)
+        gc.trace(obj, gc.make_callback('_ref'), self, None)
 
-    def _ref(self, pointer, _):
+    def _ref(self, pointer, ignored):
         obj = pointer.address[0]
         self.add(obj)
 
@@ -246,11 +246,11 @@ class HeapDumper(BaseWalker):
         self.write(llmemory.cast_adr_to_int(obj))
         self.write(gc.get_member_index(typeid))
         self.write(gc.get_size_incl_hash(obj))
-        gc.trace(obj, self._writeref, None)
+        gc.trace(obj, gc.make_callback('_writeref'), self, None)
         self.write(-1)
     processobj = writeobj
 
-    def _writeref(self, pointer, _):
+    def _writeref(self, pointer, ignored):
         obj = pointer.address[0]
         self.write(llmemory.cast_adr_to_int(obj))
         self.add(obj)

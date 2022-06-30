@@ -82,6 +82,10 @@ class W_UnicodeObject(W_MyObject):
     def _len(self):
         return self._length
 
+    def eq_w(self, w_other):
+        return NonConstant(True)
+
+
 class W_MyType(W_MyObject):
     name = "foobar"
     flag_map_or_seq = '?'
@@ -176,6 +180,11 @@ class FakeObjSpace(ObjSpace):
     def _freeze_(self):
         return True
 
+    def view_as_kwargs(self, w_obj):
+        return [W_UnicodeObject()] * 3, [W_UnicodeObject()] * 3
+
+    UnicodeObjectCls = W_UnicodeObject
+
     def float_w(self, w_obj, allow_conversion=True):
         is_root(w_obj)
         return NonConstant(42.5)
@@ -205,6 +214,9 @@ class FakeObjSpace(ObjSpace):
         make_sure_not_resized(list_w)
         for w_x in list_w:
             is_root(w_x)
+        return w_some_obj()
+
+    def newtuple2(self, w_a, w_b):
         return w_some_obj()
 
     def newset(self, list_w=None):

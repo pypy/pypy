@@ -255,7 +255,7 @@ class W_DictMultiObject(W_Root):
         if w_key is None:
             raise oefmt(space.w_KeyError, "popitem(): dictionary is empty")
         self.internal_delitem(w_key)
-        return space.newtuple([w_key, w_value])
+        return space.newtuple2(w_key, w_value)
 
     def descr_clear(self, space):
         """D.clear() -> None.  Remove all items from D."""
@@ -285,7 +285,7 @@ class W_DictMultiObject(W_Root):
             w_key, w_value = self.popitem()
         except KeyError:
             raise oefmt(space.w_KeyError, "popitem(): dictionary is empty")
-        return space.newtuple([w_key, w_value])
+        return space.newtuple2(w_key, w_value)
 
     @unwrap_spec(w_default=WrappedDefault(None))
     def descr_setdefault(self, space, w_key, w_default):
@@ -337,6 +337,13 @@ class W_ModuleDictObject(W_DictMultiObject):
     def set_strategy(self, strategy):
         self.mstrategy = strategy
 
+    def get_global_cache(self, key):
+        from pypy.objspace.std.celldict import ModuleDictStrategy
+        strategy = self.mstrategy
+        if isinstance(strategy, ModuleDictStrategy):
+            return strategy.get_global_cache(self, key)
+        else:
+            return None
 
 
 # called below DictStrategy
@@ -512,7 +519,7 @@ class DictStrategy(object):
         while True:
             w_key, w_value = iterator.next_item()
             if w_key is not None:
-                result.append(self.space.newtuple([w_key, w_value]))
+                result.append(self.space.newtuple2(w_key, w_value))
             else:
                 return result
 
@@ -567,6 +574,13 @@ class DictStrategy(object):
             if w_key is None:
                 break
             w_updatedict.setitem(w_key, w_value)
+
+    def copy(self, w_dict):
+        # fallback
+        iteritems = self.iteritems(w_dict)
+        w_copy = W_DictMultiObject.allocate_and_init_instance(self.space)
+        DictStrategy.rev_update1_dict_dict(self, w_dict, w_copy)
+        return w_copy
 
     def prepare_update(self, w_dict, num_extra):
         pass
@@ -724,6 +738,9 @@ class EmptyDictStrategy(DictStrategy):
             return w_default
         else:
             raise KeyError
+
+    def copy(self, w_dict):
+        return W_DictMultiObject.allocate_and_init_instance(self.space)
 
     # ---------- iterator interface ----------------
 
@@ -1049,7 +1066,7 @@ class AbstractTypedStrategy(object):
     def items(self, w_dict):
         space = self.space
         dict_w = self.unerase(w_dict.dstorage)
-        return [space.newtuple([self.wrap(key), w_value])
+        return [space.newtuple2(self.wrap(key), w_value)
                 for (key, w_value) in dict_w.iteritems()]
 
     def popitem(self, w_dict):
@@ -1084,6 +1101,10 @@ class AbstractTypedStrategy(object):
             d_new[self.wrap(key)] = value
         w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(d_new)
+
+    def copy(self, w_dict):
+        dstorage = self.unerase(w_dict.dstorage)
+        return W_DictObject(self.space, self, self.erase(dstorage.copy()))
 
     # --------------- iterator interface -----------------
 
@@ -1202,19 +1223,6 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     def wrapkey(space, key):
         return space.newbytes(key)
 
-    ##@jit.look_inside_iff(lambda self, w_dict:
-    ##                     w_dict_unrolling_heuristic(w_dict))
-    ##def view_as_kwargs(self, w_dict):
-    ##    return (None, None) # XXX: fix me to return unicode keys
-    ##    d = self.unerase(w_dict.dstorage)
-    ##    l = len(d)
-    ##    keys, values = [None] * l, [None] * l
-    ##    i = 0
-    ##    for key, val in d.iteritems():
-    ##        keys[i] = key
-    ##        values[i] = val
-    ##        i += 1
-    ##    return keys, values
 
 create_iterator_classes(BytesDictStrategy)
 
@@ -1258,10 +1266,6 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         assert key is not None
         return self.getitem(w_dict, self.space.newtext(key))
 
-    ## def listview_ascii(self, w_dict):
-    ##     XXX reimplement.  Also warning: must return a list of _ascii_
-    ##     return self.unerase(w_dict.dstorage).keys()
-
     def wrapkey(space, key):
         return key
 
@@ -1273,7 +1277,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         keys, values = [None] * l, [None] * l
         i = 0
         for w_key, val in d.iteritems():
-            keys[i] = self.space.utf8_w(w_key)
+            keys[i] = w_key
             values[i] = val
             i += 1
         return keys, values
@@ -1342,7 +1346,12 @@ def update1(space, w_dict, w_data):
 
 
 def update1_dict_dict(space, w_dict, w_data):
-    w_data.get_strategy().rev_update1_dict_dict(w_data, w_dict)
+    if isinstance(w_dict.get_strategy(), EmptyDictStrategy):
+        w_copy = w_data.get_strategy().copy(w_data)
+        w_dict.set_strategy(w_copy.get_strategy())
+        w_dict.dstorage = w_copy.dstorage
+    else:
+        w_data.get_strategy().rev_update1_dict_dict(w_data, w_dict)
 
 
 def update1_pairs(space, w_dict, data_w):
@@ -1415,7 +1424,7 @@ class W_BaseDictMultiIterObject(W_Root):
             w_clone.descr_next(space)
 
         w_res = space.call_function(space.w_list, w_clone)
-        w_ret = space.newtuple([new_inst, space.newtuple([w_res])])
+        w_ret = space.newtuple2(new_inst, space.newtuple([w_res]))
         return w_ret
 
     def clone_for_pickling(self, space, w_dict):
@@ -1459,7 +1468,7 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
         iteratorimplementation = self.iteratorimplementation
         w_key, w_value = iteratorimplementation.next_item()
         if w_key is not None:
-            return space.newtuple([w_key, w_value])
+            return space.newtuple2(w_key, w_value)
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def clone_for_pickling(self, space, w_dict):

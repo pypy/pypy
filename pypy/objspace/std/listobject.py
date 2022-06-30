@@ -286,9 +286,10 @@ class W_ListObject(W_Root):
         strategy and storage according to the other W_List"""
         self.strategy.copy_into(self, other)
 
-    def find(self, w_item, start=0, end=sys.maxint):
-        """Find w_item in list[start:end]. If not found, raise ValueError"""
-        return self.strategy.find(self, w_item, start, end)
+    def find_or_count(self, w_item, start=0, end=sys.maxint, count=False):
+        """Find w_item in list[start:end]. If not found, raise ValueError.
+        if count=True, count number of occurences instead"""
+        return self.strategy.find_or_count(self, w_item, start, end, count)
 
     def append(self, w_item):
         """L.append(object) -> None -- append object to end"""
@@ -497,7 +498,7 @@ class W_ListObject(W_Root):
 
     def descr_contains(self, space, w_obj):
         try:
-            self.find(w_obj)
+            self.find_or_count(w_obj)
             return space.w_True
         except ValueError:
             return space.w_False
@@ -615,14 +616,8 @@ class W_ListObject(W_Root):
 
     def descr_count(self, space, w_value):
         '''L.count(value) -> integer -- return number of occurrences of value'''
-        # needs to be safe against eq_w() mutating the w_list behind our back
-        count = 0
-        i = 0
-        while i < self.length():
-            if space.eq_w(self.getitem(i), w_value):
-                count += 1
-            i += 1
-        return space.newint(count)
+        i = self.find_or_count(w_value, count=True)
+        return space.newint(i)
 
     @unwrap_spec(index=int)
     def descr_insert(self, space, index, w_value):
@@ -661,7 +656,7 @@ Raises IndexError if list is empty or index is out of range."""
 Raises ValueError if the value is not present."""
         # needs to be safe against eq_w() mutating the w_list behind our back
         try:
-            i = self.find(w_value, 0, sys.maxint)
+            i = self.find_or_count(w_value, 0, sys.maxint)
         except ValueError:
             raise oefmt(space.w_ValueError,
                         "list.remove(): %R is not in list", w_value)
@@ -677,7 +672,7 @@ Raises ValueError if the value is not present."""
         i, stop = unwrap_start_stop(space, size, w_start, w_stop)
         # note that 'i' and 'stop' can be bigger than the length of the list
         try:
-            i = self.find(w_value, i, stop)
+            i = self.find_or_count(w_value, i, stop)
         except ValueError:
             raise oefmt(space.w_ValueError, "%R is not in list", w_value)
         return space.newint(i)
@@ -707,6 +702,7 @@ Raises ValueError if the value is not present."""
         sorter.space = space
 
         try:
+            strategy = self.strategy
             # The list is temporarily made empty, so that mutations performed
             # by comparison functions can't affect the slice of memory we're
             # sorting (allowing mutations during sorting is an IndexError or
@@ -715,10 +711,11 @@ Raises ValueError if the value is not present."""
 
             # wrap each item in a KeyContainer if needed
             if has_key:
-                for i in range(sorter.listlength):
-                    w_item = sorter.list[i]
-                    w_keyitem = space.call_function(w_key, w_item)
-                    sorter.list[i] = KeyContainer(w_keyitem, w_item)
+                # XXX inefficient for unwrapped strategies:
+                # we wrap the elements twice, once for the key, and once to get
+                # KeyContainers. Then unwrap carefully in the __init__ call below.
+                # Could type-specialize this.
+                _compute_keys_for_sorting(strategy, sorter.list, w_key)
 
             # Reverse sort stability achieved by initially reversing the list,
             # applying a stable forward sort, then reversing the final result.
@@ -749,9 +746,42 @@ Raises ValueError if the value is not present."""
         if mucked:
             raise oefmt(space.w_ValueError, "list modified during sort")
 
-def get_printable_location(strategy_type, tp):
-    return "list.find [%s, %s]" % (strategy_type, tp.getname(tp.space), )
-find_jmp = jit.JitDriver(greens=['strategy_type', 'tp'], reds='auto', name='list.find', get_printable_location=get_printable_location)
+def get_printable_location_sortkey(strategy_type, tp):
+    return "_compute_keys_for_sorting [%s, %s]" % (strategy_type, tp.getname(tp.space), )
+
+sortkey_jmp = jit.JitDriver(
+    greens=['strategy_type', 'tp'],
+    reds='auto',
+    name='_compute_keys_for_sorting',
+    get_printable_location=get_printable_location_sortkey)
+
+def _compute_keys_for_sorting(strategy, list_w, w_callable):
+    space = strategy.space
+    i = 0
+    # XXX would like a new API space.greenkey_for_callable here
+    # (also in min/max and map/filter)
+    tp = space.type(w_callable)
+    while i < len(list_w):
+        # bit weird: we have a list_w at this point, but we still specialize on
+        # the strategy to distinguish the cases better
+        sortkey_jmp.jit_merge_point(tp=tp, strategy_type=type(strategy))
+        w_item = list_w[i]
+        w_keyitem = space.call_function(w_callable, w_item)
+        list_w[i] = KeyContainer(w_keyitem, w_item)
+        i += 1
+
+def get_printable_location_find(count, strategy_type, tp):
+    if count:
+        start = "list.count"
+    else:
+        start = "list.find"
+    return "%s [%s, %s]" % (start, strategy_type, tp.getname(tp.space), )
+
+find_or_count_jmp = jit.JitDriver(
+    greens=['count', 'strategy_type', 'tp'],
+    reds='auto',
+    name='list.find_or_count',
+    get_printable_location=get_printable_location_find)
 
 class ListStrategy(object):
 
@@ -773,16 +803,23 @@ class ListStrategy(object):
     def _resize_hint(self, w_list, hint):
         raise NotImplementedError
 
-    def find(self, w_list, w_item, start, stop):
+    def find_or_count(self, w_list, w_item, start, stop, count):
         space = self.space
         i = start
+        result = 0
         # needs to be safe against eq_w mutating stuff
         tp = space.type(w_item)
         while i < stop and i < w_list.length():
-            find_jmp.jit_merge_point(tp=tp, strategy_type=type(self))
+            find_or_count_jmp.jit_merge_point(tp=tp, strategy_type=type(self), count=count)
             if space.eq_w(w_item, w_list.getitem(i)):
-                return i
+                if count:
+                    result += 1
+                else:
+                    return i
             i += 1
+        if count:
+            return result
+        # not find case, not found
         raise ValueError
 
     def length(self, w_list):
@@ -939,7 +976,9 @@ class EmptyListStrategy(ListStrategy):
         if hint:
             w_list.strategy = SizeListStrategy(self.space, hint)
 
-    def find(self, w_list, w_item, start, stop):
+    def find_or_count(self, w_list, w_item, start, stop, count):
+        if count:
+            return 0
         raise ValueError
 
     def length(self, w_list):
@@ -1186,15 +1225,20 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
-    def find(self, w_list, w_obj, startindex, stopindex):
+    def find_or_count(self, w_list, w_obj, startindex, stopindex, count):
         if is_plain_int1(w_obj):
             obj = self.unwrap(w_obj)
             length = self.unerase(w_list.lstorage)[0]
             if 0 <= obj < length and startindex <= obj < stopindex:
+                if count:
+                    return 1
                 return obj
             else:
+                if count:
+                    return 0
                 raise ValueError
-        return ListStrategy.find(self, w_list, w_obj, startindex, stopindex)
+        return ListStrategy.find_or_count(
+            self, w_list, w_obj, startindex, stopindex, count)
 
     def length(self, w_list):
         return self.unerase(w_list.lstorage)[0]
@@ -1258,7 +1302,7 @@ class RangeListStrategy(BaseRangeListStrategy):
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
-    def find(self, w_list, w_obj, startindex, stopindex):
+    def find_or_count(self, w_list, w_obj, startindex, stopindex, count):
         if is_plain_int1(w_obj):
             obj = self.unwrap(w_obj)
             start, step, length = self.unerase(w_list.lstorage)
@@ -1268,11 +1312,18 @@ class RangeListStrategy(BaseRangeListStrategy):
                  (start - obj) % step == 0)):
                 index = (obj - start) // step
             else:
+                if count:
+                    return 0
                 raise ValueError
             if startindex <= index < stopindex:
+                if count:
+                    return 1
                 return index
+            if count:
+                return 0
             raise ValueError
-        return ListStrategy.find(self, w_list, w_obj, startindex, stopindex)
+        return ListStrategy.find_or_count(
+            self, w_list, w_obj, startindex, stopindex, count)
 
     def length(self, w_list):
         return self.unerase(w_list.lstorage)[2]
@@ -1394,17 +1445,25 @@ class AbstractUnwrappedStrategy(object):
         items = self.unerase(w_list.lstorage)[:]
         w_other.lstorage = self.erase(items)
 
-    def find(self, w_list, w_obj, start, stop):
+    def find_or_count(self, w_list, w_obj, start, stop, count):
         if self.is_correct_type(w_obj):
-            return self._safe_find(w_list, self.unwrap(w_obj), start, stop)
-        return ListStrategy.find(self, w_list, w_obj, start, stop)
+            return self._safe_find_or_count(
+                w_list, self.unwrap(w_obj), start, stop, count)
+        return ListStrategy.find_or_count(
+            self, w_list, w_obj, start, stop, count)
 
-    def _safe_find(self, w_list, obj, start, stop):
+    def _safe_find_or_count(self, w_list, obj, start, stop, count):
         l = self.unerase(w_list.lstorage)
+        result = 0
         for i in range(start, min(stop, len(l))):
             val = l[i]
             if val == obj:
-                return i
+                if count:
+                    result += 1
+                else:
+                    return i
+        if count:
+            return result
         raise ValueError
 
     def length(self, w_list):
@@ -1700,8 +1759,9 @@ class ObjectListStrategy(ListStrategy):
     def clear(self, w_list):
         w_list.lstorage = self.erase([])
 
-    def find(self, w_list, w_obj, start, stop):
-        return ListStrategy.find(self, w_list, w_obj, start, stop)
+    def find_or_count(self, w_list, w_obj, start, stop, count):
+        return ListStrategy.find_or_count(
+                self, w_list, w_obj, start, stop, count)
 
     def getitems(self, w_list):
         return self.unerase(w_list.lstorage)
@@ -1869,20 +1929,29 @@ class FloatListStrategy(ListStrategy):
         return self._base_setslice(w_list, start, step, slicelength, w_other)
 
 
-    def _safe_find(self, w_list, obj, start, stop):
+    def _safe_find_or_count(self, w_list, obj, start, stop, count):
         l = self.unerase(w_list.lstorage)
         stop = min(stop, len(l))
+        result = 0
         if not math.isnan(obj):
             for i in range(start, stop):
                 val = l[i]
                 if val == obj:
-                    return i
+                    if count:
+                        result += 1
+                    else:
+                        return i
         else:
             search = longlong2float.float2longlong(obj)
             for i in range(start, stop):
                 val = l[i]
                 if longlong2float.float2longlong(val) == search:
-                    return i
+                    if count:
+                        result += 1
+                    else:
+                        return i
+        if count:
+            return result
         raise ValueError
 
     @staticmethod
@@ -2017,18 +2086,28 @@ class IntOrFloatListStrategy(ListStrategy):
                 w_other = self._temporary_longlong_list(longlong_list)
         return self._base_setslice(w_list, start, step, slicelength, w_other)
 
-    def _safe_find(self, w_list, obj, start, stop):
+    def _safe_find_or_count(self, w_list, obj, start, stop, count):
         l = self.unerase(w_list.lstorage)
         # careful: we must consider that 0.0 == -0.0 == 0, but also
         # NaN == NaN if they have the same bit pattern.
         fobj = longlong2float.maybe_decode_longlong_as_float(obj)
+        result = 0
         for i in range(start, min(stop, len(l))):
             llval = l[i]
             if llval == obj:     # equal as longlongs: includes NaN == NaN
-                return i
+                if count:
+                    result += 1
+                    continue
+                else:
+                    return i
             fval = longlong2float.maybe_decode_longlong_as_float(llval)
             if fval == fobj:     # cases like 0.0 == -0.0 or 42 == 42.0
-                return i
+                if count:
+                    result += 1
+                else:
+                    return i
+        if count:
+            return result
         raise ValueError
 
 
@@ -2178,21 +2257,6 @@ class IntOrFloatSort(IntOrFloatBaseTimSort):
         fa = longlong2float.maybe_decode_longlong_as_float(a)
         fb = longlong2float.maybe_decode_longlong_as_float(b)
         return fa < fb
-
-
-class CustomCompareSort(SimpleSort):
-    def lt(self, a, b):
-        space = self.space
-        w_cmp = self.w_cmp
-        w_result = space.call_function(w_cmp, a, b)
-        try:
-            result = space.int_w(w_result)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                raise oefmt(space.w_TypeError,
-                            "comparison function must return int")
-            raise
-        return result < 0
 
 
 class CustomKeySort(SimpleSort):
