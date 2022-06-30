@@ -126,6 +126,9 @@ def make_trace_one_field(callback):
     ll_trace_one_field receives.
     """
     # 1. the class specialized on the callback
+    sig = "int ll_trace_one_field(HPyField *f, void *ignored)"
+    _, FUNC, _ = API.parse_signature(sig, error_value=-1)
+
     class TraceOneField(object):
         @staticmethod
         def get_llhelper():
@@ -140,17 +143,9 @@ def make_trace_one_field(callback):
         gc = trace_one_field.gc
         arg1 = trace_one_field.arg1
         arg2 = trace_one_field.arg2
-        #data = llmemory.NULL # XXX somehow convert 'f' into Address
-        #data = trace_one_field.data
         field_adr = llmemory.cast_ptr_to_adr(field_ptr)
         gc._trace_callback(callback, arg1, arg2, field_adr)
         return API.int(0)
-    #
-    sig = "int trace_one_field(HPyField *f, void *ignored)"
-    d = API.cts.parse_func(sig)
-    ARGS = d.get_llargs(API.cts)
-    RESULT = d.get_llresult(API.cts)
-    FUNC = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
 
     # 4. return the singleton
     return trace_one_field
