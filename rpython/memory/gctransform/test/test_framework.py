@@ -163,16 +163,25 @@ def test_custom_trace_function_no_collect():
         rgc.register_custom_trace_hook(S, lambda_trace_func)
         return 0
 
-    t = rtype(entrypoint, [s_list_of_strings])
-    t.config.translation.gc = "minimark"
-    cbuild = CStandaloneBuilder(t, entrypoint, t.config,
-                                gcpolicy=FrameworkGcPolicy2)
-    cbuild.make_entrypoint_wrapper = False
-    with py.test.raises(Exception) as f:
+    def run_rtyper(fn):
+        t = rtype(fn, [s_list_of_strings])
+        t.config.translation.gc = "minimark"
+        cbuild = CStandaloneBuilder(t, fn, t.config,
+                                    gcpolicy=FrameworkGcPolicy2)
+        cbuild.make_entrypoint_wrapper = False
         cbuild.build_database()
+        return True
+
+    with py.test.raises(Exception) as f:
+        run_rtyper(entrypoint)
     assert 'can cause the GC to be called' in str(f.value)
     assert 'trace_func' in str(f.value)
     assert 'MyStructure' in str(f.value)
+    #
+    # check that _skip_collect_analyzer_ works
+    trace_func._skip_collect_analyzer_ = True
+    assert run_rtyper(entrypoint)
+
 
 class WriteBarrierTransformer(ShadowStackFrameworkGCTransformer):
     clean_sets = {}
