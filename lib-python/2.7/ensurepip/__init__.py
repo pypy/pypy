@@ -26,13 +26,13 @@ def _run_pip(args, additional_paths=None):
     # after pip has executed. Particulary, this avoids the case when pip holds onto
     # the files in *additional_paths*, preventing us to remove them at the end of the
     # invocation.
-    code = f"""
+    code = """
 import runpy
 import sys
-sys.path = {additional_paths or []} + sys.path
-sys.argv[1:] = {args}
+sys.path = {0} + sys.path
+sys.argv[1:] = {1}
 runpy.run_module("pip", run_name="__main__", alter_sys=True)
-"""
+""".format(additional_paths or [], args)
     return subprocess.run([sys.executable, "-c", code], check=True).returncode
 
 
