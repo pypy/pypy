@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import os.path
 import pkgutil
+import shutil
 import sys
 import runpy
 import tempfile
@@ -33,21 +34,9 @@ sys.path = {0} + sys.path
 sys.argv[1:] = {1}
 runpy.run_module("pip", run_name="__main__", alter_sys=True)
 """.format(additional_paths or [], args)
-    return subprocess.run([sys.executable, "-c", code], check=True).returncode
+    return subprocess.check_call([sys.executable, "-c", code])
 
 
-    # Invoke pip as if it's the main module, and catch the exit.
-    backup_argv = sys.argv[:]
-    sys.argv[1:] = args
-    try:
-        runpy.run_module("pip", run_name="__main__", alter_sys=True)
-    except SystemExit as e:
-        return e.code
-    finally:
-        sys.argv[:] = backup_argv
- 
-    raise SystemError("pip have not exited, that should never happen")
- 
 def version():
     """
     Returns a string specifying the bundled version of pip.
@@ -94,7 +83,8 @@ def bootstrap(root=None, upgrade=False, user=False,
         # omit pip and easy_install
         os.environ["ENSUREPIP_OPTIONS"] = "install"
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    tmpdir = tempfile.mkdtemp()
+    try:
         # Put our bundled wheels into a temporary directory and construct the
         # additional paths that need added to sys.path
         additional_paths = []
@@ -122,6 +112,8 @@ def bootstrap(root=None, upgrade=False, user=False,
             args += ["-" + "v" * verbosity]
 
         return _run_pip(args + [p[0] for p in _PROJECTS], additional_paths)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 def _uninstall_helper(verbosity=0):
     """Helper to support a clean default uninstall process on Windows
