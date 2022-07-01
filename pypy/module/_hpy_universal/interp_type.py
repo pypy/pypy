@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rgc
+from rpython.rlib import jit
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib.debug import make_sure_not_resized, debug_print
 from rpython.rlib.objectmodel import specialize
@@ -78,6 +79,10 @@ def storage_alloc(size):
     rffi.c_memset(raw_mem, 0, size)  # manually zero the memory
     return s
 
+# we neet @jit.dont_look_inside because of the codewriter, see
+# jtransform.py:rewrite_op_cast_ptr_to_adr:
+#     cast_ptr_to_adr for GC types unsupported
+@jit.dont_look_inside
 def storage_get_raw_data(storage):
     base_adr = llmemory.cast_ptr_to_adr(storage)
     data_adr = base_adr + DATA_OFS + DATA_ITEM0_OFS
