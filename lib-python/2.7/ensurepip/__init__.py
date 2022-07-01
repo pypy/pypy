@@ -1,21 +1,18 @@
-#!/usr/bin/env python2
 from __future__ import print_function
 
 import os
 import os.path
 import pkgutil
-import runpy
-import shutil
 import sys
+import runpy
 import tempfile
-import warnings
+import subprocess
 
 
 __all__ = ["version", "bootstrap"]
 
 
 _SETUPTOOLS_VERSION = "44.0.0"
-
 _PIP_VERSION = "20.0.2"
 
 _PROJECTS = [
@@ -25,9 +22,19 @@ _PROJECTS = [
 
 
 def _run_pip(args, additional_paths=None):
-    # Add our bundled software to the sys.path so we can import it
-    if additional_paths is not None:
-        sys.path = additional_paths + sys.path
+    # Run the bootstraping in a subprocess to avoid leaking any state that happens
+    # after pip has executed. Particulary, this avoids the case when pip holds onto
+    # the files in *additional_paths*, preventing us to remove them at the end of the
+    # invocation.
+    code = f"""
+import runpy
+import sys
+sys.path = {additional_paths or []} + sys.path
+sys.argv[1:] = {args}
+runpy.run_module("pip", run_name="__main__", alter_sys=True)
+"""
+    return subprocess.run([sys.executable, "-c", code], check=True).returncode
+
 
     # Invoke pip as if it's the main module, and catch the exit.
     backup_argv = sys.argv[:]
@@ -87,8 +94,7 @@ def bootstrap(root=None, upgrade=False, user=False,
         # omit pip and easy_install
         os.environ["ENSUREPIP_OPTIONS"] = "install"
 
-    tmpdir = tempfile.mkdtemp()
-    try:
+    with tempfile.TemporaryDirectory() as tmpdir:
         # Put our bundled wheels into a temporary directory and construct the
         # additional paths that need added to sys.path
         additional_paths = []
@@ -115,10 +121,7 @@ def bootstrap(root=None, upgrade=False, user=False,
         if verbosity:
             args += ["-" + "v" * verbosity]
 
-        _run_pip(args + [p[0] for p in _PROJECTS], additional_paths)
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
-
+        return _run_pip(args + [p[0] for p in _PROJECTS], additional_paths)
 
 def _uninstall_helper(verbosity=0):
     """Helper to support a clean default uninstall process on Windows
@@ -145,7 +148,7 @@ def _uninstall_helper(verbosity=0):
     if verbosity:
         args += ["-" + "v" * verbosity]
 
-    _run_pip(args + [p[0] for p in reversed(_PROJECTS)])
+    return _run_pip(args + [p[0] for p in reversed(_PROJECTS)])
 
 
 def _main(argv=None):
@@ -206,7 +209,7 @@ def _main(argv=None):
 
     args = parser.parse_args(argv)
 
-    bootstrap(
+    return bootstrap(
         root=args.root,
         upgrade=args.upgrade,
         user=args.user,
