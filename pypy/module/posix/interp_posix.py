@@ -67,6 +67,7 @@ class FileDecoder(object):
 
 @specialize.memo()
 def dispatch_filename(func, tag=0):
+    @specialize.argtype(1)
     def dispatch(space, w_fname, *args):
         if space.isinstance_w(w_fname, space.w_unicode):
             fname = FileEncoder(space, w_fname)
@@ -100,12 +101,22 @@ def dispatch_filename_2(func):
 def u2utf8(space, u_str):
     return space.newutf8(u_str.encode('utf-8'), len(u_str))
 
+
+# XXX libffi on darwin does not support rposix.open untranslated, since it uses
+# vararg but it is needed to support FileEncoder (for unicode path).
+if sys.platform == "win32":
+    from rpython.rlib import rposix
+    open_helper = rposix.open
+else:
+    open_helper = os.open
+
+
 @unwrap_spec(flag=c_int, mode=c_int)
 def open(space, w_fname, flag, mode=0777):
     """Open a file (for low level IO).
 Return a file descriptor (a small integer)."""
     try:
-        fd = dispatch_filename(rposix.open)(
+        fd = dispatch_filename(open_helper)(
             space, w_fname, flag, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_fname)

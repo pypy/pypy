@@ -115,6 +115,14 @@ def new_buffersize(fd, currentsize):
             return currentsize + BIGCHUNK
     return currentsize + SMALLCHUNK
 
+# XXX libffi on darwin does not support rposix.open untranslated, since it uses
+# vararg but it is needed to support FileEncoder (for unicode path).
+if sys.platform == "win32":
+    from rpython.rlib import rposix
+    open_helper = rposix.open
+else:
+    open_helper = os.open
+
 
 class W_FileIO(W_RawIOBase):
     def __init__(self, space):
@@ -166,10 +174,9 @@ class W_FileIO(W_RawIOBase):
                     raise oefmt(space.w_ValueError,
                                 "Cannot use closefd=False with file name")
 
-                from pypy.module.posix.interp_posix import (
-                    dispatch_filename, rposix)
+                from pypy.module.posix.interp_posix import dispatch_filename
                 try:
-                    self.fd = dispatch_filename(rposix.open)(
+                    self.fd = dispatch_filename(open_helper)(
                         space, w_name, flags, 0666)
                 except OSError as e:
                     raise wrap_oserror2(space, e, w_name,
