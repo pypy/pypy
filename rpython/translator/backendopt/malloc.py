@@ -131,9 +131,9 @@ class BaseMallocRemover(object):
             _, _, info = lifetimes.find((block, var))
             info.creationpoints.add(cp)
 
-        def set_use_point(block, var, *up):
+        def set_use_point(block, var, *usepoint):
             _, _, info = lifetimes.find((block, var))
-            info.usepoints.add(up)
+            info.usepoints.add(usepoint)
 
         def union(block1, var1, block2, var2):
             if isinstance(var1, Variable):
@@ -216,10 +216,10 @@ class BaseMallocRemover(object):
         # Note that same_as and cast_pointer are not recorded in usepoints.
         self.accessed_substructs = set()
 
-        for up in info.usepoints:
-            if up[0] != "op":
+        for usepoint in info.usepoints:
+            if usepoint[0] != "op":
                 return False
-            kind, node, op, index = up
+            kind, node, op, index = usepoint
             if index != 0:
                 return False
             if op.opname in self.CHECK_ARRAY_INDEX:
@@ -303,6 +303,7 @@ class BaseMallocRemover(object):
     def remove_mallocs_once(self, graph):
         """Perform one iteration of malloc removal."""
         simplify.remove_identical_vars(graph)
+        self.graph = graph # to make it possible to find in the debugger
         lifetimes = self.compute_lifetimes(graph)
         progress = 0
         for info in lifetimes:
