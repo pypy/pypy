@@ -19,6 +19,9 @@ class LifeTime:
         self.creationpoints.update(other.creationpoints)
         self.usepoints.update(other.usepoints)
 
+    def __repr__(self):
+        return "<LifeTime creationpoints=%r usepoints=%r variables=%r>" % (self.creationpoints, self.usepoints, self.variables)
+
 
 class BaseMallocRemover(object):
 
