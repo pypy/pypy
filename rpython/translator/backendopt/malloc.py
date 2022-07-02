@@ -173,18 +173,22 @@ class BaseMallocRemover(object):
             if isinstance(node.last_exc_value, Variable):
                 set_creation_point(node.prevblock, node.last_exc_value,
                                    "last_exc_value")
-            d = set()
+            duplicate_info = set()
             for i, arg in enumerate(node.args):
                 union(node.prevblock, arg,
                       node.target, node.target.inputargs[i])
                 if isinstance(arg, Variable):
-                    if arg in d:
-                        # same variable present several times in link.args
-                        # consider it as a 'use' of the variable, which
-                        # will disable malloc optimization (aliasing problems)
+
+                    _, _, info = lifetimes.find((node.prevblock, arg))
+                    if info in duplicate_info and len(info.creationpoints) > 1:
+                        # same variable (up to renaming via same_as or
+                        # cast_pointer) present several times in link.args, and
+                        # the variable is created in two different places:
+                        # consider it as a 'use' of the variable, which will
+                        # disable malloc optimization (aliasing problems)
                         set_use_point(node.prevblock, arg, "dup", node, i)
                     else:
-                        d.add(arg)
+                        duplicate_info.add(info)
 
         return lifetimes.infos()
 
