@@ -104,11 +104,11 @@ def u2utf8(space, u_str):
 
 # XXX libffi on darwin does not support rposix.open untranslated, since it uses
 # vararg but it is needed to support FileEncoder (for unicode path).
-if sys.platform == "win32":
+if sys.platform == "darwin":
+    open_helper = os.open
+else:
     from rpython.rlib import rposix
     open_helper = rposix.open
-else:
-    open_helper = os.open
 
 
 @unwrap_spec(flag=c_int, mode=c_int)
