@@ -44,6 +44,7 @@ class AppTestSignal:
         cls.w_signal = cls.space.getbuiltinmodule('signal')
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("signal").join("foo.txt")))
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
     def test_exported_names(self):
         import os
@@ -184,6 +185,11 @@ class AppTestSignal:
             signal(SIGALRM, SIG_DFL)
 
     def test_set_wakeup_fd(self):
+        if not self.appdirect:
+            import sys
+            if sys.platform == 'darwin':
+                # issue 3774
+                skip('hangs on arm64')
         try:
             import signal, posix, fcntl
         except ImportError:
