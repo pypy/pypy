@@ -213,12 +213,12 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
 
         loops = [(body_info, body_loop)]
         for (bridge_info, bridge_ops) in bridges:
-            bridge_token = bridge_info.target_token
-            bridge_label_op = ResOperation(rop.LABEL, bridge_info.inputargs)
-            bridge_label_op.setdescr(bridge_token)
+            # bridge_token = bridge_info.target_token
+            # bridge_label_op = ResOperation(rop.LABEL, bridge_info.inputargs)
+            # bridge_label_op.setdescr(bridge_token)
             bridge_loop = compile.create_empty_loop(self.metainterp)
             bridge_loop.inputargs = bridge_info.inputargs
-            bridge_loop.operations = [bridge_label_op] + bridge_ops
+            bridge_loop.operations = bridge_ops
             loops.append((bridge_info, bridge_loop))
 
         return loops
@@ -290,108 +290,109 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         ops = """
         [p0]
-        debug_merge_point(0, 0, '0: DUP ')
-        i7 = call_i(ConstClass(func_ptr), p0, 1, descr=calldescr)
-        debug_merge_point(0, 0, '1: CONST_INT 1')
-        i12 = call_i(ConstClass(func_ptr), p0, 2, descr=calldescr)
-        debug_merge_point(0, 0, '3: LT ')
-        i16 = call_i(ConstClass(func_ptr), p0, 4, descr=calldescr)
-        debug_merge_point(0, 0, '4: JUMP_IF 8')
-        p19 = call_r(ConstClass(pop), p0, descr=popdescr)
-        i21 = call_i(ConstClass(is_true_ptr), p0, p19, descr=istruedescr)
+        debug_merge_point(0, 0, 0, 0, '0: DUP ')
+        i7 = call_i(ConstClass(func_ptr), p0, 1, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 1, '1: CONST_INT 1')
+        i12 = call_i(ConstClass(func_ptr), p0, 2, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 3, '3: LT ')
+        i16 = call_i(ConstClass(func_ptr), p0, 4, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 4, '4: JUMP_IF 8')
+        p19 = call_r(ConstClass(pop), p0, 1, descr=popdescr)
+        i21 = call_i(ConstClass(is_true_ptr), p0, p19, 1, descr=istruedescr)
         guard_true(i21, descr=<Guard0x7f86266bc140>) [i21, p0]
-        debug_merge_point(0, 0, '8: CONST_INT 1')
-        i29 = call_i(ConstClass(func_ptr), p0, 9, descr=calldescr)
-        debug_merge_point(0, 0, '10: SUB ')
-        i33 = call_i(ConstClass(func_ptr), p0, 11, descr=calldescr)
-        debug_merge_point(0, 0, '11: JUMP 0')
-        i38 = call_i(ConstClass(emit_jump_ptr), 6, 0, p0, descr=emit_jump_descr)
-        debug_merge_point(0, 0, '6: JUMP 13')
-        debug_merge_point(0, 0, '13: EXIT ')
-        p41 = call_r(ConstClass(pop), p0, descr=popdescr)
+        debug_merge_point(0, 0, 0, 8, '8: CONST_INT 1')
+        i29 = call_i(ConstClass(func_ptr), p0, 9, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 10, '10: SUB ')
+        i33 = call_i(ConstClass(func_ptr), p0, 11, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 11, '11: JUMP 0')
+        i38 = call_i(ConstClass(emit_jump_ptr), 6, 0, p0, 1, descr=emit_jump_descr)
+        debug_merge_point(0, 0, 0, 6, '6: JUMP 13')
+        debug_merge_point(0, 0, 0, 13, '13: EXIT ')
+        p41 = call_r(ConstClass(pop), p0, 1, descr=popdescr)
         leave_portal_frame(0)
         finish(p41)
         """
 
         body = """
         [p0]
-        debug_merge_point(0, 0, '0: DUP ')
-        i7 = call_i(ConstClass(func_ptr), p0, 1, descr=calldescr)
-        debug_merge_point(0, 0, '1: CONST_INT 1')
-        i12 = call_i(ConstClass(func_ptr), p0, 2, descr=calldescr)
-        debug_merge_point(0, 0, '3: LT ')
-        i16 = call_i(ConstClass(func_ptr), p0, 4, descr=calldescr)
-        debug_merge_point(0, 0, '4: JUMP_IF 8')
-        p19 = call_r(ConstClass(pop), p0, descr=popdescr)
-        i21 = call_i(ConstClass(is_true_ptr), p0, p19, descr=istruedescr)
-        guard_true(i21, descr=<Guard0x7f86266bc140>) [i21, p0]
-        debug_merge_point(0, 0, '8: CONST_INT 1')
-        i29 = call_i(ConstClass(func_ptr), p0, 9, descr=calldescr)
-        debug_merge_point(0, 0, '10: SUB ')
-        i33 = call_i(ConstClass(func_ptr), p0, 11, descr=calldescr)
-        debug_merge_point(0, 0, '11: JUMP 0')
-        # i38 = call_i(ConstClass(emit_jump_ptr), 6, 0, p0, descr=emit_jump_descr)
+        debug_merge_point(0, 0, 0, 0, '0: DUP ')
+        i7 = call_i(ConstClass(func_ptr), p0, 1, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 1, '1: CONST_INT 1')
+        i12 = call_i(ConstClass(func_ptr), p0, 2, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 3, '3: LT ')
+        i16 = call_i(ConstClass(func_ptr), p0, 4, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 4, '4: JUMP_IF 8')
+        p19 = call_r(ConstClass(pop), p0, 0, descr=popdescr)
+        i21 = call_i(ConstClass(is_true_ptr), p0, p19, 0, descr=istruedescr)
+        guard_true(i21, descr=<Guard0x7f86266bc140>) [p0]
+        debug_merge_point(0, 0, 0, 8, '8: CONST_INT 1')
+        i29 = call_i(ConstClass(func_ptr), p0, 9, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 10, '10: SUB ')
+        i33 = call_i(ConstClass(func_ptr), p0, 11, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 11, '11: JUMP 0')
+        # i38 = call_i(ConstClass(emit_jump_ptr), 6, 0, p0, 0, descr=emit_jump_descr)
         jump(p0)
         """
 
         # descr
         bridge = """
         [p0]
-        debug_merge_point(0, 0, '6: JUMP 13')
-        debug_merge_point(0, 0, '13: EXIT ')
-        p41 = call_r(ConstClass(pop), p0, descr=popdescr)
+        debug_merge_point(0, 0, 0, 6, '6: JUMP 13')
+        debug_merge_point(0, 0, 0, 13, '13: EXIT ')
+        p41 = call_r(ConstClass(pop), p0, 0, descr=popdescr)
         leave_portal_frame(0)
         finish(p41, descr=finaldescr)
         """
 
         self.assert_equal_split(ops, body, bridge)
 
-    @pytest.mark.skip()
+    # @pytest.mark.skip()
     def test_trace_split_real_trace_2(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
+        setattr(self.jitdriver_sd, "num_red_args", 1)
 
         ops ="""
         [p0]
-        debug_merge_point(0, 0, '3: DUP1 1')
-        call_n(ConstClass(func_ptr), p0, 4, descr=calldescr)
-        debug_merge_point(0, 0, '5: CONST_INT 2')
-        call_n(ConstClass(func_ptr), p0, 6, descr=calldescr)
-        debug_merge_point(0, 0, '7: LT ')
-        call_n(ConstClass(func_ptr), p0, 8, descr=calldescr)
-        debug_merge_point(0, 0, '8: JUMP_IF 14')
-        p13 = call_r(ConstClass(func_ptr), p0, descr=calldescr)
-        i15 = call_i(ConstClass(is_true_ptr), p0, p13, descr=istruedescr)
+        debug_merge_point(0, 0, 0, 3, '3: DUP1 1')
+        call_n(ConstClass(func_ptr), p0, 4, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 5, '5: CONST_INT 2')
+        call_n(ConstClass(func_ptr), p0, 6, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 7, '7: LT ')
+        call_n(ConstClass(func_ptr), p0, 8, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 8, '8: JUMP_IF 14')
+        p13 = call_r(ConstClass(func_ptr), p0, 1, descr=calldescr)
+        i15 = call_i(ConstClass(is_true_ptr), p0, p13, 1, descr=istruedescr)
         guard_true(i15, descr=<Guard0x7f6886462068>) [i15, p0]
-        debug_merge_point(0, 0, '14: DUP1 1')
-        call_n(ConstClass(func_ptr), p0, 15, descr=calldescr)
+        debug_merge_point(0, 0, 0, 14, '14: DUP1 1')
+        call_n(ConstClass(func_ptr), p0, 15, 1, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f68864602c0>) [p0]
-        debug_merge_point(0, 0, '16: DUP1 2')
-        call_n(ConstClass(func_ptr), p0, 17, descr=calldescr)
+        debug_merge_point(0, 0, 0, 16, '16: DUP1 2')
+        call_n(ConstClass(func_ptr), p0, 17, 1, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f6886460320>) [p0]
-        debug_merge_point(0, 0, '18: CONST_INT 1')
-        call_n(ConstClass(func_ptr), p0, 19, descr=calldescr)
+        debug_merge_point(0, 0, 0, 18, '18: CONST_INT 1')
+        call_n(ConstClass(func_ptr), p0, 19, 1, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f6886460380>) [p0]
-        debug_merge_point(0, 0, '20: SUB ')
-        call_n(ConstClass(func_ptr), p0, 21, descr=calldescr)
+        debug_merge_point(0, 0, 0, 20, '20: SUB ')
+        call_n(ConstClass(func_ptr), p0, 21, 1, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f68864603e0>) [p0]
-        debug_merge_point(0, 0, '21: CALL 3')
-        call_may_force_n(ConstClass(func_ptr), p0, 22, descr=calldescr)
+        debug_merge_point(0, 0, 0, 21, '21: CALL 3')
+        call_may_force_n(ConstClass(func_ptr), p0, 22, 1, descr=calldescr)
         guard_not_forced(descr=<Guard0x7f6886460440>) [p0]
         guard_no_exception(descr=<Guard0x7f68864620b0>) [p0]
-        debug_merge_point(0, 0, '23: ADD ')
-        call_n(ConstClass(func_ptr), p0, 24, descr=calldescr)
+        debug_merge_point(0, 0, 0, 23, '23: ADD ')
+        call_n(ConstClass(func_ptr), p0, 24, 1, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f68864604a0>) [p0]
-        debug_merge_point(0, 0, '24: RET 1')
-        p32 = call_r(ConstClass(func_ptr), p0, 25, descr=calldescr)
+        debug_merge_point(0, 0, 0, 24, '24: RET 1')
+        p32 = call_r(ConstClass(func_ptr), p0, 25, 1, descr=calldescr)
         i38 = call_i(ConstClass(emit_ret_ptr), 10, p32, descr=emit_ret_descr)
         guard_value(i38, 10, descr=<Guard0x7f6886460500>) [i38, p0]
-        debug_merge_point(0, 0, '10: CONST_INT 1')
-        call_n(ConstClass(func_ptr), p0, 11, descr=calldescr)
+        debug_merge_point(0, 0, 0, 10, '10: CONST_INT 1')
+        call_n(ConstClass(func_ptr), p0, 11, 1, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f6886460560>) [p0]
-        debug_merge_point(0, 0, '12: JUMP 24')
-        debug_merge_point(0, 0, '24: RET 1')
-        p44 = call_r(ConstClass(func_ptr), p0, 25, descr=calldescr)
+        debug_merge_point(0, 0, 0, 12, '12: JUMP 24')
+        debug_merge_point(0, 0, 0, 24, '24: RET 1')
+        p44 = call_r(ConstClass(func_ptr), p0, 25, 1, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f68864605c0>) [p44]
         leave_portal_frame(0)
         finish(p44, descr=<DoneWithThisFrameDescrRef object at 0x55c0fa2d98e0>)
@@ -399,49 +400,49 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         bodyops = """
         [p0]
-        debug_merge_point(0, 0, '3: DUP1 1')
-        call_n(ConstClass(func_ptr), p0, 4, descr=calldescr)
-        debug_merge_point(0, 0, '5: CONST_INT 2')
-        call_n(ConstClass(func_ptr), p0, 6, descr=calldescr)
-        debug_merge_point(0, 0, '7: LT ')
-        call_n(ConstClass(func_ptr), p0, 8, descr=calldescr)
-        debug_merge_point(0, 0, '8: JUMP_IF 14')
-        p13 = call_r(ConstClass(func_ptr), p0, descr=calldescr)
-        i15 = call_i(ConstClass(is_true_ptr), p0, p13, descr=istruedescr)
+        debug_merge_point(0, 0, 0, 3, '3: DUP1 1')
+        call_n(ConstClass(func_ptr), p0, 4, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 5, '5: CONST_INT 2')
+        call_n(ConstClass(func_ptr), p0, 6, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 7, '7: LT ')
+        call_n(ConstClass(func_ptr), p0, 8, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 8, '8: JUMP_IF 14')
+        p13 = call_r(ConstClass(func_ptr), p0, 0, descr=calldescr)
+        i15 = call_i(ConstClass(is_true_ptr), p0, p13, 0, descr=istruedescr)
         guard_true(i15, descr=<Guard0x7f6886462068>) [p0]
-        debug_merge_point(0, 0, '14: DUP1 1')
-        call_n(ConstClass(func_ptr), p0, 15, descr=calldescr)
+        debug_merge_point(0, 0, 0, 14, '14: DUP1 1')
+        call_n(ConstClass(func_ptr), p0, 15, 0, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f68864602c0>) [p0]
-        debug_merge_point(0, 0, '16: DUP1 2')
-        call_n(ConstClass(func_ptr), p0, 17, descr=calldescr)
+        debug_merge_point(0, 0, 0, 16, '16: DUP1 2')
+        call_n(ConstClass(func_ptr), p0, 17, 0, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f6886460320>) [p0]
-        debug_merge_point(0, 0, '18: CONST_INT 1')
-        call_n(ConstClass(func_ptr), p0, 19, descr=calldescr)
+        debug_merge_point(0, 0, 0, 18, '18: CONST_INT 1')
+        call_n(ConstClass(func_ptr), p0, 19, 0, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f6886460380>) [p0]
-        debug_merge_point(0, 0, '20: SUB ')
-        call_n(ConstClass(func_ptr), p0, 21, descr=calldescr)
+        debug_merge_point(0, 0, 0, 20, '20: SUB ')
+        call_n(ConstClass(func_ptr), p0, 21, 0, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f68864603e0>) [p0]
-        debug_merge_point(0, 0, '21: CALL 3')
-        call_may_force_n(ConstClass(func_ptr), p0, 22, descr=calldescr)
+        debug_merge_point(0, 0, 0, 21, '21: CALL 3')
+        call_may_force_n(ConstClass(func_ptr), p0, 22, 0, descr=calldescr)
         guard_not_forced(descr=<Guard0x7f6886460440>) [p0]
         guard_no_exception(descr=<Guard0x7f68864620b0>) [p0]
-        debug_merge_point(0, 0, '23: ADD ')
-        call_n(ConstClass(func_ptr), p0, 24, descr=calldescr)
+        debug_merge_point(0, 0, 0, 23, '23: ADD ')
+        call_n(ConstClass(func_ptr), p0, 24, 0, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f68864604a0>) [p0]
-        debug_merge_point(0, 0, '24: RET 1')
-        p32 = call_r(ConstClass(func_ptr), p0, 25, descr=calldescr)
+        debug_merge_point(0, 0, 0, 24, '24: RET 1')
+        p32 = call_r(ConstClass(func_ptr), p0, 25, 0, descr=calldescr)
         leave_portal_frame(0)
         finish(p32, descr=<DoneWithThisFrameDescrRef object at 0x55c0fa2d98e0>)
         """
 
         bridgeops = """
         [p0]
-        debug_merge_point(0, 0, '10: CONST_INT 1')
-        call_n(ConstClass(func_ptr), p0, 11, descr=calldescr)
+        debug_merge_point(0, 0, 0, 10, '10: CONST_INT 1')
+        call_n(ConstClass(func_ptr), p0, 11, 0, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f6886460560>) [p0]
-        debug_merge_point(0, 0, '12: JUMP 24')
-        debug_merge_point(0, 0, '24: RET 1')
-        p44 = call_r(ConstClass(func_ptr), p0, 25, descr=calldescr)
+        debug_merge_point(0, 0, 0, 12, '12: JUMP 24')
+        debug_merge_point(0, 0, 0, 24, '24: RET 1')
+        p44 = call_r(ConstClass(func_ptr), p0, 25, 0, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f68864605c0>) [p44]
         leave_portal_frame(0)
         finish(p44, descr=<DoneWithThisFrameDescrRef object at 0x55c0fa2d98e0>)
@@ -456,6 +457,7 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         ops2 = """
         [p0]
+        debug_merge_point(0, 0, 0, 0, '0: LT')
         call_n(ConstClass(func_ptr), p0, 1, descr=calldescr)
         i1 = call_i(ConstClass(is_true_ptr), p0, 0, descr=istruedescr)
         guard_true(i1, descr=<Guard0x7f6886462068>) [p0] # fstack = [<Guard0x7f6886462068>]
@@ -479,9 +481,11 @@ class TestOptTraceSplit(BaseTestTraceSplit):
     def test_trace_split_nested_branch_1(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
+        setattr(self.jitdriver_sd, "num_red_args", 1)
 
         ops = """
         [p0]
+        debug_merge_point(0, 0, 0, 0, '0: LT')
         call_n(ConstClass(func_ptr), p0, 1, descr=calldescr)
         i1 = call_i(ConstClass(is_true_ptr), p0, 0, descr=istruedescr)
         guard_true(i1, descr=<Guard0x7f6886462068>) [p0] # fstack = [<Guard0x7f6886462068>]
@@ -505,9 +509,11 @@ class TestOptTraceSplit(BaseTestTraceSplit):
     def test_trace_split_nested_branch_2(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
+        setattr(self.jitdriver_sd, "num_red_args", 1)
 
         ops = """
         [p0]
+        debug_merge_point(0, 0, 0, 0, '0: LT')
         call_n(ConstClass(func_ptr), p0, 1, descr=calldescr)
         i1 = call_i(ConstClass(is_true_ptr), p0, 0, descr=istruedescr)
         guard_true(i1, descr=<Guard0x7f6886462068>) [p0] # fstack = [<Guard0x7f6886462068>]
