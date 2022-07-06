@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0)
 from rpython.jit.metainterp.optimizeopt.util import (
-    make_dispatcher_method, get_box_replacement)
+    make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from .info import getptrinfo
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import vstring
@@ -33,9 +33,6 @@ class OptIntBounds(Optimization):
 
     def propagate_forward(self, op):
         return dispatch_opt(self, op)
-
-    def propagate_postprocess(self, op):
-        return dispatch_postprocess(self, op)
 
     def propagate_bounds_backward(self, box):
         # FIXME: This takes care of the instruction where box is the result
@@ -69,10 +66,8 @@ class OptIntBounds(Optimization):
         return self.emit(op)
 
     def postprocess_INT_OR_or_XOR(self, op):
-        v1 = get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(v1)
-        v2 = get_box_replacement(op.getarg(1))
-        b2 = self.getintbound(v2)
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
         b = b1.or_bound(b2)
         self.getintbound(op).intersect(b)
 
@@ -768,4 +763,5 @@ class OptIntBounds(Optimization):
 dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',
                                       default=OptIntBounds.emit)
 dispatch_bounds_ops = make_dispatcher_method(OptIntBounds, 'propagate_bounds_')
-dispatch_postprocess = make_dispatcher_method(OptIntBounds, 'postprocess_')
+OptIntBounds.propagate_postprocess = make_dispatcher_method(OptIntBounds, 'postprocess_')
+OptIntBounds.have_postprocess_op = have_dispatcher_method(OptIntBounds, 'postprocess_')

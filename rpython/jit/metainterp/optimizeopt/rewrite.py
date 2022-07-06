@@ -9,7 +9,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
 from rpython.jit.metainterp.optimizeopt.info import (
     INFO_NONNULL, INFO_NULL, getptrinfo)
 from rpython.jit.metainterp.optimizeopt.util import (
-    _findall, make_dispatcher_method, get_box_replacement)
+    _findall, make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, opclasses, OpHelpers)
 from rpython.rlib.rarithmetic import highest_bit
@@ -51,9 +51,6 @@ class OptRewrite(Optimization):
                 return
 
         return dispatch_opt(self, op)
-
-    def propagate_postprocess(self, op):
-        return dispatch_postprocess(self, op)
 
     def try_boolinvers(self, op, targs):
         oldop = self.get_pure_result(targs)
@@ -997,4 +994,5 @@ class OptRewrite(Optimization):
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
                                       default=OptRewrite.emit)
 optimize_guards = _findall(OptRewrite, 'optimize_', 'GUARD')
-dispatch_postprocess = make_dispatcher_method(OptRewrite, 'postprocess_')
+OptRewrite.propagate_postprocess = make_dispatcher_method(OptRewrite, 'postprocess_')
+OptRewrite.have_postprocess_op = have_dispatcher_method(OptRewrite, 'postprocess_')
