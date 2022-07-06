@@ -49,16 +49,9 @@ class OptIntBounds(Optimization):
         if box1 is not None:
             dispatch_bounds_ops(self, box1)
 
-    def _optimize_guard_true_false_value(self, op):
-        return self.emit(op)
-
     def _postprocess_guard_true_false_value(self, op):
         if op.getarg(0).type == 'i':
             self.propagate_bounds_backward(op.getarg(0))
-
-    optimize_GUARD_TRUE = _optimize_guard_true_false_value
-    optimize_GUARD_FALSE = _optimize_guard_true_false_value
-    optimize_GUARD_VALUE = _optimize_guard_true_false_value
 
     postprocess_GUARD_TRUE = _postprocess_guard_true_false_value
     postprocess_GUARD_FALSE = _postprocess_guard_true_false_value
@@ -89,17 +82,11 @@ class OptIntBounds(Optimization):
     postprocess_INT_OR = postprocess_INT_OR_or_XOR
     postprocess_INT_XOR = postprocess_INT_OR_or_XOR
 
-    def optimize_INT_AND(self, op):
-        return self.emit(op)
-
     def postprocess_INT_AND(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         b = b1.and_bound(b2)
         self.getintbound(op).intersect(b)
-
-    def optimize_INT_SUB(self, op):
-        return self.emit(op)
 
     def postprocess_INT_SUB(self, op):
         b1 = self.getintbound(op.getarg(0))
@@ -163,9 +150,6 @@ class OptIntBounds(Optimization):
         if b.bounded():
             r.intersect(b)
 
-    def optimize_INT_MUL(self, op):
-        return self.emit(op)
-
     def postprocess_INT_MUL(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
@@ -173,9 +157,6 @@ class OptIntBounds(Optimization):
         b = b1.mul_bound(b2)
         if b.bounded():
             r.intersect(b)
-
-    def optimize_CALL_PURE_I(self, op):
-        return self.emit(op)
 
     def postprocess_CALL_PURE_I(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
@@ -198,9 +179,6 @@ class OptIntBounds(Optimization):
         b2 = self.getintbound(op.getarg(2))
         r = self.getintbound(op)
         r.intersect(b1.mod_bound(b2))
-
-    def optimize_INT_LSHIFT(self, op):
-        return self.emit(op)
 
     def postprocess_INT_LSHIFT(self, op):
         arg0 = get_box_replacement(op.getarg(0))
@@ -515,31 +493,19 @@ class OptIntBounds(Optimization):
         bres = self.getintbound(op)
         bres.intersect(bounds)
 
-    def optimize_ARRAYLEN_GC(self, op):
-        return self.emit(op)
-
     def postprocess_ARRAYLEN_GC(self, op):
         array = self.ensure_ptr_info_arg0(op)
         self.optimizer.setintbound(op, array.getlenbound(None))
-
-    def optimize_STRLEN(self, op):
-        return self.emit(op)
 
     def postprocess_STRLEN(self, op):
         self.make_nonnull_str(op.getarg(0), vstring.mode_string)
         array = getptrinfo(op.getarg(0))
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_string))
 
-    def optimize_UNICODELEN(self, op):
-        return self.emit(op)
-
     def postprocess_UNICODELEN(self, op):
         self.make_nonnull_str(op.getarg(0), vstring.mode_unicode)
         array = getptrinfo(op.getarg(0))
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_unicode))
-
-    def optimize_STRGETITEM(self, op):
-        return self.emit(op)
 
     def postprocess_STRGETITEM(self, op):
         v1 = self.getintbound(op)
@@ -551,20 +517,11 @@ class OptIntBounds(Optimization):
                 lenbound.make_gt_const(intbound.lower)
         v1.intersect_const(0, 255)
 
-    def optimize_GETFIELD_RAW_I(self, op):
-        return self.emit(op)
-
     def postprocess_GETFIELD_RAW_I(self, op):
         descr = op.getdescr()
         if descr.is_integer_bounded():
             b1 = self.getintbound(op)
             b1.intersect_const(descr.get_integer_min(), descr.get_integer_max())
-
-    optimize_GETFIELD_RAW_F = optimize_GETFIELD_RAW_I
-    optimize_GETFIELD_RAW_R = optimize_GETFIELD_RAW_I
-    optimize_GETFIELD_GC_I = optimize_GETFIELD_RAW_I
-    optimize_GETFIELD_GC_R = optimize_GETFIELD_RAW_I
-    optimize_GETFIELD_GC_F = optimize_GETFIELD_RAW_I
 
     postprocess_GETFIELD_RAW_F = postprocess_GETFIELD_RAW_I
     postprocess_GETFIELD_RAW_R = postprocess_GETFIELD_RAW_I
@@ -572,16 +529,9 @@ class OptIntBounds(Optimization):
     postprocess_GETFIELD_GC_R = postprocess_GETFIELD_RAW_I
     postprocess_GETFIELD_GC_F = postprocess_GETFIELD_RAW_I
 
-    optimize_GETINTERIORFIELD_GC_I = optimize_GETFIELD_RAW_I
-    optimize_GETINTERIORFIELD_GC_R = optimize_GETFIELD_RAW_I
-    optimize_GETINTERIORFIELD_GC_F = optimize_GETFIELD_RAW_I
-
     postprocess_GETINTERIORFIELD_GC_I = postprocess_GETFIELD_RAW_I
     postprocess_GETINTERIORFIELD_GC_R = postprocess_GETFIELD_RAW_I
     postprocess_GETINTERIORFIELD_GC_F = postprocess_GETFIELD_RAW_I
-
-    def optimize_GETARRAYITEM_RAW_I(self, op):
-        return self.emit(op)
 
     def postprocess_GETARRAYITEM_RAW_I(self, op):
         descr = op.getdescr()
@@ -589,18 +539,10 @@ class OptIntBounds(Optimization):
             intbound = self.getintbound(op)
             intbound.intersect_const(descr.get_item_integer_min(), descr.get_item_integer_max())
 
-    optimize_GETARRAYITEM_RAW_F = optimize_GETARRAYITEM_RAW_I
-    optimize_GETARRAYITEM_GC_I = optimize_GETARRAYITEM_RAW_I
-    optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_RAW_I
-    optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_RAW_I
-
     postprocess_GETARRAYITEM_RAW_F = postprocess_GETARRAYITEM_RAW_I
     postprocess_GETARRAYITEM_GC_I = postprocess_GETARRAYITEM_RAW_I
     postprocess_GETARRAYITEM_GC_F = postprocess_GETARRAYITEM_RAW_I
     postprocess_GETARRAYITEM_GC_R = postprocess_GETARRAYITEM_RAW_I
-
-    def optimize_UNICODEGETITEM(self, op):
-        return self.emit(op)
 
     def postprocess_UNICODEGETITEM(self, op):
         b1 = self.getintbound(op)
