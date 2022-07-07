@@ -391,17 +391,17 @@ class Trace(BaseTrace):
         else:
             assert False, "unreachable code"
 
-    def record_op(self, opnum, argboxes, descr=None):
-        pos = self._index
+    def _op_start(self, opnum, num_argboxes):
         old_pos = self._pos
         self.append(opnum)
         expected_arity = oparity[opnum]
         if expected_arity == -1:
-            self.append(len(argboxes))
+            self.append(num_argboxes)
         else:
-            assert len(argboxes) == expected_arity
-        for box in argboxes:
-            self.append(self._encode(box))
+            assert num_argboxes == expected_arity
+        return old_pos
+
+    def _op_end(self, opnum, descr, old_pos):
         if opwithdescr[opnum]:
             # note that for guards we always store 0 which is later
             # patched during capture_resumedata
@@ -416,6 +416,43 @@ class Trace(BaseTrace):
             # potentially a broken op is left behind
             # clean it up
             self._pos = old_pos
+
+    def record_op(self, opnum, argboxes, descr=None):
+        pos = self._index
+        old_pos = self._op_start(opnum, len(argboxes))
+        for box in argboxes:
+            self.append(self._encode(box))
+        self._op_end(opnum, descr, old_pos)
+        return pos
+
+    def record_op0(self, opnum, descr=None):
+        pos = self._index
+        old_pos = self._op_start(opnum, 0)
+        self._op_end(opnum, descr, old_pos)
+        return pos
+
+    def record_op1(self, opnum, argbox1, descr=None):
+        pos = self._index
+        old_pos = self._op_start(opnum, 1)
+        self.append(self._encode(argbox1))
+        self._op_end(opnum, descr, old_pos)
+        return pos
+
+    def record_op2(self, opnum, argbox1, argbox2, descr=None):
+        pos = self._index
+        old_pos = self._op_start(opnum, 2)
+        self.append(self._encode(argbox1))
+        self.append(self._encode(argbox2))
+        self._op_end(opnum, descr, old_pos)
+        return pos
+
+    def record_op3(self, opnum, argbox1, argbox2, argbox3, descr=None):
+        pos = self._index
+        old_pos = self._op_start(opnum, 3)
+        self.append(self._encode(argbox1))
+        self.append(self._encode(argbox2))
+        self.append(self._encode(argbox3))
+        self._op_end(opnum, descr, old_pos)
         return pos
 
     def _encode_descr(self, descr):
