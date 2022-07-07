@@ -97,7 +97,7 @@ class IntBound(AbstractInfo):
     def is_constant(self):
         return self.has_upper and self.has_lower and self.lower == self.upper
 
-    def getint(self): # XXX this clashes with the base getint! it's inlined *everywhere*
+    def get_constant_int(self):
         assert self.is_constant()
         return self.lower
 
@@ -250,7 +250,7 @@ class IntBound(AbstractInfo):
     def mod_bound(self, other):
         r = IntUnbounded()
         if other.is_constant():
-            val = other.getint()
+            val = other.get_constant_int()
             if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
                 r.make_ge_const(0)
                 r.make_lt_const(val)
@@ -411,7 +411,7 @@ class IntBound(AbstractInfo):
     def getconst(self):
         if not self.is_constant():
             raise Exception("not a constant")
-        return ConstInt(self.getint())
+        return ConstInt(self.get_constant_int())
 
     def getnullness(self):
         if self.known_gt_const(0) or \

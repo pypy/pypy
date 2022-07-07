@@ -40,7 +40,7 @@ class OptIntBounds(Optimization):
         #        an argument might also be tighten
         b = self.getintbound(box)
         if b.is_constant():
-            self.make_constant_int(box, b.getint())
+            self.make_constant_int(box, b.get_constant_int())
 
         box1 = self.optimizer.as_operation(box)
         if box1 is not None:
@@ -574,37 +574,37 @@ class OptIntBounds(Optimization):
     def propagate_bounds_INT_LT(self, op):
         r = self.getintbound(op)
         if r.is_constant():
-            if r.getint() == 1:
+            if r.get_constant_int() == 1:
                 self.make_int_lt(op.getarg(0), op.getarg(1))
             else:
-                assert r.getint() == 0
+                assert r.get_constant_int() == 0
                 self.make_int_ge(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_GT(self, op):
         r = self.getintbound(op)
         if r.is_constant():
-            if r.getint() == 1:
+            if r.get_constant_int() == 1:
                 self.make_int_gt(op.getarg(0), op.getarg(1))
             else:
-                assert r.getint() == 0
+                assert r.get_constant_int() == 0
                 self.make_int_le(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_LE(self, op):
         r = self.getintbound(op)
         if r.is_constant():
-            if r.getint() == 1:
+            if r.get_constant_int() == 1:
                 self.make_int_le(op.getarg(0), op.getarg(1))
             else:
-                assert r.getint() == 0
+                assert r.get_constant_int() == 0
                 self.make_int_gt(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_GE(self, op):
         r = self.getintbound(op)
         if r.is_constant():
-            if r.getint() == 1:
+            if r.get_constant_int() == 1:
                 self.make_int_ge(op.getarg(0), op.getarg(1))
             else:
-                assert r.getint() == 0
+                assert r.get_constant_int() == 0
                 self.make_int_lt(op.getarg(0), op.getarg(1))
 
     def make_uint_lt(self, box1, box2):
@@ -639,37 +639,37 @@ class OptIntBounds(Optimization):
     def DISABLED_propagate_bounds_UINT_LT(self, op):
         r = self.getintbound(op)
         if r.is_constant():
-            if r.getint() == 1:
+            if r.get_constant_int() == 1:
                 self.make_uint_lt(op.getarg(0), op.getarg(1))
             else:
-                assert r.getint() == 0
+                assert r.get_constant_int() == 0
                 self.make_uint_ge(op.getarg(0), op.getarg(1))
 
     def DISABLED_propagate_bounds_UINT_GT(self, op):
         r = self.getintbound(op)
         if r.is_constant():
-            if r.getint() == 1:
+            if r.get_constant_int() == 1:
                 self.make_uint_gt(op.getarg(0), op.getarg(1))
             else:
-                assert r.getint() == 0
+                assert r.get_constant_int() == 0
                 self.make_uint_le(op.getarg(0), op.getarg(1))
 
     def DISABLED_propagate_bounds_UINT_LE(self, op):
         r = self.getintbound(op)
         if r.is_constant():
-            if r.getint() == 1:
+            if r.get_constant_int() == 1:
                 self.make_uint_le(op.getarg(0), op.getarg(1))
             else:
-                assert r.getint() == 0
+                assert r.get_constant_int() == 0
                 self.make_uint_gt(op.getarg(0), op.getarg(1))
 
     def DISABLED_propagate_bounds_UINT_GE(self, op):
         r = self.getintbound(op)
         if r.is_constant():
-            if r.getint() == 1:
+            if r.get_constant_int() == 1:
                 self.make_uint_ge(op.getarg(0), op.getarg(1))
             else:
-                assert r.getint() == 0
+                assert r.get_constant_int() == 0
                 self.make_uint_lt(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_EQ(self, op):
@@ -697,12 +697,12 @@ class OptIntBounds(Optimization):
             return
         r = self.getintbound(op)
         if r.is_constant():
-            if r.getint() == valnonzero:
+            if r.get_constant_int() == valnonzero:
                 b1 = self.getintbound(op.getarg(0))
                 if b1.known_nonnegative():
                     b1.make_gt_const(0)
                     self.propagate_bounds_backward(op.getarg(0))
-            elif r.getint() == valzero:
+            elif r.get_constant_int() == valzero:
                 self.make_constant_int(op.getarg(0), 0)
                 self.propagate_bounds_backward(op.getarg(0))
 
