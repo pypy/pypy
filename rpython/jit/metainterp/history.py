@@ -708,9 +708,6 @@ class History(object):
     trace = None
 
     def __init__(self):
-        self.descr_cache = {}
-        self.descrs = {}
-        self.consts = []
         self._cache = []
 
     def set_inputargs(self, inpargs, metainterp_sd):
