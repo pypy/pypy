@@ -343,6 +343,14 @@ class ConstPtr(Const):
         except lltype.UninitializedMemoryAccess:
             return '<uninitialized string>'
 
+
+class ConstPtrJitCode(ConstPtr):
+    """ a ConstPtr that comes from a constant in the jitcode. has an extra
+    field to cache the encoding in the opencoder. """
+    _attrs_ = ('opencoder_index', )
+    opencoder_index = -1
+
+
 CONST_NULL = ConstPtr(ConstPtr.value)
 
 # ____________________________________________________________

@@ -9,7 +9,8 @@ from rpython.jit.codewriter.liveness import OFFSET_SIZE
 from rpython.jit.metainterp import history, compile, resume, executor, jitexc
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
-    ConstFloat, CONST_NULL, TargetToken, MissingValue, SwitchToBlackhole)
+    ConstFloat, ConstPtrJitCode,
+    CONST_NULL, TargetToken, MissingValue, SwitchToBlackhole)
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
@@ -69,7 +70,7 @@ class MIFrame(object):
         self.greenkey = greenkey
         # copy the constants in place
         self.copy_constants(self.registers_i, jitcode.constants_i, ConstInt)
-        self.copy_constants(self.registers_r, jitcode.constants_r, ConstPtr)
+        self.copy_constants(self.registers_r, jitcode.constants_r, ConstPtrJitCode)
         self.copy_constants(self.registers_f, jitcode.constants_f, ConstFloat)
         self._result_argcode = 'v'
         # for resume.py operation
@@ -209,7 +210,7 @@ class MIFrame(object):
             for b in registers[count:]:
                 assert isinstance(b, (MissingValue, Const))
 
-
+    @specialize.argtype(1)
     def make_result_of_lastop(self, resultbox):
         got_type = resultbox.type
         if not we_are_translated():

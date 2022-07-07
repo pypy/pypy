@@ -7,7 +7,8 @@ Snapshot index for guards points to snapshot stored in _snapshots of trace
 """
 
 from rpython.jit.metainterp.history import (
-    ConstInt, Const, ConstFloat, ConstPtr, new_ref_dict, SwitchToBlackhole)
+    ConstInt, Const, ConstFloat, ConstPtr, new_ref_dict, SwitchToBlackhole,
+    ConstPtrJitCode)
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
     ResOperation, oparity, rop, opwithdescr, GuardResOp, IntOp, FloatOp, RefOp,\
     opclasses
@@ -288,6 +289,7 @@ class Trace(BaseTrace):
         self._consts_float = 0
         self._total_snapshots = 0
         self._consts_ptr = 0
+        self._consts_ptr_nodict = 0
         self._descrs = [None]
         self._refs = [lltype.nullptr(llmemory.GCREF.TO)]
         self._refs_dict = new_ref_dict()
@@ -330,7 +332,7 @@ class Trace(BaseTrace):
         debug_print(" total snapshots: " + str(self._total_snapshots))
         debug_print(" bigint consts: " + str(self._consts_bigint) + " " + str(len(self._bigints)))
         debug_print(" float consts: " + str(self._consts_float) + " " + str(len(self._floats)))
-        debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(len(self._refs)))
+        debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(self._consts_ptr_nodict) + " " + str(len(self._refs)))
         debug_print(" descrs: " + str(len(self._descrs)))
         debug_stop("jit-trace-done")
 
@@ -348,6 +350,29 @@ class Trace(BaseTrace):
     def cut_trace_from(self, (start, count, index), inputargs):
         return CutTrace(self, start, count, index, inputargs)
 
+    def _cached_const_int(self, box):
+        return v
+
+    def _cached_const_ptr(self, box):
+        assert isinstance(box, ConstPtr)
+        addr = box.getref_base()
+        if not addr:
+            return 0
+        if isinstance(box, ConstPtrJitCode):
+            index = box.opencoder_index
+            if index >= 0:
+                self._consts_ptr_nodict += 1
+                assert self._refs[index] == addr
+                return index
+        v = self._refs_dict.get(addr, -1)
+        if v == -1:
+            v = len(self._refs)
+            self._refs_dict[addr] = v
+            self._refs.append(addr)
+        if isinstance(box, ConstPtrJitCode):
+            box.opencoder_index = v
+        return v
+
     def _encode(self, box):
         if isinstance(box, Const):
             if (isinstance(box, ConstInt) and
@@ -356,16 +381,17 @@ class Trace(BaseTrace):
                 return tag(TAGINT, box.getint() - SMALL_INT_START)
             elif isinstance(box, ConstInt):
                 self._consts_bigint += 1
-                if not isinstance(box.getint(), int):
+                value = box.getint()
+                if not isinstance(value, int):
                     # symbolics, for tests, don't worry about caching
                     v = len(self._bigints) << 1
-                    self._bigints.append(box.getint())
+                    self._bigints.append(value)
                 else:
-                    v = self._bigints_dict.get(box.getint(), -1)
+                    v = self._bigints_dict.get(value, -1)
                     if v == -1:
                         v = len(self._bigints) << 1
-                        self._bigints_dict[box.getint()] = v
-                        self._bigints.append(box.getint())
+                        self._bigints_dict[value] = v
+                        self._bigints.append(value)
                 return tag(TAGCONSTOTHER, v)
             elif isinstance(box, ConstFloat):
                 # don't intern float constants
@@ -375,15 +401,7 @@ class Trace(BaseTrace):
                 return tag(TAGCONSTOTHER, v)
             else:
                 self._consts_ptr += 1
-                assert isinstance(box, ConstPtr)
-                if not box.getref_base():
-                    return tag(TAGCONSTPTR, 0)
-                addr = box.getref_base()
-                v = self._refs_dict.get(addr, -1)
-                if v == -1:
-                    v = len(self._refs)
-                    self._refs_dict[addr] = v
-                    self._refs.append(box.getref_base())
+                v = self._cached_const_ptr(box)
                 return tag(TAGCONSTPTR, v)
         elif isinstance(box, AbstractResOp):
             assert box.get_position() >= 0
