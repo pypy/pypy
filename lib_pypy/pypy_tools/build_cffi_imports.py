@@ -62,6 +62,9 @@ cffi_dependencies = {
     '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1q.tar.gz',
              'd7939ce614029cdff0b6c20f0e2e5703158a489a72b2507b8bd51bf8c8fd10ca',
              [
+              # needed for https://github.com/openssl/openssl/issues/18720
+              # on darwin, remove after 1.1.1q
+              ['sed', '-i', '11i #include <string.h>', 'test/v3ext.c'],
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
