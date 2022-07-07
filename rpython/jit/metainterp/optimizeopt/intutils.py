@@ -97,7 +97,7 @@ class IntBound(AbstractInfo):
     def is_constant(self):
         return self.has_upper and self.has_lower and self.lower == self.upper
 
-    def getint(self):
+    def getint(self): # XXX this clashes with the base getint! it's inlined *everywhere*
         assert self.is_constant()
         return self.lower
 
