@@ -293,7 +293,7 @@ class MIFrame(object):
     @arguments("box")
     def opimpl_int_same_as(self, box):
         # for tests only: emits a same_as, forcing the result to be in a Box
-        resbox = self.metainterp._record_helper_nonpure(
+        resbox = self.metainterp._record_helper(
             rop.SAME_AS_I, box.getint(), None, box)
         return resbox
 
@@ -340,7 +340,7 @@ class MIFrame(object):
         allboxes = [resbox] + allboxes
         # this is a weird op! we don't want to execute anything, so just record
         # an operation
-        self.metainterp._record_helper_nonpure_varargs(rop.RECORD_KNOWN_RESULT, None, calldescr, allboxes)
+        self.metainterp._record_helper_varargs(rop.RECORD_KNOWN_RESULT, None, calldescr, allboxes)
 
     @arguments("box", "box")
     def opimpl_record_exact_value_r(self, box, const_box):
@@ -554,19 +554,19 @@ class MIFrame(object):
                                         op, arraydescr, arraybox, indexbox)
             if typ == 'i':
                 if resvalue != tobox.getint():
-                    self.metainterp._record_helper_nonpure(rop.GETARRAYITEM_GC_I, resvalue, arraydescr, arraybox, indexbox)
+                    self.metainterp._record_helper(rop.GETARRAYITEM_GC_I, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
                     print "assertion in GETARRAYITEM_GC_I failed", resvalue, tobox.getint()
                     assert 0
             elif typ == 'r':
                 if resvalue != tobox.getref_base():
-                    self.metainterp._record_helper_nonpure(rop.GETARRAYITEM_GC_R, resvalue, arraydescr, arraybox, indexbox)
+                    self.metainterp._record_helper(rop.GETARRAYITEM_GC_R, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
                     print "assertion in GETARRAYITEM_GC_R failed", resvalue, tobox.getref_base()
                     assert 0
             elif typ == 'f':
                 if not ConstFloat(resvalue).same_constant(tobox.constbox()):
-                    self.metainterp._record_helper_nonpure(rop.GETARRAYITEM_GC_F, resvalue, arraydescr, arraybox, indexbox)
+                    self.metainterp._record_helper(rop.GETARRAYITEM_GC_F, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
                     print "assertion in GETARRAYITEM_GC_F failed", resvalue, tobox.getfloat()
                     assert 0
@@ -2466,11 +2466,14 @@ class MetaInterp(object):
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
         resvalue = executor.execute(self.cpu, self, opnum, descr, *argboxes)
-        if OpHelpers.is_pure_with_descr(opnum, descr):
-            return self._record_helper_pure(opnum, resvalue, descr, *argboxes)
-        if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
-            return self._record_helper_ovf(opnum, resvalue, descr, *argboxes)
-        return self._record_helper_nonpure(opnum, resvalue, descr, *argboxes)
+        canfold = False
+        if (OpHelpers.is_pure_with_descr(opnum, descr) or # pure case
+            (rop._OVF_FIRST <= opnum <= rop._OVF_LAST and # ovf case
+                not self.last_exc_value)):
+            canfold = self._all_constants(*argboxes)
+            if canfold:
+                return executor.wrap_constant(resvalue)
+        return self._record_helper(opnum, resvalue, descr, *argboxes)
 
     @specialize.arg(1)
     def execute_and_record_varargs(self, opnum, argboxes, descr=None):
@@ -2482,39 +2485,12 @@ class MetaInterp(object):
                                             opnum, argboxes, descr)
         # check if the operation can be constant-folded away
         argboxes = list(argboxes)
-        if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
-            return self._record_helper_pure_varargs(opnum, resvalue, descr,
-                                                    argboxes)
-        return self._record_helper_nonpure_varargs(opnum, resvalue, descr,
+        assert not rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
+        return self._record_helper_varargs(opnum, resvalue, descr,
                                                    argboxes)
 
-    @specialize.arg(1)
-    def _record_helper_pure(self, opnum, resvalue, descr, *argboxes):
-        canfold = self._all_constants(*argboxes)
-        if canfold:
-            return history.newconst(resvalue)
-        else:
-            return self._record_helper_nonpure(opnum, resvalue, descr,
-                                               *argboxes)
-
-    @specialize.arg(1)
-    def _record_helper_ovf(self, opnum, resvalue, descr, *argboxes):
-        if (not self.last_exc_value and
-                self._all_constants(*argboxes)):
-            return history.newconst(resvalue)
-        return self._record_helper_nonpure(opnum, resvalue, descr, *argboxes)
-
     @specialize.argtype(2)
-    def _record_helper_pure_varargs(self, opnum, resvalue, descr, argboxes):
-        canfold = self._all_constants_varargs(argboxes)
-        if canfold:
-            return executor.wrap_constant(resvalue)
-        else:
-            return self._record_helper_nonpure_varargs(opnum, resvalue, descr,
-                                                       argboxes)
-
-    @specialize.argtype(2)
-    def _record_helper_nonpure_varargs(self, opnum, resvalue, descr, argboxes):
+    def _record_helper_varargs(self, opnum, resvalue, descr, argboxes):
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, Counters.RECORDED_OPS)
@@ -2525,7 +2501,7 @@ class MetaInterp(object):
             return op
 
     @specialize.arg(1)
-    def _record_helper_nonpure(self, opnum, resvalue, descr, *argboxes):
+    def _record_helper(self, opnum, resvalue, descr, *argboxes):
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, Counters.RECORDED_OPS)
