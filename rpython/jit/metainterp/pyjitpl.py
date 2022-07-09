@@ -97,6 +97,7 @@ class MIFrame(object):
         # these are all prebuilt constants anyway.
         for i in range(self.jitcode.num_regs_r()):
             self.registers_r[i] = None
+        self.pushed_box = None
 
     # ------------------------------
     # Decoding of the JitCode
