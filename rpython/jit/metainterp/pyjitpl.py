@@ -24,7 +24,6 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper import rclass
-from rpython.rlib.objectmodel import compute_unique_id
 
 SIZE_LIVE_OP = OFFSET_SIZE + 1
 
