@@ -19,6 +19,9 @@ class LifeTime:
         self.creationpoints.update(other.creationpoints)
         self.usepoints.update(other.usepoints)
 
+    def __repr__(self):
+        return "<LifeTime creationpoints=%r usepoints=%r variables=%r>" % (self.creationpoints, self.usepoints, self.variables)
+
 
 class BaseMallocRemover(object):
 
@@ -128,9 +131,9 @@ class BaseMallocRemover(object):
             _, _, info = lifetimes.find((block, var))
             info.creationpoints.add(cp)
 
-        def set_use_point(block, var, *up):
+        def set_use_point(block, var, *usepoint):
             _, _, info = lifetimes.find((block, var))
-            info.usepoints.add(up)
+            info.usepoints.add(usepoint)
 
         def union(block1, var1, block2, var2):
             if isinstance(var1, Variable):
@@ -170,18 +173,22 @@ class BaseMallocRemover(object):
             if isinstance(node.last_exc_value, Variable):
                 set_creation_point(node.prevblock, node.last_exc_value,
                                    "last_exc_value")
-            d = set()
+            duplicate_info = set()
             for i, arg in enumerate(node.args):
                 union(node.prevblock, arg,
                       node.target, node.target.inputargs[i])
                 if isinstance(arg, Variable):
-                    if arg in d:
-                        # same variable present several times in link.args
-                        # consider it as a 'use' of the variable, which
-                        # will disable malloc optimization (aliasing problems)
+
+                    _, _, info = lifetimes.find((node.prevblock, arg))
+                    if info in duplicate_info and len(info.creationpoints) > 1:
+                        # same variable (up to renaming via same_as or
+                        # cast_pointer) present several times in link.args, and
+                        # the variable is created in two different places:
+                        # consider it as a 'use' of the variable, which will
+                        # disable malloc optimization (aliasing problems)
                         set_use_point(node.prevblock, arg, "dup", node, i)
                     else:
-                        d.add(arg)
+                        duplicate_info.add(info)
 
         return lifetimes.infos()
 
@@ -213,10 +220,10 @@ class BaseMallocRemover(object):
         # Note that same_as and cast_pointer are not recorded in usepoints.
         self.accessed_substructs = set()
 
-        for up in info.usepoints:
-            if up[0] != "op":
+        for usepoint in info.usepoints:
+            if usepoint[0] != "op":
                 return False
-            kind, node, op, index = up
+            kind, node, op, index = usepoint
             if index != 0:
                 return False
             if op.opname in self.CHECK_ARRAY_INDEX:
@@ -300,6 +307,7 @@ class BaseMallocRemover(object):
     def remove_mallocs_once(self, graph):
         """Perform one iteration of malloc removal."""
         simplify.remove_identical_vars(graph)
+        self.graph = graph # to make it possible to find in the debugger
         lifetimes = self.compute_lifetimes(graph)
         progress = 0
         for info in lifetimes:

@@ -5,7 +5,7 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     CONST_0, CONST_1, REMOVED, Optimization)
 from rpython.jit.metainterp.optimizeopt.util import (
-    make_dispatcher_method, get_box_replacement)
+    make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from .info import AbstractVirtualPtrInfo, getptrinfo
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -419,9 +419,6 @@ class OptString(Optimization):
 
     def propagate_forward(self, op):
         return dispatch_opt(self, op)
-
-    def propagate_postprocess(self, op):
-        return dispatch_postprocess(self, op)
 
     def make_vstring_plain(self, op, mode, length):
         vvalue = VStringPlainInfo(mode, True, length)
@@ -867,7 +864,8 @@ class OptString(Optimization):
 
 dispatch_opt = make_dispatcher_method(OptString, 'optimize_',
                                       default=OptString.emit)
-dispatch_postprocess = make_dispatcher_method(OptString, 'postprocess_')
+OptString.propagate_postprocess = make_dispatcher_method(OptString, 'postprocess_')
+OptString.have_postprocess_op = have_dispatcher_method(OptString, 'postprocess_')
 
 
 def _findall_call_oopspec():

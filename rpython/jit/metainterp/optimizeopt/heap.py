@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import new_ref_dict
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (
-    make_dispatcher_method, get_box_replacement)
+    make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -763,3 +763,4 @@ dispatch_opt = make_dispatcher_method(OptHeap, 'optimize_',
 OptHeap.propagate_forward = dispatch_opt
 dispatch_postprocess = make_dispatcher_method(OptHeap, 'postprocess_')
 OptHeap.propagate_postprocess = dispatch_postprocess
+OptHeap.have_postprocess_op = have_dispatcher_method(OptHeap, 'postprocess_')

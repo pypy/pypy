@@ -52,6 +52,11 @@ class OptimizationResult(object):
     def callback(self):
         self.opt.propagate_postprocess(self.op)
 
+PASS_OP_ON = OptimizationResult(None, None)
+
+@specialize.memo()
+def have_postprocess(cls):
+    return cls.propagate_postprocess.im_func is not Optimization.propagate_postprocess.im_func
 
 class Optimization(object):
     next_optimization = None
@@ -66,10 +71,20 @@ class Optimization(object):
     def propagate_postprocess(self, op):
         pass
 
+    def have_postprocess(self):
+        return have_postprocess(self.__class__)
+
+    def have_postprocess_op(self, opnum):
+        # default implementation, usually overridden
+        return self.have_postprocess()
+
     def emit_operation(self, op):
         assert False, "This should never be called."
 
     def emit(self, op):
+        if not self.have_postprocess_op(op.getopnum()):
+            self.last_emitted_operation = op
+            return PASS_OP_ON # no allocation
         return self.emit_result(OptimizationResult(self, op))
 
     def emit_result(self, opt_result):
@@ -508,17 +523,26 @@ class Optimizer(Optimization):
     def send_extra_operation(self, op, opt=None):
         if opt is None:
             opt = self.first_optimization
-        opt_results = []
+        opt_results = None
         while opt is not None:
             opt_result = opt.propagate_forward(op)
             if opt_result is None:
                 op = None
                 break
-            opt_results.append(opt_result)
-            op = opt_result.op
+            if opt_result is not PASS_OP_ON:
+                if opt_results is None:
+                    opt_results = [opt_result]
+                else:
+                    opt_results.append(opt_result)
+                op = opt_result.op
+            else:
+                op = opt.last_emitted_operation
             opt = opt.next_optimization
-        for opt_result in reversed(opt_results):
-            opt_result.callback()
+        if opt_results is not None:
+            index = len(opt_results) - 1
+            while index >= 0:
+                opt_results[index].callback()
+                index -= 1
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)
@@ -565,8 +589,6 @@ class Optimizer(Optimization):
                 return
             else:
                 op = self.emit_guard_operation(op, pendingfields)
-        elif op.can_raise():
-            self.exception_might_have_happened = True
         opnum = op.opnum
         if ((rop.has_no_side_effect(opnum) or rop.is_guard(opnum) or
              rop.is_jit_debug(opnum) or

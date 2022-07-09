@@ -188,13 +188,30 @@ class TraceIterator(BaseTrace):
 
     def next(self):
         opnum = self._next()
-        if oparity[opnum] == -1:
+        argnum = oparity[opnum]
+        if argnum == -1:
             argnum = self._next()
+        if not (0 <= oparity[opnum] <= 3):
+            args = []
+            for i in range(argnum):
+                args.append(self._untag(self._next()))
+            res = ResOperation(opnum, args)
         else:
+            cls = opclasses[opnum]
+            res = cls()
             argnum = oparity[opnum]
-        args = []
-        for i in range(argnum):
-            args.append(self._untag(self._next()))
+            if argnum == 0:
+                pass
+            elif argnum == 1:
+                res.setarg(0, self._untag(self._next()))
+            elif argnum == 2:
+                res.setarg(0, self._untag(self._next()))
+                res.setarg(1, self._untag(self._next()))
+            else:
+                assert argnum == 3
+                res.setarg(0, self._untag(self._next()))
+                res.setarg(1, self._untag(self._next()))
+                res.setarg(2, self._untag(self._next()))
         descr_index = -1
         if opwithdescr[opnum]:
             descr_index = self._next()
@@ -205,12 +222,10 @@ class TraceIterator(BaseTrace):
                     descr = self.metainterp_sd.all_descrs[descr_index - 1]
                 else:
                     descr = self.trace._descrs[descr_index - self.all_descr_len - 1]
-        else:
-            descr = None
-        res = ResOperation(opnum, args, descr=descr)
-        if rop.is_guard(opnum):
-            assert isinstance(res, GuardResOp)
-            res.rd_resume_position = descr_index
+                res.setdescr(descr)
+            if rop.is_guard(opnum): # all guards have descrs
+                assert isinstance(res, GuardResOp)
+                res.rd_resume_position = descr_index
         if res.type != 'v':
             self._cache[self._index] = res
             self._index += 1
