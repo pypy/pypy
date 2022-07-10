@@ -51,30 +51,55 @@ class MIFrame(object):
 
     def __init__(self, metainterp):
         self.metainterp = metainterp
-        self.registers_i = [None] * 256
-        self.registers_r = [None] * 256
-        self.registers_f = [None] * 256
 
     def setup(self, jitcode, greenkey=None):
         # if not translated, fill the registers with MissingValue()
         if not we_are_translated():
-            self.registers_i = [MissingValue()] * 256
-            self.registers_r = [MissingValue()] * 256
-            self.registers_f = [MissingValue()] * 256
+            self.registers_i = [MissingValue()] * jitcode.num_regs_i()
+            self.registers_r = [MissingValue()] * jitcode.num_regs_r()
+            self.registers_f = [MissingValue()] * jitcode.num_regs_f()
+        else:
+            self.registers_i = [None] * jitcode.num_regs_i()
+            self.registers_r = [None] * jitcode.num_regs_r()
+            self.registers_f = [None] * jitcode.num_regs_f()
         assert isinstance(jitcode, JitCode)
         self.jitcode = jitcode
         self.bytecode = jitcode.code
         # this is not None for frames that are recursive portal calls
         self.greenkey = greenkey
-        # copy the constants in place
-        self.copy_constants(self.registers_i, jitcode.constants_i, ConstInt)
-        self.copy_constants(self.registers_r, jitcode.constants_r, ConstPtr)
-        self.copy_constants(self.registers_f, jitcode.constants_f, ConstFloat)
         self._result_argcode = 'v'
         # for resume.py operation
         self.parent_snapshot = None
         # counter for unrolling inlined loops
         self.unroll_iterations = 1
+
+    def get_reg_i(self, index):
+        if index >= self.jitcode.num_regs_i():
+            j = 255 - index
+            assert j >= 0
+            return ConstInt(self.jitcode.constants_i[j])
+        return self.registers_i[index]
+
+    def get_reg_i_value(self, index):
+        if index >= self.jitcode.num_regs_i():
+            j = 255 - index
+            assert j >= 0
+            return self.jitcode.constants_i[j]
+        return self.registers_i[index].getint()
+
+    def get_reg_r(self, index):
+        if index >= self.jitcode.num_regs_r():
+            j = 255 - index
+            assert j >= 0
+            return ConstPtr(self.jitcode.constants_r[j])
+        return self.registers_r[index]
+
+    def get_reg_f(self, index):
+        if index >= self.jitcode.num_regs_f():
+            j = 255 - index
+            assert j >= 0
+            return ConstFloat(self.jitcode.constants_f[j])
+        return self.registers_f[index]
 
     @specialize.arg(3)
     def copy_constants(self, registers, constants, ConstClass):
@@ -109,9 +134,9 @@ class MIFrame(object):
         position += 1
         for i in range(length):
             index = ord(code[position+i])
-            if   argcode == 'I': reg = self.registers_i[index]
-            elif argcode == 'R': reg = self.registers_r[index]
-            elif argcode == 'F': reg = self.registers_f[index]
+            if   argcode == 'I': reg = self.get_reg_i(index)
+            elif argcode == 'R': reg = self.get_reg_r(index)
+            elif argcode == 'F': reg = self.get_reg_f(index)
             else: raise AssertionError(argcode)
             outvalue[startindex+i] = reg
 
@@ -1706,8 +1731,8 @@ class MIFrame(object):
             position += SIZE_LIVE_OP
             opcode = ord(code[position])
         if opcode == self.metainterp.staticdata.op_rvmprof_code:
-            arg1 = self.registers_i[ord(code[position + 1])].getint()
-            arg2 = self.registers_i[ord(code[position + 2])].getint()
+            arg1 = self.get_reg_i_value(ord(code[position + 1]))
+            arg2 = self.get_reg_i_value(ord(code[position + 2]))
             if arg1 == 1:
                 # we are resuming at a position that will do a
                 # jit_rvmprof_code(1), when really executed.  That's a
@@ -1722,13 +1747,19 @@ class MIFrame(object):
         count_i = count_r = count_f = 0
         for box in argboxes:
             if box.type == history.INT:
-                self.registers_i[count_i] = box
+                if count_i < len(self.registers_i):
+                    self.registers_i[count_i] = box
+                else:
+                    # otherwise the argument is unused
+                    pass
                 count_i += 1
             elif box.type == history.REF:
-                self.registers_r[count_r] = box
+                if count_r < len(self.registers_r):
+                    self.registers_r[count_r] = box
                 count_r += 1
             elif box.type == history.FLOAT:
-                self.registers_f[count_f] = box
+                if count_f < len(self.registers_f):
+                    self.registers_f[count_f] = box
                 count_f += 1
             else:
                 raise AssertionError(box.type)
@@ -2232,7 +2263,6 @@ class MetaInterp(object):
         # to the current loop -- the outermost one.  Be careful, because
         # during recursion we can also see other jitdrivers.
         self.portal_trace_positions = []
-        self.free_frames_list = []
         self.last_exc_value = lltype.nullptr(rclass.OBJECT)
         self.forced_virtualizable = None
         self.partial_trace = None
@@ -2285,10 +2315,7 @@ class MetaInterp(object):
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (jitcode.jitdriver_sd, greenkey, self.history.get_trace_position()))
-        if len(self.free_frames_list) > 0:
-            f = self.free_frames_list.pop()
-        else:
-            f = MIFrame(self)
+        f = MIFrame(self)
         f.setup(jitcode, greenkey)
         self.framestack.append(f)
         return f
@@ -2312,11 +2339,6 @@ class MetaInterp(object):
         if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (jitcode.jitdriver_sd, None, self.history.get_trace_position()))
-        # we save the freed MIFrames to avoid needing to re-create new
-        # MIFrame objects all the time; they are a bit big, with their
-        # 3*256 register entries.
-        frame.cleanup_registers()
-        self.free_frames_list.append(frame)
 
     def finishframe(self, resultbox, leave_portal_frame=True):
         # handle a non-exceptional return from the current frame
@@ -2367,8 +2389,8 @@ class MetaInterp(object):
                     # continue popping frames.  Decode the 'rvmprof_code' insn
                     # manually here.
                     from rpython.rlib.rvmprof import cintf
-                    arg1 = frame.registers_i[ord(code[position + 1])].getint()
-                    arg2 = frame.registers_i[ord(code[position + 2])].getint()
+                    arg1 = frame.get_reg_i_value(ord(code[position + 1]))
+                    arg2 = frame.get_reg_i_value(ord(code[position + 2]))
                     assert arg1 == 1
                     cintf.jit_rvmprof_code(arg1, arg2)
             self.popframe()
@@ -3538,13 +3560,13 @@ def _get_opimpl_method(name, argcodes):
                 argcode = argcodes[next_argcode]
                 next_argcode = next_argcode + 1
                 if argcode == 'i':
-                    value = self.registers_i[ord(code[position])]
+                    value = self.get_reg_i(ord(code[position]))
                 elif argcode == 'c':
                     value = ConstInt(signedord(code[position]))
                 elif argcode == 'r':
-                    value = self.registers_r[ord(code[position])]
+                    value = self.get_reg_r(ord(code[position]))
                 elif argcode == 'f':
-                    value = self.registers_f[ord(code[position])]
+                    value = self.get_reg_f(ord(code[position]))
                 else:
                     raise AssertionError("bad argcode")
                 position += 1
@@ -3600,7 +3622,7 @@ def _get_opimpl_method(name, argcodes):
                 argcode = argcodes[next_argcode]
                 next_argcode = next_argcode + 1
                 if argcode == 'i':
-                    value = self.registers_i[ord(code[position])].getint()
+                    value = self.get_reg_i_value(ord(code[position]))
                 elif argcode == 'c':
                     value = signedord(code[position])
                 else:
