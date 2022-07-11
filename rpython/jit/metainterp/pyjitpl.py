@@ -760,9 +760,9 @@ class MIFrame(object):
     def opimpl_getfield_gc_i(self, box, fielddescr):
         if fielddescr.is_always_pure() and isinstance(box, ConstPtr):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETFIELD_GC_I, fielddescr, box)
-            return ConstInt(resbox)
+            resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
+                                        rop.GETFIELD_GC_I, fielddescr, box)
+            return ConstInt(resvalue)
         return self._opimpl_getfield_gc_any_pureornot(
                 rop.GETFIELD_GC_I, box, fielddescr, 'i')
 
