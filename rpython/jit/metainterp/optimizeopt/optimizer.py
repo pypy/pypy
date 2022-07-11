@@ -344,7 +344,7 @@ class Optimizer(Optimization):
                 sb.add_preamble_op(preamble_op)
         if info is not None:
             if op.type == 'i' and info.is_constant():
-                return ConstInt(info.getint())
+                return ConstInt(info.get_constant_int())
             return info.force_box(op, optforce)
         return op
 
@@ -359,9 +359,10 @@ class Optimizer(Optimization):
         box = get_box_replacement(box)
         if isinstance(box, Const):
             return box
-        if (box.type == 'i' and box.get_forwarded() and
-            box.get_forwarded().is_constant()):
-            return ConstInt(box.get_forwarded().getint())
+        if box.type == 'i':
+            info = box.get_forwarded()
+            if isinstance(info, IntBound) and info.is_constant():
+                return ConstInt(info.get_constant_int())
         return None
         #self.ensure_imported(value)
 
@@ -562,7 +563,9 @@ class Optimizer(Optimization):
             if opinfo is not None:
                 assert isinstance(opinfo, IntBound)
                 if opinfo.is_constant():
-                    op.set_forwarded(ConstInt(opinfo.getint()))
+                    if not we_are_translated():
+                        import pdb; pdb.set_trace()
+                    op.set_forwarded(ConstInt(opinfo.get_constant_int()))
 
     @specialize.argtype(0)
     def _emit_operation(self, op):

@@ -343,6 +343,14 @@ class ConstPtr(Const):
         except lltype.UninitializedMemoryAccess:
             return '<uninitialized string>'
 
+
+class ConstPtrJitCode(ConstPtr):
+    """ a ConstPtr that comes from a constant in the jitcode. has an extra
+    field to cache the encoding in the opencoder. """
+    _attrs_ = ('opencoder_index', )
+    opencoder_index = -1
+
+
 CONST_NULL = ConstPtr(ConstPtr.value)
 
 # ____________________________________________________________
@@ -700,9 +708,6 @@ class History(object):
     trace = None
 
     def __init__(self):
-        self.descr_cache = {}
-        self.descrs = {}
-        self.consts = []
         self._cache = []
 
     def set_inputargs(self, inpargs, metainterp_sd):
@@ -736,19 +741,6 @@ class History(object):
         return self.trace._count > self.trace._start
 
     @specialize.argtype(2)
-    def set_op_value(self, op, value):
-        if value is None:
-            return
-        elif isinstance(value, bool):
-            op.setint(int(value))
-        elif lltype.typeOf(value) == lltype.Signed:
-            op.setint(value)
-        elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
-            op.setfloatstorage(value)
-        else:
-            assert lltype.typeOf(value) == llmemory.GCREF
-            op.setref_base(value)
-
     def _record_op(self, opnum, argboxes, descr=None):
         return self.trace.record_op(opnum, argboxes, descr)
 
@@ -758,19 +750,72 @@ class History(object):
             pos = 2**14 - 1
         else:
             pos = self._record_op(opnum, argboxes, descr)
+        op = self._make_op(pos, value)
+        if self.trace is None:
+            self._cache.append((opnum, argboxes, op, descr))
+        return op
+
+    @specialize.argtype(2)
+    def record0(self, opnum, value, descr=None):
+        if self.trace is None:
+            pos = 2**14 - 1
+        else:
+            pos = self.trace.record_op0(opnum, descr)
+        op = self._make_op(pos, value)
+        if self.trace is None:
+            self._cache.append((opnum, [], op, descr))
+        return op
+
+    @specialize.argtype(3)
+    def record1(self, opnum, argbox1, value, descr=None):
+        if self.trace is None:
+            pos = 2**14 - 1
+        else:
+            pos = self.trace.record_op1(opnum, argbox1, descr)
+        op = self._make_op(pos, value)
+        if self.trace is None:
+            self._cache.append((opnum, [argbox1], op, descr))
+        return op
+
+    @specialize.argtype(4)
+    def record2(self, opnum, argbox1, argbox2, value, descr=None):
+        if self.trace is None:
+            pos = 2**14 - 1
+        else:
+            pos = self.trace.record_op2(opnum, argbox1, argbox2, descr)
+        op = self._make_op(pos, value)
+        if self.trace is None:
+            self._cache.append((opnum, [argbox1, argbox2], op, descr))
+        return op
+
+    @specialize.argtype(5)
+    def record3(self, opnum, argbox1, argbox2, argbox3, value, descr=None):
+        if self.trace is None:
+            pos = 2**14 - 1
+        else:
+            pos = self.trace.record_op3(opnum, argbox1, argbox2, argbox3, descr)
+        op = self._make_op(pos, value)
+        if self.trace is None:
+            self._cache.append((opnum, [argbox1, argbox2, argbox3], op, descr))
+        return op
+
+    @specialize.argtype(2)
+    def _make_op(self, pos, value):
         if value is None:
             op = FrontendOp(pos)
         elif isinstance(value, bool):
             op = IntFrontendOp(pos)
+            op.setint(int(value))
         elif lltype.typeOf(value) == lltype.Signed:
             op = IntFrontendOp(pos)
+            op.setint(value)
         elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
             op = FloatFrontendOp(pos)
+            op.setfloatstorage(value)
         else:
             op = RefFrontendOp(pos)
-        if self.trace is None:
-            self._cache.append((opnum, argboxes, op, descr))
-        self.set_op_value(op, value)
+            assert lltype.typeOf(value) == llmemory.GCREF
+            op.setref_base(value)
         return op
 
     def record_nospec(self, opnum, argboxes, descr=None):
