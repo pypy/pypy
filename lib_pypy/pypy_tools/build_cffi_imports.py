@@ -74,10 +74,17 @@ cffi_dependencies = {
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
 }
+
 cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
-if sys.platform == 'darwin':
-    # this does not compile on the buildbot, linker is missing '_history_list'
+if sys.platform == "darwin":
+    # needed for https://github.com/openssl/openssl/issues/18720
+    # BSD sed needs a specific command sequence to insert
+    # remove after 1.1.1q
+    cffi_dependencies["_ssl"][2].insert(0,
+        ['sed', '-i', "''", "-e 11i\\\n#include <string.h>", "test/v3ext.c"])
+
+    # this does not compile on the linux buildbot, linker is missing '_history_list'
     cffi_dependencies['gdbm'] = (
               'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
               '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
