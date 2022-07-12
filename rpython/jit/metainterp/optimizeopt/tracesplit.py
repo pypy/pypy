@@ -103,7 +103,8 @@ class OptTraceSplit(Optimizer):
     def split(self, trace, resumestorage, call_pure_results, token):
         traceiter = trace.get_iter()
         self.token = token
-        return self.propagate_all_forward(traceiter, call_pure_results)
+        self.propagate_all_forward(traceiter, call_pure_results)
+        return self._newopsandinfo
 
     def propagate_all_forward(self, trace, call_pure_results=None, flush=True):
         self.trace = trace
@@ -152,15 +153,6 @@ class OptTraceSplit(Optimizer):
                 if isinstance(lastarg, ConstInt) and lastarg.getint() == 1:
                     op.setarg(numargs - 1, ConstInt(0))
 
-                # TODO: precisely remove the last several ops
-                # if len(self._fdescrstack) == 0:
-                #     if endswith(name, mark.RET):
-                #         self.handle_emit_ret(op, emit_label=False)
-                #         break
-                #     elif endswith(name, mark.JUMP):
-                #         self.handle_emit_jump(op, emit_label=False)
-                #         break
-
             self.send_extra_operation(op)
             trace.kill_cache_at(deadranges[i + trace.start_index])
             if op.type != 'v':
@@ -172,14 +164,16 @@ class OptTraceSplit(Optimizer):
             if last_op:
                 self.send_extra_operation(last_op)
 
-        if len(self._newoperations) > 0:
+        if len(self._newoperations) and \
+           self._newoperations[-1].getopnum() in (rop.JUMP, rop.FINISH):
             token = self._create_token(self.token)
             label = ResOperation(rop.LABEL, self.inputargs, token)
             info = TraceSplitInfo(token, label, self.inputargs, self.resumekey)
             self._newopsandinfo.append((info, self._newoperations))
 
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
-        return self._newopsandinfo
+        # XXX: workaround to pass the type checking
+        return self._newopsandinfo[0]
 
     def emit_pseudoop(self, op):
         self._pseudoops.append(op)

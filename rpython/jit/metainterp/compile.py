@@ -60,6 +60,37 @@ class CompileData(object):
             debug_stop("jit-optimize")
 
 
+class SplitCompileData(object):
+    """ An object containing all necessary info for a trace splitter.
+    """
+
+    memo = None
+    log_noopt = True
+
+    def forget_optimization_info(self):
+        for arg in self.trace.inputargs:
+            arg.set_forwarded(None)
+
+    def optimize_trace(self, metainterp_sd, jitdriver_sd, memo):
+        """Optimize loop.operations to remove internal overheadish operations.
+        """
+        from rpython.jit.metainterp.optimizeopt import build_opt_chain
+        # mark that a new trace has been started
+        log = metainterp_sd.jitlog.log_trace(jl.MARK_TRACE, metainterp_sd, None)
+        log.write_trace(self.trace)
+        if self.log_noopt:
+            metainterp_sd.logger_noopt.log_loop_from_trace(self.trace, memo=memo)
+
+        self.box_names_memo = memo
+        optimizations = build_opt_chain(self.enable_opts)
+        debug_start("jit-optimize")
+        try:
+            return self.split(metainterp_sd, jitdriver_sd, optimizations)
+        finally:
+            self.forget_optimization_info()
+            debug_stop("jit-optimize")
+
+
 class PreambleCompileData(CompileData):
     """
     This is the case of label() ops label()
@@ -140,7 +171,7 @@ class UnrolledLoopData(CompileData):
         return opt.optimize_peeled_loop(
             self.trace, self.celltoken, self.state, self.call_pure_results)
 
-class SimpleSplitCompileData(CompileData):
+class SimpleSplitCompileData(SplitCompileData):
 
     def __init__(self, trace, resumestorage=None,
                  call_pure_results=None, enable_opts=None,
@@ -152,10 +183,8 @@ class SimpleSplitCompileData(CompileData):
         self.inline_short_preamble = inline_short_preamble
         self.body_token = body_token
 
-    def optimize(self, metainterp_sd, jitdriver_sd, optimizations):
+    def split(self, metainterp_sd, jitdriver_sd, optimizations):
         from rpython.jit.metainterp.optimizeopt.tracesplit import OptTraceSplit
-        # from rpython.jit.metainterp.optimizeopt.tracesplit import TraceSplitOpt
-        # opt = TraceSplitOpt(metainterp_sd, jitdriver_sd, optimizations)
         opt = OptTraceSplit(metainterp_sd, jitdriver_sd, optimizations)
         return opt.split(self.trace, self.resumestorage, self.call_pure_results,
                          self.body_token)
@@ -1101,7 +1130,8 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     inputargs = metainterp.history.inputargs[:]
     trace = metainterp.history.trace
     # XXX: When applying trace split, turn off all other optimizations
-    enable_opts = "" # jitdriver_sd.warmstate.enable_opts
+    # enable_opts =  jitdriver_sd.warmstate.enable_opts
+    enable_opts = {'earlyforce': None, 'virtualize': None, 'string': None, 'pure': None, 'unroll': None} # heap causes an error
     call_pure_results = metainterp.call_pure_results
     resumestorage = resumekey.get_resumestorage()
 
@@ -1128,29 +1158,14 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         debug_print('InvalidLoop in compile_loop_and_split')
         return None
 
-    (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:-1]
+    (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:]
 
     # DEBUG
+    # debug_print("Loop afters splitted")
     # metainterp_sd.logger_noopt.log_loop(new_body_info.inputargs, new_body_ops)
     # for bridge_info, bridge_ops in bridges:
     #     metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
     #                                           descr=bridge_info.faildescr)
-
-    # data = SimpleCompileData(trace, resumestorage,
-    #                          call_pure_results=call_pure_results,
-    #                          enable_opts=enable_opts)
-    # try:
-    #     info, newops = data.optimize_trace(
-    #         metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
-    # except InvalidLoop:
-    #     metainterp_sd.jitlog.trace_aborted()
-    #     # XXX I am fairly convinced that optimize_bridge cannot actually raise
-    #     # InvalidLoop
-    #     debug_print('InvalidLoop in compile_trace_and_split')
-    #     return None
-
-    # debug_print('Loop after splitting')
-    # metainterp_sd.logger_noopt.log_loop(body_info.inputargs, body_ops)
 
     # compiling loop body
     new_body = create_empty_loop(metainterp)
