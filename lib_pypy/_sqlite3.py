@@ -116,7 +116,7 @@ _STMT_TYPE_INVALID = 6
 BASE_TYPE_ADAPTED = False
 
 # set of base types that are supported by SQLite3
-BASE_TYPES = {bytearray, float, int, str, NoneType}
+BASE_TYPES = {bytearray, bytes, float, int, str, NoneType}
 
 class Error(StandardError):
     pass
@@ -1198,7 +1198,7 @@ class Statement(object):
             self._in_use_token = None
 
     def __set_param(self, idx, param):
-        if not BASE_TYPE_ADAPTED or type(param) not in BASE_TYPES:
+        if BASE_TYPE_ADAPTED or type(param) not in BASE_TYPES:
             param = adapt(param)
 
         if param is None:
