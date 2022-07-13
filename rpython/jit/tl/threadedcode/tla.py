@@ -1089,7 +1089,7 @@ class Frame(object):
                     self.FLOAT_TO_INT(dummy=False)
 
             elif opcode == CALL:
-                t = _construct_value(bytecode, pc)
+                t = ord(bytecode[pc])
                 argnum = ord(bytecode[pc + 1])
                 pc += 2
 
@@ -1145,12 +1145,12 @@ class Frame(object):
                 pc += 1
                 if we_are_jitted():
                     if tstack.t_is_empty():
-                        w_x = self.RET(argnum, dummy=True)
+                        w_x = self.POP(dummy=True)
                         pc = emit_ret(entry, w_x)
                         tier1driver.can_enter_jit(
                             bytecode=bytecode, entry=entry, pc=pc, tstack=tstack, self=self)
                     else:
-                        w_x = self.RET(argnum, dummy=True)
+                        w_x = self.POP(dummy=True)
                         pc, tstack = tstack.t_pop()
                         pc = emit_ret(pc, w_x)
                 else:
@@ -1159,11 +1159,11 @@ class Frame(object):
             elif opcode == JUMP:
                 t = ord(bytecode[pc])
 
-                # if t < pc:
-                #     # pc is incremented just after fetching opcode
-                #     if bytecode.counts[pc-1] == TRACE_THRESHOLD:
-                #         raise ContinueInTracingJIT(pc-1)
-                #     bytecode.counts[pc-1] += 1
+                if t < pc:
+                    # pc is incremented just after fetching opcode
+                    if bytecode.counts[pc-1] == TRACE_THRESHOLD:
+                        raise ContinueInTracingJIT(pc-1)
+                    bytecode.counts[pc-1] += 1
 
                 if we_are_jitted():
                     if tstack.t_is_empty():
@@ -1278,35 +1278,35 @@ class Frame(object):
                 assert False, 'Unknown opcode: %s' % bytecodes[opcode]
 
 
-def run(bytecode, w_arg, debug=False, tier=None):
-    frame = Frame(bytecode)
-    frame.push(w_arg)
-    if tier >= 2:
-        w_result = frame._interp()
-    else:
-        w_result = frame.interp()
-    return w_result
-
-
-# def run(bytecode, w_arg, debug=False, tier=1):
+# def run(bytecode, w_arg, debug=False, tier=None):
 #     frame = Frame(bytecode)
 #     frame.push(w_arg)
 #     if tier >= 2:
 #         w_result = frame._interp()
-#         return w_result
 #     else:
-#         pc = 0
-#         while True:
-#             try:
-#                 w_result = frame.interp(pc=pc)
-#                 return w_result
-#             except ContinueInTracingJIT as e:
-#                 print "switching to tracing", e.pc
-#                 pc = e.pc
+#         w_result = frame.interp()
+#     return w_result
 
-#             try:
-#                 w_result = frame._interp(pc=pc)
-#                 return w_result
-#             except ContinueInThreadedJIT as e:
-#                 print "swiching to threaded", e.pc
-#                 pc = e.pc
+
+def run(bytecode, w_arg, debug=False, tier=1):
+    frame = Frame(bytecode)
+    frame.push(w_arg)
+    if tier >= 2:
+        w_result = frame._interp()
+        return w_result
+    else:
+        pc = 0
+        while True:
+            try:
+                w_result = frame.interp(pc=pc)
+                return w_result
+            except ContinueInTracingJIT as e:
+                print "switching to tracing", e.pc
+                pc = e.pc
+
+            try:
+                w_result = frame._interp(pc=pc)
+                return w_result
+            except ContinueInThreadedJIT as e:
+                print "swiching to threaded", e.pc
+                pc = e.pc
