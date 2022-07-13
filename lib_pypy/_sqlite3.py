@@ -1198,7 +1198,13 @@ class Statement(object):
             self._in_use_token = None
 
     def __set_param(self, idx, param):
-        if BASE_TYPE_ADAPTED or type(param) not in BASE_TYPES:
+        typ = type(param)
+        if BASE_TYPE_ADAPTED or not (typ is int or
+                                 typ is float or
+                                 typ is bytes or
+                                 typ is bytearray or
+                                 typ is NoneType or
+                                 typ is str):
             param = adapt(param)
 
         if param is None:
