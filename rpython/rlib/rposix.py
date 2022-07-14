@@ -349,10 +349,12 @@ c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT,
                   save_err=rffi.RFFI_SAVE_ERRNO)
 if sys.platform == 'darwin':
     extra_open_args = {'natural_arity': 2}
+    mode_type = rffi.INT
 else:
     extra_open_args = {}
+    mode_type = rff.MODE_T
 c_open = external(UNDERSCORE_ON_WIN32 + 'open',
-                  [rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT,
+                  [rffi.CCHARP, rffi.INT, mode_type], rffi.INT,
                   save_err=rffi.RFFI_SAVE_ERRNO, **extra_open_args)
 
 # Win32 Unicode functions

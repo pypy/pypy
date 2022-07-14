@@ -481,8 +481,7 @@ class AbstractFuncPtr(object):
                 elif restype.c_size <= 8:
                     restype = ffi_type_sint64
 
-        if variadic_args > 0 and not _MAC_OS_ARM64:
-            # On macOSX arm64, this is not supported and not needed
+        if variadic_args > 0:
             res = c_ffi_prep_cif_var(self.ll_cif,
                                      rffi.cast(rffi.USHORT, get_call_conv(flags,False)),
                                      rffi.cast(rffi.UINT, argnum - variadic_args),
