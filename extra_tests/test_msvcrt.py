@@ -26,3 +26,17 @@ class TestMsvcrt:
             msvcrt.locking(fd, 1, 1)
         finally:
             os.close(fd)
+
+    def test_getch(self):
+        import msvcrt
+        with pytest.raises(TypeError):
+            msvcrt.ungetch('a')
+        msvcrt.ungetch(b'a')
+        k = msvcrt.getch()
+        assert k == b'a'
+
+    def test_getwch(self):
+        import msvcrt
+        msvcrt.ungetwch('a')
+        k = msvcrt.getwch()
+        assert k == u'a'
