@@ -242,8 +242,8 @@ class VStringSliceInfo(StrPtrInfo):
             s1 = vstr.get_constant_string_spec(optstring, mode)
             if s1 is None:
                 return None
-            start = vstart.getint()
-            length = vlength.getint()
+            start = vstart.get_constant_int()
+            length = vlength.get_constant_int()
             assert start >= 0
             assert length >= 0
             return s1[start: start + length]
@@ -345,10 +345,10 @@ def copy_str_content(optstring, srcbox, targetbox,
         M = 5
     else:
         M = 2
-    if lgt.is_constant() and lgt.getint() <= M:
+    if lgt.is_constant() and lgt.get_constant_int() <= M:
         # up to M characters are done "inline", i.e. with STRGETITEM/STRSETITEM
         # instead of just a COPYSTRCONTENT.
-        for i in range(lgt.getint()):
+        for i in range(lgt.get_constant_int()):
             charbox = optstring.strgetitem(None, srcbox, srcoffsetbox,
                                                   mode)
             srcoffsetbox = _int_add(optstring, srcoffsetbox, CONST_1)
@@ -493,22 +493,21 @@ class OptString(Optimization):
             s = sinfo.s
             sinfo = getptrinfo(sinfo.s)
         #
+        vindex = self.getintbound(index)
         if isinstance(sinfo, VStringPlainInfo):
             # even if no longer virtual
-            vindex = self.getintbound(index)
             if vindex.is_constant():
-                result = sinfo.strgetitem(vindex.getint())
+                result = sinfo.strgetitem(vindex.get_constant_int())
                 if result is not None:
                     if op is not None:
                         self.make_equal_to(op, result)
                     return result
         #
-        vindex = self.getintbound(index)
         if isinstance(sinfo, VStringConcatInfo) and vindex.is_constant():
             leftinfo = getptrinfo(sinfo.vleft)
             len1box = leftinfo.getstrlen(sinfo.vleft, self, mode)
             if isinstance(len1box, ConstInt):
-                raw_index = vindex.getint()
+                raw_index = vindex.get_constant_int()
                 len1 = len1box.getint()
                 if raw_index < len1:
                     return self.strgetitem(op, sinfo.vleft, index, mode)
@@ -569,15 +568,15 @@ class OptString(Optimization):
         length = self.getintbound(op.getarg(4))
         dst_virtual = (isinstance(dst, VStringPlainInfo) and dst.is_virtual())
 
-        if length.is_constant() and length.getint() == 0:
+        if length.is_constant() and length.get_constant_int() == 0:
             return
         elif ((str and (src.is_virtual() or src.is_constant())) and
               srcstart.is_constant() and dststart.is_constant() and
               length.is_constant() and
-              (length.getint() < 20 or ((src.is_virtual() or src.is_constant()) and dst_virtual))):
-            src_start = srcstart.getint()
-            dst_start = dststart.getint()
-            actual_length = length.getint()
+              (length.get_constant_int() < 20 or ((src.is_virtual() or src.is_constant()) and dst_virtual))):
+            src_start = srcstart.get_constant_int()
+            dst_start = dststart.get_constant_int()
+            actual_length = length.get_constant_int()
             for index in range(actual_length):
                 vresult = self.strgetitem(None, op.getarg(0),
                                           ConstInt(index + src_start), mode)
@@ -673,8 +672,8 @@ class OptString(Optimization):
         #if (isinstance(vstr, VStringPlainInfo) and vstart.is_constant()
         #    and vstop.is_constant()):
         #    value = self.make_vstring_plain(op, mode, -1)
-        #    value.setup_slice(vstr._chars, vstart.getint(),
-        #                      vstop.getint())
+        #    value.setup_slice(vstr._chars, vstart.get_constant_int(),
+        #                      vstop.get_constant_int())
         #    return True, None
         #
         startbox = op.getarg(2)
@@ -797,7 +796,7 @@ class OptString(Optimization):
         if l2box:
             l2info = self.getintbound(l2box)
             if l2info.is_constant():
-                if l2info.getint() == 1:
+                if l2info.get_constant_int() == 1:
                     vchar = self.strgetitem(None, arg2, CONST_0, mode)
                     if i1 and i1.is_nonnull():
                         do = EffectInfo.OS_STREQ_NONNULL_CHAR
@@ -845,7 +844,7 @@ class OptString(Optimization):
         # VStringPlainValue for now) we can optimize away the call.
         if (i2 and i2.is_constant() and i1 and i1.is_virtual() and
             isinstance(i1, VStringPlainInfo)):
-            length = i2.getint()
+            length = i2.get_constant_int()
             i1.shrink(length)
             self.last_emitted_operation = REMOVED
             self.make_equal_to(op, op.getarg(1))

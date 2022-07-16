@@ -383,7 +383,7 @@ class OptHeap(Optimization):
         flag_value = self.getintbound(op.getarg(4))
         if not flag_value.is_constant():
             return False
-        flag = flag_value.getint()
+        flag = flag_value.get_constant_int()
         if flag != FLAG_LOOKUP and flag != FLAG_STORE:
             return False
         #
@@ -562,8 +562,8 @@ class OptHeap(Optimization):
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
-        if indexb.is_constant() and indexb.getint() >= 0:
-            index = indexb.getint()
+        if indexb.is_constant() and indexb.get_constant_int() >= 0:
+            index = indexb.get_constant_int()
             arrayinfo.getlenbound(None).make_gt_const(index)
             # use the cache on (arraydescr, index), which is a constant
             cf = self.arrayitem_cache(op.getdescr(), index)
@@ -584,10 +584,10 @@ class OptHeap(Optimization):
         # then remember the result of reading the array item
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
-        if indexb.is_constant() and indexb.getint() >= 0:
-            index = indexb.getint()
+        if indexb.is_constant() and indexb.get_constant_int() >= 0:
+            index = indexb.get_constant_int()
             cf = self.arrayitem_cache(op.getdescr(), index)
-            arrayinfo.setitem(op.getdescr(), indexb.getint(),
+            arrayinfo.setitem(op.getdescr(), index,
                               get_box_replacement(op.getarg(0)),
                               get_box_replacement(op), optheap=self,
                               cf=cf)
@@ -601,8 +601,8 @@ class OptHeap(Optimization):
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
-        if indexb.is_constant() and indexb.getint() >= 0:
-            index = indexb.getint()
+        if indexb.is_constant() and indexb.get_constant_int() >= 0:
+            index = indexb.get_constant_int()
             arrayinfo.getlenbound(None).make_gt_const(index)
             # use the cache on (arraydescr, index), which is a constant
             cf = self.arrayitem_cache(op.getdescr(), index)
@@ -622,11 +622,12 @@ class OptHeap(Optimization):
 
     def optimize_SETARRAYITEM_GC(self, op):
         indexb = self.getintbound(op.getarg(1))
-        if indexb.is_constant() and indexb.getint() >= 0:
+        if indexb.is_constant() and indexb.get_constant_int() >= 0:
+            index = indexb.get_constant_int()
             arrayinfo = self.ensure_ptr_info_arg0(op)
             # arraybound
-            arrayinfo.getlenbound(None).make_gt_const(indexb.getint())
-            cf = self.arrayitem_cache(op.getdescr(), indexb.getint())
+            arrayinfo.getlenbound(None).make_gt_const(index)
+            cf = self.arrayitem_cache(op.getdescr(), index)
             cf.do_setfield(self, op)
         else:
             # variable index, so make sure the lazy setarrayitems are done
