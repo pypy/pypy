@@ -7,7 +7,8 @@ Snapshot index for guards points to snapshot stored in _snapshots of trace
 """
 
 from rpython.jit.metainterp.history import (
-    ConstInt, Const, ConstFloat, ConstPtr, new_ref_dict, SwitchToBlackhole)
+    ConstInt, Const, ConstFloat, ConstPtr, new_ref_dict, SwitchToBlackhole,
+    ConstPtrJitCode)
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
     ResOperation, oparity, rop, opwithdescr, GuardResOp, IntOp, FloatOp, RefOp,\
     opclasses
@@ -288,6 +289,7 @@ class Trace(BaseTrace):
         self._consts_float = 0
         self._total_snapshots = 0
         self._consts_ptr = 0
+        self._consts_ptr_nodict = 0
         self._descrs = [None]
         self._refs = [lltype.nullptr(llmemory.GCREF.TO)]
         self._refs_dict = new_ref_dict()
@@ -330,7 +332,7 @@ class Trace(BaseTrace):
         debug_print(" total snapshots: " + str(self._total_snapshots))
         debug_print(" bigint consts: " + str(self._consts_bigint) + " " + str(len(self._bigints)))
         debug_print(" float consts: " + str(self._consts_float) + " " + str(len(self._floats)))
-        debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(len(self._refs)))
+        debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(self._consts_ptr_nodict) + " " + str(len(self._refs)))
         debug_print(" descrs: " + str(len(self._descrs)))
         debug_stop("jit-trace-done")
 
@@ -348,6 +350,29 @@ class Trace(BaseTrace):
     def cut_trace_from(self, (start, count, index), inputargs):
         return CutTrace(self, start, count, index, inputargs)
 
+    def _cached_const_int(self, box):
+        return v
+
+    def _cached_const_ptr(self, box):
+        assert isinstance(box, ConstPtr)
+        addr = box.getref_base()
+        if not addr:
+            return 0
+        if isinstance(box, ConstPtrJitCode):
+            index = box.opencoder_index
+            if index >= 0:
+                self._consts_ptr_nodict += 1
+                assert self._refs[index] == addr
+                return index
+        v = self._refs_dict.get(addr, -1)
+        if v == -1:
+            v = len(self._refs)
+            self._refs_dict[addr] = v
+            self._refs.append(addr)
+        if isinstance(box, ConstPtrJitCode):
+            box.opencoder_index = v
+        return v
+
     def _encode(self, box):
         if isinstance(box, Const):
             if (isinstance(box, ConstInt) and
@@ -356,16 +381,17 @@ class Trace(BaseTrace):
                 return tag(TAGINT, box.getint() - SMALL_INT_START)
             elif isinstance(box, ConstInt):
                 self._consts_bigint += 1
-                if not isinstance(box.getint(), int):
+                value = box.getint()
+                if not isinstance(value, int):
                     # symbolics, for tests, don't worry about caching
                     v = len(self._bigints) << 1
-                    self._bigints.append(box.getint())
+                    self._bigints.append(value)
                 else:
-                    v = self._bigints_dict.get(box.getint(), -1)
+                    v = self._bigints_dict.get(value, -1)
                     if v == -1:
                         v = len(self._bigints) << 1
-                        self._bigints_dict[box.getint()] = v
-                        self._bigints.append(box.getint())
+                        self._bigints_dict[value] = v
+                        self._bigints.append(value)
                 return tag(TAGCONSTOTHER, v)
             elif isinstance(box, ConstFloat):
                 # don't intern float constants
@@ -375,15 +401,7 @@ class Trace(BaseTrace):
                 return tag(TAGCONSTOTHER, v)
             else:
                 self._consts_ptr += 1
-                assert isinstance(box, ConstPtr)
-                if not box.getref_base():
-                    return tag(TAGCONSTPTR, 0)
-                addr = box.getref_base()
-                v = self._refs_dict.get(addr, -1)
-                if v == -1:
-                    v = len(self._refs)
-                    self._refs_dict[addr] = v
-                    self._refs.append(box.getref_base())
+                v = self._cached_const_ptr(box)
                 return tag(TAGCONSTPTR, v)
         elif isinstance(box, AbstractResOp):
             assert box.get_position() >= 0
@@ -391,17 +409,17 @@ class Trace(BaseTrace):
         else:
             assert False, "unreachable code"
 
-    def record_op(self, opnum, argboxes, descr=None):
-        pos = self._index
+    def _op_start(self, opnum, num_argboxes):
         old_pos = self._pos
         self.append(opnum)
         expected_arity = oparity[opnum]
         if expected_arity == -1:
-            self.append(len(argboxes))
+            self.append(num_argboxes)
         else:
-            assert len(argboxes) == expected_arity
-        for box in argboxes:
-            self.append(self._encode(box))
+            assert num_argboxes == expected_arity
+        return old_pos
+
+    def _op_end(self, opnum, descr, old_pos):
         if opwithdescr[opnum]:
             # note that for guards we always store 0 which is later
             # patched during capture_resumedata
@@ -416,6 +434,43 @@ class Trace(BaseTrace):
             # potentially a broken op is left behind
             # clean it up
             self._pos = old_pos
+
+    def record_op(self, opnum, argboxes, descr=None):
+        pos = self._index
+        old_pos = self._op_start(opnum, len(argboxes))
+        for box in argboxes:
+            self.append(self._encode(box))
+        self._op_end(opnum, descr, old_pos)
+        return pos
+
+    def record_op0(self, opnum, descr=None):
+        pos = self._index
+        old_pos = self._op_start(opnum, 0)
+        self._op_end(opnum, descr, old_pos)
+        return pos
+
+    def record_op1(self, opnum, argbox1, descr=None):
+        pos = self._index
+        old_pos = self._op_start(opnum, 1)
+        self.append(self._encode(argbox1))
+        self._op_end(opnum, descr, old_pos)
+        return pos
+
+    def record_op2(self, opnum, argbox1, argbox2, descr=None):
+        pos = self._index
+        old_pos = self._op_start(opnum, 2)
+        self.append(self._encode(argbox1))
+        self.append(self._encode(argbox2))
+        self._op_end(opnum, descr, old_pos)
+        return pos
+
+    def record_op3(self, opnum, argbox1, argbox2, argbox3, descr=None):
+        pos = self._index
+        old_pos = self._op_start(opnum, 3)
+        self.append(self._encode(argbox1))
+        self.append(self._encode(argbox2))
+        self.append(self._encode(argbox3))
+        self._op_end(opnum, descr, old_pos)
         return pos
 
     def _encode_descr(self, descr):
