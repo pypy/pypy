@@ -55,7 +55,7 @@ class Base:
 def test_all_opcodes_defined():
     opnames = set(host_bytecode_spec.method_names)
     methods = set([name for name in dir(FlowContext) if name.upper() == name])
-    handled_elsewhere = set(['EXTENDED_ARG'])
+    handled_elsewhere = set(['EXTENDED_ARG', 'LOAD_REVDB_VAR'])
     missing = opnames - methods - handled_elsewhere
     assert not missing
 
