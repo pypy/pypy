@@ -65,7 +65,8 @@ class HASH(object):
             raise
 
     def digest_type_by_name(self):
-        c_name = _str_to_ffi_buffer(self.name)
+        ssl_name = _inverse_name_mapping.get(self.name, self.name)
+        c_name = _str_to_ffi_buffer(ssl_name)
         digest_type = lib.EVP_get_digestbyname(c_name)
         if not digest_type:
             raise ValueError("unknown hash function")
@@ -147,12 +148,17 @@ def _fetch_names():
     name_fetcher.meth_names = None
     return frozenset(meth_names)
 
-name_mapping = {
+_name_mapping = {
     'blake2s256': 'blake2s',
     'blake2b512': 'blake2b',
     'shake128': 'shake_128',
     'shake256': 'shake_256',
+    'md5-sha1': 'md5_sha1',
+    'sha512-224': 'sha512_224',
+    'sha512-256': 'sha512_256',
     }
+
+_inverse_name_mapping = {value: key for key, value in _name_mapping.items()}
     
 if lib.OPENSSL_VERSION_NUMBER >= int(0x30000000):
     @ffi.callback("void(EVP_MD*, void*)")
@@ -173,7 +179,7 @@ def __openssl_hash_name_mapper(evp_md, userdata):
     name_fetcher = ffi.from_handle(userdata)
     from_name = lib.OBJ_nid2ln(nid)
     lowered = _str_from_buf(from_name).lower().replace('-', '_')
-    name = name_mapping.get(lowered, lowered)
+    name = _name_mapping.get(lowered, lowered)
     name_fetcher.meth_names.append(name)
 
 openssl_md_meth_names = _fetch_names()
