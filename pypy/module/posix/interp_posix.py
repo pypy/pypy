@@ -83,6 +83,7 @@ class FileDecoder(object):
 
 @specialize.memo()
 def make_dispatch_function(func, tag, allow_fd_fn=None):
+    @specialize.argtype(1)
     def dispatch(space, w_fname, *args):
         if allow_fd_fn is not None:
             try:

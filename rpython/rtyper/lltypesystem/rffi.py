@@ -168,6 +168,7 @@ def llexternal(name, args, result, _callable=None,
                                  random_effects_on_gcobjs=
                                      random_effects_on_gcobjs,
                                  calling_conv=calling_conv,
+                                 natural_arity=natural_arity,
                                  **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
@@ -221,8 +222,9 @@ def llexternal(name, args, result, _callable=None,
         #
         # '_call_aroundstate_target_' is used by the JIT to generate a
         # CALL_RELEASE_GIL directly to 'funcptr'.  This doesn't work if
-        # 'funcptr' might be a C macro, though.
-        if macro is None:
+        # 'funcptr' might be a C macro, though. We also can't do variadic
+        # calls
+        if macro is None and natural_arity == -1:
             call_external_function._call_aroundstate_target_ = funcptr, save_err
         #
         call_external_function = func_with_new_name(call_external_function,
@@ -234,6 +236,7 @@ def llexternal(name, args, result, _callable=None,
         # the low-level function pointer carelessly
         # ...well, unless it's a macro, in which case we still have
         # to hide it from the JIT...
+
         need_wrapper = (macro is not None or save_err != RFFI_ERR_NONE)
         # ...and unless we're on Windows and the calling convention is
         # 'win' or 'unknown'

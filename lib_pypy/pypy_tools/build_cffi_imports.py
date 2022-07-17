@@ -63,29 +63,38 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1p.tar.gz',
-             'bf61b62aaa66c7c7639942a94de4c9ae8280c08f17d4eac2e44644d9fc8ace6f',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1q.tar.gz',
+             'd7939ce614029cdff0b6c20f0e2e5703158a489a72b2507b8bd51bf8c8fd10ca',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.4.tar.gz',
-              '2831843e9a668a0ab478e7020ad63d2d65e51f72977472dc73efcefbafc0c00f',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.5.tar.gz',
+              'aa7d8d9bef71ad6525c55ba11e5f4397889ce49c2c9349dcea6d3e4f0b024a7a',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
 }
+
 cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
+if sys.platform == "darwin":
+    # needed for https://github.com/openssl/openssl/issues/18720
+    # BSD sed needs a specific command sequence to insert
+    # remove after 1.1.1q
+    cffi_dependencies["_ssl"][2].insert(0,
+        ['sed', '-i', "''", "-e 11i\\\n#include <string.h>", "test/v3ext.c"])
 if sys.platform == 'darwin' or platform.machine() == 'aarch64':
     # TODO: use these on x86 after upgrading Docker images to manylinux2014
     cffi_dependencies['_gdbm'] = (
               # this does not compile on the x86 buildbot, linker is missing '_history_list'
               'http://distfiles.macports.org/gdbm/gdbm-1.19.tar.gz',
               '37ed12214122b972e18a0d94995039e57748191939ef74115b1d41d8811364bc',
+
+    # this does not compile on the linux buildbot, linker is missing '_history_list'
               [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],

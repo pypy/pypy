@@ -63,10 +63,10 @@ parse_dir = pypydir / 'module' / 'cpyext' / 'parse'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
 translator_c_dir = py.path.local(cdir)
 include_dirs = [
+    udir,
     include_dir,
     parse_dir,
     translator_c_dir,
-    udir,
     ]
 if WIN32:
     include_dirs.insert(0, pc_dir)
@@ -657,7 +657,7 @@ SYMBOLS_C = [
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar',
-    'PyTuple_New', '_Py_Dealloc',
+    'PyTuple_New', '_Py_Dealloc', '_Py_object_dealloc',
     'PyVectorcall_Call',
 ]
 if sys.platform == "win32":
@@ -1209,7 +1209,7 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci,
         _nowrapper=True)
     state.C._PyPy_int_dealloc = rffi.llexternal(
-        '_PyPy_int_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_int_dealloc'), [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C.PyTuple_New = rffi.llexternal(
         mangle_name(prefix, 'PyTuple_New'),
@@ -1217,7 +1217,7 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci,
         _nowrapper=True)
     state.C._PyPy_tuple_dealloc = rffi.llexternal(
-        '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_tuple_dealloc'), [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(
                    rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
@@ -1227,11 +1227,12 @@ def attach_c_functions(space, eci, prefix):
         [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
-        '_PyPy_object_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_object_dealloc'),
+        [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
     state.C.get_pyos_inputhook = rffi.llexternal(
-        '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
+        mangle_name(prefix, '_Py_get_PyOS_InputHook'), [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
         mangle_name(prefix, '_Py_tuple_new'),
