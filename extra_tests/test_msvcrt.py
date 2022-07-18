@@ -1,16 +1,16 @@
 import pytest
 import sys
 
+msvcrt = pytest.importorskip('msvcrt')
+
 # not an applevel test: errno is not preserved
 class TestMsvcrt:
-    if sys.platform != 'win32':
-        pytest.skip("only on Windows")
 
     def test_locking(self, tmpdir):
         filename = tmpdir / 'locking_test'
         filename.ensure()
 
-        import os, msvcrt, errno
+        import os, errno
 
         fd = os.open(str(filename), 0)
         try:
@@ -28,7 +28,6 @@ class TestMsvcrt:
             os.close(fd)
 
     def test_getch(self):
-        import msvcrt
         with pytest.raises(TypeError):
             msvcrt.ungetch('a')
         msvcrt.ungetch(b'a')
@@ -36,7 +35,6 @@ class TestMsvcrt:
         assert k == b'a'
 
     def test_getwch(self):
-        import msvcrt
         msvcrt.ungetwch('a')
         k = msvcrt.getwch()
         assert k == u'a'
