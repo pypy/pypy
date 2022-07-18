@@ -23,14 +23,15 @@
 #
 # Note: This software has been modified for use in PyPy.
 
-from collections import OrderedDict
-from functools import wraps
 import datetime
+import os
 import string
 import sys
-import weakref
 import threading
-import os
+import types
+import weakref
+from collections import OrderedDict
+from functools import wraps
 
 try:
     from __pypy__ import newlist_hint, add_memory_pressure
@@ -1199,12 +1200,14 @@ class Statement(object):
 
     def __set_param(self, idx, param):
         typ = type(param)
-        if BASE_TYPE_ADAPTED or not (typ is int or
-                                 typ is float or
-                                 typ is bytes or
-                                 typ is bytearray or
-                                 typ is NoneType or
-                                 typ is str):
+        if BASE_TYPE_ADAPTED or (
+            typ is not bytearray
+            and typ is not bytes
+            and typ is not float
+            and typ is not int
+            and typ is not str
+            and typ is not NoneType
+        ):
             param = adapt(param)
 
         if param is None:
