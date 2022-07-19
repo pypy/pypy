@@ -23,14 +23,15 @@
 #
 # Note: This software has been modified for use in PyPy.
 
-from collections import OrderedDict
-from functools import wraps
 import datetime
+import os
 import string
 import sys
-import weakref
 import threading
-import os
+import types
+import weakref
+from collections import OrderedDict
+from functools import wraps
 
 try:
     from __pypy__ import newlist_hint, add_memory_pressure
@@ -112,6 +113,11 @@ _STMT_TYPE_OTHER = 4
 _STMT_TYPE_SELECT = 5
 _STMT_TYPE_INVALID = 6
 
+# flag that signals if base types need adaption
+BASE_TYPE_ADAPTED = False
+
+# set of base types that are supported by SQLite3
+BASE_TYPES = {bytearray, bytes, float, int, str, NoneType}
 
 class Error(StandardError):
     pass
@@ -1193,7 +1199,16 @@ class Statement(object):
             self._in_use_token = None
 
     def __set_param(self, idx, param):
-        param = adapt(param)
+        typ = type(param)
+        if BASE_TYPE_ADAPTED or (
+            typ is not bytearray
+            and typ is not bytes
+            and typ is not float
+            and typ is not int
+            and typ is not str
+            and typ is not NoneType
+        ):
+            param = adapt(param)
 
         if param is None:
             rc = _lib.sqlite3_bind_null(self._statement, idx)
@@ -1435,6 +1450,11 @@ class PrepareProtocol(object):
 
 
 def register_adapter(typ, callable):
+    global BASE_TYPE_ADAPTED
+
+    if typ in BASE_TYPES:
+        BASE_TYPE_ADAPTED = True
+
     adapters[typ, PrepareProtocol] = callable
 
 

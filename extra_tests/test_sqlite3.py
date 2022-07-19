@@ -12,7 +12,7 @@ pypy_only = pytest.mark.skipif('__pypy__' not in sys.builtin_module_names,
     reason="PyPy-only test")
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def con():
     con = _sqlite3.connect(':memory:')
     yield con
@@ -273,6 +273,7 @@ def test_adapter_exception(con):
             cur.execute("select ?", (4,))
     finally:
         del _sqlite3.adapters[(int, _sqlite3.PrepareProtocol)]
+        _sqlite3.BASE_TYPE_ADAPTED = False
 
 def test_null_character(con):
     if not hasattr(_sqlite3, '_ffi') and sys.version_info < (2, 7, 9):
@@ -436,3 +437,48 @@ def test_uninit_connection():
         con.iterdump()
     with pytest.raises(_sqlite3.ProgrammingError):
         con.close()
+
+@pypy_only
+@pytest.mark.parametrize(
+        "param",
+        (
+            bytearray([1, 2, 3]),
+            3.14,
+            42,
+            "i <3 pypy",
+            b"i <3 pypy",
+            None,
+        ),
+)
+def test_need_adapt_optimization(param, con):
+    adapters = dict(_sqlite3.adapters)
+
+    def adapter(param):
+        """dummy adapter that adapts only non-basetypes"""
+        return 42
+
+    assert _sqlite3.BASE_TYPE_ADAPTED == False
+
+    # check that the fast path works for base types
+    old_adapt = _sqlite3.adapt
+    try:
+        _sqlite3.adapt = None
+        cur = con.cursor()
+        cur.execute("SELECT ?", (param,))
+
+        assert cur.fetchone() == (param,)
+    finally:
+        _sqlite3.adapt = old_adapt
+
+    # check that if an adapter for a base type has been registered,
+    # the behaviour is as expected
+    try:
+        _sqlite3.register_adapter(type(param), adapter)
+        assert _sqlite3.BASE_TYPE_ADAPTED == True
+        cur = con.cursor()
+        cur.execute("SELECT ?", (param,))
+
+        assert cur.fetchone() == (42,)
+    finally:
+        _sqlite3.adapters = adapters
+        _sqlite3.BASE_TYPE_ADAPTED = False
