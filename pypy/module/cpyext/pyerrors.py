@@ -230,6 +230,33 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
                                       space.newtext(msg, lgt))
     raise OperationError(w_type, w_error)
 
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+@jit.dont_look_inside       # direct use of _get_errno()
+def PyErr_SetFromErrnoWithFilenameObjects(space, w_type, w_value, w_value2):
+    """Similar to PyErr_SetFromErrnoWithFilenameObject(), with the additional
+    behavior that it can take 2 filenames, for failures in rename(), symlink()
+    or copy().
+    Return value: always NULL."""
+    # XXX Doesn't actually do anything with PyErr_CheckSignals.
+    errno = rffi.cast(lltype.Signed, rposix._get_errno())
+    msg, lgt = _strerror(errno)
+    if w_value:
+        if w_value2:
+            w_error = space.call_function(w_type,
+                                          space.newint(errno),
+                                          space.newtext(msg, lgt),
+                                          w_value, None, w_value2)
+        else:
+            w_error = space.call_function(w_type,
+                                          space.newint(errno),
+                                          space.newtext(msg, lgt),
+                                          w_value)
+    else:
+        w_error = space.call_function(w_type,
+                                      space.newint(errno),
+                                      space.newtext(msg, lgt))
+    raise OperationError(w_type, w_error)
+
 @cpython_api([], rffi.INT_real, error=-1)
 def PyErr_CheckSignals(space):
     """
