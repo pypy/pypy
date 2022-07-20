@@ -313,10 +313,22 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                  Py_DECREF(filenameObject);
                  return NULL;
                  '''),
+                 ("set_from_errno2", "METH_NOARGS",
+                 '''
+                 PyObject *filenameObject = PyUnicode_FromString("/path/to/file");
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilenameObjects(PyExc_OSError,
+                                                      filenameObject, filenameObject);
+                 Py_DECREF(filenameObject);
+                 return NULL;
+                 '''),
                 ],
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == "/path/to/file"
+        exc_info = raises(OSError, module.set_from_errno2)
+        assert exc_info.value.filename == "/path/to/file"
+        assert exc_info.value.filename2 == "/path/to/file"
         if self.runappdirect:
             # untranslated the errno can get reset by the calls to ll2ctypes
             assert exc_info.value.errno == errno.EBADF

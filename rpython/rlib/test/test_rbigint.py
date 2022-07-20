@@ -1564,6 +1564,22 @@ class TestHypothesis(object):
         r2 = x % y
         assert r1 == r2
 
+    @given(longs, strategies.integers(0, 2000))
+    def test_shift(self, x, shift):
+        rx = rbigint.fromlong(x)
+        r1 = rx.lshift(shift)
+        assert r1.tolong() == x << shift
+
+        r1 = rx.rshift(shift)
+        assert r1.tolong() == x >> shift
+
+    @given(longs, strategies.integers(0, 2000), strategies.sampled_from([int((1 << i) - 1) for i in range(1, r_uint.BITS-1)]))
+    def test_abs_rshift_and_mask(self, x, shift, mask):
+        rx = rbigint.fromlong(x)
+        r1 = rx.abs_rshift_and_mask(r_ulonglong(shift), mask)
+        assert r1 == (abs(x) >> shift) & mask
+
+
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
 def test_hypothesis_small_shift(methname):
     # run the TestHypothesis in a subprocess with a smaller SHIFT value

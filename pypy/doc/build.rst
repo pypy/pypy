@@ -146,17 +146,21 @@ On SLES11::
 
 On Mac OS X:
 
-Currently PyPy supports both Apple Silicon (M1, Arm64) and X86_64 building.
+Currently PyPy supports both building on both Apple Silicon (M1, Arm64) and
+X86_64. You must use an appropriate toolchain for building: either ``arm64``
+or ``x86_64``. "Fat" universal2 builds are not supported.
 
+Currently tcl/tk is not supported, set ``export PYPY_PACKAGE_WITHOUTTK=1`` when
+packaging to avoid attempting to build the ``_tkinter`` extension library.
 
 Most of the build-time dependencies are installed alongside the Developer
-Tools. ``libffi`` and ``openssl`` still need to be installed, and a
+Tools. ``openssl`` still need to be installed for tests, and a
 brew-provided pypy will speed up translation:
 
 .. code-block:: shell
 
     xcode-select --install
-	/usr/local/bin/brew install libffi openssl pypy pkg-config
+	/usr/local/bin/brew install openssl pypy pkg-config
 
 After setting this up, translation (described next) will find the libs as
 expected via ``pkg-config``.

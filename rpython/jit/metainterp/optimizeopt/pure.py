@@ -3,7 +3,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
      ResOperation
 from rpython.jit.metainterp.optimizeopt.util import (
-    make_dispatcher_method, get_box_replacement)
+    make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import SpeculativeError
 
@@ -102,9 +102,6 @@ class OptPure(Optimization):
     def propagate_forward(self, op):
         return dispatch_opt(self, op)
 
-    def propagate_postprocess(self, op):
-        dispatch_postprocess(self, op)
-
     def optimize_default(self, op):
         canfold = rop.is_always_pure(op.opnum)
         if rop.is_ovf(op.opnum):
@@ -140,6 +137,9 @@ class OptPure(Optimization):
                 return
 
         # otherwise, the operation remains
+        if nextop is None and not save and not rop.returns_bool_result(op.getopnum()):
+            # for this case DefaultOptimizationResult would do nothing
+            return self.emit(op)
         return self.emit_result(DefaultOptimizationResult(self, op, save, nextop))
 
     def getrecentops(self, opnum):
@@ -293,4 +293,5 @@ class OptPure(Optimization):
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)
-dispatch_postprocess = make_dispatcher_method(OptPure, 'postprocess_')
+OptPure.propagate_postprocess = make_dispatcher_method(OptPure, 'postprocess_')
+OptPure.have_postprocess_op = have_dispatcher_method(OptPure, 'postprocess_')

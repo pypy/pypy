@@ -3080,6 +3080,8 @@ if sys.version_info >= (3,):
 def test_FILE():
     if sys.platform == "win32":
         py.test.skip("testing FILE not implemented")
+    if sys.platform == "darwin":
+        py.test.skip("fscanf has a variadac signature, libffi on macOX does not support it")
     #
     BFILE = new_struct_type("struct _IO_FILE")
     BFILEP = new_pointer_type(BFILE)

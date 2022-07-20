@@ -1942,6 +1942,7 @@ def _inplace_divrem1(pout, pin, n):
         size -= 1
     return rffi.cast(lltype.Signed, rem)
 
+@jit.elidable
 def _divrem1(a, n):
     """
     Divide a bigint integer by a digit, returning both the quotient
@@ -2175,6 +2176,7 @@ def _x_divrem(v1, w1):
 
     return a, w
 
+@jit.elidable
 def _divrem(a, b):
     """ Long division with remainder, top-level routine """
     size_a = a.numdigits()
