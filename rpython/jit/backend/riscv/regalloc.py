@@ -710,6 +710,12 @@ class Regalloc(BaseRegalloc):
             if var is not None:
                 self.possibly_free_var(var)
 
+    def force_spill_var(self, var):
+        if var.type == FLOAT:
+            self.fprm.force_spill_var(var)
+        else:
+            self.rm.force_spill_var(var)
+
     def free_temp_vars(self):
         self.rm.free_temp_vars()
         self.fprm.free_temp_vars()

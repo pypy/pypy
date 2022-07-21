@@ -131,6 +131,8 @@ class AssemblerRISCV(OpAssembler):
                 # If this op does not have side effects and its result is
                 # unused, it is safe to ignore this op.
                 pass
+            elif not we_are_translated() and op.getopnum() == rop.FORCE_SPILL:
+                regalloc.force_spill_var(op.getarg(0))
             elif (i < len(operations) - 1 and
                   ((can_fuse_into_compare_and_branch(opnum) and
                     regalloc.next_op_can_accept_cc(operations, i)) or
@@ -501,11 +503,15 @@ class AssemblerRISCV(OpAssembler):
     def _mov_reg_to_loc(self, prev_loc, loc):
         if loc.is_core_reg():
             self.mc.MV(loc.value, prev_loc.value)
+        elif loc.is_stack():
+            self.mc.store_int(prev_loc.value, r.jfp.value, loc.value)
         else:
             assert 0, 'unsupported case'
 
     def _mov_fp_reg_to_loc(self, prev_loc, loc):
         if loc.is_fp_reg():
             self.mc.FMV_D(loc.value, prev_loc.value)
+        elif loc.is_stack():
+            self.mc.store_float(prev_loc.value, r.jfp.value, loc.value)
         else:
             assert 0, 'unsupported case'
