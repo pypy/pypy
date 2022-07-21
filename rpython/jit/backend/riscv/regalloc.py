@@ -435,6 +435,23 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_invert = _prepare_op_unary_op
     prepare_op_int_is_zero = _prepare_op_unary_op
 
+    def prepare_op_int_signext(self, op):
+        a0, a1 = op.getarglist()
+        l0 = self.loc(a0)
+        if l0.is_stack():
+            # If a0 is on the stack, we can perform sign extension directly
+            # with LB/LH/LW.
+            pass
+        else:
+            # If a0 is not on the stack, we make sure it is in the register and
+            # perform sign extension with SLLI/SRAI.
+            l0 = self.make_sure_var_in_reg(a0)
+        l1 = self.convert_to_imm(a1)  # num_bytes
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op)
+        return [l0, l1, res]
+
     def _gen_prepare_op_float_binary_op(swap_operands):
         def _prepare_op_float_binary_op(self, op):
             boxes = op.getarglist()

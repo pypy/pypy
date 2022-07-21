@@ -179,6 +179,32 @@ class OpAssembler(BaseAssembler):
         l0, res = arglocs
         self.mc.SEQZ(res.value, l0.value)
 
+    def emit_op_int_signext(self, op, arglocs):
+        l0, l1, res = arglocs
+
+        assert l1.is_imm()
+        num_bytes = l1.value
+
+        if l0.is_stack():
+            offset = l0.value
+            if num_bytes == 1:
+                self.mc.LB(res.value, r.jfp.value, offset)
+            elif num_bytes == 2:
+                self.mc.LH(res.value, r.jfp.value, offset)
+            elif num_bytes == 4:
+                self.mc.LW(res.value, r.jfp.value, offset)
+            else:
+                assert 0, 'unexpected int_signext number of bytes'
+        else:
+            # Register-to-register sign extension
+            assert l0.is_core_reg()
+
+            assert num_bytes == 1 or num_bytes == 2 or num_bytes == 4
+            shift_amount = (XLEN - num_bytes) * 8
+
+            self.mc.SLLI(res.value, l0.value, shift_amount)
+            self.mc.SRAI(res.value, res.value, shift_amount)
+
     def emit_op_float_add(self, op, arglocs):
         l0, l1, res = arglocs
         self.mc.FADD_D(res.value, l0.value, l1.value)
