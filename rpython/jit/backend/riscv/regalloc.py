@@ -584,6 +584,61 @@ class Regalloc(BaseRegalloc):
     prepare_guard_op_guard_true  = _gen_prepare_guard_op_guard_bool_op(True)
     prepare_guard_op_guard_false = _gen_prepare_guard_op_guard_bool_op(False)
 
+    def _gen_prepare_guard_op_guard_overflow_op(guard_overflow):
+        def _prepare_guard_op_guard_overflow_op(self, op, guard_op):
+            boxes = op.getarglist()
+
+            # TODO: Optimize ADD/SUB with constant operands.
+
+            # INT_ADD_OVF:
+            #   add a2, a0, a1
+            #   slt t0, a2, a0
+            #   slti t1, a1, 0
+            #   beq t0, t1, no_overflow
+            # overflow:
+            #   j ...
+            # no_overflow:
+
+            # INT_SUB_OVF:
+            #   sub a2, a0, a1
+            #   slt t0, a2, a0
+            #   sgtz t1, a1
+            #   beq t0, t1, no_overflow
+            # overflow:
+            #   j ...
+            # no_overflow:
+
+            # INT_MUL_OVF:
+            #   mul a2, a0, a1
+            #   mulh t0, a0, a1
+            #   srai t1, a2, 63
+            #   beq t0, t1, no_overflow
+            # overflow:
+            #   j ...
+            # no_overflow:
+
+            locs = [self.make_sure_var_in_reg(v, boxes) for v in boxes]
+            # Note: Do not call `possibly_free_vars_for_op` or
+            # `free_temp_vars`. The result register (a2) overlaps with the
+            # lifetime of the arguments (a0/a1) and the lifetime of temporaries
+            # (t0/t1).
+            locs.append(self.force_allocate_reg(op, boxes))
+            locs.append(self.rm.get_scratch_reg(INT, boxes + [op]))  # t0
+            locs.append(self.rm.get_scratch_reg(INT, boxes + [op]))  # t1
+
+            guard_branch_inst = COND_BNE if guard_overflow else COND_BEQ
+
+            # Note[#dont_free_vars]: Do not call `possibly_free_vars_for_op` or
+            # `free_temp_vars`.
+            arglocs = locs + self._prepare_guard_arglocs(guard_op)
+            return arglocs, guard_branch_inst
+        return _prepare_guard_op_guard_overflow_op
+
+    prepare_guard_op_guard_overflow = \
+        _gen_prepare_guard_op_guard_overflow_op(True)
+    prepare_guard_op_guard_no_overflow = \
+        _gen_prepare_guard_op_guard_overflow_op(False)
+
     def _prepare_op_same_as(self, op):
         boxes = op.getarglist()
         a0 = boxes[0]

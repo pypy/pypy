@@ -3,7 +3,7 @@
 from rpython.jit.backend.llsupport.assembler import BaseAssembler, GuardToken
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.riscv import registers as r
-from rpython.jit.backend.riscv.arch import JITFRAME_FIXED_SIZE
+from rpython.jit.backend.riscv.arch import JITFRAME_FIXED_SIZE, XLEN
 from rpython.jit.backend.riscv.codebuilder import BRANCH_BUILDER
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
 from rpython.jit.metainterp.history import AbstractFailDescr
@@ -289,6 +289,36 @@ class OpAssembler(BaseAssembler):
 
     emit_guard_op_guard_true  = _emit_guard_op_guard_bool_op
     emit_guard_op_guard_false = _emit_guard_op_guard_bool_op
+
+    def _emit_guard_op_guard_overflow_op(self, op, guard_op, arglocs,
+                                         guard_branch_inst):
+        l0 = arglocs[0]
+        l1 = arglocs[1]
+        res = arglocs[2]
+        tmp0 = arglocs[3]
+        tmp1 = arglocs[4]
+
+        opnum = op.getopnum()
+        if opnum == rop.INT_ADD_OVF:
+            self.mc.ADD(res.value, l0.value, l1.value)
+            self.mc.SLT(tmp0.value, res.value, l0.value)
+            self.mc.SLTI(tmp1.value, l1.value, 0)
+        elif opnum == rop.INT_SUB_OVF:
+            self.mc.SUB(res.value, l0.value, l1.value)
+            self.mc.SLT(tmp0.value, res.value, l0.value)
+            self.mc.SGTZ(tmp1.value, l1.value)
+        elif opnum == rop.INT_MUL_OVF:
+            self.mc.MUL(res.value, l0.value, l1.value)
+            self.mc.MULH(tmp0.value, l0.value, l1.value)
+            self.mc.SRAI(tmp1.value, res.value, XLEN * 8 - 1)
+        else:
+            assert 0, 'unexpected overflow op'
+
+        BRANCH_BUILDER[guard_branch_inst](self.mc, tmp0.value, tmp1.value, 8)
+        self._emit_pending_guard(guard_op, arglocs[5:])
+
+    emit_guard_op_guard_overflow    = _emit_guard_op_guard_overflow_op
+    emit_guard_op_guard_no_overflow = _emit_guard_op_guard_overflow_op
 
     def _emit_op_same_as(self, op, arglocs):
         l0, res = arglocs

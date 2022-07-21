@@ -131,9 +131,11 @@ class AssemblerRISCV(OpAssembler):
                 # If this op does not have side effects and its result is
                 # unused, it is safe to ignore this op.
                 pass
-            elif (can_fuse_into_compare_and_branch(opnum) and
-                  i < len(operations) - 1 and
-                  regalloc.next_op_can_accept_cc(operations, i)):
+            elif (i < len(operations) - 1 and
+                  ((can_fuse_into_compare_and_branch(opnum) and
+                    regalloc.next_op_can_accept_cc(operations, i)) or
+                   (op.is_ovf() and
+                    rop.is_guard_overflow(operations[i + 1].getopnum())))):
                 guard_op = operations[i + 1]  # guard_* or cond_call*
                 guard_num = guard_op.getopnum()
                 arglocs, guard_branch_inst = \
