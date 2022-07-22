@@ -677,4 +677,31 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         msg = output.strip().replace('\r', '').splitlines()
         assert msg[0] == "sys.unraisablehook RuntimeError('nonfatal-error') Exception ignored sometext"
  
-
+    def test_fetch_normalized(self):
+        module = self.import_extension('foo', [
+            ("clevel_error", "METH_O",
+             '''
+                const char *fname = PyUnicode_AsUTF8(args);
+                char buffer[1024];
+                sprintf(buffer, "open('%s', 'r')", fname);
+                printf("calling %s\\n", buffer);
+                PyObject *ret = PyRun_String(buffer, Py_eval_input, Py_None, Py_None);
+                if (ret) {
+                    Py_DECREF(ret);
+                    PyErr_SetString(PyExc_AssertionError, "should raise");
+                    return NULL;
+                }
+                PyObject *type, *value, *tb;
+                PyErr_Fetch(&type, &value, &tb);
+                if (type != PyExc_FileNotFoundError)
+                    printf("type is %s\\n", ((PyTypeObject*)type)->tp_name);
+                    Py_RETURN_FALSE;
+                PyErr_Clear();
+                // decrefs?
+                Py_RETURN_TRUE;
+             '''),
+            ])
+        import os
+        fname = 'this file should not exist'
+        assert not os.path.exists(fname)
+        assert module.clevel_error(fname)
