@@ -1074,8 +1074,7 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
         jitcode = metainterp.staticdata.jitcodes[jitcode_pos]
         f = metainterp.newframe(jitcode)
         f.setup_resume_at_op(pc)
-        resumereader.consume_boxes(f.get_current_position_info(),
-                                   f.registers_i, f.registers_r, f.registers_f)
+        resumereader.consume_boxes(f.get_current_position_info(), f)
         f.handle_rvmprof_enter_on_resume()
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
@@ -1091,10 +1090,8 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.liveboxes = [None] * self.count
         self._prepare(storage)
 
-    def consume_boxes(self, info, boxes_i, boxes_r, boxes_f):
-        self.boxes_i = boxes_i
-        self.boxes_r = boxes_r
-        self.boxes_f = boxes_f
+    def consume_boxes(self, info, f):
+        self.frame = f
         self._prepare_next_section(info)
 
     def consume_virtualizable_boxes(self, vinfo):
@@ -1311,13 +1308,13 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     next_box_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def write_an_int(self, index, box):
-        self.boxes_i[index] = box
+        self.frame.set_reg_i(index, box)
 
     def write_a_ref(self, index, box):
-        self.boxes_r[index] = box
+        self.frame.set_reg_r(index, box)
 
     def write_a_float(self, index, box):
-        self.boxes_f[index] = box
+        self.frame.set_reg_f(index, box)
 
     def int_add_const(self, intbox, offset):
         return self.metainterp.execute_and_record(rop.INT_ADD, None, intbox,

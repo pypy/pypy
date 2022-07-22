@@ -54,15 +54,18 @@ class MIFrame(object):
         self.metainterp = metainterp
 
     def setup(self, jitcode, greenkey=None):
-        # if not translated, fill the registers with MissingValue()
-        if not we_are_translated():
-            self.registers_i = [MissingValue()] * jitcode.num_regs_i()
-            self.registers_r = [MissingValue()] * jitcode.num_regs_r()
-            self.registers_f = [MissingValue()] * jitcode.num_regs_f()
-        else:
-            self.registers_i = [None] * jitcode.num_regs_i()
-            self.registers_r = [None] * jitcode.num_regs_r()
-            self.registers_f = [None] * jitcode.num_regs_f()
+        self.registers_i = [None] * jitcode.num_regs_i()
+        self.registers_r = [None] * jitcode.num_regs_r()
+        self.registers_f = [None] * jitcode.num_regs_f()
+
+        metainterp = self.metainterp
+        self.registers_pos_i = metainterp.registers_stackpointer
+        self.registers_pos_r = self.registers_pos_i + jitcode.num_regs_i()
+        self.registers_pos_f = self.registers_pos_r + jitcode.num_regs_r()
+        metainterp.registers_stackpointer += jitcode.num_all_regs()
+        while metainterp.registers_stackpointer >= len(metainterp.registers):
+            # double size
+            metainterp.registers = metainterp.registers + [None] * len(metainterp.registers)
         assert isinstance(jitcode, JitCode)
         self.jitcode = jitcode
         self.bytecode = jitcode.code
@@ -79,50 +82,51 @@ class MIFrame(object):
             j = 255 - index
             assert j >= 0
             return ConstInt(self.jitcode.constants_i[j])
-        return self.registers_i[index]
+        assert self.registers_i[index] is self.metainterp.registers[self.registers_pos_i + index]
+        return self.metainterp.registers[self.registers_pos_i + index]
 
     def get_reg_i_value(self, index):
         if index >= self.jitcode.num_regs_i():
             j = 255 - index
             assert j >= 0
             return self.jitcode.constants_i[j]
-        return self.registers_i[index].getint()
+        assert self.registers_i[index] is self.metainterp.registers[self.registers_pos_i + index]
+        return self.metainterp.registers[self.registers_pos_i + index].getint()
+
+    def set_reg_i(self, index, box):
+        assert 0 <= index < self.jitcode.num_regs_i()
+        self.metainterp.registers[self.registers_pos_i + index] = box
+        self.registers_i[index] = box
+        assert self.get_reg_i(index) is box
 
     def get_reg_r(self, index):
         if index >= self.jitcode.num_regs_r():
             j = 255 - index
             assert j >= 0
             return ConstPtr(self.jitcode.constants_r[j])
-        return self.registers_r[index]
+        assert self.registers_r[index] is self.metainterp.registers[self.registers_pos_r + index]
+        return self.metainterp.registers[self.registers_pos_r + index]
+
+    def set_reg_r(self, index, box):
+        assert 0 <= index < self.jitcode.num_regs_r()
+        self.metainterp.registers[self.registers_pos_r + index] = box
+        self.registers_r[index] = box
+        assert self.get_reg_r(index) is box
 
     def get_reg_f(self, index):
         if index >= self.jitcode.num_regs_f():
             j = 255 - index
             assert j >= 0
             return ConstFloat(self.jitcode.constants_f[j])
-        return self.registers_f[index]
+        assert self.registers_f[index] is self.metainterp.registers[self.registers_pos_f + index]
+        return self.metainterp.registers[self.registers_pos_f + index]
 
-    @specialize.arg(3)
-    def copy_constants(self, registers, constants, ConstClass):
-        """Copy jitcode.constants[0] to registers[255],
-                jitcode.constants[1] to registers[254],
-                jitcode.constants[2] to registers[253], etc."""
-        if nonconst.NonConstant(0):             # force the right type
-            constants[0] = ConstClass.value     # (useful for small tests)
-        i = len(constants) - 1
-        while i >= 0:
-            j = 255 - i
-            assert j >= 0
-            registers[j] = ConstClass(constants[i])
-            i -= 1
+    def set_reg_f(self, index, box):
+        assert 0 <= index < self.jitcode.num_regs_f()
+        self.metainterp.registers[self.registers_pos_f + index] = box
+        self.registers_f[index] = box
+        assert self.get_reg_f(index) is box
 
-    def cleanup_registers(self):
-        # To avoid keeping references alive, this cleans up the registers_r.
-        # It does not clear the references set by copy_constants(), but
-        # these are all prebuilt constants anyway.
-        for i in range(self.jitcode.num_regs_r()):
-            self.registers_r[i] = None
-        self.pushed_box = None
 
     # ------------------------------
     # Decoding of the JitCode
@@ -148,9 +152,9 @@ class MIFrame(object):
         for i in range(length):
             index = ord(code[position+i])
             box = outvalue[startindex+i]
-            if   box.type == history.INT:   self.registers_i[index] = box
-            elif box.type == history.REF:   self.registers_r[index] = box
-            elif box.type == history.FLOAT: self.registers_f[index] = box
+            if   box.type == history.INT:   self.set_reg_i(index, box)
+            elif box.type == history.REF:   self.set_reg_r(index, box)
+            elif box.type == history.FLOAT: self.set_reg_f(index, box)
             else: raise AssertionError(box.type)
 
     def get_current_position_info(self):
@@ -167,11 +171,11 @@ class MIFrame(object):
             argcode = self._result_argcode
             index = ord(self.bytecode[self.pc - 1])
             if argcode == 'i':
-                self.registers_i[index] = history.CONST_FALSE
+                self.set_reg_i(index, history.CONST_FALSE)
             elif argcode == 'r':
-                self.registers_r[index] = CONST_NULL
+                self.set_reg_r(index, CONST_NULL)
             elif argcode == 'f':
-                self.registers_f[index] = history.CONST_FZERO
+                self.set_reg_f(index, history.CONST_FZERO)
             self._result_argcode = '?'     # done
         if in_a_call or after_residual_call:
             pc = self.pc # live instruction afterwards
@@ -199,19 +203,19 @@ class MIFrame(object):
         if length_i:
             it = LivenessIterator(offset, length_i, all_liveness)
             for index in it:
-                env[start_i] = encode(self.registers_i[index])
+                env[start_i] = encode(self.get_reg_i(index))
                 start_i += 1
             offset = it.offset
         if length_r:
             it = LivenessIterator(offset, length_r, all_liveness)
             for index in it:
-                env[start_r] = encode(self.registers_r[index])
+                env[start_r] = encode(self.get_reg_r(index))
                 start_r += 1
             offset = it.offset
         if length_f:
             it = LivenessIterator(offset, length_f, all_liveness)
             for index in it:
-                env[start_f] = encode(self.registers_f[index])
+                env[start_f] = encode(self.get_reg_f(index))
                 start_f += 1
             offset = it.offset
         return env
@@ -219,21 +223,18 @@ class MIFrame(object):
     def replace_active_box_in_frame(self, oldbox, newbox):
         if oldbox.type == 'i':
             count = self.jitcode.num_regs_i()
-            registers = self.registers_i
+            get, set = MIFrame.get_reg_i, MIFrame.set_reg_i
         elif oldbox.type == 'r':
             count = self.jitcode.num_regs_r()
-            registers = self.registers_r
+            get, set = MIFrame.get_reg_r, MIFrame.set_reg_r
         elif oldbox.type == 'f':
             count = self.jitcode.num_regs_f()
-            registers = self.registers_f
+            get, set = MIFrame.get_reg_f, MIFrame.set_reg_f
         else:
             assert 0, oldbox
         for i in range(count):
-            if registers[i] is oldbox:
-                registers[i] = newbox
-        if not we_are_translated():
-            for b in registers[count:]:
-                assert isinstance(b, (MissingValue, Const))
+            if get(self, i) is oldbox:
+                set(self, i, newbox)
 
     @specialize.argtype(1)
     def make_result_of_lastop(self, resultbox):
@@ -245,13 +246,11 @@ class MIFrame(object):
             assert typeof[self.jitcode._resulttypes[self.pc]] == got_type
         target_index = ord(self.bytecode[self.pc-1])
         if got_type == history.INT:
-            self.registers_i[target_index] = resultbox
+            self.set_reg_i(target_index, resultbox)
         elif got_type == history.REF:
-            #debug_print(' ->',
-            #            llmemory.cast_ptr_to_adr(resultbox.getref_base()))
-            self.registers_r[target_index] = resultbox
+            self.set_reg_r(target_index, resultbox)
         elif got_type == history.FLOAT:
-            self.registers_f[target_index] = resultbox
+            self.set_reg_f(target_index, resultbox)
         else:
             raise AssertionError("bad result box type")
 
@@ -1101,6 +1100,7 @@ class MIFrame(object):
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_virtualizable_field_index(fielddescr)
         return self.metainterp.virtualizable_boxes[index]
+
     @arguments("box", "descr", "orgpc")
     def opimpl_getfield_vable_r(self, box, fielddescr, pc):
         if self._nonstandard_virtualizable(pc, box, fielddescr):
@@ -1108,6 +1108,7 @@ class MIFrame(object):
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_virtualizable_field_index(fielddescr)
         return self.metainterp.virtualizable_boxes[index]
+
     @arguments("box", "descr", "orgpc")
     def opimpl_getfield_vable_f(self, box, fielddescr, pc):
         if self._nonstandard_virtualizable(pc, box, fielddescr):
@@ -1748,19 +1749,19 @@ class MIFrame(object):
         count_i = count_r = count_f = 0
         for box in argboxes:
             if box.type == history.INT:
-                if count_i < len(self.registers_i):
-                    self.registers_i[count_i] = box
+                if count_i < self.jitcode.num_regs_i():
+                    self.set_reg_i(count_i, box)
                 else:
                     # otherwise the argument is unused
                     pass
                 count_i += 1
             elif box.type == history.REF:
-                if count_r < len(self.registers_r):
-                    self.registers_r[count_r] = box
+                if count_r < self.jitcode.num_regs_r():
+                    self.set_reg_r(count_r, box)
                 count_r += 1
             elif box.type == history.FLOAT:
-                if count_f < len(self.registers_f):
-                    self.registers_f[count_f] = box
+                if count_f < self.jitcode.num_regs_f():
+                    self.set_reg_f(count_f, box)
                 count_f += 1
             else:
                 raise AssertionError(box.type)
@@ -2263,6 +2264,9 @@ class MetaInterp(object):
         # Note: self.jitdriver_sd is the JitDriverStaticData that corresponds
         # to the current loop -- the outermost one.  Be careful, because
         # during recursion we can also see other jitdrivers.
+        self.registers = [None] * self.jitdriver_sd.mainjitcode.num_all_regs()
+        self.registers_stackpointer = 0
+
         self.portal_trace_positions = []
         self.last_exc_value = lltype.nullptr(rclass.OBJECT)
         self.forced_virtualizable = None
@@ -2303,6 +2307,7 @@ class MetaInterp(object):
         #return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
 
     def newframe(self, jitcode, greenkey=None):
+        print ">" * len(self.framestack), jitcode.name
         if jitcode.jitdriver_sd:
             self.portal_call_depth += 1
             self.call_ids.append(self.current_call_id)
@@ -2331,7 +2336,9 @@ class MetaInterp(object):
 
     def popframe(self, leave_portal_frame=True):
         frame = self.framestack.pop()
+        print "<" * len(self.framestack), frame.jitcode.name
         jitcode = frame.jitcode
+        self.registers_stackpointer -= frame.jitcode.num_all_regs()
         if jitcode.jitdriver_sd:
             self.portal_call_depth -= 1
             if leave_portal_frame:
@@ -2700,6 +2707,7 @@ class MetaInterp(object):
         self.staticdata.stats.entered()
         while True:
             self.framestack[-1].run_one_step()
+            print "step", self.framestack[-1].pc, self.framestack[-1].registers_i, self.registers
             self.blackhole_if_trace_too_long()
             if not we_are_translated():
                 self.check_recursion_invariant()

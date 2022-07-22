@@ -51,6 +51,9 @@ class JitCode(AbstractDescr):
     def num_regs_f(self):
         return ord(self.c_num_regs_f)
 
+    def num_all_regs(self):
+        return self.num_regs_i() + self.num_regs_r() + self.num_regs_f()
+
     def _live_vars(self, pc, all_liveness, op_live):
         from rpython.jit.codewriter.liveness import LivenessIterator
         # for testing only

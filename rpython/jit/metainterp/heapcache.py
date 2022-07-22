@@ -55,8 +55,8 @@ class CacheEntry(object):
         # because if we saw the allocation, we know it cannot alias with
         # anything else where we saw the allocation.
         self.heapcache = heapcache
-        self.cache_anything = {}
-        self.cache_seen_allocation = {}
+        self.cache_anything = None
+        self.cache_seen_allocation = None
 
         # set of boxes that we've seen a quasi-immut for the field on. cleared
         # on writes to the field.
@@ -67,8 +67,10 @@ class CacheEntry(object):
 
     def _clear_cache_on_write(self, seen_allocation_of_target):
         if not seen_allocation_of_target:
-            self.cache_seen_allocation.clear()
-        self.cache_anything.clear()
+            if self.cache_seen_allocation is not None:
+                self.cache_seen_allocation.clear()
+        if self.cache_anything is not None:
+            self.cache_anything.clear()
         if self.quasiimmut_seen is not None:
             self.quasiimmut_seen.clear()
         if self.quasiimmut_seen_refs is not None:
@@ -79,6 +81,16 @@ class CacheEntry(object):
             return False
         return self.heapcache._check_flag(ref_box, HF_SEEN_ALLOCATION)
 
+    def _getdict_create(self, seen_alloc):
+        if seen_alloc:
+            if self.cache_seen_allocation is None:
+                self.cache_seen_allocation = {}
+            return self.cache_seen_allocation
+        else:
+            if self.cache_anything is None:
+                self.cache_anything = {}
+            return self.cache_anything
+
     def _getdict(self, seen_alloc):
         if seen_alloc:
             return self.cache_seen_allocation
@@ -88,10 +100,12 @@ class CacheEntry(object):
     def do_write_with_aliasing(self, ref_box, fieldbox):
         seen_alloc = self._seen_alloc(ref_box)
         self._clear_cache_on_write(seen_alloc)
-        self._getdict(seen_alloc)[ref_box] = fieldbox
+        self._getdict_create(seen_alloc)[ref_box] = fieldbox
 
     def read(self, ref_box):
         dict = self._getdict(self._seen_alloc(ref_box))
+        if dict is None:
+            return None
         try:
             res_box = dict[ref_box]
         except KeyError:
@@ -99,11 +113,13 @@ class CacheEntry(object):
         return maybe_replace_with_const(res_box)
 
     def read_now_known(self, ref_box, fieldbox):
-        self._getdict(self._seen_alloc(ref_box))[ref_box] = fieldbox
+        self._getdict_create(self._seen_alloc(ref_box))[ref_box] = fieldbox
 
     def invalidate_unescaped(self):
-        self._invalidate_unescaped(self.cache_anything)
-        self._invalidate_unescaped(self.cache_seen_allocation)
+        if self.cache_anything is not None:
+            self._invalidate_unescaped(self.cache_anything)
+        if self.cache_seen_allocation is not None:
+            self._invalidate_unescaped(self.cache_seen_allocation)
         if self.quasiimmut_seen is not None:
             self.quasiimmut_seen.clear()
         if self.quasiimmut_seen_refs is not None:
