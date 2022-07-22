@@ -73,7 +73,7 @@ typedef HPy_ssize_t HPyTracker;
 
 typedef struct _HPyField_s {
     HPy_ssize_t _i;
-};
+} _struct_HPyField_s;
 typedef HPy_ssize_t HPyField;
 
 typedef struct _HPyContext_s {
