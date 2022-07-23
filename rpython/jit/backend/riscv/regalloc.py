@@ -434,6 +434,7 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_neg = _prepare_op_unary_op
     prepare_op_int_invert = _prepare_op_unary_op
     prepare_op_int_is_zero = _prepare_op_unary_op
+    prepare_op_int_force_ge_zero = _prepare_op_unary_op
 
     def prepare_op_int_signext(self, op):
         a0, a1 = op.getarglist()

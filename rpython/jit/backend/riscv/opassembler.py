@@ -179,6 +179,12 @@ class OpAssembler(BaseAssembler):
         l0, res = arglocs
         self.mc.SEQZ(res.value, l0.value)
 
+    def emit_op_int_force_ge_zero(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.MV(res.value, l0.value)
+        self.mc.BGEZ(l0.value, 8)  # Skip next instruction if l0 >= 0
+        self.mc.MV(res.value, r.zero.value)
+
     def emit_op_int_signext(self, op, arglocs):
         l0, l1, res = arglocs
 
