@@ -120,7 +120,12 @@ class Arguments(object):
             return
         is_dict = False
         if space.isinstance_w(w_starstararg, space.w_dict):
-            is_dict = True
+            w_st_iter = space.newtext("__iter__")
+            # bug-to-bug compatibility: CPython ignores __getitem__ overrides
+            # in dict subclasses if there is no __iter__
+            is_dict = space.is_w(
+                    space.findattr(space.type(w_starstararg), w_st_iter),
+                    space.findattr(space.w_dict, w_st_iter))
             keys_w = space.unpackiterable(w_starstararg)
         else:
             try:

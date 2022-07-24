@@ -316,6 +316,11 @@ class W_DictMultiObject(W_Root):
         update1(space, self, w_other)
         return self
 
+    def view_as_kwargs(self):
+        if not self.user_overridden_class:
+            return self.get_strategy().view_as_kwargs(self)
+        return None, None
+
 
 class W_DictObject(W_DictMultiObject):
     """ a regular dict object """
@@ -364,8 +369,7 @@ def _add_indirections():
                     popitem delitem clear copy \
                     length w_keys values items \
                     iterkeys itervalues iteritems iterreversed \
-                    listview_bytes listview_ascii listview_int \
-                    view_as_kwargs".split()
+                    listview_bytes listview_ascii listview_int".split()
 
     def make_method(method):
         def f(self, *args):
