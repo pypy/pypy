@@ -187,8 +187,6 @@ def __openssl_hash_name_mapper(evp_md, userdata):
     from_name = lib.OBJ_nid2ln(nid)
     lowered = _str_from_buf(from_name).lower().replace('-', '_')
     name = _name_mapping.get(lowered, lowered)
-    if name in ('blake2b512', 'sha3-512'):
-        return
     name_fetcher = ffi.from_handle(userdata)
     name_fetcher.meth_names.append(name)
 
