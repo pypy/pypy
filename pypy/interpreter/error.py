@@ -775,7 +775,8 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
         w_filename2 = space.w_None
     w_error = space.call_function(w_exc, w_errno, w_msg, w_filename,
                                   w_winerror, w_filename2)
-    operror = OperationError(w_exc, w_error)
+    # w_exc may be normalized into a subclass of W_OSError
+    operror = OperationError(space.type(w_error), w_error)
     if eintr_retry:
         raise operror
     return operror
