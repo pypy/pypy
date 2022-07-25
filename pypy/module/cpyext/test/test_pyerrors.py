@@ -685,7 +685,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 char buffer[1024];
                 sprintf(buffer, "open('%s', 'r')", fname);
                 printf("calling %s\\n", buffer);
-                PyObject *ret = PyRun_String(buffer, Py_eval_input, Py_None, Py_None);
+                PyObject *ret = PyRun_String(buffer, Py_eval_input, pyx_d, pyx_d);
                 if (ret) {
                     Py_DECREF(ret);
                     PyErr_SetString(PyExc_AssertionError, "should raise");
@@ -694,14 +694,22 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 PyObject *type, *value, *tb;
                 PyErr_Fetch(&type, &value, &tb);
                 if (type != PyExc_FileNotFoundError)
+                {
                     printf("type is %s\\n", ((PyTypeObject*)type)->tp_name);
-                    Py_RETURN_FALSE;
+                    return value;
+                }
                 PyErr_Clear();
                 // decrefs?
                 Py_RETURN_TRUE;
              '''),
-            ])
+            ], prologue="""
+            static PyObject * pyx_d;
+            """, more_init="""
+            pyx_d = PyModule_GetDict(mod);
+            """)
         import os
         fname = 'this file should not exist'
         assert not os.path.exists(fname)
-        assert module.clevel_error(fname)
+        ret = module.clevel_error(fname)
+        print(ret)
+        assert ret is True
