@@ -199,6 +199,35 @@ class AppTestThread(GenericTestThread):
             thread.start_new_thread(f, ())
             raises(KeyboardInterrupt, busy_wait)
 
+    def test_interrupt_non_main(self):
+        import thread, time, posix as os
+        import __pypy__
+        import signal
+
+        def f():
+            try:
+                childstarted.append(thread.get_ident())
+                self.waitfor(lambda: True)
+            except ValueError:
+                childstarted.pop()
+            else:
+                thread.interrupt_main() # to crash the test
+
+        for i in range(20):
+            print i
+            # first wait for the child to start
+            childstarted = []
+            thread.start_new_thread(f, ())
+            self.waitfor(lambda: bool(childstarted))
+            # then interrupt it from the main thread
+            __pypy__.thread._raise_in_thread(childstarted[0], ValueError)
+            # then wait for the exception to arrive in the child thread
+            # which empties childstarted again
+            def wait():
+                return not childstarted
+            self.waitfor(wait)
+
+
 @pytest.mark.skip("too slow")
 class _AppTestThread(GenericTestThread):
     '''

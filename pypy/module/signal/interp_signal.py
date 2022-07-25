@@ -1,5 +1,3 @@
-from __future__ import with_statement
-
 import signal as cpy_signal
 import sys
 import os
@@ -68,12 +66,20 @@ class CheckSignalAction(PeriodicAsyncAction):
         @rgc.no_collect
         def _after_thread_switch():
             if self.fire_in_another_thread:
-                if self.space.threadlocals.signals_enabled():
-                    self.fire_in_another_thread = False
+                # this could either mean that we are trying to send a signal to
+                # the main thread, or an exception to some other thread
+                # fire_in_another_thread is only set back to False if we either
+                # handle a signal in the main thread or find the thread that
+                # has an asynchronous exception set
+                ec = self.space.threadlocals.get_ec()
+                if ec is not None and (
+                        ec.w_async_exception_type is not None or
+                        ec._signals_enabled):
                     self.space.actionflag.rearm_ticker()
-                    # this occurs when we just switched to the main thread
-                    # and there is a signal pending: we force the ticker to
-                    # -1, which should ensure perform() is called quickly.
+                    # this occurs when we just switched to the main thread or
+                    # the thread that has an asynchronous exception set: we
+                    # force the ticker to -1, which should ensure perform() is
+                    # called quickly.
         self._after_thread_switch = _after_thread_switch
         # ^^^ so that 'self._after_thread_switch' can be annotated as a
         # constant
@@ -89,6 +95,13 @@ class CheckSignalAction(PeriodicAsyncAction):
 
     @jit.dont_look_inside
     def _poll_for_signals(self):
+        ec = self.space.threadlocals.get_ec()
+        # first check for asynchronous exception
+        if ec.w_async_exception_type:
+            self.fire_in_another_thread = False
+            w_exc = ec.w_async_exception_type
+            ec.w_async_exception_type = None
+            raise oefmt(w_exc, "asynchronous exception triggered from another thread")
         # Poll for the next signal, if any
         n = self.pending_signal
         if n < 0:
@@ -99,6 +112,7 @@ class CheckSignalAction(PeriodicAsyncAction):
                 # and poll more
                 self.pending_signal = -1
                 report_signal(self.space, n)
+                self.fire_in_another_thread = False
                 n = self.pending_signal
                 if n < 0:
                     n = pypysig_poll()
@@ -106,7 +120,6 @@ class CheckSignalAction(PeriodicAsyncAction):
                 # Otherwise, arrange for perform() to be called again
                 # after we switch to the main thread.
                 self.pending_signal = n
-                self.fire_in_another_thread = True
                 break
 
     def set_interrupt(self):
@@ -117,6 +130,9 @@ class CheckSignalAction(PeriodicAsyncAction):
             self.fire_in_another_thread = True
         else:
             pypysig_pushback(cpy_signal.SIGINT)
+
+    def notify_thread_interruption(self):
+        self.fire_in_another_thread = True
 
 # ____________________________________________________________
 
