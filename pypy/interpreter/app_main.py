@@ -881,7 +881,13 @@ def run_command_line(interactive,
         else:
             # handle the common case where a filename is specified
             # on the command-line.
+            import os
             filename = sys.argv[0]
+            try:
+                # try to make an absolute file name, which can fail
+                filename = os.path.abspath(filename)
+            except OSError as e:
+                pass
             mainmodule.__file__ = filename
             mainmodule.__cached__ = None
             for hook in sys.path_hooks:
