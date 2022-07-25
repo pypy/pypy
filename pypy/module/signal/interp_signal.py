@@ -97,7 +97,7 @@ class CheckSignalAction(PeriodicAsyncAction):
     def _poll_for_signals(self):
         ec = self.space.threadlocals.get_ec()
         # first check for asynchronous exception
-        if ec.w_async_exception_type:
+        if ec is not None and ec.w_async_exception_type:
             self.fire_in_another_thread = False
             w_exc = ec.w_async_exception_type
             ec.w_async_exception_type = None
