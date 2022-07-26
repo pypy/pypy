@@ -368,7 +368,6 @@ def PyThreadState_SetAsyncExc(space, id, w_exc):
     no exceptions.
     """
     from rpython.rlib.rarithmetic import intmask
-    # XXX what about the NULL case?
     from pypy.module.__pypy__.interp_signal import _raise_in_thread
     tid = intmask(id)
     try:
