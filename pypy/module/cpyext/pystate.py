@@ -374,7 +374,7 @@ def PyThreadState_SetAsyncExc(space, id, w_exc):
     try:
         _raise_in_thread(space, tid, w_exc)
     except OperationError as e:
-        if not e.match(self, self.w_ValueError):
+        if not e.match(self, space.w_ValueError):
             e.write_unraisable(space, "PyThreadState_SetAsyncExc")
         return 0
     return 1
