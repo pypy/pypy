@@ -183,7 +183,7 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
                 if (PyErr_Occurred()) {
                     return NULL;
                 }
-                Py_RETURN_TRUE;
+                return PyFloat_FromDouble(d);
              """),
             ])
         try:
