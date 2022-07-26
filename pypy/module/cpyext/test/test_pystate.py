@@ -254,7 +254,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
             # first wait for the child to start
             childstarted = []
             thread.start_new_thread(f, ())
-            while 1:
+            for i in range(500):
                 if childstarted:
                     break
                 time.sleep(0.1)
@@ -276,11 +276,9 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                     # actually send exception
                     res = module.surprise(childstarted[0], KeyError)
                     assert res in (0, 1)
-            # then wait for the exception to arrive in the child thread
+            # now wait for the exception to arrive in the child thread
             # which empties childstarted again
-            def wait():
-                return not childstarted
-            while 1:
+            for i in range(500):
                 if not childstarted:
                     break
                 time.sleep(0.1)
