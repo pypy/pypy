@@ -363,7 +363,7 @@ def PyThreadState_SetAsyncExc(space, id, w_exc):
     This function does not steal any references to exc. To prevent naive
     misuse, you must write your own C extension to call this. Must be called
     with the GIL held. Returns the number of thread states modified; this is
-    normally one, but will be zero if the thread id isn’t found. If exc is
+    normally one, but will be zero if the thread id isn't found. If exc is
     NULL, the pending exception (if any) for the thread is cleared. This raises
     no exceptions.
     """

@@ -11,9 +11,13 @@ def signals_exit(space, w_ignored1=None, w_ignored2=None, w_ignored3=None):
 
 @unwrap_spec(tid=int)
 def _raise_in_thread(space, tid, w_exc_type):
-    """ raise exception of type exc_type the next time the thread with id tid
-    is resumed. corresponds to the C-API PyThreadState_SetAsyncExc. experimental API,
-    use with care."""
+    """ Raise exception of type exc_type the next time the thread with id tid
+    is resumed. Corresponds to the C-API PyThreadState_SetAsyncExc.
+    This is an experimental API, use with care."""
+    # w_exc_type can be None, but only when called from the actual
+    # PyThreadState_SetAsyncExc. in that case, the already scheduled
+    # w_async_exception_type is cancelled (of course it might or might not have
+    # been already delivered)
     curr_tid = rthread.get_ident()
     ecs = space.threadlocals.getallvalues()
     for thread_ident, ec in ecs.items():
