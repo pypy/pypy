@@ -595,7 +595,7 @@ SYMBOLS_C = [
     '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
     '_PyArg_ParseTupleAndKeywords_SizeT', '_PyArg_VaParse_SizeT',
     '_PyArg_VaParseTupleAndKeywords_SizeT',
-    '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
+    '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT', 'PyUnicode_AppendAndDel',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
     'PyErr_WarnFormat', '_PyErr_FormatFromCause',
