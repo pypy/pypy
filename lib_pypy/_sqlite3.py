@@ -1051,53 +1051,75 @@ class Cursor(object):
                 if _lib.sqlite3_get_autocommit(self.__connection._db):
                     self.__connection._begin()
 
-            for params in many_params:
-                self.__statement._set_params(params, self.__in_use_token)
-
-                # Actually execute the SQL statement
-
-                ret = _lib.sqlite3_step(self.__statement._statement)
-
-                # PyPy: if we get SQLITE_LOCKED, it's probably because
-                # one of the cursors created previously is still alive
-                # and not reset and the operation we're trying to do
-                # makes Sqlite unhappy about that.  In that case, we
-                # automatically reset all old cursors and try again.
-                if ret == _lib.SQLITE_LOCKED:
-                    self.__connection._reset_already_committed_statements()
-                    ret = _lib.sqlite3_step(self.__statement._statement)
-
-                if self.__statement._is_dml:
-                    if self.__rowcount == -1:
-                        self.__rowcount = 0
-                    self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
+            try:
+                num_params = len(many_params)
+                if num_params == 0:
+                    pass
+                elif num_params == 1:
+                    self.__execute_statement(many_params[0], multiple)
+                elif num_params == 2:
+                    self.__execute_statement(many_params[0], multiple)
+                    self.__execute_statement(many_params[1], multiple)
+                elif num_params == 3:
+                    self.__execute_statement(many_params[0], multiple)
+                    self.__execute_statement(many_params[1], multiple)
+                    self.__execute_statement(many_params[2], multiple)
+                elif num_params == 4:
+                    self.__execute_statement(many_params[0], multiple)
+                    self.__execute_statement(many_params[1], multiple)
+                    self.__execute_statement(many_params[2], multiple)
+                    self.__execute_statement(many_params[3], multiple)
                 else:
-                    self.__rowcount = -1
-
-                if not multiple:
-                    self.__lastrowid = _lib.sqlite3_last_insert_rowid(
-                        self.__connection._db
-                    )
-
-                if ret == _lib.SQLITE_ROW:
-                    if multiple:
-                        raise ProgrammingError(
-                            "executemany() can only execute DML statements."
-                        )
-                    self.__build_row_cast_map()
-                    self.__next_row = self.__fetch_one_row()
-                elif ret == _lib.SQLITE_DONE:
-                    if not multiple:
-                        self.__statement._reset(self.__in_use_token)
-                else:
-                    self.__statement._reset(self.__in_use_token)
-                    raise self.__connection._get_exception(ret)
-
-                if multiple:
-                    self.__statement._reset(self.__in_use_token)
+                    for params in many_params:
+                        self.__execute_statement(params, multiple)
+            # TypeError is raised when many_params is a generator or a MyIter
+            except TypeError:
+                for params in many_params:
+                    self.__execute_statement(params, multiple)
         finally:
             self.__locked = False
         return self
+
+    def __execute_statement(self, params, multiple):
+        self.__statement._set_params(params, self.__in_use_token)
+
+        # Actually execute the SQL statement
+
+        ret = _lib.sqlite3_step(self.__statement._statement)
+
+        # PyPy: if we get SQLITE_LOCKED, it's probably because
+        # one of the cursors created previously is still alive
+        # and not reset and the operation we're trying to do
+        # makes Sqlite unhappy about that.  In that case, we
+        # automatically reset all old cursors and try again.
+        if ret == _lib.SQLITE_LOCKED:
+            self.__connection._reset_already_committed_statements()
+            ret = _lib.sqlite3_step(self.__statement._statement)
+
+        if self.__statement._is_dml:
+            if self.__rowcount == -1:
+                self.__rowcount = 0
+            self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
+        else:
+            self.__rowcount = -1
+
+        if not multiple:
+            self.__lastrowid = _lib.sqlite3_last_insert_rowid(self.__connection._db)
+
+        if ret == _lib.SQLITE_ROW:
+            if multiple:
+                raise ProgrammingError("executemany() can only execute DML statements.")
+            self.__build_row_cast_map()
+            self.__next_row = self.__fetch_one_row()
+        elif ret == _lib.SQLITE_DONE:
+            if not multiple:
+                self.__statement._reset(self.__in_use_token)
+        else:
+            self.__statement._reset(self.__in_use_token)
+            raise self.__connection._get_exception(ret)
+
+        if multiple:
+            self.__statement._reset(self.__in_use_token)
 
     @__check_cursor_wrap
     def execute(self, sql, params=[]):
