@@ -642,6 +642,11 @@ class WarmEnterState(object):
             def dont_trace_here(*greenargs):
                 cell = JitCell._ensure_jit_cell_at_key(*greenargs)
                 cell.flags |= JC_DONT_TRACE_HERE
+
+            @staticmethod
+            def mark_as_being_traced(*greenargs):
+                cell = JitCell._ensure_jit_cell_at_key(*greenargs)
+                cell.flags |= JC_TRACING
         #
         self.JitCell = JitCell
         return JitCell
@@ -678,6 +683,11 @@ class WarmEnterState(object):
             cell = JitCell.ensure_jit_cell_at_key(greenkey)
             cell.flags |= JC_DONT_TRACE_HERE
         self.dont_trace_here = dont_trace_here
+
+        def mark_as_being_traced(greenkey):
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_TRACING
+        self.mark_as_being_traced = mark_as_being_traced
 
         def mark_force_finish_tracing(greenkey):
             """ mark greenkey as "please definitely finish a trace for it the
