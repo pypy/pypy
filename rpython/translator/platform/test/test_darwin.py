@@ -85,7 +85,9 @@ class TestDarwin(BasicTest):
         self.check_res(res, expected="23\n")
 
 
+    @py.test.skip("i386 not supported any more")
     def test_64_32_results(self):
+        py.test.skip("i386 not supported any more")
         if not is_x86():
             py.test.skip("i386 only")
         plat32 = Darwin_i386()
@@ -127,6 +129,7 @@ class TestDarwin(BasicTest):
         res = self.platform.execute(executable)
         self.check_res(res, str(sys.maxint) + '\n')
 
+    @py.test.skip("i386 not supported any more")
     def test_32bit_makefile(self):
         if not is_x86():
             py.test.skip("i386 only")

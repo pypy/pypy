@@ -175,6 +175,25 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
         assert not module.test(float('inf'))
         assert not module.test(float('-inf'))
 
+    def test_Py_Float_AsDouble_err(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_O",
+             """
+                double d = PyFloat_AsDouble(args);
+                if (PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyFloat_FromDouble(d);
+             """),
+            ])
+        try:
+            module.test([])
+        except Exception as e:
+            print(str(e))
+            assert str(e) == 'must be real number, not list'
+        else:
+            assert False
+
     def test_Py_HUGE_VAL(self):
         module = self.import_extension('foo', [
             ("test", "METH_NOARGS",

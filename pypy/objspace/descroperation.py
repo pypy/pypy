@@ -805,7 +805,7 @@ for targetname, specialname, checkerspec in [
     l = ["space.isinstance_w(w_result, %s)" % x
                 for x in checkerspec]
     checker = " or ".join(l)
-    msg = "unsupported operand type for %(targetname)s(): '%%T'"
+    msg = "must be real number, not %%T"
     msg = msg % locals()
     source = """if 1:
         @use_special_method_shortcut(%(specialname)r,
