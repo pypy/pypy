@@ -1362,9 +1362,26 @@ class Statement(object):
                     "The current statement uses %d, and "
                     "there are %d supplied." % (num_params_needed, num_params)
                 )
-            for i in range(num_params):
-                error_msg = "Error binding parameter %d - probably unsupported type."
-                rc = self.__set_param(i + 1, params[i], error_msg, i)
+            error_msg = "Error binding parameter %d - probably unsupported type."
+            if num_params == 0:
+                pass
+            elif num_params == 1:
+                self.__set_param(1, params[0], error_msg, 0)
+            elif num_params == 2:
+                self.__set_param(1, params[0], error_msg, 0)
+                self.__set_param(2, params[1], error_msg, 1)
+            elif num_params == 3:
+                self.__set_param(1, params[0], error_msg, 0)
+                self.__set_param(2, params[1], error_msg, 1)
+                self.__set_param(3, params[2], error_msg, 2)
+            elif num_params == 4:
+                self.__set_param(1, params[0], error_msg, 0)
+                self.__set_param(2, params[1], error_msg, 1)
+                self.__set_param(3, params[2], error_msg, 2)
+                self.__set_param(4, params[3], error_msg, 3)
+            else:
+                for i in range(num_params):
+                    self.__set_param(i + 1, params[i], error_msg, i)
         elif isinstance(params, dict):
             for i in range(1, num_params_needed + 1):
                 param_name = _lib.sqlite3_bind_parameter_name(self._statement, i)
