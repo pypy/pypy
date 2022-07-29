@@ -82,7 +82,6 @@ cffi_dependencies = {
 
 cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
-if sys.platform == "darwin":
 if sys.platform == 'darwin' or platform.machine() == 'aarch64':
     # TODO: use these on x86 after upgrading Docker images to manylinux2014
     cffi_dependencies['_gdbm'] = (
