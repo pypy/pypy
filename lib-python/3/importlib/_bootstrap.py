@@ -1078,10 +1078,9 @@ def _calc___package__(globals):
     elif spec is not None:
         return spec.parent
     else:
-        # Emitted by c-extensions compiled with cython < 0.29.31
-        # _warnings.warn("can't resolve package from __spec__ or __package__, "
-        #                "falling back on __name__ and __path__",
-        #                ImportWarning, stacklevel=3)
+         _warnings.warn("can't resolve package from __spec__ or __package__, "
+                        "falling back on __name__ and __path__",
+                        ImportWarning, stacklevel=3)
         package = globals['__name__']
         if '__path__' not in globals:
             package = package.rpartition('.')[0]
