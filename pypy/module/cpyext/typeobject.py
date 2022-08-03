@@ -149,6 +149,12 @@ def init_memberdescrobject(space):
                    realize=methoddescr_realize,
                    dealloc=descr_dealloc,
                    )
+    make_typedescr(W_PyCWrapperObject.typedef,
+                   basestruct=cts.gettype('PyWrapperDescrObject'),
+                   attach=wrapperdescr_attach,
+                   realize=wrapperdescr_realize,
+                   dealloc=wrapper_dealloc,
+                   )
 
 def init_descr(space, py_obj, w_type, name):
     """Initialises the common fields in a PyDescrObject
@@ -230,6 +236,36 @@ def methoddescr_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
+def wrapperdescr_attach(space, py_obj, w_obj, w_userdata=None): 
+    assert isinstance(w_obj, W_PyCWrapperObject)
+    py_methoddescr = cts.cast('PyWrapperDescrObject*', py_obj)
+    init_descr(space, py_obj, w_obj.w_objclass, w_obj.getname(space))
+    py_methoddescr.c_d_wrapped = w_obj.get_func_to_call()
+    # CPython starts from the d_base, since this is the basic structure
+    # filled in by the slotdef macros in Objects/typeobject.c
+    # We only need it for compatibility, so we leave it all 0.
+    # see the way wrapperbase is modified in test/specmethdocstring.c,
+    # which adds a docstring to the slot function via d_base.doc
+    py_methoddescr.c_d_base = lltype.malloc(cts.gettype('struct wrapperbase'),
+                                zero=True, flavor='raw', track_allocation=False)
+
+def wrapperdescr_realize(space, obj):
+    raise oefmt(space.w_RuntimeError,
+        "cannot yet create a Python wrapper_descriptor from a C "
+        "PyWrapperDescrObject. Please report this to PyPy")
+
+@slot_function([PyObject], lltype.Void)
+def wrapper_dealloc(space, py_obj):
+    from pypy.module.cpyext.object import _dealloc
+    py_descr = cts.cast('PyDescrObject*', py_obj)
+    if py_descr:
+        decref(space, py_descr.c_d_type)
+        decref(space, py_descr.c_d_name)
+        py_wrapperdescr = cts.cast('PyWrapperDescrObject*', py_obj)
+        if py_wrapperdescr.c_d_base:
+            lltype.free(py_wrapperdescr.c_d_base, flavor="raw", track_allocation=False)
+            py_wrapperdescr.c_d_base = rffi.cast(cts.gettype('struct wrapperbase*'), 0)
+    _dealloc(space, py_obj)
 
 def convert_getset_defs(space, dict_w, getsets, w_type):
     getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)

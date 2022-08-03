@@ -470,8 +470,11 @@ class PyFrame(W_Root):
             w_tb = self.last_exception.get_w_traceback(space)
 
         d = self.getorcreatedebug()
+        w_backref = self.f_backref()
+        if w_backref is None:
+            w_backref = space.w_None
         tup_state = [
-            self.f_backref(),
+            w_backref,
             self.get_builtin(),
             self.pycode,
             w_locals_cells_stack,

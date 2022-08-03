@@ -91,7 +91,9 @@ def remap_frame_layout_mixed(assembler,
             key = loc.as_key()
             if (key in dst_keys or (loc.width > WORD and
                                     (key + 1) in dst_keys)):
-                assembler.regalloc_push(loc, len(extrapushes))
+                # don't call regalloc_push with already_pushed==0 here
+                # because it can conflict with the regalloc_push() above
+                assembler.regalloc_push(loc, len(extrapushes) + 1)
                 extrapushes.append(dstloc)
                 continue
         src_locations2red.append(loc)
@@ -108,4 +110,4 @@ def remap_frame_layout_mixed(assembler,
     # finally, pop the extra fp stack locations
     while len(extrapushes) > 0:
         loc = extrapushes.pop()
-        assembler.regalloc_pop(loc, len(extrapushes))
+        assembler.regalloc_pop(loc, len(extrapushes) + 1)

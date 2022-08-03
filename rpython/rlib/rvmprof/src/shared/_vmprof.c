@@ -40,6 +40,8 @@ PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag)
     register PY_STACK_FRAME_T * callee_saved asm("r4");
 #elif defined(__aarch64__)
     register PY_STACK_FRAME_T * callee_saved asm("x19");
+#elif defined(__powerpc64__)
+    register PY_STACK_FRAME_T * callee_saved asm("r3");
 #else
 #    error "platform not supported"
 #endif
@@ -51,6 +53,8 @@ PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag)
         "mov %1, %0\t\n"
 #elif defined(__arm__) || defined(__aarch64__)
 	"mov %1, %0\t\n"
+#elif defined(__powerpc64__)
+	"addi %1, %0, 0\t\n"
 #else
 #    error "platform not supported"
 #endif
@@ -63,7 +67,7 @@ PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag)
 static int emit_code_object(PyCodeObject *co)
 {
     char buf[MAX_FUNC_NAME + 1];
-    char *co_name, *co_filename;
+    const char *co_name, *co_filename;
     int co_firstlineno;
     int sz;
 #if PY_MAJOR_VERSION >= 3
@@ -89,7 +93,7 @@ static int emit_code_object(PyCodeObject *co)
 
 static int _look_for_code_object(PyObject *o, void * param)
 {
-    int i;
+    Py_ssize_t i;
     PyObject * all_codes, * seen_codes;
 
     all_codes = (PyObject*)((void**)param)[0];
@@ -298,7 +302,7 @@ sample_stack_now(PyObject *module, PyObject * args)
 
     for (i = 0; i < entry_count; i++) {
         routine_ip = m[i];
-        PyList_Append(list, PyLong_NEW((ssize_t)routine_ip));
+        PyList_Append(list, PyLong_NEW((Py_ssize_t)routine_ip));
     }
 
     free(m);

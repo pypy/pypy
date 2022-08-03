@@ -32,7 +32,8 @@ def _find_vc2015():
         key = winreg.OpenKeyEx(
             winreg.HKEY_LOCAL_MACHINE,
             r"Software\Microsoft\VisualStudio\SxS\VC7",
-            access=winreg.KEY_READ | winreg.KEY_WOW64_32KEY
+            0,
+            winreg.KEY_READ | winreg.KEY_WOW64_32KEY
         )
     except OSError:
         log.debug("Visual C++ is not registered")

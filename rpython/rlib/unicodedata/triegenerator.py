@@ -15,14 +15,14 @@ STRIDXBITS = 16 # bits to use for string index. Remaining are
 # on STRIDXBITS, the latter being used for the string pointer
 # and whatever is left for the parent pointer
 #
-# Each node is represented by 3 entrines in the _charnodes list:
+# Each node is represented by 3 entries in the _charnodes list:
 #
 # [leftright, parentstr, codepoint]
 #
 # (keeping them dirctly in the list rather than as 3-tuples
 # saves 8 bytes per entry)
 #
-# where leftrigt is left << 16 | right
+# where leftright is left << 16 | right
 # and parentstr is parent << STRIDXBITS | string
 # (with some additional logic to account for the fact that integers
 # are signed)

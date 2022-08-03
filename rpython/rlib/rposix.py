@@ -347,9 +347,15 @@ c_dup = external(UNDERSCORE_ON_WIN32 + 'dup', [rffi.INT], rffi.INT,
                  save_err=rffi.RFFI_SAVE_ERRNO)
 c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT,
                   save_err=rffi.RFFI_SAVE_ERRNO)
+if sys.platform == 'darwin':
+    extra_open_args = {'natural_arity': 2}
+    mode_type = rffi.INT
+else:
+    extra_open_args = {}
+    mode_type = rffi.MODE_T
 c_open = external(UNDERSCORE_ON_WIN32 + 'open',
-                  [rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT,
-                  save_err=rffi.RFFI_SAVE_ERRNO)
+                  [rffi.CCHARP, rffi.INT, mode_type], rffi.INT,
+                  save_err=rffi.RFFI_SAVE_ERRNO, **extra_open_args)
 
 # Win32 Unicode functions
 c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
@@ -787,8 +793,12 @@ if not _WIN32:
     c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
     c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False,
                        macro=True)
-    c_ioctl_voidp = external('ioctl', [rffi.INT, rffi.UINT, rffi.VOIDP], rffi.INT,
-                         save_err=rffi.RFFI_SAVE_ERRNO)
+    if sys.platform == 'darwin':
+        c_ioctl_voidp = external('ioctl', [rffi.INT, rffi.UINT, rffi.VOIDP], rffi.INT,
+                             save_err=rffi.RFFI_SAVE_ERRNO, natural_arity=2)
+    else:
+        c_ioctl_voidp = external('ioctl', [rffi.INT, rffi.UINT, rffi.VOIDP], rffi.INT,
+                             save_err=rffi.RFFI_SAVE_ERRNO)
 else:
     dirent_config = {}
 

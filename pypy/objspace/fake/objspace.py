@@ -150,6 +150,12 @@ class FakeObjSpace(ObjSpace):
         is_root(w_obj)
         return NonConstant(False)
 
+    def hash_w(self, w_obj):
+        return NonConstant(32)
+
+    def len_w(self, w_obj):
+        return NonConstant(37)
+
     def utf8_len_w(self, space):
         return NonConstant((NonConstant("utf8len_foobar"), NonConstant(14)))
 
@@ -165,6 +171,9 @@ class FakeObjSpace(ObjSpace):
         make_sure_not_resized(list_w)
         for w_x in list_w:
             is_root(w_x)
+        return w_some_obj()
+
+    def newtuple2(self, w_a, w_b):
         return w_some_obj()
 
     def newset(self, list_w=None):

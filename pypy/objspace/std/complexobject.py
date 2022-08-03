@@ -356,8 +356,8 @@ class W_ComplexObject(W_Root):
         return w_obj
 
     def descr___getnewargs__(self, space):
-        return space.newtuple([space.newfloat(self.realval),
-                               space.newfloat(self.imagval)])
+        return space.newtuple2(space.newfloat(self.realval),
+                               space.newfloat(self.imagval))
 
     def descr_repr(self, space):
         if self.realval == 0 and math.copysign(1., self.realval) == 1.:
@@ -386,7 +386,7 @@ class W_ComplexObject(W_Root):
         w_other = self._to_complex(space, w_other)
         if w_other is None:
             return space.w_NotImplemented
-        return space.newtuple([self, w_other])
+        return space.newtuple2(self, w_other)
 
     def descr_format(self, space, w_format_spec):
         return newformat.run_formatter(space, w_format_spec, "format_complex",
@@ -547,7 +547,7 @@ class W_ComplexObject(W_Root):
             div, mod = self.divmod(space, w_rhs)
         except ZeroDivisionError as e:
             raise oefmt(space.w_ZeroDivisionError, "complex divmod by zero")
-        return space.newtuple([div, mod])
+        return space.newtuple2(div, mod)
 
     def descr_rdivmod(self, space, w_lhs):
         w_lhs = self._to_complex(space, w_lhs)
@@ -557,7 +557,7 @@ class W_ComplexObject(W_Root):
             div, mod = w_lhs.divmod(space, self)
         except ZeroDivisionError as e:
             raise oefmt(space.w_ZeroDivisionError, "complex divmod by zero")
-        return space.newtuple([div, mod])
+        return space.newtuple2(div, mod)
 
     @unwrap_spec(w_third_arg=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_third_arg):

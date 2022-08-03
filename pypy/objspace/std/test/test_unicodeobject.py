@@ -226,6 +226,21 @@ class TestUnicodeObject:
         w_b = encode_object(self.space, self.space.newutf8("abc", 3), "ascii", "strict")
         assert self.space.bytes_w(w_b) == "abc"
 
+    def test_utf8_ascii_encode_shortcut_ascii(self, monkeypatch):
+        from rpython.rlib import rutf8
+        from pypy.objspace.std.unicodeobject import encode_object
+        monkeypatch.setattr(rutf8, "has_surrogates", None)
+        for enc in ["utf-8", "UTF-8", "utf8"]:
+            w_b = encode_object(self.space, self.space.newutf8("abc", 3), enc, "strict")
+            assert self.space.bytes_w(w_b) == "abc"
+
+    def test_split_shortcut_ascii(self, monkeypatch):
+        from rpython.rlib import rutf8
+        monkeypatch.setattr(rutf8, "isspace", None)
+        w_s = self.space.newutf8("a b c", 5)
+        w_l = w_s.descr_split(self.space) # no crash
+        assert self.space.len_w(w_l) == 3
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):

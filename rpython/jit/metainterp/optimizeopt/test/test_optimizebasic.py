@@ -4126,13 +4126,29 @@ class TestOptimizeBasic(BaseTestBasic):
         [i0]
         i1 = int_lshift(0, i0)
         i2 = int_rshift(0, i0)
-        jump(i1, i2)
+        i3 = int_lshift(i0, 0)
+        i4 = int_rshift(i0, 0)
+        jump(i1, i2, i3, i4)
         """
         expected = """
         [i0]
-        jump(0, 0)
+        jump(0, 0, i0, i0)
         """
         self.optimize_loop(ops, expected)
+
+    def test_ushift_zero(self):
+        ops = """
+        [i0]
+        i2 = uint_rshift(0, i0)
+        i4 = uint_rshift(i0, 0)
+        jump(i2, i4)
+        """
+        expected = """
+        [i0]
+        jump(0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
     def test_bound_and(self):
         ops = """
@@ -6434,5 +6450,20 @@ class TestOptimizeBasic(BaseTestBasic):
         i2 = int_neg(i1)
         i3 = int_le(i2, 0)
         guard_true(i3) []
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_float_abs_abs_folds_to_abs(self):
+        ops = """
+        [f1]
+        f2 = float_abs(f1)
+        f3 = float_abs(f2)
+        f4 = float_abs(f3)
+        escape_f(f3)
+        """
+        expected = """
+        [f1]
+        f2 = float_abs(f1)
+        escape_f(f2)
         """
         self.optimize_loop(ops, expected)

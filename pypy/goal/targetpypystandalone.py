@@ -362,8 +362,8 @@ class PyPyTarget(object):
                 argv = [filename, '--embed-dependencies']
             else:
                 argv = [filename,]
-            status, out, err = run_subprocess(str(driver.compute_exe_name()),
-                                              argv)
+            exe_name = py.path.local(driver.c_entryp)
+            status, out, err = run_subprocess(str(exe_name), argv)
             sys.stdout.write(out)
             sys.stderr.write(err)
             # otherwise, ignore errors
@@ -393,7 +393,7 @@ class PyPyTarget(object):
         w_dict = app.getwdict(self.space)
         entry_point, _ = create_entry_point(self.space, w_dict)
 
-        return entry_point, None, PyPyAnnotatorPolicy()
+        return entry_point, None, PyPyAnnotatorPolicy(self.space)
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',

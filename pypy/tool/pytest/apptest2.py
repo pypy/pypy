@@ -11,6 +11,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
 from pypy.tool.pytest import objspace
 from pypy.tool.pytest import appsupport
+from pypy.tool.pytest.astrewriter.ast_rewrite import rewrite_asserts_ast
 
 
 class AppTestModule(pytest.Module):
@@ -23,24 +24,17 @@ class AppTestModule(pytest.Module):
         spaceconfig = extract_spaceconfig_from_source(source)
         space = objspace.gettestobjspace(**spaceconfig)
         w_rootdir = space.newtext(
-            os.path.join(pypydir, 'tool', 'pytest', 'ast-rewriter'))
+            os.path.join(pypydir, 'tool', 'pytest', 'astrewriter'))
         w_source = space.newtext(source)
         fname = str(self.fspath)
         w_name = space.newtext(str(self.fspath.purebasename))
         w_fname = space.newtext(fname)
         if self.rewrite_asserts:
-            w_mod = space.appexec([w_rootdir, w_source, w_fname, w_name],
-                                """(rootdir, source, fname, name):
-                import sys
-                sys.path.insert(0, rootdir)
-                from ast_rewrite import rewrite_asserts, create_module
-
-                co = rewrite_asserts(source, fname)
-                mod = create_module(name, co)
-                return mod
-            """)
-        else:
-            w_mod = create_module(space, w_name, fname, source)
+            # actually a w_code, but works fine with space.exec_
+            source = space._cached_compile(
+                fname, source, "exec", 0, False,
+                ast_transform=rewrite_asserts_ast)
+        w_mod = create_module(space, w_name, fname, source)
         mod_dict = w_mod.getdict(space).unwrap(space)
         items = []
         for name, w_obj in mod_dict.items():

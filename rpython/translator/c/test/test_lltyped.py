@@ -775,7 +775,7 @@ class TestLowLevelType(object):
         from rpython.rtyper.lltypesystem import llmemory, llarena
         S = Struct('S', ('x', Char), ('y', Char))
         M = Struct('M', ('x', Char), ('y', Signed))
-        is_arm = platform.machine().startswith('arm')
+        is_arm = platform.machine() == 'arm'
         #
         def g():
             ssize = llarena.round_up_for_allocation(llmemory.sizeof(S))

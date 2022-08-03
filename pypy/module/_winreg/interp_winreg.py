@@ -65,8 +65,8 @@ pypy_RegDeleteKeyExA = rffi.llexternal(
 def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatError(errcode)
     raise OperationError(space.w_WindowsError,
-                         space.newtuple([space.newint(errcode),
-                                         space.newtext(message)]))
+                         space.newtuple2(space.newint(errcode),
+                                         space.newtext(message)))
 
 class W_HKEY(W_Root):
     def __init__(self, space, hkey):
@@ -75,7 +75,11 @@ class W_HKEY(W_Root):
         self.register_finalizer(space)
 
     def _finalize_(self):
-        self.Close(self.space)
+        # ignore errors
+        try:
+            self.Close(self.space)
+        except:
+            pass
 
     def as_int(self):
         return rffi.cast(rffi.SIZE_T, self.hkey)
@@ -523,11 +527,11 @@ value_name is a string indicating the value to query"""
                         raiseWindowsError(space, ret, 'RegQueryValueEx')
                     length = intmask(retDataSize[0])
                     ret_type = intmask(retType[0])
-                    return space.newtuple([
+                    return space.newtuple2(
                         convert_from_regdata(space, databuf,
                                              length, ret_type),
                         space.newint(intmask(ret_type)),
-                        ])
+                        )
 
 @unwrap_spec(subkey="text")
 def CreateKey(space, w_hkey, subkey):

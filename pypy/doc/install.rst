@@ -9,7 +9,20 @@ install additional modules that require compilation, you may need to install
 additional packages such as pypy-dev. This will manifest as an error about
 "missing Python.h". Distributions do not as of yet supply many pypy-ready
 packages, if you require additional modules we recommend creating a virtualenv
-and using pip. 
+and using pip. If you require compiled (c-extension) modules like SciPy, we
+recommend you use conda, which works on Windows10, macOS, and linux x86_64.
+As of summer 2022, we recommend you use the 3.7 version of pypy since the
+migration_ (creating binary packages) for 3.8 and 3.9 is still ongoing:
+
+.. code-block:: console
+
+    $ conda create -n my_cool_pypy pypy python=3.7
+    $ conda activate my_cool_pypy
+    $ conda install scipy
+
+On macOS you can also use homebrew, which provides signed packages.
+
+.. _migration: https://conda-forge.org/status/#pypy38
 
 .. _prebuilt-pypy:
 
@@ -23,8 +36,9 @@ builds depend on dynamically linked libraries that may not be available on your
 OS. See the section about `Linux binaries`_ for more info and alternatives that
 may work on your system.
 
-Please note that the nightly builds are not
-guaranteed to be as stable as official releases, use them at your own risk.
+Please note that the nightly builds are not guaranteed to be as stable as
+official releases, use them at your own risk. Also the macOS binaries are not
+signed, which means you need to convince macOS they are safe for use.
 
 .. _most recent release: https://pypy.org/download.html
 .. _development nightly build: https://buildbot.pypy.org/nightly/trunk/

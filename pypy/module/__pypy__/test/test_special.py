@@ -141,7 +141,7 @@ class AppTest(object):
         a = A()
         a.x = 1
         a.y = 2
-        assert strategy(a).startswith("<UnboxedPlainAttribute y DICT 0 1 <UnboxedPlainAttribute x DICT 0 0 <DictTerminator w_cls=<W_TypeObject 'A'")
+        assert strategy(a).startswith("<UnboxedPlainAttribute y DICT 0 1 immutable <UnboxedPlainAttribute x DICT 0 0 immutable <DictTerminator w_cls=<W_TypeObject 'A'")
 
 
 class AppTestJitFeatures(object):
@@ -160,9 +160,9 @@ class AppTestJitFeatures(object):
         for x in supported_types:
             assert x in ['floats', 'singlefloats', 'longlong']
 
-    def test_do_what_I_mean_error(self):
+    def test_internal_error(self):
         if not self.runappdirect:
             skip("we don't wrap a random exception inside SystemError "
                  "when untranslated, because it makes testing harder")
-        from __pypy__ import do_what_I_mean
-        raises(SystemError, do_what_I_mean, 1)
+        from __pypy__ import _internal_crash
+        raises(SystemError, _internal_crash, 1)

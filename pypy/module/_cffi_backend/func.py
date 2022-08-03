@@ -58,7 +58,7 @@ def alignof(space, w_ctype):
 @unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
 def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
     ctype, offset = w_ctype.direct_typeoffsetof(w_field_or_index, following)
-    return space.newtuple([ctype, space.newint(offset)])
+    return space.newtuple2(ctype, space.newint(offset))
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
 def rawaddressof(space, w_ctype, w_cdata, offset):
@@ -87,8 +87,8 @@ def unpack(space, w_cdata, length):
 # ____________________________________________________________
 
 def _get_types(space):
-    return space.newtuple([space.gettypefor(cdataobj.W_CData),
-                           space.gettypefor(ctypeobj.W_CType)])
+    return space.newtuple2(space.gettypefor(cdataobj.W_CData),
+                           space.gettypefor(ctypeobj.W_CType))
 
 # ____________________________________________________________
 
@@ -236,24 +236,28 @@ def memmove(space, w_dest, w_src, n):
     # cases...
     src_buf = None
     src_data = lltype.nullptr(rffi.CCHARP.TO)
-    if isinstance(w_src, cdataobj.W_CData):
-        src_data = unsafe_escaping_ptr_for_ptr_or_array(w_src)
-        src_is_ptr = True
+    if space.isinstance_w(w_src, space.w_bytes):
+        src_is_ptr = False
+        src_string = space.bytes_w(w_src)
     else:
-        src_buf = _fetch_as_read_buffer(space, w_src)
-        try:
-            src_data = src_buf.get_raw_address()
+        if isinstance(w_src, cdataobj.W_CData):
+            src_data = unsafe_escaping_ptr_for_ptr_or_array(w_src)
             src_is_ptr = True
-        except ValueError:
-            src_is_ptr = False
-
-    if src_is_ptr:
-        src_string = None
-    else:
-        if n == src_buf.getlength():
-            src_string = src_buf.as_str()
         else:
-            src_string = src_buf.getslice(0, 1, n)
+            src_buf = _fetch_as_read_buffer(space, w_src)
+            try:
+                src_data = src_buf.get_raw_address()
+                src_is_ptr = True
+            except ValueError:
+                src_is_ptr = False
+
+        if src_is_ptr:
+            src_string = None
+        else:
+            if n == src_buf.getlength():
+                src_string = src_buf.as_str()
+            else:
+                src_string = src_buf.getslice(0, 1, n)
 
     dest_buf = None
     dest_data = lltype.nullptr(rffi.CCHARP.TO)

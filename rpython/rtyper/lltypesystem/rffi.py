@@ -77,7 +77,8 @@ def llexternal(name, args, result, _callable=None,
                _nowrapper=False, calling_conv=None,
                elidable_function=False, macro=None,
                random_effects_on_gcobjs='auto',
-               save_err=RFFI_ERR_NONE):
+               save_err=RFFI_ERR_NONE,
+               natural_arity=-1):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -101,6 +102,9 @@ def llexternal(name, args, result, _callable=None,
                   by the JIT.  If 'c', it can be seen (depending on
                   releasegil=False).  For tests only, or if _nowrapper,
                   it defaults to 'c'.
+
+    natural_arity: on platforms where it matters, you have to provide the natural
+                   arity for variadic calls. Important examples are OS X on M1
     """
     if calling_conv is None:
         if sys.platform == 'win32' and not _nowrapper:
@@ -118,7 +122,8 @@ def llexternal(name, args, result, _callable=None,
                 name, macro, ext_type, compilation_info)
         else:
             _callable = ll2ctypes.LL2CtypesCallable(ext_type,
-                'c' if calling_conv == 'unknown' else calling_conv)
+                'c' if calling_conv == 'unknown' else calling_conv,
+                natural_arity)
     else:
         assert macro is None, "'macro' is useless if you specify '_callable'"
     if elidable_function:
@@ -163,6 +168,7 @@ def llexternal(name, args, result, _callable=None,
                                  random_effects_on_gcobjs=
                                      random_effects_on_gcobjs,
                                  calling_conv=calling_conv,
+                                 natural_arity=natural_arity,
                                  **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
@@ -216,8 +222,9 @@ def llexternal(name, args, result, _callable=None,
         #
         # '_call_aroundstate_target_' is used by the JIT to generate a
         # CALL_RELEASE_GIL directly to 'funcptr'.  This doesn't work if
-        # 'funcptr' might be a C macro, though.
-        if macro is None:
+        # 'funcptr' might be a C macro, though. We also can't do variadic
+        # calls
+        if macro is None and natural_arity == -1:
             call_external_function._call_aroundstate_target_ = funcptr, save_err
         #
         call_external_function = func_with_new_name(call_external_function,
@@ -229,6 +236,7 @@ def llexternal(name, args, result, _callable=None,
         # the low-level function pointer carelessly
         # ...well, unless it's a macro, in which case we still have
         # to hide it from the JIT...
+
         need_wrapper = (macro is not None or save_err != RFFI_ERR_NONE)
         # ...and unless we're on Windows and the calling convention is
         # 'win' or 'unknown'
@@ -838,6 +846,16 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
+        if not we_are_translated():
+            res = []
+            size = 0
+            while True:
+                c = cp[size]
+                if c == lastchar:
+                    return assert_str0("".join(res))
+                res.append(c)
+                size += 1
+
         size = 0
         while cp[size] != lastchar:
             size += 1

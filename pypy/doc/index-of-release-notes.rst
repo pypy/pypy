@@ -6,6 +6,10 @@ Combined releases
 
 .. toctree::
 
+   release-v7.3.9.rst
+   release-v7.3.8.rst
+   release-v7.3.7.rst
+   release-v7.3.6.rst
    release-v7.3.5.rst
    release-v7.3.4.rst
    release-v7.3.3.rst
@@ -81,6 +85,7 @@ CPython 3.3 compatible versions
 
 .. toctree::
 
+   release-pypy3.3-5.5.0.rst
    release-pypy3.3-v5.5.0.rst
    release-pypy3.3-v5.2-alpha1.rst
 

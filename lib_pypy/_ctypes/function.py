@@ -301,7 +301,7 @@ class CFuncPtr(_CData):
                 else:
                     # For cdecl functions, we allow more actual arguments
                     # than the length of the argtypes tuple.
-                    args = args[:len(self._argtypes_)]
+                    args = args[:len(argtypes)]
             else:
                 plural = len(self._argtypes_) > 1 and "s" or ""
                 raise TypeError(
@@ -344,16 +344,16 @@ class CFuncPtr(_CData):
                 )
             thisvalue = args[0]
             thisarg = cast(thisvalue, POINTER(POINTER(c_void_p)))
-            keepalives, newargs, argtypes, outargs, errcheckargs = (
+            keepalives, newargs, argtypes, outargs, errcheckargs, variadic_args = (
                 self._convert_args(argtypes, args[1:], kwargs))
             newargs.insert(0, thisarg)
             argtypes.insert(0, c_void_p)
         else:
             thisarg = None
-            keepalives, newargs, argtypes, outargs, errcheckargs = (
+            keepalives, newargs, argtypes, outargs, errcheckargs, variadic_args = (
                 self._convert_args(argtypes, args, kwargs))
 
-        funcptr = self._getfuncptr(argtypes, self._restype_, thisarg)
+        funcptr = self._getfuncptr(argtypes, self._restype_, thisarg, variadic_args=variadic_args)
         result = self._call_funcptr(funcptr, *newargs)
         result, forced = self._do_errcheck(result, errcheckargs)
 
@@ -408,20 +408,21 @@ class CFuncPtr(_CData):
                 return v, True
         return result, False
 
-    def _getfuncptr_fromaddress(self, argtypes, restype):
+    def _getfuncptr_fromaddress(self, argtypes, restype, variadic_args=0):
         address = self._get_address()
         ffiargs = [argtype.get_ffi_argtype() for argtype in argtypes]
         ffires = restype.get_ffi_argtype()
-        return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires, self._flags_)
+        return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires, self._flags_,
+                                     variadic_args=variadic_args)
 
-    def _getfuncptr(self, argtypes, restype, thisarg=None):
+    def _getfuncptr(self, argtypes, restype, thisarg=None, variadic_args=0):
         if self._ptr is not None and (argtypes is self._argtypes_ or argtypes == self._argtypes_):
             return self._ptr
         if restype is None or not isinstance(restype, _CDataMeta):
             import ctypes
             restype = ctypes.c_int
         if self._buffer is not None:
-            ptr = self._getfuncptr_fromaddress(argtypes, restype)
+            ptr = self._getfuncptr_fromaddress(argtypes, restype, variadic_args=variadic_args)
             if argtypes == self._argtypes_:
                 self._ptr = ptr
             return ptr
@@ -439,7 +440,7 @@ class CFuncPtr(_CData):
         try:
             ffi_argtypes = [argtype.get_ffi_argtype() for argtype in argtypes]
             ffi_restype = restype.get_ffi_argtype()
-            self._ptr = cdll.getfunc(self.name, ffi_argtypes, ffi_restype)
+            self._ptr = cdll.getfunc(self.name, ffi_argtypes, ffi_restype, variadic_args=variadic_args)
             return self._ptr
         except AttributeError:
             if self._flags_ & _rawffi.FUNCFLAG_CDECL:
@@ -590,7 +591,9 @@ class CFuncPtr(_CData):
                 newargs.append(newarg)
                 newargtypes.append(newargtype)
 
+        variadic_args = 0
         if len(newargs) < len(args):
+            variadic_args = len(args) - len(newargs)
             extra = args[len(newargs):]
             for i, arg in enumerate(extra):
                 try:
@@ -600,7 +603,7 @@ class CFuncPtr(_CData):
                 keepalives.append(keepalive)
                 newargs.append(newarg)
                 newargtypes.append(newargtype)
-        return keepalives, newargs, newargtypes, outargs, errcheckargs
+        return keepalives, newargs, newargtypes, outargs, errcheckargs, variadic_args
 
     @staticmethod
     def _is_primitive(argtype):

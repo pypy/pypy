@@ -2,7 +2,6 @@ import sys
 import platform
 import pytest
 from rpython.tool.udir import udir
-from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.metainterp.resoperation import opname
 

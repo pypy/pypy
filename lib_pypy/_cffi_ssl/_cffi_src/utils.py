@@ -68,6 +68,9 @@ def build_ffi(module_name, cdef_source, verify_source, libraries=[],
     verify_source += '\n#define CRYPTOGRAPHY_PACKAGE_VERSION "{}"'.format(
         about["__version__"]
     )
+    # Add WSAGetLastError
+    if sys.platform == 'win32':
+        cdef_source += "\nint WSAGetLastError();"
     ffi.cdef(cdef_source)
     ffi.set_source(
         module_name,

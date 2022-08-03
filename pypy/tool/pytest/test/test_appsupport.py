@@ -114,7 +114,7 @@ def test_apptest_fail_plain(testdir):
             x = 'foo'
             assert x == 'bar'
     """)
-    result = testdir.runpytest(p)
+    result = testdir.runpytest(p, "--no-applevel-rewrite")
     assert result.ret == 1
     result.stdout.fnmatch_lines([
         "*E*(application-level) AssertionError",
@@ -127,12 +127,10 @@ def test_apptest_fail_rewrite(testdir):
             x = 'foo'
             assert x == 'bar'
     """)
-    result = testdir.runpytest(p, "--applevel-rewrite")
+    result = testdir.runpytest(p)
     assert result.ret == 1
     result.stdout.fnmatch_lines([
         "*E*application-level*AssertionError: assert 'foo' == 'bar'",
-        "*E*- foo*",
-        "*E*+ bar*",
     ])
 
 def test_apptest_spaceconfig(testdir):

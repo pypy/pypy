@@ -153,13 +153,13 @@ def enforceargs(*types_, **kwds):
                 return {get_type_descr_of_argument(key): get_type_descr_of_argument(value)}
             else:
                 return type(arg)
+
         def typecheck(*args):
             from rpython.annotator.model import SomeList, SomeDict, SomeChar,\
                  SomeInteger
-            for i, (expected_type, arg) in enumerate(zip(types, args)):
-                if expected_type is None:
+            for i, (s_expected, arg) in enumerate(zip(s_types, args)):
+                if s_expected is None:
                     continue
-                s_expected = get_annotation(expected_type)
                 # special case: if we expect a list or dict and the argument
                 # is an empty list/dict, the typecheck always pass
                 if isinstance(s_expected, SomeList) and arg == []:
@@ -176,7 +176,7 @@ def enforceargs(*types_, **kwds):
                 s_argtype = get_annotation(get_type_descr_of_argument(arg))
                 if not s_expected.contains(s_argtype):
                     msg = "%s argument %r must be of type %s" % (
-                        f.__name__, srcargs[i], expected_type)
+                        f.__name__, srcargs[i], types[i])
                     raise TypeError(msg)
         #
         template = """
@@ -197,6 +197,10 @@ def enforceargs(*types_, **kwds):
         assert len(srcargs) == len(types), (
             'not enough types provided: expected %d, got %d' %
             (len(types), len(srcargs)))
+
+        s_types = [None if typ is None else
+                   NOT_CONSTANT if typ is NOT_CONSTANT else
+                   get_annotation(typ) for typ in types]
         result._annenforceargs_ = types
         return result
     return decorator
@@ -1041,6 +1045,49 @@ def move_to_end(d, key, last=True):
         _untranslated_move_to_end(d, key, last)
         return
     d.move_to_end(key, last)
+
+@not_rpython
+def dict_to_switch(d, inline=True):
+    """Convert dictionary with integer or char keys to a switch statement."""
+    from rpython.rlib.unroll import unrolling_iterable
+
+    assert len(d) >= 1
+    firstkey = next(iter(d))
+    if isinstance(firstkey, int):
+        precheck = always_inline(lambda key: key)
+        for key in d:
+            assert isinstance(key, int)
+    else:
+        assert isinstance(firstkey, str) # only int and char allowed for now
+        for key in d:
+            assert isinstance(key, str) and len(key) == 1
+
+        @always_inline
+        def precheck(key):
+            # make sure it's a char switch
+            if len(key) > 1:
+                raise KeyError
+            return key[0]
+
+    cached_size = len(d)
+    unrolling_iteritems = unrolling_iterable(d.iteritems())
+
+    def lookup(query):
+        if we_are_translated():
+            query = precheck(query)
+            for key, value in unrolling_iteritems:
+                if key == query:
+                    return value
+            else:
+                raise KeyError
+        else:
+            assert len(d) == cached_size, "dictionary size changed!"
+            return d[query]
+
+
+    if inline:
+        lookup = always_inline(lookup)
+    return lookup
 
 # ____________________________________________________________
 

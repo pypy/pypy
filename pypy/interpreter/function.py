@@ -277,8 +277,8 @@ class Function(W_Root):
         code = self.code
         if isinstance(code, BuiltinCode):
             new_inst = mod.get('builtin_function')
-            return space.newtuple([new_inst,
-                                   space.newtuple([space.newtext(code.identifier)])])
+            return space.newtuple2(new_inst,
+                                   space.newtuple([space.newtext(code.identifier)]))
 
         new_inst = mod.get('func_new')
         if self.closure is None:
@@ -560,15 +560,26 @@ class Method(W_Root):
         space = self.space
         if not isinstance(w_other, Method):
             return space.w_NotImplemented
+        return space.newbool(self._eq(w_other))
+
+    def descr_method_ne(self, w_other):
+        space = self.space
+        if not isinstance(w_other, Method):
+            return space.w_NotImplemented
+        return space.newbool(not self._eq(w_other))
+
+    def _eq(self, w_other):
+        space = self.space
+        if not space.eq_w(self.w_function, w_other.w_function):
+            return False
         if self.w_instance is None:
             if w_other.w_instance is not None:
-                return space.w_False
+                return False
+            return True
         else:
             if w_other.w_instance is None:
-                return space.w_False
-            if not space.eq_w(self.w_instance, w_other.w_instance):
-                return space.w_False
-        return space.newbool(space.eq_w(self.w_function, w_other.w_function))
+                return False
+            return space.eq_w(self.w_instance, w_other.w_instance)
 
     def is_w(self, space, other):
         if self.w_instance is not None:
@@ -624,7 +635,7 @@ class Method(W_Root):
             tup = [self.w_function, w_instance]
         else:
             tup = [self.w_function, w_instance, self.w_class]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple2(new_inst, space.newtuple(tup))
 
 
 class StaticMethod(W_Root):

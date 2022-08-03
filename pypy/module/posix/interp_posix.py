@@ -67,6 +67,7 @@ class FileDecoder(object):
 
 @specialize.memo()
 def dispatch_filename(func, tag=0):
+    @specialize.argtype(1)
     def dispatch(space, w_fname, *args):
         if space.isinstance_w(w_fname, space.w_unicode):
             fname = FileEncoder(space, w_fname)
@@ -104,6 +105,7 @@ def u2utf8(space, u_str):
 def open(space, w_fname, flag, mode=0777):
     """Open a file (for low level IO).
 Return a file descriptor (a small integer)."""
+    from rpython.rlib import rposix
     try:
         fd = dispatch_filename(rposix.open)(
             space, w_fname, flag, mode)
@@ -220,7 +222,6 @@ STATVFS_FIELDS = unrolling_iterable(enumerate(rposix_stat.STATVFS_FIELDS))
 def build_stat_result(space, st):
     FIELDS = STAT_FIELDS    # also when not translating at all
     lst = [None] * rposix_stat.N_INDEXABLE_FIELDS
-    w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
     for i, (name, TYPE) in FIELDS:
         if i < rposix_stat.N_INDEXABLE_FIELDS:
@@ -228,32 +229,44 @@ def build_stat_result(space, st):
             # 'st_Xtime' as an integer, too
             w_value = space.newint(st[i])
             lst[i] = w_value
-        elif name.startswith('st_'):    # exclude 'nsec_Xtime'
-            w_value = space.newint(getattr(st, name))
-            space.setitem(w_keywords, space.newtext(name), w_value)
-
-    # non-rounded values for name-based access
-    if stat_float_times:
-        space.setitem(w_keywords,
-                      space.newtext('st_atime'), space.newfloat(st.st_atime))
-        space.setitem(w_keywords,
-                      space.newtext('st_mtime'), space.newfloat(st.st_mtime))
-        space.setitem(w_keywords,
-                      space.newtext('st_ctime'), space.newfloat(st.st_ctime))
-    #else:
-    #   filled by the __init__ method
+        else:
+            break
 
     w_tuple = space.newtuple(lst)
     w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
                                   space.newtext('stat_result'))
-    return space.call_function(w_stat_result, w_tuple, w_keywords)
+    # this is a bit of a hack: circumvent the huge mess of structseq_new and a
+    # dict argument and just build the object ourselves. then it stays nicely
+    # virtual and eg. os.islink can just get the field from the C struct and be
+    # done.
+    w_tup_new = space.getattr(space.w_tuple,
+                              space.newtext('__new__'))
+    w_result = space.call_function(w_tup_new, w_stat_result, w_tuple)
+    for i, (name, TYPE) in FIELDS:
+        if i < rposix_stat.N_INDEXABLE_FIELDS:
+            continue
+        elif name.startswith('st_'):    # exclude 'nsec_Xtime'
+            w_value = space.newint(getattr(st, name))
+            w_result.setdictvalue(space, name, w_value)
+
+    # non-rounded values for name-based access
+    if stat_float_times:
+        w_result.setdictvalue(space, 'st_atime', space.newfloat(st.st_atime))
+        w_result.setdictvalue(space, 'st_mtime', space.newfloat(st.st_mtime))
+        w_result.setdictvalue(space, 'st_ctime', space.newfloat(st.st_ctime))
+    else:
+        w_result.setdictvalue(space, 'st_atime', space.newint(st[7]))
+        w_result.setdictvalue(space, 'st_mtime', space.newint(st[8]))
+        w_result.setdictvalue(space, 'st_ctime', space.newint(st[9]))
+    return w_result
 
 
 def build_statvfs_result(space, st):
     vals_w = [None] * len(rposix_stat.STATVFS_FIELDS)
     for i, (name, _) in STATVFS_FIELDS:
         vals_w[i] = space.newint(getattr(st, name))
-    w_tuple = space.newtuple(vals_w)
+    # f_fsid is not python2-compatible
+    w_tuple = space.newtuple(vals_w[:-1])
     w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.newtext('statvfs_result'))
     return space.call_function(w_statvfs_result, w_tuple)
 
@@ -534,27 +547,32 @@ def _convertenviron(space, w_env):
 @unwrap_spec(name='text0', value='text0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
-    # Search from index 1 because on Windows starting '=' is allowed for
-    # defining hidden environment variables.
     if _WIN32:
+        # Search from index 1 because on Windows starting '=' is allowed
+        # in general (see os.chdir which sets '=D:' for chdir(r'D:\temp')
+        # However it is a bit pointless here since the putenv system call
+        # hides the key/value.
+        # GetEnvironmentVariable/SetEnvironmentVariable will expose them,
+        # and as is mentioned in https://github.com/python/cpython/pull/2325#discussion_r674746677,
+        # someday the syscall may change to SetEnvironmentVariable here.
         if len(name) == 0 or '=' in name[1:]:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
+        if len(name) > _MAX_ENV:
+            raise oefmt(space.w_ValueError,
+                        "the environment variable is longer than %d bytes",
+                        _MAX_ENV)
+        if not objectmodel.we_are_translated() and value == '':
+            # special case: on Windows, _putenv("NAME=") really means that
+            # we want to delete NAME.  So that's what the os.environ[name]=''
+            # below will do after translation.  But before translation, it
+            # will cache the environment value '' instead of <missing> and
+            # then return that.  We need to avoid that.
+            del os.environ[name]
+            return
     else:
         if '=' in name:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
 
-    if _WIN32 and len(name) > _MAX_ENV:
-        raise oefmt(space.w_ValueError,
-                    "the environment variable is longer than %d bytes",
-                    _MAX_ENV)
-    if _WIN32 and not objectmodel.we_are_translated() and value == '':
-        # special case: on Windows, _putenv("NAME=") really means that
-        # we want to delete NAME.  So that's what the os.environ[name]=''
-        # below will do after translation.  But before translation, it
-        # will cache the environment value '' instead of <missing> and
-        # then return that.  We need to avoid that.
-        del os.environ[name]
-        return
     try:
         os.environ[name] = value
     except OSError as e:
@@ -620,7 +638,7 @@ def pipe(space):
         fd1, fd2 = os.pipe()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.newint(fd1), space.newint(fd2)])
+    return space.newtuple2(space.newint(fd1), space.newint(fd2))
 
 @unwrap_spec(mode=c_int)
 def chmod(space, w_path, mode):
@@ -787,12 +805,12 @@ def openpty(space):
         master_fd, slave_fd = os.openpty()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.newint(master_fd), space.newint(slave_fd)])
+    return space.newtuple2(space.newint(master_fd), space.newint(slave_fd))
 
 def forkpty(space):
     pid, master_fd = _run_forking_function(space, "P")
-    return space.newtuple([space.newint(pid),
-                           space.newint(master_fd)])
+    return space.newtuple2(space.newint(pid),
+                           space.newint(master_fd))
 
 @unwrap_spec(pid=c_int, options=c_int)
 def waitpid(space, pid, options):
@@ -804,7 +822,7 @@ def waitpid(space, pid, options):
         pid, status = os.waitpid(pid, options)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.newint(pid), space.newint(status)])
+    return space.newtuple2(space.newint(pid), space.newint(status))
 
 @unwrap_spec(status=c_int)
 def _exit(space, status):
@@ -828,6 +846,22 @@ def _env2interp(space, w_env):
         w_value = space.getitem(w_env, w_key)
         env[space.text0_w(w_key)] = space.text0_w(w_value)
     return env
+
+def _env2interp(space, w_env):
+    env = {}
+    w_keys = space.call_method(w_env, 'keys')
+    for w_key in space.unpackiterable(w_keys):
+        w_value = space.getitem(w_env, w_key)
+        key = space.text0_w(w_key)
+        val = space.text0_w(w_value)
+        # Search from index 1 because on Windows starting '=' is allowed for
+        # defining hidden environment variables
+        if len(key) == 0 or '=' in key[1:]:
+            raise oefmt(space.w_ValueError,
+                "illegal environment variable name")
+        env[key] = val
+    return env
+
 
 @unwrap_spec(command='fsencode')
 def execve(space, command, w_args, w_env):

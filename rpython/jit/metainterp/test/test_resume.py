@@ -170,6 +170,8 @@ class MyMetaInterp:
         if cpu is None:
             cpu = LLtypeMixin.cpu
         self.cpu = cpu
+        self.staticdata = FakeMetaInterpStaticData()
+        self.staticdata.cpu = cpu
         self.trace = []
         self.framestack = []
 
@@ -241,21 +243,25 @@ class MyBlackholeInterp:
         self.written_f = []
         self.ARGS = ARGS
 
-    def get_current_position_info(self):
-        class MyInfo:
-            @staticmethod
-            def enumerate_vars(callback_i, callback_r, callback_f, _):
-                count_i = count_r = count_f = 0
-                for ARG in self.ARGS:
-                    if ARG == lltype.Signed:
-                        callback_i(count_i); count_i += 1
-                    elif ARG == llmemory.GCREF:
-                        callback_r(count_r); count_r += 1
-                    elif ARG == longlong.FLOATSTORAGE:
-                        callback_f(count_f); count_f += 1
-                    else:
-                        assert 0
-        return MyInfo()
+    def fake_consume_one_section(self, callback_i, callback_r, callback_f):
+        count_i = count_r = count_f = 0
+        for ARG in self.ARGS:
+            if ARG == lltype.Signed:
+                callback_i(count_i); count_i += 1
+            elif ARG == llmemory.GCREF:
+                callback_r(count_r); count_r += 1
+            elif ARG == longlong.FLOATSTORAGE:
+                callback_f(count_f); count_f += 1
+            else:
+                assert 0
+
+
+    def fake_consume_boxes(self, reader, boxes_i, boxes_r, boxes_f):
+        reader.boxes_i = boxes_i
+        reader.boxes_r = boxes_r
+        reader.boxes_f = boxes_f
+        self.fake_consume_one_section(reader._callback_i, reader._callback_r,
+                reader._callback_f)
 
     def setarg_i(self, index, value):
         assert index == len(self.written_i)
@@ -271,7 +277,8 @@ class MyBlackholeInterp:
 
 def _next_section(reader, *expected):
     bh = MyBlackholeInterp(map(lltype.typeOf, expected))
-    reader.consume_one_section(bh)
+    reader.blackholeinterp = bh
+    bh.fake_consume_one_section(reader._callback_i, reader._callback_r, reader._callback_f)
     expected_i = [x for x in expected if lltype.typeOf(x) == lltype.Signed]
     expected_r = [x for x in expected if lltype.typeOf(x) == llmemory.GCREF]
     expected_f = [x for x in expected if lltype.typeOf(x) ==
@@ -307,23 +314,23 @@ def test_simple_read():
     #
     reader = ResumeDataBoxReader(storage, "deadframe", metainterp)
     bi, br, bf = [None]*3, [None]*2, [None]*0
-    info = MyBlackholeInterp([lltype.Signed, lltype.Signed,
-                              llmemory.GCREF, lltype.Signed,
-                              llmemory.GCREF]).get_current_position_info()
-    reader.consume_boxes(info, bi, br, bf)
+    bh = MyBlackholeInterp([lltype.Signed, lltype.Signed,
+                            llmemory.GCREF, lltype.Signed,
+                            llmemory.GCREF])
+    bh.fake_consume_boxes(reader, bi, br, bf)
     b1s = reader.liveboxes[0]
     b2s = reader.liveboxes[1]
     assert_same(bi, [b1s, ConstInt(111), b1s])
     assert_same(br, [ConstPtr(gcrefnull), b2s])
     bi, br, bf = [None]*2, [None]*0, [None]*0
-    info = MyBlackholeInterp([lltype.Signed,
-                              lltype.Signed]).get_current_position_info()
-    reader.consume_boxes(info, bi, br, bf)
+    bh = MyBlackholeInterp([lltype.Signed,
+                              lltype.Signed])
+    bh.fake_consume_boxes(reader, bi, br, bf)
     assert_same(bi, [ConstInt(222), ConstInt(333)])
     bi, br, bf = [None]*2, [None]*1, [None]*0
-    info = MyBlackholeInterp([lltype.Signed, llmemory.GCREF,
-                              lltype.Signed]).get_current_position_info()
-    reader.consume_boxes(info, bi, br, bf)
+    bh = MyBlackholeInterp([lltype.Signed, llmemory.GCREF,
+                              lltype.Signed])
+    bh.fake_consume_boxes(reader, bi, br, bf)
     b3s = reader.liveboxes[2]
     assert_same(bi, [b1s, b3s])
     assert_same(br, [b2s])
@@ -586,7 +593,7 @@ class Frame(object):
     def __init__(self, boxes):
         self.boxes = boxes
 
-    def get_list_of_active_boxes(self, flag, new_array, encode):
+    def get_list_of_active_boxes(self, flag, new_array, encode, after_residual_call=False):
         a = new_array(len(self.boxes))
         for i, box in enumerate(self.boxes):
             a[i] = encode(box)
@@ -603,8 +610,7 @@ def test_ResumeDataLoopMemo_number():
     snap = t.create_snapshot(FakeJitCode("jitcode", 0), 0, Frame(env), False)
     env1 = [c3, b3, b1, c1]
     t.append(0) # descr index
-    snap1 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame(env1), False,
-        [], [])
+    snap1 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame(env1), [], [])
     snap1.prev = snap
 
     env2 = [c3, b3, b1, c3]
@@ -629,7 +635,7 @@ def test_ResumeDataLoopMemo_number():
                                       tag(0, TAGBOX), tag(1, TAGINT)]
     t.append(0)
     snap2 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame(env2),
-                                  False, [], [])
+                                  [], [])
     snap2.prev = snap
 
     numb_state2 = memo.number(1, iter)
@@ -644,7 +650,7 @@ def test_ResumeDataLoopMemo_number():
 
     t.append(0)
     snap3 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame([]),
-                                  False, [], env3)
+                                  [], env3)
     snap3.prev = snap
 
     class FakeVirtualInfo(info.AbstractVirtualPtrInfo):
@@ -668,7 +674,7 @@ def test_ResumeDataLoopMemo_number():
     # virtual
     t.append(0)
     snap4 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame([]),
-                                  False, [], env4)
+                                  [], env4)
     snap4.prev = snap
 
     b4.set_forwarded(FakeVirtualInfo(True))
@@ -685,7 +691,7 @@ def test_ResumeDataLoopMemo_number():
     snap4 = t.create_snapshot(FakeJitCode("jitcode", 2), 1, Frame(env4), False)
     t.append(0)
     snap4.prev = snap
-    snap5 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 0, Frame([]), False,
+    snap5 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 0, Frame([]),
                                   env5, [])
     snap5.prev = snap4
 
@@ -712,7 +718,7 @@ def test_ResumeDataLoopMemo_random(lst):
     t = Trace(inpargs, metainterp_sd)
     t.append(0)
     i = t.get_iter()
-    t.create_top_snapshot(FakeJitCode("", 0), 0, Frame(lst), False, [], [])
+    t.create_top_snapshot(FakeJitCode("", 0), 0, Frame(lst), [], [])
     memo = ResumeDataLoopMemo(metainterp_sd)
     numb_state = memo.number(0, i)
     numb = numb_state.create_numbering()
@@ -822,7 +828,7 @@ def make_storage(b1, b2, b3):
     snap2 = t.create_snapshot(FakeJitCode("code2", 31), 32,
                               Frame([ConstInt(2), ConstInt(3)]), False)
     snap3 = t.create_top_snapshot(FakeJitCode("code1", 21), 22,
-                                  Frame([b1, b2, b3]), False, [], [])
+                                  Frame([b1, b2, b3]), [], [])
     snap3.prev = snap2
     snap2.prev = snap1
     storage.rd_resume_position = 0
@@ -870,7 +876,7 @@ def test_virtual_adder_memo_const_sharing():
 class ResumeDataFakeReader(ResumeDataBoxReader):
     """Another subclass of AbstractResumeDataReader meant for tests."""
     def __init__(self, storage, newboxes, metainterp):
-        self._init(metainterp.cpu, storage)
+        self._init(metainterp.staticdata, storage)
         self.liveboxes = newboxes
         self.metainterp = metainterp
         self._prepare(storage)
@@ -880,9 +886,8 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
         class Whatever:
             def __eq__(self, other):
                 return True
-        class MyInfo:
-            @staticmethod
-            def enumerate_vars(callback_i, callback_r, callback_f, _):
+        def enumerate_vars(callback_i, callback_r, callback_f):
+                # preserve indentation
                 index = 0
                 while not self.done_reading():
                     tagged = self.resumecodereader.peek()
@@ -909,7 +914,7 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
         pc = self.resumecodereader.next_item()
         jitcode_pos = self.resumecodereader.next_item()
 
-        self._prepare_next_section(MyInfo())
+        enumerate_vars(self._callback_i, self._callback_r, self._callback_f)
         return self.lst
 
     def write_an_int(self, count_i, box):

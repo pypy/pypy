@@ -77,9 +77,10 @@ class TestPosixStatFunctions:
         assert st.st_dev == st.st_ino == 0
         st = rposix_stat.stat3('C:\\')
         assert st.st_dev != 0 and st.st_ino != 0
+        assert st.st_file_attributes & 0x16  # FILE_ATTRIBUTE_DIRECTORY
+        assert st.st_reparse_tag == 0
         st2 = rposix_stat.lstat3('C:\\')
         assert (st2.st_dev, st2.st_ino) == (st.st_dev, st.st_ino)
-
 
 @py.test.mark.skipif("not hasattr(rposix_stat, 'fstatat')")
 def test_fstatat(tmpdir):
@@ -91,6 +92,7 @@ def test_fstatat(tmpdir):
         os.close(dirfd)
     assert result.st_atime == tmpdir.join('file').atime()
 
+@py.test.mark.skipif('sys.platform == "darwin"')
 def test_high_precision_stat_time():
     def f():
         st = os.stat('.')

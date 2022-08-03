@@ -125,6 +125,11 @@ class X86_64_XMMRegisterManager(X86XMMRegisterManager):
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14]
     save_around_call_regs = all_regs
 
+class X86_64_WIN_XMMRegisterManager(X86_64_XMMRegisterManager):
+    # xmm5 reserved for scratch use
+    all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4]
+    save_around_call_regs = all_regs
+
 class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
         FrameManager.__init__(self)
@@ -150,7 +155,10 @@ if WORD == 4:
     xmm_reg_mgr_cls = X86XMMRegisterManager
 elif WORD == 8:
     gpr_reg_mgr_cls = X86_64_RegisterManager
-    xmm_reg_mgr_cls = X86_64_XMMRegisterManager
+    if WIN64:
+        xmm_reg_mgr_cls = X86_64_WIN_XMMRegisterManager
+    else:
+        xmm_reg_mgr_cls = X86_64_XMMRegisterManager
 else:
     raise AssertionError("Word size should be 4 or 8")
 

@@ -13,7 +13,7 @@ from rpython.jit.tl.threadedcode.object import W_Object, W_IntObject, \
 from rpython.jit.tl.threadedcode.bytecode import *
 
 
-TRACE_THRESHOLD = 20
+TRACE_THRESHOLD = -1
 
 class ContinueInTracingJIT(Exception):
     def __init__(self, pc):

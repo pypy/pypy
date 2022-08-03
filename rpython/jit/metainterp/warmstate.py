@@ -137,6 +137,7 @@ JC_TRACING         = 0x01
 JC_DONT_TRACE_HERE = 0x02
 JC_TEMPORARY       = 0x04
 JC_TRACING_OCCURRED= 0x08
+JC_FORCE_FINISH    = 0x10
 
 class BaseJitCell(object):
     """Subclasses of BaseJitCell are used in tandem with the single
@@ -183,6 +184,10 @@ class BaseJitCell(object):
         this particular function.  (We only set this flag when aborting
         due to a trace too long, so we use the same flag as a hint to
         also mean "please trace from here as soon as possible".)
+
+        JC_FORCE_FINISH: when from a cell with that flag set, if the trace
+        becomes too long, "segment" it, ie finish it with a guard_always_fails.
+        this prevents re-tracing and failing this again and again.
     """
     flags = 0     # JC_xxx flags
     wref_procedure_token = None
@@ -219,6 +224,10 @@ class BaseJitCell(object):
             # we no longer have one, then remove me.  this prevents this
             # JitCell from being immortal.
             return self.has_seen_a_procedure_token()     # i.e. dead weakref
+        if self.flags & JC_FORCE_FINISH:
+            # don't remove, we need to remember that we should really finish a
+            # trace for this
+            return False
         return True   # Other JitCells can be removed.
 
 # ____________________________________________________________
@@ -412,18 +421,20 @@ class WarmEnterState(object):
             assert 0, "should have raised"
 
         def bound_reached(hash, cell, *args):
+            from rpython.jit.metainterp.pyjitpl import MetaInterp
             if not confirm_enter_jit(*args):
                 return
             jitcounter.decay_all_counters()
             if rstack.stack_almost_full():
                 return
-            # start tracing
-            from rpython.jit.metainterp.pyjitpl import MetaInterp
-            metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
             greenargs = args[:num_green_args]
             if cell is None:
                 cell = JitCell(*greenargs)
                 jitcounter.install_new_cell(hash, cell)
+            # start tracing
+            metainterp = MetaInterp(
+                metainterp_sd, jitdriver_sd,
+                force_finish_trace=bool(cell.flags & JC_FORCE_FINISH))
             cell.flags |= JC_TRACING | JC_TRACING_OCCURRED
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
@@ -435,6 +446,8 @@ class WarmEnterState(object):
             can_enter_jit() hint, and at the start of a function
             with a different threshold.
             """
+            if increment_threshold == 0:
+                return # jit is off
             # Look for the cell corresponding to the current greenargs.
             # Search for the JitCell that is of the correct subclass of
             # BaseJitCell, and that stores a key that compares equal.
@@ -629,6 +642,11 @@ class WarmEnterState(object):
             def dont_trace_here(*greenargs):
                 cell = JitCell._ensure_jit_cell_at_key(*greenargs)
                 cell.flags |= JC_DONT_TRACE_HERE
+
+            @staticmethod
+            def mark_as_being_traced(*greenargs):
+                cell = JitCell._ensure_jit_cell_at_key(*greenargs)
+                cell.flags |= JC_TRACING
         #
         self.JitCell = JitCell
         return JitCell
@@ -665,6 +683,18 @@ class WarmEnterState(object):
             cell = JitCell.ensure_jit_cell_at_key(greenkey)
             cell.flags |= JC_DONT_TRACE_HERE
         self.dont_trace_here = dont_trace_here
+
+        def mark_as_being_traced(greenkey):
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_TRACING
+        self.mark_as_being_traced = mark_as_being_traced
+
+        def mark_force_finish_tracing(greenkey):
+            """ mark greenkey as "please definitely finish a trace for it the
+            next time" """
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_FORCE_FINISH
+        self.mark_force_finish_tracing = mark_force_finish_tracing
 
         if jd._should_unroll_one_iteration_ptr is None:
             def should_unroll_one_iteration(greenkey):

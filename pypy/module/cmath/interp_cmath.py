@@ -143,7 +143,7 @@ def c_polar(x, y):
 def wrapped_polar(space, w_z):
     x, y = space.unpackcomplex(w_z)
     resx, resy = call_c_func(c_polar, space, x, y)
-    return space.newtuple([space.newfloat(resx), space.newfloat(resy)])
+    return space.newtuple2(space.newfloat(resx), space.newfloat(resy))
 wrapped_polar.func_doc = names_and_docstrings['polar']
 
 

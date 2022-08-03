@@ -421,14 +421,14 @@ class ThreadLocalReference(ThreadLocalField):
         self.get = get
         self.set = set
 
-        def _trace_tlref(gc, obj, callback, arg):
+        def _trace_tlref(gc, obj, callback, arg1, arg2):
             p = llmemory.NULL
             llop.threadlocalref_acquire(lltype.Void)
             while True:
                 p = llop.threadlocalref_enum(llmemory.Address, p)
                 if not p:
                     break
-                gc._trace_callback(callback, arg, p + offset)
+                gc._trace_callback(callback, arg1, arg2, p + offset)
             llop.threadlocalref_release(lltype.Void)
         _lambda_trace_tlref = lambda: _trace_tlref
         # WAAAH obscurity: can't use a name that may be non-unique,

@@ -38,6 +38,16 @@ def test_default_action():
         assert len(w) == 0
     warnings.defaultaction = 'default'
 
+def test_ignore():
+    warnings.resetwarnings()
+    with warnings.catch_warnings(record=True) as w:
+        __warningregistry__ = {}
+        warnings.filterwarnings("ignore", category=UserWarning)
+        _warnings.warn_explicit("message", UserWarning, "<test>", 44,
+                                registry=__warningregistry__)
+        assert len(w) == 0
+        assert len(__warningregistry__) == 0
+
 def test_show_source_line():
     import sys, StringIO
     try:
@@ -120,4 +130,18 @@ def test_issue31285():
         'eggs', UserWarning, 'bar', 1,
         module_globals={'__loader__': get_bad_loader(42),
                         '__name__': 'foobar'})
+
+def test_once_is_not_broken():
+    def f():
+        warnings.warn("deprecated", DeprecationWarning, 2)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("once")
+        assert len(w) == 0
+        f()
+        assert len(w) == 1
+        f()
+        assert len(w) == 1
+        f()
+        assert len(w) == 1
 

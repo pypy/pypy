@@ -1311,6 +1311,9 @@ class LLFrame(object):
         if self.lltrace.invalid:
             self.fail_guard(descr)
 
+    def execute_guard_always_fails(self, descr):
+        self.fail_guard(descr)
+
     def execute_int_add_ovf(self, _, x, y):
         try:
             z = ovfcheck(x + y)

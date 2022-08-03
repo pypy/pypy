@@ -186,6 +186,8 @@ class CBuilder(object):
         defines = defines.copy()
         if self.config.translation.countmallocs:
             defines['COUNT_OP_MALLOCS'] = 1
+        if self.config.translation.countfieldaccess:
+            defines['RPY_COUNT_FIELDACCESS'] = 1
         if self.config.translation.sandbox:
             defines['RPY_SANDBOXED'] = 1
         if self.config.translation.reverse_debugger:
@@ -317,34 +319,6 @@ class CStandaloneBuilder(CBuilder):
             return res.out, res.err
         return res.out
 
-    def build_main_for_shared(self, shared_library_name, entrypoint, exe_name):
-        import time
-        time.sleep(1)
-        self.shared_library_name = shared_library_name
-        # build main program
-        eci = self.get_eci()
-        kw = {}
-        if self.translator.platform.cc == 'gcc':
-            kw['libraries'] = [self.shared_library_name.purebasename[3:]]
-            kw['library_dirs'] = [self.targetdir]
-        else:
-            kw['libraries'] = [self.shared_library_name.new(ext='')]
-        eci = eci.merge(ExternalCompilationInfo(
-            separate_module_sources=['''
-                int %s(int argc, char* argv[]);
-
-                int main(int argc, char* argv[])
-                { return %s(argc, argv); }
-                ''' % (entrypoint, entrypoint)
-                ],
-            **kw
-            ))
-        eci = eci.convert_sources_to_files(
-            cache_dir=self.targetdir)
-        return self.translator.platform.compile(
-            [], eci,
-            outputfilename=exe_name)
-
     def compile(self, exe_name=None):
         assert self.c_source_filename
         assert not self._compiled
@@ -362,10 +336,6 @@ class CStandaloneBuilder(CBuilder):
             extra_opts += ["lldebug0"]
         self.translator.platform.execute_makefile(self.targetdir,
                                                   extra_opts)
-        if shared:
-            self.shared_library_name = self.executable_name.new(
-                purebasename='lib' + self.executable_name.purebasename,
-                ext=self.translator.platform.so_ext)
         self._compiled = True
         return self.executable_name
 
@@ -398,8 +368,10 @@ class CStandaloneBuilder(CBuilder):
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(DEFAULT_TARGET)'),
         ]
 
-        # added a new target for profopt, because it requires -lgcov to compile successfully when -shared is used as an argument
-        # Also made a difference between translating with shared or not, because this affects profopt's target
+        # added a new target for profopt, because it requires extra args to
+        # compile successfully when -shared is used as an argument
+        # Also made a difference between translating with shared or not,
+        # because this affects profopt's target
 
         if self.config.translation.profopt:
             if self.config.translation.profoptargs is None:
@@ -462,25 +434,32 @@ class CStandaloneBuilder(CBuilder):
             # Set the PGO flags
             if "clang" in cc:
                 # Any changes made here should be reflected in the GCC+Darwin case below
+                coverage_flag = '--coverage'
                 profopt_gen_flag = "-fprofile-instr-generate"
                 profopt_use_flag = "-fprofile-instr-use=code.profclangd"
                 profopt_merger = "%s merge -output=code.profclangd *.profclangr" % llvm_profdata
                 profopt_file = 'LLVM_PROFILE_FILE="code-%p.profclangr"'
             elif "gcc" in cc:
                 if sys.platform == 'darwin':
+                    coverage_flag = '--coverage'
                     profopt_gen_flag = "-fprofile-instr-generate"
                     profopt_use_flag = "-fprofile-instr-use=code.profclangd"
                     profopt_merger = "%s merge -output=code.profclangd *.profclangr" % llvm_profdata
                     profopt_file = 'LLVM_PROFILE_FILE="code-%p.profclangr"'
                 else:
+                    coverage_flag = '-lgcov'
                     profopt_gen_flag = "-fprofile-generate"
                     profopt_use_flag = "-fprofile-use -fprofile-correction"
                     profopt_merger = "true"
                     profopt_file = ""
 
             if self.config.translation.shared:
-                mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
-                         ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov', '$(MAKE) postcompile BIN=$(PROFOPT_TARGET)'])
+                mk.rule('$(PROFOPT_TARGET)',
+                        '$(TARGET) main.o',
+                        ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) %s' % coverage_flag,
+                         '$(MAKE) postcompile BIN=$(PROFOPT_TARGET)'
+                        ]
+                       )
             else:
                 mk.definition('PROFOPT_TARGET', '$(TARGET)')
 
@@ -526,6 +505,10 @@ class CStandaloneBuilder(CBuilder):
         #                           ,
         #                           self.eci, profbased=self.getprofbased()
         self.executable_name = mk.exe_name
+        if self.config.translation.shared:
+            self.shared_library_name = mk.so_name
+        if sys.platform == 'win32':
+            self.executable_name_w = mk.wtarget_name
 
 # ____________________________________________________________
 
@@ -735,6 +718,8 @@ class SourceGenerator:
                     print >> fc, MARKER
                 print >> fc, '/***********************************************************/'
         print >> f
+        if self.database.all_field_names is not None:
+            gen_fieldstats(f, self)
 
 
 def gen_structdef(f, database):
@@ -919,3 +904,38 @@ def gen_source(database, modulename, targetdir,
     headers_to_precompile.insert(0, singleheader)
 
     return eci, filename, sg.getextrafiles(), headers_to_precompile
+
+def gen_fieldstats(f, sg):
+    with sg.write_on_maybe_separate_source(f, 'fieldstats.c') as fc:
+        print >> fc, '#include "singleheader.h"'
+        print >> fc, '#include "src/g_include.h"'
+        print >> fc, "struct rpy_access_stats_type0 rpy_access_stats = {"
+        print >> fc, ", ".join(["0"] * len(sg.database.all_field_names) * 2)
+        print >> fc, "};"
+        print >> fc, ""
+        print >> fc, "void _pypy_print_field_stats() {"
+        print >> fc, '\tPYPY_DEBUG_START("stats-fields", 0);'
+        print >> fc, '\tif (PYPY_HAVE_DEBUG_PRINTS) {'
+        for kind in "read", "write":
+            for fieldname in sorted(sg.database.all_field_names):
+                print >> fc, '\t\tfprintf(PYPY_DEBUG_FILE, "%s %s %%ld\\n", rpy_access_stats.%s_%s);' % (
+                        kind, fieldname, fieldname, kind)
+        print >> fc, '\t}'
+        print >> fc, '\tPYPY_DEBUG_STOP("stats-fields", 0);'
+        print >> fc, "}"
+
+    # XXX hack, add something to structdef.h later
+    filepath = sg.path.join('structdef.h')
+    content = filepath.read().splitlines()
+    assert content[-1] == "#endif"
+    content = content[:-1]
+    content.append("struct rpy_access_stats_type0 {")
+    for fieldname in sorted(sg.database.all_field_names):
+        content.append("\tlong %s_read;" % fieldname)
+        content.append("\tlong %s_write;" % fieldname)
+    content.append("};")
+    # XXX should go to forwarddecl really
+    content.append("RPY_EXTERN struct rpy_access_stats_type0 rpy_access_stats;")
+    content.append("RPY_EXTERN void _pypy_print_field_stats();")
+    content.append("#endif")
+    filepath.write("\n".join(content))

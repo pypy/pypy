@@ -144,13 +144,20 @@ def PyDict_Size(space, w_obj):
     return space.len_w(w_obj)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyDict_Contains(space, w_obj, w_value):
+def PyDict_Contains(space, w_dict, w_key):
     """Determine if dictionary p contains key.  If an item in p is matches
     key, return 1, otherwise return 0.  On error, return -1.
     This is equivalent to the Python expression key in p.
     """
-    w_res = space.contains(w_obj, w_value)
-    return space.int_w(w_res)
+    if not isinstance(w_dict, W_DictMultiObject):
+        raise PyErr_BadInternalCall(space)
+    try:
+        w_obj = w_dict.getitem(w_key)
+        if (w_obj is None):
+            return 0
+        return 1
+    except OperationError:
+        return 0
 
 @cpython_api([PyObject], lltype.Void)
 def PyDict_Clear(space, w_obj):

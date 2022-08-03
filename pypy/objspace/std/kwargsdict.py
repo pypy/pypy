@@ -7,7 +7,7 @@ from rpython.rlib import jit, rerased, objectmodel
 
 from pypy.objspace.std.dictmultiobject import (
     BytesDictStrategy, DictStrategy, EmptyDictStrategy, ObjectDictStrategy,
-    create_iterator_classes)
+    create_iterator_classes, W_DictObject)
 
 
 def _wrapkey(space, key):
@@ -20,6 +20,10 @@ class EmptyKwargsDictStrategy(EmptyDictStrategy):
         storage = strategy.get_empty_storage()
         w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
+
+    def copy(self, w_dict):
+        dstorage = self.unerase(w_dict.dstorage)
+        return W_DictObject(self.space, self, self.get_empty_storage())
 
 
 class KwargsDictStrategy(DictStrategy):
@@ -124,11 +128,13 @@ class KwargsDictStrategy(DictStrategy):
     def items(self, w_dict):
         space = self.space
         keys, values_w = self.unerase(w_dict.dstorage)
-        return [space.newtuple([self.wrap(keys[i]), values_w[i]])
+        return [space.newtuple2(self.wrap(keys[i]), values_w[i])
                 for i in range(len(keys))]
 
     def popitem(self, w_dict):
         keys, values_w = self.unerase(w_dict.dstorage)
+        if not keys:
+            raise KeyError
         key = keys.pop()
         w_value = values_w.pop()
         return self.wrap(key), w_value
@@ -168,6 +174,11 @@ class KwargsDictStrategy(DictStrategy):
     def getiteritems_with_hash(self, w_dict):
         keys, values_w = self.unerase(w_dict.dstorage)
         return ZipItemsWithHash(keys, values_w)
+
+    def copy(self, w_dict):
+        dstorage = self.unerase(w_dict.dstorage)
+        return W_DictObject(self.space, self,
+                self.erase((dstorage[0][:], dstorage[1][:])))
 
     wrapkey = _wrapkey
 

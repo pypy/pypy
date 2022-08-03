@@ -40,8 +40,8 @@ class W_Count(W_Root):
             args_w = [self.w_c]
         else:
             args_w = [self.w_c, self.w_step]
-        return space.newtuple([space.gettypefor(W_Count),
-                               space.newtuple(args_w)])
+        return space.newtuple2(space.gettypefor(W_Count),
+                               space.newtuple(args_w))
 
 def check_number(space, w_obj):
     if (space.lookup(w_obj, '__int__') is None and
@@ -942,7 +942,7 @@ class W_GroupBy(W_Root):
         self._skip_to_next_iteration_group()
         w_key = self.w_tgtkey = self.w_currkey
         w_grouper = W_GroupByIterator(self, w_key)
-        return self.space.newtuple([w_key, w_grouper])
+        return self.space.newtuple2(w_key, w_grouper)
 
     def _skip_to_next_iteration_group(self):
         space = self.space

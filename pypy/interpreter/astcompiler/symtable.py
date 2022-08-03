@@ -45,6 +45,15 @@ class Scope(object):
         self.doc_removable = False
         self._in_try_body_depth = 0
 
+    def error(self, msg, ast_node=None):
+        if ast_node is None:
+            lineno = self.lineno
+            col_offset = self.col_offset
+        else:
+            lineno = ast_node.lineno
+            col_offset = ast_node.col_offset
+        raise SyntaxError(msg, lineno, col_offset)
+
     def lookup(self, name):
         """Find the scope of identifier 'name'."""
         return self.symbols.get(self.mangle(name), SCOPE_UNKNOWN)
@@ -60,7 +69,7 @@ class Scope(object):
         self.note_symbol("_[%d]" % (self.temp_name_counter,), SYM_ASSIGNED)
         self.temp_name_counter += 1
 
-    def note_symbol(self, identifier, role):
+    def note_symbol(self, identifier, role, ast_node=None):
         """Record that identifier occurs in this scope."""
         mangled = self.mangle(identifier)
         new_role = role
@@ -69,7 +78,7 @@ class Scope(object):
             if old_role & SYM_PARAM and role & SYM_PARAM:
                 err = "duplicate argument '%s' in function definition" % \
                     (identifier,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
+                self.error(err, ast_node)
             new_role |= old_role
         self.roles[mangled] = new_role
         if role & SYM_PARAM:
@@ -86,13 +95,11 @@ class Scope(object):
 
     def note_yield(self, yield_node):
         """Called when a yield is found."""
-        raise SyntaxError("'yield' outside function", yield_node.lineno,
-                          yield_node.col_offset)
+        self.error("'yield' outside function", yield_node)
 
     def note_return(self, ret):
         """Called when a return statement is found."""
-        raise SyntaxError("return outside function", ret.lineno,
-                          ret.col_offset)
+        self.error("return outside function", ret)
 
     def note_exec(self, exc):
         """Called when an exec statement is found."""
@@ -118,7 +125,7 @@ class Scope(object):
         if flags & SYM_GLOBAL:
             if flags & SYM_PARAM:
                 err = "name '%s' is local and global" % (name,)
-                raise SyntaxError(err, self.lineno, self.col_offset)
+                self.error(err)
             self.symbols[name] = SCOPE_GLOBAL_EXPLICIT
             globs[name] = None
             if bound:
@@ -227,8 +234,8 @@ class FunctionScope(Scope):
 
     def note_yield(self, yield_node):
         if self.return_with_value:
-            raise SyntaxError("'return' with argument inside generator",
-                              self.ret.lineno, self.ret.col_offset)
+            self.error("'return' with argument inside generator",
+                       self.ret)
         self.is_generator = True
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
@@ -236,8 +243,7 @@ class FunctionScope(Scope):
     def note_return(self, ret):
         if ret.value:
             if self.is_generator:
-                raise SyntaxError("'return' with argument inside generator",
-                                  ret.lineno, ret.col_offset)
+                self.error("'return' with argument inside generator", ret)
             self.return_with_value = True
             self.ret = ret
 
@@ -294,7 +300,7 @@ class FunctionScope(Scope):
                     "because it %s" % (name, trailer)
             else:
                 raise AssertionError("unknown reason for unoptimization")
-            raise SyntaxError(err, node.lineno, node.col_offset)
+            self.error(err, node)
         self.locals_fully_known = self.optimized and not self.has_exec
 
 
@@ -356,9 +362,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
         name = ".%d" % (pos,)
         self.note_symbol(name, SYM_PARAM)
 
-    def note_symbol(self, identifier, role):
+    def note_symbol(self, identifier, role, ast_node=None):
         """Note the identifer on the current scope."""
-        mangled = self.scope.note_symbol(identifier, role)
+        mangled = self.scope.note_symbol(identifier, role, ast_node)
         if role & SYM_GLOBAL:
             if mangled in self.globs:
                 role |= self.globs[mangled]
@@ -435,6 +441,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
                         (name,)
                 misc.syntax_warning(self.space, msg, self.compile_info.filename,
                                     glob.lineno, glob.col_offset)
+            if old_role & SYM_PARAM:
+                err = "name '%s' is local and global" % (name,)
+                self.scope.error(err, glob)
             self.note_symbol(name, SYM_GLOBAL)
 
     def visit_Lambda(self, lamb):
@@ -500,7 +509,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         for i in range(len(params)):
             arg = params[i]
             if isinstance(arg, ast.Name):
-                self.note_symbol(arg.id, SYM_PARAM)
+                self.note_symbol(arg.id, SYM_PARAM, arg)
             elif isinstance(arg, ast.Tuple):
                 # Tuple unpacking in the argument list.  Add a secret variable
                 # name to recieve the tuple with.

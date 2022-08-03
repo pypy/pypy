@@ -7,6 +7,8 @@
 
 #define RUNNING_ON_LLINTERP	0
 #define OP_JIT_RECORD_EXACT_CLASS(i, c, r)  /* nothing */
+#define OP_JIT_RECORD_EXACT_VALUE(i, c, r)  /* nothing */
+#define OP_JIT_RECORD_KNOWN_RESULT(r, f, ...)  /* nothing */
 
 #define FAIL_OVF(msg) _RPyRaiseSimpleException(RPyExc_OverflowError)
 
@@ -68,6 +70,6 @@ double _PyPy_dg_stdnan(int sign);
 #  define RPyFxItem(ptr, index, fixedsize)   ((ptr)[index])
 #  define RPyNLenItem(array, index)          ((array)->items[index])
 #  define RPyBareItem(array, index)          ((array)[index])
-#endif
+#endif /* RPY_LL_ASSERT || RPY_SANDBOXED */
 
 #endif  /* _SRC_SUPPORT_H */

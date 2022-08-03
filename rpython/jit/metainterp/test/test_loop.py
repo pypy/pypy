@@ -1,6 +1,6 @@
 import py
 from rpython.rlib.jit import JitDriver, hint, set_param, dont_look_inside,\
-     elidable
+     elidable, promote
 from rpython.rlib.objectmodel import compute_hash
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -1147,6 +1147,90 @@ class LoopTest(object):
                 repetitions += 1
         
         self.meta_interp(entry_point, [])
+
+    def test_unroll_shortpreamble_mutates_bug(self):
+        class List:
+            pass
+
+        class Cell:
+            pass
+
+        class Base:
+            pass
+        class Int(Base):
+            pass
+
+        class WNone(Base):
+            pass
+
+        l1 = List()
+        l1.strategy = 1
+        l1.content1 = Int()
+        l2 = List()
+        l2.strategy = 2
+        l2.content2 = WNone()
+        l = [l1, l2] * 100
+
+        c_int = Cell()
+        c_int.value = Int()
+        c_w_none = Cell()
+        c_w_none.value = WNone()
+
+        class Func:
+            pass
+
+        f1 = Func()
+        f1.fval = 1
+        f2 = Func()
+        f2.fval = 2
+
+        driver = JitDriver(reds=['i', 'c', 'l', 'func'], greens=['promoteint'])
+        def f(l, func, c, promoteint):
+            i = 0
+            while i < len(l):
+                subl = l[i]
+                # reading from the inner list
+                st = promote(subl.strategy)
+                if st == 1:
+                    lcontent = subl.content1
+                else:
+                    lcontent = subl.content2
+
+                # LOAD_DEREF
+                cellvalue = c.value
+                assert cellvalue is not None
+
+                # calling one of the two funcs
+                # two variants:
+                # - if we promote the int, then the erroneous bridge goes to
+                #   the preamble
+                # - if we don't the erroneous bridge goes to the main loop
+                # both cases are wrong
+                if promoteint:
+                    x = promote(func.fval)
+                else:
+                    x = func.fval
+                if x == 1:
+                    promote(type(cellvalue) is type(lcontent))
+                else:
+                    promote(type(lcontent) is not WNone)
+                i += 1
+                driver.jit_merge_point(i=i, func=func, c=c, l=l, promoteint=promoteint)
+
+        def main(promoteint):
+            set_param(None, 'retrace_limit', 0)
+            set_param(None, 'threshold', 8)
+            List().content1 = WNone() # ensure annotator doesn't think the fields are constants
+            Cell().value = None
+            List().content2 = Int()
+            f(l, f1, c_w_none, promoteint)
+            print "=================================================================="
+            f(l + [l1, l2], f2, c_int, promoteint)
+
+        self.meta_interp(main, [True])
+        self.check_trace_count_at_most(10)
+        self.meta_interp(main, [False])
+        self.check_trace_count_at_most(10)
 
 
 class TestLLtype(LoopTest, LLJitMixin):

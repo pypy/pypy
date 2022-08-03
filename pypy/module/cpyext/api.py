@@ -52,10 +52,10 @@ parse_dir = pypydir / 'module' / 'cpyext' / 'parse'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
 translator_c_dir = py.path.local(cdir)
 include_dirs = [
+    udir,
     include_dir,
     parse_dir,
     translator_c_dir,
-    udir,
     ]
 
 configure_eci = ExternalCompilationInfo(
@@ -315,14 +315,14 @@ class ApiFunction(BaseApiFunction):
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
                  c_name=None, cdecl=None, gil=None,
                  result_borrowed=False, result_is_ll=False):
+        from rpython.flowspace.bytecode import cpython_code_signature
         BaseApiFunction.__init__(self, argtypes, restype, callable)
         self.error_value = error
         self.c_name = c_name
         self.cdecl = cdecl
 
         # extract the signature from the (CPython-level) code object
-        from pypy.interpreter import pycode
-        sig = pycode.cpython_code_signature(callable.func_code)
+        sig = cpython_code_signature(callable.func_code)
         assert sig.argnames[0] == 'space'
         self.argnames = sig.argnames[1:]
         if gil == 'pygilstate_ensure':
@@ -630,7 +630,7 @@ SYMBOLS_C = [
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar', 'PyInt_FromLong',
-    'PyTuple_New', '_Py_Dealloc',
+    'PyTuple_New', '_Py_Dealloc', '_Py_object_dealloc',
 ]
 TYPES = {}
 FORWARD_DECLS = []
@@ -971,8 +971,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
     gil_release = (gil == "release" or gil == "around")
     pygilstate_ensure = (gil == "pygilstate_ensure")
     pygilstate_release = (gil == "pygilstate_release")
+    pygilstate_check = (gil == "pygilstate_check")
     assert (gil is None or gil_acquire or gil_release
-            or pygilstate_ensure or pygilstate_release)
+            or pygilstate_ensure or pygilstate_release or pygilstate_check)
     expected_nb_args = len(argtypesw) + pygilstate_ensure
 
     if isinstance(restype, lltype.Ptr) and error_value == 0:
@@ -1011,6 +1012,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
             else:
                 rgil.acquire()
                 args += (pystate.PyGILState_UNLOCKED,)
+        elif pygilstate_check:
+            result = rgil.am_I_holding_the_GIL()
+            return rffi.cast(restype, result)
         else:
             if not rgil.am_I_holding_the_GIL():
                 no_gil_error(pname)
@@ -1162,7 +1166,7 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci,
         _nowrapper=True)
     state.C._PyPy_int_dealloc = rffi.llexternal(
-        '_PyPy_int_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_int_dealloc'), [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C.PyTuple_New = rffi.llexternal(
         mangle_name(prefix, 'PyTuple_New'),
@@ -1170,7 +1174,7 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci,
         _nowrapper=True)
     state.C._PyPy_tuple_dealloc = rffi.llexternal(
-        '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_tuple_dealloc'), [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(
                    rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
@@ -1180,14 +1184,16 @@ def attach_c_functions(space, eci, prefix):
         [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
-        '_PyPy_object_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_object_dealloc'),
+        [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
     state.C.get_pyos_inputhook = rffi.llexternal(
-        '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
+        mangle_name(prefix, '_Py_get_PyOS_InputHook'), [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
-        '_PyPy_tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        mangle_name(prefix, '_Py_tuple_new'),
+        [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
     if we_are_translated():
         eci_flags = eci
@@ -1214,11 +1220,16 @@ def attach_c_functions(space, eci, prefix):
             link_files = link_files,
             library_dirs = library_dirs,
            )
-    state.C.flag_setters = {}
+    flag_setters = {}
     for c_name, attr in _flags:
-        _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
+        _, setter = rffi.CExternVariable(rffi.INT_real, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
-        state.C.flag_setters[attr] = setter
+        flag_setters[attr] = setter
+    unroll_flag_setters = unrolling_iterable(flag_setters.items())
+    def init_flags(space):
+        for attr, setter in unroll_flag_setters:
+            setter(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
+    state.C.init_flags = init_flags
         
 
 def init_function(func):
@@ -1234,11 +1245,9 @@ def run_bootstrap_functions(space):
         func(space)
 
 @init_function
-def init_flags(space):
+def call_init_flags(space):
     state = space.fromcache(State)
-    for _, attr in _flags:
-        f = state.C.flag_setters[attr]
-        f(space.sys.get_flag(attr))
+    state.C.init_flags(space)
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
