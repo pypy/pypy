@@ -68368,10 +68368,11 @@ _hangul_T = ['', 'G', 'GG', 'GS', 'N', 'NJ', 'NH', 'D', 'L', 'LG', 'LM',
             'NG', 'J', 'C', 'K', 'T', 'P', 'H']
 
 def _lookup_hangul(syllables):
+    from rpython.rlib.rstring import startswith
     l_code = v_code = t_code = -1
     for i in range(len(_hangul_L)):
         jamo = _hangul_L[i]
-        if (syllables[:len(jamo)] == jamo and
+        if (startswith(syllables, jamo) and
             (l_code < 0 or len(jamo) > len(_hangul_L[l_code]))):
             l_code = i
     if l_code < 0:
@@ -68412,9 +68413,10 @@ def _lookup_cjk(cjk_code):
     raise KeyError
 
 def lookup(name, with_named_sequence=False):
-    if name[:len(_cjk_prefix)] == _cjk_prefix:
+    from rpython.rlib.rstring import startswith
+    if startswith(name, _cjk_prefix):
         return _lookup_cjk(name[len(_cjk_prefix):])
-    if name[:len(_hangul_prefix)] == _hangul_prefix:
+    if startswith(name, _hangul_prefix):
         return _lookup_hangul(name[len(_hangul_prefix):])
 
     code = dawg_lookup(name)

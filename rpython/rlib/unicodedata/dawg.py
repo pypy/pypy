@@ -416,7 +416,7 @@ def build_compression_dawg(outfile, ucdata):
     for name, value in sorted(ucdata.items()):
         d.insert(name, value)
     packed, pos_to_code = d.finish()
-    print "dawg", len(packed), len(pos_to_code)
+    print "size of dawg [KiB]", round(len(packed) / 1024, 2), len(pos_to_code)
     print >> outfile, "from rpython.rlib.unicodedata.dawg import lookup as _dawg_lookup, _inverse_lookup"
     print >> outfile, "packed_dawg = ("
     for i in range(0, len(packed), 40):
