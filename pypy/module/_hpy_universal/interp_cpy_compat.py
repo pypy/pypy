@@ -112,7 +112,7 @@ def make_slot_wrappers_table():
     return table
 SLOT_WRAPPERS_TABLE = unrolling_iterable(make_slot_wrappers_table())
 
-def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
+def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dealloc):
     from pypy.module.cpyext.slotdefs import wrap_unaryfunc
     slotdefs = rffi.cast(rffi.CArrayPtr(cpyts.gettype('PyType_Slot')), c_legacy_slots)
     i = 0
@@ -128,9 +128,13 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
         elif slotnum == cpyts.macros['Py_tp_getset']:
             attach_legacy_getsets(space, slotdef.c_pfunc, w_type)
         elif slotnum == cpyts.macros['Py_tp_dealloc']:
+            if needs_hpytype_dealloc:
+                raise oefmt(space.w_TypeError,
+                    "legacy tp_dealloc is incompatible with HPy_tp_traverse"
+                    " or HPy_tp_destroy.")
             # XXX fixme: cpyext does not have a slotdef for tp_dealloc
             # for now, fail to reassign rather than segfaulting in attach_legacy_slot
-            break;
+            break
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum)
         i += 1

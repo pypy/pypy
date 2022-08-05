@@ -274,7 +274,7 @@ def check_inheritance_constraints(space, w_type):
 def check_have_gc_and_tp_traverse(space, spec):
     # if we specify HPy_TPFLAGS_HAVE_GC, we must provide a tp_traverse
     have_gc = widen(spec.c_flags) & llapi.HPy_TPFLAGS_HAVE_GC
-    if have_gc and not has_tp_traverse(spec):
+    if have_gc and not has_tp_slot(spec, [HPySlot_Slot.HPy_tp_traverse]):
         raise oefmt(space.w_ValueError,
                     "You must provide an HPy_tp_traverse slot if you specify "
                     "HPy_TPFLAGS_HAVE_GC")
@@ -318,7 +318,9 @@ def _hpytype_fromspec(handles, spec, params):
         w_doc = space.newtext(rffi.constcharp2str(spec.c_doc))
         w_result.setdictvalue(space, '__doc__', w_doc)
     if spec.c_legacy_slots:
-        attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots)
+        needs_hpytype_dealloc = has_tp_slot(spec,
+                         [HPySlot_Slot.HPy_tp_traverse, HPySlot_Slot.HPy_tp_destroy])
+        attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots, needs_hpytype_dealloc)
     if spec.c_defines:
         add_slot_defs(handles, w_result, spec.c_defines)
     check_inheritance_constraints(space, w_result)
@@ -366,7 +368,7 @@ def add_slot_defs(handles, w_result, c_defines):
         if w_buffer_wrapper and isinstance(w_buffer_wrapper, getbuffer_cls):
             w_buffer_wrapper.rbp = rbp
 
-def has_tp_traverse(spec):
+def has_tp_slot(spec, slots):
     if not spec.c_defines:
         return False
     p = spec.c_defines
@@ -378,7 +380,7 @@ def has_tp_traverse(spec):
         if kind == HPyDef_Kind.HPyDef_Kind_Slot:
             hpyslot = llapi.cts.cast('_pypy_HPyDef_as_slot*', p[i]).c_slot
             slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
-            if slot_num == HPySlot_Slot.HPy_tp_traverse:
+            if slot_num in slots:
                 return True
         i += 1
     return False
