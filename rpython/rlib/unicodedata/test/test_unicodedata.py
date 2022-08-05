@@ -11,30 +11,19 @@ from rpython.rlib.unicodedata import (
 
 
 class TestUnicodeData(object):
-    def setup_class(cls):
+    def test_all_charnames_2bytes(self):
         if unicodedata.unidata_version != '5.2.0':
             py.test.skip('Needs python with unicode 5.2.0 database.')
 
-        seed = random.getrandbits(32)
-        print "random seed: ", seed
-        random.seed(seed)
-        cls.charlist = charlist = []
-        cls.nocharlist = nocharlist = []
-        while len(charlist) < 1000 or len(nocharlist) < 1000:
-            chr = unichr(random.randrange(65536))
+        for i in range(65536):
+            chr = unichr(i)
             try:
-                charlist.append((chr, unicodedata.name(chr)))
+                name = unicodedata.name(chr)
             except ValueError:
-                nocharlist.append(chr)
-
-    def test_random_charnames(self):
-        for chr, name in self.charlist:
-            assert unicodedb_5_2_0.name(ord(chr)) == name
-            assert unicodedb_5_2_0.lookup(name) == ord(chr)
-
-    def test_random_missing_chars(self):
-        for chr in self.nocharlist:
-            py.test.raises(KeyError, unicodedb_5_2_0.name, ord(chr))
+                py.test.raises(KeyError, unicodedb_5_2_0.name, ord(chr))
+            else:
+                assert unicodedb_5_2_0.name(ord(chr)) == name
+                assert unicodedb_5_2_0.lookup(name) == ord(chr)
 
     def test_isprintable(self):
         assert unicodedb_5_2_0.isprintable(ord(' '))
@@ -175,7 +164,7 @@ def test_turkish_i(db):
 @pytest.mark.parametrize('db', [
     unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0, unicodedb_8_0_0,
     unicodedb_11_0_0])
-def test_turkish_i(db):
+def test_ascii_lower_optimization(db):
     assert db.tolower(ord('A')) == ord('a')
     assert ord('A') not in db._toupper
 
