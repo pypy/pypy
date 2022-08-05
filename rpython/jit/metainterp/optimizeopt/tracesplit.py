@@ -33,6 +33,14 @@ class mark(object):
     IS_TRUE = "is_true"
     CALL_ASSEMBLER = "CALL_ASSEMBLER"
 
+    IS_TRUE_OBJECT = "_is_true_object"
+    IS_FALSE_OBJECT = "_is_false_object"
+
+    @staticmethod
+    def is_cond_object(name):
+        return name.find(mark.IS_TRUE_OBJECT) != -1 or \
+            name.find(mark.IS_FALSE_OBJECT) != -1
+
     @staticmethod
     def is_pseudo_jump(name):
         return name.find(mark.JUMP) != -1
@@ -136,7 +144,8 @@ class OptTraceSplit(Optimizer):
             if not already_setup_current_token and \
                opnum == rop.DEBUG_MERGE_POINT:
                 arglist = op.getarglist()
-                greens = arglist[2+self.jitdriver_sd.num_red_args:]
+                # TODO: look up `pc' by name
+                greens = arglist[self.jitdriver_sd.num_red_args:]
                 box = greens[0]
                 assert isinstance(box, ConstInt)
                 self.token_map[box.getint()] = self.token
@@ -183,7 +192,9 @@ class OptTraceSplit(Optimizer):
 
     def optimize_GUARD_VALUE(self, op):
         self.emit(op)
-        if self._is_guard_marked(op, mark.IS_TRUE):
+        if self._is_guard_marked(op, mark.IS_TRUE) or \
+           self._is_guard_marked(op, mark.IS_TRUE_OBJECT) or \
+           self._is_guard_marked(op, mark.IS_FALSE_OBJECT):
             newfailargs = []
             for farg in op.getfailargs():
                 if not farg in self._specialguardop:
