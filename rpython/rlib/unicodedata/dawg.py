@@ -223,8 +223,8 @@ class Dawg(object):
                 node.linear_edges.append((''.join(s), child))
 
 
-        def int4(i, r):
-            for _ in range(4):
+        def int3(i, r):
+            for _ in range(3):
                 r.append(chr(i & 0xff))
                 i >>= 8
             assert not i
@@ -234,16 +234,16 @@ class Dawg(object):
             assert not i >> 8
 
         def size_node(node):
-            # 4 size
+            # 3 size
             # 1 final + num edges
-            result = 5
+            result = 4
 
             # per edge:
             # 1 size
             # n chars
-            # 4 offset
+            # 3 offset
             for s, edge in node.linear_edges:
-                result += 5 + len(s)
+                result += 4 + len(s)
             return result
 
         # assign positions to every reachable linear node
@@ -262,12 +262,12 @@ class Dawg(object):
         result = []
         for node, offset in positions.values():
             assert len(result) == offset
-            int4(node.count, result)
+            int3(node.count, result)
             int1((len(node.linear_edges) << 1) | node.final, result)
             for label, edge in node.linear_edges:
                 int1(len(label), result)
                 result.extend(label)
-                int4(positions[edge.id][1], result)
+                int3(positions[edge.id][1], result)
         return "".join(result), self.data
 
 # ______________________________________________________________________
@@ -277,8 +277,8 @@ class Dawg(object):
 from rpython.rlib import objectmodel
 
 @objectmodel.always_inline
-def readint4(packed, node):
-    return ord(packed[node]) | (ord(packed[node + 1]) << 8) | (ord(packed[node + 2]) << 16) | (ord(packed[node + 3]) << 24), node + 4
+def readint3(packed, node):
+    return ord(packed[node]) | (ord(packed[node + 1]) << 8) | (ord(packed[node + 2]) << 16), node + 3
 
 @objectmodel.always_inline
 def readint1(packed, node):
@@ -286,7 +286,7 @@ def readint1(packed, node):
 
 @objectmodel.always_inline
 def decode_node(packed, node):
-    node_count, node = readint4(packed, node)
+    node_count, node = readint3(packed, node)
     x, node = readint1(packed, node)
     final = bool(x & 1)
     num_edges = x >> 1
@@ -295,7 +295,7 @@ def decode_node(packed, node):
 @objectmodel.always_inline
 def decode_edge(packed, offset):
     size, offset = readint1(packed, offset)
-    child_offset, _ = readint4(packed, offset + size)
+    child_offset, _ = readint3(packed, offset + size)
     return size, child_offset, offset
 
 def lookup(packed, data, s):
@@ -319,9 +319,9 @@ def lookup(packed, data, s):
                 pos += size
                 node = child_offset
                 break
-            child_count, _ = readint4(packed, child_offset)
+            child_count, _ = readint3(packed, child_offset)
             skipped += child_count
-            node += size + 4
+            node += size + 3
         else:
             raise KeyError
     node_count, final, num_edges, node = decode_node(packed, node)
@@ -345,7 +345,7 @@ def _inverse_lookup(packed, pos):
            pos -= 1
         for i in range(num_edges):
             size, child_offset, node = decode_edge(packed, node)
-            child_count, _ = readint4(packed, child_offset)
+            child_count, _ = readint3(packed, child_offset)
             nextpos = pos - child_count
             if nextpos < 0:
                 assert node >= 0
@@ -355,7 +355,7 @@ def _inverse_lookup(packed, pos):
                 break
             else:
                 pos = nextpos
-                node += size + 4
+                node += size + 3
         else:
             raise KeyError
 
