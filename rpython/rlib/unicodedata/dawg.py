@@ -217,7 +217,7 @@ class Dawg(object):
             node.linear_edges = []
             for label, child in sorted(node.edges.items()):
                 s = [label]
-                while len(child.edges) == 1 and len(incoming[child]) == 1 and not child.final and len(s) < 256:
+                while len(child.edges) == 1 and len(incoming[child]) == 1 and not child.final and len(s) < 128:
                     (c, child), = child.edges.items()
                     s.append(c)
                 node.linear_edges.append((''.join(s), child))
@@ -243,7 +243,14 @@ class Dawg(object):
             # n chars
             # 3 offset
             for s, edge in node.linear_edges:
-                result += 4 + len(s)
+                if len(s) == 1:
+                    # one char
+                    result += 1
+                else:
+                    # one byte for the length, then all the chars
+                    result += 1 + len(s)
+                # three for the target
+                result += 3
             return result
 
         # assign positions to every reachable linear node
@@ -260,14 +267,35 @@ class Dawg(object):
                 stack.append(child)
 
         result = []
+        size_edges = []
+        size_nodes = []
+        size_edge_nodes = []
+        distance = []
         for node, offset in positions.values():
             assert len(result) == offset
             int3(node.count, result)
             int1((len(node.linear_edges) << 1) | node.final, result)
+            size_nodes.append(len(node.linear_edges))
+            #print "N id final offset count number_edges", node.id, bool(node.final), offset, node.count, len(node.linear_edges)
+            #print repr("".join(result)[offset:])
             for label, edge in node.linear_edges:
-                int1(len(label), result)
+                #print "    E len label target", len(label), repr(label), positions[edge.id][1]
+                size_edges.append(len(label))
+                size_edge_nodes.append((len(label), len(node.linear_edges)))
+                distance.append(positions[edge.id][1] - offset)
+
+                if len(label) > 1:
+                    int1(len(label) | 0x80, result)
                 result.extend(label)
                 int3(positions[edge.id][1], result)
+            #print repr("".join(result)[offset + 4:])
+
+        print "number of nodes", len(size_nodes)
+        print "number of edges", len(size_edges)
+        print "sizes nodes (number of edges)", sorted(size_nodes)
+        print "sizes edges (length of strings)", sorted(size_edges)
+        ##print "distances of edges", sorted(distance)
+        print "size edge node pairs", sorted(size_edge_nodes)
         return "".join(result), self.data
 
 # ______________________________________________________________________
@@ -295,36 +323,50 @@ def decode_node(packed, node):
 @objectmodel.always_inline
 def decode_edge(packed, offset):
     size, offset = readint1(packed, offset)
+    if size < 128:
+        # just a char, no length, make offset still point to the char
+        offset -= 1
+        char = chr(size)
+        size = 1
+    else:
+        size = size & 0x7f
+        char = packed[offset]
     child_offset, _ = readint3(packed, offset + size)
-    return size, child_offset, offset
+    return size, char, child_offset, offset
+
+@objectmodel.always_inline
+def _match_edge(packed, s, size, char, node_offset, stringpos):
+    if s[stringpos] != char:
+        return False
+    for i in range(1, size):
+        if packed[node_offset + i] != s[stringpos + i]:
+            # if a subsequent char of an edge doesn't match, the word isn't in
+            # the dawg
+            raise KeyError
+    return True
 
 def lookup(packed, data, s):
-    pos = 0
-    node = 0
+    stringpos = 0
+    node_offset = 0
     skipped = 0  # keep track of number of final nodes that we skipped
     false = False
-    while pos < len(s):
-        node_count, final, num_edges, node = decode_node(packed, node)
+    while stringpos < len(s):
+        node_count, final, num_edges, node_offset = decode_node(packed, node_offset)
         for i in range(num_edges):
-            size, child_offset, node = decode_edge(packed, node)
-            for i in range(size):
-                if packed[node + i] != s[pos + i]:
-                    if i > 0: # only the first char can lead to a still valid mismatch
-                        raise KeyError
-                    break
-            else:
+            size, char, child_offset, node_offset = decode_edge(packed, node_offset)
+            if _match_edge(packed, s, size, char, node_offset, stringpos):
                 # match
                 if final:
                     skipped += 1
-                pos += size
-                node = child_offset
+                stringpos += size
+                node_offset = child_offset
                 break
             child_count, _ = readint3(packed, child_offset)
             skipped += child_count
-            node += size + 3
+            node_offset += size + 3
         else:
             raise KeyError
-    node_count, final, num_edges, node = decode_node(packed, node)
+    node_count, final, num_edges, node_offset = decode_node(packed, node_offset)
     if final:
         return data[skipped]
     raise KeyError
@@ -336,26 +378,27 @@ def inverse_lookup(packed, inverse, x):
 def _inverse_lookup(packed, pos):
     from rpython.rlib import rstring
     result = rstring.StringBuilder(42) # max size is like 83
-    node = 0
+    node_offset = 0
     while 1:
-        node_count, final, num_edges, node = decode_node(packed, node)
+        node_count, final, num_edges, node_offset = decode_node(packed, node_offset)
         if final:
            if pos == 0:
                return result.build()
            pos -= 1
         for i in range(num_edges):
-            size, child_offset, node = decode_edge(packed, node)
+            size, char, child_offset, node_offset = decode_edge(packed, node_offset)
             child_count, _ = readint3(packed, child_offset)
             nextpos = pos - child_count
             if nextpos < 0:
-                assert node >= 0
-                assert size >= 0
-                result.append_slice(packed, node, node + size)
-                node = child_offset
+                result.append(char)
+                if size > 1:
+                    assert node_offset >= 0
+                    result.append_slice(packed, node_offset + 1, node_offset + size)
+                node_offset = child_offset
                 break
             else:
                 pos = nextpos
-                node += size + 3
+                node_offset += size + 3
         else:
             raise KeyError
 
