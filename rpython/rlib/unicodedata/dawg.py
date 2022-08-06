@@ -283,20 +283,12 @@ class Dawg(object):
             print "and round", current_offset
 
         result = []
-        size_edges = []
-        size_nodes = []
-        size_edge_nodes = []
-        distance = []
-        prev_count = 0
-        barestringsize = 0
         for node in order:
             offset = positions[node.id]
             assert len(result) == offset
             encode_varint_unsigned(node.count, result)
             int1((len(node.linear_edges) << 1) | node.final, result)
-            size_nodes.append(len(node.linear_edges))
             print "N id final offset count number_edges", node.id, bool(node.final), offset, node.count, len(node.linear_edges)
-            prev_count = node.count
             print repr("".join(result[offset:]))
             prev_printed = len(result)
             prev_char = ord('A') - 1
@@ -304,9 +296,6 @@ class Dawg(object):
             for label, edge in node.linear_edges:
                 print "   ", "E label target target_distance", repr(label), positions[edge.id], positions[edge.id] - prev_child_offset, "NEXTCHAR" if ord(label[0]) - prev_char == 1 else ""
                 prev_char = ord(label[0])
-                size_edges.append(len(label))
-                size_edge_nodes.append((len(label), len(node.linear_edges)))
-                distance.append(positions[edge.id] - offset)
 
                 encode_varint_signed(positions[edge.id] - prev_child_offset, result)
                 prev_child_offset = positions[edge.id]
@@ -316,14 +305,6 @@ class Dawg(object):
                 print "    ", repr("".join(result[prev_printed:])), len(result) - prev_printed
                 prev_printed = len(result)
             assert size_node(node) == len(result) - offset
-
-
-        print "number of nodes", len(size_nodes)
-        print "number of edges", len(size_edges)
-        #print "sizes nodes (number of edges)", sorted(size_nodes)
-        #print "sizes edges (length of strings)", sorted(size_edges)
-        ##print "distances of edges", sorted(distance)
-        ##print "size edge node pairs", sorted(size_edge_nodes)
         return "".join(result), self.data
 
 # ______________________________________________________________________
