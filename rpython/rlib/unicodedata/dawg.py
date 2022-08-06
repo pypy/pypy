@@ -234,12 +234,13 @@ class Dawg(object):
             assert not i >> 8
 
         def size_node(node):
-            # 3 size
+            # varint for count
+            result = encode_varint_unsigned(node.count, [])
             # 1 final + num edges
-            result = 4
+            result += 1
 
             # per edge:
-            # 1 size
+            # 1 size or first char
             # n chars
             # 3 offset
             for s, edge in node.linear_edges:
@@ -253,33 +254,62 @@ class Dawg(object):
                 result += 3
             return result
 
-        # assign positions to every reachable linear node
+        # compute reachable linear nodes
+        order = []
         stack = [self.root]
-        positions = {}
-        current_offset = 0
+        order_positions = {}
         while stack:
-            node = stack.pop()
-            if node.id in positions:
+            node = stack[0]
+            del stack[0]
+            if node.id in order_positions:
                 continue
-            positions[node.id] = node, current_offset
-            current_offset += size_node(node)
+            order_positions[node.id] = len(order)
+            order.append(node)
             for label, child in sorted(node.linear_edges):
                 stack.append(child)
+
+        with open("abc.dot", "w") as f:
+            print >> f, "digraph G {"
+            for node in order:
+                if order_positions[node.id] > 500:
+                    continue
+                print >> f, '%s [label="count: %s", fillcolor=%s]' % (order_positions[node.id], node.count, 'green' if node.final else "red")
+                for label, child in sorted(node.linear_edges):
+                    print >> f, '%s -> %s [label="%s"]' % (order_positions[node.id], order_positions[child.id], label)
+            print >> f, "}"
+
+        # assign offsets to every reachable linear node
+        positions = {}
+        current_offset = 0
+        for position, node in enumerate(order):
+            positions[node.id] = node, current_offset
+            node.linear_edges.sort()
+            current_offset += size_node(node)
+        print len(order), len(positions)
 
         result = []
         size_edges = []
         size_nodes = []
         size_edge_nodes = []
         distance = []
-        for node, offset in positions.values():
+        prev_count = 0
+        barestringsize = 0
+        for node in order:
+            offset = positions[node.id][1]
             assert len(result) == offset
-            int3(node.count, result)
+            encode_varint_unsigned(node.count, result)
             int1((len(node.linear_edges) << 1) | node.final, result)
             size_nodes.append(len(node.linear_edges))
-            #print "N id final offset count number_edges", node.id, bool(node.final), offset, node.count, len(node.linear_edges)
-            #print repr("".join(result)[offset:])
+            print "N id final offset count number_edges", node.id, bool(node.final), offset, node.count, len(node.linear_edges), node.count - prev_count
+            prev_count = node.count
+            print repr("".join(result)[offset:])
+            prev_printed = len(result)
+            prev_target_offset = offset
+            prev_char = ord('A') - 1
             for label, edge in node.linear_edges:
-                #print "    E len label target", len(label), repr(label), positions[edge.id][1]
+                print "   ", "FITS" if 0 <= (positions[edge.id][1] - prev_target_offset) < 256 else "NOPE", "E len label target target distance", len(label), repr(label), positions[edge.id][1], positions[edge.id][1] - prev_target_offset, "NEXTCHAR" if ord(label[0]) - prev_char == 1 else ""
+                prev_char = ord(label[0])
+                prev_target_offset = positions[edge.id][1]
                 size_edges.append(len(label))
                 size_edge_nodes.append((len(label), len(node.linear_edges)))
                 distance.append(positions[edge.id][1] - offset)
@@ -288,14 +318,14 @@ class Dawg(object):
                     int1(len(label) | 0x80, result)
                 result.extend(label)
                 int3(positions[edge.id][1], result)
-            #print repr("".join(result)[offset + 4:])
+            print repr("".join(result)[prev_printed:])
 
         print "number of nodes", len(size_nodes)
         print "number of edges", len(size_edges)
-        print "sizes nodes (number of edges)", sorted(size_nodes)
-        print "sizes edges (length of strings)", sorted(size_edges)
+        #print "sizes nodes (number of edges)", sorted(size_nodes)
+        #print "sizes edges (length of strings)", sorted(size_edges)
         ##print "distances of edges", sorted(distance)
-        print "size edge node pairs", sorted(size_edge_nodes)
+        ##print "size edge node pairs", sorted(size_edge_nodes)
         return "".join(result), self.data
 
 # ______________________________________________________________________
@@ -303,6 +333,35 @@ class Dawg(object):
 # representation
 
 from rpython.rlib import objectmodel
+
+def encode_varint_unsigned(i, res):
+    # https://en.wikipedia.org/wiki/LEB128 unsigned variant
+    more = True
+    startlen = len(res)
+    if i < 0:
+        raise ValueError("only positive numbers supported", i)
+    while more:
+        lowest7bits = i & 0b1111111
+        i >>= 7
+        if i == 0:
+            more = False
+        else:
+            lowest7bits |= 0b10000000
+        res.append(chr(lowest7bits))
+    return len(res) - startlen
+
+@objectmodel.always_inline
+def decode_varint_unsigned(b, index=0):
+    res = 0
+    shift = 0
+    while True:
+        byte = ord(b[index])
+        res = res | ((byte & 0b1111111) << shift)
+        index += 1
+        shift += 7
+        if not (byte & 0b10000000):
+            return res, index
+
 
 @objectmodel.always_inline
 def readint3(packed, node):
@@ -314,7 +373,7 @@ def readint1(packed, node):
 
 @objectmodel.always_inline
 def decode_node(packed, node):
-    node_count, node = readint3(packed, node)
+    node_count, node = decode_varint_unsigned(packed, node)
     x, node = readint1(packed, node)
     final = bool(x & 1)
     num_edges = x >> 1
@@ -361,7 +420,7 @@ def lookup(packed, data, s):
                 stringpos += size
                 node_offset = child_offset
                 break
-            child_count, _ = readint3(packed, child_offset)
+            child_count, _ = decode_varint_unsigned(packed, child_offset)
             skipped += child_count
             node_offset += size + 3
         else:
@@ -387,7 +446,7 @@ def _inverse_lookup(packed, pos):
            pos -= 1
         for i in range(num_edges):
             size, char, child_offset, node_offset = decode_edge(packed, node_offset)
-            child_count, _ = readint3(packed, child_offset)
+            child_count, _ = decode_varint_unsigned(packed, child_offset)
             nextpos = pos - child_count
             if nextpos < 0:
                 result.append(char)
