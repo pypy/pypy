@@ -223,12 +223,6 @@ class Dawg(object):
                 node.linear_edges.append((''.join(s), child))
 
 
-        def int3(i, r):
-            for _ in range(3):
-                r.append(chr(i & 0xff))
-                i >>= 8
-            assert not i
-
         def int1(i, r):
             r.append(chr(i & 0xff))
             assert not i >> 8
@@ -244,8 +238,8 @@ class Dawg(object):
             # 1 size or first char
             # n chars
             for s, edge in node.linear_edges:
-                # three for the target
-                result += 3
+                # varint for the target
+                result += encode_varint_unsigned(positions.get(edge.id, sys.maxsize), [])
                 if len(s) == 1:
                     # one char
                     result += 1
@@ -271,13 +265,16 @@ class Dawg(object):
         #max_num_edges = max(len(node.linear_edges) for node in order)
 
         # assign offsets to every reachable linear node
-        positions = {}
-        current_offset = 0
-        for position, node in enumerate(order):
-            positions[node.id] = node, current_offset
-            node.linear_edges.sort()
-            current_offset += size_node(node)
-        print len(order), len(positions)
+        # due to the varint encoding of edge targets we need to run this to
+        # fixpoint
+        positions, last_positions = {}, None
+        while last_positions != positions:
+            last_positions = positions.copy()
+            current_offset = 0
+            for position, node in enumerate(order):
+                positions[node.id] = current_offset
+                node.linear_edges.sort()
+                current_offset += size_node(node)
 
         result = []
         size_edges = []
@@ -287,7 +284,7 @@ class Dawg(object):
         prev_count = 0
         barestringsize = 0
         for node in order:
-            offset = positions[node.id][1]
+            offset = positions[node.id]
             assert len(result) == offset
             encode_varint_unsigned(node.count, result)
             int1((len(node.linear_edges) << 1) | node.final, result)
@@ -299,18 +296,19 @@ class Dawg(object):
             prev_target_offset = offset
             prev_char = ord('A') - 1
             for label, edge in node.linear_edges:
-                print "   ", "FITS" if 0 <= (positions[edge.id][1] - prev_target_offset) < 256 else "NOPE", "E len label target target distance", len(label), repr(label), positions[edge.id][1], positions[edge.id][1] - prev_target_offset, "NEXTCHAR" if ord(label[0]) - prev_char == 1 else ""
+                print "   ", "FITS" if 0 <= (positions[edge.id] - prev_target_offset) < 256 else "NOPE", "E len label target target distance", len(label), repr(label), positions[edge.id], positions[edge.id] - prev_target_offset, "NEXTCHAR" if ord(label[0]) - prev_char == 1 else ""
                 prev_char = ord(label[0])
-                prev_target_offset = positions[edge.id][1]
+                prev_target_offset = positions[edge.id]
                 size_edges.append(len(label))
                 size_edge_nodes.append((len(label), len(node.linear_edges)))
-                distance.append(positions[edge.id][1] - offset)
+                distance.append(positions[edge.id] - offset)
 
-                int3(positions[edge.id][1], result)
+                encode_varint_unsigned(positions[edge.id], result)
                 if len(label) > 1:
                     int1(len(label) | 0x80, result)
                 result.extend(label)
-            print repr("".join(result[prev_printed:]))
+                print "    ", repr("".join(result[prev_printed:])), len(result) - prev_printed
+                prev_printed = len(result)
 
         print "number of nodes", len(size_nodes)
         print "number of edges", len(size_edges)
@@ -354,10 +352,36 @@ def decode_varint_unsigned(b, index=0):
         if not (byte & 0b10000000):
             return res, index
 
+def encode_varint_signed(i, res):
+    # https://en.wikipedia.org/wiki/LEB128 signed variant
+    more = True
+    startlen = len(res)
+    while more:
+        lowest7bits = i & 0b1111111
+        i >>= 7
+        if ((i == 0) and (lowest7bits & 0b1000000) == 0) or (
+            (i == -1) and (lowest7bits & 0b1000000) != 0
+        ):
+            more = False
+        else:
+            lowest7bits |= 0b10000000
+        res.append(chr(lowest7bits))
+    return len(res) - startlen
 
 @objectmodel.always_inline
-def readint3(packed, node):
-    return ord(packed[node]) | (ord(packed[node + 1]) << 8) | (ord(packed[node + 2]) << 16), node + 3
+def decode_varint_signed(b, index=0):
+    res = 0
+    shift = 0
+    while True:
+        byte = ord(b[index])
+        res = res | ((byte & 0b1111111) << shift)
+        index += 1
+        shift += 7
+        if not (byte & 0b10000000):
+            if byte & 0b1000000:
+                res |= -1 << shift
+            return res, index
+
 
 @objectmodel.always_inline
 def readint1(packed, node):
@@ -373,7 +397,7 @@ def decode_node(packed, node):
 
 @objectmodel.always_inline
 def decode_edge(packed, offset):
-    child_offset, offset = readint3(packed, offset)
+    child_offset, offset = decode_varint_unsigned(packed, offset)
     size, offset = readint1(packed, offset)
     if size < 128:
         # just a char, no length, make offset still point to the char

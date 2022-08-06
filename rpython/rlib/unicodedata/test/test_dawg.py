@@ -3,6 +3,7 @@ from hypothesis import given, strategies
 
 from rpython.rlib.unicodedata.dawg import Dawg, lookup, inverse_lookup, build_compression_dawg, _inverse_lookup
 from rpython.rlib.unicodedata.dawg import encode_varint_unsigned, decode_varint_unsigned
+from rpython.rlib.unicodedata.dawg import encode_varint_signed, decode_varint_signed
 
 def test_0():
     dawg = Dawg()
@@ -83,15 +84,25 @@ def test_generate():
         assert dmod.dawg_lookup(line) == i
 
 
-@given(strategies.integers(min_value=0), strategies.binary())
+@given(strategies.integers(), strategies.binary())
 def test_varint_hypothesis(i, prefix):
     b = []
-    encode_varint_unsigned(i, b)
+    encode_varint_signed(i, b)
     b = b"".join(b)
-    res, pos = decode_varint_unsigned(b)
+    res, pos = decode_varint_signed(b)
     assert res == i
     assert pos == len(b)
-    res, pos = decode_varint_unsigned(prefix + b, len(prefix))
+    res, pos = decode_varint_signed(prefix + b, len(prefix))
     assert res == i
     assert pos == len(b) + len(prefix)
+    if i >= 0:
+        b = []
+        encode_varint_unsigned(i, b)
+        b = b"".join(b)
+        res, pos = decode_varint_unsigned(b)
+        assert res == i
+        assert pos == len(b)
+        res, pos = decode_varint_unsigned(prefix + b, len(prefix))
+        assert res == i
+        assert pos == len(b) + len(prefix)
 
