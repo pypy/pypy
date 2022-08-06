@@ -9,7 +9,6 @@ def test_0():
     dawg.insert("a", 0)
     dawg.insert("ac", 1)
     dawg.finish()
-    dawg.prettyprint()
     assert dawg.inverse_lookup(0) == "a"
     assert dawg.inverse_lookup(1) == "ac"
 
@@ -22,7 +21,6 @@ def test_1():
     dawg.insert("catnip", 1)
     dawg.insert("zcatnip", 5)
     packed, data = dawg.finish()
-    dawg.prettyprint()
     assert dawg.lookup("a") == -4
     assert dawg.lookup("c") == -2
     assert dawg.lookup("cat") == -1
