@@ -75,8 +75,8 @@ def test_generate():
     out = tmpdir.join('dawg.py')
     print(out)
     o = out.open('w')
-    trie = build_compression_dawg(
-        o, dict(map(lambda (x,y):(y,x), enumerate(lines))))
+    d = dict(map(lambda (x,y):(y,x), enumerate(lines)))
+    trie = build_compression_dawg(o, d)
     o.close()
     dmod = out.pyimport()
     for i, line in enumerate(lines):
