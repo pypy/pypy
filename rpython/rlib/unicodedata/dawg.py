@@ -223,10 +223,6 @@ class Dawg(object):
                 node.linear_edges.append((''.join(s), child))
 
 
-        def encode_int1(i, result):
-            result.append(chr(i & 0xff))
-            assert not i >> 8
-
         # compute reachable linear nodes
         order = []
         stack = [self.root]
@@ -260,24 +256,25 @@ class Dawg(object):
                 for node in order:
                     offset = node.packed_offset = len(result)
                     encode_varint_unsigned(number_add_bits(node.count, node.final), result)
-                    result_pp.extend("# N offset=%s count=%s%s\n" % (offset, node.count, " final" if node.final else ""))
-                    result_pp.extend(repr(bytes(result[offset:])))
-                    result_pp.append("\n")
-                    prev_printed = len(result)
-                    prev_char = ord('A') - 1
                     prev_child_offset = len(result)
+                    if len(node.linear_edges) == 0:
+                        assert node.final
+                        encode_varint_unsigned(0, result) # add a 0 saying "done"
+                    result_pp.extend("%r # N pos=%s count=%s%s\n" % (bytes(result[offset:]), offset, node.count, " final" if node.final else ""))
+                    prev_printed = len(result)
                     for edgeindex, (label, targetnode) in enumerate(node.linear_edges):
                         child_offset = targetnode.packed_offset
                         child_offset_difference = child_offset - prev_child_offset
-                        result_pp.extend("    # E %r target=%s target_distance=%s\n" % (label, child_offset, child_offset_difference))
-                        prev_char = ord(label[0])
 
-                        encode_varint_signed(number_add_bits(child_offset_difference, len(label) == 1, edgeindex == len(node.linear_edges) - 1), result)
+                        info = number_add_bits(child_offset_difference, len(label) == 1, edgeindex == len(node.linear_edges) - 1)
+                        if edgeindex == 0:
+                            assert info != 0
+                        encode_varint_signed(info, result)
                         prev_child_offset = child_offset
                         if len(label) > 1:
                             encode_varint_signed(len(label), result)
                         result.extend(label)
-                        result_pp.extend("    %r # %s\n" % (bytes(result[prev_printed:]), len(result) - prev_printed))
+                        result_pp.extend("    %r # E %r to=%s dist=%s\n" % (bytes(result[prev_printed:]), label, child_offset, child_offset_difference))
                         prev_printed = len(result)
                     node.packed_size = len(result) - node.packed_offset
                 if result == last_result:
@@ -285,6 +282,8 @@ class Dawg(object):
                 last_result = result
             return result, result_pp
         result, result_pp = compute_packed(order)
+        self.packed = result
+        self.packed_pp = result_pp
         print bytes(result_pp)
         return bytes(result), self.data
 
@@ -369,18 +368,16 @@ def decode_varint_signed(b, index=0):
 
 
 @objectmodel.always_inline
-def decode_int1(packed, node):
-    return ord(packed[node]), node + 1
-
-@objectmodel.always_inline
 def decode_node(packed, node):
     x, node = decode_varint_unsigned(packed, node)
     node_count, final = number_split_bits(x, 1)
     return node_count, final, node
 
 @objectmodel.always_inline
-def decode_edge(packed, prev_child_offset, offset):
+def decode_edge(packed, edgeindex, prev_child_offset, offset):
     x, offset = decode_varint_signed(packed, offset)
+    if x == 0 and edgeindex == 0:
+        raise KeyError # trying to decode past a final node
     child_offset_difference, len1, final_edge = number_split_bits(x, 2)
     child_offset = prev_child_offset + child_offset_difference
     if len1:
@@ -391,6 +388,9 @@ def decode_edge(packed, prev_child_offset, offset):
 
 @objectmodel.always_inline
 def _match_edge(packed, s, size, node_offset, stringpos):
+    if size > 1 and stringpos + size > len(s):
+        # past the end of the string, can't match
+        return False
     for i in range(size):
         if packed[node_offset + i] != s[stringpos + i]:
             # if a subsequent char of an edge doesn't match, the word isn't in
@@ -408,8 +408,10 @@ def lookup(packed, data, s):
     while stringpos < len(s):
         node_count, final, edge_offset = decode_node(packed, node_offset)
         prev_child_offset = edge_offset
+        edgeindex = 0
         while 1:
-            child_offset, final_edge, size, edgelabel_chars_offset = decode_edge(packed, prev_child_offset, edge_offset)
+            child_offset, final_edge, size, edgelabel_chars_offset = decode_edge(packed, edgeindex, prev_child_offset, edge_offset)
+            edgeindex += 1
             prev_child_offset = child_offset
             if _match_edge(packed, s, size, edgelabel_chars_offset, stringpos):
                 # match
@@ -443,8 +445,10 @@ def _inverse_lookup(packed, pos):
                return result.build()
            pos -= 1
         prev_child_offset = edge_offset
+        edgeindex = 0
         while 1:
-            child_offset, final_edge, size, edgelabel_chars_offset = decode_edge(packed, prev_child_offset, edge_offset)
+            child_offset, final_edge, size, edgelabel_chars_offset = decode_edge(packed, edgeindex, prev_child_offset, edge_offset)
+            edgeindex += 1
             prev_child_offset = child_offset
             child_count, _, _ = decode_node(packed, child_offset)
             nextpos = pos - child_count
@@ -521,8 +525,7 @@ def build_compression_dawg(outfile, ucdata):
     print "size of dawg [KiB]", round(len(packed) / 1024, 2), len(pos_to_code)
     print >> outfile, "from rpython.rlib.unicodedata.dawg import lookup as _dawg_lookup, _inverse_lookup"
     print >> outfile, "packed_dawg = ("
-    for i in range(0, len(packed), 40):
-        print >> outfile, "    %r" % packed[i: i + 40]
+    print >> outfile, d.packed_pp
     print >> outfile, ")"
     print >> outfile, "pos_to_code = ",
     pprint(pos_to_code, stream=outfile)

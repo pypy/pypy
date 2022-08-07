@@ -56,6 +56,23 @@ def test_2():
     dawg.insert("bbbbbbbbb", -1)
     packed, data = dawg.finish()
 
+def test_bug_match_past_string_end():
+    dawg = Dawg()
+    dawg.insert("a", -2)
+    dawg.insert("ba", 2)
+    packed, data = dawg.finish()
+    with pytest.raises(KeyError):
+        lookup(packed, data, "b")
+
+def test_bug_1():
+    dawg = Dawg()
+    dawg.insert("a", -2)
+    dawg.insert("aa", 2)
+    dawg.insert("b", 56)
+    packed, data = dawg.finish()
+    with pytest.raises(KeyError):
+        lookup(packed, data, "ba")
+
 def test_missing_key_inverse():
     dawg = Dawg()
     dawg.insert("aaaaaa", -2)
@@ -107,3 +124,48 @@ def test_varint_hypothesis(i, prefix):
         assert res == i
         assert pos == len(b) + len(prefix)
 
+
+START = ord('A')
+STOP = ord('G')
+
+@given(strategies.lists(strategies.text(strategies.characters(min_codepoint=START, max_codepoint=STOP), min_size=1), min_size=5), strategies.data())
+def test_random_dawg(l, data):
+    l = [s.encode('ascii') for s in l]
+
+    d = {s: i for i, s in enumerate(l)}
+    tmpdir = pytest.ensuretemp(__name__)
+    out = tmpdir.join('%s.py' % hash(str(l)))
+    o = out.open('w')
+    print "&~" * 50
+    print l
+    trie = build_compression_dawg(o, d)
+    o.close()
+    s = out.read()
+    dmod = {}
+    exec s in dmod
+    dawg_lookup = dmod['dawg_lookup']
+    lookup_charcode = dmod['lookup_charcode']
+    def near_misses(s):
+        for replacement_char in range(START, STOP):
+            replacement_char = chr(replacement_char)
+            yield s + replacement_char
+            yield replacement_char + s
+            for pos in range(len(s)):
+                news = s[:pos] + replacement_char + s[pos + 1:]
+                yield news
+    for s, i in d.items():
+        assert dawg_lookup(s) == d[s]
+        assert lookup_charcode(i) == s
+
+        # check some near misses
+        for news in near_misses(s):
+            if news in d:
+                continue
+            with pytest.raises(KeyError):
+                dawg_lookup(news)
+    valid_values = {i for s, i in d.items()}
+    for i in range(-100, len(l) + 100):
+        if i in valid_values:
+            continue
+        with pytest.raises(KeyError):
+            lookup_charcode(i)
