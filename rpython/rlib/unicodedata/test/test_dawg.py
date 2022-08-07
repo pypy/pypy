@@ -1,9 +1,11 @@
 import pytest
 from hypothesis import given, strategies
 
-from rpython.rlib.unicodedata.dawg import Dawg, lookup, inverse_lookup, build_compression_dawg, _inverse_lookup
-from rpython.rlib.unicodedata.dawg import encode_varint_unsigned, decode_varint_unsigned
-from rpython.rlib.unicodedata.dawg import encode_varint_signed, decode_varint_signed
+from rpython.rlib.unicodedata.dawg import (Dawg, lookup, inverse_lookup,
+        build_compression_dawg, _inverse_lookup,
+        encode_varint_unsigned, decode_varint_unsigned,
+        encode_varint_signed, decode_varint_signed,
+        number_add_bits, number_split_bits)
 
 def test_0():
     dawg = Dawg()
@@ -88,7 +90,7 @@ def test_generate():
     tmpdir = py.test.ensuretemp(__name__)
     lines = lines = map(hex,map(hash, map(str, range(100))))
     # some extra handcrafted tests
-    lines.extend([ 'AAA', 'AAAA', 'AAAB', 'AAB', 'AABB' ]) 
+    lines.extend([ 'AAA', 'AAAA', 'AAAB', 'AAB', 'AABB' ])
     out = tmpdir.join('dawg.py')
     print(out)
     o = out.open('w')
@@ -123,6 +125,11 @@ def test_varint_hypothesis(i, prefix):
         res, pos = decode_varint_unsigned(prefix + b, len(prefix))
         assert res == i
         assert pos == len(b) + len(prefix)
+
+@given(strategies.integers())
+def test_add_bits(i):
+    for bit1, bit2 in ((0, 0), (0, 1), (1, 0), (1, 1)):
+        assert number_split_bits(number_add_bits(i, bit1, bit2), 2) == (i, bit1, bit2)
 
 
 START = ord('A')

@@ -304,9 +304,9 @@ def number_add_bits(x, *bits):
 @objectmodel.always_inline
 def number_split_bits(x, n, acc=()):
     if n == 1:
-        return n >> 1, n & 1
+        return x >> 1, x & 1
     if n == 2:
-        return n >> 2, (n >> 1) & 1, n & 1
+        return x >> 2, (x >> 1) & 1, x & 1
     assert 0, "implement me!"
 
 def encode_varint_unsigned(i, res):
