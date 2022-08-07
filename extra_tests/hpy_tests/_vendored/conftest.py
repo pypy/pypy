@@ -7,9 +7,13 @@ IS_VALGRIND_RUN = False
 
 def pytest_addoption(parser):
     parser.addoption(
+        "--compiler-v", action="store_true",
+        help="Print to stdout the commands used to invoke the compiler")
+    parser.addoption(
         "--subprocess-v", action="store_true",
         help="Print to stdout the stdout and stderr of Python subprocesses"
              "executed via run_python_subprocess")
+
 
 @pytest.hookimpl(trylast=True)
 def pytest_configure(config):

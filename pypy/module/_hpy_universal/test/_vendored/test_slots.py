@@ -1,3 +1,4 @@
+import pytest
 from .support import HPyTest
 from .test_hpytype import PointTemplate
 
@@ -33,6 +34,7 @@ class TestSlots(HPyTest):
         assert p.x == 1
         assert p.y == 2
 
+    @pytest.mark.syncgc
     def test_tp_destroy(self):
         import gc
         mod = self.make_module("""
@@ -65,6 +67,90 @@ class TestSlots(HPyTest):
         assert mod.get_destroyed_x() == 7
         gc.collect()
         assert mod.get_destroyed_x() == 7
+
+    @pytest.mark.syncgc
+    def test_tp_finalize_nongc(self):
+        import gc
+        mod = self.make_module("""
+            @DEFINE_PointObject
+            @DEFINE_Point_new
+
+            static long finalized_x;
+
+            HPyDef_SLOT(Point_finalize, Point_finalize_impl, HPy_tp_finalize)
+            static void Point_finalize_impl(HPyContext *ctx, HPy obj)
+            {
+                PointObject *point = PointObject_AsStruct(ctx, obj);
+                finalized_x += point->x;
+            }
+
+            HPyDef_METH(get_finalized_x, "get_finalized_x", get_finalized_x_impl, HPyFunc_NOARGS)
+            static HPy get_finalized_x_impl(HPyContext *ctx, HPy self)
+            {
+                return HPyLong_FromLong(ctx, finalized_x);
+            }
+
+            @EXPORT_POINT_TYPE(&Point_new, &Point_finalize)
+            @EXPORT(get_finalized_x)
+            @INIT
+       """)
+        point = mod.Point(7, 3)
+        assert mod.get_finalized_x() == 0
+        del point
+        gc.collect()
+        assert mod.get_finalized_x() == 7
+        gc.collect()
+        assert mod.get_finalized_x() == 7
+
+    @pytest.mark.syncgc
+    def test_tp_finalize_gc(self):
+        import gc
+        mod = self.make_module("""
+            @DEFINE_PointObject
+            @DEFINE_Point_new
+
+            static long finalized_x;
+
+            HPyDef_SLOT(Point_finalize, Point_finalize_impl, HPy_tp_finalize)
+            static void Point_finalize_impl(HPyContext *ctx, HPy obj)
+            {
+                PointObject *point = PointObject_AsStruct(ctx, obj);
+                finalized_x += point->x;
+            }
+
+            HPyDef_SLOT(Point_traverse, Point_traverse_impl, HPy_tp_traverse)
+            static int Point_traverse_impl(void *self, HPyFunc_visitproc visit, void *arg)
+            {
+                return 0;
+            }
+
+            static HPyDef *Point_defines[] = {
+                &Point_new, &Point_finalize, &Point_traverse, NULL};
+            static HPyType_Spec Point_spec = {
+                .name = "mytest.Point",
+                .basicsize = sizeof(PointObject),
+                .legacy = PointObject_IS_LEGACY,
+                .defines = Point_defines,
+                .flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC,
+            };
+            @EXPORT_TYPE("Point", Point_spec)
+
+            HPyDef_METH(get_finalized_x, "get_finalized_x", get_finalized_x_impl, HPyFunc_NOARGS)
+            static HPy get_finalized_x_impl(HPyContext *ctx, HPy self)
+            {
+                return HPyLong_FromLong(ctx, finalized_x);
+            }
+
+            @EXPORT(get_finalized_x)
+            @INIT
+       """)
+        point = mod.Point(7, 3)
+        assert mod.get_finalized_x() == 0
+        del point
+        gc.collect()
+        assert mod.get_finalized_x() == 7
+        gc.collect()
+        assert mod.get_finalized_x() == 7
 
     def test_nb_ops_binary(self):
         import operator
@@ -268,6 +354,7 @@ class TestSlots(HPyTest):
     def test_buffer(self):
         import pytest
         import sys
+        import gc
         mod = self.make_module("""
             @TYPE_STRUCT_BEGIN(FakeArrayObject)
                 int exports;
@@ -348,6 +435,7 @@ class TestSlots(HPyTest):
                 assert sys.getrefcount(arr) == init_refcount + 1
             for i in range(12):
                 assert mv[i] == i
+        gc.collect()
         if self.supports_refcounts():
             assert sys.getrefcount(arr) == init_refcount
         mv2 = memoryview(arr)  # doesn't raise
