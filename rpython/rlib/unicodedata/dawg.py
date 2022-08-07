@@ -223,7 +223,7 @@ class Dawg(object):
                 node.linear_edges.append((''.join(s), child))
 
 
-        def int1(i, result):
+        def encode_int1(i, result):
             result.append(chr(i & 0xff))
             assert not i >> 8
 
@@ -240,7 +240,6 @@ class Dawg(object):
             order.append(node)
             for label, child in node.linear_edges:
                 stack.append(child)
-            node.packed_offset = sys.maxsize
 
         #max_num_edges = max(len(node.linear_edges) for node in order)
 
@@ -249,32 +248,34 @@ class Dawg(object):
             # assign offsets to every reachable linear node
             # due to the varint encoding of edge targets we need to run this to
             # fixpoint
+            for node in order:
+                # if we don't know position of the edge yet, just use
+                # maxsize as the position. we'll have to do another
+                # iteration anyway, but the size is at least a lower limit
+                # then
+                node.packed_offset = sys.maxsize
             while 1:
                 result = bytearray()
                 result_pp = bytearray()
                 for node in order:
                     offset = node.packed_offset = len(result)
                     encode_varint_unsigned(node.count, result)
-                    int1((len(node.linear_edges) << 1) | node.final, result)
+                    encode_int1((len(node.linear_edges) << 1) | node.final, result)
                     result_pp.extend("# N id=%s offset=%s count=%s%s\n" % (node.id, offset, node.count, " final" if node.final else ""))
                     result_pp.extend(repr(bytes(result[offset:])))
                     result_pp.append("\n")
                     prev_printed = len(result)
                     prev_char = ord('A') - 1
                     prev_child_offset = len(result)
-                    for label, edge in node.linear_edges:
-                        # if we don't know position of the edge yet, just use
-                        # maxsize as the position. we'll have to do another
-                        # iteration anyway, but the size is at least a lower limit
-                        # then
-                        child_offset = edge.packed_offset
+                    for label, targetnode in node.linear_edges:
+                        child_offset = targetnode.packed_offset
                         result_pp.extend("    # E %r target=%s target_distance=%s\n" % (label, child_offset, child_offset - prev_child_offset))
                         prev_char = ord(label[0])
 
                         encode_varint_signed(child_offset - prev_child_offset, result)
                         prev_child_offset = child_offset
                         if len(label) > 1:
-                            int1(len(label) | 0x80, result)
+                            encode_int1(len(label) | 0x80, result)
                         result.extend(label)
                         result_pp.extend("    %r # %s\n" % (bytes(result[prev_printed:]), len(result) - prev_printed))
                         prev_printed = len(result)
@@ -354,13 +355,13 @@ def decode_varint_signed(b, index=0):
 
 
 @objectmodel.always_inline
-def readint1(packed, node):
+def decode_int1(packed, node):
     return ord(packed[node]), node + 1
 
 @objectmodel.always_inline
 def decode_node(packed, node):
     node_count, node = decode_varint_unsigned(packed, node)
-    x, node = readint1(packed, node)
+    x, node = decode_int1(packed, node)
     final = bool(x & 1)
     num_edges = x >> 1
     return node_count, final, num_edges, node
@@ -369,7 +370,7 @@ def decode_node(packed, node):
 def decode_edge(packed, prev_child_offset, offset):
     child_offset_difference, offset = decode_varint_signed(packed, offset)
     child_offset = prev_child_offset + child_offset_difference
-    size, offset = readint1(packed, offset)
+    size, offset = decode_int1(packed, offset)
     if size < 128:
         # just a char, no length, make offset still point to the char
         offset -= 1
