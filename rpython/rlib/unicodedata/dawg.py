@@ -223,35 +223,9 @@ class Dawg(object):
                 node.linear_edges.append((''.join(s), child))
 
 
-        def int1(i, r):
-            r.append(chr(i & 0xff))
+        def int1(i, result):
+            result.append(chr(i & 0xff))
             assert not i >> 8
-
-        def size_node(node):
-            # varint for count
-            result = encode_varint_unsigned(node.count, [])
-            # 1 final + num edges
-            result += 1
-
-            # per edge:
-            # 3 offset
-            # 1 size or first char
-            # n chars
-
-            # bias with the current position, ie where the edge list starts
-            prev_child_offset = positions[node.id] + result
-            for s, edge in node.linear_edges:
-                # varint for the target
-                child_offset = positions.get(edge.id, sys.maxsize)
-                result += encode_varint_signed(child_offset - prev_child_offset, [])
-                if len(s) == 1:
-                    # one char
-                    result += 1
-                else:
-                    # one byte for the length, then all the chars
-                    result += 1 + len(s)
-                prev_child_offset = child_offset
-            return result
 
         # compute reachable linear nodes
         order = []
@@ -264,48 +238,55 @@ class Dawg(object):
                 continue
             order_positions[node.id] = len(order)
             order.append(node)
-            for label, child in sorted(node.linear_edges):
+            for label, child in node.linear_edges:
                 stack.append(child)
+            node.packed_offset = sys.maxsize
 
         #max_num_edges = max(len(node.linear_edges) for node in order)
 
-        # assign offsets to every reachable linear node
-        # due to the varint encoding of edge targets we need to run this to
-        # fixpoint
-        positions, last_positions = {}, None
-        while last_positions != positions:
-            last_positions = positions.copy()
-            current_offset = 0
-            for position, node in enumerate(order):
-                positions[node.id] = current_offset
-                node.linear_edges.sort()
-                current_offset += size_node(node)
-            print "and round", current_offset
+        def compute_packed(order):
+            last_result = None
+            # assign offsets to every reachable linear node
+            # due to the varint encoding of edge targets we need to run this to
+            # fixpoint
+            while 1:
+                result = bytearray()
+                result_pp = bytearray()
+                for node in order:
+                    offset = node.packed_offset = len(result)
+                    encode_varint_unsigned(node.count, result)
+                    int1((len(node.linear_edges) << 1) | node.final, result)
+                    result_pp.extend("# N id=%s offset=%s count=%s%s\n" % (node.id, offset, node.count, " final" if node.final else ""))
+                    result_pp.extend(repr(bytes(result[offset:])))
+                    result_pp.append("\n")
+                    prev_printed = len(result)
+                    prev_char = ord('A') - 1
+                    prev_child_offset = len(result)
+                    for label, edge in node.linear_edges:
+                        # if we don't know position of the edge yet, just use
+                        # maxsize as the position. we'll have to do another
+                        # iteration anyway, but the size is at least a lower limit
+                        # then
+                        child_offset = edge.packed_offset
+                        result_pp.extend("    # E %r target=%s target_distance=%s\n" % (label, child_offset, child_offset - prev_child_offset))
+                        prev_char = ord(label[0])
 
-        result = []
-        for node in order:
-            offset = positions[node.id]
-            assert len(result) == offset
-            encode_varint_unsigned(node.count, result)
-            int1((len(node.linear_edges) << 1) | node.final, result)
-            print "N id final offset count number_edges", node.id, bool(node.final), offset, node.count, len(node.linear_edges)
-            print repr("".join(result[offset:]))
-            prev_printed = len(result)
-            prev_char = ord('A') - 1
-            prev_child_offset = len(result)
-            for label, edge in node.linear_edges:
-                print "   ", "E label target target_distance", repr(label), positions[edge.id], positions[edge.id] - prev_child_offset, "NEXTCHAR" if ord(label[0]) - prev_char == 1 else ""
-                prev_char = ord(label[0])
+                        encode_varint_signed(child_offset - prev_child_offset, result)
+                        prev_child_offset = child_offset
+                        if len(label) > 1:
+                            int1(len(label) | 0x80, result)
+                        result.extend(label)
+                        result_pp.extend("    %r # %s\n" % (bytes(result[prev_printed:]), len(result) - prev_printed))
+                        prev_printed = len(result)
+                    node.packed_size = len(result) - node.packed_offset
+                if result == last_result:
+                    break
+                last_result = result
+            return result, result_pp
+        result, result_pp = compute_packed(order)
+        print bytes(result_pp)
+        return bytes(result), self.data
 
-                encode_varint_signed(positions[edge.id] - prev_child_offset, result)
-                prev_child_offset = positions[edge.id]
-                if len(label) > 1:
-                    int1(len(label) | 0x80, result)
-                result.extend(label)
-                print "    ", repr("".join(result[prev_printed:])), len(result) - prev_printed
-                prev_printed = len(result)
-            assert size_node(node) == len(result) - offset
-        return "".join(result), self.data
 
 # ______________________________________________________________________
 # the following functions are used from RPython to interpret the packed
