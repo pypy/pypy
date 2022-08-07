@@ -250,30 +250,29 @@ class Dawg(object):
             # fixpoint
             for node in order:
                 # if we don't know position of the edge yet, just use
-                # maxsize as the position. we'll have to do another
+                # something big as the position. we'll have to do another
                 # iteration anyway, but the size is at least a lower limit
                 # then
-                node.packed_offset = sys.maxsize
+                node.packed_offset = 1 << 30
             while 1:
                 result = bytearray()
                 result_pp = bytearray()
                 for node in order:
                     offset = node.packed_offset = len(result)
-                    encode_varint_unsigned(node.count, result)
-                    encode_int1((len(node.linear_edges) << 1) | node.final, result)
-                    result_pp.extend("# N id=%s offset=%s count=%s%s\n" % (node.id, offset, node.count, " final" if node.final else ""))
+                    encode_varint_unsigned(number_add_bits(node.count, node.final), result)
+                    result_pp.extend("# N offset=%s count=%s%s\n" % (offset, node.count, " final" if node.final else ""))
                     result_pp.extend(repr(bytes(result[offset:])))
                     result_pp.append("\n")
                     prev_printed = len(result)
                     prev_char = ord('A') - 1
                     prev_child_offset = len(result)
-                    for label, targetnode in node.linear_edges:
+                    for edgeindex, (label, targetnode) in enumerate(node.linear_edges):
                         child_offset = targetnode.packed_offset
                         child_offset_difference = child_offset - prev_child_offset
                         result_pp.extend("    # E %r target=%s target_distance=%s\n" % (label, child_offset, child_offset_difference))
                         prev_char = ord(label[0])
 
-                        encode_varint_signed((child_offset_difference << 1) | (len(label) == 1), result)
+                        encode_varint_signed(number_add_bits(child_offset_difference, len(label) == 1, edgeindex == len(node.linear_edges) - 1), result)
                         prev_child_offset = child_offset
                         if len(label) > 1:
                             encode_varint_signed(len(label), result)
@@ -295,6 +294,20 @@ class Dawg(object):
 # representation
 
 from rpython.rlib import objectmodel
+
+def number_add_bits(x, *bits):
+    for bit in bits:
+        assert bit == 0 or bit == 1
+        x = (x << 1) | bit
+    return x
+
+@objectmodel.specialize.arg(1)
+@objectmodel.always_inline
+def number_split_bits(x, n, acc=()):
+    # weird way to write for rpython's benefit
+    if n == 0:
+        return (x, ) + acc
+    return number_split_bits(x >> 1, n - 1, (x & 1, ) + acc)
 
 def encode_varint_unsigned(i, res):
     # https://en.wikipedia.org/wiki/LEB128 unsigned variant
@@ -361,23 +374,20 @@ def decode_int1(packed, node):
 
 @objectmodel.always_inline
 def decode_node(packed, node):
-    node_count, node = decode_varint_unsigned(packed, node)
-    x, node = decode_int1(packed, node)
-    final = bool(x & 1)
-    num_edges = x >> 1
-    return node_count, final, num_edges, node
+    x, node = decode_varint_unsigned(packed, node)
+    node_count, final = number_split_bits(x, 1)
+    return node_count, final, node
 
 @objectmodel.always_inline
 def decode_edge(packed, prev_child_offset, offset):
-    child_offset_difference, offset = decode_varint_signed(packed, offset)
-    len1 = child_offset_difference & 1
-    child_offset_difference >>= 1
+    x, offset = decode_varint_signed(packed, offset)
+    child_offset_difference, len1, final_edge = number_split_bits(x, 2)
     child_offset = prev_child_offset + child_offset_difference
     if len1:
         size = 1
     else:
         size, offset = decode_varint_signed(packed, offset)
-    return child_offset, size, offset
+    return child_offset, final_edge, size, offset
 
 @objectmodel.always_inline
 def _match_edge(packed, s, size, node_offset, stringpos):
@@ -396,10 +406,10 @@ def lookup(packed, data, s):
     skipped = 0  # keep track of number of final nodes that we skipped
     false = False
     while stringpos < len(s):
-        node_count, final, num_edges, edge_offset = decode_node(packed, node_offset)
+        node_count, final, edge_offset = decode_node(packed, node_offset)
         prev_child_offset = edge_offset
-        for i in range(num_edges):
-            child_offset, size, edgelabel_chars_offset = decode_edge(packed, prev_child_offset, edge_offset)
+        while 1:
+            child_offset, final_edge, size, edgelabel_chars_offset = decode_edge(packed, prev_child_offset, edge_offset)
             prev_child_offset = child_offset
             if _match_edge(packed, s, size, edgelabel_chars_offset, stringpos):
                 # match
@@ -408,12 +418,12 @@ def lookup(packed, data, s):
                 stringpos += size
                 node_offset = child_offset
                 break
-            child_count, _ = decode_varint_unsigned(packed, child_offset)
+            if final_edge:
+                raise KeyError
+            child_count, _, _ = decode_node(packed, child_offset)
             skipped += child_count
             edge_offset = edgelabel_chars_offset + size
-        else:
-            raise KeyError
-    node_count, final, num_edges, _ = decode_node(packed, node_offset)
+    node_count, final, _ = decode_node(packed, node_offset)
     if final:
         return data[skipped]
     raise KeyError
@@ -427,25 +437,27 @@ def _inverse_lookup(packed, pos):
     result = rstring.StringBuilder(42) # max size is like 83
     node_offset = 0
     while 1:
-        node_count, final, num_edges, edge_offset = decode_node(packed, node_offset)
+        node_count, final, edge_offset = decode_node(packed, node_offset)
         if final:
            if pos == 0:
                return result.build()
            pos -= 1
         prev_child_offset = edge_offset
-        for i in range(num_edges):
-            child_offset, size, edgelabel_chars_offset = decode_edge(packed, prev_child_offset, edge_offset)
+        while 1:
+            child_offset, final_edge, size, edgelabel_chars_offset = decode_edge(packed, prev_child_offset, edge_offset)
             prev_child_offset = child_offset
-            child_count, _ = decode_varint_unsigned(packed, child_offset)
+            child_count, _, _ = decode_node(packed, child_offset)
             nextpos = pos - child_count
             if nextpos < 0:
                 assert edgelabel_chars_offset >= 0
                 result.append_slice(packed, edgelabel_chars_offset, edgelabel_chars_offset + size)
                 node_offset = child_offset
                 break
-            else:
+            elif not final_edge:
                 pos = nextpos
                 edge_offset = edgelabel_chars_offset + size
+            else:
+                raise KeyError
         else:
             raise KeyError
 
