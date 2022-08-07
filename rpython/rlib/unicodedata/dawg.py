@@ -256,12 +256,12 @@ class Dawg(object):
                 for node in order:
                     offset = node.packed_offset = len(result)
                     encode_varint_unsigned(number_add_bits(node.count, node.final), result)
-                    prev_child_offset = len(result)
                     if len(node.linear_edges) == 0:
                         assert node.final
                         encode_varint_unsigned(0, result) # add a 0 saying "done"
                     result_pp.extend("%r # N pos=%s count=%s%s\n" % (bytes(result[offset:]), offset, node.count, " final" if node.final else ""))
                     prev_printed = len(result)
+                    prev_child_offset = len(result)
                     for edgeindex, (label, targetnode) in enumerate(node.linear_edges):
                         child_offset = targetnode.packed_offset
                         child_offset_difference = child_offset - prev_child_offset
@@ -303,10 +303,11 @@ def number_add_bits(x, *bits):
 @objectmodel.specialize.arg(1)
 @objectmodel.always_inline
 def number_split_bits(x, n, acc=()):
-    # weird way to write for rpython's benefit
-    if n == 0:
-        return (x, ) + acc
-    return number_split_bits(x >> 1, n - 1, (x & 1, ) + acc)
+    if n == 1:
+        return n >> 1, n & 1
+    if n == 2:
+        return n >> 2, (n >> 1) & 1, n & 1
+    assert 0, "implement me!"
 
 def encode_varint_unsigned(i, res):
     # https://en.wikipedia.org/wiki/LEB128 unsigned variant
