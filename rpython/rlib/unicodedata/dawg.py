@@ -217,7 +217,7 @@ class Dawg(object):
             node.linear_edges = []
             for label, child in sorted(node.edges.items()):
                 s = [label]
-                while len(child.edges) == 1 and len(incoming[child]) == 1 and not child.final and len(s) < 128:
+                while len(child.edges) == 1 and len(incoming[child]) == 1 and not child.final:
                     (c, child), = child.edges.items()
                     s.append(c)
                 node.linear_edges.append((''.join(s), child))
@@ -269,13 +269,14 @@ class Dawg(object):
                     prev_child_offset = len(result)
                     for label, targetnode in node.linear_edges:
                         child_offset = targetnode.packed_offset
-                        result_pp.extend("    # E %r target=%s target_distance=%s\n" % (label, child_offset, child_offset - prev_child_offset))
+                        child_offset_difference = child_offset - prev_child_offset
+                        result_pp.extend("    # E %r target=%s target_distance=%s\n" % (label, child_offset, child_offset_difference))
                         prev_char = ord(label[0])
 
-                        encode_varint_signed(child_offset - prev_child_offset, result)
+                        encode_varint_signed((child_offset_difference << 1) | (len(label) == 1), result)
                         prev_child_offset = child_offset
                         if len(label) > 1:
-                            encode_int1(len(label) | 0x80, result)
+                            encode_varint_signed(len(label), result)
                         result.extend(label)
                         result_pp.extend("    %r # %s\n" % (bytes(result[prev_printed:]), len(result) - prev_printed))
                         prev_printed = len(result)
@@ -369,27 +370,24 @@ def decode_node(packed, node):
 @objectmodel.always_inline
 def decode_edge(packed, prev_child_offset, offset):
     child_offset_difference, offset = decode_varint_signed(packed, offset)
+    len1 = child_offset_difference & 1
+    child_offset_difference >>= 1
     child_offset = prev_child_offset + child_offset_difference
-    size, offset = decode_int1(packed, offset)
-    if size < 128:
-        # just a char, no length, make offset still point to the char
-        offset -= 1
-        char = chr(size)
+    if len1:
         size = 1
     else:
-        size = size & 0x7f
-        char = packed[offset]
-    return child_offset, size, char, offset
+        size, offset = decode_varint_signed(packed, offset)
+    return child_offset, size, offset
 
 @objectmodel.always_inline
-def _match_edge(packed, s, size, char, node_offset, stringpos):
-    if s[stringpos] != char:
-        return False
-    for i in range(1, size):
+def _match_edge(packed, s, size, node_offset, stringpos):
+    for i in range(size):
         if packed[node_offset + i] != s[stringpos + i]:
             # if a subsequent char of an edge doesn't match, the word isn't in
             # the dawg
-            raise KeyError
+            if i > 0:
+                raise KeyError
+            return False
     return True
 
 def lookup(packed, data, s):
@@ -401,9 +399,9 @@ def lookup(packed, data, s):
         node_count, final, num_edges, edge_offset = decode_node(packed, node_offset)
         prev_child_offset = edge_offset
         for i in range(num_edges):
-            child_offset, size, char, edgelabel_chars_offset = decode_edge(packed, prev_child_offset, edge_offset)
+            child_offset, size, edgelabel_chars_offset = decode_edge(packed, prev_child_offset, edge_offset)
             prev_child_offset = child_offset
-            if _match_edge(packed, s, size, char, edgelabel_chars_offset, stringpos):
+            if _match_edge(packed, s, size, edgelabel_chars_offset, stringpos):
                 # match
                 if final:
                     skipped += 1
@@ -436,15 +434,13 @@ def _inverse_lookup(packed, pos):
            pos -= 1
         prev_child_offset = edge_offset
         for i in range(num_edges):
-            child_offset, size, char, edgelabel_chars_offset = decode_edge(packed, prev_child_offset, edge_offset)
+            child_offset, size, edgelabel_chars_offset = decode_edge(packed, prev_child_offset, edge_offset)
             prev_child_offset = child_offset
             child_count, _ = decode_varint_unsigned(packed, child_offset)
             nextpos = pos - child_count
             if nextpos < 0:
-                result.append(char)
-                if size > 1:
-                    assert edgelabel_chars_offset >= 0
-                    result.append_slice(packed, edgelabel_chars_offset + 1, edgelabel_chars_offset + size)
+                assert edgelabel_chars_offset >= 0
+                result.append_slice(packed, edgelabel_chars_offset, edgelabel_chars_offset + size)
                 node_offset = child_offset
                 break
             else:

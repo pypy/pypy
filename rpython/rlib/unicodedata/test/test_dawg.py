@@ -78,6 +78,7 @@ def test_generate():
     d = dict(map(lambda (x,y):(y,x), enumerate(lines)))
     trie = build_compression_dawg(o, d)
     o.close()
+    print out.read()
     dmod = out.pyimport()
     for i, line in enumerate(lines):
         assert dmod.lookup_charcode(i) == line
