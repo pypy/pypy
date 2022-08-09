@@ -259,7 +259,8 @@ class Dawg(object):
                     if len(node.linear_edges) == 0:
                         assert node.final
                         encode_varint_unsigned(0, result) # add a 0 saying "done"
-                    result_pp.extend("%r # N pos=%s count=%s%s\n" % (bytes(result[offset:]), offset, node.count, " final" if node.final else ""))
+                    #result_pp.extend("%r # N pos=%s count=%s%s\n" % (bytes(result[offset:]), offset, node.count, " final" if node.final else ""))
+                    result_pp.extend("%r\n" % (bytes(result[offset:]), ))
                     prev_printed = len(result)
                     prev_child_offset = len(result)
                     for edgeindex, (label, targetnode) in enumerate(node.linear_edges):
@@ -274,7 +275,7 @@ class Dawg(object):
                         if len(label) > 1:
                             encode_varint_signed(len(label), result)
                         result.extend(label)
-                        result_pp.extend("    %r # E %r to=%s dist=%s\n" % (bytes(result[prev_printed:]), label, child_offset, child_offset_difference))
+                        result_pp.extend(" %r\n" % (bytes(result[prev_printed:]), ))
                         prev_printed = len(result)
                     node.packed_size = len(result) - node.packed_offset
                 if result == last_result:
@@ -284,7 +285,6 @@ class Dawg(object):
         result, result_pp = compute_packed(order)
         self.packed = result
         self.packed_pp = result_pp
-        print bytes(result_pp)
         return bytes(result), self.data
 
 

@@ -500,7 +500,32 @@ def write_character_names(outfile, table, base_mod):
                  for code in table.all_codes()
                  if table.get_char(code).name)
     sorted_names_codes = sorted(names.iteritems())
-    dawg.build_compression_dawg(outfile, names)
+    if base_mod is None:
+        dawg.build_compression_dawg(outfile, names)
+        print >> outfile, "# the following dictionary is used by modules that take this as a base"
+        print >> outfile, "# only used by generate_unicodedb, not after translation"
+        print >> outfile, "_orig_names = {"
+        for name, code in sorted_names_codes:
+            print >> outfile, "%r: %r," % (name, code)
+        print >> outfile, "}"
+    else:
+        corrected_names = []
+
+        for name, code in sorted_names_codes:
+            try:
+                if base_mod.lookup_charcode(code) == name:
+                    continue
+            except KeyError:
+                pass
+            corrected_names.append((name, code))
+        corrected_names_dict = dict(corrected_names)
+        dawg.build_compression_dawg(outfile, corrected_names_dict)
+
+        removed_names = []
+        for name, code in sorted(base_mod._orig_names.iteritems()):
+            if name not in names:
+                removed_names.append((name, code))
+        assert not removed_names
 
 def writeUnicodedata(version, version_tuple, table, outfile, base):
     if base:
@@ -635,7 +660,13 @@ def lookup(name, with_named_sequence=False):
     if startswith(name, _hangul_prefix):
         return _lookup_hangul(name[len(_hangul_prefix):])
 
-    code = dawg_lookup(name)
+    if not base_mod:
+        code = dawg_lookup(name)
+    else:
+        try:
+            code = dawg_lookup(name)
+        except KeyError:
+            code = base_mod.dawg_lookup(name)
     if not with_named_sequence and %(named_sequence_interval)s:
         raise KeyError
     return code
@@ -655,7 +686,13 @@ def name(code):
     if %(pua_interval)s:
         raise KeyError
 
-    return lookup_charcode(code)
+    if base_mod is None:
+        return lookup_charcode(code)
+    else:
+        try:
+            return lookup_charcode(code)
+        except KeyError:
+            return base_mod.lookup_charcode(code)
 ''' % dict(cjk_interval=cjk_interval,
            pua_interval="0xF0000 <= code < 0xF0400",
            named_sequence_interval="0xF0200 <= code < 0xF0400")
@@ -986,7 +1023,7 @@ def main():
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
     print >> outfile
-    print >> outfile, 'from rpython.rlib.rarithmetic import r_longlong'
+    print >> outfile, 'from rpython.rlib.rarithmetic import r_longlong, r_int'
     print >> outfile
     print >> outfile
     writeUnicodedata(options.unidata_version, version_tuple, table, outfile, options.base)
