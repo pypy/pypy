@@ -273,7 +273,7 @@ class Dawg(object):
                         encode_varint_signed(info, result)
                         prev_child_offset = child_offset
                         if len(label) > 1:
-                            encode_varint_signed(len(label), result)
+                            encode_varint_unsigned(len(label), result)
                         result.extend(label)
                         result_pp.extend(" %r\n" % (bytes(result[prev_printed:]), ))
                         prev_printed = len(result)
@@ -384,7 +384,7 @@ def decode_edge(packed, edgeindex, prev_child_offset, offset):
     if len1:
         size = 1
     else:
-        size, offset = decode_varint_signed(packed, offset)
+        size, offset = decode_varint_unsigned(packed, offset)
     return child_offset, final_edge, size, offset
 
 @objectmodel.always_inline
@@ -514,6 +514,7 @@ def lookup_charcode(code):
 def build_compression_dawg(outfile, ucdata):
     print >> outfile, "#" + "_" * 60
     print >> outfile, "# output from build_compression_dawg"
+    print >> outfile, 'from rpython.rlib.rarithmetic import intmask, r_int32'
 
     if not ucdata:
         print >> outfile, empty_functions
@@ -530,6 +531,7 @@ def build_compression_dawg(outfile, ucdata):
     print >> outfile, ")"
     print >> outfile, "pos_to_code = ",
     pprint(pos_to_code, stream=outfile)
+    print >> outfile, "pos_to_code = [r_int32(c) for c in pos_to_code]"
 
     print >> outfile, """
 def lookup_charcode(c):
@@ -537,7 +539,7 @@ def lookup_charcode(c):
     return _inverse_lookup(packed_dawg, pos)
 
 def dawg_lookup(n):
-    return _dawg_lookup(packed_dawg, pos_to_code, n)
+    return intmask(_dawg_lookup(packed_dawg, pos_to_code, n))
     """
 
 
@@ -556,16 +558,16 @@ def dawg_lookup(n):
             continue
 
         function.append(
-            "    %sif %d <= code <= %d: return _charcode_to_pos_%d[code-%d]" % (
+            "    %sif %d <= code <= %d: return intmask(_charcode_to_pos_%d[code-%d])" % (
             prefix, low, high, low, low))
         prefix = "el"
 
         print >> outfile, "_charcode_to_pos_%d = [" % (low,)
         for code in range(low, high + 1):
             if code in reversedict:
-                print >> outfile, "%s," % (reversedict[code], )
+                print >> outfile, "r_int32(%s)," % (reversedict[code], )
             else:
-                print >> outfile, "-1,"
+                print >> outfile, "r_int32(-1),"
         print >> outfile, "]\n"
     function.append("    raise KeyError(code)")
     print >> outfile, '\n'.join(function)
