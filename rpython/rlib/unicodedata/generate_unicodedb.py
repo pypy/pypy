@@ -356,10 +356,16 @@ def writeDict(outfile, name, dictionary, base_mod):
             print >> outfile, '%r: %r,'%(key, dictionary[key])
     print >> outfile, '}'
     print >> outfile
+    corrected = [key for key in sorted(base_dict) if key not in dictionary]
+    if len(corrected) == 0:
+        # use an empty list. 'in' works as well, and rpython is better able to
+        # reason about global lists than dicts (the immutability of dicts is
+        # not tracked)
+        print >> outfile, '%s_corrected = []' % name
+        return
     print >> outfile, '%s_corrected = {' % name
-    for key in sorted(base_dict):
-        if key not in dictionary:
-            print >> outfile, '%r: None,' % key
+    for key in corrected:
+        print >> outfile, '%r: None,' % key
     print >> outfile, '}'
 
 
@@ -435,10 +441,12 @@ def writeDbRecord(outfile, table):
         db_records[char.db_record] = 1
     db_records = db_records.keys()
     db_records.sort()
-    print >> outfile, '_db_records = ['
-    for record in db_records:
-        print >> outfile, '%r,'%(record,)
-    print >> outfile, ']'
+    for tupindex in range(len(db_records[0])):
+        print >> outfile, '_db_records_%s = [' % tupindex
+        for record in db_records:
+            print >> outfile, '%r,'%(record[tupindex],)
+        print >> outfile, ']'
+        print >> outfile
     assert len(db_records) <= 256, "too many db_records!"
     print >> outfile, '_db_pgtbl = ('
     pages = []
@@ -470,28 +478,28 @@ def writeDbRecord(outfile, table):
             print >> outfile, repr(page_string[index:index + chunksize])
     print >> outfile, ')'
     print >> outfile, '''
-def _get_record(code):
-    return _db_records[ord(_db_pages[(ord(_db_pgtbl[code >> %d]) << %d) + (code & %d)])]
+def _get_record_index(code):
+    return ord(_db_pages[(ord(_db_pgtbl[code >> %d]) << %d) + (code & %d)])
 '''%(pgbits, pgbits, bytemask)
-    print >> outfile, 'def category(code): return _get_record(code)[0]'
-    print >> outfile, 'def bidirectional(code): return _get_record(code)[1]'
-    print >> outfile, 'def east_asian_width(code): return _get_record(code)[2]'
-    print >> outfile, 'def isspace(code): return _get_record(code)[3] & %d != 0'% IS_SPACE
-    print >> outfile, 'def isalpha(code): return _get_record(code)[3] & %d != 0'% IS_ALPHA
-    print >> outfile, 'def islinebreak(code): return _get_record(code)[3] & %d != 0'% IS_LINEBREAK
-    print >> outfile, 'def isnumeric(code): return _get_record(code)[3] & %d != 0'% IS_NUMERIC
-    print >> outfile, 'def isdigit(code): return _get_record(code)[3] & %d != 0'% IS_DIGIT
-    print >> outfile, 'def isdecimal(code): return _get_record(code)[3] & %d != 0'% IS_DECIMAL
-    print >> outfile, 'def isalnum(code): return _get_record(code)[3] & %d != 0'% (IS_ALPHA | IS_NUMERIC)
-    print >> outfile, 'def isupper(code): return _get_record(code)[3] & %d != 0'% IS_UPPER
-    print >> outfile, 'def istitle(code): return _get_record(code)[3] & %d != 0'% IS_TITLE
-    print >> outfile, 'def islower(code): return _get_record(code)[3] & %d != 0'% IS_LOWER
-    print >> outfile, 'def iscased(code): return _get_record(code)[3] & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER)
-    print >> outfile, 'def isxidstart(code): return _get_record(code)[3] & %d != 0'% (IS_XID_START)
-    print >> outfile, 'def isxidcontinue(code): return _get_record(code)[3] & %d != 0'% (IS_XID_CONTINUE)
-    print >> outfile, 'def isprintable(code): return _get_record(code)[3] & %d != 0'% IS_PRINTABLE
-    print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
-    print >> outfile, 'def iscaseignorable(code): return _get_record(code)[3] & %d != 0'% IS_CASE_IGNORABLE
+    print >> outfile, 'def category(code): return _db_records_0[_get_record_index(code)]'
+    print >> outfile, 'def bidirectional(code): return _db_records_1[_get_record_index(code)]'
+    print >> outfile, 'def east_asian_width(code): return _db_records_2[_get_record_index(code)]'
+    print >> outfile, 'def isspace(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_SPACE
+    print >> outfile, 'def isalpha(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_ALPHA
+    print >> outfile, 'def islinebreak(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_LINEBREAK
+    print >> outfile, 'def isnumeric(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_NUMERIC
+    print >> outfile, 'def isdigit(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_DIGIT
+    print >> outfile, 'def isdecimal(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_DECIMAL
+    print >> outfile, 'def isalnum(code): return _db_records_3[_get_record_index(code)] & %d != 0'% (IS_ALPHA | IS_NUMERIC)
+    print >> outfile, 'def isupper(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_UPPER
+    print >> outfile, 'def istitle(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_TITLE
+    print >> outfile, 'def islower(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_LOWER
+    print >> outfile, 'def iscased(code): return _db_records_3[_get_record_index(code)] & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER)
+    print >> outfile, 'def isxidstart(code): return _db_records_3[_get_record_index(code)] & %d != 0'% (IS_XID_START)
+    print >> outfile, 'def isxidcontinue(code): return _db_records_3[_get_record_index(code)] & %d != 0'% (IS_XID_CONTINUE)
+    print >> outfile, 'def isprintable(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_PRINTABLE
+    print >> outfile, 'def mirrored(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_MIRRORED
+    print >> outfile, 'def iscaseignorable(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_CASE_IGNORABLE
 
 def write_character_names(outfile, table, base_mod):
     from rpython.rlib.unicodedata import dawg
