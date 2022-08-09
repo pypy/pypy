@@ -168,9 +168,22 @@ class W_HPyObject(W_ObjectObject):
     def get_raw_data(self):
         return storage_get_raw_data(self.hpy_storage)
 
+    def get_pyobject(self):
+        storage = self.get_raw_data()
+        # Now fill in all the data:
+        # - make sure self is legacy so storage points to a valid PyObject
+        # - cast the storage as a PyObject*
+        # - get a PyTypeObject and set the fields
+        raise oefmt(self.space.w_NotImplementedError,
+                    "W_HPyObject.get_pyobject not implemented yet")
+
     def _finalize_(self):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
+        if w_type.tp_finalize:
+            from pypy.interpreter.argument import Arguments
+            data = self.get_raw_data()
+            w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
         if w_type.tp_destroy:
             w_type.tp_destroy(self.get_raw_data())
 
@@ -179,6 +192,7 @@ class W_HPyTypeObject(W_TypeObject):
     basicsize = 0
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
     tp_traverse = lltype.nullptr(llapi.cts.gettype('HPyFunc_traverseproc').TO)
+    tp_finalize = None
 
     def __init__(self, space, name, bases_w, dict_w, basicsize=0,
                  is_legacy=False):
@@ -402,7 +416,7 @@ def _create_instance(space, w_type):
     w_result.space = space
     w_result.hpy_storage = storage_alloc(w_type.basicsize)
     w_result.hpy_storage.tp_traverse = w_type.tp_traverse
-    if w_type.tp_destroy:
+    if w_type.tp_destroy or w_type.tp_finalize:
         w_result.register_finalizer(space)
     return w_result
 
