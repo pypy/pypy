@@ -2,6 +2,7 @@
 
 import sys, os
 import itertools
+from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
@@ -382,11 +383,81 @@ class Cache:
             self._strings.append(string)
             return index
 
-def writeDbRecord(outfile, table):
-    pgbits = 8
+def output_table_columnwise(outfile, prefix, l, column_headers):
+    for record in l:
+        assert len(record) == len(column_headers)
+
+    for tupindex, name in enumerate(column_headers):
+        columndata = [record[tupindex] for record in l]
+        if not columndata:
+            print >> outfile, 'def lookup%s%s(index): assert 0' % (prefix, name)
+            continue
+        if all(type(x) is int and x >= 0 for x in columndata):
+            unwrapfunc = print_listlike(outfile, prefix + name, columndata)
+        else:
+            unwrapfunc = ''
+            print >> outfile, '%s%s = [' % (prefix, name)
+            for val in columndata:
+                print >> outfile, '%r,' % val
+            print >> outfile, ']'
+            print >> outfile
+        print >> outfile, """\
+def lookup%s%s(index):
+    return %s(%s%s[index])
+""" % (prefix, name, unwrapfunc, prefix, name, )
+
+
+def print_listlike(outfile, name, lst):
+    itemsize = getsize(lst)
     chunksize = 64
+    if itemsize == 1:
+        # a byte string is fine
+        unwrapfunc = "ord"
+        result = ''
+        print >> outfile, "%s = (" % name
+        res = []
+        for c in lst:
+            res.append(chr(c))
+            if len(res) == chunksize:
+                print >> outfile, repr("".join(res))
+                res = []
+        if res:
+            print >> outfile, repr("".join(res))
+        print >> outfile, ")"
+    else:
+        unwrapfunc = "intmask"
+        if itemsize == 2:
+            typ = "r_ushort"
+        else:
+            assert itemsize == 4
+            typ = "r_uint32"
+        print >> outfile, "%s = [" % name
+        chunksize = 16
+        res = []
+        for c in lst:
+            res.append(str(c))
+            if len(res) == chunksize:
+                print >> outfile, ", ".join(res) + ","
+                res = []
+        if res:
+            print >> outfile, ", ".join(res) + ","
+        print >> outfile, "]"
+        print >> outfile, "%s = [%s(c) for c in %s]" % (name, typ, name)
+    return unwrapfunc
+
+def write_pages(outfile, prefix, lookupfuncname, data):
+    pgtbl, pages, pgbits = splitbins(data)
     pgsize = 1 << pgbits
     bytemask = ~(-1 << pgbits)
+    unwrapfunc = "intmask"
+    unwrapfunc1 = print_listlike(outfile, prefix + "pgtbl", pgtbl)
+    unwrapfunc2 = print_listlike(outfile, prefix + "pages", pages)
+    print >> outfile, '''
+def _get_record_index(code):
+    return %s(%spages[(%s(%spgtbl[code >> %d]) << %d) + (code & %d)])
+'''%(unwrapfunc2, prefix, unwrapfunc1, prefix, pgbits, pgbits, bytemask)
+
+def writeDbRecord(outfile, table, base_mod):
     IS_SPACE = 1
     IS_ALPHA = 2
     IS_LINEBREAK = 4
@@ -402,10 +473,27 @@ def writeDbRecord(outfile, table):
     IS_PRINTABLE = 4096 # PEP 3138
     IS_CASE_IGNORABLE = 8192
 
+    # Prepare special casing
+    sc_list = []
+    sc_db = {} # mapping code: index in sc_list
+    for code, value in sorted(table.special_casing.items()):
+        sc_db[code] = len(sc_list)
+        sc_list.append(value)
+
+    output_table_columnwise(outfile, "_special_casing_", sc_list,
+        ("lower", "title", "upper"))
+
     # Create the records
+    db_records_list = []
     db_records = {}
+
     for code in table.all_codes():
         char = table.get_char(code)
+        # default values
+        decimal = digit = 0
+        numeric = 0.0
+
+        # categories and flags, decimal, digit, numeric
         flags = 0
         if char.category == "Zs" or char.bidirectional in ("WS", "B", "S"):
             flags |= IS_SPACE
@@ -415,10 +503,13 @@ def writeDbRecord(outfile, table):
             flags |= IS_LINEBREAK
         if char.numeric is not None:
             flags |= IS_NUMERIC
+            numeric = char.numeric
         if char.digit is not None:
             flags |= IS_DIGIT
+            digit = char.digit
         if char.decimal is not None:
             flags |= IS_DECIMAL
+            decimal = char.decimal
         if char.category == "Lu" or (table.upper_lower_from_properties and
                                      "Uppercase" in char.properties):
             flags |= IS_UPPER
@@ -437,69 +528,83 @@ def writeDbRecord(outfile, table):
             flags |= IS_XID_CONTINUE
         if "Case_Ignorable" in char.properties:
             flags |= IS_CASE_IGNORABLE
-        char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags)
-        db_records[char.db_record] = 1
-    db_records = db_records.keys()
-    db_records.sort()
-    for tupindex in range(len(db_records[0])):
-        print >> outfile, '_db_records_%s = [' % tupindex
-        for record in db_records:
-            print >> outfile, '%r,'%(record[tupindex],)
-        print >> outfile, ']'
-        print >> outfile
-    assert len(db_records) <= 256, "too many db_records!"
-    print >> outfile, '_db_pgtbl = ('
-    pages = []
-    line = []
-    groups = [iter(table.enum_chars())] * pgsize
-    for group in itertools.izip_longest(*groups):
-        result = []
-        for code, char in group:
-            if not char: continue
-            result.append(chr(db_records.index(char.db_record)))
-        categorytbl = ''.join(result)
-        try:
-            page = pages.index(categorytbl)
-        except ValueError:
-            page = len(pages)
-            pages.append(categorytbl)
-            assert len(pages) < 256, 'Too many unique pages for db_record.'
-        line.append(chr(page))
-        if len(line) >= chunksize:
-            print >> outfile, repr(''.join(line))
-            line = []
-    if len(line) > 0:
-        print >> outfile, repr(''.join(line))
-    print >> outfile, ')'
-    # Dump pgtbl
-    print >> outfile, '_db_pages = ( '
-    for page_string in pages:
-        for index in range(0, len(page_string), chunksize):
-            print >> outfile, repr(page_string[index:index + chunksize])
-    print >> outfile, ')'
-    print >> outfile, '''
-def _get_record_index(code):
-    return ord(_db_pages[(ord(_db_pgtbl[code >> %d]) << %d) + (code & %d)])
-'''%(pgbits, pgbits, bytemask)
-    print >> outfile, 'def category(code): return _db_records_0[_get_record_index(code)]'
-    print >> outfile, 'def bidirectional(code): return _db_records_1[_get_record_index(code)]'
-    print >> outfile, 'def east_asian_width(code): return _db_records_2[_get_record_index(code)]'
-    print >> outfile, 'def isspace(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_SPACE
-    print >> outfile, 'def isalpha(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_ALPHA
-    print >> outfile, 'def islinebreak(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_LINEBREAK
-    print >> outfile, 'def isnumeric(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_NUMERIC
-    print >> outfile, 'def isdigit(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_DIGIT
-    print >> outfile, 'def isdecimal(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_DECIMAL
-    print >> outfile, 'def isalnum(code): return _db_records_3[_get_record_index(code)] & %d != 0'% (IS_ALPHA | IS_NUMERIC)
-    print >> outfile, 'def isupper(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_UPPER
-    print >> outfile, 'def istitle(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_TITLE
-    print >> outfile, 'def islower(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_LOWER
-    print >> outfile, 'def iscased(code): return _db_records_3[_get_record_index(code)] & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER)
-    print >> outfile, 'def isxidstart(code): return _db_records_3[_get_record_index(code)] & %d != 0'% (IS_XID_START)
-    print >> outfile, 'def isxidcontinue(code): return _db_records_3[_get_record_index(code)] & %d != 0'% (IS_XID_CONTINUE)
-    print >> outfile, 'def isprintable(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_PRINTABLE
-    print >> outfile, 'def mirrored(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_MIRRORED
-    print >> outfile, 'def iscaseignorable(code): return _db_records_3[_get_record_index(code)] & %d != 0'% IS_CASE_IGNORABLE
+
+        # casing
+        upperdist = 0
+        if char.upper:
+            if code < 128:
+                assert ord('a') <= code <= ord('z')
+                assert char.upper == code - 32
+                assert code not in table.special_casing
+            else:
+                upperdist = code - char.upper
+        lowerdist = 0
+        if char.lower:
+            if code < 128:
+                assert ord('A') <= code <= ord('Z')
+                assert char.lower == code + 32
+                assert code not in table.special_casing
+            else:
+                lowerdist = code - char.lower
+        if char.title:
+            titledist = code - char.title
+        else:
+            titledist = 0
+        # special casing
+        special_casing_index = sc_db.get(code, -1)
+        db_record = (char.category, char.bidirectional,
+                char.east_asian_width, numeric, decimal, digit, upperdist,
+                lowerdist, titledist, special_casing_index, flags)
+        if db_record not in db_records:
+            db_records[db_record] = len(db_records)
+            db_records_list.append(db_record)
+        char.db_record_index = db_records[db_record]
+    output_table_columnwise(outfile, "_db_", db_records_list,
+        ("category", "bidirectional", "east_asian_width", "numeric", "decimal",
+            "digit", "upperdist", "lowerdist", "titledist", "special_casing_index",
+            "flags"))
+
+    data = [char.db_record_index for code, char in table.enum_chars()]
+    write_pages(outfile, "_db_", "_get_record_index", data)
+    print >> outfile, 'def category(code): return lookup_db_category(_get_record_index(code))'
+    print >> outfile, 'def bidirectional(code): return lookup_db_bidirectional(_get_record_index(code))'
+    print >> outfile, 'def east_asian_width(code): return lookup_db_east_asian_width(_get_record_index(code))'
+    print >> outfile, 'def isspace(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_SPACE
+    print >> outfile, 'def isalpha(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_ALPHA
+    print >> outfile, 'def islinebreak(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_LINEBREAK
+    print >> outfile, 'def isnumeric(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_NUMERIC
+    print >> outfile, 'def isdigit(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_DIGIT
+    print >> outfile, 'def isdecimal(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_DECIMAL
+    print >> outfile, 'def isalnum(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_ALPHA | IS_NUMERIC)
+    print >> outfile, 'def isupper(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_UPPER
+    print >> outfile, 'def istitle(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_TITLE
+    print >> outfile, 'def islower(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_LOWER
+    print >> outfile, 'def iscased(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER)
+    print >> outfile, 'def isxidstart(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_XID_START)
+    print >> outfile, 'def isxidcontinue(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_XID_CONTINUE)
+    print >> outfile, 'def isprintable(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_PRINTABLE
+    print >> outfile, 'def mirrored(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_MIRRORED
+    print >> outfile, 'def iscaseignorable(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_CASE_IGNORABLE
+    print >> outfile, '''\
+def decimal(code):
+    if isdecimal(code):
+        return lookup_db_decimal(_get_record_index(code))
+    else:
+        raise KeyError
+
+def digit(code):
+    if isdigit(code):
+        return lookup_db_digit(_get_record_index(code))
+    else:
+        raise KeyError
+
+def numeric(code):
+    if isnumeric(code):
+        return lookup_db_numeric(_get_record_index(code))
+    else:
+        raise KeyError
+
+'''
 
 def write_character_names(outfile, table, base_mod):
     from rpython.rlib.unicodedata import dawg
@@ -706,149 +811,57 @@ def name(code):
            named_sequence_interval="0xF0200 <= code < 0xF0400")
 
     # Categories
-    writeDbRecord(outfile, table)
+    writeDbRecord(outfile, table, base_mod)
         # Numeric characters
-    decimal = {}
-    digit = {}
-    numeric = {}
-    for code, char in table.enum_chars():
-        if char.decimal is not None:
-            decimal[code] = char.decimal
-        if char.digit is not None:
-            digit[code] = char.digit
-        if char.numeric is not None:
-            numeric[code] = char.numeric
-
-    writeDict(outfile, '_decimal', decimal, base_mod)
-    writeDict(outfile, '_digit', digit, base_mod)
-    writeDict(outfile, '_numeric', numeric, base_mod)
     print >> outfile, '''
-def decimal(code):
-    try:
-        return _decimal[code]
-    except KeyError:
-        if base_mod is not None and code not in _decimal_corrected:
-            return base_mod._decimal[code]
-        else:
-            raise
-
-def digit(code):
-    try:
-        return _digit[code]
-    except KeyError:
-        if base_mod is not None and code not in _digit_corrected:
-            return base_mod._digit[code]
-        else:
-            raise
-
-def numeric(code):
-    try:
-        return _numeric[code]
-    except KeyError:
-        if base_mod is not None and code not in _numeric_corrected:
-            return base_mod._numeric[code]
-        else:
-            raise
 '''
-    # Case conversion
-    toupper = {}
-    tolower = {}
-    totitle = {}
-    for code, char in table.enum_chars():
-        if char.upper:
-            if code < 128:
-                assert ord('a') <= code <= ord('z')
-                assert char.upper == code - 32
-            else:
-                toupper[code] = char.upper
-        if char.lower:
-            if code < 128:
-                assert ord('A') <= code <= ord('Z')
-                assert char.lower == code + 32
-            else:
-                tolower[code] = char.lower
-        if char.title:
-            totitle[code] = char.title
-    writeDict(outfile, '_toupper', toupper, base_mod)
-    writeDict(outfile, '_tolower', tolower, base_mod)
-    writeDict(outfile, '_totitle', totitle, base_mod)
-    writeDict(outfile, '_special_casing', table.special_casing, base_mod)
     print >> outfile, '''
 def toupper(code):
     if code < 128:
         if ord('a') <= code <= ord('z'):
             return code - 32
         return code
-    try:
-        return _toupper[code]
-    except KeyError:
-        if base_mod is not None and code not in _toupper_corrected:
-            return base_mod._toupper.get(code, code)
-        else:
-            return code
+    return code - lookup_db_upperdist(_get_record_index(code))
 
 def tolower(code):
     if code < 128:
         if ord('A') <= code <= ord('Z'):
             return code + 32
         return code
-    try:
-        return _tolower[code]
-    except KeyError:
-        if base_mod is not None and code not in _tolower_corrected:
-            return base_mod._tolower.get(code, code)
-        else:
-            return code
+    return code - lookup_db_lowerdist(_get_record_index(code))
 
 def totitle(code):
-    try:
-        return _totitle[code]
-    except KeyError:
-        if base_mod is not None and code not in _totitle_corrected:
-            return base_mod._totitle.get(code, code)
-        else:
-            return code
+    if code < 128:
+        if ord('A') <= code <= ord('Z'):
+            return code + 32
+        return code
+    return code - lookup_db_titledist(_get_record_index(code))
 
 def toupper_full(code):
     if code < 128:
         if ord('a') <= code <= ord('z'):
             return [code - 32]
         return [code]
-    try:
-        return _special_casing[code][2]
-    except KeyError:
-        if base_mod is not None and code not in _special_casing_corrected:
-            try:
-                return base_mod._special_casing[code][2]
-            except KeyError:
-                pass
-    return [toupper(code)]
+    index = lookup_db_special_casing_index(_get_record_index(code))
+    if index == -1:
+        return [toupper(code)]
+    return lookup_special_casing_upper(index)
 
 def tolower_full(code):
     if code < 128:
         if ord('A') <= code <= ord('Z'):
             return [code + 32]
         return [code]
-    try:
-        return _special_casing[code][0]
-    except KeyError:
-        if base_mod is not None and code not in _special_casing_corrected:
-            try:
-                return base_mod._special_casing[code][0]
-            except KeyError:
-                pass
-    return [tolower(code)]
+    index = lookup_db_special_casing_index(_get_record_index(code))
+    if index == -1:
+        return [tolower(code)]
+    return lookup_special_casing_lower(index)
 
 def totitle_full(code):
-    try:
-        return _special_casing[code][1]
-    except KeyError:
-        if base_mod is not None and code not in _special_casing_corrected:
-            try:
-                return base_mod._special_casing[code][1]
-            except KeyError:
-                pass
-    return [totitle(code)]
+    index = lookup_db_special_casing_index(_get_record_index(code))
+    if index == -1:
+        return [totitle(code)]
+    return lookup_special_casing_title(index)
 '''
     # Decomposition
     decomposition = {}
@@ -1031,10 +1044,89 @@ def main():
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
     print >> outfile
-    print >> outfile, 'from rpython.rlib.rarithmetic import r_longlong, r_int'
+    print >> outfile, 'from rpython.rlib.rarithmetic import r_longlong, r_int32, r_uint32, intmask'
+    print >> outfile, 'from rpython.rtyper.lltypesystem.rffi import r_ushort'
     print >> outfile
     print >> outfile
     writeUnicodedata(options.unidata_version, version_tuple, table, outfile, options.base)
+
+# next two functions stolen from CPython
+
+def getsize(data):
+    # return smallest possible integer size for the given array
+    maxdata = max(data)
+    mindata = min(data)
+    assert mindata >= 0
+    if maxdata < 256:
+        return 1
+    elif maxdata < 65536:
+        return 2
+    else:
+        return 4
+
+def splitbins(t, trace=1):
+    """t, trace=0 -> (t1, t2, shift).  Split a table to save space.
+
+    t is a sequence of ints.  This function can be useful to save space if
+    many of the ints are the same.  t1 and t2 are lists of ints, and shift
+    is an int, chosen to minimize the combined size of t1 and t2 (in C
+    code), and where for each i in range(len(t)),
+        t[i] == t2[(t1[i >> shift] << shift) + (i & mask)]
+    where mask is a bitmask isolating the last "shift" bits.
+
+    If optional arg trace is non-zero (default zero), progress info
+    is printed to sys.stderr.  The higher the value, the more info
+    you'll get.
+    """
+
+    if trace:
+        def dump(t1, t2, shift, bytes):
+            print "%d+%d bins at shift %d; %d bytes" % (
+                len(t1), len(t2), shift, bytes)
+        print "Size of original table:", len(t)*getsize(t), "bytes"
+    n = len(t)-1    # last valid index
+    maxshift = 0    # the most we can shift n and still have something left
+    if n > 0:
+        while n >> 1:
+            n >>= 1
+            maxshift += 1
+    del n
+    bytes = sys.maxsize  # smallest total size so far
+    t = tuple(t)    # so slices can be dict keys
+    for shift in range(maxshift + 1):
+        t1, t2, b = _split(t, shift)
+        if trace > 1:
+            dump(t1, t2, shift, b)
+        if b < bytes:
+            best = t1, t2, shift
+            bytes = b
+    t1, t2, shift = best
+    if trace:
+        print "Best:",
+        dump(t1, t2, shift, bytes)
+    if 1:
+        # exhaustively verify that the decomposition is correct
+        mask = ~((~0) << shift) # i.e., low-bit mask of shift bits
+        for i in range(len(t)):
+            assert t[i] == t2[(t1[i >> shift] << shift) + (i & mask)]
+    return best
+
+def _split(t, shift):
+    t1 = []
+    t2 = []
+    size = 2**shift
+    bincache = {}
+    for i in range(0, len(t), size):
+        bin = t[i:i+size]
+        index = bincache.get(bin)
+        if index is None:
+            index = len(t2)
+            bincache[bin] = index
+            t2.extend(bin)
+        t1.append(index >> shift)
+    # determine memory size
+    b = len(t1)*getsize(t1) + len(t2)*getsize(t2)
+    return t1, t2, b
 
 if __name__ == '__main__':
     main()
