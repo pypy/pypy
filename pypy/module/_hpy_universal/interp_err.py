@@ -31,7 +31,7 @@ from .state import State
 ##
 ## ~~~ Implementation ~~~
 ##
-## HPyErr_SetString, HPyErr_Occurred and HPyErr_Clear are implemented in C. See also:
+## HPyErr_FatalError is implemented in C. See also:
 ##    - src/hpyerr.c for the source code
 ##    - state.py:setup.ctx which explicitly stores the C functions in the ctx
 

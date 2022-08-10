@@ -403,3 +403,9 @@ def _build(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
         distutils.log.set_threshold(old_level)
 
     return soname
+
+
+# For situations when one wants to have "support.py" on the call stack.
+# For example, for asserting that it is in a stack trace.
+def trampoline(fun, *args, **kwargs):
+    fun(*args, **kwargs)
