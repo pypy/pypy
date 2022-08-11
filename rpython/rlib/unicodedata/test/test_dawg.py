@@ -6,6 +6,7 @@ from rpython.rlib.unicodedata.dawg import (Dawg, lookup, inverse_lookup,
         encode_varint_unsigned, decode_varint_unsigned,
         encode_varint_signed, decode_varint_signed,
         number_add_bits, number_split_bits)
+from rpython.rlib.unicodedata.codegen import CodeWriter
 
 def test_0():
     dawg = Dawg()
@@ -95,7 +96,7 @@ def test_generate():
     print(out)
     o = out.open('w')
     d = dict(map(lambda (x,y):(y,x), enumerate(lines)))
-    trie = build_compression_dawg(o, d)
+    trie = build_compression_dawg(CodeWriter(o), d)
     o.close()
     print out.read()
     dmod = out.pyimport()
@@ -145,7 +146,7 @@ def test_random_dawg(l, data):
     o = out.open('w')
     print "&~" * 50
     print l
-    trie = build_compression_dawg(o, d)
+    trie = build_compression_dawg(CodeWriter(o), d)
     o.close()
     s = out.read()
     dmod = {}

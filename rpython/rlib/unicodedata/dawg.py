@@ -515,6 +515,7 @@ def build_compression_dawg(outfile, ucdata):
     print >> outfile, "#" + "_" * 60
     print >> outfile, "# output from build_compression_dawg"
     print >> outfile, 'from rpython.rlib.rarithmetic import intmask, r_int32'
+    print >> outfile, 'from rpython.rlib.unicodedata.supportcode import signed_ord, _all_short, _all_ushort, _all_int32, _all_uint32'
 
     if not ucdata:
         print >> outfile, empty_functions
@@ -529,9 +530,8 @@ def build_compression_dawg(outfile, ucdata):
     print >> outfile, "packed_dawg = ("
     print >> outfile, d.packed_pp
     print >> outfile, ")"
-    print >> outfile, "pos_to_code = ",
-    pprint(pos_to_code, stream=outfile)
-    print >> outfile, "pos_to_code = [r_int32(c) for c in pos_to_code]"
+    outfile._estimate_string("dawg", bytes(d.packed))
+    unwrapfunc = outfile.print_listlike("pos_to_code", pos_to_code, "dawg pos_to_code")
 
     print >> outfile, """
 def lookup_charcode(c):
@@ -539,11 +539,11 @@ def lookup_charcode(c):
     return _inverse_lookup(packed_dawg, pos)
 
 def dawg_lookup(n):
-    return intmask(_dawg_lookup(packed_dawg, pos_to_code, n))
-    """
+    return %s(_dawg_lookup(packed_dawg, pos_to_code, n))
+    """ % unwrapfunc
 
 
-    function = ["def _charcode_to_pos(code):"]
+    function = ["def _charcode_to_pos(code):", "    res = -1"]
     reversedict = d.inverse
     ranges = collapse_ranges(findranges(reversedict))
     prefix = ""
@@ -552,22 +552,27 @@ def dawg_lookup(n):
             for code in range(low, high + 1):
                 if code in reversedict:
                     function.append(
-                        "    %sif code == %d: return %s" %
+                        "    %sif code == %d: res = %s" %
                         (prefix, code, reversedict[code]))
                     prefix = "el"
             continue
 
-        function.append(
-            "    %sif %d <= code <= %d: return intmask(_charcode_to_pos_%d[code-%d])" % (
-            prefix, low, high, low, low))
-        prefix = "el"
-
-        print >> outfile, "_charcode_to_pos_%d = [" % (low,)
+        name = "_charcode_to_pos_%d" % (low,)
+        lst = []
         for code in range(low, high + 1):
             if code in reversedict:
-                print >> outfile, "r_int32(%s)," % (reversedict[code], )
+                lst.append(reversedict[code])
             else:
-                print >> outfile, "r_int32(-1),"
-        print >> outfile, "]\n"
-    function.append("    raise KeyError(code)")
+                lst.append(-1)
+        unwrapfunc = outfile.print_listlike(name, lst, "dawg inverse")
+        function.append(
+            "    %sif %d <= code <= %d: res = %s(%s[code-%d])" % (
+            prefix, low, high, unwrapfunc, name, low))
+        prefix = "el"
+
+        
+    function.append("    if res == -1:")
+    function.append("        raise KeyError(code)")
+    function.append("    return res")
     print >> outfile, '\n'.join(function)
+    print >> outfile, "# end output from build_compression_dawg"

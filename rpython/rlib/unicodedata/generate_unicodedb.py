@@ -1,10 +1,13 @@
 #!/usr/bin/env python
-
 import sys, os
 import itertools
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+
+from rpython.rlib.rarithmetic import r_longlong, r_int32, r_uint32, intmask
+from rpython.rtyper.lltypesystem.rffi import r_ushort, r_short
+from rpython.rlib.unicodedata.codegen import CodeWriter, getsize_unsigned
 
 MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
 
@@ -344,30 +347,25 @@ def read_unihan(unihan_file):
         extra_numeric[code] = numeric
     return extra_numeric
 
+DUMMY = object()
+
 def writeDict(outfile, name, dictionary, base_mod):
     if base_mod:
         base_dict = getattr(base_mod, name)
     else:
         base_dict = {}
-    print >> outfile, '%s = {' % name
-    items = dictionary.items()
-    items.sort()
-    for key, value in items:
-        if key not in base_dict or base_dict[key] != value:
-            print >> outfile, '%r: %r,'%(key, dictionary[key])
-    print >> outfile, '}'
-    print >> outfile
-    corrected = [key for key in sorted(base_dict) if key not in dictionary]
-    if len(corrected) == 0:
-        # use an empty list. 'in' works as well, and rpython is better able to
-        # reason about global lists than dicts (the immutability of dicts is
-        # not tracked)
-        print >> outfile, '%s_corrected = []' % name
-        return
-    print >> outfile, '%s_corrected = {' % name
-    for key in corrected:
-        print >> outfile, '%r: None,' % key
-    print >> outfile, '}'
+    items = {key: value for key, value in dictionary.iteritems()
+            if base_dict.get(key, DUMMY) != value}
+    outfile.print_dict(name, items)
+    if base_mod:
+        corrected = {key for key in base_dict if key not in dictionary}
+        if len(corrected) == 0:
+            # use an empty list. 'in' works as well, and rpython is better able to
+            # reason about global lists than dicts (the immutability of dicts is
+            # not tracked)
+            print >> outfile, '%s_corrected = []' % name
+            return
+        outfile.print_set(name + "_corrected", corrected)
 
 
 class Cache:
@@ -392,8 +390,8 @@ def output_table_columnwise(outfile, prefix, l, column_headers):
         if not columndata:
             print >> outfile, 'def lookup%s%s(index): assert 0' % (prefix, name)
             continue
-        if all(type(x) is int and x >= 0 for x in columndata):
-            unwrapfunc = print_listlike(outfile, prefix + name, columndata)
+        if all(type(x) is int for x in columndata):
+            unwrapfunc = outfile.print_listlike(prefix + name, columndata)
         else:
             unwrapfunc = ''
             print >> outfile, '%s%s = [' % (prefix, name)
@@ -406,52 +404,13 @@ def lookup%s%s(index):
     return %s(%s%s[index])
 """ % (prefix, name, unwrapfunc, prefix, name, )
 
-
-def print_listlike(outfile, name, lst):
-    itemsize = getsize(lst)
-    chunksize = 64
-    if itemsize == 1:
-        # a byte string is fine
-        unwrapfunc = "ord"
-        result = ''
-        print >> outfile, "%s = (" % name
-        res = []
-        for c in lst:
-            res.append(chr(c))
-            if len(res) == chunksize:
-                print >> outfile, repr("".join(res))
-                res = []
-        if res:
-            print >> outfile, repr("".join(res))
-        print >> outfile, ")"
-    else:
-        unwrapfunc = "intmask"
-        if itemsize == 2:
-            typ = "r_ushort"
-        else:
-            assert itemsize == 4
-            typ = "r_uint32"
-        print >> outfile, "%s = [" % name
-        chunksize = 16
-        res = []
-        for c in lst:
-            res.append(str(c))
-            if len(res) == chunksize:
-                print >> outfile, ", ".join(res) + ","
-                res = []
-        if res:
-            print >> outfile, ", ".join(res) + ","
-        print >> outfile, "]"
-        print >> outfile, "%s = [%s(c) for c in %s]" % (name, typ, name)
-    return unwrapfunc
-
 def write_pages(outfile, prefix, lookupfuncname, data):
     pgtbl, pages, pgbits = splitbins(data)
     pgsize = 1 << pgbits
     bytemask = ~(-1 << pgbits)
     unwrapfunc = "intmask"
-    unwrapfunc1 = print_listlike(outfile, prefix + "pgtbl", pgtbl)
-    unwrapfunc2 = print_listlike(outfile, prefix + "pages", pages)
+    unwrapfunc1 = outfile.print_listlike(prefix + "pgtbl", pgtbl)
+    unwrapfunc2 = outfile.print_listlike(prefix + "pages", pages)
     print >> outfile, '''
 def _get_record_index(code):
     return %s(%spages[(%s(%spgtbl[code >> %d]) << %d) + (code & %d)])
@@ -709,52 +668,7 @@ def writeUnicodedata(version, version_tuple, table, outfile, base):
 
     write_character_names(outfile, table, base_mod)
 
-    print >> outfile, '''
-_cjk_prefix = "CJK UNIFIED IDEOGRAPH-"
-_hangul_prefix = 'HANGUL SYLLABLE '
-
-_hangul_L = ['G', 'GG', 'N', 'D', 'DD', 'R', 'M', 'B', 'BB',
-            'S', 'SS', '', 'J', 'JJ', 'C', 'K', 'T', 'P', 'H']
-_hangul_V = ['A', 'AE', 'YA', 'YAE', 'EO', 'E', 'YEO', 'YE', 'O', 'WA', 'WAE',
-            'OE', 'YO', 'U', 'WEO', 'WE', 'WI', 'YU', 'EU', 'YI', 'I']
-_hangul_T = ['', 'G', 'GG', 'GS', 'N', 'NJ', 'NH', 'D', 'L', 'LG', 'LM',
-            'LB', 'LS', 'LT', 'LP', 'LH', 'M', 'B', 'BS', 'S', 'SS',
-            'NG', 'J', 'C', 'K', 'T', 'P', 'H']
-
-def _lookup_hangul(syllables):
-    from rpython.rlib.rstring import startswith
-    l_code = v_code = t_code = -1
-    for i in range(len(_hangul_L)):
-        jamo = _hangul_L[i]
-        if (startswith(syllables, jamo) and
-            (l_code < 0 or len(jamo) > len(_hangul_L[l_code]))):
-            l_code = i
-    if l_code < 0:
-        raise KeyError
-    start = len(_hangul_L[l_code])
-
-    for i in range(len(_hangul_V)):
-        jamo = _hangul_V[i]
-        if (syllables[start:start + len(jamo)] == jamo and
-            (v_code < 0 or len(jamo) > len(_hangul_V[v_code]))):
-            v_code = i
-    if v_code < 0:
-        raise KeyError
-    start += len(_hangul_V[v_code])
-
-    for i in range(len(_hangul_T)):
-        jamo = _hangul_T[i]
-        if (syllables[start:start + len(jamo)] == jamo and
-            (t_code < 0 or len(jamo) > len(_hangul_T[t_code]))):
-            t_code = i
-    if t_code < 0:
-        raise KeyError
-    start += len(_hangul_T[t_code])
-
-    if len(syllables[start:]):
-        raise KeyError
-    return 0xAC00 + (l_code * 21 + v_code) * 28 + t_code
-
+    outfile.write_code('''
 def _lookup_cjk(cjk_code):
     if len(cjk_code) != 4 and len(cjk_code) != 5:
         raise KeyError
@@ -808,14 +722,11 @@ def name(code):
             return base_mod.lookup_charcode(code)
 ''' % dict(cjk_interval=cjk_interval,
            pua_interval="0xF0000 <= code < 0xF0400",
-           named_sequence_interval="0xF0200 <= code < 0xF0400")
+           named_sequence_interval="0xF0200 <= code < 0xF0400"))
 
     # Categories
     writeDbRecord(outfile, table, base_mod)
-        # Numeric characters
-    print >> outfile, '''
-'''
-    print >> outfile, '''
+    outfile.write_code('''
 def toupper(code):
     if code < 128:
         if ord('a') <= code <= ord('z'):
@@ -833,7 +744,7 @@ def tolower(code):
 def totitle(code):
     if code < 128:
         if ord('A') <= code <= ord('Z'):
-            return code + 32
+            return code - 32
         return code
     return code - lookup_db_titledist(_get_record_index(code))
 
@@ -862,7 +773,7 @@ def totitle_full(code):
     if index == -1:
         return [totitle(code)]
     return lookup_special_casing_title(index)
-'''
+''')
     # Decomposition
     decomposition = {}
     for code, char in table.enum_chars():
@@ -1040,30 +951,23 @@ def main():
 
     table = read_unicodedata(files)
     table.upper_lower_from_properties = (version_tuple[0] >= 6)
+
+    outfile = CodeWriter(outfile)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
     print >> outfile
     print >> outfile, 'from rpython.rlib.rarithmetic import r_longlong, r_int32, r_uint32, intmask'
-    print >> outfile, 'from rpython.rtyper.lltypesystem.rffi import r_ushort'
-    print >> outfile
+    print >> outfile, '''\
+from rpython.rlib.unicodedata.supportcode import (signed_ord, _all_short,
+    _all_ushort, _all_int32, _all_uint32, _cjk_prefix, _hangul_prefix,
+    _lookup_hangul, _hangul_L, _hangul_V, _hangul_T)'''
     print >> outfile
     writeUnicodedata(options.unidata_version, version_tuple, table, outfile, options.base)
 
-# next two functions stolen from CPython
+    outfile.print_stats()
 
-def getsize(data):
-    # return smallest possible integer size for the given array
-    maxdata = max(data)
-    mindata = min(data)
-    assert mindata >= 0
-    if maxdata < 256:
-        return 1
-    elif maxdata < 65536:
-        return 2
-    else:
-        return 4
-
+# next function from CPython
 def splitbins(t, trace=1):
     """t, trace=0 -> (t1, t2, shift).  Split a table to save space.
 
@@ -1083,7 +987,7 @@ def splitbins(t, trace=1):
         def dump(t1, t2, shift, bytes):
             print "%d+%d bins at shift %d; %d bytes" % (
                 len(t1), len(t2), shift, bytes)
-        print "Size of original table:", len(t)*getsize(t), "bytes"
+        print "Size of original table:", len(t)*getsize_unsigned(t), "bytes"
     n = len(t)-1    # last valid index
     maxshift = 0    # the most we can shift n and still have something left
     if n > 0:
@@ -1125,7 +1029,7 @@ def _split(t, shift):
             t2.extend(bin)
         t1.append(index >> shift)
     # determine memory size
-    b = len(t1)*getsize(t1) + len(t2)*getsize(t2)
+    b = len(t1)*getsize_unsigned(t1) + len(t2)*getsize_unsigned(t2)
     return t1, t2, b
 
 if __name__ == '__main__':
