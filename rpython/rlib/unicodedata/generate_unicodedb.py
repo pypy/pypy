@@ -606,6 +606,31 @@ def write_composition_data(outfile, table, base_mod):
             composition_data.extend(comp)
             return res
 
+    compositions = []
+    for code, unichar in table.enum_chars():
+        if (not unichar.decomposition or
+            unichar.isCompatibility or
+            unichar.excluded or
+            len(unichar.decomposition) != 2 or
+            table.get_char(unichar.decomposition[0]).combining):
+            continue
+        left, right = unichar.decomposition
+        compositions.append((left, right, code))
+    # map code -> index for left and right
+    left_index = {}
+    right_index = {}
+    for left, right, code in compositions:
+        if left not in left_index:
+            left_index[left] = len(left_index)
+        if right not in right_index:
+            right_index[right] = len(right_index)
+    composition_values = [0] * (len(left_index) * len(right_index))
+    for left, right, code in compositions:
+        composition_values[left_index[left] * len(right_index) + right_index[right]] = code
+
+    print "composition_values"
+    write_pages(outfile, "_comp_pairs_", "_composition", composition_values)
+
     db_records_list = []
     db_records = {}
 
@@ -641,7 +666,7 @@ def write_composition_data(outfile, table, base_mod):
 
         db_record = (prefix_index, decomp_len, decomp,
                 compat_decomp_len, compat_decomp, canon_decomp_len,
-                canon_decomp, combining)
+                canon_decomp, combining, left_index.get(code, -1), right_index.get(code, -1))
         if db_record not in db_records:
             db_records[db_record] = len(db_records)
             db_records_list.append(db_record)
@@ -649,8 +674,25 @@ def write_composition_data(outfile, table, base_mod):
     output_table_columnwise(outfile, "_comp_", db_records_list,
         ("prefix_index", "decomp_len", "decomp", "compat_decomp_len",
             "compat_decomp", "canon_decomp_len", "canon_decomp",
-            "combining"))
+            "combining", "left_index", "right_index"))
+    print "size composition db", len(db_records)
     write_pages(outfile, "_comp_", "_get_comp_index", composition_db_index)
+
+    outfile.print_code("""
+def composition(current, next):
+    l = lookup_comp_left_index(_get_comp_index(current))
+    if l < 0:
+        raise KeyError
+    r = lookup_comp_right_index(_get_comp_index(next))
+    if r < 0:
+        raise KeyError
+    key = l * %s + r
+    result = _composition(key)
+    if result == 0:
+        raise KeyError
+    return result
+""" % len(right_index))
+
     outfile.print_listlike("_composition_prefixes", prefix_list)
     outfile.print_listlike("_composition_data", composition_data[composition_data_startsize:])
     outfile.print_code("""
@@ -908,28 +950,6 @@ def totitle_full(code):
         return [totitle(code)]
     return lookup_special_casing_title(index)
 ''')
-    #d = {decomp: code for code, decomp in decomposition.items()}
-    #from rpython.rlib.unicodedata import dawg
-    #dawg.build_compression_dawg(outfile, d)
-    # Collect the composition pairs.
-    compositions = []
-    for code, unichar in table.enum_chars():
-        if (not unichar.decomposition or
-            unichar.isCompatibility or
-            unichar.excluded or
-            len(unichar.decomposition) != 2 or
-            table.get_char(unichar.decomposition[0]).combining):
-            continue
-        left, right = unichar.decomposition
-        compositions.append((left, right, code))
-    d = {'r_longlong(%5d << 32 | %5d)' % (left, right): '%5d' % code
-        for left, right, code in compositions}
-    outfile.print_dict("_composition", d, outfunc=str)
-    outfile.print_code("""
-def composition(current, next):
-    key = r_longlong(current) << 32 | next
-    return _composition[key]
-""")
 
     # named sequences
     lst = [(u''.join(unichr(c) for c in chars)).encode("utf-8")
@@ -1019,6 +1039,9 @@ def main():
 
     table = read_unicodedata(files)
     table.upper_lower_from_properties = (version_tuple[0] >= 6)
+
+    print "_" * 60
+    print "starting", options.unidata_version
 
     outfile = CodeWriter(outfile)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
