@@ -55,6 +55,41 @@ class CodeWriter(object):
         if not lst:
             self.print_code("def %s(index): raise KeyError" % (name, ))
             return
+
+        length = len(lst)
+        first = lst[0]
+        for start in range(1, length):
+            if lst[start] != first:
+                break
+        if start == length - 1:
+            # constant function
+            self.print_code("""
+def %s(index):
+    if 0 <= index < %s: return %s
+    raise KeyError
+""" % (name, length, first))
+            return
+
+        last = lst[-1]
+        for stop in range(length - 1, -1, -1):
+            if lst[stop] != last:
+                break
+        if start + length - stop > 20:
+            self.print_code("""
+def %(name)s(index):
+    if %(start)s <= index <= %(stop)s:
+        return %(name)s_middle(index - %(start)s)
+    if index < %(start)s:
+        return %(first)s
+    if index < %(length)s:
+        return %(last)s
+    raise KeyError
+""" % dict(name=name, start=start, stop=stop, first=first, last=last, length=length))
+            name = name + "_middle"
+            lst = lst[start:stop+1]
+            if not lst:
+                import pdb; pdb.set_trace()
+
         if not all(type(x) is int for x in lst):
             print >> self.outfile, '_%s = [' % (name, )
             for val in lst:
