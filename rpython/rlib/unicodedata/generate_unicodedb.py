@@ -581,12 +581,26 @@ def get_index(d, l, key):
 def write_composition_data(outfile, table, base_mod):
     composition_data_index = {}
     composition_data = []
+    if base_mod is not None:
+        i = 0
+        while 1:
+            try:
+                composition_data.append(base_mod._composition_data(i))
+            except IndexError:
+                break
+            i += 1
+        for length in range(1, 20):
+            for startindex in range(len(composition_data) - length + 1):
+                key = tuple(composition_data[startindex: startindex + length])
+                composition_data_index[key] = startindex
+    composition_data_startsize = len(composition_data)
 
     def get_index_comp(comp):
         key = tuple(comp)
         try:
             return composition_data_index[key]
         except KeyError:
+            # XXX add sub-sections of the data too
             res = len(composition_data)
             composition_data_index[key] = res
             composition_data.extend(comp)
@@ -638,7 +652,15 @@ def write_composition_data(outfile, table, base_mod):
             "combining"))
     write_pages(outfile, "_comp_", "_get_comp_index", composition_db_index)
     outfile.print_listlike("_composition_prefixes", prefixes)
-    outfile.print_listlike("_composition_data", composition_data)
+    outfile.print_listlike("_composition_data", composition_data[composition_data_startsize:])
+    outfile.print_code("""
+def composition_data(index):
+    if index < %s:
+        assert base_mod is not None
+        return base_mod._composition_data(index)
+    return _composition_data(index - %s)
+    """ % (composition_data_startsize, composition_data_startsize))
+
     outfile.print_code("""
 def decomposition(code):
     index = _get_comp_index(code)
@@ -649,7 +671,7 @@ def decomposition(code):
         res = []
     start = lookup_comp_decomp(index)
     for i in range(lookup_comp_decomp_len(index)):
-        s = hex(_composition_data(start + i))[2:].upper()
+        s = hex(composition_data(start + i))[2:].upper()
         if len(s) < 4:
             s = "0" * (4 - len(s)) + s
         res.append(s)
@@ -661,7 +683,7 @@ def canon_decomposition(code):
     res = [0] * length
     start = lookup_comp_canon_decomp(index)
     for i in range(length):
-        res.append(_composition_data(start + i))
+        res.append(composition_data(start + i))
     return res
 
 def compat_decomposition(code):
@@ -670,7 +692,7 @@ def compat_decomposition(code):
     res = [0] * length
     start = lookup_comp_compat_decomp(index)
     for i in range(length):
-        res.append(_composition_data(start + i))
+        res.append(composition_data(start + i))
     return res
 """)
 
@@ -776,7 +798,7 @@ def writeUnicodedata(version, version_tuple, table, outfile, base):
     else:
         raise ValueError("please look up CJK ranges and fix the script, e.g. here: https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)")
 
-    write_composition_data(outfile, table, outfile)
+    write_composition_data(outfile, table, base_mod)
 
     write_character_names(outfile, table, base_mod)
 
