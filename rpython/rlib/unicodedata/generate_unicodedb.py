@@ -651,7 +651,7 @@ def write_composition_data(outfile, table, base_mod):
             "compat_decomp", "canon_decomp_len", "canon_decomp",
             "combining"))
     write_pages(outfile, "_comp_", "_get_comp_index", composition_db_index)
-    outfile.print_listlike("_composition_prefixes", prefixes)
+    outfile.print_listlike("_composition_prefixes", prefix_list)
     outfile.print_listlike("_composition_data", composition_data[composition_data_startsize:])
     outfile.print_code("""
 def composition_data(index):
