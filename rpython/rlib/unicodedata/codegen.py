@@ -63,6 +63,8 @@ class CodeWriter(object):
                 print >> self.outfile, '%r,' % val
             print >> self.outfile, ']'
             print >> self.outfile
+            size = len(lst) * WORDSIZE + WORDSIZE * 2
+            self._estimate_any(name, size, category)
             return ''
         itemsize, unsigned = get_size_unsignedness(lst)
         chunksize = 64
@@ -105,7 +107,7 @@ class CodeWriter(object):
         print >> self.outfile, "]"
         print >> self.outfile, "%s = %s(%s)" % (name, conv_func, name)
         
-        size = len(lst) * itemsize + WORDSIZE
+        size = len(lst) * itemsize + WORDSIZE * 2
         self._estimate(name, size, category)
         return unwrapfunc
 
