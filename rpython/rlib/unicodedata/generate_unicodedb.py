@@ -349,23 +349,39 @@ def read_unihan(unihan_file):
 
 DUMMY = object()
 
-def writeDict(outfile, name, dictionary, base_mod):
-    if base_mod:
-        base_dict = getattr(base_mod, name)
-    else:
-        base_dict = {}
+def writeDict(outfile, name, dictionary, base_mod, default):
+    dictname = "_" + name
+    if not base_mod:
+        outfile.print_dict(dictname, dictionary)
+        outfile.print_code('''
+def %(name)s(code):
+    return _%(name)s.get(code, %(default)r)''' % dict(
+            name=name, default=default))
+        return
+    base_dict = getattr(base_mod, dictname)
     items = {key: value for key, value in dictionary.iteritems()
             if base_dict.get(key, DUMMY) != value}
-    outfile.print_dict(name, items)
-    if base_mod:
-        corrected = {key for key in base_dict if key not in dictionary}
-        if len(corrected) == 0:
-            # use an empty list. 'in' works as well, and rpython is better able to
-            # reason about global lists than dicts (the immutability of dicts is
-            # not tracked)
-            print >> outfile, '%s_corrected = []' % name
-            return
-        outfile.print_set(name + "_corrected", corrected)
+    outfile.print_dict(dictname, items)
+    corrected = {key for key in base_dict if key not in dictionary}
+    if len(corrected) == 0:
+        outfile.print_code('''
+def %(name)s(code):
+    try:
+        return _%(name)s[code]
+    except KeyError:
+        return base_mod._%(name)s.get(code, %(default)r)''' % dict(
+        name=name, default=default))
+        return
+    outfile.print_set("_" + name + "_corrected", corrected)
+    outfile.print_code('''
+def %(name)s(code):
+    try:
+        return _%(name)s[code]
+    except KeyError:
+        if code not in _%(name)s_corrected:
+            return base_mod._%(name)s.get(code, %(default)r)
+        else:
+            return %(default)r''' % dict(name=name, default=default))
 
 
 class Cache:
@@ -388,21 +404,13 @@ def output_table_columnwise(outfile, prefix, l, column_headers):
     for tupindex, name in enumerate(column_headers):
         columndata = [record[tupindex] for record in l]
         if not columndata:
-            print >> outfile, 'def lookup%s%s(index): assert 0' % (prefix, name)
+            outfile.print_code('def lookup%s%s(index): assert 0' % (prefix, name))
             continue
-        if all(type(x) is int for x in columndata):
-            unwrapfunc = outfile.print_listlike(prefix + name, columndata)
-        else:
-            unwrapfunc = ''
-            print >> outfile, '%s%s = [' % (prefix, name)
-            for val in columndata:
-                print >> outfile, '%r,' % val
-            print >> outfile, ']'
-            print >> outfile
-        print >> outfile, """\
+        unwrapfunc = outfile.print_listlike(prefix + name, columndata)
+        outfile.print_code("""\
 def lookup%s%s(index):
     return %s(%s%s[index])
-""" % (prefix, name, unwrapfunc, prefix, name, )
+""" % (prefix, name, unwrapfunc, prefix, name, ))
 
 def write_pages(outfile, prefix, lookupfuncname, data):
     pgtbl, pages, pgbits = splitbins(data)
@@ -411,10 +419,10 @@ def write_pages(outfile, prefix, lookupfuncname, data):
     unwrapfunc = "intmask"
     unwrapfunc1 = outfile.print_listlike(prefix + "pgtbl", pgtbl)
     unwrapfunc2 = outfile.print_listlike(prefix + "pages", pages)
-    print >> outfile, '''
+    outfile.print_code('''
 def _get_record_index(code):
     return %s(%spages[(%s(%spgtbl[code >> %d]) << %d) + (code & %d)])
-'''%(unwrapfunc2, prefix, unwrapfunc1, prefix, pgbits, pgbits, bytemask)
+'''%(unwrapfunc2, prefix, unwrapfunc1, prefix, pgbits, pgbits, bytemask))
 
 def writeDbRecord(outfile, table, base_mod):
     IS_SPACE = 1
@@ -525,26 +533,26 @@ def writeDbRecord(outfile, table, base_mod):
 
     data = [char.db_record_index for code, char in table.enum_chars()]
     write_pages(outfile, "_db_", "_get_record_index", data)
-    print >> outfile, 'def category(code): return lookup_db_category(_get_record_index(code))'
-    print >> outfile, 'def bidirectional(code): return lookup_db_bidirectional(_get_record_index(code))'
-    print >> outfile, 'def east_asian_width(code): return lookup_db_east_asian_width(_get_record_index(code))'
-    print >> outfile, 'def isspace(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_SPACE
-    print >> outfile, 'def isalpha(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_ALPHA
-    print >> outfile, 'def islinebreak(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_LINEBREAK
-    print >> outfile, 'def isnumeric(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_NUMERIC
-    print >> outfile, 'def isdigit(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_DIGIT
-    print >> outfile, 'def isdecimal(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_DECIMAL
-    print >> outfile, 'def isalnum(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_ALPHA | IS_NUMERIC)
-    print >> outfile, 'def isupper(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_UPPER
-    print >> outfile, 'def istitle(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_TITLE
-    print >> outfile, 'def islower(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_LOWER
-    print >> outfile, 'def iscased(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER)
-    print >> outfile, 'def isxidstart(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_XID_START)
-    print >> outfile, 'def isxidcontinue(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_XID_CONTINUE)
-    print >> outfile, 'def isprintable(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_PRINTABLE
-    print >> outfile, 'def mirrored(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_MIRRORED
-    print >> outfile, 'def iscaseignorable(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_CASE_IGNORABLE
-    print >> outfile, '''\
+    outfile.print_code('def category(code): return lookup_db_category(_get_record_index(code))')
+    outfile.print_code('def bidirectional(code): return lookup_db_bidirectional(_get_record_index(code))')
+    outfile.print_code('def east_asian_width(code): return lookup_db_east_asian_width(_get_record_index(code))')
+    outfile.print_code('def isspace(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_SPACE)
+    outfile.print_code('def isalpha(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_ALPHA)
+    outfile.print_code('def islinebreak(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_LINEBREAK)
+    outfile.print_code('def isnumeric(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_NUMERIC)
+    outfile.print_code('def isdigit(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_DIGIT)
+    outfile.print_code('def isdecimal(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_DECIMAL)
+    outfile.print_code('def isalnum(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_ALPHA | IS_NUMERIC))
+    outfile.print_code('def isupper(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_UPPER)
+    outfile.print_code('def istitle(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_TITLE)
+    outfile.print_code('def islower(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_LOWER)
+    outfile.print_code('def iscased(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER))
+    outfile.print_code('def isxidstart(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_XID_START))
+    outfile.print_code('def isxidcontinue(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_XID_CONTINUE))
+    outfile.print_code('def isprintable(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_PRINTABLE)
+    outfile.print_code('def mirrored(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_MIRRORED)
+    outfile.print_code('def iscaseignorable(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_CASE_IGNORABLE)
+    outfile.print_code('''
 def decimal(code):
     if isdecimal(code):
         return lookup_db_decimal(_get_record_index(code))
@@ -563,7 +571,7 @@ def numeric(code):
     else:
         raise KeyError
 
-'''
+''')
 
 def write_character_names(outfile, table, base_mod):
     from rpython.rlib.unicodedata import dawg
@@ -574,12 +582,12 @@ def write_character_names(outfile, table, base_mod):
     sorted_names_codes = sorted(names.iteritems())
     if base_mod is None:
         dawg.build_compression_dawg(outfile, names)
-        print >> outfile, "# the following dictionary is used by modules that take this as a base"
-        print >> outfile, "# only used by generate_unicodedb, not after translation"
-        print >> outfile, "_orig_names = {"
+        outfile.print_code("# the following dictionary is used by modules that take this as a base")
+        outfile.print_code("# only used by generate_unicodedb, not after translation")
+        outfile.print_code("_orig_names = {")
         for name, code in sorted_names_codes:
-            print >> outfile, "%r: %r," % (name, code)
-        print >> outfile, "}"
+            outfile.print_code("%r: %r," % (name, code))
+        outfile.print_code("}")
     else:
         corrected_names = []
 
@@ -668,7 +676,7 @@ def writeUnicodedata(version, version_tuple, table, outfile, base):
 
     write_character_names(outfile, table, base_mod)
 
-    outfile.write_code('''
+    outfile.print_code('''
 def _lookup_cjk(cjk_code):
     if len(cjk_code) != 4 and len(cjk_code) != 5:
         raise KeyError
@@ -726,7 +734,7 @@ def name(code):
 
     # Categories
     writeDbRecord(outfile, table, base_mod)
-    outfile.write_code('''
+    outfile.print_code('''
 def toupper(code):
     if code < 128:
         if ord('a') <= code <= ord('z'):
@@ -743,7 +751,7 @@ def tolower(code):
 
 def totitle(code):
     if code < 128:
-        if ord('A') <= code <= ord('Z'):
+        if ord('a') <= code <= ord('z'):
             return code - 32
         return code
     return code - lookup_db_titledist(_get_record_index(code))
@@ -779,17 +787,7 @@ def totitle_full(code):
     for code, char in table.enum_chars():
         if char.raw_decomposition:
             decomposition[code] = char.raw_decomposition
-    writeDict(outfile, '_raw_decomposition', decomposition, base_mod)
-    print >> outfile, '''
-def decomposition(code):
-    try:
-        return _raw_decomposition[code]
-    except KeyError:
-        if base_mod is not None and code not in _raw_decomposition_corrected:
-            return base_mod._raw_decomposition.get(code, '')
-        else:
-            return ''
-'''
+    writeDict(outfile, 'decomposition', decomposition, base_mod, '')
     # Collect the composition pairs.
     compositions = []
     for code, unichar in table.enum_chars():
@@ -801,64 +799,46 @@ def decomposition(code):
             continue
         left, right = unichar.decomposition
         compositions.append((left, right, code))
-    print >> outfile, '_composition = {'
-    for left, right, code in compositions:
-        print >> outfile, 'r_longlong(%5d << 32 | %5d): %5d,' % (
-            left, right, code)
-    print >> outfile, '}'
-    print >> outfile
+    d = {'r_longlong(%5d << 32 | %5d)' % (left, right): '%5d' % code
+        for left, right, code in compositions}
+    outfile.print_dict("_composition", d, outfunc=str)
+    outfile.print_code("""
+def composition(current, next):
+    key = r_longlong(current) << 32 | next
+    return _composition[key]
+""")
 
     decomposition = {}
     for code, char in table.enum_chars():
         if char.canonical_decomp:
             decomposition[code] = char.canonical_decomp
-    writeDict(outfile, '_canon_decomposition', decomposition, base_mod)
+    writeDict(outfile, 'canon_decomposition', decomposition, base_mod, [])
 
     decomposition = {}
     for code, char in table.enum_chars():
         if char.compat_decomp:
             decomposition[code] = char.compat_decomp
-    writeDict(outfile, '_compat_decomposition', decomposition, base_mod)
-    print >> outfile, '''
-def canon_decomposition(code):
-    try:
-        return _canon_decomposition[code]
-    except KeyError:
-        if base_mod is not None and code not in _canon_decomposition_corrected:
-            return base_mod._canon_decomposition.get(code, [])
-        else:
-            return []
-def compat_decomposition(code):
-    try:
-        return _compat_decomposition[code]
-    except KeyError:
-        if base_mod is not None and code not in _compat_decomposition_corrected:
-            return base_mod._compat_decomposition.get(code, [])
-        else:
-            return []
-
-'''
+    writeDict(outfile, 'compat_decomposition', decomposition, base_mod, [])
 
     # named sequences
-    print >> outfile, '_named_sequences = ['
-    for name, chars in table.named_sequences:
-        print >> outfile, "%r," % (u''.join(unichr(c) for c in chars))
-    print >> outfile, ']'
-    print >> outfile, '''
+    lst = [(u''.join(unichr(c) for c in chars)).encode("utf-8")
+        for _, chars in table.named_sequences]
+    outfile.print_listlike("_named_sequences", lst)
+    outfile.print_code('''
 
 def lookup_named_sequence(code):
     if 0 <= code - %(start)s < len(_named_sequences):
         return _named_sequences[code - %(start)s]
     else:
         return None
-''' % dict(start=table.NAMED_SEQUENCES_START)
+''' % dict(start=table.NAMED_SEQUENCES_START))
 
     # aliases
     print >> outfile, '_name_aliases = ['
     for name, char in table.aliases:
         print >> outfile, "%s," % (char,)
     print >> outfile, ']'
-    print >> outfile, '''
+    outfile.print_code('''
 
 def lookup_with_alias(name, with_named_sequence=False):
     code = lookup(name, with_named_sequence=with_named_sequence)
@@ -866,7 +846,7 @@ def lookup_with_alias(name, with_named_sequence=False):
         return _name_aliases[code - %(start)s]
     else:
         return code
-''' % dict(start=table.NAME_ALIASES_START)
+''' % dict(start=table.NAME_ALIASES_START))
 
     casefolds = {}
     for code, char in table.enum_chars():
@@ -881,36 +861,13 @@ def lookup_with_alias(name, with_named_sequence=False):
         # Is that the right answer?
         if full_casefold != [full_lower]:
             casefolds[code] = full_casefold
-    writeDict(outfile, '_casefolds', casefolds, base_mod)
-    print >> outfile, '''
-
-def casefold_lookup(code):
-    try:
-        return _casefolds[code]
-    except KeyError:
-        if base_mod is not None and code not in _casefolds_corrected:
-            return base_mod._casefolds.get(code, None)
-        else:
-            return None
-'''
+    writeDict(outfile, 'casefold_lookup', casefolds, base_mod, None)
 
     combining = {}
     for code, char in table.enum_chars():
         if char.combining:
             combining[code] = char.combining
-    writeDict(outfile, '_combining', combining, base_mod)
-    print >> outfile, '''
-
-def combining(code):
-    try:
-        return _combining[code]
-    except KeyError:
-        if base_mod is not None and code not in _combining_corrected:
-            return base_mod._combining.get(code, 0)
-        else:
-            return 0
-'''
-
+    writeDict(outfile, 'combining', combining, base_mod, 0)
 
 def main():
     import sys

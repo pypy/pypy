@@ -167,3 +167,52 @@ def test_era_reiwa():
 def test_unicode13():
     assert unicodedb_13_0_0.name(0x1fa97) == 'ACCORDION'
     assert unicodedb_13_0_0.name(0xd04) == 'MALAYALAM LETTER VEDIC ANUSVARA'
+
+def test_unicode13_composition():
+    # some random checks to see that stuff didn't completely break
+    s = """
+65 777 7842
+65 772 256
+69 803 7864
+69 785 518
+73 775 304
+73 774 300
+73 816 7724
+75 807 310
+76 769 313
+79 795 416
+79 772 332
+79 770 212
+79 779 336
+85 770 219
+85 771 360
+89 776 376
+97 778 229
+97 803 7841
+105 816 7725
+105 776 239
+110 769 324
+111 808 491
+117 769 250
+119 776 7813
+212 777 7892
+416 769 7898
+491 772 493
+913 788 7945
+953 776 970
+1069 776 1260
+1140 783 1142
+1610 1620 1574
+6929 6965 6930
+7945 837 8073
+8805 824 8817
+8827 824 8833
+69938 69927 69935"""
+    l = []
+    for line in s.strip().splitlines():
+        a, b, x = line.split()
+        l.append((int(a), int(b), int(x)))
+
+    for a, b, x in l:
+        assert unicodedb_13_0_0.composition(a, b) == x
+

@@ -52,6 +52,18 @@ class CodeWriter(object):
         print "python code [source KiB]", kib(self.size_estimates['code'])
         
     def print_listlike(self, name, lst, category=None):
+        if not lst:
+            print >> self.outfile, '%s = []' % (name, )
+            return
+        if not all(type(x) is int for x in lst):
+            unwrapfunc = ''
+            print >> self.outfile, '%s = [' % (name, )
+            for val in lst:
+                self._estimate_any(name, val, category)
+                print >> self.outfile, '%r,' % val
+            print >> self.outfile, ']'
+            print >> self.outfile
+            return ''
         itemsize, unsigned = get_size_unsignedness(lst)
         chunksize = 64
         if itemsize == 1:
@@ -106,14 +118,14 @@ class CodeWriter(object):
             print >> self.outfile, repr(string[i : i + chunksize])
         print >> self.outfile, ")"
 
-    def print_dict(self, name, d, category=None):
+    def print_dict(self, name, d, category=None, outfunc=repr):
         items = d.items()
         items.sort()
         print >> self.outfile, '%s = {' % name
         for key, value in items:
             self._estimate_any(name, key, category)
             self._estimate_any(name, value, category)
-            print >> self.outfile, '%r: %r,' % (key, value)
+            print >> self.outfile, '%s: %s,' % (outfunc(key), outfunc(value))
         # tough to estimate size, just use something
         size = len(d) * 16 + WORDSIZE * 4
         self._estimate(name, size, category)
@@ -136,18 +148,24 @@ class CodeWriter(object):
         self._estimate("unknown", len(s))
         return self.outfile.write(s)
 
-    def write_code(self, s):
+    def print_code(self, s):
         self._estimate("code", len(s))
-        return self.outfile.write(s)
+        print >> self.outfile, s
 
     def _estimate_any(self, name, obj, category):
         if isinstance(obj, str):
             return self._estimate_string(name, obj, category)
         if isinstance(obj, int):
             return self._estimate(name, WORDSIZE, category)
+        if isinstance(obj, float):
+            return self._estimate(name, WORDSIZE, category)
         if isinstance(obj, list):
+            for elt in obj:
+                if not isinstance(elt, int):
+                    return self._estimate(name, elt, category)
             return self._estimate(name, WORDSIZE * (len(obj) + 1), category)
-        import pdb; pdb.set_trace()
+        print "unknown type", obj
+        #import pdb; pdb.set_trace()
 
     def _estimate_string(self, name, string, category=None):
         # size estimate for 64 bit, hash plus GC
