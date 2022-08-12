@@ -402,6 +402,9 @@ def _match_edge(packed, s, size, node_offset, stringpos):
     return True
 
 def lookup(packed, data, s):
+    return data[_lookup(packed, s)]
+
+def _lookup(packed, s):
     stringpos = 0
     node_offset = 0
     skipped = 0  # keep track of number of final nodes that we skipped
@@ -428,7 +431,7 @@ def lookup(packed, data, s):
             edge_offset = edgelabel_chars_offset + size
     node_count, final, _ = decode_node(packed, node_offset)
     if final:
-        return data[skipped]
+        return skipped
     raise KeyError
 
 def inverse_lookup(packed, inverse, x):
@@ -526,12 +529,12 @@ def build_compression_dawg(outfile, ucdata):
         d.insert(name, value)
     packed, pos_to_code = d.finish()
     print "size of dawg [KiB]", round(len(packed) / 1024, 2), len(pos_to_code)
-    print >> outfile, "from rpython.rlib.unicodedata.dawg import lookup as _dawg_lookup, _inverse_lookup"
+    print >> outfile, "from rpython.rlib.unicodedata.dawg import _lookup as _dawg_lookup, _inverse_lookup"
     print >> outfile, "packed_dawg = ("
     print >> outfile, d.packed_pp
     print >> outfile, ")"
     outfile._estimate_string("dawg", bytes(d.packed))
-    unwrapfunc = outfile.print_listlike("pos_to_code", pos_to_code, "dawg pos_to_code")
+    outfile.print_listlike("pos_to_code", pos_to_code, "dawg pos_to_code")
 
     print >> outfile, """
 def lookup_charcode(c):
@@ -539,8 +542,8 @@ def lookup_charcode(c):
     return _inverse_lookup(packed_dawg, pos)
 
 def dawg_lookup(n):
-    return %s(_dawg_lookup(packed_dawg, pos_to_code, n))
-    """ % unwrapfunc
+    return pos_to_code(_dawg_lookup(packed_dawg, n))
+    """
 
 
     function = ["def _charcode_to_pos(code):", "    res = -1"]
@@ -564,10 +567,10 @@ def dawg_lookup(n):
                 lst.append(reversedict[code])
             else:
                 lst.append(-1)
-        unwrapfunc = outfile.print_listlike(name, lst, "dawg inverse")
+        outfile.print_listlike(name, lst, "dawg inverse")
         function.append(
-            "    %sif %d <= code <= %d: res = %s(%s[code-%d])" % (
-            prefix, low, high, unwrapfunc, name, low))
+            "    %sif %d <= code <= %d: res = %s(code-%d)" % (
+            prefix, low, high, name, low))
         prefix = "el"
 
         

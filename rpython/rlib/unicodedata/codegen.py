@@ -53,11 +53,10 @@ class CodeWriter(object):
         
     def print_listlike(self, name, lst, category=None):
         if not lst:
-            print >> self.outfile, '%s = []' % (name, )
+            self.print_code("def %s(index): raise KeyError" % (name, ))
             return
         if not all(type(x) is int for x in lst):
-            unwrapfunc = ''
-            print >> self.outfile, '%s = [' % (name, )
+            print >> self.outfile, '_%s = [' % (name, )
             for val in lst:
                 self._estimate_any(name, val, category)
                 print >> self.outfile, '%r,' % val
@@ -65,7 +64,8 @@ class CodeWriter(object):
             print >> self.outfile
             size = len(lst) * WORDSIZE + WORDSIZE * 2
             self._estimate_any(name, size, category)
-            return ''
+            self.print_code("def %s(index): return _%s[index]" % (name, name))
+            return
         itemsize, unsigned = get_size_unsignedness(lst)
         chunksize = 64
         if itemsize == 1:
@@ -75,8 +75,9 @@ class CodeWriter(object):
             else:
                 unwrapfunc = "signed_ord"
             self.print_string(
-                name, "".join(chr(c & 0xff) for c in lst), category)
-            return unwrapfunc
+                "_" + name, "".join(chr(c & 0xff) for c in lst), category)
+            self.print_code("def %s(index): return %s(_%s[index])" % (name, unwrapfunc, name))
+            return
         unwrapfunc = "intmask"
         if itemsize == 2:
             if unsigned:
@@ -93,7 +94,7 @@ class CodeWriter(object):
             else:
                 typ = r_int32
                 conv_func = "_all_int32"
-        print >> self.outfile, "%s = [" % name
+        print >> self.outfile, "_%s = [" % name
         chunksize = 16
         res = []
         for element in lst:
@@ -105,11 +106,12 @@ class CodeWriter(object):
         if res:
             print >> self.outfile, ", ".join(res) + ","
         print >> self.outfile, "]"
-        print >> self.outfile, "%s = %s(%s)" % (name, conv_func, name)
+        print >> self.outfile, "_%s = %s(_%s)" % (name, conv_func, name)
         
         size = len(lst) * itemsize + WORDSIZE * 2
         self._estimate(name, size, category)
-        return unwrapfunc
+        self.print_code("def %s(index): return %s(_%s[index])" % (name, unwrapfunc, name))
+        return
 
     def print_string(self, name, string, category=None):
         chunksize = 20
@@ -166,7 +168,7 @@ class CodeWriter(object):
                 if not isinstance(elt, int):
                     return self._estimate(name, elt, category)
             return self._estimate(name, WORDSIZE * (len(obj) + 1), category)
-        print "unknown type", obj
+        #print "unknown type", obj
         #import pdb; pdb.set_trace()
 
     def _estimate_string(self, name, string, category=None):

@@ -406,23 +406,18 @@ def output_table_columnwise(outfile, prefix, l, column_headers):
         if not columndata:
             outfile.print_code('def lookup%s%s(index): assert 0' % (prefix, name))
             continue
-        unwrapfunc = outfile.print_listlike(prefix + name, columndata)
-        outfile.print_code("""\
-def lookup%s%s(index):
-    return %s(%s%s[index])
-""" % (prefix, name, unwrapfunc, prefix, name, ))
+        outfile.print_listlike("lookup" + prefix + name, columndata)
 
 def write_pages(outfile, prefix, lookupfuncname, data):
     pgtbl, pages, pgbits = splitbins(data)
     pgsize = 1 << pgbits
     bytemask = ~(-1 << pgbits)
-    unwrapfunc = "intmask"
-    unwrapfunc1 = outfile.print_listlike(prefix + "pgtbl", pgtbl)
-    unwrapfunc2 = outfile.print_listlike(prefix + "pages", pages)
+    outfile.print_listlike(prefix + "pgtbl", pgtbl)
+    outfile.print_listlike(prefix + "pages", pages)
     outfile.print_code('''
-def _get_record_index(code):
-    return %s(%spages[(%s(%spgtbl[code >> %d]) << %d) + (code & %d)])
-'''%(unwrapfunc2, prefix, unwrapfunc1, prefix, pgbits, pgbits, bytemask))
+def %s(code):
+    return %spages((%spgtbl(code >> %d) << %d) + (code & %d))
+'''%(lookupfuncname, prefix, prefix, pgbits, pgbits, bytemask))
 
 def writeDbRecord(outfile, table, base_mod):
     IS_SPACE = 1
@@ -531,6 +526,7 @@ def writeDbRecord(outfile, table, base_mod):
             "digit", "upperdist", "lowerdist", "titledist", "special_casing_index",
             "flags"))
 
+    print "number db entries:", len(db_records)
     data = [char.db_record_index for code, char in table.enum_chars()]
     write_pages(outfile, "_db_", "_get_record_index", data)
     outfile.print_code('def category(code): return lookup_db_category(_get_record_index(code))')
@@ -572,6 +568,112 @@ def numeric(code):
         raise KeyError
 
 ''')
+
+def get_index(d, l, key):
+    try:
+        return d[key]
+    except KeyError:
+        res = len(l)
+        d[key] = res
+        l.append(key)
+        return res
+
+def write_composition_data(outfile, table, base_mod):
+    composition_data_index = {}
+    composition_data = []
+
+    def get_index_comp(comp):
+        key = tuple(comp)
+        try:
+            return composition_data_index[key]
+        except KeyError:
+            res = len(composition_data)
+            composition_data_index[key] = res
+            composition_data.extend(comp)
+            return res
+
+    db_records_list = []
+    db_records = {}
+
+    prefixes = {'': 0}
+    prefix_list = ['']
+
+    composition_db_index = []
+
+    for code, char in table.enum_chars():
+        prefix_index = 0
+        decomp_len = 0
+        decomp = 0
+        compat_decomp = 0
+        compat_decomp_len = 0
+        canon_decomp = 0
+        canon_decomp_len = 0
+        combining = 0
+        if char.raw_decomposition:
+            if char.isCompatibility:
+                index = char.raw_decomposition.index("> ")
+                prefix = char.raw_decomposition[:index + 1]
+                prefix_index = get_index(prefixes, prefix_list, prefix)
+            decomp = get_index_comp(char.decomposition)
+            decomp_len = len(char.decomposition)
+        if char.compat_decomp:
+            compat_decomp = get_index_comp(char.compat_decomp)
+            compat_decomp_len = len(char.compat_decomp)
+        if char.canonical_decomp:
+            canon_decomp = get_index_comp(char.canonical_decomp)
+            canon_decomp_len = len(char.canonical_decomp)
+        if char.combining:
+            combining = char.combining
+
+        db_record = (prefix_index, decomp_len, decomp,
+                compat_decomp_len, compat_decomp, canon_decomp_len,
+                canon_decomp, combining)
+        if db_record not in db_records:
+            db_records[db_record] = len(db_records)
+            db_records_list.append(db_record)
+        composition_db_index.append(db_records[db_record])
+    output_table_columnwise(outfile, "_comp_", db_records_list,
+        ("prefix_index", "decomp_len", "decomp", "compat_decomp_len",
+            "compat_decomp", "canon_decomp_len", "canon_decomp",
+            "combining"))
+    write_pages(outfile, "_comp_", "_get_comp_index", composition_db_index)
+    outfile.print_listlike("_composition_prefixes", prefixes)
+    outfile.print_listlike("_composition_data", composition_data)
+    outfile.print_code("""
+def decomposition(code):
+    index = _get_comp_index(code)
+    prefix = _composition_prefixes(lookup_comp_prefix_index(index))
+    if prefix:
+        res = [prefix]
+    else:
+        res = []
+    start = lookup_comp_decomp(index)
+    for i in range(lookup_comp_decomp_len(index)):
+        s = hex(_composition_data(start + i))[2:].upper()
+        if len(s) < 4:
+            s = "0" * (4 - len(s)) + s
+        res.append(s)
+    return " ".join(res)
+
+def canon_decomposition(code):
+    index = _get_comp_index(code)
+    length = lookup_comp_canon_decomp_len(index)
+    res = [0] * length
+    start = lookup_comp_canon_decomp(index)
+    for i in range(length):
+        res.append(_composition_data(start + i))
+    return res
+
+def compat_decomposition(code):
+    index = _get_comp_index(code)
+    length = lookup_comp_compat_decomp_len(index)
+    res = [0] * length
+    start = lookup_comp_compat_decomp(index)
+    for i in range(length):
+        res.append(_composition_data(start + i))
+    return res
+""")
+
 
 def write_character_names(outfile, table, base_mod):
     from rpython.rlib.unicodedata import dawg
@@ -673,6 +775,8 @@ def writeUnicodedata(version, version_tuple, table, outfile, base):
                         " 0x2CEB0 <= code <= 0x2EBE0)")
     else:
         raise ValueError("please look up CJK ranges and fix the script, e.g. here: https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)")
+
+    write_composition_data(outfile, table, outfile)
 
     write_character_names(outfile, table, base_mod)
 
@@ -782,12 +886,9 @@ def totitle_full(code):
         return [totitle(code)]
     return lookup_special_casing_title(index)
 ''')
-    # Decomposition
-    decomposition = {}
-    for code, char in table.enum_chars():
-        if char.raw_decomposition:
-            decomposition[code] = char.raw_decomposition
-    writeDict(outfile, 'decomposition', decomposition, base_mod, '')
+    #d = {decomp: code for code, decomp in decomposition.items()}
+    #from rpython.rlib.unicodedata import dawg
+    #dawg.build_compression_dawg(outfile, d)
     # Collect the composition pairs.
     compositions = []
     for code, unichar in table.enum_chars():
@@ -808,18 +909,6 @@ def composition(current, next):
     return _composition[key]
 """)
 
-    decomposition = {}
-    for code, char in table.enum_chars():
-        if char.canonical_decomp:
-            decomposition[code] = char.canonical_decomp
-    writeDict(outfile, 'canon_decomposition', decomposition, base_mod, [])
-
-    decomposition = {}
-    for code, char in table.enum_chars():
-        if char.compat_decomp:
-            decomposition[code] = char.compat_decomp
-    writeDict(outfile, 'compat_decomposition', decomposition, base_mod, [])
-
     # named sequences
     lst = [(u''.join(unichr(c) for c in chars)).encode("utf-8")
         for _, chars in table.named_sequences]
@@ -827,11 +916,11 @@ def composition(current, next):
     outfile.print_code('''
 
 def lookup_named_sequence(code):
-    if 0 <= code - %(start)s < len(_named_sequences):
-        return _named_sequences[code - %(start)s]
+    if 0 <= code - %(start)s < %(len)s:
+        return _named_sequences(code - %(start)s)
     else:
         return None
-''' % dict(start=table.NAMED_SEQUENCES_START))
+''' % dict(start=table.NAMED_SEQUENCES_START, len=len(lst)))
 
     # aliases
     print >> outfile, '_name_aliases = ['
