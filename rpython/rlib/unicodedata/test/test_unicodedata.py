@@ -104,6 +104,9 @@ class TestUnicodeData(object):
         # Only lookup who cannot be resolved by `lower` are stored in database
         assert unicodedb_3_2_0.casefold_lookup(ord('E')) == None
 
+    def test_canon_decomposition_bug(self):
+        assert unicodedb_3_2_0.canon_decomposition(296) == [73, 771]
+
 
 class TestUnicodeData600(object):
 

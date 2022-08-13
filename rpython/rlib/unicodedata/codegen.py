@@ -16,7 +16,7 @@ def get_size_unsignedness(data):
         assert maxdata < 2 ** 64
         for size in [1, 2, 4, 8]:
             bits = size * 8 - 1
-            if -2 ** bits - 1 <= mindata and maxdata < 2 ** bits:
+            if -2 ** bits <= mindata and maxdata < 2 ** bits:
                 return size, False
     else:
         if not maxdata < 2 ** 64:
@@ -58,10 +58,11 @@ class CodeWriter(object):
 
         length = len(lst)
         first = lst[0]
+        start = 0
         for start in range(1, length):
             if lst[start] != first:
                 break
-        if start == length - 1:
+        else:
             # constant function
             self.print_code("""
 def %s(index):
@@ -71,9 +72,12 @@ def %s(index):
             return
 
         last = lst[-1]
+        stop = length
         for stop in range(length - 1, -1, -1):
             if lst[stop] != last:
                 break
+        else:
+            assert 0, "unreachable"
         if start + length - stop > 20:
             self.print_code("""
 def %(name)s(index):
@@ -121,8 +125,7 @@ def %(name)s(index):
             else:
                 typ = r_short
                 conv_func = "_all_short"
-        else:
-            assert itemsize == 4
+        elif itemsize == 4:
             if unsigned:
                 typ = r_uint32
                 conv_func = "_all_uint32"

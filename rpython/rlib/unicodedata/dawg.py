@@ -579,3 +579,4 @@ def dawg_lookup(n):
     function.append("    return res")
     print >> outfile, '\n'.join(function)
     print >> outfile, "# end output from build_compression_dawg"
+    return d

@@ -725,7 +725,7 @@ def canon_decomposition(code):
     res = [0] * length
     start = lookup_comp_canon_decomp(index)
     for i in range(length):
-        res.append(composition_data(start + i))
+        res[i] = composition_data(start + i)
     return res
 
 def compat_decomposition(code):
@@ -734,7 +734,7 @@ def compat_decomposition(code):
     res = [0] * length
     start = lookup_comp_compat_decomp(index)
     for i in range(length):
-        res.append(composition_data(start + i))
+        res[i] = composition_data(start + i)
     return res
 """)
 
