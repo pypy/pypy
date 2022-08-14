@@ -32,6 +32,20 @@ def getsize_unsigned(data):
     assert unsigned
     return size
 
+def get_char_list_offset(cl, allchars, index):
+    key = tuple(cl)
+    if key in index:
+        return index[key]
+    newoffset = len(allchars)
+    allchars.extend(cl)
+    index[key] = newoffset
+
+    for size in range(1, len(key)):
+        for start in range(0, len(key) - size + 1):
+            subkey = key[start: start+size]
+            index[subkey] = newoffset + start
+    return newoffset
+
 class CodeWriter(object):
     def __init__(self, outfile):
         self.outfile = outfile

@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirna
 
 from rpython.rlib.rarithmetic import r_longlong, r_int32, r_uint32, intmask
 from rpython.rtyper.lltypesystem.rffi import r_ushort, r_short
-from rpython.rlib.unicodedata.codegen import CodeWriter, getsize_unsigned
+from rpython.rlib.unicodedata.codegen import CodeWriter, getsize_unsigned, get_char_list_offset
 
 MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
 
@@ -419,7 +419,7 @@ def %s(code):
     return %spages((%spgtbl(code >> %d) << %d) + (code & %d))
 '''%(lookupfuncname, prefix, prefix, pgbits, pgbits, bytemask))
 
-def writeDbRecord(outfile, table, base_mod):
+def writeDbRecord(outfile, table, char_list_index, base_mod):
     IS_SPACE = 1
     IS_ALPHA = 2
     IS_LINEBREAK = 4
@@ -436,21 +436,48 @@ def writeDbRecord(outfile, table, base_mod):
     IS_CASE_IGNORABLE = 8192
 
     # Prepare special casing
+
     sc_list = []
     sc_db = {} # mapping code: index in sc_list
-    for code, value in sorted(table.special_casing.items()):
-        sc_db[code] = len(sc_list)
-        sc_list.append(value)
+    for code, char in table.enum_chars():
+        sc_data = table.special_casing.get(code, (None, None, None))
+        if sc_data != (None, None, None):
+            full_lower = sc_data[0]
+        elif char.lower is None:
+            full_lower = [code]
+        else:
+            full_lower = [char.lower]
 
+        # now the casefolds
+        full_casefold = char.casefolding
+        if full_casefold is None:
+            full_casefold = [code]
+        # if we don't write anything into the file, then the RPython
+        # program would compute the result 'full_lower' instead.
+        if full_casefold != full_lower:
+            sc_data += (full_casefold, )
+        else:
+            sc_data += (None, )
+        if sc_data != (None, None, None, None):
+            sc_db[code] = len(sc_list)
+            columns = []
+            for cl in sc_data:
+                if cl is None:
+                    columns.append(0)
+                    columns.append(0)
+                else:
+                    columns.append(len(cl))
+                    columns.append(get_char_list_offset(
+                        cl, None, char_list_index))
+            sc_list.append(columns)
     output_table_columnwise(outfile, "_special_casing_", sc_list,
-        ("lower", "title", "upper"))
+        ("lower_len", "lower", "title_len", "title", "upper_len", "upper", "casefold_len", "casefold"))
 
     # Create the records
     db_records_list = []
     db_records = {}
 
-    for code in table.all_codes():
-        char = table.get_char(code)
+    for code, char in table.enum_chars():
         # default values
         decimal = digit = 0
         numeric = 0.0
@@ -578,34 +605,8 @@ def get_index(d, l, key):
         l.append(key)
         return res
 
-def write_composition_data(outfile, table, base_mod):
-    composition_data_index = {}
-    composition_data = []
-    if base_mod is not None:
-        i = 0
-        while 1:
-            try:
-                composition_data.append(base_mod._composition_data(i))
-            except IndexError:
-                break
-            i += 1
-        for length in range(1, 20):
-            for startindex in range(len(composition_data) - length + 1):
-                key = tuple(composition_data[startindex: startindex + length])
-                composition_data_index[key] = startindex
-    composition_data_startsize = len(composition_data)
-
-    def get_index_comp(comp):
-        key = tuple(comp)
-        try:
-            return composition_data_index[key]
-        except KeyError:
-            # XXX add sub-sections of the data too
-            res = len(composition_data)
-            composition_data_index[key] = res
-            composition_data.extend(comp)
-            return res
-
+def write_composition_data(outfile, table, char_list_index, base_mod):
+    # first the composition data
     compositions = []
     for code, unichar in table.enum_chars():
         if (not unichar.decomposition or
@@ -616,6 +617,7 @@ def write_composition_data(outfile, table, base_mod):
             continue
         left, right = unichar.decomposition
         compositions.append((left, right, code))
+
     # map code -> index for left and right
     left_index = {}
     right_index = {}
@@ -631,6 +633,11 @@ def write_composition_data(outfile, table, base_mod):
     print "composition_values"
     write_pages(outfile, "_comp_pairs_", "_composition", composition_values)
 
+    # now the decompositions
+
+    def get_index_comp(comp):
+        return get_char_list_offset(comp, None, char_list_index)
+
     db_records_list = []
     db_records = {}
 
@@ -638,7 +645,6 @@ def write_composition_data(outfile, table, base_mod):
     prefix_list = ['']
 
     composition_db_index = []
-
     for code, char in table.enum_chars():
         prefix_index = 0
         decomp_len = 0
@@ -694,15 +700,6 @@ def composition(current, next):
 """ % len(right_index))
 
     outfile.print_listlike("_composition_prefixes", prefix_list)
-    outfile.print_listlike("_composition_data", composition_data[composition_data_startsize:])
-    outfile.print_code("""
-def composition_data(index):
-    if index < %s:
-        assert base_mod is not None
-        return base_mod._composition_data(index)
-    return _composition_data(index - %s)
-    """ % (composition_data_startsize, composition_data_startsize))
-
     outfile.print_code("""
 def decomposition(code):
     index = _get_comp_index(code)
@@ -713,7 +710,7 @@ def decomposition(code):
         res = []
     start = lookup_comp_decomp(index)
     for i in range(lookup_comp_decomp_len(index)):
-        s = hex(composition_data(start + i))[2:].upper()
+        s = hex(char_list_data(start + i))[2:].upper()
         if len(s) < 4:
             s = "0" * (4 - len(s)) + s
         res.append(s)
@@ -722,20 +719,14 @@ def decomposition(code):
 def canon_decomposition(code):
     index = _get_comp_index(code)
     length = lookup_comp_canon_decomp_len(index)
-    res = [0] * length
     start = lookup_comp_canon_decomp(index)
-    for i in range(length):
-        res[i] = composition_data(start + i)
-    return res
+    return _get_char_list(length, start)
 
 def compat_decomposition(code):
     index = _get_comp_index(code)
     length = lookup_comp_compat_decomp_len(index)
-    res = [0] * length
     start = lookup_comp_compat_decomp(index)
-    for i in range(length):
-        res[i] = composition_data(start + i)
-    return res
+    return _get_char_list(length, start)
 """)
 
 
@@ -840,8 +831,6 @@ def writeUnicodedata(version, version_tuple, table, outfile, base):
     else:
         raise ValueError("please look up CJK ranges and fix the script, e.g. here: https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)")
 
-    write_composition_data(outfile, table, base_mod)
-
     write_character_names(outfile, table, base_mod)
 
     outfile.print_code('''
@@ -900,8 +889,54 @@ def name(code):
            pua_interval="0xF0000 <= code < 0xF0400",
            named_sequence_interval="0xF0200 <= code < 0xF0400"))
 
+    # shared character list for both compositions and casing
+    char_list_index = {}
+    char_list_data = []
+    if base_mod is not None:
+        i = 0
+        while 1:
+            try:
+                char_list_data.append(base_mod._char_list_data(i))
+            except IndexError:
+                break
+            i += 1
+        for length in range(1, 20):
+            for startindex in range(len(char_list_data) - length + 1):
+                key = tuple(char_list_data[startindex: startindex + length])
+                char_list_index[key] = startindex
+
+    char_list_data_startsize = len(char_list_data)
+
+    all_code_lists = set()
+    for code, char in table.enum_chars():
+        sc_data = table.special_casing.get(code, ())
+        for cl in [char.decomposition, char.compat_decomp, char.canonical_decomp, char.casefolding] + list(sc_data):
+            if cl:
+                all_code_lists.add(tuple(cl))
+    # add them all to the data, sort by longest
+    for cl in sorted(all_code_lists, key=lambda cl: (-len(cl), cl)):
+        get_char_list_offset(cl, char_list_data, char_list_index)
+    outfile.print_listlike("_char_list_data", char_list_data[char_list_data_startsize:])
+    outfile.print_code("""
+def char_list_data(index):
+    if index < %s:
+        assert base_mod is not None
+        return base_mod._char_list_data(index)
+    return _char_list_data(index - %s)
+
+def _get_char_list(length, start):
+    res = [0] * length
+    for i in range(length):
+        res[i] = char_list_data(start + i)
+    return res
+    """ % (char_list_data_startsize, char_list_data_startsize))
+
+    # Composition data
+    write_composition_data(outfile, table, char_list_index, base_mod)
+
     # Categories
-    writeDbRecord(outfile, table, base_mod)
+
+    writeDbRecord(outfile, table, char_list_index, base_mod)
     outfile.print_code('''
 def toupper(code):
     if code < 128:
@@ -932,7 +967,11 @@ def toupper_full(code):
     index = lookup_db_special_casing_index(_get_record_index(code))
     if index == -1:
         return [toupper(code)]
-    return lookup_special_casing_upper(index)
+    length = lookup_special_casing_upper_len(index)
+    if length == 0:
+        return [toupper(code)]
+    start = lookup_special_casing_upper(index)
+    return _get_char_list(length, start)
 
 def tolower_full(code):
     if code < 128:
@@ -942,13 +981,33 @@ def tolower_full(code):
     index = lookup_db_special_casing_index(_get_record_index(code))
     if index == -1:
         return [tolower(code)]
-    return lookup_special_casing_lower(index)
+    length = lookup_special_casing_lower_len(index)
+    if length == 0:
+        return [tolower(code)]
+    start = lookup_special_casing_lower(index)
+    return _get_char_list(length, start)
 
 def totitle_full(code):
     index = lookup_db_special_casing_index(_get_record_index(code))
     if index == -1:
         return [totitle(code)]
-    return lookup_special_casing_title(index)
+    length = lookup_special_casing_title_len(index)
+    if length == 0:
+        return [totitle(code)]
+    start = lookup_special_casing_title(index)
+    return _get_char_list(length, start)
+
+def casefold_lookup(code):
+    index = lookup_db_special_casing_index(_get_record_index(code))
+    if index == -1:
+        return tolower_full(code)
+    length = lookup_special_casing_casefold_len(index)
+    if length == 0:
+        return tolower_full(code)
+    start = lookup_special_casing_casefold(index)
+    return _get_char_list(length, start)
+    return lookup_special_casing_casefold(index)
+
 ''')
 
     # named sequences
@@ -978,21 +1037,6 @@ def lookup_with_alias(name, with_named_sequence=False):
     else:
         return code
 ''' % dict(start=table.NAME_ALIASES_START))
-
-    casefolds = {}
-    for code, char in table.enum_chars():
-        full_casefold = char.casefolding
-        if full_casefold is None:
-            full_casefold = [code]
-        full_lower = char.lower
-        if full_lower is None:
-            full_lower = code
-        # if we don't write anything into the file, then the RPython
-        # program would compute the result 'full_lower' instead.
-        # Is that the right answer?
-        if full_casefold != [full_lower]:
-            casefolds[code] = full_casefold
-    writeDict(outfile, 'casefold_lookup', casefolds, base_mod, None)
 
     combining = {}
     for code, char in table.enum_chars():

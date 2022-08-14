@@ -2,7 +2,16 @@ import pytest
 from StringIO import StringIO
 from hypothesis import given, strategies, example
 
-from rpython.rlib.unicodedata.codegen import CodeWriter
+from rpython.rlib.unicodedata.codegen import CodeWriter, get_char_list_offset
+
+def test_charlist():
+    l = []
+    d = {}
+    offset = get_char_list_offset([1, 2, 3], l, d)
+    assert offset == 0
+    assert l == [1, 2, 3]
+    assert d == {(1, ): 0, (2, ): 1, (3, ): 2, (1, 2): 0,
+                 (2, 3): 1, (1, 2, 3): 0}
 
 @example(l=[0, 1])
 @given(strategies.lists(strategies.integers(min_value=0, max_value=2*32-1)))

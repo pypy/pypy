@@ -94,15 +94,15 @@ class TestUnicodeData(object):
     def test_casefolding(self):
         assert unicodedb_6_2_0.casefold_lookup(223) == [115, 115]
         assert unicodedb_6_2_0.casefold_lookup(976) == [946]
-        assert unicodedb_5_2_0.casefold_lookup(42592) == None
+        assert unicodedb_5_2_0.casefold_lookup(42592) == [42592]
         # 1010 has been remove between 3.2.0 and 5.2.0
         assert unicodedb_3_2_0.casefold_lookup(1010) == [963]
-        assert unicodedb_5_2_0.casefold_lookup(1010) == None
+        assert unicodedb_5_2_0.casefold_lookup(1010) == [1010]
         # 7838 has been added in 5.2.0
-        assert unicodedb_3_2_0.casefold_lookup(7838) == None
+        assert unicodedb_3_2_0.casefold_lookup(7838) == [7838]
         assert unicodedb_5_2_0.casefold_lookup(7838) == [115, 115]
         # Only lookup who cannot be resolved by `lower` are stored in database
-        assert unicodedb_3_2_0.casefold_lookup(ord('E')) == None
+        assert unicodedb_3_2_0.casefold_lookup(ord('E')) == [ord('e')]
 
     def test_canon_decomposition_bug(self):
         assert unicodedb_3_2_0.canon_decomposition(296) == [73, 771]
@@ -143,11 +143,11 @@ class TestUnicodeData800(object):
         assert unicodedb_8_0_0.toupper_full(0x025C) == [0xA7AB]
 
     def test_casefold(self):
-        # returns None when we have no special casefolding rule,
-        # which means that tolower_full() should be used instead
-        assert unicodedb_8_0_0.casefold_lookup(0x1000) == None
-        assert unicodedb_8_0_0.casefold_lookup(0x0061) == None
-        assert unicodedb_8_0_0.casefold_lookup(0x0041) == None
+        # when there is no special casefolding rule,
+        # tolower_full() is returned instead
+        assert unicodedb_8_0_0.casefold_lookup(0x1000) == unicodedb_8_0_0.tolower_full(0x1000)
+        assert unicodedb_8_0_0.casefold_lookup(0x0061) == unicodedb_8_0_0.tolower_full(0x0061)
+        assert unicodedb_8_0_0.casefold_lookup(0x0041) == unicodedb_8_0_0.tolower_full(0x0041)
         # a case where casefold() != lower()
         assert unicodedb_8_0_0.casefold_lookup(0x00DF) == [ord('s'), ord('s')]
         # returns the argument itself, and not None, in rare cases
