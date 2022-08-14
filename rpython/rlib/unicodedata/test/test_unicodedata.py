@@ -6,8 +6,8 @@ import py
 import pytest
 
 from rpython.rlib.unicodedata import (
-    unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0,
-    unicodedb_8_0_0, unicodedb_11_0_0, unicodedb_12_1_0, unicodedb_13_0_0)
+    unicodedb_3_2_0, unicodedb_5_2_0,
+    unicodedb_11_0_0, unicodedb_12_1_0, unicodedb_13_0_0)
 
 
 class TestUnicodeData(object):
@@ -92,8 +92,6 @@ class TestUnicodeData(object):
         py.test.raises(KeyError, unicodedb_3_2_0.name, 9187)
 
     def test_casefolding(self):
-        assert unicodedb_6_2_0.casefold_lookup(223) == [115, 115]
-        assert unicodedb_6_2_0.casefold_lookup(976) == [946]
         assert unicodedb_5_2_0.casefold_lookup(42592) == [42592]
         # 1010 has been remove between 3.2.0 and 5.2.0
         assert unicodedb_3_2_0.casefold_lookup(1010) == [963]
@@ -108,8 +106,7 @@ class TestUnicodeData(object):
         assert unicodedb_3_2_0.canon_decomposition(296) == [73, 771]
 
 
-class TestUnicodeData600(object):
-
+class TestUnicodeData1100(object):
     def test_some_additions(self):
         additions = {
             ord(u"\u20B9"): 'INDIAN RUPEE SIGN',
@@ -123,44 +120,43 @@ class TestUnicodeData600(object):
             177984: "CJK UNIFIED IDEOGRAPH-2B740",
             }
         for un, name in additions.iteritems():
-            assert unicodedb_6_0_0.name(un) == name
-            assert unicodedb_6_0_0.isprintable(un)
+            assert unicodedb_11_0_0.name(un) == name
+            assert unicodedb_11_0_0.isprintable(un)
 
     def test_special_casing(self):
-        assert unicodedb_6_0_0.tolower_full(ord('A')) == [ord('a')]
+        assert unicodedb_11_0_0.tolower_full(ord('A')) == [ord('a')]
         # The German es-zed is special--the normal mapping is to SS.
-        assert unicodedb_6_0_0.tolower_full(ord(u'\xdf')) == [0xdf]
-        assert unicodedb_6_0_0.toupper_full(ord(u'\xdf')) == map(ord, 'SS')
-        assert unicodedb_6_0_0.totitle_full(ord(u'\xdf')) == map(ord, 'Ss')
+        assert unicodedb_11_0_0.tolower_full(ord(u'\xdf')) == [0xdf]
+        assert unicodedb_11_0_0.toupper_full(ord(u'\xdf')) == map(ord, 'SS')
+        assert unicodedb_11_0_0.totitle_full(ord(u'\xdf')) == map(ord, 'Ss')
 
     def test_islower(self):
-        assert unicodedb_6_2_0.islower(0x2177)
+        assert unicodedb_11_0_0.islower(0x2177)
 
-
-class TestUnicodeData800(object):
     def test_changed_in_version_8(self):
-        assert unicodedb_6_2_0.toupper_full(0x025C) == [0x025C]
-        assert unicodedb_8_0_0.toupper_full(0x025C) == [0xA7AB]
+        assert unicodedb_5_2_0.toupper_full(0x025C) == [0x025C]
+        assert unicodedb_11_0_0.toupper_full(0x025C) == [0xA7AB]
 
     def test_casefold(self):
         # when there is no special casefolding rule,
         # tolower_full() is returned instead
-        assert unicodedb_8_0_0.casefold_lookup(0x1000) == unicodedb_8_0_0.tolower_full(0x1000)
-        assert unicodedb_8_0_0.casefold_lookup(0x0061) == unicodedb_8_0_0.tolower_full(0x0061)
-        assert unicodedb_8_0_0.casefold_lookup(0x0041) == unicodedb_8_0_0.tolower_full(0x0041)
+        assert unicodedb_11_0_0.casefold_lookup(0x1000) == unicodedb_11_0_0.tolower_full(0x1000)
+        assert unicodedb_11_0_0.casefold_lookup(0x0061) == unicodedb_11_0_0.tolower_full(0x0061)
+        assert unicodedb_11_0_0.casefold_lookup(0x0041) == unicodedb_11_0_0.tolower_full(0x0041)
         # a case where casefold() != lower()
-        assert unicodedb_8_0_0.casefold_lookup(0x00DF) == [ord('s'), ord('s')]
+        assert unicodedb_11_0_0.casefold_lookup(0x00DF) == [ord('s'), ord('s')]
         # returns the argument itself, and not None, in rare cases
         # where tolower_full() would return something different
-        assert unicodedb_8_0_0.casefold_lookup(0x13A0) == [0x13A0]
+        assert unicodedb_11_0_0.casefold_lookup(0x13A0) == [0x13A0]
 
-class TestUnicodeData1100(object):
+        assert unicodedb_11_0_0.casefold_lookup(223) == [115, 115]
+        assert unicodedb_11_0_0.casefold_lookup(976) == [946]
+
     def test_changed_in_version_11(self):
         unicodedb_11_0_0.name(0x1f970) == 'SMILING FACE WITH SMILING EYES AND THREE HEARTS'
 
 @pytest.mark.parametrize('db', [
-    unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0, unicodedb_8_0_0,
-    unicodedb_11_0_0])
+    unicodedb_5_2_0, unicodedb_11_0_0])
 def test_turkish_i(db):
     assert db.tolower_full(0x0130) == [0x69, 0x307]
 
