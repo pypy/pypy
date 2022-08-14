@@ -208,6 +208,12 @@ def %(name)s(index):
         self._estimate("code", len(s))
         print >> self.outfile, s
 
+    def print_uncounted(self, s):
+        print >> self.outfile, s
+
+    def print_comment(self, s):
+        print >> self.outfile, "# " + "\n# ".join(s.splitlines())
+
     def _estimate_any(self, name, obj, category):
         if isinstance(obj, str):
             return self._estimate_string(name, obj, category)

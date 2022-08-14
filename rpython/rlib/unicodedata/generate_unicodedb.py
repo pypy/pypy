@@ -733,14 +733,13 @@ def write_character_names(outfile, table, base_mod):
 
 def writeUnicodedata(version, version_tuple, table, outfile, base):
     if base:
-        print >> outfile, 'import %s as base_mod' % base
+        outfile.print_code('import %s as base_mod' % base)
         base_mod = __import__(base)
     else:
-        print >> outfile, 'base_mod = None'
+        outfile.print_code("base_mod = None")
         base_mod = None
     # Version
-    print >> outfile, 'version = %r' % version
-    print >> outfile
+    outfile.print_code('version = %r\n' % version)
 
     if version_tuple < (4, 1, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
@@ -991,19 +990,18 @@ def lookup_named_sequence(code):
 ''' % dict(start=table.NAMED_SEQUENCES_START, len=len(lst)))
 
     # aliases
-    print >> outfile, '_name_aliases = ['
-    for name, char in table.aliases:
-        print >> outfile, "%s," % (char,)
-    print >> outfile, ']'
+    _name_aliases = [char for name, char in table.aliases]
+    outfile.print_listlike("_name_aliases", _name_aliases)
     outfile.print_code('''
 
 def lookup_with_alias(name, with_named_sequence=False):
     code = lookup(name, with_named_sequence=with_named_sequence)
-    if 0 <= code - %(start)s < len(_name_aliases):
-        return _name_aliases[code - %(start)s]
+    if 0 <= code - %(start)s < %(length)s:
+        return _name_aliases(code - %(start)s)
     else:
         return code
-''' % dict(start=table.NAME_ALIASES_START))
+''' % dict(start=table.NAME_ALIASES_START,
+           length=len(_name_aliases)))
 
 def main():
     import sys
@@ -1049,16 +1047,16 @@ def main():
     print "starting", options.unidata_version
 
     outfile = CodeWriter(outfile)
-    print >> outfile, '# UNICODE CHARACTER DATABASE'
-    print >> outfile, '# This file was generated with the command:'
-    print >> outfile, '#    ', ' '.join(sys.argv)
-    print >> outfile
-    print >> outfile, 'from rpython.rlib.rarithmetic import r_longlong, r_int32, r_uint32, intmask'
-    print >> outfile, '''\
+    outfile.print_comment('UNICODE CHARACTER DATABASE')
+    outfile.print_comment('# This file was generated with the command:')
+    outfile.print_comment('#    ' + ' '.join(sys.argv))
+    outfile.print_code('')
+    outfile.print_code('from rpython.rlib.rarithmetic import r_longlong, r_int32, r_uint32, intmask')
+    outfile.print_code('''\
 from rpython.rlib.unicodedata.supportcode import (signed_ord, _all_short,
     _all_ushort, _all_int32, _all_uint32, _cjk_prefix, _hangul_prefix,
-    _lookup_hangul, _hangul_L, _hangul_V, _hangul_T)'''
-    print >> outfile
+    _lookup_hangul, _hangul_L, _hangul_V, _hangul_T)''')
+    outfile.print_code('')
     writeUnicodedata(options.unidata_version, version_tuple, table, outfile, options.base)
 
     outfile.print_stats()

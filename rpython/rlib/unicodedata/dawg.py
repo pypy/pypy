@@ -515,13 +515,13 @@ def lookup_charcode(code):
 """
 
 def build_compression_dawg(outfile, ucdata):
-    print >> outfile, "#" + "_" * 60
-    print >> outfile, "# output from build_compression_dawg"
-    print >> outfile, 'from rpython.rlib.rarithmetic import intmask, r_int32'
-    print >> outfile, 'from rpython.rlib.unicodedata.supportcode import signed_ord, _all_short, _all_ushort, _all_int32, _all_uint32'
+    outfile.print_comment("_" * 60)
+    outfile.print_comment("output from build_compression_dawg")
+    outfile.print_code('from rpython.rlib.rarithmetic import intmask, r_int32')
+    outfile.print_code('from rpython.rlib.unicodedata.supportcode import signed_ord, _all_short, _all_ushort, _all_int32, _all_uint32')
 
     if not ucdata:
-        print >> outfile, empty_functions
+        outfile.print_code(empty_functions)
         return
 
     d = Dawg()
@@ -529,21 +529,21 @@ def build_compression_dawg(outfile, ucdata):
         d.insert(name, value)
     packed, pos_to_code = d.finish()
     print "size of dawg [KiB]", round(len(packed) / 1024, 2), len(pos_to_code)
-    print >> outfile, "from rpython.rlib.unicodedata.dawg import _lookup as _dawg_lookup, _inverse_lookup"
-    print >> outfile, "packed_dawg = ("
-    print >> outfile, d.packed_pp
-    print >> outfile, ")"
+    outfile.print_code("from rpython.rlib.unicodedata.dawg import _lookup as _dawg_lookup, _inverse_lookup")
+    outfile.print_code("packed_dawg = (")
+    outfile.print_uncounted(d.packed_pp)
+    outfile.print_code(")")
     outfile._estimate_string("dawg", bytes(d.packed))
     outfile.print_listlike("pos_to_code", pos_to_code, "dawg pos_to_code")
 
-    print >> outfile, """
+    outfile.print_code("""
 def lookup_charcode(c):
     pos = _charcode_to_pos(c)
     return _inverse_lookup(packed_dawg, pos)
 
 def dawg_lookup(n):
     return pos_to_code(_dawg_lookup(packed_dawg, n))
-    """
+    """)
 
 
     function = ["def _charcode_to_pos(code):", "    res = -1"]
@@ -577,6 +577,6 @@ def dawg_lookup(n):
     function.append("    if res == -1:")
     function.append("        raise KeyError(code)")
     function.append("    return res")
-    print >> outfile, '\n'.join(function)
-    print >> outfile, "# end output from build_compression_dawg"
+    outfile.print_code('\n'.join(function))
+    outfile.print_comment("end output from build_compression_dawg")
     return d
