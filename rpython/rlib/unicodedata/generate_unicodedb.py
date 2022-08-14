@@ -347,66 +347,44 @@ def read_unihan(unihan_file):
         extra_numeric[code] = numeric
     return extra_numeric
 
-DUMMY = object()
+class Database(object):
+    def __init__(self, outfile, name, column_headers, need_index=True):
+        self.outfile = outfile
+        self.records = []
+        self.records_index = {}
+        self.name = name
 
-def writeDict(outfile, name, dictionary, base_mod, default):
-    dictname = "_" + name
-    if not base_mod:
-        outfile.print_dict(dictname, dictionary)
-        outfile.print_code('''
-def %(name)s(code):
-    return _%(name)s.get(code, %(default)r)''' % dict(
-            name=name, default=default))
-        return
-    base_dict = getattr(base_mod, dictname)
-    items = {key: value for key, value in dictionary.iteritems()
-            if base_dict.get(key, DUMMY) != value}
-    outfile.print_dict(dictname, items)
-    corrected = {key for key in base_dict if key not in dictionary}
-    if len(corrected) == 0:
-        outfile.print_code('''
-def %(name)s(code):
-    try:
-        return _%(name)s[code]
-    except KeyError:
-        return base_mod._%(name)s.get(code, %(default)r)''' % dict(
-        name=name, default=default))
-        return
-    outfile.print_set("_" + name + "_corrected", corrected)
-    outfile.print_code('''
-def %(name)s(code):
-    try:
-        return _%(name)s[code]
-    except KeyError:
-        if code not in _%(name)s_corrected:
-            return base_mod._%(name)s.get(code, %(default)r)
-        else:
-            return %(default)r''' % dict(name=name, default=default))
+        self.input_to_record_index = []
+        self.column_headers = column_headers
+        self.need_index = need_index
 
+    def add_entry(self, data):
+        data = tuple(data)
+        assert len(data) == len(self.column_headers)
+        if data not in self.records_index:
+            self.records_index[data] = len(self.records)
+            self.records.append(data)
+        index = self.records_index[data]
+        self.input_to_record_index.append(index)
+        return index
 
-class Cache:
-    def __init__(self):
-        self._cache = {}
-        self._strings = []
-    def get(self, string):
-        try:
-            return self._cache[string]
-        except KeyError:
-            index = len(self._cache)
-            self._cache[string] = index
-            self._strings.append(string)
-            return index
+    def output(self):
+        print "====", self.name, "===="
+        print "number of records", len(self.records)
+        self._output_columns()
+        if self.need_index:
+            self._output_index()
 
-def output_table_columnwise(outfile, prefix, l, column_headers):
-    for record in l:
-        assert len(record) == len(column_headers)
+    def _output_columns(self):
+        prefix = "_" + self.name + "_"
+        for tupindex, name in enumerate(self.column_headers):
+            columndata = [record[tupindex] for record in self.records]
+            self.outfile.print_listlike("lookup" + prefix + name, columndata)
 
-    for tupindex, name in enumerate(column_headers):
-        columndata = [record[tupindex] for record in l]
-        if not columndata:
-            outfile.print_code('def lookup%s%s(index): assert 0' % (prefix, name))
-            continue
-        outfile.print_listlike("lookup" + prefix + name, columndata)
+    def _output_index(self):
+        prefix = "_" + self.name + "_"
+        lookupfuncname = prefix + 'index'
+        write_pages(self.outfile, prefix, lookupfuncname, self.input_to_record_index)
 
 def write_pages(outfile, prefix, lookupfuncname, data):
     pgtbl, pages, pgbits = splitbins(data)
@@ -437,8 +415,10 @@ def writeDbRecord(outfile, table, char_list_index, base_mod):
 
     # Prepare special casing
 
-    sc_list = []
-    sc_db = {} # mapping code: index in sc_list
+    sc_db = Database(outfile, "special_casing", ("lower_len", "lower",
+        "title_len", "title", "upper_len", "upper", "casefold_len",
+        "casefold"), need_index=False)
+    sc_code_to_index = {} # mapping code: index in sc_list
     for code, char in table.enum_chars():
         sc_data = table.special_casing.get(code, (None, None, None))
         if sc_data != (None, None, None):
@@ -459,7 +439,6 @@ def writeDbRecord(outfile, table, char_list_index, base_mod):
         else:
             sc_data += (None, )
         if sc_data != (None, None, None, None):
-            sc_db[code] = len(sc_list)
             columns = []
             for cl in sc_data:
                 if cl is None:
@@ -469,14 +448,13 @@ def writeDbRecord(outfile, table, char_list_index, base_mod):
                     columns.append(len(cl))
                     columns.append(get_char_list_offset(
                         cl, None, char_list_index))
-            sc_list.append(columns)
-    output_table_columnwise(outfile, "_special_casing_", sc_list,
-        ("lower_len", "lower", "title_len", "title", "upper_len", "upper", "casefold_len", "casefold"))
+            sc_code_to_index[code] = sc_db.add_entry(columns)
+    sc_db.output()
 
     # Create the records
-    db_records_list = []
-    db_records = {}
-
+    db = Database(outfile, "db", ("category", "bidirectional", "east_asian_width", "numeric", "decimal",
+            "digit", "upperdist", "lowerdist", "titledist", "special_casing_index",
+            "flags"))
     for code, char in table.enum_chars():
         # default values
         decimal = digit = 0
@@ -540,57 +518,48 @@ def writeDbRecord(outfile, table, char_list_index, base_mod):
         else:
             titledist = 0
         # special casing
-        special_casing_index = sc_db.get(code, -1)
+        special_casing_index = sc_code_to_index.get(code, -1)
         db_record = (char.category, char.bidirectional,
                 char.east_asian_width, numeric, decimal, digit, upperdist,
                 lowerdist, titledist, special_casing_index, flags)
-        if db_record not in db_records:
-            db_records[db_record] = len(db_records)
-            db_records_list.append(db_record)
-        char.db_record_index = db_records[db_record]
-    output_table_columnwise(outfile, "_db_", db_records_list,
-        ("category", "bidirectional", "east_asian_width", "numeric", "decimal",
-            "digit", "upperdist", "lowerdist", "titledist", "special_casing_index",
-            "flags"))
+        db.add_entry(db_record)
+    db.output()
 
-    print "number db entries:", len(db_records)
-    data = [char.db_record_index for code, char in table.enum_chars()]
-    write_pages(outfile, "_db_", "_get_record_index", data)
-    outfile.print_code('def category(code): return lookup_db_category(_get_record_index(code))')
-    outfile.print_code('def bidirectional(code): return lookup_db_bidirectional(_get_record_index(code))')
-    outfile.print_code('def east_asian_width(code): return lookup_db_east_asian_width(_get_record_index(code))')
-    outfile.print_code('def isspace(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_SPACE)
-    outfile.print_code('def isalpha(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_ALPHA)
-    outfile.print_code('def islinebreak(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_LINEBREAK)
-    outfile.print_code('def isnumeric(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_NUMERIC)
-    outfile.print_code('def isdigit(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_DIGIT)
-    outfile.print_code('def isdecimal(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_DECIMAL)
-    outfile.print_code('def isalnum(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_ALPHA | IS_NUMERIC))
-    outfile.print_code('def isupper(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_UPPER)
-    outfile.print_code('def istitle(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_TITLE)
-    outfile.print_code('def islower(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_LOWER)
-    outfile.print_code('def iscased(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER))
-    outfile.print_code('def isxidstart(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_XID_START))
-    outfile.print_code('def isxidcontinue(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% (IS_XID_CONTINUE))
-    outfile.print_code('def isprintable(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_PRINTABLE)
-    outfile.print_code('def mirrored(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_MIRRORED)
-    outfile.print_code('def iscaseignorable(code): return lookup_db_flags(_get_record_index(code)) & %d != 0'% IS_CASE_IGNORABLE)
+    outfile.print_code('def category(code): return lookup_db_category(_db_index(code))')
+    outfile.print_code('def bidirectional(code): return lookup_db_bidirectional(_db_index(code))')
+    outfile.print_code('def east_asian_width(code): return lookup_db_east_asian_width(_db_index(code))')
+    outfile.print_code('def isspace(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_SPACE)
+    outfile.print_code('def isalpha(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_ALPHA)
+    outfile.print_code('def islinebreak(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_LINEBREAK)
+    outfile.print_code('def isnumeric(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_NUMERIC)
+    outfile.print_code('def isdigit(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_DIGIT)
+    outfile.print_code('def isdecimal(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_DECIMAL)
+    outfile.print_code('def isalnum(code): return lookup_db_flags(_db_index(code)) & %d != 0'% (IS_ALPHA | IS_NUMERIC))
+    outfile.print_code('def isupper(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_UPPER)
+    outfile.print_code('def istitle(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_TITLE)
+    outfile.print_code('def islower(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_LOWER)
+    outfile.print_code('def iscased(code): return lookup_db_flags(_db_index(code)) & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER))
+    outfile.print_code('def isxidstart(code): return lookup_db_flags(_db_index(code)) & %d != 0'% (IS_XID_START))
+    outfile.print_code('def isxidcontinue(code): return lookup_db_flags(_db_index(code)) & %d != 0'% (IS_XID_CONTINUE))
+    outfile.print_code('def isprintable(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_PRINTABLE)
+    outfile.print_code('def mirrored(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_MIRRORED)
+    outfile.print_code('def iscaseignorable(code): return lookup_db_flags(_db_index(code)) & %d != 0'% IS_CASE_IGNORABLE)
     outfile.print_code('''
 def decimal(code):
     if isdecimal(code):
-        return lookup_db_decimal(_get_record_index(code))
+        return lookup_db_decimal(_db_index(code))
     else:
         raise KeyError
 
 def digit(code):
     if isdigit(code):
-        return lookup_db_digit(_get_record_index(code))
+        return lookup_db_digit(_db_index(code))
     else:
         raise KeyError
 
 def numeric(code):
     if isnumeric(code):
-        return lookup_db_numeric(_get_record_index(code))
+        return lookup_db_numeric(_db_index(code))
     else:
         raise KeyError
 
@@ -638,8 +607,9 @@ def write_composition_data(outfile, table, char_list_index, base_mod):
     def get_index_comp(comp):
         return get_char_list_offset(comp, None, char_list_index)
 
-    db_records_list = []
-    db_records = {}
+    db = Database(outfile, "composition", ("prefix_index", "decomp_len",
+        "decomp", "compat_decomp_len", "compat_decomp", "canon_decomp_len",
+        "canon_decomp", "combining", "left_index", "right_index"))
 
     prefixes = {'': 0}
     prefix_list = ['']
@@ -673,23 +643,16 @@ def write_composition_data(outfile, table, char_list_index, base_mod):
         db_record = (prefix_index, decomp_len, decomp,
                 compat_decomp_len, compat_decomp, canon_decomp_len,
                 canon_decomp, combining, left_index.get(code, -1), right_index.get(code, -1))
-        if db_record not in db_records:
-            db_records[db_record] = len(db_records)
-            db_records_list.append(db_record)
-        composition_db_index.append(db_records[db_record])
-    output_table_columnwise(outfile, "_comp_", db_records_list,
-        ("prefix_index", "decomp_len", "decomp", "compat_decomp_len",
-            "compat_decomp", "canon_decomp_len", "canon_decomp",
-            "combining", "left_index", "right_index"))
-    print "size composition db", len(db_records)
-    write_pages(outfile, "_comp_", "_get_comp_index", composition_db_index)
+        db.add_entry(db_record)
+
+    db.output()
 
     outfile.print_code("""
 def composition(current, next):
-    l = lookup_comp_left_index(_get_comp_index(current))
+    l = lookup_composition_left_index(_composition_index(current))
     if l < 0:
         raise KeyError
-    r = lookup_comp_right_index(_get_comp_index(next))
+    r = lookup_composition_right_index(_composition_index(next))
     if r < 0:
         raise KeyError
     key = l * %s + r
@@ -702,14 +665,14 @@ def composition(current, next):
     outfile.print_listlike("_composition_prefixes", prefix_list)
     outfile.print_code("""
 def decomposition(code):
-    index = _get_comp_index(code)
-    prefix = _composition_prefixes(lookup_comp_prefix_index(index))
+    index = _composition_index(code)
+    prefix = _composition_prefixes(lookup_composition_prefix_index(index))
     if prefix:
         res = [prefix]
     else:
         res = []
-    start = lookup_comp_decomp(index)
-    for i in range(lookup_comp_decomp_len(index)):
+    start = lookup_composition_decomp(index)
+    for i in range(lookup_composition_decomp_len(index)):
         s = hex(char_list_data(start + i))[2:].upper()
         if len(s) < 4:
             s = "0" * (4 - len(s)) + s
@@ -717,16 +680,20 @@ def decomposition(code):
     return " ".join(res)
 
 def canon_decomposition(code):
-    index = _get_comp_index(code)
-    length = lookup_comp_canon_decomp_len(index)
-    start = lookup_comp_canon_decomp(index)
+    index = _composition_index(code)
+    length = lookup_composition_canon_decomp_len(index)
+    start = lookup_composition_canon_decomp(index)
     return _get_char_list(length, start)
 
 def compat_decomposition(code):
-    index = _get_comp_index(code)
-    length = lookup_comp_compat_decomp_len(index)
-    start = lookup_comp_compat_decomp(index)
+    index = _composition_index(code)
+    length = lookup_composition_compat_decomp_len(index)
+    start = lookup_composition_compat_decomp(index)
     return _get_char_list(length, start)
+
+def combining(code):
+    index = _composition_index(code)
+    return lookup_composition_combining(index)
 """)
 
 
@@ -943,28 +910,28 @@ def toupper(code):
         if ord('a') <= code <= ord('z'):
             return code - 32
         return code
-    return code - lookup_db_upperdist(_get_record_index(code))
+    return code - lookup_db_upperdist(_db_index(code))
 
 def tolower(code):
     if code < 128:
         if ord('A') <= code <= ord('Z'):
             return code + 32
         return code
-    return code - lookup_db_lowerdist(_get_record_index(code))
+    return code - lookup_db_lowerdist(_db_index(code))
 
 def totitle(code):
     if code < 128:
         if ord('a') <= code <= ord('z'):
             return code - 32
         return code
-    return code - lookup_db_titledist(_get_record_index(code))
+    return code - lookup_db_titledist(_db_index(code))
 
 def toupper_full(code):
     if code < 128:
         if ord('a') <= code <= ord('z'):
             return [code - 32]
         return [code]
-    index = lookup_db_special_casing_index(_get_record_index(code))
+    index = lookup_db_special_casing_index(_db_index(code))
     if index == -1:
         return [toupper(code)]
     length = lookup_special_casing_upper_len(index)
@@ -978,7 +945,7 @@ def tolower_full(code):
         if ord('A') <= code <= ord('Z'):
             return [code + 32]
         return [code]
-    index = lookup_db_special_casing_index(_get_record_index(code))
+    index = lookup_db_special_casing_index(_db_index(code))
     if index == -1:
         return [tolower(code)]
     length = lookup_special_casing_lower_len(index)
@@ -988,7 +955,7 @@ def tolower_full(code):
     return _get_char_list(length, start)
 
 def totitle_full(code):
-    index = lookup_db_special_casing_index(_get_record_index(code))
+    index = lookup_db_special_casing_index(_db_index(code))
     if index == -1:
         return [totitle(code)]
     length = lookup_special_casing_title_len(index)
@@ -998,7 +965,7 @@ def totitle_full(code):
     return _get_char_list(length, start)
 
 def casefold_lookup(code):
-    index = lookup_db_special_casing_index(_get_record_index(code))
+    index = lookup_db_special_casing_index(_db_index(code))
     if index == -1:
         return tolower_full(code)
     length = lookup_special_casing_casefold_len(index)
@@ -1037,12 +1004,6 @@ def lookup_with_alias(name, with_named_sequence=False):
     else:
         return code
 ''' % dict(start=table.NAME_ALIASES_START))
-
-    combining = {}
-    for code, char in table.enum_chars():
-        if char.combining:
-            combining[code] = char.combining
-    writeDict(outfile, 'combining', combining, base_mod, 0)
 
 def main():
     import sys
