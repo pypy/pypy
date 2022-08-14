@@ -78,6 +78,12 @@ class AppTestUnicodeData:
         import unicodedata
         assert unicodedata.lookup("GOTHIC LETTER FAIHU") == u'\U00010346'
 
+    def test_no_alias_python2(self):
+        import unicodedata
+        with raises(KeyError):
+            assert unicodedata.lookup("LATIN SMALL LETTER GHA")
+        assert unicodedata.name(u"\u01a3") == "LATIN SMALL LETTER OI"
+
     def test_normalize_bad_argcount(self):
         import unicodedata
         raises(TypeError, unicodedata.normalize, 'x')
