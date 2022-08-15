@@ -64,6 +64,7 @@ class TestUnicodeData(object):
             assert unicodedata.decomposition(char) == unicodedb_5_2_0.decomposition(code)
             assert unicodedata.mirrored(char) == unicodedb_5_2_0.mirrored(code)
             assert unicodedata.combining(char) == unicodedb_5_2_0.combining(code)
+            assert unicodedata.east_asian_width(char) == unicodedb_5_2_0.east_asian_width(code)
 
     def test_compare_methods(self):
         for code in range(0x10000):
@@ -102,8 +103,17 @@ class TestUnicodeData(object):
         # Only lookup who cannot be resolved by `lower` are stored in database
         assert unicodedb_3_2_0.casefold_lookup(ord('E')) == [ord('e')]
 
-    def test_canon_decomposition_bug(self):
+    def test_canon_decomposition(self):
+        assert unicodedb_3_2_0.compat_decomposition(296) == [73, 771]
         assert unicodedb_3_2_0.canon_decomposition(296) == [73, 771]
+        assert unicodedb_3_2_0.compat_decomposition(32) == []
+        assert unicodedb_3_2_0.canon_decomposition(32) == []
+
+    def test_composition(self):
+        # e + circumflex
+        assert unicodedb_3_2_0.composition(ord('e'), 770) == 0xea
+        with pytest.raises(KeyError):
+            unicodedb_3_2_0.composition(ord('e'), ord('e'))
 
     def test_alias(self):
         with pytest.raises(KeyError):

@@ -348,6 +348,11 @@ def read_unihan(unihan_file):
     return extra_numeric
 
 class Database(object):
+    """ Code generation for compactly storing a "database", which maps
+    consecutive integers (typically 0, ..., maxunicode) to tuples of
+    information about them (called the columns). The storage is compact if the
+    tuples repeat a lot. """
+
     def __init__(self, outfile, name, column_headers, need_index=True):
         self.outfile = outfile
         self.records = []
@@ -586,6 +591,7 @@ def write_composition_data(outfile, table, char_list_index, base_mod):
             continue
         left, right = unichar.decomposition
         compositions.append((left, right, code))
+    import pdb; pdb.set_trace()
 
     # map code -> index for left and right
     left_index = {}
@@ -904,8 +910,9 @@ def _get_char_list(length, start):
     write_composition_data(outfile, table, char_list_index, base_mod)
 
     # Categories
-
     writeDbRecord(outfile, table, char_list_index, base_mod)
+
+    # API functions for returning casing information
     outfile.print_code('''
 def toupper(code):
     if code < 128:
