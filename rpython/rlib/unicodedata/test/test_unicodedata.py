@@ -222,10 +222,10 @@ def test_unicode13_composition():
         assert unicodedb_13_0_0.composition(a, b) == x
 
 
-def test_named_sequence(self):
+def test_named_sequence():
     with pytest.raises(KeyError):
-        unicodedb_13_0_0.lookup("KEYCAP NUMBER FIVE", with_named_sequence=False)
-    unicodedb_13_0_0.lookup("KEYCAP NUMBER FIVE", with_named_sequence=True)
-    unicodedb_5_2_0.lookup("LATIN SMALL LETTER OI")
-    assert unicodedb_5_2_0.name(0x01a3) == "LATIN SMALL LETTER OI"
-    assert unicodedb_5_2_0.lookup_with_alias("LATIN SMALL LETTER GHA") == 0x01a3
+        unicodedb_13_0_0.lookup("KEYCAP DIGIT FIVE", with_named_sequence=False)
+    assert unicodedb_13_0_0.lookup("KEYCAP DIGIT FIVE", with_named_sequence=True)
+    code = unicodedb_13_0_0.lookup("KEYCAP DIGIT FIVE", with_named_sequence=True)
+    assert unicodedb_13_0_0.lookup_named_sequence(code) == b'5\xef\xb8\x8f\xe2\x83\xa3'
+    assert unicodedb_13_0_0.lookup_named_sequence_length(code) == 3
