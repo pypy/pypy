@@ -705,7 +705,7 @@ def write_character_names(outfile, table, base_mod):
                  if table.get_char(code).name)
     sorted_names_codes = sorted(names.iteritems())
     if base_mod is None:
-        dawg.build_compression_dawg(outfile, names)
+        d = dawg.build_compression_dawg(outfile, names)
         outfile.print_code("# the following dictionary is used by modules that take this as a base")
         outfile.print_code("# only used by generate_unicodedb, not after translation")
         outfile.print_code("_orig_names = {")
@@ -811,7 +811,7 @@ def _lookup_cjk(cjk_code):
         return code
     raise KeyError
 
-def lookup(name, with_named_sequence=False):
+def lookup(name, with_named_sequence=False, with_alias=False):
     from rpython.rlib.rstring import startswith
     if startswith(name, _cjk_prefix):
         return _lookup_cjk(name[len(_cjk_prefix):])
@@ -826,6 +826,8 @@ def lookup(name, with_named_sequence=False):
         except KeyError:
             code = base_mod.dawg_lookup(name)
     if not with_named_sequence and %(named_sequence_interval)s:
+        raise KeyError
+    if not with_alias and %(alias_interval)s:
         raise KeyError
     return code
 
@@ -853,7 +855,8 @@ def name(code):
             return base_mod.lookup_charcode(code)
 ''' % dict(cjk_interval=cjk_interval,
            pua_interval="0xF0000 <= code < 0xF0400",
-           named_sequence_interval="0xF0200 <= code < 0xF0400"))
+           named_sequence_interval="0xF0200 <= code < 0xF0400",
+           alias_interval="0xF0000 <= code < 0xF0200"))
 
     # shared character list for both compositions and casing
     char_list_index = {}
@@ -980,6 +983,8 @@ def casefold_lookup(code):
     lst = [(u''.join(unichr(c) for c in chars)).encode("utf-8")
         for _, chars in table.named_sequences]
     outfile.print_listlike("_named_sequences", lst)
+    lengths = [len(chars) for _, chars in table.named_sequences]
+    outfile.print_listlike("_named_sequence_lengths", lst)
     outfile.print_code('''
 
 def lookup_named_sequence(code):
@@ -987,15 +992,22 @@ def lookup_named_sequence(code):
         return _named_sequences(code - %(start)s)
     else:
         return None
+
+def lookup_named_sequence_length(code):
+    if 0 <= code - %(start)s < %(len)s:
+        return _named_sequence_lengths(code - %(start)s)
+    else:
+        return -1
 ''' % dict(start=table.NAMED_SEQUENCES_START, len=len(lst)))
 
     # aliases
     _name_aliases = [char for name, char in table.aliases]
+    assert len(_name_aliases) < 0x200
     outfile.print_listlike("_name_aliases", _name_aliases)
     outfile.print_code('''
 
 def lookup_with_alias(name, with_named_sequence=False):
-    code = lookup(name, with_named_sequence=with_named_sequence)
+    code = lookup(name, with_named_sequence=with_named_sequence, with_alias=True)
     if 0 <= code - %(start)s < %(length)s:
         return _name_aliases(code - %(start)s)
     else:

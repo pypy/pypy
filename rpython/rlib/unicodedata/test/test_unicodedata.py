@@ -105,6 +105,12 @@ class TestUnicodeData(object):
     def test_canon_decomposition_bug(self):
         assert unicodedb_3_2_0.canon_decomposition(296) == [73, 771]
 
+    def test_alias(self):
+        with pytest.raises(KeyError):
+            unicodedb_5_2_0.lookup("LATIN SMALL LETTER GHA")
+        unicodedb_5_2_0.lookup("LATIN SMALL LETTER OI")
+        assert unicodedb_5_2_0.name(0x01a3) == "LATIN SMALL LETTER OI"
+        assert unicodedb_5_2_0.lookup_with_alias("LATIN SMALL LETTER GHA") == 0x01a3
 
 class TestUnicodeData1100(object):
     def test_some_additions(self):
@@ -215,3 +221,11 @@ def test_unicode13_composition():
     for a, b, x in l:
         assert unicodedb_13_0_0.composition(a, b) == x
 
+
+def test_named_sequence(self):
+    with pytest.raises(KeyError):
+        unicodedb_13_0_0.lookup("KEYCAP NUMBER FIVE", with_named_sequence=False)
+    unicodedb_13_0_0.lookup("KEYCAP NUMBER FIVE", with_named_sequence=True)
+    unicodedb_5_2_0.lookup("LATIN SMALL LETTER OI")
+    assert unicodedb_5_2_0.name(0x01a3) == "LATIN SMALL LETTER OI"
+    assert unicodedb_5_2_0.lookup_with_alias("LATIN SMALL LETTER GHA") == 0x01a3
