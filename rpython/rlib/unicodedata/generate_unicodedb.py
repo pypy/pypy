@@ -984,7 +984,7 @@ def casefold_lookup(code):
         for _, chars in table.named_sequences]
     outfile.print_listlike("_named_sequences", lst)
     lengths = [len(chars) for _, chars in table.named_sequences]
-    outfile.print_listlike("_named_sequence_lengths", lst)
+    outfile.print_listlike("_named_sequence_lengths", lengths)
     outfile.print_code('''
 
 def lookup_named_sequence(code):
