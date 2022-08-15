@@ -146,6 +146,9 @@ def %(name)s(index):
             else:
                 typ = r_int32
                 conv_func = "_all_int32"
+        size = len(lst) * itemsize + WORDSIZE * 2
+        self.print_comment("estimated %s KiB" % round(size / 1024., 2))
+        self._estimate(name, size, category)
         print >> self.outfile, "_%s = [" % name
         chunksize = 16
         res = []
@@ -159,9 +162,6 @@ def %(name)s(index):
             print >> self.outfile, ", ".join(res) + ","
         print >> self.outfile, "]"
         print >> self.outfile, "_%s = %s(_%s)" % (name, conv_func, name)
-        
-        size = len(lst) * itemsize + WORDSIZE * 2
-        self._estimate(name, size, category)
         self.print_code("def %s(index): return %s(_%s[index])" % (name, unwrapfunc, name))
         return
 
