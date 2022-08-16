@@ -45,6 +45,7 @@ class UCD(W_Root):
         self._unicodedb = unicodedb
         self._lookup = unicodedb.lookup_with_alias
         self._lookup_named_sequence = unicodedb.lookup_named_sequence
+        self._lookup_named_sequence_length = unicodedb.lookup_named_sequence_length
         self._name = unicodedb.name
         self._decimal = unicodedb.decimal
         self._digit = unicodedb.digit
@@ -57,7 +58,7 @@ class UCD(W_Root):
         self._decomposition = unicodedb.decomposition
         self._canon_decomposition = unicodedb.canon_decomposition
         self._compat_decomposition = unicodedb.compat_decomposition
-        self._composition = unicodedb._composition
+        self._composition = unicodedb.composition
 
         self.version = unicodedb.version
 
@@ -81,8 +82,7 @@ class UCD(W_Root):
         # The code may be a named sequence
         sequence = self._lookup_named_sequence(code)
         if sequence is not None:
-            # named sequences only contain UCS2 codes, no surrogates &co.
-            return space.newutf8(sequence.encode('utf-8'), len(sequence))
+            return space.newutf8(sequence, self._lookup_named_sequence_length(code))
 
         return space.newutf8(unichr_as_utf8(r_uint(code)), 1)
 
@@ -178,6 +178,7 @@ class UCD(W_Root):
         resultlen = len(result)
         # Expand the character
         for i in range(strlen):
+            # XXX this is bad, uses indexing on unicode! iterate the utf-8 instead
             ch = space.int_w(space.ord(space.getitem(w_unistr, space.newint(i))))
             # Do Hangul decomposition
             if SBase <= ch < SBase + SCount:
@@ -261,9 +262,8 @@ class UCD(W_Root):
                     # If LV, T -> LVT
                     current = current + (next - TBase)
                     continue
-                key = r_longlong(current) << 32 | next
                 try:
-                    current = self._composition[key]
+                    current = self._composition(current, next)
                     continue
                 except KeyError:
                     pass
