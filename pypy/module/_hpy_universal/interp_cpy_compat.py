@@ -15,7 +15,6 @@ from pypy.module.cpyext.api import PyTypeObjectPtr, cts as cpyts
 from pypy.module.cpyext import structmemberdefs
 #
 from pypy.module._hpy_universal.apiset import API
-from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.interp_descr import W_HPyMemberDescriptor
 
 @API.func("HPy HPy_FromPyObject(HPyContext *ctx, void *obj)", cpyext=True)
@@ -128,13 +127,18 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
         elif slotnum == cpyts.macros['Py_tp_getset']:
             attach_legacy_getsets(space, slotdef.c_pfunc, w_type)
         elif slotnum == cpyts.macros['Py_tp_dealloc']:
+            from pypy.module.cpyext.pyobject import as_pyobj
+            from pypy.module.cpyext.typeobjectdefs import destructor
             if needs_hpytype_dealloc:
                 raise oefmt(space.w_TypeError,
                     "legacy tp_dealloc is incompatible with HPy_tp_traverse"
                     " or HPy_tp_destroy.")
-            # XXX fixme: cpyext does not have a slotdef for tp_dealloc
-            # for now, fail to reassign rather than segfaulting in attach_legacy_slot
-            break
+            # asssign ((PyTypeObject *)w_type)->tp_dealloc
+            funcptr = slotdef.c_pfunc
+            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+            pytype.c_tp_dealloc = rffi.cast(destructor, funcptr)
+            w_type.has_tp_dealloc = True
+    
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum)
         i += 1

@@ -182,7 +182,6 @@ class W_HPyObject(W_ObjectObject):
         assert isinstance(w_type, W_HPyTypeObject)
         if w_type.tp_finalize:
             from pypy.interpreter.argument import Arguments
-            data = self.get_raw_data()
             w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
         if w_type.tp_destroy:
             w_type.tp_destroy(self.get_raw_data())
@@ -193,6 +192,8 @@ class W_HPyTypeObject(W_TypeObject):
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
     tp_traverse = lltype.nullptr(llapi.cts.gettype('HPyFunc_traverseproc').TO)
     tp_finalize = None
+    # flag to create a pyobj for this w_obj
+    has_tp_dealloc = False
 
     def __init__(self, space, name, bases_w, dict_w, basicsize=0,
                  is_legacy=False):
@@ -418,6 +419,11 @@ def _create_instance(space, w_type):
     w_result.hpy_storage.tp_traverse = w_type.tp_traverse
     if w_type.tp_destroy or w_type.tp_finalize:
         w_result.register_finalizer(space)
+    if w_type.has_tp_dealloc:
+        # legacy: create a pyobj with refcnt == 0 so that when w_result
+        # is collected, the pyobj's ob_type.tp_dealloc will be called
+        from pypy.module.cpyext.pyobject import as_pyobj
+        as_pyobj(space, w_result)
     return w_result
 
 @API.func("HPy HPyType_GenericNew(HPyContext *ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")

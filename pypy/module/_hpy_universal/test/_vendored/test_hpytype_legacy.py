@@ -68,7 +68,9 @@ class TestLegacyType(_TestType):
         assert mod.get_counter() == 0
         p = mod.Point(0, 0)
         del p
-        import gc; gc.collect()
+        # import gc; gc.collect()
+        # use this to properly trigger untranslated collection
+        self.debug_collect()
         assert mod.get_counter() == 1
 
     def test_legacy_dealloc_and_HPy_tp_traverse(self):
