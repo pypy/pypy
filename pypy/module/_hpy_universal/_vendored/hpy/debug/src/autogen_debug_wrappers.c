@@ -312,9 +312,9 @@ void debug_ctx_Err_SetObject(HPyContext *dctx, DHPy h_type, DHPy h_value)
     HPyErr_SetObject(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), DHPy_unwrap(dctx, h_value));
 }
 
-DHPy debug_ctx_Err_SetFromErrnoWithFilename(HPyContext *dctx, DHPy h_type, const char *filename_fsencoded)
+void debug_ctx_Err_SetFromErrnoWithFilename(HPyContext *dctx, DHPy h_type, const char *filename_fsencoded)
 {
-    return DHPy_open(dctx, HPyErr_SetFromErrnoWithFilename(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), filename_fsencoded));
+    HPyErr_SetFromErrnoWithFilename(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), filename_fsencoded);
 }
 
 void debug_ctx_Err_SetFromErrnoWithFilenameObjects(HPyContext *dctx, DHPy h_type, DHPy filename1, DHPy filename2)
