@@ -17,34 +17,33 @@ class TestErr(HPyTest):
         with pytest.raises(MemoryError):
             mod.f()
 
-    def test_FatalError(self, python_subprocess, fatal_exit_code):
-        mod = self.compile_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
-            static HPy f_impl(HPyContext *ctx, HPy self)
-            {
-                HPy_FatalError(ctx, "boom!");
-                // note: no 'return' statement.  This also tests that
-                // the call above is known to never return---otherwise,
-                // we get a warning from the missing 'return' and it is
-                // turned into an error.
-            }
-            @EXPORT(f)
-            @INIT
-        """)
-        if not SUPPORTS_SYS_EXECUTABLE:
-            # if sys.executable is not available (e.g. inside pypy app-level)
-            # tests, then skip the rest of this test
-            return
-        # subprocess is not importable in pypy app-level tests
-        result = python_subprocess.run(mod, "mod.f()")
-        assert result.returncode == fatal_exit_code
-        assert result.stdout == b""
-        # In Python 3.9, the Py_FatalError() function was replaced with a macro
-        # which automatically prepends the name of the current function, so
-        # we have to allow for that difference here:
-        stderr_msg = result.stderr.splitlines()[0]
-        assert stderr_msg.startswith(b"Fatal Python error: ")
-        assert stderr_msg.endswith(b": boom!")
+    if SUPPORTS_SYS_EXECUTABLE:
+                # if sys.executable is not available (e.g. inside pypy app-level)
+                # tests, then skip the rest of this test
+        def test_FatalError(self, python_subprocess, fatal_exit_code):
+            mod = self.compile_module("""
+                HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+                static HPy f_impl(HPyContext *ctx, HPy self)
+                {
+                    HPy_FatalError(ctx, "boom!");
+                    // note: no 'return' statement.  This also tests that
+                    // the call above is known to never return---otherwise,
+                    // we get a warning from the missing 'return' and it is
+                    // turned into an error.
+                }
+                @EXPORT(f)
+                @INIT
+            """)
+            # subprocess is not importable in pypy app-level tests
+            result = python_subprocess.run(mod, "mod.f()")
+            assert result.returncode == fatal_exit_code
+            assert result.stdout == b""
+            # In Python 3.9, the Py_FatalError() function was replaced with a macro
+            # which automatically prepends the name of the current function, so
+            # we have to allow for that difference here:
+            stderr_msg = result.stderr.splitlines()[0]
+            assert stderr_msg.startswith(b"Fatal Python error: ")
+            assert stderr_msg.endswith(b": boom!")
 
     def test_HPyErr_Occurred(self):
         import pytest
