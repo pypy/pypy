@@ -184,3 +184,18 @@ def HPyErr_ExceptionMatches(space, handles, ctx, h_exc):
     except:
         return 0
 
+@API.func("int HPyErr_WarnEx(HPyContext *ctx, HPy category, const char *message, HPy_ssize_t stack_level)", error_value=API.int(-1))
+def HPyErr_WarnEx(space, handles, ctx, h_category, message, stack_level):
+    from pypy.module._hpy_universal.interp_import import import_name
+
+    if h_category:
+        w_category = handles.deref(h_category)
+    else:
+        w_category = space.w_None
+    w_message = _maybe_utf8_to_w(space, message)
+    w_stacklevel = space.newint(rffi.cast(lltype.Signed, stack_level))
+    
+    w_module = import_name(space, space.newtext("warnings"))
+    w_warn = space.getattr(w_module, space.newtext("warn"))
+    space.call_function(w_warn, w_message, w_category, w_stacklevel)
+    return API.int(0)

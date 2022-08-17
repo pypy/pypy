@@ -4,6 +4,10 @@ from .apiset import API
 @API.func("HPy HPyImport_ImportModule(HPyContext *ctx, const char *name)")
 def HPyImport_ImportModule(space, handles, ctx, name):
     w_name = space.newtext(rffi.constcharp2str(name))
+    w_module = import_name(space, w_name)
+    return handles.new(w_module)
+
+def import_name(space, w_name):
     caller = space.getexecutioncontext().gettopframe_nohidden()
     # Get the builtins from current globals
     if caller is not None:
@@ -26,4 +30,4 @@ def HPyImport_ImportModule(space, handles, ctx, name):
     w_module = space.call_function(
         w_import, w_name, w_globals, w_globals,
         space.newlist([space.newtext("__doc__")]))
-    return handles.new(w_module)
+    return w_module
