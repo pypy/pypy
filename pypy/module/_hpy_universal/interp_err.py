@@ -180,7 +180,7 @@ def HPyErr_ExceptionMatches(space, handles, ctx, h_exc):
     else:
         w_given_type = w_given
     try:
-        return space.exception_match(w_given_type, w_exc)
+        return int(space.exception_match(w_given_type, w_exc))
     except:
         return 0
 
