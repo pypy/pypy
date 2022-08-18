@@ -5,14 +5,17 @@ from hpy.debug.leakdetector import LeakDetector
 
 IS_VALGRIND_RUN = False
 
-def pytest_addoption(parser):
-    parser.addoption(
-        "--compiler-v", action="store_true",
-        help="Print to stdout the commands used to invoke the compiler")
-    parser.addoption(
-        "--subprocess-v", action="store_true",
-        help="Print to stdout the stdout and stderr of Python subprocesses"
-             "executed via run_python_subprocess")
+# This needs to be in the top-level conftest.py, it is copied from the one
+# in hpy_tests/_vendored See the note at
+# https://docs.pytest.org/en/7.1.x/reference/reference.html#initialization-hooks
+# def pytest_addoption(parser):
+#     parser.addoption(
+#         "--compiler-v", action="store_true",
+#         help="Print to stdout the commands used to invoke the compiler")
+#     parser.addoption(
+#         "--subprocess-v", action="store_true",
+#         help="Print to stdout the stdout and stderr of Python subprocesses"
+#              "executed via run_python_subprocess")
 
 
 @pytest.hookimpl(trylast=True)
