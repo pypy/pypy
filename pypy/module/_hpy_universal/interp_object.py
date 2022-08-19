@@ -209,6 +209,9 @@ def HPy_Hash(space, handles, ctx, h_obj):
 @API.func("HPy_ssize_t HPy_Length(HPyContext *ctx, HPy h)", error_value=-1)
 def HPy_Length(space, handles, ctx, h_obj):
     w_obj = handles.deref(h_obj)
+    if not w_obj:
+        # equivalent to null_error() call in PyObject_Size
+        raise oefmt(space.w_SystemError, "invalid object")
     return space.len_w(w_obj)
 
 @API.func("HPy HPy_Type(HPyContext *ctx, HPy obj)")

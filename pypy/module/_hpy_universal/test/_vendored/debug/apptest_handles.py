@@ -297,3 +297,57 @@ def test_cant_use_closed_handle(compiler):
     mod.g('bar')   # use-after-close
     assert n == 2
 
+def test_keeping_and_reusing_argument_handle(compiler):
+    mod = compiler.make_module("""
+        HPy keep;
+
+        HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+        static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
+        {
+            keep = arg;
+            HPy_ssize_t len = HPy_Length(ctx, keep);
+            return HPyLong_FromSsize_t(ctx, len);
+        }
+
+        HPyDef_METH(g, "g", g_impl, HPyFunc_NOARGS)
+        static HPy g_impl(HPyContext *ctx, HPy self)
+        {
+            HPy_ssize_t len = HPy_Length(ctx, keep);
+            if (len == -1)
+                return HPy_NULL;
+            return HPyLong_FromSsize_t(ctx, len);
+        }
+
+        @EXPORT(f)
+        @EXPORT(g)
+        @INIT
+    """)
+    class HPyDebugCapture:
+        """
+        Context manager that sets HPy debug invalid handle hook and remembers the
+        number of invalid handles reported. Once closed, sets the invalid handle
+        hook back to None.
+        """
+        def __init__(self):
+            self.invalid_handles_count = 0
+
+        def _capture_report(self):
+            self.invalid_handles_count += 1
+
+        def __enter__(self):
+            from hpy.universal import _debug
+            _debug.set_on_invalid_handle(self._capture_report)
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            from hpy.universal import _debug
+            # _debug.set_on_invalid_handle(None)
+
+
+    s = "hello leaks!"
+    with HPyDebugCapture() as hpy_debug_capture:
+        assert mod.f(s) == len(s)
+        assert hpy_debug_capture.invalid_handles_count == 0
+        assert mod.g() == len(s)
+        assert hpy_debug_capture.invalid_handles_count == 1
+
