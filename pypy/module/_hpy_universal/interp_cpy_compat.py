@@ -4,15 +4,16 @@ from rpython.rlib import rgc
 from rpython.rlib.unroll import unrolling_iterable
 #
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 #
 from pypy.module.cpyext import pyobject
 from pypy.module.cpyext.methodobject import PyMethodDef, PyCFunction
 from pypy.module.cpyext.modsupport import convert_method_defs
-from pypy.module.cpyext.api import PyTypeObjectPtr, cts as cpyts
+from pypy.module.cpyext.api import PyTypeObjectPtr, cts as cpyts, generic_cpy_call
 from pypy.module.cpyext import structmemberdefs
+from pypy.module.cpyext.state import State
 #
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal.interp_descr import W_HPyMemberDescriptor
@@ -81,12 +82,82 @@ def attach_legacy_members(space, pymembers, w_type):
 # ~~~ legacy_getset ~~~
 # This is used only by types
 
-def attach_legacy_getsets(space, pygetset, w_type):
-    # when we implement this, remember to unskip test_legacy_slots_getsets in
-    # conftest.py
-    raise OperationError(space.w_NotImplementedError,
-                         space.newtext("legacy getsets are not implemented yet"))
+def check_descr(space, w_self, w_type):
+    if not space.isinstance_w(w_self, w_type):
+        raise DescrMismatch()
 
+def as_pyobject(w_hpy_object):
+    # XXX is this w_self.get_pjobject() ?
+    return rffi.cast(pyobject.PyObject, w_hpy_object.get_raw_data()) 
+
+# Copied from cpyext.typeobject, but modified the call to use as_pyobject
+class GettersAndSetters:
+    def getter(self, space, w_self):
+        assert isinstance(self, W_GetSetPropertyHPy)
+        check_descr(space, w_self, self.w_type)
+        return generic_cpy_call(
+            space, self.getset.c_get, as_pyobject(w_self),
+            self.getset.c_closure)
+
+    def setter(self, space, w_self, w_value):
+        assert isinstance(self, W_GetSetPropertyHPy)
+        check_descr(space, w_self, self.w_type)
+        res = generic_cpy_call(
+            space, self.getset.c_set,
+            as_pyobject(w_self), as_pyobject(w_value),
+            self.getset.c_closure)
+        if rffi.cast(lltype.Signed, res) < 0:
+            state = space.fromcache(State)
+            state.check_and_raise_exception()
+
+    def deleter(self, space, w_self):
+        assert isinstance(self, W_GetSetPropertyHPy)
+        check_descr(space, w_self, self.w_type)
+        res = generic_cpy_call(
+            space, self.getset.c_set, as_pyobject(w_self), None,
+            self.getset.c_closure)
+        if rffi.cast(lltype.Signed, res) < 0:
+            state = space.fromcache(State)
+            state.check_and_raise_exception()
+
+# Copied from cpyext.typeobject, but use the local GettersAndSetters
+class W_GetSetPropertyHPy(GetSetProperty):
+    def __init__(self, getset, w_type):
+        self.getset = getset
+        self.w_type = w_type
+        doc = fset = fget = fdel = None
+        if doc:
+            # XXX dead code?
+            doc = rffi.constcharp2str(getset.c_doc)
+        if getset.c_get:
+            fget = GettersAndSetters.getter.im_func
+        if getset.c_set:
+            fset = GettersAndSetters.setter.im_func
+            fdel = GettersAndSetters.deleter.im_func
+        GetSetProperty.__init__(self, fget, fset, fdel, doc,
+                                cls=None, use_closure=True,
+                                tag="HPy_legacy")
+        self.name = rffi.constcharp2str(getset.c_name)
+
+    def readonly_attribute(self, space):   # overwritten
+        raise oefmt(space.w_AttributeError,
+            "attribute '%s' of '%N' objects is not writable",
+            self.name, self.w_type)
+
+def attach_legacy_getsets(space, pygetsets, w_type):
+    from pypy.module.cpyext.typeobjectdefs import PyGetSetDef
+    getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), pygetsets)
+    if getsets:
+        i = -1
+        while True:
+            i = i + 1
+            getset = getsets[i]
+            name = getset.c_name
+            if not name:
+                break
+            name = rffi.constcharp2str(name)
+            w_descr = W_GetSetPropertyHPy(getset, w_type)
+            space.setattr(w_type, space.newtext(name), w_descr)
 
 # ~~~ legacy_slots ~~~
 # This is used only by types

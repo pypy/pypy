@@ -171,7 +171,7 @@ class W_HPyObject(W_ObjectObject):
     def get_pyobject(self):
         storage = self.get_raw_data()
         # Now fill in all the data:
-        # - make sure self is legacy so storage points to a valid PyObject
+        # - make sure space.type(self) is legacy so storage points to a valid PyObject
         # - cast the storage as a PyObject*
         # - get a PyTypeObject and set the fields
         raise oefmt(self.space.w_NotImplementedError,
