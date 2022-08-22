@@ -56,6 +56,7 @@ PYTHONDEVMODE: enable the development mode.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
                topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
+PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
 """
 
 try:
@@ -638,6 +639,8 @@ def _parse_command_line(argv):
             sys.stderr.write(
                 "Fatal Python error: invalid PYTHONUTF8 environment variable value %r\n" % val)
             raise SystemExit(1)
+        if getenv('PYPY_DISABLE_JIT'):
+            set_jit_option(options, 'off')
     if options["utf8_mode"] == -1: # neither env var nor -X utf8
         import _locale
         lc = _locale.setlocale(_locale.LC_CTYPE, None)
