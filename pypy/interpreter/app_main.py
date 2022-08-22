@@ -46,6 +46,7 @@ PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
                topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
+PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
 """
 
 try:
@@ -556,6 +557,8 @@ def parse_command_line(argv):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
+        if getenv('PYPY_DISABLE_JIT'):
+            set_jit_option(options, 'off')
     if (options["interactive"] or
         (not options["ignore_environment"] and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
