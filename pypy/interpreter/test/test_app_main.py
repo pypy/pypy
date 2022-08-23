@@ -198,6 +198,8 @@ class TestParseCommandLine:
         self.check(['-a'], env, output_contains="Unknown option: -a")
         self.check(['--abc'], env, output_contains="Unknown option --abc")
 
+        self.check([], {'PYPY_DISABLE_JIT': '1'}, sys_argv=[''], run_stdin=True, _jitoptions='off')
+
     def test_sysflags(self):
         env = os.environ.copy()
         flags = (
