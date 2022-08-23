@@ -190,6 +190,8 @@ class TestParseCommandLine:
         self.check(['-O'], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
         self.check(['-OOO'], {'PYTHONOPTIMIZE': 'abc'}, sys_argv=[''], run_stdin=True, optimize=3)
 
+        self.check([], {'PYPY_DISABLE_JIT': '1'}, sys_argv=[''], run_stdin=True, _jitoptions='off')
+
     def test_sysflags(self):
         flags = (
             ("debug", "-d", "1"),
