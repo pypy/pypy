@@ -64,7 +64,16 @@ class TestUnicodeData(object):
             assert unicodedata.decomposition(char) == unicodedb_5_2_0.decomposition(code)
             assert unicodedata.mirrored(char) == unicodedb_5_2_0.mirrored(code)
             assert unicodedata.combining(char) == unicodedb_5_2_0.combining(code)
-            assert unicodedata.east_asian_width(char) == unicodedb_5_2_0.east_asian_width(code)
+            # east_asian_width has a different default for unassigned
+            # characters on cpython (unicode says it should be 'N', CPython
+            # returns 'F')
+            n1 = None
+            try:
+                n1 = unicodedata.name(char)
+            except ValueError:
+                pass
+            else:
+                assert unicodedata.east_asian_width(char) == unicodedb_5_2_0.east_asian_width(code)
 
     def test_compare_methods(self):
         for code in range(0x10000):

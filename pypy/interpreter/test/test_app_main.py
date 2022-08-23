@@ -278,6 +278,18 @@ class TestParseCommandLine:
         self.check(['-X', 'jit-off'], env, sys_argv=[''], run_stdin=True)
         assert options == ["off"]
 
+    def test_jit_off_envvar(self, monkeypatch):
+        get_python3()
+        monkeypatch.setenv('PYPY_DISABLE_JIT', '1')
+        options = [None]
+        def set_jit_option(_, option, *args):
+            options[0] = option
+        from pypy.interpreter import app_main
+        monkeypatch.setattr(app_main, 'set_jit_option', set_jit_option, raising=False)
+        self.check([], {}, sys_argv=[''], run_stdin=True)
+        assert options == ["off"]
+
+
 class TestInteraction:
     """
     These tests require pexpect (UNIX-only).

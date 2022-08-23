@@ -56,6 +56,7 @@ PYTHONDEVMODE: enable the development mode.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
                topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
+PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
 """
 
 try:
@@ -622,6 +623,8 @@ def _parse_command_line(argv):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
+        if getenv('PYPY_DISABLE_JIT'):
+            set_jit_option(options, 'off')
         if getenv('PYTHONDEVMODE'):
             options["dev_mode"] = True
         val = getenv('PYTHONUTF8')
