@@ -227,7 +227,7 @@ class BaseTestSearch:
                     assert res.match_start == self.P(ik)
                     assert res.match_end == self.P(ik)
                 else:
-                    assert match is None
+                    #assert match is None # this is only true on cpy2 (but not on pypy2/3 and cpy3)
                     assert res is None
 
 
