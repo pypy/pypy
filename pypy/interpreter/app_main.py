@@ -282,6 +282,7 @@ def funroll_loops(*args):
 
 
 def set_jit_option(options, jitparam, *args):
+    options['_jitoptions'] = jitparam
     if jitparam == 'help':
         _print_jit_help()
         raise SystemExit
@@ -476,6 +477,8 @@ def X_option(options, xoption, iterargv):
             options["utf8_mode"] = 1
         elif xoption == "utf8=0":
             options["utf8_mode"] = 0
+    elif xoption == 'jit-off':
+        set_jit_option(options, 'off')
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -705,9 +708,6 @@ def run_command_line(interactive,
                 faulthandler.enable(2)   # manually set to stderr
             except ValueError:
                 pass      # ignore "2 is not a valid file descriptor"
-    if 'pypyjit' in sys.builtin_module_names:
-        if 'jit-off' in sys._xoptions:
-            set_jit_option(None, "off")
 
     pycache_prefix = sys._xoptions.get('pycache_prefix', None)
     if pycache_prefix is True:

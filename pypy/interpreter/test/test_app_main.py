@@ -147,10 +147,10 @@ class TestParseCommandLine:
         self.check(['-S', '-O', '--info'], env, output_contains='translation')
         self.check(['-S', '-O', '--version'], env, output_contains='Python')
         self.check(['-S', '-OV'], env, output_contains='Python')
-        # self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
-        #            run_stdin=True, no_site=1, jit_off='off')
-        # self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
-        #            run_stdin=True, no_site=1)
+        self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
+                   run_stdin=True, no_site=1, _jitoptions='off')
+        self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
+                   run_stdin=True, no_site=1, _jitoptions='off', _xoptions=['jit-off'])
         self.check(['-c', 'pass'], env, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass'], env, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass','x'], env, sys_argv=['-c','x'], run_command='pass')
@@ -263,31 +263,6 @@ class TestParseCommandLine:
                 sys_argv=[''], run_stdin=True,
                 check_hash_based_pycs=val)
 
-    def test_jit_off(self, monkeypatch):
-        env = os.environ.copy()
-        get_python3()
-        try:
-            import __pypy__
-        except:
-            py.test.skip('PyPy only test')
-        options = [None]
-        def set_jit_option(_, option, *args):
-            options[0] = option
-        from pypy.interpreter import app_main
-        monkeypatch.setattr(app_main, 'set_jit_option', set_jit_option, raising=False)
-        self.check(['-X', 'jit-off'], env, sys_argv=[''], run_stdin=True)
-        assert options == ["off"]
-
-    def test_jit_off_envvar(self, monkeypatch):
-        get_python3()
-        monkeypatch.setenv('PYPY_DISABLE_JIT', '1')
-        options = [None]
-        def set_jit_option(_, option, *args):
-            options[0] = option
-        from pypy.interpreter import app_main
-        monkeypatch.setattr(app_main, 'set_jit_option', set_jit_option, raising=False)
-        self.check([], {}, sys_argv=[''], run_stdin=True)
-        assert options == ["off"]
 
 
 class TestInteraction:
