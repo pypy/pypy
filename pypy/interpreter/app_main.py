@@ -257,6 +257,7 @@ def funroll_loops(*args):
 
 
 def set_jit_option(options, jitparam, *args):
+    options['_jitoptions'] = jitparam
     if jitparam == 'help':
         _print_jit_help()
         raise SystemExit
