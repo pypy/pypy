@@ -162,10 +162,7 @@ def _do_extend_from_iterable(space, w_list, w_iterable):
 
 
 def list_unroll_condition(w_list1, space, w_list2):
-    return (jit.loop_unrolling_heuristic(w_list1, w_list1.length(),
-                                         UNROLL_CUTOFF) or
-            jit.loop_unrolling_heuristic(w_list2, w_list2.length(),
-                                         UNROLL_CUTOFF))
+    return (w_list1._unrolling_heuristic() or w_list2._unrolling_heuristic())
 
 
 class W_ListObject(W_Root):
@@ -180,6 +177,10 @@ class W_ListObject(W_Root):
         else:
             self.strategy = space.fromcache(ObjectListStrategy)
         self.init_from_list_w(wrappeditems)
+
+    def _unrolling_heuristic(self):
+        strategy = self.strategy
+        return strategy._unrolling_heuristic(self)
 
     @staticmethod
     def from_storage_and_strategy(space, storage, strategy):
@@ -963,6 +964,12 @@ class ListStrategy(object):
     def physical_size(self, w_list):
         raise oefmt(self.space.w_ValueError, "can't get physical size of list")
 
+    def _unrolling_heuristic(self, w_list):
+        # default implementation: we will only go by size, not whether the list
+        # is virtual
+        size = self.length(w_list)
+        return size == 0 or (jit.isconstant(size) and size <= UNROLL_CUTOFF)
+
 
 class EmptyListStrategy(ListStrategy):
     """EmptyListStrategy is used when a W_List withouth elements is created.
@@ -1128,6 +1135,9 @@ class EmptyListStrategy(ListStrategy):
     def physical_size(self, w_list):
         return 0
 
+    def _unrolling_heuristic(self, w_list):
+        return True
+
 
 class SizeListStrategy(EmptyListStrategy):
     """Like empty, but when modified it'll preallocate the size to sizehint."""
@@ -1236,6 +1246,8 @@ class BaseRangeListStrategy(ListStrategy):
         if step > 0 and reverse or step < 0 and not reverse:
             self.switch_to_integer_strategy(w_list)
             w_list.sort(reverse)
+
+    # default _unrolling_heuristic is fine
 
 
 class SimpleRangeListStrategy(BaseRangeListStrategy):
@@ -1519,13 +1531,11 @@ class AbstractUnwrappedStrategy(object):
             func_with_new_name(getitems_copy, "getitems_unroll"))
 
     getitems_copy = jit.look_inside_iff(lambda self, w_list:
-            jit.loop_unrolling_heuristic(w_list, w_list.length(),
-                                         UNROLL_CUTOFF))(getitems_copy)
+            w_list._unrolling_heuristic())(getitems_copy)
 
 
     @jit.look_inside_iff(lambda self, w_list:
-            jit.loop_unrolling_heuristic(w_list, w_list.length(),
-                                         UNROLL_CUTOFF))
+            w_list._unrolling_heuristic())
     def getitems_fixedsize(self, w_list):
         return self.getitems_unroll(w_list)
 
@@ -1738,6 +1748,10 @@ class AbstractUnwrappedStrategy(object):
         l = self.unerase(w_list.lstorage)
         return list_get_physical_size(l)
 
+    def _unrolling_heuristic(self, w_list):
+        storage = self.unerase(w_list.lstorage)
+        return jit.loop_unrolling_heuristic(storage, len(storage), UNROLL_CUTOFF)
+
 
 class ObjectListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -1758,8 +1772,7 @@ class ObjectListStrategy(ListStrategy):
     unerase = staticmethod(unerase)
 
     @jit.look_inside_iff(lambda self, w_list:
-            jit.loop_unrolling_heuristic(w_list, w_list.length(),
-                                         UNROLL_CUTOFF))
+            w_list._unrolling_heuristic())
     def getitems_copy(self, w_list):
         storage = self.unerase(w_list.lstorage)
         return storage[:]

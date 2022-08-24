@@ -14,7 +14,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
     isconstant, isvirtual, set_param, record_exact_class, record_known_result,
-    record_exact_value)
+    record_exact_value, loop_unrolling_heuristic)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -3835,6 +3835,23 @@ class BaseLLtypeTests(BasicTests):
         assert res == 0
         self.check_resops(call_i=0, call_may_force_i=0, new_array=0)
 
+    def test_loop_unrolling_heuristic_needs_constant_size(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        @look_inside_iff(lambda x: loop_unrolling_heuristic(x, len(x)))
+        def g(x):
+            return x[0]
+        def f(n):
+            l = [1] * 1000
+            l.append(1)
+            while n > 0:
+                myjitdriver.jit_merge_point()
+                x = l[:n]
+                n -= g(x)
+                x.append(n)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops(call_i=2, new_array=2)
 
     def test_convert_from_SmallFunctionSetPBCRepr_to_FunctionsPBCRepr(self):
         f1 = lambda n: n+1
