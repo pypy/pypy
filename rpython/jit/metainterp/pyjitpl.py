@@ -2264,7 +2264,7 @@ class MetaInterp(object):
         # Note: self.jitdriver_sd is the JitDriverStaticData that corresponds
         # to the current loop -- the outermost one.  Be careful, because
         # during recursion we can also see other jitdrivers.
-        self.registers = [None] * self.jitdriver_sd.mainjitcode.num_all_regs()
+        self.registers = [None] * max(1, self.jitdriver_sd.mainjitcode.num_all_regs())
         self.registers_stackpointer = 0
 
         self.portal_trace_positions = []
