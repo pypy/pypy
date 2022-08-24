@@ -2307,7 +2307,7 @@ class MetaInterp(object):
         #return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
 
     def newframe(self, jitcode, greenkey=None):
-        print ">" * len(self.framestack), jitcode.name
+        #print ">" * len(self.framestack), jitcode.name
         if jitcode.jitdriver_sd:
             self.portal_call_depth += 1
             self.call_ids.append(self.current_call_id)
@@ -2336,9 +2336,10 @@ class MetaInterp(object):
 
     def popframe(self, leave_portal_frame=True):
         frame = self.framestack.pop()
-        print "<" * len(self.framestack), frame.jitcode.name
+        #print "<" * len(self.framestack), frame.jitcode.name
         jitcode = frame.jitcode
         self.registers_stackpointer -= frame.jitcode.num_all_regs()
+        # XXX what about removing references?
         if jitcode.jitdriver_sd:
             self.portal_call_depth -= 1
             if leave_portal_frame:
@@ -2707,7 +2708,7 @@ class MetaInterp(object):
         self.staticdata.stats.entered()
         while True:
             self.framestack[-1].run_one_step()
-            print "step", self.framestack[-1].pc, self.framestack[-1].registers_i, self.registers
+            #print "step", self.framestack[-1].pc, self.framestack[-1].registers_i, self.registers
             self.blackhole_if_trace_too_long()
             if not we_are_translated():
                 self.check_recursion_invariant()
