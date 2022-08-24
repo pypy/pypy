@@ -1697,19 +1697,19 @@ class BlackholeInterpreter(object):
     def _copy_data_from_miframe(self, miframe):
         self.setposition(miframe.jitcode, miframe.pc)
         for i in range(self.jitcode.num_regs_i()):
-            box = miframe.registers_i[i]
+            box = miframe.get_reg_i(i)
             if not we_are_translated() and isinstance(box, MissingValue):
                 continue
             if box is not None:
                 self.setarg_i(i, box.getint())
         for i in range(self.jitcode.num_regs_r()):
-            box = miframe.registers_r[i]
+            box = miframe.get_reg_r(i)
             if not we_are_translated() and isinstance(box, MissingValue):
                 continue
             if box is not None:
                 self.setarg_r(i, box.getref_base())
         for i in range(self.jitcode.num_regs_f()):
-            box = miframe.registers_f[i]
+            box = miframe.get_reg_f(i)
             if not we_are_translated() and isinstance(box, MissingValue):
                 continue
             if box is not None:
