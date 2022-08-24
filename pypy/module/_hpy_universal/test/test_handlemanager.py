@@ -1,9 +1,12 @@
 import pytest
-from pypy.module._hpy_universal.handlemanager import (
-    HandleManager, HandleReleaseCallback)
+from pypy.module._hpy_universal.handlemanager import HandleReleaseCallback
+from pypy.module._hpy_universal.state import State
 
+class Config(object):
+    translating = True
 
 class FakeSpace(object):
+    config = Config()
     def __init__(self):
         self._cache = {}
 
@@ -15,7 +18,7 @@ class FakeSpace(object):
     def __getattr__(self, name):
         return '<fakespace.%s>' % name
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def fakespace():
     return FakeSpace()
 
@@ -25,9 +28,12 @@ def test_fakespace(fakespace):
         return object()
     assert fakespace.fromcache(x) is fakespace.fromcache(x)
 
-@pytest.fixture
-def mgr(fakespace):
-    return HandleManager(fakespace, None)
+@pytest.fixture(scope="module", params=['universal', 'debug'])
+def mgr(fakespace, request):
+    state = State(fakespace)
+    state.setup(fakespace)
+    debug = request.param == 'debug'
+    return state.get_handle_manager(debug)
 
 class TestHandleManager(object):
 
@@ -37,12 +43,12 @@ class TestHandleManager(object):
 
     def test_new(self, mgr):
         h = mgr.new('hello')
-        assert mgr.handles_w[h] == 'hello'
+        assert mgr.deref(h) == 'hello'
 
     def test_close(self, mgr):
         h = mgr.new('hello')
         assert mgr.close(h) is None
-        assert mgr.handles_w[h] is None
+        assert mgr.deref(h) is None
 
     def test_deref(self, mgr):
         h = mgr.new('hello')
@@ -52,7 +58,7 @@ class TestHandleManager(object):
     def test_consume(self, mgr):
         h = mgr.new('hello')
         assert mgr.consume(h) == 'hello'
-        assert mgr.handles_w[h] is None
+        assert mgr.deref(h) is None
 
     def test_freelist(self, mgr):
         h0 = mgr.new('hello')
@@ -127,14 +133,14 @@ class TestUsing(object):
 
     def test_simple(self, mgr):
         with mgr.using('hello') as h:
-            assert mgr.handles_w[h] == 'hello'
-        assert mgr.handles_w[h] is None
+            assert mgr.deref(h) == 'hello'
+        assert mgr.deref(h) is None
 
     def test_multiple_handles(self, mgr):
         with mgr.using('hello', 'world', 'foo') as (h1, h2, h3):
-            assert mgr.handles_w[h1] == 'hello'
-            assert mgr.handles_w[h2] == 'world'
-            assert mgr.handles_w[h3] == 'foo'
-        assert mgr.handles_w[h1] is None
-        assert mgr.handles_w[h2] is None
-        assert mgr.handles_w[h3] is None
+            assert mgr.deref(h1) == 'hello'
+            assert mgr.deref(h2) == 'world'
+            assert mgr.deref(h3) == 'foo'
+        assert mgr.deref(h1) is None
+        assert mgr.deref(h2) is None
+        assert mgr.deref(h3) is None
