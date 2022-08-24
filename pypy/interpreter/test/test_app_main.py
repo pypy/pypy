@@ -770,6 +770,13 @@ class TestNonInteractive:
         assert 'NameError' in data
         assert 'Goodbye2' not in data
 
+    def test_abspath_in_main_error_traceback(self, crashing_demo_script):
+        relpath = py.path.local().bestrelpath(py.path.local(crashing_demo_script))
+        assert not os.path.isabs(relpath)
+        data = self.run('"%s"' % (relpath,))
+        assert crashing_demo_script in data
+        assert relpath not in data
+
     def test_crashing_script_on_stdin(self, crashing_demo_script):
         data = self.run(' < "%s"' % (crashing_demo_script,))
         assert 'Hello2' in data

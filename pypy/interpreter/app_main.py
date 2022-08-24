@@ -952,6 +952,8 @@ def run_command_line(interactive,
                     mainmodule.__loader__ = loader
                     @hidden_applevel
                     def execfile(filename, namespace):
+                        from os.path import abspath
+                        filename = abspath(filename)
                         try:
                             with open(filename, 'rb') as f:
                                 code = f.read()
