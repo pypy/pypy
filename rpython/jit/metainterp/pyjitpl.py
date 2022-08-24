@@ -66,6 +66,8 @@ class MIFrame(object):
         while metainterp.registers_stackpointer >= len(metainterp.registers):
             # double size
             metainterp.registers = metainterp.registers + [None] * len(metainterp.registers)
+        for i in range(self.registers_pos_i, metainterp.registers_stackpointer):
+            metainterp.registers[i] = None
         assert isinstance(jitcode, JitCode)
         self.jitcode = jitcode
         self.bytecode = jitcode.code
