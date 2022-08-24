@@ -15,13 +15,13 @@ class State(object):
         self.space = space
         uctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
-        self.u_handles = handlemanager.HandleManager(space, uctx)
-        self.d_handles = handlemanager.DebugHandleManager(space, dctx, self.u_handles)
+        self.u_handler = handlemanager.HandleManager(space, uctx)
+        self.d_handler = handlemanager.DebugHandleManager(space, dctx, self.u_handler)
 
     @jit.dont_look_inside
     def setup(self, space):
-        self.u_handles.setup_ctx()
-        self.d_handles.setup_ctx()
+        self.u_handler.setup_ctx()
+        self.d_handler.setup_ctx()
         self.setup_bridge()
 
     @staticmethod
@@ -31,8 +31,8 @@ class State(object):
     @specialize.arg(1)
     def get_handle_manager(self, debug):
         if debug:
-            return self.d_handles
-        return self.u_handles
+            return self.d_handler
+        return self.u_handler
 
     def setup_bridge(self):
         if self.space.config.translating:
@@ -55,7 +55,7 @@ class State(object):
                 setattr(bridge, fieldname, funcptr)
 
     def was_already_setup(self):
-        return bool(self.u_handles.ctx)
+        return bool(self.u_handler.ctx)
 
     @not_rpython
     def reset(self):
@@ -63,7 +63,7 @@ class State(object):
         Only for tests: reset all the C globals to match the current state.
         """
         self.setup_bridge()
-        llapi.hpy_debug_set_ctx(self.d_handles.ctx)
+        llapi.hpy_debug_set_ctx(self.d_handler.ctx)
 
     def set_exception(self, operror):
         self.clear_exception()

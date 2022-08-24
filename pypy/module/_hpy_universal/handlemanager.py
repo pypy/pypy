@@ -257,10 +257,10 @@ class HandleManager(AbstractHandleManager):
 class DebugHandleManager(AbstractHandleManager):
     cls_suffix = '_d'
 
-    def __init__(self, space, dctx, u_handles):
+    def __init__(self, space, dctx, u_handler):
         from .interp_extfunc import W_ExtensionFunction_d, W_ExtensionMethod_d
         AbstractHandleManager.__init__(self, space, dctx, is_debug=True)
-        self.u_handles = u_handles
+        self.u_handler = u_handler
         self.w_ExtensionFunction = W_ExtensionFunction_d
         self.w_ExtensionMethod = W_ExtensionMethod_d
 
@@ -277,7 +277,7 @@ class DebugHandleManager(AbstractHandleManager):
         self.ctx.c_name = self.ctx_name()
         rffi.setintfield(self.ctx, 'c_ctx_version', 1)
         self.ctx.c__private = llapi.cts.cast('void*', 0)
-        llapi.hpy_debug_ctx_init(self.ctx, self.u_handles.ctx)
+        llapi.hpy_debug_ctx_init(self.ctx, self.u_handler.ctx)
         for func in DEBUG.all_functions:
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
@@ -285,22 +285,22 @@ class DebugHandleManager(AbstractHandleManager):
         llapi.hpy_debug_set_ctx(self.ctx)
 
     def new(self, w_object):
-        uh = self.u_handles.new(w_object)
+        uh = self.u_handler.new(w_object)
         return llapi.hpy_debug_open_handle(self.ctx, uh)
 
     def close(self, dh):
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         llapi.hpy_debug_close_handle(self.ctx, dh)
-        self.u_handles.close(uh)
+        self.u_handler.close(uh)
 
     def deref(self, dh):
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
-        return self.u_handles.deref(uh)
+        return self.u_handler.deref(uh)
 
     def consume(self, dh):
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         llapi.hpy_debug_close_handle(self.ctx, dh)
-        return self.u_handles.consume(uh)
+        return self.u_handler.consume(uh)
 
 
 class HandleReleaseCallback(object):
