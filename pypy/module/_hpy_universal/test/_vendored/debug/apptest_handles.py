@@ -348,9 +348,6 @@ def test_keeping_and_reusing_argument_handle(compiler):
     with HPyDebugCapture() as hpy_debug_capture:
         assert mod.f(s) == len(s)
         assert hpy_debug_capture.invalid_handles_count == 0
-        try:
-            assert mod.g() == len(s)
-        except Exception:
-            pass
+        assert mod.g() == len(s)
         assert hpy_debug_capture.invalid_handles_count == 1
 
