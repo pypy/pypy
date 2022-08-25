@@ -598,6 +598,10 @@ hpy_debug_close_handle = rffi.llexternal(
     'pypy_hpy_debug_close_handle', [HPyContext, HPy], lltype.Void,
     compilation_info=eci, _nowrapper=True)
 
+hpy_debug_set_on_invalid_handle = rffi.llexternal(
+    'pypy_hpy_debug_set_on_invalid_handle', [HPyContext, HPy], HPy,
+    compilation_info=eci, _nowrapper=True)
+
 HPyInit__debug = rffi.llexternal(
     'pypy_HPyInit__debug', [HPyContext], HPy,
     compilation_info=eci, _nowrapper=True)

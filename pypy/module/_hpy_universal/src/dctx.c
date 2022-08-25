@@ -37,6 +37,11 @@ void pypy_hpy_debug_set_ctx(HPyContext *dctx) {
     hpy_debug_set_ctx(dctx);
 }
 
+void pypy_hpy_debug_set_on_invalid_handle(HPyContext *dctx, UHPy callback){
+    HPyDebugInfo *info = get_info(dctx);
+    info->uh_on_invalid_handle = callback;
+}
+
 // NOTE: this is currently unused: it is needed because it is
 // referenced by hpy_magic_dump. But we could try to use this variable to
 // store the actual ctx instead of malloc()ing it in setup_ctx.
