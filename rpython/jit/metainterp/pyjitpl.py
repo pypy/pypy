@@ -54,9 +54,9 @@ class MIFrame(object):
         self.metainterp = metainterp
 
     def setup(self, jitcode, greenkey=None):
-        self.registers_i = [None] * jitcode.num_regs_i()
-        self.registers_r = [None] * jitcode.num_regs_r()
-        self.registers_f = [None] * jitcode.num_regs_f()
+        #self.registers_i = [None] * jitcode.num_regs_i()
+        #self.registers_r = [None] * jitcode.num_regs_r()
+        #self.registers_f = [None] * jitcode.num_regs_f()
 
         metainterp = self.metainterp
         self.registers_pos_i = metainterp.registers_stackpointer
@@ -84,7 +84,7 @@ class MIFrame(object):
             j = 255 - index
             assert j >= 0
             return ConstInt(self.jitcode.constants_i[j])
-        assert self.registers_i[index] is self.metainterp.registers[self.registers_pos_i + index]
+        #assert self.registers_i[index] is self.metainterp.registers[self.registers_pos_i + index]
         return self.metainterp.registers[self.registers_pos_i + index]
 
     def get_reg_i_value(self, index):
@@ -92,13 +92,13 @@ class MIFrame(object):
             j = 255 - index
             assert j >= 0
             return self.jitcode.constants_i[j]
-        assert self.registers_i[index] is self.metainterp.registers[self.registers_pos_i + index]
+        #assert self.registers_i[index] is self.metainterp.registers[self.registers_pos_i + index]
         return self.metainterp.registers[self.registers_pos_i + index].getint()
 
     def set_reg_i(self, index, box):
         assert 0 <= index < self.jitcode.num_regs_i()
         self.metainterp.registers[self.registers_pos_i + index] = box
-        self.registers_i[index] = box
+        #self.registers_i[index] = box
         assert self.get_reg_i(index) is box
 
     def get_reg_r(self, index):
@@ -106,13 +106,13 @@ class MIFrame(object):
             j = 255 - index
             assert j >= 0
             return ConstPtr(self.jitcode.constants_r[j])
-        assert self.registers_r[index] is self.metainterp.registers[self.registers_pos_r + index]
+        #assert self.registers_r[index] is self.metainterp.registers[self.registers_pos_r + index]
         return self.metainterp.registers[self.registers_pos_r + index]
 
     def set_reg_r(self, index, box):
         assert 0 <= index < self.jitcode.num_regs_r()
         self.metainterp.registers[self.registers_pos_r + index] = box
-        self.registers_r[index] = box
+        #self.registers_r[index] = box
         assert self.get_reg_r(index) is box
 
     def get_reg_f(self, index):
@@ -120,13 +120,13 @@ class MIFrame(object):
             j = 255 - index
             assert j >= 0
             return ConstFloat(self.jitcode.constants_f[j])
-        assert self.registers_f[index] is self.metainterp.registers[self.registers_pos_f + index]
+        #assert self.registers_f[index] is self.metainterp.registers[self.registers_pos_f + index]
         return self.metainterp.registers[self.registers_pos_f + index]
 
     def set_reg_f(self, index, box):
         assert 0 <= index < self.jitcode.num_regs_f()
         self.metainterp.registers[self.registers_pos_f + index] = box
-        self.registers_f[index] = box
+        #self.registers_f[index] = box
         assert self.get_reg_f(index) is box
 
 
