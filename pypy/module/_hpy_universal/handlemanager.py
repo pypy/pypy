@@ -260,10 +260,10 @@ class HandleManager(AbstractHandleManager):
 class DebugHandleManager(AbstractHandleManager):
     cls_suffix = '_d'
 
-    def __init__(self, space, dctx, u_handler):
+    def __init__(self, space, dctx, u_handles):
         from .interp_extfunc import W_ExtensionFunction_d, W_ExtensionMethod_d
         AbstractHandleManager.__init__(self, space, dctx, is_debug=True)
-        self.u_handler = u_handler
+        self.u_handles = u_handles
         self.w_ExtensionFunction = W_ExtensionFunction_d
         self.w_ExtensionMethod = W_ExtensionMethod_d
 
@@ -280,7 +280,7 @@ class DebugHandleManager(AbstractHandleManager):
         self.ctx.c_name = self.ctx_name()
         rffi.setintfield(self.ctx, 'c_ctx_version', 1)
         self.ctx.c__private = llapi.cts.cast('void*', 0)
-        llapi.hpy_debug_ctx_init(self.ctx, self.u_handler.ctx)
+        llapi.hpy_debug_ctx_init(self.ctx, self.u_handles.ctx)
         for func in DEBUG.all_functions:
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
@@ -288,50 +288,50 @@ class DebugHandleManager(AbstractHandleManager):
         llapi.hpy_debug_set_ctx(self.ctx)
 
     def new(self, w_object):
-        uh = self.u_handler.new(w_object)
+        uh = self.u_handles.new(w_object)
         ret = llapi.hpy_debug_open_handle(self.ctx, uh)
         # print 'new', ret, uh, w_object
         return ret
 
     def close(self, dh):
-        # tricky, we need to deref dh but use index for all self.u_handler interactions
+        # tricky, we need to deref dh but use index for all self.u_handles interactions
         index = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         ll_assert(index > 0, 'HandleManager.close: index > 0')
-        if self.u_handler.release_callbacks[index] is not None:
+        if self.u_handles.release_callbacks[index] is not None:
             w_obj = self.deref(dh)
-            for f in self.u_handler.release_callbacks[index]:
+            for f in self.u_handles.release_callbacks[index]:
                 # print 'calling release with', dh, index, w_obj
                 f.release(dh, w_obj)
-            self.u_handler.release_callbacks[index] = None
+            self.u_handles.release_callbacks[index] = None
         # print 'close', index, dh, self.deref(dh)
-        self.u_handler.handles_w[index] = None
-        self.u_handler.free_list.append(index)
+        self.u_handles.handles_w[index] = None
+        self.u_handles.free_list.append(index)
         llapi.hpy_debug_close_handle(self.ctx, dh)
 
     def deref(self, dh):
         # print 'deref', dh
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
-        return self.u_handler.deref(uh)
+        return self.u_handles.deref(uh)
 
     def consume(self, dh):
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         llapi.hpy_debug_close_handle(self.ctx, dh)
-        return self.u_handler.consume(uh)
+        return self.u_handles.consume(uh)
 
     def dup(self, dh):
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
-        new_uh = self.u_handler.dup(uh)
-        w_object = self.u_handler.deref(new_uh)
+        new_uh = self.u_handles.dup(uh)
+        w_object = self.u_handles.deref(new_uh)
         ret = self.new(w_object)
         # print 'dup', dh, uh, w_object, 'returning', ret
         return ret
 
     def attach_release_callback(self, index, cb):
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, index)
-        self.u_handler.attach_release_callback(uh, cb)
+        self.u_handles.attach_release_callback(uh, cb)
 
     def str2ownedptr(self, s, owner):
-        return self.u_handler.str2ownedptr(s, owner)
+        return self.u_handles.str2ownedptr(s, owner)
 
 
 class HandleReleaseCallback(object):
