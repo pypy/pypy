@@ -1768,7 +1768,7 @@ if hasattr(_c, 'inet_ntop'):
                                    dstbuf, dstsize)
                 if not res:
                     raise last_error()
-                return rffi.charp2str(res)
+                return rffi.constcharp2str(res)
             finally:
                 lltype.free(dstbuf, flavor='raw')
 

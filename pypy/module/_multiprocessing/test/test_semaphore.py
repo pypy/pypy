@@ -1,4 +1,5 @@
 import sys
+import pytest
 
 from pypy.module._multiprocessing.interp_semaphore import (
     RECURSIVE_MUTEX, SEMAPHORE)
@@ -62,6 +63,7 @@ class AppTestSemaphore:
         sem._after_fork()
         assert sem._count() == 0
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_recursive(self):
         from _multiprocessing import SemLock
         kind = self.RECURSIVE
@@ -84,6 +86,7 @@ class AppTestSemaphore:
         sem.release()
         sem.release()
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_semaphore_maxvalue(self):
         from _multiprocessing import SemLock
         import sys
@@ -109,6 +112,7 @@ class AppTestSemaphore:
             if sys.platform != 'darwin':
                 assert sem._get_value() == i+1
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_semaphore_wait(self):
         from _multiprocessing import SemLock
         kind = self.SEMAPHORE
@@ -121,6 +125,7 @@ class AppTestSemaphore:
         res = sem.acquire(timeout=0.1)
         assert res == False
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_semaphore_rebuild(self):
         from _multiprocessing import SemLock
         kind = self.SEMAPHORE
@@ -131,6 +136,7 @@ class AppTestSemaphore:
         sem2 = SemLock._rebuild(sem.handle, kind, value)
         assert sem.handle == sem2.handle
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_semaphore_contextmanager(self):
         from _multiprocessing import SemLock
         kind = self.SEMAPHORE
@@ -142,6 +148,7 @@ class AppTestSemaphore:
             assert sem._count() == 1
         assert sem._count() == 0
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_in_threads(self):
         from _multiprocessing import SemLock
         from threading import Thread

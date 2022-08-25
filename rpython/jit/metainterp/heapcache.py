@@ -516,7 +516,13 @@ class HeapCache(object):
                        | HF_KNOWN_NULLITY)
 
     def new_array(self, box, lengthbox):
-        self.new(box)
+        assert isinstance(box, RefFrontendOp)
+        self.update_version(box)
+        flags = HF_SEEN_ALLOCATION | HF_KNOWN_NULLITY
+        if isinstance(lengthbox, Const):
+            # only constant-length arrays are virtuals
+            flags |= HF_LIKELY_VIRTUAL | HF_IS_UNESCAPED
+        add_flags(box, flags)
         self.arraylen_now_known(box, lengthbox)
 
     def getfield(self, box, descr):

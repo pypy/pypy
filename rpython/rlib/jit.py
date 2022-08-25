@@ -282,8 +282,10 @@ def isconstant(value):
 @specialize.call_location()
 def isvirtual(value):
     """
-    Returns if this value is virtual, while tracing, it's relatively
-    conservative and will miss some cases.
+    Returns if this value is virtual, while tracing. can be wrong in both
+    directions. it tries to be conservative by default, but can also sometimes
+    return True for something that does not end up completely virtual (eg a
+    resizable list).
 
     This is for advanced usage only.
     """
@@ -293,7 +295,10 @@ def isvirtual(value):
 def loop_unrolling_heuristic(lst, size, cutoff=2):
     """ In which cases iterating over items of lst can be unrolled
     """
-    return size == 0 or isvirtual(lst) or (isconstant(size) and size <= cutoff)
+    # isvirtual(lst) is often lying! for a resizable list it will return True
+    # if the containing *struct* is virtual, not the whole list. therefore also
+    # require the size to be constant, always.
+    return size == 0 or (isconstant(size) and (isvirtual(lst) or size <= cutoff))
 
 class Entry(ExtRegistryEntry):
     _about_ = hint

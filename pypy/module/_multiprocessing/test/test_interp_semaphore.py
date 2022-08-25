@@ -1,5 +1,6 @@
 import pytest
 import time
+import sys
 from rpython.rlib.rgil import yield_thread
 from pypy.interpreter.gateway import interp2app
 from pypy.module.thread.os_lock import allocate_lock
@@ -10,6 +11,7 @@ from pypy.module._multiprocessing.interp_semaphore import (
 
 @pytest.mark.parametrize('spaceconfig', [
     {'usemodules': ['_multiprocessing', 'thread']}])
+@pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
 def test_semlock_release(space):
     # trigger the setup() code in time.moduledef
     space.getbuiltinmodule('time')

@@ -237,7 +237,7 @@ class MIFrame(object):
         for i in range(count):
             if get(self, i) is oldbox:
                 set(self, i, newbox)
-
+    @specialize.argtype(1)
     @specialize.argtype(1)
     def make_result_of_lastop(self, resultbox):
         got_type = resultbox.type
