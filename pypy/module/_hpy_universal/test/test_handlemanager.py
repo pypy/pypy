@@ -1,19 +1,31 @@
 import pytest
 from pypy.module._hpy_universal.handlemanager import HandleReleaseCallback
 from pypy.module._hpy_universal.state import State
+# import for the side effect of adding the API functions
+from pypy.module._hpy_universal import interp_hpy
+from pypy.module._hpy_universal import llapi
 
 class Config(object):
-    translating = True
+    def __init__(self, space):
+        self.objspace = space
+        self.translating = True
 
 class FakeSpace(object):
-    config = Config()
     def __init__(self):
         self._cache = {}
+        self.config = Config(self)
 
     def fromcache(self, cls):
         if cls not in self._cache:
             self._cache[cls] = cls(self)
         return self._cache[cls]
+
+    def call(self, w_func, w_args, w_kw):
+        # This is just enough for the debug closing on_invalid_handle callback
+        if w_args is None and w_kw is None:
+            return w_func()
+        else:
+            raise RuntimeError('space.call not fully implemented')
 
     def __getattr__(self, name):
         return '<fakespace.%s>' % name
@@ -28,12 +40,28 @@ def test_fakespace(fakespace):
         return object()
     assert fakespace.fromcache(x) is fakespace.fromcache(x)
 
+def callback():
+    # "trick" the debug context into not raising a fatal error when hitting a
+    # closed handle
+    pass
+
 @pytest.fixture(scope="module", params=['universal', 'debug'])
 def mgr(fakespace, request):
-    state = State(fakespace)
+    # Do everything in interp_hpy.startup
+    from pypy.module._hpy_universal.interp_type import setup_hpy_storage
+    state = fakespace.fromcache(State)
     state.setup(fakespace)
+    setup_hpy_storage()
+    # end of interp_hpy.startup
     debug = request.param == 'debug'
-    return state.get_handle_manager(debug)
+    ret = state.get_handle_manager(debug)
+    if debug:
+        dh = ret.dup(ret.new(callback))
+        uh = llapi.hpy_debug_unwrap_handle(ret.ctx, dh)
+        llapi.hpy_debug_set_on_invalid_handle(ret.ctx, uh)
+    return ret
+
+    
 
 class TestHandleManager(object):
 
@@ -61,6 +89,8 @@ class TestHandleManager(object):
         assert mgr.deref(h) is None
 
     def test_freelist(self, mgr):
+        if mgr.is_debug:
+            pytest.skip('only for HandleManager')
         h0 = mgr.new('hello')
         h1 = mgr.new('world')
         assert mgr.consume(h0) == 'hello'
@@ -114,7 +144,8 @@ class TestReleaseCallback(object):
         # check that the releaser array is cleared when we close the handle
         # and that we don't run the releaser for a wrong object
         h1 = mgr.new('world')
-        assert h1 == h0
+        if not mgr.is_debug:
+            assert h1 == h0
         mgr.close(h1)
         assert seen == [(h0, 'hello', 'foo')]
 
