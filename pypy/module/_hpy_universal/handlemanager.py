@@ -223,6 +223,7 @@ class HandleManager(AbstractHandleManager):
             for f in self.release_callbacks[index]:
                 f.release(index, w_obj)
             self.release_callbacks[index] = None
+        # print 'universal close', index, self.handles_w[index]
         self.handles_w[index] = None
         self.free_list.append(index)
 
@@ -303,9 +304,10 @@ class DebugHandleManager(AbstractHandleManager):
                 # print 'calling release with', dh, index, w_obj
                 f.release(dh, w_obj)
             self.u_handles.release_callbacks[index] = None
-        # print 'close', index, dh, self.deref(dh)
-        self.u_handles.handles_w[index] = None
-        self.u_handles.free_list.append(index)
+        # print 'debug close', index, dh, self.deref(dh)
+        # "leak" the corresponding universal handle to keep it alive
+        # self.u_handles.handles_w[index] = None
+        # self.u_handles.free_list.append(index)
         llapi.hpy_debug_close_handle(self.ctx, dh)
 
     def deref(self, dh):
