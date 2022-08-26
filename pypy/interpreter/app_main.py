@@ -942,7 +942,7 @@ def run_command_line(interactive,
                     # put the filename in sys.path[0] and import
                     # the module __main__
                     import runpy
-                    sys.path.insert(0, filename)
+                    sys.path.insert(0, abspath(filename))
                     args = (runpy._run_module_as_main, '__main__', False)
                 else:
                     # That's the normal path, "pypy3 stuff.py".

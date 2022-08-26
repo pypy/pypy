@@ -1045,6 +1045,15 @@ class TestNonInteractive:
         data = self.run(p + os.sep)
         assert data == p + os.sep + '\n'
 
+    def test_run_module_inserts_abs_path_to_sys_path(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
+        p = getscript_in_dir('import sys; print(sys.path[0])\n')
+        data = self.run(p)
+        assert data == os.path.abspath(p) + '\n'
+        data = self.run(p + os.sep)
+        assert data == os.path.abspath(p) + '\n'
+
     def test_getfilesystemencoding(self):
         py.test.skip("encoding is only set if stdout.isatty(), test is flawed")
         if sys.version_info < (2, 7):
