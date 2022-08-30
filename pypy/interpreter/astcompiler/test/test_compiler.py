@@ -2006,6 +2006,14 @@ x = [lineno for addr, lineno in linestarts]
     """
         self.st(func, "x", [8, 9, 11, 9, 11, 12])
 
+    def test_lineno1_eval_bug(self):
+        func = """c = compile('z', '<string>', 'eval')
+import dis
+x = [lineno for addr, lineno in dis.findlinestarts(c)]
+"""
+        self.st(func, "x", [1])
+
+
     def test_error_in_dead_code(self):
         self.error_test("if 0: break", SyntaxError)
         self.error_test("while 0: lambda x, x: 1", SyntaxError)
