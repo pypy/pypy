@@ -237,6 +237,15 @@ def test_format_char():
 
 def test_broken_unicode():
     raises(UnicodeDecodeError, 'Názov: %s'.__mod__, u'Jerry')
+    raises(UnicodeDecodeError, "\xff\xff%c".__mod__, u"a")
+
+def test_force_unicode_uses_default_encoding():
+    encoding = sys.getdefaultencoding()
+    try:
+        sys.setdefaultencoding("utf-8")
+        assert "ä%s" % u"ö" == "äö"
+    finally:
+        sys.setdefaultencoding(encoding)
 
 def test___int__():
     class MyInt(object):
