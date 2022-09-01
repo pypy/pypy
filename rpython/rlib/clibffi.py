@@ -21,6 +21,7 @@ from platform import machine
 import py
 import os
 import sys
+import ctypes
 import ctypes.util
 
 
@@ -277,15 +278,26 @@ else:
                 "arguments (%d bytes in excess) " % (result,))
 
 if not _WIN32:
+    # prefer using ctypes.util.find_library() as it takes care of some
+    # platform specifics -- however, it is not 100% portable
     libc_name = ctypes.util.find_library('c')
-    if libc_name is None and sys.platform == 'darwin':
+    if libc_name is not None:
+        def get_libc_name():
+            return libc_name
+    elif sys.platform == 'darwin':
         def get_libc_name():
             return '/usr/lib/libc.dylib'
     else:
-        assert libc_name is not None, "Cannot find C library, ctypes.util.find_library('c') returned None"
-
-        def get_libc_name():
-            return libc_name
+        # try falling back to generic "libc.so" as that should work
+        # for the majority of ELF systems (except for GNU/Linux)
+        try:
+            ctypes.CDLL('libc.so')
+        except OSError:
+            raise AssertionError(
+                "Cannot find C library, ctypes.util.find_library('c') returned None")
+        else:
+            def get_libc_name():
+                return 'libc.so'
 elif _MSVC:
     get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 

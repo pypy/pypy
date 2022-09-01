@@ -11,7 +11,6 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.unicodehelper import check_ascii_or_raise
 
 
 class BaseStringFormatter(object):
@@ -614,6 +613,8 @@ def format(space, w_fmt, values_w, w_valuedict, fmt_type):
             elif fmt_type == FORMAT_BYTEARRAY:
                 return _bytearray_from_bytes(space, result)
             return space.newbytes(result)
+    if not space.isinstance_w(w_fmt, space.w_unicode):
+        w_fmt = space.call_function(space.w_unicode, w_fmt)
     fmt = space.utf8_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()

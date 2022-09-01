@@ -600,8 +600,10 @@ class TestHeapCache(object):
         box2 = RefFrontendOp(2)
         lengthbox1 = IntFrontendOp(11)
         lengthbox2 = IntFrontendOp(12)
-        h.new_array(box1, lengthbox1)
-        h.new_array(box2, lengthbox2)
+        h.new_array(box1, index2)
+        h.new_array(box2, index2)
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
         h.invalidate_caches_varargs(
             rop.CALL_N,
             arraycopydescr1,
@@ -682,7 +684,7 @@ class TestHeapCache(object):
         box2 = RefFrontendOp(2)
         lengthbox1 = IntFrontendOp(11)
         lengthbox2 = IntFrontendOp(12)
-        h.new_array(box1, lengthbox1)
+        h.new_array(box1, index2)
         assert h.is_unescaped(box1)
         h.invalidate_caches(rop.SETARRAYITEM_GC, None, box1, index1, box2)
         assert h.is_unescaped(box1)
@@ -690,7 +692,7 @@ class TestHeapCache(object):
         assert not h.is_unescaped(box1)
 
         h = HeapCache()
-        h.new_array(box1, lengthbox1)
+        h.new_array(box1, index2)
         h.new(box2)
         assert h.is_unescaped(box1)
         assert h.is_unescaped(box2)
@@ -721,7 +723,7 @@ class TestHeapCache(object):
         box1 = RefFrontendOp(1)
         box3 = RefFrontendOp(3)
         lengthbox1 = IntFrontendOp(11)
-        h.new_array(box1, lengthbox1)
+        h.new_array(box1, index2)
         assert h.is_unescaped(box1)
         h.setarrayitem(box1, index1, box3, descr1)
         h.invalidate_caches_varargs(rop.CALL_N,
@@ -831,6 +833,17 @@ class TestHeapCache(object):
         h.class_now_known(box1)     # interaction of the two families of flags
         assert not h.is_unescaped(box1)
         assert h.is_likely_virtual(box1)
+
+    def test_is_likely_virtual_array(self):
+        h = HeapCache()
+        box1 = RefFrontendOp(1)
+        h.new_array(box1, index2)
+        assert h.is_likely_virtual(box1)
+        box2 = RefFrontendOp(2)
+        lengthbox = IntFrontendOp(11)
+        # arrays are only virtual if the length is constant
+        h.new_array(box2, lengthbox)
+        assert not h.is_likely_virtual(box2)
 
     def test_quasiimmut_seen(self):
         h = HeapCache()

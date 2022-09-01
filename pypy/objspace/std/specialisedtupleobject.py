@@ -2,12 +2,14 @@ from pypy.interpreter.error import oefmt
 from pypy.objspace.std.tupleobject import (W_AbstractTupleObject,
     XXPRIME_1, XXPRIME_2, XXPRIME_5, xxrotate, uhash_type)
 from pypy.objspace.std.util import negate
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.longlong2float import float2longlong
 
+UNROLL_CUTOFF = 10
 
 class NotSpecialised(Exception):
     pass
@@ -133,6 +135,11 @@ def make_specialised_class(typetuple):
                     value = wraps[i](self.space, value)
                     return value
             raise oefmt(space.w_IndexError, "tuple index out of range")
+
+        def _unroll_condition(self):
+            return jit.loop_unrolling_heuristic(
+                    self, typelen, UNROLL_CUTOFF)
+
 
     cls.__name__ = ('W_SpecialisedTupleObject_' +
                     ''.join([t.__name__[0] for t in typetuple]))
