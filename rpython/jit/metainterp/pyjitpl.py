@@ -102,12 +102,10 @@ class MIFrame(object):
     # ------------------------------
     # Decoding of the JitCode
 
-    @specialize.arg(4)
-    def prepare_list_of_boxes(self, outvalue, startindex, position, argcode):
+    @specialize.arg(5)
+    def prepare_list_of_boxes(self, outvalue, startindex, position, length, argcode):
         assert argcode in 'IRF'
         code = self.bytecode
-        length = ord(code[position])
-        position += 1
         for i in range(length):
             index = ord(code[position+i])
             if   argcode == 'I': reg = self.registers_i[index]
@@ -115,6 +113,24 @@ class MIFrame(object):
             elif argcode == 'F': reg = self.registers_f[index]
             else: raise AssertionError(argcode)
             outvalue[startindex+i] = reg
+
+    @specialize.arg(4)
+    def fill_registers(self, f, length, position, argcode):
+        assert argcode in 'IRF'
+        code = self.bytecode
+        for i in range(length):
+            index = ord(code[position+i])
+            if   argcode == 'I':
+                reg = self.registers_i[index]
+                f.registers_i[i] = reg
+            elif argcode == 'R':
+                reg = self.registers_r[index]
+                f.registers_r[i] = reg
+            elif argcode == 'F':
+                reg = self.registers_f[index]
+                f.registers_f[i] = reg
+            else:
+                raise AssertionError(argcode)
 
     def _put_back_list_of_boxes(self, outvalue, startindex, position):
         code = self.bytecode
@@ -1168,15 +1184,15 @@ class MIFrame(object):
         result = vinfo.get_array_length(virtualizable, arrayindex)
         return ConstInt(result)
 
-    @arguments("jitcode", "boxes")
-    def _opimpl_inline_call1(self, jitcode, argboxes):
-        return self.metainterp.perform_call(jitcode, argboxes)
-    @arguments("jitcode", "boxes2")
-    def _opimpl_inline_call2(self, jitcode, argboxes):
-        return self.metainterp.perform_call(jitcode, argboxes)
-    @arguments("jitcode", "boxes3")
-    def _opimpl_inline_call3(self, jitcode, argboxes):
-        return self.metainterp.perform_call(jitcode, argboxes)
+    @arguments("newframe")
+    def _opimpl_inline_call1(self, _):
+        raise ChangeFrame
+    @arguments("newframe2")
+    def _opimpl_inline_call2(self, _):
+        raise ChangeFrame
+    @arguments("newframe3")
+    def _opimpl_inline_call3(self, _):
+        raise ChangeFrame
 
     opimpl_inline_call_r_i = _opimpl_inline_call1
     opimpl_inline_call_r_r = _opimpl_inline_call1
@@ -3573,7 +3589,7 @@ def _get_opimpl_method(name, argcodes):
             elif argtype == "boxes":     # a list of boxes of some type
                 length = ord(code[position])
                 value = [None] * length
-                self.prepare_list_of_boxes(value, 0, position,
+                self.prepare_list_of_boxes(value, 0, position + 1, length,
                                            argcodes[next_argcode])
                 next_argcode = next_argcode + 1
                 position += 1 + length
@@ -3582,9 +3598,9 @@ def _get_opimpl_method(name, argcodes):
                 position2 = position + 1 + length1
                 length2 = ord(code[position2])
                 value = [None] * (length1 + length2)
-                self.prepare_list_of_boxes(value, 0, position,
+                self.prepare_list_of_boxes(value, 0, position + 1, length1,
                                            argcodes[next_argcode])
-                self.prepare_list_of_boxes(value, length1, position2,
+                self.prepare_list_of_boxes(value, length1, position2 + 1, length2,
                                            argcodes[next_argcode + 1])
                 next_argcode = next_argcode + 2
                 position = position2 + 1 + length2
@@ -3595,14 +3611,50 @@ def _get_opimpl_method(name, argcodes):
                 position3 = position2 + 1 + length2
                 length3 = ord(code[position3])
                 value = [None] * (length1 + length2 + length3)
-                self.prepare_list_of_boxes(value, 0, position,
+                self.prepare_list_of_boxes(value, 0, position + 1, length1,
                                            argcodes[next_argcode])
-                self.prepare_list_of_boxes(value, length1, position2,
+                self.prepare_list_of_boxes(value, length1, position2 + 1, length2,
                                            argcodes[next_argcode + 1])
-                self.prepare_list_of_boxes(value, length1 + length2, position3,
+                self.prepare_list_of_boxes(value, length1 + length2, position3 + 1,
+                                           length3,
                                            argcodes[next_argcode + 2])
                 next_argcode = next_argcode + 3
                 position = position3 + 1 + length3
+            elif argtype == "newframe" or argtype == "newframe2" or argtype == "newframe3":
+                # this and the next two are basically equivalent to
+                # jitcode boxes/boxes2/boxes3
+                # instead of allocating the list of boxes, just put everything
+                # into the correct position of a new MIFrame
+
+                # first get the jitcode
+                assert argcodes[next_argcode] == 'd'
+                next_argcode = next_argcode + 1
+                index = ord(code[position]) | (ord(code[position+1])<<8)
+                jitcode = self.metainterp.staticdata.opcode_descrs[index]
+                assert isinstance(jitcode, JitCode)
+                position += 2
+                # make a new frame
+                value = self.metainterp.newframe(jitcode)
+                value.pc = 0
+
+                # now put boxes into the right places
+                length = ord(code[position])
+                self.fill_registers(value, length, position + 1,
+                                    argcodes[next_argcode])
+                next_argcode = next_argcode + 1
+                position += 1 + length
+                if argtype != "newframe": # 2/3 lists of boxes
+                    length = ord(code[position])
+                    self.fill_registers(value, length, position + 1,
+                                        argcodes[next_argcode])
+                    next_argcode = next_argcode + 1
+                    position += 1 + length
+                if argtype == "newframe3": # 3 lists of boxes
+                    length = ord(code[position])
+                    self.fill_registers(value, length, position + 1,
+                                        argcodes[next_argcode])
+                    next_argcode = next_argcode + 1
+                    position += 1 + length
             elif argtype == "orgpc":
                 value = orgpc
             elif argtype == "int":
