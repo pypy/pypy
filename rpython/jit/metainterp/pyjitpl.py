@@ -21,7 +21,7 @@ from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
 from rpython.rlib.jit import Counters
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, always_inline
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper import rclass
@@ -3078,19 +3078,22 @@ class MetaInterp(object):
 
     @specialize.arg(1)
     def initialize_original_boxes(self, jitdriver_sd, *args):
-        original_boxes = []
-        self._fill_original_boxes(jitdriver_sd, original_boxes,
+        original_boxes = [None] * len(args)
+        self._fill_original_boxes(jitdriver_sd, original_boxes, 0,
                                   jitdriver_sd.num_green_args, *args)
         return original_boxes
 
     @specialize.arg(1)
+    @always_inline
     def _fill_original_boxes(self, jitdriver_sd, original_boxes,
+                             position,
                              num_green_args, *args):
         if args:
             from rpython.jit.metainterp.warmstate import wrap
             box = wrap(self.cpu, args[0], num_green_args > 0)
-            original_boxes.append(box)
+            original_boxes[position] = box
             self._fill_original_boxes(jitdriver_sd, original_boxes,
+                                      position + 1,
                                       num_green_args-1, *args[1:])
 
     def initialize_state_from_start(self, original_boxes):
