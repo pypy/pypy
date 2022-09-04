@@ -145,7 +145,10 @@ class OptTraceSplit(Optimizer):
                opnum == rop.DEBUG_MERGE_POINT:
                 arglist = op.getarglist()
                 # TODO: look up `pc' by name
-                greens = arglist[self.jitdriver_sd.num_red_args:]
+                if self.jitdriver_sd.num_red_args < 3:
+                    greens = arglist[3:]
+                else:
+                    greens = arglist[self.jitdriver_sd.num_red_args:]
                 box = greens[0]
                 assert isinstance(box, ConstInt)
                 self.token_map[box.getint()] = self.token
