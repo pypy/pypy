@@ -203,7 +203,7 @@ class OptTraceSplit(Optimizer):
                 if not farg in self._specialguardop:
                     newfailargs.append(farg)
 
-                op.setfailargs(newfailargs)
+            op.setfailargs(newfailargs)
             self._fdescrstack.append(op.getdescr())
 
     optimize_GUARD_TRUE = optimize_GUARD_VALUE
@@ -218,7 +218,9 @@ class OptTraceSplit(Optimizer):
         elif endswith(name, mark.RET):
             self.emit_pseudoop(op)
             self.handle_emit_ret(op)
-        elif endswith(name, mark.IS_TRUE):
+        elif endswith(name, mark.IS_TRUE) or \
+             endswith(name, mark.IS_TRUE_OBJECT) or \
+             endswith(name, mark.IS_FALSE_OBJECT):
             self._specialguardop.append(op)
             self.emit(op)
         else:
