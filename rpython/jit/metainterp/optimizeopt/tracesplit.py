@@ -1,3 +1,5 @@
+from rpython.jit.metainterp.optimize import InvalidLoop
+from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem.llmemory import AddressAsInt
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.rstring import find, endswith
@@ -288,7 +290,12 @@ class OptTraceSplit(Optimizer):
         assert isinstance(currentbox, ConstInt)
         assert isinstance(targetbox, ConstInt)
 
-        target_token = self.get_from_token_map(targetbox.getint())
+        key = targetbox.getint()
+        try:
+            target_token = self.get_from_token_map(key)
+        except TokenMapError as e:
+            debug_print("Token is not found at " + str(key))
+            raise InvalidLoop
 
         jump_op = ResOperation(rop.JUMP, inputargs, target_token)
         label_op, residual_ops = self._newoperations[0], self._newoperations[1:]
