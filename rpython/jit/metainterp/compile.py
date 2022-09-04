@@ -1167,11 +1167,11 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:]
 
     # DEBUG
-    # debug_print("Loop afters splitted")
-    # metainterp_sd.logger_noopt.log_loop(new_body_info.inputargs, new_body_ops)
-    # for bridge_info, bridge_ops in bridges:
-    #     metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
-    #                                           descr=bridge_info.faildescr)
+    debug_print("Splitting the loop")
+    metainterp_sd.logger_noopt.log_loop(new_body_info.inputargs, new_body_ops)
+    for bridge_info, bridge_ops in bridges:
+        metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
+                                              descr=bridge_info.faildescr)
 
     # compiling loop body
     new_body = create_empty_loop(metainterp)
