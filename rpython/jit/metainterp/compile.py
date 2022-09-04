@@ -1178,12 +1178,7 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     new_body.original_jitcell_token = body_jitcell_token
     new_body.inputargs = new_body_info.inputargs
 
-    if new_body_ops[-1].getopnum() == rop.JUMP:
-        body_start_label = ResOperation(rop.LABEL, new_body_info.inputargs,
-                                        descr=body_token)
-        new_body.operations = [body_start_label] + new_body_ops
-    else:
-        new_body.operations = new_body_ops
+    new_body.operations = [new_body_info.label_op] + new_body_ops
 
     if not we_are_translated():
         new_body.check_consistency()
@@ -1200,7 +1195,7 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         new_bridge = create_empty_loop(metainterp)
         new_bridge.original_jitcell_token = bridge_info.target_token.original_jitcell_token
         new_bridge.inputargs = bridge_info.inputargs
-        new_bridge.operations = bridge_ops
+        new_bridge.operations = [bridge_info.label_op] + bridge_ops
         resumekey = bridge_info.faildescr
         assert isinstance(resumekey, AbstractResumeGuardDescr)
         resumekey.compile_and_attach(metainterp, new_bridge, inputargs)
