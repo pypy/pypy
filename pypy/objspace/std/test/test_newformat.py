@@ -432,7 +432,6 @@ class AppTestFloatFormatting:
             locale.setlocale(locale.LC_NUMERIC, 'C')
 
     def test_dont_switch_to_g(self):
-        skip("must fix when float formatting is figured out")
         assert len(format(1.1234e90, "f")) == 98
 
     def test_infinite(self):
@@ -533,7 +532,7 @@ class AppTestInternalMethods:
 
         excinfo = raises(ValueError, "{:j}".format, x(1))
         print(excinfo.value)
-        assert str(excinfo.value) == "Unknown format code j for object of type 'x'"
+        assert str(excinfo.value) == "Unknown format code 'j' for object of type 'x'"
 
     def test_format_char(self):
         import sys

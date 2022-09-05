@@ -33,6 +33,11 @@ tk.mainloop()
 import enum
 import sys
 import types
+try:
+    from __pypy__ import add_memory_pressure
+except ModuleNotFoundError:
+    def add_memory_pressure(*args):
+        pass
 
 import _tkinter # If this fails your Python may not be configured for Tk
 TclError = _tkinter.TclError
@@ -4008,6 +4013,7 @@ class Image:
             options = options + ('-'+k, v)
         self.tk.call(('image', 'create', imgtype, name,) + options)
         self.name = name
+        add_memory_pressure(self.width() * self.height() * 3)
 
     def __str__(self): return self.name
 
