@@ -240,6 +240,8 @@ def test_broken_unicode():
     raises(UnicodeDecodeError, "\xff\xff%c".__mod__, u"a")
 
 def test_force_unicode_uses_default_encoding():
+    if not hasattr(sys, 'setdefaultencoding'):
+        skip("no setdefaultencoding")
     encoding = sys.getdefaultencoding()
     try:
         sys.setdefaultencoding("utf-8")
