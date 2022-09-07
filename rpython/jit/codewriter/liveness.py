@@ -165,7 +165,8 @@ def encode_liveness(live):
         liveness.append(chr(char))
     return "".join(liveness)
 
-@objectmodel.never_allocate
+#@objectmodel.never_allocate # can't be enabled because of some tests that
+# don't optimize
 class LivenessIterator(object):
     @objectmodel.always_inline
     def __init__(self, offset, length, all_liveness):
