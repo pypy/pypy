@@ -76,7 +76,12 @@ if __name__ == '__main__':
                     for fname in files:
                         print('copying', fname)
                         shutil.copy(fname, '.')
+                    break
+                else:
+                    print("not copying %s from %s", (dll, c))
 
         if candidates:
             for lib in libraries:
                 copy_from_path(lib)
+        else:
+            print('no "externals" on PATH, not copying %s, expect trouble', libraries)

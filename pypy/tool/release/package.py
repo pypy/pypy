@@ -211,6 +211,7 @@ def create_package(basedir, options, _fake=False):
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
             embed_dependencies=options.embed_dependencies,
+            rebuild=options.rebuild_extensions,
         )
 
         for key, module in failures:
@@ -465,6 +466,7 @@ def package(*args, **kwds):
     keep_debug_default = True
     no__tkinter_default = False
     embed_dependencies_default = (ARCH in ('darwin', 'aarch64', 'x86_64'))
+    rebuild_extensions_defalt = (ARCH in ('darwin', 'aarch64', 'x86_64'))
     make_portable_default = (ARCH in ('darwin',))
     copy_dlls_default = True
     if "PYPY_PACKAGE_NOKEEPDEBUG" in os.environ:
@@ -475,6 +477,10 @@ def package(*args, **kwds):
         embed_dependencies_default = True
     elif "PYPY_NO_EMBED_DEPENDENCIES" in os.environ:
         embed_dependencies_default = False
+    if "PYPY_REBUILD_EXTENSIONS" in os.environ:
+        rebuild_extensions_default = True
+    elif "PYPY_NO_REBUILD_EXTENSIONS" in os.environ:
+        rebuild_extensions_default = False
     if "PYPY_MAKE_PORTABLE" in os.environ:
         make_portable_default = True
     if "PYPY_NO_MAKE_PORTABLE" in os.environ:
@@ -521,6 +527,15 @@ def package(*args, **kwds):
                             'Defaults to {} on this platform. Uses environment '
                             'PYPY_EMBED_DEPENDENCIES and PYPY_NO_EMBED_DEPENDENCIES'
                             .format(embed_dependencies_default)
+                        )
+    parser.add_argument('--rebuild-extensions', '--no-rebuild-extensions',
+                        dest='rebuild_extensions',
+                        action=NegateAction,
+                        default=rebuild_extensions_default,
+                        help='whether to force rebuilding CFFI modules '
+                            'Defaults to {} on this platform. Uses environment '
+                            'PYPY_REBUILD_EXTENSIONS and PYPY_NO_REBUILD_EXTENSIONS'
+                            .format(rebuild_extensions_default)
                         )
     parser.add_argument('--make-portable', '--no-make-portable',
                         dest='make_portable',
