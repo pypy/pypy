@@ -261,6 +261,16 @@ def test_reuse_closed_handles(compiler):
     finally:
         _debug.set_closed_handles_queue_max_size(old_size)
 
+
+def test_set_on_invalid_handle(compiler):
+    from hpy.universal import _debug
+    def callback():
+        pass
+
+    with pytest.raises(RuntimeError):
+        _debug.set_on_invalid_handle(callback)
+
+
 @pytest.mark.skipif(True,
     reason="It's impossible to recover from use-after-close on pypy")
 def test_cant_use_closed_handle(compiler):
@@ -297,6 +307,8 @@ def test_cant_use_closed_handle(compiler):
     mod.g('bar')   # use-after-close
     assert n == 2
 
+@pytest.mark.skipif(True,
+    reason="It's impossible to recover from use-after-close on pypy")
 def test_keeping_and_reusing_argument_handle(compiler):
     mod = compiler.make_module("""
         HPy keep;
