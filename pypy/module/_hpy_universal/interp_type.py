@@ -8,12 +8,11 @@ from rpython.rlib.objectmodel import specialize
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
+from pypy.module.cpyext.pyobject import as_pyobj, PyObject
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
-from .interp_module import get_doc
 from .interp_slot import fill_slot, W_wrap_getbuffer, get_slot_cls
 from .interp_descr import add_member, add_getset
-from .interp_cpy_compat import attach_legacy_slots_to_type
 from rpython.rlib.rutf8 import surrogate_in_utf8
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
@@ -170,12 +169,10 @@ class W_HPyObject(W_ObjectObject):
 
     def get_pyobject(self):
         storage = self.get_raw_data()
-        # Now fill in all the data:
-        # - make sure space.type(self) is legacy so storage points to a valid PyObject
-        # - cast the storage as a PyObject*
-        # - get a PyTypeObject and set the fields
-        raise oefmt(self.space.w_NotImplementedError,
-                    "W_HPyObject.get_pyobject not implemented yet")
+        w_type = self.space.type(self)
+        assert isinstance(w_type, W_HPyTypeObject)
+        assert w_type.is_legacy
+        return rffi.cast(PyObject, self.get_raw_data()) 
 
     def _finalize_(self):
         w_type = self.space.type(self)
@@ -306,6 +303,7 @@ def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
 
 @specialize.arg(0)
 def _hpytype_fromspec(handles, spec, params):
+    from .interp_cpy_compat import attach_legacy_slots_to_type  # avoid circular import
     space = handles.space
     check_legacy_consistent(space, spec)
     check_have_gc_and_tp_traverse(space, spec)
@@ -343,6 +341,7 @@ def _hpytype_fromspec(handles, spec, params):
 
 @specialize.arg(0)
 def add_slot_defs(handles, w_result, c_defines):
+    from .interp_module import get_doc  # avoid circular import
     space = handles.space
     p = c_defines
     i = 0
@@ -422,8 +421,9 @@ def _create_instance(space, w_type):
     if w_type.has_tp_dealloc:
         # legacy: create a pyobj with refcnt == 0 so that when w_result
         # is collected, the pyobj's ob_type.tp_dealloc will be called
-        from pypy.module.cpyext.pyobject import as_pyobj
-        as_pyobj(space, w_result)
+        if not hasattr(space, 'is_fake_objspace'):
+            # the following lines break test_ztranslation :(
+            as_pyobj(space, w_result)
     return w_result
 
 @API.func("HPy HPyType_GenericNew(HPyContext *ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")

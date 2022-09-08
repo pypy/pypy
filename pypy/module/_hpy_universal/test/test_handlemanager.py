@@ -55,12 +55,7 @@ def mgr(fakespace, request):
     # end of interp_hpy.startup
     debug = request.param == 'debug'
     ret = state.get_handle_manager(debug)
-    if debug:
-        dh = ret.dup(ret.new(callback))
-        uh = llapi.hpy_debug_unwrap_handle(ret.ctx, dh)
-        llapi.hpy_debug_set_on_invalid_handle(ret.ctx, uh)
     return ret
-
     
 
 class TestHandleManager(object):
@@ -76,7 +71,9 @@ class TestHandleManager(object):
     def test_close(self, mgr):
         h = mgr.new('hello')
         assert mgr.close(h) is None
-        assert mgr.deref(h) is None
+        if not mgr.is_debug:
+            # will crash PyPy on purpose in debug mode
+            assert mgr.deref(h) is None
 
     def test_deref(self, mgr):
         h = mgr.new('hello')
@@ -86,7 +83,9 @@ class TestHandleManager(object):
     def test_consume(self, mgr):
         h = mgr.new('hello')
         assert mgr.consume(h) == 'hello'
-        assert mgr.deref(h) is None
+        if not mgr.is_debug:
+            # will crash PyPy on purpose in debug mode
+            assert mgr.deref(h) is None
 
     def test_freelist(self, mgr):
         if mgr.is_debug:
@@ -165,13 +164,17 @@ class TestUsing(object):
     def test_simple(self, mgr):
         with mgr.using('hello') as h:
             assert mgr.deref(h) == 'hello'
-        assert mgr.deref(h) is None
+        if not mgr.is_debug:
+            # will crash PyPy on purpose in debug mode
+            assert mgr.deref(h) is None
 
     def test_multiple_handles(self, mgr):
         with mgr.using('hello', 'world', 'foo') as (h1, h2, h3):
             assert mgr.deref(h1) == 'hello'
             assert mgr.deref(h2) == 'world'
             assert mgr.deref(h3) == 'foo'
-        assert mgr.deref(h1) is None
-        assert mgr.deref(h2) is None
-        assert mgr.deref(h3) is None
+        if not mgr.is_debug:
+            # will crash PyPy on purpose in debug mode
+            assert mgr.deref(h1) is None
+            assert mgr.deref(h2) is None
+            assert mgr.deref(h3) is None

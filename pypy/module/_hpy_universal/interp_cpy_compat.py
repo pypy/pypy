@@ -17,6 +17,7 @@ from pypy.module.cpyext.state import State
 #
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal.interp_descr import W_HPyMemberDescriptor
+from pypy.module._hpy_universal.interp_type import W_HPyObject
 
 @API.func("HPy HPy_FromPyObject(HPyContext *ctx, void *obj)", cpyext=True)
 def HPy_FromPyObject(space, handles, ctx, obj):
@@ -86,25 +87,24 @@ def check_descr(space, w_self, w_type):
     if not space.isinstance_w(w_self, w_type):
         raise DescrMismatch()
 
-def as_pyobject(w_hpy_object):
-    # XXX is this w_self.get_pjobject() ?
-    return rffi.cast(pyobject.PyObject, w_hpy_object.get_raw_data()) 
-
-# Copied from cpyext.typeobject, but modified the call to use as_pyobject
+# Copied from cpyext.typeobject, but modified the call to use get_pyobject
 class GettersAndSetters:
     def getter(self, space, w_self):
         assert isinstance(self, W_GetSetPropertyHPy)
+        assert isinstance(w_self, W_HPyObject)
         check_descr(space, w_self, self.w_type)
         return generic_cpy_call(
-            space, self.getset.c_get, as_pyobject(w_self),
+            space, self.getset.c_get, w_self.get_pyobject(),
             self.getset.c_closure)
 
     def setter(self, space, w_self, w_value):
         assert isinstance(self, W_GetSetPropertyHPy)
+        assert isinstance(w_self, W_HPyObject)
+        assert isinstance(w_value, W_HPyObject)
         check_descr(space, w_self, self.w_type)
         res = generic_cpy_call(
             space, self.getset.c_set,
-            as_pyobject(w_self), as_pyobject(w_value),
+            w_self.get_pyobject(), w_value.get_pyobject(),
             self.getset.c_closure)
         if rffi.cast(lltype.Signed, res) < 0:
             state = space.fromcache(State)
@@ -112,9 +112,10 @@ class GettersAndSetters:
 
     def deleter(self, space, w_self):
         assert isinstance(self, W_GetSetPropertyHPy)
+        assert isinstance(w_self, W_HPyObject)
         check_descr(space, w_self, self.w_type)
         res = generic_cpy_call(
-            space, self.getset.c_set, as_pyobject(w_self), None,
+            space, self.getset.c_set, w_self.get_pyobject(), None,
             self.getset.c_closure)
         if rffi.cast(lltype.Signed, res) < 0:
             state = space.fromcache(State)
@@ -205,10 +206,12 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
                     "legacy tp_dealloc is incompatible with HPy_tp_traverse"
                     " or HPy_tp_destroy.")
             # asssign ((PyTypeObject *)w_type)->tp_dealloc
-            funcptr = slotdef.c_pfunc
-            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
-            pytype.c_tp_dealloc = rffi.cast(destructor, funcptr)
             w_type.has_tp_dealloc = True
+            funcptr = slotdef.c_pfunc
+            if not hasattr(space, 'is_fake_objspace'):
+                # the following lines break test_ztranslation :(
+                pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+                pytype.c_tp_dealloc = rffi.cast(destructor, funcptr)
     
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum)
