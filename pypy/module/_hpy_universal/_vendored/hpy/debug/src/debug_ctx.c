@@ -121,9 +121,19 @@ void debug_ctx_Close(HPyContext *dctx, DHPy dh)
 const char *debug_ctx_Unicode_AsUTF8AndSize(HPyContext *dctx, DHPy h, HPy_ssize_t *size)
 {
     const char *ptr = HPyUnicode_AsUTF8AndSize(get_info(dctx)->uctx, DHPy_unwrap(dctx, h), size);
-    HPy_ssize_t data_size = *size + 1;
-    char* new_ptr = (char*) raw_data_copy(ptr, data_size, true);
     DebugHandle *handle = as_DebugHandle(h);
+    HPy_ssize_t data_size;
+    char* new_ptr;
+    if (ptr != NULL)
+    {
+        data_size = size != NULL ? *size + 1 : (HPy_ssize_t) strlen(ptr) + 1;
+        new_ptr = (char*) raw_data_copy(ptr, data_size, true);
+    }
+    else
+    {
+        data_size = 0;
+        new_ptr = NULL;
+    }
     handle->associated_data = new_ptr;
     handle->associated_data_size = data_size;
     return new_ptr;
