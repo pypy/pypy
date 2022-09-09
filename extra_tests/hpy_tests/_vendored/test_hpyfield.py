@@ -17,6 +17,7 @@ class PairTemplate(DefaultExtensionTemplate):
                 HPyField a;
                 HPyField b;
             } PairObject;
+
             HPyType_HELPERS(PairObject);
         """
 
@@ -47,6 +48,17 @@ class PairTemplate(DefaultExtensionTemplate):
                 HPy_VISIT(&p->a);
                 HPy_VISIT(&p->b);
                 return 0;
+            }
+        """
+
+    def DEFINE_Pair_set_a(self):
+        return """
+            HPyDef_METH(Pair_set_a, "set_a", Pair_set_a_impl, HPyFunc_O)
+            static HPy Pair_set_a_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                PairObject *pair = PairObject_AsStruct(ctx, self);
+                HPyField_Store(ctx, self, &pair->a, arg);
+                return HPy_Dup(ctx, ctx->h_None);
             }
         """
 
@@ -196,14 +208,8 @@ class TestHPyField(HPyTest):
             @DEFINE_Pair_new
             @DEFINE_Pair_get_ab
             @DEFINE_Pair_traverse
+            @DEFINE_Pair_set_a
 
-            HPyDef_METH(Pair_set_a, "set_a", Pair_set_a_impl, HPyFunc_O)
-            static HPy Pair_set_a_impl(HPyContext *ctx, HPy self, HPy arg)
-            {
-                PairObject *pair = PairObject_AsStruct(ctx, self);
-                HPyField_Store(ctx, self, &pair->a, arg);
-                return HPy_Dup(ctx, ctx->h_None);
-            }
             HPyDef_METH(Pair_clear_a, "clear_a", Pair_clear_a_impl, HPyFunc_NOARGS)
             static HPy Pair_clear_a_impl(HPyContext *ctx, HPy self)
             {
@@ -278,14 +284,7 @@ class TestHPyField(HPyTest):
             @DEFINE_PairObject
             @DEFINE_Pair_new
             @DEFINE_Pair_traverse
-
-            HPyDef_METH(Pair_set_a, "set_a", Pair_set_a_impl, HPyFunc_O)
-            static HPy Pair_set_a_impl(HPyContext *ctx, HPy self, HPy arg)
-            {
-                PairObject *pair = PairObject_AsStruct(ctx, self);
-                HPyField_Store(ctx, self, &pair->a, arg);
-                return HPy_Dup(ctx, ctx->h_None);
-            }
+            @DEFINE_Pair_set_a
 
             @EXPORT_PAIR_TYPE(&Pair_new, &Pair_traverse, &Pair_set_a)
             @INIT
@@ -309,3 +308,118 @@ class TestHPyField(HPyTest):
         #
         gc.collect()
         assert count_pairs() == 0
+
+    def test_tp_finalize(self):
+        # Tests the contract of tp_finalize: what it should see
+        # if called from within HPyField_Store
+        mod = self.make_module("""
+            #include <stdio.h>
+
+            @DEFINE_PairObject
+            @DEFINE_Pair_new
+            @DEFINE_Pair_traverse
+            @DEFINE_Pair_set_a
+
+            static bool saw_expected_finalize_call;
+            static bool unexpected_finalize_call;
+            static bool test_finished;
+
+            // During the test we check our assumptions with an assert to play
+            // nicely with pytest, but if the finalizer gets called after the
+            // test has finished, we have no choice but to abort to signal
+            // the error
+            static void on_unexpected_finalize_call() {
+                if (test_finished)
+                    abort();
+                else
+                    unexpected_finalize_call = true;
+            }
+
+            HPyDef_SLOT(Pair_finalize, Pair_finalize_impl, HPy_tp_finalize)
+            static void Pair_finalize_impl(HPyContext *ctx, HPy to_be_finalized)
+            {
+                PairObject *pair = PairObject_AsStruct(ctx, to_be_finalized);
+
+                // Check that we were called on the right object: 'to_be_finalized'
+                HPy to_be_finalized_b = HPyField_Load(ctx, to_be_finalized, pair->b);
+                if (!HPy_Is(ctx, to_be_finalized_b, ctx->h_True)) {
+                    HPy_Close(ctx, to_be_finalized_b);
+                    // This is OK to happen after the test was finished
+                    unexpected_finalize_call = true;
+                    return;
+                }
+                HPy_Close(ctx, to_be_finalized_b);
+
+                // Check that we were not called twice
+                if (saw_expected_finalize_call) {
+                    printf("tp_finalize called twice for 'to_be_finalized'\\\n");
+                    on_unexpected_finalize_call();
+                    return;
+                }
+
+                HPy owner = HPy_NULL, owner_a = HPy_NULL, owner_b = HPy_NULL;
+                owner = HPyField_Load(ctx, to_be_finalized, pair->a);
+                PairObject *owner_pair = PairObject_AsStruct(ctx, owner);
+
+                // Check that 'to_be_finalized'->a really points to 'owner'
+                owner_b = HPyField_Load(ctx, owner, owner_pair->b);
+                if (!HPy_Is(ctx, owner_b, ctx->h_False)) {
+                    printf("to_be_finalized'->a != 'owner'\\\n");
+                    on_unexpected_finalize_call();
+                    goto owner_cleanup;
+                }
+
+                // Whatever we see in owner->a must not be 'to_be_finalized'
+                // For CPython it should be NULL, because Pair_finalize should
+                // be called immediately when the field is swapped to new value
+                if (HPyField_IsNull(owner_pair->a)) {
+                    saw_expected_finalize_call = true;
+                    goto owner_cleanup;
+                }
+
+                // For GC based implementations, it can be already the 42 if
+                // Pair_finalize gets called later
+                owner_a = HPyField_Load(ctx, owner, owner_pair->a);
+                if (HPyLong_AsLong(ctx, owner_a) == 42) {
+                    saw_expected_finalize_call = true;
+                    goto owner_cleanup;
+                }
+
+                HPyErr_Clear(ctx); // if the field was not a long at all
+                printf("unexpected value of the field: %p\\\n", (void*) owner_a._i);
+                on_unexpected_finalize_call();
+            owner_cleanup:
+                HPy_Close(ctx, owner);
+                HPy_Close(ctx, owner_a);
+                HPy_Close(ctx, owner_b);
+            }
+
+            HPyDef_METH(check_finalize_calls, "check_finalize_calls", check_finalize_calls_impl, HPyFunc_NOARGS)
+            static HPy check_finalize_calls_impl(HPyContext *ctx, HPy self)
+            {
+                test_finished = true;
+                if (!unexpected_finalize_call && saw_expected_finalize_call)
+                    return HPy_Dup(ctx, ctx->h_True);
+                else
+                    return HPy_Dup(ctx, ctx->h_False);
+            }
+
+            @EXPORT(check_finalize_calls)
+            @EXPORT_PAIR_TYPE(&Pair_new, &Pair_traverse, &Pair_finalize, &Pair_set_a)
+            @INIT
+        """)
+        to_be_finalized = mod.Pair(None, True)
+        owner = mod.Pair(to_be_finalized, False)
+        to_be_finalized.set_a(owner)
+        del to_be_finalized
+        # Now 'to_be_finalized' is referenced only by 'owner'.
+        # By setting the field to the new value, the object originally pointed
+        # by 'to_be_finalized' becomes garbage. In CPython, this should
+        # immediately trigger tp_finalize, in other impls it may also
+        # trigger tp_finalize at that point or any later point.
+        # In any case, tp_finalize should not see the original value of the
+        # field anymore.
+        owner.set_a(42)
+        from gc import collect
+        collect()
+        assert mod.check_finalize_calls()

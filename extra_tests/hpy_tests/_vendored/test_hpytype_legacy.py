@@ -50,15 +50,15 @@ class TestLegacyType(_TestType):
 
             static HPyDef *Point_defines[] = {&Point_new, NULL};
             static PyType_Slot Point_slots[] = {
-                {Py_tp_dealloc, Point_dealloc},
+                {Py_tp_dealloc, (void*)Point_dealloc},
                 {0, NULL},
             };
             static HPyType_Spec Point_spec = {
                 .name = "mytest.Point",
                 .basicsize = sizeof(PointObject),
-                .defines = Point_defines,
                 .legacy = true,
                 .legacy_slots = Point_slots,
+                .defines = Point_defines,
             };
 
             @EXPORT(get_counter)
@@ -88,15 +88,15 @@ class TestLegacyType(_TestType):
 
             static HPyDef *Point_defines[] = {&Point_new, &Point_traverse, NULL};
             static PyType_Slot Point_slots[] = {
-                {Py_tp_dealloc, Point_dealloc},
+                {Py_tp_dealloc, (void*)Point_dealloc},
                 {0, NULL},
             };
             static HPyType_Spec Point_spec = {
                 .name = "mytest.Point",
                 .basicsize = sizeof(PointObject),
-                .defines = Point_defines,
                 .legacy = true,
                 .legacy_slots = Point_slots,
+                .defines = Point_defines,
             };
             @EXPORT_TYPE("Point", Point_spec)
             @INIT
@@ -122,15 +122,15 @@ class TestLegacyType(_TestType):
 
             static HPyDef *Point_defines[] = {&Point_new, &Point_destroy, NULL};
             static PyType_Slot Point_slots[] = {
-                {Py_tp_dealloc, Point_dealloc},
+                {Py_tp_dealloc, (void*)Point_dealloc},
                 {0, NULL},
             };
             static HPyType_Spec Point_spec = {
                 .name = "mytest.Point",
                 .basicsize = sizeof(PointObject),
-                .defines = Point_defines,
                 .legacy = true,
                 .legacy_slots = Point_slots,
+                .defines = Point_defines,
             };
             @EXPORT_TYPE("Point", Point_spec)
             @INIT
@@ -164,9 +164,9 @@ class TestCustomLegacyFeatures(HPyTest):
             }
             static PyObject *k(PyObject *self, PyObject *args, PyObject *kwargs)
             {
-                static char *kwlist[] = { "a", "b", "c", NULL };
+                static const char *kwlist[] = { "a", "b", "c", NULL };
                 long a, b, c;
-                if (!PyArg_ParseTupleAndKeywords(args, kwargs, "lll", kwlist, &a, &b, &c))
+                if (!PyArg_ParseTupleAndKeywords(args, kwargs, "lll", (char **)kwlist, &a, &b, &c))
                     return NULL;
                 return PyLong_FromLong(100*a + 10*b + c);
             }
@@ -209,7 +209,7 @@ class TestCustomLegacyFeatures(HPyTest):
 
                 HPyType_SpecParam LegacyType_param[] = {
                     { HPyType_SpecParam_Base, h_PureType },
-                    { 0 }
+                    { (HPyType_SpecParam_Kind)0 }
                 };
                 HPy h_LegacyType = HPyType_FromSpec(
                     ctx, &LegacyType_spec, LegacyType_param);

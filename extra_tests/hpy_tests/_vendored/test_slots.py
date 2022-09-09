@@ -129,9 +129,9 @@ class TestSlots(HPyTest):
             static HPyType_Spec Point_spec = {
                 .name = "mytest.Point",
                 .basicsize = sizeof(PointObject),
+                .flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC,
                 .legacy = PointObject_IS_LEGACY,
                 .defines = Point_defines,
-                .flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_HAVE_GC,
             };
             @EXPORT_TYPE("Point", Point_spec)
 
@@ -360,20 +360,6 @@ class TestSlots(HPyTest):
                 int exports;
             @TYPE_STRUCT_END
 
-            HPyDef_SLOT(FakeArray_new, new_fakearray_impl, HPy_tp_new)
-            static HPy new_fakearray_impl(HPyContext *ctx, HPy cls, HPy *args,
-                                          HPy_ssize_t nargs, HPy kw)
-            {
-                if (!HPyArg_Parse(ctx, NULL, args, nargs, ""))
-                    return HPy_NULL;
-                FakeArrayObject *arr;
-                HPy h_arr = HPy_New(ctx, cls, &arr);
-                if (HPy_IsNull(h_arr))
-                    return HPy_NULL;
-                arr->exports = 0;
-                return h_arr;
-            }
-
             static char static_mem[12] = {0,1,2,3,4,5,6,7,8,9,10,11};
             static HPy_ssize_t _shape[1] = {12};
             static HPy_ssize_t _strides[1] = {1};
@@ -393,7 +379,7 @@ class TestSlots(HPyTest):
                 buf->itemsize = 1;
                 buf->readonly = 1;
                 buf->ndim = 1;
-                buf->format = "B";
+                buf->format = (char*)"B";
                 buf->shape = _shape;
                 buf->strides = _strides;
                 buf->suboffsets = NULL;
@@ -409,7 +395,6 @@ class TestSlots(HPyTest):
             }
 
             static HPyDef *FakeArray_defines[] = {
-                &FakeArray_new,
                 &FakeArray_getbuffer,
                 &FakeArray_releasebuffer,
                 NULL
@@ -418,8 +403,8 @@ class TestSlots(HPyTest):
             static HPyType_Spec FakeArray_Spec = {
                 .name = "mytest.FakeArray",
                 .basicsize = sizeof(FakeArrayObject),
-                .defines = FakeArray_defines,
                 .legacy = FakeArrayObject_IS_LEGACY,
+                .defines = FakeArray_defines,
             };
 
             @EXPORT_TYPE("FakeArray", FakeArray_Spec)
@@ -444,6 +429,99 @@ class TestSlots(HPyTest):
 class TestSqSlots(HPyTest):
 
     ExtensionTemplate = PointTemplate
+
+    def test_mp_subscript_and_mp_length(self):
+        mod = self.make_module("""
+            @DEFINE_PointObject
+
+            HPyDef_SLOT(Point_getitem, Point_getitem_impl, HPy_mp_subscript);
+            static HPy Point_getitem_impl(HPyContext *ctx, HPy self, HPy key)
+            {
+                HPy prefix = HPyUnicode_FromString(ctx, "key was: ");
+                HPy key_repr = HPy_Repr(ctx, key);
+                HPy res = HPy_Add(ctx, prefix, key_repr);
+                HPy_Close(ctx, key_repr);
+                HPy_Close(ctx, prefix);
+                return res;
+            }
+
+            HPyDef_SLOT(Point_length, Point_length_impl, HPy_mp_length);
+            static HPy_ssize_t Point_length_impl(HPyContext *ctx, HPy self)
+            {
+                return 1234;
+            }
+
+            @EXPORT_POINT_TYPE(&Point_getitem, &Point_length)
+            @INIT
+        """)
+        p = mod.Point()
+        class Dummy:
+            def __repr__(self):
+                return "Hello, World"
+        assert len(p) == 1234
+        assert p[4] == "key was: 4"
+        assert p["hello"] == "key was: 'hello'"
+        assert p[Dummy()] == "key was: Hello, World"
+
+    def test_mp_ass_subscript(self):
+        import pytest
+        mod = self.make_module("""
+            @DEFINE_PointObject
+            @DEFINE_Point_new
+            @DEFINE_Point_xy
+
+            HPyDef_SLOT(Point_len, Point_len_impl, HPy_mp_length);
+            static HPy_ssize_t Point_len_impl(HPyContext *ctx, HPy self)
+            {
+                return 2;
+            }
+
+            HPyDef_SLOT(Point_setitem, Point_setitem_impl, HPy_mp_ass_subscript);
+            static int Point_setitem_impl(HPyContext *ctx, HPy self, HPy key,
+                                          HPy h_value)
+            {
+                long value;
+                if (HPy_IsNull(h_value)) {
+                    value = -123; // this is the del p[] case
+                } else {
+                    value = HPyLong_AsLong(ctx, h_value);
+                    if (HPyErr_Occurred(ctx))
+                        return -1;
+                }
+                PointObject *point = PointObject_AsStruct(ctx, self);
+                const char *s_key = HPyUnicode_AsUTF8AndSize(ctx, key, NULL);
+                if (s_key == NULL) {
+                    return -1;
+                }
+                if (s_key[0] == 'x') {
+                    point->x = value;
+                } else if (s_key[0] == 'y') {
+                    point->y = value;
+                } else {
+                    HPyErr_SetString(ctx, ctx->h_KeyError, "invalid key");
+                    return -1;
+                }
+                return 0;
+            }
+
+            @EXPORT_POINT_TYPE(&Point_new, &Point_x, &Point_y, &Point_len, &Point_setitem)
+            @INIT
+        """)
+        p = mod.Point(1, 2)
+        # check __setitem__
+        p['x'] = 100
+        assert p.x == 100
+        p['y'] = 200
+        assert p.y == 200
+        with pytest.raises(KeyError):
+            p['z'] = 300
+        with pytest.raises(TypeError):
+            p[0] = 300
+        # check __delitem__
+        del p['x']
+        assert p.x == -123
+        del p['y']
+        assert p.y == -123
 
     def test_sq_item_and_sq_length(self):
         mod = self.make_module("""
