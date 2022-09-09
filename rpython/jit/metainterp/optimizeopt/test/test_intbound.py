@@ -495,3 +495,17 @@ def test_neg_bound_random(t1):
         assert b2.contains(-n1)
     else:
         assert not b2.has_upper
+
+# --------------
+
+def test_knownbits_const():
+    b1 = ConstIntBound(0b010010)
+    assert b1.knownbits_string().endswith("000010010")
+
+def test_knownbits_or():
+    b1 = IntUnbounded()
+    b2 = b1.or_bound(ConstIntBound(1))
+    assert b2.knownbits_string() == "?"*(LONG_BIT-1) + "1"
+    b3 = b2.and_bound(ConstIntBound(1))
+    assert b3.is_constant()
+    assert b3.get_constant_int() == 1

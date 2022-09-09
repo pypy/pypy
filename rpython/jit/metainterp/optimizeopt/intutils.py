@@ -27,13 +27,19 @@ def next_pow2_m1(n):
 
 
 class IntBound(AbstractInfo):
-    _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
+    _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower', 'tvalue', 'tmask')
 
     def __init__(self, lower, upper):
         self.has_upper = True
         self.has_lower = True
         self.upper = upper
         self.lower = lower
+        
+        # known-bit analysis using tristate numbers 
+        #  see https://arxiv.org/pdf/2105.05398.pdf
+        self.tvalue = 0
+        self.tmask = -1         # bit=1 means unknown
+
         # check for unexpected overflows:
         if not we_are_translated():
             assert type(upper) is not long or is_valid_int(upper)
@@ -95,11 +101,14 @@ class IntBound(AbstractInfo):
         return False
 
     def is_constant(self):
-        return self.has_upper and self.has_lower and self.lower == self.upper
+        return (self.has_upper and self.has_lower and self.lower == self.upper) or self.tmask == 0
 
     def get_constant_int(self):
         assert self.is_constant()
-        return self.lower
+        if self.tmask == 0:
+            return self.tvalue
+        else:
+            return self.lower
 
     def equal(self, value):
         if not self.is_constant():
@@ -156,6 +165,14 @@ class IntBound(AbstractInfo):
         if other.has_upper:
             if self.make_le_const(other.upper):
                 r = True
+
+        v = self.tvalue | other.tvalue
+        mu = self.tmask & other.tmask 
+        # assert self.tvalue & ~mu == other.tvalue & ~mu       # kaputt
+        if self.tmask != mu:
+            self.tvalue = v & ~mu
+            self.tmask = mu
+            r = True
         return r
 
     def intersect_const(self, lower, upper):
@@ -296,9 +313,31 @@ class IntBound(AbstractInfo):
             r.make_le(self)
         if pos2:
             r.make_le(other)
+        
+        a = self.tvalue | self.tmask
+        b = other.tvalue | other.tmask
+        v = self.tvalue & other.tvalue
+        r.tvalue = v
+        r.tmask = a & b & ~v
         return r
 
     def or_bound(self, other):
+        r = IntUnbounded()
+        if self.known_nonnegative() and \
+                other.known_nonnegative():
+            if self.has_upper and other.has_upper:
+                mostsignificant = self.upper | other.upper
+                r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
+            else:
+                r.make_ge_const(0)
+        
+        v = self.tvalue | other.tvalue
+        mu = self.tmask | other.tmask
+        r.tvalue = v
+        r.tmask = mu & ~v
+        return r
+
+    def xor_bound(self, other):
         r = IntUnbounded()
         if self.known_nonnegative() and \
                 other.known_nonnegative():
@@ -375,7 +414,7 @@ class IntBound(AbstractInfo):
             u = '%d' % self.upper
         else:
             u = 'Inf'
-        return '%s <= x <= %s' % (l, u)
+        return '%s <= 0b%s <= %s' % (l, self.knownbits_string(), u)
 
     def clone(self):
         res = IntBound(self.lower, self.upper)
@@ -422,6 +461,17 @@ class IntBound(AbstractInfo):
             return INFO_NULL
         return INFO_UNKNOWN
 
+    def knownbits_string(self):
+        results = []
+        for bit in range(LONG_BIT):
+            if self.tmask & (1 << bit):
+                results.append("?")
+            else:
+                results.append(str((self.tvalue >> bit) & 1))
+        results.reverse()
+        return "".join(results)
+
+
 def IntUpperBound(upper):
     b = IntBound(lower=0, upper=upper)
     b.has_lower = False
@@ -439,7 +489,10 @@ def IntUnbounded():
     return b
 
 def ConstIntBound(value):
-    return IntBound(value, value)
+    b = IntBound(value, value)
+    b.tvalue = value
+    b.tmask = 0
+    return b
 
 def min4(t):
     return min(min(t[0], t[1]), min(t[2], t[3]))

@@ -6467,3 +6467,18 @@ class TestOptimizeBasic(BaseTestBasic):
         escape_f(f2)
         """
         self.optimize_loop(ops, expected)
+
+    def test_knownbits_int_or(self):
+        ops = """
+        [i1]
+        i2 = int_or(i1, 1)
+        i3 = int_and(i2, 1)
+        escape_i(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_or(i1, 1)
+        i3 = int_and(i2, 1)    # will be removed by dead code elimination
+        escape_i(1)
+        """
+        self.optimize_loop(ops, expected)

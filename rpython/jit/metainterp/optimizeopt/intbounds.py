@@ -65,21 +65,26 @@ class OptIntBounds(Optimization):
             return None
         return self.emit(op)
 
-    def postprocess_INT_OR_or_XOR(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        b = b1.or_bound(b2)
-        self.getintbound(op).intersect(b)
-
     optimize_INT_OR = optimize_INT_OR_or_XOR
     optimize_INT_XOR = optimize_INT_OR_or_XOR
 
-    postprocess_INT_OR = postprocess_INT_OR_or_XOR
-    postprocess_INT_XOR = postprocess_INT_OR_or_XOR
+    def postprocess_INT_OR(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        # import pdb;pdb.set_trace()
+        b = b1.or_bound(b2)
+        self.getintbound(op).intersect(b)
+
+    def postprocess_INT_XOR(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        b = b1.xor_bound(b2)
+        self.getintbound(op).intersect(b)
 
     def postprocess_INT_AND(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
+        # import pdb;pdb.set_trace()
         b = b1.and_bound(b2)
         self.getintbound(op).intersect(b)
 
