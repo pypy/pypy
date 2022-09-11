@@ -466,7 +466,7 @@ def package(*args, **kwds):
     keep_debug_default = True
     no__tkinter_default = False
     embed_dependencies_default = (ARCH in ('darwin', 'aarch64', 'x86_64'))
-    rebuild_extensions_defalt = (ARCH in ('darwin', 'aarch64', 'x86_64'))
+    rebuild_extensions_default = (ARCH in ('darwin', 'aarch64', 'x86_64'))
     make_portable_default = (ARCH in ('darwin',))
     copy_dlls_default = True
     if "PYPY_PACKAGE_NOKEEPDEBUG" in os.environ:
