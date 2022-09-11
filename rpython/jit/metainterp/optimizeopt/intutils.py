@@ -113,7 +113,10 @@ class IntBound(AbstractInfo):
     def equal(self, value):
         if not self.is_constant():
             return False
-        return self.lower == value
+        if self.tmask == 0:
+            return self.tvalue == value
+        else:
+            return self.lower == value
 
     def bounded(self):
         return self.has_lower and self.has_upper
