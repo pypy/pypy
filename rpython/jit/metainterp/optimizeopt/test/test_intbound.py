@@ -498,9 +498,24 @@ def test_neg_bound_random(t1):
 
 # --------------
 
-def test_knownbits_const():
+def test_knownbits_intconst():
     b1 = ConstIntBound(0b010010)
-    assert b1.knownbits_string().endswith("000010010")
+    assert b1.is_constant()
+    assert b1.get_constant_int() == 0b010010
+    b2 = ConstIntBound(0b1)
+    assert b2.is_constant()
+    assert b2.get_constant_int() == 0b1
+    b3 = ConstIntBound(0b0)
+    assert b3.is_constant()
+    assert b3.get_constant_int() == 0b0
+
+def test_knownbits_intconst_strings():
+    b1 = ConstIntBound(0b010010)
+    assert b1.knownbits_string().endswith("00010010")
+    b2 = ConstIntBound(0b1)
+    assert b2.knownbits_string().endswith("001")
+    b3 = ConstIntBound(0b0)
+    assert b3.knownbits_string().endswith("0")
 
 def test_knownbits_or():
     b1 = IntUnbounded()
