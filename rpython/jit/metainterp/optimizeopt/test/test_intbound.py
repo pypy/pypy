@@ -520,7 +520,7 @@ def test_knownbits_intconst_strings():
     b3 = ConstIntBound(0b0)
     assert b3.knownbits_string().endswith("0")
 
-def test_knownbits_or():
+def test_knownbits_or_and():
     b1 = IntUnbounded()
     b2 = b1.or_bound(ConstIntBound(1))
     assert b2.knownbits_string() == "?"*(LONG_BIT-1) + "1"
@@ -528,3 +528,11 @@ def test_knownbits_or():
     assert b3.is_constant()
     assert b3.get_constant_int() == 1
     assert b3.equal(1)
+
+def test_knownbits_or_and_unknown():
+    b1 = IntUnbounded()
+    assert not b1.is_constant()
+    b2 = b1.or_bound(ConstIntBound(42))
+    assert not b2.is_constant()
+    b3 = b2.and_bound(ConstIntBound(-1))
+    assert not b3.is_constant()
