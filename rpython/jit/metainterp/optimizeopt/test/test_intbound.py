@@ -527,3 +527,4 @@ def test_knownbits_or():
     b3 = b2.and_bound(ConstIntBound(1))
     assert b3.is_constant()
     assert b3.get_constant_int() == 1
+    assert b3.equal(1)
