@@ -16,7 +16,8 @@ from rpython.rlib import rbigint as lobj
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
-    gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT)
+    gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT,
+    _str_to_int_big_w5pow, _str_to_int_big_base10)
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
@@ -392,6 +393,8 @@ class Test_rbigint(object):
         assert rbigint.fromstr('123L', 22).tolong() == 10648 + 968 + 66 + 21
         assert rbigint.fromstr('123L', 21).tolong() == 441 + 42 + 3
         assert rbigint.fromstr('1891234174197319').tolong() == 1891234174197319
+        assert rbigint.fromstr('1891_234_17_4_19731_9', allow_underscores=True).tolong() == 1891234174197319
+        assert rbigint.fromstr('1_1' * 6000, allow_underscores=True).tolong() == int('11' * 6000)
 
     def test__from_numberstring_parser_rewind_bug(self):
         from rpython.rlib.rstring import NumberStringParser
@@ -412,9 +415,8 @@ class Test_rbigint(object):
         res = p.next_digit()
         assert res == -1
 
-    @given(longs)
-    def test_fromstr_hypothesis(self, l):
-        assert rbigint.fromstr(str(l)).tolong() == l
+    def test_fromstr_huge(self):
+        assert _str_to_int_big_base10("1" * 1000, 0, 1000).tolong() == int("1" * 1000)
 
     def test_from_numberstring_parser(self):
         from rpython.rlib.rstring import NumberStringParser
@@ -838,7 +840,7 @@ class Test_rbigint(object):
         finally:
             rbigint.pow = oldpow
 
-    def test_overzelous_assertion(self):
+    def test_overzealous_assertion(self):
         a = rbigint.fromlong(-1<<10000)
         b = rbigint.fromlong(-1<<3000)
         assert a.mul(b).tolong() == (-1<<10000)*(-1<<3000)
@@ -1166,6 +1168,8 @@ class TestInternalFunctions(object):
                 self.sign = sign
                 self.i = 0
                 self._digits = digits
+                self.start = 0
+                self.end = len(digits)
             def next_digit(self):
                 i = self.i
                 if i == len(self._digits):
@@ -1578,6 +1582,22 @@ class TestHypothesis(object):
         rx = rbigint.fromlong(x)
         r1 = rx.abs_rshift_and_mask(r_ulonglong(shift), mask)
         assert r1 == (abs(x) >> shift) & mask
+
+    @given(biglongs, strategies.integers(min_value=1, max_value=10000))
+    def test_str_to_int_big_base10(self, l, limit):
+        l = abs(l)
+        s = str(l)
+        assert _str_to_int_big_base10(str(l), 0, len(s), limit).tolong() == l
+
+    @given(biglongs)
+    def test_fromstr(self, l):
+        assert rbigint.fromstr(str(l)).tolong() == l
+
+    @given(strategies.integers(min_value=1, max_value=10000), strategies.integers(min_value=1, max_value=10000))
+    def test_str_to_int_big_w5pow(self, exp, limit):
+        mem = {}
+        assert (_str_to_int_big_w5pow(exp, mem, limit).tolong() == 5 ** exp ==
+                rbigint.fromint(5).int_pow(exp).tolong())
 
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])

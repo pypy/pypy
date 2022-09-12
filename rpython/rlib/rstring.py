@@ -729,6 +729,27 @@ class NumberStringParser:
         else:
             return -1
 
+    def _all_digits10(self):
+        for index in range(self.start, self.end):
+            c = self.s[index]
+            if not ('0' <= c <= '9'):
+                if c == "_" and self.allow_underscores:
+                    break
+                else:
+                    self.error()
+        else:
+            # don't need a copy, no underscores
+            return self.s, self.start, self.end
+        assert self.allow_underscores
+        res = ['\x00'] * (self.end - self.start) # estimate
+        i = 0
+        while True:
+            d = self.next_digit()
+            if d < 0:
+                return "".join(res[:i]), 0, i
+            res[i] = chr(d + ord('0'))
+            i += 1
+
     def prev_digit(self):
         # After exhausting all n digits in next_digit(), you can walk them
         # again in reverse order by calling prev_digit() exactly n times

@@ -1496,6 +1496,7 @@ class rbigint(object):
 ONERBIGINT = rbigint([ONEDIGIT], 1, 1)
 ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
 NULLRBIGINT = rbigint()
+FIVERBIGINT = rbigint.fromint(5)
 
 _jmapping = [(5 * SHIFT) % 5,
              (4 * SHIFT) % 5,
@@ -2207,11 +2208,12 @@ def _divrem(a, b):
 
 
 
-class DivLimitHolder:
+class LimitHolder:
     pass
 
-HOLDER = DivLimitHolder()
+HOLDER = LimitHolder()
 HOLDER.DIV_LIMIT = 21
+HOLDER.STR2INT_LIMIT = 2048
 
 
 def _extract_digits(a, startindex, numdigits):
@@ -3120,11 +3122,12 @@ BASE_MAX = [0, 1] + [digits_max_for_base(_base) for _base in range(2, 37)]
 DEC_MAX = digits_max_for_base(10)
 assert DEC_MAX == BASE_MAX[10]
 
-def _decimalstr_to_bigint(s):
+def _decimalstr_to_bigint(s, start=0, lim=-1):
     # a string that has been already parsed to be decimal and valid,
     # is turned into a bigint
-    p = 0
-    lim = len(s)
+    p = start
+    if lim < 0:
+        lim = len(s)
     sign = False
     if s[p] == '-':
         sign = True
@@ -3153,6 +3156,12 @@ def parse_digit_string(parser):
     base = parser.base
     if (base & (base - 1)) == 0 and base >= 2:
         return parse_string_from_binary_base(parser)
+    if base == 10 and (parser.end - parser.start) > 6000:
+        # check for errors and potentially remove underscores
+        s, start, end = parser._all_digits10()
+        a = _str_to_int_big_base10(s, start, end, HOLDER.STR2INT_LIMIT)
+        a.sign *= parser.sign
+        return a
     a = NULLRBIGINT
     digitmax = BASE_MAX[base]
     tens, dig = 1, 0
@@ -3169,6 +3178,56 @@ def parse_digit_string(parser):
             tens *= base
     a.sign *= parser.sign
     return a
+
+
+def _str_to_int_big_w5pow(w, mem, limit):
+    """Return 5**w and store the result.
+    Also possibly save some intermediate results. In context, these
+    are likely to be reused across various levels of the conversion
+    to 'int'.
+    """
+    result = mem.get(w, None)
+    if result is None:
+        if w <= limit:
+            result = FIVERBIGINT.int_pow(w)
+        elif w - 1 in mem:
+            result = mem[w - 1].int_mul(5)
+        else:
+            w2 = w >> 1
+            # If w happens to be odd, w-w2 is one larger then w2
+            # now. Recurse on the smaller first (w2), so that it's
+            # in the cache and the larger (w-w2) can be handled by
+            # the cheaper `w-1 in mem` branch instead.
+            result = _str_to_int_big_w5pow(w2, mem, limit).mul(
+                    _str_to_int_big_w5pow(w - w2, mem, limit))
+        mem[w] = result
+    return result
+
+def _str_to_int_big_inner10(s, a, b, mem, limit):
+    diff = b - a
+    if diff <= limit:
+        return _decimalstr_to_bigint(s, a, b)
+    mid = a + diff // 2
+    right = _str_to_int_big_inner10(s, mid, b, mem, limit)
+    left = _str_to_int_big_inner10(s, a, mid, mem, limit)
+    return right.add(left.mul(_str_to_int_big_w5pow(b - mid, mem, limit)).lshift(b - mid))
+
+def _str_to_int_big_base10(s, start, end, limit=20):
+    """Asymptotically fast conversion of a 'str' to an 'int'."""
+
+    # Function due to Bjorn Martinsson.  See GH issue #90716 for details.
+    # https://github.com/python/cpython/issues/90716
+    #
+    # The implementation in longobject.c of base conversion algorithms
+    # between power-of-2 and non-power-of-2 bases are quadratic time.
+    # This function implements a divide-and-conquer algorithm making use
+    # of Python's built in big int multiplication. Since Python uses the
+    # Karatsuba algorithm for multiplication, the time complexity
+    # of this function is O(len(s)**1.58).
+
+    mem = {}
+    result = _str_to_int_big_inner10(s, start, end, mem, limit)
+    return result
 
 def parse_string_from_binary_base(parser):
     # The point to this routine is that it takes time linear in the number of
