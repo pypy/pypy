@@ -94,6 +94,8 @@ class IntBound(AbstractInfo):
         self.has_lower = True
         self.upper = intval
         self.lower = intval
+        self.tvalue = intval
+        self.tmask = 0
 
     def make_gt(self, other):
         if other.has_lower:
