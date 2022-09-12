@@ -2096,9 +2096,9 @@ x = brokenargs(c=3)
 def f(x):
     match x:
         case 1: return "hello"
-        # case [_]: return "list"
+        case [_]: return "list"
         case a: return a
-res=f(1)#, f(2), f([1])
+res=f(1), f(2), f([1])
 """
         self.st(func, "res", ("hello", 2, "list"))
 

@@ -1977,8 +1977,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # TODO: this is not the correct solution. fix this optimization
             # if not isinstance(case.pattern, ast.MatchAs):
             self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
-            # if i < last_index_for_dup:
-            # self.emit_op(ops.POP_TOP)
+            if i < last_index_for_dup:
+                self.emit_op(ops.POP_TOP)
             # TODO: handle case.guard
             for stmt in case.body:
                 stmt.walkabout(self)
@@ -2007,8 +2007,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.DUP_TOP)
         self.emit_op(ops.MATCH_SEQUENCE)
         self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
-        self.emit_op(ops.GET_LEN)
 
+        self.emit_op(ops.GET_LEN)
         length = len(match_sequence.patterns)
         compare_kind = 2
         w_length = self.space.newint(length)
@@ -2024,6 +2024,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.load_const(self.space.w_True)
         self.emit_jump(ops.JUMP_FORWARD, end)
         self.use_next_block(fail)
+        self.emit_op(ops.POP_TOP)
         self.load_const(self.space.w_False)
         self.use_next_block(end)
 
