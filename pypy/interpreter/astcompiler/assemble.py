@@ -368,7 +368,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Get an extra flags that should be attached to the code object."""
         raise NotImplementedError
 
-    def _stacksize_error_pos(self, depth):
+    def _stacksize_error_pos(self, depth, blocks, block, instr):
         # This case occurs if this code object uses some
         # construction for which the stack depth computation
         # is wrong (too high).  If you get here while working
@@ -377,9 +377,24 @@ class PythonCodeMaker(ast.ASTVisitor):
         # an error is not really bad: it is just a bit
         # wasteful.  For release-ready versions, though, we'd
         # like not to be wasteful. :-)
+        if not we_are_translated():
+            self._stack_depth_debug_print(blocks, block, instr)
         os.write(2, "StackDepthComputationError(POS) in %s at %s:%s depth %s\n"
           % (self.compile_info.filename, self.name, self.first_lineno, depth))
         raise StackDepthComputationError   # would-be-nice-not-to-have
+
+    def _stack_depth_debug_print(self, blocks, errorblock, errorinstr):
+        for block in blocks:
+            print "======="
+            print block
+            if block is errorblock:
+                print "ERROR IS IN THIS BLOCK"
+            print "stack depth at start", block.initial_depth
+            if block._source is not None:
+                print "stack depth at start set via", block._source
+            for instr in block.instructions:
+                print "--->" if instr is errorinstr else "    ", instr
+
 
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
@@ -391,9 +406,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         # look into a block when all the previous blocks have been done.
         self._max_depth = 0
         for block in blocks:
-            depth = self._do_stack_depth_walk(block)
+            depth = self._do_stack_depth_walk(block, blocks)
             if block.auto_inserted_return and depth != 0:
-                self._stacksize_error_pos(depth)
+                self._stacksize_error_pos(depth, blocks, block, None)
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth, source):
@@ -402,7 +417,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             if not we_are_translated():
                 nextblock._source = source
 
-    def _do_stack_depth_walk(self, block):
+    def _do_stack_depth_walk(self, block, blocks):
         depth = block.initial_depth
         if depth == -99:     # this block is never reached, skip
              return 0
@@ -416,6 +431,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 # depth, which means that it underestimates the space
                 # needed and it would crash when interpreting this
                 # code.
+                if not we_are_translated():
+                    self._stack_depth_debug_print(blocks, block, instr)
                 os.write(2, "StackDepthComputationError(NEG) in %s at %s:%s\n"
                   % (self.compile_info.filename, self.name, self.first_lineno))
                 raise StackDepthComputationError   # really fatal error
@@ -435,7 +452,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                     break
             elif jump_op == ops.RETURN_VALUE:
                 if depth:
-                    self._stacksize_error_pos(depth)
+                    self._stacksize_error_pos(depth, blocks, block, instr)
                 break
             elif jump_op == ops.RAISE_VARARGS:
                 break
