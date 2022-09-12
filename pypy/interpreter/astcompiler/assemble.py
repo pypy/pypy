@@ -18,6 +18,8 @@ class StackDepthComputationError(Exception):
 class Instruction(object):
     """Represents a single opcode."""
 
+    _stack_depth_after = -99 # used before translation only
+
     def __init__(self, opcode, arg=0):
         self.opcode = opcode
         self.arg = arg
@@ -393,7 +395,11 @@ class PythonCodeMaker(ast.ASTVisitor):
             if block._source is not None:
                 print "stack depth at start set via", block._source
             for instr in block.instructions:
-                print "--->" if instr is errorinstr else "    ", instr
+                print "--->" if instr is errorinstr else "    ", instr,
+                if instr._stack_depth_after != -99:
+                    print "stacksize afterwards: %s" % instr._stack_depth_after
+                else:
+                    print
 
 
     def _stacksize(self, blocks):
@@ -432,6 +438,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 # needed and it would crash when interpreting this
                 # code.
                 if not we_are_translated():
+                    instr._stack_depth_after = depth
                     self._stack_depth_debug_print(blocks, block, instr)
                 os.write(2, "StackDepthComputationError(NEG) in %s at %s:%s\n"
                   % (self.compile_info.filename, self.name, self.first_lineno))
@@ -458,6 +465,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 break
             elif jump_op == ops.RERAISE:
                 break
+            if not we_are_translated():
+                instr._stack_depth_after = depth
         else:
             if block.next_block:
                 self._next_stack_depth_walk(block.next_block, depth, (block, None))
