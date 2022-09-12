@@ -15,10 +15,12 @@
 #elif defined( __APPLE__)
   #if ((ULONG_MAX) == (UINT_MAX))
     #define PC_FROM_UCONTEXT uc_mcontext->__ss.__eip
-  #elif defined(__aarch64__)
-    #define PC_FROM_UCONTEXT uc_mcontext->__ss.__pc
   #else
-    #define PC_FROM_UCONTEXT uc_mcontext->__ss.__rip
+    #if defined(__arm__) || defined(__arm64__)
+      #define PC_FROM_UCONTEXT uc_mcontext->__ss.__pc
+    #else
+      #define PC_FROM_UCONTEXT uc_mcontext->__ss.__rip
+    #endif
   #endif
 #elif defined(__arm__)
   #define PC_FROM_UCONTEXT uc_mcontext.arm_ip

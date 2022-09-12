@@ -64,16 +64,20 @@ def external(name, args, result, **kwds):
                            **kwds)
 
 _flock = lltype.Ptr(cConfig.flock)
+if sys.platform == 'darwin':
+    natural_arity = 2
+else:
+    natural_arity = -1
 fcntl_int = external('fcntl', [rffi.INT, rffi.INT, rffi.INT], rffi.INT,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
+                     save_err=rffi.RFFI_SAVE_ERRNO, natural_arity=natural_arity)
 fcntl_str = external('fcntl', [rffi.INT, rffi.INT, rffi.CCHARP], rffi.INT,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
+                     save_err=rffi.RFFI_SAVE_ERRNO, natural_arity=natural_arity)
 fcntl_flock = external('fcntl', [rffi.INT, rffi.INT, _flock], rffi.INT,
-                       save_err=rffi.RFFI_SAVE_ERRNO)
+                       save_err=rffi.RFFI_SAVE_ERRNO, natural_arity=natural_arity)
 ioctl_int = external('ioctl', [rffi.INT, rffi.UINT, rffi.INT], rffi.INT,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
+                     save_err=rffi.RFFI_SAVE_ERRNO, natural_arity=natural_arity)
 ioctl_str = external('ioctl', [rffi.INT, rffi.UINT, rffi.CCHARP], rffi.INT,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
+                     save_err=rffi.RFFI_SAVE_ERRNO, natural_arity=natural_arity)
 
 has_flock = cConfig.has_flock
 if has_flock:

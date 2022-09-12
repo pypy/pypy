@@ -56,6 +56,7 @@ PYTHONDEVMODE: enable the development mode.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
                topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
+PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
 """
 
 try:
@@ -281,6 +282,7 @@ def funroll_loops(*args):
 
 
 def set_jit_option(options, jitparam, *args):
+    options['_jitoptions'] = jitparam
     if jitparam == 'help':
         _print_jit_help()
         raise SystemExit
@@ -475,6 +477,8 @@ def X_option(options, xoption, iterargv):
             options["utf8_mode"] = 1
         elif xoption == "utf8=0":
             options["utf8_mode"] = 0
+    elif xoption == 'jit-off':
+        set_jit_option(options, 'off')
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -622,6 +626,8 @@ def _parse_command_line(argv):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
+        if getenv('PYPY_DISABLE_JIT'):
+            set_jit_option(options, 'off')
         if getenv('PYTHONDEVMODE'):
             options["dev_mode"] = True
         val = getenv('PYTHONUTF8')
@@ -702,9 +708,6 @@ def run_command_line(interactive,
                 faulthandler.enable(2)   # manually set to stderr
             except ValueError:
                 pass      # ignore "2 is not a valid file descriptor"
-    if 'pypyjit' in sys.builtin_module_names:
-        if 'jit-off' in sys._xoptions:
-            set_jit_option(None, "off")
 
     pycache_prefix = sys._xoptions.get('pycache_prefix', None)
     if pycache_prefix is True:
@@ -881,7 +884,13 @@ def run_command_line(interactive,
         else:
             # handle the common case where a filename is specified
             # on the command-line.
+            import os
             filename = sys.argv[0]
+            try:
+                # try to make an absolute file name, which can fail
+                filename = os.path.abspath(filename)
+            except OSError as e:
+                pass
             mainmodule.__file__ = filename
             mainmodule.__cached__ = None
             for hook in sys.path_hooks:
@@ -933,7 +942,7 @@ def run_command_line(interactive,
                     # put the filename in sys.path[0] and import
                     # the module __main__
                     import runpy
-                    sys.path.insert(0, filename)
+                    sys.path.insert(0, abspath(filename))
                     args = (runpy._run_module_as_main, '__main__', False)
                 else:
                     # That's the normal path, "pypy3 stuff.py".
@@ -943,6 +952,8 @@ def run_command_line(interactive,
                     mainmodule.__loader__ = loader
                     @hidden_applevel
                     def execfile(filename, namespace):
+                        from os.path import abspath
+                        filename = abspath(filename)
                         try:
                             with open(filename, 'rb') as f:
                                 code = f.read()

@@ -63,21 +63,23 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1o.tar.gz',
-             '9384a2b0570dd80358841464677115df785edb941c71211f75076d72fe6b438f',
+    # 1.1.1q is released but does not build on darwin https://github.com/openssl/openssl/issues/18720
+    '_ssl1': ('http://artfiles.org/openssl.org/source/old/1.1.1/openssl-1.1.1p.tar.gz',
+             'bf61b62aaa66c7c7639942a94de4c9ae8280c08f17d4eac2e44644d9fc8ace6f',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.3.tar.gz',
-              'ee0078adcef1de5f003c62c80cc96527721609c6f3bb42b7795df31f8b558c0b',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.5.tar.gz',
+              'aa7d8d9bef71ad6525c55ba11e5f4397889ce49c2c9349dcea6d3e4f0b024a7a',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
 }
+
 cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
 if sys.platform == 'darwin' or platform.machine() == 'aarch64':
@@ -86,6 +88,7 @@ if sys.platform == 'darwin' or platform.machine() == 'aarch64':
               # this does not compile on the x86 buildbot, linker is missing '_history_list'
               'http://distfiles.macports.org/gdbm/gdbm-1.19.tar.gz',
               '37ed12214122b972e18a0d94995039e57748191939ef74115b1d41d8811364bc',
+    # this does not compile on the linux buildbot, linker is missing '_history_list'
               [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],

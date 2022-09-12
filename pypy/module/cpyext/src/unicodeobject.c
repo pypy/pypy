@@ -594,3 +594,12 @@ PyUnicode_GetLength(PyObject *unicode)
         return -1;
     return PyUnicode_GET_LENGTH(unicode);
 }
+
+void
+PyUnicode_AppendAndDel(PyObject **pleft, PyObject *right)
+{
+    PyUnicode_Append(pleft, right);
+    Py_XDECREF(right);
+}
+
+

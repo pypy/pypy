@@ -26,6 +26,7 @@ REGEXES = [
     (('abort.bad_loop',), '^abort: bad loop:\s+(\d+)$'),
     (('abort.force_quasiimmut',), '^abort: force quasi-immut:\s+(\d+)$'),
     (('abort.segmenting_trace',), '^abort: segmenting trace:\s+(\d+)$'),
+    (('virtualizables_forced',), '^virtualizables forced:\s+(\d+)$'),
     (('nvirtuals',), '^nvirtuals:\s+(\d+)$'),
     (('nvholes',), '^nvholes:\s+(\d+)$'),
     (('nvreused',), '^nvreused:\s+(\d+)$'),

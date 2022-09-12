@@ -545,7 +545,9 @@ class AppTestPosix:
         def test_forkpty(self):
             import sys
             if 'freebsd' in sys.platform:
-                skip("hangs indifinitly on FreeBSD (also on CPython).")
+                skip("hangs on FreeBSD (also on CPython).")
+            if sys.platform == 'darwin' and not self.runappdirect:
+                skip("hangs on darwin untranslated")
             os = self.posix
             childpid, master_fd = os.forkpty()
             assert isinstance(childpid, int)

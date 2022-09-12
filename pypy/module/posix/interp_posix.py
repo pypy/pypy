@@ -28,6 +28,7 @@ from pypy.interpreter.baseobjspace import W_Root
 
 
 _WIN32 = sys.platform == 'win32'
+_LINUX = sys.platform.startswith("linux")
 if _WIN32:
     from rpython.rlib import rwin32
 
@@ -83,6 +84,7 @@ class FileDecoder(object):
 
 @specialize.memo()
 def make_dispatch_function(func, tag, allow_fd_fn=None):
+    @specialize.argtype(1)
     def dispatch(space, w_fname, *args):
         if allow_fd_fn is not None:
             try:
@@ -2871,6 +2873,8 @@ Copy count bytes from file descriptor in to file descriptor out."""
     # XXX only supports the common arguments for now (BSD takes more).
     # Until that is fixed, we only expose sendfile() on linux.
     if space.is_none(w_offset):     # linux only
+        if not _LINUX:
+            raise oefmt(space.w_TypeError, "an integer is required (got None)")
         while True:
             try:
                 res = rposix.sendfile_no_offset(out_fd, in_, count)

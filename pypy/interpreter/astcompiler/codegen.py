@@ -208,7 +208,7 @@ class FrameBlockInfo(object):
 def update_pos_expr(func):
     def updater(self, expr):
         assert isinstance(expr, ast.expr)
-        if expr.lineno > 1:
+        if expr.lineno > 0:
             new_lineno = expr.lineno
         else:
             new_lineno = self.lineno

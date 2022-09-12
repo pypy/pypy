@@ -9,7 +9,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
 from rpython.jit.metainterp.optimizeopt.info import (
     INFO_NONNULL, INFO_NULL, getptrinfo)
 from rpython.jit.metainterp.optimizeopt.util import (
-    _findall, make_dispatcher_method, get_box_replacement)
+    _findall, make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, opclasses, OpHelpers)
 from rpython.rlib.rarithmetic import highest_bit
@@ -51,9 +51,6 @@ class OptRewrite(Optimization):
                 return
 
         return dispatch_opt(self, op)
-
-    def propagate_postprocess(self, op):
-        return dispatch_postprocess(self, op)
 
     def try_boolinvers(self, op, targs):
         oldop = self.get_pure_result(targs)
@@ -218,17 +215,17 @@ class OptRewrite(Optimization):
             for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
                 lh_info = self.getintbound(lhs)
                 if lh_info.is_constant():
-                    x = lh_info.getint()
+                    x = lh_info.get_constant_int()
                     # x & (x - 1) == 0 is a quick test for power of 2
                     if x & (x - 1) == 0:
-                        new_rhs = ConstInt(highest_bit(lh_info.getint()))
+                        new_rhs = ConstInt(highest_bit(lh_info.get_constant_int()))
                         op = self.replace_op_with(op, rop.INT_LSHIFT, args=[rhs, new_rhs])
                         break
             return self.emit(op)
 
     def _optimize_CALL_INT_UDIV(self, op):
         b2 = self.getintbound(op.getarg(2))
-        if b2.is_constant() and b2.getint() == 1:
+        if b2.is_constant() and b2.get_constant_int() == 1:
             self.make_equal_to(op, op.getarg(1))
             self.last_emitted_operation = REMOVED
             return True
@@ -246,6 +243,17 @@ class OptRewrite(Optimization):
             return self.emit(op)
 
     def optimize_INT_RSHIFT(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+
+        if b2.equal(0):
+            self.make_equal_to(op, op.getarg(0))
+        elif b1.equal(0):
+            self.make_constant_int(op, 0)
+        else:
+            return self.emit(op)
+
+    def optimize_UINT_RSHIFT(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
 
@@ -333,7 +341,7 @@ class OptRewrite(Optimization):
         if box.type == 'i':
             intbound = self.getintbound(box)
             if intbound.is_constant():
-                if not intbound.getint() == constbox.getint():
+                if not intbound.get_constant_int() == constbox.getint():
                     r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(
                         op)
                     raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} (%s) '
@@ -641,7 +649,7 @@ class OptRewrite(Optimization):
         arg = op.getarg(0)
         b = self.getintbound(arg)
         if b.is_constant():
-            if b.getint() == 0:
+            if b.get_constant_int() == 0:
                 self.last_emitted_operation = REMOVED
                 return
             opnum = OpHelpers.call_for_type(op.type)
@@ -886,7 +894,7 @@ class OptRewrite(Optimization):
             return True
         if not b2.is_constant():
             return False
-        val = b2.getint()
+        val = b2.get_constant_int()
         if val <= 0:
             return False
         if val == 1:
@@ -924,7 +932,7 @@ class OptRewrite(Optimization):
         # be replaced with 'x >> shift', even for negative values of x
         if not b2.is_constant():
             return False
-        val = b2.getint()
+        val = b2.get_constant_int()
         if val <= 0:
             return False
         if val == 1:
@@ -986,4 +994,5 @@ class OptRewrite(Optimization):
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
                                       default=OptRewrite.emit)
 optimize_guards = _findall(OptRewrite, 'optimize_', 'GUARD')
-dispatch_postprocess = make_dispatcher_method(OptRewrite, 'postprocess_')
+OptRewrite.propagate_postprocess = make_dispatcher_method(OptRewrite, 'postprocess_')
+OptRewrite.have_postprocess_op = have_dispatcher_method(OptRewrite, 'postprocess_')

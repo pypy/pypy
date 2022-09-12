@@ -21,6 +21,7 @@ from platform import machine
 import py
 import os
 import sys
+import ctypes
 import ctypes.util
 
 
@@ -34,7 +35,9 @@ _MAC_OS = platform.name.startswith("darwin")
 _LITTLE_ENDIAN = sys.byteorder == 'little'
 _BIG_ENDIAN = sys.byteorder == 'big'
 
-_ARM = rffi_platform.getdefined('__arm__', '')
+_ARM32 = rffi_platform.getdefined('__arm__', '')
+_ARM64 = rffi_platform.getdefined('__aarch64', '')
+_MAC_OS_ARM64 = _MAC_OS and _ARM64
 
 if _WIN32:
     from rpython.rlib import rwin32
@@ -123,7 +126,7 @@ class CConfig:
     if _WIN32 and not _WIN64:
         FFI_STDCALL = rffi_platform.ConstantInteger('FFI_STDCALL')
 
-    if _ARM:
+    if _ARM32:
         FFI_SYSV = rffi_platform.ConstantInteger('FFI_SYSV')
         FFI_VFP = rffi_platform.ConstantInteger('FFI_VFP')
 
@@ -275,15 +278,26 @@ else:
                 "arguments (%d bytes in excess) " % (result,))
 
 if not _WIN32:
+    # prefer using ctypes.util.find_library() as it takes care of some
+    # platform specifics -- however, it is not 100% portable
     libc_name = ctypes.util.find_library('c')
-    if libc_name is None and sys.platform == 'darwin':
+    if libc_name is not None:
+        def get_libc_name():
+            return libc_name
+    elif sys.platform == 'darwin':
         def get_libc_name():
             return '/usr/lib/libc.dylib'
     else:
-        assert libc_name is not None, "Cannot find C library, ctypes.util.find_library('c') returned None"
-
-        def get_libc_name():
-            return libc_name
+        # try falling back to generic "libc.so" as that should work
+        # for the majority of ELF systems (except for GNU/Linux)
+        try:
+            ctypes.CDLL('libc.so')
+        except OSError:
+            raise AssertionError(
+                "Cannot find C library, ctypes.util.find_library('c') returned None")
+        else:
+            def get_libc_name():
+                return 'libc.so'
 elif _MSVC:
     get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 
@@ -306,7 +320,7 @@ FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
 if _WIN32 and not _WIN64:
     FFI_STDCALL = cConfig.FFI_STDCALL
-if _ARM:
+if _ARM32:
     FFI_SYSV = cConfig.FFI_SYSV
     FFI_VFP = cConfig.FFI_VFP
 FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT

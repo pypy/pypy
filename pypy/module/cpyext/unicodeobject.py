@@ -14,14 +14,16 @@ from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, cpython_api,
     bootstrap_function, CONST_STRING, INTP_real, Py_TPFLAGS_UNICODE_SUBCLASS,
     CONST_WSTRING, Py_CLEANUP_SUPPORTED, slot_function, cts, parse_dir,
-    PyTypeObjectPtr, PyVarObject)
-from pypy.module.cpyext.pyerrors import PyErr_BadArgument
+    PyTypeObjectPtr, PyVarObject, PY_SSIZE_T_MAX)
+from pypy.module.cpyext.pyerrors import PyErr_BadArgument, PyErr_BadInternalCall
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, pyobj_has_w_obj, BaseCpyTypedescr)
+    make_typedescr, get_typedescr, as_pyobj, pyobj_has_w_obj, BaseCpyTypedescr,
+    incref, decref)
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import (
     CodecState, latin_1_decode, utf_16_decode, utf_32_decode)
+from pypy.module.cpyext.state import State
 from pypy.objspace.std import unicodeobject
 from rpython.rlib.debug import fatalerror
 import sys
@@ -901,7 +903,6 @@ def PyUnicode_InternInPlace(space, string):
     decref(space, string[0])
     string[0] = make_ref(space, w_str)
 
-
 @cpython_api([CONST_STRING], PyObject)
 def PyUnicode_InternFromString(space, s):
     """A combination of PyUnicode_FromString() and
@@ -1540,3 +1541,21 @@ def PyUnicode_WriteChar(space, ref, index, ch):
         j += 1
     return 0
 
+@cpython_api([PyObjectP, PyObject], lltype.Void)
+def PyUnicode_Append(space, p_left, right):
+    state = space.fromcache(State)
+    operror = state.get_exception()
+    if not p_left:
+        if operror is not None:
+            PyErr_BadInternalCall(space)
+        return
+    left = p_left[0]
+    if not left or not right or not pyunicode_check(left) or not pyunicode_check(right):
+        if operror is not None:
+            PyErr_BadInternalCall(space)
+        p_left[0] = rffi.cast(PyObject, 0)
+        return
+    w_left = from_ref(space, left)
+    w_right = from_ref(space, right)
+    w_append = space.add(w_left, w_right)
+    p_left[0] = make_ref(space, w_append)

@@ -220,6 +220,12 @@ class DummySpace(object):
     w_dict = dict
     w_str = str
 
+    def is_w(self, a, b): return a is b
+
+    def findattr(self, obj, name):
+        # XXX good enough I think
+        return getattr(obj, name._utf8, None)
+
 class TestArgumentsNormal(object):
 
     def test_create(self):
@@ -959,8 +965,8 @@ class AppTestArgument:
         def f(**kwargs):
             return kwargs
         class DictSubclass(dict):
-            def __iter__(self):
-                yield 'x'
+            def keys(self):
+                return ["a"]
         # CPython, as an optimization, looks directly into dict internals when
         # passing one via **kwargs.
         x =DictSubclass()
@@ -1032,6 +1038,17 @@ class AppTestArgument:
             def test(**kwargs):
                 return kwargs
             assert test(**q) == {"foo": "bar"}
+
+    def test_dict_subclass_overriding_iter(self):
+        # issue 3775: bug-to-bug compatibility with cpython. for a subclass of
+        # dict that overrides __iter__, __getitem__ is taken into account.
+        class weirddict(dict):
+            def __iter__(self): return iter(self.keys())
+            def __getitem__(self, key):
+                return key
+        def test(**kwargs):
+            return kwargs
+        assert test(**weirddict({"a": 2})) == {"a": "a"}
 
     def test_issue2996_1(self): """
         class Class:

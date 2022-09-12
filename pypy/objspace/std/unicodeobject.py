@@ -961,9 +961,14 @@ class W_UnicodeObject(W_Root):
     def descr_split(self, space, w_sep=None, maxsplit=-1):
         res = []
         value = self._utf8
+        is_ascii = self.is_ascii()
         if space.is_none(w_sep):
-            res = split(value, maxsplit=maxsplit, isutf8=True)
-            return space.newlist_utf8(res, self.is_ascii())
+            # need two calls, due to the specialization
+            if is_ascii:
+                res = split(value, maxsplit=maxsplit, isutf8=False)
+            else:
+                res = split(value, maxsplit=maxsplit, isutf8=True)
+            return space.newlist_utf8(res, is_ascii)
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:

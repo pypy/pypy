@@ -368,8 +368,10 @@ class CStandaloneBuilder(CBuilder):
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(DEFAULT_TARGET)'),
         ]
 
-        # added a new target for profopt, because it requires -lgcov to compile successfully when -shared is used as an argument
-        # Also made a difference between translating with shared or not, because this affects profopt's target
+        # added a new target for profopt, because it requires extra args to
+        # compile successfully when -shared is used as an argument
+        # Also made a difference between translating with shared or not,
+        # because this affects profopt's target
 
         if self.config.translation.profopt:
             if self.config.translation.profoptargs is None:
@@ -432,25 +434,32 @@ class CStandaloneBuilder(CBuilder):
             # Set the PGO flags
             if "clang" in cc:
                 # Any changes made here should be reflected in the GCC+Darwin case below
+                coverage_flag = '--coverage'
                 profopt_gen_flag = "-fprofile-instr-generate"
                 profopt_use_flag = "-fprofile-instr-use=code.profclangd"
                 profopt_merger = "%s merge -output=code.profclangd *.profclangr" % llvm_profdata
                 profopt_file = 'LLVM_PROFILE_FILE="code-%p.profclangr"'
             elif "gcc" in cc:
                 if sys.platform == 'darwin':
+                    coverage_flag = '--coverage'
                     profopt_gen_flag = "-fprofile-instr-generate"
                     profopt_use_flag = "-fprofile-instr-use=code.profclangd"
                     profopt_merger = "%s merge -output=code.profclangd *.profclangr" % llvm_profdata
                     profopt_file = 'LLVM_PROFILE_FILE="code-%p.profclangr"'
                 else:
+                    coverage_flag = '-lgcov'
                     profopt_gen_flag = "-fprofile-generate"
                     profopt_use_flag = "-fprofile-use -fprofile-correction"
                     profopt_merger = "true"
                     profopt_file = ""
 
             if self.config.translation.shared:
-                mk.rule('$(PROFOPT_TARGET)', '$(TARGET) main.o',
-                         ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) -lgcov', '$(MAKE) postcompile BIN=$(PROFOPT_TARGET)'])
+                mk.rule('$(PROFOPT_TARGET)',
+                        '$(TARGET) main.o',
+                        ['$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS) %s' % coverage_flag,
+                         '$(MAKE) postcompile BIN=$(PROFOPT_TARGET)'
+                        ]
+                       )
             else:
                 mk.definition('PROFOPT_TARGET', '$(TARGET)')
 

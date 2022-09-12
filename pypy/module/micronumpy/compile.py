@@ -413,6 +413,9 @@ class FakeSpace(ObjSpace):
     def newtuple(self, list_w):
         return ListObject(list_w)
 
+    def newtuple2(self, w_a, w_b):
+        return ListObject([w_a, w_b])
+
     def newdict(self, module=True):
         return DictObject({})
 

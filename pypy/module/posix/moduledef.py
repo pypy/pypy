@@ -227,7 +227,7 @@ corresponding Unix manual entries for more information on calls."""
             assert getattr(rposix, _name) is not None, "missing %r" % (_name,)
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
 
-    if sys.platform.startswith('linux'): #hasattr(rposix, 'sendfile'):
+    if sys.platform != 'win32':
         interpleveldefs['sendfile'] = 'interp_posix.sendfile'
 
     if hasattr(rposix, 'pread'):

@@ -145,11 +145,13 @@ def test_wrap_oserror():
         newint = newtext = newfilename = wrap
         def call_function(self, exc, w_errno, w_msg, w_filename=None, *args):
             return (exc, w_errno, w_msg, w_filename)
+        def type(self, obj):
+            return obj
     space = FakeSpace()
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"))
     assert isinstance(e, OperationError)
-    assert e.w_type == [OSError]
+    assert e.w_type[0] == [OSError]
     assert e.get_w_value(space) == ([OSError], [errno.EBADF],
                                     [os.strerror(errno.EBADF)], None)
     #
@@ -157,7 +159,7 @@ def test_wrap_oserror():
                      filename="test.py",
                      w_exception_class=space.w_EnvironmentError)
     assert isinstance(e, OperationError)
-    assert e.w_type == [EnvironmentError]
+    assert e.w_type[0] == [EnvironmentError]
     assert e.get_w_value(space) == ([EnvironmentError], [errno.EBADF],
                                     [os.strerror(errno.EBADF)],
                                     ["test.py"])
@@ -166,7 +168,7 @@ def test_wrap_oserror():
                      filename="test.py",
                      w_exception_class=[SystemError])
     assert isinstance(e, OperationError)
-    assert e.w_type == [SystemError]
+    assert e.w_type[0] == [SystemError]
     assert e.get_w_value(space) == ([SystemError], [errno.EBADF],
                                     [os.strerror(errno.EBADF)],
                                     ["test.py"])
