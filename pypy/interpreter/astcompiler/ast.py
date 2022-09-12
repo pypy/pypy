@@ -5007,7 +5007,7 @@ class pattern(AST):
             return MatchOr.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "expected some sort of pattern, got %R", w_node)
-State.ast_type('pattern', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=[], doc='pattern = MatchValue(expr value)\n        | MatchSingleton(constant value)\n        | MatchSequence(pattern* patterns)\n        | MatchMapping(expr* keys, pattern* patterns, identifier? rest)\n        | MatchClass(expr cls, pattern* patterns, identifier* kwd_attrs, pattern* kwd_patterns)\n        | MatchStar(identifier? name)\n        | MatchAs(pattern? pattern, identifier? name)\n        | MatchOr(pattern* patterns)')
+State.ast_type('pattern', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=[], doc='pattern = MatchValue(expr value)\n        | MatchSingleton(constant value)\n        | MatchSequence(pattern* patterns)\n        | MatchMapping(expr* keys, pattern* patterns, identifier? rest)\n        | MatchClass(expr cls, pattern* patterns, identifier* kwd_attrs, pattern* kwd_patterns)\n        | MatchStar(identifier? name)\n        | MatchAs(pattern? pattern_, identifier? name)\n        | MatchOr(pattern* patterns)')
 
 class MatchValue(pattern):
 
@@ -5387,8 +5387,8 @@ State.ast_type('MatchStar', 'pattern', ['name'], default_none_fields=['name'], d
 
 class MatchAs(pattern):
 
-    def __init__(self, pattern, name, lineno, col_offset, end_lineno, end_col_offset):
-        self.pattern = pattern
+    def __init__(self, pattern_, name, lineno, col_offset, end_lineno, end_col_offset):
+        self.pattern_ = pattern_
         self.name = name
         pattern.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
 
@@ -5396,15 +5396,15 @@ class MatchAs(pattern):
         visitor.visit_MatchAs(self)
 
     def mutate_over(self, visitor):
-        if self.pattern:
-            self.pattern = self.pattern.mutate_over(visitor)
+        if self.pattern_:
+            self.pattern_ = self.pattern_.mutate_over(visitor)
         return visitor.visit_MatchAs(self)
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_MatchAs)
-        w_pattern = self.pattern.to_object(space) if self.pattern is not None else space.w_None  # pattern
-        assert w_pattern is not None
-        space.setattr(w_node, space.newtext('pattern'), w_pattern)
+        w_pattern_ = self.pattern_.to_object(space) if self.pattern_ is not None else space.w_None  # pattern
+        assert w_pattern_ is not None
+        space.setattr(w_node, space.newtext('pattern_'), w_pattern_)
         w_name = space.newtext_or_none(self.name)  # identifier
         assert w_name is not None
         space.setattr(w_node, space.newtext('name'), w_name)
@@ -5424,21 +5424,21 @@ class MatchAs(pattern):
 
     @staticmethod
     def from_object(space, w_node):
-        w_pattern = get_field(space, w_node, 'pattern', True)
+        w_pattern_ = get_field(space, w_node, 'pattern_', True)
         w_name = get_field(space, w_node, 'name', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', False)
         w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        _pattern = pattern.from_object(space, w_pattern)
+        _pattern_ = pattern.from_object(space, w_pattern_)
         _name = space.text_or_none_w(w_name)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         _end_lineno = obj_to_int(space, w_end_lineno, False)
         _end_col_offset = obj_to_int(space, w_end_col_offset, False)
-        return MatchAs(_pattern, _name, _lineno, _col_offset, _end_lineno, _end_col_offset)
+        return MatchAs(_pattern_, _name, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
-State.ast_type('MatchAs', 'pattern', ['pattern', 'name'], default_none_fields=['pattern', 'name'], doc='MatchAs(pattern? pattern, identifier? name)')
+State.ast_type('MatchAs', 'pattern', ['pattern_', 'name'], default_none_fields=['pattern_', 'name'], doc='MatchAs(pattern? pattern_, identifier? name)')
 
 
 class MatchOr(pattern):
@@ -6091,8 +6091,8 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_MatchAs(self, node):
         self.visited(node)
-        if node.pattern:
-            node.pattern.walkabout(self)
+        if node.pattern_:
+            node.pattern_.walkabout(self)
 
     def visit_MatchOr(self, node):
         self.visited(node)

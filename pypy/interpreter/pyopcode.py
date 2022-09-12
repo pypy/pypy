@@ -438,6 +438,10 @@ class __extend__(pyframe.PyFrame):
                 self.BUILD_STRING(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
                 self.LOAD_REVDB_VAR(oparg, next_instr)
+            elif opcode == opcodedesc.MATCH_SEQUENCE.index:
+                self.MATCH_SEQUENCE(oparg, next_instr)
+            elif opcode == opcodedesc.GET_LEN.index:
+                self.GET_LEN(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1698,6 +1702,18 @@ class __extend__(pyframe.PyFrame):
             self._revdb_load_var(oparg)
         else:
             self.MISSING_OPCODE(oparg, next_instr)
+
+    def MATCH_SEQUENCE(self, oparg, next_instr):
+        # import pdb
+        # pdb.set_trace()
+        w_sequence = self.popvalue()
+        is_sequence = self.space.issequence_w(w_sequence)
+        self.pushvalue(self.space.newbool(is_sequence))
+
+    def GET_LEN(self, oparg, next_instr):
+        w_sequence = self.peekvalue()
+        w_len = self.space.len(w_sequence)
+        self.pushvalue(w_len)
 
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
     # invoke a "send" or "throw" by method name to a non-generator w_yf

@@ -136,7 +136,7 @@ module Python
             | MatchStar(identifier? name)
             -- The optional "rest" MatchMapping parameter handles capturing extra mapping keys
 
-            | MatchAs(pattern? pattern, identifier? name)
+            | MatchAs(pattern? pattern_, identifier? name)
             | MatchOr(pattern* patterns)
 
              attributes (int lineno, int col_offset, int end_lineno, int end_col_offset)
