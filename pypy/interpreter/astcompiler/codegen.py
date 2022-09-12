@@ -1962,21 +1962,23 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         end = self.new_block()
         next = self.new_block()
+        # import pdb; pdb.set_trace()
         match.subject.walkabout(self)
         last_index_for_dup = len(match.cases) - 1
-        if isinstance(match.cases[-1], ast.MatchAs) and not match.cases[-1].pattern:
-            last_index_for_dup -= 1
+        # TODO: fix this optimization: do we need to check for both pattern and name?
+        # if isinstance(match.cases[-1], ast.MatchAs) and not match.cases[-1].name:
+            # last_index_for_dup -= 1
         for i, case in enumerate(match.cases):
             # TODO: we can be more precise than `len(cases)-1` by checking the
             # if the last case is a wildcard
             if i < last_index_for_dup:
                 self.emit_op(ops.DUP_TOP)
             case.pattern.walkabout(self)
-            # TODO: this is not the correct solution
-            if not isinstance(case.pattern, ast.MatchAs):
-                self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
-            if i < last_index_for_dup:
-                self.emit_op(ops.POP_TOP)
+            # TODO: this is not the correct solution. fix this optimization
+            # if not isinstance(case.pattern, ast.MatchAs):
+            self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
+            # if i < last_index_for_dup:
+            # self.emit_op(ops.POP_TOP)
             # TODO: handle case.guard
             for stmt in case.body:
                 stmt.walkabout(self)
@@ -1984,6 +1986,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.use_next_block(next)
             next = self.new_block()
         self.use_next_block(end)
+        # self.emit_op(ops.POP_TOP)
 
     def visit_MatchValue(self, match_value):
         match_value.value.walkabout(self)
@@ -1992,8 +1995,37 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_MatchAs(self, match_as):
         # TODO: handle match_as.pattern
         if not match_as.name:
+            self.emit_op(ops.POP_TOP)
+            self.load_const(self.space.w_True)
             return
         self.name_op(match_as.name, ast.Store, match_as)
+        self.load_const(self.space.w_True)
+
+    def visit_MatchSequence(self, match_sequence):
+        fail = self.new_block()
+        end = self.new_block()
+        self.emit_op(ops.DUP_TOP)
+        self.emit_op(ops.MATCH_SEQUENCE)
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+        self.emit_op(ops.GET_LEN)
+
+        length = len(match_sequence.patterns)
+        compare_kind = 2
+        w_length = self.space.newint(length)
+        self.load_const(w_length)
+        self.emit_op_arg(ops.COMPARE_OP, compare_kind)
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+
+        self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
+        for pattern in match_sequence.patterns:
+            pattern.walkabout(self)
+            self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+
+        self.load_const(self.space.w_True)
+        self.emit_jump(ops.JUMP_FORWARD, end)
+        self.use_next_block(fail)
+        self.load_const(self.space.w_False)
+        self.use_next_block(end)
 
 
 class TopLevelCodeGenerator(PythonCodeGenerator):

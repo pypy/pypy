@@ -471,7 +471,7 @@ pattern:
 
 as_pattern["ast.MatchAs"]:
     | pattern=or_pattern 'as' target=pattern_capture_target {
-        ast.MatchAs(pattern=pattern, name=target, LOCATIONS)
+        ast.MatchAs(pattern_=pattern, name=target, LOCATIONS)
      }
     | invalid_as_pattern
 
@@ -545,14 +545,14 @@ imaginary_number[ast.Constant]:
 
 capture_pattern:
     | target=pattern_capture_target {
-        ast.MatchAs(pattern=None, name=target, LOCATIONS)
+        ast.MatchAs(pattern_=None, name=target, LOCATIONS)
      }
 
 pattern_capture_target[str]:
     | !"_" name=NAME !('.' | '(' | '=') { name.id }
 
 wildcard_pattern["ast.MatchAs"]:
-    | "_" { ast.MatchAs(pattern=None, target=None, LOCATIONS) }
+    | "_" { ast.MatchAs(pattern_=None, name=None, LOCATIONS) }
 
 value_pattern["ast.MatchValue"]:
     | attr=attr !('.' | '(' | '=') { ast.MatchValue(value=attr, LOCATIONS) }
