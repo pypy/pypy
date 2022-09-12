@@ -1678,7 +1678,7 @@ class PythonParser(Parser):
                 if target:
                     tok = self.get_last_non_whitespace_token()
                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                    return ast . MatchAs ( pattern_ = pattern , name = target , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+                    return ast . MatchAs ( pattern = pattern , name = target , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         if self.call_invalid_rules:
             invalid_as_pattern = self.invalid_as_pattern()
@@ -1931,7 +1931,7 @@ class PythonParser(Parser):
         if target:
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-            return ast . MatchAs ( pattern_ = None , name = target , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchAs ( pattern = None , name = target , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         return None
 
@@ -1957,7 +1957,7 @@ class PythonParser(Parser):
         if literal:
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-            return ast . MatchAs ( pattern_ = None , name = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchAs ( pattern = None , name = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         return None
 
