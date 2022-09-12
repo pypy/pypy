@@ -150,8 +150,8 @@ class AssertionRewriter(ast.ASTVisitor):
         # Insert some special imports at the top of the module but after any
         # docstrings and __future__ imports.
         builtin_name = 'builtins'
-        aliases = [ast.alias(builtin_name, "@py_builtins"),
-                   ast.alias("pytest", "@pytest")]
+        aliases = [ast.alias(builtin_name, "@py_builtins", 0, 0, 0, 0),
+                   ast.alias("pytest", "@pytest", 0, 0, 0, 0)]
         doc = getattr(mod, "docstring", None)
         expect_docstring = doc is None
         if doc is not None and self.is_rewrite_disabled(doc):
