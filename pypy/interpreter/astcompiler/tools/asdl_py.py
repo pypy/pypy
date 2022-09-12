@@ -283,7 +283,16 @@ class ASTNodeVisitor(ASDLVisitor):
     def make_constructor(self, fields, node, extras=None, base=None):
         if fields or extras:
             arg_fields = fields + extras if extras else fields
-            args = ", ".join(str(field.name) for field in arg_fields)
+            arg_names = [str(field.name) for field in arg_fields]
+            if base in arg_names:
+                # grumpf, annoying, use default argument renaming hack.
+                # happens in 3.10 with
+                # pattern = ... | MatchAs(pattern? pattern, identifier? name)
+                local_base = "__base_%s" % base
+                assert local_base not in arg_names
+                arg_names.append("%s=%s" % (local_base, base))
+                base = local_base
+            args = ", ".join(arg_names)
             self.emit("def __init__(self, %s):" % args, 1)
             for field in fields:
                 self.visit(field)
