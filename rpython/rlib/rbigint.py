@@ -757,8 +757,6 @@ class rbigint(object):
 
             if selfsize <= i:
                 result = _x_mul(self, other)
-                """elif 2 * selfsize <= othersize:
-                    result = _k_lopsided_mul(self, other)"""
             else:
                 result = _k_mul(self, other)
         else:
@@ -3207,10 +3205,13 @@ def _str_to_int_big_inner10(s, a, b, mem, limit):
     diff = b - a
     if diff <= limit:
         return _decimalstr_to_bigint(s, a, b)
-    mid = a + diff // 2
+    # choose the midpoint rounding up, as that yields slightly fewer entries in
+    # mem, see comment in _str_to_int_big_w5pow too
+    mid = a + (diff + 1) // 2
     right = _str_to_int_big_inner10(s, mid, b, mem, limit)
     left = _str_to_int_big_inner10(s, a, mid, mem, limit)
-    return right.add(left.mul(_str_to_int_big_w5pow(b - mid, mem, limit)).lshift(b - mid))
+    left = left.mul(_str_to_int_big_w5pow(b - mid, mem, limit)).lshift(b - mid)
+    return right.add(left)
 
 def _str_to_int_big_base10(s, start, end, limit=20):
     """Asymptotically fast conversion of a 'str' to an 'int'."""
