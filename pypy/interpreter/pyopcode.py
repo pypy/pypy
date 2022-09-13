@@ -1706,7 +1706,7 @@ class __extend__(pyframe.PyFrame):
     def MATCH_SEQUENCE(self, oparg, next_instr):
         # import pdb
         # pdb.set_trace()
-        w_sequence = self.popvalue()
+        w_sequence = self.peekvalue()
         is_sequence = self.space.issequence_w(w_sequence)
         self.pushvalue(self.space.newbool(is_sequence))
 
