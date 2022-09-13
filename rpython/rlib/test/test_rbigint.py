@@ -17,7 +17,7 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, L
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT,
-    _str_to_int_big_w5pow, _str_to_int_big_base10)
+    _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10)
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
@@ -417,6 +417,11 @@ class Test_rbigint(object):
 
     def test_fromstr_huge(self):
         assert _str_to_int_big_base10("1" * 1000, 0, 1000).tolong() == int("1" * 1000)
+        mem = {}
+
+        result = _str_to_int_big_inner10('123952' * 1000, 0, 6000, mem, 20)
+        assert len(mem) == 14
+        assert result
 
     def test_from_numberstring_parser(self):
         from rpython.rlib.rstring import NumberStringParser
