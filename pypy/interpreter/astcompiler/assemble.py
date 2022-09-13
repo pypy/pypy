@@ -717,7 +717,7 @@ _static_opcode_stack_effects = {
 
     ops.WITH_EXCEPT_START: 0,
 
-    ops.MATCH_SEQUENCE: 0,
+    ops.MATCH_SEQUENCE: 1,
 
     ops.GET_LEN: 1,
 }

@@ -2002,11 +2002,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.load_const(self.space.w_True)
 
     def visit_MatchSequence(self, match_sequence):
-        fail = self.new_block()
+        fail_drop = [self.new_block() for x in range(0, max(len(match_sequence.patterns)-1, 1)+1)]
         end = self.new_block()
-        self.emit_op(ops.DUP_TOP)
+
         self.emit_op(ops.MATCH_SEQUENCE)
-        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_drop[1], True)
 
         self.emit_op(ops.GET_LEN)
         length = len(match_sequence.patterns)
@@ -2014,17 +2014,21 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         w_length = self.space.newint(length)
         self.load_const(w_length)
         self.emit_op_arg(ops.COMPARE_OP, compare_kind)
-        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_drop[1], True)
 
         self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
+        left = length
         for pattern in match_sequence.patterns:
             pattern.walkabout(self)
-            self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+            left -= 1
+            self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_drop[left], True)
 
         self.load_const(self.space.w_True)
         self.emit_jump(ops.JUMP_FORWARD, end)
-        self.use_next_block(fail)
-        self.emit_op(ops.POP_TOP)
+        for x in reversed(range(max(length-1, 1))):
+            self.use_next_block(fail_drop[x+1])
+            self.emit_op(ops.POP_TOP)
+        self.use_next_block(fail_drop[0])
         self.load_const(self.space.w_False)
         self.use_next_block(end)
 

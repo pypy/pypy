@@ -2104,11 +2104,13 @@ x = brokenargs(c=3)
 def f(x):
     match x:
         case 1: return "hello"
+        case [1,2,3]: return "list[1,2,3]"
+        case [1]: return "list[1]"
         case [_]: return "list"
         case a: return a
-res=f(1), f(2), f([1])
+res=f(1), f(2), f(['']), f([1]), f([1,2,3]), f([1,2,4]), f([1,3,4]), f([2,3,4]), f([1, 2])
 """
-        self.st(func, "res", ("hello", 2, "list"))
+        self.st(func, "res", ("hello", 2, "list", "list[1]", "list[1,2,3]", [1,2,4], [1,3,4], [2,3,4], [1,2]))
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
