@@ -1167,18 +1167,24 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:]
 
     # DEBUG
-    debug_print("Splitting the loop")
-    metainterp_sd.logger_noopt.log_loop(new_body_info.inputargs, new_body_ops)
-    for bridge_info, bridge_ops in bridges:
-        metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
-                                              descr=bridge_info.faildescr)
+    # debug_print("Splitting the loop")
+    # metainterp_sd.logger_noopt.log_loop(new_body_info.inputargs, new_body_ops)
+    # for bridge_info, bridge_ops in bridges:
+    #     metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
+    #                                           descr=bridge_info.faildescr)
 
     # compiling loop body
     new_body = create_empty_loop(metainterp)
     new_body.original_jitcell_token = body_jitcell_token
     new_body.inputargs = new_body_info.inputargs
 
-    new_body.operations = [new_body_info.label_op] + new_body_ops
+    label_op = new_body_info.label_op
+    last_op = new_body_ops[-1]
+    if last_op.getopnum() == rop.JUMP and \
+       label_op.getdescr() == last_op.getdescr():
+        new_body.operations = [new_body_info.label_op] + new_body_ops
+    else:
+        new_body.operations = new_body_ops
 
     if not we_are_translated():
         new_body.check_consistency()
@@ -1195,7 +1201,13 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         new_bridge = create_empty_loop(metainterp)
         new_bridge.original_jitcell_token = bridge_info.target_token.original_jitcell_token
         new_bridge.inputargs = bridge_info.inputargs
-        new_bridge.operations = [bridge_info.label_op] + bridge_ops
+        label_op = bridge_info.label_op
+        last_op = bridge_ops[-1]
+        if last_op.getopnum() == rop.JUMP and \
+           last_op.getdescr() == label_op.getdescr():
+            new_bridge.operations = [label_op] + bridge_ops
+        else:
+            new_bridge.operations = bridge_ops
         resumekey = bridge_info.faildescr
         assert isinstance(resumekey, AbstractResumeGuardDescr)
         resumekey.compile_and_attach(metainterp, new_bridge, inputargs)

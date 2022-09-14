@@ -175,8 +175,8 @@ class OptTraceSplit(Optimizer):
             if last_op:
                 self.send_extra_operation(last_op)
 
-        if len(self._newoperations) and \
-           self._newoperations[-1].getopnum() in (rop.JUMP, rop.FINISH):
+        if self._newoperations[-1].getopnum() in (rop.JUMP, rop.FINISH) \
+           and len(self._newoperations):
             token = self._create_token(self.token)
             label = ResOperation(rop.LABEL, self.inputargs, token)
             info = TraceSplitInfo(token, label, self.inputargs, self.resumekey)
@@ -288,11 +288,11 @@ class OptTraceSplit(Optimizer):
         assert isinstance(targetbox, ConstInt)
 
         key = targetbox.getint()
-        try:
+        if key in self.token_map.keys():
             target_token = self.get_from_token_map(key)
-        except TokenMapError as e:
-            debug_print("Token is not found at " + str(key))
-            raise InvalidLoop
+        else:
+            target_token = self._create_token(self.token)
+            self._insert_label_jump_dest(key, target_token)
 
         jump_op = ResOperation(rop.JUMP, inputargs, target_token)
         label_op, residual_ops = self._newoperations[0], self._newoperations[1:]
@@ -324,6 +324,33 @@ class OptTraceSplit(Optimizer):
         newop = op.copy_and_change(opnum, args, new_token)
         op.set_forwarded(newop)
         self.emit(newop)
+
+    def _insert_label_jump_dest(self, dest, token):
+
+        newopsandinfo = []
+        for info, ops in self._newopsandinfo:
+            newops = []
+            for op in ops:
+                if op.getopnum() == rop.DEBUG_MERGE_POINT:
+                    box = self._get_greens(op)[0]
+                    assert isinstance(box, ConstInt)
+                    if box.getint() == dest:
+                        label_op = ResOperation(rop.LABEL, self.inputargs, token)
+                        newops.append(label_op)
+                newops.append(op)
+            newopsandinfo.append((info, newops))
+        self._newopsandinfo = newopsandinfo
+
+        newoperations = []
+        for op in self._newoperations:
+            if op.getopnum() == rop.DEBUG_MERGE_POINT:
+                box = self._get_greens(op)[0]
+                assert isinstance(box, ConstInt)
+                if box.getint() == dest:
+                    label_op = ResOperation(rop.LABEL, self.inputargs, token)
+                    newoperations.append(label_op)
+            newoperations.append(op)
+        self._newoperations = newoperations
 
     def get_from_token_map(self, key):
         if self.token_map is None:
