@@ -1992,6 +1992,19 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         match_value.value.walkabout(self)
         self.emit_op_arg(ops.COMPARE_OP, 2)
 
+    def visit_MatchSingleton(self, match_singleton):
+        value = match_singleton.value
+        if value is None:
+            w_value = self.space.w_None
+        elif value is False:
+            w_value = self.space.w_False
+        elif value is True:
+            w_value = self.space.w_True
+        else:
+            raise
+        self.load_const(w_value)
+        self.emit_op_arg(ops.IS_OP, 0)
+
     def visit_MatchAs(self, match_as):
         # TODO: handle match_as.pattern
         if not match_as.name:
