@@ -2113,6 +2113,28 @@ res=f(1), f(2), f(['']), f([1]), f([1,2,3]), f([1,2,4]), f([1,3,4]), f([2,3,4]),
 """
         self.st(func, "res", ("hello", 2, "list", "list[1]", "list[1,2,3]", [1,2,4], [1,3,4], [2,3,4], [1,2], "True"))
 
+    def test_match_sequence_star(self):
+        func = """
+def f(x):
+    match x:
+        case [1, *rest, 4, 5]: return rest
+        case [1, *rest]: return rest
+        case [*rest, 5]: return rest
+        case [*rest]: return rest
+res=(
+    f([1, 2, 3, 4, 5]),
+    f([1, 2, 3]),
+    f([3, 4, 5]),
+    f([2, 3, 4]),
+)
+"""
+        self.st(func, "res", (
+            [2, 3],
+            [2, 3],
+            [3, 4],
+            [2, 3, 4],
+        ))
+
     def test_match_mapping(self):
         func = """
 def f(x):

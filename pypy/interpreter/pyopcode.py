@@ -448,6 +448,8 @@ class __extend__(pyframe.PyFrame):
                 self.MATCH_KEYS(oparg, next_instr)
             elif opcode == opcodedesc.COPY_DICT_WITHOUT_KEYS.index:
                 self.COPY_DICT_WITHOUT_KEYS(oparg, next_instr)
+            elif opcode == opcodedesc.ROT_N.index:
+                self.ROT_N(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1754,6 +1756,12 @@ class __extend__(pyframe.PyFrame):
             w_key = self.space.getitem(w_keys, self.space.newint(i))
             self.space.delitem(w_dict, w_key)
         self.pushvalue(w_dict)
+
+    def ROT_N(self, oparg, next_instr):
+        # TODO: this is terrible
+        values_w = [self.popvalue() for _ in range(oparg)]
+        for v in values_w:
+            self.pushvalue(v)
 
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
     # invoke a "send" or "throw" by method name to a non-generator w_yf
