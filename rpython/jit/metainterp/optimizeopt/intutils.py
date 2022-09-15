@@ -171,19 +171,22 @@ class IntBound(AbstractInfo):
             if self.make_le_const(other.upper):
                 r = True
 
-        v = self.tvalue | other.tvalue
-        mu = self.tmask & other.tmask 
-        # assert self.tvalue & ~mu == other.tvalue & ~mu       # kaputt
-        if self.tmask != mu:
-            self.tvalue = v & ~mu
-            self.tmask = mu
+        potval = self.tvalue | other.tvalue
+        intersect_masks = self.tmask & other.tmask 
+        union_masks = self.tmask | other.tmask
+        assert self.tvalue & ~union_masks == other.tvalue & ~union_masks # nicht mehr kaputt?
+        if self.tmask != intersect_masks:
+            self.tvalue = potval & ~intersect_masks
+            self.tmask = intersect_masks
             r = True
+
         return r
 
     def intersect_const(self, lower, upper):
         r = self.make_ge_const(lower)
         if self.make_le_const(upper):
             r = True
+
         return r
 
     def add(self, offset):
@@ -466,11 +469,11 @@ class IntBound(AbstractInfo):
             return INFO_NULL
         return INFO_UNKNOWN
 
-    def knownbits_string(self):
+    def knownbits_string(self, unk_sym = '?'):
         results = []
         for bit in range(LONG_BIT):
             if self.tmask & (1 << bit):
-                results.append("?")
+                results.append(unk_sym)
             else:
                 results.append(str((self.tvalue >> bit) & 1))
         results.reverse()
@@ -497,6 +500,14 @@ def ConstIntBound(value):
     b = IntBound(value, value)
     b.tvalue = value
     b.tmask = 0
+    return b
+
+def IntBoundKnownbits(value, mask):
+    b = IntUnbounded()
+    b.has_lower = False
+    b.has_upper = False
+    b.tvalue = value 
+    b.tmask = mask
     return b
 
 def min4(t):

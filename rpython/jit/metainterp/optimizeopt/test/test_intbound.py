@@ -1,11 +1,13 @@
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
-     IntLowerBound, IntUnbounded, ConstIntBound, next_pow2_m1
+     IntLowerBound, IntUnbounded, ConstIntBound, IntBoundKnownbits, next_pow2_m1
 
 from copy import copy
 import sys
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck
 
 from hypothesis import given, strategies, example
+
+import pytest
 
 special_values = (
     range(-100, 100) +
@@ -536,3 +538,32 @@ def test_knownbits_or_and_unknown():
     assert not b2.is_constant()
     b3 = b2.and_bound(ConstIntBound(-1))
     assert not b3.is_constant()
+
+def test_knownbits_intersect():
+    b1 = IntBoundKnownbits(0b10001010, \
+                           0b01110000)
+    b2 = IntBoundKnownbits(0b11000010, \
+                           0b00011100)
+    b1.intersect(b2)
+    # actually we'd expect the upper
+    #   ...but just to be sure...
+    assert b1.tvalue in   [0b11001010, \
+                           0b11011010]
+    assert b1.tmask ==     0b00010000
+
+def test_knownbits_intersect_disagree():
+    # bA and b2 disagree -- expecting exception
+    # bB and b3 agree
+    bA = IntBoundKnownbits(0b101010, \
+                           0b110111)
+    bB = IntBoundKnownbits(0b101010, \
+                           0b110111)
+    b2 = IntBoundKnownbits(0b010101, \
+                           0b110011)
+    b3 = IntBoundKnownbits(0b101010, \
+                           0b111111)
+    # expecting an exception
+    with pytest.raises(Exception):
+        bA.intersect(b2)
+    # not expecting an exception
+    bB.intersect(b3)
