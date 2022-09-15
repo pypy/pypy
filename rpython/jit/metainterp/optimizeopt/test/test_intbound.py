@@ -566,3 +566,17 @@ def test_knownbits_intersect_disagree():
         bA.intersect(b2)
     # not expecting an exception
     bB.intersect(b3)
+
+def test_knownbits_contains():
+    bA = IntBoundKnownbits(0b101010, \
+                           0b110111)
+    b1 = IntBoundKnownbits(0b101010, \
+                           0b111111)
+    assert b1.contains(bA)
+    assert ~bA.contains(b1)
+    bB = IntBoundKnownbits(0b101010, \
+                           0b000010)
+    b2 = IntBoundKnownbits(0b101010,
+                           0b000001)
+    assert ~bB.contains(b2)
+    assert ~b2.contains(bB)

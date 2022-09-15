@@ -174,7 +174,8 @@ class IntBound(AbstractInfo):
         potval = self.tvalue | other.tvalue
         intersect_masks = self.tmask & other.tmask 
         union_masks = self.tmask | other.tmask
-        assert self.tvalue & ~union_masks == other.tvalue & ~union_masks # nicht mehr kaputt?
+        # nicht mehr kaputt?
+        assert unmask(self.tvalue, union_masks) == unmask(other.tvalue, union_masks)
         if self.tmask != intersect_masks:
             self.tvalue = potval & ~intersect_masks
             self.tmask = intersect_masks
@@ -322,11 +323,11 @@ class IntBound(AbstractInfo):
         if pos2:
             r.make_le(other)
         
-        a = self.tvalue | self.tmask
-        b = other.tvalue | other.tmask
-        v = self.tvalue & other.tvalue
-        r.tvalue = v
-        r.tmask = a & b & ~v
+        self_pval = self.tvalue | self.tmask
+        other_pval = other.tvalue | other.tmask
+        and_vals = self.tvalue & other.tvalue
+        r.tvalue = and_vals
+        r.tmask = self_pval & other_pval & ~and_vals
         return r
 
     def or_bound(self, other):
@@ -339,10 +340,10 @@ class IntBound(AbstractInfo):
             else:
                 r.make_ge_const(0)
         
-        v = self.tvalue | other.tvalue
-        mu = self.tmask | other.tmask
-        r.tvalue = v
-        r.tmask = mu & ~v
+        union_vals = self.tvalue | other.tvalue
+        union_masks = self.tmask | other.tmask
+        r.tvalue = union_vals
+        r.tmask = union_masks & ~union_vals
         return r
 
     def xor_bound(self, other):
@@ -397,6 +398,10 @@ class IntBound(AbstractInfo):
             return False
         if self.has_upper and val > self.upper:
             return False
+        
+        if unmask(self.tvalue, self.tmask) != unmask(val, self.tmask):
+            return False
+        
         return True
 
     def contains_bound(self, other):
@@ -411,6 +416,11 @@ class IntBound(AbstractInfo):
                 return False
         elif self.has_upper:
             return False
+        
+        union_masks = self.tmask | other.tmask
+        if unmask(self.tvalue, self.tmask) != unmask(other.tvalue, union_masks):
+            return False
+        
         return True
 
     def __repr__(self):
@@ -509,6 +519,10 @@ def IntBoundKnownbits(value, mask):
     b.tvalue = value 
     b.tmask = mask
     return b
+
+def unmask(value, mask):
+    # sets all unknowns in value to 0
+    return value & ~mask
 
 def min4(t):
     return min(min(t[0], t[1]), min(t[2], t[3]))
