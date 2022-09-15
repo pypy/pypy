@@ -2191,6 +2191,55 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # stack = [{}, False]
         self.use_next_block(end)
 
+    def visit_MatchOr(self, match_or):
+        # @1: input: 3; pattern: 3 | 4; stack = [3]
+        # @2: input: 3; pattern: 3 | 4; stack = [4]
+        # @3: input: 5; pattern: 3 | 4; stack = [5]
+
+        pop_end = self.new_block()
+        end = self.new_block()
+
+        for i, pattern in enumerate(match_or.patterns):
+            if i < len(match_or.patterns) - 1:
+                self.emit_op(ops.DUP_TOP)
+                # @1: i=0: [3, 3]
+                # @2: i=0: [4, 4]; i=1: [4]
+                # @3: i=0: [5, 5]; i=1: [5]
+
+            pattern.walkabout(self)
+            # @1: i=0: [3, True]
+            # @2: i=0: [4, False]; i=1: [True]
+            # @3: i=0: [5, False]; i=1: [False]
+
+            if i < len(match_or.patterns) - 1:
+                self.emit_jump(ops.POP_JUMP_IF_TRUE, pop_end, True)
+                # @1: i=0: pop_end([3])
+                # @2: i=0: [4]
+                # @3: i=0: [5]
+            else:
+                self.emit_jump(ops.JUMP_IF_TRUE_OR_POP, end, True)
+                # @1: i=1: unreachable
+                # @2: i=1: end([True])
+                # @3: i=1: []
+
+        self.load_const(self.space.w_False)
+        # @3: [False]
+        self.emit_jump(ops.JUMP_FORWARD, end)
+        # @3: end([False])
+
+        self.use_next_block(pop_end)
+        # @1: [3]
+        self.emit_op(ops.POP_TOP)
+        # @1: []
+        self.load_const(self.space.w_True)
+        # @1: [True]
+
+        self.use_next_block(end)
+        # @1: [True]
+        # @2: [True]
+        # @3: [False]
+
+
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
