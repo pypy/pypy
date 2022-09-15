@@ -1977,7 +1977,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
             if i < last_index_for_dup:
                 self.emit_op(ops.POP_TOP)
-            # TODO: handle case.guard
+
+            if case.guard:
+                case.guard.walkabout(self)
+                self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
+
             for stmt in case.body:
                 stmt.walkabout(self)
             self.emit_jump(ops.JUMP_FORWARD, end)

@@ -2109,7 +2109,7 @@ def f(x):
         case [1,2,3]: return "list[1,2,3]"
         case [1]: return "list[1]"
         case [_]: return "list"
-        case a: return a
+        case a if a: return a
 res=(
         f(1),
         f(2),
@@ -2122,6 +2122,7 @@ res=(
         f([1, 2]),
         f(True),
         f(3),
+        f(0),
 )
 """
         self.st(func, "res", (
@@ -2136,6 +2137,7 @@ res=(
             [1,2],
             "True",
             "3 | 4",
+            None,
         ))
 
     def test_match_sequence_star(self):
