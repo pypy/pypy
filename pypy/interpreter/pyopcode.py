@@ -446,6 +446,8 @@ class __extend__(pyframe.PyFrame):
                 self.MATCH_SEQUENCE(oparg, next_instr)
             elif opcode == opcodedesc.MATCH_KEYS.index:
                 self.MATCH_KEYS(oparg, next_instr)
+            elif opcode == opcodedesc.COPY_DICT_WITHOUT_KEYS.index:
+                self.COPY_DICT_WITHOUT_KEYS(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1725,13 +1727,13 @@ class __extend__(pyframe.PyFrame):
     def MATCH_KEYS(self, oparg, next_instr):
         w_keys = self.peekvalue()
         w_dict = self.peekvalue(1)
-        w_values = []
+        values_w = []
         w_iter = self.space.iter(w_keys)
         try:
             while True:
                 w_key = self.space.next(w_iter)
                 if self.space.contains_w(w_dict, w_key):
-                    w_values.append(self.space.getitem(w_dict, w_key))
+                    values_w.append(self.space.getitem(w_dict, w_key))
                 else:
                     self.pushvalue(self.space.w_None)
                     self.pushvalue(self.space.w_False)
@@ -1740,8 +1742,18 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
 
-        self.pushvalue(self.space.newtuple(w_values))
+        self.pushvalue(self.space.newtuple(values_w))
         self.pushvalue(self.space.w_True)
+
+    def COPY_DICT_WITHOUT_KEYS(self, oparg, next_instr):
+        w_keys = self.popvalue()
+        w_subject = self.peekvalue()
+        w_dict = self.space.newdict()
+        self.space.call_method(w_dict, 'update', w_subject)
+        for i in range(self.space.len_w(w_keys)):
+            w_key = self.space.getitem(w_keys, self.space.newint(i))
+            self.space.delitem(w_dict, w_key)
+        self.pushvalue(w_dict)
 
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
     # invoke a "send" or "throw" by method name to a non-generator w_yf
