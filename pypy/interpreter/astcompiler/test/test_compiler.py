@@ -2118,20 +2118,21 @@ res=f(1), f(2), f(['']), f([1]), f([1,2,3]), f([1,2,4]), f([1,3,4]), f([2,3,4]),
 def f(x):
     match x:
         case {'x': 42, 'y': 13}: return "{'x': 42, 'y': 13}"
-        # case {'x': 42, **rest}: return rest
+        case {'x': 13, **rest}: return rest
         case {'x': 7}: return "{'x': 7}"
         case {}: return "{}"
         case _: return "_"
 res=(
-    f([]), # _
-    f({}), # {}
-    f({'y': 42}), # {}
-    f({'x': 13}), # {}
-    f({'x': 42, 'y': 7}), # {}
-    f({'x': 42, 'y': 13}), # {'x': 42, 'y': 13}
-    f({'x': 42, 'y': 13, 'z': 0}), # {'x': 42, 'y': 13}
-    f({'x': 7}), # {'x': 7}
-    f({'x': 7, 'y': 13}), # {'x': 7}
+    f([]), # not a dict: _
+    f({}), # empty: {}
+    f({'y': 42}), # no match for key: {}
+    f({'x': 21}), # no match for value: {}
+    f({'x': 42, 'y': 7}), # no match for second member's value: {}
+    f({'x': 42, 'y': 13}), # successful match with 2 members: {'x': 42, 'y': 13}
+    f({'x': 42, 'y': 13, 'z': 0}), # successful match with 2 members extraneous property: {'x': 42, 'y': 13}
+    f({'x': 7}), # successful match with a single member: {'x': 7}
+    f({'x': 7, 'y': 13}), # successful match with a single member and extraneous property: {'x': 7}
+    f({'x': 13, 'y': 7}), # successful match with rest capture: {'y': 7}
 )
 """
         self.st(func, "res", (
@@ -2144,6 +2145,7 @@ res=(
             "{'x': 42, 'y': 13}",
             "{'x': 7}",
             "{'x': 7}",
+            {'y': 7},
         ))
 
 class TestDeadCodeGetsRemoved(TestCompiler):

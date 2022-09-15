@@ -2050,62 +2050,86 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         fail_2 = self.new_block()
         fail_3 = self.new_block()
 
-        # stack = [{}, {}]
+        # subject = {'x': 42, 'y': 13}
+        # pattern = {'x': 42, 'y': 13, **rest}
+        # stack = [{'x': 42, 'y': 13}]
         self.emit_op(ops.MATCH_MAPPING)
-        # stack = [{}, {}, True]
-        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+        # stack = [{'x': 42, 'y': 13}, True]
 
-        # stack = [{}, {}]
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+        # stack = [{'x': 42, 'y': 13}]
 
         if match_mapping.keys:
-            # stack = [{}, {}]
             length = len(match_mapping.keys)
             w_length = self.space.newint(length)
             self.emit_op(ops.GET_LEN)
-            # stack = [{}, {}, 0]
+            # stack = [{'x': 42, 'y': 13}, 2]
+
             self.load_const(w_length)
-            # stack = [{}, {}, 0, 1]
+            # stack = [{'x': 42, 'y': 13}, 2, 2]
+
             self.emit_op_arg(ops.COMPARE_OP, 5) # >=
-            # stack = [{}, {}, False]
+            # stack = [{'x': 42, 'y': 13}, True]
+
             self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+            # stack = [{'x': 42, 'y': 13}]
 
-            # stack = [{'y': 42}, {'y': 42}]
             self.load_const(self._tuple_of_consts(match_mapping.keys))
-            # stack = [{'y': 42}, {'y': 42}, ('x',)]
+            # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
+
             self.emit_op(ops.MATCH_KEYS)
-            # stack = [{'y': 42}, {'y': 42}, (42, 7), True]
+            # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
+
             self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_3, True)
+            # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
 
-            # self.emit_op(ops.POP_TOP)
+            if not length:
+                # drop values if there are no patterns to match against
+                self.emit_op(ops.POP_TOP)
+                # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
 
-            #stack = [{'y': 42}, {'y': 42}, (42, 7)]
             for i in range(length):
                 is_last = i == length - 1
                 if not is_last:
                     self.emit_op(ops.DUP_TOP)
-                # i=0: [{'y': 42}, {'y': 42}, (42, 7), (42, 7)]
-                # i=1: [{'y': 42}, {'y': 42}, (42, 7)]
+                    # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13)]
+                    # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+
                 self.load_const(self.space.newint(i))
-                # i=0: [{'y': 42}, {'y': 42}, (42, 7), (42, 7), 0]
-                # i=1: [{'y': 42}, {'y': 42}, (42, 7), 1]
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13), 0]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 1]
+
                 self.emit_op(ops.BINARY_SUBSCR)
-                # i=0: [{'y': 42}, {'y': 42}, (42, 7), 42]
-                # i=1: [{'y': 42}, {'y': 42}, 7]
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 42]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), 13]
+
                 match_mapping.patterns[i].walkabout(self)
-                # i=0: [{'y': 42}, {'y': 42}, (42, 7), True]
-                # i=1: [{'y': 42}, {'y': 42}, False]
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), True]
+
                 target = fail_2 if is_last else fail_3
                 self.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
-                # i=0: [{'y': 42}, {'y': 42}, (42, 7)]
-                # i=1: [{'y': 42}, {'y': 42}]
-            self.emit_op(ops.POP_TOP)
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y')]
 
-            # self.emit_op_arg(ops.COMPARE_OP, 2)
+            if match_mapping.rest:
+                self.emit_op(ops.COPY_DICT_WITHOUT_KEYS)
+                # i=1: [{'x': 42, 'y': 13}, {}]
 
-        # TODO: continue matching
+                self.name_op(match_mapping.rest, ast.Store, match_mapping)
+                # i=1: [{'x': 42, 'y': 13}]
+            else:
+                self.emit_op(ops.POP_TOP)
+                # i=1: [{'x': 42, 'y': 13}]
+
+        # expected stack at merge = [{'x': 42, 'y': 13}]
+
         self.emit_op(ops.POP_TOP)
+        # stack = []
 
         self.load_const(self.space.w_True)
+        # stack = [True]
+
         self.emit_jump(ops.JUMP_FORWARD, end)
 
         self.use_next_block(fail_3)

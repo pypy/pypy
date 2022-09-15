@@ -721,6 +721,7 @@ _static_opcode_stack_effects = {
     ops.MATCH_MAPPING: 1,
     ops.MATCH_SEQUENCE: 1,
     ops.MATCH_KEYS: 2,
+    ops.COPY_DICT_WITHOUT_KEYS: 0,
 }
 
 
