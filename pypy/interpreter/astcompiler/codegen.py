@@ -1975,12 +1975,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # TODO: this is not the correct solution. fix this optimization
             # if not isinstance(case.pattern, ast.MatchAs):
             self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
-            if i < last_index_for_dup:
-                self.emit_op(ops.POP_TOP)
 
             if case.guard:
                 case.guard.walkabout(self)
                 self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
+
+            if i < last_index_for_dup:
+                self.emit_op(ops.POP_TOP)
 
             for stmt in case.body:
                 stmt.walkabout(self)

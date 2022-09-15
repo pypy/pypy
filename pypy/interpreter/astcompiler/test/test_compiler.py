@@ -2102,6 +2102,8 @@ x = brokenargs(c=3)
     def test_match(self):
         func = """
 def f(x):
+    class A:
+        y = 13
     match x:
         case True: return "True"
         case 1: return "hello"
@@ -2111,6 +2113,8 @@ def f(x):
         case [_]: return "list"
         case True | False as b: return b
         case a if a: return a
+        case A.y as z: return z
+
 res=(
         f(1),
         f(2),
@@ -2125,6 +2129,7 @@ res=(
         f(3),
         f(0),
         f(False),
+        f(13),
 )
 """
         self.st(func, "res", (
@@ -2141,6 +2146,7 @@ res=(
             "3 | 4",
             None,
             False,
+            13,
         ))
 
     def test_match_sequence_star(self):
