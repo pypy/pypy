@@ -2008,13 +2008,79 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.IS_OP, 0)
 
     def visit_MatchAs(self, match_as):
-        # TODO: handle match_as.pattern
+        pop_end = self.new_block()
+        end = self.new_block()
+
+        # @1: input: 0; pattern: _; stack = [0]
+        # @2: input: 0; pattern: a; stack = [0]
+        # @3: input: 0; pattern: 0 as _; stack = [0]
+        # @4: input: 0; pattern: 0 as a; stack = [0]
+        # @5: input: 1; pattern: 0 as _; stack = [0]
+        # @6: input: 1; pattern: 0 as a; stack = [0]
+
+        if match_as.pattern:
+            if match_as.name:
+                self.emit_op(ops.DUP_TOP)
+                # @4: stack = [0, 0]
+                # @6: stack = [1, 1]
+            else:
+                pass
+                # @3: stack = [0]
+                # @5: stack = [1]
+
+            match_as.pattern.walkabout(self)
+            # @3: stack = [True]
+            # @4: stack = [0, True]
+            # @5: stack = [False]
+            # @6: stack = [1, False]
+
+            failure_target = pop_end if match_as.name else end
+            self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, failure_target, True)
+            # @3: stack = []
+            # @4: stack = [0]
+            # @5: end([False])
+            # @6: pop_end([1, False])
+
         if not match_as.name:
-            self.emit_op(ops.POP_TOP)
+            if not match_as.pattern:
+                self.emit_op(ops.POP_TOP)
+                # @1: stack = []
+            else:
+                pass
+                # @3: stack = []
+
             self.load_const(self.space.w_True)
-            return
-        self.name_op(match_as.name, ast.Store, match_as)
-        self.load_const(self.space.w_True)
+            # @1: stack = [True]
+        else:
+            # @2: stack = [0]
+            # @4: stack = [0]
+
+            self.name_op(match_as.name, ast.Store, match_as)
+            # @2: stack = []
+            # @4: stack = []
+
+            self.load_const(self.space.w_True)
+            # @2: stack = [True]
+            # @4: stack = [True]
+
+        self.emit_jump(ops.JUMP_FORWARD, end)
+
+        self.use_next_block(pop_end)
+        # @6: stack = [1, False]
+
+        self.emit_op(ops.ROT_TWO)
+        # @6: stack = [False, 1]
+
+        self.emit_op(ops.POP_TOP)
+        # @6: stack = [False]
+
+        self.use_next_block(end)
+        # @1: [True]
+        # @2: [True]
+        # @3: [True]
+        # @4: [True]
+        # @5: [False]
+        # @6: [False]
 
     def visit_MatchSequence(self, match_sequence):
         fail_drop = [self.new_block() for x in range(0, max(len(match_sequence.patterns)-1, 1)+1)]
