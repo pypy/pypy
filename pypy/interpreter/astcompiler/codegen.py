@@ -2023,10 +2023,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         self.emit_op(ops.GET_LEN)
         length = len(match_sequence.patterns)
-        compare_kind = 2
         w_length = self.space.newint(length)
         self.load_const(w_length)
-        self.emit_op_arg(ops.COMPARE_OP, compare_kind)
+        self.emit_op_arg(ops.COMPARE_OP, 2)
         self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_drop[1], True)
 
         self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
@@ -2043,6 +2042,84 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.POP_TOP)
         self.use_next_block(fail_drop[0])
         self.load_const(self.space.w_False)
+        self.use_next_block(end)
+
+    def visit_MatchMapping(self, match_mapping):
+        end = self.new_block()
+        fail = self.new_block()
+        fail_2 = self.new_block()
+        fail_3 = self.new_block()
+
+        # stack = [{}, {}]
+        self.emit_op(ops.MATCH_MAPPING)
+        # stack = [{}, {}, True]
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+
+        # stack = [{}, {}]
+
+        if match_mapping.keys:
+            # stack = [{}, {}]
+            length = len(match_mapping.keys)
+            w_length = self.space.newint(length)
+            self.emit_op(ops.GET_LEN)
+            # stack = [{}, {}, 0]
+            self.load_const(w_length)
+            # stack = [{}, {}, 0, 1]
+            self.emit_op_arg(ops.COMPARE_OP, 5) # >=
+            # stack = [{}, {}, False]
+            self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+
+            # stack = [{'y': 42}, {'y': 42}]
+            self.load_const(self._tuple_of_consts(match_mapping.keys))
+            # stack = [{'y': 42}, {'y': 42}, ('x',)]
+            self.emit_op(ops.MATCH_KEYS)
+            # stack = [{'y': 42}, {'y': 42}, (42, 7), True]
+            self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_3, True)
+
+            # self.emit_op(ops.POP_TOP)
+
+            #stack = [{'y': 42}, {'y': 42}, (42, 7)]
+            for i in range(length):
+                is_last = i == length - 1
+                if not is_last:
+                    self.emit_op(ops.DUP_TOP)
+                # i=0: [{'y': 42}, {'y': 42}, (42, 7), (42, 7)]
+                # i=1: [{'y': 42}, {'y': 42}, (42, 7)]
+                self.load_const(self.space.newint(i))
+                # i=0: [{'y': 42}, {'y': 42}, (42, 7), (42, 7), 0]
+                # i=1: [{'y': 42}, {'y': 42}, (42, 7), 1]
+                self.emit_op(ops.BINARY_SUBSCR)
+                # i=0: [{'y': 42}, {'y': 42}, (42, 7), 42]
+                # i=1: [{'y': 42}, {'y': 42}, 7]
+                match_mapping.patterns[i].walkabout(self)
+                # i=0: [{'y': 42}, {'y': 42}, (42, 7), True]
+                # i=1: [{'y': 42}, {'y': 42}, False]
+                target = fail_2 if is_last else fail_3
+                self.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
+                # i=0: [{'y': 42}, {'y': 42}, (42, 7)]
+                # i=1: [{'y': 42}, {'y': 42}]
+            self.emit_op(ops.POP_TOP)
+
+            # self.emit_op_arg(ops.COMPARE_OP, 2)
+
+        # TODO: continue matching
+        self.emit_op(ops.POP_TOP)
+
+        self.load_const(self.space.w_True)
+        self.emit_jump(ops.JUMP_FORWARD, end)
+
+        self.use_next_block(fail_3)
+        self.emit_op(ops.POP_TOP)
+
+        self.use_next_block(fail_2)
+        self.emit_op(ops.POP_TOP)
+
+        self.use_next_block(fail)
+        # stack = [{} , {}]
+        self.emit_op(ops.POP_TOP)
+        # stack = [{}]
+        self.load_const(self.space.w_False)
+        # stack = [{}, False]
         self.use_next_block(end)
 
 

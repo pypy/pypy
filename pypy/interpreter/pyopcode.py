@@ -438,10 +438,14 @@ class __extend__(pyframe.PyFrame):
                 self.BUILD_STRING(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
                 self.LOAD_REVDB_VAR(oparg, next_instr)
-            elif opcode == opcodedesc.MATCH_SEQUENCE.index:
-                self.MATCH_SEQUENCE(oparg, next_instr)
             elif opcode == opcodedesc.GET_LEN.index:
                 self.GET_LEN(oparg, next_instr)
+            elif opcode == opcodedesc.MATCH_MAPPING.index:
+                self.MATCH_MAPPING(oparg, next_instr)
+            elif opcode == opcodedesc.MATCH_SEQUENCE.index:
+                self.MATCH_SEQUENCE(oparg, next_instr)
+            elif opcode == opcodedesc.MATCH_KEYS.index:
+                self.MATCH_KEYS(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1704,16 +1708,40 @@ class __extend__(pyframe.PyFrame):
             self.MISSING_OPCODE(oparg, next_instr)
 
     def MATCH_SEQUENCE(self, oparg, next_instr):
-        # import pdb
-        # pdb.set_trace()
         w_sequence = self.peekvalue()
         is_sequence = self.space.issequence_w(w_sequence)
         self.pushvalue(self.space.newbool(is_sequence))
+
+    def MATCH_MAPPING(self, oparg, next_instr):
+        w_mapping = self.peekvalue()
+        is_mapping = self.space.ismapping_w(w_mapping)
+        self.pushvalue(self.space.newbool(is_mapping))
 
     def GET_LEN(self, oparg, next_instr):
         w_sequence = self.peekvalue()
         w_len = self.space.len(w_sequence)
         self.pushvalue(w_len)
+
+    def MATCH_KEYS(self, oparg, next_instr):
+        w_keys = self.peekvalue()
+        w_dict = self.peekvalue(1)
+        w_values = []
+        w_iter = self.space.iter(w_keys)
+        try:
+            while True:
+                w_key = self.space.next(w_iter)
+                if self.space.contains_w(w_dict, w_key):
+                    w_values.append(self.space.getitem(w_dict, w_key))
+                else:
+                    self.pushvalue(self.space.w_None)
+                    self.pushvalue(self.space.w_False)
+                    return
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_StopIteration):
+                raise
+
+        self.pushvalue(self.space.newtuple(w_values))
+        self.pushvalue(self.space.w_True)
 
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
     # invoke a "send" or "throw" by method name to a non-generator w_yf

@@ -82,8 +82,11 @@ def_op('BINARY_FLOOR_DIVIDE', 26)
 def_op('BINARY_TRUE_DIVIDE', 27)
 def_op('INPLACE_FLOOR_DIVIDE', 28)
 def_op('INPLACE_TRUE_DIVIDE', 29)
+
 def_op('GET_LEN', 30)
+def_op('MATCH_MAPPING', 31)
 def_op('MATCH_SEQUENCE', 32)
+def_op('MATCH_KEYS', 33)
 
 def_op('RERAISE', 48)
 def_op('WITH_EXCEPT_START', 49)

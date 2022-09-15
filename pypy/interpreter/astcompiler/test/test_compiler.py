@@ -2113,6 +2113,39 @@ res=f(1), f(2), f(['']), f([1]), f([1,2,3]), f([1,2,4]), f([1,3,4]), f([2,3,4]),
 """
         self.st(func, "res", ("hello", 2, "list", "list[1]", "list[1,2,3]", [1,2,4], [1,3,4], [2,3,4], [1,2], "True"))
 
+    def test_match_mapping(self):
+        func = """
+def f(x):
+    match x:
+        case {'x': 42, 'y': 13}: return "{'x': 42, 'y': 13}"
+        # case {'x': 42, **rest}: return rest
+        case {'x': 7}: return "{'x': 7}"
+        case {}: return "{}"
+        case _: return "_"
+res=(
+    f([]), # _
+    f({}), # {}
+    f({'y': 42}), # {}
+    f({'x': 13}), # {}
+    f({'x': 42, 'y': 7}), # {}
+    f({'x': 42, 'y': 13}), # {'x': 42, 'y': 13}
+    f({'x': 42, 'y': 13, 'z': 0}), # {'x': 42, 'y': 13}
+    f({'x': 7}), # {'x': 7}
+    f({'x': 7, 'y': 13}), # {'x': 7}
+)
+"""
+        self.st(func, "res", (
+            "_",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{'x': 42, 'y': 13}",
+            "{'x': 42, 'y': 13}",
+            "{'x': 7}",
+            "{'x': 7}",
+        ))
+
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
     def simple_test(self, source, evalexpr, expected):
