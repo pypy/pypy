@@ -552,8 +552,7 @@ def test_knownbits_intersect():
     assert b1.tmask ==     0b00010000
 
 def test_knownbits_intersect_disagree():
-    # bA and b2 disagree -- expecting exception
-    # bB and b3 agree
+    # bA and b2 disagree, bB and b3 agree
     bA = IntBoundKnownbits(0b101010, \
                            0b110111)
     bB = IntBoundKnownbits(0b101010, \
