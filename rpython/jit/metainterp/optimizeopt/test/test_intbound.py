@@ -371,7 +371,15 @@ def test_or_bound():
                 for n2 in nbr:
                     if b1.contains(n1) and b2.contains(n2):
                         assert b3.contains(n1 | n2)
-                        assert b3.contains(n1 ^ n2) # we use it for xor too
+
+def test_xor_bound():
+    for _, _, b1 in some_bounds():
+        for _, _, b2 in some_bounds():
+            b3 = b1.xor_bound(b2)
+            for n1 in nbr:
+                for n2 in nbr:
+                    if b1.contains(n1) and b2.contains(n2):
+                        assert b3.contains(n1 ^ n2) 
 
 
 def test_next_pow2_m1():
