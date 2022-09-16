@@ -558,3 +558,6 @@ def max4(t):
 
 def msbonly(v):
     return v & (1 << LONG_BIT)
+
+def is_valid_tnum(tvalue, tmask):
+    return 0 != tvalue & tmask
