@@ -552,43 +552,44 @@ def test_knownbits_or_and_unknown():
 
 def test_knownbits_intersect():
     b1 = IntBoundKnownbits(0b10001010,
-                           0b01110000)
+                           0b01110000)  # 1???1010
     b2 = IntBoundKnownbits(0b11000010,
-                           0b00011100)
+                           0b00011100)  # 110???10
     b1.intersect(b2)
     # actually we'd expect the upper
     #   ...but just to be sure...
     assert b1.tvalue in   [0b11001010,
                            0b11011010]
-    assert b1.tmask ==     0b00010000
+    assert b1.tmask ==     0b00010000   # 110?1010
 
 def test_knownbits_intersect_disagree():
-    # bA and b2 disagree, bB and b3 agree
-    bA = IntBoundKnownbits(0b101010,
-                           0b110111)
-    bB = IntBoundKnownbits(0b101010,
-                           0b110111)
-    b2 = IntBoundKnownbits(0b010101,
-                           0b110011)
+    # b0 == b1
+    # b0 and b2 disagree, b1 and b3 agree
+    b0 = IntBoundKnownbits(0b101010,
+                           0b110111)    # ??1???
+    b2 = IntBoundKnownbits(0b010101,    #   !     <- disagreement
+                           0b110011)    # ??01??
+    b1 = IntBoundKnownbits(0b101010, 
+                           0b110111)    # ??1???
     b3 = IntBoundKnownbits(0b101010,
-                           0b111111)
+                           0b111111)    # ??????
     # expecting an exception
     with pytest.raises(Exception):
-        bA.intersect(b2)
+        b0.intersect(b2)
     # not expecting an exception
-    bB.intersect(b3)
+    b1.intersect(b3)
 
 def test_knownbits_contains():
     bA = IntBoundKnownbits(0b101010,
-                           0b110111)
+                           0b110111)    # ??1???
     b1 = IntBoundKnownbits(0b101010,
-                           0b111111)
+                           0b111111)    # ??????
     assert b1.contains(bA)
     assert ~bA.contains(b1)
     bB = IntBoundKnownbits(0b101010,
-                           0b000010)
-    b2 = IntBoundKnownbits(0b101010,
-                           0b000001)
+                           0b000010)    # 1010?0
+    b2 = IntBoundKnownbits(0b101010,    #     !! <- no subset
+                           0b000001)    # 10101?
     assert ~bB.contains(b2)
     assert ~b2.contains(bB)
 
