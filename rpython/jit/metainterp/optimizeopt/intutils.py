@@ -175,7 +175,7 @@ class IntBound(AbstractInfo):
         intersect_masks = self.tmask & other.tmask 
         union_masks = self.tmask | other.tmask
         # nicht mehr kaputt?
-        assert unmask(self.tvalue, union_masks) == unmask(other.tvalue, union_masks)
+        assert unmask_zero(self.tvalue, union_masks) == unmask_zero(other.tvalue, union_masks)
         if self.tmask != intersect_masks:
             self.tvalue = potval & ~intersect_masks
             self.tmask = intersect_masks
@@ -323,11 +323,12 @@ class IntBound(AbstractInfo):
         if pos2:
             r.make_le(other)
         
-        self_pval = self.tvalue | self.tmask
-        other_pval = other.tvalue | other.tmask
+        self_pmask = self.tvalue | self.tmask
+        other_pmask = other.tvalue | other.tmask
         and_vals = self.tvalue & other.tvalue
         r.tvalue = and_vals
-        r.tmask = self_pval & other_pval & ~and_vals
+        r.tmask = self_pmask & other_pmask & ~and_vals
+
         return r
 
     def or_bound(self, other):
@@ -344,6 +345,7 @@ class IntBound(AbstractInfo):
         union_masks = self.tmask | other.tmask
         r.tvalue = union_vals
         r.tmask = union_masks & ~union_vals
+
         return r
 
     def xor_bound(self, other):
@@ -399,7 +401,7 @@ class IntBound(AbstractInfo):
         if self.has_upper and val > self.upper:
             return False
         
-        if unmask(self.tvalue, self.tmask) != unmask(val, self.tmask):
+        if unmask_zero(self.tvalue, self.tmask) != unmask_zero(val, self.tmask):
             return False
         
         return True
@@ -418,7 +420,7 @@ class IntBound(AbstractInfo):
             return False
         
         union_masks = self.tmask | other.tmask
-        if unmask(self.tvalue, self.tmask) != unmask(other.tvalue, union_masks):
+        if unmask_zero(self.tvalue, self.tmask) != unmask_zero(other.tvalue, union_masks):
             return False
         
         return True
@@ -479,6 +481,26 @@ class IntBound(AbstractInfo):
             return INFO_NULL
         return INFO_UNKNOWN
 
+    def internal_intersect():
+        # synchronizes bounds and knownbits values
+        # this does most likely not cover edge cases like overflows
+        def sync_ktb_min():
+            # transcribes from knownbits to bounds minimum
+            t_minimum = unmask_zero(self.tvalue, self.tmask)
+            # set negative iff msb unknown or 1
+            t_minimum |= msbonly(self.tvalue) | msbonly(self.tmask)
+            self.lower = t_minimum
+        def sync_ktb_max():
+            # transcribes from knownbits to bounds maximum
+            t_maximum = unmask_one(self.tvalue, self.tmask)
+            # set positive iff msb unknown or 0
+            t_maximum &= ~(~msbonly(self.tvalue) | msbonly(self.tmask))
+            self.upper = t_maximum
+        def sync_btk():
+            # transcribes from bounds to knownbits
+            
+
+
     def knownbits_string(self, unk_sym = '?'):
         results = []
         for bit in range(LONG_BIT):
@@ -520,12 +542,19 @@ def IntBoundKnownbits(value, mask):
     b.tmask = mask
     return b
 
-def unmask(value, mask):
+def unmask_zero(value, mask):
     # sets all unknowns in value to 0
     return value & ~mask
+
+def unmask_one(value, mask):
+    # sets all unknowns in value to 1
+    return value | mask
 
 def min4(t):
     return min(min(t[0], t[1]), min(t[2], t[3]))
 
 def max4(t):
     return max(max(t[0], t[1]), max(t[2], t[3]))
+
+def msbonly(v):
+    return v & (1 << LONG_BIT)
