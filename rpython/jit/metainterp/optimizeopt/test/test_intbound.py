@@ -488,6 +488,12 @@ def test_or_bound_random(t1, t2):
     b3 = b1.or_bound(b2)
     r = n1 | n2
     assert b3.contains(r)
+
+@given(bound_with_contained_number, bound_with_contained_number)
+def test_xor_bound_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    b3 = b1.xor_bound(b2)
     r = n1 ^ n2
     assert b3.contains(r)
 

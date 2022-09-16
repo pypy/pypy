@@ -1,6 +1,7 @@
 import py
 import sys
 import re
+import pytest
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper import rclass
