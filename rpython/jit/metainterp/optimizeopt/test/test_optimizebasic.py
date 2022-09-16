@@ -6482,3 +6482,56 @@ class TestOptimizeBasic(BaseTestBasic):
         escape_i(1)
         """
         self.optimize_loop(ops, expected)
+
+    def test_knownbits_goal_alignment_simple(self):
+        ops = """
+        [i0]
+        ic0 = int_invert(3)
+        i1 = int_and(i0, ic0)
+        i4 = int_and(i1, 1)
+        i5 = int_is_zero(i4)
+        guard_true(i5)
+        i6 = int_add(i1, 8)
+        i7 = int_and(i6, 3)
+        i8 = int_is_zero(i7)
+        guard_true(i8)
+        """
+        expected = """          # not quite right
+        [i1]
+        i2 = int_and(i1, 3)
+        i3 = int_is_zero(i2)
+        guard_true(i3)
+        i4 = int_and(i1, 1)
+        i5 = int_is_zero(i4)
+        i6 = int_add(i1, 8)
+        i7 = int_and(i6, 3)
+        i8 = int_is_zero(i7)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_goal_alignment_final(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 3)
+        i3 = int_is_zero(i2)
+        guard_true(i3)
+        i4 = int_and(i1, 1)
+        i5 = int_is_zero(i4)
+        guard_true(i5)
+        i6 = int_add(i1, 8)
+        i7 = int_and(i6, 3)
+        i8 = int_is_zero(i7)
+        guard_true(i8)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 3)
+        i3 = int_is_zero(i2)
+        guard_true(i3)
+        i4 = int_and(i1, 1)
+        i5 = int_is_zero(i4)
+        i6 = int_add(i1, 8)
+        i7 = int_and(i6, 3)
+        i8 = int_is_zero(i7)
+        """
+        self.optimize_loop(ops, expected)

@@ -41,7 +41,7 @@ def bound(a, b):
         return IntBound(a, b)
 
 def const(a):
-    return bound(a,a)
+    return ConstIntBound(a)
 
 
 def build_bound_with_contained_number(a, b, c):
@@ -49,6 +49,9 @@ def build_bound_with_contained_number(a, b, c):
     r = bound(a, c)
     assert r.contains(b)
     return r, b
+
+def build_some_bits_known(a, b):
+    return IntBoundKnownbits(a & ~b, b), a
 
 unbounded = strategies.builds(
     lambda x: (bound(None, None), int(x)),
@@ -77,8 +80,16 @@ constant = strategies.builds(
     ints
 )
 
+some_bits_known = strategies.builds(
+    build_some_bits_known,
+    ints, ints 
+)
+
 bound_with_contained_number = strategies.one_of(
     unbounded, lower_bounded, upper_bounded, constant, bounded)
+
+knownbits_with_contained_number = strategies.one_of(
+    constant, some_bits_known, unbounded)
 
 def some_bounds():
     brd = [None] + range(-2, 3)
@@ -580,3 +591,13 @@ def test_knownbits_contains():
                            0b000001)
     assert ~bB.contains(b2)
     assert ~b2.contains(bB)
+
+@given(knownbits_with_contained_number, knownbits_with_contained_number)
+def test_knownbits_or_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    b3 = b1.or_bound(b2)
+    r = n1 | n2
+    assert b3.contains(r)
+    print b1, b2, b3
+    print bin(n1), bin(n2), bin(r)

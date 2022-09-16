@@ -1,5 +1,5 @@
 import sys
-from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int
+from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int, r_uint
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -37,8 +37,8 @@ class IntBound(AbstractInfo):
         
         # known-bit analysis using tristate numbers 
         #  see https://arxiv.org/pdf/2105.05398.pdf
-        self.tvalue = 0
-        self.tmask = -1         # bit=1 means unknown
+        self.tvalue = r_uint(0)
+        self.tmask = r_uint(-1)         # bit=1 means unknown
 
         # check for unexpected overflows:
         if not we_are_translated():
@@ -481,7 +481,7 @@ class IntBound(AbstractInfo):
             return INFO_NULL
         return INFO_UNKNOWN
 
-    def internal_intersect():
+    """def internal_intersect():
         # synchronizes bounds and knownbits values
         # this does most likely not cover edge cases like overflows
         def sync_ktb_min():
@@ -497,7 +497,7 @@ class IntBound(AbstractInfo):
             t_maximum &= ~(~msbonly(self.tvalue) | msbonly(self.tmask))
             self.upper = t_maximum
         def sync_btk():
-            # transcribes from bounds to knownbits
+            # transcribes from bounds to knownbits"""
             
 
 
