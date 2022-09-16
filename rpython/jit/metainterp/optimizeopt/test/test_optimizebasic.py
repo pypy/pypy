@@ -6483,6 +6483,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.skip(reason="this is a grand goal for later")
     def test_knownbits_goal_alignment_simple(self):
         ops = """
         [i0]
@@ -6509,6 +6510,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.skip(reason="this is an even bigger goal for later")
     def test_knownbits_goal_alignment_final(self):
         ops = """
         [i1]
