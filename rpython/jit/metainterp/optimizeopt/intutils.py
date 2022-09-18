@@ -29,16 +29,20 @@ def next_pow2_m1(n):
 class IntBound(AbstractInfo):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower', 'tvalue', 'tmask')
 
-    def __init__(self, lower, upper):
-        self.has_upper = True
-        self.has_lower = True
-        self.upper = upper
+    def __init__(self, lower, upper, 
+                 has_lower=True, has_upper=True, 
+                 tvalue=0, tmask=-1):
+        
+        self.has_lower = has_lower
+        self.has_upper = has_upper
         self.lower = lower
+        self.upper = upper
         
         # known-bit analysis using tristate numbers 
         #  see https://arxiv.org/pdf/2105.05398.pdf
-        self.tvalue = r_uint(0)
-        self.tmask = r_uint(-1)         # bit=1 means unknown
+        assert is_valid_tnum(tvalue, tmask)
+        self.tvalue = r_uint(tvalue)
+        self.tmask = r_uint(tmask)         # bit=1 means unknown
 
         # check for unexpected overflows:
         if not we_are_translated():
@@ -513,19 +517,25 @@ class IntBound(AbstractInfo):
 
 
 def IntUpperBound(upper):
-    b = IntBound(lower=0, upper=upper)
+    b = IntBound(lower=0, 
+                 upper=upper,
+                 has_lower=False,
+                 has_upper=True)
     b.has_lower = False
     return b
 
 def IntLowerBound(lower):
-    b = IntBound(upper=0, lower=lower)
-    b.has_upper = False
+    b = IntBound(lower=lower,
+                 upper=0, 
+                 has_lower=True,
+                 has_upper=False)
     return b
 
 def IntUnbounded():
-    b = IntBound(upper=0, lower=0)
-    b.has_lower = False
-    b.has_upper = False
+    b = IntBound(upper=0, 
+                 lower=0, 
+                 has_lower=False, 
+                 has_upper=False)
     return b
 
 def ConstIntBound(value):
@@ -535,11 +545,12 @@ def ConstIntBound(value):
     return b
 
 def IntBoundKnownbits(value, mask):
-    b = IntUnbounded()
-    b.has_lower = False
-    b.has_upper = False
-    b.tvalue = value 
-    b.tmask = mask
+    b = IntBound(upper=0, 
+                 lower=0, 
+                 has_lower=False, 
+                 has_upper=False,
+                 tvalue=value,
+                 tmask=mask)
     return b
 
 def unmask_zero(value, mask):
@@ -560,4 +571,4 @@ def msbonly(v):
     return v & (1 << LONG_BIT)
 
 def is_valid_tnum(tvalue, tmask):
-    return 0 != tvalue & tmask
+    return 0 == (tvalue & tmask)

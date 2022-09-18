@@ -572,20 +572,19 @@ def test_knownbits_intersect():
     b1.intersect(b2)
     # actually we'd expect the upper
     #   ...but just to be sure...
-    assert b1.tvalue in   [0b11001010,
-                           0b11011010]
-    assert b1.tmask ==     0b00010000   # 110?1010
+    assert b1.tvalue == 0b11001010
+    assert b1.tmask  == 0b00010000   # 110?1010
 
 def test_knownbits_intersect_disagree():
     # b0 == b1
     # b0 and b2 disagree, b1 and b3 agree
-    b0 = IntBoundKnownbits(0b101010,
+    b0 = IntBoundKnownbits(0b001000,
                            0b110111)    # ??1???
-    b2 = IntBoundKnownbits(0b010101,    #   !     <- disagreement
+    b2 = IntBoundKnownbits(0b000100,    #   !     <- disagreement
                            0b110011)    # ??01??
-    b1 = IntBoundKnownbits(0b101010, 
+    b1 = IntBoundKnownbits(0b001000, 
                            0b110111)    # ??1???
-    b3 = IntBoundKnownbits(0b101010,
+    b3 = IntBoundKnownbits(0b000000,
                            0b111111)    # ??????
     # expecting an exception
     with pytest.raises(Exception):
@@ -594,13 +593,13 @@ def test_knownbits_intersect_disagree():
     b1.intersect(b3)
 
 def test_knownbits_contains():
-    bA = IntBoundKnownbits(0b101010,
+    bA = IntBoundKnownbits(0b001000,
                            0b110111)    # ??1???
-    b1 = IntBoundKnownbits(0b101010,
+    b1 = IntBoundKnownbits(0b000000,
                            0b111111)    # ??????
     assert b1.contains(bA)
     assert ~bA.contains(b1)
-    bB = IntBoundKnownbits(0b101010,
+    bB = IntBoundKnownbits(0b101000,
                            0b000010)    # 1010?0
     b2 = IntBoundKnownbits(0b101010,    #     !! <- no subset
                            0b000001)    # 10101?
