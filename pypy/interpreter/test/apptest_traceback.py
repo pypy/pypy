@@ -42,7 +42,7 @@ def test_mutation():
     with raises(TypeError):
         tb.tb_lineno = "abc"
 
-        
+
 def test_construct():
     frame = sys._getframe()
     tb = get_tb()
@@ -63,3 +63,37 @@ def test_can_subclass():
         class TB(TracebackType):
             pass
 
+def test_traceback_positions():
+    class Buffer:
+        def __init__(self):
+            self.data = []
+
+        def write(self, data):
+            self.data.append(data)
+
+        def flush(self):
+            pass
+
+        def get_lines(self):
+            return "".join(self.data).splitlines()
+
+    def division_by_zero(a, b):
+        return (
+            a      + b / 0
+        )
+
+    with raises(ZeroDivisionError) as exc_info:
+        division_by_zero(1, 2)
+
+    original_std_err = sys.stderr
+    sys.stderr = buffer = Buffer()
+    original_exc_format = sys.excepthook(
+        exc_info.type, exc_info.value, exc_info.value.__traceback__
+    )
+    sys.stderr = original_exc_format
+    expected_exc_format = [
+        '    a      + b / 0',
+        '             ^^^^^',
+        'ZeroDivisionError: division by zero'
+    ]
+    assert buffer.get_lines()[-3:] == expected_exc_format

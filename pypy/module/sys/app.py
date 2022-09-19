@@ -8,6 +8,15 @@ import sys
 import _imp
 from __pypy__.os import _get_multiarch
 
+def _construct_positionful_frame(f, *args, **kwargs):
+    from traceback import FrameSummary
+    f_summary = FrameSummary(*args, **kwargs)
+    instruction_offset = f.f_lasti // 2
+    positions = f.f_code._positions()
+    if len(positions) > instruction_offset:
+        _, f_summary.end_lineno, f_summary.colno, f_summary.end_colno = positions[instruction_offset]
+
+    return f_summary
 
 def excepthook(exctype, value, traceback):
     """Handle an exception by displaying it with a traceback on sys.stderr."""
@@ -23,9 +32,11 @@ def excepthook(exctype, value, traceback):
         pass
 
     try:
-        from traceback import print_exception, format_exception_only
+        from traceback import StackSummary, TracebackException, walk_tb
         limit = getattr(sys, 'tracebacklimit', None)
-        if isinstance(limit, int):
+        format_exc_only = False
+
+        if limit is not None:
             # ok, this is bizarre, but, the meaning of sys.tracebacklimit is
             # understood differently in the traceback module than in
             # PyTraceBack_Print in CPython, see
@@ -35,17 +46,27 @@ def excepthook(exctype, value, traceback):
             if limit > 0:
                 if limit > sys.maxsize:
                     limit = sys.maxsize
-                print_exception(exctype, value, traceback, limit=-limit)
+                limit = -limit
             else:
                 # the limit is 0 or negative. PyTraceBack_Print does not print
                 # Traceback (most recent call last):
                 # because there is indeed no traceback.
                 # the traceback module don't care
-                for line in format_exception_only(exctype, value):
-                    print(line, end="", file=sys.stderr)
+                traceback = None
+                limit = None
+                format_exc_only = True
 
+        # TODO(isidentical): change cause/context as well
+        tb_exc = TracebackException(exctype, value, traceback, limit=limit)
+        tb_exc.stack = StackSummary._extract_from_extended_frame_gen(
+            walk_tb(traceback), _construct_positionful_frame, limit=limit
+        )
+        if format_exc_only:
+            line_generator = tb_exc.format_exception_only()
         else:
-            print_exception(exctype, value, traceback)
+            line_generator = tb_exc.format()
+        for line in line_generator:
+            print(line, file=sys.stderr, end="")
     except:
         if not excepthook_failsafe(exctype, value):
             raise
