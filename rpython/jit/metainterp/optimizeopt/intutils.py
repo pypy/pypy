@@ -29,8 +29,8 @@ def next_pow2_m1(n):
 class IntBound(AbstractInfo):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower', 'tvalue', 'tmask')
 
-    def __init__(self, lower, upper, 
-                 has_lower=True, has_upper=True, 
+    def __init__(self, lower=MININT, upper=MAXINT, 
+                 has_lower=False, has_upper=False, 
                  tvalue=0, tmask=-1):
         
         self.has_lower = has_lower
