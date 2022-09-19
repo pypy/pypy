@@ -1,5 +1,5 @@
 import sys
-from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int, r_uint
+from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int, r_uint, intmask
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -41,8 +41,8 @@ class IntBound(AbstractInfo):
         # known-bit analysis using tristate numbers 
         #  see https://arxiv.org/pdf/2105.05398.pdf
         assert is_valid_tnum(tvalue, tmask)
-        self.tvalue = tvalue
-        self.tmask = tmask         # bit=1 means unknown
+        self.tvalue = r_uint(tvalue)
+        self.tmask = r_uint(tmask)         # bit=1 means unknown
 
         # check for unexpected overflows:
         if not we_are_translated():
@@ -98,31 +98,39 @@ class IntBound(AbstractInfo):
         self.has_lower = True
         self.upper = intval
         self.lower = intval
-        self.tvalue = intval
-        self.tmask = 0
+        self.tvalue = r_uint(intval)
+        self.tmask = r_uint(0)
 
     def make_gt(self, other):
         if other.has_lower:
             return self.make_gt_const(other.lower)
         return False
 
+    def is_constant_by_bounds(self):
+        # for internal use only!
+        return self.has_upper and self.has_lower and (self.lower == self.upper)
+
+    def is_constant_by_knownbits(self):
+        # for internal use only!
+        return self.tmask == 0
+
     def is_constant(self):
-        return (self.has_upper and self.has_lower and self.lower == self.upper) or self.tmask == 0
+        return self.is_constant_by_bounds() or self.is_constant_by_knownbits()
 
     def get_constant_int(self):
         assert self.is_constant()
-        if self.tmask == 0:
-            return self.tvalue
-        else:
+        if self.is_constant_by_bounds():
             return self.lower
+        else:
+            return intmask(self.tvalue)
 
     def equal(self, value):
         if not self.is_constant():
             return False
-        if self.tmask == 0:
-            return self.tvalue == value
-        else:
+        if self.is_constant_by_bounds():
             return self.lower == value
+        else:
+            return r_uint(value) == self.tvalue
 
     def bounded(self):
         return self.has_lower and self.has_upper
@@ -408,8 +416,8 @@ class IntBound(AbstractInfo):
             return False
         if self.has_upper and val > self.upper:
             return False
-        
-        if unmask_zero(self.tvalue, self.tmask) != unmask_zero(val, self.tmask):
+        #import pdb;pdb.set_trace()
+        if unmask_zero(self.tvalue, self.tmask) != unmask_zero(r_uint(val), self.tmask):
             return False
         
         return True
@@ -442,7 +450,7 @@ class IntBound(AbstractInfo):
             u = '%d' % self.upper
         else:
             u = 'Inf'
-        return '%s <= 0b%s <= %s' % (l, self.knownbits_string(), u)
+        return '(%s <= 0b%s <= %s)' % (l, self.knownbits_string(), u)
 
     def clone(self):
         res = IntLowerUpperBound(self.lower, self.upper)
