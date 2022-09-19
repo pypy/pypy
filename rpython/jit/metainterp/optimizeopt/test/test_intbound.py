@@ -1,5 +1,6 @@
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
-     IntLowerBound, IntUnbounded, ConstIntBound, IntBoundKnownbits, next_pow2_m1
+     IntLowerBound, IntUnbounded, ConstIntBound, IntBoundKnownbits, next_pow2_m1, \
+     IntLowerUpperBound
 
 from copy import copy
 import sys
@@ -38,7 +39,7 @@ def bound(a, b):
     elif b is None:
         return IntLowerBound(a)
     else:
-        return IntBound(a, b)
+        return IntLowerUpperBound(a, b)
 
 def const(a):
     return ConstIntBound(a)
@@ -298,15 +299,15 @@ def test_shift_bound():
                         assert bright.contains(n1 >> n2)
 
 def test_shift_overflow():
-    b10 = IntBound(0, 10)
-    b100 = IntBound(0, 100)
-    bmax = IntBound(0, sys.maxint/2)
+    b10 = IntLowerUpperBound(0, 10)
+    b100 = IntLowerUpperBound(0, 100)
+    bmax = IntLowerUpperBound(0, sys.maxint/2)
     assert not b10.lshift_bound(b100).has_upper
     assert not bmax.lshift_bound(b10).has_upper
     assert b10.lshift_bound(b10).has_upper
 
-    for b in (b10, b100, bmax, IntBound(0, 0)):
-        for shift_count_bound in (IntBound(7, LONG_BIT), IntBound(-7, 7)):
+    for b in (b10, b100, bmax, IntLowerUpperBound(0, 0)):
+        for shift_count_bound in (IntLowerUpperBound(7, LONG_BIT), IntLowerUpperBound(-7, 7)):
             #assert not b.lshift_bound(shift_count_bound).has_upper
             assert not b.rshift_bound(shift_count_bound).has_upper
 
@@ -514,7 +515,7 @@ def test_invert_bound_random(t1):
 @given(bound_with_contained_number)
 @example((IntUpperBound(-100), -sys.maxint-1))
 @example((ConstIntBound(-sys.maxint - 1), -sys.maxint-1))
-@example((IntBound(-sys.maxint - 1, -sys.maxint+10), -sys.maxint-1))
+@example((IntLowerUpperBound(-sys.maxint - 1, -sys.maxint+10), -sys.maxint-1))
 def test_neg_bound_random(t1):
     b1, n1 = t1
     b2 = b1.neg_bound()

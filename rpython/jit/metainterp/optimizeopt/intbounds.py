@@ -1,7 +1,7 @@
 import sys
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntLowerUpperBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0)
 from rpython.jit.metainterp.optimizeopt.util import (
@@ -456,7 +456,7 @@ class OptIntBounds(Optimization):
         numbits = op.getarg(1).getint() * 8
         start = -(1 << (numbits - 1))
         stop = 1 << (numbits - 1)
-        bounds = IntBound(start, stop - 1)
+        bounds = IntLowerUpperBound(start, stop - 1)
         if bounds.contains_bound(b):
             self.make_equal_to(op, op.getarg(0))
         else:

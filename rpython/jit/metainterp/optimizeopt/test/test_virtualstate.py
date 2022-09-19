@@ -13,7 +13,7 @@ from rpython.rtyper import rclass
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, equaloplists)
 from rpython.jit.metainterp.optimizeopt.intutils import (
-    IntBound, ConstIntBound, IntLowerBound, IntUnbounded)
+    IntBound, ConstIntBound, IntLowerBound, IntUnbounded, IntLowerUpperBound)
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -427,8 +427,8 @@ class BaseTestGenerateGuards(BaseTest):
 
     def test_intbounds(self):
         value1 = IntUnbounded()
-        value1.make_ge(IntBound(0, 10))
-        value1.make_le(IntBound(20, 30))
+        value1.make_ge(IntLowerUpperBound(0, 10))
+        value1.make_le(IntLowerUpperBound(20, 30))
         info1 = not_virtual(self.cpu, 'i', value1)
         info2 = not_virtual(self.cpu, 'i', IntUnbounded())
         expected = """
@@ -443,8 +443,8 @@ class BaseTestGenerateGuards(BaseTest):
 
     def test_intbounds_constant(self):
         value1 = IntUnbounded()
-        value1.make_ge(IntBound(0, 10))
-        value1.make_le(IntBound(20, 30))
+        value1.make_ge(IntLowerUpperBound(0, 10))
+        value1.make_le(IntLowerUpperBound(20, 30))
         info1 = not_virtual(self.cpu, 'i', value1)
         info2 = not_virtual(self.cpu, 'i', ConstIntBound(10000))
         self.check_invalid(info1, info2)

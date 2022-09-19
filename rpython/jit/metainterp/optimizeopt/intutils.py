@@ -41,8 +41,8 @@ class IntBound(AbstractInfo):
         # known-bit analysis using tristate numbers 
         #  see https://arxiv.org/pdf/2105.05398.pdf
         assert is_valid_tnum(tvalue, tmask)
-        self.tvalue = r_uint(tvalue)
-        self.tmask = r_uint(tmask)         # bit=1 means unknown
+        self.tvalue = tvalue
+        self.tmask = tmask         # bit=1 means unknown
 
         # check for unexpected overflows:
         if not we_are_translated():
@@ -211,7 +211,7 @@ class IntBound(AbstractInfo):
         return res
 
     def mul(self, value):
-        return self.mul_bound(IntBound(value, value))
+        return self.mul_bound(ConstIntBound(value))
 
     def add_bound(self, other):
         res = self.clone()
@@ -257,7 +257,7 @@ class IntBound(AbstractInfo):
                         ovfcheck(self.upper * other.lower),
                         ovfcheck(self.lower * other.upper),
                         ovfcheck(self.lower * other.lower))
-                return IntBound(min4(vals), max4(vals))
+                return IntLowerUpperBound(min4(vals), max4(vals))
             except OverflowError:
                 return IntUnbounded()
         else:
@@ -275,7 +275,7 @@ class IntBound(AbstractInfo):
                         ovfcheck(self.upper / other.lower),
                         ovfcheck(self.lower / other.upper),
                         ovfcheck(self.lower / other.lower))
-                return IntBound(min4(vals), max4(vals))
+                return IntLowerUpperBound(min4(vals), max4(vals))
             except OverflowError:
                 return IntUnbounded()
         else:
@@ -302,7 +302,7 @@ class IntBound(AbstractInfo):
                         ovfcheck(self.upper << other.lower),
                         ovfcheck(self.lower << other.upper),
                         ovfcheck(self.lower << other.lower))
-                return IntBound(min4(vals), max4(vals))
+                return IntLowerUpperBound(min4(vals), max4(vals))
             except (OverflowError, ValueError):
                 return IntUnbounded()
         else:
@@ -316,7 +316,7 @@ class IntBound(AbstractInfo):
                     self.upper >> other.lower,
                     self.lower >> other.upper,
                     self.lower >> other.lower)
-            return IntBound(min4(vals), max4(vals))
+            return IntLowerUpperBound(min4(vals), max4(vals))
         else:
             return IntUnbounded()
 
@@ -345,7 +345,7 @@ class IntBound(AbstractInfo):
                 other.known_nonnegative():
             if self.has_upper and other.has_upper:
                 mostsignificant = self.upper | other.upper
-                r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
+                r.intersect(IntLowerUpperBound(0, next_pow2_m1(mostsignificant)))
             else:
                 r.make_ge_const(0)
         
@@ -362,7 +362,7 @@ class IntBound(AbstractInfo):
                 other.known_nonnegative():
             if self.has_upper and other.has_upper:
                 mostsignificant = self.upper | other.upper
-                r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
+                r.intersect(IntLowerUpperBound(0, next_pow2_m1(mostsignificant)))
             else:
                 r.make_ge_const(0)
         return r
@@ -445,7 +445,7 @@ class IntBound(AbstractInfo):
         return '%s <= 0b%s <= %s' % (l, self.knownbits_string(), u)
 
     def clone(self):
-        res = IntBound(self.lower, self.upper)
+        res = IntLowerUpperBound(self.lower, self.upper)
         res.has_lower = self.has_lower
         res.has_upper = self.has_upper
         return res
@@ -473,7 +473,7 @@ class IntBound(AbstractInfo):
                 self.known_le_const(1))
 
     def make_bool(self):
-        self.intersect(IntBound(0, 1))
+        self.intersect(IntLowerUpperBound(0, 1))
 
     def getconst(self):
         if not self.is_constant():
@@ -520,12 +520,18 @@ class IntBound(AbstractInfo):
         return "".join(results)
 
 
+def IntLowerUpperBound(lower, upper):
+    b = IntBound(lower=lower, 
+                 upper=upper,
+                 has_lower=True,
+                 has_upper=True)
+    return b
+
 def IntUpperBound(upper):
     b = IntBound(lower=0, 
                  upper=upper,
                  has_lower=False,
                  has_upper=True)
-    b.has_lower = False
     return b
 
 def IntLowerBound(lower):
@@ -536,21 +542,30 @@ def IntLowerBound(lower):
     return b
 
 def IntUnbounded():
-    b = IntBound(upper=0, 
-                 lower=0, 
+    b = IntBound(lower=0, 
+                 upper=0, 
                  has_lower=False, 
                  has_upper=False)
     return b
 
 def ConstIntBound(value):
-    b = IntBound(value, value)
-    b.tvalue = value
-    b.tmask = 0
+    tvalue = value
+    tmask = 0
+    if not isinstance(value, int):
+        # AddressAsInt
+        tvalue = 0
+        tmask = -1
+    b = IntBound(lower=value, 
+                 upper=value,
+                 has_lower=True,
+                 has_upper=True,
+                 tvalue=tvalue,
+                 tmask=tmask)
     return b
 
 def IntBoundKnownbits(value, mask):
-    b = IntBound(upper=0, 
-                 lower=0, 
+    b = IntBound(lower=0, 
+                 upper=0, 
                  has_lower=False, 
                  has_upper=False,
                  tvalue=value,
@@ -575,4 +590,4 @@ def msbonly(v):
     return v & (1 << LONG_BIT)
 
 def is_valid_tnum(tvalue, tmask):
-    return 0 == (tvalue & tmask)
+    return 0 == (r_uint(tvalue) & r_uint(tmask))

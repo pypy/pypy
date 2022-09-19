@@ -3,7 +3,7 @@ from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.history import (
     Const, ConstInt, CONST_NULL, new_ref_dict)
 from rpython.jit.metainterp.optimizeopt.intutils import (
-    IntBound, ConstIntBound, MININT, MAXINT, IntUnbounded)
+    IntBound, ConstIntBound, IntLowerUpperBound, IntUnbounded, MININT, MAXINT)
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.bridgeopt import (
@@ -108,7 +108,7 @@ class Optimization(object):
             # rare case: fw might be a RawBufferPtrInfo
             return IntUnbounded()
         assert op.type == 'i'
-        intbound = IntBound(MININT, MAXINT)
+        intbound = IntLowerUpperBound(MININT, MAXINT)
         op.set_forwarded(intbound)
         return intbound
 

@@ -64,7 +64,7 @@ class StrPtrInfo(AbstractVirtualPtrInfo):
 
         if self.lenbound is None:
             if self.length == -1:
-                self.lenbound = intutils.IntBound(0, intutils.MAXINT)
+                self.lenbound = intutils.IntLowerUpperBound(0, intutils.MAXINT)
             else:
                 self.lenbound = intutils.ConstIntBound(self.length)
         return self.lenbound
