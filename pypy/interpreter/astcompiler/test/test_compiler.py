@@ -1419,6 +1419,32 @@ def f():
             x = [y for (x, y) in dis.findlinestarts(co)]
         """, 'x', [4]
 
+    def test_instruction_positions(self):
+        yield self.simple_test, """\
+            def function():
+                return (
+                    a +
+                    b +
+                       c * (
+                        d + 2
+                       )
+                )
+
+            co = function.__code__
+            positions = co._positions()
+        """, 'positions', [
+            (3, 3, 8, 9),
+            (4, 4, 8, 9),
+            (3, 4, 8, 9),
+            (5, 5, 11, 12),
+            (6, 6, 12, 13),
+            (6, 6, 16, 17),
+            (6, 6, 12, 17),
+            (5, 7, 11, 12),
+            (3, 7, 8, 12),
+            (2, 8, 4, 5)
+        ]
+
     def test_many_args(self):
         args = ["a%i" % i for i in range(300)]
         argdef = ", ".join(args)

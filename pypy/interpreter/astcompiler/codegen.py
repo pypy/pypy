@@ -205,19 +205,33 @@ class FrameBlockInfo(object):
         # for debugging
         return "<FrameBlockInfo kind=%s block=%s end=%s>" % (fblock_kind_to_str[self.kind], self.block, self.end)
 
+
+def _get_positions_for_expr(node):
+    return (
+        node.lineno,
+        node.end_lineno,
+        node.col_offset,
+        node.end_col_offset,
+    )
+
 def update_pos_expr(func):
     def updater(self, expr):
         assert isinstance(expr, ast.expr)
         if expr.lineno > 0:
             new_lineno = expr.lineno
+            new_position_info = _get_positions_for_expr(expr)
         else:
             new_lineno = self.lineno
+            new_position_info = (-1,) * 4
         old_lineno = self.lineno
+        old_position_info = self.position_info
         self.lineno = new_lineno
+        self.position_info = new_position_info
         try:
             return func(self, expr)
         finally:
             self.lineno = old_lineno
+            self.position_info = old_position_info
     updater.func_name = func.func_name + "_pos_updater"
     return updater
 
@@ -419,7 +433,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 start = 1
                 doc_expr.walkabout(self)
                 if doc_expr.lineno > 0:
-                    self.update_position(doc_expr.lineno)
+                    self.update_position(doc_expr)
                 self.name_op("__doc__", ast.Store, doc_expr)
                 self.scope.doc_removable = True
             self._visit_body(body, start)
@@ -459,7 +473,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if stmt is not None:
                 assert isinstance(stmt, ast.stmt)
                 if stmt.lineno > 0:
-                    self.update_position(stmt.lineno)
+                    self.update_position(stmt)
                 stmt.walkabout(self)
 
     def _make_function(self, code, oparg=0, qualname=None):
@@ -538,7 +552,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         assert len(defaults) > 0
         w_tup = self._tuple_of_consts(defaults)
         if w_tup:
-            self.update_position(defaults[-1].lineno)
+            default_node = defaults[-1]
+            self.update_position(default_node)
             self.load_const(w_tup)
         else:
             self.visit_sequence(defaults)
@@ -550,11 +565,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if func.decorator_list:
             for dec in func.decorator_list:
                 if dec.lineno > 0:
-                    self.update_position(dec.lineno)
+                    self.update_position(dec)
                 dec.walkabout(self)
 
         if func.lineno > 0:
-            self.update_position(func.lineno)
+            self.update_position(func)
 
         args = func.args
 
@@ -835,7 +850,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.push_frame_block(F_EXCEPTION_HANDLER, None)
         for i, handler in enumerate(tr.handlers):
             assert isinstance(handler, ast.ExceptHandler)
-            self.update_position(handler.lineno)
+            self.update_position(handler)
             next_except = self.new_block()
             if handler.type:
                 self.emit_op(ops.DUP_TOP)
@@ -1754,7 +1769,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.error("asynchronous comprehension outside of "
                                "an asynchronous function", node)
 
-        self.update_position(node.lineno)
+        self.update_position(node)
         self._make_function(code, qualname=qualname)
         first_comp = node.get_generators()[0]
         assert isinstance(first_comp, ast.comprehension)
@@ -2078,7 +2093,7 @@ class ComprehensionCodeGenerator(AbstractFunctionCodeGenerator):
     def _compile(self, node):
         self.argcount = 1
         assert isinstance(node, ast.expr)
-        self.update_position(node.lineno)
+        self.update_position(node)
         node.build_container_and_load_iter(self)
         self._comp_generator(node, node.get_generators(), 0)
         self._end_comp()

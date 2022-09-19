@@ -104,7 +104,7 @@ class PyCode(eval.Code):
                      nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
-                     hidden_applevel=False, magic=default_magic):
+                     positions=None, hidden_applevel=False, magic=default_magic):
         """Initialize a new code object from parameters given by
         the pypy compiler"""
         self.space = space
@@ -131,6 +131,7 @@ class PyCode(eval.Code):
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
+        self.positions = positions
         # store the first globals object that the code object is run in in
         # here. if a frame is run in that globals object, it does not need to
         # store it at all
@@ -459,6 +460,42 @@ class PyCode(eval.Code):
             space.newint(self.magic),
         ]
         return space.newtuple2(new_inst, space.newtuple(tup))
+
+    def descr_positions(self, space):
+        """A list of 4-element tuples that represent the position information corresponding to each
+        instruction."""
+        from pypy.interpreter.pyframe import marklines
+        if self.positions is None:
+            return space.newlist([])
+
+        if self.co_name == "xxx_positions":
+            import pdb; pdb.set_trace()
+
+        table_w = []
+        line_numbers = marklines(self)
+        prev_line_no = self.co_firstlineno
+        for index in range(0, len(self.positions), 3):
+            end_line_delta = ord(self.positions[index])
+            col_offset = ord(self.positions[index + 1])
+            end_col_offset = ord(self.positions[index + 2])
+            lineno = line_numbers[index // 3]
+            if lineno != -1:
+                prev_line_no = lineno
+            else:
+                lineno = prev_line_no
+
+            if not col_offset or not end_col_offset:
+                tup_w = [space.w_None,] * 4
+            else:
+                tup_w = [
+                    space.newint(lineno),
+                    space.newint(lineno + end_line_delta),
+                    space.newint(col_offset),
+                    space.newint(end_col_offset)
+                ]
+            table_w.append(space.newtuple(tup_w))
+        return space.newlist(table_w)
+
 
     def descr_replace(self, space, __args__):
         """ replace(self, /, *, co_argcount=-1, co_posonlyargcount=-1, co_kwonlyargcount=-1, co_nlocals=-1, co_stacksize=-1, co_flags=-1, co_firstlineno=-1, co_code=None, co_consts=None, co_names=None, co_varnames=None, co_freevars=None, co_cellvars=None, co_filename=None, co_name=None, co_lnotab=None)
