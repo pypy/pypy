@@ -30,7 +30,7 @@ jobs:
         path: pypy
     - name: install dependencies
       run: |
-        python -m pip install rply hypothesis
+        python -m pip install rply hypothesis pdbpp attrs rply setuptools
     - name: Test with pytest
       run: |
-        python pypy/pytest.py rpython/jit/
+        python pypy/pytest.py rpython/jit/metainterp
