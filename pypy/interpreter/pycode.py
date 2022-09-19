@@ -38,7 +38,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 336 # bump it by 16
+pypy_incremental_magic = 368 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -131,7 +131,7 @@ class PyCode(eval.Code):
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
-        self.positions = positions
+        self.co_position_info = positions
         # store the first globals object that the code object is run in in
         # here. if a frame is run in that globals object, it does not need to
         # store it at all
@@ -465,7 +465,7 @@ class PyCode(eval.Code):
         """A list of 4-element tuples that represent the position information corresponding to each
         instruction."""
         from pypy.interpreter.pyframe import marklines
-        if self.positions is None:
+        if self.co_position_info is None:
             return space.newlist([])
 
         if self.co_name == "xxx_positions":
@@ -474,10 +474,10 @@ class PyCode(eval.Code):
         table_w = []
         line_numbers = marklines(self)
         prev_line_no = self.co_firstlineno
-        for index in range(0, len(self.positions), 3):
-            end_line_delta = ord(self.positions[index])
-            col_offset = ord(self.positions[index + 1])
-            end_col_offset = ord(self.positions[index + 2])
+        for index in range(0, len(self.co_position_info), 3):
+            end_line_delta = ord(self.co_position_info[index])
+            col_offset = ord(self.co_position_info[index + 1])
+            end_col_offset = ord(self.co_position_info[index + 2])
             lineno = line_numbers[index // 3]
             if lineno != -1:
                 prev_line_no = lineno
