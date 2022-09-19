@@ -175,13 +175,17 @@ class IntBound(AbstractInfo):
             if self.make_le_const(other.upper):
                 r = True
 
-        potval = self.tvalue | other.tvalue
+        # tnum stuff.
+        union_val = self.tvalue | other.tvalue
         intersect_masks = self.tmask & other.tmask 
         union_masks = self.tmask | other.tmask
-        # nicht mehr kaputt?
-        assert unmask_zero(self.tvalue, union_masks) == unmask_zero(other.tvalue, union_masks)
+        # we assert agreement, e.g. that self and other don't contradict
+        unmasked_self = unmask_zero(self.tvalue, union_masks)
+        unmasked_other = unmask_zero(other.tvalue, union_masks)
+        assert unmasked_self == unmasked_other
+        # calculate intersect value and mask
         if self.tmask != intersect_masks:
-            self.tvalue = potval & ~intersect_masks
+            self.tvalue = union_val & ~intersect_masks
             self.tmask = intersect_masks
             r = True
 
