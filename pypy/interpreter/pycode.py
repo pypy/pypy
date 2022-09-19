@@ -468,9 +468,6 @@ class PyCode(eval.Code):
         if self.co_position_info is None:
             return space.newlist([])
 
-        if self.co_name == "xxx_positions":
-            import pdb; pdb.set_trace()
-
         table_w = []
         line_numbers = marklines(self)
         prev_line_no = self.co_firstlineno
@@ -490,8 +487,8 @@ class PyCode(eval.Code):
                 tup_w = [
                     space.newint(lineno),
                     space.newint(lineno + end_line_delta),
-                    space.newint(col_offset),
-                    space.newint(end_col_offset)
+                    space.newint(col_offset - 1),
+                    space.newint(end_col_offset - 1)
                 ]
             table_w.append(space.newtuple(tup_w))
         return space.newlist(table_w)

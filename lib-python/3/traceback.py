@@ -298,8 +298,6 @@ class FrameSummary:
       mapping the name to the repr() of the variable.
     """
 
-    __slots__ = ('filename', 'lineno', 'name', '_line', 'locals')
-
     def __init__(self, filename, lineno, name, *, lookup_line=True,
             locals=None, line=None):
         """Construct a FrameSummary.
@@ -372,6 +370,15 @@ def walk_tb(tb):
         yield tb.tb_frame, tb.tb_lineno
         tb = tb.tb_next
 
+# PyPy 3 change: precise traceback ranges
+def _byte_offset_to_character_offset(str, offset):
+    as_utf8 = str.encode('utf-8')
+    if offset > len(as_utf8):
+        offset = len(as_utf8)
+
+    return len(as_utf8[:offset + 1].decode("utf-8"))
+# End PyPy 3 change
+
 
 _RECURSIVE_CUTOFF = 3 # Also hardcoded in traceback.c.
 
@@ -392,6 +399,19 @@ class StackSummary(list):
         :param capture_locals: If True, the local variables from each frame will
             be captured as object representations into the FrameSummary.
         """
+
+        # PyPy 3 change: precise traceback ranges
+        def frame_constructor(f, *args, **kwargs):
+            return FrameSummary(*args, **kwargs)
+        # End PyPy 3 change
+
+        return klass._extract_from_extended_frame_gen(
+            frame_gen, frame_constructor, limit=limit, lookup_lines=lookup_lines,
+            capture_locals=capture_locals)
+
+    @classmethod
+    def _extract_from_extended_frame_gen(klass, frame_gen, frame_constructor, *, limit=None,
+            lookup_lines=True, capture_locals=False):
         if limit is None:
             limit = getattr(sys, 'tracebacklimit', None)
             if limit is not None and limit < 0:
@@ -416,7 +436,7 @@ class StackSummary(list):
                 f_locals = f.f_locals
             else:
                 f_locals = None
-            result.append(FrameSummary(
+            result.append(frame_constructor(f,
                 filename, lineno, name, lookup_line=False, locals=f_locals))
         for filename in fnames:
             linecache.checkcache(filename)
@@ -484,6 +504,21 @@ class StackSummary(list):
                 frame.filename, frame.lineno, frame.name))
             if frame.line:
                 row.append('    {}\n'.format(frame.line.strip()))
+                # PyPy 3 change: traceback ranges
+                if hasattr(frame, 'end_lineno'):
+                    assert hasattr(frame, 'colno')
+                    assert hasattr(frame, 'end_colno')
+                    original_line = linecache.getline(frame.filename, frame.lineno)
+                    stripped_characters = len(original_line) - len(frame.line.lstrip())
+                    if frame.end_lineno == frame.lineno and frame.end_colno != 0:
+                        colno = _byte_offset_to_character_offset(original_line, frame.colno)
+                        end_colno = _byte_offset_to_character_offset(original_line, frame.end_colno)
+
+                        row.append('    ')
+                        row.append(' ' * (colno - stripped_characters))
+                        row.append('^' * (end_colno - colno))
+                        row.append('\n')
+                # End PyPy3 change
             if frame.locals:
                 for name, value in sorted(frame.locals.items()):
                     row.append('    {name} = {value}\n'.format(name=name, value=value))

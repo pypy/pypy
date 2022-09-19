@@ -479,8 +479,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 lineno, end_lineno, col_offset, end_col_offset = instr.position_info
                 end_line_delta = end_lineno - lineno
                 if (
-                    col_offset > 255
-                    or end_col_offset > 255
+                    col_offset >= 255
+                    or end_col_offset >= 255
                     or col_offset == -1
                     or end_col_offset == -1
                     or col_offset > end_col_offset
@@ -492,8 +492,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                     table.append(chr(0))
                 else:
                     table.append(chr(end_line_delta))
-                    table.append(chr(col_offset))
-                    table.append(chr(end_col_offset))
+                    table.append(chr(col_offset + 1))
+                    table.append(chr(end_col_offset + 1))
 
 
         return ''.join(table)
