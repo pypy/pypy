@@ -589,8 +589,6 @@ def test_knownbits_intersect():
     b2 = IntBoundKnownbits(0b11000010,
                            0b00011100)  # 110???10
     b1.intersect(b2)
-    # actually we'd expect the upper
-    #   ...but just to be sure...
     assert b1.tvalue == 0b11001010
     assert b1.tmask  == 0b00010000   # 110?1010
 
