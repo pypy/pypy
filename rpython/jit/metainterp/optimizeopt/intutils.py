@@ -385,6 +385,12 @@ class IntBound(AbstractInfo):
                 r.intersect(IntLowerUpperBound(0, next_pow2_m1(mostsignificant)))
             else:
                 r.make_ge_const(0)
+        
+        xor_vals = self.tvalue ^ other.tvalue
+        union_masks = self.tmask | other.tmask
+        r.tvalue = unmask_zero(xor_vals, union_masks)
+        r.tmask = union_masks
+
         return r
 
     def invert_bound(self):

@@ -657,3 +657,11 @@ def test_knownbits_and_random(t1, t2):
     b3 = b1.and_bound(b2)
     r = n1 & n2
     assert b3.contains(r)
+
+@given(knownbits_with_contained_number, knownbits_with_contained_number)
+def test_knownbits_xor_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    b3 = b1.xor_bound(b2)
+    r = n1 ^ n2
+    assert b3.contains(r)
