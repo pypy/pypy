@@ -403,6 +403,9 @@ class IntBound(AbstractInfo):
         if self.has_upper:
             res.lower = ~self.upper
             res.has_lower = True
+
+        res.tvalue = unmask_zero(~res.tvalue, res.tmask) 
+
         return res
 
     def neg_bound(self):
@@ -578,7 +581,9 @@ def ConstIntBound(value):
                  tmask=tmask)
     return b
 
-def IntBoundKnownbits(value, mask):
+def IntBoundKnownbits(value, mask, do_unmask=False):
+    if do_unmask:
+        value = unmask_zero(value, mask)
     b = IntBound(lower=0, 
                  upper=0, 
                  has_lower=False, 

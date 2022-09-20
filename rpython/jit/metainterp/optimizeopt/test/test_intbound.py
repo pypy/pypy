@@ -110,6 +110,9 @@ bound_with_contained_number = strategies.one_of(
 knownbits_with_contained_number = strategies.one_of(
     constant, some_bits_known, unbounded)
 
+nbr = range(-5, 6)
+nnbr = list(set(range(-9, 10)) - set(nbr))
+
 def some_bounds():
     brd = [None] + range(-2, 3)
     for lower in brd:
@@ -118,7 +121,12 @@ def some_bounds():
                 continue
             yield (lower, upper, bound(lower, upper))
 
-nbr = range(-5, 6)
+def some_bits():
+    tvals = nbr
+    tmsks = nbr
+    for tval in tvals:
+        for tmsk in tmsks:
+            yield (tval, tmsk, IntBoundKnownbits(tval, tmsk, True))
 
 def test_known():
     for lower, upper, b in some_bounds():
@@ -631,6 +639,40 @@ def test_validtnum_assertion():
     # this is valid
     b1 = IntBoundKnownbits(0b101, 0b010)
 
+def test_knownbits_and():
+    for _, _, b1 in some_bits():
+        for _, _, b2 in some_bits():
+            b3 = b1.and_bound(b2)
+            for n1 in nnbr:
+                for n2 in nnbr:
+                    if b1.contains(n1) and b2.contains(n2):
+                        assert b3.contains(n1 & n2)
+
+def test_knownbits_or():
+    for _, _, b1 in some_bits():
+        for _, _, b2 in some_bits():
+            b3 = b1.or_bound(b2)
+            for n1 in nnbr:
+                for n2 in nnbr:
+                    if b1.contains(n1) and b2.contains(n2):
+                        assert b3.contains(n1 | n2)
+
+def test_knownbits_xor():
+    for _, _, b1 in some_bits():
+        for _, _, b2 in some_bits():
+            b3 = b1.xor_bound(b2)
+            for n1 in nnbr:
+                for n2 in nnbr:
+                    if b1.contains(n1) and b2.contains(n2):
+                        assert b3.contains(n1 ^ n2) 
+
+def test_knownbits_invert():
+    for _, _, b1 in some_bits():
+        b2 = b1.invert_bound()
+        for n1 in nnbr:
+            if b1.contains(n1):
+                assert b2.contains(~n1)
+
 @given(maybe_valid_value_mask_pair)
 def test_validtnum_assertion_random(t1):
     # this one does both positive and negative examples 
@@ -665,3 +707,10 @@ def test_knownbits_xor_random(t1, t2):
     b3 = b1.xor_bound(b2)
     r = n1 ^ n2
     assert b3.contains(r)
+
+@given(knownbits_with_contained_number)
+def test_knownbits_invert_random(t1):
+    b1, n1 = t1
+    b2 = b1.invert_bound()
+    r = ~n1
+    assert b2.contains(r)
