@@ -205,7 +205,7 @@ class IntBound(AbstractInfo):
         assert unmasked_self == unmasked_other
         # calculate intersect value and mask
         if self.tmask != intersect_masks:
-            self.tvalue = union_val & ~intersect_masks
+            self.tvalue = unmask_zero(union_val, ~intersect_masks)
             self.tmask = intersect_masks
             r = True
 
