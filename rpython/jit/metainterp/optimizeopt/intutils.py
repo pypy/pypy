@@ -438,7 +438,9 @@ class IntBound(AbstractInfo):
         if self.has_upper and val > self.upper:
             return False
         #import pdb;pdb.set_trace()
-        if unmask_zero(self.tvalue, self.tmask) != unmask_zero(r_uint(val), self.tmask):
+        usvalue = unmask_zero(self.tvalue, self.tmask)
+        uovalue = unmask_zero(r_uint(val), self.tmask)
+        if usvalue != uovalue:
             return False
         
         return True
