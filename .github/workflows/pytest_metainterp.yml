@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: PyTest Metainterp
+name: PyTest Metainterp and Codewriter
 
 on:
   push:
@@ -33,4 +33,4 @@ jobs:
         python -m pip install "hypothesis<4.40" rply pdbpp attrs rply setuptools
     - name: Test with pytest
       run: |
-        python pypy/pytest.py -v rpython/jit/metainterp rpython/jit/codewriter rpython/jit/backend/x86/test/test_ztranslation_basic.py
+        python pypy/pytest.py -v rpython/jit/metainterp/optimizeopt/ rpython/jit/metainterp/ rpython/jit/codewriter/ rpython/jit/backend/x86/test/test_ztranslation_basic.py
