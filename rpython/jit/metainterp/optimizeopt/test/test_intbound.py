@@ -548,15 +548,15 @@ def test_knownbits_intconst():
     b1 = ConstIntBound(0b010010)
     assert b1.is_constant()
     assert b1.get_constant_int() == 0b010010
-    assert b1.equal(0b010010)
+    assert b1.equals(0b010010)
     b2 = ConstIntBound(0b1)
     assert b2.is_constant()
     assert b2.get_constant_int() == 0b1
-    assert b2.equal(0b1)
+    assert b2.equals(0b1)
     b3 = ConstIntBound(0b0)
     assert b3.is_constant()
     assert b3.get_constant_int() == 0b0
-    assert b3.equal(0b0)
+    assert b3.equals(0b0)
 
 def test_knownbits_intconst_strings():
     b1 = ConstIntBound(0b010010)
@@ -573,7 +573,7 @@ def test_knownbits_or_and_known():
     b3 = b2.and_bound(ConstIntBound(1))
     assert b3.is_constant()
     assert b3.get_constant_int() == 1
-    assert b3.equal(1)
+    assert b3.equals(1)
 
 def test_knownbits_or_and_unknown():
     b1 = IntUnbounded()

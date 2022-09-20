@@ -679,7 +679,7 @@ class OptIntBounds(Optimization):
 
     def propagate_bounds_INT_EQ(self, op):
         r = self.getintbound(op)
-        if r.equal(1):
+        if r.equals(1):
             b1 = self.getintbound(op.getarg(0))
             b2 = self.getintbound(op.getarg(1))
             if b1.intersect(b2):
@@ -689,7 +689,7 @@ class OptIntBounds(Optimization):
 
     def propagate_bounds_INT_NE(self, op):
         r = self.getintbound(op)
-        if r.equal(0):
+        if r.equals(0):
             b1 = self.getintbound(op.getarg(0))
             b2 = self.getintbound(op.getarg(1))
             if b1.intersect(b2):

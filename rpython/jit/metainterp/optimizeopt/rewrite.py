@@ -56,10 +56,10 @@ class OptRewrite(Optimization):
         oldop = self.get_pure_result(targs)
         if oldop is not None:
             b = self.getintbound(oldop)
-            if b.equal(1):
+            if b.equals(1):
                 self.make_constant(op, CONST_0)
                 return True
-            elif b.equal(0):
+            elif b.equals(0):
                 self.make_constant(op, CONST_1)
                 return True
         return False
@@ -94,7 +94,7 @@ class OptRewrite(Optimization):
     def optimize_INT_AND(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        if b1.equal(0) or b2.equal(0):
+        if b1.equals(0) or b2.equals(0):
             self.make_constant_int(op, 0)
             return
         elif b2.is_constant():
@@ -115,9 +115,9 @@ class OptRewrite(Optimization):
     def optimize_INT_OR(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        if b1.equal(0):
+        if b1.equals(0):
             self.make_equal_to(op, op.getarg(1))
-        elif b2.equal(0):
+        elif b2.equals(0):
             self.make_equal_to(op, op.getarg(0))
         else:
             return self.emit(op)
@@ -127,9 +127,9 @@ class OptRewrite(Optimization):
         arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
-        if b2.equal(0):
+        if b2.equals(0):
             self.make_equal_to(op, arg1)
-        elif b1.equal(0):
+        elif b1.equals(0):
             op = self.replace_op_with(op, rop.INT_NEG, args=[arg2])
             return self.emit(op)
         elif arg1 == arg2:
@@ -163,9 +163,9 @@ class OptRewrite(Optimization):
         b2 = self.getintbound(arg2)
 
         # If one side of the op is 0 the result is the other side.
-        if b1.equal(0):
+        if b1.equals(0):
             self.make_equal_to(op, arg2)
-        elif b2.equal(0):
+        elif b2.equals(0):
             self.make_equal_to(op, arg1)
         else:
             return self.emit(op)
@@ -205,11 +205,11 @@ class OptRewrite(Optimization):
         b2 = self.getintbound(arg2)
 
         # If one side of the op is 1 the result is the other side.
-        if b1.equal(1):
+        if b1.equals(1):
             self.make_equal_to(op, arg2)
-        elif b2.equal(1):
+        elif b2.equals(1):
             self.make_equal_to(op, arg1)
-        elif b1.equal(0) or b2.equal(0):
+        elif b1.equals(0) or b2.equals(0):
             self.make_constant_int(op, 0)
         else:
             for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
@@ -235,9 +235,9 @@ class OptRewrite(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
 
-        if b2.equal(0):
+        if b2.equals(0):
             self.make_equal_to(op, op.getarg(0))
-        elif b1.equal(0):
+        elif b1.equals(0):
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)
@@ -246,9 +246,9 @@ class OptRewrite(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
 
-        if b2.equal(0):
+        if b2.equals(0):
             self.make_equal_to(op, op.getarg(0))
-        elif b1.equal(0):
+        elif b1.equals(0):
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)
@@ -257,9 +257,9 @@ class OptRewrite(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
 
-        if b2.equal(0):
+        if b2.equals(0):
             self.make_equal_to(op, op.getarg(0))
-        elif b1.equal(0):
+        elif b1.equals(0):
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)
@@ -268,9 +268,9 @@ class OptRewrite(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
 
-        if b1.equal(0):
+        if b1.equals(0):
             self.make_equal_to(op, op.getarg(1))
-        elif b2.equal(0):
+        elif b2.equals(0):
             self.make_equal_to(op, op.getarg(0))
         else:
             return self.emit(op)
@@ -888,7 +888,7 @@ class OptRewrite(Optimization):
         arg2 = op.getarg(2)
         b2 = self.getintbound(arg2)
 
-        if b1.equal(0):
+        if b1.equals(0):
             self.make_constant_int(op, 0)
             self.last_emitted_operation = REMOVED
             return True
@@ -924,7 +924,7 @@ class OptRewrite(Optimization):
         arg2 = op.getarg(2)
         b2 = self.getintbound(arg2)
 
-        if b1.equal(0):
+        if b1.equals(0):
             self.make_constant_int(op, 0)
             self.last_emitted_operation = REMOVED
             return True

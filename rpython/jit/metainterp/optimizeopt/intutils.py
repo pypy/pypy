@@ -139,7 +139,7 @@ class IntBound(AbstractInfo):
     def is_bounded(self):
         return self.has_lower and self.has_upper
 
-    def equal(self, value):
+    def equals(self, value):
         if not self.is_constant():
             return False
         if self.is_constant_by_bounds():
