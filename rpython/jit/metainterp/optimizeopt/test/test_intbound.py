@@ -54,6 +54,12 @@ def build_bound_with_contained_number(a, b, c):
 def build_some_bits_known(a, b):
     return IntBoundKnownbits(a & ~b, b), a
 
+def build_two_ints_tuple(a, b):
+    return (a, b)
+
+def build_valid_mask_value_pair(a, b):
+    return (a & ~b, b)
+
 unbounded = strategies.builds(
     lambda x: (bound(None, None), int(x)),
     ints
@@ -61,14 +67,12 @@ unbounded = strategies.builds(
 
 lower_bounded = strategies.builds(
     lambda x, y: (bound(min(x, y), None), max(x, y)),
-    ints,
-    ints
+    ints, ints
 )
 
 upper_bounded = strategies.builds(
     lambda x, y: (bound(None, max(x, y)), min(x, y)),
-    ints,
-    ints
+    ints, ints
 )
 
 bounded = strategies.builds(
@@ -84,6 +88,20 @@ constant = strategies.builds(
 some_bits_known = strategies.builds(
     build_some_bits_known,
     ints, ints 
+)
+
+random_ints_tuple = strategies.builds(
+    build_two_ints_tuple,
+    ints, ints
+)
+
+random_valid_mask_value_pair = strategies.builds(
+    build_valid_mask_value_pair,
+    ints, ints
+)
+
+maybe_valid_value_mask_pair = strategies.one_of(
+    random_ints_tuple, random_valid_mask_value_pair
 )
 
 bound_with_contained_number = strategies.one_of(
@@ -548,7 +566,7 @@ def test_knownbits_intconst_strings():
     b3 = ConstIntBound(0b0)
     assert b3.knownbits_string().endswith("0")
 
-def test_knownbits_or_and():
+def test_knownbits_or_and_known():
     b1 = IntUnbounded()
     b2 = b1.or_bound(ConstIntBound(1))
     assert b2.knownbits_string() == "?"*(LONG_BIT-1) + "1"
@@ -607,6 +625,24 @@ def test_knownbits_contains():
     assert ~bB.contains(b2)
     assert ~b2.contains(bB)
 
+def test_validtnum_assertion():
+    # for each bit i: mask[i]==1 iff value[i]==0
+    # the following tnum is invalid
+    with pytest.raises(Exception):
+        b0 = IntBoundKnownbits(0b111, 0b010)
+    # this is valid
+    b1 = IntBoundKnownbits(0b101, 0b010)
+
+@given(maybe_valid_value_mask_pair)
+def test_validtnum_assertion_random(t1):
+    val, msk = t1
+    is_valid = (0 == val & msk)
+    if is_valid:
+        b = IntBoundKnownbits(val, msk)
+    else:
+        with pytest.raises(Exception):
+            b = IntBoundKnownbits(val, msk)
+
 @given(knownbits_with_contained_number, knownbits_with_contained_number)
 def test_knownbits_or_random(t1, t2):
     b1, n1 = t1
@@ -614,5 +650,11 @@ def test_knownbits_or_random(t1, t2):
     b3 = b1.or_bound(b2)
     r = n1 | n2
     assert b3.contains(r)
-    print b1, b2, b3
-    print bin(n1), bin(n2), bin(r)
+
+@given(knownbits_with_contained_number, knownbits_with_contained_number)
+def test_knownbits_and_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    b3 = b1.and_bound(b2)
+    r = n1 & n2
+    assert b3.contains(r)
