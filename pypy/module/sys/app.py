@@ -8,13 +8,20 @@ import sys
 import _imp
 from __pypy__.os import _get_multiarch
 
-def _construct_positionful_frame(f, *args, **kwargs):
+def _construct_positionful_frame(f, last_i, *args, **kwargs):
     from traceback import FrameSummary
     f_summary = FrameSummary(*args, **kwargs)
-    instruction_offset = f.f_lasti // 2
-    positions = f.f_code._positions()
-    if len(positions) > instruction_offset:
-        _, f_summary.end_lineno, f_summary.colno, f_summary.end_colno = positions[instruction_offset]
+
+    # If we can't retrieve the traceback's last instruction
+    # we will give up here. It normally shouldn't happen but
+    # just handling the error path.
+    if last_i is not None:
+        # last_i represents the offset in terms of bytes, so for normalizing it
+        # for a list of instructions we need to divide it by 2.
+        instr_index = last_i // 2
+        positions = f.f_code._positions()
+        if len(positions) > instr_index:
+            _, f_summary.end_lineno, f_summary.colno, f_summary.end_colno = positions[instr_index]
 
     return f_summary
 
@@ -56,10 +63,12 @@ def excepthook(exctype, value, traceback):
                 limit = None
                 format_exc_only = True
 
-        # TODO(isidentical): change cause/context as well
-        tb_exc = TracebackException(exctype, value, traceback, limit=limit)
-        tb_exc.stack = StackSummary._extract_from_extended_frame_gen(
-            walk_tb(traceback), _construct_positionful_frame, limit=limit
+        tb_exc = TracebackException(
+            exctype,
+            value,
+            traceback,
+            limit=limit,
+            _frame_constructor=_construct_positionful_frame
         )
         if format_exc_only:
             line_generator = tb_exc.format_exception_only()
