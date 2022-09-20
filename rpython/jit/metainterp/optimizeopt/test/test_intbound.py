@@ -635,6 +635,7 @@ def test_validtnum_assertion():
 
 @given(maybe_valid_value_mask_pair)
 def test_validtnum_assertion_random(t1):
+    # this one does both positive and negative examples 
     val, msk = t1
     is_valid = (0 == val & msk)
     if is_valid:
