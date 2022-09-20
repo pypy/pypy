@@ -92,7 +92,7 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         b = b1.sub_bound(b2)
-        if b.bounded():
+        if b.is_bounded():
             self.getintbound(op).intersect(b)
 
     def optimize_INT_ADD(self, op):
@@ -147,7 +147,7 @@ class OptIntBounds(Optimization):
         # y = x + 1 where x >= 0
         # here it's tempting to give a bound of y >= 1, but that would be
         # wrong, due to wraparound
-        if b.bounded():
+        if b.is_bounded():
             r.intersect(b)
 
     def postprocess_INT_MUL(self, op):
@@ -155,7 +155,7 @@ class OptIntBounds(Optimization):
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
         b = b1.mul_bound(b2)
-        if b.bounded():
+        if b.is_bounded():
             r.intersect(b)
 
     def postprocess_CALL_PURE_I(self, op):
@@ -191,7 +191,7 @@ class OptIntBounds(Optimization):
         # intbound.lshift_bound checks for an overflow and if the
         # lshift can be proven not to overflow sets b.has_upper and
         # b.has_lower
-        if b.bounded():
+        if b.is_bounded():
             # Synthesize the reverse op for optimize_default to reuse
             self.pure_from_args(rop.INT_RSHIFT,
                                 [op, arg1], arg0)
@@ -256,7 +256,7 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         resbound = b1.add_bound(b2)
-        if resbound.bounded():
+        if resbound.is_bounded():
             # Transform into INT_ADD.  The following guard will be killed
             # by optimize_GUARD_NO_OVERFLOW; if we see instead an
             # optimize_GUARD_OVERFLOW, then InvalidLoop.
@@ -283,7 +283,7 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 0)
             return None
         resbound = b0.sub_bound(b1)
-        if resbound.bounded():
+        if resbound.is_bounded():
             # this case takes care of int_sub_ovf(x, 0) as well
             op = self.replace_op_with(op, rop.INT_SUB)
         return self.emit(op)
@@ -301,7 +301,7 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         resbound = b1.mul_bound(b2)
-        if resbound.bounded():
+        if resbound.is_bounded():
             # this case also takes care of multiplication with 0 and 1
             op = self.replace_op_with(op, rop.INT_MUL)
         return self.emit(op)

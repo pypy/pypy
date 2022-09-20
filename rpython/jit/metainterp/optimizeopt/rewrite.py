@@ -99,13 +99,13 @@ class OptRewrite(Optimization):
             return
         elif b2.is_constant():
             val = b2.lower
-            if val == -1 or (b1.bounded() and b1.lower >= 0
+            if val == -1 or (b1.is_bounded() and b1.lower >= 0
                                           and b1.upper <= val & ~(val + 1)):
                 self.make_equal_to(op, op.getarg(0))
                 return
         elif b1.is_constant():
             val = b1.lower
-            if val == -1 or (b2.bounded() and b2.lower >= 0
+            if val == -1 or (b2.is_bounded() and b2.lower >= 0
                                           and b2.upper <= val & ~(val + 1)):
                 self.make_equal_to(op, op.getarg(1))
                 return

@@ -49,6 +49,18 @@ class IntBound(AbstractInfo):
             assert type(upper) is not long or is_valid_int(upper)
             assert type(lower) is not long or is_valid_int(lower)
 
+    def __repr__(self):
+        if self.has_lower:
+            l = '%d' % self.lower
+        else:
+            l = '-Inf'
+        if self.has_upper:
+            u = '%d' % self.upper
+        else:
+            u = 'Inf'
+        return '(%s <= 0b%s <= %s)' % (l, self.knownbits_string(), u)
+
+
     # Returns True if the bound was updated
     def make_le(self, other):
         if other.has_upper:
@@ -108,7 +120,7 @@ class IntBound(AbstractInfo):
 
     def is_constant_by_bounds(self):
         # for internal use only!
-        return self.has_upper and self.has_lower and (self.lower == self.upper)
+        return self.is_bounded() and (self.lower == self.upper)
 
     def is_constant_by_knownbits(self):
         # for internal use only!
@@ -124,6 +136,9 @@ class IntBound(AbstractInfo):
         else:
             return intmask(self.tvalue)
 
+    def is_bounded(self):
+        return self.has_lower and self.has_upper
+
     def equal(self, value):
         if not self.is_constant():
             return False
@@ -131,9 +146,6 @@ class IntBound(AbstractInfo):
             return self.lower == value
         else:
             return r_uint(value) == self.tvalue
-
-    def bounded(self):
-        return self.has_lower and self.has_upper
 
     def known_lt_const(self, other):
         if self.has_upper:
@@ -302,7 +314,7 @@ class IntBound(AbstractInfo):
         return r
 
     def lshift_bound(self, other):
-        if self.bounded() and other.bounded() and \
+        if self.is_bounded() and other.is_bounded() and \
            other.known_nonnegative() and \
            other.known_lt_const(LONG_BIT):
             try:
@@ -317,7 +329,7 @@ class IntBound(AbstractInfo):
             return IntUnbounded()
 
     def rshift_bound(self, other):
-        if self.bounded() and other.bounded() and \
+        if self.is_bounded() and other.is_bounded() and \
            other.known_nonnegative() and \
            other.known_lt_const(LONG_BIT):
             vals = (self.upper >> other.upper,
@@ -441,17 +453,6 @@ class IntBound(AbstractInfo):
         
         return True
 
-    def __repr__(self):
-        if self.has_lower:
-            l = '%d' % self.lower
-        else:
-            l = '-Inf'
-        if self.has_upper:
-            u = '%d' % self.upper
-        else:
-            u = 'Inf'
-        return '(%s <= 0b%s <= %s)' % (l, self.knownbits_string(), u)
-
     def clone(self):
         res = IntLowerUpperBound(self.lower, self.upper)
         res.has_lower = self.has_lower
@@ -477,7 +478,7 @@ class IntBound(AbstractInfo):
             guards.append(op)
 
     def is_bool(self):
-        return (self.bounded() and self.known_nonnegative() and
+        return (self.is_bounded() and self.known_nonnegative() and
                 self.known_le_const(1))
 
     def make_bool(self):

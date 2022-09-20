@@ -450,7 +450,7 @@ def test_add_bound_random(t1, t2):
     try:
         r = ovfcheck(n1 + n2)
     except OverflowError:
-        assert not b3.bounded()
+        assert not b3.is_bounded()
     else:
         assert b3.contains(r)
 
@@ -464,7 +464,7 @@ def test_sub_bound_random(t1, t2):
     try:
         r = ovfcheck(n1 - n2)
     except OverflowError:
-        assert not b3.bounded()
+        assert not b3.is_bounded()
     else:
         assert b3.contains(r)
 
@@ -476,7 +476,7 @@ def test_mul_bound_random(t1, t2):
     try:
         r = ovfcheck(n1 * n2)
     except OverflowError:
-        assert not b3.bounded()
+        assert not b3.is_bounded()
     else:
         assert b3.contains(r)
 
