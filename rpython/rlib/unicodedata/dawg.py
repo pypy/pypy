@@ -408,7 +408,6 @@ def _lookup(packed, s):
     stringpos = 0
     node_offset = 0
     skipped = 0  # keep track of number of final nodes that we skipped
-    false = False
     while stringpos < len(s):
         node_count, final, edge_offset = decode_node(packed, node_offset)
         prev_child_offset = edge_offset
