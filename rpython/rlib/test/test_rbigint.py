@@ -1579,6 +1579,10 @@ class TestHypothesis(object):
         r1 = rx.abs_rshift_and_mask(r_ulonglong(shift), mask)
         assert r1 == (abs(x) >> shift) & mask
 
+    @given(biglongs)
+    def test_bit_count(self, val):
+        assert rbigint.fromlong(val).bit_count() == bin(abs(val)).count("1")
+
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
 def test_hypothesis_small_shift(methname):

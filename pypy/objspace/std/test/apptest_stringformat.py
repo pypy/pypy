@@ -246,6 +246,15 @@ def test_format_char():
     surrogate = 0xd800
     assert '%c' % surrogate == '\ud800'
 
+def test_force_unicode_uses_default_encoding():
+    if not hasattr(sys, 'setdefaultencoding'):
+        skip("no setdefaultencoding")
+    encoding = sys.getdefaultencoding()
+    try:
+        sys.setdefaultencoding("utf-8")
+        assert "ä%s" % u"ö" == "äö"
+    finally:
+        sys.setdefaultencoding(encoding)
 def test___int__index__():
     class MyInt(object):
         def __init__(self, x):
