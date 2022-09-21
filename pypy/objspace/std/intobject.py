@@ -233,6 +233,14 @@ class W_AbstractIntObject(W_Root):
         '0b100101'
         >>> (37).bit_length()
         6""")
+    descr_bit_count = _abstract_unaryop('bit_count', """\
+        int.bit_count() -> int
+
+        Number of bits set in the binary representation.
+        >>> bin(37)
+        '0b100101'
+        >>> (37).bit_count()
+        3""")
     descr_hash = _abstract_unaryop('hash')
     descr_getnewargs = _abstract_unaryop('getnewargs', None)
     descr_float = _abstract_unaryop('float')
@@ -513,6 +521,20 @@ def _bit_length(val):
         val >>= 1
     return bits
 
+
+@jit.elidable
+def _bit_count(val):
+    if val == -sys.maxint - 1:
+        return 1
+    elif val < 0:
+        val = -val
+    count = 0
+    while val:
+        count += val & 1
+        val >>= 1
+    return count
+
+
 class W_IntObject(W_AbstractIntObject):
 
     __slots__ = 'intval'
@@ -623,6 +645,9 @@ class W_IntObject(W_AbstractIntObject):
 
     def descr_bit_length(self, space):
         return space.newint(_bit_length(self.intval))
+
+    def descr_bit_count(self, space):
+        return space.newint(_bit_count(self.intval))
 
     def descr_repr(self, space):
         res = str(self.intval)
@@ -1090,6 +1115,7 @@ Base 0 means to interpret the base from the string as an integer literal.
 
     conjugate = interpindirect2app(W_AbstractIntObject.descr_conjugate),
     bit_length = interpindirect2app(W_AbstractIntObject.descr_bit_length),
+    bit_count = interpindirect2app(W_AbstractIntObject.descr_bit_count),
     __format__ = interpindirect2app(W_AbstractIntObject.descr_format),
     __hash__ = interpindirect2app(W_AbstractIntObject.descr_hash),
     __getnewargs__ = interpindirect2app(W_AbstractIntObject.descr_getnewargs),

@@ -52,6 +52,13 @@ class W_AbstractLongObject(W_AbstractIntObject):
         except OverflowError:
             raise oefmt(space.w_OverflowError, "too many digits in integer")
 
+    def descr_bit_count(self, space):
+        bigint = space.bigint_w(self)
+        try:
+            return space.newint(bigint.bit_count())
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "too many digits in integer")
+
     def _truediv(self, space, w_other):
         try:
             f = self.asbigint().truediv(w_other.asbigint())

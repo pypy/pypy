@@ -902,6 +902,11 @@ class AppTestInt(object):
         assert x == 12
         assert type(x) is int
 
+    def test_bit_count(self):
+        for x in (42, 2**100, 2**63, 2**63-1, 2**31-1, 2**31):
+            assert x.bit_count() == bin(x).count("1")
+            assert (-x).bit_count() == bin(x).count("1")
+
 
 def test_hash_examples():
     for i in range(1000):
