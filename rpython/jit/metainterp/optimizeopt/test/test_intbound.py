@@ -800,11 +800,9 @@ def test_knownbits_invert_random(t1):
 
 @given(knownbits_with_contained_number, pos_small_values)
 def test_knownbits_lshift_random(t1, t2):
-    #if (t2==57):
-    #    import pdb; pdb.set_trace()
     b1, n1 = t1
     b2 = ConstIntBound(t2)
     print t1, " << ", t2
     r = b1.lshift_bound(b2)
-    # this works for right-shift, not for left-shift!
+    # this works for left-shift, not for right-shift!
     assert r.contains(intmask(r_uint(n1) << r_uint(t2))) 
