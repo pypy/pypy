@@ -217,12 +217,15 @@ class HandleManager(AbstractHandleManager):
     def close(self, index):
         ll_assert(index > 0, 'HandleManager.close: index > 0')
         if self.release_callbacks[index] is not None:
-            w_obj = self.deref(index)
-            for f in self.release_callbacks[index]:
-                f.release(index, w_obj)
-            self.release_callbacks[index] = None
+            self._call_release_callbacks(index)
         self.handles_w[index] = None
         self.free_list.append(index)
+
+    def _call_release_callbacks(self, index):
+        w_obj = self.deref(index)
+        for f in self.release_callbacks[index]:
+            f.release(index, w_obj)
+        self.release_callbacks[index] = None
 
     def deref(self, index):
         assert index > 0
