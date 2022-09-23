@@ -14,8 +14,11 @@ MININT = -maxint - 1
 
 IS_64_BIT = sys.maxint > 2**32
 
-UNKNOWN_TNUM = r_uint(0), r_uint(-1)
-KNOWN_TNUM_ZERO = r_uint(0), r_uint(0)
+TNUM_UNKNOWN = r_uint(0), r_uint(-1)
+TNUM_KNOWN_ZERO = r_uint(0), r_uint(0)
+TNUM_ONLY_VALUE_DEFAULT = r_uint(0)
+TNUM_ONLY_MASK_UNKNOWN = r_uint(-1)
+TNUM_ONLY_MASK_DEFAULT = TNUM_ONLY_MASK_UNKNOWN
 
 def next_pow2_m1(n):
     """Calculate next power of 2 greater than n minus one."""
@@ -34,7 +37,8 @@ class IntBound(AbstractInfo):
 
     def __init__(self, lower=MININT, upper=MAXINT, 
                  has_lower=False, has_upper=False, 
-                 tvalue=0, tmask=-1):
+                 tvalue=TNUM_ONLY_VALUE_DEFAULT, 
+                 tmask=TNUM_ONLY_MASK_DEFAULT):
         
         self.has_lower = has_lower
         self.has_upper = has_upper
@@ -44,8 +48,8 @@ class IntBound(AbstractInfo):
         # known-bit analysis using tristate numbers 
         #  see https://arxiv.org/pdf/2105.05398.pdf
         assert is_valid_tnum(tvalue, tmask)
-        self.tvalue = r_uint(tvalue)
-        self.tmask = r_uint(tmask)         # bit=1 means unknown
+        self.tvalue = tvalue
+        self.tmask = tmask         # bit=1 means unknown
 
         # check for unexpected overflows:
         if not we_are_translated():
@@ -317,11 +321,11 @@ class IntBound(AbstractInfo):
         return r
 
     def lshift_bound(self, other):
-        tvalue, tmask = UNKNOWN_TNUM
+        tvalue, tmask = TNUM_UNKNOWN
         if other.is_constant():
-            c_other = other.get_constant_int()
+            c_other = r_uint(other.get_constant_int())
             if c_other >= LONG_BIT:
-                tvalue, tmask = KNOWN_TNUM_ZERO
+                tvalue, tmask = TNUM_KNOWN_ZERO
             elif c_other >= 0:
                 tvalue = self.tvalue << c_other
                 tmask = self.tmask << c_other
@@ -596,21 +600,23 @@ def IntUnbounded():
     return b
 
 def ConstIntBound(value):
+    # this one does NOT require a r_uint for `value`.
     tvalue = value
     tmask = 0
     if not isinstance(value, int):
-        # AddressAsInt
+        # AddressAsInt / symbolic ints
         tvalue = 0
         tmask = -1
     b = IntBound(lower=value, 
                  upper=value, 
                  has_lower=True,
                  has_upper=True,
-                 tvalue=tvalue,
-                 tmask=tmask)
+                 tvalue=r_uint(tvalue),
+                 tmask=r_uint(tmask))
     return b
 
 def IntBoundKnownbits(value, mask, do_unmask=False):
+    # this one does require a r_uint for `value` and `mask`.
     if do_unmask:
         value = unmask_zero(value, mask)
     b = IntBound(lower=0, 
@@ -622,6 +628,7 @@ def IntBoundKnownbits(value, mask, do_unmask=False):
     return b
 
 def IntLowerUpperBoundKnownbits(lower, upper, value, mask, do_unmask=False):
+    # this one does require a r_uint for `value` and `mask`.
     if do_unmask:
         value = unmask_zero(value, mask)
     b = IntBound(lower=lower, 
@@ -650,4 +657,8 @@ def msbonly(v):
     return v & (1 << LONG_BIT)
 
 def is_valid_tnum(tvalue, tmask):
+    if not isinstance(tvalue, r_uint):
+        return False
+    if not isinstance(tmask, r_uint):
+        return False
     return 0 == (r_uint(tvalue) & r_uint(tmask))

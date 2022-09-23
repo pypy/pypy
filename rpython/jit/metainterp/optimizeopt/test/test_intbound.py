@@ -70,7 +70,7 @@ def build_bound_with_contained_number(a, b, c):
     return r, b
 
 def build_some_bits_known(a, b):
-    return IntBoundKnownbits(a & ~b, b), a
+    return IntBoundKnownbits(r_uint(a & ~b), r_uint(b)), a
 
 def build_two_ints_tuple(a, b):
     return (a, b)
@@ -144,7 +144,7 @@ def some_bits():
     tmsks = nbr
     for tval in tvals:
         for tmsk in tmsks:
-            yield (tval, tmsk, IntBoundKnownbits(tval, tmsk, True))
+            yield (tval, tmsk, IntBoundKnownbits(r_uint(tval), r_uint(tmsk), True))
 
 def test_known():
     for lower, upper, b in some_bounds():
@@ -611,25 +611,25 @@ def test_knownbits_or_and_unknown():
     assert not b3.is_constant()
 
 def test_knownbits_intersect():
-    b1 = IntBoundKnownbits(0b10001010,
-                           0b01110000)  # 1???1010
-    b2 = IntBoundKnownbits(0b11000010,
-                           0b00011100)  # 110???10
+    b1 = IntBoundKnownbits(r_uint(0b10001010),
+                           r_uint(0b01110000))  # 1???1010
+    b2 = IntBoundKnownbits(r_uint(0b11000010),
+                           r_uint(0b00011100))  # 110???10
     b1.intersect(b2)
-    assert b1.tvalue == 0b11001010
-    assert b1.tmask  == 0b00010000   # 110?1010
+    assert b1.tvalue == r_uint(0b11001010)
+    assert b1.tmask  == r_uint(0b00010000)   # 110?1010
 
 def test_knownbits_intersect_disagree():
     # b0 == b1
     # b0 and b2 disagree, b1 and b3 agree
-    b0 = IntBoundKnownbits(0b001000,
-                           0b110111)    # ??1???
-    b2 = IntBoundKnownbits(0b000100,    #   !     <- disagreement
-                           0b110011)    # ??01??
-    b1 = IntBoundKnownbits(0b001000, 
-                           0b110111)    # ??1???
-    b3 = IntBoundKnownbits(0b000000,
-                           0b111111)    # ??????
+    b0 = IntBoundKnownbits(r_uint(0b001000),
+                           r_uint(0b110111))    # ??1???
+    b2 = IntBoundKnownbits(r_uint(0b000100),    #   !     <- disagreement
+                           r_uint(0b110011))    # ??01??
+    b1 = IntBoundKnownbits(r_uint(0b001000), 
+                           r_uint(0b110111))    # ??1???
+    b3 = IntBoundKnownbits(r_uint(0b000000),
+                           r_uint(0b111111))    # ??????
     # expecting an exception
     with pytest.raises(Exception):
         b0.intersect(b2)
@@ -637,16 +637,16 @@ def test_knownbits_intersect_disagree():
     b1.intersect(b3)
 
 def test_knownbits_contains():
-    bA = IntBoundKnownbits(0b001000,
-                           0b110111)    # ??1???
-    b1 = IntBoundKnownbits(0b000000,
-                           0b111111)    # ??????
+    bA = IntBoundKnownbits(r_uint(0b001000),
+                           r_uint(0b110111))    # ??1???
+    b1 = IntBoundKnownbits(r_uint(0b000000),
+                           r_uint(0b111111))    # ??????
     assert b1.contains(bA)
     assert ~bA.contains(b1)
-    bB = IntBoundKnownbits(0b101000,
-                           0b000010)    # 1010?0
-    b2 = IntBoundKnownbits(0b101010,    #     !! <- no subset
-                           0b000001)    # 10101?
+    bB = IntBoundKnownbits(r_uint(0b101000),
+                           r_uint(0b000010))    # 1010?0
+    b2 = IntBoundKnownbits(r_uint(0b101010),    #     !! <- no subset
+                           r_uint(0b000001))    # 10101?
     assert ~bB.contains(b2)
     assert ~b2.contains(bB)
 
@@ -654,9 +654,20 @@ def test_validtnum_assertion():
     # for each bit i: mask[i]==1 iff value[i]==0
     # the following tnum is invalid
     with pytest.raises(Exception):
-        b0 = IntBoundKnownbits(0b111, 0b010)
+        b0 = IntBoundKnownbits(r_uint(0b111), 
+                               r_uint(0b010))
+    # mask and value have to be r_uints
+    with pytest.raises(Exception):
+        b2 = IntBoundKnownbits(r_uint(0b101),
+                                      0b010)
+    with pytest.raises(Exception):
+        b3 = IntBoundKnownbits(       0b101,
+                               r_uint(0b010))
+    with pytest.raises(Exception):
+        b4 = IntBoundKnownbits(0b101, 0b010)
     # this is valid
-    b1 = IntBoundKnownbits(0b101, 0b010)
+    b1 = IntBoundKnownbits(r_uint(0b101), 
+                           r_uint(0b010))
 
 def test_knownbits_and():
     for _, _, b1 in some_bits():
@@ -703,7 +714,7 @@ def test_knownbits_lshift():
     # knownbits case
     tv2 = 0b0100010     # 010??10
     tm2 = 0b0001100
-    a2 = IntBoundKnownbits(tv2, tm2)
+    a2 = IntBoundKnownbits(r_uint(tv2), r_uint(tm2))
     b2 = ConstIntBound(3)
     r2 = a2.lshift_bound(b2)
     assert not r2.is_constant()
@@ -713,7 +724,7 @@ def test_knownbits_lshift():
     # complete shift out
     tv3 = 0b1001        # 1??1
     tm3 = 0b0110
-    a3 = IntBoundKnownbits(tv3, tm3)
+    a3 = IntBoundKnownbits(r_uint(tv3), r_uint(tm3))
     b3 = ConstIntBound(LONG_BIT+1)
     r3 = a3.lshift_bound(b3)
     assert r3.is_constant()
@@ -762,10 +773,10 @@ def test_validtnum_assertion_random(t1):
     val, msk = t1
     is_valid = (0 == val & msk)
     if is_valid:
-        b = IntBoundKnownbits(val, msk)
+        b = IntBoundKnownbits(r_uint(val), r_uint(msk))
     else:
         with pytest.raises(Exception):
-            b = IntBoundKnownbits(val, msk)
+            b = IntBoundKnownbits(r_uint(val), r_uint(msk))
 
 @given(knownbits_with_contained_number, knownbits_with_contained_number)
 def test_knownbits_or_random(t1, t2):
