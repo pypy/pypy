@@ -2,6 +2,7 @@ import math
 import sys
 
 import py
+import pytest
 
 from rpython.rlib import rgc
 from rpython.jit.codewriter.policy import StopAtXPolicy
@@ -4695,6 +4696,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                                       guard_class=2,
                                       assert_not_none=2) # before optimization
 
+    @pytest.mark.skipif(sys.platform=='darwin', reason='symbolics comparison breaks the untranslated optimizer')
     def test_call_time_clock(self):
         import time
         def g():
