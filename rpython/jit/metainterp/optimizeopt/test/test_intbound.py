@@ -570,6 +570,7 @@ def test_neg_bound_random(t1):
 
 # --------------
 
+
 def test_knownbits_intconst():
     b1 = ConstIntBound(0b010010)
     assert b1.is_constant()
@@ -717,6 +718,17 @@ def test_knownbits_lshift():
     r3 = a3.lshift_bound(b3)
     assert r3.is_constant()
     assert r3.get_constant_int() == 0
+
+
+@given(constant, constant)
+def test_const_stays_const_or(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    r = b1.or_bound(b2)
+    assert r.is_constant()
+    assert r.equals(n1 | n2)
+    assert r.get_constant_int() == n1 | n2
+
 
 @given(maybe_valid_value_mask_pair)
 def test_validtnum_assertion_random(t1):
