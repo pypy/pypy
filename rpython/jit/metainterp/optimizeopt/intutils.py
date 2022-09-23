@@ -14,6 +14,9 @@ MININT = -maxint - 1
 
 IS_64_BIT = sys.maxint > 2**32
 
+UNKNOWN_TNUM = r_uint(0), r_uint(-1)
+KNOWN_TNUM_ZERO = r_uint(0), r_uint(0)
+
 def next_pow2_m1(n):
     """Calculate next power of 2 greater than n minus one."""
     n |= n >> 1
@@ -314,6 +317,16 @@ class IntBound(AbstractInfo):
         return r
 
     def lshift_bound(self, other):
+        tvalue, tmask = UNKNOWN_TNUM
+        if other.is_constant():
+            c_other = other.get_constant_int()
+            if c_other >= LONG_BIT:
+                tvalue, tmask = KNOWN_TNUM_ZERO
+            elif c_other >= 0:
+                tvalue = self.tvalue << c_other
+                tmask = self.tmask << c_other
+            # else unknown because operation invalid
+
         if self.is_bounded() and other.is_bounded() and \
            other.known_nonnegative() and \
            other.known_lt_const(LONG_BIT):
@@ -322,13 +335,27 @@ class IntBound(AbstractInfo):
                         ovfcheck(self.upper << other.lower),
                         ovfcheck(self.lower << other.upper),
                         ovfcheck(self.lower << other.lower))
-                return IntLowerUpperBound(min4(vals), max4(vals))
+                return IntLowerUpperBoundKnownbits(min4(vals), max4(vals),
+                                                   tvalue, tmask)
             except (OverflowError, ValueError):
-                return IntUnbounded()
-        else:
-            return IntUnbounded()
+                pass
+
+        return IntBoundKnownbits(tvalue, tmask)
 
     def rshift_bound(self, other):
+        """r_tvalue = 0
+        r_tmask = -1
+        if other.is_constant():
+            c_other = other.get_constant_int()
+            if c_other > LONG_BIT:
+                r_tmask = 0
+            elif c_other > 0:
+
+                r_tvalue = r_uint(intmask(self.tvalue) >> c_other)
+                
+                r_tmask = self.tmask >> c_other
+            # else (c_other < 0) we know nothing"""
+
         if self.is_bounded() and other.is_bounded() and \
            other.known_nonnegative() and \
            other.known_lt_const(LONG_BIT):
@@ -590,6 +617,17 @@ def IntBoundKnownbits(value, mask, do_unmask=False):
                  upper=0, 
                  has_lower=False, 
                  has_upper=False,
+                 tvalue=value,
+                 tmask=mask)
+    return b
+
+def IntLowerUpperBoundKnownbits(lower, upper, value, mask, do_unmask=False):
+    if do_unmask:
+        value = unmask_zero(value, mask)
+    b = IntBound(lower=lower, 
+                 upper=upper, 
+                 has_lower=True, 
+                 has_upper=True,
                  tvalue=value,
                  tmask=mask)
     return b

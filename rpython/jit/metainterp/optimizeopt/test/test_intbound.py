@@ -4,13 +4,13 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound,
 
 from copy import copy
 import sys
-from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck
+from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
 
 from hypothesis import given, strategies, example
 
 import pytest
 
-special_values = (
+special_values_set = (
     range(-100, 100) +
     [2 ** i for i in range(1, LONG_BIT)] +
     [-2 ** i for i in range(1, LONG_BIT)] +
@@ -21,7 +21,20 @@ special_values = (
     [sys.maxint, -sys.maxint-1])
 
 special_values = strategies.sampled_from(
-    [int(v) for v in special_values if type(int(v)) is int])
+    [int(v) for v in special_values_set if type(int(v)) is int])
+
+pos_special_values_set = (
+    range(0, 100) +
+    [sys.maxint] +
+    [2 ** i for i in range(1, LONG_BIT)] +
+    [2 ** i - 1 for i in range(1, LONG_BIT)] +
+    [2 ** i + 1 for i in range(1, LONG_BIT)])
+
+pos_special_values = strategies.sampled_from(
+    [int(v) for v in pos_special_values_set if type(int(v)) is int])
+
+pos_small_values = strategies.sampled_from(
+    [int(v) for v in range(0, 128)])
 
 ints = strategies.builds(
     int, # strategies.integers sometimes returns a long?
@@ -29,6 +42,11 @@ ints = strategies.builds(
     min_value=int(-sys.maxint-1), max_value=sys.maxint))
 
 ints_or_none = strategies.none() | ints
+
+pos_ints = strategies.builds(
+    int,
+    pos_special_values | strategies.integers(
+    min_value=int(0), max_value=sys.maxint))
 
 
 def bound(a, b):
@@ -673,6 +691,33 @@ def test_knownbits_invert():
             if b1.contains(n1):
                 assert b2.contains(~n1)
 
+def test_knownbits_lshift():
+    # both numbers constant case
+    a1 = ConstIntBound(31)
+    b1 = ConstIntBound(3)
+    r1 = a1.lshift_bound(b1)
+    assert a1.is_constant()
+    assert (31 << 3) == r1.get_constant_int()
+    assert 0 == (r1.get_constant_int() & 0b111)
+    # knownbits case
+    tv2 = 0b0100010     # 010??10
+    tm2 = 0b0001100
+    a2 = IntBoundKnownbits(tv2, tm2)
+    b2 = ConstIntBound(3)
+    r2 = a2.lshift_bound(b2)
+    assert not r2.is_constant()
+    assert r2.contains(tv2 << 3)
+    assert r2.contains((tv2|tm2) << 3)
+    assert r2.knownbits_string().endswith("0000010??10000")
+    # complete shift out
+    tv3 = 0b1001        # 1??1
+    tm3 = 0b0110
+    a3 = IntBoundKnownbits(tv3, tm3)
+    b3 = ConstIntBound(LONG_BIT+1)
+    r3 = a3.lshift_bound(b3)
+    assert r3.is_constant()
+    assert r3.get_constant_int() == 0
+
 @given(maybe_valid_value_mask_pair)
 def test_validtnum_assertion_random(t1):
     # this one does both positive and negative examples 
@@ -714,3 +759,14 @@ def test_knownbits_invert_random(t1):
     b2 = b1.invert_bound()
     r = ~n1
     assert b2.contains(r)
+
+@given(knownbits_with_contained_number, pos_small_values)
+def test_knownbits_lshift_random(t1, t2):
+    #if (t2==57):
+    #    import pdb; pdb.set_trace()
+    b1, n1 = t1
+    b2 = ConstIntBound(t2)
+    print t1, " << ", t2
+    r = b1.lshift_bound(b2)
+    # this works for right-shift, not for left-shift!
+    assert r.contains(intmask(r_uint(n1) << r_uint(t2))) 
