@@ -729,6 +729,32 @@ def test_const_stays_const_or(t1, t2):
     assert r.equals(n1 | n2)
     assert r.get_constant_int() == n1 | n2
 
+@given(constant, constant)
+def test_const_stays_const_and(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    r = b1.and_bound(b2)
+    assert r.is_constant()
+    assert r.equals(n1 & n2)
+    assert r.get_constant_int() == n1 & n2
+
+@given(constant, constant)
+def test_const_stays_const_xor(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    r = b1.xor_bound(b2)
+    assert r.is_constant()
+    assert r.equals(n1 ^ n2)
+    assert r.get_constant_int() == n1 ^ n2
+
+@given(constant)
+def test_const_stays_const_invert(t1):
+    b1, n1 = t1
+    r = b1.invert_bound()
+    assert r.is_constant()
+    assert r.equals(~n1)
+    assert r.get_constant_int() == ~n1
+
 
 @given(maybe_valid_value_mask_pair)
 def test_validtnum_assertion_random(t1):
