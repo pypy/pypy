@@ -33,7 +33,7 @@ pos_special_values_set = (
 pos_special_values = strategies.sampled_from(
     [int(v) for v in pos_special_values_set if type(int(v)) is int])
 
-pos_small_values = strategies.sampled_from(
+pos_relatively_small_values = strategies.sampled_from(
     [int(v) for v in range(0, 128)])
 
 ints = strategies.builds(
@@ -798,7 +798,7 @@ def test_knownbits_invert_random(t1):
     r = ~n1
     assert b2.contains(r)
 
-@given(knownbits_with_contained_number, pos_small_values)
+@given(knownbits_with_contained_number, pos_relatively_small_values)
 def test_knownbits_lshift_random(t1, t2):
     b1, n1 = t1
     b2 = ConstIntBound(t2)

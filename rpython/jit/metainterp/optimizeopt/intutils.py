@@ -603,7 +603,7 @@ def ConstIntBound(value):
         tvalue = 0
         tmask = -1
     b = IntBound(lower=value, 
-                 upper=value,
+                 upper=value, 
                  has_lower=True,
                  has_upper=True,
                  tvalue=tvalue,
