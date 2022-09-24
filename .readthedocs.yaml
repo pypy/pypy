@@ -6,9 +6,7 @@ build:
     python: "2.7"
   commands:
       - echo ${PWD}/${READTHEDOCS_PROJECT}
-      - cd ${READTHEDOCS_PROJECT}/doc
-      - pip install -r requirements.txt
-      - make html
+      - cd ${READTHEDOCS_PROJECT}/doc && pip install -r requirements.txt && make html
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
