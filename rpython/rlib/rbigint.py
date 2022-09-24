@@ -1881,8 +1881,8 @@ def _k_mul(a, b):
         t2 = a.mul(bh)
         i = ret.numdigits() - shift  # digits after shift
         carry = _v_iadd(ret, shift, i, t2, t2.numdigits())
-        #res2 = _x_mul(a, b)
         ret._normalize()
+        #res2 = _x_mul(a, b)
         #assert ret.eq(res2)
         return ret
     else:

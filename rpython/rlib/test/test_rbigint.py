@@ -311,7 +311,6 @@ class TestRLong(object):
     def test_karatsuba_not_used_bug(self):
         a = rbigint.fromlong(2 ** 2000 + 1)
         b = rbigint.fromlong(2 ** 5000 + 7)
-        import pdb; pdb.set_trace()
         assert a.mul(b).tolong() == a.tolong() * b.tolong()
 
     def test_lopsided_bug(self):
