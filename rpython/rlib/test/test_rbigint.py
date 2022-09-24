@@ -308,6 +308,20 @@ class TestRLong(object):
         check((2 << 1000) - 1, (2 << (65 * 3 + 2)) - 1)
         check((2 + 5 * 2 ** SHIFT) << (100 * SHIFT), 5 << (100 * SHIFT))
 
+    def test_karatsuba_not_used_bug(self):
+        a = rbigint.fromlong(2 ** 2000 + 1)
+        b = rbigint.fromlong(2 ** 5000 + 7)
+        import pdb; pdb.set_trace()
+        assert a.mul(b).tolong() == a.tolong() * b.tolong()
+
+    def test_lopsided_bug(self):
+        la = 0x1b8e499a888235ea66f6497e3640bc118592a4ecb800e53e0121af9b2dede38c9323dc160ad564c10ff34095fcc89ecefde3116e7ad99bd5a5b785d811a1e930ae0b0a919623569c99d6c1e779aa5345609a14fc64a83970991d7df672d3bf2fe800766932291b2593382495d1b2a9de1a212d0e517d35764a8a30d060d4218f034807c59728a009683887c3f239f6b958216fd6e36db778bf350941be6ee987f87ea6460ba77f1db154fff175d20117107b5ebd48305b4190d082433419f3daace778d9ce9975ca33293c8b7ad7dd253321e208c22e1bf3833535dd4c76395117e6f32444254fdb9e77cd0b5f8d98c31dafaab720067ef925
+        a = rbigint.fromlong(la)
+        lb = 0x30fcf4a0f2ae98bd28d249c3eeabf902b492ec4f8001978aacada9f76e18b0f9e9234e6013427a3ac705c82716b9fde1c35ac9a7f6d8317bd14643473bca821da73012c9ee77b66bbc287529bbd97797c82e5e327a0e9f0110346e27e894e21c471d44493cbadaed7780410a585a118ad91e88fd02a5b4608483e500ac23c9e1ccf1d4ed7e811c8280647f953cd8d3109cad389a77df7f0f8cd01074e0c52d6380e12798f84637513b41c7029891c90c8f1436a5d5ab4ce656c80405b1f53fbda529ba66c49f0a4b059ea4862fb8a5977758ae4875a74e22b05e98a5dd43f41e6361b0407925e34d8b7fa5698d6d815adf712f7e71d2a8d75ee7749e22e558157d73c1ed1089063dd7a29c915990836b5a951aa77917847bd9807d6c89b4262871127d17ca5a84e2b23bc5eb66137cce412dcbd88622b55b05b710258affcc845a8e1b99d33c187a237eacd21e9628063948f711b2e5617b647f3fe7c28bac1989612a66d6be34d59ffee63e15e0cdf10d43c6f6301c47e7c7f3ca71dc4e312873633957a6054f25d4db49dcc401aba272ff7c23e077c143510a040f5eb80fe096384c3a4ab0604d951710956f84cdefb631a2ed806ad8f5fef5ef1223dbea4b8a7b49309e9672e77c763dbb698432c77cfff875ab5c97d24f4441b5a3704deda8835135e3e6314be281a97963b49eccf06571b634efa16605a0ec2eda8148a6537e24da5fb128cfbde3ea6c28d850eac3815dd2a0a72844a14590124a6e9062befbdf7fb14c7783ee5096481a5ef0ef9dabf4bc831213afc469a5256818e1dba97cae6f63d6cf2b9584361f36b1b8fa60286fe6bc010129b7f99ee250907ed0a134900513bd3c38555de3b085e7e86
+        b = rbigint.fromlong(lb)
+        x = a.mul(b)
+        assert x.tolong() == la * lb
+
 
 def bigint(lst, sign):
     for digit in lst:
@@ -420,7 +434,7 @@ class Test_rbigint(object):
         mem = {}
 
         result = _str_to_int_big_inner10('123952' * 1000, 0, 6000, mem, 20)
-        assert len(mem) == 14
+        assert len(mem) == 13
         assert result
 
     def test_from_numberstring_parser(self):
