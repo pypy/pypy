@@ -446,6 +446,8 @@ class __extend__(pyframe.PyFrame):
                 self.MATCH_SEQUENCE(oparg, next_instr)
             elif opcode == opcodedesc.MATCH_KEYS.index:
                 self.MATCH_KEYS(oparg, next_instr)
+            elif opcode == opcodedesc.MATCH_CLASS.index:
+                self.MATCH_CLASS(oparg, next_instr)
             elif opcode == opcodedesc.COPY_DICT_WITHOUT_KEYS.index:
                 self.COPY_DICT_WITHOUT_KEYS(oparg, next_instr)
             elif opcode == opcodedesc.ROT_N.index:
@@ -1720,6 +1722,78 @@ class __extend__(pyframe.PyFrame):
         w_mapping = self.peekvalue()
         is_mapping = self.space.ismapping_w(w_mapping)
         self.pushvalue(self.space.newbool(is_mapping))
+
+    def MATCH_CLASS(self, oparg, next_instr):
+        nargs = oparg
+        w_names = self.popvalue()
+        w_type = self.popvalue()
+        w_subject = self.popvalue()
+
+        if not self.space.isinstance_w(w_subject, w_type):
+            self.pushvalue(self.space.w_None)
+            self.pushvalue(self.space.w_False)
+            return
+
+        seen_w = set()
+        def match_class_attr(w_name):
+            if w_name in seen_w:
+                raise oefmt(self.space.w_TypeError,
+                        "%s() got multiple sub-patterns for attribute %R", w_type.name, w_name)
+            seen_w.add(w_name)
+            return self.space.getattr(w_subject, w_name)
+
+        attrs_w = []
+        if nargs:
+            try:
+                w_match_args = self.space.getattr(w_type, self.space.newtext('__match_args__'))
+                match_self = False
+                # TODO: validate match_args is a tuple
+            except OperationError as e:
+                if not e.match(self.space, self.space.w_AttributeError):
+                    raise e
+
+                w_match_args = self.space.newtuple([])
+                match_self = \
+                    self.space.isinstance_w(w_subject, self.space.w_float) or \
+                    self.space.isinstance_w(w_subject, self.space.w_tuple) or \
+                    self.space.isinstance_w(w_subject, self.space.w_dict) or \
+                    self.space.isinstance_w(w_subject, self.space.w_long) or \
+                    self.space.isinstance_w(w_subject, self.space.w_bytes) or \
+                    self.space.isinstance_w(w_subject, self.space.w_list) or \
+                    self.space.isinstance_w(w_subject, self.space.w_bytearray) or \
+                    self.space.isinstance_w(w_subject, self.space.w_unicode) or \
+                    self.space.isinstance_w(w_subject, self.space.w_set) or \
+                    self.space.isinstance_w(w_subject, self.space.w_frozenset)
+            
+            allowed = 1 if match_self else self.space.len_w(w_match_args)
+            if allowed < nargs:
+                plural = "" if allowed == 1 else "s";
+                raise oefmt(self.space.w_TypeError,
+                        "%s() accepts %d positional sub-pattern%s (%d given)", w_type.name, allowed, plural, nargs)
+
+            if match_self:
+                attrs_w.append(w_subject)
+            else:
+                for i in range(nargs):
+                    w_name = self.space.getitem(w_match_args, self.space.newint(i))
+                    if not self.space.isinstance_w(w_name, self.space.w_unicode):
+                        raise oefmt(self.space.w_TypeError,
+                                "__match_args__ elements must be strings (got %s)", self.space.type(w_name).name)
+                    w_attr = match_class_attr(w_name)
+                    attrs_w.append(w_attr)
+
+        w_iter = self.space.iter(w_names)
+        try:
+            while True:
+                w_name = self.space.next(w_iter)
+                w_attr = match_class_attr(w_name)
+                attrs_w.append(w_attr)
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_StopIteration):
+                raise
+
+        self.pushvalue(self.space.newtuple(attrs_w))
+        self.pushvalue(self.space.w_True)
 
     def GET_LEN(self, oparg, next_instr):
         w_sequence = self.peekvalue()
