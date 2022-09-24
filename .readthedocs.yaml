@@ -8,6 +8,7 @@ build:
       - pip install --upgrade pip setuptools wheel
       - cd ${READTHEDOCS_PROJECT}/doc && pip install -r requirements.txt
       - cd ${READTHEDOCS_PROJECT}/doc && make html
+      - cp -r ${READTHEDOCS_PROJECT}/doc/_build/
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
