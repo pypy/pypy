@@ -5,6 +5,7 @@ build:
   tools:
     python: "2.7"
   commands:
+      - echo ${PWD}/${READTHEDOCS_PROJECT}
       - cd ${READTHEDOCS_PROJECT}/doc
       - pip install -r requirements.txt
       - make html
