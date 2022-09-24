@@ -7,4 +7,14 @@ build:
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
-  configuration: pypy/doc/conf.py
+  configuration: ${READTHEDOCS_PROJECT}/doc/conf.py
+
+python:
+   install:
+   - requirements: ${READTHEDOCS_PROJECT}/docs/requirements.txt
+
+commands:
+    - cd ${READTHEDOCS_PROJECT}/doc
+    - pip install -r requirements.txt
+    - make html
+
