@@ -723,6 +723,7 @@ _static_opcode_stack_effects = {
     ops.MATCH_KEYS: 2,
     ops.COPY_DICT_WITHOUT_KEYS: 0,
     ops.ROT_N: 0,
+    ops.MATCH_CLASS: -1,
 }
 
 

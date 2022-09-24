@@ -2206,6 +2206,37 @@ res=(
             {'y': 7},
         ))
 
+    def test_match_class(self):
+        func = """
+class C:
+    def __init__(self, x):
+        self.x = x
+C.__match_args__ = ('x',)
+
+def f(x):
+    match x:
+        case C(x) if x is True: return "C(True)"
+        case C(x=y) if y is False: return "C(False)"
+        case C(x=z): return "C(x={})".format(z)
+        case bool(b) if b: return "True"
+        case bool(): return "False"
+import dis; dis.dis(f)
+res=(
+    f(True),
+    f(False),
+    f(C(True)),
+    f(C(False)),
+    f(C(None)),
+)
+"""
+        self.st(func, "res", (
+            "True",
+            "False",
+            "C(True)",
+            "C(False)",
+            "C(x=None)",
+        ))
+
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
     def simple_test(self, source, evalexpr, expected):

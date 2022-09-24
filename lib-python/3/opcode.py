@@ -207,6 +207,8 @@ hasfree.append(148)
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
 
+def_op('MATCH_CLASS', 152)
+
 jrel_op('SETUP_ASYNC_WITH', 154)
 
 def_op('FORMAT_VALUE', 155)

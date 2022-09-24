@@ -2309,7 +2309,47 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # @1: [True]
         # @2: [True]
         # @3: [False]
+    
+    def visit_MatchClass(self, match_class):
+        fail = self.new_block()
+        end = self.new_block()
+        
+        if match_class.kwd_attrs:
+            kwd_attrs_w = [self.space.newtext(attr) for attr in match_class.kwd_attrs]
+        else:
+            kwd_attrs_w = []
 
+        nargs = len(match_class.patterns) if match_class.patterns else 0
+        nattrs = len(kwd_attrs_w)
+
+        match_class.cls.walkabout(self)
+        self.load_const(self.space.newtuple(kwd_attrs_w))
+        self.emit_op_arg(ops.MATCH_CLASS, nargs)
+
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+
+        for i in range(nargs + nattrs):
+            if i < nargs:
+                pattern = match_class.patterns[i]
+            else:
+                pattern = match_class.kwd_patterns[i - nargs]
+            
+            # TODO: skip if pattern is a wildcard
+            self.emit_op(ops.DUP_TOP)
+            self.load_const(self.space.newint(i))
+            self.emit_op(ops.BINARY_SUBSCR)
+            pattern.walkabout(self)
+            self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+
+        self.emit_op(ops.POP_TOP)
+        self.load_const(self.space.w_True)
+        self.emit_jump(ops.JUMP_FORWARD, end)
+
+        self.use_next_block(fail)
+        self.emit_op(ops.POP_TOP)
+        self.load_const(self.space.w_False)
+
+        self.use_next_block(end)
 
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
