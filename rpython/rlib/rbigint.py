@@ -3263,7 +3263,11 @@ def _decimalstr_to_bigint(s, start=0, lim=-1):
         p += 1
         tens *= 10
         if tens == DEC_MAX or p == lim:
-            a = _muladd1(a, tens, dig)
+            if a is not None:
+                a = _muladd1(a, tens, dig)
+            else:
+                assert dig & MASK == dig
+                a = rbigint([_store_digit(dig)], int(dig != 0))
             tens = 1
             dig = 0
     if sign and a.sign == 1:
@@ -3283,18 +3287,22 @@ def parse_digit_string(parser):
         return a
     a = NULLRBIGINT
     digitmax = BASE_MAX[base]
-    tens, dig = 1, 0
+    baseexp, dig = 1, 0
     while True:
         digit = parser.next_digit()
-        if tens == digitmax or digit < 0:
-            a = _muladd1(a, tens, dig)
+        if baseexp == digitmax or digit < 0:
+            if a is not None:
+                a = _muladd1(a, baseexp, dig)
+            else:
+                assert dig & MASK == dig
+                a = rbigint([_store_digit(dig)], int(dig != 0))
             if digit < 0:
                 break
             dig = digit
-            tens = base
+            baseexp = base
         else:
             dig = dig * base + digit
-            tens *= base
+            baseexp *= base
     a.sign *= parser.sign
     return a
 
