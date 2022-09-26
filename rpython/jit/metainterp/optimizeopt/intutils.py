@@ -601,6 +601,7 @@ def IntUnbounded():
 
 def ConstIntBound(value):
     # this one does NOT require a r_uint for `value`.
+    assert not isinstance(value, r_uint)
     tvalue = value
     tmask = 0
     if not isinstance(value, int):
@@ -617,6 +618,7 @@ def ConstIntBound(value):
 
 def IntBoundKnownbits(value, mask, do_unmask=False):
     # this one does require a r_uint for `value` and `mask`.
+    assert isinstance(value, r_uint) and isinstance(mask, r_uint)
     if do_unmask:
         value = unmask_zero(value, mask)
     b = IntBound(lower=0, 
@@ -629,6 +631,7 @@ def IntBoundKnownbits(value, mask, do_unmask=False):
 
 def IntLowerUpperBoundKnownbits(lower, upper, value, mask, do_unmask=False):
     # this one does require a r_uint for `value` and `mask`.
+    assert isinstance(value, r_uint) and isinstance(mask, r_uint)
     if do_unmask:
         value = unmask_zero(value, mask)
     b = IntBound(lower=lower, 
