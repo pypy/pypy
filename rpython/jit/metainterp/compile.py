@@ -1158,14 +1158,13 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     try:
         splitted = data.optimize_trace(
             metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
+        last_op_descrs = [ops[-1].getdescr() for _, ops in splitted]
+        (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:]
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
         debug_print('InvalidLoop in compile_loop_and_split')
         return None
-
-    last_op_descrs = [ops[-1].getdescr() for _, ops in splitted]
-    (new_body_info, new_body_ops), bridges = splitted[0], splitted[1:]
 
     # DEBUG
     # debug_print("Splitting the loop")
@@ -1180,9 +1179,7 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     new_body.inputargs = new_body_info.inputargs
 
     label_op = new_body_info.label_op
-    last_op = new_body_ops[-1]
-    if last_op.getopnum() == rop.JUMP and \
-       label_op.getdescr() in last_op_descrs:
+    if label_op.getdescr() in last_op_descrs:
         new_body.operations = [new_body_info.label_op] + new_body_ops
     else:
         new_body.operations = new_body_ops
@@ -1203,9 +1200,7 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         new_bridge.original_jitcell_token = body_jitcell_token
         new_bridge.inputargs = bridge_info.inputargs
         label_op = bridge_info.label_op
-        last_op = bridge_ops[-1]
-        if last_op.getopnum() == rop.JUMP and \
-           label_op.getdescr() in last_op_descrs:
+        if label_op.getdescr() in last_op_descrs:
             new_bridge.operations = [label_op] + bridge_ops
         else:
             new_bridge.operations = bridge_ops
