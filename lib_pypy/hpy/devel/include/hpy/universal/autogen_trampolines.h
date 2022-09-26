@@ -251,7 +251,7 @@ HPyAPI_FUNC HPy HPyErr_SetObject(HPyContext *ctx, HPy h_type, HPy h_value) {
 }
 
 HPyAPI_FUNC HPy HPyErr_SetFromErrnoWithFilename(HPyContext *ctx, HPy h_type, const char *filename_fsencoded) {
-     return ctx->ctx_Err_SetFromErrnoWithFilename ( ctx, h_type, filename_fsencoded ); 
+     ctx->ctx_Err_SetFromErrnoWithFilename ( ctx, h_type, filename_fsencoded ); return HPy_NULL;
 }
 
 HPyAPI_FUNC HPy HPyErr_SetFromErrnoWithFilenameObjects(HPyContext *ctx, HPy h_type, HPy filename1, HPy filename2) {

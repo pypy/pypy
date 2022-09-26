@@ -8,12 +8,11 @@ from rpython.rlib.objectmodel import specialize
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
+from pypy.module.cpyext.pyobject import as_pyobj, PyObject
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
-from .interp_module import get_doc
 from .interp_slot import fill_slot, W_wrap_getbuffer, get_slot_cls
 from .interp_descr import add_member, add_getset
-from .interp_cpy_compat import attach_legacy_slots_to_type
 from rpython.rlib.rutf8 import surrogate_in_utf8
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
@@ -168,9 +167,19 @@ class W_HPyObject(W_ObjectObject):
     def get_raw_data(self):
         return storage_get_raw_data(self.hpy_storage)
 
+    def get_pyobject(self):
+        storage = self.get_raw_data()
+        w_type = self.space.type(self)
+        assert isinstance(w_type, W_HPyTypeObject)
+        assert w_type.is_legacy
+        return rffi.cast(PyObject, self.get_raw_data()) 
+
     def _finalize_(self):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
+        if w_type.tp_finalize:
+            from pypy.interpreter.argument import Arguments
+            w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
         if w_type.tp_destroy:
             w_type.tp_destroy(self.get_raw_data())
 
@@ -179,6 +188,9 @@ class W_HPyTypeObject(W_TypeObject):
     basicsize = 0
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
     tp_traverse = lltype.nullptr(llapi.cts.gettype('HPyFunc_traverseproc').TO)
+    tp_finalize = None
+    # flag to create a pyobj for this w_obj
+    has_tp_dealloc = False
 
     def __init__(self, space, name, bases_w, dict_w, basicsize=0,
                  is_legacy=False):
@@ -274,7 +286,7 @@ def check_inheritance_constraints(space, w_type):
 def check_have_gc_and_tp_traverse(space, spec):
     # if we specify HPy_TPFLAGS_HAVE_GC, we must provide a tp_traverse
     have_gc = widen(spec.c_flags) & llapi.HPy_TPFLAGS_HAVE_GC
-    if have_gc and not has_tp_traverse(spec):
+    if have_gc and not has_tp_slot(spec, [HPySlot_Slot.HPy_tp_traverse]):
         raise oefmt(space.w_ValueError,
                     "You must provide an HPy_tp_traverse slot if you specify "
                     "HPy_TPFLAGS_HAVE_GC")
@@ -291,6 +303,7 @@ def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
 
 @specialize.arg(0)
 def _hpytype_fromspec(handles, spec, params):
+    from .interp_cpy_compat import attach_legacy_slots_to_type  # avoid circular import
     space = handles.space
     check_legacy_consistent(space, spec)
     check_have_gc_and_tp_traverse(space, spec)
@@ -318,7 +331,9 @@ def _hpytype_fromspec(handles, spec, params):
         w_doc = space.newtext(rffi.constcharp2str(spec.c_doc))
         w_result.setdictvalue(space, '__doc__', w_doc)
     if spec.c_legacy_slots:
-        attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots)
+        needs_hpytype_dealloc = has_tp_slot(spec,
+                         [HPySlot_Slot.HPy_tp_traverse, HPySlot_Slot.HPy_tp_destroy])
+        attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots, needs_hpytype_dealloc)
     if spec.c_defines:
         add_slot_defs(handles, w_result, spec.c_defines)
     check_inheritance_constraints(space, w_result)
@@ -326,6 +341,7 @@ def _hpytype_fromspec(handles, spec, params):
 
 @specialize.arg(0)
 def add_slot_defs(handles, w_result, c_defines):
+    from .interp_module import get_doc  # avoid circular import
     space = handles.space
     p = c_defines
     i = 0
@@ -366,7 +382,7 @@ def add_slot_defs(handles, w_result, c_defines):
         if w_buffer_wrapper and isinstance(w_buffer_wrapper, getbuffer_cls):
             w_buffer_wrapper.rbp = rbp
 
-def has_tp_traverse(spec):
+def has_tp_slot(spec, slots):
     if not spec.c_defines:
         return False
     p = spec.c_defines
@@ -378,7 +394,7 @@ def has_tp_traverse(spec):
         if kind == HPyDef_Kind.HPyDef_Kind_Slot:
             hpyslot = llapi.cts.cast('_pypy_HPyDef_as_slot*', p[i]).c_slot
             slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
-            if slot_num == HPySlot_Slot.HPy_tp_traverse:
+            if slot_num in slots:
                 return True
         i += 1
     return False
@@ -400,8 +416,14 @@ def _create_instance(space, w_type):
     w_result.space = space
     w_result.hpy_storage = storage_alloc(w_type.basicsize)
     w_result.hpy_storage.tp_traverse = w_type.tp_traverse
-    if w_type.tp_destroy:
+    if w_type.tp_destroy or w_type.tp_finalize:
         w_result.register_finalizer(space)
+    if w_type.has_tp_dealloc:
+        # legacy: create a pyobj with refcnt == 0 so that when w_result
+        # is collected, the pyobj's ob_type.tp_dealloc will be called
+        if not hasattr(space, 'is_fake_objspace'):
+            # the following lines break test_ztranslation :(
+            as_pyobj(space, w_result)
     return w_result
 
 @API.func("HPy HPyType_GenericNew(HPyContext *ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")

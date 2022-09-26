@@ -4,7 +4,7 @@ from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2)
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
-from rpython.rlib.rposix import c_read, get_saved_errno
+from rpython.rlib.rposix import c_read, get_saved_errno, open
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rposix
 from rpython.rlib import jit

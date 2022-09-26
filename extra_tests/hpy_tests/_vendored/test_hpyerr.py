@@ -671,3 +671,24 @@ class TestErr(HPyTest):
             res = mod.f(raise_exception, (exc_type, ), exc_types)
         with pytest.raises(DummyException):
             mod.f(raise_exception, (DummyException, ), exc_types)
+
+    def test_HPyErr_WriteUnraisable(self, python_subprocess):
+        mod = self.compile_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self)
+            {
+                HPyErr_SetString(ctx, ctx->h_ValueError, "error message");
+                HPyErr_WriteUnraisable(ctx, HPy_NULL);
+                return HPyBool_FromLong(ctx, HPyErr_Occurred(ctx));
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        if not SUPPORTS_SYS_EXECUTABLE:
+            # if sys.executable is not available (e.g. inside pypy app-level)
+            # tests, then skip the rest of this test
+            return
+        # subprocess is not importable in pypy app-level tests
+        result = python_subprocess.run(mod, "mod.f()")
+        assert result.returncode == 0
+

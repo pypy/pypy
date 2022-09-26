@@ -71,7 +71,7 @@ DHPy debug_ctx_CallTupleDict(HPyContext *dctx, DHPy callable, DHPy args, DHPy kw
 void debug_ctx_FatalError(HPyContext *dctx, const char *message);
 void debug_ctx_Err_SetString(HPyContext *dctx, DHPy h_type, const char *message);
 void debug_ctx_Err_SetObject(HPyContext *dctx, DHPy h_type, DHPy h_value);
-DHPy debug_ctx_Err_SetFromErrnoWithFilename(HPyContext *dctx, DHPy h_type, const char *filename_fsencoded);
+void debug_ctx_Err_SetFromErrnoWithFilename(HPyContext *dctx, DHPy h_type, const char *filename_fsencoded);
 void debug_ctx_Err_SetFromErrnoWithFilenameObjects(HPyContext *dctx, DHPy h_type, DHPy filename1, DHPy filename2);
 int debug_ctx_Err_Occurred(HPyContext *dctx);
 int debug_ctx_Err_ExceptionMatches(HPyContext *dctx, DHPy exc);

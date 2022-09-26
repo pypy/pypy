@@ -126,6 +126,46 @@ class TestMallocRemoval(object):
             return a1.x
         self.check(fn6, [int], [1], 12, must_be_removed=False)
 
+    def test_aliasing_identity_op(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        T = lltype.GcStruct('T', ('z', lltype.Signed))
+        S = lltype.GcStruct('S', ('t', T),
+                                 ('x', lltype.Signed),
+                                 ('y', lltype.Signed))
+        def fn(n):
+            a1 = lltype.malloc(S)
+            a1.x = 5
+            a2 = lltype.malloc(S)
+            a2.x = 6
+            if n > 0:
+                a = a1
+                a = lltype.cast_pointer(lltype.Ptr(T), a1)
+                # a and a1 alias, but only via an identity op
+            else:
+                a = a2
+                a = lltype.cast_pointer(lltype.Ptr(T), a2)
+            a = lltype.cast_pointer(lltype.Ptr(S), a)
+            a.x = 12
+            return a1.x
+        self.check(fn, [int], [1], 12, must_be_removed=False)
+
+    def test_merge(self):
+        class A(object): pass
+        class B(A): pass
+
+        def fn(x):
+            if x:
+                a = A()
+                a.x = x
+            else:
+                a = A()
+                a.x = 17
+            return a.x
+        self.check(fn, [int], [0], 17)
+
     def test_bogus_cast_pointer(self):
         class S:
             pass

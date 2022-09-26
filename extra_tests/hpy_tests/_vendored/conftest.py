@@ -1,9 +1,23 @@
 import pytest
+import sys
 from .support import ExtensionCompiler, DefaultExtensionTemplate,\
     PythonSubprocessRunner, HPyDebugCapture
 from hpy.debug.leakdetector import LeakDetector
 
 IS_VALGRIND_RUN = False
+
+# This needs to be in the top-level conftest.py, it is copied from the one
+# in hpy_tests/_vendored See the note at
+# https://docs.pytest.org/en/7.1.x/reference/reference.html#initialization-hooks
+# def pytest_addoption(parser):
+#     parser.addoption(
+#         "--compiler-v", action="store_true",
+#         help="Print to stdout the commands used to invoke the compiler")
+#     parser.addoption(
+#         "--subprocess-v", action="store_true",
+#         help="Print to stdout the stdout and stderr of Python subprocesses"
+#              "executed via run_python_subprocess")
+
 
 @pytest.hookimpl(trylast=True)
 def pytest_configure(config):
@@ -42,7 +56,6 @@ def compiler(request, tmpdir, hpy_devel, hpy_abi, ExtensionTemplate):
 
 @pytest.fixture(scope="session")
 def fatal_exit_code(request):
-    import sys
     return {
         "linux": -6,  # SIGABRT
         # See https://bugs.python.org/issue36116#msg336782 -- the
@@ -61,5 +74,7 @@ def python_subprocess(request, hpy_abi):
 @pytest.fixture()
 def hpy_debug_capture(request, hpy_abi):
     assert hpy_abi == 'debug'
+    if sys.implementation.name != "cpython":
+        pytest.skip("'on_invalid_handle' hook usable on cpython only")
     with HPyDebugCapture() as reporter:
         yield reporter

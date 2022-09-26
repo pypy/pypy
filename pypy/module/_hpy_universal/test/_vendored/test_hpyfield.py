@@ -17,7 +17,6 @@ class PairTemplate(DefaultExtensionTemplate):
                 HPyField a;
                 HPyField b;
             } PairObject;
-        
             HPyType_HELPERS(PairObject);
         """
 
@@ -146,6 +145,8 @@ class TestHPyField(HPyTest):
         """)
         p = mod.Pair("hello", "world")
         referents = gc.get_referents(p)
+        # pypy reports p.__class__ as referents, filter it out
+        referents = [obj for obj in referents if obj is not mod.Pair]
         referents.sort()
         assert referents == ['hello', 'world']
 

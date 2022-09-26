@@ -100,21 +100,45 @@ class TestUnicode(HPyTest):
 
     def test_AsUTF8AndSize(self):
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
-            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
+            #include <string.h>
+
+            static HPy as_utf8_and_size(HPyContext *ctx, HPy arg, HPy_ssize_t *size) 
             {
                 HPy_ssize_t n;
-                const char* buf = HPyUnicode_AsUTF8AndSize(ctx, arg, &n);
+                const char* buf = HPyUnicode_AsUTF8AndSize(ctx, arg, size);
                 long res = 0;
+
+                if (size)
+                    n = *size;
+                else
+                    n = strlen(buf);
+
                 for(int i=0; i<n; i++)
                     res = (res * 10) + buf[i];
                 return HPyLong_FromLong(ctx, res);
             }
+
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                HPy_ssize_t n;
+                return as_utf8_and_size(ctx, arg, &n);
+            }
+
+            HPyDef_METH(g, "g", g_impl, HPyFunc_O)
+            static HPy g_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                return as_utf8_and_size(ctx, arg, NULL);
+            }
             @EXPORT(f)
+            @EXPORT(g)
             @INIT
         """)
         assert mod.f('ABC') == 100*ord('A') + 10*ord('B') + ord('C')
         assert mod.f(b'A\0C'.decode('utf-8')) == 100*ord('A') + ord('C')
+        assert mod.g('ABC') == 100*ord('A') + 10*ord('B') + ord('C')
+        assert mod.g(b'A'.decode('utf-8')) == ord('A')
+        assert mod.g(b'A\0'.decode('utf-8')) == ord('A')
 
     def test_DecodeLatin1(self):
         mod = self.make_module("""
