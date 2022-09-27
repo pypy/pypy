@@ -318,33 +318,31 @@ class OptTraceSplit(Optimizer):
         self.emit(newop)
 
     def _invest_label_jump_dest(self, targetbox, token):
-        newopsandinfo = []
-        invested = False
+        jd = self.jitdriver_sd
+        num_green_args = jd.num_green_args
+        num_red_args = jd.num_red_args
+
         for info, ops in self._newopsandinfo:
-            newops = []
-            for op in ops:
+            for i, op in enumerate(ops):
                 if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                    posbox = self._get_greens(op)[0]
+                    arglist = op.getarglist()
+                    greenargs = arglist[1+num_red_args:1+num_red_args+num_green_args]
+                    posbox = greenargs[0]
                     if posbox.same_constant(targetbox):
                         label_op = ResOperation(rop.LABEL, self.inputargs, token)
-                        newops.append(label_op)
-                        invested = True
-                newops.append(op)
-            newopsandinfo.append((info, newops))
-        self._newopsandinfo = newopsandinfo
+                        ops.insert(i, label_op)
+                        return
 
-        if invested:
-            return
-
-        newops = []
-        for op in self._newoperations:
+        for i, op in enumerate(self._newoperations):
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                posbox = self._get_greens(op)[0]
+                arglist = op.getarglist()
+                greenargs = arglist[1+num_red_args:1+num_red_args+num_green_args]
+                posbox = greenargs[0]
                 if posbox.same_constant(targetbox):
                     label_op = ResOperation(rop.LABEL, self.inputargs, token)
-                    newops.append(label_op)
-            newops.append(op)
-        self._newoperations = newops
+                    self._newoperations.insert(i, label_op)
+                    return
+
 
     def get_from_token_map(self, key):
         if self.token_map is None:
