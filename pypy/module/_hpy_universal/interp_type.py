@@ -65,6 +65,9 @@ HPY_STORAGE = lltype.GcStruct(
 DATA_OFS = llmemory.offsetof(HPY_STORAGE, 'data')
 DATA_ITEM0_OFS = llmemory.itemoffsetof(HPY_STORAGE.data, 0)
 
+# later the JIT should probably be able to look into this, but atm it's too
+# difficult
+@jit.dont_look_inside
 def storage_alloc(size):
     """
     Allocate an HPY_STORAGE containing 'size' bytes of user data. The memory is
