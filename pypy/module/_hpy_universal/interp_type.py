@@ -8,6 +8,7 @@ from rpython.rlib.objectmodel import specialize
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
+from pypy.interpreter.typedef import interp2app
 from pypy.module.cpyext.pyobject import as_pyobj, PyObject
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
@@ -320,6 +321,8 @@ def _hpytype_fromspec(handles, spec, params):
 
     if modname is not None:
         dict_w['__module__'] = space.newtext(modname)
+    # install a generic tp_new, could be overridden
+    dict_w['__new__'] = descr_new.get_function(space)
 
     bases_w = get_bases_from_params(handles, params)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
@@ -405,13 +408,14 @@ def _create_new_type(
     if pos >= 0:
         raise oefmt(space.w_ValueError, "can't encode character in position "
                     "%d, surrogates not allowed", pos)
+
     w_type = W_HPyTypeObject(
         space, name, bases_w or [space.w_object], dict_w, basicsize, is_legacy)
     w_type.ready()
     return w_type
 
 def _create_instance(space, w_type):
-    assert isinstance(w_type, W_HPyTypeObject)
+    w_type = space.interp_w(W_HPyTypeObject, w_type)
     w_result = space.allocate_instance(W_HPyObject, w_type)
     w_result.space = space
     w_result.hpy_storage = storage_alloc(w_type.basicsize)
@@ -425,6 +429,8 @@ def _create_instance(space, w_type):
             # the following lines break test_ztranslation :(
             as_pyobj(space, w_result)
     return w_result
+
+descr_new = interp2app(_create_instance)
 
 @API.func("HPy HPyType_GenericNew(HPyContext *ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
 def HPyType_GenericNew(space, handles, ctx, h_type, args, nargs, kw):
