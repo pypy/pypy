@@ -322,7 +322,7 @@ def _hpytype_fromspec(handles, spec, params):
     if modname is not None:
         dict_w['__module__'] = space.newtext(modname)
     # install a generic tp_new, could be overridden
-    dict_w['__new__'] = descr_new.get_function(space)
+    dict_w['__new__'] = get_default_new(space)
 
     bases_w = get_bases_from_params(handles, params)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
@@ -431,6 +431,11 @@ def _create_instance(space, w_type):
     return w_result
 
 descr_new = interp2app(_create_instance)
+
+@specialize.memo()
+def get_default_new(space):
+    return descr_new.get_function(space)
+
 
 @API.func("HPy HPyType_GenericNew(HPyContext *ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
 def HPyType_GenericNew(space, handles, ctx, h_type, args, nargs, kw):
