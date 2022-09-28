@@ -212,6 +212,18 @@ def sq_getindex(space, w_sequence, w_idx):
         idx += n
     return idx
 
+class W_wrap_mp_item(object):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
+        self.check_args(space, __args__, 2)
+        w_self = __args__.arguments_w[0]
+        w_key = __args__.arguments_w[1]
+        with self.handles.using(w_self, w_key) as (h_self, h_key):
+            h_result = func(self.ctx, h_self, h_key)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
+        return self.handles.consume(h_result)
+
 class W_wrap_sq_item(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
@@ -225,6 +237,19 @@ class W_wrap_sq_item(object):
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
+class W_wrap_mp_setitem(object):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
+        self.check_args(space, __args__, 3)
+        w_self = __args__.arguments_w[0]
+        w_key = __args__.arguments_w[1]
+        w_value = __args__.arguments_w[2]
+        with self.handles.using(w_self, w_key, w_value) as (h_self, h_key, h_value):
+            result = func(self.ctx, h_self, h_key, h_value)
+        if widen(result) == -1:
+            space.fromcache(State).raise_current_exception()
+        return space.w_None
+
 class W_wrap_sq_setitem(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
@@ -235,6 +260,18 @@ class W_wrap_sq_setitem(object):
         w_value = __args__.arguments_w[2]
         with self.handles.using(w_self, w_value) as (h_self, h_value):
             result = func(self.ctx, h_self, idx, h_value)
+        if widen(result) == -1:
+            space.fromcache(State).raise_current_exception()
+        return space.w_None
+
+class W_wrap_mp_delitem(object):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
+        self.check_args(space, __args__, 2)
+        w_self = __args__.arguments_w[0]
+        w_key = __args__.arguments_w[1]
+        with self.handles.using(w_self, w_key) as (h_self, h_key):
+            result = func(self.ctx, h_self, h_key, llapi.HPy_NULL)
         if widen(result) == -1:
             space.fromcache(State).raise_current_exception()
         return space.w_None
@@ -414,9 +451,10 @@ def get_tp_new_wrapper_cls(handles):
 SLOTS = unrolling_iterable([
     # CPython slots
     ('bf_getbuffer',                '__buffer__',   W_wrap_getbuffer),
-#   ('mp_ass_subscript',           '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('mp_length',                  '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('mp_subscript',               '__getitem__',   AGS.W_SlotWrapper_binaryfunc),
+    ('mp_ass_subscript',           '__setitem__',   W_wrap_mp_setitem),
+    ('mp_ass_subscript',           '__delitem__',   W_wrap_mp_delitem),
+    ('mp_length',                  '__len__',       W_wrap_lenfunc),
+    ('mp_subscript',               '__getitem__',   W_wrap_mp_item),
     ('nb_absolute',                '__abs__',       W_wrap_unaryfunc),
     ('nb_add',                     '__add__',       W_wrap_binaryfunc),
     ('nb_and',                     '__and__',       W_wrap_binaryfunc),
