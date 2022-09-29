@@ -324,10 +324,16 @@ def _hpytype_fromspec(handles, spec, params):
 
     if modname is not None:
         dict_w['__module__'] = space.newtext(modname)
-    # install a generic tp_new, could be overridden
-    dict_w['__new__'] = get_default_new(space)
 
     bases_w = get_bases_from_params(handles, params)
+    if not bases_w:
+        # override object.__new__ with one that allocates space for the C
+        # struct. It could be further overridden via a tp_new in the spec
+        #
+        # For now assume that inheriting from builtin types will never require
+        # add C-level fields, only methods, so HPy_AsStruct will never be called
+        # on such an instance.
+        dict_w['__new__'] = get_default_new(space)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
 
     is_legacy = bool(widen(spec.c_legacy))
