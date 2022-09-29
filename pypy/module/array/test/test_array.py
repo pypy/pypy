@@ -762,6 +762,16 @@ class AppTestArray(object):
         assert hasattr(b, '__iter__')
         assert next(b.__iter__()) == 1
 
+    def test_contains(self):
+        a = self.array('i', [1, 6, 3])
+        assert hasattr(a, '__contains__')
+        assert (1 in a) is True
+        assert 6 in a
+        assert 3 in a
+        assert (0 in a) is False
+        assert 12 not in a
+        assert 'a' not in a
+
     def test_lying_iterable(self):
         class lier(object):
             def __init__(self, n):
