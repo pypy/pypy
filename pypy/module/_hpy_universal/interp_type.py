@@ -326,6 +326,7 @@ def _hpytype_fromspec(handles, spec, params):
         dict_w['__module__'] = space.newtext(modname)
 
     bases_w = get_bases_from_params(handles, params)
+    is_legacy = bool(widen(spec.c_legacy))
     if not bases_w:
         # override object.__new__ with one that allocates space for the C
         # struct. It could be further overridden via a tp_new in the spec
@@ -336,7 +337,6 @@ def _hpytype_fromspec(handles, spec, params):
         dict_w['__new__'] = get_default_new(space)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
 
-    is_legacy = bool(widen(spec.c_legacy))
     w_result = _create_new_type(
         space, space.w_type, name, bases_w, dict_w, basicsize, is_legacy=is_legacy)
     if spec.c_doc:
@@ -424,14 +424,26 @@ def _create_new_type(
     return w_type
 
 def _create_instance(space, w_type):
-    w_type = space.interp_w(W_HPyTypeObject, w_type)
+    # w_type = space.interp_w(W_HPyTypeObject, w_type)
     w_result = space.allocate_instance(W_HPyObject, w_type)
+    if isinstance(w_type, W_HPyTypeObject):
+        w_hpybase = w_type
+    else:
+        # a subclass?
+        assert isinstance(w_type, W_TypeObject)
+        for w_b in w_type.bases_w:
+            if isinstance(w_b, W_HPyTypeObject):
+                w_hpybase = w_b
+                break
+        else:
+            # Can this ever happen?
+            raise oefmt(space.w_TypeError, "bad call to __new__")
     w_result.space = space
-    w_result.hpy_storage = storage_alloc(w_type.basicsize)
-    w_result.hpy_storage.tp_traverse = w_type.tp_traverse
-    if w_type.tp_destroy or w_type.tp_finalize:
+    w_result.hpy_storage = storage_alloc(w_hpybase.basicsize)
+    w_result.hpy_storage.tp_traverse = w_hpybase.tp_traverse
+    if w_hpybase.tp_destroy or w_hpybase.tp_finalize:
         w_result.register_finalizer(space)
-    if w_type.has_tp_dealloc:
+    if w_hpybase.has_tp_dealloc:
         # legacy: create a pyobj with refcnt == 0 so that when w_result
         # is collected, the pyobj's ob_type.tp_dealloc will be called
         if not hasattr(space, 'is_fake_objspace'):
