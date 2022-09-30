@@ -30,6 +30,7 @@ eci = ExternalCompilationInfo(
         DEBUG_DIR.join('debug_ctx.c'),
         DEBUG_DIR.join('debug_ctx_not_cpython.c'),
         DEBUG_DIR.join('debug_handles.c'),
+        DEBUG_DIR.join('stacktrace.c'),
         DEBUG_DIR.join('_debugmod.c'),
         DEBUG_DIR.join('autogen_debug_wrappers.c'),
         DEBUG_DIR.join('dhqueue.c'),
@@ -174,6 +175,8 @@ typedef struct _HPyContext_s {
     void * ctx_Long_AsUnsignedLongLongMask;
     void * ctx_Long_AsSize_t;
     void * ctx_Long_AsSsize_t;
+    void * ctx_Long_AsVoidPtr;
+    void * ctx_Long_AsDouble;
     void * ctx_Float_FromDouble;
     void * ctx_Float_AsDouble;
     void * ctx_Bool_FromLong;
@@ -227,6 +230,7 @@ typedef struct _HPyContext_s {
     void * ctx_Err_NewException;
     void * ctx_Err_NewExceptionWithDoc;
     void * ctx_Err_WarnEx;
+    void * ctx_Err_WriteUnraisable;
     void * ctx_IsTrue;
     void * ctx_Type_FromSpec;
     void * ctx_Type_GenericNew;
@@ -301,6 +305,10 @@ typedef struct _HPyContext_s {
     void * ctx_Tracker_Close;
     void * ctx_Field_Store;
     void * ctx_Field_Load;
+    void * ctx_ReenterPythonExecution;
+    void * ctx_LeavePythonExecution;
+    void * ctx_Global_Store;
+    void * ctx_Global_Load;
     void * ctx_Dump;
 } _struct_HPyContext_s;
 
