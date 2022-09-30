@@ -16,7 +16,7 @@ IS_64_BIT = sys.maxint > 2**32
 
 TNUM_UNKNOWN = r_uint(0), r_uint(-1)
 TNUM_KNOWN_ZERO = r_uint(0), r_uint(0)
-TNUM_KNOWN_BITWISEONE = r_uint(0), r_uint(-1)
+TNUM_KNOWN_BITWISEONE = r_uint(-1), r_uint(0)
 TNUM_ONLY_VALUE_DEFAULT = r_uint(0)
 TNUM_ONLY_MASK_UNKNOWN = r_uint(-1)
 TNUM_ONLY_MASK_DEFAULT = TNUM_ONLY_MASK_UNKNOWN
@@ -354,9 +354,16 @@ class IntBound(AbstractInfo):
         if other.is_constant():
             c_other = other.get_constant_int()
             if c_other >= LONG_BIT:
-                if signed:
-                    tvalue, tmask = TNUM_KNOWN_BITWISEONE
+                if signed: 
+                    # shift value out to the right, but do sign extend
+                    if msbonly(self.tmask): # sign-extend mask
+                        tvalue, tmask = TNUM_UNKNOWN
+                    elif msbonly(self.tvalue): # sign-extend value
+                        tvalue, tmask = TNUM_KNOWN_BITWISEONE
+                    else: # sign is 0 on both
+                        tvalue, tmask = TNUM_KNOWN_ZERO
                 else:
+                    # no sign to extend, we get constant 0
                     tvalue, tmask = TNUM_KNOWN_ZERO
             elif c_other >= 0:
                 if signed:  # we leverage native sign extension logic
@@ -665,7 +672,7 @@ def max4(t):
     return max(max(t[0], t[1]), max(t[2], t[3]))
 
 def msbonly(v):
-    return v & (1 << LONG_BIT)
+    return v & (1 << (LONG_BIT-1))
 
 def is_valid_tnum(tvalue, tmask):
     if not isinstance(tvalue, r_uint):

@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
      IntLowerBound, IntUnbounded, ConstIntBound, IntBoundKnownbits, next_pow2_m1, \
-     IntLowerUpperBound
+     IntLowerUpperBound, msbonly
 
 from copy import copy
 import sys
@@ -705,11 +705,11 @@ def test_knownbits_invert():
 
 def test_knownbits_lshift():
     # both numbers constant case
-    a1 = ConstIntBound(31)
+    a1 = ConstIntBound(21)
     b1 = ConstIntBound(3)
     r1 = a1.lshift_bound(b1)
     assert a1.is_constant()
-    assert (31 << 3) == r1.get_constant_int()
+    assert (21 << 3) == r1.get_constant_int()
     assert 0 == (r1.get_constant_int() & 0b111)
     # knownbits case
     tv2 = 0b0100010     # 010??10
@@ -729,6 +729,67 @@ def test_knownbits_lshift():
     r3 = a3.lshift_bound(b3)
     assert r3.is_constant()
     assert r3.get_constant_int() == 0
+    
+def test_knownbits_rshift_unsigned():
+    # both numbers constant positive case
+    a1a = ConstIntBound(21)
+    b1 = ConstIntBound(3)
+    r1a = a1a.rshift_bound(b1)
+    assert r1a.is_constant()
+    assert (21 >> 3) == r1a.get_constant_int()
+    # both numbes constant negative case
+    a1b = ConstIntBound(-21)
+    r1b = a1b.rshift_bound(b1)
+    assert r1b.is_constant()
+    assert (-21 >> 3) == r1b.get_constant_int()
+    # knownbits case
+    tv2a = 0b0100010     # 010??10
+    tm2a = 0b0001100
+    a2a = IntBoundKnownbits(r_uint(tv2a), r_uint(tm2a))
+    b2 = ConstIntBound(3)
+    r2a = a2a.rshift_bound(b2) # 010?
+    assert not r2a.is_constant()
+    assert r2a.contains(0b0100)
+    assert r2a.contains(0b0101)
+    # knownbits case value sign extend
+    tv2b = ~0b0101010   # 1...1?101?1
+    tm2b =  0b0100010
+    a2b = IntBoundKnownbits(r_uint(tv2b), r_uint(tm2b))
+    r2b = a2b.rshift_bound(b2) # 1...1?10
+    assert not r2b.is_constant()
+    assert r2b.contains(~0b0101)
+    assert r2b.contains(~0b0001)
+    # knownbits case mask sign extend
+    tv2c = 0b0101010    # ?0...0101010
+    tm2c = intmask(1 << (LONG_BIT-1))
+    a2c = IntBoundKnownbits(r_uint(tv2c), r_uint(tm2c))
+    r2c = a2c.rshift_bound(b2)  # ????0...0101
+    assert not r2c.is_constant()
+    assert r2c.contains(0b0101 | (tm2c>>3))
+    assert r2c.contains(0b0101)
+    # complete shift out positive known
+    tv3a = 0b1001        # 1??1
+    tm3a = 0b0110
+    a3a = IntBoundKnownbits(r_uint(tv3a), r_uint(tm3a))
+    b3 = ConstIntBound(LONG_BIT+1)
+    #import pdb; pdb.set_trace()
+    r3a = a3a.rshift_bound(b3)
+    assert r3a.is_constant()
+    assert r3a.get_constant_int() == 0
+    # complete shift out negative known (extend value sign)
+    tv3b = ~0b1101      # 1...1?01?
+    tm3b =  0b1001
+    a3b = IntBoundKnownbits(r_uint(tv3b), r_uint(tm3b))
+    r3b = a3b.rshift_bound(b3)
+    assert r3b.is_constant()
+    assert r3b.get_constant_int() == -1
+    # complete shift out unknown (extend mask sign)
+    tv3c =  0b1000      # ?...?1??0
+    tm3c = ~0b1001
+    a3c = IntBoundKnownbits(r_uint(tv3c), r_uint(tm3c))
+    r3c = a3c.rshift_bound(b3)
+    assert not r3c.is_constant()
+    assert r3c.contains(-1)
 
 
 @given(constant, constant)
@@ -813,7 +874,15 @@ def test_knownbits_invert_random(t1):
 def test_knownbits_lshift_random(t1, t2):
     b1, n1 = t1
     b2 = ConstIntBound(t2)
-    print t1, " << ", t2
+    print b1, " << ", t2
     r = b1.lshift_bound(b2)
     # this works for left-shift, not for right-shift!
     assert r.contains(intmask(r_uint(n1) << r_uint(t2))) 
+
+@given(knownbits_with_contained_number, pos_relatively_small_values)
+def test_knownbits_rshift_unsigned_random(t1, t2):
+    b1, n1 = t1
+    b2 = ConstIntBound(t2)
+    print b1, " >> ", t2
+    r = b1.rshift_bound(b2)
+    assert r.contains(n1 >> t2) 
