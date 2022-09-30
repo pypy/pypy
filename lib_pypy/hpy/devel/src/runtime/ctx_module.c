@@ -19,7 +19,7 @@ ctx_Module_Create(HPyContext *ctx, HPyModuleDef *hpydef)
     // we can't free this memory because it is stitched into moduleobject. We
     // just make it immortal for now, eventually we should think whether or
     // not to free it if/when we unload the module
-    PyModuleDef *def = PyMem_Malloc(sizeof(PyModuleDef));
+    PyModuleDef *def = (PyModuleDef*)PyMem_Malloc(sizeof(PyModuleDef));
     if (def == NULL) {
         PyErr_NoMemory();
         return HPy_NULL;

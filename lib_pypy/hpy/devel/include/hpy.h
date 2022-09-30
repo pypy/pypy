@@ -40,9 +40,13 @@ extern "C" {
 #if defined(_MSC_VER) && defined(__cplusplus) // MSVC C4576
 #  define _hconv(h) {h}
 #  define _hfconv(h) {h}
+#  define _htsconv(h) {h}
+#  define _hgconv(h) {h}
 #else
 #  define _hconv(h) ((HPy){h})
 #  define _hfconv(h) ((HPyField){h})
+#  define _htsconv(h) ((HPyThreadState){h})
+#  define _hgconv(h) ((HPyGlobal){h})
 #endif
 /* ~~~~~~~~~~~~~~~~ HPyAPI declaration ~~~~~~~~~~~~~~~~ */
 
@@ -107,9 +111,11 @@ extern "C" {
  */
 typedef struct _HPy_s { intptr_t _i; } HPy;
 typedef struct { intptr_t _i; } HPyField;
+typedef struct { intptr_t _i; } HPyGlobal;
 typedef struct { intptr_t _lst; } HPyListBuilder;
 typedef struct { intptr_t _tup; } HPyTupleBuilder;
 typedef struct { intptr_t _i; } HPyTracker;
+typedef struct { intptr_t _i; } HPyThreadState;
 
 
 /* A null handle is officially defined as a handle whose _i is 0. This is true

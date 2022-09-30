@@ -108,6 +108,8 @@ struct _HPyContext_s {
     unsigned long long (*ctx_Long_AsUnsignedLongLongMask)(HPyContext *ctx, HPy h);
     size_t (*ctx_Long_AsSize_t)(HPyContext *ctx, HPy h);
     HPy_ssize_t (*ctx_Long_AsSsize_t)(HPyContext *ctx, HPy h);
+    void *(*ctx_Long_AsVoidPtr)(HPyContext *ctx, HPy h);
+    double (*ctx_Long_AsDouble)(HPyContext *ctx, HPy h);
     HPy (*ctx_Float_FromDouble)(HPyContext *ctx, double v);
     double (*ctx_Float_AsDouble)(HPyContext *ctx, HPy h);
     HPy (*ctx_Bool_FromLong)(HPyContext *ctx, long v);
@@ -161,6 +163,7 @@ struct _HPyContext_s {
     HPy (*ctx_Err_NewException)(HPyContext *ctx, const char *name, HPy base, HPy dict);
     HPy (*ctx_Err_NewExceptionWithDoc)(HPyContext *ctx, const char *name, const char *doc, HPy base, HPy dict);
     int (*ctx_Err_WarnEx)(HPyContext *ctx, HPy category, const char *message, HPy_ssize_t stack_level);
+    void (*ctx_Err_WriteUnraisable)(HPyContext *ctx, HPy obj);
     int (*ctx_IsTrue)(HPyContext *ctx, HPy h);
     HPy (*ctx_Type_FromSpec)(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params);
     HPy (*ctx_Type_GenericNew)(HPyContext *ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw);
@@ -235,5 +238,9 @@ struct _HPyContext_s {
     void (*ctx_Tracker_Close)(HPyContext *ctx, HPyTracker ht);
     void (*ctx_Field_Store)(HPyContext *ctx, HPy target_object, HPyField *target_field, HPy h);
     HPy (*ctx_Field_Load)(HPyContext *ctx, HPy source_object, HPyField source_field);
+    void (*ctx_ReenterPythonExecution)(HPyContext *ctx, HPyThreadState state);
+    HPyThreadState (*ctx_LeavePythonExecution)(HPyContext *ctx);
+    void (*ctx_Global_Store)(HPyContext *ctx, HPyGlobal *global, HPy h);
+    HPy (*ctx_Global_Load)(HPyContext *ctx, HPyGlobal global);
     void (*ctx_Dump)(HPyContext *ctx, HPy h);
 };
