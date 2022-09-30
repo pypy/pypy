@@ -44,13 +44,23 @@ class TestBuildValue(HPyTest):
             ('return HPy_BuildValue(ctx, "d", 0.25);', 0.25),
             ('return HPy_BuildValue(ctx, "ii", -1, 1);', (-1, 1)),
             ('return HPy_BuildValue(ctx, "(i)", -1);', (-1,)),
+            ('return HPy_BuildValue(ctx, "(i,i)", -1, 1);', (-1, 1)),
             ('return HPy_BuildValue(ctx, "(ii)", -1, 1);', (-1, 1)),
             ('return HPy_BuildValue(ctx, "s", "test string");', 'test string'),
             ('return HPy_BuildValue(ctx, "[ii]", 4, 2);', [4, 2]),
+            ('return HPy_BuildValue(ctx, "[i,i]", 4, 2);', [4, 2]),
             ('return HPy_BuildValue(ctx, "[is]", 4, "2");', [4, '2']),
             ('return HPy_BuildValue(ctx, "[]");', []),
             ('return HPy_BuildValue(ctx, "[(is)((f)[kk])i]", 4, "str", 0.25, 4, 2, 14267);',
-                [(4, 'str'), ((0.25,), [4, 2]), 14267])
+                [(4, 'str'), ((0.25,), [4, 2]), 14267]),
+            ('return HPy_BuildValue(ctx, "{s:i, s:f}", "A", 4, "B", 0.25);',
+                {'A':4, "B":0.25}),
+            ('return HPy_BuildValue(ctx, "{s:(i,i), s:f}", "A", 4, 4, "B", 0.25);',
+                {'A':(4, 4), "B":0.25}),
+            ('return HPy_BuildValue(ctx, "[{s:(i,i), s:f},i]", "A", 4, 4, "B", 0.25, 42);',
+                [{'A':(4, 4), "B":0.25}, 42]),
+            ('return HPy_BuildValue(ctx, "({s:(i,i), s:f},[i])", "A", 4, 4, "B", 0.25, 42);',
+                ({'A':(4, 4), "B":0.25}, [42])),
         ]
         mod = self.make_tests_module(test_cases)
         for i, (code, expected) in enumerate(test_cases):
@@ -73,6 +83,14 @@ class TestBuildValue(HPyTest):
              "unmatched '[' in the format string passed to HPy_BuildValue"),
             ('return HPy_BuildValue(ctx, "N", 42);',
              "HPy_BuildValue does not support the 'N' formatting unit."),
+            ('return HPy_BuildValue(ctx, "{i:i", "foo", 42);',
+             "unmatched '{' in the format string passed to HPy_BuildValue"),
+            ('return HPy_BuildValue(ctx, "{i:i,,}", "foo", 42);',
+             "unexpected ',' in the format string passed to HPy_BuildValue"),
+            ('return HPy_BuildValue(ctx, "{i:ii,}", "foo", 42, 42);',
+             "missing ',' in the format string passed to HPy_BuildValue"),
+            ('return HPy_BuildValue(ctx, "{i}", 42);',
+             "missing ':' in the format string passed to HPy_BuildValue"),
         ]
         import pytest
         mod = self.make_tests_module(test_cases)

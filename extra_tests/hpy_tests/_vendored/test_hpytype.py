@@ -796,22 +796,3 @@ class TestType(HPyTest):
         class Sub(mod.Dummy):
             pass
         assert isinstance(Sub(), mod.Dummy)
-
-    def test_directly_setting_hpy_tpflags_internal_pure_raises(self):
-        import pytest
-        mod_src = """
-            static HPyType_Spec Dummy_spec = {
-                .name = "mytest.Dummy",
-                .itemsize = 0,
-                .flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_INTERNAL_PURE,
-                @IS_LEGACY
-            };
-
-            @EXPORT_TYPE("Dummy", Dummy_spec)
-            @INIT
-        """
-        with pytest.raises(TypeError) as err:
-            self.make_module(mod_src)
-        assert str(err.value) == (
-            "HPy_TPFLAGS_INTERNAL_PURE should not be used directly,"
-            " set .legacy=true instead")
