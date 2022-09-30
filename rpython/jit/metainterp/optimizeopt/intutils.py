@@ -16,6 +16,7 @@ IS_64_BIT = sys.maxint > 2**32
 
 TNUM_UNKNOWN = r_uint(0), r_uint(-1)
 TNUM_KNOWN_ZERO = r_uint(0), r_uint(0)
+TNUM_KNOWN_BITWISEONE = r_uint(0), r_uint(-1)
 TNUM_ONLY_VALUE_DEFAULT = r_uint(0)
 TNUM_ONLY_MASK_UNKNOWN = r_uint(-1)
 TNUM_ONLY_MASK_DEFAULT = TNUM_ONLY_MASK_UNKNOWN
@@ -347,18 +348,24 @@ class IntBound(AbstractInfo):
         return IntBoundKnownbits(tvalue, tmask)
 
     def rshift_bound(self, other):
-        """r_tvalue = 0
-        r_tmask = -1
+        # this seems to always be the signed variant..?
+        signed = True
+        tvalue, tmask = TNUM_UNKNOWN
         if other.is_constant():
             c_other = other.get_constant_int()
-            if c_other > LONG_BIT:
-                r_tmask = 0
-            elif c_other > 0:
-
-                r_tvalue = r_uint(intmask(self.tvalue) >> c_other)
-                
-                r_tmask = self.tmask >> c_other
-            # else (c_other < 0) we know nothing"""
+            if c_other >= LONG_BIT:
+                if signed:
+                    tvalue, tmask = TNUM_KNOWN_BITWISEONE
+                else:
+                    tvalue, tmask = TNUM_KNOWN_ZERO
+            elif c_other >= 0:
+                if signed:  # we leverage native sign extension logic
+                    tvalue = r_uint(intmask(self.tvalue) >> c_other)
+                    tmask = r_uint(intmask(self.tmask) >> c_other)
+                else:
+                    tvalue = self.tvalue >> r_uint(c_other)
+                    tmask = self.tmask >> r_uint(c_other)
+            # else unknown because operation invalid
 
         if self.is_bounded() and other.is_bounded() and \
            other.known_nonnegative() and \
@@ -367,9 +374,10 @@ class IntBound(AbstractInfo):
                     self.upper >> other.lower,
                     self.lower >> other.upper,
                     self.lower >> other.lower)
-            return IntLowerUpperBound(min4(vals), max4(vals))
+            return IntLowerUpperBoundKnownbits(min4(vals), max4(vals),
+                                               tvalue, tmask)
         else:
-            return IntUnbounded()
+            return IntBoundKnownbits(tvalue, tmask)
 
     def and_bound(self, other):
         pos1 = self.known_nonnegative()
