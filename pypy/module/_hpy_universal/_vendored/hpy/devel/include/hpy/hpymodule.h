@@ -19,9 +19,17 @@ typedef struct {
     HPy_ssize_t size;
     cpy_PyMethodDef *legacy_methods;
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
+    /* array with pointers to statically allocated HPyGlobal,
+     * with NULL at the end as a sentinel. */
+    HPyGlobal **globals;
 } HPyModuleDef;
 
 
+#if defined(__cplusplus)
+#  define HPyMODINIT_FUNC extern "C" Py_EXPORTED_SYMBOL HPy
+#else /* __cplusplus */
+#  define HPyMODINIT_FUNC Py_EXPORTED_SYMBOL HPy
+#endif /* __cplusplus */
 
 #ifdef HPY_UNIVERSAL_ABI
 
@@ -29,8 +37,8 @@ typedef struct {
 #define HPy_MODINIT(modname)                                   \
     _HPy_HIDDEN HPyContext *_ctx_for_trampolines;              \
     static HPy init_##modname##_impl(HPyContext *ctx);         \
-    Py_EXPORTED_SYMBOL                                         \
-    HPy HPyInit_##modname(HPyContext *ctx)                     \
+    HPyMODINIT_FUNC                                         \
+    HPyInit_##modname(HPyContext *ctx)                     \
     {                                                          \
         _ctx_for_trampolines = ctx;                            \
         return init_##modname##_impl(ctx);                     \

@@ -80,6 +80,16 @@ HPyAPI_FUNC HPy_ssize_t HPyLong_AsSsize_t(HPyContext *ctx, HPy h)
     return PyLong_AsSsize_t(_h2py(h));
 }
 
+HPyAPI_FUNC void *HPyLong_AsVoidPtr(HPyContext *ctx, HPy h)
+{
+    return PyLong_AsVoidPtr(_h2py(h));
+}
+
+HPyAPI_FUNC double HPyLong_AsDouble(HPyContext *ctx, HPy h)
+{
+    return PyLong_AsDouble(_h2py(h));
+}
+
 HPyAPI_FUNC HPy HPyFloat_FromDouble(HPyContext *ctx, double v)
 {
     return _py2h(PyFloat_FromDouble(v));
@@ -294,8 +304,7 @@ HPyAPI_FUNC HPy HPyErr_SetObject(HPyContext *ctx, HPy h_type, HPy h_value)
 
 HPyAPI_FUNC HPy HPyErr_SetFromErrnoWithFilename(HPyContext *ctx, HPy h_type, const char *filename_fsencoded)
 {
-    PyErr_SetFromErrnoWithFilename(_h2py(h_type), filename_fsencoded);
-    return HPy_NULL;
+    return _py2h(PyErr_SetFromErrnoWithFilename(_h2py(h_type), filename_fsencoded));
 }
 
 HPyAPI_FUNC HPy HPyErr_SetFromErrnoWithFilenameObjects(HPyContext *ctx, HPy h_type, HPy filename1, HPy filename2)
@@ -333,6 +342,11 @@ HPyAPI_FUNC HPy HPyErr_NewExceptionWithDoc(HPyContext *ctx, const char *name, co
 HPyAPI_FUNC int HPyErr_WarnEx(HPyContext *ctx, HPy category, const char *message, HPy_ssize_t stack_level)
 {
     return PyErr_WarnEx(_h2py(category), message, stack_level);
+}
+
+HPyAPI_FUNC void HPyErr_WriteUnraisable(HPyContext *ctx, HPy obj)
+{
+    PyErr_WriteUnraisable(_h2py(obj));
 }
 
 HPyAPI_FUNC int HPy_IsTrue(HPyContext *ctx, HPy h)
@@ -553,5 +567,15 @@ HPyAPI_FUNC int HPyTuple_Check(HPyContext *ctx, HPy h)
 HPyAPI_FUNC HPy HPyImport_ImportModule(HPyContext *ctx, const char *name)
 {
     return _py2h(PyImport_ImportModule(name));
+}
+
+HPyAPI_FUNC void HPy_ReenterPythonExecution(HPyContext *ctx, HPyThreadState state)
+{
+    PyEval_RestoreThread(_h2threads(state));
+}
+
+HPyAPI_FUNC HPyThreadState HPy_LeavePythonExecution(HPyContext *ctx)
+{
+    return _threads2h(PyEval_SaveThread());
 }
 

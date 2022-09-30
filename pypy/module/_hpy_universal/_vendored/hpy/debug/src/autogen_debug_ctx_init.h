@@ -27,6 +27,8 @@ unsigned long long debug_ctx_Long_AsUnsignedLongLong(HPyContext *dctx, DHPy h);
 unsigned long long debug_ctx_Long_AsUnsignedLongLongMask(HPyContext *dctx, DHPy h);
 size_t debug_ctx_Long_AsSize_t(HPyContext *dctx, DHPy h);
 HPy_ssize_t debug_ctx_Long_AsSsize_t(HPyContext *dctx, DHPy h);
+void *debug_ctx_Long_AsVoidPtr(HPyContext *dctx, DHPy h);
+double debug_ctx_Long_AsDouble(HPyContext *dctx, DHPy h);
 DHPy debug_ctx_Float_FromDouble(HPyContext *dctx, double v);
 double debug_ctx_Float_AsDouble(HPyContext *dctx, DHPy h);
 DHPy debug_ctx_Bool_FromLong(HPyContext *dctx, long v);
@@ -71,7 +73,7 @@ DHPy debug_ctx_CallTupleDict(HPyContext *dctx, DHPy callable, DHPy args, DHPy kw
 void debug_ctx_FatalError(HPyContext *dctx, const char *message);
 void debug_ctx_Err_SetString(HPyContext *dctx, DHPy h_type, const char *message);
 void debug_ctx_Err_SetObject(HPyContext *dctx, DHPy h_type, DHPy h_value);
-void debug_ctx_Err_SetFromErrnoWithFilename(HPyContext *dctx, DHPy h_type, const char *filename_fsencoded);
+DHPy debug_ctx_Err_SetFromErrnoWithFilename(HPyContext *dctx, DHPy h_type, const char *filename_fsencoded);
 void debug_ctx_Err_SetFromErrnoWithFilenameObjects(HPyContext *dctx, DHPy h_type, DHPy filename1, DHPy filename2);
 int debug_ctx_Err_Occurred(HPyContext *dctx);
 int debug_ctx_Err_ExceptionMatches(HPyContext *dctx, DHPy exc);
@@ -80,6 +82,7 @@ void debug_ctx_Err_Clear(HPyContext *dctx);
 DHPy debug_ctx_Err_NewException(HPyContext *dctx, const char *name, DHPy base, DHPy dict);
 DHPy debug_ctx_Err_NewExceptionWithDoc(HPyContext *dctx, const char *name, const char *doc, DHPy base, DHPy dict);
 int debug_ctx_Err_WarnEx(HPyContext *dctx, DHPy category, const char *message, HPy_ssize_t stack_level);
+void debug_ctx_Err_WriteUnraisable(HPyContext *dctx, DHPy obj);
 int debug_ctx_IsTrue(HPyContext *dctx, DHPy h);
 DHPy debug_ctx_Type_FromSpec(HPyContext *dctx, HPyType_Spec *spec, HPyType_SpecParam *params);
 DHPy debug_ctx_Type_GenericNew(HPyContext *dctx, DHPy type, DHPy *args, HPy_ssize_t nargs, DHPy kw);
@@ -154,6 +157,10 @@ void debug_ctx_Tracker_ForgetAll(HPyContext *dctx, HPyTracker ht);
 void debug_ctx_Tracker_Close(HPyContext *dctx, HPyTracker ht);
 void debug_ctx_Field_Store(HPyContext *dctx, DHPy target_object, HPyField *target_field, DHPy h);
 DHPy debug_ctx_Field_Load(HPyContext *dctx, DHPy source_object, HPyField source_field);
+void debug_ctx_ReenterPythonExecution(HPyContext *dctx, HPyThreadState state);
+HPyThreadState debug_ctx_LeavePythonExecution(HPyContext *dctx);
+void debug_ctx_Global_Store(HPyContext *dctx, HPyGlobal *global, DHPy h);
+DHPy debug_ctx_Global_Load(HPyContext *dctx, HPyGlobal global);
 void debug_ctx_Dump(HPyContext *dctx, DHPy h);
 
 static inline void debug_ctx_init_fields(HPyContext *dctx, HPyContext *uctx)
@@ -252,6 +259,8 @@ static inline void debug_ctx_init_fields(HPyContext *dctx, HPyContext *uctx)
     dctx->ctx_Long_AsUnsignedLongLongMask = &debug_ctx_Long_AsUnsignedLongLongMask;
     dctx->ctx_Long_AsSize_t = &debug_ctx_Long_AsSize_t;
     dctx->ctx_Long_AsSsize_t = &debug_ctx_Long_AsSsize_t;
+    dctx->ctx_Long_AsVoidPtr = &debug_ctx_Long_AsVoidPtr;
+    dctx->ctx_Long_AsDouble = &debug_ctx_Long_AsDouble;
     dctx->ctx_Float_FromDouble = &debug_ctx_Float_FromDouble;
     dctx->ctx_Float_AsDouble = &debug_ctx_Float_AsDouble;
     dctx->ctx_Bool_FromLong = &debug_ctx_Bool_FromLong;
@@ -305,6 +314,7 @@ static inline void debug_ctx_init_fields(HPyContext *dctx, HPyContext *uctx)
     dctx->ctx_Err_NewException = &debug_ctx_Err_NewException;
     dctx->ctx_Err_NewExceptionWithDoc = &debug_ctx_Err_NewExceptionWithDoc;
     dctx->ctx_Err_WarnEx = &debug_ctx_Err_WarnEx;
+    dctx->ctx_Err_WriteUnraisable = &debug_ctx_Err_WriteUnraisable;
     dctx->ctx_IsTrue = &debug_ctx_IsTrue;
     dctx->ctx_Type_FromSpec = &debug_ctx_Type_FromSpec;
     dctx->ctx_Type_GenericNew = &debug_ctx_Type_GenericNew;
@@ -379,5 +389,9 @@ static inline void debug_ctx_init_fields(HPyContext *dctx, HPyContext *uctx)
     dctx->ctx_Tracker_Close = &debug_ctx_Tracker_Close;
     dctx->ctx_Field_Store = &debug_ctx_Field_Store;
     dctx->ctx_Field_Load = &debug_ctx_Field_Load;
+    dctx->ctx_ReenterPythonExecution = &debug_ctx_ReenterPythonExecution;
+    dctx->ctx_LeavePythonExecution = &debug_ctx_LeavePythonExecution;
+    dctx->ctx_Global_Store = &debug_ctx_Global_Store;
+    dctx->ctx_Global_Load = &debug_ctx_Global_Load;
     dctx->ctx_Dump = &debug_ctx_Dump;
 }

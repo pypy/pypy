@@ -78,6 +78,14 @@ HPyAPI_FUNC HPy_ssize_t HPyLong_AsSsize_t(HPyContext *ctx, HPy h) {
      return ctx->ctx_Long_AsSsize_t ( ctx, h ); 
 }
 
+HPyAPI_FUNC void *HPyLong_AsVoidPtr(HPyContext *ctx, HPy h) {
+     return ctx->ctx_Long_AsVoidPtr ( ctx, h ); 
+}
+
+HPyAPI_FUNC double HPyLong_AsDouble(HPyContext *ctx, HPy h) {
+     return ctx->ctx_Long_AsDouble ( ctx, h ); 
+}
+
 HPyAPI_FUNC HPy HPyFloat_FromDouble(HPyContext *ctx, double v) {
      return ctx->ctx_Float_FromDouble ( ctx, v ); 
 }
@@ -251,7 +259,7 @@ HPyAPI_FUNC HPy HPyErr_SetObject(HPyContext *ctx, HPy h_type, HPy h_value) {
 }
 
 HPyAPI_FUNC HPy HPyErr_SetFromErrnoWithFilename(HPyContext *ctx, HPy h_type, const char *filename_fsencoded) {
-     ctx->ctx_Err_SetFromErrnoWithFilename ( ctx, h_type, filename_fsencoded ); return HPy_NULL;
+     return ctx->ctx_Err_SetFromErrnoWithFilename ( ctx, h_type, filename_fsencoded ); 
 }
 
 HPyAPI_FUNC HPy HPyErr_SetFromErrnoWithFilenameObjects(HPyContext *ctx, HPy h_type, HPy filename1, HPy filename2) {
@@ -284,6 +292,10 @@ HPyAPI_FUNC HPy HPyErr_NewExceptionWithDoc(HPyContext *ctx, const char *name, co
 
 HPyAPI_FUNC int HPyErr_WarnEx(HPyContext *ctx, HPy category, const char *message, HPy_ssize_t stack_level) {
      return ctx->ctx_Err_WarnEx ( ctx, category, message, stack_level ); 
+}
+
+HPyAPI_FUNC void HPyErr_WriteUnraisable(HPyContext *ctx, HPy obj) {
+     ctx->ctx_Err_WriteUnraisable ( ctx, obj ); 
 }
 
 HPyAPI_FUNC int HPy_IsTrue(HPyContext *ctx, HPy h) {
@@ -576,6 +588,22 @@ HPyAPI_FUNC void HPyField_Store(HPyContext *ctx, HPy target_object, HPyField *ta
 
 HPyAPI_FUNC HPy HPyField_Load(HPyContext *ctx, HPy source_object, HPyField source_field) {
      return ctx->ctx_Field_Load ( ctx, source_object, source_field ); 
+}
+
+HPyAPI_FUNC void HPy_ReenterPythonExecution(HPyContext *ctx, HPyThreadState state) {
+     ctx->ctx_ReenterPythonExecution ( ctx, state ); 
+}
+
+HPyAPI_FUNC HPyThreadState HPy_LeavePythonExecution(HPyContext *ctx) {
+     return ctx->ctx_LeavePythonExecution ( ctx ); 
+}
+
+HPyAPI_FUNC void HPyGlobal_Store(HPyContext *ctx, HPyGlobal *global, HPy h) {
+     ctx->ctx_Global_Store ( ctx, global, h ); 
+}
+
+HPyAPI_FUNC HPy HPyGlobal_Load(HPyContext *ctx, HPyGlobal global) {
+     return ctx->ctx_Global_Load ( ctx, global ); 
 }
 
 HPyAPI_FUNC void _HPy_Dump(HPyContext *ctx, HPy h) {

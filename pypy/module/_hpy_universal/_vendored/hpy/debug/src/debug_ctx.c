@@ -37,6 +37,7 @@ int hpy_debug_ctx_init(HPyContext *dctx, HPyContext *uctx)
     info->uh_on_invalid_handle = HPy_NULL;
     info->closed_handles_queue_max_size = DEFAULT_CLOSED_HANDLES_QUEUE_MAX_SIZE;
     info->protected_raw_data_max_size = DEFAULT_PROTECTED_RAW_DATA_MAX_SIZE;
+    info->handle_alloc_stacktrace_limit = 0;
     info->protected_raw_data_size = 0;
     DHQueue_init(&info->open_handles);
     DHQueue_init(&info->closed_handles);

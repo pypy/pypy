@@ -1,6 +1,10 @@
 /**
  * Implementation of HPyArg_Parse and HPyArg_ParseKeywords.
  *
+ * Note: those functions are runtime helper functions, i.e., they are not part
+ * of the HPy context, but are available to HPy extensions to incorporate at
+ * compile time.
+ *
  * HPyArg_Parse parses positional arguments and replaces PyArg_ParseTuple.
  * HPyArg_ParseKeywords parses positional and keyword arguments and
  * replaces PyArg_ParseTupleAndKeywords.

@@ -1,9 +1,25 @@
 #ifndef HPY_CPYTHON_MISC_H
 #define HPY_CPYTHON_MISC_H
 
-// XXX: turn these into static inline functions
-#define _h2py(h) ((PyObject*)h._i)
-#define _py2h(o) _hconv((intptr_t)o)
+#include <Python.h>
+#include "hpy.h"
+#include "hpy/runtime/ctx_funcs.h"
+
+static inline PyObject* _h2py(HPy h) {
+    return (PyObject*) h._i;
+}
+
+static inline HPy _py2h(PyObject *o) {
+    return _hconv((intptr_t)o);
+}
+
+static inline HPyThreadState _threads2h(PyThreadState *s) {
+    return _htsconv((intptr_t)s);
+}
+
+static inline PyThreadState* _h2threads(HPyThreadState h) {
+    return (PyThreadState*) h._i;
+}
 
 static inline HPyField _py2hf(PyObject *obj)
 {
@@ -12,6 +28,18 @@ static inline HPyField _py2hf(PyObject *obj)
 }
 
 static inline PyObject * _hf2py(HPyField hf)
+{
+    HPy h = { ._i = hf._i };
+    return _h2py(h);
+}
+
+static inline HPyGlobal _py2hg(PyObject *obj)
+{
+    HPy h = _py2h(obj);
+    return _hgconv(._i = h._i);
+}
+
+static inline PyObject * _hg2py(HPyGlobal hf)
 {
     HPy h = { ._i = hf._i };
     return _h2py(h);
@@ -195,7 +223,6 @@ HPyAPI_FUNC HPyContext * _HPyGetContext(void) {
     return ctx;
 }
 
-
 HPyAPI_FUNC HPy HPy_Dup(HPyContext *ctx, HPy handle)
 {
     Py_XINCREF(_h2py(handle));
@@ -211,14 +238,30 @@ HPyAPI_FUNC void HPyField_Store(HPyContext *ctx, HPy target_obj,
                                 HPyField *target_field, HPy h)
 {
     PyObject *obj = _h2py(h);
-    Py_XDECREF(_hf2py(*target_field));
+    PyObject *target_py_obj = _hf2py(*target_field);
     Py_XINCREF(obj);
     *target_field = _py2hf(obj);
+    Py_XDECREF(target_py_obj);
 }
 
 HPyAPI_FUNC HPy HPyField_Load(HPyContext *ctx, HPy source_obj, HPyField source_field)
 {
     PyObject *obj = _hf2py(source_field);
+    Py_INCREF(obj);
+    return _py2h(obj);
+}
+
+HPyAPI_FUNC void HPyGlobal_Store(HPyContext *ctx, HPyGlobal *global, HPy h)
+{
+    PyObject *obj = _h2py(h);
+    Py_XDECREF(_hg2py(*global));
+    Py_XINCREF(obj);
+    *global = _py2hg(obj);
+}
+
+HPyAPI_FUNC HPy HPyGlobal_Load(HPyContext *ctx, HPyGlobal global)
+{
+    PyObject *obj = _hg2py(global);
     Py_INCREF(obj);
     return _py2h(obj);
 }

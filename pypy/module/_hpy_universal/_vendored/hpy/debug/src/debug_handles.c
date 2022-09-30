@@ -44,12 +44,20 @@ DHPy DHPy_open(HPyContext *dctx, UHPy uh)
     if (info->closed_handles.size >= info->closed_handles_queue_max_size) {
         handle = DHQueue_popfront(&info->closed_handles);
         DebugHandle_free_raw_data(info, handle, true);
+        if (handle->allocation_stacktrace)
+            free(handle->allocation_stacktrace);
     }
     else {
         handle = malloc(sizeof(DebugHandle));
         if (handle == NULL) {
             return HPyErr_NoMemory(info->uctx);
         }
+    }
+    if (info->handle_alloc_stacktrace_limit > 0) {
+        create_stacktrace(&handle->allocation_stacktrace,
+                          info->handle_alloc_stacktrace_limit);
+    } else {
+        handle->allocation_stacktrace = NULL;
     }
     handle->uh = uh;
     handle->generation = info->current_generation;
@@ -167,6 +175,8 @@ void DHPy_free(HPyContext *dctx, DHPy dh)
     DebugHandle *handle = as_DebugHandle(dh);
     HPyDebugInfo *info = get_info(dctx);
     DebugHandle_free_raw_data(info, handle, true);
+    if (handle->allocation_stacktrace)
+        free(handle->allocation_stacktrace);
     // this is not strictly necessary, but it increases the chances that you
     // get a clear segfault if you use a freed handle
     handle->uh = HPy_NULL;

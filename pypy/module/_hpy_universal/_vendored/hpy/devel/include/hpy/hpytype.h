@@ -13,6 +13,30 @@ typedef struct {
     int basicsize;
     int itemsize;
     unsigned long flags;
+    /*
+       A type whose struct starts with PyObject_HEAD is a legacy type. A
+       legacy type must set .legacy = true in its HPyType_Spec.
+       A type is a non-legacy type, also called HPy pure type, if its struct
+       does not include PyObject_HEAD. Using pure types should be preferred.
+       Legacy types are available to allow gradual porting of existing CPython
+       extensions.
+
+       A type with .legacy_slots not NULL is required to have .legacy = true and to
+       include PyObject_HEAD at the start of its struct. It would be easy to
+       relax this requirement on CPython (where the PyObject_HEAD fields are
+       always present) but a large burden on other implementations (e.g. PyPy,
+       GraalPython) where a struct starting with PyObject_HEAD might not exist.
+
+       Types that do not define a struct of their own, should set the value of
+       .legacy to the same value as the type they inherit from. If they inherit
+       from a built-in type, they may set .legacy to either true or false, depending
+       on whether they still use .legacy_slots or not.
+
+       Pure HPy types that inherit a builtin type and define their own struct are
+       not supported at the moment. One can use legacy types in the meanwhile.
+
+       Types created via the old Python C API are automatically legacy types.
+     */
     int legacy;
     void *legacy_slots; // PyType_Slot *
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
@@ -35,37 +59,6 @@ typedef struct {
 #define _Py_TPFLAGS_HEAPTYPE (1UL << 9)
 #define _Py_TPFLAGS_HAVE_VERSION_TAG (1UL << 18)
 #define HPy_TPFLAGS_DEFAULT (_Py_TPFLAGS_HEAPTYPE | _Py_TPFLAGS_HAVE_VERSION_TAG)
-
-/* HPy_TPFLAGS_INTERNAL_PURE is set automatically on pure types created with
-   HPyType_FromSpec. This flag should not be used directly. Set
-   `.legacy = false` or `.legacy = true` instead.
-
-   A custom type is a pure type if its struct does not include PyObject_HEAD.
-   A type whose struct does start with PyObject_HEAD is a legacy type. A
-   legacy type must set .legacy = true in its HPyType_Spec.
-
-   A type with .legacy_slots not NULL is required to have .legacy = true and to
-   include PyObject_HEAD at the start of its struct. It would be easy to
-   relax this requirement on CPython (where the PyObject_HEAD fields are
-   always present) but a large burden on other implementations (e.g. PyPy,
-   GraalPython) where a struct starting with PyObject_HEAD might not exist.
-
-   Types that do not define a struct of their own, should set the value of
-   .legacy to the same value as the type they inherit from. If they inherit
-   from a built-in type, they may .legacy to either true or false, depending on
-   whether they still use .legacy_slots or not.
-
-   Types created via the old Python C API are automatically legacy types.
-
-   Note on the choice of bit 8: Bit 8 looks likely to be the last free TPFLAG
-   bit that C Python will allocate. Bits 0 to 8 were dropped in Python 3.0 and
-   are being re-allocated slowly from 0 towards 8. As of 3.10, only bit 0 has
-   been re-allocated.
-*/
-#define HPy_TPFLAGS_INTERNAL_PURE (1UL << 8)
-
-#define HPy_TPFLAGS_INTERNAL_IS_HPY_TYPE (1UL << 7)
-
 
 /* Set if the type allows subclassing */
 #define HPy_TPFLAGS_BASETYPE (1UL << 10)

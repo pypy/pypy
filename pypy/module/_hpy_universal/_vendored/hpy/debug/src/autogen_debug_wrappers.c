@@ -92,6 +92,16 @@ HPy_ssize_t debug_ctx_Long_AsSsize_t(HPyContext *dctx, DHPy h)
     return HPyLong_AsSsize_t(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
 }
 
+void *debug_ctx_Long_AsVoidPtr(HPyContext *dctx, DHPy h)
+{
+    return HPyLong_AsVoidPtr(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+}
+
+double debug_ctx_Long_AsDouble(HPyContext *dctx, DHPy h)
+{
+    return HPyLong_AsDouble(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+}
+
 DHPy debug_ctx_Float_FromDouble(HPyContext *dctx, double v)
 {
     return DHPy_open(dctx, HPyFloat_FromDouble(get_info(dctx)->uctx, v));
@@ -312,9 +322,9 @@ void debug_ctx_Err_SetObject(HPyContext *dctx, DHPy h_type, DHPy h_value)
     HPyErr_SetObject(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), DHPy_unwrap(dctx, h_value));
 }
 
-void debug_ctx_Err_SetFromErrnoWithFilename(HPyContext *dctx, DHPy h_type, const char *filename_fsencoded)
+DHPy debug_ctx_Err_SetFromErrnoWithFilename(HPyContext *dctx, DHPy h_type, const char *filename_fsencoded)
 {
-    HPyErr_SetFromErrnoWithFilename(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), filename_fsencoded);
+    return DHPy_open(dctx, HPyErr_SetFromErrnoWithFilename(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), filename_fsencoded));
 }
 
 void debug_ctx_Err_SetFromErrnoWithFilenameObjects(HPyContext *dctx, DHPy h_type, DHPy filename1, DHPy filename2)
@@ -355,6 +365,11 @@ DHPy debug_ctx_Err_NewExceptionWithDoc(HPyContext *dctx, const char *name, const
 int debug_ctx_Err_WarnEx(HPyContext *dctx, DHPy category, const char *message, HPy_ssize_t stack_level)
 {
     return HPyErr_WarnEx(get_info(dctx)->uctx, DHPy_unwrap(dctx, category), message, stack_level);
+}
+
+void debug_ctx_Err_WriteUnraisable(HPyContext *dctx, DHPy obj)
+{
+    HPyErr_WriteUnraisable(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj));
 }
 
 int debug_ctx_IsTrue(HPyContext *dctx, DHPy h)
@@ -680,6 +695,26 @@ void debug_ctx_Field_Store(HPyContext *dctx, DHPy target_object, HPyField *targe
 DHPy debug_ctx_Field_Load(HPyContext *dctx, DHPy source_object, HPyField source_field)
 {
     return DHPy_open(dctx, HPyField_Load(get_info(dctx)->uctx, DHPy_unwrap(dctx, source_object), source_field));
+}
+
+void debug_ctx_ReenterPythonExecution(HPyContext *dctx, HPyThreadState state)
+{
+    HPy_ReenterPythonExecution(get_info(dctx)->uctx, state);
+}
+
+HPyThreadState debug_ctx_LeavePythonExecution(HPyContext *dctx)
+{
+    return HPy_LeavePythonExecution(get_info(dctx)->uctx);
+}
+
+void debug_ctx_Global_Store(HPyContext *dctx, HPyGlobal *global, DHPy h)
+{
+    HPyGlobal_Store(get_info(dctx)->uctx, global, DHPy_unwrap(dctx, h));
+}
+
+DHPy debug_ctx_Global_Load(HPyContext *dctx, HPyGlobal global)
+{
+    return DHPy_open(dctx, HPyGlobal_Load(get_info(dctx)->uctx, global));
 }
 
 void debug_ctx_Dump(HPyContext *dctx, DHPy h)

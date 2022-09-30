@@ -141,6 +141,8 @@ typedef struct DebugHandle {
     // pointer to and size of any raw data associated with
     // the lifetime of the handle:
     void *associated_data;
+    // allocation_stacktrace information if available
+    char *allocation_stacktrace;
     HPy_ssize_t associated_data_size;
     struct DebugHandle *prev;
     struct DebugHandle *next;
@@ -206,6 +208,9 @@ typedef struct {
     HPy_ssize_t closed_handles_queue_max_size; // configurable by the user
     HPy_ssize_t protected_raw_data_max_size;
     HPy_ssize_t protected_raw_data_size;
+    // Limit for the stack traces captured for allocated handles
+    // Value 0 implies that stack traces should not be captured
+    HPy_ssize_t handle_alloc_stacktrace_limit;
     DHQueue open_handles;
     DHQueue closed_handles;
 } HPyDebugInfo;
@@ -222,5 +227,7 @@ void *raw_data_copy(const void* data, HPy_ssize_t size, bool write_protect);
 void raw_data_protect(void* data, HPy_ssize_t size);
 /* Return value: 0 indicates success, any different value indicates an error */
 int raw_data_free(void *data, HPy_ssize_t size);
+
+void create_stacktrace(char **target, HPy_ssize_t max_frames_count);
 
 #endif /* HPY_DEBUG_INTERNAL_H */
