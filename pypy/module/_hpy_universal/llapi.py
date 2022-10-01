@@ -24,7 +24,6 @@ eci = ExternalCompilationInfo(
     separate_module_files=[
         SRC_DIR.join('bridge.c'),
         SRC_DIR.join('hpyerr.c'),
-        #
         # <debug mode>
         SRC_DIR.join('dctx.c'),
         DEBUG_DIR.join('debug_ctx.c'),
@@ -533,6 +532,11 @@ typedef int (*HPyFunc_getbufferproc)(HPyContext *ctx, HPy, HPy_buffer *, int);
 typedef void (*HPyFunc_releasebufferproc)(HPyContext *ctx, HPy, HPy_buffer *);
 typedef int (*HPyFunc_traverseproc)(void *object, HPyFunc_visitproc visit, void *arg);
 typedef void (*HPyFunc_destroyfunc)(void *);
+
+/* hpy.h */
+
+struct _HPyThreadState { intptr_t _i; };
+typedef intptr_t HPyThreadState;
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in
@@ -571,15 +575,17 @@ HPyFunc_O        = 4
 # }
 
 HPyType_SpecParam_Kind = cts.gettype('HPyType_SpecParam_Kind')
+HPyThreadState = cts.gettype("HPyThreadState")
 
 HPy_TPFLAGS_INTERNAL_PURE = (1 << 8)
 HPy_TPFLAGS_HAVE_GC =  1 << 14
 
 # HPy API functions which are implemented directly in C
-pypy_HPy_FatalError = rffi.llexternal('pypy_HPy_FatalError',
-                                      [HPyContext, rffi.CCHARP],
-                                      lltype.Void,
-                                      compilation_info=eci, _nowrapper=True)
+pypy_HPy_FatalError = rffi.llexternal(
+        'pypy_HPy_FatalError',
+        [HPyContext, rffi.CCHARP],
+        lltype.Void,
+        compilation_info=eci, _nowrapper=True)
 
 # debug mode
 hpy_debug_get_ctx = rffi.llexternal(

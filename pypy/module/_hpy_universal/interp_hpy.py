@@ -31,6 +31,7 @@ from pypy.module._hpy_universal import (
     interp_tracker,
     interp_import,
     interp_field,
+    interp_state,
     )
 
 # ~~~ Some info on the debug mode ~~~
