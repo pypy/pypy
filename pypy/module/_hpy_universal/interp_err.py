@@ -129,7 +129,7 @@ def HPyErr_NewException(space, handles, ctx, c_name, h_base, h_dict):
     name = rffi.constcharp2str(c_name)
     if '.' not in name:
         raise oefmt(space.w_SystemError,
-            "PyErr_NewException: name must be module.class")
+            "HPyErr_NewException: name must be module.class")
     if h_base:
         w_base = handles.deref(h_base)
     else:
@@ -147,7 +147,7 @@ def HPyErr_NewExceptionWithDoc(space, handles, ctx, c_name, c_doc, h_base, h_dic
     name = rffi.constcharp2str(c_name)
     if '.' not in name:
         raise oefmt(space.w_SystemError,
-            "PyErr_NewException: name must be module.class")
+            "HPyErr_NewException: name must be module.class")
     if h_base:
         w_base = handles.deref(h_base)
     else:
