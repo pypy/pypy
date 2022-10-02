@@ -227,22 +227,21 @@ class IntBound(AbstractInfo):
         return r
 
     def add(self, offset):
-        res = self.clone()
-        try:
-            res.lower = ovfcheck(res.lower + offset)
-        except OverflowError:
-            res.has_lower = False
-        try:
-            res.upper = ovfcheck(res.upper + offset)
-        except OverflowError:
-            res.has_upper = False
-        return res
+        return self.add_bound(ConstIntBound(offset))
 
     def mul(self, value):
         return self.mul_bound(ConstIntBound(value))
 
     def add_bound(self, other):
         res = self.clone()
+        
+        sum_values = self.tvalue + other.tvalue
+        sum_masks = self.tmask + other.tmask
+        all_carries = sum_values + sum_masks
+        val_carries = all_carries ^ sum_values
+        res.tmask = self.tmask | other.tmask | val_carries
+        res.tvalue = unmask_zero(sum_values, res.tmask)
+        
         if other.has_upper:
             try:
                 res.upper = ovfcheck(res.upper + other.upper)
@@ -261,11 +260,20 @@ class IntBound(AbstractInfo):
 
     def sub_bound(self, other):
         res = self.clone()
+        
+        sum_values = self.tvalue - other.tvalue
+        sum_masks = self.tmask - other.tmask
+        all_carries = sum_values - sum_masks
+        val_carries = all_carries ^ sum_values
+        res.tmask = self.tmask | other.tmask | val_carries
+        res.tvalue = unmask_zero(sum_values, res.tmask)
+        
         if other.has_lower:
             try:
                 res.upper = ovfcheck(res.upper - other.lower)
             except OverflowError:
                 res.has_upper = False
+                res.tvalue, res.tmask = TNUM_UNKNOWN
         else:
             res.has_upper = False
         if other.has_upper:
@@ -273,6 +281,7 @@ class IntBound(AbstractInfo):
                 res.lower = ovfcheck(res.lower - other.upper)
             except OverflowError:
                 res.has_lower = False
+                res.tvalue, res.tmask = TNUM_UNKNOWN
         else:
             res.has_lower = False
         return res
@@ -330,7 +339,7 @@ class IntBound(AbstractInfo):
             elif c_other >= 0:
                 tvalue = self.tvalue << c_other
                 tmask = self.tmask << c_other
-            # else unknown because operation invalid
+            # else: bits are unknown because arguments invalid
 
         if self.is_bounded() and other.is_bounded() and \
            other.known_nonnegative() and \
@@ -372,7 +381,7 @@ class IntBound(AbstractInfo):
                 else:
                     tvalue = self.tvalue >> r_uint(c_other)
                     tmask = self.tmask >> r_uint(c_other)
-            # else unknown because operation invalid
+            # else: bits are unknown because arguments invalid
 
         if self.is_bounded() and other.is_bounded() and \
            other.known_nonnegative() and \
@@ -455,8 +464,10 @@ class IntBound(AbstractInfo):
         return res
 
     def neg_bound(self):
-        res = self.clone()
-        res.has_upper = False
+        #import pdb; pdb.set_trace()
+        res = ConstIntBound(0).sub_bound(self)
+        
+        """res.has_upper = False
         if self.has_lower:
             try:
                 res.upper = ovfcheck(-self.lower)
@@ -469,7 +480,7 @@ class IntBound(AbstractInfo):
                 res.lower = ovfcheck(-self.upper)
                 res.has_lower = True
             except OverflowError:
-                pass
+                pass"""
         return res
 
     def contains(self, val):
@@ -511,9 +522,9 @@ class IntBound(AbstractInfo):
         return True
 
     def clone(self):
-        res = IntLowerUpperBound(self.lower, self.upper)
-        res.has_lower = self.has_lower
-        res.has_upper = self.has_upper
+        res = IntBound(self.lower, self.upper, 
+                       self.has_lower, self.has_upper, 
+                       self.tvalue, self.tmask)
         return res
 
     def make_guards(self, box, guards, optimizer):
