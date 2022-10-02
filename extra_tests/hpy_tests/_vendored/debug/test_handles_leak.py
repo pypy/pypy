@@ -1,7 +1,27 @@
 import pytest
+from hpy.debug import set_handle_stack_trace_limit, disable_handle_stack_traces
+
 @pytest.fixture
 def hpy_abi():
     return "debug"
+
+
+class AllocationTraceEnabler:
+    def __enter__(self):
+        set_handle_stack_trace_limit(32)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        disable_handle_stack_traces()
+
+
+@pytest.fixture(params=["with stacktrace", "no stacktrace"])
+def with_alloc_trace(request):
+    if request.param == "with stacktrace":
+        with AllocationTraceEnabler():
+            yield
+    else:
+        yield
+
 
 def make_leak_module(compiler):
     # for convenience
@@ -76,7 +96,7 @@ def test_leak_from_method(compiler):
     leaks = [dh.obj for dh in _debug.get_open_handles(gen)]
     assert leaks == ["a"]
 
-def test_DebugHandle_id(compiler):
+def test_DebugHandle_id(compiler, with_alloc_trace):
     from hpy.universal import _debug
     mod = make_leak_module(compiler)
     gen = _debug.new_generation()
@@ -124,13 +144,13 @@ def test_DebugHandle_compare(compiler):
     with pytest.raises(TypeError):
         a1 < 'hello'
 
-def test_DebugHandle_repr(compiler):
+def test_DebugHandle_repr(compiler, with_alloc_trace):
     from hpy.universal import _debug
     mod = make_leak_module(compiler)
     gen = _debug.new_generation()
     mod.leak('hello')
     h_hello, = _debug.get_open_handles(gen)
-    assert repr(h_hello) == "<DebugHandle 0x%x for 'hello'>" % h_hello.id
+    assert repr(h_hello).startswith("<DebugHandle 0x%x for 'hello'>" % h_hello.id)
 
 def test_LeakDetector(compiler):
     import pytest
@@ -156,7 +176,7 @@ def test_LeakDetector(compiler):
     assert 'hello' not in msg
     assert 'world' not in msg
 
-def test_closed_handles(compiler):
+def test_closed_handles(compiler, with_alloc_trace):
     from hpy.universal import _debug
     mod = make_leak_module(compiler)
     gen = _debug.new_generation()
@@ -167,7 +187,7 @@ def test_closed_handles(compiler):
     assert h_hello.is_closed
     assert _debug.get_open_handles(gen) == []
     assert h_hello in _debug.get_closed_handles()
-    assert repr(h_hello) == "<DebugHandle 0x%x CLOSED>" % h_hello.id
+    assert repr(h_hello).startswith("<DebugHandle 0x%x CLOSED>" % h_hello.id)
 
 def test_closed_handles_queue_max_size(compiler):
     from hpy.universal import _debug
