@@ -1763,7 +1763,7 @@ class __extend__(pyframe.PyFrame):
             if allowed < nargs:
                 plural = "" if allowed == 1 else "s";
                 raise oefmt(space.w_TypeError,
-                        "%s() accepts %d positional sub-pattern%s (%d given)", w_type.name, allowed, plural, nargs)
+                        "%N() accepts %d positional sub-pattern%s (%d given)", w_type, allowed, plural, nargs)
 
             if match_self:
                 attrs_w.append(w_subject)
@@ -1772,15 +1772,15 @@ class __extend__(pyframe.PyFrame):
                     w_name = space.getitem(w_match_args, space.newint(i))
                     if not space.isinstance_w(w_name, space.w_unicode):
                         raise oefmt(space.w_TypeError,
-                                "__match_args__ elements must be strings (got %s)", space.type(w_name).name)
-                    w_attr = match_class_attr(space, w_subject, w_name, seen)
+                                "__match_args__ elements must be strings (got '%T')", w_name)
+                    w_attr = match_class_attr(space, w_subject, w_name, w_type, seen)
                     attrs_w.append(w_attr)
 
         w_iter = space.iter(w_names)
         try:
             while True:
                 w_name = space.next(w_iter)
-                w_attr = match_class_attr(space, w_subject, w_name, seen)
+                w_attr = match_class_attr(space, w_subject, w_name, w_type, seen)
                 attrs_w.append(w_attr)
         except OperationError as e:
             if not e.match(space, space.w_StopIteration):
@@ -1812,7 +1812,7 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
 
-        self.pushvalue(self.space.newtuple(values_w))
+        self.pushvalue(self.space.newtuple(values_w[:]))
         self.pushvalue(self.space.w_True)
 
     def COPY_DICT_WITHOUT_KEYS(self, oparg, next_instr):
@@ -2114,11 +2114,11 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe):
                 w_key)
         space.setitem(w_dict, w_key, w_value)
 
-def match_class_attr(space, w_subject, w_name, seen):
+def match_class_attr(space, w_subject, w_name, w_type, seen):
     name = space.text_w(w_name)
     if name in seen:
         raise oefmt(space.w_TypeError,
-                "%s() got multiple sub-patterns for attribute %R", w_type.name, w_name)
+                "%N() got multiple sub-patterns for attribute %R", w_type, w_name)
     seen[name] = None
     return space.getattr(w_subject, w_name)
 

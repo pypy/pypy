@@ -467,6 +467,7 @@ class Parser:
         self._reset(mark)
         return ok
 
+    @specialize.arg(1)
     def negative_lookahead(self, func, *args):
         mark = self._mark()
         ok = func(self, *args)
