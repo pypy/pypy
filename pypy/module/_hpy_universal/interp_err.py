@@ -36,22 +36,19 @@ from .state import State
 ##    - state.py:setup.ctx which explicitly stores the C functions in the ctx
 
 
-## ~~~ @BRIDGE Functions ~~~
-## These functions are called from hpyerr.c, and are used only in tests
-
-@API.func("void HPyErr_SetString(HPyContext *ctx, HPy type, const char *message)")
+@API.func("HPy HPyErr_SetString(HPyContext *ctx, HPy type, const char *message)")
 def HPyErr_SetString(space, handles, ctx, h_exc_type, utf8):
     w_obj = _maybe_utf8_to_w(space, utf8)
     w_exc_type = handles.deref(h_exc_type)
     raise OperationError(w_exc_type, w_obj)
 
-@API.func("void HPyErr_SetObject(HPyContext *ctx, HPy type, HPy value)")
+@API.func("HPy HPyErr_SetObject(HPyContext *ctx, HPy type, HPy value)")
 def HPyErr_SetObject(space, handles, ctx, h_exc_type, h_exc_value):
     w_exc_type = handles.deref(h_exc_type)
     w_obj = handles.deref(h_exc_value)
     raise OperationError(w_exc_type, w_obj)
 
-@API.func("void HPyErr_SetFromErrnoWithFilename(HPyContext *ctx, HPy type, const char *filename)")
+@API.func("HPy HPyErr_SetFromErrnoWithFilename(HPyContext *ctx, HPy type, const char *filename)")
 def HPyErr_SetFromErrnoWithFilename(space, handles, ctx, h_exc_type, utf8):
     w_fname = _maybe_utf8_to_w(space, utf8)
     w_exc_type = handles.deref(h_exc_type)
@@ -68,7 +65,7 @@ def HPyErr_SetFromErrnoWithFilename(space, handles, ctx, h_exc_type, utf8):
                                       space.newtext(msg, lgt))
     raise OperationError(w_exc_type, w_error)
 
-@API.func("void HPyErr_SetFromErrnoWithFilenameObjects(HPyContext *ctx, HPy type, HPy filename1, HPy filename2)")
+@API.func("HPy HPyErr_SetFromErrnoWithFilenameObjects(HPyContext *ctx, HPy type, HPy filename1, HPy filename2)")
 def HPyErr_SetFromErrnoWithFilenameObjects(space, handles, ctx, h_exc_type, h_fname1, h_fname2):
     w_exc_type = handles.deref(h_exc_type)
     if h_fname1:
