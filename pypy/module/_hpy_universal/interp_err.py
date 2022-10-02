@@ -196,3 +196,23 @@ def HPyErr_WarnEx(space, handles, ctx, h_category, message, stack_level):
     w_warn = space.getattr(w_module, space.newtext("warn"))
     space.call_function(w_warn, w_message, w_category, w_stacklevel)
     return API.int(0)
+
+@API.func("void HPyErr_WriteUnraisable(HPyContext *ctx, HPy obj)")
+def HPyErr_WriteUnraisable(space, handles, ctx, h_where):
+    """This utility function prints a warning message to sys.stderr when an
+    exception has been set but it is impossible for the interpreter to actually
+    raise the exception.  It is used, for example, when an exception occurs in
+    an __del__() method.
+
+    The function is called with a single argument obj that identifies the
+    context in which the unraisable exception occurred. The repr of obj will be
+    printed in the warning message."""
+    if not h_where:
+        where = ''
+    else:
+        w_where = handles.deref(h_where)
+        where = space.text_w(space.repr(w_where))
+    state = space.fromcache(State)
+    operror = state.clear_exception()
+    if operror:
+        operror.write_unraisable(space, where)

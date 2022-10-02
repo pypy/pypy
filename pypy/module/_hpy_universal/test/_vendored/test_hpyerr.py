@@ -674,3 +674,26 @@ class TestErr(HPyTest):
             res = mod.f(raise_exception, (exc_type, ), exc_types)
         with pytest.raises(DummyException):
             mod.f(raise_exception, (DummyException, ), exc_types)
+
+    def test_HPyErr_WriteUnraisable(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self)
+            {
+                HPyErr_SetString(ctx, ctx->h_ValueError, "error message");
+                HPyErr_WriteUnraisable(ctx, HPy_NULL);
+                return HPyBool_FromLong(ctx, HPyErr_Occurred(ctx));
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        import sys
+        import io, sys
+        old = sys.stderr 
+        sys.stderr = io.StringIO()
+        mod.f()
+        output = sys.stderr.getvalue()
+        sys.stderr = old
+        msg = output.strip().replace('\r', '').splitlines()
+        assert msg[0] == "Exception ignored in:"
+        assert msg[-1] == "ValueError: error message"
