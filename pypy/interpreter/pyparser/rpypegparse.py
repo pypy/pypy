@@ -1903,7 +1903,7 @@ class PythonParser(Parser):
         if real:
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-            return ast . Constant ( value = self . ensure_real ( real . value ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = self . ensure_real ( real ) , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         return None
 
@@ -1917,7 +1917,7 @@ class PythonParser(Parser):
         if imag:
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-            return ast . Constant ( value = self . ensure_imaginary ( imag . value ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = self . ensure_imaginary ( imag ) , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
         return None
 

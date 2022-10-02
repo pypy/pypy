@@ -2138,6 +2138,7 @@ def f(x):
     class A:
         y = 13
     match x:
+        case 1.1+2.2j: return "???"
         case True: return "True"
         case 1: return "hello"
         case 3 | 4: return "3 | 4"
@@ -2163,6 +2164,7 @@ res=(
         f(0),
         f(False),
         f(13),
+        f(1.1+2.2j),
 )
 """
         self.st(func, "res", (
@@ -2180,6 +2182,7 @@ res=(
             None,
             False,
             13,
+            '???',
         ))
 
     def test_match_sequence_star(self):
