@@ -24,12 +24,14 @@ class DefaultExtensionTemplate(object):
         %(defines)s
         NULL
     };
+    %(globals_defs)s
     static HPyModuleDef moduledef = {
         .name = "%(name)s",
         .doc = "some test for hpy",
         .size = -1,
         .legacy_methods = %(legacy_methods)s,
-        .defines = moduledefs
+        .defines = moduledefs,
+        %(globals_field)s
     };
 
     HPy_MODINIT(%(name)s)
@@ -58,9 +60,11 @@ class DefaultExtensionTemplate(object):
         self.defines_table = None
         self.legacy_methods = 'NULL'
         self.type_table = None
+        self.globals_table = None
 
     def expand(self):
         self.defines_table = []
+        self.globals_table = []
         self.type_table = []
         self.output = ['#include <hpy.h>']
         for line in self.src.split('\n'):
@@ -89,16 +93,29 @@ class DefaultExtensionTemplate(object):
         return name, args
 
     def INIT(self):
+        NL_INDENT = '\n    '
         if self.type_table:
             init_types = '\n'.join(self.type_table)
         else:
             init_types = ''
 
+        globals_defs = ''
+        globals_field = ''
+        if self.globals_table:
+            globals_defs = \
+                textwrap.dedent('''
+                static HPyGlobal *module_globals[] = {
+                    %s
+                };''') % NL_INDENT.join(self.globals_table)
+            globals_field = '.globals = module_globals'
+
         exp = self.INIT_TEMPLATE % {
             'legacy_methods': self.legacy_methods,
-            'defines': '\n        '.join(self.defines_table),
+            'defines': NL_INDENT.join(self.defines_table),
             'init_types': init_types,
-            'name': self.name}
+            'name': self.name,
+            'globals_defs': globals_defs,
+            'globals_field': globals_field}
         self.output.append(exp)
         # make sure that we don't fill the tables any more
         self.defines_table = None
@@ -106,6 +123,9 @@ class DefaultExtensionTemplate(object):
 
     def EXPORT(self, meth):
         self.defines_table.append('&%s,' % meth)
+
+    def EXPORT_GLOBAL(self, var):
+        self.globals_table.append('&%s,' % var)
 
     def EXPORT_LEGACY(self, pymethoddef):
         self.legacy_methods = pymethoddef
