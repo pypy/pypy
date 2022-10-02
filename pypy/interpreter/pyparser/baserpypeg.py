@@ -569,17 +569,17 @@ class Parser:
     def new_identifier(self, name):
         return misc.new_identifier(self.space, name)
 
-    def ensure_real(self, number_str):
-        number = ast.literal_eval(number_str)
-        if number is not complex:
+    def ensure_real(self, tok):
+        w_number = self.parse_number(tok)
+        if not self.space.is_w(self.space.type(w_number), self.space.w_float):
             self.raise_syntax_error("real number required in complex literal")
-        return number
+        return w_number
 
-    def ensure_imaginary(self, number_str):
-        number = ast.literal_eval(number_str)
-        if number is not complex:
+    def ensure_imaginary(self, tok):
+        w_number = self.parse_number(tok)
+        if not self.space.is_w(self.space.type(w_number), self.space.w_complex):
             self.raise_syntax_error("imaginary  number required in complex literal")
-        return number
+        return w_number
 
     def generate_ast_for_string(self, tokens):
         """Generate AST nodes for strings."""

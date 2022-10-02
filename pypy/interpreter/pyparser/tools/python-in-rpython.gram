@@ -538,10 +538,10 @@ signed_real_number:
     | '-' real=real_number { ast.UnaryOp(op=ast.USub, operand=real, LOCATIONS) }
 
 real_number[ast.Constant]:
-    | real=NUMBER { ast.Constant(value=self.ensure_real(real.value), LOCATIONS) }
+    | real=NUMBER { ast.Constant(value=self.ensure_real(real), kind=None, LOCATIONS) }
 
 imaginary_number[ast.Constant]:
-    | imag=NUMBER { ast.Constant(value=self.ensure_imaginary(imag.value), LOCATIONS) }
+    | imag=NUMBER { ast.Constant(value=self.ensure_imaginary(imag), kind=None, LOCATIONS) }
 
 capture_pattern:
     | target=pattern_capture_target {
