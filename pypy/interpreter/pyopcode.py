@@ -1724,76 +1724,70 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(self.space.newbool(is_mapping))
 
     def MATCH_CLASS(self, oparg, next_instr):
+        space = self.space
         nargs = oparg
         w_names = self.popvalue()
         w_type = self.popvalue()
         w_subject = self.popvalue()
 
-        if not self.space.isinstance_w(w_subject, w_type):
-            self.pushvalue(self.space.w_None)
-            self.pushvalue(self.space.w_False)
+        if not space.isinstance_w(w_subject, w_type):
+            self.pushvalue(space.w_None)
+            self.pushvalue(space.w_False)
             return
 
-        seen_w = set()
-        def match_class_attr(w_name):
-            if w_name in seen_w:
-                raise oefmt(self.space.w_TypeError,
-                        "%s() got multiple sub-patterns for attribute %R", w_type.name, w_name)
-            seen_w.add(w_name)
-            return self.space.getattr(w_subject, w_name)
-
+        seen = {}
         attrs_w = []
         if nargs:
             try:
-                w_match_args = self.space.getattr(w_type, self.space.newtext('__match_args__'))
+                w_match_args = space.getattr(w_type, space.newtext('__match_args__'))
                 match_self = False
                 # TODO: validate match_args is a tuple
             except OperationError as e:
-                if not e.match(self.space, self.space.w_AttributeError):
+                if not e.match(space, space.w_AttributeError):
                     raise e
 
-                w_match_args = self.space.newtuple([])
+                w_match_args = space.newtuple([])
                 match_self = \
-                    self.space.isinstance_w(w_subject, self.space.w_float) or \
-                    self.space.isinstance_w(w_subject, self.space.w_tuple) or \
-                    self.space.isinstance_w(w_subject, self.space.w_dict) or \
-                    self.space.isinstance_w(w_subject, self.space.w_long) or \
-                    self.space.isinstance_w(w_subject, self.space.w_bytes) or \
-                    self.space.isinstance_w(w_subject, self.space.w_list) or \
-                    self.space.isinstance_w(w_subject, self.space.w_bytearray) or \
-                    self.space.isinstance_w(w_subject, self.space.w_unicode) or \
-                    self.space.isinstance_w(w_subject, self.space.w_set) or \
-                    self.space.isinstance_w(w_subject, self.space.w_frozenset)
+                    space.isinstance_w(w_subject, space.w_float) or \
+                    space.isinstance_w(w_subject, space.w_tuple) or \
+                    space.isinstance_w(w_subject, space.w_dict) or \
+                    space.isinstance_w(w_subject, space.w_long) or \
+                    space.isinstance_w(w_subject, space.w_bytes) or \
+                    space.isinstance_w(w_subject, space.w_list) or \
+                    space.isinstance_w(w_subject, space.w_bytearray) or \
+                    space.isinstance_w(w_subject, space.w_unicode) or \
+                    space.isinstance_w(w_subject, space.w_set) or \
+                    space.isinstance_w(w_subject, space.w_frozenset)
             
-            allowed = 1 if match_self else self.space.len_w(w_match_args)
+            allowed = 1 if match_self else space.len_w(w_match_args)
             if allowed < nargs:
                 plural = "" if allowed == 1 else "s";
-                raise oefmt(self.space.w_TypeError,
+                raise oefmt(space.w_TypeError,
                         "%s() accepts %d positional sub-pattern%s (%d given)", w_type.name, allowed, plural, nargs)
 
             if match_self:
                 attrs_w.append(w_subject)
             else:
                 for i in range(nargs):
-                    w_name = self.space.getitem(w_match_args, self.space.newint(i))
-                    if not self.space.isinstance_w(w_name, self.space.w_unicode):
-                        raise oefmt(self.space.w_TypeError,
-                                "__match_args__ elements must be strings (got %s)", self.space.type(w_name).name)
-                    w_attr = match_class_attr(w_name)
+                    w_name = space.getitem(w_match_args, space.newint(i))
+                    if not space.isinstance_w(w_name, space.w_unicode):
+                        raise oefmt(space.w_TypeError,
+                                "__match_args__ elements must be strings (got %s)", space.type(w_name).name)
+                    w_attr = match_class_attr(space, w_subject, w_name, seen)
                     attrs_w.append(w_attr)
 
-        w_iter = self.space.iter(w_names)
+        w_iter = space.iter(w_names)
         try:
             while True:
-                w_name = self.space.next(w_iter)
-                w_attr = match_class_attr(w_name)
+                w_name = space.next(w_iter)
+                w_attr = match_class_attr(space, w_subject, w_name, seen)
                 attrs_w.append(w_attr)
         except OperationError as e:
-            if not e.match(self.space, self.space.w_StopIteration):
+            if not e.match(space, space.w_StopIteration):
                 raise
 
-        self.pushvalue(self.space.newtuple(attrs_w))
-        self.pushvalue(self.space.w_True)
+        self.pushvalue(space.newtuple(attrs_w[:]))
+        self.pushvalue(space.w_True)
 
     def GET_LEN(self, oparg, next_instr):
         w_sequence = self.peekvalue()
@@ -2119,6 +2113,15 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe):
                 "got multiple values for keyword argument %R",
                 w_key)
         space.setitem(w_dict, w_key, w_value)
+
+def match_class_attr(space, w_subject, w_name, seen):
+    name = space.text_w(w_name)
+    if name in seen:
+        raise oefmt(space.w_TypeError,
+                "%s() got multiple sub-patterns for attribute %R", w_type.name, w_name)
+    seen[name] = None
+    return space.getattr(w_subject, w_name)
+
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
