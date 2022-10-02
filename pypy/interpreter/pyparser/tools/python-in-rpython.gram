@@ -520,9 +520,9 @@ signed_number:
     | a=NUMBER { ast.Constant(value=self.parse_number(a), kind=None, LOCATIONS) }
     | '-' a=NUMBER {
         ast.UnaryOp(
-            op=ast.USub(),
+            op=ast.USub,
             operand=ast.Constant(
-                value=ast.self.parse_number(a),
+                value=self.parse_number(a),
                 kind=None,
                 lineno=a.lineno,
                 col_offset=a.column,
@@ -535,7 +535,7 @@ signed_number:
 
 signed_real_number:
     | real_number
-    | '-' real=real_number { ast.UnaryOp(op=ast.USub(), operand=real, LOCATIONS) }
+    | '-' real=real_number { ast.UnaryOp(op=ast.USub, operand=real, LOCATIONS) }
 
 real_number[ast.Constant]:
     | real=NUMBER { ast.Constant(value=self.ensure_real(real.value), LOCATIONS) }
@@ -587,7 +587,7 @@ maybe_star_pattern:
 
 star_pattern:
     | '*' target=pattern_capture_target { ast.MatchStar(name=target, LOCATIONS) }
-    | '*' wildcard_pattern { ast.MatchStar(target=None, LOCATIONS) }
+    | '*' wildcard_pattern { ast.MatchStar(name=None, LOCATIONS) }
 
 mapping_pattern:
     | '{' '}' { ast.MatchMapping(keys=None, patterns=None, rest=None, LOCATIONS) }
