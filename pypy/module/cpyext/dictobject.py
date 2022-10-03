@@ -168,8 +168,10 @@ def PyDict_Contains(space, w_dict, w_key):
         if (w_obj is None):
             return 0
         return 1
-    except OperationError:
-        return 0
+    except OperationError as e:
+        if e.match(space, space.w_KeyError):
+            return 0
+        raise e
 
 @cpython_api([PyObject], lltype.Void)
 def PyDict_Clear(space, w_obj):
