@@ -5,8 +5,26 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.debug import fatalerror_notb
 from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi
+
+def _restore_gil_state(gil_release, _gil_auto):
+    from rpython.rlib import rgil
+    # see "Handling of the GIL" above
+    unlock = gil_release or _gil_auto
+    if unlock:
+        print "rgil.release"
+        rgil.release()
+
+def deadlock_error(funcname):
+    fatalerror_notb("GIL deadlock detected when a CPython C extension "
+                    "module calls '%s'" % (funcname,))
+
+def no_gil_error(funcname):
+    fatalerror_notb("GIL not held when a CPython C extension "
+                    "module calls '%s'" % (funcname,))
+
 
 class APISet(object):
 
@@ -59,7 +77,7 @@ class APISet(object):
 
 
     def func(self, cdecl, cpyext=False, func_name=None, error_value=None,
-             is_helper=False):
+             is_helper=False, gil=None):
         """
         Declare an HPy API function.
 
@@ -95,13 +113,33 @@ class APISet(object):
         is_helper=True is for functions which are not in the ctx. Useful if
         you need a ll_helper with a specific C signature, for example to use
         as a C callback.
+
+        gil is for handling the PyPy GIL before and after the call. This is
+        currently a subset of the cpyext handling, it may expand in the future.
+
+        gil can be:
+
+            - None (the default): the GIL should be held, If not held, acquire
+              it before the call and release it after the call. This is useful
+              when using HPy in C++/DLL initialization functions before proper
+              interpreter startup.
+            - "acquire": deadlock if the GIL is not currently held, and acquire
+              it before the call. Do nothing after the call (continue holding it).
+            - "release": do nothing in the call, release the GIL after the call
         """
+        from rpython.rlib import rgil
         if self.frozen:
             raise RuntimeError(
                 'Too late to call @api.func(), the API object has already been frozen. '
                 'If you are calling @api.func() to decorate module-level functions, '
                 'you might solve this by making sure that the module is imported '
                 'earlier')
+        gil_auto_workaround = (gil is None)  # automatically detect when we don't
+                                             # have the GIL, and acquire/release it
+        gil_acquire = (gil == "acquire")
+        gil_release = (gil == "release")
+        assert (gil is None or gil_acquire or gil_release)
+        
         def decorate(fn):
             from pypy.module._hpy_universal.state import State
             name, ll_functype, ll_errval = self.parse_signature(cdecl, error_value)
@@ -120,13 +158,27 @@ class APISet(object):
             @specialize.memo()
             def make_wrapper(space):
                 def wrapper(*args):
+                    _gil_auto = False
+                    if gil_auto_workaround and not rgil.am_I_holding_the_GIL():
+                        _gil_auto = True
+                    if _gil_auto or gil_acquire:
+                        if gil_acquire and rgil.am_I_holding_the_GIL():
+                            deadlock_error(fn.__name__)
+                        print "rgil.acquire"
+                        rgil.acquire()
+                    else:
+                        if not rgil.am_I_holding_the_GIL():
+                            no_gil_error(fn.__name__)
                     state = space.fromcache(State)
                     handles = state.get_handle_manager(self.is_debug)
                     try:
-                        return fn(space, handles, *args)
+                        retval = fn(space, handles, *args)
                     except OperationError as e:
+                        _restore_gil_state(gil_release, _gil_auto)
                         state.set_exception(e)
                         return ll_errval
+                    _restore_gil_state(gil_release, _gil_auto)
+                    return retval
                 wrapper.__name__ = 'ctx_%s' % fn.__name__
                 if self.force_c_name:
                     wrapper.c_name = fn.__name__
