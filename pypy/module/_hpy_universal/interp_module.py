@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import oefmt
+from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import interp_extfunc
@@ -61,3 +62,29 @@ def get_doc(c_doc):
     if not c_doc:
         return None
     return rffi.constcharp2str(c_doc)
+
+
+# In an different reality, we would be able to access the module and store
+# the globals there. Instead, store them on the thread-local ExecutionContext
+# like the exception state
+ExecutionContext.hpy_globals = {}
+
+@API.func("HPy HPyGlobal_Load(HPyContext *ctx, HPyGlobal global)")
+def HPyGlobal_Load(space, handles, ctx, h_global):
+    d_globals = space.getexecutioncontext().hpy_globals
+    if h_global not in d_globals:
+        raise oefmt(space.w_ValueError, "unknown HPyGlobal* in HPyGlobal_Load")
+    return handles.new(d_globals[h_global])
+
+@API.func("void HPyGlobal_Store(HPyContext *ctx, HPyGlobal *global, HPy h)")
+def HPyGlobal_Store(space, handles, ctx, p_global, h_obj):
+    if h_obj:
+        w_obj = handles.deref(h_obj)
+    else:
+        w_obj = space.w_None
+    # Release a potential already existing p_global[0]
+    d_globals = space.getexecutioncontext().hpy_globals
+    if p_global[0] in d_globals:
+        d_globals.pop(p_globals[0])
+    d_globals[h_obj] = w_obj
+    p_global[0] = h_obj

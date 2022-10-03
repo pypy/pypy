@@ -77,6 +77,11 @@ typedef struct _HPyField_s {
 } _struct_HPyField_s;
 typedef HPy_ssize_t HPyField;
 
+typedef struct _HPyGlobal_s {
+    HPy_ssize_t _i;
+} _struct_HPyGlobal_s;
+typedef HPy_ssize_t HPyGlobal;
+
 typedef struct _HPyContext_s {
     const char *name; // used just to make debugging and testing easier
     void *_private;   // used by implementations to store custom data
