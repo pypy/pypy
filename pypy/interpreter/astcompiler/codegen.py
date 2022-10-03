@@ -1969,6 +1969,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # if isinstance(match.cases[-1], ast.MatchAs) and not match.cases[-1].name:
             # last_index_for_dup -= 1
         for i, case in enumerate(match.cases):
+            assert isinstance(case, ast.match_case)
             if i < last_index_for_dup:
                 self.emit_op(ops.DUP_TOP)
             case.pattern.walkabout(self)
@@ -2092,16 +2093,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.GET_LEN)
         # stack = [(1,2,3,4,5), 5]
 
-        star_index = None
+        star_index = -1
         star_captures = False
         for i, pattern in enumerate(match_sequence.patterns):
             if isinstance(pattern, ast.MatchStar):
-                star_index =  i
+                star_index = i
                 star_captures = pattern.name is not None
                 break
 
         length = len(match_sequence.patterns)
-        if star_index is not None:
+        if star_index >= 0:
             self.load_const(self.space.newint(length - 1))
             # stack = [(1,2,3,4,5), 3]
 
@@ -2119,13 +2120,19 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_drop[1], True)
         # stack = [(1,2,3,4,5)]
 
-        if star_index is not None:
+        if star_index >= 0:
             self.emit_op_arg(ops.UNPACK_EX, left + (right << 8))
             # stack = [(1,2,3,4,5), 5, 4, (2, 3), 1]
+            assert left >= 0
+            patterns = match_sequence.patterns[:left]
+            rightpatterns = match_sequence.patterns[left + 1:]
+            rightpatterns.reverse()
+            patterns.extend(rightpatterns)
+            patterns.append(match_sequence.patterns[left])
         else:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
+            patterns = match_sequence.patterns
 
-        patterns = match_sequence.patterns[:left] + list(reversed(match_sequence.patterns[left+1:])) + [match_sequence.patterns[left]]
 
         pop = length
         for i, pattern in enumerate(patterns):
@@ -2137,7 +2144,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         self.load_const(self.space.w_True)
         self.emit_jump(ops.JUMP_FORWARD, end)
-        for x in reversed(range(max(length-1, 1))):
+        for x in range(max(length-1, 1) - 1, -1, -1):
             self.use_next_block(fail_drop[x+1])
             self.emit_op(ops.POP_TOP)
         self.use_next_block(fail_drop[0])
