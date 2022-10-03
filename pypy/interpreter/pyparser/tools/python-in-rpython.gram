@@ -495,18 +495,18 @@ literal_pattern:
     | value=signed_number !('+' | '-') { ast.MatchValue(value=value, LOCATIONS) }
     | value=complex_number { ast.MatchValue(value=value, LOCATIONS) }
     | value=strings { ast.MatchValue(value=value, LOCATIONS) }
-    | 'None' { ast.MatchSingleton(value=None, LOCATIONS) }
-    | 'True' { ast.MatchSingleton(value=True, LOCATIONS) }
-    | 'False' { ast.MatchSingleton(value=False, LOCATIONS) }
+    | 'None' { ast.MatchSingleton(value=self.space.w_None, LOCATIONS) }
+    | 'True' { ast.MatchSingleton(value=self.space.w_True, LOCATIONS) }
+    | 'False' { ast.MatchSingleton(value=self.space.w_False, LOCATIONS) }
 
 # Literal expressions are used to restrict permitted mapping pattern keys
 literal_expr:
     | signed_number !('+' | '-')
     | complex_number
     | strings
-    | 'None' { ast.Constant(value=self.space.w_None, LOCATIONS) }
-    | 'True' { ast.Constant(value=self.space.w_True, LOCATIONS) }
-    | 'False' { ast.Constant(value=self.space.w_False, LOCATIONS) }
+    | 'None' { ast.Constant(value=self.space.w_None, None, LOCATIONS) }
+    | 'True' { ast.Constant(value=self.space.w_True, None, LOCATIONS) }
+    | 'False' { ast.Constant(value=self.space.w_False, None, LOCATIONS) }
 
 complex_number:
     | real=signed_real_number '+' imag=imaginary_number {
