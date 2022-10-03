@@ -2149,7 +2149,7 @@ class PythonParser(Parser):
                         if literal_2:
                             tok = self.get_last_non_whitespace_token()
                             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                            return ast . MatchMapping ( keys = [k for k , _ in items] , patterns = [p for _ , p in items] , rest = rest , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                            return ast . MatchMapping ( keys = self . get_pattern_keys ( items ) , patterns = self . get_patterns ( items ) , rest = rest , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         literal = self.expect_type(26)
         if literal:
@@ -2160,7 +2160,7 @@ class PythonParser(Parser):
                 if literal_1:
                     tok = self.get_last_non_whitespace_token()
                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                    return ast . MatchMapping ( keys = [k for k , _ in items] , patterns = [p for _ , p in items] , rest = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                    return ast . MatchMapping ( keys = self . get_pattern_keys ( items ) , patterns = self . get_patterns ( items ) , rest = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         return None
 
@@ -2184,7 +2184,7 @@ class PythonParser(Parser):
             if literal:
                 pattern = self.pattern()
                 if pattern:
-                    return ( key , pattern )
+                    return self . key_pattern_pair ( key , pattern )
         self._index = mark
         return None
 
@@ -2240,7 +2240,7 @@ class PythonParser(Parser):
                     if literal_1:
                         tok = self.get_last_non_whitespace_token()
                         end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                        return ast . MatchClass ( cls = cls , patterns = None , kwd_attrs = [k for k , _ in keywords] , kwd_patterns = [p for _ , p in keywords] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                        return ast . MatchClass ( cls = cls , patterns = None , kwd_attrs = self . get_pattern_names ( keywords ) , kwd_patterns = self . get_patterns ( keywords ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         cls = self.name_or_attr()
         if cls:
@@ -2257,7 +2257,7 @@ class PythonParser(Parser):
                             if literal_2:
                                 tok = self.get_last_non_whitespace_token()
                                 end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                                return ast . MatchClass ( cls = cls , patterns = patterns , kwd_attrs = [k for k , _ in keywords] , kwd_patterns = [p for _ , p in keywords] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+                                return ast . MatchClass ( cls = cls , patterns = patterns , kwd_attrs = self . get_pattern_names ( keywords ) , kwd_patterns = self . get_patterns ( keywords ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
         if self.call_invalid_rules:
             invalid_class_pattern = self.invalid_class_pattern()
@@ -2296,7 +2296,7 @@ class PythonParser(Parser):
             if literal:
                 value = self.pattern()
                 if value:
-                    return ( arg . id , value )
+                    return self . key_pattern_pair ( arg , value )
         self._index = mark
         return None
 
