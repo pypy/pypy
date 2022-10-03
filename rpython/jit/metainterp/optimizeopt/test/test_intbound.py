@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
      IntLowerBound, IntUnbounded, ConstIntBound, IntBoundKnownbits, next_pow2_m1, \
-     IntLowerUpperBound, msbonly
+     IntLowerUpperBound, msbonly, MININT, MAXINT
 
 from copy import copy
 import sys
@@ -562,11 +562,9 @@ def test_invert_bound_random(t1):
 @example((IntLowerUpperBound(-sys.maxint - 1, -sys.maxint+10), -sys.maxint-1))
 def test_neg_bound_random(t1):
     b1, n1 = t1
-    #if str(b1) == "(-100 <= 0b1111111111111111111111111111111111111111111111111111111110011100 <= -100)":
-        #import pdb; pdb.set_trace()
     b2 = b1.neg_bound()
     if n1 != -sys.maxint - 1:
-        assert b2.contains(-n1)
+        assert b2.contains(intmask(-n1))
     else:
         assert not b2.has_upper
 
@@ -792,7 +790,7 @@ def test_knownbits_rshift_unsigned():
     assert not r3c.is_constant()
     assert r3c.contains(-1)
     
-def test_knownbits_add_concrete1():
+def test_knownbits_add_concrete():
     a1 = IntBoundKnownbits(    # 10??10 = {34,38,42,46}
             r_uint(0b100010),  # +   11
             r_uint(0b001100))  #  ??1  
@@ -813,7 +811,7 @@ def test_knownbits_sub_concrete():
             r_uint(0b100001),  # -   11
             r_uint(0b001100))  # ???1  
     b1 = 3                     # ------
-    r1 = a1.add(-b1)            # ????10 = {34,38,42,46,...}   
+    r1 = a1.add(intmask(-b1))           # ????10 = {34,38,42,46,...}   
     assert not r1.is_constant()
     assert r1.contains(0b100010)
     assert r1.contains(0b000110)
@@ -919,3 +917,42 @@ def test_knownbits_rshift_unsigned_random(t1, t2):
     print b1, " >> ", t2
     r = b1.rshift_bound(b2)
     assert r.contains(n1 >> t2) 
+
+@given(knownbits_with_contained_number, knownbits_with_contained_number)
+def test_knownbits_add_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    print t1, " + ", t2
+    r = b1.add_bound(b2)
+    assert r.contains(intmask(n1 + n2))
+
+@given(knownbits_with_contained_number, knownbits_with_contained_number)
+def test_knownbits_sub_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    print t1, " - ", t2
+    r = b1.sub_bound(b2)
+    assert r.contains(intmask(n1 - n2))
+
+@given(knownbits_with_contained_number, ints)
+def test_knownbits_add_concrete_random(t1, t2):
+    b1, n1 = t1
+    print t1, " + ", t2
+    r = b1.add(t2)
+    assert r.contains(intmask(n1 + t2))
+    
+@given(knownbits_with_contained_number)
+def test_knownbits_neg_random(t1):
+    b1, n1 = t1
+    print "neg(", t1, ")"
+    r = b1.neg_bound()
+    if n1 != -sys.maxint - 1:
+        assert r.contains(-n1)
+        
+@given(ints)
+def test_knownbits_neg_const(t1):
+    b1 = ConstIntBound(t1)
+    r = b1.neg_bound()
+    if t1 != -sys.maxint-1:
+        assert r.is_constant()
+        assert r.equals(-t1)

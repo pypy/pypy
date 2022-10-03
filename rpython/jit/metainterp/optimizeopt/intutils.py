@@ -259,31 +259,7 @@ class IntBound(AbstractInfo):
         return res
 
     def sub_bound(self, other):
-        res = self.clone()
-        
-        sum_values = self.tvalue - other.tvalue
-        sum_masks = self.tmask - other.tmask
-        all_carries = sum_values - sum_masks
-        val_carries = all_carries ^ sum_values
-        res.tmask = self.tmask | other.tmask | val_carries
-        res.tvalue = unmask_zero(sum_values, res.tmask)
-        
-        if other.has_lower:
-            try:
-                res.upper = ovfcheck(res.upper - other.lower)
-            except OverflowError:
-                res.has_upper = False
-                res.tvalue, res.tmask = TNUM_UNKNOWN
-        else:
-            res.has_upper = False
-        if other.has_upper:
-            try:
-                res.lower = ovfcheck(res.lower - other.upper)
-            except OverflowError:
-                res.has_lower = False
-                res.tvalue, res.tmask = TNUM_UNKNOWN
-        else:
-            res.has_lower = False
+        res = self.add_bound(other.neg_bound())
         return res
 
     def mul_bound(self, other):
@@ -465,22 +441,9 @@ class IntBound(AbstractInfo):
 
     def neg_bound(self):
         #import pdb; pdb.set_trace()
-        res = ConstIntBound(0).sub_bound(self)
-        
-        """res.has_upper = False
-        if self.has_lower:
-            try:
-                res.upper = ovfcheck(-self.lower)
-                res.has_upper = True
-            except OverflowError:
-                pass
-        res.has_lower = False
-        if self.has_upper:
-            try:
-                res.lower = ovfcheck(-self.upper)
-                res.has_lower = True
-            except OverflowError:
-                pass"""
+        #res = ConstIntBound(0).sub_bound(self)
+        res = self.invert_bound()
+        res = res.add(1)
         return res
 
     def contains(self, val):
