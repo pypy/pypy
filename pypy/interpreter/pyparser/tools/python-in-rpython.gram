@@ -595,16 +595,16 @@ mapping_pattern:
         ast.MatchMapping(keys=None, patterns=None, rest=rest, LOCATIONS) }
     | '{' items=items_pattern ',' rest=double_star_pattern ','? '}' {
         ast.MatchMapping(
-            keys=[k for k,_ in items],
-            patterns=[p for _, p in items],
+            keys=self.get_pattern_keys(items),
+            patterns=self.get_patterns(items),
             rest=rest,
             LOCATIONS,
         )
      }
     | '{' items=items_pattern ','? '}' {
         ast.MatchMapping(
-            keys=[k for k,_ in items],
-            patterns=[p for _, p in items],
+            keys=self.get_pattern_keys(items),
+            patterns=self.get_patterns(items),
             rest=None,
             LOCATIONS,
         )
@@ -614,7 +614,7 @@ items_pattern:
     | ','.key_value_pattern+
 
 key_value_pattern:
-    | key=(literal_expr | attr) ':' pattern=pattern { (key, pattern) }
+    | key=(literal_expr | attr) ':' pattern=pattern { self.key_pattern_pair(key, pattern) }
 
 double_star_pattern:
     | '**' target=pattern_capture_target { target }
@@ -630,8 +630,8 @@ class_pattern["ast.MatchClass"]:
         ast.MatchClass(
             cls=cls,
             patterns=None,
-            kwd_attrs=[k for k, _ in keywords],
-            kwd_patterns=[p for _, p in keywords],
+            kwd_attrs=self.get_pattern_names(keywords),
+            kwd_patterns=self.get_patterns(keywords),
             LOCATIONS,
         )
      }
@@ -639,8 +639,8 @@ class_pattern["ast.MatchClass"]:
         ast.MatchClass(
             cls=cls,
             patterns=patterns,
-            kwd_attrs=[k for k, _ in keywords],
-            kwd_patterns=[p for _, p in keywords],
+            kwd_attrs=self.get_pattern_names(keywords),
+            kwd_patterns=self.get_patterns(keywords),
             LOCATIONS,
         )
      }
@@ -653,7 +653,7 @@ keyword_patterns:
     | ','.keyword_pattern+
 
 keyword_pattern:
-    | arg=NAME '=' value=pattern { (arg.id, value) }
+    | arg=NAME '=' value=pattern { self.key_pattern_pair(arg, value) }
 
 # EXPRESSIONS
 # -----------
