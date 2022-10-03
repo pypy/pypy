@@ -2184,6 +2184,7 @@ def f(x):
         case {'x': 42, 'y': 13}: return "{'x': 42, 'y': 13}"
         case {'x': 13, **rest}: return rest
         case {'x': 7}: return "{'x': 7}"
+        case {True: 7}: return "{True: 7}"
         case {}: return "{}"
         case _: return "_"
 res=(
@@ -2197,6 +2198,7 @@ res=(
     f({'x': 7}), # successful match with a single member: {'x': 7}
     f({'x': 7, 'y': 13}), # successful match with a single member and extraneous property: {'x': 7}
     f({'x': 13, 'y': 7}), # successful match with rest capture: {'y': 7}
+    f({True: 7})
 )
 """
         self.st(func, "res", (
@@ -2210,6 +2212,7 @@ res=(
             "{'x': 7}",
             "{'x': 7}",
             {'y': 7},
+            "{True: 7}",
         ))
 
     def test_match_class(self):

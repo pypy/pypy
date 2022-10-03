@@ -504,9 +504,9 @@ literal_expr:
     | signed_number !('+' | '-')
     | complex_number
     | strings
-    | 'None' { ast.Constant(value=self.space.w_None, None, LOCATIONS) }
-    | 'True' { ast.Constant(value=self.space.w_True, None, LOCATIONS) }
-    | 'False' { ast.Constant(value=self.space.w_False, None, LOCATIONS) }
+    | 'None' { ast.Constant(self.space.w_None, None, LOCATIONS) }
+    | 'True' { ast.Constant(self.space.w_True, None, LOCATIONS) }
+    | 'False' { ast.Constant(self.space.w_False, None, LOCATIONS) }
 
 complex_number:
     | real=signed_real_number '+' imag=imaginary_number {
