@@ -85,6 +85,6 @@ def HPyGlobal_Store(space, handles, ctx, p_global, h_obj):
     # Release a potential already existing p_global[0]
     d_globals = space.getexecutioncontext().hpy_globals
     if p_global[0] in d_globals:
-        d_globals.pop(p_globals[0])
+        d_globals.pop(p_global[0])
     d_globals[h_obj] = w_obj
     p_global[0] = h_obj
