@@ -132,7 +132,7 @@ def test_DebugHandle_repr(compiler):
     gen = _debug.new_generation()
     mod.leak('hello')
     h_hello, = _debug.get_open_handles(gen)
-    assert repr(h_hello) == "<DebugHandle 0x%x for 'hello'>" % h_hello.id
+    assert repr(h_hello).startswith("<DebugHandle 0x%x for 'hello'>" % h_hello.id)
 
 def test_LeakDetector(compiler):
     import pytest
@@ -169,7 +169,7 @@ def test_closed_handles(compiler):
     assert h_hello.is_closed
     assert _debug.get_open_handles(gen) == []
     assert h_hello in _debug.get_closed_handles()
-    assert repr(h_hello) == "<DebugHandle 0x%x CLOSED>" % h_hello.id
+    assert repr(h_hello).startswith("<DebugHandle 0x%x CLOSED>" % h_hello.id)
 
 def test_closed_handles_queue_max_size(compiler):
     from hpy.universal import _debug
