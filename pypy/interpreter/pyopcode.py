@@ -1730,72 +1730,14 @@ class __extend__(pyframe.PyFrame):
         w_type = self.popvalue()
         w_subject = self.popvalue()
 
-        if not space.isinstance_w(w_subject, w_type):
+        w_attribute_tuple = _match_class(self.space, nargs, w_names, w_type, w_subject)
+        if w_attribute_tuple is None:
             self.pushvalue(space.w_None)
             self.pushvalue(space.w_False)
-            return
+        else:
+            self.pushvalue(w_attribute_tuple)
+            self.pushvalue(space.w_True)
 
-        seen = {}
-        attrs_w = []
-        if nargs:
-            try:
-                w_match_args = space.getattr(w_type, space.newtext('__match_args__'))
-                match_self = False
-                # TODO: validate match_args is a tuple
-            except OperationError as e:
-                if not e.match(space, space.w_AttributeError):
-                    raise e
-
-                w_match_args = space.newtuple([])
-                match_self = \
-                    space.isinstance_w(w_subject, space.w_float) or \
-                    space.isinstance_w(w_subject, space.w_tuple) or \
-                    space.isinstance_w(w_subject, space.w_dict) or \
-                    space.isinstance_w(w_subject, space.w_long) or \
-                    space.isinstance_w(w_subject, space.w_bytes) or \
-                    space.isinstance_w(w_subject, space.w_list) or \
-                    space.isinstance_w(w_subject, space.w_bytearray) or \
-                    space.isinstance_w(w_subject, space.w_unicode) or \
-                    space.isinstance_w(w_subject, space.w_set) or \
-                    space.isinstance_w(w_subject, space.w_frozenset)
-            
-            allowed = 1 if match_self else space.len_w(w_match_args)
-            if allowed < nargs:
-                plural = "" if allowed == 1 else "s";
-                raise oefmt(space.w_TypeError,
-                        "%N() accepts %d positional sub-pattern%s (%d given)", w_type, allowed, plural, nargs)
-
-            if match_self:
-                attrs_w.append(w_subject)
-            else:
-                for i in range(nargs):
-                    w_name = space.getitem(w_match_args, space.newint(i))
-                    if not space.isinstance_w(w_name, space.w_unicode):
-                        raise oefmt(space.w_TypeError,
-                                "__match_args__ elements must be strings (got '%T')", w_name)
-                    w_attr = match_class_attr(space, w_subject, w_name, w_type, seen)
-                    if w_attr is None:
-                        self.pushvalue(space.w_None)
-                        self.pushvalue(space.w_False)
-                        return
-                    attrs_w.append(w_attr)
-
-        w_iter = space.iter(w_names)
-        try:
-            while True:
-                w_name = space.next(w_iter)
-                w_attr = match_class_attr(space, w_subject, w_name, w_type, seen)
-                if w_attr is None:
-                    self.pushvalue(space.w_None)
-                    self.pushvalue(space.w_False)
-                    return
-                attrs_w.append(w_attr)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-
-        self.pushvalue(space.newtuple(attrs_w[:]))
-        self.pushvalue(space.w_True)
 
     def GET_LEN(self, oparg, next_instr):
         w_sequence = self.peekvalue()
@@ -2139,6 +2081,67 @@ def match_class_attr(space, w_subject, w_name, w_type, seen):
     seen[name] = None
     return space.findattr(w_subject, w_name)
 
+def _match_class(space, nargs, w_names, w_type, w_subject):
+    # TODO: this needs better JIT hints
+    if not space.isinstance_w(w_subject, w_type):
+        return None
+
+    seen = {}
+    attrs_w = []
+    if nargs:
+        try:
+            w_match_args = space.getattr(w_type, space.newtext('__match_args__'))
+            match_self = False
+            # TODO: validate match_args is a tuple
+        except OperationError as e:
+            if not e.match(space, space.w_AttributeError):
+                raise e
+
+            w_match_args = space.newtuple([])
+            match_self = \
+                space.isinstance_w(w_subject, space.w_float) or \
+                space.isinstance_w(w_subject, space.w_tuple) or \
+                space.isinstance_w(w_subject, space.w_dict) or \
+                space.isinstance_w(w_subject, space.w_long) or \
+                space.isinstance_w(w_subject, space.w_bytes) or \
+                space.isinstance_w(w_subject, space.w_list) or \
+                space.isinstance_w(w_subject, space.w_bytearray) or \
+                space.isinstance_w(w_subject, space.w_unicode) or \
+                space.isinstance_w(w_subject, space.w_set) or \
+                space.isinstance_w(w_subject, space.w_frozenset)
+
+        allowed = 1 if match_self else space.len_w(w_match_args)
+        if allowed < nargs:
+            plural = "" if allowed == 1 else "s";
+            raise oefmt(space.w_TypeError,
+                    "%N() accepts %d positional sub-pattern%s (%d given)", w_type, allowed, plural, nargs)
+
+        if match_self:
+            attrs_w.append(w_subject)
+        else:
+            for i in range(nargs):
+                w_name = space.getitem(w_match_args, space.newint(i))
+                if not space.isinstance_w(w_name, space.w_unicode):
+                    raise oefmt(space.w_TypeError,
+                            "__match_args__ elements must be strings (got '%T')", w_name)
+                w_attr = match_class_attr(space, w_subject, w_name, w_type, seen)
+                if w_attr is None:
+                    return None
+                attrs_w.append(w_attr)
+
+    w_iter = space.iter(w_names)
+    try:
+        while True:
+            w_name = space.next(w_iter)
+            w_attr = match_class_attr(space, w_subject, w_name, w_type, seen)
+            if w_attr is None:
+                return None
+            attrs_w.append(w_attr)
+    except OperationError as e:
+        if not e.match(space, space.w_StopIteration):
+            raise
+
+    return space.newtuple(attrs_w[:])
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
