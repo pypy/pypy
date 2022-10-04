@@ -1328,16 +1328,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for i in range(1, ops_count):
             self.emit_op(ops.DUP_TOP)
             self.emit_op(ops.ROT_THREE)
-            opcode, op_kind = compare_operations(comp.ops[i - 1])
-            self.emit_op_arg(opcode, op_kind)
+            self.emit_compare(comp.ops[i - 1])
             self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup, True)
             if i < (ops_count - 1):
                 comp.comparators[i].walkabout(self)
         last_op, last_comparator = comp.ops[-1], comp.comparators[-1]
         if not self._optimize_comparator(last_op, last_comparator):
             last_comparator.walkabout(self)
-        opcode, op_kind = compare_operations(last_op)
-        self.emit_op_arg(opcode, op_kind)
+        self.emit_compare(last_op)
         if ops_count > 1:
             end = self.new_block()
             self.emit_jump(ops.JUMP_FORWARD, end)
@@ -1994,7 +1992,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_MatchValue(self, match_value):
         match_value.value.walkabout(self)
-        self.emit_op_arg(ops.COMPARE_OP, 2)
+        self.emit_compare(ast.Eq)
 
     def visit_MatchSingleton(self, match_singleton):
         w_value = match_singleton.value
@@ -2106,14 +2104,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.newint(length - 1))
             # stack = [(1,2,3,4,5), 3]
 
-            self.emit_op_arg(ops.COMPARE_OP, 5) # >=
+            self.emit_compare(ast.GtE)
             # stack = [(1,2,3,4,5), True]
 
             left = star_index
             right = length - star_index - 1
         else:
             self.load_const(self.space.newint(length))
-            self.emit_op_arg(ops.COMPARE_OP, 2) # ==
+            self.emit_compare(ast.Eq)
             left = length - 1
             right = 0
 
@@ -2185,7 +2183,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(w_length)
             # stack = [{'x': 42, 'y': 13}, 2, 2]
 
-            self.emit_op_arg(ops.COMPARE_OP, 5) # >=
+            self.emit_compare(ast.GtE)
             # stack = [{'x': 42, 'y': 13}, True]
 
             self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)

@@ -261,6 +261,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Emit a jump opcode to another block."""
         self.emit_op(op).jump_to(block_to, absolute)
 
+    def emit_compare(self, ast_op_kind):
+        from pypy.interpreter.astcompiler.codegen import compare_operations
+        opcode, op_kind = compare_operations(ast_op_kind)
+        self.emit_op_arg(opcode, op_kind)
+
     def add_name(self, container, name):
         """Get the index of a name in container."""
         name = self.scope.mangle(name)
