@@ -2246,6 +2246,26 @@ res=(
             "C(x=None)",
         ))
 
+    def test_match_class_attribute_missing(self):
+        func = """
+class C: pass
+
+def f(x):
+    match x:
+        case C(attr=y): return y
+c1 = C()
+c2 = C()
+c2.attr = 12
+res=(
+    f(c1),
+    f(c2),
+)
+"""
+        self.st(func, "res", (
+            None,
+            12,
+        ))
+
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
     def simple_test(self, source, evalexpr, expected):

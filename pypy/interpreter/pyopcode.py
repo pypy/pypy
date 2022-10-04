@@ -1774,6 +1774,10 @@ class __extend__(pyframe.PyFrame):
                         raise oefmt(space.w_TypeError,
                                 "__match_args__ elements must be strings (got '%T')", w_name)
                     w_attr = match_class_attr(space, w_subject, w_name, w_type, seen)
+                    if w_attr is None:
+                        self.pushvalue(space.w_None)
+                        self.pushvalue(space.w_False)
+                        return
                     attrs_w.append(w_attr)
 
         w_iter = space.iter(w_names)
@@ -1781,6 +1785,10 @@ class __extend__(pyframe.PyFrame):
             while True:
                 w_name = space.next(w_iter)
                 w_attr = match_class_attr(space, w_subject, w_name, w_type, seen)
+                if w_attr is None:
+                    self.pushvalue(space.w_None)
+                    self.pushvalue(space.w_False)
+                    return
                 attrs_w.append(w_attr)
         except OperationError as e:
             if not e.match(space, space.w_StopIteration):
@@ -1798,7 +1806,7 @@ class __extend__(pyframe.PyFrame):
     def MATCH_KEYS(self, oparg, next_instr):
         w_keys = self.peekvalue()
         w_dict = self.peekvalue(1)
-        length = space.len_w(w_keys)
+        length = self.space.len_w(w_keys)
         values_w = [None] * length
         w_iter = self.space.iter(w_keys)
         try:
@@ -2129,7 +2137,7 @@ def match_class_attr(space, w_subject, w_name, w_type, seen):
         raise oefmt(space.w_TypeError,
                 "%N() got multiple sub-patterns for attribute %R", w_type, w_name)
     seen[name] = None
-    return space.getattr(w_subject, w_name)
+    return space.findattr(w_subject, w_name)
 
 
 ### helpers written at the application-level ###
