@@ -1794,25 +1794,29 @@ class __extend__(pyframe.PyFrame):
         w_len = self.space.len(w_sequence)
         self.pushvalue(w_len)
 
+    @jit.unroll_safe
     def MATCH_KEYS(self, oparg, next_instr):
         w_keys = self.peekvalue()
         w_dict = self.peekvalue(1)
-        values_w = []
+        length = space.len_w(w_keys)
+        values_w = [None] * length
         w_iter = self.space.iter(w_keys)
         try:
+            i = 0
             while True:
                 w_key = self.space.next(w_iter)
                 if self.space.contains_w(w_dict, w_key):
-                    values_w.append(self.space.getitem(w_dict, w_key))
+                    values_w[i] = self.space.getitem(w_dict, w_key)
                 else:
                     self.pushvalue(self.space.w_None)
                     self.pushvalue(self.space.w_False)
                     return
+                i += 1
         except OperationError as e:
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
 
-        self.pushvalue(self.space.newtuple(values_w[:]))
+        self.pushvalue(self.space.newtuple(values_w))
         self.pushvalue(self.space.w_True)
 
     def COPY_DICT_WITHOUT_KEYS(self, oparg, next_instr):
