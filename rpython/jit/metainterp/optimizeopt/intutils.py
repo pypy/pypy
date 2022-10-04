@@ -34,12 +34,24 @@ def next_pow2_m1(n):
 
 
 class IntBound(AbstractInfo):
+    """ 
+    Abstract domain representation of an integer,
+    approximating via integer bounds and known-bits 
+    tri-state numbers.
+    """
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower', 'tvalue', 'tmask')
 
     def __init__(self, lower=MININT, upper=MAXINT, 
                  has_lower=False, has_upper=False, 
                  tvalue=TNUM_ONLY_VALUE_DEFAULT, 
                  tmask=TNUM_ONLY_MASK_DEFAULT):
+        """
+        It is recommended to use the indirect constructors
+        below instead of this one.  
+        Instantiates an abstract representation of integer.
+        The default parameters set this abstract int to
+        contain all integers.
+        """
         
         self.has_lower = has_lower
         self.has_upper = has_upper
@@ -69,51 +81,114 @@ class IntBound(AbstractInfo):
         return '(%s <= 0b%s <= %s)' % (l, self.knownbits_string(), u)
 
 
-    # Returns True if the bound was updated
     def make_le(self, other):
+        """ 
+        Sets the bounds of `self` so that it only 
+        contains values lower than or equal to the 
+        values contained in `other`.
+        Returns `True` iff the bound was updated.
+        (Mutates `self`.)
+        """
         if other.has_upper:
             return self.make_le_const(other.upper)
         return False
 
-    def make_le_const(self, other):
-        if not self.has_upper or other < self.upper:
+    def make_le_const(self, value):
+        """ 
+        Sets the bounds of `self` so that it 
+        only contains values lower than or equal 
+        to `value`. 
+        Returns `True` iff the bound was updated.
+        (Mutates `self`.)
+        """
+        if not self.has_upper or value < self.upper:
             self.has_upper = True
-            self.upper = other
+            self.upper = value
             return True
         return False
 
     def make_lt(self, other):
+        """
+        Sets the bounds of `self` so that it
+        only contains values lower than the values 
+        contained in `other`.
+        Returns `True` iff the bound was updated.
+        (Mutates `self`.)
+        """
         if other.has_upper:
             return self.make_lt_const(other.upper)
         return False
 
-    def make_lt_const(self, other):
+    def make_lt_const(self, value):
+        """
+        Sets the bounds of `self` so that it
+        only contains values lower than `value`.
+        Returns `True` iff the bound was updated.
+        (Mutates `self`.)
+        """
         try:
-            other = ovfcheck(other - 1)
+            value = ovfcheck(value - 1)
         except OverflowError:
             return False
-        return self.make_le_const(other)
+        return self.make_le_const(value)
 
     def make_ge(self, other):
+        """ 
+        Sets the bounds of `self` so that it only 
+        contains values greater than or equal to the 
+        values contained in `other`.
+        Returns `True` iff the bound was updated.
+        (Mutates `self`.)
+        """
         if other.has_lower:
             return self.make_ge_const(other.lower)
         return False
 
-    def make_ge_const(self, other):
-        if not self.has_lower or other > self.lower:
+    def make_ge_const(self, value):
+        """ 
+        Sets the bounds of `self` so that it 
+        only contains values greater than or equal 
+        to `value`. 
+        Returns `True` iff the bound was updated.
+        (Mutates `self`.)
+        """
+        if not self.has_lower or value > self.lower:
             self.has_lower = True
-            self.lower = other
+            self.lower = value
             return True
         return False
 
-    def make_gt_const(self, other):
+    def make_gt(self, other):
+        """
+        Sets the bounds of `self` so that it
+        only contains values greater than the values 
+        contained in `other`.
+        Returns `True` iff the bound was updated.
+        (Mutates `self`.)
+        """
+        if other.has_lower:
+            return self.make_gt_const(other.lower)
+        return False
+    
+    def make_gt_const(self, value):
+        """
+        Sets the bounds of `self` so that it
+        only contains values greater than `value`.
+        Returns `True` iff the bound was updated.
+        (Mutates `self`.)
+        """
         try:
-            other = ovfcheck(other + 1)
+            value = ovfcheck(value + 1)
         except OverflowError:
             return False
-        return self.make_ge_const(other)
+        return self.make_ge_const(value)
 
     def make_eq_const(self, intval):
+        """
+        Sets the properties of this abstract integer
+        so that it is constant and equals `intval`.
+        (Mutates `self`.)
+        """
         self.has_upper = True
         self.has_lower = True
         self.upper = intval
@@ -121,33 +196,46 @@ class IntBound(AbstractInfo):
         self.tvalue = r_uint(intval)
         self.tmask = r_uint(0)
 
-    def make_gt(self, other):
-        if other.has_lower:
-            return self.make_gt_const(other.lower)
-        return False
-
     def is_constant_by_bounds(self):
-        # for internal use only!
+        """ for internal use only! """
         return self.is_bounded() and (self.lower == self.upper)
 
     def is_constant_by_knownbits(self):
-        # for internal use only!
+        """ for internal use only! """
         return self.tmask == 0
 
     def is_constant(self):
+        """ 
+        Returns `True` iff this abstract integer 
+        does contain only one (1) concrete integer.
+        """
         return self.is_constant_by_bounds() or self.is_constant_by_knownbits()
 
     def get_constant_int(self):
+        """ 
+        Returns the only integer contained in this
+        abstract integer, asserting that it 
+        `is_constant()`.
+        """
         assert self.is_constant()
         if self.is_constant_by_bounds():
             return self.lower
-        else:
+        else:  # is_constant_by_knownbits
             return intmask(self.tvalue)
 
     def is_bounded(self):
+        """ 
+        Returns `True` iff this abstract integer 
+        has both, a lower and an upper bound.
+        """
         return self.has_lower and self.has_upper
 
     def equals(self, value):
+        """
+        Returns `True` iff this abstract integer 
+        contains only one (1) integer that does 
+        equal `value`.
+        """
         if not self.is_constant():
             return False
         if self.is_constant_by_bounds():
@@ -155,46 +243,149 @@ class IntBound(AbstractInfo):
         else:
             return r_uint(value) == self.tvalue
 
-    def known_lt_const(self, other):
+    def known_lt_const(self, value):
+        """
+        Returns `True` iff each number contained
+        in this abstract integer is lower than
+        `value`.
+        """
         if self.has_upper:
-            return self.upper < other
+            return self.upper < value
         return False
 
-    def known_le_const(self, other):
+    def known_le_const(self, value):
+        """
+        Returns `True` iff each number contained
+        in this abstract integer is lower than
+        or equal to `value`.
+        """
         if self.has_upper:
-            return self.upper <= other
+            return self.upper <= value
         return False
 
-    def known_gt_const(self, other):
+    def known_gt_const(self, value):
+        """
+        Returns `True` iff each number contained
+        in this abstract integer is greater than
+        `value`.
+        """
         if self.has_lower:
-            return self.lower > other
+            return self.lower > value
         return False
 
-    def known_ge_const(self, other):
+    def known_ge_const(self, value):
+        """
+        Returns `True` iff each number contained
+        in this abstract integer is greater than
+        equal to `value`.
+        """
         if self.has_upper:
-            return self.upper >= other
+            return self.upper >= value
         return False
 
     def known_lt(self, other):
+        """
+        Returns `True` iff each number contained
+        in this abstract integer is lower than
+        each integer contained in `other`.
+        """
         if other.has_lower:
             return self.known_lt_const(other.lower)
         return False
 
     def known_le(self, other):
+        """
+        Returns `True` iff each number contained
+        in this abstract integer is lower than
+        or equal to each integer contained in 
+        `other`.
+        """
         if other.has_lower:
             return self.known_le_const(other.lower)
         return False
 
     def known_gt(self, other):
+        """
+        Returns `True` iff each number contained
+        in this abstract integer is greater than
+        each integer contained in `other`.
+        """
         return other.known_lt(self)
 
     def known_ge(self, other):
+        """
+        Returns `True` iff each number contained
+        in this abstract integer is greater than
+        or equal to each integer contained in 
+        `other`.
+        """
         return other.known_le(self)
 
     def known_nonnegative(self):
-        return self.has_lower and 0 <= self.lower
+        """ 
+        Returns `True` if this abstract integer 
+        only contains numbers greater than or 
+        equal to `0` (zero).
+        """
+        #return self.has_lower and 0 <= self.lower
+        return 0 <= self.get_minimum()
+    
+    def known_nonnegative_by_bounds(self):
+        """ for internal use only! """
+        # Returns `True` if this abstract integer 
+        # only contains numbers greater than or 
+        # equal to `0` (zero), IGNORING KNOWNBITS.
+        if not self.has_lower:
+            return False
+        else:
+            return 0 <= self.lower
+        
+    def get_minimum_by_knownbits(self):
+        """ for internal use only! """
+        return intmask(self.tvalue | msbonly(self.tmask))
+    
+    def get_maximum_by_knownbits(self):
+        """ for internal use only! """
+        unsigned_mask = self.tmask & ~(1<<(LONG_BIT-1))
+        return intmask(self.tvalue | unsigned_mask)
+    
+    def get_minimum(self):
+        """
+        Returns the lowest integer that is 
+        contained in this abstract integer.
+        """
+        # Unnecessary to unmask, because by convention 
+        #   mask[i] => ~value[i]
+        ret_knownbits = self.get_minimum_by_knownbits()
+        ret_bounds = self.lower
+        if self.has_lower:
+            return max(ret_knownbits, ret_bounds)
+        else:
+            return ret_knownbits
+        
+    def get_maximum(self):
+        """
+        Returns the greatest integer that is 
+        contained in this abstract integer.
+        """
+        ret_knownbits = self.get_maximum_by_knownbits()
+        ret_bounds = self.upper
+        if self.has_upper:
+            return min(ret_knownbits, ret_bounds)
+        else:
+            return ret_knownbits
 
     def intersect(self, other):
+        """
+        Mutates `self` so that it contains
+        integers that are contained in `self`
+        and `other`, and only those.
+        Basically intersection of sets.
+        Throws errors if `self` and `other`
+        "disagree", meaning the result would
+        contain 0 (zero) any integers.
+        """
+        
         r = False
         if other.has_lower:
             if self.make_ge_const(other.lower):
@@ -216,10 +407,29 @@ class IntBound(AbstractInfo):
             self.tvalue = unmask_zero(union_val, intersect_masks)
             self.tmask = intersect_masks
             r = True
+            
+        # we also assert agreement between knownbits and bounds,
+        # e.g. that the set of possible ints is not empty.
+        if self.has_lower:
+            max_knownbits = self.get_maximum_by_knownbits()
+            assert max_knownbits >= self.lower
+        if self.has_upper:
+            min_knownbits = self.get_minimum_by_knownbits()
+            assert min_knownbits <= self.upper
 
         return r
 
     def intersect_const(self, lower, upper):
+        """
+        Mutates `self` so that it contains
+        integers that are contained in `self`
+        and the range [`lower`, `upper`], 
+        and only those.
+        Basically intersection of sets.
+        Does only affect the bounds, so if 
+        possible the use of the `intersect`
+        function is recommended instead.
+        """
         r = self.make_ge_const(lower)
         if self.make_le_const(upper):
             r = True
@@ -227,12 +437,28 @@ class IntBound(AbstractInfo):
         return r
 
     def add(self, offset):
+        """
+        Adds `offset` to this abstract int
+        and returns the result.
+        (Does not mutate `self`.)
+        """
         return self.add_bound(ConstIntBound(offset))
 
     def mul(self, value):
+        """ 
+        Multiplies this abstract int with the
+        given `value` and returns the result. 
+        (Does not mutate `self`.)
+        """
         return self.mul_bound(ConstIntBound(value))
 
     def add_bound(self, other):
+        """
+        Adds the `other` abstract integer to 
+        `self` and returns the result. 
+        (Does not mutate `self`.)
+        """
+        
         res = self.clone()
         
         sum_values = self.tvalue + other.tvalue
@@ -256,13 +482,26 @@ class IntBound(AbstractInfo):
                 res.has_lower = False
         else:
             res.has_lower = False
+            
         return res
 
     def sub_bound(self, other):
+        """
+        Subtracts the `other` abstract 
+        integer from `self` and returns the 
+        result. 
+        (Does not mutate `self`.)
+        """
         res = self.add_bound(other.neg_bound())
         return res
 
     def mul_bound(self, other):
+        """ 
+        Multiplies the `other` abstract 
+        integer with `self` and returns the
+        result. 
+        (Does not mutate `self`.)
+        """
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower:
             try:
@@ -277,6 +516,12 @@ class IntBound(AbstractInfo):
             return IntUnbounded()
 
     def py_div_bound(self, other):
+        """
+        Divides this abstract integer by the
+        `other` abstract integer and returns
+        the result.
+        (Does not mutate `self`.)
+        """
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
            not other.contains(0):
@@ -295,6 +540,12 @@ class IntBound(AbstractInfo):
             return IntUnbounded()
 
     def mod_bound(self, other):
+        """
+        Calculates the mod of this abstract
+        integer by the `other` abstract 
+        integer and returns the result.
+        (Does not mutate `self`.)
+        """
         r = IntUnbounded()
         if other.is_constant():
             val = other.get_constant_int()
@@ -307,6 +558,13 @@ class IntBound(AbstractInfo):
         return r
 
     def lshift_bound(self, other):
+        """
+        Shifts this abstract integer `other`
+        bits to the left, where `other` is
+        another abstract integer.
+        (Does not mutate `self`.)
+        """
+        
         tvalue, tmask = TNUM_UNKNOWN
         if other.is_constant():
             c_other = r_uint(other.get_constant_int())
@@ -318,7 +576,7 @@ class IntBound(AbstractInfo):
             # else: bits are unknown because arguments invalid
 
         if self.is_bounded() and other.is_bounded() and \
-           other.known_nonnegative() and \
+           other.known_nonnegative_by_bounds() and \
            other.known_lt_const(LONG_BIT):
             try:
                 vals = (ovfcheck(self.upper << other.upper),
@@ -333,6 +591,14 @@ class IntBound(AbstractInfo):
         return IntBoundKnownbits(tvalue, tmask)
 
     def rshift_bound(self, other):
+        """
+        Shifts this abstract integer `other`
+        bits to the right, where `other` is
+        another abstract integer.
+        TODO As of now, only shifts w/ sign extension are supported. 
+        (Does not mutate `self`.)
+        """
+        
         # this seems to always be the signed variant..?
         signed = True
         tvalue, tmask = TNUM_UNKNOWN
@@ -360,7 +626,7 @@ class IntBound(AbstractInfo):
             # else: bits are unknown because arguments invalid
 
         if self.is_bounded() and other.is_bounded() and \
-           other.known_nonnegative() and \
+           other.known_nonnegative_by_bounds() and \
            other.known_lt_const(LONG_BIT):
             vals = (self.upper >> other.upper,
                     self.upper >> other.lower,
@@ -372,8 +638,15 @@ class IntBound(AbstractInfo):
             return IntBoundKnownbits(tvalue, tmask)
 
     def and_bound(self, other):
-        pos1 = self.known_nonnegative()
-        pos2 = other.known_nonnegative()
+        """
+        Performs bit-wise AND of this
+        abstract integer and the `other`, 
+        returning its result.
+        (Does not mutate `self`.)
+        """
+        
+        pos1 = self.known_nonnegative_by_bounds()
+        pos2 = other.known_nonnegative_by_bounds()
         r = IntUnbounded()
         if pos1 or pos2:
             r.make_ge_const(0)
@@ -391,9 +664,17 @@ class IntBound(AbstractInfo):
         return r
 
     def or_bound(self, other):
+        """
+        Performs bit-wise OR of this
+        abstract integer and the `other`, 
+        returning its result.
+        (Does not mutate `self`.)
+        """
+        
         r = IntUnbounded()
-        if self.known_nonnegative() and \
-                other.known_nonnegative():
+        
+        if self.known_nonnegative_by_bounds() and \
+                other.known_nonnegative_by_bounds():
             if self.has_upper and other.has_upper:
                 mostsignificant = self.upper | other.upper
                 r.intersect(IntLowerUpperBound(0, next_pow2_m1(mostsignificant)))
@@ -408,9 +689,17 @@ class IntBound(AbstractInfo):
         return r
 
     def xor_bound(self, other):
+        """
+        Performs bit-wise XOR of this
+        abstract integer and the `other`, 
+        returning its result.
+        (Does not mutate `self`.)
+        """
+        
         r = IntUnbounded()
-        if self.known_nonnegative() and \
-                other.known_nonnegative():
+        
+        if self.known_nonnegative_by_bounds() and \
+                other.known_nonnegative_by_bounds():
             if self.has_upper and other.has_upper:
                 mostsignificant = self.upper | other.upper
                 r.intersect(IntLowerUpperBound(0, next_pow2_m1(mostsignificant)))
@@ -425,7 +714,15 @@ class IntBound(AbstractInfo):
         return r
 
     def invert_bound(self):
+        """
+        Performs bit-wise NOT on this 
+        abstract integer returning its 
+        result.
+        (Does not mutate `self`.)
+        """
+        
         res = self.clone()
+        
         res.has_upper = False
         if self.has_lower:
             res.upper = ~self.lower
@@ -440,13 +737,21 @@ class IntBound(AbstractInfo):
         return res
 
     def neg_bound(self):
-        #import pdb; pdb.set_trace()
-        #res = ConstIntBound(0).sub_bound(self)
+        """
+        Arithmetically negates this abstract
+        integer and returns the result.
+        (Does not mutate `self`.)
+        """
         res = self.invert_bound()
         res = res.add(1)
         return res
 
     def contains(self, val):
+        """
+        Returns `True` iff this abstract 
+        integer contains the given `val`ue.
+        """
+        
         if not we_are_translated():
             assert not isinstance(val, long)
         if not isinstance(val, int):
@@ -457,15 +762,21 @@ class IntBound(AbstractInfo):
             return False
         if self.has_upper and val > self.upper:
             return False
-        #import pdb;pdb.set_trace()
-        usvalue = unmask_zero(self.tvalue, self.tmask)
-        uovalue = unmask_zero(r_uint(val), self.tmask)
-        if usvalue != uovalue:
+        
+        u_vself = unmask_zero(self.tvalue, self.tmask)
+        u_value = unmask_zero(r_uint(val), self.tmask)
+        if u_vself != u_value:
             return False
         
         return True
 
     def contains_bound(self, other):
+        """
+        Returns `True` iff this abstract
+        integers contains each number that
+        is contained in the `other` one.
+        """
+        
         assert isinstance(other, IntBound)
         if other.has_lower:
             if not self.contains(other.lower):
@@ -485,12 +796,21 @@ class IntBound(AbstractInfo):
         return True
 
     def clone(self):
+        """
+        Returns an exact copy of this
+        abstract integer. 
+        """
         res = IntBound(self.lower, self.upper, 
                        self.has_lower, self.has_upper, 
                        self.tvalue, self.tmask)
         return res
 
     def make_guards(self, box, guards, optimizer):
+        """
+        Generates guards from the information
+        we have about the numbers this 
+        abstract integer contains.
+        """
         if self.is_constant():
             guards.append(ResOperation(rop.GUARD_VALUE,
                                        [box, ConstInt(self.upper)]))
@@ -509,20 +829,44 @@ class IntBound(AbstractInfo):
             guards.append(op)
 
     def is_bool(self):
+        """
+        Returns `True` iff the properties
+        of this abstract integer allow it to
+        represent a conventional boolean 
+        value.
+        """
         return (self.is_bounded() and self.known_nonnegative() and
                 self.known_le_const(1))
 
     def make_bool(self):
+        """
+        Mutates this abstract integer so that
+        it does represent a conventional 
+        boolean value.
+        (Mutates `self`.)
+        """
         self.intersect(IntLowerUpperBound(0, 1))
 
     def getconst(self):
+        """
+        Returns an abstract integer that 
+        equals the value of this abstract 
+        integer if it is constant, otherwise 
+        throws an Exception.
+        """
         if not self.is_constant():
             raise Exception("not a constant")
         return ConstInt(self.get_constant_int())
 
     def getnullness(self):
+        """
+        Returns information about whether 
+        this this abstract integer is known
+        to be zero or not to be zero.
+        """
         if self.known_gt_const(0) or \
-           self.known_lt_const(0):
+           self.known_lt_const(0) or \
+           self.tvalue != 0:
             return INFO_NONNULL
         if self.known_nonnegative() and \
            self.known_le_const(0):
@@ -550,6 +894,15 @@ class IntBound(AbstractInfo):
 
 
     def knownbits_string(self, unk_sym = '?'):
+        """
+        Returns a beautiful string 
+        representation about the knownbits
+        part of this abstract integer.
+        You can give any symbol or string
+        for the "unknown bits" 
+        (default: '?'), the other digits are
+        written as '1' and '0'.
+        """
         results = []
         for bit in range(LONG_BIT):
             if self.tmask & (1 << bit):
@@ -565,6 +918,12 @@ def IntLowerUpperBound(lower, upper):
                  upper=upper,
                  has_lower=True,
                  has_upper=True)
+    """
+    Constructs an abstract integer that is
+    greater than or equal to `lower` and
+    lower than or equal to `upper`, e.g.
+    it is bound by `lower` and `upper`.
+    """
     return b
 
 def IntUpperBound(upper):
@@ -572,6 +931,11 @@ def IntUpperBound(upper):
                  upper=upper,
                  has_lower=False,
                  has_upper=True)
+    """
+    Constructs an abstract integer that is
+    lower than or equal to `upper`, e.g.
+    it is bound by `upper`.
+    """
     return b
 
 def IntLowerBound(lower):
@@ -579,22 +943,35 @@ def IntLowerBound(lower):
                  upper=0, 
                  has_lower=True,
                  has_upper=False)
+    """
+    Constructs an abstract integer that is 
+    greater than or equal to `lower`, e.g.
+    it is bound by `lower`.
+    """
     return b
 
 def IntUnbounded():
-    b = IntBound(lower=0, 
-                 upper=0, 
-                 has_lower=False, 
-                 has_upper=False)
+    """
+    Constructs an abstract integer that is
+    completely unknown (e.g. it contains
+    every integer).
+    """
+    b = IntBound()
     return b
 
 def ConstIntBound(value):
+    """
+    Constructs an abstract integer that 
+    represents a constant (a completely
+    known integer).
+    """
     # this one does NOT require a r_uint for `value`.
     assert not isinstance(value, r_uint)
     tvalue = value
     tmask = 0
     if not isinstance(value, int):
-        # AddressAsInt / symbolic ints
+        # workaround for AddressAsInt / symbolic ints
+        # by CF
         tvalue = 0
         tmask = -1
     b = IntBound(lower=value, 
@@ -606,6 +983,13 @@ def ConstIntBound(value):
     return b
 
 def IntBoundKnownbits(value, mask, do_unmask=False):
+    """
+    Constructs an abstract integer where the
+    bits determined by `value` and `mask` are
+    (un-)known.
+    Requires an `r_uint` for `value` and 
+    `mask`!
+    """
     # this one does require a r_uint for `value` and `mask`.
     assert isinstance(value, r_uint) and isinstance(mask, r_uint)
     if do_unmask:
@@ -619,6 +1003,14 @@ def IntBoundKnownbits(value, mask, do_unmask=False):
     return b
 
 def IntLowerUpperBoundKnownbits(lower, upper, value, mask, do_unmask=False):
+    """
+    Constructs an abstract integer that
+    is bound by `lower` and `upper`, where 
+    the bits determined by `value` and `mask`
+    are (un-)known.
+    Requires an `r_uint` for `value` and 
+    `mask`!
+    """
     # this one does require a r_uint for `value` and `mask`.
     assert isinstance(value, r_uint) and isinstance(mask, r_uint)
     if do_unmask:
@@ -632,23 +1024,49 @@ def IntLowerUpperBoundKnownbits(lower, upper, value, mask, do_unmask=False):
     return b
 
 def unmask_zero(value, mask):
-    # sets all unknowns in value to 0
+    """ 
+    Sets all unknowns determined by 
+    `mask` in `value` bit-wise to 0 (zero) 
+    and returns the result. 
+    """
     return value & ~mask
 
 def unmask_one(value, mask):
-    # sets all unknowns in value to 1
+    """ 
+    Sets all unknowns determined by 
+    `mask` in `value` bit-wise to 1 (one) 
+    and returns the result. 
+    """
     return value | mask
 
 def min4(t):
+    """
+    Returns the minimum of the values in
+    the quadruplet t.
+    """
     return min(min(t[0], t[1]), min(t[2], t[3]))
 
 def max4(t):
+    """
+    Returns the maximum of the values in
+    the quadruplet t.
+    """
     return max(max(t[0], t[1]), max(t[2], t[3]))
 
 def msbonly(v):
+    """
+    Returns `v` with all bits except the 
+    most significant bit set to 0 (zero).
+    """
     return v & (1 << (LONG_BIT-1))
 
 def is_valid_tnum(tvalue, tmask):
+    """
+    Returns `True` iff `tvalue` and `tmask`
+    would be valid tri-state number fields
+    of an abstract integer, meeting all
+    conventions and requirements. 
+    """
     if not isinstance(tvalue, r_uint):
         return False
     if not isinstance(tmask, r_uint):

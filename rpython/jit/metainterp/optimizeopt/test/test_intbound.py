@@ -946,7 +946,7 @@ def test_knownbits_neg_random(t1):
     b1, n1 = t1
     print "neg(", t1, ")"
     r = b1.neg_bound()
-    if n1 != -sys.maxint - 1:
+    if n1 != -sys.maxint-1:
         assert r.contains(-n1)
         
 @given(ints)
