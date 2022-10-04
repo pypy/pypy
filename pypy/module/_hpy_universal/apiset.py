@@ -14,7 +14,6 @@ def _restore_gil_state(gil_release, _gil_auto):
     # see "Handling of the GIL" above
     unlock = gil_release or _gil_auto
     if unlock:
-        print "rgil.release"
         rgil.release()
 
 def deadlock_error(funcname):
@@ -164,7 +163,6 @@ class APISet(object):
                     if _gil_auto or gil_acquire:
                         if gil_acquire and rgil.am_I_holding_the_GIL():
                             deadlock_error(fn.__name__)
-                        print "rgil.acquire"
                         rgil.acquire()
                     else:
                         if not rgil.am_I_holding_the_GIL():
