@@ -2266,6 +2266,25 @@ res=(
             12,
         ))
 
+    def test_match_complex(self):
+        func = """
+class C: pass
+
+def f(x):
+    match x:
+        case 0 + 0j:
+            return 1
+res=(
+    f(0+0j),
+    f(1+0j),
+)
+"""
+        self.st(func, "res", (
+            1,
+            None,
+        ))
+
+
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
     def simple_test(self, source, evalexpr, expected):
