@@ -2137,6 +2137,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         pop = length
         for i, pattern in enumerate(patterns):
             if i == star_index:
+                # TODO: can use more efficient ROT versions (and even nothing
+                # sometimes)
                 self.emit_op_arg(ops.ROT_N, right + 1)
             pattern.walkabout(self)
             pop -= 1

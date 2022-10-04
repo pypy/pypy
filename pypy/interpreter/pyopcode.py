@@ -1825,6 +1825,7 @@ class __extend__(pyframe.PyFrame):
             self.space.delitem(w_dict, w_key)
         self.pushvalue(w_dict)
 
+    @jit.unroll_safe
     def ROT_N(self, oparg, next_instr):
         # TODO: this is terrible
         values_w = [self.popvalue() for _ in range(oparg)]
