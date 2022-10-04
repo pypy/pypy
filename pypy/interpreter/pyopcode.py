@@ -1818,11 +1818,7 @@ class __extend__(pyframe.PyFrame):
     def COPY_DICT_WITHOUT_KEYS(self, oparg, next_instr):
         w_keys = self.popvalue()
         w_subject = self.peekvalue()
-        w_dict = self.space.newdict()
-        self.space.call_method(w_dict, 'update', w_subject)
-        for i in range(self.space.len_w(w_keys)):
-            w_key = self.space.getitem(w_keys, self.space.newint(i))
-            self.space.delitem(w_dict, w_key)
+        w_dict = _copy_dict_without_keys(self.space, w_keys, w_subject)
         self.pushvalue(w_dict)
 
     @jit.unroll_safe
@@ -2114,6 +2110,14 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe):
                 "got multiple values for keyword argument %R",
                 w_key)
         space.setitem(w_dict, w_key, w_value)
+
+def _copy_dict_without_keys(space, w_keys, w_subject):
+    w_dict = space.newdict()
+    space.call_method(w_dict, 'update', w_subject)
+    for i in range(space.len_w(w_keys)):
+        w_key = space.getitem(w_keys, space.newint(i))
+        space.delitem(w_dict, w_key)
+    return w_dict
 
 def match_class_attr(space, w_subject, w_name, w_type, seen):
     name = space.text_w(w_name)
