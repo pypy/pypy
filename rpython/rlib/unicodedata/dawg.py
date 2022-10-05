@@ -35,7 +35,7 @@ class DawgNode(object):
         # Number of end nodes reachable from this one.
         self.count = 0
 
-        self.linear_edges = None # later: list of (char, string, next_state)
+        self.linear_edges = None # later: list of (string, next_state)
 
     def __str__(self):
         if self.final:
@@ -132,8 +132,10 @@ class Dawg(object):
         # minimize all unchecked_nodes
         self._minimize(0)
 
-        # turn it into a cdawg
-        return self.cdawgify()
+        self._linearize_edges()
+
+        topoorder, linear_data, inverse = self._topological_order()
+        return self.cdawgify(topoorder), linear_data, inverse
 
     def _minimize(self, down_to):
         # proceed from the leaf up to a certain point
@@ -167,12 +169,6 @@ class Dawg(object):
                 return None
         return skipped
 
-    def lookup(self, word):
-        skipped = self._lookup(word)
-        if skipped is not None:
-            return self.data[skipped]
-        return None
-
     def enum_all_nodes(self):
         stack = [self.root]
         done = set()
@@ -191,8 +187,8 @@ class Dawg(object):
             for label, child in sorted(node.edges.items()):
                 print("    {} goto {}".format(label, child.id))
 
-    def inverse_lookup(self, number):
-        pos = self.inverse[number]
+    def _inverse_lookup(self, number):
+        assert 0, "not working in the current form, but keep it as the pure python version of compact lookup"
         result = []
         node = self.root
         while 1:
@@ -211,13 +207,18 @@ class Dawg(object):
             else:
                 assert 0
 
-    def cdawgify(self):
-        # turn the dawg into a compact string representation
+    def _linearize_edges(self):
+        # compute "linear" edges. the idea is that long chains of edges without
+        # any of the intermediate states being final or any extra incoming or
+        # outgoing edges can be represented by having removing them, and
+        # instead using longer strings as edge labels (instead of single
+        # characters)
         incoming = defaultdict(list)
-        for node in sorted(self.enum_all_nodes(), key=lambda e: e.id):
+        nodes = sorted(self.enum_all_nodes(), key=lambda e: e.id)
+        for node in nodes:
             for label, child in sorted(node.edges.items()):
                 incoming[child].append(node)
-        for node in sorted(self.enum_all_nodes(), key=lambda e: e.id):
+        for node in nodes:
             node.linear_edges = []
             for label, child in sorted(node.edges.items()):
                 s = [label]
@@ -226,22 +227,22 @@ class Dawg(object):
                     s.append(c)
                 node.linear_edges.append((''.join(s), child))
 
-
+    def _topological_order(self):
         # compute reachable linear nodes, and the set of incoming edges for each node
         order = []
         stack = [self.root]
-        order_positions = {}
+        seen = set()
         while stack:
             # depth first traversal
             node = stack.pop()
-            if node.id in order_positions:
+            if node.id in seen:
                 continue
-            order_positions[node.id] = len(order)
+            seen.add(node.id)
             order.append(node)
             for label, child in node.linear_edges:
                 stack.append(child)
 
-        # do a topological sort, in a terrible way
+        # do a (slighly bad) topological sort
         incoming = defaultdict(set)
         for node in order:
             for label, child in node.linear_edges:
@@ -253,6 +254,9 @@ class Dawg(object):
             node = no_incoming.pop()
             topoorder.append(node)
             positions[node] = len(topoorder)
+            # use "reversed" to make sure that the linear_edges get reorderd
+            # from their alphabetical order as little as necessary (no_incoming
+            # is LIFO)
             for label, child in reversed(node.linear_edges):
                 incoming[child].discard((label, node))
                 if not incoming[child]:
@@ -268,10 +272,9 @@ class Dawg(object):
         for node in order:
             for label, child in node.linear_edges:
                 assert positions[child] > positions[node]
-
-        # now number the nodes and then compute the order linearization of the
-        # data
-
+        # number the nodes. afterwards every input string in the set has a
+        # unique number in the 0 <= number < len(data). We then put the data in
+        # self.data into a linear list using these numbers as indexes.
         topoorder[0].num_reachable_linear()
         linear_data = [None] * len(self.data)
         inverse = {} # maps value back to index
@@ -280,7 +283,11 @@ class Dawg(object):
             linear_data[index] = value
             inverse[value] = index
 
-        #max_num_edges = max(len(node.linear_edges) for node in order)
+        return topoorder, linear_data, inverse
+
+    def cdawgify(self, topoorder):
+        # turn the dawg into a compact string representation
+
 
         def compute_packed(order):
             last_result = None
@@ -379,37 +386,6 @@ def decode_varint_unsigned(b, index=0):
         shift += 7
         if not (byte & 0b10000000):
             return res, index
-
-def encode_varint_signed(i, res):
-    # https://en.wikipedia.org/wiki/LEB128 signed variant
-    more = True
-    startlen = len(res)
-    while more:
-        lowest7bits = i & 0b1111111
-        i >>= 7
-        if ((i == 0) and (lowest7bits & 0b1000000) == 0) or (
-            (i == -1) and (lowest7bits & 0b1000000) != 0
-        ):
-            more = False
-        else:
-            lowest7bits |= 0b10000000
-        res.append(chr(lowest7bits))
-    return len(res) - startlen
-
-@objectmodel.always_inline
-def decode_varint_signed(b, index=0):
-    res = 0
-    shift = 0
-    while True:
-        byte = ord(b[index])
-        res = res | ((byte & 0b1111111) << shift)
-        index += 1
-        shift += 7
-        if not (byte & 0b10000000):
-            if byte & 0b1000000:
-                res |= -1 << shift
-            return res, index
-
 
 @objectmodel.always_inline
 def decode_node(packed, node):

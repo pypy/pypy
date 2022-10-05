@@ -4,17 +4,8 @@ from hypothesis import given, strategies
 from rpython.rlib.unicodedata.dawg import (Dawg, lookup, inverse_lookup,
         build_compression_dawg, _inverse_lookup,
         encode_varint_unsigned, decode_varint_unsigned,
-        encode_varint_signed, decode_varint_signed,
         number_add_bits, number_split_bits)
 from rpython.rlib.unicodedata.codegen import CodeWriter
-
-def xtest_0():
-    dawg = Dawg()
-    dawg.insert("a", 0)
-    dawg.insert("ac", 1)
-    dawg.finish()
-    assert dawg.inverse_lookup(0) == "a"
-    assert dawg.inverse_lookup(1) == "ac"
 
 def test_1():
     dawg = Dawg()
@@ -25,18 +16,6 @@ def test_1():
     dawg.insert("catnip", 1)
     dawg.insert("zcatnip", 5)
     packed, data, inverse = dawg.finish()
-    #assert dawg.lookup("a") == -4
-    #assert dawg.lookup("c") == -2
-    #assert dawg.lookup("cat") == -1
-    #assert dawg.lookup("catarr") == 0
-    #assert dawg.lookup("catnip") == 1
-    #assert dawg.lookup("zcatnip") == 5
-    #assert dawg.inverse_lookup(-4) == "a"
-    #assert dawg.inverse_lookup(-2) == "c"
-    #assert dawg.inverse_lookup(-1) == "cat"
-    #assert dawg.inverse_lookup(0) == "catarr"
-    #assert dawg.inverse_lookup(1) == "catnip"
-    #assert dawg.inverse_lookup(5) == "zcatnip"
 
     assert lookup(packed, data, "a") == -4
     assert lookup(packed, data, "c") == -2
@@ -105,27 +84,17 @@ def test_generate():
         assert dmod.dawg_lookup(line) == i
 
 
-@given(strategies.integers(), strategies.binary())
+@given(strategies.integers(min_value=0), strategies.binary())
 def test_varint_hypothesis(i, prefix):
     b = []
-    encode_varint_signed(i, b)
+    encode_varint_unsigned(i, b)
     b = b"".join(b)
-    res, pos = decode_varint_signed(b)
+    res, pos = decode_varint_unsigned(b)
     assert res == i
     assert pos == len(b)
-    res, pos = decode_varint_signed(prefix + b, len(prefix))
+    res, pos = decode_varint_unsigned(prefix + b, len(prefix))
     assert res == i
     assert pos == len(b) + len(prefix)
-    if i >= 0:
-        b = []
-        encode_varint_unsigned(i, b)
-        b = b"".join(b)
-        res, pos = decode_varint_unsigned(b)
-        assert res == i
-        assert pos == len(b)
-        res, pos = decode_varint_unsigned(prefix + b, len(prefix))
-        assert res == i
-        assert pos == len(b) + len(prefix)
 
 @given(strategies.integers())
 def test_add_bits(i):
@@ -139,6 +108,7 @@ STOP = ord('G')
 @given(strategies.lists(strategies.text(strategies.characters(min_codepoint=START, max_codepoint=STOP), min_size=1), min_size=5), strategies.data())
 def test_random_dawg(l, data):
     l = [s.encode('ascii') for s in l]
+    print l
 
     d = {s: i for i, s in enumerate(l)}
     tmpdir = pytest.ensuretemp(__name__)
