@@ -594,35 +594,27 @@ class IntBound(AbstractInfo):
         """
         Shifts this abstract integer `other`
         bits to the right, where `other` is
-        another abstract integer.
-        TODO As of now, only shifts w/ sign extension are supported. 
+        another abstract integer, and extends
+        its sign.
         (Does not mutate `self`.)
         """
         
         # this seems to always be the signed variant..?
-        signed = True
         tvalue, tmask = TNUM_UNKNOWN
         if other.is_constant():
             c_other = other.get_constant_int()
             if c_other >= LONG_BIT:
-                if signed: 
-                    # shift value out to the right, but do sign extend
-                    if msbonly(self.tmask): # sign-extend mask
-                        tvalue, tmask = TNUM_UNKNOWN
-                    elif msbonly(self.tvalue): # sign-extend value
-                        tvalue, tmask = TNUM_KNOWN_BITWISEONE
-                    else: # sign is 0 on both
-                        tvalue, tmask = TNUM_KNOWN_ZERO
-                else:
-                    # no sign to extend, we get constant 0
+                # shift value out to the right, but do sign extend
+                if msbonly(self.tmask): # sign-extend mask
+                    tvalue, tmask = TNUM_UNKNOWN
+                elif msbonly(self.tvalue): # sign-extend value
+                    tvalue, tmask = TNUM_KNOWN_BITWISEONE
+                else: # sign is 0 on both
                     tvalue, tmask = TNUM_KNOWN_ZERO
             elif c_other >= 0:
-                if signed:  # we leverage native sign extension logic
-                    tvalue = r_uint(intmask(self.tvalue) >> c_other)
-                    tmask = r_uint(intmask(self.tmask) >> c_other)
-                else:
-                    tvalue = self.tvalue >> r_uint(c_other)
-                    tmask = self.tmask >> r_uint(c_other)
+                # we leverage native sign extension logic
+                tvalue = r_uint(intmask(self.tvalue) >> c_other)
+                tmask = r_uint(intmask(self.tmask) >> c_other)
             # else: bits are unknown because arguments invalid
 
         if self.is_bounded() and other.is_bounded() and \
@@ -636,6 +628,41 @@ class IntBound(AbstractInfo):
                                                tvalue, tmask)
         else:
             return IntBoundKnownbits(tvalue, tmask)
+        
+    def urshift_bound(self, other):
+        """
+        Shifts this abstract integer `other`
+        bits to the right, where `other` is
+        another abstract integer, *without*
+        extending its sign.
+        (Does not mutate `self`.)
+        """
+        
+        # this seems to always be the signed variant..?
+        tvalue, tmask = TNUM_UNKNOWN
+        if other.is_constant():
+            c_other = other.get_constant_int()
+            if c_other >= LONG_BIT:
+                # no sign to extend, we get constant 0
+                tvalue, tmask = TNUM_KNOWN_ZERO
+            elif c_other >= 0:
+                tvalue = self.tvalue >> r_uint(c_other)
+                tmask = self.tmask >> r_uint(c_other)
+            # else: bits are unknown because arguments invalid
+
+        if self.is_bounded() and other.is_bounded() and \
+           other.known_nonnegative_by_bounds() and \
+           other.known_lt_const(LONG_BIT):
+            vals = (r_uint(self.upper) >> r_uint(other.upper),
+                    r_uint(self.upper) >> r_uint(other.lower),
+                    r_uint(self.lower) >> r_uint(other.upper),
+                    r_uint(self.lower) >> r_uint(other.lower))
+            return IntLowerUpperBoundKnownbits(intmask(min4(vals)), 
+                                               intmask(max4(vals)),
+                                               tvalue, tmask)
+        else:
+            return IntBoundKnownbits(tvalue, tmask)
+        
 
     def and_bound(self, other):
         """

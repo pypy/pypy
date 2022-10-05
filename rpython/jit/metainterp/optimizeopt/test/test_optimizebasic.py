@@ -6468,8 +6468,10 @@ class TestOptimizeBasic(BaseTestBasic):
         escape_f(f2)
         """
         self.optimize_loop(ops, expected)
+        
+    # ------------
 
-    def test_knownbits_int_or(self):
+    def test_knownbits_int_or_and(self):
         ops = """
         [i1]
         i2 = int_or(i1, 1)
@@ -6479,8 +6481,59 @@ class TestOptimizeBasic(BaseTestBasic):
         expected = """
         [i1]
         i2 = int_or(i1, 1)
-        i3 = int_and(i2, 1)    # will be removed by dead code elimination
+        i3 = int_and(i2, 1)     # will be removed by dead code elimination
         escape_i(1)
+        """
+        self.optimize_loop(ops, expected)
+    
+    def test_knownbits_uint_rshift(self):
+        ops = """
+        [i1]
+        i2 = uint_rshift(i1, 63)
+        i3 = int_and(i2, 14)
+        i4 = int_is_zero(i3)
+        guard_true(i4) []
+        """
+        expected = """
+        [i1]
+        i2 = uint_rshift(i1, 63)
+        i3 = int_and(i2, 14)
+        """
+        self.optimize_loop(ops, expected)
+        
+    def test_knownbits_int_rshift_not_optimizable(self):
+        ops = """
+        [i1]
+        i2 = uint_rshift(i1, 512)
+        i3 = int_is_zero(i2)
+        guard_true(i3) []         # <- this should vanish
+        i4 = int_rshift(i1, 512)
+        i5 = int_is_zero(i4)      # <- but we cant know this!
+        guard_true(i5) []
+        """
+        expected = """
+        [i1]
+        i4 = int_rshift(i1, 512)
+        i5 = int_is_zero(i4)      # <- would still be there
+        guard_true(i5) []
+        """
+        self.optimize_loop(ops, expected)
+        
+    def test_knownbits_int_rshift_optimizable(self):
+        ops = """
+        [i1]
+        i2 = uint_rshift(i1, 512)
+        i3 = int_is_zero(i2)
+        guard_true(i3) []         # <- this should vanish
+        i4 = int_rshift(i1, 512)
+        i5 = int_is_zero(i4)      # <- but we cant know this!
+        guard_true(i5) []
+        """
+        expected = """
+        [i1]
+        i4 = int_rshift(i1, 512)
+        i5 = int_is_zero(i4)      # <- ... so it will still be there
+        guard_true(i5) []
         """
         self.optimize_loop(ops, expected)
 
@@ -6492,17 +6545,17 @@ class TestOptimizeBasic(BaseTestBasic):
         i1 = int_and(i0, ic0)
         i4 = int_and(i1, 1)
         i5 = int_is_zero(i4)
-        guard_true(i5)
+        guard_true(i5) []
         i6 = int_add(i1, 8)
         i7 = int_and(i6, 3)
         i8 = int_is_zero(i7)
-        guard_true(i8)
+        guard_true(i8) []
         """
         expected = """          # not quite right
         [i1]
         i2 = int_and(i1, 3)
         i3 = int_is_zero(i2)
-        guard_true(i3)
+        guard_true(i3) []
         i4 = int_and(i1, 1)
         i5 = int_is_zero(i4)
         i6 = int_add(i1, 8)
@@ -6517,20 +6570,20 @@ class TestOptimizeBasic(BaseTestBasic):
         [i1]
         i2 = int_and(i1, 3)
         i3 = int_is_zero(i2)
-        guard_true(i3)
+        guard_true(i3) []
         i4 = int_and(i1, 1)
         i5 = int_is_zero(i4)
-        guard_true(i5)
+        guard_true(i5) []
         i6 = int_add(i1, 8)
         i7 = int_and(i6, 3)
         i8 = int_is_zero(i7)
-        guard_true(i8)
+        guard_true(i8) []
         """
         expected = """
         [i1]
         i2 = int_and(i1, 3)
         i3 = int_is_zero(i2)
-        guard_true(i3)
+        guard_true(i3) []
         i4 = int_and(i1, 1)
         i5 = int_is_zero(i4)
         i6 = int_add(i1, 8)

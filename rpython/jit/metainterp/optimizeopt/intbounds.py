@@ -212,6 +212,23 @@ class OptIntBounds(Optimization):
         b = b1.rshift_bound(b2)
         r = self.getintbound(op)
         r.intersect(b)
+        
+    def optimize_UINT_RSHIFT(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        b = b1.urshift_bound(b2)
+        if b.is_constant():
+            # constant result (likely 0, for rshifts that kill all bits)
+            self.make_constant_int(op, b.lower)
+            return None
+        return self.emit(op)
+
+    def postprocess_UINT_RSHIFT(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        b = b1.urshift_bound(b2)
+        r = self.getintbound(op)
+        r.intersect(b)
 
     def optimize_GUARD_NO_OVERFLOW(self, op):
         lastop = self.last_emitted_operation
@@ -756,7 +773,7 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
-        b = r.rshift_bound(b2)
+        b = r.rshift_bound(b2)    # TODO is this a mistake? This method is not being called
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 
