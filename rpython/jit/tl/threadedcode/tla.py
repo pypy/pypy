@@ -76,7 +76,7 @@ def _construct_float(bytecode, pc):
 tier1driver = JitDriver(
     greens=['pc', 'entry', 'bytecode', 'tstack'], reds=['self'],
     get_printable_location=get_printable_location_tier1,
-    threaded_code_gen=True)
+    threaded_code_gen=True, conditions=["_is_true"])
 
 
 tier2driver = JitDriver(

@@ -619,8 +619,8 @@ class JitDriver(object):
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
-                 get_unique_id=None, is_recursive=False, threaded_code_gen=False,
-                 get_location=None):
+                 get_unique_id=None, is_recursive=False, get_location=None,
+                 threaded_code_gen=False, conditions=None):
 
         """get_location:
               The return value is designed to provide enough information to express the
@@ -687,6 +687,10 @@ class JitDriver(object):
         self.is_recursive = is_recursive
         self.vec = vectorize
         self.threaded_code_gen = threaded_code_gen
+        if threaded_code_gen:
+            assert conditions is not None, \
+                "in threaded code generation, must specify conditions e.g. \"_is_true, _is_false_object, etc.\""
+        self.conditions = conditions
 
     def _freeze_(self):
         return True

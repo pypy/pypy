@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.rlib.debug import debug_print
-from rpython.rtyper.lltypesystem.llmemory import AddressAsInt
+from rpython.rtyper.lltypesystem.llmemory import AddressAsInt, cast_int_to_adr
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.rstring import find, endswith
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
@@ -32,16 +32,7 @@ class TokenMapError(Exception):
 class mark(object):
     JUMP = "emit_jump"
     RET = "emit_ret"
-    IS_TRUE = "is_true"
     CALL_ASSEMBLER = "CALL_ASSEMBLER"
-
-    IS_TRUE_OBJECT = "_is_true_object"
-    IS_FALSE_OBJECT = "_is_false_object"
-
-    @staticmethod
-    def is_cond_object(name):
-        return name.find(mark.IS_TRUE_OBJECT) != -1 or \
-            name.find(mark.IS_FALSE_OBJECT) != -1
 
     @staticmethod
     def is_pseudo_jump(name):
@@ -102,6 +93,8 @@ class OptTraceSplit(Optimizer):
         self.token = None
         self.token_map = {}
 
+        self.conditions = jitdriver_sd.jitdriver.conditions
+
         self._already_setup_current_token = False
         self._pseudoops = []
         self._specialguardop = []
@@ -110,6 +103,10 @@ class OptTraceSplit(Optimizer):
 
         self.set_optimizations(optimizations)
         self.setup()
+
+    def setup_condition(self):
+        jd = self.jitdriver_sd
+        self.conditions = jd.jitdriver.conditions
 
     def split(self, trace, resumestorage, call_pure_results, token):
         traceiter = trace.get_iter()
@@ -196,9 +193,7 @@ class OptTraceSplit(Optimizer):
 
     def optimize_GUARD_VALUE(self, op):
         self.emit(op)
-        if self._is_guard_marked(op, mark.IS_TRUE) or \
-           self._is_guard_marked(op, mark.IS_TRUE_OBJECT) or \
-           self._is_guard_marked(op, mark.IS_FALSE_OBJECT):
+        if self.check_if_guard_marked(op):
             newfailargs = []
             for farg in op.getfailargs():
                 if not farg in self._specialguardop:
@@ -211,25 +206,21 @@ class OptTraceSplit(Optimizer):
     optimize_GUARD_FALSE = optimize_GUARD_VALUE
 
     def optimize_CALL_N(self, op):
-        arg0 = op.getarg(0)
-        name = self._get_name_from_arg(arg0)
+        name = self._get_name_from_op(op)
         if endswith(name, mark.JUMP):
             self.emit_pseudoop(op)
             self.handle_emit_jump(op)
         elif endswith(name, mark.RET):
             self.emit_pseudoop(op)
             self.handle_emit_ret(op)
-        elif endswith(name, mark.IS_TRUE) or \
-             endswith(name, mark.IS_TRUE_OBJECT) or \
-             endswith(name, mark.IS_FALSE_OBJECT):
+        elif self.check_if_cond_marked(op):
             self._specialguardop.append(op)
             self.emit(op)
         else:
             self.emit(op)
 
     def optimize_CALL_MAY_FORCE_R(self, op):
-        arg0 = op.getarg(0)
-        name = self._get_name_from_arg(arg0)
+        name = self._get_name_from_op(op)
         if endswith(name, mark.CALL_ASSEMBLER):
             self.handle_call_assembler(op)
         else:
@@ -347,6 +338,11 @@ class OptTraceSplit(Optimizer):
                     self._newoperations.insert(i, label_op)
                     return
 
+    def _get_name_from_op(self, op):
+        arg0 = op.getarg(0)
+        assert isinstance(arg0, ConstInt)
+        adr = cast_int_to_adr(arg0.getint())
+        return self.metainterp_sd.get_name_from_address(adr)
 
     def get_from_token_map(self, key):
         if self.token_map is None:
@@ -366,16 +362,6 @@ class OptTraceSplit(Optimizer):
         else:
             return self.token
 
-    def _get_name_from_arg(self, arg):
-        if isinstance(arg, ConstInt):
-            addr = arg.getaddr()
-            res = self.metainterp_sd.get_name_from_address(addr)
-            if res:
-                return res
-
-        # TODO: explore more precise way
-        return ''
-
     def _is_guard_marked(self, op, mark):
         "Check if the guard_op is marked"
         assert op.is_guard()
@@ -384,11 +370,25 @@ class OptTraceSplit(Optimizer):
             opnum = op.getopnum()
             if rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
                 if op in failargs:
-                    name = self._get_name_from_arg(op.getarg(0))
-                    if name is None:
-                        return False
-                    else:
-                        return name.find(mark) != -1
+                    name = self._get_name_from_op(op)
+                    return name.find(mark) != -1
+        return False
+
+    def check_if_guard_marked(self, op):
+        conditions = self.conditions
+        for cond in conditions:
+            if not self._is_guard_marked(op, cond):
+                continue
+            return True
+        return False
+
+    def check_if_cond_marked(self, op):
+        conditions = self.conditions
+        name = self._get_name_from_op(op)
+        for cond in conditions:
+            if not endswith(name, cond):
+                continue
+            return True
         return False
 
 
