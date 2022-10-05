@@ -63,15 +63,10 @@ def get_doc(c_doc):
         return None
     return rffi.constcharp2str(c_doc)
 
-
-# In an different reality, we would be able to access the module and store
-# the globals there. Instead, store them on the thread-local ExecutionContext
-# like the exception state
-ExecutionContext.hpy_globals = {}
-
 @API.func("HPy HPyGlobal_Load(HPyContext *ctx, HPyGlobal global)")
 def HPyGlobal_Load(space, handles, ctx, h_global):
-    d_globals = space.getexecutioncontext().hpy_globals
+    state = State.get(space)
+    d_globals = state.global_handles
     if h_global not in d_globals:
         raise oefmt(space.w_ValueError, "unknown HPyGlobal* in HPyGlobal_Load")
     return handles.new(d_globals[h_global])
@@ -82,8 +77,9 @@ def HPyGlobal_Store(space, handles, ctx, p_global, h_obj):
         w_obj = handles.deref(h_obj)
     else:
         w_obj = space.w_None
+    state = State.get(space)
+    d_globals = state.global_handles
     # Release a potential already existing p_global[0]
-    d_globals = space.getexecutioncontext().hpy_globals
     if p_global[0] in d_globals:
         d_globals.pop(p_global[0])
     d_globals[h_obj] = w_obj
