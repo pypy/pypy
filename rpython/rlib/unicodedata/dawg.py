@@ -135,7 +135,7 @@ class Dawg(object):
         self._linearize_edges()
 
         topoorder, linear_data, inverse = self._topological_order()
-        return self.cdawgify(topoorder), linear_data, inverse
+        return self.compute_packed(topoorder), linear_data, inverse
 
     def _minimize(self, down_to):
         # proceed from the leaf up to a certain point
@@ -285,57 +285,51 @@ class Dawg(object):
 
         return topoorder, linear_data, inverse
 
-    def cdawgify(self, topoorder):
-        # turn the dawg into a compact string representation
+    def compute_packed(self, order):
+        # assign offsets to every node
+        for i, node in enumerate(order):
+            # we don't know position of the edge yet, just use something big as
+            # the starting position. we'll have to do further iterations anyway,
+            # but the size is at least a lower limit then
+            node.packed_offset = 2 ** 30 + i * 2 ** 10
 
+        # due to the varint encoding of edge targets we need to run this to
+        # fixpoint
+        last_result = None
+        while 1:
+            result = bytearray()
+            result_pp = bytearray()
+            for node in order:
+                offset = node.packed_offset = len(result)
+                encode_varint_unsigned(number_add_bits(node.count, node.final), result)
+                if len(node.linear_edges) == 0:
+                    assert node.final
+                    encode_varint_unsigned(0, result) # add a 0 saying "done"
+                #result_pp.extend("%r # N pos=%s count=%s%s\n" % (bytes(result[offset:]), offset, node.count, " final" if node.final else ""))
+                result_pp.extend("%r\n" % (bytes(result[offset:]), ))
+                prev_printed = len(result)
+                prev_child_offset = len(result)
+                for edgeindex, (label, targetnode) in enumerate(node.linear_edges):
+                    child_offset = targetnode.packed_offset
+                    child_offset_difference = child_offset - prev_child_offset
 
-        def compute_packed(order):
-            last_result = None
-            # assign offsets to every reachable linear node
-            # due to the varint encoding of edge targets we need to run this to
-            # fixpoint
-            for i, node in enumerate(order):
-                # if we don't know position of the edge yet, just use
-                # something big as the position. we'll have to do another
-                # iteration anyway, but the size is at least a lower limit
-                # then
-                node.packed_offset = 2 ** 30 + i * 2 ** 10
-            while 1:
-                result = bytearray()
-                result_pp = bytearray()
-                for node in order:
-                    offset = node.packed_offset = len(result)
-                    encode_varint_unsigned(number_add_bits(node.count, node.final), result)
-                    if len(node.linear_edges) == 0:
-                        assert node.final
-                        encode_varint_unsigned(0, result) # add a 0 saying "done"
-                    #result_pp.extend("%r # N pos=%s count=%s%s\n" % (bytes(result[offset:]), offset, node.count, " final" if node.final else ""))
-                    result_pp.extend("%r\n" % (bytes(result[offset:]), ))
+                    info = number_add_bits(child_offset_difference, len(label) == 1, edgeindex == len(node.linear_edges) - 1)
+                    if edgeindex == 0:
+                        assert info != 0
+                    encode_varint_unsigned(info, result)
+                    prev_child_offset = child_offset
+                    if len(label) > 1:
+                        encode_varint_unsigned(len(label), result)
+                    result.extend(label)
+                    result_pp.extend(" %r\n" % (bytes(result[prev_printed:]), ))
                     prev_printed = len(result)
-                    prev_child_offset = len(result)
-                    for edgeindex, (label, targetnode) in enumerate(node.linear_edges):
-                        child_offset = targetnode.packed_offset
-                        child_offset_difference = child_offset - prev_child_offset
-
-                        info = number_add_bits(child_offset_difference, len(label) == 1, edgeindex == len(node.linear_edges) - 1)
-                        if edgeindex == 0:
-                            assert info != 0
-                        encode_varint_unsigned(info, result)
-                        prev_child_offset = child_offset
-                        if len(label) > 1:
-                            encode_varint_unsigned(len(label), result)
-                        result.extend(label)
-                        result_pp.extend(" %r\n" % (bytes(result[prev_printed:]), ))
-                        prev_printed = len(result)
-                    node.packed_size = len(result) - node.packed_offset
-                if result == last_result:
-                    break
-                last_result = result
-            return result, result_pp
-        result, result_pp = compute_packed(topoorder)
+                node.packed_size = len(result) - node.packed_offset
+            if result == last_result:
+                break
+            last_result = result
         self.packed = result
         self.packed_pp = result_pp
-        return bytes(result), linear_data, inverse
+        return bytes(result)
 
 
 # ______________________________________________________________________
