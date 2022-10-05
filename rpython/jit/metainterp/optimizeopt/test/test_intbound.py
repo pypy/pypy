@@ -584,7 +584,39 @@ def test_knownbits_intconst():
     assert b3.is_constant()
     assert b3.get_constant_int() == 0b0
     assert b3.equals(0b0)
-
+    
+def test_knownbits_minmax_nobounds():
+    # constant case
+    b1 = ConstIntBound(42)
+    assert b1.get_minimum() == 42
+    assert b1.get_maximum() == 42
+    # positive knownbits case
+    b2 = IntBoundKnownbits(r_uint(0b0110010),   # 11?01? 
+                           r_uint(0b0001001))
+    assert b2.get_minimum() == 0b0110010
+    assert not b2.contains(b2.get_minimum() - 1)
+    assert b2.get_maximum() == 0b0111011
+    assert not b2.contains(b2.get_maximum() + 1)
+    #negative knownbits_case
+    b3 = IntBoundKnownbits(r_uint(~0b0110010),  # 1...10?1101
+                           r_uint(0b0010000))
+    assert b3.get_minimum() == ~0b0110010
+    assert not b3.contains(b3.get_minimum() - 1)
+    assert b3.get_maximum() == ~0b0100010
+    assert not b3.contains(b3.get_maximum() + 1)
+    
+def test_knownbits_minmax_bounds():
+    # case (-Inf, 0]
+    b1 = IntBound(lower=0, has_lower=True,
+                  tvalue=r_uint(5), tmask=r_uint(-8))   # ?...?101
+    assert b1.get_minimum() == 0
+    assert b1.get_maximum() == intmask((r_uint(5) | r_uint(-8)) & ~(1<<(LONG_BIT-1)))
+    # case [0, Inf)
+    b2 = IntBound(upper=0, has_upper=True,
+                  tvalue=r_uint(5), tmask=r_uint(-8))   # ?...?101
+    assert b2.get_minimum() == intmask(r_uint(5) | (1<<(LONG_BIT-1)))
+    assert b2.get_maximum() == 0
+    
 def test_knownbits_intconst_strings():
     b1 = ConstIntBound(0b010010)
     assert b1.knownbits_string().endswith("00010010")
