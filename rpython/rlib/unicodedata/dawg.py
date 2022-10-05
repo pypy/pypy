@@ -56,7 +56,7 @@ class DawgNode(object):
     def __eq__(self, other):
         return self.__str__() == other.__str__()
 
-    def num_reachable(self):
+    def num_reachable_linear(self):
         # if a count is already assigned, return it
         if self.count:
             return self.count
@@ -66,8 +66,8 @@ class DawgNode(object):
         count = 0
         if self.final:
             count += 1
-        for label, node in self.edges.items():
-            count += node.num_reachable()
+        for label, node in self.linear_edges:
+            count += node.num_reachable_linear()
 
         self.count = count
         return count
@@ -87,9 +87,7 @@ class Dawg(object):
         self.minimized_nodes = {}
 
         # Here is the data associated with all the nodes
-        self.data = []
-
-        # and here's the inverse dict from data back to node numbers
+        self.data = {}
         self.inverse = {}
 
     def insert(self, word, data):
@@ -97,7 +95,7 @@ class Dawg(object):
         if word <= self.previous_word:
             raise Exception("Error: Words must be inserted in alphabetical order.")
         if data in self.inverse:
-            raise Exception("data %s is duplicate, got it for word %s and now %s" % (data, self.inverse, word))
+            raise Exception("data %s is duplicate, got it for word %s and now %s" % (data, self.inverse[data], word))
 
         # find common prefix between word and previous word
         common_prefix = 0
@@ -111,8 +109,8 @@ class Dawg(object):
         # point.
         self._minimize(common_prefix)
 
-        self.inverse[data] = len(self.data)
-        self.data.append(data)
+        self.data[word] = data
+        self.inverse[data] = word
 
         # add the suffix, starting from the correct node mid-way through the
         # graph
@@ -134,9 +132,6 @@ class Dawg(object):
         # minimize all unchecked_nodes
         self._minimize(0)
 
-        # go through entire structure and assign the counts to each node.
-        self.root.num_reachable()
-
         # turn it into a cdawg
         return self.cdawgify()
 
@@ -152,22 +147,31 @@ class Dawg(object):
                 self.minimized_nodes[child] = child
             self.unchecked_nodes.pop()
 
-    def lookup(self, word):
+    def _lookup(self, word):
         node = self.root
         skipped = 0  # keep track of number of final nodes that we skipped
-        for letter in word:
-            if letter not in node.edges:
-                return None
-            for label, child in sorted(node.edges.items()):
-                if label == letter:
-                    if node.final:
-                        skipped += 1
-                    node = child
-                    break
+        index = 0
+        while index < len(word):
+            for label, child in node.linear_edges:
+                if word[index] == label[0]:
+                    if word[index:index + len(label)] == label:
+                        if node.final:
+                            skipped += 1
+                        index += len(label)
+                        node = child
+                        break
+                    else:
+                        return None
                 skipped += child.count
+            else:
+                return None
+        return skipped
 
-        if node.final:
+    def lookup(self, word):
+        skipped = self._lookup(word)
+        if skipped is not None:
             return self.data[skipped]
+        return None
 
     def enum_all_nodes(self):
         stack = [self.root]
@@ -223,7 +227,7 @@ class Dawg(object):
                 node.linear_edges.append((''.join(s), child))
 
 
-        # compute reachable linear nodes
+        # compute reachable linear nodes, and the set of incoming edges for each node
         order = []
         stack = [self.root]
         order_positions = {}
@@ -237,6 +241,45 @@ class Dawg(object):
             for label, child in node.linear_edges:
                 stack.append(child)
 
+        # do a topological sort, in a terrible way
+        incoming = defaultdict(set)
+        for node in order:
+            for label, child in node.linear_edges:
+                incoming[child].add((label, node))
+        no_incoming = [order[0]]
+        topoorder = []
+        positions = {}
+        while no_incoming:
+            node = no_incoming.pop()
+            topoorder.append(node)
+            positions[node] = len(topoorder)
+            for label, child in reversed(node.linear_edges):
+                incoming[child].discard((label, node))
+                if not incoming[child]:
+                    no_incoming.append(child)
+                    del incoming[child]
+        # check result
+        assert set(topoorder) == set(order)
+        assert len(set(topoorder)) == len(topoorder)
+
+        for node in order:
+            node.linear_edges.sort(key=lambda element: positions[element[1]])
+
+        for node in order:
+            for label, child in node.linear_edges:
+                assert positions[child] > positions[node]
+
+        # now number the nodes and then compute the order linearization of the
+        # data
+
+        topoorder[0].num_reachable_linear()
+        linear_data = [None] * len(self.data)
+        inverse = {} # maps value back to index
+        for word, value in self.data.items():
+            index = self._lookup(word)
+            linear_data[index] = value
+            inverse[value] = index
+
         #max_num_edges = max(len(node.linear_edges) for node in order)
 
         def compute_packed(order):
@@ -244,12 +287,12 @@ class Dawg(object):
             # assign offsets to every reachable linear node
             # due to the varint encoding of edge targets we need to run this to
             # fixpoint
-            for node in order:
+            for i, node in enumerate(order):
                 # if we don't know position of the edge yet, just use
                 # something big as the position. we'll have to do another
                 # iteration anyway, but the size is at least a lower limit
                 # then
-                node.packed_offset = 1 << 30
+                node.packed_offset = 2 ** 30 + i * 2 ** 10
             while 1:
                 result = bytearray()
                 result_pp = bytearray()
@@ -270,7 +313,7 @@ class Dawg(object):
                         info = number_add_bits(child_offset_difference, len(label) == 1, edgeindex == len(node.linear_edges) - 1)
                         if edgeindex == 0:
                             assert info != 0
-                        encode_varint_signed(info, result)
+                        encode_varint_unsigned(info, result)
                         prev_child_offset = child_offset
                         if len(label) > 1:
                             encode_varint_unsigned(len(label), result)
@@ -282,10 +325,10 @@ class Dawg(object):
                     break
                 last_result = result
             return result, result_pp
-        result, result_pp = compute_packed(order)
+        result, result_pp = compute_packed(topoorder)
         self.packed = result
         self.packed_pp = result_pp
-        return bytes(result), self.data
+        return bytes(result), linear_data, inverse
 
 
 # ______________________________________________________________________
@@ -376,7 +419,7 @@ def decode_node(packed, node):
 
 @objectmodel.always_inline
 def decode_edge(packed, edgeindex, prev_child_offset, offset):
-    x, offset = decode_varint_signed(packed, offset)
+    x, offset = decode_varint_unsigned(packed, offset)
     if x == 0 and edgeindex == 0:
         raise KeyError # trying to decode past a final node
     child_offset_difference, len1, final_edge = number_split_bits(x, 2)
@@ -526,7 +569,7 @@ def build_compression_dawg(outfile, ucdata):
     d = Dawg()
     for name, value in sorted(ucdata.items()):
         d.insert(name, value)
-    packed, pos_to_code = d.finish()
+    packed, pos_to_code, reversedict = d.finish()
     print "size of dawg [KiB]", round(len(packed) / 1024, 2), len(pos_to_code)
     outfile.print_code("from rpython.rlib.unicodedata.dawg import _lookup as _dawg_lookup, _inverse_lookup")
     outfile.print_code("packed_dawg = (")
@@ -546,7 +589,6 @@ def dawg_lookup(n):
 
 
     function = ["def _charcode_to_pos(code):", "    res = -1"]
-    reversedict = d.inverse
     ranges = collapse_ranges(findranges(reversedict))
     prefix = ""
     for low, high in ranges:
