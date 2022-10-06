@@ -3,7 +3,7 @@ import sys
 import py
 
 from rpython.rlib.nonconst import NonConstant
-from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython, we_are_translated
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython, we_are_translated, always_inline
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
@@ -294,6 +294,91 @@ def loop_unrolling_heuristic(lst, size, cutoff=2):
     """ In which cases iterating over items of lst can be unrolled
     """
     return size == 0 or isvirtual(lst) or (isconstant(size) and size <= cutoff)
+
+def enable_shallow_tracing(func):
+    "A decorator to enable an actual handler to do shallow tracing"
+    always_inline(func)  # tell RPython to inline
+
+    @dont_look_inside
+    def shallow_hanlder(*args):
+        dummy = args[-1]
+        args = args[:-1]
+        if dummy:
+            return
+        return func(*args)
+
+    shallow_hanlder.func_name = "handler_" + func.func_name
+
+    @always_inline
+    def call_handler(*args):
+        if we_are_jitted():
+            shallow_hanlder(*args + (True,))
+        else:
+            shallow_hanlder(*args + (False,))
+
+    return call_handler
+
+
+def enable_shallow_tracing_argn(argn):
+    def enable_shallow_tracing(func):
+        """
+        A decorator to enable an actual handler to do shallow tracing.
+        Use this decorator for a functio that returns a value, which is
+        at `argn' of args.
+        """
+        always_inline(func)  # tell RPython to inline
+
+        @dont_look_inside
+        def shallow_hanlder(*args):
+            dummy = args[-1]
+            args = args[:-1]
+            if dummy:
+                return args[argn]
+            return func(*args)
+
+        shallow_hanlder.func_name = "handler_" + func.func_name
+
+        @always_inline
+        def call_handler(*args):
+            if we_are_jitted():
+                return shallow_hanlder(*args + (True,))
+            else:
+                return shallow_hanlder(*args + (False,))
+
+        return call_handler
+
+    return enable_shallow_tracing
+
+
+def enable_shallow_tracing_with_value(value):
+    def enable_shallow_tracing(func):
+        """
+        A decorator to enable an actual handler to do shallow tracing.
+        Use this decorator for a functio that returns a value.
+        """
+        always_inline(func)  # tell RPython to inline
+
+        @dont_look_inside
+        def shallow_hanlder(*args):
+            dummy = args[-1]
+            args = args[:-1]
+            if dummy:
+                return value
+            return func(*args)
+
+        shallow_hanlder.func_name = "handler_" + func.func_name
+
+        @always_inline
+        def call_handler(*args):
+            if we_are_jitted():
+                return shallow_hanlder(*args + (True,))
+            else:
+                return shallow_hanlder(*args + (False,))
+
+        return call_handler
+
+    return enable_shallow_tracing
+
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
