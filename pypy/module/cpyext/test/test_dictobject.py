@@ -465,6 +465,11 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
              """),
         ])
 
+        class Unhashable():
+            __hash__ = None
+
+        raises(TypeError, module.contains, {}, Unhashable())
+
         class C(dict):
             def __contains__(self, key):
                 return dict.__contains__(self, key)
