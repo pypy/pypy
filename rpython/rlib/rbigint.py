@@ -1499,6 +1499,13 @@ class rbigint(object):
         bits = ovfcheck((i-1) * SHIFT) + msd_bits
         return bits
 
+    @jit.elidable
+    def bit_count(self):
+        res = 0
+        for i in range(self.numdigits()):
+            res = ovfcheck(res + bit_count_digit(self.digit(i)))
+        return res
+
     def gcd(self, other):
         """ Compute the (always positive) greatest common divisor of self and
         other """
@@ -2699,6 +2706,15 @@ def bits_in_digit(d):
         d >>= 6
     d_bits += ord(BitLengthTable[d])
     return d_bits
+
+
+def bit_count_digit(val):
+    count = 0
+    while val:
+        count += val & 1
+        val >>= 1
+    return count
+
 
 def _truediv_result(result, negate):
     if negate:

@@ -1617,6 +1617,10 @@ class TestHypothesis(object):
         assert (_str_to_int_big_w5pow(exp, mem, limit).tolong() == 5 ** exp ==
                 rbigint.fromint(5).int_pow(exp).tolong())
 
+    @given(biglongs)
+    def test_bit_count(self, val):
+        assert rbigint.fromlong(val).bit_count() == bin(abs(val)).count("1")
+
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
 def test_hypothesis_small_shift(methname):

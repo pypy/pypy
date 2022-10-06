@@ -591,7 +591,6 @@ def write_composition_data(outfile, table, char_list_index, base_mod):
             continue
         left, right = unichar.decomposition
         compositions.append((left, right, code))
-    import pdb; pdb.set_trace()
 
     # map code -> index for left and right
     left_index = {}
