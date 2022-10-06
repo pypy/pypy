@@ -48,7 +48,7 @@ class TestTupleObject(BaseApiTest):
         with raises_w(space, SystemError):
             api.PySet_Add(w_set, space.wrap(6))
 
-    def _test_set_contains(self, space, api):
+    def test_set_contains(self, space, api):
         w_set = api.PySet_New(space.wrap([1, 2, 3, 4]))
         assert api.PySet_Contains(w_set, space.wrap(1))
         assert not api.PySet_Contains(w_set, space.wrap(0))
