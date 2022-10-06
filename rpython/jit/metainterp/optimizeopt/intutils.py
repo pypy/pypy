@@ -650,18 +650,20 @@ class IntBound(AbstractInfo):
                 tmask = self.tmask >> r_uint(c_other)
             # else: bits are unknown because arguments invalid
 
-        if self.is_bounded() and other.is_bounded() and \
+        # we don't do bounds on unsigned
+        """if self.is_bounded() and other.is_bounded() and \
            other.known_nonnegative_by_bounds() and \
            other.known_lt_const(LONG_BIT):
-            vals = (r_uint(self.upper) >> r_uint(other.upper),
-                    r_uint(self.upper) >> r_uint(other.lower),
-                    r_uint(self.lower) >> r_uint(other.upper),
-                    r_uint(self.lower) >> r_uint(other.lower))
-            return IntLowerUpperBoundKnownbits(intmask(min4(vals)), 
-                                               intmask(max4(vals)),
+            vals = (intmask(r_uint(self.upper) >> r_uint(other.upper)),
+                    intmask(r_uint(self.upper) >> r_uint(other.lower)),
+                    intmask(r_uint(self.lower) >> r_uint(other.upper)),
+                    intmask(r_uint(self.lower) >> r_uint(other.lower)))
+            return IntLowerUpperBoundKnownbits(min4(vals), 
+                                               max4(vals),
                                                tvalue, tmask)
         else:
-            return IntBoundKnownbits(tvalue, tmask)
+            return IntBoundKnownbits(tvalue, tmask)"""
+        # TODO unknown bounds
         
 
     def and_bound(self, other):
@@ -899,6 +901,32 @@ class IntBound(AbstractInfo):
            self.known_le_const(0):
             return INFO_NULL
         return INFO_UNKNOWN
+    
+    def int_and_backwards(self, other_int, result_int):
+        """
+        result_int == int_and(self, other_int)
+        We want to refine our knowledge about self
+        using this information
+        
+                other_int
+         &  0   1   ?
+         0  0   0   0
+         1  0   1   ?
+         ?  0   ?   ?   <- result
+        self
+        
+        If the knownbits of self and result are inconsistent, 
+        the values of result are used (this must not happen 
+        in practice and would be caught by an assert in intersect())
+        """
+        
+        tvalue = self.tvalue
+        tmask = self.tmask
+        tvalue &= ~r_uint(other_int)
+        tvalue |= r_uint(result_int) & r_uint(other_int)
+        tmask &= ~r_uint(other_int)
+        return IntBoundKnownbits(tvalue, tmask)
+
 
     """def internal_intersect():
         # synchronizes bounds and knownbits values

@@ -732,6 +732,7 @@ class OptIntBounds(Optimization):
         self._propagate_int_is_true_or_zero(op, 1, 0)
 
     def propagate_bounds_INT_IS_ZERO(self, op):
+        import pdb; pdb.set_trace()
         self._propagate_int_is_true_or_zero(op, 0, 1)
 
     def propagate_bounds_INT_ADD(self, op):
@@ -773,13 +774,29 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
-        b = r.rshift_bound(b2)    # TODO is this a mistake? This method is not being called
+        b = r.rshift_bound(b2)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 
     propagate_bounds_INT_ADD_OVF = propagate_bounds_INT_ADD
     propagate_bounds_INT_SUB_OVF = propagate_bounds_INT_SUB
     propagate_bounds_INT_MUL_OVF = propagate_bounds_INT_MUL
+    
+    def propagate_bounds_INT_AND(self, op):
+        b0 = self.getintbound(op.getarg(0))
+        b1 = self.getintbound(op.getarg(1))
+        r = self.getintbound(op)
+        if not r.is_constant():
+            return
+        if b0.is_constant():
+            b = b1.int_and_backwards(b0.get_constant_int(), r.get_constant_int())
+            if b1.intersect(b):
+                self.propagate_bounds_backward(op.getarg(1))
+        elif b1.is_constant():
+            b = b0.int_and_backwards(b1.get_constant_int(), r.get_constant_int())
+            if b0.intersect(b):
+                self.propagate_bounds_backward(op.getarg(0))
+        
 
 
 dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',

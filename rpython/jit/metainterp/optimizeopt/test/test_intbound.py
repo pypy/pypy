@@ -624,6 +624,7 @@ def test_knownbits_intconst_strings():
     assert b2.knownbits_string().endswith("001")
     b3 = ConstIntBound(0b0)
     assert b3.knownbits_string().endswith("0")
+    # TODO more cases
 
 def test_knownbits_or_and_known():
     b1 = IntUnbounded()
@@ -921,6 +922,23 @@ def test_knownbits_sub_concrete():
     assert r1.contains(0b010110)
     assert r1.contains(0b111010)
     assert r1.contains(0b011110)
+    
+def test_knownbits_int_and_backward_concrete():
+    x = IntUnbounded()
+    r = x.int_and_backwards(0b11, 0)
+    assert r.knownbits_string() == '?'*(LONG_BIT-2) + "00"
+    x = knownbits( 0b10000,     # ?...?10??? 
+                  ~0b11000)
+    r = x.int_and_backwards(0b11, 0)
+    assert r.knownbits_string() == '?'*(LONG_BIT-5) + "10?00"
+    x = knownbits( 0b1010,      # ?...?1010
+                  ~0b1111)
+    r = x.int_and_backwards(0b11, 0)
+    assert r.knownbits_string() == '?'*(LONG_BIT-4) + "1000" # inconsistent: result wins 
+    x = IntUnbounded()
+    r = x.int_and_backwards(0b11, 0b10)
+    assert check_knownbits_string(r, "10")
+    # ?? & 11 == 10
 
 
 @given(constant, constant)
@@ -1066,3 +1084,15 @@ def test_knownbits_neg_const(t1):
     if t1 != -sys.maxint-1:
         assert r.is_constant()
         assert r.equals(-t1)
+
+
+def knownbits(tvalue, tmask=0):
+    if not isinstance(tvalue, r_uint):
+        tvalue = r_uint(tvalue)
+    if not isinstance(tmask, r_uint):
+        tmask = r_uint(tmask)
+    return IntBoundKnownbits(tvalue, tmask)
+
+def check_knownbits_string(r, lower_bits):
+    return r.knownbits_string() == '?'*(LONG_BIT-len(lower_bits)) + lower_bits
+    
