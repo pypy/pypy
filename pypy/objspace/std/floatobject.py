@@ -46,6 +46,9 @@ def float2string(x, code, precision):
         s = "nan"
     return s
 
+def float_repr(x):
+    return float2string(x, 'r', 0)
+
 
 def detect_floatformat():
     from rpython.rtyper.lltypesystem import rffi, lltype
@@ -433,7 +436,7 @@ class W_FloatObject(W_Root):
         return _round_float(space, self, w_ndigits)
 
     def descr_repr(self, space):
-        res = float2string(self.floatval, 'r', 0)
+        res = float_repr(self.floatval)
         return space.newutf8(res, len(res)) # always ascii
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 

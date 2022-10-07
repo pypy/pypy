@@ -1228,6 +1228,22 @@ class AppTestListObject(object):
         l.append(l)
         assert repr(l) == '[[...]]'
 
+    def test_repr_strategies(self):
+        assert repr([]) == '[]'
+        assert repr([1, 2, 3]) == '[1, 2, 3]'
+        assert repr([1.1, 2.1, 3.1]) == '[1.1, 2.1, 3.1]'
+        assert repr([1.1, 2.1, 3.1, float('nan')]) == '[1.1, 2.1, 3.1, nan]'
+        # mixed
+        assert repr([100, 23, -1.1, 2.1, 3.1, float('nan')]) == '[100, 23, -1.1, 2.1, 3.1, nan]'
+        # bytes
+        assert repr([b'a', b'b', b'c']) == "[b'a', b'b', b'c']"
+        # asciilist
+        assert repr([u'a', u'b', u'c']) == "['a', 'b', 'c']"
+        # some objects
+        o1 = object()
+        d = {1: 2, None: False}
+        assert repr([o1, d]) == '[%r, %r]' % (o1, d)
+
     def test_copy(self):
         # test that empty list copies the empty list
         l = []
