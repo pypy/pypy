@@ -433,7 +433,8 @@ class W_FloatObject(W_Root):
         return _round_float(space, self, w_ndigits)
 
     def descr_repr(self, space):
-        return space.newtext(float2string(self.floatval, 'r', 0))
+        res = float2string(self.floatval, 'r', 0)
+        return space.newutf8(res, len(res)) # always ascii
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_hash(self, space):
