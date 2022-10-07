@@ -191,12 +191,12 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
     # 2. Digits, with included decimal point
     if 0 < decpt <= buflen:
-        builder.append(rffi.charpsize2str(digits, decpt - 0))
+        builder.append_charpsize(digits, decpt - 0)
         builder.append('.')
         ptr = rffi.ptradd(digits, decpt)
-        builder.append(rffi.charpsize2str(ptr, buflen - decpt))
+        builder.append_charpsize(ptr, buflen - decpt)
     else:
-        builder.append(rffi.charpsize2str(digits, buflen))
+        builder.append_charpsize(digits, buflen)
 
     # 3. And zeros on the right
     if buflen < decpt:
