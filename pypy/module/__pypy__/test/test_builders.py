@@ -32,6 +32,9 @@ class AppTestBuilders(object):
         assert s == u"cde"
         b.append_slice(u"abc", 1, 2)
         assert b.build() == u"cdeb"
+        b.append_slice(b'\xc3\xa4\xc4\x83\xc3\xa7'.decode("utf-8"), 1, 2)
+        s = b.build()
+        assert s.encode("utf-8") == b"cdeb\xc4\x83"
 
     def test_stringbuilder(self):
         from __pypy__.builders import BytesBuilder

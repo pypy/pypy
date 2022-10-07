@@ -80,28 +80,26 @@ def gen_str_function(tuplerepr):
     except KeyError:
         autounrolling_funclist = unrolling_iterable(enumerate(key))
 
-        constant = LLHelpers.ll_constant
-        start = LLHelpers.ll_build_start
-        push = LLHelpers.ll_build_push
-        finish = LLHelpers.ll_build_finish
         length = len(items_r)
 
         def ll_str(t):
+            from rpython.rtyper.annlowlevel import llstr, hlstr
+            from rpython.rlib.rstring import StringBuilder
             if length == 0:
-                return constant("()")
-            buf = start(2 * length + 1)
-            push(buf, constant("("), 0)
+                return llstr("()")
+            buf = StringBuilder()
+            buf.append("(")
             for i, str_func in autounrolling_funclist:
                 attrname = 'item%d' % i
                 item = getattr(t, attrname)
                 if i > 0:
-                    push(buf, constant(", "), 2 * i)
-                push(buf, str_func(item), 2 * i + 1)
+                    buf.append(", ")
+                buf.append(hlstr(str_func(item)))
             if length == 1:
-                push(buf, constant(",)"), 2 * length)
+                buf.append(",)")
             else:
-                push(buf, constant(")"), 2 * length)
-            return finish(buf)
+                buf.append(")")
+            return llstr(buf.build())
 
         _gen_str_function_cache[key] = ll_str
         return ll_str
