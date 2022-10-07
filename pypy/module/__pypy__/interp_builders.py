@@ -66,7 +66,7 @@ class W_UnicodeBuilder(W_Root):
 
     def descr_append(self, space, w_s):
         if not isinstance(w_s, W_UnicodeObject):
-            w_unicode = W_UnicodeObject.convert_arg_to_w_unicode(space, w_s)
+            w_s = W_UnicodeObject.convert_arg_to_w_unicode(space, w_s)
         self.builder.append_utf8(w_s._utf8, w_s._len())
 
     @unwrap_spec(start=int, end=int)
