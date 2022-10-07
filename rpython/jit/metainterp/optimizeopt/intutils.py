@@ -651,20 +651,7 @@ class IntBound(AbstractInfo):
             # else: bits are unknown because arguments invalid
 
         # we don't do bounds on unsigned
-        """if self.is_bounded() and other.is_bounded() and \
-           other.known_nonnegative_by_bounds() and \
-           other.known_lt_const(LONG_BIT):
-            vals = (intmask(r_uint(self.upper) >> r_uint(other.upper)),
-                    intmask(r_uint(self.upper) >> r_uint(other.lower)),
-                    intmask(r_uint(self.lower) >> r_uint(other.upper)),
-                    intmask(r_uint(self.lower) >> r_uint(other.lower)))
-            return IntLowerUpperBoundKnownbits(min4(vals), 
-                                               max4(vals),
-                                               tvalue, tmask)
-        else:
-            return IntBoundKnownbits(tvalue, tmask)"""
-        # TODO unknown bounds
-        
+        return IntBoundKnownbits(tvalue, tmask)
 
     def and_bound(self, other):
         """
@@ -908,12 +895,21 @@ class IntBound(AbstractInfo):
         We want to refine our knowledge about self
         using this information
         
+        regular &:
                 other_int
          &  0   1   ?
          0  0   0   0
          1  0   1   ?
          ?  0   ?   ?   <- result
         self
+        
+        backwards &:
+                other_int
+            0   1   ?
+         0  ?   0   ?
+         1  ?   1   ?
+         ?  ?   ?   ?   <- self
+        result
         
         If the knownbits of self and result are inconsistent, 
         the values of result are used (this must not happen 
