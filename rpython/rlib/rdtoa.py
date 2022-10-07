@@ -236,6 +236,7 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
     return s
 
+@jit.elidable
 def dtoa(value, code='r', mode=0, precision=0, flags=0,
          special_strings=lower_special_strings, upper=False):
     if precision > _INT_LIMIT:
