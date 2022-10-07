@@ -732,7 +732,7 @@ class OptIntBounds(Optimization):
         self._propagate_int_is_true_or_zero(op, 1, 0)
 
     def propagate_bounds_INT_IS_ZERO(self, op):
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         self._propagate_int_is_true_or_zero(op, 0, 1)
 
     def propagate_bounds_INT_ADD(self, op):
