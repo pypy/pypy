@@ -178,27 +178,30 @@ def listrepr(space, w_currently_in_repr, w_list):
         return space.newtext('[...]')
     space.setitem(w_currently_in_repr, w_list, space.newint(1))
     try:
-        assert length > 0
-        builder = rutf8.Utf8StringBuilder()
-        builder.append_char('[')
-        w_first = w_list.getitem(0)
-        builder.append_utf8(*space.utf8_len_w(space.repr(w_first)))
-        typ = type(w_first)
-        for i in range(1, length):
-            listrepr_jitdriver.jit_merge_point(
-                typ=typ,
-                strategy_type=type(w_list.strategy))
-            builder.append_utf8(', ', 2)
-            w_item = w_list.getitem(i)
-            builder.append_utf8(*space.utf8_len_w(space.repr(w_item)))
-        builder.append_char(']')
-        return space.newutf8(builder.build(), builder.getlength())
+        return _listrepr_inner(space, w_list, length)
     finally:
         try:
             space.delitem(w_currently_in_repr, w_list)
         except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
+
+def _listrepr_inner(space, w_list, length):
+    assert length > 0
+    builder = rutf8.Utf8StringBuilder()
+    builder.append_char('[')
+    w_first = w_list.getitem(0)
+    builder.append_utf8(*space.utf8_len_w(space.repr(w_first)))
+    typ = type(w_first)
+    for i in range(1, length):
+        listrepr_jitdriver.jit_merge_point(
+            typ=typ,
+            strategy_type=type(w_list.strategy))
+        builder.append_utf8(', ', 2)
+        w_item = w_list.getitem(i)
+        builder.append_utf8(*space.utf8_len_w(space.repr(w_item)))
+    builder.append_char(']')
+    return space.newutf8(builder.build(), builder.getlength())
 
 
 def list_unroll_condition(w_list1, space, w_list2):
