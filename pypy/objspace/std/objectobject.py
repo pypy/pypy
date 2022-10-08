@@ -223,6 +223,7 @@ def descr___format__(space, w_obj, w_format_spec):
 
 
 W_ObjectObject.typedef = TypeDef("object",
+    __rpython_level_class__ = W_ObjectObject,
     __doc__ = "The most base type",
     __new__ = interp2app(descr__new__),
     __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True),
