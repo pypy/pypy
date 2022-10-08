@@ -16,7 +16,9 @@ class TypeDef(object):
     @not_rpython
     def __init__(self, __name, __base=None, __total_ordering__=None,
                  __buffer=None, __confirm_applevel_del__=False,
-                 _text_signature_=None, variable_sized=False, **rawdict):
+                 _text_signature_=None, variable_sized=False,
+                 __rpython_level_class__=None,
+                  **rawdict):
         "initialization-time only"
         self.name = __name
         if __base is None:
@@ -49,7 +51,7 @@ class TypeDef(object):
         self.add_entries(**rawdict)
         assert __total_ordering__ in (None, ), "__total_ordering__ was buggy, mostly unused, and has been removed"
         self.variable_sized = variable_sized
-
+        self.rpy_cls = __rpython_level_class__
         self._install_shortcuts()
 
     def add_entries(self, **rawdict):
@@ -68,8 +70,8 @@ class TypeDef(object):
 
     def _install_shortcuts(self):
         rawdict = self.rawdict
-        # guess the class # XXX should this be done in a more official way?
-        rpy_cls = None
+        # guess the class, if not given explicitly
+        rpy_cls = self.rpy_cls
         for key, val in rawdict.iteritems():
             ncls = None
             if isinstance(val, interp2app):
@@ -83,6 +85,12 @@ class TypeDef(object):
                         else:
                             assert issubclass(rpy_cls, ncls)
         if rpy_cls is None:
+            # safety check: if rpy_cls is unknown, and one of the SHORTCUTS is
+            # in rawdict, the shortcut could be wrong (if we have an
+            # intermediate class that's not W_Root).
+            names = [name for name, shortcut_name, fallback, checkerfunc in SHORTCUTS
+                if name in rawdict]
+            assert not names
             return
         if 'micronumpy' in rpy_cls.__module__:
             return
