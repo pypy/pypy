@@ -376,6 +376,7 @@ assert W_RawIOBase.__init__.im_func is W_IOBase.__init__.im_func
 
 W_RawIOBase.typedef = TypeDef(
     '_io._RawIOBase', W_IOBase.typedef,
+    __doc__ = "Base class for raw binary I/O.",
     __rpython_level_class__ = W_RawIOBase,
     __new__ = interp2app(descr_new_rawiobase),
     read = interp2app(rawiobase_read_w),
