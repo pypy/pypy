@@ -78,7 +78,7 @@ class BaseCpyTypedescr(object):
         return state.C._PyPy_subtype_dealloc
 
     # CCC port to C
-    def allocate(self, space, w_type, itemcount=0, immortal=False):
+    def allocate(self, space, w_type, itemcount=0, immortal=False, itemsize=-1):
         # typically called from PyType_GenericAlloc via typedescr.allocate
         # this returns a PyObject with ob_refcnt == 1.
 
@@ -94,14 +94,16 @@ class BaseCpyTypedescr(object):
             size = pytype.c_tp_basicsize
         else:
             size = rffi.sizeof(self.basestruct)
-        if pytype.c_tp_itemsize:
-            size += itemcount * pytype.c_tp_itemsize
+        if itemsize < 0:
+            itemsize = pytype.c_tp_itemsize
+        if itemsize:
+            size += itemcount * itemsize
         assert size >= rffi.sizeof(PyObject.TO)
         buf = lltype.malloc(rffi.VOIDP.TO, size,
                             flavor='raw', zero=True,
                             add_memory_pressure=True, immortal=immortal)
         pyobj = rffi.cast(PyObject, buf)
-        if pytype.c_tp_itemsize:
+        if itemsize:
             pyvarobj = rffi.cast(PyVarObject, pyobj)
             pyvarobj.c_ob_size = itemcount
         pyobj.c_ob_refcnt = 1
@@ -156,7 +158,7 @@ def make_typedescr(typedef, **kw):
         basestruct = tp_basestruct
 
         if tp_alloc:
-            def allocate(self, space, w_type, itemcount=0, immortal=False):
+            def allocate(self, space, w_type, itemcount=0, immortal=False, itemsize=-1):
                 return tp_alloc(self, space, w_type, itemcount)
 
         if hasattr(tp_dealloc, 'api_func'):
@@ -217,8 +219,16 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
     w_type = space.type(w_obj)
     pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
     typedescr = get_typedescr(w_obj.typedef)
-    if pytype.c_tp_itemsize != 0:
-        # PyBytesObject, PyUnicode object, and subclasses
+    if space.is_w(w_type, space.w_text):
+        # These PyUnicodeObjects will always take the compact form
+        # since they come from uint8-encoded strings, so we must
+        # override the default tp_itemsize (see also unicode_alloc)
+        # Maybe this snippet should use the ptype.tp_alloc to allocate the py_obj?
+        itemsize = 1
+    else:
+        itemsize = pytype.c_tp_itemsize
+    if itemsize != 0:
+        # PyBytesObject, compact PyUnicodeObject and subclasses
         itemcount = space.len_w(w_obj)
     else:
         itemcount = 0
