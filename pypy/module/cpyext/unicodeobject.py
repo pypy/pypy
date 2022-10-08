@@ -152,8 +152,10 @@ def unicode_alloc(typedescr, space, w_type, itemcount):
         # subclass, will not use compact format, so no need for extra space
         return BaseCpyTypedescr.allocate(typedescr, space, w_type, 1)
     # This could be optimized: PyUnicodeObject is 80 bytes, PyASCIIObject
-    # is 48. In any case, leave room for a NULL char
-    return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount + 1)
+    # is 48. In any case, leave room for a NULL char. Also override the
+    # tp_itemsize since we use the compact form
+    return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount + 1,
+                                     itemsize=1)
 
 @slot_function([PyObject], lltype.Void)
 def unicode_dealloc(space, py_obj):

@@ -532,7 +532,20 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             else:
                 assert False
 
-
+    def test_itemsize(self):
+        module = self.import_extension('foo', [
+            ("itemsize", "METH_NOARGS",
+            """
+                PyObject* o = PyUnicode_FromString("");
+                int ret = o->ob_type->tp_itemsize;
+                if (ret < 0) {
+                    return NULL;
+                }
+                return PyLong_FromLong(ret);
+            """)])
+        itemsize = module.itemsize()
+        assert itemsize == 0
+ 
     def test_UnicodeNew(self):
         module = self.import_extension('unicodenew', [
             ("make", "METH_VARARGS",
