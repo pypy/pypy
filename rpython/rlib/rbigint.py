@@ -804,19 +804,8 @@ class rbigint(object):
         div = _bigint_true_divide(self, other)
         return div
 
-    @jit.elidable
     def floordiv(self, other):
-        if other.numdigits() == 1:
-            otherint = other.digit(0) * other.sign
-            assert int_in_valid_range(otherint)
-            return self.int_floordiv(otherint)
-
-        div, mod = _divrem(self, other)
-        if mod.sign * other.sign == -1:
-            if div.sign == 0:
-                return ONENEGATIVERBIGINT
-            div = div.int_sub(1)
-
+        div, mod = self.divmod(other)
         return div
 
     def div(self, other):
@@ -853,21 +842,8 @@ class rbigint(object):
     def int_div(self, iother):
         return self.int_floordiv(iother)
 
-    @jit.elidable
     def mod(self, other):
-        if other.sign == 0:
-            raise ZeroDivisionError("long division or modulo by zero")
-        if self.sign == 0:
-            return NULLRBIGINT
-
-        if other.numdigits() == 1:
-            otherint = other.digit(0) * other.sign
-            assert int_in_valid_range(otherint)
-            return self.int_mod(otherint)
-        else:
-            div, mod = _divrem(self, other)
-        if mod.sign * other.sign == -1:
-            mod = mod.add(other)
+        div, mod = self.divmod(other)
         return mod
 
     @jit.elidable
@@ -948,6 +924,15 @@ class rbigint(object):
         have different signs.  We then subtract one from the 'div'
         part of the outcome to keep the invariant intact.
         """
+        if other.sign == 0:
+            raise ZeroDivisionError("long division or modulo by zero")
+        if self.sign == 0:
+            return TWO_NULLRBIGINTS
+        if other.numdigits() == 1 and not (-1 == other.sign != self.sign):
+            otherint = other.digit(0) * other.sign
+            assert int_in_valid_range(otherint)
+            return self.int_divmod(otherint)
+
         if self.numdigits() > 1.2 * other.numdigits() and \
                 other.numdigits() > HOLDER.DIV_LIMIT * 2: # * 2 to offset setup cost
             res = divmod_big(self, other)
@@ -1502,6 +1487,8 @@ ONERBIGINT = rbigint([ONEDIGIT], 1, 1)
 ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
 NULLRBIGINT = rbigint()
 FIVERBIGINT = rbigint.fromint(5)
+
+TWO_NULLRBIGINTS = (NULLRBIGINT, NULLRBIGINT)
 
 _jmapping = [(5 * SHIFT) % 5,
              (4 * SHIFT) % 5,
@@ -2456,8 +2443,8 @@ def divmod_big(a, b):
     elif a.sign < 0:
         q, r = divmod_big(a.invert(), b)
         return q.invert(), b.add(r.invert())
-    elif a.eq(NULLRBIGINT):
-        return NULLRBIGINT, NULLRBIGINT
+    elif a.sign == 0:
+        return TWO_NULLRBIGINTS
     else:
         return _divmod_fast_pos(a, b)
 

@@ -1455,7 +1455,6 @@ class TestHypothesis(object):
                 with pytest.raises(type(e)):
                     divmod_big(f1, f2)
             else:
-                print x, y
                 a, b = divmod_big(f1, f2)
                 assert (a.tolong(), b.tolong()) == res
         finally:
