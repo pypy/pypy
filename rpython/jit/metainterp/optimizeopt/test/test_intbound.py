@@ -687,21 +687,21 @@ def test_validtnum_assertion_examples():
     # for each bit i: mask[i]==1 iff value[i]==0
     # the following tnum is invalid
     with pytest.raises(Exception):
-        b0 = knownbits(0b111, 
-                       0b010)
+        b0 = IntBoundKnownbits(r_uint(0b111), 
+                               r_uint(0b010))
     # mask and value have to be r_uints
     with pytest.raises(Exception):
-        b2 = knownbits(0b101,
-                       0b010)
+        b2 = IntBoundKnownbits(0b101,
+                               0b010)
     with pytest.raises(Exception):
-        b3 = knownbits(0b101,
-                       0b010)
+        b3 = IntBoundKnownbits(r_uint(0b101),
+                               0b010)
     with pytest.raises(Exception):
-        b4 = knownbits(0b101, 
-                       0b010)
+        b4 = IntBoundKnownbits(0b101, 
+                               r_uint(0b010))
     # this is valid
-    b1 = knownbits(0b101, 
-                   0b010)
+    b1 = IntBoundKnownbits(r_uint(0b101), 
+                           r_uint(0b010))
 
 def test_knownbits_and():
     for _, _, b1 in some_bits():
@@ -926,27 +926,27 @@ def test_knownbits_sub_concrete_example():
     
 def test_knownbits_int_and_backward_otherconst_examples():
     x = IntUnbounded()          # ?...?
-    r = x.int_and_backwards(ConstIntBound(0b11), u(0))
+    r = x.int_and_backwards(ConstIntBound(0b11), 0)
     assert check_knownbits_string(r, "??00")
-    r = x.int_and_backwards(ConstIntBound(0b11), u(-1))
+    r = x.int_and_backwards(ConstIntBound(0b11), -1)
     assert check_knownbits_string(r, "??11")
     x = knownbits( 0b10000,     # ?...?10???
                   ~0b11000)
-    r = x.int_and_backwards(ConstIntBound(0b11), u(0))
+    r = x.int_and_backwards(ConstIntBound(0b11), 0)
     assert check_knownbits_string(r, "??10?00")
     x = knownbits( 0b1010,      # ?...?1010
                   ~0b1111)
-    r = x.int_and_backwards(ConstIntBound(0b11), u(0))
+    r = x.int_and_backwards(ConstIntBound(0b11), 0)
     assert check_knownbits_string(r, "??1000") # inconsistent: result wins 
     x = IntUnbounded()
-    r = x.int_and_backwards(ConstIntBound(0b11), u(0b10))
+    r = x.int_and_backwards(ConstIntBound(0b11), 0b10)
     assert check_knownbits_string(r, "??10")
     
 def test_knownbits_int_and_backward_example():
     x = IntUnbounded()
     o = knownbits(0b101010, 
                   0b010100) # 1?1?10
-    r = x.int_and_backwards(o, u(0b111))
+    r = x.int_and_backwards(o, 0b111)
     assert check_knownbits_string(r, "??0?0?1?")
 
 
@@ -1095,12 +1095,12 @@ def test_knownbits_neg_const(t1):
         assert r.equals(-t1)
 
 
-def knownbits(tvalue, tmask=0):
+def knownbits(tvalue, tmask=0, do_unmask=False):
     if not isinstance(tvalue, r_uint):
         tvalue = r_uint(tvalue)
     if not isinstance(tmask, r_uint):
         tmask = r_uint(tmask)
-    return IntBoundKnownbits(tvalue, tmask)
+    return IntBoundKnownbits(tvalue, tmask, do_unmask)
 
 def u(signed_int):
     return r_uint(signed_int)

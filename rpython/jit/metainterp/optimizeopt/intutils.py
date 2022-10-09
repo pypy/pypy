@@ -916,7 +916,6 @@ class IntBound(AbstractInfo):
         in practice and will be caught by an assert in intersect())
         """
         
-        assert isinstance(result_int, r_uint)
         tvalue = self.tvalue
         tmask = self.tmask        
         tvalue &= ~other.tvalue & ~other.tmask
