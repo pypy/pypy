@@ -18,7 +18,6 @@ def _raise_in_thread(space, tid, w_exc_type):
     # PyThreadState_SetAsyncExc. in that case, the already scheduled
     # w_async_exception_type is cancelled (of course it might or might not have
     # been already delivered)
-    curr_tid = rthread.get_ident()
     ecs = space.threadlocals.getallvalues()
     for thread_ident, ec in ecs.items():
         if thread_ident == tid:
