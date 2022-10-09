@@ -889,22 +889,22 @@ class IntBound(AbstractInfo):
             return INFO_NULL
         return INFO_UNKNOWN
     
-    def int_and_backwards(self, other_int, result_int):
+    def int_and_backwards(self, other, result_int):
         """
-        result_int == int_and(self, other_int)
+        result_int == int_and(self, other)
         We want to refine our knowledge about self
         using this information
         
         regular &:
-                other_int
+                  other
          &  0   1   ?
          0  0   0   0
          1  0   1   ?
          ?  0   ?   ?   <- result
         self
         
-        backwards &:
-                other_int
+        backwards & (this one):
+                  other
             0   1   ?
          0  ?   0   ?
          1  ?   1   ?
@@ -913,14 +913,15 @@ class IntBound(AbstractInfo):
         
         If the knownbits of self and result are inconsistent, 
         the values of result are used (this must not happen 
-        in practice and would be caught by an assert in intersect())
+        in practice and will be caught by an assert in intersect())
         """
         
+        assert isinstance(result_int, r_uint)
         tvalue = self.tvalue
-        tmask = self.tmask
-        tvalue &= ~r_uint(other_int)
-        tvalue |= r_uint(result_int) & r_uint(other_int)
-        tmask &= ~r_uint(other_int)
+        tmask = self.tmask        
+        tvalue &= ~other.tvalue & ~other.tmask
+        tvalue |= r_uint(result_int) & other.tvalue
+        tmask &= ~other.tvalue | other.tmask
         return IntBoundKnownbits(tvalue, tmask)
 
 

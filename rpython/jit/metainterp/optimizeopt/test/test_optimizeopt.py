@@ -5356,7 +5356,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    #@pytest.mark.xfail(reason="don't know why it's broken") # TODO why is this broken?
     def test_division_to_mul_high_nonneg(self):
         from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
         for divisor in [3, 5, 12]:

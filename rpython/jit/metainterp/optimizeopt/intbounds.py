@@ -789,11 +789,11 @@ class OptIntBounds(Optimization):
         if not r.is_constant():
             return
         if b0.is_constant():
-            b = b1.int_and_backwards(b0.get_constant_int(), r.get_constant_int())
+            b = b1.int_and_backwards(b0, r_uint(r.get_constant_int()))
             if b1.intersect(b):
                 self.propagate_bounds_backward(op.getarg(1))
         elif b1.is_constant():
-            b = b0.int_and_backwards(b1.get_constant_int(), r.get_constant_int())
+            b = b0.int_and_backwards(b1, r_uint(r.get_constant_int()))
             if b0.intersect(b):
                 self.propagate_bounds_backward(op.getarg(0))
         
