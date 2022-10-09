@@ -757,8 +757,6 @@ class rbigint(object):
 
             if selfsize <= i:
                 result = _x_mul(self, other)
-            elif 2 * selfsize <= othersize:
-                result = _k_lopsided_mul(self, other)
             else:
                 result = _k_mul(self, other)
         else:
@@ -1863,6 +1861,9 @@ def _k_mul(a, b):
     # By picking X to be a power of 2, "*X" is just shifting, and it's
     # been reduced to 3 multiplies on numbers half the size.
 
+    # allocate result for both paths, asize + bsize is always enough
+    ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
+
     # Split a & b into hi & lo pieces.
     shift = bsize >> 1
     bh, bl = _kmul_split(b, shift)
@@ -1870,27 +1871,18 @@ def _k_mul(a, b):
         ah = bh
         al = bl
     elif asize <= shift:
-        assert 0
-        return _k_lopsided_mul(a, b)
-        al = a
-        # one side is more than 2x smaller than the other. it's important that
-        # we still use .mul to get karatsuba for sub-parts
-        # the computation is just:
+        # a is more than 2x smaller than b. it's important that we still use
+        # .mul to get karatsuba for sub-parts. the computation is just:
         # a*(bh*X+bl) = a*bh*X + a*bl
 
-        # allocate result, asize + bsize is always enough
-        ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
         # multiply lower bits, copy into result
         t1 = a.mul(bl)
-        assert t1.sign >= 0
         for i in range(t1.numdigits()):
             ret._digits[i] = t1._digits[i]
         t2 = a.mul(bh)
         i = ret.numdigits() - shift  # digits after shift
         carry = _v_iadd(ret, shift, i, t2, t2.numdigits())
         ret._normalize()
-        #res2 = _x_mul(a, b)
-        #assert ret.eq(res2)
         return ret
     else:
         ah, al = _kmul_split(a, shift)
@@ -1910,8 +1902,7 @@ def _k_mul(a, b):
     # 6. Compute (ah+al)*(bh+bl), and add it into the result starting
     #    at shift.
 
-    # 1. Allocate result space.
-    ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
+    # 1. Allocate result space. (done, see above)
 
     # 2. t1 <- ah*bh, and copy into high digits of result.
     t1 = ah.mul(bh)
@@ -1996,61 +1987,6 @@ Note that since there's always enough room for (ah+al)*(bh+bl), and that's
 clearly >= each of ah*bh and al*bl, there's always enough room to subtract
 ah*bh and al*bl too.
 """
-
-def _k_lopsided_mul(a, b):
-    """
-    b has at least twice the digits of a, and a is big enough that Karatsuba
-    would pay off *if* the inputs had balanced sizes.  View b as a sequence
-    of slices, each with a->ob_size digits, and multiply the slices by a,
-    one at a time.  This gives k_mul balanced inputs to work with, and is
-    also cache-friendly (we compute one double-width slice of the result
-    at a time, then move on, never backtracking except for the helpful
-    single-width slice overlap between successive partial sums).
-    """
-    asize = a.numdigits()
-    bsize = b.numdigits()
-
-    assert asize > KARATSUBA_CUTOFF
-    assert 2 * asize <= bsize
-
-    # Allocate result space
-    ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
-
-    # Successive slices of b are copied into bslice.
-    bslice = rbigint([NULLDIGIT] * asize, 1, asize)
-
-    # nbdone is # of b digits already multiplied
-    nbdone = 0
-    while bsize > 0:
-        nbtouse = min(bsize, asize)
-
-        # Multiply the next slice of b by a.
-
-        # bslice.digits[:nbtouse] = b.digits[nbdone : nbdone + nbtouse]
-        j = nbdone
-        last_nonnull_index = -1
-        for i in range(nbtouse):
-            d = b.digit(j)
-            bslice.setdigit(i, d)
-            if d != NULLDIGIT:
-                last_nonnull_index = i
-            j += 1
-        if last_nonnull_index >= 0:
-            bslice.size = last_nonnull_index + 1
-            product = a.mul(bslice)
-
-            # Add into result.
-            _v_iadd(ret, nbdone, ret.numdigits() - nbdone,
-                    product, product.numdigits())
-        else:
-            # otherwise bslice is 0, do nothing
-            pass
-
-        bsize -= nbtouse
-        nbdone += nbtouse
-
-    ret._normalize()
-    return ret
 
 
 def _inplace_divrem1(pout, pin, n):

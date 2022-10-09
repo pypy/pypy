@@ -18,6 +18,7 @@ from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT,
     _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10)
+from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
@@ -34,6 +35,52 @@ def makelong(data):
     if data.draw(strategies.booleans()):
         return -r
     return r
+
+def makelong_long_sequences(data, ndigits):
+    """ From CPython:
+    Get quasi-random long consisting of ndigits digits (in base BASE).
+    quasi == the most-significant digit will not be 0, and the number
+    is constructed to contain long strings of 0 and 1 bits.  These are
+    more likely than random bits to provoke digit-boundary errors.
+    The sign of the number is also random.
+    """
+    nbits_hi = ndigits * SHIFT
+    nbits_lo = nbits_hi - SHIFT + 1
+    answer = 0L
+    nbits = 0
+    r = data.draw(strategies.integers(0, SHIFT * 2 - 1)) | 1  # force 1 bits to start
+    while nbits < nbits_lo:
+        bits = (r >> 1) + 1
+        bits = min(bits, nbits_hi - nbits)
+        assert 1 <= bits <= SHIFT
+        nbits = nbits + bits
+        answer = answer << bits
+        if r & 1:
+            answer = answer | ((1 << bits) - 1)
+        r = data.draw(strategies.integers(0, SHIFT * 2 - 1))
+    assert nbits_lo <= nbits <= nbits_hi
+    if data.draw(strategies.booleans()):
+        answer = -answer
+    return answer
+
+
+MAXDIGITS = 15
+digitsizes = strategies.sampled_from(
+    range(1, MAXDIGITS+1) +
+    range(KARATSUBA_CUTOFF, KARATSUBA_CUTOFF + 14) +
+    [KARATSUBA_CUTOFF * 3, KARATSUBA_CUTOFF * 1000]
+)
+
+def make_biglongs_for_division(data):
+    size1 = data.draw(digitsizes)
+    val1 = makelong_long_sequences(data, size1)
+    size2 = data.draw(digitsizes)
+    val2 = makelong_long_sequences(data, size2)
+    return val1, val2
+
+tuples_biglongs_for_division = strategies.builds(
+        make_biglongs_for_division,
+        strategies.data())
 
 biglongs = strategies.builds(makelong, strategies.data())
 
@@ -320,6 +367,14 @@ class TestRLong(object):
         b = rbigint.fromlong(lb)
         x = a.mul(b)
         assert x.tolong() == la * lb
+
+    def test_mul_bug(self):
+        x = -0x1fffffffffffe00000000000007fffffffffffffffffe0000000000000fffffffffffffc0000000000000003fffffffffff1fffffffffffffffffffff8000000000000000ff80000000000000fffffff000000000000000000000fff800000000000003fffffffffffffffffffffffffffffffe000000000000000000fffffffffffffffffffffffffffffffffffffffffffffc3ffffffffffffff80000000003fffffffffffffe000000000000003fffffffffffffffffffffffffffffffffffffc000000000000000007ffc00000007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe00000000000000000000000fffffffffe0000000000000000000000000000000007ffffffffff8000000000000000000000000007ffffffffe00000000000001ffffffff00000000007fffffffffc0000000000000000000007fffffffffffffe0000000000ffffffffffffffffffffffffffffff0000000000000000000000000000004000000000000000000007fffffffffffffffc00fffffffff80000001fffffffffffe0000000007ffffffffffffffffc000000000000000000000003f00fffffff000000001fffffffffffffffffffffffffffffffffe000000000000003ffffffffffffffc000000000000000000000000000000000000000000000000fffffffffffff8000001ffffffffffffffffffffffffe00000000000003ffffffffffffffffffffffff00000000fffffffffff000000000L
+        y = -0x3fffffffffffc0000000000000000007ffffffffffff800000000000000000001ffffffffffffffc0000000000000000000000ffffffffffffffffffffffffffffc000000000000000000001ffffffffffffffffffffffffffffffffffffffffffffffffffffe00000000000000000000000000007fffffffffff000000000000000000000000fffffffffffffffffffffffffffffffffffffffff0000000003e007fffffffffffffffffff80000000000000000003fffffffffc000000000000007fffc0000000007ffffffffffffff0000000000010000000000000001fffffffffffffffffffffffffffffffffe000000000000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000001ffff007fff0000000000000000000000001f000000000001fffffffffffffffffc00000000001fffffffffffffffffffffffffffffffffffffff0000000000000000001ffffffffffff00000000000000000000000000000000000003fffffffff00003fffffffe00000000000000000000ffffffffffffffffffffff800001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000001ffe000001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000fffffffffff800000000000000000fffffffffffffffffffe00000000003ffffffffffffffffffffffffffffffffffffffffc000000000000000006000001fffffffe0000000000ffffffffffffffffffffffffff8003fffffffffffffffffffffffffffe0000007fffc0000000000000000000000001ffffffffffffffffffffffffffffffffffff0000000000001fffe00000000000000000000000000000000000000000000000000000003fffffff0000000000007ffffff8000000000000001fffffffffffffffff80001fffffffffffffffffffffffffff800000000000000000001ffffe00000000000000000003fffffffffffffffffffffffff000000000000000fffffffffffffffffffffffffffffc0000000000000003fffffe0000000000000000000000001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000003fff00001ffffffffffffffffffff0000000000001fffffffffffffc0000000000007ffffffffffffffffffffc000000000007fffffffffffffffffff80000000000003ffffffffffffc0000000000000000000000000000000000000000000000ffffe000000000000000000000000000001ffffffffffffffffffffffffffffffffffffe007ffffffffffff000000000000003fffffffffffffffffff800000000000000ff0000000000000000000000000000001ffffffffffffe00000000000007ffffffffffffff8000000000000001ffffffffffffc0000000000007ff000003fffffffffffffffffffffffffffffffffffffe00000007ffffffffffffffffffffe00000007ffffff0000000000000000ffffc00000000000000000ffffffffff8000000000000000fffffe0000000000000000000007fffffffffc000000fe0000000000000000000001ffffff800000000000000001ffffffffff00000000000000000000000000000000000000000000000ffffffffffffffffff000000000000000000000007fffffffffffffc0000fffffffffffffffffffffffffe000003ffffffffffff800000000000001fffffffffffffc000000000000000000000000001fff8000000000000000000000000000fffffffffffffffffffffffff0000000000000000003fe00000003fffffffffffffffff00000000000000ffffffffffe07fffffffffffffffc000000000000000000000003fffffff800000000000000000000003fffffffffffc0000000000000000000000003fffffffffffffffffc0000000000ffffffffffffffffffffffffffffffffffffffffffffffffffe000ffffffffffffffffc000000000000000000000000000000000000000000ffffffffffffffff8000000000000000000000000000000000000000000000000000000000fffffffffffffffc00000000000000003fffffffffffffffffffffffffffffffffffffe00003fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000003fffffff00000000007ffffffffffc0007ffffffffe00000ffffc000700000000000000fffffffffff80000000000000000000000L
+        xl = rbigint.fromlong(x)
+        yl = rbigint.fromlong(y)
+        assert xl.mul(yl).tolong() == x * y
+        assert yl.mul(xl).tolong() == x * y
 
 
 def bigint(lst, sign):
@@ -1068,7 +1123,6 @@ class TestInternalFunctions(object):
         b = -0x131313131313131313d0
         ra = rbigint.fromlong(a)
         rb = rbigint.fromlong(b)
-        from rpython.rlib.rbigint import HOLDER
         oldval = HOLDER.DIV_LIMIT
         try:
             HOLDER.DIV_LIMIT = 2 # set limit low to test divmod_big more
@@ -1383,7 +1437,6 @@ class TestHypothesis(object):
     @example(17, 257)
     @example(510439143470502793407446782273075179618477362188870662225920L, 108089693021945158982483698831267549521L)
     def test_divmod_big(self, x, y):
-        from rpython.rlib.rbigint import HOLDER
         oldval = HOLDER.DIV_LIMIT
         try:
             HOLDER.DIV_LIMIT = 2 # set limit low to test divmod_big more
@@ -1407,6 +1460,26 @@ class TestHypothesis(object):
                 assert (a.tolong(), b.tolong()) == res
         finally:
             HOLDER.DIV_LIMIT = oldval
+
+    @given(tuples_biglongs_for_division)
+    def test_divmod_consistency(self, tup):
+        lx, ly = tup
+        ly = ly or 1
+        x = rbigint.fromlong(lx)
+        y = rbigint.fromlong(ly)
+        q, r = x.divmod(y)
+        q2, r2 = x.floordiv(y), x.mod(y)
+        pab, pba = x.mul(y), y.mul(x)
+        assert pab.eq(pba)
+        assert q.eq(q2)
+        assert r.eq(r2)
+        assert x.eq(q.mul(y).add(r))
+        if y.int_gt(0):
+            assert r.lt(y)
+            assert r.int_ge(0)
+        else:
+            assert y.lt(r)
+            assert y.int_le(0)
 
     @given(biglongs, ints)
     def test_int_divmod(self, x, iy):
