@@ -574,7 +574,7 @@ def _init_non_posix(vars):
     vars['TZPATH'] = ''
     # pypy: give us control over the ABI tag in a wheel name
     so_ext = _imp.extension_suffixes()[0]
-    vars['SOABI']= '-'.join(so_ext.split('.')[1].split('-')[:2])
+    vars['SOABI']= so_ext.split('.')[1]
 
 #
 # public APIs
