@@ -1684,6 +1684,20 @@ class TestHypothesis(object):
     def test_fromstr(self, l):
         assert rbigint.fromstr(str(l)).tolong() == l
 
+    @given(biglongs)
+    def test_fromstr_str_consistency(self, l):
+        assert rbigint.fromstr(rbigint.fromlong(l).str()).tolong() == l
+
+    @given(biglongs)
+    def test_fromstr_small_limit(self, l):
+        # set STR2INT_LIMIT to 2 to stress the recursive algorithm some more
+        oldval = HOLDER.STR2INT_LIMIT
+        try:
+            HOLDER.STR2INT_LIMIT = 2
+            assert rbigint.fromstr(str(l)).tolong() == l
+        finally:
+            HOLDER.STR2INT_LIMIT = oldval
+
     @given(strategies.integers(min_value=1, max_value=10000), strategies.integers(min_value=1, max_value=10000))
     def test_str_to_int_big_w5pow(self, exp, limit):
         mem = {}
