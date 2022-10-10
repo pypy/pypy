@@ -783,11 +783,11 @@ class OptIntBounds(Optimization):
     propagate_bounds_INT_MUL_OVF = propagate_bounds_INT_MUL
     
     def propagate_bounds_INT_AND(self, op):
-        b0 = self.getintbound(op.getarg(0))
-        b1 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
         if not r.is_constant():
             return
+        b0 = self.getintbound(op.getarg(0))
+        b1 = self.getintbound(op.getarg(1))
         if b0.is_constant():
             b = b1.int_and_backwards(b0, r.get_constant_int())
             if b1.intersect(b):
@@ -796,9 +796,13 @@ class OptIntBounds(Optimization):
             b = b0.int_and_backwards(b1, r.get_constant_int())
             if b0.intersect(b):
                 self.propagate_bounds_backward(op.getarg(0))
-        
-
-
+        else:
+            pass
+            # TODO: trategy for non-constant 'other'
+            # the int_and_backwards already supports that,
+            # but we don't have a good strategy yet
+            # for what to do here. 
+            
 dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',
                                       default=OptIntBounds.emit)
 dispatch_bounds_ops = make_dispatcher_method(OptIntBounds, 'propagate_bounds_')

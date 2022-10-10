@@ -922,6 +922,35 @@ class IntBound(AbstractInfo):
         tvalue |= r_uint(result_int) & other.tvalue
         tmask &= ~other.tvalue | other.tmask
         return IntBoundKnownbits(tvalue, tmask)
+    
+    def int_or_backwards(self, other, result_int):
+        """
+        result_int == int_or(self, other)
+        We want to refine our knowledge about self
+        using this information
+        
+        regular |:
+                  other
+         &  0   1   ?
+         0  0   1   ?
+         1  1   1   ?
+         ?  ?   ?   ?   <- result
+        self
+        
+        backwards | (this one):
+                  other
+            0   1   ?
+         0  0   X?  X0  
+         1  1   ?   ?   
+         ?  ?   ?   ?   <- self (where X=invalid)
+        result
+        
+        TODO: Open question: What to do on X?
+        If the knownbits of self and result are inconsistent, 
+        the values of result are used (this must not happen 
+        in practice and will be caught by an assert in intersect())
+        """
+        pass
 
 
     """def internal_intersect():
