@@ -693,8 +693,8 @@ def test_knownbits_contains_examples():
     assert ~b2.contains(bB)
 
 def test_validtnum_assertion_examples():
-    # for each bit i: mask[i]==1 iff value[i]==0
-    # the following tnum is invalid
+    # for each bit i: mask[i]==1 implies value[i]==0
+    # the following tnum is invalid:
     with pytest.raises(Exception):
         b0 = IntBoundKnownbits(u(0b111),
                                u(0b010))
@@ -708,7 +708,7 @@ def test_validtnum_assertion_examples():
     with pytest.raises(Exception):
         b4 = IntBoundKnownbits(0b101,
                                u(0b010))
-    # this is valid
+    # this is valid:
     b1 = IntBoundKnownbits(u(0b101),
                            u(0b010))
 
@@ -962,7 +962,7 @@ def test_knownbits_sub_concrete_example():
     assert r1.contains(0b111010)
     assert r1.contains(0b011110)
 
-def test_knownbits_int_and_backward_otherconst_examples():
+def test_knownbits_int_and_backwards_otherconst_examples():
     x = IntUnbounded()          # ?...?
     r = x.int_and_backwards(ConstIntBound(0b11), 0)
     assert check_knownbits_string(r, "??00")
@@ -986,8 +986,6 @@ def test_knownbits_int_and_backward_example():
                   0b010100) # 1?1?10
     r = x.int_and_backwards(o, 0b111)
     assert check_knownbits_string(r, "??0?0?1?")
-
-
 
 @given(constant, constant)
 def test_const_stays_const_or(t1, t2):
