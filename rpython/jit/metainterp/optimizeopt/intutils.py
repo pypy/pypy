@@ -918,7 +918,7 @@ class IntBound(AbstractInfo):
 
         tvalue = self.tvalue
         tmask = self.tmask
-        tvalue &= ~other.tvalue | ~other.tmask
+        tvalue &= ~other.tvalue | other.tmask
         tvalue |= r_uint(result_int) & other.tvalue
         tmask &= ~other.tvalue | other.tmask
         return IntBoundKnownbits(tvalue, tmask)

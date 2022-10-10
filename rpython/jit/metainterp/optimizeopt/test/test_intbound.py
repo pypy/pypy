@@ -974,6 +974,7 @@ def test_knownbits_int_and_backwards_otherconst_examples():
     assert check_knownbits_string(r, "??10?00")
     x = knownbits( 0b1010,      # ?...?1010
                   ~0b1111)
+    #import pdb; pdb.set_trace()
     r = x.and_bound_backwards(ConstIntBound(0b11), 0)
     assert check_knownbits_string(r, "??1000") # inconsistent: result wins
     x = IntUnbounded()
