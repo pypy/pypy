@@ -763,7 +763,7 @@ def test_knownbits_lshift_examples():
     assert not r2.is_constant()
     assert r2.contains(tv2 << 3)
     assert r2.contains((tv2|tm2) << 3)
-    assert check_knownbits_string(r2, "0000010??10000")
+    assert check_knownbits_string(r2, "010??10000", '0')
     # complete shift out
     tv3 = 0b1001        # 1??1
     tm3 = 0b0110
