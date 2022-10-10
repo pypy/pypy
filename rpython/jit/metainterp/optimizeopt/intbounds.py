@@ -212,7 +212,7 @@ class OptIntBounds(Optimization):
         b = b1.rshift_bound(b2)
         r = self.getintbound(op)
         r.intersect(b)
-        
+
     def optimize_UINT_RSHIFT(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
@@ -781,7 +781,7 @@ class OptIntBounds(Optimization):
     propagate_bounds_INT_ADD_OVF = propagate_bounds_INT_ADD
     propagate_bounds_INT_SUB_OVF = propagate_bounds_INT_SUB
     propagate_bounds_INT_MUL_OVF = propagate_bounds_INT_MUL
-    
+
     def propagate_bounds_INT_AND(self, op):
         r = self.getintbound(op)
         if not r.is_constant():
@@ -789,20 +789,20 @@ class OptIntBounds(Optimization):
         b0 = self.getintbound(op.getarg(0))
         b1 = self.getintbound(op.getarg(1))
         if b0.is_constant():
-            b = b1.int_and_backwards(b0, r.get_constant_int())
+            b = b1.and_bound_backwards(b0, r.get_constant_int())
             if b1.intersect(b):
                 self.propagate_bounds_backward(op.getarg(1))
         elif b1.is_constant():
-            b = b0.int_and_backwards(b1, r.get_constant_int())
+            b = b0.and_bound_backwards(b1, r.get_constant_int())
             if b0.intersect(b):
                 self.propagate_bounds_backward(op.getarg(0))
         else:
             pass
             # TODO: trategy for non-constant 'other'
-            # the int_and_backwards already supports that,
+            # the and_bound_backwards already supports that,
             # but we don't have a good strategy yet
-            # for what to do here. 
-            
+            # for what to do here.
+
 dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',
                                       default=OptIntBounds.emit)
 dispatch_bounds_ops = make_dispatcher_method(OptIntBounds, 'propagate_bounds_')
