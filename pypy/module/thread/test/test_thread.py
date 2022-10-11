@@ -207,7 +207,7 @@ class AppTestThread(GenericTestThread):
             raises(KeyboardInterrupt, busy_wait)
 
     def test_interrupt_non_main(self):
-        import thread, time, posix as os
+        import _thread as thread, time, posix as os
         import __pypy__
         import signal
 
@@ -221,7 +221,7 @@ class AppTestThread(GenericTestThread):
                 thread.interrupt_main() # to crash the test
 
         for i in range(20):
-            print i
+            print(i)
             # first wait for the child to start
             childstarted = []
             thread.start_new_thread(f, ())
@@ -235,10 +235,10 @@ class AppTestThread(GenericTestThread):
             self.waitfor(wait)
 
     def test_interrupt_self(self):
-        import thread, __pypy__
+        import _thread as thread, __pypy__
         ident = thread.get_ident()
         for i in range(20):
-            print i
+            print(i)
             with raises(ValueError):
                 __pypy__.thread._raise_in_thread(ident, ValueError)
                 self.waitfor(lambda self: True)
