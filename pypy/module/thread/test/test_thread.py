@@ -207,7 +207,7 @@ class AppTestThread(GenericTestThread):
         def f():
             try:
                 childstarted.append(thread.get_ident())
-                self.waitfor(lambda: True)
+                self.waitfor(lambda: False)
             except ValueError:
                 childstarted.pop()
             else:
@@ -234,7 +234,7 @@ class AppTestThread(GenericTestThread):
             print i
             with raises(ValueError):
                 __pypy__.thread._raise_in_thread(ident, ValueError)
-                self.waitfor(lambda self: True)
+                self.waitfor(lambda self: False)
 
 
 @pytest.mark.skip("too slow")
