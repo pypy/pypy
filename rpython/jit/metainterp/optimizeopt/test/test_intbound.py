@@ -72,6 +72,12 @@ def build_bound_with_contained_number(a, b, c):
 def build_some_bits_known(a, b):
     return knownbits(a&~b, b), a
 
+def build_some_bits_known_bounded(a, b, c, d):
+    a, b, c, d = sorted([a, b, c, d])
+    return IntBound(lower=a, upper=d,
+                    has_lower=True, has_upper=True,
+                    tvalue=u(b&~c), tmask=u(c)), b
+
 def build_two_ints_tuple(a, b):
     return (a, b)
 
@@ -108,6 +114,11 @@ some_bits_known = strategies.builds(
     ints, ints
 )
 
+some_bits_known_bounded = strategies.builds(
+    build_some_bits_known_bounded,
+    ints, ints, ints, ints
+)
+
 random_ints_tuple = strategies.builds(
     build_two_ints_tuple,
     ints, ints
@@ -127,6 +138,9 @@ bound_with_contained_number = strategies.one_of(
 
 knownbits_with_contained_number = strategies.one_of(
     constant, some_bits_known, unbounded)
+
+knownbits_and_bound_with_contained_number = strategies.one_of(
+    constant, some_bits_known_bounded, unbounded)
 
 nbr = range(-5, 6)
 nnbr = list(set(range(-9, 10)) - set(nbr))
@@ -974,7 +988,6 @@ def test_knownbits_int_and_backwards_otherconst_examples():
     assert check_knownbits_string(r, "??10?00")
     x = knownbits( 0b1010,      # ?...?1010
                   ~0b1111)
-    #import pdb; pdb.set_trace()
     r = x.and_bound_backwards(ConstIntBound(0b11), 0)
     assert check_knownbits_string(r, "??1000") # inconsistent: result wins
     x = IntUnbounded()
@@ -1171,7 +1184,7 @@ def test_knownbits_neg_const_random(t1):
         assert r.equals(-t1)
 
 @given(knownbits_with_contained_number, knownbits_with_contained_number)
-def test_int_and_backwards_random(t1, t2):
+def test_knownbits_and_backwards_random(t1, t2):
     b1, n1 = t1     # self
     b2, n2 = t2     # other
     rb = b1.and_bound(b2)
@@ -1182,6 +1195,16 @@ def test_int_and_backwards_random(t1, t2):
         assert newb1.is_constant()
     # this should not fail
     b1.intersect(newb1)
+
+@given(some_bits_known_bounded)
+def test_minmax_random(t1):
+    b1, n1 = t1
+    assert b1.contains(b1.get_minimum())
+    assert b1.contains(b1.get_maximum())
+    assert b1.get_minimum() <= b1.get_maximum()
+    assert b1.contains(n1)
+    assert b1.get_minimum() <= n1 <= b1.get_maximum()
+
 
 
 def knownbits(tvalue, tmask=0, do_unmask=False):

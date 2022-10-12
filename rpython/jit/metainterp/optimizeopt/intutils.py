@@ -69,6 +69,10 @@ class IntBound(AbstractInfo):
             assert type(upper) is not long or is_valid_int(upper)
             assert type(lower) is not long or is_valid_int(lower)
 
+        # we also assert that the set of possible
+        # values is not empty
+        assert self.knownbits_and_bounds_agree()
+
     def __repr__(self):
         if self.has_lower:
             l = '%d' % self.lower
@@ -354,6 +358,8 @@ class IntBound(AbstractInfo):
         Returns the lowest integer that is
         contained in this abstract integer.
         """
+        # TODO: this has a bug! self.lower maybe is not in this abs.int!
+
         # Unnecessary to unmask, because by convention
         #   mask[i] => ~value[i]
         ret_knownbits = self.get_minimum_by_knownbits()
@@ -410,12 +416,7 @@ class IntBound(AbstractInfo):
 
         # we also assert agreement between knownbits and bounds,
         # e.g. that the set of possible ints is not empty.
-        if self.has_lower:
-            max_knownbits = self.get_maximum_by_knownbits()
-            assert max_knownbits >= self.lower
-        if self.has_upper:
-            min_knownbits = self.get_minimum_by_knownbits()
-            assert min_knownbits <= self.upper
+        assert self.knownbits_and_bounds_agree()
 
         return r
 
@@ -945,7 +946,7 @@ class IntBound(AbstractInfo):
          ?  ?   ?   ?   <- self (where X=invalid)
         result
 
-        TODO: Open question: What to do on X?
+        For every X just go ?.
         If the knownbits of self and result are inconsistent,
         the values of result are used (this must not happen
         in practice and will be caught by an assert in intersect())
@@ -971,7 +972,21 @@ class IntBound(AbstractInfo):
         def sync_btk():
             # transcribes from bounds to knownbits"""
 
-
+    def knownbits_and_bounds_agree(self):
+        """
+        Returns `True` iff the concrete value
+        sets of knownbits and bounds have a
+        non-empty intersection.
+        """
+        if self.has_lower:
+            max_knownbits = self.get_maximum_by_knownbits()
+            if not max_knownbits >= self.lower:
+                return False
+        if self.has_upper:
+            min_knownbits = self.get_minimum_by_knownbits()
+            if not min_knownbits <= self.upper:
+                return False
+        return True
 
     def knownbits_string(self, unk_sym = '?'):
         """
