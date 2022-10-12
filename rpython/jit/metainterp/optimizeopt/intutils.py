@@ -332,7 +332,7 @@ class IntBound(AbstractInfo):
         equal to `0` (zero).
         """
         #return self.has_lower and 0 <= self.lower
-        return 0 <= self.get_minimum()
+        return 0 <= self.get_minimum_signed()
 
     def known_nonnegative_by_bounds(self):
         """ for internal use only! """
@@ -344,21 +344,21 @@ class IntBound(AbstractInfo):
         else:
             return 0 <= self.lower
 
-    def get_minimum_by_knownbits(self):
+    def get_minimum_signed_by_knownbits(self):
         """ for internal use only! """
         return intmask(self.tvalue | msbonly(self.tmask))
 
-    def get_maximum_by_knownbits(self):
+    def get_maximum_signed_by_knownbits(self):
         """ for internal use only! """
         unsigned_mask = self.tmask & ~(1<<(LONG_BIT-1))
         return intmask(self.tvalue | unsigned_mask)
 
-    def get_minimum(self):
+    def get_minimum_signed(self):
         """
         Returns the lowest integer that is
         contained in this abstract integer.
         """
-        # TODO: this has a bug! self.lower maybe is not in this abs.int!
+        # TODO: this has a bug! self.lower maybe is not in this abs.
 
         # Unnecessary to unmask, because by convention
         #   mask[i] => ~value[i]
@@ -369,12 +369,12 @@ class IntBound(AbstractInfo):
         else:
             return ret_knownbits
 
-    def get_maximum(self):
+    def get_maximum_signed(self):
         """
         Returns the greatest integer that is
         contained in this abstract integer.
         """
-        ret_knownbits = self.get_maximum_by_knownbits()
+        ret_knownbits = self.get_maximum_signed_by_knownbits()
         ret_bounds = self.upper
         if self.has_upper:
             return min(ret_knownbits, ret_bounds)
@@ -953,6 +953,22 @@ class IntBound(AbstractInfo):
         """
         pass
 
+    def urshift_bound_backwards(self, other, result):
+        c_other = other.get_constant_int()
+        tvalue, tmask = TNUM_UNKNOWN
+        if 0 <= c_other < LONG_BIT:
+            tvalue = self.tvalue << r_uint(c_other)
+            tmask = self.tmask << r_uint(c_other)
+            # shift ? in from the right
+            tmask |= (r_uint(1) << r_uint(c_other)) - 1
+        # ignore bounds
+        return IntBoundKnownbits(tvalue, tmask)
+
+    def rshift_bound_backwards(self, other, result):
+        # left shift is the reverse function of
+        # both urshift and rshift.
+        return self.urshift_bound_backwards(other, result)
+
 
     """def internal_intersect():
         # synchronizes bounds and knownbits values
@@ -979,11 +995,11 @@ class IntBound(AbstractInfo):
         non-empty intersection.
         """
         if self.has_lower:
-            max_knownbits = self.get_maximum_by_knownbits()
+            max_knownbits = self.get_maximum_signed_by_knownbits()
             if not max_knownbits >= self.lower:
                 return False
         if self.has_upper:
-            min_knownbits = self.get_minimum_by_knownbits()
+            min_knownbits = self.get_minimum_signed_by_knownbits()
             if not min_knownbits <= self.upper:
                 return False
         return True

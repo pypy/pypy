@@ -6468,7 +6468,7 @@ class TestOptimizeBasic(BaseTestBasic):
         escape_f(f2)
         """
         self.optimize_loop(ops, expected)
-        
+
     # ------------
 
     def test_knownbits_int_or_and(self):
@@ -6485,7 +6485,7 @@ class TestOptimizeBasic(BaseTestBasic):
         escape_i(1)
         """
         self.optimize_loop(ops, expected)
-    
+
     def test_knownbits_uint_rshift(self):
         ops = """
         [i1]
@@ -6500,7 +6500,7 @@ class TestOptimizeBasic(BaseTestBasic):
         i3 = int_and(i2, 14)
         """
         self.optimize_loop(ops, expected)
-        
+
     def test_knownbits_int_rshift_not_optimizable(self):
         ops = """
         [i1]
@@ -6518,7 +6518,7 @@ class TestOptimizeBasic(BaseTestBasic):
         guard_true(i5) []
         """
         self.optimize_loop(ops, expected)
-        
+
     def test_knownbits_int_rshift_optimizable(self):
         ops = """
         [i1]
@@ -6537,7 +6537,43 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    @pytest.mark.skip(reason="this is a grand goal for later")
+    def test_knownbits_uint_rshift_and_backwards(self):
+        ops = """
+        [i262]
+        i268 = uint_rshift(i262, 2)
+        i270 = int_and(i268, 1)
+        guard_false(i270) []
+        i4 = int_and(i262, 4)
+        guard_false(i4) []
+        """
+        expected = """
+        [i262]
+        i268 = uint_rshift(i262, 2)
+        i270 = int_and(i268, 1)
+        guard_false(i270) []
+        i4 = int_and(i262, 4)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_int_rshift_and_backwards(self):
+        ops = """
+        [i262]
+        i268 = int_rshift(i262, 2)
+        i270 = int_and(i268, 1)
+        guard_false(i270) []
+        i4 = int_and(i262, 4)
+        guard_false(i4) []
+        """
+        expected = """
+        [i262]
+        i268 = int_rshift(i262, 2)
+        i270 = int_and(i268, 1)
+        guard_false(i270) []
+        i4 = int_and(i262, 4)
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.skip(reason="this is a grand goal for later. TODO: HAVE WE REACHED IT??")
     def test_knownbits_goal_alignment_simple(self):
         ops = """
         [i0]

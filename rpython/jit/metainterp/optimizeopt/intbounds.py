@@ -778,6 +778,26 @@ class OptIntBounds(Optimization):
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 
+    def propagate_bounds_UINT_RSHIFT(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        if not b2.is_constant():
+            return
+        r = self.getintbound(op)
+        b = r.urshift_bound_backwards(b2, r)
+        if b1.intersect(b):
+            self.propagate_bounds_backward(op.getarg(0))
+
+    def propagate_bounds_INT_RSHIFT(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        if not b2.is_constant():
+            return
+        r = self.getintbound(op)
+        b = r.rshift_bound_backwards(b2, r)
+        if b1.intersect(b):
+            self.propagate_bounds_backward(op.getarg(0))
+
     propagate_bounds_INT_ADD_OVF = propagate_bounds_INT_ADD
     propagate_bounds_INT_SUB_OVF = propagate_bounds_INT_SUB
     propagate_bounds_INT_MUL_OVF = propagate_bounds_INT_MUL
@@ -788,6 +808,7 @@ class OptIntBounds(Optimization):
             return
         b0 = self.getintbound(op.getarg(0))
         b1 = self.getintbound(op.getarg(1))
+        #import pdb; pdb.set_trace()
         if b0.is_constant():
             b = b1.and_bound_backwards(b0, r.get_constant_int())
             if b1.intersect(b):
