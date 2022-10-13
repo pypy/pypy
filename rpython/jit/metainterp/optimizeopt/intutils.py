@@ -69,8 +69,6 @@ class IntBound(AbstractInfo):
             assert type(upper) is not long or is_valid_int(upper)
             assert type(lower) is not long or is_valid_int(lower)
 
-        # we also assert that the set of possible
-        # values is not empty
         assert self.knownbits_and_bounds_agree()
 
     def __repr__(self):
@@ -213,7 +211,8 @@ class IntBound(AbstractInfo):
         Returns `True` iff this abstract integer
         does contain only one (1) concrete integer.
         """
-        return self.is_constant_by_bounds() or self.is_constant_by_knownbits()
+        return self.is_constant_by_bounds() or \
+               self.is_constant_by_knownbits()
 
     def get_constant_int(self):
         """
@@ -254,7 +253,10 @@ class IntBound(AbstractInfo):
         `value`.
         """
         if self.has_upper:
-            return self.upper < value
+            #maxest = self.upper
+            #import pdb; pdb.set_trace()
+            maxest = self.get_maximum_estimation_signed()
+            return maxest < value
         return False
 
     def known_le_const(self, value):
@@ -264,7 +266,10 @@ class IntBound(AbstractInfo):
         or equal to `value`.
         """
         if self.has_upper:
-            return self.upper <= value
+            #maxest = self.upper
+            #import pdb; pdb.set_trace()
+            maxest = self.get_maximum_estimation_signed()
+            return maxest <= value
         return False
 
     def known_gt_const(self, value):
@@ -274,7 +279,10 @@ class IntBound(AbstractInfo):
         `value`.
         """
         if self.has_lower:
-            return self.lower > value
+            #minest = self.lower
+            #import pdb; pdb.set_trace()
+            minest = self.get_minimum_estimation_signed()
+            return minest > value
         return False
 
     def known_ge_const(self, value):
@@ -284,7 +292,10 @@ class IntBound(AbstractInfo):
         equal to `value`.
         """
         if self.has_upper:
-            return self.upper >= value
+            #minest = self.lower
+            #import pdb; pdb.set_trace()
+            minest = self.get_minimum_estimation_signed()
+            return minest >= value
         return False
 
     def known_lt(self, other):
@@ -294,7 +305,10 @@ class IntBound(AbstractInfo):
         each integer contained in `other`.
         """
         if other.has_lower:
-            return self.known_lt_const(other.lower)
+            #o_minest = other.lower
+            #import pdb; pdb.set_trace()
+            o_minest = other.get_minimum_estimation_signed()
+            return self.known_lt_const(o_minest)
         return False
 
     def known_le(self, other):
@@ -305,7 +319,10 @@ class IntBound(AbstractInfo):
         `other`.
         """
         if other.has_lower:
-            return self.known_le_const(other.lower)
+            #o_minest = other.lower
+            #import pdb; pdb.set_trace()
+            o_minest = other.get_minimum_estimation_signed()
+            return self.known_le_const(o_minest)
         return False
 
     def known_gt(self, other):
@@ -332,7 +349,7 @@ class IntBound(AbstractInfo):
         equal to `0` (zero).
         """
         #return self.has_lower and 0 <= self.lower
-        return 0 <= self.get_minimum_signed()
+        return 0 <= self.get_minimum_estimation_signed()
 
     def known_nonnegative_by_bounds(self):
         """ for internal use only! """
@@ -342,7 +359,8 @@ class IntBound(AbstractInfo):
         if not self.has_lower:
             return False
         else:
-            return 0 <= self.lower
+            minest = self.get_minimum_estimation_signed()
+            return 0 <= minest
 
     def get_minimum_signed_by_knownbits(self):
         """ for internal use only! """
@@ -353,7 +371,7 @@ class IntBound(AbstractInfo):
         unsigned_mask = self.tmask & ~(1<<(LONG_BIT-1))
         return intmask(self.tvalue | unsigned_mask)
 
-    def get_minimum_signed(self):
+    def get_minimum_estimation_signed(self):
         """
         Returns an estimated lower bound for
         the numbers contained in this
@@ -362,7 +380,6 @@ class IntBound(AbstractInfo):
         is actually an element of the
         concrete value set!
         """
-        # TODO: this has a bug! self.lower maybe is not in this abs.
         # Unnecessary to unmask, because by convention
         #   mask[i] => ~value[i]
         ret_knownbits = self.get_minimum_signed_by_knownbits()
@@ -372,7 +389,7 @@ class IntBound(AbstractInfo):
         else:
             return ret_knownbits
 
-    def get_maximum_signed(self):
+    def get_maximum_estimation_signed(self):
         """
         Returns an estimated upper bound for
         the numbers contained in this
@@ -421,8 +438,7 @@ class IntBound(AbstractInfo):
             self.tmask = intersect_masks
             r = True
 
-        # we also assert agreement between knownbits and bounds,
-        # e.g. that the set of possible ints is not empty.
+        # we also assert agreement between knownbits and bounds
         assert self.knownbits_and_bounds_agree()
 
         return r
@@ -1090,13 +1106,15 @@ def ConstIntBound(value):
     assert not isinstance(value, r_uint)
     tvalue = value
     tmask = 0
+    bvalue = value
     if not isinstance(value, int):
         # workaround for AddressAsInt / symbolic ints
         # by CF
         tvalue = 0
         tmask = -1
-    b = IntBound(lower=value,
-                 upper=value,
+        bvalue = 0
+    b = IntBound(lower=bvalue,
+                 upper=bvalue,
                  has_lower=True,
                  has_upper=True,
                  tvalue=r_uint(tvalue),

@@ -615,34 +615,34 @@ def test_knownbits_intconst_examples():
 def test_knownbits_minmax_nobounds_examples():
     # constant case
     b1 = ConstIntBound(42)
-    assert b1.get_minimum_signed() == 42
-    assert b1.get_maximum_signed() == 42
+    assert b1.get_minimum_estimation_signed() == 42
+    assert b1.get_maximum_estimation_signed() == 42
     # positive knownbits case
     b2 = knownbits(0b0110010,   # 11?01?
                    0b0001001)
-    assert b2.get_minimum_signed() == 0b0110010
-    assert not b2.contains(b2.get_minimum_signed() - 1)
-    assert b2.get_maximum_signed() == 0b0111011
-    assert not b2.contains(b2.get_maximum_signed() + 1)
+    assert b2.get_minimum_estimation_signed() == 0b0110010
+    assert not b2.contains(b2.get_minimum_estimation_signed() - 1)
+    assert b2.get_maximum_estimation_signed() == 0b0111011
+    assert not b2.contains(b2.get_maximum_estimation_signed() + 1)
     #negative knownbits_case
     b3 = knownbits(~0b0110010,  # 1...10?1101
                     0b0010000)
-    assert b3.get_minimum_signed() == ~0b0110010
-    assert not b3.contains(b3.get_minimum_signed() - 1)
-    assert b3.get_maximum_signed() == ~0b0100010
-    assert not b3.contains(b3.get_maximum_signed() + 1)
+    assert b3.get_minimum_estimation_signed() == ~0b0110010
+    assert not b3.contains(b3.get_minimum_estimation_signed() - 1)
+    assert b3.get_maximum_estimation_signed() == ~0b0100010
+    assert not b3.contains(b3.get_maximum_estimation_signed() + 1)
 
 def test_knownbits_minmax_bounds_examples():
     # case (-Inf, 0]
     b1 = IntBound(lower=0, has_lower=True,
                   tvalue=u(5), tmask=u(-8))   # ?...?101
-    assert b1.get_minimum_signed() == 0
-    assert b1.get_maximum_signed() == intmask((u(5) | u(-8)) & ~(1<<(LONG_BIT-1)))
+    assert b1.get_minimum_estimation_signed() == 0
+    assert b1.get_maximum_estimation_signed() == intmask((u(5) | u(-8)) & ~(1<<(LONG_BIT-1)))
     # case [0, Inf)
     b2 = IntBound(upper=0, has_upper=True,
                   tvalue=u(5), tmask=u(-8))   # ?...?101
-    assert b2.get_minimum_signed() == intmask(u(5) | (1<<(LONG_BIT-1)))
-    assert b2.get_maximum_signed() == 0
+    assert b2.get_minimum_estimation_signed() == intmask(u(5) | (1<<(LONG_BIT-1)))
+    assert b2.get_maximum_estimation_signed() == 0
 
 def test_knownbits_const_strings_examples():
     b1 = ConstIntBound(0b010010)
