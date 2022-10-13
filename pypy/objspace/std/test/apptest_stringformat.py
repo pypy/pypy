@@ -255,6 +255,12 @@ def test_force_unicode_uses_default_encoding():
         assert "ä%s" % u"ö" == "äö"
     finally:
         sys.setdefaultencoding(encoding)
+
+def test_force_unicode_doesnt_force_random_objects():
+    with raises(TypeError) as info:
+        None % u"abc"
+    assert "unsupported operand type(s) for %: 'NoneType' and 'str'" in str(info.value)
+
 def test___int__index__():
     class MyInt(object):
         def __init__(self, x):

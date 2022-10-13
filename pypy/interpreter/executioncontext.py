@@ -42,6 +42,10 @@ class ExecutionContext(object):
         self.profilefunc = None
         self.w_profilefuncarg = None
         self.thread_disappeared = False   # might be set to True after os.fork()
+        # an instance of this will be raised the next time we switch to the
+        # thread that self represents
+        self.w_async_exception_type = None
+
         self.w_asyncgen_firstiter_fn = None
         self.w_asyncgen_finalizer_fn = None
         self.contextvar_context = None

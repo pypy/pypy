@@ -437,6 +437,9 @@ class W_UnicodeObject(W_Root):
         return mod_format(space, self, w_values, fmt_type=FORMAT_UNICODE)
 
     def descr_rmod(self, space, w_values):
+        # this should never be reachable for valid invocations
+        if not space.isinstance_w(w_values, space.w_unicode):
+            return space.w_NotImplemented
         return mod_format(space, w_values, self, fmt_type=FORMAT_UNICODE)
 
     def descr_swapcase(self, space):
