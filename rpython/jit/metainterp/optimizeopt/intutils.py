@@ -355,14 +355,17 @@ class IntBound(AbstractInfo):
 
     def get_minimum_signed(self):
         """
-        Returns the lowest integer that is
-        contained in this abstract integer.
+        Returns an estimated lower bound for
+        the numbers contained in this
+        abstract integer.
+        It is not guaranteed that this value
+        is actually an element of the
+        concrete value set!
         """
         # TODO: this has a bug! self.lower maybe is not in this abs.
-
         # Unnecessary to unmask, because by convention
         #   mask[i] => ~value[i]
-        ret_knownbits = self.get_minimum_by_knownbits()
+        ret_knownbits = self.get_minimum_signed_by_knownbits()
         ret_bounds = self.lower
         if self.has_lower:
             return max(ret_knownbits, ret_bounds)
@@ -371,8 +374,12 @@ class IntBound(AbstractInfo):
 
     def get_maximum_signed(self):
         """
-        Returns the greatest integer that is
-        contained in this abstract integer.
+        Returns an estimated upper bound for
+        the numbers contained in this
+        abstract integer.
+        It is not guaranteed that this value
+        is actually an element of the
+        concrete value set!
         """
         ret_knownbits = self.get_maximum_signed_by_knownbits()
         ret_bounds = self.upper
@@ -990,9 +997,12 @@ class IntBound(AbstractInfo):
 
     def knownbits_and_bounds_agree(self):
         """
-        Returns `True` iff the concrete value
-        sets of knownbits and bounds have a
-        non-empty intersection.
+        Returns `True` iff the span of
+        knownbits and the span of the bounds
+        have a non-empty intersection.
+        That does not guarantee for the
+        actual concrete value set to contain
+        any values!
         """
         if self.has_lower:
             max_knownbits = self.get_maximum_signed_by_knownbits()
@@ -1183,3 +1193,14 @@ def is_valid_tnum(tvalue, tmask):
     if not isinstance(tmask, r_uint):
         return False
     return 0 == (r_uint(tvalue) & r_uint(tmask))
+
+def lowest_set_bit_only(val_uint):
+    """
+    Returns an val_int, but with all bits
+    deleted but the lowest one that was set.
+    """
+    assert isinstance(val_uint, r_uint)
+    working_val = ~val_uint
+    increased_val = working_val + 1
+    result = (working_val^increased_val) & ~working_val
+    return result

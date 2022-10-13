@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
      IntLowerBound, IntUnbounded, ConstIntBound, IntBoundKnownbits, next_pow2_m1, \
-     IntLowerUpperBound, msbonly, MININT, MAXINT
+     IntLowerUpperBound, msbonly, MININT, MAXINT, lowest_set_bit_only
 
 from copy import copy
 import sys
@@ -584,6 +584,19 @@ def test_neg_bound_random(t1):
 
 # --------------
 
+def test_lowest_set_bit_only():
+    n1 = r_uint(0b10001)
+    r1 = lowest_set_bit_only(n1)
+    assert r1 == r_uint(1)
+    n2 = r_uint(0b00100)
+    r2 = lowest_set_bit_only(n2)
+    assert r2 == r_uint(4)
+    n3 = r_uint(-1)
+    r3 = lowest_set_bit_only(n3)
+    assert r3 == r_uint(1)
+    n4 = r_uint(0)
+    r4 = lowest_set_bit_only(n4)
+    assert r4 == r_uint(0)
 
 def test_knownbits_intconst_examples():
     b1 = ConstIntBound(0b010010)
@@ -602,34 +615,34 @@ def test_knownbits_intconst_examples():
 def test_knownbits_minmax_nobounds_examples():
     # constant case
     b1 = ConstIntBound(42)
-    assert b1.get_minimum() == 42
-    assert b1.get_maximum() == 42
+    assert b1.get_minimum_signed() == 42
+    assert b1.get_maximum_signed() == 42
     # positive knownbits case
     b2 = knownbits(0b0110010,   # 11?01?
                    0b0001001)
-    assert b2.get_minimum() == 0b0110010
-    assert not b2.contains(b2.get_minimum() - 1)
-    assert b2.get_maximum() == 0b0111011
-    assert not b2.contains(b2.get_maximum() + 1)
+    assert b2.get_minimum_signed() == 0b0110010
+    assert not b2.contains(b2.get_minimum_signed() - 1)
+    assert b2.get_maximum_signed() == 0b0111011
+    assert not b2.contains(b2.get_maximum_signed() + 1)
     #negative knownbits_case
     b3 = knownbits(~0b0110010,  # 1...10?1101
                     0b0010000)
-    assert b3.get_minimum() == ~0b0110010
-    assert not b3.contains(b3.get_minimum() - 1)
-    assert b3.get_maximum() == ~0b0100010
-    assert not b3.contains(b3.get_maximum() + 1)
+    assert b3.get_minimum_signed() == ~0b0110010
+    assert not b3.contains(b3.get_minimum_signed() - 1)
+    assert b3.get_maximum_signed() == ~0b0100010
+    assert not b3.contains(b3.get_maximum_signed() + 1)
 
 def test_knownbits_minmax_bounds_examples():
     # case (-Inf, 0]
     b1 = IntBound(lower=0, has_lower=True,
                   tvalue=u(5), tmask=u(-8))   # ?...?101
-    assert b1.get_minimum() == 0
-    assert b1.get_maximum() == intmask((u(5) | u(-8)) & ~(1<<(LONG_BIT-1)))
+    assert b1.get_minimum_signed() == 0
+    assert b1.get_maximum_signed() == intmask((u(5) | u(-8)) & ~(1<<(LONG_BIT-1)))
     # case [0, Inf)
     b2 = IntBound(upper=0, has_upper=True,
                   tvalue=u(5), tmask=u(-8))   # ?...?101
-    assert b2.get_minimum() == intmask(u(5) | (1<<(LONG_BIT-1)))
-    assert b2.get_maximum() == 0
+    assert b2.get_minimum_signed() == intmask(u(5) | (1<<(LONG_BIT-1)))
+    assert b2.get_maximum_signed() == 0
 
 def test_knownbits_const_strings_examples():
     b1 = ConstIntBound(0b010010)
@@ -1195,16 +1208,6 @@ def test_knownbits_and_backwards_random(t1, t2):
         assert newb1.is_constant()
     # this should not fail
     b1.intersect(newb1)
-
-@given(some_bits_known_bounded)
-def test_minmax_random(t1):
-    b1, n1 = t1
-    assert b1.contains(b1.get_minimum())
-    assert b1.contains(b1.get_maximum())
-    assert b1.get_minimum() <= b1.get_maximum()
-    assert b1.contains(n1)
-    assert b1.get_minimum() <= n1 <= b1.get_maximum()
-
 
 
 def knownbits(tvalue, tmask=0, do_unmask=False):
