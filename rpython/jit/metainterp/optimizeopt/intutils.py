@@ -977,14 +977,28 @@ class IntBound(AbstractInfo):
         pass
 
     def urshift_bound_backwards(self, other, result):
+        """
+        Performs a `urshift` backwards on
+        `result`. Basically left-shifts
+        `result` by `other` binary digits,
+        filling the lower part with ?, and
+        returns the result.
+        """
+        if not other.is_constant():
+            return IntUnbounded()
         c_other = other.get_constant_int()
         tvalue, tmask = TNUM_UNKNOWN
         if 0 <= c_other < LONG_BIT:
-            tvalue = self.tvalue << r_uint(c_other)
-            tmask = self.tmask << r_uint(c_other)
-            # shift ? in from the right
-            tmask |= (r_uint(1) << r_uint(c_other)) - 1
-        # ignore bounds
+            tvalue = result.tvalue << r_uint(c_other)
+            tmask = result.tmask << r_uint(c_other)
+            # shift ? in from the right,
+            # but we know some bits from `self`
+            s_tmask = (r_uint(1) << r_uint(c_other)) - 1
+            s_tvalue = s_tmask & self.tvalue
+            s_tmask &= self.tmask
+            tvalue |= s_tvalue
+            tmask |= s_tmask
+        # ignore bounds # TODO: bounds
         return IntBoundKnownbits(tvalue, tmask)
 
     def rshift_bound_backwards(self, other, result):

@@ -784,7 +784,7 @@ class OptIntBounds(Optimization):
         if not b2.is_constant():
             return
         r = self.getintbound(op)
-        b = r.urshift_bound_backwards(b2, r)
+        b = b1.urshift_bound_backwards(b2, r)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 
@@ -794,7 +794,7 @@ class OptIntBounds(Optimization):
         if not b2.is_constant():
             return
         r = self.getintbound(op)
-        b = r.rshift_bound_backwards(b2, r)
+        b = b1.rshift_bound_backwards(b2, r)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 
@@ -819,7 +819,7 @@ class OptIntBounds(Optimization):
                 self.propagate_bounds_backward(op.getarg(0))
         else:
             pass
-            # TODO: trategy for non-constant 'other'
+            # TODO: strategy for non-constant 'other'
             # the and_bound_backwards already supports that,
             # but we don't have a good strategy yet
             # for what to do here.

@@ -989,7 +989,7 @@ def test_knownbits_sub_concrete_example():
     assert r1.contains(0b111010)
     assert r1.contains(0b011110)
 
-def test_knownbits_int_and_backwards_otherconst_examples():
+def test_knownbits_and_backwards_otherconst_examples():
     x = IntUnbounded()          # ?...?
     r = x.and_bound_backwards(ConstIntBound(0b11), 0)
     assert check_knownbits_string(r, "??00")
@@ -1007,12 +1007,55 @@ def test_knownbits_int_and_backwards_otherconst_examples():
     r = x.and_bound_backwards(ConstIntBound(0b11), 0b10)
     assert check_knownbits_string(r, "??10")
 
-def test_knownbits_int_and_backward_example():
+def test_knownbits_and_backwards_example():
     x = IntUnbounded()
     o = knownbits(0b101010,
                   0b010100) # 1?1?10
     r = x.and_bound_backwards(o, 0b111)
     assert check_knownbits_string(r, "??0?0?1?")
+
+def test_knownbits_urshift_backwards_example():
+    o = ConstIntBound(3)
+    x1 = IntUnbounded()
+    r1 = knownbits(0b101010,
+                   0b010100) # 1?1?10
+    #import pdb; pdb.set_trace()
+    res1 = x1.urshift_bound_backwards(o, r1)
+    assert not res1.is_constant()
+    assert check_knownbits_string(res1, "1?1?10???", '0')
+    x2 = ConstIntBound(0b101)
+    r2 = knownbits(0b101010,
+                   0b010100) # 1?1?10
+    res2 = x2.urshift_bound_backwards(o, r2)
+    assert not res2.is_constant()
+    assert res2.knownbits_string().endswith("101")
+    x3 = IntUnbounded()
+    r3 = knownbits(0b1, 0) # 1
+    res3 = x3.urshift_bound_backwards(o, r3)
+    assert not res3.is_constant()
+    assert check_knownbits_string(res3, "1???", '0')
+
+def test_knownbits_rshift_backwards_example():
+    o = ConstIntBound(3)
+    x1 = IntUnbounded()
+    r1 = knownbits(0b101010,
+                   0b010100) # 1?1?10
+    #import pdb; pdb.set_trace()
+    res1 = x1.rshift_bound_backwards(o, r1)
+    assert not res1.is_constant()
+    assert check_knownbits_string(res1, "1?1?10???", '0')
+    x2 = ConstIntBound(0b101)
+    r2 = knownbits(0b101010,
+                   0b010100) # 1?1?10
+    res2 = x2.rshift_bound_backwards(o, r2)
+    assert not res2.is_constant()
+    assert res2.knownbits_string().endswith("101")
+    x3 = IntUnbounded()
+    r3 = knownbits(0b1, 0) # 1
+    res3 = x3.rshift_bound_backwards(o, r3)
+    assert not res3.is_constant()
+    assert check_knownbits_string(res3, "1???", '0')
+
 
 @given(constant, constant)
 def test_const_stays_const_or(t1, t2):
@@ -1196,7 +1239,7 @@ def test_knownbits_neg_const_random(t1):
         assert r.is_constant()
         assert r.equals(-t1)
 
-@given(knownbits_with_contained_number, knownbits_with_contained_number)
+@given(knownbits_with_contained_number, constant)
 def test_knownbits_and_backwards_random(t1, t2):
     b1, n1 = t1     # self
     b2, n2 = t2     # other
@@ -1208,6 +1251,27 @@ def test_knownbits_and_backwards_random(t1, t2):
         assert newb1.is_constant()
     # this should not fail
     b1.intersect(newb1)
+
+@given(knownbits_with_contained_number, constant)
+def test_knownbits_urshift_backwards_random(t1, t2):
+    b1, n1 = t1     # self
+    b2, n2 = t2     # other
+    rb = b1.urshift_bound(b2)
+    newb1 = b1.urshift_bound_backwards(b2, rb)
+    assert newb1.contains(n1)
+    # this should not fail
+    b1.intersect(newb1)
+
+@given(knownbits_with_contained_number, constant)
+def test_knownbits_rshift_backwards_random(t1, t2):
+    b1, n1 = t1     # self
+    b2, n2 = t2     # other
+    rb = b1.urshift_bound(b2)
+    newb1 = b1.rshift_bound_backwards(b2, rb)
+    assert newb1.contains(n1)
+    # this should not fail
+    b1.intersect(newb1)
+
 
 
 def knownbits(tvalue, tmask=0, do_unmask=False):
