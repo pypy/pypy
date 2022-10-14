@@ -368,7 +368,7 @@ class IntBound(AbstractInfo):
 
     def get_maximum_signed_by_knownbits(self):
         """ for internal use only! """
-        unsigned_mask = self.tmask & ~(1<<(LONG_BIT-1))
+        unsigned_mask = self.tmask & ~msbonly(self.tmask)
         return intmask(self.tvalue | unsigned_mask)
 
     def get_minimum_estimation_signed(self):
