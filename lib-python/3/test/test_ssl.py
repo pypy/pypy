@@ -4,7 +4,7 @@ import sys
 import unittest
 import unittest.mock
 from test import support
-from test.support import socket_helper
+from test.support import socket_helper, warnings_helper
 import socket
 import select
 import time
@@ -1131,10 +1131,10 @@ class ContextTests(unittest.TestCase):
     def test_constructor(self):
         for protocol in PROTOCOLS:
             if has_tls_protocol(protocol):
-                with support.check_warnings():
+                with warnings_helper.check_warnings():
                     ctx = ssl.SSLContext(protocol)
                 self.assertEqual(ctx.protocol, protocol)
-        with support.check_warnings():
+        with warnings_helper.check_warnings():
             ctx = ssl.SSLContext()
         self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLS)
         self.assertRaises(ValueError, ssl.SSLContext, -1)
@@ -1142,8 +1142,10 @@ class ContextTests(unittest.TestCase):
 
     def test_protocol(self):
         for proto in PROTOCOLS:
-            ctx = ssl.SSLContext(proto)
-            self.assertEqual(ctx.protocol, proto)
+            if has_tls_protocol(proto):
+                with warnings_helper.check_warnings():
+                    ctx = ssl.SSLContext(proto)
+                self.assertEqual(ctx.protocol, proto)
 
     def test_ciphers(self):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -1170,8 +1172,20 @@ class ContextTests(unittest.TestCase):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx.set_ciphers('AESGCM')
         names = set(d['name'] for d in ctx.get_ciphers())
-        self.assertIn('AES256-GCM-SHA384', names)
-        self.assertIn('AES128-GCM-SHA256', names)
+        expected = {
+            'AES128-GCM-SHA256',
+            'ECDHE-ECDSA-AES128-GCM-SHA256',
+            'ECDHE-RSA-AES128-GCM-SHA256',
+            'DHE-RSA-AES128-GCM-SHA256',
+            'AES256-GCM-SHA384',
+            'ECDHE-ECDSA-AES256-GCM-SHA384',
+            'ECDHE-RSA-AES256-GCM-SHA384',
+            'DHE-RSA-AES256-GCM-SHA384',
+        }
+        intersection = names.intersection(expected)
+        self.assertGreaterEqual(
+            len(intersection), 2, f"\ngot: {sorted(names)}\nexpected: {sorted(expected)}"
+        )
 
     def test_options(self):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -1513,7 +1527,10 @@ class ContextTests(unittest.TestCase):
 
     def test_session_stats(self):
         for proto in PROTOCOLS:
-            ctx = ssl.SSLContext(proto)
+            if not has_tls_protocol(proto):
+                continue
+            with warnings_helper.check_warnings():
+                ctx = ssl.SSLContext(proto)
             self.assertEqual(ctx.session_stats(), {
                 'number': 0,
                 'connect': 0,
@@ -1699,19 +1716,20 @@ class ContextTests(unittest.TestCase):
         self._assert_context_options(ctx)
 
         if has_tls_protocol(ssl.PROTOCOL_TLSv1):
-            with support.check_warnings():
+            with warnings_helper.check_warnings():
                 ctx = ssl._create_stdlib_context(ssl.PROTOCOL_TLSv1)
             self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLSv1)
             self.assertEqual(ctx.verify_mode, ssl.CERT_NONE)
             self._assert_context_options(ctx)
 
-        ctx = ssl._create_stdlib_context(ssl.PROTOCOL_TLSv1,
-                                         cert_reqs=ssl.CERT_REQUIRED,
-                                         check_hostname=True)
-        self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLSv1)
-        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
-        self.assertTrue(ctx.check_hostname)
-        self._assert_context_options(ctx)
+            with warnings_helper.check_warnings():
+                ctx = ssl._create_stdlib_context(ssl.PROTOCOL_TLSv1,
+                                                cert_reqs=ssl.CERT_REQUIRED,
+                                                check_hostname=True)
+            self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLSv1)
+            self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
+            self.assertTrue(ctx.check_hostname)
+            self._assert_context_options(ctx)
 
         ctx = ssl._create_stdlib_context(purpose=ssl.Purpose.CLIENT_AUTH)
         self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLS)

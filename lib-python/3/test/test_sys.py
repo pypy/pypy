@@ -527,10 +527,11 @@ class SysModuleTest(unittest.TestCase):
     def test_sys_flags(self):
         self.assertTrue(sys.flags)
         attrs = ("debug",
-                 "inspect", "interactive", "optimize", "dont_write_bytecode",
-                 "no_user_site", "no_site", "ignore_environment", "verbose",
-                 "bytes_warning", "quiet", "hash_randomization", "isolated",
-                 "dev_mode", "utf8_mode", "int_max_str_digits")
+                 "inspect", "interactive", "optimize",
+                 "dont_write_bytecode", "no_user_site", "no_site",
+                 "ignore_environment", "verbose", "bytes_warning", "quiet",
+                 "hash_randomization", "isolated", "dev_mode", "utf8_mode",
+                 "int_max_str_digits")
         for attr in attrs:
             self.assertTrue(hasattr(sys.flags, attr), attr)
             attr_type = bool if attr == "dev_mode" else int
@@ -1003,8 +1004,8 @@ class UnraisableHookTest(unittest.TestCase):
         with test.support.captured_stderr() as stderr, \
              test.support.swap_attr(sys, 'unraisablehook',
                                     sys.__unraisablehook__):
-                 expected = self.write_unraisable_exc(
-                     A.B.X(), "msg", "obj");
+            expected = self.write_unraisable_exc(
+                A.B.X(), "msg", "obj");
         report = stderr.getvalue()
         testName = 'test_original_unraisablehook_exception_qualname'
         self.assertIn(f"{testName}.<locals>.A.B.X", report)
@@ -1316,9 +1317,7 @@ class SizeofTest(unittest.TestCase):
         check((1,2,3), vsize('') + 3*self.P)
         # type
         # static type: PyTypeObject
-        fmt = 'P2nPI13Pl4Pn9Pn11PIPPP'
-        if hasattr(sys, 'getcounts'):
-            fmt += '3n2P'
+        fmt = 'P2nPI13Pl4Pn9Pn11PIPP'
         s = vsize(fmt)
         check(int, s)
         # class

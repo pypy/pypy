@@ -103,5 +103,6 @@ class TestDecode:
             with self.assertRaises(ValueError):
                 self.loads('1' * (maxdigits + 1))
 
+
 class TestPyDecode(TestDecode, PyTest): pass
 class TestCDecode(TestDecode, CTest): pass

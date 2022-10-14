@@ -1153,7 +1153,9 @@ class PosixTester(unittest.TestCase):
         mask = posix.sched_getaffinity(0)
         self.assertIsInstance(mask, set)
         self.assertGreaterEqual(len(mask), 1)
-        self.assertRaises(OSError, posix.sched_getaffinity, -1)
+        if not sys.platform.startswith("freebsd"):
+            # bpo-47205: does not raise OSError on FreeBSD
+            self.assertRaises(OSError, posix.sched_getaffinity, -1)
         for cpu in mask:
             self.assertIsInstance(cpu, int)
             self.assertGreaterEqual(cpu, 0)
@@ -1171,7 +1173,9 @@ class PosixTester(unittest.TestCase):
         self.assertRaises(ValueError, posix.sched_setaffinity, 0, [-10])
         self.assertRaises(ValueError, posix.sched_setaffinity, 0, map(int, "0X"))
         self.assertRaises(OverflowError, posix.sched_setaffinity, 0, [1<<128])
-        self.assertRaises(OSError, posix.sched_setaffinity, -1, mask)
+        if not sys.platform.startswith("freebsd"):
+            # bpo-47205: does not raise OSError on FreeBSD
+            self.assertRaises(OSError, posix.sched_setaffinity, -1, mask)
 
     def test_rtld_constants(self):
         # check presence of major RTLD_* constants
@@ -2035,6 +2039,28 @@ class TestPosixWeaklinking(unittest.TestCase):
 
             with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
                 os.mkdir("dir", dir_fd=0)
+
+    def test_mkfifo(self):
+        self._verify_available("HAVE_MKFIFOAT")
+        if self.mac_ver >= (13, 0):
+            self.assertIn("HAVE_MKFIFOAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_MKFIFOAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.mkfifo("path", dir_fd=0)
+
+    def test_mknod(self):
+        self._verify_available("HAVE_MKNODAT")
+        if self.mac_ver >= (13, 0):
+            self.assertIn("HAVE_MKNODAT", posix._have_functions)
+
+        else:
+            self.assertNotIn("HAVE_MKNODAT", posix._have_functions)
+
+            with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
+                os.mknod("path", dir_fd=0)
 
     def test_rename_replace(self):
         self._verify_available("HAVE_RENAMEAT")
