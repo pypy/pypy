@@ -330,6 +330,19 @@ static PyTypeObject _HashInheritanceTester_Type = {
 };
 
 static PyObject*
+pycompilestring(PyObject* self, PyObject *obj) {
+    if (PyBytes_CheckExact(obj) == 0) {
+        PyErr_SetString(PyExc_ValueError, "Argument must be a bytes object");
+        return NULL;
+    }
+    const char *the_string = PyBytes_AsString(obj);
+    if (the_string == NULL) {
+        return NULL;
+    }
+    return Py_CompileString(the_string, "<string>", Py_file_input);
+}
+
+static PyObject*
 test_lazy_hash_inheritance(PyObject* self, PyObject *Py_UNUSED(ignored))
 {
     PyTypeObject *type;
@@ -5127,7 +5140,7 @@ encode_locale_ex(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_ValueError, "unsupported error handler");
         break;
     default:
-        PyErr_SetString(PyExc_ValueError, "unknow error code");
+        PyErr_SetString(PyExc_ValueError, "unknown error code");
         break;
     }
     return res;
@@ -5170,7 +5183,7 @@ decode_locale_ex(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_ValueError, "unsupported error handler");
         break;
     default:
-        PyErr_SetString(PyExc_ValueError, "unknow error code");
+        PyErr_SetString(PyExc_ValueError, "unknown error code");
         break;
     }
     return res;
@@ -5537,6 +5550,7 @@ static PyMethodDef TestMethods[] = {
         return_null_without_error, METH_NOARGS},
     {"return_result_with_error",
         return_result_with_error, METH_NOARGS},
+    {"Py_CompileString",     pycompilestring, METH_O},
     {"PyTime_FromSeconds", test_pytime_fromseconds,  METH_VARARGS},
     {"PyTime_FromSecondsObject", test_pytime_fromsecondsobject,  METH_VARARGS},
     {"PyTime_AsSecondsDouble", test_pytime_assecondsdouble, METH_VARARGS},
@@ -5976,7 +5990,7 @@ static PyTypeObject PyRecursingInfinitelyError_Type = {
     0,                          /* tp_setattro */
     0,                          /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
-    "Instantiating this exception starts infinite recursion.", /* tp_doc */
+    PyDoc_STR("Instantiating this exception starts infinite recursion."), /* tp_doc */
     0,                          /* tp_traverse */
     0,                          /* tp_clear */
     0,                          /* tp_richcompare */

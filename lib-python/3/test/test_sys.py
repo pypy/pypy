@@ -409,11 +409,17 @@ class SysModuleTest(unittest.TestCase):
         self.assertIsInstance(sys.executable, str)
         self.assertEqual(len(sys.float_info), 11)
         self.assertEqual(sys.float_info.radix, 2)
-        self.assertEqual(len(sys.int_info), 2)
+        self.assertEqual(len(sys.int_info), 4)
         self.assertTrue(sys.int_info.bits_per_digit % 5 == 0)
         self.assertTrue(sys.int_info.sizeof_digit >= 1)
+        self.assertGreaterEqual(sys.int_info.default_max_str_digits, 500)
+        self.assertGreaterEqual(sys.int_info.str_digits_check_threshold, 100)
+        self.assertGreater(sys.int_info.default_max_str_digits,
+                           sys.int_info.str_digits_check_threshold)
         self.assertEqual(type(sys.int_info.bits_per_digit), int)
         self.assertEqual(type(sys.int_info.sizeof_digit), int)
+        self.assertIsInstance(sys.int_info.default_max_str_digits, int)
+        self.assertIsInstance(sys.int_info.str_digits_check_threshold, int)
         self.assertIsInstance(sys.hexversion, int)
 
         self.assertEqual(len(sys.hash_info), 9)
@@ -517,7 +523,8 @@ class SysModuleTest(unittest.TestCase):
                  "inspect", "interactive", "optimize",
                  "dont_write_bytecode", "no_user_site", "no_site",
                  "ignore_environment", "verbose", "bytes_warning", "quiet",
-                 "hash_randomization", "isolated", "dev_mode", "utf8_mode")
+                 "hash_randomization", "isolated", "dev_mode", "utf8_mode",
+                 "int_max_str_digits")
         for attr in attrs:
             self.assertTrue(hasattr(sys.flags, attr), attr)
             attr_type = bool if attr == "dev_mode" else int
@@ -982,8 +989,8 @@ class UnraisableHookTest(unittest.TestCase):
         with test.support.captured_stderr() as stderr, \
              test.support.swap_attr(sys, 'unraisablehook',
                                     sys.__unraisablehook__):
-                 expected = self.write_unraisable_exc(
-                     A.B.X(), "msg", "obj");
+            expected = self.write_unraisable_exc(
+                A.B.X(), "msg", "obj");
         report = stderr.getvalue()
         testName = 'test_original_unraisablehook_exception_qualname'
         self.assertIn(f"{testName}.<locals>.A.B.X", report)
