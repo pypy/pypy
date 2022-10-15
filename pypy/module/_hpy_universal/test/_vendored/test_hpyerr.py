@@ -1,6 +1,4 @@
-import pytest as pytest_collecting
-
-from .support import HPyTest
+from .support import HPyTest, SUPPORTS_SYS_EXECUTABLE, trampoline
 
 
 class TestErr(HPyTest):
@@ -19,52 +17,33 @@ class TestErr(HPyTest):
         with pytest.raises(MemoryError):
             mod.f()
 
-    def test_FatalError(self):
-        import os
-        import sys
-        fatal_exit_code = {
-            "linux": -6,  # SIGABRT
-            # See https://bugs.python.org/issue36116#msg336782 -- the
-            # return code from abort on Windows 8+ is a stack buffer overrun.
-            # :|
-            "win32": 0xC0000409,  # STATUS_STACK_BUFFER_OVERRUN
-        }.get(sys.platform, -6)
-        mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
-            static HPy f_impl(HPyContext *ctx, HPy self)
-            {
-                HPy_FatalError(ctx, "boom!");
-                // note: no 'return' statement.  This also tests that
-                // the call above is known to never return---otherwise,
-                // we get a warning from the missing 'return' and it is
-                // turned into an error.
-            }
-            @EXPORT(f)
-            @INIT
-        """)
-        if not self.supports_sys_executable():
-            # if sys.executable is not available (e.g. inside pypy app-level)
-            # tests, then skip the rest of this test
-            return
-        # subprocess is not importable in pypy app-level tests
-        import subprocess
-        env = os.environ.copy()
-        pythonpath = [os.path.dirname(mod.__file__)]
-        if 'PYTHONPATH' in env:
-            pythonpath.append(env['PYTHONPATH'])
-        env["PYTHONPATH"] = os.pathsep.join(pythonpath)
-        result = subprocess.run([
-            sys.executable,
-            "-c", "import {} as mod; mod.f()".format(mod.__name__)
-        ], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        assert result.returncode == fatal_exit_code
-        assert result.stdout == b""
-        # In Python 3.9, the Py_FatalError() function was replaced with a macro
-        # which automatically prepends the name of the current function, so
-        # we have to allow for that difference here:
-        stderr_msg = result.stderr.splitlines()[0]
-        assert stderr_msg.startswith(b"Fatal Python error: ")
-        assert stderr_msg.endswith(b": boom!")
+    if SUPPORTS_SYS_EXECUTABLE:
+                # if sys.executable is not available (e.g. inside pypy app-level)
+                # tests, then skip the rest of this test
+        def test_FatalError(self, python_subprocess, fatal_exit_code):
+            mod = self.compile_module("""
+                HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+                static HPy f_impl(HPyContext *ctx, HPy self)
+                {
+                    HPy_FatalError(ctx, "boom!");
+                    // note: no 'return' statement.  This also tests that
+                    // the call above is known to never return---otherwise,
+                    // we get a warning from the missing 'return' and it is
+                    // turned into an error.
+                }
+                @EXPORT(f)
+                @INIT
+            """)
+            # subprocess is not importable in pypy app-level tests
+            result = python_subprocess.run(mod, "mod.f()")
+            assert result.returncode == fatal_exit_code
+            assert result.stdout == b""
+            # In Python 3.9, the Py_FatalError() function was replaced with a macro
+            # which automatically prepends the name of the current function, so
+            # we have to allow for that difference here:
+            stderr_msg = result.stderr.splitlines()[0]
+            assert stderr_msg.startswith(b"Fatal Python error: ")
+            assert stderr_msg.endswith(b": boom!")
 
     def test_HPyErr_Occurred(self):
         import pytest
@@ -74,8 +53,7 @@ class TestErr(HPyTest):
             {
                 HPyLong_AsLong(ctx, arg);
                 if (HPyErr_Occurred(ctx)) {
-                    HPyErr_SetString(ctx, ctx->h_ValueError, "hello world");
-                    return HPy_NULL;
+                    return HPyErr_SetString(ctx, ctx->h_ValueError, "hello world");
                 }
                 return HPyLong_FromLong(ctx, -1002);
             }
@@ -109,14 +87,26 @@ class TestErr(HPyTest):
             HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
             static HPy f_impl(HPyContext *ctx, HPy self)
             {
+                return HPyErr_SetString(ctx, ctx->h_ValueError, "error message");
+            }
+
+            HPyDef_METH(g, "g", g_impl, HPyFunc_NOARGS)
+            static HPy g_impl(HPyContext *ctx, HPy self)
+            {
                 HPyErr_SetString(ctx, ctx->h_ValueError, "error message");
                 return HPy_NULL;
             }
+
+            @EXPORT(g)
             @EXPORT(f)
             @INIT
         """)
         with pytest.raises(ValueError) as err:
             mod.f()
+        assert str(err.value) == "error message"
+
+        with pytest.raises(ValueError) as err:
+            mod.g()
         assert str(err.value) == "error message"
 
     def test_HPyErr_SetObject(self):
@@ -125,8 +115,7 @@ class TestErr(HPyTest):
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
-                HPyErr_SetObject(ctx, ctx->h_ValueError, arg);
-                return HPy_NULL;
+                return HPyErr_SetObject(ctx, ctx->h_ValueError, arg);
             }
             @EXPORT(f)
             @INIT
@@ -134,6 +123,85 @@ class TestErr(HPyTest):
         with pytest.raises(ValueError) as err:
             mod.f(ValueError("error message"))
         assert str(err.value) == "error message"
+
+    def test_HPyErr_SetFromErrno(self):
+        import pytest
+        import errno
+        mod = self.make_module("""
+            #include <errno.h>
+
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy type)
+            {{
+                errno = {errno};
+                return HPyErr_SetFromErrno(ctx, type);
+            }}
+            @EXPORT(f)
+            @INIT
+        """.format(errno = errno.EINVAL))
+        for type in [OSError, TimeoutError]:
+            with pytest.raises(type) as err:
+                mod.f(type)
+
+            assert err.value.errno == errno.EINVAL
+
+    def test_HPyErr_SetFromErrnoWithFilenameObjects(self):
+        import pytest
+        import errno
+        mod = self.make_module("""
+            #include <errno.h>
+
+            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self,
+                              HPy *args, HPy_ssize_t nargs)
+            {{
+                HPy type, file1, file2;
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "OOO", &type, &file1, &file2))
+                    return HPy_NULL;
+
+                errno = {errno};
+                if (HPy_Is(ctx, file2, ctx->h_None)) {{
+                    return HPyErr_SetFromErrnoWithFilenameObject(ctx, type, file1);
+                }} else {{
+                    return HPyErr_SetFromErrnoWithFilenameObjects(ctx, type, file1, file2);
+                }}
+            }}
+            @EXPORT(f)
+            @INIT
+        """.format(errno = errno.EINVAL))
+        file1 = "some/file/name/to/be/asserted"
+        with pytest.raises(OSError) as err:
+            mod.f(OSError, file1, None)
+        assert err.value.errno == errno.EINVAL
+        assert err.value.filename == file1
+
+        file2 = "some/different/file/name/to/be/asserted"
+        with pytest.raises(OSError) as err:
+            mod.f(OSError, file1, file2)
+        assert err.value.errno == errno.EINVAL
+        assert err.value.filename == file1
+        assert err.value.filename2 == file2
+
+    def test_HPyErr_SetFromErrnoWithFilename(self):
+        import pytest
+        import errno
+        mod = self.make_module("""
+            #include <errno.h>
+
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy type)
+            {{
+                errno = {errno};
+                return HPyErr_SetFromErrnoWithFilename(ctx, type, "Some message that will be asserted");
+            }}
+            @EXPORT(f)
+            @INIT
+        """.format(errno = errno.EINVAL))
+        with pytest.raises(OSError) as err:
+            mod.f(OSError)
+
+        assert err.value.errno == errno.EINVAL
+        assert "Some message that will be asserted" in str(err.value)
 
     def test_h_exceptions(self):
         import pytest
@@ -368,6 +436,48 @@ class TestErr(HPyTest):
         check_warning(BytesWarning)
         check_warning(ResourceWarning)
 
+    def test_HPyErr_WarnEx(self):
+        import warnings
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                switch (HPyLong_AsLong(ctx, arg)) {
+                    case 0:
+                      HPyErr_WarnEx(ctx, ctx->h_RuntimeWarning, "warn qzp", 1);
+                      break;
+                    case 1:
+                      HPyErr_WarnEx(ctx, ctx->h_FutureWarning, "warn rtq", 2);
+                      break;
+                    case 2:
+                      HPyErr_WarnEx(ctx, HPy_NULL, "warn null", 1);
+                      break;
+                }
+                return HPy_Dup(ctx, ctx->h_None);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+
+        # NOTE: trampoline is defined in support.py, but an app-level test
+        # cannot import it directly. The filename check will fail
+        def trampoline(fun, *args, **kwargs):
+            return fun(*args, **kwargs)
+
+        def check_warning(arg, category, message, file):
+            with warnings.catch_warnings(record=True) as warnings_list:
+                trampoline(mod.f, arg)
+                assert len(warnings_list) == 1, str(category)
+                w = warnings_list[-1]
+                assert issubclass(w.category, category), str(category)
+                assert str(w.message) == message, str(category)
+                # assert w.filename.endswith(file), str(category)
+
+        check_warning(0, RuntimeWarning, "warn qzp", "support.py")
+        check_warning(1, FutureWarning, "warn rtq", "test_hpyerr.py")
+        check_warning(2, Warning, "warn null", "support.py")
+
+
     def test_errorval_returned_by_api_functions_hpy(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
@@ -491,3 +601,99 @@ class TestErr(HPyTest):
         check(base=RuntimeError, dict_=None, doc=b'mytest')
         check(base=RuntimeError, dict_={"test": "pass"}, doc=None)
         check(base=RuntimeError, dict_={"test": "pass"}, doc=b'mytest')
+
+    def test_exception_matches(self):
+        import pytest
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
+            {
+                HPyTracker ht;
+                HPy fun, fun_args;
+                HPy expected_exc_type;
+                HPy tmp;
+                HPy result;
+
+                if (!HPyArg_Parse(ctx, &ht, args, nargs, "OOO", &fun, &fun_args, &expected_exc_type)) {
+                    return HPy_NULL;
+                }
+
+                tmp = HPy_CallTupleDict(ctx, fun, fun_args, HPy_NULL);
+                if (HPy_IsNull(tmp)) {
+                    if (HPyErr_ExceptionMatches(ctx, expected_exc_type)) {
+                        HPyErr_Clear(ctx);
+                        result = HPy_Dup(ctx, ctx->h_True);
+                    } else {
+                        // propagate the unexpected exception to the caller
+                        result = HPy_NULL;
+                    }
+                } else {
+                    HPy_Close(ctx, tmp);
+                    result = HPy_Dup(ctx, ctx->h_False);
+                }
+
+                HPyTracker_Close(ctx, ht);
+                return result;
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+
+        class DummyException(Exception):
+            pass
+
+        def raise_exception(e):
+            raise e
+
+        def do_not_raise_exception(*args):
+            return None
+
+        exc_types = (StopAsyncIteration, StopIteration, GeneratorExit, ArithmeticError, LookupError, AssertionError,
+                AttributeError, BufferError, EOFError, FloatingPointError, OSError, ImportError, ModuleNotFoundError, IndexError,
+                KeyError, KeyboardInterrupt, MemoryError, NameError, OverflowError, RuntimeError, RecursionError, NotImplementedError,
+                SyntaxError, IndentationError, TabError, ReferenceError, SystemError, SystemExit, TypeError, UnboundLocalError,
+                ValueError, ZeroDivisionError, BlockingIOError, BrokenPipeError, ChildProcessError, ConnectionError, ConnectionAbortedError,
+                ConnectionRefusedError, ConnectionResetError, FileExistsError, FileNotFoundError, InterruptedError, IsADirectoryError,
+                NotADirectoryError, PermissionError, ProcessLookupError, TimeoutError)
+
+        # just a sanity check of the extension function
+        assert not mod.f(do_not_raise_exception, tuple(), DummyException)
+
+        # test with "leaf" exception
+        assert mod.f(raise_exception, (DummyException, ), DummyException)
+        with pytest.raises(DummyException):
+            mod.f(raise_exception, (DummyException, ), StopIteration)
+
+        # test exception subclass
+        for exc_type in exc_types:
+            assert mod.f(raise_exception, (exc_type, ), BaseException)
+        assert mod.f(raise_exception, (DummyException, ), BaseException)
+
+        # match whole tuple
+        for exc_type in exc_types:
+            res = mod.f(raise_exception, (exc_type, ), exc_types)
+        with pytest.raises(DummyException):
+            mod.f(raise_exception, (DummyException, ), exc_types)
+
+    def test_HPyErr_WriteUnraisable(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self)
+            {
+                HPyErr_SetString(ctx, ctx->h_ValueError, "error message");
+                HPyErr_WriteUnraisable(ctx, HPy_NULL);
+                return HPyBool_FromLong(ctx, HPyErr_Occurred(ctx));
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        import sys
+        import io, sys
+        old = sys.stderr 
+        sys.stderr = io.StringIO()
+        mod.f()
+        output = sys.stderr.getvalue()
+        sys.stderr = old
+        msg = output.strip().replace('\r', '').splitlines()
+        assert msg[0] == "Exception ignored in:"
+        assert msg[-1] == "ValueError: error message"

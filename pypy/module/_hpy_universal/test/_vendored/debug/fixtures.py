@@ -25,10 +25,10 @@ class W_ExtensionCompiler(W_Root):
         else:
             items_w = space.unpackiterable(w_extra_sources)
             extra_sources = [space.text_w(item) for item in items_w]
-        so_filename = self.compiler.compile_module(
-            self.compiler.ExtensionTemplate, main_src, name, extra_sources)
+        module = self.compiler.compile_module(
+            main_src, self.compiler.ExtensionTemplate, name, extra_sources)
         debug = hpy_abi == 'debug'
-        w_mod = space.appexec([space.newtext(so_filename),
+        w_mod = space.appexec([space.newtext(module.so_filename),
                                 space.newtext(name),
                                 space.newbool(debug)],
             """(path, modname, debug):

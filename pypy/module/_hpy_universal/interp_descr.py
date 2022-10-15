@@ -44,7 +44,12 @@ def member_get(w_descr, space, w_obj):
     assert isinstance(w_descr, W_HPyMemberDescriptor)
     check_descr(space, w_obj, w_descr.w_type)
     assert isinstance(w_obj, W_HPyObject)
-    addr = rffi.cast(ADDRESS, w_obj.hpy_data) + w_descr.offset
+    # POSSIBLE DRAGONS AHEAD: here we take the address of the HPy object and
+    # later we read from it. This is correct because at the moment we allocate
+    # HPY_STORAGE as nonmovable=True, but if/when we refactor to use movable
+    # memory, we will need to ensure that no GC operations can happen between
+    # this cast and the actual read below.
+    addr = rffi.cast(ADDRESS, w_obj.get_raw_data()) + w_descr.offset
     kind = w_descr.kind
     for num, typ in converters:
         if kind == num:
@@ -84,7 +89,13 @@ def member_set(w_descr, space, w_obj, w_value):
     assert isinstance(w_descr, W_HPyMemberDescriptor)
     check_descr(space, w_obj, w_descr.w_type)
     assert isinstance(w_obj, W_HPyObject)
-    addr = rffi.cast(ADDRESS, w_obj.hpy_data) + w_descr.offset
+    # POSSIBLE DRAGONS AHEAD: here we take the address of the HPy object and
+    # later we write into it (look for ptr[0] = ...). This is correct because
+    # at the moment we allocate HPY_STORAGE as nonmovable=True, but if/when we
+    # refactor to use movable memory, we will need to ensure that no GC
+    # operations can happen between this cast and the various
+    # ptr[0]=... below.
+    addr = rffi.cast(ADDRESS, w_obj.get_raw_data()) + w_descr.offset
     kind = w_descr.kind
     for num, typ in converters:
         if kind == num:

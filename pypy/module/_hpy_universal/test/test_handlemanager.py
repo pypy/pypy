@@ -1,21 +1,36 @@
 import pytest
-from pypy.module._hpy_universal.handlemanager import (
-    HandleManager, HandleReleaseCallback)
+from pypy.module._hpy_universal.handlemanager import HandleReleaseCallback
+from pypy.module._hpy_universal.state import State
+# import for the side effect of adding the API functions
+from pypy.module._hpy_universal import interp_hpy
+from pypy.module._hpy_universal import llapi
 
+class Config(object):
+    def __init__(self, space):
+        self.objspace = space
+        self.translating = True
 
 class FakeSpace(object):
     def __init__(self):
         self._cache = {}
+        self.config = Config(self)
 
     def fromcache(self, cls):
         if cls not in self._cache:
             self._cache[cls] = cls(self)
         return self._cache[cls]
 
+    def call(self, w_func, w_args, w_kw):
+        # This is just enough for the debug closing on_invalid_handle callback
+        if w_args is None and w_kw is None:
+            return w_func()
+        else:
+            raise RuntimeError('space.call not fully implemented')
+
     def __getattr__(self, name):
         return '<fakespace.%s>' % name
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def fakespace():
     return FakeSpace()
 
@@ -25,9 +40,23 @@ def test_fakespace(fakespace):
         return object()
     assert fakespace.fromcache(x) is fakespace.fromcache(x)
 
-@pytest.fixture
-def mgr(fakespace):
-    return HandleManager(fakespace, None)
+def callback():
+    # "trick" the debug context into not raising a fatal error when hitting a
+    # closed handle
+    pass
+
+@pytest.fixture(scope="module", params=['universal', 'debug'])
+def mgr(fakespace, request):
+    # Do everything in interp_hpy.startup
+    from pypy.module._hpy_universal.interp_type import setup_hpy_storage
+    state = fakespace.fromcache(State)
+    state.setup(fakespace)
+    setup_hpy_storage()
+    # end of interp_hpy.startup
+    debug = request.param == 'debug'
+    ret = state.get_handle_manager(debug)
+    return ret
+    
 
 class TestHandleManager(object):
 
@@ -37,12 +66,14 @@ class TestHandleManager(object):
 
     def test_new(self, mgr):
         h = mgr.new('hello')
-        assert mgr.handles_w[h] == 'hello'
+        assert mgr.deref(h) == 'hello'
 
     def test_close(self, mgr):
         h = mgr.new('hello')
         assert mgr.close(h) is None
-        assert mgr.handles_w[h] is None
+        if not mgr.is_debug:
+            # will crash PyPy on purpose in debug mode
+            assert mgr.deref(h) is None
 
     def test_deref(self, mgr):
         h = mgr.new('hello')
@@ -52,9 +83,13 @@ class TestHandleManager(object):
     def test_consume(self, mgr):
         h = mgr.new('hello')
         assert mgr.consume(h) == 'hello'
-        assert mgr.handles_w[h] is None
+        if not mgr.is_debug:
+            # will crash PyPy on purpose in debug mode
+            assert mgr.deref(h) is None
 
     def test_freelist(self, mgr):
+        if mgr.is_debug:
+            pytest.skip('only for HandleManager')
         h0 = mgr.new('hello')
         h1 = mgr.new('world')
         assert mgr.consume(h0) == 'hello'
@@ -108,7 +143,8 @@ class TestReleaseCallback(object):
         # check that the releaser array is cleared when we close the handle
         # and that we don't run the releaser for a wrong object
         h1 = mgr.new('world')
-        assert h1 == h0
+        if not mgr.is_debug:
+            assert h1 == h0
         mgr.close(h1)
         assert seen == [(h0, 'hello', 'foo')]
 
@@ -127,14 +163,18 @@ class TestUsing(object):
 
     def test_simple(self, mgr):
         with mgr.using('hello') as h:
-            assert mgr.handles_w[h] == 'hello'
-        assert mgr.handles_w[h] is None
+            assert mgr.deref(h) == 'hello'
+        if not mgr.is_debug:
+            # will crash PyPy on purpose in debug mode
+            assert mgr.deref(h) is None
 
     def test_multiple_handles(self, mgr):
         with mgr.using('hello', 'world', 'foo') as (h1, h2, h3):
-            assert mgr.handles_w[h1] == 'hello'
-            assert mgr.handles_w[h2] == 'world'
-            assert mgr.handles_w[h3] == 'foo'
-        assert mgr.handles_w[h1] is None
-        assert mgr.handles_w[h2] is None
-        assert mgr.handles_w[h3] is None
+            assert mgr.deref(h1) == 'hello'
+            assert mgr.deref(h2) == 'world'
+            assert mgr.deref(h3) == 'foo'
+        if not mgr.is_debug:
+            # will crash PyPy on purpose in debug mode
+            assert mgr.deref(h1) is None
+            assert mgr.deref(h2) is None
+            assert mgr.deref(h3) is None

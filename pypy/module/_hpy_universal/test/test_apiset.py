@@ -83,3 +83,49 @@ class TestAPISet(object):
             def bar(space):
                 return None
         assert 'Too late to call' in str(exc)
+
+    def test_gil_acquire(self, api):
+        from rpython.rtyper.debug import FatalError
+        class FakeState:
+            def get_handle_manager(self, *args):
+                return 'fake manager'
+
+        class FakeSpace:
+            @staticmethod
+            def fromcache(cls):
+                return FakeState()
+
+        fakespace = FakeSpace()
+        @api.func('void foo(void)')
+        def foo(space, handles):
+            from rpython.rlib import rgil
+            return rgil.am_I_holding_the_GIL()
+
+        llfoo = foo.get_llhelper(fakespace)
+
+        @api.func('void getgil(void)', gil="acquire")
+        def getgil(space, handles):
+            return None
+
+        llgetgil = getgil.get_llhelper(fakespace)
+
+        @api.func('void dropgil(void)', gil="release")
+        def dropgil(space, handles):
+            return None
+
+        lldropgil = dropgil.get_llhelper(fakespace)
+
+        # Try to acquire the GIL when it is already held
+        with pytest.raises(FatalError) as exc:
+            llgetgil()
+        assert 'GIL deadlock detected' in str(exc)
+        
+        # Make sure the GIL is held automatically even if it was released
+        lldropgil()
+        assert llfoo()
+
+        # Try to release the GIL twice
+        with pytest.raises(FatalError) as exc:
+            lldropgil()
+        assert 'GIL not held' in str(exc)
+

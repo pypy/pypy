@@ -121,6 +121,16 @@ CMP_SLOTS = unrolling_iterable([
     ('__%s__' % opname, opval)
     for opname, opval in zip(CMP_OPNAMES, CMP_ENUM_VALUES)])
 
+class W_wrap_voidfunc(object):
+    def call(self, space, __args__):
+        # cheat: it should be a void func here.
+        # Note this function cannot error
+        func = llapi.cts.cast("HPyFunc_unaryfunc", self.cfuncptr)
+        self.check_args(space, __args__, 1)
+        w_self = __args__.arguments_w[0]
+        with self.handles.using(w_self) as h_self:
+            h_result = func(self.ctx, h_self)
+
 class W_wrap_unaryfunc(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_unaryfunc", self.cfuncptr)
@@ -202,6 +212,18 @@ def sq_getindex(space, w_sequence, w_idx):
         idx += n
     return idx
 
+class W_wrap_mp_item(object):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
+        self.check_args(space, __args__, 2)
+        w_self = __args__.arguments_w[0]
+        w_key = __args__.arguments_w[1]
+        with self.handles.using(w_self, w_key) as (h_self, h_key):
+            h_result = func(self.ctx, h_self, h_key)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
+        return self.handles.consume(h_result)
+
 class W_wrap_sq_item(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
@@ -215,6 +237,19 @@ class W_wrap_sq_item(object):
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
+class W_wrap_mp_setitem(object):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
+        self.check_args(space, __args__, 3)
+        w_self = __args__.arguments_w[0]
+        w_key = __args__.arguments_w[1]
+        w_value = __args__.arguments_w[2]
+        with self.handles.using(w_self, w_key, w_value) as (h_self, h_key, h_value):
+            result = func(self.ctx, h_self, h_key, h_value)
+        if widen(result) == -1:
+            space.fromcache(State).raise_current_exception()
+        return space.w_None
+
 class W_wrap_sq_setitem(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
@@ -225,6 +260,18 @@ class W_wrap_sq_setitem(object):
         w_value = __args__.arguments_w[2]
         with self.handles.using(w_self, w_value) as (h_self, h_value):
             result = func(self.ctx, h_self, idx, h_value)
+        if widen(result) == -1:
+            space.fromcache(State).raise_current_exception()
+        return space.w_None
+
+class W_wrap_mp_delitem(object):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
+        self.check_args(space, __args__, 2)
+        w_self = __args__.arguments_w[0]
+        w_key = __args__.arguments_w[1]
+        with self.handles.using(w_self, w_key) as (h_self, h_key):
+            result = func(self.ctx, h_self, h_key, llapi.HPy_NULL)
         if widen(result) == -1:
             space.fromcache(State).raise_current_exception()
         return space.w_None
@@ -404,9 +451,10 @@ def get_tp_new_wrapper_cls(handles):
 SLOTS = unrolling_iterable([
     # CPython slots
     ('bf_getbuffer',                '__buffer__',   W_wrap_getbuffer),
-#   ('mp_ass_subscript',           '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('mp_length',                  '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('mp_subscript',               '__getitem__',   AGS.W_SlotWrapper_binaryfunc),
+    ('mp_ass_subscript',           '__setitem__',   W_wrap_mp_setitem),
+    ('mp_ass_subscript',           '__delitem__',   W_wrap_mp_delitem),
+    ('mp_length',                  '__len__',       W_wrap_lenfunc),
+    ('mp_subscript',               '__getitem__',   W_wrap_mp_item),
     ('nb_absolute',                '__abs__',       W_wrap_unaryfunc),
     ('nb_add',                     '__add__',       W_wrap_binaryfunc),
     ('nb_and',                     '__and__',       W_wrap_binaryfunc),
@@ -473,13 +521,13 @@ SLOTS = unrolling_iterable([
 #   ('tp_setattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_setattro',                '__xxx__',       AGS.W_SlotWrapper_...),
 #    ('tp_str',                     '__str__',       W_wrap_unaryfunc),
-#   ('tp_traverse',                '__xxx__',       AGS.W_SlotWrapper_...),
+#   tp_traverse  SPECIAL-CASED
     ('nb_matrix_multiply',         '__matmul__',    W_wrap_binaryfunc),
     ('nb_inplace_matrix_multiply', '__imatmul__',   W_wrap_binaryfunc),
 #    ('am_await',                   '__await__',     W_wrap_unaryfunc),
 #    ('am_aiter',                   '__aiter__',     W_wrap_unaryfunc),
 #    ('am_anext',                   '__anext__',     W_wrap_unaryfunc),
-#   ('tp_finalize',                '__xxx__',       AGS.W_SlotWrapper_...),
+    ('tp_finalize',                '__del__',       W_wrap_unaryfunc),
 
     # extra HPy-specific slots
 #   ('tp_destroy',                 '__xxx__',       AGS.W_SlotWrapper_...),
@@ -500,11 +548,21 @@ def fill_slot(handles, w_type, hpyslot):
     elif slot_num == HPySlot_Slot.HPy_tp_destroy:
         w_type.tp_destroy = llapi.cts.cast('HPyFunc_destroyfunc', hpyslot.c_impl)
         return
+    elif slot_num == HPySlot_Slot.HPy_tp_traverse:
+        w_type.tp_traverse = llapi.cts.cast('HPyFunc_traverseproc', hpyslot.c_impl)
+        return
     elif slot_num == HPySlot_Slot.HPy_tp_richcompare:
         for methname, opval in CMP_SLOTS:
             cls = get_cmp_wrapper_cls(handles, methname, opval)
             w_slot = cls(slot_num, methname, hpyslot.c_impl, w_type)
             w_type.setdictvalue(space, methname, w_slot)
+        return
+    elif slot_num == HPySlot_Slot.HPy_tp_finalize:
+        # This is not a normal __slot__ since we want __del__ to be called as a
+        # finalizer, not when the object __del__ is called.
+        cls = get_slot_cls(handles, W_wrap_voidfunc)
+        w_slot = cls(slot_num, "__del__", hpyslot.c_impl, w_type)
+        w_type.tp_finalize = w_slot
         return
     elif slot_num == HPySlot_Slot.HPy_bf_releasebuffer:
         return

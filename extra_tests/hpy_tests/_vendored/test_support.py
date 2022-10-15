@@ -12,12 +12,14 @@ def test_expand_template():
         @INIT
     """, name='mytest')
     defines_table = ['&f,', '&g,']
-    defines = '\n        '.join(defines_table)
+    defines = '\n    '.join(defines_table)
     init_code = support.DefaultExtensionTemplate.INIT_TEMPLATE % {
         'defines': defines,
         'legacy_methods': 'NULL',
         'name': 'mytest',
         'init_types': '',
+        'globals_defs': '',
+        'globals_field': '',
     }
     assert expanded.rstrip() == f"""#include <hpy.h>
 

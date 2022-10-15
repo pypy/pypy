@@ -1,0 +1,12 @@
+diff --git a/pypy/module/_hpy_universal/_vendored/hpy/devel/include/hpy/hpydef.h b/pypy/module/_hpy_universal/_vendored/hpy/devel/include/hpy/hpydef.h
+--- a/pypy/module/_hpy_universal/_vendored/hpy/devel/include/hpy/hpydef.h
++++ b/pypy/module/_hpy_universal/_vendored/hpy/devel/include/hpy/hpydef.h
+@@ -10,7 +10,7 @@ extern "C" {
+ #include "hpy/autogen_hpyslot.h"
+ #include "hpy/cpy_types.h"
+ 
+-typedef void* (*HPyCFunction)();
++typedef void* (*HPyCFunction)(void);
+ 
+ typedef struct {
+     HPySlot_Slot slot;     // The slot to fill

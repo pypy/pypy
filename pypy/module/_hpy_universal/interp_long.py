@@ -127,3 +127,14 @@ def HPyLong_AsSize_t(space, handles, ctx, h):
 def HPyLong_AsSsize_t(space, handles, ctx, h):
     w_long = handles.deref(h)
     return space.int_w(w_long, allow_conversion=False)
+
+@API.func("void * HPyLong_AsVoidPtr(HPyContext *ctx, HPy h)")
+def HPyLong_AsVoidPtr(space, handles, ctx, h):
+    w_long = handles.deref(h)
+    return rffi.cast(rffi.VOIDP, space.int_w(w_long, allow_conversion=False))
+
+@API.func("double HPyLong_AsDouble(HPyContext *ctx, HPy h)",
+          error_value=-1.0)
+def HPyLong_AsDouble(space, handles, ctx, h):
+    w_long = handles.deref(h)
+    return space.float_w(w_long)
