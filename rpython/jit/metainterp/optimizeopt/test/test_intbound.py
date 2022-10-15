@@ -1,9 +1,9 @@
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
-     IntLowerBound, IntUnbounded, ConstIntBound, next_pow2_m1
+     IntLowerBound, IntUnbounded, ConstIntBound, next_pow2_m1, MININT, MAXINT
 
 from copy import copy
 import sys
-from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck
+from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, intmask, r_uint
 
 from hypothesis import given, strategies, example
 
@@ -248,6 +248,15 @@ def test_add_bound():
     assert not a.contains(2)
     assert not a.contains(7)
 
+def test_add_bound_bug():
+    b = bound(MININT, MAXINT)
+    bval = MAXINT
+    assert b.contains(bval)
+    r = b.add_bound(ConstIntBound(1))
+    rval = intmask(r_uint(bval)+r_uint(1))
+    assert r.contains(rval)
+
+
 def test_mul_bound():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
@@ -341,6 +350,14 @@ def test_sub_bound():
     assert not a.contains(-1)
     assert not a.contains(4)
 
+def test_sub_bound_bug():
+    b = bound(MININT, MAXINT)
+    bval = MININT
+    assert b.contains(bval)
+    r = b.sub_bound(ConstIntBound(1))
+    rval = intmask(r_uint(bval)-r_uint(1))
+    assert r.contains(rval)
+
 def test_and_bound():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
@@ -407,13 +424,20 @@ def test_add_bound_random(t1, t2):
     print b1, n1
     print b2, n2
     b3 = b1.add_bound(b2)
+    b3noovf = b1.add_bound_no_overflow(b2)
+    assert b3noovf.bounded()
     try:
         r = ovfcheck(n1 + n2)
     except OverflowError:
         assert not b3.bounded()
     else:
         assert b3.contains(r)
+        assert b3noovf.contains(r)
+    # the result bound also works for unsigned addition, regardless of overflow
+    assert b3.contains(intmask(r_uint(n1) + r_uint(n2)))
+    assert b3.contains_bound(b3noovf) # b3noovf must always be smaller than b3
 
+@example((bound(-100, None), -99), (bound(None, -100), -100))
 @given(bound_with_contained_number, bound_with_contained_number)
 def test_sub_bound_random(t1, t2):
     b1, n1 = t1
@@ -421,12 +445,18 @@ def test_sub_bound_random(t1, t2):
     print b1, n1
     print b2, n2
     b3 = b1.sub_bound(b2)
+    b3noovf = b1.sub_bound_no_overflow(b2)
+    assert b3noovf.bounded()
     try:
         r = ovfcheck(n1 - n2)
     except OverflowError:
         assert not b3.bounded()
     else:
         assert b3.contains(r)
+        assert b3noovf.contains(r)
+    # the result bound also works for unsigned subtraction, regardless of overflow
+    assert b3.contains(intmask(r_uint(n1) - r_uint(n2)))
+    assert b3.contains_bound(b3noovf) # b3noovf must always be smaller than b3
 
 @given(bound_with_contained_number, bound_with_contained_number)
 def test_mul_bound_random(t1, t2):

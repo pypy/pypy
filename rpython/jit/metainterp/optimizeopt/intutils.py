@@ -180,40 +180,77 @@ class IntBound(AbstractInfo):
         return self.mul_bound(IntBound(value, value))
 
     def add_bound(self, other):
+        """ add two bounds. must be correct even in the presence of possible
+        overflows. """
         res = self.clone()
-        if other.has_upper:
+        if self.has_upper and other.has_upper:
             try:
-                res.upper = ovfcheck(res.upper + other.upper)
+                res.upper = ovfcheck(self.upper + other.upper)
             except OverflowError:
-                res.has_upper = False
+                return IntUnbounded()
         else:
-            res.has_upper = False
-        if other.has_lower:
+            return IntUnbounded()
+        if self.has_lower and other.has_lower:
             try:
-                res.lower = ovfcheck(res.lower + other.lower)
+                res.lower = ovfcheck(self.lower + other.lower)
             except OverflowError:
-                res.has_lower = False
+                return IntUnbounded()
         else:
-            res.has_lower = False
+            return IntUnbounded()
         return res
+
+    def add_bound_no_overflow(self, other):
+        """ return the bound that self + other must have, if no overflow occured,
+        eg after an int_add_ovf(...), guard_no_overflow() """
+        lower = MININT
+        if self.has_lower and other.has_lower:
+            try:
+                lower = ovfcheck(self.lower + other.lower)
+            except OverflowError:
+                pass
+        upper = MAXINT
+        if self.has_upper and other.has_upper:
+            try:
+                upper = ovfcheck(self.upper + other.upper)
+            except OverflowError:
+                pass
+        return IntBound(lower, upper)
 
     def sub_bound(self, other):
         res = self.clone()
-        if other.has_lower:
+        if self.has_lower and other.has_upper:
             try:
-                res.upper = ovfcheck(res.upper - other.lower)
+                res.lower = ovfcheck(self.lower - other.upper)
             except OverflowError:
-                res.has_upper = False
+                return IntUnbounded()
         else:
-            res.has_upper = False
-        if other.has_upper:
+            return IntUnbounded()
+        if self.has_upper and other.has_lower:
             try:
-                res.lower = ovfcheck(res.lower - other.upper)
+                res.upper = ovfcheck(self.upper - other.lower)
             except OverflowError:
-                res.has_lower = False
+                return IntUnbounded()
         else:
-            res.has_lower = False
+            return IntUnbounded()
         return res
+
+    def sub_bound_no_overflow(self, other):
+        # return the bound that self - other must have, if no overflow occured,
+        # eg after an int_add_ovf(...), guard_no_overflow()
+        lower = MININT
+        if self.has_lower and other.has_upper:
+            try:
+                lower = ovfcheck(self.lower - other.upper)
+            except OverflowError:
+                pass
+        upper = MAXINT
+        if self.has_upper and other.has_lower:
+            try:
+                upper = ovfcheck(self.upper - other.lower)
+            except OverflowError:
+                pass
+        return IntBound(lower, upper)
+
 
     def mul_bound(self, other):
         if self.has_upper and self.has_lower and \

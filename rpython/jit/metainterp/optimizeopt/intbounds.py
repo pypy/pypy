@@ -136,22 +136,14 @@ class OptIntBounds(Optimization):
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
         b = b1.add_bound(b2)
-        # NB: the result only gets its bound updated if b has an upper and a
-        # lower bound. This is important, to do the right thing in the presence
-        # of overflow. Example:
-        # y = x + 1 where x >= 0
-        # here it's tempting to give a bound of y >= 1, but that would be
-        # wrong, due to wraparound
-        if b.bounded():
-            r.intersect(b)
+        r.intersect(b)
 
     def postprocess_INT_MUL(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
         b = b1.mul_bound(b2)
-        if b.bounded():
-            r.intersect(b)
+        r.intersect(b)
 
     def postprocess_CALL_PURE_I(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
@@ -265,7 +257,12 @@ class OptIntBounds(Optimization):
     def postprocess_INT_ADD_OVF(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        resbound = b1.add_bound(b2)
+        # we can always give the result a bound. if the int_add_ovf is followed
+        # by a guard_no_overflow, then we know no overflow occurred, and the
+        # bound is correct. Otherwise, it must be followed by a guard_overflow
+        # and it is also fine to give the result a bound, because the result
+        # box must never be used in the rest of the trace
+        resbound = b1.add_bound_no_overflow(b2)
         r = self.getintbound(op)
         r.intersect(resbound)
 
@@ -288,7 +285,7 @@ class OptIntBounds(Optimization):
         arg1 = get_box_replacement(op.getarg(1))
         b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
-        resbound = b0.sub_bound(b1)
+        resbound = b0.sub_bound_no_overflow(b1)
         r = self.getintbound(op)
         r.intersect(resbound)
 
