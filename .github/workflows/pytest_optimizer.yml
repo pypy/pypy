@@ -5,9 +5,9 @@ name: PyTest Optimizer Only
 
 on:
   push:
-    branches: [ "tristate", "main", "master" ]
+    branches: [ "tristate", "tristate-experimental", "main", "master" ]
   pull_request:
-    branches: [ "tristate", "main", "master" ]
+    branches: [ "tristate", "tristate-experimental", "main", "master" ]
 
 permissions:
   contents: read
