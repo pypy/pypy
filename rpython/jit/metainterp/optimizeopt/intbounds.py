@@ -87,8 +87,7 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         b = b1.sub_bound(b2)
-        if b.bounded():
-            self.getintbound(op).intersect(b)
+        self.getintbound(op).intersect(b)
 
     def optimize_INT_ADD(self, op):
         arg1 = get_box_replacement(op.getarg(0))
@@ -175,10 +174,7 @@ class OptIntBounds(Optimization):
         r = self.getintbound(op)
         b = b1.lshift_bound(b2)
         r.intersect(b)
-        # intbound.lshift_bound checks for an overflow and if the
-        # lshift can be proven not to overflow sets b.has_upper and
-        # b.has_lower
-        if b.bounded():
+        if b1.lshift_bound_cannot_overflow(b2):
             # Synthesize the reverse op for optimize_default to reuse
             self.pure_from_args(rop.INT_RSHIFT,
                                 [op, arg1], arg0)
@@ -242,15 +238,13 @@ class OptIntBounds(Optimization):
     def optimize_INT_ADD_OVF(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        resbound = b1.add_bound(b2)
-        if resbound.bounded():
+        if b1.add_bound_cannot_overflow(b2):
             # Transform into INT_ADD.  The following guard will be killed
             # by optimize_GUARD_NO_OVERFLOW; if we see instead an
             # optimize_GUARD_OVERFLOW, then InvalidLoop.
 
-            # NB: this case also takes care of int_add_ovf with 0 as on of the
-            # arguments: the result will be bounded, and then the optimization
-            # for int_add with 0 as argument will remove the op.
+            # NB: this case also takes care of int_add_ovf with 0 as one of the
+            # arguments
             op = self.replace_op_with(op, rop.INT_ADD)
         return self.emit(op)
 
@@ -274,8 +268,7 @@ class OptIntBounds(Optimization):
         if arg0.same_box(arg1):
             self.make_constant_int(op, 0)
             return None
-        resbound = b0.sub_bound(b1)
-        if resbound.bounded():
+        if b0.sub_bound_cannot_overflow(b1):
             # this case takes care of int_sub_ovf(x, 0) as well
             op = self.replace_op_with(op, rop.INT_SUB)
         return self.emit(op)
@@ -290,10 +283,9 @@ class OptIntBounds(Optimization):
         r.intersect(resbound)
 
     def optimize_INT_MUL_OVF(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        resbound = b1.mul_bound(b2)
-        if resbound.bounded():
+        b0 = self.getintbound(op.getarg(0))
+        b1 = self.getintbound(op.getarg(1))
+        if b0.mul_bound_cannot_overflow(b1):
             # this case also takes care of multiplication with 0 and 1
             op = self.replace_op_with(op, rop.INT_MUL)
         return self.emit(op)
@@ -301,7 +293,7 @@ class OptIntBounds(Optimization):
     def postprocess_INT_MUL_OVF(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        resbound = b1.mul_bound(b2)
+        resbound = b1.mul_bound_no_overflow(b2)
         r = self.getintbound(op)
         r.intersect(resbound)
 
@@ -503,7 +495,7 @@ class OptIntBounds(Optimization):
         v1 = self.getintbound(op)
         v2 = getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
-        if intbound.has_lower and v2 is not None:
+        if v2 is not None:
             lenbound = v2.getlenbound(vstring.mode_string)
             if lenbound is not None:
                 lenbound.make_gt_const(intbound.lower)
@@ -541,7 +533,7 @@ class OptIntBounds(Optimization):
         b1.make_ge_const(0)
         v2 = getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
-        if intbound.has_lower and v2 is not None:
+        if v2 is not None:
             lenbound = v2.getlenbound(vstring.mode_unicode)
             if lenbound is not None:
                 lenbound.make_gt_const(intbound.lower)
@@ -729,7 +721,7 @@ class OptIntBounds(Optimization):
         b = r.add_bound(b2)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
-        b = r.sub_bound(b1).mul(-1)
+        b = r.sub_bound(b1).neg_bound()
         if b2.intersect(b):
             self.propagate_bounds_backward(op.getarg(1))
 
