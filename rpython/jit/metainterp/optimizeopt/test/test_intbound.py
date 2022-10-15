@@ -437,6 +437,15 @@ def test_add_bound_random(t1, t2):
     assert b3.contains(intmask(r_uint(n1) + r_uint(n2)))
     assert b3.contains_bound(b3noovf) # b3noovf must always be smaller than b3
 
+    # check consistency with int_sub
+    b3viasub = b1.sub_bound(b2.neg_bound())
+    # b3viasub is sometimes less precise than than b3, because b2.neg_bound()
+    # has an extra overflow possibility if it contains MININT. Therefore we
+    # can't check equality, only containment:
+    assert b3viasub.contains_bound(b3)
+    if not b2.contains(MININT):
+        assert b3.contains_bound(b3viasub)
+
 @example((bound(-100, None), -99), (bound(None, -100), -100))
 @given(bound_with_contained_number, bound_with_contained_number)
 def test_sub_bound_random(t1, t2):
@@ -457,6 +466,12 @@ def test_sub_bound_random(t1, t2):
     # the result bound also works for unsigned subtraction, regardless of overflow
     assert b3.contains(intmask(r_uint(n1) - r_uint(n2)))
     assert b3.contains_bound(b3noovf) # b3noovf must always be smaller than b3
+    # check consistency with int_add
+    b3viaadd = b1.add_bound(b2.neg_bound())
+    assert b3viaadd.contains_bound(b3)
+    if not b2.contains(MININT):
+        assert b3.contains_bound(b3viaadd)
+
 
 @given(bound_with_contained_number, bound_with_contained_number)
 def test_mul_bound_random(t1, t2):
@@ -525,3 +540,15 @@ def test_neg_bound_random(t1):
         assert b2.contains(-n1)
     else:
         assert not b2.has_upper
+
+    # check that it's always correct for unsigned negation
+    b2.contains(intmask(-r_uint(n1)))
+
+    # always check MININT
+    if b1.contains(MININT):
+        assert b2.contains(MININT)
+
+    # check consistency with sub_bound
+    b2viasub = ConstIntBound(0).sub_bound(b1)
+    assert b2viasub.contains_bound(b2)
+    #assert b2.contains_bound(b2viasub)

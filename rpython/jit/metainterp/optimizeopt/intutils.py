@@ -366,14 +366,14 @@ class IntBound(AbstractInfo):
                 res.upper = ovfcheck(-self.lower)
                 res.has_upper = True
             except OverflowError:
-                pass
+                return IntUnbounded()
         res.has_lower = False
-        if self.has_upper:
+        if self.has_upper and self.has_lower and self.lower > MININT:
             try:
                 res.lower = ovfcheck(-self.upper)
                 res.has_lower = True
             except OverflowError:
-                pass
+                return IntUnbounded()
         return res
 
     def contains(self, val):
