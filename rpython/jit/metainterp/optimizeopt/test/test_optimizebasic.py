@@ -6442,15 +6442,15 @@ class TestOptimizeBasic(BaseTestBasic):
         ops = """
         [i1]
         i2 = int_neg(i1)
-        i3 = int_le(i2, 0)
+        i3 = int_ge(i2, 0)
         guard_true(i3) []
-        i4 = int_ge(i1, 0)
+        i4 = int_le(i1, 0)
         guard_true(i4) []
         """
         expected = """
         [i1]
         i2 = int_neg(i1)
-        i3 = int_le(i2, 0)
+        i3 = int_ge(i2, 0)
         guard_true(i3) []
         """
         self.optimize_loop(ops, expected)

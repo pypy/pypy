@@ -193,6 +193,16 @@ def test_make():
                     assert not gl.known_le(c)
                     assert not gl.known_lt(c)
 
+def test_make_ne():
+    ge = IntUnbounded()
+    res = ge.make_ne_const(MININT)
+    assert res
+    res = ge.make_ne_const(MININT)
+    assert not res
+    assert not ge.contains(MININT)
+    assert ge.contains(MININT + 1)
+    assert ge.contains(MAXINT)
+
 def test_intersect():                            
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():

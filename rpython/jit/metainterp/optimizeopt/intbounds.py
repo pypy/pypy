@@ -664,22 +664,36 @@ class OptIntBounds(Optimization):
     def propagate_bounds_INT_EQ(self, op):
         r = self.getintbound(op)
         if r.equal(1):
-            b1 = self.getintbound(op.getarg(0))
-            b2 = self.getintbound(op.getarg(1))
-            if b1.intersect(b2):
-                self.propagate_bounds_backward(op.getarg(0))
-            if b2.intersect(b1):
-                self.propagate_bounds_backward(op.getarg(1))
+            self.make_eq(op.getarg(0), op.getarg(1))
+        elif r.equal(0):
+            self.make_ne(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_NE(self, op):
         r = self.getintbound(op)
         if r.equal(0):
-            b1 = self.getintbound(op.getarg(0))
-            b2 = self.getintbound(op.getarg(1))
-            if b1.intersect(b2):
-                self.propagate_bounds_backward(op.getarg(0))
-            if b2.intersect(b1):
-                self.propagate_bounds_backward(op.getarg(1))
+            self.make_eq(op.getarg(0), op.getarg(1))
+        elif r.equal(0):
+            self.make_ne(op.getarg(0), op.getarg(1))
+
+    def make_eq(self, arg0, arg1):
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        if b0.intersect(b1):
+            self.propagate_bounds_backward(arg0)
+        if b1.intersect(b0):
+            self.propagate_bounds_backward(arg1)
+
+    def make_ne(self, arg0, arg1):
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        if b1.is_constant():
+            v1 = b1.get_constant_int()
+            if b0.make_ne_const(v1):
+                self.propagate_bounds_backward(arg0)
+        elif b0.is_constant():
+            v0 = b0.get_constant_int()
+            if b1.make_ne_const(v0):
+                self.propagate_bounds_backward(arg1)
 
     def _propagate_int_is_true_or_zero(self, op, valnonzero, valzero):
         if self.is_raw_ptr(op.getarg(0)):

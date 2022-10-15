@@ -77,6 +77,15 @@ class IntBound(AbstractInfo):
         self.upper = intval
         self.lower = intval
 
+    def make_ne_const(self, intval):
+        if self.lower < intval == self.upper:
+            self.upper -= 1
+            return True
+        if self.lower == intval < self.upper:
+            self.lower += 1
+            return True
+        return False
+
     def make_gt(self, other):
         return self.make_gt_const(other.lower)
 
