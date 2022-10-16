@@ -127,7 +127,7 @@ typedef unsigned long Py_uhash_t;
 /* CPython needs this for the c-extension datetime, which is pure python on PyPy
    downstream packages assume it is here (Pandas for instance) */
 #include <time.h>
-#ifndef MS_WINDOWS
+#ifndef _MSC_VER
 #include <sys/time.h>
 #endif
 
