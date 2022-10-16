@@ -235,6 +235,15 @@ class AppTestAppSysTests:
         import sys
         sys.audit("os.chdir", "bla", 1, 2, 12) # does not crash
 
+    def test_sys_int_max_str_digits(self):
+        import sys
+        old = sys.get_int_max_str_digits()
+        try:
+            sys.set_int_max_str_digits(100000)
+            assert sys.get_int_max_str_digits() == 100000
+        finally:
+            sys.set_int_max_str_digits(old)
+
 
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {
@@ -1085,3 +1094,4 @@ class AppTestSysExcInfoDirect:
         except:
             assert g() is e
     test_call_in_subfunction.expected = 'y'
+
