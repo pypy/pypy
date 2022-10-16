@@ -3,6 +3,8 @@ Implementation of interpreter-level 'sys' routines.
 """
 import os
 from pypy import pypydir
+from pypy.interpreter.error import oefmt
+from pypy.interpreter.gateway import unwrap_spec
 
 # ____________________________________________________________
 #
@@ -14,6 +16,7 @@ class State:
         self.w_modules = space.newdict(module=True)
         self.w_warnoptions = space.newlist([])
         self.w_argv = space.newlist([])
+        self.w_int_max_str_digits = space.newint(-1)
 
         self.setinitialpath(space)
 
@@ -35,3 +38,21 @@ def pypy_getudir(space):
     (should be removed from interpleveldefs before translation)"""
     from rpython.tool.udir import udir
     return space.newfilename(str(udir))
+
+@unwrap_spec(maxdigits=int)
+def set_int_max_str_digits(space, maxdigits):
+    """Set the maximum string digits limit for non-binary int<->str conversions
+    """
+    from pypy.module.sys.system import MAX_STR_DIGITS_THRESHOLD
+
+    state = get(space)
+    if maxdigits == 0 or maxdigits >= MAX_STR_DIGITS_THRESHOLD:
+        state.w_int_max_str_digits = space.newint(maxdigits)
+        return
+    raise oefmt(space.w_ValueError,
+                "maxdigits %d must be 0 or larger than %d",
+                maxdigits, MAX_STR_DIGITS_THRESHOLD)
+
+def get_int_max_str_digits(space):
+    state = get(space)
+    return state.w_int_max_str_digits

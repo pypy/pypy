@@ -31,7 +31,27 @@ Options and arguments (and corresponding environment variables):
 -V     : print the Python version number and exit (also --version)
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
--X opt : set implementation-specific option
+-X opt : set implementation-specific option. The following options are available:
+         (the CPython "showrefcount", "tracemalloc", "showalloccount", and
+          "importtime" options are not available)
+         -X faulthandler: enable faulthandler
+         -X dev: enable PyPy's \"development mode\", introducing additional runtime
+             checks which are too expensive to be enabled by default. Effect of the
+             developer mode:
+                * Add default warning filter, as -W default
+                * Enable the faulthandler module to dump the Python traceback on a crash
+                * Enable asyncio debug mode
+                * Set the dev_mode attribute of sys.flags to True
+         -X utf8: enable UTF-8 mode for operating system interfaces, overriding the default
+             locale-aware mode. -X utf8=0 explicitly disables UTF-8 mode (even when it would
+             otherwise activate automatically)
+         -X pycache_prefix=PATH: enable writing .pyc files to a parallel tree rooted at the
+             given directory instead of to the code tree
+         -X jit-off: turn the JIT off, equivalent to --jit off
+         -X int_max_str_digits=number: limit the size of int<->str conversions.
+             This helps avoid denial of service attacks when parsing untrusted data.
+             The default is sys.int_info.default_max_str_digits.  0 disables.
+  
 --check-hash-based-pycs always|default|never:
     control how Python invalidates hash-based .pyc files
 file   : program read from script file
@@ -39,9 +59,6 @@ file   : program read from script file
 arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
--X faulthandler: attempt to display tracebacks when PyPy crashes
--X dev: enable PyPy's "development mode"
--X jit-off: turn the JIT off, equivalent to --jit off
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
@@ -53,8 +70,12 @@ PYTHONCASEOK : ignore case in 'import' statements (Windows).
 PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
 PYTHONFAULTHANDLER: dump the Python traceback on fatal errors.
 PYTHONDEVMODE: enable the development mode.
+PYTHONINTMAXSTRDIGITS: limits the maximum digit characters in an int value
+   when converting from a string and when converting an int back to a str.
+   A value of 0 disables the limit.  Conversions to or from bases 2, 4, 8,
+   16, and 32 are never limited.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
-               topic at startup of interactive mode.
+   topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
 PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
 """
@@ -438,6 +459,7 @@ sys_flags = (
     "isolated",
     "dev_mode",
     "utf8_mode",
+    "int_max_str_digits",
 )
 # ^^^ Order is significant!  Keep in sync with module.sys.app.sysflags
 
@@ -451,6 +473,7 @@ default_options = dict.fromkeys(
 default_options["check_hash_based_pycs"] = "default"
 default_options["dev_mode"] = False # needs to be bool
 default_options["utf8_mode"] = -1
+default_options["int_max_str_digits"] = -1
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -479,6 +502,39 @@ def X_option(options, xoption, iterargv):
             options["utf8_mode"] = 0
     elif xoption == 'jit-off':
         set_jit_option(options, 'off')
+
+def config_init_int_max_str_digits(env_option, x_option):
+    maxdigits = -1
+    val = prefix = "unknown"
+    try:
+        if env_option:
+            val = env_option
+            prefix = "PYTHONINTMAXSTRDIGITS"
+            maxdigits = int(env_option)
+        elif x_option:
+            val = x_option
+            prefix = "-X int_max_str_digits"
+            if val is True:
+                val = "option must have '=N'"
+                raise ValueError("bad option")
+            maxdigits = int(x_option)
+        else:
+            return 0
+    except Exception as e:
+        msg = "invalid value '%s' for '%s'\n" % (val, prefix)
+        sys.stderr.write(msg)
+        return -1
+    if not (maxdigits == 0 or maxdigits >= sys.int_info.str_digits_check_threshold):
+        msg  = "Fatal Python error: %s: invalid limit; must be >= %d or 0 for unlimited\n" % (
+                prefix, sys.int_info.str_digits_check_threshold)
+        sys.stderr.write(msg)
+        return -1
+    if WE_ARE_TRANSLATED:
+        flags = {f: getattr(sys.flags, f) for f in sys_flags}
+        flags['int_max_str_digits'] = maxdigits
+        sys.flags = type(sys.flags)(flags)
+    sys.set_int_max_str_digits(maxdigits)
+    return 0
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -804,6 +860,12 @@ def run_command_line(interactive,
     success = True
 
     try:
+        if config_init_int_max_str_digits(
+            getenv("PYTHONINTMAXSTRDIGITS") if readenv else None,
+            sys._xoptions.get('int_max_str_digits', None)
+        ) < 0:
+            return 1
+
         from os.path import abspath
         if run_command != 0:
             # handle the "-c" command
