@@ -238,6 +238,7 @@ class AppTestAppSysTests:
     def test_sys_int_max_str_digits(self):
         import sys
         old = sys.get_int_max_str_digits()
+        assert old == sys.int_info.default_max_str_digits
         try:
             sys.set_int_max_str_digits(100000)
             assert sys.get_int_max_str_digits() == 100000

@@ -5,6 +5,7 @@ import os
 from pypy import pypydir
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.module.sys.system import DEFAULT_MAX_STR_DIGITS
 
 # ____________________________________________________________
 #
@@ -16,7 +17,7 @@ class State:
         self.w_modules = space.newdict(module=True)
         self.w_warnoptions = space.newlist([])
         self.w_argv = space.newlist([])
-        self.w_int_max_str_digits = space.newint(-1)
+        self.w_int_max_str_digits = space.newint(DEFAULT_MAX_STR_DIGITS)
 
         self.setinitialpath(space)
 
