@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     BaseTest, convert_old_style_to_targets)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeintbound import (
-    TestOptimizeIntBounds)
+    TestOptimizeIntBounds as TOptimizeIntBounds)
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, InputArgInt, OpHelpers, InputArgRef)
@@ -41,6 +41,8 @@ class Checker(object):
         self.beforeops = beforeops
         self.afterinputargs = afterinputargs
         self.afterops = afterops
+
+        self.result_ovf = None
 
     def convert(self, box):
         if isinstance(box, ConstInt):
@@ -80,7 +82,7 @@ class Checker(object):
             l.append(str(self.solver.model()))
             raise CheckError("\n".join(l))
 
-    def add_to_solver(self, ops, beforeops=False):
+    def add_to_solver(self, ops, state):
         for op in ops:
             if op.type != 'v':
                 res = self.newvar(op)
@@ -88,44 +90,58 @@ class Checker(object):
                 res = None
 
             opname = op.getopname()
-            if opname == "int_add":
+            # clear state
+            arg0 = arg1 = None
+            if not op.is_guard():
+                state.no_ovf = None
+
+            # convert arguments
+            if op.numargs() == 1:
+                arg0 = self.convert(op.getarg(0))
+            elif op.numargs() == 2:
                 arg0 = self.convert(op.getarg(0))
                 arg1 = self.convert(op.getarg(1))
+
+            # compute results
+            if opname == "int_add":
                 expr = arg0 + arg1
             elif opname == "int_lt":
-                arg0 = self.convert(op.getarg(0))
-                arg1 = self.convert(op.getarg(1))
                 expr = z3.If(arg0 < arg1, TRUEBV, FALSEBV)
             elif opname == "int_le":
-                arg0 = self.convert(op.getarg(0))
-                arg1 = self.convert(op.getarg(1))
                 expr = z3.If(arg0 <= arg1, TRUEBV, FALSEBV)
             elif opname == "int_ge":
-                arg0 = self.convert(op.getarg(0))
-                arg1 = self.convert(op.getarg(1))
                 expr = z3.If(arg0 >= arg1, TRUEBV, FALSEBV)
             elif opname == "int_neg":
-                arg0 = self.convert(op.getarg(0))
                 expr = -arg0
+            elif opname == "int_add_ovf":
+                expr = arg0 + arg1
+                m = z3.SignExt(LONG_BIT, arg0) + z3.SignExt(LONG_BIT, arg1)
+                state.no_ovf = m == z3.SignExt(LONG_BIT, expr)
             elif op.is_guard():
-                assert beforeops
-                cond = self.guard_to_condition(op) # was optimized away, must be true
+                assert state.before
+                cond = self.guard_to_condition(op, state) # was optimized away, must be true
                 self.prove(cond, op)
                 continue
             else:
                 assert 0, "unsupported"
             self.solver.add(res == expr)
                 
-    def guard_to_condition(self, guard):
+    def guard_to_condition(self, guard, state):
         opname = guard.getopname()
         if opname == "guard_true":
             return self.convertarg(guard, 0) == TRUEBV
         elif opname == "guard_false":
             return self.convertarg(guard, 0) == FALSEBV
+        elif opname == "guard_no_overflow":
+            assert state.no_ovf is not None
+            return state.no_ovf
+        elif opname == "guard_overflow":
+            assert state.no_ovf is not None
+            return z3.Not(state.no_ovf)
         else:
             assert 0, "unsupported"
 
-    def check_last(self, beforelast, afterlast):
+    def check_last(self, beforelast, state_before, afterlast, state_after):
         if beforelast.getopname() == "jump":
             assert beforelast.numargs() == afterlast.numargs()
             for i in range(beforelast.numargs()):
@@ -135,12 +151,12 @@ class Checker(object):
             return
         assert beforelast.is_guard()
         # first, check the failing case
-        cond_before = self.guard_to_condition(beforelast)
+        cond_before = self.guard_to_condition(beforelast, state_before)
         if afterlast is None:
             # beforelast was optimized away, must be true
             self.prove(cond_before, beforelast)
         else:
-            cond_after = self.guard_to_condition(afterlast)
+            cond_after = self.guard_to_condition(afterlast, state_after)
             equivalent = cond_before == cond_after
             self.prove(equivalent, beforelast, afterlast)
         # then assert the true case
@@ -152,10 +168,17 @@ class Checker(object):
         for beforeinput, afterinput in zip(self.beforeinputargs, self.afterinputargs):
             self.box_to_z3[beforeinput] = self.newvar(afterinput, "input_%s_%s" % (beforeinput, afterinput))
 
+        state_before = State(before=True)
+        state_after = State()
         for beforechunk, beforelast, afterchunk, afterlast in chunk_ops(self.beforeops, self.afterops):
-            self.add_to_solver(beforechunk, beforeops=True)
-            self.add_to_solver(afterchunk)
-            self.check_last(beforelast, afterlast)
+            self.add_to_solver(beforechunk, state_before)
+            self.add_to_solver(afterchunk, state_after)
+            self.check_last(beforelast, state_before, afterlast, state_after)
+
+class State(object):
+    def __init__(self, before=False):
+        self.before = before
+        self.no_ovf = None
 
 def chunk_ops(beforeops, afterops):
     beforeops = list(reversed(beforeops))
@@ -261,5 +284,5 @@ class TestBuggyTestsFail(BaseCheckZ3):
             self.optimize_loop(ops, expected)
 
 
-class TestOptimizeIntBoundsZ3(TestOptimizeIntBounds):
+class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
     pass
