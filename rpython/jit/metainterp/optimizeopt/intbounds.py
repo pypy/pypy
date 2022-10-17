@@ -190,7 +190,7 @@ class OptIntBounds(Optimization):
         b = b1.rshift_bound(b2)
         if b.is_constant():
             # constant result (likely 0, for rshifts that kill all bits)
-            self.make_constant_int(op, b.lower)
+            self.make_constant_int(op, b.get_constant_int())
             return None
         return self.emit(op)
 
@@ -207,7 +207,7 @@ class OptIntBounds(Optimization):
         b = b1.urshift_bound(b2)
         if b.is_constant():
             # constant result (likely 0, for rshifts that kill all bits)
-            self.make_constant_int(op, b.lower)
+            self.make_constant_int(op, b.get_constant_int())
             return None
         return self.emit(op)
 
@@ -735,7 +735,6 @@ class OptIntBounds(Optimization):
         self._propagate_int_is_true_or_zero(op, 1, 0)
 
     def propagate_bounds_INT_IS_ZERO(self, op):
-        #import pdb; pdb.set_trace()
         self._propagate_int_is_true_or_zero(op, 0, 1)
 
     def propagate_bounds_INT_ADD(self, op):

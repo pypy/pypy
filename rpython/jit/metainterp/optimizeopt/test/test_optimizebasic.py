@@ -6575,7 +6575,6 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    @pytest.mark.skip(reason="this is a grand goal for later. TODO: HAVE WE REACHED IT??")
     def test_knownbits_goal_alignment_simple(self):
         ops = """
         [i0]
@@ -6589,16 +6588,12 @@ class TestOptimizeBasic(BaseTestBasic):
         i8 = int_is_zero(i7)
         guard_true(i8) []
         """
-        expected = """          # not quite right
-        [i1]
-        i2 = int_and(i1, 3)
-        i3 = int_is_zero(i2)
-        guard_true(i3) []
+        expected = """
+        [i0]
+        i1 = int_and(i0, -4)
         i4 = int_and(i1, 1)
-        i5 = int_is_zero(i4)
         i6 = int_add(i1, 8)
         i7 = int_and(i6, 3)
-        i8 = int_is_zero(i7)
         """
         self.optimize_loop(ops, expected)
 
@@ -6624,7 +6619,5 @@ class TestOptimizeBasic(BaseTestBasic):
         i4 = int_and(i1, 1)
         i6 = int_add(i1, 8)
         i7 = int_and(i6, 3)
-        i8 = int_is_zero(i7)
-        guard_true(i8) []
         """ # TODO: get rid of the final guard_true
         self.optimize_loop(ops, expected)
