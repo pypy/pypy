@@ -1,0 +1,265 @@
+""" The purpose of this test file is to check that the optimizeopt *test* cases
+are correct. It uses the z3 SMT solver to check the before/after optimization
+traces for equivalence. Only supports very few operations for now, but would
+have found the buggy tests in d9616aacbd02/issue #3832."""
+import pytest
+
+from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.jit.metainterp.optimizeopt.test.test_util import (
+    BaseTest, convert_old_style_to_targets)
+from rpython.jit.metainterp.optimizeopt.test.test_optimizeintbound import (
+    TestOptimizeIntBounds)
+from rpython.jit.metainterp import compile
+from rpython.jit.metainterp.resoperation import (
+    rop, ResOperation, InputArgInt, OpHelpers, InputArgRef)
+from rpython.jit.metainterp.history import (
+    JitCellToken, Const, ConstInt, get_const_ptr_for_string)
+from rpython.jit.tool.oparser import parse, convert_loop_to_trace
+
+try:
+    import z3
+except ImportError:
+    pytest.skip("please install z3 (z3-solver on pypi)")
+
+TRUEBV = z3.BitVecVal(1, LONG_BIT)
+FALSEBV = z3.BitVecVal(0, LONG_BIT)
+
+class CheckError(Exception):
+    pass
+
+
+def check_z3(beforeinputargs, beforeops, afterinputargs, afterops):
+    c = Checker(beforeinputargs, beforeops, afterinputargs, afterops)
+    c.check()
+
+class Checker(object):
+    def __init__(self, beforeinputargs, beforeops, afterinputargs, afterops):
+        self.solver = z3.Solver()
+        self.box_to_z3 = {}
+        self.seen_names = {}
+        self.beforeinputargs = beforeinputargs
+        self.beforeops = beforeops
+        self.afterinputargs = afterinputargs
+        self.afterops = afterops
+
+    def convert(self, box):
+        if isinstance(box, ConstInt):
+            return z3.BitVecVal(box.getint(), LONG_BIT)
+        assert not isinstance(box, Const) # not supported
+        return self.box_to_z3[box]
+
+    def convertarg(self, box, arg):
+        return self.convert(box.getarg(arg))
+
+    def newvar(self, box, repr=None):
+        if repr is None:
+            repr = box.repr_short(box._repr_memo)
+        while repr in self.seen_names:
+            repr += "_"
+        self.seen_names[repr] = None
+
+        result = z3.BitVec(repr, LONG_BIT)
+        self.box_to_z3[box] = result
+        return result
+
+    def prove(self, cond, *ops):
+        if self.solver.check(z3.Not(cond)) == z3.sat:
+            # not possible to prove!
+            l = []
+            if ops:
+                l.append("in the following ops:")
+                for op in ops:
+                    l.append(str(op))
+            l.append("the following SMT condition was not provable:")
+            l.append(str(cond))
+            l.append("_________________")
+            l.append("smt model:")
+            l.append(str(self.solver))
+            l.append("_________________")
+            l.append("counterexample:")
+            l.append(str(self.solver.model()))
+            raise CheckError("\n".join(l))
+
+    def add_to_solver(self, ops, beforeops=False):
+        for op in ops:
+            if op.type != 'v':
+                res = self.newvar(op)
+            else:
+                res = None
+
+            opname = op.getopname()
+            if opname == "int_add":
+                arg0 = self.convert(op.getarg(0))
+                arg1 = self.convert(op.getarg(1))
+                expr = arg0 + arg1
+            elif opname == "int_lt":
+                arg0 = self.convert(op.getarg(0))
+                arg1 = self.convert(op.getarg(1))
+                expr = z3.If(arg0 < arg1, TRUEBV, FALSEBV)
+            elif opname == "int_le":
+                arg0 = self.convert(op.getarg(0))
+                arg1 = self.convert(op.getarg(1))
+                expr = z3.If(arg0 <= arg1, TRUEBV, FALSEBV)
+            elif opname == "int_ge":
+                arg0 = self.convert(op.getarg(0))
+                arg1 = self.convert(op.getarg(1))
+                expr = z3.If(arg0 >= arg1, TRUEBV, FALSEBV)
+            elif opname == "int_neg":
+                arg0 = self.convert(op.getarg(0))
+                expr = -arg0
+            elif op.is_guard():
+                assert beforeops
+                cond = self.guard_to_condition(op) # was optimized away, must be true
+                self.prove(cond, op)
+                continue
+            else:
+                assert 0, "unsupported"
+            self.solver.add(res == expr)
+                
+    def guard_to_condition(self, guard):
+        opname = guard.getopname()
+        if opname == "guard_true":
+            return self.convertarg(guard, 0) == TRUEBV
+        elif opname == "guard_false":
+            return self.convertarg(guard, 0) == FALSEBV
+        else:
+            assert 0, "unsupported"
+
+    def check_last(self, beforelast, afterlast):
+        if beforelast.getopname() == "jump":
+            assert beforelast.numargs() == afterlast.numargs()
+            for i in range(beforelast.numargs()):
+                before = self.convertarg(beforelast, i)
+                after = self.convertarg(afterlast, i)
+                self.prove(before == after, beforelast, afterlast)
+            return
+        assert beforelast.is_guard()
+        # first, check the failing case
+        cond_before = self.guard_to_condition(beforelast)
+        if afterlast is None:
+            # beforelast was optimized away, must be true
+            self.prove(cond_before, beforelast)
+        else:
+            cond_after = self.guard_to_condition(afterlast)
+            equivalent = cond_before == cond_after
+            self.prove(equivalent, beforelast, afterlast)
+        # then assert the true case
+        self.solver.add(cond_before)
+        if afterlast:
+            self.solver.add(cond_after)
+
+    def check(self):
+        for beforeinput, afterinput in zip(self.beforeinputargs, self.afterinputargs):
+            self.box_to_z3[beforeinput] = self.newvar(afterinput, "input_%s_%s" % (beforeinput, afterinput))
+
+        for beforechunk, beforelast, afterchunk, afterlast in chunk_ops(self.beforeops, self.afterops):
+            self.add_to_solver(beforechunk, beforeops=True)
+            self.add_to_solver(afterchunk)
+            self.check_last(beforelast, afterlast)
+
+def chunk_ops(beforeops, afterops):
+    beforeops = list(reversed(beforeops))
+    afterops = list(reversed(afterops))
+    while 1:
+        if not beforeops:
+            assert not afterops
+            return
+        beforechunk, beforelast = up_to_guard(beforeops)
+        afterchunk, afterlast = up_to_guard(afterops)
+        while (beforelast is not None and 
+               (afterlast is None or
+                beforelast.rd_resume_position < afterlast.rd_resume_position)):
+            beforechunk.append(beforelast)
+            bc, beforelast = up_to_guard(beforeops)
+            beforechunk.extend(bc)
+        if beforelast is None:
+            beforelast = beforechunk.pop()
+        if afterlast is None and afterchunk:
+            afterlast = afterchunk.pop()
+        yield beforechunk, beforelast, afterchunk, afterlast
+
+
+def up_to_guard(oplist):
+    res = []
+    while oplist:
+        op = oplist.pop()
+        if op.is_guard():
+            return res, op
+        res.append(op)
+    return res, None
+
+# ____________________________________________________________
+
+
+class BaseCheckZ3(BaseTest):
+
+    enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
+
+    def optimize_loop(self, ops, optops, call_pure_results=None):
+        from rpython.jit.metainterp.opencoder import Trace, TraceIterator
+        loop = self.parse(ops)
+        token = JitCellToken()
+        if loop.operations[-1].getopnum() == rop.JUMP:
+            loop.operations[-1].setdescr(token)
+        exp = parse(optops, namespace=self.namespace.copy())
+        expected = convert_old_style_to_targets(exp, jump=True)
+        call_pure_results = self._convert_call_pure_results(call_pure_results)
+        trace = convert_loop_to_trace(loop, self.metainterp_sd)
+        compile_data = compile.SimpleCompileData(
+            trace, call_pure_results=call_pure_results,
+            enable_opts=self.enable_opts)
+        compile_data.forget_optimization_info = lambda *args, **kwargs: None
+        info, ops = compile_data.optimize_trace(self.metainterp_sd, None, {})
+        beforeinputargs, beforeops = trace.unpack()
+        # check that the generated trace is correct
+        check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+
+        # check that the expected trace is correct
+        afterinputargs, afterops = convert_loop_to_trace(self.parse(optops), self.metainterp_sd).unpack()
+        check_z3(beforeinputargs, beforeops, afterinputargs, afterops)
+
+class TestBuggyTestsFail(BaseCheckZ3):
+    def test_bound_lt_add_before(self, monkeypatch):
+        from rpython.jit.metainterp.optimizeopt.intutils import IntBound
+        # check that if we recreate the original bug, it fails:
+        monkeypatch.setattr(IntBound, "add_bound", IntBound.add_bound_no_overflow)
+        ops = """
+        [i0]
+        i2 = int_add(i0, 10)
+        i3 = int_lt(i2, 15)
+        guard_true(i3) []
+        i1 = int_lt(i0, 6)
+        guard_true(i1) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i2 = int_add(i0, 10)
+        i3 = int_lt(i2, 15)
+        guard_true(i3) []
+        jump(i0)
+        """
+        with pytest.raises(CheckError):
+            self.optimize_loop(ops, expected)
+
+    def test_int_neg_postprocess(self):
+        ops = """
+        [i1]
+        i2 = int_neg(i1)
+        i3 = int_le(i2, 0)
+        guard_true(i3) []
+        i4 = int_ge(i1, 0)
+        guard_true(i4) []
+        """
+        expected = """
+        [i1]
+        i2 = int_neg(i1)
+        i3 = int_le(i2, 0)
+        guard_true(i3) []
+        """
+        with pytest.raises(CheckError):
+            self.optimize_loop(ops, expected)
+
+
+class TestOptimizeIntBoundsZ3(TestOptimizeIntBounds):
+    pass
