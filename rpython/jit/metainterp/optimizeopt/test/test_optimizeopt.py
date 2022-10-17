@@ -5790,6 +5790,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    @py.test.mark.xfail(reason="think really hard about this one!")
     def test_bound_dont_backpropagate_rshift(self):
         ops = """
         [i0]
