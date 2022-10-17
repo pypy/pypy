@@ -907,6 +907,15 @@ def _recover_with_smalllong(space):
 
 
 def _string_to_int_or_long(space, w_source, string, base=10):
+    from pypy.module.sys.state import get_int_max_str_digits
+     
+    if (base != 2):
+        digits = len(string) - string.count('_')
+        max_str_digits = space.int_w(get_int_max_str_digits(space))
+        if digits > max_str_digits:
+            raise oefmt(space.w_ValueError,
+                        "Exceeds the limit (%d) for integer string conversion: value has %d digits",
+                        max_str_digits, digits)
     try:
         value = string_to_int(
             string, base, allow_underscores=True, no_implicit_octal=True)

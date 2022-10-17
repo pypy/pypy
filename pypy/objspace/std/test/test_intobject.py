@@ -385,6 +385,11 @@ class AppTestInt(object):
         assert 42 == int("42")
         assert 10000000000 == int("10000000000")
 
+    def test_int_string_limit(self):
+        import sys
+        max_str_digits = sys.get_int_max_str_digits()
+        raises(ValueError, int, '1' * (max_str_digits + 1))
+
     def test_int_float(self):
         assert 4 == int(4.2)
 
