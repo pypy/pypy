@@ -503,7 +503,7 @@ def X_option(options, xoption, iterargv):
     elif xoption == 'jit-off':
         set_jit_option(options, 'off')
 
-def config_init_int_max_str_digits(env_option, x_option):
+def config_init_int_max_str_digits(env_option, x_option, options):
     maxdigits = -1
     val = prefix = "unknown"
     try:
@@ -522,19 +522,14 @@ def config_init_int_max_str_digits(env_option, x_option):
             return 0
     except Exception as e:
         msg = "invalid value '%s' for '%s'\n" % (val, prefix)
-        sys.stderr.write(msg)
-        return -1
+        raise CommandLineError(msg)
     if not (maxdigits == 0 or maxdigits >= sys.int_info.str_digits_check_threshold):
-        msg  = "Fatal Python error: %s: invalid limit; must be >= %d or 0 for unlimited\n" % (
-                prefix, sys.int_info.str_digits_check_threshold)
-        sys.stderr.write(msg)
-        return -1
-    if WE_ARE_TRANSLATED:
-        flags = {f: getattr(sys.flags, f) for f in sys_flags}
-        flags['int_max_str_digits'] = maxdigits
-        sys.flags = type(sys.flags)(flags)
+        msg  = ("Fatal Python error: config_init_int_max_str_digits:"
+               " %s: invalid limit; must be >= %d or 0 for unlimited\n") % (
+               prefix, sys.int_info.str_digits_check_threshold)
+        raise CommandLineError(msg)
+    options['int_max_str_digits'] = maxdigits
     sys.set_int_max_str_digits(maxdigits)
-    return 0
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -673,7 +668,10 @@ def _parse_command_line(argv):
     # (relevant in case of "reload(sys)")
     sys.argv[:] = argv
 
-    if not options["ignore_environment"]:
+    if options["ignore_environment"]:
+        readenv = False
+    else:
+        readenv = True
         parse_env('PYTHONDEBUG', "debug", options)
         parse_env('PYTHONDONTWRITEBYTECODE', "dont_write_bytecode", options)
         if getenv('PYTHONNOUSERSITE'):
@@ -708,17 +706,22 @@ def _parse_command_line(argv):
         else:
             options["utf8_mode"] = 0
 
-    if (options["interactive"] or
-        (not options["ignore_environment"] and getenv('PYTHONINSPECT'))):
+    if (options["interactive"] or (readenv and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
+
+    sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
+                         for x in options['_xoptions'])
+
+    config_init_int_max_str_digits(
+        getenv("PYTHONINTMAXSTRDIGITS") if readenv else None,
+        sys._xoptions.get('int_max_str_digits', None),
+        options,  # can be modified
+    )
 
     if WE_ARE_TRANSLATED:
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
-
-    sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
-                         for x in options['_xoptions'])
 
 ##    if not WE_ARE_TRANSLATED:
 ##        for key in sorted(options):
@@ -860,12 +863,6 @@ def run_command_line(interactive,
     success = True
 
     try:
-        if config_init_int_max_str_digits(
-            getenv("PYTHONINTMAXSTRDIGITS") if readenv else None,
-            sys._xoptions.get('int_max_str_digits', None)
-        ) < 0:
-            return 1
-
         from os.path import abspath
         if run_command != 0:
             # handle the "-c" command
