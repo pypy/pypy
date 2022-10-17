@@ -3332,10 +3332,11 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_bound_lt_add_before(self):
+    def test_bound_lt_add_ovf_before(self):
         ops = """
         [i0]
-        i2 = int_add(i0, 10)
+        i2 = int_add_ovf(i0, 10)
+        guard_no_overflow() []
         i3 = int_lt(i2, 15)
         guard_true(i3) []
         i1 = int_lt(i0, 6)
@@ -3344,7 +3345,8 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i0]
-        i2 = int_add(i0, 10)
+        i2 = int_add_ovf(i0, 10)
+        guard_no_overflow() []
         i3 = int_lt(i2, 15)
         guard_true(i3) []
         jump(i0)
@@ -6441,15 +6443,15 @@ class TestOptimizeBasic(BaseTestBasic):
         ops = """
         [i1]
         i2 = int_neg(i1)
-        i3 = int_le(i2, 0)
+        i3 = int_ge(i2, 0)
         guard_true(i3) []
-        i4 = int_ge(i1, 0)
+        i4 = int_le(i1, 0)
         guard_true(i4) []
         """
         expected = """
         [i1]
         i2 = int_neg(i1)
-        i3 = int_le(i2, 0)
+        i3 = int_ge(i2, 0)
         guard_true(i3) []
         """
         self.optimize_loop(ops, expected)

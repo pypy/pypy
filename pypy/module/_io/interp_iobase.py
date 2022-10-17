@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
-    make_weakref_descr)
+    make_weakref_descr, unwrap_spec)
 from pypy.interpreter.gateway import interp2app
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rweakref, rweaklist
@@ -314,51 +314,75 @@ W_IOBase.typedef = TypeDef(
 )
 
 class W_RawIOBase(W_IOBase):
-    # ________________________________________________________________
-    # Abstract read methods, based on readinto()
+    pass
 
-    def read_w(self, space, w_size=None):
-        size = convert_size(space, w_size)
-        if size < 0:
-            return space.call_method(self, "readall")
 
-        w_buffer = space.call_function(space.w_bytearray, w_size)
-        w_length = space.call_method(self, "readinto", w_buffer)
-        if space.is_w(w_length, space.w_None):
-            return w_length
-        space.delslice(w_buffer, w_length, space.len(w_buffer))
-        return space.str(w_buffer)
+# ________________________________________________________________
+# Abstract read methods, based on readinto()
 
-    def readall_w(self, space):
-        builder = StringBuilder()
-        while True:
-            try:
-                w_data = space.call_method(self, "read",
-                                           space.newint(DEFAULT_BUFFER_SIZE))
-            except OperationError as e:
-                if trap_eintr(space, e):
-                    continue
-                raise
-            if space.is_w(w_data, space.w_None):
-                if not builder.getlength():
-                    return w_data
-                break
+# note that the self needs to be W_IOBase here, even though the methods are on
+# _RawIOBase. The reason is the applevel_subclasses_base below, which ensures
+# that subclasses of _io._RawIOBase are instances of (a subclass of) W_IOBase.
+# This is not a problem, because W_RawIOBase does not actually have any
+# content the methods and don't expect much from "self". see also comment in
+# descr_new_rawiobase below
 
-            if not space.isinstance_w(w_data, space.w_bytes):
-                raise oefmt(space.w_TypeError, "read() should return bytes")
-            data = space.bytes_w(w_data)
-            if not data:
-                break
-            builder.append(data)
-        return space.newbytes(builder.build())
+@unwrap_spec(self=W_IOBase)
+def rawiobase_read_w(self, space, w_size=None):
+    size = convert_size(space, w_size)
+    if size < 0:
+        return space.call_method(self, "readall")
+
+    w_buffer = space.call_function(space.w_bytearray, w_size)
+    w_length = space.call_method(self, "readinto", w_buffer)
+    if space.is_w(w_length, space.w_None):
+        return w_length
+    space.delslice(w_buffer, w_length, space.len(w_buffer))
+    return space.str(w_buffer)
+
+@unwrap_spec(self=W_IOBase)
+def rawiobase_readall_w(self, space):
+    builder = StringBuilder()
+    while True:
+        try:
+            w_data = space.call_method(self, "read",
+                                       space.newint(DEFAULT_BUFFER_SIZE))
+        except OperationError as e:
+            if trap_eintr(space, e):
+                continue
+            raise
+        if space.is_w(w_data, space.w_None):
+            if not builder.getlength():
+                return w_data
+            break
+
+        if not space.isinstance_w(w_data, space.w_bytes):
+            raise oefmt(space.w_TypeError, "read() should return bytes")
+        data = space.bytes_w(w_data)
+        if not data:
+            break
+        builder.append(data)
+    return space.newbytes(builder.build())
+
+def descr_new_rawiobase(space, w_subtype, __args__):
+    instance = space.allocate_instance(W_RawIOBase, w_subtype)
+    # NB: for subclasses of _io._RawIOBase, the instance is not actually an
+    # instance of W_RawIOBase! this does not matter for the methods at all, of
+    # course, since W_RawIOBase does not have any extra fields over W_IOBase.
+    W_IOBase.__init__(instance, space)
+    return instance
+
+assert W_RawIOBase.__init__.im_func is W_IOBase.__init__.im_func
 
 W_RawIOBase.typedef = TypeDef(
     '_io._RawIOBase', W_IOBase.typedef,
-    __new__ = generic_new_descr(W_RawIOBase),
-
-    read = interp2app(W_RawIOBase.read_w),
-    readall = interp2app(W_RawIOBase.readall_w),
+    __doc__ = "Base class for raw binary I/O.",
+    __rpython_level_class__ = W_RawIOBase,
+    __new__ = interp2app(descr_new_rawiobase),
+    read = interp2app(rawiobase_read_w),
+    readall = interp2app(rawiobase_readall_w),
 )
+W_RawIOBase.typedef.applevel_subclasses_base = W_IOBase
 
 
 # ------------------------------------------------------------

@@ -191,12 +191,12 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
     # 2. Digits, with included decimal point
     if 0 < decpt <= buflen:
-        builder.append(rffi.charpsize2str(digits, decpt - 0))
+        builder.append_charpsize(digits, decpt - 0)
         builder.append('.')
         ptr = rffi.ptradd(digits, decpt)
-        builder.append(rffi.charpsize2str(ptr, buflen - decpt))
+        builder.append_charpsize(ptr, buflen - decpt)
     else:
-        builder.append(rffi.charpsize2str(digits, buflen))
+        builder.append_charpsize(digits, buflen)
 
     # 3. And zeros on the right
     if buflen < decpt:
@@ -236,6 +236,7 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
     return s
 
+@jit.elidable
 def dtoa(value, code='r', mode=0, precision=0, flags=0,
          special_strings=lower_special_strings, upper=False):
     if precision > _INT_LIMIT:

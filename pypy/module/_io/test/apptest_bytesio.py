@@ -115,3 +115,13 @@ def test_readline():
 def test_overread():
     f = _io.BytesIO(b'abc')
     assert f.readline(10) == b'abc'
+
+def test_subclass_bytesio_rawiobase():
+    class X(_io.BytesIO, _io._RawIOBase):
+        pass
+    assert X.mro() == [X, _io.BytesIO, _io._BufferedIOBase, _io._RawIOBase, _io._IOBase, object]
+    # can instantiate
+    x = X(b'abc')
+    # check that _RawIOBase methods work
+    res = _io._RawIOBase.read(x)
+    assert res == b'abc'
