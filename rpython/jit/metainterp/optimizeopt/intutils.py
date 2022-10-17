@@ -399,6 +399,18 @@ class IntBound(AbstractInfo):
             return INFO_NULL
         return INFO_UNKNOWN
 
+    def widen(self):
+        info = self.clone()
+        info.widen_update()
+        return info
+
+    def widen_update(self):
+        if self.lower < MININT / 2:
+            self.lower = MININT
+        if self.upper > MAXINT / 2:
+            self.upper = MAXINT
+
+
 def IntUpperBound(upper):
     b = IntBound(lower=MININT, upper=upper)
     return b

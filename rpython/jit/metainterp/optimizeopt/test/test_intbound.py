@@ -389,6 +389,19 @@ def test_neg_bound():
             if b1.contains(n1):
                 assert b2.contains(-n1)
 
+def test_widen():
+    for _, _, b1 in some_bounds():
+        b2 = b1.widen()
+        assert b2.contains_bound(b1)
+    b = bound(MININT + 1, MAXINT).widen()
+    assert b.contains_bound(bound(None, None))
+    b = bound(MININT, MAXINT - 1).widen()
+    assert b.contains_bound(bound(None, None))
+    b = bound(-10, 10)
+    b1 = b.widen()
+    assert bound_eq(b, b1)
+
+
 @given(bound_with_contained_number, bound_with_contained_number)
 def test_make_random(t1, t2):
     def d(b):
@@ -562,3 +575,9 @@ def test_neg_bound_random(t1):
     b2viasub = ConstIntBound(0).sub_bound(b1)
     assert b2viasub.contains_bound(b2)
     #assert b2.contains_bound(b2viasub)
+
+@given(bound_with_contained_number)
+def test_widen_random(t):
+    b, n = t
+    b1 = b.widen()
+    assert b1.contains_bound(b)
