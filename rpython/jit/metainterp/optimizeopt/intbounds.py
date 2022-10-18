@@ -756,6 +756,8 @@ class OptIntBounds(Optimization):
     def propagate_bounds_INT_LSHIFT(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
+        if not b1.lshift_bound_cannot_overflow(b2):
+            return
         r = self.getintbound(op)
         b = r.rshift_bound(b2)
         if b1.intersect(b):

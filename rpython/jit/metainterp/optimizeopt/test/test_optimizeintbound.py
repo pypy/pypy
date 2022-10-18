@@ -1766,6 +1766,21 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_lshift_before_bug(self):
+        ops = """
+        [i0]
+        i3 = int_lshift(1152921504606846976, i0)
+
+        i1 = int_lt(i0, 16)
+        guard_true(i1) []
+        i2 = int_ge(i0, 0)
+        guard_true(i2) []
+
+        guard_value(i3, 0) []
+        jump(i0)
+        """
+        self.optimize_loop(ops, ops)
+
 
 
 
