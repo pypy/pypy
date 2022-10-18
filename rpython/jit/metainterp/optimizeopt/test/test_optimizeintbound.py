@@ -1785,7 +1785,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
     def test_bug_dont_use_getint(self):
         ops = """
         [i1, i2]
-        i45 = escape_i() # 0
+        i45 = int_xor(i1, i2) # 0
         i163 = int_neg(i45) # 0
         guard_value(i163, 0) []
         i228 = int_add(1, i2)
@@ -1795,7 +1795,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i1, i2]
-        i45 = escape_i() # 0
+        i45 = int_xor(i1, i2) # 0
         i163 = int_neg(i45) # 0
         guard_value(i163, 0) []
         i404 = int_add(1, i2)
