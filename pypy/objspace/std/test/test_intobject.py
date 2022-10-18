@@ -389,6 +389,13 @@ class AppTestInt(object):
         import sys
         max_str_digits = sys.get_int_max_str_digits()
         raises(ValueError, int, '1' * (max_str_digits + 1))
+        # should not fail
+        x = int(' ' + '1' * max_str_digits)
+        sys.set_int_max_str_digits(0)
+        try:
+            x = int('1' * (max_str_digits + 1))
+        finally:
+            sys.set_int_max_str_digits(max_str_digits)
 
     def test_int_float(self):
         assert 4 == int(4.2)
