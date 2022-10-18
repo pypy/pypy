@@ -132,6 +132,14 @@ class Checker(object):
                 expr = self.cond(arg0 >= arg1)
             elif opname == "int_is_true":
                 expr = self.cond(arg0 != FALSEBV)
+            elif opname == "uint_lt":
+                expr = self.cond(z3.ULT(arg0, arg1))
+            elif opname == "uint_le":
+                expr = self.cond(z3.ULE(arg0, arg1))
+            elif opname == "uint_gt":
+                expr = self.cond(z3.UGT(arg0, arg1))
+            elif opname == "uint_ge":
+                expr = self.cond(z3.UGE(arg0, arg1))
             elif opname == "int_is_zero":
                 expr = self.cond(arg0 == FALSEBV)
             elif opname == "int_neg":
@@ -139,9 +147,9 @@ class Checker(object):
             elif opname == "int_invert":
                 expr = ~arg0
             elif opname == "int_lshift":
-                expr = arg0 >> arg1
-            elif opname == "int_rshift":
                 expr = arg0 << arg1
+            elif opname == "int_rshift":
+                expr = arg0 >> arg1
             elif opname == "uint_rshift":
                 expr = z3.LShR(arg0, arg1)
             elif opname == "int_add_ovf":
@@ -159,12 +167,21 @@ class Checker(object):
             elif opname == "int_signext":
                 numbits = op.getarg(1).getint() * 8
                 expr = z3.SignExt(64 - numbits, z3.Extract(numbits - 1, 0, arg0))
-
+            elif opname == "uint_mul_high":
+                # zero-extend args to 2*LONG_BIT bit, then multiply and extract
+                # highest LONG_BIT bits
+                zarg0 = z3.ZeroExt(LONG_BIT, arg0)
+                zarg1 = z3.ZeroExt(LONG_BIT, arg1)
+                expr = z3.Extract(LONG_BIT * 2 - 1, LONG_BIT, zarg0 * zarg1)
+            elif opname == "same_as_i":
+                expr = arg0
             elif op.is_guard():
                 assert state.before
                 cond = self.guard_to_condition(op, state) # was optimized away, must be true
                 self.prove(cond, op)
                 continue
+            elif opname == "label":
+                continue # ignore for now
             else:
                 assert 0, "unsupported"
             self.solver.add(res == expr)
@@ -187,7 +204,7 @@ class Checker(object):
             assert 0, "unsupported"
 
     def check_last(self, beforelast, state_before, afterlast, state_after):
-        if beforelast.getopname() == "jump":
+        if beforelast.getopname() in ("jump", "finish"):
             assert beforelast.numargs() == afterlast.numargs()
             for i in range(beforelast.numargs()):
                 before = self.convertarg(beforelast, i)

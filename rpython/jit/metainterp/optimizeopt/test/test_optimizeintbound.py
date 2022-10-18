@@ -1743,6 +1743,21 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_uint_mul_high_constfold(self):
+        ops = """
+        [i0]
+        i1 = int_lshift(254, %s)
+        i2 = int_lshift(171, %s)
+        i3 = uint_mul_high(i1, i2)
+        jump(i3)
+        """ % (LONG_BIT // 2, LONG_BIT // 2)
+        expected = """
+        [i0]
+        jump(43434)
+        """
+        self.optimize_loop(ops, expected)
+
+
 
 class TestComplexIntOpts(BaseTestBasic):
     def test_intdiv_bounds(self):
