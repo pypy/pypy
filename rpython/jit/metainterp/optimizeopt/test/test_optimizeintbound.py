@@ -1757,6 +1757,16 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_mul_ovf_before_bug(self):
+        ops = """
+        [i0]
+        i3 = int_mul(i0, 12)
+        guard_value(i3, 12) []
+        jump(i0)
+        """
+        self.optimize_loop(ops, ops)
+
+
 
 
 class TestComplexIntOpts(BaseTestBasic):

@@ -1,3 +1,4 @@
+import pytest
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
      IntLowerBound, IntUnbounded, ConstIntBound, next_pow2_m1, MININT, MAXINT
 
@@ -101,7 +102,7 @@ def test_known():
                     border.append(n)
                 else:
                     inside.append(n)
-                    
+
         for n in nbr:
             c = const(n)
             if n in inside:
@@ -131,7 +132,7 @@ def test_known():
                     assert b.known_lt(c)
 
 
-def test_make():                            
+def test_make():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
             lt = IntUnbounded()
@@ -170,7 +171,7 @@ def test_make():
                 assert not le.known_gt(c)
                 assert not le.known_ge(c)
 
-                
+
             ge = IntUnbounded()
             ge.make_ge(b1)
             ge.make_ge(b2)
@@ -209,9 +210,12 @@ def test_make_ne():
     assert ge.contains(MININT + 1)
     assert ge.contains(MAXINT)
 
-def test_intersect():                            
+def test_intersect():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
+            if b1.known_gt(b2) or b1.known_lt(b2):
+                # no overlap
+                continue
             b = copy(b1)
             b.intersect(b2)
             for n in nbr:
@@ -219,7 +223,15 @@ def test_intersect():
                     assert b.contains(n)
                 else:
                     assert not b.contains(n)
-                    
+
+def test_intersect_bug():
+    b1 = bound(17, 17)
+    b2 = bound(1, 1)
+    with pytest.raises(AssertionError):
+        b1.intersect(b2)
+
+
+
 def test_add_bound():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():

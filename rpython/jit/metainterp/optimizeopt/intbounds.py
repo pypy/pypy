@@ -740,9 +740,11 @@ class OptIntBounds(Optimization):
             self.propagate_bounds_backward(op.getarg(1))
 
     def propagate_bounds_INT_MUL(self, op):
-        arg0 = op.getarg(0)
-        b1 = self.getintbound(arg0)
+        b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
+        if op.opnum != rop.INT_MUL_OVF and not b1.mul_bound_cannot_overflow(b2):
+            # we can only do divide if the operation didn't overflow
+            return
         r = self.getintbound(op)
         b = r.py_div_bound(b2)
         if b1.intersect(b):
