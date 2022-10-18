@@ -156,6 +156,10 @@ class Checker(object):
                 expr = arg0 * arg1
                 m = z3.SignExt(LONG_BIT, arg0) * z3.SignExt(LONG_BIT, arg1)
                 state.no_ovf = m == z3.SignExt(LONG_BIT, expr)
+            elif opname == "int_signext":
+                numbits = op.getarg(1).getint() * 8
+                expr = z3.SignExt(64 - numbits, z3.Extract(numbits - 1, 0, arg0))
+
             elif op.is_guard():
                 assert state.before
                 cond = self.guard_to_condition(op, state) # was optimized away, must be true
