@@ -111,7 +111,7 @@ class IntBound(AbstractInfo):
         return self.lower > other
 
     def known_ge_const(self, other):
-        return self.upper >= other
+        return self.lower >= other
 
     def known_lt(self, other):
         return self.known_lt_const(other.lower)

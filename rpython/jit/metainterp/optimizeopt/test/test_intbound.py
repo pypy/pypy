@@ -110,11 +110,17 @@ def test_known():
                 assert not b.known_gt(c)
                 assert not b.known_le(c)
                 assert not b.known_ge(c)
+                assert not b.known_lt_const(n)
+                assert not b.known_gt_const(n)
+                assert not b.known_le_const(n)
+                assert not b.known_ge_const(n)
             elif n in border:
                 assert b.contains(n)
                 if n == upper:
                     assert b.known_le(const(upper))
+                    assert b.known_le_const(upper)
                 else:
+                    assert b.known_ge_const(lower)
                     assert b.known_ge(const(lower))
             else:
                 assert not b.contains(n)
