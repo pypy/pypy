@@ -15,11 +15,14 @@ from rpython.jit.metainterp.resoperation import (
 from rpython.jit.metainterp.history import (
     JitCellToken, Const, ConstInt, get_const_ptr_for_string)
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
+from rpython.jit.backend.test.test_random import RandomLoop, Random, OperationBuilder
+from rpython.jit.backend.llgraph.runner import LLGraphCPU
 
 try:
     import z3
+    from hypothesis import given, strategies
 except ImportError:
-    pytest.skip("please install z3 (z3-solver on pypi)")
+    pytest.skip("please install z3 (z3-solver on pypi) and hypothesis")
 
 TRUEBV = z3.BitVecVal(1, LONG_BIT)
 FALSEBV = z3.BitVecVal(0, LONG_BIT)
@@ -345,6 +348,45 @@ class TestBuggyTestsFail(BaseCheckZ3):
         with pytest.raises(CheckError):
             self.optimize_loop(ops, expected)
 
+class Z3OperationBuilder(OperationBuilder):
+    produce_failing_guards = False
 
 class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
-    pass
+    def check_random_function_z3(self, cpu, r, num=None, max=None):
+
+        loop = RandomLoop(cpu, Z3OperationBuilder, r)
+        trace = convert_loop_to_trace(loop.loop, self.metainterp_sd)
+        compile_data = compile.SimpleCompileData(
+            trace, call_pure_results=None,
+            enable_opts=self.enable_opts)
+        info, ops = compile_data.optimize_trace(self.metainterp_sd, None, {})
+        print info.inputargs
+        for op in ops:
+            print op
+        beforeinputargs, beforeops = trace.unpack()
+        # check that the generated trace is correct
+        check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+        if num is not None:
+            print '    # passed (%d/%d).' % (num + 1, max)
+        else:
+            print '    # passed.'
+        print
+
+    def test_random_z3(self):
+        cpu = LLGraphCPU(None)
+        cpu.supports_floats = False
+        cpu.setup_once()
+        r = Random()
+        try:
+            if pytest.config.option.repeat == -1:
+                while 1:
+                    self.check_random_function_z3(cpu, r)
+            else:
+                for i in range(pytest.config.option.repeat):
+                    self.check_random_function_z3(cpu, r, i,
+                                             pytest.config.option.repeat)
+        except Exception as e:
+            print "got exception", e
+            print "seed was", pytest.config.option.randomseed
+            raise
+
