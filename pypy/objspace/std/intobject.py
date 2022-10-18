@@ -909,7 +909,8 @@ def _recover_with_smalllong(space):
 def _string_to_int_or_long(space, w_source, string, base=10):
     from pypy.module.sys.state import get_int_max_str_digits
      
-    if (base != 2):
+    if (base & (base - 1) != 0):
+        # Limit the size to avoid excessive computation attacks on non-binary bases
         digits = len(string) - string.count('_')
         max_str_digits = space.int_w(get_int_max_str_digits(space))
         if digits > max_str_digits:
