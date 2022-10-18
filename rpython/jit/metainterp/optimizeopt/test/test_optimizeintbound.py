@@ -1782,6 +1782,26 @@ class TestOptimizeIntBounds(BaseTestBasic):
         self.optimize_loop(ops, ops)
 
 
+    def test_bug_dont_use_getint(self):
+        ops = """
+        [i1, i2]
+        i45 = escape_i() # 0
+        i163 = int_neg(i45) # 0
+        guard_value(i163, 0) []
+        i228 = int_add(1, i2)
+        i318 = uint_rshift(i228, 0) # == i288
+        i404 = int_add(i318, i45)
+        finish(i404)
+        """
+        expected = """
+        [i1, i2]
+        i45 = escape_i() # 0
+        i163 = int_neg(i45) # 0
+        guard_value(i163, 0) []
+        i404 = int_add(1, i2)
+        finish(i404)
+        """
+        self.optimize_loop(ops, expected)
 
 
 class TestComplexIntOpts(BaseTestBasic):

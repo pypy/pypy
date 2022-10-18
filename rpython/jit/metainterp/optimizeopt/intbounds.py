@@ -123,7 +123,7 @@ class OptIntBounds(Optimization):
                         prod_arg1, prod_arg2 = prod_arg2, prod_arg1
                         prod_v1, prod_v2 = prod_v2, prod_v1
                     if prod_v2.is_constant():
-                        sum = intmask(arg2.getint() + prod_arg2.getint())
+                        sum = intmask(v2.get_constant_int() + prod_v2.get_constant_int())
                         arg1 = prod_arg1
                         arg2 = ConstInt(sum)
                         op = self.replace_op_with(op, rop.INT_ADD, args=[arg1, arg2])
