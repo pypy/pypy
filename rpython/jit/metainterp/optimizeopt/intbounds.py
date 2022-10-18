@@ -740,7 +740,8 @@ class OptIntBounds(Optimization):
             self.propagate_bounds_backward(op.getarg(1))
 
     def propagate_bounds_INT_MUL(self, op):
-        b1 = self.getintbound(op.getarg(0))
+        arg0 = op.getarg(0)
+        b1 = self.getintbound(arg0)
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
         b = r.py_div_bound(b2)

@@ -129,6 +129,7 @@ class IntBound(AbstractInfo):
         return 0 <= self.lower
 
     def intersect(self, other):
+        assert not self.known_gt(other) and not self.known_lt(other)
         r = False
         if self.make_ge_const(other.lower):
             r = True

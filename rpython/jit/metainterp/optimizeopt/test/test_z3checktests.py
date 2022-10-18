@@ -38,6 +38,8 @@ def check_z3(beforeinputargs, beforeops, afterinputargs, afterops):
 class Checker(object):
     def __init__(self, beforeinputargs, beforeops, afterinputargs, afterops):
         self.solver = z3.Solver()
+        if pytest.config.option.z3timeout:
+            self.solver.set("timeout", pytest.config.option.z3timeout)
         self.box_to_z3 = {}
         self.seen_names = {}
         self.beforeinputargs = beforeinputargs
@@ -68,7 +70,8 @@ class Checker(object):
         return result
 
     def prove(self, cond, *ops):
-        if self.solver.check(z3.Not(cond)) == z3.sat:
+        z3res = self.solver.check(z3.Not(cond))
+        if z3res == z3.sat:
             # not possible to prove!
             l = []
             if ops:
@@ -380,13 +383,17 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
         try:
             if pytest.config.option.repeat == -1:
                 while 1:
+                    state = r.getstate()
+                    r.setstate(state)
                     self.check_random_function_z3(cpu, r)
             else:
                 for i in range(pytest.config.option.repeat):
+                    state = r.getstate()
                     self.check_random_function_z3(cpu, r, i,
                                              pytest.config.option.repeat)
         except Exception as e:
             print "got exception", e
             print "seed was", pytest.config.option.randomseed
+            print "state:", state
             raise
 
