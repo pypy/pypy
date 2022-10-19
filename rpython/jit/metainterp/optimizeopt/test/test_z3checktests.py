@@ -384,7 +384,8 @@ class Z3OperationBuilder(OperationBuilder):
 
 class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
     def check_random_function_z3(self, cpu, r, num=None, max=None):
-
+        import time
+        t1 = time.time()
         loop = RandomLoop(cpu, Z3OperationBuilder, r)
         trace = convert_loop_to_trace(loop.loop, self.metainterp_sd)
         compile_data = compile.SimpleCompileData(
@@ -396,9 +397,12 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             print op
         beforeinputargs, beforeops = trace.unpack()
         # check that the generated trace is correct
+        t2 = time.time()
         check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+        t3 = time.time()
+        print 'generation/optimization [s]:', t2 - t1, 'z3:', t3 - t2, "total:", t3 - t1
         if num is not None:
-            print '    # passed (%d/%d).' % (num + 1, max)
+            print '    # passed (%d/%s).' % (num + 1, max)
         else:
             print '    # passed.'
         print
@@ -410,10 +414,12 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
         r = Random()
         try:
             if pytest.config.option.repeat == -1:
+                i = 0
                 while 1:
                     state = r.getstate()
                     r.setstate(state)
-                    self.check_random_function_z3(cpu, r)
+                    self.check_random_function_z3(cpu, r, i)
+                    i += 1
             else:
                 for i in range(pytest.config.option.repeat):
                     state = r.getstate()
