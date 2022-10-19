@@ -782,20 +782,22 @@ class IntBound(AbstractInfo):
 
     def contains_bound(self, other):
         """
-        Returns `True` iff this abstract
-        integers contains each number that
-        is contained in the `other` one.
+        ???
         """
-        # TODO
         assert isinstance(other, IntBound)
+
+        # TODO: think about every caller
+        assert (self.tvalue, self.tmask) == TNUM_UNKNOWN
+
         if not self.contains(other.lower):
             return False
         if not self.contains(other.upper):
             return False
 
-        union_masks = self.tmask | other.tmask
+        # not relevant at the moment
+        """union_masks = self.tmask | other.tmask
         if unmask_zero(self.tvalue, self.tmask) != unmask_zero(other.tvalue, union_masks):
-            return False
+            return False"""
 
         return True
 
@@ -886,6 +888,7 @@ class IntBound(AbstractInfo):
             self.lower = MININT
         if self.upper > MAXINT / 2:
             self.upper = MAXINT
+        self.tvalue, self.tmask = TNUM_UNKNOWN
 
 
     def and_bound_backwards(self, other, result_int):
