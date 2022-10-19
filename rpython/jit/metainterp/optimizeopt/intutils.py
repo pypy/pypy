@@ -786,7 +786,7 @@ class IntBound(AbstractInfo):
         integers contains each number that
         is contained in the `other` one.
         """
-
+        # TODO
         assert isinstance(other, IntBound)
         if not self.contains(other.lower):
             return False
@@ -814,6 +814,7 @@ class IntBound(AbstractInfo):
         we have about the numbers this
         abstract integer contains.
         """
+        # TODO
         if self.is_constant():
             guards.append(ResOperation(rop.GUARD_VALUE,
                                        [box, ConstInt(self.upper)]))
