@@ -69,10 +69,39 @@ class Checker(object):
         self.box_to_z3[box] = result
         return result
 
+    def print_chunk(self, chunk, label, model):
+        print
+        print "=============", label, "=================="
+        for op in chunk:
+            if op in self.box_to_z3:
+                text = "-----> " + hex(intmask(r_uint(int(str(model[self.box_to_z3[op]])))))
+            else:
+                text = ""
+            print op, text
+
     def prove(self, cond, *ops):
         z3res = self.solver.check(z3.Not(cond))
         if z3res == z3.sat:
             # not possible to prove!
+            # print some nice stuff
+            model = self.solver.model()
+            print "ERROR counterexample:"
+            print "inputs:"
+            for beforeinput, afterinput in zip(self.beforeinputargs, self.afterinputargs):
+                print beforeinput, afterinput, hex(int(str(model[self.box_to_z3[beforeinput]])))
+            print "chunks:"
+            for i, chunk in enumerate(self.chunks):
+                beforechunk, beforelast, afterchunk, afterlast = chunk
+                if i == self.chunkindex:
+                    print "vvvvvvvvvvvvvvv Problem vvvvvvvvvvvvvvv"
+                self.print_chunk(beforechunk + [beforelast], "before", model)
+                self.print_chunk(afterchunk + [afterlast], "after", model)
+                print
+                if i == self.chunkindex:
+                    break
+            print "END counterexample"
+
+            # raise error
             l = []
             if ops:
                 l.append("in the following ops:")
@@ -85,7 +114,7 @@ class Checker(object):
             l.append(str(self.solver))
             l.append("_________________")
             l.append("counterexample:")
-            l.append(str(self.solver.model()))
+            l.append(str(model))
             raise CheckError("\n".join(l))
 
     def cond(self, z3expr):
@@ -191,7 +220,7 @@ class Checker(object):
             else:
                 assert 0, "unsupported"
             self.solver.add(res == expr)
-                
+
     def guard_to_condition(self, guard, state):
         opname = guard.getopname()
         if opname == "guard_true":
@@ -238,7 +267,9 @@ class Checker(object):
 
         state_before = State(before=True)
         state_after = State()
-        for beforechunk, beforelast, afterchunk, afterlast in chunk_ops(self.beforeops, self.afterops):
+        self.chunks = list(chunk_ops(self.beforeops, self.afterops))
+        for chunkindex, (beforechunk, beforelast, afterchunk, afterlast) in enumerate(self.chunks):
+            self.chunkindex = chunkindex
             self.add_to_solver(beforechunk, state_before)
             self.add_to_solver(afterchunk, state_after)
             self.check_last(beforelast, state_before, afterlast, state_after)
@@ -257,7 +288,7 @@ def chunk_ops(beforeops, afterops):
             return
         beforechunk, beforelast = up_to_guard(beforeops)
         afterchunk, afterlast = up_to_guard(afterops)
-        while (beforelast is not None and 
+        while (beforelast is not None and
                (afterlast is None or
                 beforelast.rd_resume_position < afterlast.rd_resume_position)):
             beforechunk.append(beforelast)
@@ -389,6 +420,7 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
                     self.check_random_function_z3(cpu, r, i,
                                              pytest.config.option.repeat)
         except Exception as e:
+            print "_" * 60
             print "got exception", e
             print "seed was", pytest.config.option.randomseed
             print "state:", state
