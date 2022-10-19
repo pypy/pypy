@@ -256,8 +256,7 @@ class IntBound(AbstractInfo):
         in this abstract integer is greater than
         equal to `value`.
         """
-        XXX
-        return self.upper >= value
+        return self.lower >= value
 
     def known_lt(self, other):
         """
@@ -356,6 +355,7 @@ class IntBound(AbstractInfo):
         "disagree", meaning the result would
         contain 0 (zero) any integers.
         """
+        assert not self.known_gt(other) and not self.known_lt(other)
 
         r = False
         if self.make_ge_const(other.lower):
@@ -874,6 +874,18 @@ class IntBound(AbstractInfo):
            self.known_le_const(0):
             return INFO_NULL
         return INFO_UNKNOWN
+
+    def widen(self):
+        info = self.clone()
+        info.widen_update()
+        return info
+
+    def widen_update(self):
+        if self.lower < MININT / 2:
+            self.lower = MININT
+        if self.upper > MAXINT / 2:
+            self.upper = MAXINT
+
 
     def and_bound_backwards(self, other, result_int):
         """

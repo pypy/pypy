@@ -1,3 +1,4 @@
+import pytest
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
      IntLowerBound, IntUnbounded, ConstIntBound, IntBoundKnownbits, next_pow2_m1, \
      IntLowerUpperBound, msbonly, MININT, MAXINT, lowest_set_bit_only
@@ -180,11 +181,17 @@ def test_known():
                 assert not b.known_gt(c)
                 assert not b.known_le(c)
                 assert not b.known_ge(c)
+                assert not b.known_lt_const(n)
+                assert not b.known_gt_const(n)
+                assert not b.known_le_const(n)
+                assert not b.known_ge_const(n)
             elif n in border:
                 assert b.contains(n)
                 if n == upper:
                     assert b.known_le(const(upper))
+                    assert b.known_le_const(upper)
                 else:
+                    assert b.known_ge_const(lower)
                     assert b.known_ge(const(lower))
             else:
                 assert not b.contains(n)
@@ -273,9 +280,12 @@ def test_make_ne():
     assert ge.contains(MININT + 1)
     assert ge.contains(MAXINT)
 
-def test_intersect():                            
+def test_intersect():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
+            if b1.known_gt(b2) or b1.known_lt(b2):
+                # no overlap
+                continue
             b = copy(b1)
             b.intersect(b2)
             for n in nbr:
@@ -283,6 +293,15 @@ def test_intersect():
                     assert b.contains(n)
                 else:
                     assert not b.contains(n)
+
+def test_intersect_bug():
+    b1 = bound(17, 17)
+    b2 = bound(1, 1)
+    with pytest.raises(AssertionError):
+        b1.intersect(b2)
+
+
+
 def test_add_bound():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
@@ -463,6 +482,19 @@ def test_neg_bound():
             if b1.contains(n1):
                 assert b2.contains(-n1)
 
+def test_widen():
+    for _, _, b1 in some_bounds():
+        b2 = b1.widen()
+        assert b2.contains_bound(b1)
+    b = bound(MININT + 1, MAXINT).widen()
+    assert b.contains_bound(bound(None, None))
+    b = bound(MININT, MAXINT - 1).widen()
+    assert b.contains_bound(bound(None, None))
+    b = bound(-10, 10)
+    b1 = b.widen()
+    assert bound_eq(b, b1)
+
+
 @given(bound_with_contained_number, bound_with_contained_number)
 def test_make_random(t1, t2):
     def d(b):
@@ -642,6 +674,12 @@ def test_neg_bound_random(t1):
     b2viasub = ConstIntBound(0).sub_bound(b1)
     assert bound_eq(b2, b2viasub)
 
+
+@given(bound_with_contained_number)
+def test_widen_random(t):
+    b, n = t
+    b1 = b.widen()
+    assert b1.contains_bound(b)
 
 # --------------
 

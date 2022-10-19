@@ -764,6 +764,9 @@ class OptIntBounds(Optimization):
     def propagate_bounds_INT_MUL(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
+        if op.opnum != rop.INT_MUL_OVF and not b1.mul_bound_cannot_overflow(b2):
+            # we can only do divide if the operation didn't overflow
+            return
         r = self.getintbound(op)
         b = r.py_div_bound(b2)
         if b1.intersect(b):
@@ -775,6 +778,8 @@ class OptIntBounds(Optimization):
     def propagate_bounds_INT_LSHIFT(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
+        if not b1.lshift_bound_cannot_overflow(b2):
+            return
         r = self.getintbound(op)
         b = r.rshift_bound(b2)
         if b1.intersect(b):

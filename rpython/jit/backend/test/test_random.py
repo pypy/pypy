@@ -61,6 +61,8 @@ def constbox(v):
 
 
 class OperationBuilder(object):
+    produce_failing_guards = True
+
     def __init__(self, cpu, loop, vars):
         self.cpu = cpu
         if not hasattr(cpu, '_faildescr_keepalive'):
@@ -482,9 +484,16 @@ class CastFloatToIntOperation(AbstractFloatOperation):
 class GuardOperation(AbstractOperation):
     def gen_guard(self, builder, r):
         v = builder.get_bool_var(r)
-        op = ResOperation(self.opnum, [v])
-        passing = ((self.opnum == rop.GUARD_TRUE and getint(v)) or
-                   (self.opnum == rop.GUARD_FALSE and not getint(v)))
+        if not builder.produce_failing_guards:
+            if getint(v):
+                opnum = rop.GUARD_TRUE
+            else:
+                opnum = rop.GUARD_FALSE
+        else:
+            opnum = self.opnum
+        op = ResOperation(opnum, [v])
+        passing = ((opnum == rop.GUARD_TRUE and getint(v)) or
+                   (opnum == rop.GUARD_FALSE and not getint(v)))
         return op, passing
 
     def produce_into(self, builder, r):
@@ -493,6 +502,7 @@ class GuardOperation(AbstractOperation):
         op.setdescr(builder.getfaildescr())
         op.setfailargs(builder.subset_of_intvars(r))
         if not passing:
+            assert builder.produce_failing_guards
             builder.should_fail_by = op
             builder.guard_op = op
 
@@ -509,8 +519,10 @@ class GuardPtrOperation(GuardOperation):
 class GuardValueOperation(GuardOperation):
     def gen_guard(self, builder, r):
         v = r.choice(builder.intvars)
-        if r.random() > 0.8:
-            other = r.choice(builder.intvars)
+        if not builder.produce_failing_guards:
+            other = ConstInt(getint(v))
+        elif r.random() > 0.8:
+            other = ConstInt(getint(r.choice(builder.intvars)))
         else:
             if r.random() < 0.75:
                 value = getint(v)
