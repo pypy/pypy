@@ -1803,6 +1803,179 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_bound_lshift_result_unbounded(self):
+        # bounded_above << bounded
+        ops = """
+        [i1, i2, i3]
+        i4 = int_lt(i1, 7) # i1 < 7
+        guard_true(i4) []
+
+        i5 = int_lt(i3, 2) # i3 == 0 or i3 == 1
+        guard_true(i5) []
+        i6 = int_ge(i3, 0)
+        guard_true(i6) []
+
+        i7 = int_lshift(i1, i3)
+        i8 = int_le(i7, 14)
+        guard_true(i8) [] # can't be removed
+        i8b = int_lshift(i1, i2)
+        i9 = int_le(i8b, 14) # can't be removed
+        guard_true(i9) []
+        jump(i1, i2, i3)
+        """
+        self.optimize_loop(ops, ops)
+
+        # bounded << unbounded
+        ops = """
+        [i1b, i2]
+        i4b = int_lt(i1b, 7) # 0 <= i1b < 7
+        guard_true(i4b) []
+        i4c = int_ge(i1b, 0)
+        guard_true(i4c) []
+
+        i15 = int_lshift(i1b, i2)
+        i16 = int_le(i15, 14)
+        guard_true(i16) []
+        jump(i1b, i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_bound_lshift(self):
+        ops = """
+        [i1b, i3]
+        i4b = int_lt(i1b, 7) # 0 <= i1b < 7
+        guard_true(i4b) []
+        i4c = int_ge(i1b, 0)
+        guard_true(i4c) []
+
+        i5 = int_lt(i3, 2) # i3 == 0 or i3 == 1
+        guard_true(i5) []
+        i6 = int_ge(i3, 0)
+        guard_true(i6) []
+
+        i13 = int_lshift(i1b, i3)
+        i14 = int_le(i13, 14) # removed
+        guard_true(i14) [] # removed
+        jump(i1b, i3)
+        """
+        expected = """
+        [i1b, i3]
+        i4b = int_lt(i1b, 7)
+        guard_true(i4b) []
+        i4c = int_ge(i1b, 0)
+        guard_true(i4c) []
+
+        i5 = int_lt(i3, 2)
+        guard_true(i5) []
+        i6 = int_ge(i3, 0)
+        guard_true(i6) []
+
+        i13 = int_lshift(i1b, i3)
+        jump(i1b, i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_bound_lshift_backwards(self):
+        ops = """
+        [i0, i3]
+        i5 = int_lt(i3, 2) # i3 == 0 or i3 == 1
+        guard_true(i5) []
+        i6 = int_ge(i3, 0)
+        guard_true(i6) []
+
+        i10 = int_lshift(i0, i3)
+        i11 = int_le(i10, 14)
+        guard_true(i11) []
+        i12 = int_lt(i0, 15) # used to be removed, but that's wrong
+        guard_true(i12) []
+
+        jump(i0, i3)
+        """
+        expected = """
+        [i0, i3]
+
+        i5 = int_lt(i3, 2)
+        guard_true(i5) []
+        i6 = int_ge(i3, 0)
+        guard_true(i6) []
+
+        i10 = int_lshift(i0, i3)
+        i11 = int_le(i10, 14)
+        guard_true(i11) []
+        i12 = int_lt(i0, 15) # used to be removed, but that's wrong
+        guard_true(i12) []
+
+        jump(i0, i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_bound_rshift(self):
+        ops = """
+        [i0, i1, i1b, i2, i3]
+        i4 = int_lt(i1, 7) # i1 < 7
+        guard_true(i4) []
+
+        i4b = int_lt(i1b, 7) # 0 <= i1b < 7
+        guard_true(i4b) []
+        i4c = int_ge(i1b, 0)
+        guard_true(i4c) []
+
+        i5 = int_lt(i3, 2) # 0 <= i3 < 2
+        guard_true(i5) []
+        i6 = int_ge(i3, 0)
+        guard_true(i6) []
+
+        i7 = int_rshift(i1, i3)
+        i8 = int_le(i7, 14)
+        guard_true(i8) []
+        i8b = int_rshift(i1, i2)
+        i9 = int_le(i8b, 14)
+        guard_true(i9) []
+        i10 = int_rshift(i0, i3)
+        i11 = int_le(i10, 14)
+        guard_true(i11) []
+        i12 = int_lt(i0, 25)
+        guard_true(i12) []
+        i13 = int_rshift(i1b, i3)
+        i14 = int_le(i13, 14)
+        guard_true(i14) []
+        i15 = int_rshift(i1b, i2)
+        i16 = int_le(i15, 14)
+        guard_true(i16) []
+        jump(i0, i1, i1b, i2, i3)
+        """
+        expected = """
+        [i0, i1, i1b, i2, i3]
+        i4 = int_lt(i1, 7)
+        guard_true(i4) []
+
+        i4b = int_lt(i1b, 7)
+        guard_true(i4b) []
+        i4c = int_ge(i1b, 0)
+        guard_true(i4c) []
+
+        i5 = int_lt(i3, 2)
+        guard_true(i5) []
+        i6 = int_ge(i3, 0)
+        guard_true(i6) []
+
+        i7 = int_rshift(i1, i3)
+        i8b = int_rshift(i1, i2)
+        i9 = int_le(i8b, 14)
+        guard_true(i9) []
+        i10 = int_rshift(i0, i3)
+        i11 = int_le(i10, 14)
+        guard_true(i11) []
+        i12 = int_lt(i0, 25)
+        guard_true(i12) []
+        i13 = int_rshift(i1b, i3)
+        i15 = int_rshift(i1b, i2)
+        i16 = int_le(i15, 14)
+        guard_true(i16) []
+        jump(i0, i1, i1b, i2, i3)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
     def test_intdiv_bounds(self):
