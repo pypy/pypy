@@ -72,7 +72,7 @@ class RecentPureOps(object):
                 box1.same_box(get_box_replacement(op.getarg(1))) and
                 op.getdescr() is descr):
                 op = self.force_preamble_op(opt, op, i)
-                return get_box_replacement(op)
+                return op
         return None
 
     def lookup(self, optimizer, op):
@@ -104,6 +104,7 @@ class OptPure(Optimization):
 
     def optimize_default(self, op):
         canfold = rop.is_always_pure(op.opnum)
+        ovf = False
         if rop.is_ovf(op.opnum):
             self.postponed_op = op
             return
@@ -112,6 +113,7 @@ class OptPure(Optimization):
             op = self.postponed_op
             self.postponed_op = None
             canfold = nextop.getopnum() == rop.GUARD_NO_OVERFLOW
+            ovf = True
         else:
             nextop = None
 
@@ -132,7 +134,9 @@ class OptPure(Optimization):
             recentops = self.getrecentops(op.getopnum())
             save = True
             oldop = recentops.lookup(self.optimizer, op)
-            if oldop is not None:
+            # careful! if this is an ovf operation we can only re-use the
+            # result of a prior ovf operation (the other direction is fine)
+            if oldop is not None and (not ovf or oldop.opnum == op.opnum):
                 self.optimizer.make_equal_to(op, oldop)
                 return
 

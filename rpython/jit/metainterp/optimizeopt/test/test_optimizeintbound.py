@@ -1970,6 +1970,16 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_pure_ovf_bug(self):
+        ops = """
+        [i1, i2]
+        i3 = int_add(i2, i1)
+        i4 = int_sub_ovf(i3, i2)
+        guard_no_overflow() []
+        jump(i4)
+        """
+        self.optimize_loop(ops, ops)
+
 
 class TestComplexIntOpts(BaseTestBasic):
     def test_intdiv_bounds(self):
