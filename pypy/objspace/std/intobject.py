@@ -911,6 +911,10 @@ def _string_to_int_or_long(space, w_source, string, base=10):
      
     if (base & (base - 1) != 0):
         # Limit the size to avoid excessive computation attacks on non-binary bases
+        # XXX removing ' ' and '_' in the count do not belong here. One
+        # solution would be to add the max_str_digits to the rpython
+        # `string_to_int` (which would pass it through to the
+        # `rstring.NumberStringParser`)and raise/catch a rstring.MaxIntError.
         string = string.strip(' ')
         digits = len(string) - string.count('_')
         max_str_digits = space.int_w(get_int_max_str_digits(space))
