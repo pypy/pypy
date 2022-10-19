@@ -4,7 +4,7 @@ traces for equivalence. Only supports very few operations for now, but would
 have found the buggy tests in d9616aacbd02/issue #3832."""
 import pytest
 
-from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     BaseTest, convert_old_style_to_targets)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeintbound import (
@@ -305,9 +305,6 @@ class BaseCheckZ3(BaseTest):
         # check that the generated trace is correct
         check_z3(beforeinputargs, beforeops, info.inputargs, ops)
 
-        # check that the expected trace is correct
-        #afterinputargs, afterops = convert_loop_to_trace(self.parse(optops), self.metainterp_sd).unpack()
-        #check_z3(beforeinputargs, beforeops, afterinputargs, afterops)
 
 class TestBuggyTestsFail(BaseCheckZ3):
     def test_bound_lt_add_before(self, monkeypatch):
