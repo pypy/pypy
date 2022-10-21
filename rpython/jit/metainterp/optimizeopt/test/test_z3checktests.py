@@ -15,8 +15,9 @@ from rpython.jit.metainterp.resoperation import (
 from rpython.jit.metainterp.history import (
     JitCellToken, Const, ConstInt, get_const_ptr_for_string)
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
-from rpython.jit.backend.test.test_random import RandomLoop, Random, OperationBuilder
+from rpython.jit.backend.test.test_random import RandomLoop, Random, OperationBuilder, AbstractOperation
 from rpython.jit.backend.llgraph.runner import LLGraphCPU
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 try:
     import z3
@@ -34,6 +35,22 @@ class CheckError(Exception):
 def check_z3(beforeinputargs, beforeops, afterinputargs, afterops):
     c = Checker(beforeinputargs, beforeops, afterinputargs, afterops)
     c.check()
+    return c.unsat_count, c.unknown_count
+
+def z3_pydiv(x, y):
+    r = x / y
+    psubx = r * y - x
+    return z3.If(
+            y == z3.BitVecVal(0, LONG_BIT),
+            z3.BitVecVal(0xdeadbeef, LONG_BIT), # XXX model "undefined" better
+            r + (z3.If(y < 0, psubx, -psubx) >> (LONG_BIT - 1)))
+
+def z3_pymod(x, y):
+    r = x % y
+    return z3.If(
+            y == z3.BitVecVal(0, LONG_BIT),
+            z3.BitVecVal(0xdeadbeef, LONG_BIT),
+            r + (y & z3.If(y < 0, -r, r) >> (LONG_BIT - 1)))
 
 class Checker(object):
     def __init__(self, beforeinputargs, beforeops, afterinputargs, afterops):
@@ -46,6 +63,7 @@ class Checker(object):
         self.beforeops = beforeops
         self.afterinputargs = afterinputargs
         self.afterops = afterops
+        self.unsat_count = self.unknown_count = 0
 
         self.result_ovf = None
 
@@ -81,7 +99,11 @@ class Checker(object):
 
     def prove(self, cond, *ops):
         z3res = self.solver.check(z3.Not(cond))
-        if z3res == z3.sat:
+        if z3res == z3.unsat:
+            self.unsat_count += 1
+        elif z3res == z3.unknown:
+            self.unknown_count += 1
+        elif z3res == z3.sat:
             # not possible to prove!
             # print some nice stuff
             model = self.solver.model()
@@ -217,6 +239,20 @@ class Checker(object):
                 continue
             elif opname == "label":
                 continue # ignore for now
+            elif opname == "call_pure_i" or opname == "call_i":
+                # only div and mod supported
+                effectinfo = op.getdescr().get_extra_info()
+                oopspecindex = effectinfo.oopspecindex
+                if oopspecindex == EffectInfo.OS_INT_PY_DIV:
+                    arg0 = self.convert(op.getarg(1)) # arg 0 is the function
+                    arg1 = self.convert(op.getarg(2))
+                    expr = z3_pydiv(arg0, arg1)
+                elif oopspecindex == EffectInfo.OS_INT_PY_MOD:
+                    arg0 = self.convert(op.getarg(1)) # arg 0 is the function
+                    arg1 = self.convert(op.getarg(2))
+                    expr = z3_pymod(arg0, arg1)
+                else:
+                    assert 0, "unsupported"
             else:
                 assert 0, "unsupported"
             self.solver.add(res == expr)
@@ -379,8 +415,70 @@ class TestBuggyTestsFail(BaseCheckZ3):
         with pytest.raises(CheckError):
             self.optimize_loop(ops, expected)
 
+
+class CallIntPyModPyDiv(AbstractOperation):
+    def produce_into(self, builder, r):
+        from rpython.jit.backend.test.test_random import getint
+        k = r.random()
+        if k < 0.20:
+            v_second = ConstInt(r.random_integer())
+        else:
+            v_second = r.choice(builder.intvars)
+        while getint(v_second) == 0:
+            v_second = ConstInt(r.random_integer())
+
+        if k > 0.80 and type(v_second) is not ConstInt:
+            v_first = ConstInt(r.random_integer())
+        else:
+            v_first = r.choice(builder.intvars)
+        if r.random() > 0.5:
+            descr = BaseTest.int_py_div_descr
+            res = getint(v_first) // getint(v_second)
+        else:
+            descr = BaseTest.int_py_mod_descr
+            res = getint(v_first) % getint(v_second)
+        ops = builder.loop.operations
+        op = ResOperation(rop.INT_EQ, [v_second, ConstInt(0)])
+        op._example_int = 0
+        ops.append(op)
+
+        op = ResOperation(rop.GUARD_FALSE, [op])
+        op.setdescr(builder.getfaildescr())
+        op.setfailargs(builder.subset_of_intvars(r))
+        ops.append(op)
+
+        op = ResOperation(rop.CALL_PURE_I, [ConstInt(123), v_first, v_second],
+                          descr=descr)
+        op._example_int = res
+        ops.append(op)
+        builder.intvars.append(op)
+
+class RangeCheck(AbstractOperation):
+    def produce_into(self, builder, r):
+        from rpython.jit.backend.test.test_random import getint
+        v_int = r.choice(list(set(builder.intvars) - set(builder.boolvars)))
+        val = getint(v_int)
+        ops = builder.loop.operations
+        bound = r.random_integer()
+        if bound > val:
+            op = ResOperation(rop.INT_LE, [v_int, ConstInt(bound)])
+        else:
+            op = ResOperation(rop.INT_GE, [v_int, ConstInt(bound)])
+        op._example_int = 1
+        ops.append(op)
+
+        op = ResOperation(rop.GUARD_TRUE, [op])
+        op.setdescr(builder.getfaildescr())
+        op.setfailargs(builder.subset_of_intvars(r))
+        ops.append(op)
+
+
+OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I), RangeCheck(None)] * 10
+
+
 class Z3OperationBuilder(OperationBuilder):
     produce_failing_guards = False
+    OPERATIONS = OPERATIONS
 
 class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
     def check_random_function_z3(self, cpu, r, num=None, max=None):
@@ -389,7 +487,7 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
         loop = RandomLoop(cpu, Z3OperationBuilder, r)
         trace = convert_loop_to_trace(loop.loop, self.metainterp_sd)
         compile_data = compile.SimpleCompileData(
-            trace, call_pure_results=None,
+            trace, call_pure_results=self._convert_call_pure_results(None),
             enable_opts=self.enable_opts)
         info, ops = compile_data.optimize_trace(self.metainterp_sd, None, {})
         print info.inputargs
@@ -398,9 +496,10 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
         beforeinputargs, beforeops = trace.unpack()
         # check that the generated trace is correct
         t2 = time.time()
-        check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+        correct, timeout = check_z3(beforeinputargs, beforeops, info.inputargs, ops)
         t3 = time.time()
         print 'generation/optimization [s]:', t2 - t1, 'z3:', t3 - t2, "total:", t3 - t1
+        print 'correct conditions:', correct, 'timed out conditions:', timeout
         if num is not None:
             print '    # passed (%d/%s).' % (num + 1, max)
         else:

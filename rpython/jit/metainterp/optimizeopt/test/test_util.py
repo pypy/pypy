@@ -550,7 +550,7 @@ class BaseTest(LLtypeMixin):
 
     def _convert_call_pure_results(self, d):
         if d is None:
-            return
+            return args_dict()
         call_pure_results = args_dict()
         for k, v in d.items():
             call_pure_results[list(k)] = v
