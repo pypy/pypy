@@ -30,8 +30,8 @@ jobs:
         path: pypy
     - name: install dependencies
       run: |
-        python -m pip install "hypothesis<4.40" rply pdbpp attrs rply setuptools
+        python -m pip install "hypothesis<4.40" rply attrs setuptools z3-solver
         sudo apt install libgc-dev
     - name: Test with pytest
       run: |
-        python pypy/pytest.py -v rpython/jit/metainterp/optimizeopt/ rpython/jit/metainterp/ rpython/jit/codewriter/ rpython/jit/backend/x86/test/test_ztranslation_basic.py
+        python pypy/pytest.py -v rpython/jit/metainterp/ rpython/jit/codewriter/ rpython/jit/backend/x86/test/test_ztranslation_basic.py
