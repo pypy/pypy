@@ -338,6 +338,7 @@ class BaseCheckZ3(BaseTest):
 
 
 class TestBuggyTestsFail(BaseCheckZ3):
+    @pytest.mark.xfail()
     def test_bound_lt_add_before(self, monkeypatch):
         from rpython.jit.metainterp.optimizeopt.intutils import IntBound
         # check that if we recreate the original bug, it fails:
