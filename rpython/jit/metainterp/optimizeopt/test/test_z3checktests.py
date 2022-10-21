@@ -434,9 +434,11 @@ class CallIntPyModPyDiv(AbstractOperation):
         if r.random() > 0.5:
             descr = BaseTest.int_py_div_descr
             res = getint(v_first) // getint(v_second)
+            func = 12
         else:
             descr = BaseTest.int_py_mod_descr
             res = getint(v_first) % getint(v_second)
+            func = 14
         ops = builder.loop.operations
         op = ResOperation(rop.INT_EQ, [v_second, ConstInt(0)])
         op._example_int = 0
@@ -447,8 +449,11 @@ class CallIntPyModPyDiv(AbstractOperation):
         op.setfailargs(builder.subset_of_intvars(r))
         ops.append(op)
 
-        op = ResOperation(rop.CALL_PURE_I, [ConstInt(123), v_first, v_second],
+        op = ResOperation(rop.CALL_PURE_I, [ConstInt(func), v_first, v_second],
                           descr=descr)
+        if not hasattr(builder, "call_pure_results"):
+            builder.call_pure_results = {}
+        builder.call_pure_results[(ConstInt(func), ConstInt(getint(v_first)), ConstInt(getint(v_second)))] = ConstInt(res)
         op._example_int = res
         ops.append(op)
         builder.intvars.append(op)
@@ -487,7 +492,7 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
         loop = RandomLoop(cpu, Z3OperationBuilder, r)
         trace = convert_loop_to_trace(loop.loop, self.metainterp_sd)
         compile_data = compile.SimpleCompileData(
-            trace, call_pure_results=self._convert_call_pure_results(None),
+            trace, call_pure_results=self._convert_call_pure_results(getattr(loop.builder, 'call_pure_results', None)),
             enable_opts=self.enable_opts)
         info, ops = compile_data.optimize_trace(self.metainterp_sd, None, {})
         print info.inputargs
