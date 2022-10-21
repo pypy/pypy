@@ -1867,7 +1867,31 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_knownbits_goal_alignment_simple(self):
+    def test_knownbits_goal_alignment_simple_sub(self):
+        ops = """
+        [i0]
+        ic0 = int_invert(3)
+        i1 = int_and(i0, ic0)
+        i4 = int_and(i1, 1)
+        i5 = int_is_zero(i4)
+        guard_true(i5) []
+        i6 = int_sub(i1, 8)
+        i7 = int_and(i6, 3)
+        i8 = int_is_zero(i7)
+        guard_true(i8) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i1 = int_and(i0, -4)
+        i4 = int_and(i1, 1)
+        i6 = int_sub(i1, 8)
+        i7 = int_and(i6, 3)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_goal_alignment_simple_add(self):
         ops = """
         [i0]
         ic0 = int_invert(3)
@@ -1879,6 +1903,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i7 = int_and(i6, 3)
         i8 = int_is_zero(i7)
         guard_true(i8) []
+        jump(i0)
         """
         expected = """
         [i0]
@@ -1886,6 +1911,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i4 = int_and(i1, 1)
         i6 = int_add(i1, 8)
         i7 = int_and(i6, 3)
+        jump(i0)
         """
         self.optimize_loop(ops, expected)
 
