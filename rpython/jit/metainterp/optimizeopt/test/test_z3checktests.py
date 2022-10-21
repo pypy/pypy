@@ -478,7 +478,7 @@ class RangeCheck(AbstractOperation):
         ops.append(op)
 
 
-OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I), RangeCheck(None)] * 10
+OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I), RangeCheck(None)]
 
 
 class Z3OperationBuilder(OperationBuilder):
