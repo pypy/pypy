@@ -1765,6 +1765,154 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_knownbits_int_or_and(self):
+        ops = """
+        [i1]
+        i2 = int_or(i1, 1)
+        i3 = int_and(i2, 1)
+        escape_i(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_or(i1, 1)
+        i3 = int_and(i2, 1)     # will be removed by dead code elimination
+        escape_i(1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_uint_rshift(self):
+        ops = """
+        [i1]
+        i2 = uint_rshift(i1, 63)
+        i3 = int_and(i2, 14)
+        i4 = int_is_zero(i3)
+        guard_true(i4) []
+        """
+        expected = """
+        [i1]
+        i2 = uint_rshift(i1, 63)
+        i3 = int_and(i2, 14)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_int_rshift_not_optimizable(self):
+        ops = """
+        [i1]
+        i2 = uint_rshift(i1, 512)
+        i3 = int_is_zero(i2)
+        guard_true(i3) []         # <- this should vanish
+        i4 = int_rshift(i1, 512)
+        i5 = int_is_zero(i4)      # <- but we cant know this!
+        guard_true(i5) []
+        """
+        expected = """
+        [i1]
+        i4 = int_rshift(i1, 512)
+        i5 = int_is_zero(i4)      # <- would still be there
+        guard_true(i5) []
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_int_rshift_optimizable(self):
+        ops = """
+        [i1]
+        i2 = uint_rshift(i1, 512)
+        i3 = int_is_zero(i2)
+        guard_true(i3) []         # <- this should vanish
+        i4 = int_rshift(i1, 512)
+        i5 = int_is_zero(i4)      # <- but we cant know this!
+        guard_true(i5) []
+        """
+        expected = """
+        [i1]
+        i4 = int_rshift(i1, 512)
+        i5 = int_is_zero(i4)      # <- ... so it will still be there
+        guard_true(i5) []
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_uint_rshift_and_backwards(self):
+        ops = """
+        [i262]
+        i268 = uint_rshift(i262, 2)
+        i270 = int_and(i268, 1)
+        guard_false(i270) []
+        i4 = int_and(i262, 4)
+        guard_false(i4) []
+        """
+        expected = """
+        [i262]
+        i268 = uint_rshift(i262, 2)
+        i270 = int_and(i268, 1)
+        guard_false(i270) []
+        i4 = int_and(i262, 4)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_int_rshift_and_backwards(self):
+        ops = """
+        [i262]
+        i268 = int_rshift(i262, 2)
+        i270 = int_and(i268, 1)
+        guard_false(i270) []
+        i4 = int_and(i262, 4)
+        guard_false(i4) []
+        """
+        expected = """
+        [i262]
+        i268 = int_rshift(i262, 2)
+        i270 = int_and(i268, 1)
+        guard_false(i270) []
+        i4 = int_and(i262, 4)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_goal_alignment_simple(self):
+        ops = """
+        [i0]
+        ic0 = int_invert(3)
+        i1 = int_and(i0, ic0)
+        i4 = int_and(i1, 1)
+        i5 = int_is_zero(i4)
+        guard_true(i5) []
+        i6 = int_add(i1, 8)
+        i7 = int_and(i6, 3)
+        i8 = int_is_zero(i7)
+        guard_true(i8) []
+        """
+        expected = """
+        [i0]
+        i1 = int_and(i0, -4)
+        i4 = int_and(i1, 1)
+        i6 = int_add(i1, 8)
+        i7 = int_and(i6, 3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_goal_alignment_final(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 3)
+        i3 = int_is_zero(i2)
+        guard_true(i3) []
+        i4 = int_and(i1, 1)
+        i5 = int_is_zero(i4)
+        guard_true(i5) []
+        i6 = int_add(i1, 8)
+        i7 = int_and(i6, 3)
+        i8 = int_is_zero(i7)
+        guard_true(i8) []
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 3)
+        i3 = int_is_zero(i2)
+        guard_true(i3) []
+        i4 = int_and(i1, 1)
+        i6 = int_add(i1, 8)
+        i7 = int_and(i6, 3)
+        """ # TODO: get rid of the final guard_true
+        self.optimize_loop(ops, expected)
 
     def test_bug_dont_use_getint(self):
         ops = """
