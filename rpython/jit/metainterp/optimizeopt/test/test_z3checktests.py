@@ -19,6 +19,7 @@ from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 from rpython.jit.backend.test.test_random import RandomLoop, Random, OperationBuilder, AbstractOperation
 from rpython.jit.backend.llgraph.runner import LLGraphCPU
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.optimizeopt.intutils import MININT, MAXINT
 
 try:
     import z3
@@ -425,13 +426,16 @@ class CallIntPyModPyDiv(AbstractOperation):
             v_second = ConstInt(r.random_integer())
         else:
             v_second = r.choice(builder.intvars)
-        while getint(v_second) == 0:
+        while getint(v_second) == 0: # exclude div by zero
             v_second = ConstInt(r.random_integer())
 
         if k > 0.80 and type(v_second) is not ConstInt:
             v_first = ConstInt(r.random_integer())
         else:
             v_first = r.choice(builder.intvars)
+        while getint(v_second) == -1 and getint(v_first) == MININT: # exclude overflow
+            v_second = ConstInt(r.random_integer())
+
         if r.random() > 0.5:
             descr = BaseTest.int_py_div_descr
             res = getint(v_first) // getint(v_second)
@@ -443,6 +447,23 @@ class CallIntPyModPyDiv(AbstractOperation):
         ops = builder.loop.operations
         op = ResOperation(rop.INT_EQ, [v_second, ConstInt(0)])
         op._example_int = 0
+        ops.append(op)
+
+        op = ResOperation(rop.GUARD_FALSE, [op])
+        op.setdescr(builder.getfaildescr())
+        op.setfailargs(builder.subset_of_intvars(r))
+        ops.append(op)
+
+        op1 = ResOperation(rop.INT_EQ, [v_first, ConstInt(MININT)])
+        op1._example_int = int(getint(v_first) == MININT)
+        ops.append(op1)
+
+        op2 = ResOperation(rop.INT_EQ, [v_second, ConstInt(-1)])
+        op2._example_int = int(getint(v_second) == -1)
+        ops.append(op2)
+
+        op = ResOperation(rop.INT_AND, [op1, op2])
+        op._example_int = 0 # excluded above
         ops.append(op)
 
         op = ResOperation(rop.GUARD_FALSE, [op])
@@ -517,20 +538,21 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
         cpu.supports_floats = False
         cpu.setup_once()
         r = Random()
+        seed = pytest.config.option.randomseed
         try:
             if pytest.config.option.repeat == -1:
                 i = 0
                 while 1:
-                    seed = r.randrange(sys.maxint)
-                    r.seed(seed)
                     self.check_random_function_z3(cpu, r, i)
                     i += 1
+                    seed = r.randrange(sys.maxint)
+                    r.seed(seed)
             else:
                 for i in range(pytest.config.option.repeat):
-                    seed = r.randrange(sys.maxint)
                     r.seed(seed)
                     self.check_random_function_z3(cpu, r, i,
                                              pytest.config.option.repeat)
+                    seed = r.randrange(sys.maxint)
         except Exception as e:
             print "_" * 60
             print "got exception", e
