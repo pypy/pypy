@@ -325,6 +325,7 @@ class IntBound(AbstractInfo):
         else:
             ret = ret_k
             while ret < ret_b:
+                pass
                 # binary search? what about backtracking?
         return ret
 
