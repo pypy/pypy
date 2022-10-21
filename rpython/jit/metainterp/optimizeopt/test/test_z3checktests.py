@@ -2,6 +2,7 @@
 are correct. It uses the z3 SMT solver to check the before/after optimization
 traces for equivalence. Only supports very few operations for now, but would
 have found the buggy tests in d9616aacbd02/issue #3832."""
+import sys
 import pytest
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
@@ -520,19 +521,20 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             if pytest.config.option.repeat == -1:
                 i = 0
                 while 1:
-                    state = r.getstate()
-                    r.setstate(state)
+                    seed = r.randrange(sys.maxint)
+                    r.seed(seed)
                     self.check_random_function_z3(cpu, r, i)
                     i += 1
             else:
                 for i in range(pytest.config.option.repeat):
-                    state = r.getstate()
+                    seed = r.randrange(sys.maxint)
+                    r.seed(seed)
                     self.check_random_function_z3(cpu, r, i,
                                              pytest.config.option.repeat)
         except Exception as e:
             print "_" * 60
             print "got exception", e
-            print "seed was", pytest.config.option.randomseed
+            print "seed was", seed
             print "state:", state
             raise
 

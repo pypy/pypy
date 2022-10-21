@@ -627,9 +627,10 @@ def Random():
     import random
     seed = pytest.config.option.randomseed
     print
-    print 'Random seed value is %d.' % (seed,)
+    print 'Random start seed value is %d.' % (seed,)
     print
-    r = random.Random(seed)
+    r = random.Random()
+    r.seed(seed)
     def get_random_integer():
         while True:
             result = int(r.expovariate(0.05))
