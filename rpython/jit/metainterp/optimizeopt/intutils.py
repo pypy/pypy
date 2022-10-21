@@ -22,7 +22,7 @@ TNUM_ONLY_MASK_UNKNOWN = r_uint(-1)
 TNUM_ONLY_MASK_DEFAULT = TNUM_ONLY_MASK_UNKNOWN
 
 def next_pow2_m1(n):
-    """Calculate next power of 2 greater than n minus one."""
+    """Calculate next power of 2 minus one, greater than n"""
     n |= n >> 1
     n |= n >> 2
     n |= n >> 4
@@ -316,6 +316,20 @@ class IntBound(AbstractInfo):
         """ for internal use only! """
         unsigned_mask = self.tmask & ~msbonly(self.tmask)
         return intmask(self.tvalue | unsigned_mask)
+
+    def get_minimum_signed(self):
+        ret_k = r_uint(self.get_minimum_signed_by_knownbits())
+        ret_b = r_uint(self.minimum)
+        if ret_k >= ret_b:
+            ret = ret_k
+        else:
+            ret = ret_k
+            while ret < ret_b:
+                # binary search? what about backtracking?
+        return ret
+
+    def get_maximum_signed(self):
+        return -self.neg_bound().get_minimum_signed()
 
     def get_minimum_estimation_signed(self):
         """
