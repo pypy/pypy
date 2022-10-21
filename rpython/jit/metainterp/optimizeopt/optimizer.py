@@ -563,8 +563,8 @@ class Optimizer(Optimization):
             if opinfo is not None:
                 assert isinstance(opinfo, IntBound)
                 if opinfo.is_constant():
-                    if not we_are_translated():
-                        import pdb; pdb.set_trace()
+                    #if not we_are_translated():
+                    #    import pdb; pdb.set_trace()
                     op.set_forwarded(ConstInt(opinfo.get_constant_int()))
 
     @specialize.argtype(0)

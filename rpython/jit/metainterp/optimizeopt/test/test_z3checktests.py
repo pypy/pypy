@@ -4,7 +4,7 @@ traces for equivalence. Only supports very few operations for now, but would
 have found the buggy tests in d9616aacbd02/issue #3832."""
 import pytest
 
-from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     BaseTest, convert_old_style_to_targets)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeintbound import (
@@ -69,10 +69,39 @@ class Checker(object):
         self.box_to_z3[box] = result
         return result
 
+    def print_chunk(self, chunk, label, model):
+        print
+        print "=============", label, "=================="
+        for op in chunk:
+            if op in self.box_to_z3:
+                text = "-----> " + hex(intmask(r_uint(int(str(model[self.box_to_z3[op]])))))
+            else:
+                text = ""
+            print op, text
+
     def prove(self, cond, *ops):
         z3res = self.solver.check(z3.Not(cond))
         if z3res == z3.sat:
             # not possible to prove!
+            # print some nice stuff
+            model = self.solver.model()
+            print "ERROR counterexample:"
+            print "inputs:"
+            for beforeinput, afterinput in zip(self.beforeinputargs, self.afterinputargs):
+                print beforeinput, afterinput, hex(int(str(model[self.box_to_z3[beforeinput]])))
+            print "chunks:"
+            for i, chunk in enumerate(self.chunks):
+                beforechunk, beforelast, afterchunk, afterlast = chunk
+                if i == self.chunkindex:
+                    print "vvvvvvvvvvvvvvv Problem vvvvvvvvvvvvvvv"
+                self.print_chunk(beforechunk + [beforelast], "before", model)
+                self.print_chunk(afterchunk + [afterlast], "after", model)
+                print
+                if i == self.chunkindex:
+                    break
+            print "END counterexample"
+
+            # raise error
             l = []
             if ops:
                 l.append("in the following ops:")
@@ -85,7 +114,7 @@ class Checker(object):
             l.append(str(self.solver))
             l.append("_________________")
             l.append("counterexample:")
-            l.append(str(self.solver.model()))
+            l.append(str(model))
             raise CheckError("\n".join(l))
 
     def cond(self, z3expr):
@@ -191,7 +220,7 @@ class Checker(object):
             else:
                 assert 0, "unsupported"
             self.solver.add(res == expr)
-                
+
     def guard_to_condition(self, guard, state):
         opname = guard.getopname()
         if opname == "guard_true":
@@ -238,7 +267,9 @@ class Checker(object):
 
         state_before = State(before=True)
         state_after = State()
-        for beforechunk, beforelast, afterchunk, afterlast in chunk_ops(self.beforeops, self.afterops):
+        self.chunks = list(chunk_ops(self.beforeops, self.afterops))
+        for chunkindex, (beforechunk, beforelast, afterchunk, afterlast) in enumerate(self.chunks):
+            self.chunkindex = chunkindex
             self.add_to_solver(beforechunk, state_before)
             self.add_to_solver(afterchunk, state_after)
             self.check_last(beforelast, state_before, afterlast, state_after)
@@ -257,7 +288,7 @@ def chunk_ops(beforeops, afterops):
             return
         beforechunk, beforelast = up_to_guard(beforeops)
         afterchunk, afterlast = up_to_guard(afterops)
-        while (beforelast is not None and 
+        while (beforelast is not None and
                (afterlast is None or
                 beforelast.rd_resume_position < afterlast.rd_resume_position)):
             beforechunk.append(beforelast)
@@ -305,9 +336,6 @@ class BaseCheckZ3(BaseTest):
         # check that the generated trace is correct
         check_z3(beforeinputargs, beforeops, info.inputargs, ops)
 
-        # check that the expected trace is correct
-        #afterinputargs, afterops = convert_loop_to_trace(self.parse(optops), self.metainterp_sd).unpack()
-        #check_z3(beforeinputargs, beforeops, afterinputargs, afterops)
 
 class TestBuggyTestsFail(BaseCheckZ3):
     def test_bound_lt_add_before(self, monkeypatch):
@@ -356,7 +384,8 @@ class Z3OperationBuilder(OperationBuilder):
 
 class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
     def check_random_function_z3(self, cpu, r, num=None, max=None):
-
+        import time
+        t1 = time.time()
         loop = RandomLoop(cpu, Z3OperationBuilder, r)
         trace = convert_loop_to_trace(loop.loop, self.metainterp_sd)
         compile_data = compile.SimpleCompileData(
@@ -368,9 +397,12 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             print op
         beforeinputargs, beforeops = trace.unpack()
         # check that the generated trace is correct
+        t2 = time.time()
         check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+        t3 = time.time()
+        print 'generation/optimization [s]:', t2 - t1, 'z3:', t3 - t2, "total:", t3 - t1
         if num is not None:
-            print '    # passed (%d/%d).' % (num + 1, max)
+            print '    # passed (%d/%s).' % (num + 1, max)
         else:
             print '    # passed.'
         print
@@ -382,16 +414,19 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
         r = Random()
         try:
             if pytest.config.option.repeat == -1:
+                i = 0
                 while 1:
                     state = r.getstate()
                     r.setstate(state)
-                    self.check_random_function_z3(cpu, r)
+                    self.check_random_function_z3(cpu, r, i)
+                    i += 1
             else:
                 for i in range(pytest.config.option.repeat):
                     state = r.getstate()
                     self.check_random_function_z3(cpu, r, i,
                                              pytest.config.option.repeat)
         except Exception as e:
+            print "_" * 60
             print "got exception", e
             print "seed was", pytest.config.option.randomseed
             print "state:", state
