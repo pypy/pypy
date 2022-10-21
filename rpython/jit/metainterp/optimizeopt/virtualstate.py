@@ -513,6 +513,8 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
             elif info.is_nonnull():
                 self.level = LEVEL_NONNULL
             self.lenbound = info.getlenbound(None)
+            if self.lenbound is not None:
+                self.lenbound = self.lenbound.widen()
         # might set it to LEVEL_CONSTANT
         NotVirtualStateInfo.__init__(self, cpu, type, info)
 
