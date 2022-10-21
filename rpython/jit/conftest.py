@@ -38,5 +38,5 @@ def pytest_addoption(parser):
                     default="", dest="output",
                     help="dump output to a file")
     group.addoption('--z3-timeout', action="store", type=int,
-                    default=0, dest="z3timeout",
+                    default=500, dest="z3timeout",
                     help="give timeout that Z3 should use for proving in milliseconds per condition")
