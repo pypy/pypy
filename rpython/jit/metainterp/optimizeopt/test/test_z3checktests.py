@@ -426,14 +426,16 @@ class CallIntPyModPyDiv(AbstractOperation):
             v_second = ConstInt(r.random_integer())
         else:
             v_second = r.choice(builder.intvars)
-        while getint(v_second) == 0: # exclude div by zero
-            v_second = ConstInt(r.random_integer())
 
         if k > 0.80 and type(v_second) is not ConstInt:
             v_first = ConstInt(r.random_integer())
         else:
             v_first = r.choice(builder.intvars)
-        while getint(v_second) == -1 and getint(v_first) == MININT: # exclude overflow
+        # exclude overflow and div by zero
+        while ((
+                getint(v_second) == -1 and getint(v_first) == MININT)
+                or getint(v_second) == 0
+        ):
             v_second = ConstInt(r.random_integer())
 
         if r.random() > 0.5:
