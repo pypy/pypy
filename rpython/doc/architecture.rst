@@ -96,7 +96,7 @@ This process is described in much more detail in the :doc:`document about
 the RPython toolchain <translation>` and in the paper `Compiling dynamic language
 implementations`_.
 
-.. _Compiling dynamic language implementations: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _Compiling dynamic language implementations: https://foss.heptapod.net/pypy/extradoc/-/tree/branch/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 Further reading
 ---------------
@@ -117,5 +117,5 @@ Further reading
  * A tutorial of how to use the :doc:`RPython toolchain <translation>` to `implement your own
    interpreter`_.
 
-.. _PyPy's approach to virtual machine construction: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf
-.. _implement your own interpreter: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
+.. _PyPy's approach to virtual machine construction: https://foss.heptapod.net/pypy/extradoc/-/tree/branch/extradoc/talk/dls2006/pypy-vm-construction.pdf
+.. _implement your own interpreter: https://www.pypy.org/posts/2011/04/tutorial-writing-interpreter-with-pypy-3785910476193156295.html
