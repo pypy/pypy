@@ -24,15 +24,16 @@ eci = ExternalCompilationInfo(
     separate_module_files=[
         SRC_DIR.join('bridge.c'),
         SRC_DIR.join('hpyerr.c'),
-        #
         # <debug mode>
         SRC_DIR.join('dctx.c'),
         DEBUG_DIR.join('debug_ctx.c'),
         DEBUG_DIR.join('debug_ctx_not_cpython.c'),
         DEBUG_DIR.join('debug_handles.c'),
+        DEBUG_DIR.join('stacktrace.c'),
         DEBUG_DIR.join('_debugmod.c'),
         DEBUG_DIR.join('autogen_debug_wrappers.c'),
         DEBUG_DIR.join('dhqueue.c'),
+        DEBUG_DIR.join('memprotect.c'),
         BASE_DIR.join('src', 'runtime', 'ctx_tracker.c'),
         # </debug mode>
     ],
@@ -69,6 +70,16 @@ typedef struct _HPyTracker_s {
     HPy_ssize_t _i;
 } _struct_HPyTracker_s;
 typedef HPy_ssize_t HPyTracker;
+
+typedef struct _HPyField_s {
+    HPy_ssize_t _i;
+} _struct_HPyField_s;
+typedef HPy_ssize_t HPyField;
+
+typedef struct _HPyGlobal_s {
+    HPy_ssize_t _i;
+} _struct_HPyGlobal_s;
+typedef HPy_ssize_t HPyGlobal;
 
 typedef struct _HPyContext_s {
     const char *name; // used just to make debugging and testing easier
@@ -145,7 +156,9 @@ typedef struct _HPyContext_s {
     struct _HPy_s h_ResourceWarning;
     struct _HPy_s h_BaseObjectType;
     struct _HPy_s h_TypeType;
+    struct _HPy_s h_BoolType;
     struct _HPy_s h_LongType;
+    struct _HPy_s h_FloatType;
     struct _HPy_s h_UnicodeType;
     struct _HPy_s h_TupleType;
     struct _HPy_s h_ListType;
@@ -166,6 +179,8 @@ typedef struct _HPyContext_s {
     void * ctx_Long_AsUnsignedLongLongMask;
     void * ctx_Long_AsSize_t;
     void * ctx_Long_AsSsize_t;
+    void * ctx_Long_AsVoidPtr;
+    void * ctx_Long_AsDouble;
     void * ctx_Float_FromDouble;
     void * ctx_Float_AsDouble;
     void * ctx_Bool_FromLong;
@@ -210,11 +225,16 @@ typedef struct _HPyContext_s {
     void * ctx_FatalError;
     void * ctx_Err_SetString;
     void * ctx_Err_SetObject;
+    void * ctx_Err_SetFromErrnoWithFilename;
+    void * ctx_Err_SetFromErrnoWithFilenameObjects;
     void * ctx_Err_Occurred;
+    void * ctx_Err_ExceptionMatches;
     void * ctx_Err_NoMemory;
     void * ctx_Err_Clear;
     void * ctx_Err_NewException;
     void * ctx_Err_NewExceptionWithDoc;
+    void * ctx_Err_WarnEx;
+    void * ctx_Err_WriteUnraisable;
     void * ctx_IsTrue;
     void * ctx_Type_FromSpec;
     void * ctx_Type_GenericNew;
@@ -227,6 +247,7 @@ typedef struct _HPyContext_s {
     void * ctx_GetItem;
     void * ctx_GetItem_i;
     void * ctx_GetItem_s;
+    void * ctx_Contains;
     void * ctx_SetItem;
     void * ctx_SetItem_i;
     void * ctx_SetItem_s;
@@ -252,10 +273,17 @@ typedef struct _HPyContext_s {
     void * ctx_Bytes_FromStringAndSize;
     void * ctx_Unicode_FromString;
     void * ctx_Unicode_Check;
+    void * ctx_Unicode_AsASCIIString;
+    void * ctx_Unicode_AsLatin1String;
     void * ctx_Unicode_AsUTF8String;
     void * ctx_Unicode_AsUTF8AndSize;
     void * ctx_Unicode_FromWideChar;
     void * ctx_Unicode_DecodeFSDefault;
+    void * ctx_Unicode_DecodeFSDefaultAndSize;
+    void * ctx_Unicode_EncodeFSDefault;
+    void * ctx_Unicode_ReadChar;
+    void * ctx_Unicode_DecodeASCII;
+    void * ctx_Unicode_DecodeLatin1;
     void * ctx_List_Check;
     void * ctx_List_New;
     void * ctx_List_Append;
@@ -267,7 +295,6 @@ typedef struct _HPyContext_s {
     void * ctx_FromPyObject;
     void * ctx_AsPyObject;
     void * ctx_CallRealFunctionFromTrampoline;
-    void * ctx_CallDestroyAndThenDealloc;
     void * ctx_ListBuilder_New;
     void * ctx_ListBuilder_Set;
     void * ctx_ListBuilder_Build;
@@ -280,6 +307,12 @@ typedef struct _HPyContext_s {
     void * ctx_Tracker_Add;
     void * ctx_Tracker_ForgetAll;
     void * ctx_Tracker_Close;
+    void * ctx_Field_Store;
+    void * ctx_Field_Load;
+    void * ctx_ReenterPythonExecution;
+    void * ctx_LeavePythonExecution;
+    void * ctx_Global_Store;
+    void * ctx_Global_Load;
     void * ctx_Dump;
 } _struct_HPyContext_s;
 
@@ -291,18 +324,20 @@ typedef int HPyFunc_Signature;
 
 /* hpydef.h */
 
+typedef void* (*HPyCFunction)(void);
+
 typedef struct {
     HPySlot_Slot slot;     // The slot to fill
-    void *impl;            // Function pointer to the implementation
+    HPyCFunction impl;     // Function pointer to the implementation
     void *cpy_trampoline;  // Used by CPython to call impl
 } HPySlot;
 
 typedef struct {
     const char *name;             // The name of the built-in function/method
-    const char *doc;              // The __doc__ attribute, or NULL
-    void *impl;                   // Function pointer to the implementation
+    HPyCFunction impl;            // Function pointer to the implementation
     void *cpy_trampoline;         // Used by CPython to call impl
     HPyFunc_Signature signature;  // Indicates impl's expected the signature
+    const char *doc;              // The __doc__ attribute, or NULL
 } HPyMeth;
 
 typedef enum {
@@ -394,12 +429,11 @@ typedef struct {
 typedef void cpy_PyMethodDef;
 
 typedef struct {
-    void *dummy; // this is needed because we put a comma after HPyModuleDef_HEAD_INIT :(
-    const char* m_name;
-    const char* m_doc;
-    HPy_ssize_t m_size;
+    const char* name;
+    const char* doc;
+    HPy_ssize_t size;
     cpy_PyMethodDef *legacy_methods;
-    HPyDef **defines;
+    HPyDef **defines;   /* points to an array of 'HPyDef *' */
 } HPyModuleDef;
 
 /* hpytype.h */
@@ -465,6 +499,7 @@ typedef struct {
     void *internal;
 } HPy_buffer;
 
+typedef int (*HPyFunc_visitproc)(HPyField *, void *);
 
 /* autogen_hpyfunc_declare.h */
 
@@ -500,7 +535,13 @@ typedef int (*HPyFunc_setter)(HPyContext *ctx, HPy, HPy, void *);
 typedef int (*HPyFunc_objobjproc)(HPyContext *ctx, HPy, HPy);
 typedef int (*HPyFunc_getbufferproc)(HPyContext *ctx, HPy, HPy_buffer *, int);
 typedef void (*HPyFunc_releasebufferproc)(HPyContext *ctx, HPy, HPy_buffer *);
+typedef int (*HPyFunc_traverseproc)(void *object, HPyFunc_visitproc visit, void *arg);
 typedef void (*HPyFunc_destroyfunc)(void *);
+
+/* hpy.h */
+
+struct _HPyThreadState { intptr_t _i; };
+typedef intptr_t HPyThreadState;
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in
@@ -539,14 +580,17 @@ HPyFunc_O        = 4
 # }
 
 HPyType_SpecParam_Kind = cts.gettype('HPyType_SpecParam_Kind')
+HPyThreadState = cts.gettype("HPyThreadState")
 
 HPy_TPFLAGS_INTERNAL_PURE = (1 << 8)
+HPy_TPFLAGS_HAVE_GC =  1 << 14
 
 # HPy API functions which are implemented directly in C
-pypy_HPy_FatalError = rffi.llexternal('pypy_HPy_FatalError',
-                                      [HPyContext, rffi.CCHARP],
-                                      lltype.Void,
-                                      compilation_info=eci, _nowrapper=True)
+pypy_HPy_FatalError = rffi.llexternal(
+        'pypy_HPy_FatalError',
+        [HPyContext, rffi.CCHARP],
+        lltype.Void,
+        compilation_info=eci, _nowrapper=True)
 
 # debug mode
 hpy_debug_get_ctx = rffi.llexternal(

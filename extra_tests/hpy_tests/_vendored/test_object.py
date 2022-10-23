@@ -461,6 +461,55 @@ class TestObject(HPyTest):
         assert mod.f([5,6,7,8]) == 4
         assert mod.f({"a": 1}) == 1
 
+    def test_contains(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
+            {
+                int result = HPy_Contains(ctx, args[0], args[1]);
+                if (result == -1) {
+                    return HPy_NULL;
+                }
+                return HPyLong_FromLong(ctx, result);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+
+        class WithContains:
+            def __contains__(self, item):
+                return item == 42
+
+        class WithIter:
+            def __iter__(self):
+                return [1, 2, 3].__iter__()
+
+        class WithGetitem:
+            def __getitem__(self, item):
+                if item > 3:
+                    raise IndexError()
+                else:
+                    return item
+
+        class Dummy:
+            pass
+
+        assert mod.f([5, 6, 42, 7, 8], 42)
+        assert not mod.f([5, 6, 42, 7, 8], 4)
+
+        assert mod.f(WithContains(), 42)
+        assert not mod.f(WithContains(), 1)
+
+        assert mod.f(WithIter(), 2)
+        assert not mod.f(WithIter(), 33)
+
+        assert mod.f(WithGetitem(), 2)
+        assert not mod.f(WithGetitem(), 33)
+
+        import pytest
+        with pytest.raises(TypeError):
+            mod.f(Dummy(), 42)
+
     def test_dump(self):
         # _HPy_Dump is supposed to be used e.g. inside a gdb session: it
         # prints various about the given handle to stdout, and it's

@@ -2,7 +2,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rutf8
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
-from pypy.module._hpy_universal.handlemanager import FreeNonMovingBuffer
 
 @API.func("int HPyBytes_Check(HPyContext *ctx, HPy h)", error_value='CANNOT_FAIL')
 def HPyBytes_Check(space, handles, ctx, h):
@@ -46,7 +45,7 @@ def HPyBytes_FromStringAndSize(space, handles, ctx, char_p, length):
         )
     if length < 0:
         raise oefmt(space.w_SystemError,
-                    "Negative size passed to PyBytes_FromStringAndSize")
+                    "Negative size passed to HPyBytes_FromStringAndSize")
     s = rffi.constcharpsize2str(char_p, length)
     w_bytes = space.newbytes(s)
     return handles.new(w_bytes)

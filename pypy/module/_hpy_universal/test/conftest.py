@@ -89,8 +89,3 @@ def make_hpy_apptest(collector, name, cls):
     setattr(collector.obj, appname, appcls)
     return appname
 
-@pytest.fixture
-def hpy_debug():
-    # we don't want run the leak detector in applevel test, so we override
-    # this fixture to disable it
-    return None

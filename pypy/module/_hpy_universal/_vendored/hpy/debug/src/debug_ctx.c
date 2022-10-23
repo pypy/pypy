@@ -36,6 +36,9 @@ int hpy_debug_ctx_init(HPyContext *dctx, HPyContext *uctx)
     info->current_generation = 0;
     info->uh_on_invalid_handle = HPy_NULL;
     info->closed_handles_queue_max_size = DEFAULT_CLOSED_HANDLES_QUEUE_MAX_SIZE;
+    info->protected_raw_data_max_size = DEFAULT_PROTECTED_RAW_DATA_MAX_SIZE;
+    info->handle_alloc_stacktrace_limit = 0;
+    info->protected_raw_data_size = 0;
     DHQueue_init(&info->open_handles);
     DHQueue_init(&info->closed_handles);
     dctx->_private = info;
@@ -116,6 +119,27 @@ void debug_ctx_Close(HPyContext *dctx, DHPy dh)
     HPy_Close(get_info(dctx)->uctx, uh);
 }
 
+const char *debug_ctx_Unicode_AsUTF8AndSize(HPyContext *dctx, DHPy h, HPy_ssize_t *size)
+{
+    const char *ptr = HPyUnicode_AsUTF8AndSize(get_info(dctx)->uctx, DHPy_unwrap(dctx, h), size);
+    DebugHandle *handle = as_DebugHandle(h);
+    HPy_ssize_t data_size;
+    char* new_ptr;
+    if (ptr != NULL)
+    {
+        data_size = size != NULL ? *size + 1 : (HPy_ssize_t) strlen(ptr) + 1;
+        new_ptr = (char*) raw_data_copy(ptr, data_size, true);
+    }
+    else
+    {
+        data_size = 0;
+        new_ptr = NULL;
+    }
+    handle->associated_data = new_ptr;
+    handle->associated_data_size = data_size;
+    return new_ptr;
+}
+
 DHPy debug_ctx_Tuple_FromArray(HPyContext *dctx, DHPy dh_items[], HPy_ssize_t n)
 {
     UHPy *uh_items = (UHPy *)alloca(n * sizeof(UHPy));
@@ -162,7 +186,7 @@ DHPy debug_ctx_Type_FromSpec(HPyContext *dctx, HPyType_Spec *spec, HPyType_SpecP
    This is a bit special and it's worth explaining what is going on.
 
    The HPyTracker functions need their own debug mode implementation because
-   the debug moe needs to be aware of when a DHPy is closed, for the same
+   the debug mode needs to be aware of when a DHPy is closed, for the same
    reason for why we need debug_ctx_Close.
 
    So, in theory here we should have our own implementation of a

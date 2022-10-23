@@ -49,6 +49,7 @@ class TestLong(HPyTest):
 
     def test_Long_AsLong(self):
         import pytest
+        import sys
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
@@ -64,7 +65,8 @@ class TestLong(HPyTest):
         assert mod.f(45) == 90
         with pytest.raises(TypeError):
             mod.f("this is not a number")
-        assert mod.f(self.magic_int(2)) == 4
+        if sys.version_info < (3, 10):
+            assert mod.f(self.magic_int(2)) == 4
         if self.python_supports_magic_index():
             assert mod.f(self.magic_index(2)) == 4
 
@@ -107,6 +109,7 @@ class TestLong(HPyTest):
 
     def test_Long_AsUnsignedLongMask(self):
         import pytest
+        import sys
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
@@ -123,7 +126,8 @@ class TestLong(HPyTest):
         assert mod.f(-1) == 2**self.unsigned_long_bits() - 1
         with pytest.raises(TypeError):
             mod.f("this is not a number")
-        assert mod.f(self.magic_int(2)) == 2
+        if sys.version_info < (3, 10):
+            assert mod.f(self.magic_int(2)) == 2
         if self.python_supports_magic_index():
             assert mod.f(self.magic_index(2)) == 2
 
@@ -143,6 +147,7 @@ class TestLong(HPyTest):
 
     def test_Long_AsLongLong(self):
         import pytest
+        import sys
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
@@ -159,7 +164,8 @@ class TestLong(HPyTest):
         assert mod.f(-2147483648) == -2147483648
         with pytest.raises(TypeError):
             mod.f("this is not a number")
-        assert mod.f(self.magic_int(2)) == 2
+        if sys.version_info < (3, 10):
+            assert mod.f(self.magic_int(2)) == 2
         if self.python_supports_magic_index():
             assert mod.f(self.magic_index(2)) == 2
 
@@ -203,6 +209,7 @@ class TestLong(HPyTest):
 
     def test_Long_AsUnsignedLongLongMask(self):
         import pytest
+        import sys
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
@@ -219,7 +226,8 @@ class TestLong(HPyTest):
         assert mod.f(-1) == 2**64 - 1
         with pytest.raises(TypeError):
             mod.f("this is not a number")
-        assert mod.f(self.magic_int(2)) == 2
+        if sys.version_info < (3, 10):
+            assert mod.f(self.magic_int(2)) == 2
         if self.python_supports_magic_index():
             assert mod.f(self.magic_index(2)) == 2
 
@@ -296,3 +304,39 @@ class TestLong(HPyTest):
             mod.f(self.magic_int(2))
         with pytest.raises(TypeError):
             mod.f(self.magic_index(2))
+
+    def test_Long_AsVoidPtr(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "is_null", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy val)
+            {
+                void* ptr = HPyLong_AsVoidPtr(ctx, val);
+                if (!ptr) {
+                    return HPy_Dup(ctx, ctx->h_True);
+                } else {
+                    return HPy_Dup(ctx, ctx->h_False);
+                }
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.is_null(0) == True
+        assert mod.is_null(10) == False
+
+    def test_Long_AsDouble(self):
+        import pytest
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                double a = HPyLong_AsDouble(ctx, arg);
+                if (a == -1.0 && HPyErr_Occurred(ctx))
+                    return HPy_NULL;
+                return HPyFloat_FromDouble(ctx, a);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f(45) == 45.0
+        with pytest.raises(TypeError):
+            mod.f("this is not a number")
