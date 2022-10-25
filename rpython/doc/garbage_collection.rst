@@ -19,7 +19,7 @@ to that file for an old, but still more or less accurate, description.
 The present document describes the specific garbage collectors that we
 wrote in our framework.
 
-.. _EU-report on this topic: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
+.. _EU-report on this topic: https://foss.heptapod.net/pypy/extradoc/-/tree/branch/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
 
 
 Garbage collectors currently written for the GC framework

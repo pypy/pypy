@@ -208,7 +208,8 @@ experiments can be done for the general purpose. Examples:
 STM (Software Transactional Memory)
 -----------------------------------
 
-This is work in progress.  Besides the main development path, whose goal is
+This was an experiment that we stopped developing.  Besides the main
+development path, whose goal is
 to make a (relatively fast) version of pypy which includes STM, there are
 independent topics that can already be experimented with on the existing,
 JIT-less pypy-stm version:
@@ -254,24 +255,15 @@ Interfacing with C
 ------------------
 
 While we could make ``cpyext`` faster_, we would also like to explore other
-ideas. It seems cffi is only appropriate for small to medium-sized extensions,
-and it is hard to imagine NumPy abandoning the C-API. Here are a few ideas:
+ideas. While cffi is appropriate for small to medium-sized extensions, HPy
+seems to be the way forward for Python C-extensions. Here are a few ideas:
+* Help `HPy` and port projects to it
 * Extend Cython to have a backend that can be understood by the JIT
 * Collaborate with C-extension authors to ensure full PyPy support (see below)
 * Put PyPy compatible packages on PyPI and in conda
 
-
-.. _faster: https://morepypy.blogspot.com/2018/09#next-steps
-
-Support more platforms
-----------------------
-
-We have a plan for a `Windows 64`_ port. There is progress on the ``win64``
-branch. Help is needed to continue the work. Stage I is complete: we now have
-a 64-bit PyPy2.7 on windows. But it is missing cpyext and other tidbits to
-enable releasing it.
-
-.. _`Windows 64`: windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _faster: https://www.pypy.org/posts/2018/09/inside-cpyext-why-emulating-cpython-c-8083064623681286567.html
+.. _HPy: https://hpyproject/hpy/
 
 ======================================
 Make more python modules pypy-friendly
@@ -314,9 +306,7 @@ good work that needs to be finished:
 
 **pygame** https://github.com/CTPUG/pygame_cffi
 
-    Status: see blog post <https://morepypy.blogspot.com/2014/03/pygamecffi-pygame-on-pypy.html>
-
-    TODO: see the end of the blog post
+    Status: Last release was in 2017
 
 Work has begun on HPy_ to enable a faster C-API.
 

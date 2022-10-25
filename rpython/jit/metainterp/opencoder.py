@@ -28,6 +28,7 @@ class Model:
     INIT_SIZE = 30000
     MIN_VALUE = 0
     MAX_VALUE = 2**16 - 1
+    MAX_TRACE_LIMIT = 2 ** 14
 
 class BigModel:
     INIT_SIZE = 30000
@@ -35,6 +36,7 @@ class BigModel:
     MIN_VALUE = 0
     MAX_VALUE = int(2**31 - 1)   # we could go to 2**32-1 on 64-bit, but
                                  # that seems already far too huge
+    MAX_TRACE_LIMIT = 2 ** 29
 
 def get_model(self):
     return _get_model(self.metainterp_sd)
