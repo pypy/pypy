@@ -780,6 +780,8 @@ class IntBound(AbstractInfo):
         integer contains the given `val`ue.
         """
 
+        assert not isinstance(val, IntBound)
+
         if not we_are_translated():
             assert not isinstance(val, long)
         if not isinstance(val, int):
