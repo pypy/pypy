@@ -302,6 +302,9 @@ class WarmEnterState(object):
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.retrace_limit = value
 
+    def set_param_pureop_historylength(self, value):
+        self.pureop_historylength = value
+
     def set_param_max_retrace_guards(self, value):
         if self.warmrunnerdesc:
             if self.warmrunnerdesc.memory_manager:
