@@ -34,4 +34,4 @@ jobs:
         sudo apt install libgc-dev
     - name: Test with pytest
       run: |
-        python pypy/pytest.py -v rpython/jit/metainterp/ rpython/jit/codewriter/ rpython/jit/backend/x86/test/test_ztranslation_basic.py
+        python pypy/pytest.py -v rpython/jit/metainterp/ rpython/jit/codewriter/ rpython/jit/backend/x86/test/test_ztranslation_basic.py --z3-timeout=3000
