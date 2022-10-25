@@ -1771,12 +1771,14 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i2 = int_or(i1, 1)
         i3 = int_and(i2, 1)
         escape_i(i3)
+        jump(i1)
         """
         expected = """
         [i1]
         i2 = int_or(i1, 1)
         i3 = int_and(i2, 1)     # will be removed by dead code elimination
         escape_i(1)
+        jump(i1)
         """
         self.optimize_loop(ops, expected)
 
@@ -1787,11 +1789,13 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i3 = int_and(i2, 14)
         i4 = int_is_zero(i3)
         guard_true(i4) []
+        jump(i1)
         """
         expected = """
         [i1]
         i2 = uint_rshift(i1, 63)
         i3 = int_and(i2, 14)
+        jump(i1)
         """
         self.optimize_loop(ops, expected)
 
@@ -1839,6 +1843,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_false(i270) []
         i4 = int_and(i262, 4)
         guard_false(i4) []
+        jump(i262)
         """
         expected = """
         [i262]
@@ -1846,6 +1851,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i270 = int_and(i268, 1)
         guard_false(i270) []
         i4 = int_and(i262, 4)
+        jump(i262)
         """
         self.optimize_loop(ops, expected)
 
@@ -1857,6 +1863,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_false(i270) []
         i4 = int_and(i262, 4)
         guard_false(i4) []
+        jump(i262)
         """
         expected = """
         [i262]
@@ -1864,6 +1871,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i270 = int_and(i268, 1)
         guard_false(i270) []
         i4 = int_and(i262, 4)
+        jump(i262)
         """
         self.optimize_loop(ops, expected)
 
@@ -1928,6 +1936,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i7 = int_and(i6, 3)
         i8 = int_is_zero(i7)
         guard_true(i8) []
+        jump(i1)
         """
         expected = """
         [i1]
@@ -1937,7 +1946,8 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i4 = int_and(i1, 1)
         i6 = int_add(i1, 8)
         i7 = int_and(i6, 3)
-        """ # TODO: get rid of the final guard_true
+        jump(i1)
+        """
         self.optimize_loop(ops, expected)
 
     def test_bug_dont_use_getint(self):
