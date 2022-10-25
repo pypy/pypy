@@ -34,16 +34,17 @@ class CallPureOptimizationResult(OptimizationResult):
 
 
 class RecentPureOps(object):
-    REMEMBER_LIMIT = 16
-
-    def __init__(self):
-        self.lst = [None] * self.REMEMBER_LIMIT
+    def __init__(self, limit=16):
+        self.lst = [None] * limit
         self.next_index = 0
 
     def add(self, op):
         assert isinstance(op, AbstractResOp)
         next_index = self.next_index
-        self.next_index = (next_index + 1) % self.REMEMBER_LIMIT
+        new = next_index + 1
+        if new == len(self.lst):
+            new = 0
+        self.next_index = new
         self.lst[next_index] = op
 
     def force_preamble_op(self, opt, op, i):
@@ -54,7 +55,7 @@ class RecentPureOps(object):
         return op
 
     def lookup1(self, opt, box0, descr):
-        for i in range(self.REMEMBER_LIMIT):
+        for i in range(len(self.lst)):
             op = self.lst[i]
             if op is None:
                 break
@@ -64,7 +65,7 @@ class RecentPureOps(object):
         return None
 
     def lookup2(self, opt, box0, box1, descr):
-        for i in range(self.REMEMBER_LIMIT):
+        for i in range(len(self.lst)):
             op = self.lst[i]
             if op is None:
                 break
@@ -150,7 +151,8 @@ class OptPure(Optimization):
         assert 0 <= opnum < len(self._pure_operations)
         recentops = self._pure_operations[opnum]
         if recentops is None:
-            self._pure_operations[opnum] = recentops = RecentPureOps()
+            length = self.optimizer.jitdriver_sd.warmstate.pureop_historylength
+            self._pure_operations[opnum] = recentops = RecentPureOps(length)
         return recentops
 
     def optimize_call_pure(self, op, start_index=0):
