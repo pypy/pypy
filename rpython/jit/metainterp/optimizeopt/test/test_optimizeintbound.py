@@ -2164,8 +2164,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
-
-class TestComplexIntOpts(BaseTestBasic):
     def test_intdiv_bounds(self):
         ops = """
         [i0, i1]
@@ -2185,6 +2183,50 @@ class TestComplexIntOpts(BaseTestBasic):
         jump(i3, i1)
         """
         self.optimize_loop(ops, expected)
+
+    def test_intmod_bounds2(self):
+        # same as above (2nd case), but all guards are shifted by one so
+        # that they must stay
+        ops = """
+        [i9, i1]
+        i5 = call_pure_i(321, i1, -12, descr=int_py_mod_descr)
+        i6 = int_le(i5, -11)
+        guard_false(i6) []
+        i7 = int_gt(i5, -1)
+        guard_false(i7) []
+        jump(i5)
+        """
+        self.optimize_loop(ops, ops.replace('call_pure_i', 'call_i'))
+
+    def test_intmod_bounds_bug1(self):
+        ops = """
+        [i0]
+        i1 = call_pure_i(321, i0, %d, descr=int_py_mod_descr)
+        i2 = int_eq(i1, 0)
+        guard_false(i2) []
+        finish()
+        """ % (-(1<<(LONG_BIT-1)),)
+        self.optimize_loop(ops, ops.replace('call_pure_i', 'call_i'))
+
+
+    def test_intmod_pow2(self):
+        # 'n % power-of-two' can always be turned into int_and(), even
+        # if n is possibly negative.  That's by we handle 'int_py_mod'
+        # and not C-like mod.
+        ops = """
+        [i0]
+        i1 = call_pure_i(321, i0, 8, descr=int_py_mod_descr)
+        finish(i1)
+        """
+        expected = """
+        [i0]
+        i1 = int_and(i0, 7)
+        finish(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+
+class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):
         ops = """
@@ -2215,45 +2257,6 @@ class TestComplexIntOpts(BaseTestBasic):
         jump(i2, i5)
         """ % (63 if MAXINT > 2**32 else 31, intmask(kk), ii)
         self.optimize_loop(ops, expected)
-
-        # same as above (2nd case), but all guards are shifted by one so
-        # that they must stay
-        ops = """
-        [i9]
-        i1 = escape_i()
-        i5 = call_pure_i(321, i1, -12, descr=int_py_mod_descr)
-        i6 = int_le(i5, -11)
-        guard_false(i6) []
-        i7 = int_gt(i5, -1)
-        guard_false(i7) []
-        jump(i5)
-        """
-        self.optimize_loop(ops, ops.replace('call_pure_i', 'call_i'))
-
-        # 'n % power-of-two' can always be turned into int_and(), even
-        # if n is possibly negative.  That's by we handle 'int_py_mod'
-        # and not C-like mod.
-        ops = """
-        [i0]
-        i1 = call_pure_i(321, i0, 8, descr=int_py_mod_descr)
-        finish(i1)
-        """
-        expected = """
-        [i0]
-        i1 = int_and(i0, 7)
-        finish(i1)
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_intmod_bounds_bug1(self):
-        ops = """
-        [i0]
-        i1 = call_pure_i(321, i0, %d, descr=int_py_mod_descr)
-        i2 = int_eq(i1, 0)
-        guard_false(i2) []
-        finish()
-        """ % (-(1<<(LONG_BIT-1)),)
-        self.optimize_loop(ops, ops.replace('call_pure_i', 'call_i'))
 
     def test_mul_ovf_before(self):
         ops = """

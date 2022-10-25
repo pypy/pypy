@@ -627,9 +627,10 @@ def Random():
     import random
     seed = pytest.config.option.randomseed
     print
-    print 'Random seed value is %d.' % (seed,)
+    print 'Random start seed value is %d.' % (seed,)
     print
-    r = random.Random(seed)
+    r = random.Random()
+    r.seed(seed)
     def get_random_integer():
         while True:
             result = int(r.expovariate(0.05))
@@ -681,17 +682,19 @@ class RandomLoop(object):
         self.output = output
         if startvars is None:
             startvars = []
+            # vary the number of startvars, between 1 and n_vars
+            n_vars = r.randrange(pytest.config.option.n_vars) + 1
             if cpu.supports_floats:
                 # pick up a single threshold for the whole 'inputargs', so
                 # that some loops have no or mostly no FLOATs while others
                 # have a lot of them
                 k = r.random()
                 # but make sure there is at least one INT
-                at_least_once = r.randrange(0, pytest.config.option.n_vars)
+                at_least_once = r.randrange(n_vars)
             else:
                 k = -1
                 at_least_once = 0
-            for i in range(pytest.config.option.n_vars):
+            for i in range(n_vars):
                 if r.random() < k and i != at_least_once:
                     startvars.append(InputArgFloat(r.random_float_storage()))
                 else:
@@ -742,7 +745,8 @@ class RandomLoop(object):
                                                       loop._targettoken))
 
     def generate_ops(self, builder, r, loop, startvars, needs_a_label=False):
-        block_length = pytest.config.option.block_length
+        block_length = pytest.config.option.block_length // 2
+        block_length += int(r.expovariate(1.0 / block_length))
         istart = 0
 
         for i in range(block_length):
