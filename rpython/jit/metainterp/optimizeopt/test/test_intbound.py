@@ -1122,15 +1122,12 @@ def test_knownbits_sub_concrete_example():
             0b001100)           # ???1
     b1 = 3                      # ------
     r1 = a1.add(intmask(-b1))   # ????10 = {34,38,42,46,...}
+    # bounds of a1 == [33, 45]; bounds of r1 == [30; 42]
     assert not r1.is_constant()
-    assert r1.contains(0b100010)
-    assert r1.contains(0b000110)
-    assert r1.contains(0b101010)
-    assert r1.contains(0b001110)
-    assert r1.contains(0b110010)
-    assert r1.contains(0b010110)
-    assert r1.contains(0b111010)
     assert r1.contains(0b011110)
+    assert r1.contains(0b100010)
+    assert r1.contains(0b100110)
+    assert r1.contains(0b101010)
 
 def test_knownbits_and_backwards_otherconst_examples():
     x = IntUnbounded()          # ?...?
