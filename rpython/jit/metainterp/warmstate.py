@@ -265,6 +265,10 @@ class WarmEnterState(object):
         self.increment_trace_eagerness = self._compute_threshold(value)
 
     def set_param_trace_limit(self, value):
+        if value < 0:
+            raise ValueError
+        if value > self.warmrunnerdesc.metainterp_sd.opencoder_model.MAX_TRACE_LIMIT:
+            raise ValueError
         self.trace_limit = value
 
     def set_param_decay(self, decay):
