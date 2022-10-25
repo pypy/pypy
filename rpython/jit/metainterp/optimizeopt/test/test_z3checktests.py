@@ -215,7 +215,8 @@ class Checker(object):
                 cond = self.guard_to_condition(op, state) # was optimized away, must be true
                 self.prove(cond, op)
                 continue
-            elif opname == "label":
+            elif opname in ["label", "escape_i"]:
+                # TODO: handling escape this way probably is not correct
                 continue # ignore for now
             else:
                 assert 0, "unsupported"
