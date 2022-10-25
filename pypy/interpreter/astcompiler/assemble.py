@@ -446,9 +446,10 @@ class PythonCodeMaker(ast.ASTVisitor):
                 self._next_stack_depth_walk(block.next_block, depth, (block, None))
         return depth
 
-    def _build_lnotab(self, blocks):
+    @staticmethod
+    def _build_lnotab(blocks, first_lineno):
         """Build the line number table for tracebacks and tracing."""
-        current_line = self.first_lineno
+        current_line = first_lineno
         current_off = 0
         table = []
         for block in blocks:
@@ -482,7 +483,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 self.first_lineno = 1
         blocks = self.first_block.post_order()
         self._resolve_block_targets(blocks)
-        lnotab = self._build_lnotab(blocks)
+        lnotab = self._build_lnotab(blocks, self.first_lineno)
         stack_depth = self._stacksize(blocks)
         consts_w = self.consts_w[:]
         names = _list_from_dict(self.names)
