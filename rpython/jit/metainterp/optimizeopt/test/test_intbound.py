@@ -652,16 +652,15 @@ def test_invert_bound_random(t1):
     assert b2.contains(~n1)
 
 @given(bound_with_contained_number)
-@example((ConstIntBound(-sys.maxint - 1), -sys.maxint-1))
-@example((IntUpperBound(-100), -sys.maxint-1))
-@example((IntLowerUpperBound(-sys.maxint - 1, -sys.maxint+10), -sys.maxint-1))
+@example((ConstIntBound(MININT), MININT))
+@example((IntUpperBound(-100), MININT))
+@example((IntLowerUpperBound(MININT, MININT+9), MININT))
 def test_neg_bound_random(t1):
+    #import pdb; pdb.set_trace()
     b1, n1 = t1
     b2 = b1.neg_bound()
-    if n1 != -sys.maxint - 1:
+    if (n1 != MININT):
         assert b2.contains(intmask(-n1))
-    else:
-        assert b2.upper == MAXINT
 
     # check that it's always correct for unsigned negation
     b2.contains(intmask(-r_uint(n1)))
@@ -864,11 +863,11 @@ def test_tnum_contains_bound_bug():
     b2 = IntUpperLowerBound(3, 7)
     assert b1.contains_bound(b2)
 
-@pytest.mark.xfail(reason="not finished. i gave up.")
 @given(knownbits_and_bound_with_contained_number)
+@pytest.mark.xfail(reason="not finished. i gave up.")
 def test_minmax(t1):
     b1, n1 = t1
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     minimum = b1.get_minimum_signed()
     assert minimum >= b1.lower
     assert minimum <= n1
