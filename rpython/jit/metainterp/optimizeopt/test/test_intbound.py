@@ -844,6 +844,19 @@ def test_widen_tnum():
     b.widen_update()
     assert check_knownbits_string(b, "", '?')
 
+def test_shrink_bounds():
+    # positive case
+    #import pdb; pdb.set_trace()
+    b1 = knownbits(0b101000,
+                   0b000101)  # 101???
+    assert b1.lower == 0b101000
+    assert b1.upper == 0b101101
+    # negative case
+    b2 = knownbits(~0b010111,
+                    0b000101)  # 1...101?0?
+    assert b2.lower == ~0b010111
+    assert b2.upper == ~0b010010
+
 @pytest.mark.xfail(reason="unclear semantics")
 def test_tnum_contains_bound_bug():
     b1 = knownbits( 0b0,
@@ -1084,20 +1097,22 @@ def test_knownbits_rshift_unsigned_completeshiftout_examples():
     assert r3c.equals(0)
 
 def test_knownbits_add_concrete_example():
+    #import pdb; pdb.set_trace()
     a1 = knownbits(             # 10??10 = {34,38,42,46}
             0b100010,           # +   11
             0b001100)           #  ??1
     b1 = 3                      # ------
     r1 = a1.add(b1)             # 1???01 = {33,37,41,45,49,53,57,61}
+    # bounds of a1 == [34, 46]; bounds of r1 == [37; 49]
     assert not r1.is_constant()
-    assert r1.contains(0b100001)
+    #assert r1.contains(0b100001)    # not true because bounds
     assert r1.contains(0b100101)
     assert r1.contains(0b101001)
     assert r1.contains(0b101101)
     assert r1.contains(0b110001)
-    assert r1.contains(0b110101)
-    assert r1.contains(0b111001)
-    assert r1.contains(0b111101)
+    #assert r1.contains(0b110101)    # not true because bounds
+    #assert r1.contains(0b111001)    # not true because bounds
+    #assert r1.contains(0b111101)    # not true because bounds
     assert not r1.contains(0b111111)
     assert not r1.contains(0b1111101)
 

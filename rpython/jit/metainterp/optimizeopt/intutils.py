@@ -60,6 +60,8 @@ class IntBound(AbstractInfo):
         assert is_valid_tnum(tvalue, tmask)
         self.tvalue = tvalue
         self.tmask = tmask         # bit=1 means unknown
+        self.shrink_bounds_by_knownbits()
+        #self.shrink_knownbits_by_bounds()
 
         # check for unexpected overflows:
         if not we_are_translated():
@@ -1000,23 +1002,45 @@ class IntBound(AbstractInfo):
         return self.urshift_bound_backwards(other, result)
 
 
-    """def internal_intersect():
-        # synchronizes bounds and knownbits values
-        # this does most likely not cover edge cases like overflows
-        def sync_ktb_min():
-            # transcribes from knownbits to bounds minimum
-            t_minimum = unmask_zero(self.tvalue, self.tmask)
-            # set negative iff msb unknown or 1
-            t_minimum |= msbonly(self.tvalue) | msbonly(self.tmask)
-            self.lower = t_minimum
-        def sync_ktb_max():
-            # transcribes from knownbits to bounds maximum
-            t_maximum = unmask_one(self.tvalue, self.tmask)
-            # set positive iff msb unknown or 0
-            t_maximum &= ~(~msbonly(self.tvalue) | msbonly(self.tmask))
-            self.upper = t_maximum
-        def sync_btk():
-            # transcribes from bounds to knownbits"""
+    def shrink_bounds_by_knownbits(self):
+        min_by_knownbits = self.get_minimum_signed_by_knownbits()
+        if min_by_knownbits > self.lower:
+            self.lower = min_by_knownbits
+        max_by_knownbits = self.get_maximum_signed_by_knownbits()
+        if max_by_knownbits < self.upper:
+            self.upper = max_by_knownbits
+
+    def shrink_knownbits_by_bounds(self):
+        #import pdb; pdb.set_trace()
+        # are we working on negative or positive values?
+        # get the working values
+        if (self.lower >= 0) != (self.upper >= 0):
+            # nothing to do if signs are different
+            return
+        elif (self.lower >= 0) and (self.upper >= 0):
+            case_positive = True
+            work_lower = r_uint(self.lower)
+            work_upper = r_uint(self.upper)
+        elif (self.lower < 0) and (self.upper < 0):
+            case_positive = False
+            work_lower = ~r_uint(self.lower)
+            work_upper = ~r_uint(self.upper)
+        # calculate higher bit mask
+        hbm_lower = ~next_pow2_m1(work_lower+1)
+        hbm_upper = ~next_pow2_m1(work_upper+1)
+        hbm_bounds = ~next_pow2_m1(hbm_lower ^ hbm_upper)
+        # reduce it to applicable higher bits only
+        if case_positive:
+            known_ones = self.tvalue
+            hbm_knownbits = ~next_pow2_m1(known_ones)
+        else:
+            known_zeros = unmask_zero(~self.tvalue, self.tmask)
+            hbm_knownbits = ~next_pow2_m1(known_zeros)
+        hbm = hbm_bounds & hbm_knownbits
+        # apply the mask
+        self.tmask &= ~hbm  # make bits known
+        if ~case_positive:  # set them 1 on negative case
+            self.tvalue |= hbm
 
     def knownbits_and_bounds_agree(self):
         """
