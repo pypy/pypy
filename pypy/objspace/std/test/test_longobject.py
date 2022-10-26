@@ -547,3 +547,17 @@ class AppTestLong:
                     for k in range(2, 4):
                         y = pow(i, -k, j)
                         assert y == pow(x, k, j)
+
+    def test_repr(self):
+        x = self._long(1)
+        big = x << self._long(4000)
+        assert len(str(big)) == 1205
+        huge = x << self._long(40000)
+        with raises(ValueError) as exc:
+            str(huge)
+        assert str(exc.value).startswith('Exceeds the limit')
+        s = '%x' % huge
+        assert len(s) == 10001  # much longer that 4300 ...
+        less_huge = x << self._long(14400)
+        with raises(ValueError) as exc:
+            str(less_huge)

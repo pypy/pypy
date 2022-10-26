@@ -130,6 +130,9 @@ class InvalidEndiannessError(Exception):
 class InvalidSignednessError(Exception):
     pass
 
+class MaxIntError(Exception):
+    pass
+
 
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = _check_digits
@@ -539,10 +542,10 @@ class rbigint(object):
         return _AsDouble(self)
 
     @jit.elidable
-    def format(self, digits, prefix='', suffix=''):
+    def format(self, digits, prefix='', suffix='', max_str_digits=0):
         # 'digits' is a string whose length is the base to use,
         # and where each character is the corresponding digit.
-        return _format(self, digits, prefix, suffix)
+        return _format(self, digits, prefix, suffix, max_str_digits)
 
     @jit.elidable
     def repr(self):
@@ -553,11 +556,11 @@ class rbigint(object):
         return str(x) + "L"
 
     @jit.elidable
-    def str(self):
+    def str(self, max_str_digits=0):
         try:
             x = self.toint()
         except OverflowError:
-            return self.format(BASE10)
+            return self.format(BASE10, max_str_digits=max_str_digits)
         return str(x)
 
     @jit.elidable
@@ -2716,7 +2719,7 @@ BASE8  = '01234567'
 BASE10 = '0123456789'
 BASE16 = '0123456789abcdef'
 
-def _format_base2_notzero(a, digits, prefix='', suffix=''):
+def _format_base2_notzero(a, digits, prefix='', suffix='', max_str_digits=0):
         base = len(digits)
         # JRH: special case for power-of-2 bases
         accum = 0
@@ -2815,12 +2818,15 @@ def _format_int10(val, digits):
     return str(val)
 
 @specialize.arg(7)
-def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format_int):
+def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits):
     # bottomed out with min_digit sized pieces
     # use str of ints
+    curlen = output.getlength()
+    if curlen > max_str_digits:
+        raise MaxIntError("requested output too large")
     if i < 0:
         # this checks whether any digit has been appended yet
-        if output.getlength() == size_prefix:
+        if curlen == size_prefix:
             if x.sign != 0:
                 s = _format_int(x.toint(), digits)
                 output.append(s)
@@ -2830,16 +2836,16 @@ def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format
             output.append(s)
     else:
         top, bot = x.divmod(pts[i]) # split the number
-        _format_recursive(top, i-1, output, pts, digits, size_prefix, mindigits, _format_int)
-        _format_recursive(bot, i-1, output, pts, digits, size_prefix, mindigits, _format_int)
+        _format_recursive(top, i-1, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits)
+        _format_recursive(bot, i-1, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits)
 
-def _format(x, digits, prefix='', suffix=''):
+def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     if x.sign == 0:
         return prefix + "0" + suffix
     base = len(digits)
     assert base >= 2 and base <= 36
     if (base & (base - 1)) == 0:
-        return _format_base2_notzero(x, digits, prefix, suffix)
+        return _format_base2_notzero(x, digits, prefix, suffix, max_str_digits)
     negative = x.sign < 0
     if negative:
         x = x.neg()
@@ -2872,11 +2878,11 @@ def _format(x, digits, prefix='', suffix=''):
     if digits == BASE10:
         _format_recursive(
             x, startindex, output, pts, digits, output.getlength(), mindigits,
-            _format_int10)
+            _format_int10, max_str_digits)
     else:
         _format_recursive(
             x, startindex, output, pts, digits, output.getlength(), mindigits,
-            _format_int_general)
+            _format_int_general, max_str_digits)
 
     output.append(suffix)
     return output.build()
