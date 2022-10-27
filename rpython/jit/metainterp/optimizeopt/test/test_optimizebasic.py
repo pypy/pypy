@@ -7,7 +7,7 @@ from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    BaseTest, convert_old_style_to_targets)
+    BaseTest, convert_old_style_to_targets, FakeJitDriverStaticData)
 from rpython.jit.metainterp.history import (
     JitCellToken, ConstInt, get_const_ptr_for_string)
 from rpython.jit.metainterp import executor, compile
@@ -37,7 +37,8 @@ class BaseTestBasic(BaseTest):
         compile_data = compile.SimpleCompileData(
             trace, call_pure_results=call_pure_results,
             enable_opts=self.enable_opts)
-        info, ops = compile_data.optimize_trace(self.metainterp_sd, None, {})
+        jitdriver_sd = FakeJitDriverStaticData()
+        info, ops = compile_data.optimize_trace(self.metainterp_sd, jitdriver_sd, {})
         label_op = ResOperation(rop.LABEL, info.inputargs)
         loop.inputargs = info.inputargs
         loop.operations = [label_op] + ops

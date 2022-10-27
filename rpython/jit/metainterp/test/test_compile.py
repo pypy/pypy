@@ -41,6 +41,7 @@ class FakeLogger(object):
 class FakeState(object):
     enable_opts = ALL_OPTS_DICT.copy()
     enable_opts.pop('unroll')
+    pureop_historylength = 16
 
     def attach_unoptimized_bridge_from_interp(*args):
         pass

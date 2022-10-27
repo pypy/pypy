@@ -17,7 +17,7 @@ class BaseCompiledMixin(object):
         raise NotImplementedError
 
     # XXX backendopt is ignored
-    def meta_interp(self, function, args, repeat=1, inline=False, trace_limit=sys.maxint,
+    def meta_interp(self, function, args, repeat=1, inline=False, trace_limit=2**14,
                     backendopt=None, listcomp=False, **kwds): # XXX ignored
         from rpython.jit.metainterp.warmspot import WarmRunnerDesc
         from rpython.annotator.listdef import s_list_of_strings
