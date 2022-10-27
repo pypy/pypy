@@ -2835,7 +2835,7 @@ def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format
             output.append_multiple_char(digits[0], mindigits - len(s))
             output.append(s)
         curlen = output.getlength()
-        if max_str_digits > 0 and curlen > max_str_digits:
+        if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
             raise MaxIntError("requested output too large")
     else:
         top, bot = x.divmod(pts[i]) # split the number

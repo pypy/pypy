@@ -568,3 +568,22 @@ class AppTestLong:
             str(huge)  # succeeds
         finally:
             sys.set_int_max_str_digits(maxdigits)
+
+    def test_sign_not_counted_in_int_max(self):
+        import sys
+
+        previous_limit = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(2048)
+        max_digits = sys.get_int_max_str_digits()
+        try:
+            s = '5' * max_digits
+            i = int(s)
+            pos_i = int(s)
+            assert i == pos_i
+            neg_i = int('-' + s)
+            assert -pos_i == neg_i
+            str(pos_i)  # succeeds?
+            str(neg_i)  # succeeds?
+        finally:
+            sys.set_int_max_str_digits(previous_limit)
+
