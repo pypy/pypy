@@ -1496,6 +1496,24 @@ class BasicTests:
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
         self.check_jitcell_token_count(0)
 
+    def test_set_param_pureops_historylength(self):
+        myjitdriver = JitDriver(greens=[], reds='auto')
+        def g(i):
+            set_param(myjitdriver, 'pureop_historylength', i)
+            x1 = x2 = x3 = x4 = 0
+            while x1 < 100:
+                myjitdriver.jit_merge_point()
+                a = x1 + 1
+                x2 += 1
+                x3 += 1
+                x4 += 1
+                x1 += 1 # should or should not reuse a
+            return a
+        res = self.meta_interp(g, [4])
+        self.check_resops(int_add=10)
+        res = self.meta_interp(g, [16])
+        self.check_resops(int_add=8)
+
     def test_dont_look_inside(self):
         @dont_look_inside
         def g(a, b):
