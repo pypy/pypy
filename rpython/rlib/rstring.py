@@ -681,8 +681,10 @@ class NumberStringParser:
         if self.start == self.end:
             self.error()
         self.i = self.start
-        if max_str_digits > 0 and self.end - self.start > max_str_digits:
-            raise MaxDigitsError(self.end - self.start)
+        if max_str_digits > 0:
+            length =  self.end - self.start - self.s.count('_')
+            if length > max_str_digits:
+                raise MaxDigitsError(length)
 
     def _startswith1(self, prefix):
         if self.start >= self.end:

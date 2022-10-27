@@ -2822,7 +2822,7 @@ def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format
     # bottomed out with min_digit sized pieces
     # use str of ints
     curlen = output.getlength()
-    if curlen > max_str_digits:
+    if max_str_digits > 0 and curlen > max_str_digits:
         raise MaxIntError("requested output too large")
     if i < 0:
         # this checks whether any digit has been appended yet
@@ -2834,6 +2834,9 @@ def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format
             s = _format_int(x.toint(), digits)
             output.append_multiple_char(digits[0], mindigits - len(s))
             output.append(s)
+        curlen = output.getlength()
+        if max_str_digits > 0 and curlen > max_str_digits:
+            raise MaxIntError("requested output too large")
     else:
         top, bot = x.divmod(pts[i]) # split the number
         _format_recursive(top, i-1, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits)
@@ -2845,6 +2848,7 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     base = len(digits)
     assert base >= 2 and base <= 36
     if (base & (base - 1)) == 0:
+        # base is 2, 4, 8, 16, ...
         return _format_base2_notzero(x, digits, prefix, suffix, max_str_digits)
     negative = x.sign < 0
     if negative:

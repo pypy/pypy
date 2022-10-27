@@ -88,10 +88,10 @@ class W_AbstractLongObject(W_AbstractIntObject):
 
         bigint = space.bigint_w(self)
         numdigits = bigint.numdigits()
+        max_str_digits = space.int_w(get_int_max_str_digits(space))
         # quick and dirty pre-check for overflowing the decimal digit limit,
         if bigint.numdigits() >= (10 * MAX_STR_DIGITS_THRESHOLD / 
                                   (3 * SHIFT + 2)):
-            max_str_digits = space.int_w(get_int_max_str_digits(space))
             if (max_str_digits != 0 and
                     max_str_digits / (3 * SHIFT) <= (numdigits - 11) / 10):
                 raise oefmt(space.w_ValueError, msg_fmt_to_str, max_str_digits)
@@ -99,7 +99,6 @@ class W_AbstractLongObject(W_AbstractIntObject):
         # strlen(res) < max_str_digits (actually they check before allocating
         # the buffer to hold the string.
         try:
-            max_str_digits = space.int_w(get_int_max_str_digits(space))
             res = self.asbigint().str(max_str_digits=max_str_digits)
         except MaxIntError:
             raise oefmt(space.w_ValueError, msg_fmt_to_str, max_str_digits)

@@ -549,6 +549,7 @@ class AppTestLong:
                         assert y == pow(x, k, j)
 
     def test_repr(self):
+        import sys
         x = self._long(1)
         big = x << self._long(4000)
         assert len(str(big)) == 1205
@@ -558,6 +559,12 @@ class AppTestLong:
         assert str(exc.value).startswith('Exceeds the limit')
         s = '%x' % huge
         assert len(s) == 10001  # much longer that 4300 ...
-        less_huge = x << self._long(14400)
+        maxdigits = sys.get_int_max_str_digits()
+        less_huge = 10 ** maxdigits
         with raises(ValueError) as exc:
-            str(less_huge)
+            str(less_huge)  # exactly on the cusp
+        sys.set_int_max_str_digits(0)
+        try:
+            str(huge)  # succeeds
+        finally:
+            sys.set_int_max_str_digits(maxdigits)
