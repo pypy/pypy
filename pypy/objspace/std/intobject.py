@@ -17,7 +17,7 @@ from rpython.rlib.rbigint import (
     InvalidEndiannessError, InvalidSignednessError, rbigint)
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
-    ParseStringError, ParseStringOverflowError)
+    ParseStringError, ParseStringOverflowError, MaxDigitsError)
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
@@ -907,10 +907,22 @@ def _recover_with_smalllong(space):
 
 
 def _string_to_int_or_long(space, w_source, string, base=10):
+    from pypy.module.sys.state import get_int_max_str_digits
+     
+    if (base & (base - 1) != 0):
+        # Limit the size to avoid excessive computation attacks on non-binary bases
+        max_str_digits = space.int_w(get_int_max_str_digits(space))
+    else:
+        max_str_digits = 0
     try:
-        value = string_to_int(
-            string, base, allow_underscores=True, no_implicit_octal=True)
+        value = string_to_int(string, base, allow_underscores=True,
+                              no_implicit_octal=True,
+                              max_str_digits=max_str_digits)
         return wrapint(space, value)
+    except MaxDigitsError as e:
+        raise oefmt(space.w_ValueError,
+                    "Exceeds the limit (%d) for integer string conversion: value has %d digits",
+                    max_str_digits, e.digits)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
     except ParseStringOverflowError as e:

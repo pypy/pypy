@@ -1367,14 +1367,15 @@ class ASTBuilder(object):
                         callable_expr.col_offset, args_node.get_end_lineno(),
                         args_node.get_end_column())
 
-    def parse_number(self, raw):
+    def parse_number(self, raw, n):
         base = 10
+        dot_in_raw = '.' in raw
         if raw.startswith("-"):
             negative = True
             raw = raw.lstrip("-")
         else:
             negative = False
-        if raw.startswith("0"):
+        if not dot_in_raw and raw.startswith("0"):
             if len(raw) > 2 and raw[1] in "Xx":
                 base = 16
             elif len(raw) > 2 and raw[1] in "Bb":
@@ -1401,15 +1402,27 @@ class ASTBuilder(object):
             raw = "-" + raw
         w_num_str = self.space.newtext(raw)
         w_base = self.space.newint(base)
+        # CPython uses the fact that strtol(raw, end) will successfully reach
+        # the end of raw if it is a proper int string. We use the next two
+        # checks instead
         if raw[-1] in "jJ":
             tp = self.space.w_complex
             return self.space.call_function(tp, w_num_str)
+        if base == 10 and (dot_in_raw or 'e' in raw or 'E' in raw):
+            return self.space.call_function(self.space.w_float, w_num_str)
+        # OK, not a complex and not a float
         try:
             return self.space.call_function(self.space.w_int, w_num_str, w_base)
         except error.OperationError as e:
             if not e.match(self.space, self.space.w_ValueError):
                 raise
-            return self.space.call_function(self.space.w_float, w_num_str)
+            # The only way a ValueError should happen in _this_ code is via
+            # int(raw) hitting a length limit
+            
+            msg = self.space.text_w(e.get_w_value(self.space))
+            msg += (" - Consider hexadecimal for huge integer literals "
+                   "to avoid decimal conversion limits.")
+            self.error(msg, n)
 
     @always_inline
     def handle_dictelement(self, node, i):
@@ -1449,7 +1462,7 @@ class ASTBuilder(object):
                 msg="Underscores in numeric literals are only supported in Python 3.6 and greater",
                 n=atom_node
             )
-            num_value = self.parse_number(first_child.get_value())
+            num_value = self.parse_number(first_child.get_value(), atom_node)
             return build(ast.Constant, num_value, self.space.w_None, atom_node)
         elif first_child_type == tokens.ELLIPSIS:
             return build(ast.Constant, self.space.w_Ellipsis, self.space.w_None, atom_node)
