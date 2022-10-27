@@ -266,8 +266,8 @@ Talks in 2003
   introduction for the Amsterdam PyPy-Sprint Dec 2003.
 
 
-.. _PyCon 2010: https://morepypy.blogspot.com/2010/02/pycon-2010-report.html
-.. _RuPy 2009: https://morepypy.blogspot.com/2009/11/pypy-on-rupy-2009.html
+.. _PyCon 2010: https://www.pypy.org/posts/2010/02/pycon-2010-report-6986911457623699520.html
+.. _RuPy 2009: https://www.pypy.org/posts/2009/11/pypy-on-rupy-2009-5675275348619189353.html
 .. _PyPy 3000: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2006/pypy3000.txt
 .. _What can PyPy do for you: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2006/usecases-slides.txt
 .. _PyPy introduction at EuroPython 2006: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2006/intro.pdf
@@ -290,12 +290,12 @@ Talks in 2003
 .. _EuroPython talks 2009: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2009/
 .. _PyCon talks 2009: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon2009/
 .. _Wroclaw (Poland) presentation: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/wroclaw2009/talk.pdf
-.. _PyPy talk at OpenBossa 09: https://morepypy.blogspot.com/2009/03/pypy-talk-at-openbossa-09.html
+.. _PyPy talk at OpenBossa 09: https://www.pypy.org/posts/2009/03/pypy-talk-at-openbossa-09-5135830287297423499.html
 .. _at SFI 08: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/sfi2008/
 .. _at PyCon Poland 08: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pyconpl-2008/talk.pdf
 .. _The PyPy Project and You: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/osdc2008/osdc08.pdf
 .. _EuroPython talks 2008: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2008/
-.. _Maemo summit: https://morepypy.blogspot.com/2008/09/pypypython-at-maemo-summit.html
+.. _Maemo summit: https://www.pypy.org/posts/2008/09/pypypython-at-maemo-summit-6115106472056714072.html
 .. _PyCon UK 2008 - JIT: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon-uk-2008/jit/pypy-vm.pdf
 .. _PyCon UK 2008 - Status: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon-uk-2008/status/status.pdf
 .. _PyCon Italy 2008: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon-italy-2008/pypy-vm.pdf

@@ -157,10 +157,11 @@ class sysflags(metaclass=structseqtype):
     isolated = structseqfield(12)
     dev_mode = structseqfield(13)
     utf8_mode = structseqfield(14)
+    int_max_str_digits = structseqfield(15)
 
 # no clue why dev_mode in particular has to be a bool, but CPython has tests
 # for that
-null_sysflags = sysflags((0,)*13 + (False, 0))
+null_sysflags = sysflags((0,)*13 + (False, 0, -1))
 null__xoptions = {}
 
 # copied from version.py

@@ -423,6 +423,8 @@ def _lookup(packed, s):
     skipped = 0  # keep track of number of final nodes that we skipped
     while stringpos < len(s):
         node_count, final, edge_offset = decode_node(packed, node_offset)
+        if final:
+            skipped += 1
         prev_child_offset = edge_offset
         edgeindex = 0
         while 1:
@@ -431,8 +433,6 @@ def _lookup(packed, s):
             prev_child_offset = child_offset
             if _match_edge(packed, s, size, edgelabel_chars_offset, stringpos):
                 # match
-                if final:
-                    skipped += 1
                 stringpos += size
                 node_offset = child_offset
                 break
@@ -584,7 +584,7 @@ def dawg_lookup(n):
             prefix, low, high, name, low))
         prefix = "el"
 
-        
+
     function.append("    if res == -1:")
     function.append("        raise KeyError(code)")
     function.append("    return res")

@@ -547,9 +547,21 @@ class Parser:
         return name.id
 
     def parse_number(self, tok):
+        from pypy.interpreter import error
         if "_" in tok.value:
             self.check_version((3, 6), "Underscores in numeric literals are", tok)
-        return parse_number(self.space, tok.value)
+        try:
+            return parse_number(self.space, tok.value)
+        except error.OperationError as e:
+            if not e.match(self.space, self.space.w_ValueError):
+                raise
+            # The only way a ValueError should happen in _this_ code is via
+            # int(raw) hitting a length limit
+
+            msg = self.space.text_w(e.get_w_value(self.space))
+            msg += (" - Consider hexadecimal for huge integer literals "
+                   "to avoid decimal conversion limits.")
+            self.raise_syntax_error_known_location(msg, tok)
 
     def get_last_target(self, for_if_clauses):
         if not for_if_clauses:

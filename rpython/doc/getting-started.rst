@@ -47,15 +47,13 @@ The following introductory level articles are available:
 
 * Laurence Tratt -- `Fast Enough VMs in Fast Enough Time`_.
 
-* `How to write interpreters in RPython`_ and `part 2`_ by Andrew Brown.
+* `How to write interpreters in RPython`_
 
 * `RPython By Example`_
 
 .. _Fast Enough VMs in Fast Enough Time: http://tratt.net/laurie/tech_articles/articles/fast_enough_vms_in_fast_enough_time
 
-.. _How to write interpreters in RPython: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
-
-.. _part 2: http://morepypy.blogspot.com/2011/04/tutorial-part-2-adding-jit.html
+.. _How to write interpreters in RPython: https://www.pypy.org/posts/2011/04/tutorial-writing-interpreter-with-pypy-3785910476193156295.html
 
 .. _RPython By Example: http://mesapy.org/rpython-by-example/
 

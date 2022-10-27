@@ -86,7 +86,29 @@ class W_AbstractLongObject(W_AbstractIntObject):
         return space.newint(_hash_long(self.asbigint()))
 
     def descr_str(self, space):
-        res = self.asbigint().str()
+        from pypy.module.sys.system import MAX_STR_DIGITS_THRESHOLD
+        from pypy.module.sys.state import get_int_max_str_digits
+        from rpython.rlib.rbigint import SHIFT, MaxIntError
+        msg_fmt_to_str = ("Exceeds the limit (%d) for integer string "
+              "conversion; use sys.set_int_max_str_digits() to increase the "
+              "limit")
+
+        bigint = space.bigint_w(self)
+        numdigits = bigint.numdigits()
+        max_str_digits = space.int_w(get_int_max_str_digits(space))
+        # quick and dirty pre-check for overflowing the decimal digit limit,
+        if bigint.numdigits() >= (10 * MAX_STR_DIGITS_THRESHOLD / 
+                                  (3 * SHIFT + 2)):
+            if (max_str_digits != 0 and
+                    max_str_digits / (3 * SHIFT) <= (numdigits - 11) / 10):
+                raise oefmt(space.w_ValueError, msg_fmt_to_str, max_str_digits)
+        # Do an additional more accurate check that
+        # strlen(res) < max_str_digits (actually they check before allocating
+        # the buffer to hold the string.
+        try:
+            res = self.asbigint().str(max_str_digits=max_str_digits)
+        except MaxIntError:
+            raise oefmt(space.w_ValueError, msg_fmt_to_str, max_str_digits)
         return space.newutf8(res, len(res))
     descr_repr = descr_str
 
