@@ -141,7 +141,7 @@ class MultipleJitDriversTests(object):
         res = self.meta_interp(loop1, [10], inline=True, trace_limit=6)
         assert res == 10
         stats = get_stats()
-        assert stats.aborted_keys == [None, None]
+        assert stats.aborted_keys == [None]
 
     def test_inline_across_languages(self):
         py.test.skip("why does this not work")
