@@ -17,7 +17,7 @@ from rpython.rlib.rbigint import (
     InvalidEndiannessError, InvalidSignednessError, rbigint)
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
-    ParseStringError, ParseStringOverflowError)
+    ParseStringError, ParseStringOverflowError, MaxDigitsError)
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
@@ -911,21 +911,18 @@ def _string_to_int_or_long(space, w_source, string, base=10):
      
     if (base & (base - 1) != 0):
         # Limit the size to avoid excessive computation attacks on non-binary bases
-        # XXX removing ' ' and '_' in the count do not belong here. One
-        # solution would be to add the max_str_digits to the rpython
-        # `string_to_int` (which would pass it through to the
-        # `rstring.NumberStringParser`)and raise/catch a rstring.MaxIntError.
-        string = string.strip(' ')
-        digits = len(string) - string.count('_')
         max_str_digits = space.int_w(get_int_max_str_digits(space))
-        if max_str_digits != 0 and digits > max_str_digits:
-            raise oefmt(space.w_ValueError,
-                        "Exceeds the limit (%d) for integer string conversion: value has %d digits",
-                        max_str_digits, digits)
+    else:
+        max_str_digits = 0
     try:
-        value = string_to_int(
-            string, base, allow_underscores=True, no_implicit_octal=True)
+        value = string_to_int(string, base, allow_underscores=True,
+                              no_implicit_octal=True,
+                              max_str_digits=max_str_digits)
         return wrapint(space, value)
+    except MaxDigitsError as e:
+        raise oefmt(space.w_ValueError,
+                    "Exceeds the limit (%d) for integer string conversion: value has %d digits",
+                    max_str_digits, e.digits)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
     except ParseStringOverflowError as e:
