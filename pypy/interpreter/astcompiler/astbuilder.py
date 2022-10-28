@@ -1380,6 +1380,8 @@ class ASTBuilder(object):
                 base = 16
             elif len(raw) > 2 and raw[1] in "Bb":
                 base = 2
+            elif len(raw) > 2 and raw[1] in "Ee":
+                base = 10
             ## elif len(raw) > 2 and raw[1] in "Oo": # Fallback below is enough
             ##     base = 8
             elif len(raw) > 1:
