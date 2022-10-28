@@ -120,7 +120,7 @@ class TestString(BaseTestPyPyC):
             p25 = newstr(1)
             i23 = strgetitem(ConstPtr(ptr92), i19)
             strsetitem(p25, 0, i23)
-            i107 = call_i(ConstClass(string_to_int), p25, 16, 1, 1, descr=<Calli . riii EF=4>)
+            i107 = call_i(ConstClass(string_to_int), p25, 16, 1, 1, 0, descr=<Calli . riii EF=4>)
             guard_no_exception(descr=...)
             i95 = int_add_ovf(i6, i107)
             guard_no_overflow(descr=...)
