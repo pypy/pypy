@@ -221,7 +221,7 @@ class OptTraceSplit(Optimizer):
 
     def optimize_CALL_MAY_FORCE_R(self, op):
         name = self._get_name_from_op(op)
-        if endswith(name, mark.CALL_ASSEMBLER):
+        if find(name, mark.CALL_ASSEMBLER, 0, len(name)):
             self.handle_call_assembler(op)
         else:
             self.emit(op)
