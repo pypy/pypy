@@ -328,10 +328,12 @@ class OptRewrite(Optimization):
         return self.emit(newop)
 
     def optimize_FLOAT_NEG(self, op):
-        return self.emit(op)
-
-    def postprocess_FLOAT_NEG(self, op):
-        self.optimizer.pure_from_args(rop.FLOAT_NEG, [op], op.getarg(0))
+        v = get_box_replacement(op.getarg(0))
+        arg_op = self.optimizer.as_operation(v)
+        if arg_op is not None and arg_op.opnum == rop.FLOAT_NEG:
+            self.make_equal_to(op, arg_op.getarg(0))
+        else:
+            return self.emit(op)
 
     def optimize_FLOAT_ABS(self, op):
         v = get_box_replacement(op.getarg(0))
