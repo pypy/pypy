@@ -127,6 +127,7 @@ class TestCompiler(BaseTestCompiler):
             yield (self.simple_test, "x="+c, "x", eval(c))
 
     def test_int_limit(self):
+        yield (self.simple_test, "x=0E0", "x", 0.0)
         from pypy.module.sys.system import DEFAULT_MAX_STR_DIGITS
         max_str_digits = DEFAULT_MAX_STR_DIGITS
         yield(self.error_test, "x=%s" % ('1' * (max_str_digits + 1)), SyntaxError)

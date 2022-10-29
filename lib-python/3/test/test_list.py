@@ -75,7 +75,9 @@ class ListTest(list_tests.CommonTest):
         del lst[1:]
         self.assertEqual(len(lst), 1)
 
-        size = ((2 ** (tuple.__itemsize__ * 8) - 1) // 2)
+        # No tuple.__itemsize__ on PyPy, the replacement is equivalent
+        # size = ((2 ** (tuple.__itemsize__ * 8) - 1) // 2)
+        size = sys.maxsize
         with self.assertRaises((MemoryError, OverflowError)):
             lst * size
         with self.assertRaises((MemoryError, OverflowError)):
