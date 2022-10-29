@@ -130,12 +130,13 @@ class OptPure(Optimization):
                 return
 
             # did we do the exact same operation already?
-            recentops = self.getrecentops(op.getopnum())
+            recentops = self.getrecentops(op.getopnum(), create=False)
             save = True
-            oldop = recentops.lookup(self.optimizer, op)
-            if oldop is not None:
-                self.optimizer.make_equal_to(op, oldop)
-                return
+            if recentops is not None:
+                oldop = recentops.lookup(self.optimizer, op)
+                if oldop is not None:
+                    self.optimizer.make_equal_to(op, oldop)
+                    return
 
         # otherwise, the operation remains
         if nextop is None and not save and not rop.returns_bool_result(op.getopnum()):
@@ -143,14 +144,14 @@ class OptPure(Optimization):
             return self.emit(op)
         return self.emit_result(DefaultOptimizationResult(self, op, save, nextop))
 
-    def getrecentops(self, opnum):
+    def getrecentops(self, opnum, create=True):
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
             opnum = opnum - rop._OVF_FIRST
         else:
             opnum = opnum - rop._ALWAYS_PURE_FIRST
         assert 0 <= opnum < len(self._pure_operations)
         recentops = self._pure_operations[opnum]
-        if recentops is None:
+        if recentops is None and create:
             length = self.optimizer.jitdriver_sd.warmstate.pureop_historylength
             self._pure_operations[opnum] = recentops = RecentPureOps(length)
         return recentops
@@ -266,7 +267,9 @@ class OptPure(Optimization):
         self.pure(opnum, newop)
 
     def get_pure_result(self, op):
-        recentops = self.getrecentops(op.getopnum())
+        recentops = self.getrecentops(op.getopnum(), create=False)
+        if not recentops:
+            return None
         return recentops.lookup(self.optimizer, op)
 
     def produce_potential_short_preamble_ops(self, sb):
