@@ -3124,7 +3124,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected, preamble)
 
     def test_remove_multiple_add_1(self):
-        py.test.skip("disabled")
         ops = """
         [i0]
         i1 = int_add(i0, 1)
@@ -3142,7 +3141,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_remove_multiple_add_2(self):
-        py.test.skip("disabled")
         ops = """
         [i0]
         i1 = int_add(i0, 1)
@@ -3170,7 +3168,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_remove_multiple_add_3(self):
-        py.test.skip("disabled")
         ops = """
         [i0]
         i1 = int_add(i0, %s)
