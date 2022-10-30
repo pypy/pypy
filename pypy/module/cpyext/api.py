@@ -637,7 +637,8 @@ SYMBOLS_C = [
 
     'PyStructSequence_InitType', 'PyStructSequence_InitType2',
     'PyStructSequence_New', 'PyStructSequence_UnnamedField',
-    'PyStructSequence_NewType',
+    'PyStructSequence_NewType', 'PyStructSequence_GetItem',
+    'PyStructSequence_SetItem', 
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
