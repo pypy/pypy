@@ -21,6 +21,7 @@ class State:
         self.programname = lltype.nullptr(rffi.CWCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
         self.builder = None
+        self.runtime_initialized = False
         self.C = CNamespace()
 
     def reset(self):
@@ -159,6 +160,11 @@ class State:
             lltype.render_immortal(self.programname)
         return self.programname
 
+    def set_programname(self, value):
+        # whoops, old programname is leaked?
+        self.programname = rffi.utf82wcharp(value, len(value))
+        lltype.render_immortal(self.programname)
+
     def get_version(self):
         if not self.version:
             space = self.space
@@ -197,6 +203,11 @@ class State:
     def ccall(self, name, *args):
         return getattr(self.C, name)(*args)
 
+    def get_runtime_initialized(self):
+        return self.runtime_initialized
+
+    def set_runtime_initialized(self):
+        self.runtime_initialized = True
 
 class CNamespace:
     def _freeze_(self):

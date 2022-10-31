@@ -730,23 +730,15 @@ def _parse_command_line(argv):
 
     return options
 
-@hidden_applevel
-def run_command_line(interactive,
-                     inspect,
-                     run_command,
-                     no_site,
-                     run_module,
-                     run_stdin,
-                     warnoptions,
-                     unbuffered,
-                     ignore_environment,
-                     verbose,
-                     bytes_warning,
-                     quiet,
-                     isolated,
-                     dev_mode,
-                     utf8_mode,
-                     **ignored):
+def startup_interpreter(no_site, 
+                        warnoptions,
+                        unbuffered,
+                        ignore_environment,
+                        bytes_warning,
+                        dev_mode,
+                        utf8_mode,
+                        **ignored,
+                        ):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the PyPy level for the compiler package
     if not WE_ARE_TRANSLATED:
@@ -846,6 +838,32 @@ def run_command_line(interactive,
             signal.signal(signal.SIGXFZ, signal.SIG_IGN)
         if hasattr(signal, 'SIGXFSZ'):
             signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+    return mainmodule
+
+
+@hidden_applevel
+def run_command_line(interactive,
+                     inspect,
+                     run_command,
+                     no_site,
+                     run_module,
+                     run_stdin,
+                     warnoptions,
+                     unbuffered,
+                     ignore_environment,
+                     verbose,
+                     bytes_warning,
+                     quiet,
+                     isolated,
+                     dev_mode,
+                     utf8_mode,
+                     **ignored):
+
+    mainmodule = startup_interpreter(no_site, warnoptions, unbuffered, ignore_environment,
+                        bytes_warning, dev_mode, utf8_mode)
+
+    readenv = not ignore_environment
+    getenv = get_getenv()
 
     def inspect_requested():
         # We get an interactive prompt in one of the following three cases:
@@ -1084,7 +1102,7 @@ debug: WARNING: sys.prefix = %r
 debug: WARNING: Make sure the pypy3 binary is kept inside its tree of files.
 debug: WARNING: It is ok to create a symlink to it from somewhere else."""
 
-def setup_bootstrap_path(executable):
+def setup_bootstrap_path_and_encoding(executable):
     """
     Try to do as little as possible and to have the stdlib in sys.path. In
     particular, we cannot use any unicode at this point, because lots of
@@ -1113,6 +1131,8 @@ def setup_bootstrap_path(executable):
         sys._base_executable = sys.base_prefix + '\\' + exe
     else:
         sys._base_executable = executable
+    # enough paths are in-place to set encoding
+    sys.pypy_initfsencoding()
 
 
 @hidden_applevel
@@ -1121,8 +1141,7 @@ def entry_point(executable, bargv, argv):
     # cannot import stdlib modules. In particular, we cannot use unicode
     # stuffs (because we need to be able to import encodings). The full stdlib
     # can only be used in a virtualenv after 'import site' in run_command_line
-    setup_bootstrap_path(executable)
-    sys.pypy_initfsencoding()
+    setup_bootstrap_path_and_encoding(executable)
     try:
         cmdline = parse_command_line(bargv, argv)
     except CommandLineError as e:

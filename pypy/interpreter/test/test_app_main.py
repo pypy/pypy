@@ -1221,12 +1221,12 @@ class AppTestAppMain:
                 .get('translation.shared'))
 
             import app_main
-            app_main.setup_bootstrap_path(tmp_pypy_c)
+            app_main.setup_bootstrap_path_and_encoding(tmp_pypy_c)
             assert sys.executable == ''
             if not expected_found:
                 assert sys.path == old_sys_path + [self.goal_dir]
 
-            app_main.setup_bootstrap_path(self.fake_exe)
+            app_main.setup_bootstrap_path_and_encoding(self.fake_exe)
             if not sys.platform == 'win32':
                 # an existing file is always 'executable' on windows
                 assert sys.executable == ''      # not executable!
@@ -1234,7 +1234,7 @@ class AppTestAppMain:
                     assert sys.path == old_sys_path + [self.goal_dir]
 
             os.chmod(self.fake_exe, 0o755)
-            app_main.setup_bootstrap_path(self.fake_exe)
+            app_main.setup_bootstrap_path_and_encoding(self.fake_exe)
             assert sys.executable == self.fake_exe
             assert self.goal_dir not in sys.path
 
@@ -1260,7 +1260,7 @@ class AppTestAppMain:
         try:
             import app_main
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', exename)
-            app_main.setup_bootstrap_path(pypy_c)
+            app_main.setup_bootstrap_path_and_encoding(pypy_c)
             newpath = sys.path[:]
             # we get at least lib_pypy
             # lib-python/X.Y.Z, and maybe more (e.g. plat-linux2)
