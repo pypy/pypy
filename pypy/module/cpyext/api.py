@@ -28,6 +28,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.pyparser import pygram
+from pypy.objspace.std.dictmultiobject import W_DictViewKeysObject, W_DictViewValuesObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
@@ -727,6 +728,8 @@ def build_exported_objects():
         "PyUnicode_Type": "space.w_unicode",
         "PyDict_Type": "space.w_dict",
         "PyDictProxy_Type": 'space.gettypeobject(cpyext.dictproxyobject.W_DictProxyObject.typedef)',
+        "PyDictValues_Type": "space.gettypeobject(W_DictViewValuesObject.typedef)",
+        "PyDictKeys_Type": "space.gettypeobject(W_DictViewKeysObject.typedef)",
         "PyTuple_Type": "space.w_tuple",
         "PyList_Type": "space.w_list",
         "PySet_Type": "space.w_set",
