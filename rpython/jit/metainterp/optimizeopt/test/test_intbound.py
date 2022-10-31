@@ -6,7 +6,7 @@ from copy import copy
 import sys
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
 
-from hypothesis import given, strategies, example
+from hypothesis import given, strategies, example, seed
 
 import pytest
 
@@ -76,8 +76,10 @@ def build_some_bits_known(a, b):
 
 def build_some_bits_known_bounded(a, b, c, d):
     a, b, d = sorted([a, b, d])
-    return IntBound(lower=a, upper=d,
-                    tvalue=u(b&~c), tmask=u(c)), b
+    res_bound = IntBound(lower=a, upper=d,
+                    tvalue=u(b&~c), tmask=u(c))
+    res_val = intmask((res_bound.tvalue&~res_bound.tmask) | (b&res_bound.tmask))
+    return (res_bound, res_val)
 
 def build_two_ints_tuple(a, b):
     return (a, b)
@@ -713,37 +715,39 @@ def test_knownbits_intconst_examples():
 
 @pytest.mark.xfail(reason="not finished. i gave up.")
 def test_knownbits_minmax_nobounds_examples():
+    #import pdb; pdb.set_trace()
     # constant case
     b1 = ConstIntBound(42)
-    assert b1.get_minimum_estimation_signed() == 42
-    assert b1.get_maximum_estimation_signed() == 42
+    assert b1.get_minimum_signed() == 42
+    assert b1.get_maximum_signed() == 42
     # positive knownbits case
     b2 = knownbits(0b0110010,   # 11?01?
                    0b0001001)
-    assert b2.get_minimum_estimation_signed() == 0b0110010
-    assert not b2.contains(b2.get_minimum_estimation_signed() - 1)
-    assert b2.get_maximum_estimation_signed() == 0b0111011
-    assert not b2.contains(b2.get_maximum_estimation_signed() + 1)
+    assert b2.get_minimum_signed() == 0b0110010
+    assert not b2.contains(b2.get_minimum_signed() - 1)
+    assert b2.get_maximum_signed() == 0b0111011
+    assert not b2.contains(b2.get_maximum_signed() + 1)
     #negative knownbits_case
     b3 = knownbits(~0b0110010,  # 1...10?1101
                     0b0010000)
-    assert b3.get_minimum_estimation_signed() == ~0b0110010
-    assert not b3.contains(b3.get_minimum_estimation_signed() - 1)
-    assert b3.get_maximum_estimation_signed() == ~0b0100010
-    assert not b3.contains(b3.get_maximum_estimation_signed() + 1)
+    assert b3.get_minimum_signed() == ~0b0110010
+    assert not b3.contains(b3.get_minimum_signed() - 1)
+    assert b3.get_maximum_signed() == ~0b0100010
+    assert not b3.contains(b3.get_maximum_signed() + 1)
 
 @pytest.mark.xfail(reason="not finished. i gave up.")
 def test_knownbits_minmax_bounds_examples():
+    #import pdb; pdb.set_trace()
     # case (-Inf, 0]
     b1 = IntBound(lower=0,
                   tvalue=u(5), tmask=u(-8))   # ?...?101
-    assert b1.get_minimum_estimation_signed() == 0
-    assert b1.get_maximum_estimation_signed() == intmask((u(5) | u(-8)) & ~MININT)
+    assert b1.get_minimum_signed() == 5
+    assert b1.get_maximum_signed() == intmask((u(5) | u(-8)) & ~MININT)
     # case [0, Inf)
     b2 = IntBound(upper=0,
                   tvalue=u(5), tmask=u(-8))   # ?...?101
-    assert b2.get_minimum_estimation_signed() == intmask(u(5) | MININT)
-    assert b2.get_maximum_estimation_signed() == 0
+    assert b2.get_minimum_signed() == intmask(u(5) | MININT)
+    assert b2.get_maximum_signed() == -3
 
 def test_knownbits_const_strings_examples():
     b1 = ConstIntBound(0b010010)
@@ -861,7 +865,7 @@ def test_shrink_bounds_by_knownbits():
     assert b2.upper == ~0b010010
 
 def test_shrink_knownbits_by_bounds():
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     # constant positive case
     b1 = IntBound(lower=27, upper=27,
                   tvalue=r_uint(0),
@@ -889,10 +893,11 @@ def test_tnum_contains_bound_bug():
     assert b1.contains_bound(b2)
 
 @given(knownbits_and_bound_with_contained_number)
-@pytest.mark.xfail(reason="not finished. i gave up.")
-def test_minmax(t1):
+#@pytest.mark.xfail(reason="not finished. i gave up.")
+def test_minmax_random(t1):
     b1, n1 = t1
     #import pdb; pdb.set_trace()
+    assert b1.lower <= n1 <= b1.upper
     minimum = b1.get_minimum_signed()
     assert minimum >= b1.lower
     assert minimum <= n1

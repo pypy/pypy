@@ -40,6 +40,8 @@ def leading_zeros_mask(n):
     assert isinstance(n, r_uint)
     if n == MAXINT:
         return r_uint(0)
+    elif n == 0:
+        return r_uint(-1)
     else:
         return ~next_pow2_m1(n+1)
 
@@ -70,9 +72,11 @@ class IntBound(AbstractInfo):
         assert is_valid_tnum(tvalue, tmask)
         self.tvalue = tvalue
         self.tmask = tmask         # bit=1 means unknown
+        #import pdb; pdb.set_trace()
+        # two passes of bounds-knownbits synchronization
         self.shrink_bounds_by_knownbits()
-        #if lower == 0 and upper == 0:
-        #    import pdb; pdb.set_trace()
+        self.shrink_knownbits_by_bounds()
+        self.shrink_bounds_by_knownbits()
         self.shrink_knownbits_by_bounds()
 
         # check for unexpected overflows:
@@ -318,8 +322,8 @@ class IntBound(AbstractInfo):
         """ for internal use only! """
         # Returns `True` if this abstract integer
         # only contains numbers greater than or
-        # equal to `0` (zero), IGNORING KNOWNBITS.
-        minest = self.get_minimum_estimation_signed()
+        # equal to `0` (zero).
+        minest = self.get_minimum_signed()
         return 0 <= minest
 
     def get_minimum_signed_by_knownbits(self):
@@ -331,48 +335,65 @@ class IntBound(AbstractInfo):
         unsigned_mask = self.tmask & ~msbonly(self.tmask)
         return intmask(self.tvalue | unsigned_mask)
 
-    def get_minimum_signed(self):
-        ret_k = r_uint(self.get_minimum_signed_by_knownbits())
-        ret_b = r_uint(self.minimum)
-        if ret_k >= ret_b:
-            ret = ret_k
+    def get_minimum_signed_by_knownbits_above(self, threshold=MININT):
+        """ for internal use only! """
+        assert threshold <= self.upper
+        min_by_knownbits = self.get_minimum_signed_by_knownbits()
+        if min_by_knownbits >= threshold:
+            return min_by_knownbits
         else:
-            ret = ret_k
-            while ret < ret_b:
-                pass
-                # binary search? what about backtracking?
-        return ret
+            # see "Sharpening Constraint Programming
+            #      approaches for Bit-Vector Theory"
+            u_min_threshold = r_uint(threshold)
+            #import pdb; pdb.set_trace()
+            # not create working value
+            working_min = u_min_threshold # start at given minimum threshold
+            working_min &= unmask_one(self.tvalue, self.tmask) # clear known 0s
+            working_min |= self.tvalue # set known 1s
+            # incpect changed bits
+            cl2set = ~u_min_threshold & working_min
+            set2cl = u_min_threshold & ~working_min
+            if working_min == u_min_threshold:
+                return threshold
+            if cl2set > set2cl:
+                # we have set the correct bit already
+                clear_mask = leading_zeros_mask(cl2set >> 1)
+                working_min &= clear_mask | ~self.tmask
+                return intmask(working_min)
+            else:
+                # flip the sign bit to handle -1 -> 0 overflow
+                u_min_threshold = flip_msb(u_min_threshold)
+                working_min = flip_msb(working_min)
+                # we have to find the proper bit to set...
+                possible_bits = ~working_min & unmask_one(self.tvalue, self.tmask)
+                bit_to_set = lowest_set_bit_only(possible_bits)
+                working_min |= bit_to_set
+                # and clear all lower than that
+                clear_mask = leading_zeros_mask(bit_to_set) \
+                             | bit_to_set | ~self.tmask
+                working_min &= clear_mask
+                return intmask(flip_msb(working_min))
+
+    def get_maximum_signed_by_knownbits_below(self, threshold=MAXINT):
+        """ for internal use only! """
+        max_by_knownbits = self.get_maximum_signed_by_knownbits()
+        if max_by_knownbits <= self.upper:
+            return max_by_knownbits
+        else:
+            return self.upper
+            # TODO
+            # see "Sharpening Constraint Programming
+            #      approaches for Bit-Vector Theory"
+            u_min_knownbits = r_uint(max_by_knownbits)
+            u_min_threshold = r_uint(threshold)
+
+
+    def get_minimum_signed(self):
+        ret_b = self.lower
+        return self.get_minimum_signed_by_knownbits_above(ret_b)
 
     def get_maximum_signed(self):
         return -self.neg_bound().get_minimum_signed()
-
-    def get_minimum_estimation_signed(self):
-        """
-        Returns an estimated lower bound for
-        the numbers contained in this
-        abstract integer.
-        It is not guaranteed that this value
-        is actually an element of the
-        concrete value set!
-        """
-        # Unnecessary to unmask, because by convention
-        #   mask[i] => ~value[i]
-        ret_knownbits = self.get_minimum_signed_by_knownbits()
-        ret_bounds = self.lower
-        return max(ret_knownbits, ret_bounds)
-
-    def get_maximum_estimation_signed(self):
-        """
-        Returns an estimated upper bound for
-        the numbers contained in this
-        abstract integer.
-        It is not guaranteed that this value
-        is actually an element of the
-        concrete value set!
-        """
-        ret_knownbits = self.get_maximum_signed_by_knownbits()
-        ret_bounds = self.upper
-        return min(ret_knownbits, ret_bounds)
 
     def intersect(self, other):
         """
@@ -1027,12 +1048,12 @@ class IntBound(AbstractInfo):
         """
         Shrinks the bounds by the known bits.
         """
-        min_by_knownbits = self.get_minimum_signed_by_knownbits()
-        if min_by_knownbits > self.lower:
-            self.lower = min_by_knownbits
-        max_by_knownbits = self.get_maximum_signed_by_knownbits()
-        if max_by_knownbits < self.upper:
-            self.upper = max_by_knownbits
+        # lower bound
+        min_by_knownbits = self.get_minimum_signed_by_knownbits_above(self.lower)
+        self.lower = min_by_knownbits
+        # and same for upper bound
+        max_by_knownbits = self.get_maximum_signed_by_knownbits_below(self.upper)
+        self.upper = max_by_knownbits
 
     def shrink_knownbits_by_bounds(self):
         """
@@ -1070,11 +1091,14 @@ class IntBound(AbstractInfo):
         actual concrete value set to contain
         any values!
         """
+        min_knownbits = self.get_minimum_signed_by_knownbits()
+        if not min_knownbits <= self.upper:
+            return False
         max_knownbits = self.get_maximum_signed_by_knownbits()
         if not max_knownbits >= self.lower:
             return False
-        min_knownbits = self.get_minimum_signed_by_knownbits()
-        if not min_knownbits <= self.upper:
+        # just to make sure
+        if not min_knownbits <= max_knownbits:
             return False
         return True
 
@@ -1250,3 +1274,6 @@ def lowest_set_bit_only(val_uint):
     increased_val = working_val + 1
     result = (working_val^increased_val) & ~working_val
     return result
+
+def flip_msb(val_uint):
+    return val_uint ^ r_uint(MININT)
