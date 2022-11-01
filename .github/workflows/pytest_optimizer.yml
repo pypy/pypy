@@ -30,7 +30,7 @@ jobs:
         path: pypy
     - name: install dependencies
       run: |
-        python -m pip install rply hypothesis z3-solver
+        python -m pip install rply "hypothesis<4.40" z3-solver
     - name: Test with pytest
       run: |
         python pypy/pytest.py -v rpython/jit/metainterp/optimizeopt/ --z3-timeout=500
