@@ -77,7 +77,7 @@ def build_some_bits_known(a, b):
 def build_some_bits_known_bounded(a, b, c, d):
     a, b, d = sorted([a, b, d])
     u_c = u(c)
-    while (u_c != 0) and (next_pow2_m1(r_uint(a) | r_uint(d)) & u_c == 0):
+    while (u_c != 0) and (next_pow2_m1(r_uint(a) ^ r_uint(d)) & u_c == 0):
         u_c = u_c >> 1
     c = intmask(u_c)
     res_bound = IntBound(lower=a, upper=d,
@@ -899,7 +899,8 @@ def test_tnum_contains_bound_bug():
     assert b1.contains_bound(b2)
 
 @given(knownbits_and_bound_with_contained_number)
-@example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))
+#@example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))
+#@example((IntBound(lower=-2097153, upper=-2, tvalue=r_uint(0b1111111111111111111111110111111111111111111100000000000000000001), tmask=r_uint(MININT)>>24, do_shrinking=False), 0b1111111111111111111111110111111111111111111100000000000000000001))
 def test_minmax_shrinking_random(t1):
     b0, n0 = t1
     n1 = n0
