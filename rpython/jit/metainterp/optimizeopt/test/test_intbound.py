@@ -901,6 +901,7 @@ def test_tnum_contains_bound_bug():
 @given(knownbits_and_bound_with_contained_number)
 #@example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))
 #@example((IntBound(lower=-2097153, upper=-2, tvalue=r_uint(0b1111111111111111111111110111111111111111111100000000000000000001), tmask=r_uint(MININT)>>24, do_shrinking=False), 0b1111111111111111111111110111111111111111111100000000000000000001))
+@example((IntBound(lower=-99, upper=0, tvalue=r_uint(0), tmask=r_uint(0b1111111111111111111111111111111111111111111111111111111110011110), do_shrinking=False), -98))
 def test_minmax_shrinking_random(t1):
     b0, n0 = t1
     n1 = n0
