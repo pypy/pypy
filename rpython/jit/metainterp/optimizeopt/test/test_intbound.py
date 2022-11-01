@@ -76,9 +76,14 @@ def build_some_bits_known(a, b):
 
 def build_some_bits_known_bounded(a, b, c, d):
     a, b, d = sorted([a, b, d])
+    u_c = u(c)
+    while (u_c != 0) and (next_pow2_m1(r_uint(a) | r_uint(d)) & u_c == 0):
+        u_c = u_c >> 1
+    c = intmask(u_c)
     res_bound = IntBound(lower=a, upper=d,
                     tvalue=u(b&~c), tmask=u(c),
                     do_shrinking=False)
+
     res_val = intmask((res_bound.tvalue&~res_bound.tmask) | (b&res_bound.tmask))
     return (res_bound, res_val)
 

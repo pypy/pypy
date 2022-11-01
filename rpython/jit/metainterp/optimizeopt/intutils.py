@@ -1115,7 +1115,7 @@ class IntBound(AbstractInfo):
         work_upper = r_uint(self.upper)
         hbm_bounds = leading_zeros_mask(work_lower ^ work_upper)
         bounds_common = work_lower & hbm_bounds
-        # we can assert agreement between bounds and knownbits here!
+        # we should assert agreement between bounds and knownbits here!
         assert unmask_zero(bounds_common, self.tmask) == (self.tvalue & hbm_bounds)
         hbm = hbm_bounds & self.tmask
         # apply the higher bit mask to the knownbits
@@ -1140,6 +1140,21 @@ class IntBound(AbstractInfo):
         # just to make sure
         if not min_knownbits <= max_knownbits:
             return False
+        # make sure the set is not empty
+        if self.is_constant():
+            # does one constraint exclude the constant value?
+            val = self.get_constant_int()
+            if min_knownbits > val or max_knownbits < val \
+               or self.lower > val or self.upper < val:
+                return False
+        else:
+            # can't be empty if one of the bounds agrees with tvalue
+            if (self.tvalue != unmask_zero(self.lower, self.tmask)) \
+               and (self.tvalue != unmask_zero(self.upper, self.tmask)):
+                # check if there is a ? within the bounds realm
+                bound_bits = next_pow2_m1(r_uint(self.lower) ^ r_uint(self.upper))
+                if 0 == (bound_bits & self.tmask):
+                    return False
         return True
 
     def knownbits_string(self, unk_sym = '?'):
