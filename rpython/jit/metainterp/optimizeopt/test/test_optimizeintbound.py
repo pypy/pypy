@@ -1950,6 +1950,29 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_higher_bits_known(self):
+        ops = """
+        [i40]
+        i42 = int_le(2147487760, i40)            # range check: inside RAM
+        guard_true(i42) []
+        i44 = int_lt(i40, 2214592511)
+        guard_true(i44) []
+        i46 = int_and(i40, -9223372036854775808) # uppermost bit cannot be set
+        i47 = int_is_true(i46)
+        guard_false(i47) []
+        jump(i40)
+        """
+        expected = """
+        [i40]
+        i42 = int_le(2147487760, i40)            # range check: inside RAM
+        guard_true(i42) []
+        i44 = int_lt(i40, 2214592511)
+        guard_true(i44) []
+        i46 = int_and(i40, -9223372036854775808) # uppermost bit cannot be set
+        jump(i40)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_bug_dont_use_getint(self):
         ops = """
         [i1, i2]

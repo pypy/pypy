@@ -895,7 +895,7 @@ def test_tnum_contains_bound_bug():
 
 @given(knownbits_and_bound_with_contained_number)
 @example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))
-def test_minmax_bug_shrinking_random(t1):
+def test_minmax_shrinking_random(t1):
     b0, n0 = t1
     n1 = n0
     #import pdb; pdb.set_trace()
@@ -915,7 +915,7 @@ def test_minmax_bug_shrinking_random(t1):
 
 @given(knownbits_and_bound_with_contained_number)
 #@pytest.mark.xfail(reason="not finished. i gave up.")
-def test_minmax_random(t1):
+def test_minmax_noshrink_random(t1):
     b1, n1 = t1
     #import pdb; pdb.set_trace()
     assert b1.lower <= n1 <= b1.upper
