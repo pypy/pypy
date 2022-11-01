@@ -23,6 +23,7 @@ TNUM_ONLY_MASK_DEFAULT = TNUM_ONLY_MASK_UNKNOWN
 
 def next_pow2_m1(n):
     """Calculate next power of 2 minus one, greater than n"""
+    assert isinstance(n, r_uint)
     n |= n >> 1
     n |= n >> 2
     n |= n >> 4
