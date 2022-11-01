@@ -790,9 +790,9 @@ class IntBound(AbstractInfo):
         upper = MAXINT
         if self.known_nonnegative_by_bounds() and \
                 other.known_nonnegative_by_bounds():
-            mostsignificant = self.upper | other.upper
+            mostsignificant = r_uint(self.upper | other.upper)
             lower = 0
-            upper = next_pow2_m1(mostsignificant)
+            upper = intmask(next_pow2_m1(mostsignificant))
 
         union_vals = self.tvalue | other.tvalue
         union_masks = self.tmask | other.tmask
@@ -813,9 +813,9 @@ class IntBound(AbstractInfo):
         upper = MAXINT
         if self.known_nonnegative_by_bounds() and \
                 other.known_nonnegative_by_bounds():
-            mostsignificant = self.upper | other.upper
+            mostsignificant = r_uint(self.upper | other.upper)
             lower = 0
-            upper = next_pow2_m1(mostsignificant)
+            upper = intmask(next_pow2_m1(mostsignificant))
 
         xor_vals = self.tvalue ^ other.tvalue
         union_masks = self.tmask | other.tmask
@@ -1149,8 +1149,8 @@ class IntBound(AbstractInfo):
                 return False
         else:
             # can't be empty if one of the bounds agrees with tvalue
-            if (self.tvalue != unmask_zero(self.lower, self.tmask)) \
-               and (self.tvalue != unmask_zero(self.upper, self.tmask)):
+            if (self.tvalue != unmask_zero(r_uint(self.lower), self.tmask)) \
+               and (self.tvalue != unmask_zero(r_uint(self.upper), self.tmask)):
                 # check if there is a ? within the bounds realm
                 bound_bits = next_pow2_m1(r_uint(self.lower) ^ r_uint(self.upper))
                 if 0 == (bound_bits & self.tmask):
