@@ -467,14 +467,14 @@ def test_xor_bound():
 
 
 def test_next_pow2_m1():
-    assert next_pow2_m1(0) == 0
-    assert next_pow2_m1(1) == 1
-    assert next_pow2_m1(7) == 7
-    assert next_pow2_m1(256) == 511
-    assert next_pow2_m1(255) == 255
-    assert next_pow2_m1(80) == 127
-    assert next_pow2_m1((1 << 32) - 5) == (1 << 32) - 1
-    assert next_pow2_m1((1 << 64) - 1) == (1 << 64) - 1
+    assert next_pow2_m1(r_uint(0)) == r_uint(0)
+    assert next_pow2_m1(r_uint(1)) == r_uint(1)
+    assert next_pow2_m1(r_uint(7)) == r_uint(7)
+    assert next_pow2_m1(r_uint(256)) == r_uint(511)
+    assert next_pow2_m1(r_uint(255)) == r_uint(255)
+    assert next_pow2_m1(r_uint(80)) == r_uint(127)
+    assert next_pow2_m1(r_uint((1 << 32) - 5)) == r_uint((1 << 32) - 1)
+    assert next_pow2_m1(r_uint((1 << 64) - 1)) == r_uint((1 << 64) - 1)
 
 def test_invert_bound():
     for _, _, b1 in some_bounds():
@@ -1244,7 +1244,7 @@ def test_knownbits_lshift_backwards_example():
     x2 = ConstIntBound(0b101)
     r2 = knownbits(0b101010,
                    0b010100) # 1?1?10
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     res2 = x2.lshift_bound_backwards(o, r2)
     assert res2.knownbits_string().endswith("1?1")
     x3 = IntUnbounded()
