@@ -781,7 +781,7 @@ class OptIntBounds(Optimization):
         if not b1.lshift_bound_cannot_overflow(b2):
             return
         r = self.getintbound(op)
-        b = r.rshift_bound(b2)
+        b = r.lshift_bound_backwards(b2, r)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 

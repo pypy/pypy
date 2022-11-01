@@ -1084,6 +1084,23 @@ class IntBound(AbstractInfo):
         # both urshift and rshift.
         return self.urshift_bound_backwards(other, result)
 
+    def lshift_bound_backwards(self, other, result):
+        if not other.is_constant():
+            return IntUnbounded()
+        c_other = other.get_constant_int()
+        tvalue, tmask = TNUM_UNKNOWN
+        if 0 <= c_other < LONG_BIT:
+            tvalue = result.tvalue >> r_uint(c_other)
+            tmask = result.tmask >> r_uint(c_other)
+            # shift ? in from the left,
+            # but we know some bits from `self`
+            s_tmask = leading_zeros_mask(r_uint(MININT) >> r_uint(c_other))
+            s_tvalue = s_tmask & self.tvalue
+            s_tmask &= self.tmask
+            tvalue |= s_tvalue
+            tmask |= s_tmask
+        # ignore bounds # TODO: bounds
+        return IntBoundKnownbits(tvalue, tmask)
 
     def shrink_bounds_by_knownbits(self):
         """

@@ -1232,6 +1232,27 @@ def test_knownbits_urshift_backwards_example():
     assert not res3.is_constant()
     assert check_knownbits_string(res3, "1???", '0')
 
+def test_knownbits_lshift_backwards_example():
+    o = ConstIntBound(3)
+    x1 = IntUnbounded()
+    r1 = knownbits(0b101010,
+                   0b010100) # 1?1?10
+    res1 = x1.lshift_bound_backwards(o, r1)
+    assert not res1.is_constant()
+    assert res1.knownbits_string().startswith("???") \
+        and res1.knownbits_string().endswith("1?1")
+    x2 = ConstIntBound(0b101)
+    r2 = knownbits(0b101010,
+                   0b010100) # 1?1?10
+    import pdb; pdb.set_trace()
+    res2 = x2.lshift_bound_backwards(o, r2)
+    assert res2.knownbits_string().endswith("1?1")
+    x3 = IntUnbounded()
+    r3 = knownbits(MININT, 0) # 1
+    res3 = x3.lshift_bound_backwards(o, r3)
+    assert not res3.is_constant()
+    assert res3.knownbits_string().startswith("???1")
+
 def test_knownbits_rshift_backwards_example():
     o = ConstIntBound(3)
     x1 = IntUnbounded()
