@@ -77,7 +77,8 @@ def build_some_bits_known(a, b):
 def build_some_bits_known_bounded(a, b, c, d):
     a, b, d = sorted([a, b, d])
     res_bound = IntBound(lower=a, upper=d,
-                    tvalue=u(b&~c), tmask=u(c))
+                    tvalue=u(b&~c), tmask=u(c),
+                    do_shrinking=False)
     res_val = intmask((res_bound.tvalue&~res_bound.tmask) | (b&res_bound.tmask))
     return (res_bound, res_val)
 
@@ -713,7 +714,7 @@ def test_knownbits_intconst_examples():
     assert b3.equals(0b0)
 
 
-@pytest.mark.xfail(reason="not finished. i gave up.")
+#@pytest.mark.xfail(reason="not finished. i gave up.")
 def test_knownbits_minmax_nobounds_examples():
     #import pdb; pdb.set_trace()
     # constant case
@@ -735,7 +736,7 @@ def test_knownbits_minmax_nobounds_examples():
     assert b3.get_maximum_signed() == ~0b0100010
     assert not b3.contains(b3.get_maximum_signed() + 1)
 
-@pytest.mark.xfail(reason="not finished. i gave up.")
+#@pytest.mark.xfail(reason="not finished. i gave up.")
 def test_knownbits_minmax_bounds_examples():
     #import pdb; pdb.set_trace()
     # case (-Inf, 0]
@@ -893,6 +894,26 @@ def test_tnum_contains_bound_bug():
     assert b1.contains_bound(b2)
 
 @given(knownbits_and_bound_with_contained_number)
+@example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))
+def test_minmax_bug_shrinking_random(t1):
+    b0, n0 = t1
+    n1 = n0
+    #import pdb; pdb.set_trace()
+    b1 = IntBound(lower=b0.lower, upper=b0.upper,
+                 tvalue=b0.tvalue, tmask=b0.tmask,
+                 do_shrinking=True)
+    assert b1.lower <= n1 <= b1.upper
+    minimum = b1.get_minimum_signed()
+    assert minimum >= b1.lower
+    assert minimum <= n1
+    assert b1.contains(minimum)
+    maximum = b1.get_maximum_signed()
+    assert maximum <= b1.upper
+    assert maximum >= n1
+    assert b1.contains(maximum)
+    assert minimum <= maximum
+
+@given(knownbits_and_bound_with_contained_number)
 #@pytest.mark.xfail(reason="not finished. i gave up.")
 def test_minmax_random(t1):
     b1, n1 = t1
@@ -902,11 +923,11 @@ def test_minmax_random(t1):
     assert minimum >= b1.lower
     assert minimum <= n1
     assert b1.contains(minimum)
-    #maximum = b1.get_maximum_signed()
-    #assert maximum <= b1.upper
-    #assert maximum >= n1
-    #assert b1.contains(maximum)
-    #assert minimum <= maximum
+    maximum = b1.get_maximum_signed()
+    assert maximum <= b1.upper
+    assert maximum >= n1
+    assert b1.contains(maximum)
+    assert minimum <= maximum
 
 
 def test_knownbits_and():
