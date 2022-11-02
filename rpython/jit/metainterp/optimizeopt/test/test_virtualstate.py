@@ -865,7 +865,7 @@ class BaseTestBridges(BaseTest):
         data = compile.BridgeCompileData(trace, runtime_boxes,
             enable_opts=self.enable_opts, inline_short_preamble=True)
 
-        info, newops = data.optimize_trace(self.metainterp_sd, None, {})
+        info, newops = data.optimize_trace(self.metainterp_sd, self.jitdriver_sd, {})
         if info.final():
             bridge.operations = newops
             bridge.inputargs = info.inputargs

@@ -571,6 +571,7 @@ PARAMETER_DOCS = {
     'inlining': 'inline python functions or not (1/0)',
     'loop_longevity': 'a parameter controlling how long loops will be kept before being freed, an estimate',
     'retrace_limit': 'how many times we can try retracing before giving up',
+    'pureop_historylength': 'how many pure operations the optimizer should remember for CSE (internal)',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
     'disable_unrolling': 'after how many operations we should not unroll',
@@ -592,6 +593,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 0,
+              'pureop_historylength': 16,
               'max_retrace_guards': 15,
               'max_unroll_loops': 0,
               'disable_unrolling': 200,
@@ -858,11 +860,15 @@ def set_user_param(driver, text):
             for name1, _ in unroll_parameters:
                 if name1 == name and name1 != 'enable_opts':
                     try:
-                        if name1 == 'trace_limit' and int(value) > 2**14:
-                            raise TraceLimitTooHigh
-                        set_param(driver, name1, int(value))
+                        ivalue = int(value)
                     except ValueError:
                         raise
+                    try:
+                        set_param(driver, name1, ivalue)
+                    except ValueError:
+                        if name1 == 'trace_limit' and ivalue >= 0:
+                            # turn it into a somewhat more understandable exception
+                            raise TraceLimitTooHigh
                     break
             else:
                 raise ValueError
