@@ -1,4 +1,5 @@
 import py
+import pytest
 import sys
 import re
 from rpython.rlib.rarithmetic import intmask
@@ -860,7 +861,6 @@ class TestOptimizeBasic(BaseTestBasic):
         finish(1)
         """
         self.optimize_loop(ops, ops)
-        py.test.skip("XXX missing optimization: ll_arraycopy(array-of-structs)")
 
     def test_nonvirtual_array_of_struct_arraycopy(self):
         ops = """
@@ -1696,8 +1696,8 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
-        py.test.skip("setarrayitem with variable index")
         ops = """
         [p1, p2, p3, i1]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
@@ -2973,6 +2973,7 @@ class TestOptimizeBasic(BaseTestBasic):
             where p1b is a node_vtable, valuedescr=i1
             ''', rop.GUARD_NOT_FORCED)
 
+    @pytest.mark.xfail
     def test_vref_virtual_and_lazy_setfield(self):
         ops = """
         [p0, i1]
@@ -3004,7 +3005,6 @@ class TestOptimizeBasic(BaseTestBasic):
         #  - i1 is from the virtual expansion of p1
         #  - p0 is from the extra pendingfields
         self.loop.inputargs[0].setref_base(self.nodeobjvalue)
-        py.test.skip("XXX")
         self.check_expanded_fail_descr('''p2, p1
             p0.refdescr = p2
             where p2 is a jit_virtual_ref_vtable, virtualtokendescr=p3
@@ -3983,7 +3983,6 @@ class TestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_int_add_sub_constants_inverse(self):
-        py.test.skip("reenable")
         ops = """
         [i0, i10, i11, i12, i13]
         i2 = int_add(1, i0)
@@ -5448,6 +5447,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_forced_virtuals_aliasing(self):
         ops = """
         [i0, i1]
@@ -5470,7 +5470,6 @@ class TestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=adescr)
         jump(i0, i0)
         """
-        py.test.skip("not implemented")
         # setfields on things that used to be virtual still can't alias each
         # other
         self.optimize_loop(ops, expected)
@@ -5546,8 +5545,8 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_known_equal_ints(self):
-        py.test.skip("in-progress")
         ops = """
         [i0, i1, i2, p0]
         i3 = int_eq(i0, i1)
@@ -6005,8 +6004,8 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_consecutive_getinteriorfields(self):
-        py.test.skip("we want this to pass")
         ops = """
         [p0, i0]
         i1 = getinteriorfield_gc_i(p0, i0, descr=valuedescr)
