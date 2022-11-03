@@ -1523,3 +1523,65 @@ def PyUnicode_Append(space, p_left, right):
     w_right = from_ref(space, right)
     w_append = space.add(w_left, w_right)
     p_left[0] = make_ref(space, w_append)
+
+@cts.decl("wchar_t *PyDecodeLocale(const char* arg, size_t *wlen)")
+def Py_DecodeLocale(space, arg, wlenp):
+    """Decode a byte string from the locale encoding with the
+    surrogateescape error handler: undecodable bytes are decoded as characters
+    in range U+DC80..U+DCFF. If a byte sequence can be decoded as a surrogate
+    character, escape the bytes using the surrogateescape error handler instead
+    of decoding them.
+
+    Return a pointer to a newly allocated wide character string, use
+    PyMem_RawFree() to free the memory. If size is not NULL, write the number of
+    wide characters excluding the null character into *size
+
+    Return NULL on decoding error or memory allocation error. If *size* is not
+    NULL, *size is set to (size_t)-1 on memory error or set to (size_t)-2 on
+    decoding error.
+
+    Decoding errors should never happen, unless there is a bug in the C
+    library.
+
+    Use the Py_EncodeLocale() function to encode the character string back to a
+    byte string.
+   """
+    # This could be moved to C
+    from pypy.module._codecs.locale import (
+            pypy_char2wchar, _errmsg, default_unicode_error_decode)
+    errorhandler = default_unicode_error_decode
+    ubuf = pypy_char2wchar(arg, wlenp)
+    if not ubuf:
+        errmsg = _errmsg("pypy_char2wchar")
+        errorhandler('strict', 'filesystemencoding', errmsg, s, 0, 1)
+    return ubuf
+        
+@cts.decl("char* Py_EncodeLocale(const wchar_t *text, size_t *error_pos)")
+def Py_EncodeLocale(space, text, error_pos):
+    """Encode a wide character string to the locale encoding with the
+    surrogateescape error handler: surrogate characters in the range
+    U+DC80..U+DCFF are converted to bytes 0x80..0xFF.
+
+    Return a pointer to a newly allocated byte string, use PyMem_Free() to free
+    the memory. Return NULL on encoding or memory allocation error.
+
+    If error_pos is not NULL, *error_pos is set to (size_t)-1 on success, or set
+    to the index of the invalid character on encoding error.
+
+    Use the Py_DecodeLocale() function to decode the bytes string back to a wide
+    character string.
+    """
+    from pypy.module._codecs.locale import (
+            pypy_wchar2char, _errmsg, default_unicode_error_encode)
+    errorhandler = default_unicode_error_encode
+    with lltype.scoped_alloc(rffi.SIZE_TP.TO, 1) as errorposp:
+        sbuf = pypy_wchar2char(text, errorposp)
+        if not sbuf:
+            errmsg = _errmsg("pypy_wchar2char")
+            errorpos = errorposp[0]
+            u = "unparseable wchar"  # XXX should be text.decode('utf-8')
+            errorhandler('surrogateescape', 'filesystemencoding', errmsg, u,
+                         errorpos, errorpos + 1)
+        if error_pos:
+            error_pos[0] = errorposp[0]
+        return sbuf 
