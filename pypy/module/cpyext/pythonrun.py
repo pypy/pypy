@@ -1,5 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL
+from pypy.module.cpyext.api import cpython_api, cts, CANNOT_FAIL
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.pyerrors import PyErr_SetNone
@@ -15,6 +15,14 @@ def Py_GetProgramName(space):
     The returned string points into static storage; the caller should not modify its
     value."""
     return space.fromcache(State).get_programname()
+
+@cts.decl("void Py_SetProgramName(const wchar_t *)", error=CANNOT_FAIL)
+def Py_SetProgramName(space, name):
+    """
+    Sets the program name
+    """
+    return space.fromcache(State).set_programname(rffi.cast(rffi.CWCHARP, name))
+
 
 @cpython_api([], rffi.CCHARP)
 def Py_GetVersion(space):

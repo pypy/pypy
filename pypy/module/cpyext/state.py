@@ -161,9 +161,9 @@ class State:
         return self.programname
 
     def set_programname(self, value):
+        # value must be a wcharp pointer
         # whoops, old programname is leaked?
-        self.programname = rffi.utf82wcharp(value, len(value))
-        lltype.render_immortal(self.programname)
+        self.programname = value
 
     def get_version(self):
         if not self.version:
