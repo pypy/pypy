@@ -28,6 +28,9 @@ from rpython.rtyper import rclass
 
 SIZE_LIVE_OP = OFFSET_SIZE + 1
 
+CONST_0      = ConstInt(0)
+CONST_1      = ConstInt(1)
+
 # ____________________________________________________________
 
 def arguments(*args):
@@ -445,12 +448,18 @@ class MIFrame(object):
     def opimpl_goto_if_not(self, box, target, orgpc):
         switchcase = box.getint()
         if switchcase:
+            assert switchcase == 1
             opnum = rop.GUARD_TRUE
+            promoted_box = CONST_1
         else:
             opnum = rop.GUARD_FALSE
+            promoted_box = CONST_0
         self.metainterp.generate_guard(opnum, box, resumepc=orgpc)
         if not switchcase:
             self.pc = target
+        if isinstance(box, Const):
+            return
+        self.metainterp.replace_box(box, promoted_box)
 
     @arguments("box", "label", "orgpc")
     def opimpl_goto_if_not_int_is_true(self, box, target, orgpc):

@@ -11,8 +11,12 @@ pydot = '%d.%d' % sys.version_info[:2]
 
 build_time_vars = {
     'ABIFLAGS': '',
-    # Wheel 0.34.2 depended on a wrong value, hopefully no-one is still using it
-    "SOABI": so_ext.split('.')[1],
+    # SOABI is PEP 3149 compliant, but CPython3 has so_ext.split('.')[1]
+    # ("ABI tag"-"platform tag") where this is ABI tag only. Wheel 0.34.2
+    # depends on this value, so don't make it CPython compliant without
+    # checking wheel: it uses pep425tags.get_abi_tag with special handling
+    # for CPython
+    "SOABI": '-'.join(so_ext.split('.')[1].split('-')[:2]),
     "SO": so_ext,  # deprecated in Python 3, for backward compatibility
     'MULTIARCH': sys.implementation._multiarch,
     'CC': "cc -pthread",

@@ -301,5 +301,10 @@ class build_hpy_ext_mixin:
         """
         exports = self._base_build_ext.get_export_symbols(self, ext)
         if hasattr(ext, "hpy_abi") and ext.hpy_abi == 'universal':
-            exports = [re.sub(r"^PyInit_", "HPyInit_", name) for name in exports]
+            if sys.version_info < (3,):
+                #relevant for untranslated tests
+                init_prefix = r"^init"
+            else:
+                init_prefix = r"^PyInit_"
+            exports = [re.sub(init_prefix, "HPyInit_", name) for name in exports]
         return exports
