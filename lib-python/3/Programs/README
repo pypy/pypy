@@ -1,1 +1,3 @@
 Source files for binary executables (as opposed to shared modules)
+
+PyPy: build these with pypy3 build_exes.py
