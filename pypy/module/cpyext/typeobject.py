@@ -576,11 +576,7 @@ class W_PyCTypeObject(W_TypeObject):
         dict_w = {}
 
         flag_heaptype = widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
-        if flag_heaptype:
-            hto = cts.cast('PyHeapTypeObject*', pto)
-            name = space.text_w(from_ref(space, hto.c_ht_name))
-        else:
-            name = rffi.constcharp2str(pto.c_tp_name)
+        name = rffi.constcharp2str(pto.c_tp_name)
         add_operators(space, self, dict_w, pto, name)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self)
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
@@ -983,7 +979,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
     res.c_ht_name = make_ref(space, space.newtext(name))
     res.c_ht_qualname = res.c_ht_name
     incref(space, res.c_ht_qualname)
-    typ.c_tp_name = spec.c_name
+    typ.c_tp_name = cts.cast('const char*', rffi.str2charp(name))
     slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
     if not bases:
         w_base = space.w_object
