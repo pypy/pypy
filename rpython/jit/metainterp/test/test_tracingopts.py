@@ -905,3 +905,57 @@ class TestLLtype(LLJitMixin):
         assert res == 1
         self.check_operations_history(getinteriorfield_gc_i=0)
 
+    def test_heapcache_from_constant(self):
+        class A(object):
+            _immutable_fields_ = ['next']
+            pass
+        g = A()
+        g.x = 2
+        g.next = A()
+        g.next.x = 1
+        g.next.next = g
+        def fn(n):
+            lg = g
+            if n:
+                lg = g.next
+            res = lg.next.x
+            if n:
+                lg.next.x = 2
+            res += lg.next.x
+            return res
+        res = self.interp_operations(fn, [0])
+        assert res == 2
+        self.check_operations_history(getfield_gc_r=0)
+
+    def test_constify_bools(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = True
+        a.y = False
+        def fn(n):
+            if n == 123141:
+                a.x = False
+                a.y = True
+            if a.x:
+                res = 0
+            else:
+                res = 1
+            if a.x:
+                res += 2
+            else:
+                res += 4
+
+            if a.y:
+                res += 12
+            else:
+                res += 20
+            if a.y:
+                res += 2
+            else:
+                res += 4
+            return res
+        res = self.interp_operations(fn, [0])
+        assert res == 26
+        self.check_operations_history(guard_true=1, guard_false=2) # should not be 2 and 3
+
