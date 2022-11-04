@@ -5,7 +5,8 @@ from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.rstring import find, endswith
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.jit.metainterp.history import (
-    ConstInt, ConstFloat, RefFrontendOp, IntFrontendOp, FloatFrontendOp, INT, REF, FLOAT, VOID)
+    AbstractFailDescr, ConstInt, ConstFloat, RefFrontendOp, IntFrontendOp, FloatFrontendOp,
+    INT, REF, FLOAT, VOID)
 from rpython.jit.metainterp import compile, jitprof, history
 from rpython.jit.metainterp.history import TargetToken
 from rpython.jit.metainterp.optimizeopt.optimizer import (
@@ -101,6 +102,10 @@ class OptTraceSplit(Optimizer):
         self._newopsandinfo = []
         self._fdescrstack = []
 
+        self._slow_path_newopsandinfo = []
+        self._slow_path_emit_ptr_eq = None
+        self._slow_path_faildescr = None
+
         self.set_optimizations(optimizations)
         self.setup()
 
@@ -126,6 +131,10 @@ class OptTraceSplit(Optimizer):
         num_green_args = jd.num_green_args
         num_red_args = jd.num_red_args
 
+        slow_flg = False
+        slow_ops = []
+        slow_path_faildescr = None
+        slow_path_token = None
         while not trace.done():
             self._really_emitted_operation = None
             op = trace.next()
@@ -165,6 +174,51 @@ class OptTraceSplit(Optimizer):
                 if isinstance(lastarg, ConstInt) and lastarg.getint() == 1:
                     op.setarg(numargs - 1, ConstInt(0))
 
+            if slow_flg:
+                if rop.is_call(opnum):
+                    name = self._get_name_from_op(op)
+                    if name.find("end_slow_path") != - 1:
+                        numargs = op.numargs()
+                        arg1 = op.getarg(1)
+                        arg2 = op.getarg(2)
+                        jump_op = ResOperation(rop.JUMP, [arg1, arg2],
+                                               descr=slow_path_token)
+                        slow_path_token = None
+                        slow_ops.append(jump_op)
+
+                        label = slow_ops[0]
+                        assert label.getopnum() == rop.LABEL
+                        self.emit(label)
+
+                        assert self._slow_path_faildescr is not None
+                        info = TraceSplitInfo(label.getdescr(), label, self.inputargs,
+                                              self._slow_path_faildescr)
+                        self._slow_path_newopsandinfo.append((info, slow_ops))
+
+                        slow_ops = []
+                        slow_flg = False
+
+                        continue
+
+                slow_ops.append(op)
+                continue
+
+            if rop.is_call(opnum):
+                name = self._get_name_from_op(op)
+                numargs = op.numargs()
+
+                if name.find("begin_slow_path") != -1:
+                    slow_flg = True
+                    slow_path_token = self._create_token()
+                    arg1 = op.getarg(1)
+                    arg2 = op.getarg(2)
+                    label = ResOperation(rop.LABEL, [arg1, arg2], descr=slow_path_token)
+                    slow_ops.append(label)
+                    continue
+
+                if name.find("emit_ptr_eq") != -1:
+                    self._slow_path_emit_ptr_eq = op
+
             self.send_extra_operation(op)
             trace.kill_cache_at(deadranges[i + trace.start_index])
             if op.type != 'v':
@@ -180,6 +234,8 @@ class OptTraceSplit(Optimizer):
             label = self._newoperations[0]
             info = TraceSplitInfo(label.getdescr(), label, self.inputargs, self.resumekey)
             self._newopsandinfo.append((info, self._newoperations))
+
+        self._newopsandinfo.extend(self._slow_path_newopsandinfo)
 
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
         # XXX: workaround to pass the type checking
@@ -201,6 +257,8 @@ class OptTraceSplit(Optimizer):
 
             op.setfailargs(newfailargs)
             self._fdescrstack.append(op.getdescr())
+        elif op.getarg(0) is self._slow_path_emit_ptr_eq:
+            self._slow_path_faildescr = op.getdescr()
 
     optimize_GUARD_TRUE = optimize_GUARD_VALUE
     optimize_GUARD_FALSE = optimize_GUARD_VALUE
@@ -221,7 +279,7 @@ class OptTraceSplit(Optimizer):
 
     def optimize_CALL_MAY_FORCE_R(self, op):
         name = self._get_name_from_op(op)
-        if find(name, mark.CALL_ASSEMBLER, 0, len(name)):
+        if find(name, mark.CALL_ASSEMBLER, 0, len(name)) != - 1:
             self.handle_call_assembler(op)
         else:
             self.emit(op)

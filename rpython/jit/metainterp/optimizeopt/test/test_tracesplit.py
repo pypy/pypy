@@ -161,6 +161,36 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
     istruedescr = cpu.calldescrof(FPTR.TO, (lltype.Signed,lltype.Signed), lltype.Bool,
                                 EffectInfo.MOST_GENERAL)
 
+    def func2(x, y):
+        return x
+    FPTR = Ptr(FuncType([lltype.Signed, lltype.Signed, lltype.Signed], lltype.Signed))
+    func2_ptr = llhelper(FPTR, func)
+    calldescr = cpu.calldescrof(FPTR.TO, (lltype.Signed,), lltype.Signed,
+                                EffectInfo.MOST_GENERAL)
+
+    def emit_ptr_eq(rcvr, rcvr_type):
+        return True
+
+    S = lltype.GcForwardReference()
+    FPTR = Ptr(FuncType([lltype.Signed, lltype.Signed, lltype.Ptr(S), lltype.Ptr(S)], lltype.Signed))
+    emit_ptr_eq_ptr = llhelper(FPTR, emit_ptr_eq)
+    emitjumpifdescr = cpu.calldescrof(FPTR.TO, (lltype.Signed,lltype.Signed,lltype.Signed,lltype.Signed), lltype.Bool,
+                                EffectInfo.MOST_GENERAL)
+
+    def begin_slow_path(x, y):
+        return x
+    FPTR = Ptr(FuncType([lltype.Signed,lltype.Signed], lltype.Signed))
+    begin_slow_path_ptr = llhelper(FPTR, begin_slow_path)
+    calldescr = cpu.calldescrof(FPTR.TO, (lltype.Signed,lltype.Signed), lltype.Signed,
+                                EffectInfo.MOST_GENERAL)
+
+    def end_slow_path(x, y):
+        return x
+    FPTR = Ptr(FuncType([lltype.Signed,lltype.Signed], lltype.Signed))
+    end_slow_path_ptr = llhelper(FPTR, end_slow_path)
+    calldescr = cpu.calldescrof(FPTR.TO, (lltype.Signed,lltype.Signed), lltype.Signed,
+                                EffectInfo.MOST_GENERAL)
+
     finaldescr = BasicFinalDescr(0)
     faildescr  = compile.ResumeGuardDescr()
 
@@ -289,6 +319,50 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
 
 class TestOptTraceSplit(BaseTestTraceSplit):
 
+    def test_method_cache_1(self):
+        ops = """
+        [p0, p1]
+        debug_merge_point(0, 0, 0, 0, '0: PUSH_INNER_1 in Fibonacci>>fibonacci: tstack: []')
+        call_n(ConstClass(func2_ptr), p1, p0, 1, descr=calldescr)
+        debug_merge_point(0, 0, '21: SEND_2 in Fibonacci>>fibonacci: tstack: [9.]')
+        call_n(ConstClass(func2_ptr), p0, p1, 0, descr=calldescr)
+        i34 = call_i(ConstClass(emit_ptr_eq_ptr), ConstPtr(myptr), ConstPtr(myptr), descr=calldescr)
+        guard_true(i34) [p0, p1]
+        p35 = call_r(ConstClass(func2_ptr), p0, p1, 1, descr=calldescr)
+        p36 = call_r(ConstClass(func2_ptr), p0, p1, p35, descr=calldescr)
+        p38 = call_r(ConstClass(func2_ptr), p0, p1, 0, p36, 1, descr=calldescr)
+        p50 = call_r(ConstClass(begin_slow_path_ptr), p0, p1, 345, descr=calldescr)
+        i57 = call_may_force_i(ConstClass(func_ptr), p0, p1, 0, descr=calldescr)
+        guard_value(i57, 45) []
+        call_n(ConstClass(end_slow_path_ptr), p0, p1, 345, descr=calldescr)
+        finish(p0)
+        """
+
+        body_exp = """
+        [p0, p1]
+        debug_merge_point(0, 0, 0, 0, '0: PUSH_INNER_1 in Fibonacci>>fibonacci: tstack: []')
+        call_n(ConstClass(func2_ptr), p1, p0, 0, descr=calldescr)
+        debug_merge_point(0, 0, '21: SEND_2 in Fibonacci>>fibonacci: tstack: [9.]')
+        call_n(ConstClass(func2_ptr), p0, p1, 0, descr=calldescr)
+        i34 = call_i(ConstClass(emit_ptr_eq_ptr), ConstPtr(myptr), ConstPtr(myptr), descr=calldescr)
+        guard_true(i34) [p0, p1]
+        p35 = call_r(ConstClass(func2_ptr), p0, p1, 0, descr=calldescr)
+        p36 = call_r(ConstClass(func2_ptr), p0, p1, p35, descr=calldescr)
+        p38 = call_r(ConstClass(func2_ptr), p0, p1, 0, p36, 0, descr=calldescr)
+        label(p0, p1)
+        finish(p0)
+        """
+
+        bridge_exp = """
+        [p0, p1]
+        i0 = call_may_force_i(ConstClass(func_ptr), p0, p1, 0, descr=calldescr)
+        guard_value(i0, 45) []
+        jump(p0, p1)
+        """
+
+        self.assert_equal_split(ops, body_exp, bridge_exp)
+
+    @pytest.mark.skip()
     def test_trace_split_real_trace_1(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
