@@ -313,30 +313,29 @@ class OptTraceSplit(Optimizer):
         self.emit(newop)
 
     def _invest_label_jump_dest(self, targetbox, token):
-        jd = self.jitdriver_sd
-        num_green_args = jd.num_green_args
-        num_red_args = jd.num_red_args
-
         for info, ops in self._newopsandinfo:
             for i, op in enumerate(ops):
                 if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                    arglist = op.getarglist()
-                    greenargs = arglist[1+num_red_args:1+num_red_args+num_green_args]
-                    posbox = greenargs[0]
-                    if posbox.same_constant(targetbox):
-                        label_op = ResOperation(rop.LABEL, self.inputargs, token)
-                        ops.insert(i, label_op)
+                    if self._insert_label(op, i, ops, targetbox, token):
                         return
 
         for i, op in enumerate(self._newoperations):
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                arglist = op.getarglist()
-                greenargs = arglist[1+num_red_args:1+num_red_args+num_green_args]
-                posbox = greenargs[0]
-                if posbox.same_constant(targetbox):
-                    label_op = ResOperation(rop.LABEL, self.inputargs, token)
-                    self._newoperations.insert(i, label_op)
+                if self._insert_label(op, i, self._newoperations, targetbox, token):
                     return
+
+    def _insert_label(self, op, i, ops, targetbox, token):
+        jd = self.jitdriver_sd
+        num_green_args = jd.num_green_args
+        num_red_args = jd.num_red_args
+        arglist = op.getarglist()
+        greenargs = arglist[1+num_red_args:1+num_red_args+num_green_args]
+        posbox = greenargs[0]
+        if posbox.same_constant(targetbox):
+            label_op = ResOperation(rop.LABEL, self.inputargs, token)
+            ops.insert(i, label_op)
+            return True
+        return False
 
     def _get_name_from_op(self, op):
         arg0 = op.getarg(0)
