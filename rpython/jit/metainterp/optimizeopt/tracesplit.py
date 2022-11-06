@@ -105,6 +105,7 @@ class OptTraceSplit(Optimizer):
         self._slow_path_newopsandinfo = []
         self._slow_path_emit_ptr_eq = None
         self._slow_path_faildescr = None
+        self._slow_path_recorded = []
 
         self.set_optimizations(optimizations)
         self.setup()
@@ -133,8 +134,6 @@ class OptTraceSplit(Optimizer):
 
         slow_flg = False
         slow_ops = []
-        slow_path_faildescr = None
-        slow_path_token = None
         while not trace.done():
             self._really_emitted_operation = None
             op = trace.next()
@@ -175,25 +174,33 @@ class OptTraceSplit(Optimizer):
                     op.setarg(numargs - 1, ConstInt(0))
 
             if slow_flg:
+                if rop.GUARD_NOT_FORCED <= opnum <= rop.GUARD_NOT_FORCED_2 or \
+                   rop.GUARD_NO_EXCEPTION == opnum:
+                    continue
+
                 if rop.is_call(opnum):
                     name = self._get_name_from_op(op)
                     if name.find("end_slow_path") != - 1:
                         numargs = op.numargs()
                         arg1 = op.getarg(1)
                         arg2 = op.getarg(2)
-                        jump_op = ResOperation(rop.JUMP, [arg1, arg2],
-                                               descr=slow_path_token)
-                        slow_path_token = None
+
+                        jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+                        original_jitcell_token = self.token.original_jitcell_token
+                        token_jump_to = TargetToken(jitcell_token,
+                                                    original_jitcell_token=original_jitcell_token)
+                        label_jump_to = ResOperation(rop.LABEL, self.inputargs, descr=token_jump_to)
+                        jump_op = ResOperation(rop.JUMP, [arg1, arg2], descr=token_jump_to)
+
+                        self.emit(label_jump_to)
                         slow_ops.append(jump_op)
 
                         label = slow_ops[0]
-                        assert label.getopnum() == rop.LABEL
-                        self.emit(label)
-
                         assert self._slow_path_faildescr is not None
                         info = TraceSplitInfo(label.getdescr(), label, self.inputargs,
                                               self._slow_path_faildescr)
-                        self._slow_path_newopsandinfo.append((info, slow_ops))
+                        self._slow_path_newopsandinfo.append((info, slow_ops[1:]))
+                        self._slow_path_recorded.append(slow_ops[1:])
 
                         slow_ops = []
                         slow_flg = False
@@ -209,14 +216,18 @@ class OptTraceSplit(Optimizer):
 
                 if name.find("begin_slow_path") != -1:
                     slow_flg = True
-                    slow_path_token = self._create_token()
+                    token = self._create_token()
+                    jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+                    original_jitcell_token = self.token.original_jitcell_token
+                    token = TargetToken(jitcell_token,
+                                        original_jitcell_token=original_jitcell_token)
                     arg1 = op.getarg(1)
                     arg2 = op.getarg(2)
-                    label = ResOperation(rop.LABEL, [arg1, arg2], descr=slow_path_token)
+                    label = ResOperation(rop.LABEL, [arg1, arg2], descr=token)
                     slow_ops.append(label)
                     continue
 
-                if name.find("emit_ptr_eq") != -1:
+                if endswith(name, "emit_ptr_eq"):
                     self._slow_path_emit_ptr_eq = op
 
             self.send_extra_operation(op)
@@ -248,6 +259,10 @@ class OptTraceSplit(Optimizer):
         dispatch_opt(self, op)
 
     def optimize_GUARD_VALUE(self, op):
+        for slow_ops in self._slow_path_recorded:
+            if op.getarg(0) in slow_ops:
+                return
+
         self.emit(op)
         if self.check_if_guard_marked(op):
             newfailargs = []
@@ -259,6 +274,7 @@ class OptTraceSplit(Optimizer):
             self._fdescrstack.append(op.getdescr())
         elif op.getarg(0) is self._slow_path_emit_ptr_eq:
             self._slow_path_faildescr = op.getdescr()
+
 
     optimize_GUARD_TRUE = optimize_GUARD_VALUE
     optimize_GUARD_FALSE = optimize_GUARD_VALUE
@@ -279,8 +295,9 @@ class OptTraceSplit(Optimizer):
 
     def optimize_CALL_MAY_FORCE_R(self, op):
         name = self._get_name_from_op(op)
-        if find(name, mark.CALL_ASSEMBLER, 0, len(name)) != - 1:
-            self.handle_call_assembler(op)
+        if endswith(name, mark.CALL_ASSEMBLER):
+            # self.handle_call_assembler(op)
+            self.emit(op)
         else:
             self.emit(op)
 
