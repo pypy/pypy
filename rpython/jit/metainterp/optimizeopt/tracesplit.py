@@ -274,6 +274,7 @@ class OptTraceSplit(Optimizer):
             self._fdescrstack.append(op.getdescr())
         elif op.getarg(0) is self._slow_path_emit_ptr_eq:
             self._slow_path_faildescr = op.getdescr()
+            op.setfailargs(self.inputargs)
 
 
     optimize_GUARD_TRUE = optimize_GUARD_VALUE
@@ -296,8 +297,8 @@ class OptTraceSplit(Optimizer):
     def optimize_CALL_MAY_FORCE_R(self, op):
         name = self._get_name_from_op(op)
         if endswith(name, mark.CALL_ASSEMBLER):
-            # self.handle_call_assembler(op)
-            self.emit(op)
+            self.handle_call_assembler(op)
+            # self.emit(op)
         else:
             self.emit(op)
 
