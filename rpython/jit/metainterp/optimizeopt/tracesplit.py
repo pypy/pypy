@@ -133,7 +133,6 @@ class OptTraceSplit(Optimizer):
         num_red_args = jd.num_red_args
 
         slow_flg = False
-        slow_ops = []
         while not trace.done():
             self._really_emitted_operation = None
             op = trace.next()
@@ -174,9 +173,9 @@ class OptTraceSplit(Optimizer):
                     op.setarg(numargs - 1, ConstInt(0))
 
             if slow_flg:
-                if rop.GUARD_NOT_FORCED <= opnum <= rop.GUARD_NOT_FORCED_2 or \
-                   rop.GUARD_NO_EXCEPTION == opnum:
-                    continue
+                if rop.is_guard(opnum):
+                    descr = compile.invent_fail_descr_for_op(opnum, self)
+                    op.setdescr(descr)
 
                 if rop.is_call(opnum):
                     name = self._get_name_from_op(op)
@@ -193,21 +192,21 @@ class OptTraceSplit(Optimizer):
                         jump_op = ResOperation(rop.JUMP, [arg1, arg2], descr=token_jump_to)
 
                         self.emit(label_jump_to)
-                        slow_ops.append(jump_op)
+                        self._slow_ops.append(jump_op)
 
-                        label = slow_ops[0]
+                        label = self._slow_ops[0]
                         assert self._slow_path_faildescr is not None
                         info = TraceSplitInfo(label.getdescr(), label, self.inputargs,
                                               self._slow_path_faildescr)
-                        self._slow_path_newopsandinfo.append((info, slow_ops[1:]))
-                        self._slow_path_recorded.append(slow_ops[1:])
+                        self._slow_path_newopsandinfo.append((info, self._slow_ops[1:]))
+                        self._slow_path_recorded.append(self._slow_ops[1:])
 
-                        slow_ops = []
+                        self._slow_ops = []
                         slow_flg = False
 
                         continue
 
-                slow_ops.append(op)
+                self._slow_ops.append(op)
                 continue
 
             if rop.is_call(opnum):
@@ -224,7 +223,7 @@ class OptTraceSplit(Optimizer):
                     arg1 = op.getarg(1)
                     arg2 = op.getarg(2)
                     label = ResOperation(rop.LABEL, [arg1, arg2], descr=token)
-                    slow_ops.append(label)
+                    self._slow_ops.append(label)
                     continue
 
                 if endswith(name, "emit_ptr_eq"):
