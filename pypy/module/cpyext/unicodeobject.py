@@ -1550,10 +1550,10 @@ def Py_DecodeLocale(space, arg, wlenp):
     from pypy.module._codecs.locale import (
             pypy_char2wchar, _errmsg, default_unicode_error_decode)
     errorhandler = default_unicode_error_decode
-    ubuf = pypy_char2wchar(arg, wlenp)
+    ubuf = pypy_char2wchar(cts.cast('char *', arg), wlenp)
     if not ubuf:
         errmsg = _errmsg("pypy_char2wchar")
-        errorhandler('strict', 'filesystemencoding', errmsg, s, 0, 1)
+        errorhandler('strict', 'filesystemencoding', errmsg, "undecodable str", 0, 1)
     return ubuf
         
 @cts.decl("char* Py_EncodeLocale(const wchar_t *text, size_t *error_pos)")
@@ -1572,14 +1572,14 @@ def Py_EncodeLocale(space, text, error_pos):
     character string.
     """
     from pypy.module._codecs.locale import (
-            pypy_wchar2char, _errmsg, default_unicode_error_encode)
+            pypy_wchar2char, _errmsg, default_unicode_error_encode, RAW_WCHARP)
     errorhandler = default_unicode_error_encode
     with lltype.scoped_alloc(rffi.SIZE_TP.TO, 1) as errorposp:
-        sbuf = pypy_wchar2char(text, errorposp)
+        sbuf = pypy_wchar2char(rffi.cast(RAW_WCHARP, text), errorposp)
         if not sbuf:
             errmsg = _errmsg("pypy_wchar2char")
-            errorpos = errorposp[0]
-            u = "unparseable wchar"  # XXX should be text.decode('utf-8')
+            errorpos = rffi.cast(lltype.Signed, errorposp[0])
+            u = u"unparseable wchar"  # XXX should be text.decode('utf-8')
             errorhandler('surrogateescape', 'filesystemencoding', errmsg, u,
                          errorpos, errorpos + 1)
         if error_pos:

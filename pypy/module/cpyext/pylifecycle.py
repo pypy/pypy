@@ -53,5 +53,5 @@ def Py_Finalize(space):
     if space.config.translation.reverse_debugger:
         from pypy.interpreter.reverse_debugging import stop_point
         stop_point()
-    space.sys.settrace(None)
-    space.sys.setprofile(None)
+    space.getexecutioncontext().settrace(None)
+    space.getexecutioncontext().setprofile(None)

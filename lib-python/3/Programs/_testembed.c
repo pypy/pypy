@@ -6,8 +6,10 @@
 #undef NDEBUG
 
 #include <Python.h>
+#ifndef PYPY_VERSION
 #include "pycore_initconfig.h"   /* _PyConfig_InitCompatConfig() */
 #include "pycore_pystate.h"      /* _PyRuntime */
+#endif
 #include <Python.h>
 #include "pythread.h"
 #include <inttypes.h>
@@ -25,10 +27,11 @@
 
 static void _testembed_Py_Initialize(void)
 {
+#ifndef PYPY_VERSION
     Py_SetProgramName(PROGRAM_NAME);
+#endif
     Py_Initialize();
 }
-
 
 /*****************************************************
  * Test repeated initialisation and subinterpreters
@@ -51,6 +54,7 @@ static void print_subinterp(void)
     );
 }
 
+#ifndef PYPY_VERSION
 static int test_repeated_init_and_subinterpreters(void)
 {
     PyThreadState *mainstate, *substate;
@@ -84,11 +88,12 @@ static int test_repeated_init_and_subinterpreters(void)
     }
     return 0;
 }
+#endif
 
 /*****************************************************
  * Test forcing a particular IO encoding
  *****************************************************/
-
+#ifndef PYPY_VERSION
 static void check_stdio_details(const char *encoding, const char * errors)
 {
     /* Output info for the test case to check */
@@ -137,6 +142,7 @@ static int test_forced_io_encoding(void)
     Py_Finalize();
     return 0;
 }
+#endif
 
 /*********************************************************
  * Test parts of the C-API that work before initialization
@@ -153,6 +159,7 @@ static int test_pre_initialization_api(void)
     /* the test doesn't support custom memory allocators */
     putenv("PYTHONMALLOC=");
 
+#ifndef PYPY_VERSION
     /* Leading "./" ensures getpath.c can still find the standard library */
     _Py_EMBED_PREINIT_CHECK("Checking Py_DecodeLocale\n");
     wchar_t *program = Py_DecodeLocale("./spam", NULL);
@@ -162,6 +169,7 @@ static int test_pre_initialization_api(void)
     }
     _Py_EMBED_PREINIT_CHECK("Checking Py_SetProgramName\n");
     Py_SetProgramName(program);
+#endif
 
     _Py_EMBED_PREINIT_CHECK("Initializing interpreter\n");
     Py_Initialize();
@@ -171,8 +179,10 @@ static int test_pre_initialization_api(void)
     _Py_EMBED_PREINIT_CHECK("Finalizing interpreter\n");
     Py_Finalize();
 
+#ifndef PYPY_VERSION
     _Py_EMBED_PREINIT_CHECK("Freeing memory allocated by Py_DecodeLocale\n");
     PyMem_RawFree(program);
+#endif
     return 0;
 }
 
