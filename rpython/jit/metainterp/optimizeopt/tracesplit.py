@@ -102,6 +102,7 @@ class OptTraceSplit(Optimizer):
         self._newopsandinfo = []
         self._fdescrstack = []
 
+        self._slow_ops = []
         self._slow_path_newopsandinfo = []
         self._slow_path_emit_ptr_eq = None
         self._slow_path_faildescr = None
@@ -133,6 +134,7 @@ class OptTraceSplit(Optimizer):
         num_red_args = jd.num_red_args
 
         slow_flg = False
+        slow_ops_jump_op = None
         while not trace.done():
             self._really_emitted_operation = None
             op = trace.next()
@@ -174,10 +176,31 @@ class OptTraceSplit(Optimizer):
 
             if slow_flg:
                 if rop.is_guard(opnum):
-                    descr = compile.invent_fail_descr_for_op(opnum, self)
-                    op.setdescr(descr)
+                    if op.getdescr() is None:
+                        descr = compile.invent_fail_descr_for_op(opnum, self)
+                        op.setdescr(descr)
 
-                if rop.is_call(opnum):
+                # re-encountering DEBUG_MERGE_POINT when the slow flag is True
+                # means the slow path ends just before
+                if opnum == rop.DEBUG_MERGE_POINT:
+                    assert slow_ops_jump_op is not None
+                    self._slow_ops.append(slow_ops_jump_op)
+                    slow_ops_jump_op = None
+
+                    label = self._slow_ops[0]
+                    assert self._slow_path_faildescr is not None
+                    info = TraceSplitInfo(label.getdescr(), label, self.inputargs,
+                                          self._slow_path_faildescr)
+                    self._slow_path_newopsandinfo.append((info, self._slow_ops[1:]))
+                    self._slow_path_recorded.append(self._slow_ops[1:])
+
+                    self._slow_ops = []
+                    slow_flg = False
+
+                    self.send_extra_operation(op)
+                    continue
+
+                elif rop.is_call(opnum):
                     name = self._get_name_from_op(op)
                     if name.find("end_slow_path") != - 1:
                         numargs = op.numargs()
@@ -192,17 +215,7 @@ class OptTraceSplit(Optimizer):
                         jump_op = ResOperation(rop.JUMP, [arg1, arg2], descr=token_jump_to)
 
                         self.emit(label_jump_to)
-                        self._slow_ops.append(jump_op)
-
-                        label = self._slow_ops[0]
-                        assert self._slow_path_faildescr is not None
-                        info = TraceSplitInfo(label.getdescr(), label, self.inputargs,
-                                              self._slow_path_faildescr)
-                        self._slow_path_newopsandinfo.append((info, self._slow_ops[1:]))
-                        self._slow_path_recorded.append(self._slow_ops[1:])
-
-                        self._slow_ops = []
-                        slow_flg = False
+                        slow_ops_jump_op = jump_op
 
                         continue
 
@@ -258,9 +271,9 @@ class OptTraceSplit(Optimizer):
         dispatch_opt(self, op)
 
     def optimize_GUARD_VALUE(self, op):
-        for slow_ops in self._slow_path_recorded:
-            if op.getarg(0) in slow_ops:
-                return
+        # for slow_ops in self._slow_path_recorded:
+        #     if op.getarg(0) in slow_ops:
+        #         return
 
         self.emit(op)
         if self.check_if_guard_marked(op):
@@ -371,7 +384,7 @@ class OptTraceSplit(Optimizer):
             self.resumekey = self._fdescrstack.pop()
 
     def handle_call_assembler(self, op):
-        # a hack to convert recursive calls to an op using `call_assembler_x'
+        "convert recursive calls to an op using `call_assembler_x'"
         jd = self.jitdriver_sd
 
         arglist = op.getarglist()
@@ -379,7 +392,7 @@ class OptTraceSplit(Optimizer):
         num_red_args = jd.num_red_args
         greenargs = arglist[1+num_red_args:1+num_red_args+num_green_args]
         args = arglist[1:num_red_args+1]
-
+        assert len(args) == jd.num_red_args
         warmrunnerstate = jd.warmstate
         new_token = warmrunnerstate.get_assembler_token(greenargs)
         opnum = OpHelpers.call_assembler_for_descr(op.getdescr())
