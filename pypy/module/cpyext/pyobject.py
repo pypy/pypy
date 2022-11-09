@@ -90,10 +90,7 @@ class BaseCpyTypedescr(object):
         if flags & Py_TPFLAGS_HEAPTYPE:
             incref(space, pytype)
 
-        if pytype:
-            size = pytype.c_tp_basicsize
-        else:
-            size = rffi.sizeof(self.basestruct)
+        size = pytype.c_tp_basicsize
         if itemsize < 0:
             itemsize = pytype.c_tp_itemsize
         if itemsize:
@@ -229,7 +226,15 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
         itemsize = pytype.c_tp_itemsize
     if itemsize != 0:
         # PyBytesObject, compact PyUnicodeObject and subclasses
-        itemcount = space.len_w(w_obj)
+        try:
+            itemcount = space.len_w(w_obj)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_SystemError,
+                            "cpyext: Failure to allocate '%N' (with a non-zero "
+                            "tp_itemsize) when len(obj) cannot be calculated",
+                            w_type)
+            raise
     else:
         itemcount = 0
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount, immortal=immortal)

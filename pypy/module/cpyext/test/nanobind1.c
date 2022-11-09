@@ -136,11 +136,18 @@ static PyType_Slot metaclass_slots[] = {
     { 0, NULL }
 };
 
-static PyType_Spec metaclass_spec = {
-    .name = "nanobind1.metaclass",
+static PyType_Spec metaclass_spec_bad = {
+    .name = "nanobind1.metaclass_bad",
     .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .slots = metaclass_slots,
     .itemsize = (int) sizeof(ExtendedType)
+};
+
+static PyType_Spec metaclass_spec_good = {
+    .name = "nanobind1.metaclass_good",
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .slots = metaclass_slots,
+    .basicsize = (int) sizeof(ExtendedType)
 };
 
 // ----------------------------------------------------
@@ -178,11 +185,18 @@ PyInit_nanobind1(void)
     }
 #endif
 
-    PyObject *metaclass = PyType_FromSpec(&metaclass_spec);
-    metaclass_spec.basicsize = PyType_Type.tp_basicsize;
+    PyObject *metaclass_good = PyType_FromSpec(&metaclass_spec_good);
 
-    if (!metaclass || PyModule_AddObject(m, "metaclass", metaclass) < 0) {
-        Py_XDECREF(metaclass);
+    if (!metaclass_good || PyModule_AddObject(m, "metaclass_good", metaclass_good) < 0) {
+        Py_XDECREF(metaclass_good);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    PyObject *metaclass_bad = PyType_FromSpec(&metaclass_spec_bad);
+
+    if (!metaclass_bad || PyModule_AddObject(m, "metaclass_bad", metaclass_bad) < 0) {
+        Py_XDECREF(metaclass_bad);
         Py_DECREF(m);
         return NULL;
     }
