@@ -2128,3 +2128,29 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         errtype = module.newexc()
         err = errtype("abc")
         assert err.warnings == "abc"
+
+    def test_heaptype_dealloc_and_metaclass(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
+        module = self.import_module(name='nanobind1', filename="nanobind1")
+        import gc
+        for i in range(100):
+            module.heap_type()
+            gc.collect()
+
+        # 2 vs 3 shenanigans to declare
+        # class X(object, metaclass=module.metaclass): pass
+        X = module.metaclass('X', (object,), {})
+
+        X()
+
+    @pytest.mark.skipif("sys.version_info < (3, 9)", reason="Python3.9+")
+    def test_vectorcall2(self):
+        # py3.9+ only
+        module = self.import_module(name='nanobind1', filename="nanobind1")
+        c = module.callable()
+        assert c() == 1234
+        
+        def f(value):
+            assert value == 1234
+
+        module.call(f)
