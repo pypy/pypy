@@ -648,9 +648,12 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
         if not flags & Py_TPFLAGS_HEAPTYPE:
             decref(space, metatype)
 
-    heaptype = lltype.malloc(PyHeapTypeObject.TO,
+    basicsize = max(rffi.sizeof(PyHeapTypeObject.TO), metatype.c_tp_basicsize)
+    heaptype = lltype.malloc(rffi.VOIDP.TO,
+                             basicsize,
                              flavor='raw', zero=True,
                              add_memory_pressure=True)
+    heaptype = rffi.cast(PyHeapTypeObject, heaptype)
     pto = heaptype.c_ht_type
     rffi.cast(PyObject, pto).c_ob_refcnt = 1
     rffi.cast(PyObject, pto).c_ob_pypy_link = 0
