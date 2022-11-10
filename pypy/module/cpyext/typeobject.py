@@ -1044,9 +1044,9 @@ def PyType_FromSpecWithBases(space, module, spec, bases):
         if slot == cts.macros['Py_tp_members']:
             members = rffi.cast(rffi.CArrayPtr(PyMemberDef), slotdef.c_pfunc)
             if members:
-                i = 0
+                m = 0
                 while True:
-                    member = members[i]
+                    member = members[m]
                     name = member.c_name
                     if not name:
                         break
@@ -1063,7 +1063,7 @@ def PyType_FromSpecWithBases(space, module, spec, bases):
                         assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
                         assert widen(member.c_flags) == structmemberdefs.READONLY
                         typ.c_tp_vectorcall_offset = member.c_offset
-                    i += 1
+                    m += 1
         fill_ht_slot(res, slot, slotdef.c_pfunc)
         # XXX: need to make a copy of the docstring slot, which usually
         # points to a static string literal
