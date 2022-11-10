@@ -1052,16 +1052,16 @@ def PyType_FromSpecWithBases(space, module, spec, bases):
                         break
                     name = rffi.constcharp2str(name)
                     if name == "__weaklistoffset__":
-                        assert member.c_type == structmemberdefs.T_PYSSIZET
-                        assert member.c_flags == structmemberdefs.READONLY
+                        assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
+                        assert widen(member.c_flags) == structmemberdefs.READONLY
                         typ.c_tp_weaklistoffset = member.c_offset
                     elif name == "__dictoffset__":
-                        assert member.c_type == structmemberdefs.T_PYSSIZET
-                        assert member.c_flags == structmemberdefs.READONLY
+                        assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
+                        assert widen(member.c_flags) == structmemberdefs.READONLY
                         typ.c_tp_dictoffset = member.c_offset
                     elif name == "__vectorcalloffset__":
-                        assert member.c_type == structmemberdefs.T_PYSSIZET
-                        assert member.c_flags == structmemberdefs.READONLY
+                        assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
+                        assert widen(member.c_flags) == structmemberdefs.READONLY
                         typ.c_tp_vectorcall_offset = member.c_offset
                     i += 1
         fill_ht_slot(res, slot, slotdef.c_pfunc)
