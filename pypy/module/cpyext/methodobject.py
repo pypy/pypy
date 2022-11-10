@@ -575,6 +575,10 @@ def argtuple_from_pyobject_array(space, py_args, n):
         args_w[i] = from_ref(space, py_args[i])
     return space.newtuple(args_w)
 
+def PyVectorcall_NARGS(n):
+    PY_VECTORCALL_ARGUMENTS_OFFSET = 1 << (8 * rffi.sizeof(rffi.SIZE_T) - 1)
+    return n & ~PY_VECTORCALL_ARGUMENTS_OFFSET
+
 @cts.decl("PyObject *PyObject_Vectorcall(PyObject *, PyObject *const *, "
           "size_t, PyObject *)")
 def PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
@@ -583,6 +587,7 @@ def PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
         n_kwargs = -1
     else:
         n_kwargs = space.len_w(w_argnames)
+    n = PyVectorcall_NARGS(n)
     w_args = argtuple_from_pyobject_array(space, py_args, n)
     if w_argnames is None:
         w_kwargs = None
