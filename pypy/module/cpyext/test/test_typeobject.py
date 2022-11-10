@@ -2151,7 +2151,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             exc = raises(SystemError, module.metaclass_bad, 'X', (object,), {})
             assert 'tp_itemsize' in str(exc.value)
 
-    @pytest.mark.skipif("sys.version_info < (3, 9)", reason="Python3.9+")
+    @pytest.mark.skip(reason="Python3.9+")
     def test_vectorcall2(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
         # py3.9+ only
