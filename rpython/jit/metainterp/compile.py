@@ -1137,8 +1137,9 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     history = metainterp.history
     trace = history.trace
     # XXX: When applying trace split, turn off all other optimizations
-    # enable_opts =  jitdriver_sd.warmstate.enable_opts
-    enable_opts = {'earlyforce': None, 'virtualize': None, 'string': None, 'pure': None, 'unroll': None} # heap causes an error
+    enable_opts =  jitdriver_sd.warmstate.enable_opts
+    if 'heap' in enable_opts:
+        del enable_opts['heap'] # heap causes an error
     call_pure_results = metainterp.call_pure_results
     resumestorage = resumekey.get_resumestorage()
 
@@ -1167,7 +1168,7 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         return None
 
     # DEBUG
-    # debug_print("Splitting the loop")
+    # debug_print("Split the loop")
     # metainterp_sd.logger_noopt.log_loop(new_body_info.inputargs, new_body_ops)
     # for bridge_info, bridge_ops in bridges:
     #     metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
@@ -1180,7 +1181,7 @@ def compile_loop_and_split(metainterp, greenkey, resumekey, runtime_boxes,
 
     label_op = new_body_info.label_op
     if label_op.getdescr() in last_op_descrs:
-        new_body.operations = [new_body_info.label_op] + new_body_ops
+        new_body.operations = [label_op] + new_body_ops
     else:
         new_body.operations = new_body_ops
 
