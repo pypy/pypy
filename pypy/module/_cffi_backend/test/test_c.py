@@ -93,6 +93,7 @@ class AppTestC(object):
         """(path, func, testfunc, underlying_version):
             import sys
             sys.path.append(path)
+            is_musl = False
             import _all_test_c
             _all_test_c.PY_DOT_PY = underlying_version
             _all_test_c.find_and_load_library = func
@@ -131,6 +132,7 @@ tmpname2 = tmpdir.join('_all_test_c.py')
 with tmpname2.open('w') as f:
     print >> f, 'import sys'
     print >> f, 'from _cffi_backend import %s' % all_names
+    print >> f, 'is_musl = False'
     print >> f, 'class py:'
     print >> f, '    class test:'
     print >> f, '        raises = staticmethod(raises)'
