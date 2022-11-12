@@ -1106,9 +1106,22 @@ class Cursor(object):
         try:
             return self.__description
         except AttributeError:
-            if self.__statement:
-                self.__description = self.__statement._get_description()
-                return self.__description
+            if not self.__statement:
+                return None
+            statement = self.__statement
+            if not statement._valid:
+                return None
+
+            if not (hasattr(self, '_Cursor__next_row') or statement._type == _STMT_TYPE_SELECT):
+                return None
+            desc = []
+            for i in xrange(_lib.sqlite3_column_count(statement._statement)):
+                name = _lib.sqlite3_column_name(statement._statement, i)
+                if name:
+                    name = _ffi.string(name).split("[")[0].strip()
+                desc.append((name, None, None, None, None, None, None))
+            self.__description = tuple(desc)
+            return self.__description
     description = property(__get_description)
 
     def __get_lastrowid(self):

@@ -1,14 +1,16 @@
 from rpython.flowspace.model import (Constant, Variable, SpaceOperation,
-    mkentrymap)
+    mkentrymap, c_last_exception)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.unsimplify import insert_empty_block, split_block
+from rpython.rlib import rarithmetic
 
 
-def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
+def fold_op_list(block, constants, exit_early=False, exc_catch=False):
+    operations = block.operations
     newops = []
     folded_count = 0
-    for spaceop in operations:
+    for index, spaceop in enumerate(operations):
         vargsmodif = False
         vargs = []
         args = []
@@ -44,6 +46,37 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                     constants[spaceop.result] = Constant(result, RESTYPE)
                     folded_count += 1
                     continue
+            if (index == len(operations) - 1 and
+                    block.exitswitch == c_last_exception and
+                    len(args) == len(vargs) == 2 and
+                    spaceop.opname.endswith("_ovf")):
+                # deal with int_add_ovf etc
+                RESTYPE = spaceop.result.concretetype
+                a, b = args
+                try:
+                    if spaceop.opname in ("int_add_ovf", "int_add_nonneg_ovf"):
+                        result = rarithmetic.ovfcheck(a + b)
+                    elif spaceop.opname == "int_sub_ovf":
+                        result = rarithmetic.ovfcheck(a - b)
+                    else:
+                        assert spaceop.opname == "int_mul_ovf"
+                        result = rarithmetic.ovfcheck(a * b)
+                except OverflowError:
+                    # always overflows, remove op and link
+                    block.exitswitch = None
+                    assert block.exits[1].exitcase is OverflowError
+                    block.exits[1].exitcase = None
+                    block.exits[1].last_exception = None
+                    block.exits[1].last_exc_value = None
+                    block.recloseblock(block.exits[1])
+                    folded_count += 1
+                    continue
+                else:
+                    block.exitswitch = None
+                    block.recloseblock(block.exits[0])
+                    constants[spaceop.result] = Constant(result, RESTYPE)
+                    folded_count += 1
+                    continue
         # failed to fold an operation, exit early if requested
         if exit_early:
             return folded_count
@@ -65,7 +98,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
 
 def constant_fold_block(block):
     constants = {}
-    block.operations = fold_op_list(block.operations, constants,
+    block.operations = fold_op_list(block, constants,
                                     exc_catch=block.canraise)
     if constants:
         if block.exitswitch in constants:
@@ -152,7 +185,7 @@ def prepare_constant_fold_link(link, constants, splitblocks):
             rewire_link_for_known_exitswitch(link, llexitvalue)
         return
 
-    folded_count = fold_op_list(block.operations, constants, exit_early=True)
+    folded_count = fold_op_list(block, constants, exit_early=True)
 
     n = len(block.operations)
     if block.canraise:
