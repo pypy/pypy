@@ -267,8 +267,8 @@ class OptTraceSplit(Optimizer):
     def emit_pseudoop(self, op):
         self._pseudoops.append(op)
 
-    def propagate_forward(self, op):
-        dispatch_opt(self, op)
+    def optimize_default(self, op):
+        self.emit(op)
 
     def optimize_GUARD_VALUE(self, op):
         # for slow_ops in self._slow_path_recorded:
@@ -480,5 +480,5 @@ class OptTraceSplit(Optimizer):
 
 
 dispatch_opt = make_dispatcher_method(OptTraceSplit, 'optimize_',
-                                      default=OptTraceSplit.emit)
+                                      default=OptTraceSplit.optimize_default)
 OptTraceSplit.propagate_forward = dispatch_opt
