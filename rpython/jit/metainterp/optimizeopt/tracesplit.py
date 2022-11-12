@@ -102,6 +102,8 @@ class OptTraceSplit(Optimizer):
         self._newopsandinfo = []
         self._fdescrstack = []
 
+        self._newoperations_tmp = []
+
         self._slow_ops = []
         self._slow_path_newopsandinfo = []
         self._slow_path_emit_ptr_eq = None
@@ -135,12 +137,13 @@ class OptTraceSplit(Optimizer):
 
         slow_flg = False
         slow_ops_jump_op = None
+        slow_path_label = None
         while not trace.done():
             self._really_emitted_operation = None
             op = trace.next()
             opnum = op.getopnum()
 
-            # remove real ops related to pseudo ops
+            # remove op related to pseudo ops
             can_emit = True
             for arg in op.getarglist():
                 if arg in self._pseudoops:
@@ -175,27 +178,32 @@ class OptTraceSplit(Optimizer):
                     op.setarg(numargs - 1, ConstInt(0))
 
             if slow_flg:
-                if rop.is_guard(opnum):
-                    if op.getdescr() is None:
-                        descr = compile.invent_fail_descr_for_op(opnum, self)
-                        op.setdescr(descr)
+                # if rop.is_guard(opnum):
+                #     if op.getdescr() is None:
+                #         descr = compile.invent_fail_descr_for_op(opnum, self)
+                #         op.setdescr(descr)
 
                 # re-encountering DEBUG_MERGE_POINT when the slow flag is True
                 # means the slow path ends just before
                 if opnum == rop.DEBUG_MERGE_POINT:
                     assert slow_ops_jump_op is not None
-                    self._slow_ops.append(slow_ops_jump_op)
+                    self.send_extra_operation(slow_ops_jump_op)
                     slow_ops_jump_op = None
 
-                    label = self._slow_ops[0]
                     assert self._slow_path_faildescr is not None
+                    label = self._slow_ops[0]
                     info = TraceSplitInfo(label.getdescr(), label, self.inputargs,
                                           self._slow_path_faildescr)
                     self._slow_path_newopsandinfo.append((info, self._slow_ops[1:]))
                     self._slow_path_recorded.append(self._slow_ops[1:])
 
+                    self._newoperations = self._newoperations_tmp
                     self._slow_ops = []
+                    self._newoperations_tmp = []
                     slow_flg = False
+
+                    self.send_extra_operation(slow_path_label)
+                    slow_path_label = None
 
                     self.send_extra_operation(op)
                     continue
@@ -211,15 +219,13 @@ class OptTraceSplit(Optimizer):
                         original_jitcell_token = self.token.original_jitcell_token
                         token_jump_to = TargetToken(jitcell_token,
                                                     original_jitcell_token=original_jitcell_token)
-                        label_jump_to = ResOperation(rop.LABEL, self.inputargs, descr=token_jump_to)
-                        jump_op = ResOperation(rop.JUMP, [arg1, arg2], descr=token_jump_to)
-
-                        self.emit(label_jump_to)
+                        jump_op = ResOperation(rop.JUMP, self.inputargs, descr=token_jump_to)
+                        slow_path_label = ResOperation(rop.LABEL, self.inputargs, descr=token_jump_to)
                         slow_ops_jump_op = jump_op
 
                         continue
 
-                self._slow_ops.append(op)
+                self.send_extra_operation(op)
                 continue
 
             if rop.is_call(opnum):
@@ -228,7 +234,6 @@ class OptTraceSplit(Optimizer):
 
                 if name.find("begin_slow_path") != -1:
                     slow_flg = True
-                    token = self._create_token()
                     jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
                     original_jitcell_token = self.token.original_jitcell_token
                     token = TargetToken(jitcell_token,
@@ -236,7 +241,10 @@ class OptTraceSplit(Optimizer):
                     arg1 = op.getarg(1)
                     arg2 = op.getarg(2)
                     label = ResOperation(rop.LABEL, [arg1, arg2], descr=token)
-                    self._slow_ops.append(label)
+
+                    self._newoperations_tmp = self._newoperations
+                    self._newoperations = self._slow_ops
+                    self.send_extra_operation(label)
                     continue
 
                 if endswith(name, "emit_ptr_eq"):
