@@ -1524,7 +1524,7 @@ def PyUnicode_Append(space, p_left, right):
     w_append = space.add(w_left, w_right)
     p_left[0] = make_ref(space, w_append)
 
-@cts.decl("wchar_t *PyDecodeLocale(const char* arg, size_t *wlen)")
+@cts.decl("wchar_t *Py_DecodeLocale(const char* arg, size_t *wlen)")
 def Py_DecodeLocale(space, arg, wlenp):
     """Decode a byte string from the locale encoding with the
     surrogateescape error handler: undecodable bytes are decoded as characters

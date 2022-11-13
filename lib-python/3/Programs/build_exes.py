@@ -11,10 +11,12 @@ compiler.add_include_dir(sysconfig.get_path("include"))
 compiler.add_library_dir(sysconfig.get_config_var("installed_platbase") + "/libs")
 
 if sys.platform == "linux":
-    compiler.add_library_dir(sysconfig.get_config_var("LIBPL"))
-    compiler.add_library_dir(sysconfig.get_config_var("LIBDIR"))
+    if sysconfig.get_config_var("LIBPL"):
+        compiler.add_library_dir(sysconfig.get_config_var("LIBPL"))
+    if sysconfig.get_config_var("LIBDIR"):
+        compiler.add_library_dir(sysconfig.get_config_var("LIBDIR"))
 
-    compiler.add_library(sysconfig.get_config_var("LIBRARY")[3:-2])
+    compiler.add_library(sysconfig.get_config_var("LDLIBRARY")[3:-3])
 
 def build_exe(sources, exe_name):
     objectFiles = compiler.compile(sources)

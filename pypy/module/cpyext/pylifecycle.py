@@ -49,6 +49,10 @@ def Py_Initialize(space):
 
 @cts.decl("void Py_Finalize(void)", error=CANNOT_FAIL)
 def Py_Finalize(space):
+    Py_FinalizeEx(space)
+
+@cts.decl("void Py_FinalizeEx(void)", error=CANNOT_FAIL)
+def Py_FinalizeEx(space):
     # sync with app_main.run_toplevel shutdown code
     if space.config.translation.reverse_debugger:
         from pypy.interpreter.reverse_debugging import stop_point
