@@ -2191,7 +2191,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         module = self.import_module(name='nanobind2', filename="nanobind2")
 
         f = module.func()
-        if sys.version_info > (3, 9):
+        if sys.version_info >= (3, 9) or sys.implementation.name == 'pypy':
             assert f.__module__   == "my_module"
         else:
             assert f.__module__   == "nanobind2"

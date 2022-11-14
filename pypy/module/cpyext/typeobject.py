@@ -1039,11 +1039,26 @@ def PyType_FromSpecWithBases(space, spec, bases):
 
     if not typ.c_tp_dealloc:
         typ.c_tp_dealloc = state.C._PyPy_subtype_dealloc
+
     py_type_ready(space, typ)
     res = cts.cast('PyObject*', res)
     if modname is not None:
         w_type = from_ref(space, res)
         w_type.setdictvalue(space, '__module__', space.newtext(modname))
+    # Convert getsets
+    if typ.c_tp_getset:
+        w_type = from_ref(space, res)
+        getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), typ.c_tp_getset)
+        i = -1
+        while True:
+            i = i + 1
+            getset = getsets[i]
+            name = getset.c_name
+            if not name:
+                break
+            name = rffi.constcharp2str(name)
+            w_descr = W_GetSetPropertyEx(getset, w_type)
+            w_type.setdictvalue(space, name, w_descr)
     return res
 
 
