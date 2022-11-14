@@ -55,7 +55,7 @@ static PyType_Slot wrapper_slots[] = {
 };
 
 static PyType_Spec wrapper_spec = {
-    .name = "pypy_issues.wrapper",
+    .name = "nanobind2.wrapper",
     .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
     .slots = wrapper_slots,
     .basicsize = (int) sizeof(wrapper),
@@ -96,7 +96,7 @@ static PyType_Slot func_slots[] = {
 };
 
 static PyType_Spec func_spec = {
-    .name = "pypy_issues.func",
+    .name = "nanobind2.func",
     .flags = Py_TPFLAGS_DEFAULT,
     .slots = func_slots,
     .basicsize = (int) sizeof(PyObject),
@@ -141,7 +141,7 @@ struct PyMethodDef pypy_issues_methods[] = {
 
 static PyModuleDef pypy_issues_module = {
     PyModuleDef_HEAD_INIT,
-    .m_name = "pypy_issues",
+    .m_name = "nanobind2",
     .m_doc = "Reproducer for miscellaneous PyPy issues",
     .m_size = -1,
 #if USE_VECTORCALL_METHOD == 1
