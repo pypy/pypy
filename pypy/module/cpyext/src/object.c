@@ -101,8 +101,18 @@ _Py_Finalize(PyObject *op)
     }
 }
 
+#ifdef CPYEXT_TESTS
+#define _Py_object_dealloc _cpyexttest_object_dealloc
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_object_dealloc _PyPy_object_dealloc
+#endif  /* CPYEXT_TESTS */
 void
-_PyPy_object_dealloc(PyObject *obj)
+_Py_object_dealloc(PyObject *obj)
 {
     PyTypeObject *pto;
     assert(obj->ob_refcnt == 0);
@@ -209,7 +219,7 @@ PyVarObject * _PyObject_GC_NewVar(PyTypeObject *type, Py_ssize_t nitems)
         return (PyVarObject*)PyErr_NoMemory();
 
     if (type->tp_itemsize == 0)
-        return PyObject_INIT(py_obj, type);
+        return (PyVarObject *)PyObject_INIT(py_obj, type);
     else
         return PyObject_INIT_VAR((PyVarObject*)py_obj, type, nitems);
 }

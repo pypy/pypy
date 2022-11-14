@@ -1620,10 +1620,12 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
 
     # generate graminit.h
     graminit_h = udir.join('graminit.h')
-    graminit_h.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */')
-    for attr in dir(pygram.syms):
-        val = getattr(pygram.syms, attr)
-        graminit_h.write('#define {} {}'.format(attr, val))
+    with graminit_h.open('w', ensure=True) as fid:
+        fid.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */\n\n')
+        for attr in dir(pygram.syms):
+            val = getattr(pygram.syms, attr)
+            if isinstance(val, int):
+                fid.write('#define {} {}\n'.format(attr, val))
 
 
 separate_module_files = [source_dir / "varargwrapper.c",
@@ -1653,6 +1655,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "sliceobject.c",
                          source_dir / "listobject.c",
                          source_dir / "call.c",
+                         # source_dir / "intobject.c",
                          ]
 if WIN32:
     separate_module_files.append(source_dir / "pythread_nt.c")
@@ -1742,6 +1745,8 @@ def setup_micronumpy(space):
     separate_module_files.append(source_dir / "ndarrayobject.c")
     return use_micronumpy
 
+
+# This is used during translation. For tests, see build_bridge
 def setup_library(space):
     "NOT_RPYTHON"
     from rpython.translator.c.database import LowLevelDatabase
