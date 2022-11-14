@@ -21,7 +21,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS,
     Py_TPFLAGS_BYTES_SUBCLASS,
-    Py_TPPYPYFLAGS_FLOAT_SUBCLASS, Py_TPFLAGS_HAVE_GC
+    Py_TPFLAGS_HAVE_GC
     )
 
 from rpython.tool.cparser import CTypeSpace

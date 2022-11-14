@@ -857,7 +857,7 @@ def slot_from_buffer_w(space, typedef):
     return buff_w
 
 def _make_missing_wrapper(name):
-    assert name not in globals()
+    assert name not in globals(), name
     class missing_wrapper(W_PyCWrapperObject):
         def call(self, space, w_self, __args__):
             msg = "cpyext: missing slot wrapper %s for class %s" %(
@@ -867,7 +867,7 @@ def _make_missing_wrapper(name):
     missing_wrapper.__name__ = name
     globals()[name] = missing_wrapper
 
-missing_wrappers = ['wrap_del']
+missing_wrappers = []
 for name in missing_wrappers:
     _make_missing_wrapper(name)
 
