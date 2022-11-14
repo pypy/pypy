@@ -59,7 +59,7 @@ In the second form, the callable is called until it returns the sentinel.''',
     __next__ = interpindirect2app(W_AbstractSeqIterObject.descr_next),
     __reduce__ = interp2app(W_AbstractSeqIterObject.descr_reduce),
     __length_hint__ = interp2app(W_AbstractSeqIterObject.descr_length_hint),
-    __setstate__ = interp2app(W_AbstractSeqIterObject.descr_setstate),
+    __setstate__ = interpindirect2app(W_AbstractSeqIterObject.descr_setstate),
 )
 W_AbstractSeqIterObject.typedef.acceptable_as_base_class = False
 
@@ -111,7 +111,6 @@ class W_FastUnicodeIterObject(W_AbstractSeqIterObject):
 
     def descr_next(self, space):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        from rpython.rlib import rutf8
         w_seq = self.w_seq
         if w_seq is None:
             raise OperationError(space.w_StopIteration, space.w_None)
@@ -121,11 +120,24 @@ class W_FastUnicodeIterObject(W_AbstractSeqIterObject):
             self.w_seq = None
             raise OperationError(space.w_StopIteration, space.w_None)
         start = self.byteindex
-        end = rutf8.next_codepoint_pos(w_seq._utf8, start)
+        end = w_seq.next_codepoint_pos_dont_look_inside(start)
         w_res = W_UnicodeObject(w_seq._utf8[start:end], 1)
         self.byteindex = end
         self.index += 1
         return w_res
+
+    def descr_setstate(self, space, w_state):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        index = space.int_w(w_state)
+        w_seq = self.w_seq
+        if w_seq is not None:
+            assert isinstance(w_seq, W_UnicodeObject)
+            if index < 0:
+                index = 0
+            if index >= w_seq._len():
+                index = w_seq._len()
+            self.index = index
+            self.byteindex = w_seq._index_to_byte(index)
 
 
 class W_FastTupleIterObject(W_AbstractSeqIterObject):

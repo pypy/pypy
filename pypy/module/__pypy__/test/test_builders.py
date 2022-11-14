@@ -1,14 +1,16 @@
+# -*- encoding: utf-8 -*-
+
 class AppTestBuilders(object):
     spaceconfig = dict(usemodules=['__pypy__'])
 
     def test_simple(self):
         from __pypy__.builders import StringBuilder
         b = StringBuilder()
-        b.append(u"abc")
+        b.append(u"abcä")
         b.append(u"123")
         b.append(u"1")
         s = b.build()
-        assert s == u"abc1231"
+        assert s == u"abcä1231"
         assert b.build() == s
         b.append(u"123")
         assert b.build() == s + u"123"
@@ -30,6 +32,9 @@ class AppTestBuilders(object):
         assert s == u"cde"
         b.append_slice(u"abc", 1, 2)
         assert b.build() == u"cdeb"
+        b.append_slice(b'\xc3\xa4\xc4\x83\xc3\xa7'.decode("utf-8"), 1, 2)
+        s = b.build()
+        assert s.encode("utf-8") == b"cdeb\xc4\x83"
 
     def test_stringbuilder(self):
         from __pypy__.builders import BytesBuilder

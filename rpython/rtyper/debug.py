@@ -32,6 +32,12 @@ class Entry(ExtRegistryEntry):
         return s_x.nonnoneify()
 
     def specialize_call(self, hop):
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper.error import TyperError
+        if annmodel.s_None.contains(hop.args_s[0]):
+            raise TyperError("ll_assert_not_none(None) detected.  This might "
+                             "come from something that annotates as "
+                             "'raise None'.")
         [v0] = hop.inputargs(hop.args_r[0])
         hop.exception_cannot_occur()
         hop.genop('debug_assert_not_none', [v0])

@@ -36,6 +36,10 @@ typedef struct {
     long bottom;
 } RECT;
 
+typedef struct {
+    unsigned char a, b, c;
+} THREEBYTES;
+
 
 EXPORT int PointInRect(RECT *prc, POINT pt)
 {
@@ -107,6 +111,15 @@ EXPORT unsigned int foo_4bytes(unsigned int a)
 EXPORT void modify_struct_value(RECT r)
 {
     r.left = r.right = r.top = r.bottom = 500;
+}
+
+EXPORT THREEBYTES return_three_bytes(void)
+{
+    THREEBYTES result;
+    result.a = 12;
+    result.b = 34;
+    result.c = 56;
+    return result;
 }
 """
 
@@ -202,7 +215,7 @@ class TestOwnLib(object):
             py.test.skip("fix the auto-generation of the tiny test lib")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
-            int my_array[7];
+            extern int my_array[7];
         """)
         ownlib = ffi.dlopen(self.module)
         for i in range(7):
@@ -224,7 +237,7 @@ class TestOwnLib(object):
             py.test.skip("not supported by the ctypes backend")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
-            int my_array[];
+            extern int my_array[];
         """)
         ownlib = ffi.dlopen(self.module)
         for i in range(7):
@@ -292,7 +305,7 @@ class TestOwnLib(object):
                 long bottom;
             } RECT;
             
-            long left, top, right, bottom;
+            extern long left, top, right, bottom;
 
             RECT ReturnRect(int i, RECT ar, RECT* br, POINT cp, RECT dr,
                         RECT *er, POINT fp, RECT gr);
@@ -322,7 +335,7 @@ class TestOwnLib(object):
         if self.Backend is CTypesBackend:
             py.test.skip("not implemented with the ctypes backend")
         ffi = FFI(backend=self.Backend())
-        ffi.cdef("long left; int test_getting_errno(void);")
+        ffi.cdef("extern long left; int test_getting_errno(void);")
         lib = ffi.dlopen(self.module)
         lib.left = 123456
         p = ffi.addressof(lib, "left")
@@ -372,3 +385,48 @@ class TestOwnLib(object):
         assert s.top == 22
         assert s.right == 33
         assert s.bottom == 44
+
+    def test_dlopen_handle(self):
+        if self.module is None:
+            py.test.skip("fix the auto-generation of the tiny test lib")
+        if sys.platform == 'win32':
+            py.test.skip("uses 'dl' explicitly")
+        if self.__class__.Backend is CTypesBackend:
+            py.test.skip("not for the ctypes backend")
+        backend = self.Backend()
+        ffi1 = FFI(backend=backend)
+        ffi1.cdef("""void *dlopen(const char *filename, int flags);
+                     int dlclose(void *handle);""")
+        lib1 = ffi1.dlopen('dl')
+        handle = lib1.dlopen(self.module.encode(sys.getfilesystemencoding()),
+                             backend.RTLD_LAZY)
+        assert ffi1.typeof(handle) == ffi1.typeof("void *")
+        assert handle
+
+        ffi = FFI(backend=backend)
+        ffi.cdef("""unsigned short foo_2bytes(unsigned short a);""")
+        lib = ffi.dlopen(handle)
+        x = lib.foo_2bytes(1000)
+        assert x == 1042
+
+        err = lib1.dlclose(handle)
+        assert err == 0
+
+    def test_return_three_bytes(self):
+        if self.module is None:
+            py.test.skip("fix the auto-generation of the tiny test lib")
+        if self.__class__.Backend is CTypesBackend:
+            py.test.skip("not working on win32 on the ctypes backend")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            typedef struct {
+                unsigned char a, b, c;
+            } THREEBYTES;
+
+            THREEBYTES return_three_bytes(void);
+        """)
+        lib = ffi.dlopen(self.module)
+        tb = lib.return_three_bytes()
+        assert tb.a == 12
+        assert tb.b == 34
+        assert tb.c == 56

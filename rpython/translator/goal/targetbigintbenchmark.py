@@ -251,8 +251,19 @@ def entry_point(argv):
     sumTime += _time
     print "v = v + v", _time
     
+    x = rbigint.fromstr("13579246801357924680135792468013579246801")
+    y = rbigint.fromstr("112233445566778899112233445566778899112233445566778899")
+    t = time()
+    for i in range(5000):
+        x.gcd(y)
+        x = x.int_mul(2).int_add(1)
+    _time = time() - t
+    print "gcd", _time
+
+    sumTime += _time
+
     print "Sum: ", sumTime
-    
+
     return 0
 
 # _____ Define and setup target ___

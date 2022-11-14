@@ -10,7 +10,7 @@ from rpython.rlib.objectmodel import we_are_translated, not_rpython
 class Module(W_Root):
     """A module."""
 
-    _immutable_fields_ = ["w_dict?", "w_userclass?"]
+    _immutable_fields_ = ["w_dict", "w_userclass?"]
 
     _frozen = False
     w_userclass = None
@@ -105,10 +105,10 @@ class Module(W_Root):
             w_mod    = space.getbuiltinmodule('_pickle_support')
             mod      = space.interp_w(MixedModule, w_mod)
             new_inst = mod.get('module_new')
-            return space.newtuple([new_inst,
-                                   space.newtuple([w_name,
-                                                   self.getdict(space)]),
-                                  ])
+            return space.newtuple2(new_inst,
+                                   space.newtuple2(w_name,
+                                                   self.getdict(space)),
+                                  )
         #already imported case
         w_import = space.builtin.get('__import__')
         tup_return = [
@@ -129,15 +129,28 @@ class Module(W_Root):
 
     def descr_getattribute(self, space, w_attr):
         from pypy.objspace.descroperation import object_getattribute
+        from pypy.module.imp.importing import is_spec_initializing
         try:
             return space.call_function(object_getattribute(space), self, w_attr)
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
+            w_dict = self.w_dict
+            w_getattr = space.finditem(w_dict, space.newtext('__getattr__'))
+            if w_getattr is not None:
+                return space.call_function(w_getattr, w_attr)
             w_name = space.finditem(self.w_dict, space.newtext('__name__'))
+            w_spec = space.finditem(self.w_dict, space.newtext('__spec__'))
             if w_name is None:
                 raise oefmt(space.w_AttributeError,
                     "module has no attribute %R", w_attr)
+            elif w_spec is not None and is_spec_initializing(space, w_spec):
+                raise oefmt(space.w_AttributeError,
+                    "partially initialized "
+                    "module %R has no attribute %R "
+                    "(most likely due to a circular import)",
+                    w_name, w_attr
+                )
             else:
                 raise oefmt(space.w_AttributeError,
                     "module %R has no attribute %R", w_name, w_attr)
@@ -147,6 +160,9 @@ class Module(W_Root):
         if not space.isinstance_w(w_dict, space.w_dict):
             raise oefmt(space.w_TypeError, "%N.__dict__ is not a dictionary",
                         self)
+        w_dir = space.finditem(w_dict, space.newtext('__dir__'))
+        if w_dir is not None:
+            return space.call_function(w_dir)
         return space.call_function(space.w_list, w_dict)
 
     # These three methods are needed to implement '__class__' assignment

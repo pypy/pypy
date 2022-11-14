@@ -11,18 +11,19 @@ still useful routines.
 
 import sys
 if sys.platform != 'win32':
-    raise ImportError("The 'msvcrt' module is only available on Windows")
+    raise ModuleNotFoundError("The 'msvcrt' module is only available on Windows", name="msvcrt")
 
 import _rawffi
-from _pypy_winbase_cffi import ffi as _ffi
+if sys.maxsize > 2 ** 31:
+    from _pypy_winbase_cffi64 import ffi as _ffi
+else:
+    from _pypy_winbase_cffi import ffi as _ffi
 _lib = _ffi.dlopen(_rawffi.get_libc().name)
 _kernel32 = _ffi.dlopen('kernel32')
 
 import errno
 
-try: from __pypy__ import builtinify, validate_fd
-except ImportError: builtinify = validate_fd = lambda f: f
-
+from __pypy__ import builtinify, get_osfhandle as _get_osfhandle
 
 def _ioerr():
     e = _ffi.errno
@@ -48,11 +49,7 @@ def get_osfhandle(fd):
 
     Return the file handle for the file descriptor fd. Raises IOError if
     fd is not recognized."""
-    try:
-        validate_fd(fd)
-    except OSError as e:
-        raise IOError(*e.args)
-    result = _lib._get_osfhandle(fd)
+    result = _get_osfhandle(fd)
     if result == -1:
         _ioerr()
     return result
@@ -92,19 +89,19 @@ kbhit = _lib._kbhit
 
 @builtinify
 def getch():
-    return chr(_lib._getch())
+    return bytes([_lib._getch()])
 
 @builtinify
 def getwch():
-    return unichr(_lib._getwch())
+    return chr(_lib._getwch())
 
 @builtinify
 def getche():
-    return chr(_lib._getche())
+    return bytes([_lib._getche()])
 
 @builtinify
 def getwche():
-    return unichr(_lib._getwche())
+    return chr(_lib._getwche())
 
 @builtinify
 def putch(ch):
@@ -116,11 +113,21 @@ def putwch(ch):
 
 @builtinify
 def ungetch(ch):
+    msg = 'ungetch() argument must be a byte string of length 1, not '
+    if not isinstance(ch, bytes):
+        raise(TypeError, msg + type(ch))
+    if len(ch) != 1:
+        raise(TypeError, msg + 'not bytes')
     if _lib._ungetch(ord(ch)) == -1:   # EOF
         _ioerr()
 
 @builtinify
 def ungetwch(ch):
+    msg = 'ungetwch() argument must be a unicode character, not '
+    if not isinstance(ch, str):
+        raise(TypeError, msg + type(ch))
+    if len(ch) != 1:
+        raise(TypeError, msg + 'not str')
     if _lib._ungetwch(ord(ch)) == -1:   # EOF
         _ioerr()
 

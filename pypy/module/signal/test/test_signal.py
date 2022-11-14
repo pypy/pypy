@@ -1,17 +1,24 @@
-import os, py, sys
+import os, pytest, sys
 import signal as cpy_signal
+from pypy.tool.pytest.objspace import gettestobjspace
 
+GET_POSIX = "(): import %s as m ; return m" % os.name
+USEMODULES = ['posix', 'signal']
+
+def setup_module(mod):
+    mod.space = gettestobjspace(usemodules=USEMODULES)
 
 class TestCheckSignals:
-    spaceconfig = dict(usemodules=['signal'])
+    spaceconfig = {'usemodules': USEMODULES}
 
     def setup_class(cls):
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
-            py.test.skip("requires os.kill() and os.getpid()")
+            pytest.skip("requires os.kill() and os.getpid()")
         if not hasattr(cpy_signal, 'SIGUSR1'):
-            py.test.skip("requires SIGUSR1 in signal")
+            pytest.skip("requires SIGUSR1 in signal")
 
     def test_checksignals(self):
+        import os
         space = self.space
         w_received = space.appexec([], """():
             import _signal as signal
@@ -30,29 +37,32 @@ class TestCheckSignals:
         assert not space.is_true(w_received)
         #
         # calling ec.checksignals() should call it
+        print(space.getexecutioncontext().checksignals)
         space.getexecutioncontext().checksignals()
         assert space.is_true(w_received)
 
 
 class AppTestSignal:
     spaceconfig = {
-        "usemodules": ['signal', 'time'] + (['fcntl'] if os.name != 'nt' else []),
+        "usemodules": ['signal', 'time', '_socket'] + (['fcntl'] if os.name != 'nt' else []),
     }
 
     def setup_class(cls):
         cls.w_temppath = cls.space.wrap(
-            str(py.test.ensuretemp("signal").join("foo.txt")))
+            str(pytest.ensuretemp("signal").join("foo.txt")))
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
+        cls.w_posix = space.appexec([], GET_POSIX)
 
     def test_exported_names(self):
-        import os, _signal
+        import sys, _signal
         _signal.__dict__   # crashes if the interpleveldefs are invalid
-        if os.name == 'nt':
+        if sys.platform == 'win32':
             assert _signal.CTRL_BREAK_EVENT == 1
             assert _signal.CTRL_C_EVENT == 0
 
     def test_basics(self):
-        import types, os, _signal
+        import types, _signal
+        os = self.posix
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
             skip("requires os.kill() and os.getpid()")
         signal = _signal   # the signal module to test
@@ -198,7 +208,7 @@ class AppTestSignal:
             except OSError:
                 pass
             else:
-                raise AssertionError("os.read(fd_read, 1) succeeded?")
+                raise AssertionError("posix.read(fd_read, 1) succeeded?")
         #
         fd_read, fd_write = posix.pipe()
         flags = fcntl.fcntl(fd_write, fcntl.F_GETFL, 0)
@@ -208,7 +218,7 @@ class AppTestSignal:
         flags = flags | posix.O_NONBLOCK
         fcntl.fcntl(fd_read, fcntl.F_SETFL, flags)
         #
-        old_wakeup = signal.set_wakeup_fd(fd_write)
+        old_wakeup = signal.set_wakeup_fd(fd_write, warn_on_full_buffer=False)
         try:
             cannot_read()
             posix.kill(posix.getpid(), signal.SIGINT)
@@ -220,14 +230,33 @@ class AppTestSignal:
         #
         signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+    def test_set_wakeup_fd_socket_result(self):
+        import _socket as socket
+        import _signal as signal
+        sock1 = socket.socket()
+        sock2 = socket.socket()
+        try:
+            sock1.setblocking(False)
+            fd1 = sock1.fileno()
+            sock2.setblocking(False)
+            fd2 = sock2.fileno()
+
+            signal.set_wakeup_fd(fd1)
+            signal.set_wakeup_fd(fd2) == fd1
+            assert signal.set_wakeup_fd(-1) == fd2
+        finally:
+            sock1.close()
+            sock2.close()
+
     def test_set_wakeup_fd_invalid(self):
         import _signal as signal
         with open(self.temppath, 'wb') as f:
             fd = f.fileno()
-        raises(ValueError, signal.set_wakeup_fd, fd)
+        raises((ValueError, OSError), signal.set_wakeup_fd, fd)
 
     def test_siginterrupt(self):
-        import _signal as signal, os, time
+        import _signal as signal, time
+        os = self.posix
         if not hasattr(signal, 'siginterrupt'):
             skip('non siginterrupt in signal')
         signum = signal.SIGUSR1
@@ -271,6 +300,22 @@ class AppTestSignal:
             else:
                 raise AssertionError("did not raise!")
 
+    def test_valid_signals(self):
+        import signal, sys
+        s = signal.valid_signals()
+        assert isinstance(s, set)
+        assert signal.Signals.SIGINT in s
+        if sys.platform != "win32":
+            assert signal.Signals.SIGALRM in s
+        assert 0 not in s
+        assert signal.NSIG not in s
+        assert len(s) < signal.NSIG
+
+    def test_strsignal(self):
+        import signal
+        assert signal.strsignal(signal.Signals.SIGSEGV) == "Segmentation fault"
+        raises(ValueError, signal.strsignal, 4242)
+
 
 class AppTestSignalSocket:
     spaceconfig = dict(usemodules=['signal', '_socket'])
@@ -301,12 +346,10 @@ class AppTestSignalSocket:
         finally:
             signal(SIGALRM, SIG_DFL)
 
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='posix-only')
 class AppTestItimer:
     spaceconfig = dict(usemodules=['signal'])
-
-    def setup_class(cls):
-        if sys.platform == 'win32':
-            py.test.skip("Unix only")
 
     def test_itimer_real(self):
         import _signal as signal
@@ -330,6 +373,7 @@ class AppTestItimer:
 
         raises(signal.ItimerError, signal.setitimer, -1, 0)
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='posix-only')
 class AppTestPThread:
     spaceconfig = dict(usemodules=['signal', 'thread', 'time'])
 
@@ -369,3 +413,40 @@ class AppTestPThread:
         # Unblocking the 2 signals calls the C signal handler twice
         signal.pthread_sigmask(signal.SIG_UNBLOCK, (signum1, signum2))
         assert signal.sigpending() == set()
+
+    def test_raise_signal(self):
+        import types, _signal, sys
+        signal = _signal   # the signal module to test
+        if sys.platform == 'win32':
+            raises(OSError, signal.raise_signal, 1)
+        if not hasattr(signal, 'SIGUSR1'):
+            skip("requires SIGUSR1 in signal")
+        signum = signal.SIGUSR1
+
+        received = []
+        def myhandler(signum, frame):
+            assert isinstance(frame, types.FrameType)
+            received.append(signum)
+        signal.signal(signum, myhandler)
+
+        signal.raise_signal(signum)
+        # the signal should be delivered to the handler immediately
+        assert received == [signum]
+        del received[:]
+
+        signal.raise_signal(signum)
+        # the signal should be delivered to the handler immediately
+        assert received == [signum]
+        del received[:]
+
+        signal.signal(signum, signal.SIG_IGN)
+
+        signal.raise_signal(signum)
+        for i in range(10000):
+            # wait a bit - signal should not arrive
+            if received:
+                break
+        assert received == []
+
+        signal.signal(signum, signal.SIG_DFL)
+

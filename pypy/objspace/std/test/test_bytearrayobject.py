@@ -228,9 +228,11 @@ class AppTestBytesArray:
         assert bytearray(b'ab').startswith(bytearray(b'b'), 1) is True
         assert bytearray(b'ab').startswith(bytearray(b''), 2) is True
         assert bytearray(b'ab').startswith(bytearray(b''), 3) is False
+        assert bytearray(b'0').startswith(bytearray(b''), 1, -1) is False
         assert bytearray(b'ab').endswith(bytearray(b'b'), 1) is True
         assert bytearray(b'ab').endswith(bytearray(b''), 2) is True
         assert bytearray(b'ab').endswith(bytearray(b''), 3) is False
+        assert bytearray(b'0').endswith(bytearray(b''), 1, -1) is False
 
     def test_startswith_self(self):
         b = bytearray(b'abcd')
@@ -398,11 +400,19 @@ class AppTestBytesArray:
         assert b == bytearray(b'obe')
 
     def test_iadd(self):
-        b = bytearray(b'abc')
+        b = b0 = bytearray(b'abc')
         b += b'def'
         assert b == b'abcdef'
-        assert isinstance(b, bytearray)
+        assert b is b0
         raises(TypeError, b.__iadd__, "")
+        #
+        b += bytearray(b'XX')
+        assert b == b'abcdefXX'
+        assert b is b0
+        #
+        b += memoryview(b'ABC')
+        assert b == b'abcdefXXABC'
+        assert b is b0
 
     def test_add(self):
         b1 = bytearray(b"abc")
@@ -429,6 +439,8 @@ class AppTestBytesArray:
         b = bytearray([0x1a, 0x2b, 0x30])
         assert bytearray.fromhex('1a2B30') == b
         assert bytearray.fromhex('  1A 2B  30   ') == b
+        assert bytearray.fromhex('''\t1a\t2B\n
+           30\n''') == b
         assert bytearray.fromhex('0000') == b'\0\0'
 
         raises(ValueError, bytearray.fromhex, 'a')
@@ -438,6 +450,11 @@ class AppTestBytesArray:
         raises(ValueError, bytearray.fromhex, '\x00')
         raises(ValueError, bytearray.fromhex, '12   \x00   34')
         raises(ValueError, bytearray.fromhex, '\u1234')
+
+    def test_fromhex_subclass(self):
+        class Sub(bytearray):
+            pass
+        assert type(Sub.fromhex("abcd")) is Sub
 
     def test_extend(self):
         b = bytearray(b'abc')
@@ -465,6 +482,10 @@ class AppTestBytesArray:
         raises(TypeError, b.extend, object())
         raises(TypeError, b.extend, [object()])
         raises(TypeError, b.extend, "unicode")
+
+        b = bytearray(b'abc')
+        b.extend(memoryview(b'def'))
+        assert b == bytearray(b'abcdef')
 
     def test_extend_calls_len_or_lengthhint(self):
         class BadLen(object):
@@ -585,6 +606,28 @@ class AppTestBytesArray:
 
     def test_hex(self):
         assert bytearray(b'santa claus').hex() == "73616e746120636c617573"
+
+    def test_hex_sep(self):
+        res = bytearray(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('.')
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        with raises(ValueError):
+            bytes([1, 2, 3]).hex("abc")
+        assert bytearray(
+                bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('?', 4) == \
+               "73616e?74612063?6c617573"
+        res = bytearray(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('.', 0)
+        assert res == "73616e746120636c617573"
+
+    def test_isascii(self):
+        assert bytearray(b'hello world').isascii() is True
+        assert bytearray(b'\x00\x7f').isascii() is True
+        assert bytearray(b'\x80').isascii() is False
+        ba = bytearray(b"\xff\xffHello World")
+        assert ba.isascii() is False
+        del ba[0:1]
+        assert ba.isascii() is False
+        del ba[0:1]
+        assert ba.isascii() is True
 
     def test_format(self):
         """
@@ -732,3 +775,8 @@ class AppTestBytesArray:
         assert x.find(b'fe') == -1
         assert x.index(b'f', 2, 11) == 5
         assert x.__alloc__() == 14
+
+    def test_subclass_repr(self):
+        class subclass(bytearray):
+            pass
+        assert repr(subclass(b'test')) == "subclass(b'test')"

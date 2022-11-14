@@ -154,6 +154,9 @@ class Policy(_PolicyBase, metaclass=abc.ABCMeta):
                            them. This is used when the message is being
                            serialized by a generator. Default: True.
 
+    message_factory     -- the class to use to create new message objects.
+                           If the value is None, the default is Message.
+
     """
 
     raise_on_defect = False
@@ -161,6 +164,7 @@ class Policy(_PolicyBase, metaclass=abc.ABCMeta):
     cte_type = '8bit'
     max_line_length = 78
     mangle_from_ = False
+    message_factory = None
 
     def handle_defect(self, obj, defect):
         """Based on policy, either raise defect or call register_defect.
@@ -357,8 +361,12 @@ class Compat32(Policy):
             # Assume it is a Header-like object.
             h = value
         if h is not None:
-            parts.append(h.encode(linesep=self.linesep,
-                                  maxlinelen=self.max_line_length))
+            # The Header class interprets a value of None for maxlinelen as the
+            # default value of 78, as recommended by RFC 2822.
+            maxlinelen = 0
+            if self.max_line_length is not None:
+                maxlinelen = self.max_line_length
+            parts.append(h.encode(linesep=self.linesep, maxlinelen=maxlinelen))
         parts.append(self.linesep)
         return ''.join(parts)
 

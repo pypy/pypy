@@ -381,6 +381,18 @@ class TestObjSpace:
         assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('g')))
         assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('h')))
 
+    def test_unicode_not_in_typed_unwrap_errors(self):
+        space = self.space
+        for meth in space.text_w, space.utf8_w, space.convert_to_w_unicode:
+            with raises(OperationError) as excinfo:
+                meth(space.newint(1))
+            exc = excinfo.value
+            exc.normalize_exception(space)
+            w_exc = exc.get_w_value(space)
+            assert space.text_w(space.str(excinfo.value.get_w_value(space))) == \
+                    'expected str, got int object'
+
+
 class TestModuleMinimal:
     def test_sys_exists(self):
         assert self.space.sys
@@ -431,28 +443,25 @@ class TestModuleMinimal:
         assert w1 is w0
         w2 = space.new_interned_w_str(w0)
         assert w2 is w0
-        w3 = space.wrap(s)
-        assert w3 is not w0
-        w4 = space.new_interned_w_str(w3)
-        assert w4 is w0
-        #
-        # check that 'w0' goes away if we don't hold a reference to it
-        # (even if we hold a reference to 'w3')
-        rw0 = weakref.ref(w0)
-        del w0, w1, w2, w4
-        i = 10
-        while rw0() is not None:
-            i -= 1
-            assert i >= 0
-            gc.collect()
 
-    def test_exitfunc_catches_exceptions(self):
+    def test_atexit_catches_exceptions(self):
         from pypy.tool.pytest.objspace import maketestobjspace
         space = maketestobjspace()
         space.appexec([], """():
-            import sys
-            sys.exitfunc = lambda: this_is_an_unknown_name
+            import atexit
+            atexit.register(lambda: this_is_an_unknown_name)
         """)
-        space.finish()
+        ret = space.finish()
+        assert ret == 0
         # assert that we reach this point without getting interrupted
-        # by the OperationError(NameError)
+
+    def test_exit_closed_std(self):
+        from pypy.tool.pytest.objspace import maketestobjspace
+        space = maketestobjspace()
+        space.appexec([], """():
+            import sys, os
+            sys.stdout.write('x')
+            os.close(sys.stdout.fileno())
+        """)
+        ret = space.finish()
+        assert ret < 0

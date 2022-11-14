@@ -1,13 +1,13 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t,
     PyVarObject, size_t, slot_function, cts,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, FILEP, fwrite, c_only)
+    Py_GE, CONST_STRING, FILEP, fwrite, c_only, PY_SSIZE_T_MAX)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, incref, decref,
     get_typedescr, hack_for_result_often_existing_obj)
-from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.bytesobject import invoke_bytes_method
@@ -21,6 +21,14 @@ def PyObject_Malloc(space, size):
     # returns non-zero-initialized memory, like CPython
     return lltype.malloc(rffi.VOIDP.TO, size,
                          flavor='raw',
+                         add_memory_pressure=True)
+
+@cpython_api([size_t, size_t], rffi.VOIDP)
+def PyObject_Calloc(space, nelem, elsize):
+    if elsize != 0 and nelem > PY_SSIZE_T_MAX / elsize:
+        return lltype.nullptr(rffi.VOIDP.TO)
+    return lltype.malloc(rffi.VOIDP.TO, nelem * elsize,
+                         flavor='raw', zero=True,
                          add_memory_pressure=True)
 
 realloc = rffi.llexternal('realloc', [rffi.VOIDP, rffi.SIZE_T], rffi.VOIDP)
@@ -56,7 +64,7 @@ def _dealloc(space, obj):
     pto = obj.c_ob_type
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)
-    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+    if widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
         decref(space, rffi.cast(PyObject, pto))
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
@@ -210,6 +218,10 @@ def PyObject_Repr(space, w_obj):
 def PyObject_Format(space, w_obj, w_format_spec):
     if w_format_spec is None:
         w_format_spec = space.newtext('')
+    # issue 3404: handle PyObject_Format(type('a'), '')
+    if (space.isinstance_w(w_format_spec, space.w_unicode) and
+                space.len_w(w_format_spec) == 0):
+        return space.unicode_from_object(w_obj)
     w_ret = space.call_method(w_obj, '__format__', w_format_spec)
     if space.isinstance_w(w_format_spec, space.w_unicode):
         return space.unicode_from_object(w_ret)
@@ -363,11 +375,11 @@ def PyObject_Hash(space, w_obj):
     """
     Compute and return the hash value of an object o.  On failure, return -1.
     This is the equivalent of the Python expression hash(o)."""
-    return space.int_w(space.hash(w_obj))
+    return space.hash_w(w_obj)
 
-@cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
+@cpython_api([rffi.DOUBLE], lltype.Signed, error=-1)
 def _Py_HashDouble(space, v):
-    return space.int_w(space.hash(space.newfloat(v)))
+    return space.hash_w(space.newfloat(v))
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):
@@ -445,3 +457,16 @@ def Py_ReprLeave(space, w_obj):
             del d[w_obj]
         except KeyError:
             pass
+
+@cpython_api([PyObject, rffi.VOIDP], PyObject)
+def PyObject_GenericGetDict(space, w_obj, context):
+    from pypy.interpreter.typedef import descr_get_dict
+    return descr_get_dict(space, w_obj)
+
+@cpython_api([PyObject, PyObject, rffi.VOIDP], rffi.INT_real, error=-1)
+def PyObject_GenericSetDict(space, w_obj, w_value, context):
+    from pypy.interpreter.typedef import descr_set_dict
+    if w_value is None:
+        raise oefmt(space.w_TypeError, "cannot delete __dict__")
+    descr_set_dict(space, w_obj, w_value)
+    return 0

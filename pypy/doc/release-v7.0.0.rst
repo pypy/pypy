@@ -24,7 +24,7 @@ performance, has been improved and it is now possible to manually manage the
 GC by using a combination of ``gc.disable`` and ``gc.collect_step``. See the
 `GC blog post`_.
 
-.. _`GC hooks`: http://doc.pypy.org/en/latest/gc_info.html#semi-manual-gc-management
+.. _`GC hooks`: https://doc.pypy.org/en/latest/gc_info.html#semi-manual-gc-management
 
 We updated the `cffi`_ module included in PyPy to version 1.12, and the
 `cppyy`_ backend to 1.4. Please use these to wrap your C and C++ code,
@@ -42,7 +42,7 @@ The utf8 branch that changes internal representation of unicode to utf8 did not
 make it into the release, so there is still more goodness coming.
 You can download the v7.0 releases here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project. If PyPy is not quite good enough for your needs, we are available for
@@ -56,7 +56,7 @@ on pypy, or general `help`_ with making RPython's JIT even better.
 .. _`PyPy`: index.html
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`help`: project-ideas.html
-.. _`cffi`: http://cffi.readthedocs.io
+.. _`cffi`: https://cffi.readthedocs.io
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`available as wheels`: https://github.com/antocuni/pypy-wheels
 .. _`GC blog post`: https://morepypy.blogspot.com/2019/01/pypy-for-low-latency-systems.html
@@ -84,8 +84,8 @@ The PyPy release supports:
 Unfortunately at the moment of writing our ARM buildbots are out of service,
 so for now we are **not** releasing any binary for the ARM architecture.
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 
 Changelog
@@ -149,4 +149,4 @@ We also refactored many parts of the JIT bridge optimizations, as well as cpyext
 internals, and together with new contributors fixed issues, added new
 documentation, and cleaned up the codebase.
 
-.. _contributing: http://doc.pypy.org/en/latest/contributing.html
+.. _contributing: https://doc.pypy.org/en/latest/contributing.html

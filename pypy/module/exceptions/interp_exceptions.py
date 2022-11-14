@@ -93,10 +93,10 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty,
     descr_get_dict, descr_set_dict, descr_del_dict)
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pytraceback import PyTraceback, check_traceback
-from rpython.rlib import rwin32
+from rpython.rlib import rwin32, jit
 
 
 def readwrite_attrproperty_w(name, cls):
@@ -149,11 +149,16 @@ class W_BaseException(W_Root):
             return space.call_function(space.w_unicode, w_tup)
 
     def descr_repr(self, space):
-        if self.args_w:
+        lgt = len(self.args_w)
+        if lgt == 0:
+            args_repr = b"()"
+        elif lgt == 1:
+            args_repr = (b"(" +
+                space.utf8_w(space.repr(self.args_w[0])) +
+                b")")
+        else:
             args_repr = space.utf8_w(
                 space.repr(space.newtuple(self.args_w)))
-        else:
-            args_repr = b"()"
         clsname = self.getclass(space).getname(space)
         return space.newtext(clsname + args_repr)
 
@@ -299,6 +304,7 @@ def _new_exception(name, base, docstring, **kwargs):
     W_Exc.typedef = TypeDef(
         name,
         base.typedef,
+        __rpython_level_class__=W_Exc,
         __doc__ = W_Exc.__doc__,
         **kwargs
     )
@@ -322,16 +328,38 @@ class W_ImportError(W_Exception):
     """Import can't find module, or can't find name in module."""
     w_name = None
     w_path = None
+    w_msg = None
 
-    def descr_init(self, space, __args__):
-        args_w, kw_w = __args__.unpack()
-        self.w_name = kw_w.pop('name', space.w_None)
-        self.w_path = kw_w.pop('path', space.w_None)
-        if kw_w:
-            # CPython displays this, but it's not quite right.
-            raise oefmt(space.w_TypeError,
-                        "ImportError does not take keyword arguments")
+    @jit.unroll_safe
+    @unwrap_spec(w_name=WrappedDefault(None), w_path=WrappedDefault(None))
+    def descr_init(self, space, args_w, __kwonly__, w_name=None, w_path=None):
+        self.w_name = w_name
+        self.w_path = w_path
+        if len(args_w) == 1:
+            self.w_msg = args_w[0]
+        else:
+            self.w_msg = space.w_None
         W_Exception.descr_init(self, space, args_w)
+
+    def descr_reduce(self, space):
+        lst = [self.getclass(space), space.newtuple(self.args_w)]
+        if self.w_dict is not None and space.is_true(self.w_dict):
+            w_dict = space.call_method(self.w_dict, "copy")
+        else:
+            w_dict = space.newdict()
+        if not space.is_w(self.w_name, space.w_None):
+            space.setitem(w_dict, space.newtext("name"), self.w_name)
+        if not space.is_w(self.w_path, space.w_None):
+            space.setitem(w_dict, space.newtext("path"), self.w_path)
+        if space.is_true(w_dict):
+            lst = [lst[0], lst[1], w_dict]
+        return space.newtuple(lst)
+
+    def descr_setstate(self, space, w_dict):
+        self.w_name = space.call_method(w_dict, "pop", space.newtext("name"), space.w_None)
+        self.w_path = space.call_method(w_dict, "pop", space.newtext("path"), space.w_None)
+        w_olddict = self.getdict(space)
+        space.call_method(w_olddict, 'update', w_dict)
 
 
 W_ImportError.typedef = TypeDef(
@@ -341,8 +369,11 @@ W_ImportError.typedef = TypeDef(
     __module__ = 'builtins',
     __new__ = _new(W_ImportError),
     __init__ = interp2app(W_ImportError.descr_init),
+    __reduce__ = interp2app(W_ImportError.descr_reduce),
+    __setstate__ = interp2app(W_ImportError.descr_setstate),
     name = readwrite_attrproperty_w('w_name', W_ImportError),
     path = readwrite_attrproperty_w('w_path', W_ImportError),
+    msg = readwrite_attrproperty_w('w_msg', W_ImportError),
 )
 
 
@@ -351,6 +382,10 @@ W_RuntimeError = _new_exception('RuntimeError', W_Exception,
 
 W_UnicodeError = _new_exception('UnicodeError', W_ValueError,
                           """Unicode related error.""")
+
+W_ModuleNotFoundError = _new_exception(
+    'ModuleNotFoundError', W_ImportError, """Module not found."""
+)
 
 
 class W_UnicodeTranslateError(W_UnicodeError):
@@ -637,6 +672,11 @@ class W_OSError(W_Exception):
     def descr_set_written(self, space, w_written):
         self.written = space.int_w(w_written)
 
+    def descr_del_written(self, space):
+        if self.written == -1:
+            raise oefmt(space.w_AttributeError, "characters_written")
+        self.written = -1
+
 
 if hasattr(rwin32, 'build_winerror_to_errno'):
     WINERROR_TO_ERRNO, DEFAULT_WIN32_ERRNO = rwin32.build_winerror_to_errno()
@@ -664,7 +704,8 @@ W_OSError.typedef = TypeDef(
     filename = readwrite_attrproperty_w('w_filename', W_OSError),
     filename2= readwrite_attrproperty_w('w_filename2',W_OSError),
     characters_written = GetSetProperty(W_OSError.descr_get_written,
-                                        W_OSError.descr_set_written),
+                                        W_OSError.descr_set_written,
+                                        W_OSError.descr_del_written),
     **_winerror_property
     )
 
@@ -718,9 +759,25 @@ W_FloatingPointError = _new_exception('FloatingPointError', W_ArithmeticError,
 W_ReferenceError = _new_exception('ReferenceError', W_Exception,
                            """Weak ref proxy used after referent went away.""")
 
-W_NameError = _new_exception('NameError', W_Exception,
-                             """Name not found globally.""")
+class W_NameError(W_Exception):
+    """Name not found globally."""
+    name = None
 
+    def __init__(self, space):
+        pass
+
+    @unwrap_spec(w_name=WrappedDefault(None))
+    def descr_init(self, space, args_w, __kwonly__, w_name=None):
+        self.args_w = args_w
+        self.w_name = w_name
+
+
+W_NameError.typedef = TypeDef('NameError', W_Exception.typedef,
+    __doc__ = W_NameError.__doc__,
+    __new__ = _new(W_NameError),
+    __init__ = interp2app(W_NameError.descr_init),
+    name = readwrite_attrproperty_w('w_name', W_NameError),
+)
 
 class W_SyntaxError(W_Exception):
     """Invalid syntax."""
@@ -800,6 +857,10 @@ class W_SyntaxError(W_Exception):
 
     # CPython Issue #21669: Custom error for 'print' & 'exec' as statements
     def _report_missing_parentheses(self, space):
+        if not space.text_w(self.w_msg).startswith("Missing parentheses in call to "):
+            # the parser identifies the correct places where the error should
+            # be produced
+            return
         text = space.utf8_w(self.w_text)
         if b'(' in text:
             # Use default error message for any line with an opening paren
@@ -816,7 +877,7 @@ class W_SyntaxError(W_Exception):
 
     def _check_for_legacy_statements(self, space, text, start):
         # Ignore leading whitespace
-        while start < len(text) and text[start] == u' ':
+        while start < len(text) and text[start] == b' ':
             start += 1
         # Checking against an empty or whitespace-only part of the string
         if start == len(text):
@@ -825,13 +886,39 @@ class W_SyntaxError(W_Exception):
             text = text[start:]
         # Check for legacy print statements
         if text.startswith(b"print "):
-            self.w_msg = space.newtext("Missing parentheses in call to 'print'")
+            self._set_legacy_print_statement_msg(space, text)
             return True
         # Check for legacy exec statements
         if text.startswith(b"exec "):
             self.w_msg = space.newtext("Missing parentheses in call to 'exec'")
             return True
         return False
+
+    def _set_legacy_print_statement_msg(self, space, text):
+        text = text[len("print"):]
+        text = text.strip()
+        if text.endswith(";"):
+            end = len(text) - 1
+            assert end >= 0
+            text = text[:end].strip()
+
+        maybe_end = ""
+        if text.endswith(","):
+            maybe_end = " end=\" \""
+
+        suggestion = "print(%s%s)" % (
+                text, maybe_end)
+
+        # try to see whether the suggestion would compile, otherwise discard it
+        compiler = space.createcompiler()
+        try:
+            compiler.compile(suggestion, '?', 'eval', 0)
+        except OperationError:
+            pass
+        else:
+            self.w_msg = space.newtext(
+                "Missing parentheses in call to 'print'. Did you mean %s?" % (
+                    suggestion, ))
 
 
 W_SyntaxError.typedef = TypeDef(
@@ -993,8 +1080,29 @@ W_NotImplementedError = _new_exception('NotImplementedError', W_RuntimeError,
 W_RecursionError = _new_exception('RecursionError', W_RuntimeError,
                         """Recursion limit exceeded.""")
 
-W_AttributeError = _new_exception('AttributeError', W_Exception,
-                                  """Attribute not found.""")
+
+class W_AttributeError(W_Exception):
+    """Attribute not found."""
+    name = None
+    obj = None
+
+    def __init__(self, space):
+        pass
+
+    @unwrap_spec(w_name=WrappedDefault(None), w_obj=WrappedDefault(None))
+    def descr_init(self, space, args_w, __kwonly__, w_obj=None, w_name=None):
+        self.args_w = args_w
+        self.w_name = w_name
+        self.w_obj = w_obj
+
+
+W_AttributeError.typedef = TypeDef('AttributeError', W_Exception.typedef,
+    __doc__ = W_AttributeError.__doc__,
+    __new__ = _new(W_AttributeError),
+    __init__ = interp2app(W_AttributeError.descr_init),
+    name = readwrite_attrproperty_w('w_name', W_AttributeError),
+    obj = readwrite_attrproperty_w('w_obj', W_AttributeError),
+)
 
 W_OverflowError = _new_exception('OverflowError', W_ArithmeticError,
                                  """Result too large to be represented.""")

@@ -440,7 +440,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             import sys
             sys.stderr.write('SKIP: foobar\n')
         #
-        raises(pytest.skip.Exception, "self.run(f, [])")
+        pytest.raises(pytest.skip.Exception, "self.run(f, [])")
 
     def test_parse_jitlog(self):
         def f():

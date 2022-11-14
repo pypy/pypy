@@ -59,21 +59,38 @@ class AppTestModuleObject(AppTestCpythonExtensionBase):
             )])
         assert module.check_mod_getstate()
 
+    def test___file__(self):
+        module = self.import_extension('foo', [
+            ("check___file__", "METH_NOARGS",
+             """
+                PyObject * f = PyUnicode_InternFromString("__file__");
+                PyObject *result = PyObject_GetItem(pyx_d, f);
+                Py_XINCREF(result);
+                Py_DECREF(f);
+                return result;
+             """
+            )], prologue="""
+            static PyObject * pyx_d;
+            """, more_init="""
+            pyx_d = PyModule_GetDict(mod);
+            """)
+        assert 'foo' in module.check___file__()
+
 
 class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def test_basic(self):
         from types import ModuleType
-        module = self.import_module(name='multiphase')
+        module = self.import_module(name='multiphase', use_imp=True)
         assert isinstance(module, ModuleType)
         assert module.__name__ == 'multiphase'
         assert module.__doc__ == "example docstring"
 
     def test_getdef(self):
         from types import ModuleType
-        module = self.import_module(name='multiphase')
+        module = self.import_module(name='multiphase', use_imp=True)
         assert module.check_getdef_same()
 
-    def test_slots(self):
+    def test_slots1(self):
         from types import ModuleType
         body = """
         static PyModuleDef multiphase_def;
@@ -113,7 +130,57 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         init = """
         return PyModuleDef_Init(&multiphase_def);
         """
-        module = self.import_module(name='multiphase', body=body, init=init)
+        module = self.import_module(name='multiphase', body=body, init=init,
+                                    use_imp=True)
+        assert module.create_spec
+        assert module.create_spec is module.__spec__
+        assert module.create_def_eq
+        assert module.exec_called
+
+    def test_slots2(self):
+        from types import ModuleType
+        body = """
+        static PyModuleDef multiphase_def;
+
+        static PyObject* multiphase_create(PyObject *spec, PyModuleDef *def) {
+            PyObject *name = PyUnicode_FromString("altname");
+            PyObject *module = PyModule_NewObject(name);
+            Py_DECREF(name);
+            PyObject_SetAttrString(module, "create_spec", spec);
+            PyObject_SetAttrString(module, "create_def_eq",
+                                   PyBool_FromLong(def == &multiphase_def));
+            return module;
+        }
+
+        static int multiphase_exec(PyObject* module) {
+            Py_INCREF(Py_True);
+            PyObject_SetAttrString(module, "exec_called", Py_True);
+            return 0;
+        }
+
+        static PyModuleDef_Slot multiphase_slots[] = {
+            {Py_mod_create, multiphase_create},
+            {Py_mod_exec, multiphase_exec},
+            {0, NULL}
+        };
+
+        static PyModuleDef multiphase_def = {
+            PyModuleDef_HEAD_INIT,                      /* m_base */
+            "multiphase",                               /* m_name */
+            "example docstring",                        /* m_doc */
+            0,                                          /* m_size */
+            NULL,                                       /* m_methods */
+            multiphase_slots,                           /* m_slots */
+            NULL,                                       /* m_traverse */
+            NULL,                                       /* m_clear */
+            NULL,                                       /* m_free */
+        };
+        """
+        init = """
+        return PyModuleDef_Init(&multiphase_def);
+        """
+        module = self.import_module(name='multiphase', body=body, init=init,
+                                    use_imp=True)
         assert module.create_spec
         assert module.create_spec is module.__spec__
         assert module.create_def_eq
@@ -133,7 +200,7 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         return (PyObject *) &multiphase_def;
         """
         raises(SystemError, self.import_module, name='multiphase', body=body,
-               init=init)
+               init=init, use_imp=True)
 
 class AppTestMultiPhase2(AppTestCpythonExtensionBase):
     def setup_class(cls):
@@ -143,7 +210,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
     def test_multiphase2(self):
         import sys
         from importlib import machinery, util
-        module = self.import_module(name=self.name)
+        module = self.import_module(name=self.name, use_imp=True)
         finder = machinery.FileFinder(None)
         spec = util.find_spec(self.name)
         assert spec
@@ -156,7 +223,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
 
     def test_functionality(self):
         import types
-        module = self.import_module(name=self.name)
+        module = self.import_module(name=self.name, use_imp=True)
         assert isinstance(module, types.ModuleType)
         ex = module.Example()
         assert ex.demo('abcd') == 'abcd'
@@ -170,10 +237,14 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
         raises(module.error, 'raise module.error()')
         assert module.int_const == 1969
         assert module.str_const == 'something different'
+        del ex
+        import gc
+        for i in range(3):
+            gc.collect()
 
     def test_reload(self):
         import importlib
-        module = self.import_module(name=self.name)
+        module = self.import_module(name=self.name, use_imp=True)
         ex_class = module.Example
         # Simulate what importlib.reload() does, without recomputing the spec
         module.__spec__.loader.exec_module(module)
@@ -182,7 +253,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
     def w_load_from_name(self, name, origin=None, use_prefix=True):
         from importlib import machinery, util
         if not origin:
-            module = self.import_module(name=self.name)
+            module = self.import_module(name=self.name, use_imp=True)
             origin = module.__loader__.path
         if use_prefix:
             name = '_testmultiphase_' + name
@@ -195,7 +266,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
     def test_bad_modules(self):
         # XXX: not a very good test, since most internal issues in cpyext
         # cause SystemErrors.
-        module = self.import_module(name=self.name)
+        module = self.import_module(name=self.name, use_imp=True)
         origin = module.__loader__.path
         for name in [
                 'bad_slot_large',
@@ -237,7 +308,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
         assert excinfo.value.name == '_testmultiphase_' + name
 
     def test_nonascii(self):
-        module = self.import_module(name=self.name)
+        module = self.import_module(name=self.name, use_imp=True)
         origin = module.__loader__.path
         cases = [
             ('_testmultiphase_zkou\u0161ka_na\u010dten\xed', 'Czech'),

@@ -143,8 +143,8 @@ interpreter.   When doing its work of interpreting bytecode our Python
 implementation must behave in a static way often referenced as
 "RPythonic".
 
-.. _Starkiller: http://people.csail.mit.edu/jrb/Projects/starkiller.pdf
-.. _ShedSkin: http://shed-skin.blogspot.com/
+.. _Starkiller: https://people.csail.mit.edu/jrb/Projects/starkiller.pdf
+.. _ShedSkin: https://shed-skin.blogspot.com/
 
 However, when the PyPy interpreter is started as a Python program, it
 can use all of the Python language until it reaches a certain point in
@@ -456,13 +456,10 @@ translate.py.
 Testing modules in ``lib_pypy/``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can go to the :source:`pypy/module/test_lib_pypy/` directory and invoke the testing tool
-("py.test" or "python ../../pypy/test_all.py") to run tests against the
-lib_pypy hierarchy.  Note, that tests in :source:`pypy/module/test_lib_pypy/` are allowed
-and encouraged to let their tests run at interpreter level although
-:source:`lib_pypy/` modules eventually live at PyPy's application level.
-This allows us to quickly test our python-coded reimplementations
-against CPython.
+You can go to the :source:`pypy/module/test_lib_pypy/` directory and invoke the
+testing tool ("py.test" or "python ../../pypy/test_all.py") to run tests
+against the lib_pypy hierarchy.  This allows us to quickly test our
+python-coded reimplementations against CPython.
 
 
 Testing modules in ``pypy/module``
@@ -547,7 +544,8 @@ Committing & Branching to the repository
 Using the development bug/feature tracker
 -----------------------------------------
 
-We use bitbucket for :source:`issues` tracking and :source:`pull-requests`.
+We use https://foss.heptapod.net/pypy/pypy for :source:`issues` tracking and
+:source:`pull-requests`.
 
 .. _testing:
 
@@ -565,7 +563,7 @@ basically two types of unit tests:
 - **Application Level tests**. They run at application level which means
   that they look like straight python code but they are interpreted by PyPy.
 
-.. _py.test: http://pytest.org/
+.. _py.test: https://pytest.org/
 
 
 Interpreter level tests
@@ -585,25 +583,45 @@ classes is mandatory.  In both cases you can import Python modules at
 module global level and use plain 'assert' statements thanks to the
 usage of the `py.test`_ tool.
 
-
-Application Level tests
+Application level tests
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 For testing the conformance and well-behavedness of PyPy it
 is often sufficient to write "normal" application-level
 Python code that doesn't need to be aware of any particular
-coding style or restrictions.  If we have a choice we often
-use application level tests which usually look like this::
+coding style or restrictions. If we have a choice we often
+use application level tests which are in files whose name starts with the
+`apptest_` prefix and look like this::
 
-    def app_test_something():
+    # spaceconfig = {"usemodules":["array"]}
+    def test_this():
         # application level test code
+
+These application level test functions will run on top
+of PyPy, i.e. they have no access to interpreter details.
+
+By default, they run on top of an untranslated PyPy which runs on top of the
+host interpreter. When passing the `-D` option, they run directly on top of the
+host interpreter, which is usually a translated pypy executable in this case::
+
+    pypy3 -m pytest -D pypy/
+
+Note that in interpreted mode, only a small subset of pytest's functionality is
+available.  To configure the object space, the host interpreter will parse the
+optional spaceconfig declaration.  This declaration must be in the form of a
+valid json dict. 
+
+Mixed-level tests (deprecated)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Mixed-level tests are similar to application-level tests, the difference being
+that they're just snippets of app-level code embedded in an interp-level test
+file, like this::
 
     class AppTestSomething(object):
         def test_this(self):
             # application level test code
 
-These application level test functions will run on top
-of PyPy, i.e. they have no access to interpreter details.
 You cannot use imported modules from global level because
 they are imported at interpreter-level while you test code
 runs at application level. If you need to use modules
@@ -686,9 +704,9 @@ and can once they are installed coverage testing can be invoked via::
 
   python test_all.py --cov file_or_direcory_to_cover file_or_directory
 
-.. _pytest-cov: http://pypi.python.org/pypi/pytest-cov
-.. _coverage: http://pypi.python.org/pypi/coverage
-.. _cov-core: http://pypi.python.org/pypi/cov-core
+.. _pytest-cov: https://pypi.python.org/pypi/pytest-cov
+.. _coverage: https://pypi.python.org/pypi/coverage
+.. _cov-core: https://pypi.python.org/pypi/cov-core
 
 
 Test conventions
@@ -716,10 +734,10 @@ You can simply edit or add '.rst' files which contain ReST-markuped
 files.  Here is a `ReST quickstart`_ but you can also just look
 at the existing documentation and see how things work.
 
-Note that the web site of http://pypy.org/ is maintained separately.
-For now it is in the repository https://bitbucket.org/pypy/pypy.org
+Note that the web site of https://pypy.org/ is maintained separately.
+It is in the repository https://foss.heptapod.net/pypy/pypy.org
 
-.. _ReST quickstart: http://docutils.sourceforge.net/docs/user/rst/quickref.html
+.. _ReST quickstart: https://docutils.sourceforge.net/docs/user/rst/quickref.html
 
 
 Automatically test documentation/website changes
@@ -743,4 +761,4 @@ the documentation issue::
 
 which will check that remote URLs are reachable.
 
-.. _sphinx: http://sphinx.pocoo.org/
+.. _sphinx: https://sphinx.pocoo.org/

@@ -10,9 +10,14 @@
     http://www.robotstxt.org/norobots-rfc.txt
 """
 
-import urllib.parse, urllib.request
+import collections
+import urllib.parse
+import urllib.request
 
 __all__ = ["RobotFileParser"]
+
+RequestRate = collections.namedtuple("RequestRate", "requests seconds")
+
 
 class RobotFileParser:
     """ This class provides a set of methods to read, parse and answer
@@ -22,6 +27,7 @@ class RobotFileParser:
 
     def __init__(self, url=''):
         self.entries = []
+        self.sitemaps = []
         self.default_entry = None
         self.disallow_all = False
         self.allow_all = False
@@ -120,9 +126,30 @@ class RobotFileParser:
                     if state != 0:
                         entry.rulelines.append(RuleLine(line[1], True))
                         state = 2
+                elif line[0] == "crawl-delay":
+                    if state != 0:
+                        # before trying to convert to int we need to make
+                        # sure that robots.txt has valid syntax otherwise
+                        # it will crash
+                        if line[1].strip().isdigit():
+                            entry.delay = int(line[1])
+                        state = 2
+                elif line[0] == "request-rate":
+                    if state != 0:
+                        numbers = line[1].split('/')
+                        # check if all values are sane
+                        if (len(numbers) == 2 and numbers[0].strip().isdigit()
+                            and numbers[1].strip().isdigit()):
+                            entry.req_rate = RequestRate(int(numbers[0]), int(numbers[1]))
+                        state = 2
+                elif line[0] == "sitemap":
+                    # According to http://www.sitemaps.org/protocol.html
+                    # "This directive is independent of the user-agent line,
+                    #  so it doesn't matter where you place it in your file."
+                    # Therefore we do not change the state of the parser.
+                    self.sitemaps.append(line[1])
         if state == 2:
             self._add_entry(entry)
-
 
     def can_fetch(self, useragent, url):
         """using the parsed robots.txt decide if useragent can fetch url"""
@@ -153,8 +180,36 @@ class RobotFileParser:
         # agent not found ==> access granted
         return True
 
+    def crawl_delay(self, useragent):
+        if not self.mtime():
+            return None
+        for entry in self.entries:
+            if entry.applies_to(useragent):
+                return entry.delay
+        if self.default_entry:
+            return self.default_entry.delay
+        return None
+
+    def request_rate(self, useragent):
+        if not self.mtime():
+            return None
+        for entry in self.entries:
+            if entry.applies_to(useragent):
+                return entry.req_rate
+        if self.default_entry:
+            return self.default_entry.req_rate
+        return None
+
+    def site_maps(self):
+        if not self.sitemaps:
+            return None
+        return self.sitemaps
+
     def __str__(self):
-        return ''.join([str(entry) + "\n" for entry in self.entries])
+        entries = self.entries
+        if self.default_entry is not None:
+            entries = entries + [self.default_entry]
+        return '\n\n'.join(map(str, entries))
 
 
 class RuleLine:
@@ -180,14 +235,20 @@ class Entry:
     def __init__(self):
         self.useragents = []
         self.rulelines = []
+        self.delay = None
+        self.req_rate = None
 
     def __str__(self):
         ret = []
         for agent in self.useragents:
-            ret.extend(["User-agent: ", agent, "\n"])
-        for line in self.rulelines:
-            ret.extend([str(line), "\n"])
-        return ''.join(ret)
+            ret.append(f"User-agent: {agent}")
+        if self.delay is not None:
+            ret.append(f"Crawl-delay: {self.delay}")
+        if self.req_rate is not None:
+            rate = self.req_rate
+            ret.append(f"Request-rate: {rate.requests}/{rate.seconds}")
+        ret.extend(map(str, self.rulelines))
+        return '\n'.join(ret)
 
     def applies_to(self, useragent):
         """check if this entry applies to the specified agent"""

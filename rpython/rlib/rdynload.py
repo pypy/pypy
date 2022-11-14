@@ -14,7 +14,7 @@ import sys, os, string
 _MSVC = platform.name == "msvc"
 _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
-_MAC_OS = platform.name == "darwin"
+_MAC_OS = platform.name.startswith("darwin")
 _FREEBSD = sys.platform.startswith("freebsd")
 _NETBSD = sys.platform.startswith("netbsd")
 
@@ -232,8 +232,11 @@ else:  # _WIN32
             raise DLOpenError(ustr)
         return res
 
-    def dlopenex(name):
-        res = rwin32.LoadLibraryExA(name)
+    def dlopenex(name, flags=rwin32.LOAD_WITH_ALTERED_SEARCH_PATH):
+        # Don't display a message box when Python can't load a DLL */
+        old_mode = rwin32.SetErrorMode(rwin32.SEM_FAILCRITICALERRORS)
+        res = rwin32.LoadLibraryExA(name, flags)
+        rwin32.SetErrorMode(old_mode)
         if not res:
             err = rwin32.GetLastError_saved()
             ustr, lgt = rwin32.FormatErrorW(err)

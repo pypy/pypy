@@ -40,7 +40,7 @@ def get_statistics(graph, translator, save_per_graph_details=None, ignore_stack_
         details = []
         for graph, (nblocks, nops, nmallocs) in per_graph.iteritems():
             try:
-                code = graph.func.func_code.co_code
+                code = graph.func.__code__.co_code
             except AttributeError:
                 code = "None"
             hash = md5(code).hexdigest()

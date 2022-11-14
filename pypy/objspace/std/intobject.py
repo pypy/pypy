@@ -9,7 +9,7 @@ import operator
 import sys
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import instantiate
+from rpython.rlib.objectmodel import instantiate, enforceargs
 from rpython.rlib.rarithmetic import (
     LONG_BIT, intmask, is_valid_int, ovfcheck, r_longlong, r_uint,
     string_to_int)
@@ -17,7 +17,7 @@ from rpython.rlib.rbigint import (
     InvalidEndiannessError, InvalidSignednessError, rbigint)
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
-    ParseStringError, ParseStringOverflowError)
+    ParseStringError, ParseStringOverflowError, MaxDigitsError)
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
@@ -156,7 +156,7 @@ class W_AbstractIntObject(W_Root):
         # efficient for W_IntObject
         from pypy.objspace.std.longobject import newlong
 
-        if w_ndigits is None:
+        if space.is_none(w_ndigits):
             return self.int(space)
 
         ndigits = space.bigint_w(space.index(w_ndigits))
@@ -287,6 +287,22 @@ class W_AbstractIntObject(W_Root):
     descr_mod, descr_rmod = _abstract_binop('mod')
     descr_divmod, descr_rdivmod = _abstract_binop('divmod')
 
+    def descr_as_integer_ratio(self, space):
+        """
+        Return integer ratio.
+
+        Return a pair of integers, whose ratio is exactly equal to the original int
+        and with a positive denominator.
+
+        >>> (10).as_integer_ratio()
+        (10, 1)
+        >>> (-10).as_integer_ratio()
+        (-10, 1)
+        >>> (0).as_integer_ratio()
+        (0, 1)
+        """
+        return space.newtuple([self.int(space), space.newint(1)])
+
 
 def _floordiv(space, x, y):
     try:
@@ -328,15 +344,15 @@ def _divmod(space, x, y):
         raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
     # no overflow possible
     m = x % y
-    return space.newtuple([space.newint(z), space.newint(m)])
+    return space.newtuple2(space.newint(z), space.newint(m))
 
 
 def _divmod_ovf2small(space, x, y):
     from pypy.objspace.std.smalllongobject import W_SmallLongObject
     a = r_longlong(x)
     b = r_longlong(y)
-    return space.newtuple([W_SmallLongObject(a // b),
-                           W_SmallLongObject(a % b)])
+    return space.newtuple2(W_SmallLongObject(a // b),
+                           W_SmallLongObject(a % b))
 
 
 def _lshift(space, a, b):
@@ -407,12 +423,8 @@ def _pow_nomod(iv, iw):
 def _pow_mod(space, iv, iw, iz):
     from rpython.rlib.rarithmetic import mulmod
 
-    if iw <= 0:
-        if iw == 0:
-            return 1 % iz   # != 1, for iz == 1 or iz < 0
-        raise oefmt(space.w_ValueError,
-                    "pow() 2nd argument cannot be negative when 3rd "
-                    "argument specified")
+    if iw == 0:
+        return 1 % iz   # != 1, for iz == 1 or iz < 0
     if iz < 0:
         try:
             iz = ovfcheck(-iz)
@@ -421,6 +433,14 @@ def _pow_mod(space, iv, iw, iz):
         iz_negative = True
     else:
         iz_negative = False
+    if iw <= 0:
+        w_iv = invmod(space, space.newint(iv), space.newint(iz))
+        assert isinstance(w_iv, W_IntObject)
+        iv = w_iv.intval
+        try:
+            iw = ovfcheck(-iw)
+        except OverflowError:
+            raise
 
     temp = iv
     ix = 1
@@ -481,6 +501,17 @@ def _make_ovf2long(opname, ovf2small=None):
 
     return ovf2long
 
+@jit.elidable
+def _bit_length(val):
+    bits = 0
+    if val < 0:
+        # warning, "-val" overflows here
+        val = -((val + 1) >> 1)
+        bits = 1
+    while val:
+        bits += 1
+        val >>= 1
+    return bits
 
 class W_IntObject(W_AbstractIntObject):
 
@@ -550,7 +581,7 @@ class W_IntObject(W_AbstractIntObject):
 
     @staticmethod
     @unwrap_spec(w_x=WrappedDefault(0))
-    def descr_new(space, w_inttype, w_x, w_base=None):
+    def descr_new(space, w_inttype, w_x, __posonly__, w_base=None):
         "Create and return a new object.  See help(type) for accurate signature."
         return _new_int(space, w_inttype, w_x, w_base)
 
@@ -591,20 +622,11 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([wrapint(space, self.intval)])
 
     def descr_bit_length(self, space):
-        val = self.intval
-        bits = 0
-        if val < 0:
-            # warning, "-val" overflows here
-            val = -((val + 1) >> 1)
-            bits = 1
-        while val:
-            bits += 1
-            val >>= 1
-        return space.newint(bits)
+        return space.newint(_bit_length(self.intval))
 
     def descr_repr(self, space):
         res = str(self.intval)
-        return space.newtext(res)
+        return space.newutf8(res, len(res))  # res is always ASCII
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_format(self, space, w_format_spec):
@@ -647,7 +669,7 @@ class W_IntObject(W_AbstractIntObject):
             self = self.descr_float(space)
             w_exponent = w_exponent.descr_float(space)
             return space.pow(self, w_exponent, space.w_None)
-            
+
         return space.newint(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
@@ -740,11 +762,15 @@ class W_IntObject(W_AbstractIntObject):
     descr_or, descr_ror = _make_generic_descr_binop('or', ovf=False)
     descr_xor, descr_rxor = _make_generic_descr_binop('xor', ovf=False)
 
-    def _make_descr_binop(func, ovf=True, ovf2small=None):
+    def _make_descr_binop(func, ovf=True, ovf2small=None, ovf_func=None):
         opname = func.__name__[1:]
         descr_name, descr_rname = 'descr_' + opname, 'descr_r' + opname
         if ovf:
-            ovf2long = _make_ovf2long(opname, ovf2small)
+            if ovf_func:
+                ovf2long = ovf_func
+                assert not ovf2small # must be part of ovf_func
+            else:
+                ovf2long = _make_ovf2long(opname, ovf2small)
 
         @func_renamer(descr_name)
         def descr_binop(self, space, w_other):
@@ -782,8 +808,20 @@ class W_IntObject(W_AbstractIntObject):
 
         return descr_binop, descr_rbinop
 
+    def _ovf2long_lshift(space, x, w_x, y, w_y):
+        if _recover_with_smalllong(space):
+            return _lshift_ovf2small(space, x, y)
+
+        from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
+        if w_x is None or not isinstance(w_x, W_AbstractLongObject):
+            w_x = W_LongObject.fromint(space, x)
+
+        # crucially, *don't* convert w_y to W_LongObject, it will just be
+        # converted back (huge lshifts always overflow)
+        return w_x._int_lshift(space, y)
+
     descr_lshift, descr_rlshift = _make_descr_binop(
-        _lshift, ovf2small=_lshift_ovf2small)
+        _lshift, ovf_func=_ovf2long_lshift)
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)
@@ -842,6 +880,23 @@ divmod_near = applevel('''
            return q, r
 ''', filename=__file__).interphook('divmod_near')
 
+invmod = applevel('''
+def invmod(a, n):
+    if n == 1:
+        return 0
+    if a == 1:
+        return 1
+    assert n >= 0
+    b, c = 1, 0
+    while n:
+        q, r = divmod(a, n)
+        a, b, c, n = n, c, b - q*c, r
+    # at this point a is the gcd of the original inputs
+    if a == 1:
+        return b
+    raise ValueError("base is not invertible for the given modulus")
+''', filename=__file__).interphook("invmod")
+
 
 def _recover_with_smalllong(space):
     """True if there is a chance that a SmallLong would fit when an Int
@@ -851,73 +906,89 @@ def _recover_with_smalllong(space):
             sys.maxint == 2147483647)
 
 
-def _string_to_int_or_long(space, w_inttype, w_source, string, base=10):
+def _string_to_int_or_long(space, w_source, string, base=10):
+    from pypy.module.sys.state import get_int_max_str_digits
+     
+    if (base & (base - 1) != 0):
+        # Limit the size to avoid excessive computation attacks on non-binary bases
+        max_str_digits = space.int_w(get_int_max_str_digits(space))
+    else:
+        max_str_digits = 0
     try:
-        value = string_to_int(string, base, no_implicit_octal=True)
+        value = string_to_int(string, base, allow_underscores=True,
+                              no_implicit_octal=True,
+                              max_str_digits=max_str_digits)
+        return wrapint(space, value)
+    except MaxDigitsError as e:
+        raise oefmt(space.w_ValueError,
+                    "Exceeds the limit (%d) for integer string conversion: value has %d digits",
+                    max_str_digits, e.digits)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
     except ParseStringOverflowError as e:
-        return _retry_to_w_long(space, e.parser, w_inttype, w_source)
-
-    if space.is_w(w_inttype, space.w_int):
-        w_result = wrapint(space, value)
-    else:
-        w_result = space.allocate_instance(W_IntObject, w_inttype)
-        W_IntObject.__init__(w_result, value)
-    return w_result
+        return _retry_to_w_long(space, e.parser, w_source)
 
 
-def _retry_to_w_long(space, parser, w_inttype, w_source):
+def _retry_to_w_long(space, parser, w_source):
     from pypy.objspace.std.longobject import newbigint
     parser.rewind()
     try:
         bigint = rbigint._from_numberstring_parser(parser)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
-    return newbigint(space, w_inttype, bigint)
+    return newbigint(space, space.w_int, bigint)
 
 
 def _new_int(space, w_inttype, w_x, w_base=None):
-    from pypy.objspace.std.longobject import W_LongObject, newbigint
-    if space.config.objspace.std.withsmalllong:
-        from pypy.objspace.std.smalllongobject import W_SmallLongObject
-    else:
-        W_SmallLongObject = None
-
-    w_longval = None
     w_value = w_x     # 'x' is the keyword argument name in CPython
-    value = 0
+    if w_inttype is space.w_int:
+        return _new_baseint(space, w_x, w_base)
+    else:
+        w_tmp = _new_baseint(space, w_x, w_base)
+        return _as_subint(space, w_inttype, w_tmp)
+
+def _new_baseint(space, w_value, w_base=None):
     if w_base is None:
-        # check for easy cases
-        if type(w_value) is W_IntObject:
-            if space.is_w(w_inttype, space.w_int):
-                return w_value
-            value = w_value.intval
-            w_obj = space.allocate_instance(W_IntObject, w_inttype)
-            W_IntObject.__init__(w_obj, value)
-            return w_obj
-        elif type(w_value) is W_LongObject:
-            if space.is_w(w_inttype, space.w_int):
-                return w_value
-            return newbigint(space, w_inttype, w_value.num)
-        elif W_SmallLongObject and type(w_value) is W_SmallLongObject:
-            if space.is_w(w_inttype, space.w_int):
-                return w_value
-            return newbigint(space, w_inttype, space.bigint_w(w_value))
+        if space.is_w(space.type(w_value), space.w_int):
+            assert isinstance(w_value, W_AbstractIntObject)
+            return w_value
         elif space.lookup(w_value, '__int__') is not None:
-            return _from_intlike(space, w_inttype, space.int(w_value))
+            w_intvalue = space.int(w_value)
+            return _ensure_baseint(space, w_intvalue)
         elif space.lookup(w_value, '__trunc__') is not None:
             w_obj = space.trunc(w_value)
             if not space.isinstance_w(w_obj, space.w_int):
-                w_obj = space.int(w_obj)
-            return _from_intlike(space, w_inttype, w_obj)
+                try:
+                    w_obj = space.int(w_obj)
+                except OperationError as e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
+                    w_obj = space.index(w_obj)
+            assert isinstance(w_obj, W_AbstractIntObject)
+            return _ensure_baseint(space, w_obj)
+        elif space.lookup(w_value, '__index__') is not None:
+            w_obj = space.index(w_value)
+            if not space.is_w(space.type(w_obj), space.w_int):
+                if space.isinstance_w(w_obj, space.w_int):
+                    w_obj = space.int(w_obj)
+                else:
+                    raise oefmt(space.w_TypeError,
+                                "int() argument must be a string, a bytes-like "
+                                "object or a number, not '%T'", w_value)
+            assert isinstance(w_obj, W_AbstractIntObject)
+            return _ensure_baseint(space, w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            b = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
-            return _string_to_int_or_long(space, w_inttype, w_value, b)
+            try:
+                b = unicode_to_decimal_w(space, w_value)
+            except Exception:
+                raise oefmt(space.w_ValueError,
+                            'invalid literal for int() with base 10: %R',
+                            w_value)
+            return _string_to_int_or_long(space, w_value, b)
         elif (space.isinstance_w(w_value, space.w_bytearray) or
               space.isinstance_w(w_value, space.w_bytes)):
-            return _string_to_int_or_long(space, w_inttype, w_value,
+            return _string_to_int_or_long(space, w_value,
                                           space.charbuf_w(w_value))
         else:
             # If object supports the buffer interface
@@ -930,7 +1001,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                             "int() argument must be a string, a bytes-like "
                             "object or a number, not '%T'", w_value)
             else:
-                return _string_to_int_or_long(space, w_inttype, w_value, buf)
+                return _string_to_int_or_long(space, w_value, buf)
     else:
         try:
             base = space.getindex_w(w_base, None)
@@ -941,7 +1012,12 @@ def _new_int(space, w_inttype, w_x, w_base=None):
 
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            s = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+            try:
+                s = unicode_to_decimal_w(space, w_value)
+            except Exception:
+                raise oefmt(space.w_ValueError,
+                            'invalid literal for int() with base %d: %R',
+                            base, w_value)
         elif (space.isinstance_w(w_value, space.w_bytes) or
               space.isinstance_w(w_value, space.w_bytearray)):
             s = space.charbuf_w(w_value)
@@ -949,18 +1025,44 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             raise oefmt(space.w_TypeError,
                         "int() can't convert non-string with explicit base")
 
-        return _string_to_int_or_long(space, w_inttype, w_value, s, base)
+        return _string_to_int_or_long(space, w_value, s, base)
 
+@enforceargs(None, None, W_AbstractIntObject, typecheck=False)
+def _as_subint(space, w_inttype, w_value):
+    from pypy.objspace.std.longobject import W_LongObject, newbigint
+    if space.config.objspace.std.withsmalllong:
+        from pypy.objspace.std.smalllongobject import W_SmallLongObject
+    else:
+        W_SmallLongObject = None
+    if type(w_value) is W_IntObject:
+        w_obj = space.allocate_instance(W_IntObject, w_inttype)
+        W_IntObject.__init__(w_obj, w_value.intval)
+        return w_obj
+    elif type(w_value) is W_LongObject:
+        return newbigint(space, w_inttype, w_value.num)
+    elif W_SmallLongObject and type(w_value) is W_SmallLongObject:
+        return newbigint(space, w_inttype, space.bigint_w(w_value))
 
-def _from_intlike(space, w_inttype, w_intlike):
-    if space.is_w(w_inttype, space.w_int):
-        return w_intlike
-    from pypy.objspace.std.longobject import newbigint
-    return newbigint(space, w_inttype, space.bigint_w(w_intlike))
+@enforceargs(None, W_AbstractIntObject, typecheck=False)
+def _ensure_baseint(space, w_intvalue):
+    from pypy.objspace.std.longobject import (
+        W_LongObject, W_AbstractLongObject, newlong)
+    if isinstance(w_intvalue, W_IntObject):
+        if type(w_intvalue) is not W_IntObject:
+            w_intvalue = wrapint(space, w_intvalue.intval)
+        return w_intvalue
+    elif isinstance(w_intvalue, W_AbstractLongObject):
+        if type(w_intvalue) is not W_LongObject:
+            w_intvalue = newlong(space, w_intvalue.asbigint())
+        return w_intvalue
+    else:
+        # shouldn't happen
+        raise oefmt(space.w_RuntimeError,
+            "internal error in int.__new__()")
 
 
 W_AbstractIntObject.typedef = TypeDef("int",
-    __doc__ = """int(x=0) -> integer
+    __doc__ = """int([x]) -> integer
 int(x, base=10) -> integer
 
 Convert a number or string to an integer, or return 0 if no arguments
@@ -988,6 +1090,8 @@ Base 0 means to interpret the base from the string as an integer literal.
     imag = typedef.GetSetProperty(
         W_AbstractIntObject.descr_get_imag,
         doc="the imaginary part of a complex number"),
+
+    as_integer_ratio = interp2app(W_AbstractIntObject.descr_as_integer_ratio),
 
     from_bytes = interp2app(W_AbstractIntObject.descr_from_bytes,
                             as_classmethod=True),
@@ -1057,17 +1161,21 @@ Base 0 means to interpret the base from the string as an integer literal.
 
 
 def _hash_int(a):
-    sign = 1
-    if a < 0:
-        sign = -1
-        a = -a
+    # write it without branches for the benefit of the jit
+    # it needs to give numbers that are equivalent to the hash function of
+    # rbigint
 
+    # compute the sign
+    sign = 1 - ((a < 0) << 1)
     x = r_uint(a)
+    # take absolute value
+    x *= r_uint(sign)
     # efficient x % HASH_MODULUS: as HASH_MODULUS is a Mersenne
     # prime
     x = (x & HASH_MODULUS) + (x >> HASH_BITS)
-    if x >= HASH_MODULUS:
-        x -= HASH_MODULUS
 
+    # if x >= HASH_MODULUS:
+    #    x -= HASH_MODULUS
+    x -= HASH_MODULUS * (x >= HASH_MODULUS)
     h = intmask(intmask(x) * sign)
     return h - (h == -1)

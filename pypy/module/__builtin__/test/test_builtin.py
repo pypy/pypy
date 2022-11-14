@@ -39,12 +39,18 @@ class AppTestBuiltinApp:
         assert bytes is not str
         assert isinstance(eval("b'hi'"), bytes)
 
+    def test_eval_adds_builtins(self):
+        d = {}
+        eval('1', d)
+        assert "__builtins__" in d
+
     def test_import(self):
-        m = __import__('pprint')
-        assert m.pformat({}) == '{}'
-        assert m.__name__ == "pprint"
+        m = __import__('sys')
+        assert m.__name__ == "sys"
         raises(ImportError, __import__, 'spamspam')
         raises(TypeError, __import__, 1, 2, 3, 4)
+        print(__import__.__doc__)
+        assert __import__.__doc__.endswith('relative to the current module.')
 
     def test_ascii(self):
         assert ascii('') == '\'\''
@@ -190,8 +196,8 @@ class AppTestBuiltinApp:
         assert names == ['a', 'b', 'c', 'd']
 
     def test_dir_broken_module(self):
-        import types
-        class Foo(types.ModuleType):
+        import sys
+        class Foo(type(sys)):
             __dict__ = 8
         raises(TypeError, dir, Foo("foo"))
 
@@ -217,8 +223,8 @@ class AppTestBuiltinApp:
                 return 42
         f = Foo()
         raises(TypeError, dir, f)
-        import types
-        class Foo(types.ModuleType):
+        import sys
+        class Foo(type(sys)):
             def __dir__(self):
                 return ["blah"]
         assert dir(Foo("a_mod")) == ["blah"]
@@ -261,6 +267,86 @@ class AppTestBuiltinApp:
                 return 42
         assert sum([Foo()], None) == 42
 
+    def test_sum_fast_path(self):
+        # Fast paths for expected behaviour
+        start = []
+        assert sum([[1, 2], [3]], start) == [1, 2, 3]
+        assert start == []
+
+        start = [1, 2]
+        assert sum([[3]], start) == [1, 2, 3]
+        assert start == [1, 2]
+
+        assert sum([(1, 2), (3,)], ()) == (1, 2, 3)
+        assert sum([(3,)], (1, 2)) == (1, 2, 3)
+        assert sum(([x + 1] for x in range(3)), []) == [1, 2, 3]
+
+    def test_sum_empty_edge_cases(self):
+        assert sum([], []) == []
+        assert sum(iter([]), []) == []
+        assert sum([], ()) == ()
+        start = []
+        assert sum([], start) is start
+        assert sum([[]], start) is not start
+
+    def test_sum_type_errors(self):
+        with raises(TypeError):
+            sum([[]], ())
+        with raises(TypeError):
+            sum([()], [])
+        with raises(TypeError):
+            sum([[], [], ()], [])
+
+    def test_sum_strange_objects(self):
+        # All that follows should be rare, but needs care
+        class TupleTail(object):
+            def __radd__(self, other):
+                assert isinstance(other, tuple)
+                return other[1:]
+
+        strange_seq = [(1, 2), (3, 4), TupleTail(), (5,)]
+        assert sum(strange_seq, (2, 3, 4, 5))
+        assert sum(iter(strange_seq), (2, 3, 4, 5))
+
+        class NotAList(list):
+            def __add__(self, _):
+                return "!"
+
+            def __radd__(self, _):
+                return "?"
+
+            def __iadd__(self, _):
+                raise RuntimeError(
+                    "Calling __iadd__ breaks CPython compatability"
+                )
+
+        assert sum([[1]], NotAList()) == "!"
+        assert sum([[1], NotAList()], []) == "?"
+
+    def test_sum_first_object_edge_cases(self):
+        class X(list):
+            def __radd__(self, other):
+                return Y()
+
+        class Y(object):
+            calls = []
+
+            def __add__(self, other):
+                Y.calls.append("add")
+
+            def __iadd__(self, other):
+                Y.calls.append("iadd")
+
+        assert sum([X(), []], []) is None
+        assert Y.calls == ["add"]
+
+        class Z(tuple):
+            def __radd__(self, other):
+                return Y()
+
+        assert sum([Z(), []], []) is None
+        assert Y.calls == ["add", "add"]
+
     def test_type_selftest(self):
         assert type(type) is type
 
@@ -287,16 +373,19 @@ class AppTestBuiltinApp:
                 self.value = 0
             def __call__(self):
                 self.value += 1
+                if self.value > 10:
+                    raise StopIteration
                 return self.value
-        # XXX Raising errors is quite slow --
-        #            uncomment these lines when fixed
-        #self.assertRaises(TypeError,iter,3,5)
-        #self.assertRaises(TypeError,iter,[],5)
-        #self.assertRaises(TypeError,iter,{},5)
+        with raises(TypeError):
+            iter(3, 5)
+
         x = iter(count(),3)
         assert next(x) ==1
         assert next(x) ==2
         raises(StopIteration, next, x)
+
+        # a case that runs till the end
+        assert list(iter(count(), 100)) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     def test_enumerate(self):
         import sys
@@ -402,6 +491,13 @@ class AppTestBuiltinApp:
         raises(TypeError, range, 1, 2, '1')
         raises(TypeError, range, 1, 2, 3+2j)
 
+    def test_range_bool(self):
+        import sys
+        a = range(-sys.maxsize, sys.maxsize)
+        assert bool(a) is True
+        b = range(10, 0)
+        assert bool(b) is False
+
     def test_sorted(self):
         l = []
         sorted_l = sorted(l)
@@ -420,6 +516,10 @@ class AppTestBuiltinApp:
         assert sorted_l is not l
         assert sorted_l == ['C', 'b', 'a']
         raises(TypeError, sorted, [], reverse=None)
+        raises(TypeError, sorted, [], None)
+
+    def test_sorted_posonlyarg(self):
+        raises(TypeError, sorted, iterable=[])
 
     def test_reversed_simple_sequences(self):
         l = range(5)
@@ -573,10 +673,10 @@ class AppTestBuiltinApp:
     def test_print_function(self):
         import builtins
         import sys
-        import io
+        import _io
         pr = getattr(builtins, "print")
         save = sys.stdout
-        out = sys.stdout = io.StringIO()
+        out = sys.stdout = _io.StringIO()
         try:
             pr("Hello,", "person!")
             pr("2nd line", file=None)
@@ -585,24 +685,24 @@ class AppTestBuiltinApp:
         finally:
             sys.stdout = save
         assert out.getvalue() == "Hello, person!\n2nd line\n"
-        out = io.StringIO()
+        out = _io.StringIO()
         pr("Hello,", "person!", file=out)
         assert out.getvalue() == "Hello, person!\n"
-        out = io.StringIO()
+        out = _io.StringIO()
         pr("Hello,", "person!", file=out, end="")
         assert out.getvalue() == "Hello, person!"
-        out = io.StringIO()
+        out = _io.StringIO()
         pr("Hello,", "person!", file=out, sep="X")
         assert out.getvalue() == "Hello,Xperson!\n"
-        out = io.StringIO()
+        out = _io.StringIO()
         pr(b"Hello,", b"person!", file=out)
         result = out.getvalue()
         assert isinstance(result, str)
         assert result == "b'Hello,' b'person!'\n"
-        out = io.StringIO()
+        out = _io.StringIO()
         pr(None, file=out)
         assert out.getvalue() == "None\n"
-        out = sys.stdout = io.StringIO()
+        out = sys.stdout = _io.StringIO()
         try:
             pr("amaury", file=None)
         finally:
@@ -611,11 +711,11 @@ class AppTestBuiltinApp:
 
     def test_print_function2(self):
         import builtins
-        import io
+        import _io
         class MyStr(str):
             def __str__(self):
                 return "sqlalchemy"
-        out = io.StringIO()
+        out = _io.StringIO()
         s = MyStr('A')
         pr = getattr(builtins, 'print')
         pr(s, file=out)
@@ -743,6 +843,21 @@ class AppTestBuiltinApp:
             __dict__ = property(fget=getDict)
         assert vars(C_get_vars()) == {'a':2}
 
+    def test_len_negative_overflow(self):
+        import sys
+        class NegativeLen:
+            def __len__(self):
+                return -10
+        raises(ValueError, len, NegativeLen())
+        class HugeLen:
+            def __len__(self):
+                return sys.maxsize + 1
+        raises(OverflowError, len, HugeLen())
+        class HugeNegativeLen:
+            def __len__(self):
+                return -sys.maxsize-10
+        raises(ValueError, len, HugeNegativeLen())
+
 
 class AppTestGetattr:
     spaceconfig = {}
@@ -772,17 +887,22 @@ class AppTestGetattr:
         import sys
         if '__pypy__' not in sys.modules:
             skip('CPython uses wrapper types for this')
-        from types import FunctionType, MethodType
-        assert isinstance(getattr(type(None), '__eq__'), FunctionType)
-        assert isinstance(getattr(None, '__eq__'), MethodType)
+        class C:
+            def _m(self): pass
+        assert isinstance(getattr(type(None), '__eq__'), type(lambda: None))
+        assert isinstance(getattr(None, '__eq__'), type(C()._m))
 
     def test_getattr_userobject(self):
-        from types import FunctionType, MethodType
+        class C:
+            def _m(self): pass
         class A(object):
             def __eq__(self, other):
                 pass
         a = A()
-        assert isinstance(getattr(A, '__eq__'), FunctionType)
-        assert isinstance(getattr(a, '__eq__'), MethodType)
+        assert isinstance(getattr(A, '__eq__'), type(lambda: None))
+        assert isinstance(getattr(a, '__eq__'), type(C()._m))
         a.__eq__ = 42
         assert a.__eq__ == 42
+
+    def test_pow_kwarg(self):
+        assert pow(base=5, exp=2, mod=14) == 11

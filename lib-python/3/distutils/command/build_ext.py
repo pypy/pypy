@@ -28,11 +28,6 @@ def show_compilers ():
     from distutils.ccompiler import show_compilers
     show_compilers()
 
-def _get_c_extension_suffix():
-    import importlib
-    suffixes = importlib.machinery.EXTENSION_SUFFIXES
-    return suffixes[0] if suffixes else None
-
 
 class build_ext(Command):
 
@@ -165,9 +160,10 @@ class build_ext(Command):
 
         # Put the Python "system" include dir at the end, so that
         # any local include dirs take precedence.
-        self.include_dirs.append(py_include)
+        self.include_dirs.extend(py_include.split(os.path.pathsep))
         if plat_py_include != py_include:
-            self.include_dirs.append(plat_py_include)
+            self.include_dirs.extend(
+                plat_py_include.split(os.path.pathsep))
 
         self.ensure_string_list('libraries')
         self.ensure_string_list('link_objects')
@@ -215,7 +211,7 @@ class build_ext(Command):
             if self.plat_name == 'win32':
                 suffix = 'win32'
             else:
-                # win-amd64 or win-ia64
+                # win-amd64
                 suffix = self.plat_name[4:]
             new_lib = os.path.join(sys.exec_prefix, 'PCbuild')
             if suffix:
@@ -223,9 +219,9 @@ class build_ext(Command):
             # pypy has no PCBuild directory
             # self.library_dirs.append(new_lib)
 
-        # for extensions under Cygwin and AtheOS Python's library directory must be
+        # For extensions under Cygwin, Python's library directory must be
         # appended to library_dirs
-        if sys.platform[:6] == 'cygwin' or sys.platform[:6] == 'atheos':
+        if sys.platform[:6] == 'cygwin':
             if sys.executable.startswith(os.path.join(sys.exec_prefix, "bin")):
                 # building third party extensions
                 self.library_dirs.append(os.path.join(sys.prefix, "lib",
@@ -372,9 +368,9 @@ class build_ext(Command):
 
             ext_name, build_info = ext
 
-            log.warn(("old-style (ext_name, build_info) tuple found in "
-                      "ext_modules for extension '%s'"
-                      "-- please convert to Extension instance" % ext_name))
+            log.warn("old-style (ext_name, build_info) tuple found in "
+                     "ext_modules for extension '%s' "
+                     "-- please convert to Extension instance", ext_name)
 
             if not (isinstance(ext_name, str) and
                     extension_name_re.match(ext_name)):
@@ -686,15 +682,7 @@ class build_ext(Command):
         """
         from distutils.sysconfig import get_config_var
         ext_path = ext_name.split('.')
-        # PyPy tweak: first try to get the C extension suffix from
-        # 'imp'.  If it fails we fall back to the 'SO' config var, like
-        # the previous version of this code did.  This should work for
-        # CPython too.  The point is that on PyPy with cpyext, the
-        # config var 'SO' is just ".so" but we want to return
-        # ".pypy-VERSION.so" instead.
-        ext_suffix = _get_c_extension_suffix()
-        if ext_suffix is None:
-            ext_suffix = get_config_var('EXT_SUFFIX')     # fall-back
+        ext_suffix = get_config_var('EXT_SUFFIX')
         return os.path.join(*ext_path) + ext_suffix
 
     def get_export_symbols(self, ext):
@@ -703,7 +691,15 @@ class build_ext(Command):
         provided, "PyInit_" + module_name.  Only relevant on Windows, where
         the .pyd file (DLL) must export the module "PyInit_" function.
         """
-        initfunc_name = "PyInit_" + ext.name.split('.')[-1]
+        suffix = '_' + ext.name.split('.')[-1]
+        try:
+            # Unicode module name support as defined in PEP-489
+            # https://www.python.org/dev/peps/pep-0489/#export-hook-name
+            suffix.encode('ascii')
+        except UnicodeEncodeError:
+            suffix = 'U' + suffix.encode('punycode').replace(b'-', b'_').decode('ascii')
+
+        initfunc_name = "PyInit" + suffix
         if initfunc_name not in ext.export_symbols:
             ext.export_symbols.append(initfunc_name)
         return ext.export_symbols
@@ -729,43 +725,32 @@ class build_ext(Command):
                 # don't extend ext.libraries, it may be shared with other
                 # extensions, it is a reference to the original list
                 return ext.libraries + [pythonlib]
-            else:
-                return ext.libraries
-        elif sys.platform[:6] == "cygwin":
-            template = "python%d.%d"
-            pythonlib = (template %
-                   (sys.hexversion >> 24, (sys.hexversion >> 16) & 0xff))
-            # don't extend ext.libraries, it may be shared with other
-            # extensions, it is a reference to the original list
-            return ext.libraries + [pythonlib]
-        elif sys.platform[:6] == "atheos":
-            from distutils import sysconfig
-
-            template = "python%d.%d"
-            pythonlib = (template %
-                   (sys.hexversion >> 24, (sys.hexversion >> 16) & 0xff))
-            # Get SHLIBS from Makefile
-            extra = []
-            for lib in sysconfig.get_config_var('SHLIBS').split():
-                if lib.startswith('-l'):
-                    extra.append(lib[2:])
-                else:
-                    extra.append(lib)
-            # don't extend ext.libraries, it may be shared with other
-            # extensions, it is a reference to the original list
-            return ext.libraries + [pythonlib, "m"] + extra
-        elif sys.platform == 'darwin':
-            # Don't use the default code below
-            return ext.libraries
-        elif sys.platform[:3] == 'aix':
-            # Don't use the default code below
-            return ext.libraries
         else:
-            from distutils import sysconfig
-            if sysconfig.get_config_var('Py_ENABLE_SHARED'):
-                pythonlib = 'python{}.{}{}'.format(
-                    sys.hexversion >> 24, (sys.hexversion >> 16) & 0xff,
-                    sysconfig.get_config_var('ABIFLAGS'))
-                return ext.libraries + [pythonlib]
-            else:
-                return ext.libraries
+            # On Android only the main executable and LD_PRELOADs are considered
+            # to be RTLD_GLOBAL, all the dependencies of the main executable
+            # remain RTLD_LOCAL and so the shared libraries must be linked with
+            # libpython when python is built with a shared python library (issue
+            # bpo-21536).
+            # On Cygwin (and if required, other POSIX-like platforms based on
+            # Windows like MinGW) it is simply necessary that all symbols in
+            # shared libraries are resolved at link time.
+            from distutils.sysconfig import get_config_var
+            link_libpython = False
+            if get_config_var('Py_ENABLE_SHARED'):
+                # A native build on an Android device or on Cygwin
+                if hasattr(sys, 'getandroidapilevel'):
+                    link_libpython = True
+                elif sys.platform == 'cygwin':
+                    link_libpython = True
+                elif '_PYTHON_HOST_PLATFORM' in os.environ:
+                    # We are cross-compiling for one of the relevant platforms
+                    if get_config_var('ANDROID_API_LEVEL') != 0:
+                        link_libpython = True
+                    elif get_config_var('MACHDEP') == 'cygwin':
+                        link_libpython = True
+
+            if link_libpython:
+                ldversion = get_config_var('LDVERSION')
+                return ext.libraries + ['python' + ldversion]
+
+        return ext.libraries

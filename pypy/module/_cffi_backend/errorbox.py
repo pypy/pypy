@@ -47,7 +47,8 @@ if MESSAGEBOX:
 
     eci = ExternalCompilationInfo(
             separate_module_sources=[MODULE],
-            post_include_bits=["RPY_EXTERN int _cffi_errorbox1(void);\n"
+            post_include_bits=["#include <wchar.h>\n",
+                               "RPY_EXTERN int _cffi_errorbox1(void);\n",
                                "RPY_EXTERN void _cffi_errorbox(wchar_t *);\n"])
 
     cffi_errorbox1 = rffi.llexternal("_cffi_errorbox1", [],
@@ -89,8 +90,9 @@ if MESSAGEBOX:
                 return
 
             w_text = self.space.call_function(w_done)
-            p = rffi.unicode2wcharp(self.space.realunicode_w(w_text),
-                                    track_allocation=False)
+            p = rffi.utf82wcharp(self.space.utf8_w(w_text),
+                                 self.space.len_w(w_text),
+                                 track_allocation=False)
             if self.text_p:
                 rffi.free_wcharp(self.text_p, track_allocation=False)
             self.text_p = p      # keepalive

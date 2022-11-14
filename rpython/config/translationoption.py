@@ -1,5 +1,6 @@
 import sys
 import os
+import platform as _stdlib_platform
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from rpython.config.config import ChoiceOption, StrOption, Config, ConflictConfigError
 from rpython.config.config import ConfigError
@@ -17,10 +18,6 @@ DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 DEFL_GC = "incminimark"   # XXX
 
 DEFL_ROOTFINDER_WITHJIT = "shadowstack"
-## if sys.platform.startswith("linux"):
-##     _mach = os.popen('uname -m', 'r').read().strip()
-##     if _mach.startswith('x86') or _mach in ['i386', 'i486', 'i586', 'i686']:
-##         DEFL_ROOTFINDER_WITHJIT = "asmgcc"   # only for Linux on x86 / x86-64
 
 IS_64_BITS = sys.maxint > 2147483647
 
@@ -30,7 +27,9 @@ SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
     False)
     # Windows doesn't work.  Please
     # add other platforms here if it works on them.
-
+MACHINE = _stdlib_platform.machine()
+if MACHINE == 'aarch64':
+    SUPPORT__THREAD = False
 # (*) NOTE: __thread on OS/X does not work together with
 # pthread_key_create(): when the destructor is called, the __thread is
 # already freed!
@@ -97,13 +96,11 @@ translation_optiondescription = OptionDescription(
                default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
-                 ["n/a", "shadowstack", "asmgcc"],
+                 ["n/a", "shadowstack"],
                  "shadowstack",
                  cmdline="--gcrootfinder",
                  requires={
                      "shadowstack": [("translation.gctransformer", "framework")],
-                     "asmgcc": [("translation.gctransformer", "framework"),
-                                ("translation.backend", "c")],
                     }),
     ChoiceOption("rrcgc", "Garbage Collection Strategy for raw refcounted objects in cpyext",
                  ["simple", "mark", "incmark"],
@@ -119,9 +116,10 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--thread"),
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
                default=False, cmdline="--sandbox",
-               requires=[("translation.thread", False)],
                suggests=[("translation.gc", "generation"),
-                         ("translation.gcrootfinder", "shadowstack")]),
+                         ("translation.gcrootfinder", "shadowstack"),
+                         ("translation.thread", False),
+                        ]),
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
 
@@ -155,6 +153,8 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline=None),
     BoolOption("countmallocs", "Count mallocs and frees", default=False,
                cmdline=None),
+    BoolOption("countfieldaccess", "Count field access for C structs",
+            default=False),
     ChoiceOption("fork_before",
                  "(UNIX) Create restartable checkpoint before step",
                  ["annotate", "rtype", "backendopt", "database", "source",
@@ -212,6 +212,8 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--lto",
                requires=[("translation.gcrootfinder", "shadowstack")]),
     StrOption("icon", "Path to the (Windows) icon to use for the executable"),
+    StrOption("manifest",
+              "Path to the (Windows) manifest to embed in the executable"),
     StrOption("libname",
               "Windows: name and possibly location of the lib file to create"),
 
@@ -305,6 +307,9 @@ translation_optiondescription = OptionDescription(
                          ('translation.jit', False),
                          ('translation.gc', 'boehm'),
                          ('translation.continuation', False)]),
+    BoolOption("rpython_translate",
+               "Set to true by rpython/bin/rpython and translate.py",
+               default=False),
 ])
 
 def get_combined_translation_config(other_optdescr=None,
@@ -407,10 +412,6 @@ def set_opt_level(config, level):
     # if we have specified strange inconsistent settings.
     config.translation.gc = config.translation.gc
 
-    # disallow asmgcc on OS/X and on Win32
-    if config.translation.gcrootfinder == "asmgcc":
-        if sys.platform == "darwin" or sys.platform =="win32":
-            raise ConfigError("'asmgcc' not supported on this platform")
 
 # ----------------------------------------------------------------
 

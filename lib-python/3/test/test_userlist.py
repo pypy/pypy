@@ -1,7 +1,7 @@
 # Check every path through every method of UserList
 
 from collections import UserList
-from test import support, list_tests
+from test import list_tests
 import unittest
 
 class UserListTest(list_tests.CommonTest):
@@ -16,6 +16,12 @@ class UserListTest(list_tests.CommonTest):
             self.assertEqual(u[i:], l[i:])
             for j in range(-3, 6):
                 self.assertEqual(u[i:j], l[i:j])
+
+    def test_slice_type(self):
+        l = [0, 1, 2, 3, 4]
+        u = UserList(l)
+        self.assertIsInstance(u[:], u.__class__)
+        self.assertEqual(u[:],u)
 
     def test_add_specials(self):
         u = UserList("spam")

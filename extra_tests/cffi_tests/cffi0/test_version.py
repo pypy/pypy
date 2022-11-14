@@ -19,6 +19,7 @@ def test_version():
     version_info = '.'.join(str(i) for i in cffi.__version_info__)
     version_info = version_info.replace('.beta.', 'b')
     version_info = version_info.replace('.plus', '+')
+    version_info = version_info.replace('.rc', 'rc')
     assert v == version_info
     #v = BACKEND_VERSIONS.get(v, v)
     assert v == _cffi_backend.__version__
@@ -37,7 +38,12 @@ def test_doc_version_file():
     v = cffi.__version__.replace('+', '')
     p = os.path.join(parent, 'doc', 'source', 'installation.rst')
     content = open(p).read()
-    assert (" package version %s:" % v) in content
+    if " package version %s:" % v not in content:
+        for i in range(5):
+            if " package version %s-%d:" % (v, i) in content:
+                break
+        else:
+            assert 0, "doc/source/installation.rst needs updating"
 
 def test_setup_version():
     parent = os.path.dirname(os.path.dirname(cffi.__file__))

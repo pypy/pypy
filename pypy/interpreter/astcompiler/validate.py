@@ -11,11 +11,16 @@ def validate_ast(space, node):
 
 
 class ValidationError(Exception):
+    # Will be seen as a ValueError
     def __init__(self, message):
         self.message = message
 
     def __str__(self):
         return self.message
+
+class ValidationTypeError(ValidationError):
+    # Will be seen as a TypeError
+    pass
 
 
 def expr_context_name(ctx):
@@ -93,6 +98,28 @@ class __extend__(ast.Attribute):
         _check_context(ctx, self.ctx)
 
 
+# Recursive function to validate a Constant value.
+def validate_constant(space, w_obj):
+    if space.is_w(w_obj, space.w_None):
+        return
+    if space.is_w(w_obj, space.w_Ellipsis):
+        return
+    w_type = space.type(w_obj)
+    if w_type in (space.w_int,
+                  space.w_float,
+                  space.w_complex,
+                  space.w_bool,
+                  space.w_unicode,
+                  space.w_bytes):
+        return
+    if w_type in (space.w_tuple, space.w_frozenset):
+        for w_item in space.unpackiterable(w_obj):
+            validate_constant(space, w_item)
+        return
+    raise ValidationTypeError("got an invalid type in Constant: %s" %
+                              space.type(w_obj).name)
+
+
 class AstValidator(ast.ASTVisitor):
     def __init__(self, space):
         self.space = space
@@ -135,6 +162,10 @@ class AstValidator(ast.ASTVisitor):
         if not seq:
             raise ValidationError("empty %s on %s" % (what, owner))
 
+    def _validate_name(self, name):
+        if name in ("None", "True", "False"):
+            raise ValidationError("Name node can't be used with '%s' constant" % name)
+
     def visit_Interactive(self, node):
         self._validate_stmts(node.body)
 
@@ -151,6 +182,7 @@ class AstValidator(ast.ASTVisitor):
             self._validate_expr(node.annotation)
 
     def visit_arguments(self, node):
+        self.visit_sequence(node.posonlyargs)
         self.visit_sequence(node.args)
         # XXX py3.5 missing if node.varargannotation:
         # XXX py3.5 missing     if not node.vararg:
@@ -161,7 +193,7 @@ class AstValidator(ast.ASTVisitor):
         # XXX py3.5 missing     if not node.kwarg:
         # XXX py3.5 missing         raise ValidationError("kwargannotation but no kwarg on arguments")
         # XXX py3.5 missing     self._validate_expr(node.kwargannotation)
-        if self._len(node.defaults) > self._len(node.args):
+        if self._len(node.defaults) > self._len(node.args) + self._len(node.posonlyargs):
             raise ValidationError("more positional defaults than args on arguments")
         if self._len(node.kw_defaults) != self._len(node.kwonlyargs):
             raise ValidationError("length of kwonlyargs is not the same as "
@@ -211,6 +243,12 @@ class AstValidator(ast.ASTVisitor):
         self._validate_nonempty_seq(node.targets, "targets", "Assign")
         self._validate_exprs(node.targets, ast.Store)
         self._validate_expr(node.value)
+
+    def visit_AnnAssign(self, node):
+        self._validate_expr(node.target, ast.Store)
+        self._validate_expr(node.annotation)
+        if node.value:
+            self._validate_expr(node.value)
 
     def visit_AugAssign(self, node):
         self._validate_expr(node.target, ast.Store)
@@ -288,8 +326,8 @@ class AstValidator(ast.ASTVisitor):
         self._validate_nonempty_seq(node.names, "names", "Import")
 
     def visit_ImportFrom(self, node):
-        if node.level < -1:
-            raise ValidationError("ImportFrom level less than -1")
+        if node.level < 0:
+            raise ValidationError("Negative ImportFrom level")
         self._validate_nonempty_seq(node.names, "names", "ImportFrom")
 
     def visit_Global(self, node):
@@ -313,10 +351,10 @@ class AstValidator(ast.ASTVisitor):
     # Expressions
 
     def visit_Name(self, node):
-        pass
+        self._validate_name(node.id)
 
-    def visit_Ellipsis(self, node):
-        pass
+    def visit_Constant(self, node):
+        validate_constant(self.space, node.value)
 
     def visit_BoolOp(self, node):
         if self._len(node.values) < 2:
@@ -400,24 +438,6 @@ class AstValidator(ast.ASTVisitor):
         # XXX py3.5 missing if node.kwargs:
         # XXX py3.5 missing     self._validate_expr(node.kwargs)
 
-    def visit_Num(self, node):
-        space = self.space
-        w_type = space.type(node.n)
-        if w_type not in [space.w_int, space.w_float, space.w_complex]:
-            raise oefmt(space.w_TypeError, "non-numeric type in Num")
-
-    def visit_Str(self, node):
-        space = self.space
-        w_type = space.type(node.s)
-        if w_type != space.w_unicode:
-            raise oefmt(space.w_TypeError, "non-string type in Str")
-
-    def visit_Bytes(self, node):
-        space = self.space
-        w_type = space.type(node.s)
-        if w_type != space.w_bytes:
-            raise oefmt(space.w_TypeError, "non-bytes type in Bytes")
-
     def visit_Attribute(self, node):
         self._validate_expr(node.value)
 
@@ -445,13 +465,6 @@ class AstValidator(ast.ASTVisitor):
     def visit_Index(self, node):
         self._validate_expr(node.value)
 
-    def visit_NameConstant(self, node):
-        space = self.space
-        if (node.value is not space.w_None and
-            node.value is not space.w_True and
-            node.value is not space.w_False):
-            raise ValidationError("singleton must be True, False, or None")
-
     def visit_JoinedStr(self, node):
         self._validate_exprs(node.values)
 
@@ -459,3 +472,11 @@ class AstValidator(ast.ASTVisitor):
         self._validate_expr(node.value)
         if node.format_spec:
             self._validate_expr(node.format_spec)
+
+    def visit_NamedExpr(self, node):
+        self._validate_expr(node.target, ast.Store)
+        self._validate_expr(node.value)
+
+    def visit_FunctionType(self, node):
+        self._validate_exprs(node.argtypes)
+        self._validate_expr(node.returns)

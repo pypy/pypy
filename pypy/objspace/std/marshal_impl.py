@@ -50,6 +50,8 @@ TYPE_FROZENSET = '>'
 FLAG_REF       = 0x80    # bit added to mean "add obj to index"
 FLAG_DONE      = '\x00'
 
+TYPE_INT64     = 'I'     # no longer generated
+
 # the following typecodes have been added in version 4.
 TYPE_ASCII                = 'a'   # never generated so far by pypy
 TYPE_ASCII_INTERNED       = 'A'   # never generated so far by pypy
@@ -174,6 +176,20 @@ def marshal_int(space, w_int, m):
 def unmarshal_int(space, u, tc):
     return space.newint(u.get_int())
 
+@unmarshaller(TYPE_INT64)
+def unmarshal_int64(space, u, tc):
+    from rpython.rlib.rbigint import rbigint
+    # no longer generated, but we still support unmarshalling
+    lo = u.get_int()    # get the first 32 bits
+    hi = u.get_int()    # get the next 32 bits
+    if LONG_BIT >= 64:
+        x = (hi << 32) | (lo & (2**32-1))    # result fits in an int
+        return space.newint(x)
+    else:
+        x = (r_longlong(hi) << 32) | r_longlong(r_uint(lo))  # get a r_longlong
+        result = rbigint.fromrarith_int(x)
+        return space.newlong_from_rbigint(result)
+
 
 @marshaller(W_AbstractLongObject)
 def marshal_long(space, w_long, m):
@@ -210,7 +226,11 @@ def unmarshal_long(space, u, tc):
         raise oefmt(space.w_ValueError, "bad marshal data")
     if negative:
         result = result.neg()
-    return space.newlong_from_rbigint(result)
+    # try to fit it into an int
+    try:
+        return space.newint(result.toint())
+    except OverflowError:
+        return space.newlong_from_rbigint(result)
 
 
 def pack_float(f):
@@ -345,10 +365,10 @@ def unmarshal_dict(space, u, tc):
     w_dic = space.newdict()
     u.save_ref(tc, w_dic)
     while 1:
-        w_key = u.get_w_obj(allow_null=True)
+        w_key = u.load_w_obj(allow_null=True)
         if w_key is None:
             break
-        w_value = u.get_w_obj()
+        w_value = u.load_w_obj()
         space.setitem(w_dic, w_key, w_value)
     return w_dic
 
@@ -364,6 +384,7 @@ def marshal_pycode(space, w_pycode, m):
     # see pypy.interpreter.pycode for the layout
     x = space.interp_w(PyCode, w_pycode)
     m.put_int(x.co_argcount)
+    m.put_int(x.co_posonlyargcount)
     m.put_int(x.co_kwonlyargcount)
     m.put_int(x.co_nlocals)
     m.put_int(x.co_stacksize)
@@ -390,7 +411,7 @@ def _unmarshal_strlist(u):
     return [u.space.utf8_w(w_item) for w_item in items_w]
 
 def _unmarshal_tuple_w(u):
-    w_obj = u.get_w_obj()
+    w_obj = u.load_w_obj()
     try:
         return u.space.fixedview(w_obj)
     except OperationError as e:
@@ -403,25 +424,27 @@ def unmarshal_pycode(space, u, tc):
     w_codeobj = objectmodel.instantiate(PyCode)
     u.save_ref(tc, w_codeobj)
     argcount    = u.get_int()
+    posonlyargcount = u.get_int()
     kwonlyargcount = u.get_int()
     nlocals     = u.get_int()
     stacksize   = u.get_int()
     flags       = u.get_int()
-    code        = space.bytes_w(u.get_w_obj())
+    code        = space.bytes_w(u.load_w_obj())
     consts_w    = _unmarshal_tuple_w(u)
     names       = _unmarshal_strlist(u)
     varnames    = _unmarshal_strlist(u)
     freevars    = _unmarshal_strlist(u)
     cellvars    = _unmarshal_strlist(u)
-    filename    = space.utf8_0_w(u.get_w_obj())
-    name        = space.utf8_w(u.get_w_obj())
+    filename    = space.utf8_0_w(u.load_w_obj())
+    name        = space.utf8_w(u.load_w_obj())
     firstlineno = u.get_int()
-    lnotab      = space.bytes_w(u.get_w_obj())
+    lnotab      = space.bytes_w(u.load_w_obj())
     filename = assert_str0(filename)
     PyCode.__init__(w_codeobj,
-                  space, argcount, kwonlyargcount, nlocals, stacksize, flags,
+                  space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
-                  name, firstlineno, lnotab, freevars, cellvars)
+                  name, firstlineno, lnotab, freevars, cellvars,
+                  hidden_applevel=u.hidden_applevel)
     return w_codeobj
 
 
@@ -511,7 +534,7 @@ def marshal_frozenset(space, w_frozenset, m):
 def _unmarshal_set_frozenset(space, u, w_set):
     lng = u.get_lng()
     for i in xrange(lng):
-        w_obj = u.get_w_obj()
+        w_obj = u.load_w_obj()
         space.call_method(w_set, "add", w_obj)
 
 @unmarshaller(TYPE_FROZENSET)

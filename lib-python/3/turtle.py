@@ -258,6 +258,7 @@ class Vec2D(tuple):
     def __rmul__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return Vec2D(self[0]*other, self[1]*other)
+        return NotImplemented
     def __sub__(self, other):
         return Vec2D(self[0]-other[0], self[1]-other[1])
     def __neg__(self):
@@ -463,20 +464,18 @@ class TurtleScreenBase(object):
        a corresponding TurtleScreenBase class has to be implemented.
     """
 
-    @staticmethod
-    def _blankimage():
+    def _blankimage(self):
         """return a blank image object
         """
-        img = TK.PhotoImage(width=1, height=1)
+        img = TK.PhotoImage(width=1, height=1, master=self.cv)
         img.blank()
         return img
 
-    @staticmethod
-    def _image(filename):
+    def _image(self, filename):
         """return an image object containing the
         imagedata from a gif-file named filename.
         """
-        return TK.PhotoImage(file=filename)
+        return TK.PhotoImage(file=filename, master=self.cv)
 
     def __init__(self, cv):
         self.cv = cv
@@ -810,7 +809,7 @@ class TurtleScreenBase(object):
         >>> screen.mainloop()
 
         """
-        TK.mainloop()
+        self.cv.tk.mainloop()
 
     def textinput(self, title, prompt):
         """Pop up a dialog window for input of a string.
@@ -825,7 +824,7 @@ class TurtleScreenBase(object):
         >>> screen.textinput("NIM", "Name of first player:")
 
         """
-        return simpledialog.askstring(title, prompt)
+        return simpledialog.askstring(title, prompt, parent=self.cv)
 
     def numinput(self, title, prompt, default=None, minval=None, maxval=None):
         """Pop up a dialog window for input of a number.
@@ -833,7 +832,7 @@ class TurtleScreenBase(object):
         Arguments: title is the title of the dialog window,
         prompt is a text mostly describing what numerical information to input.
         default: default value
-        minval: minimum value for imput
+        minval: minimum value for input
         maxval: maximum value for input
 
         The number input must be in the range minval .. maxval if these are
@@ -846,7 +845,8 @@ class TurtleScreenBase(object):
 
         """
         return simpledialog.askfloat(title, prompt, initialvalue=default,
-                                     minvalue=minval, maxvalue=maxval)
+                                     minvalue=minval, maxvalue=maxval,
+                                     parent=self.cv)
 
 
 ##############################################################################
@@ -964,6 +964,8 @@ class TurtleScreen(TurtleScreenBase):
 
     def __init__(self, cv, mode=_CFG["mode"],
                  colormode=_CFG["colormode"], delay=_CFG["delay"]):
+        TurtleScreenBase.__init__(self, cv)
+
         self._shapes = {
                    "arrow" : Shape("polygon", ((-10,0), (10,0), (0,10))),
                   "turtle" : Shape("polygon", ((0,16), (-2,14), (-1,10), (-4,7),
@@ -987,7 +989,6 @@ class TurtleScreen(TurtleScreenBase):
 
         self._bgpics = {"nopic" : ""}
 
-        TurtleScreenBase.__init__(self, cv)
         self._mode = mode
         self._delayvalue = delay
         self._colormode = _CFG["colormode"]
@@ -1175,7 +1176,7 @@ class TurtleScreen(TurtleScreenBase):
             cl = [16*int(cstr[h], 16) for h in cstr[1:]]
         else:
             raise TurtleGraphicsError("bad colorstring: %s" % cstr)
-        return tuple([c * self._colormode/255 for c in cl])
+        return tuple(c * self._colormode/255 for c in cl)
 
     def colormode(self, cmode=None):
         """Return the colormode or set it to 1.0 or 255.
@@ -1352,7 +1353,7 @@ class TurtleScreen(TurtleScreenBase):
         Arguments:
         fun -- a function with two arguments, the coordinates of the
                clicked point on the canvas.
-        num -- the number of the mouse-button, defaults to 1
+        btn -- the number of the mouse-button, defaults to 1
 
         Example (for a TurtleScreen instance named screen)
 
@@ -1568,7 +1569,7 @@ class TNavigator(object):
         fullcircle -  a number
 
         Set angle measurement units, i. e. set number
-        of 'degrees' for a full circle. Dafault value is
+        of 'degrees' for a full circle. Default value is
         360 degrees.
 
         Example (for a Turtle instance named turtle):
@@ -1644,7 +1645,7 @@ class TNavigator(object):
         Argument:
         distance -- a number
 
-        Move the turtle backward by distance ,opposite to the direction the
+        Move the turtle backward by distance, opposite to the direction the
         turtle is headed. Do not change the turtle's heading.
 
         Example (for a Turtle instance named turtle):
@@ -2194,7 +2195,7 @@ class TPen(object):
 
         If turtleshape is a polygon, outline and interior of that polygon
         is drawn with the newly set colors.
-        For mor info see: pencolor, fillcolor
+        For more info see: pencolor, fillcolor
 
         Example (for a Turtle instance named turtle):
         >>> turtle.color('red', 'green')
@@ -2989,7 +2990,7 @@ class RawTurtle(TPen, TNavigator):
             t11, t12, t21, t22 = l, 0, 0, l
         elif self._resizemode == "noresize":
             return polygon
-        return tuple([(t11*x + t12*y, t21*x + t22*y) for (x, y) in polygon])
+        return tuple((t11*x + t12*y, t21*x + t22*y) for (x, y) in polygon)
 
     def _drawturtle(self):
         """Manages the correct rendering of the turtle with respect to
@@ -3526,7 +3527,7 @@ class RawTurtle(TPen, TNavigator):
         Arguments:
         fun --  a function with two arguments, to which will be assigned
                 the coordinates of the clicked point on the canvas.
-        num --  number of the mouse-button defaults to 1 (left mouse button).
+        btn --  number of the mouse-button defaults to 1 (left mouse button).
         add --  True or False. If True, new binding will be added, otherwise
                 it will replace a former binding.
 
@@ -3547,7 +3548,7 @@ class RawTurtle(TPen, TNavigator):
         Arguments:
         fun -- a function with two arguments, to which will be assigned
                 the coordinates of the clicked point on the canvas.
-        num --  number of the mouse-button defaults to 1 (left mouse button).
+        btn --  number of the mouse-button defaults to 1 (left mouse button).
 
         Example (for a MyTurtle instance named joe):
         >>> class MyTurtle(Turtle):
@@ -3572,7 +3573,7 @@ class RawTurtle(TPen, TNavigator):
         Arguments:
         fun -- a function with two arguments, to which will be assigned
                the coordinates of the clicked point on the canvas.
-        num -- number of the mouse-button defaults to 1 (left mouse button).
+        btn -- number of the mouse-button defaults to 1 (left mouse button).
 
         Every sequence of mouse-move-events on a turtle is preceded by a
         mouse-click event on that turtle.
@@ -3839,8 +3840,8 @@ def write_docstringdict(filename="turtle_docstringdict"):
         docsdict[key] = eval(key).__doc__
 
     with open("%s.py" % filename,"w") as f:
-        keys = sorted([x for x in docsdict.keys()
-                            if x.split('.')[1] not in _alias_list])
+        keys = sorted(x for x in docsdict
+                      if x.split('.')[1] not in _alias_list)
         f.write('docsdict = {\n\n')
         for key in keys[:-1]:
             f.write('%s :\n' % repr(key))

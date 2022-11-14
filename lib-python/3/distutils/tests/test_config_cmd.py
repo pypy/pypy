@@ -2,7 +2,7 @@
 import unittest
 import os
 import sys
-from test.support import run_unittest
+from test.support import run_unittest, missing_compiler_executable
 
 from distutils.command.config import dump_file, config
 from distutils.tests import support
@@ -39,8 +39,16 @@ class ConfigTestCase(support.LoggingSilencer,
 
     @unittest.skipIf(sys.platform == 'win32', "can't test on Windows")
     def test_search_cpp(self):
+        import shutil
+        cmd = missing_compiler_executable(['preprocessor'])
+        if cmd is not None:
+            self.skipTest('The %r command is not found' % cmd)
         pkg_dir, dist = self.create_dist()
         cmd = config(dist)
+        cmd._check_compiler()
+        compiler = cmd.compiler
+        if sys.platform[:3] == "aix" and "xlc" in compiler.preprocessor[0].lower():
+            self.skipTest('xlc: The -E option overrides the -P, -o, and -qsyntaxonly options')
 
         # simple pattern searches
         match = cmd.search_cpp(pattern='xxx', body='/* xxx */')

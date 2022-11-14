@@ -10,6 +10,7 @@ from pypy.objspace.std.setobject import W_BaseSetObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import MapAttrCache
 from rpython.rlib import rposix, rgc, rstack
+from rpython.rtyper.lltypesystem import rffi
 
 
 def internal_repr(space, w_object):
@@ -36,8 +37,8 @@ def method_cache_counter(space, name):
     methods with the name."""
     assert space.config.objspace.std.withmethodcachecounter
     cache = space.fromcache(MethodCache)
-    return space.newtuple([space.newint(cache.hits.get(name, 0)),
-                           space.newint(cache.misses.get(name, 0))])
+    return space.newtuple2(space.newint(cache.hits.get(name, 0)),
+                           space.newint(cache.misses.get(name, 0)))
 
 def reset_method_cache_counter(space):
     """Reset the method cache counter to zero for all method names."""
@@ -55,8 +56,8 @@ def mapdict_cache_counter(space, name):
     in the mapdict cache with the given attribute name."""
     assert space.config.objspace.std.withmethodcachecounter
     cache = space.fromcache(MapAttrCache)
-    return space.newtuple([space.newint(cache.hits.get(name, 0)),
-                           space.newint(cache.misses.get(name, 0))])
+    return space.newtuple2(space.newint(cache.hits.get(name, 0)),
+                           space.newint(cache.misses.get(name, 0)))
 
 def builtinify(space, w_func):
     """To implement at app-level modules that are, in CPython,
@@ -84,14 +85,17 @@ def lookup_special(space, w_obj, meth):
         return space.w_None
     return space.get(w_descr, w_obj)
 
-def do_what_I_mean(space, w_crash=None):
-    if not space.is_none(w_crash):
-        raise ValueError    # RPython-level, uncaught
+def do_what_I_mean(space):
+    "Return 42"
     return space.newint(42)
 
+def _internal_crash(space, w_crash=None):
+    """for testing purposes, raise an interpreter-level ValueError. Should turn
+    into a SystemError automatically"""
+    raise ValueError    # RPython-level, uncaught
 
 def strategy(space, w_obj):
-    """ strategy(dict or list or set)
+    """ strategy(dict or list or set or instance)
 
     Return the underlying strategy currently used by a dict, list or set object
     """
@@ -102,8 +106,42 @@ def strategy(space, w_obj):
     elif isinstance(w_obj, W_BaseSetObject):
         name = w_obj.strategy.__class__.__name__
     else:
-        raise oefmt(space.w_TypeError, "expecting dict or list or set object")
+        m = w_obj._get_mapdict_map()
+        if m is not None:
+            name = m.repr()
+        else:
+            raise oefmt(space.w_TypeError, "expecting dict or list or set object, or instance of some kind")
     return space.newtext(name)
+
+def list_get_physical_size(space, w_obj):
+    if not isinstance(w_obj, W_ListObject):
+        raise oefmt(space.w_TypeError, "expected list")
+    return space.newint(w_obj.physical_size())
+
+
+def get_console_cp(space):
+    """get_console_cp()
+
+    Return the console and console output code page (windows only)
+    """
+    from rpython.rlib import rwin32    # Windows only
+    return space.newtuple2(
+        space.newtext('cp%d' % rwin32.GetConsoleCP()),
+        space.newtext('cp%d' % rwin32.GetConsoleOutputCP()),
+        )
+
+@unwrap_spec(fd=int)
+def get_osfhandle(space, fd):
+    """get_osfhandle()
+
+    Return the handle corresponding to the file descriptor (windows only)
+    """
+    from rpython.rlib import rwin32    # Windows only
+    try:
+        ret = rwin32.get_osfhandle(fd)
+        return space.newint(rffi.cast(rffi.INT, ret))
+    except OSError as e:
+        raise wrap_oserror(space, e)
 
 @unwrap_spec(sizehint=int)
 def resizelist_hint(space, w_list, sizehint):
@@ -116,14 +154,6 @@ def resizelist_hint(space, w_list, sizehint):
 def newlist_hint(space, sizehint):
     """ Create a new empty list that has an underlying storage of length sizehint """
     return space.newlist_hint(sizehint)
-
-@unwrap_spec(debug=int)
-def set_debug(space, debug):
-    debug = bool(debug)
-    space.sys.debug = debug
-    space.setitem(space.builtin.w_dict,
-                  space.newtext('__debug__'),
-                  space.newbool(debug))
 
 @unwrap_spec(estimate=int)
 def add_memory_pressure(space, estimate):
@@ -219,3 +249,65 @@ def pyos_inputhook(space):
         return      # cpyext not imported yet, ignore
     from pypy.module.cpyext.api import invoke_pyos_inputhook
     invoke_pyos_inputhook(space)
+
+def utf8content(space, w_u):
+    """ Given a unicode string u, return it's internal byte representation.
+    Useful for debugging only. """
+    from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    if type(w_u) is not W_UnicodeObject:
+        raise oefmt(space.w_TypeError, "expected unicode string, got %T", w_u)
+    return space.newbytes(w_u._utf8)
+
+def set_exc_info(space, w_type, w_value, w_traceback=None):
+    ec = space.getexecutioncontext()
+    ec.set_sys_exc_info3(w_type, w_value, w_traceback)
+
+def get_contextvar_context(space):
+    ec = space.getexecutioncontext()
+    context = ec.contextvar_context
+    if context:
+        return context
+    else:
+        return space.w_None
+
+def set_contextvar_context(space, w_obj):
+    ec = space.getexecutioncontext()
+    ec.contextvar_context = w_obj
+    return space.w_None
+
+def set_exc_info(space, w_type, w_value, w_traceback=None):
+    ec = space.getexecutioncontext()
+    ec.set_sys_exc_info3(w_type, w_value, w_traceback)
+
+def get_contextvar_context(space):
+    ec = space.getexecutioncontext()
+    context = ec.contextvar_context
+    if context:
+        return context
+    else:
+        return space.w_None
+
+def set_contextvar_context(space, w_obj):
+    ec = space.getexecutioncontext()
+    ec.contextvar_context = w_obj
+    return space.w_None
+
+
+@unwrap_spec(where='text')
+def write_unraisable(space, where, w_exc, w_obj):
+    """write_unraisable(where, exc, obj)
+       Equivalent to CPython's _PyErr_WriteUnraisableMsg()
+
+       where: msg to write (text)
+       exc:   error raised
+       obj:   object to print its repr
+    """
+    OperationError(space.type(w_exc), w_exc).write_unraisable(
+                            space, where, w_obj, with_traceback=True)
+
+def _testing_clear_audithooks(space):
+    if we_are_translated():
+        raise oefmt(space.w_RuntimeError, "can only use _testing_clear_audithooks before translation")
+    from pypy.module.sys.vm import AuditHolder
+    holder = space.fromcache(AuditHolder)
+    holder.hook_chain = None

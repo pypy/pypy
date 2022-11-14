@@ -27,6 +27,7 @@ from types import FunctionType
 from copyreg import dispatch_table
 from copyreg import _extension_registry, _inverted_registry, _extension_cache
 from itertools import islice
+from functools import partial
 import sys
 from sys import maxsize
 from struct import pack, unpack
@@ -34,9 +35,29 @@ import re
 import io
 import codecs
 import _compat_pickle
-
+try:
+    from __pypy__.builders import BytesBuilder
+except ImportError:
+    class BytesBuilder():
+        def __init__(self):
+            self.builder = io.BytesIO()
+        def __len__(self):
+            return self.builder.tell()
+        def build(self):
+            return self.builder.getbuffer()
+        def append(self, data):
+            self.builder.write(data)
+ 
 __all__ = ["PickleError", "PicklingError", "UnpicklingError", "Pickler",
            "Unpickler", "dump", "dumps", "load", "loads"]
+
+try:
+    from __pypy__ import PickleBuffer
+    __all__.append("PickleBuffer")
+    _HAVE_PICKLE_BUFFER = True
+except ImportError:
+    _HAVE_PICKLE_BUFFER = False
+
 
 # Shortcut for use in isinstance testing
 bytes_types = (bytes, bytearray)
@@ -50,15 +71,16 @@ compatible_formats = ["1.0",            # Original protocol 0
                       "2.0",            # Protocol 2
                       "3.0",            # Protocol 3
                       "4.0",            # Protocol 4
+                      "5.0",            # Protocol 5
                       ]                 # Old format versions we can read
 
 # This is the highest protocol number we know how to read.
-HIGHEST_PROTOCOL = 4
+HIGHEST_PROTOCOL = 5
 
 # The protocol we write by default.  May be less than HIGHEST_PROTOCOL.
-# We intentionally write a protocol that Python 2.x cannot read;
-# there are too many issues with that.
-DEFAULT_PROTOCOL = 3
+# Only bump this if the oldest still supported version of Python already
+# includes it.
+DEFAULT_PROTOCOL = 4
 
 class PickleError(Exception):
     """A common base class for the other pickling exceptions."""
@@ -166,6 +188,7 @@ BINBYTES       = b'B'   # push bytes; counted binary string argument
 SHORT_BINBYTES = b'C'   #  "     "   ;    "      "       "      " < 256 bytes
 
 # Protocol 4
+
 SHORT_BINUNICODE = b'\x8c'  # push short string; UTF-8 length < 256 bytes
 BINUNICODE8      = b'\x8d'  # push very long string
 BINBYTES8        = b'\x8e'  # push very long bytes string
@@ -177,11 +200,18 @@ STACK_GLOBAL     = b'\x93'  # same as GLOBAL but using names on the stacks
 MEMOIZE          = b'\x94'  # store top of the stack in memo
 FRAME            = b'\x95'  # indicate the beginning of a new frame
 
+# Protocol 5
+
+BYTEARRAY8       = b'\x96'  # push bytearray
+NEXT_BUFFER      = b'\x97'  # push next out-of-band buffer
+READONLY_BUFFER  = b'\x98'  # make top of stack readonly
+
 __all__.extend([x for x in dir() if re.match("[A-Z][A-Z0-9_]+$", x)])
 
 
 class _Framer:
 
+    _FRAME_SIZE_MIN = 4
     _FRAME_SIZE_TARGET = 64 * 1024
 
     def __init__(self, file_write):
@@ -189,31 +219,58 @@ class _Framer:
         self.current_frame = None
 
     def start_framing(self):
-        self.current_frame = io.BytesIO()
+        self.current_frame = BytesBuilder()
 
     def end_framing(self):
-        if self.current_frame and self.current_frame.tell() > 0:
+        if self.current_frame and len(self.current_frame) > 0:
             self.commit_frame(force=True)
             self.current_frame = None
 
     def commit_frame(self, force=False):
-        if self.current_frame:
+        if self.current_frame is not None:
             f = self.current_frame
-            if f.tell() >= self._FRAME_SIZE_TARGET or force:
-                with f.getbuffer() as data:
-                    n = len(data)
-                    write = self.file_write
-                    write(FRAME)
-                    write(pack("<Q", n))
-                    write(data)
-                f.seek(0)
-                f.truncate()
+            if len(f) >= self._FRAME_SIZE_TARGET or force:
+                data = f.build()
+                write = self.file_write
+                if len(data) >= self._FRAME_SIZE_MIN:
+                    # Issue a single call to the write method of the underlying
+                    # file object for the frame opcode with the size of the
+                    # frame. The concatenation is expected to be less expensive
+                    # than issuing an additional call to write.
+                    write(FRAME + pack("<Q", len(data)))
+
+                # Issue a separate call to write to append the frame
+                # contents without concatenation to the above to avoid a
+                # memory copy.
+                write(data)
+
+                # Start the new frame with a new BytesBuilder instance so that
+                # the file object can have delayed access to the previous frame
+                # contents via an unreleased memoryview of the previous
+                # BytesBuilder instance.
+                self.current_frame = BytesBuilder()
 
     def write(self, data):
-        if self.current_frame:
-            return self.current_frame.write(data)
+        if self.current_frame is not None:
+            self.current_frame.append(data)
+            return len(data)
         else:
             return self.file_write(data)
+
+    def write_large_bytes(self, header, payload):
+        write = self.file_write
+        if self.current_frame:
+            # Terminate the current frame and flush it to the file.
+            self.commit_frame(force=True)
+
+        # Perform direct write of the header and payload of the large binary
+        # object. Be careful not to concatenate the header and the payload
+        # prior to calling 'write' as we do not want to allocate a large
+        # temporary bytes object.
+        # We intentionally do not insert a protocol 4 frame opcode to make
+        # it possible to optimize file.read calls in the loader.
+        write(header)
+        write(payload)
 
 
 class _Unframer:
@@ -222,6 +279,23 @@ class _Unframer:
         self.file_read = file_read
         self.file_readline = file_readline
         self.current_frame = None
+
+    def readinto(self, buf):
+        if self.current_frame:
+            n = self.current_frame.readinto(buf)
+            if n == 0 and len(buf) != 0:
+                self.current_frame = None
+                n = len(buf)
+                buf[:] = self.file_read(n)
+                return n
+            if n < len(buf):
+                raise UnpicklingError(
+                    "pickle exhausted before end of frame")
+            return n
+        else:
+            n = len(buf)
+            buf[:] = self.file_read(n)
+            return n
 
     def read(self, n):
         if self.current_frame:
@@ -268,7 +342,7 @@ def _getattribute(obj, name):
             obj = getattr(obj, subpath)
         except AttributeError:
             raise AttributeError("Can't get attribute {!r} on {!r}"
-                                 .format(name, obj))
+                                 .format(name, obj)) from None
     return obj, parent
 
 def whichmodule(obj, name):
@@ -278,8 +352,10 @@ def whichmodule(obj, name):
         return module_name
     # Protect the iteration by using a list copy of sys.modules against dynamic
     # modules that trigger imports of other modules upon calls to getattr.
-    for module_name, module in list(sys.modules.items()):
-        if module_name == '__main__' or module is None:
+    for module_name, module in sys.modules.copy().items():
+        if (module_name == '__main__'
+            or module_name == '__mp_main__'  # bpo-42406
+            or module is None):
             continue
         try:
             if _getattribute(module, name)[0] is obj:
@@ -343,13 +419,14 @@ def decode_long(data):
 
 class _Pickler:
 
-    def __init__(self, file, protocol=None, *, fix_imports=True):
+    def __init__(self, file, protocol=None, *, fix_imports=True,
+                 buffer_callback=None):
         """This takes a binary file for writing a pickle data stream.
 
         The optional *protocol* argument tells the pickler to use the
-        given protocol; supported protocols are 0, 1, 2, 3 and 4.  The
-        default protocol is 3; a backward-incompatible protocol designed
-        for Python 3.
+        given protocol; supported protocols are 0, 1, 2, 3, 4 and 5.
+        The default protocol is 4. It was introduced in Python 3.4, and
+        is incompatible with previous versions.
 
         Specifying a negative protocol version selects the highest
         protocol version supported.  The higher the protocol used, the
@@ -365,6 +442,17 @@ class _Pickler:
         will try to map the new Python 3 names to the old module names
         used in Python 2, so that the pickle data stream is readable
         with Python 2.
+
+        If *buffer_callback* is None (the default), buffer views are
+        serialized into *file* as part of the pickle stream.
+
+        If *buffer_callback* is not None, then it can be called any number
+        of times with a buffer view.  If the callback returns a false value
+        (such as None), the given buffer is out-of-band; otherwise the
+        buffer is serialized in-band, i.e. inside the pickle stream.
+
+        It is an error if *buffer_callback* is not None and *protocol*
+        is None or smaller than 5.
         """
         if protocol is None:
             protocol = DEFAULT_PROTOCOL
@@ -372,12 +460,16 @@ class _Pickler:
             protocol = HIGHEST_PROTOCOL
         elif not 0 <= protocol <= HIGHEST_PROTOCOL:
             raise ValueError("pickle protocol must be <= %d" % HIGHEST_PROTOCOL)
+        if buffer_callback is not None and protocol < 5:
+            raise ValueError("buffer_callback needs protocol >= 5")
+        self._buffer_callback = buffer_callback
         try:
             self._file_write = file.write
         except AttributeError:
             raise TypeError("file must have a 'write' attribute")
         self.framer = _Framer(self._file_write)
         self.write = self.framer.write
+        self._write_large_bytes = self.framer.write_large_bytes
         self.memo = {}
         self.proto = int(protocol)
         self.bin = protocol >= 1
@@ -468,38 +560,42 @@ class _Pickler:
             self.write(self.get(x[0]))
             return
 
-        # Check the type dispatch table
-        t = type(obj)
-        f = self.dispatch.get(t)
-        if f is not None:
-            f(self, obj) # Call unbound method with explicit self
-            return
-
-        # Check private dispatch table if any, or else copyreg.dispatch_table
-        reduce = getattr(self, 'dispatch_table', dispatch_table).get(t)
+        rv = NotImplemented
+        reduce = getattr(self, "reducer_override", None)
         if reduce is not None:
             rv = reduce(obj)
-        else:
-            # Check for a class with a custom metaclass; treat as regular class
-            try:
-                issc = issubclass(t, type)
-            except TypeError: # t is not a class (old Boost; see SF #502085)
-                issc = False
-            if issc:
-                self.save_global(obj)
+
+        if rv is NotImplemented:
+            # Check the type dispatch table
+            t = type(obj)
+            f = self.dispatch.get(t)
+            if f is not None:
+                f(self, obj)  # Call unbound method with explicit self
                 return
 
-            # Check for a __reduce_ex__ method, fall back to __reduce__
-            reduce = getattr(obj, "__reduce_ex__", None)
+            # Check private dispatch table if any, or else
+            # copyreg.dispatch_table
+            reduce = getattr(self, 'dispatch_table', dispatch_table).get(t)
             if reduce is not None:
-                rv = reduce(self.proto)
+                rv = reduce(obj)
             else:
-                reduce = getattr(obj, "__reduce__", None)
+                # Check for a class with a custom metaclass; treat as regular
+                # class
+                if issubclass(t, type):
+                    self.save_global(obj)
+                    return
+
+                # Check for a __reduce_ex__ method, fall back to __reduce__
+                reduce = getattr(obj, "__reduce_ex__", None)
                 if reduce is not None:
-                    rv = reduce()
+                    rv = reduce(self.proto)
                 else:
-                    raise PicklingError("Can't pickle %r object: %r" %
-                                        (t.__name__, obj))
+                    reduce = getattr(obj, "__reduce__", None)
+                    if reduce is not None:
+                        rv = reduce()
+                    else:
+                        raise PicklingError("Can't pickle %r object: %r" %
+                                            (t.__name__, obj))
 
         # Check for string returned by reduce(), meaning "save as global"
         if isinstance(rv, str):
@@ -512,9 +608,9 @@ class _Pickler:
 
         # Assert that it returned an appropriately sized tuple
         l = len(rv)
-        if not (2 <= l <= 5):
+        if not (2 <= l <= 6):
             raise PicklingError("Tuple returned by %s must have "
-                                "two to five elements" % reduce)
+                                "two to six elements" % reduce)
 
         # Save the reduce() output and finally memoize the object
         self.save_reduce(obj=obj, *rv)
@@ -536,7 +632,7 @@ class _Pickler:
                     "persistent IDs in protocol 0 must be ASCII strings")
 
     def save_reduce(self, func, args, state=None, listitems=None,
-                    dictitems=None, obj=None):
+                    dictitems=None, state_setter=None, obj=None):
         # This API is called by some subclasses
 
         if not isinstance(args, tuple):
@@ -548,7 +644,7 @@ class _Pickler:
         write = self.write
 
         func_name = getattr(func, "__name__", "")
-        if self.proto >= 4 and func_name == "__newobj_ex__":
+        if self.proto >= 2 and func_name == "__newobj_ex__":
             cls, args, kwargs = args
             if not hasattr(cls, "__new__"):
                 raise PicklingError("args[0] from {} args has no __new__"
@@ -556,10 +652,16 @@ class _Pickler:
             if obj is not None and cls is not obj.__class__:
                 raise PicklingError("args[0] from {} args has the wrong class"
                                     .format(func_name))
-            save(cls)
-            save(args)
-            save(kwargs)
-            write(NEWOBJ_EX)
+            if self.proto >= 4:
+                save(cls)
+                save(args)
+                save(kwargs)
+                write(NEWOBJ_EX)
+            else:
+                func = partial(cls.__new__, cls, *args, **kwargs)
+                save(func)
+                save(())
+                write(REDUCE)
         elif self.proto >= 2 and func_name == "__newobj__":
             # A __reduce__ implementation can direct protocol 2 or newer to
             # use the more efficient NEWOBJ opcode, while still
@@ -624,8 +726,25 @@ class _Pickler:
             self._batch_setitems(dictitems)
 
         if state is not None:
-            save(state)
-            write(BUILD)
+            if state_setter is None:
+                save(state)
+                write(BUILD)
+            else:
+                # If a state_setter is specified, call it instead of load_build
+                # to update obj's with its previous state.
+                # First, push state_setter and its tuple of expected arguments
+                # (obj, state) onto the stack.
+                save(state_setter)
+                save(obj)  # simple BINGET opcode as obj is already memoized.
+                save(state)
+                write(TUPLE2)
+                # Trigger a state_setter(obj, state) function call.
+                write(REDUCE)
+                # The purpose of state_setter is to carry-out an
+                # inplace modification of obj. We do not care about what the
+                # method might return, so its output is eventually removed from
+                # the stack.
+                write(POP)
 
     # Methods below this point are dispatched through the dispatch table
 
@@ -667,7 +786,10 @@ class _Pickler:
             else:
                 self.write(LONG4 + pack("<i", n) + encoded)
             return
-        self.write(LONG + repr(obj).encode("ascii") + b'L\n')
+        if -0x80000000 <= obj <= 0x7fffffff:
+            self.write(INT + repr(obj).encode("ascii") + b'\n')
+        else:
+            self.write(LONG + repr(obj).encode("ascii") + b'L\n')
     dispatch[int] = save_long
 
     def save_float(self, obj):
@@ -689,11 +811,55 @@ class _Pickler:
         if n <= 0xff:
             self.write(SHORT_BINBYTES + pack("<B", n) + obj)
         elif n > 0xffffffff and self.proto >= 4:
-            self.write(BINBYTES8 + pack("<Q", n) + obj)
+            self._write_large_bytes(BINBYTES8 + pack("<Q", n), obj)
+        elif n >= self.framer._FRAME_SIZE_TARGET:
+            self._write_large_bytes(BINBYTES + pack("<I", n), obj)
         else:
             self.write(BINBYTES + pack("<I", n) + obj)
         self.memoize(obj)
     dispatch[bytes] = save_bytes
+
+    def save_bytearray(self, obj):
+        if self.proto < 5:
+            if not obj:  # bytearray is empty
+                self.save_reduce(bytearray, (), obj=obj)
+            else:
+                self.save_reduce(bytearray, (bytes(obj),), obj=obj)
+            return
+        n = len(obj)
+        if n >= self.framer._FRAME_SIZE_TARGET:
+            self._write_large_bytes(BYTEARRAY8 + pack("<Q", n), obj)
+        else:
+            self.write(BYTEARRAY8 + pack("<Q", n) + obj)
+        self.memoize(obj)
+    dispatch[bytearray] = save_bytearray
+
+    if _HAVE_PICKLE_BUFFER:
+        def save_picklebuffer(self, obj):
+            if self.proto < 5:
+                raise PicklingError("PickleBuffer can only pickled with "
+                                    "protocol >= 5")
+            with obj.raw() as m:
+                if not m.contiguous:
+                    raise PicklingError("PickleBuffer can not be pickled when "
+                                        "pointing to a non-contiguous buffer")
+                in_band = True
+                if self._buffer_callback is not None:
+                    in_band = bool(self._buffer_callback(obj))
+                if in_band:
+                    # Write data in-band
+                    # XXX The C implementation avoids a copy here
+                    if m.readonly:
+                        self.save_bytes(m.tobytes())
+                    else:
+                        self.save_bytearray(m.tobytes())
+                else:
+                    # Write data out-of-band
+                    self.write(NEXT_BUFFER)
+                    if m.readonly:
+                        self.write(READONLY_BUFFER)
+
+        dispatch[PickleBuffer] = save_picklebuffer
 
     def save_str(self, obj):
         if self.bin:
@@ -702,12 +868,17 @@ class _Pickler:
             if n <= 0xff and self.proto >= 4:
                 self.write(SHORT_BINUNICODE + pack("<B", n) + encoded)
             elif n > 0xffffffff and self.proto >= 4:
-                self.write(BINUNICODE8 + pack("<Q", n) + encoded)
+                self._write_large_bytes(BINUNICODE8 + pack("<Q", n), encoded)
+            elif n >= self.framer._FRAME_SIZE_TARGET:
+                self._write_large_bytes(BINUNICODE + pack("<I", n), encoded)
             else:
                 self.write(BINUNICODE + pack("<I", n) + encoded)
         else:
             obj = obj.replace("\\", "\\u005c")
+            obj = obj.replace("\0", "\\u0000")
             obj = obj.replace("\n", "\\u000a")
+            obj = obj.replace("\r", "\\u000d")
+            obj = obj.replace("\x1a", "\\u001a")  # EOF on DOS
             self.write(UNICODE + obj.encode('raw-unicode-escape') +
                        b'\n')
         self.memoize(obj)
@@ -805,10 +976,6 @@ class _Pickler:
                 return
 
     def save_dict(self, obj):
-        modict_saver = self._pickle_maybe_moduledict(obj)
-        if modict_saver is not None:
-            return self.save_reduce(*modict_saver)
-
         if self.bin:
             self.write(EMPTY_DICT)
         else:   # proto 0 -- can't use EMPTY_DICT
@@ -851,22 +1018,6 @@ class _Pickler:
             # else tmp is empty, and we're done
             if n < self._BATCHSIZE:
                 return
-
-    def _pickle_maybe_moduledict(self, obj):
-        # save module dictionary as "getattr(module, '__dict__')"
-        from types import ModuleType
-        try:
-            name = obj['__name__']
-            if type(name) is not str:
-                return None
-            themodule = sys.modules[name]
-            if type(themodule) is not ModuleType:
-                return None
-            if themodule.__dict__ is not obj:
-                return None
-        except (AttributeError, KeyError, TypeError):
-            return None
-        return getattr, (themodule, '__dict__')
 
     def save_set(self, obj):
         save = self.save
@@ -932,7 +1083,7 @@ class _Pickler:
         except (ImportError, KeyError, AttributeError):
             raise PicklingError(
                 "Can't pickle %r: it's not found as %s.%s" %
-                (obj, module_name, name))
+                (obj, module_name, name)) from None
         else:
             if obj2 is not obj:
                 raise PicklingError(
@@ -977,7 +1128,7 @@ class _Pickler:
             except UnicodeEncodeError:
                 raise PicklingError(
                     "can't pickle global identifier '%s.%s' using "
-                    "pickle protocol %i" % (module, name, self.proto))
+                    "pickle protocol %i" % (module, name, self.proto)) from None
 
         self.memoize(obj)
 
@@ -999,7 +1150,7 @@ class _Pickler:
 class _Unpickler:
 
     def __init__(self, file, *, fix_imports=True,
-                 encoding="ASCII", errors="strict"):
+                 encoding="ASCII", errors="strict", buffers=None):
         """This takes a binary file for reading a pickle data stream.
 
         The protocol version of the pickle is detected automatically, so
@@ -1018,7 +1169,17 @@ class _Unpickler:
         reading, a BytesIO object, or any other custom object that
         meets this interface.
 
-        Optional keyword arguments are *fix_imports*, *encoding* and
+        If *buffers* is not None, it should be an iterable of buffer-enabled
+        objects that is consumed each time the pickle stream references
+        an out-of-band buffer view.  Such buffers have been given in order
+        to the *buffer_callback* of a Pickler object.
+
+        If *buffers* is None (the default), then the buffers are taken
+        from the pickle stream, assuming they are serialized there.
+        It is an error for *buffers* to be None if the pickle stream
+        was produced with a non-None *buffer_callback*.
+
+        Other optional arguments are *fix_imports*, *encoding* and
         *errors*, which are used to control compatibility support for
         pickle stream generated by Python 2.  If *fix_imports* is True,
         pickle will try to map the old Python 2 names to the new names
@@ -1027,6 +1188,7 @@ class _Unpickler:
         default to 'ASCII' and 'strict', respectively. *encoding* can be
         'bytes' to read theses 8-bit string instances as bytes objects.
         """
+        self._buffers = iter(buffers) if buffers is not None else None
         self._file_readline = file.readline
         self._file_read = file.read
         self.memo = {}
@@ -1047,8 +1209,9 @@ class _Unpickler:
                                   "%s.__init__()" % (self.__class__.__name__,))
         self._unframer = _Unframer(self._file_read, self._file_readline)
         self.read = self._unframer.read
+        self.readinto = self._unframer.readinto
         self.readline = self._unframer.readline
-        self.mark = object() # any new unique object
+        self.metastack = []
         self.stack = []
         self.append = self.stack.append
         self.proto = 0
@@ -1064,20 +1227,12 @@ class _Unpickler:
         except _Stop as stopinst:
             return stopinst.value
 
-    # Return largest index k such that self.stack[k] is self.mark.
-    # If the stack doesn't contain a mark, eventually raises IndexError.
-    # This could be sped by maintaining another stack, of indices at which
-    # the mark appears.  For that matter, the latter stack would suffice,
-    # and we wouldn't need to push mark objects on self.stack at all.
-    # Doing so is probably a good thing, though, since if the pickle is
-    # corrupt (or hostile) we may get a clue from finding self.mark embedded
-    # in unpickled objects.
-    def marker(self):
-        stack = self.stack
-        mark = self.mark
-        k = len(stack)-1
-        while stack[k] is not mark: k = k-1
-        return k
+    # Return a list of items pushed in the stack after last MARK instruction.
+    def pop_mark(self):
+        items = self.stack
+        self.stack = self.metastack.pop()
+        self.append = self.stack.append
+        return items
 
     def persistent_load(self, pid):
         raise UnpicklingError("unsupported persistent id encountered")
@@ -1241,6 +1396,34 @@ class _Unpickler:
         self.append(self.read(len))
     dispatch[BINBYTES8[0]] = load_binbytes8
 
+    def load_bytearray8(self):
+        len, = unpack('<Q', self.read(8))
+        if len > maxsize:
+            raise UnpicklingError("BYTEARRAY8 exceeds system's maximum size "
+                                  "of %d bytes" % maxsize)
+        b = bytearray(len)
+        self.readinto(b)
+        self.append(b)
+    dispatch[BYTEARRAY8[0]] = load_bytearray8
+
+    def load_next_buffer(self):
+        if self._buffers is None:
+            raise UnpicklingError("pickle stream refers to out-of-band data "
+                                  "but no *buffers* argument was given")
+        try:
+            buf = next(self._buffers)
+        except StopIteration:
+            raise UnpicklingError("not enough out-of-band buffers")
+        self.append(buf)
+    dispatch[NEXT_BUFFER[0]] = load_next_buffer
+
+    def load_readonly_buffer(self):
+        buf = self.stack[-1]
+        with memoryview(buf) as m:
+            if not m.readonly:
+                self.stack[-1] = m.toreadonly()
+    dispatch[READONLY_BUFFER[0]] = load_readonly_buffer
+
     def load_short_binstring(self):
         len = self.read(1)[0]
         data = self.read(len)
@@ -1258,8 +1441,8 @@ class _Unpickler:
     dispatch[SHORT_BINUNICODE[0]] = load_short_binunicode
 
     def load_tuple(self):
-        k = self.marker()
-        self.stack[k:] = [tuple(self.stack[k+1:])]
+        items = self.pop_mark()
+        self.append(tuple(items))
     dispatch[TUPLE[0]] = load_tuple
 
     def load_empty_tuple(self):
@@ -1291,21 +1474,20 @@ class _Unpickler:
     dispatch[EMPTY_SET[0]] = load_empty_set
 
     def load_frozenset(self):
-        k = self.marker()
-        self.stack[k:] = [frozenset(self.stack[k+1:])]
+        items = self.pop_mark()
+        self.append(frozenset(items))
     dispatch[FROZENSET[0]] = load_frozenset
 
     def load_list(self):
-        k = self.marker()
-        self.stack[k:] = [self.stack[k+1:]]
+        items = self.pop_mark()
+        self.append(items)
     dispatch[LIST[0]] = load_list
 
     def load_dict(self):
-        k = self.marker()
-        items = self.stack[k+1:]
+        items = self.pop_mark()
         d = {items[i]: items[i+1]
              for i in range(0, len(items), 2)}
-        self.stack[k:] = [d]
+        self.append(d)
     dispatch[DICT[0]] = load_dict
 
     # INST and OBJ differ only in how they get a class object.  It's not
@@ -1313,9 +1495,7 @@ class _Unpickler:
     # previously diverged and grew different bugs.
     # klass is the class to instantiate, and k points to the topmost mark
     # object, following which are the arguments for klass.__init__.
-    def _instantiate(self, klass, k):
-        args = tuple(self.stack[k+1:])
-        del self.stack[k:]
+    def _instantiate(self, klass, args):
         if (args or not isinstance(klass, type) or
             hasattr(klass, "__getinitargs__")):
             try:
@@ -1331,14 +1511,14 @@ class _Unpickler:
         module = self.readline()[:-1].decode("ascii")
         name = self.readline()[:-1].decode("ascii")
         klass = self.find_class(module, name)
-        self._instantiate(klass, self.marker())
+        self._instantiate(klass, self.pop_mark())
     dispatch[INST[0]] = load_inst
 
     def load_obj(self):
         # Stack is ... markobject classobject arg1 arg2 ...
-        k = self.marker()
-        klass = self.stack.pop(k+1)
-        self._instantiate(klass, k)
+        args = self.pop_mark()
+        cls = args.pop(0)
+        self._instantiate(cls, args)
     dispatch[OBJ[0]] = load_obj
 
     def load_newobj(self):
@@ -1404,6 +1584,7 @@ class _Unpickler:
 
     def find_class(self, module, name):
         # Subclasses may override this.
+        sys.audit('pickle.find_class', module, name)
         if self.proto < 3 and self.fix_imports:
             if (module, name) in _compat_pickle.NAME_MAPPING:
                 module, name = _compat_pickle.NAME_MAPPING[(module, name)]
@@ -1423,12 +1604,14 @@ class _Unpickler:
     dispatch[REDUCE[0]] = load_reduce
 
     def load_pop(self):
-        del self.stack[-1]
+        if self.stack:
+            del self.stack[-1]
+        else:
+            self.pop_mark()
     dispatch[POP[0]] = load_pop
 
     def load_pop_mark(self):
-        k = self.marker()
-        del self.stack[k:]
+        self.pop_mark()
     dispatch[POP_MARK[0]] = load_pop_mark
 
     def load_dup(self):
@@ -1484,17 +1667,21 @@ class _Unpickler:
     dispatch[APPEND[0]] = load_append
 
     def load_appends(self):
-        stack = self.stack
-        mark = self.marker()
-        list_obj = stack[mark - 1]
-        items = stack[mark + 1:]
-        if isinstance(list_obj, list):
-            list_obj.extend(items)
+        items = self.pop_mark()
+        list_obj = self.stack[-1]
+        try:
+            extend = list_obj.extend
+        except AttributeError:
+            pass
         else:
-            append = list_obj.append
-            for item in items:
-                append(item)
-        del stack[mark:]
+            extend(items)
+            return
+        # Even if the PEP 307 requires extend() and append() methods,
+        # fall back on append() if the object has no extend() method
+        # for backward compatibility.
+        append = list_obj.append
+        for item in items:
+            append(item)
     dispatch[APPENDS[0]] = load_appends
 
     def load_setitem(self):
@@ -1506,27 +1693,21 @@ class _Unpickler:
     dispatch[SETITEM[0]] = load_setitem
 
     def load_setitems(self):
-        stack = self.stack
-        mark = self.marker()
-        dict = stack[mark - 1]
-        for i in range(mark + 1, len(stack), 2):
-            dict[stack[i]] = stack[i + 1]
-
-        del stack[mark:]
+        items = self.pop_mark()
+        dict = self.stack[-1]
+        for i in range(0, len(items), 2):
+            dict[items[i]] = items[i + 1]
     dispatch[SETITEMS[0]] = load_setitems
 
     def load_additems(self):
-        stack = self.stack
-        mark = self.marker()
-        set_obj = stack[mark - 1]
-        items = stack[mark + 1:]
+        items = self.pop_mark()
+        set_obj = self.stack[-1]
         if isinstance(set_obj, set):
             set_obj.update(items)
         else:
             add = set_obj.add
             for item in items:
                 add(item)
-        del stack[mark:]
     dispatch[ADDITEMS[0]] = load_additems
 
     def load_build(self):
@@ -1554,7 +1735,9 @@ class _Unpickler:
     dispatch[BUILD[0]] = load_build
 
     def load_mark(self):
-        self.append(self.mark)
+        self.metastack.append(self.stack)
+        self.stack = []
+        self.append = self.stack.append
     dispatch[MARK[0]] = load_mark
 
     def load_stop(self):
@@ -1565,25 +1748,29 @@ class _Unpickler:
 
 # Shorthands
 
-def _dump(obj, file, protocol=None, *, fix_imports=True):
-    _Pickler(file, protocol, fix_imports=fix_imports).dump(obj)
+def _dump(obj, file, protocol=None, *, fix_imports=True, buffer_callback=None):
+    _Pickler(file, protocol, fix_imports=fix_imports,
+             buffer_callback=buffer_callback).dump(obj)
 
-def _dumps(obj, protocol=None, *, fix_imports=True):
+def _dumps(obj, protocol=None, *, fix_imports=True, buffer_callback=None):
     f = io.BytesIO()
-    _Pickler(f, protocol, fix_imports=fix_imports).dump(obj)
+    _Pickler(f, protocol, fix_imports=fix_imports,
+             buffer_callback=buffer_callback).dump(obj)
     res = f.getvalue()
     assert isinstance(res, bytes_types)
     return res
 
-def _load(file, *, fix_imports=True, encoding="ASCII", errors="strict"):
-    return _Unpickler(file, fix_imports=fix_imports,
+def _load(file, *, fix_imports=True, encoding="ASCII", errors="strict",
+          buffers=None):
+    return _Unpickler(file, fix_imports=fix_imports, buffers=buffers,
                      encoding=encoding, errors=errors).load()
 
-def _loads(s, *, fix_imports=True, encoding="ASCII", errors="strict"):
+def _loads(s, *, fix_imports=True, encoding="ASCII", errors="strict",
+           buffers=None):
     if isinstance(s, str):
         raise TypeError("Can't load pickle from unicode string")
     file = io.BytesIO(s)
-    return _Unpickler(file, fix_imports=fix_imports,
+    return _Unpickler(file, fix_imports=fix_imports, buffers=buffers,
                       encoding=encoding, errors=errors).load()
 
 # Use the faster _pickle if possible
@@ -1607,6 +1794,15 @@ except ImportError:
 def _test():
     import doctest
     return doctest.testmod()
+
+# ===== PyPy modification to support pickling cpyext methods =====
+try:
+    import cpyext
+except ImportError:
+    pass
+else:
+    Pickler.dispatch[cpyext.FunctionType] = Pickler.save_global
+# ================= end of PyPy modification ====================
 
 if __name__ == "__main__":
     import argparse

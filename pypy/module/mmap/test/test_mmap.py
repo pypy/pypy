@@ -120,19 +120,13 @@ class AppTestMMap:
     def test_readline(self):
         from mmap import mmap
         import os
-        f = open(self.tmpname + "e", "wb+")
-
-        f.write(b"foo\n")
-        f.flush()
-        m = mmap(f.fileno(), 4)
-        if os.name == "nt":
-            # windows replaces \n with \r. it's time to change to \n only MS!
-            assert m.readline() == b"foo\r"
-        elif os.name == "posix":
-            assert m.readline() == b"foo\n"
-        assert m.readline() == b""
-        m.close()
-        f.close()
+        with open(self.tmpname + "e", "wb+") as f:
+            f.write(b"foo\n")
+            f.flush()
+            with mmap(f.fileno(), 4) as m:
+                result = m.readline()
+                assert result == b"foo\n"
+                assert m.readline() == b""
 
     def test_read(self):
         from mmap import mmap
@@ -268,7 +262,7 @@ class AppTestMMap:
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
         raises(TypeError, m.write, 123)
         raises(ValueError, m.write, b"c"*10)
-        m.write(b"ciao\n")
+        assert m.write(b"ciao\n") == 5
         m.seek(0)
         assert m.read(6) == b"ciao\nr"
         m.close()
@@ -431,6 +425,15 @@ class AppTestMMap:
         m.close()
         f.close()
 
+    def test_get_crash(self):
+        import sys
+        from mmap import mmap
+        s = b'hallo!!!'
+        m = mmap(-1, len(s))
+        m[:] = s
+        assert m[1:None:sys.maxsize] == b'a'
+        m.close()
+
     def test_set_item(self):
         import mmap
 
@@ -536,20 +539,22 @@ class AppTestMMap:
         f.close()
 
     def test_memoryview(self):
-        from mmap import mmap, PROT_READ
+        from mmap import mmap
         filename = self.tmpname + "y"
-        f = open(filename, "bw+")
-        f.write(b"foobar")
-        f.flush()
-        m = mmap(f.fileno(), 6)
-        b = memoryview(m)
-        assert len(b) == 6
-        assert b.readonly is False
-        assert b[3] == ord(b"b")
-        assert b[:] == b"foobar"
-        del b  # For CPython: "exported pointers exist"
-        m.close()
-        f.close()
+        with open(filename, "bw+") as f:
+            f.write(b"foobar")
+            f.flush()
+            with mmap(f.fileno(), 6) as m:
+                b = memoryview(m)
+                assert len(b) == 6
+                assert b.readonly is False
+                assert b[3] == ord(b"b")
+                assert b[:] == b"foobar"
+                del b  # For CPython: "exported pointers exist"
+        try:
+            from mmap import PROT_READ
+        except ImportError:
+            skip('no PROT_READ') 
         with open(filename, "rb") as f:
             m = mmap(f.fileno(), 6, prot=PROT_READ)
             b = memoryview(m)
@@ -561,16 +566,15 @@ class AppTestMMap:
     def test_offset(self):
         from mmap import mmap, ALLOCATIONGRANULARITY
         filename = self.tmpname + "y"
-        f = open(filename, "wb+")
-        f.write(b"foobar" * ALLOCATIONGRANULARITY)
-        f.flush()
-        size = ALLOCATIONGRANULARITY
-        offset = 2 * ALLOCATIONGRANULARITY
-        m = mmap(f.fileno(), size, offset=offset)
-        assert m[:] == (b"foobar" * ALLOCATIONGRANULARITY)[offset:offset+size]
-        assert len(m) == size
-        m.close()
-        f.close()
+        with open(filename, "wb+") as f:
+            f.write(b"foobar" * ALLOCATIONGRANULARITY)
+            f.flush()
+            size = ALLOCATIONGRANULARITY
+            offset = 2 * ALLOCATIONGRANULARITY
+            m = mmap(f.fileno(), size, offset=offset)
+            assert m[:] == (b"foobar" * ALLOCATIONGRANULARITY)[offset:offset+size]
+            assert len(m) == size
+            m.close()
 
     def test_offset_more(self):
         from mmap import mmap, ALLOCATIONGRANULARITY
@@ -873,4 +877,28 @@ class AppTestMMap:
         raises(ValueError, m.write_byte, ord(b'b'))
         raises(ValueError, m.write, b'abc')
         assert m.tell() == 5000
+        m.close()
+
+    def test_iter_yields_bytes(self):
+        # issue 3282: inconsistency in Python 3
+        from mmap import mmap
+        f = open(self.tmpname + "iter", "wb+")
+        f.write(b"AB")
+        f.flush()
+
+        m = mmap(f.fileno(), 2)
+        assert [m[0], m[1]] == [65, 66]
+        assert list(m) == [b"A", b"B"]
+        assert list(iter(m)) == [b"A", b"B"]
+        assert list(reversed(m)) == [b"B", b"A"]
+        assert list(enumerate(m)) == [(0, b"A"), (1, b"B")]
+
+    def test_madvise(self):
+        import mmap
+        m = mmap.mmap(-1, 1024)
+        if not hasattr(m, "madvise"):
+            m.close()
+            skip("no madvise")
+
+        m.madvise(mmap.MADV_NORMAL)
         m.close()

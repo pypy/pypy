@@ -8,17 +8,22 @@ implementation."""
     return space.newtext(space.sys.defaultencoding)
 
 if sys.platform == "win32":
-    base_encoding = "mbcs"
+    base_encoding = "utf-8"
+    base_error = "strict"
 elif sys.platform == "darwin":
     base_encoding = "utf-8"
+    base_error = "surrogateescape"
 elif sys.platform == "linux2":
-    base_encoding = "ascii"
+    base_encoding = "utf-8"
+    base_error = "surrogateescape"
 else:
     # In CPython, the default base encoding is NULL. This is paired with a
     # comment that says "If non-NULL, this is different than the default
     # encoding for strings". Therefore, the default filesystem encoding is the
-    # default encoding for strings, which is ASCII.
-    base_encoding = "ascii"
+    # default encoding for strings, which is dependent on locale. We assume
+    # utf-8.
+    base_encoding = "utf-8"
+    base_error = "surrogateescape"
 
 def _getfilesystemencoding(space):
     encoding = base_encoding
@@ -48,3 +53,7 @@ def getfilesystemencoding(space):
     if space.sys.filesystemencoding is None:
         return space.newtext(base_encoding)
     return space.newtext(space.sys.filesystemencoding)
+
+
+def getfilesystemencodeerrors(space):
+    return space.newtext(base_error)

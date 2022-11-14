@@ -5,7 +5,6 @@ import gc
 import weakref
 import copy
 import pickle
-from io import StringIO
 import random
 import struct
 
@@ -184,6 +183,18 @@ class TestBasic(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             n in d
 
+    def test_contains_count_stop_crashes(self):
+        class A:
+            def __eq__(self, other):
+                d.clear()
+                return NotImplemented
+        d = deque([A(), A()])
+        with self.assertRaises(RuntimeError):
+            _ = 3 in d
+        d = deque([A(), A()])
+        with self.assertRaises(RuntimeError):
+            _ = d.count(3)
+
     def test_extend(self):
         d = deque('a')
         self.assertRaises(TypeError, d.extend, 1)
@@ -289,7 +300,15 @@ class TestBasic(unittest.TestCase):
                     else:
                         self.assertEqual(d.index(element, start, stop), target)
 
-    def test_insert_bug_24913(self):
+        # Test large start argument
+        d = deque(range(0, 10000, 10))
+        for step in range(100):
+            i = d.index(8500, 700)
+            self.assertEqual(d[i], 8500)
+            # Repeat test with a different internal offset
+            d.rotate()
+
+    def test_index_bug_24913(self):
         d = deque('A' * 3)
         with self.assertRaises(ValueError):
             i = d.index("Hello world", 0, 4)
@@ -625,20 +644,22 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(list(d), list(e))
 
     def test_pickle(self):
-        d = deque(range(200))
-        for i in range(pickle.HIGHEST_PROTOCOL + 1):
-            s = pickle.dumps(d, i)
-            e = pickle.loads(s)
-            self.assertNotEqual(id(d), id(e))
-            self.assertEqual(list(d), list(e))
+        for d in deque(range(200)), deque(range(200), 100):
+            for i in range(pickle.HIGHEST_PROTOCOL + 1):
+                s = pickle.dumps(d, i)
+                e = pickle.loads(s)
+                self.assertNotEqual(id(e), id(d))
+                self.assertEqual(list(e), list(d))
+                self.assertEqual(e.maxlen, d.maxlen)
 
-##    def test_pickle_recursive(self):
-##        d = deque('abc')
-##        d.append(d)
-##        for i in range(pickle.HIGHEST_PROTOCOL + 1):
-##            e = pickle.loads(pickle.dumps(d, i))
-##            self.assertNotEqual(id(d), id(e))
-##            self.assertEqual(id(e), id(e[-1]))
+    def test_pickle_recursive(self):
+        for d in deque('abc'), deque('abc', 3):
+            d.append(d)
+            for i in range(pickle.HIGHEST_PROTOCOL + 1):
+                e = pickle.loads(pickle.dumps(d, i))
+                self.assertNotEqual(id(e), id(d))
+                self.assertEqual(id(e[-1]), id(e))
+                self.assertEqual(e.maxlen, d.maxlen)
 
     def test_iterator_pickle(self):
         orig = deque(range(200))
@@ -698,6 +719,15 @@ class TestBasic(unittest.TestCase):
         mut[0] = 11
         self.assertNotEqual(id(d), id(e))
         self.assertEqual(list(d), list(e))
+
+        for i in range(5):
+            for maxlen in range(-1, 6):
+                s = [random.random() for j in range(i)]
+                d = deque(s) if maxlen == -1 else deque(s, maxlen)
+                e = d.copy()
+                self.assertEqual(d, e)
+                self.assertEqual(d.maxlen, e.maxlen)
+                self.assertTrue(all(x is y for x, y in zip(d, e)))
 
     def test_copy_method(self):
         mut = [10]
@@ -848,24 +878,26 @@ class TestSubclass(unittest.TestCase):
             self.assertEqual(type(d), type(e))
             self.assertEqual(list(d), list(e))
 
-##    def test_pickle(self):
-##        d = Deque('abc')
-##        d.append(d)
-##
-##        e = pickle.loads(pickle.dumps(d))
-##        self.assertNotEqual(id(d), id(e))
-##        self.assertEqual(type(d), type(e))
-##        dd = d.pop()
-##        ee = e.pop()
-##        self.assertEqual(id(e), id(ee))
-##        self.assertEqual(d, e)
-##
-##        d.x = d
-##        e = pickle.loads(pickle.dumps(d))
-##        self.assertEqual(id(e), id(e.x))
-##
-##        d = DequeWithBadIter('abc')
-##        self.assertRaises(TypeError, pickle.dumps, d)
+    def test_pickle_recursive(self):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            for d in Deque('abc'), Deque('abc', 3):
+                d.append(d)
+
+                e = pickle.loads(pickle.dumps(d, proto))
+                self.assertNotEqual(id(e), id(d))
+                self.assertEqual(type(e), type(d))
+                self.assertEqual(e.maxlen, d.maxlen)
+                dd = d.pop()
+                ee = e.pop()
+                self.assertEqual(id(ee), id(e))
+                self.assertEqual(e, d)
+
+                d.x = d
+                e = pickle.loads(pickle.dumps(d, proto))
+                self.assertEqual(id(e.x), id(e))
+
+            for d in DequeWithBadIter('abc'), DequeWithBadIter('abc', 2):
+                self.assertRaises(TypeError, pickle.dumps, d, proto)
 
     def test_weakref(self):
         d = deque('gallahad')
@@ -883,6 +915,21 @@ class TestSubclass(unittest.TestCase):
         d2 = X([4,5,6])
         d1 == d2   # not clear if this is supposed to be True or False,
                    # but it used to give a SystemError
+
+    @support.cpython_only
+    def test_bug_31608(self):
+        # The interpreter used to crash in specific cases where a deque
+        # subclass returned a non-deque.
+        class X(deque):
+            pass
+        d = X()
+        def bad___new__(cls, *args, **kwargs):
+            return [42]
+        X.__new__ = bad___new__
+        with self.assertRaises(TypeError):
+            d * 42  # shouldn't crash
+        with self.assertRaises(TypeError):
+            d + deque([1, 2, 3])  # shouldn't crash
 
 
 class SubclassWithKwargs(deque):

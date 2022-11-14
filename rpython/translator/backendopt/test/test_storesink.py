@@ -165,3 +165,23 @@ class TestStoreSink(object):
 
         self.check(f, [int], 0)
 
+    def test_debug_assert_not_none(self):
+        from rpython.rlib.debug import ll_assert_not_none
+        class A(object):
+            pass
+
+        def g(i):
+            if i:
+                return None
+            else:
+                return A()
+
+        def f(i):
+            a1 = g(i)
+            a = A()
+            a.x = i
+            ll_assert_not_none(a1)
+            return a.x
+
+        self.check(f, [int], 0)
+

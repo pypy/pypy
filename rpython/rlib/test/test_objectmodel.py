@@ -1,5 +1,5 @@
 from collections import OrderedDict
-import py
+import pytest
 from rpython.rlib.objectmodel import (
     r_dict, UnboxedValue, Symbolic, compute_hash, compute_identity_hash,
     compute_unique_id, current_object_addr_as_int, we_are_translated,
@@ -7,10 +7,12 @@ from rpython.rlib.objectmodel import (
     resizelist_hint, is_annotation_constant, always_inline, NOT_CONSTANT,
     iterkeys_with_hash, iteritems_with_hash, contains_with_hash,
     setitem_with_hash, getitem_with_hash, delitem_with_hash, import_from_mixin,
-    fetch_translated_config, try_inline, delitem_if_value_is, move_to_end)
+    fetch_translated_config, try_inline, delitem_if_value_is, move_to_end,
+    never_allocate, dont_inline, list_get_physical_size,
+    dict_to_switch)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest
-from rpython.rtyper.test.test_llinterp import interpret
+from rpython.rtyper.test.test_llinterp import interpret, LLException, gengraph
 from rpython.conftest import option
 
 def strange_key_eq(key1, key2):
@@ -144,13 +146,13 @@ def test_unboxed_value():
     assert A(12098).get_untagged_value() == 12098
 
 def test_symbolic():
-    py.test.skip("xxx no test here")
+    pytest.skip("xxx no test here")
 
 def test_symbolic_raises():
     s1 = Symbolic()
     s2 = Symbolic()
-    py.test.raises(TypeError, "s1 < s2")
-    py.test.raises(TypeError, "hash(s1)")
+    pytest.raises(TypeError, "s1 < s2")
+    pytest.raises(TypeError, "hash(s1)")
 
 def test_compute_hash():
     from rpython.rlib.objectmodel import _hash_string, _hash_float, _hash_tuple
@@ -445,12 +447,12 @@ def test_enforceargs_decorator():
         return a, b, c
     f.foo = 'foo'
     assert f._annenforceargs_ == (int, str, None)
-    assert f.func_name == 'f'
+    assert f.__name__ == 'f'
     assert f.foo == 'foo'
     assert f(1, 'hello', 42) == (1, 'hello', 42)
-    exc = py.test.raises(TypeError, "f(1, 2, 3)")
+    exc = pytest.raises(TypeError, "f(1, 2, 3)")
     assert exc.value.message == "f argument 'b' must be of type <type 'str'>"
-    py.test.raises(TypeError, "f('hello', 'world', 3)")
+    pytest.raises(TypeError, "f('hello', 'world', 3)")
 
 def test_always_inline():
     @always_inline
@@ -493,9 +495,9 @@ def test_enforceargs_complex_types():
     assert f(x, y) == (x, y)
     assert f([], {}) == ([], {})
     assert f(None, None) == (None, None)
-    py.test.raises(TypeError, "f(['hello'], y)")
-    py.test.raises(TypeError, "f(x, {'a': 'hello'})")
-    py.test.raises(TypeError, "f(x, {0: 42})")
+    pytest.raises(TypeError, "f(['hello'], y)")
+    pytest.raises(TypeError, "f(x, {'a': 'hello'})")
+    pytest.raises(TypeError, "f(x, {0: 42})")
 
 def test_enforceargs_no_typecheck():
     @enforceargs(int, str, None, typecheck=False)
@@ -588,6 +590,24 @@ def test_resizelist_hint_len():
 
     r = interpret(f, [29])
     assert r == 1
+
+def test_list_get_physical_size():
+    def f(z):
+        l = [z, z + 1]
+        if z:
+            l.append(z)
+        return list_get_physical_size(l)
+
+    r = interpret(f, [29])
+    assert r == 6
+
+    # now with fixed-sized list
+    def f(z):
+        l = [z, z + 1]
+        return list_get_physical_size(l)
+
+    r = interpret(f, [29])
+    assert r == 2
 
 def test_iterkeys_with_hash():
     def f(i):
@@ -803,10 +823,10 @@ def test_import_from_mixin():
     assert B().foo == 42
 
     d = dict(__name__='foo')
-    exec """class M(object):
+    exec("""class M(object):
                 @staticmethod
                 def f(): pass
-    """ in d
+    """, d)
     M = d['M']
     class A(object):
         import_from_mixin(M)
@@ -851,3 +871,91 @@ def test_import_from_mixin_immutable_fields():
         import_from_mixin(C)
 
     assert BA._immutable_fields_ == ['c', 'a']
+
+
+def test_never_allocate():
+    from rpython.translator.c.test.test_genc import compile as c_compile
+    from rpython.memory.gctransform.transform import GCTransformError
+
+    @never_allocate
+    class MyClass(object):
+        def __init__(self, x):
+            self.x = x + 1
+
+    @dont_inline
+    def allocate_MyClass(x):
+        return MyClass(x)
+
+    def f(x):
+        # this fails because the allocation of MyClass can't be
+        # constant-folded (because it's inside a @dont_inline function)
+        return allocate_MyClass(x).x
+
+    def g(x):
+        # this works because MyClass is constant folded, so the GC transformer
+        # never sees a malloc(MyClass)
+        return MyClass(x).x
+
+    # test what happens if MyClass escapes
+    with pytest.raises(GCTransformError) as exc:
+        c_compile(f, [int])
+    assert '[function allocate_MyClass]' in str(exc)
+    assert 'was marked as @never_allocate' in str(exc)
+
+    # test that it works in the "normal" case
+    compiled_g = c_compile(g, [int])
+    assert compiled_g(41) == 42
+
+def test_dict_to_switch():
+    d = dict_to_switch({1: "one", 2: "two"})
+    assert d(1) == "one"
+    assert d(2) == "two"
+    with pytest.raises(KeyError):
+        d(3)
+
+    d = dict_to_switch({"1": "one", "2": "two"})
+    assert d('1') == "one"
+    assert d('2') == "two"
+    with pytest.raises(KeyError):
+        d('3')
+    with pytest.raises(KeyError):
+        d('33454')
+
+    # various errors
+    with pytest.raises(AssertionError):
+        dict_to_switch({"abc": 1})
+    with pytest.raises(AssertionError):
+        dict_to_switch({(1, 2, 3): 1})
+
+def test_dict_to_switch_translate():
+    from rpython.flowspace.model import summary
+    d = dict_to_switch({1: 17, 2: 19})
+    r = interpret(d, [1])
+    assert r == 17
+    r = interpret(d, [2])
+    assert r == 19
+    with pytest.raises(LLException):
+        interpret(d, [10])
+
+    d = dict_to_switch({'1': 17, '2': 19})
+    r = interpret(d, ['1'])
+    assert r == 17
+    r = interpret(d, ['2'])
+    assert r == 19
+    with pytest.raises(LLException):
+        interpret(d, ['a'])
+
+    d = dict_to_switch({'1': 17, '2': 19, '3': 1121, 'a': -12})
+    def f(i):
+        c = chr(i)
+        if not i:
+            c = 'abc'
+        try:
+            return d(c)
+        except KeyError:
+            return -1
+
+
+    t, typer, g = gengraph(f, [int])
+    lookupg = t.graphs[1]
+    assert summary(lookupg)['direct_call'] == 1 # should be char based

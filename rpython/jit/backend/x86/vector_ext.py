@@ -295,7 +295,7 @@ class VectorAssemblerMixin(object):
         _source = genop_vec_float_arith.format(type=op,
                                                p_op_s=OP+'PS',
                                                p_op_d=OP+'PD')
-        exec py.code.Source(_source).compile()
+        exec(py.code.Source(_source).compile())
     del genop_vec_float_arith
 
     def genop_vec_float_truediv(self, op, arglocs, resloc):

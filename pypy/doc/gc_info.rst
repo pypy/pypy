@@ -59,7 +59,7 @@ For a real-world example of usage of this API, you can look at the 3rd-party
 module `pypytools.gc.custom`_, which also provides a ``with customgc.nogc()``
 context manager to mark sections where the GC is forbidden.
 
-.. _`pypytools.gc.custom`: https://bitbucket.org/antocuni/pypytools/src/0273afc3e8bedf0eb1ef630c3bc69e8d9dd661fe/pypytools/gc/custom.py?at=default&fileviewer=file-view-default
+.. _`pypytools.gc.custom`: https://github.com/antocuni/pypytools/blob/master/pypytools/gc/custom.py
 
 
 Fragmentation
@@ -164,15 +164,15 @@ GC hooks are user-defined functions which are called whenever a specific GC
 event occur, and can be used to monitor GC activity and pauses.  You can
 install the hooks by setting the following attributes:
 
-``gc.hook.on_gc_minor``
+``gc.hooks.on_gc_minor``
     Called whenever a minor collection occurs. It corresponds to
     ``gc-minor`` sections inside ``PYPYLOG``.
 
-``gc.hook.on_gc_collect_step``
+``gc.hooks.on_gc_collect_step``
     Called whenever an incremental step of a major collection occurs. It
     corresponds to ``gc-collect-step`` sections inside ``PYPYLOG``.
 
-``gc.hook.on_gc_collect``
+``gc.hooks.on_gc_collect``
     Called after the last incremental step, when a major collection is fully
     done. It corresponds to ``gc-collect-done`` sections inside ``PYPYLOG``.
 
@@ -196,14 +196,14 @@ hook was called.
 On the other hand, all the other fields of the ``stats`` object are relative
 only to the **last** event of the series.
 
-The attributes for ``GcMinorStats`` are:
+The attributes for ``GcMinorStats`` in the ``on_gc_minor`` hook are:
 
 ``count``
     The number of minor collections occurred since the last hook call.
 
 ``duration``
     The total time spent inside minor collections since the last hook
-    call. See below for more information on the unit.
+    call, in seconds.
 
 ``duration_min``
     The duration of the fastest minor collection since the last hook call.
@@ -222,7 +222,7 @@ The attributes for ``GcMinorStats`` are:
 
 .. _GcCollectStepStats:
 
-The attributes for ``GcCollectStepStats`` are:
+The attributes for ``GcCollectStepStats`` in the ``on_gc_collect_step`` hook are:
 
 ``count``, ``duration``, ``duration_min``, ``duration_max``
     See above.
@@ -240,7 +240,7 @@ inside ``gc.GcCollectStepStats``: ``STATE_SCANNING``, ``STATE_MARKING``,
 to get a string representation of it by indexing the ``GC_STATES`` tuple.
 
 
-The attributes for ``GcCollectStats`` are:
+The attributes for ``GcCollectStats`` in the ``on_gc_collect`` hook are:
 
 ``count``
     See above.
@@ -260,34 +260,10 @@ The attributes for ``GcCollectStats`` are:
     Total number of bytes used by raw-malloced objects, before and after the
     major collection.
 
-Note that ``GcCollectStats`` has **not** got a ``duration`` field. This is
+Note that ``GcCollectStats`` does **not** have a ``duration`` field. This is
 because all the GC work is done inside ``gc-collect-step``:
 ``gc-collect-done`` is used only to give additional stats, but doesn't do any
 actual work.
-
-A note about the ``duration`` field: depending on the architecture and
-operating system, PyPy uses different ways to read timestamps, so ``duration``
-is expressed in varying units. It is possible to know which by calling
-``__pypy__.debug_get_timestamp_unit()``, which can be one of the following
-values:
-
-``tsc``
-    The default on ``x86`` machines: timestamps are expressed in CPU ticks, as
-    read by the `Time Stamp Counter`_.
-
-``ns``
-    Timestamps are expressed in nanoseconds.
-
-``QueryPerformanceCounter``
-    On Windows, in case for some reason ``tsc`` is not available: timestamps
-    are read using the win API ``QueryPerformanceCounter()``.
-
-
-Unfortunately, there does not seem to be a reliable standard way for
-converting ``tsc`` ticks into nanoseconds, although in practice on modern CPUs
-it is enough to divide the ticks by the maximum nominal frequency of the CPU.
-For this reason, PyPy gives the raw value, and leaves the job of doing the
-conversion to external libraries.
 
 Here is an example of GC hooks in use::
 
@@ -321,8 +297,6 @@ Here is an example of GC hooks in use::
         lst = [lst, 1, 2, 3]
 
 
-.. _`Time Stamp Counter`: https://en.wikipedia.org/wiki/Time_Stamp_Counter    
-    
 .. _minimark-environment-variables:
 
 Environment variables

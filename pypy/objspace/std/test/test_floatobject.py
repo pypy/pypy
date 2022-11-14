@@ -1,9 +1,11 @@
 # -*- encoding: utf-8 -*-
+import pytest
 import sys
 
 import py
 
-from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std.floatobject import W_FloatObject, _remove_underscores
+from pypy.objspace.std.intobject import W_IntObject
 
 
 class TestW_FloatObject:
@@ -58,6 +60,78 @@ class TestW_FloatObject:
             assert space.unwrap(space.ge(w_i, w_f)) is False
         finally:
             W_LongObject.fromfloat = saved
+
+    def test_remove_undercores(self):
+        valid = [
+            '0_0_0',
+            '4_2',
+            '1_0000_0000',
+            '0b1001_0100',
+            '0o5_7_7',
+            '1_00_00.5',
+            '1_00_00.5e5',
+            '1_00_00e5_1',
+            '1e1_0',
+            '.1_4',
+            '.1_4e1',
+            '1_00_00j',
+            '1_00_00.5j',
+            '1_00_00e5_1j',
+            '.1_4j',
+            '(1_2.5+3_3j)',
+            '(.5_6j)',
+        ]
+        for s in valid:
+            assert _remove_underscores(s) == s.replace("_", "")
+
+        invalid = [
+            # Trailing underscores:
+            '0_',
+            '42_',
+            '1.4j_',
+            # Multiple consecutive underscores:
+            '4_______2',
+            '0.1__4',
+            '0.1__4j',
+            '0b1001__0100',
+            '0xffff__ffff',
+            '0x___',
+            '0o5__77',
+            '1e1__0',
+            '1e1__0j',
+            # Underscore right before a dot:
+            '1_.4',
+            '1_.4j',
+            # Underscore right after a dot:
+            '1._4',
+            '1._4j',
+            '._5',
+            '._5j',
+            # Underscore right after a sign:
+            '1.0e+_1',
+            '1.0e+_1j',
+            # Underscore right before j:
+            '1.4_j',
+            '1.4e5_j',
+            # Underscore right before e:
+            '1_e1',
+            '1.4_e1',
+            '1.4_e1j',
+            # Underscore right after e:
+            '1e_1',
+            '1.4e_1',
+            '1.4e_1j',
+            # Complex cases with parens:
+            '(1+1.5_j_)',
+            '(1+1.5_j)',
+        ]
+        for s in invalid:
+            pytest.raises(ValueError, _remove_underscores, s)
+
+def test_avoid_bigints(space):
+    w_f = space.newfloat(123.456)
+    assert isinstance(w_f.descr_trunc(space), W_IntObject)
+    assert isinstance(w_f.descr___round__(space), W_IntObject)
 
 
 class AppTestAppFloatTest:
@@ -151,6 +225,53 @@ class AppTestAppFloatTest:
 
         raises(UnicodeEncodeError, float, u"\ud800")
 
+    def test_float_string_underscores(self):
+        valid = [
+            '0_0_0',
+            '4_2',
+            '1_0000_0000',
+            '1_00_00.5',
+            '1_00_00.5e5',
+            '1_00_00e5_1',
+            '1e1_0',
+            '.1_4',
+            '.1_4e1',
+        ]
+        for s in valid:
+            assert float(s) == float(s.replace("_", ""))
+            assert eval(s) == eval(s.replace("_", ""))
+
+        invalid = [
+            # Trailing underscores:
+            '0_',
+            '42_',
+            # Multiple consecutive underscores:
+            '4_______2',
+            '0.1__4',
+            '0.1__4j',
+            '0b1001__0100',
+            '0xffff__ffff',
+            '0x___',
+            '0o5__77',
+            '1e1__0',
+            # Underscore right before a dot:
+            '1_.4',
+            # Underscore right after a dot:
+            '1._4',
+            '._5',
+            # Underscore right after a sign:
+            '1.0e+_1',
+            # Underscore right before e:
+            '1_e1',
+            '1.4_e1',
+            # Underscore right after e:
+            '1e_1',
+            '1.4e_1',
+        ]
+        for s in invalid:
+            raises(ValueError, float, s)
+            raises(SyntaxError, eval, s)
+
     def test_float_unicode(self):
         # u00A0 and u2000 are some kind of spaces
         assert 42.75 == float(chr(0x00A0)+str("42.75")+chr(0x2000))
@@ -183,6 +304,21 @@ class AppTestAppFloatTest:
                 return 42.
         assert float(X()) == 42.
 
+    def test_float_conversion_deprecated_warning(self):
+        import warnings
+
+        class X(float):
+            def __float__(self):
+                return self
+        x = X(42)
+
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            converted_x = float(x)
+
+        assert converted_x == 42.  # sanity check
+        assert len(log) == 1
+
     def test_round(self):
         import math
         assert 1.0 == round(1.0)
@@ -193,6 +329,7 @@ class AppTestAppFloatTest:
         assert -2.0 == round(-1.5)
         assert -2.0 == round(-1.5, 0)
         assert -2.0 == round(-1.5, 0)
+        assert -2.0 == round(-1.5, None)
         assert 22.2 == round(22.222222, 1)
         assert 20.0 == round(22.22222, -1)
         assert 0.0 == round(22.22222, -2)
@@ -202,6 +339,11 @@ class AppTestAppFloatTest:
         assert round(123.456, -2**100) == 0.0
         assert math.copysign(1., round(-123.456, -700)) == -1.
         assert round(2.5, 0) == 2.0
+
+    def test_round_special_method(self):
+        assert 2.0 == 1.9 .__round__()
+        assert -2.0 == -1.5 .__round__(None)
+        assert 20.0 == 22.22222 .__round__(-1)
 
     def test_special_float_method(self):
         class a(object):
@@ -519,6 +661,24 @@ class AppTestAppFloatTest:
             else:
                 assert False, 'did not raise'
 
+    def test_new_pos_only(self):
+        with raises(TypeError) as info:
+            float(x=1)
+        assert "got a positional-only argument passed as keyword argument: 'x'" in str(info.value)
+
+    def test_float_constructor_calls_index(self):
+        class A:
+            def __index__(self):
+                return 25
+        assert float(A()) == 25.0
+
+        reallybig = 1 << 1000
+        class A:
+            def __index__(self):
+                return reallybig
+        assert float(A()) == float(reallybig)
+
+
 class AppTestFloatHex:
     spaceconfig = {
         'usemodules': ['binascii', 'time', 'struct'],
@@ -827,6 +987,20 @@ class AppTestFloatHex:
         self.identical(fromHex('0X1.0000000000001fp0'), 1.0+2*EPS)
         self.identical(fromHex('0x1.00000000000020p0'), 1.0+2*EPS)
 
+        # Regression test for a corner-case bug reported in b.p.o. 44954
+        self.identical(fromHex('0x.8p-1074'), 0.0)
+        self.identical(fromHex('0x.80p-1074'), 0.0)
+        self.identical(fromHex('0x.81p-1074'), TINY)
+        self.identical(fromHex('0x8p-1078'), 0.0)
+        self.identical(fromHex('0x8.0p-1078'), 0.0)
+        self.identical(fromHex('0x8.1p-1078'), TINY)
+        self.identical(fromHex('0x80p-1082'), 0.0)
+        self.identical(fromHex('0x81p-1082'), TINY)
+        self.identical(fromHex('.8p-1074'), 0.0)
+        self.identical(fromHex('8p-1078'), 0.0)
+        self.identical(fromHex('-.8p-1074'), -0.0)
+        self.identical(fromHex('+8p-1078'), 0.0)
+
     def test_roundtrip(self):
         def roundtrip(x):
             return float.fromhex(x.hex())
@@ -856,7 +1030,7 @@ class AppTestFloatHex:
         raises(ValueError, float.fromhex, "0P")
 
     def test_division_edgecases(self):
-        import math, os
+        import math
 
         # inf
         inf = float("inf")
@@ -867,14 +1041,9 @@ class AppTestFloatHex:
         assert math.isnan(y)
         x, y = divmod(3, inf)
         z = 3 % inf
-        if os.name == 'nt':
-            assert math.isnan(x)
-            assert math.isnan(y)
-            assert math.isnan(z)
-        else:
-            assert x == 0
-            assert y == 3
-            assert z == 3
+        assert x == 0
+        assert y == 3
+        assert z == 3
 
         # divide by 0
         raises(ZeroDivisionError, lambda: inf % 0)

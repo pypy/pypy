@@ -66,6 +66,14 @@ def run_guards_translated(gcremovetypeptr):
                     'faildescr': faildescr,
                     'vtable_B': vtable_B})
 
+    loop1a = parse("""
+    [p0]
+    guard_nonnull_class(p0, ConstInt(vtable_B), descr=faildescr) []
+    finish(descr=finaldescr)
+    """, namespace={'finaldescr': finaldescr,
+                    'faildescr': faildescr,
+                    'vtable_B': vtable_B})
+
     loop2 = parse("""
     [p0]
     guard_gc_type(p0, ConstInt(typeid_B), descr=faildescr) []
@@ -92,10 +100,12 @@ def run_guards_translated(gcremovetypeptr):
     def g():
         cpu.setup_once()
         token1 = JitCellToken()
+        token1a = JitCellToken()
         token2 = JitCellToken()
         token3 = JitCellToken()
         token4 = JitCellToken()
         cpu.compile_loop(loop1.inputargs, loop1.operations, token1)
+        cpu.compile_loop(loop1a.inputargs, loop1a.operations, token1a)
         cpu.compile_loop(loop2.inputargs, loop2.operations, token2)
         cpu.compile_loop(loop3.inputargs, loop3.operations, token3)
         cpu.compile_loop(loop4.inputargs, loop4.operations, token4)
@@ -104,6 +114,11 @@ def run_guards_translated(gcremovetypeptr):
                 (token1, rffi.cast(llmemory.GCREF, A())),
                 (token1, rffi.cast(llmemory.GCREF, B())),
                 (token1, rffi.cast(llmemory.GCREF, C())),
+
+                (token1a, rffi.cast(llmemory.GCREF, A())),
+                (token1a, lltype.nullptr(llmemory.GCREF.TO)),
+                (token1a, rffi.cast(llmemory.GCREF, B())),
+                (token1a, rffi.cast(llmemory.GCREF, C())),
 
                 (token2, rffi.cast(llmemory.GCREF, A())),
                 (token2, rffi.cast(llmemory.GCREF, B())),
@@ -172,6 +187,11 @@ def run_guards_translated(gcremovetypeptr):
     
     data = cbuilder.cmdexec('')
     assert data == ('fail\n'
+                    'match\n'
+                    'fail\n'
+
+                    'fail\n'
+                    'fail\n'
                     'match\n'
                     'fail\n'
 

@@ -1,6 +1,7 @@
 import sys
 import compileall
 import importlib.util
+import test.test_importlib.util
 import os
 import pathlib
 import py_compile
@@ -21,7 +22,11 @@ except ImportError:
 from test import support
 from test.support import script_helper
 
-class CompileallTests(unittest.TestCase):
+from .test_py_compile import without_source_date_epoch
+from .test_py_compile import SourceDateEpochTestMeta
+
+
+class CompileallTestsBase:
 
     def setUp(self):
         self.directory = tempfile.mkdtemp()
@@ -40,32 +45,38 @@ class CompileallTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.directory)
 
-    def data(self):
+    def add_bad_source_file(self):
+        self.bad_source_path = os.path.join(self.directory, '_test_bad.py')
+        with open(self.bad_source_path, 'w') as file:
+            file.write('x (\n')
+
+    def timestamp_metadata(self):
         with open(self.bc_path, 'rb') as file:
-            data = file.read(8)
+            data = file.read(12)
         mtime = int(os.stat(self.source_path).st_mtime)
-        compare = struct.pack('<4sl', importlib.util.MAGIC_NUMBER, mtime)
+        compare = struct.pack('<4sll', importlib.util.MAGIC_NUMBER, 0, mtime)
         return data, compare
 
-    @unittest.skipUnless(hasattr(os, 'stat'), 'test needs os.stat()')
     def recreation_check(self, metadata):
         """Check that compileall recreates bytecode when the new metadata is
         used."""
+        if os.environ.get('SOURCE_DATE_EPOCH'):
+            raise unittest.SkipTest('SOURCE_DATE_EPOCH is set')
         py_compile.compile(self.source_path)
-        self.assertEqual(*self.data())
+        self.assertEqual(*self.timestamp_metadata())
         with open(self.bc_path, 'rb') as file:
             bc = file.read()[len(metadata):]
         with open(self.bc_path, 'wb') as file:
             file.write(metadata)
             file.write(bc)
-        self.assertNotEqual(*self.data())
+        self.assertNotEqual(*self.timestamp_metadata())
         compileall.compile_dir(self.directory, force=False, quiet=True)
-        self.assertTrue(*self.data())
+        self.assertTrue(*self.timestamp_metadata())
 
     def test_mtime(self):
         # Test a change in mtime leads to a new .pyc.
-        self.recreation_check(struct.pack('<4sl', importlib.util.MAGIC_NUMBER,
-                                          1))
+        self.recreation_check(struct.pack('<4sll', importlib.util.MAGIC_NUMBER,
+                                          0, 1))
 
     def test_magic_number(self):
         # Test a change in mtime leads to a new .pyc.
@@ -78,15 +89,47 @@ class CompileallTests(unittest.TestCase):
                 os.unlink(fn)
             except:
                 pass
-        compileall.compile_file(self.source_path, force=False, quiet=True)
+        self.assertTrue(compileall.compile_file(self.source_path,
+                                                force=False, quiet=True))
         self.assertTrue(os.path.isfile(self.bc_path) and
                         not os.path.isfile(self.bc_path2))
         os.unlink(self.bc_path)
-        compileall.compile_dir(self.directory, force=False, quiet=True)
+        self.assertTrue(compileall.compile_dir(self.directory, force=False,
+                                               quiet=True))
         self.assertTrue(os.path.isfile(self.bc_path) and
                         os.path.isfile(self.bc_path2))
         os.unlink(self.bc_path)
         os.unlink(self.bc_path2)
+        # Test against bad files
+        self.add_bad_source_file()
+        self.assertFalse(compileall.compile_file(self.bad_source_path,
+                                                 force=False, quiet=2))
+        self.assertFalse(compileall.compile_dir(self.directory,
+                                                force=False, quiet=2))
+
+    def test_compile_file_pathlike(self):
+        self.assertFalse(os.path.isfile(self.bc_path))
+        # we should also test the output
+        with support.captured_stdout() as stdout:
+            self.assertTrue(compileall.compile_file(pathlib.Path(self.source_path)))
+        self.assertRegex(stdout.getvalue(), r'Compiling ([^WindowsPath|PosixPath].*)')
+        self.assertTrue(os.path.isfile(self.bc_path))
+
+    def test_compile_file_pathlike_ddir(self):
+        self.assertFalse(os.path.isfile(self.bc_path))
+        self.assertTrue(compileall.compile_file(pathlib.Path(self.source_path),
+                                                ddir=pathlib.Path('ddir_path'),
+                                                quiet=2))
+        self.assertTrue(os.path.isfile(self.bc_path))
+
+    def test_compile_path(self):
+        with test.test_importlib.util.import_state(path=[self.directory]):
+            self.assertTrue(compileall.compile_path(quiet=2))
+
+        with test.test_importlib.util.import_state(path=[self.directory]):
+            self.add_bad_source_file()
+            self.assertFalse(compileall.compile_path(skip_curdir=False,
+                                                     force=True, quiet=2))
 
     def test_no_pycache_in_non_package(self):
         # Bug 8563 reported that __pycache__ directories got created by
@@ -115,7 +158,15 @@ class CompileallTests(unittest.TestCase):
                                                    optimization=opt)
         self.assertTrue(os.path.isfile(cached3))
 
-    @mock.patch('compileall.ProcessPoolExecutor')
+    def test_compile_dir_pathlike(self):
+        self.assertFalse(os.path.isfile(self.bc_path))
+        with support.captured_stdout() as stdout:
+            compileall.compile_dir(pathlib.Path(self.directory))
+        line = stdout.getvalue().splitlines()[0]
+        self.assertRegex(line, r'Listing ([^WindowsPath|PosixPath].*)')
+        self.assertTrue(os.path.isfile(self.bc_path))
+
+    @mock.patch('concurrent.futures.ProcessPoolExecutor')
     def test_compile_pool_called(self, pool_mock):
         compileall.compile_dir(self.directory, quiet=True, workers=5)
         self.assertTrue(pool_mock.called)
@@ -125,23 +176,38 @@ class CompileallTests(unittest.TestCase):
                                     "workers must be greater or equal to 0"):
             compileall.compile_dir(self.directory, workers=-1)
 
-    @mock.patch('compileall.ProcessPoolExecutor')
+    @mock.patch('concurrent.futures.ProcessPoolExecutor')
     def test_compile_workers_cpu_count(self, pool_mock):
         compileall.compile_dir(self.directory, quiet=True, workers=0)
         self.assertEqual(pool_mock.call_args[1]['max_workers'], None)
 
-    @mock.patch('compileall.ProcessPoolExecutor')
+    @mock.patch('concurrent.futures.ProcessPoolExecutor')
     @mock.patch('compileall.compile_file')
     def test_compile_one_worker(self, compile_file_mock, pool_mock):
         compileall.compile_dir(self.directory, quiet=True)
         self.assertFalse(pool_mock.called)
         self.assertTrue(compile_file_mock.called)
 
-    @mock.patch('compileall.ProcessPoolExecutor', new=None)
+    @mock.patch('concurrent.futures.ProcessPoolExecutor', new=None)
     @mock.patch('compileall.compile_file')
     def test_compile_missing_multiprocessing(self, compile_file_mock):
         compileall.compile_dir(self.directory, quiet=True, workers=5)
         self.assertTrue(compile_file_mock.called)
+
+
+class CompileallTestsWithSourceEpoch(CompileallTestsBase,
+                                     unittest.TestCase,
+                                     metaclass=SourceDateEpochTestMeta,
+                                     source_date_epoch=True):
+    pass
+
+
+class CompileallTestsWithoutSourceEpoch(CompileallTestsBase,
+                                        unittest.TestCase,
+                                        metaclass=SourceDateEpochTestMeta,
+                                        source_date_epoch=False):
+    pass
+
 
 class EncodingTest(unittest.TestCase):
     """Issue 6716: compileall should escape source code when printing errors
@@ -166,7 +232,7 @@ class EncodingTest(unittest.TestCase):
             sys.stdout = orig_stdout
 
 
-class CommandLineTests(unittest.TestCase):
+class CommandLineTestsBase:
     """Test compileall's CLI."""
 
     @classmethod
@@ -197,10 +263,9 @@ class CommandLineTests(unittest.TestCase):
             raise unittest.SkipTest('not all entries on sys.path are writable')
 
     def _get_run_args(self, args):
-        interp_args = ['-S']
-        if sys.flags.optimize:
-            interp_args.append({1 : '-O', 2 : '-OO'}[sys.flags.optimize])
-        return interp_args + ['-m', 'compileall'] + list(args)
+        return [*support.optim_args_from_interpreter_flags(),
+                '-S', '-m', 'compileall',
+                *args]
 
     def assertRunOK(self, *args, **env_vars):
         rc, out, err = script_helper.assert_python_ok(
@@ -240,6 +305,7 @@ class CommandLineTests(unittest.TestCase):
         self.assertNotCompiled(self.initfn)
         self.assertNotCompiled(self.barfn)
 
+    @without_source_date_epoch  # timestamp invalidation test
     def test_no_args_respects_force_flag(self):
         self._skip_if_sys_path_not_writable()
         bazfn = script_helper.make_script(self.directory, 'baz', '')
@@ -308,6 +374,7 @@ class CommandLineTests(unittest.TestCase):
         self.assertTrue(os.path.exists(self.pkgdir_cachedir))
         self.assertFalse(os.path.exists(cachecachedir))
 
+    @without_source_date_epoch  # timestamp invalidation test
     def test_force(self):
         self.assertRunOK('-q', self.pkgdir)
         pycpath = importlib.util.cache_from_source(self.barfn)
@@ -474,6 +541,19 @@ class CommandLineTests(unittest.TestCase):
         out = self.assertRunOK('badfilename')
         self.assertRegex(out, b"Can't list 'badfilename'")
 
+    def test_pyc_invalidation_mode(self):
+        script_helper.make_script(self.pkgdir, 'f1', '')
+        pyc = importlib.util.cache_from_source(
+            os.path.join(self.pkgdir, 'f1.py'))
+        self.assertRunOK('--invalidation-mode=checked-hash', self.pkgdir)
+        with open(pyc, 'rb') as fp:
+            data = fp.read()
+        self.assertEqual(int.from_bytes(data[4:8], 'little'), 0b11)
+        self.assertRunOK('--invalidation-mode=unchecked-hash', self.pkgdir)
+        with open(pyc, 'rb') as fp:
+            data = fp.read()
+        self.assertEqual(int.from_bytes(data[4:8], 'little'), 0b01)
+
     @skipUnless(_have_multiprocessing, "requires multiprocessing")
     def test_workers(self):
         bar2fn = script_helper.make_script(self.directory, 'bar2', '')
@@ -495,7 +575,63 @@ class CommandLineTests(unittest.TestCase):
                         new=[sys.executable, self.directory, "-j0"]):
             compileall.main()
             self.assertTrue(compile_dir.called)
-            self.assertEqual(compile_dir.call_args[-1]['workers'], None)
+            self.assertEqual(compile_dir.call_args[-1]['workers'], 0)
+
+    def _test_ddir_only(self, *, ddir, parallel=True):
+        """Recursive compile_dir ddir must contain package paths; bpo39769."""
+        fullpath = ["test", "foo"]
+        path = self.directory
+        mods = []
+        for subdir in fullpath:
+            path = os.path.join(path, subdir)
+            os.mkdir(path)
+            script_helper.make_script(path, "__init__", "")
+            mods.append(script_helper.make_script(path, "mod",
+                                                  "def fn(): 1/0\nfn()\n"))
+        compileall.compile_dir(
+                self.directory, quiet=True, ddir=ddir,
+                workers=2 if parallel else 1)
+        self.assertTrue(mods)
+        for mod in mods:
+            self.assertTrue(mod.startswith(self.directory), mod)
+            modcode = importlib.util.cache_from_source(mod)
+            modpath = mod[len(self.directory+os.sep):]
+            _, _, err = script_helper.assert_python_failure(modcode)
+            expected_in = os.path.join(ddir, modpath)
+            mod_code_obj = test.test_importlib.util._get_code_from_pyc(modcode)
+            self.assertEqual(mod_code_obj.co_filename, expected_in)
+            self.assertIn(f'"{expected_in}"', os.fsdecode(err))
+
+    def test_ddir_only_one_worker(self):
+        """Recursive compile_dir ddir= contains package paths; bpo39769."""
+        return self._test_ddir_only(ddir="<a prefix>", parallel=False)
+
+    def test_ddir_multiple_workers(self):
+        """Recursive compile_dir ddir= contains package paths; bpo39769."""
+        return self._test_ddir_only(ddir="<a prefix>", parallel=True)
+
+    def test_ddir_empty_only_one_worker(self):
+        """Recursive compile_dir ddir='' contains package paths; bpo39769."""
+        return self._test_ddir_only(ddir="", parallel=False)
+
+    def test_ddir_empty_multiple_workers(self):
+        """Recursive compile_dir ddir='' contains package paths; bpo39769."""
+        return self._test_ddir_only(ddir="", parallel=True)
+
+
+class CommmandLineTestsWithSourceEpoch(CommandLineTestsBase,
+                                       unittest.TestCase,
+                                       metaclass=SourceDateEpochTestMeta,
+                                       source_date_epoch=True):
+    pass
+
+
+class CommmandLineTestsNoSourceEpoch(CommandLineTestsBase,
+                                     unittest.TestCase,
+                                     metaclass=SourceDateEpochTestMeta,
+                                     source_date_epoch=False):
+    pass
+
 
 
 if __name__ == "__main__":

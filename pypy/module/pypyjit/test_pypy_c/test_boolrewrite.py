@@ -217,7 +217,7 @@ class TestBoolRewrite(BaseTestPyPyC):
                         b = tst()
                         c = tst()
                         sa = 0
-                        for i in range(300):
+                        for i in range(1000):
                             if %s:
                                 sa += 1
                             else:

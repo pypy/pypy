@@ -98,7 +98,7 @@ def pin(obj):
     """
     _pinned_objects.append(obj)
     return True
-        
+
 
 class PinEntry(ExtRegistryEntry):
     _about_ = pin
@@ -238,7 +238,7 @@ def can_move(p):
 
 class SplitAddrSpaceEntry(ExtRegistryEntry):
     _about_ = must_split_gc_address_space
- 
+
     def compute_result_annotation(self):
         config = self.bookkeeper.annotator.translator.config
         result = config.translation.split_gc_address_space
@@ -412,6 +412,58 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     keepalive_until_here(source)
     keepalive_until_here(dest)
 
+@jit.oopspec('list.ll_arraymove(array, source_start, dest_start, length)')
+@enforceargs(None, int, int, int)
+@specialize.ll()
+def ll_arraymove(array, source_start, dest_start, length):
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    from rpython.rlib.objectmodel import keepalive_until_here
+
+    # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
+    # and also, maybe, speed up very small cases
+    if length <= 1:
+        if length == 1:
+            copy_item(array, array, source_start, dest_start)
+        return
+
+    TP = lltype.typeOf(array).TO
+
+    slowpath = False
+    if must_split_gc_address_space():
+        slowpath = True
+    elif _contains_gcptr(TP.OF):
+        # if the array has card marks set, then this will perform a
+        # general (card-less) write barrier on it, because the marked cards
+        # are no longer necessarily the right ones after the move.
+        # Otherwise, if the GC doesn't support cards, this is a no-op,
+        # because we're not writing any new GC pointer into the array:
+        # we're just moving existing ones around.
+        llop.gc_writebarrier_before_move(lltype.Void, array)
+    if slowpath:
+        # if we translate with the option 'split_gc_address_space',
+        # then move by hand
+        delta = dest_start - source_start
+        if delta < 0:
+            i = source_start
+            stop = source_start + length
+            while i < stop:
+                copy_item(array, array, i, i + delta)
+                i += 1
+        elif delta > 0:
+            i = source_start + length
+            while i > source_start:
+                i -= 1
+                copy_item(array, array, i, i + delta)
+        return
+    array_addr = llmemory.cast_ptr_to_adr(array)
+    mv_source_addr = (array_addr + llmemory.itemoffsetof(TP, 0) +
+                      llmemory.sizeof(TP.OF) * source_start)
+    mv_dest_addr = (array_addr + llmemory.itemoffsetof(TP, 0) +
+                    llmemory.sizeof(TP.OF) * dest_start)
+
+    llmemory.raw_memmove_no_free(mv_source_addr, mv_dest_addr,
+                                 llmemory.sizeof(TP.OF) * length)
+    keepalive_until_here(array)
 
 @jit.oopspec('rgc.ll_shrink_array(p, smallerlength)')
 @enforceargs(None, int)
@@ -488,13 +540,13 @@ def no_collect(func):
 
 def must_be_light_finalizer(func):
     """Mark a __del__ method as being a destructor, calling only a limited
-    set of operations.  See pypy/doc/discussion/finalizer-order.rst.  
+    set of operations.  See pypy/doc/discussion/finalizer-order.rst.
 
     If you use the same decorator on a class, this class and all its
     subclasses are only allowed to have __del__ methods which are
     similarly decorated (or no __del__ at all).  It prevents a class
     hierarchy from having destructors in some parent classes, which are
-    overridden in subclasses with (non-light, old-style) finalizers.  
+    overridden in subclasses with (non-light, old-style) finalizers.
     (This case is the original motivation for FinalizerQueue.)
     """
     func._must_be_light_finalizer_ = True
@@ -690,6 +742,13 @@ class MoveOutOfNurseryEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('gc_move_out_of_nursery', hop.args_v, resulttype=hop.r_result)
 
+@jit.dont_look_inside
+def increase_root_stack_depth(new_depth):
+    """Shadowstack: make sure the size of the shadowstack is at least
+    'new_depth' pointers."""
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.gc_increase_root_stack_depth(lltype.Void, new_depth)
+
 # ____________________________________________________________
 
 
@@ -827,6 +886,11 @@ def toggle_gcflag_extra(gcref):
     except KeyError:
         _gcflag_extras.add(gcref)
 toggle_gcflag_extra._subopnum = 3
+
+@not_rpython
+def get_gcflag_dummy(gcref):
+    return False
+get_gcflag_dummy._subopnum = 4
 
 def assert_no_more_gcflags():
     if not we_are_translated():
@@ -1072,7 +1136,8 @@ class Entry(ExtRegistryEntry):
         return hop.genop('gc_typeids_list', [], resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):
-    _about_ = (has_gcflag_extra, get_gcflag_extra, toggle_gcflag_extra)
+    _about_ = (has_gcflag_extra, get_gcflag_extra, toggle_gcflag_extra,
+               get_gcflag_dummy)
     def compute_result_annotation(self, s_arg=None):
         from rpython.annotator.model import s_Bool
         return s_Bool
@@ -1093,8 +1158,8 @@ def register_custom_trace_hook(TP, lambda_func):
     call, for internal reasons.  Note that the func will be automatically
     specialized on the 'callback' argument value.  Example:
 
-        def customtrace(gc, obj, callback, arg):
-            gc._trace_callback(callback, arg, obj + offset_of_x)
+        def customtrace(gc, obj, callback, arg1, arg2):
+            gc._trace_callback(callback, arg1, arg2, obj + offset_of_x)
         lambda_customtrace = lambda: customtrace
     """
 
@@ -1186,7 +1251,7 @@ def clear_gcflag_extra(fromlist):
             pending.extend(get_rpy_referents(gcref))
 
 all_typeids = {}
-        
+
 def get_typeid(obj):
     raise Exception("does not work untranslated")
 

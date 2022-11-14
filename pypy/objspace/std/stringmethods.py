@@ -193,8 +193,6 @@ class StringMethods(object):
         from pypy.objspace.std.unicodeobject import (
             get_encoding_and_errors, decode_object)
         encoding, errors = get_encoding_and_errors(space, w_encoding, w_errors)
-        if errors is None:
-            errors = 'strict'
         if encoding is None:
             encoding = 'utf8'
         if encoding == 'utf8' or encoding == 'utf-8':
@@ -484,7 +482,7 @@ class StringMethods(object):
     def _lower_in_str(self, value, i):
         # overridden in unicodeobject.py
         return self._lower(value[i])
-        
+
     # This is not used for W_UnicodeObject.
     def descr_partition(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject

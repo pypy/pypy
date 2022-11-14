@@ -307,9 +307,6 @@ def entry_point(argv):
 class BaseTestStacklet(StandaloneTests):
 
     def setup_class(cls):
-        if cls.gcrootfinder == "asmgcc" and DEFL_ROOTFINDER_WITHJIT != "asmgcc":
-            py.test.skip("asmgcc is disabled on the current platform")
-
         from rpython.config.translationoption import get_combined_translation_config
         config = get_combined_translation_config(translating=True)
         config.translation.gc = cls.gc
@@ -347,13 +344,6 @@ class DONTTestStackletBoehm(BaseTestStacklet):
     gc = 'boehm'
     gcrootfinder = None
 
-class TestStackletAsmGcc(BaseTestStacklet):
-    gc = 'minimark'
-    gcrootfinder = 'asmgcc'
-
-    @py.test.mark.skipif("sys.platform != 'linux2' or platform.machine().startswith('arm')")
-    def test_demo1(self):
-        BaseTestStacklet.test_demo1(self)
 
 class TestStackletShadowStack(BaseTestStacklet):
     gc = 'minimark'

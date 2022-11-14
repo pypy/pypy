@@ -357,7 +357,7 @@ class TestRint(BaseRtypingTest):
 
             for func in funcs:
                 print func
-                if 'ovf' in func.func_name and inttype is r_longlong:
+                if 'ovf' in func.__name__ and inttype is r_longlong:
                     continue # don't have many llong_*_ovf operations...
                 for x, y in args:
                     x, y = inttype(x), inttype(y)

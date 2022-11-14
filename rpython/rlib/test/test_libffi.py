@@ -1,5 +1,5 @@
+import gc
 import os
-
 import py
 
 from rpython.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem.ll2ctypes import ALLOCATED
 from rpython.rtyper.llinterp import LLException
 from rpython.translator import cdir
 from rpython.rlib.libffi import (CDLL, ArgChain, types,
-                              IS_32_BIT, array_getitem, array_setitem)
+                              IS_32_BIT, IS_WIN64, array_getitem, array_setitem)
 from rpython.rlib.libffi import (struct_getfield_int, struct_setfield_int,
                               struct_getfield_longlong, struct_setfield_longlong,
                               struct_getfield_float, struct_setfield_float,
@@ -50,6 +50,7 @@ class TestLibffiMisc(BaseFfiTest):
     def test_library_open(self):
         lib = self.get_libc()
         del lib
+        gc.collect()
         assert not ALLOCATED
 
     def test_library_get_func(self):
@@ -58,10 +59,11 @@ class TestLibffiMisc(BaseFfiTest):
         py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], types.void)
         del ptr
         del lib
+        gc.collect()
         assert not ALLOCATED
 
     def test_struct_fields(self):
-        longsize = 4 if IS_32_BIT else 8
+        longsize = 4 if IS_32_BIT or IS_WIN64 else 8
         POINT = lltype.Struct('POINT',
                               ('x', rffi.LONG),
                               ('y', rffi.SHORT),
@@ -70,7 +72,10 @@ class TestLibffiMisc(BaseFfiTest):
         y_ofs = longsize
         z_ofs = longsize*2
         p = lltype.malloc(POINT, flavor='raw')
-        p.x = 42
+        if IS_WIN64:
+            p.x = rffi.cast(rffi.LONG, 42)
+        else:
+            p.x = 42
         p.y = rffi.cast(rffi.SHORT, -1)
         p.z = rffi.cast(rffi.VOIDP, 0x1234)
         addr = rffi.cast(rffi.VOIDP, p)
@@ -379,6 +384,7 @@ class TestLibffiCall(BaseFfiTest):
             # meta_interp, because the __del__ are not properly called (hence
             # we "leak" memory)
             del libfoo
+            gc.collect()
             assert not ALLOCATED
         else:
             # the function as been called 9 times
@@ -497,7 +503,7 @@ class TestLibffiCall(BaseFfiTest):
         loc = locals()
         def my_raises(s):
             try:
-                exec s in glob, loc
+                exec(s, glob, loc)
             except TypeError:
                 pass
             except LLException as e:
@@ -578,17 +584,27 @@ class TestLibffiCall(BaseFfiTest):
             libfoo = self.get_libfoo()
             # __stdcall without a DEF file decorates the name with the number of bytes
             # that the callee will remove from the call stack
-            func = (libfoo, '_std_diff_xy@8', [types.sint, types.signed], types.sint)
+            # identical to __fastcall for amd64
+            if IS_32_BIT:
+                f_name = '_std_diff_xy@8'
+            else:
+                f_name = 'std_diff_xy'
+            func = (libfoo, f_name, [types.sint, types.signed], types.sint)
             try:
-                self.call(func, [50, 8], lltype.Signed)
+                res = self.call(func, [50, 8], rffi.INT)
             except ValueError as e:
                 assert e.message == 'Procedure called with not enough ' + \
                      'arguments (8 bytes missing) or wrong calling convention'
+                assert IS_32_BIT
             except LLException as e:
                 #jitted code raises this
                 assert str(e) == "<LLException 'StackCheckError'>"
+                assert IS_32_BIT
             else:
-                assert 0, 'wrong calling convention should have raised'
+                if IS_32_BIT:
+                    assert 0, 'wrong calling convention should have raised'
+                else:
+                    assert res == 42
 
         def test_by_ordinal(self):
             """
@@ -600,10 +616,12 @@ class TestLibffiCall(BaseFfiTest):
             """
             libfoo = self.get_libfoo()
             f_by_name = libfoo.getpointer('AAA_first_ordinal_function' ,[],
-                                          types.uint)
-            f_by_ordinal = libfoo.getpointer_by_ordinal(1 ,[], types.uint)
+                                          types.sint)
+            f_by_ordinal = libfoo.getpointer_by_ordinal(1 ,[], types.sint)
             print dir(f_by_name)
             assert f_by_name.funcsym == f_by_ordinal.funcsym
+            chain = ArgChain()
+            assert 42 == f_by_ordinal.call(chain, rffi.INT, is_struct=False)
 
         def test_by_ordinal2(self):
             """
@@ -617,13 +635,17 @@ class TestLibffiCall(BaseFfiTest):
             dll = WinDLL(self.libfoo_name)
             # __stdcall without a DEF file decorates the name with the number of bytes
             # that the callee will remove from the call stack
-            f_by_name = dll.getpointer('_BBB_second_ordinal_function@0' ,[],
-                                          types.uint)
-            f_by_ordinal = dll.getpointer_by_ordinal(2 ,[], types.uint)
+            # identical to __fastcall for amd64
+            if IS_32_BIT:
+                f_name = '_BBB_second_ordinal_function@0'
+            else:
+                f_name = 'BBB_second_ordinal_function'
+            f_by_name = dll.getpointer(f_name, [], types.sint)
+            f_by_ordinal = dll.getpointer_by_ordinal(2 ,[], types.sint)
             print dir(f_by_name)
             assert f_by_name.funcsym == f_by_ordinal.funcsym
             chain = ArgChain()
-            assert 24 == f_by_ordinal.call(chain, lltype.Signed, is_struct=False)
+            assert 24 == f_by_ordinal.call(chain, rffi.INT, is_struct=False)
 
 
         

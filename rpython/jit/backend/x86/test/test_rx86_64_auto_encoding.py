@@ -1,6 +1,10 @@
+import sys, py
 import random
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.test import test_rx86_32_auto_encoding
+
+if sys.maxint <= 2**32:
+    py.test.skip("skipping this test on x86-32")
 
 
 class TestRx86_64(test_rx86_32_auto_encoding.TestRx86_32):

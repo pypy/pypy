@@ -49,6 +49,7 @@ class TypesTests(unittest.TestCase):
     def test_float_constructor(self):
         self.assertRaises(ValueError, float, '')
         self.assertRaises(ValueError, float, '5\0')
+        self.assertRaises(ValueError, float, '5_5\0')
 
     def test_zero_division(self):
         try: 5.0 / 0.0
@@ -381,8 +382,8 @@ class TypesTests(unittest.TestCase):
 
         for i in range(-10, 10):
             x = 1234567890.0 * (10.0 ** i)
-            self.assertEqual(locale.format('%g', x, grouping=True), format(x, 'n'))
-            self.assertEqual(locale.format('%.10g', x, grouping=True), format(x, '.10n'))
+            self.assertEqual(locale.format_string('%g', x, grouping=True), format(x, 'n'))
+            self.assertEqual(locale.format_string('%.10g', x, grouping=True), format(x, '.10n'))
 
     @run_with_locale('LC_NUMERIC', 'en_US.UTF8')
     def test_int__format__locale(self):
@@ -390,7 +391,7 @@ class TypesTests(unittest.TestCase):
 
         x = 123456789012345678901234567890
         for i in range(0, 30):
-            self.assertEqual(locale.format('%d', x, grouping=True), format(x, 'n'))
+            self.assertEqual(locale.format_string('%d', x, grouping=True), format(x, 'n'))
 
             # move to the next integer to test
             x = x // 10
@@ -576,6 +577,29 @@ class TypesTests(unittest.TestCase):
     def test_internal_sizes(self):
         self.assertGreater(object.__basicsize__, 0)
         self.assertGreater(tuple.__itemsize__, 0)
+
+    def test_slot_wrapper_types(self):
+        self.assertIsInstance(object.__init__, types.WrapperDescriptorType)
+        self.assertIsInstance(object.__str__, types.WrapperDescriptorType)
+        self.assertIsInstance(object.__lt__, types.WrapperDescriptorType)
+        self.assertIsInstance(int.__lt__, types.WrapperDescriptorType)
+
+    def test_method_wrapper_types(self):
+        self.assertIsInstance(object().__init__, types.MethodWrapperType)
+        self.assertIsInstance(object().__str__, types.MethodWrapperType)
+        self.assertIsInstance(object().__lt__, types.MethodWrapperType)
+        self.assertIsInstance((42).__lt__, types.MethodWrapperType)
+
+    @impl_detail
+    def test_method_descriptor_types(self):
+        self.assertIsInstance(str.join, types.MethodDescriptorType)
+        self.assertIsInstance(list.append, types.MethodDescriptorType)
+        self.assertIsInstance(''.join, types.BuiltinMethodType)
+        self.assertIsInstance([].append, types.BuiltinMethodType)
+
+        self.assertIsInstance(int.__dict__['from_bytes'], types.ClassMethodDescriptorType)
+        self.assertIsInstance(int.from_bytes, types.BuiltinMethodType)
+        self.assertIsInstance(int.__new__, types.BuiltinMethodType)
 
 
 class MappingProxyTests(unittest.TestCase):
@@ -827,6 +851,68 @@ class ClassCreationTests(unittest.TestCase):
         self.assertEqual(C.y, 1)
         self.assertEqual(C.z, 2)
 
+    def test_new_class_with_mro_entry(self):
+        class A: pass
+        class C:
+            def __mro_entries__(self, bases):
+                return (A,)
+        c = C()
+        D = types.new_class('D', (c,), {})
+        self.assertEqual(D.__bases__, (A,))
+        self.assertEqual(D.__orig_bases__, (c,))
+        self.assertEqual(D.__mro__, (D, A, object))
+
+    def test_new_class_with_mro_entry_none(self):
+        class A: pass
+        class B: pass
+        class C:
+            def __mro_entries__(self, bases):
+                return ()
+        c = C()
+        D = types.new_class('D', (A, c, B), {})
+        self.assertEqual(D.__bases__, (A, B))
+        self.assertEqual(D.__orig_bases__, (A, c, B))
+        self.assertEqual(D.__mro__, (D, A, B, object))
+
+    def test_new_class_with_mro_entry_error(self):
+        class A: pass
+        class C:
+            def __mro_entries__(self, bases):
+                return A
+        c = C()
+        with self.assertRaises(TypeError):
+            types.new_class('D', (c,), {})
+
+    def test_new_class_with_mro_entry_multiple(self):
+        class A1: pass
+        class A2: pass
+        class B1: pass
+        class B2: pass
+        class A:
+            def __mro_entries__(self, bases):
+                return (A1, A2)
+        class B:
+            def __mro_entries__(self, bases):
+                return (B1, B2)
+        D = types.new_class('D', (A(), B()), {})
+        self.assertEqual(D.__bases__, (A1, A2, B1, B2))
+
+    def test_new_class_with_mro_entry_multiple_2(self):
+        class A1: pass
+        class A2: pass
+        class A3: pass
+        class B1: pass
+        class B2: pass
+        class A:
+            def __mro_entries__(self, bases):
+                return (A1, A2, A3)
+        class B:
+            def __mro_entries__(self, bases):
+                return (B1, B2)
+        class C: pass
+        D = types.new_class('D', (A(), C, B()), {})
+        self.assertEqual(D.__bases__, (A1, A2, A3, C, B1, B2))
+
     # Many of the following tests are derived from test_descr.py
     def test_prepare_class(self):
         # Basic test of metaclass derivation
@@ -846,6 +932,50 @@ class ClassCreationTests(unittest.TestCase):
         self.assertIs(meta, A)
         self.assertIs(ns, expected_ns)
         self.assertEqual(len(kwds), 0)
+
+    def test_bad___prepare__(self):
+        # __prepare__() must return a mapping.
+        class BadMeta(type):
+            @classmethod
+            def __prepare__(*args):
+                return None
+        with self.assertRaisesRegex(TypeError,
+                                    r'^BadMeta\.__prepare__\(\) must '
+                                    r'return a mapping, not NoneType$'):
+            class Foo(metaclass=BadMeta):
+                pass
+        # Also test the case in which the metaclass is not a type.
+        class BadMeta:
+            @classmethod
+            def __prepare__(*args):
+                return None
+        with self.assertRaisesRegex(TypeError,
+                                    r'^<metaclass>\.__prepare__\(\) must '
+                                    r'return a mapping, not NoneType$'):
+            class Bar(metaclass=BadMeta()):
+                pass
+
+    def test_resolve_bases(self):
+        class A: pass
+        class B: pass
+        class C:
+            def __mro_entries__(self, bases):
+                if A in bases:
+                    return ()
+                return (A,)
+        c = C()
+        self.assertEqual(types.resolve_bases(()), ())
+        self.assertEqual(types.resolve_bases((c,)), (A,))
+        self.assertEqual(types.resolve_bases((C,)), (C,))
+        self.assertEqual(types.resolve_bases((A, C)), (A, C))
+        self.assertEqual(types.resolve_bases((c, A)), (A,))
+        self.assertEqual(types.resolve_bases((A, c)), (A,))
+        x = (A,)
+        y = (C,)
+        z = (A, C)
+        t = (A, C, B)
+        for bases in [x, y, z, t]:
+            self.assertIs(types.resolve_bases(bases), bases)
 
     def test_metaclass_derivation(self):
         # issue1294232: correct metaclass calculation
@@ -1002,6 +1132,24 @@ class ClassCreationTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             X = types.new_class("X", (int(), C))
 
+    def test_one_argument_type(self):
+        expected_message = '.__new__() takes exactly 3 arguments (1 given)'
+
+        # Only type itself can use the one-argument form (#27157)
+        self.assertIs(type(5), int)
+
+        class M(type):
+            pass
+        with self.assertRaises(TypeError) as cm:
+            M(5)
+        self.assertIn(expected_message, str(cm.exception))
+
+        class N(type, metaclass=M):
+            pass
+        with self.assertRaises(TypeError) as cm:
+            N(5)
+        self.assertIn(expected_message, str(cm.exception))
+
 
 class SimpleNamespaceTests(unittest.TestCase):
 
@@ -1012,6 +1160,8 @@ class SimpleNamespaceTests(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             types.SimpleNamespace(1, 2, 3)
+        with self.assertRaises(TypeError):
+            types.SimpleNamespace(**{1: 2})
 
         self.assertEqual(len(ns1.__dict__), 0)
         self.assertEqual(vars(ns1), {})

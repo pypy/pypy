@@ -2,7 +2,6 @@ import timeit
 import unittest
 import sys
 import io
-import time
 from textwrap import dedent
 
 from test.support import captured_stdout
@@ -256,7 +255,7 @@ class TestTimeit(unittest.TestCase):
 
     def test_main_milliseconds(self):
         s = self.run_main(seconds_per_increment=0.0055)
-        self.assertIn("100 loops, average of 7: 5.5 +-", s)
+        self.assertIn("50 loops, average of 7: 5.5 +-", s)
         self.assertIn("msec per loop", s)
 
     def test_main_microseconds(self):
@@ -295,63 +294,61 @@ class TestTimeit(unittest.TestCase):
         # the help text, but since it's there, check for it.
         self.assertEqual(s, timeit.__doc__ + ' ')
 
-    def test_main_using_time(self):
-        fake_timer = FakeTimer()
-        s = self.run_main(switches=['-t'], timer=fake_timer)
-        self.assertIn(self.MAIN_DEFAULT_OUTPUT, s)
-        self.assertIs(fake_timer.saved_timer, time.time)
-
-    def test_main_using_clock(self):
-        fake_timer = FakeTimer()
-        s = self.run_main(switches=['-c'], timer=fake_timer)
-        self.assertIn(self.MAIN_DEFAULT_OUTPUT, s)
-        self.assertIs(fake_timer.saved_timer, time.clock)
-
     def test_main_verbose(self):
         s = self.run_main(switches=['-v'])
         self.assertIn(dedent("""\
-                1 loops -> 1 secs
-                raw times: 1 1 1 1 1 1 1
+                1 loop -> 1 secs
+
+                raw times: 1 sec, 1 sec, 1 sec, 1 sec, 1 sec, 1 sec, 1 sec
+
                 1 loops, average of 7: 1 +- 0 sec per loop (using standard deviation)
             """), s)
 
     def test_main_very_verbose(self):
-        s = self.run_main(seconds_per_increment=0.000050, switches=['-vv'])
+        s = self.run_main(seconds_per_increment=0.000_030, switches=['-vv'])
         self.assertIn(dedent("""\
-                1 loops -> 5e-05 secs
-                10 loops -> 0.0005 secs
-                100 loops -> 0.005 secs
-                1000 loops -> 0.05 secs
-                10000 loops -> 0.5 secs
-                raw times: 0.5 0.5 0.5 0.5 0.5 0.5 0.5
-                10000 loops, average of 7: 50 +- 0 usec per loop (using standard deviation)
+                1 loop -> 3e-05 secs
+                2 loops -> 6e-05 secs
+                5 loops -> 0.00015 secs
+                10 loops -> 0.0003 secs
+                20 loops -> 0.0006 secs
+                50 loops -> 0.0015 secs
+                100 loops -> 0.003 secs
+                200 loops -> 0.006 secs
+                500 loops -> 0.015 secs
+                1000 loops -> 0.03 secs
+                2000 loops -> 0.06 secs
+                5000 loops -> 0.15 secs
+                10000 loops -> 0.3 secs
+
+                raw times: 300 msec, 300 msec, 300 msec, 300 msec, 300 msec, 300 msec, 300 msec
             """), s)
 
     def test_main_with_time_unit(self):
-        unit_sec = self.run_main(seconds_per_increment=0.002,
+        unit_sec = self.run_main(seconds_per_increment=0.003,
                 switches=['-u', 'sec'])
-        self.assertIn("100 loops, average of 7: 0.002",
+        self.assertIn("100 loops, average of 7: 0.003",
                       unit_sec)
         self.assertIn("sec per loop",
                       unit_sec)
         unit_msec = self.run_main(seconds_per_increment=0.002,
                 switches=['-u', 'msec'])
-        self.assertIn("100 loops, average of 7: 2",
+        self.assertIn("200 loops, average of 7: 2",
                       unit_msec)
         self.assertIn("msec per loop",
                       unit_msec)
         unit_usec = self.run_main(seconds_per_increment=0.002,
                 switches=['-u', 'usec'])
-        self.assertIn("100 loops, average of 7: 2e+03",
+        self.assertIn("200 loops, average of 7: 2e+03",
                       unit_usec)
         self.assertIn("usec per loop",
                       unit_usec)
         # Test invalid unit input
         with captured_stderr() as error_stringio:
-            invalid = self.run_main(seconds_per_increment=0.002,
+            invalid = self.run_main(seconds_per_increment=0.003,
                     switches=['-u', 'parsec'])
         self.assertEqual(error_stringio.getvalue(),
-                    "Unrecognized unit. Please select usec, msec, or sec.\n")
+                    "Unrecognized unit. Please select nsec, usec, msec, or sec.\n")
 
     def test_main_exception(self):
         with captured_stderr() as error_stringio:
@@ -366,10 +363,42 @@ class TestTimeit(unittest.TestCase):
     def test_main_recommends_perf(self):
         s = self.run_main(seconds_per_increment=2.0, switches=['-n35', '-s', 'print("CustomSetup")'])
         self.assertIn(dedent("""\
-            WARNING: timeit is a very unreliable tool. use perf or something else for real measurements
+            WARNING: timeit is a very unreliable tool. use pyperf or something else for real measurements
         """), s)
-        self.assertIn("-m pip install perf", s)
+        self.assertIn("-m pip install pyperf", s)
 
+    def autorange(self, seconds_per_increment=1/1024, callback=None):
+        timer = FakeTimer(seconds_per_increment=seconds_per_increment)
+        t = timeit.Timer(stmt=self.fake_stmt, setup=self.fake_setup, timer=timer)
+        return t.autorange(callback)
+
+    def test_autorange(self):
+        num_loops, time_taken = self.autorange()
+        self.assertEqual(num_loops, 500)
+        self.assertEqual(time_taken, 500/1024)
+
+    def test_autorange_second(self):
+        num_loops, time_taken = self.autorange(seconds_per_increment=1.0)
+        self.assertEqual(num_loops, 1)
+        self.assertEqual(time_taken, 1.0)
+
+    def test_autorange_with_callback(self):
+        def callback(a, b):
+            print("{} {:.3f}".format(a, b))
+        with captured_stdout() as s:
+            num_loops, time_taken = self.autorange(callback=callback)
+        self.assertEqual(num_loops, 500)
+        self.assertEqual(time_taken, 500/1024)
+        expected = ('1 0.001\n'
+                    '2 0.002\n'
+                    '5 0.005\n'
+                    '10 0.010\n'
+                    '20 0.020\n'
+                    '50 0.049\n'
+                    '100 0.098\n'
+                    '200 0.195\n'
+                    '500 0.488\n')
+        self.assertEqual(s.getvalue(), expected)
 
 
 if __name__ == '__main__':

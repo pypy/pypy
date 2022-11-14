@@ -27,10 +27,12 @@ def runcmd(cmd, verbose):
         raise RuntimeError(stderr)
 
 def checkout_repo(dest='externals', org='pypy', branch='default', verbose=False):
-    url = 'https://bitbucket.org/{}/externals'.format(org)
-    if not os.path.exists(dest):
-        cmd = ['hg','clone',url,dest]
-        runcmd(cmd, verbose)
+    url = 'https://foss.heptapod.net/{}/externals'.format(org)
+    if os.path.exists(dest):
+        cmd = ['hg', '-R', dest, 'pull', url]
+    else:
+        cmd = ['hg','clone',url, dest]
+    runcmd(cmd, verbose)
     cmd = ['hg','-R', dest, 'update',branch]
     runcmd(cmd, verbose)
 

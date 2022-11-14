@@ -6,9 +6,9 @@ import shutil
 from copy import copy
 from distutils.spawn import find_executable
 
-from test.support import (run_unittest, TESTFN, unlink, check_warnings,
-                          captured_stdout, impl_detail, import_module,
-                          skip_unless_symlink, change_cwd)
+from test.support import (import_module, TESTFN, unlink, check_warnings,
+                          captured_stdout, skip_unless_symlink, change_cwd,
+                          PythonSymlink, impl_detail)
 
 import sysconfig
 from sysconfig import (get_paths, get_platform, get_config_vars,
@@ -121,13 +121,6 @@ class TestSysConfig(unittest.TestCase):
         sys.platform = 'win32'
         self.assertEqual(get_platform(), 'win-amd64')
 
-        # windows XP, itanium
-        os.name = 'nt'
-        sys.version = ('2.4.4 (#71, Oct 18 2006, 08:34:43) '
-                       '[MSC v.1310 32 bit (Itanium)]')
-        sys.platform = 'win32'
-        self.assertEqual(get_platform(), 'win-ia64')
-
         # macbook
         os.name = 'posix'
         sys.version = ('2.5 (r25:51918, Sep 19 2006, 08:49:13) '
@@ -236,31 +229,15 @@ class TestSysConfig(unittest.TestCase):
         self.assertTrue(os.path.isfile(config_h), config_h)
 
     def test_get_scheme_names(self):
-        wanted = ('nt', 'nt_user', 'osx_framework_user',
-                  'posix_home', 'posix_prefix', 'posix_user', 'pypy')
+        wanted = ('nt', 'nt_user', 'osx_framework_user', 'posix_home',
+                  'posix_prefix', 'posix_user')
         self.assertEqual(get_scheme_names(), wanted)
 
     @skip_unless_symlink
-    def test_symlink(self):
-        # On Windows, the EXE needs to know where pythonXY.dll is at so we have
-        # to add the directory to the path.
-        if sys.platform == "win32":
-            os.environ["PATH"] = "{};{}".format(
-                os.path.dirname(sys.executable), os.environ["PATH"])
-
-        # Issue 7880
-        def get(python):
-            cmd = [python, '-c',
-                   'import sysconfig; print(sysconfig.get_platform())']
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=os.environ)
-            return p.communicate()
-        real = os.path.realpath(sys.executable)
-        link = os.path.abspath(TESTFN)
-        os.symlink(real, link)
-        try:
-            self.assertEqual(get(real), get(link))
-        finally:
-            unlink(link)
+    def test_symlink(self): # Issue 7880
+        with PythonSymlink() as py:
+            cmd = "-c", "import sysconfig; print(sysconfig.get_platform())"
+            self.assertEqual(py.call_real(*cmd), py.call_link(*cmd))
 
     def test_user_similar(self):
         # Issue #8759: make sure the posix scheme for the users
@@ -290,37 +267,13 @@ class TestSysConfig(unittest.TestCase):
             _main()
         self.assertTrue(len(output.getvalue().split('\n')) > 0)
 
-    @impl_detail("PyPy lacks LDFLAGS/LDSHARED config vars", pypy=False)
     @unittest.skipIf(sys.platform == "win32", "Does not apply to Windows")
     def test_ldshared_value(self):
         ldflags = sysconfig.get_config_var('LDFLAGS')
         ldshared = sysconfig.get_config_var('LDSHARED')
-
+        assert ldflags
+        assert ldshared
         self.assertIn(ldflags, ldshared)
-
-    @unittest.skipIf(sys.platform == "win32", "Does not apply to Windows")
-    def test_cc_values(self):
-        """ CC and CXX should be set for pypy """
-        for var in ["CC", "CXX"]:
-            assert sysconfig.get_config_var(var) is not None
-
-    @unittest.skipIf(not find_executable("gcc"),
-        "Does not apply to machines without gcc installed"
-    )
-    def test_gcc_values(self):
-        """ if gcc is installed on the box, gcc values should be set. """
-        assert "gcc" in sysconfig.get_config_var("CC")
-        assert sysconfig.get_config_var("GNULD") == "yes"
-        assert "gcc" in sysconfig.get_config_var("LDSHARED")
-
-
-    @unittest.skipIf(not find_executable("g++"),
-        "Does not apply to machines without g++ installed"
-    )
-    def test_gplusplus_values(self):
-        """ if g++ is installed on the box, g++ values should be set. """
-        assert "g++" in sysconfig.get_config_var("CXX")
-
 
     @unittest.skipUnless(sys.platform == "darwin", "test only relevant on MacOSX")
     def test_platform_in_subprocess(self):
@@ -408,30 +361,28 @@ class TestSysConfig(unittest.TestCase):
 
     @unittest.skipIf(sysconfig.get_config_var('EXT_SUFFIX') is None,
                      'EXT_SUFFIX required for this test')
-    def test_SO_in_vars(self):
+    def test_EXT_SUFFIX_in_vars(self):
+        import _imp
         vars = sysconfig.get_config_vars()
         self.assertIsNotNone(vars['SO'])
         self.assertEqual(vars['SO'], vars['EXT_SUFFIX'])
+        self.assertEqual(vars['EXT_SUFFIX'], _imp.extension_suffixes()[0])
 
-    @unittest.skipUnless(sys.platform == 'linux', 'Linux-specific test')
+    @unittest.skipUnless(sys.platform == 'linux' and
+                         hasattr(sys.implementation, '_multiarch'),
+                         'multiarch-specific test')
     def test_triplet_in_ext_suffix(self):
-        import ctypes, platform, re
+        ctypes = import_module('ctypes')
+        import platform, re
         machine = platform.machine()
         suffix = sysconfig.get_config_var('EXT_SUFFIX')
         if re.match('(aarch64|arm|mips|ppc|powerpc|s390|sparc)', machine):
             self.assertTrue('linux' in suffix, suffix)
         if re.match('(i[3-6]86|x86_64)$', machine):
             if ctypes.sizeof(ctypes.c_char_p()) == 4:
-                self.assertTrue(
-                    suffix.endswith((
-                        'i386-linux-gnu.so',
-                        'i486-linux-gnu.so',
-                        'i586-linux-gnu.so',
-                        'i686-linux-gnu.so',
-                        'x86_64-linux-gnux32.so',
-                    )),
-                    suffix,
-                )
+                self.assertTrue(suffix.endswith('i386-linux-gnu.so') or
+                                suffix.endswith('x86_64-linux-gnux32.so'),
+                                suffix)
             else: # 8 byte pointer size
                 self.assertTrue(suffix.endswith('x86_64-linux-gnu.so'), suffix)
 
@@ -469,9 +420,9 @@ class MakefileTests(unittest.TestCase):
             'var6': '42/lib/python3.5/config-b42dollar$5-x86_64-linux-gnu',
         })
 
-
-def test_main():
-    run_unittest(TestSysConfig, MakefileTests)
+    def test_multiarch_config_var(self):
+        multiarch = get_config_var('MULTIARCH')
+        self.assertIsInstance(multiarch, str)
 
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

@@ -11,6 +11,9 @@ P = import_fresh_module('decimal', blocked=['_decimal'])
 # import _decimal as C
 # import _pydecimal as P
 
+if not C:
+    C = P
+
 @pytest.yield_fixture(params=[C, P], ids=['_decimal', '_pydecimal'])
 def module(request):
     yield request.param
@@ -98,6 +101,22 @@ def convert_arg(module, arg):
         return module.Decimal(str(arg))
     else:
         return arg
+
+def test_subclass_fromfloat_oddity_fixed(module):
+    # older versions of CPython's _decimal did weird stuff here
+    class A(module.Decimal):
+        def __init__(self, a):
+            self.a_type = type(a)
+    a = A.from_float(42.5)
+    assert a.a_type is module.Decimal
+
+def test_subclass_float_constructor(module):
+    class A(module.Decimal):
+        pass
+    a = A(0.25)
+    assert type(a) is A
+
+
 
 from fractions import Fraction
 from decimal import Decimal

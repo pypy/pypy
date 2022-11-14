@@ -93,6 +93,8 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
             assert nos == [0, 1, 33]
         elif self.cpu.backend_name.startswith('zarch'):
             assert nos == [0, 1, 29]
+        elif self.cpu.backend_name.startswith('aarch64'):
+            assert nos == [0, 1, 27]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
@@ -505,7 +507,6 @@ JITFRAME = lltype.GcStruct(
     ('jf_frame_info', lltype.Ptr(jitframe.JITFRAMEINFO)),
     ('jf_descr', llmemory.GCREF),
     ('jf_force_descr', llmemory.GCREF),
-    ('jf_extra_stack_depth', lltype.Signed),
     ('jf_guard_exc', llmemory.GCREF),
     ('jf_gcmap', lltype.Ptr(jitframe.GCMAP)),
     ('jf_gc_trace_state', lltype.Signed),
@@ -592,7 +593,7 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         descrs = JitFrameDescrs()
         descrs.arraydescr = cpu.arraydescrof(JITFRAME)
         for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
-                     'jf_frame_info', 'jf_gcmap', 'jf_extra_stack_depth']:
+                     'jf_frame_info', 'jf_gcmap']:
             setattr(descrs, name, cpu.fielddescrof(JITFRAME, name))
         descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,
                                                   'jfi_frame_depth')
@@ -672,6 +673,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             elif self.cpu.backend_name.startswith('zarch'):
                 # 10 gpr, 14 fpr -> 25 is the first slot
                 assert gcmap == [26, 27, 28]
+            elif self.cpu.backend_name.startswith('aarch64'):
+                assert gcmap == [24, 25, 26]
             elif self.cpu.IS_64_BIT:
                 assert gcmap == [28, 29, 30]
             elif self.cpu.backend_name.startswith('arm'):

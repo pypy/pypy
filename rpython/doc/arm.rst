@@ -3,6 +3,13 @@
 Cross-translating for ARM
 =========================
 
+.. note::
+
+  The information here is unfortunately only of historical value. Scratchbox is
+  no longer functional. However it seems translation of ARM32 is possible on a
+  aarch64 machine using chroot and ``setarch linux32 pypy rpython/bin/rpython
+  ...``
+
 Here we describe the setup required and the steps needed to follow to translate
 an interpreter using the RPython translator to target ARM using a cross
 compilation toolchain.

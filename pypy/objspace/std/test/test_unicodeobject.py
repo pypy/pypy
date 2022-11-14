@@ -1,12 +1,11 @@
 # -*- encoding: utf-8 -*-
-import py
-import sys
+import py, os
 try:
     from hypothesis import given, strategies, settings, example
     HAS_HYPOTHESIS = True
 except ImportError:
     HAS_HYPOTHESIS = False
-    
+
 from rpython.rlib import rutf8
 from pypy.interpreter.error import OperationError
 
@@ -27,9 +26,9 @@ class TestUnicodeObject:
         s2 = unicode_to_decimal_w(space, w_s)
         assert s2 == "10"
 
-    def test_listview_unicode(self):
+    def test_listview_ascii(self):
         w_str = self.space.newutf8('abcd', 4)
-        assert self.space.listview_utf8(w_str) == list("abcd")
+        assert self.space.listview_ascii(w_str) == list("abcd")
 
     def test_new_shortcut(self):
         space = self.space
@@ -52,71 +51,6 @@ class TestUnicodeObject:
 
 
     if HAS_HYPOTHESIS:
-        @given(strategies.text(), strategies.integers(min_value=0, max_value=10),
-                                  strategies.integers(min_value=-1, max_value=10))
-        def test_hypo_index_find(self, u, start, len1):
-            if start + len1 < 0:
-                return   # skip this case
-            v = u[start : start + len1]
-            space = self.space
-            w_u = space.newutf8(u.encode('utf8'), len(u))
-            w_v = space.newutf8(v.encode('utf8'), len(v))
-            expected = u.find(v, start, start + len1)
-            try:
-                w_index = space.call_method(w_u, 'index', w_v,
-                                            space.newint(start),
-                                            space.newint(start + len1))
-            except OperationError as e:
-                if not e.match(space, space.w_ValueError):
-                    raise
-                assert expected == -1
-            else:
-                assert space.int_w(w_index) == expected >= 0
-
-            w_index = space.call_method(w_u, 'find', w_v,
-                                        space.newint(start),
-                                        space.newint(start + len1))
-            assert space.int_w(w_index) == expected
-            rexpected = u.rfind(v, start, start + len1)
-            try:
-                w_index = space.call_method(w_u, 'rindex', w_v,
-                                            space.newint(start),
-                                            space.newint(start + len1))
-            except OperationError as e:
-                if not e.match(space, space.w_ValueError):
-                    raise
-                assert rexpected == -1
-            else:
-                assert space.int_w(w_index) == rexpected >= 0
-
-            w_index = space.call_method(w_u, 'rfind', w_v,
-                                        space.newint(start),
-                                        space.newint(start + len1))
-            assert space.int_w(w_index) == rexpected
-
-            expected = u.startswith(v, start)
-            w_res = space.call_method(w_u, 'startswith', w_v,
-                                      space.newint(start))
-            assert w_res is space.newbool(expected)
-
-            expected = u.startswith(v, start, start + len1)
-            w_res = space.call_method(w_u, 'startswith', w_v,
-                                      space.newint(start),
-                                      space.newint(start + len1))
-            assert w_res is space.newbool(expected)
-
-            expected = u.endswith(v, start)
-            w_res = space.call_method(w_u, 'endswith', w_v,
-                                      space.newint(start))
-            assert w_res is space.newbool(expected)
-
-            expected = u.endswith(v, start, start + len1)
-            w_res = space.call_method(w_u, 'endswith', w_v,
-                                      space.newint(start),
-                                      space.newint(start + len1))
-            assert w_res is space.newbool(expected)
-
-
         @given(u=strategies.text(),
                start=strategies.integers(min_value=0, max_value=10),
                len1=strategies.integers(min_value=-1, max_value=10))
@@ -161,37 +95,59 @@ class TestUnicodeObject:
                                         space.newint(start + len1))
             assert space.int_w(w_index) == rexpected
 
-            expected = u.startswith(v, start)
-            if expected and start > len(u):
-                expected = False # python2 vs. python3
-            w_res = space.call_method(w_u, 'startswith', w_v,
-                                      space.newint(start))
-            assert w_res is space.newbool(expected)
+    def test_getitem_constant_index_jit(self):
+        # test it directly, to prevent only seeing bugs in jitted code
+        space = self.space
+        u = u"äöabc"
+        w_u = self.space.wrap(u)
+        for i in range(-len(u), len(u)):
+            assert w_u._getitem_result_constant_index_jit(space, i)._utf8 == u[i].encode("utf-8")
+        with py.test.raises(OperationError):
+            w_u._getitem_result_constant_index_jit(space, len(u))
+        with py.test.raises(OperationError):
+            w_u._getitem_result_constant_index_jit(space, -len(u) - 1)
 
-            expected = u.startswith(v, start, start + len1)
-            if ((expected and start > len(u)) or 
-                    (start > 0 and start + len1 ==0)): 
-                expected = False # python2 vs. python3
-            w_res = space.call_method(w_u, 'startswith', w_v,
-                                      space.newint(start),
-                                      space.newint(start + len1))
-            assert w_res is space.newbool(expected)
+    def test_getslice_constant_index_jit(self):
+        space = self.space
+        u = u"äöabcéééß"
+        w_u = self.space.wrap(u)
+        for start in range(0, 4):
+            for end in range(start, len(u)):
+                assert w_u._unicode_sliced_constant_index_jit(space, start, end)._utf8 == u[start: end].encode("utf-8")
 
-            expected = u.endswith(v, start)
-            if expected and start > len(u):
-                expected = False # python2 vs. python3
-            w_res = space.call_method(w_u, 'endswith', w_v,
-                                      space.newint(start))
-            assert w_res is space.newbool(expected)
+    def test_lower_upper_ascii(self):
+        from pypy.module.unicodedata.interp_ucd import unicodedb
+        # check that ascii chars tolower/toupper still behave sensibly in the
+        # unicodedb - unlikely to ever change, but well
+        for ch in range(128):
+            unilower, = unicodedb.tolower_full(ch)
+            assert chr(unilower) == chr(ch).lower()
+            uniupper, = unicodedb.toupper_full(ch)
+            assert chr(uniupper) == chr(ch).upper()
 
-            expected = u.endswith(v, start, start + len1)
-            if ((expected and start > len(u)) or 
-                    (start > 0 and start + len1 ==0)): 
-                expected = False # python2 vs. python3
-            w_res = space.call_method(w_u, 'endswith', w_v,
-                                      space.newint(start),
-                                      space.newint(start + len1))
-            assert w_res is space.newbool(expected)
+    def test_latin1_ascii_encode_shortcut_ascii(self, monkeypatch):
+        from rpython.rlib import rutf8
+        from pypy.objspace.std.unicodeobject import encode_object
+        monkeypatch.setattr(rutf8, "check_ascii", None)
+        w_b = encode_object(self.space, self.space.newutf8("abc", 3), "latin-1", "strict")
+        assert self.space.bytes_w(w_b) == "abc"
+        w_b = encode_object(self.space, self.space.newutf8("abc", 3), "ascii", "strict")
+        assert self.space.bytes_w(w_b) == "abc"
+
+    def test_utf8_ascii_encode_shortcut_ascii(self, monkeypatch):
+        from rpython.rlib import rutf8
+        from pypy.objspace.std.unicodeobject import encode_object
+        monkeypatch.setattr(rutf8, "check_utf8", None)
+        for enc in ["utf-8", "UTF-8", "utf8"]:
+            w_b = encode_object(self.space, self.space.newutf8("abc", 3), enc, "strict")
+            assert self.space.bytes_w(w_b) == "abc"
+
+    def test_split_shortcut_ascii(self, monkeypatch):
+        from rpython.rlib import rutf8
+        monkeypatch.setattr(rutf8, "isspace", None)
+        w_s = self.space.newutf8("a b c", 5)
+        w_l = w_s.descr_split(self.space) # no crash
+        assert self.space.len_w(w_l) == 3
 
 
 class AppTestUnicodeStringStdOnly:
@@ -202,6 +158,7 @@ class AppTestUnicodeStringStdOnly:
         assert not ('a' == 5)
         assert 'a' != 5
         raises(TypeError, "'a' < 5")
+        raises(TypeError, "'a' < bytearray(b'a')")
 
 
 class AppTestUnicodeString:
@@ -222,9 +179,24 @@ class AppTestUnicodeString:
             assert a == b
             assert type(a) == type(b)
         check(', '.join(['a']), 'a')
+        check(', '.join(['a', 'b']), 'a, b')
         raises(TypeError, ','.join, [b'a'])
-        exc = raises(TypeError, ''.join, ['a', 2, 3])
+        check(','.join(iter([])), '')
+        with raises(TypeError) as exc:
+            ''.join(['a', 2, 3])
         assert 'sequence item 1' in str(exc.value)
+        with raises(TypeError) as exc:
+            ''.join(iter(['a', 2, 3]))
+        assert 'sequence item 1' in str(exc.value)
+        # unicode lists
+        check(''.join(['\u1234']), '\u1234')
+        check(''.join(['\u1234', '\u2345']), '\u1234\u2345')
+        check('\u1234'.join(['\u2345', '\u3456']), '\u2345\u1234\u3456')
+        check('x\u1234y'.join(['a', 'b', 'c']), 'ax\u1234ybx\u1234yc')
+        # also checking passing a single unicode instead of a list
+        check(''.join('\u1234'), '\u1234')
+        check(''.join('\u1234\u2345'), '\u1234\u2345')
+        check('\u1234'.join('\u2345\u3456'), '\u2345\u1234\u3456')
 
     def test_contains(self):
         assert '' in 'abc'
@@ -322,6 +294,9 @@ class AppTestUnicodeString:
         assert u''.rsplit('aaa') == [u'']
         assert u'a\nb\u1680c'.rsplit() == [u'a', u'b', u'c']
 
+    def test_rsplit_bug(self):
+        assert u'Vestur- og Mið'.rsplit() == [u'Vestur-', u'og', u'Mið']
+
     def test_center(self):
         s=u"a b"
         assert s.center(0) == u"a b"
@@ -355,6 +330,9 @@ class AppTestUnicodeString:
         assert u'\ud800'.title() == u'\ud800'
         assert (chr(0x345) + u'abc').title() == u'\u0399abc'
         assert (chr(0x345) + u'ABC').title() == u'\u0399abc'
+
+    def test_title_bug(self):
+        assert (chr(496) + "abc").title() == 'J̌abc'
 
     def test_istitle(self):
         assert u"".istitle() == False
@@ -412,7 +390,7 @@ class AppTestUnicodeString:
         # check that titlecased chars are lowered correctly
         # \u1ffc is the titlecased char
         assert (u'\u1ff3\u1ff3\u1ffc\u1ffc'.capitalize() ==
-                u'\u03a9\u0399\u1ff3\u1ff3\u1ff3')
+                u'\u1ffc\u1ff3\u1ff3\u1ff3')
         # check with cased non-letter chars
         assert (u'\u24c5\u24ce\u24c9\u24bd\u24c4\u24c3'.capitalize() ==
                 u'\u24c5\u24e8\u24e3\u24d7\u24de\u24dd')
@@ -425,6 +403,9 @@ class AppTestUnicodeString:
                 '\u019b\u1d00\u1d86\u0221\u1fb7')
         # cpython issue 17252 for i_dot
         assert u'h\u0130'.capitalize() == u'H\u0069\u0307'
+
+    def test_capitalize_bug_38(self):
+        assert 'ﬁnnish'.capitalize() == "Finnish"
 
     def test_changed_in_unicodedata_version_8(self):
         assert u'\u025C'.upper() == u'\uA7AB'
@@ -440,6 +421,12 @@ class AppTestUnicodeString:
         assert not "\u0378".isprintable()
         # single surrogate character
         assert not "\ud800".isprintable()
+
+    def test_isascii(self):
+        assert "".isascii()
+        assert "abcdefg\t".isascii()
+        assert not "abc\u0374".isascii()
+        assert not "\ud800abc".isascii()
 
     @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
     def test_isprintable_wide(self):
@@ -522,6 +509,7 @@ class AppTestUnicodeString:
         assert 'xyzzyhelloxyzzy'.strip('xyz') == 'hello'
         assert 'xyzzyhelloxyzzy'.lstrip('xyz') == 'helloxyzzy'
         assert 'xyzzyhelloxyzzy'.rstrip('xyz') == 'xyzzyhello'
+        raises(TypeError, s.strip, bytearray(b'a'))
 
     def test_long_from_unicode(self):
         assert int('12345678901234567890') == 12345678901234567890
@@ -541,7 +529,7 @@ class AppTestUnicodeString:
     def test_repr(self):
         for ustr in ["", "a", "'", "\'", "\"", "\t", "\\", '',
                      'a', '"', '\'', '\"', '\t', '\\', "'''\"",
-                     chr(19), chr(2), '\u1234', '\U00101234']:
+                     chr(19), chr(2), '\u1234', '\U00101234', '\U0001f42a']:
             assert eval(repr(ustr)) == ustr
 
     def test_getnewargs(self):
@@ -593,6 +581,14 @@ class AppTestUnicodeString:
         assert 'ab'.startswith('b', 1) is True
         assert 'abc'.startswith('bc', 1, 2) is False
         assert 'abc'.startswith('c', -1, 4) is True
+        assert '0'.startswith('', 1, -1) is False
+        assert '0'.startswith('', 1, 0) is False
+        assert '0'.startswith('', 1) is True
+        assert '0'.startswith('', 1, None) is True
+        assert ''.startswith('', 1, -1) is False
+        assert ''.startswith('', 1, 0) is False
+        assert ''.startswith('', 1) is False
+        assert ''.startswith('', 1, None) is False
         try:
             'hello'.startswith(['o'])
         except TypeError as e:
@@ -650,6 +646,7 @@ class AppTestUnicodeString:
         assert 'abc'.endswith('bc', 1) is True
         assert 'abc'.endswith('bc', 2) is False
         assert 'abc'.endswith('b', -3, -1) is True
+        assert '0'.endswith('', 1, -1) is False
         try:
             'hello'.endswith(['o'])
         except TypeError as e:
@@ -716,6 +713,7 @@ class AppTestUnicodeString:
 
         raises(TypeError, 'hello'.translate)
         raises(ValueError, "\xff".translate, {0xff: sys.maxunicode+1})
+        raises(ValueError, u'x'.translate, {ord('x'):0x110000})
 
     def test_maketrans(self):
         assert 'abababc' == 'abababc'.translate({'b': '<i>'})
@@ -736,6 +734,11 @@ class AppTestUnicodeString:
 
         raises(TypeError, 'hello'.translate)
         raises(TypeError, 'abababc'.translate, 'abc', 'xyz')
+
+    def test_maketrans_bug(self):
+        assert str.maketrans(u'啊', u'阿') == {21834: 38463}
+        assert str.maketrans(u'啊', u'a') == {21834: 97}
+        assert str.maketrans(u'', u'', u'阿') == {38463: None}
 
     def test_unicode_from_encoded_object(self):
         assert str(b'x', 'utf-8') == 'x'
@@ -828,6 +831,10 @@ class AppTestUnicodeString:
         # CESU-8
         raises(UnicodeDecodeError, b'\xed\xa0\xbc\xed\xb2\xb1'.decode, 'utf-8')
 
+    def test_encode_fast_path_bug_position(self):
+        info = raises(UnicodeEncodeError, "ää\ud800".encode, "utf-8")
+        assert info.value.start == 2 # used to be 4
+
     def test_codecs_errors(self):
         # Error handling (encoding)
         raises(UnicodeError, 'Andr\202 x'.encode, 'ascii')
@@ -849,6 +856,11 @@ class AppTestUnicodeString:
 
         raises(UnicodeError, b"\xc2".decode, "utf-8")
         assert b'\xe1\x80'.decode('utf-8', 'replace') == "\ufffd"
+
+    def test_invalid_lookup(self):
+
+        raises(LookupError, u"abcd".encode, "hex")
+        raises(LookupError, b"abcd".decode, "hex")
 
     def test_repr_printable(self):
         # PEP 3138: __repr__ respects printable characters.
@@ -1162,8 +1174,7 @@ class AppTestUnicodeString:
     def test_format_repeat(self):
         assert format(u"abc", u"z<5") == u"abczz"
         assert format(u"abc", u"\u2007<5") == u"abc\u2007\u2007"
-        #CPython2 raises UnicodeEncodeError
-        assert format(123, u"\u2007<5") == u"123\u2007\u2007"
+        assert format(123, "\u2007<5") == "123\u2007\u2007"
 
     def test_formatting_unicode__repr__(self):
         # Printable character
@@ -1277,27 +1288,25 @@ class AppTestUnicodeString:
         assert u'A\u03a3\u0345'.lower() == u'a\u03c2\u0345'
         assert u'\u03a3\u0345 '.lower() == u'\u03c3\u0345 '
 
-    def test_encode_wrong_errors(self):
-        assert ''.encode(errors='some_wrong_name') == b''
-
-    def test_casefold(self):
-        assert u'hello'.casefold() == u'hello'
-        assert u'hELlo'.casefold() == u'hello'
-        assert u'ß'.casefold() == u'ss'
-        assert u'ﬁ'.casefold() == u'fi'
-        assert u'\u03a3'.casefold() == u'\u03c3'
-        assert u'A\u0345\u03a3'.casefold() == u'a\u03b9\u03c3'
-        assert u'\u00b5'.casefold() == u'\u03bc'
-
-    def test_lower_3a3(self):
+    def test_title_3a3(self):
         # Special case for GREEK CAPITAL LETTER SIGMA U+03A3
-        assert u'\u03a3'.lower() == u'\u03c3'
-        assert u'\u0345\u03a3'.lower() == u'\u0345\u03c3'
-        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
-        assert u'A\u0345\u03a3a'.lower() == u'a\u0345\u03c3a'
-        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
-        assert u'A\u03a3\u0345'.lower() == u'a\u03c2\u0345'
-        assert u'\u03a3\u0345 '.lower() == u'\u03c3\u0345 '
+        assert u'\u03a3abc'.title() == u'\u03a3abc'
+        assert u'\u03a3'.title() == u'Σ'
+        assert u'\u0345\u03a3'.title() == u'Ισ'
+        assert u'A\u0345\u03a3'.title() == u'Aͅς'
+        assert u'A\u0345\u03a3a'.title() == u'Aͅσa'
+        assert u'A\u0345\u03a3'.title() == u'Aͅς'
+        assert u'A\u03a3\u0345'.title() == u'Aςͅ'
+        assert u'\u03a3\u0345 '.title() == u'Σͅ '
+
+        assert u'ääää \u03a3'.title() == u'Ääää Σ'
+        assert u'ääää \u0345\u03a3'.title() == u'Ääää Ισ'
+        assert u'ääää A\u0345\u03a3'.title() == u'Ääää Aͅς'
+        assert u'ääää A\u0345\u03a3a'.title() == u'Ääää Aͅσa'
+        assert u'ääää A\u0345\u03a3'.title() == u'Ääää Aͅς'
+        assert u'ääää A\u03a3\u0345'.title() == u'Ääää Aςͅ'
+        assert u'ääää \u03a3\u0345 '.title() == u'Ääää Σͅ '
+
 
     def test_unicode_constructor_misc(self):
         x = u'foo'
@@ -1326,3 +1335,41 @@ class AppTestUnicodeString:
         assert str(e.value) == 'decoding str is not supported'
         e = raises(TypeError, str, z, 'supposedly_the_encoding')
         assert str(e.value) == 'decoding str is not supported'
+        #
+        e = raises(TypeError, str, 42, 'supposedly_the_encoding')
+        assert str(e.value) in [
+            'decoding to str: a bytes-like object is required, not int',
+            'decoding to str: need a bytes-like object, int found']
+        e = raises(TypeError, str, None, 'supposedly_the_encoding')
+        assert str(e.value) in [
+            'decoding to str: a bytes-like object is required, not None',
+            'decoding to str: need a bytes-like object, NoneType found']
+
+    def test_reduce_iterator(self):
+        it = iter(u"abcdef")
+        assert next(it) == u"a"
+        assert next(it) == u"b"
+        assert next(it) == u"c"
+        assert next(it) == u"d"
+        args = it.__reduce__()
+        assert next(it) == u"e"
+        assert next(it) == u"f"
+        it2 = args[0](*args[1])
+        it2.__setstate__(args[2])
+        assert next(it2) == u"e"
+        assert next(it2) == u"f"
+        it3 = args[0](*args[1])
+        it3.__setstate__(args[2])
+        assert next(it3) == u"e"
+        assert next(it3) == u"f"
+
+
+    def test_newlist_utf8_non_ascii(self):
+        'ä'.split("\n")[0] # does not crash
+
+    with open(os.path.join(os.path.dirname(__file__), 'startswith.py')) as f:
+        exec 'def test_startswith_endswith_external(self): """%s"""\n' % (
+            f.read(),)
+    def test_replace_no_occurrence(self):
+        x = u"xyz"
+        assert x.replace(u"a", u"b") is x

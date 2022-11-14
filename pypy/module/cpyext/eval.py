@@ -5,15 +5,15 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
-    cpython_struct)
+    cpython_struct, ferror)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
-from pypy.module.cpyext.funcobject import PyCodeObject
 from pypy.module.cpyext.frameobject import PyFrameObject
 from pypy.module.__builtin__ import compiling
 
 PyCompilerFlags = cpython_struct(
-    "PyCompilerFlags", (("cf_flags", rffi.INT),))
+    "PyCompilerFlags", (("cf_flags", rffi.INT),
+                        ("cf_feature_version", rffi.INT)))
 PyCompilerFlagsPtr = lltype.Ptr(PyCompilerFlags)
 
 PyCF_MASK = (consts.CO_FUTURE_DIVISION |
@@ -64,7 +64,7 @@ def PyEval_GetFrame(space):
     caller = space.getexecutioncontext().gettopframe_nohidden()
     return caller    # borrowed ref, may be null
 
-@cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyEval_EvalCode(space, w_code, w_globals, w_locals):
     """This is a simplified interface to PyEval_EvalCodeEx(), with just
     the code object, and the dictionaries of global and local variables.
@@ -85,6 +85,10 @@ def PyObject_CallObject(space, w_obj, w_arg):
     callable_object(*args)."""
     return space.call(w_obj, w_arg)
 
+@cpython_api([PyObject], PyObject)
+def _PyObject_CallNoArg(space, w_obj):
+    return space.call_function(w_obj)
+
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyObject_Call(space, w_obj, w_args, w_kw):
     """
@@ -96,12 +100,18 @@ def PyObject_Call(space, w_obj, w_args, w_kw):
     apply(callable_object, args, kw) or callable_object(*args, **kw)."""
     return space.call(w_obj, w_args, w_kw)
 
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def PyCFunction_Call(space, w_obj, w_args, w_kw):
+    return space.call(w_obj, w_args, w_kw)
+
 # These constants are also defined in include/eval.h
 Py_single_input = 256
 Py_file_input = 257
 Py_eval_input = 258
+Py_func_type_input = 345
 
-def compile_string(space, source, filename, start, flags=0):
+def compile_string(space, source, filename, start, flags=0, feature_version=-1):
     w_source = space.newbytes(source)
     start = rffi.cast(lltype.Signed, start)
     if start == Py_file_input:
@@ -110,10 +120,13 @@ def compile_string(space, source, filename, start, flags=0):
         mode = 'eval'
     elif start == Py_single_input:
         mode = 'single'
+    elif start == Py_func_type_input:
+        mode = 'func_type'
     else:
         raise oefmt(space.w_ValueError,
                     "invalid mode parameter for compilation")
-    return compiling.compile(space, w_source, filename, mode, flags)
+    return compiling.compile(space, w_source, filename, mode, flags,
+                             _feature_version=feature_version)
 
 def run_string(space, source, filename, start, w_globals, w_locals):
     w_code = compile_string(space, source, filename, start)
@@ -149,9 +162,12 @@ def PyRun_StringFlags(space, source, start, w_globals, w_locals, flagsptr):
     source = rffi.charp2str(source)
     if flagsptr:
         flags = rffi.cast(lltype.Signed, flagsptr.c_cf_flags)
+        feature_version = rffi.cast(lltype.Signed, flagsptr.c_cf_feature_version)
     else:
         flags = 0
-    w_code = compile_string(space, source, "<string>", start, flags)
+        feature_version = -1
+    w_code = compile_string(space, source, "<string>", start, flags=flags,
+                            feature_version=feature_version)
     return compiling.eval(space, w_code, w_globals, w_locals)
 
 @cpython_api([FILEP, CONST_STRING, rffi.INT_real, PyObject, PyObject], PyObject)
@@ -171,6 +187,9 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
             count = rffi.cast(lltype.Signed, count)
             source += rffi.charpsize2str(buf.raw, count)
             if count < BUF_SIZE:
+                if ferror(fp):
+                    PyErr_SetFromErrno(space, space.w_IOError)
+                    return
                 if feof(fp):
                     break
                 PyErr_SetFromErrno(space, space.w_IOError)
@@ -244,7 +263,7 @@ def Py_SetRecursionLimit(space, limit):
 
 limit = 0 # for testing
 
-@cpython_api([rffi.CCHARP], rffi.INT_real, error=1)
+@cpython_api([CONST_STRING], rffi.INT_real, error=1)
 def Py_EnterRecursiveCall(space, where):
     """Marks a point where a recursive C-level call is about to be performed.
 

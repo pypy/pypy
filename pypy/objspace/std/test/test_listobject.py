@@ -2,7 +2,8 @@
 import py
 import random
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
-     IntegerListStrategy, ObjectListStrategy
+     IntegerListStrategy, BytesListStrategy, FloatListStrategy, \
+     ObjectListStrategy, IntOrFloatListStrategy, AsciiListStrategy
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rarithmetic import is_valid_int
 
@@ -423,14 +424,87 @@ class TestW_ListObject(object):
         monkeypatch.setattr(self.space, "eq_w", None)
         w = self.space.wrap
         intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7)])
-        res = intlist.find(w(4), 0, 7)
+        res = intlist.find_or_count(w(4), 0, 7)
         assert res == 3
-        res = intlist.find(w(4), 0, 100)
+        res = intlist.find_or_count(w(4), 0, 100)
         assert res == 3
         with py.test.raises(ValueError):
-            intlist.find(w(4), 4, 7)
+            intlist.find_or_count(w(4), 4, 7)
         with py.test.raises(ValueError):
-            intlist.find(w(4), 0, 2)
+            intlist.find_or_count(w(4), 0, 2)
+
+    def test_count_fast_on_intlist(self, monkeypatch):
+        monkeypatch.setattr(self.space, "eq_w", None)
+        w = self.space.wrap
+        intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7), w(4)])
+        res = intlist.find_or_count(w(4), 0, 7, count=True)
+        assert res == 1
+        res = intlist.find_or_count(w(4), 0, 100, count=True)
+        assert res == 2
+        res = intlist.find_or_count(w(4), 4, 7, count=True)
+        assert res == 0
+        res = intlist.find_or_count(w(4), 0, 2, count=True)
+        assert res == 0
+
+    def test_intlist_to_object_too_much_wrapping(self):
+        w = self.space.wrap
+        w_list = W_ListObject(self.space, [w(1000000)] * 100)
+        assert isinstance(w_list.strategy, IntegerListStrategy)
+        w_list.setitem(0, w(1))
+        w_list.setitem(0, self.space.w_None)
+        assert isinstance(w_list.strategy, ObjectListStrategy)
+        l = w_list.getitems()
+        assert len(set(l)) == 2
+
+    def test_floatlist_to_object_too_much_wrapping(self):
+        w = self.space.wrap
+        for value in [11233.12, float('NaN')]:
+            w_list = W_ListObject(self.space, [w(value)] * 100)
+            assert isinstance(w_list.strategy, FloatListStrategy)
+            w_list.setitem(0, self.space.w_None)
+            assert isinstance(w_list.strategy, ObjectListStrategy)
+            l = w_list.getitems()
+            for element in l[2:]:
+                assert element is l[1]
+
+    def test_intorfloatlist_to_object_too_much_wrapping(self):
+        w = self.space.wrap
+        w_list = W_ListObject(self.space, [w(0)] * 100)
+        w_list.setitem(0, w(1.1))
+        assert isinstance(w_list.strategy, IntOrFloatListStrategy)
+        w_list.setitem(0, self.space.w_None)
+        assert isinstance(w_list.strategy, ObjectListStrategy)
+        l = w_list.getitems()
+        assert len(set(l)) == 2
+
+    def test_byteslist_to_object_too_much_wrapping(self):
+        w = self.space.wrap
+        w_list = W_ListObject(self.space, [self.space.newbytes(b"abc")] * 100)
+        assert isinstance(w_list.strategy, BytesListStrategy)
+        w_list.setitem(0, self.space.w_None)
+        assert isinstance(w_list.strategy, ObjectListStrategy)
+        l = w_list.getitems()
+        for element in l[2:]:
+            assert element is l[1]
+
+    def test_asciilist_to_object_too_much_wrapping(self):
+        w = self.space.wrap
+        w_list = W_ListObject(self.space, [self.space.newutf8(b"abc", 3)] * 100)
+        assert isinstance(w_list.strategy, AsciiListStrategy)
+        w_list.setitem(0, self.space.w_None)
+        assert isinstance(w_list.strategy, ObjectListStrategy)
+        l = w_list.getitems()
+        for element in l[2:]:
+            assert element is l[1]
+
+    def test_tuple_extend_shortcut(self, space, monkeypatch):
+        from pypy.objspace.std import listobject
+        w = self.space.wrap
+        w_list = W_ListObject(space, [w(5)])
+        w_tup = space.newtuple([w(6), w(7)])
+        monkeypatch.setattr(listobject, "_do_extend_from_iterable", None)
+        space.call_method(w_list, "extend", w_tup) # does not crash because of the shortcut
+        assert space.unwrap(w_list) == [5, 6, 7]
 
 
 class AppTestListObject(object):
@@ -1130,11 +1204,45 @@ class AppTestListObject(object):
             b[i:i+1] = ['y']
         assert b == ['y'] * count
 
+    def test_setslice_full(self):
+        l = [1, 2, 3]
+        l[::] = "abc"
+        assert l == ['a', 'b', 'c']
+
+        l = [1, 2, 3]
+        l[::] = []
+        assert l == []
+
+        l = [1, 2, 3]
+        l[::] = l
+        assert l == [1, 2, 3]
+
+    def test_setslice_full_bug(self):
+        l = [1, 2, 3]
+        l[::] = (x + 1 for x in l)
+        assert l == [2, 3, 4]
+
     def test_recursive_repr(self):
         l = []
         assert repr(l) == '[]'
         l.append(l)
         assert repr(l) == '[[...]]'
+
+    def test_repr_strategies(self):
+        assert repr([]) == '[]'
+        assert repr([1, 2, 3]) == '[1, 2, 3]'
+        assert repr([1.1, 2.1, 3.1]) == '[1.1, 2.1, 3.1]'
+        assert repr([1.1, 2.1, 3.1, float('nan')]) == '[1.1, 2.1, 3.1, nan]'
+        # mixed
+        assert repr([100, 23, -1.1, 2.1, 3.1, float('nan')]) == '[100, 23, -1.1, 2.1, 3.1, nan]'
+        # bytes
+        assert repr([b'a', b'b', b'c']) == "[b'a', b'b', b'c']"
+        # asciilist
+        assert repr([u'a', u'b', u'c']) == "['a', 'b', 'c']"
+        # some objects
+        o1 = object()
+        d = {1: 2, None: False}
+        assert repr([o1, d]) == '[%r, %r]' % (o1, d)
 
     def test_copy(self):
         # test that empty list copies the empty list
@@ -1206,6 +1314,42 @@ class AppTestListObject(object):
         assert c.count('l') == 2
         assert c.count('h') == 1
         assert c.count('w') == 0
+
+        c = [0, 1, 2, 2, 3]
+        assert c.count(2) == 2
+        assert c.count(1) == 1
+        assert c.count(0) == 1
+        assert c.count(10) == 0
+
+        c = [0., 1., 2., 2., 3., 0.0, -0.0]
+        assert c.count(2) == 2
+        assert c.count(1) == 1
+        assert c.count(0) == 3
+        assert c.count(10) == 0
+        assert c.count('abc') == 0
+
+        c = [0, 1, 2, 2., 3, 0.0, -0.0]
+        assert c.count(2) == 2
+        assert c.count(1) == 1
+        assert c.count(0) == 3
+        assert c.count(10) == 0
+        assert c.count(2.) == 2
+        assert c.count(1.) == 1
+        assert c.count(0.) == 3
+        assert c.count(-0.) == 3
+        assert c.count(10.) == 0
+        assert c.count('abc') == 0
+
+        c = [0, "abc", 1, 2, 2., 3, 0.0, -0.0, None]
+        assert c.count(2) == 2
+        assert c.count(2.) == 2
+        assert c.count(1) == 1
+        assert c.count(1.) == 1
+        assert c.count(0) == 3
+        assert c.count(0.0) == 3
+        assert c.count(-0.0) == 3
+        assert c.count(10) == 0
+        assert c.count('abc') == 1
 
     def test_insert(self):
         c = list('hello world')
@@ -1402,6 +1546,10 @@ class AppTestListObject(object):
         s = u"\u2039"
         l1 = list(s)
         assert len(l1) == 1
+
+    def test_unicode_bug_in_listview_utf8(self):
+        l1 = list(u'\u1234\u2345')
+        assert l1 == [u'\u1234', u'\u2345']
 
     def test_list_from_set(self):
         l = ['a']
@@ -1654,6 +1802,9 @@ class AppTestListObject(object):
             assert L3.index(0.0, i) == i
             assert L3.index(-0.0, i) == i
 
+    def test_list_new_pos_only(self):
+        with raises(TypeError):
+            list(sequence=[])
 
 class AppTestWithoutStrategies:
     spaceconfig = {"objspace.std.withliststrategies": False}

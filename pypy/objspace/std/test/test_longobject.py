@@ -38,6 +38,14 @@ class TestW_LongObject:
                 w_obj = space.newlong_from_rarith_int(r(x))
                 assert space.bigint_w(w_obj).eq(rbigint.fromlong(x))
 
+    def test_int_mod_gives_int(self):
+        space = self.space
+        fromlong = lobj.W_LongObject.fromlong
+        x = fromlong(13)
+        y = space.newint(2)
+        z = space.mod(x, y)
+        assert space.eq_w(z, space.newint(1))
+        assert not isinstance(z, lobj.W_LongObject)
 
 class AppTestLong:
 
@@ -212,7 +220,12 @@ class AppTestLong:
         raises(OverflowError, "long(1) << (2 ** 100)")
         raises(ValueError, "long(1) >> long(-1)")
         raises(ValueError, "long(1) >> -1")
-        raises(OverflowError, "long(1) >> (2 ** 100)")
+        assert long(1) >> (2 ** 100) == 0
+        assert long(-1) >> (2 ** 100) == -1
+        assert 1 >> (2 ** 100) == 0 # int compatibility
+        assert -1 >> (2 ** 100) == -1 # int compatibility
+        assert 0 << (1 << 1000) == 0
+
 
     def test_pow(self):
         long = self._long
@@ -221,7 +234,6 @@ class AppTestLong:
         assert pow(-self._long(1), -self._long(1)) == -1.0
         assert pow(2 ** 68, 0.5) == 2.0 ** 34
         assert pow(2 ** 68, 2) == 2 ** 136
-        raises(ValueError, pow, long(2), -1, 3)
         raises(ValueError, pow, long(2), 5, 0)
 
         # some rpow tests
@@ -380,7 +392,8 @@ class AppTestLong:
                 return IntSubclass(42)
         n = int(ReturnsIntSubclass())
         assert n == 42
-        assert type(n) is IntSubclass
+        # cpython 3.6 fixed behaviour to actually return type int here
+        assert type(n) is int
 
     def test_trunc_returns(self):
         # but!: (blame CPython 2.7)
@@ -401,7 +414,7 @@ class AppTestLong:
                 return IntSubclass(42)
         n = int(TruncReturnsNonInt())
         assert n == 42
-        assert type(n) is IntSubclass
+        assert type(n) is int
 
     def test_long_before_string(self):
         class A(str):
@@ -510,3 +523,67 @@ class AppTestLong:
         assert a is not b
         b -= 1
         assert a is b
+
+    def test_pow_negative_exponent_modulo(self):
+        import math
+        mod = 2 ** 100
+        res = 519502503658624787456021964081
+        assert pow(3**100, -1, mod) == res
+        assert pow(3**100, -2, mod) == (519502503658624787456021964081 ** 2) % mod
+
+        for i in range(1, 7):
+            i = self._long(i)
+            for j in range(2, 7):
+                j = self._long(j)
+                for sign in [1, -1]:
+                    i = i * sign
+                    if math.gcd(i, j) != 1:
+                        with raises(ValueError):
+                            pow(i, -1, j)
+                        continue
+                    x = pow(i, -1, j)
+                    assert (x * i) % j == 1 % j
+
+                    for k in range(2, 4):
+                        y = pow(i, -k, j)
+                        assert y == pow(x, k, j)
+
+    def test_repr(self):
+        import sys
+        x = self._long(1)
+        big = x << self._long(4000)
+        assert len(str(big)) == 1205
+        huge = x << self._long(40000)
+        with raises(ValueError) as exc:
+            str(huge)
+        assert str(exc.value).startswith('Exceeds the limit')
+        s = '%x' % huge
+        assert len(s) == 10001  # much longer that 4300 ...
+        maxdigits = sys.get_int_max_str_digits()
+        less_huge = 10 ** maxdigits
+        with raises(ValueError) as exc:
+            str(less_huge)  # exactly on the cusp
+        sys.set_int_max_str_digits(0)
+        try:
+            str(huge)  # succeeds
+        finally:
+            sys.set_int_max_str_digits(maxdigits)
+
+    def test_sign_not_counted_in_int_max(self):
+        import sys
+
+        previous_limit = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(2048)
+        max_digits = sys.get_int_max_str_digits()
+        try:
+            s = '5' * max_digits
+            i = int(s)
+            pos_i = int(s)
+            assert i == pos_i
+            neg_i = int('-' + s)
+            assert -pos_i == neg_i
+            str(pos_i)  # succeeds?
+            str(neg_i)  # succeeds?
+        finally:
+            sys.set_int_max_str_digits(previous_limit)
+

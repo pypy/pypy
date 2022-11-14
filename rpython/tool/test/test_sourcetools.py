@@ -8,8 +8,8 @@ def test_rename():
 
     g = func_with_new_name(f, "g")
     assert g(4, 5) == 9
-    assert g.func_name == "g"
-    assert f.func_defaults == (5,)
+    assert g.__name__ == "g"
+    assert f.__defaults__ == (5,)
     assert g.prop is int
 
 def test_rename_decorator():
@@ -20,8 +20,8 @@ def test_rename_decorator():
 
     assert f(4, 5) == 9
 
-    assert f.func_name == "g"
-    assert f.func_defaults == (5,)
+    assert f.__name__ == "g"
+    assert f.__defaults__ == (5,)
     assert f.prop is int
 
 def test_func_rename_decorator():
@@ -29,12 +29,12 @@ def test_func_rename_decorator():
         'doc'
 
     bar2 = func_with_new_name(bar, 'bar2')
-    assert bar.func_doc == bar2.func_doc == 'doc'
+    assert bar.__doc__ == bar2.__doc__ == 'doc'
 
-    bar.func_doc = 'new doc'
+    bar.__doc__ = 'new doc'
     bar3 = func_with_new_name(bar, 'bar3')
-    assert bar3.func_doc == 'new doc'
-    assert bar2.func_doc != bar3.func_doc
+    assert bar3.__doc__ == 'new doc'
+    assert bar2.__doc__ != bar3.__doc__
 
 
 def test_rpython_wrapper():

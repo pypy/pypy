@@ -344,7 +344,7 @@ def build_new_ctypes_type(T, delayed_builders):
     if isinstance(T, lltype.Ptr):
         if isinstance(T.TO, lltype.FuncType):
             functype = ctypes.CFUNCTYPE
-            if sys.platform == 'win32':
+            if sys.platform == 'win32' and not _64BIT:
                 from rpython.rlib.clibffi import FFI_STDCALL, FFI_DEFAULT_ABI
                 if getattr(T.TO, 'ABI', FFI_DEFAULT_ABI) == FFI_STDCALL:
                     # for win32 system call
@@ -374,9 +374,9 @@ def build_new_ctypes_type(T, delayed_builders):
     elif isinstance(T, lltype.OpaqueType):
         if T is lltype.RuntimeTypeInfo:
             return ctypes.c_char * 2
-        if T.hints.get('external', None) != 'C':
+        if T._hints.get('external', None) != 'C':
             raise TypeError("%s is not external" % T)
-        return ctypes.c_char * T.hints['getsize']()
+        return ctypes.c_char * T._hints['getsize']()
     else:
         _setup_ctypes_cache()
         if T in _ctypes_cache:
@@ -869,6 +869,9 @@ def lltype2ctypes(llobj, normalize=True):
                             llinterp = LLInterpreter.current_interpreter
                             llinterp._store_exception(lle)
                             return 0
+                    return ctypes_return_value(llres)
+
+                def ctypes_return_value(llres):
                     assert lltype.typeOf(llres) == T.TO.RESULT
                     if T.TO.RESULT is lltype.Void:
                         return None
@@ -891,7 +894,14 @@ def lltype2ctypes(llobj, normalize=True):
                         #    import pdb; pdb.post_mortem(sys.exc_traceback)
                         global _callback_exc_info
                         _callback_exc_info = sys.exc_info()
-                        raise
+                        _callable = getattr(container, '_callable', None)
+                        if hasattr(_callable, '_llhelper_error_value_'):
+                            # see rlib.objectmodel.llhelper_error_value
+                            llres = _callable._llhelper_error_value_
+                            assert lltype.typeOf(llres) == T.TO.RESULT
+                            return ctypes_return_value(llres)
+                        else:
+                            raise
 
                 if isinstance(T.TO.RESULT, lltype.Ptr):
                     TMod = lltype.Ptr(lltype.FuncType(T.TO.ARGS,
@@ -924,7 +934,7 @@ def lltype2ctypes(llobj, normalize=True):
                     convert_array(container)
                 elif isinstance(T.TO, lltype.OpaqueType):
                     if T.TO != lltype.RuntimeTypeInfo:
-                        cbuf = ctypes.create_string_buffer(T.TO.hints['getsize']())
+                        cbuf = ctypes.create_string_buffer(T.TO._hints['getsize']())
                     else:
                         cbuf = ctypes.create_string_buffer("\x00")
                     cbuf = ctypes.cast(cbuf, ctypes.c_void_p)
@@ -974,7 +984,7 @@ def lltype2ctypes(llobj, normalize=True):
 
         return llobj
 
-def ctypes2lltype(T, cobj):
+def ctypes2lltype(T, cobj, force_real_ctypes_function=False):
     """Convert the ctypes object 'cobj' to its lltype equivalent.
     'T' is the expected lltype type.
     """
@@ -1045,7 +1055,7 @@ def ctypes2lltype(T, cobj):
                 # or goes out of scope, then we crash.  CTypes is fun.
                 # It works if we cast it now to an int and back.
                 cobjkey = intmask(ctypes.cast(cobj, ctypes.c_void_p).value)
-                if cobjkey in _int2obj:
+                if cobjkey in _int2obj and not force_real_ctypes_function:
                     container = _int2obj[cobjkey]
                 else:
                     name = getattr(cobj, '__name__', '?')
@@ -1141,6 +1151,8 @@ if ctypes:
             else:
                 if version <= 6:
                     clibname = 'msvcrt'
+                elif version >= 13:
+                    clibname = 'ucrtbase'
                 else:
                     clibname = 'msvcr%d' % (version * 10)
 
@@ -1159,6 +1171,8 @@ if ctypes:
         rtld_default_lib = ctypes.CDLL("ld-elf.so.1", handle=RTLD_DEFAULT, **load_library_kwargs)
     # XXX is this always correct???
     standard_c_lib = ctypes.CDLL(libc_name, **load_library_kwargs)
+else:
+    libc_name = 'no ctypes'
 
 # ____________________________________________
 
@@ -1171,7 +1185,7 @@ if sys.platform == 'darwin':
         expr = r'[^\(\)\s]*lib%s\.[^\(\)\s]*' % re.escape(name)
         fdout, ccout = tempfile.mkstemp()
         os.close(fdout)
-        cmd = 'if type gcc >/dev/null 2>&1; then CC=gcc; else CC=cc; fi;' \
+        cmd = 'if type gcc >/dev/null 2>&1; then : ${CC:=gcc}; else : ${CC:=cc}; fi;' \
               '$CC -Wl,-t -o ' + ccout + ' 2>&1 -l' + name
         try:
             f = os.popen(cmd)
@@ -1190,7 +1204,7 @@ if sys.platform == 'darwin':
 else:
     _findLib_gcc_fallback = lambda name: None
 
-def get_ctypes_callable(funcptr, calling_conv):
+def get_ctypes_callable(funcptr, calling_conv, natural_arity):
     if not ctypes:
         raise ImportError("ctypes is needed to use ll2ctypes")
 
@@ -1283,10 +1297,16 @@ def get_ctypes_callable(funcptr, calling_conv):
 
     # get_ctypes_type() can raise NotImplementedError too
     from rpython.rtyper.lltypesystem import rffi
-    cfunc.argtypes = [get_ctypes_type(T) if T is not rffi.VOIDP
+    argtypes = [get_ctypes_type(T) if T is not rffi.VOIDP
                                          else ctypes.c_void_p
                       for T in FUNCTYPE.ARGS
                       if not T is lltype.Void]
+    if natural_arity != -1:
+        cfunc.argtypes = argtypes[:natural_arity]
+        cfunc.extraargs = argtypes[natural_arity:]
+    else:
+        cfunc.argtypes = argtypes
+        cfunc.extraargs = []
     if FUNCTYPE.RESULT is lltype.Void:
         cfunc.restype = None
     else:
@@ -1296,26 +1316,29 @@ def get_ctypes_callable(funcptr, calling_conv):
 class LL2CtypesCallable(object):
     # a special '_callable' object that invokes ctypes
 
-    def __init__(self, FUNCTYPE, calling_conv):
+    def __init__(self, FUNCTYPE, calling_conv, natural_arity):
         self.FUNCTYPE = FUNCTYPE
         self.calling_conv = calling_conv
         self.trampoline = None
+        self.natural_arity = natural_arity
         #self.funcptr = ...  set later
 
     def __call__(self, *argvalues):
         with rlock:
             if self.trampoline is None:
                 # lazily build the corresponding ctypes function object
-                cfunc = get_ctypes_callable(self.funcptr, self.calling_conv)
-                self.trampoline = get_ctypes_trampoline(self.FUNCTYPE, cfunc)
+                cfunc = get_ctypes_callable(self.funcptr, self.calling_conv,
+                                            self.natural_arity)
+                self.trampoline = get_ctypes_trampoline(self.FUNCTYPE, cfunc, self.natural_arity)
         # perform the call
         return self.trampoline(*argvalues)
 
     def get_real_address(self):
-        cfunc = get_ctypes_callable(self.funcptr, self.calling_conv)
+        cfunc = get_ctypes_callable(self.funcptr, self.calling_conv,
+                                    self.natural_arity)
         return ctypes.cast(cfunc, ctypes.c_void_p).value
 
-def get_ctypes_trampoline(FUNCTYPE, cfunc):
+def get_ctypes_trampoline(FUNCTYPE, cfunc, natural_arity=-1):
     RESULT = FUNCTYPE.RESULT
     container_arguments = []
     for i in range(len(FUNCTYPE.ARGS)):
@@ -1335,6 +1358,8 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
                 cvalue = lltype2ctypes(argvalues[i])
                 if i in container_arguments:
                     cvalue = cvalue.contents
+                if natural_arity > 0 and i >= natural_arity:
+                    cvalue = cfunc.extraargs[i - natural_arity](cvalue)
                 cargs.append(cvalue)
         _callback_exc_info = None
         _restore_c_errno()
@@ -1342,6 +1367,10 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
         _save_c_errno()
         if _callback_exc_info:
             etype, evalue, etb = _callback_exc_info
+            # cres is the actual C result returned by the function. Stick it
+            # into the exception so that we can check it inside tests (see
+            # e.g. test_llhelper_error_value)
+            evalue._ll2ctypes_c_result = cres
             _callback_exc_info = None
             raise etype, evalue, etb
         return ctypes2lltype(RESULT, cres)
@@ -1455,7 +1484,7 @@ class _lladdress(long):
     def __new__(cls, void_p):
         if isinstance(void_p, (int, long)):
             void_p = ctypes.c_void_p(void_p)
-        self = long.__new__(cls, void_p.value)
+        self = long.__new__(cls, intmask(void_p.value))
         self.void_p = void_p
         self.intval = intmask(void_p.value)
         return self

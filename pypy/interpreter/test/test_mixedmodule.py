@@ -34,7 +34,10 @@ def test_submodule(space):
     m.install()
 
     assert space.builtin_modules["test_module"] is m
-    assert isinstance(space.builtin_modules["test_module.sub"], SubModule)
+    submod = space.builtin_modules["test_module.sub"]
+    assert isinstance(submod, SubModule)
+    assert submod.get_applevel_name() == "test_module.sub"
+
 
 class AppTestMixedModule(object):
     pytestmark = pytest.mark.skipif("config.option.runappdirect")

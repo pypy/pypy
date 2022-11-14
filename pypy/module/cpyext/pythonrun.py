@@ -40,9 +40,9 @@ def Py_AtExit(space, func_ptr):
     called at most once.  Since Python's internal finalization will have
     completed before the cleanup function, no Python APIs should be called by
     func."""
-    from pypy.module import cpyext
+    from pypy.module.cpyext.moduledef import Module
     w_module = space.getbuiltinmodule('cpyext')
-    module = space.interp_w(cpyext.Module, w_module)
+    module = space.interp_w(Module, w_module)
     try:
         module.register_atexit(func_ptr)
     except ValueError:

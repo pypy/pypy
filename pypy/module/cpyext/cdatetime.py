@@ -2,13 +2,13 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.pyobject import (PyObject, make_ref, make_typedescr,
-    decref, as_pyobj, incref)
-from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cpython_struct,
-    PyObjectFields, cts, parse_dir, bootstrap_function, slot_function,
-    Py_TPFLAGS_HEAPTYPE)
+    decref)
+from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cts, parse_dir,
+    bootstrap_function, slot_function)
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.argument import Arguments
 from pypy.module.__pypy__.interp_pypydatetime import (W_DateTime_Date,
     W_DateTime_Time, W_DateTime_Delta)
 from rpython.tool.sourcetools import func_renamer
@@ -46,13 +46,23 @@ def _PyDateTime_Import(space):
     datetimeAPI.c_TimeType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
 
-    w_type = space.getattr(w_datetime, space.newtext("timedelta"))
+    w_delta = space.getattr(w_datetime, space.newtext("timedelta"))
     datetimeAPI.c_DeltaType = rffi.cast(
-        PyTypeObjectPtr, make_ref(space, w_type))
+        PyTypeObjectPtr, make_ref(space, w_delta))
 
-    w_type = space.getattr(w_datetime, space.newtext("tzinfo"))
+    w_tzinfo = space.getattr(w_datetime, space.newtext("tzinfo"))
     datetimeAPI.c_TZInfoType = rffi.cast(
-        PyTypeObjectPtr, make_ref(space, w_type))
+        PyTypeObjectPtr, make_ref(space, w_tzinfo))
+
+    # singleton
+    w_timezone = space.getattr(w_datetime, space.newtext("timezone"))
+    w_d0 = space.call_function(w_delta)
+    w_tzobj = space.call_function(w_timezone, w_d0)
+    datetimeAPI.c_TimeZone_UTC = make_ref(space, w_tzobj)
+
+    w_type = space.getattr(w_datetime, space.newtext("timezone"))
+    w_utc = space.getattr(w_type, space.newtext("utc"))
+    datetimeAPI.c_TimeZone_UTC = make_ref(space, w_utc)
 
     datetimeAPI.c_Date_FromDate = llhelper(
         _PyDate_FromDate.api_func.functype,
@@ -60,12 +70,30 @@ def _PyDateTime_Import(space):
     datetimeAPI.c_Time_FromTime = llhelper(
         _PyTime_FromTime.api_func.functype,
         _PyTime_FromTime.api_func.get_wrapper(space))
+    datetimeAPI.c_Time_FromTimeAndFold = llhelper(
+        _PyTime_FromTimeAndFold.api_func.functype,
+        _PyTime_FromTimeAndFold.api_func.get_wrapper(space))
     datetimeAPI.c_DateTime_FromDateAndTime = llhelper(
         _PyDateTime_FromDateAndTime.api_func.functype,
         _PyDateTime_FromDateAndTime.api_func.get_wrapper(space))
+    datetimeAPI.c_DateTime_FromDateAndTimeAndFold = llhelper(
+        _PyDateTime_FromDateAndTimeAndFold.api_func.functype,
+        _PyDateTime_FromDateAndTimeAndFold.api_func.get_wrapper(space))
     datetimeAPI.c_Delta_FromDelta = llhelper(
         _PyDelta_FromDelta.api_func.functype,
         _PyDelta_FromDelta.api_func.get_wrapper(space))
+
+    datetimeAPI.c_DateTime_FromTimestamp = llhelper(
+        _PyDateTime_FromTimestamp.api_func.functype,
+        _PyDateTime_FromTimestamp.api_func.get_wrapper(space))
+
+    datetimeAPI.c_Date_FromTimestamp = llhelper(
+        _PyDate_FromTimestamp.api_func.functype,
+        _PyDate_FromTimestamp.api_func.get_wrapper(space))
+
+    datetimeAPI.c_TimeZone_FromTimeZone = llhelper(
+        _PyTimeZone_FromTimeZone.api_func.functype,
+        _PyTimeZone_FromTimeZone.api_func.get_wrapper(space))
 
     state.datetimeAPI.append(datetimeAPI)
     return state.datetimeAPI[0]
@@ -236,6 +264,54 @@ def _PyDateTime_FromDateAndTime(space, year, month, day,
         space.newint(hour), space.newint(minute), space.newint(second),
         space.newint(usecond), w_tzinfo)
 
+@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real,
+              rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
+              PyObject, rffi.INT_real, PyTypeObjectPtr], PyObject)
+def _PyDateTime_FromDateAndTimeAndFold(space, year, month, day,
+                                hour, minute, second, usecond,
+                                w_tzinfo, fold, w_type):
+    """Return a datetime.datetime object with the specified year, month, day, hour,
+    minute, second,  microsecond and fold.
+    """
+    year = rffi.cast(lltype.Signed, year)
+    month = rffi.cast(lltype.Signed, month)
+    day = rffi.cast(lltype.Signed, day)
+    hour = rffi.cast(lltype.Signed, hour)
+    minute = rffi.cast(lltype.Signed, minute)
+    second = rffi.cast(lltype.Signed, second)
+    usecond = rffi.cast(lltype.Signed, usecond)
+    fold = rffi.cast(lltype.Signed, fold)
+    args = Arguments(space,
+                    [space.newint(year), space.newint(month), space.newint(day),
+                     space.newint(hour), space.newint(minute), space.newint(second),
+                     space.newint(usecond), w_tzinfo],
+                    keyword_names_w=[space.newtext('fold')],
+                    keywords_w = [space.newint(fold)],
+                )
+    return space.call_args(w_type, args)
+
+
+@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
+              PyObject, rffi.INT_real, PyTypeObjectPtr], PyObject)
+def _PyTime_FromTimeAndFold(space, hour, minute, second, usecond,
+                                w_tzinfo, fold, w_type):
+    """Return a datetime.time object with the specified hour,
+    minute, second, microsecond, and fold.
+    """
+    hour = rffi.cast(lltype.Signed, hour)
+    minute = rffi.cast(lltype.Signed, minute)
+    second = rffi.cast(lltype.Signed, second)
+    usecond = rffi.cast(lltype.Signed, usecond)
+    fold = rffi.cast(lltype.Signed, fold)
+    args = Arguments(space,
+                    [space.newint(hour), space.newint(minute), space.newint(second),
+                     space.newint(usecond), w_tzinfo],
+                    keyword_names_w=[space.newtext('fold')],
+                    keywords_w = [space.newint(fold)],
+                )
+
+    return space.call_args(w_type, args)
+
 @cpython_api([PyObject], PyObject)
 def PyDateTime_FromTimestamp(space, w_args):
     """Create and return a new datetime.datetime object given an argument tuple
@@ -243,8 +319,16 @@ def PyDateTime_FromTimestamp(space, w_args):
     """
     w_datetime = PyImport_Import(space, space.newtext("datetime"))
     w_type = space.getattr(w_datetime, space.newtext("datetime"))
+    return _PyDateTime_FromTimestamp(space, w_type, w_args, None)
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def _PyDateTime_FromTimestamp(space, w_type, w_args, w_kwds):
+    """Implementation of datetime.fromtimestamp that matches the signature for
+    PyDateTimeCAPI.DateTime_FromTimestamp
+    """
     w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
-    return space.call(w_method, w_args)
+
+    return space.call(w_method, w_args, w_kwds=w_kwds)
 
 @cpython_api([PyObject], PyObject)
 def PyDate_FromTimestamp(space, w_args):
@@ -253,6 +337,12 @@ def PyDate_FromTimestamp(space, w_args):
     """
     w_datetime = PyImport_Import(space, space.newtext("datetime"))
     w_type = space.getattr(w_datetime, space.newtext("date"))
+    return _PyDate_FromTimestamp(space, w_type, w_args)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyDate_FromTimestamp(space, w_type, w_args):
+    """Implementation of date.fromtimestamp that matches the signature for
+    PyDateTimeCAPI.Date_FromTimestamp"""
     w_method = space.getattr(w_type, space.newtext("fromtimestamp"))
     return space.call(w_method, w_args)
 
@@ -272,8 +362,22 @@ def _PyDelta_FromDelta(space, days, seconds, useconds, normalize, w_type):
         w_type,
         space.newint(days), space.newint(seconds), space.newint(useconds))
 
-# Accessors
 
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyTimeZone_FromTimeZone(space, w_offset, w_name):
+    """Return a datetime.timezone object with an unnamed fixed offset
+    represented by the offset argument.
+    """
+    w_datetime = PyImport_Import(space, space.newtext("datetime"))
+    w_type = space.getattr(w_datetime, space.newtext("timezone"))
+
+    if w_name is not None:
+        return space.call_function(w_type, w_offset, w_name)
+
+    return space.call_function(w_type, w_offset)
+
+
+# Accessors
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_GET_YEAR(space, w_obj):
     """Return the year, as a positive int.
@@ -293,28 +397,50 @@ def PyDateTime_GET_DAY(space, w_obj):
     return space.int_w(space.getattr(w_obj, space.newtext("day")))
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
+def PyDateTime_GET_FOLD(space, w_obj):
+    """Return the fold, as an int 0 or 1
+    """
+    return space.int_w(space.getattr(w_obj, space.newtext("fold")))
+
+@cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_HOUR(space, w_obj):
     """Return the hour, as an int from 0 through 23.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("hour")))
+    # w_obj must be a datetime.timedate object.  However, I've seen libraries
+    # call this macro with a datetime.date object.  I think it returns
+    # nonsense in CPython, but it doesn't crash.  We'll just return zero
+    # in case there is no field 'hour'.
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("hour")))
+    except OperationError:
+        return 0
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_MINUTE(space, w_obj):
     """Return the minute, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("minute")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("minute")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_SECOND(space, w_obj):
     """Return the second, as an int from 0 through 59.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("second")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("second")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_DATE_GET_MICROSECOND(space, w_obj):
     """Return the microsecond, as an int from 0 through 999999.
     """
-    return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
+    try:
+        return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
+    except OperationError:
+        return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_TIME_GET_HOUR(space, w_obj):
@@ -339,6 +465,12 @@ def PyDateTime_TIME_GET_MICROSECOND(space, w_obj):
     """Return the microsecond, as an int from 0 through 999999.
     """
     return space.int_w(space.getattr(w_obj, space.newtext("microsecond")))
+
+@cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
+def PyDateTime_TIME_GET_FOLD(space, w_obj):
+    """Return the fold, either 0 or 1
+    """
+    return space.int_w(space.getattr(w_obj, space.newtext("fold")))
 
 # XXX these functions are not present in the Python API
 # But it does not seem possible to expose a different structure

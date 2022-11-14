@@ -26,7 +26,7 @@ typedef struct {
            If interned != SSTATE_NOT_INTERNED, the two references from the
            dictionary to this object are *not* counted in ob_refcnt.
          */
-        unsigned int interned;
+        unsigned char interned;
         /* Character size:
 
            - PyUnicode_WCHAR_KIND (0):
@@ -54,21 +54,21 @@ typedef struct {
              * all characters are in the range U+0000-U+10FFFF
              * at least one character is in the range U+10000-U+10FFFF
          */
-        unsigned int kind;
+        unsigned char kind;
         /* Compact is with respect to the allocation scheme. Compact unicode
            objects only require one memory block while non-compact objects use
            one block for the PyUnicodeObject struct and another for its data
            buffer. */
-        unsigned int compact;
+        unsigned char compact;
         /* The string only contains characters in the range U+0000-U+007F (ASCII)
            and the kind is PyUnicode_1BYTE_KIND. If ascii is set and compact is
            set, use the PyASCIIObject structure. */
-        unsigned int ascii;
+        unsigned char ascii;
         /* The ready flag indicates whether the object layout is initialized
            completely. This means that this is either a compact object, or
            the data pointer is filled out. The bit is redundant, and helps
            to minimize the test in PyUnicode_IS_READY(). */
-        unsigned int ready;
+        unsigned char ready;
         /* Padding to ensure that PyUnicode_DATA() is always aligned to
            4 bytes (see issue #19537 on m68k). */
         /* not on PyPy */

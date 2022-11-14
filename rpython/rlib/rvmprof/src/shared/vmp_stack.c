@@ -48,6 +48,10 @@ static int (*unw_getcontext)(unw_context_t *) = NULL;
 #include <dlfcn.h>
 #endif
 
+#ifdef PYPY_JIT_CODEMAP
+void *pypy_find_codemap_at_addr(long addr, long *start_addr);
+#endif
+
 int _per_loop(void) {
     // how many void* are written to the stack trace per loop iterations?
 #ifdef RPYTHON_VMPROF
@@ -82,12 +86,6 @@ int vmp_profiles_python_lines(void) {
 
 static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, void ** result, int * depth, int max_depth)
 {
-    int len;
-    int addr;
-    int j;
-    uint64_t line;
-    char *lnotab;
-
 #ifndef RPYTHON_VMPROF // pypy does not support line profiling
     if (vmp_profiles_python_lines()) {
         // In the line profiling mode we save a line number for every frame.
@@ -99,27 +97,8 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
 
         // NOTE: the profiling overhead can be reduced by storing co_lnotab in the dump and
         // moving this computation to the reader instead of doing it here.
-        lnotab = PyStr_AS_STRING(frame->f_code->co_lnotab);
-
-        if (lnotab != NULL) {
-            line = (uint64_t)frame->f_lineno;
-            addr = 0;
-
-            len = (int)PyStr_GET_SIZE(frame->f_code->co_lnotab);
-
-            for (j = 0; j < len; j += 2) {
-                addr += lnotab[j];
-                if (addr > frame->f_lasti) {
-                    break;
-                }
-                line += lnotab[j+1];
-            }
-            result[*depth] = (void*) line;
-            *depth = *depth + 1;
-        } else {
-            result[*depth] = (void*) 0;
-            *depth = *depth + 1;
-        }
+        result[*depth] = (void*) (int64_t) PyFrame_GetLineNumber(frame);
+        *depth = *depth + 1;
     }
     result[*depth] = (void*)CODE_ADDR_TO_UID(FRAME_CODE(frame));
     *depth = *depth + 1;
@@ -214,14 +193,18 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     ret = unw_getcontext(&uc);
     if (ret < 0) {
         // could not initialize lib unwind cursor and context
+#if DEBUG
         fprintf(stderr, "WARNING: unw_getcontext did not retreive context, switching to python profiling mode \n");
+#endif
         vmp_native_disable();
         return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
     }
     ret = unw_init_local(&cursor, &uc);
     if (ret < 0) {
         // could not initialize lib unwind cursor and context
+#if DEBUG
         fprintf(stderr, "WARNING: unw_init_local did not succeed, switching to python profiling mode \n");
+#endif
         vmp_native_disable();
         return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
     }
@@ -230,7 +213,9 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         while (signal < 0) {
             int err = unw_step(&cursor);
             if (err <= 0) {
+#if DEBUG
                 fprintf(stderr, "WARNING: did not find signal frame, skipping sample\n");
+#endif
                 return 0;
             }
             signal++;
@@ -245,7 +230,9 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             }
             int err = unw_step(&cursor);
             if (err <= 0) {
+#if DEBUG
                 fprintf(stderr,"WARNING: did not find signal frame, skipping sample\n");
+#endif
                 return 0;
             }
         }
@@ -519,6 +506,9 @@ static void * libhandle = NULL;
 #elif __x86_64__
 #define PREFIX "x86_64"
 #define LIBUNWIND_SUFFIX "-x86_64"
+#elif __powerpc64__
+#define PREFIX "ppc64"
+#define LIBUNWIND_SUFFIX "-ppc64"
 #endif
 #define U_PREFIX "_U"
 #define UL_PREFIX "_UL"
@@ -579,7 +569,15 @@ loaded_libunwind:
         if ((unw_is_signal_frame = dlsym(libhandle, UL_PREFIX PREFIX "_is_signal_frame")) == NULL) {
             goto bail_out;
         }
-        if ((unw_getcontext = dlsym(libhandle, U_PREFIX PREFIX "_getcontext")) == NULL) {
+#if __powerpc64__
+//getcontext() naming follows a different pattern on PPC64
+#define U_PREFIX
+#define PREFIX
+#define USCORE
+#else
+#define USCORE "_"
+#endif
+        if ((unw_getcontext = dlsym(libhandle, U_PREFIX PREFIX USCORE "getcontext")) == NULL) {
             goto bail_out;
         }
     }
@@ -602,7 +600,9 @@ void vmp_native_disable(void) {
     if (libhandle != NULL) {
         if (dlclose(libhandle)) {
             vmprof_error = dlerror();
+#if DEBUG
             fprintf(stderr, "could not close libunwind at runtime. error: %s\n", vmprof_error);
+#endif
         }
         libhandle = NULL;
     }

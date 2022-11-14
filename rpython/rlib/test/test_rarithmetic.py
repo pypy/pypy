@@ -337,6 +337,10 @@ class TestRarithmetic(BaseRtypingTest):
         res = self.interpret(f, [123])
         assert res == 4 + 2
 
+    def test_string_to_int_translates(self):
+        def f(s):
+            return string_to_int(str(s))
+        self.interpret(f, [123]) == 123
 
 def test_int_real_union():
     from rpython.rtyper.lltypesystem.rffi import r_int_real

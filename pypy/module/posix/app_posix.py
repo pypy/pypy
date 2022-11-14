@@ -1,5 +1,5 @@
 # NOT_RPYTHON
-from _structseq import structseqtype, structseqfield
+from _structseq import structseqtype, structseqfield, structseq_new
 
 # XXX we need a way to access the current module's globals more directly...
 import errno
@@ -15,6 +15,7 @@ else:
 
 error = OSError
 
+# keep in sync with the code in interp_posix.make_stat_result
 
 class stat_result(metaclass=structseqtype):
 
@@ -50,6 +51,14 @@ class stat_result(metaclass=structseqtype):
     if "st_flags" in posix._statfields:
         st_flags = structseqfield(23, "user defined flags for file")
 
+    # nsec_xtime
+    if "nsec_atime" in posix._statfields:
+        nsec_atime = structseqfield(40, "nanoseconds part of time of last access")
+    if "nsec_mtime" in posix._statfields:
+        nsec_mtime = structseqfield(41, "nanoseconds part of time of last modification")
+    if "nsec_ctime" in posix._statfields:
+        nsec_ctime = structseqfield(42, "nanoseconds part of time of last change")
+
     def __init__(self, *args, **kw):
         # If we have been initialized from a tuple,
         # st_?time might be set to None. Initialize it
@@ -78,6 +87,13 @@ class stat_result(metaclass=structseqtype):
 
 
 class statvfs_result(metaclass=structseqtype):
+    """
+    Result from statvfs or fstatvfs.
+
+    This object may be accessed either as a tuple of
+      (bsize, frsize, blocks, bfree, bavail, files, ffree, favail, flag, namemax),
+    or via the attributes f_bsize, f_frsize, f_blocks, f_bfree, and so on.
+    """
 
     name = "os.statvfs_result"
     __module__ = "os"
@@ -92,6 +108,7 @@ class statvfs_result(metaclass=structseqtype):
     f_favail = structseqfield(7)
     f_flag = structseqfield(8)
     f_namemax = structseqfield(9)
+    f_fsid = structseqfield(20) # gap to make it a non-indexed field
 
 
 class uname_result(metaclass=structseqtype):
@@ -124,6 +141,16 @@ class times_result(metaclass=structseqtype):
     children_user = structseqfield(2, "user time of children")
     children_system = structseqfield(3, "system time of children")
     elapsed = structseqfield(4, "elapsed time since an arbitray point in the past")
+
+
+class sched_param(metaclass=structseqtype):
+    name = "posix.sched_param"
+    __module__ = "posix"
+
+    sched_priority = structseqfield(0, "sched_priority")
+
+    def __new__(cls, sched_priority):
+        return structseq_new(cls, sched_priority)
 
 
 if osname == 'posix':

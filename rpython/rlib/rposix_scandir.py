@@ -6,7 +6,8 @@ from rpython.rlib.rarithmetic import intmask
 
 if not rwin32.WIN32:
     @specialize.argtype(0)
-    def opendir(path):
+    def opendir(path, lgt):
+        # path will always be ascii utf8, so ignore lgt
         path = rposix._as_bytes0(path)
         return opendir_bytes(path)
 
@@ -56,7 +57,7 @@ if not rwin32.WIN32:
 else:
     # ----- Win32 version -----
     import stat
-    from rpython.rlib._os_support import unicode_traits
+    from rpython.rlib._os_support import unicode_traits, string_traits
     from rpython.rlib.rwin32file import make_win32_traits
     from rpython.rlib import rposix_stat
 
@@ -71,16 +72,19 @@ else:
     NULL_DIRP = lltype.nullptr(SCANDIRP.TO)
 
 
-    # must only be called with unicode!
-    def opendir(path):
-        if len(path) == 0:
-            path = u'.'
-        if path[-1] not in (u'\\', u'/', u':'):
-            mask = path + u'\\*.*'
+    # must only be called with utf-8, codepoints!
+    def opendir(path, lgt):
+        if lgt == 0:
+            path = '.'
+        if path[-1] not in ('\\', '/', ':'):
+            mask = path + '\\*.*'
+            lgt += 4
         else:
-            mask = path + u'*.*'
+            mask = path + '*.*'
+            lgt += 3
         dirp = lltype.malloc(SCANDIRP.TO, flavor='raw')
-        hFindFile = win32traits.FindFirstFile(mask, dirp.filedata)
+        with rffi.scoped_utf82wcharp(mask, lgt) as src_buf:
+            hFindFile = win32traits.FindFirstFile(src_buf, dirp.filedata)
         if hFindFile == rwin32.INVALID_HANDLE_VALUE:
             error = rwin32.GetLastError_saved()
             lltype.free(dirp, flavor='raw')
@@ -116,6 +120,11 @@ else:
     def get_name_unicode(filedata):
         return unicode_traits.charp2str(rffi.cast(unicode_traits.CCHARP,
                                                   filedata.c_cFileName))
+
+    def get_name_bytes(filedata):
+        wcharp = rffi.cast(unicode_traits.CCHARP, filedata.c_cFileName)
+        utf8, i = rffi.wcharp2utf8(wcharp)
+        return utf8
 
     def get_known_type(filedata):
         attr = filedata.c_dwFileAttributes

@@ -19,7 +19,7 @@ else:
 popen = subprocess.Popen(
     [sys.executable, "pypy/test_all.py",
      pypyopt,
-     "--timeout=3600",
+     "--timeout=1324",   # make it easy to search for
      "-rs",
      "--duration=10",
      "--resultlog=cpython.log", "lib-python",

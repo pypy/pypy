@@ -1269,29 +1269,6 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
         loc1 = self.ensure_reg(op.getarg(1))
         return [loc0, loc1]
 
-    def prepare_copystrcontent(self, op):
-        """ this function needs five registers.
-            src & src_len: are allocated using ensure_even_odd_pair.
-              note that these are tmp registers, thus the actual variable
-              value is not modified.
-            src_len: when entering the assembler, src_ofs_loc's value is contained
-              in src_len register.
-        """
-        src_ptr_loc, _ = \
-                self.rm.ensure_even_odd_pair(op.getarg(0),
-                             None, bind_first=True, 
-                             must_exist=False, load_loc_odd=False)
-        src_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(2))
-        dst_ptr_loc = self.ensure_reg(op.getarg(1))
-        dst_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(3))
-        length_loc  = self.ensure_reg_or_any_imm(op.getarg(4))
-        # no need to spill, we do not call memcpy, but we use s390x's
-        # hardware instruction to copy memory
-        return [src_ptr_loc, dst_ptr_loc,
-                src_ofs_loc, dst_ofs_loc, length_loc]
-
-    prepare_copyunicodecontent = prepare_copystrcontent
-
     def prepare_label(self, op):
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)

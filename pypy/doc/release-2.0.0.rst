@@ -9,7 +9,7 @@ provide stable releases more often.
 
 You can download the PyPy 2.0 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 The two biggest changes since PyPy 1.9 are:
 
@@ -19,10 +19,10 @@ The two biggest changes since PyPy 1.9 are:
 * PyPy now contains release 0.6 of `cffi`_ as a builtin module, which
   is preferred way of calling C from Python that works well on PyPy
 
-.. _`cffi`: http://cffi.readthedocs.org
+.. _`cffi`: https://cffi.readthedocs.org
 
 If you're using PyPy for anything, it would help us immensely if you fill out
-the following survey: http://bit.ly/pypysurvey This is for the developers
+the following survey: https://bit.ly/pypysurvey This is for the developers
 eyes and we will not make any information public without your agreement.
 
 What is PyPy?
@@ -37,7 +37,7 @@ Windows 32.  Windows 64 work is still stalling, we would welcome a volunteer
 to handle that. ARM support is on the way, as you can see from the recently
 released alpha for ARM.
 
-.. _`pypy 2.0 and cpython 2.7.3`: http://speed.pypy.org
+.. _`pypy 2.0 and cpython 2.7.3`: https://speed.pypy.org
 
 Highlights
 ==========

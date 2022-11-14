@@ -5,7 +5,7 @@ PyPy 2.0.1 - Bohr Smørrebrød
 We're pleased to announce PyPy 2.0.1.  This is a stable bugfix release
 over `2.0`_.  You can download it here:
   
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 The fixes are mainly about fatal errors or crashes in our stdlib.  See
 below for more details.
@@ -20,7 +20,7 @@ due to its integrated tracing JIT compiler.
 This release supports x86 machines running Linux 32/64, Mac OS X 64 or
 Windows 32.  Support for ARM is progressing but not bug-free yet.
 
-.. _`pypy 2.0 and cpython 2.7.3`: http://speed.pypy.org
+.. _`pypy 2.0 and cpython 2.7.3`: https://speed.pypy.org
 
 Highlights
 ==========
@@ -38,7 +38,7 @@ Highlights
 - work around an eventlet issue with `socket._decref_socketios()`__.
 
 .. __: https://bugs.pypy.org/issue1482
-.. __: http://mail.python.org/pipermail/pypy-dev/2013-May/011362.html
+.. __: https://mail.python.org/pipermail/pypy-dev/2013-May/011362.html
 .. __: https://bugs.pypy.org/issue1468
 .. _2.0: release-2.0.0.html
 

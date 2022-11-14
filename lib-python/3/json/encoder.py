@@ -87,7 +87,7 @@ class JSONEncoder(object):
     """
     item_separator = ', '
     key_separator = ': '
-    def __init__(self, skipkeys=False, ensure_ascii=True,
+    def __init__(self, *, skipkeys=False, ensure_ascii=True,
             check_circular=True, allow_nan=True, sort_keys=False,
             indent=None, separators=None, default=None):
         """Constructor for JSONEncoder, with sensible defaults.
@@ -171,7 +171,8 @@ class JSONEncoder(object):
                 return JSONEncoder.default(self, o)
 
         """
-        raise TypeError(repr(o) + " is not JSON serializable")
+        raise TypeError(f'Object of type {o.__class__.__name__} '
+                        f'is not JSON serializable')
 
     def encode(self, o):
         """Return a JSON string representation of a Python data structure.
@@ -268,10 +269,6 @@ class JSONEncoder(object):
             items = d.items()
 
         for key, v in items:
-            if first:
-                first = False
-            else:
-                builder.append(separator)
             if isinstance(key, str):
                 pass
             # JavaScript is weakly typed for these, so it makes sense to
@@ -290,7 +287,12 @@ class JSONEncoder(object):
             elif self.skipkeys:
                 continue
             else:
-                raise TypeError("key " + repr(key) + " is not a string")
+                raise TypeError(f'keys must be str, int, float, bool or None, '
+                                f'not {key.__class__.__name__}')
+            if first:
+                first = False
+            else:
+                builder.append(separator)
             builder.append('"')
             builder.append(self.__encoder(key))
             builder.append('"')
@@ -416,7 +418,7 @@ class JSONEncoder(object):
             item_separator = self.item_separator
         first = True
         if self.sort_keys:
-            items = sorted(dct.items(), key=lambda kv: kv[0])
+            items = sorted(dct.items())
         else:
             items = dct.items()
         for key, value in items:
@@ -438,7 +440,8 @@ class JSONEncoder(object):
             elif self.skipkeys:
                 continue
             else:
-                raise TypeError("key " + repr(key) + " is not a string")
+                raise TypeError(f'keys must be str, int, float, bool or None, '
+                                f'not {key.__class__.__name__}')
             if first:
                 first = False
             else:

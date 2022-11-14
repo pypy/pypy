@@ -1,5 +1,4 @@
 from importlib import _bootstrap_external
-import sys
 from test import support
 import unittest
 
@@ -8,8 +7,6 @@ from .. import util
 importlib = util.import_importlib('importlib')
 machinery = util.import_importlib('importlib.machinery')
 
-
-# XXX find_spec tests
 
 @unittest.skipIf(util.EXTENSIONS.filename is None, '_testcapi not available')
 @util.case_insensitive_tests

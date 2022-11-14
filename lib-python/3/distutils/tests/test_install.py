@@ -17,6 +17,7 @@ from distutils.errors import DistutilsOptionError
 from distutils.extension import Extension
 
 from distutils.tests import support
+from test import support as test_support
 
 
 def _make_ext_name(modname):
@@ -55,12 +56,12 @@ class InstallTestCase(support.TempdirManager,
             expected = os.path.normpath(expected)
             self.assertEqual(got, expected)
 
-        libdir = os.path.join(destination, "lib", "python")
+        libdir = os.path.join(destination, "lib", sys.implementation.name)
         check_path(cmd.install_lib, libdir)
         check_path(cmd.install_platlib, libdir)
         check_path(cmd.install_purelib, libdir)
         check_path(cmd.install_headers,
-                   os.path.join(destination, "include", "python", "foopkg"))
+                   os.path.join(destination, "include", sys.implementation.name, "foopkg"))
         check_path(cmd.install_scripts, os.path.join(destination, "bin"))
         check_path(cmd.install_data, destination)
 
@@ -196,6 +197,9 @@ class InstallTestCase(support.TempdirManager,
         self.assertEqual(found, expected)
 
     def test_record_extensions(self):
+        cmd = test_support.missing_compiler_executable()
+        if cmd is not None:
+            self.skipTest('The %r command is not found' % cmd)
         install_dir = self.mkdtemp()
         project_dir, dist = self.create_dist(ext_modules=[
             Extension('xx', ['xxmodule.c'])])

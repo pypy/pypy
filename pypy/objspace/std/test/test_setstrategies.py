@@ -3,8 +3,11 @@ from pypy.objspace.std.setobject import W_SetObject
 from pypy.objspace.std.setobject import (
     BytesIteratorImplementation, BytesSetStrategy, EmptySetStrategy,
     IntegerIteratorImplementation, IntegerSetStrategy, ObjectSetStrategy,
-    UnicodeIteratorImplementation, UnicodeSetStrategy)
+    UnicodeIteratorImplementation, AsciiSetStrategy)
 from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.longobject import W_LongObject
+from rpython.rlib.rbigint import rbigint
+
 
 class TestW_SetStrategies:
 
@@ -31,8 +34,8 @@ class TestW_SetStrategies:
         s = W_SetObject(self.space, self.wrapped(["a", "b"], bytes=True))
         assert s.strategy is self.space.fromcache(BytesSetStrategy)
 
-        #s = W_SetObject(self.space, self.wrapped([u"a", u"b"]))
-        #assert s.strategy is self.space.fromcache(UnicodeSetStrategy)
+        s = W_SetObject(self.space, self.wrapped([u"a", u"b"]))
+        assert s.strategy is self.space.fromcache(AsciiSetStrategy)
 
     def test_switch_to_object(self):
         s = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
@@ -47,7 +50,7 @@ class TestW_SetStrategies:
     def test_switch_to_unicode(self):
         s = W_SetObject(self.space, self.wrapped([]))
         s.add(self.space.wrap(u"six"))
-        assert s.strategy is self.space.fromcache(UnicodeSetStrategy)
+        assert s.strategy is self.space.fromcache(AsciiSetStrategy)
 
     def test_symmetric_difference(self):
         s1 = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
@@ -149,3 +152,14 @@ class TestW_SetStrategies:
         #
         #s = W_SetObject(space, self.wrapped([u"a", u"b"]))
         #assert sorted(space.listview_unicode(s)) == [u"a", u"b"]
+
+    def test_integer_strategy_with_w_long(self):
+        # tests all calls to is_plain_int1() so far
+        space = self.space
+        w = W_LongObject(rbigint.fromlong(42))
+        s1 = W_SetObject(space, self.wrapped([]))
+        s1.add(w)
+        assert s1.strategy is space.fromcache(IntegerSetStrategy)
+        #
+        s1 = W_SetObject(space, space.newlist([w]))
+        assert s1.strategy is space.fromcache(IntegerSetStrategy)

@@ -66,8 +66,8 @@ class AppTestDebug:
         assert debug_start('foo') is None
         assert debug_stop('foo') is None
         ts1 = debug_start('foo', timestamp=True)
-        t = time.time()
-        while time.time() - t < 0.02:
+        t = time.clock()
+        while time.clock() - t < 0.02:
             pass
         ts2 = debug_stop('foo', timestamp=True)
         assert ts2 > ts1

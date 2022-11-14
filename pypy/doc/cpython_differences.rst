@@ -23,11 +23,14 @@ the on-disk file appear empty or truncated.  Moreover, you might reach your
 OS's limit on the number of concurrently opened files.
 
 If you are debugging a case where a file in your program is not closed
-properly, you can use the ``-X track-resources`` command line option. If it is
-given, a ``ResourceWarning`` is produced for every file and socket that the
-garbage collector closes. The warning will contain the stack trace of the
-position where the file or socket was created, to make it easier to see which
-parts of the program don't close files explicitly.
+properly on PyPy2, you can use the ``-X track-resources`` command line
+option. On Python3 (both CPython and PyPy), use the ``-Walways`` command line
+option. In both cases, you may need to add a call to ``gc.collect()`` at the
+end of the program. Then a ``ResourceWarning`` is produced for every file and
+socket that the garbage collector closes. On PyPy, the warning will always
+contain the stack trace of the position where the file or socket was created,
+to make it easier to see which parts of the program don't close files
+explicitly.
 
 Fixing this difference to CPython is essentially impossible without forcing a
 reference-counting approach to garbage collection.  The effect that you
@@ -81,7 +84,7 @@ object and the weakref will be considered as dead at the same time,
 and the callback will not be invoked.  (Issue `#2030`__)
 
 .. __: https://docs.python.org/2/library/weakref.html
-.. __: https://bitbucket.org/pypy/pypy/issue/2030/
+.. __: https://foss.heptapod.net/pypy/pypy/issue/2030/
 
 A new difference: before CPython 3.4, a weakref to ``x`` was always
 cleared before the ``x.__del__()`` method was called.  Since CPython 3.4
@@ -95,15 +98,17 @@ can't do something really different if there are cycles or not.
 There are a few extra implications from the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
 than once in PyPy; but CPython will call the same ``__del__`` several times
-if the object is resurrected and dies again.  The ``__del__`` methods are
+if the object is resurrected and dies again (at least it is reliably so in
+older CPythons; newer CPythons try to call destructors not more than once,
+but there are counter-examples).  The ``__del__`` methods are
 called in "the right" order if they are on objects pointing to each
 other, as in CPython, but unlike CPython, if there is a dead cycle of
 objects referencing each other, their ``__del__`` methods are called anyway;
 CPython would instead put them into the list ``garbage`` of the ``gc``
 module.  More information is available on the blog `[1]`__ `[2]`__.
 
-.. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-1.html
-.. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-2.html
+.. __: https://www.pypy.org/posts/2008/02/python-finalizers-semantics-part-1-1196956834543115766.html
+.. __: https://www.pypy.org/posts/2008/02/python-finalizers-semantics-part-2-2748812428675325525.html
 
 Note that this difference might show up indirectly in some cases.  For
 example, a generator left pending in the middle is --- again ---
@@ -112,7 +117,7 @@ difference if the ``yield`` keyword it is suspended at is itself
 enclosed in a ``try:`` or a ``with:`` block.  This shows up for example
 as `issue 736`__.
 
-.. __: http://bugs.pypy.org/issue736
+.. __: https://foss.heptapod.net/pypy/pypy/-/issues/736
 
 Using the default GC (called ``minimark``), the built-in function ``id()``
 works like it does in CPython.  With other GCs it returns numbers that
@@ -164,6 +169,8 @@ Two examples::
 
     class D(dict):
         def __getitem__(self, key):
+            if key == 'print':
+                return print
             return "%r from D" % (key,)
 
     class A(object):
@@ -172,15 +179,17 @@ Two examples::
     a = A()
     a.__dict__ = D()
     a.foo = "a's own foo"
-    print a.foo
+    print(a.foo)
     # CPython => a's own foo
     # PyPy => 'foo' from D
 
+    print('==========')
+
     glob = D(foo="base item")
     loc = {}
-    exec "print foo" in glob, loc
-    # CPython => base item
-    # PyPy => 'foo' from D
+    exec("print(foo)", glob, loc)
+    # CPython => base item, and never looks up "print" in D
+    # PyPy => 'foo' from D, and looks up "print" in D
 
 
 Mutating classes of objects which are already used as dictionary keys
@@ -285,7 +294,7 @@ Another consequence is that ``cmp(float('nan'), float('nan')) == 0``, because
 no good value to return from this call to ``cmp``, because ``cmp`` pretends
 that there is a total order on floats, but that is wrong for NaNs).
 
-.. __: https://bitbucket.org/pypy/pypy/issue/1974/different-behaviour-for-collections-of
+.. __: https://foss.heptapod.net/pypy/pypy/issue/1974/different-behaviour-for-collections-of
 
 C-API Differences
 -----------------
@@ -370,14 +379,17 @@ Miscellaneous
   implementation detail that shows up because of internal C-level slots
   that PyPy does not have.
 
-* on CPython, ``[].__add__`` is a ``method-wrapper``, and
-  ``list.__add__`` is a ``slot wrapper``.  On PyPy these are normal
-  bound or unbound method objects.  This can occasionally confuse some
+* on CPython, ``[].__add__`` is a ``method-wrapper``,  ``list.__add__``
+  is a ``slot wrapper`` and ``list.extend``  is a (built-in) ``method``
+  object.  On PyPy these are all normal method or function objects (or
+  unbound method objects on PyPy2).  This can occasionally confuse some
   tools that inspect built-in types.  For example, the standard
   library ``inspect`` module has a function ``ismethod()`` that returns
   True on unbound method objects but False on method-wrappers or slot
-  wrappers.  On PyPy we can't tell the difference, so
-  ``ismethod([].__add__) == ismethod(list.__add__) == True``.
+  wrappers.  On PyPy we can't tell the difference.  So on PyPy2 we
+  have ``ismethod([].__add__) == ismethod(list.extend) == True``;
+  on PyPy3 we have ``isfunction(list.extend) == True``.  On CPython
+  all of these are False.
 
 * in CPython, the built-in types have attributes that can be
   implemented in various ways.  Depending on the way, if you try to
@@ -427,7 +439,8 @@ Miscellaneous
   probably be ignored by an implementation of ``sys.getsizeof()``, but
   their overhead is important in some cases if they are many instances
   with unique maps.  Conversely, equal strings may share their internal
-  string data even if they are different objects---or empty containers
+  string data even if they are different objects---even a unicode string
+  and its utf8-encoded ``bytes`` version are shared---or empty containers
   may share parts of their internals as long as they are empty.  Even
   stranger, some lists create objects as you read them; if you try to
   estimate the size in memory of ``range(10**6)`` as the sum of all
@@ -495,6 +508,18 @@ Miscellaneous
 * SyntaxError_ s try harder to give details about the cause of the failure, so
   the error messages are not the same as in CPython
 
+* Dictionaries and sets are ordered on PyPy.  On CPython < 3.6 they are not;
+  on CPython >= 3.6 dictionaries (but not sets) are ordered.
+
+* PyPy2 refuses to load lone ``.pyc`` files, i.e. ``.pyc`` files that are
+  still there after you deleted the ``.py`` file.  PyPy3 instead behaves like
+  CPython.  We could be amenable to fix this difference in PyPy2: the current
+  version reflects `our annoyance`__ with this detail of CPython, which bit
+  us too often while developing PyPy.  (It is as easy as passing the
+  ``--lonepycfile`` flag when translating PyPy, if you really need it.)
+
+.. __: https://stackoverflow.com/a/55499713/1556290
+
 
 .. _extension-modules:
 
@@ -558,7 +583,6 @@ List of extension modules that we support:
     time
     token
     unicodedata
-    zipimport
     zlib
 
   When translated on Windows, a few Unix-only modules are skipped,
@@ -575,13 +599,9 @@ List of extension modules that we support:
 
 The extension modules (i.e. modules written in C, in the standard CPython)
 that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
-(You may have a chance to use them anyway with `cpyext`_.)
 
-.. _cpyext: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
-
-
-.. _`is ignored in PyPy`: http://bugs.python.org/issue14621
-.. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
-.. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
-.. _`issue #2653`: https://bitbucket.org/pypy/pypy/issues/2653/
-.. _SyntaxError: https://morepypy.blogspot.co.il/2018/04/improving-syntaxerror-in-pypy.html
+.. _`is ignored in PyPy`: https://bugs.python.org/issue14621
+.. _`little point`: https://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
+.. _`#2072`: https://foss.heptapod.net/pypy/pypy/issue/2072/
+.. _`issue #2653`: https://foss.heptapod.net/pypy/pypy/issues/2653/
+.. _SyntaxError: https://www.pypy.org/posts/2018/04/improving-syntaxerror-in-pypy-5733639208090522433.html

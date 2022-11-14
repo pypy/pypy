@@ -7,7 +7,7 @@ language. This is a bugfix release over 2.2.
 
 You can download the PyPy 2.2.1 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 What is PyPy?
 =============
@@ -22,7 +22,7 @@ This release supports x86 machines running Linux 32/64, Mac OS X 64, Windows
 Work on the native Windows 64 is still stalling, we would welcome a volunteer
 to handle that.
 
-.. _`pypy 2.2 and cpython 2.7.2`: http://speed.pypy.org
+.. _`pypy 2.2 and cpython 2.7.2`: https://speed.pypy.org
 
 Highlights
 ==========

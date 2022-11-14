@@ -1,7 +1,7 @@
 import py
 
 
-py.test.skip("XXX: crashes: https://bitbucket.org/pypy/pypy/issue/1773")
+py.test.skip("XXX: crashes: issue 1773")
 
 
 class AppTestCopy:

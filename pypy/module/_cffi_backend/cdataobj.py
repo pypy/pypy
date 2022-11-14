@@ -489,6 +489,9 @@ class W_CData(W_Root):
     def descr_exit(self, args_w):
         self.enter_exit(True)
 
+    def get_maximum_buffer_size(self):
+        return -1
+
 
 class W_CDataMem(W_CData):
     """This is used only by the results of cffi.cast('int', x)
@@ -554,20 +557,27 @@ class W_CDataNewOwning(W_CData):
 
 class W_CDataNewStd(W_CDataNewOwning):
     """Subclass using the standard allocator, lltype.malloc()/lltype.free()"""
-    _attrs_ = ['explicitly_freed']
-    explicitly_freed = False
+    _attrs_ = ['datasize']    # changed to -1 after being explicitly freed
+
+    def __init__(self, space, cdata, ctype, length, datasize):
+        W_CDataNewOwning.__init__(self, space, cdata, ctype, length)
+        assert datasize >= 0
+        self.datasize = datasize
 
     @rgc.must_be_light_finalizer
     def __del__(self):
-        if not self.explicitly_freed:
+        if self.datasize >= 0:
             lltype.free(self._ptr, flavor='raw')
 
     def _do_exit(self):
-        if not self.explicitly_freed:
-            rgc.add_memory_pressure(-self._sizeof(), self)
-            self.explicitly_freed = True
+        if self.datasize >= 0:
+            rgc.add_memory_pressure(-self.datasize, self)
+            self.datasize = -1
             rgc.may_ignore_finalizer(self)
             lltype.free(self._ptr, flavor='raw')
+
+    def get_maximum_buffer_size(self):
+        return self.datasize
 
 
 class W_CDataNewNonStd(W_CDataNewOwning):
@@ -620,6 +630,9 @@ class W_CDataPtrToStructOrUnion(W_CData):
             if isinstance(structobj, W_CDataNewOwning):
                 structobj._do_exit()
 
+    def get_maximum_buffer_size(self):
+        return self.structobj._sizeof()
+
 
 class W_CDataSliced(W_CData):
     """Subclass with an explicit length, for slices."""
@@ -669,12 +682,23 @@ class W_CDataFromBuffer(W_CData):
     def get_array_length(self):
         return self.length
 
-    def _repr_extra(self):
-        if self.w_keepalive is not None:
-            name = self.space.type(self.w_keepalive).name
+    def _sizeof(self):
+        from pypy.module._cffi_backend import ctypearray
+        ctype = self.ctype
+        if isinstance(ctype, ctypearray.W_CTypeArray):
+            return self.length * ctype.ctitem.size
         else:
-            name = "(released)"
-        return "buffer len %d from '%s' object" % (self.length, name)
+            return W_CData._sizeof(self)
+
+    def _repr_extra(self):
+        from pypy.module._cffi_backend import ctypearray
+        if self.w_keepalive is None:
+            return "buffer RELEASED"
+        obj_tp_name = self.space.type(self.w_keepalive).name
+        if isinstance(self.ctype, ctypearray.W_CTypeArray):
+            return "buffer len %d from '%s' object" % (self.length, obj_tp_name)
+        else:
+            return "buffer from '%s' object" % (obj_tp_name,)
 
     def enter_exit(self, exit_now):
         # for now, limited effect on PyPy
@@ -713,9 +737,12 @@ class W_CDataGCP(W_CData):
 
 
 W_CData.typedef = TypeDef(
-    '_cffi_backend.CData',
-    __module__ = '_cffi_backend',
-    __name__ = '<cdata>',
+    '_cffi_backend._CDataBase',
+    __doc__ = "The internal base type for CData objects.  Use FFI.CData to "
+              "access it.  Always check with isinstance(): subtypes are "
+              "sometimes returned on CPython, for performance reasons.",
+    __module__ = '_cffi_backend',   # attribute also visible on instances
+    __name__ = '<cdata>',           # attribute also visible on instances
     __repr__ = interp2app(W_CData.repr),
     __bool__ = interp2app(W_CData.bool),
     __int__ = interp2app(W_CData.int),

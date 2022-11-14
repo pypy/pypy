@@ -10,6 +10,7 @@ class State:
     def __init__(self, space):
         self.w_e = space.newfloat(math.e)
         self.w_pi = space.newfloat(math.pi)
+        self.w_tau = space.newfloat(math.pi * 2.0)
         self.w_inf = space.newfloat(rfloat.INFINITY)
         self.w_nan = space.newfloat(rfloat.NAN)
 def get(space):
@@ -121,12 +122,112 @@ def ldexp(space, w_x,  w_i):
         raise oefmt(space.w_ValueError, "math domain error")
     return space.newfloat(r)
 
-def hypot(space, w_x, w_y):
-    """hypot(x,y)
-
-       Return the Euclidean distance, sqrt(x*x + y*y).
+def hypot(space, args_w):
     """
-    return math2(space, math.hypot, w_x, w_y)
+    Multidimensional Euclidean distance from the origin to a point.
+
+    Roughly equivalent to:
+        sqrt(sum(x**2 for x in args))
+
+    For a two dimensional point (x, y), gives the hypotenuse
+    using the Pythagorean theorem:  sqrt(x*x + y*y).
+
+    For example, the hypotenuse of a 3/4/5 right triangle is:
+
+        >>> hypot(3.0, 4.0)
+        5.0
+    """
+    vec = [0.0] * len(args_w)
+    found_nan = False
+    max = 0.0
+    for i in range(len(args_w)):
+        w_x = args_w[i]
+        x = math.fabs(_get_double(space, w_x))
+        found_nan = math.isnan(x) or found_nan
+        if x > max:
+            max = x
+        vec[i] = x
+    result = _vector_norm(vec, max, found_nan)
+    return space.newfloat(result)
+
+def dist(space, w_p, w_q, __posonly__=None):
+    """
+    Return the Euclidean distance between two points p and q.
+
+    The points should be specified as sequences (or iterables) of
+    coordinates.  Both inputs must have the same dimension.
+
+    Roughly equivalent to:
+        sqrt(sum((px - qx) ** 2.0 for px, qx in zip(p, q)))
+    """
+    p_w = space.unpackiterable(w_p)
+    q_w = space.unpackiterable(w_q)
+    if len(p_w) != len(q_w):
+        raise oefmt(space.w_ValueError, "both points must have the same number of dimensions")
+
+    vec = [0.0] * len(p_w)
+    found_nan = False
+    max = 0.0
+    for i in range(len(p_w)):
+        px = _get_double(space, p_w[i])
+        qx = _get_double(space, q_w[i])
+        x = math.fabs(px - qx)
+        found_nan = math.isnan(x) or found_nan
+        if x > max:
+            max = x
+        vec[i] = x
+    result = _vector_norm(vec, max, found_nan)
+    return space.newfloat(result)
+
+
+def _vector_norm(vec, max, found_nan):
+    # code and comment from CPython's vector_norm
+
+    # Given an *n* length *vec* of values and a value *max*, compute:
+    #
+    #     max * sqrt(sum((x / max) ** 2 for x in vec))
+    #
+    # The value of the *max* variable must be non-negative and equal to the
+    # absolute value of the largest magnitude entry in the vector.  If n==0,
+    # then *max* should be 0.0. If an infinity is present in the vec, *max*
+    # should be INF.
+    #
+    # The *found_nan* variable indicates whether some member of the *vec* is a
+    # NaN.
+    #
+    # To improve accuracy and to increase the number of cases where
+    # vector_norm() is commutative, we use a variant of Neumaier summation
+    # specialized to exploit that we always know that |csum| >= |x|.
+    #
+    # The *csum* variable tracks the cumulative sum and *frac* tracks the
+    # cumulative fractional errors at each step.  Since this variant assumes
+    # that |csum| >= |x| at each step, we establish the precondition by
+    # starting the accumulation from 1.0 which represents the largest possible
+    # value of (x/max)**2.
+    #
+    # After the loop is finished, the initial 1.0 is subtracted out for a net
+    # zero effect on the final sum.  Since *csum* will be greater than 1.0, the
+    # subtraction of 1.0 will not cause fractional digits to be dropped from
+    # *csum*.
+
+    x = csum = 1.0
+    oldsum = frac = 0.0
+    if math.isinf(max):
+        return max
+    if found_nan:
+        return rfloat.NAN
+    if max == 0.0 or len(vec) <= 1:
+        return max
+    for x in vec:
+        assert rfloat.isfinite(x) and math.fabs(x) <= max
+        x /= max
+        x = x * x
+        oldcsum = csum
+        csum += x
+        assert csum >= x
+        frac += (oldcsum - csum) + x
+    return max * math.sqrt(csum - 1.0 + frac)
+
 
 def tan(space, w_x):
     """tan(x)
@@ -155,12 +256,12 @@ def floor(space, w_x):
        Return the floor of x as an int.
        This is the largest integral value <= x.
     """
-    from pypy.objspace.std.longobject import newlong_from_float
+    from pypy.objspace.std.floatobject import newint_from_float
     w_descr = space.lookup(w_x, '__floor__')
     if w_descr is not None:
         return space.get_and_call_function(w_descr, w_x)
     x = _get_double(space, w_x)
-    return newlong_from_float(space, math.floor(x))
+    return newint_from_float(space, math.floor(x))
 
 def sqrt(space, w_x):
     """sqrt(x)
@@ -177,7 +278,7 @@ def frexp(space, w_x):
        If x is 0, m and e are both 0.  Else 0.5 <= abs(m) < 1.0.
     """
     mant, expo = math1_w(space, math.frexp, w_x)
-    return space.newtuple([space.newfloat(mant), space.newint(expo)])
+    return space.newtuple2(space.newfloat(mant), space.newint(expo))
 
 degToRad = math.pi / 180.0
 
@@ -258,11 +359,11 @@ def ceil(space, w_x):
        Return the ceiling of x as an int.
        This is the smallest integral value >= x.
     """
-    from pypy.objspace.std.longobject import newlong_from_float
+    from pypy.objspace.std.floatobject import newint_from_float
     w_descr = space.lookup(w_x, '__ceil__')
     if w_descr is not None:
         return space.get_and_call_function(w_descr, w_x)
-    return newlong_from_float(space, math1_w(space, math.ceil, w_x))
+    return newint_from_float(space, math1_w(space, math.ceil, w_x))
 
 def sinh(space, w_x):
     """sinh(x)
@@ -312,7 +413,7 @@ def modf(space, w_x):
        of x.  The integer part is returned as a real.
     """
     frac, intpart = math1_w(space, math.modf, w_x)
-    return space.newtuple([space.newfloat(frac), space.newfloat(intpart)])
+    return space.newtuple2(space.newfloat(frac), space.newfloat(intpart))
 
 def exp(space, w_x):
     """exp(x)
@@ -483,3 +584,24 @@ only close to themselves."""
                diff <= math.fabs(rel_tol * a)) or
               diff <= abs_tol)
     return space.newbool(result)
+
+
+def gcd(space, w_a, w_b):
+    """greatest common divisor of a and b"""
+    from rpython.rlib import rbigint
+    w_a = space.abs(space.index(w_a))
+    w_b = space.abs(space.index(w_b))
+    try:
+        a = space.int_w(w_a)
+        b = space.int_w(w_b)
+    except OperationError as e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+
+        a = space.bigint_w(w_a)
+        b = space.bigint_w(w_b)
+        g = a.gcd(b)
+        return space.newlong_from_rbigint(g)
+    else:
+        g = rbigint.gcd_binary(a, b)
+        return space.newint(g)

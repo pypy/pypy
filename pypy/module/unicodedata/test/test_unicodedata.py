@@ -46,14 +46,14 @@ class AppTestUnicodeData:
     def test_cjk(self):
         import sys
         import unicodedata
-        assert unicodedata.unidata_version >= "8"
+        assert int(unicodedata.unidata_version.split(".")[0]) >= 8
         cases = [
             ('3400', '4DB5'),
-            ('4E00', '9FD5'),
+            ('4E00', '9FEF'),
             ('20000', '2A6D6'),
             ('2A700', '2B734'),
-            ('2B740', '2B81D'),
-            ('2B820', '2CEA1'),
+            ('2B740', '2CEA1'),
+            ('2CEB0', '2EBE0'),
         ]
         for first, last in cases:
             first = int(first, 16)
@@ -78,6 +78,11 @@ class AppTestUnicodeData:
         import unicodedata
         assert unicodedata.lookup("GOTHIC LETTER FAIHU") == '\U00010346'
 
+    def test_yes_alias_python3(self):
+        import unicodedata
+        assert unicodedata.lookup("LATIN SMALL LETTER GHA") == u"\u01a3"
+        assert unicodedata.name(u"\u01a3") == "LATIN SMALL LETTER OI"
+
     def test_normalize_bad_argcount(self):
         import unicodedata
         raises(TypeError, unicodedata.normalize, 'x')
@@ -91,6 +96,11 @@ class AppTestUnicodeData:
     def test_normalize_wide(self):
         import unicodedata
         assert unicodedata.normalize('NFC', '\U000110a5\U000110ba') == '\U000110ab'
+
+    def test_is_normalized(self):
+        import unicodedata
+        assert unicodedata.is_normalized("NFC", '\U000110ab')
+        assert not unicodedata.is_normalized("NFC", '\U000110a5\U000110ba')
 
     def test_linebreaks(self):
         linebreaks = (0x0a, 0x0b, 0x0c, 0x0d, 0x85,
@@ -153,3 +163,17 @@ class AppTestUnicodeData:
         for cp in range(0xf0000, 0xf0300, 7):
             exc = raises(ValueError, unicodedata.name, chr(cp))
             assert str(exc.value) == 'no such name'
+
+    def test_east_asian_width_9_0_changes(self):
+        import unicodedata
+        assert unicodedata.ucd_3_2_0.east_asian_width('\u231a') == 'N'
+        assert unicodedata.east_asian_width('\u231a') == 'W'
+
+    def test_11_change(self):
+        import unicodedata
+        assert unicodedata.name(chr(0x1f9b9)) == "SUPERVILLAIN"
+
+    def test_12_1_change(self):
+        import unicodedata
+        assert unicodedata.name(chr(0x32ff)) == 'SQUARE ERA NAME REIWA'
+

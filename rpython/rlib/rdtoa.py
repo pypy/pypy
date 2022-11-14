@@ -39,7 +39,7 @@ eci = ExternalCompilationInfo(
 _INT_LIMIT = 0x7ffff000
 
 dg_strtod = rffi.llexternal(
-    '_PyPy_dg_strtod', [rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE,
+    '_PyPy_dg_strtod', [rffi.CONST_CCHARP, rffi.CCHARPP], rffi.DOUBLE,
     compilation_info=eci, sandboxsafe=True)
 
 dg_dtoa = rffi.llexternal(
@@ -60,14 +60,14 @@ def strtod(input):
     try:
         # note: don't use the class scoped_view_charp here, it
         # break some tests because this function is used by the GC
-        ll_input, flag = rffi.get_nonmovingbuffer_final_null(input)
+        ll_input, llobj, flag = rffi.get_nonmovingbuffer_ll_final_null(input)
         try:
-            result = dg_strtod(ll_input, end_ptr)
+            result = dg_strtod(rffi.cast(rffi.CONST_CCHARP, ll_input), end_ptr)
 
             endpos = (rffi.cast(lltype.Signed, end_ptr[0]) -
                       rffi.cast(lltype.Signed, ll_input))
         finally:
-            rffi.free_nonmovingbuffer(input, ll_input, flag)
+            rffi.free_nonmovingbuffer_ll(ll_input, llobj, flag)
     finally:
         lltype.free(end_ptr, flavor='raw')
 
@@ -191,12 +191,12 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
     # 2. Digits, with included decimal point
     if 0 < decpt <= buflen:
-        builder.append(rffi.charpsize2str(digits, decpt - 0))
+        builder.append_charpsize(digits, decpt - 0)
         builder.append('.')
         ptr = rffi.ptradd(digits, decpt)
-        builder.append(rffi.charpsize2str(ptr, buflen - decpt))
+        builder.append_charpsize(ptr, buflen - decpt)
     else:
-        builder.append(rffi.charpsize2str(digits, buflen))
+        builder.append_charpsize(digits, buflen)
 
     # 3. And zeros on the right
     if buflen < decpt:
@@ -236,6 +236,7 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
 
     return s
 
+@jit.elidable
 def dtoa(value, code='r', mode=0, precision=0, flags=0,
          special_strings=lower_special_strings, upper=False):
     if precision > _INT_LIMIT:

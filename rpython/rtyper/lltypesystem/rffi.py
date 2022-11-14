@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 from rpython.rtyper.lltypesystem.llmemory import itemoffsetof
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import Symbolic, specialize
+from rpython.rlib.objectmodel import Symbolic, specialize, not_rpython
 from rpython.rlib.objectmodel import keepalive_until_here, enforceargs
 from rpython.rlib import rarithmetic, rgc
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -77,7 +77,8 @@ def llexternal(name, args, result, _callable=None,
                _nowrapper=False, calling_conv=None,
                elidable_function=False, macro=None,
                random_effects_on_gcobjs='auto',
-               save_err=RFFI_ERR_NONE):
+               save_err=RFFI_ERR_NONE,
+               natural_arity=-1):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -101,6 +102,9 @@ def llexternal(name, args, result, _callable=None,
                   by the JIT.  If 'c', it can be seen (depending on
                   releasegil=False).  For tests only, or if _nowrapper,
                   it defaults to 'c'.
+
+    natural_arity: on platforms where it matters, you have to provide the natural
+                   arity for variadic calls. Important examples are OS X on M1
     """
     if calling_conv is None:
         if sys.platform == 'win32' and not _nowrapper:
@@ -118,7 +122,8 @@ def llexternal(name, args, result, _callable=None,
                 name, macro, ext_type, compilation_info)
         else:
             _callable = ll2ctypes.LL2CtypesCallable(ext_type,
-                'c' if calling_conv == 'unknown' else calling_conv)
+                'c' if calling_conv == 'unknown' else calling_conv,
+                natural_arity)
     else:
         assert macro is None, "'macro' is useless if you specify '_callable'"
     if elidable_function:
@@ -163,6 +168,7 @@ def llexternal(name, args, result, _callable=None,
                                  random_effects_on_gcobjs=
                                      random_effects_on_gcobjs,
                                  calling_conv=calling_conv,
+                                 natural_arity=natural_arity,
                                  **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
@@ -190,7 +196,14 @@ def llexternal(name, args, result, _callable=None,
                 if %(save_err)d:
                     from rpython.rlib import rposix
                     rposix._errno_before(%(save_err)d)
-                res = funcptr(%(argnames)s)
+                if we_are_translated():
+                    res = funcptr(%(argnames)s)
+                else:
+                    try:    # only when non-translated
+                        res = funcptr(%(argnames)s)
+                    except:
+                        rgil.acquire()
+                        raise
                 if %(save_err)d:
                     from rpython.rlib import rposix
                     rposix._errno_after(%(save_err)d)
@@ -199,6 +212,7 @@ def llexternal(name, args, result, _callable=None,
         """ % locals())
         miniglobals = {'funcptr':     funcptr,
                        '__name__':    __name__, # for module name propagation
+                       'we_are_translated': we_are_translated,
                        }
         exec source.compile() in miniglobals
         call_external_function = miniglobals['call_external_function']
@@ -208,8 +222,9 @@ def llexternal(name, args, result, _callable=None,
         #
         # '_call_aroundstate_target_' is used by the JIT to generate a
         # CALL_RELEASE_GIL directly to 'funcptr'.  This doesn't work if
-        # 'funcptr' might be a C macro, though.
-        if macro is None:
+        # 'funcptr' might be a C macro, though. We also can't do variadic
+        # calls
+        if macro is None and natural_arity == -1:
             call_external_function._call_aroundstate_target_ = funcptr, save_err
         #
         call_external_function = func_with_new_name(call_external_function,
@@ -221,6 +236,7 @@ def llexternal(name, args, result, _callable=None,
         # the low-level function pointer carelessly
         # ...well, unless it's a macro, in which case we still have
         # to hide it from the JIT...
+
         need_wrapper = (macro is not None or save_err != RFFI_ERR_NONE)
         # ...and unless we're on Windows and the calling convention is
         # 'win' or 'unknown'
@@ -269,10 +285,11 @@ def llexternal(name, args, result, _callable=None,
             arg = args[i]
             if TARGET == CCHARP or TARGET is VOIDP:
                 if arg is None:
+                    from rpython.rtyper.annlowlevel import llstr
                     arg = lltype.nullptr(CCHARP.TO)   # None => (char*)NULL
-                    to_free = to_free + (arg, '\x04')
+                    to_free = to_free + (arg, llstr(None), '\x04')
                 elif isinstance(arg, str):
-                    tup = get_nonmovingbuffer_final_null(arg)
+                    tup = get_nonmovingbuffer_ll_final_null(arg)
                     to_free = to_free + tup
                     arg = tup[0]
                 elif isinstance(arg, unicode):
@@ -306,10 +323,10 @@ def llexternal(name, args, result, _callable=None,
             arg = args[i]
             if TARGET == CCHARP or TARGET is VOIDP:
                 if arg is None:
-                    to_free = to_free[2:]
+                    to_free = to_free[3:]
                 elif isinstance(arg, str):
-                    free_nonmovingbuffer(arg, to_free[0], to_free[1])
-                    to_free = to_free[2:]
+                    free_nonmovingbuffer_ll(to_free[0], to_free[1], to_free[2])
+                    to_free = to_free[3:]
             elif TARGET == CWCHARP:
                 if arg is None:
                     to_free = to_free[1:]
@@ -356,10 +373,9 @@ def _make_wrapper_for(TP, callable, callbackholder, use_gil):
 
         def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
             if rgil is not None:
-                rgil.acquire()
+                rgil.acquire_maybe_in_new_thread()
             # from now on we hold the GIL
-            stackcounter.stacks_counter += 1
-            llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+            llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
             try:
                 result = callable(%(args)s)
             except Exception, e:
@@ -370,7 +386,6 @@ def _make_wrapper_for(TP, callable, callbackholder, use_gil):
                     import traceback
                     traceback.print_exc()
                 result = errorcode
-            stackcounter.stacks_counter -= 1
             if rgil is not None:
                 rgil.release()
             # here we don't hold the GIL any more. As in the wrapper() produced
@@ -382,20 +397,12 @@ def _make_wrapper_for(TP, callable, callbackholder, use_gil):
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
     miniglobals['we_are_translated'] = we_are_translated
-    miniglobals['stackcounter'] = stackcounter
     exec source.compile() in miniglobals
     return miniglobals['wrapper']
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
-class StackCounter:
-    def _cleanup_(self):
-        self.stacks_counter = 0     # number of "stack pieces": callbacks
-                                    # and threads increase it by one
-
-stackcounter = StackCounter()
-stackcounter._cleanup_()
 
 def llexternal_use_eci(compilation_info):
     """Return a dummy function that, if called in a RPython program,
@@ -526,9 +533,10 @@ if os.name != 'nt':
           'int_fast64_t', 'uint_fast64_t',
           'intmax_t', 'uintmax_t'])
 else:
-    MODE_T = lltype.Signed
+    # MODE_T is set later
     PID_T = lltype.Signed
     SSIZE_T = lltype.Signed
+    PTRDIFF_T = lltype.Signed
 
 def populate_inttypes():
     names = []
@@ -540,6 +548,8 @@ def populate_inttypes():
             signed = False
         elif (name == 'size_t' or name.startswith('uint')
                                or name.startswith('__uint')):
+            signed = False
+        elif name == 'wchar_t' and sys.platform == 'win32':
             signed = False
         else:
             signed = True
@@ -593,6 +603,9 @@ NUMBER_TYPES.append(INT_real)
 # rarithmetic.r_int, etc!  rffi.INT/r_int correspond to the C-level
 # 'int' type, whereas rarithmetic.r_int corresponds to the
 # Python-level int type (which is a C long).  Fun.
+
+if os.name == 'nt':
+    MODE_T = INT
 
 def CStruct(name, *fields, **kwds):
     """ A small helper to create external C structure, not the
@@ -759,6 +772,10 @@ SIGNED = lltype.Signed
 SIGNEDP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
 SIGNEDPP = lltype.Ptr(lltype.Array(SIGNEDP, hints={'nolength': True}))
 
+# Unsigned, Unsigned *
+UNSIGNED = lltype.Unsigned
+UNSIGNEDP = lltype.Ptr(lltype.Array(lltype.Unsigned, hints={'nolength': True}))
+
 
 # various type mapping
 
@@ -829,90 +846,101 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
+        if not we_are_translated():
+            res = []
+            size = 0
+            while True:
+                c = cp[size]
+                if c == lastchar:
+                    return assert_str0("".join(res))
+                res.append(c)
+                size += 1
+
         size = 0
         while cp[size] != lastchar:
             size += 1
         return assert_str0(charpsize2str(cp, size))
     charp2str._annenforceargs_ = [lltype.SomePtr(TYPEP)]
 
-    # str -> char*, flag
+    # str -> (buf, llobj, flag)
     # Can't inline this because of the raw address manipulation.
     @jit.dont_look_inside
-    def get_nonmovingbuffer(data):
+    def get_nonmovingbuffer_ll(data):
         """
         Either returns a non-moving copy or performs neccessary pointer
         arithmetic to return a pointer to the characters of a string if the
         string is already nonmovable or could be pinned.  Must be followed by a
-        free_nonmovingbuffer call.
+        free_nonmovingbuffer_ll call.
 
-        Also returns a char:
-         * \4: no pinning, returned pointer is inside 'data' which is nonmovable
-         * \5: 'data' was pinned, returned pointer is inside
+        The return type is a 3-tuple containing the "char *" result,
+        a pointer to the low-level string object, and a flag as a char:
+
+         * \4: no pinning, returned pointer is inside nonmovable 'llobj'
+         * \5: 'llobj' was pinned, returned pointer is inside
          * \6: pinning failed, returned pointer is raw malloced
 
         For strings (not unicodes), the len()th character of the resulting
         raw buffer is available, but not initialized.  Use
-        get_nonmovingbuffer_final_null() instead of get_nonmovingbuffer()
+        get_nonmovingbuffer_ll_final_null() instead of get_nonmovingbuffer_ll()
         to get a regular null-terminated "char *".
         """
 
-        lldata = llstrtype(data)
+        llobj = llstrtype(data)
         count = len(data)
 
         if rgc.must_split_gc_address_space():
             flag = '\x06'    # always make a copy in this case
-        elif we_are_translated_to_c() and not rgc.can_move(data):
+        elif we_are_translated_to_c() and not rgc.can_move(llobj):
             flag = '\x04'    # no copy needed
         else:
-            if we_are_translated_to_c() and rgc.pin(data):
+            if we_are_translated_to_c() and rgc.pin(llobj):
                 flag = '\x05'     # successfully pinned
             else:
                 flag = '\x06'     # must still make a copy
         if flag == '\x06':
             buf = lltype.malloc(TYPEP.TO, count + (TYPEP is CCHARP),
                                 flavor='raw')
-            copy_string_to_raw(lldata, buf, 0, count)
-            return buf, '\x06'
+            copy_string_to_raw(llobj, buf, 0, count)
+            return buf, llobj, '\x06'
             # ^^^ raw malloc used to get a nonmovable copy
         #
         # following code is executed after we're translated to C, if:
         # - rgc.can_move(data) and rgc.pin(data) both returned true
         # - rgc.can_move(data) returned false
-        data_start = cast_ptr_to_adr(lldata) + \
+        data_start = cast_ptr_to_adr(llobj) + \
             offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
 
-        return cast(TYPEP, data_start), flag
+        return cast(TYPEP, data_start), llobj, flag
         # ^^^ already nonmovable. Therefore it's not raw allocated nor
         # pinned.
-    get_nonmovingbuffer._always_inline_ = 'try' # get rid of the returned tuple
-    get_nonmovingbuffer._annenforceargs_ = [strtype]
+    get_nonmovingbuffer_ll._always_inline_ = 'try' # get rid of the returned tuple
+    get_nonmovingbuffer_ll._annenforceargs_ = [strtype]
 
 
     @jit.dont_look_inside
-    def get_nonmovingbuffer_final_null(data):
-        tup = get_nonmovingbuffer(data)
-        buf, flag = tup
+    def get_nonmovingbuffer_ll_final_null(data):
+        tup = get_nonmovingbuffer_ll(data)
+        buf = tup[0]
         buf[len(data)] = lastchar
         return tup
-    get_nonmovingbuffer_final_null._always_inline_ = 'try'
-    get_nonmovingbuffer_final_null._annenforceargs_ = [strtype]
+    get_nonmovingbuffer_ll_final_null._always_inline_ = 'try'
+    get_nonmovingbuffer_ll_final_null._annenforceargs_ = [strtype]
 
-    # (str, char*, char) -> None
+    # args-from-tuple-returned-by-get_nonmoving_buffer() -> None
     # Can't inline this because of the raw address manipulation.
     @jit.dont_look_inside
-    def free_nonmovingbuffer(data, buf, flag):
+    def free_nonmovingbuffer_ll(buf, llobj, flag):
         """
-        Keep 'data' alive and unpin it if it was pinned (flag==\5).
+        Keep 'llobj' alive and unpin it if it was pinned (flag==\5).
         Otherwise free the non-moving copy (flag==\6).
         """
         if flag == '\x05':
-            rgc.unpin(data)
+            rgc.unpin(llobj)
         if flag == '\x06':
             lltype.free(buf, flavor='raw')
         # if flag == '\x04': data was already nonmovable,
         # we have nothing to clean up
-        keepalive_until_here(data)
-    free_nonmovingbuffer._annenforceargs_ = [strtype, None, None]
+        keepalive_until_here(llobj)
 
     # int -> (char*, str, int)
     # Can't inline this because of the raw address manipulation.
@@ -1002,28 +1030,70 @@ def make_string_mappings(strtype):
     charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
-            get_nonmovingbuffer, free_nonmovingbuffer,
-            get_nonmovingbuffer_final_null,
+            get_nonmovingbuffer_ll, free_nonmovingbuffer_ll,
+            get_nonmovingbuffer_ll_final_null,
             alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
             charp2strn, charpsize2str, str2chararray, str2rawmem,
             )
 
 (str2charp, free_charp, charp2str,
- get_nonmovingbuffer, free_nonmovingbuffer, get_nonmovingbuffer_final_null,
+ get_nonmovingbuffer_ll, free_nonmovingbuffer_ll,
+ get_nonmovingbuffer_ll_final_null,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
  charp2strn, charpsize2str, str2chararray, str2rawmem,
  ) = make_string_mappings(str)
 
 (unicode2wcharp, free_wcharp, wcharp2unicode,
- get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer, __not_usable,
+ get_nonmoving_unicodebuffer_ll, free_nonmoving_unicodebuffer_ll, __not_usable,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
  wcharp2unicoden, wcharpsize2unicode, unicode2wchararray, unicode2rawmem,
  ) = make_string_mappings(unicode)
 
+
+def constcharp2str(cp):
+    """
+    Like charp2str, but takes a CONST_CCHARP instead
+    """
+    cp = cast(CCHARP, cp)
+    return charp2str(cp)
+constcharp2str._annenforceargs_ = [lltype.SomePtr(CONST_CCHARP)]
+
+
+def constcharpsize2str(cp, size):
+    """
+    Like charpsize2str, but takes a CONST_CCHARP instead
+    """
+    cp = cast(CCHARP, cp)
+    return charpsize2str(cp, size)
+constcharpsize2str._annenforceargs_ = [lltype.SomePtr(CONST_CCHARP), int]
+
+def str2constcharp(s, track_allocation=True):
+    """
+    Like str2charp, but returns a CONST_CCHARP instead
+    """
+    cp = str2charp(s, track_allocation)
+    return cast(CONST_CCHARP, cp)
+str2constcharp._annenforceargs_ = [str]
+
+@not_rpython
+def _deprecated_get_nonmovingbuffer(*args):
+    raise Exception(
+"""The function rffi.get_nonmovingbuffer() has been removed because
+it was unsafe.  Use rffi.get_nonmovingbuffer_ll() instead.  It returns
+a 3-tuple instead of a 2-tuple, and all three arguments must be passed
+to rffi.free_nonmovingbuffer_ll() (instead of the original string and the
+two tuple items).  Or else, use a high-level API like
+'with rffi.scoped_nonmovingbuffer()'.""")
+
+get_nonmovingbuffer = _deprecated_get_nonmovingbuffer
+get_nonmovingbuffer_final_null = _deprecated_get_nonmovingbuffer
+free_nonmovingbuffer = _deprecated_get_nonmovingbuffer
+
+
 def wcharpsize2utf8(w, size):
     """ Helper to convert WCHARP pointer to utf8 in one go.
     Equivalent to wcharpsize2unicode().encode("utf8")
-    Raises ValueError if characters are outside range(0x110000)!
+    Raises rutf8.OutOfRange if characters are outside range(0x110000)!
     """
     from rpython.rlib import rutf8
 
@@ -1033,6 +1103,9 @@ def wcharpsize2utf8(w, size):
     return s.build()
 
 def wcharp2utf8(w):
+    """
+    Raises rutf8.OutOfRange if characters are outside range(0x110000)!
+    """
     from rpython.rlib import rutf8
 
     s = rutf8.Utf8StringBuilder()
@@ -1043,6 +1116,9 @@ def wcharp2utf8(w):
     return s.build(), i
 
 def wcharp2utf8n(w, maxlen):
+    """
+    Raises rutf8.OutOfRange if characters are outside range(0x110000)!
+    """
     from rpython.rlib import rutf8
 
     s = rutf8.Utf8StringBuilder(maxlen)
@@ -1052,16 +1128,20 @@ def wcharp2utf8n(w, maxlen):
         i += 1
     return s.build(), i
 
-def utf82wcharp(utf8, utf8len):
+def utf82wcharp(utf8, utf8len, track_allocation=True):
     from rpython.rlib import rutf8
 
-    w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw')
+    if track_allocation:
+        w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=True)
+    else:
+        w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=False)
     index = 0
     for ch in rutf8.Utf8StringIterator(utf8):
         w[index] = unichr(ch)
         index += 1
     w[index] = unichr(0)
     return w
+utf82wcharp._annenforceargs_ = [str, int, bool]
 
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
@@ -1110,7 +1190,7 @@ def size_and_sign(tp):
     except AttributeError:
         if not isinstance(tp, lltype.Primitive):
             unsigned = False
-        elif tp in (lltype.Signed, FLOAT, DOUBLE, llmemory.Address):
+        elif tp in (lltype.Signed, FLOAT, DOUBLE, LONGDOUBLE, llmemory.Address):
             unsigned = False
         elif tp in (lltype.Char, lltype.UniChar, lltype.Bool):
             unsigned = True
@@ -1132,7 +1212,7 @@ def sizeof(tp):
         if size is None:
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
-    if (tp is lltype.Signed or isinstance(tp, lltype.Ptr) 
+    if (tp is lltype.Signed or isinstance(tp, lltype.Ptr)
                             or tp is llmemory.Address):
         return LONG_BIT/8
     if tp is lltype.Char or tp is lltype.Bool:
@@ -1305,14 +1385,13 @@ class scoped_utf82wcharp:
 class scoped_nonmovingbuffer:
 
     def __init__(self, data):
-        self.data = data
+        self.buf, self.llobj, self.flag = get_nonmovingbuffer_ll(data)
     __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=False)]
 
     def __enter__(self):
-        self.buf, self.flag = get_nonmovingbuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmovingbuffer(self.data, self.buf, self.flag)
+        free_nonmovingbuffer_ll(self.buf, self.llobj, self.flag)
     __init__._always_inline_ = 'try'
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'
@@ -1324,25 +1403,24 @@ class scoped_view_charp:
     content of the 'char[]' array will not be modified.
     """
     def __init__(self, data):
-        self.data = data
+        self.buf, self.llobj, self.flag = get_nonmovingbuffer_ll_final_null(
+            data)
     __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=False)]
     def __enter__(self):
-        self.buf, self.flag = get_nonmovingbuffer_final_null(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmovingbuffer(self.data, self.buf, self.flag)
+        free_nonmovingbuffer_ll(self.buf, self.llobj, self.flag)
     __init__._always_inline_ = 'try'
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'
 
 class scoped_nonmoving_unicodebuffer:
     def __init__(self, data):
-        self.data = data
+        self.buf, self.llobj, self.flag = get_nonmoving_unicodebuffer_ll(data)
     def __enter__(self):
-        self.buf, self.flag = get_nonmoving_unicodebuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmoving_unicodebuffer(self.data, self.buf, self.flag)
+        free_nonmoving_unicodebuffer_ll(self.buf, self.llobj, self.flag)
     __init__._always_inline_ = 'try'
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'

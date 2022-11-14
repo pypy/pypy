@@ -30,8 +30,8 @@ def test_base_case(call_release_gil_mode=False):
     if call_release_gil_mode:
         cb.select_call_release_gil_mode()
     cb.prepare_arguments()
-    assert asm._log == [('mov', ebx, edi),
-                        ('mov', ebx, esi)]
+    assert asm._log == [('mov', ebx, callbuilder.CallBuilder64.ARG0),
+                        ('mov', ebx, callbuilder.CallBuilder64.ARG1)]
 
 def test_call_release_gil():
     test_base_case(call_release_gil_mode=True)

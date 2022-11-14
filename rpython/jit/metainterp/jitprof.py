@@ -138,6 +138,7 @@ class Profiler(BaseProfiler):
         line = "TOTAL:      \t\t%f" % (self.tk - self.starttime, )
         debug_print(line)
         self._print_intline("ops", cnt[Counters.OPS])
+        self._print_intline("heapcached ops", cnt[Counters.HEAPCACHED_OPS])
         self._print_intline("recorded ops", cnt[Counters.RECORDED_OPS])
         self._print_intline("  calls", calls)
         self._print_intline("guards", cnt[Counters.GUARDS])
@@ -152,6 +153,10 @@ class Profiler(BaseProfiler):
         self._print_intline("abort: bad loop", cnt[Counters.ABORT_BAD_LOOP])
         self._print_intline("abort: force quasi-immut",
                             cnt[Counters.ABORT_FORCE_QUASIIMMUT])
+        self._print_intline("abort: segmenting trace",
+                            cnt[Counters.ABORT_SEGMENTED_TRACE])
+        self._print_intline("virtualizables forced",
+                            cnt[Counters.FORCE_VIRTUALIZABLES])
         self._print_intline("nvirtuals", cnt[Counters.NVIRTUALS])
         self._print_intline("nvholes", cnt[Counters.NVHOLES])
         self._print_intline("nvreused", cnt[Counters.NVREUSED])

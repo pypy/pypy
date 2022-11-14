@@ -1,9 +1,10 @@
 from rpython.rlib import rgc, jit_hooks
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.interpreter.gateway import unwrap_spec, interp2app, WrappedDefault
 from pypy.interpreter.error import oefmt, wrap_oserror
 from rpython.rlib.objectmodel import we_are_translated
+from pypy.module._hpy_universal.interp_field import is_hpy_object, hpy_get_referents
 
 
 class W_GcRef(W_Root):
@@ -14,13 +15,15 @@ W_GcRef.typedef = TypeDef("GcRef")
 
 
 def try_cast_gcref_to_w_root(gcref):
+    if rgc.get_gcflag_dummy(gcref):
+        return None
     w_obj = rgc.try_cast_gcref_to_instance(W_Root, gcref)
     # Ignore the instances of W_Root that are not really valid as Python
     # objects.  There is e.g. WeakrefLifeline in module/_weakref that
     # inherits from W_Root for internal reasons.  Such instances don't
     # have a typedef at all (or have a null typedef after translation).
     if not we_are_translated():
-        if not hasattr(w_obj, 'typedef'):
+        if getattr(w_obj, 'typedef', None) is None:
             return None
     else:
         if w_obj is None or not w_obj.typedef:
@@ -110,8 +113,13 @@ def get_rpy_type_index(space, w_obj):
         raise missing_operation(space)
     return space.newint(index)
 
-def get_objects(space):
+@unwrap_spec(w_generation=WrappedDefault(None))
+def get_objects(space, w_generation=None):
     """Return a list of all app-level objects."""
+    space.audit('gc.get_objects', [space.newint(-1)])
+    if not space.is_w(w_generation, space.w_None):
+        raise oefmt(space.w_NotImplementedError,
+                 "get_objects(generation=None) accepts only None on PyPy")
     if not rgc.has_gcflag_extra():
         raise missing_operation(space)
     result_w = rgc.do_get_objects(try_cast_gcref_to_w_root)
@@ -122,10 +130,17 @@ def get_referents(space, args_w):
     """
     if not rgc.has_gcflag_extra():
         raise missing_operation(space)
+    space.audit('gc.get_referents', args_w)
     result_w = []
     for w_obj in args_w:
-        gcref = rgc.cast_instance_to_gcref(w_obj)
-        _list_w_obj_referents(gcref, result_w)
+        if not we_are_translated() and is_hpy_object(w_obj):
+            # special case for hpy, only for tests. See
+            # e.g. test_fields.test_tp_traverse
+            result_w += hpy_get_referents(space, w_obj)
+        else:
+            # normal case
+            gcref = rgc.cast_instance_to_gcref(w_obj)
+            _list_w_obj_referents(gcref, result_w)
     rgc.assert_no_more_gcflags()
     return space.newlist(result_w)
 
@@ -140,6 +155,7 @@ def get_referrers(space, args_w):
     # O(n) time as well, in theory, but I hope in practice the whole
     # thing takes much less than O(n^2).  We could re-add an algorithm
     # that visits most objects only once, if needed...
+    space.audit('gc.get_referrers', args_w)
     all_objects_w = rgc.do_get_objects(try_cast_gcref_to_w_root)
     result_w = []
     for w_obj in all_objects_w:

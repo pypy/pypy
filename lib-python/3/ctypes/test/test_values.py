@@ -66,6 +66,7 @@ class PythonValuesTestCase(unittest.TestCase):
         bootstrap_expected = [
                 b'_frozen_importlib',
                 b'_frozen_importlib_external',
+                b'zipimport',
                 ]
         for entry in ft:
             # This is dangerous. We *can* iterate over a pointer, but
@@ -81,9 +82,9 @@ class PythonValuesTestCase(unittest.TestCase):
                 continue
             items.append((entry.name.decode("ascii"), entry.size))
 
-        expected = [("__hello__", 161),
-                    ("__phello__", -161),
-                    ("__phello__.spam", 161),
+        expected = [("__hello__", 141),
+                    ("__phello__", -141),
+                    ("__phello__.spam", 141),
                     ]
         self.assertEqual(items, expected, "PyImport_FrozenModules example "
             "in Doc/library/ctypes.rst may be out of date")

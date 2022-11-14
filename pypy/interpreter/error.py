@@ -256,42 +256,80 @@ class OperationError(Exception):
 
     def write_unraisable(self, space, where, w_object=None,
                          with_traceback=False, extra_line=''):
-        # Note: since Python 3.5, unraisable exceptions are always
-        # printed with a traceback.  Setting 'with_traceback=False'
-        # only asks for a different format, starting with the message
-        # "Exception Xxx ignored".
+        from pypy.module.sys.vm import app_hookargs
+        try:
+            self.normalize_exception(space)
+        except OperationError:
+            pass
+        w_type = self.w_type
+        w_value = self.get_w_value(space)
+        w_tb = self.get_w_traceback(space)
         if w_object is None:
-            objrepr = ''
+            w_object = space.w_None
+
+        if where:
+            # Note: since Python 3.5, unraisable exceptions are always
+            # printed with a traceback.  Setting 'with_traceback=True'
+            # only asks for a different format in _PyErr_WriteUnraisableMsg and
+            # _cffi_backend.ccallback's Handle_applevel_exception
+            if with_traceback:
+                first_line = 'Exception ignored %s' % (where, )
+            else:
+                first_line = 'Exception ignored in: %s' % (where, )
+        else:
+            first_line = ''
+        info_w = [
+            self.w_type,
+            w_value,
+            w_tb,
+            space.newtext(first_line),
+            w_object,
+            space.newtext(extra_line),
+        ]
+        w_hook_class = app_hookargs.wget(space, "UnraisableHookArgs")
+        try:
+            w_hook_args = space.call_function(w_hook_class, space.newtuple(info_w))
+
+            w_hook = space.sys.getdictvalue(space, "unraisablehook")
+        except OperationError as e:
+            first_line = "Exception ignored on building sys.unraisablehook arguments"
+        else:
+            if not space.is_none(w_hook):
+                try:
+                    space.audit("sys.unraisablehook", [w_hook, w_hook_args])
+                    space.call_function(w_hook, w_hook_args)
+                    return
+                except OperationError as e:
+                    first_line = "Exception ignored in sys.unraisablehook"
+                    w_object = w_hook
+                    w_type = e.w_type
+                    w_value = e.get_w_value(space)
+                    w_tb = e.get_w_traceback(space)
+
+        self.write_unraisable_default(space, w_type, w_value, w_tb, first_line, w_object,
+                                      extra_line)
+
+    @staticmethod
+    def write_unraisable_default(space, w_type, w_value, w_tb, first_line, w_object,
+                                 extra_line):
+        if not first_line:
+            first_line = "Exception ignored in:"
+        if w_object is None or w_object is space.w_None:
+            first_line = "%s" % (first_line,)
         else:
             try:
                 objrepr = space.text_w(space.repr(w_object))
             except OperationError:
                 objrepr = "<object repr() failed>"
-        #
+            first_line = "%s %s" % (first_line, objrepr)
+        if not extra_line:
+            extra_line = '\n'
+        else:
+            extra_line += ':\n'
         try:
-            try:
-                self.normalize_exception(space)
-            except OperationError:
-                pass
-            w_t = self.w_type
-            w_v = self.get_w_value(space)
-            w_tb = self.get_w_traceback(space)
-            if where or objrepr:
-                if with_traceback:
-                    first_line = 'From %s%s:\n' % (where, objrepr)
-                else:
-                    first_line = 'Exception ignored in: %s%s\n' % (
-                        where, objrepr)
-            else:
-                # Note that like CPython, we don't normalize the
-                # exception here.  So from `'foo'.index('bar')` you get
-                # "Exception ValueError: 'substring not found' in x ignored"
-                # but from `raise ValueError('foo')` you get
-                # "Exception ValueError: ValueError('foo',) in x ignored"
-                first_line = ''
             space.appexec([space.newtext(first_line),
                            space.newtext(extra_line),
-                           w_t, w_v, w_tb],
+                           w_type, w_value, w_tb],
             """(first_line, extra_line, t, v, tb):
                 import sys
                 sys.stderr.write(first_line)
@@ -348,6 +386,9 @@ class OperationError(Exception):
             return space.w_None
         return tb
 
+    def got_any_traceback(self):
+        return self._application_traceback is not None
+
     def set_traceback(self, traceback):
         """Set the current traceback."""
         self._application_traceback = traceback
@@ -375,13 +416,22 @@ class OperationError(Exception):
 
     def chain_exceptions(self, space, context):
         """Attach another OperationError as __context__."""
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
         self.normalize_exception(space)
         w_value = self.get_w_value(space)
         context.normalize_exception(space)
         w_context = context.get_w_value(space)
         if not space.is_w(w_value, w_context):
+            if not isinstance(w_value, W_BaseException):
+                raise oefmt(space.w_SystemError, "not an instance of Exception: %T", w_value)
             _break_context_cycle(space, w_value, w_context)
-            space.setattr(w_value, space.newtext('__context__'), w_context)
+            w_value.descr_setcontext(space, w_context)
+
+    def chain_exceptions_from_cause(self, space, exception):
+        # XXX does this code really make sense?
+        self.chain_exceptions(space, exception)
+        self.set_cause(space, exception.get_w_value(space))
+        self.record_context(space, space.getexecutioncontext())
 
     # A simplified version of _PyErr_TrySetFromCause, which returns a
     # new exception of the same class, but with another error message.
@@ -425,12 +475,15 @@ def _break_context_cycle(space, w_value, w_context):
 
     This is O(chain length) but context chains are usually very short
     """
+    from pypy.module.exceptions.interp_exceptions import W_BaseException
     while True:
-        w_next = space.getattr(w_context, space.newtext('__context__'))
-        if space.is_w(w_next, space.w_None):
+        if not isinstance(w_context, W_BaseException):
+            raise oefmt(space.w_SystemError, "not an instance of Exception: %T", w_context)
+        w_next = w_context.descr_getcontext(space)
+        if space.is_none(w_next):
             break
         if space.is_w(w_next, w_value):
-            space.setattr(w_context, space.newtext('__context__'), space.w_None)
+            w_context.descr_setcontext(space, space.w_None)
             break
         w_context = w_next
 
@@ -501,14 +554,16 @@ def get_operrcls2(valuefmt):
                         result = str(value)
                         lgt += len(result)
                     elif fmt == 'R':
-                        result = space.utf8_w(space.repr(value))
-                        lgt += len(result)
+                        s = space.repr(value)
+                        result = space.utf8_w(s)
+                        lgt += space.len_w(s)
                     elif fmt == 'S':
-                        result = space.utf8_w(space.str(value))
-                        lgt += len(result)
+                        s = space.str(value)
+                        result = space.utf8_w(s)
+                        lgt += space.len_w(s)
                     elif fmt == 'T':
                         result = space.type(value).name
-                        lgt += len(result)
+                        lgt += rutf8.codepoints_in_utf8(result)
                     elif fmt == 'N':
                         result = value.getname(space)
                         lgt += len(result)
@@ -585,6 +640,65 @@ def oefmt(w_type, valuefmt, *args):
     OpErrFmt, strings = get_operr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
 
+
+_fmtcache_withname_error2 = {}
+
+def get_operr_withname_error_class2(valuefmt, errorclsname):
+    strings, formats = decompose_valuefmt(valuefmt)
+    try:
+        OpErrFmtWithNameError = _fmtcache_withname_error2[formats, errorclsname]
+    except KeyError:
+        basecls, _ = get_operr_class(valuefmt)
+        class OpErrFmtWithNameError(basecls):
+            def get_w_value(self, space):
+                from pypy.module.exceptions.interp_exceptions import W_AttributeError, W_NameError
+                w_value = self._w_value
+                if w_value is None:
+                    value, lgt = self._compute_value(space)
+                    # do the instantiation here, poking at the internals somewhat
+                    w_msg = space.newtext(value, lgt)
+                    if errorclsname == "AttributeError":
+                        w_value = W_AttributeError(space)
+                        w_value.descr_init(space, [w_msg], None, self.x0, self.x1)
+                    else:
+                        assert errorclsname == "NameError"
+                        w_value = W_NameError(space)
+                        w_value.descr_init(space, [w_msg], None, self.x0)
+                    self._w_value = w_value
+                return w_value
+        _fmtcache_withname_error2[formats, errorclsname] = OpErrFmtWithNameError
+    return OpErrFmtWithNameError, strings
+
+
+_fmtcache_withname_error = {}
+
+@specialize.memo()
+def get_operr_withname_error_class(valuefmt, errorclsname):
+    try:
+        return _fmtcache_withname_error[valuefmt, errorclsname]
+    except KeyError:
+        OpErrFmtWithNameError, strings = get_operr_withname_error_class2(valuefmt, errorclsname)
+        result = _fmtcache_withname_error[valuefmt, errorclsname] = OpErrFmtWithNameError, strings
+        return result
+
+
+@specialize.arg(3)
+def oefmt_attribute_error(space, w_obj, w_name, valuefmt, *args):
+    """ Like oefmt, but always raises w_AttributeError, passing w_obj and
+    w_name to its constructor. the valuefmt needs at least two fmt characters
+    for these two arguments. """
+
+    cls, strings = get_operr_withname_error_class(valuefmt, "AttributeError")
+    return cls(space.w_AttributeError, strings, *(w_obj, w_name) + args)
+
+@specialize.arg(3)
+def oefmt_name_error(space, w_name, valuefmt, *args):
+    """ Like oefmt, but always raises w_NameError, passing w_name to its
+    constructor. the valuefmt needs at least one fmt characters for this
+    argument. """
+
+    cls, strings = get_operr_withname_error_class(valuefmt, "NameError")
+    return cls(space.w_NameError, strings, *(w_name, ) + args)
 # ____________________________________________________________
 
 # Utilities
@@ -594,9 +708,9 @@ def debug_print(text, file=None, newline=True):
     # 31: ANSI color code "red"
     ansi_print(text, esc="31", file=file, newline=newline)
 
-@specialize.arg(3, 6)
-def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
-                  w_exception_class=None, w_filename2=None, eintr_retry=False):
+@specialize.arg(3, 5)
+def wrap_oserror2(space, e, w_filename=None, w_exception_class=None,
+                  w_filename2=None, eintr_retry=False):
     """A double API here:
 
         * if eintr_retry is False, always return the OperationError to
@@ -612,7 +726,7 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
     assert isinstance(e, OSError)
 
     if w_exception_class is None:
-        w_exc = getattr(space, exception_name)
+        w_exc = space.w_OSError
     else:
         w_exc = w_exception_class
     operror = _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc,
@@ -638,6 +752,7 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
         w_errno = space.w_None
         w_winerror = space.newint(winerror)
         w_msg = space.newtext(msg, lgt)
+        w_exc = space.w_WindowsError
     else:
         errno = e.errno
         if errno == EINTR:
@@ -660,15 +775,16 @@ def _wrap_oserror2_impl(space, e, w_filename, w_filename2, w_exc, eintr_retry):
         w_filename2 = space.w_None
     w_error = space.call_function(w_exc, w_errno, w_msg, w_filename,
                                   w_winerror, w_filename2)
-    operror = OperationError(w_exc, w_error)
+    # w_exc may be normalized into a subclass of W_OSError
+    operror = OperationError(space.type(w_error), w_error)
     if eintr_retry:
         raise operror
     return operror
 
-@specialize.arg(3, 6)
+@specialize.arg(3, 5)
 @dont_inline
-def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
-                 w_exception_class=None, filename2=None, eintr_retry=False):
+def wrap_oserror(space, e, filename=None, w_exception_class=None,
+                 filename2=None, eintr_retry=False):
     w_filename = None
     w_filename2 = None
     if filename is not None:
@@ -676,7 +792,6 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
         if filename2 is not None:
             w_filename2 = space.newfilename(filename2)
     return wrap_oserror2(space, e, w_filename,
-                         exception_name=exception_name,
                          w_exception_class=w_exception_class,
                          w_filename2=w_filename2,
                          eintr_retry=eintr_retry)

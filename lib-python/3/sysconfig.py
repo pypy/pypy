@@ -18,6 +18,11 @@ __all__ = [
     'parse_config_h',
 ]
 
+# Keys for get_config_var() that are never converted to Python integers.
+_ALWAYS_STR = {
+    'MACOSX_DEPLOYMENT_TARGET',
+}
+
 _INSTALL_SCHEMES = {
     'posix_prefix': {
         'stdlib': '{installed_base}/lib/{implementation_lower}{py_version_short}',
@@ -40,16 +45,6 @@ _INSTALL_SCHEMES = {
         'platinclude': '{installed_base}/include/{implementation_lower}',
         'scripts': '{base}/bin',
         'data': '{base}',
-        },
-    'pypy': {
-        'stdlib': '{installed_base}/lib-{implementation_lower}',
-        'platstdlib': '{base}/lib-{implementation_lower}',
-        'purelib': '{base}/site-packages',
-        'platlib': '{base}/site-packages',
-        'include': '{installed_base}/include',
-        'platinclude': '{installed_base}/include',
-        'scripts': '{base}/bin',
-        'data'   : '{base}',
         },
     'nt': {
         'stdlib': '{installed_base}/Lib',
@@ -96,8 +91,8 @@ _SCHEME_KEYS = ('stdlib', 'platstdlib', 'purelib', 'platlib', 'include',
  # FIXME don't rely on sys.version here, its format is an implementation detail
  # of CPython, use sys.version_info or sys.hexversion
 _PY_VERSION = sys.version.split()[0]
-_PY_VERSION_SHORT = sys.version[:3]
-_PY_VERSION_SHORT_NO_DOT = _PY_VERSION[0] + _PY_VERSION[2]
+_PY_VERSION_SHORT = '%d.%d' % sys.version_info[:2]
+_PY_VERSION_SHORT_NO_DOT = '%d%d' % sys.version_info[:2]
 _PREFIX = os.path.normpath(sys.prefix)
 _BASE_PREFIX = os.path.normpath(sys.base_prefix)
 _EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
@@ -106,8 +101,10 @@ _CONFIG_VARS = None
 _USER_BASE = None
 
 
+# NOTE: site.py has copy of this function.
+# Sync it when modify this function.
 def _get_implementation():
-    if '__pypy__' in sys.builtin_module_names:
+    if sys.implementation.name == 'pypy':
         return 'PyPy'
     return 'Python'
 
@@ -133,15 +130,22 @@ if "_PYTHON_PROJECT_BASE" in os.environ:
     _PROJECT_BASE = _safe_realpath(os.environ["_PYTHON_PROJECT_BASE"])
 
 def _is_python_source_dir(d):
-    for fn in ("Setup.dist", "Setup.local"):
+    for fn in ("Setup", "Setup.local"):
         if os.path.isfile(os.path.join(d, "Modules", fn)):
             return True
     return False
 
 _sys_home = getattr(sys, '_home', None)
-if (_sys_home and os.name == 'nt' and
-    _sys_home.lower().endswith(('\\pcbuild\\win32', '\\pcbuild\\amd64'))):
-    _sys_home = os.path.dirname(os.path.dirname(_sys_home))
+
+if os.name == 'nt':
+    def _fix_pcbuild(d):
+        if d and os.path.normcase(d).startswith(
+                os.path.normcase(os.path.join(_PREFIX, "PCbuild"))):
+            return _PREFIX
+        return d
+    _PROJECT_BASE = _fix_pcbuild(_PROJECT_BASE)
+    _sys_home = _fix_pcbuild(_sys_home)
+
 def is_python_build(check_home=False):
     if check_home and _sys_home:
         return _is_python_source_dir(_sys_home)
@@ -158,11 +162,11 @@ if _PYTHON_BUILD:
 def _subst_vars(s, local_vars):
     try:
         return s.format(**local_vars)
-    except KeyError:
+    except KeyError as var:
         try:
             return s.format(**os.environ)
-        except KeyError as var:
-            raise AttributeError('{%s}' % var)
+        except KeyError:
+            raise AttributeError('{%s}' % var) from None
 
 def _extend_dict(target_dict, other_dict):
     target_keys = target_dict.keys()
@@ -186,40 +190,31 @@ def _expand_vars(scheme, vars):
 
 
 def _get_default_scheme():
-    if '__pypy__' in sys.builtin_module_names:
-        return 'pypy'
-    elif os.name == 'posix':
+    if os.name == 'posix':
         # the default scheme for posix is posix_prefix
         return 'posix_prefix'
     return os.name
 
 
+# NOTE: site.py has copy of this function.
+# Sync it when modify this function.
 def _getuserbase():
     env_base = os.environ.get("PYTHONUSERBASE", None)
+    if env_base:
+        return env_base
 
     def joinuser(*args):
         return os.path.expanduser(os.path.join(*args))
 
     if os.name == "nt":
         base = os.environ.get("APPDATA") or "~"
-        if env_base:
-            return env_base
-        else:
-            return joinuser(base, "Python")
+        return joinuser(base, _get_implementation())
 
-    if sys.platform == "darwin":
-        framework = get_config_var("PYTHONFRAMEWORK")
-        if framework:
-            if env_base:
-                return env_base
-            else:
-                return joinuser("~", "Library", framework, "%d.%d" %
-                                sys.version_info[:2])
+    if sys.platform == "darwin" and sys._framework:
+        return joinuser("~", "Library", sys._framework,
+                        "%d.%d" % sys.version_info[:2])
 
-    if env_base:
-        return env_base
-    else:
-        return joinuser("~", ".local")
+    return joinuser("~", ".local")
 
 
 def _parse_makefile(filename, vars=None):
@@ -232,7 +227,7 @@ def _parse_makefile(filename, vars=None):
     # Regexes needed for parsing Makefile (and similar syntaxes,
     # like old-style Setup files).
     import re
-    _variable_rx = re.compile("([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)")
+    _variable_rx = re.compile(r"([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)")
     _findvar1_rx = re.compile(r"\$\(([A-Za-z][A-Za-z0-9_]*)\)")
     _findvar2_rx = re.compile(r"\${([A-Za-z][A-Za-z0-9_]*)}")
 
@@ -258,6 +253,9 @@ def _parse_makefile(filename, vars=None):
                 notdone[n] = v
             else:
                 try:
+                    if n in _ALWAYS_STR:
+                        raise ValueError
+
                     v = int(v)
                 except ValueError:
                     # insert literal `$'
@@ -316,6 +314,8 @@ def _parse_makefile(filename, vars=None):
                         notdone[name] = value
                     else:
                         try:
+                            if name in _ALWAYS_STR:
+                                raise ValueError
                             value = int(value)
                         except ValueError:
                             done[name] = value.strip()
@@ -354,37 +354,57 @@ def get_makefile_filename():
         config_dir_name = 'config-%s%s' % (_PY_VERSION_SHORT, sys.abiflags)
     else:
         config_dir_name = 'config'
+    if hasattr(sys.implementation, '_multiarch'):
+        config_dir_name += '-%s' % sys.implementation._multiarch
     return os.path.join(get_path('stdlib'), config_dir_name, 'Makefile')
 
-def _generate_posix_vars():
+
+def _get_sysconfigdata_name():
+    return os.environ.get('_PYTHON_SYSCONFIGDATA_NAME',
+        '_sysconfigdata_{abi}_{platform}_{multiarch}'.format(
+        abi=sys.abiflags,
+        platform=sys.platform,
+        multiarch=getattr(sys.implementation, '_multiarch', ''),
+    ))
+
+
+def _generate_posix_vars(args):
     """Generate the Python module containing build-time variables."""
     import pprint
     vars = {}
-    # load the installed Makefile:
-    makefile = get_makefile_filename()
-    try:
-        _parse_makefile(makefile, vars)
-    except OSError as e:
-        msg = "invalid Python installation: unable to open %s" % makefile
-        if hasattr(e, "strerror"):
-            msg = msg + " (%s)" % e.strerror
-        raise OSError(msg)
-    # load the installed pyconfig.h:
-    config_h = get_config_h_filename()
-    try:
-        with open(config_h) as f:
-            parse_config_h(f, vars)
-    except OSError as e:
-        msg = "invalid Python installation: unable to open %s" % config_h
-        if hasattr(e, "strerror"):
-            msg = msg + " (%s)" % e.strerror
-        raise OSError(msg)
-    # On AIX, there are wrong paths to the linker scripts in the Makefile
-    # -- these paths are relative to the Python source, but when installed
-    # the scripts are in another directory.
-    if _PYTHON_BUILD:
-        vars['BLDSHARED'] = vars['LDSHARED']
+    if sys.implementation.name == 'pypy':
+        import _sysconfigdata
+        vars = _sysconfigdata.build_time_vars
+    else:
+        # load the installed Makefile:
+        makefile = get_makefile_filename()
+        try:
+            _parse_makefile(makefile, vars)
+        except OSError as e:
+            msg = "invalid Python installation: unable to open %s" % makefile
+            if hasattr(e, "strerror"):
+                msg = msg + " (%s)" % e.strerror
+            raise OSError(msg)
+        # load the installed pyconfig.h:
+        config_h = get_config_h_filename()
+        try:
+            with open(config_h) as f:
+                parse_config_h(f, vars)
+        except OSError as e:
+            msg = "invalid Python installation: unable to open %s" % config_h
+            if hasattr(e, "strerror"):
+                msg = msg + " (%s)" % e.strerror
+            raise OSError(msg)
+        # On AIX, there are wrong paths to the linker scripts in the Makefile
+        # -- these paths are relative to the Python source, but when installed
+        # the scripts are in another directory.
+        if _PYTHON_BUILD:
+            vars['BLDSHARED'] = vars['LDSHARED']
 
+    if args:
+        # PyPy extension: they should be key, value pairs
+        for k, v in zip(args[::2], args[1::2]):
+            vars[k] = v
     # There's a chicken-and-egg situation on OS X with regards to the
     # _sysconfigdata module after the changes introduced by #15298:
     # get_config_vars() is called by get_platform() as part of the
@@ -396,14 +416,14 @@ def _generate_posix_vars():
     # _sysconfigdata module manually and populate it with the build vars.
     # This is more than sufficient for ensuring the subsequent call to
     # get_platform() succeeds.
-    name = '_sysconfigdata'
+    name = _get_sysconfigdata_name()
     if 'darwin' in sys.platform:
         import types
         module = types.ModuleType(name)
         module.build_time_vars = vars
         sys.modules[name] = module
 
-    pybuilddir = 'build/lib.%s-%s' % (get_platform(), sys.version[:3])
+    pybuilddir = 'build/lib.%s-%s' % (get_platform(), _PY_VERSION_SHORT)
     if hasattr(sys, "gettotalrefcount"):
         pybuilddir += '-pydebug'
     os.makedirs(pybuilddir, exist_ok=True)
@@ -416,24 +436,37 @@ def _generate_posix_vars():
         pprint.pprint(vars, stream=f)
 
     # Create file used for sys.path fixup -- see Modules/getpath.c
-    with open('pybuilddir.txt', 'w', encoding='ascii') as f:
+    with open('pybuilddir.txt', 'w', encoding='utf8') as f:
         f.write(pybuilddir)
 
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
-    from _sysconfigdata import build_time_vars
+    # CPython: _sysconfigdata_* is generated at build time, see _generate_posix_vars()
+    # name = _get_sysconfigdata_name()
+    # PyPy: _sysconfigdata is a dynamic module (uses sys to determine values),
+    #       while _sysconfigdata_* is a static version of the same values
+    #       generated by calling _generate_posix_vars as part of packaging.py.
+    #       To prevent chicken-and-egg problems of needing the values before
+    #       generating them, use the dynamic version here.
+    name = os.environ.get('_PYTHON_SYSCONFIGDATA_NAME', '_sysconfigdata')
+    _temp = __import__(name, globals(), locals(), ['build_time_vars'], 0)
+    build_time_vars = _temp.build_time_vars
     vars.update(build_time_vars)
 
 def _init_non_posix(vars):
     """Initialize the module as appropriate for NT"""
     # set basic install directories
+    import _imp
     vars['LIBDEST'] = get_path('stdlib')
     vars['BINLIBDEST'] = get_path('platstdlib')
     vars['INCLUDEPY'] = get_path('include')
-    vars['EXT_SUFFIX'] = '.pyd'
+    vars['EXT_SUFFIX'] = _imp.extension_suffixes()[0]
     vars['EXE'] = '.exe'
     vars['VERSION'] = _PY_VERSION_SHORT_NO_DOT
     vars['BINDIR'] = os.path.dirname(_safe_realpath(sys.executable))
+    # pypy: give us control over the ABI tag in a wheel name
+    so_ext = _imp.extension_suffixes()[0]
+    vars['SOABI']= '-'.join(so_ext.split('.')[1].split('-')[:2])
 
 #
 # public APIs
@@ -461,6 +494,8 @@ def parse_config_h(fp, vars=None):
         if m:
             n, v = m.group(1, 2)
             try:
+                if n in _ALWAYS_STR:
+                    raise ValueError
                 v = int(v)
             except ValueError:
                 pass
@@ -534,7 +569,7 @@ def get_config_vars(*args):
         _CONFIG_VARS['exec_prefix'] = _EXEC_PREFIX
         _CONFIG_VARS['py_version'] = _PY_VERSION
         _CONFIG_VARS['py_version_short'] = _PY_VERSION_SHORT
-        _CONFIG_VARS['py_version_nodot'] = _PY_VERSION[0] + _PY_VERSION[2]
+        _CONFIG_VARS['py_version_nodot'] = _PY_VERSION_SHORT_NO_DOT
         _CONFIG_VARS['installed_base'] = _BASE_PREFIX
         _CONFIG_VARS['base'] = _PREFIX
         _CONFIG_VARS['installed_platbase'] = _BASE_EXEC_PREFIX
@@ -547,6 +582,7 @@ def get_config_vars(*args):
             _CONFIG_VARS['abiflags'] = ''
         _CONFIG_VARS['implementation'] = _get_implementation()
         _CONFIG_VARS['implementation_lower'] = _get_implementation().lower()
+        _CONFIG_VARS['LIBRARY'] = ''
 
         if os.name == 'nt':
             _init_non_posix(_CONFIG_VARS)
@@ -564,7 +600,9 @@ def get_config_vars(*args):
         # Always convert srcdir to an absolute path
         srcdir = _CONFIG_VARS.get('srcdir', _PROJECT_BASE)
         if os.name == 'posix':
-            if _PYTHON_BUILD:
+            if sys.implementation.name == 'pypy':
+                pass
+            elif _PYTHON_BUILD:
                 # If srcdir is a relative path (typically '.' or '..')
                 # then it should be interpreted relative to the directory
                 # containing Makefile.
@@ -583,9 +621,6 @@ def get_config_vars(*args):
         if sys.platform == 'darwin':
             import _osx_support
             _osx_support.customize_config_vars(_CONFIG_VARS)
-
-        _CONFIG_VARS['INCLUDEPY'] = os.path.join(_CONFIG_VARS['prefix'],
-                                                 'include')
 
     if args:
         vals = []
@@ -612,39 +647,30 @@ def get_platform():
     """Return a string that identifies the current platform.
 
     This is used mainly to distinguish platform-specific build directories and
-    platform-specific built distributions.  Typically includes the OS name
-    and version and the architecture (as supplied by 'os.uname()'),
-    although the exact information included depends on the OS; eg. for IRIX
-    the architecture isn't particularly important (IRIX only runs on SGI
-    hardware), but for Linux the kernel version isn't particularly
-    important.
+    platform-specific built distributions.  Typically includes the OS name and
+    version and the architecture (as supplied by 'os.uname()'), although the
+    exact information included depends on the OS; on Linux, the kernel version
+    isn't particularly important.
 
     Examples of returned values:
        linux-i586
        linux-alpha (?)
        solaris-2.6-sun4u
-       irix-5.3
-       irix64-6.2
 
     Windows will return one of:
        win-amd64 (64bit Windows on AMD64 (aka x86_64, Intel64, EM64T, etc)
-       win-ia64 (64bit Windows on Itanium)
        win32 (all others - specifically, sys.platform is returned)
 
     For other non-POSIX platforms, currently just returns 'sys.platform'.
+
     """
     if os.name == 'nt':
-        # sniff sys.version for architecture.
-        prefix = " bit ("
-        i = sys.version.find(prefix)
-        if i == -1:
-            return sys.platform
-        j = sys.version.find(")", i)
-        look = sys.version[i+len(prefix):j].lower()
-        if look == 'amd64':
+        if 'amd64' in sys.version.lower():
             return 'win-amd64'
-        if look == 'itanium':
-            return 'win-ia64'
+        if '(arm)' in sys.version.lower():
+            return 'win-arm32'
+        if '(arm64)' in sys.version.lower():
+            return 'win-arm64'
         return sys.platform
 
     if os.name != "posix" or not hasattr(os, 'uname'):
@@ -658,8 +684,8 @@ def get_platform():
     # Try to distinguish various flavours of Unix
     osname, host, release, version, machine = os.uname()
 
-    # Convert the OS name to lowercase, remove '/' characters
-    # (to accommodate BSD/OS), and translate spaces (for "Power Macintosh")
+    # Convert the OS name to lowercase, remove '/' characters, and translate
+    # spaces (for "Power Macintosh")
     osname = osname.lower().replace('/', '')
     machine = machine.replace(' ', '_')
     machine = machine.replace('/', '-')
@@ -679,10 +705,9 @@ def get_platform():
             bitness = {2147483647:"32bit", 9223372036854775807:"64bit"}
             machine += ".%s" % bitness[sys.maxsize]
         # fall through to standard osname-release-machine representation
-    elif osname[:4] == "irix":              # could be "irix64"!
-        return "%s-%s" % (osname, release)
     elif osname[:3] == "aix":
-        return "%s-%s.%s" % (osname, version, release)
+        from _aix_support import aix_platform
+        return aix_platform()
     elif osname[:6] == "cygwin":
         osname = "cygwin"
         import re
@@ -713,7 +738,7 @@ def _print_dict(title, data):
 def _main():
     """Display all information sysconfig detains."""
     if '--generate-posix-vars' in sys.argv:
-        _generate_posix_vars()
+        _generate_posix_vars(sys.argv[2:])
         return
     print('Platform: "%s"' % get_platform())
     print('Python version: "%s"' % get_python_version())

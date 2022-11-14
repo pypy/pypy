@@ -16,12 +16,15 @@ backslash on Windows) it is treated as the path to a Python source file.
 Run "pydoc -k <keyword>" to search for a keyword in the synopsis lines
 of all available modules.
 
+Run "pydoc -n <hostname>" to start an HTTP server with the given
+hostname (default: localhost) on the local machine.
+
 Run "pydoc -p <port>" to start an HTTP server on the given port on the
 local machine.  Port number 0 can be used to get an arbitrary unused port.
 
 Run "pydoc -b" to start an HTTP server on an arbitrary unused port and
-open a Web browser to interactively browse documentation.  The -p option
-can be used with the -b option to explicitly specify the server port.
+open a Web browser to interactively browse documentation.  Combine with
+the -n and -p options to control the hostname and port used.
 
 Run "pydoc -w <name>" to write out the HTML documentation for a module
 to a file named "<name>.html".
@@ -63,6 +66,7 @@ import pkgutil
 import platform
 import re
 import sys
+import sysconfig
 import time
 import tokenize
 import urllib.parse
@@ -134,12 +138,6 @@ def stripid(text):
     # The behaviour of %p is implementation-dependent in terms of case.
     return _re_stripid.sub(r'\1', text)
 
-def _is_some_method(obj):
-    return (inspect.isfunction(obj) or
-            inspect.ismethod(obj) or
-            inspect.isbuiltin(obj) or
-            inspect.ismethoddescriptor(obj))
-
 def _is_bound_method(fn):
     """
     Returns True if fn is a bound method, regardless of whether
@@ -155,7 +153,7 @@ def _is_bound_method(fn):
 
 def allmethods(cl):
     methods = {}
-    for key, value in inspect.getmembers(cl, _is_some_method):
+    for key, value in inspect.getmembers(cl, inspect.isroutine):
         methods[key] = 1
     for base in cl.__bases__:
         methods.update(allmethods(base)) # all your base are belong to us
@@ -206,8 +204,22 @@ def classify_class_attrs(object):
     for (name, kind, cls, value) in inspect.classify_class_attrs(object):
         if inspect.isdatadescriptor(value):
             kind = 'data descriptor'
+            if isinstance(value, property) and value.fset is None:
+                kind = 'readonly property'
         results.append((name, kind, cls, value))
     return results
+
+def sort_attributes(attrs, object):
+    'Sort the attrs list in-place by _fields and then alphabetically by name'
+    # This allows data descriptors to be ordered according
+    # to a _fields attribute if present.
+    fields = getattr(object, '_fields', [])
+    try:
+        field_order = {name : i-len(fields) for (i, name) in enumerate(fields)}
+    except TypeError:
+        field_order = {}
+    keyfunc = lambda attr: (field_order.get(attr[0], 0), attr[0])
+    attrs.sort(key=keyfunc)
 
 # ----------------------------------------------------- module manipulation
 
@@ -338,7 +350,7 @@ def safeimport(path, forceload=0, cache={}):
         elif exc is SyntaxError:
             # A SyntaxError occurred before we could execute the module.
             raise ErrorDuringImport(value.filename, info)
-        elif exc is ImportError and value.name == path:
+        elif issubclass(exc, ImportError) and value.name == path:
             # No such module in the path.
             return None
         else:
@@ -364,15 +376,13 @@ class Doc:
         # identifies something in a way that pydoc itself has issues handling;
         # think 'super' and how it is a descriptor (which raises the exception
         # by lacking a __name__ attribute) and an instance.
-        if inspect.isgetsetdescriptor(object): return self.docdata(*args)
-        if inspect.ismemberdescriptor(object): return self.docdata(*args)
         try:
             if inspect.ismodule(object): return self.docmodule(*args)
             if inspect.isclass(object): return self.docclass(*args)
             if inspect.isroutine(object): return self.docroutine(*args)
         except AttributeError:
             pass
-        if isinstance(object, property): return self.docproperty(*args)
+        if inspect.isdatadescriptor(object): return self.docdata(*args)
         return self.docother(*args)
 
     def fail(self, object, name=None, *args):
@@ -383,9 +393,7 @@ class Doc:
 
     docmodule = docclass = docroutine = docother = docproperty = docdata = fail
 
-    def getdocloc(self, object,
-                  basedir=os.path.join(sys.base_exec_prefix, "lib",
-                                       "python%d.%d" %  sys.version_info[:2])):
+    def getdocloc(self, object, basedir=sysconfig.get_path('stdlib')):
         """Return the location of module docs or None"""
 
         try:
@@ -794,7 +802,7 @@ class HTMLDoc(Doc):
                     except Exception:
                         # Some descriptors may meet a failure in their __get__.
                         # (bug #1785)
-                        push(self._docdescriptor(name, value, mod))
+                        push(self.docdata(value, name, mod))
                     else:
                         push(self.document(value, name, mod,
                                         funcs, classes, mdict, object))
@@ -807,7 +815,7 @@ class HTMLDoc(Doc):
                 hr.maybe()
                 push(msg)
                 for name, kind, homecls, value in ok:
-                    push(self._docdescriptor(name, value, mod))
+                    push(self.docdata(value, name, mod))
             return attrs
 
         def spilldata(msg, attrs, predicate):
@@ -858,7 +866,7 @@ class HTMLDoc(Doc):
                 thisclass = attrs[0][2]
             attrs, inherited = _split_list(attrs, lambda t: t[2] is thisclass)
 
-            if thisclass is builtins.object:
+            if object is not builtins.object and thisclass is builtins.object:
                 attrs = inherited
                 continue
             elif thisclass is object:
@@ -868,8 +876,7 @@ class HTMLDoc(Doc):
                                                            object.__module__)
             tag += ':<br>\n'
 
-            # Sort attrs by name.
-            attrs.sort(key=lambda t: t[0])
+            sort_attributes(attrs, object)
 
             # Pump out the attrs, segregated by kind.
             attrs = spill('Methods %s' % tag, attrs,
@@ -878,6 +885,8 @@ class HTMLDoc(Doc):
                           lambda t: t[1] == 'class method')
             attrs = spill('Static methods %s' % tag, attrs,
                           lambda t: t[1] == 'static method')
+            attrs = spilldescriptors("Readonly properties %s" % tag, attrs,
+                                     lambda t: t[1] == 'readonly property')
             attrs = spilldescriptors('Data descriptors %s' % tag, attrs,
                                      lambda t: t[1] == 'data descriptor')
             attrs = spilldata('Data and other attributes %s' % tag, attrs,
@@ -898,7 +907,21 @@ class HTMLDoc(Doc):
             for base in bases:
                 parents.append(self.classlink(base, object.__module__))
             title = title + '(%s)' % ', '.join(parents)
-        doc = self.markup(getdoc(object), self.preformat, funcs, classes, mdict)
+
+        decl = ''
+        try:
+            signature = inspect.signature(object)
+        except (ValueError, TypeError):
+            signature = None
+        if signature:
+            argspec = str(signature)
+            if argspec and argspec != '()':
+                decl = name + self.escape(argspec) + '\n\n'
+
+        doc = getdoc(object)
+        if decl:
+            doc = decl + (doc or '')
+        doc = self.markup(doc, self.preformat, funcs, classes, mdict)
         doc = doc and '<tt>%s<br>&nbsp;</tt>' % doc
 
         return self.section(title, '#000000', '#ffc8d8', contents, 3, doc)
@@ -927,11 +950,16 @@ class HTMLDoc(Doc):
                 else:
                     note = ' unbound %s method' % self.classlink(imclass,mod)
 
+        if (inspect.iscoroutinefunction(object) or
+                inspect.isasyncgenfunction(object)):
+            asyncqualifier = 'async '
+        else:
+            asyncqualifier = ''
+
         if name == realname:
             title = '<a name="%s"><strong>%s</strong></a>' % (anchor, realname)
         else:
-            if (cl and realname in cl.__dict__ and
-                cl.__dict__[realname] is object):
+            if cl and inspect.getattr_static(cl, realname, []) is object:
                 reallink = '<a href="#%s">%s</a>' % (
                     cl.__name__ + '-' + realname, realname)
                 skipdocs = 1
@@ -956,8 +984,8 @@ class HTMLDoc(Doc):
         if not argspec:
             argspec = '(...)'
 
-        decl = title + self.escape(argspec) + (note and self.grey(
-               '<font face="helvetica, arial">%s</font>' % note))
+        decl = asyncqualifier + title + self.escape(argspec) + (note and
+               self.grey('<font face="helvetica, arial">%s</font>' % note))
 
         if skipdocs:
             return '<dl><dt>%s</dt></dl>\n' % decl
@@ -967,31 +995,26 @@ class HTMLDoc(Doc):
             doc = doc and '<dd><tt>%s</tt></dd>' % doc
             return '<dl><dt>%s</dt>%s</dl>\n' % (decl, doc)
 
-    def _docdescriptor(self, name, value, mod):
+    def docdata(self, object, name=None, mod=None, cl=None):
+        """Produce html documentation for a data descriptor."""
         results = []
         push = results.append
 
         if name:
             push('<dl><dt><strong>%s</strong></dt>\n' % name)
-        if value.__doc__ is not None:
-            doc = self.markup(getdoc(value), self.preformat)
+        doc = self.markup(getdoc(object), self.preformat)
+        if doc:
             push('<dd><tt>%s</tt></dd>\n' % doc)
         push('</dl>\n')
 
         return ''.join(results)
 
-    def docproperty(self, object, name=None, mod=None, cl=None):
-        """Produce html documentation for a property."""
-        return self._docdescriptor(name, object, mod)
+    docproperty = docdata
 
     def docother(self, object, name=None, mod=None, *ignored):
         """Produce HTML documentation for a data object."""
         lhs = name and '<strong>%s</strong> = ' % name or ''
         return lhs + self.repr(object)
-
-    def docdata(self, object, name=None, mod=None, cl=None):
-        """Produce html documentation for a data descriptor."""
-        return self._docdescriptor(name, object, mod)
 
     def index(self, dir, shadowed=None):
         """Generate an HTML index for a directory of modules."""
@@ -1202,9 +1225,21 @@ location listed above.
             parents = map(makename, bases)
             title = title + '(%s)' % ', '.join(parents)
 
-        doc = getdoc(object)
-        contents = doc and [doc + '\n'] or []
+        contents = []
         push = contents.append
+
+        try:
+            signature = inspect.signature(object)
+        except (ValueError, TypeError):
+            signature = None
+        if signature:
+            argspec = str(signature)
+            if argspec and argspec != '()':
+                push(name + argspec + '\n')
+
+        doc = getdoc(object)
+        if doc:
+            push(doc + '\n')
 
         # List the mro, if non-trivial.
         mro = deque(inspect.getmro(object))
@@ -1212,6 +1247,24 @@ location listed above.
             push("Method resolution order:")
             for base in mro:
                 push('    ' + makename(base))
+            push('')
+
+        # List the built-in subclasses, if any:
+        subclasses = sorted(
+            (str(cls.__name__) for cls in type.__subclasses__(object)
+             if not cls.__name__.startswith("_") and cls.__module__ == "builtins"),
+            key=str.lower
+        )
+        no_of_subclasses = len(subclasses)
+        MAX_SUBCLASSES_TO_DISPLAY = 4
+        if subclasses:
+            push("Built-in subclasses:")
+            for subclassname in subclasses[:MAX_SUBCLASSES_TO_DISPLAY]:
+                push('    ' + subclassname)
+            if no_of_subclasses > MAX_SUBCLASSES_TO_DISPLAY:
+                push('    ... and ' +
+                     str(no_of_subclasses - MAX_SUBCLASSES_TO_DISPLAY) +
+                     ' other subclasses')
             push('')
 
         # Cute little class to pump out a horizontal rule between sections.
@@ -1235,7 +1288,7 @@ location listed above.
                     except Exception:
                         # Some descriptors may meet a failure in their __get__.
                         # (bug #1785)
-                        push(self._docdescriptor(name, value, mod))
+                        push(self.docdata(value, name, mod))
                     else:
                         push(self.document(value,
                                         name, mod, object))
@@ -1247,7 +1300,7 @@ location listed above.
                 hr.maybe()
                 push(msg)
                 for name, kind, homecls, value in ok:
-                    push(self._docdescriptor(name, value, mod))
+                    push(self.docdata(value, name, mod))
             return attrs
 
         def spilldata(msg, attrs, predicate):
@@ -1279,7 +1332,7 @@ location listed above.
                 thisclass = attrs[0][2]
             attrs, inherited = _split_list(attrs, lambda t: t[2] is thisclass)
 
-            if thisclass is builtins.object:
+            if object is not builtins.object and thisclass is builtins.object:
                 attrs = inherited
                 continue
             elif thisclass is object:
@@ -1287,8 +1340,8 @@ location listed above.
             else:
                 tag = "inherited from %s" % classname(thisclass,
                                                       object.__module__)
-            # Sort attrs by name.
-            attrs.sort()
+
+            sort_attributes(attrs, object)
 
             # Pump out the attrs, segregated by kind.
             attrs = spill("Methods %s:\n" % tag, attrs,
@@ -1297,6 +1350,8 @@ location listed above.
                           lambda t: t[1] == 'class method')
             attrs = spill("Static methods %s:\n" % tag, attrs,
                           lambda t: t[1] == 'static method')
+            attrs = spilldescriptors("Readonly properties %s:\n" % tag, attrs,
+                                     lambda t: t[1] == 'readonly property')
             attrs = spilldescriptors("Data descriptors %s:\n" % tag, attrs,
                                      lambda t: t[1] == 'data descriptor')
             attrs = spilldata("Data and other attributes %s:\n" % tag, attrs,
@@ -1332,11 +1387,16 @@ location listed above.
                 else:
                     note = ' unbound %s method' % classname(imclass,mod)
 
+        if (inspect.iscoroutinefunction(object) or
+                inspect.isasyncgenfunction(object)):
+            asyncqualifier = 'async '
+        else:
+            asyncqualifier = ''
+
         if name == realname:
             title = self.bold(realname)
         else:
-            if (cl and realname in cl.__dict__ and
-                cl.__dict__[realname] is object):
+            if cl and inspect.getattr_static(cl, realname, []) is object:
                 skipdocs = 1
             title = self.bold(name) + ' = ' + realname
         argspec = None
@@ -1356,7 +1416,7 @@ location listed above.
                     argspec = argspec[1:-1] # remove parentheses
         if not argspec:
             argspec = '(...)'
-        decl = title + argspec + note
+        decl = asyncqualifier + title + argspec + note
 
         if skipdocs:
             return decl + '\n'
@@ -1364,26 +1424,21 @@ location listed above.
             doc = getdoc(object) or ''
             return decl + '\n' + (doc and self.indent(doc).rstrip() + '\n')
 
-    def _docdescriptor(self, name, value, mod):
+    def docdata(self, object, name=None, mod=None, cl=None):
+        """Produce text documentation for a data descriptor."""
         results = []
         push = results.append
 
         if name:
             push(self.bold(name))
             push('\n')
-        doc = getdoc(value) or ''
+        doc = getdoc(object) or ''
         if doc:
             push(self.indent(doc))
             push('\n')
         return ''.join(results)
 
-    def docproperty(self, object, name=None, mod=None, cl=None):
-        """Produce text documentation for a property."""
-        return self._docdescriptor(name, object, mod)
-
-    def docdata(self, object, name=None, mod=None, cl=None):
-        """Produce text documentation for a data descriptor."""
-        return self._docdescriptor(name, object, mod)
+    docproperty = docdata
 
     def docother(self, object, name=None, mod=None, parent=None, maxlen=None, doc=None):
         """Produce text documentation for a data object."""
@@ -1418,13 +1473,14 @@ def getpager():
         return plainpager
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         return plainpager
-    if 'PAGER' in os.environ:
+    use_pager = os.environ.get('MANPAGER') or os.environ.get('PAGER')
+    if use_pager:
         if sys.platform == 'win32': # pipes completely broken in Windows
-            return lambda text: tempfilepager(plain(text), os.environ['PAGER'])
+            return lambda text: tempfilepager(plain(text), use_pager)
         elif os.environ.get('TERM') in ('dumb', 'emacs'):
-            return lambda text: pipepager(plain(text), os.environ['PAGER'])
+            return lambda text: pipepager(plain(text), use_pager)
         else:
-            return lambda text: pipepager(text, os.environ['PAGER'])
+            return lambda text: pipepager(text, use_pager)
     if os.environ.get('TERM') in ('dumb', 'emacs'):
         return plainpager
     if sys.platform == 'win32':
@@ -1473,13 +1529,14 @@ def pipepager(text, cmd):
 def tempfilepager(text, cmd):
     """Page through text by invoking a program on a temporary file."""
     import tempfile
-    filename = tempfile.mktemp()
-    with open(filename, 'w', errors='backslashreplace') as file:
-        file.write(text)
-    try:
+    with tempfile.TemporaryDirectory() as tempdir:
+        filename = os.path.join(tempdir, 'pydoc.out')
+        with open(filename, 'w', errors='backslashreplace',
+                  encoding=os.device_encoding(0) if
+                  sys.platform == 'win32' else None
+                  ) as file:
+            file.write(text)
         os.system(cmd + ' "' + filename + '"')
-    finally:
-        os.unlink(filename)
 
 def _escape_stdout(text):
     # Escape non-encodable characters to avoid encoding errors later
@@ -1616,9 +1673,7 @@ def render_doc(thing, title='Python Library Documentation: %s', forceload=0,
     if not (inspect.ismodule(object) or
               inspect.isclass(object) or
               inspect.isroutine(object) or
-              inspect.isgetsetdescriptor(object) or
-              inspect.ismemberdescriptor(object) or
-              isinstance(object, property)):
+              inspect.isdatadescriptor(object)):
         # If the passed object is a piece of data or an instance,
         # document its available methods instead of its value.
         object = type(object)
@@ -1662,7 +1717,7 @@ class Helper:
     # in pydoc_data/topics.py.
     #
     # CAUTION: if you change one of these dictionaries, be sure to adapt the
-    #          list of needed labels in Doc/tools/pyspecific.py and
+    #          list of needed labels in Doc/tools/extensions/pyspecific.py and
     #          regenerate the pydoc_data/topics.py file by running
     #              make pydoc-topics
     #          in Doc/ and copying the output file into the Lib/ directory.
@@ -1674,6 +1729,8 @@ class Helper:
         'and': 'BOOLEAN',
         'as': 'with',
         'assert': ('assert', ''),
+        'async': ('async', ''),
+        'await': ('await', ''),
         'break': ('break', 'while for'),
         'class': ('class', 'CLASSES SPECIALMETHODS'),
         'continue': ('continue', 'while for'),
@@ -1704,8 +1761,9 @@ class Helper:
     }
     # Either add symbols to this dictionary or to the symbols dictionary
     # directly: Whichever is easier. They are merged later.
+    _strprefixes = [p + q for p in ('b', 'f', 'r', 'u') for q in ("'", '"')]
     _symbols_inverse = {
-        'STRINGS' : ("'", "'''", "r'", "b'", '"""', '"', 'r"', 'b"'),
+        'STRINGS' : ("'", "'''", '"', '"""', *_strprefixes),
         'OPERATORS' : ('+', '-', '*', '**', '/', '//', '%', '<<', '>>', '&',
                        '|', '^', '~', '<', '>', '<=', '>=', '==', '!=', '<>'),
         'COMPARISON' : ('<', '>', '<=', '>=', '==', '!=', '<>'),
@@ -1830,8 +1888,13 @@ class Helper:
         self._input = input
         self._output = output
 
-    input  = property(lambda self: self._input or sys.stdin)
-    output = property(lambda self: self._output or sys.stdout)
+    @property
+    def input(self):
+        return self._input or sys.stdin
+
+    @property
+    def output(self):
+        return self._output or sys.stdout
 
     def __repr__(self):
         if inspect.stack()[1][3] == '?':
@@ -1862,7 +1925,13 @@ has the same effect as typing a particular string at the help> prompt.
                 if not request: break
             except (KeyboardInterrupt, EOFError):
                 break
-            request = replace(request, '"', '', "'", '').strip()
+            request = request.strip()
+
+            # Make sure significant trailing quoting marks of literals don't
+            # get deleted while cleaning input
+            if (len(request) > 2 and request[0] == request[-1] in ("'", '"')
+                    and request[0] not in request[1:-1]):
+                request = request[1:-1]
             if request.lower() in ('q', 'quit'): break
             if request == 'help':
                 self.intro()
@@ -1901,10 +1970,10 @@ has the same effect as typing a particular string at the help> prompt.
 
     def intro(self):
         self.output.write('''
-Welcome to Python %s's help utility!
+Welcome to Python {0}'s help utility!
 
 If this is your first time using Python, you should definitely check out
-the tutorial on the Internet at http://docs.python.org/%s/tutorial/.
+the tutorial on the Internet at https://docs.python.org/{0}/tutorial/.
 
 Enter the name of any module, keyword, or topic to get help on writing
 Python programs and using Python modules.  To quit this help utility and
@@ -1914,7 +1983,7 @@ To get a list of available modules, keywords, symbols, or topics, type
 "modules", "keywords", "symbols", or "topics".  Each module also comes
 with a one-line summary of what it does; to list the modules whose name
 or summary contain a given string such as "spam", type "modules spam".
-''' % tuple([sys.version[:3]]*2))
+'''.format('%d.%d' % sys.version_info[:2]))
 
     def list(self, items, columns=4, width=80):
         items = list(sorted(items))
@@ -1973,14 +2042,15 @@ module "pydoc_data.topics" could not be found.
         except KeyError:
             self.output.write('no documentation found for %s\n' % repr(topic))
             return
-        pager(doc.strip() + '\n')
+        doc = doc.strip() + '\n'
         if more_xrefs:
             xrefs = (xrefs or '') + ' ' + more_xrefs
         if xrefs:
             import textwrap
             text = 'Related help topics: ' + ', '.join(xrefs.split()) + '\n'
             wrapped_text = textwrap.wrap(text, 72)
-            self.output.write('\n%s\n' % ''.join(wrapped_text))
+            doc += '\n%s\n' % '\n'.join(wrapped_text)
+        pager(doc)
 
     def _gettopic(self, topic, more_xrefs=''):
         """Return unbuffered tuple of (topic, xrefs).
@@ -2119,7 +2189,7 @@ def apropos(key):
 
 # --------------------------------------- enhanced Web browser interface
 
-def _start_server(urlhandler, port):
+def _start_server(urlhandler, hostname, port):
     """Start an HTTP server thread on a specific port.
 
     Start an HTML/text server thread, so HTML or text documents can be
@@ -2159,14 +2229,14 @@ def _start_server(urlhandler, port):
         Let the server do its thing. We just need to monitor its status.
         Use time.sleep so the loop doesn't hog the CPU.
 
-        >>> starttime = time.time()
+        >>> starttime = time.monotonic()
         >>> timeout = 1                    #seconds
 
         This is a short timeout for testing purposes.
 
         >>> while serverthread.serving:
         ...     time.sleep(.01)
-        ...     if serverthread.serving and time.time() - starttime > timeout:
+        ...     if serverthread.serving and time.monotonic() - starttime > timeout:
         ...          serverthread.stop()
         ...          break
 
@@ -2204,8 +2274,8 @@ def _start_server(urlhandler, port):
 
     class DocServer(http.server.HTTPServer):
 
-        def __init__(self, port, callback):
-            self.host = 'localhost'
+        def __init__(self, host, port, callback):
+            self.host = host
             self.address = (self.host, port)
             self.callback = callback
             self.base.__init__(self, self.address, self.handler)
@@ -2225,8 +2295,9 @@ def _start_server(urlhandler, port):
 
     class ServerThread(threading.Thread):
 
-        def __init__(self, urlhandler, port):
+        def __init__(self, urlhandler, host, port):
             self.urlhandler = urlhandler
+            self.host = host
             self.port = int(port)
             threading.Thread.__init__(self)
             self.serving = False
@@ -2239,7 +2310,7 @@ def _start_server(urlhandler, port):
                 DocServer.handler = DocHandler
                 DocHandler.MessageClass = email.message.Message
                 DocHandler.urlhandler = staticmethod(self.urlhandler)
-                docsvr = DocServer(self.port, self.ready)
+                docsvr = DocServer(self.host, self.port, self.ready)
                 self.docserver = docsvr
                 docsvr.serve_until_quit()
             except Exception as e:
@@ -2254,10 +2325,14 @@ def _start_server(urlhandler, port):
         def stop(self):
             """Stop the server and this thread nicely"""
             self.docserver.quit = True
+            self.join()
+            # explicitly break a reference cycle: DocServer.callback
+            # has indirectly a reference to ServerThread.
+            self.docserver = None
             self.serving = False
             self.url = None
 
-    thread = ServerThread(urlhandler, port)
+    thread = ServerThread(urlhandler, hostname, port)
     thread.start()
     # Wait until thread.serving is True to make sure we are
     # really up before returning.
@@ -2289,9 +2364,6 @@ def _url_handler(url, content_type="text/html"):
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 %s</head><body bgcolor="#f0f0f8">%s<div style="clear:both;padding-top:.5em;">%s</div>
 </body></html>''' % (title, css_link, html_navbar(), contents)
-
-        def filelink(self, url, path):
-            return '<a href="getfile?key=%s">%s</a>' % (url, path)
 
 
     html = _HTMLDoc()
@@ -2377,19 +2449,6 @@ def _url_handler(url, content_type="text/html"):
         contents = heading + html.bigsection(
             'key = %s' % key, '#ffffff', '#ee77aa', '<br>'.join(results))
         return 'Search Results', contents
-
-    def html_getfile(path):
-        """Get and display a source file listing safely."""
-        path = urllib.parse.unquote(path)
-        with tokenize.open(path) as fp:
-            lines = html.escape(fp.read())
-        body = '<pre>%s</pre>' % lines
-        heading = html.heading(
-            '<big><big><strong>File Listing</strong></big></big>',
-            '#ffffff', '#7799ee')
-        contents = heading + html.bigsection(
-            'File: %s' % path, '#ffffff', '#ee77aa', body)
-        return 'getfile %s' % path, contents
 
     def html_topics():
         """Index of topic texts available."""
@@ -2482,8 +2541,6 @@ def _url_handler(url, content_type="text/html"):
                 op, _, url = url.partition('=')
                 if op == "search?key":
                     title, content = html_search(url)
-                elif op == "getfile?key":
-                    title, content = html_getfile(url)
                 elif op == "topic?key":
                     # try topics first, then objects.
                     try:
@@ -2521,14 +2578,14 @@ def _url_handler(url, content_type="text/html"):
     raise TypeError('unknown content type %r for url %s' % (content_type, url))
 
 
-def browse(port=0, *, open_browser=True):
+def browse(port=0, *, open_browser=True, hostname='localhost'):
     """Start the enhanced pydoc Web server and open a Web browser.
 
     Use port '0' to start the server on an arbitrary port.
     Set open_browser to False to suppress opening a browser.
     """
     import webbrowser
-    serverthread = _start_server(_url_handler, port)
+    serverthread = _start_server(_url_handler, hostname, port)
     if serverthread.error:
         print(serverthread.error)
         return
@@ -2561,25 +2618,58 @@ def browse(port=0, *, open_browser=True):
 def ispath(x):
     return isinstance(x, str) and x.find(os.sep) >= 0
 
+def _get_revised_path(given_path, argv0):
+    """Ensures current directory is on returned path, and argv0 directory is not
+
+    Exception: argv0 dir is left alone if it's also pydoc's directory.
+
+    Returns a new path entry list, or None if no adjustment is needed.
+    """
+    # Scripts may get the current directory in their path by default if they're
+    # run with the -m switch, or directly from the current directory.
+    # The interactive prompt also allows imports from the current directory.
+
+    # Accordingly, if the current directory is already present, don't make
+    # any changes to the given_path
+    if '' in given_path or os.curdir in given_path or os.getcwd() in given_path:
+        return None
+
+    # Otherwise, add the current directory to the given path, and remove the
+    # script directory (as long as the latter isn't also pydoc's directory.
+    stdlib_dir = os.path.dirname(__file__)
+    script_dir = os.path.dirname(argv0)
+    revised_path = given_path.copy()
+    if script_dir in given_path and not os.path.samefile(script_dir, stdlib_dir):
+        revised_path.remove(script_dir)
+    revised_path.insert(0, os.getcwd())
+    return revised_path
+
+
+# Note: the tests only cover _get_revised_path, not _adjust_cli_path itself
+def _adjust_cli_sys_path():
+    """Ensures current directory is on sys.path, and __main__ directory is not.
+
+    Exception: __main__ dir is left alone if it's also pydoc's directory.
+    """
+    revised_path = _get_revised_path(sys.path, sys.argv[0])
+    if revised_path is not None:
+        sys.path[:] = revised_path
+
+
 def cli():
     """Command-line interface (looks at sys.argv to decide what to do)."""
     import getopt
     class BadUsage(Exception): pass
 
-    # Scripts don't get the current directory in their path by default
-    # unless they are run with the '-m' switch
-    if '' not in sys.path:
-        scriptdir = os.path.dirname(sys.argv[0])
-        if scriptdir in sys.path:
-            sys.path.remove(scriptdir)
-        sys.path.insert(0, '.')
+    _adjust_cli_sys_path()
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'bk:p:w')
+        opts, args = getopt.getopt(sys.argv[1:], 'bk:n:p:w')
         writing = False
         start_server = False
         open_browser = False
-        port = None
+        port = 0
+        hostname = 'localhost'
         for opt, val in opts:
             if opt == '-b':
                 start_server = True
@@ -2592,11 +2682,12 @@ def cli():
                 port = val
             if opt == '-w':
                 writing = True
+            if opt == '-n':
+                start_server = True
+                hostname = val
 
         if start_server:
-            if port is None:
-                port = 0
-            browse(port, open_browser=open_browser)
+            browse(port, hostname=hostname, open_browser=open_browser)
             return
 
         if not args: raise BadUsage
@@ -2632,14 +2723,17 @@ def cli():
 {cmd} -k <keyword>
     Search for a keyword in the synopsis lines of all available modules.
 
+{cmd} -n <hostname>
+    Start an HTTP server with the given hostname (default: localhost).
+
 {cmd} -p <port>
     Start an HTTP server on the given port on the local machine.  Port
     number 0 can be used to get an arbitrary unused port.
 
 {cmd} -b
     Start an HTTP server on an arbitrary unused port and open a Web browser
-    to interactively browse documentation.  The -p option can be used with
-    the -b option to explicitly specify the server port.
+    to interactively browse documentation.  This option can be used in
+    combination with -n and/or -p.
 
 {cmd} -w <name> ...
     Write out the HTML documentation for a module to a file in the current

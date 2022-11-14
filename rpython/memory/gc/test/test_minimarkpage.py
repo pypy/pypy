@@ -96,11 +96,11 @@ def arena_collection_for_test(pagesize, pagelayout, fill_with_objects=False):
                     holeaddr = pageaddr + hdrsize + i * size_block
                     llarena.arena_reserve(holeaddr,
                                           llmemory.sizeof(llmemory.Address))
-                    exec '%s = holeaddr' % prev in globals(), locals()
+                    exec('%s = holeaddr' % prev, globals(), locals())
                     prevhole = holeaddr
                     prev = 'prevhole.address[0]'
                 endaddr = pageaddr + hdrsize + 2*nusedblocks * size_block
-                exec '%s = endaddr' % prev in globals(), locals()
+                exec('%s = endaddr' % prev, globals(), locals())
         assert ac._nuninitialized(page, size_class) == nuninitialized
     #
     ac.allocate_new_arena()

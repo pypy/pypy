@@ -85,8 +85,6 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
     PyObject **callresults = NULL;
     PyObject **callresult = NULL;
     Py_ssize_t n = 0;
-    int width = 0;
-    int precision = 0;
     int zeropad;
     const char* f;
     Py_UNICODE *s;
@@ -108,16 +106,14 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
      * result in an array) */
     for (f = format; *f; f++) {
          if (*f == '%') {
-             if (*(f+1)=='%')
+             f++;
+             if (f[0]=='%') {
                  continue;
-             if (*(f+1)=='S' || *(f+1)=='R' || *(f+1)=='A' || *(f+1) == 'V')
-                 ++callcount;
-             while (Py_ISDIGIT((unsigned)*f))
-                 width = (width*10) + *f++ - '0';
-             while (*++f && *f != '%' && !Py_ISALPHA((unsigned)*f))
-                 ;
-             if (*f == 's')
-                 ++callcount;
+             }
+             while (Py_ISDIGIT((unsigned)f[0]) || f[0] == '.') f++;
+             if (f[0] == 'S' || f[0] == 'R' || f[0] == 'A' || f[0] == 'V' || f[0] == 's') {
+                 callcount++;
+             }
          }
          else if (128 <= (unsigned char)*f) {
              PyErr_Format(PyExc_ValueError,
@@ -143,8 +139,8 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
 #ifdef HAVE_LONG_LONG
             int longlongflag = 0;
 #endif
+            int width = 0;
             const char* p = f;
-            width = 0;
             while (Py_ISDIGIT((unsigned)*f))
                 width = (width*10) + *f++ - '0';
             while (*++f && *f != '%' && !Py_ISALPHA((unsigned)*f))
@@ -336,12 +332,12 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
             int longflag = 0;
             int longlongflag = 0;
             int size_tflag = 0;
+            int width = 0;
+            int precision = 0;
             zeropad = (*f == '0');
             /* parse the width.precision part */
-            width = 0;
             while (Py_ISDIGIT((unsigned)*f))
                 width = (width*10) + *f++ - '0';
-            precision = 0;
             if (*f == '.') {
                 f++;
                 while (Py_ISDIGIT((unsigned)*f))
@@ -598,3 +594,12 @@ PyUnicode_GetLength(PyObject *unicode)
         return -1;
     return PyUnicode_GET_LENGTH(unicode);
 }
+
+void
+PyUnicode_AppendAndDel(PyObject **pleft, PyObject *right)
+{
+    PyUnicode_Append(pleft, right);
+    Py_XDECREF(right);
+}
+
+

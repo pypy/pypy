@@ -1,5 +1,5 @@
 # Test some Unicode file name semantics
-# We dont test many operations on files other than
+# We don't test many operations on files other than
 # that their names can be used with Unicode characters.
 import os, glob, time, shutil
 import unicodedata
@@ -40,7 +40,7 @@ class TestUnicodeFiles(unittest.TestCase):
         self._do_copyish(filename, filename)
         # Filename should appear in glob output
         self.assertTrue(
-            os.path.abspath(filename)==os.path.abspath(glob.glob(filename)[0]))
+            os.path.abspath(filename)==os.path.abspath(glob.glob(glob.escape(filename))[0]))
         # basename should appear in listdir.
         path, base = os.path.split(os.path.abspath(filename))
         file_list = os.listdir(path)

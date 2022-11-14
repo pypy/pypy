@@ -52,7 +52,7 @@ class TestBuiltinCode:
             pass
         code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace,
                                                    "kwonly", W_Root])
-        assert code.signature() == Signature([], kwonlyargnames=['x'])
+        assert code.signature() == Signature(['x'], kwonlyargcount=1)
         assert space.int_w(space.getattr(
             code, space.newtext('co_kwonlyargcount'))) == 1
 
@@ -126,7 +126,7 @@ class TestGateway:
         gg = gateway.app2interp_temp(app_general)
         args = gateway.Arguments(self.space, [w(6), w(7)])
         assert self.space.int_w(gg(self.space, w(3), args)) == 23
-        args = gateway.Arguments(self.space, [w(6)], ['hello', 'world'], [w(7), w(8)])
+        args = gateway.Arguments(self.space, [w(6)], [self.space.newtext('hello'), self.space.newtext('world')], [w(7), w(8)])
         assert self.space.int_w(gg(self.space, w(3), args)) == 213
 
     def test_app2interp_future(self):
@@ -168,6 +168,9 @@ class TestGateway:
             def method_with_unwrap_spec(self, space, x):
                 pass
 
+            def method_with_args(self, space, __args__):
+                pass
+
         class A(BaseA):
             def method(self, space, x):
                 return space.wrap(x + 2)
@@ -178,6 +181,9 @@ class TestGateway:
             def method_with_unwrap_spec(self, space, x):
                 return space.wrap(x + 2)
 
+            def method_with_args(self, space, __args__):
+                return space.wrap(42)
+
         class B(BaseA):
             def method(self, space, x):
                 return space.wrap(x + 1)
@@ -187,6 +193,9 @@ class TestGateway:
 
             def method_with_unwrap_spec(self, space, x):
                 return space.wrap(x + 1)
+
+            def method_with_args(self, space, __args__):
+                return space.wrap(43)
 
         class FakeTypeDef(object):
             rawdict = {}
@@ -220,6 +229,17 @@ class TestGateway:
             BaseA.method_with_unwrap_spec)
         w_e = space.wrap(meth_with_unwrap_spec)
         assert space.int_w(space.call_function(w_e, w_a, space.wrap(4))) == 4 + 2
+
+        meth_with_args = gateway.interpindirect2app(
+            BaseA.method_with_args)
+        w_f = space.wrap(meth_with_args)
+        assert space.int_w(space.call_function(w_f, w_a)) == 42
+        assert space.int_w(space.call_function(w_f, w_b,
+                                        space.wrap("ignored"))) == 43
+        # check that the optimization works even though we are using
+        # interpindirect2app:
+        assert isinstance(meth_with_args._code,
+                          gateway.BuiltinCodePassThroughArguments1)
 
     def test_interp2app_unwrap_spec(self):
         space = self.space
@@ -509,13 +529,9 @@ class TestGateway:
             return space.newbytes(filename)
         app_f = gateway.interp2app_temp(f, unwrap_spec=['fsencode'])
         w_app_f = space.wrap(app_f)
-        if sys.platform == 'win32':
-            raises(gateway.OperationError, space.call_function, 
-                   w_app_f, w(u'\udc80'))
-        else:
-            assert space.eq_w(
-                space.call_function(w_app_f, w(u'\udc80')),
-                space.newbytes('\x80'))
+        assert space.eq_w(
+            space.call_function(w_app_f, w(u'\udc80')),
+            space.newbytes('\x80'))
 
     def test_interp2app_unwrap_spec_typechecks(self):
         from rpython.rlib.rarithmetic import r_longlong
@@ -970,6 +986,24 @@ class TestGateway:
         w_res = space.call_function(w_g)
         assert space.eq_w(w_res, space.wrap(50))
 
+    def test_unwrap_spec_kwonly_with_starargs_bug(self):
+        space = self.space
+        @gateway.unwrap_spec(w_name=WrappedDefault(None), w_obj=WrappedDefault(None))
+        def init(w_a, space, args_w, __kwonly__, w_obj=None, w_name=None):
+            return space.newtuple([w_a, space.newtuple(args_w), w_obj, w_name])
+        w_g = space.wrap(gateway.interp2app_temp(init))
+        w_res = space.call_function(w_g, space.newint(1), space.newint(2))
+        assert space.eq_w(w_res, space.newtuple([space.newint(1), space.newtuple([space.newint(2)]), space.w_None, space.w_None]))
+
+    def test_posonly_args(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x2=WrappedDefault(50))
+        def g(space, w_t, w_x2, __posonly__):
+            assert space.eq_w(w_t, space.newint(1))
+            return w_x2
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_res = space.call_function(w_g, space.wrap(1))
+        assert space.eq_w(w_res, space.wrap(50))
 
 class AppTestPyTestMark:
     @py.test.mark.unlikely_to_exist
@@ -1095,6 +1129,29 @@ y = a.m(33)
         # white-box check for opt
         assert called[0] is args
 
+    def test_base_regular_descr_mismatch(self):
+        space = self.space
+
+        def f():
+            raise gateway.DescrMismatch
+
+        w_f = space.wrap(gateway.interp2app_temp(f,
+                         unwrap_spec=[]))
+        args = argument.Arguments(space, [])
+        space.raises_w(space.w_SystemError, space.call_args, w_f, args)
+
+    def test_pass_trough_arguments0_descr_mismatch(self):
+        space = self.space
+
+        def f(space, __args__):
+            raise gateway.DescrMismatch
+
+        w_f = space.wrap(gateway.interp2app_temp(f,
+                         unwrap_spec=[gateway.ObjSpace,
+                                      gateway.Arguments]))
+        args = argument.Arguments(space, [])
+        space.raises_w(space.w_SystemError, space.call_args, w_f, args)
+
 
 class AppTestKeywordsToBuiltinSanity(object):
     def test_type(self):
@@ -1134,3 +1191,18 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         d.update(**{clash: 33})
         dict.update(d, **{clash: 33})
+
+
+class AppTestFastPathCrash(object):
+    def test_fast_path_crash(self):
+        # issue bb-3091 crash in BuiltinCodePassThroughArguments0.funcrun
+        import sys
+        if '__pypy__' in sys.modules:
+            msg_fmt = "'%s' object expected, got '%s'"
+        else:
+            msg_fmt = "'%s' object but received a '%s'"
+        for obj in (dict, set):
+            with raises(TypeError) as excinfo:
+                obj.__init__(0)
+            msg = msg_fmt % (obj.__name__, 'int')
+            assert msg in str(excinfo.value)

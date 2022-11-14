@@ -158,7 +158,7 @@ def build_co_revdb_linestarts(code):
         newline = 1
         while p + 1 < len(lnotab):
             byte_incr = ord(lnotab[p])
-            line_incr = ord(lnotab[p+1])
+            line_incr = ord(lnotab[p+1])   # signed (maybe negative) from py3.6
             if byte_incr:
                 if newline != 0:
                     bits[addr] = '\x00'
@@ -188,13 +188,18 @@ def build_co_revdb_linestarts(code):
 
 def get_final_lineno(code):
     lineno = code.co_firstlineno
+    largest_line_no = lineno
     lnotab = code.co_lnotab
     p = 1
     while p < len(lnotab):
         line_incr = ord(lnotab[p])
+        if line_incr > 0x7f:
+            line_incr -= 0x100
         lineno += line_incr
+        if lineno > largest_line_no:
+            largest_line_no = lineno
         p += 2
-    return lineno
+    return largest_line_no
 
 def find_line_starts(code):
     # RPython version of dis.findlinestarts()
@@ -212,6 +217,8 @@ def find_line_starts(code):
                 result.append((addr, lineno))
                 lastlineno = lineno
             addr += byte_incr
+        if line_incr > 0x7f:
+            line_incr -= 0x100
         lineno += line_incr
         p += 2
     if lineno != lastlineno:
@@ -770,8 +777,7 @@ def command_compilewatch(cmd, expression):
         try:
             code = compile(expression, 'eval')
             marshalled_code = space.bytes_w(interp_marshal.dumps(
-                space, code,
-                space.newint(interp_marshal.Py_MARSHAL_VERSION)))
+                space, code))
         except OperationError as e:
             revdb.send_watch(e.errorstr(space), ok_flag=0)
         else:

@@ -13,7 +13,7 @@ Glossary
 
    CPython
       The "default" implementation of Python, written in C and
-      distributed by the PSF_ on http://www.python.org.
+      distributed by the PSF_ on https://www.python.org.
 
    interpreter level
       Code running at this level is part of the implementation of the
@@ -38,7 +38,7 @@ Glossary
    stackless
       Technology that enables various forms of non conventional control
       flow, such as coroutines, greenlets and tasklets.  Inspired by
-      Christian Tismer's `Stackless Python <http://www.stackless.com>`__.
+      Christian Tismer's `Stackless Python <https://www.stackless.com>`__.
 
    standard interpreter
       It is the :ref:`subsystem implementing the Python language <python-interpreter>`, composed
@@ -49,4 +49,4 @@ Glossary
        global (i.e. prebuilt) lists and dictionaries are supposed to be
        immutable ("prebuilt constant" is sometimes abbreviated to "pbc").
 
-.. _PSF: http://www.python.org/psf/
+.. _PSF: https://www.python.org/psf/

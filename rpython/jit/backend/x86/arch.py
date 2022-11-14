@@ -11,6 +11,7 @@ else:
     WORD = 8
     IS_X86_32 = False
     IS_X86_64 = True
+WIN64 = sys.platform == "win32" and sys.maxint > 2**32
 
 #
 #        +--------------------+    <== aligned to 16 bytes
@@ -35,22 +36,30 @@ if WORD == 4:
     PASS_ON_MY_FRAME = 15
     JITFRAME_FIXED_SIZE = 6 + 8 * 2 # 6 GPR + 8 XMM * 2 WORDS/float
     # 'threadlocal_addr' is passed as 2nd argument on the stack,
-    # and it can be left here for when it is needed.  As an additional hack,
-    # with asmgcc, it is made odd-valued to mean "already seen this frame
-    # during the previous minor collection".
+    # and it can be left here for when it is needed.
     THREADLOCAL_OFS = (FRAME_FIXED_SIZE + 2) * WORD
 else:
     # rbp + rbx + r12 + r13 + r14 + r15 + threadlocal + 12 extra words = 19
-    FRAME_FIXED_SIZE = 19 + 4 # 4 for vmprof, XXX make more compact!
+    # win64: we save instead rbp + rbx + rsi + rdi + r12 + 12 extra words = 17
+    # win64: and we save r14 + r15 in the shadow store, and never use r13
+    if not WIN64:
+        FRAME_FIXED_SIZE = 19 + 4 # 4 for vmprof, XXX make more compact!
+    else:
+        FRAME_FIXED_SIZE = 17 + 4 # 4 for vmprof, XXX make more compact!
     PASS_ON_MY_FRAME = 12
     JITFRAME_FIXED_SIZE = 28 # 13 GPR + 15 XMM
-    # 'threadlocal_addr' is passed as 2nd argument in %esi,
-    # and is moved into this frame location.  As an additional hack,
-    # with asmgcc, it is made odd-valued to mean "already seen this frame
-    # during the previous minor collection".
-    THREADLOCAL_OFS = (FRAME_FIXED_SIZE - 1) * WORD
+    if not WIN64:
+        # 'threadlocal_addr' is passed as 2nd argument in %esi,
+        # and is moved into this frame location.
+        THREADLOCAL_OFS = (FRAME_FIXED_SIZE - 1) * WORD
+    else:
+        # 'threadlocal_addr' is passed as 2nd argument in %edx,
+        # and is moved into its official shadow store location.
+        THREADLOCAL_OFS = (FRAME_FIXED_SIZE + 2) * WORD
+        SHADOWSTORE2_OFS = (FRAME_FIXED_SIZE + 3) * WORD
+        SHADOWSTORE3_OFS = (FRAME_FIXED_SIZE + 4) * WORD
 
-assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
+assert PASS_ON_MY_FRAME >= 12
 
 # return address, followed by FRAME_FIXED_SIZE words
 DEFAULT_FRAME_BYTES = (1 + FRAME_FIXED_SIZE) * WORD

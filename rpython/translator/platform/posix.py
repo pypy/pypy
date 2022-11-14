@@ -2,7 +2,8 @@
 
 import py, os, sys
 
-from rpython.translator.platform import Platform, log, _run_subprocess
+from rpython.translator.platform import (
+    Platform, log, _run_subprocess, CompilationError)
 from rpython.config.support import detect_pax
 
 import rpython
@@ -62,7 +63,8 @@ class BasePosix(Platform):
 
     def _pkg_config(self, lib, opt, default, check_result_dir=False):
         try:
-            ret, out, err = _run_subprocess("pkg-config", [lib, opt])
+            pkg_config = os.environ.get('PKG_CONFIG', 'pkg-config')
+            ret, out, err = _run_subprocess(pkg_config, [lib, opt])
         except OSError as e:
             err = str(e)
             ret = 1
@@ -91,6 +93,27 @@ class BasePosix(Platform):
                 raise ValueError(msg)
         return result
 
+    def get_multiarch(self):
+        if 'PYPY_MULTIARCH' in os.environ:
+            return os.environ['PYPY_MULTIARCH']
+        if sys.platform == 'cygwin':
+            return ''
+        try:
+            ret = self.execute(self.cc, args=['--print-multiarch'])
+        except CompilationError:
+            ret = ''
+        else:
+            ret = ret.out.strip()
+        if not ret:
+            # some gcc, like on redhat, return ''
+            # the following may fail on non-JIT builds
+            from rpython.jit.backend import detect_cpu
+            model = detect_cpu.autodetect()
+            ret = model.replace('-', '_') + '-linux-gnu'
+        if not ret:
+            raise ValueError("cannot detect multiarch value on this platform")
+        return ret
+
     def get_rpath_flags(self, rel_libdirs):
         # needed for cross-compilation i.e. ARM
         return self.rpath_flags + ['-Wl,-rpath-link=\'%s\'' % ldir
@@ -115,17 +138,20 @@ class BasePosix(Platform):
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
         else:
-            exe_name = exe_name.new(ext=self.exe_ext)
+            # Do not remove '.7' from pypy3.7
+            exe_name = exe_name + self.exe_ext
 
         linkflags = self.makefile_link_flags()
+        m = GnuMakefile(path)
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
         linkflags += self._exportsymbols_link_flags()
 
         if shared:
-            libname = exe_name.new(ext='').basename
-            target_name = 'lib' + exe_name.new(ext=self.so_ext).basename
+            libname = exe_name.basename
+            target_name = 'lib' + exe_name.basename + '.' + self.so_ext
+            m.so_name = path.join(target_name)
         else:
             target_name = exe_name.basename
 
@@ -138,7 +164,6 @@ class BasePosix(Platform):
         if config and config.translation.lto:
             cflags = ('-flto',) + cflags
 
-        m = GnuMakefile(path)
         m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 
@@ -173,7 +198,7 @@ class BasePosix(Platform):
         m.comment('automatically generated makefile')
         definitions = [
             ('RPYDIR', '"%s"' % rpydir),
-            ('TARGET', target_name),
+            ('TARGET', str(target_name)),
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
@@ -190,7 +215,6 @@ class BasePosix(Platform):
             ('LINKFILES', eci.link_files),
             ('RPATH_FLAGS', self.get_rpath_flags(rel_libdirs)),
             ]
-
         if profopt==True and shared==True:
             definitions.append(('PROFOPT_TARGET', exe_name.basename))
 
@@ -205,13 +229,23 @@ class BasePosix(Platform):
         if detect_pax():
             postcompile_rule[2].append('attr -q -s pax.flags -V m $(BIN)')
 
+        if "gcc" in self.cc and headers_to_precompile:
+            precompiled_header = headers_to_precompile[0].basename
+            pch = "%s.gch" % precompiled_header
+            extra_rules = [(pch, str(precompiled_header), '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)')]
+            m.definition('PRECOMPILEDHEADERS', [pch])
+            o_dependency = '%.c ' + pch
+        else:
+            pch = ""
+            extra_rules = []
+            o_dependency = '%.c'
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
             ('$(TARGET)', '$(OBJECTS)', ['$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)', '$(MAKE) postcompile BIN=$(TARGET)']),
-            ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
+            ('%.o', o_dependency, '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ('%.o', '%.s', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ('%.o', '%.cxx', '$(CXX) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
-            ]
+        ] + extra_rules
 
         for rule in rules:
             m.rule(*rule)
@@ -219,7 +253,7 @@ class BasePosix(Platform):
         m.rule(*postcompile_rule)
 
         if shared:
-            m.definition('SHARED_IMPORT_LIB', libname),
+            m.definition('SHARED_IMPORT_LIB', str(libname)),
             m.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
             m.rule('main.c', '',
                    'echo "'

@@ -15,10 +15,11 @@ class W_DlOpenLibObject(W_LibObject):
 
     def __init__(self, ffi, w_filename, flags):
         space = ffi.space
-        fname, handle = misc.dlopen_w(space, w_filename, flags)
+        fname, handle, autoclose = misc.dlopen_w(space, w_filename, flags)
         W_LibObject.__init__(self, ffi, fname)
         self.libhandle = handle
-        self.register_finalizer(space)
+        if autoclose:
+            self.register_finalizer(space)
 
     def _finalize_(self):
         h = self.libhandle

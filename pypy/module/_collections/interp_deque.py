@@ -1,6 +1,9 @@
 import sys
+
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib import jit
+from rpython.rlib.debug import check_nonneg
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
@@ -8,7 +11,6 @@ from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.sliceobject import unwrap_start_stop
-from rpython.rlib.debug import check_nonneg
 
 
 # A `dequeobject` is composed of a doubly-linked list of `block` nodes.
@@ -53,6 +55,11 @@ class Lock(object):
     """This is not a lock.  It is a marker to detect concurrent
     modifications (including in the single-threaded case).
     """
+
+
+def get_printable_location(tp):
+    return "deque._find [%s]" % (tp.getname(tp.space), )
+find_jmp = jit.JitDriver(greens=['tp'], reds='auto', name='deque._find', get_printable_location=get_printable_location)
 
 # ------------------------------------------------------------
 
@@ -299,7 +306,9 @@ class W_Deque(W_Root):
         block = self.leftblock
         index = self.leftindex
         lock = self.getlock()
+        tp = space.type(w_x)
         for i in range(self.len):
+            find_jmp.jit_merge_point(tp=tp)
             w_item = block.data[index]
             equal = space.eq_w(w_item, w_x)
             self.checklock(lock)
@@ -500,23 +509,14 @@ class W_Deque(W_Root):
         "Return state information for pickling."
         space = self.space
         w_type = space.type(self)
-        w_dict = space.findattr(self, space.newtext('__dict__'))
-        w_list = space.call_function(space.w_list, self)
-        if w_dict is None:
-            if self.maxlen == sys.maxint:
-                result = [
-                    w_type, space.newtuple([w_list])]
-            else:
-                result = [
-                    w_type, space.newtuple([w_list, space.newint(self.maxlen)])]
+        w_dict = space.findattr(self, space.newtext('__dict__')) or space.w_None
+        w_it = space.iter(self)
+        if self.maxlen == sys.maxint:
+            w_lentuple = space.newtuple([])
         else:
-            if self.maxlen == sys.maxint:
-                w_len = space.w_None
-            else:
-                w_len = space.newint(self.maxlen)
-            result = [
-                w_type, space.newtuple([w_list, w_len]), w_dict]
-        return space.newtuple(result)
+            w_lentuple = space.newtuple2(space.newtuple([]),
+                                         space.newint(self.maxlen))
+        return space.newtuple([w_type, w_lentuple, w_dict, w_it])
 
     def get_maxlen(space, self):
         if self.maxlen == sys.maxint:
@@ -545,7 +545,7 @@ app = gateway.applevel("""
             maxlenrepr = ''
         else:
             maxlenrepr = ', maxlen=%d' % (d.maxlen,)
-        return 'deque(%s%s)' % (listrepr, maxlenrepr)
+        return '%s(%s%s)' % (d.__class__.__name__, listrepr, maxlenrepr)
 """, filename=__file__)
 
 dequerepr = app.interphook("dequerepr")

@@ -1,8 +1,10 @@
 import sys
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib.objectmodel import we_are_translated, Symbolic
-from rpython.rlib.objectmodel import compute_unique_id, specialize
+from rpython.rtyper.annlowlevel import (
+    cast_gcref_to_instance, cast_instance_to_gcref)
+from rpython.rlib.objectmodel import (
+    we_are_translated, Symbolic, compute_unique_id, specialize, r_dict)
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 from rpython.rlib.jit import Counters
@@ -12,7 +14,8 @@ from rpython.conftest import option
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
     AbstractValue, oparity, AbstractResOp, IntOp, RefOp, FloatOp,\
     opclasses
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.metainterp.support import ptr2int, int2adr
+from rpython.jit.codewriter import longlong
 import weakref
 from rpython.jit.metainterp import jitexc
 
@@ -97,14 +100,11 @@ class AbstractDescr(AbstractValue):
         return '%r' % (self,)
 
     def hide(self, cpu):
-        descr_ptr = cpu.ts.cast_instance_to_base_ref(self)
-        return cpu.ts.cast_to_ref(descr_ptr)
+        return cast_instance_to_gcref(self)
 
     @staticmethod
     def show(cpu, descr_gcref):
-        from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-        descr_ptr = cpu.ts.cast_to_baseclass(descr_gcref)
-        return cast_base_ptr_to_instance(AbstractDescr, descr_ptr)
+        return cast_gcref_to_instance(AbstractDescr, descr_gcref)
 
     def get_vinfo(self):
         raise NotImplementedError
@@ -182,12 +182,10 @@ class Const(AbstractValue):
         kind = getkind(T)
         if kind == "int":
             if isinstance(T, lltype.Ptr):
-                intval = heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
+                intval = ptr2int(x)
             else:
                 intval = lltype.cast_primitive(lltype.Signed, x)
             return ConstInt(intval)
-        elif kind == "ref":
-            return cpu.ts.new_ConstRef(x)
         elif kind == "float":
             return ConstFloat(longlong.getfloatstorage(x))
         else:
@@ -231,7 +229,7 @@ class ConstInt(Const):
     getvalue = getint
 
     def getaddr(self):
-        return heaptracker.int2adr(self.value)
+        return int2adr(self.value)
 
     def _get_hash_(self):
         return make_hashable_int(self.value)
@@ -345,6 +343,14 @@ class ConstPtr(Const):
         except lltype.UninitializedMemoryAccess:
             return '<uninitialized string>'
 
+
+class ConstPtrJitCode(ConstPtr):
+    """ a ConstPtr that comes from a constant in the jitcode. has an extra
+    field to cache the encoding in the opencoder. """
+    _attrs_ = ('opencoder_index', )
+    opencoder_index = -1
+
+
 CONST_NULL = ConstPtr(ConstPtr.value)
 
 # ____________________________________________________________
@@ -354,7 +360,7 @@ def make_hashable_int(i):
     from rpython.rtyper.lltypesystem.ll2ctypes import NotCtypesAllocatedStructure
     if not we_are_translated() and isinstance(i, llmemory.AddressAsInt):
         # Warning: such a hash changes at the time of translation
-        adr = heaptracker.int2adr(i)
+        adr = int2adr(i)
         try:
             return llmemory.cast_adr_to_int(adr, "emulated")
         except NotCtypesAllocatedStructure:
@@ -389,6 +395,20 @@ def get_const_ptr_for_unicode(s):
     return result
 _const_ptr_for_unicode = {}
 
+# A dict whose keys are refs (like the .value of ConstPtr).
+# It is an r_dict. Note that NULL is not allowed as a key.
+@specialize.call_location()
+def new_ref_dict():
+    return r_dict(rd_eq, rd_hash, simple_hash_eq=True)
+
+def rd_eq(ref1, ref2):
+    return ref1 == ref2
+
+def rd_hash(ref):
+    assert ref
+    return lltype.identityhash(ref)
+
+
 # ____________________________________________________________
 
 # The JitCellToken class is the root of a tree of traces.  Each branch ends
@@ -401,6 +421,8 @@ class JitCellToken(AbstractDescr):
     was compiled; but the LoopDescr remains alive and points to the
     generated assembler.
     """
+    FORCE_BRIDGE_SEGMENTING = 1 # stored in retraced_count
+
     target_tokens = None
     failed_states = None
     retraced_count = 0
@@ -431,6 +453,12 @@ class JitCellToken(AbstractDescr):
 
     def dump(self):
         self.compiled_loop_token.cpu.dump_loop_token(self)
+
+    def get_retraced_count(self):
+        return self.retraced_count >> 1
+
+    def set_retraced_count(self, value):
+        self.retraced_count = (value << 1) | (self.retraced_count & 1)
 
 class TargetToken(AbstractDescr):
     _ll_loop_code = 0     # for the backend.  If 0, we know that it is
@@ -677,7 +705,6 @@ class RefFrontendOp(RefOp, FrontendOp):
 
 
 class History(object):
-    ends_with_jump = False
     trace = None
 
     def __init__(self):
@@ -704,6 +731,9 @@ class History(object):
     def trace_tag_overflow(self):
         return self.trace.tag_overflow
 
+    def trace_tag_overflow_imminent(self):
+        return self.trace.tag_overflow_imminent()
+
     def get_trace_position(self):
         return self.trace.cut_point()
 
@@ -714,19 +744,6 @@ class History(object):
         return self.trace._count > self.trace._start
 
     @specialize.argtype(2)
-    def set_op_value(self, op, value):
-        if value is None:
-            return        
-        elif isinstance(value, bool):
-            op.setint(int(value))
-        elif lltype.typeOf(value) == lltype.Signed:
-            op.setint(value)
-        elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
-            op.setfloatstorage(value)
-        else:
-            assert lltype.typeOf(value) == llmemory.GCREF
-            op.setref_base(value)
-
     def _record_op(self, opnum, argboxes, descr=None):
         return self.trace.record_op(opnum, argboxes, descr)
 
@@ -736,19 +753,72 @@ class History(object):
             pos = 2**14 - 1
         else:
             pos = self._record_op(opnum, argboxes, descr)
+        op = self._make_op(pos, value)
+        if self.trace is None:
+            self._cache.append((opnum, argboxes, op, descr))
+        return op
+
+    @specialize.argtype(2)
+    def record0(self, opnum, value, descr=None):
+        if self.trace is None:
+            pos = 2**14 - 1
+        else:
+            pos = self.trace.record_op0(opnum, descr)
+        op = self._make_op(pos, value)
+        if self.trace is None:
+            self._cache.append((opnum, [], op, descr))
+        return op
+
+    @specialize.argtype(3)
+    def record1(self, opnum, argbox1, value, descr=None):
+        if self.trace is None:
+            pos = 2**14 - 1
+        else:
+            pos = self.trace.record_op1(opnum, argbox1, descr)
+        op = self._make_op(pos, value)
+        if self.trace is None:
+            self._cache.append((opnum, [argbox1], op, descr))
+        return op
+
+    @specialize.argtype(4)
+    def record2(self, opnum, argbox1, argbox2, value, descr=None):
+        if self.trace is None:
+            pos = 2**14 - 1
+        else:
+            pos = self.trace.record_op2(opnum, argbox1, argbox2, descr)
+        op = self._make_op(pos, value)
+        if self.trace is None:
+            self._cache.append((opnum, [argbox1, argbox2], op, descr))
+        return op
+
+    @specialize.argtype(5)
+    def record3(self, opnum, argbox1, argbox2, argbox3, value, descr=None):
+        if self.trace is None:
+            pos = 2**14 - 1
+        else:
+            pos = self.trace.record_op3(opnum, argbox1, argbox2, argbox3, descr)
+        op = self._make_op(pos, value)
+        if self.trace is None:
+            self._cache.append((opnum, [argbox1, argbox2, argbox3], op, descr))
+        return op
+
+    @specialize.argtype(2)
+    def _make_op(self, pos, value):
         if value is None:
             op = FrontendOp(pos)
         elif isinstance(value, bool):
             op = IntFrontendOp(pos)
+            op.setint(int(value))
         elif lltype.typeOf(value) == lltype.Signed:
             op = IntFrontendOp(pos)
+            op.setint(value)
         elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
             op = FloatFrontendOp(pos)
+            op.setfloatstorage(value)
         else:
             op = RefFrontendOp(pos)
-        if self.trace is None:
-            self._cache.append((opnum, argboxes, op, descr))
-        self.set_op_value(op, value)
+            assert lltype.typeOf(value) == llmemory.GCREF
+            op.setref_base(value)
         return op
 
     def record_nospec(self, opnum, argboxes, descr=None):

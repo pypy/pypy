@@ -20,7 +20,7 @@ errors = 'surrogatepass'
 class UnicodeMethodsTest(unittest.TestCase):
 
     # update this, if the database changes
-    expectedchecksum = '5971760872b2f98bb9c701e6c0db3273d756b3ec'
+    expectedchecksum = '9129d6f2bdf008a81c2476e5b5127014a62130c1'
 
     def test_method_checksum(self):
         h = hashlib.sha1()
@@ -80,7 +80,7 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
 
     # Update this if the database changes. Make sure to do a full rebuild
     # (e.g. 'make distclean && make') to get the correct checksum.
-    expectedchecksum = '5e74827cd07f9e546a30f34b7bcf6cc2eac38c8c'
+    expectedchecksum = 'c44a49ca7c5cb6441640fe174ede604b45028652'
     def test_function_checksum(self):
         data = []
         h = hashlib.sha1()
@@ -208,6 +208,21 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
         b = 'C\u0338' * 20  + '\xC7'
         self.assertEqual(self.db.normalize('NFC', a), b)
 
+    def test_issue29456(self):
+        # Fix #29456
+        u1176_str_a = '\u1100\u1176\u11a8'
+        u1176_str_b = '\u1100\u1176\u11a8'
+        u11a7_str_a = '\u1100\u1175\u11a7'
+        u11a7_str_b = '\uae30\u11a7'
+        u11c3_str_a = '\u1100\u1175\u11c3'
+        u11c3_str_b = '\uae30\u11c3'
+        self.assertEqual(self.db.normalize('NFC', u1176_str_a), u1176_str_b)
+        self.assertEqual(self.db.normalize('NFC', u11a7_str_a), u11a7_str_b)
+        self.assertEqual(self.db.normalize('NFC', u11c3_str_a), u11c3_str_b)
+
+    # For tests of unicodedata.is_normalized / self.db.is_normalized ,
+    # see test_normalization.py .
+
     def test_east_asian_width(self):
         eaw = self.db.east_asian_width
         self.assertRaises(TypeError, eaw, b'a')
@@ -221,6 +236,10 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
         self.assertEqual(eaw('\uFF1F'), 'F')
         self.assertEqual(eaw('\u2010'), 'A')
         self.assertEqual(eaw('\U00020000'), 'W')
+
+    def test_east_asian_width_9_0_changes(self):
+        self.assertEqual(self.db.ucd_3_2_0.east_asian_width('\u231a'), 'N')
+        self.assertEqual(self.db.east_asian_width('\u231a'), 'W')
 
 class UnicodeMiscTest(UnicodeDatabaseTest):
 

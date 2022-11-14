@@ -98,7 +98,7 @@ def a2b_hqx(space, ascii):
     else:
         if pending_bits > 0:
             raise_Incomplete(space, 'String has incomplete number of bytes')
-    return space.newtuple([space.newbytes(res.build()), space.newint(done)])
+    return space.newtuple2(space.newbytes(res.build()), space.newint(done))
 
 # ____________________________________________________________
 
@@ -237,10 +237,14 @@ crctab_hqx = [
         0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0,
 ]
 
-@unwrap_spec(data='bufferstr', oldcrc=int)
-def crc_hqx(space, data, oldcrc):
-    "Compute hqx CRC incrementally."
-    crc = oldcrc & 0xffff
+@unwrap_spec(data='bufferstr')
+def crc_hqx(space, data, w_oldcrc):
+    "Compute CRC-CCIT incrementally."
+
+    # CPython converts the oldcrc argument to unsigned long, without overflow
+    # checking. we do the mask with wrapped objects, to deal with huge
+    # arguments
+    crc = space.int_w(space.and_(w_oldcrc, space.newint(0xffff)))
     for c in data:
         crc = ((crc << 8) & 0xff00) ^ crctab_hqx[((crc >> 8) & 0xff) ^ ord(c)]
     return space.newint(crc)

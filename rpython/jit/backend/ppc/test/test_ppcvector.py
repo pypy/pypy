@@ -4,6 +4,10 @@ from rpython.jit.metainterp.test import test_zvector
 from rpython.jit.backend.ppc.detect_feature import detect_vsx
 
 
+py.test.skip("skipping, support for vectorization is not fully maintained "
+             "nowadays and this gives 'Illegal instruction' on ppc110")
+
+
 class TestBasic(test_basic.JitPPCMixin, test_zvector.VectorizeTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py

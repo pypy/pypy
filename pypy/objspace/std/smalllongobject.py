@@ -134,6 +134,10 @@ class W_SmallLongObject(W_AbstractLongObject):
         z = w_modulus.longlong
         if z == 0:
             raise oefmt(space.w_ValueError, "pow() 3rd argument cannot be 0")
+        if y < 0:
+            # don't implement with smalllong
+            self = _small2long(space, self)
+            return self.descr_pow(space, w_exponent, w_modulus)
         try:
             return _pow(space, x, y, z)
         except ValueError:
@@ -289,7 +293,7 @@ class W_SmallLongObject(W_AbstractLongObject):
             raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
         # no overflow possible
         m = x % y
-        return space.newtuple([W_SmallLongObject(z), W_SmallLongObject(m)])
+        return space.newtuple2(W_SmallLongObject(z), W_SmallLongObject(m))
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
 
     def _lshift(self, space, w_other):

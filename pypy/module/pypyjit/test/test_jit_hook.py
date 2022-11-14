@@ -13,7 +13,6 @@ from rpython.rtyper.rclass import OBJECT
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 from pypy.module.pypyjit.hooks import pypy_hooks
 from rpython.jit.tool.oparser import parse
-from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.jit import JitDebugInfo, AsmInfo, Counters
 
 
@@ -31,7 +30,7 @@ class MockJitDriverSD(object):
 
 class MockSD(object):
     class cpu(object):
-        ts = llhelper
+        pass
 
     jitdrivers_sd = [MockJitDriverSD]
 

@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
@@ -26,7 +27,7 @@ class W_MMap(W_Root):
         write_required = bool(flags & space.BUF_WRITABLE)
         if write_required and readonly:
             raise oefmt(space.w_BufferError, "Object is not writable.")
-        return SimpleView(MMapBuffer(self.space, self.mmap, readonly))
+        return SimpleView(MMapBuffer(self.space, self.mmap, readonly), w_obj=self)
 
     def close(self):
         self.mmap.close()
@@ -103,7 +104,7 @@ class W_MMap(W_Root):
         data = self.space.charbuf_w(w_data)
         self.check_writeable()
         try:
-            self.mmap.write(data)
+            return self.space.newint(self.mmap.write(data))
         except RValueError as v:
             raise mmap_error(self.space, v)
 
@@ -190,8 +191,10 @@ class W_MMap(W_Root):
             return space.newbytes(self.mmap.getslice(start, length))
         else:
             b = StringBuilder(length)
-            for i in range(start, stop, step):
-                b.append(self.mmap.getitem(i))
+            index = start
+            for i in range(length):
+                b.append(self.mmap.getitem(index))
+                index += step
             return space.newbytes(b.build())
 
     def descr_setitem(self, w_index, w_value):
@@ -225,6 +228,56 @@ class W_MMap(W_Root):
     def descr_exit(self, space, __args__):
         self.close()
 
+    def descr_iter(self, space):
+        return space.appexec([self], """(m):
+            def iterate():
+                i = 0
+                while True:
+                    c = m[i:i+1]
+                    if not c:
+                        break
+                    yield c
+                    i += 1
+            return iterate()
+        """)
+
+    def descr_reversed(self, space):
+        return space.appexec([self], """(m):
+            def iterate():
+                i = len(m) - 1
+                while i >= 0:
+                    c = m[i:i+1]
+                    if not c:
+                        break
+                    yield c
+                    i -= 1
+            return iterate()
+        """)
+
+    @unwrap_spec(flags=int, start=int, length=int)
+    def descr_madvise(self, space, flags, start=0, length=sys.maxint):
+        """
+        madvise(option[, start[, length]])
+
+        Send advice option to the kernel about the memory region beginning at
+        start and extending length bytes. option must be one of the MADV_*
+        constants available on the system. If start and length are omitted,
+        the entire mapping is spanned. On some systems (including Linux),
+        start must be a multiple of the PAGESIZE.
+        """
+        if start < 0 or start >= self.mmap.size:
+            raise oefmt(space.w_ValueError, "madvise start out of bounds")
+        if length < 0:
+            raise oefmt(space.w_ValueError, "madvise length can't be negative")
+        try:
+            end = rarithmetic.ovfcheck(start + length)
+        except OverflowError:
+            length = self.mmap.size - start
+        else:
+            if end > self.mmap.size:
+                length = self.mmap.size - start
+        self.mmap.madvise(flags, start, length)
+
 
 if rmmap._POSIX:
 
@@ -233,6 +286,9 @@ if rmmap._POSIX:
     def mmap(space, w_subtype, fileno, length, flags=rmmap.MAP_SHARED,
              prot=rmmap.PROT_WRITE | rmmap.PROT_READ,
              access=rmmap._ACCESS_DEFAULT, offset=0):
+        space.audit("mmap.__new__", [
+            space.newint(fileno), space.newint(length), 
+            space.newint(access), space.newint(offset)])
         self = space.allocate_instance(W_MMap, w_subtype)
         try:
             W_MMap.__init__(self, space,
@@ -250,6 +306,9 @@ elif rmmap._MS_WINDOWS:
                  access=int, offset=OFF_T)
     def mmap(space, w_subtype, fileno, length, tagname="",
              access=rmmap._ACCESS_DEFAULT, offset=0):
+        space.audit("mmap.__new__", [
+            space.newint(fileno), space.newint(length), 
+            space.newint(access), space.newint(offset)])
         self = space.allocate_instance(W_MMap, w_subtype)
         try:
             W_MMap.__init__(self, space,
@@ -260,6 +319,10 @@ elif rmmap._MS_WINDOWS:
         except RMMapError as e:
             raise mmap_error(space, e)
         return self
+
+optional = {}
+if rmmap.has_madvise:
+    optional['madvise'] = interp2app(W_MMap.descr_madvise)
 
 W_MMap.typedef = TypeDef("mmap.mmap", None, None, 'read-write',
     __new__ = interp2app(mmap),
@@ -284,8 +347,12 @@ W_MMap.typedef = TypeDef("mmap.mmap", None, None, 'read-write',
     __enter__ = interp2app(W_MMap.descr_enter),
     __exit__ = interp2app(W_MMap.descr_exit),
     __weakref__ = make_weakref_descr(W_MMap),
+    __iter__ = interp2app(W_MMap.descr_iter),
+    __reversed__ = interp2app(W_MMap.descr_reversed),
 
     closed = GetSetProperty(W_MMap.closed_get),
+
+    **optional
 )
 
 constants = rmmap.constants
@@ -324,12 +391,12 @@ class MMapBuffer(RawBuffer):
         self.check_valid()
         return self.mmap.data[index]
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         self.check_valid()
         if step == 1:
             return self.mmap.getslice(start, size)
         else:
-            return RawBuffer.getslice(self, start, stop, step, size)
+            return RawBuffer.getslice(self, start, step, size)
 
     def setitem(self, index, char):
         self.check_valid_writeable()

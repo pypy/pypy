@@ -2,8 +2,9 @@ from rpython.rtyper.rmodel import inputconst, log
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
 from rpython.jit.metainterp import history
-from rpython.jit.metainterp.virtualizable import TOKEN_NONE
-from rpython.jit.metainterp.virtualizable import TOKEN_TRACING_RESCALL
+from rpython.jit.metainterp.support import ptr2int
+from rpython.jit.metainterp.virtualizable import (
+    TOKEN_NONE, TOKEN_TRACING_RESCALL)
 from rpython.jit.codewriter import heaptracker
 from rpython.rlib.jit import InvalidVirtualRef
 
@@ -33,8 +34,7 @@ class VirtualRefInfo:
         self.jit_virtual_ref_vtable.name = rclass.alloc_array_name(
             'jit_virtual_ref')
         # build some constants
-        adr = llmemory.cast_ptr_to_adr(self.jit_virtual_ref_vtable)
-        adr = heaptracker.adr2int(adr)
+        adr = ptr2int(self.jit_virtual_ref_vtable)
         self.jit_virtual_ref_const_class = history.ConstInt(adr)
         fielddescrof = self.cpu.fielddescrof
         self.descr_virtual_token = fielddescrof(self.JIT_VIRTUAL_REF,

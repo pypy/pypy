@@ -62,3 +62,18 @@ class AppTestImportLogic(AppTestCpythonExtensionBase):
         sys.path.append(os.path.dirname(path))
         import test_import_module
         assert test_import_module.TEST is None
+
+    def test_getmodule(self):
+        import sys
+        module = self.import_extension('foo', [
+            ("getmodule", "METH_O",
+            '''
+                PyObject *mod = PyImport_GetModule(args);
+                if (mod == NULL) {
+                    Py_RETURN_NONE;
+                }
+                return mod;
+            ''')])
+        _sys = module.getmodule('sys')
+        assert sys is _sys
+        assert module.getmodule('not_in_sys_modules') is None

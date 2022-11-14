@@ -18,7 +18,7 @@ class AbstractPosition(object):
 def make_generator_entry_graph(func):
     # This is the first copy of the graph.  We replace it with
     # a small bootstrap graph.
-    code = HostCode._from_code(func.func_code)
+    code = HostCode._from_code(func.__code__)
     graph = PyGraph(func, code)
     block = graph.startblock
     for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
@@ -69,7 +69,7 @@ def replace_graph_with_bootstrap(GeneratorIterator, graph):
 
 def attach_next_method(GeneratorIterator, graph):
     func = graph.func
-    func = func_with_new_name(func, '%s__next' % (func.func_name,))
+    func = func_with_new_name(func, '%s__next' % (func.__name__,))
     func._generator_next_method_of_ = GeneratorIterator
     func._always_inline_ = True
     #

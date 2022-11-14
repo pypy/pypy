@@ -19,12 +19,12 @@ class PyGraph(FunctionGraph):
         super(PyGraph, self).__init__(self._sanitize_funcname(func), initialblock)
         self.func = func
         self.signature = code.signature
-        self.defaults = func.func_defaults or ()
+        self.defaults = func.__defaults__ or ()
 
     @staticmethod
     def _sanitize_funcname(func):
         # CallableFactory.pycall may add class_ to functions that are methods
-        name = func.func_name
+        name = func.__name__
         class_ = getattr(func, 'class_', None)
         if class_ is not None:
             name = '%s.%s' % (class_.__name__, name)

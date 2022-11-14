@@ -17,7 +17,10 @@ from rpython.rtyper.rbuiltin import gen_cast
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.simplify import cleanup_graph
+from rpython.memory.gctransform.log import log
 
+class GCTransformError(Exception):
+    pass
 
 class GcHighLevelOp(object):
     def __init__(self, gct, op, index, llops):
@@ -138,9 +141,15 @@ class BaseGCTransformer(object):
         return any_inlining
 
     def inline_helpers_and_postprocess(self, graphs):
+        next_dot = 0
         for graph in graphs:
             any_inlining = self.inline and self.inline_helpers_into(graph)
             self.postprocess_graph(graph, any_inlining)
+            #
+            next_dot -= 1
+            if next_dot <= 0:
+                log.dot()
+                next_dot = 50
 
     def postprocess_graph(self, graph, any_inlining):
         pass
@@ -210,9 +219,6 @@ class BaseGCTransformer(object):
         self.var_last_needed_in = None
         self.curr_block = None
 
-    def start_transforming_graph(self, graph):
-        pass    # for asmgcc.py
-
     def transform_graph(self, graph):
         if graph in self.minimal_transform:
             if self.minimalgctransformer:
@@ -222,7 +228,6 @@ class BaseGCTransformer(object):
         if graph in self.seen_graphs:
             return
         self.seen_graphs.add(graph)
-        self.start_transforming_graph(graph)
 
         self.links_to_split = {} # link -> vars to pop_alive across the link
 
@@ -233,8 +238,12 @@ class BaseGCTransformer(object):
             inserted_empty_startblock = True
         is_borrowed = self.compute_borrowed_vars(graph)
 
-        for block in graph.iterblocks():
-            self.transform_block(block, is_borrowed)
+        try:
+            for block in graph.iterblocks():
+                self.transform_block(block, is_borrowed)
+        except GCTransformError as e:
+            e.args = ('[function %s]: %s' % (graph.name, e.message),)
+            raise
 
         for link, livecounts in self.links_to_split.iteritems():
             llops = LowLevelOpList()
@@ -357,6 +366,9 @@ class BaseGCTransformer(object):
         hop.genop("same_as",
                   [rmodel.inputconst(lltype.Bool, False)],
                   resultvar=op.result)
+
+    def gct_gc_writebarrier_before_move(self, hop):
+        pass
 
     def gct_gc_pin(self, hop):
         op = hop.spaceop
@@ -513,6 +525,12 @@ class GCTransformer(BaseGCTransformer):
 
     def gct_malloc(self, hop, add_flags=None):
         TYPE = hop.spaceop.result.concretetype.TO
+        if TYPE._hints.get('never_allocate'):
+            raise GCTransformError(
+                "struct %s was marked as @never_allocate but a call to malloc() "
+                "was found. This probably means that the corresponding class is "
+                "supposed to be constant-folded away, but for some reason it was not."
+                % TYPE._name)
         assert not TYPE._is_varsize()
         flags = hop.spaceop.args[1].value
         flavor = flags['flavor']

@@ -2,9 +2,10 @@
 
 import functools
 
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rbigint import SHIFT, _widen_digit, rbigint
+from rpython.rlib.rbigint import SHIFT, _load_unsigned_digit, rbigint
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -75,10 +76,33 @@ class W_AbstractLongObject(W_AbstractIntObject):
                                        newformat.LONG_KIND)
 
     def descr_hash(self, space):
-        return space.newint(_hash_long(space, self.asbigint()))
+        return space.newint(_hash_long(self.asbigint()))
 
     def descr_str(self, space):
-        return space.newtext(self.asbigint().str())
+        from pypy.module.sys.system import MAX_STR_DIGITS_THRESHOLD
+        from pypy.module.sys.state import get_int_max_str_digits
+        from rpython.rlib.rbigint import SHIFT, MaxIntError
+        msg_fmt_to_str = ("Exceeds the limit (%d) for integer string "
+              "conversion; use sys.set_int_max_str_digits() to increase the "
+              "limit")
+
+        bigint = space.bigint_w(self)
+        numdigits = bigint.numdigits()
+        max_str_digits = space.int_w(get_int_max_str_digits(space))
+        # quick and dirty pre-check for overflowing the decimal digit limit,
+        if bigint.numdigits() >= (10 * MAX_STR_DIGITS_THRESHOLD / 
+                                  (3 * SHIFT + 2)):
+            if (max_str_digits != 0 and
+                    max_str_digits / (3 * SHIFT) <= (numdigits - 11) / 10):
+                raise oefmt(space.w_ValueError, msg_fmt_to_str, max_str_digits)
+        # Do an additional more accurate check that
+        # strlen(res) < max_str_digits (actually they check before allocating
+        # the buffer to hold the string.
+        try:
+            res = self.asbigint().str(max_str_digits=max_str_digits)
+        except MaxIntError:
+            raise oefmt(space.w_ValueError, msg_fmt_to_str, max_str_digits)
+        return space.newutf8(res, len(res))
     descr_repr = descr_str
 
 
@@ -106,6 +130,9 @@ class W_LongObject(W_AbstractLongObject):
 
     def toint(self):
         return self.num.toint()
+
+    def _fits_int(self):
+        return self.num.fits_int()
 
     @staticmethod
     def fromfloat(space, f):
@@ -170,28 +197,34 @@ class W_LongObject(W_AbstractLongObject):
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_modulus=None):
+        from pypy.objspace.std.intobject import invmod
         if isinstance(w_exponent, W_IntObject):
             w_exponent = w_exponent.as_w_long(space)
         elif not isinstance(w_exponent, W_AbstractLongObject):
             return space.w_NotImplemented
 
+        exponent = w_exponent.asbigint()
         if space.is_none(w_modulus):
-            if w_exponent.asbigint().sign < 0:
+            if exponent.sign < 0:
                 self = self.descr_float(space)
                 w_exponent = w_exponent.descr_float(space)
                 return space.pow(self, w_exponent, space.w_None)
-            return W_LongObject(self.num.pow(w_exponent.asbigint()))
+            return W_LongObject(self.num.pow(exponent))
         elif isinstance(w_modulus, W_IntObject):
             w_modulus = w_modulus.as_w_long(space)
         elif not isinstance(w_modulus, W_AbstractLongObject):
             return space.w_NotImplemented
 
-        if w_exponent.asbigint().sign < 0:
-            raise oefmt(space.w_ValueError,
-                        "pow() 2nd argument cannot be negative when 3rd "
-                        "argument specified")
+        base = self.num
+        if exponent.sign < 0:
+            w_base = invmod(space, self, space.abs(w_modulus))
+            if isinstance(w_base, W_IntObject):
+                w_base = w_base.as_w_long(space)
+            base = w_base.asbigint()
+
+            exponent = exponent.neg()
         try:
-            result = self.num.pow(w_exponent.asbigint(), w_modulus.asbigint())
+            result = base.pow(exponent, w_modulus.asbigint())
         except ValueError:
             raise oefmt(space.w_ValueError, "pow 3rd argument cannot be 0")
         return W_LongObject(result)
@@ -308,6 +341,8 @@ class W_LongObject(W_AbstractLongObject):
         try:
             shift = w_other.asbigint().toint()
         except OverflowError:   # b too big
+            if self.num.sign == 0:
+                return self
             raise oefmt(space.w_OverflowError, "shift count too large")
         return W_LongObject(self.num.lshift(shift))
 
@@ -323,7 +358,10 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_ValueError, "negative shift count")
         try:
             shift = w_other.asbigint().toint()
-        except OverflowError:   # b too big # XXX maybe just return 0L instead?
+        except OverflowError:
+            if self.num.sign < 0:
+                return space.newint(-1)
+            return space.newint(0)
             raise oefmt(space.w_OverflowError, "shift count too large")
         return newlong(space, self.num.rshift(shift))
 
@@ -361,11 +399,11 @@ class W_LongObject(W_AbstractLongObject):
 
     def _int_mod(self, space, other):
         try:
-            z = self.num.int_mod(other)
+            z = self.num.int_mod_int_result(other)
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
-        return newlong(space, z)
+        return space.newint(z)
     descr_mod, descr_rmod = _make_descr_binop(_mod, _int_mod)
 
     def _divmod(self, space, w_other):
@@ -374,7 +412,7 @@ class W_LongObject(W_AbstractLongObject):
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "integer division or modulo by zero")
-        return space.newtuple([newlong(space, div), newlong(space, mod)])
+        return space.newtuple2(newlong(space, div), newlong(space, mod))
 
     def _int_divmod(self, space, other):
         try:
@@ -382,24 +420,38 @@ class W_LongObject(W_AbstractLongObject):
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
-        return space.newtuple([newlong(space, div), newlong(space, mod)])
+        return space.newtuple2(newlong(space, div), newlong(space, mod))
 
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod, _int_divmod)
 
 
-def _hash_long(space, v):
+# In _hash_long we would like to shift intermediate results by SHIFT.
+# Since HASH_MODULUS is a Mersenne prime, the result is congruent
+# to shifting by (SHIFT % HASH_BITS).  A smaller shift amount lets
+# us apply extra optimizations to the hash function.
+_HASH_SHIFT = SHIFT % HASH_BITS
+
+@jit.elidable
+def _hash_long(v):
     i = v.numdigits() - 1
     if i == -1:
         return 0
 
     # compute v % HASH_MODULUS
-    x = _widen_digit(0)
+    x = _load_unsigned_digit(0)
     while i >= 0:
-        x = (x << SHIFT) + v.widedigit(i)
-        # efficient x % HASH_MODULUS: as HASH_MODULUS is a Mersenne
-        # prime
-        x = (x & HASH_MODULUS) + (x >> HASH_BITS)
-        while x >= HASH_MODULUS:
+        # This computes (x << _HASH_SHIFT) + v.udigit(i) modulo HASH_MODULUS
+        # efficiently and without overflow, as HASH_MODULUS is a Mersenne
+        # prime.  See detailed explanation in CPython function long_hash
+        # in longobject.c.
+        # Basically, to compute (x << _HASH_SHIFT) modulo HASH_MODULUS,
+        # we rotate it left by _HASH_SHIFT.  Then, if SHIFT <= HASH_BITS,
+        # after adding v.udigit(i), the result is at most 2*HASH_MODULUS-1.
+        x = ((x << _HASH_SHIFT) & HASH_MODULUS) + (x >> HASH_BITS - _HASH_SHIFT)
+        x += v.udigit(i)
+        if SHIFT > HASH_BITS:
+            x = (x & HASH_MODULUS) + (x >> HASH_BITS)
+        if x >= HASH_MODULUS:
             x -= HASH_MODULUS
         i -= 1
     h = intmask(intmask(x) * v.sign)

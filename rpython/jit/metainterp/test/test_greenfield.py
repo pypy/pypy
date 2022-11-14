@@ -6,7 +6,7 @@ pytest.skip("this feature is disabled at the moment!")
 
 # note why it is disabled: before d721da4573ad
 # there was a failing assert when inlining python -> sre -> python:
-# https://bitbucket.org/pypy/pypy/issues/2775/
+# https://foss.heptapod.net/pypy/pypy/-/issues/2775
 # this shows, that the interaction of greenfields and virtualizables is broken,
 # because greenfields use MetaInterp.virtualizable_boxes, which confuses
 # MetaInterp._nonstandard_virtualizable somehow (and makes no sense

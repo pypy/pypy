@@ -40,7 +40,8 @@ class StandaloneTests(object):
     config = None
 
     def compile(self, entry_point, debug=True, shared=False,
-                stackcheck=False, entrypoints=None, local_icon=None):
+                stackcheck=False, entrypoints=None, local_icon=None,
+                exe_name=None):
         t = TranslationContext(self.config)
         ann = t.buildannotator()
         ann.build_types(entry_point, [s_list_of_strings])
@@ -67,7 +68,8 @@ class StandaloneTests(object):
             kwds = {}
         cbuilder = CStandaloneBuilder(t, entry_point, t.config, **kwds)
         if debug:
-            cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+            cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES,
+                                     exe_name=exe_name)
         else:
             cbuilder.generate_source()
         cbuilder.compile()
@@ -182,7 +184,10 @@ class TestStandalone(StandaloneTests):
         f.close()
 
         import struct
-        counters = struct.unpack("LLL", counters_data)
+        fmt = "LLL"
+        if sys.platform == 'win32' and sys.maxint > 2**31:
+            fmt = "QQQ"
+        counters = struct.unpack(fmt, counters_data)
 
         assert counters == (0,3,2)
 
@@ -899,25 +904,44 @@ class TestStandalone(StandaloneTests):
         # The traceback stops at f() because it's the first function that
         # captures the AssertionError, which makes the program abort.
 
-    def test_shared(self, monkeypatch):
+    def test_shared1(self, monkeypatch):
         def f(argv):
             print len(argv)
         def entry_point(argv):
             f(argv)
             return 0
-        t, cbuilder = self.compile(entry_point, shared=True)
+        # Make sure the '.' in exe_name is propagated
+        t, cbuilder = self.compile(entry_point, shared=True, exe_name='pypy3.9')
+        assert 'pypy3.9' in str(cbuilder.executable_name)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
+        assert 'exe' not in str(cbuilder.shared_library_name)
+        # it must be something with a '.basename' to make the driver.py happy
+        assert not isinstance(cbuilder.shared_library_name, str)
+        assert 'pypy3.9' in str(cbuilder.shared_library_name)
         #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
         if sys.platform == 'win32':
-            # Make sure we have a test_1w.exe
+            assert 'pypy3.9.exe' not in str(cbuilder.shared_library_name)
+            assert 'pypy3.9.exe' in str(cbuilder.executable_name)
+            # Make sure we have a pypy3.9w.exe
             # Since stdout, stderr are piped, we will get output
             exe = cbuilder.executable_name
             wexe = exe.new(purebasename=exe.purebasename + 'w')
             out, err = cbuilder.cmdexec("a b", exe = wexe)
             assert out == "3"
+
+    def test_shared2(self, monkeypatch):
+        def f(argv):
+            print len(argv)
+        def entry_point(argv):
+            f(argv)
+            return 0
+        # Make sure the '.exe' in exe_name is not propagated
+        t, cbuilder = self.compile(entry_point, shared=True, exe_name='pypy')
+        assert 'pypy' == cbuilder.executable_name.purebasename
+        assert 'libpypy' == cbuilder.shared_library_name.purebasename
 
     def test_gcc_options(self):
         # check that the env var CC is correctly interpreted, even if
@@ -1146,6 +1170,55 @@ class TestStandalone(StandaloneTests):
         out = cbuilder.cmdexec('')
         assert out.strip() == 'ok'
 
+    def test_gcc_precompiled_header(self):
+        if sys.platform == 'win32':
+            py.test.skip("no win")
+        def entry_point(argv):
+            os.write(1, "hello world\n")
+            argv = argv[1:]
+            os.write(1, "argument count: " + str(len(argv)) + "\n")
+            for s in argv:
+                os.write(1, "   '" + str(s) + "'\n")
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        if "gcc" not in t.platform.cc:
+            py.test.skip("gcc only")
+        data = cbuilder.cmdexec('hi there')
+        assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
+
+        # check that the precompiled header was generated
+        assert cbuilder.targetdir.join("singleheader.h.gch").check()
+
+    def test_field_access_stats(self):
+        t = TranslationContext(self.config)
+        t.config.translation.countfieldaccess = True
+        class A:
+            pass
+        def entry_point(argv):
+            l = []
+            for i in range(100):
+                a = A()
+                a.x = i
+                l.append(a)
+            res = 0
+            for a in l + l:
+                res += a.x
+            print(res)
+            return 0
+        entry_point([])
+
+        t.buildannotator().build_types(entry_point, [s_list_of_strings])
+        t.buildrtyper().specialize()
+        #
+        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+        cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+        cbuilder.compile()
+        fn = udir.join("fieldstats")
+        data = cbuilder.cmdexec(env={"PYPYLOG": "stats-fields:%s" % fn})
+        stats = fn.read()
+        assert "write a_inst_x 100" in stats
+        assert "read a_inst_x 200" in stats
 
 class TestThread(object):
     gcrootfinder = 'shadowstack'

@@ -2,7 +2,6 @@
 import py
 from py.test import raises
 from pypy.interpreter.error import OperationError
-from pypy.tool.pytest.objspace import gettestobjspace
 
 class TestW_StdObjSpace:
 
@@ -14,7 +13,6 @@ class TestW_StdObjSpace:
 
     def test_utf8(self):
         assert self.space.isinstance_w(self.space.newtext("abc"), self.space.w_unicode)
-        assert self.space.eq_w(self.space.newtext("üöä"), self.space.newtext(u"üöä"))
 
     def test_text_w_non_str(self):
         raises(OperationError,self.space.text_w,self.space.wrap(None))
@@ -82,15 +80,11 @@ class TestW_StdObjSpace:
 
     def test_wrap_string(self):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        from pypy.objspace.std.unicodeobject import BadUtf8
         w_x = self.space.wrap('foo')
         assert isinstance(w_x, W_UnicodeObject)
         assert w_x._utf8 == 'foo'
         #
-        # calling space.wrap() on a byte string which is not ASCII should
-        # never happen. Howeven it might happen while the py3k port is not
-        # 100% complete. In the meantime, try to return something more or less
-        # sensible instead of crashing with an RPython UnicodeError.
-        from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        w_x = self.space.wrap('foo\xF0')
-        assert isinstance(w_x, W_UnicodeObject)
-        assert w_x._utf8 == 'foo\xF0'
+        # calling space.wrap() on a byte string which is not utf-8 should
+        # never happen.
+        py.test.raises(BadUtf8, self.space.wrap, 'foo\xF0')

@@ -1,5 +1,6 @@
 import pytest
 from ctypes import *
+import struct
 
 @pytest.mark.pypy_only
 def test_get_ffi_argtype():
@@ -79,3 +80,21 @@ def test_issue2813_cant_change_fields_after_get_ffi_argtype():
     ffitype = C.get_ffi_argtype()
     with pytest.raises(NotImplementedError):
         C._fields_ = [('x', c_int)]
+
+def test_memoryview():
+    x = c_int(32)
+    p1 = pointer(x)
+    p2 = pointer(p1)
+
+    m1 = memoryview(p1)
+    assert struct.unpack('P', m1)[0] == addressof(x)
+    m2 = memoryview(p2)
+    assert struct.unpack('P', m2)[0] == addressof(p1)
+
+def test_pointer_from_array():
+    A = c_ubyte * 4
+    a = A(19, 72, 0, 23)
+    P = POINTER(c_ubyte)
+    p = P(a)
+    for i in range(len(a)):
+        assert p[i] == a[i]

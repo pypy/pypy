@@ -1,15 +1,18 @@
 """
 Graph file parsing.
 """
+from __future__ import print_function, absolute_import
 
 import sys, re
 import subprocess
 
-import msgstruct
+from dotviewer import msgstruct
 
-re_nonword = re.compile(r'([^0-9a-zA-Z_.]+)')
-re_plain   = re.compile(r'graph [-0-9.]+ [-0-9.]+ [-0-9.]+$', re.MULTILINE)
-re_digraph = re.compile(r'\b(graph|digraph)\b', re.IGNORECASE)
+from dotviewer.strunicode import forcestr, forceunicode
+
+re_nonword = re.compile(forcestr(r'([^0-9a-zA-Z_.]+)'))
+re_plain   = re.compile(forcestr(r'graph [-0-9.]+ [-0-9.]+ [-0-9.]+$'), re.MULTILINE)
+re_digraph = re.compile(forcestr(r'\b(graph|digraph)\b'), re.IGNORECASE)
 
 def guess_type(content):
     # try to see whether it is a directed graph or not,
@@ -23,17 +26,17 @@ def guess_type(content):
     for match in re_digraph.finditer(content):
         position = match.start()
         if bracepos is None:
-            bracepos = content.find('{', position)
+            bracepos = content.find(b'{', position)
             if bracepos < 0:
                 break
         elif position > bracepos:
             break
         lastfound = match.group()
-    if lastfound.lower() == 'digraph':
+    if lastfound.lower() == b'digraph':
         return 'dot'
-    if lastfound.lower() == 'graph':
+    if lastfound.lower() == b'graph':
         return 'neato'
-    print >> sys.stderr, "Warning: could not guess file type, using 'dot'"
+    print("Warning: could not guess file type, using 'dot'", file=sys.stderr)
     return 'unknown'
 
 def dot2plain_graphviz(content, contenttype, use_codespeak=False):
@@ -47,34 +50,16 @@ def dot2plain_graphviz(content, contenttype, use_codespeak=False):
                          stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     (child_in, child_out) = (p.stdin, p.stdout)
     try:
-        import thread
+        import threading
     except ImportError:
         bkgndwrite(child_in, content)
     else:
-        thread.start_new_thread(bkgndwrite, (child_in, content))
+        t = threading.Thread(target=bkgndwrite, args=(child_in, content))
+        t.start()
     plaincontent = child_out.read()
     child_out.close()
     if not plaincontent:    # 'dot' is likely not installed
         raise PlainParseError("no result from running 'dot'")
-    return plaincontent
-
-def dot2plain_codespeak(content, contenttype):
-    import urllib
-    request = urllib.urlencode({'dot': content})
-    url = 'http://codespeak.net/pypy/convertdot.cgi'
-    print >> sys.stderr, '* posting:', url
-    g = urllib.urlopen(url, data=request)
-    result = []
-    while True:
-        data = g.read(16384)
-        if not data:
-            break
-        result.append(data)
-    g.close()
-    plaincontent = ''.join(result)
-    # very simple-minded way to give a somewhat better error message
-    if plaincontent.startswith('<body'):
-        raise Exception("the dot on codespeak has very likely crashed")
     return plaincontent
 
 def bkgndwrite(f, data):
@@ -84,41 +69,41 @@ def bkgndwrite(f, data):
 class PlainParseError(Exception):
     pass
 
-def splitline(line, re_word = re.compile(r'[^\s"]\S*|["]["]|["].*?[^\\]["]')):
+def splitline(line, re_word = re.compile(forcestr(r'[^\s"]\S*|["]["]|["].*?[^\\]["]'))):
     import ast
     result = []
     for word in re_word.findall(line):
-        if word.startswith('"'):
-            word = ast.literal_eval(word)
+        if word.startswith(b'"'):
+            word = ast.literal_eval(forceunicode(word))
         result.append(word)
     return result
 
 def parse_plain(graph_id, plaincontent, links={}, fixedfont=False):
-    plaincontent = plaincontent.replace('\r\n', '\n')    # fix Windows EOL
+    plaincontent = plaincontent.replace(b'\r\n', b'\n')    # fix Windows EOL
     lines = plaincontent.splitlines(True)
     for i in range(len(lines)-2, -1, -1):
-        if lines[i].endswith('\\\n'):   # line ending in '\'
+        if lines[i].endswith(b'\\\n'):   # line ending in '\'
             lines[i] = lines[i][:-2] + lines[i+1]
             del lines[i+1]
     header = splitline(lines.pop(0))
-    if header[0] != 'graph':
+    if header[0] != b'graph':
         raise PlainParseError("should start with 'graph'")
     yield (msgstruct.CMSG_START_GRAPH, graph_id) + tuple(header[1:])
 
     texts = []
     for line in lines:
         line = splitline(line)
-        if line[0] == 'node':
+        if line[0] == B'node':
             if len(line) != 11:
                 raise PlainParseError("bad 'node'")
             yield (msgstruct.CMSG_ADD_NODE,) + tuple(line[1:])
             texts.append(line[6])
-        if line[0] == 'edge':
+        if line[0] == b'edge':
             yield (msgstruct.CMSG_ADD_EDGE,) + tuple(line[1:])
             i = 4 + 2 * int(line[3])
             if len(line) > i + 2:
                 texts.append(line[i])
-        if line[0] == 'stop':
+        if line[0] == b'stop':
             break
 
     if links:
@@ -152,9 +137,6 @@ def parse_dot(graph_id, content, links={}, fixedfont=False):
     else:
         try:
             plaincontent = dot2plain_graphviz(content, contenttype)
-        except PlainParseError, e:
+        except PlainParseError as e:
             raise
-            ##print e
-            ### failed, retry via codespeak
-            ##plaincontent = dot2plain_codespeak(content, contenttype)
     return list(parse_plain(graph_id, plaincontent, links, fixedfont))

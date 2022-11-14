@@ -322,7 +322,7 @@ class TransformerMaker(Codebuilder):
             print code
         ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal,
               "we_are_translated": we_are_translated, "py": py}
-        exec py.code.Source(code).compile() in ns
+        exec(py.code.Source(code).compile(), ns)
         ToAST = ns["ToAST"]
         ToAST.__module__ = "rpython.rlib.parsing.ebnfparse"
         assert isinstance(ToAST, type)

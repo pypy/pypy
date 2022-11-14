@@ -9,7 +9,7 @@ This release contains several bugfixes and enhancements.
 
 You can download the PyPy 2.3.1 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects.
@@ -23,8 +23,8 @@ so we can finish those projects!  The three sub-projects are:
 
 * `NumPy`_ which requires installation of our fork of upstream numpy, available `on bitbucket`_
 
-.. _`STM`: http://pypy.org/tmdonate2.html
-.. _`NumPy`: http://pypy.org/numpydonate.html
+.. _`STM`: https://pypy.org/tmdonate2.html
+.. _`NumPy`: https://pypy.org/numpydonate.html
 .. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy   
 
 What is PyPy?
@@ -43,8 +43,8 @@ While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
-.. _`pypy 2.3 and cpython 2.7.x`: http://speed.pypy.org
-.. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`pypy 2.3 and cpython 2.7.x`: https://speed.pypy.org
+.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights
 ==========
@@ -67,7 +67,7 @@ for more information see `whats-new`_:
 
 * Many issues were resolved_ since the 2.3 release on May 8
 
-.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.1.html
+.. _`whats-new`: https://doc.pypy.org/en/latest/whatsnew-2.3.1.html
 .. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
 
 Please try it out and let us know what you think. We especially welcome

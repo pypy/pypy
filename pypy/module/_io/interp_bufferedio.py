@@ -1,5 +1,3 @@
-from __future__ import with_statement
-
 from rpython.rlib.signature import signature
 from rpython.rlib import types
 
@@ -9,11 +7,14 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.buffer import SimpleView
 
-from rpython.rlib.buffer import ByteBuffer, SubBuffer
+from rpython.rlib.buffer import ByteBuffer, RawByteBuffer, SubBuffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
 from rpython.tool.sourcetools import func_renamer
+from rpython.rlib.objectmodel import import_from_mixin, try_inline, keepalive_until_here
+from rpython.rtyper.lltypesystem import lltype, rffi
+
 from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size, trap_eintr,
     check_readable_w, check_writable_w, check_seekable_w)
@@ -85,7 +86,7 @@ Returns None if the underlying raw stream was open in non-blocking
 mode and no data is available at the moment."""
         self._unsupportedoperation(space, "read")
 
-    def read1_w(self, space, w_size):
+    def read1_w(self, space, w_size=None):
         """Read and return up to n bytes, with at most one read() call
 to the underlying raw stream. A short result does not imply
 that EOF is imminent.
@@ -131,7 +132,7 @@ state."""
                         "%s() returned too much data: "
                         "%d bytes requested, %d returned",
                         methodname, length, len(data))
-        rwbuffer.setslice(0, data)
+        self.output_slice(space, rwbuffer, 0, data)
         return space.newint(len(data))
 
 W_BufferedIOBase.typedef = TypeDef(
@@ -160,8 +161,6 @@ implementation, but wrap one.
 )
 
 class BufferedMixin:
-    _mixin_ = True
-
     def __init__(self, space):
         W_IOBase.__init__(self, space)
         self.state = STATE_ZERO
@@ -185,6 +184,8 @@ class BufferedMixin:
         self.readable = False
         self.writable = False
 
+        self._fast_closed_check = False
+
     def _reader_reset_buf(self):
         self.read_end = -1
 
@@ -192,12 +193,22 @@ class BufferedMixin:
         self.write_pos = 0
         self.write_end = -1
 
+    def _make_buffer(self, space, size):
+        if space.config.translation.split_gc_address_space:
+            # When using split GC address space, it is not possible to get the
+            # raw address of a GC buffer. Therefore we use a buffer backed by
+            # raw memory.
+            return RawByteBuffer(size)
+        else:
+            # TODO: test whether using the raw buffer is faster
+            return ByteBuffer(size)
+
     def _init(self, space):
         if self.buffer_size <= 0:
             raise oefmt(space.w_ValueError,
                         "buffer size must be strictly positive")
 
-        self.buffer = ByteBuffer(self.buffer_size)
+        self.buffer = self._make_buffer(space, self.buffer_size)
 
         self.lock = TryLock(space)
 
@@ -213,13 +224,26 @@ class BufferedMixin:
         elif self.state == STATE_DETACHED:
             raise oefmt(space.w_ValueError, "raw stream has been detached")
 
+    @try_inline
     def _check_closed(self, space, message=None):
+        from pypy.module._io.interp_fileio import W_FileIO
+        if self._fast_closed_check:
+            w_raw = self.w_raw
+            assert isinstance(w_raw, W_FileIO)
+            if w_raw.fd >= 0:
+                return
         self._check_init(space)
         W_IOBase._check_closed(self, space, message)
 
     def _raw_tell(self, space):
-        w_pos = space.call_method(self.w_raw, "tell")
-        pos = space.r_longlong_w(w_pos)
+        from pypy.module._io.interp_fileio import W_FileIO
+        if self._fast_closed_check:
+            w_raw = self.w_raw
+            assert isinstance(w_raw, W_FileIO)
+            pos = r_longlong(w_raw._raw_tell(space))
+        else:
+            w_pos = space.call_method(self.w_raw, "tell")
+            pos = space.r_longlong_w(w_pos)
         if pos < 0:
             raise oefmt(space.w_IOError,
                         "raw stream returned invalid position")
@@ -319,7 +343,6 @@ class BufferedMixin:
         with self.lock:
             if self.writable:
                 self._writer_flush_unlocked(space)
-                self._writer_reset_buf()
 
             if whence == 1:
                 pos -= self._raw_offset()
@@ -361,6 +384,8 @@ class BufferedMixin:
                     if flush_operr:
                         e.chain_exceptions(space, flush_operr)
                     raise
+        self.buffer = None # free buffer memory
+        self.maybe_unregister_rpython_finalizer_io(space)
 
     def _dealloc_warn_w(self, space, w_source):
         space.call_method(self.w_raw, "_dealloc_warn", w_source)
@@ -371,6 +396,7 @@ class BufferedMixin:
 
     def _writer_flush_unlocked(self, space):
         if self.write_end == -1 or self.write_pos == self.write_end:
+            self._writer_reset_buf()
             return
         # First, rewind
         rewind = self._raw_offset() + (self.pos - self.write_pos)
@@ -426,6 +452,7 @@ class BufferedMixin:
         w_raw = self.w_raw
         self.w_raw = None
         self.state = STATE_DETACHED
+        self._fast_closed_check = False
         return w_raw
 
     def fileno_w(self, space):
@@ -435,6 +462,7 @@ class BufferedMixin:
     @unwrap_spec(w_size = WrappedDefault(None))
     def truncate_w(self, space, w_size):
         self._check_init(space)
+        self._check_closed(space, "truncate of closed file")
         with self.lock:
             if self.writable:
                 self._flush_and_rewind_unlocked(space)
@@ -462,6 +490,8 @@ class BufferedMixin:
         else:
             raise oefmt(space.w_ValueError,
                         "read length must be positive or -1")
+        if res is None:
+            return space.w_None
         return space.newbytes(res)
 
     @unwrap_spec(size=int)
@@ -492,11 +522,11 @@ class BufferedMixin:
             return space.newbytes(data)
 
     @unwrap_spec(size=int)
-    def read1_w(self, space, size):
+    def read1_w(self, space, size=-1):
         self._check_closed(space, "read of closed file")
 
         if size < 0:
-            raise oefmt(space.w_ValueError, "read length must be positive")
+            size = self.buffer_size
         if size == 0:
             return space.newbytes("")
 
@@ -562,19 +592,36 @@ class BufferedMixin:
         return space.newbytes(builder.build())
 
     def _raw_read(self, space, buffer, start, length):
+        from pypy.module._io.interp_fileio import W_FileIO
         assert buffer is not None
+
         length = intmask(length)
         start = intmask(start)
-        w_view = SimpleView(SubBuffer(buffer, start, length)).wrap(space)
-        while True:
+        w_raw = self.w_raw
+        target_address = lltype.nullptr(rffi.CCHARP.TO)
+        if type(w_raw) is W_FileIO:
             try:
-                w_size = space.call_method(self.w_raw, "readinto", w_view)
-            except OperationError as e:
-                if trap_eintr(space, e):
-                    continue  # try again
-                raise
+                raw_address = buffer.get_raw_address()
+            except ValueError:
+                pass
             else:
-                break
+                target_address = rffi.ptradd(raw_address, start)
+
+        if target_address:
+            assert type(w_raw) is W_FileIO
+            w_size = w_raw._readinto_raw(space, target_address, length)
+            keepalive_until_here(buffer)
+        else:
+            w_view = SimpleView(SubBuffer(buffer, start, length), w_obj=self).wrap(space)
+            while True:
+                try:
+                    w_size = space.call_method(self.w_raw, "readinto", w_view)
+                except OperationError as e:
+                    if trap_eintr(space, e):
+                        continue  # try again
+                    raise
+                else:
+                    break
 
         if space.is_w(w_size, space.w_None):
             raise BlockingIOError()
@@ -588,6 +635,7 @@ class BufferedMixin:
         return size
 
     def _fill_buffer(self, space):
+        self._check_closed(space)
         start = self.read_end
         if start == -1:
             start = 0
@@ -605,11 +653,11 @@ class BufferedMixin:
         if n <= current_size:
             return self._read_fast(n)
 
-        result_buffer = ByteBuffer(n)
+        result_buffer = self._make_buffer(space, n)
         remaining = n
         written = 0
         if current_size:
-            result_buffer.setslice(
+            self.output_slice(space, result_buffer,
                 written, self.buffer[self.pos:self.pos + current_size])
             remaining -= current_size
             written += current_size
@@ -654,7 +702,7 @@ class BufferedMixin:
             if remaining > 0:
                 if size > remaining:
                     size = remaining
-                result_buffer.setslice(
+                self.output_slice(space, result_buffer,
                     written, self.buffer[self.pos:self.pos + size])
                 self.pos += size
                 written += size
@@ -684,11 +732,21 @@ class BufferedMixin:
         have = self._readahead()
         if limit >= 0 and have > limit:
             have = limit
-        for pos in range(self.pos, self.pos+have):
-            if self.buffer[pos] == '\n':
-                break
+        buffer = self.buffer
+        if isinstance(buffer, ByteBuffer):
+            # hack at the internals of self.buffer, otherwise this loop is
+            # extremely slow
+            for pos in range(self.pos, self.pos+have):
+                if buffer.data[pos] == '\n':
+                    break
+            else:
+                pos = -1
         else:
-            pos = -1
+            for pos in range(self.pos, self.pos+have):
+                if buffer[pos] == '\n':
+                    break
+            else:
+                pos = -1
         if pos >= 0:
             w_res = space.newbytes(self.buffer[self.pos:pos+1])
             self.pos = pos + 1
@@ -713,7 +771,10 @@ class BufferedMixin:
 
             while True:
                 self._reader_reset_buf()
-                have = self._fill_buffer(space)
+                try:
+                    have = self._fill_buffer(space)
+                except BlockingIOError:
+                    have = 0
                 if have == 0:
                     break
                 if limit >= 0 and have > limit:
@@ -721,8 +782,7 @@ class BufferedMixin:
                 pos = 0
                 found = False
                 while pos < have:
-                    # 'buffer.data[]' instead of 'buffer[]' because RPython...
-                    c = self.buffer.data[pos]
+                    c = self.buffer.getitem(pos)
                     pos += 1
                     if c == '\n':
                         self.pos = pos
@@ -749,11 +809,12 @@ class BufferedMixin:
             self.read_end = self.pos
 
     def write_w(self, space, w_data):
-        self._check_closed(space, "write to closed file")
+        self._check_init(space)
         data = space.charbuf_w(w_data)
         size = len(data)
 
         with self.lock:
+            self._check_closed(space, "write to closed file")
             if (not (self.readable and self.read_end != -1) and
                 not (self.writable and self.write_end != -1)):
                 self.pos = 0
@@ -780,8 +841,7 @@ class BufferedMixin:
                     self._reader_reset_buf()
                 # Make some place by shifting the buffer
                 for i in range(self.write_pos, self.write_end):
-                    # XXX: messing with buffer internals
-                    self.buffer.data[i - self.write_pos] = self.buffer.data[i]
+                    self.buffer.setitem(i - self.write_pos, self.buffer.getitem(i))
                 self.write_end -= self.write_pos
                 self.raw_pos -= self.write_pos
                 newpos = self.pos - self.write_pos
@@ -869,8 +929,8 @@ class BufferedMixin:
             finally:
                 self._reader_reset_buf()
 
-class BufferedReaderMixin(BufferedMixin):
-    _mixin_ = True
+class BufferedReaderMixin(object):
+    import_from_mixin(BufferedMixin)
 
     def readinto_w(self, space, w_buffer):
         return self._readinto(space, w_buffer, read_once=False)
@@ -879,17 +939,21 @@ class BufferedReaderMixin(BufferedMixin):
         return self._readinto(space, w_buffer, read_once=True)
 
     def _readinto(self, space, w_buffer, read_once):
+        self._check_init(space)
+        self._check_closed(space, "readinto of closed file")
         rwbuffer = space.writebuf_w(w_buffer)
         length = rwbuffer.getlength()
         with self.lock:
             have = self._readahead()
             if have >= length:
-                rwbuffer.setslice(0, self.buffer[self.pos:self.pos + length])
+                self.output_slice(space, rwbuffer,
+                    0, self.buffer[self.pos:self.pos + length])
                 self.pos += length
                 return space.newint(length)
             written = 0
             if have > 0:
-                rwbuffer.setslice(0, self.buffer[self.pos:self.read_end])
+                self.output_slice(space, rwbuffer,
+                    0, self.buffer[self.pos:self.read_end])
                 written = have
 
             while written < length:
@@ -917,7 +981,8 @@ class BufferedReaderMixin(BufferedMixin):
                         break
                     endpos = min(have, length - written)
                     assert endpos >= 0
-                    rwbuffer.setslice(written, self.buffer[0:endpos])
+                    self.output_slice(space, rwbuffer,
+                        written, self.buffer[0:endpos])
                     written += endpos
                     self.pos = endpos
                 if read_once:
@@ -925,9 +990,12 @@ class BufferedReaderMixin(BufferedMixin):
             return space.newint(written)
 
 
-class W_BufferedReader(BufferedReaderMixin, W_BufferedIOBase):
+class W_BufferedReader(W_BufferedIOBase):
+    import_from_mixin(BufferedReaderMixin)
+
     @unwrap_spec(buffer_size=int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
+        from pypy.module._io.interp_fileio import W_FileIO
         self.state = STATE_ZERO
         check_readable_w(space, w_raw)
 
@@ -938,6 +1006,9 @@ class W_BufferedReader(BufferedReaderMixin, W_BufferedIOBase):
         self._init(space)
         self._reader_reset_buf()
         self.state = STATE_OK
+        self._fast_closed_check = (type(self) is W_BufferedReader and
+                type(w_raw) is W_FileIO)
+
 
 W_BufferedReader.typedef = TypeDef(
     '_io.BufferedReader', W_BufferedIOBase.typedef,
@@ -971,9 +1042,12 @@ W_BufferedReader.typedef = TypeDef(
     mode = GetSetProperty(W_BufferedReader.mode_get_w),
 )
 
-class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
+class W_BufferedWriter(W_BufferedIOBase):
+    import_from_mixin(BufferedMixin)
+
     @unwrap_spec(buffer_size=int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
+        from pypy.module._io.interp_fileio import W_FileIO
         self.state = STATE_ZERO
         check_writable_w(space, w_raw)
 
@@ -984,6 +1058,8 @@ class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
         self._init(space)
         self._writer_reset_buf()
         self.state = STATE_OK
+        self._fast_closed_check = (type(self) is W_BufferedWriter and
+                type(w_raw) is W_FileIO)
 
 W_BufferedWriter.typedef = TypeDef(
     '_io.BufferedWriter', W_BufferedIOBase.typedef,
@@ -1111,9 +1187,12 @@ W_BufferedRWPair.typedef = TypeDef(
     **methods
 )
 
-class W_BufferedRandom(BufferedReaderMixin, W_BufferedIOBase):
+class W_BufferedRandom(W_BufferedIOBase):
+    import_from_mixin(BufferedReaderMixin)
+
     @unwrap_spec(buffer_size=int)
     def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
+        from pypy.module._io.interp_fileio import W_FileIO
         self.state = STATE_ZERO
         check_readable_w(space, w_raw)
         check_writable_w(space, w_raw)
@@ -1128,6 +1207,8 @@ class W_BufferedRandom(BufferedReaderMixin, W_BufferedIOBase):
         self._writer_reset_buf()
         self.pos = 0
         self.state = STATE_OK
+        self._fast_closed_check = (type(self) is W_BufferedWriter and
+                type(w_raw) is W_FileIO)
 
 W_BufferedRandom.typedef = TypeDef(
     '_io.BufferedRandom', W_BufferedIOBase.typedef,

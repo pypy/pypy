@@ -545,7 +545,7 @@ class CCompiler:
         'extra_preargs' and 'extra_postargs' are implementation- dependent.
         On platforms that have the notion of a command-line (e.g. Unix,
         DOS/Windows), they are most likely lists of strings: extra
-        command-line arguments to prepand/append to the compiler command
+        command-line arguments to prepend/append to the compiler command
         line.  On other platforms, consult the implementation class
         documentation.  In any event, they are intended as an escape hatch
         for those occasions when the abstract compiler framework doesn't
@@ -781,8 +781,9 @@ class CCompiler:
             for incl in includes:
                 f.write("""#include "%s"\n""" % incl)
             f.write("""\
-main (int argc, char **argv) {
+int main (int argc, char **argv) {
     %s();
+    return 0;
 }
 """ % funcname)
         finally:
@@ -959,9 +960,7 @@ def get_default_compiler(osname=None, platform=None):
 # is assumed to be in the 'distutils' package.)
 compiler_class = { 'unix':    ('unixccompiler', 'UnixCCompiler',
                                "standard UNIX-style compiler"),
-                   # PyPy change: On win32 PyPy is translated with the
-                   # "msvc9compiler", force the same here.
-                   'msvc':    ('msvc9compiler', 'MSVCCompiler',
+                   'msvc':    ('_msvccompiler', 'MSVCCompiler',
                                "Microsoft Visual C++"),
                    'cygwin':  ('cygwinccompiler', 'CygwinCCompiler',
                                "Cygwin port of GNU C Compiler for Win32"),

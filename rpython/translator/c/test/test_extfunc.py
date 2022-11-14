@@ -166,7 +166,9 @@ def test_os_stat():
     f = compile(call_stat, [])
     res = eval(f())
     assert res[0] == os.stat(filename).st_mode
-    assert res[1] == os.stat(filename).st_ino
+    # windows zeros out st_ino in the app-level os.stat
+    if sys.platform != 'win32':
+        assert res[1] == os.stat(filename).st_ino
     st_ctime = res[2]
     if isinstance(st_ctime, float):
         assert (st_ctime - os.stat(filename).st_ctime) < 0.1

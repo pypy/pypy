@@ -132,6 +132,7 @@ import base64
 import sys
 import time
 from datetime import datetime
+from decimal import Decimal
 import http.client
 import urllib.parse
 from xml.parsers import expat
@@ -151,7 +152,7 @@ def escape(s):
     return s.replace(">", "&gt;",)
 
 # used in User-Agent header sent
-__version__ = sys.version[:3]
+__version__ = '%d.%d' % sys.version_info[:2]
 
 # xmlrpc integer limits
 MAXINT =  2**31-1
@@ -185,8 +186,7 @@ INTERNAL_ERROR        = -32603
 
 class Error(Exception):
     """Base class for client errors."""
-    def __str__(self):
-        return repr(self)
+    __str__ = object.__str__
 
 ##
 # Indicates an HTTP-level protocol error.  This is raised by the HTTP
@@ -667,6 +667,8 @@ class Unmarshaller:
 
     def start(self, tag, attrs):
         # prepare to handle this element
+        if ':' in tag:
+            tag = tag.split(':')[-1]
         if tag == "array" or tag == "struct":
             self._marks.append(len(self._stack))
         self._data = []
@@ -682,9 +684,13 @@ class Unmarshaller:
         try:
             f = self.dispatch[tag]
         except KeyError:
-            pass # unknown tag ?
-        else:
-            return f(self, "".join(self._data))
+            if ':' not in tag:
+                return # unknown tag ?
+            try:
+                f = self.dispatch[tag.split(':')[-1]]
+            except KeyError:
+                return # unknown tag ?
+        return f(self, "".join(self._data))
 
     #
     # accelerator support
@@ -694,9 +700,13 @@ class Unmarshaller:
         try:
             f = self.dispatch[tag]
         except KeyError:
-            pass # unknown tag ?
-        else:
-            return f(self, data)
+            if ':' not in tag:
+                return # unknown tag ?
+            try:
+                f = self.dispatch[tag.split(':')[-1]]
+            except KeyError:
+                return # unknown tag ?
+        return f(self, data)
 
     #
     # element decoders
@@ -721,14 +731,23 @@ class Unmarshaller:
     def end_int(self, data):
         self.append(int(data))
         self._value = 0
+    dispatch["i1"] = end_int
+    dispatch["i2"] = end_int
     dispatch["i4"] = end_int
     dispatch["i8"] = end_int
     dispatch["int"] = end_int
+    dispatch["biginteger"] = end_int
 
     def end_double(self, data):
         self.append(float(data))
         self._value = 0
     dispatch["double"] = end_double
+    dispatch["float"] = end_double
+
+    def end_bigdecimal(self, data):
+        self.append(Decimal(data))
+        self._value = 0
+    dispatch["bigdecimal"] = end_bigdecimal
 
     def end_string(self, data):
         if self._encoding:
@@ -848,8 +867,6 @@ class MultiCall:
 
     def __repr__(self):
         return "<%s at %#x>" % (self.__class__.__name__, id(self))
-
-    __str__ = __repr__
 
     def __getattr__(self, name):
         return _MultiCallMethod(self.__call_list, name)
@@ -1026,7 +1043,7 @@ def gzip_encode(data):
 # in the HTTP header, as described in RFC 1952
 #
 # @param data The encoded data
-# @keyparam max_decode Maximum bytes to decode (20MB default), use negative
+# @keyparam max_decode Maximum bytes to decode (20 MiB default), use negative
 #    values for unlimited decoding
 # @return the unencoded data
 # @raises ValueError if data is not correctly coded.
@@ -1107,14 +1124,16 @@ class Transport:
     accept_gzip_encoding = True
 
     # if positive, encode request using gzip if it exceeds this threshold
-    # note that many server will get confused, so only use it if you know
+    # note that many servers will get confused, so only use it if you know
     # that they can decode such a request
     encode_threshold = None #None = don't encode
 
-    def __init__(self, use_datetime=False, use_builtin_types=False):
+    def __init__(self, use_datetime=False, use_builtin_types=False,
+                 *, headers=()):
         self._use_datetime = use_datetime
         self._use_builtin_types = use_builtin_types
         self._connection = (None, None)
+        self._headers = list(headers)
         self._extra_headers = []
 
     ##
@@ -1194,7 +1213,7 @@ class Transport:
         if isinstance(host, tuple):
             host, x509 = host
 
-        auth, host = urllib.parse.splituser(host)
+        auth, host = urllib.parse._splituser(host)
 
         if auth:
             auth = urllib.parse.unquote_to_bytes(auth)
@@ -1238,14 +1257,14 @@ class Transport:
     # Send HTTP request.
     #
     # @param host Host descriptor (URL or (URL, x509 info) tuple).
-    # @param handler Targer RPC handler (a path relative to host)
+    # @param handler Target RPC handler (a path relative to host)
     # @param request_body The XML-RPC request body
     # @param debug Enable debugging if debug is true.
     # @return An HTTPConnection.
 
     def send_request(self, host, handler, request_body, debug):
         connection = self.make_connection(host)
-        headers = self._extra_headers[:]
+        headers = self._headers + self._extra_headers
         if debug:
             connection.set_debuglevel(1)
         if self.accept_gzip_encoding and gzip:
@@ -1327,9 +1346,11 @@ class Transport:
 class SafeTransport(Transport):
     """Handles an HTTPS transaction to an XML-RPC server."""
 
-    def __init__(self, use_datetime=False, use_builtin_types=False, *,
-                 context=None):
-        super().__init__(use_datetime=use_datetime, use_builtin_types=use_builtin_types)
+    def __init__(self, use_datetime=False, use_builtin_types=False,
+                 *, headers=(), context=None):
+        super().__init__(use_datetime=use_datetime,
+                         use_builtin_types=use_builtin_types,
+                         headers=headers)
         self.context = context
 
     # FIXME: mostly untested
@@ -1389,14 +1410,14 @@ class ServerProxy:
 
     def __init__(self, uri, transport=None, encoding=None, verbose=False,
                  allow_none=False, use_datetime=False, use_builtin_types=False,
-                 *, context=None):
+                 *, headers=(), context=None):
         # establish a "logical" server connection
 
         # get the url
-        type, uri = urllib.parse.splittype(uri)
+        type, uri = urllib.parse._splittype(uri)
         if type not in ("http", "https"):
             raise OSError("unsupported XML-RPC protocol")
-        self.__host, self.__handler = urllib.parse.splithost(uri)
+        self.__host, self.__handler = urllib.parse._splithost(uri)
         if not self.__handler:
             self.__handler = "/RPC2"
 
@@ -1409,6 +1430,7 @@ class ServerProxy:
                 extra_kwargs = {}
             transport = handler(use_datetime=use_datetime,
                                 use_builtin_types=use_builtin_types,
+                                headers=headers,
                                 **extra_kwargs)
         self.__transport = transport
 
@@ -1442,8 +1464,6 @@ class ServerProxy:
             "<%s for %s%s>" %
             (self.__class__.__name__, self.__host, self.__handler)
             )
-
-    __str__ = __repr__
 
     def __getattr__(self, name):
         # magic method dispatcher

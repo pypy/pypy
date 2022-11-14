@@ -28,7 +28,7 @@ only available (so far) on x86 and x86-64 CPUs; for other CPUs you need
 to add a short page of custom assembler to
 :source:`rpython/translator/c/src/stacklet/`.
 
-.. _Stackless Python: http://www.stackless.com
+.. _Stackless Python: https://www.stackless.com
 
 
 Theory

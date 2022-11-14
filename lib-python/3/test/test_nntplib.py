@@ -6,6 +6,9 @@ import unittest
 import functools
 import contextlib
 import os.path
+import re
+import threading
+
 from test import support
 from nntplib import NNTP, GroupInfo
 import nntplib
@@ -14,13 +17,17 @@ try:
     import ssl
 except ImportError:
     ssl = None
-try:
-    import threading
-except ImportError:
-    threading = None
+
 
 TIMEOUT = 30
 certfile = os.path.join(os.path.dirname(__file__), 'keycert3.pem')
+
+if ssl is not None:
+    SSLError = ssl.SSLError
+else:
+    class SSLError(Exception):
+        """Non-existent exception class when we lack SSL support."""
+        reason = "This will never be raised."
 
 # TODO:
 # - test the `file` arg to more commands
@@ -75,7 +82,7 @@ class NetworkedNNTPTestsMixin:
         desc = self.server.description(self.GROUP_NAME)
         _check_desc(desc)
         # Another sanity check
-        self.assertIn("Python", desc)
+        self.assertIn(self.DESC, desc)
         # With a pattern
         desc = self.server.description(self.GROUP_PAT)
         _check_desc(desc)
@@ -166,6 +173,7 @@ class NetworkedNNTPTestsMixin:
         # XXX this could exceptionally happen...
         self.assertNotIn(article.lines[-1], (b".", b".\n", b".\r\n"))
 
+    @unittest.skipIf(True, "FIXME: see bpo-32128")
     def test_article_head_body(self):
         resp, count, first, last, name = self.server.group(self.GROUP_NAME)
         # Try to find an available article
@@ -261,17 +269,29 @@ class NetworkedNNTPTestsMixin:
                 return False
             return True
 
-        with self.NNTP_CLASS(self.NNTP_HOST, timeout=TIMEOUT, usenetrc=False) as server:
-            self.assertTrue(is_connected())
-            self.assertTrue(server.help())
-        self.assertFalse(is_connected())
+        try:
+            with self.NNTP_CLASS(self.NNTP_HOST, timeout=TIMEOUT, usenetrc=False) as server:
+                self.assertTrue(is_connected())
+                self.assertTrue(server.help())
+            self.assertFalse(is_connected())
 
-        with self.NNTP_CLASS(self.NNTP_HOST, timeout=TIMEOUT, usenetrc=False) as server:
-            server.quit()
-        self.assertFalse(is_connected())
+            with self.NNTP_CLASS(self.NNTP_HOST, timeout=TIMEOUT, usenetrc=False) as server:
+                server.quit()
+            self.assertFalse(is_connected())
+        except SSLError as ssl_err:
+            # matches "[SSL: DH_KEY_TOO_SMALL] dh key too small"
+            if re.search(r'(?i)KEY.TOO.SMALL', ssl_err.reason):
+                raise unittest.SkipTest(f"Got {ssl_err} connecting "
+                                        f"to {self.NNTP_HOST!r}")
+            raise
 
 
 NetworkedNNTPTestsMixin.wrap_methods()
+
+
+EOF_ERRORS = (EOFError,)
+if ssl is not None:
+    EOF_ERRORS += (ssl.SSLEOFError,)
 
 
 class NetworkedNNTPTests(NetworkedNNTPTestsMixin, unittest.TestCase):
@@ -279,6 +299,7 @@ class NetworkedNNTPTests(NetworkedNNTPTestsMixin, unittest.TestCase):
     NNTP_HOST = 'news.trigofacile.com'
     GROUP_NAME = 'fr.comp.lang.python'
     GROUP_PAT = 'fr.comp.lang.*'
+    DESC = 'Python'
 
     NNTP_CLASS = NNTP
 
@@ -286,7 +307,18 @@ class NetworkedNNTPTests(NetworkedNNTPTestsMixin, unittest.TestCase):
     def setUpClass(cls):
         support.requires("network")
         with support.transient_internet(cls.NNTP_HOST):
-            cls.server = cls.NNTP_CLASS(cls.NNTP_HOST, timeout=TIMEOUT, usenetrc=False)
+            try:
+                cls.server = cls.NNTP_CLASS(cls.NNTP_HOST, timeout=TIMEOUT,
+                                            usenetrc=False)
+            except SSLError as ssl_err:
+                # matches "[SSL: DH_KEY_TOO_SMALL] dh key too small"
+                if re.search(r'(?i)KEY.TOO.SMALL', ssl_err.reason):
+                    raise unittest.SkipTest(f"{cls} got {ssl_err} connecting "
+                                            f"to {cls.NNTP_HOST!r}")
+                raise
+            except EOF_ERRORS:
+                raise unittest.SkipTest(f"{cls} got EOF error on connecting "
+                                        f"to {cls.NNTP_HOST!r}")
 
     @classmethod
     def tearDownClass(cls):
@@ -301,8 +333,11 @@ class NetworkedNNTP_SSLTests(NetworkedNNTPTests):
     # 400 connections per day are accepted from each IP address."
 
     NNTP_HOST = 'nntp.aioe.org'
-    GROUP_NAME = 'comp.lang.python'
-    GROUP_PAT = 'comp.lang.*'
+    # bpo-42794: aioe.test is one of the official groups on this server
+    # used for testing: https://news.aioe.org/manual/aioe-hierarchy/
+    GROUP_NAME = 'aioe.test'
+    GROUP_PAT = 'aioe.*'
+    DESC = 'test'
 
     NNTP_CLASS = getattr(nntplib, 'NNTP_SSL', None)
 
@@ -602,7 +637,7 @@ class NNTPv1Handler:
                     "\tSat, 19 Jun 2010 18:04:08 -0400"
                     "\t<4FD05F05-F98B-44DC-8111-C6009C925F0C@gmail.com>"
                     "\t<hvalf7$ort$1@dough.gmane.org>\t7103\t16"
-                    "\tXref: news.gmane.org gmane.comp.python.authors:57"
+                    "\tXref: news.gmane.io gmane.comp.python.authors:57"
                     "\n"
                 "58\tLooking for a few good bloggers"
                     "\tDoug Hellmann <doug.hellmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>"
@@ -1088,7 +1123,7 @@ class NNTPv1v2TestsMixin:
             "references": "<hvalf7$ort$1@dough.gmane.org>",
             ":bytes": "7103",
             ":lines": "16",
-            "xref": "news.gmane.org gmane.comp.python.authors:57"
+            "xref": "news.gmane.io gmane.comp.python.authors:57"
             })
         art_num, over = overviews[1]
         self.assertEqual(over["xref"], None)
@@ -1510,7 +1545,7 @@ class MockSslTests(MockSocketTests):
     def nntp_class(*pos, **kw):
         return nntplib.NNTP_SSL(*pos, ssl_context=bypass_context, **kw)
 
-@unittest.skipUnless(threading, 'requires multithreading')
+
 class LocalServerTests(unittest.TestCase):
     def setUp(self):
         sock = socket.socket()
@@ -1544,8 +1579,10 @@ class LocalServerTests(unittest.TestCase):
                 elif cmd == b'STARTTLS\r\n':
                     reader.close()
                     client.sendall(b'382 Begin TLS negotiation now\r\n')
-                    client = ssl.wrap_socket(
-                        client, server_side=True, certfile=certfile)
+                    context = ssl.SSLContext()
+                    context.load_cert_chain(certfile)
+                    client = context.wrap_socket(
+                        client, server_side=True)
                     cleanup.enter_context(client)
                     reader = cleanup.enter_context(client.makefile('rb'))
                 elif cmd == b'QUIT\r\n':

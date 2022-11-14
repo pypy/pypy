@@ -33,6 +33,9 @@ class AppTestMemoryView(object):
         assert v.shape == ()
         assert v.strides == ()
         assert v.tobytes() == b'x'
+        assert v.contiguous
+        assert v.c_contiguous
+        assert v.f_contiguous
         #assert v[()] == b'x'[0]
 
     def test_rw(self):
@@ -57,18 +60,23 @@ class AppTestMemoryView(object):
         v[::2] = b'ABC'
         assert data == bytearray(eval("b'AbBeCg'"))
         w = v[::2]
+        assert not w.contiguous
+        assert not w.c_contiguous
+        assert not w.f_contiguous
         assert w.tobytes() == bytes(w) == b'ABC'
         w = v[::-2]
         assert w.tobytes() == bytes(w) == b'geb'
 
     def test_memoryview_attrs(self):
-        v = memoryview(b"a"*100)
+        b = b"a"*100
+        v = memoryview(b)
         assert v.format == "B"
         assert v.itemsize == 1
         assert v.shape == (100,)
         assert v.ndim == 1
         assert v.strides == (1,)
         assert v.nbytes == 100
+        assert v.obj is b
 
     def test_suboffsets(self):
         v = memoryview(b"a"*100)
@@ -174,6 +182,7 @@ class AppTestMemoryView(object):
         assert m[0] == 0
         m[0] = 1
         assert m[0] == 1
+        raises(NotImplementedError, m.__setitem__, (slice(0,1,1), slice(0,1,2)), 0)
 
     def test_int_array_slice(self):
         import array
@@ -205,6 +214,15 @@ class AppTestMemoryView(object):
 
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
+
+    def test_hex_sep(self):
+        res = memoryview(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('.')
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        with raises(ValueError):
+            bytes([1, 2, 3]).hex("abc")
+        assert memoryview(
+                bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('?', 4) == \
+               "73616e?74612063?6c617573"
 
     def test_hex_long(self):
         x = b'01' * 100000
@@ -285,6 +303,41 @@ class AppTestMemoryView(object):
         assert m2.itemsize == m1.itemsize
         assert m2.shape == m1.shape
 
+    def test_2d(self):
+        import struct
+        a = list(range(16))
+        ba = bytearray(struct.pack("%di" % len(a), *a))
+        m = memoryview(ba).cast("i", shape=(4, 4))
+        assert m[2, 3] == 11
+        m[2, 3] = -1
+        assert m[2, 3] == -1
+        raises(TypeError, m.__setitem__, (2, 3), 'a')
+        # slices in 2d memoryviews are not supported at all
+        raises(TypeError, m.__getitem__, (slice(None), 3))
+        raises(TypeError, m.__setitem__, (slice(None), 3), 123)
+        raises(NotImplementedError, m.__getitem__, (slice(0,1,1), slice(0,1,2)))
+        raises(NotImplementedError, m.__setitem__, (slice(0,1,1), slice(0,1,2)), 123)
+
+    def test_toreadonly(self):
+        b = bytearray(b"abc")
+        m = memoryview(b)
+        m[0] = ord("c")
+        m2 = m.toreadonly()
+        assert m2.readonly
+        with raises(TypeError):
+            m2[0] = ord('x')
+        assert m2.tolist() == m.tolist()
+        m2.release()
+        assert len(m.tolist()) == 3 # does not crash
+
+    def test_toreadonly_slice_is_readonly(self):
+        b = bytearray(b"abcdefghi")
+        m = memoryview(b)
+        m[0] = ord("c")
+        m2 = m.toreadonly()
+        m3 = m2[1:4]
+        m3.readonly
+
 class AppTestCtypes(object):
     spaceconfig = dict(usemodules=['sys', '_rawffi'])
 
@@ -302,8 +355,9 @@ class AppTestCtypes(object):
 
 class MockBuffer(BufferView):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
-                 w_itemsize, w_strides, w_shape):
+                 w_itemsize, w_strides, w_shape, w_obj=None):
         self.space = space
+        self.w_obj = w_obj
         self.w_arr = w_arr
         self.arr = []
         self.ndim = space.int_w(w_dim)
@@ -374,7 +428,8 @@ class W_MockArray(W_Root):
 
     def buffer_w(self, space, flags):
         return MockBuffer(space, self.w_list, self.w_dim, self.w_fmt, \
-                          self.w_size, self.w_strides, self.w_shape)
+                          self.w_size, self.w_strides, self.w_shape,
+                          w_obj=self)
 
 W_MockArray.typedef = TypeDef("MockArray", None, None, "read-write",
     __new__ = interp2app(W_MockArray.descr_new),
@@ -468,6 +523,32 @@ class AppTestMemoryViewMockBuffer(object):
         assert view[::-1][-2] == 1
         assert list(reversed(view)) == revlist
         assert list(reversed(view)) == view[::-1].tolist()
+
+
+class AppTestMemoryViewMockBuffer(object):
+    spaceconfig = dict(usemodules=['__pypy__'])
+
+    def test_cast_with_byteorder(self):
+        import sys
+        if '__pypy__' not in sys.modules:
+            skip('PyPy-only test')
+
+        # create a memoryview with format '<B' (like ctypes does)
+        from __pypy__ import bufferable, newmemoryview
+        class B(bufferable.bufferable):
+            def __init__(self):
+                self.data = bytearray(b'abc')
+
+            def __buffer__(self, flags):
+                return newmemoryview(memoryview(self.data), 1, '<B')
+
+
+        obj = B()
+        buf = memoryview(obj)
+        assert buf.format == '<B'
+        # ensure we can cast this even though the format starts with '<'
+        assert buf.cast('B')[0] == ord('a')
+
 
 class AppTestMemoryViewReversed(object):
     spaceconfig = dict(usemodules=['array'])

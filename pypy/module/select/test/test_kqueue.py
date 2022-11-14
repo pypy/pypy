@@ -39,10 +39,12 @@ class AppTestKqueue(object):
         assert ev != other
         assert ev < other
         assert other >= ev
-        for op in lt, le, gt, ge:
-            raises(TypeError, op, ev, None)
-            raises(TypeError, op, ev, 1)
-            raises(TypeError, op, ev, "ev")
+        assert cmp(ev, None) != 0
+        assert cmp(ev, 1) !=  0
+        assert cmp(ev, "ev") != 0
+        assert cmp(ev, None) == -cmp(None, ev)
+        assert cmp(ev, 1) == -cmp(1, ev)
+        assert cmp(ev, "ev") == -cmp("ev", ev)
 
         ev = select.kevent(fd, select.KQ_FILTER_WRITE)
         assert ev.ident == fd
@@ -195,4 +197,30 @@ class AppTestKqueue(object):
 
         kq = select.kqueue()
         assert posix.get_inheritable(kq.fileno()) == False
+        kq.close()
+
+    def test_issue30058(self):
+        import select
+        import socket
+        # changelist must be an iterable
+        kq = select.kqueue()
+        a, b = socket.socketpair()
+        ev = select.kevent(a, select.KQ_FILTER_READ, select.KQ_EV_ADD | select.KQ_EV_ENABLE)
+
+        kq.control([ev], 0)
+        # not a list
+        kq.control((ev,), 0)
+        # __len__ is not consistent with __iter__
+        class BadList:
+            def __len__(self):
+                return 0
+            def __iter__(self):
+                for i in range(100):
+                    yield ev
+        kq.control(BadList(), 0)
+        # doesn't have __len__
+        kq.control(iter([ev]), 0)
+
+        a.close()
+        b.close()
         kq.close()

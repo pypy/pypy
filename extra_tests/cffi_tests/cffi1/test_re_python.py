@@ -64,18 +64,20 @@ def setup_module(mod):
     #define BIGNEG -420000000000L
     int add42(int);
     int add43(int, ...);
-    int globalvar42;
+    extern int globalvar42;
     const int globalconst42;
-    const char *const globalconsthello = "hello";
+    const char *const globalconsthello;
     int no_such_function(int);
-    int no_such_globalvar;
+    extern int no_such_globalvar;
     struct foo_s;
     typedef struct bar_s { int x; signed char a[]; } bar_t;
     enum foo_e { AA, BB, CC };
     int strlen(const char *);
     struct with_union { union { int a; char b; }; };
     union with_struct { struct { int a; char b; }; };
+    struct with_struct_with_union { struct { union { int x; }; } cp; };
     struct NVGcolor { union { float rgba[4]; struct { float r,g,b,a; }; }; };
+    typedef struct selfref { struct selfref *next; } *selfref_ptr_t;
     """)
     ffi.set_source('re_python_pysrc', None)
     ffi.emit_python_code(str(tmpdir.join('re_python_pysrc.py')))
@@ -248,6 +250,10 @@ def test_anonymous_union_inside_struct():
     assert ffi.offsetof("union with_struct", "b") == INT
     assert ffi.sizeof("union with_struct") >= INT + 1
     #
+    assert ffi.sizeof("struct with_struct_with_union") == INT
+    p = ffi.new("struct with_struct_with_union *")
+    assert p.cp.x == 0
+    #
     FLOAT = ffi.sizeof("float")
     assert ffi.sizeof("struct NVGcolor") == FLOAT * 4
     assert ffi.offsetof("struct NVGcolor", "rgba") == 0
@@ -255,3 +261,29 @@ def test_anonymous_union_inside_struct():
     assert ffi.offsetof("struct NVGcolor", "g") == FLOAT
     assert ffi.offsetof("struct NVGcolor", "b") == FLOAT * 2
     assert ffi.offsetof("struct NVGcolor", "a") == FLOAT * 3
+
+def test_selfref():
+    # based on issue #429
+    from re_python_pysrc import ffi
+    ffi.new("selfref_ptr_t")
+
+def test_dlopen_handle():
+    import _cffi_backend
+    from re_python_pysrc import ffi
+    if sys.platform == 'win32':
+        py.test.skip("uses 'dl' explicitly")
+    ffi1 = FFI()
+    ffi1.cdef("""void *dlopen(const char *filename, int flags);
+                 int dlclose(void *handle);""")
+    lib1 = ffi1.dlopen('dl')
+    handle = lib1.dlopen(extmod.encode(sys.getfilesystemencoding()),
+                         _cffi_backend.RTLD_LAZY)
+    assert ffi1.typeof(handle) == ffi1.typeof("void *")
+    assert handle
+
+    lib = ffi.dlopen(handle)
+    assert lib.add42(-10) == 32
+    assert type(lib.add42) is _cffi_backend.FFI.CData
+
+    err = lib1.dlclose(handle)
+    assert err == 0

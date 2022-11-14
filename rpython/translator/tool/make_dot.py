@@ -173,8 +173,8 @@ class FlowGraphDotGen(DotGen):
             if maxoffs >= 0:
                 minoffs = min([op.offset for op in block.operations
                                if op.offset >= 0])
-                minlineno = offset2lineno(self.func.func_code, minoffs)
-                maxlineno = offset2lineno(self.func.func_code, maxoffs)
+                minlineno = offset2lineno(self.func.__code__, minoffs)
+                maxlineno = offset2lineno(self.func.__code__, maxoffs)
                 filename = inspect.getsourcefile(self.func)
                 source = "\l".join([linecache.getline(filename, line).rstrip()
                                     for line in range(minlineno, maxlineno+1)])

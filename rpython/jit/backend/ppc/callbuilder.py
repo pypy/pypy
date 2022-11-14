@@ -22,10 +22,13 @@ class CallBuilder(AbstractCallBuilder):
     RSHADOWPTR  = r.RCS1
     RFASTGILPTR = r.RCS2
     RSHADOWOLD  = r.RCS3
+    RTHREADID   = r.RCS4   # loaded from the old value of rpy_fastgil
+
+    ressign = True
 
     def __init__(self, assembler, fnloc, arglocs, resloc):
         AbstractCallBuilder.__init__(self, assembler, fnloc, arglocs,
-                                     resloc, restype=INT, ressize=None)
+                                     resloc, restype=INT, ressize=WORD)
 
     def prepare_arguments(self):
         assert IS_PPC_64
@@ -140,13 +143,32 @@ class CallBuilder(AbstractCallBuilder):
         assert (self.resloc is None or
                 self.resloc is r.r3 or
                 self.resloc is r.f1)
-
+        ressize = self.ressize
+        if ressize == 1:
+            assert self.resloc is r.r3
+            if self.ressign:
+                self.mc.extsb(r.r3.value, r.r3.value)
+            else:
+                self.mc.rldicl(r.r3.value, r.r3.value, 0, 56)
+        elif ressize == 2:
+            assert self.resloc is r.r3
+            if self.ressign:
+                self.mc.extsh(r.r3.value, r.r3.value)
+            else:
+                self.mc.rldicl(r.r3.value, r.r3.value, 0, 48)
+        elif ressize == 4:
+            assert self.resloc is r.r3
+            if self.ressign:
+                self.mc.extsw(r.r3.value, r.r3.value)
+            else:
+                self.mc.rldicl(r.r3.value, r.r3.value, 0, 32)
 
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil
         RSHADOWPTR  = self.RSHADOWPTR
         RFASTGILPTR = self.RFASTGILPTR
         RSHADOWOLD  = self.RSHADOWOLD
+        RTHREADID   = self.RTHREADID
         #
         # Save this thread's shadowstack pointer into r29, for later comparison
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
@@ -158,6 +180,7 @@ class CallBuilder(AbstractCallBuilder):
         #
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
+        self.mc.ld(RTHREADID.value, RFASTGILPTR.value, 0)
         self.mc.li(r.r0.value, 0)
         self.mc.lwsync()
         self.mc.std(r.r0.value, RFASTGILPTR.value, 0)
@@ -174,16 +197,19 @@ class CallBuilder(AbstractCallBuilder):
         RSHADOWPTR  = self.RSHADOWPTR     # r30: &root_stack_top
         RFASTGILPTR = self.RFASTGILPTR    # r29: &fastgil
         RSHADOWOLD  = self.RSHADOWOLD     # r28: previous val of root_stack_top
+        RTHREADID   = self.RTHREADID      # r27: my thread id
 
-        # Equivalent of 'r10 = __sync_lock_test_and_set(&rpy_fastgil, 1);'
-        self.mc.li(r.r9.value, 1)
+        # Equivalent of
+        #   r10 = __sync_val_compare_and_swap(&rpy_fastgil, 0, thread_id);
+        self.mc.sync()
         retry_label = self.mc.currpos()
         self.mc.ldarx(r.r10.value, 0, RFASTGILPTR.value)  # load the lock value
-        self.mc.stdcxx(r.r9.value, 0, RFASTGILPTR.value)  # try to claim lock
+        self.mc.cmpdi(0, r.r10.value, 0)
+        self.mc.bc(6, 2, +12)
+        self.mc.stdcxx(RTHREADID.value, 0, RFASTGILPTR.value) #try to claim lock
         self.mc.bc(6, 2, retry_label - self.mc.currpos()) # retry if failed
         self.mc.isync()
 
-        self.mc.cmpdi(0, r.r10.value, 0)
         b1_location = self.mc.currpos()
         self.mc.trap()       # boehm: patched with a BEQ: jump if r10 is zero
                              # shadowstack: patched with BNE instead
@@ -196,7 +222,7 @@ class CallBuilder(AbstractCallBuilder):
             # is still the same as before we released the GIL (saved
             # in RSHADOWOLD), and if not, we fall back to 'reacqgil_addr'.
             self.mc.load(r.r9.value, RSHADOWPTR.value, 0)
-            self.mc.cmpdi(0, r.r9.value, RSHADOWOLD.value)
+            self.mc.cmpd(0, r.r9.value, RSHADOWOLD.value)
             bne_location = b1_location
             b1_location = self.mc.currpos()
             self.mc.trap()

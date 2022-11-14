@@ -34,8 +34,8 @@ def check_true(s_arg, bookeeper):
 
 def w_root_as_pyobj(w_obj, space):
     from rpython.rlib.debug import check_annotation
-    # make sure that translation crashes if we see this while not translating
-    # with cpyext
+    # make sure that translation crashes if we see this while translating
+    # without cpyext
     check_annotation(space.config.objspace.usemodules.cpyext, check_true)
     # default implementation of _cpyext_as_pyobj
     return rawrefcount.from_obj(PyObject, w_obj)
@@ -221,8 +221,25 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
     w_type = space.type(w_obj)
     pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
     typedescr = get_typedescr(w_obj.typedef)
-    if pytype.c_tp_itemsize != 0:
-        itemcount = space.len_w(w_obj) # PyBytesObject and subclasses
+    if space.is_w(w_type, space.w_text):
+        # These PyUnicodeObjects will always take the compact form
+        # since they come from uint8-encoded strings, so we must
+        # override the default tp_itemsize (see also unicode_alloc)
+        # Maybe this snippet should use the ptype.tp_alloc to allocate the py_obj?
+        itemsize = 1
+    else:
+        itemsize = pytype.c_tp_itemsize
+    if itemsize != 0:
+        # PyBytesObject, compact PyUnicodeObject and subclasses
+        try:
+            itemcount = space.len_w(w_obj)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_SystemError,
+                            "cpyext: Failure to allocate '%N' (with a non-zero "
+                            "tp_itemsize) when len(obj) cannot be calculated",
+                            w_type)
+            raise
     else:
         itemcount = 0
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount, immortal=immortal)
@@ -261,7 +278,7 @@ def from_ref(space, ref):
     assert is_pyobj(ref)
     if not ref:
         return None
-    w_obj = rawrefcount.to_obj(W_Root, ref)
+    w_obj = rawrefcount.to_obj(W_Root, rffi.cast(PyObject, ref))
     if w_obj is not None:
         if w_obj is not w_marker_deallocating:
             return w_obj

@@ -175,6 +175,25 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
         assert not module.test(float('inf'))
         assert not module.test(float('-inf'))
 
+    def test_Py_Float_AsDouble_err(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_O",
+             """
+                double d = PyFloat_AsDouble(args);
+                if (PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyFloat_FromDouble(d);
+             """),
+            ])
+        try:
+            module.test([])
+        except Exception as e:
+            print(str(e))
+            assert str(e) == 'must be real number, not list'
+        else:
+            assert False
+
     def test_Py_HUGE_VAL(self):
         module = self.import_extension('foo', [
             ("test", "METH_NOARGS",
@@ -185,12 +204,18 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
         assert module.test() == float('inf')
 
     def test_Py_NAN(self):
+        import sys
         module = self.import_extension('foo', [
             ("test", "METH_NOARGS",
              """
                  return PyFloat_FromDouble(Py_NAN);
              """),
             ])
-        import struct
-        float_bits = struct.Struct('d').pack
-        assert float_bits(module.test()) == float_bits(float('nan'))
+        if sys.platform == 'win32':
+            # CPython does not enforce bit-compatibility between the NANs
+            import math
+            assert math.isnan(module.test())
+        else:
+            import struct
+            float_bits = struct.Struct('d').pack
+            assert float_bits(module.test()) == float_bits(float('nan'))

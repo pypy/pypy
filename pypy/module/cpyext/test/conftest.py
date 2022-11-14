@@ -1,9 +1,9 @@
 import os
 import pytest
+import sys
 
 def pytest_configure(config):
-    if config.option.runappdirect:
-        import sys
+    if config.getoption('runappdirect') or config.getoption('direct_apptest'):
         import py
         from pypy import pypydir
         sys.path.append(str(py.path.local(pypydir) / 'tool' / 'cpyext'))
@@ -16,12 +16,12 @@ def pytest_configure(config):
     space = gettestobjspace(usemodules=['time'])
     space.getbuiltinmodule("time")
 
-def pytest_ignore_collect(path, config):
     # ensure additional functions are registered
     import pypy.module.cpyext.test.test_cpyext
-    return False
 
-def pytest_funcarg__api(request):
+
+@pytest.fixture
+def api(request):
     return request.cls.api
 
 if os.name == 'nt':

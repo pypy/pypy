@@ -1,8 +1,9 @@
 import sys
 import weakref
 
-from rpython.jit.codewriter import support, heaptracker, longlong
+from rpython.jit.codewriter import support, longlong
 from rpython.jit.metainterp import resoperation, history, jitexc
+from rpython.jit.metainterp.support import ptr2int, int2adr
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
@@ -47,8 +48,7 @@ def unspecialize_value(value):
         if lltype.typeOf(value).TO._gckind == 'gc':
             return lltype.cast_opaque_ptr(llmemory.GCREF, value)
         else:
-            adr = llmemory.cast_ptr_to_adr(value)
-            return heaptracker.adr2int(adr)
+            return ptr2int(value)
     elif isinstance(value, float):
         return longlong.getfloatstorage(value)
     else:
@@ -62,7 +62,7 @@ def unwrap(TYPE, box):
         if TYPE.TO._gckind == "gc":
             return box.getref(TYPE)
         else:
-            adr = heaptracker.int2adr(box.getint())
+            adr = int2adr(box.getint())
             return llmemory.cast_adr_to_ptr(adr, TYPE)
     if TYPE == lltype.Float:
         return box.getfloat()
@@ -81,8 +81,7 @@ def wrap(cpu, value, in_const_box=False):
                 res.setref_base(value)
                 return res
         else:
-            adr = llmemory.cast_ptr_to_adr(value)
-            value = heaptracker.adr2int(adr)
+            value = ptr2int(value)
             # fall through to the end of the function
     elif (isinstance(value, float) or
           longlong.is_longlong(lltype.typeOf(value))):
@@ -138,6 +137,7 @@ JC_TRACING         = 0x01
 JC_DONT_TRACE_HERE = 0x02
 JC_TEMPORARY       = 0x04
 JC_TRACING_OCCURRED= 0x08
+JC_FORCE_FINISH    = 0x10
 
 class BaseJitCell(object):
     """Subclasses of BaseJitCell are used in tandem with the single
@@ -150,7 +150,7 @@ class BaseJitCell(object):
     app-level Python code.
 
     We create subclasses of BaseJitCell --one per jitdriver-- so that
-    they can store greenkeys of different types.  
+    they can store greenkeys of different types.
 
     Note that we don't create a JitCell the first time we see a given
     greenkey position in the interpreter.  At first, we only hash the
@@ -184,6 +184,10 @@ class BaseJitCell(object):
         this particular function.  (We only set this flag when aborting
         due to a trace too long, so we use the same flag as a hint to
         also mean "please trace from here as soon as possible".)
+
+        JC_FORCE_FINISH: when from a cell with that flag set, if the trace
+        becomes too long, "segment" it, ie finish it with a guard_always_fails.
+        this prevents re-tracing and failing this again and again.
     """
     flags = 0     # JC_xxx flags
     wref_procedure_token = None
@@ -220,6 +224,10 @@ class BaseJitCell(object):
             # we no longer have one, then remove me.  this prevents this
             # JitCell from being immortal.
             return self.has_seen_a_procedure_token()     # i.e. dead weakref
+        if self.flags & JC_FORCE_FINISH:
+            # don't remove, we need to remember that we should really finish a
+            # trace for this
+            return False
         return True   # Other JitCells can be removed.
 
 # ____________________________________________________________
@@ -257,6 +265,10 @@ class WarmEnterState(object):
         self.increment_trace_eagerness = self._compute_threshold(value)
 
     def set_param_trace_limit(self, value):
+        if value < 0:
+            raise ValueError
+        if value > self.warmrunnerdesc.metainterp_sd.opencoder_model.MAX_TRACE_LIMIT:
+            raise ValueError
         self.trace_limit = value
 
     def set_param_decay(self, decay):
@@ -293,6 +305,9 @@ class WarmEnterState(object):
         if self.warmrunnerdesc:
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.retrace_limit = value
+
+    def set_param_pureop_historylength(self, value):
+        self.pureop_historylength = value
 
     def set_param_max_retrace_guards(self, value):
         if self.warmrunnerdesc:
@@ -384,7 +399,7 @@ class WarmEnterState(object):
             if vinfo is not None:
                 virtualizable = args[index_of_virtualizable]
                 vinfo.clear_vable_token(virtualizable)
-            
+
             deadframe = func_execute_token(loop_token, *args)
             #
             # Record in the memmgr that we just ran this loop,
@@ -413,18 +428,20 @@ class WarmEnterState(object):
             assert 0, "should have raised"
 
         def bound_reached(hash, cell, *args):
+            from rpython.jit.metainterp.pyjitpl import MetaInterp
             if not confirm_enter_jit(*args):
                 return
             jitcounter.decay_all_counters()
             if rstack.stack_almost_full():
                 return
-            # start tracing
-            from rpython.jit.metainterp.pyjitpl import MetaInterp
-            metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
             greenargs = args[:num_green_args]
             if cell is None:
                 cell = JitCell(*greenargs)
                 jitcounter.install_new_cell(hash, cell)
+            # start tracing
+            metainterp = MetaInterp(
+                metainterp_sd, jitdriver_sd,
+                force_finish_trace=bool(cell.flags & JC_FORCE_FINISH))
             cell.flags |= JC_TRACING | JC_TRACING_OCCURRED
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
@@ -436,6 +453,8 @@ class WarmEnterState(object):
             can_enter_jit() hint, and at the start of a function
             with a different threshold.
             """
+            if increment_threshold == 0:
+                return # jit is off
             # Look for the cell corresponding to the current greenargs.
             # Search for the JitCell that is of the correct subclass of
             # BaseJitCell, and that stores a key that compares equal.
@@ -630,6 +649,11 @@ class WarmEnterState(object):
             def dont_trace_here(*greenargs):
                 cell = JitCell._ensure_jit_cell_at_key(*greenargs)
                 cell.flags |= JC_DONT_TRACE_HERE
+
+            @staticmethod
+            def mark_as_being_traced(*greenargs):
+                cell = JitCell._ensure_jit_cell_at_key(*greenargs)
+                cell.flags |= JC_TRACING
         #
         self.JitCell = JitCell
         return JitCell
@@ -667,6 +691,18 @@ class WarmEnterState(object):
             cell.flags |= JC_DONT_TRACE_HERE
         self.dont_trace_here = dont_trace_here
 
+        def mark_as_being_traced(greenkey):
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_TRACING
+        self.mark_as_being_traced = mark_as_being_traced
+
+        def mark_force_finish_tracing(greenkey):
+            """ mark greenkey as "please definitely finish a trace for it the
+            next time" """
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_FORCE_FINISH
+        self.mark_force_finish_tracing = mark_force_finish_tracing
+
         if jd._should_unroll_one_iteration_ptr is None:
             def should_unroll_one_iteration(greenkey):
                 return False
@@ -698,7 +734,7 @@ class WarmEnterState(object):
             drivername = jitdriver.name
         else:
             drivername = '<unknown jitdriver>'
-        # get_location returns 
+        # get_location returns
         get_location_ptr = getattr(self.jitdriver_sd, '_get_location_ptr', None)
         if get_location_ptr is not None:
             types = self.jitdriver_sd._get_loc_types

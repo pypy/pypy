@@ -93,7 +93,6 @@ __all__ = [
 ]
 
 import __future__
-import argparse
 import difflib
 import inspect
 import linecache
@@ -212,6 +211,13 @@ def _normalize_module(module, depth=2):
     else:
         raise TypeError("Expected a module, string, or None")
 
+def _newline_convert(data):
+    # We have two cases to cover and we need to make sure we do
+    # them in the right order
+    for newline in ('\r\n', '\r'):
+        data = data.replace(newline, '\n')
+    return data
+
 def _load_testfile(filename, package, module_relative, encoding):
     if module_relative:
         package = _normalize_module(package, 3)
@@ -222,7 +228,7 @@ def _load_testfile(filename, package, module_relative, encoding):
                 file_contents = file_contents.decode(encoding)
                 # get_data() opens files as 'rb', so one must do the equivalent
                 # conversion as universal newlines would do.
-                return file_contents.replace(os.linesep, '\n'), filename
+                return _newline_convert(file_contents), filename
     with open(filename, encoding=encoding) as f:
         return f.read(), filename
 
@@ -381,11 +387,14 @@ class _OutputRedirectingPdb(pdb.Pdb):
             sys.stdout = save_stdout
 
 # [XX] Normalize with respect to os.path.pardir?
-def _module_relative_path(module, path):
+def _module_relative_path(module, test_path):
     if not inspect.ismodule(module):
         raise TypeError('Expected a module: %r' % module)
-    if path.startswith('/'):
+    if test_path.startswith('/'):
         raise ValueError('Module-relative files may not have absolute paths')
+
+    # Normalize the path. On Windows, replace "/" with "\".
+    test_path = os.path.join(*(test_path.split('/')))
 
     # Find the base directory for the path.
     if hasattr(module, '__file__'):
@@ -398,13 +407,19 @@ def _module_relative_path(module, path):
         else:
             basedir = os.curdir
     else:
+        if hasattr(module, '__path__'):
+            for directory in module.__path__:
+                fullpath = os.path.join(directory, test_path)
+                if os.path.exists(fullpath):
+                    return fullpath
+
         # A module w/o __file__ (this includes builtins)
         raise ValueError("Can't resolve paths relative to the module "
                          "%r (it has no __file__)"
                          % module.__name__)
 
-    # Combine the base directory and the path.
-    return os.path.join(basedir, *(path.split('/')))
+    # Combine the base directory and the test path.
+    return os.path.join(basedir, test_path)
 
 ######################################################################
 ## 2. Example & DocTest
@@ -756,7 +771,7 @@ class DocTestParser:
 
     # This regular expression finds the indentation of every non-blank
     # line in a string.
-    _INDENT_RE = re.compile('^([ ]*)(?=\S)', re.MULTILINE)
+    _INDENT_RE = re.compile(r'^([ ]*)(?=\S)', re.MULTILINE)
 
     def _min_indent(self, s):
         "Return the minimum indentation of any non-blank line in `s`"
@@ -1053,7 +1068,8 @@ class DocTestFinder:
         if module is None:
             filename = None
         else:
-            filename = getattr(module, '__file__', module.__name__)
+            # __file__ can be None for namespace packages.
+            filename = getattr(module, '__file__', None) or module.__name__
             if filename[-4:] == ".pyc":
                 filename = filename[:-1]
         return self._parser.get_doctest(docstring, globs, name,
@@ -1099,7 +1115,7 @@ class DocTestFinder:
         if lineno is not None:
             if source_lines is None:
                 return lineno+1
-            pat = re.compile('(^|.*:)\s*\w*("|\')')
+            pat = re.compile(r'(^|.*:)\s*\w*("|\')')
             for lineno in range(lineno, len(source_lines)):
                 if pat.match(source_lines[lineno]):
                     return lineno
@@ -1601,11 +1617,11 @@ class OutputChecker:
         # blank line, unless the DONT_ACCEPT_BLANKLINE flag is used.
         if not (optionflags & DONT_ACCEPT_BLANKLINE):
             # Replace <BLANKLINE> in want with a blank line.
-            want = re.sub('(?m)^%s\s*?$' % re.escape(BLANKLINE_MARKER),
+            want = re.sub(r'(?m)^%s\s*?$' % re.escape(BLANKLINE_MARKER),
                           '', want)
             # If a line in got contains only spaces, then remove the
             # spaces.
-            got = re.sub('(?m)^\s*?$', '', got)
+            got = re.sub(r'(?m)^[^\S\n]+$', '', got)
             if got == want:
                 return True
 
@@ -1684,8 +1700,6 @@ class OutputChecker:
                 kind = 'ndiff with -expected +actual'
             else:
                 assert 0, 'Bad diff option'
-            # Remove trailing whitespace on diff output.
-            diff = [line.rstrip() + '\n' for line in diff]
             return 'Differences (%s):\n' % kind + _indent(''.join(diff))
 
         # If we're not using diff, then simply list the expected
@@ -2296,7 +2310,7 @@ class DocTestCase(unittest.TestCase):
         name = self._dt_test.name.split('.')
         return "%s (%s)" % (name[-1], '.'.join(name[:-1]))
 
-    __str__ = __repr__
+    __str__ = object.__str__
 
     def shortDescription(self):
         return "Doctest: " + self._dt_test.name
@@ -2395,7 +2409,6 @@ class DocFileCase(DocTestCase):
 
     def __repr__(self):
         return self._dt_test.filename
-    __str__ = __repr__
 
     def format_failure(self, err):
         return ('Failed doctest test for %s\n  File "%s", line 0\n\n%s'
@@ -2734,6 +2747,8 @@ __test__ = {"_TestClass": _TestClass,
 
 
 def _test():
+    import argparse
+
     parser = argparse.ArgumentParser(description="doctest runner")
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='print very verbose output for all tests')

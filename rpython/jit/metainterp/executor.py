@@ -81,7 +81,7 @@ def _do_call(cpu, metainterp, argboxes, descr, rettype):
 def new_do_call(rettype):
     def do_call(cpu, metainterp, argboxes, descr):
         return _do_call(cpu, metainterp, argboxes, descr, rettype)
-    do_call.func_name = "do_call_" + rettype
+    do_call.__name__ = "do_call_" + rettype
     return do_call
 
 do_call_r = new_do_call("r")
@@ -441,6 +441,8 @@ def _make_execute_list():
                          rop.GC_STORE,
                          rop.GC_STORE_INDEXED,
                          rop.LOAD_FROM_GC_TABLE,
+                         rop.LOAD_EFFECTIVE_ADDRESS,
+                         rop.RECORD_KNOWN_RESULT,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:
@@ -480,14 +482,15 @@ def make_execute_function(name, func):
         #
         return func(*newargs)
     #
-    do.func_name = 'do_' + name
+    do.__name__ = 'do_' + name
     return do
 
+@specialize.memo()
 def get_execute_funclist(num_args, withdescr):
     # workaround, similar to the next one
     return EXECUTE_BY_NUM_ARGS[num_args, withdescr]
-get_execute_funclist._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def get_execute_function(opnum, num_args, withdescr):
     # workaround for an annotation limitation: putting this code in
     # a specialize:memo function makes sure the following line is
@@ -497,14 +500,13 @@ def get_execute_function(opnum, num_args, withdescr):
     #assert func is not None, "EXECUTE_BY_NUM_ARGS[%s, %s][%s]" % (
     #    num_args, withdescr, resoperation.opname[opnum])
     return func
-get_execute_function._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def has_descr(opnum):
     # workaround, similar to the previous one
     return resoperation.opwithdescr[opnum]
-has_descr._annspecialcase_ = 'specialize:memo'
 
-
+@specialize.arg(2)
 def execute(cpu, metainterp, opnum, descr, *argboxes):
     # only for opnums with a fixed arity
     num_args = len(argboxes)
@@ -517,14 +519,13 @@ def execute(cpu, metainterp, opnum, descr, *argboxes):
     func = get_execute_function(opnum, num_args, withdescr)
     return func(cpu, metainterp, *argboxes)  # note that the 'argboxes' tuple
                                              # optionally ends with the descr
-execute._annspecialcase_ = 'specialize:arg(2)'
 
+@specialize.arg(2)
 def execute_varargs(cpu, metainterp, opnum, argboxes, descr):
     # only for opnums with a variable arity (calls, typically)
     check_descr(descr)
     func = get_execute_function(opnum, -1, True)
     return func(cpu, metainterp, argboxes, descr)
-execute_varargs._annspecialcase_ = 'specialize:arg(2)'
 
 @specialize.argtype(0)
 def wrap_constant(value):

@@ -963,75 +963,15 @@ class MemoryOpAssembler(object):
     def _mem_offset_supported(self, value):
         return -2**19 <= value < 2**19
 
-    def emit_copystrcontent(self, op, arglocs, regalloc):
-        self._emit_copycontent(arglocs, is_unicode=False)
-
-    def emit_copyunicodecontent(self, op, arglocs, regalloc):
-        self._emit_copycontent(arglocs, is_unicode=True)
-
-    def _emit_load_for_copycontent(self, dst, src_ptr, src_ofs, scale):
-        if src_ofs.is_imm():
-            value = src_ofs.value << scale
-            if check_imm_value(value):
-                self.mc.AGHIK(dst, src_ptr, l.imm(value))
-            else:
-                # it is fine to use r1 here, because it will
-                # only hold a value before invoking the memory copy
-                self.mc.load_imm(r.SCRATCH, value)
-                self.mc.AGRK(dst, src_ptr, r.SCRATCH)
-        elif scale == 0:
-            self.mc.AGRK(dst, src_ptr, src_ofs)
-        else:
-            self.mc.SLLG(r.SCRATCH, src_ofs, l.addr(scale))
-            self.mc.AGRK(dst, src_ptr, r.SCRATCH)
-
-    def _emit_copycontent(self, arglocs, is_unicode):
-        [src_ptr_loc, dst_ptr_loc,
-         src_ofs_loc, dst_ofs_loc, length_loc] = arglocs
-
-        if is_unicode:
-            basesize, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                        self.cpu.translate_support_code)
-            if   itemsize == 2: scale = 1
-            elif itemsize == 4: scale = 2
-            else: raise AssertionError
-        else:
-            basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
-                                        self.cpu.translate_support_code)
-            assert itemsize == 1
-            basesize -= 1     # for the extra null character
-            scale = 0
-
-        # src and src_len are tmp registers
-        src = src_ptr_loc
-        src_len = r.odd_reg(src)
-        dst = r.r0
-        dst_len = r.r1
-        self._emit_load_for_copycontent(src, src_ptr_loc, src_ofs_loc, scale)
-        self._emit_load_for_copycontent(dst, dst_ptr_loc, dst_ofs_loc, scale)
-
-        if length_loc.is_imm():
-            length = length_loc.getint()
-            self.mc.load_imm(dst_len, length << scale)
-        else:
-            if scale > 0:
-                self.mc.SLLG(dst_len, length_loc, l.addr(scale))
-            else:
-                self.mc.LGR(dst_len, length_loc)
-        # ensure that src_len is as long as dst_len, otherwise
-        # padding bytes are written to dst
-        self.mc.LGR(src_len, dst_len)
-
-        self.mc.AGHI(src, l.imm(basesize))
-        self.mc.AGHI(dst, l.imm(basesize))
-
-        # s390x has memset directly as a hardware instruction!!
-        # 0xB8 means we might reference dst later
-        self.mc.MVCLE(dst, src, l.addr(0xB8))
-        # NOTE this instruction can (determined by the cpu), just
-        # quit the movement any time, thus it is looped until all bytes
-        # are copied!
-        self.mc.BRC(c.OF, l.imm(-self.mc.MVCLE_byte_count))
+    # ...copystrcontent logic was removed, but note that
+    # if we want to reintroduce support for that:
+    # s390x has memset directly as a hardware instruction!!
+    # 0xB8 means we might reference dst later
+    #self.mc.MVCLE(dst, src, l.addr(0xB8))
+    # NOTE this instruction can (determined by the cpu), just
+    # quit the movement any time, thus it is looped until all bytes
+    # are copied!
+    #self.mc.BRC(c.OF, l.imm(-self.mc.MVCLE_byte_count))
 
     def emit_zero_array(self, op, arglocs, regalloc):
         base_loc, startindex_loc, length_loc, \

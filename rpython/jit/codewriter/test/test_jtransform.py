@@ -12,6 +12,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.jit.codewriter import heaptracker, effectinfo
 from rpython.jit.codewriter.flatten import ListOfKind
 from rpython.jit.codewriter.jtransform import Transformer, UnsupportedMallocFlags
+from rpython.jit.metainterp.support import int2adr
 from rpython.jit.metainterp.history import getkind
 
 def const(x):
@@ -109,7 +110,7 @@ class FakeBuiltinCallControl:
                      extradescr=None, calling_graph=None):
         assert oopspecindex is not None    # in this test
         EI = effectinfo.EffectInfo
-        if oopspecindex != EI.OS_ARRAYCOPY:
+        if oopspecindex not in (EI.OS_ARRAYCOPY, EI.OS_ARRAYMOVE):
             PSTR = lltype.Ptr(rstr.STR)
             PUNICODE = lltype.Ptr(rstr.UNICODE)
             INT = lltype.Signed
@@ -1198,7 +1199,7 @@ def test_unicode_concat():
     got = cc.callinfocollection.seen[0]
     assert got[0] == effectinfo.EffectInfo.OS_UNI_CONCAT
     assert got[1] == op1.args[2]    # the calldescr
-    assert heaptracker.int2adr(got[2]) == llmemory.cast_ptr_to_adr(func)
+    assert int2adr(got[2]) == llmemory.cast_ptr_to_adr(func)
 
 def test_str_slice():
     # test that the oopspec is present and correctly transformed
@@ -1304,6 +1305,27 @@ def test_list_ll_arraycopy():
     assert op1.args[1] == ListOfKind('int', [v3, v4, v5])
     assert op1.args[2] == ListOfKind('ref', [v1, v2])
     assert op1.args[3] == 'calldescr-%d' % effectinfo.EffectInfo.OS_ARRAYCOPY
+
+def test_list_ll_arraymove():
+    from rpython.rlib.rgc import ll_arraymove
+    LIST = lltype.GcArray(lltype.Signed)
+    PLIST = lltype.Ptr(LIST)
+    INT = lltype.Signed
+    FUNC = lltype.FuncType([PLIST]+[INT]*3, lltype.Void)
+    func = lltype.functionptr(FUNC, 'll_arraymove', _callable=ll_arraymove)
+    v1 = varoftype(PLIST)
+    v3 = varoftype(INT)
+    v4 = varoftype(INT)
+    v5 = varoftype(INT)
+    v6 = varoftype(lltype.Void)
+    op = SpaceOperation('direct_call', [const(func), v1, v3, v4, v5], v6)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = tr.rewrite_operation(op)
+    assert op1.opname == 'residual_call_ir_v'
+    assert op1.args[0].value == func
+    assert op1.args[1] == ListOfKind('int', [v3, v4, v5])
+    assert op1.args[2] == ListOfKind('ref', [v1])
+    assert op1.args[3] == 'calldescr-%d' % effectinfo.EffectInfo.OS_ARRAYMOVE
 
 def test_math_sqrt():
     # test that the oopspec is present and correctly transformed

@@ -29,7 +29,7 @@ class TestMinMax(BaseTestPyPyC):
             i = 13
             sa = 0
             while i < 30000:
-                lst = range(i % 1000 + 2)
+                lst = list(range(i % 1000 + 2))
                 sa += max(*lst)  # ID: callmax
                 i += 1
             return sa

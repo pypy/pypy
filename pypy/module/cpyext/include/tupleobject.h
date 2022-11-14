@@ -18,6 +18,7 @@ typedef struct {
 
 PyAPI_FUNC(PyObject *) PyTuple_New(Py_ssize_t size);
 PyAPI_FUNC(void) _PyPy_tuple_dealloc(PyObject *);
+PyAPI_FUNC(PyObject *) _PyPy_tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 PyAPI_FUNC(void) _PyPy_tuple_free(void *);
 PyAPI_FUNC(int) _PyPy_tuple_traverse(PyObject *ob, visitproc visit, void *arg);
 PyAPI_FUNC(Py_ssize_t) _PyTuple_MaybeUntrack(PyObject *);
@@ -34,8 +35,12 @@ PyAPI_FUNC(PyObject *) PyTuple_Pack(Py_ssize_t, ...);
 #define PyTuple_SET_ITEM(op, i, v) (((PyTupleObject *)(op))->ob_item[i] = v)
 
 #define PyTuple_Check(op) \
-		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_TUPLE_SUBCLASS)
-#define PyTuple_CheckExact(op) ((op)->ob_type == &PyTuple_Type)
+		 PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TUPLE_SUBCLASS)
+#define PyTuple_CheckExact(op) (Py_TYPE(op) == &PyTuple_Type)
+
+#define _PyTuple_CAST(op) (assert(PyTuple_Check(op)), (PyTupleObject *)(op))
+#define _PyTuple_ITEMS(op) (_PyTuple_CAST(op)->ob_item)
+
 
 #ifdef __cplusplus
 }

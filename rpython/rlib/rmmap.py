@@ -23,6 +23,7 @@ _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
 _64BIT = "64bit" in platform.architecture()[0]
 _CYGWIN = "cygwin" == sys.platform
+_DARWIN = "darwin" == sys.platform
 
 class RMMapError(Exception):
     def __init__(self, message):
@@ -59,6 +60,8 @@ if _POSIX:
     constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_FIXED',
                       'PROT_READ', 'PROT_WRITE',
                       'MS_SYNC']
+    if sys.platform == 'darwin':
+        constant_names.append('MAP_JIT')
     opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
                           'PROT_EXEC',
                           'MAP_DENYWRITE', 'MAP_EXECUTABLE']
@@ -77,6 +80,36 @@ if _POSIX:
         rffi_platform.DefinedConstantInteger('MADV_DONTNEED'))
     CConfig.MADV_FREE = (
         rffi_platform.DefinedConstantInteger('MADV_FREE'))
+
+    madv_constant_names = [
+        "MADV_NORMAL",
+        "MADV_RANDOM",
+        "MADV_SEQUENTIAL",
+        "MADV_WILLNEED",
+
+        #Linux-specific
+        "MADV_REMOVE",
+        "MADV_DONTFORK",
+        "MADV_DOFORK",
+        "MADV_HWPOISON",
+        "MADV_MERGEABLE",
+        "MADV_UNMERGEABLE",
+        "MADV_SOFT_OFFLINE",
+        "MADV_HUGEPAGE",
+        "MADV_NOHUGEPAGE",
+        "MADV_DONTDUMP",
+        "MADV_DODUMP",
+
+        # FreeBSD-specific
+        "MADV_NOSYNC",
+        "MADV_AUTOSYNC",
+        "MADV_NOCORE",
+        "MADV_CORE",
+        "MADV_PROTECT",
+    ]
+    for name in madv_constant_names:
+        setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
+
 
 elif _MS_WINDOWS:
     constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
@@ -170,6 +203,10 @@ if _POSIX:
     _pagesize = rffi_platform.getintegerfunctionresult('getpagesize',
                                                        includes=includes)
     _get_allocation_granularity = _get_page_size = lambda: _pagesize
+
+    if _DARWIN:
+        _, c_pthread_jit_write_protect_np = external('pthread_jit_write_protect_np',
+            [rffi.INT], lltype.Void)
 
 elif _MS_WINDOWS:
 
@@ -286,6 +323,7 @@ elif _MS_WINDOWS:
             lltype.free(high_ref, flavor='raw')
 
     INVALID_HANDLE = INVALID_HANDLE_VALUE
+    has_madvise = False
 
 PAGESIZE = _get_page_size()
 ALLOCATIONGRANULARITY = _get_allocation_granularity()
@@ -624,9 +662,44 @@ class MMap(object):
             index += self.size
         self.data[index] = value[0]
 
+    if has_madvise:
+        def madvise(self, flags, start, end):
+            res = c_madvise_safe(rffi.cast(PTR, rffi.ptradd(self.data, + start)),
+                                 rffi.cast(size_t, end),
+                                 rffi.cast(rffi.INT, flags))
+            if rffi.cast(lltype.Signed, res) == 0:
+                return
+            errno = rposix.get_saved_errno()
+            raise OSError(errno, os.strerror(errno))
+
 def _check_map_size(size):
     if size < 0:
         raise RTypeError("memory mapped size must be positive")
+
+if _DARWIN:
+
+    class Nester(object):
+        def __init__(self):
+            self.counter = 0
+
+    nester = Nester()
+
+    def enter_assembler_writing():
+        if nester.counter == 0:
+            c_pthread_jit_write_protect_np(0)
+        nester.counter += 1
+
+    def leave_assembler_writing():
+        nester.counter -= 1
+        if nester.counter == 0:
+            c_pthread_jit_write_protect_np(1)
+
+else:
+    def enter_assembler_writing():
+        pass
+
+    def leave_assembler_writing():
+        pass
 
 if _POSIX:
     def mmap(fileno, length, flags=MAP_SHARED,
@@ -711,6 +784,8 @@ if _POSIX:
 
     def alloc_hinted(hintp, map_size):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
+        if _DARWIN:
+            flags |= MAP_JIT
         prot = PROT_EXEC | PROT_READ | PROT_WRITE
         if we_are_translated():
             flags = NonConstant(flags)

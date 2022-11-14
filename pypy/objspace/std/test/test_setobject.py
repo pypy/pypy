@@ -83,7 +83,7 @@ class TestW_SetObject:
 
     def test_create_set_from_list(self):
         from pypy.interpreter.baseobjspace import W_Root
-        from pypy.objspace.std.setobject import BytesSetStrategy, ObjectSetStrategy, UnicodeSetStrategy
+        from pypy.objspace.std.setobject import BytesSetStrategy, ObjectSetStrategy, AsciiSetStrategy
         from pypy.objspace.std.floatobject import W_FloatObject
 
         w = self.space.wrap
@@ -108,8 +108,8 @@ class TestW_SetObject:
         w_list = self.space.iter(W_ListObject(self.space, [w(u"1"), w(u"2"), w(u"3")]))
         w_set = W_SetObject(self.space)
         _initialize_set(self.space, w_set, w_list)
-        #assert w_set.strategy is self.space.fromcache(UnicodeSetStrategy)
-        #assert w_set.strategy.unerase(w_set.sstorage) == {u"1":None, u"2":None, u"3":None}
+        assert w_set.strategy is self.space.fromcache(AsciiSetStrategy)
+        assert w_set.strategy.unerase(w_set.sstorage) == {u"1":None, u"2":None, u"3":None}
 
         w_list = W_ListObject(self.space, [w("1"), w(2), w("3")])
         w_set = W_SetObject(self.space)
@@ -476,6 +476,11 @@ class AppTestAppSetTest:
         s1 = set([1, 2.0, "3"])
         s1.update(set(["3", 4, 5.0]))
 
+    def test_update_not_iterable_error(self):
+        with raises(TypeError) as e:
+            set().update(1)
+        assert "'int' object is not iterable" in str(e.value)
+
     def test_recursive_repr(self):
         class A(object):
             def __init__(self, s):
@@ -647,8 +652,42 @@ class AppTestAppSetTest:
             s = subset([2])
             assert s.x == ([2],)
             t = s | base([5])
-            assert type(t) is base
+            assert type(t) is base, 'base is %s, type(t) is %s' % (base, type(t))
             assert not hasattr(t, 'x')
+
+    def test_reverse_ops(self):
+        assert set.__rxor__
+        assert frozenset.__rxor__
+        assert set.__ror__
+        assert frozenset.__ror__
+        assert set.__rand__
+        assert frozenset.__rand__
+        assert set.__rsub__
+        assert frozenset.__rsub__
+
+        # actual behaviour test
+        for base in [set, frozenset]:
+            class S(base):
+                def __xor__(self, other):
+                    if type(other) is not S:
+                        return NotImplemented
+                    return 1
+                __or__ = __and__ = __sub__ = __xor__
+            assert S([1, 2, 3]) ^ S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) ^ {2, 3, 4} == {1, 4}
+            assert {1, 2, 3} ^ S([2, 3, 4]) == {1, 4}
+
+            assert S([1, 2, 3]) & S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) & {2, 3, 4} == {2, 3}
+            assert {1, 2, 3} & S([2, 3, 4]) == {2, 3}
+
+            assert S([1, 2, 3]) | S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) | {2, 3, 4} == {1, 2, 3, 4}
+            assert {1, 2, 3} | S([2, 3, 4]) == {1, 2, 3, 4}
+
+            assert S([1, 2, 3]) - S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) - {2, 3, 4} == {1}
+            assert {1, 2, 3} - S([2, 3, 4]) == {1}
 
     def test_isdisjoint(self):
         assert set([1,2,3]).isdisjoint(set([4,5,6]))
@@ -847,6 +886,7 @@ class AppTestAppSetTest:
 
     def test_empty_unhashable(self):
         s = set()
+        raises(TypeError, s.__contains__, [[]])
         raises(TypeError, s.difference, [[]])
         raises(TypeError, s.difference_update, [[]])
         raises(TypeError, s.intersection, [[]])
@@ -1114,3 +1154,27 @@ class AppTestAppSetTest:
         assert len(items) == 2
         items.add(first)
         assert items == set(d)
+
+    def test_unicode_bug_in_listview_utf8(self):
+        l1 = set(u'\u1234\u2345')
+        assert l1 == set([u'\u1234', '\u2345'])
+
+    def test_frozenset_init_does_nothing(self):
+        f = frozenset([1, 2, 3])
+        f.__init__(4, 5, 6)
+        assert f == frozenset([1, 2, 3])
+
+    def test_error_message_wrong_self(self):
+        e = raises(TypeError, frozenset.copy, 42)
+        assert "frozenset" in str(e.value)
+        if hasattr(frozenset.copy, 'im_func'):
+            e = raises(TypeError, frozenset.copy.im_func, 42)
+            assert "'frozenset' object expected, got 'int' instead" in str(e.value)
+        if hasattr(set.copy, 'im_func'):
+            e = raises(TypeError, set.copy.im_func, 42)
+            assert "'set' object expected, got 'int' instead" in str(e.value)
+
+    def test_cant_mutate_frozenset_via_set(self):
+        x = frozenset()
+        raises(TypeError, set.add, x, 1)
+        raises(TypeError, set.__ior__, x, set([2]))

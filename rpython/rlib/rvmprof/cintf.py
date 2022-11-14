@@ -5,6 +5,7 @@ import shutil
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rthread, jit
@@ -19,9 +20,10 @@ class VMProfPlatformUnsupported(Exception):
 IS_SUPPORTED = False
 if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
     try:
-        IS_SUPPORTED = detect_cpu.autodetect().startswith('x86')
+        proc = detect_cpu.autodetect()
+        IS_SUPPORTED = proc.startswith('x86') or proc == 'aarch64'
     except detect_cpu.ProcessorAutodetectError:
-        pass
+        print("PROCESSOR NOT DETECTED, SKIPPING VMPROF")
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
@@ -60,7 +62,8 @@ def make_eci():
     else:
         # Guessing a BSD-like Unix platform
         compile_extra += ['-DVMPROF_UNIX']
-        compile_extra += ['-DVMPROF_MAC']
+        if sys.platform.startswith('darwin'):
+            compile_extra += ['-DVMPROF_APPLE']
         if sys.platform.startswith('freebsd'):
             _libs = ['unwind']
         else:
@@ -229,8 +232,25 @@ def jit_rvmprof_code(leaving, unique_id):
         enter_code(unique_id)    # ignore the return value
     else:
         s = vmprof_tl_stack.getraw()
-        assert s.c_value == unique_id and s.c_kind == VMPROF_CODE_TAG
-        leave_code(s)
+        if s.c_value == unique_id and s.c_kind == VMPROF_CODE_TAG:
+            leave_code(s)
+        else:
+            # this is a HACK! in some strange situations related to stack
+            # overflows we end up in a situation where the stack is not
+            # properly popped somewhere, so we end up with an extra entry.
+            # instead of crashing with an assertion error (which was done
+            # previously) try to fix the situation by popping of the stack
+            # twice. if that also gives the wrong unique_id we still crash with
+            # an assert.
+
+            # the test that found this problem is test_recursive_pickle in
+            # python3 test_functools.py
+            assert (s.c_next and s.c_next.c_value == unique_id and
+                        s.c_next.c_kind == VMPROF_CODE_TAG)
+            s = vmprof_tl_stack.getraw()
+            leave_code(s)
+            s = vmprof_tl_stack.getraw()
+            leave_code(s)
 
 #
 # traceback support

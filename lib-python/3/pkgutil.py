@@ -1,5 +1,6 @@
 """Utilities to support packages."""
 
+from collections import namedtuple
 from functools import singledispatch as simplegeneric
 import importlib
 import importlib.util
@@ -14,7 +15,12 @@ __all__ = [
     'get_importer', 'iter_importers', 'get_loader', 'find_loader',
     'walk_packages', 'iter_modules', 'get_data',
     'ImpImporter', 'ImpLoader', 'read_code', 'extend_path',
+    'ModuleInfo',
 ]
+
+
+ModuleInfo = namedtuple('ModuleInfo', 'module_finder name ispkg')
+ModuleInfo.__doc__ = 'A namedtuple with minimal info about a module.'
 
 
 def _get_spec(finder, name):
@@ -40,12 +46,12 @@ def read_code(stream):
     if magic != importlib.util.MAGIC_NUMBER:
         return None
 
-    stream.read(8) # Skip timestamp and size
+    stream.read(12) # Skip rest of the header
     return marshal.load(stream)
 
 
 def walk_packages(path=None, prefix='', onerror=None):
-    """Yields (module_finder, name, ispkg) for all modules recursively
+    """Yields ModuleInfo for all modules recursively
     on path, or, if path is None, all accessible modules.
 
     'path' should be either None or a list of paths to look for
@@ -78,31 +84,31 @@ def walk_packages(path=None, prefix='', onerror=None):
             return True
         m[p] = True
 
-    for importer, name, ispkg in iter_modules(path, prefix):
-        yield importer, name, ispkg
+    for info in iter_modules(path, prefix):
+        yield info
 
-        if ispkg:
+        if info.ispkg:
             try:
-                __import__(name)
+                __import__(info.name)
             except ImportError:
                 if onerror is not None:
-                    onerror(name)
+                    onerror(info.name)
             except Exception:
                 if onerror is not None:
-                    onerror(name)
+                    onerror(info.name)
                 else:
                     raise
             else:
-                path = getattr(sys.modules[name], '__path__', None) or []
+                path = getattr(sys.modules[info.name], '__path__', None) or []
 
                 # don't traverse path items we've seen before
                 path = [p for p in path if not seen(p)]
 
-                yield from walk_packages(path, name+'.', onerror)
+                yield from walk_packages(path, info.name+'.', onerror)
 
 
 def iter_modules(path=None, prefix=''):
-    """Yields (module_finder, name, ispkg) for all submodules on path,
+    """Yields ModuleInfo for all submodules on path,
     or, if path is None, all top-level modules on sys.path.
 
     'path' should be either None or a list of paths to look for
@@ -111,9 +117,11 @@ def iter_modules(path=None, prefix=''):
     'prefix' is a string to output on the front of every module name
     on output.
     """
-
     if path is None:
         importers = iter_importers()
+    elif isinstance(path, str):
+        raise ValueError("path must be None or list of paths to look for "
+                        "modules in")
     else:
         importers = map(get_importer, path)
 
@@ -122,7 +130,7 @@ def iter_modules(path=None, prefix=''):
         for name, ispkg in iter_importer_modules(i, prefix):
             if name not in yielded:
                 yielded[name] = 1
-                yield i, name, ispkg
+                yield ModuleInfo(i, name, ispkg)
 
 
 @simplegeneric
@@ -180,7 +188,7 @@ iter_importer_modules.register(
 def _import_imp():
     global imp
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', PendingDeprecationWarning)
+        warnings.simplefilter('ignore', DeprecationWarning)
         imp = importlib.import_module('imp')
 
 class ImpImporter:
@@ -403,6 +411,7 @@ def get_importer(path_item):
     The cache (or part of it) can be cleared manually if a
     rescan of sys.path_hooks is necessary.
     """
+    path_item = os.fsdecode(path_item)
     try:
         importer = sys.path_importer_cache[path_item]
     except KeyError:

@@ -67,6 +67,12 @@ class CheckSignalAction(PeriodicAsyncAction):
 
         @rgc.no_collect
         def _after_thread_switch():
+            # if threadlocals is the fake ThreadLocals from miscutils, we
+            # cannot ever end up here, it's only called after a thread switch
+            ec = self.space.threadlocals.get_ec()
+            if ec is not None and ec.w_async_exception_type:
+                self.space.actionflag.rearm_ticker() # ensure perform is called
+                return
             if self.fire_in_another_thread:
                 if self.space.threadlocals.signals_enabled():
                     self.fire_in_another_thread = False
@@ -85,6 +91,10 @@ class CheckSignalAction(PeriodicAsyncAction):
             rgil.invoke_after_thread_switch(self._after_thread_switch)
 
     def perform(self, executioncontext, frame):
+        w_exc = executioncontext.w_async_exception_type
+        if w_exc is not None:
+            executioncontext.w_async_exception_type = None
+            raise oefmt(w_exc, "asynchronous exception triggered from another thread")
         self._poll_for_signals()
 
     @jit.dont_look_inside
@@ -242,8 +252,8 @@ def signal(space, signum, w_handler):
 
 
 @jit.dont_look_inside
-@unwrap_spec(fd="c_int")
-def set_wakeup_fd(space, fd):
+@unwrap_spec(fd="c_int", warn_on_full_buffer=bool)
+def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
     """Sets the fd to be written to (with the signal number) when a signal
     comes in.  Returns the old fd.  A library can use this to
     wakeup select or poll.  The previous fd is returned.
@@ -255,25 +265,41 @@ def set_wakeup_fd(space, fd):
                     "set_wakeup_fd only works in main thread or with "
                     "__pypy__.thread.enable_signals()")
 
-    if WIN32:
-        raise oefmt(space.w_NotImplementedError, 
-                    "signal.set_wakeup_fd is not implemented on Windows")
-
+    send_flags = 0
     if fd != -1:
-        try:
-            os.fstat(fd)
-            flags = rposix.get_status_flags(fd)
-        except OSError as e:
-            if e.errno == errno.EBADF:
-                raise oefmt(space.w_ValueError, "invalid fd")
-            raise wrap_oserror(space, e, eintr_retry=False)
-        if flags & rposix.O_NONBLOCK == 0:
-            raise oefmt(space.w_ValueError,
-                        "the fd %d must be in non-blocking mode", fd)
+        if WIN32:
+            from rpython.rlib._rsocket_rffi import SOL_SOCKET, SO_TYPE
+            from rpython.rlib.rsocket import getsockopt_int, SocketError
+            # it could be a socket fd or a file fd
+            try:
+                type = getsockopt_int(fd, SOL_SOCKET, SO_TYPE)
+                is_socket = True
+            except SocketError as e:
+                is_socket = False
+            if is_socket:
+                send_flags |= PYPYSIG_USE_SEND
+            else:
+                try:
+                    os.fstat(fd)
+                except OSError as e:
+                    if e.errno == errno.EBADF:
+                        raise oefmt(space.w_ValueError, "invalid fd")
+        else:
+            try:
+                os.fstat(fd)
+                flags = rposix.get_status_flags(fd)
+            except OSError as e:
+                if e.errno == errno.EBADF:
+                    raise oefmt(space.w_ValueError, "invalid fd")
+                raise wrap_oserror(space, e, eintr_retry=False)
+            if flags & rposix.O_NONBLOCK == 0:
+                raise oefmt(space.w_ValueError,
+                            "the fd %d must be in non-blocking mode", fd)
 
-    old_fd = pypysig_set_wakeup_fd(fd, False)
+    if not warn_on_full_buffer:
+        send_flags |= PYPYSIG_NO_WARN_FULL
+    old_fd = pypysig_set_wakeup_fd(fd, send_flags)
     return space.newint(intmask(old_fd))
-
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
@@ -292,8 +318,13 @@ def siginterrupt(space, signum, flag):
 #__________________________________________________________
 
 def timeval_from_double(d, timeval):
-    rffi.setintfield(timeval, 'c_tv_sec', int(d))
-    rffi.setintfield(timeval, 'c_tv_usec', int((d - int(d)) * 1000000))
+    c_tv_sec = int(d)
+    c_tv_usec = int((d - int(d)) * 1000000)
+    # Don't disable the timer if the computation above rounds down to zero.
+    if d > 0.0 and c_tv_sec == 0 and c_tv_usec == 0:
+        c_tv_usec = 1
+    rffi.setintfield(timeval, 'c_tv_sec', c_tv_sec)
+    rffi.setintfield(timeval, 'c_tv_usec', c_tv_usec)
 
 
 def double_from_timeval(tv):
@@ -304,7 +335,7 @@ def double_from_timeval(tv):
 def itimer_retval(space, val):
     w_value = space.newfloat(double_from_timeval(val.c_it_value))
     w_interval = space.newfloat(double_from_timeval(val.c_it_interval))
-    return space.newtuple([w_value, w_interval])
+    return space.newtuple2(w_value, w_interval)
 
 
 class Cache:
@@ -402,6 +433,8 @@ def _sigset_to_signals(space, mask):
     return space.call_function(space.w_set, space.newtuple(signals_w))
 
 def sigwait(space, w_signals):
+    """Suspend execution of the calling thread until the delivery of one of the
+    signals specified in the signal set signals. """
     with SignalMask(space, w_signals) as sigset:
         with lltype.scoped_alloc(rffi.INTP.TO, 1) as signum_ptr:
             ret = c_sigwait(sigset, signum_ptr)
@@ -411,6 +444,11 @@ def sigwait(space, w_signals):
     return space.newint(signum)
 
 def sigpending(space):
+    """Examine pending signals.
+
+    Returns a set of signal numbers that are pending for delivery to
+    the calling thread.
+    """
     with lltype.scoped_alloc(c_sigset_t.TO) as mask:
         ret = c_sigpending(mask)
         if ret != 0:
@@ -419,6 +457,7 @@ def sigpending(space):
 
 @unwrap_spec(how=int)
 def pthread_sigmask(space, how, w_signals):
+    'Fetch and/or change the signal mask of the calling thread.'
     with SignalMask(space, w_signals) as sigset:
         with lltype.scoped_alloc(c_sigset_t.TO) as previous:
             ret = c_pthread_sigmask(how, sigset, previous)
@@ -427,3 +466,52 @@ def pthread_sigmask(space, how, w_signals):
             # if signals was unblocked, signal handlers have been called
             space.getexecutioncontext().checksignals()
             return _sigset_to_signals(space, previous)
+
+def valid_signals(space):
+    '''Return a set of valid signal numbers on this platform.
+
+    The signal numbers returned by this function can be safely passed to
+    functions like `pthread_sigmask`.'''
+    if WIN32:
+        # follow cpython
+        signals_w = [space.newint(SIGABRT), space.newint(SIGBREAK),
+                     space.newint(SIGFPE), space.newint(SIGILL),
+                     space.newint(SIGINT), space.newint(SIGSEGV),
+                     space.newint(SIGTERM),
+                    ]
+        return space.call_function(space.w_set, space.newtuple(signals_w))
+    else:     
+        mask = lltype.malloc(c_sigset_t.TO, flavor='raw')
+        try:
+            ret = c_sigemptyset(mask)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            ret = c_sigfillset(mask)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            return _sigset_to_signals(space, mask)
+        finally:
+            lltype.free(mask, flavor='raw')
+
+@unwrap_spec(signalnum=int)
+def raise_signal(space, signalnum):
+    'Send a signal to the executing process.'
+    with rposix.SuppressIPH():
+        err = c_raise(signalnum)
+    if err != 0:
+        raise exception_from_saved_errno(space, space.w_OSError)
+
+@unwrap_spec(signalnum=int)
+def strsignal(space, signalnum):
+    '''Return the system description of the given signal.
+    The return values can be such as "Interrupt", "Segmentation fault", etc.
+    Returns None if the signal is not recognized.'''
+    from rpython.rlib import rsignal
+    if signalnum < 1 or signalnum > NSIG:
+        raise oefmt(space.w_ValueError, 'signal number out of range')
+    res = rsignal.strsignal(signalnum)
+    if res is None:
+        return space.w_None
+    return space.newtext(res)
+
+

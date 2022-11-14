@@ -4,8 +4,10 @@ from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 from rpython.rlib.objectmodel import keepalive_until_here, we_are_translated
 from rpython.rlib import jit
 
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, ClassAttr
 from pypy.module._cffi_backend import ctypeobj, cdataobj, allocator
 
 
@@ -39,13 +41,15 @@ def typeof(space, w_cdata):
 def sizeof(space, w_obj):
     if isinstance(w_obj, cdataobj.W_CData):
         size = w_obj._sizeof()
+        ctype = w_obj.ctype
     elif isinstance(w_obj, ctypeobj.W_CType):
         size = w_obj.size
-        if size < 0:
-            raise oefmt(space.w_ValueError,
-                        "ctype '%s' is of unknown size", w_obj.name)
+        ctype = w_obj
     else:
         raise oefmt(space.w_TypeError, "expected a 'cdata' or 'ctype' object")
+    if size < 0:
+        raise oefmt(space.w_ValueError,
+                    "ctype '%s' is of unknown size", ctype.name)
     return space.newint(size)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
@@ -56,7 +60,7 @@ def alignof(space, w_ctype):
 @unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
 def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
     ctype, offset = w_ctype.direct_typeoffsetof(w_field_or_index, following)
-    return space.newtuple([ctype, space.newint(offset)])
+    return space.newtuple2(ctype, space.newint(offset))
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
 def rawaddressof(space, w_ctype, w_cdata, offset):
@@ -85,8 +89,8 @@ def unpack(space, w_cdata, length):
 # ____________________________________________________________
 
 def _get_types(space):
-    return space.newtuple([space.gettypefor(cdataobj.W_CData),
-                           space.gettypefor(ctypeobj.W_CType)])
+    return space.newtuple2(space.gettypefor(cdataobj.W_CData),
+                           space.gettypefor(ctypeobj.W_CType))
 
 # ____________________________________________________________
 
@@ -112,9 +116,10 @@ def _fetch_as_write_buffer(space, w_x):
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, require_writable=int)
 def from_buffer(space, w_ctype, w_x, require_writable=0):
-    from pypy.module._cffi_backend import ctypearray
-    if not isinstance(w_ctype, ctypearray.W_CTypeArray):
-        raise oefmt(space.w_TypeError, "expected an array ctype, got '%s'",
+    from pypy.module._cffi_backend import ctypeptr, ctypearray
+    if not isinstance(w_ctype, ctypeptr.W_CTypePtrOrArray):
+        raise oefmt(space.w_TypeError,
+                    "expected a poiunter or array ctype, got '%s'",
                     w_ctype.name)
     if space.isinstance_w(w_x, space.w_unicode):
         raise oefmt(space.w_TypeError,
@@ -135,33 +140,36 @@ def from_buffer(space, w_ctype, w_x, require_writable=0):
                         "raw address on PyPy", w_x)
     #
     buffersize = buf.getlength()
-    arraylength = w_ctype.length
-    if arraylength >= 0:
-        # it's an array with a fixed length; make sure that the
-        # buffer contains enough bytes.
-        if buffersize < w_ctype.size:
-            raise oefmt(space.w_ValueError,
-                "buffer is too small (%d bytes) for '%s' (%d bytes)",
-                buffersize, w_ctype.name, w_ctype.size)
+    if not isinstance(w_ctype, ctypearray.W_CTypeArray):
+        arraylength = buffersize   # number of bytes, not used so far
     else:
-        # it's an open 'array[]'
-        itemsize = w_ctype.ctitem.size
-        if itemsize == 1:
-            # fast path, performance only
-            arraylength = buffersize
-        elif itemsize > 0:
-            # give it as many items as fit the buffer.  Ignore a
-            # partial last element.
-            arraylength = buffersize / itemsize
+        arraylength = w_ctype.length
+        if arraylength >= 0:
+            # it's an array with a fixed length; make sure that the
+            # buffer contains enough bytes.
+            if buffersize < w_ctype.size:
+                raise oefmt(space.w_ValueError,
+                    "buffer is too small (%d bytes) for '%s' (%d bytes)",
+                    buffersize, w_ctype.name, w_ctype.size)
         else:
-            # it's an array 'empty[]'.  Unsupported obscure case:
-            # the problem is that setting the length of the result
-            # to anything large (like SSIZE_T_MAX) is dangerous,
-            # because if someone tries to loop over it, it will
-            # turn effectively into an infinite loop.
-            raise oefmt(space.w_ZeroDivisionError,
-                "from_buffer('%s', ..): the actual length of the array "
-                "cannot be computed", w_ctype.name)
+            # it's an open 'array[]'
+            itemsize = w_ctype.ctitem.size
+            if itemsize == 1:
+                # fast path, performance only
+                arraylength = buffersize
+            elif itemsize > 0:
+                # give it as many items as fit the buffer.  Ignore a
+                # partial last element.
+                arraylength = buffersize / itemsize
+            else:
+                # it's an array 'empty[]'.  Unsupported obscure case:
+                # the problem is that setting the length of the result
+                # to anything large (like SSIZE_T_MAX) is dangerous,
+                # because if someone tries to loop over it, it will
+                # turn effectively into an infinite loop.
+                raise oefmt(space.w_ZeroDivisionError,
+                    "from_buffer('%s', ..): the actual length of the array "
+                    "cannot be computed", w_ctype.name)
     #
     return cdataobj.W_CDataFromBuffer(space, _cdata, arraylength,
                                       w_ctype, buf, w_x)
@@ -230,24 +238,28 @@ def memmove(space, w_dest, w_src, n):
     # cases...
     src_buf = None
     src_data = lltype.nullptr(rffi.CCHARP.TO)
-    if isinstance(w_src, cdataobj.W_CData):
-        src_data = unsafe_escaping_ptr_for_ptr_or_array(w_src)
-        src_is_ptr = True
+    if space.isinstance_w(w_src, space.w_bytes):
+        src_is_ptr = False
+        src_string = space.bytes_w(w_src)
     else:
-        src_buf = _fetch_as_read_buffer(space, w_src)
-        try:
-            src_data = src_buf.get_raw_address()
+        if isinstance(w_src, cdataobj.W_CData):
+            src_data = unsafe_escaping_ptr_for_ptr_or_array(w_src)
             src_is_ptr = True
-        except ValueError:
-            src_is_ptr = False
-
-    if src_is_ptr:
-        src_string = None
-    else:
-        if n == src_buf.getlength():
-            src_string = src_buf.as_str()
         else:
-            src_string = src_buf.getslice(0, n, 1, n)
+            src_buf = _fetch_as_read_buffer(space, w_src)
+            try:
+                src_data = src_buf.get_raw_address()
+                src_is_ptr = True
+            except ValueError:
+                src_is_ptr = False
+
+        if src_is_ptr:
+            src_string = None
+        else:
+            if n == src_buf.getlength():
+                src_string = src_buf.as_str()
+            else:
+                src_string = src_buf.getslice(0, 1, n)
 
     dest_buf = None
     dest_data = lltype.nullptr(rffi.CCHARP.TO)
@@ -292,3 +304,18 @@ def gcp(space, w_cdata, w_destructor, size=0):
 @unwrap_spec(w_cdata=cdataobj.W_CData)
 def release(space, w_cdata):
     w_cdata.enter_exit(True)
+
+class OffsetInBytes(W_Root):
+    def __init__(self, bytes_w, offset):
+        self.bytes = bytes_w
+        self.offset = offset
+
+OffsetInBytes.typedef = TypeDef(
+    '_cffi_backend._OffsetInBytes',
+)
+
+@unwrap_spec(offset=int)
+def offset_in_bytes(space, w_bytes, offset):
+    if not space.isinstance_w(w_bytes, space.w_bytes):
+        raise oefmt(space.w_TypeError, "must be bytes, not %T", w_bytes)
+    return OffsetInBytes(space.bytes_w(w_bytes), offset)

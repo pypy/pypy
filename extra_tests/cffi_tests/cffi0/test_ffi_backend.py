@@ -130,6 +130,36 @@ class TestFFI(backend_tests.BackendTests,
         alloc5 = ffi.new_allocator(myalloc5)
         py.test.raises(MemoryError, alloc5, "int[5]")
 
+    def test_new_struct_containing_struct_containing_array_varsize(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            struct foo_s { int len[100]; short data[]; };
+            struct bar_s { int abc[100]; struct foo_s tail; };
+        """)
+        # loop to try to detect heap overwrites, if the size allocated
+        # is too small
+        for i in range(1, 501, 100):
+            p = ffi.new("struct bar_s *", [[10], [[20], [3,4,5,6,7,8,9] * i]])
+            assert p.abc[0] == 10
+            assert p.tail.len[0] == 20
+            assert p.tail.data[0] == 3
+            assert p.tail.data[6] == 9
+            assert p.tail.data[7 * i - 1] == 9
+
+    def test_bogus_struct_containing_struct_containing_array_varsize(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            struct foo_s { signed char len; signed char data[]; };
+            struct bar_s { struct foo_s foo; int bcd; };
+        """)
+        p = ffi.new("struct bar_s *", [[123, [45, 56, 67, 78]], 9999999])
+        assert p.foo.len == 123
+        assert p.foo.data[0] == 45
+        assert p.foo.data[1] == 56
+        assert p.foo.data[2] == 67
+        assert p.bcd == 9999999
+        assert p.foo.data[3] != 78   # has been overwritten with 9999999
+
 
 class TestBitfield:
     def check(self, source, expected_ofs_y, expected_align, expected_size):
@@ -150,6 +180,7 @@ class TestBitfield:
         setters = ['case %d: s.%s = value; break;' % iname
                    for iname in enumerate(fnames)]
         lib = ffi1.verify("""
+            #include <string.h>
             struct s1 { %s };
             struct sa { char a; struct s1 b; };
             #define Gofs_y  offsetof(struct s1, y)
@@ -217,7 +248,10 @@ class TestBitfield:
         self.check("int a:2; short b:15; char c:2; char y;", 5, 4, 8)
         self.check("int a:2; char b:1; char c:1; char y;", 1, 4, 4)
 
-    @pytest.mark.skipif("platform.machine().startswith(('arm', 'aarch64'))")
+    @pytest.mark.skipif(
+        "not (sys.platform == 'darwin' and platform.machine() == 'arm64')"
+        " and "
+        "platform.machine().startswith(('arm', 'aarch64'))")
     def test_bitfield_anonymous_no_align(self):
         L = FFI().alignof("long long")
         self.check("char y; int :1;", 0, 1, 2)
@@ -231,6 +265,8 @@ class TestBitfield:
         self.check("char x; long long  :57; char y;", L + 8, 1, L + 9)
 
     @pytest.mark.skipif(
+        "(sys.platform == 'darwin' and platform.machine() == 'arm64')"
+        " or "
         "not platform.machine().startswith(('arm', 'aarch64'))")
     def test_bitfield_anonymous_align_arm(self):
         L = FFI().alignof("long long")
@@ -244,7 +280,10 @@ class TestBitfield:
         self.check("char x; long long z:57; char y;", L + 8, L, L + 8 + L)
         self.check("char x; long long  :57; char y;", L + 8, L, L + 8 + L)
 
-    @pytest.mark.skipif("platform.machine().startswith(('arm', 'aarch64'))")
+    @pytest.mark.skipif(
+        "not (sys.platform == 'darwin' and platform.machine() == 'arm64')"
+        " and "
+        "platform.machine().startswith(('arm', 'aarch64'))")
     def test_bitfield_zero(self):
         L = FFI().alignof("long long")
         self.check("char y; int :0;", 0, 1, 4)
@@ -256,6 +295,8 @@ class TestBitfield:
         self.check("int a:1; int :0; int b:1; char y;", 5, 4, 8)
 
     @pytest.mark.skipif(
+        "(sys.platform == 'darwin' and platform.machine() == 'arm64')"
+        " or "
         "not platform.machine().startswith(('arm', 'aarch64'))")
     def test_bitfield_zero_arm(self):
         L = FFI().alignof("long long")
@@ -269,12 +310,15 @@ class TestBitfield:
 
     def test_error_cases(self):
         ffi = FFI()
-        py.test.raises(TypeError,
-            'ffi.cdef("struct s1 { float x:1; };"); ffi.new("struct s1 *")')
-        py.test.raises(TypeError,
-            'ffi.cdef("struct s2 { char x:0; };"); ffi.new("struct s2 *")')
-        py.test.raises(TypeError,
-            'ffi.cdef("struct s3 { char x:9; };"); ffi.new("struct s3 *")')
+        ffi.cdef("struct s1 { float x:1; };")
+        with pytest.raises(TypeError):
+            ffi.new("struct s1 *")
+        ffi.cdef("struct s2 { char x:0; };")
+        with pytest.raises(TypeError):
+            ffi.new("struct s2 *")
+        ffi.cdef("struct s3 { char x:9; };")
+        with pytest.raises(TypeError):
+            ffi.new("struct s3 *")
 
     def test_struct_with_typedef(self):
         ffi = FFI()

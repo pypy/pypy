@@ -2,9 +2,7 @@
 """
 opcode module - potentially shared between dis and other modules which
 operate on bytecodes (e.g. peephole optimizers).
-"Backported" from Python 3 to Python 2 land - an excact copy of lib-python/3/opcode.py
 """
-
 
 __all__ = ["cmp_op", "hasconst", "hasname", "hasjrel", "hasjabs",
            "haslocal", "hascompare", "hasfree", "opname", "opmap",
@@ -33,12 +31,10 @@ hasjabs = []
 haslocal = []
 hascompare = []
 hasfree = []
-hasnargs = []
+hasnargs = [] # unused
 
 opmap = {}
-opname = [''] * 256
-for op in range(256): opname[op] = '<%r>' % (op,)
-del op
+opname = ['<%r>' % (op,) for op in range(256)]
 
 def def_op(name, op):
     opname[op] = name
@@ -64,6 +60,7 @@ def_op('ROT_TWO', 2)
 def_op('ROT_THREE', 3)
 def_op('DUP_TOP', 4)
 def_op('DUP_TOP_TWO', 5)
+def_op('ROT_FOUR', 6)
 
 def_op('NOP', 9)
 def_op('UNARY_POSITIVE', 10)
@@ -90,7 +87,8 @@ def_op('INPLACE_TRUE_DIVIDE', 29)
 def_op('GET_AITER', 50)
 def_op('GET_ANEXT', 51)
 def_op('BEFORE_ASYNC_WITH', 52)
-
+def_op('BEGIN_FINALLY', 53)
+def_op('END_ASYNC_FOR', 54)
 def_op('INPLACE_ADD', 55)
 def_op('INPLACE_SUBTRACT', 56)
 def_op('INPLACE_MULTIPLY', 57)
@@ -123,7 +121,7 @@ def_op('WITH_CLEANUP_FINISH', 82)
 
 def_op('RETURN_VALUE', 83)
 def_op('IMPORT_STAR', 84)
-
+def_op('SETUP_ANNOTATIONS', 85)
 def_op('YIELD_VALUE', 86)
 def_op('POP_BLOCK', 87)
 def_op('END_FINALLY', 88)
@@ -146,7 +144,7 @@ name_op('LOAD_NAME', 101)       # Index in name list
 def_op('BUILD_TUPLE', 102)      # Number of tuple items
 def_op('BUILD_LIST', 103)       # Number of list items
 def_op('BUILD_SET', 104)        # Number of set items
-def_op('BUILD_MAP', 105)        # Number of dict entries (upto 255)
+def_op('BUILD_MAP', 105)        # Number of dict entries
 name_op('LOAD_ATTR', 106)       # Index in name list
 def_op('COMPARE_OP', 107)       # Comparison operator
 hascompare.append(107)
@@ -165,7 +163,7 @@ name_op('LOAD_GLOBAL', 116)     # Index in name list
 jabs_op('CONTINUE_LOOP', 119)   # Target address
 jrel_op('SETUP_LOOP', 120)      # Distance to target address
 jrel_op('SETUP_EXCEPT', 121)    # ""
-jrel_op('SETUP_FINALLY', 122)   # ""
+jrel_op('SETUP_FINALLY', 122)   # Distance to target address
 
 def_op('LOAD_FAST', 124)        # Local variable number
 haslocal.append(124)
@@ -175,11 +173,9 @@ def_op('DELETE_FAST', 126)      # Local variable number
 haslocal.append(126)
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
-def_op('CALL_FUNCTION', 131)    # #args + (#kwargs << 8)
-hasnargs.append(131)
-def_op('MAKE_FUNCTION', 132)    # Number of args with default values
+def_op('CALL_FUNCTION', 131)    # #args
+def_op('MAKE_FUNCTION', 132)    # Flags
 def_op('BUILD_SLICE', 133)      # Number of items
-def_op('MAKE_CLOSURE', 134)
 def_op('LOAD_CLOSURE', 135)
 hasfree.append(135)
 def_op('LOAD_DEREF', 136)
@@ -189,12 +185,8 @@ hasfree.append(137)
 def_op('DELETE_DEREF', 138)
 hasfree.append(138)
 
-def_op('CALL_FUNCTION_VAR', 140)     # #args + (#kwargs << 8)
-hasnargs.append(140)
-def_op('CALL_FUNCTION_KW', 141)      # #args + (#kwargs << 8)
-hasnargs.append(141)
-def_op('CALL_FUNCTION_VAR_KW', 142)  # #args + (#kwargs << 8)
-hasnargs.append(142)
+def_op('CALL_FUNCTION_KW', 141)  # #args + #kwargs
+def_op('CALL_FUNCTION_EX', 142)  # Flags
 
 jrel_op('SETUP_WITH', 143)
 
@@ -205,8 +197,6 @@ def_op('MAP_ADD', 147)
 def_op('LOAD_CLASSDEREF', 148)
 hasfree.append(148)
 
-jrel_op('SETUP_ASYNC_WITH', 154)
-
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
 
@@ -216,11 +206,23 @@ def_op('BUILD_MAP_UNPACK_WITH_CALL', 151)
 def_op('BUILD_TUPLE_UNPACK', 152)
 def_op('BUILD_SET_UNPACK', 153)
 
+jrel_op('SETUP_ASYNC_WITH', 154)
+
+def_op('FORMAT_VALUE', 155)
+def_op('BUILD_CONST_KEY_MAP', 156)
+def_op('BUILD_STRING', 157)
+
+#name_op('LOAD_METHOD', 160)
+def_op('CALL_METHOD', 161)
+
+jrel_op('CALL_FINALLY', 162)
+def_op('POP_FINALLY', 163)
+
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
-def_op('CALL_METHOD', 202)            # #args not including 'self'
 def_op('BUILD_LIST_FROM_ARG', 203)
-jrel_op('JUMP_IF_NOT_DEBUG', 204)     # jump over assert statements
+def_op('CALL_METHOD_KW', 204)
+def_op('LOAD_REVDB_VAR', 205)         # reverse debugger (syntax example: $5)
 
 del def_op, name_op, jrel_op, jabs_op

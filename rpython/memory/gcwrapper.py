@@ -50,14 +50,14 @@ class GCManagedHeap(object):
     def prepare_custom_trace_funcs(self, gcdata):
         custom_trace_funcs = self.llinterp.typer.custom_trace_funcs
 
-        def custom_trace(obj, typeid, callback, arg):
+        def custom_trace(obj, typeid, callback, arg1, arg2):
             for TP, func in custom_trace_funcs:
                 if typeid == self.get_type_id(TP):
-                    func(self.gc, obj, callback, arg)
+                    func(self.gc, obj, callback, arg1, arg2)
                     return
             else:
                 assert False
-        
+
         for TP, func in custom_trace_funcs:
             gcdata._has_got_custom_trace(self.get_type_id(TP))
 
@@ -156,7 +156,7 @@ class GCManagedHeap(object):
         result = llmemory.cast_adr_to_ptr(addr, gctypelayout.WEAKREFPTR)
         result.weakptr = llmemory.cast_ptr_to_adr(objgetter())
         return llmemory.cast_ptr_to_weakrefptr(result)
-    
+
     def weakref_deref(self, PTRTYPE, obj):
         addr = gctypelayout.ll_weakref_deref(obj)
         return llmemory.cast_adr_to_ptr(addr, PTRTYPE)
@@ -176,6 +176,11 @@ class GCManagedHeap(object):
         else:
             return True
 
+    def writebarrier_before_move(self, array):
+        if self.gc.needs_write_barrier:
+            array_addr = llmemory.cast_ptr_to_adr(array)
+            return self.gc.writebarrier_before_move(array_addr)
+
     def gcflag_extra(self, subopnum, *args):
         if subopnum == 1:      # has_gcflag_extra
             assert len(args) == 0
@@ -188,6 +193,9 @@ class GCManagedHeap(object):
                 hdr.tid &= ~self.gc.gcflag_extra
             else:
                 hdr.tid |= self.gc.gcflag_extra
+        elif subopnum == 4:      # get_gcflag_dummy
+            # returns always False if gc.gcflag_dummy == 0
+            return (hdr.tid & self.gc.gcflag_dummy) != 0
         return (hdr.tid & self.gc.gcflag_extra) != 0
 
     def thread_run(self):

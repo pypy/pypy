@@ -8,9 +8,10 @@ addition to checking for instances and subtypes in the normal way.
 """
 
 from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.baseobjspace import ObjSpace as BaseObjSpace
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 def _get_bases(space, w_cls):
     """Returns 'cls.__bases__'.  Returns None if there is
@@ -30,9 +31,11 @@ def _get_bases(space, w_cls):
 def abstract_isclass_w(space, w_obj):
     return _get_bases(space, w_obj) is not None
 
+@specialize.arg(2)
 def check_class(space, w_obj, msg):
     if not abstract_isclass_w(space, w_obj):
-        raise OperationError(space.w_TypeError, space.newtext(msg))
+        msg += ', got %T'
+        raise oefmt(space.w_TypeError, msg, w_obj)
 
 
 def abstract_getclass(space, w_obj):
@@ -202,6 +205,19 @@ def exception_getclass(space, w_obj):
     return BaseObjSpace.exception_getclass(space, w_obj)
 
 def exception_issubclass_w(space, w_cls1, w_cls2):
+    if (space.type(w_cls1) is space.w_type and
+        space.type(w_cls2) is space.w_type):
+        return BaseObjSpace.exception_issubclass_w(space, w_cls1, w_cls2)
+    #
+    if (not exception_is_valid_class_w(space, w_cls2) or
+        not exception_is_valid_class_w(space, w_cls1)):
+        return False
+    #
+    # The rest is the rare slow case.  Use the general logic of issubclass()
+    # (issue #3149).  CPython 3.x doesn't do that (but there is a
+    # many-years issue report: https://bugs.python.org/issue12029), and
+    # there are probably tests, so we won't call abstract_issubclass_w()
+    # either in PyPy3.
     return BaseObjSpace.exception_issubclass_w(space, w_cls1, w_cls2)
 
 # ____________________________________________________________

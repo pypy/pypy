@@ -1,7 +1,10 @@
 import unittest
 import os
+import socket
 import sys
-from test.support import TESTFN, import_fresh_module, check_impl_detail
+from test.support import check_impl_detail
+from test.support import (TESTFN, import_fresh_module,
+                          skip_unless_bind_unix_socket)
 
 c_stat = import_fresh_module('stat', fresh=['_stat'])
 py_stat = import_fresh_module('stat', blocked=['_stat'])
@@ -14,10 +17,10 @@ class TestFilemode:
                   'UF_IMMUTABLE', 'UF_NODUMP', 'UF_NOUNLINK', 'UF_OPAQUE'}
 
     formats = {'S_IFBLK', 'S_IFCHR', 'S_IFDIR', 'S_IFIFO', 'S_IFLNK',
-               'S_IFREG', 'S_IFSOCK'}
+               'S_IFREG', 'S_IFSOCK', 'S_IFDOOR', 'S_IFPORT', 'S_IFWHT'}
 
     format_funcs = {'S_ISBLK', 'S_ISCHR', 'S_ISDIR', 'S_ISFIFO', 'S_ISLNK',
-                    'S_ISREG', 'S_ISSOCK'}
+                    'S_ISREG', 'S_ISSOCK', 'S_ISDOOR', 'S_ISPORT', 'S_ISWHT'}
 
     stat_struct = {
         'ST_MODE': 0,
@@ -138,10 +141,6 @@ class TestFilemode:
             self.assertS_IS("REG", st_mode)
             self.assertEqual(modestr, '-r--r--r--')
             self.assertEqual(self.statmod.S_IMODE(st_mode), 0o444)
-
-            # If there are only permission bits, no type bytes, a question
-            # mark is rendered in the type field.
-            self.assertEqual(self.statmod.filemode(0o420), '?r---w----')
         else:
             os.chmod(TESTFN, 0o700)
             st_mode, modestr = self.get_mode()
@@ -173,7 +172,10 @@ class TestFilemode:
 
     @unittest.skipUnless(hasattr(os, 'mkfifo'), 'os.mkfifo not available')
     def test_fifo(self):
-        os.mkfifo(TESTFN, 0o700)
+        try:
+            os.mkfifo(TESTFN, 0o700)
+        except PermissionError as e:
+            self.skipTest('os.mkfifo(): %s' % e)
         st_mode, modestr = self.get_mode()
         self.assertEqual(modestr, 'prwx------')
         self.assertS_IS("FIFO", st_mode)
@@ -191,6 +193,14 @@ class TestFilemode:
                 self.assertEqual(modestr[0], 'b')
                 self.assertS_IS("BLK", st_mode)
                 break
+
+    @skip_unless_bind_unix_socket
+    def test_socket(self):
+        with socket.socket(socket.AF_UNIX) as s:
+            s.bind(TESTFN)
+            st_mode, modestr = self.get_mode()
+            self.assertEqual(modestr[0], 's')
+            self.assertS_IS("SOCK", st_mode)
 
     def test_module_attributes(self):
         for key, value in self.stat_struct.items():
@@ -223,10 +233,6 @@ class TestFilemode:
                  "No _stat module on PyPy")
 class TestFilemodeCStat(TestFilemode, unittest.TestCase):
     statmod = c_stat
-
-    formats = TestFilemode.formats | {'S_IFDOOR', 'S_IFPORT', 'S_IFWHT'}
-    format_funcs = TestFilemode.format_funcs | {'S_ISDOOR', 'S_ISPORT',
-                                                'S_ISWHT'}
 
 
 class TestFilemodePyStat(TestFilemode, unittest.TestCase):

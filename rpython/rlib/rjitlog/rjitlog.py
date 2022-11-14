@@ -11,8 +11,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.metainterp import resoperation as resoperations
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.history import ConstInt, ConstFloat
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import compute_unique_id, always_inline
@@ -24,6 +23,7 @@ from rpython.annotator import model as annmodel
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rjitlog')
 SRC = ROOT.join('src')
+test_jitlog_name = 'JITLOG_FORTESTS'
 
 _libs = []
 if sys.platform.startswith('linux'):
@@ -33,6 +33,7 @@ eci_kwds = dict(
     includes = ['rjitlog.h'],
     libraries = _libs,
     separate_module_files = [SRC.join('rjitlog.c')],
+    # XXX this appears to be no longer used:
     post_include_bits=['#define RPYTHON_JITLOG\n'],
     )
 eci = ExternalCompilationInfo(**eci_kwds)
@@ -455,9 +456,6 @@ class LogTrace(BaseLogTrace):
     def __init__(self, tag, memo, metainterp_sd, mc, logger):
         self.memo = memo
         self.metainterp_sd = metainterp_sd
-        self.ts = None
-        if self.metainterp_sd is not None:
-            self.ts = metainterp_sd.cpu.ts
         self.tag = tag
         self.mc = mc
         self.logger = logger
@@ -625,7 +623,7 @@ class LogTrace(BaseLogTrace):
                 if name:
                     return 'ConstClass(' + name + ')'
             return str(arg.value)
-        elif self.ts is not None and isinstance(arg, self.ts.ConstRef):
+        elif isinstance(arg, ConstPtr):
             if arg.value:
                 return 'ConstPtr(ptr' + str(mv) + ')'
             return 'ConstPtr(null)'

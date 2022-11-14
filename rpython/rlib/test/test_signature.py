@@ -13,7 +13,7 @@ def annotate_at(f, policy=None):
     t = TranslationContext()
     t.config.translation.check_str_without_nul = True
     a = t.buildannotator(policy=policy)
-    a.annotate_helper(f, [model.s_ImpossibleValue]*f.func_code.co_argcount, policy=policy)
+    a.annotate_helper(f, [model.s_ImpossibleValue]*f.__code__.co_argcount, policy=policy)
     return a
 
 def sigof(a, f):
@@ -27,7 +27,7 @@ def getsig(f, policy=None):
 
 def check_annotator_fails(caller):
     exc = py.test.raises(model.AnnotatorError, annotate_at, caller).value
-    assert caller.func_name in str(exc)
+    assert caller.__name__ in str(exc)
 
 
 def test_bookkeeping():
@@ -36,7 +36,7 @@ def test_bookkeeping():
         return a + len(b)
     f.foo = 'foo'
     assert f._signature_ == (('x', 'y'), 'z')
-    assert f.func_name == 'f'
+    assert f.__name__ == 'f'
     assert f.foo == 'foo'
     assert f(1, 'hello') == 6
 

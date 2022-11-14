@@ -3,7 +3,11 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    W_DictObject, BytesDictStrategy, ObjectDictStrategy, UnicodeDictStrategy)
+    W_DictObject, BytesDictStrategy, ObjectDictStrategy, EmptyDictStrategy,
+    update1_dict_dict, UnicodeDictStrategy,
+    IntDictStrategy)
+from pypy.objspace.std.longobject import W_LongObject
+from rpython.rlib.rbigint import rbigint
 
 
 class TestW_DictObject(object):
@@ -148,7 +152,7 @@ class TestW_DictObject(object):
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(2))])
-        assert self.space.listview_utf8(w_d) == ["a", "b"]
+        assert self.space.listview_ascii(w_d) == ["a", "b"]
 
     def test_listview_int_dict(self):
         w = self.space.wrap
@@ -185,6 +189,37 @@ class TestW_DictObject(object):
         # w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
         # w_l = self.space.call_method(w_d, "keys")
         # assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
+
+    def test_update_empty_does_copy(self, monkeypatch):
+        w = self.space.wrap
+        wb = self.space.newbytes
+        w_empty = self.space.newdict()
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(1), wb("a")), (w(2), wb("b"))])
+        monkeypatch.setattr(EmptyDictStrategy, "setitem", None)
+        update1_dict_dict(self.space, w_empty, w_d)
+        assert self.space.eq_w(w_empty, w_d)
+
+
+    def test_integer_strategy_with_w_long(self):
+        space = self.space
+        w = W_LongObject(rbigint.fromlong(42))
+        w_longlong = W_LongObject(rbigint.fromlong(10**40))
+        w_d = space.newdict()
+        space.setitem(w_d, w, space.w_None)
+        assert w_d.get_strategy() is space.fromcache(IntDictStrategy)
+        #
+        space.setitem(w_d, w_longlong, space.w_None)
+        assert w_d.get_strategy() is space.fromcache(ObjectDictStrategy)
+        #
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w, space.w_None)])
+        assert w_d.get_strategy() is space.fromcache(IntDictStrategy)
+        #
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w_longlong, space.w_None)])
+        assert w_d.get_strategy() is space.fromcache(ObjectDictStrategy)
+
 
 class AppTest_DictObject:
     def setup_class(cls):
@@ -287,6 +322,19 @@ class AppTest_DictObject:
         for k in d.values():
             values.append(k)
         assert values == list(d.values())
+
+    def test_reverse_keys(self):
+        d = {1: 2, 3: 4}
+        assert list(reversed(d)) == [3, 1]
+        assert list(reversed(d.keys())) == [3, 1]
+
+    def test_reverse_values(self):
+        d = {1: 2, 3: 4}
+        assert list(reversed(d.values())) == [4, 2]
+
+    def test_reverse_items(self):
+        d = {1: 2, 3: 4}
+        assert list(reversed(d.items())) == [(3, 4), (1, 2)]
 
     def test_reversed_dict(self):
         import __pypy__
@@ -722,6 +770,19 @@ class AppTest_DictObject:
         # pointless waste of time.  So the following test fails now.
         assert list(dict(abcdef=1))[0] is 'abcdef'
 
+    def test_dict_copy(self):
+        class my_dict_1(dict):
+            def keys(self):
+                return iter(['b'])
+
+        class my_dict_2(my_dict_1):
+            __iter__ = 42
+
+        d1 = my_dict_1({'a': 1, 'b': 2})
+        assert dict(d1) == {'a': 1, 'b': 2}  # doesn't use overridden keys()
+
+        d2 = my_dict_2({'a': 1, 'b': 2})
+        assert dict(d2) == {'b': 2}  # uses overridden keys()
 
 class AppTest_DictMultiObject(AppTest_DictObject):
 
@@ -881,6 +942,11 @@ class AppTestDictViews:
                 r == "dict_values([10, 'ABC'])")
         d = {'日本': '日本国'}
         assert repr(d.items()) == "dict_items([('日本', '日本国')])"
+
+    def test_recursive_repr(self):
+        d = {1: 2}
+        d[2] = d.values()
+        assert repr(d) == '{1: 2, 2: dict_values([2, ...])}'
 
     def test_keys_set_operations(self):
         d1 = {'a': 1, 'b': 2}
@@ -1133,6 +1199,31 @@ class AppTestDictViews:
         assert (foo2, foo2_bis) in logger_copy
         assert logger_copy.issubset({(foo1, foo2_bis), (foo2, foo2_bis), (foo3, foo2_bis)})
 
+    def test_pickle(self):
+        d = {1: 1, 2: 2, 3: 3}
+        it = iter(d)
+        first = next(it)
+        reduced = it.__reduce__()
+        rebuild, args = reduced
+        new = rebuild(*args)
+        items = list(new)
+        assert len(items) == 2
+        items.insert(0, first)
+        assert items == list(d)
+
+    def test_pickle_reversed(self):
+        for meth in dict.keys, dict.values, dict.items:
+            d = {1: 1, 2: 2, 3: 4}
+            it = iter(reversed(meth(d)))
+            first = next(it)
+            reduced = it.__reduce__()
+            rebuild, args = reduced
+            new = rebuild(*args)
+            items = list(new)
+            assert len(items) == 2
+            items.insert(0, first)
+            assert items == list(reversed(meth(d)))
+
 
 class AppTestStrategies(object):
     def setup_class(cls):
@@ -1319,6 +1410,10 @@ class FakeSpace:
         assert isinstance(integer, int)
         return integer
 
+    def float_w(self, fl, allow_conversion=True):
+        assert isinstance(fl, float)
+        return fl
+
     def wrap(self, obj):
         if isinstance(obj, str):
             return FakeUnicode(obj.decode('ascii'))
@@ -1339,12 +1434,17 @@ class FakeSpace:
     def new_interned_str(self, s):
         return s.decode('utf-8')
 
+    newint = newfloat = wrap
+
     def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)
     isinstance = isinstance_w
 
     def newtuple(self, l):
         return tuple(l)
+
+    def newtuple2(self, a, b):
+        return a, b
 
     def newdict(self, module=False, instance=False):
         return W_DictObject.allocate_and_init_instance(
@@ -1379,6 +1479,8 @@ class FakeSpace:
     w_float = float
     StringObjectCls = FakeString
     UnicodeObjectCls = FakeUnicode
+    IntObjectCls = int
+    FloatObjectCls = float
     w_dict = W_DictObject
     iter = iter
     fixedview = list
@@ -1389,6 +1491,7 @@ class Config:
         class std:
             methodcachesizeexp = 11
             withmethodcachecounter = False
+        honor__builtins__ = False
 
 FakeSpace.config = Config()
 

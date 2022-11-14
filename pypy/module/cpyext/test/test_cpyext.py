@@ -7,12 +7,14 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app, ObjSpace
 from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext import api
-from pypy.module.cpyext.api import cts
+from pypy.module.cpyext.api import cts, create_extension_module
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.state import State
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
 from rpython.tool.udir import udir
+
+import pypy.module.cpyext.moduledef  # Make sure all the functions are registered
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
@@ -32,7 +34,9 @@ class TestApi:
     def test_signature(self):
         common_functions = api.FUNCTIONS_BY_HEADER[api.pypy_decl]
         assert 'PyModule_Check' in common_functions
-        assert common_functions['PyModule_Check'].argtypes == [api.PyObject]
+        assert common_functions['PyModule_Check'].argtypes == [cts.gettype("void *")]
+        assert 'PyModule_GetDict' in common_functions
+        assert common_functions['PyModule_GetDict'].argtypes == [api.PyObject]
 
 
 class SpaceCompiler(SystemCompilationInfo):
@@ -41,13 +45,25 @@ class SpaceCompiler(SystemCompilationInfo):
         self.space = space
         SystemCompilationInfo.__init__(self, *args, **kwargs)
 
-    def load_module(self, mod, name):
+    def load_module(self, mod, name, use_imp=False):
         space = self.space
         w_path = space.newtext(mod)
         w_name = space.newtext(name)
-        return space.appexec([w_name, w_path], '''(name, path):
-            import imp
-            return imp.load_dynamic(name, path)''')
+        if use_imp:
+            # this is VERY slow and should be used only by tests which
+            # actually needs it
+            return space.appexec([w_name, w_path], '''(name, path):
+                import imp
+                return imp.load_dynamic(name, path)''')
+        else:
+            w_spec = space.appexec([w_name, w_path], '''(modname, path):
+                class FakeSpec:
+                    name = modname
+                    origin = path
+                return FakeSpec
+            ''')
+            w_mod = create_extension_module(space, w_spec)
+            return w_mod
 
 
 def get_cpyext_info(space):
@@ -81,23 +97,6 @@ def get_cpyext_info(space):
 
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
-
-def preload(space, name):
-    from pypy.module.cpyext.pyobject import make_ref
-    if '.' not in name:
-        w_obj = space.builtin.getdictvalue(space, name)
-    else:
-        module, localname = name.rsplit('.', 1)
-        code = "(): import {module}; return {module}.{localname}"
-        code = code.format(**locals())
-        w_obj = space.appexec([], code)
-    make_ref(space, w_obj)
-
-def preload_expr(space, expr):
-    from pypy.module.cpyext.pyobject import make_ref
-    code = "(): return {}".format(expr)
-    w_obj = space.appexec([], code)
-    make_ref(space, w_obj)
 
 def is_interned_string(space, w_obj):
     try:
@@ -137,7 +136,8 @@ class CpyextLeak(leakfinder.MallocMismatch):
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = {"usemodules" : ['cpyext', 'thread', 'struct', 'array',
-                                   'itertools', 'time', 'binascii', 'mmap',
+                                   'itertools', 'time', 'binascii',
+                                   'mmap', 'signal',
                                    '_cffi_backend',
                                    ],
                    "objspace.disable_entrypoints_in_cffi": True}
@@ -149,13 +149,37 @@ class LeakCheckingTest(object):
         Eagerly create pyobjs for various builtins so they don't look like
         leaks.
         """
-        for name in [
-                'buffer', 'mmap.mmap',
-                'types.FunctionType', 'types.CodeType',
-                'types.TracebackType', 'types.FrameType']:
-            preload(space, name)
-        for expr in ['type(str.join)']:
-            preload_expr(space, expr)
+        from pypy.module.cpyext.pyobject import make_ref
+        w_to_preload = space.appexec([], """():
+            import sys
+            import mmap
+            #
+            # copied&pasted to avoid importing the whole types.py, which is
+            # expensive on py3k
+            # <types.py>
+            def _f(): pass
+            FunctionType = type(_f)
+            CodeType = type(_f.__code__)
+            try:
+                raise TypeError
+            except TypeError:
+                tb = sys.exc_info()[2]
+                TracebackType = type(tb)
+                FrameType = type(tb.tb_frame)
+                del tb
+            # </types.py>
+            return [
+                #buffer,   ## does not exist on py3k
+                mmap.mmap,
+                FunctionType,
+                CodeType,
+                TracebackType,
+                FrameType,
+                type(str.join),
+            ]
+        """)
+        for w_obj in space.unpackiterable(w_to_preload):
+            make_ref(space, w_obj)
 
     def cleanup(self):
         self.space.getexecutioncontext().cleanup_cpyext_state()
@@ -217,7 +241,6 @@ def in_pygclist(space, int_addr):
     return space.wrap(rawrefcount._in_pygclist(int_addr))
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
-
     def setup_class(cls):
         space = cls.space
         cls.w_here = space.wrap(str(HERE))
@@ -231,7 +254,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             cls.preload_builtins(space)
         else:
             def w_import_module(self, name, init=None, body='', filename=None,
-                    include_dirs=None, PY_SSIZE_T_CLEAN=False):
+                    include_dirs=None, PY_SSIZE_T_CLEAN=False, use_imp=False):
                 from extbuild import get_sys_info_app
                 sys_info = get_sys_info_app(self.udir)
                 return sys_info.import_module(
@@ -312,13 +335,15 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return space.wrap(pydname)
 
         @unwrap_spec(name='text', init='text_or_none', body='text',
-                     filename='fsencode_or_none', PY_SSIZE_T_CLEAN=bool)
+                     filename='fsencode_or_none', PY_SSIZE_T_CLEAN=bool,
+                     use_imp=bool)
         def import_module(space, name, init=None, body='',
                           filename=None, w_include_dirs=None,
-                          PY_SSIZE_T_CLEAN=False):
+                          PY_SSIZE_T_CLEAN=False, use_imp=False):
             include_dirs = _unwrap_include_dirs(space, w_include_dirs)
             w_result = self.sys_info.import_module(
-                name, init, body, filename, include_dirs, PY_SSIZE_T_CLEAN)
+                name, init, body, filename, include_dirs, PY_SSIZE_T_CLEAN,
+                use_imp)
             self.record_imported_module(name)
             return w_result
 
@@ -446,7 +471,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             NULL,           /* m_methods */
         };
         """
-        foo = self.import_module(name='foo', body=body)
+        foo = self.import_module(name='foo', body=body, use_imp=True)
         assert 'foo' in sys.modules
         del sys.modules['foo']
         import imp
@@ -683,7 +708,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         import sys
         body = """
         PyAPI_FUNC(PyObject*) PyPy_Crash1(void);
-        PyAPI_FUNC(long) PyPy_Crash2(void);
+        PyAPI_FUNC(Py_ssize_t) PyPy_Crash2(void);
         PyAPI_FUNC(PyObject*) PyPy_Noop(PyObject*);
         static PyObject* foo_crash1(PyObject* self, PyObject *args)
         {
@@ -691,22 +716,22 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         }
         static PyObject* foo_crash2(PyObject* self, PyObject *args)
         {
-            int a = PyPy_Crash2();
+            Py_ssize_t a = PyPy_Crash2();
             if (a == -1)
                 return NULL;
-            return PyFloat_FromDouble(a);
+            return PyFloat_FromDouble((double)a);
         }
         static PyObject* foo_crash3(PyObject* self, PyObject *args)
         {
-            int a = PyPy_Crash2();
+            Py_ssize_t a = PyPy_Crash2();
             if (a == -1)
                 PyErr_Clear();
-            return PyFloat_FromDouble(a);
+            return PyFloat_FromDouble((double)a);
         }
         static PyObject* foo_crash4(PyObject* self, PyObject *args)
         {
-            int a = PyPy_Crash2();
-            return PyFloat_FromDouble(a);
+            Py_ssize_t a = PyPy_Crash2();
+            return PyFloat_FromDouble((double)a);
         }
         static PyObject* foo_noop(PyObject* self, PyObject* args)
         {
@@ -752,12 +777,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo', body=body)
 
         # uncaught interplevel exceptions are turned into SystemError
-        expected = "ZeroDivisionError('integer division by zero',)"
+        expected1 = "ZeroDivisionError('integer division or modulo by zero',)"
+        # win64 uses long internally not int, which gives a different error
+        expected2 = "ZeroDivisionError('integer division by zero',)"
         exc = raises(SystemError, module.crash1)
-        assert exc.value.args[0] == expected
+        v = exc.value.args[0]
+        assert v == expected1 or v == expected2
 
         exc = raises(SystemError, module.crash2)
-        assert exc.value.args[0] == expected
+        assert v == expected1 or v == expected2
 
         # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
@@ -765,7 +793,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         expected = 'An exception was set, but function returned a value'
         # PyPy only incompatibility/extension
         exc = raises(SystemError, module.crash4)
-        assert exc.value.args[0] == expected
+        assert v == expected1 or v == expected2
 
         # An exception was set by the previous call, it can pass
         # cleanly through a call that doesn't check error state
@@ -824,18 +852,19 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              '''
              /* XXX in tests, the C type is not correct */
              #define NAME(type) ((PyTypeObject*)&type)->tp_name
-             return Py_BuildValue("sssss",
+             return Py_BuildValue("ssssss",
                                   NAME(PyCell_Type),
                                   NAME(PyModule_Type),
                                   NAME(PyProperty_Type),
                                   NAME(PyStaticMethod_Type),
+                                  NAME(PyClassMethod_Type),
                                   NAME(PyCFunction_Type)
                                   );
              '''
              ),
             ])
         assert mod.get_names() == ('cell', 'module', 'property',
-                                   'staticmethod',
+                                   'staticmethod', 'classmethod',
                                    'builtin_function_or_method')
 
     def test_get_programname(self):
@@ -930,6 +959,17 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              ),
         ])
 
+    def test_consistent_flags(self):
+        import sys
+        mod = self.import_extension('foo', [
+            ('test_optimize', 'METH_NOARGS',
+             '''
+                return PyLong_FromLong(Py_OptimizeFlag);
+             '''),
+        ])
+        # This is intentionally set to -1 by default from missing.c
+        # and should be set to sys.flags.optimize at startup
+        assert mod.test_optimize() == sys.flags.optimize
     def test_gc_track(self):
         """
         Test if Py_GC_Track and Py_GC_Untrack are adding and removing container

@@ -81,7 +81,7 @@ class Fraction(numbers.Rational):
     __slots__ = ('_numerator', '_denominator')
 
     # We're immutable, so use __new__ not __init__
-    def __new__(cls, numerator=0, denominator=None, _normalize=True):
+    def __new__(cls, numerator=0, denominator=None, *, _normalize=True):
         """Constructs a Rational.
 
         Takes a string like '3/2' or '1.5', another Rational instance, a
@@ -125,17 +125,9 @@ class Fraction(numbers.Rational):
                 self._denominator = numerator.denominator
                 return self
 
-            elif isinstance(numerator, float):
-                # Exact conversion from float
-                value = Fraction.from_float(numerator)
-                self._numerator = value._numerator
-                self._denominator = value._denominator
-                return self
-
-            elif isinstance(numerator, Decimal):
-                value = Fraction.from_decimal(numerator)
-                self._numerator = value._numerator
-                self._denominator = value._denominator
+            elif isinstance(numerator, (float, Decimal)):
+                # Exact conversion
+                self._numerator, self._denominator = numerator.as_integer_ratio()
                 return self
 
             elif isinstance(numerator, str):
@@ -210,10 +202,6 @@ class Fraction(numbers.Rational):
         elif not isinstance(f, float):
             raise TypeError("%s.from_float() only takes floats, not %r (%s)" %
                             (cls.__name__, f, type(f).__name__))
-        if math.isnan(f):
-            raise ValueError("Cannot convert %r to %s." % (f, cls.__name__))
-        if math.isinf(f):
-            raise OverflowError("Cannot convert %r to %s." % (f, cls.__name__))
         return cls(*f.as_integer_ratio())
 
     @classmethod
@@ -226,19 +214,15 @@ class Fraction(numbers.Rational):
             raise TypeError(
                 "%s.from_decimal() only takes Decimals, not %r (%s)" %
                 (cls.__name__, dec, type(dec).__name__))
-        if dec.is_infinite():
-            raise OverflowError(
-                "Cannot convert %s to %s." % (dec, cls.__name__))
-        if dec.is_nan():
-            raise ValueError("Cannot convert %s to %s." % (dec, cls.__name__))
-        sign, digits, exp = dec.as_tuple()
-        digits = int(''.join(map(str, digits)))
-        if sign:
-            digits = -digits
-        if exp >= 0:
-            return cls(digits * 10 ** exp)
-        else:
-            return cls(digits, 10 ** -exp)
+        return cls(*dec.as_integer_ratio())
+
+    def as_integer_ratio(self):
+        """Return the integer ratio as a tuple.
+
+        Return a tuple of two integers, whose ratio is equal to the
+        Fraction and with a positive denominator.
+        """
+        return (self._numerator, self._denominator)
 
     def limit_denominator(self, max_denominator=1000000):
         """Closest Fraction to self with denominator at most max_denominator.
@@ -451,23 +435,26 @@ class Fraction(numbers.Rational):
 
     __truediv__, __rtruediv__ = _operator_fallbacks(_div, operator.truediv)
 
-    def __floordiv__(a, b):
+    def _floordiv(a, b):
         """a // b"""
-        return math.floor(a / b)
+        return (a.numerator * b.denominator) // (a.denominator * b.numerator)
 
-    def __rfloordiv__(b, a):
-        """a // b"""
-        return math.floor(a / b)
+    __floordiv__, __rfloordiv__ = _operator_fallbacks(_floordiv, operator.floordiv)
 
-    def __mod__(a, b):
+    def _divmod(a, b):
+        """(a // b, a % b)"""
+        da, db = a.denominator, b.denominator
+        div, n_mod = divmod(a.numerator * db, da * b.numerator)
+        return div, Fraction(n_mod, da * db)
+
+    __divmod__, __rdivmod__ = _operator_fallbacks(_divmod, divmod)
+
+    def _mod(a, b):
         """a % b"""
-        div = a // b
-        return a - b * div
+        da, db = a.denominator, b.denominator
+        return Fraction((a.numerator * db) % (b.numerator * da), da * db)
 
-    def __rmod__(b, a):
-        """a % b"""
-        div = a // b
-        return a - b * div
+    __mod__, __rmod__ = _operator_fallbacks(_mod, operator.mod)
 
     def __pow__(a, b):
         """a ** b
@@ -533,16 +520,16 @@ class Fraction(numbers.Rational):
             return a._numerator // a._denominator
 
     def __floor__(a):
-        """Will be math.floor(a) in 3.0."""
+        """math.floor(a)"""
         return a.numerator // a.denominator
 
     def __ceil__(a):
-        """Will be math.ceil(a) in 3.0."""
+        """math.ceil(a)"""
         # The negations cleverly convince floordiv to return the ceiling.
         return -(-a.numerator // a.denominator)
 
     def __round__(self, ndigits=None):
-        """Will be round(self, ndigits) in 3.0.
+        """round(self, ndigits)
 
         Rounds half toward even.
         """
@@ -660,7 +647,9 @@ class Fraction(numbers.Rational):
 
     def __bool__(a):
         """a != 0"""
-        return a._numerator != 0
+        # bpo-39274: Use bool() because (a._numerator != 0) can return an
+        # object which is not a bool.
+        return bool(a._numerator)
 
     # support for pickling, copy, and deepcopy
 

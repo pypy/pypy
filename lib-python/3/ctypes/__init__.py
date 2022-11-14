@@ -17,7 +17,7 @@ from struct import calcsize as _calcsize
 if __version__ != _ctypes_version:
     raise Exception("Version number mismatch", __version__, _ctypes_version)
 
-if _os.name in ("nt", "ce"):
+if _os.name == "nt":
     from _ctypes import FormatError
 
 DEFAULT_MODE = RTLD_LOCAL
@@ -53,11 +53,13 @@ def create_string_buffer(init, size=None):
     if isinstance(init, bytes):
         if size is None:
             size = len(init)+1
+        _sys.audit("ctypes.create_string_buffer", init, size)
         buftype = c_char * size
         buf = buftype()
         buf.value = init
         return buf
     elif isinstance(init, int):
+        _sys.audit("ctypes.create_string_buffer", None, init)
         buftype = c_char * init
         buf = buftype()
         return buf
@@ -104,12 +106,9 @@ def CFUNCTYPE(restype, *argtypes, **kw):
         _c_functype_cache[(restype, argtypes, flags)] = CFunctionType
         return CFunctionType
 
-if _os.name in ("nt", "ce"):
+if _os.name == "nt":
     from _ctypes import LoadLibrary as _dlopen
     from _ctypes import FUNCFLAG_STDCALL as _FUNCFLAG_STDCALL
-    if _os.name == "ce":
-        # 'ce' doesn't have the stdcall calling convention
-        _FUNCFLAG_STDCALL = _FUNCFLAG_CDECL
 
     _win_functype_cache = {}
     def WINFUNCTYPE(restype, *argtypes, **kw):
@@ -263,18 +262,13 @@ class c_wchar(_SimpleCData):
 def _reset_cache():
     _pointer_type_cache.clear()
     _c_functype_cache.clear()
-    if _os.name in ("nt", "ce"):
+    if _os.name == "nt":
         _win_functype_cache.clear()
     # _SimpleCData.c_wchar_p_from_param
     POINTER(c_wchar).from_param = c_wchar_p.from_param
     # _SimpleCData.c_char_p_from_param
     POINTER(c_char).from_param = c_char_p.from_param
     _pointer_type_cache[None] = c_void_p
-    # XXX for whatever reasons, creating the first instance of a callback
-    # function is needed for the unittests on Win64 to succeed.  This MAY
-    # be a compiler bug, since the problem occurs only when _ctypes is
-    # compiled with the MS SDK compiler.  Or an uninitialized variable?
-    CFUNCTYPE(c_int)(lambda: None)
 
 def create_unicode_buffer(init, size=None):
     """create_unicode_buffer(aString) -> character array
@@ -283,12 +277,22 @@ def create_unicode_buffer(init, size=None):
     """
     if isinstance(init, str):
         if size is None:
-            size = len(init)+1
+            if sizeof(c_wchar) == 2:
+                # UTF-16 requires a surrogate pair (2 wchar_t) for non-BMP
+                # characters (outside [U+0000; U+FFFF] range). +1 for trailing
+                # NUL character.
+                size = sum(2 if ord(c) > 0xFFFF else 1 for c in init) + 1
+            else:
+                # 32-bit wchar_t (1 wchar_t per Unicode character). +1 for
+                # trailing NUL character.
+                size = len(init) + 1
+        _sys.audit("ctypes.create_unicode_buffer", init, size)
         buftype = c_wchar * size
         buf = buftype()
         buf.value = init
         return buf
     elif isinstance(init, int):
+        _sys.audit("ctypes.create_unicode_buffer", None, init)
         buftype = c_wchar * init
         buf = buftype()
         return buf
@@ -328,16 +332,38 @@ class CDLL(object):
     """
     _func_flags_ = _FUNCFLAG_CDECL
     _func_restype_ = c_int
+    # default values for repr
+    _name = '<uninitialized>'
+    _handle = 0
+    _FuncPtr = None
 
     def __init__(self, name, mode=DEFAULT_MODE, handle=None,
                  use_errno=False,
-                 use_last_error=False):
+                 use_last_error=False,
+                 winmode=None):
         self._name = name
         flags = self._func_flags_
         if use_errno:
             flags |= _FUNCFLAG_USE_ERRNO
         if use_last_error:
             flags |= _FUNCFLAG_USE_LASTERROR
+        if _sys.platform.startswith("aix"):
+            """When the name contains ".a(" and ends with ")",
+               e.g., "libFOO.a(libFOO.so)" - this is taken to be an
+               archive(member) syntax for dlopen(), and the mode is adjusted.
+               Otherwise, name is presented to dlopen() as a file argument.
+            """
+            if name and name.endswith(")") and ".a(" in name:
+                mode |= ( _os.RTLD_MEMBER | _os.RTLD_NOW )
+        if _os.name == "nt":
+            if winmode is not None:
+                mode = winmode
+            else:
+                import nt
+                mode = nt._LOAD_LIBRARY_SEARCH_DEFAULT_DIRS
+                if '/' in name or '\\' in name:
+                    self._name = nt._getfullpathname(self._name)
+                    mode |= nt._LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
 
         class _FuncPtr(_CFuncPtr):
             _flags_ = flags
@@ -380,7 +406,7 @@ class CDLL(object):
 #    """
 #    _func_flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
 
-if _os.name in ("nt", "ce"):
+if _os.name == "nt":
 
     class WinDLL(CDLL):
         """This class represents a dll exporting functions using the
@@ -434,14 +460,11 @@ cdll = LibraryLoader(CDLL)
 # not on PyPy
 #pydll = LibraryLoader(PyDLL)
 
-if _os.name in ("nt", "ce"):
+if _os.name == "nt":
     windll = LibraryLoader(WinDLL)
     oledll = LibraryLoader(OleDLL)
 
-    if _os.name == "nt":
-        GetLastError = windll.kernel32.GetLastError
-    else:
-        GetLastError = windll.coredll.GetLastError
+    GetLastError = windll.kernel32.GetLastError
     from _ctypes import get_last_error, set_last_error
 
     def WinError(code=None, descr=None):
@@ -505,7 +528,7 @@ else:
         return _wstring_at(ptr, size)
 
 
-if _os.name in ("nt", "ce"): # COM stuff
+if _os.name == "nt": # COM stuff
     def DllGetClassObject(rclsid, riid, ppv):
         try:
             ccom = __import__("comtypes.server.inprocserver", globals(), locals(), ['*'])

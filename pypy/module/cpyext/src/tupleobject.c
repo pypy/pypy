@@ -61,8 +61,18 @@ PyTuple_New(register Py_ssize_t size)
 }
 
 /* this is CPython's tupledealloc */
+#ifdef CPYEXT_TESTS
+#define _Py_tuple_dealloc _cpyexttest_tuple_dealloc
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_tuple_dealloc _PyPy_tuple_dealloc
+#endif  /* CPYEXT_TESTS */
 void
-_PyPy_tuple_dealloc(register PyObject *_op)
+_Py_tuple_dealloc(register PyObject *_op)
 {
     register PyTupleObject *op = (PyTupleObject *)_op;
     register Py_ssize_t i;
@@ -135,3 +145,61 @@ _PyTuple_MaybeUntrack(PyObject *op)
     _PyObject_GC_UNTRACK(op);
     return 0;
 }
+static PyObject *
+tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+
+/* 
+ * Mangle to _PyPy_tuple_new for translation.
+ * For tests, we want to mangle as if it were a c-api function so
+ * it will not be confused with the host's similarly named function
+ */
+#ifdef CPYEXT_TESTS
+#define _Py_tuple_new _cpyexttest_tuple_new
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_tuple_new _PyPy_tuple_new
+#endif  /* CPYEXT_TESTS */
+PyObject *
+_Py_tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    PyObject *arg = NULL;
+    static char *kwlist[] = {"sequence", 0};
+
+    if (type != &PyTuple_Type)
+        return tuple_subtype_new(type, args, kwds);
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O:tuple", kwlist, &arg))
+        return NULL;
+
+    if (arg == NULL)
+        return PyTuple_New(0);
+    else
+        return PySequence_Tuple(arg);
+}
+
+static PyObject *
+tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    PyObject *tmp, *newobj, *item;
+    Py_ssize_t i, n;
+
+    assert(PyType_IsSubtype(type, &PyTuple_Type));
+    tmp = _Py_tuple_new(&PyTuple_Type, args, kwds);
+    if (tmp == NULL)
+        return NULL;
+    assert(PyTuple_Check(tmp));
+    newobj = type->tp_alloc(type, n = PyTuple_GET_SIZE(tmp));
+    if (newobj == NULL)
+        return NULL;
+    for (i = 0; i < n; i++) {
+        item = PyTuple_GET_ITEM(tmp, i);
+        Py_INCREF(item);
+        PyTuple_SET_ITEM(newobj, i, item);
+    }
+    Py_DECREF(tmp);
+    return newobj;
+}
+

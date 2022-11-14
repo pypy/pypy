@@ -1,7 +1,7 @@
 import py
 from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.warmspot import get_stats
-from rpython.rlib.jit import JitDriver, set_param, unroll_safe, jit_callback
+from rpython.rlib.jit import JitDriver, set_param, unroll_safe, jit_callback, set_user_param
 from rpython.jit.backend.llgraph import runner
 
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -575,10 +575,29 @@ class TestLLWarmspot(LLJitMixin):
         assert str(e.value) == ("there are multiple jit_merge_points "
                                 "with the same jitdriver")
 
+    def test_jit_off_returns_early(self):
+        from rpython.jit.metainterp.counter import DeterministicJitCounter
+        driver = JitDriver(greens = ['s'], reds = ['i'], name='jit')
+
+        def loop(i, s):
+            set_user_param(driver, "off")
+            while i > s:
+                driver.jit_merge_point(i=i, s=s)
+                i -= 1
+
+        def main(s):
+            loop(30, s)
+
+        fn = DeterministicJitCounter.lookup_chain
+        DeterministicJitCounter.lookup_chain = None
+        try:
+            self.meta_interp(main, [5]) # must not crash
+        finally:
+            DeterministicJitCounter.lookup_chain = fn
+
 
 class TestWarmspotDirect(object):
     def setup_class(cls):
-        from rpython.jit.metainterp.typesystem import llhelper
         from rpython.jit.codewriter.support import annotate
         from rpython.jit.metainterp.warmspot import WarmRunnerDesc
         from rpython.rtyper.rclass import OBJECT, OBJECT_VTABLE
@@ -601,7 +620,6 @@ class TestWarmspotDirect(object):
                     exc = lltype.malloc(OBJECT)
                     exc.typeptr = exc_vtable
                     raise jitexc.ExitFrameWithExceptionRef(
-                        metainterp_sd.cpu,
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
                 assert 0
 
@@ -616,7 +634,6 @@ class TestWarmspotDirect(object):
             supports_floats = False
             supports_longlong = False
             supports_singlefloats = False
-            ts = llhelper
             translate_support_code = False
             stats = "stats"
 

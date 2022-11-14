@@ -17,14 +17,16 @@ You need to pick a particular subdirectory and run
 For more information, use test_all.py -h.
 """
 import sys, os
+import shutil
 
 
 if __name__ == '__main__':
     if len(sys.argv) == 1 and os.path.dirname(sys.argv[0]) in '.':
         print >> sys.stderr, __doc__
         sys.exit(2)
-    #Add toplevel repository dir to sys.path
-    sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+    toplevel = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    # Add toplevel repository dir to sys.path
+    sys.path.insert(0, toplevel)
     import pytest
     if sys.platform == 'win32':
         #Try to avoid opening a dialog box if one of the tests causes a system error

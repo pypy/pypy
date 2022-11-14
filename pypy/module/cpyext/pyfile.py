@@ -1,8 +1,10 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CONST_STRING, FILEP)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
+from pypy.module._io import interp_io
 from pypy.interpreter.error import OperationError, oefmt
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)
@@ -41,6 +43,40 @@ def PyFile_FromString(space, filename, mode):
     w_mode = space.newtext(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'open', w_filename, w_mode)
 
+@cpython_api([rffi.INT_real, CONST_STRING, CONST_STRING, rffi.INT_real, CONST_STRING, CONST_STRING, CONST_STRING, rffi.INT_real], PyObject)
+def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, closefd):
+    """Create a Python file object from the file descriptor of an already
+    opened file fd.  The arguments name, encoding, errors and newline
+    can be NULL to use the defaults; buffering can be -1 to use the
+    default. name is ignored and kept for backward compatibility. Return
+    NULL on failure. For a more comprehensive description of the arguments,
+    please refer to the io.open() function documentation.
+
+    Since Python streams have their own buffering layer, mixing them with
+    OS-level file descriptors can produce various issues (such as unexpected
+    ordering of data).
+
+    Ignore name attribute."""
+
+    if not mode:
+        raise oefmt(space.w_ValueError, "mode is required")
+    mode = rffi.charp2str(mode)
+    if encoding:
+        encoding_ = rffi.charp2str(encoding)
+    else:
+        encoding_ = None
+    if errors:
+        errors_ = rffi.charp2str(errors)
+    else:
+        errors_ = None
+    if newline:
+        newline_ = rffi.charp2str(newline)
+    else:
+        newline_ = None
+    w_ret = interp_io.open(space, space.newint(fd), mode, widen(buffering),
+                           encoding_, errors_, newline_, widen(closefd))
+    return w_ret
+
 @cpython_api([CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PyFile_WriteString(space, s, w_p):
     """Write string s to file object p.  Return 0 on success or -1 on
@@ -62,3 +98,26 @@ def PyFile_WriteObject(space, w_obj, w_p, flags):
         w_str = space.repr(w_obj)
     space.call_method(w_p, "write", w_str)
     return 0
+
+@cpython_api([PyObject], PyObject)
+def PyOS_FSPath(space, w_path):
+    """
+    Return the file system representation for path. If the object is a str or
+    bytes object, then its reference count is incremented. If the object
+    implements the os.PathLike interface, then __fspath__() is returned as long
+    as it is a str or bytes object. Otherwise TypeError is raised and NULL is
+    returned.
+    """
+    if (space.isinstance_w(w_path, space.w_unicode) or
+        space.isinstance_w(w_path, space.w_bytes)):
+        return w_path
+    if not space.lookup(w_path, '__fspath__'):
+        raise oefmt(space.w_TypeError,
+                "expected str, bytes or os.PathLike object, not %T", w_path)
+    w_ret = space.call_method(w_path, '__fspath__')
+    if (space.isinstance_w(w_ret, space.w_unicode) or
+        space.isinstance_w(w_ret, space.w_bytes)):
+        return w_ret
+    raise oefmt(space.w_TypeError,
+                "expected %T.__fspath__() to return str or bytes, not %T", w_path, w_ret)
+

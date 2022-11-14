@@ -5,9 +5,8 @@
 import os
 import random
 import select
-import sys
 import unittest
-from test.support import TESTFN, run_unittest, cpython_only
+from test.support import run_unittest, cpython_only
 
 if not hasattr(select, 'devpoll') :
     raise unittest.SkipTest('test works only on Solaris OS family')
@@ -110,7 +109,7 @@ class DevPollTests(unittest.TestCase):
         # operations must fail with ValueError("I/O operation on closed ...")
         self.assertRaises(ValueError, devpoll.modify, fd, select.POLLIN)
         self.assertRaises(ValueError, devpoll.poll)
-        self.assertRaises(ValueError, devpoll.register, fd, fd, select.POLLIN)
+        self.assertRaises(ValueError, devpoll.register, fd, select.POLLIN)
         self.assertRaises(ValueError, devpoll.unregister, fd)
 
     def test_fd_non_inheritable(self):
@@ -123,9 +122,9 @@ class DevPollTests(unittest.TestCase):
         w, r = os.pipe()
         pollster.register(w)
         # Issue #17919
-        self.assertRaises(OverflowError, pollster.register, 0, -1)
+        self.assertRaises(ValueError, pollster.register, 0, -1)
         self.assertRaises(OverflowError, pollster.register, 0, 1 << 64)
-        self.assertRaises(OverflowError, pollster.modify, 1, -1)
+        self.assertRaises(ValueError, pollster.modify, 1, -1)
         self.assertRaises(OverflowError, pollster.modify, 1, 1 << 64)
 
     @cpython_only

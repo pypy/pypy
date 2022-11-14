@@ -182,7 +182,7 @@ class TestTypeDef:
         self.space.appexec([w_obj], """(obj):
             assert type(obj).__hash__ is None
             err = raises(TypeError, hash, obj)
-            assert str(err.value) == "'some_type' objects are unhashable"
+            assert str(err.value) == "unhashable type: 'some_type'"
             """)
 
     def test_destructor(self):
@@ -213,6 +213,7 @@ class TestTypeDef:
             A3()
         """)
         gc.collect(); gc.collect()
+        self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [1]
         #
         w_seen = space.newlist([])
@@ -225,6 +226,7 @@ class TestTypeDef:
             A4()
         """)
         gc.collect(); gc.collect()
+        self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [4, 1]    # user __del__, and _finalize_
         #
         w_seen = space.newlist([])
@@ -235,6 +237,7 @@ class TestTypeDef:
             A5()
         """)
         gc.collect(); gc.collect()
+        self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [1]     # _finalize_ only
 
     def test_multiple_inheritance(self):
@@ -282,43 +285,6 @@ class TestTypeDef:
         assert_attr(w_o1, "b", 3)
         assert_method(w_o1, "c", True)
         assert_method(w_o2, "c", False)
-
-    def test_total_ordering(self):
-        class W_SomeType(W_Root):
-            def __init__(self, space, x):
-                self.space = space
-                self.x = x
-
-            def descr__lt(self, w_other):
-                assert isinstance(w_other, W_SomeType)
-                return self.space.wrap(self.x < w_other.x)
-
-            def descr__eq(self, w_other):
-                assert isinstance(w_other, W_SomeType)
-                return self.space.wrap(self.x == w_other.x)
-
-        W_SomeType.typedef = typedef.TypeDef(
-            'some_type',
-            __total_ordering__ = 'auto',
-            __lt__ = interp2app(W_SomeType.descr__lt),
-            __eq__ = interp2app(W_SomeType.descr__eq),
-            )
-        space = self.space
-        w_b = space.wrap(W_SomeType(space, 2))
-        w_c = space.wrap(W_SomeType(space, 2))
-        w_a = space.wrap(W_SomeType(space, 1))
-        # explicitly defined
-        assert space.is_true(space.lt(w_a, w_b))
-        assert not space.is_true(space.eq(w_a, w_b))
-        assert space.is_true(space.eq(w_b, w_c))
-        # automatically defined
-        assert space.is_true(space.le(w_a, w_b))
-        assert space.is_true(space.le(w_b, w_c))
-        assert space.is_true(space.gt(w_b, w_a))
-        assert space.is_true(space.ge(w_b, w_a))
-        assert space.is_true(space.ge(w_b, w_c))
-        assert space.is_true(space.ne(w_a, w_b))
-        assert not space.is_true(space.ne(w_b, w_c))
 
     def test_class_attr(self):
         class W_SomeType(W_Root):
@@ -430,3 +396,10 @@ class AppTestTypeDef:
         e = raises(AttributeError, 'x.__globals__ = {}')
         if '__pypy__' in sys.builtin_module_names:
             assert str(e.value) == "readonly attribute '__globals__'"
+
+    def test_del_doc(self):
+        class X:
+            "hi there"
+        assert X.__doc__ == 'hi there'
+        exc = raises(AttributeError, 'del X.__doc__')
+        assert "can't delete X.__doc__" in str(exc.value)

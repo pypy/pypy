@@ -3,7 +3,7 @@ Callbacks.
 """
 import sys, os, py
 
-from rpython.rlib import clibffi, jit, objectmodel
+from rpython.rlib import clibffi, jit, objectmodel, rmmap
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -37,11 +37,13 @@ def reveal_callback(raw_ptr):
 class Closure(object):
     """This small class is here to have a __del__ outside any cycle."""
 
-    def __init__(self, ptr):
+    def __init__(self, ptr, code):
         self.ptr = ptr
+        self.code = code
 
     def __del__(self):
-        clibffi.closureHeap.free(rffi.cast(clibffi.FFI_CLOSUREP, self.ptr))
+        lltype.free(self.code, flavor='raw')
+        clibffi.c_ffi_closure_free(rffi.cast(rffi.VOIDP, self.ptr))
 
 
 class W_ExternPython(W_CData):
@@ -137,9 +139,16 @@ class W_ExternPython(W_CData):
         try:
             w_args = self.prepare_args_tuple(ll_args)
             w_res = space.call(self.w_callable, w_args)
-            extra_line = "Trying to convert the result back to C:\n"
+        except OperationError as e:
+            self.handle_applevel_exception(e, ll_res, extra_line)
+            return
+        extra_line = ", trying to convert the result back to C"
+        try:
             self.convert_result(ll_res, w_res)
         except OperationError as e:
+            # XXX we need to add a traceback "as-if" the call to
+            # self.w_callable failed, so we need the parent frame of e,
+            # something like e.get_w_traceback(space).frame.get_f_back()
             self.handle_applevel_exception(e, ll_res, extra_line)
 
     @jit.unroll_safe
@@ -166,8 +175,13 @@ class W_ExternPython(W_CData):
 
     def print_error(self, operr, extra_line):
         space = self.space
-        operr.write_unraisable(space, "cffi callback ", self.w_callable,
-                               with_traceback=True, extra_line=extra_line)
+        # Emulate _PyErr_WriteUnraisableMsg
+        obj_repr = space.text_w(space.repr(self.w_callable))
+        if extra_line:
+            s = "%s %s%s:" % ("from cffi callback", obj_repr, extra_line)
+        else:
+            s = "%s %s:" % ("from cffi callback", obj_repr)
+        operr.write_unraisable(space, s, None, with_traceback=True)
 
     @jit.dont_look_inside
     def handle_applevel_exception(self, e, ll_res, extra_line):
@@ -202,9 +216,10 @@ class W_CDataCallback(W_ExternPython):
     decode_args_from_libffi = True
 
     def __init__(self, space, ctype, w_callable, w_error, w_onerror):
-        raw_closure = rffi.cast(rffi.CCHARP, clibffi.closureHeap.alloc())
-        self._closure = Closure(raw_closure)
-        W_ExternPython.__init__(self, space, raw_closure, ctype,
+        raw_code = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
+        raw_closure = clibffi.c_ffi_closure_alloc(rffi.cast(rffi.SIZE_T, rffi.sizeof(clibffi.FFI_CLOSUREP.TO)), raw_code)
+        self._closure = Closure(raw_closure, raw_code)
+        W_ExternPython.__init__(self, space, rffi.cast(rffi.CCHARP, raw_code[0]), ctype,
                                 w_callable, w_error, w_onerror)
         self.key_pycode = space._try_fetch_pycode(w_callable)
         #
@@ -214,11 +229,11 @@ class W_CDataCallback(W_ExternPython):
                         "%s: callback with unsupported argument or "
                         "return type or with '...'", self.getfunctype().name)
         with self as ptr:
-            closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, ptr)
+            closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, raw_closure)
             unique_id = self.hide_object()
-            res = clibffi.c_ffi_prep_closure(closure_ptr, cif_descr.cif,
-                                             invoke_callback,
-                                             unique_id)
+            res = clibffi.c_ffi_prep_closure_loc(closure_ptr, cif_descr.cif,
+                                                 invoke_callback,
+                                                 unique_id, raw_code[0])
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise oefmt(space.w_SystemError,
                         "libffi failed to build this callback")

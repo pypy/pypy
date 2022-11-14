@@ -1,6 +1,8 @@
 This is a copy of pycparser.  See __init__.py for the version.
 
-Note that the following two lines have been modified in c_parser.py:
+Note:
+
+- the following two lines have been modified in c_parser.py:
 
 
 class CParser(PLYParser):    
@@ -10,3 +12,8 @@ class CParser(PLYParser):
                     ^^^^^^^^^^^^^^^
             yacctab='cffi._pycparser.yacctab',
                      ^^^^^^^^^^^^^^^
+
+When updating the version of this in-place, you must regenerate the
+lextab.py and yacctab.py files. They will be regenerated on import if they
+are not found, so they should be removed, then regenrated, then the new
+versions committed.

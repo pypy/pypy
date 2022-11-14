@@ -5,9 +5,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.interpreter.unicodehelper import decode_utf8sp
-from pypy.objspace.std import frame, transparent, callmethod
 from pypy.objspace.descroperation import (
     DescrOperation, get_attribute_name, raiseattrerror)
+from pypy.objspace.std import frame, transparent, callmethod
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
@@ -55,6 +55,8 @@ class StdObjSpace(ObjSpace):
         self.FrameClass = frame.build_frame(self)
         self.StringObjectCls = W_BytesObject
         self.UnicodeObjectCls = W_UnicodeObject
+        self.IntObjectCls = W_IntObject
+        self.FloatObjectCls = W_FloatObject
 
         # singletons
         self.w_None = W_NoneObject.w_None
@@ -136,7 +138,10 @@ class StdObjSpace(ObjSpace):
             w_currently_in_repr = ec._py_repr = W_IdentityDict(self)
         return w_currently_in_repr
 
+    @specialize.memo()
     def gettypefor(self, cls):
+        if not hasattr(cls, "typedef") or cls.typedef is None:
+            return None
         return self.gettypeobject(cls.typedef)
 
     def gettypeobject(self, typedef):
@@ -321,6 +326,10 @@ class StdObjSpace(ObjSpace):
         make_sure_not_resized(list_w)
         return wraptuple(self, list_w)
 
+    def newtuple2(self, w_a, w_b):
+        from pypy.objspace.std.tupleobject import wraptuple2
+        return wraptuple2(self, w_a, w_b)
+
     def newlist(self, list_w, sizehint=-1):
         assert not list_w or sizehint == -1
         return W_ListObject(self, list_w, sizehint)
@@ -329,11 +338,13 @@ class StdObjSpace(ObjSpace):
         return W_ListObject.newlist_bytes(self, list_s)
 
     def newlist_text(self, list_t):
-        return self.newlist_utf8([decode_utf8sp(self, s)[0] for s in list_t])
+        return self.newlist_utf8([decode_utf8sp(self, s)[0] for s in list_t], False)
 
-    def newlist_utf8(self, list_u, is_ascii=True):
-        # TODO ignoring is_ascii, is that correct?
-        return W_ListObject.newlist_utf8(self, list_u)
+    def newlist_utf8(self, list_u, is_ascii):
+        if is_ascii:
+            return W_ListObject.newlist_ascii(self, list_u)
+        return ObjSpace.newlist_utf8(self, list_u, False)
+
 
     def newlist_int(self, list_i):
         return W_ListObject.newlist_int(self, list_i)
@@ -381,13 +392,12 @@ class StdObjSpace(ObjSpace):
     def newbytearray(self, l):
         return W_BytearrayObject(l)
 
-    # XXX TODO - remove this and force all users to call with utf8
-    @specialize.argtype(1)
+    @specialize.arg_or_var(1, 2)
     def newtext(self, s, lgt=-1, unused=-1):
         # the unused argument can be from something like
         # newtext(*decode_utf8sp(space, code))
-        if isinstance(s, unicode):
-            s, lgt = s.encode('utf8'), len(s)
+        if is_annotation_constant(s) and is_annotation_constant(lgt):
+            return self._newtext_memo(s, lgt)
         assert isinstance(s, str)
         if lgt < 0:
             lgt = rutf8.codepoints_in_utf8(s)
@@ -397,6 +407,19 @@ class StdObjSpace(ObjSpace):
         if s is None:
             return self.w_None
         return self.newtext(s, lgt)
+
+    @specialize.memo()
+    def _newtext_memo(self, s, lgt):
+        if s is None:
+            return self.w_None # can happen during annotation
+        # try to see whether we exist as an interned string, but don't intern
+        # if not
+        w_u = self.interned_strings.get(s)
+        if w_u is not None:
+            return w_u
+        if lgt < 0:
+            lgt = rutf8.codepoints_in_utf8(s)
+        return W_UnicodeObject(s, lgt)
 
     def newutf8(self, utf8s, length):
         assert isinstance(utf8s, str)
@@ -487,10 +510,17 @@ class StdObjSpace(ObjSpace):
         if isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):
             t = w_obj.tolist()
         elif type(w_obj) is W_ListObject:
+            length = w_obj.length()
+            if expected_length >= 0:
+                if length != expected_length:
+                    raise self._wrap_expected_length(expected_length, length)
+                if jit.isconstant(expected_length):
+                    jit.promote(length)
             if unroll:
                 t = w_obj.getitems_unroll()
             else:
                 t = w_obj.getitems_fixedsize()
+            return make_sure_not_resized(t)
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
@@ -540,19 +570,19 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_bytes()
         return None
 
-    def listview_utf8(self, w_obj):
+    def listview_ascii(self, w_obj):
         # note: uses exact type checking for objects with strategies,
         # and isinstance() for others.  See test_listobject.test_uses_custom...
         if type(w_obj) is W_ListObject:
-            return w_obj.getitems_utf8()
+            return w_obj.getitems_ascii()
         if type(w_obj) is W_DictObject:
-            return w_obj.listview_utf8()
+            return w_obj.listview_ascii()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
-            return w_obj.listview_utf8()
+            return w_obj.listview_ascii()
         if isinstance(w_obj, W_UnicodeObject) and self._uses_unicode_iter(w_obj):
-            return w_obj.listview_utf8()
+            return w_obj.listview_ascii()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
-            return w_obj.getitems_utf8()
+            return w_obj.getitems_ascii()
         return None
 
     def listview_int(self, w_obj):

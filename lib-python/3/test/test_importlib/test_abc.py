@@ -1,5 +1,3 @@
-import contextlib
-import inspect
 import io
 import marshal
 import os
@@ -159,7 +157,9 @@ class MetaPathFinderDefaultsTests(ABCTestHarness):
 
     def test_find_module(self):
         # Default should return None.
-        self.assertIsNone(self.ins.find_module('something', None))
+        with self.assertWarns(DeprecationWarning):
+            found = self.ins.find_module('something', None)
+        self.assertIsNone(found)
 
     def test_invalidate_caches(self):
         # Calling the method is a no-op.
@@ -182,7 +182,9 @@ class PathEntryFinderDefaultsTests(ABCTestHarness):
     SPLIT = make_abc_subclasses(PathEntryFinder)
 
     def test_find_loader(self):
-        self.assertEqual((None, []), self.ins.find_loader('something'))
+        with self.assertWarns(DeprecationWarning):
+            found = self.ins.find_loader('something')
+        self.assertEqual(found, (None, []))
 
     def find_module(self):
         self.assertEqual(None, self.ins.find_module('something'))
@@ -206,6 +208,10 @@ class Loader:
 class LoaderDefaultsTests(ABCTestHarness):
 
     SPLIT = make_abc_subclasses(Loader)
+
+    def test_create_module(self):
+        spec = 'a spec'
+        self.assertIsNone(self.ins.create_module(spec))
 
     def test_load_module(self):
         with self.assertRaises(ImportError):
@@ -299,6 +305,45 @@ class ExecutionLoaderDefaultsTests(ABCTestHarness):
  ) = test_util.test_both(InspectLoaderDefaultsTests)
 
 
+class ResourceReader:
+
+    def open_resource(self, *args, **kwargs):
+        return super().open_resource(*args, **kwargs)
+
+    def resource_path(self, *args, **kwargs):
+        return super().resource_path(*args, **kwargs)
+
+    def is_resource(self, *args, **kwargs):
+        return super().is_resource(*args, **kwargs)
+
+    def contents(self, *args, **kwargs):
+        return super().contents(*args, **kwargs)
+
+
+class ResourceReaderDefaultsTests(ABCTestHarness):
+
+    SPLIT = make_abc_subclasses(ResourceReader)
+
+    def test_open_resource(self):
+        with self.assertRaises(FileNotFoundError):
+            self.ins.open_resource('dummy_file')
+
+    def test_resource_path(self):
+        with self.assertRaises(FileNotFoundError):
+            self.ins.resource_path('dummy_file')
+
+    def test_is_resource(self):
+        with self.assertRaises(FileNotFoundError):
+            self.ins.is_resource('dummy_file')
+
+    def test_contents(self):
+        self.assertEqual([], list(self.ins.contents()))
+
+(Frozen_RRDefaultTests,
+ Source_RRDefaultsTests
+ ) = test_util.test_both(ResourceReaderDefaultsTests)
+
+
 ##### MetaPathFinder concrete methods ##########################################
 class MetaPathFinderFindModuleTests:
 
@@ -316,7 +361,8 @@ class MetaPathFinderFindModuleTests:
         finder = self.finder(None)
         path = ['a', 'b', 'c']
         name = 'blah'
-        found = finder.find_module(name, path)
+        with self.assertWarns(DeprecationWarning):
+            found = finder.find_module(name, path)
         self.assertIsNone(found)
         self.assertEqual(name, finder.called_for[0])
         self.assertEqual(path, finder.called_for[1])
@@ -325,7 +371,8 @@ class MetaPathFinderFindModuleTests:
         loader = object()
         spec = self.util.spec_from_loader('blah', loader)
         finder = self.finder(spec)
-        found = finder.find_module('blah', None)
+        with self.assertWarns(DeprecationWarning):
+            found = finder.find_module('blah', None)
         self.assertIs(found, spec.loader)
 
 
@@ -350,7 +397,8 @@ class PathEntryFinderFindLoaderTests:
     def test_no_spec(self):
         finder = self.finder(None)
         name = 'blah'
-        found = finder.find_loader(name)
+        with self.assertWarns(DeprecationWarning):
+            found = finder.find_loader(name)
         self.assertIsNone(found[0])
         self.assertEqual([], found[1])
         self.assertEqual(name, finder.called_for)
@@ -359,7 +407,8 @@ class PathEntryFinderFindLoaderTests:
         loader = object()
         spec = self.util.spec_from_loader('blah', loader)
         finder = self.finder(spec)
-        found = finder.find_loader('blah')
+        with self.assertWarns(DeprecationWarning):
+            found = finder.find_loader('blah')
         self.assertIs(found[0], spec.loader)
 
     def test_spec_with_portions(self):
@@ -367,7 +416,8 @@ class PathEntryFinderFindLoaderTests:
         paths = ['a', 'b', 'c']
         spec.submodule_search_locations = paths
         finder = self.finder(spec)
-        found = finder.find_loader('blah')
+        with self.assertWarns(DeprecationWarning):
+            found = finder.find_loader('blah')
         self.assertIsNone(found[0])
         self.assertEqual(paths, found[1])
 
@@ -519,6 +569,12 @@ class InspectLoaderLoadModuleTests:
         support.unload(self.module_name)
         self.addCleanup(support.unload, self.module_name)
 
+    def load(self, loader):
+        spec = self.util.spec_from_loader(self.module_name, loader)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', DeprecationWarning)
+            return self.init._bootstrap._load_unlocked(spec)
+
     def mock_get_code(self):
         return mock.patch.object(self.InspectLoaderSubclass, 'get_code')
 
@@ -528,9 +584,7 @@ class InspectLoaderLoadModuleTests:
             mocked_get_code.side_effect = ImportError
             with self.assertRaises(ImportError):
                 loader = self.InspectLoaderSubclass()
-                with warnings.catch_warnings():
-                    warnings.simplefilter('ignore', DeprecationWarning)
-                    loader.load_module(self.module_name)
+                self.load(loader)
 
     def test_get_code_None(self):
         # If get_code() returns None, raise ImportError.
@@ -538,7 +592,7 @@ class InspectLoaderLoadModuleTests:
             mocked_get_code.return_value = None
             with self.assertRaises(ImportError):
                 loader = self.InspectLoaderSubclass()
-                loader.load_module(self.module_name)
+                self.load(loader)
 
     def test_module_returned(self):
         # The loaded module should be returned.
@@ -546,14 +600,16 @@ class InspectLoaderLoadModuleTests:
         with self.mock_get_code() as mocked_get_code:
             mocked_get_code.return_value = code
             loader = self.InspectLoaderSubclass()
-            module = loader.load_module(self.module_name)
+            module = self.load(loader)
             self.assertEqual(module, sys.modules[self.module_name])
 
 
 (Frozen_ILLoadModuleTests,
  Source_ILLoadModuleTests
  ) = test_util.test_both(InspectLoaderLoadModuleTests,
-                         InspectLoaderSubclass=SPLIT_IL)
+                         InspectLoaderSubclass=SPLIT_IL,
+                         init=init,
+                         util=util)
 
 
 ##### ExecutionLoader concrete methods #########################################
@@ -656,8 +712,9 @@ class SourceLoader(SourceOnlyLoader):
         if magic is None:
             magic = self.util.MAGIC_NUMBER
         data = bytearray(magic)
-        data.extend(self.init._w_long(self.source_mtime))
-        data.extend(self.init._w_long(self.source_size))
+        data.extend(self.init._pack_uint32(0))
+        data.extend(self.init._pack_uint32(self.source_mtime))
+        data.extend(self.init._pack_uint32(self.source_size))
         code_object = compile(self.source, self.path, 'exec',
                                 dont_inherit=True)
         data.extend(marshal.dumps(code_object))
@@ -819,8 +876,9 @@ class SourceLoaderBytecodeTests(SourceLoaderTestHarness):
         if bytecode_written:
             self.assertIn(self.cached, self.loader.written)
             data = bytearray(self.util.MAGIC_NUMBER)
-            data.extend(self.init._w_long(self.loader.source_mtime))
-            data.extend(self.init._w_long(self.loader.source_size))
+            data.extend(self.init._pack_uint32(0))
+            data.extend(self.init._pack_uint32(self.loader.source_mtime))
+            data.extend(self.init._pack_uint32(self.loader.source_size))
             data.extend(marshal.dumps(code_object))
             self.assertEqual(self.loader.written[self.cached], bytes(data))
 

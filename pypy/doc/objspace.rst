@@ -101,7 +101,7 @@ directly correspond to language-level constructs:
    wrapped integer or long, or raise a :py:exc:`TypeError` if the object doesn't have an
    :py:func:`__index__` special method.
 
-.. _as introduced in CPython 2.5: http://www.python.org/dev/peps/pep-0357/
+.. _as introduced in CPython 2.5: https://www.python.org/dev/peps/pep-0357/
 
 .. py:function:: is_(w_x, w_y)
 
@@ -385,7 +385,7 @@ Data Members
    Python's built-in exception classes (:py:class:`KeyError`, :py:class:`IndexError`,
    etc).
 
-.. TODO: is it worth listing out all ~50 builtin exception types (http://docs.python.org/2/library/exceptions.html)?
+.. TODO: is it worth listing out all ~50 builtin exception types (https://docs.python.org/2/library/exceptions.html)?
 
 .. py:data:: ObjSpace.MethodTable
 

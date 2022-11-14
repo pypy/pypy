@@ -7,12 +7,26 @@ typedef struct {
     PyTypeObject *DeltaType;
     PyTypeObject *TZInfoType;
 
+    /* singletons */
+    PyObject *TimeZone_UTC;
+
     /* constructors */
     PyObject *(*Date_FromDate)(int, int, int, PyTypeObject*);
     PyObject *(*DateTime_FromDateAndTime)(int, int, int, int, int, int, int,
         PyObject*, PyTypeObject*);
     PyObject *(*Time_FromTime)(int, int, int, int, PyObject*, PyTypeObject*);
     PyObject *(*Delta_FromDelta)(int, int, int, int, PyTypeObject*);
+    PyObject *(*TimeZone_FromTimeZone)(PyObject*, PyObject*);
+
+    /* constructors for the DB API */
+    PyObject *(*DateTime_FromTimestamp)(PyObject*, PyObject*, PyObject*);
+    PyObject *(*Date_FromTimestamp)(PyObject*, PyObject*);
+
+    /* PEP 495 constructors */
+    PyObject *(*DateTime_FromDateAndTimeAndFold)(int, int, int, int, int, int, int,
+        PyObject*, int, PyTypeObject*);
+    PyObject *(*Time_FromTimeAndFold)(int, int, int, int, PyObject*, int, PyTypeObject*);
+
 } PyDateTime_CAPI;
 
 typedef struct

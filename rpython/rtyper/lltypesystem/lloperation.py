@@ -457,6 +457,7 @@ LL_OPERATIONS = {
     'jit_is_virtual':       LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
     'jit_record_exact_class'  : LLOp(canrun=True),
+    'jit_record_exact_value'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
     'jit_conditional_call_value': LLOp(),
@@ -473,6 +474,7 @@ LL_OPERATIONS = {
     'gc_get_type_info_group': LLOp(sideeffects=False),
     'll_read_timestamp': LLOp(revdb_protect=True, canrun=True),
     'll_get_timestamp_unit': LLOp(revdb_protect=True, canrun=True),
+    'jit_record_known_result': LLOp(canrun=True),
 
     # __________ GC operations __________
 
@@ -500,6 +502,7 @@ LL_OPERATIONS = {
     'gc_thread_after_fork': LLOp(),   # arguments: (result_of_fork, opaqueaddr)
     'gc_writebarrier':      LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
+    'gc_writebarrier_before_move': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canmallocgc=True),
     'gc_pin'              : LLOp(canrun=True),
     'gc_unpin'            : LLOp(canrun=True),
@@ -539,6 +542,7 @@ LL_OPERATIONS = {
     'gc_rawrefcount_next_garbage_pyobj':    LLOp(),
 
     'gc_move_out_of_nursery':           LLOp(),
+    'gc_increase_root_stack_depth':     LLOp(canrun=True),
 
     'gc_push_roots'        : LLOp(),  # temporary: list of roots to save
     'gc_pop_roots'         : LLOp(),  # temporary: list of roots to restore
@@ -558,14 +562,7 @@ LL_OPERATIONS = {
     # returns the address of gcdata.root_stack_base/top (for shadowstack only)
     'gc_modified_shadowstack': LLOp(),
 
-    # for asmgcroot support to get the address of various static structures
-    # see translator/c/src/mem.h for the valid indices
-    'gc_asmgcroot_static':  LLOp(sideeffects=False),
-    'gc_stack_bottom':      LLOp(canrun=True),
-
-    # for stacklet+asmgcroot support
-    'gc_detach_callback_pieces': LLOp(),
-    'gc_reattach_callback_pieces': LLOp(),
+    'gc_stack_bottom':      LLOp(canrun=True),   # see llinterp.py for docs
 
     # NOTE NOTE NOTE! don't forget *** canmallocgc=True *** for anything that
     # can malloc a GC object.
@@ -592,7 +589,7 @@ LL_OPERATIONS = {
 
     'threadlocalref_addr':  LLOp(),                   # get (or make) addr of tl
     'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
-    'threadlocalref_load':  LLOp(sideeffects=False),  # read field (with check)
+    'threadlocalref_load':  LLOp(),                   # make addr and read field
     'threadlocalref_store': LLOp(),                   # write field (with check)
     'threadlocalref_acquire':  LLOp(),                # lock for enum
     'threadlocalref_release':  LLOp(),                # lock for enum

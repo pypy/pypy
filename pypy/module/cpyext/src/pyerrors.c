@@ -20,7 +20,42 @@ PyErr_Format(PyObject *exception, const char *format, ...)
     return NULL;
 }
 
+PyObject *
+_PyErr_FormatFromCause(PyObject *exception, const char *format, ...)
+{
+    PyObject *exc, *val, *val2, *tb;
+    va_list vargs;
+    PyObject* string;
+#ifdef HAVE_STDARG_PROTOTYPES
+    va_start(vargs, format);
+#else
+    va_start(vargs);
+#endif
 
+    assert(PyErr_Occurred());
+    PyErr_Fetch(&exc, &val, &tb);
+    PyErr_NormalizeException(&exc, &val, &tb);
+    if (tb != NULL) {
+        PyException_SetTraceback(val, tb);
+        Py_DECREF(tb);
+    }
+    Py_DECREF(exc);
+    assert(!PyErr_Occurred());
+
+    string = PyUnicode_FromFormatV(format, vargs);
+    PyErr_SetObject(exception, string);
+    Py_XDECREF(string);
+    va_end(vargs);
+
+    PyErr_Fetch(&exc, &val2, &tb);
+    PyErr_NormalizeException(&exc, &val2, &tb);
+    Py_INCREF(val);
+    PyException_SetCause(val2, val);
+    PyException_SetContext(val2, val);
+    PyErr_Restore(exc, val2, tb);
+
+    return NULL;
+}
 
 PyObject *
 PyErr_NewException(const char *name, PyObject *base, PyObject *dict)

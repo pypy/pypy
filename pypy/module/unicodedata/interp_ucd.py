@@ -7,7 +7,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong, r_uint
-from rpython.rlib.unicodedata import unicodedb_8_0_0, unicodedb_3_2_0
+from rpython.rlib.unicodedata import unicodedb_12_1_0, unicodedb_3_2_0
 from rpython.rlib.rutf8 import Utf8StringBuilder, unichr_as_utf8
 
 
@@ -45,6 +45,7 @@ class UCD(W_Root):
         self._unicodedb = unicodedb
         self._lookup = unicodedb.lookup_with_alias
         self._lookup_named_sequence = unicodedb.lookup_named_sequence
+        self._lookup_named_sequence_length = unicodedb.lookup_named_sequence_length
         self._name = unicodedb.name
         self._decimal = unicodedb.decimal
         self._digit = unicodedb.digit
@@ -57,7 +58,7 @@ class UCD(W_Root):
         self._decomposition = unicodedb.decomposition
         self._canon_decomposition = unicodedb.canon_decomposition
         self._compat_decomposition = unicodedb.compat_decomposition
-        self._composition = unicodedb._composition
+        self._composition = unicodedb.composition
 
         self.version = unicodedb.version
 
@@ -81,8 +82,7 @@ class UCD(W_Root):
         # The code may be a named sequence
         sequence = self._lookup_named_sequence(code)
         if sequence is not None:
-            # named sequences only contain UCS2 codes, no surrogates &co.
-            return space.newutf8(sequence.encode('utf-8'), len(sequence))
+            return space.newutf8(sequence, self._lookup_named_sequence_length(code))
 
         return space.newutf8(unichr_as_utf8(r_uint(code)), 1)
 
@@ -178,6 +178,7 @@ class UCD(W_Root):
         resultlen = len(result)
         # Expand the character
         for i in range(strlen):
+            # XXX this is bad, uses indexing on unicode! iterate the utf-8 instead
             ch = space.int_w(space.ord(space.getitem(w_unistr, space.newint(i))))
             # Do Hangul decomposition
             if SBase <= ch < SBase + SCount:
@@ -261,9 +262,8 @@ class UCD(W_Root):
                     # If LV, T -> LVT
                     current = current + (next - TBase)
                     continue
-                key = r_longlong(current) << 32 | next
                 try:
-                    current = self._composition[key]
+                    current = self._composition(current, next)
                     continue
                 except KeyError:
                     pass
@@ -286,6 +286,11 @@ class UCD(W_Root):
 
         return self.build(space, result, stop=next_insert)
 
+    @unwrap_spec(form='text')
+    def is_normalized(self, space, form, w_uni):
+        # XXX inefficient!
+        return space.eq(self.normalize(space, form, w_uni), w_uni)
+
     def build(self, space, r, stop):
         builder = Utf8StringBuilder(stop * 3)
         for i in range(stop):
@@ -297,6 +302,7 @@ methods = {}
 for methodname in """
         _get_code lookup name decimal digit numeric category east_asian_width
         bidirectional combining mirrored decomposition normalize
+        is_normalized
         """.split():
     methods[methodname] = interp2app(getattr(UCD, methodname))
 
@@ -308,5 +314,10 @@ UCD.typedef = TypeDef("unicodedata.UCD",
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
-ucd_8_0_0 = UCD(unicodedb_8_0_0)
-ucd = ucd_8_0_0
+ucd_12_1_0 = UCD(unicodedb_12_1_0)
+ucd = ucd_12_1_0
+
+# This is the default unicodedb used in various places:
+# - the unicode type
+# - the regular expression engine
+unicodedb = ucd._unicodedb

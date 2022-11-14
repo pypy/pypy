@@ -34,10 +34,41 @@ def FromTclString(s):
         return s.decode('utf-8')
     except UnicodeDecodeError:
         # Tcl encodes null character as \xc0\x80
-        try:
-            return s.replace(b'\xc0\x80', b'\x00').decode('utf-8')
-        except UnicodeDecodeError:
-            pass
+        r = s.replace(b'\xc0\x80', b'\x00').decode('utf-8', 'surrogateescape')
+        # now we need to deal with cesu-8
+        result = []
+        prevpos = 0
+        while 1:
+            pos = r.find("\udced", prevpos)
+            if pos == -1:
+                result.append(r[prevpos:])
+                return "".join(result)
+
+            assert pos + 6 <= len(r)
+            result.append(r[prevpos:pos])
+            # High surrogates U+d800 - U+dbff are encoded as
+            # \xed\xa0\x80 - \xed\xaf\xbf.
+            ch1 = ord(r[pos + 0])
+            assert ch1 == 0xdced
+            ch2 = ord(r[pos + 1])
+            assert 0xdca0 <= ch2 <= 0xdcaf
+            ch3 = ord(r[pos + 2])
+            assert 0xdc80 <= ch3 <= 0xdcbf
+            high = 0xd000 | ((ch2 & 0x3f) << 6) | (ch3 & 0x3f)
+            # Low surrogates U+DC00 - U+DFFF are encoded as
+            # \xed\xb0\x80 - \xed\xbf\xbf
+            ch1 = ord(r[pos + 3])
+            assert ch1 == 0xdced
+            ch2 = ch5 = ord(r[pos + 4])
+            assert 0xdcb0 <= ch2 <= 0xdcbf
+            ch3 = ch6 = ord(r[pos + 5])
+            assert 0xdc80 <= ch3 <= 0xdcbf
+            low = 0xd000 | ((ch2 & 0x3f) << 6) | (ch3 & 0x3f)
+            assert 0xd800 <= high <= 0xdbff # valid high surrogate
+            # combine to chararcter
+            res = chr((((high & 0x03ff) << 10) | (low & 0x03ff)) + 0x10000)
+            result.append(res)
+            prevpos = pos + 6
     return s
 
 
@@ -127,7 +158,7 @@ def FromObj(app, value):
         buf = tklib.Tcl_GetUnicode(value)
         length = tklib.Tcl_GetCharLength(value)
         buf = tkffi.buffer(tkffi.cast("char*", buf), length*2)[:]
-        return buf.decode('utf-16')
+        return buf.decode('utf-16', 'surrogatepass')
 
     return Tcl_Obj(value)
 
@@ -157,12 +188,11 @@ def AsObj(value):
             argv[i] = AsObj(value[i])
         return tklib.Tcl_NewListObj(len(value), argv)
     if isinstance(value, str):
-        encoded = value.encode('utf-16')[2:]
+        encoded = value.encode('utf-16', 'surrogatepass')[2:]
         buf = tkffi.new("char[]", encoded)
         inbuf = tkffi.cast("Tcl_UniChar*", buf)
         return tklib.Tcl_NewUnicodeObj(inbuf, len(encoded)//2)
     if isinstance(value, Tcl_Obj):
-        tklib.Tcl_IncrRefCount(value._value)
         return value._value
 
     return AsObj(str(value))

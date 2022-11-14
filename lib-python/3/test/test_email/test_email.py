@@ -11,11 +11,8 @@ import textwrap
 from io import StringIO, BytesIO
 from itertools import chain
 from random import choice
-from socket import getfqdn
-try:
-    from threading import Thread
-except ImportError:
-    from dummy_threading import Thread
+from threading import Thread
+from unittest.mock import patch
 
 import email
 import email.policy
@@ -32,6 +29,7 @@ from email.mime.image import MIMEImage
 from email.mime.base import MIMEBase
 from email.mime.message import MIMEMessage
 from email.mime.multipart import MIMEMultipart
+from email.mime.nonmultipart import MIMENonMultipart
 from email import utils
 from email import errors
 from email import encoders
@@ -312,6 +310,41 @@ class TestMessageAPI(TestEmailBase):
         g = Generator(s, policy=newpolicy)
         g.flatten(msg)
         self.assertEqual(fullrepr, s.getvalue())
+
+    def test_nonascii_as_string_without_cte(self):
+        m = textwrap.dedent("""\
+            MIME-Version: 1.0
+            Content-type: text/plain; charset="iso-8859-1"
+
+            Test if non-ascii messages with no Content-Transfer-Encoding set
+            can be as_string'd:
+            Föö bär
+            """)
+        source = m.encode('iso-8859-1')
+        expected = textwrap.dedent("""\
+            MIME-Version: 1.0
+            Content-type: text/plain; charset="iso-8859-1"
+            Content-Transfer-Encoding: quoted-printable
+
+            Test if non-ascii messages with no Content-Transfer-Encoding set
+            can be as_string'd:
+            F=F6=F6 b=E4r
+            """)
+        msg = email.message_from_bytes(source)
+        self.assertEqual(msg.as_string(), expected)
+
+    def test_nonascii_as_string_without_content_type_and_cte(self):
+        m = textwrap.dedent("""\
+            MIME-Version: 1.0
+
+            Test if non-ascii messages with no Content-Type nor
+            Content-Transfer-Encoding set can be as_string'd:
+            Föö bär
+            """)
+        source = m.encode('iso-8859-1')
+        expected = source.decode('ascii', 'replace')
+        msg = email.message_from_bytes(source)
+        self.assertEqual(msg.as_string(), expected)
 
     def test_as_bytes(self):
         msg = self._msgobj('msg_01.txt')
@@ -1468,6 +1501,15 @@ Blah blah blah
         g.flatten(msg)
         self.assertEqual(b.getvalue(), source + b'>From R\xc3\xb6lli\n')
 
+    def test_mutltipart_with_bad_bytes_in_cte(self):
+        # bpo30835
+        source = textwrap.dedent("""\
+            From: aperson@example.com
+            Content-Type: multipart/mixed; boundary="1"
+            Content-Transfer-Encoding: \xc8
+        """).encode('utf-8')
+        msg = email.message_from_bytes(source)
+
 
 # Test the basic MIMEAudio class
 class TestMIMEAudio(unittest.TestCase):
@@ -2078,7 +2120,13 @@ YXNkZg==
 --===============0012394164==--""")
         self.assertEqual(m.get_payload(0).get_payload(), 'YXNkZg==')
 
+    def test_mimebase_default_policy(self):
+        m = MIMEBase('multipart', 'mixed')
+        self.assertIs(m.policy, email.policy.compat32)
 
+    def test_mimebase_custom_policy(self):
+        m = MIMEBase('multipart', 'mixed', policy=email.policy.default)
+        self.assertIs(m.policy, email.policy.default)
 
 # Test some badly formatted messages
 class TestNonConformant(TestEmailBase):
@@ -2680,6 +2728,19 @@ message 2
         msg = MIMEMultipart()
         self.assertTrue(msg.is_multipart())
 
+    def test_multipart_default_policy(self):
+        msg = MIMEMultipart()
+        msg['To'] = 'a@b.com'
+        msg['To'] = 'c@d.com'
+        self.assertEqual(msg.get_all('to'), ['a@b.com', 'c@d.com'])
+
+    def test_multipart_custom_policy(self):
+        msg = MIMEMultipart(policy=email.policy.default)
+        msg['To'] = 'a@b.com'
+        with self.assertRaises(ValueError) as cm:
+            msg['To'] = 'c@d.com'
+        self.assertEqual(str(cm.exception),
+                         'There may be at most 1 To headers in a message')
 
 # A general test of parser->model->generator idempotency.  IOW, read a message
 # in, parse it into a message object tree, then without touching the tree,
@@ -2941,6 +3002,8 @@ class TestMiscellaneous(TestEmailBase):
     def test_parsedate_returns_None_for_invalid_strings(self):
         self.assertIsNone(utils.parsedate(''))
         self.assertIsNone(utils.parsedate_tz(''))
+        self.assertIsNone(utils.parsedate(' '))
+        self.assertIsNone(utils.parsedate_tz(' '))
         self.assertIsNone(utils.parsedate('0'))
         self.assertIsNone(utils.parsedate_tz('0'))
         self.assertIsNone(utils.parsedate('A Complete Waste of Time'))
@@ -3015,6 +3078,20 @@ class TestMiscellaneous(TestEmailBase):
         self.assertEqual(utils.parseaddr('<>'), ('', ''))
         self.assertEqual(utils.formataddr(utils.parseaddr('<>')), '')
 
+    def test_parseaddr_multiple_domains(self):
+        self.assertEqual(
+            utils.parseaddr('a@b@c'),
+            ('', '')
+        )
+        self.assertEqual(
+            utils.parseaddr('a@b.c@c'),
+            ('', '')
+        )
+        self.assertEqual(
+            utils.parseaddr('a@172.17.0.1@c'),
+            ('', '')
+        )
+
     def test_noquote_dump(self):
         self.assertEqual(
             utils.formataddr(('A Silly Person', 'person@dom.ain')),
@@ -3033,7 +3110,7 @@ class TestMiscellaneous(TestEmailBase):
 
     def test_escape_backslashes(self):
         self.assertEqual(
-            utils.formataddr(('Arthur \Backslash\ Foobar', 'person@dom.ain')),
+            utils.formataddr((r'Arthur \Backslash\ Foobar', 'person@dom.ain')),
             r'"Arthur \\Backslash\\ Foobar" <person@dom.ain>')
         a = r'Arthur \Backslash\ Foobar'
         b = 'person@dom.ain'
@@ -3302,9 +3379,11 @@ multipart/report
             '.test-idstring@testdomain-string>')
 
     def test_make_msgid_default_domain(self):
-        self.assertTrue(
-            email.utils.make_msgid().endswith(
-                '@' + getfqdn() + '>'))
+        with patch('socket.getfqdn') as mock_getfqdn:
+            mock_getfqdn.return_value = domain = 'pythontest.example.com'
+            self.assertTrue(
+                email.utils.make_msgid().endswith(
+                    '@' + domain + '>'))
 
     def test_Generator_linend(self):
         # Issue 14645.
@@ -3339,6 +3418,27 @@ multipart/report
         g = email.generator.BytesGenerator(s)
         g.flatten(msg, linesep='\r\n')
         self.assertEqual(s.getvalue(), msgtxt)
+
+    def test_mime_classes_policy_argument(self):
+        with openfile('audiotest.au', 'rb') as fp:
+            audiodata = fp.read()
+        with openfile('PyBanner048.gif', 'rb') as fp:
+            bindata = fp.read()
+        classes = [
+            (MIMEApplication, ('',)),
+            (MIMEAudio, (audiodata,)),
+            (MIMEImage, (bindata,)),
+            (MIMEMessage, (Message(),)),
+            (MIMENonMultipart, ('multipart', 'mixed')),
+            (MIMEText, ('',)),
+        ]
+        for cls, constructor in classes:
+            with self.subTest(cls=cls.__name__, policy='compat32'):
+                m = cls(*constructor)
+                self.assertIs(m.policy, email.policy.compat32)
+            with self.subTest(cls=cls.__name__, policy='default'):
+                m = cls(*constructor, policy=email.policy.default)
+                self.assertIs(m.policy, email.policy.default)
 
 
 # Test the iterator/generators
@@ -3448,7 +3548,6 @@ Do you like this message?
 class TestFeedParsers(TestEmailBase):
 
     def parse(self, chunks):
-        from email.feedparser import FeedParser
         feedparser = FeedParser()
         for chunk in chunks:
             feedparser.feed(chunk)
@@ -4927,6 +5026,9 @@ A very long line that must get split to something other than at the
         msg['SomeHeader'] = '   value with leading ws'
         self.assertEqual(str(msg), "SomeHeader:    value with leading ws\n\n")
 
+    def test_whitespace_header(self):
+        self.assertEqual(Header(' ').encode(), ' ')
+
 
 
 # Test RFC 2231 header parameters (en/de)coding
@@ -5318,6 +5420,27 @@ Content-Type: application/x-foo;
         eq(language, 'en-us')
         eq(s, 'My Document For You')
 
+    def test_should_not_hang_on_invalid_ew_messages(self):
+        messages = ["""From: user@host.com
+To: user@host.com
+Bad-Header:
+ =?us-ascii?Q?LCSwrV11+IB0rSbSker+M9vWR7wEDSuGqmHD89Gt=ea0nJFSaiz4vX3XMJPT4vrE?=
+ =?us-ascii?Q?xGUZeOnp0o22pLBB7CYLH74Js=wOlK6Tfru2U47qR?=
+ =?us-ascii?Q?72OfyEY2p2=2FrA9xNFyvH+fBTCmazxwzF8nGkK6D?=
+
+Hello!
+""", """From: ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ <xxx@xxx>
+To: "xxx" <xxx@xxx>
+Subject:   ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+MIME-Version: 1.0
+Content-Type: text/plain; charset="windows-1251";
+Content-Transfer-Encoding: 8bit
+
+ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+"""]
+        for m in messages:
+            with self.subTest(m=m):
+                msg = email.message_from_string(m)
 
 
 # Tests to ensure that signed parts of an email are completely preserved, as

@@ -81,6 +81,7 @@ def compile(f, gc, **kwds):
     from rpython.translator.translator import TranslationContext
     from rpython.jit.metainterp.warmspot import apply_jit
     from rpython.translator.c import genc
+    from rpython.translator.backendopt.all import backend_optimizations
     #
     t = TranslationContext()
     t.config.translation.gc = gc
@@ -106,6 +107,13 @@ def compile(f, gc, **kwds):
             for (obj, attr), oldvalue in old_value.items():
                 setattr(obj, attr, oldvalue)
 
+    backend_optimizations(t,
+                          graphs=t.graphs,
+                          merge_if_blocks=True,
+                          constfold=True,
+                          remove_asserts=True,
+                          really_remove_asserts=True,
+                          replace_we_are_jitted=False)
     cbuilder = genc.CStandaloneBuilder(t, f, t.config)
     cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
     cbuilder.compile()
@@ -140,9 +148,9 @@ class BaseFrameworkTests(object):
             if afterfunc is None:
                 def afterfunc(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
                     pass
-            beforefunc.func_name = 'before_'+name
-            loopfunc.func_name = 'loop_'+name
-            afterfunc.func_name = 'after_'+name
+            beforefunc.__name__ = 'before_'+name
+            loopfunc.__name__ = 'loop_'+name
+            afterfunc.__name__ = 'after_'+name
             funcs.append((beforefunc, loopfunc, afterfunc))
             assert name not in name_to_func
             name_to_func[name] = len(name_to_func)
@@ -176,9 +184,6 @@ class BaseFrameworkTests(object):
             cls.cbuilder = compile(get_entry(allfuncs), cls.gc,
                                    gcrootfinder=cls.gcrootfinder, jit=True,
                                    thread=True)
-        except ConfigError as e:        
-            assert str(e).startswith('invalid value asmgcc')
-            py.test.skip('asmgcc not supported')
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 

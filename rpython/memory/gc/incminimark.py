@@ -163,15 +163,19 @@ GCFLAG_IGNORE_FINALIZER = first_gcflag << 10
 # It does not need an additional copy in trace out
 GCFLAG_SHADOW_INITIALIZED   = first_gcflag << 11
 
+# another flag set only on specific objects: the ll_dummy_value from
+# rpython.rtyper.rmodel
+GCFLAG_DUMMY        = first_gcflag << 12
+
 # Objects referenced only from legacy rawrefcount finalizers which have
 # not been added to gc.garbage have this flag set. It is set during the
 # rawrefcount marking phase and removed once the object is returned to
 # the caller, who is adding it to the gc.garbage list. During the next
 # collection cycle this process is repeated, as the set of objects might
 # have changed.
-GCFLAG_GARBAGE = first_gcflag << 12
+GCFLAG_GARBAGE = first_gcflag << 13
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 13    # the first unused bit
+_GCFLAG_FIRST_UNUSED = first_gcflag << 14    # the first unused bit
 
 
 # States for the incremental GC
@@ -198,7 +202,6 @@ FORWARDSTUB = lltype.GcStruct('forwarding_stub',
                               ('forw', llmemory.Address))
 FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
 NURSARRAY = lltype.Array(llmemory.Address)
-ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
 
 # ____________________________________________________________
 
@@ -213,6 +216,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     can_usually_pin_objects = True
     malloc_zero_filled = False
     gcflag_extra = GCFLAG_EXTRA
+    gcflag_dummy = GCFLAG_DUMMY
 
     # All objects start with a HDR, i.e. with a field 'tid' which contains
     # a word.  This word is divided in two halves: the lower half contains
@@ -401,7 +405,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # collection.
         self.probably_young_objects_with_finalizers = self.AddressDeque()
         self.old_objects_with_finalizers = self.AddressDeque()
-        p = lltype.malloc(ADDRARRAY, 1, flavor='raw', track_allocation=False)
+        p = lltype.malloc(self._ADDRARRAY, 1, flavor='raw',
+                          track_allocation=False)
         self.singleaddr = llmemory.cast_ptr_to_adr(p)
         #
         # Two lists of all objects with destructors.
@@ -874,7 +879,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # nursery. "Next area" in this case is the space between the
                 # pinned object in front of nusery_top and the pinned object
                 # after that. Graphically explained:
-                # 
+                #
                 #     |- allocating totalsize failed in this area
                 #     |     |- nursery_top
                 #     |     |    |- pinned object in front of nursery_top,
@@ -1349,7 +1354,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _debug_check_object_marking(self, obj):
         if self.header(obj).tid & GCFLAG_VISITED != 0:
             # A black object.  Should NEVER point to a white object.
-            self.trace(obj, self._debug_check_not_white, None)
+            self.trace(obj, self.make_callback('_debug_check_not_white'), self, None)
             # During marking, all visited (black) objects should always have
             # the GCFLAG_TRACK_YOUNG_PTRS flag set, for the write barrier to
             # trigger --- at least if they contain any gc ptr.  We are just
@@ -1654,6 +1659,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.prebuilt_root_objects.append(dest_addr)
         return True
 
+    def writebarrier_before_move(self, array_addr):
+        """If 'array_addr' uses cards, then this has the same effect as
+        a call to the generic writebarrier, effectively generalizing the
+        cards to "any item may be young".
+        """
+        if self.card_page_indices <= 0:     # check constant-folded
+            return     # no cards, nothing to do
+        #
+        array_hdr = self.header(array_addr)
+        if array_hdr.tid & GCFLAG_CARDS_SET != 0:
+            self.write_barrier(array_addr)
+
     def manually_copy_card_bits(self, source_addr, dest_addr, length):
         # manually copy the individual card marks from source to dest
         ll_assert(self.card_page_indices > 0,
@@ -1917,7 +1934,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.header(obj).tid &= ~GCFLAG_PINNED_OBJECT_PARENT_KNOWN
 
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
-        self.trace(obj, self._trace_drag_out, obj)
+        self.trace(obj, self.make_callback('_trace_drag_out'), self, obj)
 
     def collect_roots_in_nursery(self, any_pinned_object_from_earlier):
         # we don't need to trace prebuilt GcStructs during a minor collect:
@@ -2044,7 +2061,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         """obj must not be in the nursery.  This copies all the
         young objects it references out of the nursery.
         """
-        self.trace(obj, self._trace_drag_out, obj)
+        self.trace(obj, self.make_callback('_trace_drag_out'), self, obj)
 
     def trace_and_drag_out_of_nursery_partial(self, obj, start, stop):
         """Like trace_and_drag_out_of_nursery(), but limited to the array
@@ -2053,7 +2070,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         ll_assert(start < stop, "empty or negative range "
                                 "in trace_and_drag_out_of_nursery_partial()")
         #print 'trace_partial:', start, stop, '\t', obj
-        self.trace_partial(obj, start, stop, self._trace_drag_out, obj)
+        self.trace_partial(obj, start, stop,
+                           self.make_callback('_trace_drag_out'), self, obj)
 
 
     def _trace_drag_out1(self, root):
@@ -2753,7 +2771,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Trace the content of the object and put all objects it references
             # into the 'objects_to_trace' list.
-            self.trace(obj, self._collect_ref_rec, None)
+            self.trace(obj, self.make_callback('_collect_ref_rec'), self, None)
 
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + self.get_size(obj)
@@ -2895,7 +2913,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 state = self._finalization_state(y)
                 if state == 0:
                     self._bump_finalization_state_from_0_to_1(y)
-                    self.trace(y, self._append_if_nonnull, pending)
+                    self.trace(y, self._append_if_nonnull, pending, None)
                 elif state == 2:
                     self._recursively_bump_finalization_state_from_2_to_3(y)
             self._recursively_bump_finalization_state_from_1_to_2(x)
@@ -2929,7 +2947,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.old_objects_with_finalizers.delete()
         self.old_objects_with_finalizers = new_with_finalizer
 
-    def _append_if_nonnull(pointer, stack):
+    def _append_if_nonnull(pointer, stack, ignored):
         stack.append(pointer.address[0])
     _append_if_nonnull = staticmethod(_append_if_nonnull)
 
@@ -2972,7 +2990,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             hdr = self.header(y)
             if hdr.tid & GCFLAG_FINALIZATION_ORDERING:     # state 2 ?
                 hdr.tid &= ~GCFLAG_FINALIZATION_ORDERING   # change to state 3
-                self.trace(y, self._append_if_nonnull, pending)
+                self.trace(y, self._append_if_nonnull, pending, None)
 
     def _recursively_bump_finalization_state_from_1_to_2(self, obj):
         # recursively convert objects from state 1 to state 2.

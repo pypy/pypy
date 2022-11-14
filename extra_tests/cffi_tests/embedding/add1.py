@@ -12,7 +12,11 @@ ffi.embedding_init_code(r"""
     sys.stdout.write("preparing")
     for i in range(3):
         sys.stdout.flush()
-        time.sleep(0.2)
+        # Windows: sometimes time.sleep() doesn't sleep at all.
+        # This appears to occur on recent versions of python only.
+        t_end = time.time() + 0.19
+        while time.time() < t_end:
+            time.sleep(0.2)
         sys.stdout.write(".")
     sys.stdout.write("\n")
 

@@ -99,9 +99,7 @@ class ImportModuleTests:
 
 class FindLoaderTests:
 
-    class FakeMetaFinder:
-        @staticmethod
-        def find_module(name, path=None): return name, path
+    FakeMetaFinder = None
 
     def test_sys_modules(self):
         # If a module with __loader__ is in sys.modules, then return it.
@@ -171,14 +169,33 @@ class FindLoaderTests:
             self.assertIsNone(self.init.find_loader('nevergoingtofindthismodule'))
 
 
-(Frozen_FindLoaderTests,
- Source_FindLoaderTests
- ) = test_util.test_both(FindLoaderTests, init=init)
+class FindLoaderPEP451Tests(FindLoaderTests):
+
+    class FakeMetaFinder:
+        @staticmethod
+        def find_spec(name, path=None, target=None):
+            return machinery['Source'].ModuleSpec(name, (name, path))
+
+
+(Frozen_FindLoaderPEP451Tests,
+ Source_FindLoaderPEP451Tests
+ ) = test_util.test_both(FindLoaderPEP451Tests, init=init)
+
+
+class FindLoaderPEP302Tests(FindLoaderTests):
+
+    class FakeMetaFinder:
+        @staticmethod
+        def find_module(name, path=None):
+            return name, path
+
+
+(Frozen_FindLoaderPEP302Tests,
+ Source_FindLoaderPEP302Tests
+ ) = test_util.test_both(FindLoaderPEP302Tests, init=init)
 
 
 class ReloadTests:
-
-    """Test module reloading for builtin and extension modules."""
 
     def test_reload_modules(self):
         for mod in ('tokenize', 'time', 'marshal'):
@@ -288,6 +305,7 @@ class ReloadTests:
                     expected = {'__name__': name,
                                 '__package__': name,
                                 '__doc__': None,
+                                '__file__': None,
                                 }
                     os.mkdir(name)
                     with open(bad_path, 'w') as init_file:
@@ -299,8 +317,9 @@ class ReloadTests:
                     spec = ns.pop('__spec__')
                     ns.pop('__builtins__', None)  # An implementation detail.
                     self.assertEqual(spec.name, name)
-                    self.assertIs(spec.loader, None)
-                    self.assertIsNot(loader, None)
+                    self.assertIsNotNone(spec.loader)
+                    self.assertIsNotNone(loader)
+                    self.assertEqual(spec.loader, loader)
                     self.assertEqual(set(path),
                                      set([os.path.dirname(bad_path)]))
                     with self.assertRaises(AttributeError):
@@ -342,6 +361,18 @@ class ReloadTests:
             reloaded = self.init.reload(ham)
             self.assertIs(reloaded, ham)
 
+    def test_module_missing_spec(self):
+        #Test that reload() throws ModuleNotFounderror when reloading
+        # a module whose missing a spec. (bpo-29851)
+        name = 'spam'
+        with test_util.uncache(name):
+            module = sys.modules[name] = types.ModuleType(name)
+            # Sanity check by attempting an import.
+            module = self.init.import_module(name)
+            self.assertIsNone(module.__spec__)
+            with self.assertRaises(ModuleNotFoundError):
+                self.init.reload(module)
+
 
 (Frozen_ReloadTests,
  Source_ReloadTests
@@ -375,7 +406,7 @@ class InvalidateCacheTests:
         # There should be no issues if the method is not defined.
         key = 'gobbledeegook'
         sys.path_importer_cache[key] = None
-        self.addCleanup(lambda: sys.path_importer_cache.__delitem__(key))
+        self.addCleanup(lambda: sys.path_importer_cache.pop(key, None))
         self.init.invalidate_caches()  # Shouldn't trigger an exception.
 
 

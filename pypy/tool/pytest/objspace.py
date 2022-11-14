@@ -7,7 +7,7 @@ from pypy.conftest import option
 
 _SPACECACHE={}
 def gettestobjspace(**kwds):
-    """ helper for instantiating and caching space's for testing.
+    """ helper for instantiating and caching spaces for testing.
     """
     try:
         config = make_config(option, **kwds)
@@ -30,10 +30,9 @@ def maketestobjspace(config=None):
         config = make_config(option)
     if config.objspace.usemodules.thread:
         config.translation.thread = True
+    config.objspace.extmodules = 'pypy.tool.pytest.fake_pytest'
     space = make_objspace(config)
     space.startup() # Initialize all builtin modules
-    space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
-                  appsupport.build_pytest_assertion(space))
     space.setitem(space.builtin.w_dict, space.wrap('raises'),
                   space.wrap(appsupport.app_raises))
     space.setitem(space.builtin.w_dict, space.wrap('skip'),
@@ -42,6 +41,31 @@ def maketestobjspace(config=None):
                   space.wrap(appsupport.app_py3k_skip))
     space.raises_w = appsupport.raises_w.__get__(space)
     return space
+
+def skip_on_incompatible_interpreter(space_options):
+    info = getattr(sys, 'pypy_translation_info', None)
+    for key, value in space_options.iteritems():
+        if key == 'usemodules':
+            if info is not None:
+                for modname in value:
+                    ok = info.get('objspace.usemodules.%s' % modname,
+                                  False)
+                    if not ok:
+                        py.test.skip("cannot runappdirect test: "
+                                     "module %r required" % (modname,))
+            else:
+                if '__pypy__' in value:
+                    py.test.skip("no module __pypy__ on top of CPython")
+            continue
+        if info is None:
+            continue
+        if ('translation.' + key) in info:
+            key = 'translation.' + key
+        has = info.get(key, None)
+        if has != value:
+            #print sys.pypy_translation_info
+            py.test.skip("cannot runappdirect test: space needs %s = %s, "\
+                "while pypy-c was built with %s" % (key, value, has))
 
 
 class TinyObjSpace(object):
@@ -70,6 +94,14 @@ class TinyObjSpace(object):
             return tuple(self.wrap(item) for item in obj)
         if isinstance(obj, list):
             return list(self.wrap(item) for item in obj)
+        return obj
+
+    def newtext(self, obj):
+        assert isinstance(obj, str)
+        return obj.decode('utf-8')
+
+    def newbytes(self, obj):
+        assert isinstance(obj, str)
         return obj
 
     def unpackiterable(self, itr):

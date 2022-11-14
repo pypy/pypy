@@ -9,7 +9,7 @@ from pypy.interpreter.pyparser.test.test_metaparser import MyGrammar
 
 def test_char_set():
     first = {5: None, 9: None, 100: None, 255:None}
-    p = parser.DFA(None, None, first)
+    p = parser.DFA(None, None, None, first)
     for i in range(256):
         assert p.could_match_token(i) == (i in first)
 
@@ -58,10 +58,10 @@ def tree_from_string(expected, gram):
                 value = "\n"
             else:
                 value = ""
-            n = parser.Terminal(tp, value, 0, 0)
+            n = parser.Terminal(None, tp, value, 0, 0)
         else:
             tp = gram.symbol_ids[data[0]]
-            n = parser.Nonterminal(tp)
+            n = parser.Nonterminal(None, tp)
         new_indent = count_indent(line)
         if new_indent >= last_indent:
             if new_indent == last_indent and node_stack:
@@ -329,4 +329,14 @@ baz: NUMBER
         info.value.expected_str is None
         info = py.test.raises(parser.ParseError, p.parse, "if 42 42")
         info.value.expected_str == '+'
+
+
+    def test_line_attached_to_terminal(self):
+        p, gram = self.parser_for(
+            "foo: 'if' NUMBER '+' NUMBER"
+        )
+        input = "if 53 + 65"
+        tree = p.parse(input)
+        assert tree.get_child(0).line == input + "\n"
+        assert tree.get_line() == input + "\n"
 

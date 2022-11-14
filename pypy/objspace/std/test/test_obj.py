@@ -1,5 +1,5 @@
-from __future__ import with_statement
 from pypy.conftest import option
+import pytest
 
 class AppTestObject:
 
@@ -10,10 +10,7 @@ class AppTestObject:
         import sys
 
         space = cls.space
-        cls.w_cpython_behavior = space.wrap(not option.runappdirect)
-        cls.w_cpython_version = space.wrap(tuple(sys.version_info))
         cls.w_appdirect = space.wrap(option.runappdirect)
-        cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
 
         def w_unwrap_wrap_unicode(space, w_obj):
             return space.newutf8(space.utf8_w(w_obj), w_obj._length)
@@ -21,15 +18,6 @@ class AppTestObject:
         def w_unwrap_wrap_bytes(space, w_obj):
             return space.newbytes(space.bytes_w(w_obj))
         cls.w_unwrap_wrap_bytes = space.wrap(gateway.interp2app(w_unwrap_wrap_bytes))
-
-    def test_hash_builtin(self):
-        if not self.cpython_behavior:
-            skip("on pypy-c id == hash is not guaranteed")
-        if self.cpython_version >= (2, 7):
-            skip("on CPython >= 2.7, id != hash")
-        import sys
-        o = object()
-        assert (hash(o) & sys.maxsize) == (id(o) & sys.maxsize)
 
     def test_hash_method(self):
         o = object()
@@ -48,8 +36,6 @@ class AppTestObject:
         class X(object):
             pass
         x = X()
-        if self.cpython_behavior and self.cpython_version < (2, 7):
-            assert (hash(x) & sys.maxsize) == (id(x) & sys.maxsize)
         assert hash(x) == object.__hash__(x)
 
     def test_reduce_recursion_bug(self):
@@ -70,10 +56,11 @@ class AppTestObject:
             def __getnewargs_ex__(self):
                 return (self._name,), dict(value=int(self))
         import copyreg
-        assert NamedInt("Name", value=42).__reduce__(4) == (
-            copyreg.__newobj_ex__,
-            (NamedInt, ('Name',), dict(value=42)),
-            dict(_name='Name'), None, None)
+        for protocol in [2, 3, 4]:
+            assert NamedInt("Name", value=42).__reduce_ex__(protocol) == (
+                copyreg.__newobj_ex__,
+                (NamedInt, ('Name',), dict(value=42)),
+                dict(_name='Name'), None, None)
 
     def test_reduce_ex_does_getattr(self):
         seen = []
@@ -135,6 +122,14 @@ class AppTestObject:
             pass
         assert X().__reduce_ex__(2)[2] is None
 
+    def test_reduce_arguments(self):
+        # since python3.7 object.__reduce__ doesn't take an argument anymore
+        # (used to be proto), and __reduce_ex__ requires one
+        with raises(TypeError):
+            object().__reduce__(0)
+        with raises(TypeError):
+            object().__reduce_ex__()
+
     def test_default_format(self):
         class x(object):
             def __str__(self):
@@ -174,6 +169,43 @@ class AppTestObject:
 
         raises(TypeError, B)
 
+    def test_object_init_not_really_overridden(self):
+        class A(object):
+            def __new__(cls, value):
+                return object.__new__(cls)
+            __init__ = object.__init__     # see issue #3239
+        assert isinstance(A(1), A)
+
+    def test_object_new_not_really_overridden(self):
+        class A(object):
+            def __init__(self, value):
+                self.value = value
+            __new__ = object.__new__
+        assert A(42).value == 42
+
+    def test_object_init_cant_call_parent_with_args(self):
+        class A(object):
+            def __init__(self, value):
+                object.__init__(self, value)
+        raises(TypeError, A, 1)
+
+    def test_object_new_cant_call_parent_with_args(self):
+        class A(object):
+            def __new__(cls, value):
+                return object.__new__(cls, value)
+        raises(TypeError, A, 1)
+
+    def test_object_init_and_new_overridden(self):
+        class A(object):
+            def __new__(cls, value):
+                result = object.__new__(cls)
+                result.other_value = value + 1
+                return result
+            def __init__(self, value):
+                self.value = value
+        assert A(42).value == 42
+        assert A(42).other_value == 43
+
     def test_object_str(self):
         # obscure case: __str__() must delegate to __repr__() without adding
         # type checking on its own
@@ -193,9 +225,8 @@ class AppTestObject:
         assert obj_items == sorted(object.__dir__(obj))
 
 
+    @pytest.mark.pypy_only
     def test_is_on_primitives(self):
-        if self.cpython_apptest:
-            skip("cpython behaves differently")
         assert 1 is 1
         x = 1000000
         assert x + 1 is int(str(x + 1))
@@ -222,12 +253,15 @@ class AppTestObject:
         s = b"a"
         assert self.unwrap_wrap_bytes(s) is s
 
+    @pytest.mark.pypy_only
+    def test_is_by_value(self):
+        for typ in [int, float, complex]:
+            assert typ(42) is typ(42)
+
     def test_is_on_subclasses(self):
         for typ in [int, float, complex, str]:
             class mytyp(typ):
                 pass
-            if not self.cpython_apptest and typ is not str:
-                assert typ(42) is typ(42)
             assert mytyp(42) is not mytyp(42)
             assert mytyp(42) is not typ(42)
             assert typ(42) is not mytyp(42)
@@ -244,9 +278,8 @@ class AppTestObject:
             assert "43" is not x
             assert None is not x
 
+    @pytest.mark.pypy_only
     def test_id_on_primitives(self):
-        if self.cpython_apptest:
-            skip("cpython behaves differently")
         assert id(1) == (1 << 4) + 1
         class myint(int):
             pass
@@ -359,6 +392,48 @@ class AppTestObject:
         assert o.__lt__(o2) is NotImplemented
         assert o.__ge__(o2) is NotImplemented
         assert o.__gt__(o2) is NotImplemented
+
+    def test_init_subclass(self):
+        object().__init_subclass__() # does not crash
+        object.__init_subclass__() # does not crash
+        raises(TypeError, object.__init_subclass__, 1)
+
+    def test_better_error_init(self):
+        class A: pass
+
+        with raises(TypeError) as excinfo:
+            A(1)
+        assert "A() takes no arguments" in str(excinfo.value)
+
+        with raises(TypeError) as excinfo:
+            A().__init__(1)
+        assert "A.__init__() takes exactly one argument (the instance to initialize)" in str(excinfo.value)
+
+        class D:
+            def __new__(cls, *args, **kwargs):
+                super().__new__(cls, *args, **kwargs)
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+        with raises(TypeError) as excinfo:
+            D(3)
+        assert 'object.__new__() takes exactly one argument (the type to instantiate)' in str(excinfo.value)
+
+        # Class that only overrides __init__
+        class E:
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+
+        error_msg = 'object.__init__() takes exactly one argument (the instance to initialize)'
+
+        with raises(TypeError) as excinfo:
+            E().__init__(42)
+        print(excinfo.value)
+        assert error_msg in str(excinfo.value)
+
+        with raises(TypeError) as excinfo:
+            object.__init__(E(), 42)
+        print(excinfo.value)
+        assert error_msg in str(excinfo.value)
 
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace

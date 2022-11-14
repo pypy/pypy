@@ -1,6 +1,7 @@
 from rpython.rlib import jit
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
+from rpython.rlib.rarithmetic import r_uint, widen
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
@@ -44,7 +45,6 @@ def text_or_bytes_w(space, w_input):
 def calcsize(space, w_format):
     """Return size of C struct described by format string fmt."""
     format = text_or_bytes_w(space, w_format)
-    """Return size of C struct described by format string fmt."""
     return space.newint(_calcsize(space, format))
 
 
@@ -86,12 +86,30 @@ Write the packed bytes into the writable buffer buf starting at offset
     """
     size = _calcsize(space, format)
     buf = space.writebuf_w(w_buffer)
+    buflen = buf.getlength()
     if offset < 0:
-        offset += buf.getlength()
-    if offset < 0 or (buf.getlength() - offset) < size:
+        # Check that negative offset is low enough to fit data
+        if offset + size > 0:
+            raise oefmt(get_error(space),
+                        "no space to pack %d bytes at offset %d",
+                        size,
+                        offset)
+        # Check that negative offset is not crossing buffer boundary
+        if offset + buflen < 0:
+            raise oefmt(get_error(space),
+                        "offset %d out of range for %d-byte buffer",
+                        offset,
+                        buflen)
+        offset += buflen
+    if (buflen - offset) < size:
         raise oefmt(get_error(space),
-                    "pack_into requires a buffer of at least %d bytes",
-                    size)
+                    "pack_into requires a buffer of at least %d bytes for "
+                    "packing %d bytes at offset %d "
+                    "(actual buffer size is %d)",
+                    r_uint(size + offset),
+                    size,
+                    offset,
+                    buflen)
     #
     wbuf = SubBuffer(buf, offset, size)
     fmtiter = PackFormatIterator(space, wbuf, args_w)
@@ -133,15 +151,26 @@ fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
 def do_unpack_from(space, format, w_buffer, offset=0):
     """Unpack the buffer, containing packed C structure data, according to
 fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
-    size = _calcsize(space, format)
+    s_size = _calcsize(space, format)
     buf = space.readbuf_w(w_buffer)
+    buf_length = buf.getlength()
     if offset < 0:
-        offset += buf.getlength()
-    if offset < 0 or (buf.getlength() - offset) < size:
+        if offset + s_size > 0:
+            raise oefmt(get_error(space),
+                    "not enough data to unpack %d bytes at offset %d",
+                    s_size, offset)
+        if offset + buf_length < 0:
+            raise oefmt(get_error(space),
+                    "offset %d out of range for %d-byte buffer",
+                    offset, buf_length)
+        offset += buf_length
+    if buf_length - offset < s_size:
         raise oefmt(get_error(space),
-                    "unpack_from requires a buffer of at least %d bytes",
-                    size)
-    buf = SubBuffer(buf, offset, size)
+                    "unpack_from requires a buffer of at least %d bytes for "
+                    "unpacking %d bytes at offset %d "
+                    "(actual buffer size is %d)",
+                    r_uint(s_size + offset), s_size, offset, buf_length)
+    buf = SubBuffer(buf, offset, s_size)
     return _unpack(space, format, buf)
 
 
@@ -215,7 +244,7 @@ class W_Struct(W_Root):
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
     __init__=interp2app(W_Struct.descr__init__),
-    format=interp_attrproperty("format", cls=W_Struct, wrapfn="newbytes"),
+    format=interp_attrproperty("format", cls=W_Struct, wrapfn="newtext"),
     size=interp_attrproperty("size", cls=W_Struct, wrapfn="newint"),
 
     pack=interp2app(W_Struct.descr_pack),

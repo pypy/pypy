@@ -1,7 +1,7 @@
 import functools
 import math
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rutf8 import Utf8StringIterator, get_utf8_length, Utf8StringBuilder
+from rpython.rlib.rutf8 import Utf8StringIterator, codepoints_in_utf8, Utf8StringBuilder
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
@@ -2330,7 +2330,7 @@ class UnicodeType(FlexibleType):
 
     def to_builtin_type(self, space, box):
         assert isinstance(box, boxes.W_UnicodeBox)
-        return space.newutf8(box._value, get_utf8_length(box._value))
+        return space.newutf8(box._value, codepoints_in_utf8(box._value))
 
     def eq(self, v1, v2):
         assert isinstance(v1, boxes.W_UnicodeBox)

@@ -29,7 +29,5 @@ def make_config(cmdlineopt, **kwds):
     return config
 
 def make_objspace(config):
-    mod = __import__('pypy.objspace.std',
-                     None, None, ['Space'])
-    Space = mod.Space
-    return Space(config)
+    from pypy.objspace.std.objspace import StdObjSpace
+    return StdObjSpace(config)

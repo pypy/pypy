@@ -8,6 +8,11 @@ import os
 # the @rpath handling used in Darwin._args_for_shared is only availabe
 # since 10.5, so we use that as minimum requirement. Bumped to 10.7
 # to allow the use of thread-local in __thread in C.
+# Bumped to 10.9 2021-11-22 to match CPython,
+# see https://github.com/python/cpython/blob/42205ee51
+#
+# Keep in sync with MACOSX_DEPLOYMENT_TARGET, for pypy see
+# lib_pypy/_sysconfigdata.py
 #
 DARWIN_VERSION_MIN = '-mmacosx-version-min=10.7'
 
@@ -18,11 +23,16 @@ class Darwin(posix.BasePosix):
     shared_only = ()
 
     link_flags = (DARWIN_VERSION_MIN,)
-    cflags = ('-O3', '-fomit-frame-pointer', DARWIN_VERSION_MIN)
+    cflags = ('-O3',
+              '-fomit-frame-pointer',
+              DARWIN_VERSION_MIN,)
 
     so_ext = 'dylib'
     DEFAULT_CC = 'clang'
     rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path/']
+
+    def get_multiarch(self):
+        return 'darwin'
 
     def get_rpath_flags(self, rel_libdirs):
         # needed for cross compiling on ARM, needs fixing if relevant for darwin
@@ -39,7 +49,9 @@ class Darwin(posix.BasePosix):
         # we get the basename of the executable we're trying to build.
         return (list(self.shared_only)
                 + ['-dynamiclib', '-install_name', '@rpath/' + target_basename,
-                   '-undefined', 'dynamic_lookup', '-flat_namespace']
+                   '-undefined', 'dynamic_lookup', '-flat_namespace',
+                   '-headerpad_max_install_names',
+                  ]
                 + args)
 
     def _include_dirs_for_libffi(self):
@@ -51,18 +63,6 @@ class Darwin(posix.BasePosix):
         return self._pkg_config("libffi", "--libs-only-L",
                                 ['/usr/lib'],
                                 check_result_dir=True)
-
-    def include_dirs_for_openssl(self):
-        dirs = self._include_dirs_for_openssl()
-        if 'PYPY_LOCALBASE' in os.environ:
-            return [os.environ['PYPY_LOCALBASE'] + '/include'] + dirs
-        return dirs
-
-    def library_dirs_for_openssl(self):
-        dirs = self._library_dirs_for_openssl()
-        if 'PYPY_LOCALBASE' in os.environ:
-            return [os.environ['PYPY_LOCALBASE'] + '/lib'] + dirs
-        return dirs
 
     def _include_dirs_for_openssl(self):
         return self._pkg_config("openssl", "--cflags-only-I",
@@ -99,6 +99,7 @@ class Darwin(posix.BasePosix):
                      no_precompile_cfiles = [], profopt=False, config=None):
         # ensure frameworks are passed in the Makefile
         fs = self._frameworks(eci.frameworks)
+        extra_libs = self.extra_libs
         if len(fs) > 0:
             # concat (-framework, FrameworkName) pairs
             self.extra_libs += tuple(map(" ".join, zip(fs[::2], fs[1::2])))
@@ -107,15 +108,27 @@ class Darwin(posix.BasePosix):
                                 headers_to_precompile=headers_to_precompile,
                                 no_precompile_cfiles = no_precompile_cfiles,
                                 profopt=profopt, config=config)
+        self.extra_libs = extra_libs
         return mk
 
 class Darwin_PowerPC(Darwin):#xxx fixme, mwp
     name = "darwin_powerpc"
+    link_flags = Darwin.link_flags + ('-arch', 'ppc')
+    cflags = Darwin.cflags + ('-arch', 'ppc')
 
 class Darwin_i386(Darwin):
     name = "darwin_i386"
-    DEFAULT_CC = 'clang -arch i386'
+    link_flags = Darwin.link_flags + ('-arch', 'i386')
+    cflags = Darwin.cflags + ('-arch', 'i386')
 
 class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"
-    DEFAULT_CC = 'clang -arch x86_64'
+    link_flags = Darwin.link_flags + ('-arch', 'x86_64')
+    cflags = Darwin.cflags + ('-arch', 'x86_64')
+
+class Darwin_arm64(Darwin):
+    name = 'darwin_arm64'
+    link_flags = Darwin.link_flags + ('-arch', 'arm64')
+    cflags = Darwin.cflags + ('-arch', 'arm64')
+
+    

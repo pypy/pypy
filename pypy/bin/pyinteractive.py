@@ -42,17 +42,26 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of pyinterac
     StrOption("warn",
               "warning control (arg is action:message:category:module:lineno)",
               default=None, cmdline="-W"),
- 
+
     ])
 
 pypy_init = gateway.applevel('''
 def pypy_init(import_site):
     if import_site:
+        import os, sys
+        _MACOSX = sys.platform == 'darwin'
+        if _MACOSX:
+            # __PYVENV_LAUNCHER__, used by CPython on macOS, should be ignored
+            # since it (possibly) results in a wrong sys.prefix and
+            # sys.exec_prefix (and consequently sys.path).
+            old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__', None)
         try:
             import site
         except:
             import sys
             print("'import site' failed", file=sys.stderr)
+        if _MACOSX and old_pyvenv_launcher:
+            os.environ['__PYVENV_LAUNCHER__'] = old_pyvenv_launcher
 ''').interphook('pypy_init')
 
 
@@ -102,10 +111,9 @@ def main_(argv=None):
         space.appexec([], """():
             import sys
             flags = list(sys.flags)
-            flags[6] = 2
+            flags[3] = 2
             sys.flags = type(sys.flags)(flags)
-            import __pypy__
-            __pypy__.set_debug(False)
+            __builtins__.__dict__['__debug__'] = False
         """)
 
     # call pypy_find_stdlib: the side-effect is that it sets sys.prefix and
@@ -119,7 +127,7 @@ def main_(argv=None):
     # set warning control options (if any)
     warn_arg = interactiveconfig.warn
     if warn_arg is not None:
-        space.appexec([space.wrap(warn_arg)], """(arg): 
+        space.appexec([space.wrap(warn_arg)], """(arg):
         import sys
         sys.warnoptions.append(arg)""")
 
@@ -202,6 +210,6 @@ def main_(argv=None):
 
 if __name__ == '__main__':
     if hasattr(sys, 'setrecursionlimit'):
-        # for running "python -i pyinteractive.py -Si -- py.py -Si" 
+        # for running "python -i pyinteractive.py -Si -- py.py -Si"
         sys.setrecursionlimit(3000)
     sys.exit(main_(sys.argv))

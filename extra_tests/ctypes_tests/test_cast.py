@@ -28,3 +28,13 @@ def test_c_bool():
     assert x.value is False
     x = c_bool(['yadda'])
     assert x.value is True
+
+def test_cast_array():
+    import sys
+    data = b'data'
+    ubyte = c_ubyte * len(data)
+    byteslike = ubyte.from_buffer_copy(data)
+    m = memoryview(byteslike)
+    if sys.version_info > (3, 3):
+        b = m.cast('B')
+        assert bytes(b) == data

@@ -1,9 +1,22 @@
-import os, py
+import os, pytest
+import sys
 
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.module._cffi_backend.newtype import _clean_cache
 import pypy.module.cpyext.api     # side-effect of pre-importing it
+from sysconfig import get_config_var
+
+
+def get_ext_suffix():
+    # soabi is None on cpython < 3.7 (incl 2.7), 'pypy-73' on pypy2 v7.3.1
+    # and something like 'cpython-38-x86_64-linux-gnu' on cpython 3.8
+    soabi = get_config_var('SOABI') or ''
+    ret = soabi + get_config_var('SO')
+    # either '.so' or 'pypy-73.so'
+    if ret[0] == '.':
+        return ret[1:]
+    return ret
 
 
 @unwrap_spec(cdef='text', module_name='text', source='text', packed=int)
@@ -16,13 +29,13 @@ def prepare(space, cdef, module_name, source, w_includes=None,
         from cffi import recompiler     # needs to be at least cffi 1.0.4
         from cffi import ffiplatform
     except ImportError:
-        py.test.skip("system cffi module not found or older than 1.0.0")
+        pytest.skip("system cffi module not found or older than 1.0.0")
     if w_min_version is None:
         min_version = (1, 4, 0)
     else:
         min_version = tuple(space.unwrap(w_min_version))
     if cffi.__version_info__ < min_version:
-        py.test.skip("system cffi module needs to be at least %s, got %s" % (
+        pytest.skip("system cffi module needs to be at least %s, got %s" % (
             min_version, cffi.__version_info__))
     space.appexec([], """():
         import _cffi_backend     # force it to be initialized
@@ -66,7 +79,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
             **kwargs)
     ffiplatform.compile(str(rdir), ext)
 
-    for extension in ['so', 'pyd', 'dylib']:
+    for extension in [get_ext_suffix(), 'so', 'pyd', 'dylib']:
         so_file = str(rdir.join('%s.%s' % (path, extension)))
         if os.path.exists(so_file):
             break
@@ -75,8 +88,12 @@ def prepare(space, cdef, module_name, source, w_includes=None,
 
     args_w = [space.wrap(module_name), space.wrap(so_file)]
     w_res = space.appexec(args_w, """(modulename, filename):
-        import imp
-        mod = imp.load_dynamic(modulename, filename)
+        import _imp
+        class Spec: pass
+        spec = Spec()
+        spec.name = modulename
+        spec.origin = filename
+        mod = _imp.create_dynamic(spec)
         assert mod.__name__ == modulename
         return (mod.ffi, mod.lib)
     """)
@@ -93,7 +110,9 @@ class AppTestRecompiler:
 
     def setup_class(cls):
         if cls.runappdirect:
-            py.test.skip("not a test for -A")
+            pytest.skip("not a test for -A")
+        elif sys.platform == 'darwin':
+            pytest.skip('fails untranslated on darwin')
         cls.w_prepare = cls.space.wrap(interp2app(prepare))
         cls.w_udir = cls.space.wrap(str(udir))
         cls.w_os_sep = cls.space.wrap(os.sep)
@@ -344,9 +363,9 @@ class AppTestRecompiler:
             'test_verify_exact_field_offset',
             """struct foo_s { short a; int b; };""")
         e = raises(ffi.error, ffi.new, "struct foo_s *", [])    # lazily
-        assert str(e.value) == ("struct foo_s: wrong offset for field 'b' (cdef "
-                           'says 0, but C compiler says 4). fix it or use "...;" '
-                           "in the cdef for struct foo_s to make it flexible")
+        assert str(e.value).startswith(
+            "struct foo_s: wrong offset for field 'b' (cdef "
+            'says 0, but C compiler says 4). fix it or use "...;" ')
 
     def test_type_caching(self):
         ffi1, lib1 = self.prepare(
@@ -1556,10 +1575,11 @@ class AppTestRecompiler:
             return n * 10
         with self.StdErrCapture() as f:
             res = lib.bar(321)
+        msg = f.getvalue()
         assert res is None
-        assert f.getvalue() == (
-            "From cffi callback %r:\n" % (bar,) +
-            "Trying to convert the result back to C:\n"
+        assert "rom cffi callback %r" % (bar,) in msg
+        assert "rying to convert the result back to C:\n" in msg
+        assert msg.endswith(
             "TypeError: callback with the return type 'void' must return None\n")
 
     def test_extern_python_redefine(self):
@@ -1672,6 +1692,7 @@ class AppTestRecompiler:
         raises(TypeError, ffi.def_extern(name='bar', onerror=42),
                        lambda x: x)
 
+    @pytest.mark.skipif("not config.option.runappdirect")
     def test_extern_python_stdcall(self):
         ffi, lib = self.prepare("""
             extern "Python" int __stdcall foo(int);
@@ -2141,3 +2162,31 @@ class AppTestRecompiler:
         assert seen == [2 * 4, p]
         ffi.release(p)    # no effect
         assert seen == [2 * 4, p]
+
+    def test_struct_with_func_with_struct_arg(self):
+        ffi, lib = self.prepare("""struct BinaryTree {
+                int (* CompareKey)(struct BinaryTree tree);
+            };""",
+            "test_struct_with_func_with_struct_arg", """
+            struct BinaryTree {
+                int (* CompareKey)(struct BinaryTree tree);
+            };
+        """)
+        e = raises(RuntimeError, ffi.new, "struct BinaryTree *")
+        # we should check e.value, but untranslated it crashes with a
+        # regular recursion error.  There is a chance it occurs translated
+        # too, but likely the check in the code ">= 1000" usually triggers
+        # before that, and raise a RuntimeError too, but with the more
+        # explicit message.
+
+    def test_call_function_offset_in_bytes(self):
+        from _cffi_backend import _offset_in_bytes
+        ffi, lib = self.prepare("""
+        int foo(char* arg);
+        """, "test_call_function_offset_in_bytes", """
+        int foo(char* arg) {
+            return(arg[0] * 10);
+        }
+        """)
+        assert lib.foo(_offset_in_bytes(b"foo", 0)) == ord(b"f") * 10
+        assert lib.foo(_offset_in_bytes(b"foobxo", 4)) == ord(b"x") * 10

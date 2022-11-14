@@ -4,9 +4,8 @@ import signal
 import sys
 import _winapi
 
-from . import context
+from .context import reduction, get_spawning_popen, set_spawning_popen
 from . import spawn
-from . import reduction
 from . import util
 
 __all__ = ['Popen']
@@ -18,6 +17,18 @@ __all__ = ['Popen']
 TERMINATE = 0x10000
 WINEXE = (sys.platform == 'win32' and getattr(sys, 'frozen', False))
 WINSERVICE = sys.executable.lower().endswith("pythonservice.exe")
+
+
+def _path_eq(p1, p2):
+    return p1 == p2 or os.path.normcase(p1) == os.path.normcase(p2)
+
+WINENV = not _path_eq(sys.executable, sys._base_executable)
+
+
+def _close_handles(*handles):
+    for handle in handles:
+        _winapi.CloseHandle(handle)
+
 
 #
 # We define a Popen class similar to the one from subprocess, but
@@ -33,20 +44,35 @@ class Popen(object):
     def __init__(self, process_obj):
         prep_data = spawn.get_preparation_data(process_obj._name)
 
-        # read end of pipe will be "stolen" by the child process
+        # read end of pipe will be duplicated by the child process
         # -- see spawn_main() in spawn.py.
+        #
+        # bpo-33929: Previously, the read end of pipe was "stolen" by the child
+        # process, but it leaked a handle if the child process had been
+        # terminated before it could steal the handle from the parent process.
         rhandle, whandle = _winapi.CreatePipe(None, 0)
         wfd = msvcrt.open_osfhandle(whandle, 0)
         cmd = spawn.get_command_line(parent_pid=os.getpid(),
                                      pipe_handle=rhandle)
         cmd = ' '.join('"%s"' % x for x in cmd)
 
+        python_exe = spawn.get_executable()
+
+        # bpo-35797: When running in a venv, we bypass the redirect
+        # executor and launch our base Python.
+        if WINENV and _path_eq(python_exe, sys.executable):
+            python_exe = sys._base_executable
+            env = os.environ.copy()
+            env["__PYVENV_LAUNCHER__"] = sys.executable
+        else:
+            env = None
+
         with open(wfd, 'wb', closefd=True) as to_child:
             # start process
             try:
                 hp, ht, pid, tid = _winapi.CreateProcess(
-                    spawn.get_executable(), cmd,
-                    None, None, False, 0, None, None, None)
+                    python_exe, cmd,
+                    None, None, False, 0, env, None, None)
                 _winapi.CloseHandle(ht)
             except:
                 _winapi.CloseHandle(rhandle)
@@ -57,18 +83,19 @@ class Popen(object):
             self.returncode = None
             self._handle = hp
             self.sentinel = int(hp)
-            util.Finalize(self, _winapi.CloseHandle, (self.sentinel,))
+            self.finalizer = util.Finalize(self, _close_handles,
+                                           (self.sentinel, int(rhandle)))
 
             # send information to child
-            context.set_spawning_popen(self)
+            set_spawning_popen(self)
             try:
                 reduction.dump(prep_data, to_child)
                 reduction.dump(process_obj, to_child)
             finally:
-                context.set_spawning_popen(None)
+                set_spawning_popen(None)
 
     def duplicate_for_child(self, handle):
-        assert self is context.get_spawning_popen()
+        assert self is get_spawning_popen()
         return reduction.duplicate(handle, self.sentinel)
 
     def wait(self, timeout=None):
@@ -97,3 +124,8 @@ class Popen(object):
             except OSError:
                 if self.wait(timeout=1.0) is None:
                     raise
+
+    kill = terminate
+
+    def close(self):
+        self.finalizer()

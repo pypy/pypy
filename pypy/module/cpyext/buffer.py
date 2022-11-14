@@ -23,9 +23,8 @@ class CBuffer(RawBuffer):
     def getitem(self, index):
         return self.view.ptr[index]
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         assert step == 1
-        assert stop - start == size
         ptr = rffi.ptradd(cts.cast('char *', self.view.ptr), start)
         return rffi.charpsize2str(ptr, size)
 
@@ -192,13 +191,14 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
 DEFAULT_FMT = rffi.str2charp("B")
 
 @cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
-              lltype.Signed, lltype.Signed], rffi.INT, error=-1)
+              rffi.INT_real, rffi.INT_real], rffi.INT, error=-1)
 def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     """
     Fills in a buffer-info structure correctly for an exporter that can only
     share a contiguous chunk of memory of "unsigned bytes" of the given
     length. Returns 0 on success and -1 (with raising an error) on error.
     """
+    readonly = widen(readonly)
     flags = widen(flags)
     if flags & PyBUF_WRITABLE and readonly:
         raise oefmt(space.w_ValueError, "Object is not writable")

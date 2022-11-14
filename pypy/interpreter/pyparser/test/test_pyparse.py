@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import py
+import pytest
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError, TabError
@@ -12,9 +13,9 @@ class TestPythonParser:
     def setup_class(self):
         self.parser = pyparse.PythonParser(self.space)
 
-    def parse(self, source, mode="exec", info=None):
+    def parse(self, source, mode="exec", info=None, flags=0):
         if info is None:
-            info = pyparse.CompileInfo("<test>", mode)
+            info = pyparse.CompileInfo("<test>", mode, flags=flags)
         return self.parser.parse_source(source, info)
 
     def test_with_and_as(self):
@@ -57,6 +58,8 @@ stuff = "nothing"
         input = "\xEF\xBB\xBF# coding: latin-1\nx"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == "UTF-8 BOM with latin-1 coding cookie"
+        input = "\xEF\xBB\xBF# coding: UtF-8-yadda-YADDA\nx"
+        self.parse(input)    # this does not raise
         input = "# coding: not-here"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == "Unknown encoding: not-here"
@@ -107,7 +110,7 @@ stuff = "nothing"
 def f():
 pass"""
         exc = py.test.raises(IndentationError, parse, input).value
-        assert exc.msg == "expected an indented block"
+        assert exc.msg == "expected an indented block after function definition on line 2"
         assert exc.lineno == 3
         assert exc.text.startswith("pass")
         assert exc.offset == 1
@@ -119,6 +122,28 @@ pass"""
         assert exc.msg == "unindent does not match any outer indentation level"
         assert exc.lineno == 3
         assert exc.offset == 3
+
+        input = """
+if 1\
+        > 3:
+pass"""
+        exc = py.test.raises(IndentationError, parse, input).value
+        assert exc.msg == "expected an indented block after 'if' statement on line 2"
+        assert exc.lineno == 3
+        assert exc.text.startswith("pass")
+        assert exc.offset == 1
+
+        input = """
+if x > 1:
+    pass
+elif x < 1:
+pass"""
+        exc = py.test.raises(IndentationError, parse, input).value
+        assert exc.msg == "expected an indented block after 'elif' statement on line 4"
+        assert exc.lineno == 5
+        assert exc.text.startswith("pass")
+        assert exc.offset == 1
+
 
     def test_taberror(self):
         src = """
@@ -213,23 +238,157 @@ if 1:
 
     def test_async_await(self):
         self.parse("async def coro(): await func")
-        py.test.raises(SyntaxError, self.parse, 'await x')
+        self.parse("await x")
         #Test as var and func name
-        self.parse("async = 1")
-        self.parse("await = 1")
-        self.parse("def async(): pass")
+        with pytest.raises(SyntaxError):
+            self.parse("async = 1")
+        with pytest.raises(SyntaxError):
+            self.parse("await = 1")
+        with pytest.raises(SyntaxError):
+            self.parse("def async(): pass")
         #async for
         self.parse("""async def foo():
     async for a in b:
         pass""")
-        py.test.raises(SyntaxError, self.parse, 'def foo(): async for a in b: pass')
+        self.parse("""def foo():
+    async for a in b:
+        pass""")
         #async with
         self.parse("""async def foo():
     async with a:
         pass""")
-        py.test.raises(SyntaxError, self.parse, 'def foo(): async with a: pass')
-        
-        
+        self.parse('''def foo():
+        async with a:
+            pass''')
+
+    def test_async_await_hacks(self):
+        def parse(source):
+            return self.parse(source, flags=consts.PyCF_ASYNC_HACKS)
+
+        # legal syntax
+        parse("async def coro(): await func")
+
+        # legal syntax for 3.6<=
+        parse("async = 1")
+        parse("await = 1")
+        parse("def async(): pass")
+        parse("def await(): pass")
+        parse("""async def foo():
+    async for a in b:
+        pass""")
+
+        # illegal syntax for 3.6<=
+        with pytest.raises(SyntaxError):
+            parse("await x")
+        with pytest.raises(SyntaxError):
+            parse("async for a in b: pass")
+        with pytest.raises(SyntaxError):
+            parse("def foo(): async for a in b: pass")
+        with pytest.raises(SyntaxError):
+            parse("def foo(): async for a in b: pass")
+
+    def test_number_underscores(self):
+        VALID_UNDERSCORE_LITERALS = [
+            '0_0_0',
+            '4_2',
+            '1_0000_0000',
+            '0b1001_0100',
+            '0xffff_ffff',
+            '0o5_7_7',
+            '1_00_00.5',
+            '1_00_00.5e5',
+            '1_00_00e5_1',
+            '1e1_0',
+            '.1_4',
+            '.1_4e1',
+            '0b_0',
+            '0x_f',
+            '0o_5',
+            '1_00_00j',
+            '1_00_00.5j',
+            '1_00_00e5_1j',
+            '.1_4j',
+            '(1_2.5+3_3j)',
+            '(.5_6j)',
+            '.2_3',
+            '.2_3e4',
+            '1.2_3',
+            '1.2_3_4',
+            '12.000_400',
+            '1_2.3_4',
+            '1_2.3_4e5_6',
+        ]
+        INVALID_UNDERSCORE_LITERALS = [
+            # Trailing underscores:
+            '0_',
+            '42_',
+            '1.4j_',
+            '0x_',
+            '0b1_',
+            '0xf_',
+            '0o5_',
+            '0 if 1_Else 1',
+            # Underscores in the base selector:
+            '0_b0',
+            '0_xf',
+            '0_o5',
+            # Old-style octal, still disallowed:
+            '0_7',
+            '09_99',
+            # Multiple consecutive underscores:
+            '4_______2',
+            '0.1__4',
+            '0.1__4j',
+            '0b1001__0100',
+            '0xffff__ffff',
+            '0x___',
+            '0o5__77',
+            '1e1__0',
+            '1e1__0j',
+            # Underscore right before a dot:
+            '1_.4',
+            '1_.4j',
+            # Underscore right after a dot:
+            '1._4',
+            '1._4j',
+            '._5',
+            '._5j',
+            # Underscore right after a sign:
+            '1.0e+_1',
+            '1.0e+_1j',
+            # Underscore right before j:
+            '1.4_j',
+            '1.4e5_j',
+            # Underscore right before e:
+            '1_e1',
+            '1.4_e1',
+            '1.4_e1j',
+            # Underscore right after e:
+            '1e_1',
+            '1.4e_1',
+            '1.4e_1j',
+            # Complex cases with parens:
+            '(1+1.5_j_)',
+            '(1+1.5_j)',
+            # Extra underscores around decimal part
+            '._3',
+            '._3e4',
+            '1.2_',
+            '1._3_4',
+            '12._',
+            '1_2._3',
+        ]
+        for x in VALID_UNDERSCORE_LITERALS:
+            tree = self.parse(x)
+        for x in INVALID_UNDERSCORE_LITERALS:
+            print x
+            py.test.raises(SyntaxError, self.parse, "x = %s" % x)
+
+    def test_end_positions(self):
+        tree = self.parse("45 * a", "eval").get_child(0)
+        assert tree.get_end_column() == 6
+
+
 
 class TestPythonParserWithSpace:
 
@@ -290,6 +449,15 @@ stuff = "nothing"
         assert "(expected ':')" in info.value.msg
         info = py.test.raises(SyntaxError, self.parse, "def f:\n print 1")
         assert "(expected '(')" in info.value.msg
+
+    def test_positional_only_args(self):
+        self.parse("def f(a, /): pass")
+
+    def test_error_print_without_parens(self):
+        info = py.test.raises(SyntaxError, self.parse, "print 1")
+        assert "Missing parentheses in call to 'print'" in info.value.msg
+        info = py.test.raises(SyntaxError, self.parse, "print 1)")
+        assert "unmatched" in info.value.msg
 
 class TestPythonParserRevDB(TestPythonParser):
     spaceconfig = {"translation.reverse_debugger": True}

@@ -40,14 +40,20 @@ details of which can be found in our :ref:`contact <contact>` section. The folks
 there are very friendly, and can point you in the right direction.
 
 We give out commit rights usually fairly liberally, so if you want to do something
-with PyPy, you can become a committer. We also run frequent coding sprints which
-are separately announced and often happen around Python conferences such as
-EuroPython or PyCon. Upcoming events are usually announced on `the blog`_.
+with PyPy, you can become a "developer" by logging into https://foss.heptapod.net
+and clicking the "Request Access" link on the `PyPy group page`. We also run
+coding sprints which are separately announced and are usually announced on `the
+blog`_.
+
+Like any Open Source project, issues should be filed on the `issue tracker`_,
+and `merge requests`_ to fix issues are welcome.
 
 Further Reading: :ref:`Contact <contact>`
 
-.. _the blog: http://morepypy.blogspot.com
-.. _pypy-dev mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
+.. _the blog: https://pypy.org/blog
+.. _pypy-dev mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
+.. _`PyPy group page`: https://foss.heptapod.net/pypy
+.. _`merge requests`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/merge_requests
 
 
 Your first contribution
@@ -70,43 +76,62 @@ Some ideas for first contributions are:
 * Test failures - find a failing test in the `nightly builds`_, and fix it
 * Missing language features - these are listed in our `issue tracker`_
 
-.. _nightly builds: http://buildbot.pypy.org/nightly/
-.. _issue tracker: https://bitbucket.org/pypy/pypy/issues
+.. _nightly builds: https://buildbot.pypy.org/nightly/
+.. _issue tracker: https://foss.heptapod.net/pypy/pypy/issues
 
 Source Control
 --------------
 
-PyPy development is based a typical fork/pull request based workflow, centered
-around Mercurial (hg), hosted on Bitbucket. If you have not used this workflow
-before, a good introduction can be found here:
+PyPy's main repositories are hosted here: https://foss.heptapod.net/pypy.
 
-    https://www.atlassian.com/git/tutorials/comparing-workflows/forking-workflow
+`Heptapod <https://heptapod.net/>`_ is a friendly fork of GitLab Community
+Edition supporting Mercurial. https://foss.heptapod.net is a public instance
+for Free and Open-Source Software (more information `here
+<https://foss.heptapod.net/heptapod/foss.heptapod.net>`_).
 
-The cycle for a new PyPy contributor goes typically like this:
+Thanks to `Octobus <https://octobus.net/>`_ and `Clever Cloud
+<https://www.clever-cloud.com>`_ for providing this service!
 
-Fork & Clone
-------------
+.. raw:: html
 
-* Make an account on bitbucket_.
+   <h1 align="center">
+     <a href="https://foss.heptapod.net/heptapod/foss.heptapod.net">
+       <img width="500" alt="Octobus + Clever Cloud"
+            src="https://foss.heptapod.net/heptapod/slides/2020-FOSDEM/raw/branch/default/octobus+clever.png"
+            >
+     </a>
+   </h1>
 
-* Go to https://bitbucket.org/pypy/pypy/ and click "fork" (left
-  icons).  You get a fork of the repository, e.g. in
-  `https://bitbucket.org/yourname/pypy/`.
+Get Access
+----------
 
-* Clone your new repo (i.e. the fork) to your local machine with the command
-  ``hg clone ssh://hg@bitbucket.org/yourname/pypy``.  It is a very slow
+As stated above, you need to request access to the repo.
+Since the free hosting on foss.heptapod.net does not allow personal forks, you
+need permissions to push your changes directly to our repo. Once you sign in to
+https://foss.heptapod.net using either a new login or your GitHub or Atlassian
+logins, you can get developer status for pushing directly to
+the project (just ask by clicking the link at foss.heptapod.net/pypy just under
+the logo, and you'll get it, basically).  Once you have it you can rewrite your
+file ``.hg/hgrc`` to contain ``default = ssh://hg@foss.heptapod.net/pypy/pypy``.
+Your changes will then be pushed directly to a branch on the official repo, and
+we will review the branches you want to merge.
+
+Clone
+-----
+
+* Clone the PyPy repo to your local machine with the command
+  ``hg clone https://foss.heptapod.net/pypy/pypy``.  It takes a minute or two
   operation but only ever needs to be done once.  See also
-  http://pypy.org/download.html#building-from-source .
-  If you already cloned
-  ``https://bitbucket.org/pypy/pypy`` before, even if some time ago,
+  https://pypy.org/download.html#building-from-source .
+  If you already cloned the repo before, even if some time ago,
   then you can reuse the same clone by editing the file ``.hg/hgrc`` in
   your clone to contain the line ``default =
-  ssh://hg@bitbucket.org/yourname/pypy``, and then do ``hg pull && hg
+  https://foss.heptapod.net/pypy/pypy``, and then do ``hg pull && hg
   up``.  If you already have such a clone but don't want to change it,
   you can clone that copy with ``hg clone /path/to/other/copy``, and
   then edit ``.hg/hgrc`` as above and do ``hg pull && hg up``.
 
-* Now you have a complete copy of the PyPy repo.  Make a branch
+* Now you have a complete copy of the PyPy repo.  Make a long-lived branch
   with a command like ``hg branch name_of_your_branch``.
 
 Edit
@@ -138,42 +163,31 @@ Edit
   locally present.
 
 * You should push often; there is no real reason not to.  Remember that
-  even if they are pushed, with the setup above, the commits are (1)
-  only in ``bitbucket.org/yourname/pypy``, and (2) in the branch you
+  even if they are pushed, with the setup above, the commits are only in the
+  branch you
   named.  Yes, they are publicly visible, but don't worry about someone
-  walking around the thousands of repos on bitbucket saying "hah, look
-  at the bad coding style of that guy".  Try to get into the mindset
+  walking around the many branches of PyPy saying "hah, look
+  at the bad coding style of that person".  Try to get into the mindset
   that your work is not secret and it's fine that way.  We might not
   accept it as is for PyPy, asking you instead to improve some things,
-  but we are not going to judge you.
+  but we are not going to judge you unless you don't write tests.
 
-Pull Request
-------------
+Merge Request
+-------------
 
-* The final step is to open a pull request, so that we know that you'd
+* The final step is to open a merge request, so that we know that you'd
   like to merge that branch back to the original ``pypy/pypy`` repo.
   This can also be done several times if you have interesting
   intermediate states, but if you get there, then we're likely to
   proceed to the next stage, which is...
 
-* Get a regular account for pushing directly to
-  ``bitbucket.org/pypy/pypy`` (just ask and you'll get it, basically).
-  Once you have it you can rewrite your file ``.hg/hgrc`` to contain
-  ``default = ssh://hg@bitbucket.org/pypy/pypy``.  Your changes will
-  then be pushed directly to the official repo, but (if you follow these
-  rules) they are still on a branch, and we can still review the
-  branches you want to merge.
-
 * If you get closer to the regular day-to-day development, you'll notice
   that we generally push small changes as one or a few commits directly
-  to the branch ``default``.  Also, we often collaborate even if we are
-  on other branches, which do not really "belong" to anyone.  At this
+  to the branch ``default`` or ``py3.6``.  Also, we often collaborate even if
+  we are on other branches, which do not really "belong" to anyone.  At this
   point you'll need ``hg merge`` and learn how to resolve conflicts that
   sometimes occur when two people try to push different commits in
   parallel on the same branch.  But it is likely an issue for later ``:-)``
-
-.. _bitbucket: https://bitbucket.org/
-
 
 Architecture
 ^^^^^^^^^^^^
@@ -253,43 +267,30 @@ of very high quality requirements for compilers and partly because there is
 simply no other way to get around such complex project, that will keep you sane.
 There are probably people out there who are smart enough not to need it, we're
 not one of those. You may consider familiarizing yourself with `pytest`_,
-since this is a tool we use for tests.
-This leads to the next issue:
+since this is a tool we use for tests. We ship our own tweaked version of
+pytest in the top of the tree, so ``python -m pytest`` will pick up our version,
+which means our tests need to run with that version of pytest.
 
-.. _pytest: http://pytest.org/
+We also have post-translation tests in the ``extra_tests`` directory that are
+run in a virtual environment from a separate directory, so they use a more
+up-to-date version of pytest. As much as possible, these are meant to be
+pass with CPython as well.
 
-py.test and the py lib
-----------------------
-
-The `py.test testing tool`_ drives all our testing needs.
-
-We use the `py library`_ for filesystem path manipulations, terminal
-writing, logging and some other support  functionality.
-
-You don't necessarily need to install these two libraries because
-we also ship them inlined in the PyPy source tree.
-
-.. _py library: http://pylib.readthedocs.org/
+.. _pytest: https://pytest.org/
 
 Running PyPy's unit tests
 -------------------------
 
 PyPy development always was and is still thoroughly test-driven.
-We use the flexible `py.test testing tool`_ which you can `install independently
-<http://pytest.org/latest/getting-started.html#getstarted>`_ and use for other projects.
+There are two modes of tests: those that run on top of RPython before
+translation (untranslated tests) and those that run on top of a translated
+``pypy`` (app tests). Since RPython is a dialect of Python2, the untranslated
+tests run with a python2 host. 
 
 The PyPy source tree comes with an inlined version of ``py.test``
 which you can invoke by typing::
 
-    python pytest.py -h
-
-This is usually equivalent to using an installed version::
-
-    py.test -h
-
-If you encounter problems with the installed version
-make sure you have the correct version installed which
-you can find out with the ``--version`` switch.
+    python2 pytest.py -h
 
 You will need the `build requirements`_ to run tests successfully, since many of
 them compile little pieces of PyPy and then run the tests inside that minimal
@@ -299,41 +300,41 @@ cases with `hypothesis`.
 Now on to running some tests.  PyPy has many different test directories
 and you can use shell completion to point at directories or files::
 
-    py.test pypy/interpreter/test/test_pyframe.py
+    python2 pytest.py pypy/interpreter/test/test_pyframe.py
 
     # or for running tests of a whole subdirectory
-    py.test pypy/interpreter/
-
-See `py.test usage and invocations`_ for some more generic info
-on how you can run tests.
+    python2 pytest.py pypy/interpreter/
 
 Beware trying to run "all" pypy tests by pointing to the root
 directory or even the top level subdirectory ``pypy``.  It takes
 hours and uses huge amounts of RAM and is not recommended.
 
-To run CPython regression tests you can point to the ``lib-python``
-directory::
+To run CPython regression tests, you should start with a translated PyPy and
+run the tests as you would with CPython (see below).  You can, however, also
+attempt to run the tests before translation, but be aware that it is done with
+a hack that doesn't work in all cases and it is usually extremely slow:
+``py.test lib-python/2.7/test/test_datetime.py``.  Usually, a better idea is to
+extract a minimal failing test of at most a few lines, and put it into one of
+our own tests in ``pypy/*/test/``.
 
-    py.test lib-python/2.7/test/test_datetime.py
-
-This will usually take a long time because this will run
-the PyPy Python interpreter on top of CPython.  On the plus
-side, it's usually still faster than doing a full translation
-and running the regression test with the translated PyPy Python
-interpreter.
-
-.. _py.test testing tool: http://pytest.org
-.. _py.test usage and invocations: http://pytest.org/latest/usage.html#usage
 .. _`build requirements`: build.html#install-build-time-dependencies
 
-Testing After Translation
-^^^^^^^^^^^^^^^^^^^^^^^^^
+App level testing
+^^^^^^^^^^^^^^^^^
 
-While the usual invocation of `pytest` translates a piece of RPython code and
-runs it, we have a test extension to run tests without translation, directly
-on the host python. This is very convenient for modules such as `cpyext`, to
-compare and contrast test results between CPython and PyPy. Untranslated tests
-are invoked by using the `-A` or `--runappdirect` option to `pytest`::
+While the usual invocation of `python2 pytest.py` runs app-level tests on an
+untranslated PyPy that runs on top of CPython, we have a test extension to run tests
+directly on the host python. This is very convenient for modules such as
+`cpyext`, to compare and contrast test results between CPython and PyPy.
+
+App-level tests (ones whose file name start with ``apptest_`` not ``test_``)
+run directly on the host interpreter when passing `-D` or
+`--direct-apptest` to `pytest`::
+
+    pypy3 -m pytest -D pypy/interpreter/test/apptest_pyframe.py
+
+Mixed-level tests (the usual ones that start with ``test_``) are invoked by using the `-A` or `--runappdirect` option to
+`pytest`::
 
     python2 pytest.py -A pypy/module/cpyext/test
 
@@ -341,7 +342,22 @@ where `python2` can be either `python2` or `pypy2`. On the `py3` branch, the
 collection phase must be run with `python2` so untranslated tests are run
 with::
 
-    cpython2 pytest.py -A pypy/module/cpyext/test --python=path/to/pypy3
+    python2 pytest.py -A pypy/module/cpyext/test --python=path/to/pypy3
+
+
+Testing After Translation
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you run translation, you will end up with a binary named ``pypy-c`` (or
+``pypy3-c`` for the Python3 branches) in the directory where you ran the
+translation.
+
+To run a test from the standard CPython regression test suite, use the regular
+Python way, i.e. (use the exact binary name)::
+
+    ./pypy3-c -m test.test_datetime
+    # or
+    ./pypy3-c lib-python/3/test/test_audit.py
 
 
 Tooling & Utilities
@@ -457,7 +473,7 @@ Demos
 The `example-interpreter`_ repository contains an example interpreter
 written using the RPython translation toolchain.
 
-.. _example-interpreter: https://bitbucket.org/pypy/example-interpreter
+.. _example-interpreter: https://foss.heptapod.net/pypy/example-interpreter
 
 
 graphviz & pygame for flow graph viewing (highly recommended)
@@ -466,7 +482,7 @@ graphviz & pygame for flow graph viewing (highly recommended)
 graphviz and pygame are both necessary if you want to look at generated flow
 graphs:
 
-    graphviz: http://www.graphviz.org/Download.php
+    graphviz: https://www.graphviz.org/Download.php
 
-    pygame: http://www.pygame.org/download.shtml
+    pygame: https://www.pygame.org/download.shtml
 

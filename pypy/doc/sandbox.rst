@@ -3,10 +3,14 @@
 PyPy's sandboxing features
 ==========================
 
-.. warning:: This is not actively maintained. You will likely have to fix
-   some issues yourself, or otherwise play around on your own. We provide
-   this documentation for historical reasions, it will not translate or
-   run on the latest PyPy code base.
+.. warning:: This describes the old, unmaintained version.  A new version
+   is in progress in the ``sandbox-2`` and ``py3.6-sandbox-2`` branches and in
+   the sandboxlib_ repo.
+   Please see its description here:
+   https://mail.python.org/pipermail/pypy-dev/2019-August/015797.html
+
+   Also note that python 3.7+ requires the _thread module, which may be
+   a consideration in escaping the sandbox.
 
 Introduction
 ------------
@@ -27,8 +31,9 @@ Note that this is very different from sandboxing at the Python language
 level, i.e. placing restrictions on what kind of Python code the
 attacker is allowed to run (why? read about pysandbox_).
 
-.. _SECCOMP: http://code.google.com/p/seccompsandbox/wiki/overview
+.. _SECCOMP: https://code.google.com/p/seccompsandbox/wiki/overview
 .. _pysandbox: https://mail.python.org/pipermail/python-dev/2013-November/130132.html
+.. _sandboxlib: https://foss.heptapod.net/pypy/sandboxlib
 
 Another point of comparison: if we were instead to try to plug CPython
 into a special virtualizing C library, we would get a result
@@ -116,7 +121,7 @@ If you don't have a regular PyPy installed, you should, because it's
 faster to translate; but you can also run the same line with ``python``
 in front.
 
-.. _repository: https://bitbucket.org/pypy/pypy
+.. _repository: https://foss.heptapod.net/pypy/pypy
 
 
 To run it, use the tools in the pypy/sandbox directory::

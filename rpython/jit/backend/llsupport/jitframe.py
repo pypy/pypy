@@ -49,7 +49,6 @@ def jitframe_allocate(frame_info):
     rgc.register_custom_trace_hook(JITFRAME, lambda_jitframe_trace)
     frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth)
     frame.jf_frame_info = frame_info
-    frame.jf_extra_stack_depth = 0
     return frame
 
 def jitframe_resolve(frame):
@@ -71,8 +70,6 @@ JITFRAME.become(lltype.GcStruct(
     ('jf_force_descr', llmemory.GCREF),
     # a map of GC pointers
     ('jf_gcmap', lltype.Ptr(GCMAP)),
-    # how much we decrease stack pointer. Used around calls and malloc slowpath
-    ('jf_extra_stack_depth', lltype.Signed),
     # For the front-end: a GCREF for the savedata
     ('jf_savedata', llmemory.GCREF),
     # For GUARD_(NO)_EXCEPTION and GUARD_NOT_FORCED: the exception we
@@ -103,14 +100,13 @@ BASEITEMOFS = llmemory.itemoffsetof(JITFRAME.jf_frame, 0)
 LENGTHOFS = llmemory.arraylengthoffset(JITFRAME.jf_frame)
 SIGN_SIZE = llmemory.sizeof(lltype.Signed)
 UNSIGN_SIZE = llmemory.sizeof(lltype.Unsigned)
-STACK_DEPTH_OFS = getofs('jf_extra_stack_depth')
 
-def jitframe_trace(gc, obj_addr, callback, arg):
-    gc._trace_callback(callback, arg, obj_addr + getofs('jf_descr'))
-    gc._trace_callback(callback, arg, obj_addr + getofs('jf_force_descr'))
-    gc._trace_callback(callback, arg, obj_addr + getofs('jf_savedata'))
-    gc._trace_callback(callback, arg, obj_addr + getofs('jf_guard_exc'))
-    gc._trace_callback(callback, arg, obj_addr + getofs('jf_forward'))
+def jitframe_trace(gc, obj_addr, callback, arg1, arg2):
+    gc._trace_callback(callback, arg1, arg2, obj_addr + getofs('jf_descr'))
+    gc._trace_callback(callback, arg1, arg2,obj_addr + getofs('jf_force_descr'))
+    gc._trace_callback(callback, arg1, arg2, obj_addr + getofs('jf_savedata'))
+    gc._trace_callback(callback, arg1, arg2, obj_addr + getofs('jf_guard_exc'))
+    gc._trace_callback(callback, arg1, arg2, obj_addr + getofs('jf_forward'))
 
     if IS_32BIT:
         MAX = 32
@@ -132,7 +128,7 @@ def jitframe_trace(gc, obj_addr, callback, arg):
                 frame_lgt = (obj_addr + getofs('jf_frame') + LENGTHOFS) \
                     .signed[0]
                 ll_assert(index < frame_lgt, "bogus frame field get")
-                gc._trace_callback(callback, arg,
+                gc._trace_callback(callback, arg1, arg2,
                                    obj_addr + getofs('jf_frame') +
                                    BASEITEMOFS + SIGN_SIZE * index)
             bitindex += 1

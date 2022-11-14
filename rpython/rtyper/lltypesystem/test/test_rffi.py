@@ -28,7 +28,8 @@ class BaseTestRffi:
         }
         """)
 
-        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source],
+                                      pre_include_bits=("int someexternalfunction(int);",))
         z = llexternal('someexternalfunction', [Signed], Signed,
                        compilation_info=eci)
 
@@ -89,7 +90,7 @@ class BaseTestRffi:
         assert xf() == 3
 
     def test_unicode(self):
-        eci = ExternalCompilationInfo(includes=['string.h'])
+        eci = ExternalCompilationInfo(includes=['string.h', 'wchar.h'])
         z = llexternal('wcslen', [CWCHARP], Signed, compilation_info=eci)
 
         def f():
@@ -142,6 +143,50 @@ class BaseTestRffi:
         xf = self.compile(f, [], backendopt=False)
         assert xf() == 3
 
+    def test_constcharp2str(self):
+        c_source = py.code.Source("""
+        const char *z(void)
+        {
+            return "hello world";
+        }
+        """)
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source],
+                                     post_include_bits=['const char *z(void);'])
+        z = llexternal('z', [], CONST_CCHARP, compilation_info=eci)
+
+        def f():
+            l_buf = lltype.malloc(CCHARP.TO, 5, flavor='raw')
+            l_buf[0] = 'A'
+            l_buf[1] = 'B'
+            l_buf[2] = 'C'
+            l_buf[3] = '\x00'
+            l_buf[4] = 'E'
+            l_constbuf = cast(CONST_CCHARP, l_buf)
+            res = constcharp2str(l_constbuf)
+            lltype.free(l_buf, flavor='raw')
+            return len(res)
+
+        assert f() == 3
+        xf = self.compile(f, [], backendopt=False)
+        assert xf() == 3
+
+    def test_constcharpsize2str(self):
+        def f():
+            l_buf = lltype.malloc(CCHARP.TO, 5, flavor='raw')
+            l_buf[0] = 'A'
+            l_buf[1] = 'B'
+            l_buf[2] = 'C'
+            l_buf[3] = '\x00'
+            l_buf[4] = 'E'
+            l_constbuf = cast(CONST_CCHARP, l_buf)
+            res = constcharpsize2str(l_constbuf, 5)
+            lltype.free(l_buf, flavor='raw')
+            return res
+
+        assert f() == "ABC\x00E"
+        xf = self.compile(f, [], backendopt=False)
+        assert xf() == "ABC\x00E"
+
     def test_stringstar(self):
         c_source = """
         #include <string.h>
@@ -156,7 +201,8 @@ class BaseTestRffi:
             return (l);
         }
         """
-        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source],
+                                      pre_include_bits=('int f(char**);',))
         z = llexternal('f', [CCHARPP], Signed, compilation_info=eci)
 
         def f():
@@ -178,6 +224,7 @@ class BaseTestRffi:
            char two;
            int three;
         };
+        int f(struct xx*);
         #endif
         """
         h_file = udir.join("structxx.h")
@@ -240,7 +287,7 @@ class BaseTestRffi:
 
     def test_extra_include_dirs(self):
         udir.ensure("incl", dir=True)
-        udir.join("incl", "incl.h").write("#define C 3")
+        udir.join("incl", "incl.h").write("#define C 3\nint fun();")
         c_source = py.code.Source("""
         #include <incl.h>
         int fun ()
@@ -276,6 +323,7 @@ class BaseTestRffi:
         struct stuff {
            char data[38];
         };
+        char get(struct stuff *);
         #endif /* _OPAQUE_H */
         """)
 
@@ -535,7 +583,7 @@ class BaseTestRffi:
     def test_nonmovingbuffer(self):
         d = 'some cool data that should not move'
         def f():
-            buf, flag = get_nonmovingbuffer(d)
+            buf, llobj, flag = get_nonmovingbuffer_ll(d)
             try:
                 counter = 0
                 for i in range(len(d)):
@@ -543,7 +591,7 @@ class BaseTestRffi:
                         counter += 1
                 return counter
             finally:
-                free_nonmovingbuffer(d, buf, flag)
+                free_nonmovingbuffer_ll(buf, llobj, flag)
         assert f() == len(d)
         fn = self.compile(f, [], gcpolicy='ref')
         assert fn() == len(d)
@@ -553,13 +601,13 @@ class BaseTestRffi:
         def f():
             counter = 0
             for n in range(32):
-                buf, flag = get_nonmovingbuffer(d)
+                buf, llobj, flag = get_nonmovingbuffer_ll(d)
                 try:
                     for i in range(len(d)):
                         if buf[i] == d[i]:
                             counter += 1
                 finally:
-                    free_nonmovingbuffer(d, buf, flag)
+                    free_nonmovingbuffer_ll(buf, llobj, flag)
             return counter
         fn = self.compile(f, [], gcpolicy='semispace')
         # The semispace gc uses raw_malloc for its internal data structs
@@ -574,13 +622,13 @@ class BaseTestRffi:
         def f():
             counter = 0
             for n in range(32):
-                buf, flag = get_nonmovingbuffer(d)
+                buf, llobj, flag = get_nonmovingbuffer_ll(d)
                 try:
                     for i in range(len(d)):
                         if buf[i] == d[i]:
                             counter += 1
                 finally:
-                    free_nonmovingbuffer(d, buf, flag)
+                    free_nonmovingbuffer_ll(buf, llobj, flag)
             return counter
         fn = self.compile(f, [], gcpolicy='incminimark')
         # The incminimark gc uses raw_malloc for its internal data structs
@@ -755,6 +803,11 @@ class TestRffiInternals:
             lltype.Unsigned: ctypes.c_ulong,
             lltype.UniChar:  ctypes.c_wchar,
             lltype.Char:     ctypes.c_ubyte,
+        }
+        if sys.platform == 'win32' and sys.maxint > 2**32:
+            cache[lltype.Signed] = ctypes.c_longlong
+            cache[lltype.Unsigned] = ctypes.c_ulonglong
+        cache2 = {
             DOUBLE:     ctypes.c_double,
             FLOAT:      ctypes.c_float,
             SIGNEDCHAR: ctypes.c_byte,
@@ -768,9 +821,12 @@ class TestRffiInternals:
             LONGLONG:   ctypes.c_longlong,
             ULONGLONG:  ctypes.c_ulonglong,
             SIZE_T:     ctypes.c_size_t,
-            }
+        }
 
         for ll, ctp in cache.items():
+            assert sizeof(ll) == ctypes.sizeof(ctp)
+            assert sizeof(lltype.Typedef(ll, 'test')) == sizeof(ll)
+        for ll, ctp in cache2.items():
             assert sizeof(ll) == ctypes.sizeof(ctp)
             assert sizeof(lltype.Typedef(ll, 'test')) == sizeof(ll)
         assert not size_and_sign(lltype.Signed)[1]
@@ -813,7 +869,7 @@ def test_ptradd_interpret():
     interpret(test_ptradd, [])
 
 def test_voidptr():
-    assert repr(VOIDP) == "<* Array of void >"
+    assert repr(VOIDP) == "<* Array of void {'nolength': True, 'render_as_void': True} >"
 
 class TestCRffi(BaseTestRffi):
     def compile(self, func, args, **kwds):
@@ -862,7 +918,7 @@ class TestCRffi(BaseTestRffi):
             del os.environ['PYPYLOG']
 
         import re
-        r = re.compile(r"freeing str [[] [0-9a-fx]+ []]")
+        r = re.compile(r"freeing str [[] [0-9a-fxA-FX]+ []]")
         matches = r.findall(error)
         assert len(matches) == 10000        # must be all 10000 strings,
         assert len(set(matches)) == 10000   # and no duplicates
@@ -916,6 +972,15 @@ def test_scoped_view_charp():
         assert buf[1] == 'a'
         assert buf[2] == 'r'
         assert buf[3] == '\x00'
+
+def test_scoped_nonmoving_unicodebuffer():
+    s = u'bar'
+    with scoped_nonmoving_unicodebuffer(s) as buf:
+        assert buf[0] == u'b'
+        assert buf[1] == u'a'
+        assert buf[2] == u'r'
+        with py.test.raises(IndexError):
+            buf[3]
 
 def test_wcharp2utf8n():
     w = 'hello\x00\x00\x00\x00'

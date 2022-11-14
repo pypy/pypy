@@ -12,8 +12,6 @@ extern "C" {
 #define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
 #define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 
-#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
-
 /*
 CPython has this for backwards compatibility with really old extensions, and now
 we have it for compatibility with CPython.
@@ -21,10 +19,10 @@ we have it for compatibility with CPython.
 #define staticforward static
 
 #define PyObject_HEAD_INIT(type)	\
-	1, 0, type,
+	{ 1, 0, type },
 
 #define PyVarObject_HEAD_INIT(type, size)	\
-	PyObject_HEAD_INIT(type) size,
+	{ PyObject_HEAD_INIT(type) size },
 
 #ifdef PYPY_DEBUG_REFCOUNT
 /* Slow version, but useful for debugging */
@@ -101,11 +99,18 @@ PyAPI_FUNC(void) _Py_Finalize(PyObject *);
 
 #define Py_None (&_Py_NoneStruct)
 
+/* Macro for returning Py_None from a function */
+#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
+
 /*
 Py_NotImplemented is a singleton used to signal that an operation is
 not implemented for a given type combination.
 */
 #define Py_NotImplemented (&_Py_NotImplementedStruct)
+
+/* Macro for returning Py_NotImplemented from a function */
+#define Py_RETURN_NOTIMPLEMENTED \
+    return Py_INCREF(Py_NotImplemented), Py_NotImplemented
 
 /* Rich comparison opcodes */
 /*
@@ -186,6 +191,9 @@ given type object has a specified feature.
 /* Set if the type allows subclassing */
 #define Py_TPFLAGS_BASETYPE (1L<<10)
 
+/* Set if the type implements the vectorcall protocol (PEP 590) */
+#define _Py_TPFLAGS_HAVE_VECTORCALL (1UL << 11)
+
 /* Set if the type is 'ready' -- fully initialized */
 #define Py_TPFLAGS_READY (1L<<12)
 
@@ -201,6 +209,9 @@ given type object has a specified feature.
 #else
 #define Py_TPFLAGS_HAVE_STACKLESS_EXTENSION 0
 #endif
+
+/* Objects behave like an unbound method */
+#define Py_TPFLAGS_METHOD_DESCRIPTOR (1UL << 17)
 
 /* Objects support type attribute cache */
 #define Py_TPFLAGS_HAVE_VERSION_TAG   (1L<<18)
@@ -220,9 +231,6 @@ given type object has a specified feature.
 #define Py_TPFLAGS_TYPE_SUBCLASS        (1UL << 31)
 
 
-/* These are conceptually the same as the flags above, but they are
-   PyPy-specific and are stored inside tp_pypy_flags */
-#define Py_TPPYPYFLAGS_FLOAT_SUBCLASS (1L<<0)
 
     
 #define Py_TPFLAGS_DEFAULT  ( \
@@ -236,6 +244,8 @@ given type object has a specified feature.
 /* Type structure has tp_finalize member (3.4) */
 #define Py_TPFLAGS_HAVE_FINALIZE (1UL << 0)
 
+PyAPI_FUNC(long) PyType_GetFlags(PyTypeObject*);
+
 #ifdef Py_LIMITED_API
 #define PyType_HasFeature(t,f)  ((PyType_GetFlags(t) & (f)) != 0)
 #else
@@ -243,7 +253,9 @@ given type object has a specified feature.
 #endif
 #define PyType_FastSubclass(t,f)  PyType_HasFeature(t,f)
 
-#define _PyPy_Type_FastSubclass(t,f) (((t)->tp_pypy_flags & (f)) != 0)
+#if !defined(Py_LIMITED_API)
+PyAPI_FUNC(void*) PyType_GetSlot(PyTypeObject*, int);
+#endif
     
 #define PyType_Check(op) \
     PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
@@ -446,6 +458,17 @@ PyAPI_FUNC(PyVarObject *) PyObject_InitVar(PyVarObject *,
 #ifndef Py_LIMITED_API
 PyAPI_FUNC(int) PyObject_CallFinalizerFromDealloc(PyObject *);
 #endif
+
+/*
+ * On CPython with Py_REF_DEBUG these use _PyRefTotal, _Py_NegativeRefcount,
+ * _Py_GetRefTotal, ...
+ * So far we ignore Py_REF_DEBUG
+ */
+
+#define _Py_INC_REFTOTAL
+#define _Py_DEC_REFTOTAL
+#define _Py_REF_DEBUG_COMMA
+#define _Py_CHECK_REFCNT(OP)    /* a semicolon */;
 
 
 /* PyPy internal ----------------------------------- */

@@ -1,12 +1,15 @@
 import unittest
 import unittest.mock
 import random
+import os
 import time
 import pickle
 import warnings
 from functools import partial
-from math import log, exp, pi, fsum, sin
+from math import log, exp, pi, fsum, sin, factorial
 from test import support
+from fractions import Fraction
+
 
 class TestBasicOps:
     # Superclass with tests common to all generators.
@@ -21,7 +24,7 @@ class TestBasicOps:
         self.gen.seed()
         state1 = self.gen.getstate()
         time.sleep(0.1)
-        self.gen.seed()      # diffent seeds at different times
+        self.gen.seed()      # different seeds at different times
         state2 = self.gen.getstate()
         self.assertNotEqual(state1, state2)
 
@@ -49,7 +52,7 @@ class TestBasicOps:
     @unittest.mock.patch('random._urandom') # os.urandom
     def test_seed_when_randomness_source_not_found(self, urandom_mock):
         # Random.seed() uses time.time() when an operating system specific
-        # randomness source is not found. To test this on machines were it
+        # randomness source is not found. To test this on machines where it
         # exists, run the above test, test_seedargs(), again after mocking
         # os.urandom() so that it raises the exception expected when the
         # randomness source is not available.
@@ -87,6 +90,15 @@ class TestBasicOps:
         self.assertTrue(lst != shuffled_lst)
         shuffle(lst)
         self.assertTrue(lst != shuffled_lst)
+        self.assertRaises(TypeError, shuffle, (1, 2, 3))
+
+    def test_shuffle_random_argument(self):
+        # Test random argument to shuffle.
+        shuffle = self.gen.shuffle
+        mock_random = unittest.mock.Mock(return_value=0.5)
+        seq = bytearray(b'abcdefghijk')
+        shuffle(seq, mock_random)
+        mock_random.assert_called_with()
 
     def test_choice(self):
         choice = self.gen.choice
@@ -109,6 +121,7 @@ class TestBasicOps:
         self.assertEqual(self.gen.sample([], 0), [])  # test edge case N==k==0
         # Exception raised if size of sample exceeds that of population
         self.assertRaises(ValueError, self.gen.sample, population, N+1)
+        self.assertRaises(ValueError, self.gen.sample, [], -1)
 
     def test_sample_distribution(self):
         # For the entire allowable range of 0 <= k <= N, validate that
@@ -116,10 +129,6 @@ class TestBasicOps:
         n = 5
         pop = range(n)
         trials = 10000  # large num prevents false negatives without slowing normal case
-        def factorial(n):
-            if n == 0:
-                return 1
-            return n * factorial(n - 1)
         for k in range(n):
             expected = factorial(n) // factorial(n-k)
             perms = {}
@@ -140,6 +149,91 @@ class TestBasicOps:
 
     def test_sample_on_dicts(self):
         self.assertRaises(TypeError, self.gen.sample, dict.fromkeys('abcdef'), 2)
+
+    def test_choices(self):
+        choices = self.gen.choices
+        data = ['red', 'green', 'blue', 'yellow']
+        str_data = 'abcd'
+        range_data = range(4)
+        set_data = set(range(4))
+
+        # basic functionality
+        for sample in [
+            choices(data, k=5),
+            choices(data, range(4), k=5),
+            choices(k=5, population=data, weights=range(4)),
+            choices(k=5, population=data, cum_weights=range(4)),
+        ]:
+            self.assertEqual(len(sample), 5)
+            self.assertEqual(type(sample), list)
+            self.assertTrue(set(sample) <= set(data))
+
+        # test argument handling
+        with self.assertRaises(TypeError):                               # missing arguments
+            choices(2)
+
+        self.assertEqual(choices(data, k=0), [])                         # k == 0
+        self.assertEqual(choices(data, k=-1), [])                        # negative k behaves like ``[0] * -1``
+        with self.assertRaises(TypeError):
+            choices(data, k=2.5)                                         # k is a float
+
+        self.assertTrue(set(choices(str_data, k=5)) <= set(str_data))    # population is a string sequence
+        self.assertTrue(set(choices(range_data, k=5)) <= set(range_data))  # population is a range
+        with self.assertRaises(TypeError):
+            choices(set_data, k=2)                                       # population is not a sequence
+
+        self.assertTrue(set(choices(data, None, k=5)) <= set(data))      # weights is None
+        self.assertTrue(set(choices(data, weights=None, k=5)) <= set(data))
+        with self.assertRaises(ValueError):
+            choices(data, [1,2], k=5)                                    # len(weights) != len(population)
+        with self.assertRaises(TypeError):
+            choices(data, 10, k=5)                                       # non-iterable weights
+        with self.assertRaises(TypeError):
+            choices(data, [None]*4, k=5)                                 # non-numeric weights
+        for weights in [
+                [15, 10, 25, 30],                                                 # integer weights
+                [15.1, 10.2, 25.2, 30.3],                                         # float weights
+                [Fraction(1, 3), Fraction(2, 6), Fraction(3, 6), Fraction(4, 6)], # fractional weights
+                [True, False, True, False]                                        # booleans (include / exclude)
+        ]:
+            self.assertTrue(set(choices(data, weights, k=5)) <= set(data))
+
+        with self.assertRaises(ValueError):
+            choices(data, cum_weights=[1,2], k=5)                        # len(weights) != len(population)
+        with self.assertRaises(TypeError):
+            choices(data, cum_weights=10, k=5)                           # non-iterable cum_weights
+        with self.assertRaises(TypeError):
+            choices(data, cum_weights=[None]*4, k=5)                     # non-numeric cum_weights
+        with self.assertRaises(TypeError):
+            choices(data, range(4), cum_weights=range(4), k=5)           # both weights and cum_weights
+        for weights in [
+                [15, 10, 25, 30],                                                 # integer cum_weights
+                [15.1, 10.2, 25.2, 30.3],                                         # float cum_weights
+                [Fraction(1, 3), Fraction(2, 6), Fraction(3, 6), Fraction(4, 6)], # fractional cum_weights
+        ]:
+            self.assertTrue(set(choices(data, cum_weights=weights, k=5)) <= set(data))
+
+        # Test weight focused on a single element of the population
+        self.assertEqual(choices('abcd', [1, 0, 0, 0]), ['a'])
+        self.assertEqual(choices('abcd', [0, 1, 0, 0]), ['b'])
+        self.assertEqual(choices('abcd', [0, 0, 1, 0]), ['c'])
+        self.assertEqual(choices('abcd', [0, 0, 0, 1]), ['d'])
+
+        # Test consistency with random.choice() for empty population
+        with self.assertRaises(IndexError):
+            choices([], k=1)
+        with self.assertRaises(IndexError):
+            choices([], weights=[], k=1)
+        with self.assertRaises(IndexError):
+            choices([], cum_weights=[], k=5)
+
+    def test_choices_subnormal(self):
+        # Subnormal weights would occasionally trigger an IndexError
+        # in choices() when the value returned by random() was large
+        # enough to make `random() * total` round up to the total.
+        # See https://bugs.python.org/msg275594 for more detail.
+        choices = self.gen.choices
+        choices(population=[1, 2], weights=[1e-323, 1e-323], k=5000)
 
     def test_gauss(self):
         # Ensure that the seed() method initializes all the hidden state.  In
@@ -174,9 +268,8 @@ class TestBasicOps:
                  ("randv2_64.pck", 866),
                  ("randv3.pck", 343)]
         for file, value in files:
-            f = open(support.findfile(file),"rb")
-            r = pickle.load(f)
-            f.close()
+            with open(support.findfile(file),"rb") as f:
+                r = pickle.load(f)
             self.assertEqual(int(r.random()*1000), value)
 
     def test_bug_9025(self):
@@ -344,10 +437,49 @@ class MersenneTwister_TestBasicOps(TestBasicOps, unittest.TestCase):
             ['0x1.b0580f98a7dbep-1', '0x1.84129978f9c1ap-1',
              '0x1.aeaa51052e978p-2', '0x1.092178fb945a6p-2'])
 
+    def test_bug_31478(self):
+        # There shouldn't be an assertion failure in _random.Random.seed() in
+        # case the argument has a bad __abs__() method.
+        class BadInt(int):
+            def __abs__(self):
+                return None
+        try:
+            self.gen.seed(BadInt())
+        except TypeError:
+            pass
+
+    def test_bug_31482(self):
+        # Verify that version 1 seeds are unaffected by hash randomization
+        # when the seeds are expressed as bytes rather than strings.
+        # The hash(b) values listed are the Python2.7 hash() values
+        # which were used for seeding.
+
+        self.gen.seed(b'nofar', version=1)   # hash('nofar') == 5990528763808513177
+        self.assertEqual([self.gen.random().hex() for i in range(4)],
+            ['0x1.8645314505ad7p-1', '0x1.afb1f82e40a40p-5',
+             '0x1.2a59d2285e971p-1', '0x1.56977142a7880p-6'])
+
+        self.gen.seed(b'rachel', version=1)  # hash('rachel') == -9091735575445484789
+        self.assertEqual([self.gen.random().hex() for i in range(4)],
+            ['0x1.0b294cc856fcdp-1', '0x1.2ad22d79e77b8p-3',
+             '0x1.3052b9c072678p-2', '0x1.578f332106574p-3'])
+
+        self.gen.seed(b'', version=1)        # hash('') == 0
+        self.assertEqual([self.gen.random().hex() for i in range(4)],
+            ['0x1.b0580f98a7dbep-1', '0x1.84129978f9c1ap-1',
+             '0x1.aeaa51052e978p-2', '0x1.092178fb945a6p-2'])
+
+        b = b'\x00\x20\x40\x60\x80\xA0\xC0\xE0\xF0'
+        self.gen.seed(b, version=1)         # hash(b) == 5015594239749365497
+        self.assertEqual([self.gen.random().hex() for i in range(4)],
+            ['0x1.52c2fde444d23p-1', '0x1.875174f0daea4p-2',
+             '0x1.9e9b2c50e5cd2p-1', '0x1.fa57768bd321cp-2'])
+
     def test_setstate_first_arg(self):
         self.assertRaises(ValueError, self.gen.setstate, (1, None, None))
 
     def test_setstate_middle_arg(self):
+        start_state = self.gen.getstate()
         # Wrong type, s/b tuple
         self.assertRaises(TypeError, self.gen.setstate, (2, None, None))
         # Wrong length, s/b 625
@@ -361,6 +493,10 @@ class MersenneTwister_TestBasicOps(TestBasicOps, unittest.TestCase):
             self.gen.setstate((2, (1,)*624+(625,), None))
         with self.assertRaises((ValueError, OverflowError)):
             self.gen.setstate((2, (1,)*624+(-1,), None))
+        # Failed calls to setstate() should not have changed the state.
+        bits100 = self.gen.getrandbits(100)
+        self.gen.setstate(start_state)
+        self.assertEqual(self.gen.getrandbits(100), bits100)
 
         # Little trick to make "tuple(x % (2**32) for x in internalstate)"
         # raise ValueError. I cannot think of a simple way to achieve this, so
@@ -490,6 +626,16 @@ class MersenneTwister_TestBasicOps(TestBasicOps, unittest.TestCase):
         self.assertRaises(ValueError, self.gen.getrandbits, 0)
         self.assertRaises(ValueError, self.gen.getrandbits, -1)
 
+    def test_randrange_uses_getrandbits(self):
+        # Verify use of getrandbits by randrange
+        # Use same seed as in the cross-platform repeatability test
+        # in test_genrandbits above.
+        self.gen.seed(1234567)
+        # If randrange uses getrandbits, it should pick getrandbits(100)
+        # when called with a 100-bits stop argument.
+        self.assertEqual(self.gen.randrange(2**99),
+                         97904845777343510404718956115)
+
     def test_randbelow_logic(self, _log=log, int=int):
         # check bitcount transition points:  2**i and 2**(i+1)-1
         # show that: k = int(1.001 + _log(n, 2))
@@ -511,17 +657,21 @@ class MersenneTwister_TestBasicOps(TestBasicOps, unittest.TestCase):
             self.assertEqual(k, numbits)        # note the stronger assertion
             self.assertTrue(2**k > n > 2**(k-1))   # note the stronger assertion
 
-    @unittest.mock.patch('random.Random.random')
-    def test_randbelow_overridden_random(self, random_mock):
+    def test_randbelow_without_getrandbits(self):
         # Random._randbelow() can only use random() when the built-in one
         # has been overridden but no new getrandbits() method was supplied.
-        random_mock.side_effect = random.SystemRandom().random
         maxsize = 1<<random.BPF
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             # Population range too large (n >= maxsize)
-            self.gen._randbelow(maxsize+1, maxsize = maxsize)
-        self.gen._randbelow(5640, maxsize = maxsize)
+            self.gen._randbelow_without_getrandbits(
+                maxsize+1, maxsize=maxsize
+            )
+        self.gen._randbelow_without_getrandbits(5640, maxsize=maxsize)
+        # issue 33203: test that _randbelow raises ValueError on
+        # n == 0 also in its getrandbits-independent branch.
+        with self.assertRaises(ValueError):
+            self.gen._randbelow_without_getrandbits(0, maxsize=maxsize)
 
         # This might be going too far to test a single line, but because of our
         # noble aim of achieving 100% test coverage we need to write a case in
@@ -540,8 +690,10 @@ class MersenneTwister_TestBasicOps(TestBasicOps, unittest.TestCase):
         n = 42
         epsilon = 0.01
         limit = (maxsize - (maxsize % n)) / maxsize
-        random_mock.side_effect = [limit + epsilon, limit - epsilon]
-        self.gen._randbelow(n, maxsize = maxsize)
+        with unittest.mock.patch.object(random.Random, 'random') as random_mock:
+            random_mock.side_effect = [limit + epsilon, limit - epsilon]
+            self.gen._randbelow_without_getrandbits(n, maxsize=maxsize)
+            self.assertEqual(random_mock.call_count, 2)
 
     def test_randrange_bug_1590891(self):
         start = 1000000000000
@@ -550,6 +702,39 @@ class MersenneTwister_TestBasicOps(TestBasicOps, unittest.TestCase):
         x = self.gen.randrange(start, stop, step)
         self.assertTrue(stop < x <= start)
         self.assertEqual((x+stop)%step, 0)
+
+    def test_choices_algorithms(self):
+        # The various ways of specifying weights should produce the same results
+        choices = self.gen.choices
+        n = 104729
+
+        self.gen.seed(8675309)
+        a = self.gen.choices(range(n), k=10000)
+
+        self.gen.seed(8675309)
+        b = self.gen.choices(range(n), [1]*n, k=10000)
+        self.assertEqual(a, b)
+
+        self.gen.seed(8675309)
+        c = self.gen.choices(range(n), cum_weights=range(1, n+1), k=10000)
+        self.assertEqual(a, c)
+
+        # American Roulette
+        population = ['Red', 'Black', 'Green']
+        weights = [18, 18, 2]
+        cum_weights = [18, 36, 38]
+        expanded_population = ['Red'] * 18 + ['Black'] * 18 + ['Green'] * 2
+
+        self.gen.seed(9035768)
+        a = self.gen.choices(expanded_population, k=10000)
+
+        self.gen.seed(9035768)
+        b = self.gen.choices(population, weights, k=10000)
+        self.assertEqual(a, b)
+
+        self.gen.seed(9035768)
+        c = self.gen.choices(population, cum_weights=cum_weights, k=10000)
+        self.assertEqual(a, c)
 
 def gamma(z, sqrt2pi=(2.0*pi)**0.5):
     # Reflection to right half of complex plane
@@ -667,28 +852,48 @@ class TestDistributions(unittest.TestCase):
         self.assertRaises(ValueError, random.gammavariate, 2, 0)
         self.assertRaises(ValueError, random.gammavariate, 1, -3)
 
+    # There are three different possibilities in the current implementation
+    # of random.gammavariate(), depending on the value of 'alpha'. What we
+    # are going to do here is to fix the values returned by random() to
+    # generate test cases that provide 100% line coverage of the method.
     @unittest.mock.patch('random.Random.random')
-    def test_gammavariate_full_code_coverage(self, random_mock):
-        # There are three different possibilities in the current implementation
-        # of random.gammavariate(), depending on the value of 'alpha'. What we
-        # are going to do here is to fix the values returned by random() to
-        # generate test cases that provide 100% line coverage of the method.
+    def test_gammavariate_alpha_greater_one(self, random_mock):
 
-        # #1: alpha > 1.0: we want the first random number to be outside the
+        # #1: alpha > 1.0.
+        # We want the first random number to be outside the
         # [1e-7, .9999999] range, so that the continue statement executes
         # once. The values of u1 and u2 will be 0.5 and 0.3, respectively.
         random_mock.side_effect = [1e-8, 0.5, 0.3]
         returned_value = random.gammavariate(1.1, 2.3)
         self.assertAlmostEqual(returned_value, 2.53)
 
-        # #2: alpha == 1: first random number less than 1e-7 to that the body
-        # of the while loop executes once. Then random.random() returns 0.45,
-        # which causes while to stop looping and the algorithm to terminate.
-        random_mock.side_effect = [1e-8, 0.45]
-        returned_value = random.gammavariate(1.0, 3.14)
-        self.assertAlmostEqual(returned_value, 2.507314166123803)
+    @unittest.mock.patch('random.Random.random')
+    def test_gammavariate_alpha_equal_one(self, random_mock):
 
-        # #3: 0 < alpha < 1. This is the most complex region of code to cover,
+        # #2.a: alpha == 1.
+        # The execution body of the while loop executes once.
+        # Then random.random() returns 0.45,
+        # which causes while to stop looping and the algorithm to terminate.
+        random_mock.side_effect = [0.45]
+        returned_value = random.gammavariate(1.0, 3.14)
+        self.assertAlmostEqual(returned_value, 1.877208182372648)
+
+    @unittest.mock.patch('random.Random.random')
+    def test_gammavariate_alpha_equal_one_equals_expovariate(self, random_mock):
+
+        # #2.b: alpha == 1.
+        # It must be equivalent of calling expovariate(1.0 / beta).
+        beta = 3.14
+        random_mock.side_effect = [1e-8, 1e-8]
+        gammavariate_returned_value = random.gammavariate(1.0, beta)
+        expovariate_returned_value = random.expovariate(1.0 / beta)
+        self.assertAlmostEqual(gammavariate_returned_value, expovariate_returned_value)
+
+    @unittest.mock.patch('random.Random.random')
+    def test_gammavariate_alpha_between_zero_and_one(self, random_mock):
+
+        # #3: 0 < alpha < 1.
+        # This is the most complex region of code to cover,
         # as there are multiple if-else statements. Let's take a look at the
         # source code, and determine the values that we need accordingly:
         #
@@ -761,6 +966,100 @@ class TestDistributions(unittest.TestCase):
         gammavariate_mock.return_value = 0.0
         self.assertEqual(0.0, random.betavariate(2.71828, 3.14159))
 
+
+class TestRandomSubclassing(unittest.TestCase):
+    def test_random_subclass_with_kwargs(self):
+        # SF bug #1486663 -- this used to erroneously raise a TypeError
+        class Subclass(random.Random):
+            def __init__(self, newarg=None):
+                random.Random.__init__(self)
+        Subclass(newarg=1)
+
+    def test_subclasses_overriding_methods(self):
+        # Subclasses with an overridden random, but only the original
+        # getrandbits method should not rely on getrandbits in for randrange,
+        # but should use a getrandbits-independent implementation instead.
+
+        # subclass providing its own random **and** getrandbits methods
+        # like random.SystemRandom does => keep relying on getrandbits for
+        # randrange
+        class SubClass1(random.Random):
+            def random(self):
+                called.add('SubClass1.random')
+                return random.Random.random(self)
+
+            def getrandbits(self, n):
+                called.add('SubClass1.getrandbits')
+                return random.Random.getrandbits(self, n)
+        called = set()
+        SubClass1().randrange(42)
+        self.assertEqual(called, {'SubClass1.getrandbits'})
+
+        # subclass providing only random => can only use random for randrange
+        class SubClass2(random.Random):
+            def random(self):
+                called.add('SubClass2.random')
+                return random.Random.random(self)
+        called = set()
+        SubClass2().randrange(42)
+        self.assertEqual(called, {'SubClass2.random'})
+
+        # subclass defining getrandbits to complement its inherited random
+        # => can now rely on getrandbits for randrange again
+        class SubClass3(SubClass2):
+            def getrandbits(self, n):
+                called.add('SubClass3.getrandbits')
+                return random.Random.getrandbits(self, n)
+        called = set()
+        SubClass3().randrange(42)
+        self.assertEqual(called, {'SubClass3.getrandbits'})
+
+        # subclass providing only random and inherited getrandbits
+        # => random takes precedence
+        class SubClass4(SubClass3):
+            def random(self):
+                called.add('SubClass4.random')
+                return random.Random.random(self)
+        called = set()
+        SubClass4().randrange(42)
+        self.assertEqual(called, {'SubClass4.random'})
+
+        # Following subclasses don't define random or getrandbits directly,
+        # but inherit them from classes which are not subclasses of Random
+        class Mixin1:
+            def random(self):
+                called.add('Mixin1.random')
+                return random.Random.random(self)
+        class Mixin2:
+            def getrandbits(self, n):
+                called.add('Mixin2.getrandbits')
+                return random.Random.getrandbits(self, n)
+
+        class SubClass5(Mixin1, random.Random):
+            pass
+        called = set()
+        SubClass5().randrange(42)
+        self.assertEqual(called, {'Mixin1.random'})
+
+        class SubClass6(Mixin2, random.Random):
+            pass
+        called = set()
+        SubClass6().randrange(42)
+        self.assertEqual(called, {'Mixin2.getrandbits'})
+
+        class SubClass7(Mixin1, Mixin2, random.Random):
+            pass
+        called = set()
+        SubClass7().randrange(42)
+        self.assertEqual(called, {'Mixin1.random'})
+
+        class SubClass8(Mixin2, Mixin1, random.Random):
+            pass
+        called = set()
+        SubClass8().randrange(42)
+        self.assertEqual(called, {'Mixin2.getrandbits'})
+
+
 class TestModule(unittest.TestCase):
     def testMagicConstants(self):
         self.assertAlmostEqual(random.NV_MAGICCONST, 1.71552776992141)
@@ -772,12 +1071,29 @@ class TestModule(unittest.TestCase):
         # tests validity but not completeness of the __all__ list
         self.assertTrue(set(random.__all__) <= set(dir(random)))
 
-    def test_random_subclass_with_kwargs(self):
-        # SF bug #1486663 -- this used to erroneously raise a TypeError
-        class Subclass(random.Random):
-            def __init__(self, newarg=None):
-                random.Random.__init__(self)
-        Subclass(newarg=1)
+    @unittest.skipUnless(hasattr(os, "fork"), "fork() required")
+    def test_after_fork(self):
+        # Test the global Random instance gets reseeded in child
+        r, w = os.pipe()
+        pid = os.fork()
+        if pid == 0:
+            # child process
+            try:
+                val = random.getrandbits(128)
+                with open(w, "w") as f:
+                    f.write(str(val))
+            finally:
+                os._exit(0)
+        else:
+            # parent process
+            os.close(w)
+            val = random.getrandbits(128)
+            with open(r, "r") as f:
+                child_val = eval(f.read())
+            self.assertNotEqual(val, child_val)
+
+            pid, status = os.waitpid(pid, 0)
+            self.assertEqual(status, 0)
 
 
 if __name__ == "__main__":

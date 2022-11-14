@@ -1,8 +1,10 @@
+import errno
 import os
 import sys
 import textwrap
 import unittest
-import subprocess
+
+from subprocess import Popen, PIPE
 from test import support
 from test.support.script_helper import assert_python_ok
 
@@ -60,19 +62,40 @@ class TestTool(unittest.TestCase):
     ]
     """)
 
+    jsonlines_raw = textwrap.dedent("""\
+    {"ingredients":["frog", "water", "chocolate", "glucose"]}
+    {"ingredients":["chocolate","steel bolts"]}
+    """)
+
+    jsonlines_expect = textwrap.dedent("""\
+    {
+        "ingredients": [
+            "frog",
+            "water",
+            "chocolate",
+            "glucose"
+        ]
+    }
+    {
+        "ingredients": [
+            "chocolate",
+            "steel bolts"
+        ]
+    }
+    """)
+
     def test_stdin_stdout(self):
-        with subprocess.Popen(
-                (sys.executable, '-m', 'json.tool'),
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE) as proc:
+        args = sys.executable, '-m', 'json.tool'
+        with Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE) as proc:
             out, err = proc.communicate(self.data.encode())
         self.assertEqual(out.splitlines(), self.expect.encode().splitlines())
-        self.assertEqual(err, None)
+        self.assertEqual(err, b'')
 
-    def _create_infile(self):
+    def _create_infile(self, data=None):
         infile = support.TESTFN
-        with open(infile, "w") as fp:
+        with open(infile, "w", encoding="utf-8") as fp:
             self.addCleanup(os.remove, infile)
-            fp.write(self.data)
+            fp.write(data or self.data)
         return infile
 
     def test_infile_stdout(self):
@@ -80,6 +103,21 @@ class TestTool(unittest.TestCase):
         rc, out, err = assert_python_ok('-m', 'json.tool', infile)
         self.assertEqual(rc, 0)
         self.assertEqual(out.splitlines(), self.expect.encode().splitlines())
+        self.assertEqual(err, b'')
+
+    def test_non_ascii_infile(self):
+        data = '{"msg": "\u3053\u3093\u306b\u3061\u306f"}'
+        expect = textwrap.dedent('''\
+        {
+            "msg": "\\u3053\\u3093\\u306b\\u3061\\u306f"
+        }
+        ''').encode()
+
+        infile = self._create_infile(data)
+        rc, out, err = assert_python_ok('-m', 'json.tool', infile)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(out.splitlines(), expect.splitlines())
         self.assertEqual(err, b'')
 
     def test_infile_outfile(self):
@@ -91,6 +129,13 @@ class TestTool(unittest.TestCase):
             self.assertEqual(fp.read(), self.expect)
         self.assertEqual(rc, 0)
         self.assertEqual(out, b'')
+        self.assertEqual(err, b'')
+
+    def test_jsonlines(self):
+        args = sys.executable, '-m', 'json.tool', '--json-lines'
+        with Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE) as proc:
+            out, err = proc.communicate(self.jsonlines_raw.encode())
+        self.assertEqual(out.splitlines(), self.jsonlines_expect.encode().splitlines())
         self.assertEqual(err, b'')
 
     def test_help_flag(self):
@@ -106,3 +151,12 @@ class TestTool(unittest.TestCase):
         self.assertEqual(out.splitlines(),
                          self.expect_without_sort_keys.encode().splitlines())
         self.assertEqual(err, b'')
+
+    @unittest.skipIf(sys.platform =="win32", "The test is failed with ValueError on Windows")
+    def test_broken_pipe_error(self):
+        cmd = [sys.executable, '-m', 'json.tool']
+        proc = Popen(cmd, stdout=PIPE, stdin=PIPE)
+        # bpo-39828: Closing before json.tool attempts to write into stdout.
+        proc.stdout.close()
+        proc.communicate(b'"{}"')
+        self.assertEqual(proc.returncode, errno.EPIPE)

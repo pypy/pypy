@@ -2,10 +2,12 @@
 """
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.typedef import Function, GeneratorIterator, PyTraceback, \
+from pypy.interpreter.typedef import Function, PyTraceback, \
     PyFrame, PyCode
-from pypy.objspace.std.proxyobject import W_Transparent
+from pypy.interpreter.generator import GeneratorIterator
+from pypy.objspace.std.proxyobject import W_Transparent, W_TransparentBaseException
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.module.exceptions import interp_exceptions
 from rpython.rlib.unroll import unrolling_iterable
 
 
@@ -62,6 +64,8 @@ completely controlled by the controller."""
             return W_TransparentGenerator(space, w_type, w_controller)
         if space.issubtype_w(w_type, space.gettypeobject(PyCode.typedef)):
             return W_TransparentCode(space, w_type, w_controller)
+        if space.issubtype_w(w_type, space.gettypeobject(interp_exceptions.W_BaseException.typedef)):
+            return W_TransparentBaseException(space, w_type, w_controller)
         if w_type.layout.typedef is space.w_object.layout.typedef:
             return W_Transparent(space, w_type, w_controller)
     else:

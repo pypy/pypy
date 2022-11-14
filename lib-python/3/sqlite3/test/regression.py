@@ -24,6 +24,12 @@
 import datetime
 import unittest
 import sqlite3 as sqlite
+import weakref
+import functools
+from test import support
+
+from unittest.mock import patch
+
 
 class RegressionTests(unittest.TestCase):
     def setUp(self):
@@ -65,7 +71,7 @@ class RegressionTests(unittest.TestCase):
     def CheckColumnNameWithSpaces(self):
         cur = self.con.cursor()
         cur.execute('select 1 as "foo bar [datetime]"')
-        self.assertEqual(cur.description[0][0], "foo bar")
+        self.assertEqual(cur.description[0][0], "foo bar [datetime]")
 
         cur.execute('select 1 as "foo baz"')
         self.assertEqual(cur.description[0][0], "foo baz")
@@ -125,10 +131,24 @@ class RegressionTests(unittest.TestCase):
         con.execute("create table foo(bar timestamp)")
         con.execute("insert into foo(bar) values (?)", (datetime.datetime.now(),))
         con.execute(SELECT)
+        support.gc_collect()  # PyPy change
         con.execute("drop table foo")
         con.execute("create table foo(bar integer)")
         con.execute("insert into foo(bar) values (5)")
         con.execute(SELECT)
+
+    def CheckBindMutatingList(self):
+        # Issue41662: Crash when mutate a list of parameters during iteration.
+        class X:
+            def __conform__(self, protocol):
+                parameters.clear()
+                return "..."
+        parameters = [X(), 0]
+        con = sqlite.connect(":memory:",detect_types=sqlite.PARSE_DECLTYPES)
+        con.execute("create table foo(bar X, baz integer)")
+        # Should not crash
+        with self.assertRaises(IndexError):
+            con.execute("insert into foo(bar, baz) values (?, ?)", parameters)
 
     def CheckErrorMsgDecodeError(self):
         # When porting the module to Python 3.0, the error message about
@@ -188,6 +208,9 @@ class RegressionTests(unittest.TestCase):
         cur = Cursor(con)
         with self.assertRaises(sqlite.ProgrammingError):
             cur.execute("select 4+5").fetchall()
+        with self.assertRaisesRegex(sqlite.ProgrammingError,
+                                    r'^Base Cursor\.__init__ not called\.$'):
+            cur.close()
 
     def CheckStrSubclass(self):
         """
@@ -250,24 +273,6 @@ class RegressionTests(unittest.TestCase):
 
         cur.execute("pragma page_size")
         row = cur.fetchone()
-
-    def CheckSetDict(self):
-        """
-        See http://bugs.python.org/issue7478
-
-        It was possible to successfully register callbacks that could not be
-        hashed. Return codes of PyDict_SetItem were not checked properly.
-        """
-        class NotHashable:
-            def __call__(self, *args, **kw):
-                pass
-            def __hash__(self):
-                raise TypeError()
-        var = NotHashable()
-        self.assertRaises(TypeError, self.con.create_function, var)
-        self.assertRaises(TypeError, self.con.create_aggregate, var)
-        self.assertRaises(TypeError, self.con.set_authorizer, var)
-        self.assertRaises(TypeError, self.con.set_progress_handler, var)
 
     def CheckConnectionCall(self):
         """
@@ -376,10 +381,87 @@ class RegressionTests(unittest.TestCase):
                 counter += 1
         self.assertEqual(counter, 3, "should have returned exactly three rows")
 
+    def CheckBpo31770(self):
+        """
+        The interpreter shouldn't crash in case Cursor.__init__() is called
+        more than once.
+        """
+        def callback(*args):
+            pass
+        con = sqlite.connect(":memory:")
+        cur = sqlite.Cursor(con)
+        ref = weakref.ref(cur, callback)
+        cur.__init__(con)
+        del cur
+        # The interpreter shouldn't crash when ref is collected.
+        del ref
+        support.gc_collect()
+
+    def CheckDelIsolation_levelSegfault(self):
+        with self.assertRaises(AttributeError):
+            del self.con.isolation_level
+
+    def CheckBpo37347(self):
+        class Printer:
+            def log(self, *args):
+                return sqlite.SQLITE_OK
+
+        for method in [self.con.set_trace_callback,
+                       functools.partial(self.con.set_progress_handler, n=1),
+                       self.con.set_authorizer]:
+            printer_instance = Printer()
+            method(printer_instance.log)
+            method(printer_instance.log)
+            self.con.execute("select 1")  # trigger seg fault
+            method(None)
+
+
+
+class RecursiveUseOfCursors(unittest.TestCase):
+    # GH-80254: sqlite3 should not segfault for recursive use of cursors.
+    msg = "Recursive use of cursors not allowed"
+
+    def setUp(self):
+        self.con = sqlite.connect(":memory:",
+                                  detect_types=sqlite.PARSE_COLNAMES)
+        self.cur = self.con.cursor()
+        self.cur.execute("create table test(x foo)")
+        self.cur.executemany("insert into test(x) values (?)",
+                             [("foo",), ("bar",)])
+
+    def tearDown(self):
+        self.cur.close()
+        self.con.close()
+        del self.cur
+        del self.con
+
+    def test_recursive_cursor_init(self):
+        conv = lambda x: self.cur.__init__(self.con)
+        with patch.dict(sqlite.converters, {"INIT": conv}):
+            with self.assertRaisesRegex(sqlite.ProgrammingError, self.msg):
+                self.cur.execute(f'select x as "x [INIT]", x from test')
+
+    def test_recursive_cursor_close(self):
+        conv = lambda x: self.cur.close()
+        with patch.dict(sqlite.converters, {"CLOSE": conv}):
+            with self.assertRaisesRegex(sqlite.ProgrammingError, self.msg):
+                self.cur.execute(f'select x as "x [CLOSE]", x from test')
+
+    def test_recursive_cursor_fetch(self):
+        conv = lambda x, l=[]: self.cur.fetchone() if l else l.append(None)
+        with patch.dict(sqlite.converters, {"ITER": conv}):
+            self.cur.execute(f'select x as "x [ITER]", x from test')
+            with self.assertRaisesRegex(sqlite.ProgrammingError, self.msg):
+                self.cur.fetchall()
+
 
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
-    return unittest.TestSuite((regression_suite,))
+    recursive_cursor = unittest.makeSuite(RecursiveUseOfCursors)
+    return unittest.TestSuite((
+        regression_suite,
+        recursive_cursor,
+    ))
 
 def test():
     runner = unittest.TextTestRunner()

@@ -9,7 +9,7 @@ The highlights of this fourth release of PyPy are:
 
 **implementation of "stackless" features**
     We now support the larger part of the interface of the original
-    Stackless Python -- see http://www.stackless.com for more.  A
+    Stackless Python -- see https://www.stackless.com for more.  A
     significant part of this is the pickling and unpickling of a running
     tasklet.
 
@@ -20,13 +20,13 @@ The highlights of this fourth release of PyPy are:
 **ext-compiler**
     The "extension compiler" is a new way of writing a C extension for
     CPython and PyPy at the same time. For more information, see its
-    documentation: http://codespeak.net/pypy/dist/pypy/doc/extcompiler.html
+    documentation: https://codespeak.net/pypy/dist/pypy/doc/extcompiler.html
 
 **rctypes**
     Most useful in combination with the ext-compiler is the fact that our
     translation framework can translate code that uses the
     standard-in-Python-2.5 ctypes module.  See its documentation for more:
-    http://codespeak.net/pypy/dist/pypy/doc/rctypes.html
+    https://codespeak.net/pypy/dist/pypy/doc/rctypes.html
 
 **framework GCs** 
     PyPy's interpreter can now be compiled to use a garbage collector
@@ -42,7 +42,7 @@ The highlights of this fourth release of PyPy are:
 **logic space preview**
     This release contains the first version of the logic object space,
     which will add logical variables to Python.  See its docs for more:
-    http://codespeak.net/pypy/dist/pypy/doc/howto-logicobjspace-0.9.html
+    https://codespeak.net/pypy/dist/pypy/doc/howto-logicobjspace-0.9.html
 
 **high level backends preview**
     This release contains the first versions of new backends targeting high
@@ -59,7 +59,7 @@ The highlights of this fourth release of PyPy are:
 **testing refinements**
     py.test, our testing tool, now has preliminary support for doctests.
     We now run all our tests every night, and you can see the summary at:
-    http://buildbot.pypy.org/summary
+    https://buildbot.pypy.org/summary
 
 What is PyPy (about)? 
 ------------------------------------------------
@@ -86,11 +86,11 @@ Union's IST programme.
 Where to start? 
 -----------------------------
 
-Getting started:    http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
+Getting started:    https://codespeak.net/pypy/dist/pypy/doc/getting-started.html
 
-PyPy Documentation: http://codespeak.net/pypy/dist/pypy/doc/ 
+PyPy Documentation: https://codespeak.net/pypy/dist/pypy/doc/ 
 
-PyPy Homepage:      http://codespeak.net/pypy/
+PyPy Homepage:      https://codespeak.net/pypy/
 
 The interpreter and object model implementations shipped with the 0.9
 version can run on their own and implement the core language features
@@ -118,14 +118,14 @@ not have got that far without the coding and feedback support
 from numerous people.   Please feel free to give feedback and 
 raise questions. 
 
-    contact points: http://codespeak.net/pypy/dist/pypy/doc/contact.html
+    contact points: https://codespeak.net/pypy/dist/pypy/doc/contact.html
 
 have fun, 
     
     the pypy team, (Armin Rigo, Samuele Pedroni, 
     Holger Krekel, Christian Tismer, 
     Carl Friedrich Bolz, Michael Hudson, 
-    and many others: http://codespeak.net/pypy/dist/pypy/doc/contributor.html)
+    and many others: https://codespeak.net/pypy/dist/pypy/doc/contributor.html)
 
 PyPy development and activities happen as an open source project  
 and with the support of a consortium partially funded by a two 

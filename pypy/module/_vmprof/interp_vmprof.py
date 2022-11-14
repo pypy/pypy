@@ -9,15 +9,15 @@ from pypy.interpreter.error import oefmt
 # ____________________________________________________________
 
 
-_get_code = lambda frame, w_inputvalue, operr: frame.pycode
+_get_code = lambda frame, w_arg_or_err: frame.pycode
 _decorator = rvmprof.vmprof_execute_code("pypy", _get_code, W_Root)
 my_execute_frame = _decorator(PyFrame.execute_frame)
 
 
 class __extend__(PyFrame):
-    def execute_frame(self, in_generator=None, w_arg_or_err=None):
+    def execute_frame(self, w_arg_or_err=None):
         # indirection for the optional arguments
-        return my_execute_frame(self, in_generator, w_arg_or_err)
+        return my_execute_frame(self, w_arg_or_err)
 
 
 def _safe(s):
@@ -60,11 +60,6 @@ def enable(space, fileno, period, memory, lines, native, real_time):
     'interval' is a float representing the sampling interval, in seconds.
     Must be smaller than 1.0
     """
-    w_modules = space.sys.get('modules')
-    #if space.contains_w(w_modules, space.newtext('_continuation')):
-    #    space.warn(space.newtext("Using _continuation/greenlet/stacklet together "
-    #                             "with vmprof will crash"),
-    #               space.w_RuntimeWarning)
     try:
         rvmprof.enable(fileno, period, memory, native, real_time)
     except rvmprof.VMProfError as e:

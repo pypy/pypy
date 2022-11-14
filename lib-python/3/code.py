@@ -7,7 +7,6 @@
 
 import sys
 import traceback
-import argparse
 from codeop import CommandCompiler, compile_command
 
 __all__ = ["InteractiveInterpreter", "InteractiveConsole", "interact",
@@ -41,7 +40,7 @@ class InteractiveInterpreter:
 
         Arguments are as for compile_command().
 
-        One several things can happen:
+        One of several things can happen:
 
         1) The input is incorrect; compile_command() raised an
         exception (SyntaxError or OverflowError).  A syntax traceback
@@ -186,7 +185,7 @@ class InteractiveConsole(InteractiveInterpreter):
         """Reset the input buffer."""
         self.buffer = []
 
-    def interact(self, banner=None):
+    def interact(self, banner=None, exitmsg=None):
         """Closely emulate the interactive Python console.
 
         The optional banner argument specifies the banner to print
@@ -195,6 +194,11 @@ class InteractiveConsole(InteractiveInterpreter):
         followed by the current class name in parentheses (so as not
         to confuse this with the real interpreter -- since it's so
         close!).
+
+        The optional exitmsg argument specifies the exit message
+        printed when exiting. Pass the empty string to suppress
+        printing an exit message. If exitmsg is not given or None,
+        a default message is printed.
 
         """
         try:
@@ -230,6 +234,10 @@ class InteractiveConsole(InteractiveInterpreter):
                 self.write("\nKeyboardInterrupt\n")
                 self.resetbuffer()
                 more = 0
+        if exitmsg is None:
+            self.write('now exiting %s...\n' % self.__class__.__name__)
+        elif exitmsg != '':
+            self.write('%s\n' % exitmsg)
 
     def push(self, line):
         """Push a line to the interpreter.
@@ -267,7 +275,7 @@ class InteractiveConsole(InteractiveInterpreter):
 
 
 
-def interact(banner=None, readfunc=None, local=None):
+def interact(banner=None, readfunc=None, local=None, exitmsg=None):
     """Closely emulate the interactive Python interpreter.
 
     This is a backwards compatible interface to the InteractiveConsole
@@ -279,6 +287,7 @@ def interact(banner=None, readfunc=None, local=None):
     banner -- passed to InteractiveConsole.interact()
     readfunc -- if not None, replaces InteractiveConsole.raw_input()
     local -- passed to InteractiveInterpreter.__init__()
+    exitmsg -- passed to InteractiveConsole.interact()
 
     """
     console = InteractiveConsole(local)
@@ -289,10 +298,12 @@ def interact(banner=None, readfunc=None, local=None):
             import readline
         except ImportError:
             pass
-    console.interact(banner)
+    console.interact(banner, exitmsg)
 
 
 if __name__ == "__main__":
+    import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-q', action='store_true',
                        help="don't print version and copyright messages")

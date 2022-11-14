@@ -6,9 +6,8 @@ from pypy.objspace.std.listobject import (
     ListStrategy, UNROLL_CUTOFF, W_ListObject, ObjectListStrategy)
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t, PyObject, PyObjectP,
-    generic_cpy_call)
-from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
-from pypy.module.cpyext.pyobject import as_pyobj, incref
+    generic_cpy_call, PyVarObject, PyObject)
+from pypy.module.cpyext.pyobject import make_ref, from_ref, as_pyobj, incref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import tupleobject
 
@@ -91,8 +90,8 @@ def PySequence_Fast_GET_SIZE(space, py_obj):
     py_obj = rffi.cast(PyObject, py_obj)
     if PyTuple_Check(space, py_obj):
         from pypy.module.cpyext.tupleobject import PyTupleObject
-        py_tuple = rffi.cast(PyTupleObject, py_obj)
-        return py_tuple.c_ob_size
+        py_varobj = rffi.cast(PyVarObject, py_obj)
+        return py_varobj.c_ob_size
     else:
         from pypy.module.cpyext.listobject import PyList_GET_SIZE
         w_obj = from_ref(space, py_obj)
@@ -164,13 +163,12 @@ def PySequence_ITEM(space, w_obj, i):
         incref(space, py_res)
         keepalive_until_here(w_obj)
         return py_res
-    
     as_sequence = py_obj.c_ob_type.c_tp_as_sequence
-    if not as_sequence or not as_sequence.c_sq_item:
-        raise oefmt(space.w_TypeError,
-                    "'%T' object does not support indexing", w_obj)
-    ret = generic_cpy_call(space, as_sequence.c_sq_item, w_obj, i)
-    return make_ref(space, ret)
+    if as_sequence and as_sequence.c_sq_item:
+        ret = generic_cpy_call(space, as_sequence.c_sq_item, w_obj, i)
+        return make_ref(space, ret)
+    w_ret = space.getitem(w_obj, space.newint(i))
+    return make_ref(space, w_ret)
 
 @cpython_api([PyObject, Py_ssize_t], PyObject, result_is_ll=True)
 def PySequence_GetItem(space, w_obj, i):
@@ -179,6 +177,11 @@ def PySequence_GetItem(space, w_obj, i):
     if i < 0:
         l = PySequence_Length(space, w_obj)
         i += l
+        if i < 0:
+            # Prevent things like 'abc'[-4] from turning into 'abc'[-1]
+            # since this can end up calling space.getitem()
+            raise oefmt(space.w_IndexError,
+                "%T index out of range")
     return PySequence_ITEM(space, w_obj, i)
 
 @cpython_api([PyObject], PyObject)

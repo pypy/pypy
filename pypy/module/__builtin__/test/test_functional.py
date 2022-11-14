@@ -144,6 +144,13 @@ class AppTestFilter:
         assert list(filter(lambda x: x != "a", "a small text")) == list(" smll text")
         assert list(filter(lambda x: x < 20, [3, 33, 5, 55])) == [3, 5]
 
+    def test_filter_reduce(self):
+        it = iter([1, 2, 3, 4, 5])
+        f = filter(None, it)
+        assert f.__reduce__() == (filter, (None, it))
+        f = filter(bool, it)
+        assert f.__reduce__() == (filter, (bool, it))
+
 class AppTestFilter2:
     def test_filter(self):
         it = filter(None, [])
@@ -424,15 +431,21 @@ class AppTestRange:
     def test_range_iter_reduce(self):
         x = iter(range(2, 9, 3))
         next(x)
-        callable, args = x.__reduce__()
+        callable, args, idx = x.__reduce__()
         y = callable(*args)
-        assert list(y) == list(x)
+        y.__setstate__(idx)
+        ylist = list(y)
+        xlist = list(x)
+        print(ylist)
+        print(xlist)
+        assert ylist == xlist
 
     def test_range_iter_reduce_one(self):
         x = iter(range(2, 9))
         next(x)
-        callable, args = x.__reduce__()
+        callable, args, idx = x.__reduce__()
         y = callable(*args)
+        y.__setstate__(idx)
         assert list(y) == list(x)
 
     def test_lib_python_range_optimization(self):
@@ -535,12 +548,6 @@ class AppTestReversed:
                 return 5
         assert list(reversed(X())) == ["4", "3", "2", "1", "0"]
 
-    def test_reversed_not_for_mapping(self):
-        raises(TypeError, reversed, {})
-        raises(TypeError, reversed, {2: 3})
-        assert not hasattr(dict, '__reversed__')
-        raises(TypeError, reversed, int.__dict__)
-
     def test_reversed_type_with_no_len(self):
         class X(object):
             def __getitem__(self, key):
@@ -635,6 +642,7 @@ class AppTestMinMax:
         assert min([], default=None) == None
         raises(TypeError, min, 1, default=0)
         raises(TypeError, min, default=1)
+        raises(ValueError, min, [])
 
     def test_max(self):
         assert max(1, 2) == 2
@@ -653,10 +661,14 @@ class AppTestMinMax:
         assert max([], default=None) == None
         raises(TypeError, max, 1, default=0)
         raises(TypeError, max, default=1)
+        raises(ValueError, max, [])
 
     def test_max_list_and_key(self):
         assert max(["100", "50", "30", "-200"], key=int) == "100"
         assert max("100", "50", "30", "-200", key=int) == "100"
+
+    def test_max_key_is_None_works(self):
+        assert max(1, 2, key=None) == 2
 
 
 try:

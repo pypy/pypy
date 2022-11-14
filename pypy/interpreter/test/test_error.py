@@ -3,7 +3,7 @@
 import py, os, errno
 from pypy.interpreter.error import (
     OperationError, decompose_valuefmt, get_operrcls2, new_exception_class,
-    oefmt, wrap_oserror, new_import_error)
+    oefmt, wrap_oserror, new_import_error, get_operr_withname_error_class)
 
 
 def test_decompose_valuefmt():
@@ -24,6 +24,14 @@ def test_get_operrcls2(space):
     assert cls2 is cls     # caching
     assert strings2 == ("a ", " b ", " c")
 
+def test_get_operr_withname_error_class(space):
+    cls, strings = get_operr_withname_error_class('abc %s def %s', 'AttributeError')
+    cls2, strings2 = get_operr_withname_error_class('abc %s def %s', 'AttributeError')
+    assert cls2 is cls
+    assert strings is strings2
+    cls3, strings3 = get_operr_withname_error_class('abc %s ghi %s', 'AttributeError')
+    assert cls3 is cls
+
 def test_oefmt(space):
     operr = oefmt("w_type", "abc %s def %d", "foo", 42)
     assert isinstance(operr, OperationError)
@@ -42,7 +50,7 @@ def test_oefmt_noargs(space):
     val = operr.get_w_value(space)
     assert space.isinstance_w(val, space.w_AttributeError)
     w_repr = space.repr(val)
-    assert space.text_w(w_repr) == "AttributeError(\"no attribute 'foo'\",)"
+    assert space.text_w(w_repr) == "AttributeError(\"no attribute 'foo'\")"
 
 def test_oefmt_T(space):
     operr = oefmt(space.w_AttributeError,
@@ -110,7 +118,7 @@ def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
     assert operr.errorstr(space) == "ValueError: message"
     assert operr.errorstr(space, use_repr=True) == (
-        "ValueError: ValueError('message',)")
+        "ValueError: ValueError('message')")
     operr = OperationError(space.w_ValueError, space.w_None)
     assert operr.errorstr(space) == "ValueError"
     operr = OperationError(space.w_ValueError,
@@ -137,28 +145,30 @@ def test_wrap_oserror():
         newint = newtext = newfilename = wrap
         def call_function(self, exc, w_errno, w_msg, w_filename=None, *args):
             return (exc, w_errno, w_msg, w_filename)
+        def type(self, obj):
+            return obj
     space = FakeSpace()
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"))
     assert isinstance(e, OperationError)
-    assert e.w_type == [OSError]
+    assert e.w_type[0] == [OSError]
     assert e.get_w_value(space) == ([OSError], [errno.EBADF],
                                     [os.strerror(errno.EBADF)], None)
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"),
-                     filename = "test.py",
-                     exception_name = "w_EnvironmentError")
+                     filename="test.py",
+                     w_exception_class=space.w_EnvironmentError)
     assert isinstance(e, OperationError)
-    assert e.w_type == [EnvironmentError]
+    assert e.w_type[0] == [EnvironmentError]
     assert e.get_w_value(space) == ([EnvironmentError], [errno.EBADF],
                                     [os.strerror(errno.EBADF)],
                                     ["test.py"])
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"),
-                     filename = "test.py",
-                     w_exception_class = [SystemError])
+                     filename="test.py",
+                     w_exception_class=[SystemError])
     assert isinstance(e, OperationError)
-    assert e.w_type == [SystemError]
+    assert e.w_type[0] == [SystemError]
     assert e.get_w_value(space) == ([SystemError], [errno.EBADF],
                                     [os.strerror(errno.EBADF)],
                                     ["test.py"])

@@ -1,3 +1,4 @@
+import pytest
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
@@ -9,6 +10,7 @@ class TestDicts(BaseTestPyPyC):
             class A(object):
                 pass
             a = A()
+            a.x = "x" # stop field unboxing
             a.x = 1
             for s in list(sys.modules.keys()) * 1000:
                 d.get(s)  # force pending setfields etc.
@@ -49,6 +51,7 @@ class TestDicts(BaseTestPyPyC):
             ...
         """)
 
+    @pytest.skip("no strdicts on pypy3")
     def test_non_virtual_dict(self):
         def main(n):
             i = 0
@@ -64,19 +67,20 @@ class TestDicts(BaseTestPyPyC):
             i8 = int_lt(i5, i7)
             guard_true(i8, descr=...)
             guard_not_invalidated(descr=...)
-            p109 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
+            p10 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
-            i80 = strlen(p109)
-            p86 = call_r(ConstClass(str_decode_utf_8), p109, i80, ConstPtr(ptr82), 1, ConstClass(raise_unicode_exception_decode), 1, descr=<Callr 8 ririii EF=4>)
+            i80 = call_i(ConstClass(codepoints_in_utf8), p10, 0, _, descr=<Calli . rii EF=4>)
             guard_no_exception(descr=...)
-            p10 = getfield_gc_r(p86, descr=<FieldP tuple2.item0 8 pure>)
             guard_nonnull(p10, descr=...)
+            i99 = strhash(p10)
 
-            i99 = unicodehash(p10)
             # NOTE: with siphash24, notably on unicodes, computing the hash
             # may raise MemoryError
-            i12 = cond_call_value_i(i99, ConstClass(_ll_strhash__rpy_unicodePtr), p10, descr=<Calli . r EF=5>)
+            i87 = cond_call_value_i(i99, ConstClass(_ll_strhash__rpy_stringPtr), p10, descr=<Calli . r EF=5>)
             guard_no_exception(descr=...)
+            i89 = int_eq(i87, -1)
+            i12 = int_sub(i87, i89)
+
             p13 = new(descr=...)
             p15 = new_array_clear(16, descr=<ArrayU 1>)
             {{{
@@ -279,3 +283,16 @@ class TestOtherContainers(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         opnames = log.opnames(loop.allops())
         assert opnames.count('new_with_vtable') == 0
+
+    def test_unpack_list(self):
+        def main():
+            l = [1, 4, 6]
+            for x in range(10000):
+                a, b, c = l # ID: unpack
+                a, b, c = l
+                a, b, c = l
+        log = self.run(main, [])
+        loop, = log.loops_by_id("unpack", is_entry_bridge=True)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0
+        assert opnames.count('new_array_clear') == 0

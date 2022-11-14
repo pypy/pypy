@@ -74,36 +74,6 @@ def PyCodec_KnownEncoding(space, encoding):
     raise NotImplementedError
 
 
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyCodec_Encode(space, object, encoding, errors):
-    """Generic codec based encoding API.
-
-    object is passed through the encoder function found for the given
-    encoding using the error handling method defined by errors.  errors may
-    be NULL to use the default method defined for the codec.  Raises a
-    LookupError if no encoder can be found."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyCodec_Decode(space, object, encoding, errors):
-    """Generic codec based decoding API.
-
-    object is passed through the decoder function found for the given
-    encoding using the error handling method defined by errors.  errors may
-    be NULL to use the default method defined for the codec.  Raises a
-    LookupError if no encoder can be found."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyCodec_Encoder(space, encoding):
-    """Get an encoder function for the given encoding."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyCodec_Decoder(space, encoding):
-    """Get a decoder function for the given encoding."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP], PyObject)
 def PyCodec_StreamReader(space, encoding, stream, errors):
     """Get a StreamReader factory function for the given encoding."""
@@ -243,14 +213,6 @@ def PyDescr_IsData(space, descr):
 def PyWrapper_New(space, w_d, w_self):
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], PyObject)
-def PyDict_GetItemWithError(space, p, key):
-    """Variant of PyDict_GetItem() that does not suppress
-    exceptions. Return NULL with an exception set if an exception
-    occurred.  Return NULL without an exception set if the key
-    wasn't present."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
 def PyDict_MergeFromSeq2(space, a, seq2, override):
     """Update or merge into dictionary a, from the key-value pairs in seq2.
@@ -265,19 +227,6 @@ def PyDict_MergeFromSeq2(space, a, seq2, override):
             if override or key not in a:
                 a[key] = value
     """
-    raise NotImplementedError
-
-@cpython_api([rffi.INT_real], PyObject)
-def PyErr_SetFromWindowsErr(space, ierr):
-    """This is a convenience function to raise WindowsError. If called with
-    ierr of 0, the error code returned by a call to GetLastError()
-    is used instead.  It calls the Win32 function FormatMessage() to retrieve
-    the Windows description of error code given by ierr or GetLastError(),
-    then it constructs a tuple object whose first item is the ierr value and whose
-    second item is the corresponding error message (gotten from
-    FormatMessage()), and then calls PyErr_SetObject(PyExc_WindowsError,
-    object). This function always returns NULL. Availability: Windows.
-    Return value: always NULL."""
     raise NotImplementedError
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)
@@ -323,17 +272,6 @@ def PyErr_SyntaxLocation(space, filename, lineno):
     omitted."""
     raise NotImplementedError
 
-
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.CCHARP, PyObject], rffi.INT_real, error=-1)
-def PyErr_WarnExplicit(space, category, message, filename, lineno, module, registry):
-    """Issue a warning message with explicit control over all warning attributes.  This
-    is a straightforward wrapper around the Python function
-    warnings.warn_explicit(), see there for more information.  The module
-    and registry arguments may be set to NULL to get the default effect
-    described there. message and module are UTF-8 encoded strings,
-    filename is decoded from the filesystem encoding
-    (sys.getfilesystemencoding())."""
-    raise NotImplementedError
 
 
 @cpython_api([rffi.INT_real], rffi.INT_real, error=-1)
@@ -411,22 +349,6 @@ def PyUnicodeDecodeError_GetReason(space, exc):
 def PyUnicodeDecodeError_SetReason(space, exc, reason):
     """Set the reason attribute of the given exception object to reason.  Return
     0 on success, -1 on failure."""
-    raise NotImplementedError
-
-@cpython_api([rffi.INT_real, rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
-def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, closefd):
-    """Create a Python file object from the file descriptor of an already
-    opened file fd.  The arguments name, encoding, errors and newline
-    can be NULL to use the defaults; buffering can be -1 to use the
-    default. name is ignored and kept for backward compatibility. Return
-    NULL on failure. For a more comprehensive description of the arguments,
-    please refer to the io.open() function documentation.
-
-    Since Python streams have their own buffering layer, mixing them with
-    OS-level file descriptors can produce various issues (such as unexpected
-    ordering of data).
-
-    Ignore name attribute."""
     raise NotImplementedError
 
 @cpython_api([], PyObject)
@@ -1160,25 +1082,10 @@ def PyMarshal_ReadLastObjectFromFile(space, file):
     (EOFError or TypeError) and returns NULL."""
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
-def PyMemoryView_GetContiguous(space, obj, buffertype, order):
-    """Create a memoryview object to a contiguous chunk of memory (in either
-    'C' or 'F'ortran order) from an object that defines the buffer
-    interface. If memory is contiguous, the memoryview object points to the
-    original memory. Otherwise, a copy is made and the memoryview points to a
-    new bytes object."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=-1)
 def PyMethod_ClearFreeList(space):
     """Clear the free list. Return the total number of freed items.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyModule_CheckExact(space, p):
-    """Return true if p is a module object, but not a subtype of
-    PyModule_Type."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.CCHARP)
@@ -1197,16 +1104,6 @@ def PyModule_GetFilenameObject(space, module):
     __file__ attribute.  If this is not defined, or if it is not a
     unicode string, raise SystemError and return NULL; otherwise return
     a reference to a PyUnicodeObject.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyNumber_ToBase(space, n, base):
-    """Returns the integer n converted to base base as a string.  The base
-    argument must be one of 2, 8, 10, or 16.  For base 2, 8, or 16, the
-    returned string is prefixed with a base marker of '0b', '0o', or
-    '0x', respectively.  If n is not a Python int, it is converted with
-    PyNumber_Index() first."""
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], rffi.INT_real, error=-1)
@@ -1331,16 +1228,6 @@ def PyTuple_ClearFreeList(space, ):
 @cpython_api([], rffi.UINT, error=CANNOT_FAIL)
 def PyType_ClearCache(space, ):
     """Clear the internal lookup cache. Return the current version tag."""
-    raise NotImplementedError
-
-
-@cpython_api([PyTypeObjectPtr], lltype.Signed, error=CANNOT_FAIL)
-def PyType_GetFlags(space, type):
-    """Return the tp_flags member of type. This function is primarily
-    meant for use with Py_LIMITED_API; the individual flag bits are
-    guaranteed to be stable across Python releases, but access to
-    tp_flags itself is not part of the limited API.
-    """
     raise NotImplementedError
 
 
@@ -1596,15 +1483,6 @@ def PyUnicode_RichCompare(space, left, right, op):
 
     Possible values for op are Py_GT, Py_GE, Py_EQ,
     Py_NE, Py_LT, and Py_LE."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyUnicode_Contains(space, container, element):
-    """Check whether element is contained in container and return true or false
-    accordingly.
-
-    element has to coerce to a one element Unicode string. -1 is returned if
-    there was an error."""
     raise NotImplementedError
 
 

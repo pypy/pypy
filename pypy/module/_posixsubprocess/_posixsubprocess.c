@@ -9,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -25,8 +26,7 @@
 #include <dirent.h>
 #endif
 
-#if defined(__ANDROID__) && !defined(SYS_getdents64)
-/* Android doesn't expose syscalls, add the definition manually. */
+#if defined(__ANDROID__) && __ANDROID_API__ < 21 && !defined(SYS_getdents64)
 # include <sys/linux-syscalls.h>
 # define SYS_getdents64  __NR_getdents64
 #endif
@@ -52,7 +52,6 @@
 
 #define POSIX_CALL(call)   do { if ((call) == -1) goto error; } while (0)
 
-
 /* Convert ASCII to a positive int, no libc call. no overflow. -1 on error. */
 static int
 _pos_int_from_ascii(char *name)
@@ -67,6 +66,24 @@ _pos_int_from_ascii(char *name)
     return num;
 }
 
+static
+void local_pypysig_default(int signum)
+{
+    /* copied from pyypsig_default */
+#ifdef SA_RESTART
+    /* assume sigaction exists */
+    struct sigaction context;
+    context.sa_handler = SIG_DFL;
+    sigemptyset(&context.sa_mask);
+    context.sa_flags = 0;
+    sigaction(signum, &context, NULL);
+#else
+    signal(signum, SIG_DFL);
+#endif
+#ifdef HAVE_SIGINTERRUPT
+    siginterrupt(signum, 1);
+#endif
+}
 
 #if defined(__FreeBSD__)
 /* When /dev/fd isn't mounted it is often a static directory populated
@@ -399,10 +416,20 @@ pypy_subprocess_child_exec(
 
     /* When duping fds, if there arises a situation where one of the fds is
        either 0, 1 or 2, it is possible that it is overwritten (#12607). */
-    if (c2pwrite == 0)
+    if (c2pwrite == 0) {
         POSIX_CALL(c2pwrite = dup(c2pwrite));
-    if (errwrite == 0 || errwrite == 1)
+        /* issue32270 */
+        if (rpy_set_inheritable(c2pwrite, 0) < 0) {
+            goto error;
+        }
+    }
+    while (errwrite == 0 || errwrite == 1) {
         POSIX_CALL(errwrite = dup(errwrite));
+        /* issue32270 */
+        if (rpy_set_inheritable(errwrite, 0) < 0) {
+            goto error;
+        }
+    }
 
     /* Dup fds for child.
        dup2() removes the CLOEXEC flag but we must do it ourselves if dup2()
@@ -428,21 +455,25 @@ pypy_subprocess_child_exec(
     else if (errwrite != -1)
         POSIX_CALL(dup2(errwrite, 2));  /* stderr */
 
-    /* Close pipe fds.  Make sure we don't close the same fd more than */
-    /* once, or standard fds. */
-    if (p2cread > 2)
-        POSIX_CALL(close(p2cread));
-    if (c2pwrite > 2 && c2pwrite != p2cread)
-        POSIX_CALL(close(c2pwrite));
-    if (errwrite != c2pwrite && errwrite != p2cread && errwrite > 2)
-        POSIX_CALL(close(errwrite));
+    /* We no longer manually close p2cread, c2pwrite, and errwrite here as
+     * _close_open_fds takes care when it is not already non-inheritable. */
 
     if (cwd)
         POSIX_CALL(chdir(cwd));
+    
+    if (restore_signals) {
+        /* inline _Py_RestoreSignals(); */
+#ifdef SIGPIPE
+        local_pypysig_default(SIGPIPE);
+#endif
+#ifdef SIGXFZ
+        local_pypysig_default(SIGXFZ);
+#endif
+#ifdef SIGXFSZ
+        local_pypysig_default(SIGXFSZ);
+#endif
+    }
 
-    /* PyPy change: moved this call to the preexec callback */
-    /* if (restore_signals) */
-    /*     _Py_RestoreSignals(); */
 
 #ifdef HAVE_SETSID
     if (call_setsid)
@@ -515,84 +546,6 @@ error:
         unused = write(errpipe_write, err_msg, strlen(err_msg));
     }
     if (unused) return;  /* silly? yes! avoids gcc compiler warning. */
-}
-
-
-int
-pypy_subprocess_cloexec_pipe(int *fds)
-{
-    int res, saved_errno;
-    long oldflags;
-#ifdef HAVE_PIPE2
-    Py_BEGIN_ALLOW_THREADS
-    res = pipe2(fds, O_CLOEXEC);
-    Py_END_ALLOW_THREADS
-    if (res != 0 && errno == ENOSYS)
-    {
-#endif
-        /* We hold the GIL which offers some protection from other code calling
-         * fork() before the CLOEXEC flags have been set but we can't guarantee
-         * anything without pipe2(). */
-        res = pipe(fds);
-
-        if (res == 0) {
-            oldflags = fcntl(fds[0], F_GETFD, 0);
-            if (oldflags < 0) res = oldflags;
-        }
-        if (res == 0)
-            res = fcntl(fds[0], F_SETFD, oldflags | FD_CLOEXEC);
-
-        if (res == 0) {
-            oldflags = fcntl(fds[1], F_GETFD, 0);
-            if (oldflags < 0) res = oldflags;
-        }
-        if (res == 0)
-            res = fcntl(fds[1], F_SETFD, oldflags | FD_CLOEXEC);
-#ifdef HAVE_PIPE2
-    }
-#endif
-    if (res == 0 && fds[1] < 3) {
-        /* We always want the write end of the pipe to avoid fds 0, 1 and 2
-         * as our child may claim those for stdio connections. */
-        int write_fd = fds[1];
-        int fds_to_close[3] = {-1, -1, -1};
-        int fds_to_close_idx = 0;
-#ifdef F_DUPFD_CLOEXEC
-        fds_to_close[fds_to_close_idx++] = write_fd;
-        write_fd = fcntl(write_fd, F_DUPFD_CLOEXEC, 3);
-        if (write_fd < 0)  /* We don't support F_DUPFD_CLOEXEC / other error */
-#endif
-        {
-            /* Use dup a few times until we get a desirable fd. */
-            for (; fds_to_close_idx < 3; ++fds_to_close_idx) {
-                fds_to_close[fds_to_close_idx] = write_fd;
-                write_fd = dup(write_fd);
-                if (write_fd >= 3)
-                    break;
-                /* We may dup a few extra times if it returns an error but
-                 * that is okay.  Repeat calls should return the same error. */
-            }
-            if (write_fd < 0) res = write_fd;
-            if (res == 0) {
-                oldflags = fcntl(write_fd, F_GETFD, 0);
-                if (oldflags < 0) res = oldflags;
-                if (res == 0)
-                    res = fcntl(write_fd, F_SETFD, oldflags | FD_CLOEXEC);
-            }
-        }
-        saved_errno = errno;
-        /* Close fds we tried for the write end that were too low. */
-        for (fds_to_close_idx=0; fds_to_close_idx < 3; ++fds_to_close_idx) {
-            int temp_fd = fds_to_close[fds_to_close_idx];
-            while (temp_fd >= 0 && close(temp_fd) < 0 && errno == EINTR);
-        }
-        errno = saved_errno;  /* report dup or fcntl errors, not close. */
-        fds[1] = write_fd;
-    }  /* end if write fd was too small */
-
-    if (res != 0)
-	return res;
-    return 0;
 }
 
 

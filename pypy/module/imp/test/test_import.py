@@ -134,6 +134,11 @@ def setup_directory_structure(cls):
     setuppkg('circular',
              circ1="from . import circ2",
              circ2="from . import circ1")
+    setuppkg('absolute_circular',
+             circ1 = "from absolute_circular.circ2 import a; b = 1",
+             circ2 = "from absolute_circular.circ1 import b; a = 1")
+    setuppkg('module_with_wrong_all',
+             __init__ = "__all__ = ['x', 'y', 3, 'z']; x, y, z = 1, 2, 3")
 
     p = setuppkg("encoded",
              # actually a line 2, setuppkg() sets up a line1
@@ -213,6 +218,13 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_import_namespace_package(self):
         import packagenamespace
+        try:
+            from packagenamespace import nothing
+        except ImportError as e:
+            assert str(e) == ("cannot import name 'nothing' from "
+                              "'packagenamespace' (unknown location)")
+        else:
+            assert False
 
     def test_import_sys(self):
         import sys
@@ -461,14 +473,14 @@ class AppTestImport(BaseFSEncodeTest):
                     print('__name__ =', __name__)
                     from .struct import inpackage
         """, ns)
-        raises(SystemError, ns['imp'])
+        raises(ImportError, ns['imp'])
 
     def test_future_relative_import_error_when_in_non_package2(self):
         ns = {'__name__': __name__}
         exec("""def imp():
                     from .. import inpackage
         """, ns)
-        raises(SystemError, ns['imp'])
+        raises(ImportError, ns['imp'])
 
     def test_relative_import_with___name__(self):
         import sys
@@ -517,12 +529,12 @@ class AppTestImport(BaseFSEncodeTest):
         # Check relative fails with only __package__ wrong
         ns = dict(__package__='foo', __name__='pkg.notarealmodule')
         check_absolute() # XXX check warnings
-        raises(SystemError, check_relative)
+        raises(ModuleNotFoundError, check_relative)
 
         # Check relative fails with __package__ and __name__ wrong
         ns = dict(__package__='foo', __name__='notarealpkg.notarealmodule')
         check_absolute() # XXX check warnings
-        raises(SystemError, check_relative)
+        raises(ModuleNotFoundError, check_relative)
 
         # Check relative fails when __package__ set to a non-string
         ns = dict(__package__=object())
@@ -531,6 +543,13 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_relative_circular(self):
         import circular.circ1  # doesn't fail
+
+    def test_partially_initialized_circular(self):
+        with raises(ImportError) as info:
+            import absolute_circular.circ1
+
+        assert ("cannot import name 'b' from partially initialized "
+                "module 'absolute_circular.circ1'") in info.value.msg
 
     def test_import_function(self):
         # More tests for __import__
@@ -643,6 +662,20 @@ class AppTestImport(BaseFSEncodeTest):
     def test_reload_infinite(self):
         import infinite_reload
 
+    def test_reload_module_subclass(self):
+        import types, imp
+
+        #MyModType = types.ModuleType
+        class MyModType(types.ModuleType):
+            pass
+
+        m = MyModType("abc")
+        with raises(ImportError):
+            # Fails because the module is not in sys.modules, but *not* because
+            # it's a subtype of ModuleType.
+            imp.reload(m)
+
+
     def test_explicitly_missing(self):
         import sys
         sys.modules['foobarbazmod'] = None
@@ -652,6 +685,8 @@ class AppTestImport(BaseFSEncodeTest):
                 foobarbazmod,)
         except ImportError:
             pass
+        finally:
+            del sys.modules['foobarbazmod']
 
     def test_del_from_sys_modules(self):
         try:
@@ -663,13 +698,18 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_cache_from_source(self):
         import imp, sys
+        if sys.platform == 'win32':
+            sep = '\\'
+        else:
+            sep = '/'
         tag = sys.implementation.cache_tag
         pycfile = imp.cache_from_source('a/b/c.py')
-        assert pycfile == 'a/b/__pycache__/c.%s.pyc' % tag
+        assert pycfile == sep.join(('a/b', '__pycache__', 'c.%s.pyc' % tag))
         assert imp.source_from_cache('a/b/__pycache__/c.%s.pyc' % tag
-                                     ) == 'a/b/c.py'
+                                     ) == sep.join(('a/b', 'c.py'))
         raises(ValueError, imp.source_from_cache, 'a/b/c.py')
 
+    @pytest.mark.skip("sys.version_info > (3, 6)")
     def test_invalid_pathname(self):
         import imp
         import pkg
@@ -718,11 +758,19 @@ class AppTestImport(BaseFSEncodeTest):
             else:
                 raise AssertionError("should have failed")
 
+    def test_import_star_with_mixed_types___all__(self):
+        with raises(TypeError) as info:
+            exec("from module_with_wrong_all import *")
+
+        assert "module_with_wrong_all.__all__ must be str, not int" in str(info.value)
+
     def test_verbose_flag_0(self):
         output = []
         class StdErr(object):
             def write(self, line):
                 output.append(line)
+            def flush(self):
+                return
 
         import sys, imp
         sys.stderr = StdErr()
@@ -794,7 +842,7 @@ def _testfile(space, magic, mtime, co=None):
     f.write(_getlong(mtime))
     if co:
         # marshal the code object with the PyPy marshal impl
-        pyco = PyCode._from_code(space, co)
+        pyco = space.createcompiler().compile(co, '?', 'exec', 0)
         w_marshal = space.getbuiltinmodule('marshal')
         w_marshaled_code = space.call_method(w_marshal, 'dumps', pyco)
         marshaled_code = space.bytes_w(w_marshaled_code)
@@ -815,7 +863,7 @@ class TestPycStuff:
     def test_read_compiled_module(self):
         space = self.space
         mtime = 12345
-        co = compile('x = 42', '?', 'exec')
+        co = 'x = 42'
         cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
@@ -835,7 +883,7 @@ class TestPycStuff:
     def test_load_compiled_module(self):
         space = self.space
         mtime = 12345
-        co = compile('x = 42', '?', 'exec')
+        co = 'x = 42'
         cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         w_modulename = space.wrap('somemodule')
         stream = streamio.open_file_as_stream(cpathname, "rb")
@@ -848,7 +896,6 @@ class TestPycStuff:
                                                    w_mod,
                                                    cpathname,
                                                    magic,
-                                                   timestamp,
                                                    stream.readall())
         finally:
             stream.close()
@@ -860,7 +907,7 @@ class TestPycStuff:
     def test_load_compiled_module_nopathname(self):
         space = self.space
         mtime = 12345
-        co = compile('x = 42', '?', 'exec')
+        co = 'x = 42'
         cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         w_modulename = space.wrap('somemodule')
         stream = streamio.open_file_as_stream(cpathname, "rb")
@@ -873,7 +920,6 @@ class TestPycStuff:
                                                    w_mod,
                                                    None,
                                                    magic,
-                                                   timestamp,
                                                    stream.readall())
         finally:
             stream.close()
@@ -937,7 +983,7 @@ class TestPycStuff:
                     continue
                 pathname = "whatever"
                 mtime = 12345
-                co = compile('x = 42', '?', 'exec')
+                co = 'x = 42'
                 cpathname = _testfile(space1, importing.get_pyc_magic(space1),
                                       mtime, co)
                 w_modulename = space2.wrap('somemodule')
@@ -953,7 +999,6 @@ class TestPycStuff:
                                     w_mod,
                                     cpathname,
                                     magic,
-                                    timestamp,
                                     stream.readall())
                 finally:
                     stream.close()
@@ -967,6 +1012,20 @@ class TestPycStuff:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
+
+    def test_pyc_magic_changes2(self):
+        from pypy.tool import stdlib_opcode
+        from pypy.interpreter.pycode import default_magic
+        from hashlib import sha1
+        h = sha1()
+        # very simple test: hard-code the hash of pypy/stdlib_opcode.py and the
+        # default magic. if you change stdlib_opcode, please update the hash
+        # below, as well as incrementing the magic number in pycode.py
+        with open(stdlib_opcode.__file__.rstrip("c"), "rb") as f:
+            h.update(f.read())
+        assert h.hexdigest() == 'e7480938678ad1eb61dfcc30ef6088059b8ad182'
+        assert default_magic == 0xa0d0100
+
 
 
 def test_PYTHONPATH_takes_precedence(space):
@@ -1256,3 +1315,20 @@ class AppTestWriteBytecodeSandbox(AppTestWriteBytecode):
     spaceconfig = {
         "translation.sandbox": True
     }
+
+
+@pytest.mark.skipif('config.option.runappdirect')
+class AppTestImportlibMagic:
+    spaceconfig = {
+        "usemodules._frozen_importlib": True
+    }
+
+    def setup_class(cls):
+        from pypy.module.imp.interp_imp import get_magic
+        cls.w_magic = get_magic(cls.space)
+
+    def test_magic(self):
+        from importlib import _bootstrap_external
+        assert _bootstrap_external.MAGIC_NUMBER == self.magic
+
+

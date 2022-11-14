@@ -6,7 +6,7 @@ More sprints
     all year round.  **This page is no longer maintained!**  See `our blog`_
     for upcoming events.
 
-.. _our blog: http://morepypy.blogspot.com/
+.. _our blog: https://www.pypy.org/blog
 
 
 EuroPython PyPy sprint 6-9 July 2006
@@ -17,7 +17,7 @@ Conference from the *6th to the 9th of July*.
 
 Read more in the `EuroPython 2006 sprint report`_.
 
-.. _EuroPython 2006 sprint report: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/post-ep2006/report.txt
+.. _EuroPython 2006 sprint report: https://foss.heptapod.net/pypy/extradoc/raw/tip/sprintinfo/post-ep2006/report.txt
 
 
 PyPy at XP 2006 and Agile 2006
@@ -28,8 +28,8 @@ this year, `XP 2006`_ and `Agile 2006`_.
 Both experience reports focus on aspects of the sprint-driven
 development method that is being used in PyPy.
 
-.. _XP 2006: http://virtual.vtt.fi/virtual/xp2006/
-.. _Agile 2006: http://www.agile2006.org/
+.. _XP 2006: https://virtual.vtt.fi/virtual/xp2006/
+.. _Agile 2006: https://www.agile2006.org/
 
 
 Duesseldorf PyPy sprint 2-9 June 2006
@@ -42,7 +42,7 @@ release.
 
 Read more about `the sprint`__
 
-__ https://bitbucket.org/pypy/extradoc/src/extradoc/sprintinfo/ddorf2006/
+__ https://foss.heptapod.net/pypy/extradoc/src/extradoc/sprintinfo/ddorf2006/
 
 
 PyPy sprint at Akihabara (Tokyo, Japan)
@@ -55,8 +55,8 @@ progress was also made on PyPy's ootypesystem for the more high level
 backends. For more details, read the last `sprint status`_ page and
 enjoy the pictures_.
 
-.. _sprint status: https://bitbucket.org/pypy/extradoc/src/tip/sprintinfo/tokyo/tokyo-planning.txt
-.. _pictures: http://www.flickr.com/photos/19046555@N00/sets/72057594116388174/
+.. _sprint status: https://foss.heptapod.net/pypy/extradoc/blob/branch/default/sprintinfo/tokyo/tokyo-planning.txt
+.. _pictures: https://www.flickr.com/photos/19046555@N00/sets/72057594116388174/
 
 
 PyPy at Python UK/ACCU Conference (United Kingdom)
@@ -65,7 +65,7 @@ PyPy at Python UK/ACCU Conference (United Kingdom)
 *April 19th - April 22nd 2006.* Several talks about PyPy were hold at
 this year's Python UK/ACCU conference. Read more at the `ACCU site`_.
 
-.. _ACCU site: http://accu.org/
+.. _ACCU site: https://accu.org/
 
 
 PyPy at XPDay France 2006 in Paris March 23rd - March 24th 2006
@@ -76,7 +76,7 @@ sponsoring and which was held in Paris. There was over a hundred
 attendants. Interesting talks included Python as an agile language and
 Tools for continuous integration.
 
-.. _french XP Day: http://www.xpday.fr/
+.. _french XP Day: https://www.xpday.fr/
 
 
 Logic Sprint at Louvain-la-Neuve University (Louvain-la-Neuve, Belgium)
@@ -106,7 +106,7 @@ Talks at PyCon 2006 (Dallas, Texas, USA)
 
 *Feb 24th - Feb 26th 2006.* PyPy developers spoke at PyCon 2006.
 
-.. _PyCon 2006: http://us.pycon.org/TX2006/HomePage
+.. _PyCon 2006: https://us.pycon.org/TX2006/HomePage
 
 
 PyPy at Solutions Linux in Paris January 31st - February 2nd 2006
@@ -119,7 +119,7 @@ about the details. Many people discovered PyPy on this occasion and
 said they were interested in the outcome and would keep an eye on its
 progress. Read the `talk slides`_.
 
-.. _talk slides: https://bitbucket.org/pypy/extradoc/raw/tip/talk/solutions-linux-paris-2006.html
+.. _talk slides: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/solutions-linux-paris-2006.html
 
 
 PyPy Sprint in Palma De Mallorca 23rd - 29th January 2006
@@ -133,7 +133,7 @@ improving our way to write glue code for C libraries.
 Read more in `the announcement`_, there is a `sprint report`_
 for the first three days and `one for the rest of the sprint`_.
 
-.. _the announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/mallorca/sprint-announcement.txt
+.. _the announcement: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/mallorca/sprint-announcement.txt
 .. _sprint report: https://mail.python.org/pipermail/pypy-dev/2006-January/002746.html
 .. _one for the rest of the sprint: https://mail.python.org/pipermail/pypy-dev/2006-January/002749.html
 
@@ -190,9 +190,9 @@ Together with Armin they wrote one about `the rest of the sprint`_ on the
 way back.
 *(10/18/2005)*
 
-.. _Logilab offices in Paris: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/paris-2005-sprint.txt 
-.. _JIT: http://en.wikipedia.org/wiki/Just-in-time_compilation
-.. _continuation-passing: http://en.wikipedia.org/wiki/Continuation_passing_style
+.. _Logilab offices in Paris: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/paris-2005-sprint.txt 
+.. _JIT: https://en.wikipedia.org/wiki/Just-in-time_compilation
+.. _continuation-passing: https://en.wikipedia.org/wiki/Continuation_passing_style
 .. _report about day one: https://mail.python.org/pipermail/pypy-dev/2005-October/002510.html
 .. _one about day two and three: https://mail.python.org/pipermail/pypy-dev/2005-October/002512.html
 .. _the rest of the sprint: https://mail.python.org/pipermail/pypy-dev/2005-October/002514.html
@@ -221,8 +221,8 @@ PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_
 and a `heidelberg summary report`_ detailing some of the works
 that led to the successful release of :doc:`pypy-0.7.0 <release-0.7.0>`! 
 
-.. _heidelberg summary report: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-report.txt
-.. _PyPy sprint: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/Heidelberg-sprint.txt
+.. _heidelberg summary report: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/Heidelberg-report.txt
+.. _PyPy sprint: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/Heidelberg-sprint.txt
 .. _day 1 - 3: https://mail.python.org/pipermail/pypy-dev/2005-August/002287.html
 
 
@@ -242,7 +242,7 @@ having a good time.
 .. _day 4 and day 5: https://mail.python.org/pipermail/pypy-dev/2005-July/002234.html
 .. _day 6: https://mail.python.org/pipermail/pypy-dev/2005-July/002239.html
 .. _day 7: https://mail.python.org/pipermail/pypy-dev/2005-August/002245.html
-.. _Trillke-Gut: http://www.trillke.net
+.. _Trillke-Gut: https://www.trillke.net
 
 
 EuroPython 2005 sprints finished
@@ -265,6 +265,6 @@ the LLVM backends and type inference in general.
 .. _day 3: https://mail.python.org/pipermail/pypy-dev/2005-June/002172.html
 .. _pypy-dev: https://mail.python.org/mailman/listinfo/pypy-dev
 
-.. _EuroPython: http://europython.org
-.. _sprint announcement: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/EP2005-announcement.html
-.. _list of people coming: https://bitbucket.org/pypy/extradoc/raw/tip/sprintinfo/EP2005-people.html
+.. _EuroPython: https://europython.org
+.. _sprint announcement: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/EP2005-announcement.html
+.. _list of people coming: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/EP2005-people.html

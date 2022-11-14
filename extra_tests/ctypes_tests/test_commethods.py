@@ -5,10 +5,13 @@
 import pytest
 import sys
 if sys.platform != "win32":
+    # this doesn't work, it still tries to do module-level imports
+    # pytestmark = pytest.mark.skip("skip_the_whole_module")
     pytest.importorskip('skip_the_whole_module')  # hack!
 
-import ctypes, new, unittest
-from ctypes.wintypes import HRESULT
+
+import ctypes, types, unittest
+from ctypes import HRESULT
 from _ctypes import COMError
 
 oleaut32 = ctypes.OleDLL("oleaut32")
@@ -26,7 +29,7 @@ class UnboundMethod(object):
     def __get__(self, instance, owner):
         if instance is None:
             return self
-        return new.instancemethod(self.func, instance, owner)
+        return types.MethodType(self.func, instance, owner)
 
 def commethod(index, restype, *argtypes):
     """A decorator that generates COM methods.  The decorated function

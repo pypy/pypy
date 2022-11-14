@@ -20,13 +20,11 @@ class BoolTest(unittest.TestCase):
 
     def test_print(self):
         try:
-            fo = open(support.TESTFN, "w")
-            print(False, True, file=fo)
-            fo.close()
-            fo = open(support.TESTFN, "r")
-            self.assertEqual(fo.read(), 'False True\n')
+            with open(support.TESTFN, "w") as fo:
+                print(False, True, file=fo)
+            with open(support.TESTFN, "r") as fi:
+                self.assertEqual(fi.read(), 'False True\n')
         finally:
-            fo.close()
             os.remove(support.TESTFN)
 
     def test_repr(self):
@@ -96,6 +94,13 @@ class BoolTest(unittest.TestCase):
         self.assertEqual(False/1, 0)
         self.assertIsNot(False/1, False)
 
+        self.assertEqual(True%1, 0)
+        self.assertIsNot(True%1, False)
+        self.assertEqual(True%2, 1)
+        self.assertIsNot(True%2, True)
+        self.assertEqual(False%1, 0)
+        self.assertIsNot(False%1, False)
+
         for b in False, True:
             for i in 0, 1, 2:
                 self.assertEqual(b**i, int(b)**i)
@@ -162,6 +167,10 @@ class BoolTest(unittest.TestCase):
         self.assertIs(bool("hello"), True)
         self.assertIs(bool(""), False)
         self.assertIs(bool(), False)
+
+    def test_keyword_args(self):
+        with self.assertRaisesRegex(TypeError, 'keyword argument'):
+            bool(x=10)
 
     def test_format(self):
         self.assertEqual("%d" % False, "0")
@@ -234,9 +243,8 @@ class BoolTest(unittest.TestCase):
 
     def test_fileclosed(self):
         try:
-            f = open(support.TESTFN, "w")
-            self.assertIs(f.closed, False)
-            f.close()
+            with open(support.TESTFN, "w") as f:
+                self.assertIs(f.closed, False)
             self.assertIs(f.closed, True)
         finally:
             os.remove(support.TESTFN)
@@ -332,6 +340,17 @@ class BoolTest(unittest.TestCase):
                     len(A())
                 except (Exception) as e_len:
                     self.assertEqual(str(e_bool), str(e_len))
+
+    def test_blocked(self):
+        class A:
+            __bool__ = None
+        self.assertRaises(TypeError, bool, A())
+
+        class B:
+            def __len__(self):
+                return 10
+            __bool__ = None
+        self.assertRaises(TypeError, bool, B())
 
     def test_real_and_imag(self):
         self.assertEqual(True.real, 1)

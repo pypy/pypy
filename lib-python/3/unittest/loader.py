@@ -8,7 +8,7 @@ import types
 import functools
 import warnings
 
-from fnmatch import fnmatch
+from fnmatch import fnmatch, fnmatchcase
 
 from . import case, suite, util
 
@@ -70,6 +70,7 @@ class TestLoader(object):
     """
     testMethodPrefix = 'test'
     sortTestMethodsUsing = staticmethod(util.three_way_cmp)
+    testNamePatterns = None
     suiteClass = suite.TestSuite
     _top_level_dir = None
 
@@ -81,7 +82,7 @@ class TestLoader(object):
         self._loading_packages = set()
 
     def loadTestsFromTestCase(self, testCaseClass):
-        """Return a suite of all tests cases contained in testCaseClass"""
+        """Return a suite of all test cases contained in testCaseClass"""
         if issubclass(testCaseClass, suite.TestSuite):
             raise TypeError("Test cases should not be derived from "
                             "TestSuite. Maybe you meant to derive from "
@@ -95,7 +96,7 @@ class TestLoader(object):
     # XXX After Python 3.5, remove backward compatibility hacks for
     # use_load_tests deprecation via *args and **kws.  See issue 16662.
     def loadTestsFromModule(self, module, *args, pattern=None, **kws):
-        """Return a suite of all tests cases contained in the given module"""
+        """Return a suite of all test cases contained in the given module"""
         # This method used to take an undocumented and unofficial
         # use_load_tests argument.  For backward compatibility, we still
         # accept the argument (which can also be the first position) but we
@@ -135,7 +136,7 @@ class TestLoader(object):
         return tests
 
     def loadTestsFromName(self, name, module=None):
-        """Return a suite of all tests cases given a string specifier.
+        """Return a suite of all test cases given a string specifier.
 
         The name may resolve either to a module, a test case class, a
         test method within a test case class, or a callable object which
@@ -213,7 +214,7 @@ class TestLoader(object):
             raise TypeError("don't know how to make test from: %s" % obj)
 
     def loadTestsFromNames(self, names, module=None):
-        """Return a suite of all tests cases found using the given sequence
+        """Return a suite of all test cases found using the given sequence
         of string specifiers. See 'loadTestsFromName()'.
         """
         suites = [self.loadTestsFromName(name, module) for name in names]
@@ -222,11 +223,18 @@ class TestLoader(object):
     def getTestCaseNames(self, testCaseClass):
         """Return a sorted sequence of method names found within testCaseClass
         """
-        def isTestMethod(attrname, testCaseClass=testCaseClass,
-                         prefix=self.testMethodPrefix):
-            return attrname.startswith(prefix) and \
-                callable(getattr(testCaseClass, attrname))
-        testFnNames = list(filter(isTestMethod, dir(testCaseClass)))
+        def shouldIncludeMethod(attrname):
+            if not attrname.startswith(self.testMethodPrefix):
+                return False
+            testFunc = getattr(testCaseClass, attrname)
+            if not callable(testFunc):
+                return False
+            fullName = f'%s.%s.%s' % (
+                testCaseClass.__module__, testCaseClass.__qualname__, attrname
+            )
+            return self.testNamePatterns is None or \
+                any(fnmatchcase(fullName, pattern) for pattern in self.testNamePatterns)
+        testFnNames = list(filter(shouldIncludeMethod, dir(testCaseClass)))
         if self.sortTestMethodsUsing:
             testFnNames.sort(key=functools.cmp_to_key(self.sortTestMethodsUsing))
         return testFnNames
@@ -486,16 +494,17 @@ class TestLoader(object):
 defaultTestLoader = TestLoader()
 
 
-def _makeLoader(prefix, sortUsing, suiteClass=None):
+def _makeLoader(prefix, sortUsing, suiteClass=None, testNamePatterns=None):
     loader = TestLoader()
     loader.sortTestMethodsUsing = sortUsing
     loader.testMethodPrefix = prefix
+    loader.testNamePatterns = testNamePatterns
     if suiteClass:
         loader.suiteClass = suiteClass
     return loader
 
-def getTestCaseNames(testCaseClass, prefix, sortUsing=util.three_way_cmp):
-    return _makeLoader(prefix, sortUsing).getTestCaseNames(testCaseClass)
+def getTestCaseNames(testCaseClass, prefix, sortUsing=util.three_way_cmp, testNamePatterns=None):
+    return _makeLoader(prefix, sortUsing, testNamePatterns=testNamePatterns).getTestCaseNames(testCaseClass)
 
 def makeSuite(testCaseClass, prefix='test', sortUsing=util.three_way_cmp,
               suiteClass=suite.TestSuite):

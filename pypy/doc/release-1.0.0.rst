@@ -38,21 +38,21 @@ We have prepared several entry points to help you get started:
 
 * The main entry point for JIT documentation and status:
 
-   http://codespeak.net/pypy/dist/pypy/doc/jit.html
+   https://codespeak.net/pypy/dist/pypy/doc/jit.html
 
 * The main documentation and getting-started PyPy entry point:
 
-   http://codespeak.net/pypy/dist/pypy/doc/index.html
+   https://codespeak.net/pypy/dist/pypy/doc/index.html
 
 * Our online "play1" demos showcasing various Python interpreters,
   features (and a new way to program AJAX applications):
 
-   http://play1.codespeak.net/
+   https://play1.codespeak.net/
 
 * Our detailed and in-depth Reports about various aspects of the
   project:
 
-   http://codespeak.net/pypy/dist/pypy/doc/index-report.html
+   https://codespeak.net/pypy/dist/pypy/doc/index-report.html
 
 In the next few months we are going to discuss the goals and form of
 the next stage of development - now more than ever depending on your
@@ -68,7 +68,7 @@ have fun,
     Maciej Fijalkowski, Alexandre Fayolle
 
     and many others:
-    http://codespeak.net/pypy/dist/pypy/doc/contributor.html
+    https://codespeak.net/pypy/dist/pypy/doc/contributor.html
 
 
 What is PyPy?
@@ -108,7 +108,7 @@ maintain conceptual integrity of the project and to discuss and deal
 with funding opportunities related to further PyPy sprinting and
 developments. See here for results of the discussion so far:
 
-    http://codespeak.net/pipermail/pypy-dev/2007q1/003577.html
+    https://codespeak.net/pipermail/pypy-dev/2007q1/003577.html
 
 
 1.0.0 Feature highlights
@@ -120,32 +120,32 @@ Here is a summary list of key features included in PyPy 1.0:
 - The Just-In-Time compiler generator, now capable of generating the
   first JIT compiler versions of our Python interpreter:
 
-   http://codespeak.net/pypy/dist/pypy/doc/jit.html
+   https://codespeak.net/pypy/dist/pypy/doc/jit.html
 
 - More Python interpreter optimizations (a CALL_METHOD bytecode, a method
   cache, rope-based strings), now running benchmarks at around half of
   CPython's speed (without the JIT):
 
-   http://codespeak.net/pypy/dist/pypy/doc/interpreter-optimizations.html
+   https://codespeak.net/pypy/dist/pypy/doc/interpreter-optimizations.html
 
 - The Python interpreter can be translated to .NET and enables
   interactions with the CLR libraries:
 
-   http://codespeak.net/pypy/dist/pypy/doc/cli-backend.html
-   http://codespeak.net/pypy/dist/pypy/doc/clr-module.html
+   https://codespeak.net/pypy/dist/pypy/doc/cli-backend.html
+   https://codespeak.net/pypy/dist/pypy/doc/clr-module.html
 
 - Aspect Oriented Programming facilities (based on mutating the Abstract
   Syntax Tree):
 
-   http://codespeak.net/pypy/dist/pypy/doc/aspect_oriented_programming.html
-   http://codespeak.net/pypy/extradoc/eu-report/D10.1_Aspect_Oriented_Programming_in_PyPy-2007-03-22.pdf
+   https://codespeak.net/pypy/dist/pypy/doc/aspect_oriented_programming.html
+   https://codespeak.net/pypy/extradoc/eu-report/D10.1_Aspect_Oriented_Programming_in_PyPy-2007-03-22.pdf
 
 - The JavaScript backend has evolved to a point where it can be used to
   write AJAX web applications with it. This is still an experimental
   technique, though. For demo applications which also showcase various
   generated Python and PROLOG interpreters, see:
 
-   http://play1.codespeak.net/
+   https://play1.codespeak.net/
 
 - Proxying object spaces and features of our Python interpreter:
 
@@ -160,7 +160,7 @@ Here is a summary list of key features included in PyPy 1.0:
 For a detailed description and discussion of high level backends and
 Python interpreter features, please see our extensive "D12" report:
 
-http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
+https://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
 
 
 Funding partners and organizations

@@ -11,7 +11,7 @@ refactored rough edges in rpython, and increased functionality of numpy.
 
 You can download the PyPy 4.0.0 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -78,15 +78,15 @@ and PyPy reaps the benefits of `cffi-1.3`_: improved manangement of object
 lifetimes, __stdcall on Win32, ffi.memmove(), and percolate ``const``,
 ``restrict`` keywords from cdef to C code.
 
-.. _`warmup time and memory overhead used for tracing`: http://morepypy.blogspot.com/2015/10/pypy-memory-and-warmup-improvements-2.html
-.. _`vectorization`: http://pypyvecopt.blogspot.co.at/
-.. _`guards`: http://rpython.readthedocs.org/en/latest/glossary.html
-.. _`PyPy`: http://doc.pypy.org 
+.. _`warmup time and memory overhead used for tracing`: https://morepypy.blogspot.com/2015/10/pypy-memory-and-warmup-improvements-2.html
+.. _`vectorization`: https://pypyvecopt.blogspot.co.at/
+.. _`guards`: https://rpython.readthedocs.org/en/latest/glossary.html
+.. _`PyPy`: https://doc.pypy.org 
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
-.. _`cffi-1.3`: http://cffi.readthedocs.org/en/latest/whatsnew.html#v1-3-0
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`cffi-1.3`: https://cffi.readthedocs.org/en/latest/whatsnew.html#v1-3-0
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
 
 What is PyPy?
@@ -106,12 +106,12 @@ as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
 We also introduce `support for the 64 bit PowerPC`_ hardware, specifically 
 Linux running the big- and little-endian variants of ppc64.
 
-.. _`pypy and cpython 2.7.x`: http://speed.pypy.org
-.. _OpenBSD: http://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
+.. _`pypy and cpython 2.7.x`: https://speed.pypy.org
+.. _OpenBSD: https://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
 .. _freebsd: https://svnweb.freebsd.org/ports/head/lang/pypy/
-.. _`dynamic languages`: http://pypyjs.org
-.. _`support for the 64 bit PowerPC`: http://morepypy.blogspot.com/2015/10/powerpc-backend-for-jit.html
-.. _`here`: http://morepypy.blogspot.com/2015/10/automatic-simd-vectorization-support-in.html
+.. _`dynamic languages`: https://pypyjs.org
+.. _`support for the 64 bit PowerPC`: https://morepypy.blogspot.com/2015/10/powerpc-backend-for-jit.html
+.. _`here`: https://morepypy.blogspot.com/2015/10/automatic-simd-vectorization-support-in.html
 
 Other Highlights (since 2.6.1 release two months ago)
 =====================================================
@@ -204,7 +204,7 @@ Other Highlights (since 2.6.1 release two months ago)
     and locals2fast only if truly necessary
 
 .. _`vmprof`: https://vmprof.readthedocs.org
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-15.11.0.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-15.11.0.html
 
 Please try it out and let us know what you think. We welcome feedback,
 we know you are using PyPy, please tell us about it!

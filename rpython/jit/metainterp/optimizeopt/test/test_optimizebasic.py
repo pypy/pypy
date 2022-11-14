@@ -1,18 +1,22 @@
-import py, sys
-from rpython.rlib.objectmodel import instantiate
+import py
+import pytest
+import sys
+import re
 from rpython.rlib.rarithmetic import intmask
-from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
-from rpython.jit.metainterp.history import TargetToken, JitCellToken
-import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
-import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
-from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.history import ConstInt, get_const_ptr_for_string
-from rpython.jit.metainterp import executor, compile, resume
-from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgInt,\
-     OpHelpers, InputArgRef
-from rpython.jit.metainterp.resumecode import unpack_numbering
 from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rtyper import rclass
+from rpython.rtyper.lltypesystem import lltype
+from rpython.jit.metainterp.optimize import InvalidLoop
+from rpython.jit.metainterp.optimizeopt.test.test_util import (
+    BaseTest, convert_old_style_to_targets, FakeJitDriverStaticData)
+from rpython.jit.metainterp.history import (
+    JitCellToken, ConstInt, get_const_ptr_for_string)
+from rpython.jit.metainterp import executor, compile
+from rpython.jit.metainterp.resoperation import (
+    rop, ResOperation, InputArgInt, OpHelpers, InputArgRef)
+from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
+from rpython.jit.metainterp.test.test_resume import (
+    ResumeDataFakeReader, MyMetaInterp)
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 
 # ____________________________________________________________
@@ -30,19 +34,20 @@ class BaseTestBasic(BaseTest):
         exp = parse(optops, namespace=self.namespace.copy())
         expected = convert_old_style_to_targets(exp, jump=True)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        trace = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        trace = convert_loop_to_trace(loop, self.metainterp_sd)
         compile_data = compile.SimpleCompileData(
-            trace, call_pure_results=call_pure_results)
-        info, ops = self._do_optimize_loop(compile_data)
+            trace, call_pure_results=call_pure_results,
+            enable_opts=self.enable_opts)
+        jitdriver_sd = FakeJitDriverStaticData()
+        info, ops = compile_data.optimize_trace(self.metainterp_sd, jitdriver_sd, {})
         label_op = ResOperation(rop.LABEL, info.inputargs)
         loop.inputargs = info.inputargs
         loop.operations = [label_op] + ops
-        #print '\n'.join([str(o) for o in loop.operations])
         self.loop = loop
         self.assert_equal(loop, expected)
 
 
-class BaseTestOptimizeBasic(BaseTestBasic):
+class TestOptimizeBasic(BaseTestBasic):
 
     def test_very_simple(self):
         ops = """
@@ -402,6 +407,39 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p0]
         guard_class(p0, ConstClass(node_vtable)) []
         jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_instance_ptr_eq_is_symmetric(self):
+        ops = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_false(i0) []
+        i1 = instance_ptr_eq(p1, p0)
+        guard_false(i1) []
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_false(i0) []
+        jump(p0, p1)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [p0, p1]
+        i0 = instance_ptr_ne(p0, p1)
+        guard_true(i0) []
+        i1 = instance_ptr_ne(p1, p0)
+        guard_true(i1) []
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = instance_ptr_ne(p0, p1)
+        guard_true(i0) []
+        jump(p0, p1)
         """
         self.optimize_loop(ops, expected)
 
@@ -823,7 +861,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         finish(1)
         """
         self.optimize_loop(ops, ops)
-        py.test.skip("XXX missing optimization: ll_arraycopy(array-of-structs)")
 
     def test_nonvirtual_array_of_struct_arraycopy(self):
         ops = """
@@ -1065,6 +1102,163 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         escape_n(3)
         jump()
         """
+        self.optimize_loop(ops, expected)
+
+    def test_varray_huge_size(self):
+        ops = """
+        []
+        p1 = new_array(150100, descr=arraydescr)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_varray_negative_items_from_invalid_loop(self):
+        ops = """
+        [p1, p2]
+        i2 = getarrayitem_gc_i(p1, -1, descr=arraydescr)
+        setarrayitem_gc(p2, -1, i2, descr=arraydescr)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_varray_too_large_items(self):
+        ops = """
+        [p1, p2]
+        i2 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)  # not cached
+        setarrayitem_gc(p2, 150100, i2, descr=arraydescr)
+        i4 = getarrayitem_gc_i(p2, 150100, descr=arraydescr)  # cached, heap.py
+        jump(p1, p2, i3, i4)
+        """
+        expected = """
+        [p1, p2]
+        i2 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)  # not cached
+        setarrayitem_gc(p2, 150100, i2, descr=arraydescr)
+        jump(p1, p2, i3, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_varray_negative_items_from_invalid_loop_v(self):
+        ops = """
+        []
+        p1 = new_array(10, descr=arraydescr)
+        i2 = getarrayitem_gc_i(p1, -1, descr=arraydescr)
+        jump(i2)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        #
+        ops = """
+        [i2]
+        p1 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, -1, i2, descr=arraydescr)
+        jump()
+        """
+        expected = """
+        [i2]
+        jump()
+        """
+        # the setarrayitem_gc is completely dropped because of invalid index.
+        # we could also raise InvalidLoop, but both choices seem OK
+        self.optimize_loop(ops, expected)
+
+    def test_varray_too_large_items_from_invalid_loop_v(self):
+        ops = """
+        []
+        p1 = new_array(10, descr=arraydescr)
+        i2 = getarrayitem_gc_i(p1, 10, descr=arraydescr)
+        jump(i2)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        #
+        ops = """
+        [i2]
+        p1 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, 10, i2, descr=arraydescr)
+        jump()
+        """
+        expected = """
+        [i2]
+        jump()
+        """
+        # the setarrayitem_gc is completely dropped because of invalid index.
+        # we could also raise InvalidLoop, but both choices seem OK
+        self.optimize_loop(ops, expected)
+
+    def test_varray_huge_size_struct(self):
+        ops = """
+        []
+        p1 = new_array(150100, descr=complexarraydescr)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_varray_struct_negative_items_from_invalid_loop(self):
+        ops = """
+        [p1, p2]
+        f0 = getinteriorfield_gc_f(p1, -1, descr=complexrealdescr)
+        setinteriorfield_gc(p2, -1, f0, descr=compleximagdescr)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_varray_struct_too_large_items(self):
+        ops = """
+        [p1, p2]
+        f2 = getinteriorfield_gc_f(p1, 150100, descr=compleximagdescr)
+        # not cached:
+        f3 = getinteriorfield_gc_f(p1, 150100, descr=compleximagdescr)
+        setinteriorfield_gc(p2, 150100, f2, descr=complexrealdescr)
+        # this is not cached so far (it could be cached by heap.py)
+        f4 = getinteriorfield_gc_f(p2, 150100, descr=complexrealdescr)
+        jump(p1, p2, f3, f4)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_varray_struct_negative_items_from_invalid_loop_v(self):
+        ops = """
+        []
+        p1 = new_array_clear(10, descr=complexarraydescr)
+        f0 = getinteriorfield_gc_f(p1, -1, descr=complexrealdescr)
+        jump(f0)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        #
+        ops = """
+        [f0]
+        p1 = new_array_clear(10, descr=complexarraydescr)
+        setinteriorfield_gc(p1, -1, f0, descr=complexrealdescr)
+        jump()
+        """
+        expected = """
+        [f0]
+        jump()
+        """
+        # the setinteriorfield_gc is completely dropped because of invalid
+        # index.  we could also raise InvalidLoop, but both choices seem OK
+        self.optimize_loop(ops, expected)
+
+    def test_varray_struct_too_large_items_from_invalid_loop_v(self):
+        ops = """
+        []
+        p1 = new_array_clear(10, descr=complexarraydescr)
+        f0 = getinteriorfield_gc_f(p1, 10, descr=complexrealdescr)
+        jump(f0)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        #
+        ops = """
+        [f0]
+        p1 = new_array_clear(10, descr=complexarraydescr)
+        setinteriorfield_gc(p1, 10, f0, descr=complexrealdescr)
+        jump()
+        """
+        expected = """
+        [f0]
+        jump()
+        """
+        # the setinteriorfield_gc is completely dropped because of invalid
+        # index.  we could also raise InvalidLoop, but both choices seem OK
         self.optimize_loop(ops, expected)
 
     def test_p123_vstruct(self):
@@ -1502,8 +1696,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
-        py.test.skip("setarrayitem with variable index")
         ops = """
         [p1, p2, p3, i1]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
@@ -2109,9 +2303,11 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     # ----------
+    def get_class_of_box(self, box):
+        base = box.getref_base()
+        return lltype.cast_opaque_ptr(rclass.OBJECTPTR, base).typeptr
 
     def _verify_fail_args(self, boxes, oparse, text):
-        import re
         r = re.compile(r"\bwhere\s+(\w+)\s+is a\s+(\w+)")
         parts = list(r.finditer(text))
         ends = [match.start() for match in parts] + [len(text)]
@@ -2208,8 +2404,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
                 index += 1
 
     def check_expanded_fail_descr(self, expectedtext, guard_opnum, values=None):
-        from rpython.jit.metainterp.test.test_resume import ResumeDataFakeReader
-        from rpython.jit.metainterp.test.test_resume import MyMetaInterp
         guard_op, = [op for op in self.loop.operations if op.is_guard()]
         fail_args = guard_op.getfailargs()
         if values is not None:
@@ -2779,6 +2973,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             where p1b is a node_vtable, valuedescr=i1
             ''', rop.GUARD_NOT_FORCED)
 
+    @pytest.mark.xfail
     def test_vref_virtual_and_lazy_setfield(self):
         ops = """
         [p0, i1]
@@ -2810,7 +3005,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         #  - i1 is from the virtual expansion of p1
         #  - p0 is from the extra pendingfields
         self.loop.inputargs[0].setref_base(self.nodeobjvalue)
-        py.test.skip("XXX")
         self.check_expanded_fail_descr('''p2, p1
             p0.refdescr = p2
             where p2 is a jit_virtual_ref_vtable, virtualtokendescr=p3
@@ -3016,6 +3210,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(i2)
         """
         self.optimize_loop(ops, ops)
+
+    def test_arraymove_1(self):
+        ops = '''
+        [i0]
+        p1 = new_array(6, descr=arraydescr)
+        setarrayitem_gc(p1, 1, i0, descr=arraydescr)
+        call_n(0, p1, 0, 2, 0, descr=arraymovedescr)    # 0-length arraymove
+        i2 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
+        jump(i2)
+        '''
+        expected = '''
+        [i0]
+        jump(i0)
+        '''
+        self.optimize_loop(ops, expected)
 
     def test_bound_lt(self):
         ops = """
@@ -3368,6 +3577,346 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_lt(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_lt(i0, 10)
+        guard_true(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_lt(i0, 9)
+        guard_true(i4) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_le(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_le(i0, 9)
+        guard_true(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_le(i0, 8)
+        guard_true(i4) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_gt(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_gt(10, i0)
+        guard_true(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_gt(9, i0)
+        guard_true(i4) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_ge(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_ge(9, i0)
+        guard_true(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_ge(8, i0)
+        guard_true(i4) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_not_ge(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_ge(i0, 10)
+        guard_false(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_not_gt(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_gt(i0, 9)
+        guard_false(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_not_le(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_le(10, i0)
+        guard_false(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_not_lt(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_lt(9, i0)
+        guard_false(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_lt(8, i0)
+        guard_true(i4) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_lt_inv(self):
+        ops = """
+        [i0]
+        i1 = uint_lt(i0, 10)
+        guard_true(i1) []
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i1 = uint_lt(i0, 10)
+        guard_true(i1) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_range(self):
+        ops = """
+        [i0]
+        i2 = uint_lt(i0, -10)
+        guard_true(i2) []
+        i3 = uint_gt(i0, -20)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_le_inv(self):
+        ops = """
+        [i0]
+        i1 = uint_le(i0, 10)
+        guard_true(i1) []
+        i2 = int_lt(i0, 11)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i1 = uint_le(i0, 10)
+        guard_true(i1) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_gt_inv(self):
+        ops = """
+        [i0]
+        i1 = uint_gt(10, i0)
+        guard_true(i1) []
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i1 = uint_gt(10, i0)
+        guard_true(i1) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_ge_inv(self):
+        ops = """
+        [i0]
+        i1 = uint_ge(10, i0)
+        guard_true(i1) []
+        i2 = int_lt(i0, 11)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i1 = uint_ge(10, i0)
+        guard_true(i1) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_bug1(self):
+        ops = """
+        [i0]
+        i1 = int_ge(i0, 5)
+        guard_true(i1) []
+        i2 = uint_lt(i0, -50)
+        guard_true(i2) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
     def test_addsub_const(self):
         ops = """
         [i0]
@@ -3434,8 +3983,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_int_add_sub_constants_inverse(self):
-        py.test.skip("reenable")
-        import sys
         ops = """
         [i0, i10, i11, i12, i13]
         i2 = int_add(1, i0)
@@ -3579,13 +4126,29 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i0]
         i1 = int_lshift(0, i0)
         i2 = int_rshift(0, i0)
-        jump(i1, i2)
+        i3 = int_lshift(i0, 0)
+        i4 = int_rshift(i0, 0)
+        jump(i1, i2, i3, i4)
         """
         expected = """
         [i0]
-        jump(0, 0)
+        jump(0, 0, i0, i0)
         """
         self.optimize_loop(ops, expected)
+
+    def test_ushift_zero(self):
+        ops = """
+        [i0]
+        i2 = uint_rshift(0, i0)
+        i4 = uint_rshift(i0, 0)
+        jump(i2, i4)
+        """
+        expected = """
+        [i0]
+        jump(0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
     def test_bound_and(self):
         ops = """
@@ -4763,7 +5326,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_intmod_bounds(self):
-        from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
         ops = """
         [i0, i1]
         i2 = call_pure_i(321, i0, 12, descr=int_py_mod_descr)
@@ -4885,6 +5447,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_forced_virtuals_aliasing(self):
         ops = """
         [i0, i1]
@@ -4907,7 +5470,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=adescr)
         jump(i0, i0)
         """
-        py.test.skip("not implemented")
         # setfields on things that used to be virtual still can't alias each
         # other
         self.optimize_loop(ops, expected)
@@ -4983,8 +5545,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_known_equal_ints(self):
-        py.test.skip("in-progress")
         ops = """
         [i0, i1, i2, p0]
         i3 = int_eq(i0, i1)
@@ -5442,8 +6004,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_consecutive_getinteriorfields(self):
-        py.test.skip("we want this to pass")
         ops = """
         [p0, i0]
         i1 = getinteriorfield_gc_i(p0, i0, descr=valuedescr)
@@ -5791,6 +6353,117 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_convert_float_bytes_to_longlong(self):
+        ops = """
+        [f0, i0]
+        i1 = convert_float_bytes_to_longlong(f0)
+        f1 = convert_longlong_bytes_to_float(i1)
+        escape_f(f1)
 
-class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
-    pass
+        f2 = convert_longlong_bytes_to_float(i0)
+        i2 = convert_float_bytes_to_longlong(f2)
+        escape_i(i2)
+        """
+
+        expected = """
+        [f0, i0]
+        i1 = convert_float_bytes_to_longlong(f0)
+        escape_f(f0)
+
+        f2 = convert_longlong_bytes_to_float(i0)
+        escape_i(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_invert(self):
+        ops = """
+        [p0]
+        i1 = arraylen_gc(p0, descr=arraydescr) # known >= 0
+        i2 = int_invert(i1)
+        i3 = int_lt(i2, 0)
+        guard_true(i3) []
+        """
+        expected = """
+        [p0]
+        i1 = arraylen_gc(p0, descr=arraydescr) # known >= 0
+        i2 = int_invert(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_invert_invert(self):
+        ops = """
+        [i1]
+        i2 = int_invert(i1)
+        i3 = int_invert(i2)
+        escape_i(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_invert(i1)
+        escape_i(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_invert_postprocess(self):
+        ops = """
+        [i1]
+        i2 = int_invert(i1)
+        i3 = int_lt(i2, 0)
+        guard_true(i3) []
+        i4 = int_ge(i1, 0)
+        guard_true(i4) []
+        """
+        expected = """
+        [i1]
+        i2 = int_invert(i1)
+        i3 = int_lt(i2, 0)
+        guard_true(i3) []
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_neg(self):
+        ops = """
+        [p0]
+        i1 = arraylen_gc(p0, descr=arraydescr) # known >= 0
+        i2 = int_neg(i1)
+        i3 = int_le(i2, 0)
+        guard_true(i3) []
+        """
+        expected = """
+        [p0]
+        i1 = arraylen_gc(p0, descr=arraydescr) # known >= 0
+        i2 = int_neg(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_neg_postprocess(self):
+        ops = """
+        [i1]
+        i2 = int_neg(i1)
+        i3 = int_le(i2, 0)
+        guard_true(i3) []
+        i4 = int_ge(i1, 0)
+        guard_true(i4) []
+        """
+        expected = """
+        [i1]
+        i2 = int_neg(i1)
+        i3 = int_le(i2, 0)
+        guard_true(i3) []
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_float_abs_abs_folds_to_abs(self):
+        ops = """
+        [f1]
+        f2 = float_abs(f1)
+        f3 = float_abs(f2)
+        f4 = float_abs(f3)
+        escape_f(f3)
+        """
+        expected = """
+        [f1]
+        f2 = float_abs(f1)
+        escape_f(f2)
+        """
+        self.optimize_loop(ops, expected)

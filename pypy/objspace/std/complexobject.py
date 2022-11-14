@@ -13,7 +13,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.objspace.std import newformat
-from pypy.objspace.std.floatobject import _hash_float
+from pypy.objspace.std.floatobject import _hash_float, _remove_underscores
 from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
 
 HASH_IMAG = 1000003
@@ -152,9 +152,19 @@ def unpackcomplex(space, w_complex, strict_typing=True, firstarg=True):
         # __complex__() must return a complex
         # (XXX should not use isinstance here)
         if isinstance(w_z, W_ComplexObject):
+            if type(w_z) is not W_ComplexObject:
+                space.warn(
+                    space.newtext("__complex__ returned non-complex (type %s).  The ability to return an instance of a strict subclass of complex is deprecated, and may be removed in a future version of Python." % (space.type(w_z).getname(space))),
+                    space.w_DeprecationWarning
+                )
             return (w_z.realval, w_z.imagval)
         raise oefmt(space.w_TypeError,
                     "__complex__() must return a complex number")
+
+    # try to see whether it has an __index__
+    if space.lookup(w_complex, '__index__') is not None:
+        result = space.float_w(space.float(space.index(w_complex)))
+        return (result, 0.0)
 
     #
     # no '__complex__' method, so we assume it is a float,
@@ -268,7 +278,7 @@ class W_ComplexObject(W_Root):
         val = real_b.lshift(64).or_(imag_b).lshift(IDTAG_SHIFT).int_or_(tag)
         return space.newlong_from_rbigint(val)
 
-    def int(self, space):
+    def descr_int(self, space):
         raise oefmt(space.w_TypeError, "can't convert complex to int")
 
     def _to_complex(self, space, w_obj):
@@ -298,6 +308,11 @@ class W_ComplexObject(W_Root):
                 raise oefmt(space.w_TypeError, "complex() can't take second"
                                                " arg if first is a string")
             unistr = unicode_to_decimal_w(space, w_real)
+            try:
+                unistr = _remove_underscores(unistr)
+            except ValueError:
+                raise oefmt(space.w_ValueError,
+                            "complex() arg is a malformed string")
             try:
                 realstr, imagstr = _split_complex(unistr)
             except ValueError:
@@ -334,8 +349,8 @@ class W_ComplexObject(W_Root):
         return w_obj
 
     def descr___getnewargs__(self, space):
-        return space.newtuple([space.newfloat(self.realval),
-                               space.newfloat(self.imagval)])
+        return space.newtuple2(space.newfloat(self.realval),
+                               space.newfloat(self.imagval))
 
     def descr_repr(self, space):
         if self.realval == 0 and math.copysign(1., self.realval) == 1.:
@@ -354,8 +369,8 @@ class W_ComplexObject(W_Root):
                              + sign + str_format(self.imagval) + 'j)')
 
     def descr_hash(self, space):
-        hashreal = _hash_float(space, self.realval)
-        hashimg = _hash_float(space, self.imagval)   # 0 if self.imagval == 0
+        hashreal = _hash_float(self.realval)
+        hashimg = _hash_float(self.imagval)   # 0 if self.imagval == 0
         h = intmask(hashreal + HASH_IMAG * hashimg)
         h -= (h == -1)
         return space.newint(h)
@@ -364,7 +379,7 @@ class W_ComplexObject(W_Root):
         w_other = self._to_complex(space, w_other)
         if w_other is None:
             return space.w_NotImplemented
-        return space.newtuple([self, w_other])
+        return space.newtuple2(self, w_other)
 
     def descr_format(self, space, w_format_spec):
         return newformat.run_formatter(space, w_format_spec, "format_complex",
@@ -542,7 +557,7 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __hash__ = interp2app(W_ComplexObject.descr_hash),
     __format__ = interp2app(W_ComplexObject.descr_format),
     __bool__ = interp2app(W_ComplexObject.descr_bool),
-    __int__ = interp2app(W_ComplexObject.int),
+    __int__ = interp2app(W_ComplexObject.descr_int),
     __float__ = interp2app(W_ComplexObject.descr_float),
     __neg__ = interp2app(W_ComplexObject.descr_neg),
     __pos__ = interp2app(W_ComplexObject.descr_pos),

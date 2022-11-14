@@ -7,6 +7,9 @@ VERSION_BASE = 0x2601
 VERSION_EMBEDDED = 0x2701
 VERSION_CHAR16CHAR32 = 0x2801
 
+USE_LIMITED_API = (sys.platform != 'win32' or sys.version_info < (3, 0) or
+                   sys.version_info >= (3, 5))
+
 
 class GlobalExpr:
     def __init__(self, name, address, type_op, size=0, check_value=0):
@@ -190,6 +193,17 @@ class Recompiler:
             assert isinstance(op, CffiOp)
         self.cffi_types = tuple(self.cffi_types)    # don't change any more
 
+    def _enum_fields(self, tp):
+        # When producing C, expand all anonymous struct/union fields.
+        # That's necessary to have C code checking the offsets of the
+        # individual fields contained in them.  When producing Python,
+        # don't do it and instead write it like it is, with the
+        # corresponding fields having an empty name.  Empty names are
+        # recognized at runtime when we import the generated Python
+        # file.
+        expand_anonymous_struct_union = not self.target_is_python
+        return tp.enumfields(expand_anonymous_struct_union)
+
     def _do_collect_type(self, tp):
         if not isinstance(tp, model.BaseTypeByIdentity):
             if isinstance(tp, tuple):
@@ -203,7 +217,7 @@ class Recompiler:
             elif isinstance(tp, model.StructOrUnion):
                 if tp.fldtypes is not None and (
                         tp not in self.ffi._parser._included_declarations):
-                    for name1, tp1, _, _ in tp.enumfields():
+                    for name1, tp1, _, _ in self._enum_fields(tp):
                         self._do_collect_type(self._field_type(tp, name1, tp1))
             else:
                 for _, x in tp._get_items():
@@ -283,6 +297,8 @@ class Recompiler:
         prnt = self._prnt
         if self.ffi._embedding is not None:
             prnt('#define _CFFI_USE_EMBEDDING')
+        if not USE_LIMITED_API:
+            prnt('#define _CFFI_NO_LIMITED_API')
         #
         # first the '#include' (actually done by inlining the file's content)
         lines = self._rel_readlines('_cffi_include.h')
@@ -391,7 +407,7 @@ class Recompiler:
             prnt('  NULL,  /* no includes */')
         prnt('  %d,  /* num_types */' % (len(self.cffi_types),))
         flags = 0
-        if self._num_externpy:
+        if self._num_externpy > 0 or self.ffi._embedding is not None:
             flags |= 1     # set to mean that we use extern "Python"
         prnt('  %d,  /* flags */' % flags)
         prnt('};')
@@ -406,7 +422,7 @@ class Recompiler:
         prnt('PyMODINIT_FUNC')
         prnt('_cffi_pypyinit_%s(const void *p[])' % (base_module_name,))
         prnt('{')
-        if self._num_externpy:
+        if flags & 1:
             prnt('    if (((intptr_t)p[0]) >= 0x0A03) {')
             prnt('        _cffi_call_python_org = '
                  '(void(*)(struct _cffi_externpy_s *, char *))p[1];')
@@ -560,23 +576,24 @@ class Recompiler:
             tovar, tp.get_c_name(''), errvalue))
         self._prnt('    %s;' % errcode)
 
-    def _extra_local_variables(self, tp, localvars):
+    def _extra_local_variables(self, tp, localvars, freelines):
         if isinstance(tp, model.PointerType):
             localvars.add('Py_ssize_t datasize')
+            localvars.add('struct _cffi_freeme_s *large_args_free = NULL')
+            freelines.add('if (large_args_free != NULL)'
+                          ' _cffi_free_array_arguments(large_args_free);')
 
     def _convert_funcarg_to_c_ptr_or_array(self, tp, fromvar, tovar, errcode):
         self._prnt('  datasize = _cffi_prepare_pointer_call_argument(')
         self._prnt('      _cffi_type(%d), %s, (char **)&%s);' % (
             self._gettypenum(tp), fromvar, tovar))
         self._prnt('  if (datasize != 0) {')
-        self._prnt('    if (datasize < 0)')
-        self._prnt('      %s;' % errcode)
-        self._prnt('    %s = (%s)alloca((size_t)datasize);' % (
+        self._prnt('    %s = ((size_t)datasize) <= 640 ? '
+                   '(%s)alloca((size_t)datasize) : NULL;' % (
             tovar, tp.get_c_name('')))
-        self._prnt('    memset((void *)%s, 0, (size_t)datasize);' % (tovar,))
-        self._prnt('    if (_cffi_convert_array_from_object('
-                   '(char *)%s, _cffi_type(%d), %s) < 0)' % (
-            tovar, self._gettypenum(tp), fromvar))
+        self._prnt('    if (_cffi_convert_array_argument(_cffi_type(%d), %s, '
+                   '(char **)&%s,' % (self._gettypenum(tp), fromvar, tovar))
+        self._prnt('            datasize, &large_args_free) < 0)')
         self._prnt('      %s;' % errcode)
         self._prnt('  }')
 
@@ -699,9 +716,10 @@ class Recompiler:
             prnt('  %s;' % arg)
         #
         localvars = set()
+        freelines = set()
         for type in tp.args:
-            self._extra_local_variables(type, localvars)
-        for decl in localvars:
+            self._extra_local_variables(type, localvars, freelines)
+        for decl in sorted(localvars):
             prnt('  %s;' % (decl,))
         #
         if not isinstance(tp.result, model.VoidType):
@@ -709,6 +727,7 @@ class Recompiler:
             context = 'result of %s' % name
             result_decl = '  %s;' % tp.result.get_c_name(' result', context)
             prnt(result_decl)
+            prnt('  PyObject *pyresult;')
         else:
             result_decl = None
             result_code = ''
@@ -742,9 +761,14 @@ class Recompiler:
         if numargs == 0:
             prnt('  (void)noarg; /* unused */')
         if result_code:
-            prnt('  return %s;' %
+            prnt('  pyresult = %s;' %
                  self._convert_expr_from_c(tp.result, 'result', 'result type'))
+            for freeline in freelines:
+                prnt('  ' + freeline)
+            prnt('  return pyresult;')
         else:
+            for freeline in freelines:
+                prnt('  ' + freeline)
             prnt('  Py_INCREF(Py_None);')
             prnt('  return Py_None;')
         prnt('}')
@@ -851,12 +875,13 @@ class Recompiler:
         prnt('{')
         prnt('  /* only to generate compile-time warnings or errors */')
         prnt('  (void)p;')
-        for fname, ftype, fbitsize, fqual in tp.enumfields():
+        for fname, ftype, fbitsize, fqual in self._enum_fields(tp):
             try:
                 if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
-                    prnt("  (void)((p->%s) | 0);  /* check that '%s.%s' is "
-                         "an integer */" % (fname, cname, fname))
+                    if fname != '':
+                        prnt("  (void)((p->%s) | 0);  /* check that '%s.%s' is "
+                             "an integer */" % (fname, cname, fname))
                     continue
                 # only accept exactly the type declared, except that '[]'
                 # is interpreted as a '*' and so will match any array length.
@@ -906,8 +931,7 @@ class Recompiler:
         flags = '|'.join(flags) or '0'
         c_fields = []
         if reason_for_not_expanding is None:
-            expand_anonymous_struct_union = not self.target_is_python
-            enumfields = list(tp.enumfields(expand_anonymous_struct_union))
+            enumfields = list(self._enum_fields(tp))
             for fldname, fldtype, fbitsize, fqual in enumfields:
                 fldtype = self._field_type(tp, fldname, fldtype)
                 self._check_not_opaque(fldtype,
@@ -1215,7 +1239,8 @@ class Recompiler:
             size_of_result = '(int)sizeof(%s)' % (
                 tp.result.get_c_name('', context),)
         prnt('static struct _cffi_externpy_s _cffi_externpy__%s =' % name)
-        prnt('  { "%s.%s", %s };' % (self.module_name, name, size_of_result))
+        prnt('  { "%s.%s", %s, 0, 0 };' % (
+            self.module_name, name, size_of_result))
         prnt()
         #
         arguments = []
@@ -1286,14 +1311,28 @@ class Recompiler:
     def _print_string_literal_in_array(self, s):
         prnt = self._prnt
         prnt('// # NB. this is not a string because of a size limit in MSVC')
+        if not isinstance(s, bytes):    # unicode
+            s = s.encode('utf-8')       # -> bytes
+        else:
+            s.decode('utf-8')           # got bytes, check for valid utf-8
+        try:
+            s.decode('ascii')
+        except UnicodeDecodeError:
+            s = b'# -*- encoding: utf8 -*-\n' + s
         for line in s.splitlines(True):
-            prnt(('// ' + line).rstrip())
+            comment = line
+            if type('//') is bytes:     # python2
+                line = map(ord, line)   #     make a list of integers
+            else:                       # python3
+                # type(line) is bytes, which enumerates like a list of integers
+                comment = ascii(comment)[1:-1]
+            prnt(('// ' + comment).rstrip())
             printed_line = ''
             for c in line:
                 if len(printed_line) >= 76:
                     prnt(printed_line)
                     printed_line = ''
-                printed_line += '%d,' % (ord(c),)
+                printed_line += '%d,' % (c,)
             prnt(printed_line)
 
     # ----------

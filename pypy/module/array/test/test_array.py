@@ -69,9 +69,10 @@ class AppTestArray(object):
                 assert a[i] == v
                 assert type(a[i]) is pt or (
                     # A special case: we return ints in Array('I') on 64-bits,
+                    # and in Array('L') on 64-bit Windows,
                     # whereas CPython returns longs.  The difference is
                     # probably acceptable.
-                    tc == 'I' and
+                    (tc == 'I' or tc == 'L' and sys.platform == 'win32') and
                     sys.maxint > 2147483647 and type(a[i]) is int)
             for v in ok:
                 a[1] = v
@@ -113,6 +114,18 @@ class AppTestArray(object):
             assert a[1] == 10.125
             assert a[2] == 2.5
             assert len(a) == len(values)
+
+    def test_nan(self):
+        for tc in 'fd':
+            a = self.array(tc, [float('nan')])
+            b = self.array(tc, [float('nan')])
+            assert not a == b
+            assert a != b
+            assert not a > b
+            assert not a >= b
+            assert not a < b
+            assert not a <= b
+            assert a.count(float('nan')) == 0
 
     def test_itemsize(self):
         for t in 'bB':
@@ -382,6 +395,7 @@ class AppTestArray(object):
         assert repr(a[2:1:-1]) == "array('i', [20])"
         assert repr(a[2:-1:-1]) == "array('i')"
         assert repr(a[-1:0:-1]) == "array('i', [20, 21])"
+        del a
 
         for a in range(-4, 5):
             for b in range(-4, 5):
@@ -399,6 +413,20 @@ class AppTestArray(object):
                             assert repr(arr) == repr(self.array('i', lst))
                         except ValueError:
                             assert not ok
+                    del arr
+        # make sure array.__del__ is called before the leak check
+        import gc; gc.collect()
+
+    def test_getslice_large_step(self):
+        import sys
+        a = self.array('b', [1, 2, 3])
+        assert list(a[1::sys.maxsize]) == [2]
+
+    def test_setslice_large_step(self):
+        import sys
+        a = self.array('b', [1, 2, 3])
+        a[1::sys.maxsize] = self.array('b', [42])
+        assert a.tolist() == [1, 42, 3]
 
     def test_toxxx(self):
         a = self.array('i', [1, 2, 3])
@@ -755,6 +783,16 @@ class AppTestArray(object):
         assert hasattr(b, '__iter__')
         assert next(b.__iter__()) == 1
 
+    def test_contains(self):
+        a = self.array('i', [1, 6, 3])
+        assert hasattr(a, '__contains__')
+        assert (1 in a) is True
+        assert 6 in a
+        assert 3 in a
+        assert (0 in a) is False
+        assert 12 not in a
+        assert 'a' not in a
+
     def test_lying_iterable(self):
         class lier(object):
             def __init__(self, n):
@@ -853,25 +891,25 @@ class AppTestArray(object):
             def extend(self, lst):
                 self.append(10)
 
-        assert repr(mya('u', 'hi')) == "array('u', 'hi')"
-        assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
-        assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
+        assert repr(mya('u', 'hi')) == "mya('u', 'hi')"
+        assert repr(mya('i', [1, 2, 3])) == "mya('i', [1, 2, 3])"
+        assert repr(mya('i', (1, 2, 3))) == "mya('i', [1, 2, 3])"
 
         a = mya('i')
         a.fromlist([1, 2, 3])
-        assert repr(a) == "array('i', [7])"
+        assert repr(a) == "mya('i', [7])"
 
         a = mya('b')
         a.fromstring(b'hi')
-        assert repr(a) == "array('b', [8])"
+        assert repr(a) == "mya('b', [8])"
 
         a = mya('u')
         a.fromunicode('hi')
-        assert repr(a) == "array('u', '9')"
+        assert repr(a) == "mya('u', '9')"
 
         a = mya('i')
         a.extend([1, 2, 3])
-        assert repr(a) == "array('i', [10])"
+        assert repr(a) == "mya('i', [10])"
 
     def test_override_to(self):
         class mya(self.array):
@@ -888,15 +926,37 @@ class AppTestArray(object):
         assert mya('u', 'hi').tobytes() == 'str'
         assert mya('u', 'hi').tounicode() == 'unicode'
 
-        assert repr(mya('u', 'hi')) == "array('u', 'hi')"
-        assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
-        assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
+        assert repr(mya('u', 'hi')) == "mya('u', 'hi')"
+        assert repr(mya('i', [1, 2, 3])) == "mya('i', [1, 2, 3])"
+        assert repr(mya('i', (1, 2, 3))) == "mya('i', [1, 2, 3])"
 
     def test_unicode_outofrange(self):
-        a = self.array('u', u'\x01\u263a\x00\ufeff')
-        b = self.array('u', u'\x01\u263a\x00\ufeff')
+        input_unicode = u'\x01\u263a\x00\ufeff'
+        a = self.array('u', input_unicode)
+        b = self.array('u', input_unicode)
         b.byteswap()
-        raises(ValueError, "a != b")
+        assert b[2] == u'\u0000'
+        assert a != b
+        if b.itemsize == 4:
+            e = raises(ValueError, "b[0]")        # doesn't work
+            assert str(e.value) == (
+                "cannot operate on this array('u') because it contains"
+                " character U+1000000 not in range [U+0000; U+10ffff]"
+                " at index 0")
+            assert str(b) == ("array('u', <character U+1000000 is not in"
+                          " range [U+0000; U+10ffff]>)")
+            raises(ValueError, b.tounicode)   # doesn't work
+        elif b.itemsize == 2:
+            assert b[0] == u'\u0100'
+            byteswaped_unicode = u'\u0100\u3a26\x00\ufffe'
+            assert str(b) == "array('u', %r)" % (byteswaped_unicode,)
+            assert b.tounicode() == byteswaped_unicode
+        assert str(a) == "array('u', %r)" % (input_unicode,)
+        assert a.tounicode() == input_unicode
+
+    def test_unicode_surrogate(self):
+        a = self.array('u', u'\ud800')
+        assert a[0] == u'\ud800'
 
     def test_weakref(self):
         import weakref
@@ -1077,6 +1137,12 @@ class AppTestArray(object):
         view = memoryview(a)[1:5]
         struct.pack_into('>H', view, 1, 0x1234)
         assert a.tobytes() == b'ab\x12\x34ef'
+
+    def test_subclass_repr(self):
+        import array
+        class subclass(self.array):
+            pass
+        assert repr(subclass('i')) == "subclass('i')"
 
 
 class AppTestArrayReconstructor:

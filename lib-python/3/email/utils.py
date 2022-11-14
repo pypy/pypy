@@ -81,7 +81,7 @@ def formataddr(pair, charset='utf-8'):
     If the first element of pair is false, then the second element is
     returned unmodified.
 
-    Optional charset if given is the character set that is used to encode
+    The optional charset is the character set that is used to encode
     realname in case realname is not ASCII safe.  Can be an instance of str or
     a Charset-like object which has a header_encode method.  Default is
     'utf-8'.
@@ -112,18 +112,6 @@ def getaddresses(fieldvalues):
     all = COMMASPACE.join(fieldvalues)
     a = _AddressList(all)
     return a.addresslist
-
-
-
-ecre = re.compile(r'''
-  =\?                   # literal =?
-  (?P<charset>[^?]*?)   # non-greedy up to the next ? is the charset
-  \?                    # literal ?
-  (?P<encoding>[qb])    # either a "q" or a "b", case insensitive
-  \?                    # literal ?
-  (?P<atom>.*?)         # non-greedy up to the next ?= is the atom
-  \?=                   # literal ?=
-  ''', re.VERBOSE | re.IGNORECASE)
 
 
 def _format_timetuple_and_zone(timetuple, zone):
@@ -215,6 +203,12 @@ def parsedate_to_datetime(data):
 
 
 def parseaddr(addr):
+    """
+    Parse addr into its constituent realname and email address parts.
+
+    Return a tuple of realname and email address, unless the parse fails, in
+    which case return a 2-tuple of ('', '').
+    """
     addrs = _AddressList(addr).addresslist
     if not addrs:
         return '', ''

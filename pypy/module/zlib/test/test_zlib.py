@@ -90,6 +90,11 @@ class AppTestZlib(object):
         v = self.zlib.crc32(b'', -1)
         assert v == 4294967295
 
+    def test_crc32_negative_start_bug(self):
+        v1 = self.zlib.crc32(b'ham', 0xffffffff)
+        v2 = self.zlib.crc32(b'ham', -1)
+        assert v1 == v2
+
     def test_crc32_negative_long_start(self):
         v = self.zlib.crc32(b'', -1)
         assert v == 4294967295
@@ -403,7 +408,7 @@ class AppTestZlib(object):
 
         assert (d1 + from_copy) == (d1 + from_compressor)
 
-    @py.test.mark.skipif(rzlib.ZLIB_VERSION == '1.2.8', reason='does not error check')
+    @py.test.mark.skipif(rzlib.ZLIB_VERSION in ('1.2.7', '1.2.8', '1.2.3'), reason='does not error check')
     def test_cannot_copy_compressor_with_stream_in_inconsistent_state(self):
         if self.runappdirect: skip("can't run with -A")
         compressor = self.zlib.compressobj()
@@ -414,3 +419,12 @@ class AppTestZlib(object):
         compressor = self.zlib.compressobj()
         compressor.flush()
         raises(ValueError, compressor.copy)
+
+    def test_double_flush(self):
+        import zlib
+        x = b'x\x9cK\xcb\xcf\x07\x00\x02\x82\x01E'  # 'foo'
+        dco = zlib.decompressobj()
+        dco.decompress(x)
+        dco.flush()
+        # multiple flush calls should not raise
+        dco.flush()

@@ -262,3 +262,46 @@ class AppTest_ModuleObject:
         raises(AttributeError, "del x.a")
         raises(TypeError, "x.__class__ = X")
         raises(TypeError, "sys.__class__ = XX")
+
+    def test_class_assignment_for_module_getattr(self):
+        import sys
+        modtype = type(sys)
+        class X(modtype):
+            def __getattr__(self, n):
+                if n == "m":
+                    return 123
+                raise AttributeError
+        mod = modtype("mymod")
+        assert not hasattr(mod, "m")
+        mod.x = 456
+        assert mod.x == 456
+
+        mod.__class__ = X
+        assert mod.m == 123
+        assert mod.x == 456
+
+    def test_getattr_dir(self):
+        def __getattr__(name):
+            if name == 'y':
+                return 42
+            elif name == 'z':
+                return
+            raise AttributeError("No attribute '{}'".format(name))
+
+        def __dir__():
+            return ['x', 'y', 'z', 'w']
+
+        import sys
+        m = type(sys)('foo')
+        m.x = 'x'
+        m.__getattr__ = __getattr__
+        print(m.__dir__)
+        m.__dir__ = __dir__
+
+        assert m.x == 'x'
+        assert m.y == 42
+        assert m.z == None
+        excinfo = raises(AttributeError, 'm.w')
+        assert str(excinfo.value) == "No attribute 'w'"
+        print(dir(m))
+        assert dir(m) == sorted(['x', 'y', 'z', 'w'])

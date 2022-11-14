@@ -12,9 +12,10 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rlib.objectmodel import dont_inline
 from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
-        c_fdopen, c_fileno,
+        c_fdopen, c_fileno, c_ferror,
         c_fopen)# for tests
 from rpython.rlib import jit, rutf8
+from rpython.rlib.rarithmetic import widen
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -25,16 +26,19 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
-from pypy.interpreter.function import StaticMethod
+from pypy.interpreter.function import StaticMethod, ClassMethod
+from pypy.interpreter.pyparser import pygram
+from pypy.objspace.std.dictmultiobject import W_DictViewKeysObject, W_DictViewValuesObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
+from pypy.module.__builtin__.functional import W_ReversedIterator
 #from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.__pypy__.interp_buffer import W_Bufferable
 from rpython.rlib.entrypoint import entrypoint_lowlevel
-from rpython.rlib.rposix import FdValidator
+from rpython.rlib.rposix import SuppressIPH
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
-from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -43,21 +47,30 @@ from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
 from rpython.rlib import rstackovf
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
-from pypy.module.cpyext.cparser import CTypeSpace
+from rpython.tool.cparser import CTypeSpace
 
 DEBUG_WRAPPER = True
+if sys.platform == 'win32':
+    dash = '_'
+    WIN32 = True
+else:
+    dash = ''
+    WIN32 = False
 
 pypydir = py.path.local(pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
+pc_dir = pypydir / 'module' / 'cpyext' / 'PC'
 parse_dir = pypydir / 'module' / 'cpyext' / 'parse'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
 translator_c_dir = py.path.local(cdir)
 include_dirs = [
+    udir,
     include_dir,
     parse_dir,
     translator_c_dir,
-    udir,
     ]
+if WIN32:
+    include_dirs.insert(0, pc_dir)
 
 configure_eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
@@ -91,33 +104,30 @@ assert CONST_WSTRING == rffi.CWCHARP
 
 # FILE* interface
 
-if sys.platform == 'win32':
-    dash = '_'
-    WIN32 = True
-else:
-    dash = ''
-    WIN32 = False
-
-
 def fclose(fp):
     try:
-        with FdValidator(c_fileno(fp)):
+        with SuppressIPH():
             return c_fclose(fp)
     except IOError:
         return -1
 
 def fwrite(buf, sz, n, fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return c_fwrite(buf, sz, n, fp)
 
 def fread(buf, sz, n, fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return c_fread(buf, sz, n, fp)
 
 _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return _feof(fp)
+
+_ferror = rffi.llexternal('ferror', [FILEP], rffi.INT)
+def ferror(fp):
+    with SuppressIPH():
+        return _ferror(fp)
 
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
@@ -127,22 +137,22 @@ udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING
-METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE Py_MAX_FMT
-METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
-Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_GC
+METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
+METH_NOARGS METH_VARARGS METH_KEYWORDS METH_FASTCALL METH_O
+Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_GC Py_MAX_FMT
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
-Py_CLEANUP_SUPPORTED
+Py_CLEANUP_SUPPORTED PyBUF_READ
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
+PY_SSIZE_T_MAX PY_SSIZE_T_MIN
 """.split()
 
 for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
              'TYPE', 'BYTES'):
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
 
-# PyPy-specific flags
-for name in ('FLOAT',):
-    constant_names.append('Py_TPPYPYFLAGS_%s_SUBCLASS' % name)
-
+#pystrtod.h flags
+for name in ('SIGN', 'ADD_DOT_0', 'ALT'):
+    constant_names.append('Py_DTSF_%s' % name)
 
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
@@ -163,7 +173,7 @@ def copy_header_files(cts, dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
-    for name in ["pypy_macros.h"] + FUNCTIONS_BY_HEADER.keys():
+    for name in ["pypy_macros.h", "graminit.h"] + FUNCTIONS_BY_HEADER.keys():
         headers.append(udir.join(name))
     for path in cts.parsed_headers:
         headers.append(path)
@@ -180,6 +190,11 @@ def copy_header_files(cts, dstdir, copy_numpy_headers):
         numpy_include_dir = include_dir / '_numpypy' / 'numpy'
         numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
         _copy_header_files(numpy_headers, numpy_dstdir)
+    if WIN32:
+        # Override pyconfig.h with the one for windows
+        PC_dir = pypydir / 'module' / 'cpyext' / 'PC'
+        headers = PC_dir.listdir('*.h')
+        _copy_header_files(headers, dstdir)
 
 
 class NotSpecified(object):
@@ -210,20 +225,7 @@ CANNOT_FAIL = CannotFail()
 # Handling of the GIL
 # -------------------
 #
-# We add a global variable 'cpyext_glob_tid' that contains a thread
-# id.  Invariant: this variable always contain 0 when the PyPy GIL is
-# released.  It should also contain 0 when regular RPython code
-# executes.  In non-cpyext-related code, it will thus always be 0.
-# When cpyext-related C code runs, it contains the thread id (usually)
-# or the value -1 (only for state.C.PyXxx() functions which are short-
-# running and should not themselves release the GIL).
-#
-# **make_generic_cpy_call():** RPython to C, with the GIL held.  Before
-# the call, must assert that the global variable is 0 or the current
-# thread identifier (recursive call) and set the current thread identifier
-# into the global variable.  After the call, assert that the global variable
-# still contains the current thread id, and reset it to the value it held
-# before the call.
+# **make_generic_cpy_call():** RPython to C, with the GIL held.
 #
 # **make_wrapper():** C to RPython; by default assume that the GIL is
 # held, but accepts gil="acquire", "release", "around",
@@ -231,40 +233,29 @@ CANNOT_FAIL = CannotFail()
 #
 # When a wrapper() is called:
 #
-# * "acquire": assert that the GIL is not currently held, i.e. the
-#   global variable does not contain the current thread id (otherwise,
-#   deadlock!).  Acquire the PyPy GIL.  After we acquired it, assert
-#   that the global variable is 0 (it must be 0 according to the
-#   invariant that it was 0 immediately before we acquired the GIL,
-#   because the GIL was released at that point).
+# * "acquire": assert that the GIL is not currently held (otherwise,
+#   deadlock!).  Acquire the PyPy GIL.
 #
-# * gil=None: we hold the GIL already.  Assert that the current thread
-#   identifier is in the global variable, and replace it with 0.
+# * gil=None: we should hold the GIL already.  But check anyway, just
+#   in case.  Do the acquire/release if it was not acquired before
+#   (workaround "_auto" case).
 #
-# * "pygilstate_ensure": if the global variable contains the current
-#   thread id, replace it with 0 and set the extra arg to 0.  Otherwise,
+# * "pygilstate_ensure": if the GIL is already acquired,
+#   do nothing and set the extra arg to 0.  Otherwise,
 #   do the "acquire" and set the extra arg to 1.  Then we'll call
 #   pystate.py:PyGILState_Ensure() with this extra arg, which will do
 #   the rest of the logic.
 #
-# When a wrapper() returns, first assert that the global variable is
-# still 0, and then:
+# When a wrapper() returns:
 #
-# * "release": release the PyPy GIL.  The global variable was 0 up to
-#   and including at the point where we released the GIL, but afterwards
-#   it is possible that the GIL is acquired by a different thread very
-#   quickly.
+# * "release": release the PyPy GIL.
 #
-# * gil=None: we keep holding the GIL.  Set the current thread
-#   identifier into the global variable.
+# * gil=None: we keep holding the GIL in the normal case; we release it
+#   in the workaround "_auto" case.
 #
 # * "pygilstate_release": if the argument is PyGILState_UNLOCKED,
-#   release the PyPy GIL; otherwise, set the current thread identifier
-#   into the global variable.  The rest of the logic of
+#   release the PyPy GIL; otherwise, no-op.  The rest of the logic of
 #   PyGILState_Release() should be done before, in pystate.py.
-
-cpyext_glob_tid_ptr = lltype.malloc(rffi.CArray(lltype.Signed), 1,
-                                    flavor='raw', immortal=True, zero=True)
 
 
 cpyext_namespace = NameManager('cpyext_')
@@ -335,14 +326,14 @@ class ApiFunction(BaseApiFunction):
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
                  c_name=None, cdecl=None, gil=None,
                  result_borrowed=False, result_is_ll=False):
+        from rpython.flowspace.bytecode import cpython_code_signature
         BaseApiFunction.__init__(self, argtypes, restype, callable)
         self.error_value = error
         self.c_name = c_name
         self.cdecl = cdecl
 
         # extract the signature from the (CPython-level) code object
-        from pypy.interpreter import pycode
-        sig = pycode.cpython_code_signature(callable.func_code)
+        sig = cpython_code_signature(callable.func_code)
         assert sig.argnames[0] == 'space'
         self.argnames = sig.argnames[1:]
         if gil == 'pygilstate_ensure':
@@ -605,10 +596,10 @@ SYMBOLS_C = [
     '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
     '_PyArg_ParseTupleAndKeywords_SizeT', '_PyArg_VaParse_SizeT',
     '_PyArg_VaParseTupleAndKeywords_SizeT',
-    '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
+    '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT', 'PyUnicode_AppendAndDel',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
-    'PyErr_WarnFormat',
+    'PyErr_WarnFormat', '_PyErr_FormatFromCause',
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
@@ -639,22 +630,22 @@ SYMBOLS_C = [
     'PyThread_ReInitTLS', 'PyThread_init_thread',
     'PyThread_start_new_thread',
 
-    'PyStructSequence_InitType', 'PyStructSequence_New',
-    'PyStructSequence_UnnamedField',
+    'PyStructSequence_InitType', 'PyStructSequence_InitType2',
+    'PyStructSequence_New', 'PyStructSequence_UnnamedField',
+    'PyStructSequence_NewType', 'PyStructSequence_GetItem',
+    'PyStructSequence_SetItem', 
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
-    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_InteractiveFlag', 'Py_InspectFlag',
-    'Py_OptimizeFlag', 'Py_NoSiteFlag', 'Py_BytesWarningFlag', 'Py_UseClassExceptionsFlag',
-    'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
-    'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
-    '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
-    'PyOS_InputHook',
+    'Py_FrozenFlag', # not part of sys.flags
+    'Py_UnbufferedStdioFlag',  # not part of sys.flags (python3)
+    '_Py_PackageContext', 'PyOS_InputHook',
+    '_Py_PackageContext',
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
     'PyMem_Malloc', 'PyMem_Calloc', 'PyMem_Realloc', 'PyMem_Free',
     'PyObject_CallFinalizerFromDealloc',
-    '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack',
+    'PyTraceMalloc_Track', 'PyTraceMalloc_Untrack',
     'PyBytes_FromFormat', 'PyBytes_FromFormatV',
 
     'PyType_FromSpec',
@@ -662,12 +653,36 @@ SYMBOLS_C = [
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar',
-    'PyTuple_New', '_Py_Dealloc',
+    'PyTuple_New', '_Py_Dealloc', '_Py_object_dealloc',
+    'PyVectorcall_Call',
 ]
+if sys.platform == "win32":
+    SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')
 TYPES = {}
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
 BOOTSTRAP_FUNCTIONS = []
+
+# Keep synchronized with pypy.interpreter.app_main.sys_flags and
+# module.sys.app.sysflags. Synchronized in an init_function
+_flags = [
+    # c name, sys.flags name
+    ('Py_DebugFlag', 'debug'),
+    ('Py_InspectFlag', 'inspect'),
+    ('Py_InteractiveFlag', 'interactive'),
+    ('Py_OptimizeFlag', 'optimize'),
+    ('Py_DontWriteBytecodeFlag', 'dont_write_bytecode'),
+    ('Py_NoUserSiteDirectory', 'no_user_site'),
+    ('Py_NoSiteFlag', 'no_site'),
+    ('Py_IgnoreEnvironmentFlag', 'ignore_environment'),
+    ('Py_VerboseFlag', 'verbose'),
+    ('Py_BytesWarningFlag', 'bytes_warning'),
+    ('Py_QuietFlag', 'quiet'),
+    ('Py_HashRandomizationFlag', 'hash_randomization'),
+    ('Py_IsolatedFlag', 'isolated'),
+]
+
+SYMBOLS_C += [c_name for c_name, _ in _flags]
 
 # this needs to include all prebuilt pto, otherwise segfaults occur
 register_global('_Py_NoneStruct',
@@ -689,8 +704,8 @@ def build_exported_objects():
     # PyExc_AttributeError, PyExc_OverflowError, PyExc_ImportError,
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
-    global all_exceptions
-    all_exceptions = list(exceptions.Module.interpleveldefs)
+    from pypy.module.exceptions.moduledef import Module as ExcModule
+    all_exceptions = list(ExcModule.interpleveldefs)
     for exc_name in all_exceptions:
         if exc_name in ('EnvironmentError', 'IOError', 'WindowsError'):
             # FIXME: aliases of OSError cause a clash of names via
@@ -707,6 +722,8 @@ def build_exported_objects():
         "PyUnicode_Type": "space.w_unicode",
         "PyDict_Type": "space.w_dict",
         "PyDictProxy_Type": 'space.gettypeobject(cpyext.dictproxyobject.W_DictProxyObject.typedef)',
+        "PyDictValues_Type": "space.gettypeobject(W_DictViewValuesObject.typedef)",
+        "PyDictKeys_Type": "space.gettypeobject(W_DictViewKeysObject.typedef)",
         "PyTuple_Type": "space.w_tuple",
         "PyList_Type": "space.w_list",
         "PySet_Type": "space.w_set",
@@ -725,6 +742,7 @@ def build_exported_objects():
         'PyProperty_Type': 'space.gettypeobject(W_Property.typedef)',
         'PySlice_Type': 'space.gettypeobject(W_SliceObject.typedef)',
         'PyStaticMethod_Type': 'space.gettypeobject(StaticMethod.typedef)',
+        'PyClassMethod_Type': 'space.gettypeobject(ClassMethod.typedef)',
         'PyCFunction_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
         'PyClassMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCClassMethodObject.typedef)',
         'PyGetSetDescr_Type': 'space.gettypeobject(cpyext.typeobject.W_GetSetPropertyEx.typedef)',
@@ -732,6 +750,8 @@ def build_exported_objects():
         'PyMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)',
         'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCWrapperObject.typedef)',
         'PyInstanceMethod_Type': 'space.gettypeobject(cpyext.classobject.InstanceMethod.typedef)',
+        'PyBufferable_Type': 'space.gettypeobject(W_Bufferable.typedef)',
+        'PyReversed_Type': 'space.gettypeobject(W_ReversedIterator.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
@@ -752,13 +772,33 @@ class CpyextTypeSpace(CTypeSpace):
         return decorate
 
 
-CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h', 'stddef.h']
-cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS)
-cts.parse_header(parse_dir / 'cpyext_object.h')
+CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h',
+                       'stddef.h', 'pyport.h']
+
+# Subtle. There are two pyconfig.h, one in PC (for windows, includes a pragma
+# to link python*.lib), one in include. The dirs in include_dir purposely avoid
+# the one in PC, since at this stage python*.lib may not exist.
+# copy_header_files() will use the PC one on windows, which will then be used
+# for all translated c-extension compilation
+
+cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS, include_dirs = [include_dir])
+# Ideally, we would parse pyport.h but that is beyond the parser.
+cts.parse_source("""
+#ifdef _WIN64
+typedef long long Py_ssize_t;
+typedef long long Py_hash_t;
+#else
+typedef long Py_ssize_t;
+typedef long Py_hash_t;
+#endif
+""", configure=False)
+cts.parse_header(parse_dir / 'cpyext_object.h', configure=False)
+cts.parse_header(parse_dir / 'cpyext_descrobject.h', configure=False)
+cts.configure_types()
 
 Py_ssize_t = cts.gettype('Py_ssize_t')
 Py_ssize_tP = cts.gettype('Py_ssize_t *')
-size_t = rffi.ULONG
+size_t = lltype.Unsigned
 ADDR = lltype.Signed
 
 # Note: as a special case, "PyObject" is the pointer type in RPython,
@@ -768,11 +808,9 @@ PyTypeObject = cts.gettype('PyTypeObject')
 PyTypeObjectPtr = cts.gettype('PyTypeObject *')
 PyObjectStruct = cts.gettype('PyObject')
 PyObject = cts.gettype('PyObject *')
-PyObjectFields = (("ob_refcnt", lltype.Signed),
-                  ("ob_pypy_link", lltype.Signed),
-                  ("ob_type", PyTypeObjectPtr))
-PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
+PyObjectFields = (("ob_base", PyObjectStruct),)
 PyVarObjectStruct = cts.gettype('PyVarObject')
+PyVarObjectFields = (("ob_base", PyVarObjectStruct),)
 PyVarObject = cts.gettype('PyVarObject *')
 PyGC_Head = cts.gettype('PyGC_Head')
 PyGC_HeadPtr = cts.gettype('PyGC_Head *')
@@ -789,7 +827,12 @@ def is_PyObject(TYPE):
     if TYPE == PyObject:
         return True
     assert not isinstance(TYPE.TO, lltype.ForwardReference)
-    return hasattr(TYPE.TO, 'c_ob_refcnt') and hasattr(TYPE.TO, 'c_ob_type')
+    base = getattr(TYPE.TO, 'c_ob_base', None)
+    if not base:
+        return False
+    # PyVarObject? It has a second c_ob_base for the PyObject
+    base = getattr(base, 'c_ob_base', base)
+    return hasattr(base, 'c_ob_refcnt') and hasattr(base, 'c_ob_type')
 
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)
@@ -864,7 +907,7 @@ def build_type_checkers_flags(type_name, cls=None, flagsubstr=None):
         from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
         "Implements the Py_Xxx_Check function"
         if is_pyobj(pto):
-            return (pto.c_ob_type.c_tp_flags & tp_flag) == tp_flag
+            return (widen(pto.c_ob_type.c_tp_flags) & tp_flag) == tp_flag
         w_obj_type = space.type(pto)
         w_type = get_w_type(space)
         return (space.is_w(w_obj_type, w_type) or
@@ -958,10 +1001,9 @@ def unexpected_exception(funcname, e, tb):
         pypy_debug_catch_fatal_exception()
         assert False
 
-def _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid):
+def _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto):
     from rpython.rlib import rgil
     # see "Handling of the GIL" above
-    assert cpyext_glob_tid_ptr[0] == 0
     if pygilstate_release:
         from pypy.module.cpyext import pystate
         unlock = (gilstate == pystate.PyGILState_UNLOCKED)
@@ -969,8 +1011,6 @@ def _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid
         unlock = gil_release or _gil_auto
     if unlock:
         rgil.release()
-    else:
-        cpyext_glob_tid_ptr[0] = tid
 
 
 def make_wrapper_second_level(space, argtypesw, restype,
@@ -984,8 +1024,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
     gil_release = (gil == "release" or gil == "around")
     pygilstate_ensure = (gil == "pygilstate_ensure")
     pygilstate_release = (gil == "pygilstate_release")
+    pygilstate_check = (gil == "pygilstate_check")
     assert (gil is None or gil_acquire or gil_release
-            or pygilstate_ensure or pygilstate_release)
+            or pygilstate_ensure or pygilstate_release or pygilstate_check)
     expected_nb_args = len(argtypesw) + pygilstate_ensure
 
     if isinstance(restype, lltype.Ptr) and error_value == 0:
@@ -1007,37 +1048,37 @@ def make_wrapper_second_level(space, argtypesw, restype,
         # print "start to pypy"
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
-        tid = rthread.get_or_make_ident()
         _gil_auto = False
-        if gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid:
-            # replace '-1' with the real tid, now that we have the tid
-            if cpyext_glob_tid_ptr[0] == -1:
-                cpyext_glob_tid_ptr[0] = tid
-            else:
-                _gil_auto = True
+        if gil_auto_workaround and not rgil.am_I_holding_the_GIL():
+            _gil_auto = True
         if _gil_auto or gil_acquire:
-            if cpyext_glob_tid_ptr[0] == tid:
+            if gil_acquire and rgil.am_I_holding_the_GIL():
                 deadlock_error(pname)
             rgil.acquire()
-            assert cpyext_glob_tid_ptr[0] == 0
+            if gil_auto_workaround:
+                # while we're in workaround-land, detect when a regular PyXxx()
+                # function is invoked at .so load-time, e.g. by a C++ global
+                # variable with an initializer, and in this case make sure we
+                # initialize things.
+                space.fromcache(State).make_sure_cpyext_is_imported()
         elif pygilstate_ensure:
-            if cpyext_glob_tid_ptr[0] == tid:
-                cpyext_glob_tid_ptr[0] = 0
+            if rgil.am_I_holding_the_GIL():
                 args += (pystate.PyGILState_LOCKED,)
             else:
                 rgil.acquire()
                 args += (pystate.PyGILState_UNLOCKED,)
+        elif pygilstate_check:
+            result = rgil.am_I_holding_the_GIL()
+            return rffi.cast(restype, result)
         else:
-            if cpyext_glob_tid_ptr[0] != tid:
+            if not rgil.am_I_holding_the_GIL():
                 no_gil_error(pname)
-            cpyext_glob_tid_ptr[0] = 0
         if pygilstate_release:
             gilstate = rffi.cast(lltype.Signed, args[-1])
         else:
             gilstate = pystate.PyGILState_IGNORE
 
-        rffi.stackcounter.stacks_counter += 1
-        llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+        llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
         retval = fatal_value
         boxed_args = ()
         tb = None
@@ -1109,14 +1150,13 @@ def make_wrapper_second_level(space, argtypesw, restype,
 
         except Exception as e:
             unexpected_exception(pname, e, tb)
-            _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
+            _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto)
             state.check_and_raise_exception(always=True)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
-        rffi.stackcounter.stacks_counter -= 1
 
-        _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
+        _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto)
 
         # print "end to pypy"
 
@@ -1180,7 +1220,7 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci,
         _nowrapper=True)
     state.C._PyPy_int_dealloc = rffi.llexternal(
-        '_PyPy_int_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_int_dealloc'), [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C.PyTuple_New = rffi.llexternal(
         mangle_name(prefix, 'PyTuple_New'),
@@ -1198,20 +1238,26 @@ def attach_c_functions(space, eci, prefix):
         '_PyPy_tuple_traverse', [PyObject, visitproc, rffi.VOIDP],
         rffi.INT, compilation_info=eci, _nowrapper=True)
     state.C._PyPy_tuple_dealloc = rffi.llexternal(
-        '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_tuple_dealloc'), [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(
                    rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
                    eci, _nowrapper=True, c_type='void *')
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
-        '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_subtype_dealloc'),
+        [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
-        '_PyPy_object_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_object_dealloc'),
+        [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
     state.C.get_pyos_inputhook = rffi.llexternal(
-        '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
+        mangle_name(prefix, '_Py_get_PyOS_InputHook'), [], FUNCPTR,
+        compilation_info=eci, _nowrapper=True)
+    state.C.tuple_new = rffi.llexternal(
+        mangle_name(prefix, '_Py_tuple_new'),
+        [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_init_pyobj_list = rffi.llexternal(
         '_PyPy_init_pyobj_list', [], PyGC_HeadPtr,
@@ -1238,6 +1284,41 @@ def attach_c_functions(space, eci, prefix):
                                            [PyObject], lltype.Void,
                                            compilation_info=eci,
                                            _nowrapper=True)
+    if we_are_translated():
+        eci_flags = eci
+    else:
+        # To get this to work in tests, we need a new eci to
+        # link to the pypyapi.so/dll. Note that all this linking
+        # will only happen for tests, when translating the link args here
+        # are irrelevant.
+        library_dirs = eci.library_dirs
+        link_extra = list(eci.link_extra)
+        link_files = eci.link_files
+        if sys.platform == "win32":
+            # since we include Python.h, we must disable linking with
+            # the regular import lib
+            from pypy.module.sys import version
+            ver = version.CPYTHON_VERSION[:2]
+            link_extra.append("/NODEFAULTLIB:Python%d%d.lib" % ver)
+             # for testing, make sure "pypyapi.lib" is linked in
+            link_extra += [x.replace('dll', 'lib') for x in eci.libraries]
+        eci_flags = ExternalCompilationInfo(
+            include_dirs=include_dirs,
+            includes=['Python.h'],
+            link_extra = link_extra,
+            link_files = link_files,
+            library_dirs = library_dirs,
+           )
+    flag_setters = {}
+    for c_name, attr in _flags:
+        _, setter = rffi.CExternVariable(rffi.INT_real, c_name, eci_flags,
+                                         _nowrapper=True, c_type='int')
+        flag_setters[attr] = setter
+    unroll_flag_setters = unrolling_iterable(flag_setters.items())
+    def init_flags(space):
+        for attr, setter in unroll_flag_setters:
+            setter(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
+    state.C.init_flags = init_flags
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -1250,6 +1331,11 @@ def bootstrap_function(func):
 def run_bootstrap_functions(space):
     for func in BOOTSTRAP_FUNCTIONS:
         func(space)
+
+@init_function
+def call_init_flags(space):
+    state = space.fromcache(State)
+    state.C.init_flags(space)
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
@@ -1282,11 +1368,6 @@ def build_bridge(space):
     struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
-    global_objects = []
-    for name in all_exceptions:
-        global_objects.append('PyTypeObject _PyExc_%s;' % name)
-    global_code = '\n'.join(global_objects)
-
     prologue = ("#include <Python.h>\n" +
                 "#include <structmember.h>\n" +
                 "#include <marshal.h>\n" +
@@ -1294,7 +1375,6 @@ def build_bridge(space):
                 "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
-            global_code +
             '\n' +
             '\n'.join(functions))
 
@@ -1444,7 +1524,10 @@ class TranslationObjBuilder(StaticObjectBuilder):
 
 
 def mangle_name(prefix, name):
-    if name.startswith('Py'):
+    if name.startswith('PyPyUnicode'):
+        # for PyPyUnicode_Check, PyPyUnicode_CheckExact
+        return name
+    elif name.startswith('Py'):
         return prefix + name[2:]
     elif name.startswith('_Py'):
         return '_' + prefix + name[3:]
@@ -1453,21 +1536,16 @@ def mangle_name(prefix, name):
 
 def write_header(header_name, decls):
     lines = [
+        '#include "cpyext_object.h"',
         '''
 #ifdef _WIN64
-/* this check is for sanity, but also because the 'temporary fix'
-   below seems to become permanent and would cause unexpected
-   nonsense on Win64---but note that it's not the only reason for
-   why Win64 is not supported!  If you want to help, see
-   http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
-   */
-#  error "PyPy does not support 64-bit on Windows.  Use Win32"
+#define Signed   Py_ssize_t          /* xxx temporary fix */
+#define Unsigned unsigned long long  /* xxx temporary fix */
+#else
+#define Signed   Py_ssize_t     /* xxx temporary fix */
+#define Unsigned unsigned long  /* xxx temporary fix */
 #endif
-''',
-        '#include "cpyext_object.h"',
-        '#define Signed   Py_ssize_t     /* xxx temporary fix */',
-        '#define Unsigned unsigned long  /* xxx temporary fix */',
-        '',] + decls + [
+        '''] + decls + [
         '',
         '#undef Signed    /* xxx temporary fix */',
         '#undef Unsigned  /* xxx temporary fix */',
@@ -1540,6 +1618,14 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
     for header_name, header_decls in decls.iteritems():
         write_header(header_name, header_decls)
 
+    # generate graminit.h
+    graminit_h = udir.join('graminit.h')
+    graminit_h.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */')
+    for attr in dir(pygram.syms):
+        val = getattr(pygram.syms, attr)
+        graminit_h.write('#define {} {}'.format(attr, val))
+
+
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
                          source_dir / "modsupport.c",
@@ -1556,6 +1642,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pythread.c",
                          source_dir / "missing.c",
                          source_dir / "pymem.c",
+                         source_dir / "pytime.c",
                          source_dir / "bytesobject.c",
                          source_dir / "import.c",
                          source_dir / "_warnings.c",
@@ -1563,8 +1650,15 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "object.c",
                          source_dir / "typeobject.c",
                          source_dir / "tupleobject.c",
+                         source_dir / "sliceobject.c",
                          source_dir / "listobject.c",
+                         source_dir / "call.c",
                          ]
+if WIN32:
+    separate_module_files.append(source_dir / "pythread_nt.c")
+else:
+    separate_module_files.append(source_dir / "pythread_posix.c")
+
 
 def build_eci(code, use_micronumpy=False, translating=False):
     "NOT_RPYTHON"
@@ -1580,11 +1674,13 @@ def build_eci(code, use_micronumpy=False, translating=False):
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
             # Sometimes the library is wrapped into another DLL, ensure that
-            # the correct bootstrap code is installed
+            # the correct bootstrap code is installed.
             kwds["link_extra"] = ["msvcrt.lib"]
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
             compile_extra.append('-g')
+        compile_extra.append(
+                    '-DCPYEXT_TESTS')
 
     # Generate definitions for global structures
     structs = ["#include <Python.h>"]
@@ -1640,7 +1736,6 @@ def setup_micronumpy(space):
         return use_micronumpy
     # import registers api functions by side-effect, we also need HEADER
     from pypy.module.cpyext.ndarrayobject import HEADER
-    global separate_module_files
     register_global("PyArray_Type",
         'PyTypeObject*',  "space.gettypeobject(W_NDimArray.typedef)",
         header=HEADER)
@@ -1709,7 +1804,13 @@ def setup_library(space):
             deco(func.get_wrapper(space))
 
     setup_init_functions(eci, prefix)
-    trunk_include = pypydir.dirpath() / 'include'
+    if sys.platform == "win32":
+        trunk_include = pypydir.dirpath() / 'include'
+    else:
+        from pypy.module.sys import version
+        ver = version.CPYTHON_VERSION[:2]
+        trunk_include = pypydir.dirpath() / 'include' / 'pypy{}.{}'.format(*ver)
+        trunk_include.ensure(dir=True)
     copy_header_files(cts, trunk_include, use_micronumpy)
 
 
@@ -1722,23 +1823,28 @@ def create_extension_module(space, w_spec):
     from rpython.rlib import rdynload
 
     w_name = space.getattr(w_spec, space.newtext("name"))
+    w_path = space.getattr(w_spec, space.newtext("origin"))
     name = space.text_w(w_name)
-    path = space.text_w(space.getattr(w_spec, space.newtext("origin")))
+    path = space.text_w(w_path)
 
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
     try:
+        # XXX does this need a fsdecoder for utf8 paths?
         ll_libname = rffi.str2charp(path)
         try:
             if WIN32:
-                # Allow other DLLs in the same directory with "path"
-                dll = rdynload.dlopenex(ll_libname)
+                from rpython.rlib import rwin32
+                # Allow other DLLs in the same directory
+                # use os.add_dll_directory for more locations
+                flags = (rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                        rwin32.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
+                dll = rdynload.dlopenex(ll_libname, flags)
             else:
                 dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
-        w_path = space.newfilename(path)
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
     look_for = None
@@ -1792,8 +1898,8 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     from rpython.rlib import rdynload
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 
-    space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
     state = space.fromcache(State)
+    state.make_sure_cpyext_is_imported()
     w_mod = state.find_extension(name, path)
     if w_mod is not None:
         rdynload.dlclose(dll)
@@ -1834,18 +1940,19 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
 
 @jit.dont_look_inside
 def exec_extension_module(space, w_mod):
-    from pypy.module.cpyext.modsupport import exec_def
+    from pypy.module.cpyext.modsupport import exec_def, PyModuleObject
     if not space.config.objspace.usemodules.cpyext:
         return
     if not isinstance(w_mod, Module):
         return
     space.getbuiltinmodule("cpyext")
-    mod_as_pyobj = rawrefcount.from_obj(PyObject, w_mod)
-    if mod_as_pyobj:
-        if cts.cast('PyModuleObject*', mod_as_pyobj).c_md_state:
+    mod = cts.cast('PyModuleObject*', rawrefcount.from_obj(PyObject, w_mod))
+    if mod:
+        if mod.c_md_state:
             # already initialised
             return
-        return exec_def(space, w_mod, mod_as_pyobj)
+        moddef = mod.c_md_def
+        return exec_def(space, mod, moddef)
 
 def invoke_pyos_inputhook(space):
     state = space.fromcache(State)
@@ -1910,21 +2017,16 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
             boxed_args += (arg,)
             to_decref += (_pyobj,)
 
-        # see "Handling of the GIL" above
-        tid = rthread.get_ident()
-        tid_before = cpyext_glob_tid_ptr[0]
-        assert tid_before == 0 or tid_before == tid
-        cpyext_glob_tid_ptr[0] = tid
-
-        preexist_error = PyErr_Occurred(space)
+        if is_PyObject(RESULT_TYPE):
+            preexist_error = PyErr_Occurred(space)
+        else:
+            preexist_error = "this is not used"
         try:
             #print "start cpyext_call"
             # Call the function
             result = call_external_function(func, *boxed_args)
             #print "end cpyext_call"
         finally:
-            assert cpyext_glob_tid_ptr[0] == tid
-            cpyext_glob_tid_ptr[0] = tid_before
             for i, ARG in unrolling_arg_types:
                 # note that this loop is nicely unrolled statically by RPython
                 _pyobj = to_decref[i]

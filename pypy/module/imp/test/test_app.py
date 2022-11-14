@@ -5,10 +5,11 @@ from rpython.tool.udir import udir
 
 
 class AppTestImpModule:
-    # cpyext is required for _imp.create_dynamic()
+    # cpyext or _cffi_backend is required for _imp.create_dynamic()
+    # use _cffi_backend since it is difficult to import cpyext untranslated
     spaceconfig = {
-        'usemodules': [
-            'binascii', 'imp', 'itertools', 'time', 'struct', 'cpyext'],
+        'usemodules': ['binascii', 'imp', 'time', 'struct',
+                       '_cffi_backend'],
     }
 
     def setup_class(cls):
@@ -32,6 +33,7 @@ class AppTestImpModule:
         fname = self.udir + '/@TEST.pyc'
         f = open(fname, 'wb')
         f.write(imp.get_magic())
+        f.write(b'\x00\x00\x00\x00')
         f.write(b'\x00\x00\x00\x00')
         f.write(b'\x00\x00\x00\x00')
         marshal.dump(co, f)
@@ -98,6 +100,7 @@ class AppTestImpModule:
     def test_ext_suffixes(self):
         import _imp
         for suffix in _imp.extension_suffixes():
+            # print(suffix)
             assert suffix.endswith(('.pyd', '.so'))
 
     def test_obscure_functions(self):
@@ -315,4 +318,27 @@ class AppTestImpModule:
         import sys
         if not hasattr(sys, 'pypy_version_info'):
             skip('This test is PyPy-only')
-        assert imp.get_tag() == 'pypy3-%d%d' % sys.pypy_version_info[0:2]
+        assert imp.get_tag() == 'pypy%d%d' % (sys.version_info[:2])
+
+    def test_unicode_in_sys_path(self):
+        # issue 3112: when _getimporter calls
+        # for x in sys.path: for h in sys.path_hooks: h(x)
+        # make sure x is properly encoded
+        import sys
+        if sys.getfilesystemencoding().lower() == 'utf-8':
+            sys.path.insert(0, u'\xef')
+        with raises(ImportError):
+            import impossible_module
+
+    def test_source_hash(self):
+        import _imp
+        res = _imp.source_hash(1, b"abcdef")
+        assert type(res) is bytes
+        assert res == b'\xd8^\xafF=\xaain' # value from CPython
+        res2 = _imp.source_hash(1, b"abcdefg")
+        assert res != res2
+
+    def test_check_hash_based_pycs(self):
+        import _imp
+        assert _imp.check_hash_based_pycs == "default"
+

@@ -18,7 +18,7 @@ class TestPyTracebackObject(BaseApiTest):
 
         py_obj = make_ref(space, w_traceback)
         py_traceback = rffi.cast(PyTracebackObject, py_obj)
-        assert (from_ref(space, rffi.cast(PyObject, py_traceback.c_ob_type)) is
+        assert (from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type)) is
                 space.gettypeobject(PyTraceback.typedef))
 
         traceback = space.interp_w(PyTraceback, w_traceback)

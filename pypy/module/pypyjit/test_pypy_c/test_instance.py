@@ -1,4 +1,5 @@
 import py
+import sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 class TestInstance(BaseTestPyPyC):
@@ -105,10 +106,7 @@ class TestInstance(BaseTestPyPyC):
         # -------------------------------
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
-        # in PyPy3 we get a dummy getfield_gc_r (*) for
-        # W_UnicodeObject._utf8, which is usually removed by the backend
         assert log.opnames(ops) == ['guard_value',
-                                    'getfield_gc_r',  # <= (*)
                                     'guard_not_invalidated',
                                     'getfield_gc_i']
         # the STORE_ATTR is folded away
@@ -157,10 +155,7 @@ class TestInstance(BaseTestPyPyC):
         # -------------------------------
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
-        # in PyPy3 we get a dummy getfield_gc_r (*) for
-        # W_UnicodeObject._utf8, which is usually removed by the backend
         assert log.opnames(ops) == ['guard_value',
-                                    'getfield_gc_r',   # <= (*)
                                     'guard_not_invalidated',
                                     'getfield_gc_r', 'guard_nonnull_class',
                                     'getfield_gc_r', 'guard_value', # type check on the attribute
@@ -291,3 +286,116 @@ class TestInstance(BaseTestPyPyC):
 
             jump(..., descr=...)
         """)
+
+    def test_float_instance_field_read(self):
+        def main():
+            class A(object):
+                def __init__(self, x, y):
+                    self.x = float(x)
+                    self.y = float(y)
+
+            l = [A(i, i * 5) for i in range(2000)]
+
+            res = 0
+            for x in l:
+                res += x.x + x.y # ID: get
+            return res
+        log = self.run(main, [])
+        listcomp, loop, = log.loops_by_filename(self.filepath)
+        if sys.maxint == 2**63 - 1:
+            loop.match_by_id('get', """
+            p67 = getfield_gc_r(p63, descr=...) # map
+            guard_value(p67, ConstPtr(ptr68), descr=...) # promote map
+            guard_not_invalidated(descr=...)
+            p69 = getfield_gc_r(p63, descr=...) # value0
+            i71 = getarrayitem_gc_i(p69, 0, descr=...) # x
+            f71 = convert_longlong_bytes_to_float(i71)
+            i73 = getarrayitem_gc_i(p69, 1, descr=...) # y
+            f73 = convert_longlong_bytes_to_float(i73)
+            f74 = float_add(f71, f73) # add them
+            f75 = float_add(f57, f74)
+            --TICK--
+""")
+        else:
+            loop.match_by_id('get', """
+            p67 = getfield_gc_r(p63, descr=...) # map
+            guard_value(p67, ConstPtr(ptr68), descr=...) # promote map
+            guard_not_invalidated(descr=...)
+            p69 = getfield_gc_r(p63, descr=...) # value0
+            f70 = getarrayitem_gc_f(p69, 0, descr=...) # x
+            f71 = convert_longlong_bytes_to_float(f70)
+            f90 = getarrayitem_gc_f(p69, 1, descr=...) # y
+            f73 = convert_longlong_bytes_to_float(f90)
+            f74 = float_add(f71, f73) # add them
+            f75 = float_add(f57, f74)
+            --TICK--
+""")
+
+    def test_float_instance_field_write(self):
+        def main():
+            class A(object):
+                def __init__(self, x):
+                    self.x = float(x)
+
+            l = [A(i) for i in range(2000)]
+
+            for a in l:
+                a.x += 3.4 # ID: set
+        log = self.run(main, [])
+        listcomp, loop, = log.loops_by_filename(self.filepath)
+        if sys.maxint == 2**63 - 1:
+            loop.match_by_id('set', """
+            p60 = getfield_gc_r(p56, descr=...) # map
+            guard_value(p60, ConstPtr(ptr61), descr=...)
+            guard_not_invalidated(descr=...)
+            p62 = getfield_gc_r(p56, descr=...) # value
+            i64 = getarrayitem_gc_i(p62, 0, descr=...) # x
+            f64 = convert_longlong_bytes_to_float(i64)
+            f66 = float_add(f64, 3.400000)
+            i66 = convert_float_bytes_to_longlong(f66)
+            i68 = getfield_raw_i(..., descr=...)
+            setarrayitem_gc(p62, 0, i66, descr=...) # store x
+            i71 = int_lt(i68, 0)
+            guard_false(i71, descr=...)
+""")
+        else:
+            loop.match_by_id('set', """
+            p60 = getfield_gc_r(p56, descr=...) # map
+            guard_value(p60, ConstPtr(ptr61), descr=...)
+            guard_not_invalidated(descr=...)
+            p62 = getfield_gc_r(p56, descr=...) # value
+            f61 = getarrayitem_gc_f(p62, 0, descr=...) # x
+            f64 = convert_longlong_bytes_to_float(f61)
+            f66 = float_add(f64, 3.400000)
+            f67 = convert_float_bytes_to_longlong(f66)
+            i68 = getfield_raw_i(..., descr=...)
+            setarrayitem_gc(p62, 0, f67, descr=...) # store x
+            i71 = int_lt(i68, 0)
+            guard_false(i71, descr=...)
+""")
+
+
+    def test_namedtuple_construction(self):
+        def main():
+            from collections import namedtuple
+            A = namedtuple("A", "x y")
+            res = 0
+            i = 0
+            while i < 2000:
+                res += A(i, 0).x
+                i += 1
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, 2000)
+            guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
+            p1 = force_token()
+            p2 = force_token()
+            i20 = int_add_ovf(i19, i5)
+            guard_no_overflow(descr=...)
+            i9 = int_add(i5, 1)
+            --TICK--
+            jump(..., descr=...)
+        """)
+

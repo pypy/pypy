@@ -1,3 +1,4 @@
-pytest
+pytest<=4.0
+setuptools<60.0
 hypothesis
 vmprof

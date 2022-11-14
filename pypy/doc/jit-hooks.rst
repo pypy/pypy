@@ -1,11 +1,25 @@
+.. _jit-hooks:
+
 JIT hooks
 =========
 
 There are several hooks in the ``pypyjit`` module that may help you with
-understanding what's pypy's JIT doing while running your program. There
-are three functions related to that coming from the ``pypyjit`` module:
+understanding what pypy's JIT is doing while running your program:
 
+.. function:: dont_trace_here(next_instr, is_being_profiled, pycode)
+    
+.. function:: get_jitcell_at_key(next_instr, is_being_profiled, pycode)
+    
+.. function:: get_stats_asmmemmgr()
 
+    Returns the raw memory currently used by the JIT backend,
+    as a pair (total_memory_allocated, memory_in_use).
+    
+.. function:: residual_call(callable, *args, **keywords)
+
+    For testing.  Invokes callable(...), but without letting
+    the JIT follow the call.
+ 
 .. function:: set_compile_hook(callable, operations=True)
 
     Set a compiling hook that will be called each time a loop is compiled.
@@ -31,13 +45,26 @@ are three functions related to that coming from the ``pypyjit`` module:
     Reason is a string, the meaning of other arguments is the same
     as attributes on JitLoopInfo object
 
+.. function:: set_trace_too_long_hook(hook)
+        
+    Set a hook (callable) that will be called each time we abort
+    tracing because the trace is too long.
+    
+    The hook will be called with the signature:
+    ``hook(jitdriver_name, greenkey)``
+ 
+
 .. function:: enable_debug()
 
     Start recording debugging counters for ``get_stats_snapshot``
 
+    Currently disabled.
+
 .. function:: disable_debug()
 
     Stop recording debugging counters for ``get_stats_snapshot``
+
+    Currently disabled.
 
 .. function:: get_stats_snapshot()
 
@@ -80,3 +107,26 @@ are three functions related to that coming from the ``pypyjit`` module:
 
    * ``asmlen`` - length of raw memory with assembler associated
 
+Resetting the JIT
+=================
+
+.. function:: releaseall()
+
+   Marks all current machine code objects as ready to release. They will be
+   released at the next GC (unless they are currently in use in the stack of
+   one of the threads).  Doing ``pypyjit.releaseall(); gc.collect()`` is a
+   heavy hammer that forces the JIT roughly back to the state of a newly
+   started PyPy.
+
+.. function:: set_param(*args, **keywords)
+
+    Configure the tunable JIT parameters, paramter names are listed in :ref:`Jit Help<jit-help>` :
+
+    * ``set_param(name=value, ...)`` as keyword arguments
+
+    * ``set_param("name=value,name=value")`` as a user-supplied string
+
+    * ``set_param("off")`` disable the jit
+
+    * ``set_param("default")`` restore all defaults
+   

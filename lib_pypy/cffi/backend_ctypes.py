@@ -403,7 +403,7 @@ class CTypesBackend(object):
                         source = _cast_source_to_int(source)
                     return cls(bool(source))
                 def __int__(self):
-                    return self._value
+                    return int(self._value)
 
             if kind == 'char':
                 @classmethod

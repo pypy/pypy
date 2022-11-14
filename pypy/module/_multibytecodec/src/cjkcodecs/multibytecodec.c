@@ -135,6 +135,11 @@ struct pypy_cjk_enc_s *pypy_cjk_enc_new(const MultibyteCodec *codec)
   return d;
 }
 
+void pypy_cjk_enc_copystate(struct pypy_cjk_enc_s *dst, struct pypy_cjk_enc_s *src)
+{
+    dst->state = src->state;
+}
+
 Py_ssize_t pypy_cjk_enc_init(struct pypy_cjk_enc_s *d,
                              Py_UNICODE *inbuf, Py_ssize_t inlen)
 {

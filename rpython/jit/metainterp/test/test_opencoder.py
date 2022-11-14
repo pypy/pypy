@@ -2,6 +2,7 @@ import py
 from rpython.jit.metainterp.opencoder import Trace, untag, TAGINT, TAGBOX
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.metainterp.history import ConstInt, IntFrontendOp
+from rpython.jit.metainterp.history import ConstPtrJitCode
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp import resume
 from rpython.jit.metainterp.test.strategies import lists_of_operations
@@ -35,7 +36,7 @@ class FakeFrame(object):
         self.jitcode = jitcode
         self.boxes = boxes
 
-    def get_list_of_active_boxes(self, flag, new_array, encode):
+    def get_list_of_active_boxes(self, flag, new_array, encode, after_residual_call=False):
         a = new_array(len(self.boxes))
         for i, box in enumerate(self.boxes):
             a[i] = encode(box)
@@ -214,3 +215,28 @@ class TestOpencoder(object):
             t.record_op(rop.FINISH, [i0])
             assert t.unpack() == ([], [])
         assert t.tag_overflow
+
+    def test_encode_caching(self):
+        from rpython.rtyper.lltypesystem import lltype, llmemory
+        S = lltype.GcStruct('S')
+        s1 = lltype.malloc(S)
+        t = Trace([], metainterp_sd)
+        c1 = ConstPtrJitCode(lltype.cast_opaque_ptr(llmemory.GCREF, s1))
+        i = t._cached_const_ptr(c1)
+        assert i == 1
+        assert c1.opencoder_index == 1
+
+        s2 = lltype.malloc(S)
+        c2 = ConstPtrJitCode(lltype.cast_opaque_ptr(llmemory.GCREF, s2))
+        i = t._cached_const_ptr(c2)
+        assert i == 2
+        assert c2.opencoder_index == 2
+
+        assert len(t._refs) == 3 # plus null ptr
+
+        # looking up again does not need the dict
+        t._bigints_dict = None
+        i = t._cached_const_ptr(c1)
+        assert i == 1
+        i = t._cached_const_ptr(c2)
+        assert i == 2

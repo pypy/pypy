@@ -16,3 +16,13 @@ class AppTestToken:
     def test_iseof(self):
         assert self.token.ISEOF(self.token.ENDMARKER)
         assert not self.token.ISEOF(self.token.NAME)
+
+    def test_nl_and_comment_exist_in_all(self):
+        assert "NL" in self.token.__all__
+        assert "COMMENT" in self.token.__all__
+
+    def test_encoding_exists(self):
+        self.token.ISTERMINAL(self.token.ENCODING)
+
+    def test_exact_token_types(self):
+        assert self.token.EXACT_TOKEN_TYPES[":="] == self.token.COLONEQUAL

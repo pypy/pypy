@@ -5,7 +5,7 @@ Getting involved
 ----------------
 
 We are happy to discuss ideas around the PyPy ecosystem.
-If you are interested in palying with RPython or PyPy, or have a new idea not
+If you are interested in playing with RPython or PyPy, or have a new idea not
 mentioned here please join us on irc, channel #pypy (freenode). If you are unsure,
 but still think that you can make a valuable contribution to PyPy, dont
 hesitate to contact us on #pypy or on our mailing list. Here are some ideas
@@ -40,20 +40,17 @@ to get you thinking:
 Simple tasks for newcomers
 --------------------------
 
-* Tkinter module missing support for threads:
-  https://bitbucket.org/pypy/pypy/issue/1929/tkinter-broken-for-threaded-python-on-both
-
 * Optimize random:
-  https://bitbucket.org/pypy/pypy/issue/1901/try-using-a-different-implementation-of
+  https://foss.heptapod.net/pypy/pypy/-/issues/1901
 
 * Implement AF_XXX packet types of sockets:
-  https://bitbucket.org/pypy/pypy/issue/1942/support-for-af_xxx-sockets
+  https://foss.heptapod.net/pypy/pypy/-/issues/1942
 
 * Help with documentation. One task would be to document rpython configuration
   options currently listed only on :doc:`this site <configuration>` also on the
   RPython_ documentation site.
 
-.. _RPython: http://rpython.readthedocs.io
+.. _RPython: https://rpython.readthedocs.io/en/latest
 
 Mid-to-large tasks
 ------------------
@@ -73,8 +70,8 @@ own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
 `mailing list`_.
 
-.. _issue tracker: http://bugs.pypy.org
-.. _mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
+.. _issue tracker: https://foss.heptapod.net/pypy/pypy/-/issues
+.. _mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 
 
 Explicit typing in RPython
@@ -111,11 +108,8 @@ NumPy rebooted
 --------------
 
 Our cpyext C-API compatiblity layer can now run upstream NumPy unmodified.
-Release PyPy2.7-v6.0 still fails about 10 of the ~6000 test in the NumPy
-test suite. We need to improve our ctypes structure -> memoryview conversions_,
-and to refactor the way `NumPy adds docstrings`_.
+We need to refactor the way `NumPy adds docstrings`_.
 
-.. _conversions: https://bitbucket.org/pypy/pypy/issues/2930 
 .. _`NumPy adds docstrings`: https://github.com/numpy/numpy/issues/10167
 
 We also are looking for help in how to hijack NumPy dtype conversion and
@@ -150,32 +144,25 @@ this is an ideal task to get started, because it does not require any deep
 knowledge of the internals. Head over to `vmprof-python`_, `vmprof-server`_ and
 `vmprof-integration`_ to find open issues and documentation.
 
-.. _jitviewer: http://vmprof.com
-.. _vmprof.com: http://vmprof.com
+.. _jitviewer: https://vmprof.com
+.. _vmprof.com: https://vmprof.com
 .. _vmprof-python: https://github.com/vmprof/vmprof-python
 .. _vmprof-server: https://github.com/vmprof/vmprof-server
 .. _vmprof-integration: https://github.com/vmprof/vmprof-integration
 
-Optimized Unicode Representation
---------------------------------
-
-CPython 3.3 will use an optimized unicode representation (see :pep:`0393`) which switches between
-different ways to represent a unicode string, depending on whether the string
-fits into ASCII, has only two-byte characters or needs four-byte characters.
-
-The actual details would be rather different in PyPy, but we would like to have
-the same optimization implemented.
-
-Or maybe not.  We can also play around with the idea of using a single
-representation: as a byte string in utf-8.  (This idea needs some extra logic
-for efficient indexing, like a cache.) Work has begun on the ``unicode-utf``
-and ``unicode-utf8-py3`` branches. More is needed, for instance there are
-SIMD optimizations that are not yet used.
-
 Convert RPython to Python3
 --------------------------
 
-The world is moving on, we should too.
+The world is moving on, we should too. Work in this direction has begun on the
+``rpython3`` branch, mainly to enable building documentation with Python3. Some
+things that are known to need careful refactoring:
+
+- a single character in python3 is an int, not a byte
+- we use ``str``/``unicode`` to distiguish between different modes of
+  operation for windows in ``make_win32_traits``.
+
+There are probably more. The branch currently does not pass rpython tests so
+work is needed to back out some of the changes and redo them properly
 
 Improve performance
 -------------------
@@ -221,7 +208,8 @@ experiments can be done for the general purpose. Examples:
 STM (Software Transactional Memory)
 -----------------------------------
 
-This is work in progress.  Besides the main development path, whose goal is
+This was an experiment that we stopped developing.  Besides the main
+development path, whose goal is
 to make a (relatively fast) version of pypy which includes STM, there are
 independent topics that can already be experimented with on the existing,
 JIT-less pypy-stm version:
@@ -259,7 +247,7 @@ to be got from them!):
 
 * `hg`
 
-.. _runner: http://speed.pypy.org
+.. _runner: https://speed.pypy.org
 .. _`CPython site`: https://speed.python.org/
 
 
@@ -267,21 +255,15 @@ Interfacing with C
 ------------------
 
 While we could make ``cpyext`` faster_, we would also like to explore other
-ideas. It seems cffi is only appropriate for small to medium-sized extensions,
-and it is hard to imagine NumPy abandoning the C-API. Here are a few ideas:
+ideas. While cffi is appropriate for small to medium-sized extensions, HPy
+seems to be the way forward for Python C-extensions. Here are a few ideas:
+* Help `HPy` and port projects to it
 * Extend Cython to have a backend that can be understood by the JIT
 * Collaborate with C-extension authors to ensure full PyPy support (see below)
 * Put PyPy compatible packages on PyPI and in conda
 
-
-.. _faster: https://morepypy.blogspot.com/2018/09#next-steps
-
-Support more platforms
-----------------------
-
-We have a plan for a `Windows 64`_ port.
-
-.. _`Windows 64`: windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _faster: https://www.pypy.org/posts/2018/09/inside-cpyext-why-emulating-cpython-c-8083064623681286567.html
+.. _HPy: https://hpyproject/hpy/
 
 ======================================
 Make more python modules pypy-friendly
@@ -311,20 +293,21 @@ Alternatively, an approach we used to recommend was to rewrite C extensions
 using more pypy-friendly technologies, e.g. cffi. Here is a partial list of
 good work that needs to be finished:
 
-**wxPython** https://bitbucket.org/amauryfa/wxpython-cffi
+**wxPython-cffi** `archived copy of the bitbucket repo`_
 
     Status: A project by a PyPy developer to adapt the Phoenix sip build system to cffi
 
-    The project is a continuation of a 2013 GSOC https://bitbucket.org/waedt/wxpython_cffi
+    The project is a continuation of a 2013 GSOC https://waedt.blogspot.com/
 
-    TODO: Merge the latest version of the wrappers and finish the sip conversion
+    TODO: Revive the archive, merge the latest version of the wrappers and finish
+    the sip conversion
+
+.. _`archived copy of the bitbucket repo`: https://bitbucket-archive.softwareheritage.org/projects/am/amauryfa/wxpython-cffi.html
 
 **pygame** https://github.com/CTPUG/pygame_cffi
 
-    Status: see blog post <http://morepypy.blogspot.com/2014/03/pygamecffi-pygame-on-pypy.html>
+    Status: Last release was in 2017
 
-    TODO: see the end of the blog post
+Work has begun on HPy_ to enable a faster C-API.
 
-**pyopengl** https://bitbucket.org/duangle/pyopengl-cffi
-
-    Status: unknown
+.. _HPy: https://hpy.readthedocs.io/en/latest/

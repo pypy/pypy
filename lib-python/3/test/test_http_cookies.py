@@ -1,22 +1,13 @@
 # Simple test suite for http/cookies.py
 
 import copy
-from test.support import run_unittest, run_doctest, check_warnings
+from test.support import run_unittest, run_doctest
 import unittest
 from http import cookies
 import pickle
-import warnings
+
 
 class CookieTests(unittest.TestCase):
-
-    def setUp(self):
-        self._warnings_manager = check_warnings()
-        self._warnings_manager.__enter__()
-        warnings.filterwarnings("ignore", ".* class is insecure.*",
-                                DeprecationWarning)
-
-    def tearDown(self):
-        self._warnings_manager.__exit__(None, None, None)
 
     def test_basic(self):
         cases = [
@@ -130,6 +121,19 @@ class CookieTests(unittest.TestCase):
         self.assertEqual(C.output(),
             'Set-Cookie: Customer="WILE_E_COYOTE"; HttpOnly; Secure')
 
+    def test_samesite_attrs(self):
+        samesite_values = ['Strict', 'Lax', 'strict', 'lax']
+        for val in samesite_values:
+            with self.subTest(val=val):
+                C = cookies.SimpleCookie('Customer="WILE_E_COYOTE"')
+                C['Customer']['samesite'] = val
+                self.assertEqual(C.output(),
+                    'Set-Cookie: Customer="WILE_E_COYOTE"; SameSite=%s' % val)
+
+                C = cookies.SimpleCookie()
+                C.load('Customer="WILL_E_COYOTE"; SameSite=%s' % val)
+                self.assertEqual(C['Customer']['samesite'], val)
+
     def test_secure_httponly_false_if_not_present(self):
         C = cookies.SimpleCookie()
         C.load('eggs=scrambled; Path=/bacon')
@@ -216,6 +220,16 @@ class CookieTests(unittest.TestCase):
         with self.assertRaises(cookies.CookieError):
             C.load(rawdata)
 
+    def test_comment_quoting(self):
+        c = cookies.SimpleCookie()
+        c['foo'] = '\N{COPYRIGHT SIGN}'
+        self.assertEqual(str(c['foo']), 'Set-Cookie: foo="\\251"')
+        c['foo']['comment'] = 'comment \N{COPYRIGHT SIGN}'
+        self.assertEqual(
+            str(c['foo']),
+            'Set-Cookie: foo="\\251"; Comment="comment \\251"'
+        )
+
 
 class MorselTests(unittest.TestCase):
     """Tests for the Morsel object."""
@@ -256,6 +270,9 @@ class MorselTests(unittest.TestCase):
             # Check output and js_output.
             M['path'] = '/foo' # Try a reserved key as well
             M.set(i, "%s_val" % i, "%s_coded_val" % i)
+            self.assertEqual(M.key, i)
+            self.assertEqual(M.value, "%s_val" % i)
+            self.assertEqual(M.coded_value, "%s_coded_val" % i)
             self.assertEqual(
                 M.output(),
                 "Set-Cookie: %s=%s; Path=/foo" % (i, "%s_coded_val" % i))
@@ -272,16 +289,14 @@ class MorselTests(unittest.TestCase):
             self.assertRaises(cookies.CookieError,
                               M.set, i, '%s_value' % i, '%s_value' % i)
 
-    def test_deprecation(self):
+    def test_set_properties(self):
         morsel = cookies.Morsel()
-        with self.assertWarnsRegex(DeprecationWarning, r'\bkey\b'):
+        with self.assertRaises(AttributeError):
             morsel.key = ''
-        with self.assertWarnsRegex(DeprecationWarning, r'\bvalue\b'):
+        with self.assertRaises(AttributeError):
             morsel.value = ''
-        with self.assertWarnsRegex(DeprecationWarning, r'\bcoded_value\b'):
+        with self.assertRaises(AttributeError):
             morsel.coded_value = ''
-        with self.assertWarnsRegex(DeprecationWarning, r'\bLegalChars\b'):
-            morsel.set('key', 'value', 'coded_value', LegalChars='.*')
 
     def test_eq(self):
         base_case = ('key', 'value', '"value"')

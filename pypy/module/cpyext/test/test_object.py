@@ -257,6 +257,20 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert type(x) is float
         assert x == -12.34
 
+    def test_object_calloc(self):
+        module = self.import_extension('foo', [
+            ("calloctest", "METH_NOARGS",
+             """
+                 PyObject *obj = PyObject_Calloc(1, sizeof(PyFloatObject));
+                 if (obj == NULL)
+                    return NULL;
+                 obj = PyObject_Init(obj, &PyFloat_Type);
+                 return obj;
+             """)])
+        x = module.calloctest()
+        assert type(x) is float
+        assert x == 0.0
+
     def test_object_realloc(self):
         if not self.runappdirect:
             skip('no untranslated support for realloc')
@@ -350,6 +364,8 @@ class AppTestObject(AppTestCpythonExtensionBase):
             """)])
         a = module.empty_format('hello')
         assert isinstance(a, str)
+        a = module.empty_format(type('hello'))
+        assert isinstance(a, str)
 
     def test_Bytes(self):
         class sub1(bytes):
@@ -391,7 +407,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("foo", "METH_O",
             """
-                _PyTraceMalloc_Track(0, 0, PyLong_AsLong(args) - sizeof(long));
+                PyTraceMalloc_Track(0, 0, PyLong_AsLong(args) - sizeof(long));
                 Py_INCREF(Py_None);
                 return Py_None;
             """)])
@@ -450,6 +466,31 @@ class AppTestObject(AppTestCpythonExtensionBase):
         n = module.enter(obj2)
         assert n == 1
         module.leave(obj2)
+
+    def test_GenericGetSetDict(self):
+        module = self.import_extension('test_GenericGetSetDict', [
+            ('test1', 'METH_VARARGS',
+             """
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 PyObject *newdict = PyTuple_GET_ITEM(args, 1);
+
+                 PyObject *olddict = PyObject_GenericGetDict(obj, NULL);
+                 if (olddict == NULL)
+                    return NULL;
+                 int res = PyObject_GenericSetDict(obj, newdict, NULL);
+                 if (res != 0)
+                     return NULL;
+                 return olddict;
+             """)])
+        class A:
+            pass
+        a = A()
+        a.x = 42
+        nd = {'y': 43}
+        d = module.test1(a, nd)
+        assert d == {'x': 42}
+        assert a.y == 43
+        assert a.__dict__ is nd
 
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):

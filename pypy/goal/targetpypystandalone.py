@@ -1,6 +1,7 @@
 import py
 
 import os, sys, subprocess
+from os.path import join, dirname
 
 import pypy
 from pypy.interpreter import gateway
@@ -18,9 +19,9 @@ from pypy.module.sys.version import CPYTHON_VERSION
 thisdir = py.path.local(__file__).dirpath()
 
 try:
-    this_dir = os.path.dirname(__file__)
+    this_dir = dirname(__file__)
 except NameError:
-    this_dir = os.path.dirname(sys.argv[0])
+    this_dir = dirname(sys.argv[0])
 
 def debug(msg):
     try:
@@ -75,12 +76,10 @@ def create_entry_point(space, w_dict):
                 w_executable = space.newfilename(argv[0])
                 w_argv = space.newlist([space.newfilename(s)
                                         for s in argv[1:]])
-                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
+                w_bargv = space.newlist([space.newbytes(s)
+                                        for s in argv[1:]])
+                w_exitcode = space.call_function(w_entry_point, w_executable, w_bargv, w_argv)
                 exitcode = space.int_w(w_exitcode)
-                # try to pull it all in
-            ##    from pypy.interpreter import main, interactive, error
-            ##    con = interactive.PyPyConsole(space)
-            ##    con.interact()
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
@@ -88,7 +87,11 @@ def create_entry_point(space, w_dict):
                 return 1
         finally:
             try:
-                space.finish()
+                # the equivalent of Py_FinalizeEx
+                if space.finish() < 0:
+                    # Value unlikely to be confused with a non-error exit status
+                    # or other special meaning (from cpython/Modules/main.c)
+                    exitcode = 120
             except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
@@ -115,7 +118,7 @@ def get_additional_entrypoints(space, w_initstdio):
         verbose = rffi.cast(lltype.Signed, verbose)
         if ll_home and ord(ll_home[0]):
             home1 = rffi.charp2str(ll_home)
-            home = os.path.join(home1, 'x') # <- so that 'll_home' can be
+            home = join(home1, 'x') # <- so that 'll_home' can be
                                             # directly the root directory
         else:
             home1 = "pypy's shared library location"
@@ -133,16 +136,26 @@ def get_additional_entrypoints(space, w_initstdio):
             # (in unbuffered mode, to avoid troubles) and import site
             space.appexec([w_path, space.newfilename(home), w_initstdio],
             r"""(path, home, initstdio):
-                import sys
+                import sys 
+                # don't import anything more above this: sys.path is not set
                 sys.path[:] = path
                 sys.executable = home
                 initstdio(unbuffered=True)
+                import os   # don't move it to the first line of this function!
+                _MACOSX = sys.platform == 'darwin'
+                if _MACOSX:
+                    # __PYVENV_LAUNCHER__, used by CPython on macOS, should be ignored
+                    # since it (possibly) results in a wrong sys.prefix and
+                    # sys.exec_prefix (and consequently sys.path).
+                    old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__', None)
                 try:
                     import site
                 except Exception as e:
                     sys.stderr.write("'import site' failed:\n")
                     import traceback
                     traceback.print_exc()
+                if _MACOSX and old_pyvenv_launcher:
+                    os.environ['__PYVENV_LAUNCHER__'] = old_pyvenv_launcher
             """)
             return rffi.cast(rffi.INT, 0)
         except OperationError as e:
@@ -273,7 +286,8 @@ class PyPyTarget(object):
 
         config.translation.suggest(check_str_without_nul=True)
         config.translation.suggest(shared=True)
-        config.translation.suggest(icon=os.path.join(this_dir, 'pypy.ico'))
+        config.translation.suggest(icon=join(this_dir, 'pypy.ico'))
+        config.translation.suggest(manifest=join(this_dir, 'python.manifest'))
         if config.translation.shared:
             if config.translation.output is not None:
                 raise Exception("Cannot use the --output option with PyPy "
@@ -342,13 +356,17 @@ class PyPyTarget(object):
         translate.log_config(config.objspace, "PyPy config object")
 
         # obscure hack to stuff the translation options into the translated PyPy
-        import pypy.module.sys
+        from pypy.module.sys.moduledef import Module as SysModule
         options = make_dict(config)
-        wrapstr = 'space.wrap(%r)' % (options) # import time
-        pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
-        if config.objspace.usemodules._cffi_backend:
+        wrapstr = 'space.wrap(%r)' % (options)  # import time
+        SysModule.interpleveldefs['pypy_translation_info'] = wrapstr
+        
+        if 'compile' in driver._disabled:
+            driver.default_goal = 'source'
+        elif config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)
-
+        else:
+            driver.default_goal = 'compile' 
         return self.get_entry_point(config)
 
     def hack_for_cffi_modules(self, driver):
@@ -364,13 +382,11 @@ class PyPyTarget(object):
         @taskdef([compile_goal], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
             ''' Use cffi to compile cffi interfaces to modules'''
-            filename = os.path.join(pypydir, 'tool', 'build_cffi_imports.py')
-            if sys.platform == 'darwin':
-                argv = [filename, '--embed-dependencies']
-            else:
-                argv = [filename,]
-            status, out, err = run_subprocess(str(driver.compute_exe_name()),
-                                              argv)
+            filename = join(pypydir, '..', 'lib_pypy', 'pypy_tools',
+                                   'build_cffi_imports.py')
+            argv = [filename,]
+            exe_name = py.path.local(driver.c_entryp)
+            status, out, err = run_subprocess(str(exe_name), argv)
             sys.stdout.write(out)
             sys.stderr.write(err)
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
@@ -393,13 +409,13 @@ class PyPyTarget(object):
         self.space = make_objspace(config)
 
         # manually imports app_main.py
-        filename = os.path.join(pypydir, 'interpreter', 'app_main.py')
+        filename = join(pypydir, 'interpreter', 'app_main.py')
         app = gateway.applevel(open(filename).read(), 'app_main.py', 'app_main')
         app.hidden_applevel = False
         w_dict = app.getwdict(self.space)
         entry_point, _ = create_entry_point(self.space, w_dict)
 
-        return entry_point, None, PyPyAnnotatorPolicy()
+        return entry_point, None, PyPyAnnotatorPolicy(self.space)
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',

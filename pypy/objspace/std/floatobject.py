@@ -2,7 +2,7 @@ import math
 import operator
 import sys
 
-from rpython.rlib import rarithmetic, rfloat
+from rpython.rlib import rarithmetic, rfloat, jit
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
 from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
@@ -45,6 +45,9 @@ def float2string(x, code, precision):
     else:  # isnan(x):
         s = "nan"
     return s
+
+def float_repr(x):
+    return float2string(x, 'r', 0)
 
 
 def detect_floatformat():
@@ -145,6 +148,15 @@ def make_compare_func(opname):
         return space.w_NotImplemented
     return func_with_new_name(_compare, 'descr_' + opname)
 
+def newint_from_float(space, floatval):
+    """This is also used from module/math/interp_math.py"""
+    try:
+        value = ovfcheck_float_to_int(floatval)
+    except OverflowError:
+        return newlong_from_float(space, floatval)
+    else:
+        return space.newint(value)
+
 
 class W_FloatObject(W_Root):
     """This is a implementation of the app-level 'float' type.
@@ -202,20 +214,39 @@ class W_FloatObject(W_Root):
 
     @staticmethod
     @unwrap_spec(w_x=WrappedDefault(0.0))
-    def descr__new__(space, w_floattype, w_x):
+    def descr__new__(space, w_floattype, w_x, __posonly__):
         def _string_to_float(space, w_source, string):
             try:
-                return rfloat.string_to_float(string)
-            except ParseStringError as e:
-                raise oefmt(space.w_ValueError,
-                            "could not convert string to float: %R", w_source)
+                if "_" in string:
+                    string = _remove_underscores(string)
+            except ValueError:
+                pass
+            else:
+                try:
+                    return rfloat.string_to_float(string)
+                except ParseStringError as e:
+                    pass
+            raise oefmt(space.w_ValueError,
+                        "could not convert string to float: %R", w_source)
 
         w_value = w_x     # 'x' is the keyword argument name in CPython
         if space.lookup(w_value, "__float__") is not None:
             w_obj = space.float(w_value)
-            if space.is_w(w_floattype, space.w_float):
+            w_obj_type = space.type(w_obj)
+            if not space.is_w(w_obj_type, space.w_float):
+                space.warn(space.newtext(
+                    "%s.__float__ returned non-float (type %s).  "
+                    "The ability to return an instance of a strict subclass "
+                    "of float is deprecated, and may be removed "
+                    "in a future version of Python." %
+                    (space.type(w_value).name, w_obj_type.name)),
+                    space.w_DeprecationWarning)
+            elif space.is_w(w_floattype, space.w_float):
                 return w_obj
             value = space.float_w(w_obj)
+        elif space.lookup(w_value, "__index__") is not None:
+            w_obj = space.index(w_value)
+            return space.float(w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
             from unicodeobject import unicode_to_decimal_w
             value = _string_to_float(space, w_value,
@@ -373,7 +404,7 @@ class W_FloatObject(W_Root):
                         if digit & half_eps:
                             round_up = False
                             if (digit & (3 * half_eps - 1) or
-                                (half_eps == 8 and
+                                (half_eps == 8 and key_digit + 1 < float_digits and
                                  _hex_digit(s, key_digit + 1, co_end, float_digits) & 1)):
                                 round_up = True
                             else:
@@ -405,11 +436,12 @@ class W_FloatObject(W_Root):
         return _round_float(space, self, w_ndigits)
 
     def descr_repr(self, space):
-        return space.newtext(float2string(self.floatval, 'r', 0))
+        res = float_repr(self.floatval)
+        return space.newutf8(res, len(res)) # always ascii
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_hash(self, space):
-        h = _hash_float(space, self.floatval)
+        h = _hash_float(self.floatval)
         return space.newint(h)
 
     def descr_format(self, space, w_spec):
@@ -425,12 +457,7 @@ class W_FloatObject(W_Root):
         return W_FloatObject(a)
 
     def descr_trunc(self, space):
-        try:
-            value = ovfcheck_float_to_int(self.floatval)
-        except OverflowError:
-            return newlong_from_float(space, self.floatval)
-        else:
-            return space.newint(value)
+        return newint_from_float(space, self.floatval)
 
     def descr_neg(self, space):
         return W_FloatObject(-self.floatval)
@@ -493,7 +520,7 @@ class W_FloatObject(W_Root):
             return space.w_NotImplemented
         rhs = w_rhs.floatval
         if rhs == 0.0:
-            raise oefmt(space.w_ZeroDivisionError, "float division")
+            raise oefmt(space.w_ZeroDivisionError, "float division by zero")
         return W_FloatObject(self.floatval / rhs)
 
     def descr_rdiv(self, space, w_lhs):
@@ -502,7 +529,7 @@ class W_FloatObject(W_Root):
             return space.w_NotImplemented
         selfval = self.floatval
         if selfval == 0.0:
-            raise oefmt(space.w_ZeroDivisionError, "float division")
+            raise oefmt(space.w_ZeroDivisionError, "float division by zero")
         return W_FloatObject(w_lhs.floatval / selfval)
 
     def descr_floordiv(self, space, w_rhs):
@@ -619,15 +646,15 @@ class W_FloatObject(W_Root):
             num, den = float_as_rbigint_ratio(value)
         except OverflowError:
             raise oefmt(space.w_OverflowError,
-                        "cannot pass infinity to as_integer_ratio()")
+                        "cannot convert Infinity to integer ratio")
         except ValueError:
             raise oefmt(space.w_ValueError,
-                        "cannot pass nan to as_integer_ratio()")
+                        "cannot convert NaN to integer ratio")
 
         w_num = space.newlong_from_rbigint(num)
         w_den = space.newlong_from_rbigint(den)
         # Try to return int
-        return space.newtuple([space.int(w_num), space.int(w_den)])
+        return space.newtuple2(space.int(w_num), space.int(w_den))
 
     def descr_hex(self, space):
         """float.hex() -> string
@@ -728,8 +755,28 @@ Convert a string or number to a floating point number, if possible.''',
     hex = interp2app(W_FloatObject.descr_hex),
 )
 
+def _remove_underscores(string):
+    i = 0
+    prev = '?'
+    res = []
+    for i in range(len(string)):
+        c = string[i]
+        if c == '_':
+            # undercores can only come after digits
+            if not ord('0') <= ord(prev) <= ord('9'):
+                raise ValueError
+        else:
+            res.append(c)
+            # undercores can only come before digits
+            if prev == '_' and not ord('0') <= ord(c) <= ord('9'):
+                raise ValueError
+        prev = c
+    if prev == "_": # not allowed at end
+        raise ValueError
+    return "".join(res)
 
-def _hash_float(space, v):
+@jit.elidable
+def _hash_float(v):
     if not isfinite(v):
         if math.isinf(v):
             return HASH_INF if v > 0 else -HASH_INF
@@ -894,13 +941,13 @@ def _round_float(space, w_float, w_ndigits=None):
     # Algorithm copied directly from CPython
     x = w_float.floatval
 
-    if w_ndigits is None:
+    if space.is_none(w_ndigits):
         # single-argument round: round to nearest integer
         rounded = rfloat.round_away(x)
         if math.fabs(x - rounded) == 0.5:
             # halfway case: round to even
             rounded = 2.0 * rfloat.round_away(x / 2.0)
-        return newlong_from_float(space, rounded)
+        return newint_from_float(space, rounded)
 
     # interpret 2nd argument as a Py_ssize_t; clip on overflow
     ndigits = space.getindex_w(w_ndigits, None)

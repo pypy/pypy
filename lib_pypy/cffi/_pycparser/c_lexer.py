@@ -3,11 +3,10 @@
 #
 # CLexer class: lexer for the C language
 #
-# Copyright (C) 2008-2015, Eli Bendersky
+# Eli Bendersky [https://eli.thegreenplace.net/]
 # License: BSD
 #------------------------------------------------------------------------------
 import re
-import sys
 
 from .ply import lex
 from .ply.lex import TOKEN
@@ -19,7 +18,7 @@ class CLexer(object):
         tokens.
 
         The public attribute filename can be set to an initial
-        filaneme, but the lexer will update it upon #line
+        filename, but the lexer will update it upon #line
         directives.
     """
     def __init__(self, error_func, on_lbrace_func, on_rbrace_func,
@@ -52,8 +51,8 @@ class CLexer(object):
         # Allow either "# line" or "# <num>" to support GCC's
         # cpp output
         #
-        self.line_pattern = re.compile('([ \t]*line\W)|([ \t]*\d+)')
-        self.pragma_pattern = re.compile('[ \t]*pragma\W')
+        self.line_pattern = re.compile(r'([ \t]*line\W)|([ \t]*\d+)')
+        self.pragma_pattern = re.compile(r'[ \t]*pragma\W')
 
     def build(self, **kwargs):
         """ Builds the lexer from the specification. Must be
@@ -100,28 +99,33 @@ class CLexer(object):
     ## Reserved keywords
     ##
     keywords = (
-        '_BOOL', '_COMPLEX', 'AUTO', 'BREAK', 'CASE', 'CHAR', 'CONST',
+        'AUTO', 'BREAK', 'CASE', 'CHAR', 'CONST',
         'CONTINUE', 'DEFAULT', 'DO', 'DOUBLE', 'ELSE', 'ENUM', 'EXTERN',
-        'FLOAT', 'FOR', 'GOTO', 'IF', 'INLINE', 'INT', 'LONG', 
+        'FLOAT', 'FOR', 'GOTO', 'IF', 'INLINE', 'INT', 'LONG',
         'REGISTER', 'OFFSETOF',
         'RESTRICT', 'RETURN', 'SHORT', 'SIGNED', 'SIZEOF', 'STATIC', 'STRUCT',
         'SWITCH', 'TYPEDEF', 'UNION', 'UNSIGNED', 'VOID',
-        'VOLATILE', 'WHILE',
+        'VOLATILE', 'WHILE', '__INT128',
     )
 
+    keywords_new = (
+        '_BOOL', '_COMPLEX',
+        '_NORETURN', '_THREAD_LOCAL', '_STATIC_ASSERT',
+        '_ATOMIC', '_ALIGNOF', '_ALIGNAS',
+        )
+
     keyword_map = {}
+
     for keyword in keywords:
-        if keyword == '_BOOL':
-            keyword_map['_Bool'] = keyword
-        elif keyword == '_COMPLEX':
-            keyword_map['_Complex'] = keyword
-        else:
-            keyword_map[keyword.lower()] = keyword
+        keyword_map[keyword.lower()] = keyword
+
+    for keyword in keywords_new:
+        keyword_map[keyword[:2].upper() + keyword[2:].lower()] = keyword
 
     ##
     ## All the tokens recognized by the lexer
     ##
-    tokens = keywords + (
+    tokens = keywords + keywords_new + (
         # Identifiers
         'ID',
 
@@ -130,14 +134,20 @@ class CLexer(object):
         'TYPEID',
 
         # constants
-        'INT_CONST_DEC', 'INT_CONST_OCT', 'INT_CONST_HEX', 'INT_CONST_BIN',
+        'INT_CONST_DEC', 'INT_CONST_OCT', 'INT_CONST_HEX', 'INT_CONST_BIN', 'INT_CONST_CHAR',
         'FLOAT_CONST', 'HEX_FLOAT_CONST',
         'CHAR_CONST',
         'WCHAR_CONST',
+        'U8CHAR_CONST',
+        'U16CHAR_CONST',
+        'U32CHAR_CONST',
 
         # String literals
         'STRING_LITERAL',
         'WSTRING_LITERAL',
+        'U8STRING_LITERAL',
+        'U16STRING_LITERAL',
+        'U32STRING_LITERAL',
 
         # Operators
         'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MOD',
@@ -160,7 +170,7 @@ class CLexer(object):
         # Conditional operator (?)
         'CONDOP',
 
-        # Delimeters
+        # Delimiters
         'LPAREN', 'RPAREN',         # ( )
         'LBRACKET', 'RBRACKET',     # [ ]
         'LBRACE', 'RBRACE',         # { }
@@ -171,7 +181,9 @@ class CLexer(object):
         'ELLIPSIS',
 
         # pre-processor
-        'PPHASH',      # '#'
+        'PPHASH',       # '#'
+        'PPPRAGMA',     # 'pragma'
+        'PPPRAGMASTR',
     )
 
     ##
@@ -203,22 +215,54 @@ class CLexer(object):
     # parse all correct code, even if it means to sometimes parse incorrect
     # code.
     #
-    simple_escape = r"""([a-zA-Z._~!=&\^\-\\?'"])"""
-    decimal_escape = r"""(\d+)"""
-    hex_escape = r"""(x[0-9a-fA-F]+)"""
-    bad_escape = r"""([\\][^a-zA-Z._~^!=&\^\-\\?'"x0-7])"""
+    # The original regexes were taken verbatim from the C syntax definition,
+    # and were later modified to avoid worst-case exponential running time.
+    #
+    #   simple_escape = r"""([a-zA-Z._~!=&\^\-\\?'"])"""
+    #   decimal_escape = r"""(\d+)"""
+    #   hex_escape = r"""(x[0-9a-fA-F]+)"""
+    #   bad_escape = r"""([\\][^a-zA-Z._~^!=&\^\-\\?'"x0-7])"""
+    #
+    # The following modifications were made to avoid the ambiguity that allowed backtracking:
+    # (https://github.com/eliben/pycparser/issues/61)
+    #
+    # - \x was removed from simple_escape, unless it was not followed by a hex digit, to avoid ambiguity with hex_escape.
+    # - hex_escape allows one or more hex characters, but requires that the next character(if any) is not hex
+    # - decimal_escape allows one or more decimal characters, but requires that the next character(if any) is not a decimal
+    # - bad_escape does not allow any decimals (8-9), to avoid conflicting with the permissive decimal_escape.
+    #
+    # Without this change, python's `re` module would recursively try parsing each ambiguous escape sequence in multiple ways.
+    # e.g. `\123` could be parsed as `\1`+`23`, `\12`+`3`, and `\123`.
+
+    simple_escape = r"""([a-wyzA-Z._~!=&\^\-\\?'"]|x(?![0-9a-fA-F]))"""
+    decimal_escape = r"""(\d+)(?!\d)"""
+    hex_escape = r"""(x[0-9a-fA-F]+)(?![0-9a-fA-F])"""
+    bad_escape = r"""([\\][^a-zA-Z._~^!=&\^\-\\?'"x0-9])"""
 
     escape_sequence = r"""(\\("""+simple_escape+'|'+decimal_escape+'|'+hex_escape+'))'
+
+    # This complicated regex with lookahead might be slow for strings, so because all of the valid escapes (including \x) allowed
+    # 0 or more non-escaped characters after the first character, simple_escape+decimal_escape+hex_escape got simplified to
+
+    escape_sequence_start_in_string = r"""(\\[0-9a-zA-Z._~!=&\^\-\\?'"])"""
+
     cconst_char = r"""([^'\\\n]|"""+escape_sequence+')'
     char_const = "'"+cconst_char+"'"
     wchar_const = 'L'+char_const
+    u8char_const = 'u8'+char_const
+    u16char_const = 'u'+char_const
+    u32char_const = 'U'+char_const
+    multicharacter_constant = "'"+cconst_char+"{2,4}'"
     unmatched_quote = "('"+cconst_char+"*\\n)|('"+cconst_char+"*$)"
     bad_char_const = r"""('"""+cconst_char+"""[^'\n]+')|('')|('"""+bad_escape+r"""[^'\n]*')"""
 
     # string literals (K&R2: A.2.6)
-    string_char = r"""([^"\\\n]|"""+escape_sequence+')'
+    string_char = r"""([^"\\\n]|"""+escape_sequence_start_in_string+')'
     string_literal = '"'+string_char+'*"'
     wstring_literal = 'L'+string_literal
+    u8string_literal = 'u8'+string_literal
+    u16string_literal = 'u'+string_literal
+    u32string_literal = 'U'+string_literal
     bad_string_literal = '"'+string_char+'*'+bad_escape+string_char+'*"'
 
     # floating constants (K&R2: A.2.5.3)
@@ -274,7 +318,6 @@ class CLexer(object):
 
     def t_ppline_NEWLINE(self, t):
         r'\n'
-
         if self.pp_line is None:
             self._error('line number missing in #line', t)
         else:
@@ -304,15 +347,14 @@ class CLexer(object):
 
     def t_pppragma_PPPRAGMA(self, t):
         r'pragma'
-        pass
+        return t
 
-    t_pppragma_ignore = ' \t<>.-{}();=+-*/$%@&^~!?:,0123456789'
+    t_pppragma_ignore = ' \t'
 
-    @TOKEN(string_literal)
-    def t_pppragma_STR(self, t): pass
-
-    @TOKEN(identifier)
-    def t_pppragma_ID(self, t): pass
+    def t_pppragma_STR(self, t):
+        '.+'
+        t.type = 'PPPRAGMASTR'
+        return t
 
     def t_pppragma_error(self, t):
         self._error('invalid #pragma directive', t)
@@ -372,7 +414,7 @@ class CLexer(object):
     # ?
     t_CONDOP            = r'\?'
 
-    # Delimeters
+    # Delimiters
     t_LPAREN            = r'\('
     t_RPAREN            = r'\)'
     t_LBRACKET          = r'\['
@@ -443,12 +485,28 @@ class CLexer(object):
     # Must come before bad_char_const, to prevent it from
     # catching valid char constants as invalid
     #
+    @TOKEN(multicharacter_constant)
+    def t_INT_CONST_CHAR(self, t):
+        return t
+
     @TOKEN(char_const)
     def t_CHAR_CONST(self, t):
         return t
 
     @TOKEN(wchar_const)
     def t_WCHAR_CONST(self, t):
+        return t
+
+    @TOKEN(u8char_const)
+    def t_U8CHAR_CONST(self, t):
+        return t
+
+    @TOKEN(u16char_const)
+    def t_U16CHAR_CONST(self, t):
+        return t
+
+    @TOKEN(u32char_const)
+    def t_U32CHAR_CONST(self, t):
         return t
 
     @TOKEN(unmatched_quote)
@@ -463,6 +521,18 @@ class CLexer(object):
 
     @TOKEN(wstring_literal)
     def t_WSTRING_LITERAL(self, t):
+        return t
+
+    @TOKEN(u8string_literal)
+    def t_U8STRING_LITERAL(self, t):
+        return t
+
+    @TOKEN(u16string_literal)
+    def t_U16STRING_LITERAL(self, t):
+        return t
+
+    @TOKEN(u32string_literal)
+    def t_U32STRING_LITERAL(self, t):
         return t
 
     # unmatched string literals are caught by the preprocessor
@@ -482,4 +552,3 @@ class CLexer(object):
     def t_error(self, t):
         msg = 'Illegal character %s' % repr(t.value[0])
         self._error(msg, t)
-

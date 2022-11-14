@@ -28,6 +28,12 @@
 #endif
 #include <errno.h>
 
+#ifdef RPY_TRANSLATE    /* compiling with rpython/bin/rpython or translate.py */
+#  define JITLOG  "JITLOG"
+#else
+#  define JITLOG  "JITLOG_FORTESTS"
+#endif
+
 static int jitlog_fd = -1;
 static int jitlog_ready = 0;
 
@@ -42,7 +48,8 @@ void jitlog_try_init_using_env(void) {
     char * filename;
     if (jitlog_ready) { return; }
 
-    filename = getenv("JITLOG");
+    /* untranslated this is set to JITLOG_FORTESTS via a #define */
+    filename = getenv(JITLOG);
 
     if (filename && filename[0]) {
         // mode is 644
@@ -62,9 +69,9 @@ void jitlog_try_init_using_env(void) {
         return;
     }
 #ifndef _WIN32
-    unsetenv("JITLOG");
+    unsetenv(JITLOG);
 #else
-    putenv("JITLOG=");
+    putenv(JITLOG "=");
 #endif
     jitlog_ready = 1;
 }

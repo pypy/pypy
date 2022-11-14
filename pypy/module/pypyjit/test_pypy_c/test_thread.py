@@ -33,10 +33,11 @@ class TestThread(BaseTestPyPyC):
     def test_tls(self):
         def main(n):
             try:
-                import _thread as thread
+                from _thread import _local
             except ImportError:
-                import thread
-            local = thread._local()
+                from thread import _local
+            local = _local()
+            local.x = "abc" # prevent type unboxing
             local.x = 1
             i = 0
             while i < n:

@@ -46,7 +46,7 @@ def _compile_pattern(pat):
     return re.compile(res).match
 
 def filter(names, pat):
-    """Return the subset of the list NAMES that match PAT."""
+    """Construct a list from those elements of the iterable NAMES that match PAT."""
     result = []
     pat = os.path.normcase(pat)
     match = _compile_pattern(pat)
@@ -97,13 +97,32 @@ def translate(pat):
             if j >= n:
                 res = res + '\\['
             else:
-                stuff = pat[i:j].replace('\\','\\\\')
+                stuff = pat[i:j]
+                if '--' not in stuff:
+                    stuff = stuff.replace('\\', r'\\')
+                else:
+                    chunks = []
+                    k = i+2 if pat[i] == '!' else i+1
+                    while True:
+                        k = pat.find('-', k, j)
+                        if k < 0:
+                            break
+                        chunks.append(pat[i:k])
+                        i = k+1
+                        k = k+3
+                    chunks.append(pat[i:j])
+                    # Escape backslashes and hyphens for set difference (--).
+                    # Hyphens that create ranges shouldn't be escaped.
+                    stuff = '-'.join(s.replace('\\', r'\\').replace('-', r'\-')
+                                     for s in chunks)
+                # Escape set operations (&&, ~~ and ||).
+                stuff = re.sub(r'([&~|])', r'\\\1', stuff)
                 i = j+1
                 if stuff[0] == '!':
                     stuff = '^' + stuff[1:]
-                elif stuff[0] == '^':
+                elif stuff[0] in ('^', '['):
                     stuff = '\\' + stuff
                 res = '%s[%s]' % (res, stuff)
         else:
             res = res + re.escape(c)
-    return res + '\Z(?ms)'
+    return r'(?s:%s)\Z' % res

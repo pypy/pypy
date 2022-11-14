@@ -1,12 +1,15 @@
 from pypy.interpreter.error import oefmt
-from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+from pypy.objspace.std.tupleobject import (W_AbstractTupleObject,
+    XXPRIME_1, XXPRIME_2, XXPRIME_5, xxrotate, uhash_type)
 from pypy.objspace.std.util import negate
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.longlong2float import float2longlong
 
+UNROLL_CUTOFF = 10
 
 class NotSpecialised(Exception):
     pass
@@ -64,31 +67,32 @@ def make_specialised_class(typetuple):
         getitems_copy = func_with_new_name(tolist, 'getitems_copy')
 
         def descr_hash(self, space):
-            mult = 1000003
-            x = 0x345678
-            z = typelen
+            acc = XXPRIME_5
+
             for i in iter_n:
                 value = getattr(self, 'value%s' % i)
                 if typetuple[i] == object:
-                    y = space.int_w(space.hash(value))
+                    lane = uhash_type(space.int_w(space.hash(value)))
                 elif typetuple[i] == float:
                     # get the correct hash for float which is an
                     # integer & other less frequent cases
                     from pypy.objspace.std.floatobject import _hash_float
-                    y = _hash_float(space, value)
+                    lane = uhash_type(_hash_float(value))
                 elif typetuple[i] == int:
                     # hash for int which is different from the hash
                     # given by rpython
                     from pypy.objspace.std.intobject import _hash_int
-                    y = _hash_int(value)
+                    lane = uhash_type(_hash_int(value))
                 else:
                     raise NotImplementedError
 
-                x = (x ^ y) * mult
-                z -= 1
-                mult += 82520 + z + z
-            x += 97531
-            return space.newint(intmask(x))
+                acc += lane * XXPRIME_2
+                acc = xxrotate(acc)
+                acc *= XXPRIME_1
+
+            acc += typelen ^ (XXPRIME_5 ^ uhash_type(3527539))
+            acc += (acc == uhash_type(-1)) * uhash_type(1546275796 + 1)
+            return space.newint(intmask(acc))
 
         def descr_eq(self, space, w_other):
             if not isinstance(w_other, W_AbstractTupleObject):
@@ -132,6 +136,11 @@ def make_specialised_class(typetuple):
                     return value
             raise oefmt(space.w_IndexError, "tuple index out of range")
 
+        def _unroll_condition(self):
+            return jit.loop_unrolling_heuristic(
+                    self, typelen, UNROLL_CUTOFF)
+
+
     cls.__name__ = ('W_SpecialisedTupleObject_' +
                     ''.join([t.__name__[0] for t in typetuple]))
     _specialisations.append(cls)
@@ -145,19 +154,24 @@ Cls_oo = make_specialised_class((object, object))
 Cls_ff = make_specialised_class((float, float))
 
 def makespecialisedtuple(space, list_w):
-    from pypy.objspace.std.intobject import W_IntObject
-    from pypy.objspace.std.floatobject import W_FloatObject
+
     if len(list_w) == 2:
         w_arg1, w_arg2 = list_w
-        if type(w_arg1) is W_IntObject:
-            if type(w_arg2) is W_IntObject:
-                return Cls_ii(space, space.int_w(w_arg1), space.int_w(w_arg2))
-        elif type(w_arg1) is W_FloatObject:
-            if type(w_arg2) is W_FloatObject:
-                return Cls_ff(space, space.float_w(w_arg1), space.float_w(w_arg2))
-        return Cls_oo(space, w_arg1, w_arg2)
+        return makespecialisedtuple2(space, w_arg1, w_arg2)
     else:
         raise NotSpecialised
+
+def makespecialisedtuple2(space, w_arg1, w_arg2):
+    from pypy.objspace.std.listobject import is_plain_int1, plain_int_w
+    from pypy.objspace.std.floatobject import W_FloatObject
+    if is_plain_int1(w_arg1):
+        if is_plain_int1(w_arg2):
+            return Cls_ii(space, plain_int_w(space, w_arg1),
+                                 plain_int_w(space, w_arg2))
+    elif type(w_arg1) is W_FloatObject:
+        if type(w_arg2) is W_FloatObject:
+            return Cls_ff(space, space.float_w(w_arg1), space.float_w(w_arg2))
+    return Cls_oo(space, w_arg1, w_arg2)
 
 # --------------------------------------------------
 # Special code based on list strategies to implement zip(),
@@ -186,8 +200,8 @@ def _build_zipped_unspec(space, w_list1, w_list2):
     strat1 = w_list1.strategy
     strat2 = w_list2.strategy
     length = min(strat1.length(w_list1), strat2.length(w_list2))
-    return [space.newtuple([strat1.getitem(w_list1, i),
-                            strat2.getitem(w_list2, i)]) for i in range(length)]
+    return [space.newtuple2(strat1.getitem(w_list1, i),
+                            strat2.getitem(w_list2, i)) for i in range(length)]
 
 def specialized_zip_2_lists(space, w_list1, w_list2):
     from pypy.objspace.std.listobject import W_ListObject

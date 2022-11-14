@@ -7,6 +7,8 @@ from rpython.rlib import jit, rgc, objectmodel
 TICK_COUNTER_STEP = 100
 
 def app_profile_call(space, w_callable, frame, event, w_arg):
+    # from here on, frame is just a normal w_object
+    frame = jit.hint(frame, access_directly=False)
     space.call_function(w_callable,
                         frame,
                         space.newtext(event), w_arg)
@@ -23,8 +25,9 @@ class ExecutionContext(object):
     # XXX [fijal] but they're not. is_being_profiled is guarded a bit all
     #     over the place as well as w_tracefunc
 
-    _immutable_fields_ = ['profilefunc?', 'w_tracefunc?',
-                          'w_coroutine_wrapper_fn?']
+    _immutable_fields_ = [
+        'profilefunc?', 'w_tracefunc?',
+        'w_asyncgen_firstiter_fn?', 'w_asyncgen_finalizer_fn?']
 
     def __init__(self, space):
         self.space = space
@@ -39,8 +42,14 @@ class ExecutionContext(object):
         self.profilefunc = None
         self.w_profilefuncarg = None
         self.thread_disappeared = False   # might be set to True after os.fork()
-        self.w_coroutine_wrapper_fn = None
-        self.in_coroutine_wrapper = False
+        # an instance of this will be raised the next time we switch to the
+        # thread that self represents
+        self.w_async_exception_type = None
+
+        self.w_asyncgen_firstiter_fn = None
+        self.w_asyncgen_finalizer_fn = None
+        self.contextvar_context = None
+        self.coroutine_origin_tracking_depth = 0
 
     @staticmethod
     def _mark_thread_disappeared(space):
@@ -173,13 +182,10 @@ class ExecutionContext(object):
 
     @jit.unroll_safe
     def run_trace_func(self, frame):
-        code = frame.pycode
+        code = frame.getcode() # promote the frame!
         d = frame.getorcreatedebug()
-        if d.instr_lb <= frame.last_instr < d.instr_ub:
-            if frame.last_instr < d.instr_prev_plus_one:
-                # We jumped backwards in the same line.
-                self._trace(frame, 'line', self.space.w_None)
-        else:
+        line = d.f_lineno
+        if not (d.instr_lb <= frame.last_instr < d.instr_ub):
             size = len(code.co_lnotab) / 2
             addr = 0
             line = code.co_firstlineno
@@ -192,8 +198,10 @@ class ExecutionContext(object):
                 addr += c
                 if c:
                     d.instr_lb = addr
-
-                line += ord(lineno[p + 1])
+                line_offset = ord(lineno[p + 1])
+                if line_offset >= 0x80:
+                    line_offset -= 0x100
+                line += line_offset
                 p += 2
                 size -= 1
 
@@ -210,9 +218,14 @@ class ExecutionContext(object):
             else:
                 d.instr_ub = sys.maxint
 
-            if d.instr_lb == frame.last_instr: # At start of line!
-                d.f_lineno = line
+        # when we are at a start of a line, or executing a backwards jump,
+        # produce a line event
+        if d.instr_lb == frame.last_instr or frame.last_instr < d.instr_prev_plus_one:
+            d.f_lineno = line
+            if d.f_trace_lines:
                 self._trace(frame, 'line', self.space.w_None)
+        if d.f_trace_opcodes:
+            self._trace(frame, 'opcode', self.space.w_None)
 
         d.instr_prev_plus_one = frame.last_instr + 1
 
@@ -233,9 +246,11 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
+    @jit.unroll_safe
     def sys_exc_info(self):
         """Implements sys.exc_info().
         Return an OperationError instance or None.
+        Returns the "top-most" exception in the stack.
 
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
@@ -245,9 +260,26 @@ class ExecutionContext(object):
     def set_sys_exc_info(self, operror):
         self.sys_exc_operror = operror
 
+    def set_sys_exc_info3(self, w_type, w_value, w_traceback):
+        from pypy.interpreter import pytraceback
+
+        space = self.space
+        if space.is_none(w_value):
+            operror = None
+        else:
+            tb = None
+            if not space.is_none(w_traceback):
+                try:
+                    tb = pytraceback.check_traceback(space, w_traceback, '?')
+                except OperationError:    # catch and ignore bogus objects
+                    pass
+            operror = OperationError(w_type, w_value, tb)
+        self.set_sys_exc_info(operror)
+
     @jit.dont_look_inside
     def settrace(self, w_func):
         """Set the global trace function."""
+        # self.space.audit("sys.settrace", [])
         if self.space.is_w(w_func, self.space.w_None):
             self.w_tracefunc = None
         else:
@@ -262,6 +294,7 @@ class ExecutionContext(object):
 
     def setprofile(self, w_func):
         """Set the global trace function."""
+        # self.space.audit("sys.setprofile", [])
         if self.space.is_w(w_func, self.space.w_None):
             self.profilefunc = None
             self.w_profilefuncarg = None
@@ -327,9 +360,14 @@ class ExecutionContext(object):
                 # if it does not exist yet and the tracer accesses it via
                 # frame.f_locals, it is filled by PyFrame.getdictscope
                 frame.fast2locals()
+            prev_line_tracing = d.is_in_line_tracing
             self.is_tracing += 1
             try:
+                if event == 'line':
+                    d.is_in_line_tracing = True
                 try:
+                    # from here on, frame is just a normal w_object
+                    frame = jit.hint(frame, access_directly=False)
                     w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
                     if space.is_w(w_result, space.w_None):
                         # bug-to-bug compatibility with CPython
@@ -343,6 +381,7 @@ class ExecutionContext(object):
                     raise
             finally:
                 self.is_tracing -= 1
+                d.is_in_line_tracing = prev_line_tracing
                 if d.w_locals is not None:
                     frame.locals2fast()
 
@@ -630,7 +669,7 @@ class UserDelAction(AsyncAction):
                 try:
                     space.call_function(w_impl)
                 except Exception as e:
-                    report_error(space, e, '', w_impl)
+                    report_error(space, e, '', w_del)
 
         # Call the RPython-level _finalize_() method.
         try:
@@ -654,7 +693,7 @@ def report_error(space, e, where, w_obj):
 def make_finalizer_queue(W_Root, space):
     """Make a FinalizerQueue subclass which responds to GC finalizer
     events by 'firing' the UserDelAction class above.  It does not
-    directly fetches the objects to finalize at all; they stay in the 
+    directly fetches the objects to finalize at all; they stay in the
     GC-managed queue, and will only be fetched by UserDelAction
     (between bytecodes)."""
 

@@ -3,38 +3,18 @@ Virtual environment (venv) package for Python. Based on PEP 405.
 
 Copyright (C) 2011-2014 Vinay Sajip.
 Licensed to the PSF under a contributor agreement.
-
-usage: python -m venv [-h] [--system-site-packages] [--symlinks] [--clear]
-            [--upgrade]
-            ENV_DIR [ENV_DIR ...]
-
-Creates virtual Python environments in one or more target directories.
-
-positional arguments:
-  ENV_DIR               A directory to create the environment in.
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --system-site-packages
-                        Give the virtual environment access to the system
-                        site-packages dir.
-  --symlinks            Attempt to symlink rather than copy.
-  --clear               Delete the contents of the environment directory if it
-                        already exists, before environment creation.
-  --upgrade             Upgrade the environment directory to use this version
-                        of Python, assuming Python has been upgraded in-place.
-  --without-pip         Skips installing or upgrading pip in the virtual
-                        environment (pip is bootstrapped by default)
 """
 import logging
 import os
 import shutil
 import subprocess
 import sys
+import sysconfig
 import types
 
 logger = logging.getLogger(__name__)
 
+IS_PYPY = sys.implementation.name == 'pypy'
 
 class EnvBuilder:
     """
@@ -58,15 +38,17 @@ class EnvBuilder:
     :param upgrade: If True, upgrade an existing virtual environment.
     :param with_pip: If True, ensure pip is installed in the virtual
                      environment
+    :param prompt: Alternative terminal prefix for the environment.
     """
 
     def __init__(self, system_site_packages=False, clear=False,
-                 symlinks=False, upgrade=False, with_pip=False):
+                 symlinks=False, upgrade=False, with_pip=False, prompt=None):
         self.system_site_packages = system_site_packages
         self.clear = clear
         self.symlinks = symlinks
         self.upgrade = upgrade
         self.with_pip = with_pip
+        self.prompt = prompt
 
     def create(self, env_dir):
         """
@@ -77,6 +59,10 @@ class EnvBuilder:
         """
         env_dir = os.path.abspath(env_dir)
         context = self.ensure_directories(env_dir)
+        # See issue 24875. We need system_site_packages to be False
+        # until after pip is installed.
+        true_system_site_packages = self.system_site_packages
+        self.system_site_packages = False
         self.create_configuration(context)
         self.setup_python(context)
         if self.with_pip:
@@ -84,6 +70,11 @@ class EnvBuilder:
         if not self.upgrade:
             self.setup_scripts(context)
             self.post_setup(context)
+        if true_system_site_packages:
+            # We had set it to False before, now
+            # restore it and rewrite the configuration
+            self.system_site_packages = True
+            self.create_configuration(context)
 
     def clear_directory(self, path):
         for fn in os.listdir(path):
@@ -112,27 +103,10 @@ class EnvBuilder:
         context = types.SimpleNamespace()
         context.env_dir = env_dir
         context.env_name = os.path.split(env_dir)[1]
-        context.prompt = '(%s) ' % context.env_name
+        prompt = self.prompt if self.prompt is not None else context.env_name
+        context.prompt = '(%s) ' % prompt
         create_if_needed(env_dir)
-        env = os.environ
-        if sys.platform == 'darwin' and '__PYVENV_LAUNCHER__' in env:
-            executable = os.environ['__PYVENV_LAUNCHER__']
-        else:
-            executable = sys.executable
-        #
-        # PyPy extension: resolve 'executable' if it is a symlink
-        # XXX as of PyPy 5.10, win32 does not have readlink
-        #     note it is highly unlikely that symlinks were used on win32
-        #     since it requires admin priveleges
-        if hasattr(os, 'readlink'):
-            try:
-                for i in range(10):
-                    executable = os.path.abspath(executable)
-                    executable = os.path.join(os.path.dirname(executable),
-                                              os.readlink(executable))
-            except OSError:
-                pass
-        #
+        executable = sys._base_executable
         dirname, exename = os.path.split(os.path.abspath(executable))
         context.executable = executable
         context.python_dir = dirname
@@ -145,7 +119,7 @@ class EnvBuilder:
             binname = 'bin'
             incpath = 'include'
             libpath = os.path.join(env_dir, 'lib',
-                                   'python%d.%d' % sys.version_info[:2],
+                                   'pypy%d.%d' % sys.version_info[:2],
                                    'site-packages')
         context.inc_path = path = os.path.join(env_dir, incpath)
         create_if_needed(path)
@@ -180,32 +154,73 @@ class EnvBuilder:
                 incl = 'false'
             f.write('include-system-site-packages = %s\n' % incl)
             f.write('version = %d.%d.%d\n' % sys.version_info[:3])
+            if self.prompt is not None:
+                f.write(f'prompt = {self.prompt!r}\n')
 
-    if os.name == 'nt':
-        def include_binary(self, f):
-            if f.endswith(('.pyd', '.dll')):
-                result = True
-            else:
-                result = f.startswith('python') and f.endswith('.exe')
-            return result
-
-    def symlink_or_copy(self, src, dst, relative_symlinks_ok=False):
-        """
-        Try symlinking a file, and if that fails, fall back to copying.
-        """
-        force_copy = not self.symlinks
-        if not force_copy:
-            try:
-                if not os.path.islink(dst): # can't link to itself!
+    if os.name != 'nt':
+        def symlink_or_copy(self, src, dst, relative_symlinks_ok=False):
+            """
+            Try symlinking a file, and if that fails, fall back to copying.
+            """
+            force_copy = not self.symlinks
+            if not force_copy:
+                try:
+                    if not os.path.islink(dst): # can't link to itself!
+                        if relative_symlinks_ok:
+                            assert os.path.dirname(src) == os.path.dirname(dst)
+                            os.symlink(os.path.basename(src), dst)
+                        else:
+                            os.symlink(src, dst)
+                except Exception:   # may need to use a more specific exception
+                    logger.warning('Unable to symlink %r to %r', src, dst)
+                    force_copy = True
+            if force_copy:
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst)
+                else:
+                    shutil.copyfile(src, dst)
+    else:
+        def symlink_or_copy(self, src, dst, relative_symlinks_ok=False):
+            """
+            Try symlinking a file, and if that fails, fall back to copying.
+            """
+            bad_src = os.path.lexists(src) and not os.path.exists(src)
+            if self.symlinks and not bad_src and not os.path.islink(dst):
+                try:
                     if relative_symlinks_ok:
                         assert os.path.dirname(src) == os.path.dirname(dst)
                         os.symlink(os.path.basename(src), dst)
                     else:
                         os.symlink(src, dst)
-            except Exception:   # may need to use a more specific exception
-                logger.warning('Unable to symlink %r to %r', src, dst)
-                force_copy = True
-        if force_copy:
+                    return
+                except Exception:   # may need to use a more specific exception
+                    logger.warning('Unable to symlink %r to %r', src, dst)
+
+            # On Windows in CPython, we rewrite symlinks to our base python.exe
+            # into copies of venvlauncher.exe
+            basename, ext = os.path.splitext(os.path.basename(src))
+            srcfn = os.path.join(os.path.dirname(__file__),
+                                 "scripts",
+                                 "nt",
+                                 basename + ext)
+            # Builds or venv's from builds need to remap source file
+            # locations, as we do not put them into Lib/venv/scripts
+            if sysconfig.is_python_build(True) or not os.path.isfile(srcfn):
+                if basename.endswith('_d'):
+                    ext = '_d' + ext
+                    basename = basename[:-2]
+                if not IS_PYPY and basename == 'python':
+                    basename = 'venvlauncher'
+                elif not IS_PYPY and basename == 'pythonw':
+                    basename = 'venvwlauncher'
+                src = os.path.join(os.path.dirname(src), basename + ext)
+            else:
+                src = srcfn
+            if not os.path.exists(src):
+                if not bad_src:
+                    logger.warning('Unable to copy %r', src)
+                return
+
             shutil.copyfile(src, dst)
 
     def setup_python(self, context):
@@ -218,12 +233,12 @@ class EnvBuilder:
         binpath = context.bin_path
         path = context.env_exe
         copier = self.symlink_or_copy
-        copier(context.executable, path)
         dirname = context.python_dir
         if os.name != 'nt':
+            copier(context.executable, path)
             if not os.path.islink(path):
                 os.chmod(path, 0o755)
-            for suffix in ('python', 'python3'):
+            for suffix in ('python', 'python3', 'pypy3', 'pypy'):
                 path = os.path.join(binpath, suffix)
                 if not os.path.exists(path):
                     # Issue 18807: make copies if
@@ -231,46 +246,75 @@ class EnvBuilder:
                     copier(context.env_exe, path, relative_symlinks_ok=True)
                     if not os.path.islink(path):
                         os.chmod(path, 0o755)
-            #
-            # PyPy extension: also copy the main library, not just the
-            # small executable
-            for libname in ['libpypy3-c.so', 'libpypy3-c.dylib']:
-                dest_library = os.path.join(binpath, libname)
-                src_library = os.path.join(os.path.dirname(context.executable),
-                                           libname)
-                if (not os.path.exists(dest_library) and
-                        os.path.exists(src_library)):
-                    copier(src_library, dest_library)
-                    if not os.path.islink(dest_library):
-                        os.chmod(dest_library, 0o755)
+            if not self.symlinks:
+                #
+                # PyPy extension: also copy the main library, not just the
+                # small executable
+                for libname in ['libpypy3-c.so', 'libpypy3-c.dylib']:
+                    dest_library = os.path.join(binpath, libname)
+                    src_library = os.path.join(os.path.dirname(context.executable),
+                                               libname)
+                    if (not os.path.exists(dest_library) and
+                            os.path.exists(src_library)):
+                        copier(src_library, dest_library)
+                        if not os.path.islink(dest_library):
+                            os.chmod(dest_library, 0o755)
+                libsrc = os.path.join(context.python_dir, '..', 'lib')
+                if os.path.exists(libsrc):
+                    # PyPy: also copy lib/*.so*, lib/tk, lib/tcl for portable
+                    # builds
+                    libdst = os.path.join(context.env_dir, 'lib')
+                    pypylib = 'pypy%d.%d' % sys.version_info[:2]
+                    if not os.path.exists(libdst):
+                        os.mkdir(libdst)
+                    for f in os.listdir(libsrc):
+                        src = os.path.join(libsrc, f)
+                        dst = os.path.join(libdst, f)
+                        if f == pypylib or os.path.exists(dst):
+                            # be sure not to copy the stdlib
+                            # also skip directories when upgrading
+                            continue
+                        copier(src, dst)
             #
         else:
-            subdir = 'DLLs'
-            include = self.include_binary
-            files = [f for f in os.listdir(dirname) if include(f)]
-            for f in files:
-                src = os.path.join(dirname, f)
-                dst = os.path.join(binpath, f)
-                if dst != context.env_exe:  # already done, above
-                    copier(src, dst)
-            dirname = os.path.join(dirname, subdir)
-            if os.path.isdir(dirname):
-                files = [f for f in os.listdir(dirname) if include(f)]
-                for f in files:
-                    src = os.path.join(dirname, f)
-                    dst = os.path.join(binpath, f)
-                    copier(src, dst)
-            # copy init.tcl over
-            for root, dirs, files in os.walk(context.python_dir):
-                if 'init.tcl' in files:
-                    tcldir = os.path.basename(root)
-                    tcldir = os.path.join(context.env_dir, 'Lib', tcldir)
-                    if not os.path.exists(tcldir):
-                        os.makedirs(tcldir)
-                    src = os.path.join(root, 'init.tcl')
-                    dst = os.path.join(tcldir, 'init.tcl')
-                    shutil.copyfile(src, dst)
-                    break
+            if self.symlinks:
+                # For symlinking, we need a complete copy of the root directory
+                # If symlinks fail, you'll get unnecessary copies of files, but
+                # we assume that if you've opted into symlinks on Windows then
+                # you know what you're doing.
+                suffixes = [
+                    f for f in os.listdir(dirname) if
+                    os.path.normcase(os.path.splitext(f)[1]) in ('.exe', '.dll')
+                ]
+                if sysconfig.is_python_build(True):
+                    suffixes = [
+                        f for f in suffixes if
+                        os.path.normcase(f).startswith(('python', 'vcruntime'))
+                    ]
+            else:
+                # PyPy change: since PyPy does not use a PEP 397 launcer,
+                # copy all the exes and dlls.
+                suffixes = [
+                    f for f in os.listdir(dirname) if
+                    os.path.normcase(os.path.splitext(f)[1]) in ('.exe', '.dll')
+                ]
+            for suffix in suffixes:
+                src = os.path.join(dirname, suffix)
+                if os.path.lexists(src):
+                    copier(src, os.path.join(binpath, suffix))
+
+            if sysconfig.is_python_build(True):
+                # copy init.tcl
+                for root, dirs, files in os.walk(context.python_dir):
+                    if 'init.tcl' in files:
+                        tcldir = os.path.basename(root)
+                        tcldir = os.path.join(context.env_dir, 'Lib', tcldir)
+                        if not os.path.exists(tcldir):
+                            os.makedirs(tcldir)
+                        src = os.path.join(root, 'init.tcl')
+                        dst = os.path.join(tcldir, 'init.tcl')
+                        shutil.copyfile(src, dst)
+                        break
 
     def _setup_pip(self, context):
         """Installs or upgrades pip in a virtual environment"""
@@ -346,6 +390,9 @@ class EnvBuilder:
                         dirs.remove(d)
                 continue # ignore files in top level
             for f in files:
+                if (os.name == 'nt' and f.startswith('python')
+                        and f.endswith(('.exe', '.pdb'))):
+                    continue
                 srcfile = os.path.join(root, f)
                 suffix = root[plen:].split(os.sep)[2:]
                 if not suffix:
@@ -357,44 +404,27 @@ class EnvBuilder:
                 dstfile = os.path.join(dstdir, f)
                 with open(srcfile, 'rb') as f:
                     data = f.read()
-                if srcfile.endswith('.exe'):
-                    mode = 'wb'
-                else:
-                    mode = 'w'
+                if not srcfile.endswith(('.exe', '.pdb')):
                     try:
                         data = data.decode('utf-8')
                         data = self.replace_variables(data, context)
-                    except UnicodeDecodeError as e:
+                        data = data.encode('utf-8')
+                    except UnicodeError as e:
                         data = None
                         logger.warning('unable to copy script %r, '
                                        'may be binary: %s', srcfile, e)
                 if data is not None:
-                    with open(dstfile, mode) as f:
+                    with open(dstfile, 'wb') as f:
                         f.write(data)
                     shutil.copymode(srcfile, dstfile)
 
 
 def create(env_dir, system_site_packages=False, clear=False,
-                    symlinks=False, with_pip=False):
-    """
-    Create a virtual environment in a directory.
-
-    By default, makes the system (global) site-packages dir *un*available to
-    the created environment, and uses copying rather than symlinking for files
-    obtained from the source Python installation.
-
-    :param env_dir: The target directory to create an environment in.
-    :param system_site_packages: If True, the system (global) site-packages
-                                 dir is available to the environment.
-    :param clear: If True, delete the contents of the environment directory if
-                  it already exists, before environment creation.
-    :param symlinks: If True, attempt to symlink rather than copy files into
-                     virtual environment.
-    :param with_pip: If True, ensure pip is installed in the virtual
-                     environment
-    """
+                    symlinks=False, with_pip=False, prompt=None):
+    """Create a virtual environment in a directory."""
     builder = EnvBuilder(system_site_packages=system_site_packages,
-                         clear=clear, symlinks=symlinks, with_pip=with_pip)
+                         clear=clear, symlinks=symlinks, with_pip=with_pip,
+                         prompt=prompt)
     builder.create(env_dir)
 
 def main(args=None):
@@ -454,6 +484,9 @@ def main(args=None):
                             help='Skips installing or upgrading pip in the '
                                  'virtual environment (pip is bootstrapped '
                                  'by default)')
+        parser.add_argument('--prompt',
+                            help='Provides an alternative prompt prefix for '
+                                 'this environment.')
         options = parser.parse_args(args)
         if options.upgrade and options.clear:
             raise ValueError('you cannot supply --upgrade and --clear together.')
@@ -461,7 +494,8 @@ def main(args=None):
                              clear=options.clear,
                              symlinks=options.symlinks,
                              upgrade=options.upgrade,
-                             with_pip=options.with_pip)
+                             with_pip=options.with_pip,
+                             prompt=options.prompt)
         for d in options.dirs:
             builder.create(d)
 

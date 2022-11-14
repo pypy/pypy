@@ -8,7 +8,7 @@ from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
 
 from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
-from rpython.rlib.objectmodel import instantiate, not_rpython
+from rpython.rlib.objectmodel import instantiate, not_rpython, try_inline, dont_inline
 from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
@@ -16,7 +16,9 @@ class TypeDef(object):
     @not_rpython
     def __init__(self, __name, __base=None, __total_ordering__=None,
                  __buffer=None, __confirm_applevel_del__=False,
-                 _text_signature_=None, variable_sized=False, **rawdict):
+                 _text_signature_=None, variable_sized=False,
+                 __rpython_level_class__=None,
+                  **rawdict):
         "initialization-time only"
         self.name = __name
         if __base is None:
@@ -47,10 +49,10 @@ class TypeDef(object):
         self.acceptable_as_base_class = '__new__' in rawdict
         self.applevel_subclasses_base = None
         self.add_entries(**rawdict)
-        assert __total_ordering__ in (None, 'auto'), "Unknown value for __total_ordering"
-        if __total_ordering__ == 'auto':
-            self.auto_total_ordering()
+        assert __total_ordering__ in (None, ), "__total_ordering__ was buggy, mostly unused, and has been removed"
         self.variable_sized = variable_sized
+        self.rpy_cls = __rpython_level_class__
+        self._install_shortcuts()
 
     def add_entries(self, **rawdict):
         # xxx fix the names of the methods to match what app-level expects
@@ -59,14 +61,6 @@ class TypeDef(object):
                 value.name = key
         self.rawdict.update(rawdict)
 
-    def auto_total_ordering(self):
-        assert '__lt__' in self.rawdict, "__total_ordering='auto' requires __lt__"
-        assert '__eq__' in self.rawdict, "__total_ordering='auto' requires __eq__"
-        self.add_entries(__le__ = auto__le__,
-                         __gt__ = auto__gt__,
-                         __ge__ = auto__ge__,
-                         __ne__ = auto__ne__)
-
     def _freeze_(self):
         # hint for the annotator: track individual constant instances of TypeDef
         return True
@@ -74,25 +68,55 @@ class TypeDef(object):
     def __repr__(self):
         return "<%s name=%r>" % (self.__class__.__name__, self.name)
 
+    def _install_shortcuts(self):
+        rawdict = self.rawdict
+        # guess the class, if not given explicitly
+        rpy_cls = self.rpy_cls
+        for key, val in rawdict.iteritems():
+            ncls = None
+            if isinstance(val, interp2app):
+                ncls = val.self_type
+                if ncls:
+                    if rpy_cls is None:
+                        rpy_cls = ncls
+                    else:
+                        if issubclass(ncls, rpy_cls):
+                            rpy_cls = ncls # use most specific class
+                        else:
+                            assert issubclass(rpy_cls, ncls)
+        if rpy_cls is None:
+            # safety check: if rpy_cls is unknown, and one of the SHORTCUTS is
+            # in rawdict, the shortcut could be wrong (if we have an
+            # intermediate class that's not W_Root).
+            names = [name for name, shortcut_name, fallback, checkerfunc in SHORTCUTS
+                if name in rawdict]
+            assert not names
+            return
+        if 'micronumpy' in rpy_cls.__module__:
+            return
+        if '_descroperation_shortcuts_installed' in rpy_cls.__dict__:
+            return
+        rpy_cls._descroperation_shortcuts_installed = True
+        for name, shortcut_name, fallback, checkerfunc in SHORTCUTS:
+            if name not in rawdict or rawdict[name]._staticdefs:
+                if W_Root not in rpy_cls.__bases__:
 
-# generic special cmp methods defined on top of __lt__ and __eq__, used by
-# automatic total ordering
+                    shortcut = getattr(rpy_cls, shortcut_name).im_func
+                    if shortcut is not fallback:
+                        assert shortcut.source_typedef in self.all_bases(), \
+                                "getting a wrong shortcut %s for class %s from some base class that is not W_Root" % (name, rpy_cls)
+                continue
+            shortcut_func = rawdict[name]._make_descroperation_shortcut(
+                    name, rpy_cls, checkerfunc)
+            shortcut_func.source_typedef = self
+            setattr(rpy_cls, shortcut_name, shortcut_func)
 
-@interp2app
-def auto__le__(space, w_self, w_other):
-    return space.not_(space.lt(w_other, w_self))
+    def all_bases(self):
+        for base in self.bases:
+            yield base
+            for up in base.all_bases():
+                yield up
 
-@interp2app
-def auto__gt__(space, w_self, w_other):
-    return space.lt(w_other, w_self)
-
-@interp2app
-def auto__ge__(space, w_self, w_other):
-    return space.not_(space.lt(w_self, w_other))
-
-@interp2app
-def auto__ne__(space, w_self, w_other):
-    return space.not_(space.eq(w_self, w_other))
 
 
 # ____________________________________________________________
@@ -140,36 +164,94 @@ def _getusercls(cls):
     from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
             MapdictDictSupport, MapdictWeakrefSupport,
             _make_storage_mixin_size_n, MapdictStorageMixin)
+    # some subtleties here: We want w_obj.getclass to be a small func
+    # set, ie less than 5 different implementations. That way, it can be
+    # inlined into its callers. This means we cannot give every single
+    # user-defined subclass its own getclass, instead we use the same function
+    # for all of them. This has the effect that the call to
+    # w_obj._get_mapdict_map() in BaseUserClassMapdict.getclass is an
+    # *indirect* call. That's fine, however, we want the object subclasses to
+    # work somewhat better than the rest, so W_ObjectObjectUserDictWeakrefable
+    # should have a *copy* of getclass. This is all achieved by using
+    # _share_methods (which shares functions, does not create copies) instead of
+    # import_from_mixin, which *does* copy functions. There is a test for all
+    # of this in test_mapdict.py, test_correct_method_sharing
     typedef = cls.typedef
     name = cls.__name__ + "User"
+    isobjectsubclass = cls is W_ObjectObject
 
-    if cls is W_ObjectObject:
+    if isobjectsubclass:
         base_mixin = _make_storage_mixin_size_n()
     else:
         base_mixin = MapdictStorageMixin
-    copy_methods = [BaseUserClassMapdict]
+    if not isobjectsubclass:
+        shared_methods = [BaseUserClassMapdict]
+    else:
+        shared_methods = []
     if not typedef.hasdict:
         # the type has no dict, mapdict to provide the dict
-        copy_methods.append(MapdictDictSupport)
+        shared_methods.append(MapdictDictSupport)
         name += "Dict"
     if not typedef.weakrefable:
         # the type does not support weakrefs yet, mapdict to provide weakref
         # support
-        copy_methods.append(MapdictWeakrefSupport)
+        shared_methods.append(MapdictWeakrefSupport)
         name += "Weakrefable"
 
     class subcls(cls):
         user_overridden_class = True
         objectmodel.import_from_mixin(base_mixin)
-    for copycls in copy_methods:
-        _copy_methods(copycls, subcls)
+        if isobjectsubclass:
+            objectmodel.import_from_mixin(BaseUserClassMapdict)
+
+    for _, shortcut_name, meth, _ in SHORTCUTS:
+        setattr(subcls, shortcut_name, meth)
+
+    for copycls in shared_methods:
+        _share_methods(copycls, subcls)
     subcls.__name__ = name
     return subcls
 
-def _copy_methods(copycls, subcls):
+def _share_methods(copycls, subcls):
     for key, value in copycls.__dict__.items():
         if (not key.startswith('__') or key == '__del__'):
             setattr(subcls, key, value)
+
+# ____________________________________________________________
+# descroperation shortcuts
+
+SHORTCUTS = []
+
+def use_special_method_shortcut(name, checkerfunc=None):
+    """
+    use a shortcut for implementations of the special method 'name' for
+    built-in types in the decorated descroperation function. The behaviour for
+    builtin types will be equivalent to:
+
+        w_descr = space.lookup(w_obj, name)
+        return space.get_and_call_function(w_descr, w_obj)
+
+    but only if the special method name exists in the type. Note that this
+    means if the descroperation method contains extra logic after the
+    get_and_call_function it will be ignored (which is often safe for built-in
+    types).
+
+    checkerfunc is a non-translation only safety: it's called with the space
+    and the result of the get_and_call_function call and must return True.
+    """
+    def wrapper(func):
+        @dont_inline
+        def shortcut_fallback(self, space, *args_w):
+            return func(space, self, *args_w)
+        shortcut_fallback.func_name = "shortcut_fallback_%s" % name
+        shortcut_name = "shortcut_%s" % name
+        SHORTCUTS.append((name, shortcut_name, shortcut_fallback, checkerfunc))
+        @try_inline
+        def call_shortcut(space, self, *args_w):
+            return getattr(self, shortcut_name)(space, *args_w)
+        setattr(W_Root, shortcut_name, shortcut_fallback)
+        return call_shortcut
+    return wrapper
 
 
 # ____________________________________________________________
@@ -183,9 +265,9 @@ def make_descr_typecheck_wrapper(tag, func, extraargs=(), cls=None,
 
 @specialize.memo()
 def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
+    from rpython.flowspace.bytecode import cpython_code_signature
     # - if cls is None, the wrapped object is passed to the function
     # - if cls is a class, an unwrapped instance is passed
-    # - if cls is a string, XXX unused?
     if cls is None and use_closure:
         return func
     if hasattr(func, 'im_func'):
@@ -213,8 +295,7 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
 
     name = func.__name__
     extra = ', '.join(extraargs)
-    from pypy.interpreter import pycode
-    sig = pycode.cpython_code_signature(func.func_code)
+    sig = cpython_code_signature(func.func_code)
     argnames = sig.argnames
     if use_closure:
         if argnames[1] == 'space':
@@ -230,33 +311,6 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     exec source.compile() in miniglobals
     return miniglobals['descr_typecheck_%s' % func.__name__]
 
-@specialize.arg(0)
-def make_objclass_getter(tag, func, cls):
-    if func and hasattr(func, 'im_func'):
-        assert not cls or cls is func.im_class
-        cls = func.im_class
-    return _make_objclass_getter(cls)
-
-@specialize.memo()
-def _make_objclass_getter(cls):
-    if not cls:
-        return None, cls
-    miniglobals = {}
-    if isinstance(cls, str):
-        assert cls.startswith('<'), "pythontype typecheck should begin with <"
-        cls_name = cls[1:]
-        typeexpr = "space.w_%s" % cls_name
-    else:
-        miniglobals['cls'] = cls
-        typeexpr = "space.gettypeobject(cls.typedef)"
-    source = """if 1:
-        def objclass_getter(space):
-            return %s
-        \n""" % (typeexpr,)
-    exec compile2(source) in miniglobals
-    res = miniglobals['objclass_getter'], cls
-    return res
-
 class GetSetProperty(W_Root):
     _immutable_fields_ = ["fget", "fset", "fdel"]
     w_objclass = None
@@ -264,17 +318,19 @@ class GetSetProperty(W_Root):
     @specialize.arg(7)
     def __init__(self, fget, fset=None, fdel=None, doc=None,
                  cls=None, use_closure=False, tag=None, name=None):
-        objclass_getter, cls = make_objclass_getter(tag, fget, cls)
+        if fget and hasattr(fget, 'im_func'):
+            assert not cls or cls is fget.im_class
+            cls = fget.im_class
         fget = make_descr_typecheck_wrapper((tag, 0), fget,
                                             cls=cls, use_closure=use_closure)
         fset = make_descr_typecheck_wrapper((tag, 1), fset, ('w_value',),
                                             cls=cls, use_closure=use_closure)
         fdel = make_descr_typecheck_wrapper((tag, 2), fdel,
                                             cls=cls, use_closure=use_closure)
-        self._init(fget, fset, fdel, doc, cls, objclass_getter, use_closure,
+        self._init(fget, fset, fdel, doc, cls, use_closure,
                    name)
 
-    def _init(self, fget, fset, fdel, doc, cls, objclass_getter, use_closure,
+    def _init(self, fget, fset, fdel, doc, cls, use_closure,
               name):
         self.fget = fget
         self.fset = fset
@@ -282,15 +338,14 @@ class GetSetProperty(W_Root):
         self.doc = doc
         self.reqcls = cls
         self.w_qualname = None
-        self.objclass_getter = objclass_getter
         self.use_closure = use_closure
         self.name = name if name is not None else '<generic property>'
 
     def copy_for_type(self, w_objclass):
-        if self.objclass_getter is None:
+        if self.reqcls is None:
             new = instantiate(GetSetProperty)
             new._init(self.fget, self.fset, self.fdel, self.doc, self.reqcls,
-                      None, self.use_closure, self.name)
+                      self.use_closure, self.name)
             new.w_objclass = w_objclass
             return new
         else:
@@ -342,7 +397,8 @@ class GetSetProperty(W_Root):
         Delete the value of the property from the given obj."""
         fdel = self.fdel
         if fdel is None:
-            raise oefmt(space.w_AttributeError, "cannot delete attribute")
+            raise oefmt(space.w_AttributeError,
+                        "can't delete %N.%s", w_obj, self.name)
         try:
             fdel(self, space, w_obj)
         except DescrMismatch:
@@ -350,6 +406,12 @@ class GetSetProperty(W_Root):
                 space, '__delattr__',
                 self.reqcls, Arguments(space, [w_obj,
                                                space.newtext(self.name)]))
+
+    def descr_get_objclass(self, space):
+        if self.w_objclass is not None:
+            return self.w_objclass
+        if self.reqcls is not None:
+            return space.gettypeobject(self.reqcls.typedef)
 
     def descr_get_qualname(self, space):
         if self.w_qualname is None:
@@ -366,14 +428,9 @@ class GetSetProperty(W_Root):
         qualname = "%s.%s" % (type_qualname, self.name)
         return space.newtext(qualname)
 
-    def descr_get_objclass(space, property):
-        if property.w_objclass is not None:
-            return property.w_objclass
-        if property.objclass_getter is not None:
-            return property.objclass_getter(space)
         # NB. this is an AttributeError to make inspect.py happy
         raise oefmt(space.w_AttributeError,
-                    "generic property has no __objclass__")
+                    "generic self has no __objclass__")
 
     def spacebind(self, space):
         if hasattr(space, '_see_getsetproperty'):
@@ -497,14 +554,12 @@ def generic_new_descr(W_Type):
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pyopcode import SuspendedUnroller
+from pypy.interpreter.pyopcode import SApplicationException
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
 from pypy.interpreter.pytraceback import PyTraceback
-from pypy.interpreter.generator import GeneratorIterator, Coroutine
-from pypy.interpreter.generator import CoroutineWrapper, AIterWrapper
-from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.nestedscope import Cell, descr_new_cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
 
@@ -546,6 +601,9 @@ def fget_co_varnames(space, code): # unwrapping through unwrap_spec
 
 def fget_co_argcount(space, code): # unwrapping through unwrap_spec
     return space.newint(code.signature().num_argnames())
+
+def fget_co_posonlyargcount(space, code): # unwrapping through unwrap_spec
+    return space.newint(code.signature().num_posonlyargnames())
 
 def fget_co_kwonlyargcount(space, code): # unwrapping through unwrap_spec
     return space.newint(code.signature().num_kwonlyargnames())
@@ -598,6 +656,7 @@ Code.typedef = TypeDef('internal-code',
     co_name = interp_attrproperty('co_name', cls=Code, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=Code),
     co_argcount = GetSetProperty(fget_co_argcount, cls=Code),
+    co_posonlyargcount = GetSetProperty(fget_zero, cls=Code),
     co_kwonlyargcount = GetSetProperty(fget_zero, cls=Code),
     co_flags = GetSetProperty(fget_co_flags, cls=Code),
     co_consts = GetSetProperty(fget_co_consts, cls=Code),
@@ -609,6 +668,7 @@ BuiltinCode.typedef = TypeDef('builtin-code',
     co_name = interp_attrproperty('co_name', cls=BuiltinCode, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=BuiltinCode),
     co_argcount = GetSetProperty(fget_co_argcount, cls=BuiltinCode),
+    co_posonlyargcount = GetSetProperty(fget_co_posonlyargcount, cls=BuiltinCode),
     co_kwonlyargcount = GetSetProperty(fget_co_kwonlyargcount, cls=BuiltinCode),
     co_flags = GetSetProperty(fget_co_flags, cls=BuiltinCode),
     co_consts = GetSetProperty(fget_co_consts, cls=BuiltinCode),
@@ -619,11 +679,12 @@ assert not BuiltinCode.typedef.acceptable_as_base_class  # no __new__
 PyCode.typedef = TypeDef('code',
     __new__ = interp2app(PyCode.descr_code__new__.im_func),
     __eq__ = interp2app(PyCode.descr_code__eq__),
-    __ne__ = descr_generic_ne,
+    __ne__ = interp2app(PyCode.descr_code__ne__),
     __hash__ = interp2app(PyCode.descr_code__hash__),
     __reduce__ = interp2app(PyCode.descr__reduce__),
     __repr__ = interp2app(PyCode.repr),
     co_argcount = interp_attrproperty('co_argcount', cls=PyCode, wrapfn="newint"),
+    co_posonlyargcount = interp_attrproperty('co_posonlyargcount', cls=PyCode, wrapfn="newint"),
     co_kwonlyargcount = interp_attrproperty('co_kwonlyargcount', cls=PyCode, wrapfn="newint"),
     co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode, wrapfn="newint"),
     co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode, wrapfn="newint"),
@@ -638,6 +699,7 @@ PyCode.typedef = TypeDef('code',
     co_name = interp_attrproperty('co_name', cls=PyCode, wrapfn="newtext"),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode, wrapfn="newint"),
     co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode, wrapfn="newbytes"),
+    replace = interp2app(PyCode.descr_replace),
     __weakref__ = make_weakref_descr(PyCode),
     )
 PyCode.typedef.acceptable_as_base_class = False
@@ -652,10 +714,12 @@ PyFrame.typedef = TypeDef('frame',
     f_lasti = GetSetProperty(PyFrame.fget_f_lasti),
     f_trace = GetSetProperty(PyFrame.fget_f_trace, PyFrame.fset_f_trace,
                              PyFrame.fdel_f_trace),
-    f_restricted = GetSetProperty(PyFrame.fget_f_restricted),
+    f_trace_lines = GetSetProperty(PyFrame.fget_f_trace_lines, PyFrame.fset_f_trace_lines),
+    f_trace_opcodes = GetSetProperty(PyFrame.fget_f_trace_opcodes, PyFrame.fset_f_trace_opcodes),
     f_code = GetSetProperty(PyFrame.fget_code),
     f_locals = GetSetProperty(PyFrame.fget_getdictscope),
     f_globals = GetSetProperty(PyFrame.fget_w_globals),
+    __repr__ = interp2app(PyFrame.descr_repr),
 )
 assert not PyFrame.typedef.acceptable_as_base_class  # no __new__
 
@@ -673,7 +737,8 @@ Module.typedef = TypeDef("module",
 
 getset_func_doc = GetSetProperty(Function.fget_func_doc,
                                  Function.fset_func_doc,
-                                 Function.fdel_func_doc)
+                                 Function.fdel_func_doc,
+                                )
 
 # __module__ attribute lazily gets its value from the w_globals
 # at the time of first invocation. This is not 100% compatible but
@@ -738,7 +803,7 @@ Create an instance method object.""",
     __self__ = interp_attrproperty_w('w_instance', cls=Method),
     __getattribute__ = interp2app(Method.descr_method_getattribute),
     __eq__ = interp2app(Method.descr_method_eq),
-    __ne__ = descr_generic_ne,
+    __ne__ = interp2app(Method.descr_method_ne),
     __hash__ = interp2app(Method.descr_method_hash),
     __repr__ = interp2app(Method.descr_method_repr),
     __reduce__ = interp2app(Method.descr_method__reduce__),
@@ -810,94 +875,37 @@ BuiltinFunction.typedef.acceptable_as_base_class = False
 
 PyTraceback.typedef = TypeDef("traceback",
     __reduce__ = interp2app(PyTraceback.descr__reduce__),
+    __new__ = interp2app(PyTraceback.descr_new),
     __setstate__ = interp2app(PyTraceback.descr__setstate__),
     __dir__ = interp2app(PyTraceback.descr__dir__),
     tb_frame = interp_attrproperty_w('frame', cls=PyTraceback),
-    tb_lasti = interp_attrproperty('lasti', cls=PyTraceback, wrapfn="newint"),
-    tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),
-    tb_next = interp_attrproperty_w('next', cls=PyTraceback),
+    tb_lasti = GetSetProperty(PyTraceback.descr_get_tb_lasti, PyTraceback.descr_set_tb_lasti),
+    tb_lineno = GetSetProperty(PyTraceback.descr_get_tb_lineno, PyTraceback.descr_set_tb_lineno),
+    tb_next = GetSetProperty(PyTraceback.descr_get_next, PyTraceback.descr_set_next),
     )
-assert not PyTraceback.typedef.acceptable_as_base_class  # no __new__
+PyTraceback.typedef.acceptable_as_base_class = False
 
-GeneratorIterator.typedef = TypeDef("generator",
-    __repr__   = interp2app(GeneratorIterator.descr__repr__),
-    #__reduce__   = interp2app(GeneratorIterator.descr__reduce__),
-    #__setstate__ = interp2app(GeneratorIterator.descr__setstate__),
-    __next__   = interp2app(GeneratorIterator.descr_next,
-                            descrmismatch='__next__'),
-    send       = interp2app(GeneratorIterator.descr_send,
-                            descrmismatch='send'),
-    throw      = interp2app(GeneratorIterator.descr_throw,
-                            descrmismatch='throw'),
-    close      = interp2app(GeneratorIterator.descr_close,
-                            descrmismatch='close'),
-    __iter__   = interp2app(GeneratorIterator.descr__iter__,
-                            descrmismatch='__iter__'),
-    gi_running = interp_attrproperty('running', cls=GeneratorIterator, wrapfn="newbool"),
-    gi_frame   = GetSetProperty(GeneratorIterator.descr_gicr_frame),
-    gi_code    = interp_attrproperty_w('pycode', cls=GeneratorIterator),
-    gi_yieldfrom=interp_attrproperty_w('w_yielded_from', cls=GeneratorIterator),
-    __name__   = GetSetProperty(GeneratorIterator.descr__name__,
-                                GeneratorIterator.descr_set__name__),
-    __qualname__ = GetSetProperty(GeneratorIterator.descr__qualname__,
-                                  GeneratorIterator.descr_set__qualname__),
-    __weakref__ = make_weakref_descr(GeneratorIterator),
-)
-assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
-
-Coroutine.typedef = TypeDef("coroutine",
-    __repr__   = interp2app(Coroutine.descr__repr__),
-    #__reduce__   = interp2app(Coroutine.descr__reduce__),
-    #__setstate__ = interp2app(Coroutine.descr__setstate__),
-    send       = interp2app(Coroutine.descr_send,
-                            descrmismatch='send'),
-    throw      = interp2app(Coroutine.descr_throw,
-                            descrmismatch='throw'),
-    close      = interp2app(Coroutine.descr_close,
-                            descrmismatch='close'),
-    __await__  = interp2app(Coroutine.descr__await__,
-                            descrmismatch='__await__'),
-    cr_running = interp_attrproperty('running', cls=Coroutine, wrapfn="newbool"),
-    cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame),
-    cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
-    cr_await   = interp_attrproperty_w('w_yielded_from', cls=Coroutine),
-    __name__   = GetSetProperty(Coroutine.descr__name__,
-                                Coroutine.descr_set__name__,
-                                doc="name of the coroutine"),
-    __qualname__ = GetSetProperty(Coroutine.descr__qualname__,
-                                  Coroutine.descr_set__qualname__,
-                                  doc="qualified name of the coroutine"),
-    __weakref__ = make_weakref_descr(Coroutine),
-)
-assert not Coroutine.typedef.acceptable_as_base_class  # no __new__
-
-CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
-    __iter__     = interp2app(CoroutineWrapper.descr__iter__),
-    __next__     = interp2app(CoroutineWrapper.descr__next__),
-    send         = interp2app(CoroutineWrapper.descr_send),
-    throw        = interp2app(CoroutineWrapper.descr_throw),
-    close        = interp2app(CoroutineWrapper.descr_close),
-)
-assert not CoroutineWrapper.typedef.acceptable_as_base_class  # no __new__
-
-AIterWrapper.typedef = TypeDef("aiter_wrapper",
-    __await__    = interp2app(AIterWrapper.descr__await__),
-    __iter__     = interp2app(AIterWrapper.descr__iter__),
-    __next__     = interp2app(AIterWrapper.descr__next__),
-)
-assert not AIterWrapper.typedef.acceptable_as_base_class  # no __new__
 
 Cell.typedef = TypeDef("cell",
-    __total_ordering__ = 'auto',
-    __lt__       = interp2app(Cell.descr__lt__),
-    __eq__       = interp2app(Cell.descr__eq__),
+    __new__      = interp2app(descr_new_cell),
+    __eq__       = interp2app(Cell.descr_eq),
+    __ne__       = interp2app(Cell.descr_ne),
+    __lt__       = interp2app(Cell.descr_lt),
+    __gt__       = interp2app(Cell.descr_gt),
+    __le__       = interp2app(Cell.descr_le),
+    __ge__       = interp2app(Cell.descr_ge),
     __hash__     = None,
     __reduce__   = interp2app(Cell.descr__reduce__),
     __repr__     = interp2app(Cell.descr__repr__),
     __setstate__ = interp2app(Cell.descr__setstate__),
-    cell_contents= GetSetProperty(Cell.descr__cell_contents, cls=Cell),
+    cell_contents= GetSetProperty(
+        Cell.descr__cell_contents,
+        Cell.descr_set_cell_contents,
+        Cell.descr_del_cell_contents,
+        cls=Cell),
+
 )
-assert not Cell.typedef.acceptable_as_base_class  # no __new__
+Cell.typedef.acceptable_as_base_class = False
 
 Ellipsis.typedef = TypeDef("ellipsis",
     __new__ = interp2app(Ellipsis.descr_new_ellipsis),
@@ -913,8 +921,8 @@ NotImplemented.typedef = TypeDef("NotImplementedType",
 )
 NotImplemented.typedef.acceptable_as_base_class = False
 
-SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
-SuspendedUnroller.typedef.acceptable_as_base_class = False
+SApplicationException.typedef = TypeDef("SApplicationException")
+SApplicationException.typedef.acceptable_as_base_class = False
 
 ## W_OperationError.typedef = TypeDef("OperationError",
 ##     __reduce__ = interp2app(W_OperationError.descr_reduce),

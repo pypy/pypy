@@ -1,15 +1,17 @@
+#encoding: utf-8
 import pytest
 import sys
 from hypothesis import given, strategies, settings, example
 
 from rpython.rlib import rutf8, runicode
+from rpython.rlib.unicodedata import unicodedb_12_1_0
 
 
 @given(strategies.characters(), strategies.booleans())
 def test_unichr_as_utf8(c, allow_surrogates):
     i = ord(c)
     if not allow_surrogates and 0xD800 <= i <= 0xDFFF:
-        with pytest.raises(ValueError):
+        with pytest.raises(rutf8.OutOfRange):
             rutf8.unichr_as_utf8(i, allow_surrogates)
     else:
         u = rutf8.unichr_as_utf8(i, allow_surrogates)
@@ -133,12 +135,24 @@ def test_codepoint_position_at_index(u):
 @given(strategies.text())
 @example(u'x' * 64 * 5)
 @example(u'x' * (64 * 5 - 1))
+@example(u'ä' + u'x«' * 1000 + u'–' + u'y' * 100)
 def test_codepoint_index_at_byte_position(u):
-    storage = rutf8.create_utf8_index_storage(u.encode('utf8'), len(u))
+    b = u.encode('utf8')
+    storage = rutf8.create_utf8_index_storage(b, len(u))
     for i in range(len(u) + 1):
         bytepos = len(u[:i].encode('utf8'))
         assert rutf8.codepoint_index_at_byte_position(
-                       u.encode('utf8'), storage, bytepos) == i
+                       b, storage, bytepos, len(u)) == i
+
+@given(strategies.text())
+def test_codepoint_position_at_index_inverse(u):
+    print u
+    b = u.encode('utf8')
+    storage = rutf8.create_utf8_index_storage(b, len(u))
+    for i in range(len(u) + 1):
+        bytepos = rutf8.codepoint_position_at_index(b, storage, i)
+        assert rutf8.codepoint_index_at_byte_position(
+                       b, storage, bytepos, len(u)) == i
 
 
 repr_func = rutf8.make_utf8_escape_function(prefix='u', pass_printable=False,
@@ -156,14 +170,6 @@ def test_surrogate_in_utf8(unichars):
     expected = any(uch for uch in unichars if u'\ud800' <= uch <= u'\udfff')
     assert result == expected
 
-@given(strategies.lists(strategies.characters()))
-def test_get_utf8_length(unichars):
-    u = u''.join(unichars)
-    exp_lgt = len(u)
-    s = ''.join([c.encode('utf8') for c in u])
-    lgt = rutf8.get_utf8_length(s)
-    if not _has_surrogates(s) or sys.maxunicode > 0xffff:
-        assert lgt == exp_lgt
 
 def test_utf8_string_builder():
     s = rutf8.Utf8StringBuilder()
@@ -198,9 +204,13 @@ def test_utf8_string_builder():
     s.append_code(0xD800)
     assert s.getlength() == 5
 
+    s.append_utf8_slice(u"äöüß".encode("utf-8"), 2, 6, 2)
+    assert s.getlength() == 7
+    assert s.build().decode("utf-8") == u"abc\u1234\ud800öü"
+
 def test_utf8_string_builder_bad_code():
     s = rutf8.Utf8StringBuilder()
-    with pytest.raises(ValueError):
+    with pytest.raises(rutf8.OutOfRange):
         s.append_code(0x110000)
     assert s.build() == ''
     assert s.getlength() == 0
@@ -212,3 +222,39 @@ def test_utf8_iterator(arg):
     for c in u:
         l.append(unichr(c))
     assert list(arg) == l
+
+@given(strategies.text())
+def test_utf8_iterator_pos(arg):
+    utf8s = arg.encode('utf8')
+    u = rutf8.Utf8StringPosIterator(utf8s)
+    l = []
+    i = 0
+    for c, pos in u:
+        l.append(unichr(c))
+        assert c == rutf8.codepoint_at_pos(utf8s, pos)
+        assert pos == i
+        i = rutf8.next_codepoint_pos(utf8s, i)
+    assert list(arg) == l
+
+
+@given(strategies.text(), strategies.integers(0xd800, 0xdfff))
+def test_has_surrogates(arg, surrogate):
+    b = (arg + unichr(surrogate) + arg).encode("utf-8")
+    assert not rutf8.has_surrogates(arg.encode("utf-8"))
+    assert rutf8.has_surrogates(unichr(surrogate).encode("utf-8"))
+    assert rutf8.has_surrogates(b)
+
+def test_has_surrogate_xed_no_surrogate():
+    u = unichr(55217) + unichr(54990)
+    b = u.encode("utf-8")
+    assert b.startswith(b"\xed")
+    assert not rutf8.has_surrogates(b)
+
+printable_repr_func = rutf8.make_utf8_escape_function(pass_printable=True,
+                                                      quotes=True,
+                                                      unicodedb=unicodedb_12_1_0)
+
+def test_printable_repr_func():
+    s = u'\U0001f42a'.encode("utf-8")
+    assert printable_repr_func(s) == "'" + s + "'"
+

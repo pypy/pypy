@@ -72,24 +72,22 @@ class TestCall(BaseTestPyPyC):
         # LOAD_GLOBAL of OFFSET
         ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == ["guard_value",
-                                    "getfield_gc_r",   # dead load
                                     "guard_not_invalidated"]
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == []
         #
         ops = entry_bridge.ops_by_id('call', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == ["getfield_gc_r"]
+        assert log.opnames(ops) == []
         #
         assert entry_bridge.match_by_id('call', """
             dummy_get_utf8?
             p38 = call_r(ConstClass(_ll_1_threadlocalref_get__Ptr_GcStruct_objectLlT_Signed), #, descr=<Callr . i EF=1 OS=5>)
-            p99 = getfield_gc_r(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_sys_exc_operror .*>)
             p39 = getfield_gc_r(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i40 = force_token()
             p41 = getfield_gc_r(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
             guard_value(p41, ConstPtr(ptr42), descr=...)
             i42 = getfield_gc_i(p38, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
-            i43 = int_is_zero(i42)
+            i43 = int_eq(i42, 0)
             guard_true(i43, descr=...)
             i50 = force_token()
         """)
@@ -117,6 +115,8 @@ class TestCall(BaseTestPyPyC):
                     self.a = a
                 def f(self, i):
                     return self.a + i
+            a = A("a") # stop field unboxing
+
             i = 0
             a = A(1)
             while i < n:
@@ -133,8 +133,7 @@ class TestCall(BaseTestPyPyC):
         ops = entry_bridge.ops_by_id('meth1', opcode='LOOKUP_METHOD')
         assert log.opnames(ops) == ['guard_value', 'getfield_gc_r',
                                     'guard_value',
-                                    'guard_not_invalidated',
-                                    'getfield_gc_r']
+                                    'guard_not_invalidated']
         # the second LOOKUP_METHOD is folded away
         assert list(entry_bridge.ops_by_id('meth2', opcode='LOOKUP_METHOD')) == []
         #
@@ -390,10 +389,9 @@ class TestCall(BaseTestPyPyC):
             {{{
             setfield_gc(p0, p20, descr=<FieldP .*PyFrame.vable_token .*>)
             setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keywords_w .*>)
-            setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keywords .*>)
+            setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keyword_names_w .*>)
             setfield_gc(p22, 1, descr=<FieldU pypy.interpreter.argument.Arguments.inst__jit_few_keywords .*>)
             setfield_gc(p22, 0, descr=<FieldU pypy.interpreter.argument.Arguments.inst_methodcall .*>)
-            setfield_gc(p22, ConstPtr(null), descr=<FieldP pypy.interpreter.argument.Arguments.inst_keyword_names_w .*>)
             setfield_gc(p26, ConstPtr(ptr22), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_strategy .*>)
             setfield_gc(p26, ConstPtr(null), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_lstorage .*>)
             setarrayitem_gc(p24, 0, p26, descr=<ArrayP .>)
@@ -446,19 +444,14 @@ class TestCall(BaseTestPyPyC):
             dummy_get_utf8?
             guard_not_invalidated(descr=...)
             p29 = call_r(ConstClass(_ll_1_threadlocalref_get__Ptr_GcStruct_objectLlT_Signed), #, descr=<Callr . i EF=1 OS=5>)
-            p99 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_sys_exc_operror .*>)
             p30 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             p31 = force_token()
             p32 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
             guard_value(p32, ConstPtr(ptr33), descr=...)
             i34 = getfield_gc_i(p29, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
-            i35 = int_is_zero(i34)
+            i35 = int_eq(i34, 0)
             guard_true(i35, descr=...)
-            p37 = getfield_gc_r(ConstPtr(ptr36), descr=<FieldP pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
-            guard_nonnull_class(p37, ConstClass(W_IntObject), descr=...)
-            i39 = getfield_gc_i(p37, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
-            i40 = int_add_ovf(i22, i39)
-            guard_no_overflow(descr=...)
+            i40 = int_add(i22, 5)
             --TICK--
         """)
 
@@ -562,6 +555,26 @@ class TestCall(BaseTestPyPyC):
         assert len(calls) == 0
         assert len([op for op in allops if op.name.startswith('new')]) == 0
 
+    def test_kwargs_update_virtual1(self):
+        log = self.run("""
+        def f(**kwargs):
+            return len(kwargs)
+        def main(stop):
+            i = 0
+            res = 0
+            while i < stop:
+                d = {'a': 1, 'b': 2}
+                # used to force the dict!
+                res += f(c=2, **d) # ID: call
+                i += 1
+            return res
+        """, [1000])
+        loop, = log.loops_by_id('call')
+        ops = loop.ops_by_id('call')
+        assert log.opnames(ops) == ["guard_not_invalidated", "force_token",
+                "int_add_ovf", "guard_no_overflow"]
+
+
     def test_kwargs_non_virtual(self):
         log = self.run("""
         def f(a, b, c):
@@ -581,7 +594,7 @@ class TestCall(BaseTestPyPyC):
         calls = [op for op in allops if op.name.startswith('call')]
         assert OpMatcher(calls).match('''
         p93 = call_r(ConstClass(view_as_kwargs), p35, p12, descr=<.*>)
-        i103 = call_i(ConstClass(_match_keywords), ConstPtr(ptr52), 0, 0, p94, p98, 0, descr=<.*>)
+        i103 = call_i(ConstClass(_match_keywords), ConstPtr(ptr52), 0, 0, 0, p94, p98, 0, descr=<.*>)
         ''')
         assert len([op for op in allops if op.name.startswith('new')]) == 1
         # 1 alloc
@@ -636,3 +649,42 @@ class TestCall(BaseTestPyPyC):
                 i += 1
             return 13
         """, [1000])
+
+
+    def test_nonstd_jitdriver_distinguishes_map(self):
+        log = self.run("""
+        def f(a):
+            return a + 1
+        def g(a):
+            return a + 2
+        def main():
+            # test the "contains" jitdriver, but the others are the same
+            res = (9999 in map(f, range(100000)))
+            res += (9999 in map(g, range(200000)))
+            return res
+        """, [])
+        assert len([l for l in log.loops if l.chunks[1].bytecode_name.startswith("DescrOperation.contains")]) == 2
+
+    def test_methodcall_kwargs_regression(self):
+        log = self.run("""
+        class A:
+            def f(self, x, y, z):
+                return x + y + z
+        def main():
+            a = A()
+            res = 0
+            for i in range(10000):
+                a.f(x=i, y=i+1, z=i*2) # ID: meth
+                res += i
+        """, [])
+        
+        loop, = log.loops_by_id('meth')
+
+        assert loop.match_by_id("meth", """
+            setfield_gc(p15, i65, descr=...)
+            guard_not_invalidated(descr=...)
+            i68 = int_mul_ovf(i62, 2)
+            guard_no_overflow(descr=...)
+            p69 = force_token()
+        """)
+

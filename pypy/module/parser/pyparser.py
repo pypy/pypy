@@ -65,10 +65,10 @@ class W_STType(W_Root):
             result = compile_ast(space, ast, info)
         except error.IndentationError as e:
             raise OperationError(space.w_IndentationError,
-                                 e.wrap_info(space))
+                                 e.find_sourceline_and_wrap_info(space))
         except error.SyntaxError as e:
             raise OperationError(space.w_SyntaxError,
-                                 e.wrap_info(space))
+                                 e.find_sourceline_and_wrap_info(space))
         return result
 
 W_STType.typedef = TypeDef("parser.st",
@@ -87,10 +87,10 @@ def parse_python(space, source, mode):
         tree = parser.parse_source(source, info)
     except error.IndentationError as e:
         raise OperationError(space.w_IndentationError,
-                             e.wrap_info(space))
+                             e.find_sourceline_and_wrap_info(space, source))
     except error.SyntaxError as e:
         raise OperationError(space.w_SyntaxError,
-                             e.wrap_info(space))
+                             e.find_sourceline_and_wrap_info(space, source))
     return W_STType(tree, mode, recursive_parser=parser)
 
 
@@ -144,7 +144,7 @@ class NodeState:
     def __init__(self):
         self.lineno = 0
 
-def build_node_tree(space, w_tuple):
+def build_node_tree(space, parser, w_tuple):
     tup_w = space.unpackiterable(w_tuple)
     if len(tup_w) == 0:
         raise parser_error(space, w_tuple, "tuple too short")
@@ -156,10 +156,10 @@ def build_node_tree(space, w_tuple):
         # Raise an exception now and be done with it.
         raise parser_error(space, w_tuple,
                            "Illegal syntax-tree; cannot start with terminal symbol.")
-    return build_node_children(space, type, tup_w, node_state)
+    return build_node_children(space, parser, type, tup_w, node_state)
 
-def build_node_children(space, type, tup_w, node_state):
-    node = pyparse.parser.Nonterminal(type)
+def build_node_children(space, parser, type, tup_w, node_state):
+    node = pyparse.parser.Nonterminal(parser.grammar, type)
     for i in range(1, len(tup_w)):
         w_elem = tup_w[i]
         subtup_w = space.unpackiterable(w_elem)
@@ -174,9 +174,9 @@ def build_node_children(space, type, tup_w, node_state):
                 raise parse_error(
                     space, "terminal nodes must have 2 or 3 entries")
             strn = space.text_w(w_obj)
-            child = pyparse.parser.Terminal(type, strn, node_state.lineno, 0)
+            child = pyparse.parser.Terminal(parser.grammar, type, strn, node_state.lineno, 0)
         else:
-            child = build_node_children(space, type, subtup_w, node_state)
+            child = build_node_children(space, parser, type, subtup_w, node_state)
         node.append_child(child)
         if type == pyparse.pygram.tokens.NEWLINE:
             node_state.lineno += 1
@@ -211,7 +211,7 @@ def validate_node(space, tree, parser):
 
 def tuple2st(space, w_sequence):
     # Convert the tree to the internal form before checking it
-    tree = build_node_tree(space, w_sequence)
     parser = pyparse.PythonParser(space)
+    tree = build_node_tree(space, parser, w_sequence)
     validate_node(space, tree, parser)
     return W_STType(tree, 'eval')

@@ -71,6 +71,22 @@ class AppTestTypeObject:
         raises(AttributeError, getattr, type, "__abstractmethods__")
         raises(TypeError, "int.__abstractmethods__ = ('abc', )")
 
+    def test_is_abstract_flag(self):
+        # IS_ABSTRACT flag should always be in sync with
+        # cls.__dict__['__abstractmethods__']
+        FLAG_IS_ABSTRACT = 1 << 20
+
+        class Base:
+            pass
+        Base.__abstractmethods__ = {'x'}
+        assert Base.__flags__ & FLAG_IS_ABSTRACT
+
+        class Derived(Base):
+            pass
+        assert not (Derived.__flags__ & FLAG_IS_ABSTRACT)
+        Derived.__abstractmethods__ = {'x'}
+        assert Derived.__flags__ & FLAG_IS_ABSTRACT
+
     def test_attribute_error(self):
         class X(object):
             __module__ = 'test'
@@ -94,8 +110,6 @@ class AppTestTypeObject:
         """
         class A(type):
             pass
-
-        assert A("hello") is str
 
         # Make sure type(x) doesn't call x.__class__.__init__
         class T(type):
@@ -428,6 +442,14 @@ class AppTestTypeObject:
 
     def test_method_qualname(self):
         assert dict.copy.__qualname__ == 'dict.copy'
+
+    def test_staticmethod_qualname(self):
+        assert dict.__new__.__qualname__ == 'dict.__new__'
+        class A:
+            @staticmethod
+            def stat():
+                pass
+        assert A.stat.__qualname__.endswith('A.stat')
 
     def test_builtin_add(self):
         x = 5
@@ -979,6 +1001,15 @@ class AppTestTypeObject:
             else:
                 assert False
 
+    def test_qualname_and_slots(self):
+        class A:
+            __slots__ = ['__qualname__', 'b']
+        assert isinstance(A.__qualname__, str)
+        assert isinstance(A.__dict__['__qualname__'], type(A.b))
+        a = A()
+        a.__qualname__ = 1
+        assert a.__qualname__ == 1
+
     def test_compare(self):
         class A(object):
             pass
@@ -1255,6 +1286,23 @@ class AppTestTypeObject:
         assert C.foo == 42
         """
 
+    def test_prepare_error(self):
+        """
+        class BadMeta:
+            @classmethod
+            def __prepare__(cls, *args, **kwargs):
+                return 42
+        def make_class(meta):
+            class Foo(metaclass=meta):
+                pass
+        excinfo = raises(TypeError, make_class, BadMeta)
+        print(excinfo.value.args[0])
+        assert excinfo.value.args[0].startswith('BadMeta.__prepare__')
+        # Non-type as metaclass
+        excinfo = raises(TypeError, make_class, BadMeta())
+        assert excinfo.value.args[0].startswith('<metaclass>.__prepare__')
+        """
+
     def test_crash_mro_without_object_1(self):
         """
         class X(type):
@@ -1361,6 +1409,117 @@ class AppTestTypeObject:
         assert found == [1]
         """
 
+    def test_class_getitem(self):
+        """
+        class WithoutMetaclass:
+            def __getitem__(self, index):
+                return index + 1
+            def __class_getitem__(cls, item):
+                return "{}[{}]".format(cls.__name__, item.__name__)
+
+        class WithoutMetaclassSubclass(WithoutMetaclass):
+            def __getitem__(self, index):
+                return index + 1
+            def __class_getitem__(cls, item):
+                return super().__class_getitem__(item)
+
+        assert WithoutMetaclass()[0] == 1
+        assert WithoutMetaclass[int] == "WithoutMetaclass[int]"
+        assert WithoutMetaclassSubclass()[0] == 1
+        assert WithoutMetaclassSubclass[int] == "WithoutMetaclassSubclass[int]"
+
+        class Metaclass(type):
+            def __getitem__(self, item):
+                return "Metaclass[{}]".format(item.__name__)
+
+        class WithMetaclass(metaclass=Metaclass):
+            def __getitem__(self, index):
+                return index + 1
+            def __class_getitem__(cls, item):
+                return super().__class_getitem__(item)
+
+        assert WithMetaclass()[0] == 1
+        assert WithMetaclass[int] == "Metaclass[int]"
+        """
+
+    def test_mro_entries(self):
+        """
+        class BaseA: pass
+        class BaseB: pass
+        class BaseC: pass
+        class BaseD: pass
+
+        class ProxyA:
+            def __mro_entries__(self, orig_bases):
+                return (BaseA,)
+        class ProxyAB:
+            def __mro_entries__(self, orig_bases):
+                return (BaseA, BaseB)
+        class ProxyNone:
+            def __mro_entries__(self, orig_bases):
+                return ()
+
+        class TestA(ProxyA()): pass
+        assert TestA.__bases__ == (BaseA,)
+        assert len(TestA.__orig_bases__) == 1
+        assert isinstance(TestA.__orig_bases__[0], ProxyA)
+
+        class TestAB(ProxyAB()): pass
+        assert TestAB.__bases__ == (BaseA, BaseB)
+        assert len(TestAB.__orig_bases__) == 1
+        assert isinstance(TestAB.__orig_bases__[0], ProxyAB)
+
+        class TestNone(ProxyNone()): pass
+        assert TestNone.__bases__ == (object,)
+        assert len(TestNone.__orig_bases__) == 1
+        assert isinstance(TestNone.__orig_bases__[0], ProxyNone)
+
+        class TestMixed(BaseC, ProxyAB(), BaseD, ProxyNone()): pass
+        assert TestMixed.__bases__ == (BaseC, BaseA, BaseB, BaseD)
+        assert len(TestMixed.__orig_bases__) == 4
+        assert isinstance(TestMixed.__orig_bases__[1], ProxyAB) and isinstance(TestMixed.__orig_bases__[3], ProxyNone)
+
+        with raises(TypeError) as excinfo:
+            class TestDuplicate(BaseB, ProxyAB()): pass
+        assert str(excinfo.value) == "duplicate base class 'BaseB'"
+
+        with raises(TypeError) as excinfo:
+            type('TestType', (BaseC, ProxyAB(), BaseD, ProxyNone()), {})
+        assert str(excinfo.value) == "type() doesn't support MRO entry resolution; use types.new_class()"
+
+        import types
+        TestTypesNewClass = types.new_class('TestTypesNewClass', (BaseC, ProxyAB(), BaseD, ProxyNone()), {})
+        assert TestMixed.__bases__ == (BaseC, BaseA, BaseB, BaseD)
+        assert len(TestMixed.__orig_bases__) == 4
+        assert isinstance(TestMixed.__orig_bases__[1], ProxyAB) and isinstance(TestMixed.__orig_bases__[3], ProxyNone)
+
+        class TestNoOrigBases(BaseA, BaseB): pass
+        assert TestNoOrigBases.__bases__ == (BaseA, BaseB)
+        assert not hasattr(TestNoOrigBases, '__orig_bases__')
+        """
+
+    def test_classcell_missing(self):
+        """
+        # Some metaclasses may not pass the original namespace to type.__new__
+        # We test that case here by forcibly deleting __classcell__
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                namespace.pop('__classcell__', None)
+                return super().__new__(cls, name, bases, namespace)
+
+        # The default case should continue to work without any errors
+        class WithoutClassRef(metaclass=Meta):
+            pass
+
+        # With zero-arg super() or an explicit __class__ reference, we expect
+        # __build_class__ to raise a RuntimeError complaining that
+        # __class__ was not set, and asking if __classcell__ was propagated
+        # to type.__new__.
+        with raises(RuntimeError):
+            class WithClassRef(metaclass=Meta):
+                def f(self):
+                    return __class__
+        """
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
@@ -1555,3 +1714,138 @@ class AppTestComparesByIdentity:
 
     def test_type_construct_unicode_surrogate_issue(self):
         raises(ValueError, type, 'A\udcdcb', (), {})
+
+    def test_set_name(self):
+        class Descriptor:
+            def __set_name__(self, owner, name):
+                self.owner = owner
+                self.name = name
+
+        class X:
+            a = Descriptor()
+        assert X.a.owner is X
+        assert X.a.name == "a"
+
+    def test_set_name_error(self):
+        class Descriptor:
+            __set_name__ = None
+        def make_class():
+            class A:
+                d = Descriptor()
+        excinfo = raises(RuntimeError, make_class)
+        assert isinstance(excinfo.value.__cause__, TypeError)
+        assert str(excinfo.value) == "Error calling __set_name__ on 'Descriptor' instance 'd' in 'A'"
+        print(excinfo.value)
+
+    def test_set_name_self(self):
+        # issue 3326: modifying self.__dict__ in self.__set_name__
+        class Descriptor:
+            def __set_name__(self, owner, name):
+                setattr(owner, "attr", self)
+
+        class Foo:
+            desc = Descriptor()
+            desc2 = Descriptor() 
+
+
+        pass # does not crash
+
+    def test_type_init_accepts_kwargs(self):
+        type.__init__(type, "a", (object, ), {}, a=1)
+
+    def test_init_subclass_classmethod(self):
+        assert isinstance(object.__dict__['__init_subclass__'], classmethod)
+        class A(object):
+            subclasses = []
+
+            def __init_subclass__(cls):
+                cls.subclass.append(cls)
+        assert isinstance(A.__dict__['__init_subclass__'], classmethod)
+
+    def test_init_subclass(self):
+        class PluginBase(object):
+            subclasses = []
+
+            def __init_subclass__(cls):
+                cls.subclasses.append(cls)
+
+        class B(PluginBase):
+            pass
+
+        class C(PluginBase):
+            pass
+
+        assert PluginBase.subclasses == [B, C]
+
+
+        class X(object):
+            subclasses = []
+
+            def __init_subclass__(cls, **kwargs):
+                cls.kwargs = kwargs
+
+        exec("""if 1:
+        class Y(X, a=1, b=2):
+            pass
+
+        assert Y.kwargs == dict(a=1, b=2)
+        """)
+
+    def test_onearg_type_only_for_type(self):
+        class Meta(type):
+            pass
+
+        info = raises(TypeError, Meta, 5)
+        assert "takes exactly 3 arguments (1 given)" in str(info.value)
+        info = raises(TypeError, Meta, 5, 7)
+        assert "takes exactly 3 arguments (1 given)" in str(info.value)
+
+    def test_hash_comparison_of_methods(self):
+        def check_ordering(a, b):
+            with raises(TypeError):
+                a < b
+            with raises(TypeError):
+                a > b
+            with raises(TypeError):
+                a <= b
+            with raises(TypeError):
+                a >= b
+
+        class A:
+            def __init__(self, x):
+                self.x = x
+            def f(self):
+                pass
+            def g(self):
+                pass
+            def __eq__(self, other):
+                return True
+            def __hash__(self):
+                raise TypeError
+
+        class B(A):
+            pass
+
+        a1 = A(1)
+        a2 = A(1)
+        assert a1.f == a1.f
+        assert not a1.f != a1.f
+        assert not a1.f == a2.f
+        assert a1.f != a2.f
+        assert not a1.f == a1.g
+        assert a1.f != a1.g
+        check_ordering(a1.f, a1.f)
+        assert hash(a1.f) == hash(a1.f)
+
+        assert not A.f == a1.f
+        assert A.f != a1.f
+        assert not A.f == A.g
+        assert A.f != A.g
+        assert B.f == A.f
+        assert not B.f != A.f
+        check_ordering(A.f, A.f)
+        assert hash(B.f) == hash(A.f)
+
+        # the following triggers a SystemError in 2.4
+        a = A(hash(A.f)^(-1))
+        hash(a.f)

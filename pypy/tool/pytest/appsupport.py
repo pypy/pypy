@@ -1,7 +1,7 @@
 from inspect import CO_VARARGS, CO_VARKEYWORDS
 
 import py
-from pypy.interpreter import gateway, pycode
+from pypy.interpreter import gateway, pycode, typedef, baseobjspace
 from pypy.interpreter.error import OperationError, oefmt
 
 try:
@@ -198,7 +198,7 @@ def build_pytest_assertion(space):
     w_BuiltinAssertionError = space.getitem(space.builtin.w_dict,
                                             space.wrap('AssertionError'))
     w_metaclass = space.type(w_BuiltinAssertionError)
-    w_init = space.wrap(gateway.interp2app_temp(my_init))
+    w_init = space.wrap(gateway.interp2app(my_init))
     w_dict = space.getattr(w_BuiltinAssertionError, space.wrap('__dict__'))
     w_dict = space.call_method(w_dict, 'copy')
     # fixup __module__, since the new type will be is_heaptype() == True
@@ -225,8 +225,44 @@ def _exc_info(space, operror):
         return e
     """)
 
-def pypyraises(space, w_ExpectedException, w_expr, __args__):
+
+class W_RaisesContextManager(baseobjspace.W_Root):
+    # Note: this is here because of _cffi_backend/test/test_c.py
+    def __init__(self, space, w_ExpectedException):
+        self.space = space
+        self.w_ExpectedException = w_ExpectedException
+
+    def enter(self):
+        return self
+
+    def exit(self, w_exc_type, w_exc_value, w_traceback):
+        space = self.space
+        if space.is_none(w_exc_type):
+            self.report_error("no exception")
+        if not space.exception_match(w_exc_type, self.w_ExpectedException):
+            self.report_error(space.text_w(space.repr(w_exc_type)))
+        self.w_value = w_exc_value   # for the 'value' app-level attribute
+        self.w_type = w_exc_type
+        return space.w_True     # suppress the exception
+
+    def report_error(self, got):
+        space = self.space
+        raise oefmt(space.w_AssertionError,
+                    "raises() expected %s, but got %s",
+                    space.text_w(space.repr(self.w_ExpectedException)),
+                    got)
+
+W_RaisesContextManager.typedef = typedef.TypeDef("RaisesContextManager",
+    __enter__ = gateway.interp2app_temp(W_RaisesContextManager.enter),
+    __exit__ = gateway.interp2app_temp(W_RaisesContextManager.exit),
+    value=typedef.interp_attrproperty_w('w_value', cls=W_RaisesContextManager),
+    type=typedef.interp_attrproperty_w('w_type', cls=W_RaisesContextManager)
+    )
+
+def pypyraises(space, w_ExpectedException, w_expr=None, __args__=None):
     """A built-in function providing the equivalent of py.test.raises()."""
+    if w_expr is None:
+        return W_RaisesContextManager(space, w_ExpectedException)
     args_w, kwds_w = __args__.unpack()
     if space.isinstance_w(w_expr, space.w_text):
         if args_w:
@@ -263,21 +299,24 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
             raise
     raise oefmt(space.w_AssertionError, "DID NOT RAISE")
 
-app_raises = gateway.interp2app_temp(pypyraises)
+app_raises = gateway.interp2app(pypyraises)
 
-def pypyskip(space, w_message):
+def pypyskip(space, w_message=None):
     """skip a test at app-level. """
-    msg = space.unwrap(w_message)
+    if w_message is None:
+        msg = ''
+    else:
+        msg = space.unwrap(w_message)
     py.test.skip(msg)
 
-app_skip = gateway.interp2app_temp(pypyskip)
+app_skip = gateway.interp2app(pypyskip)
 
-def py3k_pypyskip(space, w_message): 
-    """skip a test at app-level. """ 
-    msg = space.unwrap(w_message) 
+def py3k_pypyskip(space, w_message):
+    """skip a test at app-level. """
+    msg = space.unwrap(w_message)
     py.test.skip('[py3k] %s' % msg)
 
-app_py3k_skip = gateway.interp2app_temp(py3k_pypyskip)
+app_py3k_skip = gateway.interp2app(py3k_pypyskip)
 
 def raises_w(space, w_ExpectedException, *args, **kwds):
     try:

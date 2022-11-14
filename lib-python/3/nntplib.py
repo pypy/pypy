@@ -68,6 +68,7 @@ import socket
 import collections
 import datetime
 import warnings
+import sys
 
 try:
     import ssl
@@ -413,6 +414,7 @@ class _NNTPBase:
     def _putline(self, line):
         """Internal: send one line to the server, appending CRLF.
         The `line` must be a bytes-like object."""
+        sys.audit("nntplib.putline", self, line)
         line = line + _CRLF
         if self.debugging > 1: print('*put*', repr(line))
         self.file.write(line)
@@ -866,7 +868,7 @@ class _NNTPBase:
         try:
             [resp_num, path] = resp.split()
         except ValueError:
-            raise NNTPReplyError(resp)
+            raise NNTPReplyError(resp) from None
         else:
             return resp, path
 
@@ -1040,6 +1042,7 @@ class NNTP(_NNTPBase):
         """
         self.host = host
         self.port = port
+        sys.audit("nntplib.connect", self, host, port)
         self.sock = socket.create_connection((host, port), timeout)
         file = None
         try:
@@ -1071,6 +1074,7 @@ if _have_ssl:
             """This works identically to NNTP.__init__, except for the change
             in default port and the `ssl_context` argument for SSL connections.
             """
+            sys.audit("nntplib.connect", self, host, port)
             self.sock = socket.create_connection((host, port), timeout)
             file = None
             try:
@@ -1103,7 +1107,7 @@ if __name__ == '__main__':
         nntplib built-in demo - display the latest articles in a newsgroup""")
     parser.add_argument('-g', '--group', default='gmane.comp.python.general',
                         help='group to fetch messages from (default: %(default)s)')
-    parser.add_argument('-s', '--server', default='news.gmane.org',
+    parser.add_argument('-s', '--server', default='news.gmane.io',
                         help='NNTP server hostname (default: %(default)s)')
     parser.add_argument('-p', '--port', default=-1, type=int,
                         help='NNTP port number (default: %s / %s)' % (NNTP_PORT, NNTP_SSL_PORT))

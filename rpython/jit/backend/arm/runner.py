@@ -23,6 +23,7 @@ class AbstractARMCPU(AbstractLLCPU):
     supports_floats = True
     supports_longlong = True
     supports_singlefloats = True
+    supports_load_effective_address = True
 
     from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = range(len(all_regs))

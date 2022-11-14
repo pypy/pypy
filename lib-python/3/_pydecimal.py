@@ -140,15 +140,18 @@ __all__ = [
     # Limits for the C version for compatibility
     'MAX_PREC',  'MAX_EMAX', 'MIN_EMIN', 'MIN_ETINY',
 
-    # C version: compile time choice that enables the thread local context
-    'HAVE_THREADS'
+    # C version: compile time choice that enables the thread local context (deprecated, now always true)
+    'HAVE_THREADS',
+
+    # C version: compile time choice that enables the coroutine local context
+    'HAVE_CONTEXTVAR'
 ]
 
 __xname__ = __name__    # sys.modules lookup (--without-threads)
 __name__ = 'decimal'    # For pickling
 __version__ = '1.70'    # Highest version of the spec this complies with
                         # See http://speleotrove.com/decimal/
-__libmpdec_version__ = "2.4.1" # compatible libmpdec version
+__libmpdec_version__ = "2.4.2" # compatible libmpdec version
 
 import math as _math
 import numbers as _numbers
@@ -172,6 +175,7 @@ ROUND_05UP = 'ROUND_05UP'
 
 # Compatibility with the C version
 HAVE_THREADS = True
+HAVE_CONTEXTVAR = True
 if sys.maxsize == 2**63-1:
     MAX_PREC = 999999999999999999
     MAX_EMAX = 999999999999999999
@@ -431,80 +435,34 @@ _rounding_modes = (ROUND_DOWN, ROUND_HALF_UP, ROUND_HALF_EVEN, ROUND_CEILING,
 ##### Context Functions ##################################################
 
 # The getcontext() and setcontext() function manage access to a thread-local
-# current context.  Py2.4 offers direct support for thread locals.  If that
-# is not available, use threading.current_thread() which is slower but will
-# work for older Pythons.  If threads are not part of the build, create a
-# mock threading object with threading.local() returning the module namespace.
+# current context.
 
-try:
-    import threading
-except ImportError:
-    # Python was compiled without threads; create a mock object instead
-    class MockThreading(object):
-        def local(self, sys=sys):
-            return sys.modules[__xname__]
-    threading = MockThreading()
-    del MockThreading
+import contextvars
 
-try:
-    threading.local
+_current_context_var = contextvars.ContextVar('decimal_context')
 
-except AttributeError:
+def getcontext():
+    """Returns this thread's context.
 
-    # To fix reloading, force it to create a new context
-    # Old contexts have different exceptions in their dicts, making problems.
-    if hasattr(threading.current_thread(), '__decimal_context__'):
-        del threading.current_thread().__decimal_context__
+    If this thread does not yet have a context, returns
+    a new context and sets this thread's context.
+    New contexts are copies of DefaultContext.
+    """
+    try:
+        return _current_context_var.get()
+    except LookupError:
+        context = Context()
+        _current_context_var.set(context)
+        return context
 
-    def setcontext(context):
-        """Set this thread's context to context."""
-        if context in (DefaultContext, BasicContext, ExtendedContext):
-            context = context.copy()
-            context.clear_flags()
-        threading.current_thread().__decimal_context__ = context
+def setcontext(context):
+    """Set this thread's context to context."""
+    if context in (DefaultContext, BasicContext, ExtendedContext):
+        context = context.copy()
+        context.clear_flags()
+    _current_context_var.set(context)
 
-    def getcontext():
-        """Returns this thread's context.
-
-        If this thread does not yet have a context, returns
-        a new context and sets this thread's context.
-        New contexts are copies of DefaultContext.
-        """
-        try:
-            return threading.current_thread().__decimal_context__
-        except AttributeError:
-            context = Context()
-            threading.current_thread().__decimal_context__ = context
-            return context
-
-else:
-
-    local = threading.local()
-    if hasattr(local, '__decimal_context__'):
-        del local.__decimal_context__
-
-    def getcontext(_local=local):
-        """Returns this thread's context.
-
-        If this thread does not yet have a context, returns
-        a new context and sets this thread's context.
-        New contexts are copies of DefaultContext.
-        """
-        try:
-            return _local.__decimal_context__
-        except AttributeError:
-            context = Context()
-            _local.__decimal_context__ = context
-            return context
-
-    def setcontext(context, _local=local):
-        """Set this thread's context to context."""
-        if context in (DefaultContext, BasicContext, ExtendedContext):
-            context = context.copy()
-            context.clear_flags()
-        _local.__decimal_context__ = context
-
-    del threading, local        # Don't contaminate the namespace
+del contextvars        # Don't contaminate the namespace
 
 def localcontext(ctx=None):
     """Return a context manager for a copy of the supplied context
@@ -589,7 +547,7 @@ class Decimal(object):
         # From a string
         # REs insist on real strings, so we can too.
         if isinstance(value, str):
-            m = _parser(value.strip())
+            m = _parser(value.strip().replace("_", ""))
             if m is None:
                 if context is None:
                     context = getcontext()
@@ -734,18 +692,23 @@ class Decimal(object):
 
         """
         if isinstance(f, int):                # handle integer inputs
-            return cls(f)
-        if not isinstance(f, float):
-            raise TypeError("argument must be int or float.")
-        if _math.isinf(f) or _math.isnan(f):
-            return cls(repr(f))
-        if _math.copysign(1.0, f) == 1.0:
-            sign = 0
+            sign = 0 if f >= 0 else 1
+            k = 0
+            coeff = str(abs(f))
+        elif isinstance(f, float):
+            if _math.isinf(f) or _math.isnan(f):
+                return cls(repr(f))
+            if _math.copysign(1.0, f) == 1.0:
+                sign = 0
+            else:
+                sign = 1
+            n, d = abs(f).as_integer_ratio()
+            k = d.bit_length() - 1
+            coeff = str(n*5**k)
         else:
-            sign = 1
-        n, d = abs(f).as_integer_ratio()
-        k = d.bit_length() - 1
-        result = _dec_from_triple(sign, str(n*5**k), -k)
+            raise TypeError("argument must be int or float.")
+
+        result = _dec_from_triple(sign, coeff, -k)
         if cls is Decimal:
             return result
         else:
@@ -1009,6 +972,56 @@ class Decimal(object):
         To show the internals exactly as they are.
         """
         return DecimalTuple(self._sign, tuple(map(int, self._int)), self._exp)
+
+    def as_integer_ratio(self):
+        """Express a finite Decimal instance in the form n / d.
+
+        Returns a pair (n, d) of integers.  When called on an infinity
+        or NaN, raises OverflowError or ValueError respectively.
+
+        >>> Decimal('3.14').as_integer_ratio()
+        (157, 50)
+        >>> Decimal('-123e5').as_integer_ratio()
+        (-12300000, 1)
+        >>> Decimal('0.00').as_integer_ratio()
+        (0, 1)
+
+        """
+        if self._is_special:
+            if self.is_nan():
+                raise ValueError("cannot convert NaN to integer ratio")
+            else:
+                raise OverflowError("cannot convert Infinity to integer ratio")
+
+        if not self:
+            return 0, 1
+
+        # Find n, d in lowest terms such that abs(self) == n / d;
+        # we'll deal with the sign later.
+        n = int(self._int)
+        if self._exp >= 0:
+            # self is an integer.
+            n, d = n * 10**self._exp, 1
+        else:
+            # Find d2, d5 such that abs(self) = n / (2**d2 * 5**d5).
+            d5 = -self._exp
+            while d5 > 0 and n % 5 == 0:
+                n //= 5
+                d5 -= 1
+
+            # (n & -n).bit_length() - 1 counts trailing zeros in binary
+            # representation of n (provided n is nonzero).
+            d2 = -self._exp
+            shift2 = min((n & -n).bit_length() - 1, d2)
+            if shift2:
+                n >>= shift2
+                d2 -= shift2
+
+            d = 5**d5 << d2
+
+        if self._sign:
+            n = -n
+        return n, d
 
     def __repr__(self):
         """Represents the number as an instance of Decimal."""
@@ -1619,13 +1632,13 @@ class Decimal(object):
 
     __trunc__ = __int__
 
+    @property
     def real(self):
         return self
-    real = property(real)
 
+    @property
     def imag(self):
         return Decimal(0)
-    imag = property(imag)
 
     def conjugate(self):
         return self
@@ -2012,7 +2025,7 @@ class Decimal(object):
         if not other and not self:
             return context._raise_error(InvalidOperation,
                                         'at least one of pow() 1st argument '
-                                        'and 2nd argument must be nonzero ;'
+                                        'and 2nd argument must be nonzero; '
                                         '0**0 is not defined')
 
         # compute sign of result
@@ -4075,7 +4088,7 @@ class Context(object):
         This will make it round up for that operation.
         """
         rounding = self.rounding
-        self.rounding= type
+        self.rounding = type
         return rounding
 
     def create_decimal(self, num='0'):
@@ -4084,10 +4097,10 @@ class Context(object):
         This method implements the to-number operation of the
         IBM Decimal specification."""
 
-        if isinstance(num, str) and num != num.strip():
+        if isinstance(num, str) and (num != num.strip() or '_' in num):
             return self._raise_error(ConversionSyntax,
-                                     "no trailing or leading whitespace is "
-                                     "permitted.")
+                                     "trailing or leading whitespace and "
+                                     "underscores are not permitted.")
 
         d = Decimal(num, context=self)
         if d._isnan() and len(d._int) > self.prec - self.clamp:
@@ -5621,8 +5634,6 @@ class _WorkRep(object):
 
     def __repr__(self):
         return "(%r, %r, %r)" % (self.sign, self.int, self.exp)
-
-    __str__ = __repr__
 
 
 

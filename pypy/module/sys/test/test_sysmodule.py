@@ -75,6 +75,7 @@ class AppTestAppSysTests:
         builtin2 = sys.modules['builtins']
         assert builtins is builtin2, ( "import builtins "
                                        "is not sys.modules[builtins].")
+
     def test_builtin_module_names(self):
         import sys
         names = sys.builtin_module_names
@@ -102,28 +103,6 @@ class AppTestAppSysTests:
         assert exc_type2 ==Exception
         assert exc_val2 ==e2
         assert tb2.tb_lineno - tb.tb_lineno == 6
-
-    def test_dynamic_attributes(self):
-        try:
-            raise Exception
-        except Exception as exc:
-            e = exc
-            import sys
-            exc_type = sys.exc_type
-            exc_val = sys.exc_value
-            tb = sys.exc_traceback
-        try:
-            raise Exception   # 8 lines below the previous one
-        except Exception as exc:
-            e2 = exc
-            exc_type2 = sys.exc_type
-            exc_val2 = sys.exc_value
-            tb2 = sys.exc_traceback
-        assert exc_type ==Exception
-        assert exc_val ==e
-        assert exc_type2 ==Exception
-        assert exc_val2 ==e2
-        assert tb2.tb_lineno - tb.tb_lineno == 8
 
     def test_exc_info_normalization(self):
         import sys
@@ -156,7 +135,13 @@ class AppTestAppSysTests:
 
     def test_getfilesystemencoding(self):
         import sys
-        assert sys.getfilesystemencoding() == self.filesystemenc
+        enc = sys.getfilesystemencoding()
+        # even before bootstraping, the encoding should match
+        assert enc == self.filesystemenc
+        if not self.appdirect:
+            # see comment in 'setup_after_space_initialization'
+            untranslated_enc = {'win32': 'utf-8', 'darwin': 'utf-8'}.get(enc, 'utf-8')
+            assert enc == untranslated_enc
 
     def test_float_info(self):
         import sys
@@ -202,6 +187,16 @@ class AppTestAppSysTests:
         assert isinstance(li.nan, int)
         assert isinstance(li.imag, int)
         assert isinstance(li.algorithm, str)
+        assert str(li).startswith('sys.hash_info(')
+
+    def test_sys_flags(self):
+        import sys
+        # sanity check
+        assert sys.flags.optimize is not None
+        # make sure the flags are read-only
+        exc = raises(AttributeError, 'sys.flags.optimize = 3')
+        assert 'readonly' in str(exc.value)
+        raises(AttributeError, 'sys.flags.not_a_sys_flag = 2')
 
     def test_sys_exit(self):
         import sys
@@ -223,6 +218,32 @@ class AppTestAppSysTests:
         assert isinstance(info.name, str)
         assert isinstance(info.lock, (str, type(None)))
         assert isinstance(info.version, (str, type(None)))
+
+    def test_sys_flags_dev_mode_is_bool(self):
+        import sys
+        assert type(sys.flags.dev_mode) is bool
+
+    def test_multiarch(self):
+        import sys
+        if sys.platform == 'linux':
+            multiarch = sys.implementation._multiarch
+            assert 'linux' in multiarch
+        else:
+            assert not sys.implemenation.hasattr('_multiarch')
+
+    def test_audit(self):
+        import sys
+        sys.audit("os.chdir", "bla", 1, 2, 12) # does not crash
+
+    def test_sys_int_max_str_digits(self):
+        import sys
+        old = sys.get_int_max_str_digits()
+        assert old == sys.int_info.default_max_str_digits
+        try:
+            sys.set_int_max_str_digits(100000)
+            assert sys.get_int_max_str_digits() == 100000
+        finally:
+            sys.set_int_max_str_digits(old)
 
 
 class AppTestSysModulePortedFromCPython:
@@ -381,6 +402,47 @@ class AppTestSysModulePortedFromCPython:
         assert out.getvalue() == 'hello\n123 456'   # no final \n added in 3.x
         """
 
+    def test_tracebacklimit_excepthook(self):
+        import sys
+        savestderr = sys.stderr
+        assert not hasattr(sys, "tracebacklimit")
+
+        eh = sys.__excepthook__
+        def f1():
+            f2()
+        def f2():
+            f3()
+        def f3():
+            raise ValueError(42)
+
+        def get_error_with_tracebacklimit(limit):
+            import io
+            sys.tracebacklimit = limit
+            sys.stderr = err = io.StringIO()
+            try:
+                f1()
+            except ValueError:
+                eh(*sys.exc_info())
+            return err.getvalue()
+            # should be removed by the limit
+
+        msg = get_error_with_tracebacklimit(2)
+        assert "f1" not in msg
+        assert "f2" in msg
+        assert "f3" in msg
+
+        msg = get_error_with_tracebacklimit(0)
+        assert "Traceback (most recent call last):" not in msg
+        assert "ValueError" in msg
+
+        msg = get_error_with_tracebacklimit(-1)
+        assert "Traceback (most recent call last):" not in msg
+        assert "ValueError" in msg
+
+        sys.stderr = savestderr
+        del sys.tracebacklimit
+
+
     # FIXME: testing the code for a lost or replaced excepthook in
     # Python/pythonrun.c::PyErr_PrintEx() is tricky.
 
@@ -475,6 +537,16 @@ class AppTestSysModulePortedFromCPython:
         assert sys.getrecursionlimit() == 10000
         sys.setrecursionlimit(oldlimit)
         raises(OverflowError, sys.setrecursionlimit, 1<<31)
+
+    def test_recursionlimit_toolow(self):
+        import sys
+        def callatlevel(l):
+            if l > 0:
+                callatlevel(l - 1)
+            else:
+                sys.setrecursionlimit(1)
+        with raises(RecursionError):
+            callatlevel(500)
 
     def test_getwindowsversion(self):
         import sys
@@ -587,6 +659,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
+        assert isinstance(sys._framework, str)
 
     def test_implementation(self):
         import sys
@@ -736,6 +809,45 @@ class AppTestSysModulePortedFromCPython:
         assert not sys.is_finalizing()
         # xxx should also test when it is True, but maybe not worth the effort
 
+    def test_asyncgen_hooks(self):
+        import sys
+        old = sys.get_asyncgen_hooks()
+        assert old.firstiter is None
+        assert old.finalizer is None
+
+        firstiter = lambda *a: None
+        sys.set_asyncgen_hooks(firstiter=firstiter)
+        hooks = sys.get_asyncgen_hooks()
+        assert hooks.firstiter is firstiter
+        assert hooks[0] is firstiter
+        assert hooks.finalizer is None
+        assert hooks[1] is None
+
+        finalizer = lambda *a: None
+        sys.set_asyncgen_hooks(finalizer=finalizer)
+        hooks = sys.get_asyncgen_hooks()
+        assert hooks.firstiter is firstiter
+        assert hooks[0] is firstiter
+        assert hooks.finalizer is finalizer
+        assert hooks[1] is finalizer
+
+        sys.set_asyncgen_hooks(*old)
+        cur = sys.get_asyncgen_hooks()
+        assert cur.firstiter is None
+        assert cur.finalizer is None
+
+    def test_coroutine_origin_tracking_depth(self):
+        import sys
+        depth = sys.get_coroutine_origin_tracking_depth()
+        assert depth == 0
+        try:
+            sys.set_coroutine_origin_tracking_depth(6)
+            depth = sys.get_coroutine_origin_tracking_depth()
+            assert depth == 6
+            with raises(ValueError):
+                sys.set_coroutine_origin_tracking_depth(-5)
+        finally:
+            sys.set_coroutine_origin_tracking_depth(0)
 
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):
@@ -983,3 +1095,4 @@ class AppTestSysExcInfoDirect:
         except:
             assert g() is e
     test_call_in_subfunction.expected = 'y'
+

@@ -3,10 +3,10 @@ import sys, py
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
-    cast_base_ptr_to_instance, hlstr, cast_instance_to_gcref)
+    hlstr, cast_instance_to_gcref, cast_gcref_to_instance)
 from rpython.rtyper.llannotation import lltype_to_annotation
+from rpython.rtyper.rclass import OBJECTPTR
 from rpython.annotator import model as annmodel
-from rpython.annotator.dictdef import DictDef
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
@@ -87,7 +87,7 @@ def ll_meta_interp(function, args, backendopt=False,
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
 def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
-                    backendopt=False, trace_limit=sys.maxint, inline=False,
+                    backendopt=False, trace_limit=2**14, inline=False,
                     loop_longevity=0, retrace_limit=5, function_threshold=4,
                     disable_unrolling=sys.maxint,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15,
@@ -425,9 +425,9 @@ class WarmRunnerDesc(object):
         graph = copygraph(graph)
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
-        # XXX this is incredibly obscure, but this is sometiems necessary
+        # XXX this is incredibly obscure, but this is sometimes necessary
         #     so we don't explode in checkgraph. for reasons unknown this
-        #     is not contanied within simplify_graph
+        #     is not contained within simplify_graph
         removenoops.remove_same_as(graph)
         # a crash in the following checkgraph() means that you forgot
         # to list some variable in greens=[] or reds=[] in JitDriver,
@@ -473,7 +473,7 @@ class WarmRunnerDesc(object):
         auto_inline_graphs(self.translator, graphs, 0.01)
 
     def build_cpu(self, CPUClass, translate_support_code=False,
-                  no_stats=False, supports_floats=True,
+                  no_stats=False, no_stats_history=False, supports_floats=True,
                   supports_longlong=True, supports_singlefloats=True,
                   **kwds):
         assert CPUClass is not None
@@ -482,6 +482,10 @@ class WarmRunnerDesc(object):
             stats = history.NoStats()
         else:
             stats = history.Stats(None)
+            if no_stats_history:
+                stats.set_history = lambda history: None
+                # ^^^ for test_jitiface.test_memmgr_release_all.  otherwise,
+                # stats.history attribute keeps the most recent loop alive
         self.stats = stats
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
@@ -665,10 +669,10 @@ class WarmRunnerDesc(object):
         jd.num_green_args = len(jd._green_args_spec)
         jd.num_red_args = len(jd.red_args_types)
         RESTYPE = graph.getreturnvar().concretetype
-        (jd._JIT_ENTER_FUNCTYPE,
-         jd._PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
-        (jd._PORTAL_FUNCTYPE,
-         jd._PTR_PORTAL_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, RESTYPE)
+        jd._JIT_ENTER_FUNCTYPE = lltype.FuncType(ALLARGS, lltype.Void)
+        jd._PTR_JIT_ENTER_FUNCTYPE = lltype.Ptr(jd._JIT_ENTER_FUNCTYPE)
+        jd._PORTAL_FUNCTYPE = lltype.FuncType(ALLARGS, RESTYPE)
+        jd._PTR_PORTAL_FUNCTYPE = lltype.Ptr(jd._PORTAL_FUNCTYPE)
         #
         if jd.result_type == 'v':
             ASMRESTYPE = lltype.Void
@@ -680,8 +684,8 @@ class WarmRunnerDesc(object):
             ASMRESTYPE = lltype.Float
         else:
             assert False
-        (_, jd._PTR_ASSEMBLER_HELPER_FUNCTYPE) = self.cpu.ts.get_FuncType(
-            [llmemory.GCREF, llmemory.GCREF], ASMRESTYPE)
+        jd._PTR_ASSEMBLER_HELPER_FUNCTYPE = lltype.Ptr(lltype.FuncType(
+            [llmemory.GCREF, llmemory.GCREF], ASMRESTYPE))
 
     def rewrite_jitcell_accesses(self):
         jitdrivers_by_name = {}
@@ -691,7 +695,7 @@ class WarmRunnerDesc(object):
                 jitdrivers_by_name[name] = jd
         m = _find_jit_markers(self.translator.graphs,
                               ('get_jitcell_at_key', 'trace_next_iteration',
-                               'dont_trace_here', 'trace_next_iteration_hash'))
+                               'dont_trace_here', 'trace_next_iteration_hash', 'mark_as_being_traced'))
         accessors = {}
 
         def get_accessor(name, jitdriver_name, function, ARGS, green_arg_spec):
@@ -743,6 +747,8 @@ class WarmRunnerDesc(object):
                 func = JitCell.get_jitcell
             elif op.args[0].value == 'dont_trace_here':
                 func = JitCell.dont_trace_here
+            elif op.args[0].value == 'mark_as_being_traced':
+                func = JitCell.mark_as_being_traced
             elif op.args[0].value == 'trace_next_iteration_hash':
                 func = JitCell.trace_next_iteration_hash
             else:
@@ -850,19 +856,19 @@ class WarmRunnerDesc(object):
         # make sure we make a copy of function so it no longer belongs
         # to extregistry
         func = op.args[1].value
-        if func.func_name.startswith('stats_'):
+        if func.__name__.startswith('stats_'):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
             assert len(op.args) >= 3, ("%r must have a first argument "
                                        "(which is None)" % (func,))
-            func = func_with_new_name(func, func.func_name + '_compiled')
+            func = func_with_new_name(func, func.__name__ + '_compiled')
 
             def new_func(ignored, *args):
                 return func(self, *args)
             ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[3:]]
         else:
             ARGS = [arg.concretetype for arg in op.args[2:]]
-            new_func = func_with_new_name(func, func.func_name + '_compiled')
+            new_func = func_with_new_name(func, func.__name__ + '_compiled')
         RESULT = op.result.concretetype
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
         ptr = self.helper_func(FUNCPTR, new_func)
@@ -909,8 +915,8 @@ class WarmRunnerDesc(object):
         #
         from rpython.jit.metainterp.warmstate import specialize_value
         from rpython.jit.metainterp.warmstate import unspecialize_value
-        portal_ptr = self.cpu.ts.functionptr(PORTALFUNC, 'portal',
-                                         graph=portalgraph)
+        portal_ptr = lltype.functionptr(
+            PORTALFUNC, 'portal', graph=portalgraph)
         jd._portal_ptr = portal_ptr
         #
         portalfunc_ARGS = []
@@ -932,7 +938,6 @@ class WarmRunnerDesc(object):
         RESULT = PORTALFUNC.RESULT
         result_kind = history.getkind(RESULT)
         assert result_kind.startswith(jd.result_type)
-        ts = self.cpu.ts
         state = jd.warmstate
         maybe_compile_and_run = jd._maybe_compile_and_run_fn
         EnterJitAssembler = jd._EnterJitAssembler
@@ -995,11 +1000,11 @@ class WarmRunnerDesc(object):
                         return e.result
                 #
                 if isinstance(e, jitexc.ExitFrameWithExceptionRef):
-                    value = ts.cast_to_baseclass(e.value)
                     if not we_are_translated():
-                        raise LLException(ts.get_typeptr(value), value)
+                        value = lltype.cast_opaque_ptr(OBJECTPTR, e.value)
+                        raise LLException(value.typeptr, value)
                     else:
-                        value = cast_base_ptr_to_instance(Exception, value)
+                        value = cast_gcref_to_instance(Exception, e.value)
                         assert value is not None
                         raise value
                 #
@@ -1087,10 +1092,10 @@ class WarmRunnerDesc(object):
 
         closures = {}
         graphs = self.translator.graphs
-        _, PTR_SET_PARAM_FUNCTYPE = self.cpu.ts.get_FuncType([lltype.Signed],
-                                                             lltype.Void)
-        _, PTR_SET_PARAM_STR_FUNCTYPE = self.cpu.ts.get_FuncType(
-            [lltype.Ptr(STR)], lltype.Void)
+        SET_PARAM_FUNC = lltype.Ptr(lltype.FuncType(
+            [lltype.Signed], lltype.Void))
+        SET_PARAM_STR_FUNC = lltype.Ptr(lltype.FuncType(
+            [lltype.Ptr(STR)], lltype.Void))
         def make_closure(jd, fullfuncname, is_string):
             if jd is None:
                 def closure(i):
@@ -1105,9 +1110,9 @@ class WarmRunnerDesc(object):
                         i = hlstr(i)
                     getattr(state, fullfuncname)(i)
             if is_string:
-                TP = PTR_SET_PARAM_STR_FUNCTYPE
+                TP = SET_PARAM_STR_FUNC
             else:
-                TP = PTR_SET_PARAM_FUNCTYPE
+                TP = SET_PARAM_FUNC
             funcptr = self.helper_func(TP, closure)
             return Constant(funcptr, TP)
         #

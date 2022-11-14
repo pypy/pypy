@@ -130,7 +130,6 @@ class MissingRTypeAttribute(TyperError):
 #  A root class "object" has:
 #
 #      struct object_vtable {
-#          // struct object_vtable* parenttypeptr;  not used any more
 #          RuntimeTypeInfo * rtti;
 #          Signed subclassrange_min;  //this is also the id of the class itself
 #          Signed subclassrange_max;
@@ -166,7 +165,6 @@ OBJECT = GcStruct('object', ('typeptr', CLASSTYPE),
                   rtti=True)
 OBJECTPTR = Ptr(OBJECT)
 OBJECT_VTABLE.become(Struct('object_vtable',
-                            #('parenttypeptr', CLASSTYPE),
                             ('subclassrange_min', Signed),
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
@@ -341,7 +339,6 @@ class ClassRepr(Repr):
         """Initialize the head of the vtable."""
         # initialize the 'subclassrange_*' and 'name' fields
         if self.classdef is not None:
-            #vtable.parenttypeptr = self.rbase.getvtable()
             vtable.subclassrange_min = self.classdef.minid
             vtable.subclassrange_max = self.classdef.maxid
         else:  # for the root class
@@ -415,6 +412,9 @@ class ClassRepr(Repr):
         else:
             v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
             return hop.gendirectcall(ll_issubclass, v_cls1, v_cls2)
+
+    def ll_str(self, cls):
+        return cls.name
 
 
 class RootClassRepr(ClassRepr):
@@ -524,6 +524,9 @@ class InstanceRepr(Repr):
             if hints is None:
                 hints = {}
             hints = self._check_for_immutable_hints(hints)
+            if self.classdef.classdesc.get_param('_rpython_never_allocate_'):
+                hints['never_allocate'] = True
+
             kwds = {}
             if self.gcflavor == 'gc':
                 kwds['rtti'] = True

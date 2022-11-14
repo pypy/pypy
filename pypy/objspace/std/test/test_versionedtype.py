@@ -1,4 +1,6 @@
 from pypy.objspace.std.test import test_typeobject
+from pypy.objspace.std.longobject import W_LongObject
+from rpython.rlib.rbigint import rbigint
 
 class TestVersionedType(test_typeobject.TestTypeObject):
 
@@ -227,5 +229,27 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         cell = w_A._getdictvalue_no_unwrapping(space, "x")
         assert space.float_w(cell.w_value) == 2.2
 
+    def test_integer_strategy_with_w_long(self):
+        space = self.space
+        w_x = space.wrap("x")
+        w_A, w_B, w_C = self.get_three_classes()
+        atag = w_A.version_tag()
+        w = W_LongObject(rbigint.fromlong(42))
+        space.setattr(w_A, w_x, w)
+        assert w_A.version_tag() is not atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 42
 
+        atag = w_A.version_tag()
+        w = W_LongObject(rbigint.fromlong(43))
+        space.setattr(w_A, w_x, w)
+        assert w_A.version_tag() is not atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 43
+        cell = w_A._getdictvalue_no_unwrapping(space, "x")
+        assert cell.intvalue == 43
 
+        atag = w_A.version_tag()
+        w = W_LongObject(rbigint.fromlong(44))
+        space.setattr(w_A, w_x, w)
+        assert w_A.version_tag() is atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 44
+        assert cell.intvalue == 44

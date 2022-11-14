@@ -1,3 +1,35 @@
+typedef PyObject *(*getter)(PyObject *, void *);
+typedef int (*setter)(PyObject *, PyObject *, void *);
+
+typedef struct PyGetSetDef {
+    const char *name;
+    getter get;
+    setter set;
+    const char *doc;
+    void *closure;
+} PyGetSetDef;
+
+typedef PyObject *(*wrapperfunc)(PyObject *self, PyObject *args,
+                                 void *wrapped);
+
+typedef PyObject *(*wrapperfunc_kwds)(PyObject *self, PyObject *args,
+                                      void *wrapped, PyObject *kwds);
+
+struct wrapperbase {
+    const char *name;
+    int offset;
+    void *function;
+    wrapperfunc wrapper;
+    const char *doc;
+    int flags;
+    PyObject *name_strobj;
+};
+
+/* Flags for above struct */
+#define PyWrapperFlag_KEYWORDS 1 /* wrapper function takes keyword args */
+
+/* Various kinds of descriptor objects */
+
 typedef struct {
     PyObject_HEAD
     PyTypeObject *d_type;
@@ -6,6 +38,9 @@ typedef struct {
 } PyDescrObject;
 
 #define PyDescr_COMMON PyDescrObject d_common
+
+#define PyDescr_TYPE(x) (((PyDescrObject *)(x))->d_type)
+#define PyDescr_NAME(x) (((PyDescrObject *)(x))->d_name)
 
 typedef struct {
     PyDescr_COMMON;

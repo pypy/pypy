@@ -8,7 +8,7 @@ def _string_from_asn1(asn1):
     return _str_with_len(ffi.cast("char*",data), length)
 
 def _str_with_len(char_ptr, length):
-    return ffi.buffer(char_ptr, length)[:].decode('utf-8')
+    return ffi.buffer(char_ptr, length)[:].decode('utf-8').strip('\n')
 
 def _bytes_with_len(char_ptr, length):
     return ffi.buffer(char_ptr, length)[:]
@@ -19,7 +19,7 @@ def _str_to_ffi_buffer(view):
     elif isinstance(view, memoryview):
         # NOTE pypy limitation StringBuffer does not allow
         # to get a raw address to the string!
-        view = bytes(view)
+        view = view.tobytes()
     # dont call call ffi.from_buffer(bytes(view)), arguments
     # like ints/bools should result in a TypeError
     return ffi.from_buffer(view)

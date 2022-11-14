@@ -9,20 +9,27 @@ from http.server import BaseHTTPRequestHandler, HTTPServer, \
 from http import server, HTTPStatus
 
 import os
+import socket
 import sys
 import re
 import base64
 import ntpath
 import shutil
-import urllib.parse
+import email.message
+import email.utils
 import html
 import http.client
+import urllib.parse
 import tempfile
+import time
+import datetime
+import threading
+from unittest import mock
 from io import BytesIO
 
 import unittest
 from test import support
-threading = support.import_module('threading')
+
 
 class NoLogRequestHandler:
     def log_message(self, *args):
@@ -51,6 +58,7 @@ class TestServerThread(threading.Thread):
 
     def stop(self):
         self.server.shutdown()
+        self.join()
 
 
 class BaseTestCase(unittest.TestCase):
@@ -189,7 +197,7 @@ class BaseHTTPServerTestCase(BaseTestCase):
         res = self.con.getresponse()
         self.assertEqual(res.status, HTTPStatus.NOT_IMPLEMENTED)
 
-    def test_head_keep_alive(self):
+    def test_header_keep_alive(self):
         self.con._http_vsn_str = 'HTTP/1.1'
         self.con.putrequest('GET', '/')
         self.con.putheader('Connection', 'keep-alive')
@@ -324,7 +332,7 @@ class SimpleHTTPServerTestCase(BaseTestCase):
         pass
 
     def setUp(self):
-        BaseTestCase.setUp(self)
+        super().setUp()
         self.cwd = os.getcwd()
         basetempdir = tempfile.gettempdir()
         os.chdir(basetempdir)
@@ -332,8 +340,17 @@ class SimpleHTTPServerTestCase(BaseTestCase):
         self.tempdir = tempfile.mkdtemp(dir=basetempdir)
         self.tempdir_name = os.path.basename(self.tempdir)
         self.base_url = '/' + self.tempdir_name
-        with open(os.path.join(self.tempdir, 'test'), 'wb') as temp:
+        tempname = os.path.join(self.tempdir, 'test')
+        with open(tempname, 'wb') as temp:
             temp.write(self.data)
+            temp.flush()
+        mtime = os.stat(tempname).st_mtime
+        # compute last modification datetime for browser cache tests
+        last_modif = datetime.datetime.fromtimestamp(mtime,
+            datetime.timezone.utc)
+        self.last_modif_datetime = last_modif.replace(microsecond=0)
+        self.last_modif_header = email.utils.formatdate(
+            last_modif.timestamp(), usegmt=True)
 
     def tearDown(self):
         try:
@@ -343,7 +360,7 @@ class SimpleHTTPServerTestCase(BaseTestCase):
             except:
                 pass
         finally:
-            BaseTestCase.tearDown(self)
+            super().tearDown()
 
     def check_status_and_reason(self, response, status, data=None):
         def close_conn():
@@ -370,7 +387,10 @@ class SimpleHTTPServerTestCase(BaseTestCase):
         reader.close()
         return body
 
-    @support.requires_mac_ver(10, 5)
+    @unittest.skipIf(sys.platform == 'darwin',
+                     'undecodable name cannot always be decoded on macOS')
+    @unittest.skipIf(sys.platform == 'win32',
+                     'undecodable name cannot be decoded on win32')
     @unittest.skipUnless(support.TESTFN_UNDECODABLE,
                          'need support.TESTFN_UNDECODABLE')
     def test_undecodable_filename(self):
@@ -390,11 +410,60 @@ class SimpleHTTPServerTestCase(BaseTestCase):
         quotedname = urllib.parse.quote(filename, errors='surrogatepass')
         self.assertIn(('href="%s"' % quotedname)
                       .encode(enc, 'surrogateescape'), body)
-        self.assertIn(('>%s<' % html.escape(filename))
+        self.assertIn(('>%s<' % html.escape(filename, quote=False))
                       .encode(enc, 'surrogateescape'), body)
         response = self.request(self.base_url + '/' + quotedname)
         self.check_status_and_reason(response, HTTPStatus.OK,
                                      data=support.TESTFN_UNDECODABLE)
+
+    def test_get_dir_redirect_location_domain_injection_bug(self):
+        """Ensure //evil.co/..%2f../../X does not put //evil.co/ in Location.
+
+        //netloc/ in a Location header is a redirect to a new host.
+        https://github.com/python/cpython/issues/87389
+
+        This checks that a path resolving to a directory on our server cannot
+        resolve into a redirect to another server.
+        """
+        os.mkdir(os.path.join(self.tempdir, 'existing_directory'))
+        url = f'/python.org/..%2f..%2f..%2f..%2f..%2f../%0a%0d/../{self.tempdir_name}/existing_directory'
+        expected_location = f'{url}/'  # /python.org.../ single slash single prefix, trailing slash
+        # Canonicalizes to /tmp/tempdir_name/existing_directory which does
+        # exist and is a dir, triggering the 301 redirect logic.
+        response = self.request(url)
+        self.check_status_and_reason(response, HTTPStatus.MOVED_PERMANENTLY)
+        location = response.getheader('Location')
+        self.assertEqual(location, expected_location, msg='non-attack failed!')
+
+        # //python.org... multi-slash prefix, no trailing slash
+        attack_url = f'/{url}'
+        response = self.request(attack_url)
+        self.check_status_and_reason(response, HTTPStatus.MOVED_PERMANENTLY)
+        location = response.getheader('Location')
+        self.assertFalse(location.startswith('//'), msg=location)
+        self.assertEqual(location, expected_location,
+                msg='Expected Location header to start with a single / and '
+                'end with a / as this is a directory redirect.')
+
+        # ///python.org... triple-slash prefix, no trailing slash
+        attack3_url = f'//{url}'
+        response = self.request(attack3_url)
+        self.check_status_and_reason(response, HTTPStatus.MOVED_PERMANENTLY)
+        self.assertEqual(response.getheader('Location'), expected_location)
+
+        # If the second word in the http request (Request-URI for the http
+        # method) is a full URI, we don't worry about it, as that'll be parsed
+        # and reassembled as a full URI within BaseHTTPRequestHandler.send_head
+        # so no errant scheme-less //netloc//evil.co/ domain mixup can happen.
+        attack_scheme_netloc_2slash_url = f'https://pypi.org/{url}'
+        expected_scheme_netloc_location = f'{attack_scheme_netloc_2slash_url}/'
+        response = self.request(attack_scheme_netloc_2slash_url)
+        self.check_status_and_reason(response, HTTPStatus.MOVED_PERMANENTLY)
+        location = response.getheader('Location')
+        # We're just ensuring that the scheme and domain make it through, if
+        # there are or aren't multiple slashes at the start of the path that
+        # follows that isn't important in this Location: header.
+        self.assertTrue(location.startswith('https://pypi.org/'), msg=location)
 
     def test_get(self):
         #constructs the path relative to the root directory of the HTTPServer
@@ -443,6 +512,44 @@ class SimpleHTTPServerTestCase(BaseTestCase):
         self.assertEqual(response.getheader('content-type'),
                          'application/octet-stream')
 
+    def test_browser_cache(self):
+        """Check that when a request to /test is sent with the request header
+        If-Modified-Since set to date of last modification, the server returns
+        status code 304, not 200
+        """
+        headers = email.message.Message()
+        headers['If-Modified-Since'] = self.last_modif_header
+        response = self.request(self.base_url + '/test', headers=headers)
+        self.check_status_and_reason(response, HTTPStatus.NOT_MODIFIED)
+
+        # one hour after last modification : must return 304
+        new_dt = self.last_modif_datetime + datetime.timedelta(hours=1)
+        headers = email.message.Message()
+        headers['If-Modified-Since'] = email.utils.format_datetime(new_dt,
+            usegmt=True)
+        response = self.request(self.base_url + '/test', headers=headers)
+        self.check_status_and_reason(response, HTTPStatus.NOT_MODIFIED)
+
+    def test_browser_cache_file_changed(self):
+        # with If-Modified-Since earlier than Last-Modified, must return 200
+        dt = self.last_modif_datetime
+        # build datetime object : 365 days before last modification
+        old_dt = dt - datetime.timedelta(days=365)
+        headers = email.message.Message()
+        headers['If-Modified-Since'] = email.utils.format_datetime(old_dt,
+            usegmt=True)
+        response = self.request(self.base_url + '/test', headers=headers)
+        self.check_status_and_reason(response, HTTPStatus.OK)
+
+    def test_browser_cache_with_If_None_Match_header(self):
+        # if If-None-Match header is present, ignore If-Modified-Since
+
+        headers = email.message.Message()
+        headers['If-Modified-Since'] = self.last_modif_header
+        headers['If-None-Match'] = "*"
+        response = self.request(self.base_url + '/test', headers=headers)
+        self.check_status_and_reason(response, HTTPStatus.OK)
+
     def test_invalid_requests(self):
         response = self.request('/', method='FOO')
         self.check_status_and_reason(response, HTTPStatus.NOT_IMPLEMENTED)
@@ -451,6 +558,15 @@ class SimpleHTTPServerTestCase(BaseTestCase):
         self.check_status_and_reason(response, HTTPStatus.NOT_IMPLEMENTED)
         response = self.request('/', method='GETs')
         self.check_status_and_reason(response, HTTPStatus.NOT_IMPLEMENTED)
+
+    def test_last_modified(self):
+        """Checks that the datetime returned in Last-Modified response header
+        is the actual datetime of last modification, rounded to the second
+        """
+        response = self.request(self.base_url + '/test')
+        self.check_status_and_reason(response, HTTPStatus.OK, data=self.data)
+        last_modif_header = response.headers['Last-modified']
+        self.assertEqual(last_modif_header, self.last_modif_header)
 
     def test_path_without_leading_slash(self):
         response = self.request(self.tempdir_name + '/test')
@@ -467,6 +583,27 @@ class SimpleHTTPServerTestCase(BaseTestCase):
         self.check_status_and_reason(response, HTTPStatus.MOVED_PERMANENTLY)
         self.assertEqual(response.getheader("Location"),
                          self.tempdir_name + "/?hi=1")
+
+    def test_html_escape_filename(self):
+        filename = '<test&>.txt'
+        fullpath = os.path.join(self.tempdir, filename)
+
+        try:
+            open(fullpath, 'w').close()
+        except OSError:
+            raise unittest.SkipTest('Can not create file %s on current file '
+                                    'system' % filename)
+
+        try:
+            response = self.request(self.base_url + '/')
+            body = self.check_status_and_reason(response, HTTPStatus.OK)
+            enc = response.headers.get_content_charset()
+        finally:
+            os.unlink(fullpath)  # avoid affecting test_undecodable_filename
+
+        self.assertIsNotNone(enc)
+        html_text = '>%s<' % html.escape(filename, quote=False)
+        self.assertIn(html_text.encode(enc), body)
 
 
 cgi_file1 = """\
@@ -524,9 +661,10 @@ class CGIHTTPServerTestCase(BaseTestCase):
 
         # The shebang line should be pure ASCII: use symlink if possible.
         # See issue #7668.
+        self._pythonexe_symlink = None
         if support.can_symlink():
             self.pythonexe = os.path.join(self.parent_dir, 'python')
-            os.symlink(sys.executable, self.pythonexe)
+            self._pythonexe_symlink = support.PythonSymlink(self.pythonexe).__enter__()
         else:
             self.pythonexe = sys.executable
 
@@ -569,8 +707,8 @@ class CGIHTTPServerTestCase(BaseTestCase):
     def tearDown(self):
         try:
             os.chdir(self.cwd)
-            if self.pythonexe != sys.executable:
-                os.remove(self.pythonexe)
+            if self._pythonexe_symlink:
+                self._pythonexe_symlink.__exit__(None, None, None)
             if self.nocgi_path:
                 os.remove(self.nocgi_path)
             if self.file1_path:
@@ -703,7 +841,11 @@ class CGIHTTPServerTestCase(BaseTestCase):
 
 
 class SocketlessRequestHandler(SimpleHTTPRequestHandler):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        request = mock.Mock()
+        request.makefile.return_value = BytesIO()
+        super().__init__(request, None, None)
+
         self.get_called = False
         self.protocol_version = "HTTP/1.1"
 
@@ -799,6 +941,16 @@ class BaseHTTPRequestHandlerTestCase(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0], b'<html><body>Data</body></html>\r\n')
         self.verify_get_called()
+
+    def test_extra_space(self):
+        result = self.send_typical_request(
+            b'GET /spaced out HTTP/1.1\r\n'
+            b'Host: dummy\r\n'
+            b'\r\n'
+        )
+        self.assertTrue(result[0].startswith(b'HTTP/1.1 400 '))
+        self.verify_expected_headers(result[1:result.index(b'\r\n')])
+        self.assertFalse(self.handler.get_called)
 
     def test_with_continue_1_0(self):
         result = self.send_typical_request(b'GET / HTTP/1.0\r\nExpect: 100-continue\r\n\r\n')
@@ -918,7 +1070,7 @@ class BaseHTTPRequestHandlerTestCase(unittest.TestCase):
         # Issue #6791: same for headers
         result = self.send_typical_request(
             b'GET / HTTP/1.1\r\nX-Foo: bar' + b'r' * 65537 + b'\r\n\r\n')
-        self.assertEqual(result[0], b'HTTP/1.1 400 Line too long\r\n')
+        self.assertEqual(result[0], b'HTTP/1.1 431 Line too long\r\n')
         self.assertFalse(self.handler.get_called)
         self.assertEqual(self.handler.requestline, 'GET / HTTP/1.1')
 
@@ -928,6 +1080,13 @@ class BaseHTTPRequestHandlerTestCase(unittest.TestCase):
         self.assertEqual(result[0], b'HTTP/1.1 431 Too many headers\r\n')
         self.assertFalse(self.handler.get_called)
         self.assertEqual(self.handler.requestline, 'GET / HTTP/1.1')
+
+    def test_html_escape_on_error(self):
+        result = self.send_typical_request(
+            b'<script>alert("hello")</script> / HTTP/1.1')
+        result = b''.join(result)
+        text = '<script>alert("hello")</script>'
+        self.assertIn(html.escape(text, quote=False).encode('ascii'), result)
 
     def test_close_connection(self):
         # handle_one_request() should be repeatedly called until
@@ -943,6 +1102,19 @@ class BaseHTTPRequestHandlerTestCase(unittest.TestCase):
         close_values = iter((False, False, True))
         self.handler.handle()
         self.assertRaises(StopIteration, next, close_values)
+
+    def test_date_time_string(self):
+        now = time.time()
+        # this is the old code that formats the timestamp
+        year, month, day, hh, mm, ss, wd, y, z = time.gmtime(now)
+        expected = "%s, %02d %3s %4d %02d:%02d:%02d GMT" % (
+            self.handler.weekdayname[wd],
+            day,
+            self.handler.monthname[month],
+            year, hh, mm, ss
+        )
+        self.assertEqual(self.handler.date_time_string(timestamp=now), expected)
+
 
 class SimpleHTTPRequestHandlerTestCase(unittest.TestCase):
     """ Test url parsing """
@@ -997,6 +1169,66 @@ class MiscTestCase(unittest.TestCase):
         self.assertCountEqual(server.__all__, expected)
 
 
+class ScriptTestCase(unittest.TestCase):
+
+    def mock_server_class(self):
+        return mock.MagicMock(
+            return_value=mock.MagicMock(
+                __enter__=mock.MagicMock(
+                    return_value=mock.MagicMock(
+                        socket=mock.MagicMock(
+                            getsockname=lambda: ('', 0),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+    @mock.patch('builtins.print')
+    def test_server_test_unspec(self, _):
+        mock_server = self.mock_server_class()
+        server.test(ServerClass=mock_server, bind=None)
+        self.assertIn(
+            mock_server.address_family,
+            (socket.AF_INET6, socket.AF_INET),
+        )
+
+    @mock.patch('builtins.print')
+    def test_server_test_localhost(self, _):
+        mock_server = self.mock_server_class()
+        server.test(ServerClass=mock_server, bind="localhost")
+        self.assertIn(
+            mock_server.address_family,
+            (socket.AF_INET6, socket.AF_INET),
+        )
+
+    ipv6_addrs = (
+        "::",
+        "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+        "::1",
+    )
+
+    ipv4_addrs = (
+        "0.0.0.0",
+        "8.8.8.8",
+        "127.0.0.1",
+    )
+
+    @mock.patch('builtins.print')
+    def test_server_test_ipv6(self, _):
+        for bind in self.ipv6_addrs:
+            mock_server = self.mock_server_class()
+            server.test(ServerClass=mock_server, bind=bind)
+            self.assertEqual(mock_server.address_family, socket.AF_INET6)
+
+    @mock.patch('builtins.print')
+    def test_server_test_ipv4(self, _):
+        for bind in self.ipv4_addrs:
+            mock_server = self.mock_server_class()
+            server.test(ServerClass=mock_server, bind=bind)
+            self.assertEqual(mock_server.address_family, socket.AF_INET)
+
+
 def test_main(verbose=None):
     cwd = os.getcwd()
     try:
@@ -1008,6 +1240,7 @@ def test_main(verbose=None):
             CGIHTTPServerTestCase,
             SimpleHTTPRequestHandlerTestCase,
             MiscTestCase,
+            ScriptTestCase
         )
     finally:
         os.chdir(cwd)

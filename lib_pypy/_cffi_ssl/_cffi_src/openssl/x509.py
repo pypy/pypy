@@ -29,14 +29,10 @@ typedef struct {
     ...;
 } X509_ALGOR;
 
-typedef ... X509_ATTRIBUTE;
-typedef ... X509_CINF;
 typedef ... X509_EXTENSION;
 typedef ... X509_EXTENSIONS;
 typedef ... X509_REQ;
-typedef ... X509_REQ_INFO;
 typedef ... X509_REVOKED;
-typedef ... X509_CRL_INFO;
 typedef ... X509_CRL;
 typedef ... X509;
 
@@ -44,38 +40,7 @@ typedef ... NETSCAPE_SPKI;
 
 typedef ... PKCS8_PRIV_KEY_INFO;
 
-static const int X509_FLAG_COMPAT;
-static const int X509_FLAG_NO_HEADER;
-static const int X509_FLAG_NO_VERSION;
-static const int X509_FLAG_NO_SERIAL;
-static const int X509_FLAG_NO_SIGNAME;
-static const int X509_FLAG_NO_ISSUER;
-static const int X509_FLAG_NO_VALIDITY;
-static const int X509_FLAG_NO_SUBJECT;
-static const int X509_FLAG_NO_PUBKEY;
-static const int X509_FLAG_NO_EXTENSIONS;
-static const int X509_FLAG_NO_SIGDUMP;
-static const int X509_FLAG_NO_AUX;
-static const int X509_FLAG_NO_ATTRIBUTES;
-
-static const int XN_FLAG_SEP_MASK;
-static const int XN_FLAG_COMPAT;
-static const int XN_FLAG_SEP_COMMA_PLUS;
-static const int XN_FLAG_SEP_CPLUS_SPC;
-static const int XN_FLAG_SEP_SPLUS_SPC;
-static const int XN_FLAG_SEP_MULTILINE;
-static const int XN_FLAG_DN_REV;
-static const int XN_FLAG_FN_MASK;
-static const int XN_FLAG_FN_SN;
-static const int XN_FLAG_FN_LN;
-static const int XN_FLAG_FN_OID;
-static const int XN_FLAG_FN_NONE;
-static const int XN_FLAG_SPC_EQ;
-static const int XN_FLAG_DUMP_UNKNOWN_FIELDS;
-static const int XN_FLAG_FN_ALIGN;
-static const int XN_FLAG_RFC2253;
-static const int XN_FLAG_ONELINE;
-static const int XN_FLAG_MULTILINE;
+typedef void (*sk_X509_EXTENSION_freefunc)(X509_EXTENSION *);
 """
 
 FUNCTIONS = """
@@ -83,6 +48,7 @@ X509 *X509_new(void);
 void X509_free(X509 *);
 X509 *X509_dup(X509 *);
 int X509_cmp(const X509 *, const X509 *);
+int X509_up_ref(X509 *);
 
 int X509_print_ex(BIO *, X509 *, unsigned long, unsigned long);
 
@@ -105,7 +71,6 @@ int X509_set_subject_name(X509 *, X509_NAME *);
 int X509_set_issuer_name(X509 *, X509_NAME *);
 
 int X509_add_ext(X509 *, X509_EXTENSION *, int);
-X509_EXTENSION *X509_delete_ext(X509 *, int);
 X509_EXTENSION *X509_EXTENSION_dup(X509_EXTENSION *);
 
 ASN1_OBJECT *X509_EXTENSION_get_object(X509_EXTENSION *);
@@ -120,10 +85,7 @@ int X509_REQ_set_pubkey(X509_REQ *, EVP_PKEY *);
 int X509_REQ_set_subject_name(X509_REQ *, X509_NAME *);
 int X509_REQ_sign(X509_REQ *, EVP_PKEY *, const EVP_MD *);
 int X509_REQ_verify(X509_REQ *, EVP_PKEY *);
-int X509_REQ_digest(const X509_REQ *, const EVP_MD *,
-                    unsigned char *, unsigned int *);
 EVP_PKEY *X509_REQ_get_pubkey(X509_REQ *);
-int X509_REQ_print(BIO *, X509_REQ *);
 int X509_REQ_print_ex(BIO *, X509_REQ *, unsigned long, unsigned long);
 int X509_REQ_add_extensions(X509_REQ *, X509_EXTENSIONS *);
 X509_EXTENSIONS *X509_REQ_get_extensions(X509_REQ *);
@@ -143,6 +105,7 @@ X509_EXTENSION *X509_REVOKED_delete_ext(X509_REVOKED *, int);
 int X509_REVOKED_set_revocationDate(X509_REVOKED *, ASN1_TIME *);
 
 X509_CRL *X509_CRL_new(void);
+X509_CRL *X509_CRL_dup(X509_CRL *);
 X509_CRL *d2i_X509_CRL_bio(BIO *, X509_CRL **);
 int X509_CRL_add0_revoked(X509_CRL *, X509_REVOKED *);
 int X509_CRL_add_ext(X509_CRL *, X509_EXTENSION *, int);
@@ -182,39 +145,16 @@ int X509_set_serialNumber(X509 *, ASN1_INTEGER *);
 
 const char *X509_verify_cert_error_string(long);
 
-const char *X509_get_default_cert_area(void);
 const char *X509_get_default_cert_dir(void);
 const char *X509_get_default_cert_file(void);
 const char *X509_get_default_cert_dir_env(void);
 const char *X509_get_default_cert_file_env(void);
-const char *X509_get_default_private_dir(void);
 
-int i2d_RSA_PUBKEY(RSA *, unsigned char **);
-RSA *d2i_RSA_PUBKEY(RSA **, const unsigned char **, long);
-RSA *d2i_RSAPublicKey(RSA **, const unsigned char **, long);
-RSA *d2i_RSAPrivateKey(RSA **, const unsigned char **, long);
-int i2d_DSA_PUBKEY(DSA *, unsigned char **);
-DSA *d2i_DSA_PUBKEY(DSA **, const unsigned char **, long);
-DSA *d2i_DSAPublicKey(DSA **, const unsigned char **, long);
-DSA *d2i_DSAPrivateKey(DSA **, const unsigned char **, long);
-
-RSA *d2i_RSAPrivateKey_bio(BIO *, RSA **);
 int i2d_RSAPrivateKey_bio(BIO *, RSA *);
 RSA *d2i_RSAPublicKey_bio(BIO *, RSA **);
 int i2d_RSAPublicKey_bio(BIO *, RSA *);
-RSA *d2i_RSA_PUBKEY_bio(BIO *, RSA **);
-int i2d_RSA_PUBKEY_bio(BIO *, RSA *);
-DSA *d2i_DSA_PUBKEY_bio(BIO *, DSA **);
-int i2d_DSA_PUBKEY_bio(BIO *, DSA *);
-DSA *d2i_DSAPrivateKey_bio(BIO *, DSA **);
 int i2d_DSAPrivateKey_bio(BIO *, DSA *);
 
-PKCS8_PRIV_KEY_INFO *d2i_PKCS8_PRIV_KEY_INFO_bio(BIO *,
-                                                 PKCS8_PRIV_KEY_INFO **);
-void PKCS8_PRIV_KEY_INFO_free(PKCS8_PRIV_KEY_INFO *);
-"""
-
-MACROS = """
 /* These became const X509 in 1.1.0 */
 int X509_get_ext_count(X509 *);
 X509_EXTENSION *X509_get_ext(X509 *, int);
@@ -239,17 +179,9 @@ X509_EXTENSION *X509_REVOKED_get_ext(X509_REVOKED *, int);
 X509_EXTENSION *X509_CRL_get_ext(X509_CRL *, int);
 int X509_CRL_get_ext_count(X509_CRL *);
 
-/* these CRYPTO_EX_DATA functions became macros in 1.1.0 */
-int X509_get_ex_new_index(long, void *, CRYPTO_EX_new *, CRYPTO_EX_dup *,
-                          CRYPTO_EX_free *);
-int X509_set_ex_data(X509 *, int, void *);
-void *X509_get_ex_data(X509 *, int);
+int X509_CRL_get0_by_serial(X509_CRL *, X509_REVOKED **, ASN1_INTEGER *);
 
 X509_REVOKED *Cryptography_X509_REVOKED_dup(X509_REVOKED *);
-
-int i2d_X509_CINF(X509_CINF *, unsigned char **);
-int i2d_X509_CRL_INFO(X509_CRL_INFO *, unsigned char **);
-int i2d_X509_REQ_INFO(X509_REQ_INFO *, unsigned char **);
 
 /* new in 1.0.2 */
 int i2d_re_X509_tbs(X509 *, unsigned char **);
@@ -257,8 +189,8 @@ int X509_get_signature_nid(const X509 *);
 
 const X509_ALGOR *X509_get0_tbs_sigalg(const X509 *);
 
-/* in 1.1.0 becomes const ASN1_BIT_STRING, const X509_ALGOR */
-void X509_get0_signature(ASN1_BIT_STRING **, X509_ALGOR **, X509 *);
+void X509_get0_signature(const ASN1_BIT_STRING **,
+                         const X509_ALGOR **, const X509 *);
 
 long X509_get_version(X509 *);
 
@@ -281,6 +213,7 @@ int sk_X509_EXTENSION_push(X509_EXTENSIONS *, X509_EXTENSION *);
 int sk_X509_EXTENSION_insert(X509_EXTENSIONS *, X509_EXTENSION *, int);
 X509_EXTENSION *sk_X509_EXTENSION_delete(X509_EXTENSIONS *, int);
 void sk_X509_EXTENSION_free(X509_EXTENSIONS *);
+void sk_X509_EXTENSION_pop_free(X509_EXTENSIONS *, sk_X509_EXTENSION_freefunc);
 
 int sk_X509_REVOKED_num(Cryptography_STACK_OF_X509_REVOKED *);
 X509_REVOKED *sk_X509_REVOKED_value(Cryptography_STACK_OF_X509_REVOKED *, int);
@@ -291,12 +224,7 @@ int sk_X509_CRL_num(Cryptography_STACK_OF_X509_CRL *);
 int sk_X509_CRL_push(Cryptography_STACK_OF_X509_CRL *, X509_CRL *);
 X509_CRL *sk_X509_CRL_value(Cryptography_STACK_OF_X509_CRL *, int);
 
-int i2d_RSAPublicKey(RSA *, unsigned char **);
-int i2d_RSAPrivateKey(RSA *, unsigned char **);
-int i2d_DSAPublicKey(DSA *, unsigned char **);
-int i2d_DSAPrivateKey(DSA *, unsigned char **);
-
-int X509_CRL_get_version(X509_CRL *);
+long X509_CRL_get_version(X509_CRL *);
 ASN1_TIME *X509_CRL_get_lastUpdate(X509_CRL *);
 ASN1_TIME *X509_CRL_get_nextUpdate(X509_CRL *);
 X509_NAME *X509_CRL_get_issuer(X509_CRL *);
@@ -308,17 +236,10 @@ int X509_CRL_set_nextUpdate(X509_CRL *, ASN1_TIME *);
 int X509_set_notBefore(X509 *, ASN1_TIME *);
 int X509_set_notAfter(X509 *, ASN1_TIME *);
 
-int i2d_EC_PUBKEY(EC_KEY *, unsigned char **);
-EC_KEY *d2i_EC_PUBKEY(EC_KEY **, const unsigned char **, long);
 EC_KEY *d2i_EC_PUBKEY_bio(BIO *, EC_KEY **);
 int i2d_EC_PUBKEY_bio(BIO *, EC_KEY *);
-EC_KEY *d2i_ECPrivateKey(EC_KEY **, const unsigned char **, long);
 EC_KEY *d2i_ECPrivateKey_bio(BIO *, EC_KEY **);
-int i2d_ECPrivateKey(EC_KEY *, unsigned char **);
 int i2d_ECPrivateKey_bio(BIO *, EC_KEY *);
-
-EC_KEY *o2i_ECPublicKey(EC_KEY **, const unsigned char **, long);
-int i2o_ECPublicKey(EC_KEY *, unsigned char **);
 
 // declared in safestack
 int sk_ASN1_OBJECT_num(Cryptography_STACK_OF_ASN1_OBJECT *);
@@ -341,10 +262,10 @@ void X509_REQ_get0_signature(const X509_REQ *, const ASN1_BIT_STRING **,
 CUSTOMIZATIONS = """
 /* Added in 1.0.2 beta but we need it in all versions now due to the great
    opaquing. */
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 || defined(LIBRESSL_VERSION_NUMBER)
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 && !CRYPTOGRAPHY_LIBRESSL_27_OR_GREATER
 /* from x509/x_x509.c version 1.0.2 */
-void X509_get0_signature(ASN1_BIT_STRING **psig, X509_ALGOR **palg,
-                         const X509 *x)
+void X509_get0_signature(const ASN1_BIT_STRING **psig,
+                         const X509_ALGOR **palg, const X509 *x)
 {
     if (psig)
         *psig = x->signature;
@@ -359,9 +280,9 @@ int X509_get_signature_nid(const X509 *x)
 
 #endif
 
-/* Added in 1.0.2beta3 but we need it in all versions now due to the great
+/* Added in 1.0.2 but we need it in all versions now due to the great
    opaquing. */
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102BETA3 || defined(LIBRESSL_VERSION_NUMBER)
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102
 /* from x509/x_x509.c */
 int i2d_re_X509_tbs(X509 *x, unsigned char **pp)
 {
@@ -374,30 +295,34 @@ int i2d_re_X509_tbs(X509 *x, unsigned char **pp)
 }
 #endif
 
-#ifdef OPENSSL_NO_EC
-int (*i2d_EC_PUBKEY)(EC_KEY *, unsigned char **) = NULL;
-EC_KEY *(*d2i_EC_PUBKEY)(EC_KEY **, const unsigned char **, long) = NULL;
-EC_KEY *(*d2i_EC_PUBKEY_bio)(BIO *, EC_KEY **) = NULL;
-int (*i2d_EC_PUBKEY_bio)(BIO *, EC_KEY *) = NULL;
-EC_KEY *(*d2i_ECPrivateKey)(EC_KEY **, const unsigned char **, long) = NULL;
-EC_KEY *(*d2i_ECPrivateKey_bio)(BIO *, EC_KEY **) = NULL;
-int (*i2d_ECPrivateKey)(EC_KEY *, unsigned char **) = NULL;
-int (*i2d_ECPrivateKey_bio)(BIO *, EC_KEY *) = NULL;
-
-EC_KEY *(*o2i_ECPublicKey)(EC_KEY **, const unsigned char **, long) = NULL;
-int (*i2o_ECPublicKey)(EC_KEY *, unsigned char **) = NULL;
-#endif
-
 /* X509_REVOKED_dup only exists on 1.0.2+. It is implemented using
    IMPLEMENT_ASN1_DUP_FUNCTION. The below is the equivalent so we have
    it available on all OpenSSLs. */
 X509_REVOKED *Cryptography_X509_REVOKED_dup(X509_REVOKED *rev) {
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102
     return ASN1_item_dup(ASN1_ITEM_rptr(X509_REVOKED), rev);
+#else
+    return X509_REVOKED_dup(rev);
+#endif
 }
 
 /* Added in 1.1.0 but we need it in all versions now due to the great
    opaquing. */
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110 || defined(LIBRESSL_VERSION_NUMBER)
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
+int i2d_re_X509_REQ_tbs(X509_REQ *req, unsigned char **pp)
+{
+    req->req_info->enc.modified = 1;
+    return i2d_X509_REQ_INFO(req->req_info, pp);
+}
+int i2d_re_X509_CRL_tbs(X509_CRL *crl, unsigned char **pp) {
+    crl->crl->enc.modified = 1;
+    return i2d_X509_CRL_INFO(crl->crl, pp);
+}
+
+#if !CRYPTOGRAPHY_LIBRESSL_27_OR_GREATER
+int X509_up_ref(X509 *x) {
+   return CRYPTO_add(&x->references, 1, CRYPTO_LOCK_X509);
+}
 
 const X509_ALGOR *X509_get0_tbs_sigalg(const X509 *x)
 {
@@ -413,16 +338,6 @@ void X509_REQ_get0_signature(const X509_REQ *req, const ASN1_BIT_STRING **psig,
     if (palg != NULL)
         *palg = req->sig_alg;
 }
-int i2d_re_X509_REQ_tbs(X509_REQ *req, unsigned char **pp)
-{
-    req->req_info->enc.modified = 1;
-    return i2d_X509_REQ_INFO(req->req_info, pp);
-}
-int i2d_re_X509_CRL_tbs(X509_CRL *crl, unsigned char **pp) {
-    crl->crl->enc.modified = 1;
-    return i2d_X509_CRL_INFO(crl->crl, pp);
-}
-
 void X509_CRL_get0_signature(const X509_CRL *crl, const ASN1_BIT_STRING **psig,
                              const X509_ALGOR **palg)
 {
@@ -439,5 +354,6 @@ const ASN1_INTEGER *X509_REVOKED_get0_serialNumber(const X509_REVOKED *x)
 {
     return x->serialNumber;
 }
+#endif
 #endif
 """

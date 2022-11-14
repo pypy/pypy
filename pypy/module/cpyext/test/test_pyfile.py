@@ -1,6 +1,7 @@
 import pytest
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.object import Py_PRINT_RAW
+from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.udir import udir
 
@@ -48,6 +49,16 @@ class TestFile(BaseApiTest):
 
         space.call_method(w_file, "close")
 
+    def test_file_fromfd(self, space, api):
+        name = str(udir / "_test_file")
+        with rffi.scoped_str2charp(name) as filename:
+            with rffi.scoped_str2charp("wb") as mode:
+                w_file = api.PyFile_FromString(filename, mode)
+                fp = space.int_w(w_file.fileno_w(space))
+                assert fp is not None
+                w_file2 = api.PyFile_FromFd(fp, filename, mode, -1, None, None, None, 1)
+        assert w_file2 is not None
+
     @pytest.mark.xfail
     def test_file_setbufsize(self, space, api):
         api.PyFile_SetBufSize()
@@ -70,3 +81,31 @@ class TestFile(BaseApiTest):
         out, err = capfd.readouterr()
         out = out.replace('\r\n', '\n')
         assert out == "test\n'test\\n'"
+
+    def test_fspath(self, space, api):
+        w_obj = space.newtext("test")
+        w_ret = api.PyOS_FSPath(w_obj)
+        assert space.eq_w(w_ret, w_obj)
+
+        w_obj = space.newint(3)
+        with pytest.raises(OperationError):
+            w_ret = api.PyOS_FSPath(w_obj)
+
+
+        w_p1 = space.appexec([], '''():
+            class Pathlike():
+                def __fspath__(self):
+                    return 'test'
+            return Pathlike()''')
+
+        w_p2 = space.appexec([], '''():
+            class UnPathlike():
+                def __fspath__(self):
+                    return 42
+            return UnPathlike()''')
+
+        w_ret = api.PyOS_FSPath(w_p1)
+        assert space.eq_w(w_ret, space.newtext('test'))
+
+        with pytest.raises(OperationError):
+            w_ret = api.PyOS_FSPath(w_p2)

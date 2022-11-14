@@ -2,18 +2,20 @@ import math
 import sys
 
 import py
-import weakref
+import pytest
 
 from rpython.rlib import rgc
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.test.support import LLJitMixin, noConst
 from rpython.jit.metainterp.warmspot import get_stats
+from rpython.jit.metainterp.pyjitpl import MetaInterp
 from rpython.rlib import rerased
 from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual, set_param, record_exact_class)
+    isconstant, isvirtual, set_param, record_exact_class, record_known_result,
+    record_exact_value, loop_unrolling_heuristic)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -108,6 +110,35 @@ class BasicTests:
         assert res == 1323
         self.check_trace_count(1)
         self.check_simple_loop(int_mul=1)
+
+    def test_rutf8(self):
+        from rpython.rlib import rutf8, jit
+        class U(object):
+            def __init__(self, u, l):
+                self.u = u
+                self.l = l
+                self._index_storage = rutf8.null_storage()
+
+            def _get_index_storage(self):
+                return jit.conditional_call_elidable(self._index_storage,
+                            U._compute_index_storage, self)
+
+            def _compute_index_storage(self):
+                storage = rutf8.create_utf8_index_storage(self.u, self.l)
+                self._index_storage = storage
+                return storage
+
+        def m(a):
+            return f(a)
+        def f(a):
+            x = str(a)
+            u = U(x, len(x))
+            st = u._get_index_storage()
+            return rutf8.codepoint_index_at_byte_position(
+                u.u, st, 1, len(x))
+
+        self.interp_operations(m, [123232])
+
 
     def test_loop_variant_mul_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -786,13 +817,13 @@ class BasicTests:
             from rpython.rtyper.lltypesystem import lltype
             from rpython.rtyper.lltypesystem.lloperation import llop
             loc = locals().copy()
-            exec py.code.Source("""
+            exec(py.code.Source("""
                 def f(n, m, p):
                     arg1 = %(arg1)s
                     arg2 = %(arg2)s
                     arg3 = %(arg3)s
                     return llop.int_between(lltype.Bool, arg1, arg2, arg3)
-            """ % locals()).compile() in loc
+            """ % locals()).compile(), loc)
             res = self.interp_operations(loc['f'], [5, 6, 7])
             assert res == expect_result
             self.check_operations_history(expect_operations)
@@ -1464,6 +1495,24 @@ class BasicTests:
         res = self.meta_interp(f, [10, 13, 0])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
         self.check_jitcell_token_count(0)
+
+    def test_set_param_pureops_historylength(self):
+        myjitdriver = JitDriver(greens=[], reds='auto')
+        def g(i):
+            set_param(myjitdriver, 'pureop_historylength', i)
+            x1 = x2 = x3 = x4 = 0
+            while x1 < 100:
+                myjitdriver.jit_merge_point()
+                a = x1 + 1
+                x2 += 1
+                x3 += 1
+                x4 += 1
+                x1 += 1 # should or should not reuse a
+            return a
+        res = self.meta_interp(g, [4])
+        self.check_resops(int_add=10)
+        res = self.meta_interp(g, [16])
+        self.check_resops(int_add=8)
 
     def test_dont_look_inside(self):
         @dont_look_inside
@@ -2840,7 +2889,6 @@ class BasicTests:
         self.check_target_token_count(5)
 
     def test_max_unroll_loops(self):
-        from rpython.jit.metainterp.optimize import InvalidLoop
         from rpython.jit.metainterp import optimizeopt
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i'])
         #
@@ -2854,10 +2902,11 @@ class BasicTests:
                 i += 1
             return i
         #
-        def my_optimize_trace(*args, **kwds):
-            raise InvalidLoop
-        old_optimize_trace = optimizeopt.optimize_trace
-        optimizeopt.optimize_trace = my_optimize_trace
+        def my_compile_loop(
+                self, original_boxes, live_arg_boxes, start, use_unroll):
+            return None
+        old_compile_loop = MetaInterp.compile_loop
+        MetaInterp.compile_loop = my_compile_loop
         try:
             res = self.meta_interp(f, [23, 4])
             assert res == 23
@@ -2869,11 +2918,11 @@ class BasicTests:
             self.check_trace_count(0)
             self.check_aborted_count(2)
         finally:
-            optimizeopt.optimize_trace = old_optimize_trace
+            MetaInterp.compile_loop = old_compile_loop
 
     def test_max_unroll_loops_retry_without_unroll(self):
-        from rpython.jit.metainterp.optimize import InvalidLoop
-        from rpython.jit.metainterp import optimizeopt
+        if not self.basic:
+            py.test.skip("unrolling")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i'])
         #
         def f(n, limit):
@@ -2887,20 +2936,19 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_optimize_trace(metainterp_sd, jitdriver_sd, data, memo=None):
-            seen.append('unroll' in data.enable_opts)
-            raise InvalidLoop
-        old_optimize_trace = optimizeopt.optimize_trace
-        optimizeopt.optimize_trace = my_optimize_trace
+        def my_compile_loop(
+                self, original_boxes, live_arg_boxes, start, use_unroll):
+            seen.append(use_unroll)
+            return None
+        old_compile_loop = MetaInterp.compile_loop
+        MetaInterp.compile_loop = my_compile_loop
         try:
-            if not self.basic:
-                py.test.skip("unrolling")
             res = self.meta_interp(f, [23, 4])
             assert res == 23
             assert False in seen
             assert True in seen
         finally:
-            optimizeopt.optimize_trace = old_optimize_trace
+            MetaInterp.compile_loop = old_compile_loop
 
     def test_retrace_limit_with_extra_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',
@@ -3806,6 +3854,23 @@ class BaseLLtypeTests(BasicTests):
         assert res == 0
         self.check_resops(call_i=0, call_may_force_i=0, new_array=0)
 
+    def test_loop_unrolling_heuristic_needs_constant_size(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        @look_inside_iff(lambda x: loop_unrolling_heuristic(x, len(x)))
+        def g(x):
+            return x[0]
+        def f(n):
+            l = [1] * 1000
+            l.append(1)
+            while n > 0:
+                myjitdriver.jit_merge_point()
+                x = l[:n]
+                n -= g(x)
+                x.append(n)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops(call_i=2, new_array=2)
 
     def test_convert_from_SmallFunctionSetPBCRepr_to_FunctionsPBCRepr(self):
         f1 = lambda n: n+1
@@ -3960,6 +4025,91 @@ class BaseLLtypeTests(BasicTests):
         # here it works again
         self.check_operations_history(guard_class=0, record_exact_class=1)
 
+    def test_record_known_result(self):
+        @elidable
+        def f(x):
+            return x + 1
+        @elidable
+        def g(x):
+            return x - 1
+
+        def call_f(x):
+            y = f(x)
+            record_known_result(x, g, y)
+            a = g(y)
+            return a
+
+        myjitdriver = JitDriver(greens=[], reds=['x', 'res'])
+        def main(x):
+            res = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(x=x, res=res)
+                res += x
+                x = call_f(x) - 1
+            return res
+        res = self.meta_interp(main, [10], backendopt=True)
+        assert res == main(10)
+        self.check_resops(call_i=2)  # two calls to f, both get removed by the backend
+
+
+    def test_record_exact_value(self):
+        class A(object):
+            _immutable_fields_ = ['x']
+
+        a = A()
+        b = A()
+        a.x = 42
+        b.x = 233
+
+        @dont_look_inside
+        def make(x):
+            if x > 0:
+                return a
+            else:
+                return b
+        def f(x):
+            inst = make(x)
+            if x > 0:
+                record_exact_value(inst, a)
+            else:
+                record_exact_value(inst, b)
+            return inst.x
+        res = self.interp_operations(f, [1])
+        assert res == 42
+        self.check_operations_history(record_exact_value_r=1)
+
+    def test_record_exact_value_int_constant(self):
+        class A:
+            pass
+        def f(x):
+            a = A()
+            if x == 1:
+                a.x = 1
+            else:
+                a.x = x
+            record_exact_value(a.x, 1)
+            return a.x
+        res = self.interp_operations(f, [1])
+        assert res == 1
+        # don't need to record, it's already a Const
+        self.check_operations_history(record_exact_value_i=0)
+
+    def test_record_exact_value_int_constant_bogus(self):
+        class A:
+            pass
+        def f(x):
+            a = A()
+            if x == 1:
+                a.x = 1
+            else:
+                a.x = x
+            record_exact_value(a.x, 12)
+            return a.x
+        # the actual exception is a weird AttributeError, caused by the way
+        # that interp_operations fakes stuff. just check that there is one
+        with py.test.raises(Exception):
+            self.interp_operations(f, [1])
+
     def test_generator(self):
         def g(n):
             yield n+1
@@ -3993,64 +4143,6 @@ class BaseLLtypeTests(BasicTests):
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
-    def test_tagged(self):
-        py.test.skip("tagged unsupported")
-        from rpython.rlib.objectmodel import UnboxedValue
-        class Base(object):
-            __slots__ = ()
-
-        class Int(UnboxedValue, Base):
-            __slots__ = ["a"]
-
-            def is_pos(self):
-                return self.a > 0
-
-            def dec(self):
-                try:
-                    return Int(self.a - 1)
-                except OverflowError:
-                    raise
-
-        class Float(Base):
-            def __init__(self, a):
-                self.a = a
-
-            def is_pos(self):
-                return self.a > 0
-
-            def dec(self):
-                return Float(self.a - 1)
-
-        driver = JitDriver(greens=['pc', 's'], reds=['o'])
-
-        def main(fl, n, s):
-            if s:
-                s = "--j"
-            else:
-                s = "---j"
-            if fl:
-                o = Float(float(n))
-            else:
-                o = Int(n)
-            pc = 0
-            while True:
-                driver.jit_merge_point(s=s, pc=pc, o=o)
-                c = s[pc]
-                if c == "j":
-                    driver.can_enter_jit(s=s, pc=pc, o=o)
-                    if o.is_pos():
-                        pc = 0
-                        continue
-                    else:
-                        break
-                elif c == "-":
-                    o = o.dec()
-                pc += 1
-            return pc
-        topt = {'taggedpointers': True}
-        res = self.meta_interp(main, [False, 100, True],
-                               translationoptions=topt)
-
     def test_rerased(self):
         eraseX, uneraseX = rerased.new_erasing_pair("X")
         #
@@ -4622,6 +4714,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                                       guard_class=2,
                                       assert_not_none=2) # before optimization
 
+    @pytest.mark.skipif(sys.platform=='darwin', reason='symbolics comparison breaks the untranslated optimizer')
     def test_call_time_clock(self):
         import time
         def g():
@@ -4811,3 +4904,52 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         res = self.meta_interp(f, [0])
         assert res == f(0)
+
+    def test_record_exact_class_nonconst(self):
+        class Base(object):
+            def f(self):
+                raise NotImplementedError
+            def g(self):
+                raise NotImplementedError
+        class A(Base):
+            def f(self):
+                return self.a
+            def g(self):
+                return self.a + 1
+        class B(Base):
+            def f(self):
+                return self.b
+            def g(self):
+                return self.b + 1
+        class C(B):
+            def f(self):
+                self.c += 1
+                return self.c
+            def g(self):
+                return self.c + 1
+        @dont_look_inside
+        def make(x):
+            if x > 0:
+                a = A()
+                a.a = x + 1
+            elif x < 0:
+                a = B()
+                a.b = -x
+            else:
+                a = C()
+                a.c = 10
+            return a, type(a)
+        def f(x):
+            a, cls = make(x)
+            record_exact_class(a, cls)
+            if x > 0:
+                z = a.f()
+            elif x < 0:
+                z = a.f()
+            else:
+                z = a.f()
+            return z + a.g()
+        res1 = f(6)
+        res2 = self.interp_operations(f, [6])
+        assert res1 == res2
+        self.check_operations_history(guard_class=1, record_exact_class=0)

@@ -52,7 +52,7 @@ class W_BytearrayObject(W_Root):
                            ''.join(self._data[self._offset:]))
 
     def buffer_w(self, space, flags):
-        return SimpleView(BytearrayBuffer(self))
+        return SimpleView(BytearrayBuffer(self), w_obj=self)
 
     def bytearray_list_of_chars_w(self, space):
         return self.getdata()
@@ -195,8 +195,8 @@ class W_BytearrayObject(W_Root):
         s, _, lgt = str_decode_latin_1(''.join(self.getdata()), 'strict',
             True, None)
         return space.newtuple([
-            space.type(self), space.newtuple([
-                space.newutf8(s, lgt), space.newtext('latin-1')]),
+            space.type(self), space.newtuple2(
+                space.newutf8(s, lgt), space.newtext('latin-1')),
             w_dict])
 
     @staticmethod
@@ -207,7 +207,10 @@ class W_BytearrayObject(W_Root):
         data = _hexstring_to_array(space, hexstring)
         # in CPython bytearray.fromhex is a staticmethod, so
         # we ignore w_type and always return a bytearray
-        return new_bytearray(space, space.w_bytearray, data)
+        w_result = new_bytearray(space, space.w_bytearray, data)
+        if w_bytearraytype is not space.w_bytearray:
+            w_result = space.call_function(w_bytearraytype, w_result)
+        return w_result
 
     @unwrap_spec(encoding='text_or_none', errors='text_or_none')
     def descr_init(self, space, w_source=None, encoding=None, errors=None):
@@ -219,11 +222,13 @@ class W_BytearrayObject(W_Root):
 
     def descr_repr(self, space):
         s, start, end, _ = self._convert_idx_params(space, None, None)
+        cls_name = space.type(self).getname(space)
 
         # Good default if there are no replacements.
-        buf = StringBuilder(len("bytearray(b'')") + (end - start))
+        buf = StringBuilder(len(cls_name) + len("(b'')") + (end - start))
 
-        buf.append("bytearray(b")
+        buf.append(cls_name)
+        buf.append("(b")
         quote = "'"
         for i in range(start, end):
             c = s[i]
@@ -313,7 +318,7 @@ class W_BytearrayObject(W_Root):
             other_len = len(other)
             cmp = _memcmp(value, other, min(len(value), len(other)))
         elif isinstance(w_other, W_BytesObject):
-            other = self._op_val(space, w_other)
+            other = w_other.bytes_w(space)
             other_len = len(other)
             cmp = _memcmp(value, other, min(len(value), len(other)))
         else:
@@ -352,22 +357,19 @@ class W_BytearrayObject(W_Root):
             return space.w_NotImplemented
         return space.newbool(cmp > 0 or (cmp == 0 and self._len() >= other_len))
 
+    def descr_isascii(self, space):
+        for i in self._data[self._offset:]:
+            if ord(i) > 127:
+                return space.w_False
+        return space.w_True
+
     def descr_inplace_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
             self._data += w_other.getdata()
             return self
 
-        if isinstance(w_other, W_BytesObject):
-            self._inplace_add(self._op_val(space, w_other))
-        else:
-            self._inplace_add(space.readbuf_w(w_other))
+        self._data += self._op_val(space, w_other)
         return self
-
-    @specialize.argtype(1)
-    def _inplace_add(self, other):
-        resizelist_hint(self._data, len(self._data) + len(other))
-        for i in range(len(other)):
-            self._data.append(other[i])
 
     def descr_inplace_mul(self, space, w_times):
         try:
@@ -427,8 +429,10 @@ class W_BytearrayObject(W_Root):
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
             self._data += w_other.getdata()
+        elif isinstance(w_other, W_BytesObject):    # performance only
+            self._data += w_other.bytes_w(space)
         else:
-            self._inplace_add(makebytesdata_w(space, w_other))
+            self._data += makebytesdata_w(space, w_other)
 
     def descr_insert(self, space, w_idx, w_other):
         where = space.int_w(w_idx)
@@ -459,20 +463,13 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_other, W_BytearrayObject):
             return self._new(self.getdata() + w_other.getdata())
 
-        if isinstance(w_other, W_BytesObject):
-            return self._add(self._op_val(space, w_other))
-
         try:
-            buffer = space.readbuf_w(w_other)
+            byte_string = self._op_val(space, w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        return self._add(buffer)
-
-    @specialize.argtype(1)
-    def _add(self, other):
-        return self._new(self.getdata() + [other[i] for i in range(len(other))])
+        return self._new(self.getdata() + list(byte_string))
 
     def descr_reverse(self, space):
         self.getdata().reverse()
@@ -484,9 +481,31 @@ class W_BytearrayObject(W_Root):
     def descr_copy(self, space):
         return self._new(self._data[self._offset:])
 
-    def descr_hex(self, space):
+    def descr_hex(self, space, w_sep=None, w_bytes_per_sep=None):
+        """
+        Create a str of hexadecimal numbers from a bytearray object.
+
+          sep
+            An optional single character or byte to separate hex bytes.
+          bytes_per_sep
+            How many bytes between separators.  Positive values count from the
+            right, negative values count from the left.
+
+        Example:
+        >>> value = bytearray([0xb9, 0x01, 0xef])
+        >>> value.hex()
+        'b901ef'
+        >>> value.hex(':')
+        'b9:01:ef'
+        >>> value.hex(':', 2)
+        'b9:01ef'
+        >>> value.hex(':', -2)
+        'b901:ef'
+        """
+        sep, bytes_per_sep = unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep)
         data = self.getdata()
-        return _array_to_hexstring(space, data, 0, 1, len(data), True)
+        return _array_to_hexstring(space, data, 0, 1, len(data), True,
+                sep=sep, bytes_per_sep=bytes_per_sep)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTEARRAY)
@@ -561,7 +580,7 @@ def _hexstring_to_array(space, s):
     length = len(s)
     i = 0
     while True:
-        while i < length and s[i] == ' ':
+        while i < length and s[i].isspace():
             i += 1
         if i >= length:
             break
@@ -581,12 +600,56 @@ def _hexstring_to_array(space, s):
 HEXDIGITS = "0123456789abcdef"
 PY_SIZE_T_MAX = intmask(2**(rffi.sizeof(rffi.SIZE_T)*8-1)-1)
 
+def unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep):
+    if w_sep is not None:
+        if space.isinstance_w(w_sep, space.w_unicode):
+            sep = space.text_w(w_sep)
+        elif space.isinstance_w(w_sep, space.w_bytes):
+            sep = space.bytes_w(w_sep)
+        else:
+            raise oefmt(space.w_TypeError, "sep must be str of bytes")
+        if w_bytes_per_sep is None:
+            bytes_per_sep = 1
+        else:
+            bytes_per_sep = space.int_w(w_bytes_per_sep)
+    else:
+        sep = None
+        bytes_per_sep = 0
+    return sep, bytes_per_sep
+
+
 @specialize.arg(5) # raw access
-def _array_to_hexstring(space, buf, start, step, length, rawaccess=False):
+def _array_to_hexstring(space, buf, start, step, length, rawaccess=False, sep=None, bytes_per_sep=0):
+    from rpython.rlib.rutf8 import check_ascii, CheckError
+    if sep is not None:
+        try:
+            check_ascii(sep)
+        except CheckError:
+            raise oefmt(space.w_ValueError, "sep must be ASCII.")
+        if len(sep) != 1:
+            raise oefmt(space.w_ValueError, "sep must be length 1.")
+    else:
+        bytes_per_sep = 0
     hexstring = StringBuilder(length*2)
 
     if length > PY_SIZE_T_MAX/2:
         raise OperationError(space.w_MemoryError, space.w_None)
+
+    if bytes_per_sep == 1:
+        bytes_per_sep_prefix = 1
+
+    elif bytes_per_sep > 1:
+        bytes_per_sep_prefix = length % bytes_per_sep
+        if bytes_per_sep_prefix == 0:
+            bytes_per_sep_prefix = bytes_per_sep
+    elif bytes_per_sep < 0:
+        bytes_per_sep_prefix = -bytes_per_sep
+        bytes_per_sep = -bytes_per_sep
+    else:
+        assert bytes_per_sep == 0
+        bytes_per_sep_prefix = -1 # disable separators
+
+    sep_counter = bytes_per_sep_prefix
 
     stepped = 0
     i = start
@@ -601,8 +664,13 @@ def _array_to_hexstring(space, buf, start, step, length, rawaccess=False):
         hexstring.append(HEXDIGITS[c])
         i += step
         stepped += 1
+        sep_counter -= 1
+        if sep_counter == 0 and sep is not None and stepped != length:
+            hexstring.append(sep)
+            sep_counter = bytes_per_sep
 
-    return space.newtext(hexstring.build())
+    s = hexstring.build()
+    return space.newtext(s, len(s)) # we know it's ASCII
 
 class BytearrayDocstrings:
     """bytearray(iterable_of_ints) -> bytearray
@@ -825,6 +893,12 @@ class BytearrayDocstrings:
         Return True if all characters in B are alphabetic
         and there is at least one character in B, False otherwise.
         """
+
+    def isascii():
+        """B.isascii() -> bool
+
+        Return true if the string is empty or all characters in the string are ASCII, false otherwise.
+        ASCII characters have code points in the range U+0000-U+007F."""
 
     def isdigit():
         """B.isdigit() -> bool
@@ -1123,6 +1197,8 @@ W_BytearrayObject.typedef = TypeDef(
                          doc=BytearrayDocstrings.isalnum.__doc__),
     isalpha = interp2app(W_BytearrayObject.descr_isalpha,
                          doc=BytearrayDocstrings.isalpha.__doc__),
+    isascii = interp2app(W_BytearrayObject.descr_isascii,
+                         doc=BytearrayDocstrings.isascii.__doc__),
     isdigit = interp2app(W_BytearrayObject.descr_isdigit,
                          doc=BytearrayDocstrings.isdigit.__doc__),
     islower = interp2app(W_BytearrayObject.descr_islower,
@@ -1298,19 +1374,19 @@ class BytearrayBuffer(GCBuffer):
         ba = self.ba
         ba._data[ba._offset + index] = char
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ""
         if step == 1:
-            assert 0 <= start <= stop
+            assert start >= 0
+            assert size >= 0
             ba = self.ba
             start += ba._offset
-            stop += ba._offset
             data = ba._data
-            if start != 0 or stop != len(data):
-                data = data[start:stop]
+            if start != 0 or size != len(data):
+                data = data[start:start+size]
             return "".join(data)
-        return GCBuffer.getslice(self, start, stop, step, size)
+        return GCBuffer.getslice(self, start, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.

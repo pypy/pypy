@@ -1,20 +1,25 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # This is pure Python code that handles the main entry point into "pypy3".
 # See test/test_app_main.
 
-# Missing vs CPython: -b, -d, -x
+# Missing vs CPython: -x
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
+-b     : issue warnings about str(bytes_instance), str(bytearray_instance)
+         and comparing bytes/bytearray with str. (-bb: issue errors)
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
 -c cmd : program passed in as string (terminates option list)
+-d     : debug output from parser; also PYTHONDEBUG=x\n\
 -E     : ignore PYTHON* environment variables (such as PYTHONPATH)
 -h     : print this help message and exit (also --help)
 -i     : inspect interactively after running script; forces a prompt even
          if stdin does not appear to be a terminal; also PYTHONINSPECT=x
 -I     : isolate Python from the user's environment (implies -E and -s)
 -m mod : run library module as a script (terminates option list)
--O     : skip assert statements; also PYTHONOPTIMIZE=x
--OO    : remove docstrings when importing modules in addition to -O
+-O     : remove assert and __debug__-dependent statements; add .opt-1 before
+         .pyc extension; also PYTHONOPTIMIZE=x
+-OO    : do -O changes and also discard docstrings; add .opt-2 before
+         .pyc extension
 -q     : don't print version and copyright messages on interactive startup
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
@@ -26,13 +31,34 @@ Options and arguments (and corresponding environment variables):
 -V     : print the Python version number and exit (also --version)
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
--X opt : set implementation-specific option
+-X opt : set implementation-specific option. The following options are available:
+         (the CPython "showrefcount", "tracemalloc", "showalloccount", and
+          "importtime" options are not available)
+         -X faulthandler: enable faulthandler
+         -X dev: enable PyPy's \"development mode\", introducing additional runtime
+             checks which are too expensive to be enabled by default. Effect of the
+             developer mode:
+                * Add default warning filter, as -W default
+                * Enable the faulthandler module to dump the Python traceback on a crash
+                * Enable asyncio debug mode
+                * Set the dev_mode attribute of sys.flags to True
+         -X utf8: enable UTF-8 mode for operating system interfaces, overriding the default
+             locale-aware mode. -X utf8=0 explicitly disables UTF-8 mode (even when it would
+             otherwise activate automatically)
+         -X pycache_prefix=PATH: enable writing .pyc files to a parallel tree rooted at the
+             given directory instead of to the code tree
+         -X jit-off: turn the JIT off, equivalent to --jit off
+         -X int_max_str_digits=number: limit the size of int<->str conversions.
+             This helps avoid denial of service attacks when parsing untrusted data.
+             The default is sys.int_info.default_max_str_digits.  0 disables.
+  
+--check-hash-based-pycs always|default|never:
+    control how Python invalidates hash-based .pyc files
 file   : program read from script file
 -      : program read from stdin (default; interactive mode if a tty)
 arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
--X faulthandler: attempt to display tracebacks when PyPy crashes
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
@@ -42,9 +68,16 @@ PYTHONPATH   : %r-separated list of directories prefixed to the
                default module search path.  The result is sys.path.
 PYTHONCASEOK : ignore case in 'import' statements (Windows).
 PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
+PYTHONFAULTHANDLER: dump the Python traceback on fatal errors.
+PYTHONDEVMODE: enable the development mode.
+PYTHONINTMAXSTRDIGITS: limits the maximum digit characters in an int value
+   when converting from a string and when converting an int back to a str.
+   A value of 0 disables the limit.  Conversions to or from bases 2, 4, 8,
+   16, and 32 are never limited.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
-               topic at startup of interactive mode.
+   topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
+PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
 """
 
 try:
@@ -58,6 +91,8 @@ except ImportError:
     PyCF_ACCEPT_NULL_BYTES = 0
 import errno
 import sys
+
+_MACOSX = sys.platform == 'darwin'
 
 DEBUG = False       # dump exceptions before calling the except hook
 
@@ -79,6 +114,19 @@ def handle_sys_exit(e):
                 pass   # too bad
             exitcode = 1
     raise SystemExit(exitcode)
+
+WE_ARE_TRANSLATED = True   # patch to False if we're not really translated
+IS_WINDOWS = 'nt' in sys.builtin_module_names
+def get_getenv():
+    try:
+        # we need a version of getenv before we import os
+        from __pypy__.os import real_getenv
+    except ImportError:
+        # dont fail on CPython tests here
+        import os
+        real_getenv = os.getenv
+    return real_getenv
+
 
 @hidden_applevel
 def run_toplevel(f, *fargs, **fkwds):
@@ -109,6 +157,9 @@ def run_toplevel(f, *fargs, **fkwds):
             sys.setprofile(None)
     except SystemExit as e:
         handle_sys_exit(e)
+    except KeyboardInterrupt as e:
+        # handled a level up
+        raise
     except BaseException as e:
         display_exception(e)
         return False
@@ -138,6 +189,19 @@ def display_exception(e):
 
         # call sys.excepthook
         hook = getattr(sys, 'excepthook', originalexcepthook)
+        try:
+            sys.audit("sys.excepthook", hook, etype, evalue, etraceback)
+        except RuntimeError:
+            return
+        except Exception as e:
+            # CPython uses _PyErr_WriteUnraisableMsg("in audit hook", NULL)
+            try:
+                initstdio()
+                import __pypy__
+                __pypy__.writeunraisable("in audit hook", e, None)
+            except Exception as e:
+                # Too bad
+                pass
         hook(etype, evalue, etraceback)
         return # done
 
@@ -185,14 +249,17 @@ def get_sys_executable():
     return getattr(sys, 'executable', 'pypy3')
 
 def print_help(*args):
-    import os
+    if IS_WINDOWS:
+        pathsep = ';'
+    else:
+        pathsep = ':'
     initstdio()
     print('usage: %s [option] ... [-c cmd | -m mod | file | -] [arg] ...' % (
         get_sys_executable(),))
     print(USAGE1, end='')
     if 'pypyjit' in sys.builtin_module_names:
         print("--jit options: advanced JIT options: try 'off' or 'help'")
-    print(USAGE2 % (os.pathsep,), end='')
+    print(USAGE2 % (pathsep,), end='')
     raise SystemExit
 
 def _print_jit_help():
@@ -222,6 +289,8 @@ def _print_jit_help():
     print('    turn off the JIT')
     print(' help')
     print('    print this page')
+    print()
+    print('The "pypyjit" module can be used to control the JIT from inside python')
 
 def print_version(*args):
     initstdio()
@@ -234,6 +303,7 @@ def funroll_loops(*args):
 
 
 def set_jit_option(options, jitparam, *args):
+    options['_jitoptions'] = jitparam
     if jitparam == 'help':
         _print_jit_help()
         raise SystemExit
@@ -263,21 +333,19 @@ def fdopen(fd, mode, bufsize=-1):
 # ____________________________________________________________
 # Main entry point
 
-def we_are_translated():
-    # app-level, very different from rpython.rlib.objectmodel.we_are_translated
-    return hasattr(sys, 'pypy_translation_info')
-
-IS_WINDOWS = 'nt' in sys.builtin_module_names
-
 def setup_and_fix_paths(ignore_environment=False, **extra):
-    import os
+    if IS_WINDOWS:
+        pathsep = ';'
+    else:
+        pathsep = ':'
+    getenv = get_getenv()
     newpath = sys.path[:]
     del sys.path[:]
     # first prepend PYTHONPATH
     readenv = not ignore_environment
-    path = readenv and os.getenv('PYTHONPATH')
+    path = readenv and getenv('PYTHONPATH')
     if path:
-        sys.path.extend(path.split(os.pathsep))
+        sys.path.extend(path.split(pathsep))
     # then add again the original entries, ignoring duplicates
     _seen = set()
     for dir in newpath:
@@ -288,6 +356,11 @@ def setup_and_fix_paths(ignore_environment=False, **extra):
 def initstdio(encoding=None, unbuffered=False):
     if hasattr(sys, 'stdin'):
         return # already initialized
+    if IS_WINDOWS:
+        pathsep = ';'
+    else:
+        pathsep = ':'
+    getenv = get_getenv()
 
     if StdErrPrinter is not None:
         sys.stderr = sys.__stderr__ = StdErrPrinter(2)
@@ -304,6 +377,10 @@ def initstdio(encoding=None, unbuffered=False):
     try:
         if encoding and ':' in encoding:
             encoding, errors = encoding.split(':', 1)
+            if encoding == '':
+                encoding = 'utf-8'
+            if errors == '':
+                errors = 'strict'
             errors = errors or None
         else:
             errors = None
@@ -349,14 +426,23 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
 
     raw = buf.raw if buffering else buf
     raw.name = name
-    # translate \r\n to \n for sys.stdin on Windows
-    newline = None if sys.platform == 'win32' and not writing else '\n'
+    # We normally use newline='\n' below, which turns off any translation.
+    # However, on Windows (independently of -u), then we must enable
+    # the Universal Newline mode (set by newline = None): on input, \r\n
+    # is translated into \n; on output, \n is translated into \r\n.
+    # We must never enable the Universal Newline mode on POSIX: CPython
+    # never interprets '\r\n' in stdin as meaning just '\n', unlike what
+    # it does if you explicitly open a file in text mode.
+    newline = None if sys.platform == 'win32' else '\n'
     stream = _io.TextIOWrapper(buf, encoding, errors, newline=newline,
-                              line_buffering=unbuffered or raw.isatty())
+                              line_buffering=unbuffered or raw.isatty(),
+                              write_through=unbuffered)
     stream.mode = mode
     return stream
 
 
+# Keep synchronized with pypy.module.sys.app.sysflags and
+# pypy.module.cpyext._flags
 sys_flags = (
     "debug",
     "inspect",
@@ -371,6 +457,9 @@ sys_flags = (
     "quiet",
     "hash_randomization",
     "isolated",
+    "dev_mode",
+    "utf8_mode",
+    "int_max_str_digits",
 )
 # ^^^ Order is significant!  Keep in sync with module.sys.app.sysflags
 
@@ -381,6 +470,10 @@ default_options = dict.fromkeys(
     "run_stdin",
     "warnoptions",
     "unbuffered"), 0)
+default_options["check_hash_based_pycs"] = "default"
+default_options["dev_mode"] = False # needs to be bool
+default_options["utf8_mode"] = -1
+default_options["int_max_str_digits"] = -1
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -400,6 +493,43 @@ def m_option(options, runmodule, iterargv):
 
 def X_option(options, xoption, iterargv):
     options["_xoptions"].append(xoption)
+    if xoption == "dev":
+        options["dev_mode"] = True
+    elif xoption.startswith("utf8"):
+        if xoption == "utf8" or xoption == "utf8=1":
+            options["utf8_mode"] = 1
+        elif xoption == "utf8=0":
+            options["utf8_mode"] = 0
+    elif xoption == 'jit-off':
+        set_jit_option(options, 'off')
+
+def config_init_int_max_str_digits(env_option, x_option, options):
+    maxdigits = -1
+    val = prefix = "unknown"
+    try:
+        if env_option:
+            val = env_option
+            prefix = "PYTHONINTMAXSTRDIGITS"
+            maxdigits = int(env_option)
+        elif x_option:
+            val = x_option
+            prefix = "-X int_max_str_digits"
+            if val is True:
+                val = "option must have '=N'"
+                raise ValueError("bad option")
+            maxdigits = int(x_option)
+        else:
+            return 0
+    except Exception as e:
+        msg = "invalid value '%s' for '%s'\n" % (val, prefix)
+        raise CommandLineError(msg)
+    if not (maxdigits == 0 or maxdigits >= sys.int_info.str_digits_check_threshold):
+        msg  = ("Fatal Python error: config_init_int_max_str_digits:"
+               " %s: invalid limit; must be >= %d or 0 for unlimited\n") % (
+               prefix, sys.int_info.str_digits_check_threshold)
+        raise CommandLineError(msg)
+    options['int_max_str_digits'] = maxdigits
+    sys.set_int_max_str_digits(maxdigits)
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -409,6 +539,16 @@ def end_options(options, _, iterargv):
 
 def ignore_option(*args):
     pass
+
+def check_hash_based_pycs(options, value, iterargv):
+    if value not in ("default", "always", "never"):
+        initstdio()
+        print_error("--check-hash-based-pycs must be one of 'default', 'always', or 'never'")
+        raise SystemExit
+    import _imp
+    _imp.check_hash_based_pycs = value
+    options["check_hash_based_pycs"] = value
+
 
 cmdline_options = {
     # simple options just increment the counter of the options listed above
@@ -437,6 +577,7 @@ cmdline_options = {
     '--info':    (print_info,      None),
     '--jit':     (set_jit_option,  Ellipsis),
     '-funroll-loops': (funroll_loops, None),
+    '--check-hash-based-pycs': (check_hash_based_pycs, Ellipsis),
     '--':        (end_options,     None),
     'R':         (ignore_option,   None),      # previously hash_randomization
     }
@@ -462,8 +603,8 @@ def handle_argument(c, options, iterargv, iterarg=iter(())):
 def parse_env(name, key, options):
     ''' Modify options inplace if name exists in os.environ
     '''
-    import os
-    v = os.getenv(name)
+    getenv = get_getenv()
+    v = getenv(name)
     if v:
         options[key] = max(1, options[key])
         try:
@@ -474,8 +615,18 @@ def parse_env(name, key, options):
             newval = max(1, newval)
             options[key] = max(options[key], newval)
 
-def parse_command_line(argv):
-    import os
+def parse_command_line(bargv, argv):
+    # bargv is the bytes version, argv is decoded via the default locale
+    # logic: parse arguments argv. if utf8-mode is enabled, re-decode bargv
+    # with utf-8, then parse arguments again
+    options = _parse_command_line(argv)
+    if options["utf8_mode"]:
+        argv = [b.decode("utf-8", "surrogateescape") for b in bargv]
+        return _parse_command_line(argv)
+    return options
+
+def _parse_command_line(argv):
+    getenv = get_getenv()
     options = default_options.copy()
     options['warnoptions'] = []
     options['_xoptions'] = []
@@ -495,6 +646,8 @@ def parse_command_line(argv):
         # it as a single argument
         elif arg in cmdline_options:
             argv = handle_argument(arg, options, iterargv)
+        elif arg.startswith("--"):
+            raise CommandLineError('Unknown option %s' % (arg,))
         #
         # Else interpret the rest of the argument character by character
         else:
@@ -515,33 +668,62 @@ def parse_command_line(argv):
     # (relevant in case of "reload(sys)")
     sys.argv[:] = argv
 
-    if not options["ignore_environment"]:
+    if options["ignore_environment"]:
+        readenv = False
+    else:
+        readenv = True
         parse_env('PYTHONDEBUG', "debug", options)
-        if os.getenv('PYTHONDONTWRITEBYTECODE'):
-            options["dont_write_bytecode"] = 1
-        if os.getenv('PYTHONNOUSERSITE'):
+        parse_env('PYTHONDONTWRITEBYTECODE', "dont_write_bytecode", options)
+        if getenv('PYTHONNOUSERSITE'):
             options["no_user_site"] = 1
-        if os.getenv('PYTHONUNBUFFERED'):
+        if getenv('PYTHONUNBUFFERED'):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
-    if (options["interactive"] or
-        (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
+        if getenv('PYPY_DISABLE_JIT'):
+            set_jit_option(options, 'off')
+        if getenv('PYTHONDEVMODE'):
+            options["dev_mode"] = True
+        val = getenv('PYTHONUTF8')
+        if not val:
+            pass
+        elif val == "0":
+            if options["utf8_mode"] == -1: # don't overwrite -X value
+                options["utf8_mode"] = 0
+        elif val == "1":
+            if options["utf8_mode"] == -1: # don't overwrite -X value
+                options["utf8_mode"] = 1
+        else:
+            initstdio()
+            sys.stderr.write(
+                "Fatal Python error: invalid PYTHONUTF8 environment variable value %r\n" % val)
+            raise SystemExit(1)
+    if options["utf8_mode"] == -1: # neither env var nor -X utf8
+        import _locale
+        lc = _locale.setlocale(_locale.LC_CTYPE, None)
+        if lc == 'C' or lc == 'POSIX':
+            options["utf8_mode"] = 1
+        else:
+            options["utf8_mode"] = 0
+
+    if (options["interactive"] or (readenv and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
-
-    if we_are_translated():
-        flags = [options[flag] for flag in sys_flags]
-        sys.flags = type(sys.flags)(flags)
-        sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
-
-        if sys.flags.optimize >= 1:
-            import __pypy__
-            __pypy__.set_debug(False)
 
     sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
                          for x in options['_xoptions'])
 
-##    if not we_are_translated():
+    config_init_int_max_str_digits(
+        getenv("PYTHONINTMAXSTRDIGITS") if readenv else None,
+        sys._xoptions.get('int_max_str_digits', None),
+        options,  # can be modified
+    )
+
+    if WE_ARE_TRANSLATED:
+        flags = [options[flag] for flag in sys_flags]
+        sys.flags = type(sys.flags)(flags)
+        sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
+
+##    if not WE_ARE_TRANSLATED:
 ##        for key in sorted(options):
 ##            print '%40s: %s' % (key, options[key])
 ##        print '%40s: %s' % ("sys.argv", sys.argv)
@@ -558,44 +740,89 @@ def run_command_line(interactive,
                      warnoptions,
                      unbuffered,
                      ignore_environment,
-                     quiet,
                      verbose,
+                     bytes_warning,
+                     quiet,
                      isolated,
+                     dev_mode,
+                     utf8_mode,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
-    # but we need more in the translated PyPy for the compiler package
-    if '__pypy__' not in sys.builtin_module_names:
+    # but we need more in the PyPy level for the compiler package
+    if not WE_ARE_TRANSLATED:
         sys.setrecursionlimit(5000)
-    import os
+    getenv = get_getenv()
+
 
     readenv = not ignore_environment
-    io_encoding = os.getenv("PYTHONIOENCODING") if readenv else None
+    io_encoding = getenv("PYTHONIOENCODING") if readenv else None
+    if (not io_encoding or io_encoding == ":") and utf8_mode:
+        io_encoding = "utf-8:surrogateescape"
     initstdio(io_encoding, unbuffered)
 
     if 'faulthandler' in sys.builtin_module_names:
-        if 'faulthandler' in sys._xoptions or os.getenv('PYTHONFAULTHANDLER'):
+        if dev_mode or 'faulthandler' in sys._xoptions or (readenv and getenv('PYTHONFAULTHANDLER')):
             import faulthandler
             try:
                 faulthandler.enable(2)   # manually set to stderr
             except ValueError:
                 pass      # ignore "2 is not a valid file descriptor"
 
+    pycache_prefix = sys._xoptions.get('pycache_prefix', None)
+    if pycache_prefix is True:
+        # "-Xpycache_prefix"
+        pass
+    elif pycache_prefix is not None:
+        # "-Xpycache_prefix=" or "-Xpycache_prefix=something"
+        if pycache_prefix:
+            sys.pycache_prefix = pycache_prefix
+    elif readenv:
+        # only if no "-Xpycache_prefix at all"
+        pycache_prefix = getenv('PYTHONPYCACHEPREFIX')
+        if pycache_prefix:    
+            sys.pycache_prefix = pycache_prefix
+
     mainmodule = type(sys)('__main__')
     mainmodule.__loader__ = sys.__loader__
-    mainmodule.__builtins__ = os.__builtins__
+    mainmodule.__builtins__ = __builtins__
+    mainmodule.__annotations__ = {}
     sys.modules['__main__'] = mainmodule
 
     if not no_site:
+        # __PYVENV_LAUNCHER__, used here by CPython on macOS, is be ignored
+        # since it (possibly) results in a wrong sys.prefix and
+        # sys.exec_prefix (and consequently sys.path) set by site.py.
         try:
             import site
         except:
             print("'import site' failed", file=sys.stderr)
 
-    pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
+    # The priority order for warnings configuration is (highest precedence
+    # first):
+    #
+    # - the BytesWarning filter, if needed ('-b', '-bb')
+    # - any '-W' command line options; then
+    # - the 'PYTHONWARNINGS' environment variable; then
+    # - the dev mode filter ('-X dev', 'PYTHONDEVMODE'); then
+    # - any implicit filters added by _warnings.c/warnings.py
+    #
+    # All settings except the last are passed to the warnings module via
+    # the `sys.warnoptions` list. Since the warnings module works on the basis
+    # of "the most recently added filter will be checked first", we add
+    # the lowest precedence entries first so that later entries override them.
+    sys_warnoptions = []
+    if dev_mode:
+        sys_warnoptions.append("default")
+    pythonwarnings = readenv and getenv('PYTHONWARNINGS')
     if pythonwarnings:
-        warnoptions = pythonwarnings.split(',') + warnoptions
+        sys_warnoptions.extend(pythonwarnings.split(','))
     if warnoptions:
-        sys.warnoptions[:] = warnoptions
+        sys_warnoptions.extend(warnoptions)
+    if bytes_warning:
+        sys_warnoptions.append("error::BytesWarning" if bytes_warning > 1 else "default::BytesWarning")
+
+    if sys_warnoptions:
+        sys.warnoptions[:] = sys_warnoptions
         try:
             if 'warnings' in sys.modules:
                 from warnings import _processoptions
@@ -629,20 +856,14 @@ def run_command_line(interactive,
         # or
         #     * PYTHONINSPECT is set and stdin is a tty.
         #
-        try:
-            # we need a version of getenv that bypasses Python caching
-            from __pypy__.os import real_getenv
-        except ImportError:
-            # dont fail on CPython here
-            real_getenv = os.getenv
-
         return (interactive or
-                ((inspect or (readenv and real_getenv('PYTHONINSPECT')))
+                ((inspect or (readenv and getenv('PYTHONINSPECT')))
                  and sys.stdin.isatty()))
 
     success = True
 
     try:
+        from os.path import abspath
         if run_command != 0:
             # handle the "-c" command
             # Put '' on sys.path
@@ -659,9 +880,10 @@ def run_command_line(interactive,
                 success = run_toplevel(exec, bytes, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
-            # '' on sys.path is required also here
+            # Put abspath('') on sys.path
             if not isolated:
-                sys.path.insert(0, '')
+                fullpath = abspath('.')
+                sys.path.insert(0, fullpath)
             import runpy
             success = run_toplevel(runpy._run_module_as_main, run_module)
         elif run_stdin:
@@ -681,7 +903,7 @@ def run_command_line(interactive,
                 # $PYTHONSTARTUP.
                 if not quiet:
                     print_banner(not no_site)
-                python_startup = readenv and os.getenv('PYTHONSTARTUP')
+                python_startup = readenv and getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
                         with open(python_startup, 'rb') as f:
@@ -724,7 +946,15 @@ def run_command_line(interactive,
             filename = sys.argv[0]
             mainmodule.__file__ = filename
             mainmodule.__cached__ = None
-            if not isolated:
+            for hook in sys.path_hooks:
+                try:
+                    importer = hook(filename)
+                    break
+                except ImportError:
+                    continue
+            else:
+                importer = None
+            if importer is None and not isolated:
                 sys.path.insert(0, sys.pypy_resolvedirof(filename))
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
@@ -751,7 +981,7 @@ def run_command_line(interactive,
                     with open(filename, 'rb') as f:
                         if f.read(4) != MAGIC_NUMBER:
                             raise RuntimeError("Bad magic number in .pyc file")
-                        if len(f.read(8)) != 8:
+                        if len(f.read(12)) != 12:
                             raise RuntimeError("Truncated .pyc file")
                         co = marshal.load(f)
                     if type(co) is not type((lambda:0).__code__):
@@ -760,18 +990,13 @@ def run_command_line(interactive,
                 args = (execfile, filename, mainmodule.__dict__)
             else:
                 filename = sys.argv[0]
-                for hook in sys.path_hooks:
-                    try:
-                        importer = hook(filename)
-                    except ImportError:
-                        continue
+                if importer is not None:
                     # It's the name of a directory or a zip file.
                     # put the filename in sys.path[0] and import
                     # the module __main__
                     import runpy
                     sys.path.insert(0, filename)
                     args = (runpy._run_module_as_main, '__main__', False)
-                    break
                 else:
                     # That's the normal path, "pypy3 stuff.py".
                     # We don't actually load via SourceFileLoader
@@ -780,8 +1005,14 @@ def run_command_line(interactive,
                     mainmodule.__loader__ = loader
                     @hidden_applevel
                     def execfile(filename, namespace):
-                        with open(filename, 'rb') as f:
-                            code = f.read()
+                        try:
+                            with open(filename, 'rb') as f:
+                                code = f.read()
+                        except IOError as e:
+                            sys.stderr.write(
+                                "%s: can't open file %s: [Errno %d] %s\n" %
+                                (sys.executable, filename, e.errno, e.strerror))
+                            raise SystemExit(e.errno)
                         co = compile(code, filename, 'exec',
                                      PyCF_ACCEPT_NULL_BYTES)
                         exec(co, namespace)
@@ -792,6 +1023,27 @@ def run_command_line(interactive,
         status = e.code
         if inspect_requested():
             display_exception(e)
+    except KeyboardInterrupt as e:
+        display_exception(e)
+        status = True
+        if not inspect_requested():
+            try:
+                import _signal
+                import os
+            except ImportError:
+                pass
+            else:
+                try:
+                    sys.stdout.flush()
+                except Exception:
+                    pass
+                try:
+                    sys.stderr.flush()
+                except Exception:
+                    pass
+                _signal.signal(_signal.SIGINT, _signal.SIG_DFL)
+                os.kill(os.getpid(), _signal.SIGINT);
+                assert 0, "should be unreachable"
     else:
         status = not success
 
@@ -803,14 +1055,21 @@ def run_command_line(interactive,
                 run_toplevel(sys.__interactivehook__)
             pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
             irc_topic = pypy_version_info[3] != 'final' or (
-                            readenv and os.getenv('PYPY_IRC_TOPIC'))
+                            readenv and getenv('PYPY_IRC_TOPIC'))
             success = run_toplevel(interactive_console, mainmodule,
                                    quiet=quiet or not irc_topic)
         except SystemExit as e:
             status = e.code
         else:
             status = not success
-
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        sys.stderr.flush()
+    except Exception:
+        pass
     return status
 
 def print_banner(copyright):
@@ -848,18 +1107,24 @@ def setup_bootstrap_path(executable):
     # from this point on, we are free to use all the unicode stuff we want,
     # This is important for py3k
     sys.executable = executable
+    if sys.platform == 'win32':
+        # someday PyPy will grow a PEP 397 launcher. Until then ...
+        exe = executable.replace('\\', '/').rsplit('/', 1)[-1]
+        sys._base_executable = sys.base_prefix + '\\' + exe
+    else:
+        sys._base_executable = executable
+
 
 @hidden_applevel
-def entry_point(executable, argv):
-    # note that before calling setup_bootstrap_path, we are limited because we
+def entry_point(executable, bargv, argv):
+    # note that before calling 'import site', we are limited because we
     # cannot import stdlib modules. In particular, we cannot use unicode
-    # stuffs (because we need to be able to import encodings) and we cannot
-    # import os, which is used a bit everywhere in app_main, but only imported
-    # *after* setup_bootstrap_path
+    # stuffs (because we need to be able to import encodings). The full stdlib
+    # can only be used in a virtualenv after 'import site' in run_command_line
     setup_bootstrap_path(executable)
     sys.pypy_initfsencoding()
     try:
-        cmdline = parse_command_line(argv)
+        cmdline = parse_command_line(bargv, argv)
     except CommandLineError as e:
         initstdio()
         print_error(str(e))
@@ -870,28 +1135,38 @@ def entry_point(executable, argv):
     return run_command_line(**cmdline)
 
 
-if __name__ == '__main__':
+def main():
+    import os
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
+    global WE_ARE_TRANSLATED
+    WE_ARE_TRANSLATED = False
+
+    # emulate passing bytes by using fsencode
+    bargv = [os.fsencode(a) for a in sys.argv]
+
 
     if len(sys.argv) > 1 and sys.argv[1] == '--argparse-only':
         import io
         del sys.argv[:2]
+        del bargv[:2]
         sys.stdout = sys.stderr = io.StringIO()
         try:
-            options = parse_command_line(sys.argv)
+            options = parse_command_line(bargv, sys.argv)
         except SystemExit:
             print('SystemExit', file=sys.__stdout__)
             print(sys.stdout.getvalue(), file=sys.__stdout__)
             raise
         except BaseException as e:
             print('Error', file=sys.__stdout__)
+            print(repr(e), file=sys.__stdout__)
             raise
         else:
             print('Return', file=sys.__stdout__)
         print(options, file=sys.__stdout__)
         print(sys.argv, file=sys.__stdout__)
+        return
 
     # Testing python on python is hard:
     # Some code above (run_command_line) will create a new module
@@ -904,23 +1179,29 @@ if __name__ == '__main__':
 
     # debugging only
     def pypy_find_executable(s):
-        import os
         return os.path.abspath(s)
 
     def pypy_find_stdlib(s):
-        from os.path import abspath, join, dirname as dn
+        from os.path import abspath, join, exists, dirname as dn
         thisfile = abspath(__file__)
         root = dn(dn(dn(thisfile)))
-        return [join(root, 'lib-python', '3'),
-                join(root, 'lib_pypy')]
+        pre_build = join(root, 'lib-python', '3')
+        if sys.platform == 'win32':
+            post_build = join(root, 'Lib')
+        else:
+            post_build = join(root, 'lib', 'pypy3.8')
+        if exists(pre_build):
+            return [pre_build, join(root, 'lib_pypy')]
+        elif exists(post_build):
+            return [post_build, join(root, 'lib_pypy')]
+        raise RuntimeError(
+                "could not find stdlib in '{}' and '{}'".format(pre_build, post_build))
 
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always
         # interpreter/app_main.py anyway
-        import os
         return os.path.abspath(os.path.join(s, '..'))
 
-    import os
     reset = []
     if 'PYTHONINSPECT_' in os.environ:
         reset.append(('PYTHONINSPECT', os.environ.get('PYTHONINSPECT', '')))
@@ -928,8 +1209,6 @@ if __name__ == '__main__':
     if 'PYTHONWARNINGS_' in os.environ:
         reset.append(('PYTHONWARNINGS', os.environ.get('PYTHONWARNINGS', '')))
         os.environ['PYTHONWARNINGS'] = os.environ['PYTHONWARNINGS_']
-    del os # make sure that os is not available globally, because this is what
-           # happens in "real life" outside the tests
 
     # when run as __main__, this module is often executed by a Python
     # interpreter that have a different list of builtin modules.
@@ -954,7 +1233,7 @@ if __name__ == '__main__':
     sys.cpython_path = sys.path[:]
 
     try:
-        sys.exit(int(entry_point(sys.argv[0], sys.argv[1:])))
+        sys.exit(int(entry_point(sys.argv[0], bargv[1:], sys.argv[1:])))
     finally:
         # restore the normal prompt (which was changed by _pypy_interact), in
         # case we are dropping to CPython's prompt
@@ -965,3 +1244,5 @@ if __name__ == '__main__':
         assert old_argv is sys.argv
         assert old_path is sys.path
 
+if __name__ == '__main__':
+    main()

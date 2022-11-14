@@ -9,7 +9,8 @@ from array import array
 from weakref import proxy
 from functools import wraps
 
-from test.support import TESTFN, check_warnings, run_unittest, make_bad_fd, cpython_only
+from test.support import (TESTFN, TESTFN_UNICODE, check_warnings, run_unittest,
+                          make_bad_fd, cpython_only, swap_attr)
 from test.support import gc_collect
 from collections import UserList
 
@@ -176,6 +177,12 @@ class AutoFileTests:
                                  (self.modulename, f.name, f.mode))
         finally:
             os.close(fd)
+
+    def testRecursiveRepr(self):
+        # Issue #25455
+        with swap_attr(self.f, 'name', self.f):
+            with self.assertRaises(RuntimeError):
+                repr(self.f)  # Should not crash
 
     def testErrors(self):
         f = self.f
@@ -434,6 +441,23 @@ class OtherFileTests:
         finally:
             os.unlink(TESTFN)
 
+    @unittest.skipIf(sys.getfilesystemencoding() != 'utf-8',
+                     "test only works for utf-8 filesystems")
+    def testUtf8BytesOpen(self):
+        # Opening a UTF-8 bytes filename
+        try:
+            fn = TESTFN_UNICODE.encode("utf-8")
+        except UnicodeEncodeError:
+            self.skipTest('could not encode %r to utf-8' % TESTFN_UNICODE)
+        f = self.FileIO(fn, "w")
+        try:
+            f.write(b"abc")
+            f.close()
+            with open(TESTFN_UNICODE, "rb") as f:
+                self.assertEqual(f.read(), b"abc")
+        finally:
+            os.unlink(TESTFN_UNICODE)
+
     def testConstructorHandlesNULChars(self):
         fn_with_NUL = 'foo\0bar'
         self.assertRaises(ValueError, self.FileIO, fn_with_NUL, 'w')
@@ -543,6 +567,7 @@ class OtherFileTests:
         self.assertRaises(MyException, MyFileIO, fd)
         os.close(fd)  # should not raise OSError(EBADF)
 
+
 class COtherFileTests(OtherFileTests, unittest.TestCase):
     FileIO = _io.FileIO
     modulename = '_io'
@@ -554,9 +579,31 @@ class COtherFileTests(OtherFileTests, unittest.TestCase):
         self.assertRaises(TypeError, self.FileIO, _testcapi.INT_MAX + 1)
         self.assertRaises(TypeError, self.FileIO, _testcapi.INT_MIN - 1)
 
+    def test_open_code(self):
+        # Check that the default behaviour of open_code matches
+        # open("rb")
+        with self.FileIO(__file__, "rb") as f:
+            expected = f.read()
+        with _io.open_code(__file__) as f:
+            actual = f.read()
+        self.assertEqual(expected, actual)
+
+
 class PyOtherFileTests(OtherFileTests, unittest.TestCase):
     FileIO = _pyio.FileIO
     modulename = '_pyio'
+
+    def test_open_code(self):
+        # Check that the default behaviour of open_code matches
+        # open("rb")
+        with self.FileIO(__file__, "rb") as f:
+            expected = f.read()
+        with check_warnings(quiet=True) as w:
+            # Always test _open_code_with_warning
+            with _pyio._open_code_with_warning(__file__) as f:
+                actual = f.read()
+            self.assertEqual(expected, actual)
+            self.assertNotEqual(w.warnings, [])
 
 
 def test_main():

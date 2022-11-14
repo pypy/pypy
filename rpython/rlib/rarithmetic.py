@@ -64,23 +64,23 @@ all typecodes.
 def _get_bitsize(typecode):
     return len(struct.pack(typecode, 1)) * 8
 
-_long_typecode = 'l'
+long_typecode = 'l'
 if _get_bitsize('P') > _get_bitsize('l'):
-    _long_typecode = 'P'
+    long_typecode = 'P'
 
 def _get_long_bit():
     # whatever size a long has, make it big enough for a pointer.
-    return _get_bitsize(_long_typecode)
+    return _get_bitsize(long_typecode)
 
 # exported for now for testing array values.
 # might go into its own module.
 def get_long_pattern(x):
     """get the bit pattern for a long, adjusted to pointer size"""
-    return struct.pack(_long_typecode, x)
+    return struct.pack(long_typecode, x)
 
 # used in tests for ctypes and for genc and friends
 # to handle the win64 special case:
-is_emulated_long = _long_typecode != 'l'
+is_emulated_long = long_typecode != 'l'
 
 LONG_BIT = _get_long_bit()
 LONG_MASK = (2**LONG_BIT)-1
@@ -665,6 +665,9 @@ class r_singlefloat(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self._bytes)
+
     def __repr__(self):
         return 'r_singlefloat(%s)' % (float(self),)
 
@@ -692,6 +695,9 @@ class r_longfloat(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self.value)
+
 
 class For_r_singlefloat_values_Entry(extregistry.ExtRegistryEntry):
     _type_ = r_singlefloat
@@ -714,6 +720,13 @@ class For_r_singlefloat_type_Entry(extregistry.ExtRegistryEntry):
         # we use cast_primitive to go between Float and SingleFloat.
         return hop.genop('cast_primitive', [v],
                          resulttype = lltype.SingleFloat)
+
+class For_r_longfloat_values_Entry(extregistry.ExtRegistryEntry):
+    _type_ = r_longfloat
+
+    def compute_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeLongFloat()
 
 
 def int_between(n, m, p):
@@ -863,26 +876,53 @@ def mulmod(a, b, c):
         return intmask((a * b) % c)
     else:
         from rpython.rlib.rbigint import rbigint
-        a = rbigint.fromlong(a)
-        b = rbigint.fromlong(b)
+        a = rbigint.fromint(a)
+        b = rbigint.fromint(b)
         return a.mul(b).int_mod(c).toint()
 
 
 # String parsing support
 # ---------------------------
 
-def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
+OVF_DIGITS = len(str(sys.maxint))
+
+def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False,
+                  max_str_digits=0):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
     characters of 's'.  Raises ParseStringError in case of error.
     Raises ParseStringOverflowError in case the result does not fit.
     """
     from rpython.rlib.rstring import (
-        NumberStringParser, ParseStringOverflowError, strip_spaces)
-    s = literal = strip_spaces(s)
-    p = NumberStringParser(s, literal, base, 'int',
+        NumberStringParser, ParseStringOverflowError)
+
+    if base == 10 and 0 < len(s) < OVF_DIGITS:
+        # fast path for simple cases, just supporting (+/-)[0-9]* with not too
+        # many digits
+        start = 0
+        sign = 1
+        if s[0] == "-":
+            start = 1
+            sign = -1
+        elif s[0] == "+":
+            start = 1
+        if start != len(s):
+            result = 0
+            for i in range(start, len(s)):
+                char = s[i]
+                value = ord(char) - ord('0')
+                if 0 <= value <= 9:
+                    result = result * 10 + value
+                else:
+                    # non digit char, let the NumberStringParser do the work
+                    break
+            else:
+                return result * sign
+
+    p = NumberStringParser(s, s, base, 'int',
                            allow_underscores=allow_underscores,
-                           no_implicit_octal=no_implicit_octal)
+                           no_implicit_octal=no_implicit_octal,
+                           max_str_digits=max_str_digits)
     base = p.base
     result = 0
     while True:
@@ -898,4 +938,4 @@ def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
             result = ovfcheck(result + digit)
         except OverflowError:
             raise ParseStringOverflowError(p)
-string_to_int._elidable_function_ = True
+string_to_int._elidable_function_ = True # can't use decorator due to circular imports

@@ -7,17 +7,12 @@ import email
 import email.message
 import re
 import io
-import shutil
 import tempfile
 from test import support
 import unittest
 import textwrap
 import mailbox
 import glob
-try:
-    import fcntl
-except ImportError:
-    pass
 
 
 class TestBase:
@@ -751,7 +746,7 @@ class TestMaildir(TestMailbox, unittest.TestCase):
             hostname = hostname.replace(':', r'\072')
         pid = os.getpid()
         pattern = re.compile(r"(?P<time>\d+)\.M(?P<M>\d{1,6})P(?P<P>\d+)"
-                             r"Q(?P<Q>\d+)\.(?P<host>[^:/]+)")
+                             r"Q(?P<Q>\d+)\.(?P<host>[^:/]*)")
         previous_groups = None
         for x in range(repetitions):
             tmp_file = self._box._create_tmp()
@@ -869,7 +864,6 @@ class TestMaildir(TestMailbox, unittest.TestCase):
             pass
 
     @unittest.skipUnless(hasattr(os, 'umask'), 'test needs os.umask()')
-    @unittest.skipUnless(hasattr(os, 'stat'), 'test needs os.stat()')
     def test_file_permissions(self):
         # Verify that message files are created without execute permissions
         msg = mailbox.MaildirMessage(self._template % 0)
@@ -883,7 +877,6 @@ class TestMaildir(TestMailbox, unittest.TestCase):
         self.assertFalse(mode & 0o111)
 
     @unittest.skipUnless(hasattr(os, 'umask'), 'test needs os.umask()')
-    @unittest.skipUnless(hasattr(os, 'stat'), 'test needs os.stat()')
     def test_folder_file_perms(self):
         # From bug #3228, we want to verify that the file created inside a Maildir
         # subfolder isn't marked as executable.
@@ -986,12 +979,40 @@ class _TestMboxMMDF(_TestSingleFile):
         super().tearDown()
         self._box.close()
         self._delete_recursively(self._path)
-        for lock_remnant in glob.glob(self._path + '.*'):
+        for lock_remnant in glob.glob(glob.escape(self._path) + '.*'):
             support.unlink(lock_remnant)
 
     def assertMailboxEmpty(self):
         with open(self._path) as f:
             self.assertEqual(f.readlines(), [])
+
+    def test_get_bytes_from(self):
+        # Get bytes representations of messages with _unixfrom.
+        unixfrom = 'From foo@bar blah\n'
+        key0 = self._box.add(unixfrom + self._template % 0)
+        key1 = self._box.add(unixfrom + _sample_message)
+        self.assertEqual(self._box.get_bytes(key0, from_=False),
+            (self._template % 0).encode('ascii'))
+        self.assertEqual(self._box.get_bytes(key1, from_=False),
+            _bytes_sample_message)
+        self.assertEqual(self._box.get_bytes(key0, from_=True),
+            (unixfrom + self._template % 0).encode('ascii'))
+        self.assertEqual(self._box.get_bytes(key1, from_=True),
+            unixfrom.encode('ascii') + _bytes_sample_message)
+
+    def test_get_string_from(self):
+        # Get string representations of messages with _unixfrom.
+        unixfrom = 'From foo@bar blah\n'
+        key0 = self._box.add(unixfrom + self._template % 0)
+        key1 = self._box.add(unixfrom + _sample_message)
+        self.assertEqual(self._box.get_string(key0, from_=False),
+                         self._template % 0)
+        self.assertEqual(self._box.get_string(key1, from_=False).split('\n'),
+                         _sample_message.split('\n'))
+        self.assertEqual(self._box.get_string(key0, from_=True),
+                         unixfrom + self._template % 0)
+        self.assertEqual(self._box.get_string(key1, from_=True).split('\n'),
+                         (unixfrom + _sample_message).split('\n'))
 
     def test_add_from_string(self):
         # Add a string starting with 'From ' to the mailbox
@@ -1097,7 +1118,6 @@ class TestMbox(_TestMboxMMDF, unittest.TestCase):
     _factory = lambda self, path, factory=None: mailbox.mbox(path, factory)
 
     @unittest.skipUnless(hasattr(os, 'umask'), 'test needs os.umask()')
-    @unittest.skipUnless(hasattr(os, 'stat'), 'test needs os.stat()')
     def test_file_perms(self):
         # From bug #3228, we want to verify that the mailbox file isn't executable,
         # even if the umask is set to something that would leave executable bits set.
@@ -1291,7 +1311,7 @@ class TestBabyl(_TestSingleFile, unittest.TestCase):
         super().tearDown()
         self._box.close()
         self._delete_recursively(self._path)
-        for lock_remnant in glob.glob(self._path + '.*'):
+        for lock_remnant in glob.glob(glob.escape(self._path) + '.*'):
             support.unlink(lock_remnant)
 
     def test_labels(self):
@@ -2142,9 +2162,9 @@ class MaildirTestCase(unittest.TestCase):
             if mbox:
                 fp.write(FROM_)
             fp.write(DUMMY_MESSAGE)
-        if hasattr(os, "link"):
+        try:
             os.link(tmpname, newname)
-        else:
+        except (AttributeError, PermissionError):
             with open(newname, "w") as fp:
                 fp.write(DUMMY_MESSAGE)
         self._msgfiles.append(newname)
@@ -2273,12 +2293,18 @@ Gregory K. Johnson
 """)
 
 
+class MiscTestCase(unittest.TestCase):
+    def test__all__(self):
+        blacklist = {"linesep", "fcntl"}
+        support.check__all__(self, mailbox, blacklist=blacklist)
+
+
 def test_main():
     tests = (TestMailboxSuperclass, TestMaildir, TestMbox, TestMMDF, TestMH,
              TestBabyl, TestMessage, TestMaildirMessage, TestMboxMessage,
              TestMHMessage, TestBabylMessage, TestMMDFMessage,
              TestMessageConversion, TestProxyFile, TestPartialFile,
-             MaildirTestCase, TestFakeMailBox)
+             MaildirTestCase, TestFakeMailBox, MiscTestCase)
     support.run_unittest(*tests)
     support.reap_children()
 

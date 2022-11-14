@@ -7,7 +7,6 @@
 #ifdef _MSC_VER
 #include <math.h>
 #include <float.h>
-#define copysign _copysign
 #endif
 
 #ifdef __cplusplus
@@ -32,9 +31,8 @@ typedef struct {
                 return PyFloat_FromDouble(-Py_HUGE_VAL);        \
         } while(0)
 
-#define PyFloat_Check(op) \
-		 _PyPy_Type_FastSubclass((op)->ob_type, Py_TPPYPYFLAGS_FLOAT_SUBCLASS)
-#define PyFloat_CheckExact(op) ((op)->ob_type == &PyFloat_Type)
+#define PyFloat_Check(op) PyObject_TypeCheck(op, &PyFloat_Type)
+#define PyFloat_CheckExact(op) (Py_TYPE(op) == &PyFloat_Type)
 
 
 #ifdef __cplusplus

@@ -1,22 +1,24 @@
-import py, sys, random, os, struct, operator, math
-from rpython.jit.metainterp.history import (AbstractFailDescr,
-                                         AbstractDescr,
-                                         BasicFailDescr,
-                                         BasicFinalDescr,
-                                         JitCellToken, TargetToken,
-                                         ConstInt, ConstPtr,
-                                         ConstFloat, Const)
-from rpython.jit.metainterp.resoperation import ResOperation, rop, InputArgInt,\
-     InputArgFloat, opname, InputArgRef
-from rpython.jit.metainterp.typesystem import deref
+import py
+import sys
+import random
+import os
+import struct
+import operator
+import math
+from rpython.jit.metainterp.history import (
+    AbstractFailDescr, AbstractDescr, BasicFailDescr, BasicFinalDescr,
+    JitCellToken, TargetToken, ConstInt, ConstPtr, ConstFloat, Const)
+from rpython.jit.metainterp.resoperation import (
+    ResOperation, rop, InputArgInt, InputArgFloat, InputArgRef)
 from rpython.jit.metainterp.executor import wrap_constant
+from rpython.jit.metainterp.support import ptr2int, int_signext
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.llinterp import LLException
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.codewriter import longlong
 from rpython.rlib import longlong2float
 from rpython.rlib.rarithmetic import intmask, is_valid_int
 from rpython.jit.backend.detect_cpu import autodetect
@@ -55,7 +57,7 @@ class Runner(object):
     add_loop_instructions = ['overload for a specific cpu']
     bridge_loop_instructions = ['overload for a specific cpu']
 
-    
+
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         inputargs, operations = self._get_single_operation_list(opname,
                                                                 result_type,
@@ -185,6 +187,9 @@ class BaseBackendTest(Runner):
         """, namespace={'targettoken': targettoken,
                         'fdescr': BasicFailDescr(2)})
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, 10)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 2
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2
@@ -337,6 +342,9 @@ class BaseBackendTest(Runner):
 
         self.cpu.compile_bridge(faildescr1, [i0], bridge, looptoken)
 
+        deadframe = self.cpu.execute_token(looptoken, 0)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 2
         deadframe = self.cpu.execute_token(looptoken, 1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 3
@@ -506,7 +514,7 @@ class BaseBackendTest(Runner):
             return chr(ord(c) + 1)
         FPTR = self.Ptr(self.FuncType([lltype.Char], lltype.Char))
         func_ptr = llhelper(FPTR, func)
-        calldescr = cpu.calldescrof(deref(FPTR), (lltype.Char,), lltype.Char,
+        calldescr = cpu.calldescrof(FPTR.TO, (lltype.Char,), lltype.Char,
                                     EffectInfo.MOST_GENERAL)
         x = cpu.bh_call_i(self.get_funcbox(cpu, func_ptr).value,
                           [ord('A')], None, None, calldescr)
@@ -519,7 +527,7 @@ class BaseBackendTest(Runner):
             FPTR = self.Ptr(self.FuncType([lltype.Float, lltype.Signed],
                                           lltype.Float))
             func_ptr = llhelper(FPTR, func)
-            FTP = deref(FPTR)
+            FTP = FPTR.TO
             calldescr = cpu.calldescrof(FTP, FTP.ARGS, FTP.RESULT,
                                         EffectInfo.MOST_GENERAL)
             x = cpu.bh_call_f(self.get_funcbox(cpu, func_ptr).value,
@@ -536,8 +544,10 @@ class BaseBackendTest(Runner):
             return chr(ord(c) + ord(c1))
 
         functions = [
-            (func_int, lltype.Signed, types.sint, 655360, 655360),
-            (func_int, lltype.Signed, types.sint, 655360, -293999429),
+            (func_int, lltype.Signed, types.signed, 655360, 655360),
+            (func_int, lltype.Signed, types.signed, 655360, -293999429),
+            (func_int, rffi.INT, types.sint, 655360, 655360),
+            (func_int, rffi.INT, types.sint, 655360, -293999429),
             (func_int, rffi.SHORT, types.sint16, 1213, 1213),
             (func_int, rffi.SHORT, types.sint16, 1213, -12020),
             (func_char, lltype.Char, types.uchar, 12, 12),
@@ -548,7 +558,7 @@ class BaseBackendTest(Runner):
             #
             FPTR = self.Ptr(self.FuncType([TP, TP], TP))
             func_ptr = llhelper(FPTR, func)
-            FUNC = deref(FPTR)
+            FUNC = FPTR.TO
             funcbox = self.get_funcbox(cpu, func_ptr)
             # first, try it with the "normal" calldescr
             calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -630,7 +640,7 @@ class BaseBackendTest(Runner):
             TP = lltype.Signed
             FPTR = self.Ptr(self.FuncType([TP, TP], TP))
             func_ptr = llhelper(FPTR, f)
-            FUNC = deref(FPTR)
+            FUNC = FPTR.TO
             funcconst = self.get_funcbox(self.cpu, func_ptr)
             funcbox = InputArgInt(funcconst.getint())
             calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -656,7 +666,7 @@ class BaseBackendTest(Runner):
             #
             FPTR = self.Ptr(self.FuncType([TP] * nb_args, TP))
             func_ptr = llhelper(FPTR, func_ints)
-            FUNC = deref(FPTR)
+            FUNC = FPTR.TO
             calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                         EffectInfo.MOST_GENERAL)
             funcbox = self.get_funcbox(cpu, func_ptr)
@@ -701,6 +711,7 @@ class BaseBackendTest(Runner):
         shortdescr = self.cpu.fielddescrof(self.S, 'short')
         self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(250)],
                                'void', descr=fielddescr2)
+
         self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(133)],
                                'void', descr=fielddescr1)
         self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(1331)],
@@ -1004,15 +1015,17 @@ class BaseBackendTest(Runner):
         vsdescr = self.cpu.interiorfielddescrof(A, 'vs')
         kdescr = self.cpu.interiorfielddescrof(A, 'k')
         pdescr = self.cpu.interiorfielddescrof(A, 'p')
-        self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, InputArgInt(3),
-                                                         boxfloat(1.5)],
-                               'void', descr=kdescr)
-        f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
-        assert longlong.getrealfloat(f) == 1.5
-        self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, longlong.getfloatstorage(2.5), kdescr)
-        r = self.execute_operation(rop.GETINTERIORFIELD_GC_F, [a_box, InputArgInt(3)],
-                                   'float', descr=kdescr)
-        assert longlong.getrealfloat(r) == 2.5
+        if self.cpu.supports_floats:
+
+            self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, InputArgInt(3),
+                                                             boxfloat(1.5)],
+                                   'void', descr=kdescr)
+            f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
+            assert longlong.getrealfloat(f) == 1.5
+            self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, longlong.getfloatstorage(2.5), kdescr)
+            r = self.execute_operation(rop.GETINTERIORFIELD_GC_F, [a_box, InputArgInt(3)],
+                                       'float', descr=kdescr)
+            assert longlong.getrealfloat(r) == 2.5
         #
         NUMBER_FIELDS = [('vs', lltype.Signed),
                          ('vu', lltype.Unsigned),
@@ -1820,7 +1833,7 @@ class BaseBackendTest(Runner):
                                 EffectInfo.OS_MATH_READ_TIMESTAMP)
         FPTR = self.Ptr(self.FuncType([], lltype.SignedLongLong))
         func_ptr = llhelper(FPTR, rtimer.read_timestamp)
-        FUNC = deref(FPTR)
+        FUNC = FPTR.TO
         funcbox = self.get_funcbox(self.cpu, func_ptr)
 
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, effectinfo)
@@ -1844,8 +1857,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     @classmethod
     def get_funcbox(cls, cpu, func_ptr):
-        addr = llmemory.cast_ptr_to_adr(func_ptr)
-        return ConstInt(heaptracker.adr2int(addr))
+        return ConstInt(ptr2int(func_ptr))
 
 
     MY_VTABLE = rclass.OBJECT_VTABLE    # for tests only
@@ -1867,7 +1879,6 @@ class LLtypeBackendTest(BaseBackendTest):
     def alloc_instance(self, T):
         if hasattr(T, 'parent'):
             vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
-            vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
         else:
             vtable_for_T = lltype.nullptr(rclass.OBJECT_VTABLE)
         cpu = self.cpu
@@ -1896,7 +1907,7 @@ class LLtypeBackendTest(BaseBackendTest):
             T_box = None
         else:
             vtable = vtable_for_T
-            T_box = ConstInt(heaptracker.adr2int(vtable_for_T_addr))
+            T_box = ConstInt(ptr2int(vtable_for_T))
         descr = cpu.sizeof(T, vtable)
         return t_box, T_box, descr
 
@@ -1985,7 +1996,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_ooops_non_gc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
-        v = heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
+        v = ptr2int(x)
         r = self.execute_operation(rop.PTR_EQ, [InputArgInt(v), InputArgInt(v)], 'int')
         assert r == 1
         r = self.execute_operation(rop.PTR_NE, [InputArgInt(v), InputArgInt(v)], 'int')
@@ -2495,6 +2506,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_force_operations_returning_void(self):
         values = []
         def maybe_force(token, flag):
+            print "CALLED WITH " + str(flag)
             if flag:
                 deadframe = self.cpu.force(token)
                 values.append(self.cpu.get_latest_descr(deadframe))
@@ -2760,6 +2772,8 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.clibffi import _WIN32
         if not _WIN32:
             py.test.skip("Windows test only")
+        if sys.maxint > 2 ** 32:
+            py.test.skip("Windows 32-bit test only")
         from rpython.rlib.libffi import WinDLL, types, ArgChain
         from rpython.rlib.rwin32 import DWORD
         libc = WinDLL('KERNEL32')
@@ -2777,8 +2791,7 @@ class LLtypeBackendTest(BaseBackendTest):
         lltype.free(buffer, flavor='raw')
 
         cpu = self.cpu
-        func_adr = llmemory.cast_ptr_to_adr(c_GetCurrentDir.funcsym)
-        funcbox = ConstInt(heaptracker.adr2int(func_adr))
+        funcbox = ConstInt(ptr2int(c_GetCurrentDir.funcsym))
         calldescr = cpu._calldescr_dynamic_for_tests(
             [types.ulong, types.pointer],
             types.ulong,
@@ -2820,8 +2833,8 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
 
         for ffitype, result, TP in [
-            (types.ulong,  r_uint(sys.maxint + 10), lltype.Unsigned),
-            (types.slong,  -4321, lltype.Signed),
+            (types.unsigned,  r_uint(sys.maxint + 10), lltype.Unsigned),
+            (types.signed,  -4321, lltype.Signed),
             (types.uint8,  200, rffi.UCHAR),
             (types.sint8,  -42, rffi.SIGNEDCHAR),
             (types.uint16, 50000, rffi.USHORT),
@@ -2914,8 +2927,8 @@ class LLtypeBackendTest(BaseBackendTest):
         print("random seed %d" % seed)
 
         ALL_TYPES = [
-            (types.ulong,  lltype.Unsigned),
-            (types.slong,  lltype.Signed),
+            (types.unsigned, lltype.Unsigned),
+            (types.signed,   lltype.Signed),
             (types.uint8,  rffi.UCHAR),
             (types.sint8,  rffi.SIGNEDCHAR),
             (types.uint16, rffi.USHORT),
@@ -2976,10 +2989,18 @@ class LLtypeBackendTest(BaseBackendTest):
                     getter_name,
                     primitive.cdecl(primitive.PrimitiveType[ARG], '*p'),
                     var_name))
+            c_source.append('#include <stdio.h>')
             c_source.append('')
             c_source.append('static void real%s(%s)' % (
                 fn_name, ', '.join(fn_args)))
             c_source.append('{')
+            for i in range(len(ARGTYPES)):
+                if ARGTYPES[i] is lltype.Float:
+                    c_source.append('    fprintf(stderr, "x%d = %%f\\n", x%d);' % (i, i))
+                elif ARGTYPES[i] is lltype.Signed:
+                    c_source.append('    fprintf(stderr, "x%d = %%ld\\n", x%d);' % (i, i))
+                elif ARGTYPES[i] is rffi.UINT:
+                    c_source.append('    fprintf(stderr, "x%d = %%u\\n", x%d);' % (i, i))
             for i in range(len(ARGTYPES)):
                 c_source.append('    argcopy_%s_x%d = x%d;' % (fn_name, i, i))
             c_source.append('}')
@@ -3102,23 +3123,23 @@ class LLtypeBackendTest(BaseBackendTest):
         eci = ExternalCompilationInfo(
             separate_module_sources=['''
                 #include <errno.h>
-                static long f1(long a, long b, long c, long d,
-                               long e, long f, long g) {
+                static Signed f1(Signed a, Signed b, Signed c, Signed d,
+                                 Signed e, Signed f, Signed g) {
                     errno = 42;
                     return (a + 10*b + 100*c + 1000*d +
                             10000*e + 100000*f + 1000000*g);
                 }
                 RPY_EXPORTED
-                long test_call_release_gil_save_errno(void) {
-                    return (long)&f1;
+                Signed test_call_release_gil_save_errno(void) {
+                    return (Signed)&f1;
                 }
             '''])
         fn_name = 'test_call_release_gil_save_errno'
         getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
                                      compilation_info=eci, _nowrapper=True)
         func1_adr = getter_ptr()
-        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
-                                                          types.slong)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.signed]*7,
+                                                          types.signed)
         #
         for saveerr in [rffi.RFFI_ERR_NONE,
                         rffi.RFFI_SAVE_ERRNO,
@@ -3172,25 +3193,25 @@ class LLtypeBackendTest(BaseBackendTest):
             separate_module_sources=[r'''
                 #include <stdio.h>
                 #include <errno.h>
-                static long f1(long a, long b, long c, long d,
-                               long e, long f, long g) {
-                    long r = errno;
-                    printf("read saved errno: %ld\n", r);
+                static Signed f1(Signed a, Signed b, Signed c, Signed d,
+                                 Signed e, Signed f, Signed g) {
+                    Signed r = errno;
+                    printf("read saved errno: %ld\n", (long)r);
                     r += 100 * (a + 10*b + 100*c + 1000*d +
                                 10000*e + 100000*f + 1000000*g);
                     return r;
                 }
                 RPY_EXPORTED
-                long test_call_release_gil_readsaved_errno(void) {
-                    return (long)&f1;
+                Signed test_call_release_gil_readsaved_errno(void) {
+                    return (Signed)&f1;
                 }
             '''])
         fn_name = 'test_call_release_gil_readsaved_errno'
         getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
                                      compilation_info=eci, _nowrapper=True)
         func1_adr = getter_ptr()
-        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
-                                                          types.slong)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.signed]*7,
+                                                          types.signed)
         #
         for saveerr in [rffi.RFFI_READSAVED_ERRNO,
                         rffi.RFFI_ZERO_ERRNO_BEFORE,
@@ -3240,23 +3261,23 @@ class LLtypeBackendTest(BaseBackendTest):
         eci = ExternalCompilationInfo(
             separate_module_sources=['''
                 #include <windows.h>
-                static long f1(long a, long b, long c, long d,
-                               long e, long f, long g) {
+                static Signed f1(Signed a, Signed b, Signed c, Signed d,
+                                 Signed e, Signed f, Signed g) {
                     SetLastError(42);
                     return (a + 10*b + 100*c + 1000*d +
                             10000*e + 100000*f + 1000000*g);
                 }
                 RPY_EXPORTED
-                long test_call_release_gil_save_lasterror(void) {
-                    return (long)&f1;
+                Signed test_call_release_gil_save_lasterror(void) {
+                    return (Signed)&f1;
                 }
             '''])
         fn_name = 'test_call_release_gil_save_lasterror'
         getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
                                      compilation_info=eci, _nowrapper=True)
         func1_adr = getter_ptr()
-        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
-                                                          types.slong)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.signed]*7,
+                                                          types.signed)
         #
         for saveerr in [rffi.RFFI_SAVE_ERRNO,  # but not _LASTERROR
                         rffi.RFFI_SAVE_ERRNO | rffi.RFFI_ALT_ERRNO,
@@ -3309,26 +3330,28 @@ class LLtypeBackendTest(BaseBackendTest):
         eci = ExternalCompilationInfo(
             separate_module_sources=[r'''
                 #include <windows.h>
-                static long f1(long a, long b, long c, long d,
-                               long e, long f, long g) {
-                    long r = GetLastError();
-                    printf("GetLastError() result: %ld\n", r);
-                    printf("%ld %ld %ld %ld %ld %ld %ld\n", a,b,c,d,e,f,g);
+                #include <stdio.h>
+                static Signed f1(Signed a, Signed b, Signed c, Signed d,
+                                 Signed e, Signed f, Signed g) {
+                    Signed r = GetLastError();
+                    printf("GetLastError() result: %ld\n", (long)r);
+                    printf("%ld %ld %ld %ld %ld %ld %ld\n", (long)a, (long)b,
+                        (long)c, (long)d, (long)e, (long)f, (long)g);
                     r += 100 * (a + 10*b + 100*c + 1000*d +
                                 10000*e + 100000*f + 1000000*g);
                     return r;
                 }
                 RPY_EXPORTED
-                long test_call_release_gil_readsaved_lasterror(void) {
-                    return (long)&f1;
+                Signed test_call_release_gil_readsaved_lasterror(void) {
+                    return (Signed)&f1;
                 }
             '''])
         fn_name = 'test_call_release_gil_readsaved_lasterror'
         getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
                                      compilation_info=eci, _nowrapper=True)
         func1_adr = getter_ptr()
-        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
-                                                          types.slong)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.signed]*7,
+                                                          types.signed)
         #
         for saveerr in [rffi.RFFI_READSAVED_LASTERROR,
                         rffi.RFFI_READSAVED_LASTERROR | rffi.RFFI_ALT_ERRNO,
@@ -3372,17 +3395,17 @@ class LLtypeBackendTest(BaseBackendTest):
             eci = ExternalCompilationInfo(
                 separate_module_sources=[r'''
                     #include <errno.h>
-                    static long f1(long a, long b, long c, long d,
-                                   long e, long f, long g) {
-                        long r = errno;
+                    static Signed f1(Signed a, Signed b, Signed c, Signed d,
+                                     Signed e, Signed f, Signed g) {
+                        Signed r = errno;
                         errno = 42;
                         r += 100 * (a + 10*b + 100*c + 1000*d +
                                     10000*e + 100000*f + 1000000*g);
                         return r;
                     }
                     RPY_EXPORTED
-                    long test_call_release_gil_err_all(void) {
-                        return (long)&f1;
+                    Signed test_call_release_gil_err_all(void) {
+                        return (Signed)&f1;
                     }
                 '''])
         else:
@@ -3390,9 +3413,9 @@ class LLtypeBackendTest(BaseBackendTest):
                 separate_module_sources=[r'''
                     #include <windows.h>
                     #include <errno.h>
-                    static long f1(long a, long b, long c, long d,
-                                   long e, long f, long g) {
-                        long r = errno + 10 * GetLastError();
+                    static Signed f1(Signed a, Signed b, Signed c, Signed d,
+                                     Signed e, Signed f, Signed g) {
+                        Signed r = errno + 10 * GetLastError();
                         errno = 42;
                         SetLastError(43);
                         r += 100 * (a + 10*b + 100*c + 1000*d +
@@ -3400,16 +3423,16 @@ class LLtypeBackendTest(BaseBackendTest):
                         return r;
                     }
                     RPY_EXPORTED
-                    long test_call_release_gil_err_all(void) {
-                        return (long)&f1;
+                    Signed test_call_release_gil_err_all(void) {
+                        return (Signed)&f1;
                     }
                 '''])
         fn_name = 'test_call_release_gil_err_all'
         getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
                                      compilation_info=eci, _nowrapper=True)
         func1_adr = getter_ptr()
-        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
-                                                          types.slong)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.signed]*7,
+                                                          types.signed)
         #
         for saveerr in [rffi.RFFI_ERR_ALL,
                         rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO,
@@ -3617,14 +3640,10 @@ class LLtypeBackendTest(BaseBackendTest):
         descrfld_rx = cpu.fielddescrof(RS, 'x')
         rs = lltype.malloc(RS, immortal=True)
         rs.x = '?'
-        x = cpu.bh_getfield_raw_i(
-            heaptracker.adr2int(llmemory.cast_ptr_to_adr(rs)),
-            descrfld_rx)
+        x = cpu.bh_getfield_raw_i(ptr2int(rs), descrfld_rx)
         assert x == ord('?')
         #
-        cpu.bh_setfield_raw_i(
-            heaptracker.adr2int(llmemory.cast_ptr_to_adr(rs)),
-            ord('!'), descrfld_rx)
+        cpu.bh_setfield_raw_i(ptr2int(rs), ord('!'), descrfld_rx)
         assert rs.x == '!'
         #
 
@@ -3698,7 +3717,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_guards_nongc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
-        v = heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
+        v = ptr2int(x)
         vbox = InputArgInt(v)
         ops = [
             (rop.GUARD_NONNULL, vbox, False),
@@ -3715,7 +3734,8 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_assembler_call(self):
         called = []
         def assembler_helper(deadframe, virtualizable):
-            assert self.cpu.get_int_value(deadframe, 0) == 97
+            print "CALLED ASSEMBLER HELPER"
+            called.append(self.cpu.get_int_value(deadframe, 0))
             called.append(self.cpu.get_latest_descr(deadframe))
             return 4 + 9
 
@@ -3769,7 +3789,7 @@ class LLtypeBackendTest(BaseBackendTest):
         args = [i+1 for i in range(10)]
         deadframe = self.cpu.execute_token(othertoken, *args)
         assert self.cpu.get_int_value(deadframe, 0) == 13
-        assert called == [finish_descr]
+        assert called == [97, finish_descr]
 
         # test the fast path, which should not call assembler_helper()
         del called[:]
@@ -3905,8 +3925,7 @@ class LLtypeBackendTest(BaseBackendTest):
         descr = self.cpu.arraydescrof(ARRAY)
         a = lltype.malloc(ARRAY, 10, flavor='raw')
         a[7] = -4242
-        addr = llmemory.cast_ptr_to_adr(a)
-        abox = InputArgInt(heaptracker.adr2int(addr))
+        abox = InputArgInt(ptr2int(a))
         r1 = self.execute_operation(rop.GETARRAYITEM_RAW_I, [abox, InputArgInt(7)],
                                     'int', descr=descr)
         assert r1 == -4242
@@ -3916,8 +3935,7 @@ class LLtypeBackendTest(BaseBackendTest):
         ARRAY = rffi.CArray(lltype.Signed)
         descr = self.cpu.arraydescrof(ARRAY)
         a = lltype.malloc(ARRAY, 10, flavor='raw')
-        addr = llmemory.cast_ptr_to_adr(a)
-        abox = InputArgInt(heaptracker.adr2int(addr))
+        abox = InputArgInt(ptr2int(a))
         self.execute_operation(rop.SETARRAYITEM_RAW, [abox, InputArgInt(5),
                                                       InputArgInt(12345)],
                                'void', descr=descr)
@@ -4100,7 +4118,7 @@ class LLtypeBackendTest(BaseBackendTest):
         for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
                         rffi.SHORT, rffi.USHORT,
                         rffi.INT, rffi.UINT,
-                        rffi.LONG, rffi.ULONG]:
+                        rffi.SIGNED, rffi.UNSIGNED]:
             S = lltype.GcStruct('S', ('x', RESTYPE))
             descrfld_x = cpu.fielddescrof(S, 'x')
             s = lltype.malloc(S)
@@ -4120,7 +4138,7 @@ class LLtypeBackendTest(BaseBackendTest):
         for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
                         rffi.SHORT, rffi.USHORT,
                         rffi.INT, rffi.UINT,
-                        rffi.LONG, rffi.ULONG]:
+                        rffi.SIGNED, rffi.UNSIGNED]:
             S = lltype.GcStruct('S', ('x', RESTYPE))
             descrfld_x = cpu.fielddescrof(S, 'x')
             s = lltype.malloc(S)
@@ -4142,7 +4160,7 @@ class LLtypeBackendTest(BaseBackendTest):
         for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
                         rffi.SHORT, rffi.USHORT,
                         rffi.INT, rffi.UINT,
-                        rffi.LONG, rffi.ULONG]:
+                        rffi.SIGNED, rffi.UNSIGNED]:
             A = lltype.GcArray(RESTYPE)
             descrarray = cpu.arraydescrof(A)
             a = lltype.malloc(A, 5)
@@ -4162,7 +4180,7 @@ class LLtypeBackendTest(BaseBackendTest):
         for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
                         rffi.SHORT, rffi.USHORT,
                         rffi.INT, rffi.UINT,
-                        rffi.LONG, rffi.ULONG]:
+                        rffi.SIGNED, rffi.UNSIGNED]:
             A = lltype.GcArray(RESTYPE)
             descrarray = cpu.arraydescrof(A)
             a = lltype.malloc(A, 5)
@@ -4184,14 +4202,14 @@ class LLtypeBackendTest(BaseBackendTest):
         for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
                         rffi.SHORT, rffi.USHORT,
                         rffi.INT, rffi.UINT,
-                        rffi.LONG, rffi.ULONG]:
+                        rffi.SIGNED, rffi.UNSIGNED]:
             A = rffi.CArray(RESTYPE)
             descrarray = cpu.arraydescrof(A)
             a = lltype.malloc(A, 5, flavor='raw')
             value = intmask(0xFFEEDDCCBBAA9988)
             expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
             a[3] = rffi.cast(RESTYPE, value)
-            a_rawint = heaptracker.adr2int(llmemory.cast_ptr_to_adr(a))
+            a_rawint = ptr2int(a)
             x = cpu.bh_getarrayitem_raw_i(a_rawint, 3, descrarray)
             assert x == expected, (
                 "%r: got %r, expected %r" % (RESTYPE, x, expected))
@@ -4205,14 +4223,14 @@ class LLtypeBackendTest(BaseBackendTest):
         for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
                         rffi.SHORT, rffi.USHORT,
                         rffi.INT, rffi.UINT,
-                        rffi.LONG, rffi.ULONG]:
+                        rffi.SIGNED, rffi.UNSIGNED]:
             A = rffi.CArray(RESTYPE)
             descrarray = cpu.arraydescrof(A)
             a = lltype.malloc(A, 5, flavor='raw')
             value = intmask(0xFFEEDDCCBBAA9988)
             expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
             a[3] = rffi.cast(RESTYPE, value)
-            a_rawint = heaptracker.adr2int(llmemory.cast_ptr_to_adr(a))
+            a_rawint = ptr2int(a)
             res = self.execute_operation(rop.GETARRAYITEM_RAW_I,
                                          [InputArgInt(a_rawint), InputArgInt(3)],
                                          'int', descr=descrarray)
@@ -4227,13 +4245,13 @@ class LLtypeBackendTest(BaseBackendTest):
         for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
                         rffi.SHORT, rffi.USHORT,
                         rffi.INT, rffi.UINT,
-                        rffi.LONG, rffi.ULONG]:
+                        rffi.SIGNED, rffi.UNSIGNED]:
             # Tested with a function that intentionally does not cast the
             # result to RESTYPE, but makes sure that we return the whole
             # value in eax or rax.
             eci = ExternalCompilationInfo(
                 separate_module_sources=["""
-                RPY_EXPORTED long fn_test_result_of_call(long x)
+                RPY_EXPORTED Signed fn_test_result_of_call(Signed x)
                 {
                     return x + 1;
                 }
@@ -4260,13 +4278,13 @@ class LLtypeBackendTest(BaseBackendTest):
         for RESTYPE in [rffi.SIGNEDCHAR, rffi.UCHAR,
                         rffi.SHORT, rffi.USHORT,
                         rffi.INT, rffi.UINT,
-                        rffi.LONG, rffi.ULONG]:
+                        rffi.SIGNED, rffi.UNSIGNED]:
             # Tested with a function that intentionally does not cast the
             # result to RESTYPE, but makes sure that we return the whole
             # value in eax or rax.
             eci = ExternalCompilationInfo(
                 separate_module_sources=["""
-                RPY_EXPORTED long fn_test_result_of_call(long x)
+                RPY_EXPORTED Signed fn_test_result_of_call(Signed x)
                 {
                     return x + 1;
                 }
@@ -4454,7 +4472,7 @@ class LLtypeBackendTest(BaseBackendTest):
         effectinfo = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE, EffectInfo.OS_MATH_SQRT)
         FPTR = self.Ptr(self.FuncType([lltype.Float], lltype.Float))
         func_ptr = llhelper(FPTR, math_sqrt)
-        FUNC = deref(FPTR)
+        FUNC = FPTR.TO
         funcbox = self.get_funcbox(self.cpu, func_ptr)
 
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, effectinfo)
@@ -4546,7 +4564,7 @@ class LLtypeBackendTest(BaseBackendTest):
             for test_case in test_cases:
                 deadframe = self.cpu.execute_token(looptoken, test_case)
                 got = self.cpu.get_int_value(deadframe, 0)
-                expected = heaptracker.int_signext(test_case, numbytes)
+                expected = int_signext(test_case, numbytes)
                 assert got == expected
 
     def test_compile_asmlen(self):
@@ -4641,12 +4659,12 @@ class LLtypeBackendTest(BaseBackendTest):
             assert a + 12 == g
             assert a + 14 == h
             assert a + 16 == i
-        FPTR = self.Ptr(self.FuncType([lltype.Signed]*9, lltype.Void))
+        FPTR = self.Ptr(self.FuncType([lltype.Signed] * 9, lltype.Void))
         func_ptr = llhelper(FPTR, func)
         cpu = self.cpu
-        calldescr = cpu.calldescrof(deref(FPTR), (lltype.Signed,)*9, lltype.Void,
+        calldescr = cpu.calldescrof(FPTR.TO, (lltype.Signed,) * 9, lltype.Void,
                                     EffectInfo.MOST_GENERAL)
-        faildescr=BasicFailDescr(42)
+        faildescr = BasicFailDescr(42)
         loop = parse("""
         [i0]
         label(i0, descr=targettoken1)
@@ -4711,10 +4729,11 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_raw_load_int(self):
         from rpython.rlib import rawstorage
+        from rpython.rlib.rarithmetic import r_longlong
         for T in [rffi.UCHAR, rffi.SIGNEDCHAR,
                   rffi.USHORT, rffi.SHORT,
                   rffi.UINT, rffi.INT,
-                  rffi.ULONG, rffi.LONG]:
+                  rffi.UNSIGNED, rffi.SIGNED]:
             ops = """
             [i0, i1]
             i2 = raw_load_i(i0, i1, descr=arraydescr)
@@ -4724,7 +4743,7 @@ class LLtypeBackendTest(BaseBackendTest):
             p = rawstorage.alloc_raw_storage(31)
             for i in range(31):
                 p[i] = '\xDD'
-            value = rffi.cast(T, -0x4243444546474849)
+            value = rffi.cast(T, r_longlong(-0x4243444546474849))
             rawstorage.raw_storage_setitem(p, 16, value)
             got = self.cpu.bh_raw_load_i(rffi.cast(lltype.Signed, p), 16,
                                          arraydescr)
@@ -4804,7 +4823,7 @@ class LLtypeBackendTest(BaseBackendTest):
         for T in [rffi.UCHAR, rffi.SIGNEDCHAR,
                   rffi.USHORT, rffi.SHORT,
                   rffi.UINT, rffi.INT,
-                  rffi.ULONG, rffi.LONG]:
+                  rffi.UNSIGNED, rffi.SIGNED]:
             arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
             p = rawstorage.alloc_raw_storage(31)
             value = (-0x4243444546474849) & sys.maxint
@@ -4966,7 +4985,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                     EffectInfo.MOST_GENERAL)
 
         def func2(a, b, c, d, e, f, g, h, i, j, k, l):
-            pass
+            print "CALLED"
 
         FUNC2 = self.FuncType([lltype.Signed] * 12, lltype.Void)
         FPTR2 = self.Ptr(FUNC2)
@@ -5067,8 +5086,7 @@ class LLtypeBackendTest(BaseBackendTest):
         a = lltype.malloc(A, 2, flavor='raw')
         a[0] = rffi.cast(rffi.SHORT, 666)
         a[1] = rffi.cast(rffi.SHORT, 777)
-        addr = llmemory.cast_ptr_to_adr(a)
-        a_int = heaptracker.adr2int(addr)
+        a_int = ptr2int(a)
         print 'a_int:', a_int
         self.execute_operation(rop.SETARRAYITEM_RAW,
                                [ConstInt(a_int), ConstInt(0), ConstInt(-7654)],
@@ -5076,6 +5094,40 @@ class LLtypeBackendTest(BaseBackendTest):
         assert rffi.cast(lltype.Signed, a[0]) == -7654
         assert rffi.cast(lltype.Signed, a[1]) == 777
         lltype.free(a, flavor='raw')
+
+    def test_gc_indexed_box_plus_large_offset(self):
+        A = lltype.GcArray(lltype.Signed)
+        arraydescr = self.cpu.arraydescrof(A)
+        for offset in [10**8, -10**8]:
+            loop = parse("""
+            [p0, i0]
+            i1 = int_add(i0, %d)
+            i2 = getarrayitem_gc_i(p0, i1, descr=arraydescr)
+            finish(i2, descr=finaldescr)
+            """ % offset, namespace={"finaldescr": BasicFinalDescr(1),
+                                     "arraydescr": arraydescr})
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            a = lltype.malloc(A, 100)
+            a[42] = 102030
+            a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            deadframe = self.cpu.execute_token(looptoken, a_ref, 42 - offset)
+            assert self.cpu.get_int_value(deadframe, 0) == 102030
+        #
+        for offset in [10**8, -10**8]:
+            loop = parse("""
+            [p0, i0]
+            i1 = int_add(i0, %d)
+            setarrayitem_gc(p0, i1, 102030, descr=arraydescr)
+            finish(0, descr=finaldescr)
+            """ % offset, namespace={"finaldescr": BasicFinalDescr(1),
+                                     "arraydescr": arraydescr})
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            a = lltype.malloc(A, 100)
+            a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            self.cpu.execute_token(looptoken, a_ref, 42 - offset)
+            assert a[42] == 102030
 
     def test_increment_debug_counter(self):
         foo = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
@@ -5102,8 +5154,7 @@ class LLtypeBackendTest(BaseBackendTest):
             A = lltype.GcArray(OF)
             arraydescr = self.cpu.arraydescrof(A)
             a = lltype.malloc(A, 100)
-            addr = llmemory.cast_ptr_to_adr(a)
-            a_int = heaptracker.adr2int(addr)
+            a_int = ptr2int(a)
             a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
             for (start, length) in [(0, 100), (49, 49), (1, 98),
                                     (15, 9), (10, 10), (47, 0),
@@ -5258,7 +5309,7 @@ class LLtypeBackendTest(BaseBackendTest):
         xptr = lltype.malloc(X)
         xptr.parent.typeptr = xtp
         x_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, xptr))
-        X_box = ConstInt(heaptracker.adr2int(llmemory.cast_ptr_to_adr(xtp)))
+        X_box = ConstInt(ptr2int(xtp))
 
         ytp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         ytp.subclassrange_min = 2
@@ -5269,7 +5320,7 @@ class LLtypeBackendTest(BaseBackendTest):
         yptr = lltype.malloc(Y)
         yptr.parent.parent.typeptr = ytp
         y_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, yptr))
-        Y_box = ConstInt(heaptracker.adr2int(llmemory.cast_ptr_to_adr(ytp)))
+        Y_box = ConstInt(ptr2int(ytp))
 
         ztp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         ztp.subclassrange_min = 4
@@ -5281,7 +5332,7 @@ class LLtypeBackendTest(BaseBackendTest):
         zptr = lltype.malloc(Z)
         zptr.parent.typeptr = ztp
         z_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, zptr))
-        Z_box = ConstInt(heaptracker.adr2int(llmemory.cast_ptr_to_adr(ztp)))
+        Z_box = ConstInt(ptr2int(ztp))
 
         for num, arg, klass, is_subclass in [
                 (1, x_box, X_box, True),

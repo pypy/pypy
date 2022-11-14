@@ -5,13 +5,14 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.cdatetime import *
 from pypy.module.cpyext.cdatetime import (
     _PyDateTime_Import, _PyDateTime_FromDateAndTime, _PyDate_FromDate,
-    _PyTime_FromTime, _PyDelta_FromDelta)
+    _PyTime_FromTime, _PyDelta_FromDelta, _PyTime_FromTimeAndFold,
+    _PyDateTime_FromDateAndTimeAndFold)
 import datetime
 
 class TestDatetime(BaseApiTest):
     def test_date(self, space):
         date_api = _PyDateTime_Import(space)
-        w_date = _PyDate_FromDate(space, 2010, 06, 03, date_api.c_DateType)
+        w_date = _PyDate_FromDate(space, 2010, 6, 3, date_api.c_DateType)
         assert space.unwrap(space.str(w_date)) == '2010-06-03'
 
         assert PyDate_Check(space, w_date)
@@ -35,11 +36,42 @@ class TestDatetime(BaseApiTest):
         assert PyDateTime_TIME_GET_SECOND(space, w_time) == 40
         assert PyDateTime_TIME_GET_MICROSECOND(space, w_time) == 123456
 
+        w_time = _PyTime_FromTimeAndFold(
+            space, 23, 15, 40, 123456, space.w_None, 0, date_api.c_TimeType)
+        assert space.unwrap(space.str(w_time)) == '23:15:40.123456'
+
+        assert PyTime_Check(space, w_time)
+        assert PyTime_CheckExact(space, w_time)
+
+        assert PyDateTime_TIME_GET_HOUR(space, w_time) == 23
+        assert PyDateTime_TIME_GET_MINUTE(space, w_time) == 15
+        assert PyDateTime_TIME_GET_SECOND(space, w_time) == 40
+        assert PyDateTime_TIME_GET_MICROSECOND(space, w_time) == 123456
+
+
     def test_datetime(self, space):
         date_api = _PyDateTime_Import(space)
         w_date = _PyDateTime_FromDateAndTime(
-            space, 2010, 06, 03, 23, 15, 40, 123456, space.w_None,
+            space, 2010, 6, 3, 23, 15, 40, 123456, space.w_None,
             date_api.c_DateTimeType)
+        assert space.unwrap(space.str(w_date)) == '2010-06-03 23:15:40.123456'
+
+        assert PyDateTime_Check(space, w_date)
+        assert PyDateTime_CheckExact(space, w_date)
+        assert PyDate_Check(space, w_date)
+        assert not PyDate_CheckExact(space, w_date)
+
+        assert PyDateTime_GET_YEAR(space, w_date) == 2010
+        assert PyDateTime_GET_MONTH(space, w_date) == 6
+        assert PyDateTime_GET_DAY(space, w_date) == 3
+        assert PyDateTime_DATE_GET_HOUR(space, w_date) == 23
+        assert PyDateTime_DATE_GET_MINUTE(space, w_date) == 15
+        assert PyDateTime_DATE_GET_SECOND(space, w_date) == 40
+        assert PyDateTime_DATE_GET_MICROSECOND(space, w_date) == 123456
+
+        w_date = _PyDateTime_FromDateAndTimeAndFold(
+            space, 2010, 6, 3, 23, 15, 40, 123456, space.w_None,
+            0, date_api.c_DateTimeType)
         assert space.unwrap(space.str(w_date)) == '2010-06-03 23:15:40.123456'
 
         assert PyDateTime_Check(space, w_date)
@@ -146,12 +178,94 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                     2000, 6, 6, 6, 6, 6, 6, Py_None,
                     PyDateTimeAPI->DateTimeType);
              """),
+            ("new_datetime_fromtimestamp", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *ts = PyFloat_FromDouble(200000.0);
+                 Py_INCREF(Py_None);
+                 PyObject *tsargs = PyTuple_Pack(2, ts, Py_None);
+                 PyObject *rv = PyDateTimeAPI->DateTime_FromTimestamp(
+                    (PyObject *)PyDateTimeAPI->DateTimeType, tsargs, NULL);
+                 Py_DECREF(tsargs);
+                 return rv;
+             """),
+            ("new_dt_fromts_tzinfo", "METH_O",
+             """ PyDateTime_IMPORT;
+                 PyObject *ts = PyFloat_FromDouble(200000.0);
+                 PyObject *tsargs = PyTuple_Pack(1, ts);
+                 PyObject *tskwargs = PyDict_New();
+
+                 Py_INCREF(args);
+                 PyDict_SetItemString(tskwargs, "tz", args);
+                 PyObject *rv = PyDateTimeAPI->DateTime_FromTimestamp(
+                    (PyObject *)PyDateTimeAPI->DateTimeType, tsargs, tskwargs);
+                 Py_DECREF(tsargs);
+                 Py_DECREF(tskwargs);
+                 return rv;
+             """),
+            ("new_date_fromtimestamp", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *ts = PyFloat_FromDouble(1430366400.0);
+                 Py_INCREF(Py_None);
+                 PyObject *tsargs = PyTuple_Pack(1, ts);
+                 PyObject *rv = PyDateTimeAPI->Date_FromTimestamp(
+                    (PyObject *)PyDateTimeAPI->DateType, tsargs);
+                 Py_DECREF(tsargs);
+                 return rv;
+             """),
         ], prologue='#include "datetime.h"\n')
         import datetime
         assert module.new_date() == datetime.date(2000, 6, 6)
         assert module.new_time() == datetime.time(6, 6, 6, 6)
         assert module.new_datetime() == datetime.datetime(
             2000, 6, 6, 6, 6, 6, 6)
+
+        utc = datetime.timezone.utc
+
+        # .fromtimestamp tests
+        assert (module.new_datetime_fromtimestamp() ==
+                datetime.datetime.fromtimestamp(200000.0))
+
+        assert (module.new_dt_fromts_tzinfo(utc) ==
+                datetime.datetime.fromtimestamp(200000.0, tz=utc))
+
+        assert (module.new_date_fromtimestamp() ==
+                datetime.date.fromtimestamp(1430366400.0))
+
+    def test_timezone_constructors(self):
+        # Testing that we can build timezones via the C api
+        module = self.import_extension('foo', [
+            ("new_timezone_fromoffset", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *delta = PyDelta_FromDSU(0, 60 * 60, 0);
+                 PyObject *tzinfo = PyTimeZone_FromOffset(delta);
+                 Py_DECREF(delta);
+                 return tzinfo;
+             """),
+            ("new_timezone_fromoffset_and_name", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *delta = PyDelta_FromDSU(0, 60 * 60, 0);
+                 PyObject *name = PyUnicode_FromString("spam");
+                 PyObject *tzinfo = PyTimeZone_FromOffsetAndName(delta, name);
+                 Py_DECREF(delta);
+                 Py_DECREF(name);
+                 return tzinfo;
+             """),
+            ("utc_singleton_access", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 Py_INCREF(PyDateTime_TimeZone_UTC);
+                 return PyDateTime_TimeZone_UTC;
+             """),
+        ], prologue='#include "datetime.h"\n')
+        import datetime
+
+        one_hour = datetime.timedelta(hours=1)
+        expected = datetime.timezone(one_hour)
+        assert module.new_timezone_fromoffset() == expected
+
+        expected = datetime.timezone(one_hour, "spam")
+        assert module.new_timezone_fromoffset_and_name() == expected
+
+        assert module.utc_singleton_access() == datetime.timezone.utc
 
     def test_macros(self):
         module = self.import_extension('foo', [
@@ -210,6 +324,9 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
 
                  PyDateTime_DATE_GET_MICROSECOND(obj);
                  PyDateTime_DATE_GET_MICROSECOND(dt);
+                
+                 PyDateTime_GET_FOLD(obj);
+                 PyDateTime_DATE_GET_FOLD(obj);
 
                  return obj;
              """),
@@ -305,6 +422,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
              """),
         ], prologue='#include "datetime.h"\n')
         from datetime import tzinfo, datetime, timedelta, time
+
         # copied from datetime documentation
         class GMT1(tzinfo):
             def __del__(self):
@@ -315,6 +433,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                 return timedelta(0)
             def tzname(self,dt):
                 return "GMT +1"
+
         gmt1 = GMT1()
         dt1 = module.time_with_tzinfo(gmt1)
         assert dt1 == time(6, 6, 6, 6, gmt1)

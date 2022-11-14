@@ -1,7 +1,8 @@
 import functools
 import unittest
+from test import support
+
 from ctypes import *
-from ctypes.test import xfail
 from ctypes.test import need_symbol
 import _ctypes_test
 
@@ -96,7 +97,7 @@ class Callbacks(unittest.TestCase):
         self.check_type(c_char_p, "abc")
         self.check_type(c_char_p, "def")
 
-    @xfail
+    @support.refcount_test
     def test_pyobject(self):
         o = ()
         from sys import getrefcount as grc
@@ -246,6 +247,7 @@ class SampleCallbacksTestCase(unittest.TestCase):
     def test_callback_large_struct(self):
         class Check: pass
 
+        # This should mirror the structure in Modules/_ctypes/_ctypes_test.c
         class X(Structure):
             _fields_ = [
                 ('first', c_ulong),
@@ -257,6 +259,11 @@ class SampleCallbacksTestCase(unittest.TestCase):
             check.first = s.first
             check.second = s.second
             check.third = s.third
+            # See issue #29565.
+            # The structure should be passed by value, so
+            # any changes to it should not be reflected in
+            # the value passed
+            s.first = s.second = s.third = 0x0badf00d
 
         check = Check()
         s = X()
@@ -277,8 +284,42 @@ class SampleCallbacksTestCase(unittest.TestCase):
         self.assertEqual(check.first, 0xdeadbeef)
         self.assertEqual(check.second, 0xcafebabe)
         self.assertEqual(check.third, 0x0bad1dea)
+        # See issue #29565.
+        # Ensure that the original struct is unchanged.
+        self.assertEqual(s.first, check.first)
+        self.assertEqual(s.second, check.second)
+        self.assertEqual(s.third, check.third)
 
-################################################################
+    def test_callback_too_many_args(self):
+        def func(*args):
+            return len(args)
+
+        CTYPES_MAX_ARGCOUNT = 1024
+        proto = CFUNCTYPE(c_int, *(c_int,) * CTYPES_MAX_ARGCOUNT)
+        cb = proto(func)
+        args1 = (1,) * CTYPES_MAX_ARGCOUNT
+        self.assertEqual(cb(*args1), CTYPES_MAX_ARGCOUNT)
+
+        args2 = (1,) * (CTYPES_MAX_ARGCOUNT + 1)
+        with self.assertRaises(ArgumentError):
+            cb(*args2)
+
+    def test_convert_result_error(self):
+        def func():
+            return ("tuple",)
+
+        proto = CFUNCTYPE(c_int)
+        ctypes_func = proto(func)
+        with support.catch_unraisable_exception() as cm:
+            # don't test the result since it is an uninitialized value
+            result = ctypes_func()
+
+            self.assertIsInstance(cm.unraisable.exc_value, TypeError)
+            self.assertEqual(cm.unraisable.err_msg,
+                             "Exception ignored on converting result "
+                             "of ctypes callback function")
+            self.assertIs(cm.unraisable.object, func)
+
 
 if __name__ == '__main__':
     unittest.main()

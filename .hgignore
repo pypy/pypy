@@ -10,17 +10,15 @@ syntax: glob
 .vscode
 __pycache__
 .venv
-.cache
-
 .cache/
 .gdb_history
 syntax: regexp
 ^testresult$
 ^site-packages$
 ^site-packages/.*$
-^site-packages/.*$
-^bin$
+^bin/
 ^pypy/bin/pypy-c
+^pypy/lib/
 ^pypy/module/cpyext/src/.+\.o$
 ^pypy/module/cpyext/src/.+\.obj$
 ^pypy/module/cpyext/test/.+\.errors$
@@ -56,6 +54,7 @@ syntax: regexp
 ^rpython/translator/goal/target.+-c$
 ^rpython/translator/goal/.+\.exe$
 ^rpython/translator/goal/.+\.dll$
+^rpython/rlib/test/_hacked_rbigint.py$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/Makefile$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.guess$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.h$
@@ -65,6 +64,7 @@ syntax: regexp
 ^pypy/goal/pypy-translation-snapshot$
 ^pypy/goal/pypy-c
 ^pypy/goal/pypy3-c
+^pypy/goal/.+\.so$
 ^pypy/goal/.+\.exe$
 ^pypy/goal/.+\.dll$
 ^pypy/goal/.+\.lib$
@@ -75,11 +75,16 @@ syntax: regexp
 ^lib_pypy/ctypes_config_cache/_.+_cache\.py$
 ^lib_pypy/ctypes_config_cache/_.+_.+_\.py$
 ^lib_pypy/_libmpdec/.+.o$
-^lib_pypy/.+.c$
+^lib_pypy/.+_cffi.c$
+^lib_pypy/_curses_cffi_check.c
+^lib_pypy/_pypy_openssl.c
+^lib_pypy/_pypy_util_cffi_inner.c
 ^lib_pypy/.+.o$
 ^lib_pypy/.+.so$
 ^lib_pypy/.+.pyd$
+^lib_pypy/.+/Release/
 ^lib_pypy/Release/
+^lib_pypy/.+.exp$
 ^pypy/doc/discussion/.+\.html$
 ^include/.+\.h$
 ^include/.+\.inl$
@@ -98,4 +103,5 @@ syntax: regexp
 .hypothesis/
 ^release/
 ^rpython/_cache$
-
+^lib/
+.pytest_cache/

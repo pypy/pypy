@@ -59,6 +59,11 @@ class TestConsole(Console):
         return Event(*ev)
 
 
+    def getpending(self):
+        """Nothing pending, but do not return None here."""
+        return Event('key', '', b'')
+
+
 class BaseTestReader(Reader):
 
     def get_prompt(self, lineno, cursor_on_line):

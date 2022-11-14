@@ -34,16 +34,11 @@ import numbers
 import locale
 from test.support import (run_unittest, run_doctest, is_resource_enabled,
                           requires_IEEE_754, requires_docstrings)
-from test.support import (check_warnings, import_fresh_module, TestFailed,
+from test.support import (import_fresh_module, TestFailed,
                           run_with_locale, cpython_only, check_impl_detail)
 import random
-import time
-import warnings
 import inspect
-try:
-    import threading
-except ImportError:
-    threading = None
+import threading
 
 
 C = import_fresh_module('decimal', fresh=['_decimal'])
@@ -554,6 +549,10 @@ class ExplicitConstructionTest(unittest.TestCase):
         self.assertEqual(str(Decimal('  -7.89')), '-7.89')
         self.assertEqual(str(Decimal("  3.45679  ")), '3.45679')
 
+        # underscores
+        self.assertEqual(str(Decimal('1_3.3e4_0')), '1.33E+41')
+        self.assertEqual(str(Decimal('1_0_0_0')), '1000')
+
         # unicode whitespace
         for lead in ["", ' ', '\u00a0', '\u205f']:
             for trail in ["", ' ', '\u00a0', '\u205f']:
@@ -577,6 +576,9 @@ class ExplicitConstructionTest(unittest.TestCase):
 
             # embedded NUL
             self.assertRaises(InvalidOperation, Decimal, "12\u00003")
+
+            # underscores don't prevent errors
+            self.assertRaises(InvalidOperation, Decimal, "1_2_\u00003")
 
     @cpython_only
     def test_from_legacy_strings(self):
@@ -772,6 +774,9 @@ class ExplicitConstructionTest(unittest.TestCase):
         self.assertRaises(InvalidOperation, nc.create_decimal, "xyz")
         self.assertRaises(ValueError, nc.create_decimal, (1, "xyz", -25))
         self.assertRaises(TypeError, nc.create_decimal, "1234", "5678")
+        # no whitespace and underscore stripping is done with this method
+        self.assertRaises(InvalidOperation, nc.create_decimal, " 1234")
+        self.assertRaises(InvalidOperation, nc.create_decimal, "12_34")
 
         # too many NaN payload digits
         nc.prec = 3
@@ -1162,20 +1167,29 @@ class FormatTest(unittest.TestCase):
     @run_with_locale('LC_ALL', 'ps_AF')
     def test_wide_char_separator_decimal_point(self):
         # locale with wide char separator and decimal point
-        import locale
         Decimal = self.decimal.Decimal
 
         decimal_point = locale.localeconv()['decimal_point']
         thousands_sep = locale.localeconv()['thousands_sep']
         if decimal_point != '\u066b':
-            self.skipTest('inappropriate decimal point separator'
+            self.skipTest('inappropriate decimal point separator '
                           '({!a} not {!a})'.format(decimal_point, '\u066b'))
         if thousands_sep != '\u066c':
-            self.skipTest('inappropriate thousands separator'
+            self.skipTest('inappropriate thousands separator '
                           '({!a} not {!a})'.format(thousands_sep, '\u066c'))
 
         self.assertEqual(format(Decimal('100000000.123'), 'n'),
                          '100\u066c000\u066c000\u066b123')
+
+    def test_decimal_from_float_argument_type(self):
+        class A(self.decimal.Decimal):
+            def __init__(self, a):
+                self.a_type = type(a)
+        a = A.from_float(42.5)
+        self.assertEqual(self.decimal.Decimal, a.a_type)
+
+        a = A.from_float(42)
+        self.assertEqual(self.decimal.Decimal, a.a_type)
 
 class CFormatTest(FormatTest):
     decimal = C
@@ -1604,14 +1618,17 @@ class ThreadingTest(unittest.TestCase):
         for sig in Signals[self.decimal]:
             self.assertFalse(DefaultContext.flags[sig])
 
+        th1.join()
+        th2.join()
+
         DefaultContext.prec = save_prec
         DefaultContext.Emax = save_emax
         DefaultContext.Emin = save_emin
 
-@unittest.skipUnless(threading, 'threading required')
+
 class CThreadingTest(ThreadingTest):
     decimal = C
-@unittest.skipUnless(threading, 'threading required')
+
 class PyThreadingTest(ThreadingTest):
     decimal = P
 
@@ -2047,6 +2064,39 @@ class UsabilityTest(unittest.TestCase):
         d = Decimal( (1, (0, 2, 7, 1), 'F') )
         self.assertEqual(d.as_tuple(), (1, (0,), 'F'))
 
+    def test_as_integer_ratio(self):
+        Decimal = self.decimal.Decimal
+
+        # exceptional cases
+        self.assertRaises(OverflowError,
+                          Decimal.as_integer_ratio, Decimal('inf'))
+        self.assertRaises(OverflowError,
+                          Decimal.as_integer_ratio, Decimal('-inf'))
+        self.assertRaises(ValueError,
+                          Decimal.as_integer_ratio, Decimal('-nan'))
+        self.assertRaises(ValueError,
+                          Decimal.as_integer_ratio, Decimal('snan123'))
+
+        for exp in range(-4, 2):
+            for coeff in range(1000):
+                for sign in '+', '-':
+                    d = Decimal('%s%dE%d' % (sign, coeff, exp))
+                    pq = d.as_integer_ratio()
+                    p, q = pq
+
+                    # check return type
+                    self.assertIsInstance(pq, tuple)
+                    self.assertIsInstance(p, int)
+                    self.assertIsInstance(q, int)
+
+                    # check normalization:  q should be positive;
+                    # p should be relatively prime to q.
+                    self.assertGreater(q, 0)
+                    self.assertEqual(math.gcd(p, q), 1)
+
+                    # check that p/q actually gives the correct value
+                    self.assertEqual(Decimal(p) / Decimal(q), d)
+
     def test_subclassing(self):
         # Different behaviours when subclassing Decimal
         Decimal = self.decimal.Decimal
@@ -2395,6 +2445,15 @@ class CUsabilityTest(UsabilityTest):
     decimal = C
 class PyUsabilityTest(UsabilityTest):
     decimal = P
+
+    def setUp(self):
+        super().setUp()
+        self._previous_int_limit = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(7000)
+
+    def tearDown(self):
+        sys.set_int_max_str_digits(self._previous_int_limit)
+        super().tearDown()
 
 class PythonAPItests(unittest.TestCase):
 
@@ -4411,19 +4470,19 @@ class Coverage(unittest.TestCase):
     def test_round(self):
         # Python3 behavior: round() returns Decimal
         Decimal = self.decimal.Decimal
-        getcontext = self.decimal.getcontext
+        localcontext = self.decimal.localcontext
 
-        c = getcontext()
-        c.prec = 28
+        with localcontext() as c:
+            c.prec = 28
 
-        self.assertEqual(str(Decimal("9.99").__round__()), "10")
-        self.assertEqual(str(Decimal("9.99e-5").__round__()), "0")
-        self.assertEqual(str(Decimal("1.23456789").__round__(5)), "1.23457")
-        self.assertEqual(str(Decimal("1.2345").__round__(10)), "1.2345000000")
-        self.assertEqual(str(Decimal("1.2345").__round__(-10)), "0E+10")
+            self.assertEqual(str(Decimal("9.99").__round__()), "10")
+            self.assertEqual(str(Decimal("9.99e-5").__round__()), "0")
+            self.assertEqual(str(Decimal("1.23456789").__round__(5)), "1.23457")
+            self.assertEqual(str(Decimal("1.2345").__round__(10)), "1.2345000000")
+            self.assertEqual(str(Decimal("1.2345").__round__(-10)), "0E+10")
 
-        self.assertRaises(TypeError, Decimal("1.23").__round__, "5")
-        self.assertRaises(TypeError, Decimal("1.23").__round__, 5, 8)
+            self.assertRaises(TypeError, Decimal("1.23").__round__, "5")
+            self.assertRaises(TypeError, Decimal("1.23").__round__, 5, 8)
 
     def test_create_decimal(self):
         c = self.decimal.Context()
@@ -4459,6 +4518,15 @@ class CCoverage(Coverage):
     decimal = C
 class PyCoverage(Coverage):
     decimal = P
+
+    def setUp(self):
+        super().setUp()
+        self._previous_int_limit = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(7000)
+
+    def tearDown(self):
+        sys.set_int_max_str_digits(self._previous_int_limit)
+        super().tearDown()
 
 class PyFunctionality(unittest.TestCase):
     """Extra functionality in decimal.py"""
@@ -5379,7 +5447,7 @@ class CWhitebox(unittest.TestCase):
 
             # SSIZE_MIN
             x = (1, (), -sys.maxsize-1)
-            self.assertEqual(str(c.create_decimal(x)), '-0E-1000026')
+            self.assertEqual(str(c.create_decimal(x)), '-0E-1000007')
             self.assertRaises(InvalidOperation, Decimal, x)
 
             x = (1, (0, 1, 2), -sys.maxsize-1)

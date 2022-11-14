@@ -1,12 +1,10 @@
 # tests __main__ module handling in multiprocessing
 from test import support
-# Skip tests if _thread or _multiprocessing wasn't built.
-support.import_module('_thread')
+# Skip tests if _multiprocessing wasn't built.
 support.import_module('_multiprocessing')
 
 import importlib
 import importlib.machinery
-import zipimport
 import unittest
 import sys
 import os
@@ -15,14 +13,17 @@ import py_compile
 
 from test.support.script_helper import (
     make_pkg, make_script, make_zip_pkg, make_zip_script,
-    assert_python_ok, assert_python_failure, spawn_python, kill_python)
+    assert_python_ok)
+
+if support.PGO:
+    raise unittest.SkipTest("test is not helpful for PGO")
 
 # Look up which start methods are available to test
 import multiprocessing
 AVAILABLE_START_METHODS = set(multiprocessing.get_all_start_methods())
 
 # Issue #22332: Skip tests if sem_open implementation is broken.
-support.import_module('multiprocessing.synchronize')
+support.skip_if_broken_multiprocessing_synchronize()
 
 verbose = support.verbose
 
@@ -53,16 +54,21 @@ if "check_sibling" in __file__:
 if __name__ == '__main__':
     start_method = sys.argv[1]
     set_start_method(start_method)
-    p = Pool(5)
     results = []
-    p.map_async(f, [1, 2, 3], callback=results.extend)
-    deadline = time.time() + 10 # up to 10 s to report the results
-    while not results:
-        time.sleep(0.05)
-        if time.time() > deadline:
-            raise RuntimeError("Timed out waiting for results")
+    with Pool(5) as pool:
+        pool.map_async(f, [1, 2, 3], callback=results.extend)
+        start_time = time.monotonic()
+        while not results:
+            time.sleep(0.05)
+            # up to 1 min to report the results
+            dt = time.monotonic() - start_time
+            if dt > 60.0:
+                raise RuntimeError("Timed out waiting for results (%.1f sec)" % dt)
+
     results.sort()
     print(start_method, "->", results)
+
+    pool.join()
 """
 
 test_source_main_skipped_in_children = """\
@@ -81,16 +87,21 @@ from multiprocessing import Pool, set_start_method
 
 start_method = sys.argv[1]
 set_start_method(start_method)
-p = Pool(5)
 results = []
-p.map_async(int, [1, 4, 9], callback=results.extend)
-deadline = time.time() + 10 # up to 10 s to report the results
-while not results:
-    time.sleep(0.05)
-    if time.time() > deadline:
-        raise RuntimeError("Timed out waiting for results")
+with Pool(5) as pool:
+    pool.map_async(int, [1, 4, 9], callback=results.extend)
+    start_time = time.monotonic()
+    while not results:
+        time.sleep(0.05)
+        # up to 1 min to report the results
+        dt = time.monotonic() - start_time
+        if dt > 60.0:
+            raise RuntimeError("Timed out waiting for results (%.1f sec)" % dt)
+
 results.sort()
 print(start_method, "->", results)
+
+pool.join()
 """
 
 # These helpers were copied from test_cmd_line_script & tweaked a bit...

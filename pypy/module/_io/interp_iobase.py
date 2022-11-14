@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
-    make_weakref_descr)
+    make_weakref_descr, unwrap_spec)
 from pypy.interpreter.gateway import interp2app
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rweakref, rweaklist
@@ -56,7 +56,7 @@ class W_IOBase(W_Root):
         # `__IOBase_closed` and call flush() by itself, but it is redundant
         # with whatever behaviour a non-trivial derived class will implement.
         self.space = space
-        self.w_dict = space.newdict()
+        self.w_dict = None
         self.__IOBase_closed = False
         if add_to_autoflusher:
             get_autoflusher(space).add(self)
@@ -64,7 +64,14 @@ class W_IOBase(W_Root):
             self.register_finalizer(space)
 
     def getdict(self, space):
+        if self.w_dict is None:
+            self.w_dict = space.newdict(instance=True)
         return self.w_dict
+
+    def getdictvalue(self, space, attr):
+        if self.w_dict is None:
+            return None
+        return space.finditem_str(self.w_dict, attr)
 
     def _closed(self, space):
         # This gets the derived attribute, which is *not* __IOBase_closed
@@ -138,6 +145,14 @@ class W_IOBase(W_Root):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
+
+        self.maybe_unregister_rpython_finalizer_io(space)
+
+    def maybe_unregister_rpython_finalizer_io(self, space):
+        from rpython.rlib import rgc
+        if self.user_overridden_class:
+            return
+        rgc.may_ignore_finalizer(self)
 
     def needs_finalizer(self):
         # can return False if we know that the precise close() method
@@ -266,24 +281,23 @@ class W_IOBase(W_Root):
 
     def readlines_w(self, space, w_hint=None):
         hint = convert_size(space, w_hint)
-
         if hint <= 0:
             return space.newlist(space.unpackiterable(self))
 
-        lines_w = []
         length = 0
-        while True:
-            w_line = space.call_method(self, "readline")
-            line_length = space.len_w(w_line)
-            if line_length == 0: # done
+        lines_w = []
+        w_iterator = space.iter(self)
+        while 1:
+            try:
+                w_line = space.next(w_iterator)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
                 break
-
             lines_w.append(w_line)
-
-            length += line_length
+            length += space.len_w(w_line)
             if length > hint:
                 break
-
         return space.newlist(lines_w)
 
     def writelines_w(self, space, w_lines):
@@ -307,6 +321,14 @@ class W_IOBase(W_Root):
                     raise
                 else:
                     break
+
+    @staticmethod
+    def output_slice(space, rwbuffer, target_pos, data):
+        if target_pos + len(data) > rwbuffer.getlength():
+            raise oefmt(space.w_RuntimeError,
+                        "target buffer has shrunk during operation")
+        rwbuffer.setslice(target_pos, data)
+
 
 W_IOBase.typedef = TypeDef(
     '_io._IOBase',
@@ -343,51 +365,75 @@ W_IOBase.typedef = TypeDef(
 )
 
 class W_RawIOBase(W_IOBase):
-    # ________________________________________________________________
-    # Abstract read methods, based on readinto()
+    pass
 
-    def read_w(self, space, w_size=None):
-        size = convert_size(space, w_size)
-        if size < 0:
-            return space.call_method(self, "readall")
 
-        w_buffer = space.call_function(space.w_bytearray, w_size)
-        w_length = space.call_method(self, "readinto", w_buffer)
-        if space.is_w(w_length, space.w_None):
-            return w_length
-        space.delslice(w_buffer, w_length, space.len(w_buffer))
-        return space.call_function(space.w_bytes, w_buffer)
+# ________________________________________________________________
+# Abstract read methods, based on readinto()
 
-    def readall_w(self, space):
-        builder = StringBuilder()
-        while True:
-            try:
-                w_data = space.call_method(self, "read",
-                                           space.newint(DEFAULT_BUFFER_SIZE))
-            except OperationError as e:
-                if trap_eintr(space, e):
-                    continue
-                raise
-            if space.is_w(w_data, space.w_None):
-                if not builder.getlength():
-                    return w_data
-                break
+# note that the self needs to be W_IOBase here, even though the methods are on
+# _RawIOBase. The reason is the applevel_subclasses_base below, which ensures
+# that subclasses of _io._RawIOBase are instances of (a subclass of) W_IOBase.
+# This is not a problem, because W_RawIOBase does not actually have any
+# content the methods and don't expect much from "self". see also comment in
+# descr_new_rawiobase below
 
-            if not space.isinstance_w(w_data, space.w_bytes):
-                raise oefmt(space.w_TypeError, "read() should return bytes")
-            data = space.bytes_w(w_data)
-            if not data:
-                break
-            builder.append(data)
-        return space.newbytes(builder.build())
+@unwrap_spec(self=W_IOBase)
+def rawiobase_read_w(self, space, w_size=None):
+    size = convert_size(space, w_size)
+    if size < 0:
+        return space.call_method(self, "readall")
+
+    w_buffer = space.call_function(space.w_bytearray, w_size)
+    w_length = space.call_method(self, "readinto", w_buffer)
+    if space.is_w(w_length, space.w_None):
+        return w_length
+    space.delslice(w_buffer, w_length, space.len(w_buffer))
+    return space.call_function(space.w_bytes, w_buffer)
+
+@unwrap_spec(self=W_IOBase)
+def rawiobase_readall_w(self, space):
+    builder = StringBuilder()
+    while True:
+        try:
+            w_data = space.call_method(self, "read",
+                                       space.newint(DEFAULT_BUFFER_SIZE))
+        except OperationError as e:
+            if trap_eintr(space, e):
+                continue
+            raise
+        if space.is_w(w_data, space.w_None):
+            if not builder.getlength():
+                return w_data
+            break
+
+        if not space.isinstance_w(w_data, space.w_bytes):
+            raise oefmt(space.w_TypeError, "read() should return bytes")
+        data = space.bytes_w(w_data)
+        if not data:
+            break
+        builder.append(data)
+    return space.newbytes(builder.build())
+
+def descr_new_rawiobase(space, w_subtype, __args__):
+    instance = space.allocate_instance(W_RawIOBase, w_subtype)
+    # NB: for subclasses of _io._RawIOBase, the instance is not actually an
+    # instance of W_RawIOBase! this does not matter for the methods at all, of
+    # course, since W_RawIOBase does not have any extra fields over W_IOBase.
+    W_IOBase.__init__(instance, space)
+    return instance
+
+assert W_RawIOBase.__init__.im_func is W_IOBase.__init__.im_func
 
 W_RawIOBase.typedef = TypeDef(
     '_io._RawIOBase', W_IOBase.typedef,
-    __new__ = generic_new_descr(W_RawIOBase),
-
-    read = interp2app(W_RawIOBase.read_w),
-    readall = interp2app(W_RawIOBase.readall_w),
+    __doc__ = "Base class for raw binary I/O.",
+    __rpython_level_class__ = W_RawIOBase,
+    __new__ = interp2app(descr_new_rawiobase),
+    read = interp2app(rawiobase_read_w),
+    readall = interp2app(rawiobase_readall_w),
 )
+W_RawIOBase.typedef.applevel_subclasses_base = W_IOBase
 
 
 # ------------------------------------------------------------

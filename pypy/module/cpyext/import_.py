@@ -5,6 +5,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.pycode import PyCode
 from pypy.module.imp import importing
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 
 @cpython_api([PyObject], PyObject)
 def PyImport_Import(space, w_name):
@@ -107,7 +108,20 @@ def PyImport_GetModuleDict(space):
     w_modulesDict = space.sys.get('modules')
     return w_modulesDict     # borrowed ref
 
-@cpython_api([rffi.CCHARP, PyObject], PyObject)
+@cpython_api([PyObject], PyObject)
+def PyImport_GetModule(space, w_name):
+    """Return the already imported module with the given name. If the module
+    has not been imported yet then returns NULL but does not set an error.
+    Returns NULL and sets an error if the lookup failed."""
+    w_modulesDict = space.sys.get('modules')
+    try:
+        return space.getitem(w_modulesDict, w_name)
+    except OperationError as e:
+        if e.match(space, space.w_KeyError):
+            return None
+        raise e
+
+@cpython_api([rffi.CONST_CCHARP, PyObject], PyObject)
 def PyImport_ExecCodeModule(space, name, w_code):
     """Given a module name (possibly of the form package.module) and a code
     object read from a Python bytecode file or obtained from the built-in
@@ -131,17 +145,17 @@ def PyImport_ExecCodeModule(space, name, w_code):
 
     name is removed from sys.modules in error cases."""
     return PyImport_ExecCodeModuleEx(space, name, w_code,
-                                     lltype.nullptr(rffi.CCHARP.TO))
+                                     lltype.nullptr(rffi.CONST_CCHARP.TO))
 
 
-@cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP], PyObject)
+@cpython_api([rffi.CONST_CCHARP, PyObject, rffi.CONST_CCHARP], PyObject)
 def PyImport_ExecCodeModuleEx(space, name, w_code, pathname):
     """Like PyImport_ExecCodeModule(), but the __file__ attribute of
     the module object is set to pathname if it is non-NULL."""
     code = space.interp_w(PyCode, w_code)
-    w_name = space.newtext(rffi.charp2str(name))
+    w_name = space.newtext(rffi.constcharp2str(name))
     if pathname:
-        pathname = rffi.charp2str(pathname)
+        pathname = rffi.constcharp2str(pathname)
     else:
         pathname = code.co_filename
     w_mod = importing.add_module(space, w_name)

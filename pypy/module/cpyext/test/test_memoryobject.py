@@ -13,7 +13,7 @@ only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_
 
 class TestMemoryViewObject(BaseApiTest):
     def test_frombuffer(self, space, api):
-        w_view = SimpleView(StringBuffer("hello")).wrap(space)
+        w_view = SimpleView(StringBuffer("hello"), w_obj=self).wrap(space)
         w_memoryview = api.PyMemoryView_FromObject(w_view)
         c_memoryview = rffi.cast(
             PyMemoryViewObject, make_ref(space, w_memoryview))
@@ -36,6 +36,22 @@ class TestMemoryViewObject(BaseApiTest):
         decref(space, ref)
         decref(space, c_memoryview)
 
+    def test_class_with___buffer__(self, space, api):
+        w_obj = space.appexec([], """():
+            from __pypy__.bufferable import bufferable
+            class B(bufferable):
+                def __init__(self):
+                    self.buf = bytearray(10)
+
+                def __buffer__(self, flags):
+                    return memoryview(self.buf)
+            return B()""")
+        py_obj = make_ref(space, w_obj)
+        assert py_obj.c_ob_type.c_tp_as_buffer
+        assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getbuffer
+        assert not py_obj.c_ob_type.c_tp_as_buffer.c_bf_releasebuffer
+         
+
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):
         module = self.import_extension('foo', [
@@ -55,7 +71,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  Py_DECREF(str);
 
                  ret = PyMemoryView_FromBuffer(&buf);
-                 if (((PyMemoryViewObject*)ret)->view.obj != buf.obj)
+                 if (((PyMemoryViewObject*)ret)->view.obj != NULL)
                  {
                     PyErr_SetString(PyExc_ValueError, "leaked ref");
                     Py_DECREF(ret);
@@ -167,6 +183,22 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                     return NULL;
                  Py_RETURN_NONE;
              """),
+            ("get_contiguous", "METH_O",
+             """
+               return PyMemoryView_GetContiguous(args, PyBUF_READ, 'C');
+            """),
+            ("get_readonly", "METH_O",
+             """
+                Py_buffer view;
+                int readonly;
+                memset(&view, 0, sizeof(view));
+                if (PyObject_GetBuffer(args, &view, PyBUF_SIMPLE) != 0) {
+                    return NULL;
+                }
+                readonly = view.readonly;
+                PyBuffer_Release(&view);
+                return PyLong_FromLong(readonly);
+            """),
             ])
         module = self.import_module(name='buffer_test')
         arr = module.PyMyArray(10)
@@ -177,6 +209,19 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         ten = foo.test_buffer(arr)
         assert ten == 10
         foo.test_contiguous(arr)
+        contig = foo.get_contiguous(arr)
+        foo.test_contiguous(contig)
+        ro = foo.get_readonly(b'abc')
+        assert ro == 1
+        try:
+            from _numpypy import multiarray as np
+        except ImportError:
+            skip('pypy built without _numpypy')
+        a = np.arange(20)[::2]
+        skip('not implemented yet')
+        contig = foo.get_contiguous(a)
+        foo.test_contiguous(contig)
+
 
     def test_releasebuffer(self):
         module = self.import_extension('foo', [

@@ -85,6 +85,7 @@ class FakeSpace(ObjSpace):
     w_object = W_TypeObject("object")
     w_buffer = W_TypeObject("buffer")
     w_type = W_TypeObject("type")
+    w_frozenset = W_TypeObject("frozenset")
 
     def __init__(self, config=None):
         """NOT_RPYTHON"""
@@ -114,10 +115,13 @@ class FakeSpace(ObjSpace):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
 
     def len(self, w_obj):
+        return self.wrap(self.len_w(w_obj))
+
+    def len_w(self, w_obj):
         if isinstance(w_obj, ListObject):
-            return self.wrap(len(w_obj.items))
+            return len(w_obj.items)
         elif isinstance(w_obj, DictObject):
-            return self.wrap(len(w_obj.items))
+            return len(w_obj.items)
         raise NotImplementedError
 
     def getattr(self, w_obj, w_attr):
@@ -408,6 +412,9 @@ class FakeSpace(ObjSpace):
 
     def newtuple(self, list_w):
         return ListObject(list_w)
+
+    def newtuple2(self, w_a, w_b):
+        return ListObject([w_a, w_b])
 
     def newdict(self, module=True):
         return DictObject({})

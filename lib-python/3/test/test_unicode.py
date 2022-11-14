@@ -11,6 +11,7 @@ import itertools
 import operator
 import struct
 import sys
+import unicodedata
 import unittest
 import warnings
 from test import support, string_tests
@@ -464,6 +465,13 @@ class UnicodeTest(string_tests.CommonTest,
         self.checkraises(TypeError, ' ', 'join', [1, 2, 3])
         self.checkraises(TypeError, ' ', 'join', ['1', '2', 3])
 
+    @unittest.skipIf(sys.maxsize > 2**32,
+        'needs too much memory on a 64-bit platform')
+    def test_join_overflow(self):
+        size = int(sys.maxsize**0.5) + 1
+        seq = ('A' * size,) * size
+        self.assertRaises(OverflowError, ''.join, seq)
+
     def test_replace(self):
         string_tests.CommonTest.test_replace(self)
 
@@ -608,10 +616,20 @@ class UnicodeTest(string_tests.CommonTest,
         self.checkequalnofix(True, '\u2000', 'isspace')
         self.checkequalnofix(True, '\u200a', 'isspace')
         self.checkequalnofix(False, '\u2014', 'isspace')
-        # apparently there are no non-BMP spaces chars in Unicode 6
+        # There are no non-BMP whitespace chars as of Unicode 12.
         for ch in ['\U00010401', '\U00010427', '\U00010429', '\U0001044E',
                    '\U0001F40D', '\U0001F46F']:
             self.assertFalse(ch.isspace(), '{!a} is not space.'.format(ch))
+
+    @support.requires_resource('cpu')
+    def test_isspace_invariant(self):
+        for codepoint in range(sys.maxunicode + 1):
+            char = chr(codepoint)
+            bidirectional = unicodedata.bidirectional(char)
+            category = unicodedata.category(char)
+            self.assertEqual(char.isspace(),
+                             (bidirectional in ('WS', 'B', 'S')
+                              or category == 'Zs'))
 
     def test_isalnum(self):
         super().test_isalnum()
@@ -630,6 +648,11 @@ class UnicodeTest(string_tests.CommonTest,
         # non-BMP, non-cased
         self.assertFalse('\U0001F40D'.isalpha())
         self.assertFalse('\U0001F46F'.isalpha())
+
+    def test_isascii(self):
+        super().test_isascii()
+        self.assertFalse("\u20ac".isascii())
+        self.assertFalse("\U0010ffff".isascii())
 
     def test_isdecimal(self):
         self.checkequalnofix(False, '', 'isdecimal')
@@ -799,7 +822,7 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual('h\u0130'.capitalize(), 'H\u0069\u0307')
         exp = '\u0399\u0308\u0300\u0069\u0307'
         self.assertEqual('\u1fd2\u0130'.capitalize(), exp)
-        self.assertEqual('ﬁnnish'.capitalize(), 'FInnish')
+        self.assertEqual('ﬁnnish'.capitalize(), 'Finnish')
         self.assertEqual('A\u0345\u03a3'.capitalize(), 'A\u0345\u03c2')
 
     def test_title(self):
@@ -986,6 +1009,19 @@ class UnicodeTest(string_tests.CommonTest,
             def __format__(self, format_spec):
                 return int.__format__(self * 2, format_spec)
 
+        class M:
+            def __init__(self, x):
+                self.x = x
+            def __repr__(self):
+                return 'M(' + self.x + ')'
+            __str__ = None
+
+        class N:
+            def __init__(self, x):
+                self.x = x
+            def __repr__(self):
+                return 'N(' + self.x + ')'
+            __format__ = None
 
         self.assertEqual(''.format(), '')
         self.assertEqual('abc'.format(), 'abc')
@@ -1200,6 +1236,16 @@ class UnicodeTest(string_tests.CommonTest,
 
         self.assertEqual("0x{:0{:d}X}".format(0x0,16), "0x0000000000000000")
 
+        # Blocking fallback
+        m = M('data')
+        self.assertEqual("{!r}".format(m), 'M(data)')
+        self.assertRaises(TypeError, "{!s}".format, m)
+        self.assertRaises(TypeError, "{}".format, m)
+        n = N('data')
+        self.assertEqual("{!r}".format(n), 'N(data)')
+        self.assertEqual("{!s}".format(n), 'N(data)')
+        self.assertRaises(TypeError, "{}".format, n)
+
     def test_format_map(self):
         self.assertEqual(''.format_map({}), '')
         self.assertEqual('a'.format_map({}), 'a')
@@ -1247,6 +1293,13 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertRaises(ValueError, '{}'.format_map, {'a' : 2})
         self.assertRaises(ValueError, '{}'.format_map, 'a')
         self.assertRaises(ValueError, '{a} {}'.format_map, {"a" : 2, "b" : 1})
+
+        class BadMapping:
+            def __getitem__(self, key):
+                return 1/0
+        self.assertRaises(KeyError, '{a}'.format_map, {})
+        self.assertRaises(TypeError, '{a}'.format_map, [])
+        self.assertRaises(ZeroDivisionError, '{a}'.format_map, BadMapping())
 
     def test_format_huge_precision(self):
         format_string = ".{}f".format(sys.maxsize + 1)
@@ -1417,6 +1470,15 @@ class UnicodeTest(string_tests.CommonTest,
         with self.assertRaises(ValueError):
             result = format_string % 2.34
 
+    def test_issue28598_strsubclass_rhs(self):
+        # A subclass of str with an __rmod__ method should be able to hook
+        # into the % operator
+        class SubclassedStr(str):
+            def __rmod__(self, other):
+                return 'Success, self.__rmod__({!r}) was called'.format(other)
+        self.assertEqual('lhs %% %r' % SubclassedStr('rhs'),
+                         "Success, self.__rmod__('lhs %% %r') was called")
+
     @support.cpython_only
     def test_formatting_huge_precision_c_limits(self):
         from _testcapi import INT_MAX
@@ -1541,7 +1603,7 @@ class UnicodeTest(string_tests.CommonTest,
             ('+', b'+-'),
             ('+-', b'+--'),
             ('+?', b'+-?'),
-            ('\?', b'+AFw?'),
+            (r'\?', b'+AFw?'),
             ('+?', b'+-?'),
             (r'\\?', b'+AFwAXA?'),
             (r'\\\?', b'+AFwAXABc?'),
@@ -1578,6 +1640,10 @@ class UnicodeTest(string_tests.CommonTest,
             self.assertEqual(c.encode('ascii').decode('utf7'), c)
         for c in set_o:
             self.assertEqual(c.encode('ascii').decode('utf7'), c)
+
+        with self.assertRaisesRegex(UnicodeDecodeError,
+                                    'ill-formed sequence'):
+            b'+@'.decode('utf-7')
 
     def test_codecs_utf8(self):
         self.assertEqual(''.encode('utf-8'), b'')
@@ -1769,9 +1835,6 @@ class UnicodeTest(string_tests.CommonTest,
             self.assertEqual(seq.decode('utf-8', 'ignore'),
                              res.replace('\uFFFD', ''))
 
-    def to_bytestring(self, seq):
-        return bytes(int(c, 16) for c in seq.split())
-
     def assertCorrectUTF8Decoding(self, seq, res, err):
         """
         Check that an invalid UTF-8 sequence raises a UnicodeDecodeError when
@@ -1827,7 +1890,7 @@ class UnicodeTest(string_tests.CommonTest,
         ]
         FFFD = '\ufffd'
         for seq in sequences:
-            self.assertCorrectUTF8Decoding(self.to_bytestring(seq), '\ufffd',
+            self.assertCorrectUTF8Decoding(bytes.fromhex(seq), '\ufffd',
                                            'unexpected end of data')
 
     def test_invalid_cb_for_2bytes_seq(self):
@@ -1849,7 +1912,7 @@ class UnicodeTest(string_tests.CommonTest,
             ('DF C0', FFFDx2), ('DF FF', FFFDx2),
         ]
         for seq, res in sequences:
-            self.assertCorrectUTF8Decoding(self.to_bytestring(seq), res,
+            self.assertCorrectUTF8Decoding(bytes.fromhex(seq), res,
                                            'invalid continuation byte')
 
     def test_invalid_cb_for_3bytes_seq(self):
@@ -1907,7 +1970,7 @@ class UnicodeTest(string_tests.CommonTest,
             ('EF BF C0', FFFDx2), ('EF BF FF', FFFDx2),
         ]
         for seq, res in sequences:
-            self.assertCorrectUTF8Decoding(self.to_bytestring(seq), res,
+            self.assertCorrectUTF8Decoding(bytes.fromhex(seq), res,
                                            'invalid continuation byte')
 
     def test_invalid_cb_for_4bytes_seq(self):
@@ -1986,7 +2049,7 @@ class UnicodeTest(string_tests.CommonTest,
             ('F4 8F BF C0', FFFDx2), ('F4 8F BF FF', FFFDx2)
         ]
         for seq, res in sequences:
-            self.assertCorrectUTF8Decoding(self.to_bytestring(seq), res,
+            self.assertCorrectUTF8Decoding(bytes.fromhex(seq), res,
                                            'invalid continuation byte')
 
     def test_codecs_idna(self):
@@ -2025,11 +2088,14 @@ class UnicodeTest(string_tests.CommonTest,
         # Error handling (wrong arguments)
         self.assertRaises(TypeError, "hello".encode, 42, 42, 42)
 
-        # Error handling (lone surrogate in PyUnicode_TransformDecimalToASCII())
-        self.assertRaises(UnicodeError, float, "\ud800")
-        self.assertRaises(UnicodeError, float, "\udf00")
-        self.assertRaises(UnicodeError, complex, "\ud800")
-        self.assertRaises(UnicodeError, complex, "\udf00")
+        # Error handling (lone surrogate in
+        # _PyUnicode_TransformDecimalAndSpaceToASCII())
+        self.assertRaises(ValueError, int, "\ud800")
+        self.assertRaises(ValueError, int, "\udf00")
+        self.assertRaises(ValueError, float, "\ud800")
+        self.assertRaises(ValueError, float, "\udf00")
+        self.assertRaises(ValueError, complex, "\ud800")
+        self.assertRaises(ValueError, complex, "\udf00")
 
     def test_codecs(self):
         # Encoding
@@ -2049,12 +2115,8 @@ class UnicodeTest(string_tests.CommonTest,
             u = chr(c)
             for encoding in ('utf-7', 'utf-8', 'utf-16', 'utf-16-le',
                              'utf-16-be', 'raw_unicode_escape',
-                             'unicode_escape', 'unicode_internal'):
-                with warnings.catch_warnings():
-                    # unicode-internal has been deprecated
-                    warnings.simplefilter("ignore", DeprecationWarning)
-
-                    self.assertEqual(str(u.encode(encoding),encoding), u)
+                             'unicode_escape'):
+                self.assertEqual(str(u.encode(encoding),encoding), u)
 
         # Roundtrip safety for BMP (just the first 256 chars)
         for c in range(256):
@@ -2070,13 +2132,9 @@ class UnicodeTest(string_tests.CommonTest,
 
         # Roundtrip safety for non-BMP (just a few chars)
         with warnings.catch_warnings():
-            # unicode-internal has been deprecated
-            warnings.simplefilter("ignore", DeprecationWarning)
-
             u = '\U00010001\U00020002\U00030003\U00040004\U00050005'
             for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
-                             'raw_unicode_escape',
-                             'unicode_escape', 'unicode_internal'):
+                             'raw_unicode_escape', 'unicode_escape'):
                 self.assertEqual(str(u.encode(encoding),encoding), u)
 
         # UTF-8 must be roundtrip safe for all code points
@@ -2295,22 +2353,22 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual(args[0], text)
         self.assertEqual(len(args), 1)
 
+    @support.cpython_only
     def test_resize(self):
+        from _testcapi import getargs_u
         for length in range(1, 100, 7):
             # generate a fresh string (refcount=1)
             text = 'a' * length + 'b'
 
-            with support.check_warnings(('unicode_internal codec has been '
-                                         'deprecated', DeprecationWarning)):
-                # fill wstr internal field
-                abc = text.encode('unicode_internal')
-                self.assertEqual(abc.decode('unicode_internal'), text)
+            # fill wstr internal field
+            abc = getargs_u(text)
+            self.assertEqual(abc, text)
 
-                # resize text: wstr field must be cleared and then recomputed
-                text += 'c'
-                abcdef = text.encode('unicode_internal')
-                self.assertNotEqual(abc, abcdef)
-                self.assertEqual(abcdef.decode('unicode_internal'), text)
+            # resize text: wstr field must be cleared and then recomputed
+            text += 'c'
+            abcdef = getargs_u(text)
+            self.assertNotEqual(abc, abcdef)
+            self.assertEqual(abcdef, text)
 
     def test_compare(self):
         # Issue #17615
@@ -2401,11 +2459,13 @@ class CAPITest(unittest.TestCase):
         except ImportError:
             self.skipTest( "no pythonapi in ctypes")
         from ctypes import (
+            c_char_p,
             pythonapi, py_object, sizeof,
             c_int, c_long, c_longlong, c_ssize_t,
             c_uint, c_ulong, c_ulonglong, c_size_t, c_void_p)
         name = "PyUnicode_FromFormat"
         _PyUnicode_FromFormat = getattr(pythonapi, name)
+        _PyUnicode_FromFormat.argtypes = (c_char_p,)
         _PyUnicode_FromFormat.restype = py_object
 
         def PyUnicode_FromFormat(format, *args):
@@ -2425,7 +2485,7 @@ class CAPITest(unittest.TestCase):
         # non-ascii format, ascii argument: ensure that PyUnicode_FromFormatV()
         # raises an error
         self.assertRaisesRegex(ValueError,
-            '^PyUnicode_FromFormatV\(\) expects an ASCII-encoded format '
+            r'^PyUnicode_FromFormatV\(\) expects an ASCII-encoded format '
             'string, got a non-ASCII byte: 0xe9$',
             PyUnicode_FromFormat, b'unicode\xe9=%s', 'ascii')
 
@@ -2630,6 +2690,12 @@ class CAPITest(unittest.TestCase):
         check_format('%.%s',
                      b'%.%s', b'abc')
 
+        # Issue #33817: empty strings
+        check_format('',
+                     b'')
+        check_format('',
+                     b'%s', b'')
+
     # Test PyUnicode_AsWideChar()
     @support.cpython_only
     def test_aswidechar(self):
@@ -2708,6 +2774,29 @@ class CAPITest(unittest.TestCase):
             s = '\0'.join([s, s])
             self.assertEqual(unicode_asucs4(s, len(s), 1), s+'\0')
             self.assertEqual(unicode_asucs4(s, len(s), 0), s+'\uffff')
+
+    # Test PyUnicode_FindChar()
+    @support.cpython_only
+    def test_findchar(self):
+        from _testcapi import unicode_findchar
+
+        for str in "\xa1", "\u8000\u8080", "\ud800\udc02", "\U0001f100\U0001f1f1":
+            for i, ch in enumerate(str):
+                self.assertEqual(unicode_findchar(str, ord(ch), 0, len(str), 1), i)
+                self.assertEqual(unicode_findchar(str, ord(ch), 0, len(str), -1), i)
+
+        str = "!>_<!"
+        self.assertEqual(unicode_findchar(str, 0x110000, 0, len(str), 1), -1)
+        self.assertEqual(unicode_findchar(str, 0x110000, 0, len(str), -1), -1)
+        # start < end
+        self.assertEqual(unicode_findchar(str, ord('!'), 1, len(str)+1, 1), 4)
+        self.assertEqual(unicode_findchar(str, ord('!'), 1, len(str)+1, -1), 4)
+        # start >= end
+        self.assertEqual(unicode_findchar(str, ord('!'), 0, 0, 1), -1)
+        self.assertEqual(unicode_findchar(str, ord('!'), len(str), 0, 1), -1)
+        # negative
+        self.assertEqual(unicode_findchar(str, ord('!'), -len(str), -1, 1), 0)
+        self.assertEqual(unicode_findchar(str, ord('!'), -len(str), -1, -1), 0)
 
     # Test PyUnicode_CopyCharacters()
     @support.cpython_only
@@ -2796,7 +2885,6 @@ class CAPITest(unittest.TestCase):
                 self.assertEqual(getargs_s_hash(s), chr(k).encode() * (i + 1))
                 # Check that the second call returns the same result
                 self.assertEqual(getargs_s_hash(s), chr(k).encode() * (i + 1))
-
 
 class StringModuleTest(unittest.TestCase):
     def test_formatter_parser(self):

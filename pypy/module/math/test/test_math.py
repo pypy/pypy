@@ -1,6 +1,5 @@
-from __future__ import with_statement
-
 import py
+import sys
 from pypy.interpreter.function import Function
 from pypy.interpreter.gateway import BuiltinCode
 from pypy.module.math.test import test_direct
@@ -18,6 +17,7 @@ class AppTestMath:
             filename = filename[:-1]
         space = cls.space
         cls.w_math_cases = space.wrap(filename)
+        cls.w_maxint = space.wrap(sys.maxint)
 
     @classmethod
     def make_callable_wrapper(cls, func):
@@ -371,9 +371,50 @@ class AppTestMath:
         assert math.gcd(0, -10) == 10
         assert math.gcd(0, 0) == 0
         raises(TypeError, math.gcd, 0, 0.0)
+        assert math.gcd(-3**10*5**20*11**8, 2**5*3**5*7**20) == 3**5
+        assert math.gcd(64, 200) == 8
+
+        assert math.gcd(-self.maxint-1, 3) == 1
+        assert math.gcd(-self.maxint-1, -self.maxint-1) == self.maxint+1
 
     def test_inf_nan(self):
         import math
         assert math.isinf(math.inf)
         assert math.inf > -math.inf
         assert math.isnan(math.nan)
+
+    def test_pi_tau(self):
+        import math
+        assert math.tau == math.pi * 2.0
+
+    def test_remainder(self):
+        import math
+        assert math.remainder(3, math.pi) == 3 - math.pi
+        assert math.remainder(-3, math.pi) == math.pi - 3
+        assert math.remainder(3, -math.pi) == 3 - math.pi
+        assert math.remainder(4, math.pi) == 4 - math.pi
+        assert math.remainder(6, math.pi) == 6 - 2 * math.pi
+        assert math.remainder(3, math.inf) == 3
+        assert math.remainder(3, -math.inf) == 3
+        assert math.isnan(math.remainder(3, math.nan))
+        assert math.isnan(math.remainder(math.nan, 3))
+        raises(ValueError, math.remainder, 3, 0)
+        raises(ValueError, math.remainder, math.inf, 3)
+        raises(TypeError, math.remainder, "abc", 1)
+
+    def test_isqrt(self):
+        import math
+        x = math.isqrt(9)
+        assert x == 3
+        assert type(x) is int
+
+        test_values = list(range(10)) + [1 << 100 - 1]
+
+        for value in test_values:
+            s = math.isqrt(value)
+            assert type(s) is int
+            assert s*s <= value
+            assert value < (s+1)*(s+1)
+
+        with raises(ValueError):
+            math.isqrt(-1)

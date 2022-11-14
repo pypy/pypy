@@ -3,10 +3,7 @@
 from tkinter import *
 from tkinter import _cnfmerge
 
-if TkVersion <= 3.6:
-    DIALOG_ICON = 'warning'
-else:
-    DIALOG_ICON = 'questhead'
+DIALOG_ICON = 'questhead'
 
 
 class Dialog(Widget):
@@ -22,7 +19,9 @@ class Dialog(Widget):
                       *cnf['strings']))
         try: Widget.destroy(self)
         except TclError: pass
+
     def destroy(self): pass
+
 
 def _test():
     d = Dialog(None, {'title': 'File Modified',

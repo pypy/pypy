@@ -8,7 +8,7 @@ since PyPy-0.9.0 came out in June 2006!
 
 Main entry point for getting-started/download and documentation: 
 
-    http://codespeak.net/pypy/dist/pypy/doc/index.html
+    https://codespeak.net/pypy/dist/pypy/doc/index.html
 
 Further below you'll find some notes about PyPy,
 the 0.99.0 highlights and our aims for PyPy 1.0. 
@@ -21,7 +21,7 @@ have fun,
     Guido Wesdorp
 
     and many others: 
-    http://codespeak.net/pypy/dist/pypy/doc/contributor.html
+    https://codespeak.net/pypy/dist/pypy/doc/contributor.html
 
 
 What is PyPy? 
@@ -68,7 +68,7 @@ Key 0.99.0 Features
   - Transparent proxies: allow to customize both application and
     builtin objects from application level code.  Works as an addition
     to the Standard Object Space (and is translatable). For details see
-    http://codespeak.net/pypy/dist/pypy/doc/proxy.html
+    https://codespeak.net/pypy/dist/pypy/doc/proxy.html
  
 * optimizations: 
 
@@ -92,7 +92,7 @@ Key 0.99.0 Features
   - the JavaScript backend has evolved to a point where it can be used to write
     AJAX web applications with it. This is still an experimental technique,
     though. For demo applications see:
-    http://play1.codespeak.net/ 
+    https://play1.codespeak.net/ 
 
 * new configuration system: 
   There is a new comprehensive configuration system that allows 
@@ -108,26 +108,26 @@ Key 0.99.0 Features
   and is therefore faster (and not based on libc).
 
 * The stability of stackless features was greatly improved. For more details
-  see: http://codespeak.net/pypy/dist/pypy/doc/stackless.html
+  see: https://codespeak.net/pypy/dist/pypy/doc/stackless.html
 
 * RPython library: The release contains our emerging RPython library that tries
   to make programming in RPython more pleasant. It contains an experimental
   parser generator framework. For more details see:
-  http://codespeak.net/pypy/dist/pypy/doc/rlib.html
+  https://codespeak.net/pypy/dist/pypy/doc/rlib.html
 
 * improved documentation:
   
   - extended documentation about stackless features:
-    http://codespeak.net/pypy/dist/pypy/doc/stackless.html
+    https://codespeak.net/pypy/dist/pypy/doc/stackless.html
   
   - PyPy video documentation: eight hours of talks, interviews and features:
-    http://codespeak.net/pypy/dist/pypy/doc/video-index.html
+    https://codespeak.net/pypy/dist/pypy/doc/video-index.html
 
   - technical reports about various aspects of PyPy:
-    http://codespeak.net/pypy/dist/pypy/doc/index-report.html
+    https://codespeak.net/pypy/dist/pypy/doc/index-report.html
     
   The entry point to all our documentation is:
-  http://codespeak.net/pypy/dist/pypy/doc/index.html
+  https://codespeak.net/pypy/dist/pypy/doc/index.html
 
 
 

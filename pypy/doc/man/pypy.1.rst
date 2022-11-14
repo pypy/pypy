@@ -99,6 +99,8 @@ ENVIRONMENT
     If set, equivalent to the ``-W`` option (warning control).
     The value should be a comma-separated list of ``-W`` parameters.
 
+.. _pypylog:
+
 ``PYPYLOG``
     If set to a non-empty value, enable logging, the format is:
 
@@ -125,9 +127,11 @@ ENVIRONMENT
     If set to a non-empty value, print a random #pypy IRC
     topic at startup of interactive mode.
 
+``PYPY_DISABLE_JIT``
+    If set to a non-empty value, disable JIT.
 
 .. include:: ../gc_info.rst
-   :start-line: 7
+   :start-line: 305
 
 SEE ALSO
 ========

@@ -48,6 +48,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'i386': 'i386',
         'arm': 'arm',
         'arm_32': 'arm',
+        'aarch64': 'aarch64',
         'ppc' : 'powerpc:common64',
         'ppc-64' : 'powerpc:common64',
         's390x': 's390:64-bit',

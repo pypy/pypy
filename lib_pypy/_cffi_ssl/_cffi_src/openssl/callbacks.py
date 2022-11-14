@@ -4,108 +4,85 @@
 
 from __future__ import absolute_import, division, print_function
 
-import sys
-
-import cffi
-
 INCLUDES = """
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
 #include <openssl/crypto.h>
-"""
-
-TYPES = """
-static const long Cryptography_STATIC_CALLBACKS;
-
-/* crypto.h
- * CRYPTO_set_locking_callback
- * void (*cb)(int mode, int type, const char *file, int line)
- */
-extern "Python" void Cryptography_locking_cb(int, int, const char *, int);
-
-/* pem.h
- * int pem_password_cb(char *buf, int size, int rwflag, void *userdata);
- */
-extern "Python" int Cryptography_pem_password_cb(char *, int, int, void *);
-
-/* rand.h
- * int (*bytes)(unsigned char *buf, int num);
- * int (*status)(void);
- */
-extern "Python" int Cryptography_rand_bytes(unsigned char *, int);
-extern "Python" int Cryptography_rand_status(void);
-"""
-
-FUNCTIONS = """
-int _setup_ssl_threads(void);
-"""
-
-MACROS = """
-"""
-
-CUSTOMIZATIONS = """
-static const long Cryptography_STATIC_CALLBACKS = 1;
-"""
-
-if cffi.__version_info__ < (1, 4, 0) or sys.version_info >= (3, 5):
-    # backwards compatibility for old cffi version on PyPy
-    # and Python >=3.5 (https://github.com/pyca/cryptography/issues/2970)
-    TYPES = "static const long Cryptography_STATIC_CALLBACKS;"
-    CUSTOMIZATIONS = """static const long Cryptography_STATIC_CALLBACKS = 0;
-"""
-
-CUSTOMIZATIONS += """
-/* This code is derived from the locking code found in the Python _ssl module's
-   locking callback for OpenSSL.
-
-   Copyright 2001-2016 Python Software Foundation; All Rights Reserved.
-*/
 
 #ifdef _WIN32
-#ifdef _MSC_VER
-#ifdef inline
-#undef inline
-#endif
-#define inline __inline
-#endif
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-typedef CRITICAL_SECTION mutex1_t;
-static inline void mutex1_init(mutex1_t *mutex) {
-    InitializeCriticalSection(mutex);
-}
-static inline void mutex1_lock(mutex1_t *mutex) {
-    EnterCriticalSection(mutex);
-}
-static inline void mutex1_unlock(mutex1_t *mutex) {
-    LeaveCriticalSection(mutex);
-}
+#include <Wincrypt.h>
+#include <Winsock2.h>
 #else
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-typedef pthread_mutex_t mutex1_t;
-#define ASSERT_STATUS(call)                             \
-    if (call != 0) {                                    \
-        perror("Fatal error in _cffi_ssl: " #call);     \
-        abort();                                        \
+#endif
+"""
+
+TYPES = """
+typedef struct {
+    char *password;
+    int length;
+    int called;
+    int error;
+    int maxsize;
+} CRYPTOGRAPHY_PASSWORD_DATA;
+"""
+
+FUNCTIONS = """
+int Cryptography_setup_ssl_threads(void);
+int Cryptography_pem_password_cb(char *, int, int, void *);
+"""
+
+CUSTOMIZATIONS = """
+/* This code is derived from the locking code found in the Python _ssl module's
+   locking callback for OpenSSL.
+
+   Copyright 2001-2016 Python Software Foundation; All Rights Reserved.
+
+   It has been subsequently modified to use cross platform locking without
+   using CPython APIs by Armin Rigo of the PyPy project.
+*/
+
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
+#ifdef _WIN32
+typedef CRITICAL_SECTION Cryptography_mutex;
+static __inline void cryptography_mutex_init(Cryptography_mutex *mutex) {
+    InitializeCriticalSection(mutex);
+}
+static __inline void cryptography_mutex_lock(Cryptography_mutex *mutex) {
+    EnterCriticalSection(mutex);
+}
+static __inline void cryptography_mutex_unlock(Cryptography_mutex *mutex) {
+    LeaveCriticalSection(mutex);
+}
+#else
+typedef pthread_mutex_t Cryptography_mutex;
+#define ASSERT_STATUS(call)                                             \
+    if ((call) != 0) {                                                  \
+        perror("Fatal error in callback initialization: " #call);       \
+        abort();                                                        \
     }
-static inline void mutex1_init(mutex1_t *mutex) {
+static inline void cryptography_mutex_init(Cryptography_mutex *mutex) {
 #if !defined(pthread_mutexattr_default)
 #  define pthread_mutexattr_default ((pthread_mutexattr_t *)NULL)
 #endif
     ASSERT_STATUS(pthread_mutex_init(mutex, pthread_mutexattr_default));
 }
-static inline void mutex1_lock(mutex1_t *mutex) {
+static inline void cryptography_mutex_lock(Cryptography_mutex *mutex) {
     ASSERT_STATUS(pthread_mutex_lock(mutex));
 }
-static inline void mutex1_unlock(mutex1_t *mutex) {
+static inline void cryptography_mutex_unlock(Cryptography_mutex *mutex) {
     ASSERT_STATUS(pthread_mutex_unlock(mutex));
 }
 #endif
 
+
 static unsigned int _ssl_locks_count = 0;
-static mutex1_t *_ssl_locks = NULL;
+static Cryptography_mutex *_ssl_locks = NULL;
 
 static void _ssl_thread_locking_function(int mode, int n, const char *file,
                                          int line) {
@@ -129,24 +106,24 @@ static void _ssl_thread_locking_function(int mode, int n, const char *file,
     }
 
     if (mode & CRYPTO_LOCK) {
-        mutex1_lock(_ssl_locks + n);
+        cryptography_mutex_lock(_ssl_locks + n);
     } else {
-        mutex1_unlock(_ssl_locks + n);
+        cryptography_mutex_unlock(_ssl_locks + n);
     }
 }
 
-static void init_mutexes(void)
-{
+static void init_mutexes(void) {
     int i;
-    for (i = 0;  i < _ssl_locks_count;  i++) {
-        mutex1_init(_ssl_locks + i);
+    for (i = 0; i < _ssl_locks_count; i++) {
+        cryptography_mutex_init(_ssl_locks + i);
     }
 }
 
-int _setup_ssl_threads(void) {
+
+int Cryptography_setup_ssl_threads(void) {
     if (_ssl_locks == NULL) {
         _ssl_locks_count = CRYPTO_num_locks();
-        _ssl_locks = malloc(sizeof(mutex1_t) * _ssl_locks_count);
+        _ssl_locks = calloc(_ssl_locks_count, sizeof(Cryptography_mutex));
         if (_ssl_locks == NULL) {
             return 0;
         }
@@ -157,5 +134,35 @@ int _setup_ssl_threads(void) {
 #endif
     }
     return 1;
+}
+#else
+int (*Cryptography_setup_ssl_threads)(void) = NULL;
+#endif
+
+typedef struct {
+    char *password;
+    int length;
+    int called;
+    int error;
+    int maxsize;
+} CRYPTOGRAPHY_PASSWORD_DATA;
+
+int Cryptography_pem_password_cb(char *buf, int size,
+                                  int rwflag, void *userdata) {
+    /* The password cb is only invoked if OpenSSL decides the private
+       key is encrypted. So this path only occurs if it needs a password */
+    CRYPTOGRAPHY_PASSWORD_DATA *st = (CRYPTOGRAPHY_PASSWORD_DATA *)userdata;
+    st->called += 1;
+    st->maxsize = size;
+    if (st->length == 0) {
+        st->error = -1;
+        return 0;
+    } else if (st->length < size) {
+        memcpy(buf, st->password, st->length);
+        return st->length;
+    } else {
+        st->error = -2;
+        return 0;
+    }
 }
 """

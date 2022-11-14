@@ -10,7 +10,7 @@ them).  The main theme for the 1.2 release is speed.
 
 Main site:
 
-    http://pypy.org/
+    https://pypy.org/
 
 The JIT is stable and we don't observe crashes. Nevertheless we
 would recommend you to treat it as beta software and as a way to try
@@ -25,10 +25,10 @@ Highlights of This Release
 * Various interpreter optimizations that improve performance
   as well as help save memory.
 
-* Introducing a new PyPy website at http://pypy.org/ , made by
+* Introducing a new PyPy website at https://pypy.org/ , made by
   tav and improved by the PyPy team.
 
-* Introducing http://speed.pypy.org/ , a new service that
+* Introducing https://speed.pypy.org/ , a new service that
   monitors our performance nightly, made by Miquel Torres.
 
 * There will be ubuntu packages on "PyPy's PPA" made by
@@ -48,7 +48,7 @@ Known JIT problems (or why you should consider this beta software):
 
 
 If you want to try PyPy, go to the "download page" on our excellent
-new site at http://pypy.org/download.html and find the binary for
+new site at https://pypy.org/download.html and find the binary for
 your platform. If the binary does not work (e.g. on Linux, because
 of different versions of external .so dependencies), or if your
 platform is not supported, you can try building from the source.
@@ -78,4 +78,4 @@ Together with
     Samuele Pedroni
 
 and many others:
-    http://codespeak.net/pypy/dist/pypy/doc/contributor.html
+    https://codespeak.net/pypy/dist/pypy/doc/contributor.html

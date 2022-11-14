@@ -1,13 +1,13 @@
-
-from rpython.rlib import rutf8
+from rpython.rlib import rutf8, jit
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 
-def create_filter(space, w_category, action):
+def create_filter(space, w_category, action, modname):
+    w_modname = space.newtext(modname) if modname is not None else space.w_None
     return space.newtuple([
         space.newtext(action), space.w_None, w_category,
-        space.w_None, space.newint(0)])
+        w_modname, space.newint(0)])
 
 class State:
     def __init__(self, space):
@@ -22,27 +22,17 @@ class State:
     def init_filters(self, space):
         filters_w = []
 
+        # note: in CPython, all warnings are enabled by default in pydebug mode
         filters_w.append(create_filter(
-            space, space.w_DeprecationWarning, "ignore"))
+            space, space.w_DeprecationWarning, "default", "__main__"))
         filters_w.append(create_filter(
-            space, space.w_PendingDeprecationWarning, "ignore"))
+            space, space.w_DeprecationWarning, "ignore", None))
         filters_w.append(create_filter(
-            space, space.w_ImportWarning, "ignore"))
-
-        bytes_warning = space.sys.get_flag('bytes_warning')
-        if bytes_warning > 1:
-            action = "error"
-        elif bytes_warning == 0:
-            action = "ignore"
-        else:
-            action = "default"
+            space, space.w_PendingDeprecationWarning, "ignore", None))
         filters_w.append(create_filter(
-            space, space.w_BytesWarning, action))
-
-        # note: in CPython, resource usage warnings are enabled by default
-        # in pydebug mode
+            space, space.w_ImportWarning, "ignore", None))
         filters_w.append(create_filter(
-            space, space.w_ResourceWarning, "ignore"))
+            space, space.w_ResourceWarning, "ignore", None))
 
         self.w_filters = space.newlist(filters_w)
 
@@ -93,6 +83,7 @@ def is_internal_frame(space, frame):
     # unhappy about, but I can't do anything more than say "bah"
     return "importlib" in code.co_filename and "_bootstrap" in code.co_filename
 
+@jit.unroll_safe # usually runs once, or a small number of times
 def next_external_frame(space, frame):
     ec = space.getexecutioncontext()
     while True:
@@ -100,8 +91,8 @@ def next_external_frame(space, frame):
         if frame is None or not is_internal_frame(space, frame):
             return frame
 
-def setup_context(space, stacklevel):
-    # Setup globals and lineno
+@jit.look_inside_iff(lambda space, stacklevel: jit.isconstant(stacklevel))
+def _get_frame(space, stacklevel):
     ec = space.getexecutioncontext()
 
     # Direct copy of CPython's logic, which has grown its own notion of
@@ -115,12 +106,19 @@ def setup_context(space, stacklevel):
         while stacklevel > 1 and frame:
             frame = next_external_frame(space, frame)
             stacklevel -= 1
+    return frame
+
+def setup_context(space, stacklevel):
+    # Setup globals and lineno
+    frame = _get_frame(space, stacklevel)
 
     if frame:
         w_globals = frame.get_w_globals()
+        w_filename = space.newtext(frame.pycode.co_filename)
         lineno = frame.get_last_lineno()
     else:
         w_globals = space.sys.w_dict
+        w_filename = space.newtext("sys")
         lineno = 1
 
     # setup registry
@@ -140,33 +138,16 @@ def setup_context(space, stacklevel):
             raise
         w_module = space.newtext("<string>")
 
-    # setup filename
-    try:
-        w_filename = space.getitem(w_globals, space.newtext("__file__"))
-        filename = space.fsencode_w(w_filename)
-    except OperationError as e:
-        if space.text_w(w_module) == '__main__':
-            w_argv = space.sys.getdictvalue(space, 'argv')
-            if w_argv and space.len_w(w_argv) > 0:
-                w_filename = space.getitem(w_argv, space.newint(0))
-                if not space.is_true(w_filename):
-                    w_filename = space.newtext('__main__')
-            else:
-                # embedded interpreters don't have sys.argv
-                w_filename = space.newtext('__main__')
-        else:
-            w_filename = w_module
-    else:
-        lc_filename = filename.lower()
-        if lc_filename.endswith(".pyc"):
-            # strip last character
-            w_filename = space.fsdecode(space.newbytes(filename[:-1]))
-
     return (w_filename, lineno, w_module, w_registry)
 
 def check_matched(space, w_obj, w_arg):
+    # A 'None' filter always matches
     if space.is_w(w_obj, space.w_None):
         return True
+    # An internal plain text default filter must match exactly
+    if space.is_w(space.type(w_obj), space.w_unicode):
+        return space.eq_w(w_obj, w_arg)
+    # Otherwise assume a regex filter and call its match() method
     return space.is_true(space.call_method(w_obj, "match", w_arg))
 
 def get_filter(space, w_category, w_text, lineno, w_module):
@@ -210,7 +191,7 @@ def get_once_registry(space):
     return w_registry
 
 def update_registry(space, w_registry, w_text, w_category):
-    w_key = space.newtuple([w_text, w_category])
+    w_key = space.newtuple2(w_text, w_category)
     return already_warned(space, w_registry, w_key, should_set=True)
 
 def already_warned(space, w_registry, w_key, should_set=False):
@@ -279,12 +260,12 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
             break
     space.call_method(w_stderr, "write", space.newtext(message))
 
-def do_warn(space, w_message, w_category, stacklevel):
+def do_warn(space, w_message, w_category, stacklevel, w_source=None):
     context_w = setup_context(space, stacklevel)
-    do_warn_explicit(space, w_category, w_message, context_w)
+    do_warn_explicit(space, w_category, w_message, context_w, w_source=w_source)
 
 def do_warn_explicit(space, w_category, w_message, context_w,
-                     w_sourceline=None):
+                     w_sourceline=None, w_source=None):
     w_filename, lineno, w_module, w_registry = context_w
 
     # normalize module
@@ -317,6 +298,9 @@ def do_warn_explicit(space, w_category, w_message, context_w,
 
     if action == "error":
         raise OperationError(w_category, w_message)
+ 
+    if action == 'ignore':
+        return
 
     # Store in the registry that we've been here, *except* when the action is
     # "always".
@@ -324,9 +308,8 @@ def do_warn_explicit(space, w_category, w_message, context_w,
     if action != 'always':
         if not space.is_w(w_registry, space.w_None):
             space.setitem(w_registry, w_key, space.w_True)
-        if action == 'ignore':
-            return
-        elif action == 'once':
+
+        if action == 'once':
             if space.is_w(w_registry, space.w_None):
                 w_registry = get_once_registry(space)
             warned = update_registry(space, w_registry, w_text, w_category)
@@ -345,19 +328,32 @@ def do_warn_explicit(space, w_category, w_message, context_w,
     if warned:
         # Already warned for this module
         return
-    w_show_fxn = get_warnings_attr(space, "showwarning")
-    if w_show_fxn is None:
+
+    w_show_fn = get_warnings_attr(space, "_showwarnmsg")
+    if w_show_fn is None:
         show_warning(space, w_filename, lineno, w_text, w_category,
                      w_sourceline)
-    else:
-        space.call_function(
-            w_show_fxn, w_message, w_category, w_filename, w_lineno)
+        return
+
+    if not space.is_true(space.callable(w_show_fn)):
+        raise oefmt(space.w_TypeError,
+                    "warnings._showwarnmsg() must be set to a callable")
+    w_message_cls = get_warnings_attr(space, "WarningMessage")
+    if w_message_cls is None:
+        raise oefmt(space.w_RuntimeError,
+                    "unable to get warnings.WarningMessage")
+    w_source = w_source or space.w_None
+    w_msg = space.call_function(
+        w_message_cls, w_message, w_category,
+        w_filename, w_lineno, space.w_None, space.w_None, w_source)
+    space.call_function(w_show_fn, w_msg)
+
 
 @unwrap_spec(stacklevel=int)
-def warn(space, w_message, w_category=None, stacklevel=1):
+def warn(space, w_message, w_category=None, stacklevel=1, w_source=None):
     "Issue a warning, or maybe ignore it or raise an exception."
     w_category = get_category(space, w_message, w_category);
-    do_warn(space, w_message, w_category, stacklevel)
+    do_warn(space, w_message, w_category, stacklevel, w_source)
 
 
 def get_source_line(space, w_globals, lineno):
@@ -387,7 +383,7 @@ def get_source_line(space, w_globals, lineno):
         return None
 
     # Split the source into lines.
-    w_source_list = space.call_method(w_source, "splitlines")
+    w_source_list = space.call_method(space.w_text, "splitlines", w_source)
 
     # Get the source line.
     w_source_line = space.getitem(w_source_list, space.newint(lineno - 1))
@@ -397,14 +393,15 @@ def get_source_line(space, w_globals, lineno):
              w_registry = WrappedDefault(None),
              w_module_globals = WrappedDefault(None))
 def warn_explicit(space, w_message, w_category, w_filename, lineno,
-                  w_module=None, w_registry=None, w_module_globals=None):
+                  w_module=None, w_registry=None, w_module_globals=None,
+                  w_source=None):
     "Low-level inferface to warnings functionality."
 
     w_source_line = get_source_line(space, w_module_globals, lineno)
 
     do_warn_explicit(space, w_category, w_message,
                      (w_filename, lineno, w_module, w_registry),
-                     w_source_line)
+                     w_source_line, w_source)
 
 def filters_mutated(space):
     space.fromcache(State).filters_mutated(space)

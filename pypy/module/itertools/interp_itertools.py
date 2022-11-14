@@ -27,12 +27,13 @@ class W_Count(W_Root):
 
     def repr_w(self):
         space = self.space
+        cls_name = space.type(self).getname(space)
         c = space.text_w(space.repr(self.w_c))
         if self.single_argument():
-            s = 'count(%s)' % (c,)
+            s = '%s(%s)' % (cls_name, c)
         else:
             step = space.text_w(space.repr(self.w_step))
-            s = 'count(%s, %s)' % (c, step)
+            s = '%s(%s, %s)' % (cls_name, c, step)
         return self.space.newtext(s)
 
     def reduce_w(self):
@@ -41,8 +42,8 @@ class W_Count(W_Root):
             args_w = [self.w_c]
         else:
             args_w = [self.w_c, self.w_step]
-        return space.newtuple([space.gettypefor(W_Count),
-                               space.newtuple(args_w)])
+        return space.newtuple2(space.gettypefor(W_Count),
+                               space.newtuple(args_w))
 
 def check_number(space, w_obj):
     if (space.lookup(w_obj, '__int__') is None and
@@ -107,11 +108,13 @@ class W_Repeat(W_Root):
         return self.space.newint(self.count)
 
     def repr_w(self):
-        objrepr = self.space.text_w(self.space.repr(self.w_obj))
+        space = self.space
+        cls_name = space.type(self).getname(space)
+        objrepr = self.space.text_w(space.repr(self.w_obj))
         if self.counting:
-            s = 'repeat(%s, %d)' % (objrepr, self.count)
+            s = '%s(%s, %d)' % (cls_name, objrepr, self.count)
         else:
-            s = 'repeat(%s)' % (objrepr,)
+            s = '%s(%s)' % (cls_name, objrepr)
         return self.space.newtext(s)
 
     def descr_reduce(self):
@@ -278,8 +281,8 @@ W_DropWhile.typedef = TypeDef(
 class W_FilterFalse(W_Filter):
     reverse = True
     def descr_reduce(self, space):
-        args_w = [space.w_None if self.no_predicate else self.w_predicate,
-                  self.iterable]
+        args_w = [space.w_None if self.w_predicate is None else self.w_predicate,
+                  self.w_iterable]
         return space.newtuple([space.type(self), space.newtuple(args_w)])
 
 def W_FilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
@@ -359,7 +362,7 @@ class W_ISlice(W_Root):
     def arg_int_w(self, w_obj, minimum, errormsg):
         space = self.space
         try:
-            result = space.int_w(w_obj)
+            result = space.int_w(space.index(w_obj))
         except OperationError as e:
             if e.async(space):
                 raise
@@ -838,6 +841,7 @@ class W_TeeChainedListNode(W_Root):
     def __init__(self, space):
         self.w_next = None
         self.w_obj = None
+        self.running = False
 
     def reduce_w(self, space):
         list_w = []
@@ -891,13 +895,19 @@ class W_TeeIterable(W_Root):
         w_chained_list = self.w_chained_list
         if w_chained_list is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        if w_chained_list.running:
+            raise oefmt(self.space.w_RuntimeError,
+                                 "cannot re-enter the tee iterator")
         w_obj = w_chained_list.w_obj
         if w_obj is None:
+            w_chained_list.running = True
             try:
                 w_obj = self.space.next(self.w_iterator)
+                w_chained_list.running = False
             except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.w_chained_list = None
+                w_chained_list.running = False
                 raise
             w_chained_list.w_next = W_TeeChainedListNode(self.space)
             w_chained_list.w_obj = w_obj
@@ -970,10 +980,11 @@ class W_GroupBy(W_Root):
         return self
 
     def next_w(self):
+        self.w_currgrouper = None
         self._skip_to_next_iteration_group()
         w_key = self.w_tgtkey = self.w_currkey
         w_grouper = W_GroupByIterator(self, w_key)
-        return self.space.newtuple([w_key, w_grouper])
+        return self.space.newtuple2(w_key, w_grouper)
 
     def _skip_to_next_iteration_group(self):
         space = self.space
@@ -1055,6 +1066,7 @@ class W_GroupByIterator(W_Root):
     def __init__(self, groupby, w_tgtkey):
         self.groupby = groupby
         self.w_tgtkey = w_tgtkey
+        groupby.w_currgrouper = self
 
     def iter_w(self):
         return self
@@ -1062,13 +1074,16 @@ class W_GroupByIterator(W_Root):
     def next_w(self):
         groupby = self.groupby
         space = groupby.space
+        if groupby.w_currgrouper is not self:
+            raise OperationError(space.w_StopIteration, space.w_None)
         if groupby.w_currvalue is None:
             w_newvalue = space.next(groupby.w_iterator)
             if space.is_w(groupby.w_keyfunc, space.w_None):
                 w_newkey = w_newvalue
             else:
                 w_newkey = space.call_function(groupby.w_keyfunc, w_newvalue)
-            assert groupby.w_currvalue is None
+            #assert groupby.w_currvalue is None
+            # ^^^ check disabled, see http://bugs.python.org/issue30347
             groupby.w_currkey = w_newkey
             groupby.w_currvalue = w_newvalue
 
@@ -1081,6 +1096,9 @@ class W_GroupByIterator(W_Root):
         return w_result
 
     def descr_reduce(self, space):
+        if self.groupby.w_currgrouper is not self:
+            w_callable = space.builtin.get('iter')
+            return space.newtuple([w_callable, space.newtuple([space.newtuple([])])])
         return space.newtuple([
             space.type(self),
             space.newtuple([
@@ -1623,31 +1641,46 @@ permutations(range(3), 2) --> (0,1), (0,2), (1,0), (1,2), (2,0), (2,1)""",
 
 
 class W_Accumulate(W_Root):
-    def __init__(self, space, w_iterable, w_func=None):
+    'Return series of accumulated sums (or other binary function results).'
+
+    def __init__(self, space, w_iterable, w_func, w_initial):
         self.space = space
         self.w_iterable = w_iterable
         self.w_func = w_func if not space.is_w(w_func, space.w_None) else None
         self.w_total = None
+        self.w_initial = w_initial
 
     def iter_w(self):
         return self
 
     def next_w(self):
-        w_value = self.space.next(self.w_iterable)
+        space = self.space
+        if not space.is_w(self.w_initial, space.w_None):
+            w_res = self.w_total = self.w_initial
+            self.w_initial = space.w_None
+            return w_res
+        w_value = space.next(self.w_iterable)
         if self.w_total is None:
             self.w_total = w_value
             return w_value
 
         if self.w_func is None:
-            self.w_total = self.space.add(self.w_total, w_value)
+            self.w_total = space.add(self.w_total, w_value)
         else:
-            self.w_total = self.space.call_function(self.w_func, self.w_total, w_value)
+            self.w_total = space.call_function(self.w_func, self.w_total, w_value)
         return self.w_total
 
     def reduce_w(self):
         space = self.space
         w_func = space.w_None if self.w_func is None else self.w_func
-        if self.w_total is space.w_None:      # :-(
+        if not space.is_w(self.w_initial, space.w_None):
+            w_it = W_Chain(space, space.iter(space.newlist([
+                space.newtuple([self.w_initial]),
+                self.w_iterable])))
+            return space.newtuple([space.gettypefor(W_Accumulate),
+                space.newtuple([w_it, w_func]),
+                space.w_None])
+        if self.w_total is space.w_None: # :-(
             w_it = W_Chain(space, space.iter(space.newlist([
                                      space.newtuple([self.w_total]),
                                      self.w_iterable])))
@@ -1663,9 +1696,10 @@ class W_Accumulate(W_Root):
     def setstate_w(self, space, w_state):
         self.w_total = w_state if not space.is_w(w_state, space.w_None) else None
 
-def W_Accumulate__new__(space, w_subtype, w_iterable, w_func=None):
+@unwrap_spec(w_initial=WrappedDefault(None))
+def W_Accumulate__new__(space, w_subtype, w_iterable, w_func=None, __kwonly__=None, w_initial=None):
     r = space.allocate_instance(W_Accumulate, w_subtype)
-    r.__init__(space, space.iter(w_iterable), w_func)
+    r.__init__(space, space.iter(w_iterable), w_func, w_initial)
     return r
 
 W_Accumulate.typedef = TypeDef("itertools.accumulate",

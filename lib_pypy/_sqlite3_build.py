@@ -238,6 +238,9 @@ const void *sqlite3_value_text16le(sqlite3_value*);
 const void *sqlite3_value_text16be(sqlite3_value*);
 int sqlite3_value_type(sqlite3_value*);
 int sqlite3_value_numeric_type(sqlite3_value*);
+
+int sqlite3_sleep(int);
+const char *sqlite3_errstr(int);
 """)
 
 def _has_load_extension():
@@ -256,19 +259,68 @@ def _has_load_extension():
     unverified_lib = unverified_ffi.dlopen(libname)
     return hasattr(unverified_lib, 'sqlite3_enable_load_extension')
 
+def _has_backup():
+    """Only available since 3.6.11"""
+    unverified_ffi = _FFI()
+    unverified_ffi.cdef("""
+    typedef ... sqlite3;
+    typedef ... sqlite3_backup;
+    sqlite3_backup* sqlite3_backup_init(sqlite3 *, const char* , sqlite3 *, const char*);
+    """)
+    libname = 'sqlite3'
+    if sys.platform == 'win32':
+        import os
+        _libname = os.path.join(os.path.dirname(sys.executable), libname)
+        if os.path.exists(_libname + '.dll'):
+            libname = _libname
+    unverified_lib = unverified_ffi.dlopen(libname)
+    return hasattr(unverified_lib, 'sqlite3_backup_init')
+
+def _get_version():
+    unverified_ffi = _FFI()
+    unverified_ffi.cdef("""
+    int sqlite3_libversion_number(void);
+    """)
+    libname = 'sqlite3'
+    if sys.platform == 'win32':
+        import os
+        _libname = os.path.join(os.path.dirname(sys.executable), libname)
+        if os.path.exists(_libname + '.dll'):
+            libname = _libname
+    unverified_lib = unverified_ffi.dlopen(libname)
+    return unverified_lib.sqlite3_libversion_number()
+
+
 if _has_load_extension():
     _ffi.cdef("int sqlite3_enable_load_extension(sqlite3 *db, int onoff);")
+    _ffi.cdef("int sqlite3_load_extension(sqlite3 *db, const char *, "
+                                                 "const char *, char **);")
+if _has_backup():
+    _ffi.cdef("""
+typedef ... sqlite3_backup;
+sqlite3_backup *sqlite3_backup_init(sqlite3 *, const char*, sqlite3 *, const char*);
+int sqlite3_backup_step(sqlite3_backup *p, int nPage);
+int sqlite3_backup_finish(sqlite3_backup *p);
+int sqlite3_backup_remaining(sqlite3_backup *p);
+int sqlite3_backup_pagecount(sqlite3_backup *p);
+""")
 
+if _get_version() >= 3008003:
+    _ffi.cdef("""
+        #define SQLITE_DETERMINISTIC ...
+    """)
+
+libraries=['sqlite3']
 if sys.platform.startswith('freebsd'):
     _localbase = os.environ.get('LOCALBASE', '/usr/local')
     extra_args = dict(
-        libraries=['sqlite3'],
+        libraries=libraries,
         include_dirs=[os.path.join(_localbase, 'include')],
         library_dirs=[os.path.join(_localbase, 'lib')]
     )
 else:
     extra_args = dict(
-        libraries=['sqlite3']
+        libraries=libraries,
     )
 
 SOURCE = """
@@ -290,3 +342,22 @@ _ffi.set_source("_sqlite3_cffi", SOURCE, **extra_args)
 
 if __name__ == "__main__":
     _ffi.compile()
+    if sys.platform == 'win32':
+        # copy dlls from externals to the pwd
+        # maybe we should link to libraries instead of the dlls
+        # to avoid this mess
+        import os, glob, shutil
+        path_parts = os.environ['PATH'].split(';')
+        candidates = [x for x in path_parts if 'externals' in x]
+
+        def copy_from_path(dll):
+            for c in candidates:
+                files = glob.glob(os.path.join(c, dll + '*.dll'))
+                if files:
+                    for fname in files:
+                        print('copying', fname)
+                        shutil.copy(fname, '.')
+
+        if candidates:
+            for lib in libraries:
+                copy_from_path(lib)

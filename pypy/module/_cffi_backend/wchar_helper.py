@@ -24,7 +24,7 @@ def utf8_from_char32(ptr, length):
         j += 1
         try:
             rutf8.unichr_as_utf8_append(u, ch, allow_surrogates=True)
-        except ValueError:
+        except rutf8.OutOfRange:
             raise OutOfRange(ch)
     return u.build(), length
 

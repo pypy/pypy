@@ -9,7 +9,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import register_replacement_for
-from rpython.rlib.rarithmetic import intmask, UINT_MAX
+from rpython.rlib.rarithmetic import intmask, r_int64, UINT_MAX
 from rpython.rlib import rposix
 
 _WIN32 = sys.platform.startswith('win')
@@ -83,6 +83,7 @@ constant_names = ['RUSAGE_SELF', 'EINTR',
                   'CLOCK_THREAD_CPUTIME_ID',
                   'CLOCK_HIGHRES',
                   'CLOCK_PROF',
+                  'CLOCK_UPTIME',
 ]
 for const in constant_names:
     setattr(CConfig, const, rffi_platform.DefinedConstantInteger(const))
@@ -93,6 +94,10 @@ for const in defs_names:
 def decode_timeval(t):
     return (float(rffi.getintfield(t, 'c_tv_sec')) +
             float(rffi.getintfield(t, 'c_tv_usec')) * 0.000001)
+
+def decode_timeval_ns(t):
+    return (r_int64(rffi.getintfield(t, 'c_tv_sec')) * 10**9 +
+            r_int64(rffi.getintfield(t, 'c_tv_usec')) * 10**3)
 
 
 def external(name, args, result, compilation_info=eci, **kwds):
@@ -183,7 +188,7 @@ if _WIN32:
 HAS_CLOCK_GETTIME = (CLOCK_MONOTONIC is not None)
 if sys.platform == 'darwin':
     HAS_CLOCK_GETTIME = False
-    # ^^^ https://bitbucket.org/pypy/pypy/issues/2432 and others
+    # ^^^ issue #2432 and others
     # (change it manually if you *know* you want to build and run on
     # OS/X 10.12 or later)
 

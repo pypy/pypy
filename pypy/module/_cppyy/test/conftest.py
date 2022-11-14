@@ -5,7 +5,7 @@ THIS_DIR = dirname(__file__)
 
 @py.test.mark.tryfirst
 def pytest_runtest_setup(item):
-    if py.path.local.sysfind('genreflex') is None:
+    if not disabled and py.path.local.sysfind('genreflex') is None:
         import pypy.module._cppyy.capi.loadable_capi as lcapi
         if 'dummy' in lcapi.backend_library:
             # run only tests that are covered by the dummy backend and tests
@@ -33,23 +33,27 @@ def pytest_runtest_setup(item):
 
 def pytest_ignore_collect(path, config):
     path = str(path)
-    if py.path.local.sysfind('genreflex') is None and config.option.runappdirect:
-        return commonprefix([path, THIS_DIR]) == THIS_DIR
     if disabled:
-        return commonprefix([path, THIS_DIR]) == THIS_DIR
+        if commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
+            return True
 
 disabled = None
+if sys.maxsize > 2**32 and sys.platform == 'win32':
+    # cppyy not yet supported on windows 64 bit
+    disabled = True
 
 def pytest_configure(config):
+    global disabled
+    if disabled or config.getoption('runappdirect') or config.getoption('direct_apptest'):
+        if py.path.local.sysfind('genreflex') is None:
+            disabled = True  # can't run dummy tests in -A
+        return
     if py.path.local.sysfind('genreflex') is None:
         import pypy.module._cppyy.capi.loadable_capi as lcapi
         try:
             import ctypes
             ctypes.CDLL(lcapi.backend_library)
         except Exception as e:
-            if config.option.runappdirect:
-                return       # "can't run dummy tests in -A"
-
             # build dummy backend (which has reflex info and calls hard-wired)
             import os
             from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -62,12 +66,16 @@ def pytest_configure(config):
             srcpath = pkgpath.join('src')
             incpath = pkgpath.join('include')
             tstpath = pkgpath.join('test')
+            compile_extra = ['-DRPY_EXTERN=RPY_EXPORTED', '-DCPPYY_DUMMY_BACKEND']
+            if platform.name == 'msvc':
+                compile_extra += ['-std:c++14']
+            else:
+                compile_extra += ['-fno-strict-aliasing', '-std=c++14']
 
             eci = ExternalCompilationInfo(
                 separate_module_files=[srcpath.join('dummy_backend.cxx')],
                 include_dirs=[incpath, tstpath, cdir],
-                compile_extra=['-DRPY_EXTERN=RPY_EXPORTED', '-DCPPYY_DUMMY_BACKEND',
-                               '-fno-strict-aliasing', '-std=c++14'],
+                compile_extra=compile_extra,
                 use_cpp_linker=True,
             )
 
@@ -78,7 +86,6 @@ def pytest_configure(config):
                     standalone=False)
             except CompilationError as e:
                 if '-std=c++14' in str(e):
-                    global disabled
                     disabled = str(e)
                     return
                 raise

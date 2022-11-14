@@ -38,7 +38,8 @@ __all__ = ['Option',
            'OptionError',
            'OptionConflictError',
            'OptionValueError',
-           'BadOptionError']
+           'BadOptionError',
+           'check_choice']
 
 __copyright__ = """
 Copyright (c) 2001-2006 Gregory P. Ward.  All rights reserved.
@@ -928,7 +929,7 @@ class OptionContainer:
         self.set_description(description)
 
     def _create_option_mappings(self):
-        # For use by OptionParser constructor -- create the master
+        # For use by OptionParser constructor -- create the main
         # option mappings used by this OptionParser and all
         # OptionGroups that it owns.
         self._short_opt = {}            # single letter -> Option instance

@@ -77,7 +77,7 @@ class UsingFrameworkTest(object):
             prefix, name = fullname.split('_', 1)
             definefunc = getattr(cls, fullname)
             func = definefunc.im_func(cls)
-            func.func_name = 'f_' + name
+            func.__name__ = 'f_' + name
             if prefix == 'definestr':
                 funcsstr.append(func)
                 funcs0.append(None)
@@ -448,8 +448,8 @@ class UsingFrameworkTest(object):
         #
         S = lltype.GcStruct('S', ('x', llmemory.Address))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(gc, obj, callback, arg):
-            gc._trace_callback(callback, arg, obj + offset_of_x)
+        def customtrace(gc, obj, callback, arg1, arg2):
+            gc._trace_callback(callback, arg1, arg2, obj + offset_of_x)
         lambda_customtrace = lambda: customtrace
         #
         def setup():
@@ -760,7 +760,7 @@ class UsingFrameworkTest(object):
             qsort.push_arg(rffi.cast(rffi.VOIDP, to_sort))
             qsort.push_arg(rffi.cast(rffi.SIZE_T, 4))
             qsort.push_arg(rffi.cast(rffi.SIZE_T, rffi.sizeof(lltype.Signed)))
-            qsort.push_arg(rffi.cast(rffi.VOIDP, ptr.ll_closure))
+            qsort.push_arg(rffi.cast(rffi.VOIDP, ptr.get_closure()))
             qsort.call(lltype.Void)
             result = [to_sort[i] for i in range(4)] == [1, 2, 3, 4]
             lltype.free(to_sort, flavor='raw')
@@ -1307,7 +1307,7 @@ class UsingFrameworkTest(object):
     def test_long_chain_of_instances(self):
         res = self.run("long_chain_of_instances")
         assert res == 1500
-        
+
 
 class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
@@ -1475,7 +1475,7 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
 
     def define_nursery_hash_base(cls):
         from rpython.rlib.debug import debug_print
-        
+
         class A:
             pass
         def fn():
@@ -1769,7 +1769,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             assert popen.wait() in (-6, 134)     # aborted
             # note: it seems that on some systems we get 134 and on
             # others we get -6.  Bash is supposed to translate the
-            # SIGABRT (signal 6) from the subprocess into the exit 
+            # SIGABRT (signal 6) from the subprocess into the exit
             # code 128+6, but I guess it may not always do so.
             assert 'out of memory:' in child_stderr
             return '42'
@@ -1876,7 +1876,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                 if n == 100:
                     print 'Endless loop!'
                     assert False, 'this looks like an endless loop'
-                
+
             if n < 4: # we expect at least 4 steps
                 print 'Too few steps! n =', n
                 assert False
@@ -1912,6 +1912,45 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     def test_total_gc_time(self):
         res = self.run("total_gc_time")
         assert res > 0 # should take a few microseconds
+
+    def define_increase_root_stack_depth(cls):
+        class X:
+            pass
+        def g(n):
+            if n <= 0:
+                return None
+            x = X()
+            x.n = n
+            x.next = g(n - 1)
+            return x
+        def f(depth):
+            from rpython.rlib.rstack import _stack_set_length_fraction
+            _stack_set_length_fraction(50.0)
+            # ^^^ the default is enough for at least 10'000 (but less than
+            # 100'000) recursions of the simple function g().  We multiply
+            # it by 50.0 to make sure that 200'000 works.  The default
+            # shadowstack depth is 163'840 entries, so 200'000 overflows
+            # that default shadowstack depth, and gives a segfault unless
+            # the following line works too.
+            from rpython.rlib.rgc import increase_root_stack_depth
+            increase_root_stack_depth(depth + 100)
+            #
+            g(depth)
+            return 42
+        return f
+
+    def test_increase_root_stack_depth(self):
+        if not sys.platform.startswith('linux'):
+            py.test.skip("linux only")
+        #
+        def myrunner(args):
+            args1 = ['/bin/bash', '-c', 'ulimit -s unlimited && %s' %
+                     (' '.join(args),)]
+            return subprocess.check_output(args1)
+        res = self.run("increase_root_stack_depth", 200000, runner=myrunner)
+        assert res == 42
+
+
 # ____________________________________________________________________
 
 class TaggedPointersTest(object):

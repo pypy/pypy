@@ -5,6 +5,10 @@ from pypy.objspace.std import intobject as iobj
 from rpython.rlib.rarithmetic import r_uint, is_valid_int, intmask
 from rpython.rlib.rbigint import rbigint
 
+from rpython.jit.metainterp.test.support import LLJitMixin, noConst
+
+from hypothesis import given, strategies
+
 class TestW_IntObject:
 
     def _longshiftresult(self, x):
@@ -177,7 +181,7 @@ class TestW_IntObject:
     else:
         @given(
            a=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
-           b=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+           b=strategies.integers(min_value=0, max_value=sys.maxint),
            c=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint))
         @example(0, 0, -sys.maxint-1)
         @example(0, 1, -sys.maxint-1)
@@ -204,6 +208,18 @@ class TestW_IntObject:
             except OverflowError:
                 result = OverflowError
             assert result == expected
+
+            # check exponent -1
+            if isinstance(expected, int):
+                try:
+                    result = iobj._pow(self.space, a, -1, c)
+                except OperationError as e:
+                    pass
+                except OverflowError:
+                    pass
+                else:
+                    assert (a * result % c) == 1 % c
+
 
         @given(
            a=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
@@ -347,6 +363,9 @@ class AppTestInt(object):
         assert a == 2
         a -= 1
         assert a == 1
+        e = raises(TypeError, "a += 'aa'")
+        assert "+=" in str(e.value)
+
 
     def test_trunc(self):
         import math
@@ -365,6 +384,18 @@ class AppTestInt(object):
     def test_int_string(self):
         assert 42 == int("42")
         assert 10000000000 == int("10000000000")
+
+    def test_int_string_limit(self):
+        import sys
+        max_str_digits = sys.get_int_max_str_digits()
+        raises(ValueError, int, '1' * (max_str_digits + 1))
+        # should not fail
+        x = int(' ' + '1' * max_str_digits)
+        sys.set_int_max_str_digits(0)
+        try:
+            x = int('1' * (max_str_digits + 1))
+        finally:
+            sys.set_int_max_str_digits(max_str_digits)
 
     def test_int_float(self):
         assert 4 == int(4.2)
@@ -463,10 +494,10 @@ class AppTestInt(object):
         value = 4200000000000000000000000000000000
         assert int(j()) == 4200000000000000000000000000000000
         value = subint(42)
-        assert int(j()) == 42 and type(int(j())) is subint
+        assert int(j()) == 42 and type(int(j())) is int
         value = subint(4200000000000000000000000000000000)
         assert (int(j()) == 4200000000000000000000000000000000
-                and type(int(j())) is subint)
+                and type(int(j())) is int)
         value = 42.0
         raises(TypeError, int, j())
         value = "foo"
@@ -531,7 +562,29 @@ class AppTestInt(object):
                     return True
             n = int(TruncReturnsNonInt())
             assert n == 1
-            assert type(n) is bool
+            assert type(n) is int
+
+    def test_trunc_returns_int_subclass_2(self):
+        class BadInt:
+            def __int__(self):
+                return True
+
+        class TruncReturnsBadInt:
+            def __trunc__(self):
+                return BadInt()
+        bad_int = TruncReturnsBadInt()
+        n = int(bad_int)
+        assert n == 1
+        assert type(n) is int
+
+    def test_trunc_returns_index(self):
+        class Index:
+            def __index__(self):
+                return 17
+        class TruncReturnsIndex:
+            def __trunc__(self):
+                return Index()
+        assert int(TruncReturnsIndex()) == 17
 
     def test_int_before_string(self):
         class Integral(str):
@@ -588,7 +641,9 @@ class AppTestInt(object):
     def test_int_error_msg_surrogate(self):
         value = u'123\ud800'
         e = raises(ValueError, int, value)
-        assert str(e.value) == "invalid literal for int() with base 10: %r" % value
+        assert str(e.value) == u"invalid literal for int() with base 10: %r" % value
+        e = raises(ValueError, int, value, 10)
+        assert str(e.value) == u"invalid literal for int() with base 10: %r" % value
 
     def test_non_numeric_input_types(self):
         # Test possible non-numeric types for the argument x, including
@@ -705,9 +760,43 @@ class AppTestInt(object):
             warnings.simplefilter("always", DeprecationWarning)
             n = int(bad)
             m = _operator.index(bad)
-        assert n is True
+        assert n == 1 and type(n) is int
         assert m is False
         assert len(log) == 2
+
+    def test_deprecation_warning_2(self):
+        import warnings, _operator
+        class BadInt(int):
+            def __int__(self):
+                return self
+            def __index__(self):
+                return self
+        bad = BadInt(1)
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            n = int(bad)
+            m = _operator.index(bad)  # no warning
+        assert n == 1 and type(n) is int
+        assert m is bad
+        assert len(log) == 1
+        assert log[0].message.args[0].startswith('__int__')
+
+    def test_deprecation_warning_3(self):
+        import warnings, _operator
+        class BadInt(int):
+            def __int__(self):
+                return self
+            def __index__(self):
+                return self
+        bad = BadInt(2**100)
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            n = int(bad)
+            m = _operator.index(bad)  # no warning
+        assert n == bad and type(n) is int
+        assert m is bad
+        assert len(log) == 1
+        assert log[0].message.args[0].startswith('__int__')
 
     def test_int_nonstr_with_base(self):
         assert int(b'100', 2) == 4
@@ -742,6 +831,119 @@ class AppTestInt(object):
         b = 2 ** 31
         x = -b
         assert x.__rsub__(2) == (2 + b)
+
+    def test_round_special_method(self):
+        assert 567 .__round__(-1) == 570
+        assert 567 .__round__() == 567
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            assert 567 .__round__(None) == 567    # fails on CPython
+
+
+    def test_error_message_wrong_self(self):
+        unboundmeth = int.__str__
+        e = raises(TypeError, unboundmeth, "!")
+        assert "int" in str(e.value)
+        if hasattr(unboundmeth, 'im_func'):
+            e = raises(TypeError, unboundmeth.im_func, "!")
+            assert "'int'" in str(e.value)
+
+    def test_int_new_pos_only(self):
+        with raises(TypeError) as info:
+            int(x=1)
+        assert "got a positional-only argument passed as keyword argument: 'x'" in str(info.value)
+
+    def test_int_as_integer_ratio(self):
+        assert 4 .as_integer_ratio() == (4, 1)
+        assert (-1).as_integer_ratio() == (-1, 1)
+        assert (2 ** 100).as_integer_ratio() == (2 ** 100).as_integer_ratio()
+
+        d, n = True.as_integer_ratio()
+        assert (d, n) == (1, 1)
+        assert type(d) is int
+        d, n = False.as_integer_ratio()
+        assert (d, n) == (0, 1)
+        assert type(d) is int
+
+        class X(int): pass
+        a = X(5)
+        n, d = a.as_integer_ratio()
+        assert n == 5 and d == 1
+        assert type(n) is int
+
+    def test_pow_negative_exponent_mod(self):
+        import math
+        for i in range(1, 7):
+            for j in range(2, 7):
+                for sign in [1, -1]:
+                    i = i * sign
+                    if math.gcd(i, j) != 1:
+                        with raises(ValueError):
+                            pow(i, -1, j)
+                        continue
+                    x = pow(i, -1, j)
+                    assert (x * i) % j == 1 % j
+
+                    for k in range(2, 4):
+                        y = pow(i, -k, j)
+                        assert y == pow(x, k, j)
+
+    def test_int_constructor_calls_index(self):
+        class A:
+            def __index__(self):
+                return 25
+        assert int(A()) == 25
+        reallybig = 1 << 1000
+        class A:
+            def __index__(self):
+                return reallybig
+        assert int(A()) == reallybig
+
+        class A:
+            def __index__(self):
+                return "abc"
+        with raises(TypeError):
+            int(A())
+
+        class subint(int):
+            pass
+        class A:
+            def __index__(self):
+                return subint(12)
+        x = int(A())
+        assert x == 12
+        assert type(x) is int
+
+
+def test_hash_examples():
+    for i in range(1000):
+        assert iobj._hash_int(i) == i
+        assert iobj._hash_int(-i-2) == -i-2
+    assert iobj._hash_int(-1) == -2
+
+    # now bigger/smaller than HASH_MODULUS
+    for i in range(1000):
+        input = iobj.HASH_MODULUS + i
+        assert iobj._hash_int(input) == i
+
+        input = -iobj.HASH_MODULUS-i-1
+        if -i-1 == -1:
+            assert iobj._hash_int(input) == -2
+        else:
+            assert iobj._hash_int(input) == -i-1
+    assert iobj._hash_int(-sys.maxsize-1) == -4
+
+@given(strategies.integers(min_value=-sys.maxsize-1, max_value=sys.maxsize))
+def test_agreement_rbigint_hash(x):
+    from pypy.objspace.std.longobject import _hash_long
+    assert iobj._hash_int(x) == _hash_long(rbigint.fromint(x))
+    
+class TestHashNoBranch(LLJitMixin):
+    def test_int_hash_no_guards(self):
+        res = self.interp_operations(iobj._hash_int, [123])
+        assert res == 123
+        self.check_operations_history(guard_true=0, guard_false=0)
+
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}

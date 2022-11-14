@@ -137,9 +137,15 @@ class AppTestBytesObject:
         assert bytes.fromhex("abcd") == b'\xab\xcd'
         assert b''.fromhex("abcd") == b'\xab\xcd'
         assert bytes.fromhex("ab cd  ef") == b'\xab\xcd\xef'
+        assert bytes.fromhex("\nab\tcd  \tef\t") == b'\xab\xcd\xef'
         raises(TypeError, bytes.fromhex, b"abcd")
         raises(TypeError, bytes.fromhex, True)
         raises(ValueError, bytes.fromhex, "hello world")
+
+    def test_fromhex_subclass(self):
+        class Sub(bytes):
+            pass
+        assert type(Sub.fromhex("abcd")) is Sub
 
     def test_format(self):
         raises(TypeError, "foo".__mod__, "bar")
@@ -193,6 +199,15 @@ class AppTestBytesObject:
         raises(TypeError, "b'xxx' % b'foo'")
         raises(TypeError, "b'xxx' % bytearray()")
         raises(TypeError, "b'xxx' % 53")
+
+    def test_format_percent_subclass_tuple_ignores_iter(self):
+        class t(tuple):
+            def __iter__(self):
+                yield b"1"
+                yield b"2"
+                yield b"3"
+        assert b"%s %s %s" % t((b"4", b"5", b"6")) == b"4 5 6"
+
 
     def test_split(self):
         assert b"".split() == []
@@ -276,6 +291,15 @@ class AppTestBytesObject:
         assert b'aaaa'.capitalize() == b'Aaaa'
         assert b'AaAa'.capitalize() == b'Aaaa'
 
+    def test_isascii(self):
+        assert b"hello".isascii() is True
+        assert b"\x00\x7f".isascii() is True
+        assert b"\x80".isascii() is False
+        assert b"\x97".isascii() is False
+        assert b"\xff".isascii() is False
+        assert b"Hello World\x00".isascii() is True
+        assert b"Hello World\x80".isascii() is False
+
     def test_rjust(self):
         s = b"abc"
         assert s.rjust(2) == s
@@ -333,6 +357,10 @@ class AppTestBytesObject:
     def test_replace_buffer(self):
         assert b'one'.replace(memoryview(b'o'), memoryview(b'n'), 1) == b'nne'
         assert b'one'.replace(memoryview(b'o'), memoryview(b'n')) == b'nne'
+
+    def test_replace_no_occurrence(self):
+        x = b"xyz"
+        assert x.replace(b"a", b"b") is x
 
     def test_strip(self):
         s = b" a b "
@@ -419,6 +447,14 @@ class AppTestBytesObject:
         assert b'ab'.startswith(b'b', 1) is True
         assert b'abc'.startswith(b'bc', 1, 2) is False
         assert b'abc'.startswith(b'c', -1, 4) is True
+        assert b'0'.startswith(b'', 1, -1) is False
+        assert b'0'.startswith(b'', 1, 0) is False
+        assert b'0'.startswith(b'', 1) is True
+        assert b'0'.startswith(b'', 1, None) is True
+        assert b''.startswith(b'', 1, -1) is False
+        assert b''.startswith(b'', 1, 0) is False
+        assert b''.startswith(b'', 1) is False
+        assert b''.startswith(b'', 1, None) is False
 
     def test_startswith_too_large(self):
         assert b'ab'.startswith(b'b', 1) is True
@@ -462,6 +498,7 @@ class AppTestBytesObject:
         assert b'abc'.endswith(b'bc', 1) is True
         assert b'abc'.endswith(b'bc', 2) is False
         assert b'abc'.endswith(b'b', -3, -1) is True
+        assert b'0'.endswith(b'', 1, -1) is False
 
     def test_endswith_tuple(self):
         assert not b'hello'.endswith((b'he', b'ha'))
@@ -639,7 +676,6 @@ class AppTestBytesObject:
     def test_unicode_join_str_arg_ascii(self):
         raises(TypeError, ''.join, [b'\xc3\xa1'])
 
-    @pytest.mark.xfail(reason='setdefaultencoding does not work?')
     def test_unicode_join_endcase(self):
         # This class inserts a Unicode object into its argument's natural
         # iteration, in the 3rd position.
@@ -788,6 +824,10 @@ class AppTestBytesObject:
     def test_decode(self):
         assert b'hello'.decode('ascii') == 'hello'
         raises(UnicodeDecodeError, b'he\x97lo'.decode, 'ascii')
+
+    def test_decode_surrogatepass_issue_3132(self):
+        with raises(UnicodeDecodeError):
+            b"\xd8=a".decode("utf-16-be", "surrogatepass")
 
     def test_encode(self):
         assert 'hello'.encode() == b'hello'
@@ -976,6 +1016,24 @@ class AppTestBytesObject:
                "73616e746120636c617573"
         assert bytes(64).hex() == "00"*64
 
+    def test_hex_sep(self):
+        raises(TypeError, bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex, 12)
+        res = bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex(b'.')
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        res = bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('.')
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        with raises(ValueError):
+            bytes([1, 2, 3]).hex("abc")
+        assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('?', 4) == \
+               "73616e?74612063?6c617573"
+        assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('?', -4) == \
+               "73616e74?6120636c?617573"
+        with raises(ValueError) as excinfo:
+            bytes([1, 2, 3]).hex("ä")
+        assert "ASCII" in str(excinfo.value)
+        with raises(TypeError):
+            bytes().hex(None, 1)
+
     def test_format(self):
         """
         assert b'a%db' % 2 == b'a2b'
@@ -1036,3 +1094,10 @@ class AppTestBytesObject:
         id_a = id(a)
         assert a is not str(a, 'latin1')
         assert id_a != id_b
+
+    def test_error_message_wrong_self(self):
+        e = raises(TypeError, bytes.upper, 42)
+        assert "bytes" in str(e.value)
+        if hasattr(bytes.upper, 'im_func'):
+            e = raises(TypeError, bytes.upper.im_func, 42)
+            assert "'bytes'" in str(e.value)

@@ -44,7 +44,7 @@ began working on a Python3.6 implementation, help is welcome.
 
 You can download the v6.0 releases here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project. If PyPy is not quite good enough for your needs, we are available for
@@ -63,7 +63,7 @@ on pypy, or general `help`_ with making RPython's JIT even better.
 .. _pygobject: https://lazka.github.io/posts/2018-04_pypy-pygobject/index.html
 .. _`syntax errors`: https://morepypy.blogspot.com/2018/04/improving-syntaxerror-in-pypy.html
 .. _`hooks`: gc_info.html#gc-hooks
-.. _`cffi`: http://cffi.readthedocs.io
+.. _`cffi`: https://cffi.readthedocs.io
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`available as wheels`: https://github.com/antocuni/pypy-wheels
 
@@ -88,8 +88,8 @@ The PyPy release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 Changelog
 =========

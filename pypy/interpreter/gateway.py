@@ -48,21 +48,29 @@ class SignatureBuilder(object):
         self.argnames = argnames
         self.varargname = varargname
         self.kwargname = kwargname
-        self.kwonlyargnames = None
+        self.posonlyargcount = 0
+        self.kwonlystartindex = -1
 
     def append(self, argname):
-        if self.kwonlyargnames is None:
-            self.argnames.append(argname)
-        else:
-            self.kwonlyargnames.append(argname)
+        self.argnames.append(argname)
+
+    def marker_posonly(self):
+        assert self.posonlyargcount == 0
+        assert self.kwonlystartindex == -1
+        self.posonlyargcount = len(self.argnames)
 
     def marker_kwonly(self):
-        assert self.kwonlyargnames is None
-        self.kwonlyargnames = []
+        assert self.kwonlystartindex == -1
+        self.kwonlystartindex = len(self.argnames)
 
     def signature(self):
-        return Signature(self.argnames, self.varargname, self.kwargname,
-                         self.kwonlyargnames)
+        if self.kwonlystartindex == -1:
+            kwonlyargcount = 0
+        else:
+            kwonlyargcount = len(self.argnames) - self.kwonlystartindex
+        return Signature(self.argnames,
+                         self.varargname, self.kwargname,
+                         kwonlyargcount, self.posonlyargcount)
 
 #________________________________________________________________
 
@@ -136,9 +144,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     # checks for checking interp2app func argument names wrt unwrap_spec
     # and synthetizing an app-level signature
 
-    def __init__(self, original_sig):
-        self.func = original_sig.func
-        self.orig_arg = iter(original_sig.argnames).next
+    def __init__(self, func, argnames):
+        self.func = func
+        self.orig_arg = iter(argnames).next
 
     def visit_self(self, cls, app_sig):
         self.visit__W_Root(cls, app_sig)
@@ -253,6 +261,11 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         name = int_unwrapping_space_method(typ)
         self.checked_space_method(name, app_sig)
 
+    def visit_posonly(self, _, app_sig):
+        argname = self.orig_arg()
+        assert argname == '__posonly__'
+        app_sig.marker_posonly()
+
     def visit_kwonly(self, _, app_sig):
         argname = self.orig_arg()
         assert argname == '__kwonly__'
@@ -263,9 +276,20 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     # collect code to emit for interp2app builtin frames based on unwrap_spec
 
-    def __init__(self):
+    def __init__(self, app_sig):
+        self.app_sig = app_sig
         UnwrapSpecEmit.__init__(self)
         self.run_args = []
+
+    def scope_starargs(self):
+        app_sig = self.app_sig
+        pos = app_sig.num_argnames() + app_sig.num_kwonlyargnames()
+        return "scope_w[%d]" % (pos, )
+
+    def scope_kwargs(self):
+        app_sig = self.app_sig
+        pos = app_sig.num_argnames() + app_sig.num_kwonlyargnames() + app_sig.has_vararg()
+        return "scope_w[%d]" % (pos, )
 
     def scopenext(self):
         return "scope_w[%d]" % self.succ()
@@ -291,13 +315,13 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit__Arguments(self, el):
         self.miniglobals['Arguments'] = Arguments
         self.run_args.append("Arguments.frompacked(space, %s, %s)"
-                             % (self.scopenext(), self.scopenext()))
+                             % (self.scope_starargs(), self.scope_kwargs()))
 
     def visit_args_w(self, el):
-        self.run_args.append("space.fixedview(%s)" % self.scopenext())
+        self.run_args.append("space.fixedview(%s)" % self.scope_starargs())
 
     def visit_w_args(self, el):
-        self.run_args.append(self.scopenext())
+        self.run_args.append(self.scope_starargs())
 
     def visit__object(self, typ):
         name = int_unwrapping_space_method(typ)
@@ -363,6 +387,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_truncatedint_w(self, typ):
         self.run_args.append("space.truncatedint_w(%s)" % (self.scopenext(),))
 
+    def visit_posonly(self, typ):
+        self.run_args.append("None")
+
     def visit_kwonly(self, typ):
         self.run_args.append("None")
 
@@ -400,19 +427,51 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
             cache[key] = activation_cls, self.run_args
             return activation_cls
 
-    def make_activation(unwrap_spec, func):
-        emit = UnwrapSpec_EmitRun()
+    @staticmethod
+    def make_activation(unwrap_spec, func, app_sig):
+        emit = UnwrapSpec_EmitRun(app_sig)
         emit.apply_over(unwrap_spec)
         activation_uw_cls = emit._make_unwrap_activation_class(unwrap_spec)
-        return activation_uw_cls(func)
-    make_activation = staticmethod(make_activation)
+        return activation_uw_cls(func, unwrap_spec)
+
+
+class UnwrapSpec_EmitShortcut(UnwrapSpec_EmitRun):
+    # emit a special method shortcut. the calling function always has the signature:
+    # def shortcut_meth(self, space, *args_w):
+    #     return underlying_function(...correct args...)
+    # example for 'next':
+    # def shortcut_next(self, space, *args_w):
+    #     return descr_next(self, space)
+
+    def __init__(self, rpy_cls):
+        UnwrapSpecEmit.__init__(self)
+        self.run_args = []
+        self.rpy_cls = rpy_cls
+        self.extraargs = []
+
+    def scopenext(self):
+        x = self.succ()
+        res = "w_%d" % (x - 1, )
+        self.extraargs.append(res)
+        return res
+
+    def visit_self(self, typ):
+        x = self.succ()
+        assert x == 0
+        assert issubclass(self.rpy_cls, typ)
+        self.run_args.append("self") # no need to check, done implicitly
+
+    def visit__W_Root(self, el):
+        if issubclass(self.rpy_cls, el) and self.n == 0:
+            return self.visit_self(el)
+        return UnwrapSpec_EmitRun.visit__W_Root(self, el)
 
 
 class BuiltinActivation(object):
     _immutable_ = True
 
     @not_rpython
-    def __init__(self, behavior):
+    def __init__(self, behavior, unwrap_spec):
         self.behavior = behavior
 
     def _run(self, space, scope_w):
@@ -536,9 +595,12 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
 
+    def visit_posonly(self, typ):
+        raise FastFuncNotSupported
+
     def visit_kwonly(self, typ):
         raise FastFuncNotSupported
-        
+
     @staticmethod
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
@@ -645,6 +707,8 @@ def build_unwrap_spec(func, argnames, self_type=None):
                 unwrap_spec.append('args_w')
             elif argname.startswith('w_'):
                 unwrap_spec.append(W_Root)
+            elif argname == '__posonly__':
+                unwrap_spec.append('posonly')
             elif argname == '__kwonly__':
                 unwrap_spec.append('kwonly')
             else:
@@ -677,10 +741,15 @@ class BuiltinCode(Code):
     @not_rpython
     def __init__(self, func, unwrap_spec=None, self_type=None,
                  descrmismatch=None, doc=None):
+        from rpython.rlib import rutf8
+        from rpython.flowspace.bytecode import cpython_code_signature
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         Code.__init__(self, func.__name__)
         self.docstring = doc or func.__doc__
+        if self.docstring:
+            # check that it's utf-8
+            rutf8.check_utf8(self.docstring, False)
 
         self.identifier = "%s-%s-%s" % (func.__module__, func.__name__,
                                         getattr(self_type, '__name__', '*'))
@@ -697,13 +766,10 @@ class BuiltinCode(Code):
         # (function, cls) use function to check/unwrap argument of type cls
 
         # First extract the signature from the (CPython-level) code object
-        from pypy.interpreter import pycode
-        sig = pycode.cpython_code_signature(func.func_code)
+        sig = cpython_code_signature(func.func_code)
         argnames = sig.argnames
         varargname = sig.varargname
         kwargname = sig.kwargname
-        if sig.kwonlyargnames:
-            import pdb; pdb.set_trace()
         self._argnames = argnames
 
         if unwrap_spec is None:
@@ -723,10 +789,9 @@ class BuiltinCode(Code):
             assert descrmismatch is None, (
                 "descrmismatch without a self-type specified")
 
-        orig_sig = SignatureBuilder(func, argnames, varargname, kwargname)
         app_sig = SignatureBuilder(func)
 
-        UnwrapSpec_Check(orig_sig).apply_over(unwrap_spec, app_sig)
+        UnwrapSpec_Check(func, argnames).apply_over(unwrap_spec, app_sig)
         self.sig = app_sig.signature()
         argnames = self.sig.argnames
         varargname = self.sig.varargname
@@ -737,7 +802,7 @@ class BuiltinCode(Code):
         else:
             self.maxargs = self.minargs
 
-        self.activation = UnwrapSpec_EmitRun.make_activation(unwrap_spec, func)
+        self.activation = UnwrapSpec_EmitRun.make_activation(unwrap_spec, func, self.sig)
         self._bltin = func
         self._unwrap_spec = unwrap_spec
 
@@ -755,6 +820,7 @@ class BuiltinCode(Code):
                     self.func__args__ = func
                 elif unwrap_spec == [self_type, ObjSpace, Arguments]:
                     self.__class__ = BuiltinCodePassThroughArguments1
+                    self.descr_reqcls = self_type
                     miniglobals = {'func': func, 'self_type': self_type}
                     d = {}
                     source = """if 1:
@@ -773,8 +839,8 @@ class BuiltinCode(Code):
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
         builtin_code = mod.get('builtin_code')
-        return space.newtuple([builtin_code,
-                               space.newtuple([space.newtext(self.identifier)])])
+        return space.newtuple2(builtin_code,
+                               space.newtuple([space.newtext(self.identifier)]))
 
     @staticmethod
     def find(space, identifier):
@@ -793,6 +859,7 @@ class BuiltinCode(Code):
     def funcrun_obj(self, func, w_obj, args):
         space = func.space
         activation = self.activation
+
         scope_w = args.parse_obj(w_obj, func.name, self.sig,
                                  func.defs_w, func.w_kw_defs, self.minargs)
         try:
@@ -800,16 +867,22 @@ class BuiltinCode(Code):
         except DescrMismatch:
             if w_obj is not None:
                 args = args.prepend(w_obj)
-            return scope_w[0].descr_call_mismatch(space,
-                                                  self.descrmismatch_op,
-                                                  self.descr_reqcls,
-                                                  args)
+            return self._type_unwrap_mismatch(space, args)
         except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
+
+    def _type_unwrap_mismatch(self, space, args):
+        w_obj = args.firstarg()
+        if w_obj is None:
+            raise oefmt(space.w_SystemError, "unexpected DescrMismatch error")
+        return w_obj.descr_call_mismatch(space,
+                                         self.descrmismatch_op,
+                                         self.descr_reqcls,
+                                         args)
 
     def handle_exception(self, space, e):
         try:
@@ -833,10 +906,7 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
         try:
             w_result = self.func__args__(space, args)
         except DescrMismatch:
-            return args.firstarg().descr_call_mismatch(space,
-                                                  self.descrmismatch_op,
-                                                  self.descr_reqcls,
-                                                  args)
+            return self._type_unwrap_mismatch(space, args)
         except Exception as e:
             self.handle_exception(space, e)
             w_result = None
@@ -854,10 +924,7 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
         try:
             w_result = self.func__args__(space, w_obj, args)
         except DescrMismatch:
-            return args.firstarg().descr_call_mismatch(space,
-                                                  self.descrmismatch_op,
-                                                  self.descr_reqcls,
-                                                  args.prepend(w_obj))
+            return self._type_unwrap_mismatch(space, args.prepend(w_obj))
         except Exception as e:
             self.handle_exception(space, e)
             w_result = None
@@ -897,9 +964,7 @@ class BuiltinCode1(BuiltinCode):
         try:
             w_result = self.fastfunc_1(space, w1)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self._type_unwrap_mismatch(space,
                                           Arguments(space, [w1]))
         except Exception as e:
             self.handle_exception(space, e)
@@ -923,9 +988,7 @@ class BuiltinCode2(BuiltinCode):
         try:
             w_result = self.fastfunc_2(space, w1, w2)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self._type_unwrap_mismatch(space,
                                           Arguments(space, [w1, w2]))
         except Exception as e:
             self.handle_exception(space, e)
@@ -950,9 +1013,7 @@ class BuiltinCode3(BuiltinCode):
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self._type_unwrap_mismatch(space,
                                           Arguments(space, [w1, w2, w3]))
         except Exception as e:
             self.handle_exception(space, e)
@@ -978,9 +1039,7 @@ class BuiltinCode4(BuiltinCode):
         try:
             w_result = self.fastfunc_4(space, w1, w2, w3, w4)
         except DescrMismatch:
-            return w1.descr_call_mismatch(space,
-                                          self.descrmismatch_op,
-                                          self.descr_reqcls,
+            return self._type_unwrap_mismatch(space,
                                           Arguments(space,
                                                     [w1, w2, w3, w4]))
         except Exception as e:
@@ -1014,8 +1073,9 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     else:
         assert isinstance(unwrap_spec, dict)
         unwrap_spec = unwrap_spec.copy()
-    unwrap_spec['self'] = base_cls
-    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f))
+    unwrap_spec['self'] = 'self'
+    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f),
+                      self_type=base_cls)
 
 class interp2app(W_Root):
     """Build a gateway that calls 'f' at interp-level."""
@@ -1026,11 +1086,11 @@ class interp2app(W_Root):
 
     @not_rpython
     def __new__(cls, f, app_name=None, unwrap_spec=None, descrmismatch=None,
-                as_classmethod=False, doc=None):
+                as_classmethod=False, doc=None, self_type=None):
 
         # f must be a function whose name does NOT start with 'app_'
-        self_type = None
         if hasattr(f, 'im_func'):
+            assert self_type in (None, f.im_class)
             self_type = f.im_class
             f = f.im_func
         if not isinstance(f, types.FunctionType):
@@ -1064,6 +1124,7 @@ class interp2app(W_Root):
         defaults = f.func_defaults or ()
         self._staticdefs = dict(zip(
             argnames[len(argnames) - len(defaults):], defaults))
+        self.self_type = self_type
 
         return self
 
@@ -1072,7 +1133,7 @@ class interp2app(W_Root):
         alldefs_w = {}
         assert len(self._code._argnames) == len(self._code._unwrap_spec)
         for name, spec in zip(self._code._argnames, self._code._unwrap_spec):
-            if name == '__kwonly__':
+            if name in ('__posonly__', '__kwonly__'):
                 continue
 
             defaultval = self._staticdefs.get(name, NO_DEFAULT)
@@ -1114,16 +1175,18 @@ class interp2app(W_Root):
         #
         sig = self._code.sig
         first_defined = 0
-        while (first_defined < len(sig.argnames) and
-               sig.argnames[first_defined] not in alldefs_w):
+        allposargnames = sig.argnames[:sig.num_argnames()]
+        n_allposargnames = len(allposargnames)
+        while (first_defined < n_allposargnames and
+               allposargnames[first_defined] not in alldefs_w):
             first_defined += 1
-        defs_w = [alldefs_w.pop(name) for name in sig.argnames[first_defined:]]
+        defs_w = [alldefs_w.pop(name) for name in allposargnames[first_defined:]]
 
         kw_defs_w = None
         if alldefs_w:
             kw_defs_w = []
             for name, w_def in sorted(alldefs_w.items()):
-                assert name in sig.kwonlyargnames
+                assert name in sig.argnames[-sig.kwonlyargcount:]
                 w_name = space.newtext(name)
                 kw_defs_w.append((w_name, w_def))
 
@@ -1141,6 +1204,37 @@ class interp2app(W_Root):
 
     def getcache(self, space):
         return space.fromcache(GatewayCache)
+
+
+    # descroperation shortcut
+    _shortcut = None
+
+    def _make_descroperation_shortcut(self, name, rpy_cls, checkerfunc):
+        if self._shortcut:
+            return self._shortcut
+        emit = UnwrapSpec_EmitShortcut(rpy_cls)
+        emit.apply_over(self._code._unwrap_spec)
+        assert emit.rpy_cls is rpy_cls
+        d = {}
+        f = self._code.activation.behavior
+        d['func'] = f
+        d['checkerfunc'] = checkerfunc
+        d['we_are_translated'] = we_are_translated
+        source = """def shortcut_%s(self, space, %s): # for %s
+                w_res = func(%s)
+                if not we_are_translated():
+                    assert not self.user_overridden_class
+                    if checkerfunc:
+                        assert checkerfunc(space, w_res)
+                if w_res is None:
+                    return space.w_None
+                return w_res
+            """ % (name, ", ".join(emit.extraargs),
+                   rpy_cls, ', '.join(emit.run_args))
+        exec compile2(source) in d
+        shortcut = d['shortcut_%s' % name]
+        self._shortcut = shortcut
+        return shortcut
 
 
 class GatewayCache(SpaceCache):

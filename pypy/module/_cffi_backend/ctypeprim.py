@@ -175,7 +175,7 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
         value = misc.read_raw_ulong_data(cdata, self.size)   # r_uint
         try:
             utf8 = rutf8.unichr_as_utf8(value, allow_surrogates=True)
-        except ValueError:
+        except rutf8.OutOfRange:
             if self.is_signed_wchar:
                 s = hex(intmask(value))
             else:
@@ -276,10 +276,10 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         w_cdata.write_raw_signed_data(value)
 
     def unpack_list_of_int_items(self, ptr, length):
-        if self.size == rffi.sizeof(rffi.LONG):
+        if self.size == rffi.sizeof(rffi.SIGNED):
             from rpython.rlib.rrawarray import populate_list_from_raw_array
             res = []
-            buf = rffi.cast(rffi.LONGP, ptr)
+            buf = rffi.cast(rffi.SIGNEDP, ptr)
             populate_list_from_raw_array(res, buf, length)
             return res
         elif self.value_smaller_than_long:
@@ -292,9 +292,9 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         int_list = self.space.listview_int(w_ob)
         if (int_list is not None and
                 self._within_bounds(len(int_list), expected_length)):
-            if self.size == rffi.sizeof(rffi.LONG): # fastest path
+            if self.size == rffi.sizeof(rffi.SIGNED): # fastest path
                 from rpython.rlib.rrawarray import copy_list_to_raw_array
-                cdata = rffi.cast(rffi.LONGP, cdata)
+                cdata = rffi.cast(rffi.SIGNEDP, cdata)
                 copy_list_to_raw_array(int_list, cdata)
             else:
                 overflowed = misc.pack_list_to_raw_array_bounds_signed(
@@ -402,15 +402,22 @@ class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
         # bypass the method 'string' implemented in W_CTypePrimitive
         return W_CType.string(self, cdataobj, maxlen)
 
-    def convert_to_object(self, cdata):
-        space = self.space
+    def _read_bool_0_or_1(self, cdata):
+        """Read one byte, check it is 0 or 1, but return it as an integer"""
         value = ord(cdata[0])
-        if value < 2:
-            return space.newbool(value != 0)
-        else:
-            raise oefmt(space.w_ValueError,
+        if value >= 2:
+            raise oefmt(self.space.w_ValueError,
                         "got a _Bool of value %d, expected 0 or 1",
                         value)
+        return value
+
+    def convert_to_object(self, cdata):
+        value = self._read_bool_0_or_1(cdata)
+        return self.space.newbool(value != 0)
+
+    def cast_to_int(self, cdata):
+        value = self._read_bool_0_or_1(cdata)
+        return self.space.newint(value)
 
     def unpack_list_of_int_items(self, ptr, length):
         return None

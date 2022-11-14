@@ -14,6 +14,8 @@ class OrderedDict(dict):
     cases but is nonsensical in other cases.  This is officially
     forbidden by the CPython docs, so we forbid it explicitly for now.
     '''
+    __module__ = 'collections'
+
     def __init__(*args, **kwds):
         '''Initialize an ordered dictionary.  The signature is the same as
         regular dictionaries, but keyword arguments are not recommended because
@@ -43,12 +45,12 @@ class OrderedDict(dict):
                             len(args))
         if args:
             other = args[0]
-            if hasattr(other, 'items'):
-                for key, value in other.items():
-                    self[key] = value
-            elif hasattr(other, "keys"):
+            if hasattr(other, "keys"):
                 for key in other.keys():
                     self[key] = other[key]
+            elif hasattr(other, 'items'):
+                for key, value in other.items():
+                    self[key] = value
             else:
                 for key, value in other:
                     self[key] = value

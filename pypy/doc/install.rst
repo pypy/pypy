@@ -9,7 +9,20 @@ install additional modules that require compilation, you may need to install
 additional packages such as pypy-dev. This will manifest as an error about
 "missing Python.h". Distributions do not as of yet supply many pypy-ready
 packages, if you require additional modules we recommend creating a virtualenv
-and using pip. 
+and using pip. If you require compiled (c-extension) modules like SciPy, we
+recommend you use conda, which works on Windows10, macOS, and linux x86_64.
+As of summer 2022, we recommend you use the 3.7 version of pypy since the
+migration_ (creating binary packages) for 3.8 and 3.9 is still ongoing:
+
+.. code-block:: console
+
+    $ conda create -n my_cool_pypy pypy python=3.7
+    $ conda activate my_cool_pypy
+    $ conda install scipy
+
+On macOS you can also use homebrew, which provides signed packages.
+
+.. _migration: https://conda-forge.org/status/#pypy38
 
 .. _prebuilt-pypy:
 
@@ -23,12 +36,13 @@ builds depend on dynamically linked libraries that may not be available on your
 OS. See the section about `Linux binaries`_ for more info and alternatives that
 may work on your system.
 
-Please note that the nightly builds are not
-guaranteed to be as stable as official releases, use them at your own risk.
+Please note that the nightly builds are not guaranteed to be as stable as
+official releases, use them at your own risk. Also the macOS binaries are not
+signed, which means you need to convince macOS they are safe for use.
 
-.. _most recent release: http://pypy.org/download.html
-.. _development nightly build: http://buildbot.pypy.org/nightly/trunk/
-.. _Linux binaries: http://pypy.org/download.html#linux-binaries-and-common-distributions
+.. _most recent release: https://pypy.org/download.html
+.. _development nightly build: https://buildbot.pypy.org/nightly/trunk/
+.. _Linux binaries: https://pypy.org/download.html#linux-binaries-and-common-distributions
 
 Installing PyPy
 ~~~~~~~~~~~~~~~
@@ -63,11 +77,14 @@ explained below; then you can directly use pip inside virtualenvs):
 .. code-block:: console
 
     $ ./pypy-xxx/bin/pypy -m ensurepip
-    $ ./pypy-xxx/bin/pip install -U pip wheel # to upgrade to the latest versions
-    $ ./pypy-xxx/bin/pip install pygments  # for example
+    $ ./pypy-xxx/bin/pypy -mpip install -U pip wheel # to upgrade to the latest versions
+    $ ./pypy-xxx/bin/pypy -mpip install pygments  # for example
 
-Third party libraries will be installed in ``pypy-xxx/site-packages``, and
-the scripts in ``pypy-xxx/bin``.
+If you wish to be able to use ``pip`` directly from the command line, you must
+use the ``--default-pip`` argument when calling ``ensurepip``.
+Third party libraries will be installed in ``pypy-xxx/site-packages``. As with
+CPython, scripts on linux and macOS will be in ``pypy-xxx/bin``, and on windows
+they will be in ``pypy-xxx/Scripts``
 
 
 Installing using virtualenv
@@ -94,10 +111,10 @@ so you should be able to run pypy simply by typing::
 
 You should still upgrade pip and wheel to the latest versions via::
 
-    $ my-pypy-env/bin/pip install -U pip wheel
+    $ my-pypy-env/bin/pypy -mpip install -U pip wheel
 
-.. _pip: http://pypi.python.org/pypi/pip
-.. _ensurepip: https://docs.python.org/2.7/library/ensurepip.html
+.. _pip: https://pypi.python.org/pypi/pip
+.. _ensurepip: https://docs.python.org/3/library/ensurepip.html
 
 Building PyPy yourself
 ~~~~~~~~~~~~~~~~~~~~~~

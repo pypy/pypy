@@ -9,11 +9,11 @@ interpreter more stable and bug-free.
 
 Download page:
     
-   http://codespeak.net/pypy/dist/pypy/doc/download.html
+   https://codespeak.net/pypy/dist/pypy/doc/download.html
 
 PyPy's Getting Started lives at:
 
-   http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
+   https://codespeak.net/pypy/dist/pypy/doc/getting-started.html
 
 Highlights of This Release
 ==========================
@@ -22,8 +22,8 @@ Highlights of This Release
     among them ctypes, sqlite3, csv, and many more. Most of these extension 
     modules are fully supported under Windows as well.
 
-    http://codespeak.net/pypy/dist/pypy/doc/cpython_differences.html
-    http://morepypy.blogspot.com/2008/06/pypy-improvements.html
+    https://codespeak.net/pypy/dist/pypy/doc/cpython_differences.html
+    https://morepypy.blogspot.com/2008/06/pypy-improvements.html
 
   - Through a large number of tweaks, performance has been improved by
     10%-50% since the 1.0 release. The Python interpreter is now between
@@ -31,7 +31,7 @@ Highlights of This Release
     part of these speed-ups come from our new generational garbage
     collectors.
 
-    http://codespeak.net/pypy/dist/pypy/doc/garbage_collection.html
+    https://codespeak.net/pypy/dist/pypy/doc/garbage_collection.html
 
   - Our Python interpreter now supports distutils as well as
     easy_install for pure-Python modules.
@@ -40,20 +40,20 @@ Highlights of This Release
     run now: Django, Pylons, BitTorrent, Twisted, SymPy, Pyglet, Nevow,
     Pinax:
 
-    http://morepypy.blogspot.com/2008/08/pypy-runs-unmodified-django-10-beta.html
-    http://morepypy.blogspot.com/2008/07/pypys-python-runs-pinax-django.html
-    http://morepypy.blogspot.com/2008/06/running-nevow-on-top-of-pypy.html
+    https://morepypy.blogspot.com/2008/08/pypy-runs-unmodified-django-10-beta.html
+    https://morepypy.blogspot.com/2008/07/pypys-python-runs-pinax-django.html
+    https://morepypy.blogspot.com/2008/06/running-nevow-on-top-of-pypy.html
 
   - A buildbot was set up to run the various tests that PyPy is using
     nightly on Windows and Linux machines:
 
-    http://codespeak.net:8099/
+    https://codespeak.net:8099/
 
   - Sandboxing support: It is possible to translate the Python
     interpreter in a special way so that the result is fully sandboxed.
     
-    http://codespeak.net/pypy/dist/pypy/doc/sandbox.html
-    http://blog.sandbox.lt/en/WSGI%20and%20PyPy%20sandbox
+    https://codespeak.net/pypy/dist/pypy/doc/sandbox.html
+    https://blog.sandbox.lt/en/WSGI%20and%20PyPy%20sandbox
 
 
 Other Changes
@@ -63,9 +63,9 @@ Other Changes
     interface with .NET libraries when translating the Python
     interpreter to the CLI.
 
-    http://codespeak.net/pypy/dist/pypy/doc/clr-module.html
-    http://morepypy.blogspot.com/2008/01/pypynet-goes-windows-forms.html
-    http://morepypy.blogspot.com/2008/01/improve-net-integration.html
+    https://codespeak.net/pypy/dist/pypy/doc/clr-module.html
+    https://morepypy.blogspot.com/2008/01/pypynet-goes-windows-forms.html
+    https://morepypy.blogspot.com/2008/01/improve-net-integration.html
 
   - Stackless improvements: PyPy's ``stackless`` module is now more
     complete. We added channel preferences which change details of the
@@ -75,7 +75,7 @@ Other Changes
   - Classic classes are enabled by default now. In addition, they have
     been greatly optimized and debugged:
 
-    http://morepypy.blogspot.com/2007/12/faster-implementation-of-classic.html
+    https://morepypy.blogspot.com/2007/12/faster-implementation-of-classic.html
 
   - PyPy's Python interpreter can be translated to Java bytecode now to
     produce a pypy-jvm. At the moment there is no integration with
@@ -85,7 +85,7 @@ Other Changes
     make it possible to cross-compile our Python interpreter to Nokia's
     Maemo platform:
 
-    http://codespeak.net/pypy/dist/pypy/doc/maemo.html
+    https://codespeak.net/pypy/dist/pypy/doc/maemo.html
 
   - Some effort was spent to make the Python interpreter more
     memory-efficient. This includes the implementation of a mark-compact
@@ -94,7 +94,7 @@ Other Changes
     objects smaller, e.g. class instances are often only 50% of the size
     of CPython.
 
-    http://morepypy.blogspot.com/2008/10/dsseldorf-sprint-report-days-1-3.html
+    https://morepypy.blogspot.com/2008/10/dsseldorf-sprint-report-days-1-3.html
 
   - The support for the trace hook in the Python interpreter was
     improved to be able to trace the execution of builtin functions and
@@ -108,9 +108,9 @@ Other Changes
     incarnation of the JIT generator. The new JIT generator is in active
     development, but not included in the release.
 
-    http://codespeak.net/pipermail/pypy-dev/2009q2/005143.html
-    http://morepypy.blogspot.com/2009/03/good-news-everyone.html
-    http://morepypy.blogspot.com/2009/03/jit-bit-of-look-inside.html
+    https://codespeak.net/pipermail/pypy-dev/2009q2/005143.html
+    https://morepypy.blogspot.com/2009/03/good-news-everyone.html
+    https://morepypy.blogspot.com/2009/03/jit-bit-of-look-inside.html
 
 
 What is PyPy?
@@ -143,4 +143,4 @@ Have fun,
     Maciek Fijalkowski, Samuele Pedroni
 
     and many others:
-    http://codespeak.net/pypy/dist/pypy/doc/contributor.html
+    https://codespeak.net/pypy/dist/pypy/doc/contributor.html

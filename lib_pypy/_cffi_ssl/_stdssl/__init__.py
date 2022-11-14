@@ -1,18 +1,28 @@
 import sys
+import os
 import time
 import _thread
-import socket
 import weakref
-from _pypy_openssl import ffi
-from _pypy_openssl import lib
+
+try:
+    from _pypy_openssl import ffi
+    from _pypy_openssl import lib
+except ImportError as e:
+    import os
+    msg = "\n\nThe _ssl cffi module either doesn't exist or is incompatible with your machine's shared libraries.\n" + \
+          "If you have a compiler installed, you can try to rebuild it by running:\n" + \
+          "cd %s\n" % os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) + \
+          "%s _ssl_build.py\n" % sys.executable
+    raise ModuleNotFoundError(str(e) + msg, name='_cffi_ssl')
+
 from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
     _decode_certificate, _certificate_to_der)
 from _cffi_ssl._stdssl.utility import (_str_with_len, _bytes_with_len,
     _str_to_ffi_buffer, _str_from_buf, _cstr_decode_fs)
-from _cffi_ssl._stdssl.error import (ssl_error, pyssl_error,
-        SSLError, SSLZeroReturnError, SSLWantReadError,
-        SSLWantWriteError, SSLSyscallError,
-        SSLEOFError)
+from _cffi_ssl._stdssl.error import (
+    ssl_error, pyssl_error, SSLError, SSLCertVerificationError,
+    SSLZeroReturnError, SSLWantReadError, SSLWantWriteError, SSLSyscallError,
+    SSLEOFError)
 from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         SSL_ERROR_SSL, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE,
         SSL_ERROR_WANT_X509_LOOKUP, SSL_ERROR_SYSCALL,
@@ -20,7 +30,9 @@ from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         SSL_ERROR_EOF, SSL_ERROR_NO_SOCKET, SSL_ERROR_INVALID_ERROR_CODE,
         pyerr_write_unraisable)
 from _cffi_ssl._stdssl import error
+from _pypy_util_cffi import StackNew
 from select import select
+import socket
 from enum import IntEnum as _IntEnum
 
 if sys.platform == 'win32':
@@ -30,6 +42,7 @@ else:
     from select import poll, POLLIN, POLLOUT
     HAVE_POLL = True
 
+_MAX_INT = 2147483647
 OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT).decode('utf-8')
 OPENSSL_VERSION_NUMBER = lib.OPENSSL_VERSION_NUMBER
 ver = OPENSSL_VERSION_NUMBER
@@ -43,10 +56,11 @@ OPENSSL_VERSION_INFO = version_info
 _OPENSSL_API_VERSION = version_info
 del ver, version_info, status, patch, fix, minor, major
 
-HAS_ECDH = bool(lib.Cryptography_HAS_ECDH)
+HAS_ECDH = True
 HAS_SNI = bool(lib.Cryptography_HAS_TLSEXT_HOSTNAME)
 HAS_ALPN = bool(lib.Cryptography_HAS_ALPN)
 HAS_NPN = bool(lib.OPENSSL_NPN_NEGOTIATED)
+HAS_CTRL_GET_MAX_PROTO_VERSION = bool(lib.Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION)
 HAS_TLS_UNIQUE = True
 
 CLIENT = 0
@@ -58,6 +72,8 @@ VERIFY_CRL_CHECK_CHAIN = lib.X509_V_FLAG_CRL_CHECK | lib.X509_V_FLAG_CRL_CHECK_A
 VERIFY_X509_STRICT = lib.X509_V_FLAG_X509_STRICT
 if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
     VERIFY_X509_TRUSTED_FIRST = lib.X509_V_FLAG_TRUSTED_FIRST
+if lib.Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT:
+    HOSTFLAG_NEVER_CHECK_SUBJECT = lib.X509_CHECK_FLAG_NEVER_CHECK_SUBJECT
 
 CERT_NONE = 0
 CERT_OPTIONAL = 1
@@ -65,9 +81,20 @@ CERT_REQUIRED = 2
 
 for name in dir(lib):
     if name.startswith('SSL_OP'):
-        globals()[name[4:]] = getattr(lib, name)
+        value = getattr(lib, name)
+        if value != 0:
+            globals()[name[4:]] = getattr(lib, name)
 
 OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+OP_NO_SSLv2 = lib.SSL_OP_NO_SSLv2
+OP_NO_SSLv3 = lib.SSL_OP_NO_SSLv3
+OP_NO_TLSv1_3 = lib.SSL_OP_NO_TLSv1_3
+if OPENSSL_VERSION_INFO > (1, 1, 0, 0, 0):
+    # OP_ENABLE_MIDDLEBOX_COMPAT = lib.SSL_OP_ENABLE_MIDDLEBOX_COMPAT
+    # XXX should be conditionally compiled into lib
+    OP_ENABLE_MIDDLEBOX_COMPAT = 0x00100000
+
+
 
 SSL_CLIENT = 0
 SSL_SERVER = 1
@@ -76,7 +103,15 @@ SSL_CB_MAXLEN=128
 
 if lib.Cryptography_HAS_SSL2:
     PROTOCOL_SSLv2  = 0
-PROTOCOL_SSLv3  = 1
+SSLv3_method_ok = False
+if lib.Cryptography_HAS_SSL3_METHOD:
+    # Some Ubuntu systems disable SSLv3
+    ctx = lib.SSL_CTX_new(lib.SSLv3_method())
+    if ctx:
+        PROTOCOL_SSLv3  = 1
+        lib.SSL_CTX_free(ctx)
+        SSLv3_method_ok = True
+
 PROTOCOL_SSLv23 = 2
 PROTOCOL_TLS    = PROTOCOL_SSLv23
 PROTOCOL_TLSv1    = 3
@@ -84,10 +119,57 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1 = 3
     PROTOCOL_TLSv1_1 = 4
     PROTOCOL_TLSv1_2 = 5
+PROTOCOL_TLS_CLIENT = 0x10
+PROTOCOL_TLS_SERVER = 0x11
+HAS_SSLv2 = bool(lib.Cryptography_HAS_SSL2)
+HAS_SSLv3 = SSLv3_method_ok
+HAS_TLSv1 = True # XXX
+HAS_TLSv1_1 = bool(lib.Cryptography_HAS_TLSv1_1)
+HAS_TLSv1_2 = bool(lib.Cryptography_HAS_TLSv1_2)
+HAS_TLSv1_3 = bool(lib.Cryptography_HAS_TLSv1_3)
+
+# Values brute-copied from CPython 3.7. They're documented as meaningless.
+PROTO_MINIMUM_SUPPORTED = -2
+PROTO_MAXIMUM_SUPPORTED = -1
+PROTO_SSLv3 = 0x300
+PROTO_TLSv1 = 0x301
+PROTO_TLSv1_1 = 0x302
+PROTO_TLSv1_2 = 0x303
+PROTO_TLSv1_3 = 0x304
+
+# OpenSSL has no dedicated API to set the minimum version to the maximum
+# available version, and the other way around. We have to figure out the
+# minimum and maximum available version on our own and hope for the best.
+if HAS_SSLv3:
+    PROTO_MINIMUM_AVAILABLE = PROTO_SSLv3
+elif HAS_TLSv1:
+    PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1
+elif HAS_TLSv1_1:
+    PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1_1
+elif HAS_TLSv1_2:
+    PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1_2
+elif HAS_TLSv1_3:
+    PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1_3
+else:
+    raise ValueError("PROTO_MINIMUM_AVAILABLE not found")
+
+if HAS_TLSv1_3:
+    PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1_3
+elif HAS_TLSv1_2:
+    PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1_2
+elif HAS_TLSv1_1:
+    PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1_1
+elif HAS_TLSv1:
+    PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1
+elif HAS_SSLv3:
+    PROTO_MAXIMUM_AVAILABLE = PROTO_SSLv3
+else:
+    raise ValueError("PROTO_MAXIMUM_AVAILABLE not found")
+
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
 
-_IntEnum._convert('_SSLMethod', __name__,
+_IntEnum._convert_('_SSLMethod', __name__,
         lambda name: name.startswith('PROTOCOL_'))
 
 if HAS_TLS_UNIQUE:
@@ -101,11 +183,35 @@ for name in error.SSL_AD_NAMES:
     if hasattr(lib, lib_attr):
         globals()[attr] = getattr(lib, lib_attr)
 
+# from CPython
+_DEFAULT_CIPHERS = "DEFAULT:!aNULL:!eNULL:!MD5:!3DES:!DES:!RC4:!IDEA:!SEED:!aDSS:!SRP:!PSK"
+
 # init open ssl
 lib.SSL_load_error_strings()
 lib.SSL_library_init()
-lib._setup_ssl_threads()
+if (lib.Cryptography_HAS_LOCKING_CALLBACKS and
+        lib.CRYPTO_get_locking_callback() == ffi.NULL):
+    lib.Cryptography_setup_ssl_threads()
 lib.OpenSSL_add_all_algorithms()
+
+
+class ErrState():
+    ws = 0
+    c = 0
+    ssl = 0
+
+NO_ERROR = ErrState()
+
+
+def _PySSL_errno(failed, ssl, retcode):
+    if failed:
+        err = ErrState()
+        if sys.platform == 'win32':
+            err.ws = lib.WSAGetLastError()
+        err.c = ffi.errno
+        err.ssl = lib.SSL_get_error(ssl, retcode)
+        return err
+    return NO_ERROR 
 
 def check_signals():
     # nothing to do, we are on python level, signals are
@@ -152,7 +258,7 @@ def _Cryptography_pem_password_cb(buf, size, rwflag, userdata):
     ffi.memmove(buf, password, len(password))
     return len(password)
 
-if lib.Cryptography_STATIC_CALLBACKS:
+if 0:
     ffi.def_extern(_Cryptography_pem_password_cb)
     Cryptography_pem_password_cb = lib.Cryptography_pem_password_cb
 else:
@@ -213,15 +319,27 @@ SOCKET_OPERATION_OK = 5
 class _SSLSocket(object):
 
     @staticmethod
-    def _new__ssl_socket(sslctx, sock, socket_type, server_hostname, inbio, outbio):
+    def _new__ssl_socket(sslctx, sock, socket_type, server_hostname, owner,
+            session, inbio, outbio):
         self = _SSLSocket(sslctx)
         ctx = sslctx.ctx
+        self.owner = None
 
         if server_hostname:
-            self.server_hostname = server_hostname.decode('idna', 'strict')
+            self.server_hostname = server_hostname.decode('ascii', 'strict')
+            if '\x00' in self.server_hostname:
+                raise TypeError("argument must be encoded string without null "
+                                "bytes, not {}".format(type(server_hostname)))
+        else:
+            self.server_hostname = None
 
         lib.ERR_clear_error()
         self.ssl = ssl = ffi.gc(lib.SSL_new(ctx), lib.SSL_free)
+
+        # bpo43522 and OpenSSL < 1.1.1l: copy hostflags manually
+        if OPENSSL_VERSION_INFO < (1, 1, 1, 12):  # 12 == 'l'
+            params = lib.SSL_CTX_get0_param(ctx)
+            lib.X509_VERIFY_PARAM_set_hostflags(params, sslctx.hostflags);
 
         self._app_data_handle = ffi.new_handle(self)
         lib.SSL_set_app_data(ssl, ffi.cast("char*", self._app_data_handle))
@@ -236,13 +354,25 @@ class _SSLSocket(object):
             lib.SSL_set_bio(self.ssl, inbio.bio, outbio.bio)
 
         mode = lib.SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
-        if lib.SSL_MODE_AUTO_RETRY:
-            mode |= lib.SSL_MODE_AUTO_RETRY
+        mode |= lib.SSL_MODE_AUTO_RETRY
         lib.SSL_set_mode(ssl, mode)
 
-        if HAS_SNI and self.server_hostname:
-            name = _str_to_ffi_buffer(self.server_hostname)
-            lib.SSL_set_tlsext_host_name(ssl, name)
+        if HAS_TLSv1_3:
+            if sslctx._post_handshake_auth == 1:
+                if socket_type == SSL_SERVER:
+                    # bpo-37428: OpenSSL does not ignore SSL_VERIFY_POST_HANDSHAKE.
+                    # Set SSL_VERIFY_POST_HANDSHAKE flag only for server sockets and
+                    # only in combination with SSL_VERIFY_PEER flag.
+                    mode = lib.SSL_CTX_get_verify_mode(lib.SSL_get_SSL_CTX(self.ssl))
+                    if (mode & lib.SSL_VERIFY_PEER):
+                        verify_cb = lib.SSL_get_verify_callback(self.ssl)
+                        mode |= lib.SSL_VERIFY_POST_HANDSHAKE
+                        lib.SSL_set_verify(ssl, mode, verify_cb)
+                else:
+                    lib.SSL_set_post_handshake_auth(ssl, 1)
+
+        if server_hostname is not None:
+            self._ssl_configure_hostname(server_hostname)
 
 
         # If the socket is in non-blocking mode or timeout mode, set the BIO
@@ -262,6 +392,11 @@ class _SSLSocket(object):
         if sock:
             self.socket = weakref.ref(sock)
 
+        if owner is not None:
+            self.owner = owner
+        if session is not None:
+            self.session = session
+
         return self
 
     def __init__(self, sslctx):
@@ -274,6 +409,32 @@ class _SSLSocket(object):
         self.server_hostname = None
         self.socket = None
 
+    def _ssl_configure_hostname(self, server_hostname):
+        # Disable OpenSSL's special mode with leading dot in hostname:
+        # When name starts with a dot (e.g ".example.com"), it will be
+        # matched by a certificate valid for any sub-domain of name.
+        length = len(server_hostname)
+        if length == 0 or server_hostname[0] == '.':
+            raise ValueError("server_hostname cannot be an empty string or "
+                             "start with a leading dot.")
+
+        # inet_pton is not available on all platforms
+        ip = lib.a2i_IPADDRESS(server_hostname)
+        if not ip:
+            lib.ERR_clear_error()
+            if not lib.SSL_set_tlsext_host_name(self.ssl, server_hostname):
+                raise ssl_error(None)
+        if self.ctx.check_hostname:
+            param = lib.SSL_get0_param(self.ssl)
+            if not ip:
+                if not lib.X509_VERIFY_PARAM_set1_host(
+                        param, server_hostname, len(server_hostname)):
+                    raise ssl_error(None)
+            else:
+                if not lib.X509_VERIFY_PARAM_set1_ip(
+                        param, lib.ASN1_STRING_data(ip), lib.ASN1_STRING_length(ip)):
+                    raise ssl_error(None)
+
     @property
     def owner(self):
         if self._owner is None:
@@ -284,7 +445,8 @@ class _SSLSocket(object):
     def owner(self, value):
         if value is None:
             self._owner = None
-        self._owner = weakref.ref(value)
+        else:
+            self._owner = weakref.ref(value)
 
     @property
     def context(self):
@@ -292,6 +454,13 @@ class _SSLSocket(object):
 
     @context.setter
     def context(self, value):
+        """ _setter_context(ctx)
+
+        This changes the context associated with the SSLSocket. This is typically
+        used from within a callback function set by the sni_callback
+        on the SSLContext to change the certificate information associated with the
+        SSLSocket before the cryptographic exchange handshake messages
+        """
         if isinstance(value, _SSLContext):
             if not HAS_SNI:
                 raise NotImplementedError("setting a socket's "
@@ -323,8 +492,9 @@ class _SSLSocket(object):
         while True:
             # allow threads
             ret = lib.SSL_do_handshake(ssl)
-            err = lib.SSL_get_error(ssl, ret)
+            err = _PySSL_errno(ret<1, self.ssl, ret)
             # end allow threads
+            self.err = err
 
             check_signals()
 
@@ -332,9 +502,9 @@ class _SSLSocket(object):
                 # REIVIEW monotonic clock?
                 timeout = deadline - _monotonic_clock()
 
-            if err == SSL_ERROR_WANT_READ:
+            if err.ssl == SSL_ERROR_WANT_READ:
                 sockstate = _ssl_select(sock, 0, timeout)
-            elif err == SSL_ERROR_WANT_WRITE:
+            elif err.ssl == SSL_ERROR_WANT_WRITE:
                 sockstate = _ssl_select(sock, 1, timeout)
             else:
                 sockstate = SOCKET_OPERATION_OK
@@ -347,43 +517,40 @@ class _SSLSocket(object):
                 raise SSLError("Underlying socket too large for select().")
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
-            if not (err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE):
+            if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
                 break
         if ret < 1:
             raise pyssl_error(self, ret)
 
-        peer_cert = lib.SSL_get_peer_certificate(ssl)
-        if peer_cert != ffi.NULL:
-            peer_cert = ffi.gc(peer_cert, lib.X509_free)
-        self.peer_cert = peer_cert
-
         self.handshake_done = 1
         return None
 
-    def peer_certificate(self, binary_mode):
+    def getpeercert(self, binary_mode):
         if not self.handshake_done:
             raise ValueError("handshake not done yet")
-        if self.peer_cert == ffi.NULL:
+        peer_cert = lib.SSL_get_peer_certificate(self.ssl);
+        if peer_cert == ffi.NULL:
             return None
 
         if binary_mode:
             # return cert in DER-encoded format
-            return _certificate_to_der(self.peer_cert)
+            return _certificate_to_der(peer_cert)
         else:
             verification = lib.SSL_CTX_get_verify_mode(lib.SSL_get_SSL_CTX(self.ssl))
             if (verification & lib.SSL_VERIFY_PEER) == 0:
                 return {}
             else:
-                return _decode_certificate(self.peer_cert)
+                return _decode_certificate(peer_cert)
 
     def write(self, bytestring):
-        deadline = 0
-        b = _str_to_ffi_buffer(bytestring)
+        return self._write_with_length(_str_to_ffi_buffer(bytestring), len(bytestring))
+
+    def _write_with_length(self, b, lgt):
         sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
 
-        if len(b) > sys.maxsize:
-            raise OverflowError("string longer than %d bytes" % sys.maxsize)
+        if lgt > _MAX_INT:
+            raise OverflowError("string longer than %d bytes" % _MAX_INT)
 
         timeout = _socket_timeout(sock)
         if sock:
@@ -405,17 +572,18 @@ class _SSLSocket(object):
             raise ssl_error("Underlying socket too large for select().")
 
         while True:
-            length = lib.SSL_write(self.ssl, b, len(b))
-            err = lib.SSL_get_error(self.ssl, length)
+            length = lib.SSL_write(self.ssl, b, lgt)
+            err = _PySSL_errno(length<=0, self.ssl, length)
+            self.err = err
 
             check_signals()
 
             if has_timeout:
                 timeout = deadline - _monotonic_clock()
 
-            if err == SSL_ERROR_WANT_READ:
+            if err.ssl == SSL_ERROR_WANT_READ:
                 sockstate = _ssl_select(sock, 0, timeout)
-            elif err == SSL_ERROR_WANT_WRITE:
+            elif err.ssl == SSL_ERROR_WANT_WRITE:
                 sockstate = _ssl_select(sock, 1, timeout)
             else:
                 sockstate = SOCKET_OPERATION_OK
@@ -426,7 +594,7 @@ class _SSLSocket(object):
                 raise ssl_error("Underlying socket has been closed.")
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
-            if not (err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE):
+            if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
                 break
 
         if length > 0:
@@ -435,26 +603,80 @@ class _SSLSocket(object):
             raise pyssl_error(self, length)
 
     def read(self, length, buffer_into=None):
-        ssl = self.ssl
-
         if length < 0 and buffer_into is None:
             raise ValueError("size should not be negative")
 
+        if buffer_into is None:
+            return self._read_no_buf(length)
+        return self._read_buf(length, buffer_into)
+
+    def _read_no_buf(self, length):
+        ssl = self.ssl
         sock = self.get_socket_or_connection_gone()
 
-        if buffer_into is None:
-            dest = ffi.new("char[]", length)
-            if length == 0:
-                return b""
+        if length == 0:
+            return b""
+        with StackNew("char[]", length) as dest:
             mem = dest
-        else:
-            mem = ffi.from_buffer(buffer_into)
-            if length <= 0 or length > len(buffer_into):
-                length = len(buffer_into)
-                if length > sys.maxsize:
-                    raise OverflowError("maximum length can't fit in a C 'int'")
-                if len(buffer_into) == 0:
-                    return 0
+
+            if sock:
+                timeout = _socket_timeout(sock)
+                nonblocking = timeout >= 0
+                lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
+                lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
+
+            deadline = 0
+            timeout = _socket_timeout(sock)
+
+            has_timeout = timeout > 0
+            if has_timeout:
+                deadline = _monotonic_clock() + timeout
+
+            shutdown = False
+            while True:
+                count = lib.SSL_read(self.ssl, mem, length)
+                err = _PySSL_errno(count<=0, self.ssl, count)
+                self.err = err
+
+                check_signals()
+
+                if has_timeout:
+                    timeout = deadline - _monotonic_clock()
+
+                if err.ssl == SSL_ERROR_WANT_READ:
+                    sockstate = _ssl_select(sock, 0, timeout)
+                elif err.ssl == SSL_ERROR_WANT_WRITE:
+                    sockstate = _ssl_select(sock, 1, timeout)
+                elif err.ssl == SSL_ERROR_ZERO_RETURN and \
+                     lib.SSL_get_shutdown(self.ssl) == lib.SSL_RECEIVED_SHUTDOWN:
+                    shutdown = True
+                    break;
+                else:
+                    sockstate = SOCKET_OPERATION_OK
+
+                if sockstate == SOCKET_HAS_TIMED_OUT:
+                    raise socket.timeout("The read operation timed out")
+                elif sockstate == SOCKET_IS_NONBLOCKING:
+                    break
+                if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
+                    break
+
+            if count <= 0 and not shutdown:
+                raise pyssl_error(self, count)
+
+            return _bytes_with_len(dest, count)
+
+    def _read_buf(self, length, buffer_into):
+        ssl = self.ssl
+        sock = self.get_socket_or_connection_gone()
+
+        mem = ffi.from_buffer(buffer_into)
+        if length <= 0 or length > len(buffer_into):
+            length = len(buffer_into)
+            if length > _MAX_INT:
+                raise OverflowError("maximum length can't fit in a C 'int'")
+            if len(buffer_into) == 0:
+                return 0
 
         if sock:
             timeout = _socket_timeout(sock)
@@ -462,8 +684,8 @@ class _SSLSocket(object):
             lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
             lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
 
-        deadline = 0
         timeout = _socket_timeout(sock)
+        deadline = 0
         has_timeout = timeout > 0
         if has_timeout:
             deadline = _monotonic_clock() + timeout
@@ -471,18 +693,19 @@ class _SSLSocket(object):
         shutdown = False
         while True:
             count = lib.SSL_read(self.ssl, mem, length);
-            err = lib.SSL_get_error(self.ssl, count);
+            err = _PySSL_errno(count<=0, self.ssl, count)
+            self.err = err
 
             check_signals()
 
             if has_timeout:
                 timeout = deadline - _monotonic_clock()
 
-            if err == SSL_ERROR_WANT_READ:
+            if err.ssl == SSL_ERROR_WANT_READ:
                 sockstate = _ssl_select(sock, 0, timeout)
-            elif err == SSL_ERROR_WANT_WRITE:
+            elif err.ssl == SSL_ERROR_WANT_WRITE:
                 sockstate = _ssl_select(sock, 1, timeout)
-            elif err == SSL_ERROR_ZERO_RETURN and \
+            elif err.ssl == SSL_ERROR_ZERO_RETURN and \
                  lib.SSL_get_shutdown(self.ssl) == lib.SSL_RECEIVED_SHUTDOWN:
                 shutdown = True
                 break;
@@ -493,14 +716,11 @@ class _SSLSocket(object):
                 raise socket.timeout("The read operation timed out")
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
-            if not (err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE):
+            if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
                 break
 
         if count <= 0 and not shutdown:
             raise pyssl_error(self, count)
-
-        if not buffer_into:
-            return _bytes_with_len(dest, count)
 
         return count
 
@@ -610,12 +830,13 @@ class _SSLSocket(object):
             #
             if self.shutdown_seen_zero:
                 lib.SSL_set_read_ahead(self.ssl, 0)
-            err = lib.SSL_shutdown(self.ssl)
+            ret = lib.SSL_shutdown(self.ssl)
+            self.err = err = _PySSL_errno(ret<0, self.ssl, ret)
 
             # If err == 1, a secure shutdown with SSL_shutdown() is complete
-            if err > 0:
+            if ret > 0:
                 break
-            if err == 0:
+            if ret == 0:
                 # Don't loop endlessly; instead preserve legacy
                 #   behaviour of trying SSL_shutdown() only twice.
                 #   This looks necessary for OpenSSL < 0.9.8m
@@ -630,16 +851,15 @@ class _SSLSocket(object):
                 timeout = deadline - _monotonic_clock()
 
             # Possibly retry shutdown until timeout or failure
-            ssl_err = lib.SSL_get_error(self.ssl, err)
-            if ssl_err == SSL_ERROR_WANT_READ:
+            if err.ssl == SSL_ERROR_WANT_READ:
                 sockstate = _ssl_select(sock, 0, timeout)
-            elif ssl_err == SSL_ERROR_WANT_WRITE:
+            elif err.ssl == SSL_ERROR_WANT_WRITE:
                 sockstate = _ssl_select(sock, 1, timeout)
             else:
                 break
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                if ssl_err == SSL_ERROR_WANT_READ:
+                if err.ssl == SSL_ERROR_WANT_READ:
                     raise socket.timeout("The read operation timed out")
                 else:
                     raise socket.timeout("The write operation timed out")
@@ -649,12 +869,34 @@ class _SSLSocket(object):
                 # Retain the SSL error code
                 break;
 
-        if err < 0:
+        if ret < 0:
             raise pyssl_error(self, err)
         if sock:
             return sock
         else:
             return None
+
+    def get_channel_binding(self, cb_type):
+        buf = ffi.new("char[]", SSL_CB_MAXLEN)
+        if cb_type == 'tls-unique':
+            if lib.SSL_session_reused(self.ssl) ^ self.socket_type:
+                length = lib.SSL_get_finished(self.ssl, buf, SSL_CB_MAXLEN)
+            else:
+                length = lib.SSL_get_peer_finished(self.ssl, buf, SSL_CB_MAXLEN)
+        else:
+            raise ValueError(f"'{cb_type}' channel binding type not implemented")
+        if length == 0:
+            return None
+        return _bytes_with_len(buf, length) 
+
+    def verify_client_post_handshake(self):
+
+        if not HAS_TLSv1_3:
+            raise NotImplementedError("Post-handshake auth is not supported by "
+                                      "your OpenSSL version.")
+        err = lib.SSL_verify_client_post_handshake(self.ssl);
+        if err == 0:
+            raise ssl_error(None)
 
     def pending(self):
         count = lib.SSL_pending(self.ssl)
@@ -688,6 +930,30 @@ class _SSLSocket(object):
                 return None
             return _str_with_len(out[0], outlen[0])
 
+    @property
+    def session(self):
+        "Get / set SSLSession."
+        return SSLSession(self)
+
+    @session.setter
+    def session(self, value):
+        if not isinstance(value, SSLSession):
+            raise TypeError("Value is not a SSLSession.")
+        if self.ctx.ctx != value._ctx.ctx:
+            raise ValueError("Session refers to a different SSLContext.")
+        if self.socket_type != SSL_CLIENT:
+            raise ValueError("Cannot set session for server-side SSLSocket.")
+        if self.handshake_done:
+            raise ValueError("Cannot set session after handshake.")
+        if not lib.SSL_set_session(self.ssl, value._session):
+            raise pyssl_error(self, 0)
+
+    @property
+    def session_reused(self):
+        "Was the client session reused during handshake?"
+        return bool(lib.SSL_session_reused(self.ssl))
+
+
 
 def _fs_decode(name):
     return name.decode(sys.getfilesystemencoding())
@@ -714,6 +980,88 @@ def cipher_to_tuple(cipher):
     bits = lib.SSL_CIPHER_get_bits(cipher, ffi.NULL)
     return (cipher_name, cipher_protocol, bits)
 
+def cipher_to_dict(cipher):
+    ccipher_name = lib.SSL_CIPHER_get_name(cipher)
+    buf = ffi.new('char[512]')
+    alg_bits = ffi.new('int[4]')
+    if ccipher_name == ffi.NULL:
+        cipher_name = None
+    else:
+        cipher_name = _str_from_buf(ccipher_name)
+
+    ccipher_protocol = lib.SSL_CIPHER_get_version(cipher)
+    if ccipher_protocol == ffi.NULL:
+        cipher_protocol = None
+    else:
+        cipher_protocol = _str_from_buf(ccipher_protocol)
+
+    cipher_id = lib.SSL_CIPHER_get_id(cipher);
+    lib.SSL_CIPHER_description(cipher, buf, 511)
+    description = _str_from_buf(buf)
+    strength_bits = lib.SSL_CIPHER_get_bits(cipher, alg_bits)
+    ret = {
+            'id'           : cipher_id,
+            'name'         : cipher_name,
+            'protocol'     : cipher_protocol,
+            'description'  : description,
+            'strength_bits': strength_bits,
+            'alg_bits'     : alg_bits[0],
+           }
+    if OPENSSL_VERSION_INFO > (1, 1, 0, 0, 0):
+        aead = lib.SSL_CIPHER_is_aead(cipher)
+        nid = lib.SSL_CIPHER_get_cipher_nid(cipher)
+        skcipher = lib.OBJ_nid2ln(nid) if nid != lib.NID_undef else None
+        nid = lib.SSL_CIPHER_get_digest_nid(cipher);
+        digest = lib.OBJ_nid2ln(nid) if nid != lib.NID_undef else None
+        nid = lib.SSL_CIPHER_get_kx_nid(cipher);
+        kx = lib.OBJ_nid2ln(nid) if nid != lib.NID_undef else None
+        nid = lib.SSL_CIPHER_get_auth_nid(cipher);
+        auth = lib.OBJ_nid2ln(nid) if nid != lib.NID_undef else None
+        ret.update({'aead' : bool(aead),
+            'symmmetric'   : skcipher,
+            'digest'       : digest,
+            'kea'          : kx,
+            'auth'         : auth,
+           })
+    return ret
+
+
+class SSLSession(object):
+    def __new__(cls, ssl):
+        self = object.__new__(cls)
+        session = lib.SSL_get1_session(ssl.ssl)
+        if not session:
+            return None
+        self._session = ffi.gc(session, lib.SSL_SESSION_free)
+        self._ctx = ssl.ctx
+        return self
+
+    def __eq__(self, other):
+        if not isinstance(other, SSLSession):
+            return NotImplemented;
+        return self.id == other.id
+
+    @property
+    def id(self):
+        lenp = ffi.new("unsigned int*")
+        id = lib.SSL_SESSION_get_id(self._session, lenp)
+        return ffi.unpack(id, lenp[0])
+
+    @property
+    def time(self):
+        return lib.SSL_SESSION_get_time(self._session)
+
+    @property
+    def timeout(self):
+        return lib.SSL_SESSION_get_timeout(self._session)
+
+    @property
+    def has_ticket(self):
+        return bool(lib.SSL_SESSION_has_ticket(self._session))
+
+    @property
+    def ticket_lifetime_hint(self):
+        return lib.SSL_SESSION_get_ticket_lifetime_hint(self._session)
 
 
 SSL_CTX_STATS_NAMES = """
@@ -726,26 +1074,31 @@ for name in SSL_CTX_STATS_NAMES:
     SSL_CTX_STATS.append((name, getattr(lib, attr)))
 
 class _SSLContext(object):
-    __slots__ = ('ctx', '_check_hostname', 'servername_callback',
-                 'alpn_protocols', '_alpn_protocols_handle',
-                 'npn_protocols', 'set_hostname',
-                 '_set_hostname_handle', '_npn_protocols_handle')
-
+    __slots__ = ('ctx', '_check_hostname',
+                 'alpn_protocols', '_alpn_protocols_handle', '_protocol'
+                 'npn_protocols', 'set_hostname', '_post_handshake_auth',
+                 '_sni_cb', '_sni_cb_handle', '_npn_protocols_handle')
     def __new__(cls, protocol):
         self = object.__new__(cls)
         self.ctx = ffi.NULL
+        self._sni_cb = None
+        self._msg_cb = None
         if protocol == PROTOCOL_TLSv1:
             method = lib.TLSv1_method()
-        elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_1:
+        elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
             method = lib.TLSv1_1_method()
         elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_2 :
             method = lib.TLSv1_2_method()
-        elif protocol == PROTOCOL_SSLv3 and lib.Cryptography_HAS_SSL3_METHOD:
+        elif SSLv3_method_ok and protocol == PROTOCOL_SSLv3:
             method = lib.SSLv3_method()
         elif lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
             method = lib.SSLv2_method()
         elif protocol == PROTOCOL_SSLv23:
-            method = lib.SSLv23_method()
+            method = lib.TLS_method()
+        elif protocol == PROTOCOL_TLS_CLIENT:
+            method = lib.TLS_client_method()
+        elif protocol == PROTOCOL_TLS_SERVER:
+            method = lib.TLS_server_method()
         else:
             raise ValueError("invalid protocol version")
 
@@ -753,18 +1106,44 @@ class _SSLContext(object):
         if ctx == ffi.NULL:
             raise ssl_error("failed to allocate SSL context")
         self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
+        self._post_handshake_auth = 0;
+        self._protocol = protocol
+        self.hostflags = lib.X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS
 
-        self._check_hostname = False
-
+        # Don't check host name by default
+        if protocol == PROTOCOL_TLS_CLIENT:
+            self._check_hostname = True
+            self._set_verify_mode(CERT_REQUIRED)
+        else:
+            self._check_hostname = False
+            self._set_verify_mode(CERT_NONE)
         # Defaults
-        lib.SSL_CTX_set_verify(self.ctx, lib.SSL_VERIFY_NONE, ffi.NULL)
         options = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if not lib.Cryptography_HAS_SSL2 or protocol != PROTOCOL_SSLv2:
             options |= lib.SSL_OP_NO_SSLv2
-        if protocol != PROTOCOL_SSLv3:
+        if not SSLv3_method_ok or protocol != PROTOCOL_SSLv3:
             options |= lib.SSL_OP_NO_SSLv3
+        # Minimal security flags for server and client side context.
+        # Client sockets ignore server-side parameters.
+        options |= lib.SSL_OP_NO_COMPRESSION
+        options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
+        options |= lib.SSL_OP_SINGLE_DH_USE
+        options |= lib.SSL_OP_SINGLE_ECDH_USE
+        if lib.Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF:
+            options |= lib.SSL_OP_IGNORE_UNEXPECTED_EOF
         lib.SSL_CTX_set_options(self.ctx, options)
         lib.SSL_CTX_set_session_id_context(self.ctx, b"Python", len(b"Python"))
+
+        # A bare minimum cipher list without completely broken cipher suites.
+        # It's far from perfect but gives users a better head start.
+        if lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
+            # SSLv2 needs MD5
+            default_ciphers = b"HIGH:!aNULL:!eNULL"
+        else:
+            default_ciphers = b"HIGH:!aNULL:!eNULL:!MD5"
+        if not lib.SSL_CTX_set_cipher_list(ctx, default_ciphers):
+            lib.ERR_clear_error()
+            raise SSLError("No cipher can be selected.")
 
         if HAS_ECDH:
             # Allow automatic ECDH curve selection (on
@@ -777,10 +1156,31 @@ class _SSLContext(object):
                 key = lib.EC_KEY_new_by_curve_name(lib.NID_X9_62_prime256v1)
                 lib.SSL_CTX_set_tmp_ecdh(self.ctx, key)
                 lib.EC_KEY_free(key)
+        params = lib.SSL_CTX_get0_param(self.ctx);
         if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
-            store = lib.SSL_CTX_get_cert_store(self.ctx)
-            lib.X509_STORE_set_flags(store, lib.X509_V_FLAG_TRUSTED_FIRST)
+            # Improve trust chain building when cross-signed intermediate
+            # certificates are present. See https://bugs.python.org/issue23476.
+            lib.X509_VERIFY_PARAM_set_flags(params, lib.X509_V_FLAG_TRUSTED_FIRST)
+        lib.X509_VERIFY_PARAM_set_hostflags(params, self.hostflags);
+        if HAS_TLSv1_3:
+            lib.SSL_CTX_set_post_handshake_auth(self.ctx, self.post_handshake_auth)
         return self
+
+    if OPENSSL_VERSION_NUMBER > 0x10101000:
+        @property
+        def num_tickets(self):
+            return lib.SSL_CTX_get_num_tickets(self.ctx)
+
+        @num_tickets.setter
+        def num_tickets(self, arg, userdata=None):
+            # userdata is unused
+            num = int(arg)
+            if num < 0:
+                raise ValueError('value must be non-negative')
+            if self.protocol not in (PROTOCOL_TLS_SERVER,):
+                raise ValueError("SSLContext is not a server context")
+            if lib.SSL_CTX_set_num_tickets(self.ctx, num) != 1:
+                raise ValueError("failed to set num tickets")
 
     @property
     def options(self):
@@ -800,9 +1200,29 @@ class _SSLContext(object):
         if set:
             lib.SSL_CTX_set_options(self.ctx, set)
 
+    def _set_verify_mode(self, n):
+        if n == CERT_NONE:
+            mode = lib.SSL_VERIFY_NONE
+        elif n == CERT_OPTIONAL:
+            mode = lib.SSL_VERIFY_PEER
+        elif n == CERT_REQUIRED:
+            mode = lib.SSL_VERIFY_PEER | lib.SSL_VERIFY_FAIL_IF_NO_PEER_CERT
+        else:
+            raise ValueError("invalid value for verify_mode")
+
+        # bpo-37428: newPySSLSocket() sets SSL_VERIFY_POST_HANDSHAKE flag for
+        # server sockets and SSL_set_post_handshake_auth() for client.
+
+        # keep current verify cb
+        verify_cb = lib.SSL_CTX_get_verify_callback(self.ctx);
+        lib.SSL_CTX_set_verify(self.ctx, mode, verify_cb);
+
     @property
     def verify_mode(self):
-        mode = lib.SSL_CTX_get_verify_mode(self.ctx)
+        # ignore SSL_VERIFY_CLIENT_ONCE and SSL_VERIFY_POST_HANDSHAKE
+        mask = (lib.SSL_VERIFY_NONE | lib.SSL_VERIFY_PEER |
+                lib.SSL_VERIFY_FAIL_IF_NO_PEER_CERT)
+        mode = lib.SSL_CTX_get_verify_mode(self.ctx) & mask
         if mode == lib.SSL_VERIFY_NONE:
             return CERT_NONE
         elif mode == lib.SSL_VERIFY_PEER:
@@ -814,42 +1234,82 @@ class _SSLContext(object):
     @verify_mode.setter
     def verify_mode(self, value):
         n = int(value)
-        if n == CERT_NONE:
-            mode = lib.SSL_VERIFY_NONE
-        elif n == CERT_OPTIONAL:
-            mode = lib.SSL_VERIFY_PEER
-        elif n == CERT_REQUIRED:
-            mode = lib.SSL_VERIFY_PEER | lib.SSL_VERIFY_FAIL_IF_NO_PEER_CERT
-        else:
-            raise ValueError("invalid value for verify_mode")
-        if mode == lib.SSL_VERIFY_NONE and self.check_hostname:
+        if n == CERT_NONE and self.check_hostname:
             raise ValueError("Cannot set verify_mode to CERT_NONE when " \
                              "check_hostname is enabled.")
-        lib.SSL_CTX_set_verify(self.ctx, mode, ffi.NULL);
-
+        self._set_verify_mode(n)
+        
     @property
     def verify_flags(self):
-        store = lib.SSL_CTX_get_cert_store(self.ctx)
-        param = lib.X509_STORE_get0_param(store)
+        param = lib.SSL_CTX_get0_param(self.ctx)
         flags = lib.X509_VERIFY_PARAM_get_flags(param)
         return int(flags)
 
     @verify_flags.setter
     def verify_flags(self, value):
         new_flags = int(value)
-        store = lib.SSL_CTX_get_cert_store(self.ctx);
-        param = lib.X509_STORE_get0_param(store)
+        param = lib.SSL_CTX_get0_param(self.ctx)
         flags = lib.X509_VERIFY_PARAM_get_flags(param);
         clear = flags & ~new_flags;
         set = ~flags & new_flags;
         if clear:
-            param = lib.X509_STORE_get0_param(store)
             if not lib.X509_VERIFY_PARAM_clear_flags(param, clear):
-                raise ssl_error(None, 0)
+                raise ssl_error(None)
         if set:
-            param = lib.X509_STORE_get0_param(store)
             if not lib.X509_VERIFY_PARAM_set_flags(param, set):
-                raise ssl_error(None, 0)
+                raise ssl_error(None)
+
+    if HAS_CTRL_GET_MAX_PROTO_VERSION:
+        def set_min_max_proto_version(self, arg, what):
+            v = int(arg)
+            if self.protocol not in (PROTOCOL_TLS_CLIENT, PROTOCOL_TLS_SERVER,
+                                     PROTOCOL_TLS):
+                raise ValueError("The context's protocol doesn't support"
+                    "modification of highest and lowest version.")
+            if what == 0:
+                if v == PROTO_MINIMUM_SUPPORTED:
+                    v = 0
+                elif v == PROTO_MAXIMUM_SUPPORTED:
+                    # Emulate max for set_min_proto_version
+                    v = PROTO_MAXIMUM_AVAILABLE
+                result = lib.SSL_CTX_set_min_proto_version(self.ctx, v)
+            else:
+                if v == PROTO_MAXIMUM_SUPPORTED:
+                    v = 0
+                elif v == PROTO_MINIMUM_SUPPORTED:
+                    # Emulate max for set_min_proto_version
+                    v = PROTO_MINIMUM_AVAILABLE
+                result = lib.SSL_CTX_set_max_proto_version(self.ctx, v)
+            if result == 0:
+                raise ValueError('Unsupported protocol version 0x%x' % v)
+            return 0
+
+        @property
+        def minimum_version(self):
+            v = lib.SSL_CTX_get_min_proto_version(self.ctx)
+            if v == 0:
+                v = PROTO_MINIMUM_SUPPORTED
+            return v
+
+        @minimum_version.setter
+        def minimum_version(self, arg):
+            return self.set_min_max_proto_version(arg, 0);
+
+        @property
+        def maximum_version(self):
+            v = lib.SSL_CTX_get_max_proto_version(self.ctx)
+            if v == 0:
+                v = PROTO_MAXIMUM_SUPPORTED
+            return v
+
+        @maximum_version.setter
+        def maximum_version(self, arg):
+            return self.set_min_max_proto_version(arg, 1);
+         
+
+    @property
+    def protocol(self):
+        return self._protocol
 
     @property
     def check_hostname(self):
@@ -859,9 +1319,20 @@ class _SSLContext(object):
     def check_hostname(self, value):
         check_hostname = bool(value)
         if check_hostname and lib.SSL_CTX_get_verify_mode(self.ctx) == lib.SSL_VERIFY_NONE:
-            raise ValueError("check_hostname needs a SSL context with either "
-                             "CERT_OPTIONAL or CERT_REQUIRED")
+            self._set_verify_mode(CERT_REQUIRED)
         self._check_hostname = check_hostname
+
+
+    @property
+    def _host_flags(self):
+        return self.hostflags
+
+    @_host_flags.setter
+    def _host_flags(self, arg):
+        new_flags = int(arg)
+        param = lib.SSL_CTX_get0_param(self.ctx);
+        self.hostflags = new_flags;
+        lib.X509_VERIFY_PARAM_set_hostflags(param, new_flags)
 
     def set_ciphers(self, cipherlist):
         cipherlistbuf = _str_to_ffi_buffer(cipherlist)
@@ -873,12 +1344,28 @@ class _SSLContext(object):
             lib.ERR_clear_error()
             raise ssl_error("No cipher can be selected.")
 
+    def get_ciphers(self):
+        ssl = lib.SSL_new(self.ctx)
+        try:
+            ciphers = lib.SSL_get_ciphers(ssl)
+            if ciphers == ffi.NULL:
+                return None
+            count = lib.sk_SSL_CIPHER_num(ciphers)
+            res = [None] * count
+            for i in range(count):
+                dct = cipher_to_dict(lib.sk_SSL_CIPHER_value(ciphers, i))
+                res[i] = dct
+            return res
+        finally:
+            lib.SSL_free(ssl)
 
     def load_cert_chain(self, certfile, keyfile=None, password=None):
         if keyfile is None:
             keyfile = certfile
         pw_info = PasswordInfo()
         index = -1
+        orig_passwd_cb = lib.SSL_CTX_get_default_passwd_cb(self.ctx)
+        orig_passwd_userdata = lib.SSL_CTX_get_default_passwd_cb_userdata(self.ctx)
         if password is not None:
 
             if callable(password):
@@ -895,6 +1382,7 @@ class _SSLContext(object):
             lib.SSL_CTX_set_default_passwd_cb(self.ctx, Cryptography_pem_password_cb)
             lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, pw_info.handle)
 
+        prev_errno = ffi.errno
         try:
             ffi.errno = 0
             certfilebuf = _str_to_ffi_buffer(certfile)
@@ -929,56 +1417,62 @@ class _SSLContext(object):
             if ret != 1:
                 raise ssl_error(None)
         finally:
+            ffi.errno = prev_errno
             if index >= 0:
                 del PWINFO_STORAGE[index]
-            lib.SSL_CTX_set_default_passwd_cb(self.ctx, ffi.NULL)
-            lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, ffi.NULL)
+            lib.SSL_CTX_set_default_passwd_cb(self.ctx, orig_passwd_cb)
+            lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, orig_passwd_userdata)
 
 
-    def _wrap_socket(self, sock, server_side, server_hostname=None):
+    def _wrap_socket(self, sock, server_side, server_hostname=None, *,
+            owner=None, session=None):
         if server_hostname:
-            server_hostname = server_hostname.encode('idna')
+            server_hostname = server_hostname.encode('ascii')
         return _SSLSocket._new__ssl_socket(self, sock, server_side,
-                server_hostname, None, None)
+                server_hostname, owner, session, None, None)
 
     def load_verify_locations(self, cafile=None, capath=None, cadata=None):
-        ffi.errno = 0
-        if cadata is None:
-            ca_file_type = -1
-        else:
-            if not isinstance(cadata, str):
-                ca_file_type = lib.SSL_FILETYPE_ASN1
+        prev_errno = ffi.errno
+        try:
+            ffi.errno = 0
+            if cadata is None:
+                ca_file_type = -1
             else:
-                ca_file_type = lib.SSL_FILETYPE_PEM
-                try:
-                    cadata = cadata.encode('ascii')
-                except UnicodeEncodeError:
-                    raise TypeError("cadata should be a ASCII string or a bytes-like object")
-        if cafile is None and capath is None and cadata is None:
-            raise TypeError("cafile and capath cannot be both omitted")
-        # load from cadata
-        if cadata is not None:
-            buf = _str_to_ffi_buffer(cadata)
-            self._add_ca_certs(buf, len(buf), ca_file_type)
-
-        # load cafile or capath
-        if cafile or capath:
-            if cafile is None:
-                cafilebuf = ffi.NULL
-            else:
-                cafilebuf = _str_to_ffi_buffer(cafile)
-            if capath is None:
-                capathbuf = ffi.NULL
-            else:
-                capathbuf = _str_to_ffi_buffer(capath)
-            ret = lib.SSL_CTX_load_verify_locations(self.ctx, cafilebuf, capathbuf)
-            if ret != 1:
-                _errno = ffi.errno
-                if _errno:
-                    lib.ERR_clear_error()
-                    raise OSError(_errno, '')
+                if not isinstance(cadata, str):
+                    ca_file_type = lib.SSL_FILETYPE_ASN1
                 else:
-                    raise ssl_error(None)
+                    ca_file_type = lib.SSL_FILETYPE_PEM
+                    try:
+                        cadata = cadata.encode('ascii')
+                    except UnicodeEncodeError:
+                        raise TypeError("cadata should be a ASCII string or a bytes-like object")
+            if cafile is None and capath is None and cadata is None:
+                raise TypeError("cafile and capath cannot be both omitted")
+            # load from cadata
+            if cadata is not None:
+                buf = _str_to_ffi_buffer(cadata)
+                self._add_ca_certs(buf, len(buf), ca_file_type)
+
+            # load cafile or capath
+            if cafile is not None or capath is not None:
+                if cafile is None:
+                    cafilebuf = ffi.NULL
+                else:
+                    cafilebuf = _str_to_ffi_buffer(cafile)
+                if capath is None:
+                    capathbuf = ffi.NULL
+                else:
+                    capathbuf = _str_to_ffi_buffer(capath)
+                ret = lib.SSL_CTX_load_verify_locations(self.ctx, cafilebuf, capathbuf)
+                if ret != 1:
+                    _errno = ffi.errno
+                    if _errno:
+                        lib.ERR_clear_error()
+                        raise OSError(_errno, '')
+                    else:
+                        raise ssl_error(None)
+        finally:
+            ffi.errno = prev_errno
 
     def _add_ca_certs(self, data, size, ca_file_type):
         biobuf = lib.BIO_new_mem_buf(data, size)
@@ -991,7 +1485,10 @@ class _SSLContext(object):
                 if ca_file_type == lib.SSL_FILETYPE_ASN1:
                     cert = lib.d2i_X509_bio(biobuf, ffi.NULL)
                 else:
-                    cert = lib.PEM_read_bio_X509(biobuf, ffi.NULL, ffi.NULL, ffi.NULL)
+                    cert = lib.PEM_read_bio_X509(biobuf, ffi.NULL,
+                                                 lib.SSL_CTX_get_default_passwd_cb(self.ctx),
+                                                 lib.SSL_CTX_get_default_passwd_cb_userdata(self.ctx),
+                                                )
                 if not cert:
                     break
                 try:
@@ -1010,22 +1507,79 @@ class _SSLContext(object):
                 loaded += 1
 
             err = lib.ERR_peek_last_error()
-            if (ca_file_type == lib.SSL_FILETYPE_ASN1 and
+            if loaded == 0:
+                if ca_file_type == lib.SSL_FILETYPE_PEM:
+                    msg = "no start line: cadata does not contain a certificate"
+                else:
+                    msg = "not enough data: cadata does not contain a certificate";
+                raise ssl_error(msg)
+            elif (ca_file_type == lib.SSL_FILETYPE_ASN1 and
                 loaded > 0 and
                 lib.ERR_GET_LIB(err) == lib.ERR_LIB_ASN1 and
                 lib.ERR_GET_REASON(err) == lib.ASN1_R_HEADER_TOO_LONG):
                 # EOF ASN1 file, not an error
                 lib.ERR_clear_error()
             elif (ca_file_type == lib.SSL_FILETYPE_PEM and
-                  loaded > 0 and
                   lib.ERR_GET_LIB(err) == lib.ERR_LIB_PEM and
                   lib.ERR_GET_REASON(err) == lib.PEM_R_NO_START_LINE):
                 # EOF PEM file, not an error
                 lib.ERR_clear_error()
-            else:
+            elif err != 0:
                 raise ssl_error(None)
         finally:
             lib.BIO_free(biobuf)
+
+    @property
+    def sni_callback(self):
+        r"""Set a callback that will be called when a server name is
+        provided by the SSL/TLS client in the SNI extension.
+
+        If the argument is None then the callback is disabled. The method
+        is called with the SSLSocket, the server name as a string, and the
+        SSLContext object. See RFC 6066 for details of the SNI
+        extension.
+        """
+
+        return self._sni_cb
+
+    @sni_callback.setter
+    def sni_callback(self, cb):
+        if self._protocol == PROTOCOL_TLS_CLIENT:
+            raise ValueError('sni_callback cannot be set on TLS_CLIENT context')
+        if not HAS_SNI:
+            raise NotImplementedError("The TLS extension servername callback, "
+                    "SSL_CTX_set_tlsext_servername_callback, "
+                    "is not in the current OpenSSL library.")
+        if cb is None:
+            lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
+            self._sni_cb = None
+            lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, ffi.NULL)
+            self._sni_cb_handle = None
+            return
+        if not callable(cb):
+            lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
+            raise TypeError("not a callable object")
+        self._sni_cb = GenericCallback(cb, self)
+        self._sni_cb_handle = sni_cb = ffi.new_handle(self._sni_cb)
+        lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
+        lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, sni_cb)
+
+    @property
+    def _msg_callback(self):
+        return self._msg_cb
+
+    @_msg_callback.setter
+    def _msg_callback(self, arg, userdata=None):
+        # userdata is unused
+        if arg is None:
+            lib.SSL_CTX_set_msg_callback(self.ctx, ffi.NULL)
+            self._msg_cb = None
+        if not callable(arg):
+            lib.SSL_CTX_set_msg_callback(self.ctx, ffi.NULL)
+            self._msg_cb = None
+            raise TypeError('not a callable object')
+        self._msg_cb = arg
+        lib.SSL_CTX_set_msg_callback(self.ctx, _msg_callback)
 
     def cert_store_stats(self):
         store = lib.SSL_CTX_get_cert_store(self.ctx)
@@ -1059,37 +1613,48 @@ class _SSLContext(object):
         return stats
 
     def set_default_verify_paths(self):
+        if (not os.environ.get('SSL_CERT_FILE') and
+            not os.environ.get('SSL_CERT_DIR') and
+            not sys.platform == 'win32'):
+                locations = get_default_verify_paths()
+                self.load_verify_locations(locations[1], locations[3])
+                return
         if not lib.SSL_CTX_set_default_verify_paths(self.ctx):
-            raise ssl_error("")
+            raise ssl_error(None)
 
     def load_dh_params(self, filepath):
-        ffi.errno = 0
-        if filepath is None:
-            raise TypeError("filepath must not be None")
-        buf = _fs_converter(filepath)
-        mode = ffi.new("char[]",b"r")
-        ffi.errno = 0
-        bio = lib.BIO_new_file(buf, mode)
-        if bio == ffi.NULL:
-            _errno = ffi.errno
-            lib.ERR_clear_error()
-            raise OSError(_errno, '')
+        sys.audit("open", filepath, 'rb', 0)
+        prev_errno = ffi.errno
         try:
-            dh = lib.PEM_read_bio_DHparams(bio, ffi.NULL, ffi.NULL, ffi.NULL)
-        finally:
-            lib.BIO_free(bio)
-        if dh == ffi.NULL:
-            _errno = ffi.errno
-            if _errno != 0:
+            ffi.errno = 0
+            if filepath is None:
+                raise TypeError("filepath must not be None")
+            buf = _fs_converter(filepath)
+            mode = ffi.new("char[]",b"rb")
+            ffi.errno = 0
+            bio = lib.BIO_new_file(buf, mode)
+            if bio == ffi.NULL:
+                _errno = ffi.errno
                 lib.ERR_clear_error()
                 raise OSError(_errno, '')
-            else:
-                raise ssl_error(None)
-        try:
-            if lib.SSL_CTX_set_tmp_dh(self.ctx, dh) == 0:
-                raise ssl_error(None)
+            try:
+                dh = lib.PEM_read_bio_DHparams(bio, ffi.NULL, ffi.NULL, ffi.NULL)
+            finally:
+                lib.BIO_free(bio)
+            if dh == ffi.NULL:
+                _errno = ffi.errno
+                if _errno != 0:
+                    lib.ERR_clear_error()
+                    raise OSError(_errno, '')
+                else:
+                    raise ssl_error(None)
+            try:
+                if lib.SSL_CTX_set_tmp_dh(self.ctx, dh) == 0:
+                    raise ssl_error(None)
+            finally:
+                lib.DH_free(dh)
         finally:
-            lib.DH_free(dh)
+            ffi.errno = prev_errno
 
     def get_ca_certs(self, binary_form=None):
         binary_mode = bool(binary_form)
@@ -1129,23 +1694,6 @@ class _SSLContext(object):
         finally:
             lib.EC_KEY_free(key)
 
-    def set_servername_callback(self, callback):
-        # cryptography constraint: OPENSSL_NO_TLSEXT will never be set!
-        if not HAS_SNI:
-            raise NotImplementedError("The TLS extension servername callback, "
-                    "SSL_CTX_set_tlsext_servername_callback, "
-                    "is not in the current OpenSSL library.")
-        if callback is None:
-            lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
-            self._set_hostname_handle = None
-            return
-        if not callable(callback):
-            raise TypeError("not a callable object")
-        scb = ServernameCallback(callback, self)
-        self._set_hostname_handle = ffi.new_handle(scb)
-        lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
-        lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, self._set_hostname_handle)
-
     def _set_alpn_protocols(self, protos):
         if HAS_ALPN:
             self.alpn_protocols = protocols = ffi.from_buffer(protos)
@@ -1168,15 +1716,34 @@ class _SSLContext(object):
         else:
             raise NotImplementedError("The NPN extension requires OpenSSL 1.0.1 or later.")
 
-    def _wrap_bio(self, incoming, outgoing, server_side, server_hostname):
+    def _wrap_bio(self, incoming, outgoing, server_side, server_hostname, *,
+            owner=None, session=None):
         # server_hostname is either None (or absent), or to be encoded
-        # using the idna encoding.
+        # using the ascii encoding.
         hostname = None
         if server_hostname is not None:
-            hostname = server_hostname.encode("idna")
+            hostname = server_hostname.encode("ascii")
 
-        sock = _SSLSocket._new__ssl_socket(self, None, server_side, hostname, incoming, outgoing)
+        sock = _SSLSocket._new__ssl_socket(
+            self, None, server_side, hostname, owner, session, incoming,
+            outgoing)
         return sock
+
+    @property
+    def post_handshake_auth(self):
+        if HAS_TLSv1_3:
+            return bool(self._post_handshake_auth)
+        return None
+
+    @post_handshake_auth.setter
+    def post_handshake_auth(self, arg):
+        if arg is None:
+            raise AttributeError("cannot delete attribute")
+        pha = int(bool(arg))
+
+        self._post_handshake_auth = pha
+
+        return 0;
 
 
 
@@ -1230,12 +1797,14 @@ if HAS_SNI:
             servername = ffi.string(servername)
 
             try:
-                servername_idna = servername.decode("idna")
+                # server_hostname was encoded to an A-label by our caller; put it
+                # back into a str object, but still as an A-label (bpo-28414)
+                servername_str = servername.decode("ascii")
             except UnicodeDecodeError as e:
                 pyerr_write_unraisable(e, servername)
 
             try:
-                result = set_hostname(ssl_socket, servername_idna, ssl_ctx)
+                result = set_hostname(ssl_socket, servername_str, ssl_ctx)
             except Exception as e:
                 pyerr_write_unraisable(e, set_hostname)
                 al[0] = lib.SSL_AD_HANDSHAKE_FAILURE
@@ -1264,12 +1833,46 @@ if HAS_SNI:
             # TODO gil state release?
             return lib.SSL_TLSEXT_ERR_OK
 
-class ServernameCallback(object):
+@ffi.callback("void(int, int, int, const void*, size_t, SSL*, void*)")
+def _msg_callback(write_p, version, content_type, buf, length, ssl, arg):
+    ssl_obj = ffi.from_handle(lib.SSL_get_app_data(ssl))
+    cbuf = ffi.cast('const char *', buf)
+    assert isinstance(ssl_obj, _SSLSocket)
+    if ssl_obj.ctx._msg_cb is None:
+        return
+    if ssl_obj.owner:
+        ssl_socket = ssl_obj.owner
+    elif getattr(ssl_obj, 'Socket', None):
+        ssl_socket = ssl_obj.Socket
+    else:
+        ssl_socket = ssl_obj
+    # assume that OpenSSL verifies all payload and buf len is of sufficient
+    # length
+    if content_type == lib.SSL3_RT_CHANGE_CIPHER_SPEC:
+        msg_type = lib.SSL3_MT_CHANGE_CIPHER_SPEC
+    elif content_type == lib.SSL3_RT_ALERT:
+        # byte 0: level
+        # byte 1: alert type
+        msg_type = ord(cbuf[1]);
+    elif content_type == lib.SSL3_RT_HANDSHAKE:
+        msg_type = ord(cbuf[0])
+    elif content_type == lib.SSL3_RT_HEADER:
+        # frame header encodes version in bytes 1..2
+        version = ord(cbuf[1]) << 8 | ord(cbuf[2])
+        msg_type = ord(cbuf[0])
+    elif content_type == lib.SSL3_RT_INNER_CONTENT_TYPE:
+        msg_type = ord(cbuf[0])
+    else:
+        # never SSL3_RT_APPLICATION_DATA
+        msg_type = -1;
+    res = ssl_obj.ctx._msg_cb(ssl_socket, 'write' if write_p != 0 else 'read',
+                              version, content_type, msg_type,
+                              bytes(ffi.buffer(cbuf, length)))
+
+class GenericCallback(object):
     def __init__(self, callback, ctx):
         self.callback = callback
         self.ctx = ctx
-
-SERVERNAME_CALLBACKS = weakref.WeakValueDictionary()
 
 def _asn1obj2py(obj):
     nid = lib.OBJ_obj2nid(obj)
@@ -1351,19 +1954,31 @@ class MemoryBIO(object):
         lib.BIO_clear_retry_flags(self.bio)
         lib.BIO_set_mem_eof_return(self.bio, 0)
 
-    def read(self, len=-1):
-        count = len
+    def read(self, size=-1):
+        """Read up to size bytes from the memory BIO.
+
+        If size is not specified, read the entire buffer.
+        If the return value is an empty bytes instance, this means either
+        EOF or that no data is available. Use the "eof" property to
+        distinguish between the two.
+        """
+        count = size
         avail = lib.BIO_ctrl_pending(self.bio);
         if count < 0 or count > avail:
             count = avail;
+        if count == 0:
+            return b''
 
         buf = ffi.new("char[]", count)
 
         nbytes = lib.BIO_read(self.bio, buf, count);
+        if nbytes < 0:
+            raise ssl_error(None)
         #  There should never be any short reads but check anyway.
         if nbytes < count:
-            return b""
-
+            pass
+            # adaptation of BPO 34824: just return a short buffer
+            # return b""
         return _bytes_with_len(buf, nbytes)
 
     @property
@@ -1402,20 +2017,69 @@ def RAND_add(view, entropy):
     lib.RAND_add(buf, len(buf), entropy)
 
 def get_default_verify_paths():
+    '''
+    Find a certificate store and associated values
 
+    Returns something like
+    `('SSL_CERT_FILE', '/usr/lib/ssl/cert.pem', 'SSL_CERT_DIR', '/usr/lib/ssl/certs')`
+    on Ubuntu and windows10
+
+    `('SSL_CERT_FILE', '/usr/local/cert.pem', 'SSL_CERT_DIR', '/usr/local/certs')`
+    on CentOS
+
+    `('SSL_CERT_FILE', '/Library/Frameworks/Python.framework/Versions/2.7/etc/openssl/cert.pem',
+      'SSL_CERT_DIR', '/Library/Frameworks/Python.framework/Versions/2.7/etc/openssl/certs')`
+    on Darwin
+
+    For portable builds (based on CentOS, but could be running on any glibc
+    linux) we need to check other locations. The list of places to try was taken
+    from golang in Dec 2018:
+     https://golang.org/src/crypto/x509/root_unix.go (for the directories),
+     https://golang.org/src/crypto/x509/root_linux.go (for the files)
+    '''
+    certFiles = [
+        "/etc/ssl/certs/ca-certificates.crt",                # Debian/Ubuntu/Gentoo etc.
+        "/etc/pki/tls/certs/ca-bundle.crt",                  # Fedora/RHEL 6
+        "/etc/ssl/ca-bundle.pem",                            # OpenSUSE
+        "/etc/pki/tls/cacert.pem",                           # OpenELEC
+        "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", # CentOS/RHEL 7
+        "/etc/ssl/cert.pem",                                 # Alpine Linux
+    ]
+    certDirectories = [
+        "/etc/ssl/certs",               # SLES10/SLES11
+        "/system/etc/security/cacerts", # Android
+        "/usr/local/share/certs",       # FreeBSD
+        "/etc/pki/tls/certs",           # Fedora/RHEL
+        "/etc/openssl/certs",           # NetBSD
+        "/var/ssl/certs",               # AIX
+    ]
+
+    # optimization: reuse the values from a local varaible
+    if getattr(get_default_verify_paths, 'retval', None):
+        return get_default_verify_paths.retval
+
+    # This should never fail, it should always return SSL_CERT_FILE and SSL_CERT_DIR
     ofile_env = _cstr_decode_fs(lib.X509_get_default_cert_file_env())
-    if ofile_env is None:
-        return None
-    ofile = _cstr_decode_fs(lib.X509_get_default_cert_file())
-    if ofile is None:
-        return None
     odir_env = _cstr_decode_fs(lib.X509_get_default_cert_dir_env())
-    if odir_env is None:
-        return None
+
+    # Platform depenedent
+    ofile = _cstr_decode_fs(lib.X509_get_default_cert_file())
     odir = _cstr_decode_fs(lib.X509_get_default_cert_dir())
-    if odir is None:
-        return odir
-    return (ofile_env, ofile, odir_env, odir);
+
+    if os.path.exists(ofile) and os.path.exists(odir):
+        get_default_verify_paths.retval = (ofile_env, ofile, odir_env, odir)
+        return get_default_verify_paths.retval
+
+    # OpenSSL didn't supply the goods. Try some other options
+    for f in certFiles:
+        if os.path.exists(f):
+            ofile = f
+    for f in certDirectories:
+        if os.path.exists(f):
+            odir = f
+    get_default_verify_paths.retval = (ofile_env, ofile, odir_env, odir)
+    return get_default_verify_paths.retval
+
 
 @ffi.callback("int(SSL*,unsigned char **,unsigned char *,const unsigned char *,unsigned int,void *)")
 def select_alpn_callback(ssl, out, outlen, client_protocols, client_protocols_len, args):
@@ -1471,3 +2135,5 @@ if lib.Cryptography_HAS_EGD:
                            "enough data to seed the PRNG");
         return bytecount
 
+socket.RAND_add = RAND_add
+socket.RAND_status = RAND_status

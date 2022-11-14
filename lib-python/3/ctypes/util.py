@@ -67,17 +67,7 @@ if os.name == "nt":
                 return fname
         return None
 
-if os.name == "ce":
-    # search path according to MSDN:
-    # - absolute path specified by filename
-    # - The .exe launch directory
-    # - the Windows directory
-    # - ROM dll files (where are they?)
-    # - OEM specified search path: HKLM\Loader\SystemPath
-    def find_library(name):
-        return name
-
-if os.name == "posix" and sys.platform == "darwin":
+elif os.name == "posix" and sys.platform == "darwin":
     from ctypes.macholib.dyld import dyld_find as _dyld_find
     def find_library(name):
         possible = ['lib%s.dylib' % name,
@@ -90,9 +80,24 @@ if os.name == "posix" and sys.platform == "darwin":
                 continue
         return None
 
+elif sys.platform.startswith("aix"):
+    # AIX has two styles of storing shared libraries
+    # GNU auto_tools refer to these as svr4 and aix
+    # svr4 (System V Release 4) is a regular file, often with .so as suffix
+    # AIX style uses an archive (suffix .a) with members (e.g., shr.o, libssl.so)
+    # see issue#26439 and _aix.py for more details
+
+    from ctypes._aix import find_library
+
 elif os.name == "posix":
     # Andreas Degert's find functions, using gcc, /sbin/ldconfig, objdump
     import re, tempfile
+
+    def _is_elf(filename):
+        "Return True if the given file is an ELF file"
+        elf_header = b'\x7fELF'
+        with open(filename, 'br') as thefile:
+            return thefile.read(4) == elf_header
 
     def _findLib_gcc(name):
         # Run GCC's linker with the -t (aka --trace) option and examine the
@@ -131,10 +136,17 @@ elif os.name == "posix":
                 # Raised if the file was already removed, which is the normal
                 # behaviour of GCC if linking fails
                 pass
-        res = re.search(expr, trace)
+        res = re.findall(expr, trace)
         if not res:
             return None
-        return os.fsdecode(res.group(0))
+
+        for file in res:
+            # Check if the given file is an elf file: gcc can report
+            # some files that are linker scripts and not actual
+            # shared objects. See bpo-41976 for more details
+            if not _is_elf(file):
+                continue
+            return os.fsdecode(file)
 
 
     if sys.platform == "sunos5":
@@ -271,8 +283,8 @@ elif os.name == "posix":
             abi_type = mach_map.get(machine, 'libc6')
 
             # XXX assuming GLIBC's ldconfig (with option -p)
-            regex = os.fsencode(
-                '\s+(lib%s\.[^\s]+)\s+\(%s' % (re.escape(name), abi_type))
+            regex = r'\s+(lib%s\.[^\s]+)\s+\(%s'
+            regex = os.fsencode(regex % (re.escape(name), abi_type))
             try:
                 with subprocess.Popen(['/sbin/ldconfig', '-p'],
                                       stdin=subprocess.DEVNULL,
@@ -285,8 +297,37 @@ elif os.name == "posix":
             except OSError:
                 pass
 
+        def _findLib_ld(name):
+            # See issue #9998 for why this is needed
+            expr = r'[^\(\)\s]*lib%s\.[^\(\)\s]*' % re.escape(name)
+            cmd = ['ld', '-t']
+            libpath = os.environ.get('LD_LIBRARY_PATH')
+            if libpath:
+                for d in libpath.split(':'):
+                    cmd.extend(['-L', d])
+            cmd.extend(['-o', os.devnull, '-l%s' % name])
+            result = None
+            try:
+                p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE,
+                                     universal_newlines=True)
+                out, _ = p.communicate()
+                res = re.findall(expr, os.fsdecode(out))
+                for file in res:
+                    # Check if the given file is an elf file: gcc can report
+                    # some files that are linker scripts and not actual
+                    # shared objects. See bpo-41976 for more details
+                    if not _is_elf(file):
+                        continue
+                    return os.fsdecode(file)
+            except Exception:
+                pass  # result will be None
+            return result
+
         def find_library(name):
-            return _findSoname_ldconfig(name) or _get_soname(_findLib_gcc(name))
+            # See issue #9998
+            return _findSoname_ldconfig(name) or \
+                   _get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))
 
 ################################################################
 # test code
@@ -304,16 +345,28 @@ def test():
         print(find_library("c"))
         print(find_library("bz2"))
 
-        # getattr
-##        print cdll.m
-##        print cdll.bz2
-
         # load
         if sys.platform == "darwin":
             print(cdll.LoadLibrary("libm.dylib"))
             print(cdll.LoadLibrary("libcrypto.dylib"))
             print(cdll.LoadLibrary("libSystem.dylib"))
             print(cdll.LoadLibrary("System.framework/System"))
+        # issue-26439 - fix broken test call for AIX
+        elif sys.platform.startswith("aix"):
+            from ctypes import CDLL
+            if sys.maxsize < 2**32:
+                print(f"Using CDLL(name, os.RTLD_MEMBER): {CDLL('libc.a(shr.o)', os.RTLD_MEMBER)}")
+                print(f"Using cdll.LoadLibrary(): {cdll.LoadLibrary('libc.a(shr.o)')}")
+                # librpm.so is only available as 32-bit shared library
+                print(find_library("rpm"))
+                print(cdll.LoadLibrary("librpm.so"))
+            else:
+                print(f"Using CDLL(name, os.RTLD_MEMBER): {CDLL('libc.a(shr_64.o)', os.RTLD_MEMBER)}")
+                print(f"Using cdll.LoadLibrary(): {cdll.LoadLibrary('libc.a(shr_64.o)')}")
+            print(f"crypt\t:: {find_library('crypt')}")
+            print(f"crypt\t:: {cdll.LoadLibrary(find_library('crypt'))}")
+            print(f"crypto\t:: {find_library('crypto')}")
+            print(f"crypto\t:: {cdll.LoadLibrary(find_library('crypto'))}")
         else:
             print(cdll.LoadLibrary("libm.so"))
             print(cdll.LoadLibrary("libcrypt.so"))

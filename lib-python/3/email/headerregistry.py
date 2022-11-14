@@ -31,6 +31,11 @@ class Address:
         without any Content Transfer Encoding.
 
         """
+
+        inputs = ''.join(filter(None, (display_name, username, domain, addr_spec)))
+        if '\r' in inputs or '\n' in inputs:
+            raise ValueError("invalid arguments; address parts cannot contain CR or LF")
+
         # This clause with its potential 'raise' may only happen when an
         # application program creates an Address object using an addr_spec
         # keyword.  The email library code itself must always supply username
@@ -245,13 +250,16 @@ class BaseHeader(str):
         the header name and the ': ' separator.
 
         """
-        # At some point we need to only put fws here if it was in the source.
+        # At some point we need to put fws here if it was in the source.
         header = parser.Header([
             parser.HeaderLabel([
                 parser.ValueTerminal(self.name, 'header-name'),
                 parser.ValueTerminal(':', 'header-sep')]),
-            parser.CFWSList([parser.WhiteSpaceTerminal(' ', 'fws')]),
-                             self._parse_tree])
+            ])
+        if self._parse_tree:
+            header.append(
+                parser.CFWSList([parser.WhiteSpaceTerminal(' ', 'fws')]))
+        header.append(self._parse_tree)
         return header.fold(policy=policy)
 
 
@@ -369,8 +377,8 @@ class AddressHeader:
     @property
     def addresses(self):
         if self._addresses is None:
-            self._addresses = tuple([address for group in self._groups
-                                             for address in group.addresses])
+            self._addresses = tuple(address for group in self._groups
+                                            for address in group.addresses)
         return self._addresses
 
 
@@ -517,6 +525,18 @@ class ContentTransferEncodingHeader:
         return self._cte
 
 
+class MessageIDHeader:
+
+    max_count = 1
+    value_parser = staticmethod(parser.parse_message_id)
+
+    @classmethod
+    def parse(cls, value, kwds):
+        kwds['parse_tree'] = parse_tree = cls.value_parser(value)
+        kwds['decoded'] = str(parse_tree)
+        kwds['defects'].extend(parse_tree.all_defects)
+
+
 # The header factory #
 
 _default_header_map = {
@@ -539,6 +559,7 @@ _default_header_map = {
     'content-type':                 ContentTypeHeader,
     'content-disposition':          ContentDispositionHeader,
     'content-transfer-encoding':    ContentTransferEncodingHeader,
+    'message-id':                   MessageIDHeader,
     }
 
 class HeaderRegistry:

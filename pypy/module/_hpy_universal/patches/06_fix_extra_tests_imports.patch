@@ -1,0 +1,30 @@
+diff --git a/extra_tests/hpy_tests/_vendored/debug/test_charptr.py b/extra_tests/hpy_tests/_vendored/debug/test_charptr.py
+--- a/extra_tests/hpy_tests/_vendored/debug/test_charptr.py
++++ b/extra_tests/hpy_tests/_vendored/debug/test_charptr.py
+@@ -1,4 +1,4 @@
+-from test.support import SUPPORTS_SYS_EXECUTABLE
++from ..support import SUPPORTS_SYS_EXECUTABLE
+ import os
+ import pytest
+ 
+@@ -235,4 +235,4 @@ def test_charptr_limit_stress_test(compi
+             assert h.raw_data_size == -1
+     finally:
+         _debug.set_protected_raw_data_max_size(old_raw_data_max_size)
+-        _debug.set_closed_handles_queue_max_size(old_closed_handles_max_size)
+\ No newline at end of file
++        _debug.set_closed_handles_queue_max_size(old_closed_handles_max_size)
+diff --git a/extra_tests/hpy_tests/_vendored/debug/test_handles_invalid.py b/extra_tests/hpy_tests/_vendored/debug/test_handles_invalid.py
+--- a/extra_tests/hpy_tests/_vendored/debug/test_handles_invalid.py
++++ b/extra_tests/hpy_tests/_vendored/debug/test_handles_invalid.py
+@@ -1,7 +1,8 @@
+ import pytest
+ from hpy.debug.leakdetector import LeakDetector
+-from test.support import SUPPORTS_SYS_EXECUTABLE, IS_PYTHON_DEBUG_BUILD
+-from test.conftest import IS_VALGRIND_RUN
++from ..support import SUPPORTS_SYS_EXECUTABLE, IS_PYTHON_DEBUG_BUILD
++from ..conftest import IS_VALGRIND_RUN
++import sys
+ 
+ @pytest.fixture
+ def hpy_abi():

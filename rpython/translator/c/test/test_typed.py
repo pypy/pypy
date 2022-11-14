@@ -1015,3 +1015,13 @@ class TestTypedTestCase(object):
         f = self.getcompiled(func, [int, int, int])
         res = f(1192871273, 1837632879, 2001286281)
         assert res == 1573897320
+
+    def test_long_float(self):
+        from rpython.rlib.rarithmetic import r_longfloat
+
+        c = rffi.cast(lltype.LongFloat, 123)
+        def func():
+            return rffi.cast(lltype.Float, c)
+        f = self.getcompiled(func, [])
+        res = f()
+        assert res == 123.0

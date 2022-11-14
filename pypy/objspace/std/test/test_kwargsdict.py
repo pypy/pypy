@@ -7,66 +7,60 @@ space = FakeSpace()
 strategy = KwargsDictStrategy(space)
 
 def test_create():
-    keys = ["a", "b", "c"]
+    a, b, c = space.newtext('a'), space.newtext('b'), space.newtext('c')
+    keys = [a, b, c]
     values = [1, 2, 3]
     storage = strategy.erase((keys, values))
     d = W_DictObject(space, strategy, storage)
-    assert d.getitem_str("a") == 1
-    assert d.getitem_str("b") == 2
-    assert d.getitem_str("c") == 3
-    assert d.getitem(space.wrap("a")) == 1
-    assert d.getitem(space.wrap("b")) == 2
-    assert d.getitem(space.wrap("c")) == 3
+    assert d.getitem(a) == 1
+    assert d.getitem(b) == 2
+    assert d.getitem(c) == 3
     assert d.w_keys() == keys
     assert d.values() == values
 
 def test_set_existing():
-    keys = ["a", "b", "c"]
+    a, b, c = space.newtext('a'), space.newtext('b'), space.newtext('c')
+    keys = [a, b, c]
     values = [1, 2, 3]
     storage = strategy.erase((keys, values))
     d = W_DictObject(space, strategy, storage)
-    assert d.getitem_str("a") == 1
-    assert d.getitem_str("b") == 2
-    assert d.getitem_str("c") == 3
-    assert d.setitem_str("a", 4) is None
-    assert d.getitem_str("a") == 4
-    assert d.getitem_str("b") == 2
-    assert d.getitem_str("c") == 3
-    assert d.setitem_str("b", 5) is None
-    assert d.getitem_str("a") == 4
-    assert d.getitem_str("b") == 5
-    assert d.getitem_str("c") == 3
-    assert d.setitem_str("c", 6) is None
-    assert d.getitem_str("a") == 4
-    assert d.getitem_str("b") == 5
-    assert d.getitem_str("c") == 6
-    assert d.getitem(space.wrap("a")) == 4
-    assert d.getitem(space.wrap("b")) == 5
-    assert d.getitem(space.wrap("c")) == 6
+    assert d.getitem(a) == 1
+    assert d.getitem(b) == 2
+    assert d.getitem(c) == 3
+    assert d.setitem(a, 4) is None
+    assert d.getitem(a) == 4
+    assert d.getitem(b) == 2
+    assert d.getitem(c) == 3
+    assert d.setitem(b, 5) is None
+    assert d.getitem(a) == 4
+    assert d.getitem(b) == 5
+    assert d.getitem(c) == 3
+    assert d.setitem(c, 6) is None
+    assert d.getitem(a) == 4
+    assert d.getitem(b) == 5
+    assert d.getitem(c) == 6
     assert d.w_keys() == keys
     assert d.values() == values
-    assert keys == ["a", "b", "c"]
     assert values == [4, 5, 6]
 
 
 def test_set_new():
-    keys = ["a", "b", "c"]
+    a, b, c, d = space.newtext('a'), space.newtext('b'), space.newtext('c'), space.newtext('d')
+    keys = [a, b, c]
     values = [1, 2, 3]
     storage = strategy.erase((keys, values))
-    d = W_DictObject(space, strategy, storage)
-    assert d.getitem_str("a") == 1
-    assert d.getitem_str("b") == 2
-    assert d.getitem_str("c") == 3
-    assert d.getitem_str("d") is None
-    assert d.setitem_str("d", 4) is None
-    assert d.getitem_str("a") == 1
-    assert d.getitem_str("b") == 2
-    assert d.getitem_str("c") == 3
-    assert d.getitem_str("d") == 4
-    assert d.w_keys() == keys
-    assert d.values() == values
-    assert keys == ["a", "b", "c", "d"]
-    assert values == [1, 2, 3, 4]
+    di = W_DictObject(space, strategy, storage)
+    assert di.getitem(a) == 1
+    assert di.getitem(b) == 2
+    assert di.getitem(c) == 3
+    assert di.getitem(d) is None
+    assert di.setitem(d, 4) is None
+    assert di.getitem(a) == 1
+    assert di.getitem(b) == 2
+    assert di.getitem(c) == 3
+    assert di.getitem(d) == 4
+    assert di.w_keys() == [a, b, c, d]
+    assert di.values() == [1, 2, 3, 4]
 
 def test_limit_size():
     storage = strategy.get_empty_storage()
@@ -84,20 +78,11 @@ def test_limit_size_non_ascii():
     assert d.get_strategy() is not strategy
     assert "UnicodeDictStrategy" == d.get_strategy().__class__.__name__
 
-def test_keys_doesnt_wrap():
-    space = FakeSpace()
-    space.newlist = None
-    strategy = KwargsDictStrategy(space)
-    keys = ["a", "b", "c"]
-    values = [1, 2, 3]
-    storage = strategy.erase((keys, values))
-    d = W_DictObject(space, strategy, storage)
-    w_l = d.w_keys() # does not crash
-
 def test_view_as_kwargs():
     from pypy.objspace.std.dictmultiobject import EmptyDictStrategy
+    a, b, c = space.newtext('a'), space.newtext('b'), space.newtext('c')
     strategy = KwargsDictStrategy(space)
-    keys = ["a", "b", "c"]
+    keys = [a, b, c]
     values = [1, 2, 3]
     storage = strategy.erase((keys, values))
     d = W_DictObject(space, strategy, storage)
@@ -203,3 +188,23 @@ class AppTestKwargsDictStrategy(object):
         assert set(d) == set(['λ', o])
         assert "ObjectDictStrategy" in self.get_strategy(d)
         """
+
+    def test_reversed(self):
+        def f(**args):
+            return args
+
+        d = f(a=2, b=3, c=4)
+        assert list(reversed(d)) == ['c', 'b', 'a']
+        assert list(reversed(d.keys())) == ['c', 'b', 'a']
+        assert list(reversed(d.values())) == [4, 3, 2]
+        assert list(reversed(d.items())) == [('c', 4), ('b', 3), ('a', 2)]
+
+    def test_popitem_bug(self):
+        def f(**args):
+            return args
+        d = f(a=1, b=2)
+        x = d.popitem()
+        assert x == ('b', 2)
+        x = d.popitem()
+        assert x == ('a', 1)
+        raises(KeyError, d.popitem)

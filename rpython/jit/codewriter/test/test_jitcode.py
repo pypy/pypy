@@ -15,10 +15,3 @@ def test_num_regs():
     assert j.num_regs_i() == 255
     assert j.num_regs_r() == 255
     assert j.num_regs_f() == 255
-
-def test_liveness():
-    j = JitCode("test")
-    j.setup(liveness={5: (" A", "b", "CD")})
-    assert j.has_liveness_info(5)
-    assert not j.has_liveness_info(4)
-    assert j._live_vars(5) == "%i32 %i65 %r98 %f67 %f68"

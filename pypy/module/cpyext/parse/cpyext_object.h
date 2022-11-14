@@ -1,35 +1,30 @@
 #pragma once
 
-typedef long Py_ssize_t;
-
-#define PyObject_HEAD  \
-    Py_ssize_t ob_refcnt;        \
-    Py_ssize_t ob_pypy_link;     \
-    struct _typeobject *ob_type;
-
-#define PyObject_VAR_HEAD		\
-	PyObject_HEAD			\
-	Py_ssize_t ob_size; /* Number of items in variable part */
+#define PyObject_HEAD     PyObject    ob_base;
+#define PyObject_VAR_HEAD PyVarObject ob_base;
 
 typedef struct _object {
-    PyObject_HEAD
+    Py_ssize_t ob_refcnt;
+    Py_ssize_t ob_pypy_link;
+    struct _typeobject *ob_type;
 } PyObject;
 
 typedef struct {
-	PyObject_VAR_HEAD
+    PyObject ob_base;
+	Py_ssize_t ob_size; /* Number of items in variable part */
 } PyVarObject;
 
 struct _typeobject;
 typedef void (*freefunc)(void *);
 typedef void (*destructor)(PyObject *);
-typedef int (*printfunc)(PyObject *, FILE *, int);
+typedef Py_ssize_t printfunc;
 typedef PyObject *(*getattrfunc)(PyObject *, char *);
 typedef PyObject *(*getattrofunc)(PyObject *, PyObject *);
 typedef int (*setattrfunc)(PyObject *, char *, PyObject *);
 typedef int (*setattrofunc)(PyObject *, PyObject *, PyObject *);
 typedef int (*cmpfunc)(PyObject *, PyObject *);
 typedef PyObject *(*reprfunc)(PyObject *);
-typedef long (*hashfunc)(PyObject *);
+typedef Py_hash_t (*hashfunc)(PyObject *);
 typedef PyObject *(*richcmpfunc) (PyObject *, PyObject *, int);
 typedef PyObject *(*getiterfunc) (PyObject *);
 typedef PyObject *(*iternextfunc) (PyObject *);
@@ -52,8 +47,8 @@ typedef int(*objobjargproc)(PyObject *, PyObject *, PyObject *);
 
 
 /* Py3k buffer interface, adapted for PyPy */
-#define Py_MAX_NDIMS 32
-#define Py_MAX_FMT 128
+/* XXX remove this constant, us a PyObject_VAR_HEAD instead */
+#define Py_MAX_NDIMS 36
 typedef struct bufferinfo {
     void *buf;
     PyObject *obj;        /* owned reference */
@@ -66,18 +61,21 @@ typedef struct bufferinfo {
     Py_ssize_t *shape;
     Py_ssize_t *strides;
     Py_ssize_t *suboffsets; /* alway NULL for app-level objects*/
-    unsigned char _format[Py_MAX_FMT];
+    void *internal; /* always NULL for app-level objects */
+    /* PyPy extensions */
+    int flags;
     Py_ssize_t _strides[Py_MAX_NDIMS];
     Py_ssize_t _shape[Py_MAX_NDIMS];
     /* static store for shape and strides of
        mono-dimensional buffers. */
     /* Py_ssize_t smalltable[2]; */
-    void *internal; /* always NULL for app-level objects */
 } Py_buffer;
 
 typedef int (*getbufferproc)(PyObject *, Py_buffer *, int);
 typedef void (*releasebufferproc)(PyObject *, Py_buffer *);
 /* end Py3k buffer interface */
+typedef PyObject *(*vectorcallfunc)(PyObject *callable, PyObject *const *args,
+                                    size_t nargsf, PyObject *kwnames);
 
 typedef int (*objobjproc)(PyObject *, PyObject *);
 typedef int (*visitproc)(PyObject *, void *);
@@ -162,22 +160,15 @@ typedef struct {
      releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
 
-/* from descrobject.h */
-typedef PyObject *(*getter)(PyObject *, void *);
-typedef int (*setter)(PyObject *, PyObject *, void *);
-
-typedef struct PyGetSetDef {
-	char *name;
-	getter get;
-	setter set;
-	char *doc;
-	void *closure;
-} PyGetSetDef;
-
-/* from methodobject.h */
+/* from methodobject.h (the `PyObject **` are `PyObject *const *` in CPython) */
 typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
+typedef PyObject *(*_PyCFunctionFast) (PyObject *, PyObject **, Py_ssize_t);
 typedef PyObject *(*PyCFunctionWithKeywords)(PyObject *, PyObject *,
                                              PyObject *);
+typedef PyObject *(*_PyCFunctionFastWithKeywords) (PyObject *,
+                                                   PyObject **, Py_ssize_t,
+                                                   PyObject *);
+
 typedef PyObject *(*PyNoArgsFunction)(PyObject *);
 
 struct PyMethodDef {
@@ -200,11 +191,11 @@ typedef struct {
 /* from structmember.h */
 typedef struct PyMemberDef {
     /* Current version, use this */
-    char *name;
+    const char *name;
     int type;
     Py_ssize_t offset;
     int flags;
-    char *doc;
+    const char *doc;
 } PyMemberDef;
 
 
@@ -216,7 +207,7 @@ typedef struct _typeobject {
     /* Methods to implement standard operations */
 
     destructor tp_dealloc;
-    printfunc tp_print;
+    Py_ssize_t tp_vectorcall_offset;
     getattrfunc tp_getattr;
     setattrfunc tp_setattr;
     PyAsyncMethods *tp_as_async; /* formerly known as tp_compare (Python 2)
@@ -288,11 +279,9 @@ typedef struct _typeobject {
     unsigned int tp_version_tag;
 
     destructor tp_finalize;
+    vectorcallfunc tp_vectorcall;
 
-    /* PyPy specific extra fields: make sure that they are ALWAYS at the end,
-       for compatibility with CPython */
-    long tp_pypy_flags;
-
+    printfunc tp_print; // deprecated, but stays around for compatibility
 } PyTypeObject;
 
 typedef struct{

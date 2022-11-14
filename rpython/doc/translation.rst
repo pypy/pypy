@@ -362,7 +362,7 @@ All the ``SomeXxx`` instances are immutable.  If the annotator needs to
 revise its belief about what a Variable can contain, it does so creating a
 new annotation, not mutating the existing one.
 
-.. _EU report about translation: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _EU report about translation: https://foss.heptapod.net/pypy/extradoc/-/tree/branch/extradoc/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 
 Mutable Values and Containers
@@ -582,9 +582,6 @@ freedom to change how to do it.  There are three approaches implemented today:
 Almost all application-level Python code allocates objects at a very fast
 rate; this means that the memory management implementation is critical to the
 performance of the PyPy interpreter.
-
-You can choose which garbage collection strategy to use with
-:config:`translation.gc`.
 
 
 .. _genc:

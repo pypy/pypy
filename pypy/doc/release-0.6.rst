@@ -13,7 +13,7 @@ Getting started:    getting-started.html
 
 PyPy Documentation: index.html
 
-PyPy Homepage:      http://pypy.org
+PyPy Homepage:      https://pypy.org
 
 PyPy is a MIT-licensed reimplementation of Python written in
 Python itself.  The long term goals are an implementation that
@@ -89,7 +89,7 @@ not have got that far without the coding and feedback support
 from numerous people.   Please feel free to give feedback and 
 raise questions. 
 
-    contact points: http://pypy.org/contact.html
+    contact points: https://pypy.org/contact.html
 
     contributor list: contributor.html
 

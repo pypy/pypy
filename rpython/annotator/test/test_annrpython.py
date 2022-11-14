@@ -3314,6 +3314,54 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         py.test.raises(AnnotatorError, a.build_types, f, [])
 
+    def test_access_direct_eq_False(self):
+        from rpython.rlib import jit, debug
+        class Root:
+            def f(self):
+                debug.check_not_access_directly(self)
+        class Frame(Root):
+            _virtualizable_ = []
+            def meth(self):
+                self = jit.hint(self, access_directly=False)
+                return self.f()
+        class C(Root):
+            def meth(self):
+                return self.f()
+
+        def f(n):
+            if n == 0:
+                x = Frame()
+                x = jit.hint(x, access_directly=True)
+            else:
+                x = C()
+            x.meth()
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+
+    def test_access_direct_no_virtualizable(self):
+        from rpython.rlib import jit, debug
+        class Root:
+            def f(self):
+                debug.check_not_access_directly(self)
+        class Frame(Root):
+            # not a virtualizble
+            def meth(self):
+                return self.f()
+        class C(Root):
+            def meth(self):
+                return self.f()
+
+        def f(n):
+            if n == 0:
+                x = Frame()
+                x = jit.hint(x, access_directly=True, fresh_virtualizable=True)
+                x.foo = 1
+            else:
+                x = C()
+            x.meth()
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+
     def test_weakref(self):
         import weakref
 
@@ -3461,17 +3509,6 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [unicode])
         assert isinstance(s, annmodel.SomeUnicodeString)
         assert s.no_nul
-
-    def test_unicode_char(self):
-        def f(x, i):
-            for c in x:
-                if c == i:
-                    return c
-            return 'x'
-
-        a = self.RPythonAnnotator()
-        s = a.build_types(f, [unicode, str])
-        assert isinstance(s, annmodel.SomeUnicodeCodePoint)
 
     def test_strformatting_unicode(self):
         def f(x):
@@ -3745,6 +3782,16 @@ class TestAnnotateTestCase:
         def f():
             for i, x in enumerate(['a', 'b', 'c', 'd']):
                 if i == 2:
+                    return x
+            return '?'
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeChar)
+
+    def test_enumerate_startindex(self):
+        def f():
+            for i, x in enumerate(['a', 'b', 'c', 'd'], 5):
+                if i == 7:
                     return x
             return '?'
         a = self.RPythonAnnotator()
@@ -4664,6 +4711,44 @@ class TestAnnotateTestCase:
             return f(B())
         a = self.RPythonAnnotator()
         assert a.build_types(h, [int]).const == 456
+
+    def test_list_plus_equal_string(self):
+        def f(n):
+            lst = [chr(n), chr(n + 1)]
+            if n < 100:
+                lst.append(chr(n + 2))
+            lst += str(n)
+            return lst
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(listitem(s), annmodel.SomeChar)
+
+    def test_union_of_methods_of_frozen(self):
+        class A(Freezing):
+            def foo(self):
+                return 42
+            def bar(self):
+                return 43
+        class B(A):
+            def foo(self):
+                return 44
+
+        a = A()
+        b = B()
+        def f(n):
+            x = a if n > 0 else b
+            return x.foo()
+        def g(n):
+            x = a if n > 0 else b
+            return x.bar()
+        ann = self.RPythonAnnotator()
+        with py.test.raises(AnnotatorError):
+            # a.foo and b.foo are different functions -> BOOM
+            s = ann.build_types(f, [int])
+
+        # a.bar and b.bar are the same function -> OK
+        s = ann.build_types(g, [int])
+        assert s.const == 43
 
 
 def g(n):

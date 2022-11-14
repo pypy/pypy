@@ -7,7 +7,7 @@ import sys, os, stat, re, platform
 from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
@@ -16,15 +16,14 @@ from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.signature import signature
 from rpython.rlib import rposix_stat, types
-from pypy.module.sys.version import PYPY_VERSION
+from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
+from pypy.module.__pypy__.interp_os import _multiarch
 
 _WIN32 = sys.platform == 'win32'
 
 SO = '.pyd' if _WIN32 else '.so'
-PREFIX = 'pypy3-'
-DEFAULT_SOABI_BASE = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
-
-PYC_TAG = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])   # 'pypy3-XY'
+PYC_TAG = 'pypy%d%d' % CPYTHON_VERSION[:2]
+DEFAULT_SOABI_BASE = '%s-pp%d%d' % ((PYC_TAG,) + PYPY_VERSION[:2])
 
 # see also pypy_incremental_magic in interpreter/pycode.py for the magic
 # version number stored inside pyc files.
@@ -45,17 +44,12 @@ def get_so_extension(space):
 
     platform_name = sys.platform
     if platform_name.startswith('linux'):
-        if re.match('(i[3-6]86|x86_64)$', platform.machine()):
-            if sys.maxsize < 2**32:
-                platform_name = 'i686-linux-gnu'
-                # xxx should detect if we are inside 'x32', but not for now
-                # because it's not supported anyway by PyPy.  (Relying
-                # on platform.machine() does not work, it may return x86_64
-                # anyway)
-            else:
-                platform_name = 'x86_64-linux-gnu'
-        else:
-            platform_name = 'linux-gnu'
+        platform_name = _multiarch
+    elif platform_name == 'win32' and sys.maxsize > 2**32:
+        platform_name = 'win_amd64'
+    else:
+        # darwin?
+        pass
 
     soabi += '-' + platform_name
 
@@ -77,9 +71,27 @@ def check_sys_modules_w(space, modulename):
 lib_pypy = os.path.join(os.path.dirname(__file__),
                         '..', '..', '..', 'lib_pypy')
 
+def _readall(space, filename):
+    try:
+        fd = os.open(filename, os.O_RDONLY, 0400)
+        try:
+            result = []
+            while True:
+                data = os.read(fd, 8192)
+                if not data:
+                    break
+                result.append(data)
+        finally:
+            os.close(fd)
+    except OSError as e:
+        raise wrap_oserror(space, e, filename)
+    return ''.join(result)
+
 @unwrap_spec(modulename='fsencode', level=int)
 def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None, level=0):
     # A minimal version, that can only import builtin and lib_pypy modules!
+    # The actual __import__ is
+    # pypy.module._frozenimportlib.interp_import.import_with_frames_removed
     assert w_locals is w_globals
     assert level == 0
 
@@ -94,10 +106,12 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
             return space.getbuiltinmodule(modulename)
 
         ec = space.getexecutioncontext()
-        with open(os.path.join(lib_pypy, modulename + '.py')) as fp:
-            source = fp.read()
+        source = _readall(space, os.path.join(lib_pypy, modulename + '.py'))
         pathname = "<frozen %s>" % modulename
-        code_w = ec.compiler.compile(source, pathname, 'exec', 0)
+        # *must* pass optimize here, otherwise can get strange bootstrapping
+        # problems, because compile would try to get the sys.flags, which might
+        # not be there yet
+        code_w = ec.compiler.compile(source, pathname, 'exec', 0, optimize=0)
         w_mod = add_module(space, space.newtext(modulename))
         assert isinstance(w_mod, Module) # XXX why is that necessary?
         space.setitem(space.sys.get('modules'), w_mod.w_name, w_mod)
@@ -195,6 +209,9 @@ class ImportRLock:
     def reinit_lock(self):
         # Called after fork() to ensure that newly created child
         # processes do not share locks with the parent
+        # (Note that this runs after interp_imp.acquire_lock()
+        # done in the "before" fork hook, so that's why we decrease
+        # the lockcounter here)
         if self.lockcounter > 1:
             # Forked as a side effect of import
             self.lock = self.space.allocate_lock()
@@ -266,6 +283,20 @@ def exec_code_module(space, w_mod, code_w, pathname, cpathname,
             w_cpathname = space.w_None
         space.setitem(w_dict, space.newtext("__file__"), w_pathname)
         space.setitem(w_dict, space.newtext("__cached__"), w_cpathname)
+        #
+        # like PyImport_ExecCodeModuleObject(), we invoke
+        # _bootstrap_external._fix_up_module() here, which should try to
+        # fix a few more attributes (also __file__ and __cached__, but
+        # let's keep the logic that also sets them explicitly above, just
+        # in case)
+        space.appexec([w_dict, w_pathname, w_cpathname],
+            """(d, pathname, cpathname):
+                from importlib._bootstrap_external import _fix_up_module
+                name = d.get('__name__')
+                if name is not None:
+                    _fix_up_module(d, name, pathname, cpathname)
+            """)
+        #
     code_w.exec_code(space, w_dict, w_dict)
 
 def rightmost_sep(filename):
@@ -379,7 +410,7 @@ def read_compiled_module(space, cpathname, strbuf):
 
 @jit.dont_look_inside
 def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
-                         timestamp, source, write_paths=True):
+                         source, write_paths=True):
     """
     Load a module from a compiled file, execute it, and return its
     module object.
@@ -388,14 +419,112 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
         raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
-    try:
-        optimize = space.sys.get_flag('optimize')
-    except RuntimeError:
-        # during bootstrapping
-        optimize = 0
+    optimize = space.sys.get_optimize()
     if optimize >= 2:
         code_w.remove_docstrings(space)
 
     exec_code_module(space, w_mod, code_w, cpathname, cpathname, write_paths)
 
     return w_mod
+
+class FastPathGiveUp(Exception):
+    pass
+
+def _gcd_import(space, name):
+    # check sys.modules, if the module is already there and initialized, we can
+    # use it, otherwise fall back to importlib.__import__
+
+    # NB: we don't get the importing lock here, but CPython has the same fast
+    # path
+    w_modules = space.sys.get('modules')
+    w_module = space.finditem_str(w_modules, name)
+    if w_module is None:
+        raise FastPathGiveUp
+
+    # to check whether a module is initialized, we can ask for
+    # module.__spec__._initializing, which should be False
+    try:
+        w_spec = space.getattr(w_module, space.newtext("__spec__"))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        raise FastPathGiveUp
+    try:
+        w_initializing = space.getattr(w_spec, space.newtext("_initializing"))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        # we have no mod.__spec__._initializing, so it's probably a builtin
+        # module which we can assume is initialized
+    else:
+        if space.is_true(w_initializing):
+            raise FastPathGiveUp
+    return w_module
+
+def import_name_fast_path(space, w_modulename, w_globals, w_locals, w_fromlist,
+        w_level):
+    level = space.int_w(w_level)
+    if level == 0:
+        # fast path only for absolute imports without a "from" list, for now
+        # fromlist can be supported if we are importing from a module, not a
+        # package. to check that, look for the existence of __path__ attribute
+        # in w_mod
+        try:
+            name = space.text_w(w_modulename)
+            w_mod = _gcd_import(space, name)
+            have_fromlist = space.is_true(w_fromlist)
+            if not have_fromlist:
+                dotindex = name.find(".")
+                if dotindex < 0:
+                    return w_mod
+                return _gcd_import(space, name[:dotindex])
+        except FastPathGiveUp:
+            pass
+        else:
+            assert have_fromlist
+            w_path = space.findattr(w_mod, space.newtext("__path__"))
+            if w_path is not None:
+                # hard case, a package! Call back into importlib
+                w_importlib = space.getbuiltinmodule('_frozen_importlib')
+                return space.call_method(w_importlib, "_handle_fromlist",
+                        w_mod, w_fromlist,
+                        space.w_default_importlib_import)
+            else:
+                return w_mod
+    return space.call_function(space.w_default_importlib_import, w_modulename, w_globals,
+                                w_locals, w_fromlist, w_level)
+
+def get_spec(space, w_module):
+    try:
+        return space.getattr(w_module, space.newtext('__spec__'))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        return space.w_None
+
+def is_spec_initializing(space, w_spec):
+    if space.is_none(w_spec):
+        return False
+
+    try:
+        w_initializing = space.getattr(w_spec, space.newtext("_initializing"))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+
+        return False
+    else:
+        return space.is_true(w_initializing)
+
+def get_path(space, w_module):
+    default = space.newtext("unknown location")
+    try:
+        w_ret = space.getattr(w_module, space.newtext('__file__'))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        return default
+    if w_ret is space.w_None:
+        return default
+    return w_ret
+

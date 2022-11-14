@@ -22,18 +22,18 @@ from pypy.objspace.std.marshal_impl import marshal, get_unmarshallers
 Py_MARSHAL_VERSION = 4
 
 
-@unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
-def dump(space, w_data, w_f, w_version):
+@unwrap_spec(version=int)
+def dump(space, w_data, w_f, version=Py_MARSHAL_VERSION):
     """Write the 'data' object into the open file 'f'."""
     # same implementation as CPython 3.x.
-    w_string = dumps(space, w_data, w_version)
+    w_string = dumps(space, w_data, version)
     space.call_method(w_f, 'write', w_string)
 
-@unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
-def dumps(space, w_data, w_version):
+@unwrap_spec(version=int)
+def dumps(space, w_data, version=Py_MARSHAL_VERSION):
     """Return the string that would have been written to a file
 by dump(data, file)."""
-    m = StringMarshaller(space, space.int_w(w_version))
+    m = StringMarshaller(space, version)
     m.dump_w_obj(w_data)
     return space.newbytes(m.get_value())
 
@@ -49,7 +49,10 @@ def load(space, w_f):
 def loads(space, w_str):
     """Convert a string back to a value.  Extra characters in the string are
 ignored."""
-    u = StringUnmarshaller(space, w_str)
+    return _loads(space, w_str)
+
+def _loads(space, w_str, hidden_applevel=False):
+    u = StringUnmarshaller(space, w_str, hidden_applevel=hidden_applevel)
     obj = u.load_w_obj()
     return obj
 
@@ -328,6 +331,7 @@ def _make_unmarshaller_dispatch():
 
 class Unmarshaller(_Base):
     _dispatch = _make_unmarshaller_dispatch()
+    hidden_applevel = False
 
     def __init__(self, space, reader):
         self.space = space
@@ -400,7 +404,7 @@ class Unmarshaller(_Base):
         lng = self.get_lng()
         return self.get(lng)
 
-    def get_w_obj(self, allow_null=False):
+    def _get_w_obj(self, allow_null=False):
         space = self.space
         tc = self.get1()
         w_ret = self._dispatch[ord(tc)](space, self, tc)
@@ -408,14 +412,20 @@ class Unmarshaller(_Base):
             raise oefmt(space.w_TypeError, "NULL object in marshal data")
         return w_ret
 
-    def load_w_obj(self):
+    def load_w_obj(self, allow_null=False):
         try:
-            return self.get_w_obj()
+            return self._get_w_obj(allow_null)
         except rstackovf.StackOverflow:
             rstackovf.check_stack_overflow()
             self._overflow()
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_RecursionError):
+                raise
+            # somebody else has already converted the rpython overflow error to
+            # an OperationError (e.g. one of che space.call* calls in
+            # marshal_impl), turn it into a ValueError
+            self._overflow()
 
-    # inlined version to save a recursion level
     def get_tuple_w(self, single_byte_size=False):
         if single_byte_size:
             lng = ord(self.get1())
@@ -426,11 +436,7 @@ class Unmarshaller(_Base):
         space = self.space
         w_ret = space.w_None # something not
         while idx < lng:
-            tc = self.get1()
-            w_ret = self._dispatch[ord(tc)](space, self, tc)
-            if w_ret is None:
-                break
-            res_w[idx] = w_ret
+            res_w[idx] = self.load_w_obj()
             idx += 1
         if w_ret is None:
             raise oefmt(space.w_TypeError, "NULL object in marshal data")
@@ -442,11 +448,12 @@ class Unmarshaller(_Base):
 
 class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
-    def __init__(self, space, w_str):
+    def __init__(self, space, w_str, hidden_applevel=False):
         Unmarshaller.__init__(self, space, None)
         self.buf = space.readbuf_w(w_str)
         self.bufpos = 0
         self.limit = self.buf.getlength()
+        self.hidden_applevel = hidden_applevel
 
     def raise_eof(self):
         space = self.space
@@ -458,7 +465,7 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        return self.buf.getslice(pos, newpos, 1, newpos - pos)
+        return self.buf.getslice(pos, 1, newpos - pos)
 
     def get1(self):
         pos = self.bufpos

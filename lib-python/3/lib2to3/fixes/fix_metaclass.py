@@ -1,6 +1,6 @@
 """Fixer for __metaclass__ = X -> (metaclass=X) methods.
 
-   The various forms of classef (inherits nothing, inherits once, inherints
+   The various forms of classef (inherits nothing, inherits once, inherits
    many) don't parse the same in the CST so we look at ALL classes for
    a __metaclass__ and if we find one normalize the inherits to all be
    an arglist.
@@ -20,7 +20,7 @@
 # Local imports
 from .. import fixer_base
 from ..pygram import token
-from ..fixer_util import Name, syms, Node, Leaf
+from ..fixer_util import syms, Node, Leaf
 
 
 def has_metaclass(parent):

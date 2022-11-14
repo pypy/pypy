@@ -16,13 +16,13 @@ class error(Exception):
 
 
 def _find_clib():
-    trylibs = ['ncurses', 'curses']
+    trylibs = ['ncursesw', 'ncurses', 'curses']
 
     for lib in trylibs:
         path = ctypes.util.find_library(lib)
         if path:
             return path
-    raise ImportError("curses library not found")
+    raise ModuleNotFoundError("curses library not found", name="_minimal_curses")
 
 _clibpath = _find_clib()
 clib = ctypes.cdll.LoadLibrary(_clibpath)

@@ -4,7 +4,6 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
-from rpython.jit.metainterp import typesystem
 from rpython.jit.metainterp.quasiimmut import QuasiImmut
 from rpython.jit.metainterp.quasiimmut import get_current_qmut_instance
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -23,8 +22,6 @@ def test_get_current_qmut_instance():
     assert not foo.mutate_x
 
     class FakeCPU:
-        ts = typesystem.llhelper
-
         def bh_getfield_gc_r(self, gcref, fielddescr):
             assert fielddescr == mutatefielddescr
             foo = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), gcref)
@@ -124,7 +121,7 @@ class QuasiImmutTests(object):
         assert f(100, 7) == 721
         res = self.meta_interp(f, [100, 7])
         assert res == 721
-        self.check_resops(guard_not_invalidated=0, getfield_gc_r=1, getfield_gc_i=2)
+        self.check_resops(guard_not_invalidated=2, getfield_gc_r=1, getfield_gc_i=2)
         #
         from rpython.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
@@ -577,6 +574,30 @@ class QuasiImmutTests(object):
             return sa
         res = self.meta_interp(main, [10])
         assert res == main(10)
+
+    def test_dont_emit_too_many_guard_not_invalidated(self):
+        myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
+        class Foo:
+            _immutable_fields_ = ['a?', 'b?', 'c?']
+            def __init__(self, a):
+                self.a = a
+                self.b = a - 1
+                self.c = a - 3
+        def f(a, x):
+            foo = Foo(a)
+            total = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(foo=foo, x=x, total=total)
+                # read a few quasi-immutable fields out of a Constant
+                total += foo.a + foo.b + foo.c
+                x -= 1
+            return total
+        #
+        res = self.meta_interp(f, [100, 7], enable_opts="")
+        assert res == f(100, 7)
+        # there should be no getfields, even though optimizations are turned off
+        self.check_resops(guard_not_invalidated=1)
+
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):
     pass

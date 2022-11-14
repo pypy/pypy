@@ -30,18 +30,33 @@ class Poll(W_Root):
 
     @unwrap_spec(events="c_ushort")
     def register(self, space, w_fd, events=defaultevents):
+        """
+        Register a file descriptor with the polling object.
+        fd -- either an integer, or an object with a fileno() method returning an
+              int.
+        events -- an optional bitmask describing the type of events to check for
+        """
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
 
     @unwrap_spec(events="c_ushort")
     def modify(self, space, w_fd, events):
+        """
+        Modify an already registered file descriptor.
+        fd -- either an integer, or an object with a fileno() method returning an
+          int.
+        events -- an optional bitmask describing the type of events to check for
+        """
         fd = space.c_filedescriptor_w(w_fd)
         if fd not in self.fddict:
             raise wrap_oserror(space, OSError(errno.ENOENT, "poll.modify"),
-                               exception_name='w_IOError')
+                               w_exception_class=space.w_IOError)
         self.fddict[fd] = events
 
     def unregister(self, space, w_fd):
+        """
+        Remove a file descriptor being tracked by the polling object.
+        """
         fd = space.c_filedescriptor_w(w_fd)
         try:
             del self.fddict[fd]
@@ -50,21 +65,24 @@ class Poll(W_Root):
 
     @unwrap_spec(w_timeout=WrappedDefault(None))
     def poll(self, space, w_timeout):
-        """WARNING: the timeout parameter is in **milliseconds**!"""
+        """
+        Polls the set of registered file descriptors, returning a list containing
+        any descriptors that have events or errors to report.
+
+        the timeout parameter is in milliseconds"""
         if space.is_w(w_timeout, space.w_None):
             timeout = -1
             end_time = 0
+        elif space.isinstance_w(w_timeout, space.w_float) or space.isinstance_w(w_timeout, space.w_int):
+            if space.is_true(space.lt(w_timeout, space.newint(0))):
+                timeout = -1
+                end_time = 0
+            else:
+                timeout = space.c_int_w(space.int(w_timeout))
+                end_time = timeutils.monotonic(space) + timeout * 0.001
         else:
-            # we want to be compatible with cpython and also accept things
-            # that can be casted to integer (I think)
-            try:
-                # compute the integer
-                w_timeout = space.int(w_timeout)
-            except OperationError:
-                raise oefmt(space.w_TypeError,
-                            "timeout must be an integer or None")
-            timeout = space.c_int_w(w_timeout)
-            end_time = timeutils.monotonic(space) + timeout * 0.001
+            raise oefmt(space.w_TypeError,
+                        "timeout must be an integer or None")
 
         if self.running:
             raise oefmt(space.w_RuntimeError, "concurrent poll() invocation")
@@ -82,16 +100,16 @@ class Poll(W_Root):
                     continue
                 message, lgt = e.get_msg_utf8()
                 raise OperationError(space.w_OSError,
-                                     space.newtuple([space.newint(e.errno),
-                                                 space.newtext(message, lgt)]))
+                                     space.newtuple2(space.newint(e.errno),
+                                                 space.newtext(message, lgt)))
             finally:
                 self.running = False
             break
 
         retval_w = []
         for fd, revents in retval:
-            retval_w.append(space.newtuple([space.newint(fd),
-                                            space.newint(revents)]))
+            retval_w.append(space.newtuple2(space.newint(fd),
+                                            space.newint(revents)))
         return space.newlist(retval_w)
 
 pollmethods = {}
@@ -152,9 +170,9 @@ def _call_select(space, iwtd_w, owtd_w, ewtd_w,
             break     # normal path
         err = _c.geterrno()
         if err != errno.EINTR:
-            msg = _c.socket_strerror_unicode(err)
-            raise OperationError(space.w_OSError, space.newtuple([
-                space.newint(err), space.newtext(msg)]))
+            msg, length = _c.socket_strerror_utf8(err)
+            raise OperationError(space.w_OSError, space.newtuple2(
+                space.newint(err), space.newtext(msg, length)))
         # got EINTR, automatic retry
         space.getexecutioncontext().checksignals()
         if timeout > 0.0:

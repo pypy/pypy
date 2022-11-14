@@ -5,9 +5,9 @@ import operator
 
 from rpython.rlib.objectmodel import compute_hash
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import BufferView, SubBuffer
+from pypy.interpreter.buffer import BufferView, SubBuffer, ReadonlyWrapper
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
 from rpython.rlib.unroll import unrolling_iterable
 
@@ -18,6 +18,35 @@ MEMORYVIEW_FORTRAN  = 0x0004
 MEMORYVIEW_SCALAR   = 0x0008
 MEMORYVIEW_PIL      = 0x0010
 
+def is_multiindex(space, w_key):
+    from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+    if not space.isinstance_w(w_key, space.w_tuple):
+        return 0
+    assert isinstance(w_key, W_AbstractTupleObject)
+    length = space.len_w(w_key)
+    i = 0
+    while i < length:
+        w_obj = w_key.getitem(space, i)
+        if not space.lookup(w_obj, '__index__'):
+            return 0
+        i += 1
+    return 1
+
+def is_multislice(space, w_key):
+    from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+    if not space.isinstance_w(w_key, space.w_tuple):
+        return 0
+    assert isinstance(w_key, W_AbstractTupleObject)
+    length = space.len_w(w_key)
+    if length == 0:
+        return 0
+    i = 0
+    while i < length:
+        w_obj = w_key.getitem(space, i)
+        if not space.isinstance_w(w_obj, space.w_slice):
+            return 0
+        i += 1
+    return 1
 
 class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
@@ -57,7 +86,8 @@ class W_MemoryView(W_Root):
             w_object._check_released(space)
             return W_MemoryView.copy(w_object)
         view = space.buffer_w(w_object, space.BUF_FULL_RO)
-        return view.wrap(space)
+        mv = view.wrap(space)
+        return mv
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -89,12 +119,27 @@ class W_MemoryView(W_Root):
         return self.view.getlength()
 
     def descr_tobytes(self, space):
+        """Return the data in the buffer as a byte string. Order can be {'C', 'F', 'A'}.
+        When order is 'C' or 'F', the data of the original array is converted to C or
+        Fortran order. For contiguous views, 'A' returns an exact copy of the physical
+        memory. In particular, in-memory Fortran order is preserved. For non-contiguous
+        views, the data is converted to C first. order=None is the same as order='C'."""
         self._check_released(space)
         return space.newbytes(self.view.as_str())
 
     def descr_tolist(self, space):
+        'Return the data in the buffer as a list of elements.'
         self._check_released(space)
         return self.view.w_tolist(space)
+
+    def descr_toreadonly(self, space):
+        'Return a readonly version of the memoryview.'
+        self._check_released(space)
+        if self.view.readonly:
+            return W_MemoryView(self.view)
+        view = ReadonlyWrapper(self.view)
+        assert view.readonly
+        return W_MemoryView(view)
 
     def _start_from_tuple(self, space, w_tuple):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
@@ -130,6 +175,27 @@ class W_MemoryView(W_Root):
         data = view.getbytes(start, itemsize)
         return view.value_from_bytes(space, data)
 
+    def _setitem_tuple_indexed(self, space, w_index, w_obj):
+        view = self.view
+        length = space.len_w(w_index)
+        ndim = view.getndim()
+        if is_multislice(space, w_index):
+            raise oefmt(space.w_NotImplementedError,
+                        "multi-dimensional slicing is not implemented")
+        elif length != ndim:
+            if length < ndim:
+                raise oefmt(space.w_NotImplementedError,
+                        "sub-views are not implemented")
+
+            elif length > ndim:
+                raise oefmt(space.w_TypeError, \
+                    "cannot index %d-dimension view with %d-element tuple",
+                    length, ndim)
+
+        start = self._start_from_tuple(space, w_index)
+        val = self.view.bytes_from_value(space, w_obj)
+        self.view.setbytes(start, val)
+
     def _decode_index(self, space, w_index, is_slice):
         shape = self.getshape()
         if len(shape) == 0:
@@ -141,24 +207,28 @@ class W_MemoryView(W_Root):
     def descr_getitem(self, space, w_index):
         self._check_released(space)
 
-        if space.isinstance_w(w_index, space.w_tuple):
-            return self._getitem_tuple_indexed(space, w_index)
         is_slice = space.isinstance_w(w_index, space.w_slice)
-        start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
-        # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
-        if step == 0:  # index only
-            dim = self.getndim()
-            if dim == 0:
-                raise oefmt(space.w_TypeError, "invalid indexing of 0-dim memory")
-            elif dim == 1:
-                return self.view.w_getitem(space, start)
-            else:
-                raise oefmt(space.w_NotImplementedError, "multi-dimensional sub-views are not implemented")
-        elif is_slice:
-            return self.view.new_slice(start, step, slicelength).wrap(space)
-        # multi index is handled at the top of this function
+        if is_slice or space.lookup(w_index, '__index__'):
+            start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
+            # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
+            if step == 0:  # index only
+                dim = self.getndim()
+                if dim == 0:
+                    raise oefmt(space.w_TypeError, "invalid indexing of 0-dim memory")
+                elif dim == 1:
+                    return self.view.w_getitem(space, start)
+                else:
+                    raise oefmt(space.w_NotImplementedError,
+                                "multi-dimensional sub-views are not implemented")
+            elif is_slice:
+                return self.view.new_slice(start, step, slicelength).wrap(space)
+        elif is_multiindex(space, w_index):
+            return self._getitem_tuple_indexed(space, w_index)
+        elif is_multislice(space, w_index):
+            raise oefmt(space.w_NotImplementedError,
+                        "multi-dimensional slicing is not implemented")
         else:
-            raise TypeError("memoryview: invalid slice key")
+            raise oefmt(space.w_TypeError, "memoryview: invalid slice key")
 
     def init_len(self):
         self.length = self.bytecount_from_shape()
@@ -182,7 +252,7 @@ class W_MemoryView(W_Root):
         if self.view.readonly:
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         if space.isinstance_w(w_index, space.w_tuple):
-            raise oefmt(space.w_NotImplementedError, "")
+            return self._setitem_tuple_indexed(space, w_index, w_obj)
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         is_slice = space.isinstance_w(w_index, space.w_slice)
         start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
@@ -265,6 +335,13 @@ class W_MemoryView(W_Root):
         # I've never seen anyone filling this field
         return space.newtuple([])
 
+    def w_get_obj(self, space):
+        self._check_released(space)
+        if self.view.w_obj is None:
+            return space.w_None
+        else:
+            return self.view.w_obj
+
     def descr_repr(self, space):
         if self.view is None:
             return self.getrepr(space, 'released memory')
@@ -281,6 +358,7 @@ class W_MemoryView(W_Root):
         return space.newint(self._hash)
 
     def descr_release(self, space):
+        'Release the underlying buffer exposed by the memoryview object.'
         self.view = None
 
     def _check_released(self, space):
@@ -347,6 +425,7 @@ class W_MemoryView(W_Root):
         return False
 
     def descr_cast(self, space, w_format, w_shape=None):
+        'Cast a memoryview to a new format or shape.'
         self._check_released(space)
 
         if not space.isinstance_w(w_format, space.w_unicode):
@@ -357,7 +436,7 @@ class W_MemoryView(W_Root):
         view = self.view
         ndim = 1
 
-        if not memory_view_c_contiguous(space, self.flags):
+        if not memory_view_c_contiguous(self.flags):
             raise oefmt(space.w_TypeError,
                         "memoryview: casts are restricted"
                         " to C-contiguous views")
@@ -422,8 +501,8 @@ class W_MemoryView(W_Root):
                     " with an optional '@'")
 
         origfmt = view.getformat()
-        if self.get_native_fmtchar(origfmt) < 0 or \
-           (not is_byte_format(fmt) and not is_byte_format(origfmt)):
+        if (self.get_native_fmtchar(origfmt) < 0 or \
+           (not is_byte_format(origfmt))) and (not is_byte_format(fmt)):
             raise oefmt(space.w_TypeError,
                     "memoryview: cannot cast between"
                     " two non-byte formats")
@@ -436,7 +515,7 @@ class W_MemoryView(W_Root):
         if not newfmt:
             raise oefmt(space.w_RuntimeError,
                     "memoryview: internal error")
-        return BufferView1D(view, newfmt, itemsize)
+        return BufferView1D(view, newfmt, itemsize, w_obj=self.view.w_obj)
 
     def get_native_fmtstr(self, fmt):
         lenfmt = len(fmt)
@@ -474,7 +553,7 @@ class W_MemoryView(W_Root):
                         "memoryview: product(shape) * itemsize != buffer size")
 
         strides = self._strides_from_shape(shape, itemsize)
-        return BufferViewND(view, ndim, shape, strides)
+        return BufferViewND(view, ndim, shape, strides, w_obj=self.view.w_obj)
 
     @staticmethod
     def _strides_from_shape(shape, itemsize):
@@ -489,15 +568,48 @@ class W_MemoryView(W_Root):
             i -= 1
         return s
 
-    def descr_hex(self, space):
-        from pypy.objspace.std.bytearrayobject import _array_to_hexstring
+    def descr_hex(self, space, w_sep=None, w_bytes_per_sep=None):
+        """
+        Return the data in the buffer as a str of hexadecimal numbers.
+
+          sep
+            An optional single character or byte to separate hex bytes.
+          bytes_per_sep
+            How many bytes between separators.  Positive values count from the
+            right, negative values count from the left.
+
+        Example:
+        >>> value = memoryview(b'\\xb9\\x01\\xef')
+        >>> value.hex()
+        'b901ef'
+        >>> value.hex(':')
+        'b9:01:ef'
+        >>> value.hex(':', 2)
+        'b9:01ef'
+        >>> value.hex(':', -2)
+        'b901:ef'
+        """
+        from pypy.objspace.std.bytearrayobject import _array_to_hexstring, unwrap_hex_sep_arguments
+        sep, bytes_per_sep = unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep)
         self._check_released(space)
-        return _array_to_hexstring(space, self.view.as_readbuf(), 0, 1, self.getlength())
+        return _array_to_hexstring(space, self.view.as_readbuf(), 0, 1, self.getlength(),
+                sep=sep, bytes_per_sep=bytes_per_sep)
+
+
+    def w_get_c_contiguous(self, space):
+        return space.newbool(bool(memory_view_c_contiguous(self.flags)))
+
+    def w_get_f_contiguous(self, space):
+        return space.newbool(bool(self.flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_FORTRAN)))
+
+    def w_get_contiguous(self, space):
+        return space.newbool(bool(self.flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_C|MEMORYVIEW_FORTRAN)))
+
 
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
 
-def memory_view_c_contiguous(space, flags):
+def memory_view_c_contiguous(flags):
     return flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_C)
 
 W_MemoryView.typedef = TypeDef(
@@ -520,6 +632,7 @@ Create a new memoryview object which references the given object.
     hex         = interp2app(W_MemoryView.descr_hex),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),
     tolist      = interp2app(W_MemoryView.descr_tolist),
+    toreadonly  = interp2app(W_MemoryView.descr_toreadonly),
     release     = interp2app(W_MemoryView.descr_release),
     format      = GetSetProperty(W_MemoryView.w_get_format),
     itemsize    = GetSetProperty(W_MemoryView.w_get_itemsize),
@@ -529,6 +642,10 @@ Create a new memoryview object which references the given object.
     shape       = GetSetProperty(W_MemoryView.w_get_shape),
     strides     = GetSetProperty(W_MemoryView.w_get_strides),
     suboffsets  = GetSetProperty(W_MemoryView.w_get_suboffsets),
+    obj         = GetSetProperty(W_MemoryView.w_get_obj),
+    c_contiguous= GetSetProperty(W_MemoryView.w_get_c_contiguous),
+    f_contiguous= GetSetProperty(W_MemoryView.w_get_f_contiguous),
+    contiguous  = GetSetProperty(W_MemoryView.w_get_contiguous),
     _pypy_raw_address = interp2app(W_MemoryView.descr_pypy_raw_address),
     )
 W_MemoryView.typedef.acceptable_as_base_class = False
@@ -613,7 +730,8 @@ class BufferView1D(IndirectView):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent', 'format', 'itemsize']
 
-    def __init__(self, parent, format, itemsize):
+    def __init__(self, parent, format, itemsize, w_obj=None):
+        self.w_obj = w_obj
         self.parent = parent
         self.readonly = parent.readonly
         self.format = format
@@ -638,7 +756,8 @@ class BufferViewND(IndirectView):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent', 'ndim', 'shape', 'strides']
 
-    def __init__(self, parent, ndim, shape, strides):
+    def __init__(self, parent, ndim, shape, strides, w_obj=None):
+        self.w_obj = w_obj
         assert parent.getndim() == 1
         assert len(shape) == len(strides) == ndim
         self.parent = parent
@@ -661,3 +780,43 @@ class BufferViewND(IndirectView):
 
     def getstrides(self):
         return self.strides
+
+    def getlength(self):
+        tot = 1
+        for i in range(self.ndim):
+            tot *= self.shape[i]
+        return tot * self.getitemsize()
+
+    def as_str(self):
+        from rpython.rlib.rstring import StringBuilder
+        nchunks = self.getlength()
+        res = StringBuilder(nchunks)
+        if self.ndim == 0:
+            return self.parent.as_str()
+        elif self.ndim == 1:
+            itemsize = self.getitemsize()
+            stride = self.strides[0]
+            for i in range(0, nchunks):
+                res.append(self.getbytes(i * stride, itemsize))
+        else:
+            self._as_str_rec(res, 0, 0)
+        return res.build()
+
+    def _as_str_rec(self, res, start, idim):
+        dim = idim + 1
+        stride = self.strides[idim]
+        itemsize = self.getitemsize()
+        dimshape = self.shape[idim]
+        #
+        if dim >= self.ndim:
+            bytecount = (stride * dimshape)
+            for pos in range(start, start + bytecount, stride):
+                res.append(self.getbytes(pos, itemsize))
+            return 
+        items = [None] * dimshape
+        for i in range(dimshape):
+            self._as_str_rec(res, start, dim)
+            start += stride
+
+ 
+

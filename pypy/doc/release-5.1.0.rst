@@ -17,7 +17,7 @@ python ecosystem using the PyPy interpreter.
 
 You can download the PyPy 5.1 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -28,14 +28,14 @@ layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
-.. _`PyPy`: http://doc.pypy.org
+.. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
 .. _cffi: https://cffi.readthedocs.org
-.. _`fully support for the IBM s390x`: http://morepypy.blogspot.com/2016/04/pypy-enterprise-edition.html
-.. _`blog post`: http://morepypy.blogspot.com/2016/04/warmup-improvements-more-efficient.html
+.. _`fully support for the IBM s390x`: https://morepypy.blogspot.com/2016/04/pypy-enterprise-edition.html
+.. _`blog post`: https://morepypy.blogspot.com/2016/04/warmup-improvements-more-efficient.html
 
 What is PyPy?
 =============
@@ -58,8 +58,8 @@ This release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://pypyjs.org
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://pypyjs.org
 
 Other Highlights (since 5.0 released in March 2015)
 =========================================================
@@ -149,7 +149,7 @@ Other Highlights (since 5.0 released in March 2015)
 
   * Update rpython functions with ones needed for py3k
 
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.0.0.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.0.0.html
 .. _Numpy: https://bitbucket.org/pypy/numpy
 
 Please update, and continue to help us make PyPy better.

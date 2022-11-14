@@ -4,7 +4,6 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.flowspace.model import Variable, Constant
-from rpython.jit.metainterp.typesystem import deref
 from rpython.rlib import rgc
 from rpython.rlib.jit import elidable, oopspec
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
@@ -142,7 +141,7 @@ def decode_hp_hint_args(op):
             assert len(lst) == len(args_v), (
                 "not supported so far: 'greens' variables contain Void")
         # a crash here means that you have to reorder the variable named in
-        # the JitDriver.  
+        # the JitDriver.
         lst2 = sort_vars(lst)
         assert lst == lst2, ("You have to reorder the variables named in "
             "the JitDriver (both the 'greens' and 'reds' independently). "
@@ -218,6 +217,7 @@ _ll_2_list_getitem_foldable = _ll_2_list_getitem
 _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
+_ll_4_list_ll_arraymove = rgc.ll_arraymove
 
 _ll_3_list_resize_hint_really = rlist_ll._ll_list_resize_hint_really
 
@@ -595,7 +595,7 @@ class LLtypeHelpers:
                 name += '_mpressure'
             if not track_allocation:
                 name += '_notrack'
-            _ll_1_raw_malloc_varsize.func_name = name
+            _ll_1_raw_malloc_varsize.__name__ = name
             return _ll_1_raw_malloc_varsize
         return build_ll_1_raw_malloc_varsize
 
@@ -631,7 +631,7 @@ class LLtypeHelpers:
                 name += '_mpressure'
             if not track_allocation:
                 name += '_notrack'
-            _ll_0_raw_malloc_fixedsize.func_name = name
+            _ll_0_raw_malloc_fixedsize.__name__ = name
             return _ll_0_raw_malloc_fixedsize
         return build_ll_0_raw_malloc_fixedsize
 
@@ -704,7 +704,7 @@ def parse_oopspec(fnobj):
     FUNCTYPE = lltype.typeOf(fnobj)
     ll_func = fnobj._callable
     nb_args = len(FUNCTYPE.ARGS)
-    argnames = ll_func.func_code.co_varnames[:nb_args]
+    argnames = ll_func.__code__.co_varnames[:nb_args]
     # parse the oopspec and fill in the arguments
     operation_name, args = ll_func.oopspec.split('(', 1)
     assert args.endswith(')')
@@ -786,7 +786,7 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
             bk = rtyper.annotator.bookkeeper
             ll_restype = ll_res
             if impl.need_result_type != 'exact':
-                ll_restype = deref(ll_restype)
+                ll_restype = ll_restype.TO
             desc = bk.getdesc(ll_restype)
         else:
             class TestingDesc(object):

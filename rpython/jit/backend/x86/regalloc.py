@@ -11,7 +11,7 @@ from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      SAVE_ALL_REGS)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
-    IS_X86_64, DEFAULT_FRAME_BYTES)
+    IS_X86_64, DEFAULT_FRAME_BYTES, WIN64)
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     FloatImmedLoc, ImmedLoc, imm, imm0, imm1, ecx, eax, edx, ebx, esi, edi,
@@ -65,9 +65,14 @@ class X86RegisterManager(RegisterManager):
 class X86_64_RegisterManager(X86RegisterManager):
     # r11 omitted because it's used as scratch
     all_regs = [ecx, eax, edx, ebx, esi, edi, r8, r9, r10, r12, r13, r14, r15]
+    if WIN64:
+        all_regs.remove(r13)
 
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
+    if WIN64:
+        save_around_call_regs.remove(esi)
+        save_around_call_regs.remove(edi)
 
 class X86XMMRegisterManager(RegisterManager):
     box_types = [FLOAT, INT] # yes INT!
@@ -120,6 +125,12 @@ class X86_64_XMMRegisterManager(X86XMMRegisterManager):
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14]
     save_around_call_regs = all_regs
 
+class X86_64_WIN_XMMRegisterManager(X86_64_XMMRegisterManager):
+    # xmm5 reserved for scratch use
+    all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4]
+    # experiment: do more SciPy tests pass if saving all xmm registers?
+    # save_around_call_regs = all_regs
+
 class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
         FrameManager.__init__(self)
@@ -145,7 +156,10 @@ if WORD == 4:
     xmm_reg_mgr_cls = X86XMMRegisterManager
 elif WORD == 8:
     gpr_reg_mgr_cls = X86_64_RegisterManager
-    xmm_reg_mgr_cls = X86_64_XMMRegisterManager
+    if WIN64:
+        xmm_reg_mgr_cls = X86_64_WIN_XMMRegisterManager
+    else:
+        xmm_reg_mgr_cls = X86_64_XMMRegisterManager
 else:
     raise AssertionError("Word size should be 4 or 8")
 
@@ -829,10 +843,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.xrm.before_call(save_all_regs=save_all_regs)
         if gc_level == SAVE_GCREF_REGS:
             gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
-            # we save all the GCREF registers for shadowstack and asmgcc for now
-            # --- for asmgcc too: we can't say "register x is a gc ref"
-            # without distinguishing call sites, which we don't do any
-            # more for now.
+            # we save all the GCREF registers for shadowstack
             if gcrootmap: # and gcrootmap.is_shadow_stack:
                 save_all_regs = SAVE_GCREF_REGS
         self.rm.before_call(save_all_regs=save_all_regs)
@@ -940,15 +951,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
     def consider_cond_call(self, op):
-        # A 32-bit-only, asmgcc-only issue: 'cond_call_register_arguments'
-        # contains edi and esi, which are also in asmgcroot.py:ASM_FRAMEDATA.
-        # We must make sure that edi and esi do not contain GC pointers.
-        if IS_X86_32 and self.assembler._is_asmgcc():
-            for box, loc in self.rm.reg_bindings.items():
-                if (loc == edi or loc == esi) and box.type == REF:
-                    self.rm.force_spill_var(box)
-                    assert box not in self.rm.reg_bindings
-        #
         args = op.getarglist()
         assert 2 <= len(args) <= 4 + 2     # maximum 4 arguments
         v_func = args[1]
@@ -1222,78 +1224,16 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         resloc = self.force_allocate_reg(op, [op.getarg(0)])
         self.perform(op, [argloc], resloc)
 
-    def consider_copystrcontent(self, op):
-        self._consider_copystrcontent(op, is_unicode=False)
-
-    def consider_copyunicodecontent(self, op):
-        self._consider_copystrcontent(op, is_unicode=True)
-
-    def _consider_copystrcontent(self, op, is_unicode):
-        # compute the source address
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(args[0], args)
-        ofs_loc = self.rm.make_sure_var_in_reg(args[2], args)
-        assert args[0] is not args[1]    # forbidden case of aliasing
-        srcaddr_box = TempVar()
-        forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
-        srcaddr_loc = self.rm.force_allocate_reg(srcaddr_box, forbidden_vars)
-        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
-                                        is_unicode=is_unicode)
-        # compute the destination address
-        base_loc = self.rm.make_sure_var_in_reg(args[1], forbidden_vars)
-        ofs_loc = self.rm.make_sure_var_in_reg(args[3], forbidden_vars)
-        forbidden_vars = [args[4], srcaddr_box]
-        dstaddr_box = TempVar()
-        dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
-        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
-                                        is_unicode=is_unicode)
-        # compute the length in bytes
-        length_box = args[4]
-        length_loc = self.loc(length_box)
-        if is_unicode:
-            forbidden_vars = [srcaddr_box, dstaddr_box]
-            bytes_box = TempVar()
-            bytes_loc = self.rm.force_allocate_reg(bytes_box, forbidden_vars)
-            scale = self._get_unicode_item_scale()
-            if not (isinstance(length_loc, ImmedLoc) or
-                    isinstance(length_loc, RegLoc)):
-                self.assembler.mov(length_loc, bytes_loc)
-                length_loc = bytes_loc
-            self.assembler.load_effective_addr(length_loc, 0, scale, bytes_loc)
-            length_box = bytes_box
-            length_loc = bytes_loc
-        # call memcpy()
-        self.rm.before_call()
-        self.xrm.before_call()
-        self.assembler.simple_call_no_collect(imm(self.assembler.memcpy_addr),
-                                        [dstaddr_loc, srcaddr_loc, length_loc])
-        self.rm.possibly_free_var(length_box)
-        self.rm.possibly_free_var(dstaddr_box)
-        self.rm.possibly_free_var(srcaddr_box)
-
-    def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
-        if is_unicode:
-            ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
-                                                  self.translate_support_code)
-            scale = self._get_unicode_item_scale()
-        else:
-            ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
-                                                  self.translate_support_code)
-            assert itemsize == 1
-            ofs_items -= 1     # for the extra null character
-            scale = 0
-        self.assembler.load_effective_addr(ofsloc, ofs_items, scale,
-                                           resloc, baseloc)
-
-    def _get_unicode_item_scale(self):
-        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                                  self.translate_support_code)
-        if itemsize == 4:
-            return 2
-        elif itemsize == 2:
-            return 1
-        else:
-            raise AssertionError("bad unicode item size")
+    def consider_load_effective_address(self, op):
+        p0 = op.getarg(0)
+        i0 = op.getarg(1)
+        ploc = self.make_sure_var_in_reg(p0, [i0])
+        iloc = self.make_sure_var_in_reg(i0, [p0])
+        res = self.rm.force_allocate_reg(op, [p0, i0])
+        assert isinstance(op.getarg(2), ConstInt)
+        assert isinstance(op.getarg(3), ConstInt)
+        self.assembler.load_effective_addr(iloc, op.getarg(2).getint(),
+            op.getarg(3).getint(), res, ploc)
 
     def _consider_math_read_timestamp(self, op):
         # hint: try to move unrelated registers away from eax and edx now

@@ -29,6 +29,7 @@ _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
 _r_define  = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
                         r"\b((?:[^\n\\]|\\.)*?)$",
                         re.DOTALL | re.MULTILINE)
+_r_line_directive = re.compile(r"^[ \t]*#[ \t]*(?:line|\d+)\b.*$", re.MULTILINE)
 _r_partial_enum = re.compile(r"=\s*\.\.\.\s*[,}]|\.\.\.\s*\}")
 _r_enum_dotdotdot = re.compile(r"__dotdotdot\d+__$")
 _r_partial_array = re.compile(r"\[\s*\.\.\.\s*\]")
@@ -145,17 +146,55 @@ def _preprocess_extern_python(csource):
     return ''.join(parts)
 
 def _warn_for_string_literal(csource):
-    if '"' in csource:
+    if '"' not in csource:
+        return
+    for line in csource.splitlines():
+        if '"' in line and not line.lstrip().startswith('#'):
+            import warnings
+            warnings.warn("String literal found in cdef() or type source. "
+                          "String literals are ignored here, but you should "
+                          "remove them anyway because some character sequences "
+                          "confuse pre-parsing.")
+            break
+
+def _warn_for_non_extern_non_static_global_variable(decl):
+    if not decl.storage:
         import warnings
-        warnings.warn("String literal found in cdef() or type source. "
-                      "String literals are ignored here, but you should "
-                      "remove them anyway because some character sequences "
-                      "confuse pre-parsing.")
+        warnings.warn("Global variable '%s' in cdef(): for consistency "
+                      "with C it should have a storage class specifier "
+                      "(usually 'extern')" % (decl.name,))
+
+def _remove_line_directives(csource):
+    # _r_line_directive matches whole lines, without the final \n, if they
+    # start with '#line' with some spacing allowed, or '#NUMBER'.  This
+    # function stores them away and replaces them with exactly the string
+    # '#line@N', where N is the index in the list 'line_directives'.
+    line_directives = []
+    def replace(m):
+        i = len(line_directives)
+        line_directives.append(m.group())
+        return '#line@%d' % i
+    csource = _r_line_directive.sub(replace, csource)
+    return csource, line_directives
+
+def _put_back_line_directives(csource, line_directives):
+    def replace(m):
+        s = m.group()
+        if not s.startswith('#line@'):
+            raise AssertionError("unexpected #line directive "
+                                 "(should have been processed and removed")
+        return line_directives[int(s[6:])]
+    return _r_line_directive.sub(replace, csource)
 
 def _preprocess(csource):
+    # First, remove the lines of the form '#line N "filename"' because
+    # the "filename" part could confuse the rest
+    csource, line_directives = _remove_line_directives(csource)
     # Remove comments.  NOTE: this only work because the cdef() section
-    # should not contain any string literal!
-    csource = _r_comment.sub(' ', csource)
+    # should not contain any string literals (except in line directives)!
+    def replace_keeping_newlines(m):
+        return ' ' + m.group().count('\n') * '\n'
+    csource = _r_comment.sub(replace_keeping_newlines, csource)
     # Remove the "#define FOO x" lines
     macros = {}
     for match in _r_define.finditer(csource):
@@ -208,7 +247,10 @@ def _preprocess(csource):
     csource = _r_float_dotdotdot.sub(' __dotdotdotfloat__ ', csource)
     # Replace all remaining "..." with the same name, "__dotdotdot__",
     # which is declared with a typedef for the purpose of C parsing.
-    return csource.replace('...', ' __dotdotdot__ '), macros
+    csource = csource.replace('...', ' __dotdotdot__ ')
+    # Finally, put back the line directives
+    csource = _put_back_line_directives(csource, line_directives)
+    return csource, macros
 
 def _common_type_names(csource):
     # Look in the source for what looks like usages of types from the
@@ -384,7 +426,8 @@ class Parser(object):
                         realtype = self._get_unknown_ptr_type(decl)
                     else:
                         realtype, quals = self._get_type_and_quals(
-                            decl.type, name=decl.name, partial_length_ok=True)
+                            decl.type, name=decl.name, partial_length_ok=True,
+                            typedef_example="*(%s *)0" % (decl.name,))
                     self._declare('typedef ' + decl.name, realtype, quals=quals)
                 elif decl.__class__.__name__ == 'Pragma':
                     pass    # skip pragma, only in pycparser 2.15
@@ -502,6 +545,7 @@ class Parser(object):
                     if (quals & model.Q_CONST) and not tp.is_array_type:
                         self._declare('constant ' + decl.name, tp, quals=quals)
                     else:
+                        _warn_for_non_extern_non_static_global_variable(decl)
                         self._declare('variable ' + decl.name, tp, quals=quals)
 
     def parse_type(self, cdecl):
@@ -550,7 +594,8 @@ class Parser(object):
             return model.NamedPointerType(type, declname, quals)
         return model.PointerType(type, quals)
 
-    def _get_type_and_quals(self, typenode, name=None, partial_length_ok=False):
+    def _get_type_and_quals(self, typenode, name=None, partial_length_ok=False,
+                            typedef_example=None):
         # first, dereference typedefs, if we have it already parsed, we're good
         if (isinstance(typenode, pycparser.c_ast.TypeDecl) and
             isinstance(typenode.type, pycparser.c_ast.IdentifierType) and
@@ -567,8 +612,18 @@ class Parser(object):
             else:
                 length = self._parse_constant(
                     typenode.dim, partial_length_ok=partial_length_ok)
+            # a hack: in 'typedef int foo_t[...][...];', don't use '...' as
+            # the length but use directly the C expression that would be
+            # generated by recompiler.py.  This lets the typedef be used in
+            # many more places within recompiler.py
+            if typedef_example is not None:
+                if length == '...':
+                    length = '_cffi_array_len(%s)' % (typedef_example,)
+                typedef_example = "*" + typedef_example
+            #
             tp, quals = self._get_type_and_quals(typenode.type,
-                                partial_length_ok=partial_length_ok)
+                                partial_length_ok=partial_length_ok,
+                                typedef_example=typedef_example)
             return model.ArrayType(tp, length), quals
         #
         if isinstance(typenode, pycparser.c_ast.PtrDecl):
@@ -817,12 +872,20 @@ class Parser(object):
         # or positive/negative number
         if isinstance(exprnode, pycparser.c_ast.Constant):
             s = exprnode.value
-            if s.startswith('0'):
-                if s.startswith('0x') or s.startswith('0X'):
-                    return int(s, 16)
-                return int(s, 8)
-            elif '1' <= s[0] <= '9':
-                return int(s, 10)
+            if '0' <= s[0] <= '9':
+                s = s.rstrip('uUlL')
+                try:
+                    if s.startswith('0'):
+                        return int(s, 8)
+                    else:
+                        return int(s, 10)
+                except ValueError:
+                    if len(s) > 1:
+                        if s.lower()[0:2] == '0x':
+                            return int(s, 16)
+                        elif s.lower()[0:2] == '0b':
+                            return int(s, 2)
+                raise CDefError("invalid constant %r" % (s,))
             elif s[0] == "'" and s[-1] == "'" and (
                     len(s) == 3 or (len(s) == 4 and s[1] == "\\")):
                 return ord(s[-2])
@@ -850,18 +913,38 @@ class Parser(object):
                            "the actual array length in this context"
                            % exprnode.coord.line)
         #
-        if (isinstance(exprnode, pycparser.c_ast.BinaryOp) and
-                exprnode.op == '+'):
-            return (self._parse_constant(exprnode.left) +
-                    self._parse_constant(exprnode.right))
-        #
-        if (isinstance(exprnode, pycparser.c_ast.BinaryOp) and
-                exprnode.op == '-'):
-            return (self._parse_constant(exprnode.left) -
-                    self._parse_constant(exprnode.right))
+        if isinstance(exprnode, pycparser.c_ast.BinaryOp):
+            left = self._parse_constant(exprnode.left)
+            right = self._parse_constant(exprnode.right)
+            if exprnode.op == '+':
+                return left + right
+            elif exprnode.op == '-':
+                return left - right
+            elif exprnode.op == '*':
+                return left * right
+            elif exprnode.op == '/':
+                return self._c_div(left, right)
+            elif exprnode.op == '%':
+                return left - self._c_div(left, right) * right
+            elif exprnode.op == '<<':
+                return left << right
+            elif exprnode.op == '>>':
+                return left >> right
+            elif exprnode.op == '&':
+                return left & right
+            elif exprnode.op == '|':
+                return left | right
+            elif exprnode.op == '^':
+                return left ^ right
         #
         raise FFIError(":%d: unsupported expression: expected a "
                        "simple numeric constant" % exprnode.coord.line)
+
+    def _c_div(self, a, b):
+        result = a // b
+        if ((a < 0) ^ (b < 0)) and (a % b) != 0:
+            result += 1
+        return result
 
     def _build_enum_type(self, explicit_name, decls):
         if decls is not None:

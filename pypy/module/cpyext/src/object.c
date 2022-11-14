@@ -263,6 +263,9 @@ PyObject_Init(PyObject *obj, PyTypeObject *type)
     obj->ob_type = type;
     obj->ob_pypy_link = 0;
     obj->ob_refcnt = 1;
+    if (PyType_GetFlags(type) & Py_TPFLAGS_HEAPTYPE) {
+        Py_INCREF(type);
+    }
     return obj;
 }
 

@@ -5,7 +5,7 @@ from rpython.translator.c.support import c_string_constant, barebonearray
 from rpython.flowspace.model import Variable, Constant, mkentrymap
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
-    Array, FixedSizeArray, ForwardReference, FuncType)
+    Array, FixedSizeArray, ForwardReference, FuncType, typeOf)
 from rpython.rtyper.lltypesystem.rffi import INT
 from rpython.rtyper.lltypesystem.llmemory import Address
 from rpython.translator.backendopt.ssa import SSI_to_SSA
@@ -471,7 +471,10 @@ class FunctionCodeGenerator(object):
             targets = [fn.value._obj.graph]
         except AttributeError:
             targets = None
-        return self.generic_call(fn.concretetype, self.expr(fn),
+        FN_TYPE = fn.concretetype
+        if FN_TYPE is Void:    # XXX no idea how this is possible
+            FN_TYPE = typeOf(fn.value)
+        return self.generic_call(FN_TYPE, self.expr(fn),
                                  op.args[1:], op.result, targets)
 
     def OP_INDIRECT_CALL(self, op):
@@ -525,25 +528,36 @@ class FunctionCodeGenerator(object):
                 result = gencsupp.emit_void(result)
         return result
 
+    def _field_stat(self, op, structdef, access_kind):
+        prefix = ''
+        if self.db.all_field_names is not None:
+            if hasattr(structdef, 'c_struct_field_name'):
+                fieldname = structdef.c_struct_field_name(op.args[1].value)
+                self.db.all_field_names.add(fieldname)
+                prefix = 'rpy_access_stats.%s_%s++;\n' % (fieldname, access_kind)
+        return prefix
+
     def OP_GETFIELD(self, op, ampersand='', accessing_mem=True):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
         baseexpr_is_const = isinstance(op.args[0], Constant)
+        prefix = self._field_stat(op, structdef, "read")
         expr = ampersand + structdef.ptr_access_expr(self.expr(op.args[0]),
                                                      op.args[1].value,
                                                      baseexpr_is_const)
-        return self.generic_get(op, expr, accessing_mem=accessing_mem)
+        return prefix + self.generic_get(op, expr, accessing_mem=accessing_mem)
 
     def OP_BARE_SETFIELD(self, op):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
         baseexpr_is_const = isinstance(op.args[0], Constant)
+        prefix = self._field_stat(op, structdef, "write")
         expr = structdef.ptr_access_expr(self.expr(op.args[0]),
                                          op.args[1].value,
                                          baseexpr_is_const)
-        return self.generic_set(op, expr)
+        return prefix + self.generic_set(op, expr)
 
     def OP_GETSUBSTRUCT(self, op):
         RESULT = self.lltypemap(op.result).TO
@@ -559,7 +573,7 @@ class FunctionCodeGenerator(object):
             return '%s = %d;' % (self.expr(op.result),
                                  ARRAY.length)
         else:
-            return self.generic_get(op, '%s->length;' % self.expr(op.args[0]))
+            return self.generic_get(op, '%s->length' % self.expr(op.args[0]))
 
     def OP_GETARRAYITEM(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
@@ -856,11 +870,17 @@ class FunctionCodeGenerator(object):
                     free_line = "RPyString_FreeCache();"
                 continue
             elif T == Signed:
-                format.append('%ld')
+                if sys.platform == 'win32':
+                    format.append('%Id')
+                else:
+                    format.append('%ld')
             elif T == INT:
                 format.append('%d')
             elif T == Unsigned:
-                format.append('%lu')
+                if sys.platform == 'win32':
+                    format.append('%Iu')
+                else:
+                    format.append('%lu')
             elif T == Float:
                 format.append('%f')
             elif isinstance(T, Ptr) or T == Address:
@@ -952,7 +972,7 @@ class FunctionCodeGenerator(object):
 
     def OP_DEBUG_NONNULL_POINTER(self, op):
         expr = self.expr(op.args[0])
-        return 'if ((-8192 <= (long)%s) && (((long)%s) < 8192)) abort();' % (
+        return 'if ((-8192 <= (Signed)%s) && (((Signed)%s) < 8192)) abort();' % (
             expr, expr)
 
     def OP_INSTRUMENT_COUNT(self, op):

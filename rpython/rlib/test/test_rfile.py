@@ -25,10 +25,12 @@ class TestFile(BaseRtypingTest):
             f.close()
 
         f()
-        assert open(fname, "r").read() == "dupa"
+        with open(fname, "r") as fid:
+            assert fid.read() == "dupa"
         os.unlink(fname)
         self.interpret(f, [])
-        assert open(fname, "r").read() == "dupa"
+        with open(fname, "r") as fid:
+            assert fid.read() == "dupa"
 
     def test_open_errors(self):
         def f(run):
@@ -57,8 +59,8 @@ class TestFile(BaseRtypingTest):
                 assert False
 
             try:
-                os.fdopen(42, "badmode")
-            except ValueError:
+                rfile.create_fdopen_rfile(42, "badmode")
+            except  ValueError:
                 pass
             else:
                 assert False
@@ -88,7 +90,7 @@ class TestFile(BaseRtypingTest):
         f(sys.version_info >= (2, 7, 9))
         self.interpret(f, [True])
 
-    @py.test.mark.skipif("sys.platform == 'win32'")
+    @py.test.mark.skipif("sys.platform == 'win32' or sys.platform == 'darwin'")
     # http://msdn.microsoft.com/en-us/library/86cebhfs.aspx
     def test_open_buffering_line(self):
         fname = str(self.tmpdir.join('file_1a'))
@@ -106,7 +108,7 @@ class TestFile(BaseRtypingTest):
         os.unlink(fname)
         self.interpret(f, [])
 
-    @py.test.mark.skipif("sys.platform == 'win32'")
+    @py.test.mark.skipif("sys.platform == 'win32' or sys.platform == 'darwin'")
     # http://msdn.microsoft.com/en-us/library/86cebhfs.aspx
     def test_fdopen_buffering_line(self):
         fname = str(self.tmpdir.join('file_1a'))
@@ -126,6 +128,7 @@ class TestFile(BaseRtypingTest):
         os.unlink(fname)
         self.interpret(f, [])
 
+    @py.test.mark.skipif('sys.platform == "darwin"')
     def test_open_buffering_full(self):
         fname = str(self.tmpdir.join('file_1b'))
 
@@ -144,6 +147,7 @@ class TestFile(BaseRtypingTest):
         os.unlink(fname)
         self.interpret(f, [])
 
+    @py.test.mark.skipif('sys.platform == "darwin"')
     def test_fdopen_buffering_full(self):
         fname = str(self.tmpdir.join('file_1b'))
 
@@ -325,10 +329,12 @@ class TestFile(BaseRtypingTest):
             f2.close()
 
         f()
-        assert open(fname).read() == "xxx"
+        with open(fname) as fid:
+            assert fid.read() == "xxx"
         os.unlink(fname)
         self.interpret(f, [])
-        assert open(fname).read() == "xxx"
+        with open(fname) as fid:
+            assert fid.read() == "xxx"
 
     def test_fileno(self):
         fname = str(self.tmpdir.join('file_5'))
@@ -411,7 +417,10 @@ class TestFile(BaseRtypingTest):
         def f():
             with open(fname, "w") as f:
                 f.write("dupa")
+                assert not f.closed
+
             try:
+                assert f.closed
                 f.write("dupb")
             except ValueError:
                 pass
@@ -419,10 +428,12 @@ class TestFile(BaseRtypingTest):
                 assert False
 
         f()
-        assert open(fname, "r").read() == "dupa"
+        with open(fname) as fid:
+            assert fid.read() == "dupa"
         os.unlink(fname)
         self.interpret(f, [])
-        assert open(fname, "r").read() == "dupa"
+        with open(fname) as fid:
+            assert fid.read() == "dupa"
 
 
 class TestDirect:
@@ -467,7 +478,8 @@ class TestDirect:
                 s = ''.join([chr(32+(k&63)) for k in range(j, j + i)])
                 j += 1
                 print >> f, s
-        expected = open(fname).readlines()
+        with open(fname) as fid:
+            expected = fid.readlines()
         expected += ['', '']
         assert len(expected) == 252
 
@@ -499,15 +511,16 @@ class TestPopen(object):
             py.test.skip("not for win32")
 
     def test_popen(self):
-        f = rfile.create_popen_file("python -c 'print 42'", "r")
+        f = rfile.create_popen_file("python -c 'print(42)'", "r")
         s = f.read()
         f.close()
         assert s == '42\n'
 
+    @py.test.mark.skipif('sys.platform == "darwin"')
     def test_pclose(self):
         retval = 32
         printval = 42
-        cmd = "python -c 'import sys; print %s; sys.exit(%s)'" % (
+        cmd = "python -c 'import sys; print(%s); sys.exit(%s)'" % (
             printval, retval)
         f = rfile.create_popen_file(cmd, "r")
         s = f.read()
@@ -520,10 +533,12 @@ class TestPopenR(BaseRtypingTest):
     def setup_class(cls):
         if sys.platform == 'win32':
             py.test.skip("not for win32")
+        if sys.platform == 'darwin':
+            py.test.skip("not for os x")
 
     def test_popen(self):
         printval = 42
-        cmd = "python -c 'print %s'" % printval
+        cmd = "python -c 'print(%s)'" % printval
         def f():
             f = rfile.create_popen_file(cmd, "r")
             s = f.read()
@@ -534,7 +549,7 @@ class TestPopenR(BaseRtypingTest):
     def test_pclose(self):
         printval = 42
         retval = 32
-        cmd = "python -c 'import sys; print %s; sys.exit(%s)'" % (
+        cmd = "python -c 'import sys; print(%s); sys.exit(%s)'" % (
             printval, retval)
         def f():
             f = rfile.create_popen_file(cmd, "r")

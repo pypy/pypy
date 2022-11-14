@@ -49,12 +49,15 @@ SPP        = r31    # the frame pointer
 RCS1       = r30    # a random managed non-volatile register
 RCS2       = r29    # a random managed non-volatile register
 RCS3       = r28    # a random managed non-volatile register
+RCS4       = r27    # a random managed non-volatile register
 RSZ        = r25    # size argument to malloc_slowpath
 
 MANAGED_REGS = [r3, r4, r5, r6, r7, r8, r9, r10, r11, r12,
                 r25, r26, r27, r28, r29, r30]
                 # registers r14 to r24 are not touched, we have enough
                 # registers already
+                # XXX but there are still in NONVOLATILES and saved/restored
+                # by _save_nonvolatiles(), is that necessary??
 
 MANAGED_FP_REGS = VOLATILES_FLOAT #+ NONVOLATILES_FLOAT
 
@@ -64,6 +67,7 @@ MANAGED_INTEGER_VECTOR_REGS = ALL_INTEGER_VECTOR_REGS
 assert RCS1 in MANAGED_REGS and RCS1 in NONVOLATILES
 assert RCS2 in MANAGED_REGS and RCS2 in NONVOLATILES
 assert RCS3 in MANAGED_REGS and RCS3 in NONVOLATILES
+assert RCS4 in MANAGED_REGS and RCS4 in NONVOLATILES
 assert RSZ in MANAGED_REGS
 
 

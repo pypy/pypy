@@ -10,7 +10,7 @@ class AppTestExc(object):
         assert repr(BaseException()) == 'BaseException()'
         raises(AttributeError, getattr, BaseException(), 'message')
         raises(AttributeError, getattr, BaseException(3), 'message')
-        assert repr(BaseException(3)) == 'BaseException(3,)'
+        assert repr(BaseException(3)) == 'BaseException(3)'
         assert str(BaseException(3)) == '3'
         assert BaseException().args == ()
         assert BaseException(3).args == (3,)
@@ -216,6 +216,8 @@ class AppTestExc(object):
         assert le.__reduce__() == (LookupError, (1, 2, "a"), {"xyz": (1, 2)})
         ee = EnvironmentError(1, 2, "a")
         assert ee.__reduce__() == (PermissionError, (1, 2, "a"))
+        ee = ImportError("a", "b", "c", name="x", path="y")
+        assert ee.__reduce__() == (ImportError, ("a", "b", "c"), {"name": "x", "path": "y"})
 
     def test_setstate(self):
         fw = FutureWarning()
@@ -224,6 +226,14 @@ class AppTestExc(object):
         fw.__setstate__({'z': 1})
         assert fw.z == 1
         assert fw.xyz == (1, 2)
+
+        i = ImportError()
+        i.foo = "x"
+        i.__setstate__({"name": "x", "path": "y", "bar": 1})
+        assert i.foo == "x"
+        assert i.name == "x"
+        assert i.path == "y"
+        assert i.bar == 1
 
     def test_unicode_error_uninitialized_str(self):
         assert str(UnicodeEncodeError.__new__(UnicodeEncodeError)) == ""
@@ -297,7 +307,30 @@ class AppTestExc(object):
         assert ImportError("message").path is None
         assert ImportError("message", name="x").name == "x"
         assert ImportError("message", path="y").path == "y"
-        raises(TypeError, ImportError, invalid="z")
+        with raises(TypeError) as e:
+            ImportError(invalid="z")
+        assert "__init__() got an unexpected keyword argument 'invalid'" in str(e.value)
+        assert ImportError("message").msg == "message"
+        assert ImportError("message").args == ("message", )
+        assert ImportError("message", "foo").msg is None
+        assert ImportError("message", "foo").args == ("message", "foo")
+
+    def test_importerror_reduce(self):
+        d = {'name': 'a',
+             'path': 'b',
+            } 
+        s = ImportError('c', **d).__reduce__()
+        e = s[0](*s[1], **s[2])
+        for k, v in d.items():
+            assert getattr(e, k) == v
+
+    def test_modulenotfounderror(self):
+        assert ModuleNotFoundError("message").name is None
+        assert ModuleNotFoundError("message").path is None
+        assert ModuleNotFoundError("message", name="x").name == "x"
+        assert ModuleNotFoundError("message", path="y").path == "y"
+        raises(TypeError, ModuleNotFoundError, invalid="z")
+        assert repr(ModuleNotFoundError('test')) == "ModuleNotFoundError('test')"
 
     def test_blockingioerror(self):
         args = ("a", "b", "c", "d", "e")
@@ -308,6 +341,9 @@ class AppTestExc(object):
         assert e.characters_written == 3
         e.characters_written = 5
         assert e.characters_written == 5
+        del e.characters_written
+        with raises(AttributeError):
+            e.characters_written
 
     def test_errno_mapping(self):
         # The OSError constructor maps errnos to subclasses
@@ -429,3 +465,108 @@ class AppTestExc(object):
                 exc = raises(SyntaxError, exec_, source)
                 assert (custom_msg not in exc.value.msg) == (
                     ('print (' in source or 'exec (' in source))
+
+    def test_bug_print_heuristic_shadows_better_message(self):
+        def exec_(s): exec(s)
+        exc = raises(SyntaxError, exec_, "print [)")
+        assert "closing parenthesis ')' does not match opening parenthesis '['" in exc.value.msg
+
+    def test_print_suggestions(self):
+        def exec_(s): exec(s)
+        def check(s, error):
+            exc = raises(SyntaxError, exec_, s)
+            print(exc.value.msg)
+            assert exc.value.msg == error
+
+        check(
+            "print 1",
+            "Missing parentheses in call to 'print'. Did you mean print(1)?")
+        check(
+            "print 1, \t",
+            "Missing parentheses in call to 'print'. Did you mean print(1, end=\" \")?")
+        check(
+            "print 'a'\n;\t ",
+            "Missing parentheses in call to 'print'. Did you mean print('a')?")
+        check(
+            "print p;",
+            "Missing parentheses in call to 'print'. Did you mean print(p)?")
+        check("print %", "invalid syntax")
+        check("print 1 1",
+            "Missing parentheses in call to 'print'")
+
+    def test_print_and_operators(self):
+        with raises(TypeError) as excinfo:
+            print >> 1, 5
+        assert 'Did you mean "print(<message>, file=<output_stream>)"?' in str(excinfo.value)
+        with raises(TypeError) as excinfo:
+            print -1
+        assert 'Did you mean "print(<-number>)"?' in str(excinfo.value)
+
+    def test_importerror_kwarg_error(self):
+        msg = "__init__() got an unexpected keyword argument 'invalid'"
+        exc = raises(TypeError,
+                     ImportError,
+                     'test', invalid='keyword', another=True)
+        assert str(exc.value) == "__init__() got 2 unexpected keyword arguments"
+
+        exc = raises(TypeError, ImportError, 'test', invalid='keyword')
+        assert str(exc.value) == msg
+
+        exc = raises(TypeError,
+                     ImportError,
+                     'test', name='name', invalid='keyword')
+        assert str(exc.value) == msg
+
+        exc = raises(TypeError,
+                     ImportError,
+                     'test', path='path', invalid='keyword')
+        assert str(exc.value) == msg
+
+
+    def test_attribute_error_name_obj_attributes(self):
+        exc = AttributeError("'a' not found", name="a", obj=7)
+        assert exc.name == "a"
+        assert exc.obj == 7
+
+    def test_attribute_errorr_name_obj_attributes_are_filled(self):
+        class A:
+            pass
+        a = A()
+        with raises(AttributeError) as info:
+            a.blub
+        exc = info.value
+        assert exc.name == "blub"
+        assert exc.obj is a
+
+    def test_name_error_name_attribute(self):
+        exc = NameError("'a' not found", name="a")
+        assert exc.name == "a"
+
+    def test_name_error_name_attributes_are_filled(self):
+        class A:
+            pass
+        a = A()
+        with raises(NameError) as info:
+            blub
+        exc = info.value
+        assert exc.name == "blub"
+
+    def test_multiple_inheritance_bug(self):
+        class OptionError(AttributeError, KeyError):
+            pass # does not crash
+        assert issubclass(OptionError, Exception)
+        assert issubclass(OptionError, AttributeError)
+        assert issubclass(OptionError, KeyError)
+        assert issubclass(OptionError, LookupError)
+        OptionError() # check that instantiation works
+
+    def test_multiple_inheritance_bug2(self):
+        class E(EnvironmentError, KeyError): pass
+        assert KeyError.__str__(E(6)) == '6'
+        # harder
+        class E2(KeyError, EnvironmentError): pass
+        assert str(E2(6)) == '6'
+    def test_keyerror_subclass(self):
+        class E(KeyError):
+            pass
+        assert str(E(1)) == '1'

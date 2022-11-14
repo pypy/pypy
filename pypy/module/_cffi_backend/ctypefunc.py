@@ -10,9 +10,11 @@ from rpython.rlib.jit_libffi import (CIF_DESCRIPTION, CIF_DESCRIPTION_P,
 from rpython.rlib.objectmodel import we_are_translated, instantiate
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.annlowlevel import llstr
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module import _cffi_backend
+from pypy.module._cffi_backend.moduledef import (
+    FFI_DEFAULT_ABI, has_stdcall, FFI_STDCALL)
 from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer
@@ -31,7 +33,7 @@ class W_CTypeFunc(W_CTypePtrBase):
     cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
     def __init__(self, space, fargs, fresult, ellipsis,
-                 abi=_cffi_backend.FFI_DEFAULT_ABI):
+                 abi=FFI_DEFAULT_ABI):
         assert isinstance(ellipsis, bool)
         extra, xpos = self._compute_extra_text(fargs, fresult, ellipsis, abi)
         size = rffi.sizeof(rffi.VOIDP)
@@ -98,10 +100,9 @@ class W_CTypeFunc(W_CTypePtrBase):
             lltype.free(self.cif_descr, flavor='raw')
 
     def _compute_extra_text(self, fargs, fresult, ellipsis, abi):
-        from pypy.module._cffi_backend import newtype
         argnames = ['(*)(']
         xpos = 2
-        if _cffi_backend.has_stdcall and abi == _cffi_backend.FFI_STDCALL:
+        if has_stdcall and abi == FFI_STDCALL:
             argnames[0] = '(__stdcall *)('
             xpos += len('__stdcall ')
         for i, farg in enumerate(fargs):
@@ -127,6 +128,10 @@ class W_CTypeFunc(W_CTypePtrBase):
         return W_CTypePtrBase._fget(self, attrchar)
 
     def call(self, funcaddr, args_w):
+        if not funcaddr:
+            raise oefmt(self.space.w_RuntimeError,
+                        "cannot call null function pointer from cdata '%s'",
+                        self.name)
         if self.cif_descr:
             # regular case: this function does not take '...' arguments
             self = jit.promote(self)
@@ -163,9 +168,9 @@ class W_CTypeFunc(W_CTypePtrBase):
         cif_descr = self.cif_descr   # 'self' should have been promoted here
         size = cif_descr.exchange_size
         mustfree_max_plus_1 = 0
+        keepalives = [llstr(None)] * len(args_w)    # llstrings
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
         try:
-            keepalives = [None] * len(args_w)    # None or strings
             for i in range(len(args_w)):
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                 w_obj = args_w[i]
@@ -190,10 +195,15 @@ class W_CTypeFunc(W_CTypePtrBase):
                     raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
                     if flag == 1:
                         lltype.free(raw_cdata, flavor='raw')
+                    elif flag == 3:
+                        rgc.unpin(keepalives[i])
+                        if not we_are_translated():
+                            lltype.free(keepalives[i])
                     elif flag >= 4:
-                        value = keepalives[i]
-                        assert value is not None
-                        rffi.free_nonmovingbuffer(value, raw_cdata, chr(flag))
+                        llobj = keepalives[i]
+                        assert llobj     # not NULL
+                        rffi.free_nonmovingbuffer_ll(raw_cdata,
+                                                     llobj, chr(flag))
             lltype.free(buffer, flavor='raw')
             keepalive_until_here(args_w)
         return w_res
@@ -202,12 +212,18 @@ def get_mustfree_flag(data):
     return ord(rffi.ptradd(data, -1)[0])
 
 def set_mustfree_flag(data, flag):
+    """ Set a flag for future handling of the pointer after the call,
+    possible values are:
+    0 - not set
+    1 - free the argument
+    2 - file argument
+    3 - unpin the keepalive
+    4, 5, 6 - free the keepalive slot, different values returned from
+              rffi.get_nonmovingbuffer_ll_final_null
+    """
     rffi.ptradd(data, -1)[0] = chr(flag)
 
 # ____________________________________________________________
-
-
-USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
 
 
 # ----------
@@ -381,16 +397,6 @@ class CifDescrBuilder(object):
                     "does not support")
             nflat += flat
 
-        if USE_C_LIBFFI_MSVC and is_result_type:
-            # MSVC returns small structures in registers.  Pretend int32 or
-            # int64 return type.  This is needed as a workaround for what
-            # is really a bug of libffi_msvc seen as an independent library
-            # (ctypes has a similar workaround).
-            if ctype.size <= 4:
-                return clibffi.ffi_type_sint32
-            if ctype.size <= 8:
-                return clibffi.ffi_type_sint64
-
         # allocate an array of (nflat + 1) ffi_types
         elements = self.fb_alloc(rffi.sizeof(FFI_TYPE_P) * (nflat + 1))
         elements = rffi.cast(FFI_TYPE_PP, elements)
@@ -456,15 +462,22 @@ class CifDescrBuilder(object):
     def align_arg(self, n):
         return (n + 7) & ~7
 
+    def align_to(self, n, type):
+        a = rffi.getintfield(type, 'c_alignment') - 1
+        return (n + a) & ~a
+
     def fb_build_exchange(self, cif_descr):
         nargs = len(self.fargs)
 
         # first, enough room for an array of 'nargs' pointers
         exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
+
+        # then enough room for the result --- which means at least
+        # sizeof(ffi_arg), according to the ffi docs, but we also
+        # align according to the result type, for cffi issue #531
+        exchange_offset = self.align_to(exchange_offset, self.rtype)
         exchange_offset = self.align_arg(exchange_offset)
         cif_descr.exchange_result = exchange_offset
-
-        # then enough room for the result, rounded up to sizeof(ffi_arg)
         exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'),
                                SIZE_OF_FFI_ARG)
 
@@ -472,9 +485,11 @@ class CifDescrBuilder(object):
         for i, farg in enumerate(self.fargs):
             if isinstance(farg, W_CTypePointer):
                 exchange_offset += 1   # for the "must free" flag
+            atype = self.atypes[i]
+            exchange_offset = self.align_to(exchange_offset, atype)
             exchange_offset = self.align_arg(exchange_offset)
             cif_descr.exchange_args[i] = exchange_offset
-            exchange_offset += rffi.getintfield(self.atypes[i], 'c_size')
+            exchange_offset += rffi.getintfield(atype, 'c_size')
 
         # store the exchange data size
         # we also align it to the next multiple of 8, in an attempt to

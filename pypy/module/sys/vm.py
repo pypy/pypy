@@ -4,14 +4,26 @@ Implementation of interpreter-level 'sys' routines.
 
 from rpython.rlib import jit
 from rpython.rlib.rutf8 import MAXUNICODE
+from rpython.rlib import debug
+from rpython.rlib import objectmodel
 
 from pypy.interpreter import gateway
-from pypy.interpreter.error import oefmt
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.error import oefmt, OperationError
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 
 
 # ____________________________________________________________
 
+app_hookargs = gateway.applevel("""
+from _structseq import structseqtype, structseqfield
+class UnraisableHookArgs(metaclass=structseqtype):
+    exc_type = structseqfield(0, "Exception type")
+    exc_value = structseqfield(1, "Exception value")
+    exc_traceback = structseqfield(2, "Exception traceback")
+    err_msg = structseqfield(3, "Error message")
+    object = structseqfield(4, "Object causing the exception")
+    extra_line = structseqfield(6, "Extra error lines that is PyPy specific")
+""")
 
 @unwrap_spec(depth=int)
 def _getframe(space, depth=0):
@@ -55,11 +67,23 @@ is approximative and checked at a lower level.  The default 1000
 reserves 768KB of stack space, which should suffice (on Linux,
 depending on the compiler settings) for ~1400 calls.  Setting the
 value to N reserves N/1000 times 768KB of stack space.
+
+Note that there are other factors that also limit the stack size.
+The operating system typically sets a maximum which can be changed
+manually (e.g. with "ulimit" on Linux) for the main thread.  For other
+threads you can configure the limit by calling "threading.stack_size()".
 """
     from rpython.rlib.rstack import _stack_set_length_fraction
     from rpython.rlib.rstackovf import StackOverflow
+    from rpython.rlib.rgc import increase_root_stack_depth
     if new_limit <= 0:
         raise oefmt(space.w_ValueError, "recursion limit must be positive")
+    # Some programs use very large values to mean "don't check, I want to
+    # use as much as possible and then segfault".  Add a silent upper bound
+    # of 10**6 here, because huge values cause huge shadowstacks to be
+    # allocated (or MemoryErrors).
+    if new_limit > 1000000:
+        new_limit = 1000000
     try:
         _stack_set_length_fraction(new_limit * 0.001)
         _stack_check_noinline()
@@ -67,8 +91,9 @@ value to N reserves N/1000 times 768KB of stack space.
         old_limit = space.sys.recursionlimit
         _stack_set_length_fraction(old_limit * 0.001)
         raise oefmt(space.w_RecursionError,
-                    "maximum recursion depth exceeded")
+                "cannot set the recursion limit to %s at the recursion depth: the limit is too low")
     space.sys.recursionlimit = new_limit
+    increase_root_stack_depth(int(new_limit * 0.001 * 163840))
 
 def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().
@@ -149,23 +174,21 @@ def exc_info_direct(space, frame):
     p = frame.last_instr
     if (ord(co[p]) == stdlib_opcode.CALL_FUNCTION or
         ord(co[p]) == stdlib_opcode.CALL_METHOD):
-        if ord(co[p+3]) == stdlib_opcode.LOAD_CONST:
-            lo = ord(co[p+4])
-            hi = ord(co[p+5])
-            w_constant = frame.getconstant_w((hi * 256) | lo)
-            if ord(co[p+6]) == stdlib_opcode.BINARY_SUBSCR:
+        if ord(co[p + 2]) == stdlib_opcode.LOAD_CONST:
+            lo = ord(co[p + 3])
+            w_constant = frame.getconstant_w(lo)
+            if ord(co[p + 4]) == stdlib_opcode.BINARY_SUBSCR:
                 if space.isinstance_w(w_constant, space.w_int):
                     constant = space.int_w(w_constant)
                     if -3 <= constant <= 1 and constant != -1:
                         need_all_three_args = False
-            elif (ord(co[p+6]) == stdlib_opcode.LOAD_CONST and
-                  ord(co[p+9]) == stdlib_opcode.BUILD_SLICE and
-                  ord(co[p+12]) == stdlib_opcode.BINARY_SUBSCR):
+            elif (ord(co[p + 4]) == stdlib_opcode.LOAD_CONST and
+                  ord(co[p + 6]) == stdlib_opcode.BUILD_SLICE and
+                  ord(co[p + 8]) == stdlib_opcode.BINARY_SUBSCR):
                 if (space.is_w(w_constant, space.w_None) or
                     space.isinstance_w(w_constant, space.w_int)):
-                    lo = ord(co[p+7])
-                    hi = ord(co[p+8])
-                    w_constant = frame.getconstant_w((hi * 256) | lo)
+                    lo = ord(co[p + 5])
+                    w_constant = frame.getconstant_w(lo)
                     if space.isinstance_w(w_constant, space.w_int):
                         if space.int_w(w_constant) <= 2:
                             need_all_three_args = False
@@ -175,13 +198,6 @@ def exc_info_direct(space, frame):
         return exc_info_with_tb(space)
     else:
         return exc_info_without_tb(space, operror)
-
-def exc_clear(space):
-    """Clear global information on the current exception.  Subsequent calls
-to exc_info() will return (None,None,None) until another exception is
-raised and caught in the current thread or the execution stack returns to a
-frame where another exception is being handled."""
-    space.getexecutioncontext().clear_sys_exc_info()
 
 def settrace(space, w_func):
     """Set the global debug tracing function.  It will be called on each
@@ -234,7 +250,15 @@ class windows_version_info(metaclass=structseqtype):
     service_pack_minor = structseqfield(11, "Service Pack minor version number")
     suite_mask = structseqfield(12, "Bit mask identifying available product suites")
     product_type = structseqfield(13, "System product type")
-    _platform_version = structseqfield(14, "Diagnostic version number")
+    platform_version = structseqfield(14, "Diagnostic version number")
+
+
+class asyncgen_hooks(metaclass=structseqtype):
+    name = "asyncgen_hooks"
+
+    firstiter = structseqfield(0)
+    finalizer = structseqfield(1)
+
 ''')
 
 
@@ -281,7 +305,7 @@ def _get_dllhandle(space):
 
 getsizeof_missing = """getsizeof(...)
     getsizeof(object, default) -> int
-    
+
     Return the size of object in bytes.
 
 sys.getsizeof(object, default) will always return default on PyPy, and
@@ -329,22 +353,151 @@ same value."""
         return space.new_interned_w_str(w_str)
     raise oefmt(space.w_TypeError, "intern() argument must be string.")
 
-def get_coroutine_wrapper(space):
-    "Return the wrapper for coroutine objects set by sys.set_coroutine_wrapper."
-    ec = space.getexecutioncontext()
-    if ec.w_coroutine_wrapper_fn is None:
-        return space.w_None
-    return ec.w_coroutine_wrapper_fn
+def get_asyncgen_hooks(space):
+    """get_asyncgen_hooks()
 
-def set_coroutine_wrapper(space, w_wrapper):
-    "Set a wrapper for coroutine objects."
+Return a namedtuple of installed asynchronous generators hooks (firstiter, finalizer)."""
     ec = space.getexecutioncontext()
-    if space.is_w(w_wrapper, space.w_None):
-        ec.w_coroutine_wrapper_fn = None
-    elif space.is_true(space.callable(w_wrapper)):
-        ec.w_coroutine_wrapper_fn = w_wrapper
-    else:
-        raise oefmt(space.w_TypeError, "callable expected, got %T", w_wrapper)
+    w_firstiter = ec.w_asyncgen_firstiter_fn
+    if w_firstiter is None:
+        w_firstiter = space.w_None
+    w_finalizer = ec.w_asyncgen_finalizer_fn
+    if w_finalizer is None:
+        w_finalizer = space.w_None
+    w_asyncgen_hooks = app.wget(space, "asyncgen_hooks")
+    return space.call_function(
+        w_asyncgen_hooks,
+        space.newtuple([w_firstiter, w_finalizer]))
+
+# Note: the docstring is wrong on CPython
+def set_asyncgen_hooks(space, w_firstiter=None, w_finalizer=None):
+    """set_asyncgen_hooks(firstiter=None, finalizer=None)
+
+Set a finalizer for async generators objects."""
+    ec = space.getexecutioncontext()
+    if space.is_w(w_finalizer, space.w_None):
+        ec.w_asyncgen_finalizer_fn = None
+    elif w_finalizer is not None:
+        if space.callable_w(w_finalizer):
+            ec.w_asyncgen_finalizer_fn = w_finalizer
+        else:
+            raise oefmt(space.w_TypeError,
+                "callable finalizer expected, got %T", w_finalizer)
+    if space.is_w(w_firstiter, space.w_None):
+        ec.w_asyncgen_firstiter_fn = None
+    elif w_firstiter is not None:
+        if space.callable_w(w_firstiter):
+            ec.w_asyncgen_firstiter_fn = w_firstiter
+        else:
+            raise oefmt(space.w_TypeError,
+                "callable firstiter expected, got %T", w_firstiter)
+
 
 def is_finalizing(space):
     return space.newbool(space.sys.finalizing)
+
+def get_coroutine_origin_tracking_depth(space):
+    """get_coroutine_origin_tracking_depth()
+        Check status of origin tracking for coroutine objects in this thread.
+    """
+    ec = space.getexecutioncontext()
+    return space.newint(ec.coroutine_origin_tracking_depth)
+
+@unwrap_spec(depth=int)
+def set_coroutine_origin_tracking_depth(space, depth):
+    """set_coroutine_origin_tracking_depth(depth)
+        Enable or disable origin tracking for coroutine objects in this thread.
+
+        Coroutine objects will track 'depth' frames of traceback information
+        about where they came from, available in their cr_origin attribute.
+
+        Set a depth of 0 to disable.
+    """
+    if depth < 0:
+        raise oefmt(space.w_ValueError,
+                "depth must be >= 0")
+    ec = space.getexecutioncontext()
+    ec.coroutine_origin_tracking_depth = depth
+
+
+class AuditHolder(object):
+    _immutable_fields_ = ['hooks_w?[:]']
+
+    def __init__(self, space):
+        self.hooks_w = None
+        self.space = space
+
+    @objectmodel.dont_inline
+    @jit.unroll_safe
+    def trigger_audit_events(self, space, event, args_w):
+        w_event = space.newtext(event)
+        w_args = space.newtuple(args_w)
+        hooks_w = self.hooks_w
+        assert hooks_w is not None
+        ec = space.getexecutioncontext()
+        # don't trace audithooks by default
+        ec.is_tracing += 1
+        try:
+            for w_hook in hooks_w:
+                w_cantrace = space.findattr(w_hook, space.newtext("__cantrace__"))
+                if w_cantrace is None:
+                    cantrace = False
+                else:
+                    cantrace = space.is_true(w_cantrace)
+                if cantrace:
+                    ec.is_tracing -= 1
+                try:
+                    space.call_function(w_hook, w_event, w_args)
+                finally:
+                    if cantrace:
+                        ec.is_tracing += 1
+        finally:
+            ec.is_tracing -= 1
+
+
+@unwrap_spec(event="text")
+def audit(space, event, args_w):
+    """
+    audit(event, *args)
+    
+    Passes the event to any audit hooks that are attached.
+    """
+    holder = space.fromcache(AuditHolder)
+    if holder.hooks_w is None:
+        return
+    holder.trigger_audit_events(space, event, args_w)
+
+
+def addaudithook(space, w_hook):
+    """
+    addaudithook(hook)
+
+    Adds a new audit hook callback.
+    """
+    holder = space.fromcache(AuditHolder)
+    try:
+        audit(space, "sys.addaudithook", [])
+    except OperationError, e:
+        if not e.match(space, space.w_RuntimeError):
+            raise
+        # RuntimeError is ignored and we don't add the new hook
+        return
+    if holder.hooks_w is None:
+        holder.hooks_w = [w_hook]
+        debug.make_sure_not_resized(holder.hooks_w)
+    else:
+        holder.hooks_w = holder.hooks_w + [w_hook]
+
+
+
+def unraisablehook(space, w_hookargs):
+    w_type = space.getattr(w_hookargs, space.newtext("exc_type"))
+    w_value = space.getattr(w_hookargs, space.newtext("exc_value"))
+    w_tb = space.getattr(w_hookargs, space.newtext("exc_traceback"))
+    err_msg = space.text_w(space.getattr(w_hookargs, space.newtext("err_msg")))
+    w_object = space.getattr(w_hookargs, space.newtext("object"))
+    extra_line = space.text_w(space.getattr(w_hookargs, space.newtext("extra_line")))
+    OperationError.write_unraisable_default(space, w_type, w_value, w_tb, err_msg, w_object, extra_line)
+
+
+

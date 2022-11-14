@@ -65,6 +65,13 @@ class TestListObject(BaseApiTest):
         w_s = api.PyList_GetSlice(w_l, 1, 5)
         assert space.unwrap(w_s) == [2, 1]
 
+    def test_extend(self, space, api):
+        w_l = space.newlist([space.wrap(3), space.wrap(2), space.wrap(1)])
+        w_expected = space.newlist([space.wrap(3), space.wrap(2), space.wrap(1),
+                                    space.wrap(3), space.wrap(2), space.wrap(1),])
+        w_result = api._PyList_Extend(w_l, w_l)
+        assert space.eq_w(w_l, w_expected)
+
 class AppTestListObject(AppTestCpythonExtensionBase):
     def test_basic_listobject(self):
         import sys

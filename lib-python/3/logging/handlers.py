@@ -26,10 +26,8 @@ To use, simply 'import logging.handlers' and log away!
 import logging, socket, os, pickle, struct, time, re
 from stat import ST_DEV, ST_INO, ST_MTIME
 import queue
-try:
-    import threading
-except ImportError: #pragma: no cover
-    threading = None
+import threading
+import copy
 
 #
 # Some constants...
@@ -246,6 +244,9 @@ class TimedRotatingFileHandler(BaseRotatingHandler):
 
         self.extMatch = re.compile(self.extMatch, re.ASCII)
         self.interval = self.interval * interval # multiply by units requested
+        # The following line added because the filename passed in could be a
+        # path object (see Issue #27493), but self.baseFilename will be a string
+        filename = self.baseFilename
         if os.path.exists(filename):
             t = os.stat(filename)[ST_MTIME]
         else:
@@ -353,10 +354,10 @@ class TimedRotatingFileHandler(BaseRotatingHandler):
                 suffix = fileName[plen:]
                 if self.extMatch.match(suffix):
                     result.append(os.path.join(dirName, fileName))
-        result.sort()
         if len(result) < self.backupCount:
             result = []
         else:
+            result.sort()
             result = result[:len(result) - self.backupCount]
         return result
 
@@ -440,11 +441,11 @@ class WatchedFileHandler(logging.FileHandler):
             sres = os.fstat(self.stream.fileno())
             self.dev, self.ino = sres[ST_DEV], sres[ST_INO]
 
-    def emit(self, record):
+    def reopenIfNeeded(self):
         """
-        Emit a record.
+        Reopen log file if needed.
 
-        First check if the underlying file has changed, and if it
+        Checks if the underlying file has changed, and if it
         has, close the old stream and reopen the file to get the
         current stream.
         """
@@ -467,6 +468,15 @@ class WatchedFileHandler(logging.FileHandler):
                 # open a new file handle and get new stat info from that fd
                 self.stream = self._open()
                 self._statstream()
+
+    def emit(self, record):
+        """
+        Emit a record.
+
+        If underlying file has changed, reopen the file before emitting the
+        record to it.
+        """
+        self.reopenIfNeeded()
         logging.FileHandler.emit(self, record)
 
 
@@ -803,16 +813,38 @@ class SysLogHandler(logging.Handler):
 
         if isinstance(address, str):
             self.unixsocket = True
-            self._connect_unixsocket(address)
+            # Syslog server may be unavailable during handler initialisation.
+            # C's openlog() function also ignores connection errors.
+            # Moreover, we ignore these errors while logging, so it not worse
+            # to ignore it also here.
+            try:
+                self._connect_unixsocket(address)
+            except OSError:
+                pass
         else:
             self.unixsocket = False
             if socktype is None:
                 socktype = socket.SOCK_DGRAM
-            self.socket = socket.socket(socket.AF_INET, socktype)
-            if socktype == socket.SOCK_STREAM:
-                self.socket.connect(address)
+            host, port = address
+            ress = socket.getaddrinfo(host, port, 0, socktype)
+            if not ress:
+                raise OSError("getaddrinfo returns an empty list")
+            for res in ress:
+                af, socktype, proto, _, sa = res
+                err = sock = None
+                try:
+                    sock = socket.socket(af, socktype, proto)
+                    if socktype == socket.SOCK_STREAM:
+                        sock.connect(sa)
+                    break
+                except OSError as exc:
+                    err = exc
+                    if sock is not None:
+                        sock.close()
+            if err is not None:
+                raise err
+            self.socket = sock
             self.socktype = socktype
-        self.formatter = None
 
     def _connect_unixsocket(self, address):
         use_socktype = self.socktype
@@ -851,7 +883,7 @@ class SysLogHandler(logging.Handler):
             priority = self.priority_names[priority]
         return (facility << 3) | priority
 
-    def close (self):
+    def close(self):
         """
         Closes the socket.
         """
@@ -1149,7 +1181,9 @@ class HTTPHandler(logging.Handler):
             i = host.find(":")
             if i >= 0:
                 host = host[:i]
-            h.putheader("Host", host)
+            # See issue #30904: putrequest call above already adds this header
+            # on Python 3.x.
+            # h.putheader("Host", host)
             if self.method == "POST":
                 h.putheader("Content-type",
                             "application/x-www-form-urlencoded")
@@ -1229,17 +1263,25 @@ class MemoryHandler(BufferingHandler):
     flushing them to a target handler. Flushing occurs whenever the buffer
     is full, or when an event of a certain severity or greater is seen.
     """
-    def __init__(self, capacity, flushLevel=logging.ERROR, target=None):
+    def __init__(self, capacity, flushLevel=logging.ERROR, target=None,
+                 flushOnClose=True):
         """
         Initialize the handler with the buffer size, the level at which
         flushing should occur and an optional target.
 
         Note that without a target being set either here or via setTarget(),
         a MemoryHandler is no use to anyone!
+
+        The ``flushOnClose`` argument is ``True`` for backward compatibility
+        reasons - the old behaviour is that when the handler is closed, the
+        buffer is flushed, even if the flush level hasn't been exceeded nor the
+        capacity exceeded. To prevent this, set ``flushOnClose`` to ``False``.
         """
         BufferingHandler.__init__(self, capacity)
         self.flushLevel = flushLevel
         self.target = target
+        # See Issue #26559 for why this has been added
+        self.flushOnClose = flushOnClose
 
     def shouldFlush(self, record):
         """
@@ -1252,7 +1294,11 @@ class MemoryHandler(BufferingHandler):
         """
         Set the target handler for this handler.
         """
-        self.target = target
+        self.acquire()
+        try:
+            self.target = target
+        finally:
+            self.release()
 
     def flush(self):
         """
@@ -1273,10 +1319,12 @@ class MemoryHandler(BufferingHandler):
 
     def close(self):
         """
-        Flush, set the target to None and lose the buffer.
+        Flush, if appropriately configured, set the target to None and lose the
+        buffer.
         """
         try:
-            self.flush()
+            if self.flushOnClose:
+                self.flush()
         finally:
             self.acquire()
             try:
@@ -1328,15 +1376,19 @@ class QueueHandler(logging.Handler):
         of the record while leaving the original intact.
         """
         # The format operation gets traceback text into record.exc_text
-        # (if there's exception data), and also puts the message into
-        # record.message. We can then use this to replace the original
+        # (if there's exception data), and also returns the formatted
+        # message. We can then use this to replace the original
         # msg + args, as these might be unpickleable. We also zap the
-        # exc_info attribute, as it's no longer needed and, if not None,
-        # will typically not be pickleable.
-        self.format(record)
-        record.msg = record.message
+        # exc_info and exc_text attributes, as they are no longer
+        # needed and, if not None, will typically not be pickleable.
+        msg = self.format(record)
+        # bpo-35726: make copy of record to avoid affecting other handlers in the chain.
+        record = copy.copy(record)
+        record.message = msg
+        record.msg = msg
         record.args = None
         record.exc_info = None
+        record.exc_text = None
         return record
 
     def emit(self, record):
@@ -1350,110 +1402,112 @@ class QueueHandler(logging.Handler):
         except Exception:
             self.handleError(record)
 
-if threading:
-    class QueueListener(object):
+
+class QueueListener(object):
+    """
+    This class implements an internal threaded listener which watches for
+    LogRecords being added to a queue, removes them and passes them to a
+    list of handlers for processing.
+    """
+    _sentinel = None
+
+    def __init__(self, queue, *handlers, respect_handler_level=False):
         """
-        This class implements an internal threaded listener which watches for
-        LogRecords being added to a queue, removes them and passes them to a
-        list of handlers for processing.
+        Initialise an instance with the specified queue and
+        handlers.
         """
-        _sentinel = None
+        self.queue = queue
+        self.handlers = handlers
+        self._thread = None
+        self.respect_handler_level = respect_handler_level
 
-        def __init__(self, queue, *handlers, respect_handler_level=False):
-            """
-            Initialise an instance with the specified queue and
-            handlers.
-            """
-            self.queue = queue
-            self.handlers = handlers
-            self._thread = None
-            self.respect_handler_level = respect_handler_level
+    def dequeue(self, block):
+        """
+        Dequeue a record and return it, optionally blocking.
 
-        def dequeue(self, block):
-            """
-            Dequeue a record and return it, optionally blocking.
+        The base implementation uses get. You may want to override this method
+        if you want to use timeouts or work with custom queue implementations.
+        """
+        return self.queue.get(block)
 
-            The base implementation uses get. You may want to override this method
-            if you want to use timeouts or work with custom queue implementations.
-            """
-            return self.queue.get(block)
+    def start(self):
+        """
+        Start the listener.
 
-        def start(self):
-            """
-            Start the listener.
+        This starts up a background thread to monitor the queue for
+        LogRecords to process.
+        """
+        self._thread = t = threading.Thread(target=self._monitor)
+        t.daemon = True
+        t.start()
 
-            This starts up a background thread to monitor the queue for
-            LogRecords to process.
-            """
-            self._thread = t = threading.Thread(target=self._monitor)
-            t.daemon = True
-            t.start()
+    def prepare(self, record):
+        """
+        Prepare a record for handling.
 
-        def prepare(self , record):
-            """
-            Prepare a record for handling.
+        This method just returns the passed-in record. You may want to
+        override this method if you need to do any custom marshalling or
+        manipulation of the record before passing it to the handlers.
+        """
+        return record
 
-            This method just returns the passed-in record. You may want to
-            override this method if you need to do any custom marshalling or
-            manipulation of the record before passing it to the handlers.
-            """
-            return record
+    def handle(self, record):
+        """
+        Handle a record.
 
-        def handle(self, record):
-            """
-            Handle a record.
+        This just loops through the handlers offering them the record
+        to handle.
+        """
+        record = self.prepare(record)
+        for handler in self.handlers:
+            if not self.respect_handler_level:
+                process = True
+            else:
+                process = record.levelno >= handler.level
+            if process:
+                handler.handle(record)
 
-            This just loops through the handlers offering them the record
-            to handle.
-            """
-            record = self.prepare(record)
-            for handler in self.handlers:
-                if not self.respect_handler_level:
-                    process = True
-                else:
-                    process = record.levelno >= handler.level
-                if process:
-                    handler.handle(record)
+    def _monitor(self):
+        """
+        Monitor the queue for records, and ask the handler
+        to deal with them.
 
-        def _monitor(self):
-            """
-            Monitor the queue for records, and ask the handler
-            to deal with them.
-
-            This method runs on a separate, internal thread.
-            The thread will terminate if it sees a sentinel object in the queue.
-            """
-            q = self.queue
-            has_task_done = hasattr(q, 'task_done')
-            while True:
-                try:
-                    record = self.dequeue(True)
-                    if record is self._sentinel:
-                        break
-                    self.handle(record)
+        This method runs on a separate, internal thread.
+        The thread will terminate if it sees a sentinel object in the queue.
+        """
+        q = self.queue
+        has_task_done = hasattr(q, 'task_done')
+        while True:
+            try:
+                record = self.dequeue(True)
+                if record is self._sentinel:
                     if has_task_done:
                         q.task_done()
-                except queue.Empty:
                     break
+                self.handle(record)
+                if has_task_done:
+                    q.task_done()
+            except queue.Empty:
+                break
 
-        def enqueue_sentinel(self):
-            """
-            This is used to enqueue the sentinel record.
+    def enqueue_sentinel(self):
+        """
+        This is used to enqueue the sentinel record.
 
-            The base implementation uses put_nowait. You may want to override this
-            method if you want to use timeouts or work with custom queue
-            implementations.
-            """
-            self.queue.put_nowait(self._sentinel)
+        The base implementation uses put_nowait. You may want to override this
+        method if you want to use timeouts or work with custom queue
+        implementations.
+        """
+        self.queue.put_nowait(self._sentinel)
 
-        def stop(self):
-            """
-            Stop the listener.
+    def stop(self):
+        """
+        Stop the listener.
 
-            This asks the thread to terminate, and then waits for it to do so.
-            Note that if you don't call this before your application exits, there
-            may be some records still left on the queue, which won't be processed.
-            """
-            self.enqueue_sentinel()
-            self._thread.join()
-            self._thread = None
+        This asks the thread to terminate, and then waits for it to do so.
+        Note that if you don't call this before your application exits, there
+        may be some records still left on the queue, which won't be processed.
+        """
+        self.enqueue_sentinel()
+        self._thread.join()
+        self._thread = None

@@ -311,6 +311,8 @@ class TestRx86_32(object):
                 return []   # MOV AL, [immediate]: there is a special encoding
             if methname == 'MOV8_jr' and args[1] == rx86.R.al:
                 return []   # MOV [immediate], AL: there is a special encoding
+            if methname == 'TEST_ri' and args[0] == rx86.R.eax:
+                return []  # TEST EAX, constant: there is a special encoding
 
             return [args]
 

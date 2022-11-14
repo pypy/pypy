@@ -1,9 +1,12 @@
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+from rpython.jit.codewriter.liveness import OFFSET_SIZE
 from rpython.jit.metainterp.compile import ResumeAtPositionDescr
 from rpython.jit.metainterp.jitexc import get_llexception, reraise
 from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.history import MissingValue
+from rpython.jit.metainterp.support import (
+    adr2int, int2adr, ptr2int, int_signext)
 from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.debug import check_annotation
@@ -15,6 +18,7 @@ from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
 
+SIZE_LIVE_OP = OFFSET_SIZE + 1
 
 def arguments(*argtypes, **kwds):
     resulttype = kwds.pop('returns', None)
@@ -51,12 +55,10 @@ class BlackholeInterpBuilder(object):
         self.setup_descrs(asm.descrs)
         self.metainterp_sd = metainterp_sd
         self.num_interpreters = 0
-        self.blackholeinterps = []
+        self.blackholeinterps = None
 
     def _cleanup_(self):
-        # XXX don't assign a different list to blackholeinterp here,
-        # it confuses the annotator a lot
-        del self.blackholeinterps[:]
+        self.blackholeinterps = None
 
     def setup_insns(self, insns):
         assert len(insns) <= 256, "too many instructions!"
@@ -64,6 +66,7 @@ class BlackholeInterpBuilder(object):
         for key, value in insns.items():
             assert self._insns[value] is None
             self._insns[value] = key
+        self.op_live = insns.get('live/', -1)
         self.op_catch_exception = insns.get('catch_exception/L', -1)
         self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
         #
@@ -233,19 +236,22 @@ class BlackholeInterpBuilder(object):
         verbose = self.verbose
         argtypes = unrolling_iterable(unboundmethod.argtypes)
         resulttype = unboundmethod.resulttype
-        handler.func_name = 'handler_' + name
+        handler.__name__ = 'handler_' + name
         return handler
 
     def acquire_interp(self):
-        if len(self.blackholeinterps) > 0:
-            return self.blackholeinterps.pop()
+        res = self.blackholeinterps
+        if res is not None:
+            self.blackholeinterps = res.back
+            return res
         else:
             self.num_interpreters += 1
             return BlackholeInterpreter(self, self.num_interpreters)
 
     def release_interp(self, interp):
         interp.cleanup_registers()
-        self.blackholeinterps.append(interp)
+        interp.back = self.blackholeinterps
+        self.blackholeinterps = interp
 
 def check_shift_count(b):
     if not we_are_translated():
@@ -295,6 +301,7 @@ class BlackholeInterpreter(object):
         self.tmpreg_r = default_r
         self.tmpreg_f = default_f
         self.jitcode = None
+        self.back = None # chain unused interpreters together via this
         check_annotation(self.registers_i, check_list_of_plain_integers)
 
     def __repr__(self):
@@ -367,7 +374,7 @@ class BlackholeInterpreter(object):
         self.exception_last_value = lltype.nullptr(rclass.OBJECT)
 
     def get_current_position_info(self):
-        return self.jitcode.get_live_vars_info(self.position)
+        return self.jitcode.get_live_vars_info(self.position, self.builder.op_live)
 
     def handle_exception_in_frame(self, e):
         # This frame raises an exception.  First try to see if
@@ -376,6 +383,9 @@ class BlackholeInterpreter(object):
         position = self.position
         if position < len(code):
             opcode = ord(code[position])
+            if opcode == self.builder.op_live: # live, skip it
+                position += SIZE_LIVE_OP
+                opcode = ord(code[position])
             if opcode == self.op_catch_exception:
                 # store the exception on 'self', and jump to the handler
                 self.exception_last_value = e
@@ -398,6 +408,9 @@ class BlackholeInterpreter(object):
         code = self.jitcode.code
         position = self.position
         opcode = ord(code[position])
+        if opcode == self.builder.op_live:
+            position += SIZE_LIVE_OP
+            opcode = ord(code[position])
         if opcode == self.op_rvmprof_code:
             arg1 = self.registers_i[ord(code[position + 1])]
             arg2 = self.registers_i[ord(code[position + 2])]
@@ -539,7 +552,7 @@ class BlackholeInterpreter(object):
         return i
     @arguments("i", "i", returns="i")
     def bhimpl_int_signext(a, b):
-        return heaptracker.int_signext(a, b)
+        return int_signext(a, b)
 
     @arguments("i", "i", returns="i")
     def bhimpl_uint_lt(a, b):
@@ -588,6 +601,24 @@ class BlackholeInterpreter(object):
 
     @arguments("r", "i")
     def bhimpl_record_exact_class(a, b):
+        pass
+
+    @arguments("cpu", "i", "i", "I", "R", "d")
+    def bhimpl_record_known_result_i_ir_v(cpu, res, func, args_i, args_r,
+                                     calldescr):
+        pass
+
+    @arguments("cpu", "r", "i", "I", "R", "d")
+    def bhimpl_record_known_result_r_ir_v(cpu, res, func, args_i, args_r,
+                                     calldescr):
+        pass
+
+    @arguments("r", "r")
+    def bhimpl_record_exact_value_r(a, b):
+        pass
+
+    @arguments("i", "i")
+    def bhimpl_record_exact_value_i(a, b):
         pass
 
     @arguments("i", returns="i")
@@ -930,7 +961,7 @@ class BlackholeInterpreter(object):
 
     @arguments("self", "i", "L", "pc", returns="L")
     def bhimpl_goto_if_exception_mismatch(self, vtable, target, pc):
-        adr = heaptracker.int2adr(vtable)
+        adr = int2adr(vtable)
         bounding_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
         real_instance = self.exception_last_value
         assert real_instance
@@ -943,8 +974,7 @@ class BlackholeInterpreter(object):
     def bhimpl_last_exception(self):
         real_instance = self.exception_last_value
         assert real_instance
-        adr = llmemory.cast_ptr_to_adr(real_instance.typeptr)
-        return heaptracker.adr2int(adr)
+        return ptr2int(real_instance.typeptr)
 
     @arguments("self", returns="r")
     def bhimpl_last_exc_value(self):
@@ -1050,7 +1080,7 @@ class BlackholeInterpreter(object):
 
     def get_portal_runner(self, jdindex):
         jitdriver_sd = self.builder.metainterp_sd.jitdrivers_sd[jdindex]
-        fnptr = heaptracker.adr2int(jitdriver_sd.portal_runner_adr)
+        fnptr = adr2int(jitdriver_sd.portal_runner_adr)
         calldescr = jitdriver_sd.mainjitcode.calldescr
         return fnptr, calldescr
 
@@ -1233,45 +1263,45 @@ class BlackholeInterpreter(object):
 
     @arguments("cpu", "j", "R", returns="i")
     def bhimpl_inline_call_r_i(cpu, jitcode, args_r):
-        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_i(adr2int(jitcode.fnaddr),
                              None, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "R", returns="r")
     def bhimpl_inline_call_r_r(cpu, jitcode, args_r):
-        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_r(adr2int(jitcode.fnaddr),
                              None, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "R")
     def bhimpl_inline_call_r_v(cpu, jitcode, args_r):
-        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_v(adr2int(jitcode.fnaddr),
                              None, args_r, None, jitcode.calldescr)
 
     @arguments("cpu", "j", "I", "R", returns="i")
     def bhimpl_inline_call_ir_i(cpu, jitcode, args_i, args_r):
-        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_i(adr2int(jitcode.fnaddr),
                              args_i, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", returns="r")
     def bhimpl_inline_call_ir_r(cpu, jitcode, args_i, args_r):
-        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_r(adr2int(jitcode.fnaddr),
                              args_i, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R")
     def bhimpl_inline_call_ir_v(cpu, jitcode, args_i, args_r):
-        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_v(adr2int(jitcode.fnaddr),
                              args_i, args_r, None, jitcode.calldescr)
 
     @arguments("cpu", "j", "I", "R", "F", returns="i")
     def bhimpl_inline_call_irf_i(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_i(adr2int(jitcode.fnaddr),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F", returns="r")
     def bhimpl_inline_call_irf_r(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_r(adr2int(jitcode.fnaddr),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F", returns="f")
     def bhimpl_inline_call_irf_f(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_f(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_f(adr2int(jitcode.fnaddr),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F")
     def bhimpl_inline_call_irf_v(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_v(adr2int(jitcode.fnaddr),
                              args_i, args_r, args_f, jitcode.calldescr)
 
     @arguments("cpu", "i", "d", returns="r")
@@ -1558,6 +1588,10 @@ class BlackholeInterpreter(object):
         from rpython.rlib.rvmprof import cintf
         cintf.jit_rvmprof_code(leaving, unique_id)
 
+    @arguments("pc", returns="L")
+    def bhimpl_live(pc):
+        return pc + OFFSET_SIZE
+
     # ----------
     # helpers to resume running in blackhole mode when a guard failed
 
@@ -1622,7 +1656,7 @@ class BlackholeInterpreter(object):
         elif kind == 'i':
             raise jitexc.DoneWithThisFrameInt(self.get_tmpreg_i())
         elif kind == 'r':
-            raise jitexc.DoneWithThisFrameRef(self.cpu, self.get_tmpreg_r())
+            raise jitexc.DoneWithThisFrameRef(self.get_tmpreg_r())
         elif kind == 'f':
             raise jitexc.DoneWithThisFrameFloat(self.get_tmpreg_f())
         else:
@@ -1631,7 +1665,7 @@ class BlackholeInterpreter(object):
     def _exit_frame_with_exception(self, e):
         sd = self.builder.metainterp_sd
         e = lltype.cast_opaque_ptr(llmemory.GCREF, e)
-        raise jitexc.ExitFrameWithExceptionRef(self.cpu, e)
+        raise jitexc.ExitFrameWithExceptionRef(e)
 
     def _handle_jitexception_in_portal(self, e):
         # This case is really rare, but can occur if

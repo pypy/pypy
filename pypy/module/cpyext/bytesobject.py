@@ -2,7 +2,8 @@ from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers_flags,
-    PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL, slot_function)
+    PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL, slot_function,
+    PyVarObject)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
@@ -81,10 +82,11 @@ def bytes_attach(space, py_obj, w_obj, w_userdata=None):
     py_str = rffi.cast(PyBytesObject, py_obj)
     s = space.bytes_w(w_obj)
     len_s = len(s)
-    if py_str.c_ob_size  < len_s:
+    ob_size = rffi.cast(PyVarObject, py_str).c_ob_size
+    if ob_size  < len_s:
         raise oefmt(space.w_ValueError,
             "bytes_attach called on object with ob_size %d but trying to store %d",
-            py_str.c_ob_size, len_s)
+            ob_size, len_s)
     with rffi.scoped_nonmovingbuffer(s) as s_ptr:
         rffi.c_memcpy(py_str.c_ob_sval, s_ptr, len_s)
     py_str.c_ob_sval[len_s] = '\0'
@@ -100,7 +102,8 @@ def bytes_realize(space, py_obj):
     be modified after this call.
     """
     py_str = rffi.cast(PyBytesObject, py_obj)
-    s = rffi.charpsize2str(py_str.c_ob_sval, py_str.c_ob_size)
+    ob_size = rffi.cast(PyVarObject, py_str).c_ob_size
+    s = rffi.charpsize2str(py_str.c_ob_sval, ob_size)
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(W_BytesObject, w_type)
     w_obj.__init__(s)
@@ -163,13 +166,14 @@ def PyBytes_AsStringAndSize(space, ref, data, length):
             "expected bytes, %T found", from_ref(space, ref))
     ref_str = rffi.cast(PyBytesObject, ref)
     data[0] = ref_str.c_ob_sval
+    ob_size = rffi.cast(PyVarObject, ref_str).c_ob_size
     if length:
-        length[0] = ref_str.c_ob_size
+        length[0] = ob_size
     else:
         i = 0
         while ref_str.c_ob_sval[i] != '\0':
             i += 1
-        if i != ref_str.c_ob_size:
+        if i != ob_size:
             raise oefmt(space.w_TypeError,
                         "expected string without null bytes")
     return 0
@@ -177,7 +181,7 @@ def PyBytes_AsStringAndSize(space, ref, data, length):
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyBytes_Size(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
-        ref = rffi.cast(PyBytesObject, ref)
+        ref = rffi.cast(PyVarObject, ref)
         return ref.c_ob_size
     else:
         w_obj = from_ref(space, ref)
@@ -207,7 +211,7 @@ def _PyBytes_Resize(space, ref, newsize):
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
-    oldsize = py_str.c_ob_size
+    oldsize = rffi.cast(PyVarObject, py_str).c_ob_size
     if oldsize < newsize:
         to_cp = oldsize
     for i in range(to_cp):

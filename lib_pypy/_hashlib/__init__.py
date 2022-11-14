@@ -7,17 +7,37 @@ from _cffi_ssl._stdssl.utility import (_str_to_ffi_buffer, _bytes_with_len,
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
 
+def get_errstr():
+    # From CPython's _setException
+    errcode = lib.ERR_peek_last_error();
+    if not errcode:
+        return "unknown reasons"
+
+    errlib = lib.ERR_lib_error_string(errcode)
+    func = lib.ERR_func_error_string(errcode)
+    reason = lib.ERR_reason_error_string(errcode)
+
+    if errlib and func:
+        return "[%s: %s] %s" % (_str_from_buf(errlib), _str_from_buf(func), _str_from_buf(reason))
+    elif errlib:
+        return "[%s] %s" % (_str_from_buf(errlib), _str_from_buf(reason))
+    else:
+        return _str_from_buf(reason)
+
 
 def new(name, string=b''):
-    h = Hash(name)
+    h = HASH(name)
     h.update(string)
     return h
 
-class Hash(object):
+class HASH(object):
 
     def __init__(self, name, copy_from=None):
         self.ctx = ffi.NULL
-        self.name = name
+        try:
+            self.name = name.lower().replace('-', '_')
+        except AttributeError:
+            raise TypeError('In HASH(name), name must be a string')
         digest_type = self.digest_type_by_name()
         self.digest_size = lib.EVP_MD_size(digest_type)
 
@@ -37,15 +57,16 @@ class Hash(object):
                 if not lib.EVP_MD_CTX_copy_ex(ctx, copy_from):
                     raise ValueError
             else:
-                # cpython uses EVP_DigestInit
-                lib.EVP_DigestInit_ex(ctx, digest_type, ffi.NULL)
+                if lib.EVP_DigestInit_ex(ctx, digest_type, ffi.NULL) == 0:
+                    raise ValueError(get_errstr())
             self.ctx = ctx
         except:
             # no need to gc ctx! 
             raise
 
     def digest_type_by_name(self):
-        c_name = _str_to_ffi_buffer(self.name)
+        ssl_name = _inverse_name_mapping.get(self.name, self.name)
+        c_name = _str_to_ffi_buffer(ssl_name)
         digest_type = lib.EVP_get_digestbyname(c_name)
         if not digest_type:
             raise ValueError("unknown hash function")
@@ -56,15 +77,21 @@ class Hash(object):
         return "<%s HASH object at 0x%s>" % (self.name, id(self))
 
     def update(self, string):
+        if isinstance(string, str):
+            raise TypeError("Unicode-objects must be encoded before hashing")
+        elif isinstance(string, memoryview):
+            # issue 2756: ffi.from_buffer() cannot handle memoryviews
+            string = string.tobytes()
         buf = ffi.from_buffer(string)
         with self.lock:
             # XXX try to not release the GIL for small requests
-            lib.EVP_DigestUpdate(self.ctx, buf, len(buf))
+            if lib.EVP_DigestUpdate(self.ctx, buf, len(buf)) == 0:
+                raise ValueError(get_errstr())
 
     def copy(self):
         """Return a copy of the hash object."""
         with self.lock:
-            return Hash(self.name, copy_from=self.ctx)
+            return HASH(self.name, copy_from=self.ctx)
 
     def digest(self):
         """Return the digest value as a string of binary data."""
@@ -110,25 +137,49 @@ class NameFetcher:
 def _fetch_names():
     name_fetcher = NameFetcher()
     handle = ffi.new_handle(name_fetcher)
-    lib.OBJ_NAME_do_all(lib.OBJ_NAME_TYPE_MD_METH, hash_name_mapper_callback, handle)
+    if lib.OPENSSL_VERSION_NUMBER >= int(0x30000000):
+        lib.EVP_MD_do_all_provided(ffi.cast("OSSL_LIB_CTX*", 0),
+                                   _openssl_hash_name_mapper, handle)
+    else:
+        lib.EVP_MD_do_all(_openssl_hash_name_mapper, handle)
     if name_fetcher.error:
         raise name_fetcher.error
     meth_names = name_fetcher.meth_names
     name_fetcher.meth_names = None
     return frozenset(meth_names)
 
-@ffi.callback("void(OBJ_NAME*, void*)")
-def hash_name_mapper_callback(obj_name, userdata):
-    if not obj_name:
+_name_mapping = {
+    'blake2s256': 'blake2s',
+    'blake2b512': 'blake2b',
+    'shake128': 'shake_128',
+    'shake256': 'shake_256',
+    'md5-sha1': 'md5_sha1',
+    'sha512-224': 'sha512_224',
+    'sha512-256': 'sha512_256',
+    }
+
+_inverse_name_mapping = {value: key for key, value in _name_mapping.items()}
+    
+if lib.OPENSSL_VERSION_NUMBER >= int(0x30000000):
+    @ffi.callback("void(EVP_MD*, void*)")
+    def _openssl_hash_name_mapper(evp_md, userdata):
+        return __openssl_hash_name_mapper(evp_md, userdata)
+    
+else:
+    @ffi.callback("void(EVP_MD*, const char *, const char *, void*)")
+    def _openssl_hash_name_mapper(evp_md, from_name, to_name, userdata):
+        return __openssl_hash_name_mapper(evp_md, userdata)
+
+def __openssl_hash_name_mapper(evp_md, userdata):
+    if not evp_md:
+        return
+    nid = lib.EVP_MD_nid(evp_md)
+    if nid == lib.NID_undef:
         return
     name_fetcher = ffi.from_handle(userdata)
-    # Ignore aliased names, they pollute the list and OpenSSL appears
-    # to have a its own definition of alias as the resulting list
-    # still contains duplicate and alternate names for several
-    # algorithms.
-    if obj_name.alias != 0:
-        return
-    name = _str_from_buf(obj_name.name)
+    from_name = lib.OBJ_nid2ln(nid)
+    lowered = _str_from_buf(from_name).lower().replace('-', '_')
+    name = _name_mapping.get(lowered, lowered)
     name_fetcher.meth_names.append(name)
 
 openssl_md_meth_names = _fetch_names()
@@ -136,11 +187,10 @@ del _fetch_names
 
 # shortcut functions
 def make_new_hash(name, funcname):
-    @builtinify
     def new_hash(string=b''):
         return new(name, string)
     new_hash.__name__ = funcname
-    return new_hash
+    return builtinify(new_hash)
 
 for _name in algorithms:
     _newname = 'openssl_%s' % (_name,)

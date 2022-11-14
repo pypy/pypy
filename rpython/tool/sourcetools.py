@@ -208,7 +208,7 @@ def compile_template(source, resultname):
         after  = "# no unindent\n    return %s" % resultname)
 
     d = {}
-    exec source.compile() in caller.f_globals, d
+    exec(source.compile(), caller.f_globals, d)
     container = d['container']
     return container(*values)
 
@@ -217,13 +217,13 @@ def compile_template(source, resultname):
 def func_with_new_name(func, newname, globals=None):
     """Make a renamed copy of a function."""
     if globals is None:
-        globals = func.func_globals
-    f = types.FunctionType(func.func_code, globals, newname,
-            func.func_defaults, func.func_closure)
-    if func.func_dict:
-        f.func_dict = {}
-        f.func_dict.update(func.func_dict)
-    f.func_doc = func.func_doc
+        globals = func.__globals__
+    f = types.FunctionType(func.__code__, globals, newname,
+            func.__defaults__, func.__closure__)
+    if func.__dict__:
+        f.__dict__ = {}
+        f.__dict__.update(func.__dict__)
+    f.__doc__ = func.__doc__
     return f
 
 def func_renamer(newname):
@@ -263,7 +263,7 @@ def nice_repr_for_func(fn, name=None):
         if name is not None and cls is not None:
             name = "%s.%s" % (cls.__name__, name)
     try:
-        firstlineno = fn.func_code.co_firstlineno
+        firstlineno = fn.__code__.co_firstlineno
     except AttributeError:
         firstlineno = -1
     return "(%s:%d)%s" % (mod or '?', firstlineno, name or 'UNKNOWN')
@@ -282,15 +282,15 @@ def rpython_wrapper(f, template, templateargs=None, **globaldict):
     assert not srckeywords, '**kwargs not supported by rpython_wrapper'
     #
     arglist = ', '.join(srcargs)
-    templateargs.update(name=f.func_name,
+    templateargs.update(name=f.__name__,
                         arglist=arglist,
-                        original=f.func_name+'_original')
+                        original=f.__name__+'_original')
     src = template.format(**templateargs)
     src = py.code.Source(src)
     #
-    globaldict[f.func_name + '_original'] = f
-    exec src.compile() in globaldict
-    result = globaldict[f.func_name]
-    result.func_defaults = f.func_defaults
-    result.func_dict.update(f.func_dict)
+    globaldict[f.__name__ + '_original'] = f
+    exec(src.compile(), globaldict)
+    result = globaldict[f.__name__]
+    result.__defaults__ = f.__defaults__
+    result.__dict__.update(f.__dict__)
     return result

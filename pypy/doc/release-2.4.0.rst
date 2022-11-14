@@ -7,7 +7,7 @@ enhancements and bug fixes.
 
 You can download the PyPy 2.4.0 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects.
@@ -26,12 +26,12 @@ any donations up to $10k!  The three sub-projects are:
 * `NumPy`_ which requires installation of our fork of upstream numpy, 
   available `on bitbucket`_
 
-.. _`Py3k`: http://pypy.org/py3donate.html
-.. _`STM`: http://pypy.org/tmdonate2.html
-.. _`NumPy`: http://pypy.org/numpydonate.html
+.. _`Py3k`: https://pypy.org/py3donate.html
+.. _`STM`: https://pypy.org/tmdonate2.html
+.. _`NumPy`: https://pypy.org/numpydonate.html
 .. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy   
 .. _`the Python Software Foundation`: https://www.python.org/psf/
-.. _`match funds`: http://morepypy.blogspot.com/2014/09/python-software-foundation-matching.html
+.. _`match funds`: https://morepypy.blogspot.com/2014/09/python-software-foundation-matching.html
 
 What is PyPy?
 =============
@@ -48,8 +48,8 @@ While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
-.. _`pypy 2.4 and cpython 2.7.x`: http://speed.pypy.org
-.. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`pypy 2.4 and cpython 2.7.x`: https://speed.pypy.org
+.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights
 ==========
@@ -105,9 +105,9 @@ for more information see `whats-new`_:
   
 * Many issues were resolved_ since the 2.3.1 release on June 8
 
-.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.4.0.html
+.. _`whats-new`: https://doc.pypy.org/en/latest/whatsnew-2.4.0.html
 .. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
-.. _sandbox: http://doc.pypy.org/en/latest/sandbox.html   
+.. _sandbox: https://doc.pypy.org/en/latest/sandbox.html   
 
 We have further improvements on the way: rpython file handling,
 numpy linalg compatibility, as well

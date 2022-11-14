@@ -27,10 +27,6 @@ import tkinter
 from tkinter import *
 from tkinter import _cnfmerge
 
-# WARNING - TkVersion is a limited precision floating point number
-if TkVersion < 3.999:
-    raise ImportError("This version of Tix.py requires Tk 4.0 or higher")
-
 import _tkinter # If this fails your Python may not be configured for Tk
 
 # Some more constants (for consistency with Tkinter)
@@ -391,9 +387,7 @@ class TixWidget(tkinter.Widget):
     # These are missing from Tkinter
     def image_create(self, imgtype, cnf={}, master=None, **kw):
         if not master:
-            master = tkinter._default_root
-            if not master:
-                raise RuntimeError('Too early to create image')
+            master = self
         if kw and cnf: cnf = _cnfmerge((cnf, kw))
         elif kw: cnf = kw
         options = ()
@@ -472,16 +466,14 @@ class DisplayStyle:
     """DisplayStyle - handle configuration options shared by
     (multiple) Display Items"""
 
-    def __init__(self, itemtype, cnf={}, **kw):
-        if 'refwindow' in kw:
-            master = kw['refwindow']
-        elif 'refwindow' in cnf:
-            master = cnf['refwindow']
-        else:
-            master = tkinter._default_root
-            if not master:
-                raise RuntimeError("Too early to create display style: "
-                                   "no root window")
+    def __init__(self, itemtype, cnf={}, *, master=None, **kw):
+        if not master:
+            if 'refwindow' in kw:
+                master = kw['refwindow']
+            elif 'refwindow' in cnf:
+                master = cnf['refwindow']
+            else:
+                master = tkinter._get_default_root('create display style')
         self.tk = master.tk
         self.stylename = self.tk.call('tixDisplayStyle', itemtype,
                             *self._options(cnf,kw) )
@@ -1116,7 +1108,7 @@ class ListNoteBook(TixWidget):
 
     def pages(self):
         # Can't call subwidgets_all directly because we don't want .nbframe
-        names = self.tk.split(self.tk.call(self._w, 'pages'))
+        names = self.tk.splitlist(self.tk.call(self._w, 'pages'))
         ret = []
         for x in names:
             ret.append(self.subwidget(x))
@@ -1162,7 +1154,7 @@ class NoteBook(TixWidget):
 
     def pages(self):
         # Can't call subwidgets_all directly because we don't want .nbframe
-        names = self.tk.split(self.tk.call(self._w, 'pages'))
+        names = self.tk.splitlist(self.tk.call(self._w, 'pages'))
         ret = []
         for x in names:
             ret.append(self.subwidget(x))
@@ -1585,8 +1577,7 @@ class CheckList(TixWidget):
         '''Returns a list of items whose status matches status. If status is
      not specified, the list of items in the "on" status will be returned.
      Mode can be on, off, default'''
-        c = self.tk.split(self.tk.call(self._w, 'getselection', mode))
-        return self.tk.splitlist(c)
+        return self.tk.splitlist(self.tk.call(self._w, 'getselection', mode))
 
     def getstatus(self, entrypath):
         '''Returns the current status of entryPath.'''
@@ -1894,7 +1885,7 @@ class Grid(TixWidget, XView, YView):
         containing the current size setting of the given column.  When
         option-value pairs are given, the corresponding options of the
         size setting of the given column are changed. Options may be one
-        of the follwing:
+        of the following:
               pad0 pixels
                      Specifies the paddings to the left of a column.
               pad1 pixels
@@ -1907,7 +1898,7 @@ class Grid(TixWidget, XView, YView):
                      or a real number following by the word chars
                      (e.g. 3.4chars) that sets the width of the column to the
                      given number of characters."""
-        return self.tk.split(self.tk.call(self._w, 'size', 'column', index,
+        return self.tk.splitlist(self.tk.call(self._w, 'size', 'column', index,
                              *self._options({}, kw)))
 
     def size_row(self, index, **kw):
@@ -1919,7 +1910,7 @@ class Grid(TixWidget, XView, YView):
         When no option-value pair is given, this command returns a list con-
         taining the current size setting of the given row . When option-value
         pairs are given, the corresponding options of the size setting of the
-        given row are changed. Options may be one of the follwing:
+        given row are changed. Options may be one of the following:
               pad0 pixels
                      Specifies the paddings to the top of a row.
               pad1 pixels
@@ -1932,7 +1923,7 @@ class Grid(TixWidget, XView, YView):
                      or a real number following by the word chars
                      (e.g. 3.4chars) that sets the height of the row to the
                      given number of characters."""
-        return self.tk.split(self.tk.call(
+        return self.tk.splitlist(self.tk.call(
                     self, 'size', 'row', index, *self._options({}, kw)))
 
     def unset(self, x, y):

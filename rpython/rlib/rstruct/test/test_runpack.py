@@ -3,15 +3,16 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct import standardfmttable
 from rpython.rlib.rstruct.error import StructError
-from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.rarithmetic import LONG_BIT, long_typecode
 import struct
 
 class TestRStruct(BaseRtypingTest):
     def test_unpack(self):
         import sys
         pad = '\x00' * (LONG_BIT//8-1)    # 3 or 7 null bytes
+        fmt = 's' + long_typecode + long_typecode
         def fn():
-            return runpack('sll', 'a'+pad+'\x03'+pad+'\x04'+pad)[1]
+            return runpack(fmt, 'a'+pad+'\x03'+pad+'\x04'+pad)[1]
         result = 3 if sys.byteorder == 'little' else 3 << (LONG_BIT-8)
         assert fn() == result
         assert self.interpret(fn, []) == result
@@ -109,6 +110,15 @@ class TestRStruct(BaseRtypingTest):
         assert unpack(">q", 'ABCDEFGH') == 0x4142434445464748
         assert unpack(">q", '\xbeMLKJIHH') == -0x41B2B3B4B5B6B7B8
         assert unpack(">Q", '\x81BCDEFGH') == 0x8142434445464748
+
+    def test_align(self):
+        data = struct.pack('BBhi', 1, 2, 3, 4)
+        def fn():
+            a, b, c, d = runpack('BBhi', data)
+            return a + (b << 4) + (c << 8) + (d << 12)
+        assert fn() == 0x4321
+        assert self.interpret(fn, []) == 0x4321
+
 
 
 class TestNoFastPath(TestRStruct):

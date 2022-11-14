@@ -23,6 +23,18 @@ def vars(*obj):
     except AttributeError:
         raise TypeError("vars() argument must have __dict__ attribute")
 
+# These are defined in the types module, but we cannot always import it.
+# virtualenv when run with -S for instance. Instead, copy the code to create
+# the needed types to be checked.
+class types(object):
+    class _C:
+        def _m(self): pass
+    ModuleType = type(sys)
+    ClassType = type(_C)
+    TypeType = type
+    _x = _C()
+    InstanceType = type(_x)
+
 def dir(*args):
     """dir([object]) -> list of strings
 

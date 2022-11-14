@@ -113,8 +113,8 @@ class Test_Assertions(unittest.TestCase):
                 a = A()
                 wr = weakref.ref(a)
                 try:
-                    raise IOError
-                except IOError:
+                    raise OSError
+                except OSError:
                     raise ValueError
 
             def test_functional(self):
@@ -226,9 +226,11 @@ class TestLongMessage(unittest.TestCase):
                              "^1 == 1 : oops$"])
 
     def testAlmostEqual(self):
-        self.assertMessages('assertAlmostEqual', (1, 2),
-                            ["^1 != 2 within 7 places$", "^oops$",
-                             "^1 != 2 within 7 places$", "^1 != 2 within 7 places : oops$"])
+        self.assertMessages(
+            'assertAlmostEqual', (1, 2),
+            [r"^1 != 2 within 7 places \(1 difference\)$", "^oops$",
+             r"^1 != 2 within 7 places \(1 difference\)$",
+             r"^1 != 2 within 7 places \(1 difference\) : oops$"])
 
     def testNotAlmostEqual(self):
         self.assertMessages('assertNotAlmostEqual', (1, 1),
@@ -243,7 +245,7 @@ class TestLongMessage(unittest.TestCase):
         # Error messages are multiline so not testing on full message
         # assertTupleEqual and assertListEqual delegate to this method
         self.assertMessages('assertSequenceEqual', ([], [None]),
-                            ["\+ \[None\]$", "^oops$", r"\+ \[None\]$",
+                            [r"\+ \[None\]$", "^oops$", r"\+ \[None\]$",
                              r"\+ \[None\] : oops$"])
 
     def testAssertSetEqual(self):
@@ -253,21 +255,21 @@ class TestLongMessage(unittest.TestCase):
 
     def testAssertIn(self):
         self.assertMessages('assertIn', (None, []),
-                            ['^None not found in \[\]$', "^oops$",
-                             '^None not found in \[\]$',
-                             '^None not found in \[\] : oops$'])
+                            [r'^None not found in \[\]$', "^oops$",
+                             r'^None not found in \[\]$',
+                             r'^None not found in \[\] : oops$'])
 
     def testAssertNotIn(self):
         self.assertMessages('assertNotIn', (None, [None]),
-                            ['^None unexpectedly found in \[None\]$', "^oops$",
-                             '^None unexpectedly found in \[None\]$',
-                             '^None unexpectedly found in \[None\] : oops$'])
+                            [r'^None unexpectedly found in \[None\]$', "^oops$",
+                             r'^None unexpectedly found in \[None\]$',
+                             r'^None unexpectedly found in \[None\] : oops$'])
 
     def testAssertDictEqual(self):
         self.assertMessages('assertDictEqual', ({}, {'key': 'value'}),
                             [r"\+ \{'key': 'value'\}$", "^oops$",
-                             "\+ \{'key': 'value'\}$",
-                             "\+ \{'key': 'value'\} : oops$"])
+                             r"\+ \{'key': 'value'\}$",
+                             r"\+ \{'key': 'value'\} : oops$"])
 
     def testAssertDictContainsSubset(self):
         with warnings.catch_warnings():

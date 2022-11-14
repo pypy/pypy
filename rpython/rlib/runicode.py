@@ -8,8 +8,9 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit, nonconst
 
 
-# We always use MAXUNICODE = 0x10ffff when unicode objects use utf8
-if rffi.sizeof(lltype.UniChar) == 4:
+# We always use MAXUNICODE = 0x10ffff when unicode objects use utf8,
+# which is now the default for rpython
+if 1 or rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff
     allow_surrogate_by_default = False
 else:
@@ -407,8 +408,9 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                 _encodeUCS4(result, ch)
     return result.build()
 unicode_encode_utf_8_elidable = jit.elidable(
+    enforceargs(s=unicode, allow_surrogates=bool)(
     func_with_new_name(unicode_encode_utf_8_impl,
-                       "unicode_encode_utf_8_elidable"))
+                       "unicode_encode_utf_8_elidable")))
 
 def unicode_encode_utf8sp(s, size):
     # Surrogate-preserving utf-8 encoding.  Any surrogate character
@@ -1578,7 +1580,7 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
         if quotes:
             if prefix:
                 result.append(STR(prefix))
-            if s.find(u'\'') != -1 and s.find(u'\"') == -1:
+            if s.find(STR("'")) != -1 and s.find(STR('"')) == -1:
                 quote = ord('\"')
                 result.append(STR('"'))
             else:
@@ -1596,7 +1598,7 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
             oc = ord(ch)
 
             # Escape quotes
-            if quotes and (oc == quote or ch == '\\'):
+            if quotes and (oc == quote or ch == STR('\\')):
                 result.append(STR('\\'))
                 result.append(CHR(oc))
                 pos += 1
@@ -1619,13 +1621,13 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
                 pos -= 1
 
             # Map special whitespace to '\t', \n', '\r'
-            if ch == '\t':
+            if ch == STR('\t'):
                 result.append(STR('\\t'))
-            elif ch == '\n':
+            elif ch == STR('\n'):
                 result.append(STR('\\n'))
-            elif ch == '\r':
+            elif ch == STR('\r'):
                 result.append(STR('\\r'))
-            elif ch == '\\':
+            elif ch == STR('\\'):
                 result.append(STR('\\\\'))
 
             # Map non-printable or non-ascii to '\xhh' or '\uhhhh'
@@ -1902,7 +1904,9 @@ if sys.platform == 'win32':
                 if MultiByteToWideChar(CP_ACP, flags,
                                        dataptr, size, buf.raw, usize) == 0:
                     _decode_mbcs_error(s, errorhandler)
-                return buf.str(usize), size
+                ret = buf.str(usize)
+                assert ret is not None
+                return ret, size
 
     def unicode_encode_mbcs(s, size, errors, errorhandler=None,
                             force_replace=True):

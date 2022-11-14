@@ -98,7 +98,7 @@ def make_test_case((fnname, args, expected), dict):
     #
     dict[fnname] = dict.get(fnname, 0) + 1
     testname = 'test_%s_%d' % (fnname, dict[fnname])
-    test_func.func_name = testname
+    test_func.__name__ = testname
     setattr(TestMath, testname, test_func)
 
 _d = {}

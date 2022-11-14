@@ -3,6 +3,7 @@ import sys
 import StringIO
 
 from pypy.module.cpyext.state import State
+from pypy.module.cpyext.pyobject import make_ref
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi
@@ -70,6 +71,18 @@ class TestExceptions(BaseApiTest):
         assert ": UserWarning: this is a warning" in err
         rffi.free_charp(message)
 
+    def test_WarnExplicit(self, space, api, capfd):
+        message = rffi.str2charp("this is a warning")
+        filename = rffi.str2charp("file.py")
+        lineno = 12
+        module = None
+        api.PyErr_WarnExplicit(None, message, filename, lineno, None, None)
+        space.call_method(space.sys.get('stderr'), "flush")
+        out, err = capfd.readouterr()
+        assert ": UserWarning: this is a warning" in err
+        rffi.free_charp(message)
+        rffi.free_charp(filename)
+
     def test_print_err(self, space, api, capfd):
         api.PyErr_SetObject(space.w_Exception, space.wrap("cpyext is cool"))
         api.PyErr_Print()
@@ -77,14 +90,6 @@ class TestExceptions(BaseApiTest):
         out, err = capfd.readouterr()
         assert "cpyext is cool" in err
         assert not api.PyErr_Occurred()
-
-    def test_WriteUnraisable(self, space, api, capfd):
-        api.PyErr_SetObject(space.w_ValueError, space.wrap("message"))
-        w_where = space.wrap("location")
-        api.PyErr_WriteUnraisable(w_where)
-        space.call_method(space.sys.get('stderr'), "flush")
-        out, err = capfd.readouterr()
-        assert "Exception ignored in: 'location'\nValueError: message" == err.strip()
 
     @pytest.mark.skipif(True, reason='not implemented yet')
     def test_interrupt_occurred(self, space, api):
@@ -98,6 +103,30 @@ class TestExceptions(BaseApiTest):
         assert recieved == ['ok']
         assert api.PyOS_InterruptOccurred()
 
+    def test_restore_traceback(self, space, api):
+        string = rffi.str2charp("spam and eggs")
+        api.PyErr_SetString(space.w_ValueError, string)
+
+        state = space.fromcache(State)
+        operror = state.clear_exception()
+
+        # Fake a traceback.
+        operror.set_traceback(space.w_True) # this doesn't really need to be a real traceback for this test.
+
+        w_type = operror.w_type
+        w_value = operror.get_w_value(space)
+        w_tb = operror.get_w_traceback(space)
+
+        assert not space.eq_w(w_tb, space.w_None)
+
+        api.PyErr_Restore(make_ref(space, w_type), make_ref(space, w_value), make_ref(space, w_tb))
+
+        operror = state.clear_exception()
+        w_tb_restored = operror.get_w_traceback(space)
+
+        assert space.eq_w(w_tb_restored, w_tb)
+        rffi.free_charp(string)
+
 class AppTestFetch(AppTestCpythonExtensionBase):
     def setup_class(cls):
         from pypy.interpreter.test.test_fsencode import get_special_char
@@ -105,6 +134,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         cls.special_char = get_special_char()
         cls.w_special_char = space.wrap(cls.special_char)
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
 
     def test_occurred(self):
@@ -196,7 +226,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
 
     def test_SetFromErrno(self):
         import sys
-        if sys.platform != 'win32':
+        if not self.runappdirect:
             skip("callbacks through ll2ctypes modify errno")
         import errno, os
 
@@ -212,6 +242,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         try:
             module.set_from_errno()
         except OSError as e:
+            print(e.errno, errno.EBADF)
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)
             assert e.filename is None
@@ -239,13 +270,17 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == "/path/to/file"
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
         exc_info = raises(OSError, module.set_from_errno_special)
         assert exc_info.value.filename == "/path/to/%s" % (char, )
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilename_NULL(self):
         import errno, os
@@ -261,8 +296,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename is None
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilenameObject__PyUnicode(self):
         import errno, os
@@ -276,12 +313,26 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                  Py_DECREF(filenameObject);
                  return NULL;
                  '''),
+                 ("set_from_errno2", "METH_NOARGS",
+                 '''
+                 PyObject *filenameObject = PyUnicode_FromString("/path/to/file");
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilenameObjects(PyExc_OSError,
+                                                      filenameObject, filenameObject);
+                 Py_DECREF(filenameObject);
+                 return NULL;
+                 '''),
                 ],
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == "/path/to/file"
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        exc_info = raises(OSError, module.set_from_errno2)
+        assert exc_info.value.filename == "/path/to/file"
+        assert exc_info.value.filename2 == "/path/to/file"
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilenameObject__PyLong(self):
         import errno, os
@@ -299,8 +350,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == 3
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilenameObject__PyList(self):
         import errno, os
@@ -318,8 +371,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == [1, 2, "three"]
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilenameObject__PyTuple(self):
         import errno, os
@@ -337,8 +392,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == (1, 2, "three")
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilenameObject__Py_None(self):
         import errno, os
@@ -356,8 +413,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename is None
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_PyErr_Display(self):
         from sys import version_info
@@ -498,8 +557,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
 
              /* Proceed in thread 1 first */
              save = PyEval_SaveThread();
+             if (save == NULL) abort();
              while (id == 0 && flag == 0);
              gilsave = PyGILState_Ensure();
+             if (gilsave != PyGILState_UNLOCKED) abort();
 
              PyErr_Format(PyExc_ValueError, "%d", id);
 
@@ -535,3 +596,120 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             t.join()
 
         assert not failures
+
+    def test_format(self):
+        module = self.import_extension('foo', [
+            ("raises", "METH_NOARGS",
+             '''
+                PyErr_Format(PyExc_IndexError,
+                        "v1 %ld is out of bounds "
+                        "for v2 %d with v3 %ld",
+                        4, 0, 4);
+                return NULL;
+             '''),
+            ])
+
+        raises(IndexError, module.raises)
+
+    def test_WriteUnraisable(self):
+        # Use work-around since cpyext does not set the app-level exc_info
+        # until exiting the c-extenstion module function
+        module = self.import_extension('foo', [
+            ("unraisable", "METH_O",
+             '''
+                PyErr_SetString(PyExc_ValueError, "message");
+                /* args is "location" */
+                PyErr_WriteUnraisable(args);
+                PyErr_Clear();
+                Py_RETURN_NONE;
+             '''),
+             ("unraisable_exc", "METH_VARARGS",
+             '''
+                PyObject *exc, *err_msg, *obj;
+                if (!PyArg_ParseTuple(args, "OOO", &exc, &err_msg, &obj)) {
+                    return NULL;
+                }
+
+                const char *err_msg_utf8;
+                if (err_msg != Py_None) {
+                    err_msg_utf8 = PyUnicode_AsUTF8(err_msg);
+                    if (err_msg_utf8 == NULL) {
+                        return NULL;
+                    }
+                }
+                else {
+                    err_msg_utf8 = NULL;
+                }
+
+                PyErr_SetObject((PyObject *)Py_TYPE(exc), exc);
+                _PyErr_WriteUnraisableMsg(err_msg_utf8, obj);
+                Py_RETURN_NONE;
+             '''),
+            ])
+        import sys
+        import io, sys
+        old = sys.stderr 
+        sys.stderr = io.StringIO()
+        module.unraisable('location')
+        output = sys.stderr.getvalue()
+        sys.stderr = old
+        msg = output.strip().replace('\r', '').splitlines()
+        assert msg[0] == "Exception ignored in: 'location'"
+        assert msg[-1] == "ValueError: message"
+
+        # Taken from lib-python/3/test/audit-tests.py
+        def unraisablehook(hookargs):
+            pass
+
+        def hook(event, args):
+            if event == "sys.unraisablehook":
+                if args[0] != unraisablehook:
+                    raise ValueError("Expected {} == {}".format(args[0], unraisablehook))
+                print(event, repr(args[1].exc_value), args[1].err_msg)
+
+        old = sys.stdout 
+        sys.stdout = io.StringIO()
+        sys.addaudithook(hook)
+        sys.unraisablehook = unraisablehook
+        module.unraisable_exc(RuntimeError("nonfatal-error"), "sometext", None)
+        output = sys.stdout.getvalue()
+        sys.stdout = old
+        msg = output.strip().replace('\r', '').splitlines()
+        assert msg[0] == "sys.unraisablehook RuntimeError('nonfatal-error') Exception ignored sometext"
+ 
+    def test_fetch_normalized(self):
+        module = self.import_extension('foo', [
+            ("clevel_error", "METH_O",
+             '''
+                const char *fname = PyUnicode_AsUTF8(args);
+                char buffer[1024];
+                sprintf(buffer, "open('%s', 'r')", fname);
+                printf("calling %s\\n", buffer);
+                PyObject *ret = PyRun_String(buffer, Py_eval_input, pyx_d, pyx_d);
+                if (ret) {
+                    Py_DECREF(ret);
+                    PyErr_SetString(PyExc_AssertionError, "should raise");
+                    return NULL;
+                }
+                PyObject *type, *value, *tb;
+                PyErr_Fetch(&type, &value, &tb);
+                if (type != PyExc_FileNotFoundError)
+                {
+                    printf("type is %s\\n", ((PyTypeObject*)type)->tp_name);
+                    return value;
+                }
+                PyErr_Clear();
+                // decrefs?
+                Py_RETURN_TRUE;
+             '''),
+            ], prologue="""
+            static PyObject * pyx_d;
+            """, more_init="""
+            pyx_d = PyModule_GetDict(mod);
+            """)
+        import os
+        fname = 'this file should not exist'
+        assert not os.path.exists(fname)
+        ret = module.clevel_error(fname)
+        print(ret)
+        assert ret is True

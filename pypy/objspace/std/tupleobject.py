@@ -12,28 +12,32 @@ from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
 from pypy.objspace.std.util import negate, IDTAG_SPECIAL, IDTAG_SHIFT
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_uint
 
 
 UNROLL_CUTOFF = 10
 
 
-def _unroll_condition(self):
-    return jit.loop_unrolling_heuristic(self, self.length(), UNROLL_CUTOFF)
-
-
 def _unroll_condition_cmp(self, space, other):
-    return (jit.loop_unrolling_heuristic(self, self.length(), UNROLL_CUTOFF) or
-            jit.loop_unrolling_heuristic(other, other.length(), UNROLL_CUTOFF))
+    return self._unroll_condition() or other._unroll_condition()
 
 
-contains_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto',
-                             name = 'tuple.contains')
+def get_printable_location(tp):
+    return "tuple.contains [%s]" % (tp.getname(tp.space), )
+
+contains_driver = jit.JitDriver(greens = ['tp'], reds = 'auto',
+                             name = 'tuple.contains',
+                             get_printable_location=get_printable_location)
+
+def get_printable_location(w_type):
+    return "tuple.hash [%s]" % (w_type.getname(w_type.space), )
 
 hash_driver = jit.JitDriver(
     name='tuple.hash',
     greens=['w_type'],
-    reds='auto')
+    reds='auto',
+    get_printable_location=get_printable_location
+    )
 
 class W_AbstractTupleObject(W_Root):
     __slots__ = ()
@@ -87,7 +91,7 @@ class W_AbstractTupleObject(W_Root):
         return iterobject.W_FastTupleIterObject(self, self.tolist())
 
     @staticmethod
-    def descr_new(space, w_tupletype, w_sequence=None):
+    def descr_new(space, w_tupletype, w_sequence=None, __posonly__=None):
         if w_sequence is None:
             tuple_w = []
         elif (space.is_w(w_tupletype, space.w_tuple) and
@@ -147,7 +151,7 @@ class W_AbstractTupleObject(W_Root):
     descr_ge = _make_tuple_comparison('ge')
 
     def descr_contains(self, space, w_obj):
-        if _unroll_condition(self):
+        if self._unroll_condition():
             return self._descr_contains_unroll_safe(space, w_obj)
         else:
             return self._descr_contains_jmp(space, w_obj)
@@ -161,10 +165,14 @@ class W_AbstractTupleObject(W_Root):
 
     def _descr_contains_jmp(self, space, w_obj):
         tp = space.type(w_obj)
-        for w_item in self.tolist():
-            contains_jmp.jit_merge_point(tp=tp)
+        list_w = self.tolist()
+        i = 0
+        while i < len(list_w):
+            contains_driver.jit_merge_point(tp=tp)
+            w_item = list_w[i]
             if space.eq_w(w_obj, w_item):
                 return space.w_True
+            i += 1
         return space.w_False
 
     def descr_add(self, space, w_other):
@@ -217,7 +225,7 @@ class W_AbstractTupleObject(W_Root):
     def descr_getnewargs(self, space):
         return space.newtuple([space.newtuple(self.tolist())])
 
-    @jit.look_inside_iff(lambda self, _1, _2: _unroll_condition(self))
+    @jit.look_inside_iff(lambda self, _1, _2: self._unroll_condition())
     def descr_count(self, space, w_obj):
         """count(obj) -> number of times obj appears in the tuple"""
         count = 0
@@ -227,7 +235,7 @@ class W_AbstractTupleObject(W_Root):
         return space.newint(count)
 
     @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(sys.maxint))
-    @jit.look_inside_iff(lambda self, _1, _2, _3, _4: _unroll_condition(self))
+    @jit.look_inside_iff(lambda self, _1, _2, _3, _4: self._unroll_condition())
     def descr_index(self, space, w_obj, w_start, w_stop):
         """index(obj, [start, [stop]]) -> first index that obj appears in the
         tuple
@@ -239,6 +247,10 @@ class W_AbstractTupleObject(W_Root):
             if space.eq_w(w_item, w_obj):
                 return space.newint(i)
         raise oefmt(space.w_ValueError, "tuple.index(x): x not in tuple")
+
+    def _unroll_condition(self):
+        raise NotImplementedError("abstract base class")
+
 
 W_AbstractTupleObject.typedef = TypeDef(
     "tuple",
@@ -273,6 +285,18 @@ If the argument is a tuple, the return value is the same object.""",
 )
 W_AbstractTupleObject.typedef.flag_sequence_bug_compat = True
 
+if sys.maxint == 2 ** 31 - 1:
+    XXPRIME_1 = r_uint(2654435761)
+    XXPRIME_2 = r_uint(2246822519)
+    XXPRIME_5 = r_uint(374761393)
+    xxrotate = lambda x: ((x << 13) | (x >> 19)) # rotate left 13 bits
+    uhash_type = r_uint
+else:
+    XXPRIME_1 = r_ulonglong(11400714785074694791)
+    XXPRIME_2 = r_ulonglong(14029467366897019727)
+    XXPRIME_5 = r_ulonglong(2870177450012600261)
+    xxrotate = lambda x: ((x << 31) | (x >> 33)) # Rotate left 31 bits
+    uhash_type = r_ulonglong
 
 class W_TupleObject(W_AbstractTupleObject):
     _immutable_fields_ = ['wrappeditems[*]']
@@ -291,37 +315,55 @@ class W_TupleObject(W_AbstractTupleObject):
         return len(self.wrappeditems)
 
     def descr_hash(self, space):
-        if _unroll_condition(self):
-            return self._descr_hash_unroll(space)
+        if self._unroll_condition():
+            acc = self._descr_hash_unroll(space)
         else:
-            return self._descr_hash_jitdriver(space)
+            acc = self._descr_hash_jitdriver(space)
+
+        # Add input length, mangled to keep the historical value of hash(())
+        acc += len(self.wrappeditems) ^ (XXPRIME_5 ^ uhash_type(3527539))
+        acc += (acc == uhash_type(-1)) * uhash_type(1546275796 + 1)
+        return space.newint(intmask(acc))
 
     @jit.unroll_safe
     def _descr_hash_unroll(self, space):
-        mult = 1000003
-        x = 0x345678
-        z = len(self.wrappeditems)
+        # Hash for tuples. This is a slightly simplified version of the xxHash
+        # non-cryptographic hash:
+        # - we do not use any parallellism, there is only 1 accumulator.
+        # - we drop the final mixing since this is just a permutation of the
+        #   output space: it does not help against collisions.
+        # - at the end, we mangle the length with a single constant.
+        # For the xxHash specification, see
+        # https://github.com/Cyan4973/xxHash/blob/master/doc/xxhash_spec.md
+
+        # Below are the official constants from the xxHash specification. Optimizing
+        # compilers should emit a single "rotate" instruction for the
+        # _PyHASH_XXROTATE() expansion. If that doesn't happen for some important
+        # platform, the macro could be changed to expand to a platform-specific rotate
+        # spelling instead.
+        acc = XXPRIME_5
         for w_item in self.wrappeditems:
-            y = space.hash_w(w_item)
-            x = (x ^ y) * mult
-            z -= 1
-            mult += 82520 + z + z
-        x += 97531
-        return space.newint(intmask(x))
+            lane = uhash_type(space.hash_w(w_item))
+            acc += lane * XXPRIME_2
+            acc = xxrotate(acc)
+            acc *= XXPRIME_1
+        return acc
 
     def _descr_hash_jitdriver(self, space):
-        mult = 1000003
-        x = 0x345678
-        z = len(self.wrappeditems)
+        # see comments above
+        acc = XXPRIME_5
         w_type = space.type(self.wrappeditems[0])
-        for w_item in self.wrappeditems:
+        wrappeditems = self.wrappeditems
+        i = 0
+        while i < len(wrappeditems):
             hash_driver.jit_merge_point(w_type=w_type)
-            y = space.hash_w(w_item)
-            x = (x ^ y) * mult
-            z -= 1
-            mult += 82520 + z + z
-        x += 97531
-        return space.newint(intmask(x))
+            w_item = wrappeditems[i]
+            lane = uhash_type(space.hash_w(w_item))
+            acc += lane * XXPRIME_2
+            acc = xxrotate(acc)
+            acc *= XXPRIME_1
+            i += 1
+        return acc
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_AbstractTupleObject):
@@ -336,6 +378,7 @@ class W_TupleObject(W_AbstractTupleObject):
         lgt2 = len(items2)
         if lgt1 != lgt2:
             return space.w_False
+        # XXX do we need a jit driver?
         for i in range(lgt1):
             item1 = items1[i]
             item2 = items2[i]
@@ -351,6 +394,10 @@ class W_TupleObject(W_AbstractTupleObject):
         except IndexError:
             raise oefmt(space.w_IndexError, "tuple index out of range")
 
+    def _unroll_condition(self):
+        return jit.loop_unrolling_heuristic(
+                self.wrappeditems, self.length(), UNROLL_CUTOFF)
+
 
 def wraptuple(space, list_w):
     if space.config.objspace.std.withspecialisedtuple:
@@ -360,3 +407,12 @@ def wraptuple(space, list_w):
         except NotSpecialised:
             pass
     return W_TupleObject(list_w)
+
+def wraptuple2(space, w_a, w_b):
+    if space.config.objspace.std.withspecialisedtuple:
+        from specialisedtupleobject import makespecialisedtuple2, NotSpecialised
+        try:
+            return makespecialisedtuple2(space, w_a, w_b)
+        except NotSpecialised:
+            pass
+    return W_TupleObject([w_a, w_b])

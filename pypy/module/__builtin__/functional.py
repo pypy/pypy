@@ -7,7 +7,8 @@ import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
-    interp2app, interpindirect2app, unwrap_spec)
+    interp2app, interpindirect2app, unwrap_spec,
+    WrappedDefault)
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from rpython.rlib import jit, rarithmetic
 from rpython.rlib.objectmodel import specialize
@@ -103,10 +104,21 @@ def compute_slice_indices3(space, w_slice, w_length):
                 w_stop = w_length
     return w_start, w_stop, w_step
 
+def get_printable_location(has_key, has_item, greenkey):
+    return "min [has_key=%s, has_item=%s, %s]" % (
+            has_key, has_item, greenkey.iterator_greenkey_printable())
+
 min_jitdriver = jit.JitDriver(name='min',
-        greens=['has_key', 'has_item', 'w_type'], reds='auto')
+        greens=['has_key', 'has_item', 'greenkey'], reds='auto',
+        get_printable_location=get_printable_location)
+
+def get_printable_location(has_key, has_item, greenkey):
+    return "min [has_key=%s, has_item=%s, %s]" % (
+            has_key, has_item, greenkey.iterator_greenkey_printable())
+
 max_jitdriver = jit.JitDriver(name='max',
-        greens=['has_key', 'has_item', 'w_type'], reds='auto')
+        greens=['has_key', 'has_item', 'greenkey'], reds='auto',
+        get_printable_location=get_printable_location)
 
 @specialize.arg(4)
 def min_max_sequence(space, w_sequence, w_key, w_default, implementation_of):
@@ -117,14 +129,14 @@ def min_max_sequence(space, w_sequence, w_key, w_default, implementation_of):
         compare = space.lt
         jitdriver = min_jitdriver
     w_iter = space.iter(w_sequence)
-    w_type = space.type(w_iter)
+    greenkey = space.iterator_greenkey(w_iter)
     has_key = w_key is not None
     has_item = False
     w_max_item = w_default
     w_max_val = None
     while True:
         jitdriver.jit_merge_point(has_key=has_key, has_item=has_item,
-                                  w_type=w_type)
+                                  greenkey=greenkey)
         try:
             w_item = space.next(w_iter)
         except OperationError as e:
@@ -140,7 +152,7 @@ def min_max_sequence(space, w_sequence, w_key, w_default, implementation_of):
             has_item = True
             w_max_item = w_item
             w_max_val = w_compare_with
-    if w_max_item is None:
+    if not has_item and not w_max_item:
         raise oefmt(space.w_ValueError, "arg is an empty sequence")
     return w_max_item
 
@@ -175,18 +187,20 @@ def min_max_multiple_args(space, args_w, w_key, implementation_of):
 def min_max(space, args, implementation_of):
     w_key = None
     w_default = None
-    if bool(args.keywords):
-        kwds = args.keywords
-        for n in range(len(kwds)):
-            if kwds[n] == "key":
+    if bool(args.keyword_names_w):
+        kwds_w = args.keyword_names_w
+        for n in range(len(kwds_w)):
+            if space.eq_w(kwds_w[n], space.newtext("key")):
                 w_key = args.keywords_w[n]
-            elif kwds[n] == "default":
+            elif space.eq_w(kwds_w[n], space.newtext("default")):
                 w_default = args.keywords_w[n]
             else:
                 raise oefmt(space.w_TypeError,
                             "%s() got unexpected keyword argument",
                             implementation_of)
     #
+    if space.is_w(w_key, space.w_None):
+        w_key = None
     args_w = args.arguments_w
     if len(args_w) > 1:
         if w_default is not None:
@@ -203,20 +217,24 @@ def min_max(space, args, implementation_of):
                     implementation_of)
 
 def max(space, __args__):
-    """max(iterable[, key=func]) -> value
-    max(a, b, c, ...[, key=func]) -> value
+    """max(iterable, *[, default=obj, key=func]) -> value
+max(arg1, arg2, *args, *[, key=func]) -> value
 
-    With a single iterable argument, return its largest item.
-    With two or more arguments, return the largest argument.
+With a single iterable argument, return its biggest item. The
+default keyword-only argument specifies an object to return if
+the provided iterable is empty.
+With two or more arguments, return the largest argument.
     """
     return min_max(space, __args__, "max")
 
 def min(space, __args__):
-    """min(iterable[, key=func]) -> value
-    min(a, b, c, ...[, key=func]) -> value
+    """min(iterable, *[, default=obj, key=func]) -> value
+min(arg1, arg2, *args, *[, key=func]) -> value
 
-    With a single iterable argument, return its smallest item.
-    With two or more arguments, return the smallest argument.
+With a single iterable argument, return its smallest item. The
+default keyword-only argument specifies an object to return if
+the provided iterable is empty.
+With two or more arguments, return the smallest argument.
     """
     return min_max(space, __args__, "min")
 
@@ -288,14 +306,14 @@ class W_Enumerate(W_Root):
             self.w_index = space.add(w_index, space.newint(1))
         if w_item is None:
             w_item = space.next(self.w_iter_or_list)
-        return space.newtuple([w_index, w_item])
+        return space.newtuple2(w_index, w_item)
 
     def descr___reduce__(self, space):
         w_index = self.w_index
         if w_index is None:
             w_index = space.newint(self.index)
-        return space.newtuple([space.type(self),
-                               space.newtuple([self.w_iter_or_list, w_index])])
+        return space.newtuple2(space.type(self),
+                               space.newtuple2(self.w_iter_or_list, w_index))
 
 # exported through _pickle_support
 def _make_enumerate(space, w_iter_or_list, w_index):
@@ -378,9 +396,9 @@ class W_ReversedIterator(W_Root):
                 space.newtuple([self.w_sequence]),
                 w_state])
         else:
-            return space.newtuple([
+            return space.newtuple2(
                 space.type(self),
-                space.newtuple([space.newtuple([])])])
+                space.newtuple([space.newtuple([])]))
 
     def descr___setstate__(self, space, w_state):
         self.remaining = space.int_w(w_state)
@@ -492,6 +510,8 @@ class W_Range(W_Root):
             pass
         else:
             if self.promote_step:
+                if start == 0:
+                    return W_IntRangeOneArgIterator(space, stop)
                 return W_IntRangeStepOneIterator(space, start, stop)
             return W_IntRangeIterator(space, start, length, step)
         return W_LongRangeIterator(space, self.w_start, self.w_step,
@@ -580,6 +600,8 @@ class W_Range(W_Root):
             w_tup = space.newtuple([self.w_length, self.w_start, self.w_step])
         return space.hash(w_tup)
 
+    def descr_bool(self, space):
+        return space.nonzero(self.w_length)
 
 W_Range.typedef = TypeDef("range",
     __new__          = interp2app(W_Range.descr_new.im_func),
@@ -592,6 +614,7 @@ W_Range.typedef = TypeDef("range",
     __contains__     = interp2app(W_Range.descr_contains),
     __eq__           = interp2app(W_Range.descr_eq),
     __hash__         = interp2app(W_Range.descr_hash),
+    __bool__         = interp2app(W_Range.descr_bool),
     count            = interp2app(W_Range.descr_count),
     index            = interp2app(W_Range.descr_index),
     start            = interp_attrproperty_w('w_start', cls=W_Range),
@@ -615,6 +638,8 @@ class W_AbstractRangeIterator(W_Root):
     def descr_reduce(self, space):
         raise NotImplementedError
 
+    def descr_setstate(self, space, w_index):
+        raise NotImplementedError
 
 class W_LongRangeIterator(W_AbstractRangeIterator):
     def __init__(self, space, w_start, w_step, w_len, w_index=None):
@@ -641,14 +666,20 @@ class W_LongRangeIterator(W_AbstractRangeIterator):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
-        w_args = space.newtuple([self.w_start, self.w_step, self.w_len,
-                                 self.w_index])
-        return space.newtuple([mod.get('longrangeiter_new'), w_args])
+        w_args = space.newtuple([self.w_start, self.w_step, self.w_len, self.w_index])
+        return space.newtuple([mod.get('longrangeiter_new'), w_args, self.w_index])
 
+    def descr_setstate(self, space, w_index):
+        if space.is_true(space.lt(w_index, space.newint(0))):
+            w_index = space.newint(0)
+        elif space.is_true(space.lt(self.w_len, w_index)):
+            w_index = self.w_len
+        self.w_index = w_index
 
 class W_IntRangeIterator(W_AbstractRangeIterator):
 
     def __init__(self, space, current, remaining, step):
+        self.start = current
         self.current = current
         self.remaining = remaining
         self.step = step
@@ -675,16 +706,25 @@ class W_IntRangeIterator(W_AbstractRangeIterator):
         nt = space.newtuple
 
         tup = [space.newint(self.current), self.get_remaining(space), space.newint(self.step)]
-        return nt([new_inst, nt(tup)])
+        return nt([new_inst, nt(tup), self.get_remaining(space)])
 
     def get_remaining(self, space):
         return space.newint(self.remaining)
+
+    def descr_setstate(self, space, w_remaining):
+        remaining = space.int_w(w_remaining)
+        if remaining < 0:
+            remaining = 0
+        if remaining > self.remaining:
+            remaining = self.remaining
+        self.remaining = remaining
 
 
 class W_IntRangeStepOneIterator(W_IntRangeIterator):
     _immutable_fields_ = ['stop']
 
     def __init__(self, space, start, stop):
+        self.start = start
         self.current = start
         self.stop = stop
         self.step = 1
@@ -699,12 +739,51 @@ class W_IntRangeStepOneIterator(W_IntRangeIterator):
     def get_remaining(self, space):
         return space.newint(self.stop - self.current)
 
+    def descr_setstate(self, space, w_index):
+        index = space.int_w(w_index)
+        if index < self.start:
+            index = self.start 
+        elif index > self.stop:
+            index = self.stop
+        self.current = index
 
-W_AbstractRangeIterator.typedef = TypeDef("rangeiterator",
+
+class W_IntRangeOneArgIterator(W_IntRangeIterator):
+    """ iterator for range(integer). useful because the jit knows that its
+    values are always >= 0 """
+
+    _immutable_fields_ = ['stop']
+
+    def __init__(self, space, stop):
+        self.current = 0
+        self.stop = stop
+        self.step = 1
+
+    def next(self, space):
+        current = self.current
+        assert current >= 0
+        if current < self.stop:
+            self.current = current + 1
+            return space.newint(current)
+        raise OperationError(space.w_StopIteration, space.w_None)
+
+    def get_remaining(self, space):
+        return space.newint(self.stop - self.current)
+
+    def descr_setstate(self, space, w_index):
+        index = space.int_w(w_index)
+        if index < 0:
+            index = 0
+        elif index > self.stop:
+            index = self.stop
+        self.current = index
+
+W_AbstractRangeIterator.typedef = TypeDef("range_iterator",
     __iter__        = interp2app(W_AbstractRangeIterator.descr_iter),
     __length_hint__ = interpindirect2app(W_AbstractRangeIterator.descr_len),
     __next__        = interpindirect2app(W_AbstractRangeIterator.descr_next),
     __reduce__      = interpindirect2app(W_AbstractRangeIterator.descr_reduce),
+    __setstate__    = interpindirect2app(W_AbstractRangeIterator.descr_setstate),
 )
 W_AbstractRangeIterator.typedef.acceptable_as_base_class = False
 
@@ -713,6 +792,8 @@ class W_Map(W_Root):
     _error_name = "map"
     _immutable_fields_ = ["w_fun", "iterators_w"]
 
+    @jit.look_inside_iff(lambda self, space, w_fun, args_w:
+            jit.isconstant(len(args_w)) and len(args_w) <= 2)
     def __init__(self, space, w_fun, args_w):
         self.space = space
         self.w_fun = w_fun
@@ -766,6 +847,18 @@ class W_Map(W_Root):
         args_w = [self.w_fun] + self.iterators_w
         return space.newtuple([w_map, space.newtuple(args_w)])
 
+    def iterator_greenkey(self, space):
+        # XXX in theory we should tupleize the greenkeys of the callable and
+        # the sub-iterators, but much more work
+        if self.w_fun is not None:
+            w_res = space._try_fetch_pycode(self.w_fun)
+            if w_res is None:
+                w_res = self.space.type(self.w_fun)
+        elif len(self.iterators_w) > 0:
+            w_res = space.iterator_greenkey(self.iterators_w[0])
+        else:
+            w_res = None
+        return w_res
 
 def W_Map___new__(space, w_subtype, w_fun, args_w):
     if len(args_w) == 0:
@@ -786,38 +879,68 @@ Make an iterator that computes the function using arguments from
 each of the iterables.  Stops when the shortest iterable is exhausted.""")
 
 class W_Filter(W_Root):
-    reverse = False
+    reverse = False # set to True in itertools
 
     def __init__(self, space, w_predicate, w_iterable):
         self.space = space
         if space.is_w(w_predicate, space.w_None):
-            self.no_predicate = True
+            self.w_predicate = None
         else:
-            self.no_predicate = False
             self.w_predicate = w_predicate
-        self.iterable = space.iter(w_iterable)
+        self.w_iterable = space.iter(w_iterable)
 
     def iter_w(self):
         return self
 
     def next_w(self):
-        while True:
-            w_obj = self.space.next(self.iterable)  # may raise w_StopIteration
-            if self.no_predicate:
-                pred = self.space.is_true(w_obj)
-            else:
-                w_pred = self.space.call_function(self.w_predicate, w_obj)
-                pred = self.space.is_true(w_pred)
-            if pred ^ self.reverse:
-                return w_obj
+        # unroll one iteration in case the filter mostly returns true
+        w_obj = self.space.next(self.w_iterable)  # may raise w_StopIteration
+        if self.w_predicate is None:
+            pred = self.space.is_true(w_obj)
+        else:
+            w_pred = self.space.call_function(self.w_predicate, w_obj)
+            pred = self.space.is_true(w_pred)
+        if pred ^ self.reverse:
+            return w_obj
+        # otherwise, use a jit driver
+        return _filter_jitdriver(self.space, self.w_iterable,
+                self.w_predicate, self.reverse)
 
     def descr_reduce(self, space):
         w_filter = space.getattr(space.getbuiltinmodule('builtins'),
                 space.newtext('filter'))
-        args_w = [space.w_None if self.no_predicate else self.w_predicate,
-                  self.iterable]
+        args_w = [space.w_None if self.w_predicate is None else self.w_predicate,
+                  self.w_iterable]
         return space.newtuple([w_filter, space.newtuple(args_w)])
 
+def get_printable_location(reverse, likely_pycode, greenkey):
+    return "filter [reverse=%s, %s]" % (
+            reverse, greenkey.iterator_greenkey_printable())
+
+filter_jitdriver = jit.JitDriver(name='filter',
+        greens=['reverse', 'callable_greenkey', 'greenkey'], reds='auto',
+        get_printable_location=get_printable_location)
+
+def _filter_jitdriver(space, w_iterable, w_predicate, reverse):
+    callable_greenkey = None
+    if w_predicate is not None:
+        callable_greenkey = space._try_fetch_pycode(w_predicate)
+        if callable_greenkey is None:
+            callable_greenkey = space.type(w_predicate)
+    greenkey = space.iterator_greenkey(w_iterable)
+    while True:
+        filter_jitdriver.jit_merge_point(
+                reverse=reverse,
+                callable_greenkey=callable_greenkey,
+                greenkey=greenkey)
+        w_obj = space.next(w_iterable)  # may raise w_StopIteration
+        if w_predicate is None:
+            pred = space.is_true(w_obj)
+        else:
+            w_pred = space.call_function(w_predicate, w_obj)
+            pred = space.is_true(w_pred)
+        if pred ^ reverse:
+            return w_obj
 
 def W_Filter___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_Filter, w_subtype)

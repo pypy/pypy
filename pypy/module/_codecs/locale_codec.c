@@ -89,6 +89,7 @@ _pypy_check_force_ascii(void)
     };
 #endif
 
+    setlocale(LC_CTYPE, "");
     loc = setlocale(LC_CTYPE, NULL);
     if (loc == NULL)
         goto error;
@@ -229,17 +230,6 @@ _pypy_decode_ascii_surrogateescape(const char *arg, size_t *size)
 wchar_t*
 pypy_char2wchar(const char* arg, size_t *size)
 {
-#if 0 && defined(__APPLE__)
-    wchar_t *wstr;
-    wstr = _Py_DecodeUTF8_surrogateescape(arg, strlen(arg));
-    if (size != NULL) {
-        if (wstr != NULL)
-            *size = wcslen(wstr);
-        else
-            *size = (size_t)-1;
-    }
-    return wstr;
-#else
     wchar_t *res;
     size_t argsize;
     size_t count;
@@ -306,10 +296,11 @@ pypy_char2wchar(const char* arg, size_t *size)
     out = res;
     memset(&mbs, 0, sizeof mbs);
     while (argsize) {
-        size_t converted = mbrtowc(out, (char*)in, argsize, &mbs);
-        if (converted == 0)
+        size_t converted = mbrtowc(out, (char *)in, argsize, &mbs);
+        if (converted == 0) {
             /* Reached end of string; null char stored. */
             break;
+        }
         if (converted == (size_t)-2) {
             /* Incomplete character. This should never happen,
                since we provide everything that we have -
@@ -327,7 +318,8 @@ pypy_char2wchar(const char* arg, size_t *size)
             memset(&mbs, 0, sizeof mbs);
             continue;
         }
-        if (*out >= 0xd800 && *out <= 0xdfff) {
+        if ((*out >= 0xd800 && *out <= 0xdfff) || *out > 0x10ffff) {
+            /* bpo-35883: glibc mbstowcs() can return values above 0x10ffff */
             /* Surrogate character.  Escape the original
                byte sequence with surrogateescape. */
             argsize -= converted;
@@ -354,7 +346,71 @@ pypy_char2wchar(const char* arg, size_t *size)
 oom:
     fprintf(stderr, "out of memory\n");
     return NULL;
-#endif   /* __APPLE__ */
+}
+
+/* Decode a byte string from the locale encoding with the
+   strict error handler: in other words fail to decode.
+
+   Use pypy_wchar2char_strict() to encode the character string back to a byte
+   string.
+
+   Return a pointer to a newly allocated wide character string (use
+   PyMem_Free() to free the memory) and write the number of written wide
+   characters excluding the null character into *size if size is not NULL, or
+   NULL on error (conversion or memory allocation error).
+
+*/
+wchar_t*
+pypy_char2wchar_strict(const char* arg, size_t *size)
+{
+    wchar_t *res;
+    size_t argsize;
+    size_t count;
+    unsigned char *in;
+    wchar_t *out;
+#ifdef HAVE_MBRTOWC
+    mbstate_t mbs;
+#endif
+
+#if !defined(__APPLE__) && !defined(MS_WINDOWS)
+/*#ifndef MS_WINDOWS*/
+    if (force_ascii == -1)
+        force_ascii = _pypy_check_force_ascii();
+
+    if (force_ascii) {
+        /* force ASCII encoding to workaround mbstowcs() issue */
+        res = _pypy_decode_ascii_surrogateescape(arg, size);
+        if (res == NULL)
+            goto oom;
+        return res;
+    }
+#endif
+
+#ifdef HAVE_BROKEN_MBSTOWCS
+    /* Some platforms have a broken implementation of
+     * mbstowcs which does not count the characters that
+     * would result from conversion.  Use an upper bound.
+     */
+    argsize = strlen(arg);
+#else
+    argsize = mbstowcs(NULL, arg, 0);
+#endif
+    if (argsize == (size_t)-1) {
+        return NULL;
+    }
+    res = (wchar_t *)PyMem_Malloc((argsize+1)*sizeof(wchar_t));
+    if (!res)
+        goto oom;
+    count = mbstowcs(res, arg, argsize+1);
+    if (count == (size_t)-1) {
+        return NULL;
+        PyMem_Free(res);
+    }
+    size[0] = count;
+    return res;
+oom:
+    fprintf(stderr, "out of memory\n");
+    return NULL;
 }
 
 /* Encode a (wide) character string to the locale encoding with the
@@ -371,39 +427,6 @@ oom:
 char*
 pypy_wchar2char(const wchar_t *text, size_t *error_pos)
 {
-#if 0 && defined(__APPLE__)
-    Py_ssize_t len;
-    PyObject *unicode, *bytes = NULL;
-    char *cpath;
-
-    unicode = PyUnicode_FromWideChar(text, wcslen(text));
-    if (unicode == NULL)
-        return NULL;
-
-    bytes = PyUnicode_EncodeUTF8(PyUnicode_AS_UNICODE(unicode),
-                                 PyUnicode_GET_SIZE(unicode),
-                                 "surrogateescape");
-    Py_DECREF(unicode);
-    if (bytes == NULL) {
-        PyErr_Clear();
-        if (error_pos != NULL)
-            *error_pos = (size_t)-1;
-        return NULL;
-    }
-
-    len = PyBytes_GET_SIZE(bytes);
-    cpath = PyMem_Malloc(len+1);
-    if (cpath == NULL) {
-        PyErr_Clear();
-        Py_DECREF(bytes);
-        if (error_pos != NULL)
-            *error_pos = (size_t)-1;
-        return NULL;
-    }
-    memcpy(cpath, PyBytes_AsString(bytes), len + 1);
-    Py_DECREF(bytes);
-    return cpath;
-#else   /* __APPLE__ */
     const size_t len = wcslen(text);
     char *result = NULL, *bytes = NULL;
     size_t i, size, converted;
@@ -472,7 +495,45 @@ pypy_wchar2char(const wchar_t *text, size_t *error_pos)
         bytes = result;
     }
     return result;
-#endif   /* __APPLE__ */
+}
+
+/* Encode a (wide) character string to the locale encoding with the
+   strict error handler.
+
+   This function is the reverse of pypy_char2wchar_strict().
+
+   Return a pointer to a newly allocated byte string (use PyMem_Free() to free
+   the memory), or NULL on conversion or memory allocation error.
+
+   If error_pos is not NULL: *error_pos is the index of the invalid character
+   on conversion error, or (size_t)-1 otherwise. */
+char*
+pypy_wchar2char_strict(const wchar_t *wstr, size_t *error_pos)
+{
+    size_t len, len2;
+    char *result = NULL;
+
+#if !defined(__APPLE__) && !defined(MS_WINDOWS)
+/*#ifndef MS_WINDOWS*/
+    if (force_ascii == -1)
+        force_ascii = _pypy_check_force_ascii();
+
+    if (force_ascii)
+        return _pypy_encode_ascii_surrogateescape(wstr, error_pos);
+#endif
+    len = wcstombs(NULL, wstr, 0);
+    if (len == (size_t)-1) {
+        error_pos[0] = (size_t)-1;
+        return NULL;
+    }
+    result = PyMem_Malloc(len);
+    len2 = wcstombs(result, wstr, len+1);
+    if (len2 == (size_t)-1 || len2 > len) {
+        error_pos[0] = (size_t)-1;
+        PyMem_Free(result);
+        return NULL;
+    }
+    return result;
 }
 
 void

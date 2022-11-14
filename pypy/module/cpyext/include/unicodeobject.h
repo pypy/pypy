@@ -34,10 +34,12 @@ extern "C" {
 
 #include "cpyext_unicodeobject.h"
 
-/*#define PyUnicode_Check(op) \
-**		 PyType_FastSubclass((op)->ob_type, Py_TPFLAGS_UNICODE_SUBCLASS)
-**#define PyUnicode_CheckExact(op) ((op)->ob_type == &PyUnicode_Type)
-*/
+#define PyUnicode_Check(op) \
+    PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_UNICODE_SUBCLASS)
+#define PyUnicode_CheckExact(op) (Py_TYPE(op) == &PyUnicode_Type)
+
+
+
 
 /* Fast access macros */
 #ifndef Py_LIMITED_API
@@ -395,6 +397,14 @@ Py_UNICODE_strcmp(const Py_UNICODE *s1, const Py_UNICODE *s2)
         return -1;
     return 0;
 }
+
+/* Concat two strings, put the result in *pleft and drop the right object
+   (sets *pleft to NULL on error) */
+
+PyAPI_FUNC(void) PyUnicode_AppendAndDel(
+    PyObject **pleft,           /* Pointer to left string */
+    PyObject *right             /* Right string */
+    );
 
 #ifdef __cplusplus
 }

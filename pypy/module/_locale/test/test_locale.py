@@ -1,4 +1,4 @@
-import py
+import pytest
 
 import sys
 
@@ -35,7 +35,7 @@ class AppTestLocaleTrivia:
                 _locale.setlocale(_locale.LC_ALL,
                                   cls.space.utf8_w(cls.w_language_pl))
             except _locale.Error:
-                py.test.skip("necessary locales not installed")
+                pytest.skip("necessary locales not installed")
 
             # Windows forbids the UTF-8 character set since Windows XP.
             try:
@@ -49,8 +49,8 @@ class AppTestLocaleTrivia:
     def teardown_class(cls):
         import _locale
         _locale.setlocale(_locale.LC_ALL, cls.oldlocale)
-        
-        
+
+
 
     def test_import(self):
         import _locale
@@ -58,7 +58,7 @@ class AppTestLocaleTrivia:
 
         import locale
         assert locale
-        
+
     def test_constants(self):
         import sys
 
@@ -82,7 +82,7 @@ class AppTestLocaleTrivia:
         )
 
         import _locale
-        
+
         for constant in _CONSTANTS:
             assert hasattr(_locale, constant)
 
@@ -171,7 +171,10 @@ class AppTestLocaleTrivia:
         assert a is not b
         assert a == b
 
-        raises(TypeError, _locale.strxfrm, 1)
+        with raises(TypeError):
+            _locale.strxfrm(1)
+        with raises(ValueError):
+            _locale.strxfrm("a\x00b")
 
         _locale.setlocale(_locale.LC_ALL, self.language_pl)
         a = "1234"
@@ -271,7 +274,7 @@ class AppTestLocaleTrivia:
 
         raises(ValueError, _locale.nl_langinfo, 12345)
         raises(TypeError, _locale.nl_langinfo, None)
-    
+
     def test_bindtextdomain(self):
         import sys
         if sys.platform == 'win32':
@@ -307,6 +310,9 @@ class AppTestLocaleTrivia:
         assert encoding.startswith('cp')
 
     def test_lc_numeric_basic(self):
+        import _locale, sys
+        if sys.platform == 'win32':
+            skip("No nl_langinfo to test")
         from _locale import (setlocale, nl_langinfo, Error, LC_NUMERIC,
                              LC_CTYPE, RADIXCHAR, THOUSEP, localeconv)
         # Test nl_langinfo against localeconv

@@ -4,7 +4,9 @@ import test.test_math as test_math
 import unittest
 import cmath, math
 from cmath import phase, polar, rect, pi
-import sysconfig
+import platform
+import sys
+
 
 INF = float('inf')
 NAN = float('nan')
@@ -154,6 +156,23 @@ class CMathTests(unittest.TestCase):
         self.assertAlmostEqual(cmath.e, e_expected, places=9,
             msg="cmath.e is {}; should be {}".format(cmath.e, e_expected))
 
+    def test_infinity_and_nan_constants(self):
+        self.assertEqual(cmath.inf.real, math.inf)
+        self.assertEqual(cmath.inf.imag, 0.0)
+        self.assertEqual(cmath.infj.real, 0.0)
+        self.assertEqual(cmath.infj.imag, math.inf)
+
+        self.assertTrue(math.isnan(cmath.nan.real))
+        self.assertEqual(cmath.nan.imag, 0.0)
+        self.assertEqual(cmath.nanj.real, 0.0)
+        self.assertTrue(math.isnan(cmath.nanj.imag))
+
+        # Check consistency with reprs.
+        self.assertEqual(repr(cmath.inf), "inf")
+        self.assertEqual(repr(cmath.infj), "infj")
+        self.assertEqual(repr(cmath.nan), "nan")
+        self.assertEqual(repr(cmath.nanj), "nanj")
+
     def test_user_object(self):
         # Test automatic calling of __complex__ and __float__ by cmath
         # functions
@@ -201,12 +220,11 @@ class CMathTests(unittest.TestCase):
             pass
         class NeitherComplexNorFloatOS:
             pass
-        class MyInt(object):
+        class Index:
             def __int__(self): return 2
             def __index__(self): return 2
-        class MyIntOS:
+        class MyInt:
             def __int__(self): return 2
-            def __index__(self): return 2
 
         # other possible combinations of __float__ and __complex__
         # that should work
@@ -236,6 +254,7 @@ class CMathTests(unittest.TestCase):
             self.assertEqual(f(FloatAndComplexOS()), f(cx_arg))
             self.assertEqual(f(JustFloat()), f(flt_arg))
             self.assertEqual(f(JustFloatOS()), f(flt_arg))
+            self.assertEqual(f(Index()), f(int(Index())))
             # TypeError should be raised for classes not providing
             # either __complex__ or __float__, even if they provide
             # __int__ or __index__.  An old-style class
@@ -244,7 +263,6 @@ class CMathTests(unittest.TestCase):
             self.assertRaises(TypeError, f, NeitherComplexNorFloat())
             self.assertRaises(TypeError, f, MyInt())
             self.assertRaises(Exception, f, NeitherComplexNorFloatOS())
-            self.assertRaises(Exception, f, MyIntOS())
             # non-complex return value from __complex__ -> TypeError
             for bad_complex in non_complexes:
                 self.assertRaises(TypeError, f, MyComplex(bad_complex))
@@ -315,6 +333,18 @@ class CMathTests(unittest.TestCase):
 
     @requires_IEEE_754
     def test_specific_values(self):
+        # Some tests need to be skipped on ancient OS X versions.
+        # See issue #27953.
+        SKIP_ON_TIGER = {'tan0064'}
+
+        osx_version = None
+        if sys.platform == 'darwin':
+            version_txt = platform.mac_ver()[0]
+            try:
+                osx_version = tuple(map(int, version_txt.split('.')))
+            except ValueError:
+                pass
+
         def rect_complex(z):
             """Wrapped version of rect that accepts a complex number instead of
             two float arguments."""
@@ -328,6 +358,12 @@ class CMathTests(unittest.TestCase):
         for id, fn, ar, ai, er, ei, flags in parse_testfile(test_file):
             arg = complex(ar, ai)
             expected = complex(er, ei)
+
+            # Skip certain tests on OS X 10.4.
+            if osx_version is not None and osx_version < (10, 5):
+                if id in SKIP_ON_TIGER:
+                    continue
+
             if fn == 'rect':
                 function = rect_complex
             elif fn == 'polar':
@@ -540,8 +576,6 @@ class CMathTests(unittest.TestCase):
         self.assertTrue(cmath.isinf(complex(INF, NAN)))
 
     @requires_IEEE_754
-    @unittest.skipIf(sysconfig.get_config_var('TANH_PRESERVES_ZERO_SIGN') == 0,
-                     "system tanh() function doesn't copy the sign")
     def testTanhSign(self):
         for z in complex_zeros:
             self.assertComplexIdentical(cmath.tanh(z), z)

@@ -21,6 +21,8 @@ class Instruction(object):
     def __init__(self, opcode, arg=0):
         self.opcode = opcode
         self.arg = arg
+        if opcode < ops.HAVE_ARGUMENT:
+            assert arg == 0
         self.lineno = 0
         self.has_jump = False
 
@@ -28,9 +30,33 @@ class Instruction(object):
         """Return the size of bytes of this instruction when it is
         encoded.
         """
-        if self.opcode >= ops.HAVE_ARGUMENT:
-            return (6 if self.arg > 0xFFFF else 3)
-        return 1
+        if self.arg <= 0xff:
+            return 2
+        if self.arg <= 0xffff:
+            return 4
+        if self.arg <= 0xffffff:
+            return 6
+        return 8
+
+    def encode(self, code):
+        opcode = self.opcode
+
+        arg = self.arg
+        size = self.size()
+        if size == 8:
+            code.append(chr(ops.EXTENDED_ARG))
+            code.append(chr((arg >> 24) & 0xff))
+            assert ((arg >> 24) & 0xff) == (arg >> 24)
+        if size >= 6:
+            code.append(chr(ops.EXTENDED_ARG))
+            code.append(chr((arg >> 16) & 0xff))
+        if size >= 4:
+            code.append(chr(ops.EXTENDED_ARG))
+            code.append(chr((arg >> 8) & 0xff))
+        if size >= 2:
+            code.append(chr(opcode))
+            code.append(chr(arg & 0xff))
+
 
     def jump_to(self, target, absolute=False):
         """Indicate the target this jump instruction.
@@ -60,6 +86,8 @@ class Block(object):
     instructions may be jumps to other blocks, or if control flow
     reaches the end of the block, it continues to next_block.
     """
+
+    _source = None
 
     marked = False
     have_return = False
@@ -121,20 +149,9 @@ class Block(object):
         """Encode the instructions in this block into bytecode."""
         code = []
         for instr in self.instructions:
-            opcode = instr.opcode
-            if opcode >= ops.HAVE_ARGUMENT:
-                arg = instr.arg
-                if instr.arg > 0xFFFF:
-                    ext = arg >> 16
-                    code.append(chr(ops.EXTENDED_ARG))
-                    code.append(chr(ext & 0xFF))
-                    code.append(chr(ext >> 8))
-                    arg &= 0xFFFF
-                code.append(chr(opcode))
-                code.append(chr(arg & 0xFF))
-                code.append(chr(arg >> 8))
-            else:
-                code.append(chr(opcode))
+            instr.encode(code)
+        assert len(code) == self.code_size()
+        assert len(code) & 1 == 0
         return ''.join(code)
 
 
@@ -170,7 +187,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.first_lineno = first_lineno
         self.compile_info = compile_info
         self.first_block = self.new_block()
-        self.use_block(self.first_block)
+        self.current_block = self.first_block
+        self._is_dead_code = False
         self.names = {}
         self.var_names = _iter_to_dict(scope.varnames)
         self.cell_vars = _make_index_dict_filter(scope.symbols,
@@ -179,11 +197,20 @@ class PythonCodeMaker(ast.ASTVisitor):
         string_sort(scope.free_vars)    # return free vars in alphabetical order
         self.free_vars = _iter_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
+        self.consts_w = []
         self.argcount = 0
+        self.posonlyargcount = 0
         self.kwonlyargcount = 0
         self.lineno_set = False
         self.lineno = 0
         self.add_none_to_final_return = True
+
+    def _check_consistency(self, blocks):
+        current_off = 0
+        for block in blocks:
+            assert block.offset == current_off
+            for instr in block.instructions:
+                current_off += instr.size()
 
     def new_block(self):
         return Block()
@@ -191,7 +218,6 @@ class PythonCodeMaker(ast.ASTVisitor):
     def use_block(self, block):
         """Start emitting bytecode into block."""
         self.current_block = block
-        self.instrs = block.instructions
 
     def use_next_block(self, block=None):
         """Set this block as the next_block for the last and use it."""
@@ -204,8 +230,10 @@ class PythonCodeMaker(ast.ASTVisitor):
     def is_dead_code(self):
         """Return False if any code can be meaningfully added to the
         current block, or True if it would be dead code."""
-        # currently only True after a RETURN_VALUE.
-        return self.current_block.have_return
+        return self._is_dead_code or self.current_block.have_return
+
+    def all_dead_code(self):
+        return DeadCode(self)
 
     def emit_op(self, op):
         """Emit an opcode without an argument."""
@@ -214,7 +242,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             instr.lineno = self.lineno
             self.lineno_set = True
         if not self.is_dead_code():
-            self.instrs.append(instr)
+            self.current_block.instructions.append(instr)
             if op == ops.RETURN_VALUE:
                 self.current_block.have_return = True
         return instr
@@ -226,7 +254,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             instr.lineno = self.lineno
             self.lineno_set = True
         if not self.is_dead_code():
-            self.instrs.append(instr)
+            self.current_block.instructions.append(instr)
 
     def emit_op_name(self, op, container, name):
         """Emit an opcode referencing a name."""
@@ -246,64 +274,31 @@ class PythonCodeMaker(ast.ASTVisitor):
             container[name] = index
         return index
 
-    def add_const(self, obj):
+    def add_const(self, w_obj):
         """Add a W_Root to the constant array and return its location."""
         space = self.space
-        # To avoid confusing equal but separate types, we hash store the type
-        # of the constant in the dictionary.  Moreover, we have to keep the
-        # difference between -0.0 and 0.0 floats, and this recursively in
-        # tuples.
-        w_key = self._make_key(obj)
+        if isinstance(w_obj, PyCode):
+            # unlike CPython, never share code objects, it's pointless
+            w_key = space.id(w_obj)
+        else:
+            w_key = PyCode.const_comparison_key(self.space, w_obj)
 
         w_len = space.finditem(self.w_consts, w_key)
-        if w_len is None:
-            w_len = space.len(self.w_consts)
-            space.setitem(self.w_consts, w_key, w_len)
-        if space.int_w(w_len) == 0:
-            self.scope.doc_removable = False
-        return space.int_w(w_len)
-
-    def _make_key(self, obj):
-        # see the tests 'test_zeros_not_mixed*' in ../test/test_compiler.py
-        space = self.space
-        w_type = space.type(obj)
-        if space.is_w(w_type, space.w_float):
-            val = space.float_w(obj)
-            if val == 0.0 and math.copysign(1., val) < 0:
-                w_key = space.newtuple([obj, space.w_float, space.w_None])
-            else:
-                w_key = space.newtuple([obj, space.w_float])
-        elif space.is_w(w_type, space.w_complex):
-            w_real = space.getattr(obj, space.newtext("real"))
-            w_imag = space.getattr(obj, space.newtext("imag"))
-            real = space.float_w(w_real)
-            imag = space.float_w(w_imag)
-            real_negzero = (real == 0.0 and
-                            math.copysign(1., real) < 0)
-            imag_negzero = (imag == 0.0 and
-                            math.copysign(1., imag) < 0)
-            if real_negzero and imag_negzero:
-                tup = [obj, space.w_complex, space.w_None, space.w_None,
-                       space.w_None]
-            elif imag_negzero:
-                tup = [obj, space.w_complex, space.w_None, space.w_None]
-            elif real_negzero:
-                tup = [obj, space.w_complex, space.w_None]
-            else:
-                tup = [obj, space.w_complex]
-            w_key = space.newtuple(tup)
-        elif space.is_w(w_type, space.w_tuple):
-            result_w = [obj, w_type]
-            for w_item in space.fixedview(obj):
-                result_w.append(self._make_key(w_item))
-            w_key = space.newtuple(result_w[:])
-        elif isinstance(obj, PyCode):
-            w_key = space.newtuple([obj, w_type, space.id(obj)])
+        if w_len is not None:
+            length = space.int_w(w_len)
         else:
-            w_key = space.newtuple([obj, w_type])
-        return w_key
+            length = len(self.consts_w)
+            w_obj = misc.intern_if_common_string(space, w_obj)
+            self.consts_w.append(w_obj)
+            space.setitem(self.w_consts, w_key, space.newint(length))
+        if length == 0:
+            self.scope.doc_removable = False
+        return length
+
 
     def load_const(self, obj):
+        if self.is_dead_code():
+            return
         index = self.add_const(obj)
         self.emit_op_arg(ops.LOAD_CONST, index)
 
@@ -315,14 +310,12 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _resolve_block_targets(self, blocks):
         """Compute the arguments of jump instructions."""
-        last_extended_arg_count = 0
         # The reason for this loop is extended jumps.  EXTENDED_ARG
-        # extends the bytecode size, so it might invalidate the offsets
-        # we've already given.  Thus we have to loop until the number of
-        # extended args is stable.  Any extended jump at all is
-        # extremely rare, so performance is not too concerning.
+        # extends the bytecode size, so it might invalidate the offsets we've
+        # already given.  Thus we have to loop until the size of all jump
+        # instructions is stable. Any extended jump at all is extremely rare,
+        # so performance should not be too concerning.
         while True:
-            extended_arg_count = 0
             offset = 0
             force_redo = False
             # Calculate the code offset of each block.
@@ -332,7 +325,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             for block in blocks:
                 offset = block.offset
                 for instr in block.instructions:
-                    offset += instr.size()
+                    size = instr.size()
+                    offset += size
                     if instr.has_jump:
                         target, absolute = instr.jump
                         op = instr.opcode
@@ -351,42 +345,31 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     instr.opcode = ops.RETURN_VALUE
                                     instr.arg = 0
                                     instr.has_jump = False
-                                    # The size of the code changed,
+                                    # The size of the code maybe have changed,
                                     # we have to trigger another pass
-                                    force_redo = True
+                                    if instr.size() != size:
+                                        force_redo = True
                                     continue
+                        elif target.instructions and (
+                                op == ops.POP_JUMP_IF_FALSE or
+                                op == ops.POP_JUMP_IF_TRUE or
+                                op == ops.JUMP_IF_FALSE_OR_POP or
+                                op == ops.JUMP_IF_TRUE_OR_POP):
+                            target_op = target.instructions[0]
+                            if (target_op.opcode == ops.JUMP_ABSOLUTE or
+                                    target_op.opcode == ops.JUMP_FORWARD):
+                                target = target_op.jump[0]
+                                instr.jump = target, absolute
                         if absolute:
                             jump_arg = target.offset
                         else:
                             jump_arg = target.offset - offset
                         instr.arg = jump_arg
-                        if jump_arg > 0xFFFF:
-                            extended_arg_count += 1
-            if (extended_arg_count == last_extended_arg_count and
-                not force_redo):
-                break
-            else:
-                last_extended_arg_count = extended_arg_count
-
-    def _build_consts_array(self):
-        """Turn the applevel constants dictionary into a list."""
-        w_consts = self.w_consts
-        space = self.space
-        consts_w = [space.w_None] * space.len_w(w_consts)
-        w_iter = space.iter(w_consts)
-        first = space.newint(0)
-        while True:
-            try:
-                w_key = space.next(w_iter)
-            except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break
-            w_index = space.getitem(w_consts, w_key)
-            w_constant = space.getitem(w_key, first)
-            w_constant = misc.intern_if_common_string(space, w_constant)
-            consts_w[space.int_w(w_index)] = w_constant
-        return consts_w
+                        if instr.size() != size:
+                            force_redo = True
+            if not force_redo:
+                self._check_consistency(blocks)
+                return
 
     def _get_code_flags(self):
         """Get an extra flags that should be attached to the code object."""
@@ -417,14 +400,17 @@ class PythonCodeMaker(ast.ASTVisitor):
                 raise StackDepthComputationError   # would-be-nice-not-to-have
         return self._max_depth
 
-    def _next_stack_depth_walk(self, nextblock, depth):
+    def _next_stack_depth_walk(self, nextblock, depth, source):
         if depth > nextblock.initial_depth:
             nextblock.initial_depth = depth
+            if not we_are_translated():
+                nextblock._source = source
 
     def _do_stack_depth_walk(self, block):
         depth = block.initial_depth
         if depth == -99:     # this block is never reached, skip
              return 0
+
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
             if depth < 0:
@@ -447,7 +433,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 elif (jump_op == ops.SETUP_FINALLY or
                       jump_op == ops.SETUP_EXCEPT or
                       jump_op == ops.SETUP_WITH or
-                      jump_op == ops.SETUP_ASYNC_WITH):
+                      jump_op == ops.SETUP_ASYNC_WITH or
+                      jump_op == ops.CALL_FINALLY):
                     if jump_op == ops.SETUP_FINALLY:
                         target_depth += 4
                     elif jump_op == ops.SETUP_EXCEPT:
@@ -456,12 +443,14 @@ class PythonCodeMaker(ast.ASTVisitor):
                         target_depth += 3
                     elif jump_op == ops.SETUP_ASYNC_WITH:
                         target_depth += 3
+                    elif jump_op == ops.CALL_FINALLY:
+                        target_depth += 1
                     if target_depth > self._max_depth:
                         self._max_depth = target_depth
                 elif (jump_op == ops.JUMP_IF_TRUE_OR_POP or
                       jump_op == ops.JUMP_IF_FALSE_OR_POP):
                     depth -= 1
-                self._next_stack_depth_walk(instr.jump[0], target_depth)
+                self._next_stack_depth_walk(instr.jump[0], target_depth, (block, instr))
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
                     break
@@ -470,7 +459,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 break
         else:
             if block.next_block:
-                self._next_stack_depth_walk(block.next_block, depth)
+                self._next_stack_depth_walk(block.next_block, depth, (block, None))
         return depth
 
     def _build_lnotab(self, blocks):
@@ -478,7 +467,6 @@ class PythonCodeMaker(ast.ASTVisitor):
         current_line = self.first_lineno
         current_off = 0
         table = []
-        push = table.append
         for block in blocks:
             offset = block.offset
             for instr in block.instructions:
@@ -500,17 +488,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                     # the C Python compiler because it only generates a
                     # SET_LINENO instruction for the assignment.
                     if line or addr:
-                        while addr > 255:
-                            push(chr(255))
-                            push(chr(0))
-                            addr -= 255
-                        while line > 255:
-                            push(chr(addr))
-                            push(chr(255))
-                            line -= 255
-                            addr = 0
-                        push(chr(addr))
-                        push(chr(line))
+                        _encode_lnotab_pair(addr, line, table)
                         current_line = instr.lineno
                         current_off = offset
                 offset += instr.size()
@@ -535,7 +513,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self._resolve_block_targets(blocks)
         lnotab = self._build_lnotab(blocks)
         stack_depth = self._stacksize(blocks)
-        consts_w = self._build_consts_array()
+        consts_w = self.consts_w[:]
         names = _list_from_dict(self.names)
         var_names = _list_from_dict(self.var_names)
         cell_names = _list_from_dict(self.cell_vars)
@@ -546,6 +524,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         bytecode = ''.join([block.get_code() for block in blocks])
         return PyCode(self.space,
                       self.argcount,
+                      self.posonlyargcount,
                       self.kwonlyargcount,
                       len(self.var_names),
                       stack_depth,
@@ -562,6 +541,18 @@ class PythonCodeMaker(ast.ASTVisitor):
                       cell_names,
                       self.compile_info.hidden_applevel)
 
+class DeadCode(object):
+    def __init__(self, codegen):
+        self.codegen = codegen
+
+    def __enter__(self, *args):
+        self.old_value = self.codegen._is_dead_code
+        self.codegen._is_dead_code = True
+
+    def __exit__(self, *args):
+        self.codegen._is_dead_code = self.old_value
+
+
 
 def _list_from_dict(d, offset=0):
     result = [None] * len(d)
@@ -569,6 +560,32 @@ def _list_from_dict(d, offset=0):
         result[index - offset] = obj
     return result
 
+
+def _encode_lnotab_pair(addr, line, table):
+    while addr > 255:
+        table.append(chr(255))
+        table.append(chr(0))
+        addr -= 255
+    # this implements CPython's logic to be complete. However, the calling code
+    # ensures that line is never negative at all. We could fix this, if we
+    # wanted.
+    while line < -128:
+        table.append(chr(addr))
+        table.append(chr(-128 + 256))
+        line += 128
+        addr = 0
+    while line > 127:
+        table.append(chr(addr))
+        table.append(chr(127))
+        line -= 127
+        addr = 0
+    table.append(chr(addr))
+
+    # store as signed char
+    assert -128 <= line <= 127
+    if line < 0:
+        line += 256
+    table.append(chr(line))
 
 _static_opcode_stack_effects = {
     ops.NOP: 0,
@@ -622,9 +639,6 @@ _static_opcode_stack_effects = {
 
     ops.GET_ITER: 0,
     ops.FOR_ITER: 1,
-    ops.BREAK_LOOP: 0,
-    ops.CONTINUE_LOOP: 0,
-    ops.SETUP_LOOP: 0,
 
     ops.PRINT_EXPR: -1,
 
@@ -633,9 +647,11 @@ _static_opcode_stack_effects = {
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
+    ops.BEGIN_FINALLY: 4,
     ops.END_FINALLY: -4,     # assume always 4: we pretend that SETUP_FINALLY
                              # pushes 4.  In truth, it would only push 1 and
                              # the corresponding END_FINALLY only pops 1.
+    ops.POP_FINALLY: -4,     # same
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
     ops.SETUP_EXCEPT: 0,
@@ -675,6 +691,8 @@ _static_opcode_stack_effects = {
     ops.GET_AITER: 0,
     ops.GET_ANEXT: 1,
     ops.GET_YIELD_FROM_ITER: 0,
+    ops.END_ASYNC_FOR: -5, # this is really only -4, but it needs to be -5 to
+    # balance the SETUP_EXCEPT, which pretends to push +4
 
     ops.LOAD_CONST: 1,
 
@@ -688,13 +706,16 @@ _static_opcode_stack_effects = {
     ops.JUMP_IF_FALSE_OR_POP: 0,
     ops.POP_JUMP_IF_TRUE: -1,
     ops.POP_JUMP_IF_FALSE: -1,
-    ops.JUMP_IF_NOT_DEBUG: 0,
+
+    ops.SETUP_ANNOTATIONS: 0,
 
     # TODO
     ops.BUILD_LIST_FROM_ARG: 1,
     ops.LOAD_REVDB_VAR: 1,
 
     ops.LOAD_CLASSDEREF: 1,
+
+    ops.CALL_FINALLY: 0,
 }
 
 
@@ -731,11 +752,8 @@ def _compute_BUILD_MAP_UNPACK(arg):
 def _compute_BUILD_MAP_UNPACK_WITH_CALL(arg):
     return 1 - (arg & 0xFF)
 
-def _compute_MAKE_CLOSURE(arg):
-    return -2 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
-
 def _compute_MAKE_FUNCTION(arg):
-    return -1 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
+    return -1 - bool(arg & 0x01) - bool(arg & 0x02) - bool(arg & 0x04) - bool(arg & 0x08)
 
 def _compute_BUILD_SLICE(arg):
     if arg == 3:
@@ -746,23 +764,22 @@ def _compute_BUILD_SLICE(arg):
 def _compute_RAISE_VARARGS(arg):
     return -arg
 
-def _num_args(oparg):
-    return (oparg % 256) + 2 * ((oparg // 256) % 256)
-
 def _compute_CALL_FUNCTION(arg):
-    return -_num_args(arg)
-
-def _compute_CALL_FUNCTION_VAR(arg):
-    return -_num_args(arg) - 1
+    return -arg
 
 def _compute_CALL_FUNCTION_KW(arg):
-    return -_num_args(arg) - 1
+    return -arg - 1
 
-def _compute_CALL_FUNCTION_VAR_KW(arg):
-    return -_num_args(arg) - 2
+def _compute_CALL_FUNCTION_EX(arg):
+    assert arg == 0 or arg == 1
+    # either -1 or -2
+    return -arg - 1
 
 def _compute_CALL_METHOD(arg):
-    return -_num_args(arg) - 1
+    return -arg - 1
+
+def _compute_CALL_METHOD_KW(arg):
+    return -arg - 2
 
 def _compute_FORMAT_VALUE(arg):
     if (arg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
@@ -771,6 +788,9 @@ def _compute_FORMAT_VALUE(arg):
 
 def _compute_BUILD_STRING(arg):
     return 1 - arg
+
+def _compute_BUILD_CONST_KEY_MAP(arg):
+    return  -arg
 
 
 _stack_effect_computers = {}
@@ -796,7 +816,7 @@ def _opcode_stack_effect(op, arg):
             if op == possible_op.index:
                 return _stack_effect_computers[possible_op.index](arg)
         else:
-            raise AssertionError("unknown opcode: %s" % (op,))
+            raise KeyError("unknown opcode: %s" % (op,))
     else:
         try:
             return _static_opcode_stack_effects[op]

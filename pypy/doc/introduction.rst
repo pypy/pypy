@@ -30,5 +30,5 @@ language implementation itself.
 
 For more details, have a look at our :doc:`architecture overview <architecture>`.
 
-.. _Python: http://python.org
+.. _Python: https://python.org
 .. _

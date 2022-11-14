@@ -11,15 +11,16 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.metainterp.history import ConstPtr, AbstractDescr, ConstInt
 from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.support import ptr2int
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport.memcpy import memcpy_fn
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr, FieldDescr
 from rpython.jit.backend.llsupport.descr import GcCache, get_field_descr
 from rpython.jit.backend.llsupport.descr import get_array_descr
 from rpython.jit.backend.llsupport.descr import get_call_descr
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
-from rpython.memory.gctransform import asmgcroot
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
 # ____________________________________________________________
@@ -35,6 +36,11 @@ class GcLLDescription(GcCache):
             self.fielddescr_vtable = get_field_descr(self, rclass.OBJECT,
                                                      'typeptr')
         self._generated_functions = []
+        self.memcpy_fn = memcpy_fn
+        self.memcpy_descr = get_call_descr(self,
+            [lltype.Signed, lltype.Signed, lltype.Signed], lltype.Void,
+            EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                can_collect=False))
 
     def _setup_str(self):
         self.str_descr     = get_array_descr(self, rstr.STR)
@@ -66,7 +72,7 @@ class GcLLDescription(GcCache):
     @specialize.arg(1)
     def get_malloc_fn_addr(self, funcname):
         ll_func = self.get_malloc_fn(funcname)
-        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(ll_func))
+        return ptr2int(ll_func)
 
     def _freeze_(self):
         return True
@@ -110,7 +116,7 @@ class GcLLDescription(GcCache):
         descrs = JitFrameDescrs()
         descrs.arraydescr = cpu.arraydescrof(jitframe.JITFRAME)
         for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
-                     'jf_frame_info', 'jf_gcmap', 'jf_extra_stack_depth',
+                     'jf_frame_info', 'jf_gcmap',
                      'jf_savedata', 'jf_forward']:
             setattr(descrs, name, cpu.fielddescrof(jitframe.JITFRAME, name))
         descrs.jfi_frame_size = cpu.fielddescrof(jitframe.JITFRAMEINFO,
@@ -236,15 +242,6 @@ class GcLLDescr_boehm(GcLLDescription):
 
 # ____________________________________________________________
 # All code below is for the hybrid or minimark GC
-
-class GcRootMap_asmgcc(object):
-    is_shadow_stack = False
-
-    def __init__(self, gcdescr):
-        pass
-
-    def register_asm_addr(self, start, mark):
-        pass
 
 class GcRootMap_shadowstack(object):
     is_shadow_stack = True

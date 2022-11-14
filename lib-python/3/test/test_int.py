@@ -1,7 +1,10 @@
 import sys
+import time
 
 import unittest
 from test import support
+from test.test_grammar import (VALID_UNDERSCORE_LITERALS,
+                               INVALID_UNDERSCORE_LITERALS)
 
 L = [
         ('0', 0),
@@ -212,6 +215,25 @@ class IntTestCases(unittest.TestCase):
         self.assertEqual(int('2br45qc', 35), 4294967297)
         self.assertEqual(int('1z141z5', 36), 4294967297)
 
+    def test_underscores(self):
+        for lit in VALID_UNDERSCORE_LITERALS:
+            if any(ch in lit for ch in '.eEjJ'):
+                continue
+            self.assertEqual(int(lit, 0), eval(lit))
+            self.assertEqual(int(lit, 0), int(lit.replace('_', ''), 0))
+        for lit in INVALID_UNDERSCORE_LITERALS:
+            if any(ch in lit for ch in '.eEjJ'):
+                continue
+            self.assertRaises(ValueError, int, lit, 0)
+        # Additional test cases with bases != 0, only for the constructor:
+        self.assertEqual(int("1_00", 3), 9)
+        self.assertEqual(int("0_100"), 100)  # not valid as a literal!
+        self.assertEqual(int(b"1_00"), 100)  # byte underscore
+        self.assertRaises(ValueError, int, "_100")
+        self.assertRaises(ValueError, int, "+_100")
+        self.assertRaises(ValueError, int, "1__00")
+        self.assertRaises(ValueError, int, "100_")
+
     @support.cpython_only
     def test_small_ints(self):
         # Bug #3236: Return small longs from PyLong_FromString
@@ -225,9 +247,11 @@ class IntTestCases(unittest.TestCase):
 
     def test_keyword_args(self):
         # Test invoking int() using keyword arguments.
-        self.assertEqual(int(x=1.2), 1)
         self.assertEqual(int('100', base=2), 4)
-        self.assertEqual(int(x='100', base=2), 4)
+        with self.assertRaisesRegex(TypeError, 'keyword argument'):
+            int(x=1.2)
+        with self.assertRaisesRegex(TypeError, 'keyword argument'):
+            int(x='100', base=2)
         self.assertRaises(TypeError, int, base=10)
         self.assertRaises(TypeError, int, base=0)
 
@@ -355,13 +379,22 @@ class IntTestCases(unittest.TestCase):
                 int(ExceptionalTrunc())
 
             for trunc_result_base in (object, Classic):
-                class Integral(trunc_result_base):
-                    def __int__(self):
+                class Index(trunc_result_base):
+                    def __index__(self):
                         return 42
 
                 class TruncReturnsNonInt(base):
                     def __trunc__(self):
-                        return Integral()
+                        return Index()
+                self.assertEqual(int(TruncReturnsNonInt()), 42)
+
+                class Intable(trunc_result_base):
+                    def __int__(self):
+                        return 42
+
+                class TruncReturnsNonIndex(base):
+                    def __trunc__(self):
+                        return Intable()
                 self.assertEqual(int(TruncReturnsNonInt()), 42)
 
                 class NonIntegral(trunc_result_base):
@@ -395,6 +428,21 @@ class IntTestCases(unittest.TestCase):
                 with self.assertRaises(TypeError):
                     int(TruncReturnsBadInt())
 
+    def test_int_subclass_with_index(self):
+        class MyIndex(int):
+            def __index__(self):
+                return 42
+
+        class BadIndex(int):
+            def __index__(self):
+                return 42.0
+
+        my_int = MyIndex(7)
+        self.assertEqual(my_int, 7)
+        self.assertEqual(int(my_int), 7)
+
+        self.assertEqual(int(BadIndex()), 0)
+
     def test_int_subclass_with_int(self):
         class MyInt(int):
             def __int__(self):
@@ -408,9 +456,19 @@ class IntTestCases(unittest.TestCase):
         self.assertEqual(my_int, 7)
         self.assertEqual(int(my_int), 42)
 
-        self.assertRaises(TypeError, int, BadInt())
+        my_int = BadInt(7)
+        self.assertEqual(my_int, 7)
+        self.assertRaises(TypeError, int, my_int)
 
     def test_int_returns_int_subclass(self):
+        class BadIndex:
+            def __index__(self):
+                return True
+
+        class BadIndex2(int):
+            def __index__(self):
+                return True
+
         class BadInt:
             def __int__(self):
                 return True
@@ -418,6 +476,10 @@ class IntTestCases(unittest.TestCase):
         class BadInt2(int):
             def __int__(self):
                 return True
+
+        class TruncReturnsBadIndex:
+            def __trunc__(self):
+                return BadIndex()
 
         class TruncReturnsBadInt:
             def __trunc__(self):
@@ -427,25 +489,45 @@ class IntTestCases(unittest.TestCase):
             def __trunc__(self):
                 return True
 
+        bad_int = BadIndex()
+        with self.assertWarns(DeprecationWarning):
+            n = int(bad_int)
+        self.assertEqual(n, 1)
+        self.assertIs(type(n), int)
+
+        bad_int = BadIndex2()
+        n = int(bad_int)
+        self.assertEqual(n, 0)
+        self.assertIs(type(n), int)
+
         bad_int = BadInt()
         with self.assertWarns(DeprecationWarning):
             n = int(bad_int)
         self.assertEqual(n, 1)
+        self.assertIs(type(n), int)
 
         bad_int = BadInt2()
         with self.assertWarns(DeprecationWarning):
             n = int(bad_int)
         self.assertEqual(n, 1)
+        self.assertIs(type(n), int)
+
+        bad_int = TruncReturnsBadIndex()
+        with self.assertWarns(DeprecationWarning):
+            n = int(bad_int)
+        self.assertEqual(n, 1)
+        self.assertIs(type(n), int)
 
         bad_int = TruncReturnsBadInt()
         with self.assertWarns(DeprecationWarning):
             n = int(bad_int)
         self.assertEqual(n, 1)
+        self.assertIs(type(n), int)
 
         good_int = TruncReturnsIntSubclass()
         n = int(good_int)
         self.assertEqual(n, 1)
-        self.assertIs(type(n), bool)
+        self.assertIs(type(n), int)
         n = IntSubclass(good_int)
         self.assertEqual(n, 1)
         self.assertIs(type(n), IntSubclass)
@@ -482,6 +564,213 @@ class IntTestCases(unittest.TestCase):
         # lone surrogate in Unicode string
         check('123\ud800')
         check('123\ud800', 10)
+
+    def test_issue31619(self):
+        self.assertEqual(int('1_0_1_0_1_0_1_0_1_0_1_0_1_0_1_0_1_0_1_0_1_0_1_0_1_0_1_0_1_0_1', 2),
+                         0b1010101010101010101010101010101)
+        self.assertEqual(int('1_2_3_4_5_6_7_0_1_2_3', 8), 0o12345670123)
+        self.assertEqual(int('1_2_3_4_5_6_7_8_9', 16), 0x123456789)
+        self.assertEqual(int('1_2_3_4_5_6_7', 32), 1144132807)
+
+
+class IntStrDigitLimitsTests(unittest.TestCase):
+
+    int_class = int  # Override this in subclasses to reuse the suite.
+
+    def setUp(self):
+        super().setUp()
+        self._previous_limit = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(2048)
+
+    def tearDown(self):
+        sys.set_int_max_str_digits(self._previous_limit)
+        super().tearDown()
+
+    def test_disabled_limit(self):
+        self.assertGreater(sys.get_int_max_str_digits(), 0)
+        self.assertLess(sys.get_int_max_str_digits(), 20_000)
+        with support.adjust_int_max_str_digits(0):
+            self.assertEqual(sys.get_int_max_str_digits(), 0)
+            i = self.int_class('1' * 20_000)
+            str(i)
+        self.assertGreater(sys.get_int_max_str_digits(), 0)
+
+    def test_max_str_digits_edge_cases(self):
+        """Ignore the +/- sign and space padding."""
+        int_class = self.int_class
+        maxdigits = sys.get_int_max_str_digits()
+
+        int_class('1' * maxdigits)
+        int_class(' ' + '1' * maxdigits)
+        int_class('1' * maxdigits + ' ')
+        int_class('+' + '1' * maxdigits)
+        int_class('-' + '1' * maxdigits)
+        self.assertEqual(len(str(10 ** (maxdigits - 1))), maxdigits)
+
+    def check(self, i, base=None):
+        with self.assertRaises(ValueError):
+            if base is None:
+                self.int_class(i)
+            else:
+                self.int_class(i, base)
+
+    def test_max_str_digits(self):
+        maxdigits = sys.get_int_max_str_digits()
+
+        self.check('1' * (maxdigits + 1))
+        self.check(' ' + '1' * (maxdigits + 1))
+        self.check('1' * (maxdigits + 1) + ' ')
+        self.check('+' + '1' * (maxdigits + 1))
+        self.check('-' + '1' * (maxdigits + 1))
+        self.check('1' * (maxdigits + 1))
+
+        i = 10 ** maxdigits
+        with self.assertRaises(ValueError):
+            str(i)
+
+    def test_denial_of_service_prevented_int_to_str(self):
+        """Regression test: ensure we fail before performing O(N**2) work."""
+        maxdigits = sys.get_int_max_str_digits()
+        assert maxdigits < 50_000, maxdigits  # A test prerequisite.
+        get_time = time.process_time
+        if get_time() <= 0:  # some platforms like WASM lack process_time()
+            get_time = time.monotonic
+
+        huge_int = int(f'0x{"c"*65_000}', base=16)  # 78268 decimal digits.
+        digits = 78_268
+        with support.adjust_int_max_str_digits(digits):
+            start = get_time()
+            huge_decimal = str(huge_int)
+        seconds_to_convert = get_time() - start
+        self.assertEqual(len(huge_decimal), digits)
+
+        if support.check_impl_detail(pypy=True):
+            raise unittest.SkipTest('"slow" conversion too fast on PyPy')
+
+        # Ensuring that we chose a slow enough conversion to measure.
+        # It takes 0.1 seconds on a Zen based cloud VM in an opt build.
+        if seconds_to_convert < 0.005:
+            raise unittest.SkipTest('"slow" conversion took only '
+                                    f'{seconds_to_convert} seconds.')
+
+        # We test with the limit almost at the size needed to check performance.
+        # The performant limit check is slightly fuzzy, give it a some room.
+        with support.adjust_int_max_str_digits(int(.995 * digits)):
+            with self.assertRaises(ValueError) as err:
+                start = get_time()
+                str(huge_int)
+            seconds_to_fail_huge = get_time() - start
+        self.assertIn('conversion', str(err.exception))
+        self.assertLess(seconds_to_fail_huge, seconds_to_convert/8)
+
+        # Now we test that a conversion that would take 30x as long also fails
+        # in a similarly fast fashion.
+        extra_huge_int = int(f'0x{"c"*500_000}', base=16)  # 602060 digits.
+        with self.assertRaises(ValueError) as err:
+            start = get_time()
+            # If not limited, 8 seconds said Zen based cloud VM.
+            str(extra_huge_int)
+        seconds_to_fail_extra_huge = get_time() - start
+        self.assertIn('conversion', str(err.exception))
+        self.assertLess(seconds_to_fail_extra_huge, seconds_to_convert/8)
+
+    def test_denial_of_service_prevented_str_to_int(self):
+        """Regression test: ensure we fail before performing O(N**2) work."""
+        maxdigits = sys.get_int_max_str_digits()
+        assert maxdigits < 100_000, maxdigits  # A test prerequisite.
+        get_time = time.process_time
+        if get_time() <= 0:  # some platforms like WASM lack process_time()
+            get_time = time.monotonic
+
+        digits = 133700
+        huge = '8'*digits
+        with support.adjust_int_max_str_digits(digits):
+            start = get_time()
+            int(huge)
+        seconds_to_convert = get_time() - start
+        # Ensuring that we chose a slow enough conversion to measure.
+        # It takes 0.1 seconds on a Zen based cloud VM in an opt build.
+        if seconds_to_convert < 0.005:
+            raise unittest.SkipTest('"slow" conversion took only '
+                                    f'{seconds_to_convert} seconds.')
+
+        with support.adjust_int_max_str_digits(digits - 1):
+            with self.assertRaises(ValueError) as err:
+                start = get_time()
+                int(huge)
+            seconds_to_fail_huge = get_time() - start
+        self.assertIn('conversion', str(err.exception))
+        self.assertLess(seconds_to_fail_huge, seconds_to_convert/8)
+
+        # Now we test that a conversion that would take 30x as long also fails
+        # in a similarly fast fashion.
+        extra_huge = '7'*1_200_000
+        with self.assertRaises(ValueError) as err:
+            start = get_time()
+            # If not limited, 8 seconds in the Zen based cloud VM.
+            int(extra_huge)
+        seconds_to_fail_extra_huge = get_time() - start
+        self.assertIn('conversion', str(err.exception))
+        self.assertLess(seconds_to_fail_extra_huge, seconds_to_convert/8)
+
+    def test_power_of_two_bases_unlimited(self):
+        """The limit does not apply to power of 2 bases."""
+        maxdigits = sys.get_int_max_str_digits()
+
+        for base in (2, 4, 8, 16, 32):
+            with self.subTest(base=base):
+                self.int_class('1' * (maxdigits + 1), base)
+                assert maxdigits < 100_000
+                self.int_class('1' * 100_000, base)
+
+    def test_underscores_ignored(self):
+        maxdigits = sys.get_int_max_str_digits()
+
+        triples = maxdigits // 3
+        s = '111' * triples
+        s_ = '1_11' * triples
+        self.int_class(s)  # succeeds
+        self.int_class(s_)  # succeeds
+        self.check(f'{s}111')
+        self.check(f'{s_}_111')
+
+    def test_sign_not_counted(self):
+        int_class = self.int_class
+        max_digits = sys.get_int_max_str_digits()
+        s = '5' * max_digits
+        i = int_class(s)
+        pos_i = int_class(f'+{s}')
+        assert i == pos_i
+        neg_i = int_class(f'-{s}')
+        assert -pos_i == neg_i
+        str(pos_i)
+        str(neg_i)
+
+    def _other_base_helper(self, base):
+        int_class = self.int_class
+        max_digits = sys.get_int_max_str_digits()
+        s = '2' * max_digits
+        i = int_class(s, base)
+        if base > 10:
+            with self.assertRaises(ValueError):
+                str(i)
+        elif base < 10:
+            str(i)
+        with self.assertRaises(ValueError) as err:
+            int_class(f'{s}1', base)
+
+    def test_int_from_other_bases(self):
+        base = 3
+        with self.subTest(base=base):
+            self._other_base_helper(base)
+        base = 36
+        with self.subTest(base=base):
+            self._other_base_helper(base)
+
+
+class IntSubclassStrDigitLimitsTests(IntStrDigitLimitsTests):
+    int_class = IntSubclass
+
 
 if __name__ == "__main__":
     unittest.main()

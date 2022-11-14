@@ -64,6 +64,14 @@ class TestParserGenerator:
     def test_optional(self):
         g = self.gram_for("foo: [NAME]")
 
+    def test_optional_repeater(self):
+        g = self.gram_for("foo: [NAME* NUMBER]")
+        assert len(g.dfas[0].states) == 3
+        # DFA must not accept between the NAME and NUMBER tokens
+        arcs1, is_accepting1 = g.dfas[0].states[1]
+        arcs2, is_accepting2 = g.dfas[0].states[2]
+        assert not (is_accepting1 and is_accepting2)
+
     def test_grouping(self):
         g = self.gram_for("foo: (NAME | STRING) OP")
 

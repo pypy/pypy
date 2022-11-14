@@ -1,4 +1,6 @@
+# -*- coding: utf-8 -*-
 import sys
+import pytest
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 # XXX review the <Call> descrs to replace some EF=5 with EF=4 (elidable)
@@ -67,14 +69,18 @@ class TestString(BaseTestPyPyC):
             i98 = strgetitem(p52, i94)
             p103 = newstr(1)
             strsetitem(p103, 0, i98)
-            p296 = call_r(ConstClass(str_decode_utf_8), p103, 1, ConstPtr(null), 1, ConstClass(raise_unicode_exception_decode), 0, descr=<Callr . ririii EF=4>)
+            i95 = call_i(ConstClass(_check_utf8), p103, 0, 0, -1, descr=<Calli 8 riii EF=4>)
             guard_no_exception(descr=...)
-            p116 = getfield_gc_r(p296, descr=<FieldP tuple2.item0 . pure>)
+            i98 = int_ge(i95, 0)
+            guard_true(i98, descr=...)
             i99 = int_ge(i94, i46)
             guard_false(i99, descr=...)
-            i120 = unicodegetitem(p45, i94)
-            i122 = call_i(ConstClass(_ll_2_str_eq_nonnull_char__rpy_unicodePtr_UniChar), p116, i120, descr=<Calli . ri EF=0 OS=49>)
-            guard_true(i122, descr=...)
+            i115 = int_add(i94, 1)
+            i116 = int_gt(i115, i71)
+            guard_false(i116, descr=...)
+
+            i104 = call_i(ConstClass(_ll_4_str_eq_slice_char__rpy_stringPtr_Signed_Signed_Char), p65, i94, 1, i98, descr=<Calli 8 riii EF=0 OS=27>)
+            guard_true(i104, descr=...)
             i124 = int_add(i83, 1)
             --TICK--
             jump(..., descr=...)
@@ -110,15 +116,11 @@ class TestString(BaseTestPyPyC):
             i87 = int_mul(i85, 10)
             i19 = int_sub(i6, i87)
 
-            i23 = unicodegetitem(ConstPtr(ptr92), i19)
-            p25 = newtext(1)
-            unicodesetitem(p25, 0, i23)
-            p97 = call_r(ConstClass(_rpy_unicode_to_decimal_w), p25, descr=<Callr . r EF=5>)
-            guard_no_exception(descr=...)
-            i98 = unicodelen(p97)
-            p104 = call_r(ConstClass(unicode_encode_utf_8), p97, i98, ConstPtr(ptr94), 1, descr=<Callr 8 riri EF=4>)
-            guard_no_exception(descr=...)
-            i107 = call_i(ConstClass(string_to_int), p104, 16, descr=<Calli . ri EF=4>)
+            i85 = int_add(i19, 1)   # not used
+            p25 = newstr(1)
+            i23 = strgetitem(ConstPtr(ptr92), i19)
+            strsetitem(p25, 0, i23)
+            i107 = call_i(ConstClass(string_to_int), p25, 16, 1, 1, 0, descr=<Calli . riiii EF=4>)
             guard_no_exception(descr=...)
             i95 = int_add_ovf(i6, i107)
             guard_no_overflow(descr=...)
@@ -168,7 +170,10 @@ class TestString(BaseTestPyPyC):
             guard_no_exception(descr=...)
             p95 = call_r(..., descr=<Callr . r EF=5>)     # ll_build
             guard_no_exception(descr=...)
-            i96 = strlen(p95)
+            i96 = call_i(ConstClass(codepoints_in_utf8), p95, 0, _, descr=<Calli . rii EF=4>)
+            guard_no_exception(descr=...)
+            i969 = int_lt(i96, 0)
+            guard_false(i969, descr=...)
             i97 = int_add_ovf(i71, i96)
             guard_no_overflow(descr=...)
             i98 = int_sub(i74, 1)
@@ -176,16 +181,16 @@ class TestString(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
-    def test_remove_duplicate_method_calls(self):
+    def test_remove_duplicate_method_calls_bytes(self):
         def main(n):
             lst = []
             for i in range(n):
-                s = 'Hello %d' % i
+                s = b'Hello %d' % i
                 t = s.lower()   # ID: callone
                 u = s.lower()   # ID: calltwo
                 lst.append(t)
                 lst.append(u)
-            return len(','.join(lst))
+            return len(b','.join(lst))
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loops = log.loops_by_filename(self.filepath)
@@ -196,8 +201,37 @@ class TestString(BaseTestPyPyC):
             ''')
         assert loop.match_by_id('calltwo', '')    # nothing
 
+    def test_remove_duplicate_method_calls_unicode(self):
+        def main(n):
+            lst = []
+            for i in range(n):
+                s = u'H\xe4llo %d' % i
+                t = s.lower()   # ID: callone
+                u = s.lower()   # ID: calltwo
+                lst.append(t)
+                lst.append(u)
+            return len(u','.join(lst))
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loops = log.loops_by_filename(self.filepath)
+        loop, = loops
+        assert loop.match_by_id('callone', '''
+            i136 = strlen(p131)
+            i137 = int_eq(i135, i136)
+            guard_false(i137, descr=...)
+            p139 = call_r(ConstClass(_lower_unicode), p131, descr=...)
+            guard_no_exception(descr=...)
+            guard_nonnull(p139, descr=...)
+            ''')
+        assert loop.match_by_id('calltwo', '')    # nothing
+
+    @pytest.mark.xfail
     def test_move_method_call_out_of_loop(self):
-        # XXX not implemented: lower() on unicodes is not considered elidable
+        # XXX this does not work: _lower_unicode() is found to be elidable,
+        # but it can raise (because of 'raise StopIteration' in
+        # Utf8StringIterator.next()---we don't detect that such an exception
+        # is always caught in the caller).  Raising elidable calls are not
+        # unroll-removed: see issue #2015.
         def main(n):
             lst = []
             s = 'Hello %d' % n
@@ -250,9 +284,124 @@ class TestString(BaseTestPyPyC):
         p80 = call_r(ConstClass(ll_char_mul__Char_Signed), 120, i53, descr=<Callr . ii EF=3>)
         guard_no_exception(descr=...)
         guard_not_invalidated(descr=...)
-        p53 = call_r(ConstClass(fast_str_decode_ascii), p80, descr=<Callr . r EF=4>)
+        i59 = call_i(ConstClass(first_non_ascii_char), p80, descr=<Calli . r EF=4>)
         guard_no_exception(descr=...)
+        i61 = int_lt(i59, 0)
+        guard_true(i61, descr=...)
+        i62 = strlen(p80)
         --TICK--
         jump(..., descr=...)
         """)
-        # XXX remove the guard_nonnull above?
+
+    def test_unicode_indexing_makes_no_bridges(self):
+        log = self.run(r"""
+        u = 'abä👨‍👩‍👧‍👦 ' * 1000
+        def main():
+            for j in range(10):
+                for i in range(len(u)):
+                    u[i] # ID: index0
+        """, [])
+        loop, = log.loops_by_id("index0")
+        ops = loop.ops_by_id("index0")
+        for op in ops:
+            assert op.bridge is None
+
+    def test_unicode_indexing_small_constant_indices(self):
+        log = self.run("""
+        l = [u"abä", u"cdä", u"äü", u"éé", u"–—¿"] * 1000
+        def main(n):
+            global s
+            for u in l:
+                s = u[0] + u[1] + u[-1] # ID: index
+                len(u)
+            return len(s)
+        """, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('index', '''
+            i77 = getfield_gc_i(p73, descr=<FieldS pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__length .*>)
+            p78 = getfield_gc_r(p73, descr=<FieldP pypy.objspace.std.unicodeobject.W_UnicodeObject.inst__utf8 .* pure>)
+            i79 = strlen(p78)
+            i80 = int_eq(i77, i79)
+            guard_false(i80, descr=...) # check not ascii
+            i82 = int_ge(0, i77)
+            guard_false(i82, descr=...)
+            i85 = call_i(ConstClass(next_codepoint_pos_dont_look_inside), p78, 0, descr=...)
+            i86 = int_gt(i85, i79)
+            guard_false(i86, descr=...)
+            i88 = int_ge(1, i77)
+            guard_false(i88, descr=...)
+            i90 = call_i(ConstClass(next_codepoint_pos_dont_look_inside), p78, i85, descr=...)
+            i91 = int_gt(i90, i79)
+            guard_false(i91, descr=...)
+            i92 = int_sub(i90, i85)
+            i94 = int_add(-1, i77)
+            i96 = call_i(ConstClass(prev_codepoint_pos_dont_look_inside), p78, i79, descr=...)
+            i97 = int_sub(i79, i96)
+            guard_not_invalidated(descr=...)
+        ''')
+
+    def test_unicode_slicing_small_constant_indices(self):
+        log = self.run("""
+        def main(n):
+            u = 'abä👨‍👩‍👧‍👦 ' * 1000
+            global s
+            count = 0
+            while u:
+                u = u[1:] # ID: index
+                count += 1
+            return count
+        """, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('index', '''
+            i51 = int_ge(1, i38)
+            guard_false(i51, descr=...)
+            i59 = int_sub(i38, 1)
+            i52 = strlen(p47)
+            i53 = int_eq(i38, i52)
+            guard_false(i53, descr=...)
+            i56 = call_i(ConstClass(next_codepoint_pos_dont_look_inside), p47, 0, descr=...)
+            i57 = int_sub(i52, i56)
+        ''')
+
+    def test_decode_encode(self):
+        log = self.run(r"""
+        def main(n):
+            global s
+            u = b'ab\xc3\xa4\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa7\xe2\x80\x8d\xf0\x9f\x91\xa6'.decode("utf-8")
+            count = 0
+            for i in range(n):
+                b = (u + str(i)).encode("utf-8")
+                u = b.decode("utf-8") # ID: decode
+                count += 1
+            return count
+        """, [10000])
+        loop, = log.loops_by_filename(self.filepath)
+        # No call to _check_utf8 is necessary, because the bytes come from
+        # W_UnicodeObject.utf8_w.
+        assert loop.match_by_id('decode', '''
+        ''')
+
+    def test_find(self):
+        log = self.run("""
+        def main(n):
+            global s
+            b = b'abaaac' * 10000
+            count = 0
+            start = 0
+            while 1:
+                start = b.find(b'a', start)
+                if start < 0:
+                    break
+                b[start] # ID: index
+                count += 1
+                start += 1
+            return count
+        """, [10000])
+        loop, = log.loops_by_filename(self.filepath)
+        # no bounds check, the < 0 is done by the check for end of string.
+        # the >= len is not necessary, because find has a record_exact_value
+        # that records the fact that this is always true.
+        assert loop.match_by_id('index', '''
+            i2 = strgetitem(p1, i1)
+        ''')
+

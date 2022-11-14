@@ -135,6 +135,15 @@ class ListTests:
         assert res == 7
         self.check_resops(call=0)
 
+    def test_arraymove_simpleoptimize(self):
+        def f():
+            l = [10, 20, 30, 40]
+            l.insert(1, 999)
+            return len(l) + l[1] + l[-1]
+
+        res = self.interp_operations(f, [], listops=True)
+        assert res == 5 + 999 + 40
+
     def test_fold_getitem_1(self):
         jitdriver = JitDriver(greens = ['pc', 'n', 'l'], reds = ['total'])
         def f(n):
@@ -212,6 +221,7 @@ class ListTests:
                 s += lst[0]
                 lst.pop()
                 lst.append(1)
+                lst.insert(0, 5)
                 lst.insert(0, 5)
                 lst.insert(1, 6)
                 s *= lst.pop()

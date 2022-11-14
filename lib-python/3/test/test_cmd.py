@@ -6,7 +6,6 @@ Original by Michael Schneider
 
 import cmd
 import sys
-import re
 import unittest
 import io
 from test import support
@@ -52,7 +51,7 @@ class samplecmdclass(cmd.Cmd):
 
     Test for the function completedefault():
     >>> mycmd.completedefault()
-    This is the completedefault methode
+    This is the completedefault method
     >>> mycmd.completenames("a")
     ['add']
 
@@ -141,7 +140,7 @@ class samplecmdclass(cmd.Cmd):
         print("Hello from postloop")
 
     def completedefault(self, *ignored):
-        print("This is the completedefault methode")
+        print("This is the completedefault method")
 
     def complete_command(self):
         print("complete command")

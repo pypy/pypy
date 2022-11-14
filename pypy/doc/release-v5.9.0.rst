@@ -44,7 +44,7 @@ growing community of PyPy users. We strongly recommend updating.
 
 You can download the v5.9 releases here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -55,7 +55,7 @@ layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
-.. _vmprof: http://vmprof.readthedocs.io
+.. _vmprof: https://vmprof.readthedocs.io
 .. _CFFI: https://cffi.readthedocs.io/en/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
 .. _`PyPy`: index.html
@@ -84,8 +84,8 @@ The PyPy 2.7 release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 Highlights of the PyPy2.7, cpyext, and RPython changes (since 5.8 released June, 2017)
 ======================================================================================

@@ -2,11 +2,13 @@
 import py, os, sys, shutil
 import subprocess
 from extra_tests.cffi_tests.udir import udir
+import pytest
 
 if sys.platform == 'win32':
-    py.test.skip('snippets do not run on win32')
+    pytestmark = pytest.mark.skip('snippets do not run on win32')
 if sys.version_info < (2, 7):
-    py.test.skip('fails e.g. on a Debian/Ubuntu which patches virtualenv'
+    pytestmark = pytest.mark.skip(
+                 'fails e.g. on a Debian/Ubuntu which patches virtualenv'
                  ' in a non-2.6-friendly way')
 
 def create_venv(name):
@@ -76,7 +78,10 @@ def really_run_setup_and_program(dirname, venv_dir_and_paths, python_snippet):
         env = os.environ.copy()
         env['PYTHONPATH'] = paths
         subprocess.check_call((vp, 'setup.py', 'clean'), env=env)
-        subprocess.check_call((vp, 'setup.py', 'install'), env=env)
+        # there's a setuptools/easy_install bug that causes this to fail when the build/install occur together and
+        # we're in the same directory with the build (it tries to look up dependencies for itself on PyPI);
+        # subsequent runs will succeed because this test doesn't properly clean up the build- use pip for now.
+        subprocess.check_call((vp, '-m', 'pip', 'install', '.'), env=env)
         subprocess.check_call((vp, str(python_f)), env=env)
     finally:
         os.chdir(olddir)

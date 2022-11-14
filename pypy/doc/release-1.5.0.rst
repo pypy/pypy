@@ -7,7 +7,7 @@ PyPy with the features of CPython 2.7.1, including the standard library. Thus
 all the features of `CPython 2.6`_ and `CPython 2.7`_ are now supported. It
 also contains additional performance improvements. You can download it here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 What is PyPy?
 =============
@@ -35,8 +35,7 @@ More highlights
   performance of tight loops doing numerical calculations.
 
 - The CPython extension module API has been improved and now supports many more
-  extensions. For information on which one are supported, please refer to our
-  `compatibility wiki`_.
+  extensions.
 
 - These changes make it possible to support `Tkinter and IDLE`_.
 
@@ -48,7 +47,7 @@ More highlights
   ``postgresql``.  However, there are no prebuilt binaries for this.
 
 - Our developer documentation was moved to Sphinx and cleaned up.
-  (click 'Dev Site' on http://pypy.org/ .)
+  (click 'Dev Site' on https://pypy.org/ .)
 
 - and many small things :-)
 
@@ -59,15 +58,14 @@ Carl Friedrich Bolz, Laura Creighton, Antonio Cuni, Maciej Fijalkowski,
 Amaury Forgeot d'Arc, Alex Gaynor, Armin Rigo and the PyPy team
 
 
-.. _`CPython 2.6`: http://docs.python.org/dev/whatsnew/2.6.html
-.. _`CPython 2.7`: http://docs.python.org/dev/whatsnew/2.7.html
+.. _`CPython 2.6`: https://docs.python.org/dev/whatsnew/2.6.html
+.. _`CPython 2.7`: https://docs.python.org/dev/whatsnew/2.7.html
 
-.. _`our blog`: http://morepypy.blogspot.com
-.. _`pypy 1.5 and pypy 1.4`: http://bit.ly/joPhHo
-.. _`pypy 1.5 and cpython 2.6.2`: http://bit.ly/mbVWwJ
+.. _`our blog`: https://morepypy.blogspot.com
+.. _`pypy 1.5 and pypy 1.4`: https://bit.ly/joPhHo
+.. _`pypy 1.5 and cpython 2.6.2`: https://bit.ly/mbVWwJ
 
-.. _`loop invariant code motion`: http://morepypy.blogspot.com/2011/01/loop-invariant-code-motion.html
-.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
-.. _`Tkinter and IDLE`: http://morepypy.blogspot.com/2011/04/using-tkinter-and-idle-with-pypy.html
-.. _`cProfile`: http://docs.python.org/library/profile.html
+.. _`loop invariant code motion`: https://morepypy.blogspot.com/2011/01/loop-invariant-code-motion.html
+.. _`Tkinter and IDLE`: https://morepypy.blogspot.com/2011/04/using-tkinter-and-idle-with-pypy.html
+.. _`cProfile`: https://docs.python.org/library/profile.html
 .. _`external fork`: https://bitbucket.org/alex_gaynor/pypy-postgresql

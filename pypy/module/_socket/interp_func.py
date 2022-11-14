@@ -16,6 +16,7 @@ def gethostname(space):
 
     Return the current host name.
     """
+    space.audit("socket.gethostname", [])
     try:
         res = rsocket.gethostname()
     except SocketError as e:
@@ -34,6 +35,7 @@ def gethostbyname(space, w_host):
     Return the IP address (a string of the form '255.255.255.255') for a host.
     """
     host = encode_idna(space, w_host)
+    space.audit('socket.gethostbyname', [w_host])
     try:
         addr = rsocket.gethostbyname(host)
         ip = addr.get_host()
@@ -55,6 +57,7 @@ def gethostbyname_ex(space, w_host):
     for a host.  The host argument is a string giving a host name or IP number.
     """
     host = encode_idna(space, w_host)
+    space.audit('socket.gethostbyname', [w_host])
     try:
         res = rsocket.gethostbyname_ex(host)
     except SocketError as e:
@@ -68,6 +71,7 @@ def gethostbyaddr(space, w_host):
     for a host.  The host argument is a string giving a host name or IP number.
     """
     host = encode_idna(space, w_host)
+    space.audit('socket.gethostbyname', [w_host])
     try:
         res = rsocket.gethostbyaddr(host)
     except SocketError as e:
@@ -86,6 +90,7 @@ def getservbyname(space, name, w_proto):
         proto = None
     else:
         proto = space.text_w(w_proto)
+    space.audit('socket.getservbyname', [space.newtext(name), w_proto])
     try:
         port = rsocket.getservbyname(name, proto)
     except SocketError as e:
@@ -109,6 +114,7 @@ def getservbyport(space, port, w_proto):
         raise oefmt(space.w_OverflowError,
                     "getservbyport: port must be 0-65535.")
 
+    space.audit('socket.getservbyport', [space.newint(port), w_proto])
     try:
         service = rsocket.getservbyport(port, proto)
     except SocketError as e:
@@ -132,6 +138,7 @@ def getnameinfo(space, w_sockaddr, flags):
     """getnameinfo(sockaddr, flags) --> (host, port)
 
     Get host and port for a sockaddr."""
+    space.audit('socket.getnameinfo', [w_sockaddr])
     try:
         host = space.text_w((space.getitem(w_sockaddr, space.newint(0))))
         port = str(space.int_w(space.getitem(w_sockaddr, space.newint(1))))
@@ -146,7 +153,7 @@ def getnameinfo(space, w_sockaddr, flags):
         host, servport = rsocket.getnameinfo(addr, flags)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.newtuple([space.newtext(host), space.newtext(servport)])
+    return space.newtuple2(space.newtext(host), space.newtext(servport))
 
 @unwrap_spec(fd=int)
 def dup(space, fd):
@@ -172,10 +179,10 @@ def socketpair(space, family=rsocket.socketpair_default_family,
                                           inheritable=False)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.newtuple([
+    return space.newtuple2(
         W_Socket(space, sock1),
         W_Socket(space, sock2)
-    ])
+    )
 
 # The following 4 functions refuse all negative numbers.
 # They also check that the argument is not too large, but note that
@@ -315,6 +322,9 @@ def getaddrinfo(space, w_host, w_port,
     else:
         raise oefmt(space.w_TypeError,
                     "getaddrinfo() argument 2 must be integer or string")
+    space.audit('socket.getaddrinfo',
+                [w_host, w_port, space.newint(family),
+                 space.newint(socktype), space.newint(proto)])
     try:
         lst = rsocket.getaddrinfo(host, port, family, socktype,
                                   proto, flags)
@@ -322,10 +332,10 @@ def getaddrinfo(space, w_host, w_port,
         raise converted_error(space, e)
     lst1 = [space.newtuple([space.newint(family),
                             space.newint(socktype),
-                            space.newint(protocol),
+                            space.newint(proto),
                             space.newtext(canonname),
                             addr_as_object(addr, INVALID_SOCKET, space)]) # -1 as per cpython
-            for (family, socktype, protocol, canonname, addr) in lst]
+            for (family, socktype, proto, canonname, addr) in lst]
     return space.newlist(lst1)
 
 if sys.platform != 'win32':
@@ -385,3 +395,22 @@ def setdefaulttimeout(space, w_timeout):
         if timeout < 0.0:
             raise oefmt(space.w_ValueError, "Timeout value out of range")
     rsocket.setdefaulttimeout(timeout)
+
+if hasattr(rsocket, 'sethostname'):
+    def sethostname(space, w_hostname):
+        """sethostname(hostname)
+
+        Set the host name.
+        """
+        if space.isinstance_w(w_hostname, space.w_bytes):
+            hostname = space.bytes_w(w_hostname)
+        elif space.isinstance_w(w_hostname, space.w_unicode):
+            hostname = space.fsencode_w(w_hostname)
+        else:
+            raise oefmt(space.w_TypeError,
+                        "sethostname() argument 1 must be str or bytes")
+        space.audit("socket.sethostname", [w_hostname])
+        try:
+            res = rsocket.sethostname(hostname)
+        except SocketError as e:
+            raise converted_error(space, e)

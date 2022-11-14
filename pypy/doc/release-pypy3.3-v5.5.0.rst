@@ -11,7 +11,7 @@ for supporting the work that went into this release.
 
 You can download the PyPy3.3 v5.5.0 release here:
 
-    http://pypy.org/download.html#python-3-3-5-compatible-pypy3-3-v5-5
+    https://pypy.org/download.html#python-3-3-5-compatible-pypy3-3-v5-5
 
 Highlights
 ==========
@@ -58,11 +58,11 @@ Cheers
 
 The PyPy Team
 
-.. _donated: http://morepypy.blogspot.com/2012/01/py3k-and-numpy-first-stage-thanks-to.html
-.. _`py3k proposal`: http://pypy.org/py3donate.html
+.. _donated: https://morepypy.blogspot.com/2012/01/py3k-and-numpy-first-stage-thanks-to.html
+.. _`py3k proposal`: https://pypy.org/py3donate.html
 .. _`PEP 393-like space efficient string representation`: https://bitbucket.org/pypy/pypy/issues/2309/optimized-unicode-representation
 .. _`missing features`: https://bitbucket.org/pypy/pypy/issues?status=new&status=open&component=PyPy3+%28running+Python+3.x%29&kind=enhancement
 .. _`known issues`: https://bitbucket.org/pypy/pypy/issues?status=new&status=open&component=PyPy3%20%28running%20Python%203.x%29
 .. _`#2305`: https://bitbucket.org/pypy/pypy/issues/2305
 .. _`ensurepip`: https://docs.python.org/3/library/ensurepip.html#module-ensurepip
-.. _`dynamic languages`: http://pypyjs.org
+.. _`dynamic languages`: https://pypyjs.org

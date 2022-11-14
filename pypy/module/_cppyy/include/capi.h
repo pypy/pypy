@@ -2,21 +2,29 @@
 #define CPPYY_CAPI
 
 #include <stddef.h>
+#include <stdint.h>
 #include "src/precommondefs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif // ifdef __cplusplus
 
-    typedef ptrdiff_t     cppyy_scope_t;
+    typedef size_t        cppyy_scope_t;
     typedef cppyy_scope_t cppyy_type_t;
+    typedef void*         cppyy_enum_t;
     typedef void*         cppyy_object_t;
-    typedef ptrdiff_t     cppyy_method_t;
+    typedef intptr_t      cppyy_method_t;
 
-    typedef long          cppyy_index_t;
+    typedef size_t        cppyy_index_t;
     typedef void*         cppyy_funcaddr_t;
 
     typedef unsigned long cppyy_exctype_t;
+
+    /* direct interpreter access ---------------------------------------------- */
+    RPY_EXTERN
+    int cppyy_compile(const char* code);
+    RPY_EXTERN
+    char* cppyy_to_string(cppyy_type_t klass, cppyy_object_t obj);
 
     /* name to opaque C++ scope representation -------------------------------- */
     RPY_EXTERN
@@ -31,6 +39,11 @@ extern "C" {
     size_t cppyy_size_of_klass(cppyy_type_t klass);
     RPY_EXTERN
     size_t cppyy_size_of_type(const char* type_name);
+
+    RPY_EXTERN
+    int cppyy_is_builtin(const char* type_name);
+    RPY_EXTERN
+    int cppyy_is_complete(const char* type_name);
 
     /* memory management ------------------------------------------------------ */
     RPY_EXTERN
@@ -99,15 +112,25 @@ extern "C" {
     int cppyy_is_abstract(cppyy_type_t type);
     RPY_EXTERN
     int cppyy_is_enum(const char* type_name);
+    RPY_EXTERN
+    int cppyy_is_aggregate(cppyy_type_t type);
+    RPY_EXTERN
+    int cppyy_is_default_constructable(cppyy_type_t type);
 
     RPY_EXTERN
     const char** cppyy_get_all_cpp_names(cppyy_scope_t scope, size_t* count);
+
+    /* namespace reflection information --------------------------------------- */
+    RPY_EXTERN
+    cppyy_index_t* cppyy_get_using_namespaces(cppyy_scope_t scope);
 
     /* class reflection information ------------------------------------------- */
     RPY_EXTERN
     char* cppyy_final_name(cppyy_type_t type);
     RPY_EXTERN
     char* cppyy_scoped_final_name(cppyy_type_t type);
+    RPY_EXTERN
+    int cppyy_has_virtual_destructor(cppyy_type_t type);
     RPY_EXTERN
     int cppyy_has_complex_hierarchy(cppyy_type_t type);
     RPY_EXTERN
@@ -117,9 +140,14 @@ extern "C" {
     RPY_EXTERN
     int cppyy_is_subtype(cppyy_type_t derived, cppyy_type_t base);
     RPY_EXTERN
+    int cppyy_is_smartptr(cppyy_type_t type);
+    RPY_EXTERN
     int cppyy_smartptr_info(const char* name, cppyy_type_t* raw, cppyy_method_t* deref);
     RPY_EXTERN
     void cppyy_add_smartptr_type(const char* type_name);
+
+    RPY_EXTERN
+    void cppyy_add_type_reducer(const char* reducable, const char* reduced);
 
     /* calculate offsets between declared and actual type, up-cast: direction > 0; down-cast: direction < 0 */
     RPY_EXTERN
@@ -128,6 +156,8 @@ extern "C" {
     /* method/function reflection information --------------------------------- */
     RPY_EXTERN
     int cppyy_num_methods(cppyy_scope_t scope);
+    RPY_EXTERN
+    int cppyy_num_methods_ns(cppyy_scope_t scope);
     RPY_EXTERN
     cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* name);
 
@@ -147,20 +177,28 @@ extern "C" {
     RPY_EXTERN
     int cppyy_method_req_args(cppyy_method_t);
     RPY_EXTERN
+    char* cppyy_method_arg_name(cppyy_method_t, int arg_index);
+    RPY_EXTERN
     char* cppyy_method_arg_type(cppyy_method_t, int arg_index);
     RPY_EXTERN
     char* cppyy_method_arg_default(cppyy_method_t, int arg_index);
     RPY_EXTERN
     char* cppyy_method_signature(cppyy_method_t, int show_formalargs);
     RPY_EXTERN
+    char* cppyy_method_signature_max(cppyy_method_t, int show_formalargs, int maxargs);
+    RPY_EXTERN
     char* cppyy_method_prototype(cppyy_scope_t scope, cppyy_method_t, int show_formalargs);
     RPY_EXTERN
     int cppyy_is_const_method(cppyy_method_t);
 
     RPY_EXTERN
-    int get_num_templated_methods(cppyy_scope_t scope);
+    int cppyy_get_num_templated_methods(cppyy_scope_t scope);
+    RPY_EXPORTED
+    int cppyy_get_num_templated_methods_ns(cppyy_scope_t scope);
     RPY_EXTERN
-    char* get_templated_method_name(cppyy_scope_t scope, cppyy_index_t imeth);
+    char* cppyy_get_templated_method_name(cppyy_scope_t scope, cppyy_index_t imeth);
+    RPY_EXTERN
+    int cppyy_is_templated_constructor(cppyy_scope_t scope, cppyy_index_t imeth);
     RPY_EXTERN
     int cppyy_exists_method_template(cppyy_scope_t scope, const char* name);
     RPY_EXTERN
@@ -176,6 +214,8 @@ extern "C" {
     RPY_EXTERN
     int cppyy_is_publicmethod(cppyy_method_t);
     RPY_EXTERN
+    int cppyy_is_protectedmethod(cppyy_method_t);
+    RPY_EXTERN
     int cppyy_is_constructor(cppyy_method_t);
     RPY_EXTERN
     int cppyy_is_destructor(cppyy_method_t);
@@ -185,18 +225,22 @@ extern "C" {
     /* data member reflection information ------------------------------------- */
     RPY_EXTERN
     int cppyy_num_datamembers(cppyy_scope_t scope);
+    RPY_EXPORTED
+    int cppyy_num_datamembers_ns(cppyy_scope_t scope);
     RPY_EXTERN
     char* cppyy_datamember_name(cppyy_scope_t scope, int datamember_index);
     RPY_EXTERN
     char* cppyy_datamember_type(cppyy_scope_t scope, int datamember_index);
     RPY_EXTERN
-    ptrdiff_t cppyy_datamember_offset(cppyy_scope_t scope, int datamember_index);
+    intptr_t cppyy_datamember_offset(cppyy_scope_t scope, int datamember_index);
     RPY_EXTERN
     int cppyy_datamember_index(cppyy_scope_t scope, const char* name);
 
     /* data member properties ------------------------------------------------- */
     RPY_EXTERN
     int cppyy_is_publicdata(cppyy_type_t type, cppyy_index_t datamember_index);
+    RPY_EXTERN
+    int cppyy_is_protecteddata(cppyy_type_t type, cppyy_index_t datamember_index);
     RPY_EXTERN
     int cppyy_is_staticdata(cppyy_type_t type, cppyy_index_t datamember_index);
     RPY_EXTERN
@@ -205,6 +249,16 @@ extern "C" {
     int cppyy_is_enum_data(cppyy_scope_t scope, cppyy_index_t idata);
     RPY_EXTERN
     int cppyy_get_dimension_size(cppyy_scope_t scope, cppyy_index_t idata, int dimension);
+
+    /* enum properties -------------------------------------------------------- */
+    RPY_EXTERN
+    cppyy_enum_t  cppyy_get_enum(cppyy_scope_t scope, const char* enum_name);
+    RPY_EXTERN
+    cppyy_index_t cppyy_get_num_enum_data(cppyy_enum_t);
+    RPY_EXTERN
+    const char*   cppyy_get_enum_data_name(cppyy_enum_t, cppyy_index_t idata);
+    RPY_EXTERN
+    long long     cppyy_get_enum_data_value(cppyy_enum_t, cppyy_index_t idata);
 
     /* misc helpers ----------------------------------------------------------- */
     RPY_EXTERN

@@ -2,6 +2,7 @@ import os
 from rpython.rlib.rsiphash import siphash24, _siphash24, choosen_seed
 from rpython.rlib.rsiphash import initialize_from_env, enable_siphash24
 from rpython.rlib.rsiphash import ll_hash_string_siphash24
+from rpython.rlib.rsiphash import siphash24_with_key
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import llstr, llunicode
@@ -49,6 +50,10 @@ def check(s):
 def test_siphash24():
     for expected, string in CASES:
         assert check(string) == expected
+
+def test_siphash24_with_key():
+    from rpython.rlib.rarithmetic import r_uint64
+    assert siphash24_with_key(b"abcdef", r_uint64(1)) == r_uint64(7956077396882317016L)
 
 def check_latin1(s, expected, test_prebuilt=False):
     with choosen_seed(0x8a9f065a358479f4, 0x11cb1e9ee7f40e1f,

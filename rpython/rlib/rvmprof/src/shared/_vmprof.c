@@ -38,6 +38,10 @@ PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag)
     register PY_STACK_FRAME_T * callee_saved asm("edi");
 #elif defined(__arm__)
     register PY_STACK_FRAME_T * callee_saved asm("r4");
+#elif defined(__aarch64__)
+    register PY_STACK_FRAME_T * callee_saved asm("x19");
+#elif defined(__powerpc64__)
+    register PY_STACK_FRAME_T * callee_saved asm("r3");
 #else
 #    error "platform not supported"
 #endif
@@ -47,8 +51,10 @@ PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag)
         "movq %1, %0\t\n"
 #elif defined(X86_32)
         "mov %1, %0\t\n"
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__aarch64__)
 	"mov %1, %0\t\n"
+#elif defined(__powerpc64__)
+	"addi %1, %0, 0\t\n"
 #else
 #    error "platform not supported"
 #endif
@@ -61,7 +67,7 @@ PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag)
 static int emit_code_object(PyCodeObject *co)
 {
     char buf[MAX_FUNC_NAME + 1];
-    char *co_name, *co_filename;
+    const char *co_name, *co_filename;
     int co_firstlineno;
     int sz;
 #if PY_MAJOR_VERSION >= 3
@@ -87,7 +93,7 @@ static int emit_code_object(PyCodeObject *co)
 
 static int _look_for_code_object(PyObject *o, void * param)
 {
-    int i;
+    Py_ssize_t i;
     PyObject * all_codes, * seen_codes;
 
     all_codes = (PyObject*)((void**)param)[0];
@@ -296,7 +302,7 @@ sample_stack_now(PyObject *module, PyObject * args)
 
     for (i = 0; i < entry_count; i++) {
         routine_ip = m[i];
-        PyList_Append(list, PyLong_NEW((ssize_t)routine_ip));
+        PyList_Append(list, PyLong_NEW((Py_ssize_t)routine_ip));
     }
 
     free(m);
@@ -383,8 +389,22 @@ static PyObject * vmp_get_profile_path(PyObject *module, PyObject *noargs) {
 
 #ifdef VMPROF_UNIX
 static PyObject *
-insert_real_time_thread(PyObject *module, PyObject * noargs) {
+insert_real_time_thread(PyObject *module, PyObject * args) {
     ssize_t thread_count;
+    unsigned long thread_id = 0;
+    pthread_t th = pthread_self();
+
+    if (!PyArg_ParseTuple(args, "|k", &thread_id)) {
+        return NULL;
+    }
+
+    if (thread_id) {
+#if SIZEOF_LONG <= SIZEOF_PTHREAD_T
+        th = (pthread_t) thread_id;
+#else
+        th = (pthread_t) *(unsigned long *) &thread_id;
+#endif
+    }
 
     if (!vmprof_is_enabled()) {
         PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
@@ -397,15 +417,29 @@ insert_real_time_thread(PyObject *module, PyObject * noargs) {
     }
 
     vmprof_aquire_lock();
-    thread_count = insert_thread(pthread_self(), -1);
+    thread_count = insert_thread(th, -1);
     vmprof_release_lock();
 
     return PyLong_FromSsize_t(thread_count);
 }
 
 static PyObject *
-remove_real_time_thread(PyObject *module, PyObject * noargs) {
+remove_real_time_thread(PyObject *module, PyObject * args) {
     ssize_t thread_count;
+    unsigned long thread_id = 0;
+    pthread_t th = pthread_self();
+
+    if (!PyArg_ParseTuple(args, "|k", &thread_id)) {
+        return NULL;
+    }
+
+    if (thread_id) {
+#if SIZEOF_LONG <= SIZEOF_PTHREAD_T
+        th = (pthread_t) thread_id;
+#else
+        th = (pthread_t) *(unsigned long *) &thread_id;
+#endif
+    }
 
     if (!vmprof_is_enabled()) {
         PyErr_SetString(PyExc_ValueError, "vmprof is not enabled");
@@ -418,7 +452,7 @@ remove_real_time_thread(PyObject *module, PyObject * noargs) {
     }
 
     vmprof_aquire_lock();
-    thread_count = remove_thread(pthread_self(), -1);
+    thread_count = remove_thread(th, -1);
     vmprof_release_lock();
 
     return PyLong_FromSsize_t(thread_count);
@@ -445,9 +479,9 @@ static PyMethodDef VMProfMethods[] = {
 #ifdef VMPROF_UNIX
     {"get_profile_path", vmp_get_profile_path, METH_NOARGS,
         "Profile path the profiler logs to."},
-    {"insert_real_time_thread", insert_real_time_thread, METH_NOARGS,
+    {"insert_real_time_thread", insert_real_time_thread, METH_VARARGS,
         "Insert a thread into the real time profiling list."},
-    {"remove_real_time_thread", remove_real_time_thread, METH_NOARGS,
+    {"remove_real_time_thread", remove_real_time_thread, METH_VARARGS,
         "Remove a thread from the real time profiling list."},
 #endif
     {NULL, NULL, 0, NULL}        /* Sentinel */

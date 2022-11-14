@@ -21,12 +21,9 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
+import threading
 import unittest
 import sqlite3 as sqlite
-try:
-    import threading
-except ImportError:
-    threading = None
 
 from test.support import TESTFN, unlink
 
@@ -163,6 +160,17 @@ class ConnectionTests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             self.cx.in_transaction = True
 
+    def CheckOpenWithPathLikeObject(self):
+        """ Checks that we can successfully connect to a database using an object that
+            is PathLike, i.e. has __fspath__(). """
+        self.addCleanup(unlink, TESTFN)
+        class Path:
+            def __fspath__(self):
+                return TESTFN
+        path = Path()
+        with sqlite.connect(path) as cx:
+            cx.execute('create table test(id integer)')
+
     def CheckOpenUri(self):
         if sqlite.sqlite_version_info < (3, 7, 7):
             with self.assertRaises(sqlite.NotSupportedError):
@@ -188,7 +196,10 @@ class CursorTests(unittest.TestCase):
     def setUp(self):
         self.cx = sqlite.connect(":memory:")
         self.cu = self.cx.cursor()
-        self.cu.execute("create table test(id integer primary key, name text, income number)")
+        self.cu.execute(
+            "create table test(id integer primary key, name text, "
+            "income number, unique_test text unique)"
+        )
         self.cu.execute("insert into test(name) values (?)", ("foo",))
 
     def tearDown(self):
@@ -265,7 +276,7 @@ class CursorTests(unittest.TestCase):
         self.assertEqual(row[0], "foo")
 
     def CheckExecuteParamSequence(self):
-        class L(object):
+        class L:
             def __len__(self):
                 return 1
             def __getitem__(self, x):
@@ -276,6 +287,18 @@ class CursorTests(unittest.TestCase):
         self.cu.execute("select name from test where name=?", L())
         row = self.cu.fetchone()
         self.assertEqual(row[0], "foo")
+
+    def CheckExecuteParamSequenceBadLen(self):
+        # Issue41662: Error in __len__() was overridden with ProgrammingError.
+        class L:
+            def __len__(self):
+                1/0
+            def __getitem__(slf, x):
+                raise AssertionError
+
+        self.cu.execute("insert into test(name) values ('foo')")
+        with self.assertRaises(ZeroDivisionError):
+            self.cu.execute("select name from test where name=?", L())
 
     def CheckExecuteDictMapping(self):
         self.cu.execute("insert into test(name) values ('foo')")
@@ -465,7 +488,44 @@ class CursorTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             cur = sqlite.Cursor(foo)
 
-@unittest.skipUnless(threading, 'This test requires threading.')
+    def CheckLastRowIDOnReplace(self):
+        """
+        INSERT OR REPLACE and REPLACE INTO should produce the same behavior.
+        """
+        sql = '{} INTO test(id, unique_test) VALUES (?, ?)'
+        for statement in ('INSERT OR REPLACE', 'REPLACE'):
+            with self.subTest(statement=statement):
+                self.cu.execute(sql.format(statement), (1, 'foo'))
+                self.assertEqual(self.cu.lastrowid, 1)
+
+    def CheckLastRowIDOnIgnore(self):
+        self.cu.execute(
+            "insert or ignore into test(unique_test) values (?)",
+            ('test',))
+        self.assertEqual(self.cu.lastrowid, 2)
+        self.cu.execute(
+            "insert or ignore into test(unique_test) values (?)",
+            ('test',))
+        self.assertEqual(self.cu.lastrowid, 2)
+
+    def CheckLastRowIDInsertOR(self):
+        results = []
+        for statement in ('FAIL', 'ABORT', 'ROLLBACK'):
+            sql = 'INSERT OR {} INTO test(unique_test) VALUES (?)'
+            with self.subTest(statement='INSERT OR {}'.format(statement)):
+                self.cu.execute(sql.format(statement), (statement,))
+                results.append((statement, self.cu.lastrowid))
+                with self.assertRaises(sqlite.IntegrityError):
+                    self.cu.execute(sql.format(statement), (statement,))
+                results.append((statement, self.cu.lastrowid))
+        expected = [
+            ('FAIL', 2), ('FAIL', 2),
+            ('ABORT', 3), ('ABORT', 3),
+            ('ROLLBACK', 4), ('ROLLBACK', 4),
+        ]
+        self.assertEqual(results, expected)
+
+
 class ThreadTests(unittest.TestCase):
     def setUp(self):
         self.con = sqlite.connect(":memory:")

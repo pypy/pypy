@@ -1,5 +1,4 @@
 """Tests for distutils.unixccompiler."""
-import os
 import sys
 import unittest
 from test.support import EnvironmentVarGuard, run_unittest
@@ -52,14 +51,6 @@ class UnixCCompilerTestCase(unittest.TestCase):
 
         sysconfig.get_config_var = old_gcv
 
-        # irix646
-        sys.platform = 'irix646'
-        self.assertEqual(self.cc.rpath_foo(), ['-rpath', '/foo'])
-
-        # osf1V5
-        sys.platform = 'osf1V5'
-        self.assertEqual(self.cc.rpath_foo(), ['-rpath', '/foo'])
-
         # GCC GNULD
         sys.platform = 'bar'
         def gcv(v):
@@ -95,7 +86,7 @@ class UnixCCompilerTestCase(unittest.TestCase):
         sys.platform = 'bar'
         def gcv(v):
             if v == 'CC':
-                return 'cc'
+                return 'clang'
             elif v == 'GNULD':
                 return 'yes'
         sysconfig.get_config_var = gcv
@@ -105,7 +96,7 @@ class UnixCCompilerTestCase(unittest.TestCase):
         sys.platform = 'bar'
         def gcv(v):
             if v == 'CC':
-                return 'cc'
+                return 'clang'
             elif v == 'GNULD':
                 return 'no'
         sysconfig.get_config_var = gcv

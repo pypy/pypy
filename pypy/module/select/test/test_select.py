@@ -210,40 +210,27 @@ class _AppTestSelect:
             raises(ValueError, select.select, [], [2000000000], [])
             raises(ValueError, select.select, [], [], [2000000000])
 
-    def test_poll(self):
-        import select
-        if not hasattr(select, 'poll'):
-            skip("no select.poll() on this platform")
-        readend, writeend = self.getpair()
-        try:
-            class A(object):
-                def __int__(self):
-                    return readend.fileno()
-            select.poll().poll(A()) # assert did not crash
-        finally:
-            readend.close()
-            writeend.close()
-
     def test_poll_arguments(self):
         import select
         if not hasattr(select, 'poll'):
             skip("no select.poll() on this platform")
         pollster = select.poll()
         pollster.register(1)
-        raises(OverflowError, pollster.register, 0, -1)
+        raises(ValueError, pollster.register, 0, -1)
         raises(OverflowError, pollster.register, 0, 1 << 64)
         pollster.register(0, 32768) # SHRT_MAX + 1
-        exc = raises(OverflowError, pollster.register, 0, -32768 - 1)
+        exc = raises(ValueError, pollster.register, 0, -32768 - 1)
+        assert "positive" in str(exc.value)
+        exc = raises(OverflowError, pollster.register, 0, 1000000)
         assert "unsigned" in str(exc.value)
         pollster.register(0, 65535) # USHRT_MAX
         raises(OverflowError, pollster.register, 0, 65536) # USHRT_MAX + 1
         raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
-        raises(OverflowError, pollster.poll, -2147483648 - 1)
         raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
         exc = raises(TypeError, pollster.poll, '123')
         assert str(exc.value) == 'timeout must be an integer or None'
 
-        raises(OverflowError, pollster.modify, 1, -1)
+        raises(ValueError, pollster.modify, 1, -1)
         raises(OverflowError, pollster.modify, 1, 1 << 64)
 
 
@@ -273,6 +260,36 @@ class AppTestSelectWithPipes(_AppTestSelect):
                 return os.close(self.fd)
         s1, s2 = os.pipe()
         return FileAsSocket(s1), FileAsSocket(s2)
+
+    def test_poll(self):
+        import select
+        if not hasattr(select, 'poll'):
+            skip("no select.poll() on this platform")
+        readend, writeend = self.getpair()
+        try:
+            class A(object):
+                def fileno(self):
+                    return readend.fileno()
+            poll = select.poll()
+            poll.register(A())
+
+            res = poll.poll(10) # timeout in ms
+            assert res == []
+            res = poll.poll(1.1) # check floats
+            assert res == []
+
+            writeend.send(b"foo!")
+            # can't easily test actual blocking, is done in lib-python tests
+            res = poll.poll()
+            assert res == [(readend.fileno(), 1)]
+
+            # check negative timeout
+            # proper test in lib-python, test_poll_blocks_with_negative_ms
+            res = poll.poll(-0.001)
+            assert res == [(readend.fileno(), 1)]
+        finally:
+            readend.close()
+            writeend.close()
 
     def test_poll_threaded(self):
         import os, select, _thread as thread, time
@@ -339,10 +356,10 @@ class AppTestSelectWithSockets(_AppTestSelect):
         py.test.skip("build bot for s390x cannot open sockets")
 
     def w_make_server(self):
-        import socket
+        import _socket
         if hasattr(self, 'sock'):
             return self.sock
-        self.sock = socket.socket()
+        self.sock = _socket.socket()
         try_ports = [1023] + list(range(20000, 30000, 437))
         for port in try_ports:
             print('binding to port %d:' % (port,))
@@ -350,14 +367,14 @@ class AppTestSelectWithSockets(_AppTestSelect):
             try:
                 self.sock.bind(self.sockaddress)
                 break
-            except socket.error as e:   # should get a "Permission denied"
+            except _socket.error as e:   # should get a "Permission denied"
                 print(e)
             else:
                 raise(e)
 
     def w_getpair(self):
         """Helper method which returns a pair of connected sockets."""
-        import socket
+        import _socket
         import _thread
 
         self.make_server()
@@ -365,12 +382,14 @@ class AppTestSelectWithSockets(_AppTestSelect):
         self.make_server()
 
         self.sock.listen(1)
-        s2 = socket.socket()
+        s2 = _socket.socket()
         _thread.start_new_thread(s2.connect, (self.sockaddress,))
-        s1, addr2 = self.sock.accept()
+        fd, addr2 = self.sock._accept()
+        s1 = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM,
+                              proto=0, fileno=fd)
 
         # speed up the tests that want to fill the buffers
-        s1.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
-        s2.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096)
+        s1.setsockopt(_socket.SOL_SOCKET, _socket.SO_RCVBUF, 4096)
+        s2.setsockopt(_socket.SOL_SOCKET, _socket.SO_SNDBUF, 4096)
 
         return s1, s2

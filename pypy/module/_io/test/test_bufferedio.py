@@ -1,13 +1,19 @@
 from __future__ import with_statement
+from rpython import rlib
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app
 from rpython.tool.udir import udir
 from pypy.module._io import interp_bufferedio
 from pypy.interpreter.error import OperationError
 import py.test
+import os
+
 
 class AppTestBufferedReader:
     spaceconfig = dict(usemodules=['_io'])
-
+    if os.name != 'nt':
+        spaceconfig['usemodules'].append('fcntl')
+        
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
@@ -15,6 +21,10 @@ class AppTestBufferedReader:
         bigtmpfile = udir.join('bigtmpfile')
         bigtmpfile.write("a\nb\nc" * 20, mode='wb')
         cls.w_bigtmpfile = cls.space.wrap(str(bigtmpfile))
+        #
+        cls.w_posix = cls.space.appexec([], """():
+            import %s as m;
+            return m""" % os.name)
 
     def test_simple_read(self):
         import _io
@@ -154,6 +164,14 @@ class AppTestBufferedReader:
         assert f.read1(100) == b''
         assert raw.nbreads == 3
         f.close()
+
+        # a negative argument (or no argument) leads to using the default
+        # buffer size
+        raw = _io.BytesIO(b'aaaa\nbbbb\ncccc\n')
+        f = _io.BufferedReader(raw, buffer_size=3)
+        assert f.read1(-1) == b'aaa'
+        assert f.read1() == b'a\nb'
+
 
     def test_readinto(self):
         import _io
@@ -380,8 +398,45 @@ class AppTestBufferedReader:
         assert write_called
         assert rawio.getvalue() == data * 11 # all flushed
 
+    def test_readline_issue3042(self):
+        import _io as io
+        try:
+            import fcntl
+        except ImportError:
+            skip('fcntl missing')
+        fdin, fdout = self.posix.pipe()
+        f = io.open(fdin, "rb")
+        fl = fcntl.fcntl(f, fcntl.F_GETFL)
+        fcntl.fcntl(f, fcntl.F_SETFL, fl | self.posix.O_NONBLOCK)
+        s = f.readline()
+        assert s == b''
+        f.close()
+        self.posix.close(fdout)
+
+    def test_read_nonblocking_crash(self):
+        import _io as io
+        try:
+            import fcntl
+        except ImportError:
+            skip('fcntl missing')
+        fdin, fdout = self.posix.pipe()
+        f = io.open(fdin, "rb")
+        fl = fcntl.fcntl(f, fcntl.F_GETFL)
+        fcntl.fcntl(f, fcntl.F_SETFL, fl | self.posix.O_NONBLOCK)
+        s = f.read(12)
+        assert s == None
+        self.posix.close(fdout)
+
+        s = f.read(12)
+        assert s == b''
+        f.close()
+
+
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
+    if os.name != 'nt':
+        spaceconfig['usemodules'].append('fcntl')
+        
 
     def test_readinto_small_parts(self):
         import _io, os, _thread, time
@@ -396,6 +451,32 @@ class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
         _thread.start_new_thread(write_more, ())
         assert f.readinto(a) == 10
         assert a == b'abcdefghij'
+
+@py.test.yield_fixture
+def forbid_nonmoving_raw_ptr_for_resizable_list(space):
+    orig_nonmoving_raw_ptr_for_resizable_list = rlib.buffer.nonmoving_raw_ptr_for_resizable_list
+    def fail(l):
+        raise oefmt(space.w_ValueError, "rgc.nonmoving_raw_ptr_for_resizable_list() not supported under RevDB")
+    rlib.buffer.nonmoving_raw_ptr_for_resizable_list = fail
+    yield
+    rlib.buffer.nonmoving_raw_ptr_for_resizable_list = orig_nonmoving_raw_ptr_for_resizable_list
+
+@py.test.mark.usefixtures('forbid_nonmoving_raw_ptr_for_resizable_list')
+class AppTestForbidRawPtrForResizableList(object):
+    spaceconfig = dict(usemodules=['_io'])
+
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
+    def test_monkeypatch_works(self):
+        import _io, os
+        raw = _io.FileIO(os.devnull)
+        f = _io.BufferedReader(raw)
+        with raises(ValueError) as e:
+            f.read(1024)
+        assert e.value.args[0] == "rgc.nonmoving_raw_ptr_for_resizable_list() not supported under RevDB"
+
+@py.test.mark.usefixtures('forbid_nonmoving_raw_ptr_for_resizable_list')
+class AppTestBufferedReaderOnRevDB(AppTestBufferedReader):
+    spaceconfig = {'usemodules': ['_io'], 'translation.reverse_debugger': True}
 
 
 class AppTestBufferedWriter:
@@ -494,6 +575,17 @@ class AppTestBufferedWriter:
         assert b.truncate() == 8
         assert b.tell() == 8
 
+    def test_truncate_after_write(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile, 'rb+')
+        raw.write(b'\x00' * 50)
+        raw.seek(0)
+        b = _io.BufferedRandom(raw, 10)
+        b.write(b'\x00' * 11)
+        b.read(1)
+        b.truncate()
+        assert b.tell() == 12
+
     def test_write_non_blocking(self):
         import _io, io
         class MockNonBlockWriterIO(io.RawIOBase):
@@ -582,8 +674,11 @@ class AppTestBufferedWriter:
                 available = self.buffersize - len(self.buffer)
                 if available <= 0:
                     return None
-                self.buffer += data[:available]
-                return min(len(data), available)
+                add_data = data[:available]
+                if isinstance(add_data, memoryview):
+                    add_data = add_data.tobytes()
+                self.buffer += add_data
+                return len(add_data)
             def read(self, size=-1):
                 if not self.buffer:
                     return None
@@ -731,6 +826,15 @@ class AppTestBufferedWriter:
         assert err.value.args == ('close',)
         assert err.value.__context__.args == ('flush',)
         assert not b.closed
+
+    def test_truncate_after_close(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile, 'w+')
+        b = _io.BufferedWriter(raw)
+        b.close()
+        with raises(ValueError) as exc:
+            b.truncate()
+        assert exc.value.args[0] == "truncate of closed file"
 
 class AppTestBufferedRWPair:
     def test_pair(self):
@@ -929,3 +1033,13 @@ class TestNonReentrantLock:
         with lock:
             exc = py.test.raises(OperationError, "with lock: pass")
         assert exc.value.match(space, space.w_RuntimeError)
+
+    def test_fast_closed_check(self, space):
+        from pypy.module._io.interp_fileio import W_FileIO
+        from pypy.module._io.interp_bufferedio import W_BufferedRandom
+        tmpfile = udir.join('tmpfile')
+        tmpfile.write("a\nb\nc", mode='wb')
+        w_fn = space.appexec([space.newtext(str(tmpfile))], """(fn):
+            return open(fn, "rb")""")
+        assert w_fn._fast_closed_check == True
+

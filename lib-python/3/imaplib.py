@@ -79,6 +79,7 @@ Commands = {
         'LOGIN':        ('NONAUTH',),
         'LOGOUT':       ('NONAUTH', 'AUTH', 'SELECTED', 'LOGOUT'),
         'LSUB':         ('AUTH', 'SELECTED'),
+        'MOVE':         ('SELECTED',),
         'NAMESPACE':    ('AUTH', 'SELECTED'),
         'NOOP':         ('NONAUTH', 'AUTH', 'SELECTED', 'LOGOUT'),
         'PARTIAL':      ('SELECTED',),                                  # NB: obsolete
@@ -111,7 +112,15 @@ InternalDate = re.compile(br'.*INTERNALDATE "'
 # Literal is no longer used; kept for backward compatibility.
 Literal = re.compile(br'.*{(?P<size>\d+)}$', re.ASCII)
 MapCRLF = re.compile(br'\r\n|\r|\n')
-Response_code = re.compile(br'\[(?P<type>[A-Z-]+)( (?P<data>[^\]]*))?\]')
+# We no longer exclude the ']' character from the data portion of the response
+# code, even though it violates the RFC.  Popular IMAP servers such as Gmail
+# allow flags with ']', and there are programs (including imaplib!) that can
+# produce them.  The problem with this is if the 'text' portion of the response
+# includes a ']' we'll parse the response wrong (which is the point of the RFC
+# restriction).  However, that seems less likely to be a problem in practice
+# than being unable to correctly parse flags that include ']' chars, which
+# was reported as a real-world problem in issue #21815.
+Response_code = re.compile(br'\[(?P<type>[A-Z-]+)( (?P<data>.*))?\]')
 Untagged_response = re.compile(br'\* (?P<type>[A-Z-]+)( (?P<data>.*))?')
 # Untagged_status is no longer used; kept for backward compatibility
 Untagged_status = re.compile(
@@ -124,7 +133,7 @@ _Untagged_status = br'\* (?P<data>\d+) (?P<type>[A-Z-]+)( (?P<data2>.*))?'
 
 class IMAP4:
 
-    """IMAP4 client class.
+    r"""IMAP4 client class.
 
     Instantiate with: IMAP4([host[, port]])
 
@@ -263,6 +272,9 @@ class IMAP4:
         return self
 
     def __exit__(self, *args):
+        if self.state == "LOGOUT":
+            return
+
         try:
             self.logout()
         except OSError:
@@ -273,7 +285,12 @@ class IMAP4:
 
 
     def _create_socket(self):
-        return socket.create_connection((self.host, self.port))
+        # Default value of IMAP4.host is '', but socket.getaddrinfo()
+        # (which is used by socket.create_connection()) expects None
+        # as a default value for host.
+        host = None if not self.host else self.host
+        sys.audit("imaplib.open", self, self.host, self.port)
+        return socket.create_connection((host, self.port))
 
     def open(self, host = '', port = IMAP4_PORT):
         """Setup connection to remote server on "host:port"
@@ -302,6 +319,7 @@ class IMAP4:
 
     def send(self, data):
         """Send data to remote."""
+        sys.audit("imaplib.send", self, data)
         self.sock.sendall(data)
 
 
@@ -310,9 +328,12 @@ class IMAP4:
         self.file.close()
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
-        except OSError as e:
-            # The server might already have closed the connection
-            if e.errno != errno.ENOTCONN:
+        except OSError as exc:
+            # The server might already have closed the connection.
+            # On Windows, this may result in WSAEINVAL (error 10022):
+            # An invalid operation was attempted.
+            if (exc.errno != errno.ENOTCONN
+               and getattr(exc, 'winerror', 0) != 10022):
                 raise
         finally:
             self.sock.close()
@@ -609,11 +630,8 @@ class IMAP4:
         Returns server 'BYE' response.
         """
         self.state = 'LOGOUT'
-        try: typ, dat = self._simple_command('LOGOUT')
-        except: typ, dat = 'NO', ['%s: %s' % sys.exc_info()[:2]]
+        typ, dat = self._simple_command('LOGOUT')
         self.shutdown()
-        if 'BYE' in self.untagged_responses:
-            return 'BYE', self.untagged_responses['BYE']
         return typ, dat
 
 
@@ -996,16 +1014,17 @@ class IMAP4:
 
 
     def _command_complete(self, name, tag):
+        logout = (name == 'LOGOUT')
         # BYE is expected after LOGOUT
-        if name != 'LOGOUT':
+        if not logout:
             self._check_bye()
         try:
-            typ, data = self._get_tagged_response(tag)
+            typ, data = self._get_tagged_response(tag, expect_bye=logout)
         except self.abort as val:
             raise self.abort('command: %s => %s' % (name, val))
         except self.error as val:
             raise self.error('command: %s => %s' % (name, val))
-        if name != 'LOGOUT':
+        if not logout:
             self._check_bye()
         if typ == 'BAD':
             raise self.error('%s command error: %s %s' % (name, typ, data))
@@ -1101,7 +1120,7 @@ class IMAP4:
         return resp
 
 
-    def _get_tagged_response(self, tag):
+    def _get_tagged_response(self, tag, expect_bye=False):
 
         while 1:
             result = self.tagged_commands[tag]
@@ -1109,9 +1128,15 @@ class IMAP4:
                 del self.tagged_commands[tag]
                 return result
 
+            if expect_bye:
+                typ = 'BYE'
+                bye = self.untagged_responses.pop(typ, None)
+                if bye is not None:
+                    # Server replies to the "LOGOUT" command with "BYE"
+                    return (typ, bye)
+
             # If we've seen a BYE at this point, the socket will be
             # closed, so report the BYE now.
-
             self._check_bye()
 
             # Some have reported "unexpected response" exceptions.
@@ -1155,7 +1180,7 @@ class IMAP4:
         self.mo = cre.match(s)
         if __debug__:
             if self.mo is not None and self.debug >= 5:
-                self._mesg("\tmatched r'%r' => %r" % (cre.pattern, self.mo.groups()))
+                self._mesg("\tmatched %r => %r" % (cre.pattern, self.mo.groups()))
         return self.mo is not None
 
 
@@ -1259,7 +1284,10 @@ if HAVE_SSL:
             if ssl_context is not None and certfile is not None:
                 raise ValueError("ssl_context and certfile arguments are mutually "
                                  "exclusive")
-
+            if keyfile is not None or certfile is not None:
+                import warnings
+                warnings.warn("keyfile and certfile are deprecated, use a "
+                              "custom ssl_context instead", DeprecationWarning, 2)
             self.keyfile = keyfile
             self.certfile = certfile
             if ssl_context is None:
@@ -1527,7 +1555,7 @@ if __name__ == '__main__':
     ('select', ('/tmp/yyz 2',)),
     ('search', (None, 'SUBJECT', 'test')),
     ('fetch', ('1', '(FLAGS INTERNALDATE RFC822)')),
-    ('store', ('1', 'FLAGS', '(\Deleted)')),
+    ('store', ('1', 'FLAGS', r'(\Deleted)')),
     ('namespace', ()),
     ('expunge', ()),
     ('recent', ()),

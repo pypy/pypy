@@ -1,4 +1,5 @@
 import py, struct
+from rpython.rlib.rarithmetic import r_longlong
 from rpython.jit.backend.x86.rx86 import *
 globals().update(R.__dict__)
 
@@ -210,8 +211,8 @@ def test_mov_ri_64():
     s.MOV_ri(ebx, -0x80000003)
     s.MOV_ri(r13, -0x80000002)
     s.MOV_ri(ecx, 42)
-    s.MOV_ri(r12, 0x80000042)
-    s.MOV_ri(r12, 0x100000007)
+    s.MOV_ri(r12, r_longlong(0x80000042))
+    s.MOV_ri(r12, r_longlong(0x100000007))
     assert s.getvalue() == ('\x48\xC7\xC1\xFE\xFF\xFF\xFF' +
                             '\x49\xC7\xC7\xFD\xFF\xFF\xFF' +
                             '\x48\xBB\xFD\xFF\xFF\x7F\xFF\xFF\xFF\xFF' +

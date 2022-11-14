@@ -14,7 +14,19 @@ same username as the one sshgraphserver logs as.
 If 'hostname' is the string 'LOCAL', then it starts locally without ssh.
 """
 
-import graphserver, socket, subprocess, random
+from __future__ import print_function, absolute_import
+
+import os, sys
+
+PARENTDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# make dotviewer importable
+sys.path.insert(0, PARENTDIR)
+
+from dotviewer import graphserver
+from dotviewer.strunicode import forcestr
+
+import socket, subprocess, random
 
 
 def ssh_graph_server(sshargs):
@@ -33,11 +45,11 @@ def ssh_graph_server(sshargs):
         remoteport = localport
         args = ['python', '-u', '-c', 'exec input()']
 
-    print ' '.join(args)
+    print(' '.join(args))
     p = subprocess.Popen(args, bufsize=0,
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE)
-    p.stdin.write(repr('port=%d\n%s' % (remoteport, REMOTE_SOURCE)) + '\n')
+    p.stdin.write(forcestr(repr('port=%d\n%s' % (remoteport, REMOTE_SOURCE)) + '\n'))
     line = p.stdout.readline()
     assert line == 'OK\n'
 
@@ -56,7 +68,7 @@ def main(port):
     except OSError:
         pass
     f = open(fn, 'w')
-    print >> f, port
+    f.write("%s\n" % port)
     f.close()
     try:
         sys.stdout.write('OK\n')
@@ -76,6 +88,6 @@ main(port)
 if __name__ == '__main__':
     import sys
     if len(sys.argv) <= 1:
-        print __doc__
+        print(__doc__)
         sys.exit(2)
     ssh_graph_server(sys.argv[1:])

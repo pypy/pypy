@@ -1,14 +1,15 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, cts,
-    METH_NOARGS, METH_O,
-    parse_dir, bootstrap_function, generic_cpy_call,
+    METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING,
+    METH_NOARGS, METH_O, METH_VARARGS, build_type_checkers,
+    parse_dir, bootstrap_function, generic_cpy_call, cts, cpython_api,
     generic_cpy_call_dont_convert_result, slot_function)
-from pypy.module.cpyext.pyobject import PyObject, as_pyobj, make_typedescr
+from pypy.module.cpyext.pyobject import (PyObject, as_pyobj, make_typedescr,
+    keepalive_until_here)
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
-    W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
-    PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New)
+    W_PyCFunctionObject, W_PyCMethodObject,
+    PyMethodDef, W_PyCClassMethodObject, StaticMethod)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import oefmt
@@ -31,13 +32,23 @@ def module_dealloc(space, py_obj):
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
-@cpython_api([rffi.CCHARP], PyObject)
+PyModule_Check, PyModule_CheckExact = build_type_checkers("Module", Module)
+
+@cpython_api([CONST_STRING], PyObject)
 def PyModule_New(space, name):
     """
     Return a new module object with the __name__ attribute set to name.
     Only the module's __doc__ and __name__ attributes are filled in;
     the caller is responsible for providing a __file__ attribute."""
     return Module(space, space.newtext(rffi.charp2str(name)))
+
+@cpython_api([PyObject], PyObject)
+def PyModule_NewObject(space, w_name):
+    """
+    Return a new module object with the __name__ attribute set to name.
+    Only the module's __doc__ and __name__ attributes are filled in;
+    the caller is responsible for providing a __file__ attribute."""
+    return Module(space, w_name)
 
 @cpython_api([PyModuleDef, rffi.INT_real], PyObject)
 def PyModule_Create2(space, module, api_version):
@@ -139,31 +150,30 @@ def create_module_from_def_and_spec(space, moddef, w_spec, name):
     return w_mod
 
 
-def exec_def(space, w_mod, mod_as_pyobj):
+def exec_def(space, mod, moddef):
     from pypy.module.cpyext.pyerrors import PyErr_Occurred
-    mod = rffi.cast(PyModuleObject, mod_as_pyobj)
-    moddef = mod.c_md_def
     cur_slot = rffi.cast(rffi.CArrayPtr(PyModuleDef_Slot), moddef.c_m_slots)
     if moddef.c_m_size >= 0 and not mod.c_md_state:
         # Always set md_state, to use as marker for exec_extension_module()
         # (cf. CPython's PyModule_ExecDef)
         mod.c_md_state = lltype.malloc(
             rffi.VOIDP.TO, moddef.c_m_size, flavor='raw', zero=True)
+    pyobj = rffi.cast(PyObject, mod)
     while cur_slot and rffi.cast(lltype.Signed, cur_slot[0].c_slot):
         if rffi.cast(lltype.Signed, cur_slot[0].c_slot) == 2:
             execf = rffi.cast(execfunctype, cur_slot[0].c_value)
-            res = generic_cpy_call_dont_convert_result(space, execf, w_mod)
+            res = generic_cpy_call_dont_convert_result(space, execf, pyobj)
             state = space.fromcache(State)
             if rffi.cast(lltype.Signed, res):
                 state.check_and_raise_exception()
                 raise oefmt(space.w_SystemError,
-                            "execution of module %S failed without "
-                            "setting an exception", w_mod.w_name)
+                            "execution of module %s failed without setting an "
+                            "exception", rffi.constcharp2str(moddef.c_m_name))
             else:
                 if state.clear_exception():
                     raise oefmt(space.w_SystemError,
-                                "execution of module %S raised unreported "
-                                "exception", w_mod.w_name)
+                                "execution of module %s raised unreported "
+                                "exception", rffi.constcharp2str(moddef.c_m_name))
         cur_slot = rffi.ptradd(cur_slot, 1)
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
@@ -192,22 +202,15 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                     if flags & METH_STATIC:
                         raise oefmt(space.w_ValueError,
                                     "method cannot be both class and static")
-                    w_obj = PyDescr_NewClassMethod(space, w_type, method)
+                    w_obj = W_PyCClassMethodObject(space, method, w_type)
                 elif flags & METH_STATIC:
-                    w_func = PyCFunction_NewEx(space, method, None, None)
-                    w_obj = PyStaticMethod_New(space, w_func)
+                    w_func = W_PyCFunctionObject(space, method, None, None)
+                    w_obj = StaticMethod(w_func)
                 else:
-                    w_obj = PyDescr_NewMethod(space, w_type, method)
+                    w_obj = W_PyCMethodObject(space, method, w_type)
 
             dict_w[methodname] = w_obj
 
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyModule_Check(space, w_obj):
-    w_type = space.gettypeobject(Module.typedef)
-    w_obj_type = space.type(w_obj)
-    return int(space.is_w(w_type, w_obj_type) or
-               space.issubtype_w(w_obj_type, w_type))
 
 @cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyModule_GetDict(space, w_mod):
@@ -232,3 +235,23 @@ def PyModule_GetName(space, w_mod):
         raise oefmt(space.w_SystemError, "PyModule_GetName(): not a module")
     from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
     return PyUnicode_AsUTF8(space, as_pyobj(space, w_mod.w_name))
+
+@cpython_api([PyObject, lltype.Ptr(PyMethodDef)], rffi.INT_real, error=-1)
+def PyModule_AddFunctions(space, w_mod, methods):
+    if not isinstance(w_mod, Module):
+        raise oefmt(space.w_SystemError, "PyModule_AddFuntions(): not a module")
+    name = space.utf8_w(w_mod.w_name)
+    dict_w = {}
+    convert_method_defs(space, dict_w, methods, None, w_mod, name=name)
+    for key, w_value in dict_w.items():
+        space.setattr(w_mod, space.newtext(key), w_value)
+    return 0
+
+@cpython_api([PyObject, PyModuleDef], rffi.INT_real, error=-1)
+def PyModule_ExecDef(space, w_mod, c_def):
+    if not isinstance(w_mod, Module):
+        raise oefmt(space.w_SystemError, "PyModule_ExecDef(): not a module")
+    py_mod = rffi.cast(PyModuleObject, as_pyobj(space, w_mod))
+    exec_def(space, py_mod, c_def)
+    keepalive_until_here(w_mod)
+    return 0

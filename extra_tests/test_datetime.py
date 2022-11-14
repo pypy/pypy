@@ -1,7 +1,9 @@
 """Additional tests for datetime."""
 import pytest
+import warnings
 
 import datetime
+import sys
 
 
 class date_safe(datetime.date):
@@ -21,20 +23,18 @@ class timedelta_safe(datetime.timedelta):
     (datetime.datetime(2015, 6, 8, 12, 34, 56),
         "datetime.datetime(2015, 6, 8, 12, 34, 56)"),
     (datetime.time(12, 34, 56), "datetime.time(12, 34, 56)"),
-    (datetime.timedelta(1), "datetime.timedelta(1)"),
-    (datetime.timedelta(1, 2), "datetime.timedelta(1, 2)"),
-    (datetime.timedelta(1, 2, 3), "datetime.timedelta(1, 2, 3)"),
+    (datetime.timedelta(1), "datetime.timedelta(days=1)"),
+    (datetime.timedelta(1, 2), "datetime.timedelta(days=1, seconds=2)"),
+    (datetime.timedelta(1, 2, 3), "datetime.timedelta(days=1, seconds=2, microseconds=3)"),
     (date_safe(2015, 6, 8), "date_safe(2015, 6, 8)"),
     (datetime_safe(2015, 6, 8, 12, 34, 56),
         "datetime_safe(2015, 6, 8, 12, 34, 56)"),
     (time_safe(12, 34, 56), "time_safe(12, 34, 56)"),
-    (timedelta_safe(1), "timedelta_safe(1)"),
-    (timedelta_safe(1, 2), "timedelta_safe(1, 2)"),
-    (timedelta_safe(1, 2, 3), "timedelta_safe(1, 2, 3)"),
+    (timedelta_safe(1), "timedelta_safe(days=1)"),
+    (timedelta_safe(1, 2), "timedelta_safe(days=1, seconds=2)"),
+    (timedelta_safe(1, 2, 3), "timedelta_safe(days=1, seconds=2, microseconds=3)"),
 ])
 def test_repr(obj, expected):
-    # XXX: there's a discrepancy between datetime.py and CPython's _datetime
-    # for the repr() of Python-defined subclasses of datetime classes.
     assert repr(obj).endswith(expected)
 
 @pytest.mark.parametrize("obj", [
@@ -130,7 +130,7 @@ def test_utcfromtimestamp():
     import os
     import time
     if os.name == 'nt':
-        skip("setting os.environ['TZ'] ineffective on windows")
+        pytest.skip("setting os.environ['TZ'] ineffective on windows")
     try:
         prev_tz = os.environ.get("TZ")
         os.environ["TZ"] = "GMT"
@@ -164,10 +164,12 @@ def test_check_arg_types():
     import decimal
     class Number:
         def __init__(self, value):
-            self.value = value
-        def __int__(self):
+            self.value = int(value)
+        def __index__(self):
             return self.value
-    class SubInt(int): pass
+
+    class SubInt(int):
+        pass
 
     dt10 = datetime.datetime(10, 10, 10, 10, 10, 10, 10)
     for xx in [
@@ -177,7 +179,10 @@ def test_check_arg_types():
             SubInt(10),
             Number(SubInt(10)),
     ]:
-        dtxx = datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "",
+                                    DeprecationWarning)
+            dtxx = datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
         assert dt10 == dtxx
         assert type(dtxx.month) is int
         assert type(dtxx.second) is int
@@ -187,9 +192,7 @@ def test_check_arg_types():
     assert str(exc.value).startswith('an integer is required')
 
     f10 = Number(10.9)
-    with pytest.raises(TypeError) as exc:
-        datetime.datetime(10, 10, f10)
-    assert str(exc.value) == '__int__ returned non-int (type float)'
+    datetime.datetime(10, 10, f10)
 
     class Float(float):
         pass
@@ -245,7 +248,7 @@ def test_raises_if_passed_naive_datetime_and_start_or_end_time_defined():
 def test_future_types_newint():
     # Issue 2193
     class newint(int):
-        def __int__(self):
+        def __index__(self):
             return self
 
     dt_from_ints = datetime.datetime(2015, 12, 31, 12, 34, 56)
@@ -350,3 +353,34 @@ def test_subclass_datetime():
     d2 = d.replace(hour=7)
     assert type(d2) is MyDatetime
     assert d2 == datetime.datetime(2016, 4, 5, 7, 2, 3)
+
+@pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only')
+def test_normalize_pair():
+    normalize = datetime._normalize_pair
+
+    assert normalize(1, 59, 60) == (1, 59)
+    assert normalize(1, 60, 60) == (2, 0)
+    assert normalize(1, 95, 60) == (2, 35)
+
+@pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only')
+def test_normalize_date():
+    normalize = datetime._normalize_date
+
+    # Huge year is caught correctly
+    with pytest.raises(OverflowError):
+        normalize(1000 * 1000, 1, 1)
+    # Normal dates should be unchanged
+    assert normalize(3000, 1, 1) == (3000, 1, 1)
+    # Month overflows year boundary
+    assert normalize(2001, 24, 1) == (2002, 12, 1)
+    # Day overflows month boundary
+    assert normalize(2001, 14, 31) == (2002, 3, 3)
+    # Leap years? :S
+    assert normalize(2001, 1, 61) == (2001, 3, 2)
+    assert normalize(2000, 1, 61) == (2000, 3, 1)
+
+@pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only')
+def test_normalize_datetime():
+    normalize = datetime._normalize_datetime
+    abnormal = (2002, 13, 35, 30, 95, 75, 1000001)
+    assert normalize(*abnormal) == (2003, 2, 5, 7, 36, 16, 1)

@@ -153,13 +153,13 @@ def enforceargs(*types_, **kwds):
                 return {get_type_descr_of_argument(key): get_type_descr_of_argument(value)}
             else:
                 return type(arg)
+
         def typecheck(*args):
             from rpython.annotator.model import SomeList, SomeDict, SomeChar,\
                  SomeInteger
-            for i, (expected_type, arg) in enumerate(zip(types, args)):
-                if expected_type is None:
+            for i, (s_expected, arg) in enumerate(zip(s_types, args)):
+                if s_expected is None:
                     continue
-                s_expected = get_annotation(expected_type)
                 # special case: if we expect a list or dict and the argument
                 # is an empty list/dict, the typecheck always pass
                 if isinstance(s_expected, SomeList) and arg == []:
@@ -176,7 +176,7 @@ def enforceargs(*types_, **kwds):
                 s_argtype = get_annotation(get_type_descr_of_argument(arg))
                 if not s_expected.contains(s_argtype):
                     msg = "%s argument %r must be of type %s" % (
-                        f.func_name, srcargs[i], expected_type)
+                        f.__name__, srcargs[i], types[i])
                     raise TypeError(msg)
         #
         template = """
@@ -197,6 +197,10 @@ def enforceargs(*types_, **kwds):
         assert len(srcargs) == len(types), (
             'not enough types provided: expected %d, got %d' %
             (len(types), len(srcargs)))
+
+        s_types = [None if typ is None else
+                   NOT_CONSTANT if typ is NOT_CONSTANT else
+                   get_annotation(typ) for typ in types]
         result._annenforceargs_ = types
         return result
     return decorator
@@ -226,6 +230,22 @@ def not_rpython(func):
     func._not_rpython_ = True
     return func
 
+def llhelper_error_value(error_value):
+    """
+    This decorator has two effects:
+
+      1. declare that this llhelper can raise RPython exceptions, which should
+         be correctly propagated
+
+      2. specify the error_value to return in case of exception.
+    """
+    # relevant tests:
+    #     - test_ll2ctypes.test_llhelper_error_value
+    #     - test_exceptiontransform.test_custom_error_value
+    def decorate(func):
+        func._llhelper_error_value_ = error_value
+        return func
+    return decorate
 
 # ____________________________________________________________
 
@@ -473,6 +493,37 @@ class Entry(ExtRegistryEntry):
         hop.exception_is_here()
         hop.gendirectcall(r_list.LIST._ll_resize_hint, v_list, v_sizehint)
 
+def list_get_physical_size(l):
+    """ try to get the physical size of an overallocated RPython list. will
+    return the regular length untranslated. """
+    return len(l)
+
+def ll_physical_size(l):
+    return len(l.items)
+
+class Entry(ExtRegistryEntry):
+    _about_ = list_get_physical_size
+
+    def compute_result_annotation(self, s_l):
+        from rpython.annotator import model as annmodel
+        if annmodel.s_None.contains(s_l):
+            pass # first argument is only None so far, but we
+                 # expect a generalization later
+        elif not isinstance(s_l, annmodel.SomeList):
+            raise annmodel.AnnotatorError("First argument must be a list")
+        return annmodel.SomeInteger(nonneg=True)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem.rlist import FixedSizeListRepr, ListRepr
+        v_list, = hop.inputargs(*hop.args_r)
+        if isinstance(hop.args_r[0], ListRepr):
+            ll_func = ll_physical_size
+        else:
+            ll_func = v_list.concretetype.TO.ll_length
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_func, v_list)
+
+
 # ____________________________________________________________
 #
 # id-like functions.  The idea is that calling hash() or id() is not
@@ -699,13 +750,6 @@ class Entry(ExtRegistryEntry):
 
 def hlinvoke(repr, llcallable, *args):
     raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
-
-def is_in_callback():
-    """Returns True if we're currently in a callback *or* if there are
-    multiple threads around.
-    """
-    from rpython.rtyper.lltypesystem import rffi
-    return rffi.stackcounter.stacks_counter > 1
 
 
 class UnboxedValue(object):
@@ -1002,6 +1046,49 @@ def move_to_end(d, key, last=True):
         return
     d.move_to_end(key, last)
 
+@not_rpython
+def dict_to_switch(d, inline=True):
+    """Convert dictionary with integer or char keys to a switch statement."""
+    from rpython.rlib.unroll import unrolling_iterable
+
+    assert len(d) >= 1
+    firstkey = next(iter(d))
+    if isinstance(firstkey, int):
+        precheck = always_inline(lambda key: key)
+        for key in d:
+            assert isinstance(key, int)
+    else:
+        assert isinstance(firstkey, str) # only int and char allowed for now
+        for key in d:
+            assert isinstance(key, str) and len(key) == 1
+
+        @always_inline
+        def precheck(key):
+            # make sure it's a char switch
+            if len(key) > 1:
+                raise KeyError
+            return key[0]
+
+    cached_size = len(d)
+    unrolling_iteritems = unrolling_iterable(d.iteritems())
+
+    def lookup(query):
+        if we_are_translated():
+            query = precheck(query)
+            for key, value in unrolling_iteritems:
+                if key == query:
+                    return value
+            else:
+                raise KeyError
+        else:
+            assert len(d) == cached_size, "dictionary size changed!"
+            return d[query]
+
+
+    if inline:
+        lookup = always_inline(lookup)
+    return lookup
+
 # ____________________________________________________________
 
 def import_from_mixin(M, special_methods=['__init__', '__del__']):
@@ -1058,3 +1145,13 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
         target[key] = value
     if immutable_fields:
         target['_immutable_fields_'] = target.get('_immutable_fields_', []) + immutable_fields
+
+def never_allocate(cls):
+    """
+    Class decorator to ensure that a class is NEVER instantiated at runtime.
+
+    Useful e.g for context manager which are expected to be constant-folded
+    away.
+    """
+    cls._rpython_never_allocate_ = True
+    return cls

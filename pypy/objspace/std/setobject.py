@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.bytesobject import W_BytesObject
-from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.listobject import is_plain_int1, plain_int_w
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
@@ -86,9 +86,9 @@ class W_BaseSetObject(W_Root):
         """ If this is a string set return its contents as a list of uwnrapped strings. Otherwise return None. """
         return self.strategy.listview_bytes(self)
 
-    def listview_utf8(self):
+    def listview_ascii(self):
         """ If this is a unicode set return its contents as a list of uwnrapped unicodes. Otherwise return None. """
-        return self.strategy.listview_utf8(self)
+        return self.strategy.listview_ascii(self)
 
     def listview_int(self):
         """ If this is an int set return its contents as a list of uwnrapped ints. Otherwise return None. """
@@ -246,10 +246,16 @@ class W_BaseSetObject(W_Root):
             return space.w_NotImplemented
         return self.difference(w_other)
 
+    def descr_rsub(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
+        return w_other.difference(self)
+
     def descr_and(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
             return space.w_NotImplemented
         return self.intersect(w_other)
+    descr_rand = descr_and # symmetric
 
     def descr_or(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
@@ -257,35 +263,13 @@ class W_BaseSetObject(W_Root):
         w_copy = self.copy_real()
         w_copy.update(w_other)
         return w_copy
+    descr_ror = descr_or # symmetric
 
     def descr_xor(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
             return space.w_NotImplemented
         return self.symmetric_difference(w_other)
-
-    def descr_inplace_sub(self, space, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            return space.w_NotImplemented
-        self.difference_update(w_other)
-        return self
-
-    def descr_inplace_and(self, space, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            return space.w_NotImplemented
-        self.intersect_update(w_other)
-        return self
-
-    def descr_inplace_or(self, space, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            return space.w_NotImplemented
-        self.update(w_other)
-        return self
-
-    def descr_inplace_xor(self, space, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            return space.w_NotImplemented
-        self.descr_symmetric_difference_update(space, w_other)
-        return self
+    descr_rxor = descr_xor # symmetric
 
     def descr_copy(self, space):
         """Return a shallow copy of a set."""
@@ -404,16 +388,6 @@ class W_BaseSetObject(W_Root):
                 return space.w_False
         return space.w_True
 
-    def descr_add(self, space, w_other):
-        """Add an element to a set.
-
-        This has no effect if the element is already present."""
-        self.add(w_other)
-
-    def descr_clear(self, space):
-        """Remove all elements from this set."""
-        self.clear()
-
     @gateway.unwrap_spec(others_w='args_w')
     def descr_difference_update(self, space, others_w):
         """Update the set, removing elements found in others."""
@@ -423,6 +397,60 @@ class W_BaseSetObject(W_Root):
             else:
                 w_other_as_set = self._newobj(space, w_other)
                 self.difference_update(w_other_as_set)
+
+
+
+class W_SetObject(W_BaseSetObject):
+
+    #overridden here so the error is reported correctly
+    def __init__(self, space, w_iterable=None):
+        """Initialize the set by taking ownership of 'setdata'."""
+        W_BaseSetObject.__init__(self, space, w_iterable)
+
+    def _newobj(self, space, w_iterable):
+        """Make a new set by taking ownership of 'w_iterable'."""
+        return W_SetObject(space, w_iterable)
+
+    @staticmethod
+    def descr_new(space, w_settype, __args__):
+        w_obj = space.allocate_instance(W_SetObject, w_settype)
+        W_SetObject.__init__(w_obj, space)
+        return w_obj
+
+    def descr_inplace_sub(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
+        self.difference_update(w_other)
+        return self
+
+    def descr_inplace_and(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
+        self.intersect_update(w_other)
+        return self
+
+    def descr_inplace_or(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
+        self.update(w_other)
+        return self
+
+    def descr_inplace_xor(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
+        self.descr_symmetric_difference_update(space, w_other)
+        return self
+
+
+    def descr_add(self, space, w_other):
+        """Add an element to a set.
+
+        This has no effect if the element is already present."""
+        self.add(w_other)
+
+    def descr_clear(self, space):
+        """Remove all elements from this set."""
+        self.clear()
 
     def _discard_from_set(self, space, w_item):
         """
@@ -480,78 +508,74 @@ class W_BaseSetObject(W_Root):
     @gateway.unwrap_spec(others_w='args_w')
     def descr_update(self, space, others_w):
         """Update a set with the union of itself and another."""
+        self._descr_update(space, others_w)
+
+    @jit.look_inside_iff(lambda self, space, others_w:
+            jit.loop_unrolling_heuristic(others_w, len(others_w), UNROLL_CUTOFF))
+    def _descr_update(self, space, others_w):
         for w_other in others_w:
             if isinstance(w_other, W_BaseSetObject):
                 self.update(w_other)
             else:
-                for w_key in space.listview(w_other):
-                    self.add(w_key)
-
-
-class W_SetObject(W_BaseSetObject):
-    def _newobj(self, space, w_iterable):
-        """Make a new set by taking ownership of 'w_iterable'."""
-        return W_SetObject(space, w_iterable)
-
-    @staticmethod
-    def descr_new(space, w_settype, __args__):
-        w_obj = space.allocate_instance(W_SetObject, w_settype)
-        W_SetObject.__init__(w_obj, space)
-        return w_obj
+                _update_from_iterable(space, self, w_other)
 
 W_SetObject.typedef = TypeDef("set",
     __doc__ = """set(iterable) --> set object
 
 Build an unordered collection.""",
     __new__ = gateway.interp2app(W_SetObject.descr_new),
-    __init__ = gateway.interp2app(W_BaseSetObject.descr_init),
-    __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
+    __init__ = gateway.interp2app(W_SetObject.descr_init),
+    __repr__ = gateway.interp2app(W_SetObject.descr_repr),
     __hash__ = None,
 
     # comparison operators
-    __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),
-    __ne__ = gateway.interp2app(W_BaseSetObject.descr_ne),
-    __lt__ = gateway.interp2app(W_BaseSetObject.descr_lt),
-    __le__ = gateway.interp2app(W_BaseSetObject.descr_le),
-    __gt__ = gateway.interp2app(W_BaseSetObject.descr_gt),
-    __ge__ = gateway.interp2app(W_BaseSetObject.descr_ge),
+    __eq__ = gateway.interp2app(W_SetObject.descr_eq),
+    __ne__ = gateway.interp2app(W_SetObject.descr_ne),
+    __lt__ = gateway.interp2app(W_SetObject.descr_lt),
+    __le__ = gateway.interp2app(W_SetObject.descr_le),
+    __gt__ = gateway.interp2app(W_SetObject.descr_gt),
+    __ge__ = gateway.interp2app(W_SetObject.descr_ge),
 
     # non-mutating operators
-    __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
-    __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
-    __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
-    __sub__ = gateway.interp2app(W_BaseSetObject.descr_sub),
-    __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
-    __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
-    __xor__ = gateway.interp2app(W_BaseSetObject.descr_xor),
+    __len__ = gateway.interp2app(W_SetObject.descr_len),
+    __iter__ = gateway.interp2app(W_SetObject.descr_iter),
+    __contains__ = gateway.interp2app(W_SetObject.descr_contains),
+    __sub__ = gateway.interp2app(W_SetObject.descr_sub),
+    __rsub__ = gateway.interp2app(W_SetObject.descr_rsub),
+    __and__ = gateway.interp2app(W_SetObject.descr_and),
+    __rand__ = gateway.interp2app(W_SetObject.descr_rand),
+    __or__ = gateway.interp2app(W_SetObject.descr_or),
+    __ror__ = gateway.interp2app(W_SetObject.descr_ror),
+    __xor__ = gateway.interp2app(W_SetObject.descr_xor),
+    __rxor__ = gateway.interp2app(W_SetObject.descr_rxor),
 
     # mutating operators
-    __isub__ = gateway.interp2app(W_BaseSetObject.descr_inplace_sub),
-    __iand__ = gateway.interp2app(W_BaseSetObject.descr_inplace_and),
-    __ior__ = gateway.interp2app(W_BaseSetObject.descr_inplace_or),
-    __ixor__ = gateway.interp2app(W_BaseSetObject.descr_inplace_xor),
+    __isub__ = gateway.interp2app(W_SetObject.descr_inplace_sub),
+    __iand__ = gateway.interp2app(W_SetObject.descr_inplace_and),
+    __ior__ = gateway.interp2app(W_SetObject.descr_inplace_or),
+    __ixor__ = gateway.interp2app(W_SetObject.descr_inplace_xor),
 
     # non-mutating methods
-    __reduce__ = gateway.interp2app(W_BaseSetObject.descr_reduce),
-    copy = gateway.interp2app(W_BaseSetObject.descr_copy),
-    difference = gateway.interp2app(W_BaseSetObject.descr_difference),
-    intersection = gateway.interp2app(W_BaseSetObject.descr_intersection),
-    issubset = gateway.interp2app(W_BaseSetObject.descr_issubset),
-    issuperset = gateway.interp2app(W_BaseSetObject.descr_issuperset),
-    symmetric_difference = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
-    union = gateway.interp2app(W_BaseSetObject.descr_union),
-    isdisjoint = gateway.interp2app(W_BaseSetObject.descr_isdisjoint),
+    __reduce__ = gateway.interp2app(W_SetObject.descr_reduce),
+    copy = gateway.interp2app(W_SetObject.descr_copy),
+    difference = gateway.interp2app(W_SetObject.descr_difference),
+    intersection = gateway.interp2app(W_SetObject.descr_intersection),
+    issubset = gateway.interp2app(W_SetObject.descr_issubset),
+    issuperset = gateway.interp2app(W_SetObject.descr_issuperset),
+    symmetric_difference = gateway.interp2app(W_SetObject.descr_symmetric_difference),
+    union = gateway.interp2app(W_SetObject.descr_union),
+    isdisjoint = gateway.interp2app(W_SetObject.descr_isdisjoint),
 
     # mutating methods
-    add = gateway.interp2app(W_BaseSetObject.descr_add),
-    clear = gateway.interp2app(W_BaseSetObject.descr_clear),
-    difference_update = gateway.interp2app(W_BaseSetObject.descr_difference_update),
-    discard = gateway.interp2app(W_BaseSetObject.descr_discard),
-    intersection_update = gateway.interp2app(W_BaseSetObject.descr_intersection_update),
-    pop = gateway.interp2app(W_BaseSetObject.descr_pop),
-    remove = gateway.interp2app(W_BaseSetObject.descr_remove),
-    symmetric_difference_update = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference_update),
-    update = gateway.interp2app(W_BaseSetObject.descr_update)
+    add = gateway.interp2app(W_SetObject.descr_add),
+    clear = gateway.interp2app(W_SetObject.descr_clear),
+    difference_update = gateway.interp2app(W_SetObject.descr_difference_update),
+    discard = gateway.interp2app(W_SetObject.descr_discard),
+    intersection_update = gateway.interp2app(W_SetObject.descr_intersection_update),
+    pop = gateway.interp2app(W_SetObject.descr_pop),
+    remove = gateway.interp2app(W_SetObject.descr_remove),
+    symmetric_difference_update = gateway.interp2app(W_SetObject.descr_symmetric_difference_update),
+    update = gateway.interp2app(W_SetObject.descr_update)
     )
 set_typedef = W_SetObject.typedef
 
@@ -616,41 +640,51 @@ class W_FrozensetObject(W_BaseSetObject):
 
         return space.newint(hash)
 
+    def cpyext_add_frozen(self, w_key):
+        if self.hash != 0:
+            return False
+        self.add(w_key)
+        return True
+
 W_FrozensetObject.typedef = TypeDef("frozenset",
     __doc__ = """frozenset(iterable) --> frozenset object
 
 Build an immutable unordered collection.""",
     __new__ = gateway.interp2app(W_FrozensetObject.descr_new2),
-    __repr__ = gateway.interp2app(W_BaseSetObject.descr_repr),
+    __repr__ = gateway.interp2app(W_FrozensetObject.descr_repr),
     __hash__ = gateway.interp2app(W_FrozensetObject.descr_hash),
 
     # comparison operators
-    __eq__ = gateway.interp2app(W_BaseSetObject.descr_eq),
-    __ne__ = gateway.interp2app(W_BaseSetObject.descr_ne),
-    __lt__ = gateway.interp2app(W_BaseSetObject.descr_lt),
-    __le__ = gateway.interp2app(W_BaseSetObject.descr_le),
-    __gt__ = gateway.interp2app(W_BaseSetObject.descr_gt),
-    __ge__ = gateway.interp2app(W_BaseSetObject.descr_ge),
+    __eq__ = gateway.interp2app(W_FrozensetObject.descr_eq),
+    __ne__ = gateway.interp2app(W_FrozensetObject.descr_ne),
+    __lt__ = gateway.interp2app(W_FrozensetObject.descr_lt),
+    __le__ = gateway.interp2app(W_FrozensetObject.descr_le),
+    __gt__ = gateway.interp2app(W_FrozensetObject.descr_gt),
+    __ge__ = gateway.interp2app(W_FrozensetObject.descr_ge),
 
     # non-mutating operators
-    __len__ = gateway.interp2app(W_BaseSetObject.descr_len),
-    __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
-    __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
-    __sub__ = gateway.interp2app(W_BaseSetObject.descr_sub),
-    __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
-    __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
-    __xor__ = gateway.interp2app(W_BaseSetObject.descr_xor),
+    __len__ = gateway.interp2app(W_FrozensetObject.descr_len),
+    __iter__ = gateway.interp2app(W_FrozensetObject.descr_iter),
+    __contains__ = gateway.interp2app(W_FrozensetObject.descr_contains),
+    __sub__ = gateway.interp2app(W_FrozensetObject.descr_sub),
+    __rsub__ = gateway.interp2app(W_FrozensetObject.descr_rsub),
+    __and__ = gateway.interp2app(W_FrozensetObject.descr_and),
+    __rand__ = gateway.interp2app(W_FrozensetObject.descr_rand),
+    __or__ = gateway.interp2app(W_FrozensetObject.descr_or),
+    __ror__ = gateway.interp2app(W_FrozensetObject.descr_ror),
+    __xor__ = gateway.interp2app(W_FrozensetObject.descr_xor),
+    __rxor__ = gateway.interp2app(W_FrozensetObject.descr_rxor),
 
     # non-mutating methods
-    __reduce__ = gateway.interp2app(W_BaseSetObject.descr_reduce),
-    copy = gateway.interp2app(W_BaseSetObject.descr_copy),
-    difference = gateway.interp2app(W_BaseSetObject.descr_difference),
-    intersection = gateway.interp2app(W_BaseSetObject.descr_intersection),
-    issubset = gateway.interp2app(W_BaseSetObject.descr_issubset),
-    issuperset = gateway.interp2app(W_BaseSetObject.descr_issuperset),
-    symmetric_difference = gateway.interp2app(W_BaseSetObject.descr_symmetric_difference),
-    union = gateway.interp2app(W_BaseSetObject.descr_union),
-    isdisjoint = gateway.interp2app(W_BaseSetObject.descr_isdisjoint)
+    __reduce__ = gateway.interp2app(W_FrozensetObject.descr_reduce),
+    copy = gateway.interp2app(W_FrozensetObject.descr_copy),
+    difference = gateway.interp2app(W_FrozensetObject.descr_difference),
+    intersection = gateway.interp2app(W_FrozensetObject.descr_intersection),
+    issubset = gateway.interp2app(W_FrozensetObject.descr_issubset),
+    issuperset = gateway.interp2app(W_FrozensetObject.descr_issuperset),
+    symmetric_difference = gateway.interp2app(W_FrozensetObject.descr_symmetric_difference),
+    union = gateway.interp2app(W_FrozensetObject.descr_union),
+    isdisjoint = gateway.interp2app(W_FrozensetObject.descr_isdisjoint)
     )
 frozenset_typedef = W_FrozensetObject.typedef
 
@@ -671,7 +705,7 @@ class SetStrategy(object):
     def listview_bytes(self, w_set):
         return None
 
-    def listview_utf8(self, w_set):
+    def listview_ascii(self, w_set):
         return None
 
     def listview_int(self, w_set):
@@ -772,12 +806,12 @@ class EmptySetStrategy(SetStrategy):
         return clone
 
     def add(self, w_set, w_key):
-        if type(w_key) is W_IntObject:
+        if is_plain_int1(w_key):
             strategy = self.space.fromcache(IntegerSetStrategy)
         elif type(w_key) is W_BytesObject:
             strategy = self.space.fromcache(BytesSetStrategy)
         elif type(w_key) is W_UnicodeObject and w_key.is_ascii():
-            strategy = self.space.fromcache(UnicodeSetStrategy)
+            strategy = self.space.fromcache(AsciiSetStrategy)
         elif self.space.type(w_key).compares_by_identity():
             strategy = self.space.fromcache(IdentitySetStrategy)
         else:
@@ -799,6 +833,8 @@ class EmptySetStrategy(SetStrategy):
         return []
 
     def has_key(self, w_set, w_key):
+        # make sure the key is hashable, issue 3824
+        self.space.hash_w(w_key)
         return False
 
     def equals(self, w_set, w_other):
@@ -1239,7 +1275,7 @@ class BytesSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return BytesIteratorImplementation(self.space, self, w_set)
 
 
-class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+class AsciiSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("unicode")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -1253,7 +1289,7 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def get_empty_dict(self):
         return {}
 
-    def listview_utf8(self, w_set):
+    def listview_ascii(self, w_set):
         return self.unerase(w_set.sstorage).keys()
 
     def is_correct_type(self, w_key):
@@ -1296,12 +1332,12 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return self.unerase(w_set.sstorage).keys()
 
     def is_correct_type(self, w_key):
-        return type(w_key) is W_IntObject
+        return is_plain_int1(w_key)
 
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(BytesSetStrategy):
             return False
-        elif strategy is self.space.fromcache(UnicodeSetStrategy):
+        elif strategy is self.space.fromcache(AsciiSetStrategy):
             return False
         elif strategy is self.space.fromcache(EmptySetStrategy):
             return False
@@ -1310,7 +1346,7 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return True
 
     def unwrap(self, w_item):
-        return self.space.int_w(w_item)
+        return plain_int_w(self.space, w_item)
 
     def wrap(self, item):
         return self.space.newint(item)
@@ -1392,7 +1428,7 @@ class IdentitySetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
             return False
         if strategy is self.space.fromcache(BytesSetStrategy):
             return False
-        if strategy is self.space.fromcache(UnicodeSetStrategy):
+        if strategy is self.space.fromcache(AsciiSetStrategy):
             return False
         return True
 
@@ -1585,9 +1621,9 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(byteslist)
         return
 
-    unicodelist = space.listview_utf8(w_iterable)
+    unicodelist = space.listview_ascii(w_iterable)
     if unicodelist is not None:
-        strategy = space.fromcache(UnicodeSetStrategy)
+        strategy = space.fromcache(AsciiSetStrategy)
         w_set.strategy = strategy
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(unicodelist)
         return
@@ -1601,10 +1637,12 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
 
     length_hint = space.length_hint(w_iterable, 0)
 
-    if jit.isconstant(length_hint):
+    if jit.isconstant(length_hint) and length_hint:
         return _pick_correct_strategy_unroll(space, w_set, w_iterable)
 
-    _create_from_iterable(space, w_set, w_iterable)
+    w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
+    w_set.sstorage = strategy.get_empty_storage()
+    _update_from_iterable(space, w_set, w_iterable)
 
 
 @jit.unroll_safe
@@ -1613,7 +1651,7 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
     iterable_w = space.listview(w_iterable)
     # check for integers
     for w_item in iterable_w:
-        if type(w_item) is not W_IntObject:
+        if not is_plain_int1(w_item):
             break
     else:
         w_set.strategy = space.fromcache(IntegerSetStrategy)
@@ -1634,7 +1672,7 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
         if type(w_item) is not W_UnicodeObject or not w_item.is_ascii():
             break
     else:
-        w_set.strategy = space.fromcache(UnicodeSetStrategy)
+        w_set.strategy = space.fromcache(AsciiSetStrategy)
         w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 
@@ -1651,15 +1689,16 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
     w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
 
 
-create_set_driver = jit.JitDriver(name='create_set',
+def get_printable_location(tp, strategy):
+    return "update_set: %s %s" % (tp.iterator_greenkey_printable(), strategy)
+
+update_set_driver = jit.JitDriver(name='update_set',
                                   greens=['tp', 'strategy'],
-                                  reds='auto')
+                                  reds='auto',
+                                  get_printable_location=get_printable_location)
 
-def _create_from_iterable(space, w_set, w_iterable):
-    w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
-    w_set.sstorage = strategy.get_empty_storage()
-
-    tp = space.type(w_iterable)
+def _update_from_iterable(space, w_set, w_iterable):
+    tp = space.iterator_greenkey(w_iterable)
 
     w_iter = space.iter(w_iterable)
     while True:
@@ -1669,7 +1708,7 @@ def _create_from_iterable(space, w_set, w_iterable):
             if not e.match(space, space.w_StopIteration):
                 raise
             return
-        create_set_driver.jit_merge_point(tp=tp, strategy=w_set.strategy)
+        update_set_driver.jit_merge_point(tp=tp, strategy=w_set.strategy)
         w_set.add(w_item)
 
 

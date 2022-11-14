@@ -113,9 +113,9 @@ class W_SliceObject(W_Root):
     def descr__reduce__(self, space):
         from pypy.objspace.std.sliceobject import W_SliceObject
         assert isinstance(self, W_SliceObject)
-        return space.newtuple([
+        return space.newtuple2(
             space.type(self),
-            space.newtuple([self.w_start, self.w_stop, self.w_step])])
+            space.newtuple([self.w_start, self.w_stop, self.w_step]))
 
     def descr_eq(self, space, w_other):
         # We need this because CPython considers that slice1 == slice1
@@ -171,6 +171,11 @@ class W_SliceObject(W_Root):
         # all of a, b, c and d are very large integers.
         return app_indices(space, self.w_start, self.w_stop,
                            self.w_step, w_length)
+
+    @staticmethod
+    def eval_slice_index(space, w_int):
+        """Helper for cpyext"""
+        return _eval_slice_index(space, w_int)
 
 
 def slicewprop(name):

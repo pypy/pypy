@@ -280,6 +280,7 @@ class RegisterManager(object):
     no_lower_byte_regs    = []
     save_around_call_regs = []
     frame_reg             = None
+    FORBID_TEMP_BOXES     = False
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
@@ -440,6 +441,8 @@ class RegisterManager(object):
         for next in regs:
             reg = self.reg_bindings[next]
             if next in forbidden_vars:
+                continue
+            if self.FORBID_TEMP_BOXES and next in self.temp_boxes:
                 continue
             if selected_reg is not None:
                 if reg is selected_reg:

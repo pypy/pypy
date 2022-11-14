@@ -1,6 +1,7 @@
 from ctypes import *
 
 import pytest
+import sys
 
 
 def test_subclass_initializer():
@@ -30,7 +31,6 @@ def test___init__():
     class Person(Structure):
         _fields_ = (("name", c_char*10),
                     ("age", c_int))
-
         def __init__(self, name, surname, age):
             self.name = name + b' ' + surname
             self.age = age
@@ -119,12 +119,15 @@ def test_swapped_bytes():
             ms.n = 0xff00
             return repr(ba[:])
 
+        nstruct = dostruct(Native)
         if sys.byteorder == 'little':
-            assert dostruct(Native) == dostruct(Little)
-            assert dostruct(Native) != dostruct(Big)
+            assert nstruct == dostruct(Little)
+            assert nstruct != dostruct(Big)
+            assert Big._fields_[0][1] is not i
         else:
-            assert dostruct(Native) == dostruct(Big)
-            assert dostruct(Native) != dostruct(Little)
+            assert nstruct == dostruct(Big)
+            assert nstruct != dostruct(Little)
+            assert Little._fields_[0][1] is not i
 
 def test_from_buffer_copy():
     from array import array
@@ -185,3 +188,50 @@ def test_duplicate_names():
     assert sizeof(s) == 3 * sizeof(c_int)
     assert s.a == 4     # 256 + 4
     assert s.b == -123
+
+def test_memoryview():
+    class S(Structure):
+        _fields_ = [('a', c_int16),
+                    ('b', c_int16),
+                   ]
+
+    S3 = S * 3
+    c_array = (2 * S3)(
+        S3(S(a=0, b=1), S(a=2, b=3), S(a=4,  b=5)),
+        S3(S(a=6, b=7), S(a=8, b=9), S(a=10, b=11)),
+        )
+
+    mv = memoryview(c_array)
+    if sys.byteorder == 'little':
+        assert mv.format == 'T{<h:a:<h:b:}'
+    else:
+        assert mv.format == 'T{>h:a:>h:b:}'
+    assert mv.shape == (2, 3)
+    assert mv.itemsize == 4
+
+def test_memoryview_endian():
+    class LES(LittleEndianStructure):
+        _pack_ = 1
+        _fields_ = [
+            ('a', c_ubyte * 16),
+            ('i', c_uint64)
+        ]
+    c_les = LES()
+    mv = memoryview(c_les)
+    assert mv.format == 'B'
+
+def test_deepcopy_struct():
+    # issue 3022: missing __new__ on StructureInstanceAutoFree
+    import copy
+
+    class struct_a(Structure):
+        pass
+        
+    class struct_b(Structure):
+        pass
+        
+    struct_a._fields_ = [('first',struct_b)]
+
+    a = struct_a()
+    b = copy.deepcopy(a)
+    assert isinstance(b.first, struct_b)

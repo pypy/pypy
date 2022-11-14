@@ -1,22 +1,27 @@
 from __future__ import division
 
 import operator
-import sys
+import sys, os
 import math
-from random import random, randint, sample, seed
+from random import random, randint, sample
 
-import py
-import pytest
+try:
+    import pytest
+except ImportError:
+    print 'cwd', os.getcwd()
+    print 'sys.path', sys.path
+    raise
 
 from rpython.rlib import rbigint as lobj
-from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
+from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
-    _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError)
+    _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
+    gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError)
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
 
-from hypothesis import given, strategies, example
+from hypothesis import given, strategies, example, settings
 
 longs = strategies.builds(
     long, strategies.integers())
@@ -110,7 +115,8 @@ class TestRLong(object):
                 r2 = op1 // op2
                 assert r1.tolong() == r2
 
-        assert pytest.raises(ZeroDivisionError, r.int_floordiv, 0)
+        with pytest.raises(ZeroDivisionError):
+            r.int_floordiv(0)
 
         # Error pointed out by Armin Rigo
         n = sys.maxint+1
@@ -141,7 +147,8 @@ class TestRLong(object):
             for op2 in gen_signs(long_vals):
                 rl_op2 = rbigint.fromlong(op2)
                 if not op2:
-                    py.test.raises(ZeroDivisionError, rl_op1.truediv, rl_op2)
+                    with pytest.raises(ZeroDivisionError):
+                        rl_op1.truediv(rl_op2)
                     continue
                 r1 = rl_op1.truediv(rl_op2)
                 r2 = op1 / op2
@@ -172,7 +179,8 @@ class TestRLong(object):
 
         op1 = rbigint.fromlong(overflowing)
         op2 = rbigint.fromlong(1)
-        py.test.raises(OverflowError, op1.truediv, op2)
+        with pytest.raises(OverflowError):
+            op1.truediv(op2)
 
     def test_truediv_overflow2(self):
         overflowing = 2**1024 - 2**(1024-53-1)
@@ -190,7 +198,8 @@ class TestRLong(object):
             for op2 in gen_signs(long_vals):
                 rl_op2 = rbigint.fromlong(op2)
                 if not op2:
-                    py.test.raises(ZeroDivisionError, rl_op1.mod, rl_op2)
+                    with pytest.raises(ZeroDivisionError):
+                        rl_op1.mod(rl_op2)
                     continue
                 r1 = rl_op1.mod(rl_op2)
                 r2 = op1 % op2
@@ -202,11 +211,24 @@ class TestRLong(object):
             op1 = rbigint.fromlong(x)
             for y in signed_int_vals:
                 if not y:
-                    py.test.raises(ZeroDivisionError, op1.int_mod, 0)
+                    with pytest.raises(ZeroDivisionError):
+                        op1.int_mod(0)
                     continue
                 r1 = op1.int_mod(y)
                 r2 = x % y
                 assert r1.tolong() == r2
+
+    def test_int_mod_int_result(self):
+        for x in gen_signs(long_vals):
+            op1 = rbigint.fromlong(x)
+            for y in signed_int_vals:
+                if not y:
+                    with pytest.raises(ZeroDivisionError):
+                        op1.int_mod_int_result(0)
+                    continue
+                r1 = op1.int_mod_int_result(y)
+                r2 = x % y
+                assert r1 == r2
 
     def test_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
@@ -241,11 +263,23 @@ class TestRLong(object):
                     print op1, op2, op3
                     assert r3.tolong() == r4
 
+    def test_int_pow_big(self):
+        if sys.maxint < 2**32:
+            pytest.skip("64-bit only")
+        for op1 in gen_signs(int_vals):
+            rl_op1 = rbigint.fromint(op1)
+            for op2 in [2**31, 2**32-1, 2**32]:
+                r1 = rl_op1.int_pow(op2, rbigint.fromint(sys.maxint))
+                r2 = pow(op1, op2, sys.maxint)
+                assert r1.tolong() == r2
+
     def test_pow_raises(self):
         r1 = rbigint.fromint(2)
         r0 = rbigint.fromint(0)
-        py.test.raises(ValueError, r1.int_pow, 2, r0)
-        py.test.raises(ValueError, r1.pow, r1, r0)
+        with pytest.raises(ValueError):
+            r1.int_pow(2, r0)
+        with pytest.raises(ValueError):
+            r1.pow(r1, r0)
 
     def test_touint(self):
         result = r_uint(sys.maxint + 42)
@@ -262,6 +296,16 @@ class TestRLong(object):
         assert not (a1 != a2)
         assert not (a1 == a3)
 
+    def test_divmod_big2(self):
+        def check(a, b):
+            fa = rbigint.fromlong(a)
+            fb = rbigint.fromlong(b)
+            div, mod = divmod_big(fa, fb)
+            return div.mul(fb).add(mod).eq(fa)
+        check(2, 3)
+        check(3, 2)
+        check((2 << 1000) - 1, (2 << (65 * 3 + 2)) - 1)
+        check((2 + 5 * 2 ** SHIFT) << (100 * SHIFT), 5 << (100 * SHIFT))
 
 
 def bigint(lst, sign):
@@ -339,13 +383,38 @@ class Test_rbigint(object):
         from rpython.rlib.rstring import ParseStringError
         assert rbigint.fromstr('123L').tolong() == 123
         assert rbigint.fromstr('123L  ').tolong() == 123
-        py.test.raises(ParseStringError, rbigint.fromstr, 'L')
-        py.test.raises(ParseStringError, rbigint.fromstr, 'L  ')
+        with pytest.raises(ParseStringError):
+            rbigint.fromstr('L')
+        with pytest.raises(ParseStringError):
+            rbigint.fromstr('L  ')
         assert rbigint.fromstr('123L', 4).tolong() == 27
         assert rbigint.fromstr('123L', 30).tolong() == 27000 + 1800 + 90 + 21
         assert rbigint.fromstr('123L', 22).tolong() == 10648 + 968 + 66 + 21
         assert rbigint.fromstr('123L', 21).tolong() == 441 + 42 + 3
         assert rbigint.fromstr('1891234174197319').tolong() == 1891234174197319
+
+    def test__from_numberstring_parser_rewind_bug(self):
+        from rpython.rlib.rstring import NumberStringParser
+        s = "-99"
+        p = NumberStringParser(s, s, 10, 'int')
+        assert p.sign == -1
+        res = p.next_digit()
+        assert res == 9
+        res = p.next_digit()
+        assert res == 9
+        res = p.next_digit()
+        assert res == -1
+        p.rewind()
+        res = p.next_digit()
+        assert res == 9
+        res = p.next_digit()
+        assert res == 9
+        res = p.next_digit()
+        assert res == -1
+
+    @given(longs)
+    def test_fromstr_hypothesis(self, l):
+        assert rbigint.fromstr(str(l)).tolong() == l
 
     def test_from_numberstring_parser(self):
         from rpython.rlib.rstring import NumberStringParser
@@ -357,11 +426,42 @@ class Test_rbigint(object):
         s = "077777777777777777777777777777"
         parser = NumberStringParser(s, s, 0, "long",
                                     no_implicit_octal=True)
-        py.test.raises(ParseStringError, rbigint._from_numberstring_parser,
-                       parser)
+        with pytest.raises(ParseStringError):
+            rbigint._from_numberstring_parser(parser)
         parser = NumberStringParser("000", "000", 0, "long",
                                     no_implicit_octal=True)
         assert rbigint._from_numberstring_parser(parser).tolong() == 0
+
+    def test_limit(self):
+        from rpython.rlib.rstring import NumberStringParser, MaxDigitsError
+        max_str_digits = 999
+        s = '0' * (max_str_digits)
+        s0 = '1' + s
+        s1 = '1' + s[1:]
+        s2 = '  - 1' + s[1:]
+        with pytest.raises(MaxDigitsError):
+            parser = NumberStringParser(s0, s0, 0, "long",
+                                        max_str_digits=max_str_digits)
+        # these succeed
+        parser = NumberStringParser(s2, s2, 0, "long",
+                                    max_str_digits=max_str_digits)
+        parser = NumberStringParser(s1, s1, 0, "long",
+                                    max_str_digits=max_str_digits)
+        x = rbigint._from_numberstring_parser(parser)
+
+        assert s1 == x.str(max_str_digits)
+        with pytest.raises(MaxIntError):
+            x.str(max_str_digits - 1)
+
+    def test_add(self):
+        for x in gen_signs(long_vals):
+            f1 = rbigint.fromlong(x)
+            for y in gen_signs(long_vals):
+                f2 = rbigint.fromlong(y)
+                result = f1.add(f2)
+                assert result.tolong() == x + y
+            
+        
 
     def test_add(self):
         for x in gen_signs(long_vals):
@@ -422,7 +522,8 @@ class Test_rbigint(object):
         assert d == float(x)
         x = x ** 100
         f1 = rbigint.fromlong(x)
-        assert py.test.raises(OverflowError, f1.tofloat)
+        with pytest.raises(OverflowError):
+            f1.tofloat()
         f2 = rbigint.fromlong(2097152 << SHIFT)
         d = f2.tofloat()
         assert d == float(2097152 << SHIFT)
@@ -455,8 +556,10 @@ class Test_rbigint(object):
         # XXX don't use such consts. marshal doesn't handle them right.
         x = 12345.6789e200
         x *= x
-        assert py.test.raises(OverflowError, rbigint.fromfloat, x)
-        assert py.test.raises(ValueError, rbigint.fromfloat, NAN)
+        with pytest.raises(OverflowError):
+            rbigint.fromfloat(x)
+        with pytest.raises(ValueError):
+            rbigint.fromfloat(NAN)
         #
         f1 = rbigint.fromfloat(9007199254740991.0)
         assert f1.tolong() == 9007199254740991
@@ -546,7 +649,8 @@ class Test_rbigint(object):
                 assert u == v
                 assert type(u) is r_uint
             else:
-                py.test.raises(ValueError, l.touint)
+                with pytest.raises(ValueError):
+                    l.touint()
 
         toobig_lv1 = rbigint.fromlong(sys.maxint+1)
         assert toobig_lv1.tolong() == sys.maxint+1
@@ -556,7 +660,8 @@ class Test_rbigint(object):
         assert toobig_lv3.tolong() == -sys.maxint-2
 
         for lv in (toobig_lv1, toobig_lv2, toobig_lv3):
-            py.test.raises(OverflowError, lv.toint)
+            with pytest.raises(OverflowError):
+                lv.toint()
 
         lmaxuint = rbigint.fromlong(2*sys.maxint+1)
         toobig_lv4 = rbigint.fromlong(2*sys.maxint+2)
@@ -564,8 +669,10 @@ class Test_rbigint(object):
         u = lmaxuint.touint()
         assert u == 2*sys.maxint+1
 
-        py.test.raises(ValueError, toobig_lv3.touint)
-        py.test.raises(OverflowError, toobig_lv4.touint)
+        with pytest.raises(ValueError):
+            toobig_lv3.touint()
+        with pytest.raises(OverflowError):
+            toobig_lv4.touint()
 
 
     def test_pow_lll(self):
@@ -583,10 +690,12 @@ class Test_rbigint(object):
         #
         f1, f2, f3 = [rbigint.fromlong(i)
                       for i in (10L, -1L, 42L)]
-        py.test.raises(TypeError, f1.pow, f2, f3)
+        with pytest.raises(TypeError):
+            f1.pow(f2, f3)
         f1, f2, f3 = [rbigint.fromlong(i)
                       for i in (10L, 5L, 0L)]
-        py.test.raises(ValueError, f1.pow, f2, f3)
+        with pytest.raises(ValueError):
+            f1.pow(f2, f3)
 
     def test_pow_lll_bug(self):
         two = rbigint.fromint(2)
@@ -644,8 +753,10 @@ class Test_rbigint(object):
         masks_list = [int((1 << i) - 1) for i in range(1, r_uint.BITS-1)]
         for x in gen_signs([3L ** 30L, 5L ** 20L, 7 ** 300, 0L, 1L]):
             f1 = rbigint.fromlong(x)
-            py.test.raises(ValueError, f1.lshift, negative)
-            py.test.raises(ValueError, f1.rshift, negative)
+            with pytest.raises(ValueError):
+                f1.lshift(negative)
+            with pytest.raises(ValueError):
+                f1.rshift(negative)
             for y in [0L, 1L, 32L, 2304L, 11233L, 3 ** 9]:
                 res1 = f1.lshift(int(y)).tolong()
                 res2 = f1.rshift(int(y)).tolong()
@@ -660,6 +771,10 @@ class Test_rbigint(object):
 
         # Chek value accuracy.
         assert rbigint.fromlong(18446744073709551615L).rshift(1).tolong() == 18446744073709551615L >> 1
+
+    def test_shift_optimization(self):
+        # does not crash with memory error
+        assert rbigint.fromint(0).lshift(sys.maxint).tolong() == 0
 
     def test_qshift(self):
         for x in range(10):
@@ -784,7 +899,8 @@ class Test_rbigint(object):
         for op in long_vals:
             for base in [0, 2, 4, 8, 16, 10, math.e]:
                 if not op:
-                    py.test.raises(ValueError, rbigint.fromlong(op).log, base)
+                    with pytest.raises(ValueError):
+                        rbigint.fromlong(op).log(base)
                     continue
                 l = rbigint.fromlong(op).log(base)
                 if base:
@@ -808,15 +924,16 @@ class Test_rbigint(object):
         s = "\xFF\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\xFF"
         bigint = rbigint.frombytes(s, byteorder="big", signed=False)
         assert s == bigint.tobytes(16, byteorder="big", signed=False)
-        py.test.raises(InvalidEndiannessError, bigint.frombytes, '\xFF', 'foo',
-               signed=True)
+        with pytest.raises(InvalidEndiannessError):
+            bigint.frombytes('\xFF', 'foo', signed=True)
         bigint = rbigint.frombytes('\x82', byteorder='big', signed=True)
         assert bigint.tolong() == -126
 
     def test_tobytes(self):
         assert rbigint.fromint(0).tobytes(1, 'big', signed=True) == '\x00'
         assert rbigint.fromint(1).tobytes(2, 'big', signed=True) == '\x00\x01'
-        py.test.raises(OverflowError, rbigint.fromint(255).tobytes, 1, 'big', signed=True)
+        with pytest.raises(OverflowError):
+            rbigint.fromint(255).tobytes(1, 'big', signed=True)
         assert rbigint.fromint(-129).tobytes(2, 'big', signed=True) == '\xff\x7f'
         assert rbigint.fromint(-129).tobytes(2, 'little', signed=True) == '\x7f\xff'
         assert rbigint.fromint(65535).tobytes(3, 'big', signed=True) == '\x00\xff\xff'
@@ -824,9 +941,12 @@ class Test_rbigint(object):
         assert rbigint.fromint(65535).tobytes(2, 'big', signed=False) == '\xff\xff'
         assert rbigint.fromint(-8388608).tobytes(3, 'little', signed=True) == '\x00\x00\x80'
         i = rbigint.fromint(-8388608)
-        py.test.raises(InvalidEndiannessError, i.tobytes, 3, 'foo', signed=True)
-        py.test.raises(InvalidSignednessError, i.tobytes, 3, 'little', signed=False)
-        py.test.raises(OverflowError, i.tobytes, 2, 'little', signed=True)
+        with pytest.raises(InvalidEndiannessError):
+            i.tobytes(3, 'foo', signed=True)
+        with pytest.raises(InvalidSignednessError):
+            i.tobytes(3, 'little', signed=False)
+        with pytest.raises(OverflowError):
+            i.tobytes(2, 'little', signed=True)
 
     @given(strategies.binary(), strategies.booleans(), strategies.booleans())
     def test_frombytes_tobytes_hypothesis(self, s, big, signed):
@@ -836,6 +956,29 @@ class Test_rbigint(object):
         t = bigint.tobytes(len(s), byteorder=byteorder, signed=signed)
         assert s == t
 
+    def test_gcd(self):
+        assert gcd_binary(2*3*7**2, 2**2*7) == 2*7
+        pytest.raises(ValueError, gcd_binary, 2*3*7**2, -2**2*7)
+        assert gcd_binary(1234, 5678) == 2
+        assert gcd_binary(13, 13**6) == 13
+        assert gcd_binary(12, 0) == 12
+        assert gcd_binary(0, 0) == 0
+        with pytest.raises(ValueError):
+            gcd_binary(-10, 0)
+        with pytest.raises(ValueError):
+            gcd_binary(10, -10)
+
+        x = rbigint.fromlong(9969216677189303386214405760200)
+        y = rbigint.fromlong(16130531424904581415797907386349)
+        g = x.gcd(y)
+        assert g == rbigint.fromlong(1)
+
+        for x in gen_signs([12843440367927679363613699686751681643652809878241019930204617606850071260822269719878805]):
+            x = rbigint.fromlong(x)
+            for y in gen_signs([12372280584571061381380725743231391746505148712246738812788540537514927882776203827701778968535]):
+                y = rbigint.fromlong(y)
+                g = x.gcd(y)
+                assert g.tolong() == 18218089570126697993340888567155155527541105
 
 
 class TestInternalFunctions(object):
@@ -917,7 +1060,8 @@ class TestInternalFunctions(object):
                 _div, _rem = divmod(sx, sy)
                 assert div.tolong() == _div
                 assert rem.tolong() == _rem
-        py.test.raises(ZeroDivisionError, rbigint.fromlong(x).divmod, rbigint.fromlong(0))
+        with pytest.raises(ZeroDivisionError):
+            rbigint.fromlong(x).divmod(rbigint.fromlong(0))
 
         # an explicit example for a very rare case in _x_divrem:
         # "add w back if q was too large (this branch taken rarely)"
@@ -930,6 +1074,21 @@ class TestInternalFunctions(object):
         assert div.tolong() == _div
         assert rem.tolong() == _rem
 
+    def test_divmod_big_bug(self):
+        a = -0x13131313131313131313cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfd0
+        b = -0x131313131313131313d0
+        ra = rbigint.fromlong(a)
+        rb = rbigint.fromlong(b)
+        from rpython.rlib.rbigint import HOLDER
+        oldval = HOLDER.DIV_LIMIT
+        try:
+            HOLDER.DIV_LIMIT = 2 # set limit low to test divmod_big more
+            rdiv, rmod = divmod_big(ra, rb)
+            div, mod = divmod(a, b)
+            assert rdiv.tolong() == div
+            assert rmod.tolong() == mod
+        finally:
+            HOLDER.DIV_LIMIT = oldval
 
     def test_int_divmod(self):
         for x in long_vals:
@@ -950,7 +1109,8 @@ class TestInternalFunctions(object):
                     assert rem1.tolong() == _rem
                     assert div.tolong() == _div
                     assert rem.tolong() == _rem
-        py.test.raises(ZeroDivisionError, rbigint.fromlong(x).int_divmod, 0)
+        with pytest.raises(ZeroDivisionError):
+            rbigint.fromlong(x).int_divmod(0)
 
     # testing Karatsuba stuff
     def test__v_iadd(self):
@@ -991,8 +1151,10 @@ class TestInternalFunctions(object):
         f4 = rbigint.fromlong(-max-1)   # overflows
         assert f1.tolonglong() == max-1
         assert f2.tolonglong() == -max
-        py.test.raises(OverflowError, f3.tolonglong)
-        py.test.raises(OverflowError, f4.tolonglong)
+        with pytest.raises(OverflowError):
+            f3.tolonglong()
+        with pytest.raises(OverflowError):
+            f4.tolonglong()
 
     def test_uintmask(self):
         assert rbigint.fromint(-1).uintmask() == r_uint(-1)
@@ -1011,6 +1173,21 @@ class TestInternalFunctions(object):
                 r_ulonglong(9**50))
         assert (rbigint.fromlong(-9**50).ulonglongmask() ==
                 r_ulonglong(-9**50))
+
+    def test_toulonglong(self):
+        with pytest.raises(ValueError):
+            rbigint.fromlong(-1).toulonglong()
+
+    def test_fits_int(self):
+        assert rbigint.fromlong(0).fits_int()
+        assert rbigint.fromlong(42).fits_int()
+        assert rbigint.fromlong(-42).fits_int()
+        assert rbigint.fromlong(sys.maxint).fits_int()
+        assert not rbigint.fromlong(sys.maxint + 1).fits_int()
+        assert rbigint.fromlong(-sys.maxint - 1).fits_int()
+        assert not rbigint.fromlong(-sys.maxint - 2).fits_int()
+        assert not rbigint.fromlong(-73786976294838206459).fits_int()
+        assert not rbigint.fromlong(1 << 1000).fits_int()
 
     def test_parse_digit_string(self):
         from rpython.rlib.rbigint import parse_digit_string
@@ -1142,7 +1319,11 @@ class TestTranslated(StandaloneTests):
 
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
-        assert data == '[%d]\n[0, 1]\n' % sys.maxint
+        if SHIFT == LONG_BIT-1:
+            assert data == '[%d]\n[0, 1]\n' % sys.maxint
+        else:
+            # assume 64-bit without native 128-bit type
+            assert data == '[%d, %d, 1]\n[0, 0, 2]\n' % (2**31-1, 2**31-1)
 
 class TestHypothesis(object):
     @given(longs, longs, longs)
@@ -1153,7 +1334,8 @@ class TestHypothesis(object):
         try:
             res = pow(x, y, z)
         except Exception as e:
-            pytest.raises(type(e), f1.pow, f2, f3)
+            with pytest.raises(type(e)):
+                f1.pow(f2, f3)
         else:
             v1 = f1.pow(f2, f3)
             try:
@@ -1176,11 +1358,64 @@ class TestHypothesis(object):
         try:
             res = divmod(x, y)
         except Exception as e:
-            pytest.raises(type(e), f1.divmod, f2)
+            with pytest.raises(type(e)):
+                f1.divmod(f2)
         else:
             print x, y
             a, b = f1.divmod(f2)
             assert (a.tolong(), b.tolong()) == res
+
+    @given(biglongs, biglongs)
+    @example(510439143470502793407446782273075179618477362188870662225920,
+             108089693021945158982483698831267549521)
+    def test_divmod_small(self, x, y):
+        if x < y:
+            x, y = y, x
+
+        f1 = rbigint.fromlong(x)
+        f2 = rbigint.fromlong(y)
+        try:
+            res = divmod(x, y)
+        except Exception as e:
+            with pytest.raises(type(e)):
+                f1._divmod_small(f2)
+        else:
+            a, b = f1._divmod_small(f2)
+            assert (a.tolong(), b.tolong()) == res
+
+
+    @given(biglongs, biglongs)
+    @example(510439143470502793407446782273075179618477362188870662225920,
+             108089693021945158982483698831267549521)
+    @example(51043991434705027934074467822730751796184773621888706622259209143470502793407446782273075179618477362188870662225920143470502793407446782273075179618477362188870662225920,
+             10808)
+    @example(17, 257)
+    @example(510439143470502793407446782273075179618477362188870662225920L, 108089693021945158982483698831267549521L)
+    def test_divmod_big(self, x, y):
+        from rpython.rlib.rbigint import HOLDER
+        oldval = HOLDER.DIV_LIMIT
+        try:
+            HOLDER.DIV_LIMIT = 2 # set limit low to test divmod_big more
+            if x < y:
+                x, y = y, x
+
+            # boost size
+            x *= 3 ** (HOLDER.DIV_LIMIT * SHIFT * 5) - 1
+            y *= 2 ** (HOLDER.DIV_LIMIT * SHIFT * 5) - 1
+
+            f1 = rbigint.fromlong(x)
+            f2 = rbigint.fromlong(y)
+            try:
+                res = divmod(x, y)
+            except Exception as e:
+                with pytest.raises(type(e)):
+                    divmod_big(f1, f2)
+            else:
+                print x, y
+                a, b = divmod_big(f1, f2)
+                assert (a.tolong(), b.tolong()) == res
+        finally:
+            HOLDER.DIV_LIMIT = oldval
 
     @given(biglongs, ints)
     def test_int_divmod(self, x, iy):
@@ -1188,7 +1423,8 @@ class TestHypothesis(object):
         try:
             res = divmod(x, iy)
         except Exception as e:
-            pytest.raises(type(e), f1.int_divmod, iy)
+            with pytest.raises(type(e)):
+                f1.int_divmod(iy)
         else:
             print x, iy
             a, b = f1.int_divmod(iy)
@@ -1219,9 +1455,10 @@ class TestHypothesis(object):
         ra = rbigint.fromlong(a)
         rb = rbigint.fromlong(b)
         if not b:
-            pytest.raises(ZeroDivisionError, ra.truediv, rb)
+            with pytest.raises(ZeroDivisionError):
+                ra.truediv(rb)
         else:
-            assert ra.truediv(rb) == a / b
+            assert repr(ra.truediv(rb)) == repr(a / b)
 
     @given(longs, longs)
     def test_bitwise_and_mul(self, x, y):
@@ -1249,9 +1486,182 @@ class TestHypothesis(object):
         assert lx.int_le(y) == (x <= y)
 
     @given(longs, longs)
-    def test_int_comparison(self, x, y):
+    def test_int_comparison2(self, x, y):
         lx = rbigint.fromlong(x)
         ly = rbigint.fromlong(y)
         assert lx.lt(ly) == (x < y)
         assert lx.eq(ly) == (x == y)
         assert lx.le(ly) == (x <= y)
+
+    @given(ints, ints, ints)
+    def test_gcd_binary(self, x, y, z):
+        x, y, z = abs(x), abs(y), abs(z)
+
+        def test(a, b, res):
+            g = gcd_binary(a, b)
+
+            assert g == res
+
+        a, b = x, y
+        while b:
+            a, b = b, a % b
+
+        gcd_x_y = a
+
+        test(x, y, gcd_x_y)
+        test(x, 0, x)
+        test(0, x, x)
+        test(x * z, y * z, gcd_x_y * z)
+        test(x * z, z, z)
+        test(z, y * z, z)
+
+    @given(biglongs, biglongs, biglongs)
+    @example(112233445566778899112233445566778899112233445566778899,
+             13579246801357924680135792468013579246801,
+             99887766554433221113)
+    @settings(max_examples=10)
+    def test_gcd(self, x, y, z):
+        print(x, y, z)
+        x, y, z = abs(x), abs(y), abs(z)
+
+        def test(a, b, res):
+            print(rbigint.fromlong(a))
+            g = rbigint.fromlong(a).gcd(rbigint.fromlong(b)).tolong()
+
+            assert g == res
+
+        a, b = x, y
+        while b:
+            a, b = b, a % b
+
+        gcd_x_y = a
+
+        test(x, y, gcd_x_y)
+        test(x * z, y * z, gcd_x_y * z)
+        test(x * z, z, z)
+        test(z, y * z, z)
+        test(x, 0, x)
+        test(0, x, x)
+
+    @given(ints)
+    def test_longlong_roundtrip(self, x):
+        try:
+            rx = r_longlong(x)
+        except OverflowError:
+            pass
+        else:
+            assert rbigint.fromrarith_int(rx).tolonglong() == rx
+
+    @given(longs)
+    def test_unsigned_roundtrip(self, x):
+        x = abs(x)
+        rx = r_uint(x) # will wrap on overflow
+        assert rbigint.fromrarith_int(rx).touint() == rx
+        rx = r_ulonglong(x) # will wrap on overflow
+        assert rbigint.fromrarith_int(rx).toulonglong() == rx
+
+    @given(biglongs, biglongs)
+    def test_mod(self, x, y):
+        rx = rbigint.fromlong(x)
+        ry = rbigint.fromlong(y)
+        if not y:
+            with pytest.raises(ZeroDivisionError):
+                rx.mod(ry)
+            return
+        r1 = rx.mod(ry)
+        r2 = x % y
+
+        assert r1.tolong() == r2
+
+    @given(biglongs, ints)
+    def test_int_mod(self, x, y):
+        rx = rbigint.fromlong(x)
+        if not y:
+            with pytest.raises(ZeroDivisionError):
+                rx.int_mod(0)
+            return
+        r1 = rx.int_mod(y)
+        r2 = x % y
+        assert r1.tolong() == r2
+
+    @given(biglongs, ints)
+    def test_int_mod_int_result(self, x, y):
+        rx = rbigint.fromlong(x)
+        if not y:
+            with pytest.raises(ZeroDivisionError):
+                rx.int_mod_int_result(0)
+            return
+        r1 = rx.int_mod_int_result(y)
+        r2 = x % y
+        assert r1 == r2
+
+    @given(longs, strategies.integers(0, 2000))
+    def test_shift(self, x, shift):
+        rx = rbigint.fromlong(x)
+        r1 = rx.lshift(shift)
+        assert r1.tolong() == x << shift
+
+        r1 = rx.rshift(shift)
+        assert r1.tolong() == x >> shift
+
+    @given(longs, strategies.integers(0, 2000), strategies.sampled_from([int((1 << i) - 1) for i in range(1, r_uint.BITS-1)]))
+    def test_abs_rshift_and_mask(self, x, shift, mask):
+        rx = rbigint.fromlong(x)
+        r1 = rx.abs_rshift_and_mask(r_ulonglong(shift), mask)
+        assert r1 == (abs(x) >> shift) & mask
+
+    @given(biglongs)
+    def test_bit_count(self, val):
+        assert rbigint.fromlong(val).bit_count() == bin(abs(val)).count("1")
+
+
+@pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
+def test_hypothesis_small_shift(methname):
+    # run the TestHypothesis in a subprocess with a smaller SHIFT value
+    # the idea is that this finds hopefully finds edge cases more easily
+    import subprocess, os
+    # The cwd on the buildbot is actually in rpython
+    # Add the pypy basedir so we get the local pytest
+    env = os.environ.copy()
+    parent = os.path.dirname
+    env['PYTHONPATH'] = parent(parent(parent(parent(__file__))))
+    p = subprocess.Popen([sys.executable, os.path.abspath(__file__), methname],
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         shell=True, env=env)
+    stdout, stderr = p.communicate()
+    print stdout
+    print stderr
+    assert not p.returncode
+
+def _get_hacked_rbigint(shift):
+    testpath = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(os.path.dirname(testpath), "rbigint.py")) as f:
+        s = f.read()
+    s = s.replace("SHIFT = 63", "SHIFT = %s" % (shift, ))
+    s = s.replace("SHIFT = 31", "SHIFT = %s" % (shift, ))
+    with open(os.path.join(testpath, "_hacked_rbigint.py"), "w") as f:
+        f.write(s)
+
+    from rpython.rlib.test import _hacked_rbigint
+    assert _hacked_rbigint.SHIFT == shift
+    return _hacked_rbigint
+
+def run():
+    shift = 9
+    print "USING SHIFT", shift
+    _hacked_rbigint = _get_hacked_rbigint(shift)
+    globals().update(_hacked_rbigint.__dict__) # emulate import *
+    assert SHIFT == shift
+    t = TestHypothesis()
+    try:
+        getattr(t, sys.argv[1])()
+    except:
+        if "--pdb" in sys.argv:
+            import traceback, pdb
+            info = sys.exc_info()
+            print(traceback.format_exc())
+            pdb.post_mortem(info[2], pdb.Pdb)
+
+
+if __name__ == '__main__':
+    run()

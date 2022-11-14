@@ -85,42 +85,49 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
 @jit.unroll_safe
 def CALL_METHOD(f, oparg, *ignored):
     # opargs contains the arg, and kwarg count, excluding the implicit 'self'
-    n_args = oparg & 0xff
-    n_kwargs = (oparg >> 8) & 0xff
-    w_self = f.peekvalue_maybe_none(n_args + (2 * n_kwargs))
+    n_args = oparg
+    w_self = f.peekvalue_maybe_none(n_args)
     n = n_args + (w_self is not None)
 
-    if not n_kwargs:
-        w_callable = f.peekvalue(n_args + (2 * n_kwargs) + 1)
-        try:
-            w_result = f.space.call_valuestack(
-                    w_callable, n, f, methodcall=w_self is not None)
-        finally:
-            f.dropvalues(n_args + 2)
-    else:
-        keywords = [None] * n_kwargs
-        keywords_w = [None] * n_kwargs
-        while True:
-            n_kwargs -= 1
-            if n_kwargs < 0:
-                break
-            w_value = f.popvalue()
-            w_key = f.popvalue()
-            key = f.space.text_w(w_key)
-            keywords[n_kwargs] = key
-            keywords_w[n_kwargs] = w_value
+    w_callable = f.peekvalue(n_args + 1)
+    try:
+        w_result = f.space.call_valuestack(
+                w_callable, n, f, methodcall=w_self is not None)
+    finally:
+        f.dropvalues(n_args + 2)
+    f.pushvalue(w_result)
 
-        arguments = f.popvalues(n)    # includes w_self if it is not None
-        args = f.argument_factory(
-                arguments, keywords, keywords_w, None, None,
-                methodcall=w_self is not None)
-        if w_self is None:
-            f.popvalue_maybe_none()    # removes w_self, which is None
-        w_callable = f.popvalue()
-        if f.get_is_being_profiled() and function.is_builtin_code(w_callable):
-            w_result = f.space.call_args_and_c_profile(f, w_callable, args)
-        else:
-            w_result = f.space.call_args(w_callable, args)
+@jit.unroll_safe
+def CALL_METHOD_KW(f, n_arguments, *ignored):
+    from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+    # opargs contains the arg + kwarg count, excluding the implicit 'self'
+    w_self = f.peekvalue_maybe_none(n_arguments + 1)
+
+    space = f.space
+    # like in BUILD_CONST_KEY_MAP we can't use space.fixedview because then
+    # the immutability of the tuple is lost
+    w_tup_varnames = space.interp_w(W_AbstractTupleObject, f.popvalue())
+    n_keywords = space.len_w(w_tup_varnames)
+    keyword_names_w = [None] * n_keywords
+    keywords_w = [None] * n_keywords
+    for i in range(n_keywords):
+        keyword_names_w[i] = w_tup_varnames.getitem(space, i)
+        w_value = f.peekvalue(n_keywords - 1 - i)
+        keywords_w[i] = w_value
+    f.dropvalues(n_keywords)
+    n_arguments -= n_keywords
+    n = n_arguments + (w_self is not None)
+    arguments = f.popvalues(n)    # includes w_self if it is not None
+    if w_self is None:
+        f.popvalue_maybe_none()    # removes w_self, which is None
+    w_callable = f.popvalue()
+    args = f.argument_factory(
+            arguments, keyword_names_w, keywords_w, None, None,
+            methodcall=w_self is not None, w_function=w_callable)
+    if f.get_is_being_profiled() and function.is_builtin_code(w_callable):
+        w_result = f.space.call_args_and_c_profile(f, w_callable, args)
+    else:
+        w_result = f.space.call_args(w_callable, args)
     f.pushvalue(w_result)
 
 

@@ -1,4 +1,5 @@
 from test.support import run_unittest, unload, check_warnings, CleanImport
+from pathlib import Path
 import unittest
 import sys
 import importlib
@@ -81,13 +82,53 @@ class PkgutilTests(unittest.TestCase):
         self.assertEqual(res2, RESOURCE_DATA)
 
         names = []
-        for loader, name, ispkg in pkgutil.iter_modules([zip_file]):
-            names.append(name)
+        for moduleinfo in pkgutil.iter_modules([zip_file]):
+            self.assertIsInstance(moduleinfo, pkgutil.ModuleInfo)
+            names.append(moduleinfo.name)
         self.assertEqual(names, ['test_getdata_zipfile'])
 
         del sys.path[0]
 
         del sys.modules[pkg]
+
+    def test_issue44061_iter_modules(self):
+        #see: issue44061
+        zip = 'test_getdata_zipfile.zip'
+        pkg = 'test_getdata_zipfile'
+
+        # Include a LF and a CRLF, to test that binary data is read back
+        RESOURCE_DATA = b'Hello, world!\nSecond line\r\nThird line'
+
+        # Make a package with some resources
+        zip_file = os.path.join(self.dirname, zip)
+        z = zipfile.ZipFile(zip_file, 'w')
+
+        # Empty init.py
+        z.writestr(pkg + '/__init__.py', "")
+        # Resource files, res.txt
+        z.writestr(pkg + '/res.txt', RESOURCE_DATA)
+        z.close()
+
+        # Check we can read the resources
+        sys.path.insert(0, zip_file)
+        try:
+            res = pkgutil.get_data(pkg, 'res.txt')
+            self.assertEqual(res, RESOURCE_DATA)
+
+            # make sure iter_modules accepts Path objects
+            names = []
+            for moduleinfo in pkgutil.iter_modules([Path(zip_file)]):
+                self.assertIsInstance(moduleinfo, pkgutil.ModuleInfo)
+                names.append(moduleinfo.name)
+            self.assertEqual(names, [pkg])
+        finally:
+            del sys.path[0]
+            sys.modules.pop(pkg, None)
+
+        # assert path must be None or list of paths
+        expected_msg = "path must be None or list of paths to look for modules in"
+        with self.assertRaisesRegex(ValueError, expected_msg):
+            list(pkgutil.iter_modules("invalid_path"))
 
     def test_unreadable_dir_on_syspath(self):
         # issue7367 - walk_packages failed if unreadable dir on sys.path
@@ -175,6 +216,15 @@ class PkgutilTests(unittest.TestCase):
                 continue
             del sys.modules[pkg]
 
+    def test_walk_packages_raises_on_string_or_bytes_input(self):
+
+        str_input = 'test_dir'
+        with self.assertRaises((TypeError, ValueError)):
+            list(pkgutil.walk_packages(str_input))
+
+        bytes_input = b'test_dir'
+        with self.assertRaises((TypeError, ValueError)):
+            list(pkgutil.walk_packages(bytes_input))
 
 
 class PkgutilPEP302Tests(unittest.TestCase):
@@ -413,6 +463,7 @@ class ImportlibMigrationTests(unittest.TestCase):
             self.assertIsNotNone(pkgutil.get_loader("test.support"))
             self.assertEqual(len(w.warnings), 0)
 
+    @unittest.skipIf(__name__ == '__main__', 'not compatible with __main__')
     def test_get_loader_handles_missing_loader_attribute(self):
         global __loader__
         this_loader = __loader__
@@ -468,6 +519,12 @@ class ImportlibMigrationTests(unittest.TestCase):
         with check_warnings() as w:
             self.assertIsNone(pkgutil.get_importer("*??"))
             self.assertEqual(len(w.warnings), 0)
+
+    def test_issue44061(self):
+        try:
+            pkgutil.get_importer(Path("/home"))
+        except AttributeError:
+            self.fail("Unexpected AttributeError when calling get_importer")
 
     def test_iter_importers_avoids_emulation(self):
         with check_warnings() as w:

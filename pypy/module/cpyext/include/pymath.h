@@ -63,7 +63,7 @@ functions and constants
 
 /* Py_IS_FINITE(X)
  * Return 1 if float or double arg is neither infinite nor NAN, else 0.
- * Some compilers (e.g. VisualStudio) have intrisics for this, so a special
+ * Some compilers (e.g. VisualStudio) have intrinsics for this, so a special
  * macro for this particular test is useful
  */
 #ifndef Py_IS_FINITE
@@ -110,10 +110,21 @@ functions and constants
         #pragma float_control (pop)
         #define Py_NAN __icc_nan()
     #else /* ICC_NAN_RELAXED as default for Intel Compiler */
-        static union { unsigned char buf[8]; double __icc_nan; } __nan_store = {0,0,0,0,0,0,0xf8,0x7f};
+        static const union { unsigned char buf[8]; double __icc_nan; } __nan_store = {0,0,0,0,0,0,0xf8,0x7f};
         #define Py_NAN (__nan_store.__icc_nan)
     #endif /* ICC_NAN_STRICT */
 #endif /* __INTEL_COMPILER */
 #endif
+/* Return whether integral type *type* is signed or not. */
+#define _Py_IntegralTypeSigned(type) ((type)(-1) < 0)
+/* Return the maximum value of integral type *type*. */
+#define _Py_IntegralTypeMax(type) ((_Py_IntegralTypeSigned(type)) ? (((((type)1 << (sizeof(type)*CHAR_BIT - 2)) - 1) << 1) + 1) : ~(type)0)
+/* Return the minimum value of integral type *type*. */
+#define _Py_IntegralTypeMin(type) ((_Py_IntegralTypeSigned(type)) ? -_Py_IntegralTypeMax(type) - 1 : 0)
+/* Check whether *v* is in the range of integral type *type*. This is most
+ * useful if *v* is floating-point, since demoting a floating-point *v* to an
+ * integral type that cannot represent *v*'s integral part is undefined
+ * behavior. */
+#define _Py_InIntegralTypeRange(type, v) (_Py_IntegralTypeMin(type) <= v && v <= _Py_IntegralTypeMax(type))
 
 #endif /* Py_PYMATH_H */

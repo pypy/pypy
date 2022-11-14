@@ -84,7 +84,28 @@ def test_scripts():
     # test 3 : additionnal pypy parameters
     output = run(sys.executable, pypypath, '-S', "-O", tmpfilepath, "hello")
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
-    
+
+def test_optimize_removes_assert():
+    tmpfilepath = str(udir.join("test_assert.py"))
+    tmpfile = file(tmpfilepath, "w")
+    tmpfile.write("""
+try:
+    assert 0
+except AssertionError:
+    print("AssertionError")
+else:
+    print("nothing")
+""")
+    tmpfile.close()
+
+    # no optimization: crashes
+    output = run(sys.executable, pypypath, '-S', tmpfilepath)
+    assert "AssertionError" in output
+
+    # optimization: just works
+    output = run(sys.executable, pypypath, '-SO', tmpfilepath)
+    assert "nothing" in output
+
 
 TB_NORMALIZATION_CHK= """
 class K(object):
@@ -122,6 +143,25 @@ def test_pytrace():
     # '5\n' --- this line sent to stderr
     assert ('\t<module>:           LOAD_NAME    0 (x)\n'
             '\t<module>:           PRINT_EXPR    0 \n') in output
-    assert ('\t<module>:           LOAD_CONST    0 (None)\n'
-            '\t<module>:           RETURN_VALUE    0 \n'
-            '>>>> ') in output
+
+def test_pytrace_dis_bug():
+    output = run(sys.executable, pypypath, '-S',
+                 stdin="__pytrace__ = 1\nfor i in range(1): i += 1\n")
+    output = output.replace('\r\n', '\n')
+    assert """\
+\t<module>:           LOAD_NAME    0 (range)
+\t<module>:           LOAD_CONST    0 (1)
+\t<module>:           CALL_FUNCTION    1 
+\t<module>:           GET_ITER    0 
+\t<module>:           FOR_ITER   12 (to 20)
+\t<module>:           STORE_NAME    1 (i)
+\t<module>:           LOAD_NAME    1 (i)
+\t<module>:           LOAD_CONST    0 (1)
+\t<module>:           INPLACE_ADD    0 
+\t<module>:           STORE_NAME    1 (i)
+\t<module>:           JUMP_ABSOLUTE    8 
+\t<module>:           FOR_ITER   12 (to 20)
+\t<module>:           LOAD_CONST    1 (None)
+\t<module>:           RETURN_VALUE    0 
+""" in output
+

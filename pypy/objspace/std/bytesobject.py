@@ -19,6 +19,7 @@ from pypy.objspace.std.unicodeobject import (encode_object, getdefaultencoding,
 
 class W_AbstractBytesObject(W_Root):
     __slots__ = ()
+    exact_class_applevel_name = 'bytes'
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_AbstractBytesObject):
@@ -31,8 +32,10 @@ class W_AbstractBytesObject(W_Root):
         s2 = space.bytes_w(w_other)
         if len(s2) > 1:
             return s1 is s2
+        if len(s2) == 0:
+            return len(s1) == 0
         else:            # strings of len <= 1 are unique-ified
-            return s1 == s2
+            return len(s1) == 1 and s1[0] == s2[0]
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
@@ -71,6 +74,12 @@ class W_AbstractBytesObject(W_Root):
 
     def descr_hash(self, space):
         """x.__hash__() <==> hash(x)"""
+
+    def descr_isascii(self, space):
+        """B.isascii() -> bool
+
+        Return true if the string is empty or all characters in the string are ASCII, false otherwise.
+        ASCII characters have code points in the range U+0000-U+007F."""
 
     def descr_iter(self, space):
         """x.__iter__() <==> iter(x)"""
@@ -436,7 +445,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
-        return SimpleView(StringBuffer(self._value))
+        return SimpleView(StringBuffer(self._value), w_obj=self)
 
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer
@@ -581,7 +590,10 @@ class W_BytesObject(W_AbstractBytesObject):
         from pypy.objspace.std.bytearrayobject import _hexstring_to_array
         hexstring = space.utf8_w(w_hexstring)
         bytes = ''.join(_hexstring_to_array(space, hexstring))
-        return W_BytesObject(bytes)
+        w_result = W_BytesObject(bytes)
+        if w_type is not space.w_bytes:
+            w_result = space.call_function(w_type, w_result)
+        return w_result
 
     def descr_repr(self, space):
         return space.newtext(string_escape_encode(self._value, True))
@@ -596,6 +608,12 @@ class W_BytesObject(W_AbstractBytesObject):
         x = compute_hash(self._value)
         x -= (x == -1) # convert -1 to -2 without creating a bridge
         return space.newint(x)
+
+    def descr_isascii(self, space):
+        for i in self._value:
+            if ord(i) > 127:
+                return space.w_False
+        return space.w_True
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_BytesObject):
@@ -629,9 +647,27 @@ class W_BytesObject(W_AbstractBytesObject):
 
     # auto-conversion fun
 
-    _StringMethods_descr_add = descr_add
-    def descr_add(self, space, w_other):
-        return self._StringMethods_descr_add(space, w_other)
+    @unwrap_spec(count=int)
+    def descr_replace(self, space, w_old, w_new, count=-1):
+        from rpython.rlib.rstring import replace
+        # almost copy of StringMethods.descr_replace :-(
+        input = self._value
+
+        sub = self._op_val(space, w_old)
+        by = self._op_val(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
+        try:
+            res = replace(input, sub, by, count)
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "replace string is too long")
+        # difference: reuse self if no replacement was done
+        if type(self) is W_BytesObject and res is input:
+            return self
+
+        return self._new(res)
 
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
@@ -651,9 +687,31 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_upper(self, space):
         return W_BytesObject(self._value.upper())
 
-    def descr_hex(self, space):
-        from pypy.objspace.std.bytearrayobject import _array_to_hexstring
-        return _array_to_hexstring(space, StringBuffer(self._value), 0, 1, len(self._value))
+    def descr_hex(self, space, w_sep=None, w_bytes_per_sep=None):
+        """
+        Create a str of hexadecimal numbers from a bytes object.
+
+          sep
+            An optional single character or byte to separate hex bytes.
+          bytes_per_sep
+            How many bytes between separators.  Positive values count from the
+            right, negative values count from the left.
+
+        Example:
+        >>> value = b'\\xb9\\x01\\xef'
+        >>> value.hex()
+        'b901ef'
+        >>> value.hex(':')
+        'b9:01:ef'
+        >>> value.hex(':', 2)
+        'b9:01ef'
+        >>> value.hex(':', -2)
+        'b901:ef'
+        """
+        from pypy.objspace.std.bytearrayobject import _array_to_hexstring, unwrap_hex_sep_arguments
+        sep, bytes_per_sep = unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep)
+        return _array_to_hexstring(space, StringBuffer(self._value), 0, 1,
+                                   len(self._value), sep=sep, bytes_per_sep=bytes_per_sep)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTES)
@@ -858,6 +916,7 @@ W_BytesObject.typedef = TypeDef(
     isspace = interpindirect2app(W_AbstractBytesObject.descr_isspace),
     istitle = interpindirect2app(W_AbstractBytesObject.descr_istitle),
     isupper = interpindirect2app(W_AbstractBytesObject.descr_isupper),
+    isascii = interpindirect2app(W_AbstractBytesObject.descr_isascii),
     join = interpindirect2app(W_AbstractBytesObject.descr_join),
     ljust = interpindirect2app(W_AbstractBytesObject.descr_ljust),
     rjust = interpindirect2app(W_AbstractBytesObject.descr_rjust),

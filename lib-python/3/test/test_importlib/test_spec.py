@@ -5,6 +5,7 @@ machinery = test_util.import_importlib('importlib.machinery')
 util = test_util.import_importlib('importlib.util')
 
 import os.path
+import pathlib
 from test.support import CleanImport
 import unittest
 import sys
@@ -497,7 +498,7 @@ class FactoryTests:
 
     def setUp(self):
         self.name = 'spam'
-        self.path = 'spam.py'
+        self.path = os.path.abspath('spam.py')
         self.cached = self.util.cache_from_source(self.path)
         self.loader = TestLoader()
         self.fileloader = TestLoader(self.path)
@@ -636,7 +637,7 @@ class FactoryTests:
         self.assertEqual(spec.loader, self.fileloader)
         self.assertEqual(spec.origin, self.path)
         self.assertIs(spec.loader_state, None)
-        self.assertEqual(spec.submodule_search_locations, [''])
+        self.assertEqual(spec.submodule_search_locations, [os.getcwd()])
         self.assertEqual(spec.cached, self.cached)
         self.assertTrue(spec.has_location)
 
@@ -658,6 +659,11 @@ class FactoryTests:
         self.assertIs(spec.submodule_search_locations, None)
         self.assertEqual(spec.cached, self.cached)
         self.assertTrue(spec.has_location)
+
+    def test_spec_from_file_location_path_like_arg(self):
+        spec = self.util.spec_from_file_location(self.name,
+                                                 pathlib.PurePath(self.path))
+        self.assertEqual(spec.origin, self.path)
 
     def test_spec_from_file_location_default_without_location(self):
         spec = self.util.spec_from_file_location(self.name)
@@ -730,7 +736,7 @@ class FactoryTests:
         self.assertEqual(spec.loader, self.fileloader)
         self.assertEqual(spec.origin, self.path)
         self.assertIs(spec.loader_state, None)
-        self.assertEqual(spec.submodule_search_locations, [''])
+        self.assertEqual(spec.submodule_search_locations, [os.getcwd()])
         self.assertEqual(spec.cached, self.cached)
         self.assertTrue(spec.has_location)
 
@@ -755,7 +761,7 @@ class FactoryTests:
         self.assertEqual(spec.loader, self.pkgloader)
         self.assertEqual(spec.origin, self.path)
         self.assertIs(spec.loader_state, None)
-        self.assertEqual(spec.submodule_search_locations, [''])
+        self.assertEqual(spec.submodule_search_locations, [os.getcwd()])
         self.assertEqual(spec.cached, self.cached)
         self.assertTrue(spec.has_location)
 
@@ -803,6 +809,17 @@ class FactoryTests:
         self.assertEqual(spec.cached, self.cached)
         self.assertTrue(spec.has_location)
 
+    def test_spec_from_file_location_relative_path(self):
+        spec = self.util.spec_from_file_location(self.name,
+            os.path.basename(self.path), loader=self.fileloader)
+
+        self.assertEqual(spec.name, self.name)
+        self.assertEqual(spec.loader, self.fileloader)
+        self.assertEqual(spec.origin, os.path.basename(self.path))
+        self.assertIs(spec.loader_state, None)
+        self.assertIs(spec.submodule_search_locations, None)
+        self.assertEqual(spec.cached, os.path.relpath(self.cached))
+        self.assertTrue(spec.has_location)
 
 (Frozen_FactoryTests,
  Source_FactoryTests

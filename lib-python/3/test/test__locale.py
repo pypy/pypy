@@ -4,7 +4,6 @@ try:
 except ImportError:
     nl_langinfo = None
 
-import codecs
 import locale
 import sys
 import unittest
@@ -72,6 +71,10 @@ known_numerics = {
     'fr_FR' : (',', ''),
     'ps_AF': ('\u066b', '\u066c'),
 }
+
+if sys.platform == 'win32':
+    # ps_AF doesn't work on Windows: see bpo-38324 (msg361830)
+    del known_numerics['ps_AF']
 
 class _LocaleTests(unittest.TestCase):
 

@@ -1,9 +1,8 @@
 import io
 import os
 
-from . import context
+from .context import reduction, set_spawning_popen
 from . import popen_fork
-from . import reduction
 from . import spawn
 from . import util
 
@@ -37,17 +36,17 @@ class Popen(popen_fork.Popen):
         return fd
 
     def _launch(self, process_obj):
-        from . import semaphore_tracker
-        tracker_fd = semaphore_tracker.getfd()
+        from . import resource_tracker
+        tracker_fd = resource_tracker.getfd()
         self._fds.append(tracker_fd)
         prep_data = spawn.get_preparation_data(process_obj._name)
         fp = io.BytesIO()
-        context.set_spawning_popen(self)
+        set_spawning_popen(self)
         try:
             reduction.dump(prep_data, fp)
             reduction.dump(process_obj, fp)
         finally:
-            context.set_spawning_popen(None)
+            set_spawning_popen(None)
 
         parent_r = child_w = child_r = parent_w = None
         try:
@@ -62,8 +61,12 @@ class Popen(popen_fork.Popen):
             with open(parent_w, 'wb', closefd=False) as f:
                 f.write(fp.getbuffer())
         finally:
-            if parent_r is not None:
-                util.Finalize(self, os.close, (parent_r,))
-            for fd in (child_r, child_w, parent_w):
+            fds_to_close = []
+            for fd in (parent_r, parent_w):
+                if fd is not None:
+                    fds_to_close.append(fd)
+            self.finalizer = util.Finalize(self, util.close_fds, fds_to_close)
+
+            for fd in (child_r, child_w):
                 if fd is not None:
                     os.close(fd)

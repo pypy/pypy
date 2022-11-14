@@ -19,9 +19,9 @@ def test__getfileinformation():
 
 
 def test__getfinalpathname():
-    path = __file__.decode('mbcs')
+    path = __file__.decode('utf-8')
     try:
-        result = nt._getfinalpathname(path)
+        result, lgt = nt._getfinalpathname(path)
     except nt.LLNotImplemented:
         py.test.skip("_getfinalpathname not supported on this platform")
     assert os.path.exists(result)

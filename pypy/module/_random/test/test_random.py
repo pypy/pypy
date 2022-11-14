@@ -41,6 +41,18 @@ class AppTestRandom:
         # does not crash
         rnd1.setstate((-1, ) * 624 + (0, ))
 
+    def test_failed_setstate(self):
+        import _random
+        rnd = _random.Random()
+        rnd.seed()
+        start_state = rnd.getstate()
+        raises(TypeError, rnd.setstate, None)
+        raises(ValueError, rnd.setstate, (1, 2, 3))
+        raises(TypeError, rnd.setstate, ('a',)*624 + (1,))
+        raises(ValueError, rnd.setstate, (1,)*624 + (625,))
+        # None of these failed calls should have changed the state
+        assert rnd.getstate() == start_state
+
     def test_state_repr(self):
         # since app-level jumpahead salts with repr(state),
         # it is important the repr is consistent with cpython
@@ -86,9 +98,9 @@ class AppTestRandom:
         rnd = _random.Random()
         rnd.seed()
         state1 = rnd.getstate()
-        import time; time.sleep(1.1)     # must be at least 1 second here
-        rnd.seed()                       # (note that random.py overrides
-        state2 = rnd.getstate()          # seed() to improve the resolution)
+        import time; time.sleep(0.01)
+        rnd.seed()
+        state2 = rnd.getstate()
         assert state1 != state2
 
     def test_randbits(self):
@@ -116,3 +128,12 @@ class AppTestRandom:
         rnd = _random.Random(-3**31)
         x = rnd.random()
         assert x == 0.8181851342382107
+
+        rnd = _random.Random(23)
+        x = rnd.getrandbits(15)
+        assert x == 30305
+        x = rnd.getrandbits(64)
+        assert x == 17498688041408372654
+        x = rnd.getrandbits(1000)
+        assert x == 7853306986850247776154838978003111681903290767754178881472967951394642454293814053922268204822337224228382717987163860072072211540796042432365942518253892663330370311555959936030836699709599651063582158137533337405488381774503601280079968480579765012148668221201232526424837774516436871086966847306285
+

@@ -1,18 +1,13 @@
 import py
 
-from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.metainterp.optimizeopt.vector import (Pack, GenericCostModel,
-        NotAProfitableLoop, VectorizingOptimizer, CostModel)
+from rpython.jit.metainterp.optimizeopt.vector import (
+    GenericCostModel, NotAProfitableLoop, VectorizingOptimizer, CostModel)
 from rpython.jit.metainterp.optimizeopt.schedule import VecScheduleState
-from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
-from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
+from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.test.test_schedule import SchedulerBaseTest
-from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpStaticData,
-        FakeJitDriverStaticData)
-from rpython.jit.metainterp.resoperation import rop, ResOperation, AbstractValue
-from rpython.jit.tool.oparser import parse as opparse
-from rpython.jit.tool.oparser_model import get_model
+from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (
+    FakeJitDriverStaticData)
 
 class FakeMemoryRef(object):
     def __init__(self, array, iv):
@@ -83,16 +78,14 @@ class FakeCostModel(CostModel):
     def profitable(self):
         return self.proxy.savings >= 0
 
-class CostModelBaseTest(SchedulerBaseTest):
-
+class TestCostModel(SchedulerBaseTest):
     def savings(self, loop):
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, 0)
+        opt = VectorizingOptimizer(self.metainterp_sd, jitdriver_sd, 0)
         opt.orig_label_args = loop.label.getarglist()[:]
         graph = opt.dependency_graph = DependencyGraph(loop)
         self.show_dot_graph(graph, 'costmodel')
-        for k,m in graph.memory_refs.items():
+        for k, m in graph.memory_refs.items():
             graph.memory_refs[k] = FakeMemoryRef(m.array, m.index_var)
         opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
@@ -267,7 +260,3 @@ class CostModelBaseTest(SchedulerBaseTest):
         """)
         number = self.savings(trace)
         assert number >= 1
-
-
-class Test(CostModelBaseTest, LLtypeMixin):
-    pass

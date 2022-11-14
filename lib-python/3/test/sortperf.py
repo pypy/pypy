@@ -64,7 +64,7 @@ def doit(L):
     flush()
 
 def tabulate(r):
-    """Tabulate sort speed for lists of various sizes.
+    r"""Tabulate sort speed for lists of various sizes.
 
     The sizes are 2**i for i in r (the argument, a list).
 
@@ -134,7 +134,7 @@ def tabulate(r):
         L = list(range(half - 1, -1, -1))
         L.extend(range(half))
         # Force to float, so that the timings are comparable.  This is
-        # significantly faster if we leave tham as ints.
+        # significantly faster if we leave them as ints.
         L = list(map(float, L))
         doit(L) # !sort
         print()

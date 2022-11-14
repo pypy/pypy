@@ -1,10 +1,11 @@
 # encoding: utf-8
-import __future__
+import pytest
 import py, sys
 from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
+from pypy.tool import stdlib___future__ as __future__
 
 class TestPythonAstCompiler:
     def setup_method(self, method):
@@ -80,10 +81,11 @@ class TestPythonAstCompiler:
             ('<string>', 3, 2, ' y\n'))
 
     def test_getcodeflags(self):
-        code = self.compiler.compile('from __future__ import division\n',
+        code = self.compiler.compile('from __future__ import division, annotations\n',
                                      '<hello>', 'exec', 0)
         flags = self.compiler.getcodeflags(code)
         assert flags & __future__.division.compiler_flag == 0
+        assert flags & __future__.annotations.compiler_flag
         # check that we don't get more flags than the compiler can accept back
         code2 = self.compiler.compile('print(6*7)', '<hello>', 'exec', flags)
         # check that the flag remains in force
@@ -342,12 +344,21 @@ class TestPythonAstCompiler:
             ex.normalize_exception(self.space)
             assert ex.match(self.space, self.space.w_SyntaxError)
 
+    def test_future_error_offset(self):
+        space = self.space
+        with pytest.raises(OperationError) as excinfo:
+            self.compiler.compile("from __future__ import bogus", "tmp", "exec", 0)
+        ex = excinfo.value
+        assert ex.match(space, space.w_SyntaxError)
+        ex.normalize_exception(space)
+        w_exc = ex.get_w_value(space)
+        assert space.int_w(w_exc.w_offset) == 1
+
     def test_globals_warnings(self):
-        # also tests some other constructions that give a warning
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
-        filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
+        filter_arg = Arguments(space, [ space.wrap('error') ], [space.newtext("module")],
                                [space.wrap("<tmp>")])
 
         for code in ('''
@@ -365,18 +376,6 @@ def wrong3():
     print x
     x = 2
     global x
-''', '''
-def wrong_listcomp():
-    return [(yield 42) for i in j]
-''', '''
-def wrong_gencomp():
-    return ((yield 42) for i in j)
-''', '''
-def wrong_dictcomp():
-    return {(yield 42):2 for i in j}
-''', '''
-def wrong_setcomp():
-    return {(yield 42) for i in j}
 '''):
 
             space.call_args(w_filterwarnings, filter_arg)
@@ -391,7 +390,7 @@ def wrong_setcomp():
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
-        filter_arg = Arguments(space, [ space.wrap('error') ], ["module"],
+        filter_arg = Arguments(space, [ space.wrap('error') ], [space.newtext("module")],
                                [space.wrap("<tmp>")])
         for code in ['''
 def testing():
@@ -593,9 +592,12 @@ def test():
         finally:
             continue       # 'continue' inside 'finally'
 
+test()
         '''))
-        space.raises_w(space.w_SyntaxError, self.compiler.compile,
-                       snippet, '<tmp>', 'exec', 0)
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
 
     def test_continue_in_nested_finally(self):
         space = self.space
@@ -608,9 +610,12 @@ def test():
                 continue       # 'continue' inside 'finally'
             except:
                 pass
+test()
         '''))
-        space.raises_w(space.w_SyntaxError, self.compiler.compile,
-                       snippet, '<tmp>', 'exec', 0)
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
 
     def test_really_nested_stuff(self):
         space = self.space
@@ -706,31 +711,26 @@ def test():
 
     def test_dont_inherit_flag(self):
         # this test checks that compile() don't inherit the __future__ flags
-        # of the hosting code. However, in Python3 we don't have any
-        # meaningful __future__ flag to check that (they are all enabled). The
-        # only candidate could be barry_as_FLUFL, but it's not implemented yet
-        # (and not sure it'll ever be)
-        py.test.skip("we cannot actually check the result of this test (see comment)")
+        # of the hosting code.
         space = self.space
         s1 = str(py.code.Source("""
-            from __future__ import division
-            exec(compile('x = 1/2', '?', 'exec', 0, 1))
+            from __future__ import barry_as_FLUFL
+            # not a syntax error inside the exec!
+            exec(compile('x = 1 != 2', '?', 'exec', 0, 1))
         """))
         w_result = space.appexec([space.wrap(s1)], """(s1):
             ns = {}
             exec(s1, ns)
             return ns['x']
         """)
-        assert space.float_w(w_result) == 0
+        assert space.is_true(w_result)
 
     def test_dont_inherit_across_import(self):
-        # see the comment for test_dont_inherit_flag
-        py.test.skip("we cannot actually check the result of this test (see comment)")
         from rpython.tool.udir import udir
-        udir.join('test_dont_inherit_across_import.py').write('x = 1/2\n')
+        udir.join('test_dont_inherit_across_import.py').write('x = 1 != 2\n')
         space = self.space
         s1 = str(py.code.Source("""
-            from __future__ import division
+            from __future__ import barry_as_FLUFL
             from test_dont_inherit_across_import import x
         """))
         w_result = space.appexec([space.wrap(str(udir)), space.wrap(s1)],
@@ -738,13 +738,14 @@ def test():
             import sys
             copy = sys.path[:]
             sys.path.insert(0, udir)
+            ns = {}
             try:
-                exec s1
+                exec(s1, ns)
             finally:
                 sys.path[:] = copy
-            return x
+            return ns['x']
         """)
-        assert space.float_w(w_result) == 0
+        assert space.is_true(w_result)
 
     def test_filename_in_syntaxerror(self):
         e = py.test.raises(OperationError, self.compiler.compile, """if 1:
@@ -783,21 +784,6 @@ with somtehing as stuff:
         assert isinstance(code, PyCode)
         assert code.co_filename == '<filename2>'
 
-    def test_with_empty_tuple(self):
-        source = py.code.Source("""
-        from __future__ import with_statement
-
-        with x as ():
-            pass
-        """)
-        try:
-            self.compiler.compile(str(source), '<filename>', 'exec', 0)
-        except OperationError as e:
-            if not e.match(self.space, self.space.w_SyntaxError):
-                raise
-        else:
-            py.test.fail("Did not raise")
-
     def test_assign_to_yield(self):
         code = 'def f(): (yield bar) += y'
         try:
@@ -819,7 +805,7 @@ with somtehing as stuff:
             py.test.fail("Did not raise")
 
     def test_signature_kwargname(self):
-        from pypy.interpreter.pycode import cpython_code_signature
+        from pypy.interpreter.pycode import make_signature
         from pypy.interpreter.signature import Signature
 
         def find_func(code):
@@ -830,14 +816,21 @@ with somtehing as stuff:
         snippet = 'def f(a, b, m=1, n=2, **kwargs): pass'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
-        sig = cpython_code_signature(co)
-        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', [])
+        sig = make_signature(co)
+        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs')
 
         snippet = 'def f(a, b, *, m=1, n=2, **kwargs): pass'
         containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
         co = find_func(containing_co)
-        sig = cpython_code_signature(co)
-        assert sig == Signature(['a', 'b'], None, 'kwargs', ['m', 'n'])
+        sig = make_signature(co)
+        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', 2)
+
+        # a variant with varargname, which was buggy before issue2996
+        snippet = 'def f(*args, offset=42): pass'
+        containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
+        co = find_func(containing_co)
+        sig = make_signature(co)
+        assert sig == Signature(['offset'], 'args', None, 1)
 
 
 class AppTestCompiler(object):
@@ -925,9 +918,11 @@ class AppTestCompiler(object):
         code = "from __future__ import barry_as_FLUFL; 2 {0} 3"
         compile(code.format('<>'), '<BDFL test>', 'exec',
                 __future__.CO_FUTURE_BARRY_AS_BDFL)
-        raises(SyntaxError, compile, code.format('!='),
+        with raises(SyntaxError) as excinfo:
+            compile(code.format('!='),
                '<FLUFL test>', 'exec',
                __future__.CO_FUTURE_BARRY_AS_BDFL)
+        assert excinfo.value.msg == "with Barry as BDFL, use '<>' instead of '!='"
 
     def test_guido_as_bdfl(self):
         # from test_flufl.py :-)
@@ -1030,6 +1025,27 @@ class AppTestCompiler(object):
         assert excinfo.value.lineno == 2
         assert excinfo.value.offset == 14
 
+    def test_zeros_not_mixed_in_lambdas(self):
+        import math
+        code = compile("x = lambda: -0.0; y = lambda: 0.0", "<test>", "exec")
+        consts = code.co_consts
+        x, _, y, z = consts
+        assert isinstance(x, type(code)) and isinstance(y, type(code))
+        assert x is not y
+        assert x != y
+
+    @py.test.mark.skipif('config.option.runappdirect')
+    def test_dont_share_lambdas(self):
+        # the two lambdas's codes aren't shared (CPython does that but it's
+        # completely pointless: it only applies to identical lambdas that are
+        # defined on the same line)
+        code = compile("x = lambda: 0; y = lambda: 0", "<test>", "exec")
+        consts = code.co_consts
+        x, _, y, z = consts
+        assert isinstance(x, type(code)) and isinstance(y, type(code))
+        assert x is not y
+        assert x == y
+
     def test_dict_and_set_literal_order(self):
         x = 1
         l1 = list({1:'a', 3:'b', 2:'c', 4:'d'})
@@ -1068,7 +1084,7 @@ class AppTestCompiler(object):
         assert d['c1'] == tuple(sorted(d['c1']))
         assert d['r1'] == d['r2'] == d['c1']
 
-    def test_ast_equality(self):
+    def test_code_equality(self):
         import _ast
         sample_code = [
             ['<assign>', 'x = 5'],
@@ -1091,7 +1107,7 @@ class AppTestCompiler(object):
         delete = _ast.Delete([])
         delete.lineno = 0
         delete.col_offset = 0
-        mod = _ast.Module([delete])
+        mod = _ast.Module([delete], [])
         exc = raises(ValueError, compile, mod, 'filename', 'exec')
         assert str(exc.value) == "empty targets on Delete"
 
@@ -1107,6 +1123,93 @@ class AppTestCompiler(object):
             a, b, c, d)
         assert f('a') == ('a', 3, 2, 1), repr(f('a'))
         assert f() == (4, 3, 2, 1), repr(f())
+        """
+
+    # the following couple of tests are from test_super.py in the stdlib
+
+    def test_classcell(self):
+        """
+        test_class = None
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                nonlocal test_class
+                self = super().__new__(cls, name, bases, namespace)
+                test_class = self.f()
+                return self
+        class A(metaclass=Meta):
+            @staticmethod
+            def f():
+                return __class__
+        assert test_class is A
+        """
+
+    def test_classcell_missing(self):
+        """
+        # Some metaclasses may not pass the original namespace to type.__new__
+        # We test that case here by forcibly deleting __classcell__
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                namespace.pop('__classcell__', None)
+                return super().__new__(cls, name, bases, namespace)
+
+        with raises(RuntimeError):
+            class WithClassRef(metaclass=Meta):
+                def f(self):
+                    return __class__
+
+        """
+
+    def test_classcell_overwrite(self):
+        """
+        # Overwriting __classcell__ with nonsense is explicitly prohibited
+        class Meta(type):
+            def __new__(cls, name, bases, namespace, cell):
+                namespace['__classcell__'] = cell
+                return super().__new__(cls, name, bases, namespace)
+
+        raises(TypeError, '''if 1:
+            class A(metaclass=Meta, cell=object()):
+                pass
+        ''')
+        """
+
+    def test_classcell_wrong_cell(self):
+        """
+        # Pointing the cell reference at the wrong class is prohibited
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                cls = super().__new__(cls, name, bases, namespace)
+                B = type("B", (), namespace)
+                return cls
+
+        # works, no __class__
+        class A(metaclass=Meta):
+            pass
+
+        raises(TypeError, '''if 1:
+            class A(metaclass=Meta):
+                def f(self):
+                    return __class__
+        ''')
+
+        """
+
+    def test_class_mro(self):
+        """
+        test_class = None
+
+        class Meta(type):
+            def mro(self):
+                # self.f() doesn't work yet...
+                self.__dict__["f"]()
+                return super().mro()
+
+        class A(metaclass=Meta):
+            def f():
+                nonlocal test_class
+                test_class = __class__
+
+        assert test_class is A
         """
 
 
@@ -1148,6 +1251,23 @@ class AppTestOptimizer(object):
             co = co.co_code
             op = co[0]
             assert op == opcode.opmap["LOAD_CONST"]
+
+    def test_and_or_folding(self):
+        if not self.is_pypy():
+            return # pypy-only
+        def f1():
+            return True or 1 + x
+        assert len(f1.__code__.co_code) == 4 # load_const, return_value
+        def f2():
+            return 0 and 1 + x
+        assert len(f2.__code__.co_code) == 4 # load_const, return_value
+        def f3():
+            return a or False or True or x
+        assert len(f3.__code__.co_code) == 8 # load_global, jump, load_const, return_value
+        def f4():
+            return a and True and 0 and x
+        assert len(f4.__code__.co_code) == 8 # load_global, jump, load_const, return_value
+
 
     def test_tuple_constants(self):
         ns = {}
@@ -1438,3 +1558,11 @@ class AppTestExceptions:
         assert eval(code) == u'\xc2\u20ac'
         code = b'u"""\\\n# -*- coding: ascii -*-\n\xc2\xa4"""\n'
         assert eval(code) == u'# -*- coding: ascii -*-\n\xa4'
+
+
+
+    def test_asterror_has_line_without_file(self):
+        code = u"print(1)\na/2 = 5\n"
+        with raises(SyntaxError) as excinfo:
+            compile(code, 'not a file!', 'exec')
+        assert excinfo.value.text == "a/2 = 5\n"

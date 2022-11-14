@@ -78,7 +78,7 @@ class W_BytesIO(W_BufferedIOBase):
         size = convert_size(space, w_size)
         return space.newbytes(self.read(size))
 
-    def read1_w(self, space, w_size):
+    def read1_w(self, space, w_size=None):
         return self.read_w(space, w_size)
 
     def readline_w(self, space, w_limit=None):
@@ -92,7 +92,7 @@ class W_BytesIO(W_BufferedIOBase):
         size = rwbuffer.getlength()
 
         output = self.read(size)
-        rwbuffer.setslice(0, output)
+        self.output_slice(space, rwbuffer, 0, output)
         return space.newint(len(output))
 
     def write_w(self, space, w_data):
@@ -125,7 +125,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getbuffer_w(self, space):
         self._check_closed(space)
-        return SimpleView(BytesIOBuffer(self)).wrap(space)
+        return SimpleView(BytesIOBuffer(self), w_obj=self).wrap(space)
 
     def getvalue_w(self, space):
         self._check_closed(space)

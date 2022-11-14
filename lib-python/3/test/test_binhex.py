@@ -4,7 +4,6 @@
    Based on an original test by Roger E. Masse.
 """
 import binhex
-import os
 import unittest
 from test import support
 
@@ -24,17 +23,15 @@ class BinHexTestCase(unittest.TestCase):
     DATA = b'Jack is my hero'
 
     def test_binhex(self):
-        f = open(self.fname1, 'wb')
-        f.write(self.DATA)
-        f.close()
+        with open(self.fname1, 'wb') as f:
+            f.write(self.DATA)
 
         binhex.binhex(self.fname1, self.fname2)
 
         binhex.hexbin(self.fname2, self.fname1)
 
-        f = open(self.fname1, 'rb')
-        finish = f.readline()
-        f.close()
+        with open(self.fname1, 'rb') as f:
+            finish = f.readline()
 
         self.assertEqual(self.DATA, finish)
 
@@ -47,6 +44,18 @@ class BinHexTestCase(unittest.TestCase):
         f3.close()
 
         self.assertRaises(binhex.Error, binhex.binhex, self.fname3, self.fname2)
+
+    def test_binhex_line_endings(self):
+        # bpo-29566: Ensure the line endings are those for macOS 9
+        with open(self.fname1, 'wb') as f:
+            f.write(self.DATA)
+
+        binhex.binhex(self.fname1, self.fname2)
+
+        with open(self.fname2, 'rb') as fp:
+            contents = fp.read()
+
+        self.assertNotIn(b'\n', contents)
 
 def test_main():
     support.run_unittest(BinHexTestCase)

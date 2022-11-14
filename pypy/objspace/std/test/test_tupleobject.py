@@ -234,6 +234,16 @@ class TestW_TupleObject:
         assert self.space.eq_w(self.space.le(w_tuple4, w_tuple3),
                            self.space.w_True)
 
+    def test_hash_consistency(self):
+        # make sure that the two copies of the hash implementation are the same
+        w = self.space.wrap
+        w_tuple1 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject([w(5), w(3), w(99), w(-1)])
+        w_tuple4 = W_TupleObject([w(5), w(3), w(9), w(-1)])
+        for w_tup in w_tuple1, w_tuple2, w_tuple3, w_tuple4:
+            assert w_tup._descr_hash_unroll(self.space) == w_tup._descr_hash_jitdriver(self.space)
+
 
 class AppTestW_TupleObject:
     def test_is_true(self):
@@ -347,10 +357,22 @@ class AppTestW_TupleObject:
         assert t2 <= t3
 
     def test_hash(self):
-        # check that hash behaves as in 2.4 for at least 31 bits
-        assert hash(()) & 0x7fffffff == 0x35d373
-        assert hash((12,)) & 0x7fffffff == 0x1cca0557
-        assert hash((12, 34)) & 0x7fffffff == 0x153e2a41
+        # check that hash behaves as in 3.8
+        import sys
+        is_32 = sys.maxsize == 2 ** 31 - 1
+        def check_one_exact(t, h32, h64):
+            h = hash(t)
+            if is_32:
+                assert h == h32
+            else:
+                assert h == h64
+
+        check_one_exact((), 750394483, 5740354900026072187)
+        check_one_exact((0,), 1214856301, -8753497827991233192)
+        check_one_exact((0, 0), -168982784, -8458139203682520985)
+        check_one_exact((0.5,), 2077348973, -408149959306781352)
+        check_one_exact((0.5, (), (-2, 3, (4, 6))), 714642271,
+                        -1845940830829704396)
 
     def test_getnewargs(self):
         assert () .__getnewargs__() == ((),)
@@ -438,3 +460,16 @@ class AppTestW_TupleObject:
         assert (() != object()) is True
         assert ((1,) != object()) is True
         assert ((1, 2) != object()) is True
+
+
+    def test_error_message_wrong_self(self):
+        unboundmeth = tuple.__hash__
+        e = raises(TypeError, unboundmeth, 42)
+        assert "tuple" in str(e.value)
+        if hasattr(unboundmeth, 'im_func'):
+            e = raises(TypeError, unboundmeth.im_func, 42)
+            assert "'tuple'" in str(e.value)
+
+    def test_tuple_new_pos_only(self):
+        with raises(TypeError):
+            tuple(sequence=[])

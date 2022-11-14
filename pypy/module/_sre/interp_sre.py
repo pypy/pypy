@@ -5,7 +5,8 @@ from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.rarithmetic import intmask, int_between
 from rpython.rlib import jit, rutf8
 from rpython.rlib.rstring import StringBuilder
 
@@ -13,14 +14,25 @@ from rpython.rlib.rstring import StringBuilder
 #
 # Constants and exposed functions
 
-from rpython.rlib.rsre import rsre_core, rsre_char, rsre_utf8
-from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, getlower, set_unicode_db
+from rpython.rlib.rsre import rsre_core, rsre_char, rsre_utf8, rsre_constants as consts
+from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, set_unicode_db
 
 
-@unwrap_spec(char_ord=int, flags=int)
-def w_getlower(space, char_ord, flags):
-    return space.newint(getlower(char_ord, flags))
+@unwrap_spec(character=int)
+def w_ascii_iscased(space, character):
+    return space.newbool(rsre_char.iscased_ascii(character))
 
+@unwrap_spec(character=int)
+def w_unicode_iscased(space, character):
+    return space.newbool(rsre_char.iscased_unicode(character))
+
+@unwrap_spec(character=int)
+def w_ascii_tolower(space, character):
+    return space.newint(rsre_char.getlower_ascii(character))
+
+@unwrap_spec(character=int)
+def w_unicode_tolower(space, character):
+    return space.newint(rsre_char.getlower_unicode(character))
 
 def w_getcodesize(space):
     return space.newint(CODESIZE)
@@ -32,20 +44,30 @@ set_unicode_db(pypy.objspace.std.unicodeobject.unicodedb)
 # ____________________________________________________________
 #
 
+class UnicodeAsciiMatchContext(rsre_core.StrMatchContext):
+    # we make a subclass just to mark that it originates from a W_UnicodeObject
+    pass
+
 
 def slice_w(space, ctx, start, end, w_default):
     # 'start' and 'end' are byte positions
     if ctx.ZERO <= start <= end:
         if isinstance(ctx, rsre_core.BufMatchContext):
-            return space.newbytes(ctx._buffer.getslice(start, end, 1,
+            length = ctx._buffer.getlength()
+            start = min(start, length)
+            end = min(end, length)
+            return space.newbytes(ctx._buffer.getslice(start, 1,
                                                         end-start))
-        if isinstance(ctx, rsre_core.StrMatchContext):
+        elif isinstance(ctx, UnicodeAsciiMatchContext):
+            s = ctx._string[start:end]
+            return space.newutf8(s, len(s))
+        elif isinstance(ctx, rsre_core.StrMatchContext):
             start = ctx._real_pos(start)
             end = ctx._real_pos(end)
             return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
             s = ctx._utf8[start:end]
-            lgt = rutf8.get_utf8_length(s)
+            lgt = rutf8.codepoints_in_utf8(s)
             return space.newutf8(s, lgt)
         else:
             # unreachable
@@ -79,8 +101,7 @@ def allgroups_w(space, ctx, fmarks, num_groups, w_default):
 
 
 def import_re(space):
-    w_import = space.getattr(space.builtin, space.newtext("__import__"))
-    return space.call_function(w_import, space.newtext("re"))
+    return space.fromcache(AppReCache).get_re()
 
 def matchcontext(space, ctx, pattern):
     try:
@@ -102,26 +123,41 @@ FLAG_NAMES = ["re.TEMPLATE", "re.IGNORECASE", "re.LOCALE", "re.MULTILINE",
               "re.DOTALL", "re.UNICODE", "re.VERBOSE", "re.DEBUG",
               "re.ASCII"]
 
+
+class AppReCache(object):
+    def __init__(self, space):
+        self.space = space
+        self.w_re = None
+
+    def get_re(self):
+        if self.w_re is not None:
+            return self.w_re
+        space = self.space
+        w_import = space.getattr(space.builtin, space.newtext("__import__"))
+        w_re = space.call_function(w_import, space.newtext("re"))
+        self.w_re = w_re
+        return w_re
+
+
 class W_SRE_Pattern(W_Root):
     _immutable_fields_ = ["code", "flags", "num_groups", "w_groupindex"]
 
-    def cannot_copy_w(self):
-        space = self.space
-        raise oefmt(space.w_TypeError, "cannot copy this pattern object")
+    def copy_identity_w(self, args_w):
+        return self
 
     def repr_w(self):
         space = self.space
-        u = space.utf8_w(space.repr(self.w_pattern))
-        if len(u) > 200:
-            u = u[:200]
+        w_s = space.repr(self.w_pattern)
+        w_s = space.getslice(w_s, space.newint(0), space.newint(200))
+        u = space.utf8_w(w_s)
         flag_items = []
         flags = self.flags
         if self.is_known_unicode():
-            if ((flags & (rsre_char.SRE_FLAG_LOCALE |
-                          rsre_char.SRE_FLAG_UNICODE |
-                          256))     # rsre_char.SRE_FLAG_ASCII
-                    == rsre_char.SRE_FLAG_UNICODE):
-                flags &= ~rsre_char.SRE_FLAG_UNICODE
+            if ((flags & (consts.SRE_FLAG_LOCALE |
+                          consts.SRE_FLAG_UNICODE |
+                          256))     # consts.SRE_FLAG_ASCII
+                    == consts.SRE_FLAG_UNICODE):
+                flags &= ~consts.SRE_FLAG_UNICODE
         for i, name in enumerate(FLAG_NAMES):
             if flags & (1 << i):
                 flags -= (1 << i)
@@ -135,6 +171,28 @@ class W_SRE_Pattern(W_Root):
             usep = ', '
             uflags = '|'.join(flag_items)
         return space.newtext('re.compile(%s%s%s)' % (u, usep, uflags))
+
+    def descr_eq(self, space, w_other):
+        if not isinstance(w_other, W_SRE_Pattern):
+            return space.w_NotImplemented
+        other = w_other
+        # Compare the code and the pattern because the same pattern can
+        # produce different codes depending on the locale used to compile the
+        # pattern when the re.LOCALE flag is used. Don't compare groups,
+        # indexgroup nor groupindex: they are derivated from the pattern.
+        return space.newbool(
+            self.flags == other.flags and
+            self.code.pattern == other.code.pattern and
+            space.eq_w(self.w_pattern, other.w_pattern))
+
+    def descr_hash(self, space):
+        from rpython.rlib.rarithmetic import intmask
+        x = 0x345678
+        for c in self.code.pattern:
+            x = intmask((1000003 * x) ^ c)
+        x = intmask((1000003 * x) ^ self.flags)
+        x = intmask((1000003 * x) ^ space.hash_w(self.w_pattern))
+        return space.newint(x)
 
     def fget_groupindex(self, space):
         w_groupindex = self.w_groupindex
@@ -175,20 +233,20 @@ class W_SRE_Pattern(W_Root):
             elif pos >= length:
                 bytepos = len(utf8str)
             else:
-                index_storage = w_unicode_obj._get_index_storage()
-                bytepos = rutf8.codepoint_position_at_index(utf8str,
-                                index_storage, pos)
+                bytepos = w_unicode_obj._index_to_byte(pos)
             if endpos >= length:
                 endbytepos = len(utf8str)
             else:
-                index_storage = w_unicode_obj._get_index_storage()
-                endbytepos = rutf8.codepoint_position_at_index(utf8str,
-                                index_storage, endpos)
-            ctx = rsre_utf8.Utf8MatchContext(
-                utf8str, bytepos, endbytepos, self.flags)
-            # xxx we store the w_string on the ctx too, for
-            # W_SRE_Match.bytepos_to_charindex()
-            ctx.w_unicode_obj = w_unicode_obj
+                endbytepos = w_unicode_obj._index_to_byte(endpos)
+            if w_unicode_obj.is_ascii():
+                ctx = UnicodeAsciiMatchContext(
+                        utf8str, bytepos, endbytepos)
+            else:
+                ctx = rsre_utf8.Utf8MatchContext(
+                    utf8str, bytepos, endbytepos)
+                # we store the w_string on the ctx too, for
+                # W_SRE_Match.bytepos_to_charindex()
+                ctx.w_unicode_obj = w_unicode_obj
             return ctx
         elif self.is_known_unicode():
             raise oefmt(space.w_TypeError,
@@ -201,7 +259,7 @@ class W_SRE_Pattern(W_Root):
                 pos = length
             if endpos > length:
                 endpos = length
-            return rsre_core.StrMatchContext(string, pos, endpos, self.flags)
+            return rsre_core.StrMatchContext(string, pos, endpos)
         else:
             buf = space.readbuf_w(w_string)
             size = buf.getlength()
@@ -210,19 +268,22 @@ class W_SRE_Pattern(W_Root):
                 pos = size
             if endpos > size:
                 endpos = size
-            return rsre_core.BufMatchContext(buf, pos, endpos, self.flags)
+            return rsre_core.BufMatchContext(buf, pos, endpos)
 
     def fresh_copy(self, ctx):
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
             result = rsre_utf8.Utf8MatchContext(
-                ctx._utf8, ctx.match_start, ctx.end, ctx.flags)
+                ctx._utf8, ctx.match_start, ctx.end)
             result.w_unicode_obj = ctx.w_unicode_obj
+        elif isinstance(ctx, UnicodeAsciiMatchContext):
+            result = UnicodeAsciiMatchContext(
+                ctx._string, ctx.match_start, ctx.end)
         elif isinstance(ctx, rsre_core.StrMatchContext):
             result = self._make_str_match_context(
                 ctx._string, ctx.match_start, ctx.end)
         elif isinstance(ctx, rsre_core.BufMatchContext):
             result = rsre_core.BufMatchContext(
-                ctx._buffer, ctx.match_start, ctx.end, ctx.flags)
+                ctx._buffer, ctx.match_start, ctx.end)
         else:
             raise AssertionError("bad ctx type")
         result.match_end = ctx.match_end
@@ -231,7 +292,7 @@ class W_SRE_Pattern(W_Root):
     def _make_str_match_context(self, str, pos, endpos):
         # for tests to override
         return rsre_core.StrMatchContext(str,
-                                         pos, endpos, self.flags)
+                                         pos, endpos)
 
     def getmatch(self, ctx, found):
         if found:
@@ -247,7 +308,7 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(pos=int, endpos=int)
     def fullmatch_w(self, w_string, pos=0, endpos=sys.maxint):
         ctx = self.make_ctx(w_string, pos, endpos)
-        ctx.fullmatch_only = True
+        ctx.match_mode = rsre_core.MODE_FULL
         return self.getmatch(ctx, matchcontext(self.space, ctx, self.code))
 
     @unwrap_spec(pos=int, endpos=int)
@@ -277,12 +338,7 @@ class W_SRE_Pattern(W_Root):
                     w_item = allgroups_w(space, ctx, fmarks, num_groups,
                                          w_emptystr)
             matchlist_w.append(w_item)
-            reset_at = ctx.match_end
-            if ctx.match_start == ctx.match_end:
-                if reset_at == ctx.end:
-                    break
-                reset_at = ctx.next_indirect(reset_at)
-            ctx.reset(reset_at)
+            ctx.reset(ctx.match_end, ctx.match_start == ctx.match_end)
         return space.newlist(matchlist_w)
 
     @unwrap_spec(pos=int, endpos=int)
@@ -296,38 +352,29 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(maxsplit=int)
     def split_w(self, w_string, maxsplit=0):
         space = self.space
-
-        if self.code.pattern[0] != rsre_core.OPCODE_INFO or self.code.pattern[3] == 0:
-            if self.code.pattern[0] == rsre_core.OPCODE_INFO and self.code.pattern[4] == 0:
-                raise oefmt(space.w_ValueError,
-                            "split() requires a non-empty pattern match.")
-            space.warn(
-                space.newtext("split() requires a non-empty pattern match."),
-                space.w_FutureWarning)
         #
         splitlist = []
         n = 0
         ctx = self.make_ctx(w_string)
         last = ctx.ZERO
         while not maxsplit or n < maxsplit:
-            if not searchcontext(space, ctx, self.code):
+            pattern = self.code
+            num_groups = self.num_groups
+            split_jitdriver.jit_merge_point(
+                pattern=pattern, num_groups=num_groups, ctx_type=type(ctx))
+            if not searchcontext(space, ctx, pattern):
                 break
-            if ctx.match_start == ctx.match_end:     # zero-width match
-                if ctx.match_start == ctx.end:       # or end of string
-                    break
-                ctx.reset(ctx.next_indirect(ctx.match_end))
-                continue
             splitlist.append(slice_w(space, ctx, last, ctx.match_start,
                                      space.w_None))
             # add groups (if any)
-            fmarks = do_flatten_marks(ctx, self.num_groups)
-            for groupnum in range(self.num_groups):
+            fmarks = do_flatten_marks(ctx, num_groups)
+            for groupnum in range(num_groups):
                 groupstart, groupend = fmarks[groupnum*2], fmarks[groupnum*2+1]
                 splitlist.append(slice_w(space, ctx, groupstart, groupend,
                                          space.w_None))
             n += 1
             last = ctx.match_end
-            ctx.reset(last)
+            ctx.reset(last, ctx.match_start == last)
         splitlist.append(slice_w(space, ctx, last, ctx.end, space.w_None))
         return space.newlist(splitlist)
 
@@ -340,7 +387,7 @@ class W_SRE_Pattern(W_Root):
     def subn_w(self, w_repl, w_string, count=0):
         w_item, n = self.subx(w_repl, w_string, count)
         space = self.space
-        return space.newtuple([w_item, space.newint(n)])
+        return space.newtuple2(w_item, space.newint(n))
 
     def subx(self, w_ptemplate, w_string, count):
         space = self.space
@@ -395,41 +442,36 @@ class W_SRE_Pattern(W_Root):
                                              self, w_ptemplate)
                 filter_is_callable = space.is_true(space.callable(w_filter))
         #
-        # XXX this is a bit of a mess, but it improves performance a lot
         ctx = self.make_ctx(w_string)
+        ctx_end = ctx.end
+        pattern = self.code
+
+        # shortcut if the pattern doesn't occur at all (relatively common, eg
+        # when escaping things)
+        if not searchcontext(space, ctx, pattern):
+            w_typ = space.type(w_string)
+            if w_typ is not space.w_unicode and w_typ is not space.w_bytes:
+                w_string = slice_w(space, ctx, ctx.ZERO, ctx_end, space.w_None)
+            return w_string, 0
+
+        # XXX this is a bit of a mess, but it improves performance a lot
         sublist_w = strbuilder = None
         if use_builder != '\x00':
             assert filter_as_string is not None
-            strbuilder = StringBuilder(ctx.end)
+            strbuilder = StringBuilder(ctx_end)
         else:
             sublist_w = []
         n = 0
         last_pos = ctx.ZERO
         while not count or n < count:
-            pattern = self.code
-            sub_jitdriver.jit_merge_point(
-                self=self,
-                use_builder=use_builder,
-                filter_is_callable=filter_is_callable,
-                filter_type=type(w_filter),
-                ctx=ctx, pattern=pattern,
-                w_filter=w_filter,
-                strbuilder=strbuilder,
-                filter_as_string=filter_as_string,
-                count=count,
-                w_string=w_string,
-                n=n, last_pos=last_pos, sublist_w=sublist_w
-                )
+            # on entering this loop for the first time, we have already
+            # performed one match above
             space = self.space
-            if not searchcontext(space, ctx, pattern):
-                break
             if last_pos < ctx.match_start:
                 _sub_append_slice(
                     ctx, space, use_builder, sublist_w,
                     strbuilder, last_pos, ctx.match_start)
-            if not (last_pos == ctx.match_start
-                             == ctx.match_end and n > 0):
-                # the above ignores empty matches on latest position
+            if 1:  # keeps the following block indented
                 last_pos = ctx.match_end
                 if filter_is_callable:
                     w_match = self.getmatch(ctx, True)
@@ -448,15 +490,18 @@ class W_SRE_Pattern(W_Root):
                     else:
                         sublist_w.append(w_filter)
                 n += 1
-            elif last_pos >= ctx.end:
-                break    # empty match at the end: finished
 
             start = ctx.match_end
-            if start == ctx.match_start:
-                if start == ctx.end:
-                    break
-                start = ctx.next_indirect(start)
-            ctx.reset(start)
+            ctx.reset(start, ctx.match_start == start)
+
+            sub_jitdriver.jit_merge_point(
+                use_builder=use_builder,
+                filter_is_callable=filter_is_callable,
+                filter_type=type(w_filter),
+                pattern=pattern,
+                )
+            if not searchcontext(space, ctx, pattern):
+                break
 
         if last_pos < ctx.end:
             _sub_append_slice(ctx, space, use_builder, sublist_w,
@@ -468,9 +513,10 @@ class W_SRE_Pattern(W_Root):
                 assert not isinstance(ctx, rsre_utf8.Utf8MatchContext)
                 return space.newbytes(result_bytes), n
             elif use_builder == 'U':
-                assert isinstance(ctx, rsre_utf8.Utf8MatchContext)
+                assert (isinstance(ctx, UnicodeAsciiMatchContext) or
+                        isinstance(ctx, rsre_utf8.Utf8MatchContext))
                 return space.newutf8(result_bytes,
-                                     rutf8.get_utf8_length(result_bytes)), n
+                                     rutf8.codepoints_in_utf8(result_bytes)), n
             else:
                 raise AssertionError(use_builder)
         else:
@@ -482,15 +528,36 @@ class W_SRE_Pattern(W_Root):
                                        space.newlist(sublist_w))
             return w_item, n
 
-sub_jitdriver = jit.JitDriver(
-    reds="""count n last_pos
-            ctx w_filter
-            strbuilder
-            filter_as_string
-            w_string sublist_w
-            self""".split(),
-    greens=["filter_is_callable", "use_builder", "filter_type", "pattern"])
+def sub_get_printable_location(filter_is_callable, use_builder, filter_type, pattern):
+    s = str(pattern.pattern)
+    if len(s) > 120:
+        s = s[:110] + '...'
+    if use_builder == '\x00':
+        use_builder = 'list'
+    else:
+        use_builder = "%sBuilder" % use_builder
 
+    return "re.sub %s %s %s %s" % (s, filter_is_callable, use_builder, filter_type)
+
+sub_jitdriver = jit.JitDriver(
+    reds="auto",
+    greens=["filter_is_callable", "use_builder", "filter_type", "pattern"],
+    get_printable_location=sub_get_printable_location,
+    )
+
+
+def split_get_printable_location(num_groups, ctx_type, pattern):
+    s = str(pattern.pattern)
+    if len(s) > 120:
+        s = s[:110] + '...'
+
+    return "re.split %s %s %s" % (s, num_groups, ctx_type)
+
+split_jitdriver = jit.JitDriver(
+    reds="auto",
+    greens=["num_groups", "ctx_type", "pattern"],
+    get_printable_location=split_get_printable_location,
+)
 
 def _sub_append_slice(ctx, space, use_builder, sublist_w,
                       strbuilder, start, end):
@@ -498,13 +565,16 @@ def _sub_append_slice(ctx, space, use_builder, sublist_w,
         assert strbuilder is not None
         if isinstance(ctx, rsre_core.BufMatchContext):
             assert use_builder == 'S'
-            return strbuilder.append(ctx._buffer.getslice(start, end, 1, end-start))
+            return strbuilder.append(ctx._buffer.getslice(start, 1, end-start))
+        if isinstance(ctx, UnicodeAsciiMatchContext):
+            assert use_builder == 'U'
+            return strbuilder.append_slice(ctx._string, start, end)
         if isinstance(ctx, rsre_core.StrMatchContext):
             assert use_builder == 'S'
             start = ctx._real_pos(start)
             end = ctx._real_pos(end)
             return strbuilder.append_slice(ctx._string, start, end)
-        elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
+        if isinstance(ctx, rsre_utf8.Utf8MatchContext):
             assert use_builder == 'U'
             return strbuilder.append_slice(ctx._utf8, start, end)
         assert 0, "unreachable"
@@ -532,7 +602,7 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     # so that we don't need to do it here.  Creating new SRE_Pattern
     # objects all the time would be bad for the JIT, which relies on the
     # identity of the CompiledPattern() object.
-    srepat.code = rsre_core.CompiledPattern(code)
+    srepat.code = rsre_core.CompiledPattern(code, flags)
     srepat.num_groups = groups
     srepat.w_groupindex = w_groupindex
     srepat.w_indexgroup = w_indexgroup
@@ -540,12 +610,14 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
 
 
 W_SRE_Pattern.typedef = TypeDef(
-    '_sre.SRE_Pattern',
+    're.Pattern',
     __new__      = interp2app(SRE_Pattern__new__),
-    __copy__     = interp2app(W_SRE_Pattern.cannot_copy_w),
-    __deepcopy__ = interp2app(W_SRE_Pattern.cannot_copy_w),
+    __copy__     = interp2app(W_SRE_Pattern.copy_identity_w),
+    __deepcopy__ = interp2app(W_SRE_Pattern.copy_identity_w),
     __repr__     = interp2app(W_SRE_Pattern.repr_w),
     __weakref__  = make_weakref_descr(W_SRE_Pattern),
+    __eq__       = interp2app(W_SRE_Pattern.descr_eq),
+    __hash__     = interp2app(W_SRE_Pattern.descr_hash),
     findall      = interp2app(W_SRE_Pattern.findall_w),
     finditer     = interp2app(W_SRE_Pattern.finditer_w),
     match        = interp2app(W_SRE_Pattern.match_w),
@@ -581,15 +653,24 @@ class W_SRE_Match(W_Root):
         ctx = self.ctx
         start, end = ctx.match_start, ctx.match_end
         w_s = slice_w(space, ctx, start, end, space.w_None)
-        u = space.utf8_w(space.repr(w_s))
-        if len(u) > 50:
-            u = u[:50]
-        return space.newtext('<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
+        # follow the same logic as CPython, repr'ing the whole match
+        # before deciding to throw away everything beyond the 50th unichar
+        # (which will leave the opening quote unbalanced, and might be
+        # cutting in the middle of a '\' escape)
+        w_s = space.repr(w_s)
+        w_s = space.getslice(w_s, space.newint(0), space.newint(50))
+        u = space.utf8_w(w_s)
+        start = self.bytepos_to_charindex(start)
+        end = self.bytepos_to_charindex(end)
+        return space.newtext('<re.Match object; span=(%d, %d), match=%s>' %
                           (start, end, u))
 
-    def cannot_copy_w(self):
-        space = self.space
-        raise oefmt(space.w_TypeError, "cannot copy this match object")
+    def copy_identity_w(self, args_w):
+        return self
+
+    def descr_getitem(self, space, w_index):
+        start, end = self.do_span(w_index)
+        return slice_w(space, self.ctx, start, end, space.w_None)
 
     @jit.look_inside_iff(lambda self, args_w: jit.isconstant(len(args_w)))
     def group_w(self, args_w):
@@ -659,8 +740,8 @@ class W_SRE_Match(W_Root):
     def new_charindex_tuple(self, start, end):
         start = self.bytepos_to_charindex(start)
         end = self.bytepos_to_charindex(end)
-        return self.space.newtuple([self.space.newint(start),
-                                    self.space.newint(end)])
+        return self.space.newtuple2(self.space.newint(start),
+                                    self.space.newint(end))
 
     def bytepos_to_charindex(self, bytepos):
         # Transform a 'byte position', as returned by all methods from
@@ -668,9 +749,7 @@ class W_SRE_Match(W_Root):
         # handling.
         ctx = self.ctx
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
-            index_storage = ctx.w_unicode_obj._get_index_storage()
-            return rutf8.codepoint_index_at_byte_position(
-                ctx.w_unicode_obj._utf8, index_storage, bytepos)
+            return ctx.w_unicode_obj._byte_to_index(bytepos)
         else:
             return bytepos
 
@@ -685,7 +764,7 @@ class W_SRE_Match(W_Root):
         # character indexes (for utf8)
         space = self.space
         try:
-            groupnum = space.int_w(w_arg)
+            groupnum = space.getindex_w(w_arg, space.w_OverflowError)
         except OperationError as e:
             if not e.match(space, space.w_TypeError) and \
                     not e.match(space, space.w_OverflowError):
@@ -752,20 +831,24 @@ class W_SRE_Match(W_Root):
         ctx = self.ctx
         if isinstance(ctx, rsre_core.BufMatchContext):
             return space.newbytes(ctx._buffer.as_str())
+        elif isinstance(ctx, UnicodeAsciiMatchContext):
+            return space.newutf8(ctx._string, len(ctx._string))
         elif isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string)
         elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
-            lgt = rutf8.get_utf8_length(ctx._utf8)
+            lgt = rutf8.codepoints_in_utf8(ctx._utf8)
             return space.newutf8(ctx._utf8, lgt)
         else:
             raise SystemError
 
 
 W_SRE_Match.typedef = TypeDef(
-    '_sre.SRE_Match',
-    __copy__     = interp2app(W_SRE_Match.cannot_copy_w),
-    __deepcopy__ = interp2app(W_SRE_Match.cannot_copy_w),
+    're.Match',
+    __copy__     = interp2app(W_SRE_Match.copy_identity_w),
+    __deepcopy__ = interp2app(W_SRE_Match.copy_identity_w),
     __repr__     = interp2app(W_SRE_Match.repr_w),
+    __getitem__  = interp2app(W_SRE_Match.descr_getitem),
+    #
     group        = interp2app(W_SRE_Match.group_w),
     groups       = interp2app(W_SRE_Match.groups_w),
     groupdict    = interp2app(W_SRE_Match.groupdict_w),
@@ -824,26 +907,14 @@ class W_SRE_Scanner(W_Root):
         ctx = self.ctx
         assert ctx is not None
         if found:
+            thisstart = ctx.match_start
             nextstart = ctx.match_end
-            exhausted = False
-            if ctx.match_start == nextstart:
-                if nextstart == ctx.end:
-                    exhausted = True
-                else:
-                    nextstart = ctx.next_indirect(nextstart)
-            if exhausted:
-                self.ctx = None
-            else:
-                self.ctx = self.srepat.fresh_copy(ctx)
-                self.ctx.match_start = nextstart
+            self.ctx = self.srepat.fresh_copy(ctx)
+            self.ctx.reset(nextstart, thisstart == nextstart)
             match = W_SRE_Match(self.srepat, ctx)
             return match
         else:
-            # obscure corner case
-            if ctx.match_start == ctx.end:
-                self.ctx = None
-            else:
-                ctx.match_start = ctx.next_indirect(ctx.match_start)
+            self.ctx = None
             return None
 
 W_SRE_Scanner.typedef = TypeDef(

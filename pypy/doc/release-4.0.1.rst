@@ -9,7 +9,7 @@ enhancements in this version as well.
 
 You can download the PyPy 4.0.1 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -27,12 +27,12 @@ While not applicable only to PyPy, `cffi`_ is arguably our most significant
 contribution to the python ecosystem. PyPy 4.0.1 ships with 
 `cffi-1.3.1`_ with the improvements it brings.
 
-.. _`PyPy`: http://doc.pypy.org 
+.. _`PyPy`: https://doc.pypy.org 
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
-.. _`cffi-1.3.1`: http://cffi.readthedocs.org/en/latest/whatsnew.html#v1-3-1
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`cffi-1.3.1`: https://cffi.readthedocs.org/en/latest/whatsnew.html#v1-3-1
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
 
 What is PyPy?
@@ -50,8 +50,8 @@ This release supports **x86** machines on most common operating systems
 newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux, and the
 big- and little-endian variants of **ppc64** running Linux.
 
-.. _`pypy and cpython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://pypyjs.org
+.. _`pypy and cpython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://pypyjs.org
 
 Other Highlights (since 4.0.0 released three weeks ago)
 =======================================================
@@ -96,7 +96,7 @@ Other Highlights (since 4.0.0 released three weeks ago)
 
   * Silence some warnings while translating
 
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-4.0.1.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-4.0.1.html
 
 Please update, and continue to help us make PyPy better.
 

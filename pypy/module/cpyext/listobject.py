@@ -191,3 +191,9 @@ def PyList_SetSlice(space, w_list, low, high, w_sequence):
     else:
         space.delslice(w_list, w_start, w_stop)
     return 0
+
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyList_Extend(space, w_list, w_iterable):
+    if not isinstance(w_list, W_ListObject):
+        PyErr_BadInternalCall(space)
+    return space.call_method(space.w_list, "extend", w_list, w_iterable)

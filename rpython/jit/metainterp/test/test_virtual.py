@@ -1300,7 +1300,7 @@ class VirtualMiscTests:
             while i < n:
                 mydriver.jit_merge_point()
                 # this is not virtualized because it's not a buffer of chars
-                buffer = lltype.malloc(rffi.LONGP.TO, 1, flavor='raw')
+                buffer = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
                 buffer[0] = i+1
                 res += buffer[0]
                 i = buffer[0]

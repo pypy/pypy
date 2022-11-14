@@ -1,7 +1,11 @@
+# Copied from <cffi>/c/test_c.py
+# Make sure the files are identical starting from the # ________ line below
+
+
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.12.1", ("This test_c.py file is for testing a version"
+assert __version__ == "1.15.1", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -52,8 +56,10 @@ def find_and_load_library(name, flags=RTLD_NOW):
         path = ctypes.util.find_library(name)
         if path is None and name == 'c':
             assert sys.platform == 'win32'
-            assert sys.version_info >= (3,)
-            py.test.skip("dlopen(None) cannot work on Windows with Python 3")
+            assert (sys.version_info >= (3,) or
+                    '__pypy__' in sys.builtin_module_names)
+            py.test.skip("dlopen(None) cannot work on Windows "
+                         "with PyPy or Python 3")
     return load_library(path, flags)
 
 def test_load_library():
@@ -75,7 +81,8 @@ def test_all_rtld_symbols():
     if sys.platform.startswith("linux"):
         RTLD_NODELETE
         RTLD_NOLOAD
-        RTLD_DEEPBIND
+        if not is_musl:
+            RTLD_DEEPBIND
 
 def test_new_primitive_type():
     py.test.raises(KeyError, new_primitive_type, "foo")
@@ -96,7 +103,7 @@ def test_cast_to_signed_char():
     p = new_primitive_type("signed char")
     x = cast(p, -65 + 17*256)
     assert repr(x) == "<cdata 'signed char' -65>"
-    assert repr(type(x)) == "<%s '_cffi_backend.CData'>" % type_or_class
+    assert repr(type(x)) == "<%s '_cffi_backend._CDataBase'>" % type_or_class
     assert int(x) == -65
     x = cast(p, -66 + (1<<199)*256)
     assert repr(x) == "<cdata 'signed char' -66>"
@@ -304,8 +311,10 @@ def test_reading_pointer_to_int():
     assert p[0] == 0
     p = newp(BPtr, 5000)
     assert p[0] == 5000
-    py.test.raises(IndexError, "p[1]")
-    py.test.raises(IndexError, "p[-1]")
+    with pytest.raises(IndexError):
+        p[1]
+    with pytest.raises(IndexError):
+        p[-1]
 
 def test_reading_pointer_to_float():
     BFloat = new_primitive_type("float")
@@ -433,7 +442,8 @@ def test_cmp_none():
 def test_invalid_indexing():
     p = new_primitive_type("int")
     x = cast(p, 42)
-    py.test.raises(TypeError, "x[0]")
+    with pytest.raises(TypeError):
+        x[0]
 
 def test_default_str():
     BChar = new_primitive_type("char")
@@ -526,13 +536,16 @@ def test_array_instance():
     assert len(a) == LENGTH
     for i in range(LENGTH):
         assert a[i] == 0
-    py.test.raises(IndexError, "a[LENGTH]")
-    py.test.raises(IndexError, "a[-1]")
+    with pytest.raises(IndexError):
+        a[LENGTH]
+    with pytest.raises(IndexError):
+        a[-1]
     for i in range(LENGTH):
         a[i] = i * i + 1
     for i in range(LENGTH):
         assert a[i] == i * i + 1
-    e = py.test.raises(IndexError, "a[LENGTH+100] = 500")
+    with pytest.raises(IndexError) as e:
+        a[LENGTH+100] = 500
     assert ('(expected %d < %d)' % (LENGTH+100, LENGTH)) in str(e.value)
     py.test.raises(TypeError, int, a)
 
@@ -547,10 +560,14 @@ def test_array_of_unknown_length_instance():
         a[i] -= i
     for i in range(42):
         assert a[i] == -i
-    py.test.raises(IndexError, "a[42]")
-    py.test.raises(IndexError, "a[-1]")
-    py.test.raises(IndexError, "a[42] = 123")
-    py.test.raises(IndexError, "a[-1] = 456")
+    with pytest.raises(IndexError):
+        a[42]
+    with pytest.raises(IndexError):
+        a[-1]
+    with pytest.raises(IndexError):
+        a[42] = 123
+    with pytest.raises(IndexError):
+        a[-1] = 456
 
 def test_array_of_unknown_length_instance_with_initializer():
     p = new_primitive_type("int")
@@ -598,10 +615,14 @@ def test_array_sub():
     assert a == (p - 1)
     BPtr = new_pointer_type(new_primitive_type("short"))
     q = newp(BPtr, None)
-    py.test.raises(TypeError, "p - q")
-    py.test.raises(TypeError, "q - p")
-    py.test.raises(TypeError, "a - q")
-    e = py.test.raises(TypeError, "q - a")
+    with pytest.raises(TypeError):
+        p - q
+    with pytest.raises(TypeError):
+        q - p
+    with pytest.raises(TypeError):
+        a - q
+    with pytest.raises(TypeError) as e:
+        q - a
     assert str(e.value) == "cannot subtract cdata 'short *' and cdata 'int *'"
 
 def test_ptr_sub_unaligned():
@@ -614,8 +635,10 @@ def test_ptr_sub_unaligned():
             assert b - a == (bi - 1240) // size_of_int()
             assert a - b == (1240 - bi) // size_of_int()
         else:
-            py.test.raises(ValueError, "b - a")
-            py.test.raises(ValueError, "a - b")
+            with pytest.raises(ValueError):
+                b - a
+            with pytest.raises(ValueError):
+                a - b
 
 def test_cast_primitive_from_cdata():
     p = new_primitive_type("int")
@@ -766,10 +789,12 @@ def test_struct_instance():
     BStruct = new_struct_type("struct foo")
     BStructPtr = new_pointer_type(BStruct)
     p = cast(BStructPtr, 42)
-    e = py.test.raises(AttributeError, "p.a1")    # opaque
+    with pytest.raises(AttributeError) as e:
+        p.a1    # opaque
     assert str(e.value) == ("cdata 'struct foo *' points to an opaque type: "
                             "cannot read fields")
-    e = py.test.raises(AttributeError, "p.a1 = 10")    # opaque
+    with pytest.raises(AttributeError) as e:
+        p.a1 = 10    # opaque
     assert str(e.value) == ("cdata 'struct foo *' points to an opaque type: "
                             "cannot write fields")
 
@@ -781,30 +806,41 @@ def test_struct_instance():
     s.a2 = 123
     assert s.a1 == 0
     assert s.a2 == 123
-    py.test.raises(OverflowError, "s.a1 = sys.maxsize+1")
+    with pytest.raises(OverflowError):
+        s.a1 = sys.maxsize+1
     assert s.a1 == 0
-    e = py.test.raises(AttributeError, "p.foobar")
+    with pytest.raises(AttributeError) as e:
+        p.foobar
     assert str(e.value) == "cdata 'struct foo *' has no field 'foobar'"
-    e = py.test.raises(AttributeError, "p.foobar = 42")
+    with pytest.raises(AttributeError) as e:
+        p.foobar = 42
     assert str(e.value) == "cdata 'struct foo *' has no field 'foobar'"
-    e = py.test.raises(AttributeError, "s.foobar")
+    with pytest.raises(AttributeError) as e:
+        s.foobar
     assert str(e.value) == "cdata 'struct foo' has no field 'foobar'"
-    e = py.test.raises(AttributeError, "s.foobar = 42")
+    with pytest.raises(AttributeError) as e:
+        s.foobar = 42
     assert str(e.value) == "cdata 'struct foo' has no field 'foobar'"
     j = cast(BInt, 42)
-    e = py.test.raises(AttributeError, "j.foobar")
+    with pytest.raises(AttributeError) as e:
+        j.foobar
     assert str(e.value) == "cdata 'int' has no attribute 'foobar'"
-    e = py.test.raises(AttributeError, "j.foobar = 42")
+    with pytest.raises(AttributeError) as e:
+        j.foobar = 42
     assert str(e.value) == "cdata 'int' has no attribute 'foobar'"
     j = cast(new_pointer_type(BInt), 42)
-    e = py.test.raises(AttributeError, "j.foobar")
+    with pytest.raises(AttributeError) as e:
+        j.foobar
     assert str(e.value) == "cdata 'int *' has no attribute 'foobar'"
-    e = py.test.raises(AttributeError, "j.foobar = 42")
+    with pytest.raises(AttributeError) as e:
+        j.foobar = 42
     assert str(e.value) == "cdata 'int *' has no attribute 'foobar'"
     pp = newp(new_pointer_type(BStructPtr), p)
-    e = py.test.raises(AttributeError, "pp.a1")
+    with pytest.raises(AttributeError) as e:
+        pp.a1
     assert str(e.value) == "cdata 'struct foo * *' has no attribute 'a1'"
-    e = py.test.raises(AttributeError, "pp.a1 = 42")
+    with pytest.raises(AttributeError) as e:
+        pp.a1 = 42
     assert str(e.value) == "cdata 'struct foo * *' has no attribute 'a1'"
 
 def test_union_instance():
@@ -1249,7 +1285,7 @@ def test_read_variable_as_unknown_length_array():
 def test_write_variable():
     ## FIXME: this test assumes glibc specific behavior, it's not compliant with C standard
     ## https://bugs.pypy.org/issue1643
-    if not sys.platform.startswith("linux"):
+    if not sys.platform.startswith("linux") or is_musl:
         py.test.skip("untested")
     BVoidP = new_pointer_type(new_void_type())
     ll = find_and_load_library('c')
@@ -1284,7 +1320,11 @@ def test_callback_exception():
     except ImportError:
         import io as cStringIO    # Python 3
     import linecache
-    def matches(istr, ipattern):
+    def matches(istr, ipattern, ipattern38, ipattern311=None):
+        if sys.version_info >= (3, 8):
+            ipattern = ipattern38
+        if sys.version_info >= (3, 11):
+            ipattern = ipattern311 or ipattern38
         str, pattern = istr, ipattern
         while '$' in pattern:
             i = pattern.index('$')
@@ -1317,11 +1357,21 @@ def test_callback_exception():
     try:
         linecache.getline = lambda *args: 'LINE'    # hack: speed up PyPy tests
         sys.stderr = cStringIO.StringIO()
+        if hasattr(sys, '__unraisablehook__'):          # work around pytest
+            sys.unraisablehook = sys.__unraisablehook__ # on recent CPythons
         assert f(100) == 300
         assert sys.stderr.getvalue() == ''
         assert f(10000) == -42
         assert matches(sys.stderr.getvalue(), """\
 From cffi callback <function$Zcb1 at 0x$>:
+Traceback (most recent call last):
+  File "$", line $, in Zcb1
+    $
+  File "$", line $, in check_value
+    $
+ValueError: 42
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>:
 Traceback (most recent call last):
   File "$", line $, in Zcb1
     $
@@ -1335,6 +1385,12 @@ ValueError: 42
         assert matches(sys.stderr.getvalue(), """\
 From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
 OverflowError: integer 60000 does not fit 'short'
 """)
         sys.stderr = cStringIO.StringIO()
@@ -1373,11 +1429,24 @@ OverflowError: integer 60000 does not fit 'short'
 During the call to 'onerror', another exception occurred:
 
 TypeError: $integer$
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+OverflowError: integer 60000 does not fit 'short'
+Exception ignored during handling of the above exception by 'onerror':
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+TypeError: $integer$
 """)
         #
         sys.stderr = cStringIO.StringIO()
         seen = "not a list"    # this makes the oops() function crash
         assert ff(bigvalue) == -42
+        # the $ after the AttributeError message are for the suggestions that
+        # will be added in Python 3.10
         assert matches(sys.stderr.getvalue(), """\
 From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
@@ -1388,7 +1457,30 @@ During the call to 'onerror', another exception occurred:
 Traceback (most recent call last):
   File "$", line $, in oops
     $
-AttributeError: 'str' object has no attribute 'append'
+AttributeError: 'str' object has no attribute 'append$
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+OverflowError: integer 60000 does not fit 'short'
+Exception ignored during handling of the above exception by 'onerror':
+Traceback (most recent call last):
+  File "$", line $, in oops
+    $
+AttributeError: 'str' object has no attribute 'append$
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+OverflowError: integer 60000 does not fit 'short'
+Exception ignored during handling of the above exception by 'onerror':
+Traceback (most recent call last):
+  File "$", line $, in oops
+    $
+    $
+AttributeError: 'str' object has no attribute 'append$
 """)
     finally:
         sys.stderr = orig_stderr
@@ -1423,7 +1515,7 @@ def test_a_lot_of_callbacks():
     def make_callback(m):
         def cb(n):
             return n + m
-        return callback(BFunc, cb, 42)    # 'cb' and 'BFunc' go out of scope
+        return callback(BFunc, cb, 42)    # 'cb' goes out of scope
     #
     flist = [make_callback(i) for i in range(BIGNUM)]
     for i, f in enumerate(flist):
@@ -1625,7 +1717,8 @@ def test_enum_in_struct():
     assert ("an integer is required" in msg or  # CPython
             "unsupported operand type for int(): 'NoneType'" in msg or  # old PyPys
             "expected integer, got NoneType object" in msg) # newer PyPys
-    py.test.raises(TypeError, 'p.a1 = "def"')
+    with pytest.raises(TypeError):
+        p.a1 = "def"
     if sys.version_info < (3,):
         BEnum2 = new_enum_type(unicode("foo"), (unicode('abc'),), (5,), BInt)
         assert string(cast(BEnum2, 5)) == 'abc'
@@ -1755,14 +1848,17 @@ def test_bitfield_instance():
     p.a1 = -1
     assert p.a1 == -1
     p.a1 = 0
-    py.test.raises(OverflowError, "p.a1 = 2")
+    with pytest.raises(OverflowError):
+        p.a1 = 2
     assert p.a1 == 0
     #
     p.a1 = -1
     p.a2 = 3
     p.a3 = -4
-    py.test.raises(OverflowError, "p.a3 = 4")
-    e = py.test.raises(OverflowError, "p.a3 = -5")
+    with pytest.raises(OverflowError):
+        p.a3 = 4
+    with pytest.raises(OverflowError) as e:
+        p.a3 = -5
     assert str(e.value) == ("value -5 outside the range allowed by the "
                             "bit field width: -4 <= x <= 3")
     assert p.a1 == -1 and p.a2 == 3 and p.a3 == -4
@@ -1771,7 +1867,8 @@ def test_bitfield_instance():
     # allows also setting the value "1" (it still gets read back as -1)
     p.a1 = 1
     assert p.a1 == -1
-    e = py.test.raises(OverflowError, "p.a1 = -2")
+    with pytest.raises(OverflowError) as e:
+        p.a1 = -2
     assert str(e.value) == ("value -2 outside the range allowed by the "
                             "bit field width: -1 <= x <= 1")
 
@@ -1831,14 +1928,17 @@ def test_assign_string():
     assert string(a[2]) == b"."
     a[2] = b"12345"
     assert string(a[2]) == b"12345"
-    e = py.test.raises(IndexError, 'a[2] = b"123456"')
+    with pytest.raises(IndexError) as e:
+        a[2] = b"123456"
     assert 'char[5]' in str(e.value)
     assert 'got 6 characters' in str(e.value)
 
 def test_add_error():
     x = cast(new_primitive_type("int"), 42)
-    py.test.raises(TypeError, "x + 1")
-    py.test.raises(TypeError, "x - 1")
+    with pytest.raises(TypeError):
+        x + 1
+    with pytest.raises(TypeError):
+        x - 1
 
 def test_void_errors():
     py.test.raises(ValueError, alignof, new_void_type())
@@ -2170,8 +2270,10 @@ def _test_wchar_variant(typename):
     s = newp(BStructPtr)
     s.a1 = u+'\x00'
     assert s.a1 == u+'\x00'
-    py.test.raises(TypeError, "s.a1 = b'a'")
-    py.test.raises(TypeError, "s.a1 = bytechr(0xFF)")
+    with pytest.raises(TypeError):
+        s.a1 = b'a'
+    with pytest.raises(TypeError):
+        s.a1 = bytechr(0xFF)
     s.a1 = u+'\u1234'
     assert s.a1 == u+'\u1234'
     if pyuni4:
@@ -2185,7 +2287,8 @@ def _test_wchar_variant(typename):
             s.a1 = u+'\ud807\udf44'
             assert s.a1 == u+'\U00011f44'
     else:
-        py.test.raises(TypeError, "s.a1 = u+'\U00012345'")
+        with pytest.raises(TypeError):
+            s.a1 = u+'\U00012345'
     #
     BWCharArray = new_array_type(BWCharP, None)
     a = newp(BWCharArray, u+'hello \u1234 world')
@@ -2209,7 +2312,8 @@ def _test_wchar_variant(typename):
         assert list(a) == expected
         got = [a[i] for i in range(4)]
         assert got == expected
-        py.test.raises(IndexError, 'a[4]')
+        with pytest.raises(IndexError):
+            a[4]
     #
     w = cast(BWChar, 'a')
     assert repr(w) == "<cdata '%s' %s'a'>" % (typename, mandatory_u_prefix)
@@ -2341,9 +2445,11 @@ def test_owning_repr():
 def test_cannot_dereference_void():
     BVoidP = new_pointer_type(new_void_type())
     p = cast(BVoidP, 123456)
-    py.test.raises(TypeError, "p[0]")
+    with pytest.raises(TypeError):
+        p[0]
     p = cast(BVoidP, 0)
-    py.test.raises((TypeError, RuntimeError), "p[0]")
+    with pytest.raises((TypeError, RuntimeError)):
+        p[0]
 
 def test_iter():
     BInt = new_primitive_type("int")
@@ -2366,12 +2472,12 @@ def test_cmp():
     assert (q == p) is False
     assert (q != p) is True
     if strict_compare:
-        py.test.raises(TypeError, "p < q")
-        py.test.raises(TypeError, "p <= q")
-        py.test.raises(TypeError, "q < p")
-        py.test.raises(TypeError, "q <= p")
-        py.test.raises(TypeError, "p > q")
-        py.test.raises(TypeError, "p >= q")
+        with pytest.raises(TypeError): p < q
+        with pytest.raises(TypeError): p <= q
+        with pytest.raises(TypeError): q < p
+        with pytest.raises(TypeError): q <= p
+        with pytest.raises(TypeError): p > q
+        with pytest.raises(TypeError): p >= q
     r = cast(BVoidP, p)
     assert (p <  r) is False
     assert (p <= r) is True
@@ -2417,7 +2523,8 @@ def test_buffer():
         try:
             expected = b"hi there\x00"[i]
         except IndexError:
-            py.test.raises(IndexError, "buf[i]")
+            with pytest.raises(IndexError):
+                buf[i]
         else:
             assert buf[i] == bitem2bchr(expected)
     # --mb_slice--
@@ -2444,15 +2551,18 @@ def test_buffer():
         try:
             expected[i] = bytechr(i & 0xff)
         except IndexError:
-            py.test.raises(IndexError, "buf[i] = bytechr(i & 0xff)")
+            with pytest.raises(IndexError):
+                buf[i] = bytechr(i & 0xff)
         else:
             buf[i] = bytechr(i & 0xff)
         assert list(buf) == expected
     # --mb_ass_slice--
     buf[:] = b"hi there\x00"
     assert list(buf) == list(c) == list(map(bitem2bchr, b"hi there\x00"))
-    py.test.raises(ValueError, 'buf[:] = b"shorter"')
-    py.test.raises(ValueError, 'buf[:] = b"this is much too long!"')
+    with pytest.raises(ValueError):
+        buf[:] = b"shorter"
+    with pytest.raises(ValueError):
+        buf[:] = b"this is much too long!"
     buf[4:2] = b""   # no effect, but should work
     assert buf[:] == b"hi there\x00"
     buf[:2] = b"HI"
@@ -2488,8 +2598,8 @@ def test_errno():
     assert get_errno() == 95
 
 def test_errno_callback():
-    if globals().get('PY_DOT_PY') == '2.5':
-        py.test.skip("cannot run this test on py.py with Python 2.5")
+    if globals().get('PY_DOT_PY'):
+        py.test.skip("cannot run this test on py.py (e.g. fails on Windows)")
     set_errno(95)
     def cb():
         e = get_errno()
@@ -2526,14 +2636,16 @@ def test_bug_delitem():
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
     x = newp(BCharP)
-    py.test.raises(TypeError, "del x[0]")
+    with pytest.raises(TypeError):
+        del x[0]
 
 def test_bug_delattr():
     BLong = new_primitive_type("long")
     BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('a1', BLong, -1)])
     x = newp(new_pointer_type(BStruct))
-    py.test.raises(AttributeError, "del x.a1")
+    with pytest.raises(AttributeError):
+        del x.a1
 
 def test_variable_length_struct():
     py.test.skip("later")
@@ -2551,7 +2663,8 @@ def test_variable_length_struct():
     assert sizeof(x) == 6 * size_of_long()
     x[4] = 123
     assert x[4] == 123
-    py.test.raises(IndexError, "x[5]")
+    with pytest.raises(IndexError):
+        x[5]
     assert len(x.a2) == 5
     #
     py.test.raises(TypeError, newp, BStructP, [123])
@@ -2803,7 +2916,8 @@ def test_bool_forbidden_cases():
     BCharP = new_pointer_type(new_primitive_type("char"))
     p = newp(BCharP, b'X')
     q = cast(BBoolP, p)
-    py.test.raises(ValueError, "q[0]")
+    with pytest.raises(ValueError):
+        q[0]
     py.test.raises(TypeError, newp, BBoolP, b'\x00')
     assert newp(BBoolP, 0)[0] is False
     assert newp(BBoolP, 1)[0] is True
@@ -3103,8 +3217,10 @@ def test_slice():
     assert c[1] == 123
     assert c[3] == 456
     assert d[2] == 456
-    py.test.raises(IndexError, "d[3]")
-    py.test.raises(IndexError, "d[-1]")
+    with pytest.raises(IndexError):
+        d[3]
+    with pytest.raises(IndexError):
+        d[-1]
 
 def test_slice_ptr():
     BIntP = new_pointer_type(new_primitive_type("int"))
@@ -3122,7 +3238,8 @@ def test_slice_array_checkbounds():
     c = newp(BIntArray, 5)
     c[0:5]
     assert len(c[5:5]) == 0
-    py.test.raises(IndexError, "c[-1:1]")
+    with pytest.raises(IndexError):
+        c[-1:1]
     cp = c + 0
     cp[-1:1]
 
@@ -3130,17 +3247,23 @@ def test_nonstandard_slice():
     BIntP = new_pointer_type(new_primitive_type("int"))
     BIntArray = new_array_type(BIntP, None)
     c = newp(BIntArray, 5)
-    e = py.test.raises(IndexError, "c[:5]")
+    with pytest.raises(IndexError) as e:
+        c[:5]
     assert str(e.value) == "slice start must be specified"
-    e = py.test.raises(IndexError, "c[4:]")
+    with pytest.raises(IndexError) as e:
+        c[4:]
     assert str(e.value) == "slice stop must be specified"
-    e = py.test.raises(IndexError, "c[1:2:3]")
+    with pytest.raises(IndexError) as e:
+        c[1:2:3]
     assert str(e.value) == "slice with step not supported"
-    e = py.test.raises(IndexError, "c[1:2:1]")
+    with pytest.raises(IndexError) as e:
+        c[1:2:1]
     assert str(e.value) == "slice with step not supported"
-    e = py.test.raises(IndexError, "c[4:2]")
+    with pytest.raises(IndexError) as e:
+        c[4:2]
     assert str(e.value) == "slice start > stop"
-    e = py.test.raises(IndexError, "c[6:6]")
+    with pytest.raises(IndexError) as e:
+        c[6:6]
     assert str(e.value) == "index too large (expected 6 <= 5)"
 
 def test_setslice():
@@ -3154,9 +3277,11 @@ def test_setslice():
     assert list(c) == [0, 100, 300, 400, 0]
     cp[-1:1] = iter([500, 600])
     assert list(c) == [0, 100, 500, 600, 0]
-    py.test.raises(ValueError, "cp[-1:1] = [1000]")
+    with pytest.raises(ValueError):
+        cp[-1:1] = [1000]
     assert list(c) == [0, 100, 1000, 600, 0]
-    py.test.raises(ValueError, "cp[-1:1] = (700, 800, 900)")
+    with pytest.raises(ValueError):
+        cp[-1:1] = (700, 800, 900)
     assert list(c) == [0, 100, 700, 800, 0]
 
 def test_setslice_array():
@@ -3331,6 +3456,18 @@ def test_bitfield_as_ppc_gcc():
     _test_bitfield_details(flag=SF_GCC_X86_BITFIELDS|SF_GCC_BIG_ENDIAN)
 
 
+def buffer_warning(cdata):
+    import warnings
+    buf = buffer(cdata)
+    bytes = len(buf)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        buffer(cdata, bytes)
+        assert len(w) == 0
+        buffer(cdata, bytes + 1)
+        assert len(w) <= 1
+        return len(w) == 1
+
 def test_struct_array_no_length():
     BInt = new_primitive_type("int")
     BIntP = new_pointer_type(BInt)
@@ -3416,10 +3553,14 @@ def test_struct_array_no_length():
     assert sizeof(q[0]) == sizeof(BStruct)
     #
     # error cases
-    py.test.raises(IndexError, "p.y[4]")
-    py.test.raises(TypeError, "p.y = cast(BIntP, 0)")
-    py.test.raises(TypeError, "p.y = 15")
-    py.test.raises(TypeError, "p.y = None")
+    with pytest.raises(IndexError):
+        p.y[4]
+    with pytest.raises(TypeError):
+        p.y = cast(BIntP, 0)
+    with pytest.raises(TypeError):
+        p.y = 15
+    with pytest.raises(TypeError):
+        p.y = None
     #
     # accepting this may be specified by the C99 standard,
     # or a GCC strangeness...
@@ -3441,6 +3582,30 @@ def test_struct_array_no_length():
     assert p.a[1] == 20
     assert p.a[2] == 30
     assert p.a[3] == 0
+    assert buffer_warning(p)
+    #
+    # struct of struct of varsized array
+    BStruct2 = new_struct_type("bar")
+    complete_struct_or_union(BStruct2, [('head', BInt),
+                                        ('tail', BStruct)])
+    for i in range(2):   # try to detect heap overwrites
+        p = newp(new_pointer_type(BStruct2), [100, [200, list(range(50))]])
+        assert p.tail.y[49] == 49
+    assert buffer_warning(p)
+    assert not buffer_warning(cast(new_pointer_type(BStruct2), p))
+    assert not buffer_warning(cast(BIntP, p))
+
+def test_more_buffer_warning():
+    BChar = new_primitive_type("unsigned char")
+    BCharP = new_pointer_type(BChar)
+    BArray = new_array_type(BCharP, 10)   # char[10]
+    p = newp(BArray)
+    assert buffer_warning(p)
+    assert not buffer_warning(cast(BCharP, p))
+    p = newp(BCharP)
+    assert buffer_warning(p)
+    assert not buffer_warning(cast(BCharP, p))
+
 
 def test_struct_array_no_length_explicit_position():
     BInt = new_primitive_type("int")
@@ -3515,8 +3680,10 @@ def test_ass_slice():
     p[2:5] = [b"*", b"Z", b"T"]
     p[1:3] = b"XY"
     assert list(p) == [b"f", b"X", b"Y", b"Z", b"T", b"r", b"\x00"]
-    py.test.raises(TypeError, "p[1:5] = u+'XYZT'")
-    py.test.raises(TypeError, "p[1:5] = [1, 2, 3, 4]")
+    with pytest.raises(TypeError):
+        p[1:5] = u+'XYZT'
+    with pytest.raises(TypeError):
+        p[1:5] = [1, 2, 3, 4]
     #
     for typename in ["wchar_t", "char16_t", "char32_t"]:
         BUniChar = new_primitive_type(typename)
@@ -3525,8 +3692,10 @@ def test_ass_slice():
         p[2:5] = [u+"*", u+"Z", u+"T"]
         p[1:3] = u+"XY"
         assert list(p) == [u+"f", u+"X", u+"Y", u+"Z", u+"T", u+"r", u+"\x00"]
-        py.test.raises(TypeError, "p[1:5] = b'XYZT'")
-        py.test.raises(TypeError, "p[1:5] = [1, 2, 3, 4]")
+        with pytest.raises(TypeError):
+            p[1:5] = b'XYZT'
+        with pytest.raises(TypeError):
+            p[1:5] = [1, 2, 3, 4]
 
 def test_void_p_arithmetic():
     BVoid = new_void_type()
@@ -3537,10 +3706,14 @@ def test_void_p_arithmetic():
     assert int(cast(BInt, p - (-42))) == 100042
     assert (p + 42) - p == 42
     q = cast(new_pointer_type(new_primitive_type("char")), 100000)
-    py.test.raises(TypeError, "p - q")
-    py.test.raises(TypeError, "q - p")
-    py.test.raises(TypeError, "p + cast(new_primitive_type('int'), 42)")
-    py.test.raises(TypeError, "p - cast(new_primitive_type('int'), 42)")
+    with pytest.raises(TypeError):
+        p - q
+    with pytest.raises(TypeError):
+        q - p
+    with pytest.raises(TypeError):
+        p + cast(new_primitive_type('int'), 42)
+    with pytest.raises(TypeError):
+        p - cast(new_primitive_type('int'), 42)
 
 def test_sizeof_sliced_array():
     BInt = new_primitive_type("int")
@@ -3747,7 +3920,9 @@ def test_from_buffer_types():
     BIntP = new_pointer_type(BInt)
     BIntA = new_array_type(BIntP, None)
     lst = [-12345678, 87654321, 489148]
-    bytestring = buffer(newp(BIntA, lst))[:] + b'XYZ'
+    bytestring = bytearray(buffer(newp(BIntA, lst))[:] + b'XYZ')
+    lst2 = lst + [42, -999999999]
+    bytestring2 = bytearray(buffer(newp(BIntA, lst2))[:] + b'XYZ')
     #
     p1 = from_buffer(BIntA, bytestring)      # int[]
     assert typeof(p1) is BIntA
@@ -3755,11 +3930,25 @@ def test_from_buffer_types():
     assert p1[0] == lst[0]
     assert p1[1] == lst[1]
     assert p1[2] == lst[2]
-    py.test.raises(IndexError, "p1[3]")
-    py.test.raises(IndexError, "p1[-1]")
+    with pytest.raises(IndexError):
+        p1[3]
+    with pytest.raises(IndexError):
+        p1[-1]
     #
     py.test.raises(TypeError, from_buffer, BInt, bytestring)
-    py.test.raises(TypeError, from_buffer, BIntP, bytestring)
+    #
+    p2 = from_buffer(BIntP, bytestring)      # int *
+    assert p2 == p1 or 'PY_DOT_PY' in globals()
+    # note: on py.py ^^^, bytearray buffers are not emulated well enough
+    assert typeof(p2) is BIntP
+    assert p2[0] == lst[0]
+    assert p2[1] == lst[1]
+    assert p2[2] == lst[2]
+    # hopefully does not crash, but doesn't raise an exception:
+    p2[3]
+    p2[-1]
+    # not enough data even for one, but this is not enforced:
+    from_buffer(BIntP, b"")
     #
     BIntA2 = new_array_type(BIntP, 2)
     p2 = from_buffer(BIntA2, bytestring)     # int[2]
@@ -3767,9 +3956,11 @@ def test_from_buffer_types():
     assert len(p2) == 2
     assert p2[0] == lst[0]
     assert p2[1] == lst[1]
-    py.test.raises(IndexError, "p2[2]")
-    py.test.raises(IndexError, "p2[-1]")
-    assert p2 == p1
+    with pytest.raises(IndexError):
+        p2[2]
+    with pytest.raises(IndexError):
+        p2[-1]
+    assert p2 == p1 or 'PY_DOT_PY' in globals()
     #
     BIntA4 = new_array_type(BIntP, 4)        # int[4]: too big
     py.test.raises(ValueError, from_buffer, BIntA4, bytestring)
@@ -3779,12 +3970,37 @@ def test_from_buffer_types():
                                        ('a2', BInt, -1)])
     BStructP = new_pointer_type(BStruct)
     BStructA = new_array_type(BStructP, None)
-    p1 = from_buffer(BStructA, bytestring)   # struct[]
-    assert len(p1) == 1
+    p1 = from_buffer(BStructA, bytestring2)   # struct[]
+    assert len(p1) == 2
     assert typeof(p1) is BStructA
-    assert p1[0].a1 == lst[0]
-    assert p1[0].a2 == lst[1]
-    py.test.raises(IndexError, "p1[1]")
+    assert p1[0].a1 == lst2[0]
+    assert p1[0].a2 == lst2[1]
+    assert p1[1].a1 == lst2[2]
+    assert p1[1].a2 == lst2[3]
+    with pytest.raises(IndexError):
+        p1[2]
+    with pytest.raises(IndexError):
+        p1[-1]
+    assert repr(p1) == "<cdata 'foo[]' buffer len 2 from 'bytearray' object>"
+    #
+    p2 = from_buffer(BStructP, bytestring2)    # 'struct *'
+    assert p2 == p1 or 'PY_DOT_PY' in globals()
+    assert typeof(p2) is BStructP
+    assert p2.a1 == lst2[0]
+    assert p2.a2 == lst2[1]
+    assert p2[0].a1 == lst2[0]
+    assert p2[0].a2 == lst2[1]
+    assert p2[1].a1 == lst2[2]
+    assert p2[1].a2 == lst2[3]
+    # does not crash:
+    p2[2]
+    p2[-1]
+    # not enough data even for one, but this is not enforced:
+    from_buffer(BStructP, b"")
+    from_buffer(BStructP, b"1234567")
+    #
+    release(p1)
+    assert repr(p1) == "<cdata 'foo[]' buffer RELEASED>"
     #
     BEmptyStruct = new_struct_type("empty")
     complete_struct_or_union(BEmptyStruct, [], Ellipsis, 0)
@@ -3798,7 +4014,51 @@ def test_from_buffer_types():
     p1 = from_buffer(BEmptyStructA5, bytestring)   # struct empty[5]
     assert typeof(p1) is BEmptyStructA5
     assert len(p1) == 5
-    assert cast(BIntP, p1) == from_buffer(BIntA, bytestring)
+    assert (cast(BIntP, p1) == from_buffer(BIntA, bytestring)
+            or 'PY_DOT_PY' in globals())
+    #
+    BVarStruct = new_struct_type("varfoo")
+    BVarStructP = new_pointer_type(BVarStruct)
+    complete_struct_or_union(BVarStruct, [('a1', BInt, -1),
+                                          ('va', BIntA, -1)])
+    with pytest.raises(TypeError):
+        from_buffer(BVarStruct, bytestring)
+    pv = from_buffer(BVarStructP, bytestring)    # varfoo *
+    assert pv.a1 == lst[0]
+    assert pv.va[0] == lst[1]
+    assert pv.va[1] == lst[2]
+    assert sizeof(pv[0]) == 1 * size_of_int()
+    with pytest.raises(TypeError):
+        len(pv.va)
+    # hopefully does not crash, but doesn't raise an exception:
+    pv.va[2]
+    pv.va[-1]
+    # not enough data even for one, but this is not enforced:
+    from_buffer(BVarStructP, b"")
+    assert repr(pv) == "<cdata 'varfoo *' buffer from 'bytearray' object>"
+    assert repr(pv[0]).startswith("<cdata 'varfoo &' ")
+    #
+    release(pv)
+    assert repr(pv) == "<cdata 'varfoo *' buffer RELEASED>"
+    assert repr(pv[0]).startswith("<cdata 'varfoo &' ")
+    #
+    pv = from_buffer(BVarStructP, bytestring)    # make a fresh one
+    with pytest.raises(ValueError):
+        release(pv[0])
+
+def test_issue483():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BIntA = new_array_type(BIntP, None)
+    lst = list(range(25))
+    bytestring = bytearray(buffer(newp(BIntA, lst))[:] + b'XYZ')
+    p1 = from_buffer(BIntA, bytestring)      # int[]
+    assert len(buffer(p1)) == 25 * size_of_int()
+    assert sizeof(p1) == 25 * size_of_int()
+    #
+    p2 = from_buffer(BIntP, bytestring)
+    assert sizeof(p2) == size_of_ptr()
+    assert len(buffer(p2)) == size_of_int()  # first element only, by default
 
 def test_memmove():
     Short = new_primitive_type("short")
@@ -3876,10 +4136,14 @@ def test_dereference_null_ptr():
     BInt = new_primitive_type("int")
     BIntPtr = new_pointer_type(BInt)
     p = cast(BIntPtr, 0)
-    py.test.raises(RuntimeError, "p[0]")
-    py.test.raises(RuntimeError, "p[0] = 42")
-    py.test.raises(RuntimeError, "p[42]")
-    py.test.raises(RuntimeError, "p[42] = -1")
+    with pytest.raises(RuntimeError):
+        p[0]
+    with pytest.raises(RuntimeError):
+        p[0] = 42
+    with pytest.raises(RuntimeError):
+        p[42]
+    with pytest.raises(RuntimeError):
+        p[42] = -1
 
 def test_mixup():
     BStruct1 = new_struct_type("foo")
@@ -3895,10 +4159,12 @@ def test_mixup():
     pp2 = newp(BStruct2PtrPtr)
     pp3 = newp(BStruct3PtrPtr)
     pp1[0] = pp1[0]
-    e = py.test.raises(TypeError, "pp3[0] = pp1[0]")
+    with pytest.raises(TypeError) as e:
+        pp3[0] = pp1[0]
     assert str(e.value).startswith("initializer for ctype 'bar *' must be a ")
     assert str(e.value).endswith(", not cdata 'foo *'")
-    e = py.test.raises(TypeError, "pp2[0] = pp1[0]")
+    with pytest.raises(TypeError) as e:
+        pp2[0] = pp1[0]
     assert str(e.value) == ("initializer for ctype 'foo *' appears indeed to "
                             "be 'foo *', but the types are different (check "
                             "that you are not e.g. mixing up different ffi "
@@ -4087,14 +4353,14 @@ def test_primitive_comparison():
         assert (a != b) is True
         assert (b != a) is True
         if strict_compare:
-            py.test.raises(TypeError, "a < b")
-            py.test.raises(TypeError, "a <= b")
-            py.test.raises(TypeError, "a > b")
-            py.test.raises(TypeError, "a >= b")
-            py.test.raises(TypeError, "b < a")
-            py.test.raises(TypeError, "b <= a")
-            py.test.raises(TypeError, "b > a")
-            py.test.raises(TypeError, "b >= a")
+            with pytest.raises(TypeError): a < b
+            with pytest.raises(TypeError): a <= b
+            with pytest.raises(TypeError): a > b
+            with pytest.raises(TypeError): a >= b
+            with pytest.raises(TypeError): b < a
+            with pytest.raises(TypeError): b <= a
+            with pytest.raises(TypeError): b > a
+            with pytest.raises(TypeError): b >= a
         elif a < b:
             assert_lt(a, b)
         else:
@@ -4140,7 +4406,8 @@ def test_explicit_release_new():
     BIntP = new_pointer_type(new_primitive_type("int"))
     p = newp(BIntP)
     p[0] = 42
-    py.test.raises(IndexError, "p[1]")
+    with pytest.raises(IndexError):
+        p[1]
     release(p)
     # here, reading p[0] might give garbage or segfault...
     release(p)   # no effect
@@ -4176,8 +4443,12 @@ def test_explicit_release_badtype():
 def test_explicit_release_badtype_contextmgr():
     BIntP = new_pointer_type(new_primitive_type("int"))
     p = cast(BIntP, 12345)
-    py.test.raises(ValueError, "with p: pass")
-    py.test.raises(ValueError, "with p: pass")
+    with pytest.raises(ValueError):
+        with p:
+            pass
+    with pytest.raises(ValueError):
+        with p:
+            pass
 
 def test_explicit_release_gc():
     BIntP = new_pointer_type(new_primitive_type("int"))
@@ -4213,8 +4484,10 @@ def test_explicit_release_from_buffer():
     BCharA = new_array_type(BCharP, None)
     p = from_buffer(BCharA, a)
     assert p[2] == b"z"
+    assert repr(p) == "<cdata 'char[]' buffer len 3 from 'bytearray' object>"
     release(p)
     assert p[2] == b"z"  # true so far, but might change to raise RuntimeError
+    assert repr(p) == "<cdata 'char[]' buffer RELEASED>"
     release(p)   # no effect
 
 def test_explicit_release_from_buffer_contextmgr():
@@ -4226,6 +4499,7 @@ def test_explicit_release_from_buffer_contextmgr():
     with p:
         assert p[2] == b"z"
     assert p[2] == b"z"  # true so far, but might change to raise RuntimeError
+    assert repr(p) == "<cdata 'char[]' buffer RELEASED>"
     release(p)   # no effect
 
 def test_explicit_release_bytearray_on_cpython():
@@ -4237,9 +4511,95 @@ def test_explicit_release_bytearray_on_cpython():
     BCharA = new_array_type(BCharP, None)
     a += b't' * 10
     p = from_buffer(BCharA, a)
-    py.test.raises(BufferError, "a += b'u' * 100")
+    with pytest.raises(BufferError):
+        a += b'u' * 100
     release(p)
     a += b'v' * 100
     release(p)   # no effect
     a += b'w' * 1000
     assert a == bytearray(b"xyz" + b't' * 10 + b'v' * 100 + b'w' * 1000)
+
+def test_int_doesnt_give_bool():
+    BBool = new_primitive_type("_Bool")
+    x = int(cast(BBool, 42))
+    assert type(x) is int and x == 1
+    x = long(cast(BBool, 42))
+    assert type(x) is long and x == 1
+    with pytest.raises(TypeError):
+        float(cast(BBool, 42))
+    with pytest.raises(TypeError):
+        complex(cast(BBool, 42))
+
+def test_cannot_call_null_function_pointer():
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BInt, BInt), BInt, False)
+    f = cast(BFunc, 0)
+    with pytest.raises(RuntimeError):
+        f(40, 2)
+
+def test_huge_structure():
+    BChar = new_primitive_type("char")
+    BArray = new_array_type(new_pointer_type(BChar), sys.maxsize)
+    assert sizeof(BArray) == sys.maxsize
+    BStruct = new_struct_type("struct foo")
+    complete_struct_or_union(BStruct, [('a1', BArray, -1)])
+    assert sizeof(BStruct) == sys.maxsize
+
+def test_get_types():
+    import _cffi_backend
+    CData, CType = _get_types()
+    assert CData is _cffi_backend._CDataBase
+    assert CType is _cffi_backend.CType
+
+def test_type_available_with_correct_names():
+    import _cffi_backend
+    check_names = [
+        'CType',
+        'CField',
+        'CLibrary',
+        '_CDataBase',
+        'FFI',
+        'Lib',
+        'buffer',
+    ]
+    if '__pypy__' in sys.builtin_module_names:
+        check_names += [
+            '__CData_iterator',
+            '__FFIGlobSupport',
+            '__FFIAllocator',
+            '__FFIFunctionWrapper',
+        ]
+    else:
+        check_names += [
+            '__CDataOwn',
+            '__CDataOwnGC',
+            '__CDataFromBuf',
+            '__CDataGCP',
+            '__CData_iterator',
+            '__FFIGlobSupport',
+        ]
+    for name in check_names:
+        tp = getattr(_cffi_backend, name)
+        assert isinstance(tp, type)
+        assert (tp.__module__, tp.__name__) == ('_cffi_backend', name)
+
+def test_unaligned_types():
+    BByteArray = new_array_type(
+        new_pointer_type(new_primitive_type("unsigned char")), None)
+    pbuf = newp(BByteArray, 40)
+    buf = buffer(pbuf)
+    #
+    for name in ['short', 'int', 'long', 'long long', 'float', 'double',
+                 'float _Complex', 'double _Complex']:
+        p = new_primitive_type(name)
+        if name.endswith(' _Complex'):
+            num = cast(p, 1.23 - 4.56j)
+        else:
+            num = cast(p, 0x0123456789abcdef)
+        size = sizeof(p)
+        buf[0:40] = b"\x00" * 40
+        pbuf1 = cast(new_pointer_type(p), pbuf + 1)
+        pbuf1[0] = num
+        assert pbuf1[0] == num
+        assert buf[0] == b'\x00'
+        assert buf[1 + size] == b'\x00'

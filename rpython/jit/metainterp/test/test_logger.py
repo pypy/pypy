@@ -1,13 +1,11 @@
-
 import re
+from StringIO import StringIO
 from rpython.rlib import debug
 from rpython.jit.tool.oparser import pure_parse
 from rpython.jit.metainterp import logger
-from rpython.jit.metainterp.typesystem import llhelper
-from StringIO import StringIO
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.metainterp.history import AbstractDescr, JitCellToken, BasicFailDescr, BasicFinalDescr
-from rpython.jit.backend.model import AbstractCPU
+from rpython.jit.metainterp.history import (
+    AbstractDescr, JitCellToken, BasicFailDescr, BasicFinalDescr)
 
 
 class Descr(AbstractDescr):
@@ -20,8 +18,10 @@ def capturing(func, *args, **kwds):
             for arg in args:
                 print >> log_stream, arg,
             print >> log_stream
+
         def debug_start(self, *args):
             pass
+
         def debug_stop(self, *args):
             pass
     try:
@@ -50,16 +50,12 @@ class Logger(logger.Logger):
         return logops
 
 class TestLogger(object):
-    ts = llhelper
-
     def make_metainterp_sd(self):
         class FakeJitDriver(object):
             class warmstate(object):
                 get_location_str = staticmethod(lambda args: "dupa")
 
         class FakeMetaInterpSd:
-            cpu = AbstractCPU()
-            cpu.ts = self.ts
             jitdrivers_sd = [FakeJitDriver()]
             def get_name_from_address(self, addr):
                 return 'Name'
