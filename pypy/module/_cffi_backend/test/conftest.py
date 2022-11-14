@@ -12,3 +12,9 @@ if sys.platform == 'win32':
             os.environ[key] = host.c_environ[key]
         os.environ['DISTUTILS_USE_SDK'] = "1"
         os.environ['MSSdk'] = "1"
+
+def pytest_collection_modifyitems(config, items):
+    skip = pytest.mark.skip(reason="PyPy does not report a traceback")
+    for item in items:
+        if item.name == "test_callback_exception":
+            item.add_marker(skip)

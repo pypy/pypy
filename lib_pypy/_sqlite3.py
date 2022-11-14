@@ -105,14 +105,6 @@ PARSE_DECLTYPES = 2
 # SQLite version information
 sqlite_version = str(_ffi.string(_lib.sqlite3_libversion()).decode('ascii'))
 
-_STMT_TYPE_UPDATE = 0
-_STMT_TYPE_DELETE = 1
-_STMT_TYPE_INSERT = 2
-_STMT_TYPE_REPLACE = 3
-_STMT_TYPE_OTHER = 4
-_STMT_TYPE_SELECT = 5
-_STMT_TYPE_INVALID = 6
-
 # flag that signals if base types need adaption
 BASE_TYPE_ADAPTED = False
 
@@ -1118,9 +1110,22 @@ class Cursor(object):
         try:
             return self.__description
         except AttributeError:
-            if self.__statement:
-                self.__description = self.__statement._get_description()
-                return self.__description
+            if not self.__statement:
+                return None
+            statement = self.__statement
+            if not statement._valid:
+                return None
+
+            if not (hasattr(self, '_Cursor__next_row') or statement._is_select):
+                return None
+            desc = []
+            for i in xrange(_lib.sqlite3_column_count(statement._statement)):
+                name = _lib.sqlite3_column_name(statement._statement, i)
+                if name:
+                    name = _ffi.string(name).decode('utf-8').split("[")[0].strip()
+                desc.append((name, None, None, None, None, None, None))
+            self.__description = tuple(desc)
+            return self.__description
     description = property(__get_description)
 
     def __get_lastrowid(self):
@@ -1152,6 +1157,7 @@ class Statement(object):
         to_check = sql.lstrip().upper()
         self._valid = bool(to_check)
         self._is_dml = to_check.startswith(('INSERT', 'UPDATE', 'DELETE', 'REPLACE'))
+        self._is_select = to_check.startswith('SELECT')
 
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
@@ -1282,19 +1288,6 @@ class Statement(object):
                     raise self.__con._get_exception(rc)
         else:
             raise ValueError("parameters are of unsupported type")
-
-    def _get_description(self):
-        if self._is_dml or not self._valid:
-            return None
-        desc = []
-        for i in xrange(_lib.sqlite3_column_count(self._statement)):
-            name = _lib.sqlite3_column_name(self._statement, i)
-            if name:
-                name = _ffi.string(name).decode('utf-8')
-                if self.__con._detect_types & PARSE_COLNAMES:
-                    name = name.split("[")[0].strip()
-            desc.append((name, None, None, None, None, None, None))
-        return desc
 
 
 class Row(object):

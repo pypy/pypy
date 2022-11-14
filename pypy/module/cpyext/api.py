@@ -1598,12 +1598,14 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
 
     # generate graminit.h
     graminit_h = udir.join('graminit.h')
-    graminit_h.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */')
-    for attr in dir(pygram.syms):
-        val = getattr(pygram.syms, attr)
-        graminit_h.write('#define {} {}'.format(attr, val))
+    with graminit_h.open('w', ensure=True) as fid:
+        fid.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */\n\n')
+        for attr in dir(pygram.syms):
+            val = getattr(pygram.syms, attr)
+            if isinstance(val, int):
+                fid.write('#define {} {}\n'.format(attr, val))
 
-
+ 
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
                          source_dir / "modsupport.c",

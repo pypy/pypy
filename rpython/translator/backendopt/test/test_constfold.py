@@ -9,6 +9,8 @@ from rpython.rlib import objectmodel
 from rpython.translator.backendopt.constfold import constant_fold_graph
 from rpython.translator.backendopt.constfold import replace_we_are_jitted
 from rpython.conftest import option
+from rpython.rlib import jit
+from rpython.rlib import rarithmetic
 
 def get_graph(fn, signature):
     t = TranslationContext()
@@ -346,7 +348,6 @@ def test_merge_if_blocks_bug_2():
     check_graph(graph, [], 66, t)
 
 def test_replace_we_are_jitted():
-    from rpython.rlib import jit
     def fn():
         if jit.we_are_jitted():
             return 1
@@ -359,3 +360,41 @@ def test_replace_we_are_jitted():
     assert len(graph.startblock.operations) == 0
     assert graph.startblock.exitswitch is None
     assert graph.startblock.exits[0].target.exits[0].args[0].value == 2
+
+def test_int_ovf():
+    import sys
+    def fn():
+        # just using we_are_jitted as a way to introduce constants late
+        if jit.we_are_jitted():
+            x = 1
+            y = 5
+        else:
+            x = 2
+            y = 12
+        x += 2
+        try:
+            return rarithmetic.ovfcheck(x + y)
+        except OverflowError:
+            return -12
+    graph, t = get_graph(fn, [])
+    result = replace_we_are_jitted(graph)
+    assert summary(graph).get('int_add_nonneg_ovf', 0) == 0
+    check_graph(graph, [], 16, t)
+
+    def fn():
+        if jit.we_are_jitted():
+            x = 1
+            y = 5
+        else:
+            x = 2
+            y = sys.maxint
+        x += 2
+        try:
+            return rarithmetic.ovfcheck(x + y)
+        except OverflowError:
+            return -12
+    graph, t = get_graph(fn, [])
+    result = replace_we_are_jitted(graph)
+    assert summary(graph).get('int_add_nonneg_ovf', 0) == 0
+    check_graph(graph, [], -12, t)
+
