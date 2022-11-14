@@ -2229,7 +2229,6 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         assert f.__name__ == "my_name"
         assert f.__qualname__ == "my_qualname"
 
-    @pytest.mark.skip(reason="Python3.9+")
     def test_nanobind2_vectorcall_method(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
         module = self.import_module(name='nanobind2', filename="nanobind2")

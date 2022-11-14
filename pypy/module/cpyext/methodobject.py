@@ -575,6 +575,12 @@ def argtuple_from_pyobject_array(space, py_args, n):
         args_w[i] = from_ref(space, py_args[i])
     return space.newtuple(args_w)
 
+def obj_and_tuple_from_pyobject_array(space, py_args, n_minus_1):
+    args_w = [None] * n_minus_1
+    for i in range(n_minus_1):
+        args_w[i] = from_ref(space, py_args[i + 1])
+    return from_ref(space, py_args[0]), args_w
+
 def PyVectorcall_NARGS(n):
     PY_VECTORCALL_ARGUMENTS_OFFSET = 1 << (8 * rffi.sizeof(rffi.SIZE_T) - 1)
     return n & ~PY_VECTORCALL_ARGUMENTS_OFFSET
@@ -610,3 +616,26 @@ def PyObject_VectorcallDict(space, w_func, py_args, n, w_kwargs):
     w_args = argtuple_from_pyobject_array(space, py_args, n)
     w_result = space.call(w_func, w_args, w_kwargs)
     return w_result
+
+@cts.decl("PyObject *PyObject_VectorcallMethod(PyObject *, PyObject *const *, "
+          "size_t, PyObject *)")
+def PyObject_VectorcallMethod(space, w_name, py_args, n, w_argnames):
+    if w_argnames is None:
+        n_kwargs = -1
+    else:
+        n_kwargs = space.len_w(w_argnames)
+    n = PyVectorcall_NARGS(n)
+    n_minus_1 = n - 1
+    if n_minus_1 < 0:
+        raise oefmt(space.w_ValueError, "n<1 in call to PyObject_VectorcallMethod")
+    w_obj, args_w = obj_and_tuple_from_pyobject_array(space, py_args, n_minus_1)
+    if w_argnames is None:
+        return space.call_method(w_obj, space.text_w(w_name), *args_w)
+    w_kwargs = space.newdict()
+    for i in range(n_kwargs):
+        space.setitem(w_kwargs, space.getitem(w_argnames, space.newint(i)),
+                from_ref(space, py_args[n + i]))
+    w_meth = self.getattr(w_obj, w_name)
+    return space.call(w_meth, space.newtuple(args_w), w_kwargs)
+
+
