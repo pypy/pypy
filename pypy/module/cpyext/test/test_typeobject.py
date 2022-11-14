@@ -2167,6 +2167,9 @@ class AppTestFlags(AppTestCpythonExtensionBase):
     def test_nanobind2_tp_traverse(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
         import gc
+        import sys
+        if sys.implementation.name == 'pypy':
+            skip("tp_traverse not yet implemented in PyPy")
         module = self.import_module(name='nanobind2', filename="nanobind2")
         # Create an unreferenced cycle
         a = module.wrapper()
