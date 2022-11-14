@@ -630,12 +630,23 @@ def PyObject_VectorcallMethod(space, w_name, py_args, n, w_argnames):
         raise oefmt(space.w_ValueError, "n<1 in call to PyObject_VectorcallMethod")
     w_obj, args_w = obj_and_tuple_from_pyobject_array(space, py_args, n_minus_1)
     if w_argnames is None:
-        return space.call_method(w_obj, space.text_w(w_name), *args_w)
+        # fast path. Cannot use call_method(... *args_w)
+        name = space.text_w(w_name)
+        if n_minus_1 == 0:
+            return space.call_method(w_obj, name)
+        elif n_minus_1 == 1:
+            return space.call_method(w_obj, name, args_w[0])
+        elif n_minus_1 == 2:
+            return space.call_method(w_obj, name, args_w[0], args_w[1])
+        elif n_minus_1 == 3:
+            return space.call_method(w_obj, name, args_w[0], args_w[1], args_w[2])
+        w_meth = space.getattr(w_obj, w_name)
+        return space.call(w_meth, space.newtuple(args_w))
     w_kwargs = space.newdict()
     for i in range(n_kwargs):
         space.setitem(w_kwargs, space.getitem(w_argnames, space.newint(i)),
                 from_ref(space, py_args[n + i]))
-    w_meth = self.getattr(w_obj, w_name)
+    w_meth = space.getattr(w_obj, w_name)
     return space.call(w_meth, space.newtuple(args_w), w_kwargs)
 
 
