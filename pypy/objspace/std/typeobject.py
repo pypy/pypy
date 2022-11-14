@@ -1,7 +1,7 @@
 import weakref
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, oefmt_attribute_error
 from pypy.interpreter.function import (
     Function, StaticMethod, ClassMethod, FunctionWithFixedCode)
 from pypy.interpreter.typedef import (
@@ -766,8 +766,8 @@ class W_TypeObject(W_Root):
             return space.get(w_value, space.w_None, self)
         if w_descr is not None:
             return space.get(w_descr, self)
-        raise oefmt(space.w_AttributeError,
-                    "type object '%N' has no attribute %R", self, w_name)
+        raise oefmt_attribute_error(
+            space, self, w_name, "type object '%N' has no attribute %R")
 
     def descr_ne(self, space, w_other):
         if not isinstance(w_other, W_TypeObject):
