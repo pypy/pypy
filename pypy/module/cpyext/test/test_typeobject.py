@@ -2163,3 +2163,45 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             assert value == 1234
 
         module.call(f)
+
+    def test_nanobind2_tp_traverse(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        import gc
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+        # Create an unreferenced cycle
+        a = module.wrapper()
+        a.nested = a
+        del a
+        for i in range(5):
+            gc.collect()
+        gl = module.global_list
+        assert gl == ['wrapper tp_init called.',
+                      'wrapper tp_traverse called.',
+                      'wrapper tp_traverse called.',
+                      'wrapper tp_clear called.',
+                      'wrapper tp_dealloc called.',
+                     ]
+
+    def test_nanobind2_module_attributes(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+
+        f = module.func()
+        assert f.__module__   == "my_module"
+        assert f.__name__ == "my_name"
+        assert f.__qualname__ == "my_qualname"
+
+    def test_nanobind2_vectorcall_method(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+
+        class A:
+            def __init__(self):
+                self.value = 0
+
+            def my_method(self, value):
+                self.value = value
+
+        a = A()
+        module.method_call(a)
+        assert a.value == 1234
