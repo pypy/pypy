@@ -2184,13 +2184,18 @@ class AppTestFlags(AppTestCpythonExtensionBase):
 
     def test_nanobind2_module_attributes(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        import sys
         module = self.import_module(name='nanobind2', filename="nanobind2")
 
         f = module.func()
-        assert f.__module__   == "my_module"
+        if sys.version_info > (3, 9):
+            assert f.__module__   == "my_module"
+        else:
+            assert f.__module__   == "nanobind2"
         assert f.__name__ == "my_name"
         assert f.__qualname__ == "my_qualname"
 
+    @pytest.mark.skip(reason="Python3.9+")
     def test_nanobind2_vectorcall_method(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
         module = self.import_module(name='nanobind2', filename="nanobind2")
