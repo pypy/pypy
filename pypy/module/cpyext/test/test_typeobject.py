@@ -2243,24 +2243,23 @@ class AppTestFlags(AppTestCpythonExtensionBase):
                 return "success"
 
         a = A()
-        assert method_call(a) == "success"
+        assert module.method_call(a) == "success"
         assert a.args == (1234,) and a.kwargs == {}
-        assert method_call_kw(a) == "success"
+        assert module.method_call_kw(a) == "success"
         assert a.args == (1234,) and a.kwargs == {"foo" : "bar"}
 
 
-        args_value = []
-        kwargs_value = {}
-
         def unbound_method(*args, **kwargs):
-            global args_value, kwargs_value
-            args_value = args
-            kwargs_value = kwargs
+            args_value.update(args)
+            kwargs_value.update(kwargs)
             return "unbound"
 
         a.my_method = unbound_method
+        kwargs_value = {}
+        args_value = set()
 
-        assert method_call(a) == "unbound"
-        assert args_value == (1234,) and kwargs_value == {}
-        assert method_call_kw(a) == "unbound"
-        assert args_value == (1234,) and kwargs_value == {"foo" : "bar"}
+
+        assert module.method_call(a) == "unbound"
+        assert args_value == set([1234]) and kwargs_value == {}
+        assert module.method_call_kw(a) == "unbound"
+        assert args_value == set([1234]) and kwargs_value == {"foo" : "bar"}
