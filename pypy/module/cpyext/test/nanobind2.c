@@ -131,8 +131,53 @@ static PyObject* method_call(PyObject* self, PyObject* arg) {
     return result;
 }
 
+static PyObject* method_call_kw(PyObject* self, PyObject* arg) {
+    PyObject *value = NULL,
+             *name = NULL,
+             *kwnames = NULL,
+             *kw_name = NULL,
+             *kw_value = NULL,
+             *result = NULL;
+
+    value = PyLong_FromLong(1234);
+    if (!value)
+        goto leave;
+
+    name = PyUnicode_FromString("my_method");
+    if (!name)
+        goto leave;
+
+    kwnames = PyTuple_New(1);
+    if (!kwnames)
+        goto leave;
+
+    kw_name = PyUnicode_InternFromString("foo");
+    if (!kw_name)
+        goto leave;
+    PyTuple_SET_ITEM(kwnames, 0, kw_name);
+
+    kw_value = PyUnicode_FromString("bar");
+    if (!kw_value)
+        goto leave;
+
+    PyObject *args[3] = { arg, value, kw_value };
+    size_t nargsf = 2 | PY_VECTORCALL_ARGUMENTS_OFFSET;
+
+    result = PyObject_VectorcallMethod(
+        name, args, nargsf, kwnames);
+
+leave:
+    Py_XDECREF(value);
+    Py_XDECREF(name);
+    Py_XDECREF(kwnames);
+    Py_XDECREF(kw_value);
+
+    return result;
+}
+
 struct PyMethodDef pypy_issues_methods[] = {
     { "method_call", (PyCFunction) method_call, METH_O, NULL },
+    { "method_call_kw", (PyCFunction) method_call_kw, METH_O, NULL },
     { NULL, NULL, 0, NULL},
 };
 #endif
