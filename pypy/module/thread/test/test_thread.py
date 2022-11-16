@@ -62,7 +62,19 @@ class AppTestThread(GenericTestThread):
         assert ident2 != ident
         assert ident == _thread.get_ident()
         self.waitfor(lambda: feedback)
-        assert feedback == [ident2]
+        assert feedback[0] != ident
+
+    def test_get_native_id(self):
+        import _thread
+        ident = _thread.get_native_id()
+        feedback = []
+        def f():
+            feedback.append(_thread.get_native_id())
+        ident2 = _thread.start_new_thread(f, ())
+        assert ident2 != ident
+        assert ident == _thread.get_native_id()
+        self.waitfor(lambda: feedback)
+        assert feedback[0] != ident
 
     def test_sys_getframe(self):
         # this checks that each thread gets its own ExecutionContext.

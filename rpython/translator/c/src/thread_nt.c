@@ -115,6 +115,14 @@ Signed RPyThreadSetStackSize(Signed newsize)
 	return -1;
 }
 
+unsigned long
+RPyThread_get_thread_native_id(void)
+{
+    DWORD native_id;
+    native_id = GetCurrentThreadId();
+    return (unsigned long) native_id;
+}
+
 /************************************************************/
 
 

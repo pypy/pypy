@@ -199,6 +199,18 @@ A thread's identity may be reused for another thread after it exits."""
     ident = rthread.get_ident()
     return space.newint(ident)
 
+def get_native_id(space):
+    """Return the native integral Thread ID of the current thread assigned by
+the kernel. This is a non-negative integer. Its value may be used to uniquely
+identify this particular thread system-wide (until the thread terminates, after
+which the value may be recycled by the OS)."""
+    native_id = rthread.c_get_native_id()
+    return space.newint(native_id)
+
+
+
+
+
 @unwrap_spec(size=int)
 def stack_size(space, size=0):
     """stack_size([size]) -> size
