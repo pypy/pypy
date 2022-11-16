@@ -361,7 +361,10 @@ class AppTestObject(AppTestCpythonExtensionBase):
         import collections
         assert isinstance(dict(), collections.Mapping)
         assert module.ismapping(dict())
+        def f():
+            pass
         assert not module.is_function(1)
+        assert module.is_function(f)
 
     def test_format_returns_unicode(self):
         module = self.import_extension('foo', [
