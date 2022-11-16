@@ -12,6 +12,7 @@ class Module(MixedModule):
         'start_new_thread':       'os_thread.start_new_thread',
         'start_new':              'os_thread.start_new_thread', # obsolete syn.
         'get_ident':              'os_thread.get_ident',
+        'get_native_id':          'os_thread.get_native_id',
         'exit':                   'os_thread.exit',
         'exit_thread':            'os_thread.exit', # obsolete synonym
         'interrupt_main':         'os_thread.interrupt_main',

@@ -30,6 +30,7 @@ typedef enum RPyLockStatus {
 RPY_EXTERN void RPyGilAllocate(void);
 RPY_EXTERN Signed RPyGilYieldThread(void);
 RPY_EXTERN void RPyGilAcquireSlowPath(void);
+RPY_EXTERN unsigned long RPyThread_get_thread_native_id(void);
 #define RPyGilAcquire _RPyGilAcquire
 #define RPyGilRelease _RPyGilRelease
 #define RPyFetchFastGil _RPyFetchFastGil
