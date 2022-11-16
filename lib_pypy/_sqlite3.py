@@ -809,6 +809,8 @@ class Cursor(object):
     def close(self):
         if not self.__initialized:
             raise ProgrammingError("Base Cursor.__init__ not called.")
+        if self.__locked:
+            raise ProgrammingError("Recursive use of cursors not allowed.")
         self.__connection._check_thread()
         self.__connection._check_closed()
         if self.__statement:
@@ -1058,7 +1060,12 @@ class Cursor(object):
 
         ret = _lib.sqlite3_step(self.__statement._statement)
         if ret == _lib.SQLITE_ROW:
-            self.__next_row = self.__fetch_one_row()
+            assert not self.__locked
+            self.__locked = True
+            try:
+                self.__next_row = self.__fetch_one_row()
+            finally:
+                self.__locked = False
         else:
             self.__statement._reset(self.__in_use_token)
             if ret != _lib.SQLITE_DONE:

@@ -481,3 +481,37 @@ def test_description_delete():
         ("x", None, None, None, None, None, None),
         ("y", None, None, None, None, None, None),
     )
+
+def test_recursive_close():
+    conn = _sqlite3.connect(":memory:", detect_types=_sqlite3.PARSE_COLNAMES)
+    cursor = conn.cursor()
+    cursor.execute("create table test(x foo)")
+    cursor.executemany("insert into test(x) values (?)",
+                       [("foo",), ("bar",)])
+    def conv(x):
+        cursor.close()
+        return x
+    try:
+        _sqlite3.converters['CLOSE'] = conv
+        with pytest.raises(_sqlite3.ProgrammingError):
+            cursor.execute(f'select x as "x [CLOSE]", x from test')
+    finally:
+        del _sqlite3.converters['CLOSE']
+
+def test_recursive_fetch():
+    conn = _sqlite3.connect(":memory:", detect_types=_sqlite3.PARSE_COLNAMES)
+    cursor = conn.cursor()
+    cursor.execute("create table test(x foo)")
+    cursor.executemany("insert into test(x) values (?)",
+                       [("foo",), ("bar",)])
+    l = []
+    def conv(x):
+        cursor.fetchone()
+        return x
+    try:
+        _sqlite3.converters['ITER'] = conv
+        with pytest.raises(_sqlite3.ProgrammingError):
+            cursor.execute(f'select x as "x [ITER]", x from test')
+    finally:
+        del _sqlite3.converters['ITER']
+
