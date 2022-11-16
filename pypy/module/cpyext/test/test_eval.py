@@ -275,12 +275,21 @@ class AppTestCall(AppTestCpythonExtensionBase):
                 Py_DECREF(count);
                 return res;
              """),
+            ("test_callnoarg", "METH_VARARGS",
+             '''
+                PyObject *func = NULL;
+                if (!PyArg_ParseTuple(args, "O", &func)) {
+                    return NULL;
+                }
+                return _PyObject_CallNoArg(func);
+            '''),
             ])
 
         def f(*args):
             return args
         assert module.call_func(f) == (None,)
         assert module.call_method("text") == 2
+        assert module.test_callnoarg(f) == ()
 
     def test_CompileString_and_Exec(self):
         import sys
