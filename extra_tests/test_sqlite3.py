@@ -482,6 +482,24 @@ def test_description_delete():
         ("y", None, None, None, None, None, None),
     )
 
+def test_description_parse_colnames():
+    conn = _sqlite3.connect(":memory:")
+    cur = conn.cursor()
+    cur.execute(u'SELECT 1 as "m [ä]"')
+    assert cur.description[0][0] == u"m [ä]"
+
+    def bar(x):
+        return x
+    try:
+        _sqlite3.converters['Ä'] = bar
+        conn = _sqlite3.connect(":memory:", detect_types=_sqlite3.PARSE_COLNAMES)
+        cur = conn.cursor()
+        cur.execute(u'SELECT 1 as "m [ä]"')
+        assert cur.description[0][0] == u"m"
+    finally:
+        del _sqlite3.converters['Ä']
+
+
 def test_recursive_close():
     conn = _sqlite3.connect(":memory:", detect_types=_sqlite3.PARSE_COLNAMES)
     cursor = conn.cursor()

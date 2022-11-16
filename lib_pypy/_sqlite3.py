@@ -1120,7 +1120,9 @@ class Cursor(object):
             for i in xrange(_lib.sqlite3_column_count(statement._statement)):
                 name = _lib.sqlite3_column_name(statement._statement, i)
                 if name:
-                    name = _ffi.string(name).decode('utf-8').split("[")[0].strip()
+                    name = _ffi.string(name).decode('utf-8')
+                    if self.__connection._detect_types & PARSE_COLNAMES:
+                        name = name.split("[", 1)[0].strip()
                 desc.append((name, None, None, None, None, None, None))
             self.__description = tuple(desc)
             return self.__description
