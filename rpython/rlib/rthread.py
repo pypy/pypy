@@ -83,6 +83,8 @@ c_thread_acquirelock_timed_NOAUTO = llexternal('RPyThreadAcquireLockTimed',
                                          rffi.INT, _nowrapper=True)
 c_thread_releaselock_NOAUTO = c_thread_releaselock
 
+c_get_native_id = llexternal('RPyThread_get_thread_native_id', [],
+                           rffi.ULONG, _nowrapper=True)
 
 def allocate_lock():
     # Add some memory pressure for the size of the lock because it is an
