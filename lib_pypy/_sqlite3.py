@@ -1114,10 +1114,12 @@ class Cursor(object):
             if not statement._valid:
                 return None
 
-            if not (hasattr(self, '_Cursor__next_row') or statement._is_select):
+            numcols = _lib.sqlite3_column_count(statement._statement)
+            if numcols <= 0:
+                self.__description = None
                 return None
             desc = []
-            for i in xrange(_lib.sqlite3_column_count(statement._statement)):
+            for i in xrange(numcols):
                 name = _lib.sqlite3_column_name(statement._statement, i)
                 if name:
                     name = _ffi.string(name).decode('utf-8')
@@ -1157,7 +1159,6 @@ class Statement(object):
         to_check = sql.lstrip().upper()
         self._valid = bool(to_check)
         self._is_dml = to_check.startswith(('INSERT', 'UPDATE', 'DELETE', 'REPLACE'))
-        self._is_select = to_check.startswith('SELECT')
 
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
