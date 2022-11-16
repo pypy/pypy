@@ -778,8 +778,11 @@ class Connection(object):
 class Cursor(object):
     __initialized = False
     __statement = None
+    __locked = False
 
     def __init__(self, con):
+        if self.__locked:
+            raise ProgrammingError("Recursive use of cursors not allowed.")
         if not isinstance(con, Connection):
             raise TypeError
         self.__connection = con

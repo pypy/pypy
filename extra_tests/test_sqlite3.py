@@ -515,3 +515,19 @@ def test_recursive_fetch():
     finally:
         del _sqlite3.converters['ITER']
 
+def test_recursive_init():
+    conn = _sqlite3.connect(":memory:", detect_types=_sqlite3.PARSE_COLNAMES)
+    cursor = conn.cursor()
+    cursor.execute("create table test(x foo)")
+    cursor.executemany("insert into test(x) values (?)",
+                       [("foo",), ("bar",)])
+    def conv(x):
+        cursor.__init__(conn)
+        return x
+    try:
+        _sqlite3.converters['INIT'] = conv
+        with pytest.raises(_sqlite3.ProgrammingError):
+            cursor.execute(f'select x as "x [INIT]", x from test')
+    finally:
+        del _sqlite3.converters['INIT']
+
