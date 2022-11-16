@@ -2000,18 +2000,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = module.test_fastcalldict(pyfunc, (1, ), {"arg2": 2})
         assert res == [1, 2]
 
-    def test_call_no_args(self):
-        module = self.import_extension('foo', [
-            ("test_callnoarg", "METH_VARARGS",
-             '''
-                PyObject *func = NULL;
-                if (!PyArg_ParseTuple(args, "O", &func)) {
-                    return NULL;
-                }
-                return _PyObject_CallNoArg(func);
-            ''')])
-        assert module.test_callnoarg(lambda : 4) == 4
-
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
