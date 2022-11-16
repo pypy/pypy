@@ -790,8 +790,11 @@ class Connection(object):
 class Cursor(object):
     __initialized = False
     __statement = None
+    __locked = False
 
     def __init__(self, con):
+        if self.__locked:
+            raise ProgrammingError("Recursive use of cursors not allowed.")
         if not isinstance(con, Connection):
             raise TypeError
         self.__connection = con
@@ -821,6 +824,8 @@ class Cursor(object):
     def close(self):
         if not self.__initialized:
             raise ProgrammingError("Base Cursor.__init__ not called.")
+        if self.__locked:
+            raise ProgrammingError("Recursive use of cursors not allowed.")
         self.__connection._check_thread()
         self.__connection._check_closed()
         if self.__statement:
@@ -1070,7 +1075,12 @@ class Cursor(object):
 
         ret = _lib.sqlite3_step(self.__statement._statement)
         if ret == _lib.SQLITE_ROW:
-            self.__next_row = self.__fetch_one_row()
+            assert not self.__locked
+            self.__locked = True
+            try:
+                self.__next_row = self.__fetch_one_row()
+            finally:
+                self.__locked = False
         else:
             self.__statement._reset(self.__in_use_token)
             if ret != _lib.SQLITE_DONE:
@@ -1116,13 +1126,17 @@ class Cursor(object):
             if not statement._valid:
                 return None
 
-            if not (hasattr(self, '_Cursor__next_row') or statement._is_select):
+            numcols = _lib.sqlite3_column_count(statement._statement)
+            if numcols <= 0:
+                self.__description = None
                 return None
             desc = []
-            for i in xrange(_lib.sqlite3_column_count(statement._statement)):
+            for i in xrange(numcols):
                 name = _lib.sqlite3_column_name(statement._statement, i)
                 if name:
-                    name = _ffi.string(name).decode('utf-8').split("[")[0].strip()
+                    name = _ffi.string(name).decode('utf-8')
+                    if self.__connection._detect_types & PARSE_COLNAMES:
+                        name = name.split("[", 1)[0].strip()
                 desc.append((name, None, None, None, None, None, None))
             self.__description = tuple(desc)
             return self.__description
@@ -1157,7 +1171,6 @@ class Statement(object):
         to_check = sql.lstrip().upper()
         self._valid = bool(to_check)
         self._is_dml = to_check.startswith(('INSERT', 'UPDATE', 'DELETE', 'REPLACE'))
-        self._is_select = to_check.startswith('SELECT')
 
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
