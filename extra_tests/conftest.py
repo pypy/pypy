@@ -30,5 +30,12 @@ def pytest_addoption(parser):
         help="Print to stdout the stdout and stderr of Python subprocesses"
              "executed via run_python_subprocess")
 
-
+def pytest_collection_modifyitems(config, items):
+    skip1 = pytest.mark.skip(reason="PyPy does not warn")
+    skip2 = pytest.mark.skip(reason="PyPy does not report a traceback")
+    for item in items:
+        if item.name == "test_more_buffer_warning":
+            item.add_marker(skip1)
+        if item.name == "test_callback_exception":
+            item.add_marker(skip2)
 
