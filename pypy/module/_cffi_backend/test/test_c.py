@@ -12,8 +12,8 @@ Adding a test here involves:
 3. check in and (if you can) push the changes
 4. copy test_c.py into _backend_test.py here, killing the few lines of header
    - if you added a C function, it goes into _test_lib.c here
-   - if you could complete step 3, try running 'py.test test_file.py' here
-5. make the test pass in pypy ('py.test test_c.py')
+   - if you could complete step 3, try running 'python2 pytest.py test_file.py' here
+5. make the test pass in pypy ('python2 pytest.py test_c.py')
 """
 import py, sys, ctypes
 
