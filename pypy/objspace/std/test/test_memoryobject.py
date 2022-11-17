@@ -76,7 +76,15 @@ class AppTestMemoryView(object):
         assert data == b'zbzdzf'
         data[3:] = b'yyy'
         assert s == b'zzy'
-        
+
+    def test_assign_all_harder(self):
+        import array
+        v = memoryview(array.array('i', list(range(10))))
+        s = v[-1::-2]
+        s[:] = array.array('i', [100, 200, 300, 400, 500])
+        assert list(v) == [0, 500, 2, 400, 4, 300, 6, 200, 8, 100], list(v)
+        v[7:] = array.array('i', [-10, -10, -10])
+        assert list(s) == [-10, -10, 300, 400, 500], list(s)
 
     def test_memoryview_attrs(self):
         b = b"a"*100

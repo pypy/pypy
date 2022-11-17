@@ -336,9 +336,13 @@ class BufferSlice(BufferView):
             # We cannot use self.parent.setbytes, we need to roll our own
             # XXX check that length is not too long
             last_stride = self.getstrides()[0]
-            offset = self.start * last_stride
+            itemsize = self.getitemsize()
+            assert itemsize >= 0
+            offset = self.start * itemsize
             for i in range(length):
-                self.parent.setbytes(offset + i * last_stride, string[i])
+                os = offset + i * last_stride
+                start = i * itemsize
+                self.parent.setbytes(os, string[start:(start+itemsize)])
         else:
             offset = self.start * self.parent.getstrides()[0]
             self.parent.setbytes(offset + start, string)
