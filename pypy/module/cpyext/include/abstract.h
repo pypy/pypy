@@ -26,12 +26,13 @@ PyAPI_FUNC(PyObject *) PyVectorcall_Call(PyObject *callable, PyObject *tuple, Py
 
 // Backwards compatibility aliases for API that was provisional in Python 3.8
 #define _PyObject_Vectorcall PyObject_Vectorcall
-// #define _PyObject_VectorcallMethod PyObject_VectorcallMethod
+#define _PyObject_VectorcallMethod PyObject_VectorcallMethod
 #define _PyObject_FastCallDict PyObject_VectorcallDict
-//#define _PyVectorcall_Function PyVectorcall_Function
-//#define _PyObject_CallOneArg PyObject_CallOneArg
-//#define _PyObject_CallMethodNoArgs PyObject_CallMethodNoArgs
-//#define _PyObject_CallMethodOneArg PyObject_CallMethodOneArg
+#define _PyVectorcall_Function PyVectorcall_Function
+#define _PyObject_CallOneArg PyObject_CallOneArg
+#define _PyObject_CallNoArg PyObject_CallNoArg
+#define _PyObject_CallMethodNoArgs PyObject_CallMethodNoArgs
+#define _PyObject_CallMethodOneArg PyObject_CallMethodOneArg
 
     /* new buffer API */
 
