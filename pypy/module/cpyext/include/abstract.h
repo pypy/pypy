@@ -30,7 +30,7 @@ PyAPI_FUNC(PyObject *) PyVectorcall_Call(PyObject *callable, PyObject *tuple, Py
 #define _PyObject_FastCallDict PyObject_VectorcallDict
 #define _PyVectorcall_Function PyVectorcall_Function
 #define _PyObject_CallOneArg PyObject_CallOneArg
-#define _PyObject_CallNoArg PyObject_CallNoArg
+#define _PyObject_CallNoArg PyObject_CallNoArgs
 #define _PyObject_CallMethodNoArgs PyObject_CallMethodNoArgs
 #define _PyObject_CallMethodOneArg PyObject_CallMethodOneArg
 
