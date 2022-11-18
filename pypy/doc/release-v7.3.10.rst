@@ -3,7 +3,7 @@ PyPy v7.3.10: release of python 2.7, 3.8, and 3.9
 =================================================
 
 ..
-       Changelog up to commit e5129727dbe6
+       Changelog up to commit f816cee21ae8
 
 .. note::
   This is a pre-release announcement. When the release actually happens, it
@@ -34,6 +34,9 @@ include:
 
   - A release of Apple Silicon M1 arm64 versions. This work `was sponsored`_ by
     an anonymous donor and is tested on our buildbots.
+  - Many improvements to the basic interpreter to make it faster
+  - The conda-forge community `has built over 1000 packages`_ for PyPy3.8 and 3.9,
+    making it easier than ever to use PyPy.
   - Update the packaged OpenSSL to 1.1.1s
 
 We recommend updating. You can find links to download the v7.3.10 releases here:
@@ -70,6 +73,7 @@ building wheels for PyPy.
 .. _HPy: https://hpyproject.org/
 .. _was sponsored: https://www.pypy.org/posts/2022/07/m1-support-for-pypy.html
 .. _direct consulting: https://www.pypy.org/pypy-sponsors.html
+.. _ has built over 1000 packages: https://www.pypy.org/posts/2022/11/pypy-and-conda-forge.html
 
 What is PyPy?
 =============
@@ -116,6 +120,9 @@ Bugfixes shared across versions
   keys in the dict, preserve MapDict as the ``__dict__``, make fields immutable
   and more
 - Fix embedding startup code in CFFI (issue 3619_)
+- Fix ``xmm`` scratch register on win64 (issue 3753_)
+- Fix corner cases in method and code ``__ne__`` (issue 3759_)
+
 
 Speedups and enhancements shared across versions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -163,9 +170,47 @@ Speedups and enhancements shared across versions
   inverses of each other, or that a function is idempotent. Both hints need to
   be used very carefully, because getting them wrong can really lead to
   miscompilation and crashes.
-- Add support for Apple Silicon M1 (arm64)
 - Speed up ``posix.stat`` calls by directly constructing the output, avoiding a
   structseq
+- Make PyPy available for Apple M1 (arm64)
+
+  - Support JIT backend code generation
+  - Handle the different FFI calling conventions
+  - Widen support for packaging the build
+  - Distinguish between the two macos builds
+  - Set up a buildbot machine to run CI
+
+- Add an optimization for ``uint_rshift(0, x) -> 0`` and ``uint_rshift(x, 0) ->
+  x``. Previously the optimization was only for ``int_rshift``
+- Make it possible to ``@specialize.memo`` on ``gc.trace callbacks``
+- Use a more subtle condition to check whether aliasing is present when doing
+  malloc removal
+- Micro-optimize ``.next()`` to not allocate quite so many intermediate lists
+- Only put ``OptimizationResults`` into the list for callbacks if the callback
+  would actually *do* anything
+- Small optimizations to improve tracing speed
+
+  - have special versions of various record functions that take a fixed number of
+    arguments. this makes it possible to not allocate arguments lists
+  - don't lookup constant pointers that come from the jitcode in a dictionary
+    again and again in opencoder
+
+- Make sure that ``W_Root.getclass`` does not exist in two versions, one for
+  access_directly=True, one regular
+- Two improvements to space operations:
+
+  - rewrite the translation-time lookup caching to work on the *RPython* class
+    instead of the ``W_TypeObjects``. this makes the latter smaller and saves us
+    having to call ``space.type(w_obj)`` first.
+  - fix caching of binary ops by using a ``@specialize``
+
+- Clean up the number of ``w_obj.getclass`` variants in mapdict
+- Use ``append_char`` where appropriate in unicode string builder
+- Use a fast-path for ``str.encode("utf-8")`` (issue 3756_)
+- Optimize ``float_abs(float_abs(x))`` to ``float_abs(x)``
+- Fix NFA generation in metaparser for grammar rules of form ``foo: [a* b]``
+
+
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -186,6 +231,8 @@ Python 3.8+ bugfixes
 - Check results from _openssl's ``EVP_DigestInit_ex`` and ``EVP_DigestUpdate``,
   and fix some failing tests (issue 3741_)
 - Fix pickling of filters
+- Fix the way that the lookup annotation optimization breaks python3 due to the
+  way that module instances can change their class at runtime (issue 3758_)
 
 Python 3.8+ speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -194,6 +241,7 @@ Python 3.8+ speedups and enhancements
 - Refactor the package.py script for better compatibility with conda-forge
 - Add a jit driver for filter (issue 3745_)
 - Improve opcode handling: ``jump_absolute``, ``int_xor``, and others
+- Don't make a loop for one-arg ``print()``
 
 Python 3.8+ C-API
 ~~~~~~~~~~~~~~~~~
