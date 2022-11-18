@@ -3,10 +3,10 @@ PyPy v7.3.10: release of python 2.7, 3.8, and 3.9
 =================================================
 
 ..
-       Changelog up to commit 6f14a8056b9a
+       Changelog up to commit e5129727dbe6
 
 .. note::
-        This is a pre-release announcement. When the release actually happens, it
+  This is a pre-release announcement. When the release actually happens, it
   will be announced on the `PyPy blog`_
 
 .. _`PyPy blog`: https://pypy.org/blog
@@ -105,13 +105,20 @@ releases for those platforms.
 Changelog
 =========
 
+Default version (2.7+)
+----------------------
+
 Bugfixes shared across versions
--------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Fix zlib ``ustart`` handling for zlib v1.2.12 (issue 3717_)
 - Backport security fixes to Python2.7
+- Structseq improvements: hide ``structseqfield.__get__``, ignore any extra
+  keys in the dict, preserve MapDict as the ``__dict__``, make fields immutable
+  and more
+- Fix embedding startup code in CFFI (issue 3619_)
 
 Speedups and enhancements shared across versions
-------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Update the HPy backend to 0.0.4
 - Update CFFI to the latest HEAD (no new verson was released)
 - Speed up ``dict.copy`` and ``emptydict.update(dict)``
@@ -136,18 +143,40 @@ Speedups and enhancements shared across versions
 - Fast path for ``string[0]`` to convert a ``str`` to a ``char`` for when
   ``string`` is already a char
 - Clean up a few single-use speciailized dictionaries
+- Make ``list.count`` use the same fast paths as ``list.index`` (issue 3744_)
+- Improve `int.bit_length`` for the jit: expose unwrapping and rewrapping to
+  tracing
+- Add a fast path for ``getrandbits(n)`` where ``n <= 31`` (issue 3733_)
+- Remove useless ``cvt = converters.get(type(param))`` from sqlite3: it was
+  wrong and slowed things down
+- Add two new hints to ``rlib.jit``:
 
+  - ``record_exact_value(var, const)`` tells the JIT that the box var must
+    contain the value const.
 
+  - ``record_known_result(result, func, *args)`` is a way to encode knowledge
+    about the result of elidable functions. the hint means that the JIT can
+    assume that if ``func(*args)`` will be called later, the outcome is
+    ``result``
 
+  Typical usecases of this are: you can express this way that functions are
+  inverses of each other, or that a function is idempotent. Both hints need to
+  be used very carefully, because getting them wrong can really lead to
+  miscompilation and crashes.
+- Add support for Apple Silicon M1 (arm64)
+- Speed up ``posix.stat`` calls by directly constructing the output, avoiding a
+  structseq
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 We are no longer backporting changes to the ``cpyext`` compatibility layer to
 PyPy2.7.
 
+Python 3.8+
+-----------
 
 Python 3.8+ bugfixes
---------------------
+~~~~~~~~~~~~~~~~~~~~
 - Fix bug in the disassembler of py3 opcodes (issue 3700_)
 - Raise ModuleNotFoundError instead of ImportError in some cases
 - Fix lineno, col_offset for decorated functions and classes
@@ -156,29 +185,37 @@ Python 3.8+ bugfixes
 - Make it possible to multiple-inherit from KeyError again (issue 3728_)
 - Check results from _openssl's ``EVP_DigestInit_ex`` and ``EVP_DigestUpdate``,
   and fix some failing tests (issue 3741_)
+- Fix pickling of filters
 
 Python 3.8+ speedups and enhancements
--------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Speed up ``fstrings`` by making the parentstack a resizable list of chars
 - Better error message when the ``__iter__`` of a class is set to ``None`` (issue 3716_)
 - Refactor the package.py script for better compatibility with conda-forge
+- Add a jit driver for filter (issue 3745_)
+- Improve opcode handling: ``jump_absolute``, ``int_xor``, and others
 
-Python 3.8 C-API
-~~~~~~~~~~~~~~~~
+Python 3.8+ C-API
+~~~~~~~~~~~~~~~~~
 - Add ``PyReversed_Type``, ``PyUnicode_EncodeCodePage``, ``PyInterpreterState_GetID``,
 - Map user defined python ``__init__`` to ``tp_init`` (issue 2806_)
 - Fix PyDict_Contains (issue 3742_)
 
+Python 3.8+
+-----------
+
 Python 3.9+ bugfixes
---------------------
+~~~~~~~~~~~~~~~~~~~~
 - Fix ``f-string`` bug where the recursive tokenization was done incorrectly (issue 3751_)
 - Fixes to repr and slots of nested GenericAliases (issue 3720_)
 
 Python 3.9+ speedups and enhancements
--------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Adopt CPython changes to speed up fractions (issue 3746_, cpython-91851_)
+
 
 Python 3.9+ C-API
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 .. _3716: https://foss.heptapod.net/pypy/pypy/-/issues/3716
 .. _3720: https://foss.heptapod.net/pypy/pypy/-/issues/3720
@@ -186,7 +223,11 @@ Python 3.9+ C-API
 .. _3700: https://foss.heptapod.net/pypy/pypy/-/issues/3700
 .. _3728: https://foss.heptapod.net/pypy/pypy/-/issues/3728
 .. _3729: https://foss.heptapod.net/pypy/pypy/-/issues/3729
+.. _3733: https://foss.heptapod.net/pypy/pypy/-/issues/3733
 .. _3742: https://foss.heptapod.net/pypy/pypy/-/issues/3742
 .. _3741: https://foss.heptapod.net/pypy/pypy/-/issues/3741
+.. _3744: https://foss.heptapod.net/pypy/pypy/-/issues/3744
+.. _3745: https://foss.heptapod.net/pypy/pypy/-/issues/3745
 .. _2806: https://foss.heptapod.net/pypy/pypy/-/issues/2806
 .. _bpo34953: https://bugs.python.org/issue34953
+.. _cpython-91851: https://github.com/python/cpython/issues/91851
