@@ -326,11 +326,26 @@ class BufferSlice(BufferView):
         return self.parent.getbytes(offset + start, size)
 
     def setbytes(self, start, string):
-        if len(string) == 0:
+        # Unlike getbytes, which always goes through _copy_base,
+        # this is directly exposed. It must keep track of weird strides.
+        length = len(string)
+        if length == 0:
             return        # otherwise, adding self.offset might make 'start'
                           # out of bounds
-        offset = self.start * self.parent.getstrides()[0]
-        self.parent.setbytes(offset + start, string)
+        elif length > 1 and self.step != 1:
+            # We cannot use self.parent.setbytes, we need to roll our own
+            # XXX check that length is not too long
+            last_stride = self.getstrides()[0]
+            itemsize = self.getitemsize()
+            assert itemsize >= 0
+            offset = self.start * itemsize
+            for i in range(length):
+                os = offset + i * last_stride
+                start = i * itemsize
+                self.parent.setbytes(os, string[start:(start+itemsize)])
+        else:
+            offset = self.start * self.parent.getstrides()[0]
+            self.parent.setbytes(offset + start, string)
 
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi

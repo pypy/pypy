@@ -1508,7 +1508,7 @@ def test_callback_return_type():
 
 def test_a_lot_of_callbacks():
     BIGNUM = 10000
-    if 'PY_DOT_PY' in globals(): BIGNUM = 100   # tests on pypy
+    if 'PY_DOT_PY' in globals(): BIGNUM = 100   # tests on py.py
     #
     BInt = new_primitive_type("int")
     BFunc = new_function_type((BInt,), BInt, False)
@@ -3939,7 +3939,7 @@ def test_from_buffer_types():
     #
     p2 = from_buffer(BIntP, bytestring)      # int *
     assert p2 == p1 or 'PY_DOT_PY' in globals()
-    # note: on pypy ^^^, bytearray buffers are not emulated well enough
+    # note: on py.py ^^^, bytearray buffers are not emulated well enough
     assert typeof(p2) is BIntP
     assert p2[0] == lst[0]
     assert p2[1] == lst[1]
