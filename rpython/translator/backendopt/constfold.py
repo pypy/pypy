@@ -294,8 +294,6 @@ def constant_diffuse(graph):
 
 def constant_fold_graph(graph):
     # first fold inside the blocks
-    if graph.name == "func_zmake_TLB_Entry":
-        import pdb; pdb.set_trace()
     for block in graph.iterblocks():
         if block.operations:
             constant_fold_block(block)
