@@ -37,7 +37,7 @@ include:
 
   - Many improvements to the basic interpreter to make it faster
 
-  - The conda-forge community `has built over 1000 packages`_ for PyPy3.8 and 3.9,
+  - The conda-forge community `has built`_ over 1000 packages for PyPy3.8 and 3.9,
     making it easier than ever to use PyPy.
 
   - Update the packaged OpenSSL to 1.1.1s and apply applicable secruity fixes
@@ -79,7 +79,7 @@ building wheels for PyPy.
 .. _HPy: https://hpyproject.org/
 .. _was sponsored: https://www.pypy.org/posts/2022/07/m1-support-for-pypy.html
 .. _direct consulting: https://www.pypy.org/pypy-sponsors.html
-.. _ has built over 1000 packages: https://www.pypy.org/posts/2022/11/pypy-and-conda-forge.html
+.. _has built: https://www.pypy.org/posts/2022/11/pypy-and-conda-forge.html
 
 What is PyPy?
 =============
@@ -368,5 +368,45 @@ Python 3.9+ C-API
 .. _3744: https://foss.heptapod.net/pypy/pypy/-/issues/3744
 .. _3745: https://foss.heptapod.net/pypy/pypy/-/issues/3745
 .. _2806: https://foss.heptapod.net/pypy/pypy/-/issues/2806
+.. _3717: https://foss.heptapod.net/pypy/pypy/-/issues/3717
+.. _3619: https://foss.heptapod.net/pypy/pypy/-/issues/3619
+.. _3753: https://foss.heptapod.net/pypy/pypy/-/issues/3753
+.. _3759: https://foss.heptapod.net/pypy/pypy/-/issues/3759
+.. _3559: https://foss.heptapod.net/pypy/pypy/-/issues/3559
+.. _3802: https://foss.heptapod.net/pypy/pypy/-/issues/3802
+.. _3824: https://foss.heptapod.net/pypy/pypy/-/issues/3824
+.. _3821: https://foss.heptapod.net/pypy/pypy/-/issues/3821
+.. _3828: https://foss.heptapod.net/pypy/pypy/-/issues/3828
+.. _3840: https://foss.heptapod.net/pypy/pypy/-/issues/3840
+.. _3756: https://foss.heptapod.net/pypy/pypy/-/issues/3756
+.. _3148: https://foss.heptapod.net/pypy/pypy/-/issues/3148
+.. _3781: https://foss.heptapod.net/pypy/pypy/-/issues/3781
+.. _3757: https://foss.heptapod.net/pypy/pypy/-/issues/3757
+.. _3758: https://foss.heptapod.net/pypy/pypy/-/issues/3758
+.. _3778: https://foss.heptapod.net/pypy/pypy/-/issues/3778
+.. _3783: https://foss.heptapod.net/pypy/pypy/-/issues/3783
+.. _3775: https://foss.heptapod.net/pypy/pypy/-/issues/3775
+.. _3798: https://foss.heptapod.net/pypy/pypy/-/issues/3798
+.. _3819: https://foss.heptapod.net/pypy/pypy/-/issues/3819
+.. _3820: https://foss.heptapod.net/pypy/pypy/-/issues/3820
+.. _3857: https://foss.heptapod.net/pypy/pypy/-/issues/3857
+.. _3765: https://foss.heptapod.net/pypy/pypy/-/issues/3765
+.. _3786: https://foss.heptapod.net/pypy/pypy/-/issues/3786
+.. _3772: https://foss.heptapod.net/pypy/pypy/-/issues/3772
+.. _3801: https://foss.heptapod.net/pypy/pypy/-/issues/3801
+.. _3844: https://foss.heptapod.net/pypy/pypy/-/issues/3844
+.. _3847: https://foss.heptapod.net/pypy/pypy/-/issues/3847
+.. _3851: https://foss.heptapod.net/pypy/pypy/-/issues/3851
+.. _3776: https://foss.heptapod.net/pypy/pypy/-/issues/3776
+.. _3766: https://foss.heptapod.net/pypy/pypy/-/issues/3766
+.. _3792: https://foss.heptapod.net/pypy/pypy/-/issues/3792
+.. _3792: https://foss.heptapod.net/pypy/pypy/-/issues/3792
+.. _3800: https://foss.heptapod.net/pypy/pypy/-/issues/3800
+.. _3841: https://foss.heptapod.net/pypy/pypy/-/issues/3841
+.. _3746: https://foss.heptapod.net/pypy/pypy/-/issues/3746
+.. _3669: https://foss.heptapod.net/pypy/pypy/-/issues/3669
+.. _3845: https://foss.heptapod.net/pypy/pypy/-/issues/3845
 .. _bpo34953: https://bugs.python.org/issue34953
 .. _cpython-91851: https://github.com/python/cpython/issues/91851
+.. _cpython-97514: https://github.com/python/cpython/issues/97514
+.. _cpython-87389: https://github.com/python/cpython/issues/87389
