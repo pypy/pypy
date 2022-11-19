@@ -189,8 +189,7 @@ class OptTraceSplit(Optimizer):
                     assert self._slow_path_faildescr is not None
                     label = self._slow_ops[0]
                     info = TraceSplitInfo(label.getdescr(), label, self.inputargs,
-                                          faildescr=self._slow_path_faildescr,
-                                          is_slow_path=True)
+                                          faildescr=self._slow_path_faildescr)
                     self._slow_path_newopsandinfo.append((info, self._slow_ops[1:]))
                     self._slow_path_recorded.append(self._slow_ops[1:])
 
