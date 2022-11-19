@@ -105,6 +105,7 @@ class OptTraceSplit(Optimizer):
         self._newoperations_tmp = []
 
         self._slow_ops = []
+        self._slow_path_flag = False
         self._slow_path_newopsandinfo = []
         self._slow_path_emit_ptr_eq = None
         self._slow_path_faildescr = None
@@ -135,13 +136,13 @@ class OptTraceSplit(Optimizer):
         num_green_args = jd.num_green_args
         num_red_args = jd.num_red_args
 
-        slow_flg = False
         slow_ops_jump_op = None
         slow_path_label = None
         while not trace.done():
             self._really_emitted_operation = None
             op = trace.next()
             opnum = op.getopnum()
+            numargs = op.numargs()
 
             # remove op related to pseudo ops
             can_emit = True
@@ -177,12 +178,7 @@ class OptTraceSplit(Optimizer):
                 if isinstance(lastarg, ConstInt) and lastarg.getint() == 1:
                     op.setarg(numargs - 1, ConstInt(0))
 
-            if slow_flg:
-                # if rop.is_guard(opnum):
-                #     if op.getdescr() is None:
-                #         descr = compile.invent_fail_descr_for_op(opnum, self)
-                #         op.setdescr(descr)
-
+            if self._slow_path_flag:
                 # re-encountering DEBUG_MERGE_POINT when the slow flag is True
                 # means the slow path ends just before
                 if opnum == rop.DEBUG_MERGE_POINT:
@@ -193,14 +189,15 @@ class OptTraceSplit(Optimizer):
                     assert self._slow_path_faildescr is not None
                     label = self._slow_ops[0]
                     info = TraceSplitInfo(label.getdescr(), label, self.inputargs,
-                                          self._slow_path_faildescr)
+                                          faildescr=self._slow_path_faildescr,
+                                          is_slow_path=True)
                     self._slow_path_newopsandinfo.append((info, self._slow_ops[1:]))
                     self._slow_path_recorded.append(self._slow_ops[1:])
 
                     self._newoperations = self._newoperations_tmp
                     self._slow_ops = []
                     self._newoperations_tmp = []
-                    slow_flg = False
+                    self._slow_path_flag = False
 
                     self.send_extra_operation(slow_path_label)
                     slow_path_label = None
@@ -233,7 +230,7 @@ class OptTraceSplit(Optimizer):
                 numargs = op.numargs()
 
                 if name.find("begin_slow_path") != -1:
-                    slow_flg = True
+                    self._slow_path_flag = True
                     jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
                     original_jitcell_token = self.token.original_jitcell_token
                     token = TargetToken(jitcell_token,
@@ -279,10 +276,6 @@ class OptTraceSplit(Optimizer):
         self.emit(op)
 
     def optimize_GUARD_VALUE(self, op):
-        # for slow_ops in self._slow_path_recorded:
-        #     if op.getarg(0) in slow_ops:
-        #         return
-
         self.emit(op)
         if self.check_if_guard_marked(op):
             newfailargs = []
