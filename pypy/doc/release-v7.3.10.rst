@@ -3,7 +3,7 @@ PyPy v7.3.10: release of python 2.7, 3.8, and 3.9
 =================================================
 
 ..
-       Changelog up to commit f816cee21ae8
+       Changelog up to commit 8841aa1c9a3e
 
 .. note::
   This is a pre-release announcement. When the release actually happens, it
@@ -34,10 +34,16 @@ include:
 
   - A release of Apple Silicon M1 arm64 versions. This work `was sponsored`_ by
     an anonymous donor and is tested on our buildbots.
+
   - Many improvements to the basic interpreter to make it faster
+
   - The conda-forge community `has built over 1000 packages`_ for PyPy3.8 and 3.9,
     making it easier than ever to use PyPy.
-  - Update the packaged OpenSSL to 1.1.1s
+
+  - Update the packaged OpenSSL to 1.1.1s and apply applicable secruity fixes
+    from CPython 3.9.15 to PyPy2.7
+
+  - Update the HPy_ backend in PyPy3.8 and PyPY3.9 to 0.0.4
 
 We recommend updating. You can find links to download the v7.3.10 releases here:
 
@@ -122,7 +128,16 @@ Bugfixes shared across versions
 - Fix embedding startup code in CFFI (issue 3619_)
 - Fix ``xmm`` scratch register on win64 (issue 3753_)
 - Fix corner cases in method and code ``__ne__`` (issue 3759_)
-
+- In translation, if ctypes doesn't find the ``C`` library with
+  ``find_library('c')``, try to fallback to generic ``libc.so``. this enables
+  building with musl (issue 3559_)
+- Unbreak string formatting with mixed bytes/unicode (issue 3802_)
+- Pull in the http.server vulnerability fix from cpython-87389_
+- Raise if empty set contains unhashable (issue 3824_)
+- Support ``class A(_RawIOBase, BytesIO`` (issue 3821_)
+- When raising an error: don't convert random things to unicode (issue 3828_)
+- Implement the ``.description`` attribute of sqlite3 cursors more carefully
+  (issue 3840_)
 
 Speedups and enhancements shared across versions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -209,8 +224,35 @@ Speedups and enhancements shared across versions
 - Use a fast-path for ``str.encode("utf-8")`` (issue 3756_)
 - Optimize ``float_abs(float_abs(x))`` to ``float_abs(x)``
 - Fix NFA generation in metaparser for grammar rules of form ``foo: [a* b]``
-
-
+- Introduce ``space.newtuple2`` to save the list allocation when a specialized
+  two-tuple is used anyway and use it in ``.next``
+- Speed up importing warnings.warn by making it more JIT friendly
+- Add an option to the collect analyzer when defining a custom gc trace function
+- Add a runtime JIT hook to disable tracing
+- Add `PYPY_DISABLE_JIT`` as an environment varaible to disable the JIT (issue 3148_)
+- Fast-path finding whitespace in an ascii string inside ``split()``
+- Resync ``_vmprof`` with ``vmprof-python``
+- Replace the trie of names in unicodedata with a directed acyclic word graph
+  to make it more compact. also various other improvements to make unicodedata
+  more compact. shrinks pypy2 by 2.1mb, pypy3 by 2.6mb
+- Review all the use cases of ``jit.loop_unrolling_heuristic``, to unroll less
+  aggressively (issue 3781_)
+- Inline ``_fill_original_boxes`` to avoid creating variants in C
+- Optimize ``inline_call_*`` by filling in the new frame directly instead of
+  creating an intermediate list of boxes
+- Make sure the LivenessIterator gets inlined and optimized away
+- Speed up ``append_slice`` on unicode builders
+- Make ``list.__repr__`` use a jit driver, and have implementations for a few
+  of the strategies
+- Expose a new function ``__pypy__._raise_in_thread`` that will raise an
+  asynchronous exception in another thread the next time that thread runs. This
+  also makes it possible to implement ``PyThreadState_SetAsyncExc`` (issue 3757_)
+- Make locals use an instance dict to speed them up
+- Tiny warmup improvement: don't create the recentops when looking for an
+  existing op, only when adding one
+- Avoid using the pureop cache for int_invert and float_neg
+- Speed up global dict reads by using the heapcache
+- Constant-fold ``ovf`` operations in rpython
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -233,6 +275,18 @@ Python 3.8+ bugfixes
 - Fix pickling of filters
 - Fix the way that the lookup annotation optimization breaks python3 due to the
   way that module instances can change their class at runtime (issue 3758_)
+- Use the name mapping when creating new hashes for ``_hashlib`` (issue 3778_)
+- Expose ``os.sendfile`` on macos
+- Do not override PyPy's `MAGIC_NUMBER`` when using stdlib/importlib/_bootstrap_external.py (issue 3783_)
+- Fix dictionary unpacking for kwargs (issue 3775_)
+- Add memory pressure when creating a tkinter image (issue 3798_)
+- Remove debug print from ``_winapi`` (issue 3819_)
+- Add ``__contains__`` to array.array type (issue 3820_)
+- Fix CVE-2022-37454 via porting CPython changes to _sha3/kcp/KeccakSponge.inc
+- Make type lookups fill the ``.name`` field of ``AttributeError``
+- Check cursor lock in sqlite3 ``Cursor.close``, also lock around ``__fetch_one_row``
+- Implement ``os.get_native_thread``
+- Fix setting a slice in a memoryview with non-unit strides (issue 3857_)
 
 Python 3.8+ speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -242,20 +296,53 @@ Python 3.8+ speedups and enhancements
 - Add a jit driver for filter (issue 3745_)
 - Improve opcode handling: ``jump_absolute``, ``int_xor``, and others
 - Don't make a loop for one-arg ``print()``
+- Make float hashing elidable and avoid creating bridges
+- Mimic CPython's ``max_int_threshold`` to limit the length of a string that
+  that can be parsed into an int
 
 Python 3.8+ C-API
 ~~~~~~~~~~~~~~~~~
-- Add ``PyReversed_Type``, ``PyUnicode_EncodeCodePage``, ``PyInterpreterState_GetID``,
+- Add ``PyReversed_Type``, ``PyUnicode_EncodeCodePage``,
+  ``PyInterpreterState_GetID``, ``PyErr_SetFromErrnoWithFilenameObjects``,
+  ``PyUnicode_Append``, ``PyUnicode_AppendAndDel``, ``PyClassMethod_Type``,
+  ``PyStructSequence_SetItem``, ``PyStructSequence_GetItem``,
+  ``PyDictValues_Type``, ``PyDictKeys_Type``,
 - Map user defined python ``__init__`` to ``tp_init`` (issue 2806_)
 - Fix PyDict_Contains (issue 3742_)
+- Allow big ints in ``PyNumber_ToBase`` (issue 3765_)
+- Normalize OSErrors more consistenly, may not be completely fixed on macos
+  (issue 3786_)
+- Fix ``PyDict_Contains`` to raise on unhashable key
+- Use ``tp_itemsize==0`` on ``PyUnicode_Type``, even for compact forms (issue
+  3772_)
+- Include ``<sys/time.h>`` in headers, which fixes a problem with musl (issue
+  3801_)
+- Add missing incref in ``PyObject_Init``, allocate ``tp_basicsize`` bytes when
+  creating a ``PyTypeObject`` (issues 3844_, 3847_)
+- Assign ``tp_getset`` to app-level type in ``PyType_FromSpecWithBases`` (issue 3851_)
+- Properly instantiate ``PyFunction_Type``, ``PyMethod_Type``,
+  ``PyRange_Type``, ``PyTraceBack_Type`` (issue 3776_)
 
-Python 3.8+
+Python 3.9+
 -----------
 
 Python 3.9+ bugfixes
 ~~~~~~~~~~~~~~~~~~~~
 - Fix ``f-string`` bug where the recursive tokenization was done incorrectly (issue 3751_)
 - Fixes to repr and slots of nested GenericAliases (issue 3720_)
+- Match CPython error messages for zip when strict=True
+- Add ``BASE_TYPE_ADAPTION`` optimization to sqlite3
+- Make ``__file__`` of the ``__main__`` module be an absolute path, if possible
+  (issue 3766_)
+- Use an absolute path for the main module (issue 3792_)
+- Use an absolute path for ``sys.path[0]`` when running a directory from the
+  cmdline (issue 3792_)
+- Fix first line number of eval to be reported as 0 (issue 3800_)
+- Implement ``bitcount`` for ints
+- Check when unmarshalling ``TYPE_SHORT_ASCII`` that non-ascii bytes are not present
+- Fix CVE-2022-42919 as CPython did in cpython-97514_
+- Fix ``DICT_MERGE`` with objects that aren't dicts and don't implement
+  ``__len__`` (issue 3841_)
 
 Python 3.9+ speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -264,6 +351,10 @@ Python 3.9+ speedups and enhancements
 
 Python 3.9+ C-API
 ~~~~~~~~~~~~~~~~~
+- Add ``PyObject_VectorcallMethod``, 
+- Add ``PyObject_Call`` variants ``*NoArgs``, ``*OneArg``, ``*MethodNoArgs``,
+  ``*MethodOneArg`` (issue 3669_)
+- Handle vectorcall offset (issue 3845_)
 
 .. _3716: https://foss.heptapod.net/pypy/pypy/-/issues/3716
 .. _3720: https://foss.heptapod.net/pypy/pypy/-/issues/3720
