@@ -2251,3 +2251,16 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         assert args_value == set([1234]) and kwargs_value == {}
         assert module.method_call_kw(a) == "unbound"
         assert args_value == set([1234]) and kwargs_value == {"foo" : "bar"}
+
+    def test_nanobind2_vectorcall_raises(self):
+        import gc
+        module = self.import_module(name='nanobind3', filename="nanobind3")
+        old_list = module.global_list[:]
+        wrapper_instance = module.wrapper()
+        with raises(TypeError):
+            wrapper_instance()
+        new_list = module.global_list[:]
+        del wrapper_instance
+        for i in range(3):
+            gc.collect()
+        assert len(new_list) == len(old_list) + 2, "%s %s" %(old_list, new_list)
