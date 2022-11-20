@@ -62,8 +62,10 @@ class wrap_init(W_PyCWrapperObject):
         func_init = rffi.cast(initproc, func)
         py_args = tuple_from_args_w(space, __args__.arguments_w)
         w_kwargs = w_kwargs_from_args(space, __args__)
-        res = generic_cpy_call(space, func_init, w_self, py_args, w_kwargs)
-        decref(space, py_args)
+        try:
+            res = generic_cpy_call(space, func_init, w_self, py_args, w_kwargs)
+        finally:
+            decref(space, py_args)
         if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
         return None
@@ -233,8 +235,10 @@ class wrap_call(W_PyCWrapperObject):
         func_target = rffi.cast(ternaryfunc, func)
         py_args = tuple_from_args_w(space, __args__.arguments_w)
         w_kwargs = w_kwargs_from_args(space, __args__)
-        ret = generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
-        decref(space, py_args)
+        try:
+            ret = generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
+        finally:
+            decref(space, py_args)
         return ret
 
 class wrap_ssizessizeobjargproc(W_PyCWrapperObject):
