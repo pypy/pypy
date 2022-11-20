@@ -2259,8 +2259,8 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         func = module.callable()
         with raises(TypeError) as e:
             func()
-        new_list = module.global_list[:]
         del func
         for i in range(3):
             gc.collect()
+        new_list = module.global_list[:]
         assert len(new_list) == len(old_list) + 2, "%s %s" %(old_list, new_list)
