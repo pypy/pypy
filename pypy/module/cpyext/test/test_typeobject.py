@@ -2252,24 +2252,20 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         assert module.method_call_kw(a) == "unbound"
         assert args_value == set([1234]) and kwargs_value == {"foo" : "bar"}
 
-    def test_nanobind2_vectorcall_raises(self):
+    def test_nanobind3(self):
         module = self.import_module(name='nanobind3', filename="nanobind3")
         old_list = module.global_list[:]
 
-        #first without raising
-        func = module.callable()
-        func()
-        del func
-        self.debug_collect()  # will call gc.collect unless run untranslated
-        new_list = module.global_list[:]
-        assert len(new_list) == len(old_list) + 2, "%s %s" %(old_list, new_list)
+        o = module.my_object()
+        c = module.my_callable()
 
-        #now with raising
+        with raises(ValueError):
+            c(o)
+
         old_list = module.global_list[:]
-        func = module.callable_raises()
-        with raises(TypeError) as e:
-            func()
-        del func
+        del o
         self.debug_collect()  # will call gc.collect unless run untranslated
+
+        # Make sure o.tp_dealloc was called
         new_list = module.global_list[:]
-        assert len(new_list) == len(old_list) + 2, "%s %s" %(old_list, new_list)
+        assert len(new_list) == len(old_list) + 1, "%s %s" %(old_list, new_list)
