@@ -3,7 +3,7 @@ PyPy v7.3.10: release of python 2.7, 3.8, and 3.9
 =================================================
 
 ..
-       Changelog up to commit 8841aa1c9a3e
+       Changelog up to commit 2f756054f919
 
 .. note::
   This is a pre-release announcement. When the release actually happens, it
@@ -256,8 +256,8 @@ Speedups and enhancements shared across versions
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-We are no longer backporting changes to the ``cpyext`` compatibility layer to
-PyPy2.7.
+- Make sure ``decref`` is being called even if a c-level call raises an
+  exception (issue 3854_)
 
 Python 3.8+
 -----------
@@ -406,6 +406,7 @@ Python 3.9+ C-API
 .. _3746: https://foss.heptapod.net/pypy/pypy/-/issues/3746
 .. _3669: https://foss.heptapod.net/pypy/pypy/-/issues/3669
 .. _3845: https://foss.heptapod.net/pypy/pypy/-/issues/3845
+.. _3854: https://foss.heptapod.net/pypy/pypy/-/issues/3854
 .. _bpo34953: https://bugs.python.org/issue34953
 .. _cpython-91851: https://github.com/python/cpython/issues/91851
 .. _cpython-97514: https://github.com/python/cpython/issues/97514
