@@ -104,7 +104,7 @@ alias = {
     'David Malcolm': ['dmalcolm'],
     'Simon Cross': ['hodgestar'],
     'Łukasz Langa': ['ambv'],
-    'Jakob Wenzel': ['Wenzel Jakob'],
+    'Wenzel Jakob': ['Jakob Wenzel'],
     }
 
 alias_map = {}

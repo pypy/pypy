@@ -251,7 +251,7 @@ Contributors
   Thomas Hisch
   Barry Hart
   Tomasz Dziopa
-  Jakob Wenzel
+  Wenzel Jakob
   Lutz Paelike
   Ignas Mikalajunas
   Martin Blais
