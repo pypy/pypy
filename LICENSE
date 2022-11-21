@@ -78,6 +78,7 @@ copyrighted by one or more of the following people and organizations:
   Romain Guillebert
   Ronny Pfannschmidt
   Justin Peel
+  Yusuke Izawa
   Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
@@ -85,23 +86,22 @@ copyrighted by one or more of the following people and organizations:
   Gregor Wegberg
   Guido Wesdorp
   Lawrence Oluyede
-  Bartosz Skowron
   Stefano Rivera
+  Bartosz Skowron
   Daniel Roberts
   Adrien Di Mascio
   Niko Matsakis
+  Batuhan Taskaya
   Alexander Hesse
   Ludovic Aubry
-  Batuhan Taskaya
   stian
   Jacob Hallen
   Jason Creighton
   Mark Young
   Andrew Lawrence
-  Alex Martelli
   Ondrej Baranovič
+  Alex Martelli
   Spenser Bauman
-  Yusuke Izawa
   Michal Bendowski
   Jan de Mooij
   Stefan Beyer
@@ -132,8 +132,8 @@ copyrighted by one or more of the following people and organizations:
   Konstantin Lopuhin
   Wenzhu Man
   John Witulski
-  Jeremy Thurgood
   Julian Berman
+  Jeremy Thurgood
   Adrian Kuhn
   Dario Bertini
   Greg Price
@@ -147,6 +147,7 @@ copyrighted by one or more of the following people and organizations:
   Pavel Vinogradov
   William Leslie
   Paweł Piotr Przeradowski
+  Michał Górny
   Paul deGrandis
   Ilya Osadchiy
   Tobias Oberstein
@@ -156,8 +157,8 @@ copyrighted by one or more of the following people and organizations:
   Taavi Burns
   Joannah Nanjekye
   Georg Brandl
-  Michał Górny
   quejebo
+  Tadeu Zagallo
   Vanessa Freudenberg
   Gerald Klix
   Wanja Saatkamp
@@ -179,6 +180,7 @@ copyrighted by one or more of the following people and organizations:
   Lukas Renggli
   Dusty Phillips
   Guenter Jantzen
+  Nils Müller
   Amit Regmi
   Ned Batchelder
   Jasper Schulz
@@ -218,7 +220,6 @@ copyrighted by one or more of the following people and organizations:
   Aaron Iles
   Christian Hudon
   Daniel Patrick
-  Ricky Zhou
   Justas Sadzevicius
   Gasper Zejn
   Neil Shepperd
@@ -228,6 +229,7 @@ copyrighted by one or more of the following people and organizations:
   Berkin Ilbeyi
   Mihnea Saracin
   Matt Jackson
+  Ricky Zhou
   Jonathan David Riehl
   Anders Qvist
   Beatrice During
@@ -283,6 +285,7 @@ copyrighted by one or more of the following people and organizations:
   Thomas Hisch
   Barry Hart
   Tomasz Dziopa
+  Jakob Wenzel
   Lutz Paelike
   Ignas Mikalajunas
   Martin Blais
@@ -312,8 +315,10 @@ copyrighted by one or more of the following people and organizations:
   Antoine Dupre
   Bernd Schoeller
   Catalin Fierut
+  Chris Burr
   nimaje
   Pierre-Yves DAVID
+  Alessandro Ogier
   Gustavo Niemeyer
   Andrew Thompson
   Joshua Gilbert
@@ -371,6 +376,7 @@ copyrighted by one or more of the following people and organizations:
   Dennis Sweeney
   Kevin Lee
   h-vertini
+  Maxwell Bernstein
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -473,7 +479,6 @@ copyrighted by one or more of the following people and organizations:
   shaolo1
   Chris AtLee
   Christoph Reiter
-  Chris Burr
   Brad Kish
   Michael Cho
   Ian Clester

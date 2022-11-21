@@ -44,6 +44,7 @@ Contributors
   Romain Guillebert
   Ronny Pfannschmidt
   Justin Peel
+  Yusuke Izawa
   Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
@@ -51,23 +52,22 @@ Contributors
   Gregor Wegberg
   Guido Wesdorp
   Lawrence Oluyede
-  Bartosz Skowron
   Stefano Rivera
+  Bartosz Skowron
   Daniel Roberts
   Adrien Di Mascio
   Niko Matsakis
+  Batuhan Taskaya
   Alexander Hesse
   Ludovic Aubry
-  Batuhan Taskaya
   stian
   Jacob Hallen
   Jason Creighton
   Mark Young
   Andrew Lawrence
-  Alex Martelli
   Ondrej Baranovič
+  Alex Martelli
   Spenser Bauman
-  Yusuke Izawa
   Michal Bendowski
   Jan de Mooij
   Stefan Beyer
@@ -98,8 +98,8 @@ Contributors
   Konstantin Lopuhin
   Wenzhu Man
   John Witulski
-  Jeremy Thurgood
   Julian Berman
+  Jeremy Thurgood
   Adrian Kuhn
   Dario Bertini
   Greg Price
@@ -113,6 +113,7 @@ Contributors
   Pavel Vinogradov
   William Leslie
   Paweł Piotr Przeradowski
+  Michał Górny
   Paul deGrandis
   Ilya Osadchiy
   Tobias Oberstein
@@ -122,8 +123,8 @@ Contributors
   Taavi Burns
   Joannah Nanjekye
   Georg Brandl
-  Michał Górny
   quejebo
+  Tadeu Zagallo
   Vanessa Freudenberg
   Gerald Klix
   Wanja Saatkamp
@@ -145,6 +146,7 @@ Contributors
   Lukas Renggli
   Dusty Phillips
   Guenter Jantzen
+  Nils Müller
   Amit Regmi
   Ned Batchelder
   Jasper Schulz
@@ -184,7 +186,6 @@ Contributors
   Aaron Iles
   Christian Hudon
   Daniel Patrick
-  Ricky Zhou
   Justas Sadzevicius
   Gasper Zejn
   Neil Shepperd
@@ -194,6 +195,7 @@ Contributors
   Berkin Ilbeyi
   Mihnea Saracin
   Matt Jackson
+  Ricky Zhou
   Jonathan David Riehl
   Anders Qvist
   Beatrice During
@@ -249,6 +251,7 @@ Contributors
   Thomas Hisch
   Barry Hart
   Tomasz Dziopa
+  Jakob Wenzel
   Lutz Paelike
   Ignas Mikalajunas
   Martin Blais
@@ -278,8 +281,10 @@ Contributors
   Antoine Dupre
   Bernd Schoeller
   Catalin Fierut
+  Chris Burr
   nimaje
   Pierre-Yves DAVID
+  Alessandro Ogier
   Gustavo Niemeyer
   Andrew Thompson
   Joshua Gilbert
@@ -337,6 +342,7 @@ Contributors
   Dennis Sweeney
   Kevin Lee
   h-vertini
+  Maxwell Bernstein
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -439,7 +445,6 @@ Contributors
   shaolo1
   Chris AtLee
   Christoph Reiter
-  Chris Burr
   Brad Kish
   Michael Cho
   Ian Clester

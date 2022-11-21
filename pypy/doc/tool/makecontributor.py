@@ -3,7 +3,11 @@ from __future__ import print_function
 # NOTE: run this script with LANG=en_US.UTF-8
 # works with pip install mercurial==3.0
 
-import py
+try:
+    from pathlib import Path
+except ImportError:
+    import py
+    Path = py.path.local
 import sys
 from collections import defaultdict
 import operator
@@ -11,7 +15,7 @@ import re
 import mercurial.hg
 import mercurial.ui
 
-ROOT = py.path.local(__file__).join('..', '..', '..', '..')
+ROOT = Path(__file__, '..', '..', '..', '..')
 author_re = re.compile('(.*) <.*>')
 pair_programming_re = re.compile(r'^\((.*?)\)')
 excluded = set(["pypy", "convert-repo", "hgattic", '"Miss Islington (bot)"'])
@@ -100,6 +104,7 @@ alias = {
     'David Malcolm': ['dmalcolm'],
     'Simon Cross': ['hodgestar'],
     'Łukasz Langa': ['ambv'],
+    'Jakob Wenzel': ['Wenzel Jakob'],
     }
 
 alias_map = {}
