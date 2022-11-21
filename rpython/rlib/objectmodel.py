@@ -1046,6 +1046,49 @@ def move_to_end(d, key, last=True):
         return
     d.move_to_end(key, last)
 
+@not_rpython
+def dict_to_switch(d, inline=True):
+    """Convert dictionary with integer or char keys to a switch statement."""
+    from rpython.rlib.unroll import unrolling_iterable
+
+    assert len(d) >= 1
+    firstkey = next(iter(d))
+    if isinstance(firstkey, int):
+        precheck = always_inline(lambda key: key)
+        for key in d:
+            assert isinstance(key, int)
+    else:
+        assert isinstance(firstkey, str) # only int and char allowed for now
+        for key in d:
+            assert isinstance(key, str) and len(key) == 1
+
+        @always_inline
+        def precheck(key):
+            # make sure it's a char switch
+            if len(key) > 1:
+                raise KeyError
+            return key[0]
+
+    cached_size = len(d)
+    unrolling_iteritems = unrolling_iterable(d.iteritems())
+
+    def lookup(query):
+        if we_are_translated():
+            query = precheck(query)
+            for key, value in unrolling_iteritems:
+                if key == query:
+                    return value
+            else:
+                raise KeyError
+        else:
+            assert len(d) == cached_size, "dictionary size changed!"
+            return d[query]
+
+
+    if inline:
+        lookup = always_inline(lookup)
+    return lookup
+
 # ____________________________________________________________
 
 def import_from_mixin(M, special_methods=['__init__', '__del__']):

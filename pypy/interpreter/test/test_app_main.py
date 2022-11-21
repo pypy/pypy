@@ -149,9 +149,9 @@ class TestParseCommandLine:
         self.check(['-S', '-tO', '--version'], {}, output_contains='Python')
         self.check(['-S', '-tOV'], {}, output_contains='Python')
         self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
-                   run_stdin=True, no_site=1)
+                   run_stdin=True, no_site=1, _jitoptions='off')
         self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
-                   run_stdin=True, no_site=1)
+                   run_stdin=True, no_site=1, _jitoptions='off')
         self.check(['-c', 'pass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass','x'], {}, sys_argv=['-c','x'], run_command='pass')
@@ -189,6 +189,8 @@ class TestParseCommandLine:
         self.check([], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
         self.check(['-O'], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
         self.check(['-OOO'], {'PYTHONOPTIMIZE': 'abc'}, sys_argv=[''], run_stdin=True, optimize=3)
+
+        self.check([], {'PYPY_DISABLE_JIT': '1'}, sys_argv=[''], run_stdin=True, _jitoptions='off')
 
     def test_sysflags(self):
         flags = (
@@ -233,14 +235,6 @@ class TestParseCommandLine:
         self.check(['-X', 'track-resources'], {}, sys_argv=[''], run_stdin=True)
         assert myflag[0] == True
 
-    def test_jit_off(self, monkeypatch):
-        options = [None]
-        def set_jit_option(_, option, *args):
-            options[0] = option
-        from pypy.interpreter import app_main
-        monkeypatch.setattr(app_main, 'set_jit_option', set_jit_option, raising=False)
-        self.check(['-X', 'jit-off'], {}, sys_argv=[''], run_stdin=True)
-        assert options == ["off"]
 
 class TestInteraction:
     """

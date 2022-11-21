@@ -24,12 +24,12 @@ class SyntaxError(Exception):
             text = lines[self.lineno - 1]
         w_filename = space.newtext_or_none(self.filename)
         w_text = space.newtext_or_none(text)
-        return space.newtuple([space.newtext(self.msg),
+        return space.newtuple2(space.newtext(self.msg),
                                space.newtuple([w_filename,
                                                space.newint(self.lineno),
                                                space.newint(self.offset),
                                                w_text,
-                                               space.newint(self.lastlineno)])])
+                                               space.newint(self.lastlineno)]))
 
     def __str__(self):
         return "%s at pos (%d, %d) in %r" % (self.__class__.__name__,

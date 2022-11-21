@@ -237,3 +237,14 @@ class AppTestCodeIntrospection:
         # CO_NESTED
         assert f(4).func_code.co_flags & 0x10
         assert f.func_code.co_flags & 0x10 == 0
+
+    def test_code_eq_non_code(self):
+        class A(object):
+            def __eq__(self, other):
+                return 23
+            def __ne__(self, other):
+                return 41
+        def f(): pass
+        assert (f.__code__ == A()) == 23
+        assert (f.__code__ != A()) == 41
+

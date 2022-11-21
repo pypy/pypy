@@ -29,8 +29,8 @@ def method_cache_counter(space, name):
     methods with the name."""
     assert space.config.objspace.std.withmethodcachecounter
     cache = space.fromcache(MethodCache)
-    return space.newtuple([space.newint(cache.hits.get(name, 0)),
-                           space.newint(cache.misses.get(name, 0))])
+    return space.newtuple2(space.newint(cache.hits.get(name, 0)),
+                           space.newint(cache.misses.get(name, 0)))
 
 def reset_method_cache_counter(space):
     """Reset the method cache counter to zero for all method names."""
@@ -48,8 +48,8 @@ def mapdict_cache_counter(space, name):
     in the mapdict cache with the given attribute name."""
     assert space.config.objspace.std.withmethodcachecounter
     cache = space.fromcache(MapAttrCache)
-    return space.newtuple([space.newint(cache.hits.get(name, 0)),
-                           space.newint(cache.misses.get(name, 0))])
+    return space.newtuple2(space.newint(cache.hits.get(name, 0)),
+                           space.newint(cache.misses.get(name, 0)))
 
 def builtinify(space, w_func):
     """To implement at app-level modules that are, in CPython,
@@ -127,10 +127,10 @@ def get_console_cp(space):
     Return the console and console output code page (windows only)
     """
     from rpython.rlib import rwin32    # Windows only
-    return space.newtuple([
+    return space.newtuple2(
         space.newtext('cp%d' % rwin32.GetConsoleCP()),
         space.newtext('cp%d' % rwin32.GetConsoleOutputCP()),
-        ])
+        )
 
 @unwrap_spec(fd=int)
 def get_osfhandle(space, fd):

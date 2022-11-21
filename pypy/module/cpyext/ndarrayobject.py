@@ -153,7 +153,7 @@ def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, 
 @cpython_api([Py_ssize_t], PyObject, header=HEADER)
 def PyArray_DescrFromType(space, typenum):
     try:
-        dtype = get_dtype_cache(space).dtypes_by_num[typenum]
+        dtype = get_dtype_cache(space).dtypes_by_num(typenum)
         return dtype
     except KeyError:
         raise oefmt(space.w_ValueError,
@@ -163,7 +163,7 @@ def PyArray_DescrFromType(space, typenum):
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t], PyObject, header=HEADER)
 def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
     try:
-        dtype = get_dtype_cache(space).dtypes_by_num[typenum]
+        dtype = get_dtype_cache(space).dtypes_by_num(typenum)
     except KeyError:
         raise oefmt(space.w_ValueError,
                     "_PyArray_FromObject called with invalid dtype %d",
@@ -182,7 +182,7 @@ def get_shape_and_dtype(space, nd, dims, typenum):
     shape = []
     for i in range(nd):
         shape.append(rffi.cast(rffi.LONG, dims[i]))
-    dtype = get_dtype_cache(space).dtypes_by_num[typenum]
+    dtype = get_dtype_cache(space).dtypes_by_num(typenum)
     return shape, dtype
 
 def simple_new(space, nd, dims, typenum,
@@ -259,7 +259,7 @@ def do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
     for i in range(ntypes):
         funcs_w[i] = ufuncs.W_GenericUFuncCaller(funcs[i], data)
     for i in range(ntypes*(nin+nout)):
-        dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
+        dtypes_w[i] = get_dtype_cache(space).dtypes_by_num(ord(types[i]))
     w_funcs = space.newlist(funcs_w)
     w_dtypes = space.newlist(dtypes_w)
     w_doc = rffi.charp2str(doc)

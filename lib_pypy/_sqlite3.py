@@ -1002,9 +1002,22 @@ class Cursor(object):
         try:
             return self.__description
         except AttributeError:
-            if self.__statement:
-                self.__description = self.__statement._get_description()
-                return self.__description
+            if not self.__statement:
+                return None
+            statement = self.__statement
+            if not statement._valid:
+                return None
+
+            if not (hasattr(self, '_Cursor__next_row') or statement._type == _STMT_TYPE_SELECT):
+                return None
+            desc = []
+            for i in xrange(_lib.sqlite3_column_count(statement._statement)):
+                name = _lib.sqlite3_column_name(statement._statement, i)
+                if name:
+                    name = _ffi.string(name).split("[")[0].strip()
+                desc.append((name, None, None, None, None, None, None))
+            self.__description = tuple(desc)
+            return self.__description
     description = property(__get_description)
 
     def __get_lastrowid(self):
@@ -1110,10 +1123,6 @@ class Statement(object):
                             "just switch your application to Unicode strings.")
 
     def __set_param(self, idx, param):
-        cvt = converters.get(type(param))
-        if cvt is not None:
-            param = cvt(param)
-
         try:
             param = adapt(param)
         except:
@@ -1186,21 +1195,6 @@ class Statement(object):
         else:
             raise ValueError("parameters are of unsupported type")
 
-    def _get_description(self):
-        if self._type in (
-            _STMT_TYPE_INSERT,
-            _STMT_TYPE_UPDATE,
-            _STMT_TYPE_DELETE,
-            _STMT_TYPE_REPLACE
-        ) or not self._valid:
-            return None
-        desc = []
-        for i in xrange(_lib.sqlite3_column_count(self._statement)):
-            name = _lib.sqlite3_column_name(self._statement, i)
-            if name:
-                name = _ffi.string(name).split("[")[0].strip()
-            desc.append((name, None, None, None, None, None, None))
-        return desc
 
 
 class Row(object):

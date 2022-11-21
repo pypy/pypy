@@ -35,7 +35,7 @@ class W_AbstractSeqIterObject(W_Root):
         mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('seqiter_new')
         tup = [self.w_seq, space.newint(self.index)]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple2(new_inst, space.newtuple(tup))
 
     def descr_length_hint(self, space):
         return self.getlength(space)
@@ -153,7 +153,7 @@ class W_ReverseSeqIterObject(W_Root):
         new_inst = mod.get('reverseseqiter_new')
         w_seq = space.w_None if self.w_seq is None else self.w_seq
         tup = [w_seq, space.newint(self.index)]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple2(new_inst, space.newtuple(tup))
 
     def descr_length_hint(self, space):
         length = self.index + 1

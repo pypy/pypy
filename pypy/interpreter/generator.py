@@ -2,6 +2,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import LoopBlock
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr, interp_attrproperty, GetSetProperty
+from pypy.interpreter.gateway import interp2app
 from rpython.rlib import jit, rgc
 
 
@@ -233,6 +235,29 @@ return next yielded value or raise StopIteration."""
 
     def iterator_greenkey(self, space):
         return self.pycode
+
+GeneratorIterator.typedef = TypeDef("generator",
+    __repr__   = interp2app(GeneratorIterator.descr__repr__),
+    __reduce__   = interp2app(GeneratorIterator.descr__reduce__),
+    __setstate__ = interp2app(GeneratorIterator.descr__setstate__),
+    next       = interp2app(GeneratorIterator.descr_next,
+                            descrmismatch='next'),
+    send       = interp2app(GeneratorIterator.descr_send,
+                            descrmismatch='send'),
+    throw      = interp2app(GeneratorIterator.descr_throw,
+                            descrmismatch='throw'),
+    close      = interp2app(GeneratorIterator.descr_close,
+                            descrmismatch='close'),
+    __iter__   = interp2app(GeneratorIterator.descr__iter__,
+                            descrmismatch='__iter__'),
+    gi_running = interp_attrproperty('running', cls=GeneratorIterator, wrapfn="newbool"),
+    gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
+    gi_code    = GetSetProperty(GeneratorIterator.descr_gi_code),
+    __name__   = GetSetProperty(GeneratorIterator.descr__name__),
+    __weakref__ = make_weakref_descr(GeneratorIterator),
+)
+assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
+
 
 
 def get_printable_location_genentry(bytecode):

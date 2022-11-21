@@ -2,15 +2,6 @@
 PyPy v7.3.9 security release
 ============================
 
-..
-      Changelog up to commit caa2915dcf05
-
-.. note::
-        This is a pre-release announcement. When the release actually happens, it
-     will be announced on the `PyPy blog`_
-
-.. _`PyPy blog`: https://pypy.org/blog
-
 The PyPy team is proud to release version 7.3.9 of PyPy. This is a security
 release to match the recent `CPython release`_ and updates the portable pypy
 tarballs with ``bzip2 1.0.8``, ``openssl1.1.1n``, and ``libexpat 2.4.7``. Along
@@ -126,7 +117,6 @@ Changes shared across versions
   and 3696_)
 - Refactor argument parsing to avoid unwrapping (unboxing) and rewrapping
   kwargs (Python 3.8+)
-- Add RPython support for a starting value in ``enumerate(iterable, start)``
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -145,9 +135,16 @@ Python 3.8+ C-API (cpyext) fixes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Fix overflow return value in ``PyNumber_AsSsize_t`` on windows
 - Adopted `PEP 3123`_ declarations to avoid `-Wstrict-aliasing` compiler
-  warnings
+  warnings (issue 3706_)
 - Allocate a ``wrapperbase`` struct and assign it to ``d_base`` of
   ``PyWrapperDescrObject``
+
+Python 3.9+ fixes
+~~~~~~~~~~~~~~~~~~
+
+- We fixed a known performance regression of the previous release, where some
+  uses of ``**kwargs`` in function calls were slower than in PyPy3.8 (issue
+  3649_).
 
 .. _3323: https://foss.heptapod.net/pypy/pypy/-/issues/3323
 .. _3650: https://foss.heptapod.net/pypy/pypy/-/issues/3650
@@ -157,6 +154,9 @@ Python 3.8+ C-API (cpyext) fixes
 .. _3696: https://foss.heptapod.net/pypy/pypy/-/issues/3696
 .. _3703: https://foss.heptapod.net/pypy/pypy/-/issues/3703
 .. _3714: https://foss.heptapod.net/pypy/pypy/-/issues/3714
+.. _3649: https://foss.heptapod.net/pypy/pypy/-/issues/3649
+.. _3706: https://foss.heptapod.net/pypy/pypy/-/issues/3706
 .. _bpo35545: https://bugs.python.org/issue35545
 .. _errcheck: https://docs.python.org/3/library/ctypes.html#ctypes._FuncPtr.errcheck
 .. _`speed regression`: https://foss.heptapod.net/pypy/pypy/-/issues/3649
+.. _PEP 3123: https://peps.python.org/pep-3123/

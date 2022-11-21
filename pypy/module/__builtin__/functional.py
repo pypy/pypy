@@ -314,7 +314,7 @@ class W_Enumerate(W_Root):
             self.w_index = space.add(w_index, space.newint(1))
         if w_item is None:
             w_item = space.next(self.w_iter_or_list)
-        return space.newtuple([w_index, w_item])
+        return space.newtuple2(w_index, w_item)
 
     def descr___reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -324,8 +324,8 @@ class W_Enumerate(W_Root):
         w_index = self.w_index
         if w_index is None:
             w_index = space.newint(self.index)
-        w_info = space.newtuple([self.w_iter_or_list, w_index])
-        return space.newtuple([w_new_inst, w_info])
+        w_info = space.newtuple2(self.w_iter_or_list, w_index)
+        return space.newtuple2(w_new_inst, w_info)
 
 # exported through _pickle_support
 def _make_enumerate(space, w_iter_or_list, w_index):
@@ -402,7 +402,7 @@ class W_ReversedIterator(W_Root):
         w_seq = space.w_None if self.w_sequence is None else self.w_sequence
         info_w = [w_seq, space.newint(self.remaining)]
         w_info = space.newtuple(info_w)
-        return space.newtuple([w_new_inst, w_info])
+        return space.newtuple2(w_new_inst, w_info)
 
 W_ReversedIterator.typedef = TypeDef("reversed",
     __iter__        = interp2app(W_ReversedIterator.descr___iter__),

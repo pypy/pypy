@@ -1,12 +1,14 @@
 from pypy.interpreter.error import oefmt
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.util import negate
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.longlong2float import float2longlong
 
+UNROLL_CUTOFF = 10
 
 class NotSpecialised(Exception):
     pass
@@ -132,6 +134,11 @@ def make_specialised_class(typetuple):
                     return value
             raise oefmt(space.w_IndexError, "tuple index out of range")
 
+        def _unroll_condition(self):
+            return jit.loop_unrolling_heuristic(
+                    self, typelen, UNROLL_CUTOFF)
+
+
     cls.__name__ = ('W_SpecialisedTupleObject_' +
                     ''.join([t.__name__[0] for t in typetuple]))
     _specialisations.append(cls)
@@ -145,19 +152,22 @@ Cls_oo = make_specialised_class((object, object))
 Cls_ff = make_specialised_class((float, float))
 
 def makespecialisedtuple(space, list_w):
-    from pypy.objspace.std.intobject import W_IntObject
-    from pypy.objspace.std.floatobject import W_FloatObject
     if len(list_w) == 2:
         w_arg1, w_arg2 = list_w
-        if type(w_arg1) is W_IntObject:
-            if type(w_arg2) is W_IntObject:
-                return Cls_ii(space, space.int_w(w_arg1), space.int_w(w_arg2))
-        elif type(w_arg1) is W_FloatObject:
-            if type(w_arg2) is W_FloatObject:
-                return Cls_ff(space, space.float_w(w_arg1), space.float_w(w_arg2))
-        return Cls_oo(space, w_arg1, w_arg2)
+        return makespecialisedtuple2(space, w_arg1, w_arg2)
     else:
         raise NotSpecialised
+
+def makespecialisedtuple2(space, w_arg1, w_arg2):
+    from pypy.objspace.std.intobject import W_IntObject
+    from pypy.objspace.std.floatobject import W_FloatObject
+    if type(w_arg1) is W_IntObject:
+        if type(w_arg2) is W_IntObject:
+            return Cls_ii(space, space.int_w(w_arg1), space.int_w(w_arg2))
+    elif type(w_arg1) is W_FloatObject:
+        if type(w_arg2) is W_FloatObject:
+            return Cls_ff(space, space.float_w(w_arg1), space.float_w(w_arg2))
+    return Cls_oo(space, w_arg1, w_arg2)
 
 # --------------------------------------------------
 # Special code based on list strategies to implement zip(),
@@ -186,8 +196,8 @@ def _build_zipped_unspec(space, w_list1, w_list2):
     strat1 = w_list1.strategy
     strat2 = w_list2.strategy
     length = min(strat1.length(w_list1), strat2.length(w_list2))
-    return [space.newtuple([strat1.getitem(w_list1, i),
-                            strat2.getitem(w_list2, i)]) for i in range(length)]
+    return [space.newtuple2(strat1.getitem(w_list1, i),
+                            strat2.getitem(w_list2, i)) for i in range(length)]
 
 def specialized_zip_2_lists(space, w_list1, w_list2):
     from pypy.objspace.std.listobject import W_ListObject

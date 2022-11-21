@@ -1,8 +1,10 @@
+.. _jit-help:
+
 ========
 JIT help
 ========
 
-.. note this is from ``pypy --jit help``
+.. note:: this is from ``pypy --jit help``
 
 Advanced JIT options
 ====================
@@ -11,7 +13,10 @@ Advanced JIT options
 ``OPTION=VALUE``:
 
  decay=N
-    amount to regularly decay counters by (0=none, 1000=max) (default 40)
+    amount to regularly decay counters by (0=none, 1000=max) (default 40). This
+    value is used to reduce the JIT counters every 32 minor collections,
+    according to the formula ``val *= 1.0 - (decay / 1000)``. This avoids JIT
+    compilation of rare paths even on long-running programs.
 
  disable_unrolling=N
     after how many operations we should not unroll (default 200)

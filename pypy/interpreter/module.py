@@ -10,7 +10,7 @@ from rpython.rlib.objectmodel import we_are_translated, not_rpython
 class Module(W_Root):
     """A module."""
 
-    _immutable_fields_ = ["w_dict?"]
+    _immutable_fields_ = ["w_dict"]
 
     _frozen = False
 
@@ -103,10 +103,10 @@ class Module(W_Root):
             w_mod    = space.getbuiltinmodule('_pickle_support')
             mod      = space.interp_w(MixedModule, w_mod)
             new_inst = mod.get('module_new')
-            return space.newtuple([new_inst,
-                                   space.newtuple([w_name,
-                                                   self.getdict(space)]),
-                                  ])
+            return space.newtuple2(new_inst,
+                                   space.newtuple2(w_name,
+                                                   self.getdict(space)),
+                                  )
         #already imported case
         w_import = space.builtin.get('__import__')
         tup_return = [

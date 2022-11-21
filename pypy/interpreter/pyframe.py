@@ -470,8 +470,11 @@ class PyFrame(W_Root):
             w_tb = self.last_exception.get_w_traceback(space)
 
         d = self.getorcreatedebug()
+        w_backref = self.f_backref()
+        if w_backref is None:
+            w_backref = space.w_None
         tup_state = [
-            self.f_backref(),
+            w_backref,
             self.get_builtin(),
             self.pycode,
             w_locals_cells_stack,
@@ -595,18 +598,21 @@ class PyFrame(W_Root):
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
         d = self.getorcreatedebug()
-        if d.w_locals is None:
-            d.w_locals = self.space.newdict()
+        w_locals = d.w_locals
+        write = False
+        if w_locals is None:
+            w_locals = self.space.newdict(instance=True)
+            write = True
         varnames = self.getcode().getvarnames()
         for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
             w_value = self.locals_cells_stack_w[i]
             if w_value is not None:
-                self.space.setitem_str(d.w_locals, name, w_value)
+                self.space.setitem_str(w_locals, name, w_value)
             else:
                 w_name = self.space.newtext(name)
                 try:
-                    self.space.delitem(d.w_locals, w_name)
+                    self.space.delitem(w_locals, w_name)
                 except OperationError as e:
                     if not e.match(self.space, self.space.w_KeyError):
                         raise
@@ -625,7 +631,9 @@ class PyFrame(W_Root):
             except ValueError:
                 pass
             else:
-                self.space.setitem_str(d.w_locals, name, w_value)
+                self.space.setitem_str(w_locals, name, w_value)
+        if write:
+            d.w_locals = w_locals
 
 
     @jit.unroll_safe

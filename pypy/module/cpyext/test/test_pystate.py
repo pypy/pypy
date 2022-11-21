@@ -215,6 +215,85 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         print "got", res
         assert res in (0, 1)
 
+    def test_thread_interrupt(self):
+        import signal # to initialize the signal infrastructure
+        import thread, time, posix as os
+
+        module = self.import_extension('disruptor', [
+                ("surprise", "METH_VARARGS",
+                 """
+                 long tid;
+                 PyObject *exc;
+                 if (!PyArg_ParseTuple(args, "lO", &tid, &exc))
+                     return NULL;
+                 return PyInt_FromLong(PyThreadState_SetAsyncExc(tid, exc));
+                 """),
+                ("nosurprise", "METH_VARARGS",
+                 """
+                 long tid;
+                 if (!PyArg_ParseTuple(args, "l", &tid))
+                     return NULL;
+                 return PyInt_FromLong(PyThreadState_SetAsyncExc(tid, NULL));
+                 """),
+                ])
+        # raise in another thread
+        def f():
+            try:
+                childstarted.append(thread.get_ident())
+                while 1:
+                    print "waiting in child"
+                    time.sleep(0.1)
+            except KeyError:
+                childstarted.pop()
+            else:
+                thread.interrupt_main() # to crash the test
+        cancelled_exception = False
+
+        for i in range(20):
+            print i
+            # first wait for the child to start
+            childstarted = []
+            thread.start_new_thread(f, ())
+            for i in range(500):
+                if childstarted:
+                    break
+                time.sleep(0.1)
+            # then interrupt it from the main thread
+            res = module.surprise(childstarted[0], KeyError)
+            assert res == 1
+
+            # try to cancel the interrupt
+            # this is racing! the child could either have been terminated
+            # already or not
+            try:
+                res = module.nosurprise(childstarted[0])
+                assert res in (0, 1)
+            except IndexError:
+                pass
+            else:
+                if res == 1:
+                    cancelled_exception = True
+                    # actually send exception
+                    res = module.surprise(childstarted[0], KeyError)
+                    assert res in (0, 1)
+            # now wait for the exception to arrive in the child thread
+            # which empties childstarted again
+            for i in range(500):
+                if not childstarted:
+                    break
+                time.sleep(0.1)
+            assert res == 1
+        assert cancelled_exception # XXX I have no clue whether we can expect this to work or not
+
+        # raise to main
+        with raises(ValueError):
+            res = module.surprise(thread.get_ident(), ValueError)
+            while 1:
+                print "sleeping"
+                time.sleep(0.1)
+
+
+
 
 class AppTestState(AppTestCpythonExtensionBase):
 

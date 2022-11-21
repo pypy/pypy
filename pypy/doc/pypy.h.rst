@@ -1,3 +1,5 @@
+:orphan:
+
 .. code-block:: c
 
     #ifndef _PYPY_H_

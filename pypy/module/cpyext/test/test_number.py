@@ -211,6 +211,13 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                 pass
             else:
                 assert False, 'expected TypeError'
+        # large number:
+        num = 2**66
+        assert mod.pynumber_tobase(num, 2) == '0b1' + '0' * 66
+        assert mod.pynumber_tobase(num, 8) == '0o10000000000000000000000'
+        assert mod.pynumber_tobase(num, 10) == str(num)
+        assert mod.pynumber_tobase(num, 16) == '0x40000000000000000'
+
 
     def test_number_to_ssize_t(self):
         import sys

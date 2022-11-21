@@ -3,8 +3,8 @@ from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.objspace.std import frame, transparent, callmethod
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
+from pypy.objspace.std import frame, transparent, callmethod
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
@@ -139,7 +139,10 @@ class StdObjSpace(ObjSpace):
             w_currently_in_repr = ec._py_repr = W_IdentityDict(self)
         return w_currently_in_repr
 
+    @specialize.memo()
     def gettypefor(self, cls):
+        if not hasattr(cls, "typedef") or cls.typedef is None:
+            return None
         return self.gettypeobject(cls.typedef)
 
     def gettypeobject(self, typedef):
@@ -301,6 +304,10 @@ class StdObjSpace(ObjSpace):
         assert isinstance(list_w, list)
         make_sure_not_resized(list_w)
         return wraptuple(self, list_w)
+
+    def newtuple2(self, w_a, w_b):
+        from pypy.objspace.std.tupleobject import wraptuple2
+        return wraptuple2(self, w_a, w_b)
 
     def newlist(self, list_w, sizehint=-1):
         assert not list_w or sizehint == -1
@@ -466,10 +473,17 @@ class StdObjSpace(ObjSpace):
         if isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):
             t = w_obj.tolist()
         elif type(w_obj) is W_ListObject:
+            length = w_obj.length()
+            if expected_length >= 0:
+                if length != expected_length:
+                    raise self._wrap_expected_length(expected_length, length)
+                if jit.isconstant(expected_length):
+                    jit.promote(length)
             if unroll:
                 t = w_obj.getitems_unroll()
             else:
                 t = w_obj.getitems_fixedsize()
+            return make_sure_not_resized(t)
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(

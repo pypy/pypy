@@ -311,15 +311,20 @@ def getweakrefs(space, w_obj):
 #_________________________________________________________________
 # Proxy
 
-class W_Proxy(W_WeakrefBase):
+class W_AbstractProxy(W_WeakrefBase):
+    pass
+
+class W_Proxy(W_AbstractProxy):
     def descr__hash__(self, space):
         raise oefmt(space.w_TypeError, "unhashable type")
 
-class W_CallableProxy(W_Proxy):
+class W_CallableProxy(W_AbstractProxy):
     def descr__call__(self, space, __args__):
         w_obj = force(space, self)
         return space.call_args(w_obj, __args__)
 
+    def descr__hash__(self, space):
+        raise oefmt(space.w_TypeError, "unhashable type")
 
 def proxy(space, w_obj, w_callable=None):
     """Create a proxy object that weakly references 'obj'.
@@ -340,7 +345,7 @@ def descr__new__callableproxy(space, w_subtype, w_obj, w_callable=None):
 
 
 def force(space, proxy):
-    if not isinstance(proxy, W_Proxy):
+    if not isinstance(proxy, W_AbstractProxy):
         return proxy
     w_obj = proxy.dereference()
     if w_obj is None:
@@ -406,7 +411,7 @@ W_Proxy.typedef.acceptable_as_base_class = False
 
 W_CallableProxy.typedef = TypeDef("weakcallableproxy",
     __new__ = interp2app(descr__new__callableproxy),
-    __hash__ = interp2app(W_Proxy.descr__hash__),
+    __hash__ = interp2app(W_CallableProxy.descr__hash__),
     __repr__ = interp2app(W_WeakrefBase.descr__repr__),
     __call__ = interp2app(W_CallableProxy.descr__call__),
     **callable_proxy_typedef_dict)

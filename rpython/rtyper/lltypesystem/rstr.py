@@ -708,16 +708,23 @@ class LLHelpers(AbstractLLHelpers):
         from rpython.rlib.rstring import SEARCH_FIND
         if start < 0:
             start = 0
-        if end > len(s1.chars):
-            end = len(s1.chars)
+        n = len(s1.chars)
+        if end > n:
+            end = n
         if end - start < 0:
             return -1
 
         m = len(s2.chars)
-        if m == 1:
-            return LLHelpers.ll_find_char(s1, s2.chars[0], start, end)
+        if m <= 1:
+            if m == 0:
+                return start
+            res = LLHelpers.ll_find_char(s1, s2.chars[0], start, end)
+            jit.record_exact_value(res < end, True)
+            return res
 
-        return LLHelpers.ll_search(s1, s2, start, end, SEARCH_FIND)
+        res = LLHelpers.ll_search(s1, s2, start, end, SEARCH_FIND)
+        jit.record_exact_value(res < end, True)
+        return res
 
     @staticmethod
     @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
@@ -731,10 +738,16 @@ class LLHelpers(AbstractLLHelpers):
             return -1
 
         m = len(s2.chars)
-        if m == 1:
-            return LLHelpers.ll_rfind_char(s1, s2.chars[0], start, end)
+        if m <= 1:
+            if m == 0:
+                return end
+            res = LLHelpers.ll_rfind_char(s1, s2.chars[0], start, end)
+            jit.record_exact_value(res < end, True)
+            return res
 
-        return LLHelpers.ll_search(s1, s2, start, end, SEARCH_RFIND)
+        res = LLHelpers.ll_search(s1, s2, start, end, SEARCH_RFIND)
+        jit.record_exact_value(res < end, True)
+        return res
 
     @classmethod
     def ll_count(cls, s1, s2, start, end):
@@ -1068,26 +1081,6 @@ class LLHelpers(AbstractLLHelpers):
         if not i == strlen:
             raise ValueError
         return sign * val
-
-    # interface to build strings:
-    #   x = ll_build_start(n)
-    #   ll_build_push(x, next_string, 0)
-    #   ll_build_push(x, next_string, 1)
-    #   ...
-    #   ll_build_push(x, next_string, n-1)
-    #   s = ll_build_finish(x)
-
-    @staticmethod
-    def ll_build_start(parts_count):
-        return malloc(TEMP, parts_count)
-
-    @staticmethod
-    def ll_build_push(builder, next_string, index):
-        builder[index] = next_string
-
-    @staticmethod
-    def ll_build_finish(builder):
-        return LLHelpers.ll_join_strs(len(builder), builder)
 
     @staticmethod
     @specialize.memo()

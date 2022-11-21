@@ -25,7 +25,9 @@ sys.path.append(os.path.abspath('../../'))
 # on_rtd is whether we are on readthedocs.org, this line of code grabbed from docs.readthedocs.org
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 
-if not on_rtd:  # only import and set the theme if we're building docs locally
+if on_rtd:  # only import and set the theme if we're building docs locally
+    html_theme = "sphinx_rtd_theme"
+else:
     try:
         import sphinx_rtd_theme
         html_theme = 'sphinx_rtd_theme'
@@ -33,9 +35,6 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
     except ImportError:
         print('sphinx_rtd_theme is not installed')
         html_theme = 'default'
-
-# otherwise, readthedocs.org uses their theme by default, so no need to specify it
-
 
 # -- General configuration -----------------------------------------------------
 

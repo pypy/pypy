@@ -448,18 +448,18 @@ class TestW_ListStrategies(TestW_ListObject):
 
         l = make_range_list(self.space, 0,1,5)
         assert isinstance(l.strategy, SimpleRangeListStrategy)
-        assert l.find(self.space.wrap(0)) == 0
-        assert l.find(self.space.wrap(4)) == 4
+        assert l.find_or_count(self.space.wrap(0)) == 0
+        assert l.find_or_count(self.space.wrap(4)) == 4
 
         try:
-            l.find(self.space.wrap(5))
+            l.find_or_count(self.space.wrap(5))
         except ValueError:
             pass
         else:
             assert False, "Did not raise ValueError"
 
         try:
-            l.find(self.space.wrap(0), 5, 6)
+            l.find_or_count(self.space.wrap(0), 5, 6)
         except ValueError:
             pass
         else:

@@ -32,6 +32,7 @@ class ThreadModule(MixedModule):
     interpleveldefs = {
         '_signals_enter':  'interp_signal.signals_enter',
         '_signals_exit':   'interp_signal.signals_exit',
+        '_raise_in_thread': 'interp_signal._raise_in_thread',
     }
 
 

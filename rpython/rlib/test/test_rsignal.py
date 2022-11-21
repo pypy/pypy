@@ -80,4 +80,4 @@ def test_raise():
     check(-1)
 
 def test_strsignal():
-    assert rsignal.strsignal(rsignal.SIGSEGV) == "Segmentation fault"
+    assert rsignal.strsignal(rsignal.SIGSEGV).startswith("Segmentation fault")

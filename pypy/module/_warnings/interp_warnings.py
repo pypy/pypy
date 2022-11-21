@@ -1,5 +1,4 @@
-
-from rpython.rlib import rutf8
+from rpython.rlib import rutf8, jit
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
@@ -70,13 +69,18 @@ def get_category(space, w_message, w_category):
 
     return w_category
 
-def setup_context(space, stacklevel):
-    # Setup globals and lineno
+@jit.look_inside_iff(lambda space, stacklevel: jit.isconstant(stacklevel))
+def _get_frame(space, stacklevel):
     ec = space.getexecutioncontext()
     frame = ec.gettopframe_nohidden()
     while frame and stacklevel > 1:
         frame = ec.getnextframe_nohidden(frame)
         stacklevel -= 1
+    return frame
+
+def setup_context(space, stacklevel):
+    # Setup globals and lineno
+    frame = _get_frame(space, stacklevel)
     if frame:
         w_globals = frame.get_w_globals()
         lineno = frame.get_last_lineno()
@@ -172,7 +176,7 @@ def get_once_registry(space):
     return w_registry
 
 def update_registry(space, w_registry, w_text, w_category):
-    w_key = space.newtuple([w_text, w_category])
+    w_key = space.newtuple2(w_text, w_category)
     return already_warned(space, w_registry, w_key, should_set=True)
 
 def already_warned(space, w_registry, w_key, should_set=False):

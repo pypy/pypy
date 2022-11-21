@@ -1,5 +1,5 @@
 import py
-from rpython.flowspace.model import checkgraph, Constant, summary
+from rpython.flowspace.model import checkgraph, Constant, summary, mkentrymap
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype
@@ -9,6 +9,8 @@ from rpython.rlib import objectmodel
 from rpython.translator.backendopt.constfold import constant_fold_graph
 from rpython.translator.backendopt.constfold import replace_we_are_jitted
 from rpython.conftest import option
+from rpython.rlib import jit
+from rpython.rlib import rarithmetic
 
 def get_graph(fn, signature):
     t = TranslationContext()
@@ -346,7 +348,6 @@ def test_merge_if_blocks_bug_2():
     check_graph(graph, [], 66, t)
 
 def test_replace_we_are_jitted():
-    from rpython.rlib import jit
     def fn():
         if jit.we_are_jitted():
             return 1
@@ -359,3 +360,82 @@ def test_replace_we_are_jitted():
     assert len(graph.startblock.operations) == 0
     assert graph.startblock.exitswitch is None
     assert graph.startblock.exits[0].target.exits[0].args[0].value == 2
+
+def test_int_ovf():
+    import sys
+    def fn():
+        # just using we_are_jitted as a way to introduce constants late
+        if jit.we_are_jitted():
+            x = 1
+            y = 5
+        else:
+            x = 2
+            y = 12
+        x += 2
+        try:
+            return rarithmetic.ovfcheck(x + y)
+        except OverflowError:
+            return -12
+    graph, t = get_graph(fn, [])
+    result = replace_we_are_jitted(graph)
+    assert summary(graph).get('int_add_nonneg_ovf', 0) == 0
+    check_graph(graph, [], 16, t)
+
+    def fn():
+        if jit.we_are_jitted():
+            x = 1
+            y = 5
+        else:
+            x = 2
+            y = sys.maxint
+        x += 2
+        try:
+            return rarithmetic.ovfcheck(x + y)
+        except OverflowError:
+            return -12
+    graph, t = get_graph(fn, [])
+    result = replace_we_are_jitted(graph)
+    assert summary(graph).get('int_add_nonneg_ovf', 0) == 0
+    check_graph(graph, [], -12, t)
+
+def test_int_ovf_bug():
+    import sys
+    def fn(a, b):
+        if a:
+            if jit.we_are_jitted():
+                b = 1
+            else:
+                b = 2
+            b += 2
+        else:
+            b += a
+        try:
+            return rarithmetic.ovfcheck(12 + b)
+        except OverflowError:
+            return -12
+    graph, t = get_graph(fn, [int, int])
+    result = replace_we_are_jitted(graph)
+    assert result
+    check_graph(graph, [0, sys.maxint-1], -12, t)
+    assert len(mkentrymap(graph)[graph.returnblock]) == 3
+
+    def fn(a, b):
+        if a:
+            if jit.we_are_jitted():
+                b = 1
+            else:
+                b = 2
+            b += 2
+        else:
+            b += a
+        try:
+            x = rarithmetic.ovfcheck(12 + b)
+        except OverflowError:
+            x = -12
+        return x + a * b
+    graph, t = get_graph(fn, [int, int])
+    result = replace_we_are_jitted(graph)
+    assert result
+    check_graph(graph, [0, sys.maxint-1], fn(0, sys.maxint-1), t)
+    entrymap = mkentrymap(graph)
+    assert len(entrymap[entrymap[graph.returnblock][0].prevblock]) == 3

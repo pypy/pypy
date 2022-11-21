@@ -426,7 +426,7 @@ class DictTest(unittest.TestCase):
 
     def test_repr_deep(self):
         d = {}
-        for i in range(sys.getrecursionlimit() + 100):
+        for i in range(sys.getrecursionlimit() + 500): # pypy difference: pypy is more efficient stack-wise
             d = {1: d}
         self.assertRaises(RuntimeError, repr, d)
 

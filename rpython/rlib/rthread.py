@@ -83,6 +83,8 @@ c_thread_acquirelock_timed_NOAUTO = llexternal('RPyThreadAcquireLockTimed',
                                          rffi.INT, _nowrapper=True)
 c_thread_releaselock_NOAUTO = c_thread_releaselock
 
+c_get_native_id = llexternal('RPyThread_get_thread_native_id', [],
+                           rffi.ULONG, _nowrapper=True)
 
 def allocate_lock():
     # Add some memory pressure for the size of the lock because it is an
@@ -421,14 +423,14 @@ class ThreadLocalReference(ThreadLocalField):
         self.get = get
         self.set = set
 
-        def _trace_tlref(gc, obj, callback, arg):
+        def _trace_tlref(gc, obj, callback, arg1, arg2):
             p = llmemory.NULL
             llop.threadlocalref_acquire(lltype.Void)
             while True:
                 p = llop.threadlocalref_enum(llmemory.Address, p)
                 if not p:
                     break
-                gc._trace_callback(callback, arg, p + offset)
+                gc._trace_callback(callback, arg1, arg2, p + offset)
             llop.threadlocalref_release(lltype.Void)
         _lambda_trace_tlref = lambda: _trace_tlref
         # WAAAH obscurity: can't use a name that may be non-unique,

@@ -93,18 +93,10 @@ Other steps
   * update pypy/doc/contributor.rst (and possibly LICENSE)
     pypy/doc/tool/makecontributor.py generates the list of contributors
 
-  * rename pypy/doc/whatsnew_head.rst to whatsnew_VERSION.rst
-    create a fresh whatsnew_head.rst after the release
-    and add the new file to  pypy/doc/index-of-whatsnew.rst
-
-  * rename pypy/doc/whatsnew-pypy3-HEAD.rst to whatsnew-pypy3-VERSION.rst
-    create a fresh whatsnew-pypy3_HEAD.rst after the release
-    and add the new file to  pypy/doc/index-of-whatsnew.rst
-
   * write release announcement pypy/doc/release-VERSION.rst
     The release announcement should contain a direct link to the download page
 
-  * Add the new files to  pypy/doc/index-of-{whatsnew,release-notes}.rst
+  * Add the new files to  pypy/doc/index-of-release-notes.rst
 
 * Build and upload the release tar-balls
 

@@ -419,14 +419,14 @@ class W_Deque(W_Root):
                     w_type, space.newtuple([w_list])]
             else:
                 result = [
-                    w_type, space.newtuple([w_list, space.newint(self.maxlen)])]
+                    w_type, space.newtuple2(w_list, space.newint(self.maxlen))]
         else:
             if self.maxlen == sys.maxint:
                 w_len = space.w_None
             else:
                 w_len = space.newint(self.maxlen)
             result = [
-                w_type, space.newtuple([w_list, w_len]), w_dict]
+                w_type, space.newtuple2(w_list, w_len), w_dict]
         return space.newtuple(result)
 
     def get_maxlen(space, self):

@@ -8,7 +8,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
 from rpython.annotator.model import SomeChar
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
-        specialize, we_are_translated, enforceargs)
+        specialize, we_are_translated, enforceargs, dict_to_switch)
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, ovfcheck
 from pypy.module.micronumpy import types, boxes, support, constants as NPY
 from .base import W_NDimArray
@@ -174,7 +174,7 @@ class W_Dtype(W_Root):
 
     def get_float_dtype(self, space):
         assert self.is_complex()
-        dtype = get_dtype_cache(space).component_dtypes[self.num]
+        dtype = get_dtype_cache(space).component_dtypes(self.num)
         if self.byteorder == NPY.OPPBYTE:
             dtype = dtype.descr_newbyteorder(space)
         assert dtype.is_float()
@@ -1083,9 +1083,13 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
         return _set_metadata_and_copy(space, w_metadata,
                 dtype_from_dict(space, w_dtype, alignment), copy)
     for dtype in cache.builtin_dtypes:
-        if dtype.num in cache.alternate_constructors and \
-                w_dtype in cache.alternate_constructors[dtype.num]:
-            return _set_metadata_and_copy(space, w_metadata, dtype, copy)
+        try:
+            constructors = cache.alternate_constructors(dtype.num)
+        except KeyError:
+            pass
+        else:
+            if w_dtype in constructors:
+                return _set_metadata_and_copy(space, w_metadata, dtype, copy)
         if w_dtype is dtype.w_box_type:
             return _set_metadata_and_copy(space, w_metadata, dtype, copy)
         if space.isinstance_w(w_dtype, space.w_type) and \
@@ -1308,7 +1312,7 @@ class DtypeCache(object):
             NPY.UNICODE:     ['unicode_'],
             NPY.OBJECT:      ['object_'],
         }
-        self.alternate_constructors = {
+        self.alternate_constructors = dict_to_switch({
             NPY.BOOL:     [space.w_bool],
             NPY.LONG:     [space.w_int,
                            space.gettypefor(boxes.W_IntegerBox),
@@ -1327,16 +1331,16 @@ class DtypeCache(object):
                            #space.w_buffer,  # XXX no buffer in space
             NPY.OBJECT:   [space.gettypefor(boxes.W_ObjectBox),
                            space.w_object],
-        }
+        })
         float_dtypes = [self.w_float16dtype, self.w_float32dtype,
                         self.w_float64dtype, self.w_floatlongdtype]
         complex_dtypes = [self.w_complex64dtype, self.w_complex128dtype,
                           self.w_complexlongdtype]
-        self.component_dtypes = {
+        self.component_dtypes = dict_to_switch({
             NPY.CFLOAT:      self.w_float32dtype,
             NPY.CDOUBLE:     self.w_float64dtype,
             NPY.CLONGDOUBLE: self.w_floatlongdtype,
-        }
+        })
         integer_dtypes = [
             self.w_int8dtype, self.w_uint8dtype,
             self.w_int16dtype, self.w_uint16dtype,
@@ -1355,7 +1359,7 @@ class DtypeCache(object):
             (dtype.elsize, dtype)
             for dtype in float_dtypes
         )
-        self.dtypes_by_num = {}
+        dtypes_by_num = {}
         self.dtypes_by_name = {}
         # we reverse, so the stuff with lower numbers override stuff with
         # higher numbers
@@ -1363,7 +1367,7 @@ class DtypeCache(object):
         for dtype in reversed(
                 [self.w_longdtype, self.w_ulongdtype] + self.builtin_dtypes):
             dtype.fields = None  # mark these as builtin
-            self.dtypes_by_num[dtype.num] = dtype
+            dtypes_by_num[dtype.num] = dtype
             self.dtypes_by_name[dtype.get_name()] = dtype
             for can_name in [dtype.kind + str(dtype.elsize),
                              dtype.char]:
@@ -1374,6 +1378,7 @@ class DtypeCache(object):
             if dtype.num in aliases:
                 for alias in aliases[dtype.num]:
                     self.dtypes_by_name[alias] = dtype
+        self.dtypes_by_num = dict_to_switch(dtypes_by_num)
         if self.w_longdtype.elsize == self.w_int32dtype.elsize:
             intp_dtype = self.w_int32dtype
             uintp_dtype = self.w_uint32dtype
@@ -1460,7 +1465,7 @@ def get_dtype_cache(space):
 
 @jit.elidable
 def num2dtype(space, num):
-    return get_dtype_cache(space).dtypes_by_num[num]
+    return get_dtype_cache(space).dtypes_by_num(num)
 
 def as_dtype(space, w_arg, allow_None=True):
     from pypy.module.micronumpy.casting import scalar2dtype

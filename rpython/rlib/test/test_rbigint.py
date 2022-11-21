@@ -16,7 +16,7 @@ from rpython.rlib import rbigint as lobj
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
-    gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT)
+    gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError)
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
@@ -431,6 +431,37 @@ class Test_rbigint(object):
         parser = NumberStringParser("000", "000", 0, "long",
                                     no_implicit_octal=True)
         assert rbigint._from_numberstring_parser(parser).tolong() == 0
+
+    def test_limit(self):
+        from rpython.rlib.rstring import NumberStringParser, MaxDigitsError
+        max_str_digits = 999
+        s = '0' * (max_str_digits)
+        s0 = '1' + s
+        s1 = '1' + s[1:]
+        s2 = '  - 1' + s[1:]
+        with pytest.raises(MaxDigitsError):
+            parser = NumberStringParser(s0, s0, 0, "long",
+                                        max_str_digits=max_str_digits)
+        # these succeed
+        parser = NumberStringParser(s2, s2, 0, "long",
+                                    max_str_digits=max_str_digits)
+        parser = NumberStringParser(s1, s1, 0, "long",
+                                    max_str_digits=max_str_digits)
+        x = rbigint._from_numberstring_parser(parser)
+
+        assert s1 == x.str(max_str_digits)
+        with pytest.raises(MaxIntError):
+            x.str(max_str_digits - 1)
+
+    def test_add(self):
+        for x in gen_signs(long_vals):
+            f1 = rbigint.fromlong(x)
+            for y in gen_signs(long_vals):
+                f2 = rbigint.fromlong(y)
+                result = f1.add(f2)
+                assert result.tolong() == x + y
+            
+        
 
     def test_add(self):
         for x in gen_signs(long_vals):
@@ -1563,6 +1594,26 @@ class TestHypothesis(object):
         r1 = rx.int_mod_int_result(y)
         r2 = x % y
         assert r1 == r2
+
+    @given(longs, strategies.integers(0, 2000))
+    def test_shift(self, x, shift):
+        rx = rbigint.fromlong(x)
+        r1 = rx.lshift(shift)
+        assert r1.tolong() == x << shift
+
+        r1 = rx.rshift(shift)
+        assert r1.tolong() == x >> shift
+
+    @given(longs, strategies.integers(0, 2000), strategies.sampled_from([int((1 << i) - 1) for i in range(1, r_uint.BITS-1)]))
+    def test_abs_rshift_and_mask(self, x, shift, mask):
+        rx = rbigint.fromlong(x)
+        r1 = rx.abs_rshift_and_mask(r_ulonglong(shift), mask)
+        assert r1 == (abs(x) >> shift) & mask
+
+    @given(biglongs)
+    def test_bit_count(self, val):
+        assert rbigint.fromlong(val).bit_count() == bin(abs(val)).count("1")
+
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
 def test_hypothesis_small_shift(methname):

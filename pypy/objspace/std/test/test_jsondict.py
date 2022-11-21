@@ -131,3 +131,8 @@ class AppTest(object):
         x.foo # used to segfault on pypy3
 
 
+    def test_copy(self):
+        import _pypyjson
+        d = _pypyjson.loads('{"a": 1}')
+        d1 = d.copy()
+        assert d1 == {"a": 1}

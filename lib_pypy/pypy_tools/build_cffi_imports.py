@@ -59,25 +59,26 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1n.tar.gz',
-             '40dceb51a4f6a5275bde0e6bf20ef4b91bfc32ed57c0552e2e8e15463372b17a',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1s.tar.gz',
+             'c5ac01e760ee6ff0dab61d6b2bbd30146724d063eb322180c6f18a6f74e4b6aa',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.1.tar.gz',
-              'c311ad853353bce796edad01a862c50a8a587f62e7e2100ef465ab53ec9b06d1',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.7.tar.gz',
+              '83049d042a260e696f62406ac5c08bf706fd84383f945cf21bd61e9ed95c396e',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
 }
+
 cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
-if sys.platform == 'darwin':
-    # this does not compile on the buildbot, linker is missing '_history_list'
+if sys.platform == "darwin":
+    # this does not compile on the linux buildbot, linker is missing '_history_list'
     cffi_dependencies['gdbm'] = (
               'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
               '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
@@ -244,6 +245,11 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print("stderr:")
                 print(bld_stderr, file=sys.stderr)
                 raise RuntimeError('building {} failed'.format(key))
+            elif key in ("_ssl",):
+                print("stdout:")
+                print(bld_stdout, file=sys.stderr)
+                print("stderr:")
+                print(bld_stderr, file=sys.stderr)
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))

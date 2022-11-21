@@ -33,3 +33,8 @@
   *OR*
   maybe it's enough if we use the form "str x0, [sp, !#offset]" which
   combines in a single instruction the "str" with the change of sp
+
+FAIL test/test_runner.py::TestARM64::()::test_call_release_gil_variable_function_and_arguments
+FAIL test/test_runner.py::TestARM64::()::test_call_release_gil_save_errno
+FAIL test/test_runner.py::TestARM64::()::test_compile_asmlen
+FAIL test/test_zrpy_vmprof.py::TestZVMprof::()::test_vmprof

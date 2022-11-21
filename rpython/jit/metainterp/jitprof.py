@@ -153,6 +153,10 @@ class Profiler(BaseProfiler):
         self._print_intline("abort: bad loop", cnt[Counters.ABORT_BAD_LOOP])
         self._print_intline("abort: force quasi-immut",
                             cnt[Counters.ABORT_FORCE_QUASIIMMUT])
+        self._print_intline("abort: segmenting trace",
+                            cnt[Counters.ABORT_SEGMENTED_TRACE])
+        self._print_intline("virtualizables forced",
+                            cnt[Counters.FORCE_VIRTUALIZABLES])
         self._print_intline("nvirtuals", cnt[Counters.NVIRTUALS])
         self._print_intline("nvholes", cnt[Counters.NVHOLES])
         self._print_intline("nvreused", cnt[Counters.NVREUSED])

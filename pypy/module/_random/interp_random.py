@@ -4,7 +4,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
-from rpython.rlib.rarithmetic import r_uint, intmask, widen
+from rpython.rlib.rarithmetic import r_uint, intmask, widen, LONG_BIT
 from rpython.rlib import rbigint, rrandom, rstring
 
 
@@ -90,9 +90,15 @@ class W_Random(W_Root):
 
     @unwrap_spec(k=int)
     def getrandbits(self, space, k):
+        """ getrandbits(k) -> x.  Generates a long int with k random bits. """
         if k <= 0:
             raise oefmt(space.w_ValueError,
                         "number of bits must be greater than zero")
+        if k < 32: # XXX could go up to 63 bits, but let's start with this
+            # fits an int, don't do the bytes-to-long-to-int dance
+            r = self._rnd.genrand32()
+            r >>= (32 - k)
+            return space.newint(intmask(r))
         bytes = ((k - 1) // 32 + 1) * 4
         bytesarray = rstring.StringBuilder(bytes)
         for i in range(0, bytes, 4):

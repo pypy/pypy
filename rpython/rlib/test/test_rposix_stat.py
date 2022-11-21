@@ -92,6 +92,7 @@ def test_fstatat(tmpdir):
         os.close(dirfd)
     assert result.st_atime == tmpdir.join('file').atime()
 
+@py.test.mark.skipif('sys.platform == "darwin"')
 def test_high_precision_stat_time():
     def f():
         st = os.stat('.')
