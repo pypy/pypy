@@ -532,6 +532,10 @@ except ImportError:
         _filters_version += 1
 
     _warnings_defaults = False
+else:
+    # the del is for pypy's celldict: make the globals "never mutated" ones
+    del warn, warn_explicit
+    from _warnings import (warn, warn_explicit)
 
 
 # Module initialization
