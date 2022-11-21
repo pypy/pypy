@@ -2,7 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rdynload import dlopen, dlsym, DLOpenError
 from rpython.rlib.objectmodel import specialize
 
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.error import raise_import_error
 from pypy.interpreter.error import oefmt
 
@@ -30,6 +30,8 @@ from pypy.module._hpy_universal import (
     interp_type,
     interp_tracker,
     interp_import,
+    interp_field,
+    interp_state,
     )
 
 # ~~~ Some info on the debug mode ~~~
@@ -69,17 +71,28 @@ from pypy.module._hpy_universal import (
 #    W_SlotWrapper.
 
 
+def set_on_invalid_handle(space, w_f):
+    raise oefmt(space.w_RuntimeError, "cannot use on_invalid_handle hook in PyPy")
+
+@specialize.memo()
+def get_set_on_invalid_handle(space):
+    return interp2app(set_on_invalid_handle).spacebind(space)
+
 def startup(space, w_mod):
     """
     Initialize _hpy_universal. This is called by moduledef.Module.__init__
     """
+    from pypy.module._hpy_universal.interp_type import setup_hpy_storage
     state = State.get(space)
     state.setup(space)
+    setup_hpy_storage()
     if not hasattr(space, 'is_fake_objspace'):
         # the following lines break test_ztranslation :(
         handles = state.get_handle_manager(debug=False)
         h_debug_mod = llapi.HPyInit__debug(handles.ctx)
         w_debug_mod = handles.consume(h_debug_mod)
+        w_set_on_invalid_handle = get_set_on_invalid_handle(space)
+        w_debug_mod.setdictvalue(space, 'set_on_invalid_handle', w_set_on_invalid_handle)
         w_mod.setdictvalue(space, '_debug', w_debug_mod)
 
 def load_version():

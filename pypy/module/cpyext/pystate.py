@@ -321,7 +321,12 @@ def PyInterpreterState_Next(space, interp):
     """Return the next interpreter state object after interp from the list of all
     such objects.
     """
+    # PyPy does not support multiple interpreters
     return lltype.nullptr(PyInterpreterState.TO)
+
+@cpython_api([PyInterpreterState], rffi.LONG, error=CANNOT_FAIL)
+def PyInterpreterState_GetID(space, interp):
+    return 0
 
 @cpython_api([PyInterpreterState], PyThreadState, error=CANNOT_FAIL,
              gil="around")
@@ -380,6 +385,27 @@ def _Py_IsFinalizing(space):
     implement _Py_Finalizing as a macro."""
     return space.sys.finalizing
 
+@cpython_api([lltype.Unsigned, PyObject], rffi.INT, error=CANNOT_FAIL)
+def PyThreadState_SetAsyncExc(space, id, w_exc):
+    """ Asynchronously raise an exception in a thread. The id argument is the
+    thread id of the target thread; exc is the exception object to be raised.
+    This function does not steal any references to exc. To prevent naive
+    misuse, you must write your own C extension to call this. Must be called
+    with the GIL held. Returns the number of thread states modified; this is
+    normally one, but will be zero if the thread id isn't found. If exc is
+    NULL, the pending exception (if any) for the thread is cleared. This raises
+    no exceptions.
+    """
+    from rpython.rlib.rarithmetic import intmask
+    from pypy.module.__pypy__.interp_signal import _raise_in_thread
+    tid = intmask(id)
+    try:
+        _raise_in_thread(space, tid, w_exc)
+    except OperationError as e:
+        if not e.match(space, space.w_ValueError):
+            e.write_unraisable(space, "PyThreadState_SetAsyncExc")
+        return 0
+    return 1
 def _PyInterpreterState_GET(space):
     tstate = PyThreadState_Get(space)
     return tstate.c_interp

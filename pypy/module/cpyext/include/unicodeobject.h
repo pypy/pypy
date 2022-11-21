@@ -398,6 +398,14 @@ Py_UNICODE_strcmp(const Py_UNICODE *s1, const Py_UNICODE *s2)
     return 0;
 }
 
+/* Concat two strings, put the result in *pleft and drop the right object
+   (sets *pleft to NULL on error) */
+
+PyAPI_FUNC(void) PyUnicode_AppendAndDel(
+    PyObject **pleft,           /* Pointer to left string */
+    PyObject *right             /* Right string */
+    );
+
 #ifdef __cplusplus
 }
 #endif

@@ -44,7 +44,6 @@ class AppTestCoroutine(AppTestCpythonExtensionBase):
         def it():
             yield 42
 
-        print(module.is_coroutine(it()))
         assert module.is_coroutine(it()) is False
         self.debug_collect()  # don't crash while deallocating
         from types import coroutine

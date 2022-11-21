@@ -197,7 +197,7 @@ class __extend__(pyframe.PyFrame):
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
-                return self.jump_absolute(oparg, ec)
+                return self.jump_absolute(oparg, next_instr, ec)
             elif opcode == opcodedesc.RERAISE.index:
                 return self.RERAISE(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
@@ -900,29 +900,27 @@ class __extend__(pyframe.PyFrame):
         self.space.delattr(w_obj, w_attributename)
 
     def STORE_GLOBAL(self, nameindex, next_instr):
-        varname = self.getname_u(nameindex)
-        w_newvalue = self.popvalue()
-        self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        #varname = self.getname_u(nameindex)
+        #w_newvalue = self.popvalue()
+        #self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        from pypy.objspace.std.celldict import STORE_GLOBAL_cached
+        STORE_GLOBAL_cached(self, nameindex, next_instr)
 
     def DELETE_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
         self.space.delitem(self.get_w_globals(), w_varname)
 
     def LOAD_NAME(self, nameindex, next_instr):
-        w_varname = self.getname_w(nameindex)
-        varname = self.space.text_w(w_varname)
+        from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
         if self.getorcreatedebug().w_locals is not self.get_w_globals():
+            w_varname = self.getname_w(nameindex)
+            varname = self.space.text_w(w_varname)
             w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
                                               varname)
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
-        # fall-back
-        w_value = self._load_global(varname)
-        if w_value is None:
-            raise oefmt_name_error(self.space, w_varname,
-                        "name %R is not defined")
-        self.pushvalue(w_value)
+        LOAD_GLOBAL_cached(self, nameindex, next_instr)
 
     @always_inline
     def _load_global(self, varname):
@@ -930,6 +928,10 @@ class __extend__(pyframe.PyFrame):
         if w_value is None:
             # not in the globals, now look in the built-ins
             w_value = self.get_builtin().getdictvalue(self.space, varname)
+            if w_value is None:
+                # XXX re-wrapping
+                w_varname = self.space.newtext(varname)
+                self._load_global_failed(w_varname)
         return w_value
 
     @dont_inline
@@ -941,11 +943,8 @@ class __extend__(pyframe.PyFrame):
 
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
-        w_varname = self.getname_w(nameindex)
-        w_value = self._load_global(self.space.text_w(w_varname))
-        if w_value is None:
-            self._load_global_failed(w_varname)
-        self.pushvalue(w_value)
+        from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
+        LOAD_GLOBAL_cached(self, nameindex, next_instr)
 
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_cells_stack_w[varindex] is None:
@@ -1028,10 +1027,21 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
 
     def IS_OP(self, oparg, next_instr):
+        space = self.space
         w_2 = self.popvalue()
         w_1 = self.popvalue()
-        res = self.space.is_w(w_1, w_2) ^ oparg
-        self.pushvalue(self.space.newbool(bool(res)))
+        res = self.space.is_w(w_1, w_2)
+        if oparg:
+            if res:
+                w_res = space.w_False
+            else:
+                w_res = space.w_True
+        else:
+            if res:
+                w_res = space.w_True
+            else:
+                w_res = space.w_False
+        self.pushvalue(w_res)
 
     def CONTAINS_OP(self, oparg, next_instr):
         w_2 = self.popvalue()
@@ -1189,7 +1199,7 @@ class __extend__(pyframe.PyFrame):
         from pypy.interpreter.reverse_debugging import jump_backward
         jump_backward(self, jumpto)
 
-    def jump_absolute(self, jumpto, ec):
+    def jump_absolute(self, jumpto, next_instr, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
         if self.space.reverse_debugging:
@@ -1203,34 +1213,26 @@ class __extend__(pyframe.PyFrame):
     def POP_JUMP_IF_FALSE(self, target, next_instr, ec):
         w_value = self.popvalue()
         if not self.space.is_true(w_value):
-            if target < next_instr:
-                return self.jump_absolute(target, ec)
-            return target
+            return self.jump_absolute(target, next_instr, ec)
         return next_instr
 
     def POP_JUMP_IF_TRUE(self, target, next_instr, ec):
         w_value = self.popvalue()
         if self.space.is_true(w_value):
-            if target < next_instr:
-                return self.jump_absolute(target, ec)
-            return target
+            return self.jump_absolute(target, next_instr, ec)
         return next_instr
 
     def JUMP_IF_FALSE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if not self.space.is_true(w_value):
-            if target < next_instr:
-                return self.jump_absolute(target, ec)
-            return target
+            return self.jump_absolute(target, next_instr, ec)
         self.popvalue()
         return next_instr
 
     def JUMP_IF_TRUE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if self.space.is_true(w_value):
-            if target < next_instr:
-                return self.jump_absolute(target, ec)
-            return target
+            return self.jump_absolute(target, next_instr, ec)
         self.popvalue()
         return next_instr
 
@@ -1939,7 +1941,6 @@ def _dict_merge(space, w_dict, w_item):
         raise oefmt(space.w_RuntimeError,
                     "expected a dict, got %T", w_dict)
     assert isinstance(w_dict, W_DictMultiObject)
-    l2 = space.len_w(w_item)
     if not space.isinstance_w(w_item, space.w_dict):
         unroll_safe = False
         if not space.ismapping_w(w_item):
@@ -1947,13 +1948,14 @@ def _dict_merge(space, w_dict, w_item):
                         "argument after ** must be a mapping, not %T",
                         w_item)
     else:
+        l2 = space.len_w(w_item)
         if l1 == 0:
             update1(space, w_dict, w_item)
             return
         l2 = space.len_w(w_item)
+        if l2 == 0:
+            return
         unroll_safe = unroll_safe and jit.isvirtual(w_item) and l2 < 10
-    if l2 == 0:
-        return
     _dict_merge_loop(space, w_dict, w_item, unroll_safe)
 
 @jit.look_inside_iff(lambda space, w_dict, w_item, unroll_safe: unroll_safe)

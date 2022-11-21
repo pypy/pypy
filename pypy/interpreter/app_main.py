@@ -31,7 +31,27 @@ Options and arguments (and corresponding environment variables):
 -V     : print the Python version number and exit (also --version)
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
--X opt : set implementation-specific option
+-X opt : set implementation-specific option. The following options are available:
+         (the CPython "showrefcount", "tracemalloc", "showalloccount", and
+          "importtime" options are not available)
+         -X faulthandler: enable faulthandler
+         -X dev: enable PyPy's \"development mode\", introducing additional runtime
+             checks which are too expensive to be enabled by default. Effect of the
+             developer mode:
+                * Add default warning filter, as -W default
+                * Enable the faulthandler module to dump the Python traceback on a crash
+                * Enable asyncio debug mode
+                * Set the dev_mode attribute of sys.flags to True
+         -X utf8: enable UTF-8 mode for operating system interfaces, overriding the default
+             locale-aware mode. -X utf8=0 explicitly disables UTF-8 mode (even when it would
+             otherwise activate automatically)
+         -X pycache_prefix=PATH: enable writing .pyc files to a parallel tree rooted at the
+             given directory instead of to the code tree
+         -X jit-off: turn the JIT off, equivalent to --jit off
+         -X int_max_str_digits=number: limit the size of int<->str conversions.
+             This helps avoid denial of service attacks when parsing untrusted data.
+             The default is sys.int_info.default_max_str_digits.  0 disables.
+  
 --check-hash-based-pycs always|default|never:
     control how Python invalidates hash-based .pyc files
 file   : program read from script file
@@ -39,9 +59,6 @@ file   : program read from script file
 arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
--X faulthandler: attempt to display tracebacks when PyPy crashes
--X dev: enable PyPy's "development mode"
--X jit-off: turn the JIT off, equivalent to --jit off
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
@@ -53,9 +70,14 @@ PYTHONCASEOK : ignore case in 'import' statements (Windows).
 PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
 PYTHONFAULTHANDLER: dump the Python traceback on fatal errors.
 PYTHONDEVMODE: enable the development mode.
+PYTHONINTMAXSTRDIGITS: limits the maximum digit characters in an int value
+   when converting from a string and when converting an int back to a str.
+   A value of 0 disables the limit.  Conversions to or from bases 2, 4, 8,
+   16, and 32 are never limited.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
-               topic at startup of interactive mode.
+   topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
+PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
 """
 
 try:
@@ -281,6 +303,7 @@ def funroll_loops(*args):
 
 
 def set_jit_option(options, jitparam, *args):
+    options['_jitoptions'] = jitparam
     if jitparam == 'help':
         _print_jit_help()
         raise SystemExit
@@ -436,6 +459,7 @@ sys_flags = (
     "isolated",
     "dev_mode",
     "utf8_mode",
+    "int_max_str_digits",
 )
 # ^^^ Order is significant!  Keep in sync with module.sys.app.sysflags
 
@@ -449,6 +473,7 @@ default_options = dict.fromkeys(
 default_options["check_hash_based_pycs"] = "default"
 default_options["dev_mode"] = False # needs to be bool
 default_options["utf8_mode"] = -1
+default_options["int_max_str_digits"] = -1
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -475,6 +500,36 @@ def X_option(options, xoption, iterargv):
             options["utf8_mode"] = 1
         elif xoption == "utf8=0":
             options["utf8_mode"] = 0
+    elif xoption == 'jit-off':
+        set_jit_option(options, 'off')
+
+def config_init_int_max_str_digits(env_option, x_option, options):
+    maxdigits = -1
+    val = prefix = "unknown"
+    try:
+        if env_option:
+            val = env_option
+            prefix = "PYTHONINTMAXSTRDIGITS"
+            maxdigits = int(env_option)
+        elif x_option:
+            val = x_option
+            prefix = "-X int_max_str_digits"
+            if val is True:
+                val = "option must have '=N'"
+                raise ValueError("bad option")
+            maxdigits = int(x_option)
+        else:
+            return 0
+    except Exception as e:
+        msg = "invalid value '%s' for '%s'\n" % (val, prefix)
+        raise CommandLineError(msg)
+    if not (maxdigits == 0 or maxdigits >= sys.int_info.str_digits_check_threshold):
+        msg  = ("Fatal Python error: config_init_int_max_str_digits:"
+               " %s: invalid limit; must be >= %d or 0 for unlimited\n") % (
+               prefix, sys.int_info.str_digits_check_threshold)
+        raise CommandLineError(msg)
+    options['int_max_str_digits'] = maxdigits
+    sys.set_int_max_str_digits(maxdigits)
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -613,7 +668,10 @@ def _parse_command_line(argv):
     # (relevant in case of "reload(sys)")
     sys.argv[:] = argv
 
-    if not options["ignore_environment"]:
+    if options["ignore_environment"]:
+        readenv = False
+    else:
+        readenv = True
         parse_env('PYTHONDEBUG', "debug", options)
         parse_env('PYTHONDONTWRITEBYTECODE', "dont_write_bytecode", options)
         if getenv('PYTHONNOUSERSITE'):
@@ -622,6 +680,8 @@ def _parse_command_line(argv):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
+        if getenv('PYPY_DISABLE_JIT'):
+            set_jit_option(options, 'off')
         if getenv('PYTHONDEVMODE'):
             options["dev_mode"] = True
         val = getenv('PYTHONUTF8')
@@ -646,17 +706,22 @@ def _parse_command_line(argv):
         else:
             options["utf8_mode"] = 0
 
-    if (options["interactive"] or
-        (not options["ignore_environment"] and getenv('PYTHONINSPECT'))):
+    if (options["interactive"] or (readenv and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
+
+    sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
+                         for x in options['_xoptions'])
+
+    config_init_int_max_str_digits(
+        getenv("PYTHONINTMAXSTRDIGITS") if readenv else None,
+        sys._xoptions.get('int_max_str_digits', None),
+        options,  # can be modified
+    )
 
     if WE_ARE_TRANSLATED:
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
-
-    sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
-                         for x in options['_xoptions'])
 
 ##    if not WE_ARE_TRANSLATED:
 ##        for key in sorted(options):
@@ -702,9 +767,6 @@ def run_command_line(interactive,
                 faulthandler.enable(2)   # manually set to stderr
             except ValueError:
                 pass      # ignore "2 is not a valid file descriptor"
-    if 'pypyjit' in sys.builtin_module_names:
-        if 'jit-off' in sys._xoptions:
-            set_jit_option(None, "off")
 
     pycache_prefix = sys._xoptions.get('pycache_prefix', None)
     if pycache_prefix is True:
@@ -881,7 +943,13 @@ def run_command_line(interactive,
         else:
             # handle the common case where a filename is specified
             # on the command-line.
+            import os
             filename = sys.argv[0]
+            try:
+                # try to make an absolute file name, which can fail
+                filename = os.path.abspath(filename)
+            except OSError as e:
+                pass
             mainmodule.__file__ = filename
             mainmodule.__cached__ = None
             for hook in sys.path_hooks:
@@ -933,7 +1001,7 @@ def run_command_line(interactive,
                     # put the filename in sys.path[0] and import
                     # the module __main__
                     import runpy
-                    sys.path.insert(0, filename)
+                    sys.path.insert(0, abspath(filename))
                     args = (runpy._run_module_as_main, '__main__', False)
                 else:
                     # That's the normal path, "pypy3 stuff.py".
@@ -943,6 +1011,8 @@ def run_command_line(interactive,
                     mainmodule.__loader__ = loader
                     @hidden_applevel
                     def execfile(filename, namespace):
+                        from os.path import abspath
+                        filename = abspath(filename)
                         try:
                             with open(filename, 'rb') as f:
                                 code = f.read()

@@ -265,7 +265,7 @@ class Parser:
     def recursive_parse_to_ast(self, str, info):
         from pypy.interpreter.pyparser import pytokenizer as tokenize
         from pypy.interpreter.pyparser import rpypegparse
-        tokenlist = tokenize.generate_tokens(str.splitlines(), 0)
+        tokenlist = tokenize.generate_tokens(str.splitlines(True), 0)
         parser = rpypegparse.PythonParser(self.space, tokenlist, self.compile_info, verbose=False)
         return parser.parse_meth_or_raise(rpypegparse.PythonParser.eval)
 
@@ -519,7 +519,7 @@ class Parser:
         elif isinstance(node, ast.Starred):
             if assignment_type == "delete":
                 return node
-            return None
+            return self._get_invalid_target(node.value, assignment_type)
         elif isinstance(node, ast.Compare):
             if assignment_type == "for":
                 if node.ops[0] == ast.In:
@@ -547,9 +547,21 @@ class Parser:
         return name.id
 
     def parse_number(self, tok):
+        from pypy.interpreter import error
         if "_" in tok.value:
             self.check_version((3, 6), "Underscores in numeric literals are", tok)
-        return parse_number(self.space, tok.value)
+        try:
+            return parse_number(self.space, tok.value)
+        except error.OperationError as e:
+            if not e.match(self.space, self.space.w_ValueError):
+                raise
+            # The only way a ValueError should happen in _this_ code is via
+            # int(raw) hitting a length limit
+
+            msg = self.space.text_w(e.get_w_value(self.space))
+            msg += (" - Consider hexadecimal for huge integer literals "
+                   "to avoid decimal conversion limits.")
+            self.raise_syntax_error_known_location(msg, tok)
 
     def get_last_target(self, for_if_clauses):
         if not for_if_clauses:

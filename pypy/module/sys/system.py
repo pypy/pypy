@@ -11,6 +11,12 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 PLATFORM = 'linux' if sys.platform.startswith('linux') else sys.platform
 
+DEFAULT_MAX_STR_DIGITS = 4300
+MAX_STR_DIGITS_THRESHOLD = 640
+
+if DEFAULT_MAX_STR_DIGITS != 0 and DEFAULT_MAX_STR_DIGITS < MAX_STR_DIGITS_THRESHOLD:
+    raise RuntimeError("DEFAULT_MAX_STR_DIGITS is smaller than MAX_STR_DIGITS_THRESHOLD")
+
 app = gateway.applevel("""
 "NOT_RPYTHON"
 from _structseq import structseqtype, structseqfield
@@ -31,8 +37,12 @@ class float_info(metaclass=structseqtype):
 class int_info(metaclass=structseqtype):
     bits_per_digit = structseqfield(0)
     sizeof_digit = structseqfield(1)
+    default_max_str_digits = structseqfield(2)
+    str_digits_check_threshold = structseqfield(3)
 
 class hash_info(metaclass=structseqtype):
+    __module__ = 'sys'
+    name = 'sys.hash_info'
     width = structseqfield(0)
     modulus = structseqfield(1)
     inf = structseqfield(2)
@@ -73,6 +83,8 @@ def get_int_info(space):
     info_w = [
         space.newint(bits_per_digit),
         space.newint(sizeof_digit),
+        space.newint(DEFAULT_MAX_STR_DIGITS),
+        space.newint(MAX_STR_DIGITS_THRESHOLD),
     ]
     w_int_info = app.wget(space, "int_info")
     return space.call_function(w_int_info, space.newtuple(info_w))

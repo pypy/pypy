@@ -126,6 +126,12 @@ class TestCompiler(BaseTestCompiler):
         for c in expressions.constants:
             yield (self.simple_test, "x="+c, "x", eval(c))
 
+    def test_int_limit(self):
+        yield (self.simple_test, "x=0E0", "x", 0.0)
+        from pypy.module.sys.system import DEFAULT_MAX_STR_DIGITS
+        max_str_digits = DEFAULT_MAX_STR_DIGITS
+        yield(self.error_test, "x=%s" % ('1' * (max_str_digits + 1)), SyntaxError)
+
     def test_const_underscore(self):
         yield (self.simple_test, "x=0xffff_ffff_ff20_0000", "x", 0xffffffffff200000)
 
@@ -2006,6 +2012,14 @@ x = [lineno for addr, lineno in linestarts]
     """
         self.st(func, "x", [8, 9, 11, 9, 11, 12])
 
+    def test_lineno1_eval_bug(self):
+        func = """c = compile('z', '<string>', 'eval')
+import dis
+x = [lineno for addr, lineno in dis.findlinestarts(c)]
+"""
+        self.st(func, "x", [1])
+
+
     def test_error_in_dead_code(self):
         self.error_test("if 0: break", SyntaxError)
         self.error_test("while 0: lambda x, x: 1", SyntaxError)
@@ -2027,6 +2041,18 @@ def buggy_lnotab():
 x = [c for c in buggy_lnotab.__code__.co_lnotab]
 """
         self.st(func, "x", [0, 1, 8, 8])
+
+    def test_lineno_funcdef(self):
+        func = '''def f():
+    @decorator
+    def my_function(
+        x=x
+    ):
+        pass
+x = [c for c in f.__code__.co_lnotab]
+'''
+        # XXX: 3.7 value, CPython 3.8 has [0, 1, 2, 2, 2, 255]
+        self.st(func, 'x', [0, 1, 2, 2])
 
     def test_lnotab_backwards_in_expr(self):
         func = """

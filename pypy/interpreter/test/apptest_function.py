@@ -672,6 +672,14 @@ def test_method_identity():
     assert x is B.m
     assert id(x) == id(B.m)
 
+def test_method_ne_NotImplemented():
+    class A(object):
+        def __ne__(self, other):
+            return "ABC"
+    meth = A.__ne__
+    assert meth.__ne__(1) is NotImplemented
+    assert (meth != A()) == "ABC"
+
 def test_posonly():
     def posonlyfunc(a, b, c, /, d):
         return (a, b, c, d)
@@ -760,3 +768,14 @@ def test_duplicate_key_kwargs():
         def __len__(self): return 3
     with pytest.raises(TypeError):
         f(**A())
+
+def test_unpack_dict_without_length():
+    def f(**d): return d
+    class A:
+        def keys(self): return ['a']
+        def items(self): return [('a', 1)]
+        def __getitem__(self, key): return 1
+    assert f(**A()) == {'a': 1}
+    assert f(b=2, **A()) == {'b': 2, 'a': 1}
+    assert f(**A(), b=2) == {'b': 2, 'a': 1}
+

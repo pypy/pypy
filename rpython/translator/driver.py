@@ -516,8 +516,10 @@ class TranslationDriver(SimpleTaskEngine):
                     if sys.platform == 'win32' and not libffi:
                         raise RuntimeError('could not find libffi')
                     elif libffi:
-                        # in tests, we can mock using windows without libffi
-                        shutil.copyfile(str(libffi), os.getcwd() + r'\libffi-8.dll')
+                        target = os.getcwd() + r'\libffi-8.dll'
+                        if not os.path.exists(target):
+                            # in tests, we can mock using windows without libffi
+                            shutil.copyfile(str(libffi), target)
             self.c_entryp = newexename
         self.log.info("created: %s" % (self.c_entryp,))
 

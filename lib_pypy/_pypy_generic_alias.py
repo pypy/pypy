@@ -10,20 +10,35 @@ _ATTR_EXCEPTIONS = frozenset((
 ))
 
 class GenericAlias:
+
+    __slots__ = ("__weakref__", "_origin", "_args", "_parameters", "_hash")
+
     def __new__(cls, origin, args):
         result = super(GenericAlias, cls).__new__(cls)
         if not isinstance(args, tuple):
             args = (args, )
-        result.__origin__ = origin
-        result.__args__ = args
-        result.__parameters__ = _make_parameters(args)
+        result._origin = origin
+        result._args = args
+        result._parameters = _make_parameters(args)
         return result
+
+    @property
+    def __origin__(self):
+        return object.__getattribute__(self, "_origin")
+
+    @property
+    def __args__(self):
+        return object.__getattribute__(self, "_args")
+
+    @property
+    def __parameters__(self):
+        return object.__getattribute__(self, "_parameters")
 
     def __call__(self, *args, **kwargs):
         result = self.__origin__(*args, **kwargs)
         try:
             result.__orig_class__ = self
-        except AttributeError:
+        except (AttributeError, TypeError):
             pass
         return result
 
@@ -68,9 +83,9 @@ class GenericAlias:
         return hash(self.__origin__) ^ hash(self.__args__)
 
     def __dir__(self):
-        res = dir(self.__origin__)
-        res.extend(_ATTR_EXCEPTIONS)
-        return res
+        cls = type(self)
+        dir_origin = set(dir(self.__origin__))
+        return sorted(_ATTR_EXCEPTIONS | dir_origin)
 
     def __subclasscheck__(self, other):
         raise TypeError("issubclass() argument 2 cannot be a parameterized generic")
@@ -84,6 +99,8 @@ class GenericAlias:
 def _repr_item(it):
     if it == Ellipsis:
         return "..."
+    if type(it) is GenericAlias:
+        return repr(it)
     try:
         qualname = getattr(it, "__qualname__")
         module = getattr(it, "__module__")

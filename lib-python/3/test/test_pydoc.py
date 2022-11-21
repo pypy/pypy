@@ -175,6 +175,15 @@ expected_html_pattern = ("""
 </td><td width="25%%" valign=top><a href="typing.html">typing</a><br>
 </td><td width="25%%" valign=top></td><td width="25%%" valign=top></td></tr></table></td></tr></table><p>
 <table width="100%%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+\x20\x20\x20\x20
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%%"><table width="100%%" summary="list"><tr><td width="25%%" valign=top><a href="types.html">types</a><br>
+</td><td width="25%%" valign=top><a href="typing.html">typing</a><br>
+</td><td width="25%%" valign=top></td><td width="25%%" valign=top></td></tr></table></td></tr></table><p>
+<table width="100%%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#ee77aa">
 <td colspan=3 valign=bottom>&nbsp;<br>
 <font color="#ffffff" face="helvetica, arial"><big><strong>Classes</strong></big></font></td></tr>

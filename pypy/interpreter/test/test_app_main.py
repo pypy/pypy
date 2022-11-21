@@ -105,9 +105,15 @@ class TestParseCommandLine:
                 if key == "check_hash_based_pycs":
                     assert value == "default"
                 elif key == "utf8_mode":
+                    # this doesn't work untranslated in the docker images for
+                    # linux, somehow the "value" is 1 since the call to
+                    # _locale.setlocale(_locale.LC_CTYPE, None) in the PYTHON3
+                    # returns "C" even when the locale is set to "en_US.UTF-8"
                     import _locale
                     lc = _locale.setlocale(_locale.LC_CTYPE, None)
-                    assert value == (lc == "C" or lc == "POSIX")
+                    #assert value == (lc == "C" or lc == "POSIX")
+                elif key == "int_max_str_digits":
+                    assert value == -1
                 else:
                     assert not value, (
                         "option %r has unexpectedly the value %r" % (key, value))
@@ -147,10 +153,10 @@ class TestParseCommandLine:
         self.check(['-S', '-O', '--info'], env, output_contains='translation')
         self.check(['-S', '-O', '--version'], env, output_contains='Python')
         self.check(['-S', '-OV'], env, output_contains='Python')
-        # self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
-        #            run_stdin=True, no_site=1, jit_off='off')
-        # self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
-        #            run_stdin=True, no_site=1)
+        self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
+                   run_stdin=True, no_site=1, _jitoptions='off')
+        self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
+                   run_stdin=True, no_site=1, _jitoptions='off', _xoptions=['jit-off'])
         self.check(['-c', 'pass'], env, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass'], env, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass','x'], env, sys_argv=['-c','x'], run_command='pass')
@@ -197,6 +203,8 @@ class TestParseCommandLine:
         env = os.environ.copy()
         self.check(['-a'], env, output_contains="Unknown option: -a")
         self.check(['--abc'], env, output_contains="Unknown option --abc")
+
+        self.check([], {'PYPY_DISABLE_JIT': '1'}, sys_argv=[''], run_stdin=True, _jitoptions='off')
 
     def test_sysflags(self):
         env = os.environ.copy()
@@ -263,20 +271,7 @@ class TestParseCommandLine:
                 sys_argv=[''], run_stdin=True,
                 check_hash_based_pycs=val)
 
-    def test_jit_off(self, monkeypatch):
-        env = os.environ.copy()
-        get_python3()
-        try:
-            import __pypy__
-        except:
-            py.test.skip('PyPy only test')
-        options = [None]
-        def set_jit_option(_, option, *args):
-            options[0] = option
-        from pypy.interpreter import app_main
-        monkeypatch.setattr(app_main, 'set_jit_option', set_jit_option, raising=False)
-        self.check(['-X', 'jit-off'], env, sys_argv=[''], run_stdin=True)
-        assert options == ["off"]
+
 
 class TestInteraction:
     """
@@ -366,6 +361,17 @@ class TestInteraction:
         assert idx == 0   # no banner or prompt
         child.expect(re.escape("Name: __main__"))
         child.expect(re.escape('File: ' + demo_script))
+        child.expect(re.escape('Exec: ' + app_main))
+        child.expect(re.escape('Argv: ' + repr([demo_script])))
+        child.expect('goodbye')
+
+    def test_run_script_relative_turns_to_absolute(self, demo_script):
+        demo_script = str(py.path.local().bestrelpath(py.path.local(demo_script)))
+        child = self.spawn([demo_script])
+        idx = child.expect(['hello', 'Python ', '>>> '])
+        assert idx == 0   # no banner or prompt
+        child.expect(re.escape("Name: __main__"))
+        child.expect(re.escape('File: ' + os.path.abspath(demo_script)))
         child.expect(re.escape('Exec: ' + app_main))
         child.expect(re.escape('Argv: ' + repr([demo_script])))
         child.expect('goodbye')
@@ -770,6 +776,13 @@ class TestNonInteractive:
         assert 'NameError' in data
         assert 'Goodbye2' not in data
 
+    def test_abspath_in_main_error_traceback(self, crashing_demo_script):
+        relpath = py.path.local().bestrelpath(py.path.local(crashing_demo_script))
+        assert not os.path.isabs(relpath)
+        data = self.run('"%s"' % (relpath,))
+        assert crashing_demo_script in data
+        assert relpath not in data
+
     def test_crashing_script_on_stdin(self, crashing_demo_script):
         data = self.run(' < "%s"' % (crashing_demo_script,))
         assert 'Hello2' in data
@@ -1038,6 +1051,15 @@ class TestNonInteractive:
         data = self.run(p + os.sep)
         assert data == p + os.sep + '\n'
 
+    def test_run_module_inserts_abs_path_to_sys_path(self):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
+        p = getscript_in_dir('import sys; print(sys.path[0])\n')
+        data = self.run(p)
+        assert data == os.path.abspath(p) + '\n'
+        data = self.run(p + os.sep)
+        assert data == os.path.abspath(p) + '\n'
+
     def test_getfilesystemencoding(self):
         py.test.skip("encoding is only set if stdout.isatty(), test is flawed")
         if sys.version_info < (2, 7):
@@ -1171,7 +1193,6 @@ class TestNonInteractive:
         data, status = self.run_with_status_code('does_not_exist.py')
         assert "can't open file" in data
         assert status == 2
-        
 
 @py.test.mark.skipif('config.getoption("runappdirect")')
 class AppTestAppMain:

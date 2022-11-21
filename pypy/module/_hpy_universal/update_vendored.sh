@@ -63,7 +63,7 @@ check_version_status() {
     sha_git=$(git -C "$HPY" rev-parse --short HEAD)
     ver_dist=$(grep '^Version:' "$HPY/hpy.dist-info/METADATA" | cut -d ' ' -f 2)
 
-    if [ "$sha_git -- $ver_dist" != "$sha_py -- $ver_py" ] 
+    if [ "$sha_git -- $ver_dist" != "$sha_py -- $ver_py" ]
     then
         if [ "$FORCE_VERSION" = true ]
         then
@@ -90,7 +90,7 @@ check_version_status() {
 }
 
 myrsync() {
-    rsync --exclude '*~' --exclude '*.pyc' --exclude __pycache__ "$@" 
+    rsync --exclude '*~' --exclude '*.pyc' --exclude __pycache__ "$@"
 }
 
 apply_patches() {

@@ -1,7 +1,7 @@
 import weakref
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, oefmt_attribute_error
 from pypy.interpreter.function import (
     Function, StaticMethod, ClassMethod, FunctionWithFixedCode)
 from pypy.interpreter.typedef import (
@@ -129,6 +129,10 @@ class Layout(object):
         tuples, it means their instances have a fully compatible layout."""
         return (self.typedef, self.newslotnames, self.base_layout,
                 hasdict, weakrefable)
+
+    def __repr__(self):
+        # for debugging
+        return "Layout(%s, %s, %s, %s)" % (self.typedef, self.nslots, self.newslotnames, self.base_layout)
 
 
 # possible values of compares_by_identity_status
@@ -762,8 +766,8 @@ class W_TypeObject(W_Root):
             return space.get(w_value, space.w_None, self)
         if w_descr is not None:
             return space.get(w_descr, self)
-        raise oefmt(space.w_AttributeError,
-                    "type object '%N' has no attribute %R", self, w_name)
+        raise oefmt_attribute_error(
+            space, self, w_name, "type object '%N' has no attribute %R")
 
     def descr_ne(self, space, w_other):
         if not isinstance(w_other, W_TypeObject):
@@ -863,23 +867,6 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     _set_names(space, w_type)
     _init_subclass(space, w_type, __args__)
     return w_type
-
-def _calculate_metaclass(space, w_metaclass, bases_w):
-    """Determine the most derived metatype"""
-    w_winner = w_metaclass
-    for base in bases_w:
-        w_typ = space.type(base)
-        if space.is_w(w_typ, space.w_classobj):
-            continue # special-case old-style classes
-        if space.issubtype_w(w_winner, w_typ):
-            continue
-        if space.issubtype_w(w_typ, w_winner):
-            w_winner = w_typ
-            continue
-        msg = ("metaclass conflict: the metaclass of a derived class must be "
-               "a (non-strict) subclass of the metaclasses of all its bases")
-        raise oefmt(space.w_TypeError, msg)
-    return w_winner
 
 def _store_type_in_classcell(space, w_type, w_classcell, dict_w):
     from pypy.interpreter.nestedscope import Cell

@@ -12,8 +12,6 @@ extern "C" {
 #define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
 #define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 
-#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
-
 /*
 CPython has this for backwards compatibility with really old extensions, and now
 we have it for compatibility with CPython.
@@ -139,9 +137,12 @@ extern void *_pypy_rawrefcount_w_marker_deallocating;
 
 #define _Py_ForgetReference(ob) /* nothing */
 
-#define Py_None (&_Py_NoneStruct)
 #endif
 
+#define Py_None (&_Py_NoneStruct)
+
+/* Macro for returning Py_None from a function */
+#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
 
 /*
 Py_NotImplemented is a singleton used to signal that an operation is

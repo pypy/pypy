@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hpy
-Version: 0.0.3
+Version: 0.0.4.dev179+g9b5d200
 Summary: A better C API for Python
 Home-page: https://hpyproject.org
 Author: The HPy team

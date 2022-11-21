@@ -1,4 +1,4 @@
-from __future__ import with_statement
+
 import os
 
 if os.name == "nt":
@@ -185,7 +185,6 @@ class AppTestBZ2File: #(CheckAllocation):
         bz2f.close()
 
     def test_seek_backwards(self):
-        #skip("currently does not work")
         from bz2 import BZ2File
         self.create_temp_file()
 
@@ -196,7 +195,6 @@ class AppTestBZ2File: #(CheckAllocation):
         bz2f.close()
 
     def test_seek_backwards_from_end(self):
-        #skip("currently does not work")
         from bz2 import BZ2File
         self.create_temp_file()
 

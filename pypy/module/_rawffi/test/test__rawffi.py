@@ -16,6 +16,7 @@ class AppTestFfi:
         #include "src/precommondefs.h"
         #include <stdlib.h>
         #include <stdio.h>
+        #include <stdarg.h>
         #include <errno.h>
 
         struct x
@@ -223,6 +224,22 @@ class AppTestFfi:
             return old_errno;
         }
         #endif
+
+        RPY_EXPORTED
+        long variadic_sum(long n, ...) {
+            va_list ptr;
+            int sum = 0;
+            printf("n: %ld\\n", n);
+
+            va_start(ptr, n);
+            for (int i = 0; i < n; i++) {
+                long foo = va_arg(ptr, long);
+                sum += foo;
+                printf("Arg %d: %ld\\n", i, foo);
+            }
+            va_end(ptr);
+            return sum;
+        }
         '''))
         eci = ExternalCompilationInfo(include_dirs=[cdir])
         return str(platform.compile([c_file], eci, 'x', standalone=False))
@@ -1261,6 +1278,23 @@ class AppTestFfi:
             raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
         arg.free()
 
+    def test_variadic_sum(self):
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+
+        A = _rawffi.Array('l')
+        n = A(1)
+        arg1 = A(1)
+        arg2 = A(1)
+        n[0] = 2
+        arg1[0] = 3
+        arg2[0] = 15
+        variadic_sum = lib.ptr('variadic_sum', ['l', 'l', 'l'], 'l', variadic_args=2)
+        res = variadic_sum(n, arg1, arg2)
+        assert res[0] == 3 + 15
+        arg1.free()
+        arg2.free()
+        n.free()
 
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])

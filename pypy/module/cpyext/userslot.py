@@ -49,6 +49,14 @@ def slot_tp_new(space, w_type, w_args, w_kwds):
                      w_stararg=w_args, w_starstararg=w_kwds)
     return space.call_args(w_impl, args)
 
+@slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+def slot_tp_init(space, w_type, w_args, w_kwds):
+    w_impl = space.lookup(w_type, '__init__')
+    args = Arguments(space, [w_type],
+                     w_stararg=w_args, w_starstararg=w_kwds)
+    space.call_args(w_impl, args)
+    return 0
+
 @slot_function([PyObject, PyObject, PyObject], PyObject)
 def slot_tp_call(space, w_self, w_args, w_kwds):
     args = Arguments(space, [], w_stararg=w_args, w_starstararg=w_kwds)

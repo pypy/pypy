@@ -22,6 +22,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 class TempInt(TempVar):
@@ -1110,15 +1111,15 @@ class Regalloc(BaseRegalloc):
 
 
 def notimplemented(self, op):
-    print "[ARM64/regalloc] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void, "[ARM64/regalloc] %s not implemented" % op.getopname())
     raise NotImplementedError(op)
 
 def notimplemented_guard_op(self, op, prevop):
-    print "[ARM64/regalloc] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void, "[ARM64/regalloc] %s not implemented" % op.getopname())
     raise NotImplementedError(op)    
 
 def notimplemented_comp_op(self, op, res_in_cc):
-    print "[ARM64/regalloc] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void, "[ARM64/regalloc] %s not implemented" % op.getopname())
     raise NotImplementedError(op)    
 
 operations = [notimplemented] * (rop._LAST + 1)

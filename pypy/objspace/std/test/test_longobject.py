@@ -547,3 +547,43 @@ class AppTestLong:
                     for k in range(2, 4):
                         y = pow(i, -k, j)
                         assert y == pow(x, k, j)
+
+    def test_repr(self):
+        import sys
+        x = self._long(1)
+        big = x << self._long(4000)
+        assert len(str(big)) == 1205
+        huge = x << self._long(40000)
+        with raises(ValueError) as exc:
+            str(huge)
+        assert str(exc.value).startswith('Exceeds the limit')
+        s = '%x' % huge
+        assert len(s) == 10001  # much longer that 4300 ...
+        maxdigits = sys.get_int_max_str_digits()
+        less_huge = 10 ** maxdigits
+        with raises(ValueError) as exc:
+            str(less_huge)  # exactly on the cusp
+        sys.set_int_max_str_digits(0)
+        try:
+            str(huge)  # succeeds
+        finally:
+            sys.set_int_max_str_digits(maxdigits)
+
+    def test_sign_not_counted_in_int_max(self):
+        import sys
+
+        previous_limit = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(2048)
+        max_digits = sys.get_int_max_str_digits()
+        try:
+            s = '5' * max_digits
+            i = int(s)
+            pos_i = int(s)
+            assert i == pos_i
+            neg_i = int('-' + s)
+            assert -pos_i == neg_i
+            str(pos_i)  # succeeds?
+            str(neg_i)  # succeeds?
+        finally:
+            sys.set_int_max_str_digits(previous_limit)
+

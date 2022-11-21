@@ -62,7 +62,19 @@ class AppTestThread(GenericTestThread):
         assert ident2 != ident
         assert ident == _thread.get_ident()
         self.waitfor(lambda: feedback)
-        assert feedback == [ident2]
+        assert feedback[0] != ident
+
+    def test_get_native_id(self):
+        import _thread
+        ident = _thread.get_native_id()
+        feedback = []
+        def f():
+            feedback.append(_thread.get_native_id())
+        ident2 = _thread.start_new_thread(f, ())
+        assert ident2 != ident
+        assert ident == _thread.get_native_id()
+        self.waitfor(lambda: feedback)
+        assert feedback[0] != ident
 
     def test_sys_getframe(self):
         # this checks that each thread gets its own ExecutionContext.
@@ -205,6 +217,44 @@ class AppTestThread(GenericTestThread):
             waiting = []
             _thread.start_new_thread(f, ())
             raises(KeyboardInterrupt, busy_wait)
+
+    def test_interrupt_non_main(self):
+        import _thread as thread, time, posix as os
+        import __pypy__
+        import signal
+
+        def f():
+            try:
+                childstarted.append(thread.get_ident())
+                self.waitfor(lambda: False)
+            except ValueError:
+                childstarted.pop()
+            else:
+                thread.interrupt_main() # to crash the test
+
+        for i in range(20):
+            print(i)
+            # first wait for the child to start
+            childstarted = []
+            thread.start_new_thread(f, ())
+            self.waitfor(lambda: bool(childstarted))
+            # then interrupt it from the main thread
+            __pypy__.thread._raise_in_thread(childstarted[0], ValueError)
+            # then wait for the exception to arrive in the child thread
+            # which empties childstarted again
+            def wait():
+                return not childstarted
+            self.waitfor(wait)
+
+    def test_interrupt_self(self):
+        import _thread as thread, __pypy__
+        ident = thread.get_ident()
+        for i in range(20):
+            print(i)
+            with raises(ValueError):
+                __pypy__.thread._raise_in_thread(ident, ValueError)
+                self.waitfor(lambda self: False)
+
 
 @pytest.mark.skip("too slow")
 class _AppTestThread(GenericTestThread):

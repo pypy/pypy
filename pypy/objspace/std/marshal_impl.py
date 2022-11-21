@@ -521,28 +521,32 @@ def unmarshal_interned(space, u, tc):
     w_ret = unmarshal_unicode(space, u, tc)
     return u.space.new_interned_w_str(w_ret)
 
-def _unmarshal_ascii(u, short_length, interned):
+def _unmarshal_ascii(space, u, short_length, interned):
     from rpython.rlib import rutf8
     if short_length:
         lng = ord(u.get1())
     else:
         lng = u.get_lng()
     s = u.get(lng)
+    try:
+        rutf8.check_ascii(s)
+    except rutf8.CheckError:
+        raise oefmt(space.w_ValueError, "bad marshal data (string is not ascii)")
     w_u = u.space.newtext(s, len(s)) # ascii is valid utf-8
     return w_u
 
 @unmarshaller(TYPE_ASCII)
 def unmarshal_ascii(space, u, tc):
-    return _unmarshal_ascii(u, False, False)
+    return _unmarshal_ascii(space, u, False, False)
 @unmarshaller(TYPE_ASCII_INTERNED)
 def unmarshal_ascii(space, u, tc):
-    return _unmarshal_ascii(u, False, True)
+    return _unmarshal_ascii(space, u, False, True)
 @unmarshaller(TYPE_SHORT_ASCII)
 def unmarshal_ascii(space, u, tc):
-    return _unmarshal_ascii(u, True, False)
+    return _unmarshal_ascii(space, u, True, False)
 @unmarshaller(TYPE_SHORT_ASCII_INTERNED)
 def unmarshal_ascii(space, u, tc):
-    return _unmarshal_ascii(u, True, True)
+    return _unmarshal_ascii(space, u, True, True)
 
 
 @marshaller(W_SetObject)

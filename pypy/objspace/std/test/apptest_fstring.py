@@ -300,3 +300,10 @@ def test_fstring_no_closing_brace():
     with raises(SyntaxError) as excinfo:
         eval(r"f'{<'")
     assert excinfo.value.msg == "f-string: expecting '}'"
+
+def test_fstring_triple_bug():
+    assert eval('''
+f\'\'\'{"""
+"""}
+\'\'\'
+''') == "\n\n"

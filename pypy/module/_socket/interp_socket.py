@@ -23,8 +23,8 @@ _WIN32 = sys.platform.startswith('win')
 def addr_as_object(addr, fd, space):
     from rpython.rlib import _rsocket_rffi as _c
     if isinstance(addr, rsocket.INETAddress):
-        return space.newtuple([space.newtext(addr.get_host()),
-                               space.newint(addr.get_port())])
+        return space.newtuple2(space.newtext(addr.get_host()),
+                               space.newint(addr.get_port()))
     elif isinstance(addr, rsocket.INET6Address):
         return space.newtuple([space.newtext(addr.get_host()),
                                space.newint(addr.get_port()),
@@ -44,8 +44,8 @@ def addr_as_object(addr, fd, space):
         else:
             return space.newfilename(path)
     elif rsocket.HAS_AF_NETLINK and isinstance(addr, rsocket.NETLINKAddress):
-        return space.newtuple([space.newint(addr.get_pid()),
-                               space.newint(addr.get_groups())])
+        return space.newtuple2(space.newint(addr.get_pid()),
+                               space.newint(addr.get_groups()))
     # If we don't know the address family, don't raise an
     # exception -- return it as a tuple.
     a = addr.lock()
@@ -53,8 +53,8 @@ def addr_as_object(addr, fd, space):
     datalen = addr.addrlen - rsocket.offsetof(_c.sockaddr, 'c_sa_data')
     rawdata = ''.join([a.c_sa_data[i] for i in range(datalen)])
     addr.unlock()
-    return space.newtuple([space.newint(family),
-                           space.newtext(rawdata)])
+    return space.newtuple2(space.newint(family),
+                           space.newtext(rawdata))
 
 # XXX Hack to seperate rpython and pypy
 # XXX a bit of code duplication
@@ -317,8 +317,8 @@ class W_Socket(W_Root):
         while True:
             try:
                 fd, addr = self.sock.accept(inheritable=False)
-                return space.newtuple([space.newint(fd),
-                                       addr_as_object(addr, fd, space)])
+                return space.newtuple2(space.newint(fd),
+                                       addr_as_object(addr, fd, space))
             except SocketError as e:
                 converted_error(space, e, eintr_retry=True)
 
@@ -517,7 +517,7 @@ class W_Socket(W_Root):
                 break
             except SocketError as e:
                 converted_error(space, e, eintr_retry=True)
-        return space.newtuple([space.newbytes(data), w_addr])
+        return space.newtuple2(space.newbytes(data), w_addr)
 
     @unwrap_spec(message_size=int, ancbufsize=int, flags=int)
     def recvmsg_w(self, space, message_size, ancbufsize=0, flags=0):
@@ -893,7 +893,7 @@ class W_Socket(W_Root):
                 raise converted_error(space, e)
         else:
             w_addr = space.w_None
-        return space.newtuple([space.newint(readlgt), w_addr])
+        return space.newtuple2(space.newint(readlgt), w_addr)
 
     @unwrap_spec(cmd=int)
     def ioctl_w(self, space, cmd, w_option):

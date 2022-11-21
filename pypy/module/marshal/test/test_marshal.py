@@ -280,6 +280,12 @@ class AppTestMarshal:
         code2 = marshal.loads(res)
         assert code.co_filename == code2.co_filename
 
+    def test_ascii_bug(self):
+        import marshal
+        with raises(ValueError):
+            # TYPE_ASCII but not actually ascii
+            marshal.loads(b'a\x01\0\0\0\xff')
+
 
 @pytest.mark.skipif('config.option.runappdirect or sys.maxint > 2 ** 32')
 class AppTestSmallLong(AppTestMarshal):

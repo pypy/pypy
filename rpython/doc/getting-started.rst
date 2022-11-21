@@ -9,7 +9,7 @@ Getting Started with RPython
 
 .. _`read this FAQ entry`: http://rpython.readthedocs.org/en/latest/faq.html#do-i-have-to-rewrite-my-programs-in-rpython
 
-RPython is a subset of Python that can be statically compiled. The PyPy
+RPython is a subset of Python2 that can be statically compiled. The PyPy
 interpreter is written mostly in RPython (with pieces in Python), while
 the RPython compiler is written in Python. The hard to understand part
 is that Python is a meta-programming language for RPython, that is,
@@ -47,17 +47,15 @@ The following introductory level articles are available:
 
 * Laurence Tratt -- `Fast Enough VMs in Fast Enough Time`_.
 
-* `How to write interpreters in RPython`_ and `part 2`_ by Andrew Brown.
+* `How to write interpreters in RPython`_
 
 * `RPython By Example`_
 
 .. _Fast Enough VMs in Fast Enough Time: http://tratt.net/laurie/tech_articles/articles/fast_enough_vms_in_fast_enough_time
 
-.. _How to write interpreters in RPython: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
+.. _How to write interpreters in RPython: https://www.pypy.org/posts/2011/04/tutorial-writing-interpreter-with-pypy-3785910476193156295.html
 
-.. _part 2: http://morepypy.blogspot.com/2011/04/tutorial-part-2-adding-jit.html
-
-.. _RPython By Example: http://mesapy.org/rpython-by-example/
+.. _RPython By Example: https://mssun.github.io/rpython-by-example/
 
 .. _try-out-the-translator:
 
@@ -67,7 +65,7 @@ Trying out the translator
 The translator is a tool based on the PyPy interpreter which can translate
 sufficiently static RPython programs into low-level code (in particular it can
 be used to translate the `full Python interpreter`_). To be able to experiment with it
-you need to download and install the usual (CPython) version of:
+you need to download and install the usual (CPython2) version of:
 
   * Pygame_
   * `Dot Graphviz`_
@@ -78,7 +76,7 @@ you need to download and install the usual (CPython) version of:
 To start the interactive translator shell do::
 
     cd rpython
-    python bin/translatorshell.py
+    python2 bin/translatorshell.py
 
 Test snippets of translatable code are provided in the file
 :source:`rpython/translator/test/snippet.py`, which is imported under the name
@@ -128,7 +126,7 @@ A slightly larger example
 
 There is a small-to-medium demo showing the translator and the annotator::
 
-    python bin/rpython --view --annotate translator/goal/bpnn.py
+    python2 bin/rpython --view --annotate translator/goal/bpnn.py
 
 This causes ``bpnn.py`` to display itself as a call graph and class
 hierarchy.  Clicking on functions shows the flow graph of the particular
@@ -139,17 +137,16 @@ instances) is computed by the annotator.
 To turn this example to C code (compiled to the executable ``bpnn-c``),
 type simply::
 
-    python bin/rpython translator/goal/bpnn.py
+    python2 bin/rpython translator/goal/bpnn.py
 
 
 Translating Full Programs
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To translate full RPython programs, there is the script ``bin/rpython`` in
-:source:`rpython/bin/`. Examples for this are a slightly changed version of
-Pystone::
+To translate full RPython programs, there is the script ``rpython/bin/rpython``.
+Examples for this are a slightly changed version of Pystone::
 
-    python bin/rpython translator/goal/targetrpystonedalone
+    python2 bin/rpython translator/goal/targetrpystonedalone
 
 This will produce the executable "targetrpystonedalone-c".
 

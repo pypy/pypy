@@ -456,6 +456,7 @@ LL_OPERATIONS = {
     'jit_is_virtual':       LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
     'jit_record_exact_class'  : LLOp(canrun=True),
+    'jit_record_exact_value'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
     'jit_conditional_call_value': LLOp(),
@@ -472,6 +473,7 @@ LL_OPERATIONS = {
     'gc_get_type_info_group': LLOp(sideeffects=False),
     'll_read_timestamp': LLOp(revdb_protect=True, canrun=True),
     'll_get_timestamp_unit': LLOp(revdb_protect=True, canrun=True),
+    'jit_record_known_result': LLOp(canrun=True),
 
     # __________ GC operations __________
 

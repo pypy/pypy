@@ -289,8 +289,8 @@ class Function(W_Root):
         code = self.code
         if isinstance(code, BuiltinCode):
             new_inst = mod.get('builtin_function')
-            return space.newtuple([new_inst,
-                                   space.newtuple([space.newtext(code.identifier)])])
+            return space.newtuple2(new_inst,
+                                   space.newtuple([space.newtext(code.identifier)]))
 
         new_inst = mod.get('func_new')
         if self.closure is None:
@@ -585,9 +585,26 @@ class _Method(W_Root):
         space = self.space
         if not isinstance(w_other, _Method):
             return space.w_NotImplemented
+        return space.newbool(self._eq(w_other))
+
+    def descr_method_ne(self, w_other):
+        space = self.space
+        if not isinstance(w_other, Method):
+            return space.w_NotImplemented
+        return space.newbool(not self._eq(w_other))
+
+    def _eq(self, w_other):
+        space = self.space
         if not space.is_w(self.w_instance, w_other.w_instance):
-            return space.w_False
-        return space.is_(self.w_function, w_other.w_function)
+
+
+
+
+
+
+            return False
+        return space.is_w(self.w_function, w_other.w_function)
+
 
     def descr_method_hash(self):
         space = self.space
@@ -610,7 +627,7 @@ class _Method(W_Root):
             w_builtins = space.getbuiltinmodule('builtins')
             new_inst = space.getattr(w_builtins, space.newtext('getattr'))
             tup = [w_instance, space.newtext(w_function.getname(space))]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple2(new_inst, space.newtuple(tup))
 
 class Method(_Method):
     def descr_method__new__(space, w_subtype, w_function, w_instance):

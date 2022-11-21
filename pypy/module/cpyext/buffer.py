@@ -101,7 +101,9 @@ class CPyBuffer(BufferView):
                     finally:
                         lltype.free(fmt, flavor='raw')
                         lltype.free(pybuf, flavor='raw')
-                decref(self.space, self.pyobj)
+                        decref(self.space, self.pyobj)
+                else:
+                    decref(self.space, self.pyobj)
             self.pyobj = lltype.nullptr(PyObject.TO)
             self.w_obj = None
         else:
@@ -182,10 +184,12 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
         bufferp[0] = rffi.cast(rffi.CCHARP, view.c_buf)
         sizep[0] = view.c_len
 
-        if pb.c_bf_releasebuffer:
-            generic_cpy_call(space, pb.c_bf_releasebuffer,
-                             obj, view)
-        decref(space, view.c_obj)
+        try:
+            if pb.c_bf_releasebuffer:
+                generic_cpy_call(space, pb.c_bf_releasebuffer,
+                                 obj, view)
+        finally:
+            decref(space, view.c_obj)
     return 0
 
 DEFAULT_FMT = rffi.str2charp("B")

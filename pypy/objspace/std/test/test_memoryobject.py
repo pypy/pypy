@@ -67,6 +67,25 @@ class AppTestMemoryView(object):
         w = v[::-2]
         assert w.tobytes() == bytes(w) == b'geb'
 
+    def test_assign_all(self):
+        data = bytearray(b'abcdef')
+        v = memoryview(data)
+        # On python2 this raises NotImplementedError
+        s = v[::2]
+        s[:] = b'zzz'
+        assert data == b'zbzdzf'
+        data[3:] = b'yyy'
+        assert s == b'zzy'
+
+    def test_assign_all_harder(self):
+        import array
+        v = memoryview(array.array('i', list(range(10))))
+        s = v[-1::-2]
+        s[:] = array.array('i', [100, 200, 300, 400, 500])
+        assert list(v) == [0, 500, 2, 400, 4, 300, 6, 200, 8, 100], list(v)
+        v[7:] = array.array('i', [-10, -10, -10])
+        assert list(s) == [-10, -10, 300, 400, 500], list(s)
+
     def test_memoryview_attrs(self):
         b = b"a"*100
         v = memoryview(b)

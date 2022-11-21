@@ -7,7 +7,7 @@ modules on Windows.
 import sys
 
 if sys.platform != 'win32':
-    raise ImportError("The '_winapi' module is only available on Windows", name="_winapi")
+    raise ModuleNotFoundError("The '_winapi' module is only available on Windows", name="_winapi")
 
 # Declare external Win32 functions
 
@@ -138,7 +138,7 @@ class Overlapped(object):
             self.pending = 0
         elif res != ERROR_IO_INCOMPLETE:
             self.pending = 0
-            print('GetOverlappedResult got err', err)
+            # print('GetOverlappedResult got err', err)
             raise_WinError(IOError)
 
         if self.completed and self.readbuffer:

@@ -48,6 +48,10 @@ def test_repr():
     g = GenericAlias(dict, ())
     assert repr(g) == "dict[()]"
 
+def test_repr_bug():
+    l = list[list[int]]
+    assert repr(l) == 'list[list[int]]'
+
 def test_equality():
     g = GenericAlias(dict, int)
     assert g == GenericAlias(dict, int)
@@ -62,6 +66,8 @@ def test_dir():
     g = GenericAlias(dict, int)
     assert set(dir(dict)).issubset(set(dir(g)))
     assert "__origin__" in dir(g)
+    # Make sure the list does not have repeats
+    assert len(set(dir(g))) == len(dir(g))
 
 def test_parameters():
     g = GenericAlias(dict, (int, V))
@@ -119,3 +125,23 @@ def test_cmp_not_implemented():
     g = GenericAlias(list, int)
     assert not (g == Any)
     assert g != Any
+
+def test_cant_write_attributes():
+    g = GenericAlias(list, int)
+    with pytest.raises(AttributeError):
+        g.__origin__ = dict
+    with pytest.raises(AttributeError):
+        g.__args__ = (1, )
+    with pytest.raises(AttributeError):
+        g.__parameters__ = (2, )
+    with pytest.raises(AttributeError):
+        g.test = 127
+
+def test_orig_class_writing_gives_typeerror():
+    class A:
+        def __new__(cls):
+            return int
+
+    g = GenericAlias(A, int)
+    assert g() is int # does not crash
+

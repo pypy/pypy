@@ -1,4 +1,5 @@
 import py
+import pytest
 import sys
 import re
 from rpython.rlib.rarithmetic import intmask
@@ -7,7 +8,7 @@ from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    BaseTest, convert_old_style_to_targets)
+    BaseTest, convert_old_style_to_targets, FakeJitDriverStaticData)
 from rpython.jit.metainterp.history import (
     JitCellToken, ConstInt, get_const_ptr_for_string)
 from rpython.jit.metainterp import executor, compile
@@ -37,7 +38,8 @@ class BaseTestBasic(BaseTest):
         compile_data = compile.SimpleCompileData(
             trace, call_pure_results=call_pure_results,
             enable_opts=self.enable_opts)
-        info, ops = compile_data.optimize_trace(self.metainterp_sd, None, {})
+        jitdriver_sd = FakeJitDriverStaticData()
+        info, ops = compile_data.optimize_trace(self.metainterp_sd, jitdriver_sd, {})
         label_op = ResOperation(rop.LABEL, info.inputargs)
         loop.inputargs = info.inputargs
         loop.operations = [label_op] + ops
@@ -859,7 +861,6 @@ class TestOptimizeBasic(BaseTestBasic):
         finish(1)
         """
         self.optimize_loop(ops, ops)
-        py.test.skip("XXX missing optimization: ll_arraycopy(array-of-structs)")
 
     def test_nonvirtual_array_of_struct_arraycopy(self):
         ops = """
@@ -1695,8 +1696,8 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
-        py.test.skip("setarrayitem with variable index")
         ops = """
         [p1, p2, p3, i1]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
@@ -2972,6 +2973,7 @@ class TestOptimizeBasic(BaseTestBasic):
             where p1b is a node_vtable, valuedescr=i1
             ''', rop.GUARD_NOT_FORCED)
 
+    @pytest.mark.xfail
     def test_vref_virtual_and_lazy_setfield(self):
         ops = """
         [p0, i1]
@@ -3003,7 +3005,6 @@ class TestOptimizeBasic(BaseTestBasic):
         #  - i1 is from the virtual expansion of p1
         #  - p0 is from the extra pendingfields
         self.loop.inputargs[0].setref_base(self.nodeobjvalue)
-        py.test.skip("XXX")
         self.check_expanded_fail_descr('''p2, p1
             p0.refdescr = p2
             where p2 is a jit_virtual_ref_vtable, virtualtokendescr=p3
@@ -3982,7 +3983,6 @@ class TestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_int_add_sub_constants_inverse(self):
-        py.test.skip("reenable")
         ops = """
         [i0, i10, i11, i12, i13]
         i2 = int_add(1, i0)
@@ -4126,13 +4126,29 @@ class TestOptimizeBasic(BaseTestBasic):
         [i0]
         i1 = int_lshift(0, i0)
         i2 = int_rshift(0, i0)
-        jump(i1, i2)
+        i3 = int_lshift(i0, 0)
+        i4 = int_rshift(i0, 0)
+        jump(i1, i2, i3, i4)
         """
         expected = """
         [i0]
-        jump(0, 0)
+        jump(0, 0, i0, i0)
         """
         self.optimize_loop(ops, expected)
+
+    def test_ushift_zero(self):
+        ops = """
+        [i0]
+        i2 = uint_rshift(0, i0)
+        i4 = uint_rshift(i0, 0)
+        jump(i2, i4)
+        """
+        expected = """
+        [i0]
+        jump(0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
     def test_bound_and(self):
         ops = """
@@ -5431,6 +5447,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_forced_virtuals_aliasing(self):
         ops = """
         [i0, i1]
@@ -5453,7 +5470,6 @@ class TestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=adescr)
         jump(i0, i0)
         """
-        py.test.skip("not implemented")
         # setfields on things that used to be virtual still can't alias each
         # other
         self.optimize_loop(ops, expected)
@@ -5529,8 +5545,8 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_known_equal_ints(self):
-        py.test.skip("in-progress")
         ops = """
         [i0, i1, i2, p0]
         i3 = int_eq(i0, i1)
@@ -5988,8 +6004,8 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_consecutive_getinteriorfields(self):
-        py.test.skip("we want this to pass")
         ops = """
         [p0, i0]
         i1 = getinteriorfield_gc_i(p0, i0, descr=valuedescr)
@@ -6434,5 +6450,20 @@ class TestOptimizeBasic(BaseTestBasic):
         i2 = int_neg(i1)
         i3 = int_le(i2, 0)
         guard_true(i3) []
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_float_abs_abs_folds_to_abs(self):
+        ops = """
+        [f1]
+        f2 = float_abs(f1)
+        f3 = float_abs(f2)
+        f4 = float_abs(f3)
+        escape_f(f3)
+        """
+        expected = """
+        [f1]
+        f2 = float_abs(f1)
+        escape_f(f2)
         """
         self.optimize_loop(ops, expected)

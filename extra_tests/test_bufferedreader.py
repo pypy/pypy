@@ -97,3 +97,20 @@ def test_stateful(params, chunk_size, StreamCls):
     stream = io.BufferedReader(raw_stream, chunk_size)
     sm = StateMachine(stream, reference)
     run_state_machine_as_test(lambda: sm)
+
+
+def test_buffered_reader_concurrency_bug():
+    import subprocess
+    import threading
+    import sys
+    if sys.platform == 'win32':
+        cmd = "cmd /c color"
+    else:
+        cmd = "true"
+    process=subprocess.Popen(cmd, stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+    threading.Timer(1, process.communicate).start()
+    while 1:
+        try:
+            process.stdout.read(1)
+        except ValueError:
+            break

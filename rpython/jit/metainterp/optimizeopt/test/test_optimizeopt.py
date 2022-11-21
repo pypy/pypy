@@ -1,4 +1,5 @@
 import py
+import pytest
 import sys
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype
@@ -470,7 +471,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected, expected)
 
     def test_int_is_true_is_zero(self):
-        py.test.skip("in-progress")
         ops = """
         [i0]
         i1 = int_add(i0, 1)
@@ -753,8 +753,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_compare_with_itself_uint(self):
-        py.test.skip("implement me")
         ops = """
         []
         i0 = escape_i()
@@ -2614,8 +2614,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
-        py.test.skip("setarrayitem with variable index")
         ops = """
         [p1, p2, p3, i1]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
@@ -3124,7 +3124,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected, preamble)
 
     def test_remove_multiple_add_1(self):
-        py.test.skip("disabled")
         ops = """
         [i0]
         i1 = int_add(i0, 1)
@@ -3142,7 +3141,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_remove_multiple_add_2(self):
-        py.test.skip("disabled")
         ops = """
         [i0]
         i1 = int_add(i0, 1)
@@ -3170,7 +3168,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_remove_multiple_add_3(self):
-        py.test.skip("disabled")
         ops = """
         [i0]
         i1 = int_add(i0, %s)
@@ -4886,8 +4883,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_add_sub_ovf_second_operation_regular(self):
-        py.test.skip("Smalltalk would like this to pass")
         # This situation occurs in Smalltalk because it uses 1-based indexing.
         # The below code is equivalent to a loop over an array.
         ops = """
@@ -7206,6 +7203,50 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_record_known_result(self):
+        ops = """
+        [i1]
+        record_known_result(i1, 123456, i1, descr=nonwritedescr)
+        i3 = call_pure_i(123456, i1, descr=nonwritedescr)
+        guard_no_exception() []
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+
+    def test_record_exact_value(self):
+        ops = """
+        [p0]
+        record_exact_value_r(p0, ConstPtr(myptr3))
+        i1 = getfield_gc_i(p0, descr=valuedescr3)
+        escape_i(i1)
+        jump(p0)
+        """
+        expected = """
+        []
+        escape_i(7)
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_record_exact_value_int(self):
+        ops = """
+        [i0]
+        record_exact_value_i(i0, 15)
+        escape_i(i0)
+        jump(i0)
+        """
+        expected = """
+        []
+        escape_i(15)
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
     def test_quasi_immut(self):
         ops = """
         [p0, p1, i0]
@@ -8190,9 +8231,9 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_forced_counter(self):
         # XXX: VIRTUALHEAP (see above)
-        py.test.skip("would be fixed by make heap optimizer aware of virtual setfields")
         ops = """
         [p5, p8]
         i9 = getfield_gc_i(p5, descr=valuedescr)
@@ -8295,9 +8336,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_exploding_duplication(self):
-        py.test.skip("maybe we want to revisit this guy, but in the new model"
-                     " it fails for same_as reasons")
         ops = """
         [i1, i2]
         i3 = int_add(i1, i1)
@@ -8323,7 +8363,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected, expected_short=short)
 
     def test_prioritize_getfield1(self):
-        py.test.skip("we no longer do it, and while unfortunate I don't think it's that relevant")
         ops = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
@@ -8341,7 +8380,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_prioritize_getfield2(self):
-        # Same as previous, but with descrs intercahnged which means
+        # Same as previous, but with descrs interchanged which means
         # that the getfield is discovered first when looking for
         # potential short boxes during tests
         ops = """
@@ -8412,8 +8451,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_heap_cache_virtuals_forced_by_delayed_setfield(self):
-        py.test.skip('not yet supoprted')
         ops = """
         [i1, p0]
         p1 = new(descr=ssize)

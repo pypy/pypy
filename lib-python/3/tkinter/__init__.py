@@ -33,6 +33,11 @@ tk.mainloop()
 import enum
 import sys
 import types
+try:
+    from __pypy__ import add_memory_pressure
+except ModuleNotFoundError:
+    def add_memory_pressure(*args):
+        pass
 
 import _tkinter # If this fails your Python may not be configured for Tk
 TclError = _tkinter.TclError
@@ -2070,7 +2075,7 @@ class Wm:
         the bitmap if None is given.
 
         Under Windows, the DEFAULT parameter can be used to set the icon
-        for the widget and any descendents that don't have an icon set
+        for the widget and any descendants that don't have an icon set
         explicitly.  DEFAULT can be the relative path to a .ico file
         (example: root.iconbitmap(default='myicon.ico') ).  See Tk
         documentation for more information."""
@@ -2316,9 +2321,9 @@ class Tk(Misc, Wm):
             _default_root = None
 
     def readprofile(self, baseName, className):
-        """Internal function. It reads BASENAME.tcl and CLASSNAME.tcl into
-        the Tcl Interpreter and calls exec on the contents of BASENAME.py and
-        CLASSNAME.py if such a file exists in the home directory."""
+        """Internal function. It reads .BASENAME.tcl and .CLASSNAME.tcl into
+        the Tcl Interpreter and calls exec on the contents of .BASENAME.py and
+        .CLASSNAME.py if such a file exists in the home directory."""
         import os
         if 'HOME' in os.environ: home = os.environ['HOME']
         else: home = os.curdir
@@ -4008,6 +4013,7 @@ class Image:
             options = options + ('-'+k, v)
         self.tk.call(('image', 'create', imgtype, name,) + options)
         self.name = name
+        add_memory_pressure(self.width() * self.height() * 3)
 
     def __str__(self): return self.name
 

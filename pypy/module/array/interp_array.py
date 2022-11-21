@@ -333,6 +333,10 @@ class W_ArrayBase(W_Root):
             return space.newint(res)
         raise oefmt(space.w_ValueError, "array.index(x): x not in list")
 
+    def descr_contains(self, space, w_x):
+        res = index_count_array(self, w_x, count=False)
+        return space.newbool(res >= 0)
+
     def descr_reverse(self, space):
         """ reverse()
 
@@ -504,7 +508,7 @@ class W_ArrayBase(W_Root):
         """
         w_ptr = space.newint(self._buffer_as_unsigned())
         w_len = space.newint(self.len)
-        return space.newtuple([w_ptr, w_len])
+        return space.newtuple2(w_ptr, w_len)
 
     @unwrap_spec(protocol=int)
     def descr_reduce_ex(self, space, protocol):
@@ -783,6 +787,7 @@ W_ArrayBase.typedef = TypeDef(
     __setitem__ = interp2app(W_ArrayBase.descr_setitem),
     __delitem__ = interp2app(W_ArrayBase.descr_delitem),
     __iter__ = interp2app(W_ArrayBase.descr_iter),
+    __contains__ = interp2app(W_ArrayBase.descr_contains),
 
     __add__ = interpindirect2app(W_ArrayBase.descr_add),
     __iadd__ = interpindirect2app(W_ArrayBase.descr_inplace_add),

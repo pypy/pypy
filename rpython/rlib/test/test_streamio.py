@@ -1123,6 +1123,7 @@ class TestDiskFile:
             alarm(0)
             signal(SIGALRM, SIG_DFL)
 
+    @pytest.mark.skipif("sys.platform == 'darwin'")
     def test_append_mode(self):
         tfn = str(udir.join('streamio-append-mode'))
         fo = streamio.open_file_as_stream # shorthand
@@ -1138,6 +1139,7 @@ class TestDiskFile:
         assert x.read() == 'abc123456'
         x.close()
 
+    @pytest.mark.skipif("sys.platform == 'darwin'")
     def test_seek_changed_underlying_position(self):
         tfn = str(udir.join('seek_changed_underlying_position'))
         fo = streamio.open_file_as_stream # shorthand
@@ -1155,6 +1157,7 @@ class TestDiskFile:
         assert x.tell() == 0    # detected in this case.  not always.
         # the point of the test is that we don't crash in an assert.
 
+    @pytest.mark.skipif("sys.platform == 'darwin'")
     def test_ignore_ioerror_in_readall_if_nonempty_result(self):
         # this is the behavior of regular files in CPython 2.7, as
         # well as of _io.FileIO at least in CPython 3.3.  This is

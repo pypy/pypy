@@ -222,6 +222,7 @@ def create_package(basedir, options, _fake=False):
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
             embed_dependencies=options.embed_dependencies,
+            rebuild=options.rebuild_extensions,
         )
 
         for key, module in failures:
@@ -281,16 +282,27 @@ def create_package(basedir, options, _fake=False):
         binaries.append((src, 'python{}.exe'.format(python_ver[0]), None))
         print('Picking {} as python{}.exe'.format(src, python_ver[0]))
         # Can't rename a DLL
-        win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
-                      ('sqlite3.dll', target),
-                      ('libffi-8.dll', None),
-                     ]
-        if not options.no__tkinter:
-            tkinter_dir = target.join('_tkinter')
-            win_extras += [('tcl86t.dll', tkinter_dir), ('tk86t.dll', tkinter_dir)]
-            # for testing, copy the dlls to the `base_dir` as well
-            tkinter_dir = basedir.join('lib_pypy', '_tkinter')
-            win_extras += [('tcl86t.dll', tkinter_dir), ('tk86t.dll', tkinter_dir)]
+        win_extras = [('lib' + POSIX_EXE + '-c.dll', None)]
+        if options.copy_dlls:
+            win_extras +=[
+                          ('sqlite3.dll', target),
+                          # Needs fixing for openssl3
+                          ('libssl-1_1.dll', target),
+                          ('libcrypto-1_1.dll', target),
+                          ('libffi-8.dll', None),
+                         ]
+            if not options.no__tkinter:
+                tkinter_dir = target.join('_tkinter')
+                win_extras += [
+                               ('tcl86t.dll', tkinter_dir),
+                               ('tk86t.dll', tkinter_dir),
+                              ]
+                # for testing, copy the dlls to the `base_dir` as well
+                tkinter_dir = basedir.join('lib_pypy', '_tkinter')
+                win_extras += [
+                               ('tcl86t.dll', tkinter_dir),
+                               ('tk86t.dll', tkinter_dir),
+                              ]
         for extra, target_dir in win_extras:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
@@ -459,20 +471,52 @@ def package(*args, **kwds):
         pypy_exe = POSIX_EXE + '.exe'
     else:
         pypy_exe = POSIX_EXE
+    keep_debug_default = True
+    no__tkinter_default = False
+    embed_dependencies_default = (ARCH in ('darwin', 'aarch64', 'x86_64'))
+    rebuild_extensions_default = (ARCH in ('darwin', 'aarch64', 'x86_64'))
+    make_portable_default = (ARCH in ('darwin',))
+    copy_dlls_default = True
+    if "PYPY_PACKAGE_NOKEEPDEBUG" in os.environ:
+        keep_debug_default = False
+    if "PYPY_PACKAGE_WITHOUTTK" in os.environ:
+        no__tkinter_default = True
+    if "PYPY_EMBED_DEPENDENCIES" in os.environ:
+        embed_dependencies_default = True
+    elif "PYPY_NO_EMBED_DEPENDENCIES" in os.environ:
+        embed_dependencies_default = False
+    if "PYPY_REBUILD_EXTENSIONS" in os.environ:
+        rebuild_extensions_default = True
+    elif "PYPY_NO_REBUILD_EXTENSIONS" in os.environ:
+        rebuild_extensions_default = False
+    if "PYPY_MAKE_PORTABLE" in os.environ:
+        make_portable_default = True
+    if "PYPY_NO_MAKE_PORTABLE" in os.environ:
+        make_portable_default = False
+    if "PYPY_PACKAGE_NO_DLLS" in os.environ:
+        copy_dlls_default = False
     parser = argparse.ArgumentParser()
     args = list(args)
     if args:
         args[0] = str(args[0])
     for key, module in sorted(cffi_build_scripts.items()):
-        if module is not None:
+        if module is not None and key != '_tkinter':
             parser.add_argument('--without-' + key,
                     dest='no_' + key,
                     action='store_true',
                     help='do not build and package the %r cffi module' % (key,))
+            
+    parser.add_argument('--without-_tkinter',
+            dest='no__tkinter',
+            default=no__tkinter_default,
+            action='store_true',
+            help='do not build and package the _tkinter cffi module')
     parser.add_argument('--without-cffi', dest='no_cffi', action='store_true',
         help='skip building *all* the cffi modules listed above')
-    parser.add_argument('--no-keep-debug', dest='keep_debug',
-                        action='store_false', help='do not keep debug symbols')
+    parser.add_argument('--keep-debug', '--no-keep-debug', dest='keep_debug',
+                        action=NegateAction,
+                        default=keep_debug_default,
+                        help='do not keep debug symbols')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
         help='target executable name, defaults to "%s"' % pypy_exe)
     parser.add_argument('--archive-name', dest='name', type=str, default='',
@@ -486,27 +530,41 @@ def package(*args, **kwds):
     parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
                         dest='embed_dependencies',
                         action=NegateAction,
-                        default=(ARCH in ('darwin', 'aarch64', 'x86_64')),
-                        help='whether to embed dependencies in CFFI modules '
-                        '(default on OS X)')
+                        default=embed_dependencies_default,
+                        help='whether to embed dependencies in CFFI modules. '
+                            'Defaults to {} on this platform. Uses environment '
+                            'PYPY_EMBED_DEPENDENCIES and PYPY_NO_EMBED_DEPENDENCIES'
+                            .format(embed_dependencies_default)
+                        )
+    parser.add_argument('--rebuild-extensions', '--no-rebuild-extensions',
+                        dest='rebuild_extensions',
+                        action=NegateAction,
+                        default=rebuild_extensions_default,
+                        help='whether to force rebuilding CFFI modules '
+                            'Defaults to {} on this platform. Uses environment '
+                            'PYPY_REBUILD_EXTENSIONS and PYPY_NO_REBUILD_EXTENSIONS'
+                            .format(rebuild_extensions_default)
+                        )
     parser.add_argument('--make-portable', '--no-make-portable',
                         dest='make_portable',
                         action=NegateAction,
-                        default=(ARCH in ('darwin',)),
+                        default=make_portable_default,
                         help='make the package portable by shipping '
-                            'dependent shared objects and mangling RPATH')
+                            'dependent shared objects and mangling RPATH. '
+                            'Defaults to {} on this platform. Uses environment '
+                            'PYPY_MAKE_PORTABLE and PYPY_NO_MAKE_PORTABLE'
+                            .format(make_portable_default)
+                        )
+    if ARCH == 'win32':
+        parser.add_argument('--copy-dlls', '--no-copy-dlls', dest='copy_dlls',
+                            action=NegateAction,
+                            default=copy_dlls_default,
+                            help='copy support dlls into the package.'
+                            'Defaults to True. '
+                            'Uses environment PYPY_PACKAGE_NO_DLLS to override the default.'
+                           )
     options = parser.parse_args(args)
 
-    if "PYPY_PACKAGE_NOKEEPDEBUG" in os.environ:
-        options.keep_debug = False
-    if "PYPY_PACKAGE_WITHOUTTK" in os.environ:
-        options.no__tkinter = True
-    if "PYPY_EMBED_DEPENDENCIES" in os.environ:
-        options.embed_dependencies = True
-    elif "PYPY_NO_EMBED_DEPENDENCIES" in os.environ:
-        options.embed_dependencies = False
-    if "PYPY_MAKE_PORTABLE" in os.environ:
-        options.make_portable = True
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir

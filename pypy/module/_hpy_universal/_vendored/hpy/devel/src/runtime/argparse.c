@@ -1,6 +1,10 @@
 /**
  * Implementation of HPyArg_Parse and HPyArg_ParseKeywords.
  *
+ * Note: those functions are runtime helper functions, i.e., they are not part
+ * of the HPy context, but are available to HPy extensions to incorporate at
+ * compile time.
+ *
  * HPyArg_Parse parses positional arguments and replaces PyArg_ParseTuple.
  * HPyArg_ParseKeywords parses positional and keyword arguments and
  * replaces PyArg_ParseTupleAndKeywords.
@@ -131,9 +135,9 @@
  *
  */
 
+#include "hpy.h"
 #include <limits.h>
 #include <stdio.h>
-#include "hpy.h"
 
 #define _BREAK_IF_OPTIONAL(current_arg) if (HPy_IsNull(current_arg)) break;
 #define _ERR_STRING_MAX_LENGTH 512

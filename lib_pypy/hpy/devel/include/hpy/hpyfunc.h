@@ -37,6 +37,8 @@ typedef enum {
     HPyFunc_GETTER,
     HPyFunc_SETTER,
     HPyFunc_OBJOBJPROC,
+    HPyFunc_TRAVERSEPROC,
+    HPyFunc_DESTRUCTOR,
 
 } HPyFunc_Signature;
 
@@ -85,6 +87,25 @@ typedef struct {
     HPy_ssize_t *suboffsets;
     void *internal;
 } HPy_buffer;
+
+typedef int (*HPyFunc_visitproc)(HPyField *, void *);
+
+/* COPIED AND ADAPTED FROM CPython.
+ * Utility macro to help write tp_traverse functions
+ * To use this macro, the tp_traverse function must name its arguments
+ * "visit" and "arg".  This is intended to keep tp_traverse functions
+ * looking as much alike as possible.
+ */
+#define HPy_VISIT(hpyfield)                                             \
+    do {                                                                \
+        if (!HPyField_IsNull(*hpyfield)) {                              \
+            int vret = visit(hpyfield, arg);                            \
+            if (vret)                                                   \
+                return vret;                                            \
+            }                                                           \
+    } while (0)
+
+
 
 #include "autogen_hpyfunc_declare.h"
 

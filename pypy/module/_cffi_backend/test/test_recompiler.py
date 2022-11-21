@@ -1,4 +1,5 @@
 import os, pytest
+import sys
 
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import unwrap_spec, interp2app
@@ -110,6 +111,8 @@ class AppTestRecompiler:
     def setup_class(cls):
         if cls.runappdirect:
             pytest.skip("not a test for -A")
+        elif sys.platform == 'darwin':
+            pytest.skip('fails untranslated on darwin')
         cls.w_prepare = cls.space.wrap(interp2app(prepare))
         cls.w_udir = cls.space.wrap(str(udir))
         cls.w_os_sep = cls.space.wrap(os.sep)

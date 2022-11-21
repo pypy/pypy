@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std.util import generic_alias_class_getitem
 from rpython.rlib import jit
 
-from pypy.module.__builtin__.functional import W_Filter, W_Map
+from pypy.module.__builtin__.functional import W_Filter, build_iterators_from_args
 
 class W_Count(W_Root):
     def __init__(self, space, w_firstval, w_step):
@@ -43,8 +43,8 @@ class W_Count(W_Root):
             args_w = [self.w_c]
         else:
             args_w = [self.w_c, self.w_step]
-        return space.newtuple([space.gettypefor(W_Count),
-                               space.newtuple(args_w)])
+        return space.newtuple2(space.gettypefor(W_Count),
+                               space.newtuple(args_w))
 
 def check_number(space, w_obj):
     if (space.lookup(w_obj, '__int__') is None and
@@ -282,8 +282,8 @@ W_DropWhile.typedef = TypeDef(
 class W_FilterFalse(W_Filter):
     reverse = True
     def descr_reduce(self, space):
-        args_w = [space.w_None if self.no_predicate else self.w_predicate,
-                  self.iterable]
+        args_w = [space.w_None if self.w_predicate is None else self.w_predicate,
+                  self.w_iterable]
         return space.newtuple([space.type(self), space.newtuple(args_w)])
 
 def W_FilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
@@ -572,9 +572,16 @@ W_Chain.typedef = TypeDef(
 """)
 
 
-class W_ZipLongest(W_Map):
-    _error_name = "zip_longest"
-    _immutable_fields_ = ["w_fillvalue"]
+class W_ZipLongest(W_Root):
+    _immutable_fields_ = ["w_fillvalue", "iterators"]
+
+    def __init__(self, space, w_fun, args_w):
+        self.space = space
+        self.w_fun = w_fun
+        self.iterators_w = build_iterators_from_args(space, args_w, "zip_longest")
+
+    def iter_w(self):
+        return self
 
     def _fetch(self, index):
         w_iter = self.iterators_w[index]
@@ -595,10 +602,10 @@ class W_ZipLongest(W_Map):
     def next_w(self):
         # common case: 2 arguments
         if len(self.iterators_w) == 2:
-            objects = [self._fetch(0), self._fetch(1)]
+            return self.space.newtuple2(self._fetch(0), self._fetch(1))
         else:
             objects = self._get_objects()
-        return self.space.newtuple(objects)
+            return self.space.newtuple(objects)
 
     def _get_objects(self):
         # the loop is out of the way of the JIT
@@ -623,6 +630,14 @@ class W_ZipLongest(W_Map):
 
     def descr_setstate(self, space, w_state):
         self.w_fillvalue = w_state
+
+    def iterator_greenkey(self, space):
+        # XXX in theory we should tupleize the greenkeys of all the
+        # sub-iterators, but much more work
+        if len(self.iterators_w) > 0:
+            return space.iterator_greenkey(self.iterators_w[0])
+        return None
+
 
 def W_ZipLongest___new__(space, w_subtype, __args__):
     arguments_w, kwds_w = __args__.unpack()
@@ -987,7 +1002,7 @@ class W_GroupBy(W_Root):
         self._skip_to_next_iteration_group()
         w_key = self.w_tgtkey = self.w_currkey
         w_grouper = W_GroupByIterator(self, w_key)
-        return self.space.newtuple([w_key, w_grouper])
+        return self.space.newtuple2(w_key, w_grouper)
 
     def _skip_to_next_iteration_group(self):
         space = self.space

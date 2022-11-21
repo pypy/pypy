@@ -139,8 +139,7 @@ def fstring_find_expr(astbuilder, fstr, token, rec):
 
     # Keep track of nesting level for braces/parens/brackets in
     # expressions.
-    nested_depth = 0
-    parenstack = [''] * 200
+    parenstack = []
 
     # Can only nest one level deep.
     if rec >= 2:
@@ -157,7 +156,6 @@ def fstring_find_expr(astbuilder, fstr, token, rec):
     while i < len(s):
 
         # Loop invariants.
-        assert nested_depth >= 0
         if quote_char:
             assert string_type == 1 or string_type == 3
         else:
@@ -202,17 +200,13 @@ def fstring_find_expr(astbuilder, fstr, token, rec):
             # Start looking for the end of the string.
             quote_char = ord(ch)
         elif ch in "[{(":
-            if nested_depth > len(parenstack):
-                astbuilder.raise_syntax_error_known_location('f-string: too many nested parenthesis',
-                                 token)
-            parenstack[nested_depth] = ch
-            nested_depth += 1
+            parenstack.append(ch)
         elif ch == '#':
             # Error: can't include a comment character, inside parens
             # or not.
             astbuilder.raise_syntax_error_known_location("f-string expression part cannot include '#'",
                              token)
-        elif nested_depth == 0 and ch in ":}!=<>":
+        elif not parenstack and ch in ":}!=<>":
             # First, test for the special case of comparison operators
             # that also contains equal sign ("!="/">="/"=="/"<=").
             if i + 1 < len(s):
@@ -229,10 +223,9 @@ def fstring_find_expr(astbuilder, fstr, token, rec):
             # Normal way out of this loop.
             break
         elif ch in ']})':
-            if nested_depth == 0:
+            if not parenstack:
                 astbuilder.raise_syntax_error_known_location("f-string: unmatched '%s'" % ch, token)
-            nested_depth -=1
-            opening = parenstack[nested_depth]
+            opening = parenstack.pop()
             if not ((opening == '(' and ch ==')') or
                     (opening == '[' and ch ==']') or
                     (opening == '{' and ch =='}')):
@@ -250,8 +243,8 @@ def fstring_find_expr(astbuilder, fstr, token, rec):
     if quote_char:
         astbuilder.raise_syntax_error_known_location("f-string: unterminated string", token)
 
-    if nested_depth:
-        opening = parenstack[nested_depth - 1]
+    if parenstack:
+        opening = parenstack[-1]
         astbuilder.raise_syntax_error_known_location("f-string: unmatched '%s'" % opening,
                          token)
 

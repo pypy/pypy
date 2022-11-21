@@ -33,6 +33,9 @@ def assert_in(a, b):
 
 
 pypy_versions = {
+                 '7.3.9': {'python_version': ['3.9.12', '3.8.13', '3.7.13', '2.7.18'],
+                           'date': '2022-03-30',
+                          },
                  '7.3.8': {'python_version': ['3.9.10', '3.8.12', '3.7.12', '2.7.18'],
                            'date': '2022-02-19',
                           },
@@ -179,7 +182,7 @@ if __name__ == '__main__':
         print(f'checking local file "{sys.argv[1]}"')
         with open(sys.argv[1]) as fid:
             data = json.loads(fid.read())
-        check_versions(data, 'https://buildbot.pypy.org/pypy', verbose=1)
+        check_versions(data, 'https://buildbot.pypy.org/mirror/', verbose=1)
     else:
         print('downloading versions.json')
         response = request.urlopen('https://buildbot.pypy.org/pypy/versions.json')

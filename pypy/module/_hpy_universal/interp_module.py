@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import oefmt
+from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import interp_extfunc
@@ -22,7 +23,7 @@ def debug_HPyModule_Create(space, handles, ctx, hpydef):
 @specialize.arg(0)
 def _hpymodule_create(handles, hpydef):
     space = handles.space
-    modname = rffi.constcharp2str(hpydef.c_m_name)
+    modname = rffi.constcharp2str(hpydef.c_name)
     w_mod = Module(space, space.newtext(modname))
     #
     # add the functions defined in hpydef.c_legacy_methods
@@ -49,8 +50,8 @@ def _hpymodule_create(handles, hpydef):
                 space, handles, name, sig, doc, hpymeth.c_impl, w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1
-    if hpydef.c_m_doc:
-        w_doc = space.newtext(rffi.constcharp2str(hpydef.c_m_doc))
+    if hpydef.c_doc:
+        w_doc = space.newtext(rffi.constcharp2str(hpydef.c_doc))
     else:
         w_doc = space.w_None
     space.setattr(w_mod, space.newtext('__doc__'), w_doc)
@@ -61,3 +62,25 @@ def get_doc(c_doc):
     if not c_doc:
         return None
     return rffi.constcharp2str(c_doc)
+
+@API.func("HPy HPyGlobal_Load(HPyContext *ctx, HPyGlobal global)")
+def HPyGlobal_Load(space, handles, ctx, h_global):
+    state = State.get(space)
+    d_globals = state.global_handles
+    if h_global not in d_globals:
+        raise oefmt(space.w_ValueError, "unknown HPyGlobal* in HPyGlobal_Load")
+    return handles.new(d_globals[h_global])
+
+@API.func("void HPyGlobal_Store(HPyContext *ctx, HPyGlobal *global, HPy h)")
+def HPyGlobal_Store(space, handles, ctx, p_global, h_obj):
+    if h_obj:
+        w_obj = handles.deref(h_obj)
+    else:
+        w_obj = space.w_None
+    state = State.get(space)
+    d_globals = state.global_handles
+    # Release a potential already existing p_global[0]
+    if p_global[0] in d_globals:
+        d_globals.pop(p_global[0])
+    d_globals[h_obj] = w_obj
+    p_global[0] = h_obj

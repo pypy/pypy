@@ -9,7 +9,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
 from rpython.jit.metainterp.optimizeopt.info import (
     INFO_NONNULL, INFO_NULL, getptrinfo)
 from rpython.jit.metainterp.optimizeopt.util import (
-    _findall, make_dispatcher_method, get_box_replacement)
+    _findall, make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, opclasses, OpHelpers)
 from rpython.rlib.rarithmetic import highest_bit
@@ -51,9 +51,6 @@ class OptRewrite(Optimization):
                 return
 
         return dispatch_opt(self, op)
-
-    def propagate_postprocess(self, op):
-        return dispatch_postprocess(self, op)
 
     def try_boolinvers(self, op, targs):
         oldop = self.get_pure_result(targs)
@@ -218,17 +215,17 @@ class OptRewrite(Optimization):
             for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
                 lh_info = self.getintbound(lhs)
                 if lh_info.is_constant():
-                    x = lh_info.getint()
+                    x = lh_info.get_constant_int()
                     # x & (x - 1) == 0 is a quick test for power of 2
                     if x & (x - 1) == 0:
-                        new_rhs = ConstInt(highest_bit(lh_info.getint()))
+                        new_rhs = ConstInt(highest_bit(lh_info.get_constant_int()))
                         op = self.replace_op_with(op, rop.INT_LSHIFT, args=[rhs, new_rhs])
                         break
             return self.emit(op)
 
     def _optimize_CALL_INT_UDIV(self, op):
         b2 = self.getintbound(op.getarg(2))
-        if b2.is_constant() and b2.getint() == 1:
+        if b2.is_constant() and b2.get_constant_int() == 1:
             self.make_equal_to(op, op.getarg(1))
             self.last_emitted_operation = REMOVED
             return True
@@ -256,6 +253,17 @@ class OptRewrite(Optimization):
         else:
             return self.emit(op)
 
+    def optimize_UINT_RSHIFT(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+
+        if b2.equal(0):
+            self.make_equal_to(op, op.getarg(0))
+        elif b1.equal(0):
+            self.make_constant_int(op, 0)
+        else:
+            return self.emit(op)
+
     def optimize_INT_XOR(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
@@ -267,8 +275,13 @@ class OptRewrite(Optimization):
         else:
             return self.emit(op)
 
-    def postprocess_INT_INVERT(self, op):
-        self.optimizer.pure_from_args(rop.INT_INVERT, [op], op.getarg(0))
+    def optimize_INT_INVERT(self, op):
+        v = get_box_replacement(op.getarg(0))
+        arg_op = self.optimizer.as_operation(v)
+        if arg_op is not None and arg_op.opnum == rop.INT_INVERT:
+            self.make_equal_to(op, arg_op.getarg(0))
+        else:
+            return self.emit(op)
 
     def optimize_FLOAT_MUL(self, op):
         arg1 = op.getarg(0)
@@ -315,17 +328,27 @@ class OptRewrite(Optimization):
         return self.emit(newop)
 
     def optimize_FLOAT_NEG(self, op):
-        return self.emit(op)
+        v = get_box_replacement(op.getarg(0))
+        arg_op = self.optimizer.as_operation(v)
+        if arg_op is not None and arg_op.opnum == rop.FLOAT_NEG:
+            self.make_equal_to(op, arg_op.getarg(0))
+        else:
+            return self.emit(op)
 
-    def postprocess_FLOAT_NEG(self, op):
-        self.optimizer.pure_from_args(rop.FLOAT_NEG, [op], op.getarg(0))
+    def optimize_FLOAT_ABS(self, op):
+        v = get_box_replacement(op.getarg(0))
+        arg_op = self.optimizer.as_operation(v)
+        if arg_op is not None and arg_op.getopnum() == rop.FLOAT_ABS:
+            self.make_equal_to(op, v)
+        else:
+            return self.emit(op)
 
     def optimize_guard(self, op, constbox):
         box = op.getarg(0)
         if box.type == 'i':
             intbound = self.getintbound(box)
             if intbound.is_constant():
-                if not intbound.getint() == constbox.getint():
+                if not intbound.get_constant_int() == constbox.getint():
                     r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(
                         op)
                     raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} (%s) '
@@ -545,6 +568,15 @@ class OptRewrite(Optimization):
         self.make_constant_class(op.getarg(0), expectedclassbox,
                                  update_last_guard=False)
 
+    def optimize_record_exact_value(self, op):
+        box = op.getarg(0)
+        expectedconstbox = op.getarg(1)
+        assert isinstance(expectedconstbox, Const)
+        self.make_constant(box, expectedconstbox)
+
+    optimize_RECORD_EXACT_VALUE_R = optimize_record_exact_value
+    optimize_RECORD_EXACT_VALUE_I = optimize_record_exact_value
+
     def optimize_GUARD_CLASS(self, op):
         expectedclassbox = op.getarg(1)
         info = self.ensure_ptr_info_arg0(op)
@@ -624,7 +656,7 @@ class OptRewrite(Optimization):
         arg = op.getarg(0)
         b = self.getintbound(arg)
         if b.is_constant():
-            if b.getint() == 0:
+            if b.get_constant_int() == 0:
                 self.last_emitted_operation = REMOVED
                 return
             opnum = OpHelpers.call_for_type(op.type)
@@ -746,7 +778,10 @@ class OptRewrite(Optimization):
     def _optimize_call_arrayop(self, op, source_box, dest_box,
                                source_start_box, dest_start_box, length_box):
         length = self.get_constant_box(length_box)
-        if length and length.getint() == 0:
+        if not length:
+            return False
+        length_int = length.getint()
+        if length_int == 0:
             return True  # 0-length arraycopy or arraymove
 
         source_info = getptrinfo(source_box)
@@ -755,19 +790,31 @@ class OptRewrite(Optimization):
         dest_start_box = self.get_constant_box(dest_start_box)
         extrainfo = op.getdescr().get_extra_info()
         if (source_start_box and dest_start_box
-            and length and ((dest_info and dest_info.is_virtual()) or
-                            length.getint() <= 8) and
-            ((source_info and source_info.is_virtual()) or length.getint() <= 8)
+            and ((dest_info and dest_info.is_virtual()) or
+                            length_int <= 8) and
+            ((source_info and source_info.is_virtual()) or length_int <= 8)
             and extrainfo.single_write_descr_array is not None): #<-sanity check
             source_start = source_start_box.getint()
             dest_start = dest_start_box.getint()
             arraydescr = extrainfo.single_write_descr_array
             if arraydescr.is_array_of_structs():
-                return False        # not supported right now
-
+                # for array of structs, only support if both are virtual
+                # and it's not a memmove
+                if not ((source_info and source_info.is_virtual()) and
+                        (dest_info and dest_info.is_virtual()) and
+                        source_info is not dest_info):
+                    return False
+                all_fdescrs = arraydescr.get_all_fielddescrs()
+                if all_fdescrs is None:
+                    return False
+                for index in range(length_int):
+                    for fdescr in all_fdescrs:
+                        box = source_info.getinteriorfield_virtual(source_start + index, fdescr)
+                        dest_info.setinteriorfield_virtual(dest_start + index, fdescr, box)
+                return True
             index_current = 0
             index_delta = +1
-            index_stop = length.getint()
+            index_stop = length_int
             if (source_box is dest_box and        # ARRAYMOVE only
                     source_start < dest_start):   # iterate in reverse order
                 index_current = index_stop - 1
@@ -854,7 +901,7 @@ class OptRewrite(Optimization):
             return True
         if not b2.is_constant():
             return False
-        val = b2.getint()
+        val = b2.get_constant_int()
         if val <= 0:
             return False
         if val == 1:
@@ -892,7 +939,7 @@ class OptRewrite(Optimization):
         # be replaced with 'x >> shift', even for negative values of x
         if not b2.is_constant():
             return False
-        val = b2.getint()
+        val = b2.get_constant_int()
         if val <= 0:
             return False
         if val == 1:
@@ -954,4 +1001,5 @@ class OptRewrite(Optimization):
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
                                       default=OptRewrite.emit)
 optimize_guards = _findall(OptRewrite, 'optimize_', 'GUARD')
-dispatch_postprocess = make_dispatcher_method(OptRewrite, 'postprocess_')
+OptRewrite.propagate_postprocess = make_dispatcher_method(OptRewrite, 'postprocess_')
+OptRewrite.have_postprocess_op = have_dispatcher_method(OptRewrite, 'postprocess_')

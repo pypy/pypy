@@ -473,6 +473,8 @@ class FakeWarmState(object):
 
 class FakeJitDriverStaticData(object):
     vec = False
+    class warmstate:
+        pureop_historylength = 16
 
 class FakeMetaInterpStaticData(object):
     all_descrs = []
@@ -525,6 +527,7 @@ class BaseTest(LLtypeMixin):
         metainterp_sd.virtualref_info = self.vrefinfo
         compute_bitstrings(self.cpu.fetch_all_descrs())
         self.metainterp_sd = metainterp_sd
+        self.jitdriver_sd = FakeJitDriverStaticData()
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
         AbstractValue._repr_memo.counter = 0
@@ -586,12 +589,12 @@ class BaseTest(LLtypeMixin):
         preamble_data = compile.PreambleCompileData(
             t, runtime_boxes, call_pure_results, enable_opts=self.enable_opts)
         start_state, preamble_ops = preamble_data.optimize_trace(
-            self.metainterp_sd, None, {})
+            self.metainterp_sd, self.jitdriver_sd, {})
         preamble_data.forget_optimization_info()
         loop_data = compile.UnrolledLoopData(
             preamble_data.trace, celltoken, start_state, call_pure_results,
             enable_opts=self.enable_opts)
-        loop_info, ops = loop_data.optimize_trace(self.metainterp_sd, None, {})
+        loop_info, ops = loop_data.optimize_trace(self.metainterp_sd, self.jitdriver_sd, {})
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
         start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs)

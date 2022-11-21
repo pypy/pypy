@@ -7,7 +7,6 @@ import sys
 import signal
 
 from rpython.tool.udir import udir
-from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
@@ -15,7 +14,6 @@ from rpython.rlib import rposix
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time', '_socket']
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=USEMODULES)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -547,7 +545,9 @@ class AppTestPosix:
         def test_forkpty(self):
             import sys
             if 'freebsd' in sys.platform:
-                skip("hangs indifinitly on FreeBSD (also on CPython).")
+                skip("hangs on FreeBSD (also on CPython).")
+            if sys.platform == 'darwin' and not self.runappdirect:
+                skip("hangs on darwin untranslated")
             os = self.posix
             childpid, master_fd = os.forkpty()
             assert isinstance(childpid, int)
@@ -1188,6 +1188,7 @@ class AppTestPosix:
             assert os.WEXITSTATUS(status1) == expected
 
     if sys.platform != 'win32':
+        @pytest.mark.skipif("config.option.runappdirect and sys.platform == 'darwin'")
         def test_symlink(self):
             posix = self.posix
             bytes_dir = self.bytes_dir
@@ -1736,6 +1737,7 @@ class AppTestPosix:
 class AppTestNt(object):
     spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
+        space = cls.space
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_Path = space.appexec([], """():
@@ -1802,6 +1804,7 @@ class AppTestNt(object):
 
 class AppTestEnvironment(object):
     def setup_class(cls):
+        space = cls.space
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_python = space.wrap(sys.executable)
@@ -1877,6 +1880,7 @@ def check_fsencoding(space, pytestconfig):
 class AppTestPosixUnicode:
     spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
+        space = cls.space
         cls.w_posix = space.appexec([], GET_POSIX)
 
     def test_stat_unicode(self):
@@ -1912,7 +1916,7 @@ class AppTestUnicodeFilename:
             pytest.skip("encoding not good enough")
         f.write("test")
         f.close()
-        cls.space = space
+        space = cls.space
         cls.w_filename = space.wrap(ufilename)
         cls.w_posix = space.appexec([], GET_POSIX)
 
@@ -1939,6 +1943,7 @@ class AppTestPep475Retry:
             cls._keepalive_g = g
             return space.wrap(g.fileno())
 
+        space = cls.space
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_fd_data_after_delay = cls.space.wrap(
             interp2app(fd_data_after_delay))

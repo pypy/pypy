@@ -19,7 +19,6 @@ def test_basics():
     assert S0.a == Signed
     assert S0.b == Signed
     s0 = malloc(S0)
-    print s0
     assert typeOf(s0) == Ptr(S0)
     py.test.raises(UninitializedMemoryAccess, "s0.a")
     s0.a = 1

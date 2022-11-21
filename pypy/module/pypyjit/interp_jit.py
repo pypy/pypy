@@ -99,7 +99,9 @@ class __extend__(PyFrame):
         except Return:
             return self.popvalue()
 
-    def jump_absolute(self, jumpto, ec):
+    def jump_absolute(self, jumpto, next_instr, ec):
+        if jumpto >= next_instr: # no backward jump, just normal
+            return jumpto
         if we_are_jitted():
             #
             # assume that only threads are using the bytecode counter
@@ -222,12 +224,27 @@ def get_jitcell_at_key(space, next_instr, is_being_profiled, w_pycode):
 @unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
 @dont_look_inside
 def dont_trace_here(space, next_instr, is_being_profiled, w_pycode):
+    """ Don't trace here means don't inline this function. Look into mark_as_being_traced
+    for not tracing inside a loop
+    """
     ll_pycode = cast_instance_to_gcref(w_pycode)
     jit_hooks.dont_trace_here(
         'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)
     return space.w_None
 
 @unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
+@dont_look_inside
+def mark_as_being_traced(space, next_instr, is_being_profiled, w_pycode):
+    """ Mark this position as "being traced". Has a side effect of not
+    starting new tracing
+    """
+    ll_pycode = cast_instance_to_gcref(w_pycode)
+    jit_hooks.mark_as_being_traced(
+        'pypyjit', r_uint(next_instr), int(is_being_profiled), ll_pycode)
+    return space.w_None
+
+
+@unwrap_spec(next_instr=int, is_being_profiled=bool, w_pycode=PyCode)
 @dont_look_inside
 def trace_next_iteration(space, next_instr, is_being_profiled, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
