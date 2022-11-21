@@ -296,6 +296,33 @@ that there is a total order on floats, but that is wrong for NaNs).
 
 .. __: https://foss.heptapod.net/pypy/pypy/issue/1974/different-behaviour-for-collections-of
 
+Permitted ABI tags in extensions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CPython supports the limited C-API with modules that have an ``abi3`` ABI tag,
+and will also import extension modules with no ABI or platform tags. This can
+be seen by comparing ``_imp.extension_suffix()`` calls (on Python3.9, x86_64,
+linux):
+
+========== ===================================== ==============
+python     _imp.extension_suffixes()             notes
+========== ===================================== ==============
+cpython3.9 [".cpython-39-x86_64-linux-gnu.so",   normal [#f1]_
+..          ".abi3.so",                          limited C-API
+..          ".so"]                               bare extension
+pypy3.9    ['.pypy39-pp73-x86_64-linux-gnu.so']  normal [#f1]_
+========== ===================================== ==============
+
+.. rubric:: Footnotes
+  
+.. [#f1] normal extensions use <python-tag>-<abi-tag>-<platform-tag>
+
+CMake will `support the correct suffix`_ for PyPy3.9 in release 3.26, scheduled for early 2023
+
+.. _support the correct suffix: https://gitlab.kitware.com/cmake/cmake/-/merge_requests/7917
+
+.. _cpyext:
+
 C-API Differences
 -----------------
 
@@ -315,6 +342,12 @@ on CPython will result in the old function being called for ``x.__int__()``
 (via class ``__dict__`` lookup) and the new function being called for ``int(x)``
 (via slot lookup). On PyPy we will always call the __new__ function, not the
 old, this quirky behaviour is unfortunately necessary to fully support NumPy.
+
+The cpyext layer `adds complexity`_ and is slow. If possible, use cffi_ or HPy_.
+
+.. _adds complexity: https://www.pypy.org/posts/2018/09/inside-cpyext-why-emulating-cpython-c-8083064623681286567.html
+.. _cffi: https://cffi.readthedocs.io/en/latest/
+.. _HPy: https://hpyproject.org/
 
 Performance Differences
 -------------------------

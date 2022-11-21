@@ -119,7 +119,7 @@ class AppTestIterator(AppTestCpythonExtensionBase):
             }
             static PyObject *
             sq_inplace_repeat(PyObject *self, Py_ssize_t n) {
-                fprintf(stdout, "in sq_inplace_repeat, n=%ld\\n", n);
+                //fprintf(stdout, "in sq_inplace_repeat, n=%ld\\n", n);
                 Py_INCREF(self);
                 return self;
             }
