@@ -1,5 +1,5 @@
 import py
-from rpython.flowspace.model import checkgraph, Constant, summary
+from rpython.flowspace.model import checkgraph, Constant, summary, mkentrymap
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype
@@ -398,3 +398,44 @@ def test_int_ovf():
     assert summary(graph).get('int_add_nonneg_ovf', 0) == 0
     check_graph(graph, [], -12, t)
 
+def test_int_ovf_bug():
+    import sys
+    def fn(a, b):
+        if a:
+            if jit.we_are_jitted():
+                b = 1
+            else:
+                b = 2
+            b += 2
+        else:
+            b += a
+        try:
+            return rarithmetic.ovfcheck(12 + b)
+        except OverflowError:
+            return -12
+    graph, t = get_graph(fn, [int, int])
+    result = replace_we_are_jitted(graph)
+    assert result
+    check_graph(graph, [0, sys.maxint-1], -12, t)
+    assert len(mkentrymap(graph)[graph.returnblock]) == 3
+
+    def fn(a, b):
+        if a:
+            if jit.we_are_jitted():
+                b = 1
+            else:
+                b = 2
+            b += 2
+        else:
+            b += a
+        try:
+            x = rarithmetic.ovfcheck(12 + b)
+        except OverflowError:
+            x = -12
+        return x + a * b
+    graph, t = get_graph(fn, [int, int])
+    result = replace_we_are_jitted(graph)
+    assert result
+    check_graph(graph, [0, sys.maxint-1], fn(0, sys.maxint-1), t)
+    entrymap = mkentrymap(graph)
+    assert len(entrymap[entrymap[graph.returnblock][0].prevblock]) == 3

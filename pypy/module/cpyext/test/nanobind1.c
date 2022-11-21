@@ -124,7 +124,7 @@ typedef struct {
 
 int metaclass_init(PyObject *self, PyObject *args, PyObject *kwds) {
     int rv = PyType_Type.tp_init(self, args, kwds);
-    printf("Got to metaclass_init.\n");
+    // printf("Got to metaclass_init.\n");
     if (rv == 0)
         memset(((ExtendedType *) self)->extra, 0, 2048);
     return rv;

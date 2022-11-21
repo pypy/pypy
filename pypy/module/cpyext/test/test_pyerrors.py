@@ -684,7 +684,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 const char *fname = PyUnicode_AsUTF8(args);
                 char buffer[1024];
                 sprintf(buffer, "open('%s', 'r')", fname);
-                printf("calling %s\\n", buffer);
+                // printf("calling %s\\n", buffer);
                 PyObject *ret = PyRun_String(buffer, Py_eval_input, pyx_d, pyx_d);
                 if (ret) {
                     Py_DECREF(ret);
@@ -695,7 +695,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 PyErr_Fetch(&type, &value, &tb);
                 if (type != PyExc_FileNotFoundError)
                 {
-                    printf("type is %s\\n", ((PyTypeObject*)type)->tp_name);
+                    // printf("type is %s\\n", ((PyTypeObject*)type)->tp_name);
                     return value;
                 }
                 PyErr_Clear();
