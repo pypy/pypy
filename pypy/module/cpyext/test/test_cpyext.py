@@ -774,15 +774,13 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo', body=body)
 
         # uncaught interplevel exceptions are turned into SystemError
-        expected1 = "ZeroDivisionError('integer division or modulo by zero',)"
-        # win64 uses long internally not int, which gives a different error
-        expected2 = "ZeroDivisionError('integer division by zero',)"
+        expected = "ZeroDivisionError('integer division"
         exc = raises(SystemError, module.crash1)
-        v = exc.value.args[0]
-        assert v == expected1 or v == expected2
+        # Work around difference in err msg btween CPython2 and PyPy2
+        assert exc.value.args[0].startswith(expected)
 
         exc = raises(SystemError, module.crash2)
-        assert v == expected1 or v == expected2
+        assert exc.value.args[0].startswith(expected)
 
         # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
@@ -790,7 +788,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         expected = 'An exception was set, but function returned a value'
         # PyPy only incompatibility/extension
         exc = raises(SystemError, module.crash4)
-        assert v == expected1 or v == expected2
+        assert exc.value.args[0] == expected
 
         # An exception was set by the previous call, it can pass
         # cleanly through a call that doesn't check error state

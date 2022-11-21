@@ -1,5 +1,5 @@
 from rpython.flowspace.model import (Constant, Variable, SpaceOperation,
-    mkentrymap, c_last_exception)
+    mkentrymap, c_last_exception, copygraph, summary)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.unsimplify import insert_empty_block, split_block
@@ -49,19 +49,11 @@ def fold_op_list(block, constants, exit_early=False, exc_catch=False):
             if (index == len(operations) - 1 and
                     block.exitswitch == c_last_exception and
                     len(args) == len(vargs) == 2 and
-                    spaceop.opname.endswith("_ovf")):
-                # deal with int_add_ovf etc
+                    spaceop.opname.endswith("_ovf") and not exit_early):
+                # deal with int_add_ovf etc but only if exit_early is False
                 RESTYPE = spaceop.result.concretetype
-                a, b = args
-                try:
-                    if spaceop.opname in ("int_add_ovf", "int_add_nonneg_ovf"):
-                        result = rarithmetic.ovfcheck(a + b)
-                    elif spaceop.opname == "int_sub_ovf":
-                        result = rarithmetic.ovfcheck(a - b)
-                    else:
-                        assert spaceop.opname == "int_mul_ovf"
-                        result = rarithmetic.ovfcheck(a * b)
-                except OverflowError:
+                result = fold_ovf_op(spaceop, args)
+                if result is None:
                     # always overflows, remove op and link
                     block.exitswitch = None
                     assert block.exits[1].exitcase is OverflowError
@@ -95,6 +87,20 @@ def fold_op_list(block, constants, exit_early=False, exc_catch=False):
         return folded_count
     else:
         return newops
+
+def fold_ovf_op(spaceop, args):
+    a, b = args
+    try:
+        if spaceop.opname in ("int_add_ovf", "int_add_nonneg_ovf"):
+            return rarithmetic.ovfcheck(a + b)
+        elif spaceop.opname == "int_sub_ovf":
+            return rarithmetic.ovfcheck(a - b)
+        else:
+            assert spaceop.opname == "int_mul_ovf"
+            return rarithmetic.ovfcheck(a * b)
+    except OverflowError:
+        return None
+    assert 0, "unreachable"
 
 def constant_fold_block(block):
     constants = {}
@@ -304,7 +310,37 @@ def constant_fold_graph(graph):
                 if isinstance(v1, Constant):
                     constants[v2] = v1
             if constants:
-                prepare_constant_fold_link(link, constants, splitblocks)
+                lastop = link.target.operations[-1] if link.target.operations else None
+                ovfflow_block =  (len(link.target.operations) == 1 and link.target.canraise
+                        and lastop and lastop.opname.endswith("_ovf"))
+                if not ovfflow_block:
+                    # normal case
+                    prepare_constant_fold_link(link, constants, splitblocks)
+                    continue
+                # need to treat the ovf case specially here
+                constargs = []
+                for arg in lastop.args:
+                    if isinstance(arg, Constant):
+                        constargs.append(arg.value)
+                    elif arg in constants:
+                        constargs.append(constants[arg].value)
+                    else:
+                        break
+                else:
+                    # can fold
+                    res = fold_ovf_op(lastop, constargs)
+                    if res is None:
+                        # always overflows
+                        targetlink = link.target.exits[1]
+                        assert targetlink.exitcase is OverflowError
+                    else:
+                        # doesn't overflow
+                        targetlink = link.target.exits[0]
+                        assert targetlink.exitcase is None
+                        constants[lastop.result] = Constant(res, lastop.result.concretetype)
+                    complete_constants(link, constants)
+                    link.args = [constants.get(v, v) for v in targetlink.args]
+                    link.target = targetlink.target
         if splitblocks:
             rewire_links(splitblocks, graph)
         if not diffused and not splitblocks:
