@@ -769,12 +769,13 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo', init=init, body=body)
 
         # uncaught interplevel exceptions are turned into SystemError
-        expected = "ZeroDivisionError('integer division by zero',)"
+        expected = "ZeroDivisionError('integer division"
         exc = raises(SystemError, module.crash1)
-        assert exc.value[0] == expected
+        # Work around difference in err msg btween CPython2 and PyPy2
+        assert exc.value[0].startswith(expected)
 
         exc = raises(SystemError, module.crash2)
-        assert exc.value[0] == expected
+        assert exc.value[0].startswith(expected)
 
         # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
