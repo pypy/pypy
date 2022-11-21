@@ -1,5 +1,6 @@
 import _imp
 import os
+import platform
 import sys
 import struct
 from shutil import which
@@ -68,8 +69,7 @@ if which("gcc"):
         build_time_vars["CXX"] = "g++ -pthread"
 
 if sys.platform[:6] == "darwin":
-    # Fix this if we ever get M1 support
-    arch = 'x86_64'
+    arch = platform.machine()
     build_time_vars['CC'] += ' -arch %s' % (arch,)
     build_time_vars["LDFLAGS"] = "-undefined dynamic_lookup"
     build_time_vars["LDSHARED"] = build_time_vars['CC'] + " -shared " + build_time_vars["LDFLAGS"]

@@ -365,6 +365,20 @@ from __future__ import generators""")
         assert type(d['foo']) is type(lambda: 42)
         assert d['foo']() is None
 
+    def test_decorated_def(self):
+        src = """
+@deco(a, b)
+@deco2
+@deco3()
+def f():
+    pass
+"""
+        mod = self.get_ast(src)
+        assert mod.body[0].lineno == 5
+        assert mod.body[0].decorator_list[0].lineno == 2
+        for dec in mod.body[0].decorator_list:
+            assert dec.col_offset == 1
+
     def test_missing_name(self):
         import _ast as ast
         n = ast.FunctionDef(name=None)

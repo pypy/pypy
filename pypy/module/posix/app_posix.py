@@ -15,6 +15,7 @@ else:
 
 error = OSError
 
+# keep in sync with the code in interp_posix.make_stat_result
 
 class stat_result(metaclass=structseqtype):
 
@@ -49,6 +50,14 @@ class stat_result(metaclass=structseqtype):
         st_rdev = structseqfield(22, "device ID (if special file)")
     if "st_flags" in posix._statfields:
         st_flags = structseqfield(23, "user defined flags for file")
+
+    # nsec_xtime
+    if "nsec_atime" in posix._statfields:
+        nsec_atime = structseqfield(40, "nanoseconds part of time of last access")
+    if "nsec_mtime" in posix._statfields:
+        nsec_mtime = structseqfield(41, "nanoseconds part of time of last modification")
+    if "nsec_ctime" in posix._statfields:
+        nsec_ctime = structseqfield(42, "nanoseconds part of time of last change")
 
     def __init__(self, *args, **kw):
         # If we have been initialized from a tuple,

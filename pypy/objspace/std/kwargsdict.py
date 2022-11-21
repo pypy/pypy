@@ -7,7 +7,7 @@ from rpython.rlib import jit, rerased, objectmodel, rutf8
 
 from pypy.objspace.std.dictmultiobject import (
     DictStrategy, EmptyDictStrategy, ObjectDictStrategy, UnicodeDictStrategy,
-    create_iterator_classes)
+    create_iterator_classes, W_DictObject)
 
 
 class EmptyKwargsDictStrategy(EmptyDictStrategy):
@@ -16,6 +16,10 @@ class EmptyKwargsDictStrategy(EmptyDictStrategy):
         storage = strategy.get_empty_storage()
         w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
+
+    def copy(self, w_dict):
+        dstorage = self.unerase(w_dict.dstorage)
+        return W_DictObject(self.space, self, self.get_empty_storage())
 
 
 class KwargsDictStrategy(DictStrategy):
@@ -113,7 +117,7 @@ class KwargsDictStrategy(DictStrategy):
     def items(self, w_dict):
         space = self.space
         keys_w, values_w = self.unerase(w_dict.dstorage)
-        return [space.newtuple([keys_w[i], values_w[i]])
+        return [space.newtuple2(keys_w[i], values_w[i])
                 for i in range(len(keys_w))]
 
     def popitem(self, w_dict):
@@ -160,6 +164,11 @@ class KwargsDictStrategy(DictStrategy):
     def getiteritems_with_hash(self, w_dict):
         keys_w, values_w = self.unerase(w_dict.dstorage)
         return ZipItemsWithHash(keys_w, values_w)
+
+    def copy(self, w_dict):
+        dstorage = self.unerase(w_dict.dstorage)
+        return W_DictObject(self.space, self,
+                self.erase((dstorage[0][:], dstorage[1][:])))
 
     def getiterreversed(self, w_dict):
         l = self.unerase(w_dict.dstorage)[0]

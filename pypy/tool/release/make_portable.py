@@ -14,7 +14,7 @@ from subprocess import check_output, check_call
 
 def get_deps_darwin(binary):
     deps = {}
-    output = check_output(['otool', '-L', binary])
+    output = check_output(['otool', '-L', binary], universal_newlines=True)
     output = output.splitlines()
     output = output[1:]  # first line is binary name
     for line in output:
@@ -32,7 +32,7 @@ def get_deps(binary):
     if sys.platform == 'darwin':
         return get_deps_darwin(binary)
     deps = {}
-    output = check_output(['ldd', binary])
+    output = check_output(['ldd', binary], universal_newlines=True)
     for line in output.splitlines():
         if '=>' not in line:
             continue

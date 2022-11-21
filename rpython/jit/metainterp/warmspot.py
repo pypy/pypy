@@ -87,7 +87,7 @@ def ll_meta_interp(function, args, backendopt=False,
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
 def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
-                    backendopt=False, trace_limit=sys.maxint, inline=False,
+                    backendopt=False, trace_limit=2**14, inline=False,
                     loop_longevity=0, retrace_limit=5, function_threshold=4,
                     disable_unrolling=sys.maxint,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15,
@@ -695,7 +695,7 @@ class WarmRunnerDesc(object):
                 jitdrivers_by_name[name] = jd
         m = _find_jit_markers(self.translator.graphs,
                               ('get_jitcell_at_key', 'trace_next_iteration',
-                               'dont_trace_here', 'trace_next_iteration_hash'))
+                               'dont_trace_here', 'trace_next_iteration_hash', 'mark_as_being_traced'))
         accessors = {}
 
         def get_accessor(name, jitdriver_name, function, ARGS, green_arg_spec):
@@ -747,6 +747,8 @@ class WarmRunnerDesc(object):
                 func = JitCell.get_jitcell
             elif op.args[0].value == 'dont_trace_here':
                 func = JitCell.dont_trace_here
+            elif op.args[0].value == 'mark_as_being_traced':
+                func = JitCell.mark_as_being_traced
             elif op.args[0].value == 'trace_next_iteration_hash':
                 func = JitCell.trace_next_iteration_hash
             else:

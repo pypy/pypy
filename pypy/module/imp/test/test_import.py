@@ -1315,3 +1315,20 @@ class AppTestWriteBytecodeSandbox(AppTestWriteBytecode):
     spaceconfig = {
         "translation.sandbox": True
     }
+
+
+@pytest.mark.skipif('config.option.runappdirect')
+class AppTestImportlibMagic:
+    spaceconfig = {
+        "usemodules._frozen_importlib": True
+    }
+
+    def setup_class(cls):
+        from pypy.module.imp.interp_imp import get_magic
+        cls.w_magic = get_magic(cls.space)
+
+    def test_magic(self):
+        from importlib import _bootstrap_external
+        assert _bootstrap_external.MAGIC_NUMBER == self.magic
+
+

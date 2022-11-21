@@ -95,12 +95,18 @@ def PyNumber_ToBase(space, w_obj, base):
         raise oefmt(space.w_SystemError,
                     "PyNumber_ToBase: base must be 2, 8, 10 or 16")
     w_index = space.index(w_obj)
-    # A slight hack to call the internal _int_to_base method, which
+    # A slight hack to call the internal _*_to_base method, which
     # accepts an int base rather than a str spec
     formatter = newformat.unicode_formatter(space, '')
-    value = space.int_w(w_index)
+    try:
+        value = space.int_w(w_index)
+    except OperationError as e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+        value = space.bigint_w(w_index)
+        return space.newtext(formatter._long_to_base(base, value))
     return space.newtext(formatter._int_to_base(base, value))
-    
+
 
 def func_rename(newname):
     return lambda func: func_with_new_name(func, newname)
@@ -170,4 +176,3 @@ def PyNumber_InPlacePower(space, w_o1, w_o2, w_o3):
                     "PyNumber_InPlacePower with non-None modulus is not "
                     "supported")
     return space.inplace_pow(w_o1, w_o2)
-

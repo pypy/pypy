@@ -18,7 +18,7 @@ ROOT = py.path.local(__file__).join('..', '..')
 TEST_DIRS = [ROOT / 'test', ROOT / 'test' / 'debug']
 
 # PyPy does NOT import these files using py2
-PY3_ONLY = ['test_support.py', 'test_handles.py']
+PY3_ONLY = ['test_support.py', 'test_handles_invalid.py', 'test_handles_leak.py']
 
 def try_import(name):
     try:

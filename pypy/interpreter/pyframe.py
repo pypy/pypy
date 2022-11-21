@@ -573,18 +573,21 @@ class PyFrame(W_Root):
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
         d = self.getorcreatedebug()
-        if d.w_locals is None:
-            d.w_locals = self.space.newdict(module=True)
+        w_locals = d.w_locals
+        write = False
+        if w_locals is None:
+            w_locals = self.space.newdict(instance=True)
+            write = True
         varnames = self.getcode().getvarnames()
         for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
             w_value = self.locals_cells_stack_w[i]
             if w_value is not None:
-                self.space.setitem_str(d.w_locals, name, w_value)
+                self.space.setitem_str(w_locals, name, w_value)
             else:
                 w_name = self.space.newtext(name)
                 try:
-                    self.space.delitem(d.w_locals, w_name)
+                    self.space.delitem(w_locals, w_name)
                 except OperationError as e:
                     if not e.match(self.space, self.space.w_KeyError):
                         raise
@@ -603,12 +606,14 @@ class PyFrame(W_Root):
             except ValueError:
                 w_name = self.space.newtext(name)
                 try:
-                    self.space.delitem(d.w_locals, w_name)
+                    self.space.delitem(w_locals, w_name)
                 except OperationError as e:
                     if not e.match(self.space, self.space.w_KeyError):
                         raise
             else:
-                self.space.setitem_str(d.w_locals, name, w_value)
+                self.space.setitem_str(w_locals, name, w_value)
+        if write:
+            d.w_locals = w_locals
 
 
     @jit.unroll_safe

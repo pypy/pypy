@@ -12,10 +12,6 @@ extern "C" {
 #define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
 #define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 
-#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
-#define Py_RETURN_NOTIMPLEMENTED \
-    return Py_INCREF(Py_NotImplemented), Py_NotImplemented
-
 /*
 CPython has this for backwards compatibility with really old extensions, and now
 we have it for compatibility with CPython.
@@ -102,11 +98,18 @@ PyAPI_FUNC(void) _Py_Dealloc(PyObject *);
 
 #define Py_None (&_Py_NoneStruct)
 
+/* Macro for returning Py_None from a function */
+#define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
+
 /*
 Py_NotImplemented is a singleton used to signal that an operation is
 not implemented for a given type combination.
 */
 #define Py_NotImplemented (&_Py_NotImplementedStruct)
+
+/* Macro for returning Py_NotImplemented from a function */
+#define Py_RETURN_NOTIMPLEMENTED \
+    return Py_INCREF(Py_NotImplemented), Py_NotImplemented
 
 /* Rich comparison opcodes */
 /*

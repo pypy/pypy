@@ -339,9 +339,11 @@ _code_type = type(_write_atomic.__code__)
 # Whenever MAGIC_NUMBER is changed, the ranges in the magic_values array
 # in PC/launcher.c must also be updated.
 
-MAGIC_NUMBER = (3413).to_bytes(2, 'little') + b'\r\n'
+
+# PyPy change: comment out the definition of MAGIC_NUMBER here:
+# MAGIC_NUMBER = (3413).to_bytes(2, 'little') + b'\r\n'
 #
-# PyPy change: the MAGIC_NUMBER is defined in
+# the MAGIC_NUMBER is defined in
 # pypy/interpreter/pycode.py, 'default_magic'.  It is based on a number
 # different than CPython's, always < 3000.  We get the 4-bytes string
 # here via a hack: MAGIC_NUMBER is set in the module from

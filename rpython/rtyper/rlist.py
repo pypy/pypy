@@ -95,27 +95,25 @@ class AbstractBaseListRepr(Repr):
         raise NotImplementedError
 
     def ll_str(self, l):
-        constant = self.rstr_ll.ll_constant
-        start    = self.rstr_ll.ll_build_start
-        push     = self.rstr_ll.ll_build_push
-        finish   = self.rstr_ll.ll_build_finish
+        from rpython.rtyper.annlowlevel import llstr, hlstr
+        from rpython.rlib.rstring import StringBuilder
 
         length = l.ll_length()
         if length == 0:
-            return constant("[]")
+            return llstr("[]")
 
-        buf = start(2 * length + 1)
-        push(buf, constant("["), 0)
+        buf = StringBuilder(3 * length + 2)
+        buf.append("[")
         item_repr = self.item_repr
         i = 0
         while i < length:
             if i > 0:
-                push(buf, constant(", "), 2 * i)
+                buf.append(", ")
             item = l.ll_getitem_fast(i)
-            push(buf, item_repr.ll_str(item), 2 * i + 1)
+            buf.append(hlstr(item_repr.ll_str(item)))
             i += 1
-        push(buf, constant("]"), 2 * length)
-        return finish(buf)
+        buf.append("]")
+        return llstr(buf.build())
 
     def rtype_bltn_list(self, hop):
         v_lst = hop.inputarg(self, 0)

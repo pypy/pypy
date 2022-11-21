@@ -856,7 +856,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                  return Py_None;
              '''
              )
-            ])
+        ])
         x = [42]
         assert module.tp_init(list, x, ("hi",)) is None
         assert x == ["h", "i"]
@@ -866,6 +866,15 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         x = LL.__new__(LL)
         assert module.tp_init(list, x, ("hi",)) is None
         assert x == ["h", "i"]
+
+        init_called = []
+        class CALL(object):
+            def __init__(self):
+                init_called.append(42)
+        x = object.__new__(CALL)
+        x.__init__()
+        module.tp_init(CALL, x, ())
+        assert len(init_called) == 2, '%s' % len(init_called)
 
     def test_mp_subscript(self):
         module = self.import_extension('foo', [
@@ -1991,18 +2000,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = module.test_fastcalldict(pyfunc, (1, ), {"arg2": 2})
         assert res == [1, 2]
 
-    def test_call_no_args(self):
-        module = self.import_extension('foo', [
-            ("test_callnoarg", "METH_VARARGS",
-             '''
-                PyObject *func = NULL;
-                if (!PyArg_ParseTuple(args, "O", &func)) {
-                    return NULL;
-                }
-                return _PyObject_CallNoArg(func);
-            ''')])
-        assert module.test_callnoarg(lambda : 4) == 4
-
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
@@ -2119,3 +2116,88 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         errtype = module.newexc()
         err = errtype("abc")
         assert err.warnings == "abc"
+
+    def test_heaptype_dealloc(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
+        import gc
+        module = self.import_module(name='nanobind1', filename="nanobind1")
+        for i in range(100):
+            module.heap_type()
+            gc.collect()
+
+    def test_heaptype_metaclass(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
+        import gc
+        module = self.import_module(name='nanobind1', filename="nanobind1")
+        # 2 vs 3 shenanigans to declare
+        # class X(object, metaclass=module.metaclass): pass
+        X = module.metaclass_good('X', (object,), {})
+        x = X()
+
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(SystemError, module.metaclass_bad, 'X', (object,), {})
+            assert 'tp_itemsize' in str(exc.value)
+
+    @pytest.mark.skip(reason="Python3.9+")
+    def test_vectorcall2(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
+        # py3.9+ only
+        module = self.import_module(name='nanobind1', filename="nanobind1")
+        c = module.callable()
+        assert c() == 1234
+        
+        def f(value):
+            assert value == 1234
+
+        module.call(f)
+
+    def test_nanobind2_tp_traverse(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        import gc
+        import sys
+        if sys.implementation.name == 'pypy':
+            skip("tp_traverse not yet implemented in PyPy")
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+        # Create an unreferenced cycle
+        a = module.wrapper()
+        a.nested = a
+        del a
+        for i in range(5):
+            gc.collect()
+        gl = module.global_list
+        assert gl == ['wrapper tp_init called.',
+                      'wrapper tp_traverse called.',
+                      'wrapper tp_traverse called.',
+                      'wrapper tp_clear called.',
+                      'wrapper tp_dealloc called.',
+                     ]
+
+    def test_nanobind2_module_attributes(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        import sys
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+
+        f = module.func()
+        if sys.version_info >= (3, 9) or sys.implementation.name == 'pypy':
+            assert f.__module__   == "my_module"
+        else:
+            assert f.__module__   == "nanobind2"
+        assert f.__name__ == "my_name"
+        assert f.__qualname__ == "my_qualname"
+
+    @pytest.mark.skip(reason="Python3.9+")
+    def test_nanobind2_vectorcall_method(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+
+        class A:
+            def __init__(self):
+                self.value = 0
+
+            def my_method(self, value):
+                self.value = value
+
+        a = A()
+        module.method_call(a)
+        assert a.value == 1234

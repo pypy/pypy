@@ -84,3 +84,44 @@ def test_exec():
     with TestHook() as hook:
         exec(ret1.__code__)
     assert hook.seen == [("exec", (ret1.__code__, ))]
+
+def test_donttrace():
+    trace_events = []
+    audit_events = []
+    def trace(frame, evt, *args):
+        trace_events.append((evt, frame.f_code, frame.f_lineno))
+        return trace
+    def audit(evt, *args):
+        audit_events.append(evt)
+    sys.addaudithook(audit)
+    sys.settrace(trace)
+    try:
+        sys.audit("Überraschung!")
+    finally:
+        sys.settrace(None)
+        if hasattr(__pypy__, '_testing_clear_audithooks'):
+            __pypy__._testing_clear_audithooks()
+    print(trace_events)
+    assert len(trace_events) == 0
+
+def test_cantrace():
+    trace_events = []
+    audit_events = []
+    def trace(frame, evt, *args):
+        trace_events.append((evt, frame.f_code, frame.f_lineno))
+        return trace
+    def audit(evt, *args):
+        audit_events.append(evt)
+    audit.__cantrace__ = 132
+    sys.addaudithook(audit)
+    sys.settrace(trace)
+    try:
+        sys.audit("Überraschung!")
+    finally:
+        sys.settrace(None)
+        if hasattr(__pypy__, '_testing_clear_audithooks'):
+            __pypy__._testing_clear_audithooks()
+    print(trace_events)
+    assert len(trace_events) == 3 # call, line, return
+
+

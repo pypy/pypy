@@ -325,28 +325,36 @@ class RecursiveTests:
                     assert len(op.getdescr()._debug_suboperations) <= length + 5
 
     def test_inline_trace_limit(self):
-        myjitdriver = JitDriver(greens=[], reds=['n'])
-        def recursive(n):
-            if n > 0:
-                return recursive(n - 1) + 1
-            return 0
-        def loop(n):
-            set_param(myjitdriver, "threshold", 10)
+        import sys
+        from rpython.rlib import rstackovf, nonconst
+        sys.setrecursionlimit(3000)
+        myjitdriver = JitDriver(greens=['recurse'], reds=['n'],
+                get_printable_location=lambda recurse: "recurse" if recurse else "loop")
+        def main(recurse, n):
             pc = 0
             while n:
-                myjitdriver.can_enter_jit(n=n)
-                myjitdriver.jit_merge_point(n=n)
-                n = recursive(n)
+                myjitdriver.jit_merge_point(recurse=recurse, n=n)
+                if recurse:
+                    if n > 0:
+                        return main(True, n - 1) + 1
+                    return 0
+                n = main(True, n)
                 n -= 1
+                myjitdriver.can_enter_jit(recurse=recurse, n=n)
             return n
+        def entry(n):
+            set_param(None, "threshold", 10)
+            return main(False, n)
         TRACE_LIMIT = 66
-        res = self.meta_interp(loop, [100], enable_opts='', inline=True, trace_limit=TRACE_LIMIT)
+        res = self.meta_interp(entry, [100], enable_opts='', inline=True, trace_limit=TRACE_LIMIT, max_unroll_recursion=10)
         assert res == 0
         self.check_max_trace_length(TRACE_LIMIT)
         self.check_enter_count_at_most(10) # maybe
-        self.check_aborted_count(6)
+        self.check_aborted_count(1)
 
     def test_trace_limit_bridge(self):
+        # this is a weird test! it has an interp-level recursive function that
+        # goes very deep, that is not save or supported in general
         def recursive(n):
             if n > 0:
                 return recursive(n - 1) + 1
@@ -367,7 +375,7 @@ class RecursiveTests:
         TRACE_LIMIT = 20
         res = self.meta_interp(loop, [100], enable_opts='', inline=True, trace_limit=TRACE_LIMIT)
         self.check_max_trace_length(TRACE_LIMIT)
-        self.check_aborted_count(8)
+        self.check_aborted_count(9)
         self.check_enter_count_at_most(30)
 
     def test_trace_limit_with_exception_bug(self):

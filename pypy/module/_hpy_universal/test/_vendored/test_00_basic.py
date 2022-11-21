@@ -196,12 +196,14 @@ class TestBasic(HPyTest):
                     case 7: h = ctx->h_SystemError; break;
                     case 8: h = ctx->h_BaseObjectType; break;
                     case 9: h = ctx->h_TypeType; break;
-                    case 10: h = ctx->h_LongType; break;
-                    case 11: h = ctx->h_UnicodeType; break;
-                    case 12: h = ctx->h_TupleType; break;
-                    case 13: h = ctx->h_ListType; break;
-                    case 14: h = ctx->h_NotImplemented; break;
-                    case 15: h = ctx->h_Ellipsis; break;
+                    case 10: h = ctx->h_BoolType; break;
+                    case 11: h = ctx->h_LongType; break;
+                    case 12: h = ctx->h_FloatType; break;
+                    case 13: h = ctx->h_UnicodeType; break;
+                    case 14: h = ctx->h_TupleType; break;
+                    case 15: h = ctx->h_ListType; break;
+                    case 16: h = ctx->h_NotImplemented; break;
+                    case 17: h = ctx->h_Ellipsis; break;
                     default:
                         HPyErr_SetString(ctx, ctx->h_ValueError, "invalid choice");
                         return HPy_NULL;
@@ -213,7 +215,7 @@ class TestBasic(HPyTest):
         """)
         builtin_objs = (
             '<NULL>', None, False, True, ValueError, TypeError, IndexError,
-            SystemError, object, type, int, str, tuple, list, NotImplemented, Ellipsis,
+            SystemError, object, type, bool, int, float, str, tuple, list, NotImplemented, Ellipsis,
         )
         for i, obj in enumerate(builtin_objs):
             if i == 0:
@@ -293,7 +295,7 @@ class TestBasic(HPyTest):
                     .kind = HPyDef_Kind_Meth,
                     .meth = {
                         .name = "f",
-                        .signature = 1234,
+                        .signature = (HPyFunc_Signature)1234,
                     }
                 };
                 @EXPORT(f)
@@ -431,3 +433,24 @@ class TestBasic(HPyTest):
             @INIT
         """)
         assert mod.f(42) == 42
+
+    def test_leave_python(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                HPy_ssize_t data_len;
+                const char* data = HPyUnicode_AsUTF8AndSize(ctx, arg, &data_len);
+                HPy_ssize_t acount = 0;
+                HPy_BEGIN_LEAVE_PYTHON(ctx);
+                for (HPy_ssize_t i = 0; i < data_len; ++i) {
+                    if (data[i] == 'a')
+                        acount++;
+                }
+                HPy_END_LEAVE_PYTHON(ctx);
+                return HPyLong_FromSize_t(ctx, acount);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f("abraka") == 3

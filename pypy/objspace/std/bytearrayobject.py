@@ -195,8 +195,8 @@ class W_BytearrayObject(W_Root):
         s, _, lgt = str_decode_latin_1(''.join(self.getdata()), 'strict',
             True, None)
         return space.newtuple([
-            space.type(self), space.newtuple([
-                space.newutf8(s, lgt), space.newtext('latin-1')]),
+            space.type(self), space.newtuple2(
+                space.newutf8(s, lgt), space.newtext('latin-1')),
             w_dict])
 
     @staticmethod

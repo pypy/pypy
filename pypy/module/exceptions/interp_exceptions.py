@@ -304,6 +304,7 @@ def _new_exception(name, base, docstring, **kwargs):
     W_Exc.typedef = TypeDef(
         name,
         base.typedef,
+        __rpython_level_class__=W_Exc,
         __doc__ = W_Exc.__doc__,
         **kwargs
     )

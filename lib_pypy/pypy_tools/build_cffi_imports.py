@@ -63,21 +63,22 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1n.tar.gz',
-             '40dceb51a4f6a5275bde0e6bf20ef4b91bfc32ed57c0552e2e8e15463372b17a',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1s.tar.gz',
+             'c5ac01e760ee6ff0dab61d6b2bbd30146724d063eb322180c6f18a6f74e4b6aa',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.1.tar.gz',
-              'c311ad853353bce796edad01a862c50a8a587f62e7e2100ef465ab53ec9b06d1',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.7.tar.gz',
+              '83049d042a260e696f62406ac5c08bf706fd84383f945cf21bd61e9ed95c396e',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
 }
+
 cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
 if sys.platform == 'darwin' or platform.machine() == 'aarch64':
@@ -86,6 +87,7 @@ if sys.platform == 'darwin' or platform.machine() == 'aarch64':
               # this does not compile on the x86 buildbot, linker is missing '_history_list'
               'http://distfiles.macports.org/gdbm/gdbm-1.19.tar.gz',
               '37ed12214122b972e18a0d94995039e57748191939ef74115b1d41d8811364bc',
+    # this does not compile on the linux buildbot, linker is missing '_history_list'
               [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
@@ -282,6 +284,11 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print("stderr:")
                 print(bld_stderr.decode('utf-8'), file=sys.stderr)
                 raise RuntimeError('building {} failed'.format(key))
+            elif key in ("_ssl",):
+                print("stdout:")
+                print(bld_stdout, file=sys.stderr)
+                print("stderr:")
+                print(bld_stderr, file=sys.stderr)
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))

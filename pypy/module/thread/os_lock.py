@@ -282,7 +282,7 @@ class W_RLock(W_Root):
         count, self.rlock_count = self.rlock_count, 0
         owner, self.rlock_owner = self.rlock_owner, 0
         self.lock.release()
-        return space.newtuple([space.newint(count), space.newint(owner)])
+        return space.newtuple2(space.newint(count), space.newint(owner))
 
     def descr__enter__(self, space):
         self.acquire_w(space)

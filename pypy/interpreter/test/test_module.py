@@ -263,6 +263,23 @@ class AppTest_ModuleObject:
         raises(TypeError, "x.__class__ = X")
         raises(TypeError, "sys.__class__ = XX")
 
+    def test_class_assignment_for_module_getattr(self):
+        import sys
+        modtype = type(sys)
+        class X(modtype):
+            def __getattr__(self, n):
+                if n == "m":
+                    return 123
+                raise AttributeError
+        mod = modtype("mymod")
+        assert not hasattr(mod, "m")
+        mod.x = 456
+        assert mod.x == 456
+
+        mod.__class__ = X
+        assert mod.m == 123
+        assert mod.x == 456
+
     def test_getattr_dir(self):
         def __getattr__(name):
             if name == 'y':

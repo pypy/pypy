@@ -1,5 +1,8 @@
 #ifndef HPY_COMMON_RUNTIME_ARGPARSE_H
 #define HPY_COMMON_RUNTIME_ARGPARSE_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "hpy.h"
 
@@ -11,4 +14,7 @@ HPyArg_ParseKeywords(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nar
                      const char *fmt, const char *keywords[], ...);
 
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* HPY_COMMON_RUNTIME_ARGPARSE_H */

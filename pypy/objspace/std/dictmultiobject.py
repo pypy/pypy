@@ -32,16 +32,6 @@ def _never_equal_to_string(space, w_lookup_type):
             space.is_w(w_lookup_type, space.w_float))
 
 
-@specialize.call_location()
-def w_dict_unrolling_heuristic(w_dct):
-    """In which cases iterating over dict items can be unrolled.
-    Note that w_dct is an instance of W_DictMultiObject, not necesarilly
-    an actual dict
-    """
-    return jit.isvirtual(w_dct) or (jit.isconstant(w_dct) and
-                                    w_dct.length() <= UNROLL_CUTOFF)
-
-
 # for json decoder
 def create_empty_unicode_key_dict(space):
     return r_dict(unicode_eq, unicode_hash,
@@ -255,7 +245,7 @@ class W_DictMultiObject(W_Root):
         if w_key is None:
             raise oefmt(space.w_KeyError, "popitem(): dictionary is empty")
         self.internal_delitem(w_key)
-        return space.newtuple([w_key, w_value])
+        return space.newtuple2(w_key, w_value)
 
     def descr_clear(self, space):
         """D.clear() -> None.  Remove all items from D."""
@@ -285,7 +275,7 @@ class W_DictMultiObject(W_Root):
             w_key, w_value = self.popitem()
         except KeyError:
             raise oefmt(space.w_KeyError, "popitem(): dictionary is empty")
-        return space.newtuple([w_key, w_value])
+        return space.newtuple2(w_key, w_value)
 
     @unwrap_spec(w_default=WrappedDefault(None))
     def descr_setdefault(self, space, w_key, w_default):
@@ -304,6 +294,10 @@ class W_DictMultiObject(W_Root):
         if strategy is not object_strategy:
             strategy.switch_to_object_strategy(self)
         return object_strategy
+
+    def _unrolling_heuristic(self):
+        strategy = self.get_strategy()
+        return strategy._unrolling_heuristic(self)
 
 
 class W_DictObject(W_DictMultiObject):
@@ -337,6 +331,13 @@ class W_ModuleDictObject(W_DictMultiObject):
     def set_strategy(self, strategy):
         self.mstrategy = strategy
 
+    def get_global_cache(self, key):
+        from pypy.objspace.std.celldict import ModuleDictStrategy
+        strategy = self.mstrategy
+        if isinstance(strategy, ModuleDictStrategy):
+            return strategy.get_global_cache(self, key)
+        else:
+            return None
 
 
 # called below DictStrategy
@@ -485,7 +486,7 @@ class DictStrategy(object):
         raise NotImplementedError
 
     @jit.look_inside_iff(lambda self, w_dict:
-                         w_dict_unrolling_heuristic(w_dict))
+                         w_dict._unrolling_heuristic())
     def w_keys(self, w_dict):
         iterator = self.iterkeys(w_dict)
         result = newlist_hint(self.length(w_dict))
@@ -512,7 +513,7 @@ class DictStrategy(object):
         while True:
             w_key, w_value = iterator.next_item()
             if w_key is not None:
-                result.append(self.space.newtuple([w_key, w_value]))
+                result.append(self.space.newtuple2(w_key, w_value))
             else:
                 return result
 
@@ -568,6 +569,13 @@ class DictStrategy(object):
                 break
             w_updatedict.setitem(w_key, w_value)
 
+    def copy(self, w_dict):
+        # fallback
+        iteritems = self.iteritems(w_dict)
+        w_copy = W_DictMultiObject.allocate_and_init_instance(self.space)
+        DictStrategy.rev_update1_dict_dict(self, w_dict, w_copy)
+        return w_copy
+
     def prepare_update(self, w_dict, num_extra):
         pass
 
@@ -616,6 +624,12 @@ class DictStrategy(object):
 
     def iterreversed(self, w_dict):
         raise NotImplementedError
+
+    def _unrolling_heuristic(self, w_list):
+        # default implementation: we will only go by size, not whether the dict
+        # is virtual
+        size = self.length(w_list)
+        return size == 0 or (jit.isconstant(size) and size <= UNROLL_CUTOFF)
 
 _add_indirections()
 
@@ -724,6 +738,9 @@ class EmptyDictStrategy(DictStrategy):
             return w_default
         else:
             raise KeyError
+
+    def copy(self, w_dict):
+        return W_DictMultiObject.allocate_and_init_instance(self.space)
 
     # ---------- iterator interface ----------------
 
@@ -904,7 +921,7 @@ def create_iterator_classes(dictimpl,
         dictimpl.iterreversed = iterreversed
 
     @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
-                         w_dict_unrolling_heuristic(w_dict))
+                         w_dict._unrolling_heuristic())
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
         # the logic is to call prepare_dict_update() after the first setitem():
         # it gives the w_updatedict a chance to switch its strategy.
@@ -1049,7 +1066,7 @@ class AbstractTypedStrategy(object):
     def items(self, w_dict):
         space = self.space
         dict_w = self.unerase(w_dict.dstorage)
-        return [space.newtuple([self.wrap(key), w_value])
+        return [space.newtuple2(self.wrap(key), w_value)
                 for (key, w_value) in dict_w.iteritems()]
 
     def popitem(self, w_dict):
@@ -1085,6 +1102,10 @@ class AbstractTypedStrategy(object):
         w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(d_new)
 
+    def copy(self, w_dict):
+        dstorage = self.unerase(w_dict.dstorage)
+        return W_DictObject(self.space, self, self.erase(dstorage.copy()))
+
     # --------------- iterator interface -----------------
 
     def getiterkeys(self, w_dict):
@@ -1118,6 +1139,10 @@ class AbstractTypedStrategy(object):
     def setitem_untyped(self, dstorage, key, w_value, keyhash):
         d = self.unerase(dstorage)
         objectmodel.setitem_with_hash(d, key, keyhash, w_value)
+
+    def _unrolling_heuristic(self, w_dict):
+        storage = self.unerase(w_dict.dstorage)
+        return jit.loop_unrolling_heuristic(storage, len(storage), UNROLL_CUTOFF)
 
 
 class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
@@ -1249,7 +1274,7 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         return key
 
     @jit.look_inside_iff(lambda self, w_dict:
-                         w_dict_unrolling_heuristic(w_dict))
+                         w_dict._unrolling_heuristic())
     def view_as_kwargs(self, w_dict):
         d = self.unerase(w_dict.dstorage)
         l = len(d)
@@ -1325,7 +1350,12 @@ def update1(space, w_dict, w_data):
 
 
 def update1_dict_dict(space, w_dict, w_data):
-    w_data.get_strategy().rev_update1_dict_dict(w_data, w_dict)
+    if isinstance(w_dict.get_strategy(), EmptyDictStrategy):
+        w_copy = w_data.get_strategy().copy(w_data)
+        w_dict.set_strategy(w_copy.get_strategy())
+        w_dict.dstorage = w_copy.dstorage
+    else:
+        w_data.get_strategy().rev_update1_dict_dict(w_data, w_dict)
 
 
 def update1_pairs(space, w_dict, data_w):
@@ -1398,7 +1428,7 @@ class W_BaseDictMultiIterObject(W_Root):
             w_clone.descr_next(space)
 
         w_res = space.call_function(space.w_list, w_clone)
-        w_ret = space.newtuple([new_inst, space.newtuple([w_res])])
+        w_ret = space.newtuple2(new_inst, space.newtuple([w_res]))
         return w_ret
 
     def clone_for_pickling(self, space, w_dict):
@@ -1442,7 +1472,7 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
         iteratorimplementation = self.iteratorimplementation
         w_key, w_value = iteratorimplementation.next_item()
         if w_key is not None:
-            return space.newtuple([w_key, w_value])
+            return space.newtuple2(w_key, w_value)
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def clone_for_pickling(self, space, w_dict):

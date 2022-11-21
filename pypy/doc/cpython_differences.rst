@@ -107,8 +107,8 @@ objects referencing each other, their ``__del__`` methods are called anyway;
 CPython would instead put them into the list ``garbage`` of the ``gc``
 module.  More information is available on the blog `[1]`__ `[2]`__.
 
-.. __: https://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-1.html
-.. __: https://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-2.html
+.. __: https://www.pypy.org/posts/2008/02/python-finalizers-semantics-part-1-1196956834543115766.html
+.. __: https://www.pypy.org/posts/2008/02/python-finalizers-semantics-part-2-2748812428675325525.html
 
 Note that this difference might show up indirectly in some cases.  For
 example, a generator left pending in the middle is --- again ---
@@ -117,7 +117,7 @@ difference if the ``yield`` keyword it is suspended at is itself
 enclosed in a ``try:`` or a ``with:`` block.  This shows up for example
 as `issue 736`__.
 
-.. __: https://bugs.pypy.org/issue736
+.. __: https://foss.heptapod.net/pypy/pypy/-/issues/736
 
 Using the default GC (called ``minimark``), the built-in function ``id()``
 works like it does in CPython.  With other GCs it returns numbers that
@@ -296,6 +296,33 @@ that there is a total order on floats, but that is wrong for NaNs).
 
 .. __: https://foss.heptapod.net/pypy/pypy/issue/1974/different-behaviour-for-collections-of
 
+Permitted ABI tags in extensions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CPython supports the limited C-API with modules that have an ``abi3`` ABI tag,
+and will also import extension modules with no ABI or platform tags. This can
+be seen by comparing ``_imp.extension_suffix()`` calls (on Python3.9, x86_64,
+linux):
+
+========== ===================================== ==============
+python     _imp.extension_suffixes()             notes
+========== ===================================== ==============
+cpython3.9 [".cpython-39-x86_64-linux-gnu.so",   normal [#f1]_
+..          ".abi3.so",                          limited C-API
+..          ".so"]                               bare extension
+pypy3.9    ['.pypy39-pp73-x86_64-linux-gnu.so']  normal [#f1]_
+========== ===================================== ==============
+
+.. rubric:: Footnotes
+  
+.. [#f1] normal extensions use <python-tag>-<abi-tag>-<platform-tag>
+
+CMake will `support the correct suffix`_ for PyPy3.9 in release 3.26, scheduled for early 2023
+
+.. _support the correct suffix: https://gitlab.kitware.com/cmake/cmake/-/merge_requests/7917
+
+.. _cpyext:
+
 C-API Differences
 -----------------
 
@@ -315,6 +342,12 @@ on CPython will result in the old function being called for ``x.__int__()``
 (via class ``__dict__`` lookup) and the new function being called for ``int(x)``
 (via slot lookup). On PyPy we will always call the __new__ function, not the
 old, this quirky behaviour is unfortunately necessary to fully support NumPy.
+
+The cpyext layer `adds complexity`_ and is slow. If possible, use cffi_ or HPy_.
+
+.. _adds complexity: https://www.pypy.org/posts/2018/09/inside-cpyext-why-emulating-cpython-c-8083064623681286567.html
+.. _cffi: https://cffi.readthedocs.io/en/latest/
+.. _HPy: https://hpyproject.org/
 
 Performance Differences
 -------------------------
@@ -599,13 +632,9 @@ List of extension modules that we support:
 
 The extension modules (i.e. modules written in C, in the standard CPython)
 that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
-(You may have a chance to use them anyway with `cpyext`_.)
-
-.. _cpyext: https://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
-
 
 .. _`is ignored in PyPy`: https://bugs.python.org/issue14621
 .. _`little point`: https://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://foss.heptapod.net/pypy/pypy/issue/2072/
 .. _`issue #2653`: https://foss.heptapod.net/pypy/pypy/issues/2653/
-.. _SyntaxError: https://morepypy.blogspot.co.il/2018/04/improving-syntaxerror-in-pypy.html
+.. _SyntaxError: https://www.pypy.org/posts/2018/04/improving-syntaxerror-in-pypy-5733639208090522433.html

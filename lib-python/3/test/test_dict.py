@@ -472,6 +472,7 @@ class DictTest(unittest.TestCase):
             for i in d:
                 d[i+1] = 1
 
+    @support.cpython_only
     def test_mutating_iteration_delete(self):
         # change dict content during iteration
         d = {}
@@ -481,6 +482,7 @@ class DictTest(unittest.TestCase):
                 del d[0]
                 d[0] = 0
 
+    @support.cpython_only
     def test_mutating_iteration_delete_over_values(self):
         # change dict content during iteration
         d = {}
@@ -490,6 +492,7 @@ class DictTest(unittest.TestCase):
                 del d[0]
                 d[0] = 0
 
+    @support.cpython_only
     def test_mutating_iteration_delete_over_items(self):
         # change dict content during iteration
         d = {}
@@ -545,7 +548,7 @@ class DictTest(unittest.TestCase):
 
     def test_repr_deep(self):
         d = {}
-        for i in range(sys.getrecursionlimit() + 100):
+        for i in range(sys.getrecursionlimit() + 500): # pypy difference: pypy is more efficient stack-wise
             d = {1: d}
         self.assertRaises(RecursionError, repr, d)
 

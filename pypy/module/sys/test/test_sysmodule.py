@@ -187,6 +187,7 @@ class AppTestAppSysTests:
         assert isinstance(li.nan, int)
         assert isinstance(li.imag, int)
         assert isinstance(li.algorithm, str)
+        assert str(li).startswith('sys.hash_info(')
 
     def test_sys_flags(self):
         import sys
@@ -233,6 +234,18 @@ class AppTestAppSysTests:
     def test_audit(self):
         import sys
         sys.audit("os.chdir", "bla", 1, 2, 12) # does not crash
+
+    def test_sys_int_max_str_digits(self):
+        import sys
+        old = sys.get_int_max_str_digits()
+        assert old == sys.int_info.default_max_str_digits
+        try:
+            sys.set_int_max_str_digits(100000)
+            assert sys.get_int_max_str_digits() == 100000
+        finally:
+            sys.set_int_max_str_digits(old)
+
+
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {
         "usemodules": ["struct"],
@@ -1082,3 +1095,4 @@ class AppTestSysExcInfoDirect:
         except:
             assert g() is e
     test_call_in_subfunction.expected = 'y'
+

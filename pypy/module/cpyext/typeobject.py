@@ -576,11 +576,7 @@ class W_PyCTypeObject(W_TypeObject):
         dict_w = {}
 
         flag_heaptype = widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
-        if flag_heaptype:
-            hto = cts.cast('PyHeapTypeObject*', pto)
-            name = space.text_w(from_ref(space, hto.c_ht_name))
-        else:
-            name = rffi.constcharp2str(pto.c_tp_name)
+        name = rffi.constcharp2str(pto.c_tp_name)
         add_operators(space, self, dict_w, pto, name)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self)
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
@@ -652,9 +648,12 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
         if not flags & Py_TPFLAGS_HEAPTYPE:
             decref(space, metatype)
 
-    heaptype = lltype.malloc(PyHeapTypeObject.TO,
+    basicsize = max(rffi.sizeof(PyHeapTypeObject.TO), metatype.c_tp_basicsize)
+    heaptype = lltype.malloc(rffi.VOIDP.TO,
+                             basicsize,
                              flavor='raw', zero=True,
                              add_memory_pressure=True)
+    heaptype = rffi.cast(PyHeapTypeObject, heaptype)
     pto = heaptype.c_ht_type
     rffi.cast(PyObject, pto).c_ob_refcnt = 1
     rffi.cast(PyObject, pto).c_ob_pypy_link = 0
@@ -680,7 +679,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
 
     typedescr = get_typedescr(w_type.layout.typedef)
 
-    if space.is_w(w_type, space.w_bytes) or space.is_w(w_type, space.w_text):
+    if space.is_w(w_type, space.w_bytes):
         pto.c_tp_itemsize = 1
     elif space.is_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
@@ -983,7 +982,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
     res.c_ht_name = make_ref(space, space.newtext(name))
     res.c_ht_qualname = res.c_ht_name
     incref(space, res.c_ht_qualname)
-    typ.c_tp_name = spec.c_name
+    typ.c_tp_name = cts.cast('const char*', rffi.str2charp(name))
     slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
     if not bases:
         w_base = space.w_object
@@ -1040,11 +1039,26 @@ def PyType_FromSpecWithBases(space, spec, bases):
 
     if not typ.c_tp_dealloc:
         typ.c_tp_dealloc = state.C._PyPy_subtype_dealloc
+
     py_type_ready(space, typ)
     res = cts.cast('PyObject*', res)
     if modname is not None:
         w_type = from_ref(space, res)
         w_type.setdictvalue(space, '__module__', space.newtext(modname))
+    # Convert getsets
+    if typ.c_tp_getset:
+        w_type = from_ref(space, res)
+        getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), typ.c_tp_getset)
+        i = -1
+        while True:
+            i = i + 1
+            getset = getsets[i]
+            name = getset.c_name
+            if not name:
+                break
+            name = rffi.constcharp2str(name)
+            w_descr = W_GetSetPropertyEx(getset, w_type)
+            w_type.setdictvalue(space, name, w_descr)
     return res
 
 

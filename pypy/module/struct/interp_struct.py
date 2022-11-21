@@ -1,7 +1,7 @@
 from rpython.rlib import jit
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import r_uint, widen
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
@@ -151,15 +151,26 @@ fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
 def do_unpack_from(space, format, w_buffer, offset=0):
     """Unpack the buffer, containing packed C structure data, according to
 fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
-    size = _calcsize(space, format)
+    s_size = _calcsize(space, format)
     buf = space.readbuf_w(w_buffer)
+    buf_length = buf.getlength()
     if offset < 0:
-        offset += buf.getlength()
-    if offset < 0 or (buf.getlength() - offset) < size:
+        if offset + s_size > 0:
+            raise oefmt(get_error(space),
+                    "not enough data to unpack %d bytes at offset %d",
+                    s_size, offset)
+        if offset + buf_length < 0:
+            raise oefmt(get_error(space),
+                    "offset %d out of range for %d-byte buffer",
+                    offset, buf_length)
+        offset += buf_length
+    if buf_length - offset < s_size:
         raise oefmt(get_error(space),
-                    "unpack_from requires a buffer of at least %d bytes",
-                    size)
-    buf = SubBuffer(buf, offset, size)
+                    "unpack_from requires a buffer of at least %d bytes for "
+                    "unpacking %d bytes at offset %d "
+                    "(actual buffer size is %d)",
+                    r_uint(s_size + offset), s_size, offset, buf_length)
+    buf = SubBuffer(buf, offset, s_size)
     return _unpack(space, format, buf)
 
 

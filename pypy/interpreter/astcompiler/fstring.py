@@ -127,8 +127,7 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
 
     # Keep track of nesting level for braces/parens/brackets in
     # expressions.
-    nested_depth = 0
-    parenstack = [''] * 200
+    parenstack = []
 
     # Can only nest one level deep.
     if rec >= 2:
@@ -145,7 +144,6 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     while i < len(s):
 
         # Loop invariants.
-        assert nested_depth >= 0
         if quote_char:
             assert string_type == 1 or string_type == 3
         else:
@@ -190,17 +188,13 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
             # Start looking for the end of the string.
             quote_char = ord(ch)
         elif ch in "[{(":
-            if nested_depth > len(parenstack):
-                astbuilder.error('f-string: too many nested parenthesis',
-                                 atom_node)
-            parenstack[nested_depth] = ch
-            nested_depth += 1
+            parenstack.append(ch)
         elif ch == '#':
             # Error: can't include a comment character, inside parens
             # or not.
             astbuilder.error("f-string expression part cannot include '#'",
                              atom_node)
-        elif nested_depth == 0 and ch in ":}!=<>":
+        elif not parenstack and ch in ":}!=<>":
             # First, test for the special case of comparison operators
             # that also contains equal sign ("!="/">="/"=="/"<=").
             if i + 1 < len(s):
@@ -217,10 +211,9 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
             # Normal way out of this loop.
             break
         elif ch in ']})':
-            if nested_depth == 0:
+            if not parenstack:
                 astbuilder.error("f-string: unmatched '%s'" % ch, atom_node)
-            nested_depth -=1
-            opening = parenstack[nested_depth]
+            opening = parenstack.pop()
             if not ((opening == '(' and ch ==')') or
                     (opening == '[' and ch ==']') or
                     (opening == '{' and ch =='}')):
@@ -238,8 +231,8 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     if quote_char:
         astbuilder.error("f-string: unterminated string", atom_node)
 
-    if nested_depth:
-        opening = parenstack[nested_depth - 1]
+    if parenstack:
+        opening = parenstack[-1]
         astbuilder.error("f-string: unmatched '%s'" % opening,
                          atom_node)
 

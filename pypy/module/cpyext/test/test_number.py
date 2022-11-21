@@ -135,7 +135,13 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
             except SystemError:
                 pass
             else:
-                assert False, 'expected SystemError'
+                assert False, 'expected TypeError'
+        # large number:
+        num = 2**66
+        assert mod.pynumber_tobase(num, 2) == '0b1' + '0' * 66
+        assert mod.pynumber_tobase(num, 8) == '0o10000000000000000000000'
+        assert mod.pynumber_tobase(num, 10) == str(num)
+        assert mod.pynumber_tobase(num, 16) == '0x40000000000000000'
 
     def test_index_check(self):
         # issue 3383: CPython only checks for the presence of __index__,
@@ -158,6 +164,7 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         assert mod.check_index(m)
         m = Missing()
         assert not mod.check_index(m)
+
     def test_number_to_ssize_t(self):
         import sys
         mod = self.import_extension('foo', [
@@ -171,9 +178,9 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                     return NULL;
                 }
                 if (exc == NULL) {
-                    printf("got no exc\\n");
+                    // printf("got no exc\\n");
                 } else {
-                    printf("got exc\\n");
+                    // printf("got exc\\n");
                 }
                 value = PyNumber_AsSsize_t(obj, exc);
                 if (PyErr_Occurred()) {

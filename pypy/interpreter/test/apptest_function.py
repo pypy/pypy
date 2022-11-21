@@ -672,6 +672,14 @@ def test_method_identity():
     assert x is B.m
     assert id(x) == id(B.m)
 
+def test_method_ne_NotImplemented():
+    class A(object):
+        def __ne__(self, other):
+            return "ABC"
+    meth = A.__ne__
+    assert meth.__ne__(1) is NotImplemented
+    assert (meth != A()) == "ABC"
+
 def test_posonly():
     def posonlyfunc(a, b, c, /, d):
         return (a, b, c, d)

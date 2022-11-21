@@ -3,7 +3,6 @@ from pypy.objspace.std.test import test_tupleobject
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.longobject import W_LongObject
 from rpython.rlib.rbigint import rbigint
-from pypy.tool.pytest.objspace import gettestobjspace
 
 
 for cls in _specialisations:

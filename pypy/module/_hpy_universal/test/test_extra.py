@@ -59,9 +59,9 @@ class TestExtra(HPyTest):
             static HPy f_impl(HPyContext *ctx, HPy self)
             {
                 HPyModuleDef def = {
-                    .m_name = "foo",
-                    .m_doc = "Some doc",
-                    .m_size = -1,
+                    .name = "foo",
+                    .doc = "Some doc",
+                    .size = -1,
                 };
                 return HPyModule_Create(ctx, &def);
             }

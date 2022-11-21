@@ -575,12 +575,16 @@ class AST_Tests(unittest.TestCase):
             compile(m, "<test>", "exec")
         self.assertIn("but got <_ast.expr", str(cm.exception))
 
-    def test_invalid_identitifer(self):
+    def test_invalid_identifier(self):
+        if sys.implementation.name == "pypy":
+            msg = "expected str, got int object"
+        else:
+            msg = "identifier must be of type str"
         m = ast.Module([ast.Expr(ast.Name(42, ast.Load()))], [])
         ast.fix_missing_locations(m)
         with self.assertRaises(TypeError) as cm:
             compile(m, "<test>", "exec")
-        self.assertIn("identifier must be of type str", str(cm.exception))
+        self.assertIn(msg, str(cm.exception))
 
     def test_empty_yield_from(self):
         # Issue 16546: yield from value is not optional.
@@ -891,6 +895,14 @@ class ASTHelpers_Test(unittest.TestCase):
         self.assertRaises(ValueError, ast.literal_eval, '++6')
         self.assertRaises(ValueError, ast.literal_eval, '+True')
         self.assertRaises(ValueError, ast.literal_eval, '2+3')
+
+    def test_literal_eval_str_int_limit(self):
+        with support.adjust_int_max_str_digits(4000):
+            ast.literal_eval('3'*4000)  # no error
+            with self.assertRaises(SyntaxError) as err_ctx:
+                ast.literal_eval('3'*4001)
+            self.assertIn('Exceeds the limit ', str(err_ctx.exception))
+            self.assertIn(' Consider hexadecimal ', str(err_ctx.exception))
 
     def test_literal_eval_complex(self):
         # Issue #4907

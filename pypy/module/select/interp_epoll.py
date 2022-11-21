@@ -212,8 +212,8 @@ class W_Epoll(W_Root):
 
                 elist_w = [None] * nfds
                 for i in xrange(nfds):
-                    elist_w[i] = space.newtuple(
-                        [space.newint(fids[i]), space.newint(events[i])]
+                    elist_w[i] = space.newtuple2(
+                        space.newint(fids[i]), space.newint(events[i])
                     )
                 return space.newlist(elist_w)
 

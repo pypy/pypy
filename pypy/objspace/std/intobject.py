@@ -17,7 +17,7 @@ from rpython.rlib.rbigint import (
     InvalidEndiannessError, InvalidSignednessError, rbigint)
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
-    ParseStringError, ParseStringOverflowError)
+    ParseStringError, ParseStringOverflowError, MaxDigitsError)
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
@@ -344,15 +344,15 @@ def _divmod(space, x, y):
         raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
     # no overflow possible
     m = x % y
-    return space.newtuple([space.newint(z), space.newint(m)])
+    return space.newtuple2(space.newint(z), space.newint(m))
 
 
 def _divmod_ovf2small(space, x, y):
     from pypy.objspace.std.smalllongobject import W_SmallLongObject
     a = r_longlong(x)
     b = r_longlong(y)
-    return space.newtuple([W_SmallLongObject(a // b),
-                           W_SmallLongObject(a % b)])
+    return space.newtuple2(W_SmallLongObject(a // b),
+                           W_SmallLongObject(a % b))
 
 
 def _lshift(space, a, b):
@@ -501,6 +501,17 @@ def _make_ovf2long(opname, ovf2small=None):
 
     return ovf2long
 
+@jit.elidable
+def _bit_length(val):
+    bits = 0
+    if val < 0:
+        # warning, "-val" overflows here
+        val = -((val + 1) >> 1)
+        bits = 1
+    while val:
+        bits += 1
+        val >>= 1
+    return bits
 
 class W_IntObject(W_AbstractIntObject):
 
@@ -611,16 +622,7 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([wrapint(space, self.intval)])
 
     def descr_bit_length(self, space):
-        val = self.intval
-        bits = 0
-        if val < 0:
-            # warning, "-val" overflows here
-            val = -((val + 1) >> 1)
-            bits = 1
-        while val:
-            bits += 1
-            val >>= 1
-        return space.newint(bits)
+        return space.newint(_bit_length(self.intval))
 
     def descr_repr(self, space):
         res = str(self.intval)
@@ -905,10 +907,22 @@ def _recover_with_smalllong(space):
 
 
 def _string_to_int_or_long(space, w_source, string, base=10):
+    from pypy.module.sys.state import get_int_max_str_digits
+     
+    if (base & (base - 1) != 0):
+        # Limit the size to avoid excessive computation attacks on non-binary bases
+        max_str_digits = space.int_w(get_int_max_str_digits(space))
+    else:
+        max_str_digits = 0
     try:
-        value = string_to_int(
-            string, base, allow_underscores=True, no_implicit_octal=True)
+        value = string_to_int(string, base, allow_underscores=True,
+                              no_implicit_octal=True,
+                              max_str_digits=max_str_digits)
         return wrapint(space, value)
+    except MaxDigitsError as e:
+        raise oefmt(space.w_ValueError,
+                    "Exceeds the limit (%d) for integer string conversion: value has %d digits",
+                    max_str_digits, e.digits)
     except ParseStringError as e:
         raise wrap_parsestringerror(space, e, w_source)
     except ParseStringOverflowError as e:
@@ -1147,17 +1161,21 @@ Base 0 means to interpret the base from the string as an integer literal.
 
 
 def _hash_int(a):
-    sign = 1
-    if a < 0:
-        sign = -1
-        a = -a
+    # write it without branches for the benefit of the jit
+    # it needs to give numbers that are equivalent to the hash function of
+    # rbigint
 
+    # compute the sign
+    sign = 1 - ((a < 0) << 1)
     x = r_uint(a)
+    # take absolute value
+    x *= r_uint(sign)
     # efficient x % HASH_MODULUS: as HASH_MODULUS is a Mersenne
     # prime
     x = (x & HASH_MODULUS) + (x >> HASH_BITS)
-    if x >= HASH_MODULUS:
-        x -= HASH_MODULUS
 
+    # if x >= HASH_MODULUS:
+    #    x -= HASH_MODULUS
+    x -= HASH_MODULUS * (x >= HASH_MODULUS)
     h = intmask(intmask(x) * sign)
     return h - (h == -1)

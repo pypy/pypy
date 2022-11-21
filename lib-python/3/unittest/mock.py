@@ -1852,7 +1852,7 @@ magic_methods = (
     "lt le gt ge eq ne "
     "getitem setitem delitem "
     "len contains iter "
-    "hash str sizeof "
+    "hash str "
     "enter exit "
     # we added divmod and rdivmod here instead of numerics
     # because there is no idivmod
@@ -1863,6 +1863,8 @@ magic_methods = (
     "fspath "
     "aiter "
 )
+if sys.implementation.name != "pypy":
+    magic_methods += "sizeof "
 
 numerics = (
     "add sub mul matmul div floordiv mod lshift rshift and xor or pow truediv"

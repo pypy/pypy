@@ -12,7 +12,7 @@ import sys, py
 from pypy.module.cpyext.unicodeobject import *
 
 class AppTestUnicodeObject(AppTestCpythonExtensionBase):
-    def test_unicodeobject(self):
+    def test_unicodeobject_basic(self):
         module = self.import_extension('foo', [
             ("get_hello1", "METH_NOARGS",
              """
@@ -54,7 +54,22 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              ("test_is_unicode", "METH_VARARGS",
              """
                 return PyBool_FromLong(PyUnicode_Check(PyTuple_GetItem(args, 0)));
-             """)])
+             """),
+             ("test_append", "METH_VARARGS",
+             """
+                PyObject *ret = PyTuple_GetItem(args, 0);
+                PyUnicode_Append(&ret, PyTuple_GetItem(args, 1));
+                return ret;
+             """),
+             ("test_appenddel", "METH_VARARGS",
+             """
+                PyObject *s = PyUnicode_FromString("Hello world");
+                PyObject *ret = PyTuple_GetItem(args, 0);
+                PyUnicode_AppendAndDel(&ret, s);
+                // No need to decref s, it is done for us.
+                return ret;
+             """),
+            ])
         assert module.get_hello1() == u'Hello world'
         assert module.test_GetSize() == 0
         raises(TypeError, module.test_GetSize_exception)
@@ -64,6 +79,9 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
 
         assert module.test_is_unicode(u"")
         assert not module.test_is_unicode(())
+        a = u"a"
+        assert module.test_append(a, u"b") == u"ab"
+        assert module.test_appenddel(a) ==  a + u"Hello world"
 
     def test_strlen(self):
         module = self.import_extension('foo', [
@@ -514,7 +532,20 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             else:
                 assert False
 
-
+    def test_itemsize(self):
+        module = self.import_extension('foo', [
+            ("itemsize", "METH_NOARGS",
+            """
+                PyObject* o = PyUnicode_FromString("");
+                int ret = o->ob_type->tp_itemsize;
+                if (ret < 0) {
+                    return NULL;
+                }
+                return PyLong_FromLong(ret);
+            """)])
+        itemsize = module.itemsize()
+        assert itemsize == 0
+ 
     def test_UnicodeNew(self):
         module = self.import_extension('unicodenew', [
             ("make", "METH_VARARGS",
@@ -1077,6 +1108,15 @@ class TestUnicode(BaseApiTest):
         rffi.free_wcharp(wbuf)
         assert space.type(w_bytes) is space.w_bytes
         assert space.utf8_w(w_bytes) == "abc?"
+
+    def test_codepage(self, space):
+        if sys.platform != 'win32':
+            py.test.skip("codepage encoding only exists on Windows")
+        chars = "abc"
+        w_obj = space.newtext(chars)
+        w_bytes = PyUnicode_EncodeCodePage(space, 932, w_obj, None)
+        assert space.type(w_bytes) is space.w_bytes
+        assert space.utf8_w(w_bytes) == "abc"
 
     def test_escape(self, space):
         def test(ustr):

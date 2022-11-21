@@ -756,7 +756,9 @@ class MmapTests(unittest.TestCase):
             m.madvise(mmap.MADV_NORMAL, size)
         with self.assertRaisesRegex(ValueError, "madvise start out of bounds"):
             m.madvise(mmap.MADV_NORMAL, -1)
-        with self.assertRaisesRegex(ValueError, "madvise length invalid"):
+        # PyPy message is better: "madvise length can't be negative"
+        # with self.assertRaisesRegex(ValueError, "madvise length invalid"):
+        with self.assertRaisesRegex(ValueError, "madvise length"):
             m.madvise(mmap.MADV_NORMAL, 0, -1)
         with self.assertRaisesRegex(OverflowError, "madvise length too large"):
             m.madvise(mmap.MADV_NORMAL, PAGESIZE, sys.maxsize)

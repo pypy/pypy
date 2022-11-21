@@ -309,6 +309,7 @@ def descr__dir__(space, w_obj):
     return space.call_function(space.w_list, _objectdir(space, w_obj))
 
 W_ObjectObject.typedef = TypeDef("object",
+    __rpython_level_class__ = W_ObjectObject,
     _text_signature_='()',
     __doc__ = "The most base type",
     __new__ = interp2app(descr__new__),

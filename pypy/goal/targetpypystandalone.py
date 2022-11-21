@@ -384,10 +384,7 @@ class PyPyTarget(object):
             ''' Use cffi to compile cffi interfaces to modules'''
             filename = join(pypydir, '..', 'lib_pypy', 'pypy_tools',
                                    'build_cffi_imports.py')
-            if sys.platform in ('darwin', 'linux', 'linux2'):
-                argv = [filename, '--embed-dependencies']
-            else:
-                argv = [filename,]
+            argv = [filename,]
             exe_name = py.path.local(driver.c_entryp)
             status, out, err = run_subprocess(str(exe_name), argv)
             sys.stdout.write(out)
@@ -418,7 +415,7 @@ class PyPyTarget(object):
         w_dict = app.getwdict(self.space)
         entry_point, _ = create_entry_point(self.space, w_dict)
 
-        return entry_point, None, PyPyAnnotatorPolicy()
+        return entry_point, None, PyPyAnnotatorPolicy(self.space)
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',

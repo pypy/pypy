@@ -514,8 +514,8 @@ class W_Deque(W_Root):
         if self.maxlen == sys.maxint:
             w_lentuple = space.newtuple([])
         else:
-            w_lentuple = space.newtuple([space.newtuple([]),
-                                         space.newint(self.maxlen)])
+            w_lentuple = space.newtuple2(space.newtuple([]),
+                                         space.newint(self.maxlen))
         return space.newtuple([w_type, w_lentuple, w_dict, w_it])
 
     def get_maxlen(space, self):

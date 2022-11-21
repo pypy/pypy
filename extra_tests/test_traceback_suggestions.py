@@ -1,7 +1,16 @@
 import pytest
-from traceback import _levenshtein_distance, _compute_suggestion_error, \
-        TracebackException
+from pathlib import Path
 from hypothesis import given, strategies as st
+
+with open(Path(__file__).parent.joinpath("..", "lib-python", "3", "traceback.py")) as f:
+    content = f.read()
+
+d = {}
+exec(content, d, d)
+_levenshtein_distance = d['_levenshtein_distance']
+_compute_suggestion_error = d['_compute_suggestion_error']
+TracebackException = d['TracebackException']
+
 
 # levensthein tests
 

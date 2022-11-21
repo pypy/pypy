@@ -881,13 +881,11 @@ class TemplateOverloadMixin(object):
         # perform actual call (which may still fail)
         return self._call_method(method, args_w)
 
-    def getitem_impl(self, name, args_w):
+    def getitem_impl(self, name, w_args):
         space = self.space
 
-        if space.isinstance_w(args_w[0], space.w_tuple):
-            w_args = args_w[0]
-        else:
-            w_args = space.newtuple(args_w)
+        if not space.isinstance_w(w_args, space.w_tuple):
+            w_args = space.newtuple([w_args])
 
         tmpl_args = self.construct_template_args(w_args)
         return self.clone(tmpl_args)   # defer instantiation until arguments are known
@@ -934,9 +932,8 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
             pass
         return self.template_call(self.name, self.tmpl_args, args_w)
 
-    @unwrap_spec(args_w='args_w')
-    def getitem(self, args_w):
-        return self.getitem_impl(self.name, args_w)
+    def getitem(self, w_arg):
+        return self.getitem_impl(self.name, w_arg)
 
     def getname(self, space):
         return self.name
@@ -1001,9 +998,8 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
             pass
         return self.template_call(self.name, self.tmpl_args, args_w)
 
-    @unwrap_spec(args_w='args_w')
-    def getitem(self, args_w):
-        return self.getitem_impl(self.name, args_w)
+    def getitem(self, w_arg):
+        return self.getitem_impl(self.name, w_arg)
 
     def getname(self, space):
         return self.name

@@ -26,11 +26,14 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
-from pypy.interpreter.function import StaticMethod
+from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.pyparser import pygram
+from pypy.interpreter.typedef import Function, Method, PyTraceback
+from pypy.objspace.std.dictmultiobject import W_DictViewKeysObject, W_DictViewValuesObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
+from pypy.module.__builtin__.functional import W_ReversedIterator, W_Range
 #from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.__pypy__.interp_buffer import W_Bufferable
 from rpython.rlib.entrypoint import entrypoint_lowlevel
@@ -62,10 +65,10 @@ parse_dir = pypydir / 'module' / 'cpyext' / 'parse'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
 translator_c_dir = py.path.local(cdir)
 include_dirs = [
+    udir,
     include_dir,
     parse_dir,
     translator_c_dir,
-    udir,
     ]
 if WIN32:
     include_dirs.insert(0, pc_dir)
@@ -594,7 +597,7 @@ SYMBOLS_C = [
     '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
     '_PyArg_ParseTupleAndKeywords_SizeT', '_PyArg_VaParse_SizeT',
     '_PyArg_VaParseTupleAndKeywords_SizeT',
-    '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
+    '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT', 'PyUnicode_AppendAndDel',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
     'PyErr_WarnFormat', '_PyErr_FormatFromCause',
@@ -630,7 +633,8 @@ SYMBOLS_C = [
 
     'PyStructSequence_InitType', 'PyStructSequence_InitType2',
     'PyStructSequence_New', 'PyStructSequence_UnnamedField',
-    'PyStructSequence_NewType',
+    'PyStructSequence_NewType', 'PyStructSequence_GetItem',
+    'PyStructSequence_SetItem', 
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
@@ -650,7 +654,7 @@ SYMBOLS_C = [
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar',
-    'PyTuple_New', '_Py_Dealloc',
+    'PyTuple_New', '_Py_Dealloc', '_Py_object_dealloc',
     'PyVectorcall_Call',
 ]
 if sys.platform == "win32":
@@ -719,6 +723,8 @@ def build_exported_objects():
         "PyUnicode_Type": "space.w_unicode",
         "PyDict_Type": "space.w_dict",
         "PyDictProxy_Type": 'space.gettypeobject(cpyext.dictproxyobject.W_DictProxyObject.typedef)',
+        "PyDictValues_Type": "space.gettypeobject(W_DictViewValuesObject.typedef)",
+        "PyDictKeys_Type": "space.gettypeobject(W_DictViewKeysObject.typedef)",
         "PyTuple_Type": "space.w_tuple",
         "PyList_Type": "space.w_list",
         "PySet_Type": "space.w_set",
@@ -737,6 +743,7 @@ def build_exported_objects():
         'PyProperty_Type': 'space.gettypeobject(W_Property.typedef)',
         'PySlice_Type': 'space.gettypeobject(W_SliceObject.typedef)',
         'PyStaticMethod_Type': 'space.gettypeobject(StaticMethod.typedef)',
+        'PyClassMethod_Type': 'space.gettypeobject(ClassMethod.typedef)',
         'PyCFunction_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
         'PyClassMethodDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCClassMethodObject.typedef)',
         'PyGetSetDescr_Type': 'space.gettypeobject(cpyext.typeobject.W_GetSetPropertyEx.typedef)',
@@ -745,6 +752,11 @@ def build_exported_objects():
         'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCWrapperObject.typedef)',
         'PyInstanceMethod_Type': 'space.gettypeobject(cpyext.classobject.InstanceMethod.typedef)',
         'PyBufferable_Type': 'space.gettypeobject(W_Bufferable.typedef)',
+        'PyReversed_Type': 'space.gettypeobject(W_ReversedIterator.typedef)',
+        'PyRange_Type': 'space.gettypeobject(W_Range.typedef)',
+        'PyFunction_Type': 'space.gettypeobject(Function.typedef)',
+        'PyMethod_Type': 'space.gettypeobject(Method.typedef)',
+        'PyTraceBack_Type': 'space.gettypeobject(PyTraceback.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
@@ -1200,7 +1212,7 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci,
         _nowrapper=True)
     state.C._PyPy_int_dealloc = rffi.llexternal(
-        '_PyPy_int_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_int_dealloc'), [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C.PyTuple_New = rffi.llexternal(
         mangle_name(prefix, 'PyTuple_New'),
@@ -1208,7 +1220,7 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci,
         _nowrapper=True)
     state.C._PyPy_tuple_dealloc = rffi.llexternal(
-        '_PyPy_tuple_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_tuple_dealloc'), [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(
                    rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
@@ -1218,11 +1230,12 @@ def attach_c_functions(space, eci, prefix):
         [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
-        '_PyPy_object_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_object_dealloc'),
+        [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
     state.C.get_pyos_inputhook = rffi.llexternal(
-        '_PyPy_get_PyOS_InputHook', [], FUNCPTR,
+        mangle_name(prefix, '_Py_get_PyOS_InputHook'), [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
         mangle_name(prefix, '_Py_tuple_new'),
@@ -1253,11 +1266,16 @@ def attach_c_functions(space, eci, prefix):
             link_files = link_files,
             library_dirs = library_dirs,
            )
-    state.C.flag_setters = {}
+    flag_setters = {}
     for c_name, attr in _flags:
         _, setter = rffi.CExternVariable(rffi.INT_real, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
-        state.C.flag_setters[attr] = setter
+        flag_setters[attr] = setter
+    unroll_flag_setters = unrolling_iterable(flag_setters.items())
+    def init_flags(space):
+        for attr, setter in unroll_flag_setters:
+            setter(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
+    state.C.init_flags = init_flags
 
 
 def init_function(func):
@@ -1273,11 +1291,9 @@ def run_bootstrap_functions(space):
         func(space)
 
 @init_function
-def init_flags(space):
+def call_init_flags(space):
     state = space.fromcache(State)
-    for _, attr in _flags:
-        f = state.C.flag_setters[attr]
-        f(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
+    state.C.init_flags(space)
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
@@ -1556,12 +1572,14 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
 
     # generate graminit.h
     graminit_h = udir.join('graminit.h')
-    graminit_h.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */')
-    for attr in dir(pygram.syms):
-        val = getattr(pygram.syms, attr)
-        graminit_h.write('#define {} {}'.format(attr, val))
+    with graminit_h.open('w', ensure=True) as fid:
+        fid.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */\n\n')
+        for attr in dir(pygram.syms):
+            val = getattr(pygram.syms, attr)
+            if isinstance(val, int):
+                fid.write('#define {} {}\n'.format(attr, val))
 
-
+ 
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
                          source_dir / "modsupport.c",

@@ -61,8 +61,18 @@ PyTuple_New(register Py_ssize_t size)
 }
 
 /* this is CPython's tupledealloc */
+#ifdef CPYEXT_TESTS
+#define _Py_tuple_dealloc _cpyexttest_tuple_dealloc
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_tuple_dealloc _PyPy_tuple_dealloc
+#endif  /* CPYEXT_TESTS */
 void
-_PyPy_tuple_dealloc(register PyObject *_op)
+_Py_tuple_dealloc(register PyObject *_op)
 {
     register PyTupleObject *op = (PyTupleObject *)_op;
     register Py_ssize_t i;

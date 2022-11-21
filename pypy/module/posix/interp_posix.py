@@ -28,6 +28,7 @@ from pypy.interpreter.baseobjspace import W_Root
 
 
 _WIN32 = sys.platform == 'win32'
+_LINUX = sys.platform.startswith("linux")
 if _WIN32:
     from rpython.rlib import rwin32
 
@@ -83,6 +84,7 @@ class FileDecoder(object):
 
 @specialize.memo()
 def make_dispatch_function(func, tag, allow_fd_fn=None):
+    @specialize.argtype(1)
     def dispatch(space, w_fname, *args):
         if allow_fd_fn is not None:
             try:
@@ -519,7 +521,6 @@ STATVFS_FIELDS = unrolling_iterable(enumerate(rposix_stat.STATVFS_FIELDS))
 def build_stat_result(space, st):
     FIELDS = STAT_FIELDS    # also when not translating at all
     lst = [None] * rposix_stat.N_INDEXABLE_FIELDS
-    w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
     for i, (name, TYPE) in FIELDS:
         if i < rposix_stat.N_INDEXABLE_FIELDS:
@@ -527,6 +528,22 @@ def build_stat_result(space, st):
             # 'st_Xtime' as an integer, too
             w_value = space.newint(st[i])
             lst[i] = w_value
+        else:
+            break
+    w_tuple = space.newtuple(lst)
+    w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
+                                  space.newtext('stat_result'))
+    # this is a bit of a hack: circumvent the huge mess of structseq_new and a
+    # dict argument and just build the object ourselves. then it stays nicely
+    # virtual and eg. os.islink can just get the field from the C struct and be
+    # done.
+    w_tup_new = space.getattr(space.w_tuple,
+                              space.newtext('__new__'))
+
+    w_result = space.call_function(w_tup_new, w_stat_result, w_tuple)
+    for i, (name, TYPE) in FIELDS:
+        if i < rposix_stat.N_INDEXABLE_FIELDS:
+            continue
         else:
             try:
                 value = getattr(st, name)
@@ -536,28 +553,22 @@ def build_stat_result(space, st):
                 value = rposix_stat.get_stat_ns_as_bigint(st, name[5:])
                 value = value.tolong() % 1000000000
             w_value = space.newint(value)
-            space.setitem(w_keywords, space.newtext(name), w_value)
+            w_result.setdictvalue(space, name, w_value)
 
-    # Note: 'w_keywords' contains the three attributes 'nsec_Xtime'.
+    # Note: 'w_result' contains the three attributes 'nsec_Xtime'.
     # We have an app-level property in app_posix.stat_result to
     # compute the full 'st_Xtime_ns' value.
 
     # non-rounded values for name-based access
     if stat_float_times:
-        space.setitem(w_keywords,
-                      space.newtext('st_atime'), space.newfloat(st.st_atime))
-        space.setitem(w_keywords,
-                      space.newtext('st_mtime'), space.newfloat(st.st_mtime))
-        space.setitem(w_keywords,
-                      space.newtext('st_ctime'), space.newfloat(st.st_ctime))
-    #else:
-    #   filled by the __init__ method
-
-    w_tuple = space.newtuple(lst)
-    w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
-                                  space.newtext('stat_result'))
-    return space.call_function(w_stat_result, w_tuple, w_keywords)
-
+        w_result.setdictvalue(space, 'st_atime', space.newfloat(st.st_atime))
+        w_result.setdictvalue(space, 'st_mtime', space.newfloat(st.st_mtime))
+        w_result.setdictvalue(space, 'st_ctime', space.newfloat(st.st_ctime))
+    else:
+        w_result.setdictvalue(space, 'st_atime', space.newint(st[7]))
+        w_result.setdictvalue(space, 'st_mtime', space.newint(st[8]))
+        w_result.setdictvalue(space, 'st_ctime', space.newint(st[9]))
+    return w_result
 
 def build_statvfs_result(space, st):
     vals_w = [None] * len(rposix_stat.STATVFS_FIELDS)
@@ -640,6 +651,8 @@ Equivalent to stat(path, follow_symlinks=False)."""
     return do_stat(space, "lstat", path, dir_fd, False)
 
 class StatState(object):
+    _immutable_fields_ = ["stat_float_times?"]
+
     def __init__(self, space):
         self.stat_float_times = True
 
@@ -943,7 +956,7 @@ def getlogin(space):
 # ____________________________________________________________
 
 def getstatfields(space):
-    # for app_posix.py: export the list of 'st_xxx' names that we know
+    # for app_posix.py: export the list of stat field names that we know
     # about at RPython level
     return space.newlist([space.newtext(name) for _, (name, _) in STAT_FIELDS])
 
@@ -1150,7 +1163,7 @@ def pipe(space):
         rposix.c_close(fd2)
         rposix.c_close(fd1)
         raise wrap_oserror(space, e, eintr_retry=False)
-    return space.newtuple([space.newint(fd1), space.newint(fd2)])
+    return space.newtuple2(space.newint(fd1), space.newint(fd2))
 
 @unwrap_spec(flags=c_int)
 def pipe2(space, flags):
@@ -1625,12 +1638,12 @@ def openpty(space):
         if slave_fd >= 0:
             rposix.c_close(slave_fd)
         raise wrap_oserror(space, e, eintr_retry=False)
-    return space.newtuple([space.newint(master_fd), space.newint(slave_fd)])
+    return space.newtuple2(space.newint(master_fd), space.newint(slave_fd))
 
 def forkpty(space):
     pid, master_fd = _run_forking_function(space, "P")
-    return space.newtuple([space.newint(pid),
-                           space.newint(master_fd)])
+    return space.newtuple2(space.newint(pid),
+                           space.newint(master_fd))
 
 @unwrap_spec(pid=c_int, options=c_int)
 def waitpid(space, pid, options):
@@ -1644,7 +1657,7 @@ def waitpid(space, pid, options):
             break
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
-    return space.newtuple([space.newint(pid), space.newint(status)])
+    return space.newtuple2(space.newint(pid), space.newint(status))
 
 # missing: waitid()
 
@@ -2858,6 +2871,8 @@ Copy count bytes from file descriptor in to file descriptor out."""
     # XXX only supports the common arguments for now (BSD takes more).
     # Until that is fixed, we only expose sendfile() on linux.
     if space.is_none(w_offset):     # linux only
+        if not _LINUX:
+            raise oefmt(space.w_TypeError, "an integer is required (got None)")
         while True:
             try:
                 res = rposix.sendfile_no_offset(out, in_, count)

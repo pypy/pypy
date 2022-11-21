@@ -8,7 +8,6 @@ from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize, not_rpython
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH, intmask
-from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
 
@@ -17,6 +16,7 @@ from rpython.tool.pairtype import pairtype
 
 @specialize.ll_and_arg(2)
 def _isspace(s, pos, isutf8=False):
+    from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
     if isutf8:
         from rpython.rlib import rutf8
         return rutf8.isspace(s, pos)
@@ -480,6 +480,17 @@ def bloom(mask, c):
 
 @specialize.argtype(0, 1)
 def _search(value, other, start, end, mode):
+    if isinstance(value, str) and isinstance(other, str):
+        return _search_elidable(value, other, start, end, mode)
+    return _search_normal(value, other, start, end, mode)
+
+@specialize.argtype(0, 1)
+@jit.elidable
+def _search_elidable(value, other, start, end, mode):
+    return _search_normal(value, other, start, end, mode)
+
+@specialize.argtype(0, 1)
+def _search_normal(value, other, start, end, mode):
     assert value is not None
     if isinstance(value, unicode):
         NUL = u'\0'
@@ -608,6 +619,10 @@ class ParseStringOverflowError(Exception):
     def __init__(self, parser):
         self.parser = parser
 
+class MaxDigitsError(Exception):
+    def __init__(self, digits):
+        self.digits = digits
+
 # iterator-like class
 class NumberStringParser:
 
@@ -616,7 +631,7 @@ class NumberStringParser:
                                (self.fname, self.original_base))
 
     def __init__(self, s, literal, base, fname, allow_underscores=False,
-                 no_implicit_octal=False, start=0, end=-1):
+                 no_implicit_octal=False, start=0, end=-1, max_str_digits=0):
         self.fname = fname
         sign = 1
         self.s = s
@@ -666,6 +681,10 @@ class NumberStringParser:
         if self.start == self.end:
             self.error()
         self.i = self.start
+        if max_str_digits > 0:
+            length =  self.end - self.start - self.s.count('_')
+            if length > max_str_digits:
+                raise MaxDigitsError(length)
 
     def _startswith1(self, prefix):
         if self.start >= self.end:

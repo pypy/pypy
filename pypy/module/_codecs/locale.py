@@ -86,7 +86,7 @@ def utf8_encode_locale_surrogateescape(utf8, ulen):
                     raise MemoryError
                 errmsg = _errmsg("pypy_wchar2char")
                 u = utf8.decode('utf-8')
-                errorhandler('strict', 'filesystemencoding', errmsg, u,
+                errorhandler('surrogateescape', 'filesystemencoding', errmsg, u,
                              errorpos, errorpos + 1)
             return rffi.charp2str(sbuf)
         finally:

@@ -422,3 +422,130 @@ def test_empty_statement():
         r = cur.execute(sql)
         assert r.description is None
         assert cur.fetchall() == []
+
+def test_description_insert():
+    conn = _sqlite3.connect(":memory:")
+
+    cursor = conn.cursor()
+
+    cursor.execute("""create table foo (x int, y int)""")
+    cursor.execute(
+        """insert into foo (x, y) values (1, 1), (2, 2), (3, 3), (4, 4)"""
+    )
+    cursor.execute(
+        """insert into foo (x, y) values (5, 5), (6, 6)
+        RETURNING x, y"""
+    )
+
+    assert cursor.description == (
+        ("x", None, None, None, None, None, None),
+        ("y", None, None, None, None, None, None),
+    )
+
+
+def test_description_update():
+    conn = _sqlite3.connect(":memory:")
+
+    cursor = conn.cursor()
+
+    cursor.execute("""create table foo (x int, y int)""")
+    cursor.execute(
+        """insert into foo (x, y) values (1, 1), (2, 2), (3, 3), (4, 4)"""
+    )
+    cursor.execute(
+        """update foo set y=y+5 where x in (2, 3)
+        RETURNING x, y"""
+    )
+
+    assert cursor.description == (
+        ("x", None, None, None, None, None, None),
+        ("y", None, None, None, None, None, None),
+    )
+
+
+def test_description_delete():
+    conn = _sqlite3.connect(":memory:")
+
+    cursor = conn.cursor()
+
+    cursor.execute("""create table foo (x int, y int)""")
+    cursor.execute(
+        """insert into foo (x, y) values (1, 1), (2, 2), (3, 3), (4, 4)"""
+    )
+    cursor.execute(
+        """delete from foo where x in (1, 4)
+        RETURNING x, y"""
+    )
+
+    assert cursor.description == (
+        ("x", None, None, None, None, None, None),
+        ("y", None, None, None, None, None, None),
+    )
+
+def test_description_parse_colnames():
+    conn = _sqlite3.connect(":memory:")
+    cur = conn.cursor()
+    cur.execute(u'SELECT 1 as "m [ä]"')
+    assert cur.description[0][0] == u"m [ä]"
+
+    def bar(x):
+        return x
+    try:
+        _sqlite3.converters['Ä'] = bar
+        conn = _sqlite3.connect(":memory:", detect_types=_sqlite3.PARSE_COLNAMES)
+        cur = conn.cursor()
+        cur.execute(u'SELECT 1 as "m [ä]"')
+        assert cur.description[0][0] == u"m"
+    finally:
+        del _sqlite3.converters['Ä']
+
+
+def test_recursive_close():
+    conn = _sqlite3.connect(":memory:", detect_types=_sqlite3.PARSE_COLNAMES)
+    cursor = conn.cursor()
+    cursor.execute("create table test(x foo)")
+    cursor.executemany("insert into test(x) values (?)",
+                       [("foo",), ("bar",)])
+    def conv(x):
+        cursor.close()
+        return x
+    try:
+        _sqlite3.converters['CLOSE'] = conv
+        with pytest.raises(_sqlite3.ProgrammingError):
+            cursor.execute(f'select x as "x [CLOSE]", x from test')
+    finally:
+        del _sqlite3.converters['CLOSE']
+
+def test_recursive_fetch():
+    conn = _sqlite3.connect(":memory:", detect_types=_sqlite3.PARSE_COLNAMES)
+    cursor = conn.cursor()
+    cursor.execute("create table test(x foo)")
+    cursor.executemany("insert into test(x) values (?)",
+                       [("foo",), ("bar",)])
+    l = []
+    def conv(x):
+        cursor.fetchone()
+        return x
+    try:
+        _sqlite3.converters['ITER'] = conv
+        with pytest.raises(_sqlite3.ProgrammingError):
+            cursor.execute(f'select x as "x [ITER]", x from test')
+    finally:
+        del _sqlite3.converters['ITER']
+
+def test_recursive_init():
+    conn = _sqlite3.connect(":memory:", detect_types=_sqlite3.PARSE_COLNAMES)
+    cursor = conn.cursor()
+    cursor.execute("create table test(x foo)")
+    cursor.executemany("insert into test(x) values (?)",
+                       [("foo",), ("bar",)])
+    def conv(x):
+        cursor.__init__(conn)
+        return x
+    try:
+        _sqlite3.converters['INIT'] = conv
+        with pytest.raises(_sqlite3.ProgrammingError):
+            cursor.execute(f'select x as "x [INIT]", x from test')
+    finally:
+        del _sqlite3.converters['INIT']
+

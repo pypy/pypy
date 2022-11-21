@@ -5,6 +5,10 @@ from pypy.objspace.std import intobject as iobj
 from rpython.rlib.rarithmetic import r_uint, is_valid_int, intmask
 from rpython.rlib.rbigint import rbigint
 
+from rpython.jit.metainterp.test.support import LLJitMixin, noConst
+
+from hypothesis import given, strategies
+
 class TestW_IntObject:
 
     def _longshiftresult(self, x):
@@ -380,6 +384,18 @@ class AppTestInt(object):
     def test_int_string(self):
         assert 42 == int("42")
         assert 10000000000 == int("10000000000")
+
+    def test_int_string_limit(self):
+        import sys
+        max_str_digits = sys.get_int_max_str_digits()
+        raises(ValueError, int, '1' * (max_str_digits + 1))
+        # should not fail
+        x = int(' ' + '1' * max_str_digits)
+        sys.set_int_max_str_digits(0)
+        try:
+            x = int('1' * (max_str_digits + 1))
+        finally:
+            sys.set_int_max_str_digits(max_str_digits)
 
     def test_int_float(self):
         assert 4 == int(4.2)
@@ -898,6 +914,35 @@ class AppTestInt(object):
         assert x == 12
         assert type(x) is int
 
+
+def test_hash_examples():
+    for i in range(1000):
+        assert iobj._hash_int(i) == i
+        assert iobj._hash_int(-i-2) == -i-2
+    assert iobj._hash_int(-1) == -2
+
+    # now bigger/smaller than HASH_MODULUS
+    for i in range(1000):
+        input = iobj.HASH_MODULUS + i
+        assert iobj._hash_int(input) == i
+
+        input = -iobj.HASH_MODULUS-i-1
+        if -i-1 == -1:
+            assert iobj._hash_int(input) == -2
+        else:
+            assert iobj._hash_int(input) == -i-1
+    assert iobj._hash_int(-sys.maxsize-1) == -4
+
+@given(strategies.integers(min_value=-sys.maxsize-1, max_value=sys.maxsize))
+def test_agreement_rbigint_hash(x):
+    from pypy.objspace.std.longobject import _hash_long
+    assert iobj._hash_int(x) == _hash_long(rbigint.fromint(x))
+    
+class TestHashNoBranch(LLJitMixin):
+    def test_int_hash_no_guards(self):
+        res = self.interp_operations(iobj._hash_int, [123])
+        assert res == 123
+        self.check_operations_history(guard_true=0, guard_false=0)
 
 
 class AppTestIntShortcut(AppTestInt):

@@ -122,10 +122,10 @@ class TestType(HPyTest):
         mod = self.make_module("""
             static HPyType_Spec Dummy_spec = {
                 .name = "mytest.Dummy",
-                .doc = "A succinct description.",
                 .itemsize = 0,
                 .flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_BASETYPE,
                 @IS_LEGACY
+                .doc = "A succinct description.",
             };
 
             @EXPORT_TYPE("Dummy", Dummy_spec)
@@ -154,8 +154,8 @@ class TestType(HPyTest):
             };
             static HPyType_Spec Dummy_spec = {
                 .name = "mytest.Dummy",
-                .defines = Dummy_defines,
                 @IS_LEGACY
+                .defines = Dummy_defines,
             };
 
             @EXPORT_TYPE("Dummy", Dummy_spec)
@@ -195,8 +195,8 @@ class TestType(HPyTest):
 
             static HPyType_Spec dummy_type_spec = {
                 .name = "mytest.Dummy",
-                .defines = dummy_type_defines,
                 @IS_LEGACY
+                .defines = dummy_type_defines,
             };
 
             @EXPORT_TYPE("Dummy", dummy_type_spec)
@@ -233,6 +233,36 @@ class TestType(HPyTest):
         assert p1.foo() == 73
         p2 = mod.Point(4, 2)
         assert p2.foo() == 42
+
+    def test_HPy_New_initialize_to_zero(self):
+        mod = self.make_module("""
+            @DEFINE_PointObject
+            @DEFINE_Point_xy
+
+            HPyDef_METH(newPoint, "newPoint", newPoint_impl, HPyFunc_NOARGS)
+            static HPy newPoint_impl(HPyContext *ctx, HPy self)
+            {
+                HPy h_pointClass = HPy_GetAttr_s(ctx, self, "Point");
+                if (HPy_IsNull(h_pointClass))
+                    return HPy_NULL;
+
+                PointObject *point;
+                HPy h_point = HPy_New(ctx, h_pointClass, &point);
+                HPy_Close(ctx, h_pointClass);
+                return h_point;
+            }
+
+            @EXPORT(newPoint)
+            @EXPORT_POINT_TYPE(&Point_x, &Point_y)
+            @INIT
+        """)
+        # this is suboptimal: if we don't initialized the memory after
+        # allocation, it might be 0 anyway. Try to allocate several Points to
+        # increase the chances that the test don't pass by chance
+        for i in range(10):
+            p = mod.newPoint()
+            assert p.x == 0
+            assert p.y == 0
 
     def test_refcount(self):
         import pytest
@@ -704,7 +734,7 @@ class TestType(HPyTest):
             {
                 HPyType_SpecParam param[] = {
                     { HPyType_SpecParam_Base, ctx->h_LongType },
-                    { 0 }
+                    { (HPyType_SpecParam_Kind)0 }
                 };
                 HPy h_Dummy = HPyType_FromSpec(ctx, &Dummy_spec, param);
                 if (HPy_IsNull(h_Dummy))
@@ -743,7 +773,7 @@ class TestType(HPyTest):
                     return;
                 HPyType_SpecParam param[] = {
                     { HPyType_SpecParam_BasesTuple, h_bases },
-                    { 0 }
+                    { (HPyType_SpecParam_Kind)0 }
                 };
                 HPy h_Dummy = HPyType_FromSpec(ctx, &Dummy_spec, param);
                 HPy_Close(ctx, h_bases);
@@ -766,22 +796,3 @@ class TestType(HPyTest):
         class Sub(mod.Dummy):
             pass
         assert isinstance(Sub(), mod.Dummy)
-
-    def test_directly_setting_hpy_tpflags_internal_pure_raises(self):
-        import pytest
-        mod_src = """
-            static HPyType_Spec Dummy_spec = {
-                .name = "mytest.Dummy",
-                .itemsize = 0,
-                .flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_INTERNAL_PURE,
-                @IS_LEGACY
-            };
-
-            @EXPORT_TYPE("Dummy", Dummy_spec)
-            @INIT
-        """
-        with pytest.raises(TypeError) as err:
-            self.make_module(mod_src)
-        assert str(err.value) == (
-            "HPy_TPFLAGS_INTERNAL_PURE should not be used directly,"
-            " set .legacy=true instead")

@@ -3,7 +3,8 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    W_DictObject, BytesDictStrategy, ObjectDictStrategy, UnicodeDictStrategy,
+    W_DictObject, BytesDictStrategy, ObjectDictStrategy, EmptyDictStrategy,
+    update1_dict_dict, UnicodeDictStrategy,
     IntDictStrategy)
 from pypy.objspace.std.longobject import W_LongObject
 from rpython.rlib.rbigint import rbigint
@@ -188,6 +189,17 @@ class TestW_DictObject(object):
         # w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
         # w_l = self.space.call_method(w_d, "keys")
         # assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
+
+    def test_update_empty_does_copy(self, monkeypatch):
+        w = self.space.wrap
+        wb = self.space.newbytes
+        w_empty = self.space.newdict()
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(1), wb("a")), (w(2), wb("b"))])
+        monkeypatch.setattr(EmptyDictStrategy, "setitem", None)
+        update1_dict_dict(self.space, w_empty, w_d)
+        assert self.space.eq_w(w_empty, w_d)
+
 
     def test_integer_strategy_with_w_long(self):
         space = self.space
@@ -1431,6 +1443,9 @@ class FakeSpace:
     def newtuple(self, l):
         return tuple(l)
 
+    def newtuple2(self, a, b):
+        return a, b
+
     def newdict(self, module=False, instance=False):
         return W_DictObject.allocate_and_init_instance(
                 self, module=module, instance=instance)
@@ -1476,6 +1491,7 @@ class Config:
         class std:
             methodcachesizeexp = 11
             withmethodcachecounter = False
+        honor__builtins__ = False
 
 FakeSpace.config = Config()
 

@@ -7,9 +7,6 @@
 extern "C" {
 #endif
 
-PyAPI_DATA(PyTypeObject) PyMethod_Type;
-PyAPI_DATA(PyTypeObject) PyRange_Type;
-PyAPI_DATA(PyTypeObject) PyTraceBack_Type;
 
 #ifdef __cplusplus
 }

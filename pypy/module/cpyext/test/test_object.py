@@ -333,7 +333,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert module.dump(self.tmpname, None)
         assert open(self.tmpname).read() == 'None<nil>'
 
-    def test_issue1970(self):
+    def test_isinstance(self):
         module = self.import_extension('foo', [
             ("ismapping", "METH_O",
              """
@@ -349,10 +349,22 @@ class AppTestObject(AppTestCpythonExtensionBase):
                      Py_DECREF(mapping_t);
                      Py_RETURN_FALSE;
                  }
-             """)])
+             """),
+            ("is_function", "METH_O",
+             """
+                if (PyObject_IsInstance(args, (PyObject *)&PyFunction_Type)) {
+                     Py_RETURN_TRUE;
+                } else {
+                     Py_RETURN_FALSE;
+                }
+             """),])
         import collections
         assert isinstance(dict(), collections.Mapping)
         assert module.ismapping(dict())
+        def f():
+            pass
+        assert not module.is_function(1)
+        assert module.is_function(f)
 
     def test_format_returns_unicode(self):
         module = self.import_extension('foo', [

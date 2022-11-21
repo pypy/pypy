@@ -886,6 +886,7 @@ class AppTestAppSetTest:
 
     def test_empty_unhashable(self):
         s = set()
+        raises(TypeError, s.__contains__, [[]])
         raises(TypeError, s.difference, [[]])
         raises(TypeError, s.difference_update, [[]])
         raises(TypeError, s.intersection, [[]])

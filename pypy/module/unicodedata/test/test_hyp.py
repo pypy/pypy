@@ -42,6 +42,7 @@ compositions = [
 
 
 @pytest.mark.parametrize('NF1, NF2, NF3', compositions)
+@example(s=u"\u0128")
 @example(s=u'---\uafb8\u11a7---')  # issue 2289
 @settings(max_examples=1000)
 @given(s=st.text())

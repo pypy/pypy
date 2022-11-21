@@ -174,8 +174,8 @@ class State:
 
     def __init__(self, space):
         self.w_AST = space.gettypeobject(W_AST.typedef)
-        for (name, base, fields, attributes) in self.AST_TYPES:
-            self.make_new_type(space, name, base, fields, attributes)
+        for info in self.AST_TYPES:
+            self.make_new_type(space, *info)
 
     def make_new_type(self, space, name, base, fields, attributes):
         w_base = getattr(self, 'w_%s' % base)
@@ -211,7 +211,7 @@ class mod(AST):
         if space.isinstance_w(w_node, get(space).w_FunctionType):
             return FunctionType.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "Expected mod node, got %T", w_node)
+                "expected some sort of mod, but got %R", w_node)
 State.ast_type('mod', 'AST', None, [])
 
 class Module(mod):
@@ -468,7 +468,7 @@ class stmt(AST):
         if space.isinstance_w(w_node, get(space).w_Continue):
             return Continue.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "Expected stmt node, got %T", w_node)
+                "expected some sort of stmt, but got %R", w_node)
 State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'])
 
 class FunctionDef(stmt):
@@ -2147,7 +2147,7 @@ class expr(AST):
         if space.isinstance_w(w_node, get(space).w_Tuple):
             return Tuple.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "Expected expr node, got %T", w_node)
+                "expected some sort of expr, but got %R", w_node)
 State.ast_type('expr', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'])
 
 class BoolOp(expr):
@@ -3703,7 +3703,7 @@ class expr_context(AST):
         if space.isinstance_w(w_node, get(space).w_Param):
             return 6
         raise oefmt(space.w_TypeError,
-                "Expected expr_context node, got %T", w_node)
+                "expected some sort of expr_context, but got %R", w_node)
 State.ast_type('expr_context', 'AST', None)
 
 class _Load(expr_context):
@@ -3764,7 +3764,7 @@ class slice(AST):
         if space.isinstance_w(w_node, get(space).w_Index):
             return Index.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "Expected slice node, got %T", w_node)
+                "expected some sort of slice, but got %R", w_node)
 State.ast_type('slice', 'AST', None, [])
 
 class Slice(slice):
@@ -3881,7 +3881,7 @@ class boolop(AST):
         if space.isinstance_w(w_node, get(space).w_Or):
             return 2
         raise oefmt(space.w_TypeError,
-                "Expected boolop node, got %T", w_node)
+                "expected some sort of boolop, but got %R", w_node)
 State.ast_type('boolop', 'AST', None)
 
 class _And(boolop):
@@ -3932,7 +3932,7 @@ class operator(AST):
         if space.isinstance_w(w_node, get(space).w_FloorDiv):
             return 13
         raise oefmt(space.w_TypeError,
-                "Expected operator node, got %T", w_node)
+                "expected some sort of operator, but got %R", w_node)
 State.ast_type('operator', 'AST', None)
 
 class _Add(operator):
@@ -4042,7 +4042,7 @@ class unaryop(AST):
         if space.isinstance_w(w_node, get(space).w_USub):
             return 4
         raise oefmt(space.w_TypeError,
-                "Expected unaryop node, got %T", w_node)
+                "expected some sort of unaryop, but got %R", w_node)
 State.ast_type('unaryop', 'AST', None)
 
 class _Invert(unaryop):
@@ -4101,7 +4101,7 @@ class cmpop(AST):
         if space.isinstance_w(w_node, get(space).w_NotIn):
             return 10
         raise oefmt(space.w_TypeError,
-                "Expected cmpop node, got %T", w_node)
+                "expected some sort of cmpop, but got %R", w_node)
 State.ast_type('cmpop', 'AST', None)
 
 class _Eq(cmpop):
@@ -4248,7 +4248,7 @@ class excepthandler(AST):
         if space.isinstance_w(w_node, get(space).w_ExceptHandler):
             return ExceptHandler.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "Expected excepthandler node, got %T", w_node)
+                "expected some sort of excepthandler, but got %R", w_node)
 State.ast_type('excepthandler', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'])
 
 class ExceptHandler(excepthandler):
@@ -4586,7 +4586,7 @@ class type_ignore(AST):
         if space.isinstance_w(w_node, get(space).w_TypeIgnore):
             return TypeIgnore.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "Expected type_ignore node, got %T", w_node)
+                "expected some sort of type_ignore, but got %R", w_node)
 State.ast_type('type_ignore', 'AST', None, [])
 
 class TypeIgnore(type_ignore):

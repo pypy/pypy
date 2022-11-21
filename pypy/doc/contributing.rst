@@ -50,7 +50,7 @@ and `merge requests`_ to fix issues are welcome.
 
 Further Reading: :ref:`Contact <contact>`
 
-.. _the blog: https://morepypy.blogspot.com
+.. _the blog: https://pypy.org/blog
 .. _pypy-dev mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 .. _`PyPy group page`: https://foss.heptapod.net/pypy
 .. _`merge requests`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/merge_requests

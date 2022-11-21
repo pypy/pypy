@@ -1218,7 +1218,7 @@ inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
                      save_err=SAVE_ERR)
 
 inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
-                                   socklen_t], CCHARP,
+                                   socklen_t], CONST_CCHARP,
                      save_err=SAVE_ERR)
 
 inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT)
@@ -1297,7 +1297,7 @@ getprotobyname = external('getprotobyname', [rffi.CCHARP], lltype.Ptr(cConfig.pr
 
 if _POSIX:
     fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT,
-                     save_err=SAVE_ERR)
+                     save_err=SAVE_ERR, natural_arity=2)
     socketpair_t = rffi.CArray(socketfd_type)
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT,

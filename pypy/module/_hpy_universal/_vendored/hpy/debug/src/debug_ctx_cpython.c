@@ -23,6 +23,7 @@
 
 #include <Python.h>
 #include "debug_internal.h"
+#include "hpy/runtime/ctx_type.h" // for call_traverseproc_from_trampoline
 #include "handles.h" // for _py2h and _h2py
 #if defined(_MSC_VER)
 # include <malloc.h>   /* for alloca() */
@@ -78,8 +79,8 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
         _HPyFunc_args_NOARGS *a = (_HPyFunc_args_NOARGS*)args;
         DHPy dh_self = _py2dh(dctx, a->self);
         DHPy dh_result = f(dctx, dh_self);
+        DHPy_close_and_check(dctx, dh_self);
         a->result = _dh2py(dctx, dh_result);
-        DHPy_close(dctx, dh_self);
         DHPy_close(dctx, dh_result);
         return;
     }
@@ -89,9 +90,9 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
         DHPy dh_self = _py2dh(dctx, a->self);
         DHPy dh_arg = _py2dh(dctx, a->arg);
         DHPy dh_result = f(dctx, dh_self, dh_arg);
+        DHPy_close_and_check(dctx, dh_self);
+        DHPy_close_and_check(dctx, dh_arg);
         a->result = _dh2py(dctx, dh_result);
-        DHPy_close(dctx, dh_self);
-        DHPy_close(dctx, dh_arg);
         DHPy_close(dctx, dh_result);
         return;
     }
@@ -105,11 +106,11 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
             dh_args[i] = _py2dh(dctx, PyTuple_GET_ITEM(a->args, i));
         }
         DHPy dh_result = f(dctx, dh_self, dh_args, nargs);
-        a->result = _dh2py(dctx, dh_result);
-        DHPy_close(dctx, dh_self);
+        DHPy_close_and_check(dctx, dh_self);
         for (Py_ssize_t i = 0; i < nargs; i++) {
-            DHPy_close(dctx, dh_args[i]);
+            DHPy_close_and_check(dctx, dh_args[i]);
         }
+        a->result = _dh2py(dctx, dh_result);
         DHPy_close(dctx, dh_result);
         return;
     }
@@ -124,12 +125,12 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
         }
         DHPy dh_kw = _py2dh(dctx, a->kw);
         DHPy dh_result = f(dctx, dh_self, dh_args, nargs, dh_kw);
-        a->result = _dh2py(dctx, dh_result);
-        DHPy_close(dctx, dh_self);
+        DHPy_close_and_check(dctx, dh_self);
         for (Py_ssize_t i = 0; i < nargs; i++) {
-            DHPy_close(dctx, dh_args[i]);
+            DHPy_close_and_check(dctx, dh_args[i]);
         }
-        DHPy_close(dctx, dh_kw);
+        DHPy_close_and_check(dctx, dh_kw);
+        a->result = _dh2py(dctx, dh_result);
         DHPy_close(dctx, dh_result);
         return;
     }
@@ -144,11 +145,11 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
         }
         DHPy dh_kw = _py2dh(dctx, a->kw);
         a->result = f(dctx, dh_self, dh_args, nargs, dh_kw);
-        DHPy_close(dctx, dh_self);
+        DHPy_close_and_check(dctx, dh_self);
         for (Py_ssize_t i = 0; i < nargs; i++) {
-            DHPy_close(dctx, dh_args[i]);
+            DHPy_close_and_check(dctx, dh_args[i]);
         }
-        DHPy_close(dctx, dh_kw);
+        DHPy_close_and_check(dctx, dh_kw);
         return;
     }
     case HPyFunc_GETBUFFERPROC: {
@@ -157,7 +158,7 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
         HPy_buffer hbuf;
         DHPy dh_self = _py2dh(dctx, a->self);
         a->result = f(dctx, dh_self, &hbuf, a->flags);
-        DHPy_close(dctx, dh_self);
+        DHPy_close_and_check(dctx, dh_self);
         if (a->result < 0) {
             a->view->obj = NULL;
             return;
@@ -173,13 +174,20 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
         _buffer_py2h(dctx, a->view, &hbuf);
         DHPy dh_self = _py2dh(dctx, a->self);
         f(dctx, dh_self, &hbuf);
-        DHPy_close(dctx, dh_self);
+        DHPy_close_and_check(dctx, dh_self);
         // XXX: copy back from hbuf?
         HPy_Close(dctx, hbuf.obj);
         return;
     }
+    case HPyFunc_TRAVERSEPROC: {
+        HPyFunc_traverseproc f = (HPyFunc_traverseproc)func;
+        _HPyFunc_args_TRAVERSEPROC *a = (_HPyFunc_args_TRAVERSEPROC*)args;
+        a->result = call_traverseproc_from_trampoline(f, a->self,
+                                                      a->visit, a->arg);
+        return;
+    }
 #include "autogen_debug_ctx_call.i"
     default:
-        abort();  // XXX
+        Py_FatalError("Unsupported HPyFunc_Signature in debug_ctx_cpython.c");
     }
 }
