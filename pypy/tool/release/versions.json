@@ -2369,10 +2369,10 @@
         "download_url": "https://buildbot.pypy.org/nightly/trunk/pypy-c-jit-latest-macos_x86_64.tar.bz2"
       },
       {
-        "filename": "pypy-c-jit-latest-macos_arm64-tar.bz2",
+        "filename": "pypy-c-jit-latest-macos_arm64.tar.bz2",
         "arch": "arm64",
         "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/trunk/pypy-c-jit-latest-macos_x86_64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/trunk/pypy-c-jit-latest-macos_arm64.tar.bz2"
       },
 	  {
         "filename": "pypy-c-jit-latest-win64.zip",
@@ -2507,10 +2507,16 @@
         "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-linux64.tar.bz2"
       },
       {
-        "filename": "pypy-c-jit-latest-osx64.tar.bz2",
+        "filename": "pypy-c-jit-latest-macos_x86_64.tar.bz2",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-osx64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-macos_x86_64.tar.bz2"
+      },
+      {
+        "filename": "pypy-c-jit-latest-macos_arm64.tar.bz2",
+        "arch": "arm64",
+        "platform": "darwin",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-macos_arm64.tar.bz2"
       },
       {
         "filename": "pypy-c-jit-latest-win64.zip",
@@ -2551,10 +2557,16 @@
         "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-linux64.tar.bz2"
       },
       {
-        "filename": "pypy-c-jit-latest-osx64.tar.bz2",
+        "filename": "pypy-c-jit-latest-macos_x86_64.tar.bz2",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-osx64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-macos_x86_64.tar.bz2"
+      },
+      {
+        "filename": "pypy-c-jit-latest-macos_arm64.tar.bz2",
+        "arch": "arm64",
+        "platform": "darwin",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-macos_arm64.tar.bz2"
       },
       {
         "filename": "pypy-c-jit-latest-win64.zip",

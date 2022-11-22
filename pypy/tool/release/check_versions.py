@@ -114,7 +114,7 @@ def create_latest_versions(v):
 
 latest_pypys = create_latest_versions(pypy_versions)
 
-arches = ['aarch64', 'i686', 'x64', 'x86', 'darwin', 's390x']
+arches = ['aarch64', 'i686', 'x64', 'x86', 'darwin', 's390x', 'arm64']
 platforms = ['linux', 'win32', 'win64', 'darwin']
 arch_map={('aarch64', 'linux'): 'aarch64',
           ('i686', 'linux'): 'linux32',
@@ -123,10 +123,11 @@ arch_map={('aarch64', 'linux'): 'aarch64',
           ('x86', 'win32'): 'win32',
           ('x64', 'win64'): 'win64',
           ('x64', 'darwin'): ['macos_x86_64', 'osx64'],
+          ('arm64', 'darwin'): ['macos_arm64'],
          }
 
 
-def check_versions(data, url, verbose=0, check_times=True):
+def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
     for d in data:
         if verbose > 0:
             print(f"checking {d['python_version']} {d['pypy_version']}")
@@ -151,7 +152,7 @@ def check_versions(data, url, verbose=0, check_times=True):
         for f in d['files']:
             download_url = f['download_url']
             if verbose > 0:
-                print(f'     checking {download_url:<70}', end='')
+                print(f'     checking {download_url:<80}', end='')
             if 'rc' not in d['pypy_version']:
                 assert_in(f['filename'], download_url)
                 assert_in(d['pypy_version'], download_url)
@@ -177,14 +178,19 @@ def check_versions(data, url, verbose=0, check_times=True):
             else:
                 assert_in(arch_plat, download_url)
             assert_in(py_ver, download_url)
-            if url:
+            if d['pypy_version'] != 'nightly' and nightly_only:
+                if verbose > 0:
+                    print(f' ok')
+                continue
+            if url and not d['pypy_version'] == "nightly":
                 download_url = '/'.join((url, download_url.rsplit('/', 1)[1]))
             try:
                 r = request.urlopen(download_url)
             except error.HTTPError as e:
-                raise ValueError(f"could not open {f['download_url']}") from None
+                raise ValueError(f"could not open '{download_url}', got {e}") from None
             assert_equal(r.getcode(), 200)
-            if d['pypy_version'] == 'nightly':
+            if d['pypy_version'] == 'nightly' and py_ver >= '3.8':
+                print('time-check', end='')
                 # nightly builds do not have a date entry, use time.time()
                 target = time.strftime("%Y-%m-%d")
                 # Check that the last modified time is within a week of target
@@ -205,7 +211,9 @@ if __name__ == '__main__':
         print(f'checking local file "{sys.argv[1]}"')
         with open(sys.argv[1]) as fid:
             data = json.loads(fid.read())
-        check_versions(data, 'https://buildbot.pypy.org/mirror/', verbose=1)
+        nightly_only = '--nightly_only' in sys.argv
+        check_versions(data, 'https://buildbot.pypy.org/mirror/', verbose=1,
+                       nightly_only=nightly_only)
     else:
         print('downloading versions.json')
         response = request.urlopen('https://buildbot.pypy.org/pypy/versions.json')
