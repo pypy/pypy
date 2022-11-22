@@ -1343,10 +1343,13 @@ def lowest_set_bit_only(val_uint):
     deleted but the lowest one that was set.
     """
     assert isinstance(val_uint, r_uint)
-    working_val = ~val_uint
-    increased_val = working_val + 1
-    result = (working_val^increased_val) & ~working_val
-    return result
+    if val_uint == r_uint(0):
+        return 0
+    else:
+        working_val = ~val_uint
+        increased_val = working_val + 1
+        result = (working_val^increased_val) & ~working_val
+        return result
 
 def flip_msb(val_uint):
     return val_uint ^ r_uint(MININT)
