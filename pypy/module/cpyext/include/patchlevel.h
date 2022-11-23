@@ -32,7 +32,7 @@
  *     module/sys/version.py
  *     doc/conf.py
  */
-#define PYPY_VERSION "7.3.10-candidate1"
+#define PYPY_VERSION "7.3.10-candidate3"
 #define PYPY_VERSION_NUM  0x07030a00
 /* Defined to mean a PyPy where cpyext holds more regular references
    to PyObjects, e.g. staying alive as long as the internal PyPy object
