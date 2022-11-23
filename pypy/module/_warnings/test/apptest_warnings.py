@@ -1,4 +1,5 @@
 # spaceconfig = {"usemodules": ["_warnings"]}
+import pytest
 
 import warnings
 import _warnings
@@ -74,6 +75,11 @@ def test_ignore():
         assert list(__warningregistry__) == ['version']
 
 def test_show_source_line():
+    # Something is wrong with pytest 4.0.0 (which is the version run for -D
+    # pypy tests: it cannot redirect sys.stderr
+    if getattr(pytest, "__version__", "untranslated") == '4.0.0':
+        pytest.skip("fails on this version of pytest")
+
     def inner(message, stacklevel=1):
         warnings.warn(message, stacklevel=stacklevel)
     
@@ -104,6 +110,11 @@ def test_filename_none():
 
 
 def test_warn_unicode():
+    # Something is wrong with pytest 4.0.0 (which is the version run for -D
+    # pypy tests: it cannot redirect sys.stderr
+    if getattr(pytest, "__version__", "untranslated") == '4.0.0':
+        pytest.skip("fails on this version of pytest")
+
     old = sys.stderr, warnings.showwarning
     try:
         class Grab:
