@@ -87,10 +87,11 @@ PyMODINIT_FUNC
 PyInit_nanobind3(void)
 {
     PyObject *m = PyModule_Create(&pypy_issues_module);
-    if (m == NULL)
+    if (m == NULL) {
         return NULL;
+    }
 
-	global_list = PyList_New(0);
+    global_list = PyList_New(0);
 
     if (!global_list || PyModule_AddObject(m, "global_list", global_list) < 0) {
         Py_XDECREF(global_list);
