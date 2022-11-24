@@ -91,24 +91,21 @@ comparison) due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-This PyPy release supports:
+We provide binary builds for:
 
   * **x86** machines on most common operating systems
-    (Linux 32/64 bits, Mac OS 64 bits, Windows 64 bits, OpenBSD, FreeBSD)
+    (Linux 32/64 bits, Mac OS 64 bits, Windows 64 bits)
 
-  * 64-bit **ARM** machines running Linux. A shoutout to Huawei for sponsoring
-    the VM running the tests.
+  * 64-bit **ARM** machines running Linux (``aarch64``).
 
-  * Apple **M1 arm64** machines. 
+  * Apple **M1 arm64** machines (``macos_arm64``). 
 
   * **s390x** running Linux
 
-  * big- and little-endian variants of **PPC64** running Linux,
-
 PyPy support Windows 32-bit, Linux PPC64 big- and little-endian, and Linux ARM
-32 bit, but
-does not release binaries. Please reach out to us if you wish to sponsor
-releases for those platforms.
+32 bit, but does not release binaries. Please reach out to us if you wish to
+sponsor binary releases for those platforms. Downstream packagers provide
+binary builds for debian, Fedora, conda, OpenBSD, FreeBSD, Gentoo, and more.
 
 .. _`PyPy and CPython 3.7.4`: https://speed.pypy.org
 .. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
