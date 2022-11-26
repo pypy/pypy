@@ -40,7 +40,7 @@ include:
   - The conda-forge community `has built`_ over 1000 packages for PyPy3.8 and 3.9,
     making it easier than ever to use PyPy.
 
-  - Update the packaged OpenSSL to 1.1.1s and apply applicable secruity fixes
+  - Update the packaged OpenSSL to 1.1.1s and apply applicable security fixes
     from CPython 3.9.15 to PyPy2.7
 
   - Update the HPy_ backend in PyPy3.8 and PyPY3.9 to 0.0.4
@@ -59,13 +59,13 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
 on PyPy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from XXX new contributors,
+previous release, we have accepted contributions from five new contributors,
 thanks for pitching in, and welcome to the project!
 
 If you are a python library maintainer and use C-extensions, please consider
 making a HPy_ / CFFI_ / cppyy_ version of your library that would be performant
 on PyPy.
-In any case both `cibuildwheel`_ and the `multibuild system`_ support
+In any case, both `cibuildwheel`_ and the `multibuild system`_ support
 building wheels for PyPy.
 
 .. _`PyPy`: index.html
@@ -91,23 +91,21 @@ comparison) due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-This PyPy release supports:
+We provide binary builds for:
 
   * **x86** machines on most common operating systems
-    (Linux 32/64 bits, Mac OS 64 bits, Windows 64 bits, OpenBSD, FreeBSD)
+    (Linux 32/64 bits, Mac OS 64 bits, Windows 64 bits)
 
-  * 64-bit **ARM** machines running Linux. A shoutout to Huawei for sponsoring
-    the VM running the tests.
+  * 64-bit **ARM** machines running Linux (``aarch64``).
 
-  * Apple **M1 arm64** machines. 
+  * Apple **M1 arm64** machines (``macos_arm64``). 
 
   * **s390x** running Linux
 
-  * big- and little-endian variants of **PPC64** running Linux,
-
-PyPy support Windows 32-bit, PPC64 big- and little-endian, and ARM 32 bit, but
-does not release binaries. Please reach out to us if you wish to sponsor
-releases for those platforms.
+PyPy support Windows 32-bit, Linux PPC64 big- and little-endian, and Linux ARM
+32 bit, but does not release binaries. Please reach out to us if you wish to
+sponsor binary releases for those platforms. Downstream packagers provide
+binary builds for debian, Fedora, conda, OpenBSD, FreeBSD, Gentoo, and more.
 
 .. _`PyPy and CPython 3.7.4`: https://speed.pypy.org
 .. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
@@ -120,21 +118,22 @@ Default version (2.7+)
 
 Bugfixes shared across versions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 - Fix zlib ``ustart`` handling for zlib v1.2.12 (issue 3717_)
 - Backport security fixes to Python2.7
 - Structseq improvements: hide ``structseqfield.__get__``, ignore any extra
-  keys in the dict, preserve MapDict as the ``__dict__``, make fields immutable
-  and more
+  keys in the dict, preserve MapDict implementation strategy as the
+  ``__dict__``, make fields immutable and more
 - Fix embedding startup code in CFFI (issue 3619_)
 - Fix ``xmm`` scratch register on win64 (issue 3753_)
 - Fix corner cases in method and code ``__ne__`` (issue 3759_)
 - In translation, if ctypes doesn't find the ``C`` library with
-  ``find_library('c')``, try to fallback to generic ``libc.so``. this enables
+  ``find_library('c')``, try to fallback to generic ``libc.so``. This enables
   building with musl (issue 3559_)
 - Unbreak string formatting with mixed bytes/unicode (issue 3802_)
-- Pull in the http.server vulnerability fix from cpython-87389_
+- Pull in the ``http.server`` vulnerability fix from cpython-87389_
 - Raise if empty set contains unhashable (issue 3824_)
-- Support ``class A(_RawIOBase, BytesIO`` (issue 3821_)
+- Support ``class A(_RawIOBase, BytesIO)`` (issue 3821_)
 - When raising an error: don't convert random things to unicode (issue 3828_)
 - Implement the ``.description`` attribute of sqlite3 cursors more carefully
   (issue 3840_)
@@ -142,16 +141,16 @@ Bugfixes shared across versions
 Speedups and enhancements shared across versions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Update the HPy backend to 0.0.4
-- Update CFFI to the latest HEAD (no new verson was released)
+- Update CFFI to the latest HEAD (no new version was released)
 - Speed up ``dict.copy`` and ``emptydict.update(dict)``
-- Optimization list sorting to allocate memory a bit less aggressively. seems
+- Optimize list sorting to allocate memory a bit less aggressively. Seems
   to give ~10% on sorting non-tiny lists of ``ints``
-- Speed up the python interpreter (jitted code is unchanged): auto-generate
+- Speed up the Python interpreter (jitted code is unchanged): auto-generate
   rpython-level shortcut methods for many special methods. This speeds up the
   interpreter greatly because we don't need to lookup the special method and
   don't need to go through the general call machinery at all. The effect is
-  comparable to CPython's type slots, but all autogenerated from TypeDefs. it
-  only works for built-in types at this point.
+  comparable to CPython's type slots, but all auto-generated from ``TypeDefs``.
+  It only works for built-in types at this point.
 - Use structs to unpack ``longlong`` instead of casting to lltype Arrays
 - Speed up the interpreter by caching global and builtin lookups on the code
   object
@@ -164,20 +163,21 @@ Speedups and enhancements shared across versions
   an offset into a string that compactly encodes liveness.
 - Fast path for ``string[0]`` to convert a ``str`` to a ``char`` for when
   ``string`` is already a char
-- Clean up a few single-use speciailized dictionaries
+- Clean up a few single-use specialized dictionaries in RPython, this reduces
+  the binary size somewhat.
 - Make ``list.count`` use the same fast paths as ``list.index`` (issue 3744_)
-- Improve `int.bit_length`` for the jit: expose unwrapping and rewrapping to
+- Improve ``int.bit_length`` for the jit: expose unwrapping and rewrapping to
   tracing
 - Add a fast path for ``getrandbits(n)`` where ``n <= 31`` (issue 3733_)
 - Remove useless ``cvt = converters.get(type(param))`` from sqlite3: it was
   wrong and slowed things down
 - Add two new hints to ``rlib.jit``:
 
-  - ``record_exact_value(var, const)`` tells the JIT that the box var must
-    contain the value const.
+  - ``record_exact_value(var, const)`` tells the JIT that the box ``var`` must
+    contain the value ``const``.
 
   - ``record_known_result(result, func, *args)`` is a way to encode knowledge
-    about the result of elidable functions. the hint means that the JIT can
+    about the result of elidable functions. The hint means that the JIT can
     assume that if ``func(*args)`` will be called later, the outcome is
     ``result``
 
@@ -186,7 +186,7 @@ Speedups and enhancements shared across versions
   be used very carefully, because getting them wrong can really lead to
   miscompilation and crashes.
 - Speed up ``posix.stat`` calls by directly constructing the output, avoiding a
-  structseq
+  ``structseq``
 - Make PyPy available for Apple M1 (arm64)
 
   - Support JIT backend code generation
@@ -197,50 +197,53 @@ Speedups and enhancements shared across versions
 
 - Add an optimization for ``uint_rshift(0, x) -> 0`` and ``uint_rshift(x, 0) ->
   x``. Previously the optimization was only for ``int_rshift``
-- Make it possible to ``@specialize.memo`` on ``gc.trace callbacks``
+- Make it possible to ``@specialize.memo`` on ``rgc`` custom trace hooks
 - Use a more subtle condition to check whether aliasing is present when doing
-  malloc removal
-- Micro-optimize ``.next()`` to not allocate quite so many intermediate lists
+  malloc removal in the static RPython optimizers.
+- Micro-optimize ``TraceIterator.next()`` to not allocate quite so many
+  intermediate lists in the JIT code that walks over an encoded trace.
 - Only put ``OptimizationResults`` into the list for callbacks if the callback
-  would actually *do* anything
-- Small optimizations to improve tracing speed
+  would actually *do* anything in the JIT optimizer.
+- Small optimizations to improve tracing speed:
 
-  - have special versions of various record functions that take a fixed number of
-    arguments. this makes it possible to not allocate arguments lists
-  - don't lookup constant pointers that come from the jitcode in a dictionary
-    again and again in opencoder
+  - Have special versions of various record functions that take a fixed number of
+    arguments. This makes it possible to not allocate arguments lists.
+  - Don't lookup constant pointers that come from the jitcode in a dictionary
+    again and again in opencoder.
 
 - Make sure that ``W_Root.getclass`` does not exist in two versions, one for
-  access_directly=True, one regular
+  ``access_directly=True``, one regular
 - Two improvements to space operations:
 
   - rewrite the translation-time lookup caching to work on the *RPython* class
-    instead of the ``W_TypeObjects``. this makes the latter smaller and saves us
+    instead of the ``W_TypeObjects``. This makes the latter smaller and saves us
     having to call ``space.type(w_obj)`` first.
   - fix caching of binary ops by using a ``@specialize``
 
 - Clean up the number of ``w_obj.getclass`` variants in mapdict
 - Use ``append_char`` where appropriate in unicode string builder
 - Use a fast-path for ``str.encode("utf-8")`` (issue 3756_)
-- Optimize ``float_abs(float_abs(x))`` to ``float_abs(x)``
-- Fix NFA generation in metaparser for grammar rules of form ``foo: [a* b]``
+- Optimize ``float_abs(float_abs(x))`` to ``float_abs(x)`` in the JIT
+- Fix NFA generation in metaparser for grammar rules of form ``foo: [a* b]`` in
+  the parser generator that is used for PyPy2.7 and PyPy3.8.
 - Introduce ``space.newtuple2`` to save the list allocation when a specialized
-  two-tuple is used anyway and use it in ``.next``
-- Speed up importing warnings.warn by making it more JIT friendly
+  two-tuple is used anyway and use it in ``.next`` of ``enumerate`` and ``zip``.
+- Speed up using ``warnings.warn`` by making it more JIT friendly
 - Add an option to the collect analyzer when defining a custom gc trace function
 - Add a runtime JIT hook to disable tracing
-- Add `PYPY_DISABLE_JIT`` as an environment varaible to disable the JIT (issue 3148_)
-- Fast-path finding whitespace in an ascii string inside ``split()``
+- Add ``PYPY_DISABLE_JIT`` as an environment variable to disable the JIT (issue 3148_)
+- Fast-path finding whitespace in an ascii string inside ``unicode.split()``
 - Resync ``_vmprof`` with ``vmprof-python``
 - Replace the trie of names in unicodedata with a directed acyclic word graph
-  to make it more compact. also various other improvements to make unicodedata
-  more compact. shrinks pypy2 by 2.1mb, pypy3 by 2.6mb
+  to make it more compact. Also various other improvements to make unicodedata
+  more compact. This change shrinks the PyPy2.7 binary by 2.1MiB, PyPy3.x by
+  2.6MiB.
 - Review all the use cases of ``jit.loop_unrolling_heuristic``, to unroll less
   aggressively (issue 3781_)
-- Inline ``_fill_original_boxes`` to avoid creating variants in C
-- Optimize ``inline_call_*`` by filling in the new frame directly instead of
-  creating an intermediate list of boxes
-- Make sure the LivenessIterator gets inlined and optimized away
+- Inline ``_fill_original_boxes`` in the JIT to avoid creating variants in C
+- Optimize ``inline_call_*`` in the JIT by filling in the new frame directly
+  instead of creating an intermediate list of boxes
+- Make sure the ``LivenessIterator`` gets inlined and optimized away in the JIT
 - Speed up ``append_slice`` on unicode builders
 - Make ``list.__repr__`` use a jit driver, and have implementations for a few
   of the strategies
@@ -248,15 +251,15 @@ Speedups and enhancements shared across versions
   asynchronous exception in another thread the next time that thread runs. This
   also makes it possible to implement ``PyThreadState_SetAsyncExc`` (issue 3757_)
 - Make locals use an instance dict to speed them up
-- Tiny warmup improvement: don't create the recentops when looking for an
-  existing op, only when adding one
-- Avoid using the pureop cache for int_invert and float_neg
-- Speed up global dict reads by using the heapcache
+- Tiny warmup improvement: don't create the ``recentops`` in the JIT optimizer
+  when looking for an existing operation, only when adding one
+- Avoid using the pureop cache for ``int_invert`` and ``float_neg``
+- Speed up global dict reads by using the heapcache in the JIT frontend
 - Constant-fold ``ovf`` operations in rpython
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-- Make sure ``decref`` is being called even if a c-level call raises an
+- Make sure ``decref`` is being called even if a C-level call raises an
   exception (issue 3854_)
 
 Python 3.8+
@@ -265,37 +268,37 @@ Python 3.8+
 Python 3.8+ bugfixes
 ~~~~~~~~~~~~~~~~~~~~
 - Fix bug in the disassembler of py3 opcodes (issue 3700_)
-- Raise ModuleNotFoundError instead of ImportError in some cases
-- Fix lineno, col_offset for decorated functions and classes
+- Raise ``ModuleNotFoundError`` instead of ``ImportError`` in some cases
+- Fix ``.lineno``, ``.col_offset`` for decorated functions and classes
 - Add a ``name`` to ``sys.hash_info``
-- Fix concurrency problem in buffered io reading (issue 3729_)
-- Make it possible to multiple-inherit from KeyError again (issue 3728_)
+- Fix concurrency problem in buffered ``io`` reading (issue 3729_)
+- Make it possible to multiple-inherit from ``KeyError`` again (issue 3728_)
 - Check results from _openssl's ``EVP_DigestInit_ex`` and ``EVP_DigestUpdate``,
   and fix some failing tests (issue 3741_)
-- Fix pickling of filters
+- Fix pickling of ``filter`` objects
 - Fix the way that the lookup annotation optimization breaks python3 due to the
   way that module instances can change their class at runtime (issue 3758_)
 - Use the name mapping when creating new hashes for ``_hashlib`` (issue 3778_)
 - Expose ``os.sendfile`` on macos
-- Do not override PyPy's `MAGIC_NUMBER`` when using stdlib/importlib/_bootstrap_external.py (issue 3783_)
-- Fix dictionary unpacking for kwargs (issue 3775_)
+- Do not override PyPy's ``MAGIC_NUMBER`` when using ``importlib/_bootstrap_external.py`` (issue 3783_)
+- Fix dictionary unpacking for ``kwargs`` (issue 3775_)
 - Add memory pressure when creating a tkinter image (issue 3798_)
 - Remove debug print from ``_winapi`` (issue 3819_)
-- Add ``__contains__`` to array.array type (issue 3820_)
+- Add ``__contains__`` to ``array.array`` type (issue 3820_)
 - Fix CVE-2022-37454 via porting CPython changes to _sha3/kcp/KeccakSponge.inc
 - Make type lookups fill the ``.name`` field of ``AttributeError``
 - Check cursor lock in sqlite3 ``Cursor.close``, also lock around ``__fetch_one_row``
 - Implement ``os.get_native_thread``
-- Fix setting a slice in a memoryview with non-unit strides (issue 3857_)
+- Fix setting a slice in a ``memoryview`` with non-unit strides (issue 3857_)
 
 Python 3.8+ speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Speed up ``fstrings`` by making the parentstack a resizable list of chars
 - Better error message when the ``__iter__`` of a class is set to ``None`` (issue 3716_)
-- Refactor the package.py script for better compatibility with conda-forge
-- Add a jit driver for filter (issue 3745_)
+- Refactor the ``package.py`` script for better compatibility with conda-forge
+- Add a jit driver for ``filter`` (issue 3745_)
 - Improve opcode handling: ``jump_absolute``, ``int_xor``, and others
-- Don't make a loop for one-arg ``print()``
+- Don't make a JIT loop for one-arg ``print()``
 - Make float hashing elidable and avoid creating bridges
 - Mimic CPython's ``max_int_threshold`` to limit the length of a string that
   that can be parsed into an int
@@ -310,7 +313,7 @@ Python 3.8+ C-API
 - Map user defined python ``__init__`` to ``tp_init`` (issue 2806_)
 - Fix PyDict_Contains (issue 3742_)
 - Allow big ints in ``PyNumber_ToBase`` (issue 3765_)
-- Normalize OSErrors more consistenly, may not be completely fixed on macos
+- Normalize OSErrors more consistently, may not be completely fixed on macos
   (issue 3786_)
 - Fix ``PyDict_Contains`` to raise on unhashable key
 - Use ``tp_itemsize==0`` on ``PyUnicode_Type``, even for compact forms (issue
@@ -329,19 +332,20 @@ Python 3.9+
 Python 3.9+ bugfixes
 ~~~~~~~~~~~~~~~~~~~~
 - Fix ``f-string`` bug where the recursive tokenization was done incorrectly (issue 3751_)
-- Fixes to repr and slots of nested GenericAliases (issue 3720_)
-- Match CPython error messages for zip when strict=True
-- Add ``BASE_TYPE_ADAPTION`` optimization to sqlite3
+- Fixes to ``repr`` and slots of nested ``GenericAliases`` (issue 3720_)
+- Match CPython error messages for zip when ``strict=True`` (this is a
+  backported 3.10 feature).
+- Add ``BASE_TYPE_ADAPTION`` optimization to sqlite3, copied from CPython's approach
 - Make ``__file__`` of the ``__main__`` module be an absolute path, if possible
   (issue 3766_)
 - Use an absolute path for the main module (issue 3792_)
 - Use an absolute path for ``sys.path[0]`` when running a directory from the
   cmdline (issue 3792_)
-- Fix first line number of eval to be reported as 0 (issue 3800_)
+- Fix first line number of ``eval`` to be reported as 0 (issue 3800_)
 - Implement ``bitcount`` for ints
 - Check when unmarshalling ``TYPE_SHORT_ASCII`` that non-ascii bytes are not present
 - Fix CVE-2022-42919 as CPython did in cpython-97514_
-- Fix ``DICT_MERGE`` with objects that aren't dicts and don't implement
+- Fix ``DICT_MERGE`` bytecode with objects that aren't dicts and don't implement
   ``__len__`` (issue 3841_)
 
 Python 3.9+ speedups and enhancements
