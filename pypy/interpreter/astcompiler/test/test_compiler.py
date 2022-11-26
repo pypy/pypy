@@ -96,7 +96,7 @@ class BaseTestCompiler:
     st = simple_test
 
     def error_test(self, source, exc_type):
-        py.test.raises(exc_type, self.simple_test, source, None, None)
+        raises(exc_type, self.simple_test, source, None, None)
 
 
 class TestCompiler(BaseTestCompiler):
@@ -129,6 +129,7 @@ class TestCompiler(BaseTestCompiler):
 
     def test_int_limit(self):
         yield (self.simple_test, "x=0E0", "x", 0.0)
+        yield (self.simple_test, "x=00000000000777e0", "x", 777.0)
         from pypy.module.sys.system import DEFAULT_MAX_STR_DIGITS
         max_str_digits = DEFAULT_MAX_STR_DIGITS
         yield(self.error_test, "x=%s" % ('1' * (max_str_digits + 1)), SyntaxError)
@@ -2312,7 +2313,7 @@ class TestOptimizations:
         instrs = []
         for block in blocks:
             instrs.extend(block.instructions)
-        print instrs
+        # print instrs
         counts = {}
         for instr in instrs:
             counts[instr.opcode] = counts.get(instr.opcode, 0) + 1
