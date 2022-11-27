@@ -127,9 +127,43 @@ class TestCompiler(BaseTestCompiler):
         for c in expressions.constants:
             yield (self.simple_test, "x="+c, "x", eval(c))
 
+    def test_literals_with_leading_zeros(self):
+        # adapted from similar test in lib-python/3/test/test_compiler.py
+        for arg in ["077787", "0xj", "0x.", "0e",  "090000000000000",
+                    "080000000000000", "000000000000009", "000000000000008",
+                    "0b42", "0BADCAFE", "0o123456789", "0b1.1", "0o4.2",
+                    "0b101j2", "0o153j2", "0b100e1", "0o777e1", "0777",
+                    "000777", "000000000000007"]:
+            yield(self.error_test, "x=%s" % arg, SyntaxError)
+        yield(self.simple_test, "x=0xff", "x", 255)
+        yield(self.simple_test, "x=0777.", "x", 777.0)
+        yield(self.simple_test, "x=0777.0", "x", 777.0)
+        yield(self.simple_test, "x=000000000000000000000000000000000000000000000000000777e0", "x", 777.0)
+        yield(self.simple_test, "x=0777e1", "x", 7770.0)
+        yield(self.simple_test, "x=0e0", "x", 0.0)
+        yield(self.simple_test, "x=0000e-012", "x", 0.0)
+        yield(self.simple_test, "x=09.5", "x", 9.5)
+        yield(self.simple_test, "x=0777j", "x", 777j)
+        yield(self.simple_test, "x=000", "x", 0)
+        yield(self.simple_test, "x=00j", "x", 0j)
+        yield(self.simple_test, "x=00.0", "x", 0.0)
+        yield(self.simple_test, "x=0e3", "x", 0.0)
+        yield(self.simple_test, "x=090000000000000.", "x", 90000000000000.)
+        yield(self.simple_test, "x=090000000000000.0000000000000000000000", "x", 90000000000000.)
+        yield(self.simple_test, "x=090000000000000e0", "x", 90000000000000.)
+        yield(self.simple_test, "x=090000000000000e-0", "x", 90000000000000.)
+        yield(self.simple_test, "x=090000000000000j", "x", 90000000000000j)
+        yield(self.simple_test, "x=000000000000008.", "x", 8.)
+        yield(self.simple_test, "x=000000000000009.", "x", 9.)
+        yield(self.simple_test, "x=0b101010", "x", 42)
+        yield(self.simple_test, "x=-0b000000000010", "x", -2)
+        yield(self.simple_test, "x=0o777", "x", 511)
+        yield(self.simple_test, "x=-0o0000010", "x", -8)
+        yield (self.simple_test, "x=0_0_0", "x", 0)
+
+
     def test_int_limit(self):
         yield (self.simple_test, "x=0E0", "x", 0.0)
-        yield (self.simple_test, "x=00000000000777e0", "x", 777.0)
         from pypy.module.sys.system import DEFAULT_MAX_STR_DIGITS
         max_str_digits = DEFAULT_MAX_STR_DIGITS
         yield(self.error_test, "x=%s" % ('1' * (max_str_digits + 1)), SyntaxError)
