@@ -3,7 +3,7 @@ PyPy v7.3.10: release of python 2.7, 3.8, and 3.9
 =================================================
 
 ..
-       Changelog up to commit 2f756054f919
+       Changelog up to commit 2f9532a1155e
 
 .. note::
   This is a pre-release announcement. When the release actually happens, it
@@ -137,6 +137,7 @@ Bugfixes shared across versions
 - When raising an error: don't convert random things to unicode (issue 3828_)
 - Implement the ``.description`` attribute of sqlite3 cursors more carefully
   (issue 3840_)
+- Always use ``-fPIC`` when building shared objects on linux platforms
 
 Speedups and enhancements shared across versions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -256,6 +257,8 @@ Speedups and enhancements shared across versions
 - Avoid using the pureop cache for ``int_invert`` and ``float_neg``
 - Speed up global dict reads by using the heapcache in the JIT frontend
 - Constant-fold ``ovf`` operations in rpython
+- Consider equal lltype ptrs to be equal constants in rpython constant-folding
+
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -351,6 +354,7 @@ Python 3.9+ bugfixes
 Python 3.9+ speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Adopt CPython changes to speed up fractions (issue 3746_, cpython-91851_)
+- Speed up ``math.perm`` and ``math.comb`` (issue 3859_)
 
 
 Python 3.9+ C-API
@@ -411,6 +415,7 @@ Python 3.9+ C-API
 .. _3669: https://foss.heptapod.net/pypy/pypy/-/issues/3669
 .. _3845: https://foss.heptapod.net/pypy/pypy/-/issues/3845
 .. _3854: https://foss.heptapod.net/pypy/pypy/-/issues/3854
+.. _3859: https://foss.heptapod.net/pypy/pypy/-/issues/3859
 .. _bpo34953: https://bugs.python.org/issue34953
 .. _cpython-91851: https://github.com/python/cpython/issues/91851
 .. _cpython-97514: https://github.com/python/cpython/issues/97514
