@@ -40,8 +40,8 @@ include:
   - The conda-forge community `has built`_ over 1000 packages for PyPy3.8 and 3.9,
     making it easier than ever to use PyPy.
 
-  - Update the packaged OpenSSL to 1.1.1s and apply applicable security fixes
-    from CPython 3.9.15 to PyPy2.7
+  - Update the packaged OpenSSL to 1.1.1s, sqlite3 to 3.39.4, and apply
+    applicable security fixes from CPython 3.9.15 to PyPy2.7
 
   - Update the HPy_ backend in PyPy3.8 and PyPY3.9 to 0.0.4
 
