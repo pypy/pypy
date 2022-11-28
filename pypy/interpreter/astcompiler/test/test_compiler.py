@@ -160,6 +160,9 @@ class TestCompiler(BaseTestCompiler):
         yield(self.simple_test, "x=0o777", "x", 511)
         yield(self.simple_test, "x=-0o0000010", "x", -8)
         yield (self.simple_test, "x=0_0_0", "x", 0)
+        yield (self.simple_test, "x=0b_1_1", "x", 3)
+        yield (self.simple_test, "x=0o_1_1", "x", 9)
+        yield (self.simple_test, "x=0X_1_1", "x", 17)
 
 
     def test_int_limit(self):

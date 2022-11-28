@@ -1388,10 +1388,14 @@ class ASTBuilder(object):
                 elif raw[i] in "Xx":
                     base = 16
                     i += 1
+                    if raw[i] == '_':
+                        i += 1
                     break
                 elif raw[i] in "Bb":
                     base = 2
                     i += 1
+                    if raw[i] == '_':
+                        i += 1
                     break
                 elif raw[i] in "Ee":
                     base = 10
@@ -1401,6 +1405,8 @@ class ASTBuilder(object):
                 elif raw[i] in "Oo":
                     base = 8
                     i += 1
+                    if raw[i] == '_':
+                        i += 1
                     break
                 else:
                     # something like 077e0, which is a float
