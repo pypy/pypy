@@ -1376,30 +1376,51 @@ class ASTBuilder(object):
         else:
             negative = False
         if not dot_in_raw and raw.startswith("0"):
-            if len(raw) > 2 and raw[1] in "Xx":
-                base = 16
-            elif len(raw) > 2 and raw[1] in "Bb":
-                base = 2
-            elif len(raw) > 2 and raw[1] in "Ee":
-                base = 10
-            ## elif len(raw) > 2 and raw[1] in "Oo": # Fallback below is enough
-            ##     base = 8
-            elif len(raw) > 1:
-                base = 8
-            # strip leading characters
+            # find first non-zero, must be base specifier
             i = 0
+            #string must end with at least one digit after the base
             limit = len(raw) - 1
+            # if no base specifier, assume 8 (like CPython)
+            base = 8
             while i < limit:
-                if base == 16 and raw[i] not in "0xX":
+                if raw[i] == "0":
+                    pass
+                elif raw[i] in "Xx":
+                    base = 16
+                    i += 1
+                    if raw[i] == '_':
+                        i += 1
                     break
-                if base == 8 and raw[i] not in "0oO":
+                elif raw[i] in "Bb":
+                    base = 2
+                    i += 1
+                    if raw[i] == '_':
+                        i += 1
                     break
-                if base == 2 and raw[i] not in "0bB":
+                elif raw[i] in "Ee":
+                    base = 10
+                    # leave the leading 0
+                    i -= 1
+                    break
+                elif raw[i] in "Oo":
+                    base = 8
+                    i += 1
+                    if raw[i] == '_':
+                        i += 1
+                    break
+                else:
+                    # something like 077e0, which is a float
+                    # or 0_0_0
+                    base = 10
+                    if raw[i] == '_':
+                        i += 1
                     break
                 i += 1
-            raw = raw[i:]
-            if not raw[0].isdigit():
-                raw = "0" + raw
+            else:
+                # for 00j, do not trim the last 0
+                i -= 1
+            if i > 0:
+                raw = raw[i:]
         if negative:
             raw = "-" + raw
         w_num_str = self.space.newtext(raw)
