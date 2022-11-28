@@ -3,6 +3,7 @@ from rpython.flowspace.model import (Constant, Variable, SpaceOperation,
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.unsimplify import insert_empty_block, split_block
+from rpython.translator import simplify
 from rpython.rlib import rarithmetic
 
 
@@ -275,7 +276,7 @@ def constant_diffuse(graph):
             if not isinstance(c, Constant):
                 continue
             for lnk in rest:
-                if lnk.args[i] != c:
+                if not same_constant(lnk.args[i], c):
                     break
             else:
                 diffuse.append((i, c))
@@ -291,6 +292,16 @@ def constant_diffuse(graph):
         if same_as:
             constant_fold_block(block)
     return count
+
+def same_constant(c1, c2):
+    # concretype must be the same, the values flow into the same place
+    assert c1.concretetype == c2.concretetype
+    if not isinstance(c1, Constant) or not isinstance(c2, Constant):
+        return False
+    TYPE = c1.concretetype
+    if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
+        return c1.value == c2.value
+    return c1 == c2
 
 def constant_fold_graph(graph):
     # first fold inside the blocks
@@ -345,6 +356,8 @@ def constant_fold_graph(graph):
             rewire_links(splitblocks, graph)
         if not diffused and not splitblocks:
             break # finished
+        simplify.eliminate_empty_blocks(graph)
+        simplify.join_blocks(graph)
 
 def replace_symbolic(graph, symbolic, value):
     result = False
@@ -367,3 +380,5 @@ def replace_we_are_jitted(graph):
     if did_replacement:
         constant_fold_graph(graph)
     return did_replacement
+
+

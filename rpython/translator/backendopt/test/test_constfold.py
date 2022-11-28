@@ -8,6 +8,7 @@ from rpython.rtyper import rclass
 from rpython.rlib import objectmodel
 from rpython.translator.backendopt.constfold import constant_fold_graph
 from rpython.translator.backendopt.constfold import replace_we_are_jitted
+from rpython.translator.backendopt.constfold import same_constant
 from rpython.conftest import option
 from rpython.rlib import jit
 from rpython.rlib import rarithmetic
@@ -439,3 +440,57 @@ def test_int_ovf_bug():
     check_graph(graph, [0, sys.maxint-1], fn(0, sys.maxint-1), t)
     entrymap = mkentrymap(graph)
     assert len(entrymap[entrymap[graph.returnblock][0].prevblock]) == 3
+
+def test_constant_diffuse_bug():
+    import sys
+    class A:
+        pass
+    a1 = A()
+    def fn(arg, arg2):
+        # just using we_are_jitted as a way to introduce constants late
+        if jit.we_are_jitted():
+            a = a1
+            b = 1
+        elif arg:
+            arg += 1
+            a = None
+            b = 2
+        else:
+            a = None
+            b = 3
+        if arg:
+            arg = 0
+        arg += arg2
+        return a is None and arg == 100
+    graph, t = get_graph(fn, [int, int])
+    result = replace_we_are_jitted(graph)
+    assert result
+    assert summary(graph).get('ptr_iszero', 0) == 0
+
+def test_float_zero_sign():
+    # flowmodel.Constant has the correct logic for this, but let's have a test
+    # to be sure
+    def fn(arg):
+        # just using we_are_jitted as a way to introduce constants late
+        import math
+        if jit.we_are_jitted():
+            a = 12
+        if arg:
+            a = 0.0
+        else:
+            a = -0.0
+        return math.atan2(0.0, a * -0.0)
+    graph, t = get_graph(fn, [int])
+    result = replace_we_are_jitted(graph)
+    check_graph(graph, [0], fn(0), t)
+    check_graph(graph, [1], fn(1), t)
+
+def test_same_constant():
+    c1 = Constant(0.0, lltype.Float)
+    c2 = Constant(-0.0, lltype.Float)
+    assert not same_constant(c1, c2)
+    T = lltype.Ptr(lltype.GcStruct('abc'))
+
+    c1 = Constant(lltype.nullptr(T.TO), T)
+    c2 = Constant(lltype.nullptr(T.TO), T)
+    assert same_constant(c1, c2)
