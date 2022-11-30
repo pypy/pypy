@@ -955,11 +955,12 @@ raise_error(void *unused)
 }
 
 static int
-test_buildvalue_N_error(const char *fmt)
+test_buildvalue_N_error(const char *fmt, int needs_gc)
 {
     PyObject *arg, *res;
 
     arg = PyList_New(0);
+    long newrefcnt = Py_REFCNT(arg);
     if (arg == NULL) {
         return -1;
     }
@@ -970,7 +971,11 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
     Py_DECREF(res);
-    if (Py_REFCNT(arg) != 1) {
+    if (needs_gc) {
+        /* arg will only be decrefed when the GC runs to collect ref */
+        newrefcnt += 1;
+    }
+    if (Py_REFCNT(arg) != newrefcnt) {
         PyErr_Format(TestError, "test_buildvalue_N: "
                      "arg was not decrefed in successful "
                      "Py_BuildValue(\"%s\")", fmt);
@@ -985,7 +990,7 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
     PyErr_Clear();
-    if (Py_REFCNT(arg) != 1) {
+    if (Py_REFCNT(arg) != newrefcnt) {
         PyErr_Format(TestError, "test_buildvalue_N: "
                      "arg was not decrefed in failed "
                      "Py_BuildValue(\"%s\")", fmt);
@@ -1005,6 +1010,7 @@ test_buildvalue_N(PyObject *self, PyObject *Py_UNUSED(ignored))
         return NULL;
     }
     Py_INCREF(arg);
+    Py_ssize_t oldrefcnt = Py_REFCNT(arg);
     res = Py_BuildValue("N", arg);
     if (res == NULL) {
         return NULL;
@@ -1013,22 +1019,26 @@ test_buildvalue_N(PyObject *self, PyObject *Py_UNUSED(ignored))
         return raiseTestError("test_buildvalue_N",
                               "Py_BuildValue(\"N\") returned wrong result");
     }
-    if (Py_REFCNT(arg) != 2) {
+    if (Py_REFCNT(arg) != oldrefcnt) {
         return raiseTestError("test_buildvalue_N",
                               "arg was not decrefed in Py_BuildValue(\"N\")");
     }
     Py_DECREF(res);
     Py_DECREF(arg);
 
-    if (test_buildvalue_N_error("O&N") < 0)
+    int needs_gc = 0;
+#ifdef PYPY_VERSION
+    needs_gc += 1;
+#endif
+    if (test_buildvalue_N_error("O&N", 0) < 0)
         return NULL;
-    if (test_buildvalue_N_error("(O&N)") < 0)
+    if (test_buildvalue_N_error("(O&N)", 0) < 0)
         return NULL;
-    if (test_buildvalue_N_error("[O&N]") < 0)
+    if (test_buildvalue_N_error("[O&N]", needs_gc) < 0)
         return NULL;
-    if (test_buildvalue_N_error("{O&N}") < 0)
+    if (test_buildvalue_N_error("{O&N}", 0) < 0)
         return NULL;
-    if (test_buildvalue_N_error("{()O&(())N}") < 0)
+    if (test_buildvalue_N_error("{()O&(())N}", 0) < 0)
         return NULL;
 
     Py_RETURN_NONE;

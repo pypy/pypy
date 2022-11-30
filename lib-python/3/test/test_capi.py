@@ -745,6 +745,8 @@ class SubinterpreterTest(unittest.TestCase):
 class TestThreadState(unittest.TestCase):
 
     @support.reap_threads
+    @unittest.skipIf(support.check_impl_detail(pypy=True),
+        "segfaults?")
     def test_thread_state(self):
         # some extra thread-state tests driven via _testcapi
         def target():
@@ -916,7 +918,12 @@ class Test_ModuleStateAccess(unittest.TestCase):
 
     def setUp(self):
         fullname = '_testmultiphase_meth_state_access'  # XXX
-        origin = importlib.util.find_spec('_testmultiphase').origin
+        if sys.implementation.name == 'pypy':
+            # PyPy has a _testmultiphase.py, the c-extension module is elsewhere
+            import _testmultiphase
+            origin = _testmultiphase.__spec__.origin
+        else:
+            origin = importlib.util.find_spec('_testmultiphase').origin
         loader = importlib.machinery.ExtensionFileLoader(fullname, origin)
         spec = importlib.util.spec_from_loader(fullname, loader)
         module = importlib.util.module_from_spec(spec)
