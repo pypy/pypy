@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import pytest
 import sys
 from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
@@ -518,6 +520,12 @@ class AppTestTime:
             expected = u'76\ud80002'
             print(len(res), len(expected))
             assert res == u'76\ud80002' 
+
+    def test_strftime_unicode(self):
+        import time
+        s = u"ððððððððððððððððððððððð꿀"
+        res = time.strftime(u"%D" + s, time.localtime(192039127))
+        assert res.endswith(s)
 
     def test_strptime(self):
         import time
