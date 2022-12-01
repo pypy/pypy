@@ -839,17 +839,16 @@ def tee(space, w_iterable, n=2):
     if n < 0:
         raise oefmt(space.w_ValueError, "n must be >= 0")
 
-    if space.findattr(w_iterable, space.newtext("__copy__")) is not None:
+    w_iterator = space.iter(w_iterable)
+    if space.findattr(w_iterator, space.newtext("__copy__")) is not None:
         # In this case, we don't instantiate any W_TeeIterable.
         # We just rely on doing repeated __copy__().  This case
         # includes the situation where w_iterable is already
         # a W_TeeIterable itself.
-        iterators_w = [w_iterable] * n
+        iterators_w = [w_iterator] * n
         for i in range(1, n):
-            w_iterable = space.call_method(w_iterable, "__copy__")
-            iterators_w[i] = w_iterable
+            iterators_w[i] = space.call_method(w_iterator, "__copy__")
     else:
-        w_iterator = space.iter(w_iterable)
         w_chained_list = W_TeeChainedListNode(space)
         iterators_w = [W_TeeIterable(space, w_iterator, w_chained_list)
                        for x in range(n)]

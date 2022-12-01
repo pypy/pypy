@@ -438,6 +438,25 @@ class AppTestItertools(object):
         res = list(d)
         assert res == list('foobar')
 
+    def test_tee_copy_bug(self):
+        from itertools import tee
+        class Coll:
+            def __iter__(self):
+                return It()
+
+            def __copy__(self):
+                return self
+
+        class It:
+            def __copy__(self):
+                return It()
+
+            def __next__(self):
+                return 1
+
+        iterator1, iterator2 = tee(Coll())
+        assert isinstance(iterator1, It)
+
     def test_tee_instantiate(self):
         import itertools
 
@@ -684,9 +703,6 @@ class AppTestItertools(object):
         assert a is my
         assert b is not my
         assert list(b) == ['d', 'e', 'f']
-        # this gives AttributeError because it tries to call
-        # my.__copy__().__copy__() and there isn't one
-        raises(AttributeError, itertools.tee, my, 3)
 
     def test_tee_function_empty(self):
         import itertools
