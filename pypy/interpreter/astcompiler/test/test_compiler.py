@@ -2156,6 +2156,7 @@ def f(x):
         case [True]: return "[True]"
         case [1,2,3]: return "list[1,2,3]"
         case [1]: return "list[1]"
+        case []: return "emptylist"
         case [_]: return "list"
         case True | False as b: return b
         case a if a: return a
@@ -2171,6 +2172,7 @@ res=(
         f([1,3,4]),
         f([2,3,4]),
         f([1, 2]),
+        f([]),
         f(True),
         f(3),
         f(0),
@@ -2190,6 +2192,7 @@ res=(
             [1,3,4],
             [2,3,4],
             [1,2],
+            "emptylist",
             "True",
             "3 | 4",
             None,

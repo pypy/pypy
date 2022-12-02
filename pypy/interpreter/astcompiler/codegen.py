@@ -1982,8 +1982,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if i < last_index_for_dup:
                 self.emit_op(ops.POP_TOP)
 
-            for stmt in case.body:
-                stmt.walkabout(self)
+            self._visit_body(case.body)
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next)
             next = self.new_block()
@@ -2075,7 +2074,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # @6: [False]
 
     def visit_MatchSequence(self, match_sequence):
-        fail_drop = [self.new_block() for x in range(0, max(len(match_sequence.patterns)-1, 1)+1)]
+        patterns = match_sequence.patterns
+        if patterns is None:
+            patterns = []
+        fail_drop = [self.new_block() for x in range(0, max(len(patterns)-1, 1)+1)]
         end = self.new_block()
 
         # input: (1, 2, 3, 4, 5)
@@ -2093,13 +2095,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         star_index = -1
         star_captures = False
-        for i, pattern in enumerate(match_sequence.patterns):
+        for i, pattern in enumerate(patterns):
             if isinstance(pattern, ast.MatchStar):
                 star_index = i
                 star_captures = pattern.name is not None
                 break
 
-        length = len(match_sequence.patterns)
+        length = len(patterns)
         if star_index >= 0:
             self.load_const(self.space.newint(length - 1))
             # stack = [(1,2,3,4,5), 3]
@@ -2129,7 +2131,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             patterns.append(match_sequence.patterns[left])
         else:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
-            patterns = match_sequence.patterns
 
 
         pop = length
