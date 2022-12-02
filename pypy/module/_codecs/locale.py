@@ -9,7 +9,8 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rstring import StringBuilder, assert_str0
 from rpython.rlib.runicode import (
     default_unicode_error_decode, default_unicode_error_encode)
-from rpython.rlib.rutf8 import Utf8StringIterator, unichr_as_utf8
+from rpython.rlib.rutf8 import (
+    Utf8StringIterator, unichr_as_utf8, codepoints_in_utf8)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_uint
 from rpython.translator import cdir
@@ -74,6 +75,8 @@ def utf8_encode_locale_surrogateescape(utf8, ulen):
 
     The errorhandler raises a UnicodeEncodeError
     """
+    if not we_are_translated():
+        assert codepoints_in_utf8(utf8) == ulen
     errorhandler = default_unicode_error_encode
 
     with lltype.scoped_alloc(rffi.SIZE_TP.TO, 1) as errorposp:
@@ -164,6 +167,8 @@ class scoped_utf82rawwcharp:
 
 def utf82rawwcharp(utf8, size):
     """utf8, lgt -> raw wchar_t*"""
+    if not we_are_translated():
+        assert codepoints_in_utf8(utf8) == size
     if _should_merge_surrogates():
         size = _utf82rawwcharp_loop(utf8, size, lltype.nullptr(RAW_WCHARP.TO))
     array = lltype.malloc(RAW_WCHARP.TO, size + 1, flavor='raw')
