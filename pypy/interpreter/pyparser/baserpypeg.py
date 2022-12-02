@@ -588,7 +588,7 @@ class Parser:
 
     def ensure_real(self, tok):
         w_number = self.parse_number(tok)
-        if not self.space.is_w(self.space.type(w_number), self.space.w_float):
+        if self.space.is_w(self.space.type(w_number), self.space.w_complex):
             self.raise_syntax_error("real number required in complex literal")
         return w_number
 
