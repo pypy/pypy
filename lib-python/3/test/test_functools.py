@@ -24,12 +24,7 @@ from test.support.script_helper import assert_python_ok
 import functools
 
 py_functools = support.import_fresh_module('functools', blocked=['_functools'])
-c_functools = functools
-# pypy: was:
-#   c_functools = support.import_fresh_module('functools', fresh=['_functools'])
-# but this creates confusion for pickle because on pypy, _functools is a
-# pure python module, whereas on CPython it is C (and so not really
-# re-importable)
+c_functools = support.import_fresh_module('functools', fresh=['_functools'])
 
 decimal = support.import_fresh_module('decimal', fresh=['_decimal'])
 
