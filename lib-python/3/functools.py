@@ -283,10 +283,10 @@ class partial:
         if not callable(func):
             raise TypeError("the first argument must be callable")
 
-        if hasattr(func, "func"):
-            args = func.args + args
-            keywords = {**func.keywords, **keywords}
-            func = func.func
+        if hasattr(func, "func") and isinstance(func, partial): 
+                args = func.args + args
+                keywords = {**func.keywords, **keywords}
+                func = func.func
 
         self = super(partial, cls).__new__(cls)
 
@@ -336,6 +336,9 @@ class partial:
         self.func = func
         self.args = args
         self.keywords = kwds
+
+    def __class_getitem__(self, item):
+        return GenericAlias(self, item)
 
 try:
     from _functools import partial
