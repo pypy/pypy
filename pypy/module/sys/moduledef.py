@@ -52,6 +52,8 @@ class Module(MixedModule):
         'pypy_find_executable'  : 'initpath.pypy_find_executable',
         'pypy_resolvedirof'     : 'initpath.pypy_resolvedirof',
         'pypy_initfsencoding'   : 'initpath.pypy_initfsencoding',
+        'set_int_max_str_digits': 'state.set_int_max_str_digits',
+        'get_int_max_str_digits': 'state.get_int_max_str_digits',
 
         '_getframe'             : 'vm._getframe',
         '_current_frames'       : 'currentframes._current_frames',

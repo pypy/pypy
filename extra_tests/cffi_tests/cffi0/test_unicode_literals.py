@@ -10,6 +10,8 @@ from __future__ import unicode_literals
 #
 import sys, math
 from cffi import FFI
+from extra_tests.cffi_tests.support import is_musl
+
 
 lib_m = "m"
 if sys.platform == 'win32':
@@ -17,6 +19,8 @@ if sys.platform == 'win32':
     import distutils.ccompiler
     if distutils.ccompiler.get_default_compiler() == 'msvc':
         lib_m = 'msvcrt'
+elif is_musl:
+    lib_m = 'c'
 
 
 def test_cast():

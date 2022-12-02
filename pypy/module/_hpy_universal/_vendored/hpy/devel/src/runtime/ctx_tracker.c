@@ -85,12 +85,12 @@ ctx_Tracker_New(HPyContext *ctx, HPy_ssize_t capacity)
     }
     capacity++; // always reserve space for an extra handle, see the docs
 
-    hp = malloc(sizeof(_HPyTracker_s));
+    hp = (_HPyTracker_s*)malloc(sizeof(_HPyTracker_s));
     if (hp == NULL) {
         HPyErr_NoMemory(ctx);
         return _hp2ht(0);
     }
-    hp->handles = calloc(capacity, sizeof(HPy));
+    hp->handles = (HPy*)calloc(capacity, sizeof(HPy));
     if (hp->handles == NULL) {
         free(hp);
         HPyErr_NoMemory(ctx);
@@ -118,7 +118,7 @@ tracker_resize(HPyContext *ctx, _HPyTracker_s *hp, HPy_ssize_t capacity)
         HPyErr_SetString(ctx, ctx->h_ValueError, "HPyTracker resize would lose handles");
         return -1;
     }
-    new_handles = realloc(hp->handles, capacity * sizeof(HPy));
+    new_handles = (HPy*)realloc(hp->handles, capacity * sizeof(HPy));
     if (new_handles == NULL) {
         HPyErr_NoMemory(ctx);
         return -1;

@@ -134,7 +134,7 @@ class IsolatedAsyncioTestCase(TestCase):
                 task.cancel()
 
             loop.run_until_complete(
-                asyncio.gather(*to_cancel, loop=loop, return_exceptions=True))
+                asyncio.gather(*to_cancel, return_exceptions=True))
 
             for task in to_cancel:
                 if task.cancelled():
@@ -148,6 +148,8 @@ class IsolatedAsyncioTestCase(TestCase):
             # shutdown asyncgens
             loop.run_until_complete(loop.shutdown_asyncgens())
         finally:
+            # Prevent our executor environment from leaking to future tests.
+            loop.run_until_complete(loop.shutdown_default_executor())
             asyncio.set_event_loop(None)
             loop.close()
 

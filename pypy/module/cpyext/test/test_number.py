@@ -178,9 +178,9 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                     return NULL;
                 }
                 if (exc == NULL) {
-                    printf("got no exc\\n");
+                    // printf("got no exc\\n");
                 } else {
-                    printf("got exc\\n");
+                    // printf("got exc\\n");
                 }
                 value = PyNumber_AsSsize_t(obj, exc);
                 if (PyErr_Occurred()) {

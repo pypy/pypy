@@ -616,6 +616,12 @@ class Optimizer(Optimization):
                 self._last_guard_op is not None and
                 self._last_guard_op.getopnum() != rop.GUARD_NOT_FORCED):
             self._last_guard_op = None
+        if opnum == rop.GUARD_ALWAYS_FAILS:
+            # GUARD_ALWAYS_FAILS must never share resume data with a previous
+            # guard. otherwise it's possible that we never make progress and
+            # recompile the same bytecodes again and again. see
+            # test_bug_segmented_trace_makes_no_progress
+            self._last_guard_op = None
         #
         if (self._last_guard_op and guard_op.getdescr() is None):
             self.metainterp_sd.profiler.count_ops(opnum,

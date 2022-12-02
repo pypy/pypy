@@ -52,6 +52,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
 
         trace_limit = sys.maxint
         enable_opts = ALL_OPTS_DICT
+        pureop_historylength = 16
         vec = True
 
     if kwds.pop('disable_optimizations', False):

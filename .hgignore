@@ -104,3 +104,4 @@ syntax: regexp
 ^release/
 ^rpython/_cache$
 ^lib/
+.pytest_cache/

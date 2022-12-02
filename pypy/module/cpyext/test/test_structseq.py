@@ -8,7 +8,7 @@ class AppTestStructSeq(AppTestCpythonExtensionBase):
         module = self.import_extension('foo',
         prologue="""
             #include <structseq.h>
-            static PyTypeObject PyDatatype;
+            static PyTypeObject* PyDatatype;
 
             static PyStructSequence_Field Data_fields[] = {
                 {"value", "value_doc"},
@@ -23,22 +23,33 @@ class AppTestStructSeq(AppTestCpythonExtensionBase):
                 Data_fields,                  /*fields*/
                 3,                            /*n_in_sequence*/
             };
+            """, more_init = """
             """,
         functions=[
             ("new_structdata", "METH_NOARGS",
              """
                  PyObject *seq;
-                 PyStructSequence_InitType(&PyDatatype, &Data_desc);
-                 if (PyErr_Occurred()) return NULL;
-                 seq = PyStructSequence_New(&PyDatatype);
+                 PyDatatype = PyStructSequence_NewType(&Data_desc);
+                 seq = PyStructSequence_New(PyDatatype);
                  if (!seq) return NULL;
                  PyStructSequence_SET_ITEM(seq, 0, PyLong_FromLong(42));
                  PyStructSequence_SET_ITEM(seq, 1, PyLong_FromLong(43));
-                 PyStructSequence_SET_ITEM(seq, 2, PyUnicode_FromString("hello"));
-                 PyStructSequence_SET_ITEM(seq, 3, PyUnicode_FromString("other"));
-                 Py_DECREF(&PyDatatype);
+                 PyStructSequence_SetItem(seq, 2, PyUnicode_FromString("hello"));
+                 PyStructSequence_SetItem(seq, 3, PyUnicode_FromString("other"));
+                 Py_DECREF(PyDatatype);
                  return seq;
-             """)])
+             """),
+            ("getitem", "METH_VARARGS",
+             """
+                PyObject *obj, *result=NULL;
+                int i;
+                if (PyArg_ParseTuple(args, "Oi:test_get_item", &obj, &i)) {
+                    result = PyStructSequence_GetItem(obj, i);
+                    Py_INCREF(result);
+                };
+                return result;
+             """),
+            ])
         s = module.new_structdata()
         assert tuple(s) == (42, 43, 'hello')
         assert s.value == 42
@@ -46,4 +57,6 @@ class AppTestStructSeq(AppTestCpythonExtensionBase):
         assert s.other == 'other'
         assert 'hello' in s
         assert 'other' not in s
+        assert module.getitem(s, 1) == 43
         del s
+            

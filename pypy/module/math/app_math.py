@@ -72,7 +72,7 @@ def remainder(x, y):
             # Merging the logic from math_2 in CPython's mathmodule.c
             # nan returned and x and y both not nan -> domain error
             raise ValueError("math domain error")
-        
+
         absx = fabs(x)
         absy = fabs(y)
         m = fmod(absx, absy)
@@ -120,7 +120,7 @@ def remainder(x, y):
             assert m == c
             r = m - 2.0 * fmod(0.5 * (absx - m), absy)
         return copysign(1.0, x) * r
-    
+
     # Special values.
     if isnan(x):
         return x
@@ -195,11 +195,19 @@ def comb(n, k, /):
         raise ValueError("k must be a non-negative integer")
     if k > n:
         return 0
+
     k = min(k, n-k)
-    num, den = 1, 1
-    for i in range(k):
-        num = num * (n - i)
-        den = den * (i + 1)
+    if k == 0:
+        return 1
+
+    num, den = n, 1
+    for i in range(1, k):
+        num *= n - i
+        den *= i + 1
+        # reduce the fraction occasionally, but not after every multiplication
+        if i & 15 == 0:
+            num //= den
+            den = 1
 
     return num // den
 
@@ -230,10 +238,25 @@ def perm(n, k=None, /):
     if k > n:
         return 0
 
-    res = 1
-    for x in range(n, n - k, -1):
-        res *= x
-    return res
+    if k <= 100:
+        res = 1
+        for x in range(n, n - k, -1):
+            res *= x
+        return res
+
+    gap = max(100, k >> 7)
+    def _prod_range(low, high):
+        if low + gap >= high:
+            t = 1
+            for i in range(low, high):
+                t *= i
+            return t
+
+        mid = (low + high) >> 1
+        return _prod_range(low, mid) * _prod_range(mid, high)
+
+    return _prod_range(n - k + 1, n + 1)
+
 
 def lcm(*integers):
     import math

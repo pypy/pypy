@@ -18,6 +18,7 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib import longlong2float
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -159,6 +160,48 @@ def _do_extend_from_iterable(space, w_list, w_iterable):
             break
         i += 1
     return i
+
+def _get_printable_location(strategy_type, typ):
+    return 'list.repr [%s, %s]' % (
+        strategy_type,
+        typ)
+
+listrepr_jitdriver = jit.JitDriver(
+    name='list.repr',
+    greens=['strategy_type', 'typ'],
+    reds='auto',
+    get_printable_location=_get_printable_location)
+
+def listrepr(space, w_currently_in_repr, w_list):
+    length = w_list.length()
+    if space.contains_w(w_currently_in_repr, w_list):
+        return space.newtext('[...]')
+    space.setitem(w_currently_in_repr, w_list, space.newint(1))
+    try:
+        return _listrepr_inner(space, w_list, length)
+    finally:
+        try:
+            space.delitem(w_currently_in_repr, w_list)
+        except OperationError as e:
+            if not e.match(space, space.w_KeyError):
+                raise
+
+def _listrepr_inner(space, w_list, length):
+    assert length > 0
+    builder = rutf8.Utf8StringBuilder()
+    builder.append_char('[')
+    w_first = w_list.getitem(0)
+    builder.append_utf8(*space.utf8_len_w(space.repr(w_first)))
+    typ = type(w_first)
+    for i in range(1, length):
+        listrepr_jitdriver.jit_merge_point(
+            typ=typ,
+            strategy_type=type(w_list.strategy))
+        builder.append_utf8(', ', 2)
+        w_item = w_list.getitem(i)
+        builder.append_utf8(*space.utf8_len_w(space.repr(w_item)))
+    builder.append_char(']')
+    return space.newutf8(builder.build(), builder.getlength())
 
 
 def list_unroll_condition(w_list1, space, w_list2):
@@ -432,6 +475,7 @@ class W_ListObject(W_Root):
             self.extend(w_iterable)
 
     def descr_repr(self, space):
+        return self.strategy.repr(self)
         if self.length() == 0:
             return space.newtext('[]')
         return listrepr(space, space.get_objects_in_repr(), self)
@@ -942,6 +986,12 @@ class ListStrategy(object):
     def physical_size(self, w_list):
         raise oefmt(self.space.w_ValueError, "can't get physical size of list")
 
+    def repr(self, w_list):
+        space = self.space
+        if self.length(w_list) == 0:
+            return space.newtext('[]')
+        return listrepr(space, space.get_objects_in_repr(), w_list)
+
     def _unrolling_heuristic(self, w_list):
         # default implementation: we will only go by size, not whether the list
         # is virtual
@@ -1112,6 +1162,10 @@ class EmptyListStrategy(ListStrategy):
 
     def physical_size(self, w_list):
         return 0
+
+    def repr(self, w_list):
+        space = self.space
+        return space.newtext('[]')
 
     def _unrolling_heuristic(self, w_list):
         return True
@@ -1881,6 +1935,11 @@ class IntegerListStrategy(ListStrategy):
         # no, fall back to ObjectListStrategy
         w_list.switch_to_object_strategy()
 
+    def repr(self, w_list):
+        space = self.space
+        res = str(self.unerase(w_list.lstorage))
+        return space.newtext(res)
+
 
 class FloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -1999,6 +2058,21 @@ class FloatListStrategy(ListStrategy):
                     return
         # no, fall back to ObjectListStrategy
         w_list.switch_to_object_strategy()
+
+    def repr(self, w_list):
+        from pypy.objspace.std.floatobject import float_repr
+        l = self.unerase(w_list.lstorage)
+        if len(l) == 0:
+            return self.space.newtext('[]')
+        b = StringBuilder()
+        b.append('[')
+        for i in range(len(l)):
+            if i > 0:
+                b.append(', ')
+            b.append(float_repr(l[i]))
+        b.append(']')
+        res = b.build()
+        return self.space.newutf8(res, len(res))
 
 
 class IntOrFloatListStrategy(ListStrategy):
@@ -2123,6 +2197,27 @@ class IntOrFloatListStrategy(ListStrategy):
             return result
         raise ValueError
 
+    def repr(self, w_list):
+        from pypy.objspace.std.floatobject import float_repr
+        l = self.unerase(w_list.lstorage)
+        if len(l) == 0:
+            return self.space.newtext('[]')
+        b = StringBuilder()
+        b.append('[')
+        for i in range(len(l)):
+            if i > 0:
+                b.append(', ')
+            llval = l[i]
+            if longlong2float.is_int32_from_longlong_nan(llval):
+                intval = longlong2float.decode_int32_from_longlong_nan(llval)
+                b.append(str(intval))
+            else:
+                floatval = longlong2float.longlong2float(llval)
+                b.append(float_repr(floatval))
+        b.append(']')
+        res = b.build()
+        return self.space.newtext(res, len(res))
+
 
 class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -2210,22 +2305,6 @@ def plain_int_w(space, w_obj):
 init_signature = Signature(['sequence'], posonlyargcount=1)
 init_defaults = [None]
 
-app = applevel("""
-    def listrepr(currently_in_repr, l):
-        'The app-level part of repr().'
-        if l in currently_in_repr:
-            return '[...]'
-        currently_in_repr[l] = 1
-        try:
-            return "[" + ", ".join([repr(x) for x in l]) + ']'
-        finally:
-            try:
-                del currently_in_repr[l]
-            except:
-                pass
-""", filename=__file__)
-
-listrepr = app.interphook("listrepr")
 
 # ____________________________________________________________
 # Sorting

@@ -28,10 +28,12 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.pyparser import pygram
+from pypy.interpreter.typedef import Function, Method, PyTraceback
+from pypy.objspace.std.dictmultiobject import W_DictViewKeysObject, W_DictViewValuesObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
-from pypy.module.__builtin__.functional import W_ReversedIterator
+from pypy.module.__builtin__.functional import W_ReversedIterator, W_Range
 #from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.__pypy__.interp_buffer import W_Bufferable
 from rpython.rlib.entrypoint import entrypoint_lowlevel
@@ -637,7 +639,8 @@ SYMBOLS_C = [
 
     'PyStructSequence_InitType', 'PyStructSequence_InitType2',
     'PyStructSequence_New', 'PyStructSequence_UnnamedField',
-    'PyStructSequence_NewType',
+    'PyStructSequence_NewType', 'PyStructSequence_GetItem',
+    'PyStructSequence_SetItem', 
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
@@ -726,6 +729,8 @@ def build_exported_objects():
         "PyUnicode_Type": "space.w_unicode",
         "PyDict_Type": "space.w_dict",
         "PyDictProxy_Type": 'space.gettypeobject(cpyext.dictproxyobject.W_DictProxyObject.typedef)',
+        "PyDictValues_Type": "space.gettypeobject(W_DictViewValuesObject.typedef)",
+        "PyDictKeys_Type": "space.gettypeobject(W_DictViewKeysObject.typedef)",
         "PyTuple_Type": "space.w_tuple",
         "PyList_Type": "space.w_list",
         "PySet_Type": "space.w_set",
@@ -754,6 +759,10 @@ def build_exported_objects():
         'PyInstanceMethod_Type': 'space.gettypeobject(cpyext.classobject.InstanceMethod.typedef)',
         'PyBufferable_Type': 'space.gettypeobject(W_Bufferable.typedef)',
         'PyReversed_Type': 'space.gettypeobject(W_ReversedIterator.typedef)',
+        'PyRange_Type': 'space.gettypeobject(W_Range.typedef)',
+        'PyFunction_Type': 'space.gettypeobject(Function.typedef)',
+        'PyMethod_Type': 'space.gettypeobject(Method.typedef)',
+        'PyTraceBack_Type': 'space.gettypeobject(PyTraceback.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
@@ -1594,12 +1603,14 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
 
     # generate graminit.h
     graminit_h = udir.join('graminit.h')
-    graminit_h.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */')
-    for attr in dir(pygram.syms):
-        val = getattr(pygram.syms, attr)
-        graminit_h.write('#define {} {}'.format(attr, val))
+    with graminit_h.open('w', ensure=True) as fid:
+        fid.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */\n\n')
+        for attr in dir(pygram.syms):
+            val = getattr(pygram.syms, attr)
+            if isinstance(val, int):
+                fid.write('#define {} {}\n'.format(attr, val))
 
-
+ 
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
                          source_dir / "modsupport.c",

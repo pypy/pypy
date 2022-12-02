@@ -77,7 +77,7 @@ def test_ignore():
 def test_show_source_line():
     # Something is wrong with pytest 4.0.0 (which is the version run for -D
     # pypy tests: it cannot redirect sys.stderr
-    if pytest.__version__ == '4.0.0':
+    if getattr(pytest, "__version__", "untranslated") == '4.0.0':
         pytest.skip("fails on this version of pytest")
 
     def inner(message, stacklevel=1):
@@ -112,8 +112,9 @@ def test_filename_none():
 def test_warn_unicode():
     # Something is wrong with pytest 4.0.0 (which is the version run for -D
     # pypy tests: it cannot redirect sys.stderr
-    if pytest.__version__ == '4.0.0':
+    if getattr(pytest, "__version__", "untranslated") == '4.0.0':
         pytest.skip("fails on this version of pytest")
+
     old = sys.stderr, warnings.showwarning
     try:
         class Grab:

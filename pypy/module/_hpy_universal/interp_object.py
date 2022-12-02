@@ -209,6 +209,9 @@ def HPy_Hash(space, handles, ctx, h_obj):
 @API.func("HPy_ssize_t HPy_Length(HPyContext *ctx, HPy h)", error_value=-1)
 def HPy_Length(space, handles, ctx, h_obj):
     w_obj = handles.deref(h_obj)
+    if not w_obj:
+        # equivalent to null_error() call in PyObject_Size
+        raise oefmt(space.w_SystemError, "invalid object")
     return space.len_w(w_obj)
 
 @API.func("HPy HPy_Type(HPyContext *ctx, HPy obj)")
@@ -244,3 +247,10 @@ def _HPy_Dump(space, handles, ctx, h_obj):
     w_repr = space.repr(w_obj)
     s = space.text_w(w_repr)
     os.write(stderr, "object repr     : %s\n" % (s,))
+
+@API.func("int _HPy_Contains(HPyContext *ctx, HPy container, HPy key)", error_value=API.int(-1))
+def _HPy_Contains(space, handles, ctx, h_container, h_key):
+    w_container = handles.deref(h_container)
+    w_key = handles.deref(h_key)
+    w_res = space.contains(w_container, w_key)
+    return API.int(space.int_w(w_res))

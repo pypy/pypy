@@ -135,7 +135,7 @@ Python 3.8+ C-API (cpyext) fixes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Fix overflow return value in ``PyNumber_AsSsize_t`` on windows
 - Adopted `PEP 3123`_ declarations to avoid `-Wstrict-aliasing` compiler
-  warnings
+  warnings (issue 3706_)
 - Allocate a ``wrapperbase`` struct and assign it to ``d_base`` of
   ``PyWrapperDescrObject``
 
@@ -155,6 +155,8 @@ Python 3.9+ fixes
 .. _3703: https://foss.heptapod.net/pypy/pypy/-/issues/3703
 .. _3714: https://foss.heptapod.net/pypy/pypy/-/issues/3714
 .. _3649: https://foss.heptapod.net/pypy/pypy/-/issues/3649
+.. _3706: https://foss.heptapod.net/pypy/pypy/-/issues/3706
 .. _bpo35545: https://bugs.python.org/issue35545
 .. _errcheck: https://docs.python.org/3/library/ctypes.html#ctypes._FuncPtr.errcheck
 .. _`speed regression`: https://foss.heptapod.net/pypy/pypy/-/issues/3649
+.. _PEP 3123: https://peps.python.org/pep-3123/

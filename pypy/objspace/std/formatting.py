@@ -605,16 +605,14 @@ def format(space, w_fmt, values_w, w_valuedict, fmt_type):
         try:
             result = formatter.format()
         except NeedUnicodeFormattingError:
-            # fall through to the unicode case
-            pass
+            assert 0, "unreachable on python 3"
         else:
             if fmt_type == FORMAT_BYTES:
                 return space.newbytes(result)
             elif fmt_type == FORMAT_BYTEARRAY:
                 return _bytearray_from_bytes(space, result)
             return space.newbytes(result)
-    if not space.isinstance_w(w_fmt, space.w_unicode):
-        w_fmt = space.call_function(space.w_unicode, w_fmt)
+    assert space.isinstance_w(w_fmt, space.w_unicode)
     fmt = space.utf8_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()

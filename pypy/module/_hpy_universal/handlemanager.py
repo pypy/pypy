@@ -8,6 +8,7 @@ from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from .buffer import setup_hpybuffer
 
+
 @specialize.memo()
 def make_missing_function(space, name):
     def missing_function():
@@ -93,7 +94,9 @@ CONSTANTS = [
     # Types
     ('BaseObjectType', lambda space: space.w_object),
     ('TypeType', lambda space: space.w_type),
+    ('BoolType', lambda space: space.w_bool),
     ('LongType', lambda space: space.w_int),
+    ('FloatType', lambda space: space.w_float),
     ('UnicodeType', lambda space: space.w_unicode),
     ('TupleType', lambda space: space.w_tuple),
     ('ListType', lambda space: space.w_list),
@@ -104,10 +107,13 @@ CONSTANT_NAMES = unrolling_iterable([name for name, _ in CONSTANTS])
 DUMMY_FUNC = lltype.FuncType([], lltype.Void)
 
 class AbstractHandleManager(object):
+    NULL = 0
+
     def __init__(self, space, ctx, is_debug):
         self.space = space
         self.ctx = ctx
         self.is_debug = is_debug
+        # setup a helper class for creating views in the bf_getbuffer slot
         setup_hpybuffer(self)
 
     def new(self, w_object):
@@ -189,6 +195,9 @@ class HandleManager(AbstractHandleManager):
             if func.cpyext and not space.config.objspace.hpy_cpyext_API:
                 # ignore cpyext functions if hpy_cpyext_API is False
                 continue
+            if func.is_helper:
+                # helper functions don't go into the context
+                continue
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
             setattr(self.ctx, ctx_field, funcptr)
@@ -210,12 +219,15 @@ class HandleManager(AbstractHandleManager):
     def close(self, index):
         ll_assert(index > 0, 'HandleManager.close: index > 0')
         if self.release_callbacks[index] is not None:
-            w_obj = self.deref(index)
-            for f in self.release_callbacks[index]:
-                f.release(index, w_obj)
-            self.release_callbacks[index] = None
+            self._call_release_callbacks(index)
         self.handles_w[index] = None
         self.free_list.append(index)
+
+    def _call_release_callbacks(self, index):
+        w_obj = self.deref(index)
+        for f in self.release_callbacks[index]:
+            f.release(index, w_obj)
+        self.release_callbacks[index] = None
 
     def deref(self, index):
         assert index > 0
@@ -241,6 +253,7 @@ class HandleManager(AbstractHandleManager):
             self.release_callbacks[index].append(cb)
 
     def str2ownedptr(self, s, owner):
+        # Used in converting a handle to a `const char *` via a non-moving buffer
         llbuf, llstring, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
         cb = FreeNonMovingBuffer(llbuf, llstring, flag)
         self.attach_release_callback(owner, cb)
@@ -279,14 +292,27 @@ class DebugHandleManager(AbstractHandleManager):
 
     def new(self, w_object):
         uh = self.u_handles.new(w_object)
-        return llapi.hpy_debug_open_handle(self.ctx, uh)
+        ret = llapi.hpy_debug_open_handle(self.ctx, uh)
+        # print 'new', ret, uh, w_object
+        return ret
 
     def close(self, dh):
-        uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
+        # tricky, we need to deref dh but use index for all self.u_handles interactions
+        index = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
+        ll_assert(index > 0, 'HandleManager.close: index > 0')
+        if self.u_handles.release_callbacks[index] is not None:
+            w_obj = self.deref(dh)
+            for f in self.u_handles.release_callbacks[index]:
+                # print 'calling release with', dh, index, w_obj
+                f.release(dh, w_obj)
+            self.u_handles.release_callbacks[index] = None
+        # print 'close', index, dh, self.deref(dh)
+        self.u_handles.handles_w[index] = None
+        self.u_handles.free_list.append(index)
         llapi.hpy_debug_close_handle(self.ctx, dh)
-        self.u_handles.close(uh)
 
     def deref(self, dh):
+        # print 'deref', dh
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         return self.u_handles.deref(uh)
 
@@ -294,6 +320,21 @@ class DebugHandleManager(AbstractHandleManager):
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         llapi.hpy_debug_close_handle(self.ctx, dh)
         return self.u_handles.consume(uh)
+
+    def dup(self, dh):
+        uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
+        new_uh = self.u_handles.dup(uh)
+        w_object = self.u_handles.deref(new_uh)
+        ret = self.new(w_object)
+        # print 'dup', dh, uh, w_object, 'returning', ret
+        return ret
+
+    def attach_release_callback(self, index, cb):
+        uh = llapi.hpy_debug_unwrap_handle(self.ctx, index)
+        self.u_handles.attach_release_callback(uh, cb)
+
+    def str2ownedptr(self, s, owner):
+        return self.u_handles.str2ownedptr(s, owner)
 
 
 class HandleReleaseCallback(object):

@@ -1,5 +1,4 @@
 """ HPyType slot tests on legacy types. """
-import pytest
 
 from .support import HPyTest
 from .test_hpytype_legacy import LegacyPointTemplate
@@ -43,8 +42,8 @@ class TestCustomLegacySlotsFeatures(HPyTest):
                 NULL
             };
             static PyType_Slot Dummy_type_slots[] = {
-                {Py_tp_repr, Dummy_repr},
-                {Py_nb_add, Dummy_add},
+                {Py_tp_repr, (void*)Dummy_repr},
+                {Py_nb_add, (void*)Dummy_add},
                 {0, 0},
             };
             static HPyType_Spec Dummy_spec = {
@@ -154,9 +153,9 @@ class TestCustomLegacySlotsFeatures(HPyTest):
             static HPyType_Spec Point_spec = {
                 .name = "mytest.Point",
                 .basicsize = sizeof(PointObject),
-                .defines = Point_defines,
                 .legacy = true,
-                .legacy_slots = legacy_slots
+                .legacy_slots = legacy_slots,
+                .defines = Point_defines
             };
 
             @EXPORT_TYPE("Point", Point_spec)
@@ -173,7 +172,6 @@ class TestCustomLegacySlotsFeatures(HPyTest):
         assert p.x == 123
         assert p.y == 456
 
-    @pytest.mark.xfail
     def test_legacy_slots_getsets(self):
         mod = self.make_module("""
             #include <Python.h>
@@ -221,9 +219,9 @@ class TestCustomLegacySlotsFeatures(HPyTest):
             static HPyType_Spec Point_spec = {
                 .name = "mytest.Point",
                 .basicsize = sizeof(PointObject),
-                .defines = Point_defines,
                 .legacy = true,
-                .legacy_slots = legacy_slots
+                .legacy_slots = legacy_slots,
+                .defines = Point_defines
             };
 
             @EXPORT_TYPE("Point", Point_spec)

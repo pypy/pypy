@@ -2006,18 +2006,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = module.test_fastcalldict(pyfunc, (1, ), {"arg2": 2})
         assert res == [1, 2]
 
-    def test_call_no_args(self):
-        module = self.import_extension('foo', [
-            ("test_callnoarg", "METH_VARARGS",
-             '''
-                PyObject *func = NULL;
-                if (!PyArg_ParseTuple(args, "O", &func)) {
-                    return NULL;
-                }
-                return _PyObject_CallNoArg(func);
-            ''')])
-        assert module.test_callnoarg(lambda : 4) == 4
-
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
@@ -2160,3 +2148,124 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         errtype = module.newexc()
         err = errtype("abc")
         assert err.warnings == "abc"
+
+    def test_heaptype_dealloc(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
+        import gc
+        module = self.import_module(name='nanobind1', filename="nanobind1")
+        for i in range(100):
+            module.heap_type()
+            gc.collect()
+
+    def test_heaptype_metaclass(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
+        import gc
+        module = self.import_module(name='nanobind1', filename="nanobind1")
+        # 2 vs 3 shenanigans to declare
+        # class X(object, metaclass=module.metaclass): pass
+        X = module.metaclass_good('X', (object,), {})
+        x = X()
+
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(SystemError, module.metaclass_bad, 'X', (object,), {})
+            assert 'tp_itemsize' in str(exc.value)
+
+    def test_vectorcall2(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
+        # py3.9+ only
+        module = self.import_module(name='nanobind1', filename="nanobind1")
+        c = module.callable()
+        assert c() == 1234
+        
+        def f(value):
+            assert value == 1234
+
+        module.call(f)
+
+    def test_nanobind2_tp_traverse(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        import gc
+        import sys
+        if sys.implementation.name == 'pypy':
+            skip("tp_traverse not yet implemented in PyPy")
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+        # Create an unreferenced cycle
+        a = module.wrapper()
+        a.nested = a
+        del a
+        for i in range(5):
+            gc.collect()
+        gl = module.global_list
+        assert gl == ['wrapper tp_init called.',
+                      'wrapper tp_traverse called.',
+                      'wrapper tp_traverse called.',
+                      'wrapper tp_clear called.',
+                      'wrapper tp_dealloc called.',
+                     ]
+
+    def test_nanobind2_module_attributes(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        import sys
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+
+        f = module.func()
+        if sys.version_info >= (3, 9) or sys.implementation.name == 'pypy':
+            assert f.__module__   == "my_module"
+        else:
+            assert f.__module__   == "nanobind2"
+        assert f.__name__ == "my_name"
+        assert f.__qualname__ == "my_qualname"
+
+    def test_nanobind2_vectorcall_method(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+
+        class A:
+            def __init__(self):
+                self.value = 0
+
+            def my_method(self, *args, **kwargs):
+                self.args = args
+                self.kwargs = kwargs
+                return "success"
+
+        a = A()
+        assert module.method_call(a) == "success"
+        assert a.args == (1234,) and a.kwargs == {}
+        assert module.method_call_kw(a) == "success"
+        assert a.args == (1234,) and a.kwargs == {"foo" : "bar"}
+
+
+        def unbound_method(*args, **kwargs):
+            args_value.update(args)
+            kwargs_value.update(kwargs)
+            return "unbound"
+
+        a.my_method = unbound_method
+        kwargs_value = {}
+        args_value = set()
+
+
+        assert module.method_call(a) == "unbound"
+        assert args_value == set([1234]) and kwargs_value == {}
+        assert module.method_call_kw(a) == "unbound"
+        assert args_value == set([1234]) and kwargs_value == {"foo" : "bar"}
+
+    def test_nanobind3(self):
+        module = self.import_module(name='nanobind3', filename="nanobind3")
+        old_list = module.global_list[:]
+
+        o = module.my_object()
+        c = module.my_callable()
+
+        with raises(ValueError):
+            c(o)
+
+        old_list = module.global_list[:]
+        del o
+        self.debug_collect()  # will call gc.collect unless run untranslated
+
+        # Make sure o.tp_dealloc was called
+        new_list = module.global_list[:]
+        assert len(new_list) == len(old_list) + 1, "%s %s" %(old_list, new_list)

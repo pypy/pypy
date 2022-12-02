@@ -86,8 +86,22 @@ def PyObject_CallObject(space, w_obj, w_arg):
     return space.call(w_obj, w_arg)
 
 @cpython_api([PyObject], PyObject)
-def _PyObject_CallNoArg(space, w_obj):
+def PyObject_CallNoArgs(space, w_obj):
     return space.call_function(w_obj)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PyObject_CallOneArg(space, w_obj, w_arg):
+    return space.call_function(w_obj, w_arg)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PyObject_CallMethodNoArgs(space, w_self, w_name):
+    name = space.text_w(w_name)
+    return space.call_method(w_self, name)
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def PyObject_CallMethodOneArg(space, w_self, w_name, w_arg):
+    name = space.text_w(w_name)
+    return space.call_method(w_self, name, w_arg)
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyObject_Call(space, w_obj, w_args, w_kw):

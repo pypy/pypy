@@ -22,6 +22,7 @@ class State(object):
     def setup(self, space):
         self.u_handles.setup_ctx()
         self.d_handles.setup_ctx()
+        self.global_handles = {}
         self.setup_bridge()
 
     @staticmethod
@@ -64,6 +65,7 @@ class State(object):
         """
         self.setup_bridge()
         llapi.hpy_debug_set_ctx(self.d_handles.ctx)
+        self.global_handles = {}
 
     def set_exception(self, operror):
         self.clear_exception()

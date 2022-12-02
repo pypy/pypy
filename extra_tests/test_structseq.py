@@ -5,8 +5,7 @@ import pytest
 import sys
 from _structseq import structseqtype, structseqfield
 
-class foo:
-    __metaclass__ = structseqtype
+class foo(metaclass=structseqtype):
     f1 = structseqfield(0, "a")
     f2 = structseqfield(1, "b")
     f3 = structseqfield(2, "c")
@@ -85,8 +84,7 @@ def test_dict_structseqfield_immutable():
 
 def test_default_only_nonpositional():
     with pytest.raises(AssertionError):
-        class foo:
-            __metaclass__ = structseqtype
+        class foo(metaclass=structseqtype):
             f1 = structseqfield(0, "a", default=lambda self: 0)
 
 

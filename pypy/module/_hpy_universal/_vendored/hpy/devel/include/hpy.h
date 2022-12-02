@@ -1,5 +1,16 @@
 #ifndef HPy_H
 #define HPy_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef HPY_UNIVERSAL_ABI
+/*  It would be nice if we could include hpy.h WITHOUT bringing in all the
+    stuff from Python.h, to make sure that people don't use the CPython API by
+    mistake. How to achieve it, though? */
+#   define PY_SSIZE_T_CLEAN
+#   include <Python.h>
+#endif
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -26,6 +37,17 @@
 #  define _HPy_NO_RETURN
 #endif
 
+#if defined(_MSC_VER) && defined(__cplusplus) // MSVC C4576
+#  define _hconv(h) {h}
+#  define _hfconv(h) {h}
+#  define _htsconv(h) {h}
+#  define _hgconv(h) {h}
+#else
+#  define _hconv(h) ((HPy){h})
+#  define _hfconv(h) ((HPyField){h})
+#  define _htsconv(h) ((HPyThreadState){h})
+#  define _hgconv(h) ((HPyGlobal){h})
+#endif
 /* ~~~~~~~~~~~~~~~~ HPyAPI declaration ~~~~~~~~~~~~~~~~ */
 
 /* We have three different kind of API functions: */
@@ -88,20 +110,26 @@
          another HPy among other stuff
  */
 typedef struct _HPy_s { intptr_t _i; } HPy;
+typedef struct { intptr_t _i; } HPyField;
+typedef struct { intptr_t _i; } HPyGlobal;
 typedef struct { intptr_t _lst; } HPyListBuilder;
 typedef struct { intptr_t _tup; } HPyTupleBuilder;
 typedef struct { intptr_t _i; } HPyTracker;
+typedef struct { intptr_t _i; } HPyThreadState;
 
 
 /* A null handle is officially defined as a handle whose _i is 0. This is true
    in all ABI modes. */
-#define HPy_NULL ((HPy){0})
+#define HPy_NULL _hconv(0)
 #define HPy_IsNull(h) ((h)._i == 0)
+
+#define HPyField_NULL _hfconv(0)
+#define HPyField_IsNull(f) ((f)._i == 0)
 
 /* Convenience functions to cast between HPy and void*.  We need to decide
    whether these are part of the official API or not, and maybe introduce a
    better naming convetion. For now, they are needed for ujson. */
-static inline HPy HPy_FromVoidP(void *p) { return (HPy){(intptr_t)p}; }
+static inline HPy HPy_FromVoidP(void *p) { return _hconv((intptr_t)p); }
 static inline void* HPy_AsVoidP(HPy h) { return (void*)h._i; }
 
 
@@ -112,14 +140,11 @@ typedef struct _HPyContext_s HPyContext;
 #ifdef HPY_UNIVERSAL_ABI
     typedef intptr_t HPy_ssize_t;
     typedef intptr_t HPy_hash_t;
+    typedef uint32_t HPy_UCS4;
 #else
-/*  It would be nice if we could include hpy.h WITHOUT bringing in all the
-    stuff from Python.h, to make sure that people don't use the CPython API by
-    mistake. How to achieve it, though? */
-#   define PY_SSIZE_T_CLEAN
-#   include <Python.h>
     typedef Py_ssize_t HPy_ssize_t;
     typedef Py_hash_t HPy_hash_t;
+    typedef Py_UCS4 HPy_UCS4;
 #endif
 
 
@@ -132,6 +157,7 @@ typedef struct _HPyContext_s HPyContext;
 #include "hpy/hpytype.h"
 #include "hpy/hpymodule.h"
 #include "hpy/runtime/argparse.h"
+#include "hpy/runtime/buildvalue.h"
 #include "hpy/runtime/helpers.h"
 
 #ifdef HPY_UNIVERSAL_ABI
@@ -146,4 +172,9 @@ typedef struct _HPyContext_s HPyContext;
 #   include "hpy/cpython/autogen_api_impl.h"
 #endif
 
+#include "hpy/inline_helpers.h"
+
+#ifdef __cplusplus
+}
+#endif
 #endif /* HPy_H */

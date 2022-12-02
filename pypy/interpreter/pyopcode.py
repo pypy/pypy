@@ -2024,7 +2024,6 @@ def _dict_merge(space, w_dict, w_item):
         raise oefmt(space.w_RuntimeError,
                     "expected a dict, got %T", w_dict)
     assert isinstance(w_dict, W_DictMultiObject)
-    l2 = space.len_w(w_item)
     if not space.isinstance_w(w_item, space.w_dict):
         unroll_safe = False
         if not space.ismapping_w(w_item):
@@ -2032,13 +2031,14 @@ def _dict_merge(space, w_dict, w_item):
                         "argument after ** must be a mapping, not %T",
                         w_item)
     else:
+        l2 = space.len_w(w_item)
         if l1 == 0:
             update1(space, w_dict, w_item)
             return
         l2 = space.len_w(w_item)
+        if l2 == 0:
+            return
         unroll_safe = unroll_safe and jit.isvirtual(w_item) and l2 < 10
-    if l2 == 0:
-        return
     _dict_merge_loop(space, w_dict, w_item, unroll_safe)
 
 @jit.look_inside_iff(lambda space, w_dict, w_item, unroll_safe: unroll_safe)

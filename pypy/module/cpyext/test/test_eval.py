@@ -275,12 +275,54 @@ class AppTestCall(AppTestCpythonExtensionBase):
                 Py_DECREF(count);
                 return res;
              """),
-            ])
+            ("test_callnoarg", "METH_VARARGS",
+             '''
+                PyObject *func = NULL;
+                if (!PyArg_ParseTuple(args, "O", &func)) {
+                    return NULL;
+                }
+                return PyObject_CallNoArgs(func);
+            '''),
+            ("test_callonearg", "METH_VARARGS",
+             '''
+                PyObject *func = NULL, *arg = NULL;
+                if (!PyArg_ParseTuple(args, "OO", &func, &arg)) {
+                    return NULL;
+                }
+                return PyObject_CallOneArg(func, arg);
+            '''),
+            ("test_callmethod_noargs", "METH_VARARGS",
+             '''
+                PyObject *func = NULL, *arg = NULL;
+                if (!PyArg_ParseTuple(args, "OO", &func, &arg)) {
+                    return NULL;
+                }
+                return PyObject_CallMethodNoArgs(func, arg);
+            '''),
+            ("test_callmethod_onearg", "METH_VARARGS",
+             '''
+                PyObject *func = NULL, *name = NULL, *arg = NULL;
+                if (!PyArg_ParseTuple(args, "OOO", &func, &name, &arg)) {
+                    return NULL;
+                }
+                return PyObject_CallMethodOneArg(func, name, arg);
+            '''),
+        ])
 
         def f(*args):
             return args
+
+        class A():
+            def meth(self, *args):
+                return args
+
+        a = A()
         assert module.call_func(f) == (None,)
         assert module.call_method("text") == 2
+        module.test_callnoarg(f) == ()
+        module.test_callonearg(f, 4) == (4,)
+        assert module.test_callmethod_noargs(a, "meth") == ()
+        assert module.test_callmethod_onearg(a, "meth", 4) == (4,)
 
     def test_CompileString_and_Exec(self):
         import sys

@@ -279,16 +279,8 @@ class Platform(object):
         return ''
 
 if sys.platform.startswith('linux'):
-    from rpython.translator.platform.linux import Linux, LinuxPIC
-    import platform
-    # Only required on armhf and mips{,el}, not armel. But there's no way to
-    # detect armhf without shelling out
-    if (platform.architecture()[0] == '64bit'
-            or platform.machine().startswith(
-                ('arm', 'm68k', 'mips', 'parisc', 'ppc', 'sh4'))):
-        host_factory = LinuxPIC
-    else:
-        host_factory = Linux
+    from rpython.translator.platform.linux import Linux
+    host_factory = Linux
 elif sys.platform == 'darwin':
     from rpython.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC, Darwin_arm64
     import platform

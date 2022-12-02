@@ -6,11 +6,11 @@
     this module, starting from the entry point function demo(),
     use the following command line:
 
-        ../pypy/translator/goal/translate.py bpnn.py
+        python2 rpython/bin/rpython rpython/translator/goal/bpnn.py
 
     Insert '--help' before 'bpnn.py' for a list of translation options,
     or see the Overview of Command Line Options for translation at
-    http://codespeak.net/pypy/dist/pypy/doc/config/commandline.html
+    https://doc.pypy.org/en/latest/config/index.html
 """
 # Back-Propagation Neural Networks
 # 
