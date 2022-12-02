@@ -2262,6 +2262,23 @@ res=(
             "{True: 7}",
         ))
 
+    def test_match_mapping_more(self):
+        func = """
+def f(x):
+    match x:
+        case {f.x: 42}: return "self-attribute"
+        case _: return "_"
+f.x = "u"
+
+res=(
+    f({"u": 42}),
+)
+"""
+        self.st(func, "res", (
+            "self-attribute",
+        ))
+
+
     def test_match_class(self):
         func = """
 class C:

@@ -2190,7 +2190,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
             # stack = [{'x': 42, 'y': 13}]
 
-            self.load_const(self._tuple_of_consts(match_mapping.keys))
+            # mostly it's all constants, but not always, can be an Attribute
+            # too
+            w_keys = self._tuple_of_consts(match_mapping.keys)
+            if w_keys is not None:
+                self.load_const(w_keys)
+            else:
+                for key in match_mapping.keys:
+                    key.walkabout(self)
+                self.emit_op_arg(ops.BUILD_TUPLE, len(match_mapping.keys))
             # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
 
             self.emit_op(ops.MATCH_KEYS)
