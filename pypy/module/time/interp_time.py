@@ -979,6 +979,7 @@ def strftime(space, format, w_tup=None):
     Convert a time tuple to a string according to a format specification.
     See the library reference manual for formatting codes. When the time tuple
     is not present, current time as returned by localtime() is used."""
+    from rpython.rlib.rutf8 import codepoints_in_utf8
     buf_value = _gettmarg(space, w_tup)
     _checktm(space, buf_value)
 
@@ -1023,7 +1024,8 @@ def strftime(space, format, w_tup=None):
         format_for_call = rffi.utf82wcharp(format, len(format))
     else:
         try:
-            format_for_call= utf8_encode_locale_surrogateescape(format, len(format))
+            format_for_call = utf8_encode_locale_surrogateescape(
+                    format, codepoints_in_utf8(format))
         except UnicodeEncodeError:
             format_for_call = format
             passthrough = True
@@ -1045,7 +1047,6 @@ def strftime(space, format, w_tup=None):
                     if _WIN:
                         decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
                     else:
-                        from rpython.rlib.rutf8 import codepoints_in_utf8
                         result = rffi.charp2strn(outbuf, intmask(buflen))
                         if passthrough:
                             decoded = result
