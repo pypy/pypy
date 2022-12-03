@@ -1960,33 +1960,35 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         end = self.new_block()
         next = self.new_block()
-        # import pdb; pdb.set_trace()
         match.subject.walkabout(self)
-        last_index_for_dup = len(match.cases) - 1
-        # TODO: fix this optimization: do we need to check for both pattern and name?
-        # if isinstance(match.cases[-1], ast.MatchAs) and not match.cases[-1].name:
-            # last_index_for_dup -= 1
-        for i, case in enumerate(match.cases):
-            assert isinstance(case, ast.match_case)
-            if i < last_index_for_dup:
-                self.emit_op(ops.DUP_TOP)
-            case.pattern.walkabout(self)
-            # TODO: this is not the correct solution. fix this optimization
-            # if not isinstance(case.pattern, ast.MatchAs):
-            self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
-
-            if case.guard:
-                case.guard.walkabout(self)
+        with self.new_match_context() as match_context:
+            last_index_for_dup = len(match.cases) - 1
+            # TODO: fix this optimization: do we need to check for both pattern and name?
+            # if isinstance(match.cases[-1], ast.MatchAs) and not match.cases[-1].name:
+                # last_index_for_dup -= 1
+            for i, case in enumerate(match.cases):
+                # only the last case is allowed to always succeed
+                match_context.allow_always_passing = i == len(match.cases) - 1 or case.guard is not None
+                assert isinstance(case, ast.match_case)
+                if i < last_index_for_dup:
+                    self.emit_op(ops.DUP_TOP)
+                case.pattern.walkabout(self)
+                # TODO: this is not the correct solution. fix this optimization
+                # if not isinstance(case.pattern, ast.MatchAs):
                 self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
 
-            if i < last_index_for_dup:
-                self.emit_op(ops.POP_TOP)
+                if case.guard:
+                    case.guard.walkabout(self)
+                    self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
 
-            self._visit_body(case.body)
-            self.emit_jump(ops.JUMP_FORWARD, end)
-            self.use_next_block(next)
-            next = self.new_block()
-        self.use_next_block(end)
+                if i < last_index_for_dup:
+                    self.emit_op(ops.POP_TOP)
+
+                self._visit_body(case.body)
+                self.emit_jump(ops.JUMP_FORWARD, end)
+                self.use_next_block(next)
+                next = self.new_block()
+            self.use_next_block(end)
         # self.emit_op(ops.POP_TOP)
 
     def visit_MatchValue(self, match_value):
@@ -2031,6 +2033,18 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # @4: stack = [0]
             # @5: end([False])
             # @6: pop_end([1, False])
+        else:
+            # this pattern always passes, check whether that is ok
+            if not self.match_context.allow_always_passing:
+                if match_as.name:
+                    self.error(
+                        "name capture '%s' makes remaining patterns unreachable" % (
+                            match_as.name, ),
+                        match_as)
+                else:
+                    self.error(
+                        "wildcard makes remaining patterns unreachable",
+                        match_as)
 
         if not match_as.name:
             if not match_as.pattern:
@@ -2134,14 +2148,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
 
         pop = length
-        for i, pattern in enumerate(patterns):
-            if i == star_index:
-                # TODO: can use more efficient ROT versions (and even nothing
-                # sometimes)
-                self.emit_op_arg(ops.ROT_N, right + 1)
-            pattern.walkabout(self)
-            pop -= 1
-            self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_drop[pop], True)
+        with self.sub_pattern_context():
+            for i, pattern in enumerate(patterns):
+                if i == star_index:
+                    # TODO: can use more efficient ROT versions (and even nothing
+                    # sometimes)
+                    self.emit_op_arg(ops.ROT_N, right + 1)
+                pattern.walkabout(self)
+                pop -= 1
+                self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_drop[pop], True)
 
         self.load_const(self.space.w_True)
         self.emit_jump(ops.JUMP_FORWARD, end)
@@ -2216,39 +2231,40 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.POP_TOP)
             # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
 
-        for i in range(length):
-            is_last = i == length - 1
-            if not is_last:
-                self.emit_op(ops.DUP_TOP)
-                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13)]
-                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+        with self.sub_pattern_context():
+            for i in range(length):
+                is_last = i == length - 1
+                if not is_last:
+                    self.emit_op(ops.DUP_TOP)
+                    # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13)]
+                    # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
 
-            self.load_const(self.space.newint(i))
-            # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13), 0]
-            # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 1]
+                self.load_const(self.space.newint(i))
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13), 0]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 1]
 
-            self.emit_op(ops.BINARY_SUBSCR)
-            # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 42]
-            # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), 13]
+                self.emit_op(ops.BINARY_SUBSCR)
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 42]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), 13]
 
-            match_mapping.patterns[i].walkabout(self)
-            # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
-            # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), True]
+                match_mapping.patterns[i].walkabout(self)
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), True]
 
-            target = fail_2 if is_last else fail_3
-            self.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
-            # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
-            # i=1: [{'x': 42, 'y': 13}, ('x', 'y')]
+                target = fail_2 if is_last else fail_3
+                self.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y')]
 
-        if match_mapping.rest:
-            self.emit_op(ops.COPY_DICT_WITHOUT_KEYS)
-            # i=1: [{'x': 42, 'y': 13}, {}]
+            if match_mapping.rest:
+                self.emit_op(ops.COPY_DICT_WITHOUT_KEYS)
+                # i=1: [{'x': 42, 'y': 13}, {}]
 
-            self.name_op(match_mapping.rest, ast.Store, match_mapping)
-            # i=1: [{'x': 42, 'y': 13}]
-        else:
-            self.emit_op(ops.POP_TOP)
-            # i=1: [{'x': 42, 'y': 13}]
+                self.name_op(match_mapping.rest, ast.Store, match_mapping)
+                # i=1: [{'x': 42, 'y': 13}]
+            else:
+                self.emit_op(ops.POP_TOP)
+                # i=1: [{'x': 42, 'y': 13}]
 
         # expected stack at merge = [{'x': 42, 'y': 13}]
 
@@ -2281,6 +2297,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         pop_end = self.new_block()
         end = self.new_block()
+
+        # XXX needs more careful handling of allow_always_passing
 
         for i, pattern in enumerate(match_or.patterns):
             if i < len(match_or.patterns) - 1:
@@ -2340,18 +2358,19 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
 
-        for i in range(nargs + nattrs):
-            if i < nargs:
-                pattern = match_class.patterns[i]
-            else:
-                pattern = match_class.kwd_patterns[i - nargs]
-            
-            # TODO: skip if pattern is a wildcard
-            self.emit_op(ops.DUP_TOP)
-            self.load_const(self.space.newint(i))
-            self.emit_op(ops.BINARY_SUBSCR)
-            pattern.walkabout(self)
-            self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+        with self.sub_pattern_context():
+            for i in range(nargs + nattrs):
+                if i < nargs:
+                    pattern = match_class.patterns[i]
+                else:
+                    pattern = match_class.kwd_patterns[i - nargs]
+                
+                # TODO: skip if pattern is a wildcard
+                self.emit_op(ops.DUP_TOP)
+                self.load_const(self.space.newint(i))
+                self.emit_op(ops.BINARY_SUBSCR)
+                pattern.walkabout(self)
+                self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
 
         self.emit_op(ops.POP_TOP)
         self.load_const(self.space.w_True)

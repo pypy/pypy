@@ -205,6 +205,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.kwonlyargcount = 0
         self.lineno = 0
         self.add_none_to_final_return = True
+        self.match_context = None
 
     def _check_consistency(self, blocks):
         current_off = 0
@@ -307,6 +308,12 @@ class PythonCodeMaker(ast.ASTVisitor):
     def update_position(self, lineno):
         """Change the lineno for the next instructions."""
         self.lineno = lineno
+
+    def new_match_context(self):
+        return MatchContext(self)
+
+    def sub_pattern_context(self):
+        return SubMatchContext(self)
 
     def _resolve_block_targets(self, blocks):
         """Compute the arguments of jump instructions."""
@@ -543,6 +550,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                       cell_names,
                       self.compile_info.hidden_applevel)
 
+
 class DeadCode(object):
     def __init__(self, codegen):
         self.codegen = codegen
@@ -554,6 +562,34 @@ class DeadCode(object):
     def __exit__(self, *args):
         self.codegen._is_dead_code = self.old_value
 
+
+class MatchContext(object):
+    def __init__(self, codegen):
+        self.codegen = codegen
+        self.allow_always_passing = False
+
+    def __enter__(self, *args):
+        self.old_context = self.codegen.match_context
+        self.codegen.match_context = self
+        return self
+
+    def __exit__(self, *args):
+        self.codegen.match_context = self.old_context
+
+class SubMatchContext(object):
+    """ context manager for setting allow_always_passing to True and then
+    restoring the old value on leaving. """
+    def __init__(self, codegen):
+        self.codegen = codegen
+
+    def __enter__(self, *args):
+        match_context = self.codegen.match_context
+        self.old_value = match_context.allow_always_passing
+        match_context.allow_always_passing = True
+        return match_context
+
+    def __exit__(self, *args):
+        self.codegen.match_context.allow_always_passing = self.old_value
 
 
 def _list_from_dict(d, offset=0):

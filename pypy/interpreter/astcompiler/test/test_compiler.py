@@ -2348,6 +2348,13 @@ res=(
             None,
         ))
 
+    def test_match_errors(self):
+        self.error_test("""
+match x:
+    case a: pass
+    case 1: pass
+""", SyntaxError, "name capture 'a' makes remaining patterns unreachable")
+
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
