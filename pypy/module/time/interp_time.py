@@ -1021,7 +1021,8 @@ def strftime(space, format, w_tup=None):
                         raise oefmt(space.w_ValueError, "invalid format string")
                 i += 1
         # wcharp with track_allocation=True
-        format_for_call = rffi.utf82wcharp(format, len(format))
+        format_for_call = rffi.utf82wcharp(
+                    format, codepoints_in_utf8(format))
     else:
         try:
             format_for_call = utf8_encode_locale_surrogateescape(
