@@ -35,15 +35,15 @@ include:
   - A release of Apple Silicon M1 arm64 versions. This work `was sponsored`_ by
     an anonymous donor and is tested on our buildbots.
 
-  - Many improvements to the basic interpreter to make it faster
+  - Many improvements to the basic interpreter to make it 15-20% faster
 
   - The conda-forge community `has built`_ over 1000 packages for PyPy3.8 and 3.9,
     making it easier than ever to use PyPy.
 
-  - Update the packaged OpenSSL to 1.1.1s and apply applicable security fixes
-    from CPython 3.9.15 to PyPy2.7
+  - Update the packaged OpenSSL to 1.1.1s, sqlite3 to 3.39.4, and apply
+    applicable security fixes from CPython 3.9.15 to PyPy2.7
 
-  - Update the HPy_ backend in PyPy3.8 and PyPY3.9 to 0.0.4
+  - Update the HPy_ backend in PyPy3.8 and PyPy3.9 to 0.0.4
 
 We recommend updating. You can find links to download the v7.3.10 releases here:
 
@@ -56,11 +56,11 @@ it and encourage submissions to our blog_ via a pull request
 to https://github.com/pypy/pypy.org
 
 We would also like to thank our contributors and encourage new people to join
-the project. PyPy has many layers and we need help with all of them: `PyPy`_
-and `RPython`_ documentation improvements, tweaking popular modules to run
-on PyPy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from five new contributors,
-thanks for pitching in, and welcome to the project!
+the project. PyPy has many layers and we need help with all of them: bug fixes,
+`PyPy`_ and `RPython`_ documentation improvements, or general `help`_ with making
+RPython's JIT even better. Since the previous release, we have accepted
+contributions from five new contributors, thanks for pitching in, and welcome
+to the project!
 
 If you are a python library maintainer and use C-extensions, please consider
 making a HPy_ / CFFI_ / cppyy_ version of your library that would be performant
@@ -146,7 +146,7 @@ Speedups and enhancements shared across versions
 - Speed up ``dict.copy`` and ``emptydict.update(dict)``
 - Optimize list sorting to allocate memory a bit less aggressively. Seems
   to give ~10% on sorting non-tiny lists of ``ints``
-- Speed up the Python interpreter (jitted code is unchanged): auto-generate
+- Speed up the Python interpreter (jitted code is unchanged) by auto-generating
   rpython-level shortcut methods for many special methods. This speeds up the
   interpreter greatly because we don't need to lookup the special method and
   don't need to go through the general call machinery at all. The effect is
@@ -347,7 +347,7 @@ Python 3.9+ bugfixes
 - Fix first line number of ``eval`` to be reported as 0 (issue 3800_)
 - Implement ``bitcount`` for ints
 - Check when unmarshalling ``TYPE_SHORT_ASCII`` that non-ascii bytes are not present
-- Fix CVE-2022-42919 as CPython did in cpython-97514_
+- Fix CVE-2022-42919 (str -> int parsing) as CPython did in cpython-97514_
 - Fix ``DICT_MERGE`` bytecode with objects that aren't dicts and don't implement
   ``__len__`` (issue 3841_)
 
