@@ -83,6 +83,12 @@ def_op('BINARY_TRUE_DIVIDE', 27)
 def_op('INPLACE_FLOOR_DIVIDE', 28)
 def_op('INPLACE_TRUE_DIVIDE', 29)
 
+def_op('GET_LEN', 30)
+def_op('MATCH_MAPPING', 31)
+def_op('MATCH_SEQUENCE', 32)
+def_op('MATCH_KEYS', 33)
+def_op('COPY_DICT_WITHOUT_KEYS', 34)
+
 def_op('RERAISE', 48)
 def_op('WITH_EXCEPT_START', 49)
 def_op('GET_AITER', 50)
@@ -115,8 +121,6 @@ def_op('INPLACE_RSHIFT', 76)
 def_op('INPLACE_AND', 77)
 def_op('INPLACE_XOR', 78)
 def_op('INPLACE_OR', 79)
-def_op('WITH_CLEANUP_START', 80)
-def_op('WITH_CLEANUP_FINISH', 81)
 
 def_op('LIST_TO_TUPLE', 82)
 
@@ -138,6 +142,7 @@ name_op('STORE_ATTR', 95)       # Index in name list
 name_op('DELETE_ATTR', 96)      # ""
 name_op('STORE_GLOBAL', 97)     # ""
 name_op('DELETE_GLOBAL', 98)    # ""
+def_op('ROT_N', 99)
 def_op('LOAD_CONST', 100)       # Index in const list
 hasconst.append(100)
 name_op('LOAD_NAME', 101)       # Index in name list
@@ -201,6 +206,8 @@ hasfree.append(148)
 
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
+
+def_op('MATCH_CLASS', 152)
 
 jrel_op('SETUP_ASYNC_WITH', 154)
 

@@ -1327,14 +1327,12 @@ class __extend__(pyframe.PyFrame):
                 operr.get_w_value(self.space),
                 w_traceback)
         else:
-            #import pdb; pdb.set_trace()
             assert 0
         self.pushvalue(w_res)
 
     def RERAISE(self, jumpby, next_instr):
         unroller = self.popvalue()
         if not isinstance(unroller, SApplicationException):
-            #import pdb; pdb.set_trace()
             assert 0
         block = self.unrollstack()
         if block is None:
@@ -1762,8 +1760,9 @@ class __extend__(pyframe.PyFrame):
             i = 0
             while True:
                 w_key = self.space.next(w_iter)
-                if self.space.contains_w(w_dict, w_key):
-                    values_w[i] = self.space.getitem(w_dict, w_key)
+                w_value = self.space.call_method(w_dict, 'get', w_key, self.space.w_None)
+                if not self.space.is_w(w_value, self.space.w_None):
+                    values_w[i] = w_value
                 else:
                     self.pushvalue(self.space.w_None)
                     self.pushvalue(self.space.w_False)
