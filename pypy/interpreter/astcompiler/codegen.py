@@ -2200,51 +2200,55 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     key.walkabout(self)
                 self.emit_op_arg(ops.BUILD_TUPLE, len(match_mapping.keys))
             # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
+        else:
+            length = 0
+            w_keys = self.space.newtuple([])
+            self.load_const(w_keys)
 
-            self.emit_op(ops.MATCH_KEYS)
-            # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
+        self.emit_op(ops.MATCH_KEYS)
+        # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
 
-            self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_3, True)
-            # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_3, True)
+        # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
 
-            if not length:
-                # drop values if there are no patterns to match against
-                self.emit_op(ops.POP_TOP)
-                # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
+        if not length:
+            # drop values if there are no patterns to match against
+            self.emit_op(ops.POP_TOP)
+            # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
 
-            for i in range(length):
-                is_last = i == length - 1
-                if not is_last:
-                    self.emit_op(ops.DUP_TOP)
-                    # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13)]
-                    # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+        for i in range(length):
+            is_last = i == length - 1
+            if not is_last:
+                self.emit_op(ops.DUP_TOP)
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13)]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
 
-                self.load_const(self.space.newint(i))
-                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13), 0]
-                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 1]
+            self.load_const(self.space.newint(i))
+            # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13), 0]
+            # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 1]
 
-                self.emit_op(ops.BINARY_SUBSCR)
-                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 42]
-                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), 13]
+            self.emit_op(ops.BINARY_SUBSCR)
+            # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 42]
+            # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), 13]
 
-                match_mapping.patterns[i].walkabout(self)
-                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
-                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), True]
+            match_mapping.patterns[i].walkabout(self)
+            # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
+            # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), True]
 
-                target = fail_2 if is_last else fail_3
-                self.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
-                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
-                # i=1: [{'x': 42, 'y': 13}, ('x', 'y')]
+            target = fail_2 if is_last else fail_3
+            self.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
+            # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+            # i=1: [{'x': 42, 'y': 13}, ('x', 'y')]
 
-            if match_mapping.rest:
-                self.emit_op(ops.COPY_DICT_WITHOUT_KEYS)
-                # i=1: [{'x': 42, 'y': 13}, {}]
+        if match_mapping.rest:
+            self.emit_op(ops.COPY_DICT_WITHOUT_KEYS)
+            # i=1: [{'x': 42, 'y': 13}, {}]
 
-                self.name_op(match_mapping.rest, ast.Store, match_mapping)
-                # i=1: [{'x': 42, 'y': 13}]
-            else:
-                self.emit_op(ops.POP_TOP)
-                # i=1: [{'x': 42, 'y': 13}]
+            self.name_op(match_mapping.rest, ast.Store, match_mapping)
+            # i=1: [{'x': 42, 'y': 13}]
+        else:
+            self.emit_op(ops.POP_TOP)
+            # i=1: [{'x': 42, 'y': 13}]
 
         # expected stack at merge = [{'x': 42, 'y': 13}]
 
