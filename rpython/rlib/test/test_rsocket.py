@@ -774,3 +774,12 @@ def test_sethostname():
     with pytest.raises(CSocketError) as e:
         sethostname(s)
     assert e.value.errno == errno.EPERM
+
+@pytest.mark.skipif(sys.platform == "linux",
+        reason='this behaviour of MSG_TRUNC is linux specific')
+def test_msg_trunc_weirdness_linux():
+    import socket
+    (a, b) = socketpair(rsocket.AF_UNIX, rsocket.SOCK_DGRAM)
+    a.send(b'abcdefgh')
+    result = b.recv(2, socket.MSG_TRUNC)
+    assert result == b'ab'
