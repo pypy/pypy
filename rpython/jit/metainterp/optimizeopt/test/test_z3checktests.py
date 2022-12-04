@@ -7,7 +7,7 @@ import pytest
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    BaseTest, convert_old_style_to_targets)
+    BaseTest, convert_old_style_to_targets, FakeJitDriverStaticData)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeintbound import (
     TestOptimizeIntBounds as TOptimizeIntBounds)
 from rpython.jit.metainterp import compile
@@ -369,7 +369,8 @@ class BaseCheckZ3(BaseTest):
             trace, call_pure_results=call_pure_results,
             enable_opts=self.enable_opts)
         compile_data.forget_optimization_info = lambda *args, **kwargs: None
-        info, ops = compile_data.optimize_trace(self.metainterp_sd, None, {})
+        jitdriver_sd = FakeJitDriverStaticData()
+        info, ops = compile_data.optimize_trace(self.metainterp_sd, jitdriver_sd, {})
         beforeinputargs, beforeops = trace.unpack()
         # check that the generated trace is correct
         check_z3(beforeinputargs, beforeops, info.inputargs, ops)
@@ -518,7 +519,8 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
         compile_data = compile.SimpleCompileData(
             trace, call_pure_results=self._convert_call_pure_results(getattr(loop.builder, 'call_pure_results', None)),
             enable_opts=self.enable_opts)
-        info, ops = compile_data.optimize_trace(self.metainterp_sd, None, {})
+        jitdriver_sd = FakeJitDriverStaticData()
+        info, ops = compile_data.optimize_trace(self.metainterp_sd, jitdriver_sd, {})
         print info.inputargs
         for op in ops:
             print op
