@@ -55,8 +55,17 @@ def test_const_pointer_type():
     ptr_type = ConstPointerType(PrimitiveType("int"))
     assert ptr_type.get_c_name("x") == "int const * x"
     ptr_type = ConstPointerType(ArrayType(PrimitiveType("int"), 5))
-    assert ptr_type.get_c_name("") == "int(const *)[5]"
-    assert ptr_type.get_c_name("*x") == "int(const * *x)[5]"
+    assert ptr_type.get_c_name("") == "int const (*)[5]"
+    assert ptr_type.get_c_name("*x") == "int const (* *x)[5]"
+    ptr_type = ConstPointerType(ArrayType(
+        ConstPointerType(PrimitiveType("int")), 5))
+    assert ptr_type.get_c_name("x") == "int const * const (* x)[5]"
+    ptr_type = PointerType(ArrayType(
+        ConstPointerType(PrimitiveType("int")), 5))
+    assert ptr_type.get_c_name("x") == "int const *(* x)[5]"
+    ptr_type = ConstPointerType(ArrayType(
+        PointerType(PrimitiveType("int")), 5))
+    assert ptr_type.get_c_name("x") == "int * const (* x)[5]"
 
 def test_qual_pointer_type():
     ptr_type = PointerType(PrimitiveType("long long"), Q_RESTRICT)

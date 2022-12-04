@@ -59,16 +59,15 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    # 1.1.1q is released but does not build on darwin https://github.com/openssl/openssl/issues/18720
-    '_ssl1': ('http://artfiles.org/openssl.org/source/old/1.1.1/openssl-1.1.1p.tar.gz',
-             'bf61b62aaa66c7c7639942a94de4c9ae8280c08f17d4eac2e44644d9fc8ace6f',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1s.tar.gz',
+             'c5ac01e760ee6ff0dab61d6b2bbd30146724d063eb322180c6f18a6f74e4b6aa',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.5.tar.gz',
-              'aa7d8d9bef71ad6525c55ba11e5f4397889ce49c2c9349dcea6d3e4f0b024a7a',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.7.tar.gz',
+              '83049d042a260e696f62406ac5c08bf706fd84383f945cf21bd61e9ed95c396e',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],

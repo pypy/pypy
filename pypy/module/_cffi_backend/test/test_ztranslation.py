@@ -1,3 +1,4 @@
+import pytest
 from pypy.objspace.fake.checkmodule import checkmodule
 from pypy.module._cffi_backend import ctypeptr
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -7,6 +8,7 @@ from pypy.module._cffi_backend import misc
 from pypy.module._cffi_backend import embedding
 
 
+@pytest.mark.skip(reason="Requires too much space emulation")
 def test_checkmodule():
     # prepare_file_argument() is not working without translating the _file
     # module too
