@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import pytest
 import sys
 from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
@@ -250,14 +252,24 @@ class AppTestTime:
 
     def test_mktime_overflow(self):
         import time
-        MAX_YEAR = (1 << 31) - 1
-        MIN_YEAR = -(1 << 31) + 1900
+        import sys
+        if sys.platform == 'win32':
+            # on windows, mktime will convert to utc and the upper
+            # bound is 23:59:59 Dec 21, 3000. So in order to be sure
+            # to exceed the limit everywhere, add 2 years
+            MAX_YEAR = 3000
+            DELTA = 2
+            MIN_YEAR = 1971
+        else:
+            MAX_YEAR = (1 << 31) - 1
+            DELTA = 1
+            MIN_YEAR = -(1 << 31) + 1900
         time.mktime((MAX_YEAR,) + (0,) * 8)  # doesn't raise
         with raises(OverflowError):
-            time.mktime((MAX_YEAR + 1,) + (0,) * 8)
+            time.mktime((MAX_YEAR + DELTA,) + (0,) * 8)
         time.mktime((MIN_YEAR,) + (0,) * 8)  # doesn't raise
         with raises(OverflowError):
-            time.mktime((MIN_YEAR - 1,) + (0,) * 8)
+            time.mktime((MIN_YEAR - DELTA,) + (0,) * 8)
 
     def test_asctime(self):
         import time
@@ -415,11 +427,9 @@ class AppTestTime:
         raises(TypeError, time.strftime, (1,))
         raises(TypeError, time.strftime, range(8))
 
-        # Guard against invalid/non-supported format string
-        # so that Python don't crash (Windows crashes when the format string
-        # input to [w]strftime is not kosher.
         if os.name == 'nt':
             raises(ValueError, time.strftime, '%f')
+            # windows must have year stricly > 0
             return
         elif sys.platform == 'darwin' or 'bsd' in sys.platform:
             # darwin strips % of unknown format codes
@@ -518,6 +528,12 @@ class AppTestTime:
             expected = u'76\ud80002'
             print(len(res), len(expected))
             assert res == u'76\ud80002' 
+
+    def test_strftime_unicode(self):
+        import time
+        s = u"ððððððððððððððððððððððð꿀"
+        res = time.strftime(u"%D" + s, time.localtime(192039127))
+        assert res.endswith(s)
 
     def test_strptime(self):
         import time

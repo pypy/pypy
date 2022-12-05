@@ -147,8 +147,9 @@ def _checkfile(path, fname):
 def compute_stdlib_path_packaged(state, platlibdir, prefix):
     """
     Compute the paths for the stdlib rooted at ``prefix``. ``prefix``
-    must at least contain a directory called ``lib/pypyX.Y``.
-    If it cannot be found, it raises OSError. This version is called first, for
+    must at least contain a directory called ``lib/pypyX.Y`` (``Lib`` on
+    windows), and there must be a site.py in that directory.  If it cannot
+    be found, it raises OSError. This version is called first, and handles
     packaged PyPy.
     """
     from pypy.module.sys.version import CPYTHON_VERSION
@@ -171,9 +172,9 @@ def compute_stdlib_path_packaged(state, platlibdir, prefix):
 def compute_stdlib_path_sourcetree(state, platlibdir, prefix):
     """
     Compute the paths for the stdlib rooted at ``prefix``. ``prefix``
-    must at least contain a directory called ``lib-python/X.Y`` and
-    another one called ``lib_pypy``. If they cannot be found, it raises
-    OSError. This version is called if compute_stdlib_path_packaged fails.
+    must at least contain a directory called ``lib-python/X.Y``. If it
+    cannot be found, it raises OSError. This version is called if
+    compute_stdlib_path_packaged fails.
     """
     from pypy.module.sys.version import CPYTHON_VERSION
     lib_pyzip = os.path.join(prefix, 'python%d%d.zip' % CPYTHON_VERSION[:2])

@@ -397,10 +397,13 @@ if _WIN:
                             rffi.INT, win_eci, calling_conv='c')
 
 if _WIN:
-    c_strftime = external('wcsftime', [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, TM_P],
-                      rffi.SIZE_T)
+    c_strftime = external('wcsftime',
+                      [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, TM_P],
+                      rffi.SIZE_T,
+                      save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 else:
-    c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
+    c_strftime = external('strftime',
+                      [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
 
 def _init_timezone(space):
@@ -979,6 +982,7 @@ def strftime(space, format, w_tup=None):
     Convert a time tuple to a string according to a format specification.
     See the library reference manual for formatting codes. When the time tuple
     is not present, current time as returned by localtime() is used."""
+    from rpython.rlib.rutf8 import codepoints_in_utf8
     buf_value = _gettmarg(space, w_tup)
     _checktm(space, buf_value)
 
@@ -999,31 +1003,13 @@ def strftime(space, format, w_tup=None):
         if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
             raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
      
-        if not we_are_translated():
-            # We use this pre-call check since, when untranslated, since the host
-            # python and the c_strftime use different runtimes, and the c_strftime
-            # call goes through the ctypes call of the host python's runtime, which
-            # can be different than the translated runtime
-
-            # Remove this when we no longer allow msvcrt9
-            fmts = "aAbBcdHIjmMpSUwWxXyYzZ%"
-            length = len(format)
-            i = 0
-            while i < length:
-                if format[i] == '%':
-                    i += 1
-                    if i < length and format[i] == '#':
-                        # not documented by python
-                        i += 1
-                    # Assume visual studio 2015
-                    if i >= length or format[i] not in fmts:
-                        raise oefmt(space.w_ValueError, "invalid format string")
-                i += 1
         # wcharp with track_allocation=True
-        format_for_call = rffi.utf82wcharp(format, len(format))
+        format_for_call = rffi.utf82wcharp(
+                    format, codepoints_in_utf8(format))
     else:
         try:
-            format_for_call= utf8_encode_locale_surrogateescape(format, len(format))
+            format_for_call = utf8_encode_locale_surrogateescape(
+                    format, codepoints_in_utf8(format))
         except UnicodeEncodeError:
             format_for_call = format
             passthrough = True
@@ -1036,6 +1022,8 @@ def strftime(space, format, w_tup=None):
             try:
                 with rposix.SuppressIPH():
                     buflen = c_strftime(outbuf, i, format_for_call, buf_value)
+                if _WIN and buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
+                    raise oefmt(space.w_ValueError, "invalid format string")
                 if buflen > 0 or i >= 256 * len(format):
                     # if the buffer is 256 times as long as the format,
                     # it's probably not failing for lack of room!
@@ -1045,7 +1033,6 @@ def strftime(space, format, w_tup=None):
                     if _WIN:
                         decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
                     else:
-                        from rpython.rlib.rutf8 import codepoints_in_utf8
                         result = rffi.charp2strn(outbuf, intmask(buflen))
                         if passthrough:
                             decoded = result
@@ -1053,8 +1040,6 @@ def strftime(space, format, w_tup=None):
                         else:
                             decoded, size = str_decode_locale_surrogateescape(result)
                     return space.newutf8(decoded, size)
-                if buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
-                    raise oefmt(space.w_ValueError, "invalid format string")
             finally:
                 lltype.free(outbuf, flavor='raw')
             i += i
