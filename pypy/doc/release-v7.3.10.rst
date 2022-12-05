@@ -138,6 +138,7 @@ Bugfixes shared across versions
 - Implement the ``.description`` attribute of sqlite3 cursors more carefully
   (issue 3840_)
 - Always use ``-fPIC`` when building shared objects on linux platforms
+- Fix ``MSG_TRUNC`` socket weirdness on linux (issue 3864_)
 
 Speedups and enhancements shared across versions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -293,6 +294,10 @@ Python 3.8+ bugfixes
 - Check cursor lock in sqlite3 ``Cursor.close``, also lock around ``__fetch_one_row``
 - Implement ``os.get_native_thread``
 - Fix setting a slice in a ``memoryview`` with non-unit strides (issue 3857_)
+- Fix the ``__copy__`` optimization of ``itertools.tee``, which was copying the
+  iterable, not the iterator (issue 3852_)
+- Fix ``time.strftime`` when the ``format`` contains unicode (issue 3862_)
+- Fix ``time.strftime`` formatting on windows
 
 Python 3.8+ speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -350,6 +355,8 @@ Python 3.9+ bugfixes
 - Fix CVE-2022-42919 (str -> int parsing) as CPython did in cpython-97514_
 - Fix ``DICT_MERGE`` bytecode with objects that aren't dicts and don't implement
   ``__len__`` (issue 3841_)
+- Remove redundant pure-python ``_functools.py`` (issue 3861_)
+- Fix pure-python ``functools.py`` from CPython (CPython uses a c-extension)
 
 Python 3.9+ speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -414,8 +421,12 @@ Python 3.9+ C-API
 .. _3746: https://foss.heptapod.net/pypy/pypy/-/issues/3746
 .. _3669: https://foss.heptapod.net/pypy/pypy/-/issues/3669
 .. _3845: https://foss.heptapod.net/pypy/pypy/-/issues/3845
+.. _3852: https://foss.heptapod.net/pypy/pypy/-/issues/3852
 .. _3854: https://foss.heptapod.net/pypy/pypy/-/issues/3854
 .. _3859: https://foss.heptapod.net/pypy/pypy/-/issues/3859
+.. _3861: https://foss.heptapod.net/pypy/pypy/-/issues/3861
+.. _3862: https://foss.heptapod.net/pypy/pypy/-/issues/3862
+.. _3864: https://foss.heptapod.net/pypy/pypy/-/issues/3864
 .. _bpo34953: https://bugs.python.org/issue34953
 .. _cpython-91851: https://github.com/python/cpython/issues/91851
 .. _cpython-97514: https://github.com/python/cpython/issues/97514
