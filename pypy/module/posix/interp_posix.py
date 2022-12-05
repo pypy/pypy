@@ -548,10 +548,15 @@ def build_stat_result(space, st):
             try:
                 value = getattr(st, name)
             except AttributeError:
-                # untranslated, there is no nsec_Xtime attribute
-                assert name.startswith('nsec_')
-                value = rposix_stat.get_stat_ns_as_bigint(st, name[5:])
-                value = value.tolong() % 1000000000
+                if name.startswith('nsec_'):
+                    # nsec_Xtime attribute
+                    value = rposix_stat.get_stat_ns_as_bigint(st, name[5:])
+                    value = value.tolong() % 1000000000
+                elif name.startswith('st_'):
+                    # st_ attributes on windows
+                    pass
+                else:
+                    assert False
             w_value = space.newint(value)
             w_result.setdictvalue(space, name, w_value)
 
