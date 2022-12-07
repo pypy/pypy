@@ -1968,8 +1968,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # last_index_for_dup -= 1
             for i, case in enumerate(match.cases):
                 # only the last case is allowed to always succeed
-                match_context.allow_always_passing = i == len(match.cases) - 1 or case.guard is not None
                 assert isinstance(case, ast.match_case)
+                match_context.allow_always_passing = i == len(match.cases) - 1 or case.guard is not None
                 if i < last_index_for_dup:
                     self.emit_op(ops.DUP_TOP)
                 case.pattern.walkabout(self)
