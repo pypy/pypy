@@ -59,7 +59,7 @@ del ver, version_info, status, patch, fix, minor, major
 HAS_ECDH = True
 HAS_SNI = bool(lib.Cryptography_HAS_TLSEXT_HOSTNAME)
 HAS_ALPN = bool(lib.Cryptography_HAS_ALPN)
-HAS_NPN = bool(lib.OPENSSL_NPN_NEGOTIATED)
+HAS_NPN = False
 HAS_CTRL_GET_MAX_PROTO_VERSION = bool(lib.Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION)
 HAS_TLS_UNIQUE = True
 
