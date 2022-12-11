@@ -53,6 +53,7 @@ else:
     build_time_vars['LDLIBRARY'] = 'libpypy3-c.so'
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include', 'pypy' + pydot)
     build_time_vars['LIBDIR'] = os.path.join(mybase, 'bin')
+    build_time_vars['CONFINCLUDEPY'] = build_time_vars['INCLUDEPY']
 
 if which("gcc"):
     build_time_vars.update({
