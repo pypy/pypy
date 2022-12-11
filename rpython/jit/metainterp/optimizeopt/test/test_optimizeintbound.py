@@ -1970,7 +1970,17 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_pure_ovf_bug(self):
+    def test_pure_ovf_bug_simple(self):
+        ops = """
+        [i1, i2]
+        i3 = int_add(i2, i1)
+        i4 = int_add_ovf(i2, i1)
+        guard_no_overflow() []
+        jump(i4)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_pure_ovf_bug_with_replacement(self):
         ops = """
         [i1, i2]
         i3 = int_add(i2, i1)
@@ -1979,6 +1989,44 @@ class TestOptimizeIntBounds(BaseTestBasic):
         jump(i4)
         """
         self.optimize_loop(ops, ops)
+
+    @pytest.mark.xfail() # this test is wrong! it fails in Z3
+    def test_pure_ovf_bug_with_arithmetic_rewrites(self):
+        ops = """
+        [i1, i2]
+        i3 = int_add_ovf(i1, i2)
+        guard_no_overflow() []
+        i4 = int_sub_ovf(i3, i2)
+        guard_no_overflow() []
+        jump(i4)
+        """
+        result = """
+        [i1, i2]
+        i3 = int_add_ovf(i1, i2)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        self.optimize_loop(ops, result)
+
+    @pytest.mark.xfail() # this test is wrong! it fails in Z3
+    def test_pure_ovf_bug_with_replacement(self):
+        ops = """
+        [i0, i1, i10, i11]
+        i2 = int_sub_ovf(i0, i1)
+        guard_no_overflow() []
+        i3 = int_add(i2, i11)
+        i4 = int_sub_ovf(i3, i11)
+        guard_no_overflow() []
+        jump(i4)
+        """
+        result = """
+        [i0, i1, i10, i11]
+        i2 = int_sub_ovf(i0, i1)
+        guard_no_overflow() []
+        i3 = int_add(i2, i11)
+        jump(i2)
+        """
+        self.optimize_loop(ops, result)
 
     def test_intdiv_bounds(self):
         ops = """
