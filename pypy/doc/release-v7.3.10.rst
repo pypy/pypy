@@ -3,7 +3,7 @@ PyPy v7.3.10: release of python 2.7, 3.8, and 3.9
 =================================================
 
 ..
-       Changelog up to commit 2f9532a1155e
+       Changelog up to commit a702b2c7e76f
 
 .. note_::
   This is a pre-release announcement. When the release actually happens, it
