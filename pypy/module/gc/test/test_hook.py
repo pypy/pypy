@@ -20,9 +20,9 @@ class AppTestGcHooks(object):
         def fire_gc_collect_step(space, duration, oldstate, newstate):
             gchooks.fire_gc_collect_step(duration, oldstate, newstate)
 
-        @unwrap_spec(ObjSpace, int, int, int, r_uint, r_uint, r_uint)
-        def fire_gc_collect(space, a, b, c, d, e, f):
-            gchooks.fire_gc_collect(a, b, c, d, e, f)
+        @unwrap_spec(ObjSpace, int, int, int, r_uint, r_uint, r_uint, r_uint)
+        def fire_gc_collect(space, a, b, c, d, e, f, g):
+            gchooks.fire_gc_collect(a, b, c, d, e, f, g)
 
         @unwrap_spec(ObjSpace)
         def fire_many(space):
@@ -31,7 +31,7 @@ class AppTestGcHooks(object):
             gchooks.fire_gc_collect_step(5.0, 0, 0)
             gchooks.fire_gc_collect_step(15.0, 0, 0)
             gchooks.fire_gc_collect_step(22.0, 0, 0)
-            gchooks.fire_gc_collect(1, 2, 3, 4, 5, 6)
+            gchooks.fire_gc_collect(1, 2, 3, 4, 5, 6, 7)
 
         cls.w_fire_gc_minor = space.wrap(interp2app(fire_gc_minor))
         cls.w_fire_gc_collect_step = space.wrap(interp2app(fire_gc_collect_step))
@@ -103,20 +103,21 @@ class AppTestGcHooks(object):
                         stats.arenas_count_after,
                         stats.arenas_bytes,
                         stats.rawmalloc_bytes_before,
-                        stats.rawmalloc_bytes_after))
+                        stats.rawmalloc_bytes_after,
+                        stats.pinned_objects))
         gc.hooks.on_gc_collect = on_gc_collect
-        self.fire_gc_collect(1, 2, 3, 4, 5, 6)
-        self.fire_gc_collect(7, 8, 9, 10, 11, 12)
+        self.fire_gc_collect(1, 2, 3, 4, 5, 6, 20)
+        self.fire_gc_collect(7, 8, 9, 10, 11, 12, 21)
         assert lst == [
-            (1, 1, 2, 3, 4, 5, 6),
-            (1, 7, 8, 9, 10, 11, 12),
+            (1, 1, 2, 3, 4, 5, 6, 20),
+            (1, 7, 8, 9, 10, 11, 12, 21),
             ]
         #
         gc.hooks.on_gc_collect = None
-        self.fire_gc_collect(42, 42, 42, 42, 42, 42)  # won't fire
+        self.fire_gc_collect(42, 42, 42, 42, 42, 42, 43)  # won't fire
         assert lst == [
-            (1, 1, 2, 3, 4, 5, 6),
-            (1, 7, 8, 9, 10, 11, 12),
+            (1, 1, 2, 3, 4, 5, 6, 20),
+            (1, 7, 8, 9, 10, 11, 12, 21),
             ]
 
     def test_consts(self):

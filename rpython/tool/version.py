@@ -33,8 +33,16 @@ def get_repo_version_info(hgexe=None, root=rpythonroot):
 def _get_repo_version_info(hgexe, root):
     # Try to see if we can get info from Git if hgexe is not specified.
     if not hgexe:
-        if os.path.isdir(os.path.join(root, '.git')):
+        gitfile =  os.path.join(root, '.git')
+        if os.path.isdir(gitfile):
             return _get_git_version(root)
+        elif os.path.exists(gitfile):
+            # Can be a file with a relative path like
+            # gitdir: ../.git/modules/pypy
+            with open(gitfile) as fid:
+                contents = fid.read()
+                if contents.startswith('gitdir:'):
+                    return _get_git_version(root)
 
     # Fallback to trying Mercurial.
     if hgexe is None:
@@ -129,13 +137,15 @@ def _get_git_version(root):
             )
         if p.wait() != 0:
             maywarn(p.stderr.read(), 'Git')
-            return '?', revision_id
+            return 'pypy-HEAD', revision_id
         branch = '?'
         for line in p.stdout.read().strip().split('\n'):
             if line.startswith('* '):
                 branch = line[1:].strip()
                 if branch == '(no branch)':
-                    branch = '?'
+                    branch = 'pypy-HEAD'
+                if branch.startswith("(HEAD detached"):
+                    branch = 'pypy-HEAD'
                 break
         return branch, revision_id
     return p.stdout.read().strip(), revision_id

@@ -30,7 +30,7 @@ def _get_aia_uri(certificate, nid):
     if (info == ffi.NULL):
         return None;
     if lib.sk_ACCESS_DESCRIPTION_num(info) == 0:
-        lib.sk_ACCESS_DESCRIPTION_free(info)
+        lib.AUTHORITY_INFO_ACCESS_free(info)
         return None
 
     lst = []
@@ -44,7 +44,7 @@ def _get_aia_uri(certificate, nid):
         uri = ad.location.d.uniformResourceIdentifier
         ostr = _str_with_len(uri.data, uri.length)
         lst.append(ostr)
-    lib.sk_ACCESS_DESCRIPTION_free(info)
+    lib.AUTHORITY_INFO_ACCESS_free(info)
 
     # convert to tuple or None
     if len(lst) == 0: return None
@@ -301,8 +301,7 @@ def _get_crl_dp(certificate):
             ouri = _str_with_len(uri.data, uri.length)
             lst.append(ouri)
 
-    if lib.OPENSSL_VERSION_NUMBER < 0x10001000:
-        lib.sk_DIST_POINT_free(dps);
+    lib.CRL_DIST_POINTS_free(dps);
 
     if len(lst) == 0: return None
     return tuple(lst)
