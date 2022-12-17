@@ -184,6 +184,7 @@ typedef void (*sk_GENERAL_NAME_freefunc)(GENERAL_NAME *);
 typedef void (*sk_DIST_POINT_freefunc)(DIST_POINT *);
 typedef void (*sk_POLICYINFO_freefunc)(POLICYINFO *);
 typedef void (*sk_ACCESS_DESCRIPTION_freefunc)(ACCESS_DESCRIPTION *);
+typedef ... AUTHORITY_INFO_ACCESS;
 """
 
 
@@ -315,6 +316,7 @@ void GENERAL_NAME_free(GENERAL_NAME *);
 
 ISSUING_DIST_POINT *ISSUING_DIST_POINT_new(void);
 void ISSUING_DIST_POINT_free(ISSUING_DIST_POINT *);
+void AUTHORITY_INFO_ACCESS_free(AUTHORITY_INFO_ACCESS *);
 """
 
 CUSTOMIZATIONS = """
