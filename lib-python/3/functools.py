@@ -283,10 +283,12 @@ class partial:
         if not callable(func):
             raise TypeError("the first argument must be callable")
 
-        if hasattr(func, "func") and isinstance(func, partial): 
-                args = func.args + args
-                keywords = {**func.keywords, **keywords}
-                func = func.func
+        # PyPy modification: the isinstance check is missing in cpython, see
+        # GH-100242
+        if isinstance(func, partial) and hasattr(func, "func"):
+            args = func.args + args
+            keywords = {**func.keywords, **keywords}
+            func = func.func
 
         self = super(partial, cls).__new__(cls)
 

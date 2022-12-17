@@ -40,12 +40,12 @@ class GcHooks(object):
     def on_gc_collect(self, num_major_collects,
                       arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
-                      rawmalloc_bytes_after):
+                      rawmalloc_bytes_after, pinned_after):
         """
         Called after a major collection is fully done
         """
 
-    # the fire_* methods are meant to be called from the GC are should NOT be
+    # the fire_* methods are meant to be called from the GC and should NOT be
     # overridden
 
     @rgc.no_collect
@@ -62,9 +62,9 @@ class GcHooks(object):
     def fire_gc_collect(self, num_major_collects,
                         arenas_count_before, arenas_count_after,
                         arenas_bytes, rawmalloc_bytes_before,
-                        rawmalloc_bytes_after):
+                        rawmalloc_bytes_after, pinned_objects):
         if self.is_gc_collect_enabled():
             self.on_gc_collect(num_major_collects,
                                arenas_count_before, arenas_count_after,
                                arenas_bytes, rawmalloc_bytes_before,
-                               rawmalloc_bytes_after)
+                               rawmalloc_bytes_after, pinned_objects)

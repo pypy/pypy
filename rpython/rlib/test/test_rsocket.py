@@ -775,7 +775,7 @@ def test_sethostname():
         sethostname(s)
     assert e.value.errno == errno.EPERM
 
-@pytest.mark.skipif(sys.platform == "linux",
+@pytest.mark.skipif(sys.platform != "linux",
         reason='this behaviour of MSG_TRUNC is linux specific')
 def test_msg_trunc_weirdness_linux():
     import socket
