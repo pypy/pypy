@@ -42,14 +42,16 @@ class MyGcHooks(GcHooks):
     def on_gc_collect(self, num_major_collects,
                       arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
-                      rawmalloc_bytes_after):
+                      rawmalloc_bytes_after, pinned_objects):
         self.collects.append({
             'num_major_collects': num_major_collects,
             'arenas_count_before': arenas_count_before,
             'arenas_count_after': arenas_count_after,
             'arenas_bytes': arenas_bytes,
             'rawmalloc_bytes_before': rawmalloc_bytes_before,
-            'rawmalloc_bytes_after': rawmalloc_bytes_after})
+            'rawmalloc_bytes_after': rawmalloc_bytes_after,
+            'pinned_objects': pinned_objects,
+        })
 
 
 class TestIncMiniMarkHooks(BaseDirectGCTest):
@@ -99,7 +101,9 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
              'arenas_count_after': 0,
              'arenas_bytes': 0,
              'rawmalloc_bytes_after': 0,
-             'rawmalloc_bytes_before': 0}
+             'rawmalloc_bytes_before': 0,
+             'pinned_objects': 0,
+            }
             ]
         assert len(self.gc.hooks.durations) == 4 # 4 steps
         for d in self.gc.hooks.durations:
@@ -114,7 +118,9 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
              'arenas_count_after': 1,
              'arenas_bytes': self.size_of_S,
              'rawmalloc_bytes_after': 0,
-             'rawmalloc_bytes_before': 0}
+             'rawmalloc_bytes_before': 0,
+             'pinned_objects': 0,
+            }
             ]
 
     def test_hook_disabled(self):

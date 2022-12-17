@@ -13,8 +13,8 @@ Incminimark first allocates objects in so called *nursery* - place for young
 objects, where allocation is very cheap, being just a pointer bump. The nursery
 size is a very crucial variable - depending on your workload (one or many
 processes) and cache sizes you might want to experiment with it via
-*PYPY_GC_NURSERY* environment variable. When the nursery is full, there is
-performed a minor collection. Freed objects are no longer referencable and
+*PYPY_GC_NURSERY* environment variable. When the nursery is full, a minor
+collection is performed. Freed objects are no longer referencable and
 just die, just by not being referenced any more; on the other hand, objects
 found to still be alive must survive and are copied from the nursery
 to the old generation. Either to arenas, which are collections
@@ -259,6 +259,9 @@ The attributes for ``GcCollectStats`` in the ``on_gc_collect`` hook are:
 ``rawmalloc_bytes_before``, ``rawmalloc_bytes_after``
     Total number of bytes used by raw-malloced objects, before and after the
     major collection.
+
+``pinned_objects``
+    the number of pinned objects.
 
 Note that ``GcCollectStats`` does **not** have a ``duration`` field. This is
 because all the GC work is done inside ``gc-collect-step``:
