@@ -160,6 +160,24 @@ class TestFFI(backend_tests.BackendTests,
         assert p.bcd == 9999999
         assert p.foo.data[3] != 78   # has been overwritten with 9999999
 
+    def test_issue553(self):
+        import gc, warnings
+        ffi = FFI(backend=self.Backend())
+        p = ffi.new("int *", 123)
+        with warnings.catch_warnings(record=True) as w:
+            ffi.gc(p, lambda x: None)
+            gc.collect()
+        assert w == []
+
+    def test_issue553_from_buffer(self):
+        import gc, warnings
+        ffi = FFI(backend=self.Backend())
+        buf = b"123"
+        with warnings.catch_warnings(record=True) as w:
+            ffi.from_buffer(buf)
+            gc.collect()
+        assert w == []
+
 
 class TestBitfield:
     def check(self, source, expected_ofs_y, expected_align, expected_size):

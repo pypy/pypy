@@ -343,6 +343,7 @@ Contributors
   Kevin Lee
   h-vertini
   Maxwell Bernstein
+  Renaud Blanch
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside

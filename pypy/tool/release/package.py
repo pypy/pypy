@@ -315,7 +315,7 @@ def create_package(basedir, options, _fake=False):
             # Has the lib moved, was translation not 'shared', or are
             # there no exported functions in the dll so no import
             # library was created?
-        if not options.no__tkinter:
+        if getattr(options, 'copy_dlls', True) and not options.no__tkinter:
             try:
                 p = pypy_c.dirpath().join('tcl86t.dll')
                 if not p.check():

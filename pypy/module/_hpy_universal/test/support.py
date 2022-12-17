@@ -57,8 +57,11 @@ class HPyAppTest(object):
         # it would be nice to use the 'compiler' fixture to provide
         # make_module as the std HPyTest do. However, we don't have the space
         # yet, so it is much easier to prove make_module() here
+        prefix = request.function.__name__ + '-'
+        if sys.platform == 'win32':
+            prefix = prefix.lower()
         tmpdir = py.path.local.make_numbered_dir(rootdir=udir,
-                                                 prefix=request.function.__name__ + '-',
+                                                 prefix=prefix,
                                                  keep=0)  # keep everything
 
         hpy_devel = HPyDevel(str(BASE_DIR))

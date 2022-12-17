@@ -132,7 +132,7 @@ int metaclass_init(PyObject *self, PyObject *args, PyObject *kwds) {
 
 static PyType_Slot metaclass_slots[] = {
     { Py_tp_init, (void *) metaclass_init },
-    { Py_tp_base, (void *) &PyType_Type },
+    { Py_tp_base, NULL }, /* filled in module init function */
     { 0, NULL }
 };
 
@@ -163,6 +163,9 @@ static PyModuleDef nanobind1_module = {
 PyMODINIT_FUNC
 PyInit_nanobind1(void)
 {
+    /* done here for MSVC */
+    metaclass_slots[1].pfunc =  &PyType_Type;
+
     PyObject *m = PyModule_Create(&nanobind1_module);
     if (m == NULL)
         return NULL;

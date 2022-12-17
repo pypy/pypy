@@ -288,74 +288,116 @@ def set_compact(py_obj, value):
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISSPACE(space, ch):
     """Return 1 or 0 depending on whether ch is a whitespace character."""
-    return unicodedb.isspace(ord(ch))
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.isspace(ch)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISALPHA(space, ch):
     """Return 1 or 0 depending on whether ch is an alphabetic character."""
-    return unicodedb.isalpha(ord(ch))
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.isalpha(ch)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISALNUM(space, ch):
     """Return 1 or 0 depending on whether ch is an alphanumeric character."""
-    return unicodedb.isalnum(ord(ch))
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.isalnum(ch)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISLINEBREAK(space, ch):
     """Return 1 or 0 depending on whether ch is a linebreak character."""
-    return unicodedb.islinebreak(ord(ch))
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.islinebreak(ch)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISDECIMAL(space, ch):
     """Return 1 or 0 depending on whether ch is a decimal character."""
-    return unicodedb.isdecimal(ord(ch))
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.isdecimal(ch)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISDIGIT(space, ch):
     """Return 1 or 0 depending on whether ch is a digit character."""
-    return unicodedb.isdigit(ord(ch))
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.isdigit(ch)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISNUMERIC(space, ch):
     """Return 1 or 0 depending on whether ch is a numeric character."""
-    return unicodedb.isnumeric(ord(ch))
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.isnumeric(ch)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISLOWER(space, ch):
     """Return 1 or 0 depending on whether ch is a lowercase character."""
-    return unicodedb.islower(ord(ch))
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.islower(ch)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISUPPER(space, ch):
     """Return 1 or 0 depending on whether ch is an uppercase character."""
-    return unicodedb.isupper(ord(ch))
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.isupper(ch)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISTITLE(space, ch):
     """Return 1 or 0 depending on whether ch is a titlecase character."""
-    return unicodedb.istitle(ord(ch))
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.istitle(ch)
 
 @cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
 def Py_UNICODE_TOLOWER(space, ch):
     """Return the character ch converted to lower case."""
-    return unichr(unicodedb.tolower(ord(ch)))
+    val = ord(ch)
+    if val >= rutf8.MAXUNICODE:
+        return ch
+    return unichr(unicodedb.tolower(val))
 
 @cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
 def Py_UNICODE_TOUPPER(space, ch):
     """Return the character ch converted to upper case."""
-    return unichr(unicodedb.toupper(ord(ch)))
+    val = ord(ch)
+    if val >= rutf8.MAXUNICODE:
+        return ch
+    return unichr(unicodedb.toupper(val))
 
 @cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
 def Py_UNICODE_TOTITLE(space, ch):
     """Return the character ch converted to title case."""
-    return unichr(unicodedb.totitle(ord(ch)))
+    val = ord(ch)
+    if val >= rutf8.MAXUNICODE:
+        return ch
+    return unichr(unicodedb.totitle(val))
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_TODECIMAL(space, ch):
     """Return the character ch converted to a decimal positive integer.  Return
     -1 if this is not possible.  This macro does not raise exceptions."""
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return -1
     try:
-        return unicodedb.decimal(ord(ch))
+        return unicodedb.decimal(ch)
     except KeyError:
         return -1
 
@@ -363,8 +405,11 @@ def Py_UNICODE_TODECIMAL(space, ch):
 def Py_UNICODE_TODIGIT(space, ch):
     """Return the character ch converted to a single digit integer. Return -1 if
     this is not possible.  This macro does not raise exceptions."""
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return -1
     try:
-        return unicodedb.digit(ord(ch))
+        return unicodedb.digit(ch)
     except KeyError:
         return -1
 
@@ -372,8 +417,11 @@ def Py_UNICODE_TODIGIT(space, ch):
 def Py_UNICODE_TONUMERIC(space, ch):
     """Return the character ch converted to a double. Return -1.0 if this is not
     possible.  This macro does not raise exceptions."""
+    ch = ord(ch)
+    if ch >= rutf8.MAXUNICODE:
+        return -1.0
     try:
-        return unicodedb.numeric(ord(ch))
+        return unicodedb.numeric(ch)
     except KeyError:
         return -1.0
 
