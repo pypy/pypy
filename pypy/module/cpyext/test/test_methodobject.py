@@ -316,3 +316,5 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         mod = self.import_module(name="specmethdocstring")
         c = mod.C()
         assert c.__iter__.__doc__ == "usable docstring"
+        assert mod.C.__qualname__ == "C"
+        assert c.__iter__.__qualname__ == "C.__iter__"

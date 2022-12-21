@@ -129,28 +129,32 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert obj.foo == 42
         obj2 = obj.create()
         assert obj2.foo == 42
+        assert obj2.create.__qualname__ == "foo.create"
 
     def test_classmethod(self):
         module = self.import_module(name="foo")
         classmeth = module.fooType.classmeth
+        assert classmeth.__qualname__ == "foo.classmeth"
         obj = classmeth()
         assert obj is module.fooType
         class _C:
             def _m(self): pass
         MethodType = type(_C()._m)
-        print(type(classmeth).mro())
-        print(MethodType.mro())
         assert not isinstance(classmeth, MethodType)
 
     def test_class_getitem(self):
         module = self.import_module(name='foo')
         f = module.fooType.__class_getitem__
+        print(dir(f))
+        assert f.__qualname__ == "foo.__class_getitem__"
         out = f(42)
         assert str(out) == 'foo.foo[42]'
 
     def test_methoddescr(self):
         module = self.import_module(name='foo')
         descr = module.fooType.copy
+        print(descr.__qualname__)
+        assert descr.__qualname__ == "foo.copy"
         assert type(descr).__name__ == 'method_descriptor'
         assert str(descr) in ("<method 'copy' of 'foo.foo' objects>",
             "<method 'copy' of 'foo' objects>")
@@ -1305,7 +1309,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         except TypeError as e:
             import sys
             if '__pypy__' in sys.builtin_module_names:
-                print(str(e))
                 assert 'instance layout conflicts in multiple inheritance' in str(e)
 
             else:

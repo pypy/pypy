@@ -230,7 +230,8 @@ def classmethoddescr_realize(space, obj):
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCClassMethodObject, w_type)
-    w_obj.__init__(space, method, w_type)
+    assert isinstance(w_type, W_TypeObject)
+    w_obj.__init__(space, method, w_type, w_type.qualname)
     track_reference(space, obj, w_obj)
     return w_obj
 
@@ -239,7 +240,8 @@ def methoddescr_realize(space, obj):
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCMethodObject, w_type)
-    w_obj.__init__(space, method, None, None, w_type)
+    assert isinstance(w_type, W_TypeObject)
+    w_obj.__init__(space, method, None, None, w_type, w_type.qualname)
     track_reference(space, obj, w_obj)
     return w_obj
 
@@ -385,7 +387,7 @@ def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
 
         setattr(struct, slot_names[1], slot_func_helper)
 
-def add_operators(space, w_type, dict_w, pto, name):
+def _add_operators(space, w_type, dict_w, pto, type_name):
     from pypy.module.cpyext.object import PyObject_HashNotImplemented
     hash_not_impl = llslot(space, PyObject_HashNotImplemented)
     for method_name, slot_names, wrapper_class, doc in slotdefs_for_wrappers:
@@ -416,13 +418,8 @@ def add_operators(space, w_type, dict_w, pto, name):
 
         assert issubclass(wrapper_class, W_PyCWrapperObject)
 
-        w_obj = wrapper_class(space, w_type, method_name, doc, func_voidp)
+        w_obj = wrapper_class(space, w_type, method_name, doc, func_voidp, type_name)
         dict_w[method_name] = w_obj
-    if pto.c_tp_doc:
-        raw_doc = rffi.constcharp2str(pto.c_tp_doc)
-        dict_w['__doc__'] = space.newtext_or_none(extract_doc(raw_doc, name))
-    if pto.c_tp_new:
-        add_tp_new_wrapper(space, dict_w, pto)
 
 @slot_function([PyObject, PyObject, PyObject], PyObject)
 def tp_new_wrapper(space, self, w_args, w_kwds):
@@ -569,6 +566,21 @@ class GettersAndSetters:
         finally:
             decref(space, pyref)
 
+def get_type_name(name, is_heaptype):
+    # This is a refactored copy of W_TypeObject.getname()
+    # we cannot use self.getname since the self is not fully initialized
+    if is_heaptype:
+        result = name
+    else:
+        dot = name.rfind('.')
+        if dot >= 0:
+            result = name[dot+1:]
+        else:
+            result = name
+    return result
+
+
+
 class W_PyCTypeObject(W_TypeObject):
     @jit.dont_look_inside
     def __init__(self, space, pto):
@@ -577,10 +589,17 @@ class W_PyCTypeObject(W_TypeObject):
 
         flag_heaptype = widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
         name = rffi.constcharp2str(pto.c_tp_name)
-        add_operators(space, self, dict_w, pto, name)
-        convert_method_defs(space, dict_w, pto.c_tp_methods, self)
+        type_name = get_type_name(name, flag_heaptype)
+        _add_operators(space, self, dict_w, pto, type_name)
+        convert_method_defs(space, dict_w, pto.c_tp_methods, self, type_name=type_name)
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
+
+        if pto.c_tp_doc:
+            raw_doc = rffi.constcharp2str(pto.c_tp_doc)
+            dict_w['__doc__'] = space.newtext_or_none(extract_doc(raw_doc, name))
+        if pto.c_tp_new:
+            add_tp_new_wrapper(space, dict_w, pto)
 
         w_dict = from_ref(space, pto.c_tp_dict)
         if w_dict is not None:
@@ -844,7 +863,7 @@ def _type_realize(space, py_obj):
     if w_obj is None:
         w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
         track_reference(space, py_obj, w_obj)
-    # __init__ wraps all slotdefs functions from py_type via add_operators
+    # __init__ wraps all slotdefs functions from py_type via _add_operators
     w_obj.__init__(space, py_type)
     w_obj.ready()
 

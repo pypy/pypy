@@ -37,7 +37,7 @@ def HPy_AsPyObject(space, handles, ctx, h):
 # ~~~ legacy_methods ~~~
 # This is used by both modules and types
 
-def attach_legacy_methods(space, pymethods, w_obj, modname=None):
+def attach_legacy_methods(space, pymethods, w_obj, modname, type_name):
     """
     pymethods is passed as a void*, but it is expected to be a PyMethodDef[].
     Wrap its items into the proper cpyext.W_*Function objects, and attach them
@@ -45,14 +45,14 @@ def attach_legacy_methods(space, pymethods, w_obj, modname=None):
     """
     pymethods = cpyts.cast('PyMethodDef*', pymethods)
     dict_w = {}
-    convert_method_defs(space, dict_w, pymethods, None, w_obj, modname)
+    convert_method_defs(space, dict_w, pymethods, None, w_obj, modname, type_name)
     for key, w_func in dict_w.items():
         space.setattr(w_obj, space.newtext(key), w_func)
 
 # ~~~ legacy_members ~~~
 # This is used only by types
 
-def attach_legacy_members(space, pymembers, w_type):
+def attach_legacy_members(space, pymembers, w_type, type_name):
     PyMemberDef = cpyts.gettype('PyMemberDef')
     pymembers = rffi.cast(rffi.CArrayPtr(PyMemberDef), pymembers)
     if not pymembers:
@@ -187,15 +187,16 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
     from pypy.module.cpyext.slotdefs import wrap_unaryfunc
     slotdefs = rffi.cast(rffi.CArrayPtr(cpyts.gettype('PyType_Slot')), c_legacy_slots)
     i = 0
+    type_name = w_type.getqualname(space)
     while True:
         slotdef = slotdefs[i]
         slotnum = rffi.cast(lltype.Signed, slotdef.c_slot)
         if slotnum == 0:
             break
         elif slotnum == cpyts.macros['Py_tp_methods']:
-            attach_legacy_methods(space, slotdef.c_pfunc, w_type, None)
+            attach_legacy_methods(space, slotdef.c_pfunc, w_type, None, type_name)
         elif slotnum == cpyts.macros['Py_tp_members']:
-            attach_legacy_members(space, slotdef.c_pfunc, w_type)
+            attach_legacy_members(space, slotdef.c_pfunc, w_type, type_name)
         elif slotnum == cpyts.macros['Py_tp_getset']:
             attach_legacy_getsets(space, slotdef.c_pfunc, w_type)
         elif slotnum == cpyts.macros['Py_tp_dealloc']:
@@ -214,17 +215,18 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
                 pytype.c_tp_dealloc = rffi.cast(destructor, funcptr)
     
         else:
-            attach_legacy_slot(space, w_type, slotdef, slotnum)
+            attach_legacy_slot(space, w_type, slotdef, slotnum, type_name)
         i += 1
 
-def attach_legacy_slot(space, w_type, slotdef, slotnum):
+def attach_legacy_slot(space, w_type, slotdef, slotnum, type_name):
+    
     for num, method_name, doc, wrapper_class in SLOT_WRAPPERS_TABLE:
         if num == slotnum:
             if wrapper_class is None:
                 # XXX: we probably need to handle manually these slots
                 raise NotImplementedError("slot wrapper for slot %d" % num)
             funcptr = slotdef.c_pfunc
-            w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr)
+            w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr, type_name)
             w_type.setdictvalue(space, method_name, w_wrapper)
             break
     else:
