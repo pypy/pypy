@@ -176,7 +176,7 @@ def exec_def(space, mod, moddef):
                                 "exception", rffi.constcharp2str(moddef.c_m_name))
         cur_slot = rffi.ptradd(cur_slot, 1)
 
-def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
+def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None, type_name=None):
     w_name = space.newtext_or_none(name)
     methods = rffi.cast(rffi.CArrayPtr(PyMethodDef), methods)
     if methods:
@@ -202,12 +202,12 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                     if flags & METH_STATIC:
                         raise oefmt(space.w_ValueError,
                                     "method cannot be both class and static")
-                    w_obj = W_PyCClassMethodObject(space, method, w_type)
+                    w_obj = W_PyCClassMethodObject(space, method, w_type, type_name)
                 elif flags & METH_STATIC:
-                    w_func = W_PyCFunctionObject(space, method, None, None)
+                    w_func = W_PyCFunctionObject(space, method, None, None, type_name)
                     w_obj = StaticMethod(w_func)
                 else:
-                    w_obj = W_PyCMethodObject(space, method, None, None, w_type)
+                    w_obj = W_PyCMethodObject(space, method, None, None, w_type, type_name)
 
             dict_w[methodname] = w_obj
 

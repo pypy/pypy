@@ -137,11 +137,16 @@ def extract_txtsig(raw_doc, name):
     return None
 
 class W_PyCFunctionObject(W_Root):
-    _immutable_fields_ = ["flags"]
+    _immutable_fields_ = ["flags", "ml"]
 
-    def __init__(self, space, ml, w_self, w_module=None):
+    def __init__(self, space, ml, w_self, w_module=None, type_name=None):
         self.ml = ml
         self.name = rffi.charp2str(rffi.cast(rffi.CCHARP, self.ml.c_ml_name))
+        # class methods have type_name
+        if type_name:
+            self.qualname = type_name + "." + self.name
+        else:
+            self.qualname = self.name
         self.flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         self.w_self = w_self
         self.w_module = w_module
@@ -265,8 +270,8 @@ class W_PyCFunctionObject(W_Root):
 
 class W_PyCMethodObject(W_PyCFunctionObject):
 
-    def __init__(self, space, ml, w_self, w_module, w_type):
-        W_PyCFunctionObject.__init__(self, space, ml, w_self, w_module)
+    def __init__(self, space, ml, w_self, w_module, w_type, type_name):
+        W_PyCFunctionObject.__init__(self, space, ml, w_self, w_module, type_name)
         self.space = space
         self.w_objclass = w_type
 
@@ -314,8 +319,8 @@ def PyCFunction_Check(space, w_obj):
 
 class W_PyCClassMethodObject(W_PyCFunctionObject):
 
-    def __init__(self, space, ml, w_type):
-        W_PyCFunctionObject.__init__(self, space, ml, w_self=None)
+    def __init__(self, space, ml, w_type, type_name):
+        W_PyCFunctionObject.__init__(self, space, ml, w_self=None, type_name=type_name)
         self.space = space
         self.w_objclass = w_type
 
@@ -342,13 +347,16 @@ class W_PyCWrapperObject(W_Root):
     """
     Abstract class; for concrete subclasses, see slotdefs.py
     """
-    def __init__(self, space, w_type, method_name, doc, func):
+    def __init__(self, space, w_type, method_name, doc, func, type_name):
+        # When this is called, w_type is only partially constructed so we
+        # get its name via type_name
         self.space = space
         self.method_name = method_name
         self.doc = doc
         self.func = func
         assert isinstance(w_type, W_TypeObject)
         self.w_objclass = w_type
+        self.qualname = type_name + "." + method_name
 
     def descr_call(self, space, w_self, __args__):
         return self.call(space, w_self, __args__)
@@ -452,6 +460,8 @@ W_PyCFunctionObject.typedef = TypeDef(
                                 W_PyCFunctionObject.fdel_module),
     __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject,
         wrapfn="newtext_or_none"),
+    __qualname__ = interp_attrproperty('qualname', cls=W_PyCFunctionObject,
+        wrapfn="newtext_or_none"),
     )
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
@@ -460,6 +470,8 @@ W_PyCMethodObject.typedef = TypeDef(
     __get__ = interp2app(cmethod_descr_get),
     __call__ = interp2app(W_PyCMethodObject.descr_call),
     __name__ = interp_attrproperty('name', cls=W_PyCMethodObject,
+        wrapfn="newtext_or_none"),
+    __qualname__ = interp_attrproperty('qualname', cls=W_PyCMethodObject,
         wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCMethodObject),
     __repr__ = interp2app(W_PyCMethodObject.descr_method_repr),
@@ -471,6 +483,8 @@ W_PyCClassMethodObject.typedef = TypeDef(
     __get__ = interp2app(cclassmethod_descr_get),
     __call__ = interp2app(W_PyCClassMethodObject.descr_call),
     __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject,
+        wrapfn="newtext_or_none"),
+    __qualname__ = interp_attrproperty('qualname', cls=W_PyCClassMethodObject,
         wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass',
                                          cls=W_PyCClassMethodObject),
@@ -484,6 +498,8 @@ W_PyCWrapperObject.typedef = TypeDef(
     __call__ = interp2app(W_PyCWrapperObject.descr_call),
     __get__ = interp2app(cmethod_descr_get),
     __name__ = interp_attrproperty('method_name', cls=W_PyCWrapperObject,
+        wrapfn="newtext_or_none"),
+    __qualname__ = interp_attrproperty('qualname', cls=W_PyCWrapperObject,
         wrapfn="newtext_or_none"),
     __doc__ = GetSetProperty(W_PyCWrapperObject.descr_get_doc),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCWrapperObject),
@@ -501,7 +517,11 @@ def PyCMethod_New(space, ml, w_self, w_name, w_type):
             raise oefmt(space.w_SystemError,
                 "attempting to create PyCMethod with a METH_METHOD "
                 "flag but no class");
-        return W_PyCMethodObject(space, ml, w_self, w_name, w_type)
+        if not isinstance(w_type, W_TypeObject):
+            raise oefmt(space.w_SystemError,
+                        "bad argument to PyCMethod_New")
+        assert isinstance(w_type, W_TypeObject)
+        return W_PyCMethodObject(space, ml, w_self, w_name, w_type, w_type.qualname)
     else:
         if w_type:
             raise oefmt(space.w_SystemError,
@@ -532,13 +552,17 @@ def PyClassMethod_New(space, w_func):
     PyObject *
     PyDescr_NewMethod(PyTypeObject *type, PyMethodDef *method)""")
 def PyDescr_NewMethod(space, w_type, method):
-    return W_PyCMethodObject(space, method, None, None, w_type)
+    return W_PyCMethodObject(space, method, None, None, w_type, None)
 
 @cts.decl("""
     PyObject *
     PyDescr_NewClassMethod(PyTypeObject *type, PyMethodDef *method)""")
 def PyDescr_NewClassMethod(space, w_type, method):
-    return W_PyCClassMethodObject(space, method, w_type)
+    if not isinstance(w_type, W_TypeObject):
+        raise oefmt(space.w_SystemError,
+                    "bad argument to PyDescr_NewClassMethod")
+    assert isinstance(w_type, W_TypeObject)
+    return W_PyCClassMethodObject(space, method, w_type, w_type.qualname)
 
 @cpython_api([lltype.Ptr(PyMethodDef), PyObject, CONST_STRING], PyObject)
 def Py_FindMethod(space, table, w_obj, name_ptr):
