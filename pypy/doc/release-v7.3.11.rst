@@ -3,7 +3,7 @@ PyPy v7.3.11: release of python 2.7, 3.8, and 3.9
 =================================================
 
 ..
-       Changelog up to commit 46a7476ee4c3
+       Changelog up to commit 5156e7c87b64
 
 .. note::
   This is a pre-release announcement. When the release actually happens, it
@@ -114,6 +114,8 @@ Bugfixes
 - Package tkinter for macOS. Previously the portable builds did not include it
   (issues 3760_, 3868_).
 - Fix memory leak in certificate validation in ``_ssl`` (issue 3871_)
+- Add ``__qualname__`` to some cpyext types (issue 3878_)
+
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
