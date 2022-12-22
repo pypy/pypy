@@ -225,8 +225,6 @@ int sk_X509_CRL_push(Cryptography_STACK_OF_X509_CRL *, X509_CRL *);
 X509_CRL *sk_X509_CRL_value(Cryptography_STACK_OF_X509_CRL *, int);
 
 long X509_CRL_get_version(X509_CRL *);
-ASN1_TIME *X509_CRL_get_lastUpdate(X509_CRL *);
-ASN1_TIME *X509_CRL_get_nextUpdate(X509_CRL *);
 X509_NAME *X509_CRL_get_issuer(X509_CRL *);
 Cryptography_STACK_OF_X509_REVOKED *X509_CRL_get_REVOKED(X509_CRL *);
 
