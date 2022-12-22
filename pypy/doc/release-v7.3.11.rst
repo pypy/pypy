@@ -3,7 +3,7 @@ PyPy v7.3.11: release of python 2.7, 3.8, and 3.9
 =================================================
 
 ..
-       Changelog up to commit 5156e7c87b64
+       Changelog up to commit 1a1429affca9
 
 .. note::
   This is a pre-release announcement. When the release actually happens, it
@@ -115,6 +115,7 @@ Bugfixes
   (issues 3760_, 3868_).
 - Fix memory leak in certificate validation in ``_ssl`` (issue 3871_)
 - Add ``__qualname__`` to some cpyext types (issue 3878_)
+- Clean up deprecated functions in OpenSSL wrapper ``_ssl``
 
 
 Speedups and enhancements
