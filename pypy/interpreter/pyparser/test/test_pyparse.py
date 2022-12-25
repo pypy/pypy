@@ -520,3 +520,20 @@ class TestPythonPegParser(TestPythonParser):
         self.parse(
             "if 1: \n pass", "exec",
             flags=consts.PyCF_DONT_IMPLY_DEDENT)
+
+    def test_nonparen_genexp_in_call(self):
+        with py.test.raises(SyntaxError) as info:
+            self.parse("""\
+f(x for x in l)
+if 1:
+pass
+""")
+        assert info.value.msg == "expected an indented block after 'if' statement on line 2"
+        with py.test.raises(SyntaxError) as info:
+            self.parse("""f(1, x for x in y for z in a if
+
+b)""")
+        assert info.value.msg == 'Generator expression must be parenthesized'
+        assert info.value.lineno == 1
+        assert info.value.offset == 6
+        assert info.value.lastlineno == 3
