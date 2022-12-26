@@ -32,3 +32,19 @@ match x:
         pass
 """)
 
+def test_error_name_bindings_or():
+    with pytest.raises(SyntaxError) as info:
+        exec("""
+match x:
+    case "a" | a:
+        pass
+""")
+
+def Xtest_error_name_bindings_or():
+    with pytest.raises(SyntaxError) as info:
+        exec("""
+match x:
+    case a | "a":
+        pass
+""")
+
