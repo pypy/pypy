@@ -875,6 +875,7 @@ class Parser:
         )
 
     def get_last_comprehension_item(self, comp):
+        assert isinstance(comp, ast.comprehension)
         if comp.ifs:
             return comp.ifs[-1]
         else:
