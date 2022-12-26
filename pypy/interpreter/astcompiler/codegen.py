@@ -2065,7 +2065,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             match_context = self.match_context
             if targetname in match_context.names_stored:
                 previous_match_as = match_context.names_stored[targetname]
-                self.error("multiple assignments to name '%s' in pattern, previous one was on line %s" % (targetname, match_as.lineno), match_as)
+                self.error(
+                    "multiple assignments to name '%s' in pattern, previous one was on line %s" % (
+                        targetname, match_as.lineno), match_as)
             match_context.names_stored[targetname] = match_as
             self.name_op(targetname, ast.Store, match_as)
             # @2: stack = []
@@ -2306,20 +2308,41 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         end = self.new_block()
 
         # XXX needs more careful handling of allow_always_passing
+        control = None
+        match_context = self.match_context
 
         for i, pattern in enumerate(match_or.patterns):
-            if i < len(match_or.patterns) - 1:
+            is_not_last = i < len(match_or.patterns) - 1
+            if is_not_last:
                 self.emit_op(ops.DUP_TOP)
                 # @1: i=0: [3, 3]
                 # @2: i=0: [4, 4]; i=1: [4]
                 # @3: i=0: [5, 5]; i=1: [5]
 
+            if control is not None:
+                match_context.names_stored = control.copy()
             pattern.walkabout(self)
+
+            # make sure that the set of stored names is the same in all
+            # branches
+            if control is None:
+                control = match_context.names_stored
+            else:
+                # check that the names are the same in the later alternative
+                if len(control) != len(match_context.names_stored):
+                    self.error("alternative patterns bind different names", match_or)
+                for name in control:
+                    if name not in match_context.names_stored:
+                        self.error("alternative patterns bind different names", match_or)
+                for name in match_context.names_stored:
+                    if name not in control:
+                        self.error("alternative patterns bind different names", match_or)
+
             # @1: i=0: [3, True]
             # @2: i=0: [4, False]; i=1: [True]
             # @3: i=0: [5, False]; i=1: [False]
 
-            if i < len(match_or.patterns) - 1:
+            if is_not_last:
                 self.emit_jump(ops.POP_JUMP_IF_TRUE, pop_end, True)
                 # @1: i=0: pop_end([3])
                 # @2: i=0: [4]
