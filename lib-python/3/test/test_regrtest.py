@@ -523,6 +523,8 @@ class BaseTestCase(unittest.TestCase):
             input = ''
         if 'stderr' not in kw:
             kw['stderr'] = subprocess.PIPE
+        # PyPy - without the flush tests hang
+        sys.stderr.flush()
         proc = subprocess.run(args,
                               universal_newlines=True,
                               input=input,
