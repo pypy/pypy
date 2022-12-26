@@ -2046,7 +2046,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                         "wildcard makes remaining patterns unreachable",
                         match_as)
 
-        if not match_as.name:
+        targetname = match_as.name
+        if targetname is None:
             if not match_as.pattern:
                 self.emit_op(ops.POP_TOP)
                 # @1: stack = []
@@ -2060,7 +2061,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # @2: stack = [0]
             # @4: stack = [0]
 
-            self.name_op(match_as.name, ast.Store, match_as)
+            # check if name was already used:
+            match_context = self.match_context
+            if targetname in match_context.names_stored:
+                previous_match_as = match_context.names_stored[targetname]
+                self.error("multiple assignments to name '%s' in pattern, previous one was on line %s" % (targetname, match_as.lineno), match_as)
+            match_context.names_stored[targetname] = match_as
+            self.name_op(targetname, ast.Store, match_as)
             # @2: stack = []
             # @4: stack = []
 

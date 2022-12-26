@@ -566,6 +566,7 @@ class DeadCode(object):
 class MatchContext(object):
     def __init__(self, codegen):
         self.codegen = codegen
+        self.names_stored = {}
         self.allow_always_passing = False
 
     def __enter__(self, *args):

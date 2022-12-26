@@ -1,3 +1,5 @@
+import pytest
+
 def test_match_sequence_string_bug():
     x = "x"
     match x:
@@ -21,3 +23,12 @@ def test_sequence_missing_not_used():
     assert x == {1: 1} # no keys added
     assert y == 1 # second case applies
     assert z == {1: 1} # the extracted inner dict is like the outer one
+
+def test_error_name_bindings_duplicate():
+    with pytest.raises(SyntaxError) as info:
+        exec("""
+match x:
+    case [a, a]:
+        pass
+""")
+
