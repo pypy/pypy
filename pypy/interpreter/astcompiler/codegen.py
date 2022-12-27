@@ -2307,12 +2307,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         pop_end = self.new_block()
         end = self.new_block()
 
-        # XXX needs more careful handling of allow_always_passing
         control = None
         match_context = self.match_context
+        allow_always_passing = match_context.allow_always_passing
 
         for i, pattern in enumerate(match_or.patterns):
             is_not_last = i < len(match_or.patterns) - 1
+            match_context.allow_always_passing = allow_always_passing and not is_not_last
             if is_not_last:
                 self.emit_op(ops.DUP_TOP)
                 # @1: i=0: [3, 3]
@@ -2352,6 +2353,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # @1: i=1: unreachable
                 # @2: i=1: end([True])
                 # @3: i=1: []
+        self.allow_always_passing = allow_always_passing
 
         self.load_const(self.space.w_False)
         # @3: [False]
