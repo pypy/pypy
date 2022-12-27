@@ -1959,7 +1959,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return
 
         end = self.new_block()
-        next = self.new_block()
         match.subject.walkabout(self)
         with self.new_match_context() as match_context:
             last_index_for_dup = len(match.cases) - 1
@@ -1967,27 +1966,27 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # if isinstance(match.cases[-1], ast.MatchAs) and not match.cases[-1].name:
                 # last_index_for_dup -= 1
             for i, case in enumerate(match.cases):
+                is_last_case = i == last_index_for_dup
                 # only the last case is allowed to always succeed
                 assert isinstance(case, ast.match_case)
-                match_context.allow_always_passing = i == len(match.cases) - 1 or case.guard is not None
-                if i < last_index_for_dup:
+                match_context.allow_always_passing = is_last_case or case.guard is not None
+                if not is_last_case:
                     self.emit_op(ops.DUP_TOP)
                 case.pattern.walkabout(self)
                 # TODO: this is not the correct solution. fix this optimization
                 # if not isinstance(case.pattern, ast.MatchAs):
-                self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
+                self.emit_jump(ops.POP_JUMP_IF_FALSE, match_context.next, True)
 
                 if case.guard:
                     case.guard.walkabout(self)
-                    self.emit_jump(ops.POP_JUMP_IF_FALSE, next, True)
+                    self.emit_jump(ops.POP_JUMP_IF_FALSE, match_context.next, True)
 
-                if i < last_index_for_dup:
+                if not is_last_case:
                     self.emit_op(ops.POP_TOP)
 
                 self._visit_body(case.body)
                 self.emit_jump(ops.JUMP_FORWARD, end)
-                self.use_next_block(next)
-                next = self.new_block()
+                match_context.next_case()
             self.use_next_block(end)
         # self.emit_op(ops.POP_TOP)
 

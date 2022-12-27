@@ -567,7 +567,13 @@ class MatchContext(object):
     def __init__(self, codegen):
         self.codegen = codegen
         self.names_stored = {}
+        self.names_list = []
         self.allow_always_passing = False
+        self.next = self.codegen.new_block()
+
+    def next_case(self):
+        self.codegen.use_next_block(self.next)
+        self.next = self.codegen.new_block()
 
     def __enter__(self, *args):
         self.old_context = self.codegen.match_context
