@@ -49,3 +49,9 @@ match x:
 """)
     assert info.value.msg == "name capture 'a' makes remaining patterns unreachable"
 
+def test_only_bind_at_end():
+    a = 5
+    match [1, 2, 3]:
+        case [a, 1, b]:
+            pass
+    assert a == 5
