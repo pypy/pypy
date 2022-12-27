@@ -40,11 +40,12 @@ match x:
         pass
 """)
 
-def Xtest_error_name_bindings_or():
+def test_error_allow_always_passing_or():
     with pytest.raises(SyntaxError) as info:
         exec("""
 match x:
     case a | "a":
         pass
 """)
+    assert info.value.msg == "name capture 'a' makes remaining patterns unreachable"
 
