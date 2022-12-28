@@ -510,12 +510,11 @@ class TkApp(object):
     def getboolean(self, s):
         if isinstance(s, int):
             return bool(s)
-        try:
-            s = s.encode('utf-8')
-        except AttributeError:
+        if isinstance(s, Tcl_Obj):
+            s = s.string
+        if '\x00' in s:
             raise TypeError
-        if b'\x00' in s:
-            raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("int*")
         res = tklib.Tcl_GetBoolean(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -525,12 +524,11 @@ class TkApp(object):
     def getint(self, s):
         if isinstance(s, int):
             return s
-        try:
-            s = s.encode('utf-8')
-        except AttributeError:
+        if isinstance(s, Tcl_Obj):
+            s = s.string
+        if '\x00' in s:
             raise TypeError
-        if b'\x00' in s:
-            raise TypeError
+        s = s.encode('utf-8')
         if tklib.HAVE_LIBTOMMATH or tklib.HAVE_WIDE_INT_TYPE:
             value = tklib.Tcl_NewStringObj(s, -1)
             if not value:
@@ -552,12 +550,11 @@ class TkApp(object):
     def getdouble(self, s):
         if isinstance(s, (float, int)):
             return float(s)
-        try:
-            s = s.encode('utf-8')
-        except AttributeError:
+        if isinstance(s, Tcl_Obj):
+            s = s.string
+        if '\x00' in s:
             raise TypeError
-        if b'\x00' in s:
-            raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("double*")
         res = tklib.Tcl_GetDouble(self.interp, s, v)
         if res == tklib.TCL_ERROR:
