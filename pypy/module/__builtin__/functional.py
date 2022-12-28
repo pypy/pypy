@@ -326,10 +326,23 @@ def _make_enumerate(space, w_iter_or_list, w_index):
     return W_Enumerate(w_iter_or_list, index, w_index)
 
 W_Enumerate.typedef = TypeDef("enumerate",
-    __new__=interp2app(W_Enumerate.descr___new__),
-    __iter__=interp2app(W_Enumerate.descr___iter__),
-    __next__=interp2app(W_Enumerate.descr_next),
-    __reduce__=interp2app(W_Enumerate.descr___reduce__),
+    __doc__           = """\
+Return an enumerate object.
+
+  iterable
+    an object supporting iteration
+
+The enumerate object yields pairs containing a count (from start, which
+defaults to zero) and a value yielded by the iterable argument.
+
+enumerate is useful for obtaining an indexed list:
+    (0, seq[0]), (1, seq[1]), (2, seq[2]), ...""",
+
+    _text_signature_  = "(iterable, start=0)",
+    __new__           = interp2app(W_Enumerate.descr___new__),
+    __iter__          = interp2app(W_Enumerate.descr___iter__),
+    __next__          = interp2app(W_Enumerate.descr_next),
+    __reduce__        = interp2app(W_Enumerate.descr___reduce__),
     __class_getitem__ = interp2app(
         generic_alias_class_getitem, as_classmethod=True),
 )
@@ -412,6 +425,9 @@ class W_ReversedIterator(W_Root):
             self.remaining = n - 1
 
 W_ReversedIterator.typedef = TypeDef("reversed",
+    __doc__         = """\
+Return a reverse iterator over the values of the given sequence.""",
+    _text_signature_ = "(sequence, /)",
     __new__         = interp2app(W_ReversedIterator.descr___new__2),
     __iter__        = interp2app(W_ReversedIterator.descr___iter__),
     __length_hint__ = interp2app(W_ReversedIterator.descr_length_hint),
@@ -607,6 +623,14 @@ class W_Range(W_Root):
         return space.nonzero(self.w_length)
 
 W_Range.typedef = TypeDef("range",
+    __doc__          = """range(stop) -> range object
+range(start, stop[, step]) -> range object
+
+Return an object that produces a sequence of integers from start (inclusive)
+to stop (exclusive) by step.  range(i, j) produces i, i+1, i+2, ..., j-1.
+start defaults to 0, and stop is omitted!  range(4) produces 0, 1, 2, 3.
+These are exactly the valid indices for a list of 4 elements.
+When step is given, it specifies the increment (or decrement)."""
     __new__          = interp2app(W_Range.descr_new.im_func),
     __repr__         = interp2app(W_Range.descr_repr),
     __getitem__      = interp2app(W_Range.descr_getitem),
@@ -877,6 +901,8 @@ W_Map.typedef = TypeDef(
         __next__ = interp2app(W_Map.next_w),
         __reduce__ = interp2app(W_Map.descr_reduce),
         __doc__ = """\
+map(func, *iterables) --> map object
+
 Make an iterator that computes the function using arguments from
 each of the iterables.  Stops when the shortest iterable is exhausted.""")
 
@@ -956,6 +982,8 @@ W_Filter.typedef = TypeDef(
         __next__ = interp2app(W_Filter.next_w),
         __reduce__ = interp2app(W_Filter.descr_reduce),
         __doc__  = """\
+filter(function or None, iterable) --> filter object
+
 Return an iterator yielding those items of iterable for which function(item)
 is true. If function is None, return the items that are true.""")
 
@@ -1057,9 +1085,12 @@ W_Zip.typedef = TypeDef(
         __next__ = interp2app(W_Zip.next_w),
         __reduce__ = interp2app(W_Zip.descr_reduce),
         __doc__  = """\
-Return a zip object whose .__next__() method returns a tuple where
-the i-th element comes from the i-th iterable argument.  The .__next__()
-method continues until the shortest iterable in the argument sequence
-is exhausted and then it raises StopIteration.""")
+zip(*iterables) --> A zip object yielding tuples until an input is exhausted.
 
+   >>> list(zip('abcdefg', range(3), range(4)))
+   [('a', 0, 0), ('b', 1, 1), ('c', 2, 2)]
 
+The zip object yields n-length tuples, where n is the number of iterables
+passed as positional arguments to zip().  The i-th element in every tuple
+comes from the i-th iterable argument to zip().  This continues until the
+shortest argument is exhausted.""")
