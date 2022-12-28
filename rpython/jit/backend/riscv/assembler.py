@@ -5,7 +5,7 @@ from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
-    ABI_STACK_ALIGN, FLEN, JITFRAME_FIXED_SIZE, XLEN)
+    ABI_STACK_ALIGN, FLEN, JITFRAME_FIXED_SIZE, SCRATCH_STACK_SLOT_SIZE, XLEN)
 from rpython.jit.backend.riscv.codebuilder import InstrBuilder
 from rpython.jit.backend.riscv.instruction_util import (
     can_fuse_into_compare_and_branch, check_simm21_arg)
@@ -14,7 +14,7 @@ from rpython.jit.backend.riscv.opassembler import (
 from rpython.jit.backend.riscv.regalloc import (
     Regalloc, regalloc_guard_operations, regalloc_operations)
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import AbstractFailDescr
+from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import AsmInfo
@@ -530,3 +530,49 @@ class AssemblerRISCV(OpAssembler):
             self.mc.store_float(r.f31.value, r.jfp.value, loc.value)
         else:
             assert 0, 'unsupported case'
+
+    def regalloc_push(self, loc, already_pushed):
+        """Push the value stored in `loc` to the stack top.
+
+        Side effect: r.x31 or r.f31 may be overwritten."""
+
+        offset = SCRATCH_STACK_SLOT_SIZE * (~already_pushed)
+
+        if loc.type == FLOAT:
+            if not loc.is_fp_reg():
+                self.regalloc_mov(loc, r.f31)
+                loc = r.f31
+            self.mc.store_float(loc.value, r.sp.value, offset)
+        else:
+            if not loc.is_core_reg():
+                self.regalloc_mov(loc, r.x31)
+                loc = r.x31
+            self.mc.store_int(loc.value, r.sp.value, offset)
+
+    def regalloc_pop(self, loc, already_pushed):
+        """Pop the value from the top of the stack to `loc`.
+
+        Side effect: r.x31 or r.f31 may be overwritten."""
+
+        offset = SCRATCH_STACK_SLOT_SIZE * (~already_pushed)
+
+        if loc.type == FLOAT:
+            if loc.is_fp_reg():
+                self.mc.load_float(loc.value, r.sp.value, offset)
+            else:
+                self.mc.load_float(r.f31.value, r.sp.value, offset)
+                self.regalloc_mov(r.f31, loc)
+        else:
+            if loc.is_core_reg():
+                self.mc.load_int(loc.value, r.sp.value, offset)
+            else:
+                self.mc.load_int(r.x31.value, r.sp.value, offset)
+                self.regalloc_mov(r.x31, loc)
+
+    def regalloc_prepare_move(self, src, dst, tmp):
+        """Move `src` to `tmp` and return `tmp` if `src`-to-`dst` is a
+        stack-to-stack or imm-to-stack move."""
+        if dst.is_stack() and (src.is_stack() or src.is_imm()):
+            self.regalloc_mov(src, tmp)
+            return tmp
+        return src

@@ -10,6 +10,12 @@ XLEN = 8
 # Floating point register width (in bytes)
 FLEN = 8  # Assume "Standard Extension for Double 'D'" is available.
 
+# Stack slot size that can contain either int/float whenever the register
+# allocator would like to push a scratch value to the stack top.
+#
+# Note: This constant value is used by `regalloc_push` and `regalloc_pop`.
+SCRATCH_STACK_SLOT_SIZE = 8
+
 NUM_REGS = 32
 NUM_FP_REGS = 32
 JITFRAME_FIXED_SIZE = NUM_REGS + NUM_FP_REGS
