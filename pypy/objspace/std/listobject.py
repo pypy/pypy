@@ -336,7 +336,7 @@ class W_ListObject(W_Root):
         return self.strategy.find_or_count(self, w_item, start, end, count)
 
     def append(self, w_item):
-        """L.append(object) -> None -- append object to end"""
+        """Append object to the end of the list."""
         self.strategy.append(self, w_item)
 
     def length(self):
