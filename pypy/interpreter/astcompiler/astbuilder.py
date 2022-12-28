@@ -1363,9 +1363,14 @@ class ASTBuilder(object):
             args = None
         if not keywords:
             keywords = None
+        if not rpar_node:
+            # if there is an rpar_node, it holds the end lineno, column info
+            # see https://foss.heptapod.net/pypy/pypy/-/issues/3876#note_276975
+            # and the test_astbuilder.test_decorator_end test
+            rpar_node = args_node
         return ast.Call(callable_expr, args, keywords, callable_expr.lineno,
-                        callable_expr.col_offset, args_node.get_end_lineno(),
-                        args_node.get_end_column())
+                        callable_expr.col_offset, rpar_node.get_end_lineno(),
+                        rpar_node.get_end_column())
 
     def parse_number(self, raw, n):
         base = 10

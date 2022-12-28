@@ -2024,4 +2024,20 @@ class TestAstBuilder:
             tree = self.get_ast("f'{((}')")
         assert excinfo.value.msg == "unmatched ')'"
 
-
+    def test_decorator_end(self):
+        tree = self.get_ast("""
+@deco([
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    ]
+)
+def f(arg):
+    return arg
+""")
+        attr_b = tree.body[0].decorator_list[0]
+        assert attr_b.end_lineno == 10
+        assert attr_b.end_col_offset == 1
