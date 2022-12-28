@@ -460,6 +460,12 @@ class AssemblerRISCV(OpAssembler):
     def _build_stack_check_slowpath(self):
         pass
 
+    def _load_fp_imm(self, loc, imm):
+        """Load a float immediate value to a fp register."""
+        # TODO: Switch to pc-relative addressing
+        self.mc.load_int_imm(r.x31.value, imm.get_addr())
+        self.mc.load_float(loc.value, r.x31.value, 0)
+
     def load_imm(self, loc, imm):
         """Load an immediate value into a register"""
         if loc.is_core_reg():
@@ -467,9 +473,7 @@ class AssemblerRISCV(OpAssembler):
             self.mc.load_int_imm(loc.value, imm.value)
         else:
             assert loc.is_fp_reg() and imm.is_imm_float()
-            # TODO: Switch to pc-relative addressing
-            self.mc.load_int_imm(r.x31.value, imm.get_addr())
-            self.mc.load_float(loc.value, r.x31.value, 0)
+            self._load_fp_imm(loc, imm)
 
     def regalloc_mov(self, prev_loc, loc):
         """Moves a value from a previous location to some other location"""
@@ -481,6 +485,8 @@ class AssemblerRISCV(OpAssembler):
             self._mov_reg_to_loc(prev_loc, loc)
         elif prev_loc.is_fp_reg():
             self._mov_fp_reg_to_loc(prev_loc, loc)
+        elif prev_loc.is_imm_float():
+            self._mov_imm_float_to_loc(prev_loc, loc)
         else:
             assert 0, 'unsupported case'
     mov_loc_loc = regalloc_mov
@@ -513,5 +519,14 @@ class AssemblerRISCV(OpAssembler):
             self.mc.FMV_D(loc.value, prev_loc.value)
         elif loc.is_stack():
             self.mc.store_float(prev_loc.value, r.jfp.value, loc.value)
+        else:
+            assert 0, 'unsupported case'
+
+    def _mov_imm_float_to_loc(self, prev_loc, loc):
+        if loc.is_fp_reg():
+            self._load_fp_imm(loc, prev_loc)
+        elif loc.is_stack():
+            self._load_fp_imm(r.f31, prev_loc)
+            self.mc.store_float(r.f31.value, r.jfp.value, loc.value)
         else:
             assert 0, 'unsupported case'
