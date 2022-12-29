@@ -45,7 +45,7 @@ FUNCTIONS = """
 void ASN1_OBJECT_free(ASN1_OBJECT *);
 
 /*  ASN1 STRING */
-unsigned char *ASN1_STRING_data(ASN1_STRING *);
+const unsigned char *ASN1_STRING_get0_data(ASN1_STRING *);
 int ASN1_STRING_set(ASN1_STRING *, const void *, int);
 
 /*  ASN1 OCTET STRING */
