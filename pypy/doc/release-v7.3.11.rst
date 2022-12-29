@@ -3,7 +3,7 @@ PyPy v7.3.11: release of python 2.7, 3.8, and 3.9
 =================================================
 
 ..
-       Changelog up to commit 46a7476ee4c3
+       Changelog up to commit 207858e40e63
 
 .. note::
   This is a pre-release announcement. When the release actually happens, it
@@ -114,6 +114,9 @@ Bugfixes
 - Package tkinter for macOS. Previously the portable builds did not include it
   (issues 3760_, 3868_).
 - Fix memory leak in certificate validation in ``_ssl`` (issue 3871_)
+- Add ``__qualname__`` to some cpyext types (issue 3878_)
+- Clean up some deprecated functions in OpenSSL wrapper ``_ssl``
+
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -127,14 +130,24 @@ Python 3.8+
   some security fixes, as documented in the `CPython release note`_
 - Ensure that only valid values are passed from ``Py_UNICODE_*`` calls to
   unicodedb lookups (issue 3870_) 
+- Fix ast ``lineno``, ``end_lineno``, ``end_col_number`` around decorators (issue 3876_)
+- Re-apply fix for issue 3436_ since our ensurepip setuptools version is ``< 59.0``
+- In ``_tkinter``, ``getboolean``, ``getint``, ``getdouble`` accepts a ``Tcl_Obj`` (bpo-23880_)
+- Make builtin ``credits``, ``license()`` more like CPython
+- Add docstrings to some builtin classes and methods
 
 Python 3.9
 ----------
 - Fix pure-python implmentation of ``functools`` (issue 3869_). see also cpython GH-100242_
+- Remove ``type.__ne__``, the inherited behaviour from ``object.__ne__`` is the
+  correct one (issue 3879_)
+- Fix invalid parsing rule for ``genexps`` as the non-singular argument in a call (issue 3873_)
 
 .. _`using SMT solvers and fuzzing`: https://www.pypy.org/posts/2022/12/jit-bug-finding-smt-fuzzing.html
 .. _`CPython release note`: https://www.python.org/downloads/release/python-3816
+.. _bpo-23880: https://bugs.python.org/issue23880
 .. _GH-100242: https://github.com/python/cpython/issues/100242
+.. _3436: https://foss.heptapod.net/pypy/pypy/-/issues/3436
 .. _3760: https://foss.heptapod.net/pypy/pypy/-/issues/3760
 .. _3832: https://foss.heptapod.net/pypy/pypy/-/issues/3832
 .. _3865: https://foss.heptapod.net/pypy/pypy/-/issues/3865
@@ -142,3 +155,6 @@ Python 3.9
 .. _3869: https://foss.heptapod.net/pypy/pypy/-/issues/3869
 .. _3870: https://foss.heptapod.net/pypy/pypy/-/issues/3870
 .. _3871: https://foss.heptapod.net/pypy/pypy/-/issues/3871
+.. _3873: https://foss.heptapod.net/pypy/pypy/-/issues/3873
+.. _3876: https://foss.heptapod.net/pypy/pypy/-/issues/3876
+.. _3879: https://foss.heptapod.net/pypy/pypy/-/issues/3879
