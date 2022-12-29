@@ -1024,6 +1024,23 @@ class AppTestTypeObject:
         assert not A == B
         assert not A != A
 
+    def test_compare_overridden(self):
+        """
+        class AMeta(type):
+            def __eq__(self, other):
+                return True
+
+        class A(metaclass=AMeta):
+            pass
+
+        assert (A == 1) == True
+        assert (1 == A) == True
+
+        assert (A != 1) == False
+        assert (1 != A) == False
+        """
+
+
     def test_class_variations(self):
         class A(object):
             pass

@@ -66,7 +66,6 @@ ffi = build_ffi_for_binding(
         "bignum",
         "bio",
         "cmac",
-        "conf",
         "crypto",
         "ct",
         "dh",

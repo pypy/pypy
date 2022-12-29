@@ -874,6 +874,22 @@ class Parser:
             'expression cannot contain assignment, perhaps you meant "=="?', a, b,
         )
 
+    def get_last_comprehension_item(self, comp):
+        assert isinstance(comp, ast.comprehension)
+        if comp.ifs:
+            return comp.ifs[-1]
+        else:
+            return comp.iter
+
+    def check_nonparen_genexp_in_call(self, msg, a, b):
+        assert isinstance(a, ast.Call)
+        if len(a.args) > 1:
+            self.raise_syntax_error_known_range(
+                    msg,
+                    a.args[-1],
+                    self.get_last_comprehension_item(b[-1]))
+        return None
+
     def revdbmetavar(self, num, lineno, col_offset, end_lineno, end_col_offset):
         if not self.space.config.translation.reverse_debugger:
             self._raise_syntax_error("Unkown character", lineno, col_offset, end_lineno, end_col_offset)

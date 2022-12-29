@@ -1165,11 +1165,10 @@ invalid_arguments[NoReturn]:
             "invalid syntax. Maybe you meant '==' or ':=' instead of '='?", a, b
         )
      }
-    | a=args for_if_clauses {
-        self.raise_syntax_error_starting_from(
+    | a=args b=for_if_clauses {
+        self.check_nonparen_genexp_in_call(
             "Generator expression must be parenthesized",
-            a.keywords[-1] if a.keywords else a.args[-1]
-        )
+            a, b)
      }
     | args ',' a=expression b=for_if_clauses {
         self.raise_syntax_error_known_range(

@@ -769,11 +769,6 @@ class W_TypeObject(W_Root):
         raise oefmt_attribute_error(
             space, self, w_name, "type object '%N' has no attribute %R")
 
-    def descr_ne(self, space, w_other):
-        if not isinstance(w_other, W_TypeObject):
-            return space.w_NotImplemented
-        return space.newbool(not space.is_w(self, w_other))
-
 
 def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
@@ -1185,7 +1180,6 @@ W_TypeObject.typedef = TypeDef("type",
     __call__ = gateway.interp2app(W_TypeObject.descr_call),
     __repr__ = gateway.interp2app(W_TypeObject.descr_repr),
     __getattribute__ = gateway.interp2app(W_TypeObject.descr_getattribute),
-    __ne__ = gateway.interp2app(W_TypeObject.descr_ne),
     __prepare__ = gateway.interp2app(descr___prepare__, as_classmethod=True),
 )
 

@@ -432,7 +432,7 @@ class _SSLSocket(object):
                     raise ssl_error(None)
             else:
                 if not lib.X509_VERIFY_PARAM_set1_ip(
-                        param, lib.ASN1_STRING_data(ip), lib.ASN1_STRING_length(ip)):
+                        param, lib.ASN1_STRING_get0_data(ip), lib.ASN1_STRING_length(ip)):
                     raise ssl_error(None)
 
     @property

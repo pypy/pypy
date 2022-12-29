@@ -336,7 +336,7 @@ class W_ListObject(W_Root):
         return self.strategy.find_or_count(self, w_item, start, end, count)
 
     def append(self, w_item):
-        """L.append(object) -> None -- append object to end"""
+        """Append object to the end of the list."""
         self.strategy.append(self, w_item)
 
     def length(self):
@@ -2360,8 +2360,11 @@ class CustomKeySort(SimpleSort):
 
 
 W_ListObject.typedef = TypeDef("list",
-    __doc__ = """list() -> new empty list
-list(iterable) -> new list initialized from iterable's items""",
+    __doc__ = """Built-in mutable sequence.
+
+If no argument is given, the constructor creates a new empty list.
+The argument must be an iterable if specified.""",
+    _text_signature_ = "(iterable=(), /)",
     __new__ = interp2app(W_ListObject.descr_new),
     __init__ = interp2app(W_ListObject.descr_init),
     __repr__ = interp2app(W_ListObject.descr_repr),

@@ -303,22 +303,28 @@ class W_SRE_Pattern(W_Root):
 
     @unwrap_spec(pos=int, endpos=int)
     def match_w(self, w_string, pos=0, endpos=sys.maxint):
+        """Matches zero or more characters at the beginning of the string."""
         ctx = self.make_ctx(w_string, pos, endpos)
         return self.getmatch(ctx, matchcontext(self.space, ctx, self.code))
 
     @unwrap_spec(pos=int, endpos=int)
     def fullmatch_w(self, w_string, pos=0, endpos=sys.maxint):
+        """Matches against all of the string."""
         ctx = self.make_ctx(w_string, pos, endpos)
         ctx.match_mode = rsre_core.MODE_FULL
         return self.getmatch(ctx, matchcontext(self.space, ctx, self.code))
 
     @unwrap_spec(pos=int, endpos=int)
     def search_w(self, w_string, pos=0, endpos=sys.maxint):
+        """Scan through string looking for a match, and return a corresponding match object instance.
+
+Return None if no position in the string matches."""
         ctx = self.make_ctx(w_string, pos, endpos)
         return self.getmatch(ctx, searchcontext(self.space, ctx, self.code))
 
     @unwrap_spec(pos=int, endpos=int)
     def findall_w(self, w_string, pos=0, endpos=sys.maxint):
+        """Return a list of all non-overlapping matches of pattern in string."""
         space = self.space
         matchlist_w = []
         ctx = self.make_ctx(w_string, pos, endpos)
@@ -344,6 +350,9 @@ class W_SRE_Pattern(W_Root):
 
     @unwrap_spec(pos=int, endpos=int)
     def finditer_w(self, w_string, pos=0, endpos=sys.maxint):
+        """Return an iterator over all non-overlapping matches for the RE pattern in string.
+
+For each match, the iterator returns a match object."""
         # this also works as the implementation of the undocumented
         # scanner() method.
         ctx = self.make_ctx(w_string, pos, endpos)
@@ -352,6 +361,7 @@ class W_SRE_Pattern(W_Root):
 
     @unwrap_spec(maxsplit=int)
     def split_w(self, w_string, maxsplit=0):
+        """Split string by the occurrences of pattern."""
         space = self.space
         #
         splitlist = []
@@ -381,11 +391,13 @@ class W_SRE_Pattern(W_Root):
 
     @unwrap_spec(count=int)
     def sub_w(self, w_repl, w_string, count=0):
+        """Return the string obtained by replacing the leftmost non-overlapping occurrences of pattern in string by the replacement repl."""
         w_item, n = self.subx(w_repl, w_string, count)
         return w_item
 
     @unwrap_spec(count=int)
     def subn_w(self, w_repl, w_string, count=0):
+        """Return the tuple (new_string, number_of_subs_made) found by replacing the leftmost non-overlapping occurrences of pattern with the replacement repl."""
         w_item, n = self.subx(w_repl, w_string, count)
         space = self.space
         return space.newtuple2(w_item, space.newint(n))
@@ -612,6 +624,7 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
 
 W_SRE_Pattern.typedef = TypeDef(
     're.Pattern',
+    __doc__      = "Compiled regular expression object.",
     __new__      = interp2app(SRE_Pattern__new__),
     __copy__     = interp2app(W_SRE_Pattern.copy_identity_w),
     __deepcopy__ = interp2app(W_SRE_Pattern.copy_identity_w),
@@ -677,6 +690,9 @@ class W_SRE_Match(W_Root):
 
     @jit.look_inside_iff(lambda self, args_w: jit.isconstant(len(args_w)))
     def group_w(self, args_w):
+        """group([group1, ...]) -> str or tuple.
+Return subgroup(s) of the match by indices or names.
+For 0 returns the entire match."""
         space = self.space
         ctx = self.ctx
         if len(args_w) <= 1:
@@ -847,6 +863,8 @@ class W_SRE_Match(W_Root):
 
 W_SRE_Match.typedef = TypeDef(
     're.Match',
+    __doc__      = """The result of re.match() and re.search().
+Match objects always have a boolean value of True.""",
     __copy__     = interp2app(W_SRE_Match.copy_identity_w),
     __deepcopy__ = interp2app(W_SRE_Match.copy_identity_w),
     __repr__     = interp2app(W_SRE_Match.repr_w),

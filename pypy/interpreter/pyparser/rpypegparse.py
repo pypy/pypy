@@ -3586,9 +3586,9 @@ class PythonParser(Parser):
         self._index = mark
         a = self.args()
         if a:
-            for_if_clauses = self.for_if_clauses()
-            if for_if_clauses:
-                return self . raise_syntax_error_starting_from ( "Generator expression must be parenthesized" , a . keywords [- 1] if a . keywords else a . args [- 1] )
+            b = self.for_if_clauses()
+            if b:
+                return self . check_nonparen_genexp_in_call ( "Generator expression must be parenthesized" , a , b )
         self._index = mark
         args = self.args()
         if args:
