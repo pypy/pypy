@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.riscv import arch
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.assembler import AssemblerRISCV
 from rpython.rtyper.lltypesystem import llmemory
@@ -14,6 +15,8 @@ class AbstractRISCVCPU(AbstractLLCPU):
     all_reg_indexes = range(32)
     gen_regs = r.registers  # List of general-purpose registers
     float_regs = r.fp_registers  # List of floating point registers
+
+    JITFRAME_FIXED_SIZE = arch.JITFRAME_FIXED_SIZE
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):

@@ -112,8 +112,22 @@ class AssemblerRISCV(OpAssembler):
                        size_excluding_failure_stuff - loop_head)
 
     def _assemble(self, regalloc, inputargs, operations):
+        # Fill in the frame location hints so that we can reduce stack-to-stack
+        # data movement in `remap_frame_layout_mixed`.
+        regalloc.compute_hint_frame_locations(operations)
+
+        # Visit all operations and regalloc/assemble the operations.
         self._walk_operations(inputargs, operations, regalloc)
         frame_depth = regalloc.get_final_frame_depth()
+
+        # If the jump target (of the current loop) requires larger frame,
+        # update the frame depth.
+        jump_target_descr = regalloc.jump_target_descr
+        if jump_target_descr is not None:
+            tgt_depth = jump_target_descr._riscv_clt.frame_info.jfi_frame_depth
+            target_frame_depth = tgt_depth - JITFRAME_FIXED_SIZE
+            frame_depth = max(frame_depth, target_frame_depth)
+
         return frame_depth
 
     def _walk_operations(self, inputargs, operations, regalloc):

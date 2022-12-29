@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
+from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.llsupport.regalloc import (
     BaseRegalloc, FrameManager, RegisterManager, TempVar,
     compute_vars_longevity)
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
-    SHAMT_MAX, SINT12_IMM_MAX, SINT12_IMM_MIN)
+    SHAMT_MAX, SINT12_IMM_MAX, SINT12_IMM_MIN, XLEN)
 from rpython.jit.backend.riscv.instruction_util import (
     COND_BEQ, COND_BGE, COND_BGEU, COND_BLT, COND_BLTU, COND_BNE,
     get_negated_branch_inst)
@@ -13,7 +14,7 @@ from rpython.jit.backend.riscv.locations import (
     ConstFloatLoc, ImmLocation, StackLocation, get_fp_offset)
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.history import (
-    Const, ConstFloat, ConstInt, ConstPtr, FLOAT, INT, REF)
+    Const, ConstFloat, ConstInt, ConstPtr, FLOAT, INT, REF, TargetToken)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -219,8 +220,8 @@ class Regalloc(BaseRegalloc):
         self.frame_manager = None
         self.rm = None
         self.fprm = None
-        #self.jump_target_descr = None
-        #self.final_jump_op = None
+        self.jump_target_descr = None
+        self.final_jump_op = None
 
     def _prepare(self, inputargs, operations, allgcrefs):
         cpu = self.cpu
@@ -678,6 +679,120 @@ class Regalloc(BaseRegalloc):
     def prepare_op_load_from_gc_table(self, op):
         res = self.force_allocate_reg(op)
         return [res]
+
+    def compute_hint_frame_locations(self, operations):
+        # Fill in the `hint_frame_pos` dictionary of `frame_manager` based on
+        # the JUMP at the end of the loop, by looking at where we would like
+        # the boxes to be after the jump.
+        #
+        # Note: This is only an optimization.
+
+        op = operations[-1]
+        if op.getopnum() != rop.JUMP:
+            return
+
+        self.final_jump_op = op
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        if descr._ll_loop_code != 0:
+            # Set up `hint_frame_pos` if the target LABEL had been compiled
+            # already, i.e. if it belongs to some already-compiled piece of
+            # code.
+            self._compute_hint_frame_locations_from_descr(descr)
+        #else:
+        #   The loop ends in a JUMP going back to a LABEL in the same loop.
+        #   We cannot fill 'hint_frame_locations' immediately, but we can
+        #   wait until the corresponding prepare_op_label() to know where the
+        #   we would like the boxes to be after the jump.
+
+    def _compute_hint_frame_locations_from_descr(self, descr):
+        arglocs = descr._riscv_arglocs
+        jump_op = self.final_jump_op
+        assert len(arglocs) == jump_op.numargs()
+        for i in range(jump_op.numargs()):
+            box = jump_op.getarg(i)
+            if not isinstance(box, Const):
+                loc = arglocs[i]
+                if loc is not None and loc.is_stack():
+                    self.frame_manager.hint_frame_pos[box] = (
+                        self.frame_manager.get_loc_index(loc))
+
+    def prepare_op_label(self, op):
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        inputargs = op.getarglist()
+        arglocs = [None] * len(inputargs)
+
+        # We use force_spill() on the boxes that are not going to be really
+        # used any more in the loop, but they are kept alive anyway by being in
+        # a next LABEL's or a JUMP's argument or fail_args of some guard
+        position = self.rm.position
+        for arg in inputargs:
+            assert not isinstance(arg, Const)
+            if self.longevity[arg].is_last_real_use_before(position):
+                self.force_spill_var(arg)
+
+        # Dissociate the register and stack slot because the jump op will copy
+        # the updated value to the register and such value may be unrelated to
+        # the stack slot. If the register is spilled by upcoming ops, we must
+        # ensure the register is spilled to other stack slots instead of
+        # overwriting to the old stack slot.
+        for i in range(len(inputargs)):
+            arg = inputargs[i]
+            assert not isinstance(arg, Const)
+            loc = self.loc(arg)
+            arglocs[i] = loc
+            if loc.is_core_reg() or loc.is_fp_reg():
+                self.frame_manager.mark_as_free(arg)
+
+        descr._riscv_arglocs = arglocs
+        descr._riscv_clt = self.assembler.current_clt
+        descr._ll_loop_code = self.assembler.mc.get_relative_pos()
+        self.assembler.target_tokens_currently_compiling[descr] = None
+        self.possibly_free_vars_for_op(op)
+
+        # If the LABEL's descr is precisely the target of the JUMP at the end
+        # of the same loop, i.e. if what we are compiling is a single loop that
+        # ends up jumping to this LABEL, then we can now provide the hints
+        # about the expected position of the spilled variables.
+        jump_op = self.final_jump_op
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._compute_hint_frame_locations_from_descr(descr)
+        return []
+
+    def prepare_op_jump(self, op):
+        assert self.jump_target_descr is None
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        self.jump_target_descr = descr
+        arglocs = descr._riscv_arglocs
+
+        # Core registers
+        src_core_locs = []
+        dst_core_locs = []
+        scratch_core_reg = r.x31
+
+        # Floating point registers
+        src_fp_locs = []
+        dst_fp_locs = []
+        scratch_fp_reg = r.f31
+
+        # Build the four lists
+        for i in range(op.numargs()):
+            box = op.getarg(i)
+            src_loc = self.loc(box)
+            dst_loc = arglocs[i]
+            if box.type != FLOAT:
+                src_core_locs.append(src_loc)
+                dst_core_locs.append(dst_loc)
+            else:
+                src_fp_locs.append(src_loc)
+                dst_fp_locs.append(dst_loc)
+
+        remap_frame_layout_mixed(self.assembler, src_core_locs, dst_core_locs,
+                                 scratch_core_reg, src_fp_locs, dst_fp_locs,
+                                 scratch_fp_reg, XLEN)
+        return []
 
     def prepare_op_finish(self, op):
         if op.numargs() == 1:

@@ -5,8 +5,9 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import JITFRAME_FIXED_SIZE, XLEN
 from rpython.jit.backend.riscv.codebuilder import BRANCH_BUILDER
+from rpython.jit.backend.riscv.instruction_util import check_simm21_arg
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
-from rpython.jit.metainterp.history import AbstractFailDescr
+from rpython.jit.metainterp.history import AbstractFailDescr, TargetToken
 from rpython.jit.metainterp.resoperation import rop
 
 
@@ -367,6 +368,23 @@ class OpAssembler(BaseAssembler):
         res = arglocs[0]
         index = op.getarg(0).getint()
         self.load_from_gc_table(res.value, index)
+
+    def emit_op_label(self, op, arglocs):
+        pass
+
+    def emit_op_jump(self, op, arglocs):
+        target_token = op.getdescr()
+        assert isinstance(target_token, TargetToken)
+        target = target_token._ll_loop_code
+        if target_token in self.target_tokens_currently_compiling:
+            relative_offset = target - self.mc.get_relative_pos()
+            assert check_simm21_arg(relative_offset)
+            self.mc.J(relative_offset)
+        else:
+            # Jump to the destination (absolute address).
+            scratch_reg = r.x31
+            self.mc.load_int_imm(scratch_reg.value, target)
+            self.mc.JR(scratch_reg.value)
 
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
