@@ -9,7 +9,7 @@ Verify the versions.json file that describes the valid downloads.
 By default will download https://buildbot.pypy.org/pypy/versions.json parse it, and
 check against the files in https://downloads.python.org/pypy/
 Can be run as check_versions.py <filename>, in which case it will check the files in
-https://buildbot.pypy.org/pypy/
+https://buildbot.pypy.org/mirror/
 """
 
 import json
@@ -34,6 +34,9 @@ def assert_in(a, b):
 
 
 pypy_versions = {
+                 '7.3.11': {'python_version': ['3.9.16', '3.8.16', '2.7.18'],
+                           'date': '2022-12-29',
+                          },
                  '7.3.10': {'python_version': ['3.9.15', '3.8.15', '2.7.18'],
                            'date': '2022-12-06',
                           },
