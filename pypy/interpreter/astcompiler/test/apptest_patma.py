@@ -49,9 +49,42 @@ match x:
 """)
     assert info.value.msg == "name capture 'a' makes remaining patterns unreachable"
 
+def test_match_list():
+    def match_list(x):
+        match x:
+            case [True]: return "[True]"
+            case [1,2,3]: return "list[1,2,3]"
+            case [1]: return "list[1]"
+            case []: return "emptylist"
+            case [_]: return "list"
+    assert match_list(['']) == "list"
+    assert match_list([1]) == "list[1]"
+    assert match_list([1,2,3]) == "list[1,2,3]"
+    assert match_list([1,2,4]) is None
+    assert match_list([2,3,4]) is None
+    assert match_list([1, 2]) is None
+    assert match_list([]) == "emptylist"
+
+
+def test_or():
+    x = 2
+    match x:
+        case 1 | 2:
+            a = 2
+        case _:
+            a = 3
+    assert a == 2
+
+
+def test_dont_use_is():
+    match [1.0]:
+        case [1]: pass
+        case _: assert False
+
 def test_only_bind_at_end():
     a = 5
     match [1, 2, 3]:
         case [a, 1, b]:
             pass
     assert a == 5
+
