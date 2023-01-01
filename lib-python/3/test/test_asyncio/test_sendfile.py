@@ -1,6 +1,7 @@
 """Tests for sendfile functionality."""
 
 import asyncio
+import errno
 import os
 import socket
 import sys
@@ -10,6 +11,7 @@ from asyncio import base_events
 from asyncio import constants
 from unittest import mock
 from test import support
+from test.support import os_helper
 from test.support import socket_helper
 from test.test_asyncio import utils as test_utils
 
@@ -35,25 +37,29 @@ class MySendfileProto(asyncio.Protocol):
         self.data = bytearray()
         self.close_after = close_after
 
+    def _assert_state(self, *expected):
+        if self.state not in expected:
+            raise AssertionError(f'state: {self.state!r}, expected: {expected!r}')
+
     def connection_made(self, transport):
         self.transport = transport
-        assert self.state == 'INITIAL', self.state
+        self._assert_state('INITIAL')
         self.state = 'CONNECTED'
         if self.connected:
             self.connected.set_result(None)
 
     def eof_received(self):
-        assert self.state == 'CONNECTED', self.state
+        self._assert_state('CONNECTED')
         self.state = 'EOF'
 
     def connection_lost(self, exc):
-        assert self.state in ('CONNECTED', 'EOF'), self.state
+        self._assert_state('CONNECTED', 'EOF')
         self.state = 'CLOSED'
         if self.done:
             self.done.set_result(None)
 
     def data_received(self, data):
-        assert self.state == 'CONNECTED', self.state
+        self._assert_state('CONNECTED')
         self.nbytes += len(data)
         self.data.extend(data)
         super().data_received(data)
@@ -102,17 +108,17 @@ class SendfileBase:
 
     @classmethod
     def setUpClass(cls):
-        with open(support.TESTFN, 'wb') as fp:
+        with open(os_helper.TESTFN, 'wb') as fp:
             fp.write(cls.DATA)
         super().setUpClass()
 
     @classmethod
     def tearDownClass(cls):
-        support.unlink(support.TESTFN)
+        os_helper.unlink(os_helper.TESTFN)
         super().tearDownClass()
 
     def setUp(self):
-        self.file = open(support.TESTFN, 'rb')
+        self.file = open(os_helper.TESTFN, 'rb')
         self.addCleanup(self.file.close)
         self.loop = self.create_event_loop()
         self.set_event_loop(self.loop)
@@ -479,8 +485,17 @@ class SendfileMixin(SendfileBase):
 
         srv_proto, cli_proto = self.prepare_sendfile(close_after=1024)
         with self.assertRaises(ConnectionError):
-            self.run_loop(
-                self.loop.sendfile(cli_proto.transport, self.file))
+            try:
+                self.run_loop(
+                    self.loop.sendfile(cli_proto.transport, self.file))
+            except OSError as e:
+                # macOS may raise OSError of EPROTOTYPE when writing to a
+                # socket that is in the process of closing down.
+                if e.errno == errno.EPROTOTYPE and sys.platform == "darwin":
+                    raise ConnectionError
+                else:
+                    raise
+
         self.run_loop(srv_proto.done)
 
         self.assertTrue(1024 <= srv_proto.nbytes < len(self.DATA),

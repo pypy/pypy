@@ -358,7 +358,7 @@ class TestCopy(unittest.TestCase):
             pass
         tests = [None, 42, 2**100, 3.14, True, False, 1j,
                  "hello", "hello\u1234", f.__code__,
-                 NewStyle, Classic, max, property()]
+                 NewStyle, range(10), Classic, max, property()]
         for x in tests:
             self.assertIs(copy.deepcopy(x), x)
 
@@ -580,17 +580,6 @@ class TestCopy(unittest.TestCase):
         self.assertIsNot(y, x)
         self.assertIs(y.foo, y)
 
-    def test_deepcopy_range(self):
-        class I(int):
-            pass
-        x = range(I(10))
-        y = copy.deepcopy(x)
-        self.assertIsNot(y, x)
-        self.assertEqual(y, x)
-        self.assertIsNot(y.stop, x.stop)
-        self.assertEqual(y.stop, x.stop)
-        self.assertIsInstance(y.stop, I)
-
     # _reconstruct()
 
     def test_reconstruct_string(self):
@@ -688,6 +677,28 @@ class TestCopy(unittest.TestCase):
         self.assertEqual(x, y)
         self.assertIsNot(x, y)
         self.assertIsNot(x["foo"], y["foo"])
+
+    def test_reduce_6tuple(self):
+        def state_setter(*args, **kwargs):
+            self.fail("shouldn't call this")
+        class C:
+            def __reduce__(self):
+                return C, (), self.__dict__, None, None, state_setter
+        x = C()
+        with self.assertRaises(TypeError):
+            copy.copy(x)
+        with self.assertRaises(TypeError):
+            copy.deepcopy(x)
+
+    def test_reduce_6tuple_none(self):
+        class C:
+            def __reduce__(self):
+                return C, (), self.__dict__, None, None, None
+        x = C()
+        with self.assertRaises(TypeError):
+            copy.copy(x)
+        with self.assertRaises(TypeError):
+            copy.deepcopy(x)
 
     def test_copy_slots(self):
         class C(object):

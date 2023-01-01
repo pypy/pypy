@@ -146,6 +146,23 @@ class AsyncPatchCMTest(unittest.TestCase):
 
         run(test_async())
 
+    def test_patch_dict_async_def(self):
+        foo = {'a': 'a'}
+        @patch.dict(foo, {'a': 'b'})
+        async def test_async():
+            self.assertEqual(foo['a'], 'b')
+
+        self.assertTrue(iscoroutinefunction(test_async))
+        run(test_async())
+
+    def test_patch_dict_async_def_context(self):
+        foo = {'a': 'a'}
+        async def test_async():
+            with patch.dict(foo, {'a': 'b'}):
+                self.assertEqual(foo['a'], 'b')
+
+        run(test_async())
+
 
 class AsyncMockTest(unittest.TestCase):
     def test_iscoroutinefunction_default(self):
@@ -199,9 +216,9 @@ class AsyncAutospecTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             create_autospec(async_func, instance=True)
 
+    @unittest.skip('Broken test from https://bugs.python.org/issue37251')
     def test_create_autospec_awaitable_class(self):
-        awaitable_mock = create_autospec(spec=AwaitableClass())
-        self.assertIsInstance(create_autospec(awaitable_mock), AsyncMock)
+        self.assertIsInstance(create_autospec(AwaitableClass), AsyncMock)
 
     def test_create_autospec(self):
         spec = create_autospec(async_func_args)

@@ -297,12 +297,37 @@ def _get_default_root(what=None):
     if not _support_default_root:
         raise RuntimeError("No master specified and tkinter is "
                            "configured to not support default root")
-    if not _default_root:
+    if _default_root is None:
         if what:
             raise RuntimeError(f"Too early to {what}: no default root window")
         root = Tk()
         assert _default_root is root
     return _default_root
+
+
+def _get_temp_root():
+    global _support_default_root
+    if not _support_default_root:
+        raise RuntimeError("No master specified and tkinter is "
+                           "configured to not support default root")
+    root = _default_root
+    if root is None:
+        assert _support_default_root
+        _support_default_root = False
+        root = Tk()
+        _support_default_root = True
+        assert _default_root is None
+        root.withdraw()
+        root._temporary = True
+    return root
+
+
+def _destroy_temp_root(master):
+    if getattr(master, '_temporary', False):
+        try:
+            master.destroy()
+        except TclError:
+            pass
 
 
 def _tkerror(err):
@@ -347,7 +372,7 @@ class Variable:
         if name is not None and not isinstance(name, str):
             raise TypeError("name must be a string")
         global _varnum
-        if not master:
+        if master is None:
             master = _get_default_root('create variable')
         self._root = master._root()
         self._tk = master.tk
@@ -809,7 +834,7 @@ class Misc:
         function which shall be called. Additional parameters
         are given as parameters to the function call.  Return
         identifier to cancel scheduling with after_cancel."""
-        if not func:
+        if func is None:
             # I'd rather use time.sleep(ms*0.001)
             self.tk.call('after', ms)
             return None
@@ -822,7 +847,11 @@ class Misc:
                         self.deletecommand(name)
                     except TclError:
                         pass
-            callit.__name__ = func.__name__
+            try:
+                callit.__name__ = func.__name__
+            except AttributeError:
+                # Required for callable classes (bpo-44404)
+                callit.__name__ = type(func).__name__
             name = self._register(callit)
             return self.tk.call('after', ms, name)
 
@@ -1542,7 +1571,7 @@ class Misc:
     def _root(self):
         """Internal function."""
         w = self
-        while w.master: w = w.master
+        while w.master is not None: w = w.master
         return w
     _subst_format = ('%#', '%b', '%f', '%h', '%k',
              '%s', '%t', '%w', '%x', '%y',
@@ -2306,7 +2335,7 @@ class Tk(Misc, Wm):
         self.tk.createcommand('exit', _exit)
         self._tclCommands.append('tkerror')
         self._tclCommands.append('exit')
-        if _support_default_root and not _default_root:
+        if _support_default_root and _default_root is None:
             _default_root = self
         self.protocol("WM_DELETE_WINDOW", self.destroy)
 
@@ -2534,7 +2563,7 @@ class BaseWidget(Misc):
 
     def _setup(self, master, cnf):
         """Internal function. Sets up information about children."""
-        if not master:
+        if master is None:
             master = _get_default_root()
         self.master = master
         self.tk = master.tk
@@ -2568,7 +2597,7 @@ class BaseWidget(Misc):
         if kw:
             cnf = _cnfmerge((cnf, kw))
         self.widgetName = widgetName
-        BaseWidget._setup(self, master, cnf)
+        self._setup(master, cnf)
         if self._tclCommands is None:
             self._tclCommands = []
         classes = [(k, v) for k, v in cnf.items() if isinstance(k, type)]
@@ -2987,6 +3016,8 @@ class Canvas(Widget, XView, YView):
         return self.tk.call(self._w, 'type', tagOrId) or None
 
 
+_checkbutton_count = 0
+
 class Checkbutton(Widget):
     """Checkbutton widget which is either in on- or off-state."""
 
@@ -3001,6 +3032,14 @@ class Checkbutton(Widget):
         selectcolor, selectimage, state, takefocus, text, textvariable,
         underline, variable, width, wraplength."""
         Widget.__init__(self, master, 'checkbutton', cnf, kw)
+
+    def _setup(self, master, cnf):
+        if not cnf.get('name'):
+            global _checkbutton_count
+            name = self.__class__.__name__.lower()
+            _checkbutton_count += 1
+            cnf['name'] = f'!{name}{_checkbutton_count}'
+        super()._setup(master, cnf)
 
     def deselect(self):
         """Put the button in off-state."""
@@ -3587,7 +3626,7 @@ class Text(Widget, XView, YView):
         "lines", "xpixels" and "ypixels". There is an additional possible
         option "update", which if given then all subsequent options ensure
         that any possible out of date information is recalculated."""
-        args = ['-%s' % arg for arg in args if not arg.startswith('-')]
+        args = ['-%s' % arg for arg in args]
         args += [index1, index2]
         res = self.tk.call(self._w, 'count', *args) or None
         if res is not None and len(args) <= 3:
@@ -3949,7 +3988,7 @@ class _setit:
 
     def __call__(self, *args):
         self.__var.set(self.__value)
-        if self.__callback:
+        if self.__callback is not None:
             self.__callback(self.__value, *args)
 
 
@@ -3998,7 +4037,7 @@ class Image:
 
     def __init__(self, imgtype, name=None, cnf={}, master=None, **kw):
         self.name = None
-        if not master:
+        if master is None:
             master = _get_default_root('create image')
         self.tk = getattr(master, 'tk', master)
         if not name:

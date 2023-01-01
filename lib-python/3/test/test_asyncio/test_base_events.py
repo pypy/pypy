@@ -16,8 +16,9 @@ from asyncio import constants
 from test.test_asyncio import utils as test_utils
 from test import support
 from test.support.script_helper import assert_python_ok
+from test.support import os_helper
 from test.support import socket_helper
-
+import warnings
 
 MOCK_ANY = mock.ANY
 PY34 = sys.version_info >= (3, 4)
@@ -642,7 +643,7 @@ class BaseEventLoopTests(test_utils.TestCase):
                                 'Exception in callback.*zero'),
                         exc_info=(ZeroDivisionError, MOCK_ANY, MOCK_ANY))
 
-        assert not mock_handler.called
+        self.assertFalse(mock_handler.called)
 
     def test_set_exc_handler_broken(self):
         def run_loop():
@@ -751,7 +752,7 @@ class BaseEventLoopTests(test_utils.TestCase):
     def test_env_var_debug(self):
         code = '\n'.join((
             'import asyncio',
-            'loop = asyncio.get_event_loop()',
+            'loop = asyncio.new_event_loop()',
             'print(loop.get_debug())'))
 
         # Test with -E to not fail if the unit test was run with
@@ -799,6 +800,17 @@ class BaseEventLoopTests(test_utils.TestCase):
         # make warnings quiet
         task._log_destroy_pending = False
         coro.close()
+
+    def test_create_task_error_closes_coro(self):
+        async def test():
+            pass
+        loop = asyncio.new_event_loop()
+        loop.close()
+        with warnings.catch_warnings(record=True) as w:
+            with self.assertRaises(RuntimeError):
+                asyncio.ensure_future(test(), loop=loop)
+            self.assertEqual(len(w), 0)
+
 
     def test_create_named_task_with_default_factory(self):
         async def test():
@@ -1002,22 +1014,26 @@ class MyProto(asyncio.Protocol):
         if create_future:
             self.done = asyncio.get_running_loop().create_future()
 
+    def _assert_state(self, *expected):
+        if self.state not in expected:
+            raise AssertionError(f'state: {self.state!r}, expected: {expected!r}')
+
     def connection_made(self, transport):
         self.transport = transport
-        assert self.state == 'INITIAL', self.state
+        self._assert_state('INITIAL')
         self.state = 'CONNECTED'
         transport.write(b'GET / HTTP/1.0\r\nHost: example.com\r\n\r\n')
 
     def data_received(self, data):
-        assert self.state == 'CONNECTED', self.state
+        self._assert_state('CONNECTED')
         self.nbytes += len(data)
 
     def eof_received(self):
-        assert self.state == 'CONNECTED', self.state
+        self._assert_state('CONNECTED')
         self.state = 'EOF'
 
     def connection_lost(self, exc):
-        assert self.state in ('CONNECTED', 'EOF'), self.state
+        self._assert_state('CONNECTED', 'EOF')
         self.state = 'CLOSED'
         if self.done:
             self.done.set_result(None)
@@ -1032,20 +1048,24 @@ class MyDatagramProto(asyncio.DatagramProtocol):
         if create_future:
             self.done = loop.create_future()
 
+    def _assert_state(self, expected):
+        if self.state != expected:
+            raise AssertionError(f'state: {self.state!r}, expected: {expected!r}')
+
     def connection_made(self, transport):
         self.transport = transport
-        assert self.state == 'INITIAL', self.state
+        self._assert_state('INITIAL')
         self.state = 'INITIALIZED'
 
     def datagram_received(self, data, addr):
-        assert self.state == 'INITIALIZED', self.state
+        self._assert_state('INITIALIZED')
         self.nbytes += len(data)
 
     def error_received(self, exc):
-        assert self.state == 'INITIALIZED', self.state
+        self._assert_state('INITIALIZED')
 
     def connection_lost(self, exc):
-        assert self.state == 'INITIALIZED', self.state
+        self._assert_state('INITIALIZED')
         self.state = 'CLOSED'
         if self.done:
             self.done.set_result(None)
@@ -1159,9 +1179,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
     @unittest.skipUnless(socket_helper.IPV6_ENABLED, 'no IPv6 support')
     def test_create_server_ipv6(self):
         async def main():
-            with self.assertWarns(DeprecationWarning):
-                srv = await asyncio.start_server(
-                    lambda: None, '::1', 0, loop=self.loop)
+            srv = await asyncio.start_server(lambda: None, '::1', 0)
             try:
                 self.assertGreater(len(srv.sockets), 0)
             finally:
@@ -1397,7 +1415,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         addr = ('00:01:02:03:04:05', 1)
 
         def getaddrinfo(host, port, *args, **kw):
-            assert (host, port) == addr
+            self.assertEqual((host, port), addr)
             return [(999, 1, 999, '', (addr, 1))]
 
         m_socket.getaddrinfo = getaddrinfo
@@ -1593,11 +1611,11 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         coro = self.loop.create_datagram_endpoint(
             MyDatagramProto, local_addr='localhost')
         self.assertRaises(
-            TypeError, self.loop.run_until_complete, coro)
+            AssertionError, self.loop.run_until_complete, coro)
         coro = self.loop.create_datagram_endpoint(
             MyDatagramProto, local_addr=('localhost', 1, 2, 3))
         self.assertRaises(
-            TypeError, self.loop.run_until_complete, coro)
+            AssertionError, self.loop.run_until_complete, coro)
 
     def test_create_datagram_endpoint_connect_err(self):
         self.loop.sock_connect = mock.Mock()
@@ -1696,7 +1714,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
             lambda: MyDatagramProto(create_future=True, loop=self.loop),
             family=socket.AF_UNIX)
         transport, protocol = self.loop.run_until_complete(fut)
-        assert transport._sock.family == socket.AF_UNIX
+        self.assertEqual(transport._sock.family, socket.AF_UNIX)
         transport.close()
         self.loop.run_until_complete(protocol.done)
         self.assertEqual('CLOSED', protocol.state)
@@ -1747,6 +1765,8 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
             MyDatagramProto, allow_broadcast=True, sock=FakeSock())
         self.assertRaises(ValueError, self.loop.run_until_complete, fut)
 
+    @unittest.skipIf(sys.platform == 'vxworks',
+                    "SO_BROADCAST is enabled by default on VxWorks")
     def test_create_datagram_endpoint_sockopts(self):
         # Socket options should not be applied unless asked for.
         # SO_REUSEPORT is not available on all platforms.
@@ -1990,14 +2010,14 @@ class BaseLoopSockSendfileTests(test_utils.TestCase):
     def setUpClass(cls):
         cls.__old_bufsize = constants.SENDFILE_FALLBACK_READBUFFER_SIZE
         constants.SENDFILE_FALLBACK_READBUFFER_SIZE = 1024 * 16
-        with open(support.TESTFN, 'wb') as fp:
+        with open(os_helper.TESTFN, 'wb') as fp:
             fp.write(cls.DATA)
         super().setUpClass()
 
     @classmethod
     def tearDownClass(cls):
         constants.SENDFILE_FALLBACK_READBUFFER_SIZE = cls.__old_bufsize
-        support.unlink(support.TESTFN)
+        os_helper.unlink(os_helper.TESTFN)
         super().tearDownClass()
 
     def setUp(self):
@@ -2005,7 +2025,7 @@ class BaseLoopSockSendfileTests(test_utils.TestCase):
         # BaseSelectorEventLoop() has no native implementation
         self.loop = BaseSelectorEventLoop()
         self.set_event_loop(self.loop)
-        self.file = open(support.TESTFN, 'rb')
+        self.file = open(os_helper.TESTFN, 'rb')
         self.addCleanup(self.file.close)
         super().setUp()
 
@@ -2102,7 +2122,7 @@ class BaseLoopSockSendfileTests(test_utils.TestCase):
 
     def test_nonbinary_file(self):
         sock = self.make_socket()
-        with open(support.TESTFN, 'r') as f:
+        with open(os_helper.TESTFN, encoding="utf-8") as f:
             with self.assertRaisesRegex(ValueError, "binary mode"):
                 self.run_loop(self.loop.sock_sendfile(sock, f))
 

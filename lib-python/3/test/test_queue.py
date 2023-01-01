@@ -6,11 +6,13 @@ import threading
 import time
 import unittest
 import weakref
-from test import support
 from test.support import gc_collect
+from test.support import import_helper
+from test.support import threading_helper
 
-py_queue = support.import_fresh_module('queue', blocked=['_queue'])
-c_queue = support.import_fresh_module('queue', fresh=['_queue'])
+
+py_queue = import_helper.import_fresh_module('queue', blocked=['_queue'])
+c_queue = import_helper.import_fresh_module('queue', fresh=['_queue'])
 need_c_queue = unittest.skipUnless(c_queue, "No _queue module found")
 
 QUEUE_SIZE = 5
@@ -64,7 +66,7 @@ class BlockingTestMixin:
                           block_func)
             return self.result
         finally:
-            support.join_thread(thread) # make sure the thread terminates
+            threading_helper.join_thread(thread) # make sure the thread terminates
 
     # Call this instead if block_func is supposed to raise an exception.
     def do_exceptional_blocking_test(self,block_func, block_args, trigger_func,
@@ -80,7 +82,7 @@ class BlockingTestMixin:
                 self.fail("expected exception of kind %r" %
                                  expected_exception_class)
         finally:
-            support.join_thread(thread) # make sure the thread terminates
+            threading_helper.join_thread(thread) # make sure the thread terminates
             if not thread.startedEvent.is_set():
                 self.fail("trigger thread ended but event never set")
 
@@ -485,7 +487,7 @@ class BaseSimpleQueueTest:
                                       args=(q, results, sentinel))
                      for i in range(n_threads)]
 
-        with support.start_threads(feeders + consumers):
+        with threading_helper.start_threads(feeders + consumers):
             pass
 
         self.assertFalse(exceptions)

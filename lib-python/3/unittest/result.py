@@ -175,7 +175,8 @@ class TestResult(object):
         exctype, value, tb = err
         tb = self._clean_tracebacks(exctype, value, tb, test)
         tb_e = traceback.TracebackException(
-            exctype, value, tb, capture_locals=self.tb_locals)
+            exctype, value, tb,
+            capture_locals=self.tb_locals, compact=True)
         msgLines = list(tb_e.format())
 
         if self.buffer:
@@ -195,6 +196,7 @@ class TestResult(object):
         ret = None
         first = True
         excs = [(exctype, value, tb)]
+        seen = {id(value)}  # Detect loops in chained exceptions.
         while excs:
             (exctype, value, tb) = excs.pop()
             # Skip test runner traceback levels
@@ -213,8 +215,9 @@ class TestResult(object):
 
             if value is not None:
                 for c in (value.__cause__, value.__context__):
-                    if c is not None:
+                    if c is not None and id(c) not in seen:
                         excs.append((type(c), c, c.__traceback__))
+                        seen.add(id(c))
         return ret
 
     def _is_relevant_tb_level(self, tb):

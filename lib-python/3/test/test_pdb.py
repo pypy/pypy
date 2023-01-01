@@ -13,17 +13,10 @@ import linecache
 
 from contextlib import ExitStack, redirect_stdout
 from io import StringIO
-from test import support
+from test.support import os_helper
 # This little helper class is essential for testing pdb under doctest.
 from test.test_doctest import _FakeInput
 from unittest.mock import patch
-
-from bdb import Breakpoint
-
-def reset_Breakpoint():
-    Breakpoint.next = 1
-    Breakpoint.bplist = {}
-    Breakpoint.bpbynumber = [None]
 
 
 class PdbTestInput(object):
@@ -221,6 +214,9 @@ def test_pdb_basic_commands():
     BAZ
     """
 
+def reset_Breakpoint():
+    import bdb
+    bdb.Breakpoint.clearBreakpoints()
 
 def test_pdb_breakpoint_commands():
     """Test basic commands related to breakpoints.
@@ -328,6 +324,72 @@ def test_pdb_breakpoint_commands():
     4
     """
 
+def test_pdb_breakpoints_preserved_across_interactive_sessions():
+    """Breakpoints are remembered between interactive sessions
+
+    >>> reset_Breakpoint()
+    >>> with PdbTestInput([  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+    ...    'import test.test_pdb',
+    ...    'break test.test_pdb.do_something',
+    ...    'break test.test_pdb.do_nothing',
+    ...    'break',
+    ...    'continue',
+    ... ]):
+    ...    pdb.run('print()')
+    > <string>(1)<module>()...
+    (Pdb) import test.test_pdb
+    (Pdb) break test.test_pdb.do_something
+    Breakpoint 1 at ...test_pdb.py:...
+    (Pdb) break test.test_pdb.do_nothing
+    Breakpoint 2 at ...test_pdb.py:...
+    (Pdb) break
+    Num Type         Disp Enb   Where
+    1   breakpoint   keep yes   at ...test_pdb.py:...
+    2   breakpoint   keep yes   at ...test_pdb.py:...
+    (Pdb) continue
+
+    >>> with PdbTestInput([  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+    ...    'break',
+    ...    'break pdb.find_function',
+    ...    'break',
+    ...    'clear 1',
+    ...    'continue',
+    ... ]):
+    ...    pdb.run('print()')
+    > <string>(1)<module>()...
+    (Pdb) break
+    Num Type         Disp Enb   Where
+    1   breakpoint   keep yes   at ...test_pdb.py:...
+    2   breakpoint   keep yes   at ...test_pdb.py:...
+    (Pdb) break pdb.find_function
+    Breakpoint 3 at ...pdb.py:94
+    (Pdb) break
+    Num Type         Disp Enb   Where
+    1   breakpoint   keep yes   at ...test_pdb.py:...
+    2   breakpoint   keep yes   at ...test_pdb.py:...
+    3   breakpoint   keep yes   at ...pdb.py:...
+    (Pdb) clear 1
+    Deleted breakpoint 1 at ...test_pdb.py:...
+    (Pdb) continue
+
+    >>> with PdbTestInput([  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+    ...    'break',
+    ...    'clear 2',
+    ...    'clear 3',
+    ...    'continue',
+    ... ]):
+    ...    pdb.run('print()')
+    > <string>(1)<module>()...
+    (Pdb) break
+    Num Type         Disp Enb   Where
+    2   breakpoint   keep yes   at ...test_pdb.py:...
+    3   breakpoint   keep yes   at ...pdb.py:...
+    (Pdb) clear 2
+    Deleted breakpoint 2 at ...test_pdb.py:...
+    (Pdb) clear 3
+    Deleted breakpoint 3 at ...pdb.py:...
+    (Pdb) continue
+    """
 
 def test_pdb_pp_repr_exc():
     """Test that do_p/do_pp do not swallow exceptions.
@@ -1252,6 +1314,7 @@ def test_pdb_issue_20766():
     ...         print('pdb %d: %s' % (i, sess._previous_sigint_handler))
     ...         i += 1
 
+    >>> reset_Breakpoint()
     >>> with PdbTestInput(['continue',
     ...                    'continue']):
     ...     test_function()
@@ -1297,10 +1360,10 @@ def test_pdb_issue_43318():
 
 class PdbTestCase(unittest.TestCase):
     def tearDown(self):
-        support.unlink(support.TESTFN)
+        os_helper.unlink(os_helper.TESTFN)
 
     def _run_pdb(self, pdb_args, commands):
-        self.addCleanup(support.rmtree, '__pycache__')
+        self.addCleanup(os_helper.rmtree, '__pycache__')
         cmd = [sys.executable, '-m', 'pdb'] + pdb_args
         with subprocess.Popen(
                 cmd,
@@ -1319,13 +1382,13 @@ class PdbTestCase(unittest.TestCase):
         filename = 'main.py'
         with open(filename, 'w') as f:
             f.write(textwrap.dedent(script))
-        self.addCleanup(support.unlink, filename)
+        self.addCleanup(os_helper.unlink, filename)
         return self._run_pdb([filename], commands)
 
     def run_pdb_module(self, script, commands):
         """Runs the script code as part of a module"""
         self.module_name = 't_main'
-        support.rmtree(self.module_name)
+        os_helper.rmtree(self.module_name)
         main_file = self.module_name + '/__main__.py'
         init_file = self.module_name + '/__init__.py'
         os.mkdir(self.module_name)
@@ -1333,17 +1396,17 @@ class PdbTestCase(unittest.TestCase):
             pass
         with open(main_file, 'w') as f:
             f.write(textwrap.dedent(script))
-        self.addCleanup(support.rmtree, self.module_name)
+        self.addCleanup(os_helper.rmtree, self.module_name)
         return self._run_pdb(['-m', self.module_name], commands)
 
     def _assert_find_function(self, file_content, func_name, expected):
-        with open(support.TESTFN, 'wb') as f:
+        with open(os_helper.TESTFN, 'wb') as f:
             f.write(file_content)
 
         expected = None if not expected else (
-            expected[0], support.TESTFN, expected[1])
+            expected[0], os_helper.TESTFN, expected[1])
         self.assertEqual(
-            expected, pdb.find_function(func_name, support.TESTFN))
+            expected, pdb.find_function(func_name, os_helper.TESTFN))
 
     def test_find_function_empty_file(self):
         self._assert_find_function(b'', 'foo', None)
@@ -1393,9 +1456,9 @@ def bœr():
 
     def test_issue7964(self):
         # open the file as binary so we can force \r\n newline
-        with open(support.TESTFN, 'wb') as f:
+        with open(os_helper.TESTFN, 'wb') as f:
             f.write(b'print("testing my pdb")\r\n')
-        cmd = [sys.executable, '-m', 'pdb', support.TESTFN]
+        cmd = [sys.executable, '-m', 'pdb', os_helper.TESTFN]
         proc = subprocess.Popen(cmd,
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
@@ -1457,7 +1520,7 @@ def bœr():
         """
         with open('bar.py', 'w') as f:
             f.write(textwrap.dedent(bar))
-        self.addCleanup(support.unlink, 'bar.py')
+        self.addCleanup(os_helper.unlink, 'bar.py')
         stdout, stderr = self.run_pdb_script(script, commands)
         self.assertTrue(
             any('main.py(5)foo()->None' in l for l in stdout.splitlines()),
@@ -1467,7 +1530,7 @@ def bœr():
         # Invoking "continue" on a non-main thread triggered an exception
         # inside signal.signal.
 
-        with open(support.TESTFN, 'wb') as f:
+        with open(os_helper.TESTFN, 'wb') as f:
             f.write(textwrap.dedent("""
                 import threading
                 import pdb
@@ -1479,7 +1542,7 @@ def bœr():
 
                 t = threading.Thread(target=start_pdb)
                 t.start()""").encode('ascii'))
-        cmd = [sys.executable, '-u', support.TESTFN]
+        cmd = [sys.executable, '-u', os_helper.TESTFN]
         proc = subprocess.Popen(cmd,
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
@@ -1493,7 +1556,7 @@ def bœr():
 
     def test_issue36250(self):
 
-        with open(support.TESTFN, 'wb') as f:
+        with open(os_helper.TESTFN, 'wb') as f:
             f.write(textwrap.dedent("""
                 import threading
                 import pdb
@@ -1509,7 +1572,7 @@ def bœr():
                 pdb.Pdb(readrc=False).set_trace()
                 evt.set()
                 t.join()""").encode('ascii'))
-        cmd = [sys.executable, '-u', support.TESTFN]
+        cmd = [sys.executable, '-u', os_helper.TESTFN]
         proc = subprocess.Popen(cmd,
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
@@ -1555,7 +1618,7 @@ def bœr():
 
         save_home = os.environ.pop('HOME', None)
         try:
-            with support.temp_cwd():
+            with os_helper.temp_cwd():
                 with open('.pdbrc', 'w') as f:
                     f.write("invalid\n")
 
@@ -1580,7 +1643,7 @@ def bœr():
 
     def test_readrc_homedir(self):
         save_home = os.environ.pop("HOME", None)
-        with support.temp_dir() as temp_dir, patch("os.path.expanduser"):
+        with os_helper.temp_dir() as temp_dir, patch("os.path.expanduser"):
             rc_path = os.path.join(temp_dir, ".pdbrc")
             os.path.expanduser.return_value = rc_path
             try:
@@ -1649,12 +1712,12 @@ def bœr():
 
     def test_module_without_a_main(self):
         module_name = 't_main'
-        support.rmtree(module_name)
+        os_helper.rmtree(module_name)
         init_file = module_name + '/__init__.py'
         os.mkdir(module_name)
         with open(init_file, 'w'):
             pass
-        self.addCleanup(support.rmtree, module_name)
+        self.addCleanup(os_helper.rmtree, module_name)
         stdout, stderr = self._run_pdb(['-m', module_name], "")
         self.assertIn("ImportError: No module named t_main.__main__",
                       stdout.splitlines())
@@ -1662,12 +1725,12 @@ def bœr():
     def test_package_without_a_main(self):
         pkg_name = 't_pkg'
         module_name = 't_main'
-        support.rmtree(pkg_name)
+        os_helper.rmtree(pkg_name)
         modpath = pkg_name + '/' + module_name
         os.makedirs(modpath)
         with open(modpath + '/__init__.py', 'w'):
             pass
-        self.addCleanup(support.rmtree, pkg_name)
+        self.addCleanup(os_helper.rmtree, pkg_name)
         stdout, stderr = self._run_pdb(['-m', modpath.replace('/', '.')], "")
         self.assertIn(
             "'t_pkg.t_main' is a package and cannot be directly executed",
@@ -1688,11 +1751,11 @@ def bœr():
 
     def test_relative_imports(self):
         self.module_name = 't_main'
-        support.rmtree(self.module_name)
+        os_helper.rmtree(self.module_name)
         main_file = self.module_name + '/__main__.py'
         init_file = self.module_name + '/__init__.py'
         module_file = self.module_name + '/module.py'
-        self.addCleanup(support.rmtree, self.module_name)
+        self.addCleanup(os_helper.rmtree, self.module_name)
         os.mkdir(self.module_name)
         with open(init_file, 'w') as f:
             f.write(textwrap.dedent("""
@@ -1726,11 +1789,11 @@ def bœr():
     def test_relative_imports_on_plain_module(self):
         # Validates running a plain module. See bpo32691
         self.module_name = 't_main'
-        support.rmtree(self.module_name)
+        os_helper.rmtree(self.module_name)
         main_file = self.module_name + '/runme.py'
         init_file = self.module_name + '/__init__.py'
         module_file = self.module_name + '/module.py'
-        self.addCleanup(support.rmtree, self.module_name)
+        self.addCleanup(os_helper.rmtree, self.module_name)
         os.mkdir(self.module_name)
         with open(init_file, 'w') as f:
             f.write(textwrap.dedent("""
@@ -1761,13 +1824,14 @@ def bœr():
             'debug doesnotexist',
             'c',
         ])
-        stdout, _ = self.run_pdb_script('', commands + '\n')
+        stdout, _ = self.run_pdb_script('pass', commands + '\n')
 
         self.assertEqual(stdout.splitlines()[1:], [
-            '(Pdb) *** SyntaxError: parenthesis is never closed',
+            '-> pass',
+            '(Pdb) *** SyntaxError: \'(\' was never closed',
 
             '(Pdb) ENTERING RECURSIVE DEBUGGER',
-            '*** SyntaxError: parenthesis is never closed',
+            '*** SyntaxError: \'(\' was never closed',
             'LEAVING RECURSIVE DEBUGGER',
 
             '(Pdb) ENTERING RECURSIVE DEBUGGER',
@@ -1801,14 +1865,14 @@ def bœr():
         """)
         commands = 'c\nq'
 
-        with support.temp_cwd() as cwd:
+        with os_helper.temp_cwd() as cwd:
             expected = f'(Pdb) sys.path[0] is {os.path.realpath(cwd)}'
 
             stdout, stderr = self.run_pdb_script(script, commands)
 
             self.assertEqual(stdout.split('\n')[2].rstrip('\r'), expected)
 
-    @support.skip_unless_symlink
+    @os_helper.skip_unless_symlink
     def test_issue42384_symlink(self):
         '''When running `python foo.py` sys.path[0] resolves symlinks. `python -m pdb foo.py` should behave the same'''
         script = textwrap.dedent("""
@@ -1817,7 +1881,7 @@ def bœr():
         """)
         commands = 'c\nq'
 
-        with support.temp_cwd() as cwd:
+        with os_helper.temp_cwd() as cwd:
             cwd = os.path.realpath(cwd)
             dir_one = os.path.join(cwd, 'dir_one')
             dir_two = os.path.join(cwd, 'dir_two')
@@ -1834,7 +1898,7 @@ def bœr():
             self.assertEqual(stdout.split('\n')[2].rstrip('\r'), expected)
 
     def test_issue42383(self):
-        with support.temp_cwd() as cwd:
+        with os_helper.temp_cwd() as cwd:
             with open('foo.py', 'w') as f:
                 s = textwrap.dedent("""
                     print('The correct file was executed')
@@ -1857,25 +1921,71 @@ def bœr():
             self.assertEqual(stdout.split('\n')[6].rstrip('\r'), expected)
 
 
+    def test_gh_93696_frozen_list(self):
+        frozen_src = """
+        def func():
+            x = "Sentinel string for gh-93696"
+            print(x)
+        """
+        host_program = """
+        import os
+        import sys
+
+        def _create_fake_frozen_module():
+            with open('gh93696.py') as f:
+                src = f.read()
+
+            # this function has a co_filename as if it were in a frozen module
+            dummy_mod = compile(src, "<frozen gh93696>", "exec")
+            func_code = dummy_mod.co_consts[0]
+
+            mod = type(sys)("gh93696")
+            mod.func = type(lambda: None)(func_code, mod.__dict__)
+            mod.__file__ = 'gh93696.py'
+
+            return mod
+
+        mod = _create_fake_frozen_module()
+        mod.func()
+        """
+        commands = """
+            break 20
+            continue
+            step
+            list
+            quit
+        """
+        with open('gh93696.py', 'w') as f:
+            f.write(textwrap.dedent(frozen_src))
+
+        with open('gh93696_host.py', 'w') as f:
+            f.write(textwrap.dedent(host_program))
+
+        self.addCleanup(os_helper.unlink, 'gh93696.py')
+        self.addCleanup(os_helper.unlink, 'gh93696_host.py')
+        stdout, stderr = self._run_pdb(["gh93696_host.py"], commands)
+        # verify that pdb found the source of the "frozen" function
+        self.assertIn('x = "Sentinel string for gh-93696"', stdout, "Sentinel statement not found")
+
 class ChecklineTests(unittest.TestCase):
     def setUp(self):
         linecache.clearcache()  # Pdb.checkline() uses linecache.getline()
 
     def tearDown(self):
-        support.unlink(support.TESTFN)
+        os_helper.unlink(os_helper.TESTFN)
 
     def test_checkline_before_debugging(self):
-        with open(support.TESTFN, "w") as f:
+        with open(os_helper.TESTFN, "w") as f:
             f.write("print(123)")
         db = pdb.Pdb()
-        self.assertEqual(db.checkline(support.TESTFN, 1), 1)
+        self.assertEqual(db.checkline(os_helper.TESTFN, 1), 1)
 
     def test_checkline_after_reset(self):
-        with open(support.TESTFN, "w") as f:
+        with open(os_helper.TESTFN, "w") as f:
             f.write("print(123)")
         db = pdb.Pdb()
         db.reset()
-        self.assertEqual(db.checkline(support.TESTFN, 1), 1)
+        self.assertEqual(db.checkline(os_helper.TESTFN, 1), 1)
 
     def test_checkline_is_not_executable(self):
         # Test for comments, docstrings and empty lines
@@ -1885,13 +1995,13 @@ class ChecklineTests(unittest.TestCase):
             ''' docstring '''
 
         """)
-        with open(support.TESTFN, "w") as f:
+        with open(os_helper.TESTFN, "w") as f:
             f.write(s)
         num_lines = len(s.splitlines()) + 2  # Test for EOF
         with redirect_stdout(StringIO()):
             db = pdb.Pdb()
             for lineno in range(num_lines):
-                self.assertFalse(db.checkline(support.TESTFN, lineno))
+                self.assertFalse(db.checkline(os_helper.TESTFN, lineno))
 
 
 def load_tests(*args):

@@ -1,5 +1,7 @@
 import asyncio
-from contextlib import asynccontextmanager, AbstractAsyncContextManager, AsyncExitStack
+from contextlib import (
+    asynccontextmanager, AbstractAsyncContextManager,
+    AsyncExitStack, nullcontext, aclosing, contextmanager)
 import functools
 from test import support
 import unittest
@@ -12,14 +14,11 @@ def _async_test(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         coro = func(*args, **kwargs)
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
-            asyncio.set_event_loop_policy(None)
+        asyncio.run(coro)
     return wrapper
+
+def tearDownModule():
+    asyncio.set_event_loop_policy(None)
 
 
 class TestAbstractAsyncContextManager(unittest.TestCase):
@@ -289,6 +288,93 @@ class AsyncContextManagerTestCase(unittest.TestCase):
         async with woohoo(self=11, func=22, args=33, kwds=44) as target:
             self.assertEqual(target, (11, 22, 33, 44))
 
+    @_async_test
+    async def test_recursive(self):
+        depth = 0
+        ncols = 0
+
+        @asynccontextmanager
+        async def woohoo():
+            nonlocal ncols
+            ncols += 1
+
+            nonlocal depth
+            before = depth
+            depth += 1
+            yield
+            depth -= 1
+            self.assertEqual(depth, before)
+
+        @woohoo()
+        async def recursive():
+            if depth < 10:
+                await recursive()
+
+        await recursive()
+
+        self.assertEqual(ncols, 10)
+        self.assertEqual(depth, 0)
+
+
+class AclosingTestCase(unittest.TestCase):
+
+    @support.requires_docstrings
+    def test_instance_docs(self):
+        cm_docstring = aclosing.__doc__
+        obj = aclosing(None)
+        self.assertEqual(obj.__doc__, cm_docstring)
+
+    @_async_test
+    async def test_aclosing(self):
+        state = []
+        class C:
+            async def aclose(self):
+                state.append(1)
+        x = C()
+        self.assertEqual(state, [])
+        async with aclosing(x) as y:
+            self.assertEqual(x, y)
+        self.assertEqual(state, [1])
+
+    @_async_test
+    async def test_aclosing_error(self):
+        state = []
+        class C:
+            async def aclose(self):
+                state.append(1)
+        x = C()
+        self.assertEqual(state, [])
+        with self.assertRaises(ZeroDivisionError):
+            async with aclosing(x) as y:
+                self.assertEqual(x, y)
+                1 / 0
+        self.assertEqual(state, [1])
+
+    @_async_test
+    async def test_aclosing_bpo41229(self):
+        state = []
+
+        @contextmanager
+        def sync_resource():
+            try:
+                yield
+            finally:
+                state.append(1)
+
+        async def agenfunc():
+            with sync_resource():
+                yield -1
+                yield -2
+
+        x = agenfunc()
+        self.assertEqual(state, [])
+        with self.assertRaises(ZeroDivisionError):
+            async with aclosing(x) as y:
+                self.assertEqual(x, y)
+                self.assertEqual(-1, await x.__anext__())
+                1 / 0
+        self.assertEqual(state, [1])
+
 
 class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
     class SyncAsyncExitStack(AsyncExitStack):
@@ -323,6 +409,13 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
             return self.run_coroutine(self.__aexit__(*exc_details))
 
     exit_stack = SyncAsyncExitStack
+    callback_error_internal_frames = [
+        ('__exit__', 'return self.run_coroutine(self.__aexit__(*exc_details))'),
+        ('run_coroutine', 'raise exc'),
+        ('run_coroutine', 'raise exc'),
+        ('__aexit__', 'raise exc_details[1]'),
+        ('__aexit__', 'cb_suppress = cb(*exc_details)'),
+    ]
 
     def setUp(self):
         self.loop = asyncio.new_event_loop()
@@ -497,6 +590,16 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
                     self.assertIsNone(exc.__context__)
                 else:
                     self.fail("Expected IndexError, but no exception was raised")
+
+
+class TestAsyncNullcontext(unittest.TestCase):
+    @_async_test
+    async def test_async_nullcontext(self):
+        class C:
+            pass
+        c = C()
+        async with nullcontext(c) as c_in:
+            self.assertIs(c_in, c)
 
 
 if __name__ == '__main__':

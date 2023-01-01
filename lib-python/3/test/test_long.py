@@ -1016,6 +1016,17 @@ class LongTest(unittest.TestCase):
             self.assertEqual((a+1).bit_length(), i+1)
             self.assertEqual((-a-1).bit_length(), i+1)
 
+    def test_bit_count(self):
+        for a in range(-1000, 1000):
+            self.assertEqual(a.bit_count(), bin(a).count("1"))
+
+        for exp in [10, 17, 63, 64, 65, 1009, 70234, 1234567]:
+            a = 2**exp
+            self.assertEqual(a.bit_count(), 1)
+            self.assertEqual((a - 1).bit_count(), exp)
+            self.assertEqual((a ^ 63).bit_count(), 7)
+            self.assertEqual(((a - 1) ^ 510).bit_count(), exp - 8)
+
     def test_round(self):
         # check round-half-even algorithm. For round to nearest ten;
         # rounding map is invariant under adding multiples of 20
@@ -1338,6 +1349,26 @@ class LongTest(unittest.TestCase):
         self.assertIs(type(i), myint3)
         self.assertEqual(i, 1)
         self.assertEqual(getattr(i, 'foo', 'none'), 'bar')
+
+        class ValidBytes:
+            def __bytes__(self):
+                return b'\x01'
+        class InvalidBytes:
+            def __bytes__(self):
+                return 'abc'
+        class MissingBytes: ...
+        class RaisingBytes:
+            def __bytes__(self):
+                1 / 0
+
+        for byte_order in ('big', 'little'):
+            self.assertEqual(int.from_bytes(ValidBytes(), byte_order), 1)
+            self.assertRaises(
+                TypeError, int.from_bytes, InvalidBytes(), byte_order)
+            self.assertRaises(
+                TypeError, int.from_bytes, MissingBytes(), byte_order)
+            self.assertRaises(
+                ZeroDivisionError, int.from_bytes, RaisingBytes(), byte_order)
 
     def test_access_to_nonexistent_digit_0(self):
         # http://bugs.python.org/issue14630: A bug in _PyLong_Copy meant that

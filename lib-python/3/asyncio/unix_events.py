@@ -44,6 +44,16 @@ def _sighandler_noop(signum, frame):
     pass
 
 
+def waitstatus_to_exitcode(status):
+    try:
+        return os.waitstatus_to_exitcode(status)
+    except ValueError:
+        # The child exited, but we don't understand its status.
+        # This shouldn't happen, but if it does, let's just
+        # return that status; perhaps that helps debug it.
+        return status
+
+
 class _UnixSelectorEventLoop(selector_events.BaseSelectorEventLoop):
     """Unix event loop.
 
@@ -213,7 +223,8 @@ class _UnixSelectorEventLoop(selector_events.BaseSelectorEventLoop):
         return transp
 
     def _child_watcher_callback(self, pid, returncode, transp):
-        self.call_soon_threadsafe(transp._process_exited, returncode)
+        # Skip one iteration for callbacks to be executed
+        self.call_soon_threadsafe(self.call_soon, transp._process_exited, returncode)
 
     async def create_unix_connection(
             self, protocol_factory, path=None, *,
@@ -778,12 +789,11 @@ class _UnixSubprocessTransport(base_subprocess.BaseSubprocessTransport):
 
     def _start(self, args, shell, stdin, stdout, stderr, bufsize, **kwargs):
         stdin_w = None
-        if stdin == subprocess.PIPE:
-            # Use a socket pair for stdin, since not all platforms
+        if stdin == subprocess.PIPE and sys.platform.startswith('aix'):
+            # Use a socket pair for stdin on AIX, since it does not
             # support selecting read events on the write end of a
             # socket (which we use in order to detect closing of the
-            # other end).  Notably this is needed on AIX, and works
-            # just fine on other platforms.
+            # other end).
             stdin, stdin_w = socket.socketpair()
         try:
             self._proc = subprocess.Popen(
@@ -941,7 +951,7 @@ class PidfdChildWatcher(AbstractChildWatcher):
                 " will report returncode 255",
                 pid)
         else:
-            returncode = _compute_returncode(status)
+            returncode = waitstatus_to_exitcode(status)
 
         os.close(pidfd)
         callback(pid, returncode, *args)
@@ -954,20 +964,6 @@ class PidfdChildWatcher(AbstractChildWatcher):
         self._loop._remove_reader(pidfd)
         os.close(pidfd)
         return True
-
-
-def _compute_returncode(status):
-    if os.WIFSIGNALED(status):
-        # The child process died because of a signal.
-        return -os.WTERMSIG(status)
-    elif os.WIFEXITED(status):
-        # The child process exited (e.g sys.exit()).
-        return os.WEXITSTATUS(status)
-    else:
-        # The child exited, but we don't understand its status.
-        # This shouldn't happen, but if it does, let's just
-        # return that status; perhaps that helps debug it.
-        return status
 
 
 class BaseChildWatcher(AbstractChildWatcher):
@@ -1080,7 +1076,7 @@ class SafeChildWatcher(BaseChildWatcher):
                 # The child process is still alive.
                 return
 
-            returncode = _compute_returncode(status)
+            returncode = waitstatus_to_exitcode(status)
             if self._loop.get_debug():
                 logger.debug('process %s exited with returncode %s',
                              expected_pid, returncode)
@@ -1173,7 +1169,7 @@ class FastChildWatcher(BaseChildWatcher):
                     # A child process is still alive.
                     return
 
-                returncode = _compute_returncode(status)
+                returncode = waitstatus_to_exitcode(status)
 
             with self._lock:
                 try:
@@ -1300,7 +1296,7 @@ class MultiLoopChildWatcher(AbstractChildWatcher):
                 # The child process is still alive.
                 return
 
-            returncode = _compute_returncode(status)
+            returncode = waitstatus_to_exitcode(status)
             debug_log = True
         try:
             loop, callback, args = self._callbacks.pop(pid)
@@ -1403,7 +1399,7 @@ class ThreadedChildWatcher(AbstractChildWatcher):
                 "Unknown child process pid %d, will report returncode 255",
                 pid)
         else:
-            returncode = _compute_returncode(status)
+            returncode = waitstatus_to_exitcode(status)
             if loop.get_debug():
                 logger.debug('process %s exited with returncode %s',
                              expected_pid, returncode)

@@ -46,3 +46,4 @@ list_alias1 = typing.List[int]
 list_alias2 = list[int]
 c_alias = C[int]
 type_union1 = typing.Union[int, str]
+type_union2 = int | str

@@ -14,65 +14,79 @@ def tearDownModule():
 class TestAsyncCase(unittest.TestCase):
     maxDiff = None
 
-    def tearDown(self):
+    def setUp(self):
         # Ensure that IsolatedAsyncioTestCase instances are destroyed before
         # starting a new event loop
-        support.gc_collect()
+        self.addCleanup(support.gc_collect)
 
     def test_full_cycle(self):
+        expected = ['setUp',
+                    'asyncSetUp',
+                    'test',
+                    'asyncTearDown',
+                    'tearDown',
+                    'cleanup6',
+                    'cleanup5',
+                    'cleanup4',
+                    'cleanup3',
+                    'cleanup2',
+                    'cleanup1']
         class Test(unittest.IsolatedAsyncioTestCase):
             def setUp(self):
                 self.assertEqual(events, [])
                 events.append('setUp')
-
-            async def asyncSetUp(self):
-                self.assertEqual(events, ['setUp'])
-                events.append('asyncSetUp')
-                self.addAsyncCleanup(self.on_cleanup1)
-
-            async def test_func(self):
-                self.assertEqual(events, ['setUp',
-                                          'asyncSetUp'])
-                events.append('test')
+                self.addCleanup(self.on_cleanup1)
                 self.addAsyncCleanup(self.on_cleanup2)
 
+            async def asyncSetUp(self):
+                self.assertEqual(events, expected[:1])
+                events.append('asyncSetUp')
+                self.addCleanup(self.on_cleanup3)
+                self.addAsyncCleanup(self.on_cleanup4)
+
+            async def test_func(self):
+                self.assertEqual(events, expected[:2])
+                events.append('test')
+                self.addCleanup(self.on_cleanup5)
+                self.addAsyncCleanup(self.on_cleanup6)
+
             async def asyncTearDown(self):
-                self.assertEqual(events, ['setUp',
-                                          'asyncSetUp',
-                                          'test'])
+                self.assertEqual(events, expected[:3])
                 events.append('asyncTearDown')
 
             def tearDown(self):
-                self.assertEqual(events, ['setUp',
-                                          'asyncSetUp',
-                                          'test',
-                                          'asyncTearDown'])
+                self.assertEqual(events, expected[:4])
                 events.append('tearDown')
 
-            async def on_cleanup1(self):
-                self.assertEqual(events, ['setUp',
-                                          'asyncSetUp',
-                                          'test',
-                                          'asyncTearDown',
-                                          'tearDown',
-                                          'cleanup2'])
+            def on_cleanup1(self):
+                self.assertEqual(events, expected[:10])
                 events.append('cleanup1')
 
             async def on_cleanup2(self):
-                self.assertEqual(events, ['setUp',
-                                          'asyncSetUp',
-                                          'test',
-                                          'asyncTearDown',
-                                          'tearDown'])
+                self.assertEqual(events, expected[:9])
                 events.append('cleanup2')
+
+            def on_cleanup3(self):
+                self.assertEqual(events, expected[:8])
+                events.append('cleanup3')
+
+            async def on_cleanup4(self):
+                self.assertEqual(events, expected[:7])
+                events.append('cleanup4')
+
+            def on_cleanup5(self):
+                self.assertEqual(events, expected[:6])
+                events.append('cleanup5')
+
+            async def on_cleanup6(self):
+                self.assertEqual(events, expected[:5])
+                events.append('cleanup6')
 
         events = []
         test = Test("test_func")
         result = test.run()
         self.assertEqual(result.errors, [])
         self.assertEqual(result.failures, [])
-        expected = ['setUp', 'asyncSetUp', 'test',
-                    'asyncTearDown', 'tearDown', 'cleanup2', 'cleanup1']
         self.assertEqual(events, expected)
 
         events = []
@@ -108,6 +122,7 @@ class TestAsyncCase(unittest.TestCase):
 
         events = []
         test = Test("test_func")
+        self.addCleanup(test._tearDownAsyncioLoop)
         try:
             test.debug()
         except MyException:
@@ -143,6 +158,7 @@ class TestAsyncCase(unittest.TestCase):
 
         events = []
         test = Test("test_func")
+        self.addCleanup(test._tearDownAsyncioLoop)
         try:
             test.debug()
         except MyException:
@@ -178,6 +194,7 @@ class TestAsyncCase(unittest.TestCase):
 
         events = []
         test = Test("test_func")
+        self.addCleanup(test._tearDownAsyncioLoop)
         try:
             test.debug()
         except MyException:
@@ -219,6 +236,7 @@ class TestAsyncCase(unittest.TestCase):
 
         events = []
         test = Test("test_func")
+        self.addCleanup(test._tearDownAsyncioLoop)
         try:
             test.debug()
         except MyException:
@@ -297,6 +315,50 @@ class TestAsyncCase(unittest.TestCase):
         output = test.run()
         self.assertTrue(cancelled)
 
+    def test_debug_cleanup_same_loop(self):
+        class Test(unittest.IsolatedAsyncioTestCase):
+            async def asyncSetUp(self):
+                async def coro():
+                    await asyncio.sleep(0)
+                fut = asyncio.ensure_future(coro())
+                self.addAsyncCleanup(self.cleanup, fut)
+                events.append('asyncSetUp')
+
+            async def test_func(self):
+                events.append('test')
+                raise MyException()
+
+            async def asyncTearDown(self):
+                events.append('asyncTearDown')
+
+            async def cleanup(self, fut):
+                try:
+                    # Raises an exception if in different loop
+                    await asyncio.wait([fut])
+                    events.append('cleanup')
+                except:
+                    import traceback
+                    traceback.print_exc()
+                    raise
+
+        events = []
+        test = Test("test_func")
+        result = test.run()
+        self.assertEqual(events, ['asyncSetUp', 'test', 'asyncTearDown', 'cleanup'])
+        self.assertIn('MyException', result.errors[0][1])
+
+        events = []
+        test = Test("test_func")
+        self.addCleanup(test._tearDownAsyncioLoop)
+        try:
+            test.debug()
+        except MyException:
+            pass
+        else:
+            self.fail('Expected a MyException exception')
+        self.assertEqual(events, ['asyncSetUp', 'test'])
+        test.doCleanups()
+        self.assertEqual(events, ['asyncSetUp', 'test', 'cleanup'])
 
 
 if __name__ == "__main__":

@@ -14,10 +14,10 @@ import shutil
 import threading
 import unittest
 from unittest import mock
-from test import support
-from test.support import (
-    verbose, TESTFN,
-    forget, unlink, rmtree, start_threads, script_helper)
+from test.support import verbose
+from test.support.import_helper import forget
+from test.support.os_helper import (TESTFN, unlink, rmtree)
+from test.support import script_helper, threading_helper
 
 def task(N, done, done_tasks, errors):
     try:
@@ -125,9 +125,9 @@ class ThreadedImportTests(unittest.TestCase):
             done_tasks = []
             done.clear()
             t0 = time.monotonic()
-            with start_threads(threading.Thread(target=task,
-                                                args=(N, done, done_tasks, errors,))
-                               for i in range(N)):
+            with threading_helper.start_threads(
+                    threading.Thread(target=task, args=(N, done, done_tasks, errors,))
+                    for i in range(N)):
                 pass
             completed = done.wait(10 * 60)
             dt = time.monotonic() - t0
@@ -259,8 +259,8 @@ class ThreadedImportTests(unittest.TestCase):
 
 
 def setUpModule():
-    thread_info = support.threading_setup()
-    unittest.addModuleCleanup(support.threading_cleanup, *thread_info)
+    thread_info = threading_helper.threading_setup()
+    unittest.addModuleCleanup(threading_helper.threading_cleanup, *thread_info)
     try:
         old_switchinterval = sys.getswitchinterval()
         unittest.addModuleCleanup(sys.setswitchinterval, old_switchinterval)
@@ -270,4 +270,4 @@ def setUpModule():
 
 
 if __name__ == "__main__":
-    unittets.main()
+    unittest.main()

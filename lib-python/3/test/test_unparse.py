@@ -341,6 +341,12 @@ class UnparseTestCase(ASTTestCase):
     def test_invalid_yield_from(self):
         self.check_invalid(ast.YieldFrom(value=None))
 
+    def test_import_from_level_none(self):
+        tree = ast.ImportFrom(module='mod', names=[ast.alias(name='x')])
+        self.assertEqual(ast.unparse(tree), "from mod import x")
+        tree = ast.ImportFrom(module='mod', names=[ast.alias(name='x')], level=None)
+        self.assertEqual(ast.unparse(tree), "from mod import x")
+
     def test_docstrings(self):
         docstrings = (
             'this ends with double quote"',
@@ -518,7 +524,8 @@ class DirectoryTestCase(ASTTestCase):
     lib_dir = pathlib.Path(__file__).parent / ".."
     test_directories = (lib_dir, lib_dir / "test")
     run_always_files = {"test_grammar.py", "test_syntax.py", "test_compile.py",
-                        "test_ast.py", "test_asdl_parser.py", "test_fstring.py"}
+                        "test_ast.py", "test_asdl_parser.py", "test_fstring.py",
+                        "test_patma.py"}
 
     _files_to_test = None
 
