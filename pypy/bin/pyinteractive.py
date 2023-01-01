@@ -163,12 +163,14 @@ def main_(argv=None):
         def doit():
             main.run_module(command, args, space=space)
     elif args:
-        abspath_file = os.path.abspath(args[0])
-        scriptdir = os.path.dirname(abspath_file)
+        filename = args[0]
+        if not os.path.isabs(filename):
+            filename = os.path.join(os.getcwd(), filename)
+        scriptdir = os.path.dirname(filename)
         space.call_method(space.sys.get('path'), 'insert',
                           space.wrap(0), space.wrap(scriptdir))
         def doit():
-            main.run_file(abspath_file, space=space)
+            main.run_file(filename, space=space)
     else:
         def doit():
             pass

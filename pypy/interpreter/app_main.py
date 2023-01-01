@@ -945,11 +945,12 @@ def run_command_line(interactive,
             # on the command-line.
             import os
             filename = sys.argv[0]
-            try:
-                # try to make an absolute file name, which can fail
-                filename = os.path.abspath(filename)
-            except OSError as e:
-                pass
+            if not os.path.isabs(filename):
+                try:
+                    # try to make an absolute file name, which can fail
+                    filename = os.path.join(os.getcwd(), filename)
+                except OSError as e:
+                    pass
             mainmodule.__file__ = filename
             mainmodule.__cached__ = None
             for hook in sys.path_hooks:
