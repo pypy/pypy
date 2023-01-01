@@ -7,12 +7,14 @@ executing have not been removed.
 import unittest
 import test.support
 from test import support
+from test.support import os_helper
 from test.support import socket_helper
-from test.support import (captured_stderr, TESTFN, EnvironmentVarGuard,
-                          change_cwd)
+from test.support import captured_stderr
+from test.support.os_helper import TESTFN, EnvironmentVarGuard, change_cwd
 import builtins
 import encodings
 import glob
+import io
 import os
 import re
 import shutil
@@ -34,6 +36,7 @@ if sys.flags.no_site:
 import site
 
 
+HAS_USER_SITE = (site.USER_SITE is not None)
 OLD_SYS_PATH = None
 
 
@@ -161,6 +164,12 @@ class HelperFunctionsTests(unittest.TestCase):
         self.assertRegex(err_out.getvalue(), 'Traceback')
         self.assertRegex(err_out.getvalue(), 'ModuleNotFoundError')
 
+    def test_addpackage_empty_lines(self):
+        # Issue 33689
+        pth_dir, pth_fn = self.make_pth("\n\n  \n\n")
+        known_paths = site.addpackage(pth_dir, pth_fn, set())
+        self.assertEqual(known_paths, set())
+
     def test_addpackage_import_bad_pth_file(self):
         # Issue 5258
         pth_dir, pth_fn = self.make_pth("abc\x00def\n")
@@ -190,19 +199,20 @@ class HelperFunctionsTests(unittest.TestCase):
     def test__getuserbase(self):
         self.assertEqual(site._getuserbase(), sysconfig._getuserbase())
 
+    @unittest.skipUnless(HAS_USER_SITE, 'need user site')
     def test_get_path(self):
         if sys.platform == 'darwin' and sys._framework:
             scheme = 'osx_framework_user'
         else:
             scheme = os.name + '_user'
-        self.assertEqual(site._get_path(site._getuserbase()),
+        self.assertEqual(os.path.normpath(site._get_path(site._getuserbase())),
                          sysconfig.get_path('purelib', scheme))
 
     @unittest.skipUnless(site.ENABLE_USER_SITE, "requires access to PEP 370 "
                           "user-site (site.ENABLE_USER_SITE)")
     def test_s_option(self):
         # (ncoghlan) Change this to use script_helper...
-        usersite = site.USER_SITE
+        usersite = os.path.normpath(site.USER_SITE)
         self.assertIn(usersite, sys.path)
 
         env = os.environ.copy()
@@ -239,6 +249,7 @@ class HelperFunctionsTests(unittest.TestCase):
         self.assertEqual(rc, 1,
                         "User base not set by PYTHONUSERBASE")
 
+    @unittest.skipUnless(HAS_USER_SITE, 'need user site')
     def test_getuserbase(self):
         site.USER_BASE = None
         user_base = site.getuserbase()
@@ -256,6 +267,7 @@ class HelperFunctionsTests(unittest.TestCase):
             self.assertTrue(site.getuserbase().startswith('xoxo'),
                             site.getuserbase())
 
+    @unittest.skipUnless(HAS_USER_SITE, 'need user site')
     def test_getusersitepackages(self):
         site.USER_SITE = None
         site.USER_BASE = None
@@ -290,6 +302,7 @@ class HelperFunctionsTests(unittest.TestCase):
             wanted = os.path.join('xoxo', 'lib', 'site-packages')
             self.assertEqual(dirs[1], wanted)
 
+    @unittest.skipUnless(HAS_USER_SITE, 'need user site')
     def test_no_home_directory(self):
         # bpo-10496: getuserbase() and getusersitepackages() must not fail if
         # the current user has no home directory (if expanduser() returns the
@@ -322,6 +335,14 @@ class HelperFunctionsTests(unittest.TestCase):
             mock_isdir.assert_called_once_with(user_site)
             mock_addsitedir.assert_not_called()
             self.assertFalse(known_paths)
+
+    def test_trace(self):
+        message = "bla-bla-bla"
+        for verbose, out in (True, message + "\n"), (False, ""):
+            with mock.patch('sys.flags', mock.Mock(verbose=verbose)), \
+                    mock.patch('sys.stderr', io.StringIO()):
+                site._trace(message)
+                self.assertEqual(sys.stderr.getvalue(), out)
 
 
 class PthFile(object):
@@ -539,19 +560,20 @@ class StartupImportTests(unittest.TestCase):
             'import site, sys; site.enablerlcompleter(); sys.exit(hasattr(sys, "__interactivehook__"))']).wait()
         self.assertTrue(r, "'__interactivehook__' not added by enablerlcompleter()")
 
-
 @unittest.skipUnless(sys.platform == 'win32', "only supported on Windows")
 class _pthFileTests(unittest.TestCase):
 
     def _create_underpth_exe(self, lines, exe_pth=True):
         import _winapi
         temp_dir = tempfile.mkdtemp()
-        self.addCleanup(test.support.rmtree, temp_dir)
+        self.addCleanup(os_helper.rmtree, temp_dir)
         exe_file = os.path.join(temp_dir, os.path.split(sys.executable)[1])
         dll_src_file = _winapi.GetModuleFileName(sys.dllhandle)
         dll_file = os.path.join(temp_dir, os.path.split(dll_src_file)[1])
         shutil.copy(sys.executable, exe_file)
         shutil.copy(dll_src_file, dll_file)
+        for fn in glob.glob(os.path.join(os.path.split(dll_src_file)[0], "vcruntime*.dll")):
+            shutil.copy(fn, os.path.join(temp_dir, os.path.split(fn)[1]))
         if exe_pth:
             _pth_file = os.path.splitext(exe_file)[0] + '._pth'
         else:

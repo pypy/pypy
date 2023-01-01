@@ -1,5 +1,4 @@
 import unittest
-from test.support import use_old_parser
 
 GLOBAL_VAR = None
 
@@ -102,7 +101,8 @@ class NamedExpressionInvalidTest(unittest.TestCase):
     def test_named_expression_invalid_17(self):
         code = "[i := 0, j := 1 for i, j in [(1, 2), (3, 4)]]"
 
-        with self.assertRaisesRegex(SyntaxError, "invalid syntax"):
+        with self.assertRaisesRegex(SyntaxError,
+                "did you forget parentheses around the comprehension target?"):
             exec(code, {}, {})
 
     def test_named_expression_invalid_in_class_body(self):
@@ -168,7 +168,6 @@ class NamedExpressionInvalidTest(unittest.TestCase):
                 with self.assertRaisesRegex(SyntaxError, msg):
                     exec(f"lambda: {code}", {}) # Function scope
 
-    @unittest.skipIf(use_old_parser(), "Old parser does not support walruses in set comprehensions")
     def test_named_expression_invalid_rebinding_set_comprehension_iteration_variable(self):
         cases = [
             ("Local reuse", 'i', "{i := 0 for i in range(5)}"),
@@ -201,7 +200,6 @@ class NamedExpressionInvalidTest(unittest.TestCase):
                 with self.assertRaisesRegex(SyntaxError, msg):
                     exec(f"lambda: {code}", {}) # Function scope
 
-    @unittest.skipIf(use_old_parser(), "Old parser does not support walruses in set comprehensions")
     def test_named_expression_invalid_set_comprehension_iterable_expression(self):
         cases = [
             ("Top level", "{i for i in (i := range(5))}"),
@@ -327,6 +325,27 @@ class NamedExpressionAssignmentTest(unittest.TestCase):
         a, b = 1, 2
         fib = {(c := a): (a := b) + (b := a + c) - b for __ in range(6)}
         self.assertEqual(fib, {1: 2, 2: 3, 3: 5, 5: 8, 8: 13, 13: 21})
+
+    def test_named_expression_assignment_17(self):
+        a = [1]
+        element = a[b:=0]
+        self.assertEqual(b, 0)
+        self.assertEqual(element, a[0])
+
+    def test_named_expression_assignment_18(self):
+        class TwoDimensionalList:
+            def __init__(self, two_dimensional_list):
+                self.two_dimensional_list = two_dimensional_list
+
+            def __getitem__(self, index):
+                return self.two_dimensional_list[index[0]][index[1]]
+
+        a = TwoDimensionalList([[1], [2]])
+        element = a[b:=0, c:=0]
+        self.assertEqual(b, 0)
+        self.assertEqual(c, 0)
+        self.assertEqual(element, a.two_dimensional_list[b][c])
+
 
 
 class NamedExpressionScopeTest(unittest.TestCase):

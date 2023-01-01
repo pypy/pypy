@@ -1,9 +1,9 @@
 from test import support
+from test.support import import_helper
+from test.support import threading_helper
 
 # Skip tests if _multiprocessing wasn't built.
-support.import_module('_multiprocessing')
-# Skip tests if sem_open implementation is broken.
-support.skip_if_broken_multiprocessing_synchronize()
+import_helper.import_module('_multiprocessing')
 
 from test.support import hashlib_helper
 from test.support.script_helper import assert_python_ok
@@ -25,7 +25,7 @@ from concurrent import futures
 from concurrent.futures._base import (
     PENDING, RUNNING, CANCELLED, CANCELLED_AND_NOTIFIED, FINISHED, Future,
     BrokenExecutor)
-from concurrent.futures.process import BrokenProcessPool
+from concurrent.futures.process import BrokenProcessPool, _check_system_limits
 
 import multiprocessing.process
 import multiprocessing.util
@@ -107,11 +107,11 @@ def make_dummy_object(_):
 
 class BaseTestCase(unittest.TestCase):
     def setUp(self):
-        self._thread_key = support.threading_setup()
+        self._thread_key = threading_helper.threading_setup()
 
     def tearDown(self):
         support.reap_children()
-        support.threading_cleanup(*self._thread_key)
+        threading_helper.threading_cleanup(*self._thread_key)
 
 
 class ExecutorMixin:
@@ -156,6 +156,10 @@ class ProcessPoolForkMixin(ExecutorMixin):
     ctx = "fork"
 
     def get_context(self):
+        try:
+            _check_system_limits()
+        except NotImplementedError:
+            self.skipTest("ProcessPoolExecutor unavailable on this system")
         if sys.platform == "win32":
             self.skipTest("require unix system")
         return super().get_context()
@@ -165,12 +169,23 @@ class ProcessPoolSpawnMixin(ExecutorMixin):
     executor_type = futures.ProcessPoolExecutor
     ctx = "spawn"
 
+    def get_context(self):
+        try:
+            _check_system_limits()
+        except NotImplementedError:
+            self.skipTest("ProcessPoolExecutor unavailable on this system")
+        return super().get_context()
+
 
 class ProcessPoolForkserverMixin(ExecutorMixin):
     executor_type = futures.ProcessPoolExecutor
     ctx = "forkserver"
 
     def get_context(self):
+        try:
+            _check_system_limits()
+        except NotImplementedError:
+            self.skipTest("ProcessPoolExecutor unavailable on this system")
         if sys.platform == "win32":
             self.skipTest("require unix system")
         return super().get_context()
@@ -470,7 +485,7 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
                 t = ThreadPoolExecutor()
                 t.submit(sleep_and_print, .1, "apple")
                 t.shutdown(wait=False, cancel_futures=True)
-            """.format(executor_type=self.executor_type.__name__))
+            """)
         # Errors in atexit hooks don't change the process exit code, check
         # stderr manually.
         self.assertFalse(err)
@@ -916,6 +931,33 @@ class ThreadPoolExecutorTest(ThreadPoolMixin, ExecutorTest, BaseTestCase):
             for _ in range(50):
                 with futures.ProcessPoolExecutor(1, mp_context=mp.get_context('fork')) as workers:
                     workers.submit(tuple)
+
+    def test_executor_map_current_future_cancel(self):
+        stop_event = threading.Event()
+        log = []
+
+        def log_n_wait(ident):
+            log.append(f"{ident=} started")
+            try:
+                stop_event.wait()
+            finally:
+                log.append(f"{ident=} stopped")
+
+        with self.executor_type(max_workers=1) as pool:
+            # submit work to saturate the pool
+            fut = pool.submit(log_n_wait, ident="first")
+            try:
+                with contextlib.closing(
+                    pool.map(log_n_wait, ["second", "third"], timeout=0)
+                ) as gen:
+                    with self.assertRaises(futures.TimeoutError):
+                        next(gen)
+            finally:
+                stop_event.set()
+            fut.result()
+        # ident='second' is cancelled as a result of raising a TimeoutError
+        # ident='third' is cancelled because it remained in the collection of futures
+        self.assertListEqual(log, ["ident='first' started", "ident='first' stopped"])
 
 
 class ProcessPoolExecutorTest(ExecutorTest):
@@ -1528,8 +1570,8 @@ class FutureTests(BaseTestCase):
 
 def setUpModule():
     unittest.addModuleCleanup(multiprocessing.util._cleanup_tests)
-    thread_info = support.threading_setup()
-    unittest.addModuleCleanup(support.threading_cleanup, *thread_info)
+    thread_info = threading_helper.threading_setup()
+    unittest.addModuleCleanup(threading_helper.threading_cleanup, *thread_info)
 
 
 if __name__ == "__main__":

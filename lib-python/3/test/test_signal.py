@@ -11,6 +11,7 @@ import threading
 import time
 import unittest
 from test import support
+from test.support import os_helper
 from test.support.script_helper import assert_python_ok, spawn_python
 try:
     import _testcapi
@@ -164,7 +165,7 @@ class WakeupFDTests(unittest.TestCase):
             signal.set_wakeup_fd(signal.SIGINT, False)
 
     def test_invalid_fd(self):
-        fd = support.make_bad_fd()
+        fd = os_helper.make_bad_fd()
         self.assertRaises((ValueError, OSError),
                           signal.set_wakeup_fd, fd)
 
@@ -528,16 +529,20 @@ class WakeupSocketSignalTests(unittest.TestCase):
         else:
             write.setblocking(False)
 
-        # Start with large chunk size to reduce the
-        # number of send needed to fill the buffer.
         written = 0
-        for chunk_size in (2 ** 16, 2 ** 8, 1):
+        if sys.platform == "vxworks":
+            CHUNK_SIZES = (1,)
+        else:
+            # Start with large chunk size to reduce the
+            # number of send needed to fill the buffer.
+            CHUNK_SIZES = (2 ** 16, 2 ** 8, 1)
+        for chunk_size in CHUNK_SIZES:
             chunk = b"x" * chunk_size
             try:
                 while True:
                     write.send(chunk)
                     written += chunk_size
-            except (BlockingIOError, socket.timeout):
+            except (BlockingIOError, TimeoutError):
                 pass
 
         print(f"%s bytes written into the socketpair" % written, flush=True)
@@ -604,6 +609,7 @@ class WakeupSocketSignalTests(unittest.TestCase):
 
 
 @unittest.skipIf(sys.platform == "win32", "Not valid on Windows")
+@unittest.skipUnless(hasattr(signal, 'siginterrupt'), "needs signal.siginterrupt()")
 class SiginterruptTest(unittest.TestCase):
 
     def readpipe_interrupted(self, interrupt):
@@ -689,6 +695,8 @@ class SiginterruptTest(unittest.TestCase):
 
 
 @unittest.skipIf(sys.platform == "win32", "Not valid on Windows")
+@unittest.skipUnless(hasattr(signal, 'getitimer') and hasattr(signal, 'setitimer'),
+                         "needs signal.getitimer() and signal.setitimer()")
 class ItimerTest(unittest.TestCase):
     def setUp(self):
         self.hndl_called = False
@@ -1297,7 +1305,7 @@ class StressTest(unittest.TestCase):
                     # race condition, check it.
                     self.assertIsInstance(cm.unraisable.exc_value, OSError)
                     self.assertIn(
-                        f"Signal {signum} ignored due to race condition",
+                        f"Signal {signum:d} ignored due to race condition",
                         str(cm.unraisable.exc_value))
                     ignored = True
 

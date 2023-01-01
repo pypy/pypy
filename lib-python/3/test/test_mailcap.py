@@ -2,7 +2,9 @@ import mailcap
 import os
 import copy
 import test.support
+from test.support import os_helper
 import unittest
+import sys
 
 # Location of mailcap file
 MAILCAPFILE = test.support.findfile("mailcap.txt")
@@ -74,7 +76,7 @@ class HelperFunctionTest(unittest.TestCase):
         self.assertIsInstance(mcfiles, list)
         for m in mcfiles:
             self.assertIsInstance(m, str)
-        with test.support.EnvironmentVarGuard() as env:
+        with os_helper.EnvironmentVarGuard() as env:
             # According to RFC 1524, if MAILCAPS env variable exists, use that
             # and only that.
             if "MAILCAPS" in env:
@@ -121,7 +123,8 @@ class HelperFunctionTest(unittest.TestCase):
             (["", "audio/*", "foo.txt"], ""),
             (["echo foo", "audio/*", "foo.txt"], "echo foo"),
             (["echo %s", "audio/*", "foo.txt"], "echo foo.txt"),
-            (["echo %t", "audio/*", "foo.txt"], "echo audio/*"),
+            (["echo %t", "audio/*", "foo.txt"], None),
+            (["echo %t", "audio/wav", "foo.txt"], "echo audio/wav"),
             (["echo \\%t", "audio/*", "foo.txt"], "echo %t"),
             (["echo foo", "audio/*", "foo.txt", plist], "echo foo"),
             (["echo %{total}", "audio/*", "foo.txt", plist], "echo 3")
@@ -136,7 +139,7 @@ class GetcapsTest(unittest.TestCase):
         # Test mailcap.getcaps() using mock mailcap file in this dir.
         # Temporarily override any existing system mailcap file by pointing the
         # MAILCAPS environment variable to our mock file.
-        with test.support.EnvironmentVarGuard() as env:
+        with os_helper.EnvironmentVarGuard() as env:
             env["MAILCAPS"] = MAILCAPFILE
             caps = mailcap.getcaps()
             self.assertDictEqual(caps, MAILCAPDICT)
@@ -205,7 +208,10 @@ class FindmatchTest(unittest.TestCase):
              ('"An audio fragment"', audio_basic_entry)),
             ([c, "audio/*"],
              {"filename": fname},
-             ("/usr/local/bin/showaudio audio/*", audio_entry)),
+             (None, None)),
+            ([c, "audio/wav"],
+             {"filename": fname},
+             ("/usr/local/bin/showaudio audio/wav", audio_entry)),
             ([c, "message/external-body"],
              {"plist": plist},
              ("showexternal /dev/null default john python.org     /tmp foo bar", message_entry))
@@ -213,6 +219,7 @@ class FindmatchTest(unittest.TestCase):
         self._run_cases(cases)
 
     @unittest.skipUnless(os.name == "posix", "Requires 'test' command on system")
+    @unittest.skipIf(sys.platform == "vxworks", "'test' command is not supported on VxWorks")
     def test_test(self):
         # findmatch() will automatically check any "test" conditions and skip
         # the entry if the check fails.

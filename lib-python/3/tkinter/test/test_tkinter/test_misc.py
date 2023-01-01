@@ -1,3 +1,4 @@
+import functools
 import unittest
 import tkinter
 from test import support
@@ -96,6 +97,12 @@ class MiscTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(count, 53)
         with self.assertRaises(tkinter.TclError):
             root.tk.call(script)
+
+        # Call with a callable class
+        count = 0
+        timer1 = root.after(0, functools.partial(callback, 42, 11))
+        root.update()  # Process all pending events.
+        self.assertEqual(count, 53)
 
     def test_after_idle(self):
         root = self.root

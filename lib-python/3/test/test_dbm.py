@@ -3,15 +3,16 @@
 import unittest
 import dbm
 import os
-import test.support
+from test.support import import_helper
+from test.support import os_helper
 
 try:
     from dbm import ndbm
 except ImportError:
     ndbm = None
 
-dirname = test.support.TESTFN
-_fname = os.path.join(dirname, test.support.TESTFN)
+dirname = os_helper.TESTFN
+_fname = os.path.join(dirname, os_helper.TESTFN)
 
 #
 # Iterates over every database module supported by dbm currently available.
@@ -29,7 +30,7 @@ def dbm_iterator():
 # Clean up all scratch databases we might have created during testing
 #
 def cleaunup_test_dir():
-    test.support.rmtree(dirname)
+    os_helper.rmtree(dirname)
 
 def setup_test_dir():
     cleaunup_test_dir()
@@ -73,7 +74,7 @@ class AnyDBMTestCase:
 
     def test_anydbm_creation_n_file_exists_with_invalid_contents(self):
         # create an empty file
-        test.support.create_empty_file(_fname)
+        os_helper.create_empty_file(_fname)
         with dbm.open(_fname, 'n') as f:
             self.assertEqual(len(f), 0)
 
@@ -182,7 +183,7 @@ class WhichDBTestCase(unittest.TestCase):
     def setUp(self):
         self.addCleanup(cleaunup_test_dir)
         setup_test_dir()
-        self.dbm = test.support.import_fresh_module('dbm')
+        self.dbm = import_helper.import_fresh_module('dbm')
 
 
 for mod in dbm_iterator():

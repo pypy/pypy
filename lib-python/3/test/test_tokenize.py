@@ -1,13 +1,17 @@
 from test import support
+from test.support import os_helper
 from tokenize import (tokenize, _tokenize, untokenize, NUMBER, NAME, OP,
                      STRING, ENDMARKER, ENCODING, tok_name, detect_encoding,
                      open as tokenize_open, Untokenizer, generate_tokens,
                      NEWLINE)
 from io import BytesIO, StringIO
 import unittest
+from textwrap import dedent
 from unittest import TestCase, mock
 from test.test_grammar import (VALID_UNDERSCORE_LITERALS,
                                INVALID_UNDERSCORE_LITERALS)
+from test.support import os_helper
+from test.support.script_helper import run_test_script, make_script
 import os
 import token
 
@@ -44,7 +48,6 @@ class TokenizeTest(TestCase):
         # The ENDMARKER and final NEWLINE are omitted.
         f = BytesIO(s.encode('utf-8'))
         result = stringify_tokens_from_source(tokenize(f.readline), s)
-
         self.assertEqual(result,
                          ["    ENCODING   'utf-8'       (0, 0) (0, 0)"] +
                          expected.rstrip().splitlines())
@@ -1265,8 +1268,8 @@ class TestDetectEncoding(TestCase):
         self.assertEqual(consumed_lines, [b'print("#coding=fake")'])
 
     def test_open(self):
-        filename = support.TESTFN + '.py'
-        self.addCleanup(support.unlink, filename)
+        filename = os_helper.TESTFN + '.py'
+        self.addCleanup(os_helper.unlink, filename)
 
         # test coding cookie
         for encoding in ('iso-8859-15', 'utf-8'):
@@ -1651,6 +1654,20 @@ class TestRoundtrip(TestCase):
         codelines = self.roundtrip(code).split('\n')
         self.assertEqual(codelines[1], codelines[2])
         self.check_roundtrip(code)
+
+
+class CTokenizerBufferTests(unittest.TestCase):
+    def test_newline_at_the_end_of_buffer(self):
+        # See issue 99581: Make sure that if we need to add a new line at the
+        # end of the buffer, we have enough space in the buffer, specially when
+        # the current line is as long as the buffer space available.
+        test_script = f"""\
+        #coding: latin-1
+        #{"a"*10000}
+        #{"a"*10002}"""
+        with os_helper.temp_dir() as temp_dir:
+            file_name = make_script(temp_dir, 'foo', test_script)
+            run_test_script(file_name)
 
 
 if __name__ == "__main__":

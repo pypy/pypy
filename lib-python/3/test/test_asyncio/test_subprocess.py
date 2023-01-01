@@ -10,6 +10,7 @@ from asyncio import base_subprocess
 from asyncio import subprocess
 from test.test_asyncio import utils as test_utils
 from test import support
+from test.support import os_helper
 
 if sys.platform != 'win32':
     from asyncio import unix_events
@@ -400,6 +401,26 @@ class SubprocessMixin:
         self.assertEqual(output, None)
         self.assertEqual(exitcode, 0)
 
+    @unittest.skipIf(sys.platform != 'linux', "Don't have /dev/stdin")
+    def test_devstdin_input(self):
+
+        async def devstdin_input(message):
+            code = 'file = open("/dev/stdin"); data = file.read(); print(len(data))'
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, '-c', code,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                close_fds=False,
+            )
+            stdout, stderr = await proc.communicate(message)
+            exitcode = await proc.wait()
+            return (stdout, exitcode)
+
+        output, exitcode = self.loop.run_until_complete(devstdin_input(b'abc'))
+        self.assertEqual(output.rstrip(), b'3')
+        self.assertEqual(exitcode, 0)
+
     def test_cancel_process_wait(self):
         # Issue #23140: cancel Process.wait()
 
@@ -626,33 +647,13 @@ class SubprocessMixin:
     def test_create_subprocess_exec_with_path(self):
         async def execute():
             p = await subprocess.create_subprocess_exec(
-                support.FakePath(sys.executable), '-c', 'pass')
+                os_helper.FakePath(sys.executable), '-c', 'pass')
             await p.wait()
             p = await subprocess.create_subprocess_exec(
-                sys.executable, '-c', 'pass', support.FakePath('.'))
+                sys.executable, '-c', 'pass', os_helper.FakePath('.'))
             await p.wait()
 
         self.assertIsNone(self.loop.run_until_complete(execute()))
-
-    def test_exec_loop_deprecated(self):
-        async def go():
-            with self.assertWarns(DeprecationWarning):
-                proc = await asyncio.create_subprocess_exec(
-                    sys.executable, '-c', 'pass',
-                    loop=self.loop,
-                )
-            await proc.wait()
-        self.loop.run_until_complete(go())
-
-    def test_shell_loop_deprecated(self):
-        async def go():
-            with self.assertWarns(DeprecationWarning):
-                proc = await asyncio.create_subprocess_shell(
-                    "exit 0",
-                    loop=self.loop,
-                )
-            await proc.wait()
-        self.loop.run_until_complete(go())
 
 
 if sys.platform != 'win32':
@@ -739,7 +740,7 @@ class GenericWatcherTests:
 
             with self.assertRaises(RuntimeError):
                 await subprocess.create_subprocess_exec(
-                    support.FakePath(sys.executable), '-c', 'pass')
+                    os_helper.FakePath(sys.executable), '-c', 'pass')
 
             watcher.add_child_handler.assert_not_called()
 

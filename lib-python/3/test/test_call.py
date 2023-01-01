@@ -8,6 +8,15 @@ import struct
 import collections
 import itertools
 import gc
+import contextlib
+
+
+class BadStr(str):
+    def __eq__(self, other):
+        return True
+    def __hash__(self):
+        # Guaranteed different hash
+        return str.__hash__(self) ^ 3
 
 
 class FunctionCalls(unittest.TestCase):
@@ -131,6 +140,18 @@ class CFunctionCallsErrorMessages(unittest.TestCase):
         msg = r"^print\(\) takes at most 4 keyword arguments \(5 given\)$"
         self.assertRaisesRegex(TypeError, msg,
                                print, 0, sep=1, end=2, file=3, flush=4, foo=5)
+
+    def test_varargs18_kw(self):
+        # _PyArg_UnpackKeywordsWithVararg()
+        msg = r"invalid keyword argument for print\(\)$"
+        with self.assertRaisesRegex(TypeError, msg):
+            print(0, 1, **{BadStr('foo'): ','})
+
+    def test_varargs19_kw(self):
+        # _PyArg_UnpackKeywords()
+        msg = r"invalid keyword argument for round\(\)$"
+        with self.assertRaisesRegex(TypeError, msg):
+            round(1.75, **{BadStr('foo'): 1})
 
     def test_oldargs0_1(self):
         msg = r"keys\(\) takes no arguments \(1 given\)"
@@ -525,7 +546,7 @@ class FastCallTests(unittest.TestCase):
                 self.kwargs.clear()
                 gc.collect()
                 return 0
-        x = IntWithDict(dont_inherit=IntWithDict())
+        x = IntWithDict(optimize=IntWithDict())
         # We test the argument handling of "compile" here, the compilation
         # itself is not relevant. When we pass flags=x below, x.__index__() is
         # called, which changes the keywords dict.
@@ -663,6 +684,53 @@ class TestPEP590(unittest.TestCase):
                 self.assertEqual(expected, vectorcall(func, args, kwargs))
                 self.assertEqual(expected, meth(*args1, **kwargs))
                 self.assertEqual(expected, wrapped(*args, **kwargs))
+
+
+class A:
+    def method_two_args(self, x, y):
+        pass
+
+    @staticmethod
+    def static_no_args():
+        pass
+
+    @staticmethod
+    def positional_only(arg, /):
+        pass
+
+@cpython_only
+class TestErrorMessagesUseQualifiedName(unittest.TestCase):
+
+    @contextlib.contextmanager
+    def check_raises_type_error(self, message):
+        with self.assertRaises(TypeError) as cm:
+            yield
+        self.assertEqual(str(cm.exception), message)
+
+    def test_missing_arguments(self):
+        msg = "A.method_two_args() missing 1 required positional argument: 'y'"
+        with self.check_raises_type_error(msg):
+            A().method_two_args("x")
+
+    def test_too_many_positional(self):
+        msg = "A.static_no_args() takes 0 positional arguments but 1 was given"
+        with self.check_raises_type_error(msg):
+            A.static_no_args("oops it's an arg")
+
+    def test_positional_only_passed_as_keyword(self):
+        msg = "A.positional_only() got some positional-only arguments passed as keyword arguments: 'arg'"
+        with self.check_raises_type_error(msg):
+            A.positional_only(arg="x")
+
+    def test_unexpected_keyword(self):
+        msg = "A.method_two_args() got an unexpected keyword argument 'bad'"
+        with self.check_raises_type_error(msg):
+            A().method_two_args(bad="x")
+
+    def test_multiple_values(self):
+        msg = "A.method_two_args() got multiple values for argument 'x'"
+        with self.check_raises_type_error(msg):
+            A().method_two_args("x", "y", x="oops")
 
 
 if __name__ == "__main__":

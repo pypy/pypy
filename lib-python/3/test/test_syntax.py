@@ -59,9 +59,17 @@ SyntaxError: cannot assign to __debug__
 Traceback (most recent call last):
 SyntaxError: cannot assign to __debug__
 
+>>> del __debug__
+Traceback (most recent call last):
+SyntaxError: cannot delete __debug__
+
 >>> f() = 1
 Traceback (most recent call last):
-SyntaxError: cannot assign to function call
+SyntaxError: cannot assign to function call here. Maybe you meant '==' instead of '='?
+
+>>> yield = 1
+Traceback (most recent call last):
+SyntaxError: assignment to yield expression not possible
 
 >>> del f()
 Traceback (most recent call last):
@@ -69,7 +77,7 @@ SyntaxError: cannot delete function call
 
 >>> a + 1 = 2
 Traceback (most recent call last):
-SyntaxError: cannot assign to operator
+SyntaxError: cannot assign to expression here. Maybe you meant '==' instead of '='?
 
 >>> (x for x in x) = 1
 Traceback (most recent call last):
@@ -77,19 +85,19 @@ SyntaxError: cannot assign to generator expression
 
 >>> 1 = 1
 Traceback (most recent call last):
-SyntaxError: cannot assign to literal
+SyntaxError: cannot assign to literal here. Maybe you meant '==' instead of '='?
 
 >>> "abc" = 1
 Traceback (most recent call last):
-SyntaxError: cannot assign to literal
+SyntaxError: cannot assign to literal here. Maybe you meant '==' instead of '='?
 
 >>> b"" = 1
 Traceback (most recent call last):
-SyntaxError: cannot assign to literal
+SyntaxError: cannot assign to literal here. Maybe you meant '==' instead of '='?
 
 >>> ... = 1
 Traceback (most recent call last):
-SyntaxError: cannot assign to Ellipsis
+SyntaxError: cannot assign to ellipsis here. Maybe you meant '==' instead of '='?
 
 >>> `1` = 1
 Traceback (most recent call last):
@@ -122,19 +130,39 @@ SyntaxError: cannot assign to __debug__
 
 >>> [a, b, c + 1] = [1, 2, 3]
 Traceback (most recent call last):
-SyntaxError: cannot assign to operator
+SyntaxError: cannot assign to expression
 
 >>> [a, b[1], c + 1] = [1, 2, 3]
 Traceback (most recent call last):
-SyntaxError: cannot assign to operator
+SyntaxError: cannot assign to expression
 
 >>> [a, b.c.d, c + 1] = [1, 2, 3]
 Traceback (most recent call last):
-SyntaxError: cannot assign to operator
+SyntaxError: cannot assign to expression
 
 >>> a if 1 else b = 1
 Traceback (most recent call last):
 SyntaxError: cannot assign to conditional expression
+
+>>> a = 42 if True
+Traceback (most recent call last):
+SyntaxError: expected 'else' after 'if' expression
+
+>>> a = (42 if True)
+Traceback (most recent call last):
+SyntaxError: expected 'else' after 'if' expression
+
+>>> a = [1, 42 if True, 4]
+Traceback (most recent call last):
+SyntaxError: expected 'else' after 'if' expression
+
+>>> if True:
+...     print("Hello"
+...
+... if 2:
+...    print(123))
+Traceback (most recent call last):
+SyntaxError: invalid syntax
 
 >>> True = True = 3
 Traceback (most recent call last):
@@ -177,7 +205,7 @@ SyntaxError: cannot assign to function call
 
 >>> for (*a, b, c+1) in b: pass
 Traceback (most recent call last):
-SyntaxError: cannot assign to operator
+SyntaxError: cannot assign to expression
 
 >>> for (x, *(y, z.d())) in b: pass
 Traceback (most recent call last):
@@ -186,6 +214,10 @@ SyntaxError: cannot assign to function call
 >>> for a, b() in c: pass
 Traceback (most recent call last):
 SyntaxError: cannot assign to function call
+
+>>> for a, b, (c + 1, d()): pass
+Traceback (most recent call last):
+SyntaxError: cannot assign to expression
 
 >>> for i < (): pass
 Traceback (most recent call last):
@@ -209,7 +241,7 @@ SyntaxError: cannot assign to function call
 
 >>> with a as (*b, c, d+1): pass
 Traceback (most recent call last):
-SyntaxError: cannot assign to operator
+SyntaxError: cannot assign to expression
 
 >>> with a as (x, *(y, z.d())): pass
 Traceback (most recent call last):
@@ -221,9 +253,72 @@ SyntaxError: cannot assign to function call
 
 >>> with a as b
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: expected ':'
 
 >>> p = p =
+Traceback (most recent call last):
+SyntaxError: invalid syntax
+
+Comprehensions creating tuples without parentheses
+should produce a specialized error message:
+
+>>> [x,y for x,y in range(100)]
+Traceback (most recent call last):
+SyntaxError: did you forget parentheses around the comprehension target?
+
+>>> {x,y for x,y in range(100)}
+Traceback (most recent call last):
+SyntaxError: did you forget parentheses around the comprehension target?
+
+# Missing commas in literals collections should not
+# produce special error messages regarding missing
+# parentheses, but about missing commas instead
+
+>>> [1, 2 3]
+Traceback (most recent call last):
+SyntaxError: invalid syntax. Perhaps you forgot a comma?
+
+>>> {1, 2 3}
+Traceback (most recent call last):
+SyntaxError: invalid syntax. Perhaps you forgot a comma?
+
+>>> {1:2, 2:5 3:12}
+Traceback (most recent call last):
+SyntaxError: invalid syntax. Perhaps you forgot a comma?
+
+>>> (1, 2 3)
+Traceback (most recent call last):
+SyntaxError: invalid syntax. Perhaps you forgot a comma?
+
+# Make sure soft keywords constructs don't raise specialized
+# errors regarding missing commas or other spezialiced errors
+
+>>> match x:
+...     y = 3
+Traceback (most recent call last):
+SyntaxError: invalid syntax
+
+>>> match x:
+...     case y:
+...        3 $ 3
+Traceback (most recent call last):
+SyntaxError: invalid syntax
+
+>>> match x:
+...     case $:
+...        ...
+Traceback (most recent call last):
+SyntaxError: invalid syntax
+
+>>> match ...:
+...     case {**rest, "key": value}:
+...        ...
+Traceback (most recent call last):
+SyntaxError: invalid syntax
+
+>>> match ...:
+...     case {**_}:
+...        ...
 Traceback (most recent call last):
 SyntaxError: invalid syntax
 
@@ -429,6 +524,15 @@ SyntaxError: expression cannot contain assignment, perhaps you meant "=="?
 >>> f((x)=2)
 Traceback (most recent call last):
 SyntaxError: expression cannot contain assignment, perhaps you meant "=="?
+>>> f(True=1)
+Traceback (most recent call last):
+SyntaxError: cannot assign to True
+>>> f(False=1)
+Traceback (most recent call last):
+SyntaxError: cannot assign to False
+>>> f(None=1)
+Traceback (most recent call last):
+SyntaxError: cannot assign to None
 >>> f(__debug__=1)
 Traceback (most recent call last):
 SyntaxError: cannot assign to __debug__
@@ -615,7 +719,7 @@ leading to spurious errors.
    ...   pass
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call here. Maybe you meant '==' instead of '='?
 
    >>> if 1:
    ...   pass
@@ -623,27 +727,27 @@ leading to spurious errors.
    ...   x() = 1
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call here. Maybe you meant '==' instead of '='?
 
    >>> if 1:
    ...   x() = 1
    ... elif 1:
    ...   pass
+   ... else:
+   ...   pass
+   Traceback (most recent call last):
+     ...
+   SyntaxError: cannot assign to function call here. Maybe you meant '==' instead of '='?
+
+   >>> if 1:
+   ...   pass
+   ... elif 1:
+   ...   x() = 1
    ... else:
    ...   pass
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
-
-   >>> if 1:
-   ...   pass
-   ... elif 1:
-   ...   x() = 1
-   ... else:
-   ...   pass
-   Traceback (most recent call last):
-     ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call here. Maybe you meant '==' instead of '='?
 
    >>> if 1:
    ...   pass
@@ -653,7 +757,373 @@ leading to spurious errors.
    ...   x() = 1
    Traceback (most recent call last):
      ...
-   SyntaxError: cannot assign to function call
+   SyntaxError: cannot assign to function call here. Maybe you meant '==' instead of '='?
+
+Missing ':' before suites:
+
+   >>> def f()
+   ...     pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> class A
+   ...     pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> class R&D:
+   ...     pass
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+   >>> if 1
+   ...   pass
+   ... elif 1:
+   ...   pass
+   ... else:
+   ...   x() = 1
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> if 1:
+   ...   pass
+   ... elif 1
+   ...   pass
+   ... else:
+   ...   x() = 1
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> if 1:
+   ...   pass
+   ... elif 1:
+   ...   pass
+   ... else
+   ...   x() = 1
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> for x in range(10)
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> for x in range 10:
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+   >>> while True
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> with blech as something
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> with blech
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> with blech, block as something
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> with blech, block as something, bluch
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> with (blech as something)
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> with (blech)
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> with (blech, block as something)
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> with (blech, block as something, bluch)
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> with block ad something:
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+   >>> try
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> try:
+   ...   pass
+   ... except
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> match x
+   ...   case list():
+   ...       pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> match x x:
+   ...   case list():
+   ...       pass
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+   >>> match x:
+   ...   case list()
+   ...       pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> match x:
+   ...   case [y] if y > 0
+   ...       pass
+   Traceback (most recent call last):
+   SyntaxError: expected ':'
+
+   >>> if x = 3:
+   ...    pass
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
+
+   >>> while x = 3:
+   ...    pass
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
+
+   >>> if x.a = 3:
+   ...    pass
+   Traceback (most recent call last):
+   SyntaxError: cannot assign to attribute here. Maybe you meant '==' instead of '='?
+
+   >>> while x.a = 3:
+   ...    pass
+   Traceback (most recent call last):
+   SyntaxError: cannot assign to attribute here. Maybe you meant '==' instead of '='?
+
+Custom error messages for try blocks that are not followed by except/finally
+
+   >>> try:
+   ...    x = 34
+   ...
+   Traceback (most recent call last):
+   SyntaxError: expected 'except' or 'finally' block
+
+Ensure that early = are not matched by the parser as invalid comparisons
+   >>> f(2, 4, x=34); 1 $ 2
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+   >>> dict(x=34); x $ y
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+   >>> dict(x=34, (x for x in range 10), 1); x $ y
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+   >>> dict(x=34, x=1, y=2); x $ y
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+Incomplete dictionary literals
+
+   >>> {1:2, 3:4, 5}
+   Traceback (most recent call last):
+   SyntaxError: ':' expected after dictionary key
+
+   >>> {1:2, 3:4, 5:}
+   Traceback (most recent call last):
+   SyntaxError: expression expected after dictionary key and ':'
+
+   >>> {1: *12+1, 23: 1}
+   Traceback (most recent call last):
+   SyntaxError: cannot use a starred expression in a dictionary value
+
+   >>> {1: *12+1}
+   Traceback (most recent call last):
+   SyntaxError: cannot use a starred expression in a dictionary value
+
+   >>> {1: 23, 1: *12+1}
+   Traceback (most recent call last):
+   SyntaxError: cannot use a starred expression in a dictionary value
+
+   >>> {1:}
+   Traceback (most recent call last):
+   SyntaxError: expression expected after dictionary key and ':'
+
+   # Ensure that the error is not raised for syntax errors that happen after sets
+
+   >>> {1} $
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+   # Ensure that the error is not raised for invalid expressions
+
+   >>> {1: 2, 3: foo(,), 4: 5}
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+   >>> {1: $, 2: 3}
+   Traceback (most recent call last):
+   SyntaxError: invalid syntax
+
+Specialized indentation errors:
+
+   >>> while condition:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'while' statement on line 1
+
+   >>> for x in range(10):
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'for' statement on line 1
+
+   >>> for x in range(10):
+   ...     pass
+   ... else:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'else' statement on line 3
+
+   >>> async for x in range(10):
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'for' statement on line 1
+
+   >>> async for x in range(10):
+   ...     pass
+   ... else:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'else' statement on line 3
+
+   >>> if something:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'if' statement on line 1
+
+   >>> if something:
+   ...     pass
+   ... elif something_else:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'elif' statement on line 3
+
+   >>> if something:
+   ...     pass
+   ... elif something_else:
+   ...     pass
+   ... else:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'else' statement on line 5
+
+   >>> try:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'try' statement on line 1
+
+   >>> try:
+   ...     something()
+   ... except:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'except' statement on line 3
+
+   >>> try:
+   ...     something()
+   ... except A:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'except' statement on line 3
+
+   >>> try:
+   ...     something()
+   ... except A:
+   ...     pass
+   ... finally:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'finally' statement on line 5
+
+   >>> with A:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'with' statement on line 1
+
+   >>> with A as a, B as b:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'with' statement on line 1
+
+   >>> with (A as a, B as b):
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'with' statement on line 1
+
+   >>> async with A:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'with' statement on line 1
+
+   >>> async with A as a, B as b:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'with' statement on line 1
+
+   >>> async with (A as a, B as b):
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'with' statement on line 1
+
+   >>> def foo(x, /, y, *, z=2):
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after function definition on line 1
+
+   >>> class Blech(A):
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after class definition on line 1
+
+   >>> match something:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'match' statement on line 1
+
+   >>> match something:
+   ...     case []:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'case' statement on line 2
+
+   >>> match something:
+   ...     case []:
+   ...         ...
+   ...     case {}:
+   ... pass
+   Traceback (most recent call last):
+   IndentationError: expected an indented block after 'case' statement on line 4
 
 Make sure that the old "raise X, Y[, Z]" form is gone:
    >>> raise X, Y
@@ -665,6 +1135,39 @@ Make sure that the old "raise X, Y[, Z]" form is gone:
      ...
    SyntaxError: invalid syntax
 
+Check that an multiple exception types with missing parentheses
+raise a custom exception
+
+   >>> try:
+   ...   pass
+   ... except A, B:
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: multiple exception types must be parenthesized
+
+   >>> try:
+   ...   pass
+   ... except A, B, C:
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: multiple exception types must be parenthesized
+
+   >>> try:
+   ...   pass
+   ... except A, B, C as blech:
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: multiple exception types must be parenthesized
+
+   >>> try:
+   ...   pass
+   ... except A, B, C as blech:
+   ...   pass
+   ... finally:
+   ...   pass
+   Traceback (most recent call last):
+   SyntaxError: multiple exception types must be parenthesized
+
 
 >>> f(a=23, a=234)
 Traceback (most recent call last):
@@ -673,19 +1176,39 @@ SyntaxError: keyword argument repeated: a
 
 >>> {1, 2, 3} = 42
 Traceback (most recent call last):
-SyntaxError: cannot assign to set display
+SyntaxError: cannot assign to set display here. Maybe you meant '==' instead of '='?
 
 >>> {1: 2, 3: 4} = 42
 Traceback (most recent call last):
-SyntaxError: cannot assign to dict display
+SyntaxError: cannot assign to dict literal here. Maybe you meant '==' instead of '='?
 
 >>> f'{x}' = 42
 Traceback (most recent call last):
-SyntaxError: cannot assign to f-string expression
+SyntaxError: cannot assign to f-string expression here. Maybe you meant '==' instead of '='?
 
 >>> f'{x}-{y}' = 42
 Traceback (most recent call last):
-SyntaxError: cannot assign to f-string expression
+SyntaxError: cannot assign to f-string expression here. Maybe you meant '==' instead of '='?
+
+>>> (x, y, z=3, d, e)
+Traceback (most recent call last):
+SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
+
+>>> [x, y, z=3, d, e]
+Traceback (most recent call last):
+SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
+
+>>> [z=3]
+Traceback (most recent call last):
+SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
+
+>>> {x, y, z=3, d, e}
+Traceback (most recent call last):
+SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
+
+>>> {z=3}
+Traceback (most recent call last):
+SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
 
 >>> from t import x,
 Traceback (most recent call last):
@@ -746,6 +1269,44 @@ Corner-cases that used to crash:
     >>> import ä £
     Traceback (most recent call last):
     SyntaxError: invalid character '£' (U+00A3)
+
+  Invalid pattern matching constructs:
+
+    >>> match ...:
+    ...   case 42 as _:
+    ...     ...
+    Traceback (most recent call last):
+    SyntaxError: cannot use '_' as a target
+
+    >>> match ...:
+    ...   case 42 as 1+2+4:
+    ...     ...
+    Traceback (most recent call last):
+    SyntaxError: invalid pattern target
+
+    >>> match ...:
+    ...   case Foo(z=1, y=2, x):
+    ...     ...
+    Traceback (most recent call last):
+    SyntaxError: positional patterns follow keyword patterns
+
+    >>> match ...:
+    ...   case Foo(a, z=1, y=2, x):
+    ...     ...
+    Traceback (most recent call last):
+    SyntaxError: positional patterns follow keyword patterns
+
+    >>> match ...:
+    ...   case Foo(z=1, x, y=2):
+    ...     ...
+    Traceback (most recent call last):
+    SyntaxError: positional patterns follow keyword patterns
+
+    >>> match ...:
+    ...   case C(a=b, c, d=e, f, g=h, i, j=k, ...):
+    ...     ...
+    Traceback (most recent call last):
+    SyntaxError: positional patterns follow keyword patterns
 """
 
 import re
@@ -756,7 +1317,8 @@ from test import support
 class SyntaxTestCase(unittest.TestCase):
 
     def _check_error(self, code, errtext,
-                     filename="<testcase>", mode="exec", subclass=None, lineno=None, offset=None):
+                     filename="<testcase>", mode="exec", subclass=None,
+                     lineno=None, offset=None, end_lineno=None, end_offset=None):
         """Check that compiling code raises SyntaxError with errtext.
 
         errtest is a regular expression that must be present in the
@@ -776,43 +1338,54 @@ class SyntaxTestCase(unittest.TestCase):
                 self.assertEqual(err.lineno, lineno)
             if offset is not None:
                 self.assertEqual(err.offset, offset)
+            if end_lineno is not None:
+                self.assertEqual(err.end_lineno, end_lineno)
+            if end_offset is not None:
+                self.assertEqual(err.end_offset, end_offset)
+
         else:
             self.fail("compile() did not raise SyntaxError")
 
+    def test_expression_with_assignment(self):
+        self._check_error(
+            "print(end1 + end2 = ' ')",
+            'expression cannot contain assignment, perhaps you meant "=="?',
+            offset=7
+        )
+
     def test_curly_brace_after_primary_raises_immediately(self):
-        self._check_error("f{", "invalid syntax", mode="single")
+        self._check_error("f{}", "invalid syntax", mode="single")
 
     def test_assign_call(self):
         self._check_error("f() = 1", "assign")
 
-    @unittest.skipIf(support.use_old_parser(), "The old parser cannot generate these error messages")
     def test_assign_del(self):
         self._check_error("del (,)", "invalid syntax")
-        self._check_error("del 1", "delete literal")
-        self._check_error("del (1, 2)", "delete literal")
-        self._check_error("del None", "delete None")
-        self._check_error("del *x", "delete starred")
-        self._check_error("del (*x)", "use starred expression")
-        self._check_error("del (*x,)", "delete starred")
-        self._check_error("del [*x,]", "delete starred")
-        self._check_error("del f()", "delete function call")
-        self._check_error("del f(a, b)", "delete function call")
-        self._check_error("del o.f()", "delete function call")
-        self._check_error("del a[0]()", "delete function call")
-        self._check_error("del x, f()", "delete function call")
-        self._check_error("del f(), x", "delete function call")
-        self._check_error("del [a, b, ((c), (d,), e.f())]", "delete function call")
-        self._check_error("del (a if True else b)", "delete conditional")
-        self._check_error("del +a", "delete operator")
-        self._check_error("del a, +b", "delete operator")
-        self._check_error("del a + b", "delete operator")
-        self._check_error("del (a + b, c)", "delete operator")
-        self._check_error("del (c[0], a + b)", "delete operator")
-        self._check_error("del a.b.c + 2", "delete operator")
-        self._check_error("del a.b.c[0] + 2", "delete operator")
-        self._check_error("del (a, b, (c, d.e.f + 2))", "delete operator")
-        self._check_error("del [a, b, (c, d.e.f[0] + 2)]", "delete operator")
-        self._check_error("del (a := 5)", "delete named expression")
+        self._check_error("del 1", "cannot delete literal")
+        self._check_error("del (1, 2)", "cannot delete literal")
+        self._check_error("del None", "cannot delete None")
+        self._check_error("del *x", "cannot delete starred")
+        self._check_error("del (*x)", "cannot use starred expression")
+        self._check_error("del (*x,)", "cannot delete starred")
+        self._check_error("del [*x,]", "cannot delete starred")
+        self._check_error("del f()", "cannot delete function call")
+        self._check_error("del f(a, b)", "cannot delete function call")
+        self._check_error("del o.f()", "cannot delete function call")
+        self._check_error("del a[0]()", "cannot delete function call")
+        self._check_error("del x, f()", "cannot delete function call")
+        self._check_error("del f(), x", "cannot delete function call")
+        self._check_error("del [a, b, ((c), (d,), e.f())]", "cannot delete function call")
+        self._check_error("del (a if True else b)", "cannot delete conditional")
+        self._check_error("del +a", "cannot delete expression")
+        self._check_error("del a, +b", "cannot delete expression")
+        self._check_error("del a + b", "cannot delete expression")
+        self._check_error("del (a + b, c)", "cannot delete expression")
+        self._check_error("del (c[0], a + b)", "cannot delete expression")
+        self._check_error("del a.b.c + 2", "cannot delete expression")
+        self._check_error("del a.b.c[0] + 2", "cannot delete expression")
+        self._check_error("del (a, b, (c, d.e.f + 2))", "cannot delete expression")
+        self._check_error("del [a, b, (c, d.e.f[0] + 2)]", "cannot delete expression")
+        self._check_error("del (a := 5)", "cannot delete named expression")
         # We don't have a special message for this, but make sure we don't
         # report "cannot delete name"
         self._check_error("del a += b", "invalid syntax")
@@ -910,6 +1483,11 @@ class SyntaxTestCase(unittest.TestCase):
                           "iterable argument unpacking follows "
                           "keyword argument unpacking")
 
+    def test_generator_in_function_call(self):
+        self._check_error("foo(x,    y for y in range(3) for z in range(2) if z    , p)",
+                          "Generator expression must be parenthesized",
+                          lineno=1, end_lineno=1, offset=11, end_offset=53)
+
     def test_empty_line_after_linecont(self):
         # See issue-40847
         s = r"""\
@@ -922,6 +1500,36 @@ pass
             compile(s, '<string>', 'exec')
         except SyntaxError:
             self.fail("Empty line after a line continuation character is valid.")
+
+        # See issue-46091
+        s1 = r"""\
+def fib(n):
+    \
+'''Print a Fibonacci series up to n.'''
+    \
+a, b = 0, 1
+"""
+        s2 = r"""\
+def fib(n):
+    '''Print a Fibonacci series up to n.'''
+    a, b = 0, 1
+"""
+        try:
+            self.assertEqual(compile(s1, '<string>', 'exec'), compile(s2, '<string>', 'exec'))
+        except SyntaxError:
+            self.fail("Indented statement over multiple lines is valid")
+
+    def test_continuation_bad_indentation(self):
+        # Check that code that breaks indentation across multiple lines raises a syntax error
+
+        code = r"""\
+if x:
+    y = 1
+  \
+  foo = 1
+        """
+
+        self.assertRaises(IndentationError, exec, code)
 
     @support.cpython_only
     def test_nested_named_except_blocks(self):
@@ -948,7 +1556,7 @@ def func2():
     finally:
         pass
 """
-        self._check_error(code, "invalid syntax")
+        self._check_error(code, "expected ':'")
 
     def test_invalid_line_continuation_error_position(self):
         self._check_error(r"a = 3 \ 4",
@@ -968,6 +1576,41 @@ def func2():
                           "unexpected character after line continuation character")
         self._check_error("A.\u03bc\\\n",
                           "unexpected EOF while parsing")
+
+    def test_error_parenthesis(self):
+        for paren in "([{":
+            self._check_error(paren + "1 + 2", f"\\{paren}' was never closed")
+
+        for paren in "([{":
+            self._check_error(f"a = {paren} 1, 2, 3\nb=3", f"\\{paren}' was never closed")
+
+        for paren in ")]}":
+            self._check_error(paren + "1 + 2", f"unmatched '\\{paren}'")
+
+    def test_match_call_does_not_raise_syntax_error(self):
+        code = """
+def match(x):
+    return 1+1
+
+match(34)
+"""
+        compile(code, "<string>", "exec")
+
+    def test_case_call_does_not_raise_syntax_error(self):
+        code = """
+def case(x):
+    return 1+1
+
+case(34)
+"""
+        compile(code, "<string>", "exec")
+
+    def test_multiline_compiler_error_points_to_the_end(self):
+        self._check_error(
+            "call(\na=1,\na=1\n)",
+            "keyword argument repeated",
+            lineno=3
+        )
 
     @support.cpython_only
     def test_syntax_error_on_deeply_nested_blocks(self):
@@ -1011,6 +1654,14 @@ while 1:
             with self.subTest(mode=mode):
                 with self.assertRaises(MemoryError):
                     compile(source, "<string>", mode)
+
+    @support.cpython_only
+    def test_deep_invalid_rule(self):
+        # Check that a very deep invalid rule in the PEG
+        # parser doesn't have exponential backtracking.
+        source = "d{{{{{{{{{{{{{{{{{{{{{{{{{```{{{{{{{ef f():y"
+        with self.assertRaises(SyntaxError):
+            compile(source, "<string>", "exec")
 
 
 def test_main():

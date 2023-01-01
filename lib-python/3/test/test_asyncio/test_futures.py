@@ -54,30 +54,30 @@ class DuckFuture:
                 or self.__exception is not None)
 
     def result(self):
-        assert not self.cancelled()
+        self.assertFalse(self.cancelled())
         if self.__exception is not None:
             raise self.__exception
         return self.__result
 
     def exception(self):
-        assert not self.cancelled()
+        self.assertFalse(self.cancelled())
         return self.__exception
 
     def set_result(self, result):
-        assert not self.done()
-        assert result is not None
+        self.assertFalse(self.done())
+        self.assertIsNotNone(result)
         self.__result = result
 
     def set_exception(self, exception):
-        assert not self.done()
-        assert exception is not None
+        self.assertFalse(self.done())
+        self.assertIsNotNone(exception)
         self.__exception = exception
 
     def __iter__(self):
         if not self.done():
             self._asyncio_future_blocking = True
             yield self
-        assert self.done()
+        self.assertTrue(self.done())
         return self.result()
 
 
@@ -91,12 +91,12 @@ class DuckTests(test_utils.TestCase):
     def test_wrap_future(self):
         f = DuckFuture()
         g = asyncio.wrap_future(f)
-        assert g is f
+        self.assertIs(g, f)
 
     def test_ensure_future(self):
         f = DuckFuture()
         g = asyncio.ensure_future(f)
-        assert g is f
+        self.assertIs(g, f)
 
 
 class BaseFutureTests:
@@ -144,8 +144,21 @@ class BaseFutureTests:
         f.cancel()
         self.assertTrue(f.cancelled())
 
-    def test_init_constructor_default_loop(self):
+    def test_constructor_without_loop(self):
+        with self.assertRaisesRegex(RuntimeError, 'no current event loop'):
+            self._new_future()
+
+    def test_constructor_use_running_loop(self):
+        async def test():
+            return self._new_future()
+        f = self.loop.run_until_complete(test())
+        self.assertIs(f._loop, self.loop)
+        self.assertIs(f.get_loop(), self.loop)
+
+    def test_constructor_use_global_loop(self):
+        # Deprecated in 3.10, undeprecated in 3.11.1
         asyncio.set_event_loop(self.loop)
+        self.addCleanup(asyncio.set_event_loop, None)
         f = self._new_future()
         self.assertIs(f._loop, self.loop)
         self.assertIs(f.get_loop(), self.loop)
@@ -477,16 +490,37 @@ class BaseFutureTests:
         f2 = asyncio.wrap_future(f1)
         self.assertIs(f1, f2)
 
+    def test_wrap_future_without_loop(self):
+        def run(arg):
+            return (arg, threading.get_ident())
+        ex = concurrent.futures.ThreadPoolExecutor(1)
+        f1 = ex.submit(run, 'oi')
+        with self.assertRaisesRegex(RuntimeError, 'no current event loop'):
+            asyncio.wrap_future(f1)
+        ex.shutdown(wait=True)
+
+    def test_wrap_future_use_running_loop(self):
+        def run(arg):
+            return (arg, threading.get_ident())
+        ex = concurrent.futures.ThreadPoolExecutor(1)
+        f1 = ex.submit(run, 'oi')
+        async def test():
+            return asyncio.wrap_future(f1)
+        f2 = self.loop.run_until_complete(test())
+        self.assertIs(self.loop, f2._loop)
+        ex.shutdown(wait=True)
+
     def test_wrap_future_use_global_loop(self):
-        with mock.patch('asyncio.futures.events') as events:
-            events.get_event_loop = lambda: self.loop
-            def run(arg):
-                return (arg, threading.get_ident())
-            ex = concurrent.futures.ThreadPoolExecutor(1)
-            f1 = ex.submit(run, 'oi')
-            f2 = asyncio.wrap_future(f1)
-            self.assertIs(self.loop, f2._loop)
-            ex.shutdown(wait=True)
+        # Deprecated in 3.10, undeprecated in 3.11.1
+        asyncio.set_event_loop(self.loop)
+        self.addCleanup(asyncio.set_event_loop, None)
+        def run(arg):
+            return (arg, threading.get_ident())
+        ex = concurrent.futures.ThreadPoolExecutor(1)
+        f1 = ex.submit(run, 'oi')
+        f2 = asyncio.wrap_future(f1)
+        self.assertIs(self.loop, f2._loop)
+        ex.shutdown(wait=True)
 
     def test_wrap_future_cancel(self):
         f1 = concurrent.futures.Future()
@@ -782,6 +816,21 @@ class BaseFutureDoneCallbackTests():
             def __eq__(self, other):
                 fut.remove_done_callback(id)
                 return False
+
+        fut.remove_done_callback(evil())
+
+    def test_remove_done_callbacks_list_clear(self):
+        # see https://github.com/python/cpython/issues/97592 for details
+
+        fut = self._new_future()
+        fut.add_done_callback(str)
+
+        for _ in range(63):
+            fut.add_done_callback(id)
+
+        class evil:
+            def __eq__(self, other):
+                fut.remove_done_callback(other)
 
         fut.remove_done_callback(evil())
 

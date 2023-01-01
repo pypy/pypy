@@ -5,6 +5,7 @@
 import unittest
 import unittest.mock
 import queue as pyqueue
+import textwrap
 import time
 import io
 import itertools
@@ -27,11 +28,15 @@ import test.support
 import test.support.script_helper
 from test import support
 from test.support import hashlib_helper
+from test.support import import_helper
+from test.support import os_helper
 from test.support import socket_helper
+from test.support import threading_helper
+from test.support import warnings_helper
 
 
 # Skip tests if _multiprocessing wasn't built.
-_multiprocessing = test.support.import_module('_multiprocessing')
+_multiprocessing = import_helper.import_module('_multiprocessing')
 # Skip tests if sem_open implementation is broken.
 support.skip_if_broken_multiprocessing_synchronize()
 import threading
@@ -88,7 +93,7 @@ def close_queue(queue):
 def join_process(process):
     # Since multiprocessing.Process has the same API than threading.Thread
     # (join() and is_alive(), the support function can be reused
-    support.join_thread(process)
+    threading_helper.join_thread(process)
 
 
 if os.name == "posix":
@@ -620,7 +625,7 @@ class _TestProcess(BaseTestCase):
 
     @classmethod
     def _test_child_fd_inflation(self, evt, q):
-        q.put(test.support.fd_count())
+        q.put(os_helper.fd_count())
         evt.wait()
 
     def test_child_fd_inflation(self):
@@ -824,12 +829,12 @@ class _TestSubclassingProcess(BaseTestCase):
         if self.TYPE == "threads":
             self.skipTest('test not appropriate for {}'.format(self.TYPE))
 
-        testfn = test.support.TESTFN
-        self.addCleanup(test.support.unlink, testfn)
+        testfn = os_helper.TESTFN
+        self.addCleanup(os_helper.unlink, testfn)
         proc = self.Process(target=self._test_stderr_flush, args=(testfn,))
         proc.start()
         proc.join()
-        with open(testfn, 'r') as f:
+        with open(testfn, encoding="utf-8") as f:
             err = f.read()
             # The whole traceback was printed
             self.assertIn("ZeroDivisionError", err)
@@ -839,14 +844,14 @@ class _TestSubclassingProcess(BaseTestCase):
     @classmethod
     def _test_stderr_flush(cls, testfn):
         fd = os.open(testfn, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
-        sys.stderr = open(fd, 'w', closefd=False)
+        sys.stderr = open(fd, 'w', encoding="utf-8", closefd=False)
         1/0 # MARKER
 
 
     @classmethod
     def _test_sys_exit(cls, reason, testfn):
         fd = os.open(testfn, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
-        sys.stderr = open(fd, 'w', closefd=False)
+        sys.stderr = open(fd, 'w', encoding="utf-8", closefd=False)
         sys.exit(reason)
 
     def test_sys_exit(self):
@@ -854,8 +859,8 @@ class _TestSubclassingProcess(BaseTestCase):
         if self.TYPE == 'threads':
             self.skipTest('test not appropriate for {}'.format(self.TYPE))
 
-        testfn = test.support.TESTFN
-        self.addCleanup(test.support.unlink, testfn)
+        testfn = os_helper.TESTFN
+        self.addCleanup(os_helper.unlink, testfn)
 
         for reason in (
             [1, 2, 3],
@@ -867,7 +872,7 @@ class _TestSubclassingProcess(BaseTestCase):
             join_process(p)
             self.assertEqual(p.exitcode, 1)
 
-            with open(testfn, 'r') as f:
+            with open(testfn, encoding="utf-8") as f:
                 content = f.read()
             self.assertEqual(content.rstrip(), str(reason))
 
@@ -1119,9 +1124,9 @@ class _TestQueue(BaseTestCase):
         close_queue(queue)
 
     def test_no_import_lock_contention(self):
-        with test.support.temp_cwd():
+        with os_helper.temp_cwd():
             module_name = 'imported_by_an_imported_module'
-            with open(module_name + '.py', 'w') as f:
+            with open(module_name + '.py', 'w', encoding="utf-8") as f:
                 f.write("""if 1:
                     import multiprocessing
 
@@ -1132,7 +1137,7 @@ class _TestQueue(BaseTestCase):
                     del q
                 """)
 
-            with test.support.DirsOnSysPath(os.getcwd()):
+            with import_helper.DirsOnSysPath(os.getcwd()):
                 try:
                     __import__(module_name)
                 except pyqueue.Empty:
@@ -2704,8 +2709,8 @@ class _TestPool(BaseTestCase):
         # force state to RUN to emit ResourceWarning in __del__()
         pool._state = multiprocessing.pool.RUN
 
-        with support.check_warnings(('unclosed running multiprocessing pool',
-                                     ResourceWarning)):
+        with warnings_helper.check_warnings(
+                ('unclosed running multiprocessing pool', ResourceWarning)):
             pool = None
             support.gc_collect()
 
@@ -2799,6 +2804,11 @@ class _TestPoolWorkerLifetime(BaseTestCase):
         # check the results
         for (j, res) in enumerate(results):
             self.assertEqual(res.get(), sqr(j))
+
+    def test_pool_maxtasksperchild_invalid(self):
+        for value in [0, -1, 0.5, "12"]:
+            with self.assertRaises(ValueError):
+                multiprocessing.Pool(3, maxtasksperchild=value)
 
     def test_worker_finalization_via_atexit_handler_of_multiprocessing(self):
         # tests cases against bpo-38744 and bpo-39360
@@ -3215,14 +3225,14 @@ class _TestConnection(BaseTestCase):
         p = self.Process(target=self._writefd, args=(child_conn, b"foo"))
         p.daemon = True
         p.start()
-        self.addCleanup(test.support.unlink, test.support.TESTFN)
-        with open(test.support.TESTFN, "wb") as f:
+        self.addCleanup(os_helper.unlink, os_helper.TESTFN)
+        with open(os_helper.TESTFN, "wb") as f:
             fd = f.fileno()
             if msvcrt:
                 fd = msvcrt.get_osfhandle(fd)
             reduction.send_handle(conn, fd, p.pid)
         p.join()
-        with open(test.support.TESTFN, "rb") as f:
+        with open(os_helper.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"foo")
 
     @unittest.skipUnless(HAS_REDUCTION, "test needs multiprocessing.reduction")
@@ -3241,8 +3251,8 @@ class _TestConnection(BaseTestCase):
         p = self.Process(target=self._writefd, args=(child_conn, b"bar", True))
         p.daemon = True
         p.start()
-        self.addCleanup(test.support.unlink, test.support.TESTFN)
-        with open(test.support.TESTFN, "wb") as f:
+        self.addCleanup(os_helper.unlink, os_helper.TESTFN)
+        with open(os_helper.TESTFN, "wb") as f:
             fd = f.fileno()
             for newfd in range(256, MAXFD):
                 if not self._is_fd_assigned(newfd):
@@ -3255,7 +3265,7 @@ class _TestConnection(BaseTestCase):
             finally:
                 os.close(newfd)
         p.join()
-        with open(test.support.TESTFN, "rb") as f:
+        with open(os_helper.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"bar")
 
     @classmethod
@@ -3781,7 +3791,6 @@ class _TestSharedMemory(BaseTestCase):
         # test_multiprocessing_spawn, etc) in parallel.
         return prefix + str(os.getpid())
 
-    @unittest.skipIf(sys.platform == "win32", "test is broken on Windows")
     def test_shared_memory_basics(self):
         name_tsmb = self._new_shm_name('test01_tsmb')
         sms = shared_memory.SharedMemory(name_tsmb, create=True, size=512)
@@ -3791,6 +3800,10 @@ class _TestSharedMemory(BaseTestCase):
         self.assertEqual(sms.name, name_tsmb)
         self.assertGreaterEqual(sms.size, 512)
         self.assertGreaterEqual(len(sms.buf), sms.size)
+
+        # Verify __repr__
+        self.assertIn(sms.name, str(sms))
+        self.assertIn(str(sms.size), str(sms))
 
         # Modify contents of shared memory segment through memoryview.
         sms.buf[0] = 42
@@ -3890,6 +3903,29 @@ class _TestSharedMemory(BaseTestCase):
 
         sms.close()
 
+    def test_shared_memory_recreate(self):
+        # Test if shared memory segment is created properly,
+        # when _make_filename returns an existing shared memory segment name
+        with unittest.mock.patch(
+            'multiprocessing.shared_memory._make_filename') as mock_make_filename:
+
+            NAME_PREFIX = shared_memory._SHM_NAME_PREFIX
+            names = [self._new_shm_name('test03_fn'), self._new_shm_name('test04_fn')]
+            # Prepend NAME_PREFIX which can be '/psm_' or 'wnsm_', necessary
+            # because some POSIX compliant systems require name to start with /
+            names = [NAME_PREFIX + name for name in names]
+
+            mock_make_filename.side_effect = names
+            shm1 = shared_memory.SharedMemory(create=True, size=1)
+            self.addCleanup(shm1.unlink)
+            self.assertEqual(shm1._name, names[0])
+
+            mock_make_filename.side_effect = names
+            shm2 = shared_memory.SharedMemory(create=True, size=1)
+            self.addCleanup(shm2.unlink)
+            self.assertEqual(shm2._name, names[1])
+
+    def test_invalid_shared_memory_cration(self):
         # Test creating a shared memory segment with negative size
         with self.assertRaises(ValueError):
             sms_invalid = shared_memory.SharedMemory(create=True, size=-1)
@@ -3901,6 +3937,47 @@ class _TestSharedMemory(BaseTestCase):
         # Test creating a shared memory segment without size argument
         with self.assertRaises(ValueError):
             sms_invalid = shared_memory.SharedMemory(create=True)
+
+    def test_shared_memory_pickle_unpickle(self):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.subTest(proto=proto):
+                sms = shared_memory.SharedMemory(create=True, size=512)
+                self.addCleanup(sms.unlink)
+                sms.buf[0:6] = b'pickle'
+
+                # Test pickling
+                pickled_sms = pickle.dumps(sms, protocol=proto)
+
+                # Test unpickling
+                sms2 = pickle.loads(pickled_sms)
+                self.assertIsInstance(sms2, shared_memory.SharedMemory)
+                self.assertEqual(sms.name, sms2.name)
+                self.assertEqual(bytes(sms.buf[0:6]), b'pickle')
+                self.assertEqual(bytes(sms2.buf[0:6]), b'pickle')
+
+                # Test that unpickled version is still the same SharedMemory
+                sms.buf[0:6] = b'newval'
+                self.assertEqual(bytes(sms.buf[0:6]), b'newval')
+                self.assertEqual(bytes(sms2.buf[0:6]), b'newval')
+
+                sms2.buf[0:6] = b'oldval'
+                self.assertEqual(bytes(sms.buf[0:6]), b'oldval')
+                self.assertEqual(bytes(sms2.buf[0:6]), b'oldval')
+
+    def test_shared_memory_pickle_unpickle_dead_object(self):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.subTest(proto=proto):
+                sms = shared_memory.SharedMemory(create=True, size=512)
+                sms.buf[0:6] = b'pickle'
+                pickled_sms = pickle.dumps(sms, protocol=proto)
+
+                # Now, we are going to kill the original object.
+                # So, unpickled one won't be able to attach to it.
+                sms.close()
+                sms.unlink()
+
+                with self.assertRaises(FileNotFoundError):
+                    pickle.loads(pickled_sms)
 
     def test_shared_memory_across_processes(self):
         # bpo-40135: don't define shared memory block's name in case of
@@ -4011,6 +4088,23 @@ class _TestSharedMemory(BaseTestCase):
         )
         self.addCleanup(sl.shm.unlink)
 
+        # Verify __repr__
+        self.assertIn(sl.shm.name, str(sl))
+        self.assertIn(str(list(sl)), str(sl))
+
+        # Index Out of Range (get)
+        with self.assertRaises(IndexError):
+            sl[7]
+
+        # Index Out of Range (set)
+        with self.assertRaises(IndexError):
+            sl[7] = 2
+
+        # Assign value without format change (str -> str)
+        current_format = sl._get_packing_format(0)
+        sl[0] = 'howdy'
+        self.assertEqual(current_format, sl._get_packing_format(0))
+
         # Verify attributes are readable.
         self.assertEqual(sl.format, '8s8sdqxxxxxx?xxxxxxxx?q')
 
@@ -4102,29 +4196,45 @@ class _TestSharedMemory(BaseTestCase):
             empty_sl.shm.unlink()
 
     def test_shared_memory_ShareableList_pickling(self):
-        sl = shared_memory.ShareableList(range(10))
-        self.addCleanup(sl.shm.unlink)
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.subTest(proto=proto):
+                sl = shared_memory.ShareableList(range(10))
+                self.addCleanup(sl.shm.unlink)
 
-        serialized_sl = pickle.dumps(sl)
-        deserialized_sl = pickle.loads(serialized_sl)
-        self.assertTrue(
-            isinstance(deserialized_sl, shared_memory.ShareableList)
-        )
-        self.assertTrue(deserialized_sl[-1], 9)
-        self.assertFalse(sl is deserialized_sl)
-        deserialized_sl[4] = "changed"
-        self.assertEqual(sl[4], "changed")
+                serialized_sl = pickle.dumps(sl, protocol=proto)
+                deserialized_sl = pickle.loads(serialized_sl)
+                self.assertIsInstance(
+                    deserialized_sl, shared_memory.ShareableList)
+                self.assertEqual(deserialized_sl[-1], 9)
+                self.assertIsNot(sl, deserialized_sl)
 
-        # Verify data is not being put into the pickled representation.
-        name = 'a' * len(sl.shm.name)
-        larger_sl = shared_memory.ShareableList(range(400))
-        self.addCleanup(larger_sl.shm.unlink)
-        serialized_larger_sl = pickle.dumps(larger_sl)
-        self.assertTrue(len(serialized_sl) == len(serialized_larger_sl))
-        larger_sl.shm.close()
+                deserialized_sl[4] = "changed"
+                self.assertEqual(sl[4], "changed")
+                sl[3] = "newvalue"
+                self.assertEqual(deserialized_sl[3], "newvalue")
 
-        deserialized_sl.shm.close()
-        sl.shm.close()
+                larger_sl = shared_memory.ShareableList(range(400))
+                self.addCleanup(larger_sl.shm.unlink)
+                serialized_larger_sl = pickle.dumps(larger_sl, protocol=proto)
+                self.assertEqual(len(serialized_sl), len(serialized_larger_sl))
+                larger_sl.shm.close()
+
+                deserialized_sl.shm.close()
+                sl.shm.close()
+
+    def test_shared_memory_ShareableList_pickling_dead_object(self):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.subTest(proto=proto):
+                sl = shared_memory.ShareableList(range(10))
+                serialized_sl = pickle.dumps(sl, protocol=proto)
+
+                # Now, we are going to kill the original object.
+                # So, unpickled one won't be able to attach to it.
+                sl.shm.close()
+                sl.shm.unlink()
+
+                with self.assertRaises(FileNotFoundError):
+                    pickle.loads(serialized_sl)
 
     def test_shared_memory_cleaned_after_process_termination(self):
         cmd = '''if 1:
@@ -4177,7 +4287,7 @@ class _TestSharedMemory(BaseTestCase):
                     "shared_memory objects to clean up at shutdown", err)
 
 #
-#
+# Test to verify that `Finalize` works.
 #
 
 class _TestFinalize(BaseTestCase):
@@ -4288,7 +4398,7 @@ class _TestFinalize(BaseTestCase):
             gc.set_threshold(5, 5, 5)
             threads = [threading.Thread(target=run_finalizers),
                        threading.Thread(target=make_finalizers)]
-            with test.support.start_threads(threads):
+            with threading_helper.start_threads(threads):
                 time.sleep(4.0)  # Wait a bit to trigger race condition
                 finish = True
             if exc is not None:
@@ -5267,6 +5377,14 @@ class TestResourceTracker(unittest.TestCase):
 
         self.assertTrue(is_resource_tracker_reused)
 
+    def test_too_long_name_resource(self):
+        # gh-96819: Resource names that will make the length of a write to a pipe
+        # greater than PIPE_BUF are not allowed
+        rtype = "shared_memory"
+        too_long_name_resource = "a" * (512 - len(rtype))
+        with self.assertRaises(ValueError):
+            resource_tracker.register(too_long_name_resource, rtype)
+
 
 class TestSimpleQueue(unittest.TestCase):
 
@@ -5595,11 +5713,42 @@ class TestSyncManagerTypes(unittest.TestCase):
         self.run_worker(self._test_namespace, o)
 
 
+class TestNamedResource(unittest.TestCase):
+    def test_global_named_resource_spawn(self):
+        #
+        # gh-90549: Check that global named resources in main module
+        # will not leak by a subprocess, in spawn context.
+        #
+        testfn = os_helper.TESTFN
+        self.addCleanup(os_helper.unlink, testfn)
+        with open(testfn, 'w', encoding='utf-8') as f:
+            f.write(textwrap.dedent('''\
+                import multiprocessing as mp
+
+                ctx = mp.get_context('spawn')
+
+                global_resource = ctx.Semaphore()
+
+                def submain(): pass
+
+                if __name__ == '__main__':
+                    p = ctx.Process(target=submain)
+                    p.start()
+                    p.join()
+            '''))
+        rc, out, err = test.support.script_helper.assert_python_ok(testfn)
+        # on error, err = 'UserWarning: resource_tracker: There appear to
+        # be 1 leaked semaphore objects to clean up at shutdown'
+        self.assertEqual(err, b'')
+
+
 class MiscTestCase(unittest.TestCase):
     def test__all__(self):
-        # Just make sure names in blacklist are excluded
+        # Just make sure names in not_exported are excluded
         support.check__all__(self, multiprocessing, extra=multiprocessing.__all__,
-                             blacklist=['SUBDEBUG', 'SUBWARNING'])
+                             not_exported=['SUBDEBUG', 'SUBWARNING'])
+
+
 #
 # Mixins
 #
@@ -5823,3 +5972,15 @@ def install_tests_in_module_dict(remote_globs, start_method):
 
     remote_globs['setUpModule'] = setUpModule
     remote_globs['tearDownModule'] = tearDownModule
+
+
+@unittest.skipIf(not hasattr(_multiprocessing, 'SemLock'), 'SemLock not available')
+@unittest.skipIf(sys.platform != "linux", "Linux only")
+class SemLockTests(unittest.TestCase):
+
+    def test_semlock_subclass(self):
+        class SemLock(_multiprocessing.SemLock):
+            pass
+        name = f'test_semlock_subclass-{os.getpid()}'
+        s = SemLock(1, 0, 10, name, False)
+        _multiprocessing.sem_unlink(name)

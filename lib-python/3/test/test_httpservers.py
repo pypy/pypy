@@ -26,10 +26,12 @@ import time
 import datetime
 import threading
 from unittest import mock
-from io import BytesIO
+from io import BytesIO, StringIO
 
 import unittest
 from test import support
+from test.support import os_helper
+from test.support import threading_helper
 
 
 class NoLogRequestHandler:
@@ -64,8 +66,8 @@ class TestServerThread(threading.Thread):
 
 class BaseTestCase(unittest.TestCase):
     def setUp(self):
-        self._threads = support.threading_setup()
-        os.environ = support.EnvironmentVarGuard()
+        self._threads = threading_helper.threading_setup()
+        os.environ = os_helper.EnvironmentVarGuard()
         self.server_started = threading.Event()
         self.thread = TestServerThread(self, self.request_handler)
         self.thread.start()
@@ -75,7 +77,7 @@ class BaseTestCase(unittest.TestCase):
         self.thread.stop()
         self.thread = None
         os.environ.__exit__()
-        support.threading_cleanup(*self._threads)
+        threading_helper.threading_cleanup(*self._threads)
 
     def request(self, uri, method='GET', body=None, headers={}):
         self.connection = http.client.HTTPConnection(self.HOST, self.PORT)
@@ -390,13 +392,13 @@ class SimpleHTTPServerTestCase(BaseTestCase):
                      'undecodable name cannot always be decoded on macOS')
     @unittest.skipIf(sys.platform == 'win32',
                      'undecodable name cannot be decoded on win32')
-    @unittest.skipUnless(support.TESTFN_UNDECODABLE,
-                         'need support.TESTFN_UNDECODABLE')
+    @unittest.skipUnless(os_helper.TESTFN_UNDECODABLE,
+                         'need os_helper.TESTFN_UNDECODABLE')
     def test_undecodable_filename(self):
         enc = sys.getfilesystemencoding()
-        filename = os.fsdecode(support.TESTFN_UNDECODABLE) + '.txt'
+        filename = os.fsdecode(os_helper.TESTFN_UNDECODABLE) + '.txt'
         with open(os.path.join(self.tempdir, filename), 'wb') as f:
-            f.write(support.TESTFN_UNDECODABLE)
+            f.write(os_helper.TESTFN_UNDECODABLE)
         response = self.request(self.base_url + '/')
         if sys.platform == 'darwin':
             # On Mac OS the HFS+ filesystem replaces bytes that aren't valid
@@ -413,7 +415,7 @@ class SimpleHTTPServerTestCase(BaseTestCase):
                       .encode(enc, 'surrogateescape'), body)
         response = self.request(self.base_url + '/' + quotedname)
         self.check_status_and_reason(response, HTTPStatus.OK,
-                                     data=support.TESTFN_UNDECODABLE)
+                                     data=os_helper.TESTFN_UNDECODABLE)
 
     def test_get_dir_redirect_location_domain_injection_bug(self):
         """Ensure //evil.co/..%2f../../X does not put //evil.co/ in Location.
@@ -589,7 +591,7 @@ class SimpleHTTPServerTestCase(BaseTestCase):
         fullpath = os.path.join(self.tempdir, filename)
 
         try:
-            open(fullpath, 'w').close()
+            open(fullpath, 'wb').close()
         except OSError:
             raise unittest.SkipTest('Can not create file %s on current file '
                                     'system' % filename)
@@ -687,7 +689,7 @@ class CGIHTTPServerTestCase(BaseTestCase):
         # The shebang line should be pure ASCII: use symlink if possible.
         # See issue #7668.
         self._pythonexe_symlink = None
-        if support.can_symlink():
+        if os_helper.can_symlink():
             self.pythonexe = os.path.join(self.parent_dir, 'python')
             self._pythonexe_symlink = support.PythonSymlink(self.pythonexe).__enter__()
         else:
@@ -703,7 +705,7 @@ class CGIHTTPServerTestCase(BaseTestCase):
             self.skipTest("Python executable path is not encodable to utf-8")
 
         self.nocgi_path = os.path.join(self.parent_dir, 'nocgi.py')
-        with open(self.nocgi_path, 'w') as fp:
+        with open(self.nocgi_path, 'w', encoding='utf-8') as fp:
             fp.write(cgi_file1 % self.pythonexe)
         os.chmod(self.nocgi_path, 0o777)
 
@@ -981,6 +983,27 @@ class BaseHTTPRequestHandlerTestCase(unittest.TestCase):
     def verify_http_server_response(self, response):
         match = self.HTTPResponseMatch.search(response)
         self.assertIsNotNone(match)
+
+    def test_unprintable_not_logged(self):
+        # We call the method from the class directly as our Socketless
+        # Handler subclass overrode it... nice for everything BUT this test.
+        self.handler.client_address = ('127.0.0.1', 1337)
+        log_message = BaseHTTPRequestHandler.log_message
+        with mock.patch.object(sys, 'stderr', StringIO()) as fake_stderr:
+            log_message(self.handler, '/foo')
+            log_message(self.handler, '/\033bar\000\033')
+            log_message(self.handler, '/spam %s.', 'a')
+            log_message(self.handler, '/spam %s.', '\033\x7f\x9f\xa0beans')
+            log_message(self.handler, '"GET /foo\\b"ar\007 HTTP/1.0"')
+        stderr = fake_stderr.getvalue()
+        self.assertNotIn('\033', stderr)  # non-printable chars are caught.
+        self.assertNotIn('\000', stderr)  # non-printable chars are caught.
+        lines = stderr.splitlines()
+        self.assertIn('/foo', lines[0])
+        self.assertIn(r'/\x1bbar\x00\x1b', lines[1])
+        self.assertIn('/spam a.', lines[2])
+        self.assertIn('/spam \\x1b\\x7f\\x9f\xa0beans.', lines[3])
+        self.assertIn(r'"GET /foo\\b"ar\x07 HTTP/1.0"', lines[4])
 
     def test_http_1_1(self):
         result = self.send_typical_request(b'GET / HTTP/1.1\r\n\r\n')
@@ -1279,9 +1302,9 @@ class SimpleHTTPRequestHandlerTestCase(unittest.TestCase):
 class MiscTestCase(unittest.TestCase):
     def test_all(self):
         expected = []
-        blacklist = {'executable', 'nobody_uid', 'test'}
+        denylist = {'executable', 'nobody_uid', 'test'}
         for name in dir(server):
-            if name.startswith('_') or name in blacklist:
+            if name.startswith('_') or name in denylist:
                 continue
             module_object = getattr(server, name)
             if getattr(module_object, '__module__', None) == 'http.server':

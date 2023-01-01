@@ -4,6 +4,7 @@ Simplified, pyshell.ModifiedInterpreter spawns a subprocess with
 f'''{sys.executable} -c "__import__('idlelib.run').run.main()"'''
 '.run' is needed because __import__ returns idlelib, not idlelib.run.
 """
+import contextlib
 import functools
 import io
 import linecache
@@ -144,7 +145,7 @@ def main(del_exitfunc=False):
                                   args=((LOCALHOST, port),))
     sockthread.daemon = True
     sockthread.start()
-    while 1:
+    while True:
         try:
             if exit_now:
                 try:
@@ -218,6 +219,19 @@ def show_socket_error(err, address):
             parent=root)
     root.destroy()
 
+
+def get_message_lines(typ, exc, tb):
+    "Return line composing the exception message."
+    if typ in (AttributeError, NameError):
+        # 3.10+ hints are not directly accessible from python (#44026).
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            sys.__excepthook__(typ, exc, tb)
+        return [err.getvalue().split("\n")[-2] + "\n"]
+    else:
+        return traceback.format_exception_only(typ, exc)
+
+
 def print_exception():
     import linecache
     linecache.checkcache()
@@ -248,7 +262,7 @@ def print_exception():
                        "debugger_r.py", "bdb.py")
             cleanup_traceback(tbe, exclude)
             traceback.print_list(tbe, file=efile)
-        lines = traceback.format_exception_only(typ, exc)
+        lines = get_message_lines(typ, exc, tb)
         for line in lines:
             print(line, end='', file=efile)
 

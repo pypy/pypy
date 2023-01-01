@@ -273,6 +273,7 @@ class AST_Tests(unittest.TestCase):
                     self._assertTrueorder(child, first_pos)
             elif value is not None:
                 self._assertTrueorder(value, parent_pos)
+        self.assertEqual(ast_node._fields, ast_node.__match_args__)
 
     def test_AST_objects(self):
         x = ast.AST()
@@ -333,6 +334,26 @@ class AST_Tests(unittest.TestCase):
         self.assertIsInstance(mod.body[0], ast.ImportFrom)
         mod.body[0].module = " __future__ ".strip()
         compile(mod, "<test>", "exec")
+
+    def test_alias(self):
+        im = ast.parse("from bar import y").body[0]
+        self.assertEqual(len(im.names), 1)
+        alias = im.names[0]
+        self.assertEqual(alias.name, 'y')
+        self.assertIsNone(alias.asname)
+        self.assertEqual(alias.lineno, 1)
+        self.assertEqual(alias.end_lineno, 1)
+        self.assertEqual(alias.col_offset, 16)
+        self.assertEqual(alias.end_col_offset, 17)
+
+        im = ast.parse("from bar import *").body[0]
+        alias = im.names[0]
+        self.assertEqual(alias.name, '*')
+        self.assertIsNone(alias.asname)
+        self.assertEqual(alias.lineno, 1)
+        self.assertEqual(alias.end_lineno, 1)
+        self.assertEqual(alias.col_offset, 16)
+        self.assertEqual(alias.end_col_offset, 17)
 
     def test_base_classes(self):
         self.assertTrue(issubclass(ast.For, ast.stmt))
@@ -665,16 +686,44 @@ class AST_Tests(unittest.TestCase):
         expressions[0] = f"expr = {ast.expr.__subclasses__()[0].__doc__}"
         self.assertCountEqual(ast.expr.__doc__.split("\n"), expressions)
 
-    def test_issue40614_feature_version(self):
+    def test_positional_only_feature_version(self):
+        ast.parse('def foo(x, /): ...', feature_version=(3, 8))
+        ast.parse('def bar(x=1, /): ...', feature_version=(3, 8))
+        with self.assertRaises(SyntaxError):
+            ast.parse('def foo(x, /): ...', feature_version=(3, 7))
+        with self.assertRaises(SyntaxError):
+            ast.parse('def bar(x=1, /): ...', feature_version=(3, 7))
+
+        ast.parse('lambda x, /: ...', feature_version=(3, 8))
+        ast.parse('lambda x=1, /: ...', feature_version=(3, 8))
+        with self.assertRaises(SyntaxError):
+            ast.parse('lambda x, /: ...', feature_version=(3, 7))
+        with self.assertRaises(SyntaxError):
+            ast.parse('lambda x=1, /: ...', feature_version=(3, 7))
+
+    def test_parenthesized_with_feature_version(self):
+        ast.parse('with (CtxManager() as example): ...', feature_version=(3, 10))
+        # While advertised as a feature in Python 3.10, this was allowed starting 3.9
+        ast.parse('with (CtxManager() as example): ...', feature_version=(3, 9))
+        with self.assertRaises(SyntaxError):
+            ast.parse('with (CtxManager() as example): ...', feature_version=(3, 8))
+        ast.parse('with CtxManager() as example: ...', feature_version=(3, 8))
+
+    def test_debug_f_string_feature_version(self):
         ast.parse('f"{x=}"', feature_version=(3, 8))
         with self.assertRaises(SyntaxError):
             ast.parse('f"{x=}"', feature_version=(3, 7))
+
+    def test_assignment_expression_feature_version(self):
+        ast.parse('(x := 0)', feature_version=(3, 8))
+        with self.assertRaises(SyntaxError):
+            ast.parse('(x := 0)', feature_version=(3, 7))
 
     def test_constant_as_name(self):
         for constant in "True", "False", "None":
             expr = ast.Expression(ast.Name(constant, ast.Load()))
             ast.fix_missing_locations(expr)
-            with self.assertRaisesRegex(ValueError, f"Name node can't be used with '{constant}' constant"):
+            with self.assertRaisesRegex(ValueError, f"identifier field can't represent '{constant}' constant"):
                 compile(expr, "<test>", "eval")
 
 
@@ -865,6 +914,18 @@ Module(
         self.assertEqual(ast.increment_lineno(src).lineno, 2)
         self.assertIsNone(ast.increment_lineno(src).end_lineno)
 
+    def test_increment_lineno_on_module(self):
+        src = ast.parse(dedent("""\
+        a = 1
+        b = 2 # type: ignore
+        c = 3
+        d = 4 # type: ignore@tag
+        """), type_comments=True)
+        ast.increment_lineno(src, n=5)
+        self.assertEqual(src.type_ignores[0].lineno, 7)
+        self.assertEqual(src.type_ignores[1].lineno, 9)
+        self.assertEqual(src.type_ignores[1].tag, '@tag')
+
     def test_iter_fields(self):
         node = ast.parse('foo()', mode='eval')
         d = dict(ast.iter_fields(node.body))
@@ -1013,6 +1074,31 @@ Module(
         malformed = ast.Dict(keys=[ast.Constant(1)], values=[ast.Constant(2), ast.Constant(3)])
         self.assertRaises(ValueError, ast.literal_eval, malformed)
 
+    def test_literal_eval_trailing_ws(self):
+        self.assertEqual(ast.literal_eval("    -1"), -1)
+        self.assertEqual(ast.literal_eval("\t\t-1"), -1)
+        self.assertEqual(ast.literal_eval(" \t -1"), -1)
+        self.assertRaises(IndentationError, ast.literal_eval, "\n -1")
+
+    def test_literal_eval_malformed_lineno(self):
+        msg = r'malformed node or string on line 3:'
+        with self.assertRaisesRegex(ValueError, msg):
+            ast.literal_eval("{'a': 1,\n'b':2,\n'c':++3,\n'd':4}")
+
+        node = ast.UnaryOp(
+            ast.UAdd(), ast.UnaryOp(ast.UAdd(), ast.Constant(6)))
+        self.assertIsNone(getattr(node, 'lineno', None))
+        msg = r'malformed node or string:'
+        with self.assertRaisesRegex(ValueError, msg):
+            ast.literal_eval(node)
+
+    def test_literal_eval_syntax_errors(self):
+        with self.assertRaisesRegex(SyntaxError, "unexpected indent"):
+            ast.literal_eval(r'''
+                \
+                (\
+            \ ''')
+
     def test_bad_integer(self):
         # issue13436: Bad error message with invalid numeric values
         body = [ast.ImportFrom(module='time',
@@ -1026,7 +1112,8 @@ Module(
 
     def test_level_as_none(self):
         body = [ast.ImportFrom(module='time',
-                               names=[ast.alias(name='sleep')],
+                               names=[ast.alias(name='sleep',
+                                                lineno=0, col_offset=0)],
                                level=None,
                                lineno=0, col_offset=0)]
         mod = ast.Module(body, [])
@@ -1444,6 +1531,151 @@ class ASTValidatorTests(unittest.TestCase):
                 mod = ast.parse(source, fn)
                 compile(mod, fn, "exec")
 
+    constant_1 = ast.Constant(1)
+    pattern_1 = ast.MatchValue(constant_1)
+
+    constant_x = ast.Constant('x')
+    pattern_x = ast.MatchValue(constant_x)
+
+    constant_true = ast.Constant(True)
+    pattern_true = ast.MatchSingleton(True)
+
+    name_carter = ast.Name('carter', ast.Load())
+
+    _MATCH_PATTERNS = [
+        ast.MatchValue(
+            ast.Attribute(
+                ast.Attribute(
+                    ast.Name('x', ast.Store()),
+                    'y', ast.Load()
+                ),
+                'z', ast.Load()
+            )
+        ),
+        ast.MatchValue(
+            ast.Attribute(
+                ast.Attribute(
+                    ast.Name('x', ast.Load()),
+                    'y', ast.Store()
+                ),
+                'z', ast.Load()
+            )
+        ),
+        ast.MatchValue(
+            ast.Constant(...)
+        ),
+        ast.MatchValue(
+            ast.Constant(True)
+        ),
+        ast.MatchValue(
+            ast.Constant((1,2,3))
+        ),
+        ast.MatchSingleton('string'),
+        ast.MatchSequence([
+          ast.MatchSingleton('string')
+        ]),
+        ast.MatchSequence(
+            [
+                ast.MatchSequence(
+                    [
+                        ast.MatchSingleton('string')
+                    ]
+                )
+            ]
+        ),
+        ast.MatchMapping(
+            [constant_1, constant_true],
+            [pattern_x]
+        ),
+        ast.MatchMapping(
+            [constant_true, constant_1],
+            [pattern_x, pattern_1],
+            rest='True'
+        ),
+        ast.MatchMapping(
+            [constant_true, ast.Starred(ast.Name('lol', ast.Load()), ast.Load())],
+            [pattern_x, pattern_1],
+            rest='legit'
+        ),
+        ast.MatchClass(
+            ast.Attribute(
+                ast.Attribute(
+                    constant_x,
+                    'y', ast.Load()),
+                'z', ast.Load()),
+            patterns=[], kwd_attrs=[], kwd_patterns=[]
+        ),
+        ast.MatchClass(
+            name_carter,
+            patterns=[],
+            kwd_attrs=['True'],
+            kwd_patterns=[pattern_1]
+        ),
+        ast.MatchClass(
+            name_carter,
+            patterns=[],
+            kwd_attrs=[],
+            kwd_patterns=[pattern_1]
+        ),
+        ast.MatchClass(
+            name_carter,
+            patterns=[ast.MatchSingleton('string')],
+            kwd_attrs=[],
+            kwd_patterns=[]
+        ),
+        ast.MatchClass(
+            name_carter,
+            patterns=[ast.MatchStar()],
+            kwd_attrs=[],
+            kwd_patterns=[]
+        ),
+        ast.MatchClass(
+            name_carter,
+            patterns=[],
+            kwd_attrs=[],
+            kwd_patterns=[ast.MatchStar()]
+        ),
+        ast.MatchSequence(
+            [
+                ast.MatchStar("True")
+            ]
+        ),
+        ast.MatchAs(
+            name='False'
+        ),
+        ast.MatchOr(
+            []
+        ),
+        ast.MatchOr(
+            [pattern_1]
+        ),
+        ast.MatchOr(
+            [pattern_1, pattern_x, ast.MatchSingleton('xxx')]
+        ),
+        ast.MatchAs(name="_"),
+        ast.MatchStar(name="x"),
+        ast.MatchSequence([ast.MatchStar("_")]),
+        ast.MatchMapping([], [], rest="_"),
+    ]
+
+    def test_match_validation_pattern(self):
+        name_x = ast.Name('x', ast.Load())
+        for pattern in self._MATCH_PATTERNS:
+            with self.subTest(ast.dump(pattern, indent=4)):
+                node = ast.Match(
+                    subject=name_x,
+                    cases = [
+                        ast.match_case(
+                            pattern=pattern,
+                            body = [ast.Pass()]
+                        )
+                    ]
+                )
+                node = ast.fix_missing_locations(node)
+                module = ast.Module([node], [])
+                with self.assertRaises(ValueError):
+                    compile(module, "<test>", "exec")
+
 
 class ConstantTests(unittest.TestCase):
     """Tests on the ast.Constant node type."""
@@ -1740,6 +1972,7 @@ class EndPositionTests(unittest.TestCase):
         ''').strip()
         imp = ast.parse(s).body[0]
         self._check_end_pos(imp, 3, 1)
+        self._check_end_pos(imp.names[2], 2, 16)
 
     def test_slices(self):
         s1 = 'f()[1, 2] [0]'
@@ -2100,8 +2333,8 @@ exec_results = [
 ('Module', [('Try', (1, 0, 4, 6), [('Pass', (2, 2, 2, 6))], [('ExceptHandler', (3, 0, 4, 6), ('Name', (3, 7, 3, 16), 'Exception', ('Load',)), None, [('Pass', (4, 2, 4, 6))])], [], [])], []),
 ('Module', [('Try', (1, 0, 4, 6), [('Pass', (2, 2, 2, 6))], [], [], [('Pass', (4, 2, 4, 6))])], []),
 ('Module', [('Assert', (1, 0, 1, 8), ('Name', (1, 7, 1, 8), 'v', ('Load',)), None)], []),
-('Module', [('Import', (1, 0, 1, 10), [('alias', 'sys', None)])], []),
-('Module', [('ImportFrom', (1, 0, 1, 17), 'sys', [('alias', 'v', None)], 0)], []),
+('Module', [('Import', (1, 0, 1, 10), [('alias', (1, 7, 1, 10), 'sys', None)])], []),
+('Module', [('ImportFrom', (1, 0, 1, 17), 'sys', [('alias', (1, 16, 1, 17), 'v', None)], 0)], []),
 ('Module', [('Global', (1, 0, 1, 8), ['v'])], []),
 ('Module', [('Expr', (1, 0, 1, 1), ('Constant', (1, 0, 1, 1), 1, None))], []),
 ('Module', [('Pass', (1, 0, 1, 4))], []),

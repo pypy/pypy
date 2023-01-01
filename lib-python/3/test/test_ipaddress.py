@@ -97,7 +97,7 @@ class CommonTestMixin_v4(CommonTestMixin):
 
     def test_leading_zeros(self):
         # bpo-36384: no leading zeros to avoid ambiguity with octal notation
-        msg = "Leading zeros are not permitted in '\d+'"
+        msg = "Leading zeros are not permitted in '\\d+'"
         addresses = [
             "000.000.000.000",
             "192.168.000.001",
@@ -1653,7 +1653,7 @@ class IpaddrUnitTest(unittest.TestCase):
         self.assertRaises(IndexError, self.ipv6_scoped_network.__getitem__, 1 << 64)
 
     def testGetitem(self):
-        # http://code.google.com/p/ipaddr-py/issues/detail?id=15
+        # https://code.google.com/p/ipaddr-py/issues/detail?id=15
         addr = ipaddress.IPv4Network('172.31.255.128/255.255.255.240')
         self.assertEqual(28, addr.prefixlen)
         addr_list = list(addr)
@@ -2362,6 +2362,12 @@ class IpaddrUnitTest(unittest.TestCase):
         self.assertEqual(ipaddress.ip_address('::c0a8:101').ipv4_mapped, None)
         self.assertEqual(ipaddress.ip_address('::ffff:c0a8:101').ipv4_mapped,
                          ipaddress.ip_address('192.168.1.1'))
+
+    def testIpv4MappedPrivateCheck(self):
+        self.assertEqual(
+                True, ipaddress.ip_address('::ffff:192.168.1.1').is_private)
+        self.assertEqual(
+                False, ipaddress.ip_address('::ffff:172.32.0.0').is_private)
 
     def testAddrExclude(self):
         addr1 = ipaddress.ip_network('10.1.1.0/24')

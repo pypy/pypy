@@ -19,14 +19,17 @@ import gc
 from weakref import proxy
 import contextlib
 
+from test.support import import_helper
+from test.support import threading_helper
 from test.support.script_helper import assert_python_ok
 
 import functools
 
-py_functools = support.import_fresh_module('functools', blocked=['_functools'])
-c_functools = support.import_fresh_module('functools', fresh=['_functools'])
+py_functools = import_helper.import_fresh_module('functools',
+                                                 blocked=['_functools'])
+c_functools = import_helper.import_fresh_module('functools')
 
-decimal = support.import_fresh_module('decimal', fresh=['_decimal'])
+decimal = import_helper.import_fresh_module('decimal', fresh=['_decimal'])
 
 @contextlib.contextmanager
 def replaced_module(name, replacement):
@@ -946,6 +949,13 @@ class TestCmpToKeyC(TestCmpToKey, unittest.TestCase):
     if c_functools:
         cmp_to_key = c_functools.cmp_to_key
 
+    @support.cpython_only
+    def test_disallow_instantiation(self):
+        # Ensure that the type disallows instantiation (bpo-43916)
+        support.check_disallow_instantiation(
+            self, type(c_functools.cmp_to_key(None))
+        )
+
 
 class TestCmpToKeyPy(TestCmpToKey, unittest.TestCase):
     cmp_to_key = staticmethod(py_functools.cmp_to_key)
@@ -1558,7 +1568,7 @@ class TestLRU:
             # create n threads in order to fill cache
             threads = [threading.Thread(target=full, args=[k])
                        for k in range(n)]
-            with support.start_threads(threads):
+            with threading_helper.start_threads(threads):
                 start.set()
 
             hits, misses, maxsize, currsize = f.cache_info()
@@ -1576,7 +1586,7 @@ class TestLRU:
             threads += [threading.Thread(target=full, args=[k])
                         for k in range(n)]
             start.clear()
-            with support.start_threads(threads):
+            with threading_helper.start_threads(threads):
                 start.set()
         finally:
             sys.setswitchinterval(orig_si)
@@ -1598,7 +1608,7 @@ class TestLRU:
                 self.assertEqual(f(i), 3 * i)
                 stop.wait(10)
         threads = [threading.Thread(target=test) for k in range(n)]
-        with support.start_threads(threads):
+        with threading_helper.start_threads(threads):
             for i in range(m):
                 start.wait(10)
                 stop.reset()
@@ -1618,7 +1628,7 @@ class TestLRU:
                 self.assertEqual(f(x), 3 * x, i)
         threads = [threading.Thread(target=test, args=(i, v))
                    for i, v in enumerate([1, 2, 2, 3, 2])]
-        with support.start_threads(threads):
+        with threading_helper.start_threads(threads):
             pass
 
     def test_need_for_rlock(self):
@@ -2665,9 +2675,9 @@ class TestSingleDispatch(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
             f.register(typing.List[int], lambda arg: "typing.GenericAlias")
         with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
-            f.register(typing.Union[list[int], str], lambda arg: "typing.Union[types.GenericAlias]")
+            f.register(list[int] | str, lambda arg: "types.UnionTypes(types.GenericAlias)")
         with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
-            f.register(typing.Union[typing.List[float], bytes], lambda arg: "typing.Union[typing.GenericAlias]")
+            f.register(typing.List[float] | bytes, lambda arg: "typing.Union[typing.GenericAlias]")
         with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
             f.register(typing.Any, lambda arg: "typing.Any")
 
@@ -2686,9 +2696,9 @@ class TestSingleDispatch(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
             f.register(typing.List[int])
         with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
-            f.register(typing.Union[list[int], str])
+            f.register(list[int] | str)
         with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
-            f.register(typing.Union[typing.List[int], str])
+            f.register(typing.List[int] | str)
         with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
             f.register(typing.Any)
 
@@ -2707,11 +2717,11 @@ class TestSingleDispatch(unittest.TestCase):
                 return "typing.GenericAlias"
         with self.assertRaisesRegex(TypeError, "Invalid annotation for 'arg'"):
             @f.register
-            def _(arg: typing.Union[list[int], str]):
+            def _(arg: list[int] | str):
                 return "types.UnionType(types.GenericAlias)"
         with self.assertRaisesRegex(TypeError, "Invalid annotation for 'arg'"):
             @f.register
-            def _(arg: typing.Union[typing.List[float], bytes]):
+            def _(arg: typing.List[float] | bytes):
                 return "typing.Union[typing.GenericAlias]"
         with self.assertRaisesRegex(TypeError, "Invalid annotation for 'arg'"):
             @f.register
@@ -2801,7 +2811,7 @@ class TestCachedProperty(unittest.TestCase):
                 threading.Thread(target=lambda: item.cost)
                 for k in range(num_threads)
             ]
-            with support.start_threads(threads):
+            with threading_helper.start_threads(threads):
                 go.set()
         finally:
             sys.setswitchinterval(orig_si)

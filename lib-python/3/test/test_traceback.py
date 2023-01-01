@@ -4,10 +4,12 @@ from collections import namedtuple
 from io import StringIO
 import linecache
 import sys
+import inspect
 import unittest
 import re
 from test import support
-from test.support import TESTFN, Error, captured_output, unlink, cpython_only, ALWAYS_EQ
+from test.support import Error, captured_output, cpython_only, ALWAYS_EQ
+from test.support.os_helper import TESTFN, unlink
 from test.support.script_helper import assert_python_ok
 import textwrap
 
@@ -37,6 +39,9 @@ class TracebackCases(unittest.TestCase):
     def syntax_error_with_caret_2(self):
         compile("1 +\n", "?", "exec")
 
+    def syntax_error_with_caret_range(self):
+        compile("f(x, y for y in range(30), z)", "?", "exec")
+
     def syntax_error_bad_indentation(self):
         compile("def spam():\n  print(1)\n print(2)", "?", "exec")
 
@@ -46,6 +51,9 @@ class TracebackCases(unittest.TestCase):
     def syntax_error_bad_indentation2(self):
         compile(" print(2)", "?", "exec")
 
+    def tokenizer_error_with_caret_range(self):
+        compile("blech  (  ", "?", "exec")
+
     def test_caret(self):
         err = self.get_exception_format(self.syntax_error_with_caret,
                                         SyntaxError)
@@ -53,18 +61,35 @@ class TracebackCases(unittest.TestCase):
         self.assertTrue(err[1].strip() == "return x!")
         self.assertIn("^", err[2]) # third line has caret
         self.assertEqual(err[1].find("!"), err[2].find("^")) # in the right place
+        self.assertEqual(err[2].count("^"), 1)
 
         err = self.get_exception_format(self.syntax_error_with_caret_2,
                                         SyntaxError)
         self.assertIn("^", err[2]) # third line has caret
         self.assertEqual(err[2].count('\n'), 1)   # and no additional newline
         self.assertEqual(err[1].find("+") + 1, err[2].find("^"))  # in the right place
+        self.assertEqual(err[2].count("^"), 1)
 
         err = self.get_exception_format(self.syntax_error_with_caret_non_ascii,
                                         SyntaxError)
         self.assertIn("^", err[2]) # third line has caret
         self.assertEqual(err[2].count('\n'), 1)   # and no additional newline
         self.assertEqual(err[1].find("+") + 1, err[2].find("^"))  # in the right place
+        self.assertEqual(err[2].count("^"), 1)
+
+        err = self.get_exception_format(self.syntax_error_with_caret_range,
+                                        SyntaxError)
+        self.assertIn("^", err[2]) # third line has caret
+        self.assertEqual(err[2].count('\n'), 1)   # and no additional newline
+        self.assertEqual(err[1].find("y"), err[2].find("^"))  # in the right place
+        self.assertEqual(err[2].count("^"), len("y for y in range(30)"))
+
+        err = self.get_exception_format(self.tokenizer_error_with_caret_range,
+                                        SyntaxError)
+        self.assertIn("^", err[2]) # third line has caret
+        self.assertEqual(err[2].count('\n'), 1)   # and no additional newline
+        self.assertEqual(err[1].find("("), err[2].find("^"))  # in the right place
+        self.assertEqual(err[2].count("^"), 1)
 
     def test_nocaret(self):
         exc = SyntaxError("error", ("x.py", 23, None, "bad syntax"))
@@ -91,43 +116,6 @@ class TracebackCases(unittest.TestCase):
         e = KeyboardInterrupt()
         lst = traceback.format_exception_only(e.__class__, e)
         self.assertEqual(lst, ['KeyboardInterrupt\n'])
-
-    def test_traceback_context_recursionerror(self):
-        # Test that for long traceback chains traceback does not itself
-        # raise a recursion error while printing (Issue43048)
-
-        # Calling f() creates a stack-overflowing __context__ chain.
-        def f():
-            try:
-                raise ValueError('hello')
-            except ValueError:
-                f()
-
-        try:
-            f()
-        except RecursionError:
-            exc_info = sys.exc_info()
-
-        traceback.format_exception(exc_info[0], exc_info[1], exc_info[2])
-
-    def test_traceback_cause_recursionerror(self):
-        # Same as test_traceback_context_recursionerror, but with
-        # a __cause__ chain.
-
-        def f():
-            e = None
-            try:
-                f()
-            except Exception as exc:
-                e = exc
-            raise Exception from e
-
-        try:
-            f()
-        except Exception:
-            exc_info = sys.exc_info()
-
-        traceback.format_exception(exc_info[0], exc_info[1], exc_info[2])
 
     def test_format_exception_only_bad__str__(self):
         class X(Exception):
@@ -247,6 +235,64 @@ class TracebackCases(unittest.TestCase):
             Exception, Exception("projector"), None, file=output
         )
         self.assertEqual(output.getvalue(), "Exception: projector\n")
+
+    def test_print_exception_exc(self):
+        output = StringIO()
+        traceback.print_exception(Exception("projector"), file=output)
+        self.assertEqual(output.getvalue(), "Exception: projector\n")
+
+    def test_format_exception_exc(self):
+        e = Exception("projector")
+        output = traceback.format_exception(e)
+        self.assertEqual(output, ["Exception: projector\n"])
+        with self.assertRaisesRegex(ValueError, 'Both or neither'):
+            traceback.format_exception(e.__class__, e)
+        with self.assertRaisesRegex(ValueError, 'Both or neither'):
+            traceback.format_exception(e.__class__, tb=e.__traceback__)
+        with self.assertRaisesRegex(TypeError, 'positional-only'):
+            traceback.format_exception(exc=e)
+
+    def test_format_exception_only_exc(self):
+        output = traceback.format_exception_only(Exception("projector"))
+        self.assertEqual(output, ["Exception: projector\n"])
+
+    def test_exception_is_None(self):
+        NONE_EXC_STRING = 'NoneType: None\n'
+        excfile = StringIO()
+        traceback.print_exception(None, file=excfile)
+        self.assertEqual(excfile.getvalue(), NONE_EXC_STRING)
+
+        excfile = StringIO()
+        traceback.print_exception(None, None, None, file=excfile)
+        self.assertEqual(excfile.getvalue(), NONE_EXC_STRING)
+
+        excfile = StringIO()
+        traceback.print_exc(None, file=excfile)
+        self.assertEqual(excfile.getvalue(), NONE_EXC_STRING)
+
+        self.assertEqual(traceback.format_exc(None), NONE_EXC_STRING)
+        self.assertEqual(traceback.format_exception(None), [NONE_EXC_STRING])
+        self.assertEqual(
+            traceback.format_exception(None, None, None), [NONE_EXC_STRING])
+        self.assertEqual(
+            traceback.format_exception_only(None), [NONE_EXC_STRING])
+        self.assertEqual(
+            traceback.format_exception_only(None, None), [NONE_EXC_STRING])
+
+    def test_signatures(self):
+        self.assertEqual(
+            str(inspect.signature(traceback.print_exception)),
+            ('(exc, /, value=<implicit>, tb=<implicit>, '
+             'limit=None, file=None, chain=True)'))
+
+        self.assertEqual(
+            str(inspect.signature(traceback.format_exception)),
+            ('(exc, /, value=<implicit>, tb=<implicit>, limit=None, '
+             'chain=True)'))
+
+        self.assertEqual(
+            str(inspect.signature(traceback.format_exception_only)),
+            '(exc, /, value=<implicit>)')
 
 
 class TracebackFormatTests(unittest.TestCase):
@@ -692,7 +738,6 @@ class BaseExceptionReportingTests:
         self.assertIn('inner_raise() # Marker', blocks[2])
         self.check_zero_div(blocks[2])
 
-    @unittest.skipIf(support.use_old_parser(), "Pegen is arguably better here, so no need to fix this")
     def test_syntax_error_offset_at_eol(self):
         # See #10186.
         def e():
@@ -1003,6 +1048,10 @@ class TestFrame(unittest.TestCase):
             '"""Test cases for traceback module"""',
             f.line)
 
+    def test_no_line(self):
+        f = traceback.FrameSummary("f", None, "dummy")
+        self.assertEqual(f.line, None)
+
     def test_explicit_line(self):
         f = traceback.FrameSummary("f", 1, "dummy", line="line")
         self.assertEqual("line", f.line)
@@ -1189,6 +1238,71 @@ class TestTracebackException(unittest.TestCase):
         self.assertEqual(exc_info[0], exc.exc_type)
         self.assertEqual(str(exc_info[1]), str(exc))
 
+    def test_long_context_chain(self):
+        def f():
+            try:
+                1/0
+            except:
+                f()
+
+        try:
+            f()
+        except RecursionError:
+            exc_info = sys.exc_info()
+        else:
+            self.fail("Exception not raised")
+
+        te = traceback.TracebackException(*exc_info)
+        res = list(te.format())
+
+        # many ZeroDiv errors followed by the RecursionError
+        self.assertGreater(len(res), sys.getrecursionlimit())
+        self.assertGreater(
+            len([l for l in res if 'ZeroDivisionError:' in l]),
+            sys.getrecursionlimit() * 0.5)
+        self.assertIn(
+            "RecursionError: maximum recursion depth exceeded", res[-1])
+
+    def test_compact_with_cause(self):
+        try:
+            try:
+                1/0
+            finally:
+                cause = Exception("cause")
+                raise Exception("uh oh") from cause
+        except Exception:
+            exc_info = sys.exc_info()
+            exc = traceback.TracebackException(*exc_info, compact=True)
+            expected_stack = traceback.StackSummary.extract(
+                traceback.walk_tb(exc_info[2]))
+        exc_cause = traceback.TracebackException(Exception, cause, None)
+        self.assertEqual(exc_cause, exc.__cause__)
+        self.assertEqual(None, exc.__context__)
+        self.assertEqual(True, exc.__suppress_context__)
+        self.assertEqual(expected_stack, exc.stack)
+        self.assertEqual(exc_info[0], exc.exc_type)
+        self.assertEqual(str(exc_info[1]), str(exc))
+
+    def test_compact_no_cause(self):
+        try:
+            try:
+                1/0
+            finally:
+                exc_info_context = sys.exc_info()
+                exc_context = traceback.TracebackException(*exc_info_context)
+                raise Exception("uh oh")
+        except Exception:
+            exc_info = sys.exc_info()
+            exc = traceback.TracebackException(*exc_info, compact=True)
+            expected_stack = traceback.StackSummary.extract(
+                traceback.walk_tb(exc_info[2]))
+        self.assertEqual(None, exc.__cause__)
+        self.assertEqual(exc_context, exc.__context__)
+        self.assertEqual(False, exc.__suppress_context__)
+        self.assertEqual(expected_stack, exc.stack)
+        self.assertEqual(exc_info[0], exc.exc_type)
+        self.assertEqual(str(exc_info[1]), str(exc))
+
     def test_no_refs_to_exception_and_traceback_objects(self):
         try:
             1/0
@@ -1336,9 +1450,9 @@ class MiscTest(unittest.TestCase):
 
     def test_all(self):
         expected = set()
-        blacklist = {'print_list'}
+        denylist = {'print_list'}
         for name in dir(traceback):
-            if name.startswith('_') or name in blacklist:
+            if name.startswith('_') or name in denylist:
                 continue
             module_object = getattr(traceback, name)
             if getattr(module_object, '__module__', None) == 'traceback':

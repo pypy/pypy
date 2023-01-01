@@ -26,9 +26,11 @@ DOUBLECLICK_SEQUENCE = "<B1-Double-ButtonRelease>"
 
 class AutoCompleteWindow:
 
-    def __init__(self, widget):
+    def __init__(self, widget, tags):
         # The widget (Text) on which we place the AutoCompleteWindow
         self.widget = widget
+        # Tags to mark inserted text with
+        self.tags = tags
         # The widgets we create
         self.autocompletewindow = self.listbox = self.scrollbar = None
         # The default foreground and background of a selection. Saved because
@@ -69,7 +71,8 @@ class AutoCompleteWindow:
                                "%s+%dc" % (self.startindex, len(self.start)))
         if i < len(newstart):
             self.widget.insert("%s+%dc" % (self.startindex, i),
-                               newstart[i:])
+                               newstart[i:],
+                               self.tags)
         self.start = newstart
 
     def _binary_search(self, s):
@@ -203,7 +206,7 @@ class AutoCompleteWindow:
         scrollbar.config(command=listbox.yview)
         scrollbar.pack(side=RIGHT, fill=Y)
         listbox.pack(side=LEFT, fill=BOTH, expand=True)
-        acw.update_idletasks() # Need for tk8.6.8 on macOS: #40128.
+        #acw.update_idletasks() # Need for tk8.6.8 on macOS: #40128.
         acw.lift()  # work around bug in Tk 8.5.18+ (issue #24570)
 
         # Initialize the listbox selection

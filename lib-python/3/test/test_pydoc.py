@@ -23,12 +23,12 @@ import xml.etree.ElementTree
 import textwrap
 from io import StringIO
 from collections import namedtuple
+from test.support import os_helper
 from test.support.script_helper import assert_python_ok
-from test.support import (
-    TESTFN, rmtree,
-    reap_children, reap_threads, captured_output, captured_stdout,
-    captured_stderr, unlink, requires_docstrings
-)
+from test.support import threading_helper
+from test.support import (reap_children, captured_output, captured_stdout,
+                          captured_stderr, requires_docstrings)
+from test.support.os_helper import (TESTFN, rmtree, unlink)
 from test import pydoc_mod
 
 
@@ -123,6 +123,7 @@ DATA
     list_alias1 = typing.List[int]
     list_alias2 = list[int]
     type_union1 = typing.Union[int, str]
+    type_union2 = int | str
 
 VERSION
     1.2.3.4
@@ -263,7 +264,8 @@ war</tt></dd></dl>
 <strong>c_alias</strong> = test.pydoc_mod.C[int]<br>
 <strong>list_alias1</strong> = typing.List[int]<br>
 <strong>list_alias2</strong> = list[int]<br>
-<strong>type_union1</strong> = typing.Union[int, str]</td></tr></table><p>
+<strong>type_union1</strong> = typing.Union[int, str]<br>
+<strong>type_union2</strong> = int | str</td></tr></table><p>
 <table width="100%%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#7799ee">
 <td colspan=3 valign=bottom>&nbsp;<br>
@@ -753,7 +755,7 @@ class PydocDocTest(unittest.TestCase):
         self.assertEqual(synopsis, expected)
 
     def test_synopsis_sourceless_empty_doc(self):
-        with test.support.temp_cwd() as test_dir:
+        with os_helper.temp_cwd() as test_dir:
             init_path = os.path.join(test_dir, 'foomod42.py')
             cached_path = importlib.util.cache_from_source(init_path)
             with open(init_path, 'w') as fobj:
@@ -770,11 +772,11 @@ class PydocDocTest(unittest.TestCase):
                          ('I Am A Doc', '\nHere is my description'))
 
     def test_is_package_when_not_package(self):
-        with test.support.temp_cwd() as test_dir:
+        with os_helper.temp_cwd() as test_dir:
             self.assertFalse(pydoc.ispackage(test_dir))
 
     def test_is_package_when_is_package(self):
-        with test.support.temp_cwd() as test_dir:
+        with os_helper.temp_cwd() as test_dir:
             init_path = os.path.join(test_dir, '__init__.py')
             open(init_path, 'w').close()
             self.assertTrue(pydoc.ispackage(test_dir))
@@ -1078,7 +1080,7 @@ class TestDescriptions(unittest.TestCase):
         self.assertEqual(pydoc.describe(typing.List[int]), '_GenericAlias')
         doc = pydoc.render_doc(typing.List[int], renderer=pydoc.plaintext)
         self.assertIn('_GenericAlias in module typing', doc)
-        self.assertIn('\nclass list(object)', doc)
+        self.assertIn('List = class list(object)', doc)
         self.assertIn(list.__doc__.strip().splitlines()[0], doc)
 
         self.assertEqual(pydoc.describe(list[int]), 'GenericAlias')
@@ -1091,19 +1093,25 @@ class TestDescriptions(unittest.TestCase):
         self.assertEqual(pydoc.describe(typing.Union[int, str]), '_UnionGenericAlias')
         doc = pydoc.render_doc(typing.Union[int, str], renderer=pydoc.plaintext)
         self.assertIn('_UnionGenericAlias in module typing', doc)
-        self.assertIn('\ntyping.Union', doc)
+        self.assertIn('Union = typing.Union', doc)
         if typing.Union.__doc__:
             self.assertIn(typing.Union.__doc__.strip().splitlines()[0], doc)
+
+        self.assertEqual(pydoc.describe(int | str), 'UnionType')
+        doc = pydoc.render_doc(int | str, renderer=pydoc.plaintext)
+        self.assertIn('UnionType in module types object', doc)
+        self.assertIn('\nclass UnionType(builtins.object)', doc)
+        self.assertIn(types.UnionType.__doc__.strip().splitlines()[0], doc)
 
     def test_special_form(self):
         self.assertEqual(pydoc.describe(typing.Any), '_SpecialForm')
         doc = pydoc.render_doc(typing.Any, renderer=pydoc.plaintext)
         self.assertIn('_SpecialForm in module typing', doc)
         if typing.Any.__doc__:
-            self.assertIn('\ntyping.Any', doc)
+            self.assertIn('Any = typing.Any', doc)
             self.assertIn(typing.Any.__doc__.strip().splitlines()[0], doc)
         else:
-            self.assertIn('\nclass _SpecialForm(_Final)', doc)
+            self.assertIn('Any = class _SpecialForm(_Final)', doc)
 
     def test_typing_pydoc(self):
         def foo(data: typing.List[typing.Any],
@@ -1199,7 +1207,8 @@ class TestDescriptions(unittest.TestCase):
                 '''A static method'''
                 ...
         self.assertEqual(self._get_summary_lines(X.__dict__['sm']),
-                         "<staticmethod object>")
+                         'sm(x, y)\n'
+                         '    A static method\n')
         self.assertEqual(self._get_summary_lines(X.sm), """\
 sm(x, y)
     A static method
@@ -1219,7 +1228,8 @@ sm(x, y)
                 '''A class method'''
                 ...
         self.assertEqual(self._get_summary_lines(X.__dict__['cm']),
-                         "<classmethod object>")
+                         'cm(...)\n'
+                         '    A class method\n')
         self.assertEqual(self._get_summary_lines(X.cm), """\
 cm(x) method of builtins.type instance
     A class method
@@ -1627,8 +1637,8 @@ class TestInternalUtilities(unittest.TestCase):
 
 
 def setUpModule():
-    thread_info = test.support.threading_setup()
-    unittest.addModuleCleanup(test.support.threading_cleanup, *thread_info)
+    thread_info = threading_helper.threading_setup()
+    unittest.addModuleCleanup(threading_helper.threading_cleanup, *thread_info)
     unittest.addModuleCleanup(reap_children)
 
 
