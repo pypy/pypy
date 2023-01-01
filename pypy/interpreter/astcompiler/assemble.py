@@ -395,7 +395,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             self._stack_depth_debug_print(blocks, block, instr)
         os.write(2, "StackDepthComputationError(POS) in %s at %s:%s depth %s\n"
           % (self.compile_info.filename, self.name, self.first_lineno, depth))
-        raise StackDepthComputationError   # would-be-nice-not-to-have
+        #raise StackDepthComputationError   # would-be-nice-not-to-have
 
     def _stack_depth_debug_print(self, blocks, errorblock, errorinstr):
         for block in blocks:
@@ -569,11 +569,33 @@ class MatchContext(object):
         self.names_stored = {}
         self.names_list = []
         self.allow_always_passing = False
+        # the extra objects currently on the stack that need cleaning up
+        self.on_top = 0
+        self._reset_cleanup_blocks()
+    
+    def _reset_cleanup_blocks(self):
         self.next = self.codegen.new_block()
+        # the cleanup blocks will all be chained in reverse order, each one
+        # contains a POP_TOP and a jump to the next one
+        self.cleanup_blocks = [self.next]
 
     def next_case(self):
+        # add the POP_TOP instructions to the cleanup blocks
+        for index in range(len(self.cleanup_blocks) - 1, 0, -1):
+            block = self.cleanup_blocks[index]
+            self.codegen.use_next_block(block)
+            self.codegen.emit_op(ops.POP_TOP)
         self.codegen.use_next_block(self.next)
-        self.next = self.codegen.new_block()
+        self._reset_cleanup_blocks()
+
+    def emit_fail_jump(self, op, absolute, cleanup=0):
+        # emits a (conditional or unconditional) jump to the cleanup block (ie,
+        # failure) with the right number of POP_TOPs
+        cleanup += self.on_top
+        while cleanup >= len(self.cleanup_blocks):
+            self.cleanup_blocks.append(self.codegen.new_block())
+        target = self.cleanup_blocks[cleanup]
+        self.codegen.emit_jump(op, target, absolute)
 
     def __enter__(self, *args):
         self.old_context = self.codegen.match_context

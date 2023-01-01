@@ -1972,10 +1972,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 match_context.allow_always_passing = is_last_case or case.guard is not None
                 if not is_last_case:
                     self.emit_op(ops.DUP_TOP)
+
                 case.pattern.walkabout(self)
+                # the pattern visit methods will conditionally jump away if
+                # it's not a match. so if the execution is still here, it's a
+                # match
+
                 # TODO: this is not the correct solution. fix this optimization
                 # if not isinstance(case.pattern, ast.MatchAs):
-                self.emit_jump(ops.POP_JUMP_IF_FALSE, match_context.next, True)
 
                 if case.guard:
                     case.guard.walkabout(self)
@@ -1993,16 +1997,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_MatchValue(self, match_value):
         match_value.value.walkabout(self)
         self.emit_compare(ast.Eq)
+        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
 
     def visit_MatchSingleton(self, match_singleton):
         w_value = match_singleton.value
         self.load_const(w_value)
         self.emit_op_arg(ops.IS_OP, 0)
+        if self.name == "match_list":
+            import pdb; pdb.set_trace()
+        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
 
     def visit_MatchAs(self, match_as):
-        pop_end = self.new_block()
-        end = self.new_block()
-
         # @1: input: 0; pattern: _; stack = [0]
         # @2: input: 0; pattern: a; stack = [0]
         # @3: input: 0; pattern: 0 as _; stack = [0]
@@ -2013,6 +2018,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if match_as.pattern:
             if match_as.name:
                 self.emit_op(ops.DUP_TOP)
+                self.match_context.on_top += 1
                 # @4: stack = [0, 0]
                 # @6: stack = [1, 1]
             else:
@@ -2020,18 +2026,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # @3: stack = [0]
                 # @5: stack = [1]
 
+            # this will jump away if the pattern doesn't match
             match_as.pattern.walkabout(self)
-            # @3: stack = [True]
-            # @4: stack = [0, True]
-            # @5: stack = [False]
-            # @6: stack = [1, False]
-
-            failure_target = pop_end if match_as.name else end
-            self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, failure_target, True)
-            # @3: stack = []
-            # @4: stack = [0]
-            # @5: end([False])
-            # @6: pop_end([1, False])
         else:
             # this pattern always passes, check whether that is ok
             if not self.match_context.allow_always_passing:
@@ -2054,8 +2050,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 pass
                 # @3: stack = []
 
-            self.load_const(self.space.w_True)
-            # @1: stack = [True]
         else:
             # @2: stack = [0]
             # @4: stack = [0]
@@ -2069,38 +2063,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                         targetname, match_as.lineno), match_as)
             match_context.names_stored[targetname] = match_as
             self.name_op(targetname, ast.Store, match_as)
+            match_context.on_top -= 1
             # @2: stack = []
             # @4: stack = []
 
-            self.load_const(self.space.w_True)
-            # @2: stack = [True]
-            # @4: stack = [True]
-
-        self.emit_jump(ops.JUMP_FORWARD, end)
-
-        self.use_next_block(pop_end)
-        # @6: stack = [1, False]
-
-        self.emit_op(ops.ROT_TWO)
-        # @6: stack = [False, 1]
-
-        self.emit_op(ops.POP_TOP)
-        # @6: stack = [False]
-
-        self.use_next_block(end)
-        # @1: [True]
-        # @2: [True]
-        # @3: [True]
-        # @4: [True]
-        # @5: [False]
-        # @6: [False]
 
     def visit_MatchSequence(self, match_sequence):
+        match_context = self.match_context
         patterns = match_sequence.patterns
         if patterns is None:
             patterns = []
-        fail_drop = [self.new_block() for x in range(0, max(len(patterns)-1, 1)+1)]
-        end = self.new_block()
 
         # input: (1, 2, 3, 4, 5)
         # pattern: (1, *rest, 4, 5)
@@ -2109,7 +2081,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.MATCH_SEQUENCE)
         # stack = [(1,2,3,4,5), True]
 
-        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_drop[1], True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
         # stack = [(1,2,3,4,5)]
 
         self.emit_op(ops.GET_LEN)
@@ -2139,7 +2111,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             left = length - 1
             right = 0
 
-        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_drop[1], True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
         # stack = [(1,2,3,4,5)]
 
         if star_index >= 0:
@@ -2155,47 +2127,33 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
 
 
-        pop = length
+        match_context.on_top += length
         with self.sub_pattern_context():
             for i, pattern in enumerate(patterns):
                 if i == star_index:
                     # TODO: can use more efficient ROT versions (and even nothing
                     # sometimes)
                     self.emit_op_arg(ops.ROT_N, right + 1)
+                match_context.on_top -= 1
                 pattern.walkabout(self)
-                pop -= 1
-                self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_drop[pop], True)
-
-        self.load_const(self.space.w_True)
-        self.emit_jump(ops.JUMP_FORWARD, end)
-        for x in range(max(length-1, 1) - 1, -1, -1):
-            self.use_next_block(fail_drop[x+1])
-            self.emit_op(ops.POP_TOP)
-        self.use_next_block(fail_drop[0])
-        self.load_const(self.space.w_False)
-        self.use_next_block(end)
 
     def visit_MatchStar(self, match_star):
         if not match_star.name:
             self.emit_op(ops.POP_TOP)
-            self.load_const(self.space.w_True)
             return
         self.name_op(match_star.name, ast.Store, match_star)
-        self.load_const(self.space.w_True)
 
     def visit_MatchMapping(self, match_mapping):
-        end = self.new_block()
-        fail = self.new_block()
-        fail_2 = self.new_block()
-        fail_3 = self.new_block()
+        match_context = self.match_context
 
         # subject = {'x': 42, 'y': 13}
         # pattern = {'x': 42, 'y': 13, **rest}
         # stack = [{'x': 42, 'y': 13}]
         self.emit_op(ops.MATCH_MAPPING)
+        match_context.on_top += 1
         # stack = [{'x': 42, 'y': 13}, True]
 
-        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
         # stack = [{'x': 42, 'y': 13}]
 
         if match_mapping.keys:
@@ -2210,7 +2168,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_compare(ast.GtE)
             # stack = [{'x': 42, 'y': 13}, True]
 
-            self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
             # stack = [{'x': 42, 'y': 13}]
 
             # mostly it's all constants, but not always, can be an Attribute
@@ -2231,12 +2189,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.MATCH_KEYS)
         # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
 
-        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail_3, True)
+        match_context.on_top += 2 # extra tuple and keys on top
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
         # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
 
         if not length:
             # drop values if there are no patterns to match against
             self.emit_op(ops.POP_TOP)
+            match_context.on_top -= 1
             # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
 
         with self.sub_pattern_context():
@@ -2246,6 +2206,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.emit_op(ops.DUP_TOP)
                     # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13)]
                     # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+                else:
+                    match_context.on_top -= 1
 
                 self.load_const(self.space.newint(i))
                 # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13), 0]
@@ -2256,11 +2218,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), 13]
 
                 match_mapping.patterns[i].walkabout(self)
-                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
-                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), True]
 
-                target = fail_2 if is_last else fail_3
-                self.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
                 # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
                 # i=1: [{'x': 42, 'y': 13}, ('x', 'y')]
 
@@ -2273,107 +2231,62 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             else:
                 self.emit_op(ops.POP_TOP)
                 # i=1: [{'x': 42, 'y': 13}]
+            match_context.on_top -= 1
 
         # expected stack at merge = [{'x': 42, 'y': 13}]
 
         self.emit_op(ops.POP_TOP)
+        match_context.on_top -= 1
         # stack = []
-
-        self.load_const(self.space.w_True)
-        # stack = [True]
-
-        self.emit_jump(ops.JUMP_FORWARD, end)
-
-        self.use_next_block(fail_3)
-        self.emit_op(ops.POP_TOP)
-
-        self.use_next_block(fail_2)
-        self.emit_op(ops.POP_TOP)
-
-        self.use_next_block(fail)
-        # stack = [{} , {}]
-        self.emit_op(ops.POP_TOP)
-        # stack = [{}]
-        self.load_const(self.space.w_False)
-        # stack = [{}, False]
-        self.use_next_block(end)
 
     def visit_MatchOr(self, match_or):
         # @1: input: 3; pattern: 3 | 4; stack = [3]
         # @2: input: 3; pattern: 3 | 4; stack = [4]
         # @3: input: 5; pattern: 3 | 4; stack = [5]
 
-        pop_end = self.new_block()
         end = self.new_block()
 
         control = None
-        match_context = self.match_context
-        allow_always_passing = match_context.allow_always_passing
+        outer_match_context = self.match_context
+        allow_always_passing = outer_match_context.allow_always_passing
 
-        for i, pattern in enumerate(match_or.patterns):
-            is_not_last = i < len(match_or.patterns) - 1
-            match_context.allow_always_passing = allow_always_passing and not is_not_last
-            if is_not_last:
-                self.emit_op(ops.DUP_TOP)
-                # @1: i=0: [3, 3]
-                # @2: i=0: [4, 4]; i=1: [4]
-                # @3: i=0: [5, 5]; i=1: [5]
+        with self.new_match_context() as match_context:
+            for i, pattern in enumerate(match_or.patterns):
+                is_not_last = i < len(match_or.patterns) - 1
+                match_context.allow_always_passing = allow_always_passing and not is_not_last
+                if is_not_last:
+                    self.emit_op(ops.DUP_TOP)
+                    # @1: i=0: [3, 3]
+                    # @2: i=0: [4, 4]; i=1: [4]
+                    # @3: i=0: [5, 5]; i=1: [5]
 
-            if control is not None:
-                match_context.names_stored = control.copy()
-            pattern.walkabout(self)
+                if control is not None:
+                    match_context.names_stored = control.copy()
+                pattern.walkabout(self)
 
-            # make sure that the set of stored names is the same in all
-            # branches
-            if control is None:
-                control = match_context.names_stored
-            else:
-                # check that the names are the same in the later alternative
-                if len(control) != len(match_context.names_stored):
-                    self.error("alternative patterns bind different names", match_or)
-                for name in control:
-                    if name not in match_context.names_stored:
+                # make sure that the set of stored names is the same in all
+                # branches
+                if control is None:
+                    control = match_context.names_stored
+                else:
+                    # check that the names are the same in the later alternative
+                    if len(control) != len(match_context.names_stored):
                         self.error("alternative patterns bind different names", match_or)
-                for name in match_context.names_stored:
-                    if name not in control:
-                        self.error("alternative patterns bind different names", match_or)
+                    for name in control:
+                        if name not in match_context.names_stored:
+                            self.error("alternative patterns bind different names", match_or)
+                    for name in match_context.names_stored:
+                        if name not in control:
+                            self.error("alternative patterns bind different names", match_or)
 
-            # @1: i=0: [3, True]
-            # @2: i=0: [4, False]; i=1: [True]
-            # @3: i=0: [5, False]; i=1: [False]
+                self.emit_jump(ops.JUMP_FORWARD, end)
+                match_context.next_case()
 
-            if is_not_last:
-                self.emit_jump(ops.POP_JUMP_IF_TRUE, pop_end, True)
-                # @1: i=0: pop_end([3])
-                # @2: i=0: [4]
-                # @3: i=0: [5]
-            else:
-                self.emit_jump(ops.JUMP_IF_TRUE_OR_POP, end, True)
-                # @1: i=1: unreachable
-                # @2: i=1: end([True])
-                # @3: i=1: []
-        self.allow_always_passing = allow_always_passing
-
-        self.load_const(self.space.w_False)
-        # @3: [False]
-        self.emit_jump(ops.JUMP_FORWARD, end)
-        # @3: end([False])
-
-        self.use_next_block(pop_end)
-        # @1: [3]
-        self.emit_op(ops.POP_TOP)
-        # @1: []
-        self.load_const(self.space.w_True)
-        # @1: [True]
-
+        outer_match_context.emit_fail_jump(ops.JUMP_FORWARD, False)
         self.use_next_block(end)
-        # @1: [True]
-        # @2: [True]
-        # @3: [False]
     
     def visit_MatchClass(self, match_class):
-        fail = self.new_block()
-        end = self.new_block()
+        match_context = self.match_context
         
         if match_class.kwd_attrs:
             kwd_attrs_w = [self.space.newtext(attr) for attr in match_class.kwd_attrs]
@@ -2387,7 +2300,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.load_const(self.space.newtuple(kwd_attrs_w))
         self.emit_op_arg(ops.MATCH_CLASS, nargs)
 
-        self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True, cleanup=1)
 
         with self.sub_pattern_context():
             for i in range(nargs + nattrs):
@@ -2401,17 +2314,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.load_const(self.space.newint(i))
                 self.emit_op(ops.BINARY_SUBSCR)
                 pattern.walkabout(self)
-                self.emit_jump(ops.POP_JUMP_IF_FALSE, fail, True)
 
         self.emit_op(ops.POP_TOP)
-        self.load_const(self.space.w_True)
-        self.emit_jump(ops.JUMP_FORWARD, end)
-
-        self.use_next_block(fail)
-        self.emit_op(ops.POP_TOP)
-        self.load_const(self.space.w_False)
-
-        self.use_next_block(end)
 
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
