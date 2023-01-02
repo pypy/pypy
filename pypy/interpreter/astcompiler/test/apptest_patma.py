@@ -49,6 +49,14 @@ match x:
 """)
     assert info.value.msg == "name capture 'a' makes remaining patterns unreachable"
 
+def test_error_forbidden_name():
+    with pytest.raises(SyntaxError) as info:
+        exec("""
+match x:
+    case 1 as True:
+        pass
+""")
+
 def test_match_list():
     def match_list(x):
         match x:
