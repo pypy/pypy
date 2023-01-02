@@ -370,6 +370,67 @@ def test_gc():
     gc.get_referents(y)
 
 
+def test_http_client():
+    import http.client
+
+    def hook(event, args):
+        if event.startswith("http.client."):
+            print(event, *args[1:])
+
+    sys.addaudithook(hook)
+
+    conn = http.client.HTTPConnection('www.python.org')
+    try:
+        conn.request('GET', '/')
+    except OSError:
+        print('http.client.send', '[cannot send]')
+    finally:
+        conn.close()
+
+
+def test_sqlite3():
+    import sqlite3
+
+    def hook(event, *args):
+        if event.startswith("sqlite3."):
+            print(event, *args)
+
+    sys.addaudithook(hook)
+    cx1 = sqlite3.connect(":memory:")
+    cx2 = sqlite3.Connection(":memory:")
+
+    # Configured without --enable-loadable-sqlite-extensions
+    if hasattr(sqlite3.Connection, "enable_load_extension"):
+        cx1.enable_load_extension(False)
+        try:
+            cx1.load_extension("test")
+        except sqlite3.OperationalError:
+            pass
+        else:
+            raise RuntimeError("Expected sqlite3.load_extension to fail")
+
+
+def test_syslog():
+    import syslog
+
+    def hook(event, args):
+        if event.startswith("syslog."):
+            print(event, *args)
+
+    sys.addaudithook(hook)
+    syslog.openlog('python')
+    syslog.syslog('test')
+    syslog.setlogmask(syslog.LOG_DEBUG)
+    syslog.closelog()
+    # implicit open
+    syslog.syslog('test2')
+    # open with default ident
+    syslog.openlog(logoption=syslog.LOG_NDELAY, facility=syslog.LOG_LOCAL0)
+    sys.argv = None
+    syslog.openlog()
+    syslog.closelog()
+
+
 def test_not_in_gc():
     import gc
 

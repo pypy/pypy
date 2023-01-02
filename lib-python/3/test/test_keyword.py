@@ -1,6 +1,5 @@
 import keyword
 import unittest
-from test.support import use_old_parser
 
 
 class Test_iskeyword(unittest.TestCase):
@@ -22,10 +21,7 @@ class Test_iskeyword(unittest.TestCase):
         self.assertFalse(keyword.iskeyword('eggs'))
 
     def test_all_keywords_fail_to_be_used_as_names(self):
-        all_keywords = set(keyword.kwlist)
-        if use_old_parser():
-            all_keywords.discard('__peg_parser__')
-        for key in all_keywords:
+        for key in keyword.kwlist:
             with self.assertRaises(SyntaxError):
                 exec(f"{key} = 42")
 

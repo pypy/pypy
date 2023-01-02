@@ -4,6 +4,7 @@ import importlib
 import os.path
 import unittest
 from test import support
+from test.support import import_helper
 
 
 if support.check_sanitizer(address=True, memory=True):
@@ -33,11 +34,11 @@ def skip_if_missing(tool=None):
 @contextlib.contextmanager
 def imports_under_tool(name, *subdirs):
     tooldir = os.path.join(toolsdir, name, *subdirs)
-    with support.DirsOnSysPath(tooldir) as cm:
+    with import_helper.DirsOnSysPath(tooldir) as cm:
         yield cm
 
 def import_tool(toolname):
-    with support.DirsOnSysPath(scriptsdir):
+    with import_helper.DirsOnSysPath(scriptsdir):
         return importlib.import_module(toolname)
 
 def load_tests(*args):

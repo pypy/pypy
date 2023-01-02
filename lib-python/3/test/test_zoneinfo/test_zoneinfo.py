@@ -19,7 +19,7 @@ from functools import cached_property
 
 from . import _support as test_support
 from ._support import OS_ENV_LOCK, TZPATH_TEST_LOCK, ZoneInfoTestBase
-from test.support import import_module
+from test.support.import_helper import import_module
 
 lzma = import_module('lzma')
 py_zoneinfo, c_zoneinfo = test_support.get_modules()

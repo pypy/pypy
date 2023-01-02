@@ -10,10 +10,13 @@ import unittest
 import weakref
 from collections.abc import MutableMapping
 from test import mapping_tests, support
+from test.support import import_helper
 
 
-py_coll = support.import_fresh_module('collections', blocked=['_collections'])
-c_coll = support.import_fresh_module('_collections', fresh=['_collections'])
+py_coll = import_helper.import_fresh_module('collections',
+                                            blocked=['_collections'])
+c_coll = import_helper.import_fresh_module('collections',
+                                           fresh=['_collections'])
 
 
 @contextlib.contextmanager
@@ -486,7 +489,7 @@ class OrderedDictTests:
         del obj
         # PyPy change: we only collect 1 MyOD instance per GC
         for _ in range(100):
-            gc.collect()
+            support.gc_collect()
         self.assertEqual(deleted, list(reversed(range(100))))
 
     def test_delitem_hash_collision(self):
@@ -540,24 +543,15 @@ class OrderedDictTests:
             key = Key()
             od[key] = i
 
-        # These should not crash harder than by raising KeyError
-        # (they do on CPython, but not on PyPy)
-        try:
+        # These should not crash.
+        with self.assertRaises(KeyError):
             list(od.values())
-        except KeyError:
-            pass
-        try:
+        with self.assertRaises(KeyError):
             list(od.items())
-        except KeyError:
-            pass
-        try:
+        with self.assertRaises(KeyError):
             repr(od)
-        except KeyError:
-            pass
-        try:
+        with self.assertRaises(KeyError):
             od.copy()
-        except KeyError:
-            pass
 
     def test_issue24348(self):
         OrderedDict = self.OrderedDict
@@ -608,10 +602,8 @@ class OrderedDictTests:
         od['spam'] = 1
         od['ham'] = 2
         dict.__delitem__(od, 'spam')
-        try:
+        with self.assertRaises(KeyError):
             repr(od)
-        except KeyError:      # on CPython, not on PyPy
-            pass
 
     def test_dict_clear(self):
         OrderedDict = self.OrderedDict
@@ -627,10 +619,8 @@ class OrderedDictTests:
         od['spam'] = 1
         od['ham'] = 2
         dict.pop(od, 'spam')
-        try:
+        with self.assertRaises(KeyError):
             repr(od)
-        except KeyError:      # on CPython, not on PyPy
-            pass
 
     def test_dict_popitem(self):
         OrderedDict = self.OrderedDict
@@ -638,10 +628,8 @@ class OrderedDictTests:
         od['spam'] = 1
         od['ham'] = 2
         dict.popitem(od)
-        try:
+        with self.assertRaises(KeyError):
             repr(od)
-        except KeyError:      # on CPython, not on PyPy
-            pass
 
     def test_dict_setdefault(self):
         OrderedDict = self.OrderedDict
@@ -766,20 +754,21 @@ class CPythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
         size = support.calcobjsize
         check = self.check_sizeof
 
-        basicsize = size('nQ2P' + '3PnPn2P') + calcsize('2nP2n')
+        basicsize = size('nQ2P' + '3PnPn2P')
+        keysize = calcsize('2nP2n')
 
         entrysize = calcsize('n2P')
         p = calcsize('P')
         nodesize = calcsize('Pn2P')
 
         od = OrderedDict()
-        check(od, basicsize + 8 + 5*entrysize)  # 8byte indices + 8*2//3 * entry table
+        check(od, basicsize)  # 8byte indices + 8*2//3 * entry table
         od.x = 1
-        check(od, basicsize + 8 + 5*entrysize)
+        check(od, basicsize)
         od.update([(i, i) for i in range(3)])
-        check(od, basicsize + 8*p + 8 + 5*entrysize + 3*nodesize)
+        check(od, basicsize + keysize + 8*p + 8 + 5*entrysize + 3*nodesize)
         od.update([(i, i) for i in range(3, 10)])
-        check(od, basicsize + 16*p + 16 + 10*entrysize + 10*nodesize)
+        check(od, basicsize + keysize + 16*p + 16 + 10*entrysize + 10*nodesize)
 
         check(od.keys(), size('P'))
         check(od.items(), size('P'))
@@ -796,14 +785,10 @@ class CPythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
 
         od = OrderedDict.fromkeys('abcde')
         self.assertEqual(list(od), list('abcde'))
-        try:
+        with self.assertRaises(RuntimeError):
             for i, k in enumerate(od):
                 od.move_to_end(k)
                 self.assertLess(i, 5)
-        except RuntimeError:
-            pass     # XXX on PyPy the change is not detected, as
-                     # the total length of the dict doesn't change
-        od = OrderedDict.fromkeys('bcdea')
         with self.assertRaises(RuntimeError):
             for k in od:
                 od['f'] = None

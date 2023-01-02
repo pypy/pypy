@@ -163,6 +163,14 @@ class GeneratorTest(unittest.TestCase):
             with self.assertRaises((TypeError, pickle.PicklingError)):
                 pickle.dumps(g, proto)
 
+    def test_send_non_none_to_new_gen(self):
+        def f():
+            yield 1
+        g = f()
+        with self.assertRaises(TypeError):
+            g.send(0)
+        self.assertEqual(next(g), 1)
+
 
 class ExceptionTest(unittest.TestCase):
     # Tests for the issue #23353: check that the currently handled exception
@@ -912,7 +920,7 @@ PyPy prints "readonly attribute 'gi_running'" so ignore the exception detail
 >>> i.gi_running = 42 # doctest: +IGNORE_EXCEPTION_DETAIL
 Traceback (most recent call last):
   ...
-AttributeError: readonly attribute
+AttributeError: attribute 'gi_running' of 'generator' objects is not writable
 >>> def g():
 ...     yield me.gi_running
 >>> me = g()
@@ -2046,7 +2054,7 @@ SyntaxError: 'yield' outside function
 >>> def f(): (yield bar) = y
 Traceback (most recent call last):
   ...
-SyntaxError: cannot assign to yield expression
+SyntaxError: cannot assign to yield expression here. Maybe you meant '==' instead of '='?
 
 >>> def f(): (yield bar) += y
 Traceback (most recent call last):

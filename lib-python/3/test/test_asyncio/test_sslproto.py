@@ -382,9 +382,9 @@ class BaseStartTLS(func_tests.FunctionalTestCaseMixin):
             def get_buffer(self, sizehint):
                 return self.buf
 
-            def buffer_updated(self, nsize):
-                assert nsize == 1
-                self.on_data.set_result(bytes(self.buf[:nsize]))
+            def buffer_updated(slf, nsize):
+                self.assertEqual(nsize, 1)
+                slf.on_data.set_result(bytes(slf.buf[:nsize]))
 
         class ClientProtoSecond(asyncio.Protocol):
             def __init__(self, on_data, on_eof):
@@ -659,13 +659,11 @@ class BaseStartTLS(func_tests.FunctionalTestCaseMixin):
                 sock.close()
 
         async def client(addr):
-            with self.assertWarns(DeprecationWarning):
-                reader, writer = await asyncio.open_connection(
-                    *addr,
-                    ssl=client_sslctx,
-                    server_hostname='',
-                    loop=self.loop,
-                    ssl_handshake_timeout=1.0)
+            reader, writer = await asyncio.open_connection(
+                *addr,
+                ssl=client_sslctx,
+                server_hostname='',
+                ssl_handshake_timeout=1.0)
 
         with self.tcp_server(server,
                              max_clients=1,
@@ -699,13 +697,11 @@ class BaseStartTLS(func_tests.FunctionalTestCaseMixin):
                 sock.close()
 
         async def client(addr):
-            with self.assertWarns(DeprecationWarning):
-                reader, writer = await asyncio.open_connection(
-                    *addr,
-                    ssl=client_sslctx,
-                    server_hostname='',
-                    loop=self.loop,
-                    ssl_handshake_timeout=support.LOOPBACK_TIMEOUT)
+            reader, writer = await asyncio.open_connection(
+                *addr,
+                ssl=client_sslctx,
+                server_hostname='',
+                ssl_handshake_timeout=support.LOOPBACK_TIMEOUT)
 
         with self.tcp_server(server,
                              max_clients=1,
@@ -736,12 +732,10 @@ class BaseStartTLS(func_tests.FunctionalTestCaseMixin):
                 sock.close()
 
         async def client(addr):
-            with self.assertWarns(DeprecationWarning):
-                reader, writer = await asyncio.open_connection(
-                    *addr,
-                    ssl=client_sslctx,
-                    server_hostname='',
-                    loop=self.loop)
+            reader, writer = await asyncio.open_connection(
+                *addr,
+                ssl=client_sslctx,
+                server_hostname='')
 
             self.assertEqual(await reader.readline(), b'A\n')
             writer.write(b'B')

@@ -64,6 +64,9 @@ class GeneralFloatCases(unittest.TestCase):
         # See bpo-34087
         self.assertRaises(ValueError, float, '\u3053\u3093\u306b\u3061\u306f')
 
+    def test_noargs(self):
+        self.assertEqual(float(), 0.0)
+
     def test_underscores(self):
         for lit in VALID_UNDERSCORE_LITERALS:
             if not any(ch in lit for ch in 'jJxXoObB'):
@@ -132,6 +135,10 @@ class GeneralFloatCases(unittest.TestCase):
         check('123\xbd')
         check('  123 456  ')
         check(b'  123 456  ')
+        # all whitespace (cf. https://github.com/python/cpython/issues/95605)
+        check('')
+        check(' ')
+        check('\t \n')
 
         # non-ascii digits (error came from non-digit '!')
         check('\u0663\u0661\u0664!')
@@ -562,6 +569,25 @@ class GeneralFloatCases(unittest.TestCase):
             #self.assertTrue(0.0 < pow_op(2.0, -1047) < 1e-315)
             #self.assertTrue(0.0 > pow_op(-2.0, -1047) > -1e-315)
 
+    def test_hash(self):
+        for x in range(-30, 30):
+            self.assertEqual(hash(float(x)), hash(x))
+        self.assertEqual(hash(float(sys.float_info.max)),
+                         hash(int(sys.float_info.max)))
+        self.assertEqual(hash(float('inf')), sys.hash_info.inf)
+        self.assertEqual(hash(float('-inf')), -sys.hash_info.inf)
+
+    def test_hash_nan(self):
+        value = float('nan')
+        self.assertEqual(hash(value), object.__hash__(value))
+        class H:
+            def __hash__(self):
+                return 42
+        class F(float, H):
+            pass
+        value = F('nan')
+        self.assertEqual(hash(value), object.__hash__(value))
+
 
 @requires_setformat
 class FormatFunctionsTestCase(unittest.TestCase):
@@ -727,7 +753,7 @@ class FormatTestCase(unittest.TestCase):
 
     @support.requires_IEEE_754
     def test_format_testfile(self):
-        with open(format_testfile) as testfile:
+        with open(format_testfile, encoding="utf-8") as testfile:
             for line in testfile:
                 if line.startswith('--'):
                     continue
@@ -767,7 +793,7 @@ class FormatTestCase(unittest.TestCase):
 class ReprTestCase(unittest.TestCase):
     def test_repr(self):
         with open(os.path.join(os.path.split(__file__)[0],
-                  'floating_points.txt')) as floats_file:
+                  'floating_points.txt'), encoding="utf-8") as floats_file:
             for line in floats_file:
                 line = line.strip()
                 if not line or line.startswith('#'):

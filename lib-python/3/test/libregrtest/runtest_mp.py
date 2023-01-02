@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import collections
 import faulthandler
 import json
 import os
@@ -10,9 +9,10 @@ import sys
 import threading
 import time
 import traceback
-from typing import NamedTuple, NoReturn, Literal, Any, TYPE_CHECKING
+from typing import NamedTuple, NoReturn, Literal, Any
 
 from test import support
+from test.support import os_helper
 
 from test.libregrtest.cmdline import Namespace
 from test.libregrtest.main import Regrtest
@@ -73,7 +73,7 @@ def run_test_in_subprocess(testname: str, ns: Namespace) -> subprocess.Popen:
                             stderr=subprocess.PIPE,
                             universal_newlines=True,
                             close_fds=(os.name != 'nt'),
-                            cwd=support.SAVEDCWD,
+                            cwd=os_helper.SAVEDCWD,
                             **kw)
 
 
@@ -119,9 +119,8 @@ class MultiprocessResult(NamedTuple):
     error_msg: str
 
 
-if TYPE_CHECKING:
-    ExcStr = str
-    QueueOutput = tuple[Literal[False], MultiprocessResult] | tuple[Literal[True], ExcStr]
+ExcStr = str
+QueueOutput = tuple[Literal[False], MultiprocessResult] | tuple[Literal[True], ExcStr]
 
 
 class ExitThread(Exception):

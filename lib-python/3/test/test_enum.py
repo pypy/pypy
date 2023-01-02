@@ -8,10 +8,10 @@ from collections import OrderedDict
 from enum import Enum, IntEnum, EnumMeta, Flag, IntFlag, unique, auto
 from io import StringIO
 from pickle import dumps, loads, PicklingError, HIGHEST_PROTOCOL
-from test import support
-from test.support import ALWAYS_EQ
+from test.support import ALWAYS_EQ, check__all__, threading_helper
 from datetime import timedelta
 
+python_version = sys.version_info[:2]
 
 # for pickle tests
 try:
@@ -348,17 +348,38 @@ class TestEnum(unittest.TestCase):
         self.assertTrue(IntLogic.true)
         self.assertFalse(IntLogic.false)
 
-    def test_contains(self):
+    @unittest.skipIf(
+            python_version >= (3, 12),
+            '__contains__ now returns True/False for all inputs',
+            )
+    def test_contains_er(self):
         Season = self.Season
         self.assertIn(Season.AUTUMN, Season)
         with self.assertRaises(TypeError):
-            3 in Season
+            with self.assertWarns(DeprecationWarning):
+                3 in Season
         with self.assertRaises(TypeError):
-            'AUTUMN' in Season
-
+            with self.assertWarns(DeprecationWarning):
+                'AUTUMN' in Season
         val = Season(3)
         self.assertIn(val, Season)
+        #
+        class OtherEnum(Enum):
+            one = 1; two = 2
+        self.assertNotIn(OtherEnum.two, Season)
 
+    @unittest.skipIf(
+            python_version < (3, 12),
+            '__contains__ only works with enum memmbers before 3.12',
+            )
+    def test_contains_tf(self):
+        Season = self.Season
+        self.assertIn(Season.AUTUMN, Season)
+        self.assertTrue(3 in Season)
+        self.assertFalse('AUTUMN' in Season)
+        val = Season(3)
+        self.assertIn(val, Season)
+        #
         class OtherEnum(Enum):
             one = 1; two = 2
         self.assertNotIn(OtherEnum.two, Season)
@@ -1934,7 +1955,6 @@ class TestEnum(unittest.TestCase):
             raise Exception('Exception not raised.')
 
     def test_missing_exceptions_reset(self):
-        import gc
         import weakref
         #
         class TestEnum(enum.Enum):
@@ -1961,9 +1981,8 @@ class TestEnum(unittest.TestCase):
         class_2_ref = weakref.ref(Class2())
         #
         # The exception raised by Enum creates a reference loop and thus
-        # Class2 instances will stick around until the next garbage collection
+        # Class2 instances will stick around until the next gargage collection
         # cycle, unlike Class1.
-        gc.collect()  # For PyPy or other GCs.
         self.assertIs(class_1_ref(), None)
         self.assertIs(class_2_ref(), None)
 
@@ -2110,53 +2129,6 @@ class TestEnum(unittest.TestCase):
                 return member
         self.assertEqual(Fee.TEST, 2)
 
-    def test_miltuple_mixin_with_common_data_type(self):
-        class CaseInsensitiveStrEnum(str, Enum):
-            @classmethod
-            def _missing_(cls, value):
-                for member in cls._member_map_.values():
-                    if member._value_.lower() == value.lower():
-                        return member
-                return super()._missing_(value)
-        #
-        class LenientStrEnum(str, Enum):
-            def __init__(self, *args):
-                self._valid = True
-            @classmethod
-            def _missing_(cls, value):
-                # encountered an unknown value!
-                # Luckily I'm a LenientStrEnum, so I won't crash just yet.
-                # You might want to add a new case though.
-                unknown = cls._member_type_.__new__(cls, value)
-                unknown._valid = False
-                unknown._name_ = value.upper()
-                unknown._value_ = value
-                cls._member_map_[value] = unknown
-                return unknown
-            @property
-            def valid(self):
-                return self._valid
-        #
-        class JobStatus(CaseInsensitiveStrEnum, LenientStrEnum):
-            ACTIVE = "active"
-            PENDING = "pending"
-            TERMINATED = "terminated"
-        #
-        JS = JobStatus
-        self.assertEqual(list(JobStatus), [JS.ACTIVE, JS.PENDING, JS.TERMINATED])
-        self.assertEqual(JS.ACTIVE, 'active')
-        self.assertEqual(JS.ACTIVE.value, 'active')
-        self.assertIs(JS('Active'), JS.ACTIVE)
-        self.assertTrue(JS.ACTIVE.valid)
-        missing = JS('missing')
-        self.assertEqual(list(JobStatus), [JS.ACTIVE, JS.PENDING, JS.TERMINATED])
-        self.assertEqual(JS.ACTIVE, 'active')
-        self.assertEqual(JS.ACTIVE.value, 'active')
-        self.assertIs(JS('Active'), JS.ACTIVE)
-        self.assertTrue(JS.ACTIVE.valid)
-        self.assertTrue(isinstance(missing, JS))
-        self.assertFalse(missing.valid)
-
     def test_empty_globals(self):
         # bpo-35717: sys._getframe(2).f_globals['__name__'] fails with KeyError
         # when using compile and exec because f_globals is empty
@@ -2167,7 +2139,7 @@ class TestEnum(unittest.TestCase):
         exec(code, global_ns, local_ls)
 
     @unittest.skipUnless(
-            sys.version_info[:2] == (3, 9),
+            python_version == (3, 9),
             'private variables are now normal attributes',
             )
     def test_warning_for_private_variables(self):
@@ -2472,19 +2444,42 @@ class TestFlag(unittest.TestCase):
         test_pickle_dump_load(self.assertIs, FlagStooges.CURLY|FlagStooges.MOE)
         test_pickle_dump_load(self.assertIs, FlagStooges)
 
-    def test_contains(self):
+    @unittest.skipIf(
+            python_version >= (3, 12),
+            '__contains__ now returns True/False for all inputs',
+            )
+    def test_contains_er(self):
         Open = self.Open
         Color = self.Color
         self.assertFalse(Color.BLACK in Open)
         self.assertFalse(Open.RO in Color)
         with self.assertRaises(TypeError):
-            'BLACK' in Color
+            with self.assertWarns(DeprecationWarning):
+                'BLACK' in Color
         with self.assertRaises(TypeError):
-            'RO' in Open
+            with self.assertWarns(DeprecationWarning):
+                'RO' in Open
         with self.assertRaises(TypeError):
-            1 in Color
+            with self.assertWarns(DeprecationWarning):
+                1 in Color
         with self.assertRaises(TypeError):
-            1 in Open
+            with self.assertWarns(DeprecationWarning):
+                1 in Open
+
+    @unittest.skipIf(
+            python_version < (3, 12),
+            '__contains__ only works with enum memmbers before 3.12',
+            )
+    def test_contains_tf(self):
+        Open = self.Open
+        Color = self.Color
+        self.assertFalse(Color.BLACK in Open)
+        self.assertFalse(Open.RO in Color)
+        self.assertFalse('BLACK' in Color)
+        self.assertFalse('RO' in Open)
+        self.assertTrue(1 in Color)
+        self.assertTrue(1 in Open)
+
 
     def test_member_contains(self):
         Perm = self.Perm
@@ -2594,7 +2589,7 @@ class TestFlag(unittest.TestCase):
         self.assertEqual(Color.ALL.value, 7)
         self.assertEqual(str(Color.BLUE), 'blue')
 
-    @support.reap_threads
+    @threading_helper.reap_threads
     def test_unique_composite(self):
         # override __eq__ to be identity only
         class TestFlag(Flag):
@@ -2624,7 +2619,7 @@ class TestFlag(unittest.TestCase):
                 threading.Thread(target=cycle_enum)
                 for _ in range(8)
                 ]
-        with support.start_threads(threads):
+        with threading_helper.start_threads(threads):
             pass
         # check that only 248 members were created
         self.assertFalse(
@@ -2965,7 +2960,11 @@ class TestIntFlag(unittest.TestCase):
         self.assertEqual(len(lst), len(Thing))
         self.assertEqual(len(Thing), 0, Thing)
 
-    def test_contains(self):
+    @unittest.skipIf(
+            python_version >= (3, 12),
+            '__contains__ now returns True/False for all inputs',
+            )
+    def test_contains_er(self):
         Open = self.Open
         Color = self.Color
         self.assertTrue(Color.GREEN in Color)
@@ -2973,13 +2972,33 @@ class TestIntFlag(unittest.TestCase):
         self.assertFalse(Color.GREEN in Open)
         self.assertFalse(Open.RW in Color)
         with self.assertRaises(TypeError):
-            'GREEN' in Color
+            with self.assertWarns(DeprecationWarning):
+                'GREEN' in Color
         with self.assertRaises(TypeError):
-            'RW' in Open
+            with self.assertWarns(DeprecationWarning):
+                'RW' in Open
         with self.assertRaises(TypeError):
-            2 in Color
+            with self.assertWarns(DeprecationWarning):
+                2 in Color
         with self.assertRaises(TypeError):
-            2 in Open
+            with self.assertWarns(DeprecationWarning):
+                2 in Open
+
+    @unittest.skipIf(
+            python_version < (3, 12),
+            '__contains__ only works with enum memmbers before 3.12',
+            )
+    def test_contains_tf(self):
+        Open = self.Open
+        Color = self.Color
+        self.assertTrue(Color.GREEN in Color)
+        self.assertTrue(Open.RW in Open)
+        self.assertTrue(Color.GREEN in Open)
+        self.assertTrue(Open.RW in Color)
+        self.assertFalse('GREEN' in Color)
+        self.assertFalse('RW' in Open)
+        self.assertTrue(2 in Color)
+        self.assertTrue(2 in Open)
 
     def test_member_contains(self):
         Perm = self.Perm
@@ -3054,7 +3073,7 @@ class TestIntFlag(unittest.TestCase):
         self.assertEqual(Color.ALL.value, 7)
         self.assertEqual(str(Color.BLUE), 'blue')
 
-    @support.reap_threads
+    @threading_helper.reap_threads
     def test_unique_composite(self):
         # override __eq__ to be identity only
         class TestFlag(IntFlag):
@@ -3084,7 +3103,7 @@ class TestIntFlag(unittest.TestCase):
                 threading.Thread(target=cycle_enum)
                 for _ in range(8)
                 ]
-        with support.start_threads(threads):
+        with threading_helper.start_threads(threads):
             pass
         # check that only 248 members were created
         self.assertFalse(
@@ -3309,7 +3328,7 @@ class TestStdLib(unittest.TestCase):
 
 class MiscTestCase(unittest.TestCase):
     def test__all__(self):
-        support.check__all__(self, enum)
+        check__all__(self, enum)
 
 
 # These are unordered here on purpose to ensure that declaration order
@@ -3349,7 +3368,7 @@ class TestIntEnumConvert(unittest.TestCase):
                           if name[0:2] not in ('CO', '__')],
                          [], msg='Names other than CONVERT_TEST_* found.')
 
-    @unittest.skipUnless(sys.version_info[:2] == (3, 8),
+    @unittest.skipUnless(python_version == (3, 8),
                          '_convert was deprecated in 3.8')
     def test_convert_warn(self):
         with self.assertWarns(DeprecationWarning):
@@ -3358,7 +3377,7 @@ class TestIntEnumConvert(unittest.TestCase):
                 ('test.test_enum', '__main__')[__name__=='__main__'],
                 filter=lambda x: x.startswith('CONVERT_TEST_'))
 
-    @unittest.skipUnless(sys.version_info >= (3, 9),
+    @unittest.skipUnless(python_version >= (3, 9),
                          '_convert was removed in 3.9')
     def test_convert_raise(self):
         with self.assertRaises(AttributeError):
@@ -3367,6 +3386,33 @@ class TestIntEnumConvert(unittest.TestCase):
                 ('test.test_enum', '__main__')[__name__=='__main__'],
                 filter=lambda x: x.startswith('CONVERT_TEST_'))
 
+class TestHelpers(unittest.TestCase):
+
+    sunder_names = '_bad_', '_good_', '_what_ho_'
+    dunder_names = '__mal__', '__bien__', '__que_que__'
+    private_names = '_MyEnum__private', '_MyEnum__still_private'
+    private_and_sunder_names = '_MyEnum__private_', '_MyEnum__also_private_'
+    random_names = 'okay', '_semi_private', '_weird__', '_MyEnum__'
+
+    def test_sunder(self):
+        for name in self.sunder_names + self.private_and_sunder_names:
+            self.assertTrue(enum._is_sunder(name), '%r is a not sunder name?' % name)
+        for name in self.dunder_names + self.private_names + self.random_names:
+            self.assertFalse(enum._is_sunder(name), '%r is a sunder name?' % name)
+
+    def test_dunder(self):
+        for name in self.dunder_names:
+            self.assertTrue(enum._is_dunder(name), '%r is a not dunder name?' % name)
+        for name in self.sunder_names + self.private_names + self.private_and_sunder_names + self.random_names:
+            self.assertFalse(enum._is_dunder(name), '%r is a dunder name?' % name)
+
+    def test_is_private(self):
+        for name in self.private_names + self.private_and_sunder_names:
+            self.assertTrue(enum._is_private('MyEnum', name), '%r is a not private name?')
+        for name in self.sunder_names + self.dunder_names + self.random_names:
+            self.assertFalse(enum._is_private('MyEnum', name), '%r is a private name?')
+
 
 if __name__ == '__main__':
     unittest.main()
+

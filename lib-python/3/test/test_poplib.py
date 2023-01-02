@@ -4,8 +4,6 @@
 # a real test suite
 
 import poplib
-import asyncore
-import asynchat
 import socket
 import os
 import errno
@@ -16,6 +14,13 @@ from unittest import TestCase, skipUnless
 from test import support as test_support
 from test.support import hashlib_helper
 from test.support import socket_helper
+from test.support import threading_helper
+
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore', DeprecationWarning)
+    import asynchat
+    import asyncore
 
 HOST = socket_helper.HOST
 PORT = 0
@@ -155,7 +160,7 @@ class DummyPOP3Handler(asynchat.async_chat):
         def cmd_stls(self, arg):
             if self.tls_active is False:
                 self.push('+OK Begin TLS negotiation')
-                context = ssl.SSLContext()
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
                 context.load_cert_chain(CERTFILE)
                 tls_sock = context.wrap_socket(self.socket,
                                                server_side=True,
@@ -501,7 +506,7 @@ class TestTimeouts(TestCase):
             conn, addr = serv.accept()
             conn.send(b"+ Hola mundo\n")
             conn.close()
-        except socket.timeout:
+        except TimeoutError:
             pass
         finally:
             serv.close()
@@ -535,8 +540,8 @@ class TestTimeouts(TestCase):
 
 
 def setUpModule():
-    thread_info = test_support.threading_setup()
-    unittest.addModuleCleanup(test_support.threading_cleanup, *thread_info)
+    thread_info = threading_helper.threading_setup()
+    unittest.addModuleCleanup(threading_helper.threading_cleanup, *thread_info)
 
 
 if __name__ == '__main__':

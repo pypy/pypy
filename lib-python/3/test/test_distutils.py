@@ -5,9 +5,15 @@ the test_suite() function there returns a test suite that's ready to
 be run.
 """
 
-import distutils.tests
-import test.support
 import unittest
+from test import support
+from test.support import warnings_helper
+
+with warnings_helper.check_warnings(
+    ("The distutils package is deprecated", DeprecationWarning), quiet=True):
+
+    import distutils.tests
+
 
 def load_tests(*_):
     # used by unittest
@@ -15,7 +21,7 @@ def load_tests(*_):
 
 
 def tearDownModule():
-    test.support.reap_children()
+    support.reap_children()
 
 
 if __name__ == "__main__":

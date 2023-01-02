@@ -8,6 +8,7 @@ import unittest
 import weakref
 
 from test import support
+from test.support import threading_helper
 from test import lock_tests
 
 
@@ -140,8 +141,8 @@ class LifetimeTests:
 
 
 def setUpModule():
-    thread_info = support.threading_setup()
-    unittest.addModuleCleanup(support.threading_cleanup, *thread_info)
+    thread_info = threading_helper.threading_setup()
+    unittest.addModuleCleanup(threading_helper.threading_cleanup, *thread_info)
 
 
 if __name__ == '__main__':

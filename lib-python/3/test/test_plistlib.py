@@ -12,6 +12,7 @@ import codecs
 import binascii
 import collections
 from test import support
+from test.support import os_helper
 from io import BytesIO
 
 from plistlib import UID
@@ -404,7 +405,7 @@ class TestPlistlib(unittest.TestCase):
 
     def tearDown(self):
         try:
-            os.unlink(support.TESTFN)
+            os.unlink(os_helper.TESTFN)
         except:
             pass
 
@@ -442,10 +443,10 @@ class TestPlistlib(unittest.TestCase):
 
     def test_io(self):
         pl = self._create()
-        with open(support.TESTFN, 'wb') as fp:
+        with open(os_helper.TESTFN, 'wb') as fp:
             plistlib.dump(pl, fp)
 
-        with open(support.TESTFN, 'rb') as fp:
+        with open(os_helper.TESTFN, 'rb') as fp:
             pl2 = plistlib.load(fp)
 
         self.assertEqual(dict(pl), dict(pl2))
@@ -969,8 +970,8 @@ class TestKeyedArchive(unittest.TestCase):
 
 class MiscTestCase(unittest.TestCase):
     def test__all__(self):
-        blacklist = {"PlistFormat", "PLISTHEADER"}
-        support.check__all__(self, plistlib, blacklist=blacklist)
+        not_exported = {"PlistFormat", "PLISTHEADER"}
+        support.check__all__(self, plistlib, not_exported=not_exported)
 
 
 if __name__ == '__main__':

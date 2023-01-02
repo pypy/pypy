@@ -6,7 +6,7 @@ import unittest
 import os
 from difflib import unified_diff
 from io import StringIO
-from test.support import TESTFN, unlink, temp_dir, change_cwd
+from test.support.os_helper import TESTFN, unlink, temp_dir, change_cwd
 from contextlib import contextmanager
 
 import profile
@@ -114,7 +114,7 @@ class ProfileTest(unittest.TestCase):
     def test_output_file_when_changing_directory(self):
         with temp_dir() as tmpdir, change_cwd(tmpdir):
             os.mkdir('dest')
-            with open('demo.py', 'w') as f:
+            with open('demo.py', 'w', encoding="utf-8") as f:
                 f.write('import os; os.chdir("dest")')
 
             assert_python_ok(

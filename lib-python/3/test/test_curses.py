@@ -6,8 +6,9 @@ import sys
 import tempfile
 import unittest
 
-from test.support import (requires, import_module, verbose, SaveSignals,
-        cpython_only)
+from test.support import (requires, verbose, SaveSignals, cpython_only,
+                          check_disallow_instantiation)
+from test.support.import_helper import import_module
 
 # Optionally test curses module.  This currently requires that the
 # 'curses' resource be given on the regrtest command line using the -u
@@ -571,13 +572,12 @@ class TestCurses(unittest.TestCase):
     @requires_curses_window_meth('enclose')
     def test_enclose(self):
         win = curses.newwin(5, 15, 2, 5)
-        # TODO: Return bool instead of 1/0
-        self.assertTrue(win.enclose(2, 5))
-        self.assertFalse(win.enclose(1, 5))
-        self.assertFalse(win.enclose(2, 4))
-        self.assertTrue(win.enclose(6, 19))
-        self.assertFalse(win.enclose(7, 19))
-        self.assertFalse(win.enclose(6, 20))
+        self.assertIs(win.enclose(2, 5), True)
+        self.assertIs(win.enclose(1, 5), False)
+        self.assertIs(win.enclose(2, 4), False)
+        self.assertIs(win.enclose(6, 19), True)
+        self.assertIs(win.enclose(7, 19), False)
+        self.assertIs(win.enclose(6, 20), False)
 
     def test_putwin(self):
         win = curses.newwin(5, 12, 1, 2)
@@ -863,10 +863,13 @@ class TestCurses(unittest.TestCase):
         self.assertEqual(curses.getsyx(), (4, 5))
 
     def bad_colors(self):
-        return (-2**31 - 1, 2**31, -2**63 - 1, 2**63, 2**64)
+        return (-1, curses.COLORS, -2**31 - 1, 2**31, -2**63 - 1, 2**63, 2**64)
+
+    def bad_colors2(self):
+        return (curses.COLORS, 2**31, 2**63, 2**64)
 
     def bad_pairs(self):
-        return (-2**31 - 1, 2**31, -2**63 - 1, 2**63, 2**64)
+        return (-1, -2**31 - 1, 2**31, -2**63 - 1, 2**63, 2**64)
 
     def test_has_colors(self):
         self.assertIsInstance(curses.has_colors(), bool)
@@ -884,14 +887,11 @@ class TestCurses(unittest.TestCase):
     def test_color_content(self):
         self.assertEqual(curses.color_content(curses.COLOR_BLACK), (0, 0, 0))
         curses.color_content(0)
-        maxcolor = min(curses.COLORS - 1, SHORT_MAX)
+        maxcolor = curses.COLORS - 1
         curses.color_content(maxcolor)
 
         for color in self.bad_colors():
-            self.assertRaises(OverflowError, curses.color_content, color)
-        if curses.COLORS <= SHORT_MAX:
-            self.assertRaises(curses.error, curses.color_content, curses.COLORS)
-        self.assertRaises(curses.error, curses.color_content, -1)
+            self.assertRaises(ValueError, curses.color_content, color)
 
     @requires_colors
     def test_init_color(self):
@@ -909,7 +909,7 @@ class TestCurses(unittest.TestCase):
         curses.init_color(0, 1000, 1000, 1000)
         self.assertEqual(curses.color_content(0), (1000, 1000, 1000))
 
-        maxcolor = min(curses.COLORS - 1, SHORT_MAX)
+        maxcolor = curses.COLORS - 1
         old = curses.color_content(maxcolor)
         curses.init_color(maxcolor, *old)
         self.addCleanup(curses.init_color, maxcolor, *old)
@@ -917,17 +917,28 @@ class TestCurses(unittest.TestCase):
         self.assertEqual(curses.color_content(maxcolor), (0, 500, 1000))
 
         for color in self.bad_colors():
-            self.assertRaises(OverflowError, curses.init_color, color, 0, 0, 0)
-        if curses.COLORS <= SHORT_MAX:
-            self.assertRaises(curses.error, curses.init_color, curses.COLORS, 0, 0, 0)
-        self.assertRaises(curses.error, curses.init_color, -1, 0, 0, 0)
+            self.assertRaises(ValueError, curses.init_color, color, 0, 0, 0)
         for comp in (-1, 1001):
-            self.assertRaises(curses.error, curses.init_color, 0, comp, 0, 0)
-            self.assertRaises(curses.error, curses.init_color, 0, 0, comp, 0)
-            self.assertRaises(curses.error, curses.init_color, 0, 0, 0, comp)
+            self.assertRaises(ValueError, curses.init_color, 0, comp, 0, 0)
+            self.assertRaises(ValueError, curses.init_color, 0, 0, comp, 0)
+            self.assertRaises(ValueError, curses.init_color, 0, 0, 0, comp)
 
     def get_pair_limit(self):
-        return min(curses.COLOR_PAIRS, SHORT_MAX)
+        pair_limit = curses.COLOR_PAIRS
+        if hasattr(curses, 'ncurses_version'):
+            if curses.has_extended_color_support():
+                pair_limit += 2*curses.COLORS + 1
+            if (not curses.has_extended_color_support()
+                    or (6, 1) <= curses.ncurses_version < (6, 2)):
+                pair_limit = min(pair_limit, SHORT_MAX)
+            # If use_default_colors() is called, the upper limit of the extended
+            # range may be restricted, so we need to check if the limit is still
+            # correct
+            try:
+                curses.init_pair(pair_limit - 1, 0, 0)
+            except ValueError:
+                pair_limit = curses.COLOR_PAIRS
+        return pair_limit
 
     @requires_colors
     def test_pair_content(self):
@@ -940,8 +951,7 @@ class TestCurses(unittest.TestCase):
             curses.pair_content(maxpair)
 
         for pair in self.bad_pairs():
-            self.assertRaises(OverflowError, curses.pair_content, pair)
-        self.assertRaises(curses.error, curses.pair_content, -1)
+            self.assertRaises(ValueError, curses.pair_content, pair)
 
     @requires_colors
     def test_init_pair(self):
@@ -951,7 +961,7 @@ class TestCurses(unittest.TestCase):
 
         curses.init_pair(1, 0, 0)
         self.assertEqual(curses.pair_content(1), (0, 0))
-        maxcolor = min(curses.COLORS - 1, SHORT_MAX)
+        maxcolor = curses.COLORS - 1
         curses.init_pair(1, maxcolor, 0)
         self.assertEqual(curses.pair_content(1), (maxcolor, 0))
         curses.init_pair(1, 0, maxcolor)
@@ -962,14 +972,10 @@ class TestCurses(unittest.TestCase):
             self.assertEqual(curses.pair_content(maxpair), (0, 0))
 
         for pair in self.bad_pairs():
-            self.assertRaises(OverflowError, curses.init_pair, pair, 0, 0)
-        self.assertRaises(curses.error, curses.init_pair, -1, 0, 0)
-        for color in self.bad_colors():
-            self.assertRaises(OverflowError, curses.init_pair, 1, color, 0)
-            self.assertRaises(OverflowError, curses.init_pair, 1, 0, color)
-        if curses.COLORS <= SHORT_MAX:
-            self.assertRaises(curses.error, curses.init_pair, 1, curses.COLORS, 0)
-            self.assertRaises(curses.error, curses.init_pair, 1, 0, curses.COLORS)
+            self.assertRaises(ValueError, curses.init_pair, pair, 0, 0)
+        for color in self.bad_colors2():
+            self.assertRaises(ValueError, curses.init_pair, 1, color, 0)
+            self.assertRaises(ValueError, curses.init_pair, 1, 0, color)
 
     @requires_colors
     def test_color_attrs(self):
@@ -1048,11 +1054,13 @@ class TestCurses(unittest.TestCase):
         panel.set_userptr(A())
         panel.set_userptr(None)
 
+    @cpython_only
     @requires_curses_func('panel')
-    def test_new_curses_panel(self):
+    def test_disallow_instantiation(self):
+        # Ensure that the type disallows instantiation (bpo-43916)
         w = curses.newwin(10, 10)
         panel = curses.panel.new_panel(w)
-        self.assertRaises(TypeError, type(panel))
+        check_disallow_instantiation(self, type(panel))
 
     @requires_curses_func('is_term_resized')
     def test_is_term_resized(self):
@@ -1148,20 +1156,20 @@ class TestCurses(unittest.TestCase):
         # we will need to rewrite this test.
         try:
             signature = inspect.signature(stdscr.addch)
+            self.assertFalse(signature)
         except ValueError:
+            # not generating a signature is fine.
+            pass
 
-            # So.  No signature for addch.
-            # But Argument Clinic gave us a human-readable equivalent
-            # as the first line of the docstring.  So we parse that,
-            # and ensure that the parameters appear in the correct order.
-            # Since this is parsing output from Argument Clinic, we can
-            # be reasonably certain the generated parsing code will be
-            # correct too.
-            human_readable_signature = stdscr.addch.__doc__.split("\n")[0]
-            self.assertIn("[y, x,]", human_readable_signature)
-        else:
-            params = list(signature.parameters.keys())
-            self.assertTrue(params.index('y') < params.index('x'))
+        # So.  No signature for addch.
+        # But Argument Clinic gave us a human-readable equivalent
+        # as the first line of the docstring.  So we parse that,
+        # and ensure that the parameters appear in the correct order.
+        # Since this is parsing output from Argument Clinic, we can
+        # be reasonably certain the generated parsing code will be
+        # correct too.
+        human_readable_signature = stdscr.addch.__doc__.split("\n")[0]
+        self.assertIn("[y, x,]", human_readable_signature)
 
     @requires_curses_window_meth('resize')
     def test_issue13051(self):
@@ -1203,6 +1211,10 @@ class MiscTests(unittest.TestCase):
         self.assertGreaterEqual(v.major, 0)
         self.assertGreaterEqual(v.minor, 0)
         self.assertGreaterEqual(v.patch, 0)
+
+    def test_has_extended_color_support(self):
+        r = curses.has_extended_color_support()
+        self.assertIsInstance(r, bool)
 
 
 class TestAscii(unittest.TestCase):
