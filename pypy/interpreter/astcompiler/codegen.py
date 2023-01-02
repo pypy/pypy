@@ -1973,7 +1973,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 if not is_last_case:
                     self.emit_op(ops.DUP_TOP)
 
+                assert match_context.on_top == 0
                 case.pattern.walkabout(self)
+                assert match_context.on_top == 0
                 # the pattern visit methods will conditionally jump away if
                 # it's not a match. so if the execution is still here, it's a
                 # match
@@ -2078,6 +2080,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # pattern: (1, *rest, 4, 5)
         # stack = [(1,2,3,4,5)]
 
+        match_context.on_top += 1 # subject is on top
         self.emit_op(ops.MATCH_SEQUENCE)
         # stack = [(1,2,3,4,5), True]
 
@@ -2114,6 +2117,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
         # stack = [(1,2,3,4,5)]
 
+        match_context.on_top -= 1 # the rest consumes the subject
+
         if star_index >= 0:
             self.emit_op_arg(ops.UNPACK_EX, left + (right << 8))
             # stack = [(1,2,3,4,5), 5, 4, (2, 3), 1]
@@ -2125,7 +2130,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             patterns.append(match_sequence.patterns[left])
         else:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
-
 
         match_context.on_top += length
         with self.sub_pattern_context():
@@ -2254,11 +2258,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for i, pattern in enumerate(match_or.patterns):
                 is_not_last = i < len(match_or.patterns) - 1
                 match_context.allow_always_passing = allow_always_passing and not is_not_last
-                if is_not_last:
-                    self.emit_op(ops.DUP_TOP)
-                    # @1: i=0: [3, 3]
-                    # @2: i=0: [4, 4]; i=1: [4]
-                    # @3: i=0: [5, 5]; i=1: [5]
+                self.emit_op(ops.DUP_TOP)
 
                 if control is not None:
                     match_context.names_stored = control.copy()
@@ -2282,12 +2282,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_jump(ops.JUMP_FORWARD, end)
                 match_context.next_case()
 
+        # compile the "no match" case. pop the copy of the subject and fail
+        # unconditionally.
+        self.emit_op(ops.POP_TOP)
         outer_match_context.emit_fail_jump(ops.JUMP_FORWARD, False)
+
         self.use_next_block(end)
-    
+
     def visit_MatchClass(self, match_class):
         match_context = self.match_context
-        
+
         if match_class.kwd_attrs:
             kwd_attrs_w = [self.space.newtext(attr) for attr in match_class.kwd_attrs]
         else:
@@ -2308,7 +2312,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     pattern = match_class.patterns[i]
                 else:
                     pattern = match_class.kwd_patterns[i - nargs]
-                
+
                 # TODO: skip if pattern is a wildcard
                 self.emit_op(ops.DUP_TOP)
                 self.load_const(self.space.newint(i))

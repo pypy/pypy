@@ -65,6 +65,15 @@ def test_match_list():
     assert match_list([1, 2]) is None
     assert match_list([]) == "emptylist"
 
+def test_match_with_if_bug():
+    def match_truthy(x):
+        match x:
+            case a if a: return a
+    assert match_truthy(1) == 1
+    assert match_truthy(True) is True
+    assert match_truthy([]) is None
+    assert match_truthy('') is None
+
 
 def test_or():
     x = 2

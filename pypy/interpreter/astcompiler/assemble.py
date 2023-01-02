@@ -398,6 +398,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         #raise StackDepthComputationError   # would-be-nice-not-to-have
 
     def _stack_depth_debug_print(self, blocks, errorblock, errorinstr):
+        print "\n" * 5
+        print self.name
         for block in blocks:
             print "======="
             print block
@@ -572,7 +574,7 @@ class MatchContext(object):
         # the extra objects currently on the stack that need cleaning up
         self.on_top = 0
         self._reset_cleanup_blocks()
-    
+
     def _reset_cleanup_blocks(self):
         self.next = self.codegen.new_block()
         # the cleanup blocks will all be chained in reverse order, each one
