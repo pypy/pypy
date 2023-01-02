@@ -2005,34 +2005,27 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         w_value = match_singleton.value
         self.load_const(w_value)
         self.emit_op_arg(ops.IS_OP, 0)
-        if self.name == "match_list":
-            import pdb; pdb.set_trace()
         self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
 
+    def _pattern_store_name(self, name, node, match_context):
+        if name is None:
+            self.emit_op(ops.POP_TOP)
+            return
+
+        # check if name was already used:
+        if name in match_context.names_stored:
+            previous_match_as = match_context.names_stored[name]
+            self.error(
+                "multiple assignments to name '%s' in pattern, previous one was on line %s" % (
+                    name, node.lineno), node)
+        match_context.names_stored[name] = node
+        self.name_op(name, ast.Store, node)
+
     def visit_MatchAs(self, match_as):
-        # @1: input: 0; pattern: _; stack = [0]
-        # @2: input: 0; pattern: a; stack = [0]
-        # @3: input: 0; pattern: 0 as _; stack = [0]
-        # @4: input: 0; pattern: 0 as a; stack = [0]
-        # @5: input: 1; pattern: 0 as _; stack = [0]
-        # @6: input: 1; pattern: 0 as a; stack = [0]
-
-        if match_as.pattern:
-            if match_as.name:
-                self.emit_op(ops.DUP_TOP)
-                self.match_context.on_top += 1
-                # @4: stack = [0, 0]
-                # @6: stack = [1, 1]
-            else:
-                pass
-                # @3: stack = [0]
-                # @5: stack = [1]
-
-            # this will jump away if the pattern doesn't match
-            match_as.pattern.walkabout(self)
-        else:
+        match_context = self.match_context
+        if match_as.pattern is None:
             # this pattern always passes, check whether that is ok
-            if not self.match_context.allow_always_passing:
+            if not match_context.allow_always_passing:
                 if match_as.name:
                     self.error(
                         "name capture '%s' makes remaining patterns unreachable" % (
@@ -2042,33 +2035,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.error(
                         "wildcard makes remaining patterns unreachable",
                         match_as)
+            self._pattern_store_name(match_as.name, match_as, match_context)
+            return
 
         targetname = match_as.name
-        if targetname is None:
-            if not match_as.pattern:
-                self.emit_op(ops.POP_TOP)
-                # @1: stack = []
-            else:
-                pass
-                # @3: stack = []
+        if targetname:
+            self.emit_op(ops.DUP_TOP)
+            match_context.on_top += 1
 
-        else:
-            # @2: stack = [0]
-            # @4: stack = [0]
+        # this will jump away if the pattern doesn't match
+        match_as.pattern.walkabout(self)
 
-            # check if name was already used:
-            match_context = self.match_context
-            if targetname in match_context.names_stored:
-                previous_match_as = match_context.names_stored[targetname]
-                self.error(
-                    "multiple assignments to name '%s' in pattern, previous one was on line %s" % (
-                        targetname, match_as.lineno), match_as)
-            match_context.names_stored[targetname] = match_as
-            self.name_op(targetname, ast.Store, match_as)
+        if targetname:
             match_context.on_top -= 1
-            # @2: stack = []
-            # @4: stack = []
-
+            self._pattern_store_name(match_as.name, match_as, match_context)
 
     def visit_MatchSequence(self, match_sequence):
         match_context = self.match_context
