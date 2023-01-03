@@ -2242,6 +2242,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
                 if control is not None:
                     match_context.names_stored = control.copy()
+                assert match_context.on_top == 0
                 pattern.walkabout(self)
 
                 # make sure that the set of stored names is the same in all
@@ -2268,6 +2269,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         outer_match_context.emit_fail_jump(ops.JUMP_FORWARD, False)
 
         self.use_next_block(end)
+        # pop the copy of the subject
+        self.emit_op(ops.POP_TOP)
 
     def visit_MatchClass(self, match_class):
         match_context = self.match_context
