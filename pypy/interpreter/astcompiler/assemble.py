@@ -395,7 +395,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             self._stack_depth_debug_print(blocks, block, instr)
         os.write(2, "StackDepthComputationError(POS) in %s at %s:%s depth %s\n"
           % (self.compile_info.filename, self.name, self.first_lineno, depth))
-        #raise StackDepthComputationError   # would-be-nice-not-to-have
+        raise StackDepthComputationError   # would-be-nice-not-to-have
 
     def _stack_depth_debug_print(self, blocks, errorblock, errorinstr):
         print "\n" * 5
