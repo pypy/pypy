@@ -4,34 +4,31 @@ test configuration(s) for running CPython's regression
 test suite on top of PyPy
 
 """
-import py
+import py.path as pypath
 import pytest
 import sys
 import re
-import pypy
 
 # the following adds command line options as a side effect!
 from pypy.conftest import option as pypy_option
 
-from pypy.tool.pytest.confpath import pypydir, testdir, testresultdir
-from rpython.config.parse import parse_info
+from pypy.tool.pytest.confpath import pypydir, testdir
 
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../pypy/']
 
 #
-# Interfacing/Integrating with py.test's collection process
+# Interfacing/Integrating with pytest's collection process
 #
 
 def pytest_addoption(parser):
-    group = parser.getgroup("complicance testing options")
+    group = parser.getgroup("compliance testing options")
     group.addoption('-T', '--timeout', action="store", type="string",
                     default="1000", dest="timeout",
                     help="fail a test module after the given timeout. "
                          "specify in seconds or 'NUMmp' aka Mega-Pystones")
     group.addoption('--pypy', action="store", type="string", dest="pypy",
-                    help="use given pypy executable to run lib-python tests. "
-                         "This will run the tests directly (i.e. not through py.py)")
+                    help="use given pypy executable to run lib-python tests. ")
     group.addoption('--filter', action="store", type="string", default=None,
                     dest="unittest_filter", help="Similar to -k, XXX")
 
@@ -313,6 +310,7 @@ testmap = [
     RegrTest('test_pdb.py'),
     RegrTest('test_peepholer.py'),
     RegrTest('test_peg_parser.py'),
+    RegrTest('test_peg_generator'),
     RegrTest('test_pickle.py'),
     RegrTest('test_picklebuffer.py'),
     RegrTest('test_pickletools.py'),
@@ -490,6 +488,7 @@ testmap = [
     RegrTest('test_zipimport.py'),
     RegrTest('test_zipimport_support.py'),
     RegrTest('test_zlib.py'),
+    RegrTest('test_zoneinfo'),
 ]
 
 def check_testmap_complete():
@@ -499,9 +498,9 @@ def check_testmap_complete():
     listed_names['test_support.py'] = True
     listed_names['test_multibytecodec_support.py'] = True
     missing = []
-    for path in testdir.listdir(fil='test_*.py'):
+    for path in testdir.listdir(fil='test_*'):
         name = path.basename
-        if name not in listed_names:
+        if (name.endswith('.py') or path.isdir()) and name not in listed_names:
             missing.append('    RegrTest(%r),' % (name,))
     missing.sort()
     assert not missing, "non-listed tests:\n%s" % ('\n'.join(missing),)
@@ -536,7 +535,7 @@ def pytest_pycollect_makemodule(path, parent):
     regrtest = config._basename2spec[path.basename]
     return RunFileExternal(path.basename, parent=parent, regrtest=regrtest)
 
-class RunFileExternal(py.test.collect.File):
+class RunFileExternal(pytest.collect.File):
     def __init__(self, name, parent, regrtest):
         super(RunFileExternal, self).__init__(name, parent)
         self.regrtest = regrtest
@@ -551,11 +550,11 @@ class RunFileExternal(py.test.collect.File):
 
 #
 # testmethod:
-# invoking in a separate process: py.py TESTFILE
+# invoking in a separate process: python TESTFILE
 #
 import os
 
-class ReallyRunFileExternal(py.test.collect.Item):
+class ReallyRunFileExternal(pytest.collect.Item):
     class ExternalFailure(Exception):
         """Failure in running subprocess"""
 
@@ -571,9 +570,9 @@ class ReallyRunFileExternal(py.test.collect.Item):
 
         option = self.config.option
         TIMEOUT = gettimeout(option.timeout.lower())
-        execpath = py.path.local(option.pypy)
+        execpath = pypath.local(option.pypy)
         if not execpath.check():
-            execpath = py.path.local.sysfind(option.pypy)
+            execpath = pypath.local.sysfind(option.pypy)
         if not execpath:
             raise LookupError("could not find executable %r" % option.pypy)
 
@@ -596,11 +595,11 @@ class ReallyRunFileExternal(py.test.collect.Item):
                 msg = "obsolete or unsupported platform"
             else:
                 msg = regrtest.skip
-            py.test.skip(msg)
+            pytest.skip(msg)
         (skipped, exit_status, test_stdout, test_stderr) = \
             self.getresult(regrtest)
         if skipped:
-            py.test.skip(test_stderr.splitlines()[-1])
+            pytest.skip(test_stderr.splitlines()[-1])
         if exit_status:
             raise self.ExternalFailure(test_stdout, test_stderr)
 
@@ -611,7 +610,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
         return out + err
 
     def getstatusouterr(self, cmd):
-        tempdir = py.test.ensuretemp(self.fspath.basename)
+        tempdir = pytest.ensuretemp(self.fspath.basename)
         stdout = tempdir.join(self.fspath.basename) + '.out'
         stderr = tempdir.join(self.fspath.basename) + '.err'
         if sys.platform == 'win32':
@@ -639,7 +638,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
 
     def getresult(self, regrtest):
         cmd = self.getinvocation(regrtest)
-        tempdir = py.test.ensuretemp(self.fspath.basename)
+        tempdir = pytest.ensuretemp(self.fspath.basename)
         oldcwd = tempdir.chdir()
         exit_status, test_stdout, test_stderr = self.getstatusouterr(cmd)
         oldcwd.chdir()
