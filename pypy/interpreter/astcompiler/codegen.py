@@ -2015,14 +2015,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.POP_TOP)
             return
 
-        # check if name was already used:
-        if name in match_context.names_stored:
-            index = match_context.names_stored[name]
-            previous_match_as = match_context.names_origins[index]
-            self.error(
-                "multiple assignments to name '%s' in pattern, previous one was on line %s" % (
-                    name, node.lineno), node)
-        match_context.add_name(name, node)
+        match_context.add_name(name, node, self)
 
         # rotate this below any items we need to preserve
         targetpos = match_context.on_top + len(match_context.names_stored)
@@ -2268,14 +2261,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         nrots = nstores + 1 + outer_match_context.on_top + len(outer_match_context.names_stored)
         for i, name in enumerate(control):
             self.emit_op_arg(ops.ROT_N, nrots)
-            if name in outer_match_context.names_stored:
-                index = outer_match_context.names_stored[name]
-                previous_match_as = outer_match_context.names_origins[index]
-                self.error(
-                    "multiple assignments to name '%s' in pattern, previous one was on line %s" % (
-                        name, previous_match_as.lineno), control_origins[i])
-            else:
-                outer_match_context.add_name(name, control_origins[i])
+            outer_match_context.add_name(name, control_origins[i], self)
 
         # pop the copy of the subject
         self.emit_op(ops.POP_TOP)

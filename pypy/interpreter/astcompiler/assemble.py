@@ -579,11 +579,18 @@ class MatchContext(object):
         self.names_list = [] # list of names in order
         self.names_origins = [] # ast nodes to blame if a name repeats
 
-    def add_name(self, name, node):
-        assert name not in self.names_stored
-        self.names_stored[name] = len(self.names_stored)
-        self.names_list.append(name)
-        self.names_origins.append(node)
+    def add_name(self, name, node, codegen):
+        index = self.names_stored.get(name, -1)
+        if index >= 0:
+            # already exists
+            previous_node = self.names_origins[index]
+            codegen.error(
+                "multiple assignments to name '%s' in pattern, previous one was on line %s" % (
+                    name, previous_node.lineno), node)
+        else:
+            self.names_stored[name] = len(self.names_stored)
+            self.names_list.append(name)
+            self.names_origins.append(node)
 
     def _reset_cleanup_blocks(self):
         self.next = self.codegen.new_block()
