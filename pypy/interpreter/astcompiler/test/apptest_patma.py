@@ -123,7 +123,6 @@ def test_bug_repeated_names_not_reset_between_cases():
     assert as_bug(2) == 2
     assert as_bug(3) is None
 
-
 def test_bug_match_sequence_star():
     def sequence_star_bug(x):
         match x:

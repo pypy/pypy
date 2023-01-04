@@ -8,7 +8,7 @@ Generate Python bytecode from a Abstract Syntax Tree.
 # please.
 import struct
 
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -2250,6 +2250,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                         if name not in match_context.names_stored:
                             self.error("alternative patterns bind different names", match_or)
                         permutation[index] = match_context.names_stored[name]
+                    permutation.reverse()
                     rots = compute_reordering(permutation)
                     for rot in rots:
                         self.emit_op_arg(ops.ROT_N, rot)
@@ -2644,19 +2645,18 @@ class CallCodeGenerator(object):
 def rot_n(l, rotarg):
     # act like the ROT_N bytecode on l
     top = l[-1]
-    for i in range(rotarg):
+    for i in range(rotarg - 1):
         l[-i-1] = l[-i-2]
-    l[-rotarg-1] = top
+    l[-rotarg] = top
 
 def compute_reordering(l):
-    assert set(l) == set(range(len(l)))
-    if l == list(range(len(l))):
-        return []
+    if not we_are_translated():
+        assert set(l) == set(range(len(l)))
 
-    # look for ascending chains
+    # look for descending chains
     correct_lower_index = 0
-    while 1:
-        if l[correct_lower_index] < l[correct_lower_index + 1]:
+    while correct_lower_index < len(l) - 1:
+        if l[correct_lower_index] > l[correct_lower_index + 1]:
             correct_lower_index += 1
         else:
             break
@@ -2665,21 +2665,26 @@ def compute_reordering(l):
     while correct_lower_index < len(l) - 1:
         # bring the top element to the right place
         top = l[-1]
-        if top < l[correct_lower_index]:
-            # merge it into the ascending chain at the beginning
+        if top > l[correct_lower_index]:
+            # merge it into the  chain at the beginning
             index = -1
             for index in range(correct_lower_index + 1):
-                if l[index] > top:
+                if l[index] < top:
                     break
             assert index >= 0
-            rotarg = len(l) - index - 1
+            rotarg = len(l) - index
         else:
             # sort it next to the ascending chain
-            rotarg = len(l) - correct_lower_index - 2
+            rotarg = len(l) - correct_lower_index - 1
         rot_sequence.append(rotarg)
         rot_n(l, rotarg)
         correct_lower_index += 1
 
-    assert l == list(range(len(l)))
+    # paranoia
+    target = len(l) - 1
+    for element in l:
+        assert element == target
+        target -= 1
+    assert target == -1
     return rot_sequence
 
