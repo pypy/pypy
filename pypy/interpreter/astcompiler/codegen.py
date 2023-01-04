@@ -2271,6 +2271,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         match_context = self.match_context
 
         if match_class.kwd_attrs:
+            attrs = {}
+            for attr in match_class.kwd_attrs:
+                if attr in attrs:
+                    self.error("attribute name repeated in class pattern: '%s'" % attr, match_class)
+                attrs[attr] = None
             kwd_attrs_w = [self.space.newtext(attr) for attr in match_class.kwd_attrs]
         else:
             kwd_attrs_w = []
