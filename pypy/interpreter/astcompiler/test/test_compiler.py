@@ -2293,7 +2293,6 @@ def f(x):
         case C(x=z): return "C(x={})".format(z)
         case bool(b) if b: return "True"
         case bool(): return "False"
-import dis; dis.dis(f)
 res=(
     f(True),
     f(False),

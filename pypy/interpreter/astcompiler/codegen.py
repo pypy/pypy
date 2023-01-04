@@ -2289,8 +2289,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         match_class.cls.walkabout(self)
         self.load_const(self.space.newtuple(kwd_attrs_w))
         self.emit_op_arg(ops.MATCH_CLASS, nargs)
+        match_context.on_top += 1 # preserve the tuple
 
-        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True, cleanup=1)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
 
         with self.sub_pattern_context():
             for i in range(nargs + nattrs):
@@ -2305,6 +2306,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op(ops.BINARY_SUBSCR)
                 pattern.walkabout(self)
 
+        match_context.on_top -= 1 # pop the tuple
         self.emit_op(ops.POP_TOP)
 
 
