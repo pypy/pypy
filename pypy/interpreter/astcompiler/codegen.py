@@ -2269,7 +2269,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for i, name in enumerate(control):
             self.emit_op_arg(ops.ROT_N, nrots)
             if name in outer_match_context.names_stored:
-                xxx
+                index = outer_match_context.names_stored[name]
+                previous_match_as = outer_match_context.names_origins[index]
+                self.error(
+                    "multiple assignments to name '%s' in pattern, previous one was on line %s" % (
+                        name, previous_match_as.lineno), control_origins[i])
             else:
                 outer_match_context.add_name(name, control_origins[i])
 
