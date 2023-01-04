@@ -76,12 +76,12 @@ def test_compute_reordering():
     for size in range(2, 9):
         target = range(size)
         for perm in itertools.permutations(range(size)):
-            if perm[0] == 0:
+            if perm[0] == len(perm) - 1:
                 continue
             l = list(perm)
             rots = compute_reordering(l)
             l = list(perm)
             for rot in rots:
                 rot_n(l, rot)
-            assert l == target
+            assert l == list(reversed(target))
 
