@@ -133,3 +133,11 @@ def test_bug_match_sequence_star():
     # rest must not end up in globals!
     assert "rest" not in globals()
 
+def test_bug_match_class_builtin():
+    def match_class_bool(x):
+        match x:
+            case bool(b) if b: return "True"
+            case bool(): return "False"
+    assert match_class_bool(True) == "True"
+    assert match_class_bool(False) == "False"
+
