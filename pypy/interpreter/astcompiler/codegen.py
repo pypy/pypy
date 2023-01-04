@@ -2019,7 +2019,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         # rotate this below any items we need to preserve
         targetpos = match_context.on_top + len(match_context.names_stored)
-        self.emit_op_arg(ops.ROT_N, targetpos)
+        self.emit_rot_n(targetpos)
 
     def visit_MatchAs(self, match_as):
         match_context = self.match_context
@@ -2246,7 +2246,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     permutation.reverse()
                     rots = compute_reordering(permutation)
                     for rot in rots:
-                        self.emit_op_arg(ops.ROT_N, rot)
+                        self.emit_rot_n(rot)
                 self.emit_jump(ops.JUMP_FORWARD, end)
                 match_context.next_case()
 
@@ -2261,7 +2261,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         nstores = len(control)
         nrots = nstores + 1 + outer_match_context.on_top + len(outer_match_context.names_stored)
         for i, name in enumerate(control):
-            self.emit_op_arg(ops.ROT_N, nrots)
+            self.emit_rot_n(nrots)
             outer_match_context.add_name(name, control_origins[i], self)
 
         # pop the copy of the subject

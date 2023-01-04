@@ -254,6 +254,16 @@ class PythonCodeMaker(ast.ASTVisitor):
         if not self.is_dead_code():
             self.current_block.instructions.append(instr)
 
+    def emit_rot_n(self, arg):
+        if arg == 2:
+            self.emit_op(ops.ROT_TWO)
+        elif arg == 3:
+            self.emit_op(ops.ROT_THREE)
+        elif arg == 4:
+            self.emit_op(ops.ROT_FOUR)
+        else:
+            self.emit_op_arg(ops.ROT_N, arg)
+
     def emit_op_name(self, op, container, name):
         """Emit an opcode referencing a name."""
         self.emit_op_arg(op, self.add_name(container, name))
