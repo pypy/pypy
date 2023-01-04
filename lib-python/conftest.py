@@ -212,7 +212,7 @@ testmap = [
     RegrTest('test_future3.py'),
     RegrTest('test_future4.py'),
     RegrTest('test_future5.py'),
-    RegrTest('test_gc.py'),
+    RegrTest('test_gc.py', skip="implementation detail"),
     RegrTest('test_gdb.py', skip="not applicable"),
     RegrTest('test_generator_stop.py'),
     RegrTest('test_generators.py'),
