@@ -92,7 +92,6 @@ def test_or():
             a = 3
     assert a == 2
 
-
 def test_dont_use_is():
     match [1.0]:
         case [1]: pass
@@ -105,3 +104,21 @@ def test_only_bind_at_end():
             pass
     assert a == 5
 
+def test_or_reorder():
+    def or_orders(x):
+        match x:
+            case [a, b, 1] | [b, a, 2]:
+                return a, b
+        return 12
+    assert or_orders([1, 2, 1]) == (1, 2)
+    assert or_orders([1, 2, 2]) == (2, 1)
+    assert or_orders([1, 3, 4]) == 12
+
+def test_as_bug():
+    def as_bug(x):
+        match x:
+            case 1 as y: return y
+            case 2 as y: return y
+    assert as_bug(1) == 1
+    assert as_bug(2) == 2
+    assert as_bug(3) is None
