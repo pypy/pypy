@@ -32,6 +32,18 @@ match x:
         pass
 """)
 
+def test_error_name_bindings_duplicate_or():
+    with pytest.raises(SyntaxError) as info:
+        exec("""
+def f(x):
+    match x:
+            case [1 as a,
+                ((2 as a) | (3 as a))]: return 17
+""")
+    assert info.value.msg == "multiple assignments to name 'a' in pattern, previous one was on line 4"
+    assert info.value.lineno == 5
+
+
 def test_error_name_bindings_or():
     with pytest.raises(SyntaxError) as info:
         exec("""
