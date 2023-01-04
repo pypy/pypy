@@ -1974,14 +1974,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.emit_op(ops.DUP_TOP)
 
                 assert match_context.on_top == 0
+                self.update_position(case.pattern.lineno)
                 case.pattern.walkabout(self)
                 assert match_context.on_top == 0
                 # the pattern visit methods will conditionally jump away if
                 # it's not a match. so if the execution is still here, it's a
                 # match
 
-                # TODO: this is not the correct solution. fix this optimization
-                # if not isinstance(case.pattern, ast.MatchAs):
+                # now we need to actually do the variable bindings (the pattern
+                # only stores the values on the stack)
+                for i, name in enumerate(match_context.names_list):
+                    self.name_op(name, ast.Store, match_context.names_origins[i])
 
                 if case.guard:
                     case.guard.walkabout(self)
@@ -2014,12 +2017,18 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         # check if name was already used:
         if name in match_context.names_stored:
-            previous_match_as = match_context.names_stored[name]
+            index = match_context.names_stored[name]
+            previous_match_as = match_context.names_origins[index]
             self.error(
                 "multiple assignments to name '%s' in pattern, previous one was on line %s" % (
                     name, node.lineno), node)
-        match_context.names_stored[name] = node
-        self.name_op(name, ast.Store, node)
+        match_context.names_stored[name] = len(match_context.names_stored)
+        match_context.names_list.append(name)
+        match_context.names_origins.append(node)
+
+        # rotate this below any items we need to preserve
+        targetpos = match_context.on_top + len(match_context.names_stored)
+        self.emit_op_arg(ops.ROT_N, targetpos)
 
     def visit_MatchAs(self, match_as):
         match_context = self.match_context
@@ -2224,42 +2233,43 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # stack = []
 
     def visit_MatchOr(self, match_or):
-        # @1: input: 3; pattern: 3 | 4; stack = [3]
-        # @2: input: 3; pattern: 3 | 4; stack = [4]
-        # @3: input: 5; pattern: 3 | 4; stack = [5]
-
         end = self.new_block()
 
         control = None
+        control_origins = None
         outer_match_context = self.match_context
         allow_always_passing = outer_match_context.allow_always_passing
 
+        if self.name == "or_orders":
+            import pdb; pdb.set_trace()
         with self.new_match_context() as match_context:
             for i, pattern in enumerate(match_or.patterns):
                 is_not_last = i < len(match_or.patterns) - 1
                 match_context.allow_always_passing = allow_always_passing and not is_not_last
                 self.emit_op(ops.DUP_TOP)
 
-                if control is not None:
-                    match_context.names_stored = control.copy()
                 assert match_context.on_top == 0
+                if control is not None: # not the first case
+                    match_context._init_names()
                 pattern.walkabout(self)
 
                 # make sure that the set of stored names is the same in all
                 # branches
                 if control is None:
-                    control = match_context.names_stored
+                    control = match_context.names_list
+                    control_origins = match_context.names_origins
                 else:
                     # check that the names are the same in the later alternative
                     if len(control) != len(match_context.names_stored):
                         self.error("alternative patterns bind different names", match_or)
-                    for name in control:
+                    permutation = [-1] * len(control)
+                    for index, name in enumerate(control):
                         if name not in match_context.names_stored:
                             self.error("alternative patterns bind different names", match_or)
-                    for name in match_context.names_stored:
-                        if name not in control:
-                            self.error("alternative patterns bind different names", match_or)
-
+                        permutation[index] = match_context.names_stored[name]
+                    rots = compute_reordering(permutation)
+                    for rot in rots:
+                        self.emit_op_arg(ops.ROT_N, rot)
                 self.emit_jump(ops.JUMP_FORWARD, end)
                 match_context.next_case()
 
@@ -2269,6 +2279,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         outer_match_context.emit_fail_jump(ops.JUMP_FORWARD, False)
 
         self.use_next_block(end)
+        # now we need more rotates! yay yay yay!
+        nstores = len(control)
+        nrots = nstores + 1 + outer_match_context.on_top + len(outer_match_context.names_stored)
+        for i, name in enumerate(control):
+            self.emit_op_arg(ops.ROT_N, nrots)
+            if name in outer_match_context.names_stored:
+                xxx
+            else:
+                outer_match_context.add_name(name, control_origins[i])
+
         # pop the copy of the subject
         self.emit_op(ops.POP_TOP)
 
@@ -2635,4 +2655,46 @@ class CallCodeGenerator(object):
         else:
             self._pack_kwargs_into_dict()
             codegenerator.emit_op_arg(ops.CALL_FUNCTION_EX, int(self.have_kwargs))
+
+def rot_n(l, rotarg):
+    # act like the ROT_N bytecode on l
+    top = l[-1]
+    for i in range(rotarg):
+        l[-i-1] = l[-i-2]
+    l[-rotarg-1] = top
+
+def compute_reordering(l):
+    assert set(l) == set(range(len(l)))
+    if l == list(range(len(l))):
+        return []
+
+    # look for ascending chains
+    correct_lower_index = 0
+    while 1:
+        if l[correct_lower_index] < l[correct_lower_index + 1]:
+            correct_lower_index += 1
+        else:
+            break
+
+    rot_sequence = []
+    while correct_lower_index < len(l) - 1:
+        # bring the top element to the right place
+        top = l[-1]
+        if top < l[correct_lower_index]:
+            # merge it into the ascending chain at the beginning
+            index = -1
+            for index in range(correct_lower_index + 1):
+                if l[index] > top:
+                    break
+            assert index >= 0
+            rotarg = len(l) - index - 1
+        else:
+            # sort it next to the ascending chain
+            rotarg = len(l) - correct_lower_index - 2
+        rot_sequence.append(rotarg)
+        rot_n(l, rotarg)
+        correct_lower_index += 1
+
+    assert l == list(range(len(l)))
+    return rot_sequence
 

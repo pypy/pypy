@@ -1783,10 +1783,10 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def ROT_N(self, oparg, next_instr):
-        # TODO: this is terrible
-        values_w = [self.popvalue() for _ in range(oparg)]
-        for v in values_w:
-            self.pushvalue(v)
+        w_top = self.peekvalue()
+        for i in range(oparg - 1):
+            self.settopvalue(self.peekvalue(i + 1), i)
+        self.settopvalue(w_top, oparg - 1)
 
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
     # invoke a "send" or "throw" by method name to a non-generator w_yf

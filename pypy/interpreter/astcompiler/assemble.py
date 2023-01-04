@@ -568,12 +568,22 @@ class DeadCode(object):
 class MatchContext(object):
     def __init__(self, codegen):
         self.codegen = codegen
-        self.names_stored = {}
-        self.names_list = []
+        self._init_names()
         self.allow_always_passing = False
         # the extra objects currently on the stack that need cleaning up
         self.on_top = 0
         self._reset_cleanup_blocks()
+
+    def _init_names(self):
+        self.names_stored = {} # name -> int
+        self.names_list = [] # list of names in order
+        self.names_origins = [] # ast nodes to blame if a name repeats
+
+    def add_name(self, name, node):
+        assert name not in self.names_stored
+        self.names_stored[name] = len(self.names_stored)
+        self.names_list.append(name)
+        self.names_origins.append(node)
 
     def _reset_cleanup_blocks(self):
         self.next = self.codegen.new_block()
@@ -593,7 +603,7 @@ class MatchContext(object):
     def emit_fail_jump(self, op, absolute, cleanup=0):
         # emits a (conditional or unconditional) jump to the cleanup block (ie,
         # failure) with the right number of POP_TOPs
-        cleanup += self.on_top
+        cleanup += self.on_top + len(self.names_stored)
         while cleanup >= len(self.cleanup_blocks):
             self.cleanup_blocks.append(self.codegen.new_block())
         target = self.cleanup_blocks[cleanup]
