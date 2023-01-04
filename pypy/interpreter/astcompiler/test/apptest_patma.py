@@ -152,3 +152,11 @@ def test_bug_match_class_builtin():
     assert match_class_bool(True) == "True"
     assert match_class_bool(False) == "False"
 
+def test_error_repeated_class_keyword():
+    with pytest.raises(SyntaxError) as info:
+        exec("""
+match x:
+    case A(a=_, a=_):
+        pass
+""")
+
