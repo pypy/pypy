@@ -114,7 +114,7 @@ def test_or_reorder():
     assert or_orders([1, 2, 2]) == (2, 1)
     assert or_orders([1, 3, 4]) == 12
 
-def test_as_bug():
+def test_bug_repeated_names_not_reset_between_cases():
     def as_bug(x):
         match x:
             case 1 as y: return y
