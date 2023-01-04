@@ -599,6 +599,7 @@ class MatchContext(object):
             self.codegen.emit_op(ops.POP_TOP)
         self.codegen.use_next_block(self.next)
         self._reset_cleanup_blocks()
+        self._init_names()
 
     def emit_fail_jump(self, op, absolute, cleanup=0):
         # emits a (conditional or unconditional) jump to the cleanup block (ie,

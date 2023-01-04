@@ -2022,9 +2022,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.error(
                 "multiple assignments to name '%s' in pattern, previous one was on line %s" % (
                     name, node.lineno), node)
-        match_context.names_stored[name] = len(match_context.names_stored)
-        match_context.names_list.append(name)
-        match_context.names_origins.append(node)
+        match_context.add_name(name, node)
 
         # rotate this below any items we need to preserve
         targetpos = match_context.on_top + len(match_context.names_stored)
