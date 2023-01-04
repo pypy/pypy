@@ -2109,30 +2109,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if star_index >= 0:
             self.emit_op_arg(ops.UNPACK_EX, left + (right << 8))
             # stack = [(1,2,3,4,5), 5, 4, (2, 3), 1]
-            assert left >= 0
-            patterns = match_sequence.patterns[:left]
-            rightpatterns = match_sequence.patterns[left + 1:]
-            rightpatterns.reverse()
-            patterns.extend(rightpatterns)
-            patterns.append(match_sequence.patterns[left])
         else:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
 
         match_context.on_top += length
         with self.sub_pattern_context():
             for i, pattern in enumerate(patterns):
-                if i == star_index:
-                    # TODO: can use more efficient ROT versions (and even nothing
-                    # sometimes)
-                    self.emit_op_arg(ops.ROT_N, right + 1)
                 match_context.on_top -= 1
                 pattern.walkabout(self)
 
     def visit_MatchStar(self, match_star):
-        if not match_star.name:
-            self.emit_op(ops.POP_TOP)
-            return
-        self.name_op(match_star.name, ast.Store, match_star)
+        self._pattern_store_name(match_star.name, match_star, self.match_context)
 
     def visit_MatchMapping(self, match_mapping):
         match_context = self.match_context
@@ -2238,8 +2225,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         outer_match_context = self.match_context
         allow_always_passing = outer_match_context.allow_always_passing
 
-        if self.name == "or_orders":
-            import pdb; pdb.set_trace()
         with self.new_match_context() as match_context:
             for i, pattern in enumerate(match_or.patterns):
                 is_not_last = i < len(match_or.patterns) - 1

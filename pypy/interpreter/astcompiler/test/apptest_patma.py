@@ -122,3 +122,14 @@ def test_bug_repeated_names_not_reset_between_cases():
     assert as_bug(1) == 1
     assert as_bug(2) == 2
     assert as_bug(3) is None
+
+
+def test_bug_match_sequence_star():
+    def sequence_star_bug(x):
+        match x:
+            case [1, a, *rest, x, 3]:
+                return a, rest, x
+    assert sequence_star_bug([1, 2, 3, 4, 5, 6, 3]) == (2, [3, 4, 5], 6)
+    # rest must not end up in globals!
+    assert "rest" not in globals()
+
