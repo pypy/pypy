@@ -20,10 +20,10 @@ class W_NoneObject(W_Root):
 
     def descr_or(self, space, w_other):
         w_builtins = space.getbuiltinmodule('builtins')
-        w_mod = space.call_method(w_builtins, '__import__', space.newtext("typing"))
-        w_union = space.getattr(w_mod, space.newtext("Union"))
-        w_tuple = space.newtuple2(self, w_other)
-        return space.getitem(w_union, w_tuple)
+        w_mod = space.call_method(w_builtins, '__import__', space.newtext("_pypy_generic_alias"))
+        w_union = space.getattr(w_mod, space.newtext("_create_union"))
+        w_union = space.getattr(w_mod, space.newtext("_create_union"))
+        return space.call_function(w_union, self, w_other)
 
 
 W_NoneObject.w_None = W_NoneObject()
