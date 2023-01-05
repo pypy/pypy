@@ -2074,9 +2074,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         star_captures = False
         for i, pattern in enumerate(patterns):
             if isinstance(pattern, ast.MatchStar):
+                if star_index != -1:
+                    self.error("multiple starred names in sequence pattern", pattern)
                 star_index = i
                 star_captures = pattern.name is not None
-                break
 
         length = len(patterns)
         if star_index >= 0:
