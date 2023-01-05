@@ -38,7 +38,7 @@ ARCH = get_arch()
 USE_ZIPFILE_MODULE = ARCH == 'win32'
 
 STDLIB_VER = "3"
-POSIX_EXE = 'pypy3.9'
+POSIX_EXE = 'pypy3.10'
 
 
 from lib_pypy.pypy_tools.build_cffi_imports import (create_cffi_import_libraries,
