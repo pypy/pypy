@@ -158,3 +158,65 @@ def subs_tvars(obj, params, argitems):
         subargs.append(arg)
     return obj[tuple(subargs)]
 
+
+class UnionType:
+    """
+    Represent a PEP 604 union type
+
+    E.g. for int | str
+    """
+
+    __slots__ = ("__weakref__", "_args")
+
+    def __init__(self, args):
+        # need to deduplicate and flatten
+        res = {} # use insertion ordering of dicts
+        todo = list(args)
+        todo.reverse()
+        while todo:
+            arg = todo.pop()
+            if isinstance(arg, UnionType):
+                todo.extend(reversed(arg.__args__))
+                continue
+            res[arg] = None
+        self._args = tuple(res)
+
+    @property
+    def __args__(self):
+        return object.__getattribute__(self, "_args")
+
+    def __eq__(self, other):
+        if not isinstance(other, UnionType):
+            return NotImplemented
+        return set(self.__args__) == set(other.__args__)
+
+    def __hash__(self):
+        return hash(frozenset(self.__args__))
+
+    def __subclasscheck__(self, other):
+        for cls in self.__args__:
+            if issubclass(other, cls):
+                return True
+        return False
+
+    def __instancecheck__(self, instance):
+        for cls in self.__args__:
+            if isinstance(instance, cls):
+                return True
+        return False
+
+    def __repr__(self):
+        return " | ".join([_repr_item(x) for x in self.__args__])
+
+    def __or__(self, other):
+        return _create_union(self, other)
+
+def _unionable(obj):
+    return obj is None or isinstance(obj, (type, UnionType, GenericAlias))
+
+def _create_union(self, other):
+    if _unionable(self) and _unionable(other):
+        if self == other:
+            return self
+        return UnionType((self, other))
+    return NotImplemented
