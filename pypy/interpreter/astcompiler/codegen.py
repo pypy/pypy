@@ -2257,6 +2257,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         self.use_next_block(end)
         # now we need more rotates! yay yay yay!
+        assert control is not None
         nstores = len(control)
         nrots = nstores + 1 + outer_match_context.on_top + len(outer_match_context.names_stored)
         for i, name in enumerate(control):
