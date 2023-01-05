@@ -3,14 +3,15 @@ class SyntaxError(Exception):
     """Base class for exceptions raised by the parser."""
 
     def __init__(self, msg, lineno=0, offset=0, text=None, filename=None,
-                 lastlineno=0):
+                 end_lineno=0, end_offset=0):
         self.msg = msg
         self.lineno = lineno
-        # NB: offset is a 1-based index into the bytes source
+        # NB: offset and end_offset are 1-based indexes into the bytes source
         self.offset = offset
         self.text = text
         self.filename = filename
-        self.lastlineno = lastlineno
+        self.end_lineno = end_lineno
+        self.end_offset = end_offset
 
     def find_sourceline_and_wrap_info(self, space, source=None):
         """ search for the line of input that caused the error and then return
@@ -71,7 +72,8 @@ class SyntaxError(Exception):
             space.newtext(self.msg),
             space.newtuple([
                 w_filename, w_lineno, space.newint(offset),
-                w_text, space.newint(self.lastlineno)])])
+                w_text, space.newint(self.end_lineno),
+                space.newint(self.end_offset)])])
 
     def __str__(self):
         return "%s at pos (%d, %d) in %r" % (
@@ -82,10 +84,10 @@ class IndentationError(SyntaxError):
 
 class TabError(IndentationError):
     def __init__(self, lineno=0, offset=0, text=None, filename=None,
-                 lastlineno=0):
+                 end_lineno=0, end_offset=0):
         msg = "inconsistent use of tabs and spaces in indentation"
         IndentationError.__init__(
-            self, msg, lineno, offset, text, filename, lastlineno)
+            self, msg, lineno, offset, text, filename, end_lineno, end_offset)
 
 class ASTError(Exception):
     def __init__(self, msg, ast_node):
@@ -95,9 +97,9 @@ class ASTError(Exception):
 
 class TokenError(SyntaxError):
 
-    def __init__(self, msg, line, lineno, column, tokens, lastlineno=0):
+    def __init__(self, msg, line, lineno, column, tokens, end_lineno=0, end_offset=0):
         SyntaxError.__init__(self, msg, lineno, column, line,
-                             lastlineno=lastlineno)
+                             end_lineno=end_lineno, end_offset=end_offset)
         self.tokens = tokens
 
 class TokenIndentationError(IndentationError):
