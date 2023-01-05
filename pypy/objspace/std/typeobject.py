@@ -769,6 +769,13 @@ class W_TypeObject(W_Root):
         raise oefmt_attribute_error(
             space, self, w_name, "type object '%N' has no attribute %R")
 
+    def descr_or(self, space, w_other):
+        w_builtins = space.getbuiltinmodule('builtins')
+        w_mod = space.call_method(w_builtins, '__import__', space.newtext("typing"))
+        w_union = space.getattr(w_mod, space.newtext("Union"))
+        w_tuple = space.newtuple2(self, w_other)
+        return space.getitem(w_union, w_tuple)
+
 
 def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
@@ -1181,6 +1188,7 @@ W_TypeObject.typedef = TypeDef("type",
     __repr__ = gateway.interp2app(W_TypeObject.descr_repr),
     __getattribute__ = gateway.interp2app(W_TypeObject.descr_getattribute),
     __prepare__ = gateway.interp2app(descr___prepare__, as_classmethod=True),
+    __or__ = gateway.interp2app(W_TypeObject.descr_or),
 )
 
 

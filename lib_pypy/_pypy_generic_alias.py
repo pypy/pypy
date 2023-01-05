@@ -96,6 +96,10 @@ class GenericAlias:
     def __reduce__(self):
         return (type(self), (self.__origin__, self.__args__))
 
+    def __or__(self, other):
+        import typing
+        return typing.Union[self, other]
+
 def _repr_item(it):
     if it == Ellipsis:
         return "..."
