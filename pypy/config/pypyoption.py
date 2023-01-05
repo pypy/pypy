@@ -26,7 +26,7 @@ default_modules = essential_modules.copy()
 default_modules.update([
     "_codecs", "atexit", "gc", "_weakref", "marshal", "errno", "imp",
     "itertools", "math", "cmath", "_sre", "_pickle_support",
-    "parser", "token", "_ast", "_random",
+    "token", "_ast", "_random",
     "_string", "_testing", "time", "_abc",
 ])
 
