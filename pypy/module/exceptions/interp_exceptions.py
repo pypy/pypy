@@ -87,6 +87,7 @@ BaseException
            +-- UnicodeWarning
            +-- BytesWarning
            +-- ResourceWarning
+           +-- EncodingWarning
 """
 import errno
 from pypy.interpreter.baseobjspace import W_Root
@@ -749,6 +750,9 @@ W_DeprecationWarning = _new_exception('DeprecationWarning', W_Warning,
 
 W_ResourceWarning = _new_exception('ResourceWarning', W_Warning,
          """Base class for warnings about resource usage.""")
+
+W_EncodingWarning = _new_exception('EncodingWarning', W_Warning,
+         """Base class for warnings about encodings.""")
 
 W_ArithmeticError = _new_exception('ArithmeticError', W_Exception,
                          """Base class for arithmetic errors.""")

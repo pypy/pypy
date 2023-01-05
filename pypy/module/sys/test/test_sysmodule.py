@@ -199,6 +199,10 @@ class AppTestAppSysTests:
         assert 'readonly' in str(exc.value)
         raises(AttributeError, 'sys.flags.not_a_sys_flag = 2')
 
+    def test_sys_flags_warn_default_encoding(self):
+        import sys
+        sys.flags.warn_default_encoding # check it exists
+
     def test_sys_exit(self):
         import sys
         exc = raises(SystemExit, sys.exit)
