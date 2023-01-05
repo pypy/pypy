@@ -1762,7 +1762,7 @@ class __extend__(pyframe.PyFrame):
             while True:
                 w_key = self.space.next(w_iter)
                 if self.space.contains_w(w_seen, w_key):
-                    raise oefmt(self.space.w_ValueError, "mapping pattern checks duplicate key (%s)", w_key)
+                    raise oefmt(self.space.w_ValueError, "mapping pattern checks duplicate key (%R)", w_key)
                 self.space.call_method(w_seen, "add", w_key)
                 w_value = self.space.call_method(w_dict, 'get', w_key, self.space.w_None)
                 if not self.space.is_w(w_value, self.space.w_None):
