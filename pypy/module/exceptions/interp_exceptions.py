@@ -793,7 +793,8 @@ class W_SyntaxError(W_Exception):
         self.w_text     = space.w_None
         self.w_msg      = space.w_None
         self.w_print_file_and_line = space.w_None # what's that?
-        self.w_lastlineno = space.w_None          # this is a pypy extension
+        self.w_end_lineno = space.w_None
+        self.w_end_offset = space.w_None
         W_BaseException.__init__(self, space)
 
     def descr_init(self, space, args_w):
@@ -809,11 +810,13 @@ class W_SyntaxError(W_Exception):
                 self.w_offset = values_w[2]
             if len(values_w) > 3:
                 self.w_text = values_w[3]
-            if len(values_w) > 4:
-                self.w_lastlineno = values_w[4]   # PyPy extension
-                # kill the extra items from args_w to prevent undesired effects
-                args_w = args_w[:]
-                args_w[1] = space.newtuple(values_w[:4])
+            if len(values_w) == 5:
+                raise oefmt(space.w_TypeError, "end_offset must be provided when end_lineno is provided")
+            if len(values_w) == 6:
+                self.w_end_lineno = values_w[4]
+                self.w_end_offset = values_w[5]
+            if len(values_w) > 6:
+                raise oefmt(space.w_TypeError, "function takes at most 6 arguments (%s given)" % len(values_w))
         W_BaseException.descr_init(self, space, args_w)
         if self.w_text and space.isinstance_w(self.w_text, space.w_unicode):
             self._report_missing_parentheses(space)
@@ -827,9 +830,9 @@ class W_SyntaxError(W_Exception):
             buffer = self.msg
             have_filename = type(self.filename) is str
             if type(self.lineno) is int:
-                if (type(self.lastlineno) is int and
-                       self.lastlineno > self.lineno):
-                    lineno = 'lines %d-%d' % (self.lineno, self.lastlineno)
+                if (type(self.end_lineno) is int and
+                       self.end_lineno > self.lineno):
+                    lineno = 'lines %d-%d' % (self.lineno, self.end_lineno)
                 else:
                     lineno = 'line %d' % (self.lineno,)
             if have_filename:
@@ -843,21 +846,6 @@ class W_SyntaxError(W_Exception):
                 buffer = "%s (%s)" % (self.msg, lineno)
             return buffer
         """)
-
-    def descr_repr(self, space):
-        if (len(self.args_w) == 2
-            and not space.is_w(self.w_lastlineno, space.w_None)
-            and space.len_w(self.args_w[1]) == 4):
-            # fake a 5-element tuple in the repr, suitable for calling
-            # __init__ again
-            values_w = space.fixedview(self.args_w[1])
-            w_tuple = space.newtuple(values_w + [self.w_lastlineno])
-            args_w = [self.args_w[0], w_tuple]
-            args_repr = space.utf8_w(space.repr(space.newtuple(args_w)))
-            clsname = self.getclass(space).getname(space)
-            return space.newtext(clsname + args_repr)
-        else:
-            return W_Exception.descr_repr(self, space)
 
     # CPython Issue #21669: Custom error for 'print' & 'exec' as statements
     def _report_missing_parentheses(self, space):
@@ -940,7 +928,8 @@ W_SyntaxError.typedef = TypeDef(
     text     = readwrite_attrproperty_w('w_text', W_SyntaxError),
     print_file_and_line = readwrite_attrproperty_w('w_print_file_and_line',
                                                    W_SyntaxError),
-    lastlineno = readwrite_attrproperty_w('w_lastlineno', W_SyntaxError),
+    end_lineno = readwrite_attrproperty_w('w_end_lineno', W_SyntaxError),
+    end_offset = readwrite_attrproperty_w('w_end_offset', W_SyntaxError),
 )
 
 W_FutureWarning = _new_exception('FutureWarning', W_Warning,
