@@ -2100,6 +2100,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         match_context.on_top -= 1 # the rest consumes the subject
 
+        if star_index >= 0 and not star_captures:
+            self._pattern_sequence_subscr(match_sequence, star_index, match_context)
+            return
+
         if star_index >= 0:
             self.emit_op_arg(ops.UNPACK_EX, left + (right << 8))
             # stack = [(1,2,3,4,5), 5, 4, (2, 3), 1]
@@ -2111,6 +2115,27 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for i, pattern in enumerate(patterns):
                 match_context.on_top -= 1
                 pattern.walkabout(self)
+
+    def _pattern_sequence_subscr(self, match_sequence, star_index, match_context):
+        # optimization: don't unpack the whole iterable, just access positions
+        patterns = match_sequence.patterns
+        match_context.on_top += 1 # keep subject around
+        with self.sub_pattern_context():
+            size = len(patterns)
+            for i, pattern in enumerate(patterns):
+                if i == star_index:
+                    continue
+                self.emit_op(ops.DUP_TOP)
+                if i < star_index:
+                    self.load_const(self.space.newint(i))
+                else:
+                    self.emit_op(ops.GET_LEN)
+                    self.load_const(self.space.newint(size - i))
+                    self.emit_op(ops.BINARY_SUBTRACT)
+                self.emit_op(ops.BINARY_SUBSCR)
+                pattern.walkabout(self)
+        match_context.on_top -= 1
+        self.emit_op(ops.POP_TOP)
 
     def visit_MatchStar(self, match_star):
         self._pattern_store_name(match_star.name, match_star, self.match_context)

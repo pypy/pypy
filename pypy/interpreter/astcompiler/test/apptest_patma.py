@@ -211,3 +211,22 @@ def test_match_keys_duplicate_runtime():
         match {"a": 1, "b": 2}:
             case {K.k: y, "a": z}: w = 12
     assert w is y is z is None
+
+def test_optimize_unpack_sequence_star_no_capture():
+    class Sequence:
+        def __getitem__(self, index):
+            return index
+        def __len__(self):
+            return 42
+        def __iter__(self):
+            return self
+        def __next__(self):
+            return 1
+    a = 0
+    b = 0
+    match Sequence():
+        case [0, *_, b, 41]:
+            a = 1
+    assert a == 1
+    assert b == 40
+
