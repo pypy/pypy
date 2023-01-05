@@ -202,3 +202,12 @@ def test_match_args_tuple():
             case C(y, z):
                 w = 12
     assert w is y is z is None
+
+def test_match_keys_duplicate_runtime():
+    class K:
+        k = "a"
+    w = y = z = None
+    with pytest.raises(ValueError):
+        match {"a": 1, "b": 2}:
+            case {K.k: y, "a": z}: w = 12
+    assert w is y is z is None
