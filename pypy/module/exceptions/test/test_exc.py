@@ -121,7 +121,18 @@ class AppTestExc(object):
         s = SyntaxError("a", (1, 2, 3, 4))
         assert s.msg == "a"
         assert s.filename == 1
+        assert s.offset == 3
+        assert s.text == 4
         assert str(SyntaxError("msg", ("file.py", 2, 3, 4))) == "msg (file.py, line 2)"
+
+        s = SyntaxError("a", (1, 2, 3, 4, 5, 6))
+        assert s.msg == "a"
+        assert s.filename == 1
+        assert s.lineno == 2
+        assert s.offset == 3
+        assert s.text == 4
+        assert s.end_lineno == 5
+        assert s.end_offset == 6
 
     def test_system_exit(self):
         assert issubclass(SystemExit, BaseException)
