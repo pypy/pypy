@@ -181,7 +181,7 @@ class mod(AST):
         if space.isinstance_w(w_node, get(space).w_FunctionType):
             return FunctionType.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "expected some sort of mod, got %R", w_node)
+                "expected some sort of mod, but got %R", w_node)
 State.ast_type('mod', 'AST', None, [], default_none_fields=[], doc='mod = Module(stmt* body, type_ignore* type_ignores)\n    | Interactive(stmt* body)\n    | Expression(expr body)\n    | FunctionType(expr* argtypes, expr returns)')
 
 class Module(mod):
@@ -411,7 +411,7 @@ class stmt(AST):
         if space.isinstance_w(w_node, get(space).w_Continue):
             return Continue.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "expected some sort of stmt, got %R", w_node)
+                "expected some sort of stmt, but got %R", w_node)
 State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='stmt = FunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | AsyncFunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | ClassDef(identifier name, expr* bases, keyword* keywords, stmt* body, expr* decorator_list)\n     | Return(expr? value)\n     | Delete(expr* targets)\n     | Assign(expr* targets, expr value, string? type_comment)\n     | AugAssign(expr target, operator op, expr value)\n     | AnnAssign(expr target, expr annotation, expr? value, int simple)\n     | For(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | AsyncFor(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | While(expr test, stmt* body, stmt* orelse)\n     | If(expr test, stmt* body, stmt* orelse)\n     | With(withitem* items, stmt* body, string? type_comment)\n     | AsyncWith(withitem* items, stmt* body, string? type_comment)\n     | Match(expr subject, match_case* cases)\n     | Raise(expr? exc, expr? cause)\n     | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n     | Assert(expr test, expr? msg)\n     | Import(alias* names)\n     | ImportFrom(identifier? module, alias* names, int? level)\n     | Global(identifier* names)\n     | Nonlocal(identifier* names)\n     | Expr(expr value)\n     | Pass\n     | Break\n     | Continue')
 
 class FunctionDef(stmt):
@@ -2331,7 +2331,7 @@ class expr(AST):
         if space.isinstance_w(w_node, get(space).w_Slice):
             return Slice.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "expected some sort of expr, got %R", w_node)
+                "expected some sort of expr, but got %R", w_node)
 State.ast_type('expr', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='expr = BoolOp(boolop op, expr* values)\n     | NamedExpr(expr target, expr value)\n     | BinOp(expr left, operator op, expr right)\n     | UnaryOp(unaryop op, expr operand)\n     | Lambda(arguments args, expr body)\n     | IfExp(expr test, expr body, expr orelse)\n     | Dict(expr* keys, expr* values)\n     | Set(expr* elts)\n     | ListComp(expr elt, comprehension* generators)\n     | SetComp(expr elt, comprehension* generators)\n     | DictComp(expr key, expr value, comprehension* generators)\n     | GeneratorExp(expr elt, comprehension* generators)\n     | Await(expr value)\n     | Yield(expr? value)\n     | YieldFrom(expr value)\n     | Compare(expr left, cmpop* ops, expr* comparators)\n     | Call(expr func, expr* args, keyword* keywords)\n     | RevDBMetaVar(int metavar)\n     | FormattedValue(expr value, int? conversion, expr? format_spec)\n     | JoinedStr(expr* values)\n     | Constant(constant value, string? kind)\n     | Attribute(expr value, identifier attr, expr_context ctx)\n     | Subscript(expr value, expr slice, expr_context ctx)\n     | Starred(expr value, expr_context ctx)\n     | Name(identifier id, expr_context ctx)\n     | List(expr* elts, expr_context ctx)\n     | Tuple(expr* elts, expr_context ctx)\n     | Slice(expr? lower, expr? upper, expr? step)')
 
 class BoolOp(expr):
@@ -4112,7 +4112,7 @@ class expr_context(AST):
         if space.isinstance_w(w_node, get(space).w_Del):
             return 3
         raise oefmt(space.w_TypeError,
-                "expected some sort of expr_context, got %R", w_node)
+                "expected some sort of expr_context, but got %R", w_node)
 State.ast_type('expr_context', 'AST', None, doc='expr_context = Load | Store | Del')
 
 class _Load(expr_context):
@@ -4148,7 +4148,7 @@ class boolop(AST):
         if space.isinstance_w(w_node, get(space).w_Or):
             return 2
         raise oefmt(space.w_TypeError,
-                "expected some sort of boolop, got %R", w_node)
+                "expected some sort of boolop, but got %R", w_node)
 State.ast_type('boolop', 'AST', None, doc='boolop = And | Or')
 
 class _And(boolop):
@@ -4199,7 +4199,7 @@ class operator(AST):
         if space.isinstance_w(w_node, get(space).w_FloorDiv):
             return 13
         raise oefmt(space.w_TypeError,
-                "expected some sort of operator, got %R", w_node)
+                "expected some sort of operator, but got %R", w_node)
 State.ast_type('operator', 'AST', None, doc='operator = Add | Sub | Mult | MatMult | Div | Mod | Pow | LShift | RShift | BitOr | BitXor | BitAnd | FloorDiv')
 
 class _Add(operator):
@@ -4309,7 +4309,7 @@ class unaryop(AST):
         if space.isinstance_w(w_node, get(space).w_USub):
             return 4
         raise oefmt(space.w_TypeError,
-                "expected some sort of unaryop, got %R", w_node)
+                "expected some sort of unaryop, but got %R", w_node)
 State.ast_type('unaryop', 'AST', None, doc='unaryop = Invert | Not | UAdd | USub')
 
 class _Invert(unaryop):
@@ -4368,7 +4368,7 @@ class cmpop(AST):
         if space.isinstance_w(w_node, get(space).w_NotIn):
             return 10
         raise oefmt(space.w_TypeError,
-                "expected some sort of cmpop, got %R", w_node)
+                "expected some sort of cmpop, but got %R", w_node)
 State.ast_type('cmpop', 'AST', None, doc='cmpop = Eq | NotEq | Lt | LtE | Gt | GtE | Is | IsNot | In | NotIn')
 
 class _Eq(cmpop):
@@ -4519,7 +4519,7 @@ class excepthandler(AST):
         if space.isinstance_w(w_node, get(space).w_ExceptHandler):
             return ExceptHandler.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "expected some sort of excepthandler, got %R", w_node)
+                "expected some sort of excepthandler, but got %R", w_node)
 State.ast_type('excepthandler', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body)')
 
 class ExceptHandler(excepthandler):
@@ -5006,7 +5006,7 @@ class pattern(AST):
         if space.isinstance_w(w_node, get(space).w_MatchOr):
             return MatchOr.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "expected some sort of pattern, got %R", w_node)
+                "expected some sort of pattern, but got %R", w_node)
 State.ast_type('pattern', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=[], doc='pattern = MatchValue(expr value)\n        | MatchSingleton(constant value)\n        | MatchSequence(pattern* patterns)\n        | MatchMapping(expr* keys, pattern* patterns, identifier? rest)\n        | MatchClass(expr cls, pattern* patterns, identifier* kwd_attrs, pattern* kwd_patterns)\n        | MatchStar(identifier? name)\n        | MatchAs(pattern? pattern, identifier? name)\n        | MatchOr(pattern* patterns)')
 
 class MatchValue(pattern):
@@ -5506,7 +5506,7 @@ class type_ignore(AST):
         if space.isinstance_w(w_node, get(space).w_TypeIgnore):
             return TypeIgnore.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "expected some sort of type_ignore, got %R", w_node)
+                "expected some sort of type_ignore, but got %R", w_node)
 State.ast_type('type_ignore', 'AST', None, [], default_none_fields=[], doc='type_ignore = TypeIgnore(int lineno, string tag)')
 
 class TypeIgnore(type_ignore):
