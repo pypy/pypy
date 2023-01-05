@@ -380,7 +380,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
                 }
              """),])
         import collections
-        assert isinstance(dict(), collections.Mapping)
+        assert isinstance(dict(), collections.abc.Mapping)
         assert module.ismapping(dict())
         def f():
             pass
