@@ -80,7 +80,7 @@ class ASTNodeVisitor(ASDLVisitor):
                           % (cons.name,), 2)
                 self.emit("return %i" % (i+1,), 3)
             self.emit("raise oefmt(space.w_TypeError,", 2)
-            self.emit("        \"expected some sort of %s, got %%R\", w_node)" % (base,), 2)
+            self.emit("        \"expected some sort of %s, but got %%R\", w_node)" % (base,), 2)
             doc = asdl_of(base, sum)
             self.emit("State.ast_type('%s', 'AST', None, doc=%r)" % (base, doc))
             self.emit("")
@@ -118,7 +118,7 @@ class ASTNodeVisitor(ASDLVisitor):
                 self.emit("return %s.from_object(space, w_node)"
                           % (typ.name,), 3)
             self.emit("raise oefmt(space.w_TypeError,", 2)
-            self.emit("        \"expected some sort of %s, got %%R\", w_node)" % (base,), 2)
+            self.emit("        \"expected some sort of %s, but got %%R\", w_node)" % (base,), 2)
             doc = asdl_of(base, sum)
             defaults = [x.name for x in sum.attributes if x.opt]
             self.emit("State.ast_type(%r, 'AST', None, %s, default_none_fields=%r, doc=%r)" %
