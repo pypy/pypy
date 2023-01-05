@@ -189,3 +189,16 @@ match x:
 """)
     assert info.value.msg == "multiple starred names in sequence pattern"
     assert info.value.lineno == 3
+
+def test_match_args_tuple():
+    class C:
+        __match_args__ = ["a", "b"]
+        a = 0
+        b = 1
+    x = C()
+    w = y = z = None
+    with pytest.raises(TypeError):
+        match x:
+            case C(y, z):
+                w = 12
+    assert w is y is z is None

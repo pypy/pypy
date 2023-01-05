@@ -2087,8 +2087,8 @@ def match_class_attr(space, w_subject, w_name, w_type, seen):
     seen[name] = None
     return space.findattr(w_subject, w_name)
 
+@jit.unroll_safe
 def _match_class(space, nargs, w_names, w_type, w_subject):
-    # TODO: this needs better JIT hints
     if not space.isinstance_w(w_subject, w_type):
         return None
 
@@ -2098,7 +2098,6 @@ def _match_class(space, nargs, w_names, w_type, w_subject):
         try:
             w_match_args = space.getattr(w_type, space.newtext('__match_args__'))
             match_self = False
-            # TODO: validate match_args is a tuple
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise e
@@ -2115,6 +2114,10 @@ def _match_class(space, nargs, w_names, w_type, w_subject):
                 space.isinstance_w(w_subject, space.w_unicode) or \
                 space.isinstance_w(w_subject, space.w_set) or \
                 space.isinstance_w(w_subject, space.w_frozenset)
+        if not space.isinstance_w(w_match_args, space.w_tuple):
+            raise oefmt(space.w_TypeError,
+                "%N.__match_args__ must be a tuple (got '%T')",
+                w_type, w_match_args)
 
         allowed = 1 if match_self else space.len_w(w_match_args)
         if allowed < nargs:
