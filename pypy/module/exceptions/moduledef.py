@@ -21,6 +21,7 @@ class Module(MixedModule):
         'ConnectionResetError': 'interp_exceptions.W_ConnectionResetError',
         'DeprecationWarning' : 'interp_exceptions.W_DeprecationWarning',
         'EOFError' : 'interp_exceptions.W_EOFError',
+        'EncodingWarning' : 'interp_exceptions.W_EncodingWarning',
         'EnvironmentError' : 'interp_exceptions.W_OSError',
         'Exception' : 'interp_exceptions.W_Exception',
         'FileExistsError': 'interp_exceptions.W_FileExistsError',
