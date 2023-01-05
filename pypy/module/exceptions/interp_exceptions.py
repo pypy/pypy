@@ -816,7 +816,7 @@ class W_SyntaxError(W_Exception):
                 self.w_end_lineno = values_w[4]
                 self.w_end_offset = values_w[5]
             if len(values_w) > 6:
-                raise oefmt(space.w_TypeError, "function takes at most 6 arguments (%s given)" % len(values_w))
+                raise oefmt(space.w_TypeError, "function takes at most 6 arguments (%s given)", str(len(values_w)))
         W_BaseException.descr_init(self, space, args_w)
         if self.w_text and space.isinstance_w(self.w_text, space.w_unicode):
             self._report_missing_parentheses(space)
