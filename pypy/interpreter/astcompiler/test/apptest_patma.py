@@ -160,3 +160,13 @@ match x:
         pass
 """)
 
+def test_error_duplicate_key():
+    with pytest.raises(SyntaxError) as info:
+        exec("""
+match x:
+    case {"a": 1, "a": 2}:
+        pass
+""")
+    assert info.value.msg == "mapping pattern checks duplicate key ('a')"
+    assert info.value.lineno == 3
+
