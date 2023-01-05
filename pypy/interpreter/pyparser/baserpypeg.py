@@ -195,6 +195,11 @@ class CmpopExprPair(object):
         self.cmpop = cmpop
         self.expr = expr
 
+class KeyPatternPair(object):
+    def __init__(self, keyword, pattern):
+        self.keyword = keyword
+        self.pattern = pattern
+
 class Parser:
     """Parsing base class."""
 
@@ -467,6 +472,7 @@ class Parser:
         self._reset(mark)
         return ok
 
+    @specialize.arg(1)
     def negative_lookahead(self, func, *args):
         mark = self._mark()
         ok = func(self, *args)
@@ -580,17 +586,17 @@ class Parser:
     def new_identifier(self, name):
         return misc.new_identifier(self.space, name)
 
-    def ensure_real(self, number_str):
-        number = ast.literal_eval(number_str)
-        if number is not complex:
+    def ensure_real(self, tok):
+        w_number = self.parse_number(tok)
+        if self.space.is_w(self.space.type(w_number), self.space.w_complex):
             self.raise_syntax_error("real number required in complex literal")
-        return number
+        return w_number
 
-    def ensure_imaginary(self, number_str):
-        number = ast.literal_eval(number_str)
-        if number is not complex:
+    def ensure_imaginary(self, tok):
+        w_number = self.parse_number(tok)
+        if not self.space.is_w(self.space.type(w_number), self.space.w_complex):
             self.raise_syntax_error("imaginary  number required in complex literal")
-        return number
+        return w_number
 
     def generate_ast_for_string(self, tokens):
         """Generate AST nodes for strings."""
@@ -656,6 +662,20 @@ class Parser:
     def get_comparators(self, pairs):
         return [p.expr for p in pairs]
 
+    def get_pattern_keys(self, pairs):
+        return [p.keyword for p in pairs]
+
+    def get_patterns(self, pairs):
+        return [p.pattern for p in pairs]
+
+    def get_pattern_names(self, pairs):
+        res = [None] * len(pairs)
+        for i, p in enumerate(pairs):
+            key = p.keyword
+            assert isinstance(key, ast.Name)
+            res[i] = key.id
+        return res
+
     def set_arg_type_comment(self, arg, type_comment):
         if type_comment is None:
             return arg
@@ -680,6 +700,9 @@ class Parser:
 
     def cmpop_expr_pair(self, cmpop, expr):
         return CmpopExprPair(cmpop, expr)
+
+    def key_pattern_pair(self, keyword, pattern):
+        return KeyPatternPair(keyword, pattern)
 
     def dummy_name(self, *args):
         return ast.Name(

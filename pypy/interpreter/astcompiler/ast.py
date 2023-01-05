@@ -147,7 +147,7 @@ class State:
     def make_new_type(self, space, name, base, fields, attributes, default_none_fields, doc):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
-        space.setitem_str(w_dict, '__module__', space.newtext('ast'))
+        space.setitem_str(w_dict, '__module__', space.newtext('_ast'))
         if fields is not None:
             space.setitem_str(w_dict, "_fields",
                               space.newtuple([space.newtext(f) for f in fields]))
@@ -386,6 +386,8 @@ class stmt(AST):
             return With.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_AsyncWith):
             return AsyncWith.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_Match):
+            return Match.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Raise):
             return Raise.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Try):
@@ -410,7 +412,7 @@ class stmt(AST):
             return Continue.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "expected some sort of stmt, got %R", w_node)
-State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='stmt = FunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | AsyncFunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | ClassDef(identifier name, expr* bases, keyword* keywords, stmt* body, expr* decorator_list)\n     | Return(expr? value)\n     | Delete(expr* targets)\n     | Assign(expr* targets, expr value, string? type_comment)\n     | AugAssign(expr target, operator op, expr value)\n     | AnnAssign(expr target, expr annotation, expr? value, int simple)\n     | For(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | AsyncFor(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | While(expr test, stmt* body, stmt* orelse)\n     | If(expr test, stmt* body, stmt* orelse)\n     | With(withitem* items, stmt* body, string? type_comment)\n     | AsyncWith(withitem* items, stmt* body, string? type_comment)\n     | Raise(expr? exc, expr? cause)\n     | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n     | Assert(expr test, expr? msg)\n     | Import(alias* names)\n     | ImportFrom(identifier? module, alias* names, int? level)\n     | Global(identifier* names)\n     | Nonlocal(identifier* names)\n     | Expr(expr value)\n     | Pass\n     | Break\n     | Continue')
+State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='stmt = FunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | AsyncFunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | ClassDef(identifier name, expr* bases, keyword* keywords, stmt* body, expr* decorator_list)\n     | Return(expr? value)\n     | Delete(expr* targets)\n     | Assign(expr* targets, expr value, string? type_comment)\n     | AugAssign(expr target, operator op, expr value)\n     | AnnAssign(expr target, expr annotation, expr? value, int simple)\n     | For(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | AsyncFor(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | While(expr test, stmt* body, stmt* orelse)\n     | If(expr test, stmt* body, stmt* orelse)\n     | With(withitem* items, stmt* body, string? type_comment)\n     | AsyncWith(withitem* items, stmt* body, string? type_comment)\n     | Match(expr subject, match_case* cases)\n     | Raise(expr? exc, expr? cause)\n     | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n     | Assert(expr test, expr? msg)\n     | Import(alias* names)\n     | ImportFrom(identifier? module, alias* names, int? level)\n     | Global(identifier* names)\n     | Nonlocal(identifier* names)\n     | Expr(expr value)\n     | Pass\n     | Break\n     | Continue')
 
 class FunctionDef(stmt):
 
@@ -1566,6 +1568,72 @@ class AsyncWith(stmt):
 State.ast_type('AsyncWith', 'stmt', ['items', 'body', 'type_comment'], default_none_fields=['type_comment'], doc='AsyncWith(withitem* items, stmt* body, string? type_comment)')
 
 
+class Match(stmt):
+
+    def __init__(self, subject, cases, lineno, col_offset, end_lineno, end_col_offset):
+        self.subject = subject
+        self.cases = cases
+        stmt.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_Match(self)
+
+    def mutate_over(self, visitor):
+        self.subject = self.subject.mutate_over(visitor)
+        if self.cases:
+            for i in range(len(self.cases)):
+                if self.cases[i] is not None:
+                    self.cases[i] = self.cases[i].mutate_over(visitor)
+        return visitor.visit_Match(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_Match)
+        w_subject = self.subject.to_object(space)  # expr
+        assert w_subject is not None
+        space.setattr(w_node, space.newtext('subject'), w_subject)
+        if self.cases is None:
+            cases_w = []
+        else:
+            cases_w = [node.to_object(space) for node in self.cases] # match_case
+        w_cases = space.newlist(cases_w)
+        assert w_cases is not None
+        space.setattr(w_node, space.newtext('cases'), w_cases)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_subject = get_field(space, w_node, 'subject', False)
+        w_cases = get_field(space, w_node, 'cases', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        _subject = expr.from_object(space, w_subject)
+        if _subject is None:
+            raise_required_value(space, w_node, 'subject')
+        cases_w = space.unpackiterable(w_cases)
+        _cases = [match_case.from_object(space, w_item) for w_item in cases_w]
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, True)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        return Match(_subject, _cases, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('Match', 'stmt', ['subject', 'cases'], default_none_fields=[], doc='Match(expr subject, match_case* cases)')
+
+
 class Raise(stmt):
 
     def __init__(self, exc, cause, lineno, col_offset, end_lineno, end_col_offset):
@@ -2263,7 +2331,7 @@ class expr(AST):
         if space.isinstance_w(w_node, get(space).w_Slice):
             return Slice.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
-                "expected some sort of expr, but got %R", w_node)
+                "expected some sort of expr, got %R", w_node)
 State.ast_type('expr', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='expr = BoolOp(boolop op, expr* values)\n     | NamedExpr(expr target, expr value)\n     | BinOp(expr left, operator op, expr right)\n     | UnaryOp(unaryop op, expr operand)\n     | Lambda(arguments args, expr body)\n     | IfExp(expr test, expr body, expr orelse)\n     | Dict(expr* keys, expr* values)\n     | Set(expr* elts)\n     | ListComp(expr elt, comprehension* generators)\n     | SetComp(expr elt, comprehension* generators)\n     | DictComp(expr key, expr value, comprehension* generators)\n     | GeneratorExp(expr elt, comprehension* generators)\n     | Await(expr value)\n     | Yield(expr? value)\n     | YieldFrom(expr value)\n     | Compare(expr left, cmpop* ops, expr* comparators)\n     | Call(expr func, expr* args, keyword* keywords)\n     | RevDBMetaVar(int metavar)\n     | FormattedValue(expr value, int? conversion, expr? format_spec)\n     | JoinedStr(expr* values)\n     | Constant(constant value, string? kind)\n     | Attribute(expr value, identifier attr, expr_context ctx)\n     | Subscript(expr value, expr slice, expr_context ctx)\n     | Starred(expr value, expr_context ctx)\n     | Name(identifier id, expr_context ctx)\n     | List(expr* elts, expr_context ctx)\n     | Tuple(expr* elts, expr_context ctx)\n     | Slice(expr? lower, expr? upper, expr? step)')
 
 class BoolOp(expr):
@@ -4764,9 +4832,13 @@ State.ast_type('keyword', 'AST', ['arg', 'value'], ['lineno', 'col_offset', 'end
 
 class alias(AST):
 
-    def __init__(self, name, asname):
+    def __init__(self, name, asname, lineno, col_offset, end_lineno, end_col_offset):
         self.name = name
         self.asname = asname
+        self.lineno = lineno
+        self.col_offset = col_offset
+        self.end_lineno = end_lineno
+        self.end_col_offset = end_col_offset
 
     def mutate_over(self, visitor):
         return visitor.visit_alias(self)
@@ -4782,19 +4854,39 @@ class alias(AST):
         w_asname = space.newtext_or_none(self.asname)  # identifier
         assert w_asname is not None
         space.setattr(w_node, space.newtext('asname'), w_asname)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
         return w_node
 
     @staticmethod
     def from_object(space, w_node):
         w_name = get_field(space, w_node, 'name', False)
         w_asname = get_field(space, w_node, 'asname', True)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
         _name = space.text_w(w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
         _asname = space.text_or_none_w(w_asname)
-        return alias(_name, _asname)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, True)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        return alias(_name, _asname, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
-State.ast_type('alias', 'AST', ['name', 'asname'], default_none_fields=['asname'], doc='alias(identifier name, identifier? asname)')
+State.ast_type('alias', 'AST', ['name', 'asname'], ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['asname', 'end_lineno', 'end_col_offset'], doc='alias(identifier name, identifier? asname)')
 
 class withitem(AST):
 
@@ -4832,6 +4924,579 @@ class withitem(AST):
         return withitem(_context_expr, _optional_vars)
 
 State.ast_type('withitem', 'AST', ['context_expr', 'optional_vars'], default_none_fields=['optional_vars'], doc='withitem(expr context_expr, expr? optional_vars)')
+
+class match_case(AST):
+
+    def __init__(self, pattern, guard, body):
+        self.pattern = pattern
+        self.guard = guard
+        self.body = body
+
+    def mutate_over(self, visitor):
+        self.pattern = self.pattern.mutate_over(visitor)
+        if self.guard:
+            self.guard = self.guard.mutate_over(visitor)
+        if self.body:
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
+        return visitor.visit_match_case(self)
+
+    def walkabout(self, visitor):
+        visitor.visit_match_case(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_match_case)
+        w_pattern = self.pattern.to_object(space)  # pattern
+        assert w_pattern is not None
+        space.setattr(w_node, space.newtext('pattern'), w_pattern)
+        w_guard = self.guard.to_object(space) if self.guard is not None else space.w_None  # expr
+        assert w_guard is not None
+        space.setattr(w_node, space.newtext('guard'), w_guard)
+        if self.body is None:
+            body_w = []
+        else:
+            body_w = [node.to_object(space) for node in self.body] # stmt
+        w_body = space.newlist(body_w)
+        assert w_body is not None
+        space.setattr(w_node, space.newtext('body'), w_body)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_pattern = get_field(space, w_node, 'pattern', False)
+        w_guard = get_field(space, w_node, 'guard', True)
+        w_body = get_field(space, w_node, 'body', False)
+        _pattern = pattern.from_object(space, w_pattern)
+        if _pattern is None:
+            raise_required_value(space, w_node, 'pattern')
+        _guard = expr.from_object(space, w_guard)
+        body_w = space.unpackiterable(w_body)
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        return match_case(_pattern, _guard, _body)
+
+State.ast_type('match_case', 'AST', ['pattern', 'guard', 'body'], default_none_fields=['guard'], doc='match_case(pattern pattern, expr? guard, stmt* body)')
+
+class pattern(AST):
+
+    def __init__(self, lineno, col_offset, end_lineno, end_col_offset):
+        self.lineno = lineno
+        self.col_offset = col_offset
+        self.end_lineno = end_lineno
+        self.end_col_offset = end_col_offset
+
+    @staticmethod
+    def from_object(space, w_node):
+        if space.is_w(w_node, space.w_None):
+            return None
+        if space.isinstance_w(w_node, get(space).w_MatchValue):
+            return MatchValue.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_MatchSingleton):
+            return MatchSingleton.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_MatchSequence):
+            return MatchSequence.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_MatchMapping):
+            return MatchMapping.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_MatchClass):
+            return MatchClass.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_MatchStar):
+            return MatchStar.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_MatchAs):
+            return MatchAs.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_MatchOr):
+            return MatchOr.from_object(space, w_node)
+        raise oefmt(space.w_TypeError,
+                "expected some sort of pattern, got %R", w_node)
+State.ast_type('pattern', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=[], doc='pattern = MatchValue(expr value)\n        | MatchSingleton(constant value)\n        | MatchSequence(pattern* patterns)\n        | MatchMapping(expr* keys, pattern* patterns, identifier? rest)\n        | MatchClass(expr cls, pattern* patterns, identifier* kwd_attrs, pattern* kwd_patterns)\n        | MatchStar(identifier? name)\n        | MatchAs(pattern? pattern, identifier? name)\n        | MatchOr(pattern* patterns)')
+
+class MatchValue(pattern):
+
+    def __init__(self, value, lineno, col_offset, end_lineno, end_col_offset):
+        self.value = value
+        pattern.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_MatchValue(self)
+
+    def mutate_over(self, visitor):
+        self.value = self.value.mutate_over(visitor)
+        return visitor.visit_MatchValue(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_MatchValue)
+        w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
+        space.setattr(w_node, space.newtext('value'), w_value)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_value = get_field(space, w_node, 'value', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return MatchValue(_value, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('MatchValue', 'pattern', ['value'], default_none_fields=[], doc='MatchValue(expr value)')
+
+
+class MatchSingleton(pattern):
+
+    def __init__(self, value, lineno, col_offset, end_lineno, end_col_offset):
+        self.value = value
+        pattern.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_MatchSingleton(self)
+
+    def mutate_over(self, visitor):
+        return visitor.visit_MatchSingleton(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_MatchSingleton)
+        w_value = self.value  # constant
+        assert w_value is not None
+        space.setattr(w_node, space.newtext('value'), w_value)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_value = get_field(space, w_node, 'value', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        _value = w_value
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return MatchSingleton(_value, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('MatchSingleton', 'pattern', ['value'], default_none_fields=[], doc='MatchSingleton(constant value)')
+
+
+class MatchSequence(pattern):
+
+    def __init__(self, patterns, lineno, col_offset, end_lineno, end_col_offset):
+        self.patterns = patterns
+        pattern.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_MatchSequence(self)
+
+    def mutate_over(self, visitor):
+        if self.patterns:
+            for i in range(len(self.patterns)):
+                if self.patterns[i] is not None:
+                    self.patterns[i] = self.patterns[i].mutate_over(visitor)
+        return visitor.visit_MatchSequence(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_MatchSequence)
+        if self.patterns is None:
+            patterns_w = []
+        else:
+            patterns_w = [node.to_object(space) for node in self.patterns] # pattern
+        w_patterns = space.newlist(patterns_w)
+        assert w_patterns is not None
+        space.setattr(w_node, space.newtext('patterns'), w_patterns)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_patterns = get_field(space, w_node, 'patterns', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        patterns_w = space.unpackiterable(w_patterns)
+        _patterns = [pattern.from_object(space, w_item) for w_item in patterns_w]
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return MatchSequence(_patterns, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('MatchSequence', 'pattern', ['patterns'], default_none_fields=[], doc='MatchSequence(pattern* patterns)')
+
+
+class MatchMapping(pattern):
+
+    def __init__(self, keys, patterns, rest, lineno, col_offset, end_lineno, end_col_offset):
+        self.keys = keys
+        self.patterns = patterns
+        self.rest = rest
+        pattern.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_MatchMapping(self)
+
+    def mutate_over(self, visitor):
+        if self.keys:
+            for i in range(len(self.keys)):
+                if self.keys[i] is not None:
+                    self.keys[i] = self.keys[i].mutate_over(visitor)
+        if self.patterns:
+            for i in range(len(self.patterns)):
+                if self.patterns[i] is not None:
+                    self.patterns[i] = self.patterns[i].mutate_over(visitor)
+        return visitor.visit_MatchMapping(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_MatchMapping)
+        if self.keys is None:
+            keys_w = []
+        else:
+            keys_w = [node.to_object(space) if node is not None else space.w_None for node in self.keys] # expr
+        w_keys = space.newlist(keys_w)
+        assert w_keys is not None
+        space.setattr(w_node, space.newtext('keys'), w_keys)
+        if self.patterns is None:
+            patterns_w = []
+        else:
+            patterns_w = [node.to_object(space) for node in self.patterns] # pattern
+        w_patterns = space.newlist(patterns_w)
+        assert w_patterns is not None
+        space.setattr(w_node, space.newtext('patterns'), w_patterns)
+        w_rest = space.newtext_or_none(self.rest)  # identifier
+        assert w_rest is not None
+        space.setattr(w_node, space.newtext('rest'), w_rest)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_keys = get_field(space, w_node, 'keys', False)
+        w_patterns = get_field(space, w_node, 'patterns', False)
+        w_rest = get_field(space, w_node, 'rest', True)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        keys_w = space.unpackiterable(w_keys)
+        _keys = [expr.from_object(space, w_item) for w_item in keys_w]
+        patterns_w = space.unpackiterable(w_patterns)
+        _patterns = [pattern.from_object(space, w_item) for w_item in patterns_w]
+        _rest = space.text_or_none_w(w_rest)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return MatchMapping(_keys, _patterns, _rest, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('MatchMapping', 'pattern', ['keys', 'patterns', 'rest'], default_none_fields=['rest'], doc='MatchMapping(expr* keys, pattern* patterns, identifier? rest)')
+
+
+class MatchClass(pattern):
+
+    def __init__(self, cls, patterns, kwd_attrs, kwd_patterns, lineno, col_offset, end_lineno, end_col_offset):
+        self.cls = cls
+        self.patterns = patterns
+        self.kwd_attrs = kwd_attrs
+        self.kwd_patterns = kwd_patterns
+        pattern.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_MatchClass(self)
+
+    def mutate_over(self, visitor):
+        self.cls = self.cls.mutate_over(visitor)
+        if self.patterns:
+            for i in range(len(self.patterns)):
+                if self.patterns[i] is not None:
+                    self.patterns[i] = self.patterns[i].mutate_over(visitor)
+        if self.kwd_patterns:
+            for i in range(len(self.kwd_patterns)):
+                if self.kwd_patterns[i] is not None:
+                    self.kwd_patterns[i] = self.kwd_patterns[i].mutate_over(visitor)
+        return visitor.visit_MatchClass(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_MatchClass)
+        w_cls = self.cls.to_object(space)  # expr
+        assert w_cls is not None
+        space.setattr(w_node, space.newtext('cls'), w_cls)
+        if self.patterns is None:
+            patterns_w = []
+        else:
+            patterns_w = [node.to_object(space) for node in self.patterns] # pattern
+        w_patterns = space.newlist(patterns_w)
+        assert w_patterns is not None
+        space.setattr(w_node, space.newtext('patterns'), w_patterns)
+        if self.kwd_attrs is None:
+            kwd_attrs_w = []
+        else:
+            kwd_attrs_w = [space.newtext(node) for node in self.kwd_attrs] # identifier
+        w_kwd_attrs = space.newlist(kwd_attrs_w)
+        assert w_kwd_attrs is not None
+        space.setattr(w_node, space.newtext('kwd_attrs'), w_kwd_attrs)
+        if self.kwd_patterns is None:
+            kwd_patterns_w = []
+        else:
+            kwd_patterns_w = [node.to_object(space) for node in self.kwd_patterns] # pattern
+        w_kwd_patterns = space.newlist(kwd_patterns_w)
+        assert w_kwd_patterns is not None
+        space.setattr(w_node, space.newtext('kwd_patterns'), w_kwd_patterns)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_cls = get_field(space, w_node, 'cls', False)
+        w_patterns = get_field(space, w_node, 'patterns', False)
+        w_kwd_attrs = get_field(space, w_node, 'kwd_attrs', False)
+        w_kwd_patterns = get_field(space, w_node, 'kwd_patterns', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        _cls = expr.from_object(space, w_cls)
+        if _cls is None:
+            raise_required_value(space, w_node, 'cls')
+        patterns_w = space.unpackiterable(w_patterns)
+        _patterns = [pattern.from_object(space, w_item) for w_item in patterns_w]
+        kwd_attrs_w = space.unpackiterable(w_kwd_attrs)
+        _kwd_attrs = [space.text_w(w_item) for w_item in kwd_attrs_w]
+        kwd_patterns_w = space.unpackiterable(w_kwd_patterns)
+        _kwd_patterns = [pattern.from_object(space, w_item) for w_item in kwd_patterns_w]
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return MatchClass(_cls, _patterns, _kwd_attrs, _kwd_patterns, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('MatchClass', 'pattern', ['cls', 'patterns', 'kwd_attrs', 'kwd_patterns'], default_none_fields=[], doc='MatchClass(expr cls, pattern* patterns, identifier* kwd_attrs, pattern* kwd_patterns)')
+
+
+class MatchStar(pattern):
+
+    def __init__(self, name, lineno, col_offset, end_lineno, end_col_offset):
+        self.name = name
+        pattern.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_MatchStar(self)
+
+    def mutate_over(self, visitor):
+        return visitor.visit_MatchStar(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_MatchStar)
+        w_name = space.newtext_or_none(self.name)  # identifier
+        assert w_name is not None
+        space.setattr(w_node, space.newtext('name'), w_name)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_name = get_field(space, w_node, 'name', True)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        _name = space.text_or_none_w(w_name)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return MatchStar(_name, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('MatchStar', 'pattern', ['name'], default_none_fields=['name'], doc='MatchStar(identifier? name)')
+
+
+class MatchAs(pattern):
+
+    def __init__(self, pattern, name, lineno, col_offset, end_lineno, end_col_offset, __base_pattern=pattern):
+        self.pattern = pattern
+        self.name = name
+        __base_pattern.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_MatchAs(self)
+
+    def mutate_over(self, visitor):
+        if self.pattern:
+            self.pattern = self.pattern.mutate_over(visitor)
+        return visitor.visit_MatchAs(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_MatchAs)
+        w_pattern = self.pattern.to_object(space) if self.pattern is not None else space.w_None  # pattern
+        assert w_pattern is not None
+        space.setattr(w_node, space.newtext('pattern'), w_pattern)
+        w_name = space.newtext_or_none(self.name)  # identifier
+        assert w_name is not None
+        space.setattr(w_node, space.newtext('name'), w_name)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_pattern = get_field(space, w_node, 'pattern', True)
+        w_name = get_field(space, w_node, 'name', True)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        _pattern = pattern.from_object(space, w_pattern)
+        _name = space.text_or_none_w(w_name)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return MatchAs(_pattern, _name, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('MatchAs', 'pattern', ['pattern', 'name'], default_none_fields=['pattern', 'name'], doc='MatchAs(pattern? pattern, identifier? name)')
+
+
+class MatchOr(pattern):
+
+    def __init__(self, patterns, lineno, col_offset, end_lineno, end_col_offset):
+        self.patterns = patterns
+        pattern.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_MatchOr(self)
+
+    def mutate_over(self, visitor):
+        if self.patterns:
+            for i in range(len(self.patterns)):
+                if self.patterns[i] is not None:
+                    self.patterns[i] = self.patterns[i].mutate_over(visitor)
+        return visitor.visit_MatchOr(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_MatchOr)
+        if self.patterns is None:
+            patterns_w = []
+        else:
+            patterns_w = [node.to_object(space) for node in self.patterns] # pattern
+        w_patterns = space.newlist(patterns_w)
+        assert w_patterns is not None
+        space.setattr(w_node, space.newtext('patterns'), w_patterns)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_patterns = get_field(space, w_node, 'patterns', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        patterns_w = space.unpackiterable(w_patterns)
+        _patterns = [pattern.from_object(space, w_item) for w_item in patterns_w]
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return MatchOr(_patterns, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('MatchOr', 'pattern', ['patterns'], default_none_fields=[], doc='MatchOr(pattern* patterns)')
+
 
 class type_ignore(AST):
     @staticmethod
@@ -4932,6 +5597,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_AsyncWith(self, node):
         return self.default_visitor(node)
+    def visit_Match(self, node):
+        return self.default_visitor(node)
     def visit_Raise(self, node):
         return self.default_visitor(node)
     def visit_Try(self, node):
@@ -5023,6 +5690,24 @@ class ASTVisitor(object):
     def visit_alias(self, node):
         return self.default_visitor(node)
     def visit_withitem(self, node):
+        return self.default_visitor(node)
+    def visit_match_case(self, node):
+        return self.default_visitor(node)
+    def visit_MatchValue(self, node):
+        return self.default_visitor(node)
+    def visit_MatchSingleton(self, node):
+        return self.default_visitor(node)
+    def visit_MatchSequence(self, node):
+        return self.default_visitor(node)
+    def visit_MatchMapping(self, node):
+        return self.default_visitor(node)
+    def visit_MatchClass(self, node):
+        return self.default_visitor(node)
+    def visit_MatchStar(self, node):
+        return self.default_visitor(node)
+    def visit_MatchAs(self, node):
+        return self.default_visitor(node)
+    def visit_MatchOr(self, node):
         return self.default_visitor(node)
     def visit_TypeIgnore(self, node):
         return self.default_visitor(node)
@@ -5134,6 +5819,11 @@ class GenericASTVisitor(ASTVisitor):
         self.visited(node)
         self.visit_sequence(node.items)
         self.visit_sequence(node.body)
+
+    def visit_Match(self, node):
+        self.visited(node)
+        node.subject.walkabout(self)
+        self.visit_sequence(node.cases)
 
     def visit_Raise(self, node):
         self.visited(node)
@@ -5364,6 +6054,49 @@ class GenericASTVisitor(ASTVisitor):
         node.context_expr.walkabout(self)
         if node.optional_vars:
             node.optional_vars.walkabout(self)
+
+    def visit_match_case(self, node):
+        self.visited(node)
+        node.pattern.walkabout(self)
+        if node.guard:
+            node.guard.walkabout(self)
+        self.visit_sequence(node.body)
+
+    def visit_MatchValue(self, node):
+        self.visited(node)
+        node.value.walkabout(self)
+
+    def visit_MatchSingleton(self, node):
+        self.visited(node)
+        pass
+
+    def visit_MatchSequence(self, node):
+        self.visited(node)
+        self.visit_sequence(node.patterns)
+
+    def visit_MatchMapping(self, node):
+        self.visited(node)
+        self.visit_sequence(node.keys)
+        self.visit_sequence(node.patterns)
+
+    def visit_MatchClass(self, node):
+        self.visited(node)
+        node.cls.walkabout(self)
+        self.visit_sequence(node.patterns)
+        self.visit_sequence(node.kwd_patterns)
+
+    def visit_MatchStar(self, node):
+        self.visited(node)
+        pass
+
+    def visit_MatchAs(self, node):
+        self.visited(node)
+        if node.pattern:
+            node.pattern.walkabout(self)
+
+    def visit_MatchOr(self, node):
+        self.visited(node)
+        self.visit_sequence(node.patterns)
 
     def visit_TypeIgnore(self, node):
         self.visited(node)

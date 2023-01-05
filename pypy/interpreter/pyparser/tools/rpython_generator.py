@@ -249,7 +249,7 @@ class RPythonParserGenerator(ParserGenerator, GrammarVisitor):
     def generate(self, filename: str) -> None:
         header = self.grammar.metas.get("header", MODULE_PREFIX)
         if header is not None:
-            self.print(header.rstrip("\n").format(filename=filename))
+            self.print(header.rstrip("\n").format(filename=os.path.basename(filename)))
         subheader = self.grammar.metas.get("subheader", "")
         if subheader:
             self.print(subheader)

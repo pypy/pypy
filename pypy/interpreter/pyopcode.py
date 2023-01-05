@@ -438,6 +438,20 @@ class __extend__(pyframe.PyFrame):
                 self.BUILD_STRING(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
                 self.LOAD_REVDB_VAR(oparg, next_instr)
+            elif opcode == opcodedesc.GET_LEN.index:
+                self.GET_LEN(oparg, next_instr)
+            elif opcode == opcodedesc.MATCH_MAPPING.index:
+                self.MATCH_MAPPING(oparg, next_instr)
+            elif opcode == opcodedesc.MATCH_SEQUENCE.index:
+                self.MATCH_SEQUENCE(oparg, next_instr)
+            elif opcode == opcodedesc.MATCH_KEYS.index:
+                self.MATCH_KEYS(oparg, next_instr)
+            elif opcode == opcodedesc.MATCH_CLASS.index:
+                self.MATCH_CLASS(oparg, next_instr)
+            elif opcode == opcodedesc.COPY_DICT_WITHOUT_KEYS.index:
+                self.COPY_DICT_WITHOUT_KEYS(oparg, next_instr)
+            elif opcode == opcodedesc.ROT_N.index:
+                self.ROT_N(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1313,14 +1327,12 @@ class __extend__(pyframe.PyFrame):
                 operr.get_w_value(self.space),
                 w_traceback)
         else:
-            #import pdb; pdb.set_trace()
             assert 0
         self.pushvalue(w_res)
 
     def RERAISE(self, jumpby, next_instr):
         unroller = self.popvalue()
         if not isinstance(unroller, SApplicationException):
-            #import pdb; pdb.set_trace()
             assert 0
         block = self.unrollstack()
         if block is None:
@@ -1699,6 +1711,83 @@ class __extend__(pyframe.PyFrame):
         else:
             self.MISSING_OPCODE(oparg, next_instr)
 
+    def MATCH_SEQUENCE(self, oparg, next_instr):
+        w_sequence = self.peekvalue()
+        # the semantics of "being a sequence" is a huge mess. CPython checks a
+        # flag in the type, which we don't consistently have. Instead, our
+        # space.issequence_w falls back to the presence of __getitem__, but
+        # this then includes str and bytes. Exclude those explicitly for now
+        space = self.space
+        is_sequence = (space.issequence_w(w_sequence) and not
+                space.isinstance_w(w_sequence, space.w_unicode) and not
+                space.isinstance_w(w_sequence, space.w_bytes))
+        self.pushvalue(space.newbool(is_sequence))
+
+    def MATCH_MAPPING(self, oparg, next_instr):
+        w_mapping = self.peekvalue()
+        is_mapping = self.space.ismapping_w(w_mapping)
+        self.pushvalue(self.space.newbool(is_mapping))
+
+    def MATCH_CLASS(self, oparg, next_instr):
+        space = self.space
+        nargs = oparg
+        w_names = self.popvalue()
+        w_type = self.popvalue()
+        w_subject = self.popvalue()
+
+        w_attribute_tuple = _match_class(self.space, nargs, w_names, w_type, w_subject)
+        if w_attribute_tuple is None:
+            self.pushvalue(space.w_None)
+            self.pushvalue(space.w_False)
+        else:
+            self.pushvalue(w_attribute_tuple)
+            self.pushvalue(space.w_True)
+
+
+    def GET_LEN(self, oparg, next_instr):
+        w_sequence = self.peekvalue()
+        w_len = self.space.len(w_sequence)
+        self.pushvalue(w_len)
+
+    @jit.unroll_safe
+    def MATCH_KEYS(self, oparg, next_instr):
+        w_keys = self.peekvalue()
+        w_dict = self.peekvalue(1)
+        length = self.space.len_w(w_keys)
+        values_w = [None] * length
+        w_iter = self.space.iter(w_keys)
+        try:
+            i = 0
+            while True:
+                w_key = self.space.next(w_iter)
+                w_value = self.space.call_method(w_dict, 'get', w_key, self.space.w_None)
+                if not self.space.is_w(w_value, self.space.w_None):
+                    values_w[i] = w_value
+                else:
+                    self.pushvalue(self.space.w_None)
+                    self.pushvalue(self.space.w_False)
+                    return
+                i += 1
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_StopIteration):
+                raise
+
+        self.pushvalue(self.space.newtuple(values_w))
+        self.pushvalue(self.space.w_True)
+
+    def COPY_DICT_WITHOUT_KEYS(self, oparg, next_instr):
+        w_keys = self.popvalue()
+        w_subject = self.peekvalue()
+        w_dict = _copy_dict_without_keys(self.space, w_keys, w_subject)
+        self.pushvalue(w_dict)
+
+    @jit.unroll_safe
+    def ROT_N(self, oparg, next_instr):
+        w_top = self.peekvalue()
+        for i in range(oparg - 1):
+            self.settopvalue(self.peekvalue(i + 1), i)
+        self.settopvalue(w_top, oparg - 1)
+
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
     # invoke a "send" or "throw" by method name to a non-generator w_yf
     if isinstance(w_inputvalue_or_err, SApplicationException):
@@ -1981,6 +2070,84 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe):
                 "got multiple values for keyword argument %R",
                 w_key)
         space.setitem(w_dict, w_key, w_value)
+
+def _copy_dict_without_keys(space, w_keys, w_subject):
+    w_dict = space.newdict()
+    space.call_method(w_dict, 'update', w_subject)
+    for i in range(space.len_w(w_keys)):
+        w_key = space.getitem(w_keys, space.newint(i))
+        space.delitem(w_dict, w_key)
+    return w_dict
+
+def match_class_attr(space, w_subject, w_name, w_type, seen):
+    name = space.text_w(w_name)
+    if name in seen:
+        raise oefmt(space.w_TypeError,
+                "%N() got multiple sub-patterns for attribute %R", w_type, w_name)
+    seen[name] = None
+    return space.findattr(w_subject, w_name)
+
+def _match_class(space, nargs, w_names, w_type, w_subject):
+    # TODO: this needs better JIT hints
+    if not space.isinstance_w(w_subject, w_type):
+        return None
+
+    seen = {}
+    attrs_w = []
+    if nargs:
+        try:
+            w_match_args = space.getattr(w_type, space.newtext('__match_args__'))
+            match_self = False
+            # TODO: validate match_args is a tuple
+        except OperationError as e:
+            if not e.match(space, space.w_AttributeError):
+                raise e
+
+            w_match_args = space.newtuple([])
+            match_self = \
+                space.isinstance_w(w_subject, space.w_float) or \
+                space.isinstance_w(w_subject, space.w_tuple) or \
+                space.isinstance_w(w_subject, space.w_dict) or \
+                space.isinstance_w(w_subject, space.w_long) or \
+                space.isinstance_w(w_subject, space.w_bytes) or \
+                space.isinstance_w(w_subject, space.w_list) or \
+                space.isinstance_w(w_subject, space.w_bytearray) or \
+                space.isinstance_w(w_subject, space.w_unicode) or \
+                space.isinstance_w(w_subject, space.w_set) or \
+                space.isinstance_w(w_subject, space.w_frozenset)
+
+        allowed = 1 if match_self else space.len_w(w_match_args)
+        if allowed < nargs:
+            plural = "" if allowed == 1 else "s";
+            raise oefmt(space.w_TypeError,
+                    "%N() accepts %d positional sub-pattern%s (%d given)", w_type, allowed, plural, nargs)
+
+        if match_self:
+            attrs_w.append(w_subject)
+        else:
+            for i in range(nargs):
+                w_name = space.getitem(w_match_args, space.newint(i))
+                if not space.isinstance_w(w_name, space.w_unicode):
+                    raise oefmt(space.w_TypeError,
+                            "__match_args__ elements must be strings (got '%T')", w_name)
+                w_attr = match_class_attr(space, w_subject, w_name, w_type, seen)
+                if w_attr is None:
+                    return None
+                attrs_w.append(w_attr)
+
+    w_iter = space.iter(w_names)
+    try:
+        while True:
+            w_name = space.next(w_iter)
+            w_attr = match_class_attr(space, w_subject, w_name, w_type, seen)
+            if w_attr is None:
+                return None
+            attrs_w.append(w_attr)
+    except OperationError as e:
+        if not e.match(space, space.w_StopIteration):
+            raise
+
+    return space.newtuple(attrs_w[:])
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other

@@ -18,6 +18,8 @@ class StackDepthComputationError(Exception):
 class Instruction(object):
     """Represents a single opcode."""
 
+    _stack_depth_after = -99 # used before translation only
+
     def __init__(self, opcode, arg=0):
         self.opcode = opcode
         self.arg = arg
@@ -203,6 +205,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.kwonlyargcount = 0
         self.lineno = 0
         self.add_none_to_final_return = True
+        self.match_context = None
 
     def _check_consistency(self, blocks):
         current_off = 0
@@ -259,6 +262,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Emit a jump opcode to another block."""
         self.emit_op(op).jump_to(block_to, absolute)
 
+    def emit_compare(self, ast_op_kind):
+        from pypy.interpreter.astcompiler.codegen import compare_operations
+        opcode, op_kind = compare_operations(ast_op_kind)
+        self.emit_op_arg(opcode, op_kind)
+
     def add_name(self, container, name):
         """Get the index of a name in container."""
         name = self.scope.mangle(name)
@@ -300,6 +308,12 @@ class PythonCodeMaker(ast.ASTVisitor):
     def update_position(self, lineno):
         """Change the lineno for the next instructions."""
         self.lineno = lineno
+
+    def new_match_context(self):
+        return MatchContext(self)
+
+    def sub_pattern_context(self):
+        return SubMatchContext(self)
 
     def _resolve_block_targets(self, blocks):
         """Compute the arguments of jump instructions."""
@@ -368,7 +382,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Get an extra flags that should be attached to the code object."""
         raise NotImplementedError
 
-    def _stacksize_error_pos(self, depth):
+    def _stacksize_error_pos(self, depth, blocks, block, instr):
         # This case occurs if this code object uses some
         # construction for which the stack depth computation
         # is wrong (too high).  If you get here while working
@@ -377,9 +391,30 @@ class PythonCodeMaker(ast.ASTVisitor):
         # an error is not really bad: it is just a bit
         # wasteful.  For release-ready versions, though, we'd
         # like not to be wasteful. :-)
+        if not we_are_translated():
+            self._stack_depth_debug_print(blocks, block, instr)
         os.write(2, "StackDepthComputationError(POS) in %s at %s:%s depth %s\n"
           % (self.compile_info.filename, self.name, self.first_lineno, depth))
         raise StackDepthComputationError   # would-be-nice-not-to-have
+
+    def _stack_depth_debug_print(self, blocks, errorblock, errorinstr):
+        print "\n" * 5
+        print self.name
+        for block in blocks:
+            print "======="
+            print block
+            if block is errorblock:
+                print "ERROR IS IN THIS BLOCK"
+            print "stack depth at start", block.initial_depth
+            if block._source is not None:
+                print "stack depth at start set via", block._source
+            for instr in block.instructions:
+                print "--->" if instr is errorinstr else "    ", instr,
+                if instr._stack_depth_after != -99:
+                    print "stacksize afterwards: %s" % instr._stack_depth_after
+                else:
+                    print
+
 
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
@@ -391,9 +426,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         # look into a block when all the previous blocks have been done.
         self._max_depth = 0
         for block in blocks:
-            depth = self._do_stack_depth_walk(block)
+            depth = self._do_stack_depth_walk(block, blocks)
             if block.auto_inserted_return and depth != 0:
-                self._stacksize_error_pos(depth)
+                self._stacksize_error_pos(depth, blocks, block, None)
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth, source):
@@ -402,7 +437,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             if not we_are_translated():
                 nextblock._source = source
 
-    def _do_stack_depth_walk(self, block):
+    def _do_stack_depth_walk(self, block, blocks):
         depth = block.initial_depth
         if depth == -99:     # this block is never reached, skip
              return 0
@@ -416,6 +451,9 @@ class PythonCodeMaker(ast.ASTVisitor):
                 # depth, which means that it underestimates the space
                 # needed and it would crash when interpreting this
                 # code.
+                if not we_are_translated():
+                    instr._stack_depth_after = depth
+                    self._stack_depth_debug_print(blocks, block, instr)
                 os.write(2, "StackDepthComputationError(NEG) in %s at %s:%s\n"
                   % (self.compile_info.filename, self.name, self.first_lineno))
                 raise StackDepthComputationError   # really fatal error
@@ -435,12 +473,14 @@ class PythonCodeMaker(ast.ASTVisitor):
                     break
             elif jump_op == ops.RETURN_VALUE:
                 if depth:
-                    self._stacksize_error_pos(depth)
+                    self._stacksize_error_pos(depth, blocks, block, instr)
                 break
             elif jump_op == ops.RAISE_VARARGS:
                 break
             elif jump_op == ops.RERAISE:
                 break
+            if not we_are_translated():
+                instr._stack_depth_after = depth
         else:
             if block.next_block:
                 self._next_stack_depth_walk(block.next_block, depth, (block, None))
@@ -512,6 +552,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                       cell_names,
                       self.compile_info.hidden_applevel)
 
+
 class DeadCode(object):
     def __init__(self, codegen):
         self.codegen = codegen
@@ -523,6 +564,81 @@ class DeadCode(object):
     def __exit__(self, *args):
         self.codegen._is_dead_code = self.old_value
 
+
+class MatchContext(object):
+    def __init__(self, codegen):
+        self.codegen = codegen
+        self._init_names()
+        self.allow_always_passing = False
+        # the extra objects currently on the stack that need cleaning up
+        self.on_top = 0
+        self._reset_cleanup_blocks()
+
+    def _init_names(self):
+        self.names_stored = {} # name -> int
+        self.names_list = [] # list of names in order
+        self.names_origins = [] # ast nodes to blame if a name repeats
+
+    def add_name(self, name, node, codegen):
+        index = self.names_stored.get(name, -1)
+        if index >= 0:
+            # already exists
+            previous_node = self.names_origins[index]
+            codegen.error(
+                "multiple assignments to name '%s' in pattern, previous one was on line %s" % (
+                    name, previous_node.lineno), node)
+        else:
+            self.names_stored[name] = len(self.names_stored)
+            self.names_list.append(name)
+            self.names_origins.append(node)
+
+    def _reset_cleanup_blocks(self):
+        self.next = self.codegen.new_block()
+        # the cleanup blocks will all be chained in reverse order, each one
+        # contains a POP_TOP and a jump to the next one
+        self.cleanup_blocks = [self.next]
+
+    def next_case(self):
+        # add the POP_TOP instructions to the cleanup blocks
+        for index in range(len(self.cleanup_blocks) - 1, 0, -1):
+            block = self.cleanup_blocks[index]
+            self.codegen.use_next_block(block)
+            self.codegen.emit_op(ops.POP_TOP)
+        self.codegen.use_next_block(self.next)
+        self._reset_cleanup_blocks()
+        self._init_names()
+
+    def emit_fail_jump(self, op, absolute, cleanup=0):
+        # emits a (conditional or unconditional) jump to the cleanup block (ie,
+        # failure) with the right number of POP_TOPs
+        cleanup += self.on_top + len(self.names_stored)
+        while cleanup >= len(self.cleanup_blocks):
+            self.cleanup_blocks.append(self.codegen.new_block())
+        target = self.cleanup_blocks[cleanup]
+        self.codegen.emit_jump(op, target, absolute)
+
+    def __enter__(self, *args):
+        self.old_context = self.codegen.match_context
+        self.codegen.match_context = self
+        return self
+
+    def __exit__(self, *args):
+        self.codegen.match_context = self.old_context
+
+class SubMatchContext(object):
+    """ context manager for setting allow_always_passing to True and then
+    restoring the old value on leaving. """
+    def __init__(self, codegen):
+        self.codegen = codegen
+
+    def __enter__(self, *args):
+        match_context = self.codegen.match_context
+        self.old_value = match_context.allow_always_passing
+        match_context.allow_always_passing = True
+        return match_context
+
+    def __exit__(self, *args):
+        self.codegen.match_context.allow_always_passing = self.old_value
 
 
 def _list_from_dict(d, offset=0):
@@ -689,7 +805,15 @@ _static_opcode_stack_effects = {
 
     ops.RERAISE: -1,
 
-    ops.WITH_EXCEPT_START: 0
+    ops.WITH_EXCEPT_START: 0,
+
+    ops.GET_LEN: 1,
+    ops.MATCH_MAPPING: 1,
+    ops.MATCH_SEQUENCE: 1,
+    ops.MATCH_KEYS: 2,
+    ops.COPY_DICT_WITHOUT_KEYS: 0,
+    ops.ROT_N: 0,
+    ops.MATCH_CLASS: -1,
 }
 
 

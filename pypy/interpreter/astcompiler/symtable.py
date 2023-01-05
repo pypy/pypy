@@ -780,3 +780,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
         node.target.walkabout(self)
         node.value.walkabout(self)
+
+    def visit_MatchAs(self, match_as):
+        if match_as.name:
+            self.note_symbol(match_as.name, SYM_ASSIGNED)
+
+    def visit_MatchStar(self, match_star):
+        if match_star.name:
+            self.note_symbol(match_star.name, SYM_ASSIGNED)

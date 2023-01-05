@@ -8,7 +8,7 @@ Generate Python bytecode from a Abstract Syntax Tree.
 # please.
 import struct
 
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -1328,16 +1328,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         for i in range(1, ops_count):
             self.emit_op(ops.DUP_TOP)
             self.emit_op(ops.ROT_THREE)
-            opcode, op_kind = compare_operations(comp.ops[i - 1])
-            self.emit_op_arg(opcode, op_kind)
+            self.emit_compare(comp.ops[i - 1])
             self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup, True)
             if i < (ops_count - 1):
                 comp.comparators[i].walkabout(self)
         last_op, last_comparator = comp.ops[-1], comp.comparators[-1]
         if not self._optimize_comparator(last_op, last_comparator):
             last_comparator.walkabout(self)
-        opcode, op_kind = compare_operations(last_op)
-        self.emit_op_arg(opcode, op_kind)
+        self.emit_compare(last_op)
         if ops_count > 1:
             end = self.new_block()
             self.emit_jump(ops.JUMP_FORWARD, end)
@@ -1956,6 +1954,352 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             and isinstance(self.scope, symtable.ModuleScope)
         )
 
+    def visit_Match(self, match):
+        if not match.cases:
+            return
+
+        end = self.new_block()
+        match.subject.walkabout(self)
+        with self.new_match_context() as match_context:
+            last_index_for_dup = len(match.cases) - 1
+            # TODO: fix this optimization: do we need to check for both pattern and name?
+            # if isinstance(match.cases[-1], ast.MatchAs) and not match.cases[-1].name:
+                # last_index_for_dup -= 1
+            for i, case in enumerate(match.cases):
+                is_last_case = i == last_index_for_dup
+                # only the last case is allowed to always succeed
+                assert isinstance(case, ast.match_case)
+                match_context.allow_always_passing = is_last_case or case.guard is not None
+                if not is_last_case:
+                    self.emit_op(ops.DUP_TOP)
+
+                assert match_context.on_top == 0
+                self.update_position(case.pattern.lineno)
+                case.pattern.walkabout(self)
+                assert match_context.on_top == 0
+                # the pattern visit methods will conditionally jump away if
+                # it's not a match. so if the execution is still here, it's a
+                # match
+
+                # now we need to actually do the variable bindings (the pattern
+                # only stores the values on the stack)
+                for i, name in enumerate(match_context.names_list):
+                    self.name_op(name, ast.Store, match_context.names_origins[i])
+
+                if case.guard:
+                    case.guard.walkabout(self)
+                    self.emit_jump(ops.POP_JUMP_IF_FALSE, match_context.next, True)
+
+                if not is_last_case:
+                    self.emit_op(ops.POP_TOP)
+
+                self._visit_body(case.body)
+                self.emit_jump(ops.JUMP_FORWARD, end)
+                match_context.next_case()
+            self.use_next_block(end)
+        # self.emit_op(ops.POP_TOP)
+
+    def visit_MatchValue(self, match_value):
+        match_value.value.walkabout(self)
+        self.emit_compare(ast.Eq)
+        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+
+    def visit_MatchSingleton(self, match_singleton):
+        w_value = match_singleton.value
+        self.load_const(w_value)
+        self.emit_op_arg(ops.IS_OP, 0)
+        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+
+    def _pattern_store_name(self, name, node, match_context):
+        if name is None:
+            self.emit_op(ops.POP_TOP)
+            return
+
+        match_context.add_name(name, node, self)
+
+        # rotate this below any items we need to preserve
+        targetpos = match_context.on_top + len(match_context.names_stored)
+        self.emit_op_arg(ops.ROT_N, targetpos)
+
+    def visit_MatchAs(self, match_as):
+        match_context = self.match_context
+        if match_as.pattern is None:
+            # this pattern always passes, check whether that is ok
+            if not match_context.allow_always_passing:
+                if match_as.name:
+                    self.error(
+                        "name capture '%s' makes remaining patterns unreachable" % (
+                            match_as.name, ),
+                        match_as)
+                else:
+                    self.error(
+                        "wildcard makes remaining patterns unreachable",
+                        match_as)
+            self._pattern_store_name(match_as.name, match_as, match_context)
+            return
+
+        targetname = match_as.name
+        if targetname:
+            self.emit_op(ops.DUP_TOP)
+            match_context.on_top += 1
+
+        # this will jump away if the pattern doesn't match
+        match_as.pattern.walkabout(self)
+
+        if targetname:
+            match_context.on_top -= 1
+            self._pattern_store_name(match_as.name, match_as, match_context)
+
+    def visit_MatchSequence(self, match_sequence):
+        match_context = self.match_context
+        patterns = match_sequence.patterns
+        if patterns is None:
+            patterns = []
+
+        # input: (1, 2, 3, 4, 5)
+        # pattern: (1, *rest, 4, 5)
+        # stack = [(1,2,3,4,5)]
+
+        match_context.on_top += 1 # subject is on top
+        self.emit_op(ops.MATCH_SEQUENCE)
+        # stack = [(1,2,3,4,5), True]
+
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+        # stack = [(1,2,3,4,5)]
+
+        self.emit_op(ops.GET_LEN)
+        # stack = [(1,2,3,4,5), 5]
+
+        star_index = -1
+        star_captures = False
+        for i, pattern in enumerate(patterns):
+            if isinstance(pattern, ast.MatchStar):
+                star_index = i
+                star_captures = pattern.name is not None
+                break
+
+        length = len(patterns)
+        if star_index >= 0:
+            self.load_const(self.space.newint(length - 1))
+            # stack = [(1,2,3,4,5), 3]
+
+            self.emit_compare(ast.GtE)
+            # stack = [(1,2,3,4,5), True]
+
+            left = star_index
+            right = length - star_index - 1
+        else:
+            self.load_const(self.space.newint(length))
+            self.emit_compare(ast.Eq)
+            left = length - 1
+            right = 0
+
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+        # stack = [(1,2,3,4,5)]
+
+        match_context.on_top -= 1 # the rest consumes the subject
+
+        if star_index >= 0:
+            self.emit_op_arg(ops.UNPACK_EX, left + (right << 8))
+            # stack = [(1,2,3,4,5), 5, 4, (2, 3), 1]
+        else:
+            self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
+
+        match_context.on_top += length
+        with self.sub_pattern_context():
+            for i, pattern in enumerate(patterns):
+                match_context.on_top -= 1
+                pattern.walkabout(self)
+
+    def visit_MatchStar(self, match_star):
+        self._pattern_store_name(match_star.name, match_star, self.match_context)
+
+    def visit_MatchMapping(self, match_mapping):
+        match_context = self.match_context
+
+        # subject = {'x': 42, 'y': 13}
+        # pattern = {'x': 42, 'y': 13, **rest}
+        # stack = [{'x': 42, 'y': 13}]
+        self.emit_op(ops.MATCH_MAPPING)
+        match_context.on_top += 1
+        # stack = [{'x': 42, 'y': 13}, True]
+
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+        # stack = [{'x': 42, 'y': 13}]
+
+        if match_mapping.keys:
+            length = len(match_mapping.keys)
+            w_length = self.space.newint(length)
+            self.emit_op(ops.GET_LEN)
+            # stack = [{'x': 42, 'y': 13}, 2]
+
+            self.load_const(w_length)
+            # stack = [{'x': 42, 'y': 13}, 2, 2]
+
+            self.emit_compare(ast.GtE)
+            # stack = [{'x': 42, 'y': 13}, True]
+
+            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+            # stack = [{'x': 42, 'y': 13}]
+
+            # mostly it's all constants, but not always, can be an Attribute
+            # too
+            w_keys = self._tuple_of_consts(match_mapping.keys)
+            if w_keys is not None:
+                self.load_const(w_keys)
+            else:
+                for key in match_mapping.keys:
+                    key.walkabout(self)
+                self.emit_op_arg(ops.BUILD_TUPLE, len(match_mapping.keys))
+            # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
+        else:
+            length = 0
+            w_keys = self.space.newtuple([])
+            self.load_const(w_keys)
+
+        self.emit_op(ops.MATCH_KEYS)
+        # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
+
+        match_context.on_top += 2 # extra tuple and keys on top
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+        # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+
+        if not length:
+            # drop values if there are no patterns to match against
+            self.emit_op(ops.POP_TOP)
+            match_context.on_top -= 1
+            # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
+
+        with self.sub_pattern_context():
+            for i in range(length):
+                is_last = i == length - 1
+                if not is_last:
+                    self.emit_op(ops.DUP_TOP)
+                    # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13)]
+                    # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+                else:
+                    match_context.on_top -= 1
+
+                self.load_const(self.space.newint(i))
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13), 0]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 1]
+
+                self.emit_op(ops.BINARY_SUBSCR)
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 42]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), 13]
+
+                match_mapping.patterns[i].walkabout(self)
+
+                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+                # i=1: [{'x': 42, 'y': 13}, ('x', 'y')]
+
+            if match_mapping.rest:
+                self.emit_op(ops.COPY_DICT_WITHOUT_KEYS)
+                # i=1: [{'x': 42, 'y': 13}, {}]
+
+                self.name_op(match_mapping.rest, ast.Store, match_mapping)
+                # i=1: [{'x': 42, 'y': 13}]
+            else:
+                self.emit_op(ops.POP_TOP)
+                # i=1: [{'x': 42, 'y': 13}]
+            match_context.on_top -= 1
+
+        # expected stack at merge = [{'x': 42, 'y': 13}]
+
+        self.emit_op(ops.POP_TOP)
+        match_context.on_top -= 1
+        # stack = []
+
+    def visit_MatchOr(self, match_or):
+        end = self.new_block()
+
+        control = None
+        control_origins = None
+        outer_match_context = self.match_context
+        allow_always_passing = outer_match_context.allow_always_passing
+
+        with self.new_match_context() as match_context:
+            for i, pattern in enumerate(match_or.patterns):
+                is_not_last = i < len(match_or.patterns) - 1
+                match_context.allow_always_passing = allow_always_passing and not is_not_last
+                self.emit_op(ops.DUP_TOP)
+
+                assert match_context.on_top == 0
+                if control is not None: # not the first case
+                    match_context._init_names()
+                pattern.walkabout(self)
+
+                # make sure that the set of stored names is the same in all
+                # branches
+                if control is None:
+                    control = match_context.names_list
+                    control_origins = match_context.names_origins
+                else:
+                    # check that the names are the same in the later alternative
+                    if len(control) != len(match_context.names_stored):
+                        self.error("alternative patterns bind different names", match_or)
+                    permutation = [-1] * len(control)
+                    for index, name in enumerate(control):
+                        if name not in match_context.names_stored:
+                            self.error("alternative patterns bind different names", match_or)
+                        permutation[index] = match_context.names_stored[name]
+                    permutation.reverse()
+                    rots = compute_reordering(permutation)
+                    for rot in rots:
+                        self.emit_op_arg(ops.ROT_N, rot)
+                self.emit_jump(ops.JUMP_FORWARD, end)
+                match_context.next_case()
+
+        # compile the "no match" case. pop the copy of the subject and fail
+        # unconditionally.
+        self.emit_op(ops.POP_TOP)
+        outer_match_context.emit_fail_jump(ops.JUMP_FORWARD, False)
+
+        self.use_next_block(end)
+        # now we need more rotates! yay yay yay!
+        nstores = len(control)
+        nrots = nstores + 1 + outer_match_context.on_top + len(outer_match_context.names_stored)
+        for i, name in enumerate(control):
+            self.emit_op_arg(ops.ROT_N, nrots)
+            outer_match_context.add_name(name, control_origins[i], self)
+
+        # pop the copy of the subject
+        self.emit_op(ops.POP_TOP)
+
+    def visit_MatchClass(self, match_class):
+        match_context = self.match_context
+
+        if match_class.kwd_attrs:
+            kwd_attrs_w = [self.space.newtext(attr) for attr in match_class.kwd_attrs]
+        else:
+            kwd_attrs_w = []
+
+        nargs = len(match_class.patterns) if match_class.patterns else 0
+        nattrs = len(kwd_attrs_w)
+
+        match_class.cls.walkabout(self)
+        self.load_const(self.space.newtuple(kwd_attrs_w))
+        self.emit_op_arg(ops.MATCH_CLASS, nargs)
+        match_context.on_top += 1 # preserve the tuple
+
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+
+        with self.sub_pattern_context():
+            for i in range(nargs + nattrs):
+                if i < nargs:
+                    pattern = match_class.patterns[i]
+                else:
+                    pattern = match_class.kwd_patterns[i - nargs]
+
+                # TODO: skip if pattern is a wildcard
+                self.emit_op(ops.DUP_TOP)
+                self.load_const(self.space.newint(i))
+                self.emit_op(ops.BINARY_SUBSCR)
+                pattern.walkabout(self)
+
+        match_context.on_top -= 1 # pop the tuple
+        self.emit_op(ops.POP_TOP)
+
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
@@ -2287,4 +2631,50 @@ class CallCodeGenerator(object):
         else:
             self._pack_kwargs_into_dict()
             codegenerator.emit_op_arg(ops.CALL_FUNCTION_EX, int(self.have_kwargs))
+
+def rot_n(l, rotarg):
+    # act like the ROT_N bytecode on l
+    top = l[-1]
+    for i in range(rotarg - 1):
+        l[-i-1] = l[-i-2]
+    l[-rotarg] = top
+
+def compute_reordering(l):
+    if not we_are_translated():
+        assert set(l) == set(range(len(l)))
+
+    # look for descending chains
+    correct_lower_index = 0
+    while correct_lower_index < len(l) - 1:
+        if l[correct_lower_index] > l[correct_lower_index + 1]:
+            correct_lower_index += 1
+        else:
+            break
+
+    rot_sequence = []
+    while correct_lower_index < len(l) - 1:
+        # bring the top element to the right place
+        top = l[-1]
+        if top > l[correct_lower_index]:
+            # merge it into the  chain at the beginning
+            index = -1
+            for index in range(correct_lower_index + 1):
+                if l[index] < top:
+                    break
+            assert index >= 0
+            rotarg = len(l) - index
+        else:
+            # sort it next to the ascending chain
+            rotarg = len(l) - correct_lower_index - 1
+        rot_sequence.append(rotarg)
+        rot_n(l, rotarg)
+        correct_lower_index += 1
+
+    # paranoia
+    target = len(l) - 1
+    for element in l:
+        assert element == target
+        target -= 1
+    assert target == -1
+    return rot_sequence
 

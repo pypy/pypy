@@ -249,7 +249,7 @@ if 1:
         py.test.raises(SyntaxError, self.parse, 'f()\n# blah\nblah()', "single")
         py.test.raises(SyntaxError, self.parse, 'f()\nxy # blah\nblah()', "single")
         py.test.raises(SyntaxError, self.parse, 'x = 5 # comment\nx = 6\n', "single")
-    
+
     def test_unpack(self):
         self.parse('[*{2}, 3, *[4]]')
         self.parse('{*{2}, 3, *[4]}')
@@ -520,6 +520,11 @@ class TestPythonPegParser(TestPythonParser):
         self.parse(
             "if 1: \n pass", "exec",
             flags=consts.PyCF_DONT_IMPLY_DEDENT)
+
+    def test_pattern_matching_experiment(self):
+        self.parse("""match x:
+                case 1:
+                    print('hello')""")
 
     def test_nonparen_genexp_in_call(self):
         with py.test.raises(SyntaxError) as info:

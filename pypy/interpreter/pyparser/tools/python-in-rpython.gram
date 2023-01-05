@@ -63,7 +63,7 @@ compound_stmt:
     | &('for' | ASYNC) for_stmt
     | &'try' try_stmt
     | &'while' while_stmt
-#    | match_stmt
+    | match_stmt
 
 # SIMPLE STATEMENTS
 # =================
@@ -164,16 +164,16 @@ import_from[ast.ImportFrom]:
 import_from_targets[List[ast.alias]]:
     | '(' a=import_from_as_names [','] ')' { a }
     | import_from_as_names !','
-    | '*' { [ast.alias(name="*", asname=None)] }
+    | '*' { [ast.alias(name="*", asname=None, LOCATIONS)] }
     | invalid_import_from_targets
 import_from_as_names[List[ast.alias]]:
     | a=','.import_from_as_name+ { a }
 import_from_as_name[ast.alias]:
-    | a=NAME b=['as' z=NAME { z }] { ast.alias(name=self.extract_id(a), asname=self.extract_id(b)) }
+    | a=NAME b=['as' z=NAME { z }] { ast.alias(name=self.extract_id(a), asname=self.extract_id(b), LOCATIONS) }
 dotted_as_names[List[ast.alias]]:
     | a=','.dotted_as_name+ { a }
 dotted_as_name[ast.alias]:
-    | a=dotted_name b=['as' z=NAME { z }] { ast.alias(name=a, asname=self.extract_id(b)) }
+    | a=dotted_name b=['as' z=NAME { z }] { ast.alias(name=a, asname=self.extract_id(b), LOCATIONS) }
 dotted_name[str]:
     | a=NAME ! '.' { self.extract_id(a) } # single name without following dots
     | a=dotted_name '.' b=NAME { a + "." + b.id }
@@ -434,225 +434,226 @@ finally_block[list]:
 
 # We cannot do version checks here since the production will occur after any other
 # production which will have failed since the ast module does not have the right nodes.
-#match_stmt["ast.Match"]:
-#    | "match" subject=subject_expr ':' NEWLINE INDENT cases=case_block+ DEDENT {
-#        ast.Match(subject=subject, cases=cases, LOCATIONS)
-#     }
-#    | invalid_match_stmt
-#
-## Version checking here allows to avoid tracking down every single possible production
-#subject_expr:
-#    | value=star_named_expression ',' values=star_named_expressions? {
-#        self.check_version(
-#            (3, 10),
-#            "Pattern matching is",
-#            ast.Tuple(elts=[value] + (values or []), ctx=Load, LOCATIONS)
-#        )
-#     }
-#    | e=named_expression { self.check_version((3, 10), "Pattern matching is", e)}
-#
-#case_block["ast.match_case"]:
-#    | invalid_case_block
-#    | "case" pattern=patterns guard=guard? ':' body=block {
-#        ast.match_case(pattern=pattern, guard=guard, body=body)
-#     }
-#
-#guard: 'if' guard=named_expression { guard }
-#
-#patterns:
-#    | patterns=open_sequence_pattern {
-#        ast.MatchSequence(patterns=patterns, LOCATIONS)
-#     }
-#    | pattern
-#
-#pattern:
-#    | as_pattern
-#    | or_pattern
-#
-#as_pattern["ast.MatchAs"]:
-#    | pattern=or_pattern 'as' target=pattern_capture_target {
-#        ast.MatchAs(pattern=pattern, name=target, LOCATIONS)
-#     }
-#    | invalid_as_pattern
-#
-#or_pattern["ast.MatchOr"]:
-#    | patterns='|'.closed_pattern+ {
-#        ast.MatchOr(patterns=patterns, LOCATIONS) if len(patterns) > 1 else patterns[0]
-#     }
-#
-#closed_pattern:
-#    | literal_pattern
-#    | capture_pattern
-#    | wildcard_pattern
-#    | value_pattern
-#    | group_pattern
-#    | sequence_pattern
-#    | mapping_pattern
-#    | class_pattern
-#
-## Literal patterns are used for equality and identity constraints
-#literal_pattern:
-#    | value=signed_number !('+' | '-') { ast.MatchValue(value=value, LOCATIONS) }
-#    | value=complex_number { ast.MatchValue(value=value, LOCATIONS) }
-#    | value=strings { ast.MatchValue(value=value, LOCATIONS) }
-#    | 'None' { ast.MatchSingleton(value=None, LOCATIONS) }
-#    | 'True' { ast.MatchSingleton(value=True, LOCATIONS) }
-#    | 'False' { ast.MatchSingleton(value=False, LOCATIONS) }
-#
-## Literal expressions are used to restrict permitted mapping pattern keys
-#literal_expr:
-#    | signed_number !('+' | '-')
-#    | complex_number
-#    | strings
-#    | 'None' { ast.Constant(value=self.space.w_None, LOCATIONS) }
-#    | 'True' { ast.Constant(value=self.space.w_True, LOCATIONS) }
-#    | 'False' { ast.Constant(value=self.space.w_False, LOCATIONS) }
-#
-#complex_number:
-#    | real=signed_real_number '+' imag=imaginary_number {
-#        ast.BinOp(left=real, op=ast.Add, right=imag, LOCATIONS)
-#     }
-#    | real=signed_real_number '-' imag=imaginary_number  {
-#        ast.BinOp(left=real, op=ast.Sub, right=imag, LOCATIONS)
-#     }
-#
-#signed_number:
-#    | a=NUMBER { ast.Constant(value=self.parse_number(a), LOCATIONS) }
-#    | '-' a=NUMBER {
-#        ast.UnaryOp(
-#            op=ast.USub(),
-#            operand=ast.Constant(
-#                value=ast.self.parse_number(a),
-#                lineno=a.lineno,
-#                col_offset=a.column,
-#                end_lineno=a.end_lineno,
-#                end_col_offset=a.end_column
-#            ),
-#            LOCATIONS,
-#        )
-#     }
-#
-#signed_real_number:
-#    | real_number
-#    | '-' real=real_number { ast.UnaryOp(op=ast.USub(), operand=real, LOCATIONS) }
-#
-#real_number[ast.Constant]:
-#    | real=NUMBER { ast.Constant(value=self.ensure_real(real.value), LOCATIONS) }
-#
-#imaginary_number[ast.Constant]:
-#    | imag=NUMBER { ast.Constant(value=self.ensure_imaginary(imag.value), LOCATIONS) }
-#
-#capture_pattern:
-#    | target=pattern_capture_target {
-#        ast.MatchAs(pattern=None, name=target, LOCATIONS)
-#     }
-#
-#pattern_capture_target[str]:
-#    | !"_" name=NAME !('.' | '(' | '=') { name.id }
-#
-#wildcard_pattern["ast.MatchAs"]:
-#    | "_" { ast.MatchAs(pattern=None, target=None, LOCATIONS) }
-#
-#value_pattern["ast.MatchValue"]:
-#    | attr=attr !('.' | '(' | '=') { ast.MatchValue(value=attr, LOCATIONS) }
-#
-#attr[ast.Attribute]:
-#    | value=name_or_attr '.' attr=NAME {
-#        ast.Attribute(value=value, attr=attr.id, ctx=Load, LOCATIONS)
-#     }
-#
-#name_or_attr:
-#    | attr
-#    | NAME
-#
-#group_pattern:
-#    | '(' pattern=pattern ')' { pattern }
-#
-#sequence_pattern["ast.MatchSequence"]:
-#    | '[' patterns=maybe_sequence_pattern? ']' { ast.MatchSequence(patterns=patterns, LOCATIONS) }
-#    | '(' patterns=open_sequence_pattern? ')' { ast.MatchSequence(patterns=patterns, LOCATIONS) }
-#
-#open_sequence_pattern:
-#    | pattern=maybe_star_pattern ',' patterns=maybe_sequence_pattern? {
-#        [pattern] + (patterns or [])
-#     }
-#
-#maybe_sequence_pattern:
-#    | patterns=','.maybe_star_pattern+ ','? { patterns }
-#
-#maybe_star_pattern:
-#    | star_pattern
-#    | pattern
-#
-#star_pattern:
-#    | '*' target=pattern_capture_target { ast.MatchStar(name=target, LOCATIONS) }
-#    | '*' wildcard_pattern { ast.MatchStar(target=None, LOCATIONS) }
-#
-#mapping_pattern:
-#    | '{' '}' { ast.MatchMapping(keys=None, patterns=None, rest=None, LOCATIONS) }
-#    | '{' rest=double_star_pattern ','? '}' {
-#        ast.MatchMapping(keys=None, patterns=None, rest=rest, LOCATIONS) }
-#    | '{' items=items_pattern ',' rest=double_star_pattern ','? '}' {
-#        ast.MatchMapping(
-#            keys=[k for k,_ in items],
-#            patterns=[p for _, p in items],
-#            rest=rest,
-#            LOCATIONS,
-#        )
-#     }
-#    | '{' items=items_pattern ','? '}' {
-#        ast.MatchMapping(
-#            keys=[k for k,_ in items],
-#            patterns=[p for _, p in items],
-#            rest=None,
-#            LOCATIONS,
-#        )
-#     }
-#
-#items_pattern:
-#    | ','.key_value_pattern+
-#
-#key_value_pattern:
-#    | key=(literal_expr | attr) ':' pattern=pattern { (key, pattern) }
-#
-#double_star_pattern:
-#    | '**' target=pattern_capture_target { target }
-#
-#class_pattern["ast.MatchClass"]:
-#    | cls=name_or_attr '(' ')' {
-#        ast.MatchClass(cls=cls, patterns=None, kwd_attrs=None, kwd_patterns=None, LOCATIONS)
-#     }
-#    | cls=name_or_attr '(' patterns=positional_patterns ','? ')' {
-#        ast.MatchClass(cls=cls, patterns=patterns, kwd_attrs=None, kwd_patterns=None, LOCATIONS)
-#     }
-#    | cls=name_or_attr '(' keywords=keyword_patterns ','? ')' {
-#        ast.MatchClass(
-#            cls=cls,
-#            patterns=None,
-#            kwd_attrs=[k for k, _ in keywords],
-#            kwd_patterns=[p for _, p in keywords],
-#            LOCATIONS,
-#        )
-#     }
-#    | cls=name_or_attr '(' patterns=positional_patterns ',' keywords=keyword_patterns ','? ')' {
-#        ast.MatchClass(
-#            cls=cls,
-#            patterns=patterns,
-#            kwd_attrs=[k for k, _ in keywords],
-#            kwd_patterns=[p for _, p in keywords],
-#            LOCATIONS,
-#        )
-#     }
-#    | invalid_class_pattern
-#
-#positional_patterns:
-#    | args=','.pattern+ { args }
-#
-#keyword_patterns:
-#    | ','.keyword_pattern+
-#
-#keyword_pattern:
-#    | arg=NAME '=' value=pattern { (arg.id, value) }
+match_stmt["ast.Match"]:
+    | "match" subject=subject_expr ':' NEWLINE INDENT cases=case_block+ DEDENT {
+        ast.Match(subject=subject, cases=cases, LOCATIONS)
+     }
+    | invalid_match_stmt
+
+# Version checking here allows to avoid tracking down every single possible production
+subject_expr:
+    | value=star_named_expression ',' values=star_named_expressions? {
+        self.check_version(
+            (3, 10),
+            "Pattern matching is",
+            ast.Tuple(elts=[value] + (values or []), ctx=Load, LOCATIONS)
+        )
+     }
+    | e=named_expression { self.check_version((3, 10), "Pattern matching is", e)}
+
+case_block["ast.match_case"]:
+    | invalid_case_block
+    | "case" pattern=patterns guard=guard? ':' body=block {
+        ast.match_case(pattern=pattern, guard=guard, body=body)
+     }
+
+guard: 'if' guard=named_expression { guard }
+
+patterns:
+    | patterns=open_sequence_pattern {
+        ast.MatchSequence(patterns=patterns, LOCATIONS)
+     }
+    | pattern
+
+pattern:
+    | as_pattern
+    | or_pattern
+
+as_pattern["ast.MatchAs"]:
+    | pattern=or_pattern 'as' target=pattern_capture_target {
+        ast.MatchAs(pattern=pattern, name=target, LOCATIONS)
+     }
+    | invalid_as_pattern
+
+or_pattern["ast.MatchOr"]:
+    | patterns='|'.closed_pattern+ {
+        ast.MatchOr(patterns=patterns, LOCATIONS) if len(patterns) > 1 else patterns[0]
+     }
+
+closed_pattern:
+    | literal_pattern
+    | capture_pattern
+    | wildcard_pattern
+    | value_pattern
+    | group_pattern
+    | sequence_pattern
+    | mapping_pattern
+    | class_pattern
+
+# Literal patterns are used for equality and identity constraints
+literal_pattern:
+    | value=signed_number !('+' | '-') { ast.MatchValue(value=value, LOCATIONS) }
+    | value=complex_number { ast.MatchValue(value=value, LOCATIONS) }
+    | value=strings { ast.MatchValue(value=value, LOCATIONS) }
+    | 'None' { ast.MatchSingleton(value=self.space.w_None, LOCATIONS) }
+    | 'True' { ast.MatchSingleton(value=self.space.w_True, LOCATIONS) }
+    | 'False' { ast.MatchSingleton(value=self.space.w_False, LOCATIONS) }
+
+# Literal expressions are used to restrict permitted mapping pattern keys
+literal_expr:
+    | signed_number !('+' | '-')
+    | complex_number
+    | strings
+    | 'None' { ast.Constant(self.space.w_None, None, LOCATIONS) }
+    | 'True' { ast.Constant(self.space.w_True, None, LOCATIONS) }
+    | 'False' { ast.Constant(self.space.w_False, None, LOCATIONS) }
+
+complex_number:
+    | real=signed_real_number '+' imag=imaginary_number {
+        ast.BinOp(left=real, op=ast.Add, right=imag, LOCATIONS)
+     }
+    | real=signed_real_number '-' imag=imaginary_number  {
+        ast.BinOp(left=real, op=ast.Sub, right=imag, LOCATIONS)
+     }
+
+signed_number:
+    | a=NUMBER { ast.Constant(value=self.parse_number(a), kind=None, LOCATIONS) }
+    | '-' a=NUMBER {
+        ast.UnaryOp(
+            op=ast.USub,
+            operand=ast.Constant(
+                value=self.parse_number(a),
+                kind=None,
+                lineno=a.lineno,
+                col_offset=a.column,
+                end_lineno=a.end_lineno,
+                end_col_offset=a.end_column
+            ),
+            LOCATIONS,
+        )
+     }
+
+signed_real_number:
+    | real_number
+    | '-' real=real_number { ast.UnaryOp(op=ast.USub, operand=real, LOCATIONS) }
+
+real_number[ast.Constant]:
+    | real=NUMBER { ast.Constant(value=self.ensure_real(real), kind=None, LOCATIONS) }
+
+imaginary_number[ast.Constant]:
+    | imag=NUMBER { ast.Constant(value=self.ensure_imaginary(imag), kind=None, LOCATIONS) }
+
+capture_pattern:
+    | target=pattern_capture_target {
+        ast.MatchAs(pattern=None, name=target, LOCATIONS)
+     }
+
+pattern_capture_target[str]:
+    | !"_" name=NAME !('.' | '(' | '=') { name.id }
+
+wildcard_pattern["ast.MatchAs"]:
+    | "_" { ast.MatchAs(pattern=None, name=None, LOCATIONS) }
+
+value_pattern["ast.MatchValue"]:
+    | attr=attr !('.' | '(' | '=') { ast.MatchValue(value=attr, LOCATIONS) }
+
+attr[ast.Attribute]:
+    | value=name_or_attr '.' attr=NAME {
+        ast.Attribute(value=value, attr=attr.id, ctx=Load, LOCATIONS)
+     }
+
+name_or_attr:
+    | attr
+    | NAME
+
+group_pattern:
+    | '(' pattern=pattern ')' { pattern }
+
+sequence_pattern["ast.MatchSequence"]:
+    | '[' patterns=maybe_sequence_pattern? ']' { ast.MatchSequence(patterns=patterns, LOCATIONS) }
+    | '(' patterns=open_sequence_pattern? ')' { ast.MatchSequence(patterns=patterns, LOCATIONS) }
+
+open_sequence_pattern:
+    | pattern=maybe_star_pattern ',' patterns=maybe_sequence_pattern? {
+        [pattern] + (patterns or [])
+     }
+
+maybe_sequence_pattern:
+    | patterns=','.maybe_star_pattern+ ','? { patterns }
+
+maybe_star_pattern:
+    | star_pattern
+    | pattern
+
+star_pattern:
+    | '*' target=pattern_capture_target { ast.MatchStar(name=target, LOCATIONS) }
+    | '*' wildcard_pattern { ast.MatchStar(name=None, LOCATIONS) }
+
+mapping_pattern:
+    | '{' '}' { ast.MatchMapping(keys=None, patterns=None, rest=None, LOCATIONS) }
+    | '{' rest=double_star_pattern ','? '}' {
+        ast.MatchMapping(keys=None, patterns=None, rest=rest, LOCATIONS) }
+    | '{' items=items_pattern ',' rest=double_star_pattern ','? '}' {
+        ast.MatchMapping(
+            keys=self.get_pattern_keys(items),
+            patterns=self.get_patterns(items),
+            rest=rest,
+            LOCATIONS,
+        )
+     }
+    | '{' items=items_pattern ','? '}' {
+        ast.MatchMapping(
+            keys=self.get_pattern_keys(items),
+            patterns=self.get_patterns(items),
+            rest=None,
+            LOCATIONS,
+        )
+     }
+
+items_pattern:
+    | ','.key_value_pattern+
+
+key_value_pattern:
+    | key=(literal_expr | attr) ':' pattern=pattern { self.key_pattern_pair(key, pattern) }
+
+double_star_pattern:
+    | '**' target=pattern_capture_target { target }
+
+class_pattern["ast.MatchClass"]:
+    | cls=name_or_attr '(' ')' {
+        ast.MatchClass(cls=cls, patterns=None, kwd_attrs=None, kwd_patterns=None, LOCATIONS)
+     }
+    | cls=name_or_attr '(' patterns=positional_patterns ','? ')' {
+        ast.MatchClass(cls=cls, patterns=patterns, kwd_attrs=None, kwd_patterns=None, LOCATIONS)
+     }
+    | cls=name_or_attr '(' keywords=keyword_patterns ','? ')' {
+        ast.MatchClass(
+            cls=cls,
+            patterns=None,
+            kwd_attrs=self.get_pattern_names(keywords),
+            kwd_patterns=self.get_patterns(keywords),
+            LOCATIONS,
+        )
+     }
+    | cls=name_or_attr '(' patterns=positional_patterns ',' keywords=keyword_patterns ','? ')' {
+        ast.MatchClass(
+            cls=cls,
+            patterns=patterns,
+            kwd_attrs=self.get_pattern_names(keywords),
+            kwd_patterns=self.get_patterns(keywords),
+            LOCATIONS,
+        )
+     }
+    | invalid_class_pattern
+
+positional_patterns:
+    | args=','.pattern+ { args }
+
+keyword_patterns:
+    | ','.keyword_pattern+
+
+keyword_pattern:
+    | arg=NAME '=' value=pattern { self.key_pattern_pair(arg, value) }
 
 # EXPRESSIONS
 # -----------
@@ -1386,45 +1387,45 @@ invalid_except_stmt_indent[NoReturn]:
             "expected an indented block after 'except' statement on line %s" % a.lineno
         )
      }
-#invalid_match_stmt[NoReturn]:
-#    | "match" subject_expr !':' {
-#        self.check_version(
-#            (3, 10),
-#            "Pattern matching is",
-#            self.raise_syntax_error("expected ':'")
-#        )
-#     }
-#    | a="match" subject=subject_expr ':' NEWLINE !INDENT {
-#        self.check_version(
-#            (3, 10),
-#            "Pattern matching is",
-#            self.raise_indentation_error(
-#                "expected an indented block after 'match' statement on line %s" % a.lineno
-#            )
-#        )
-#     }
-#invalid_case_block[NoReturn]:
-#    | "case" patterns guard? !':' { self.raise_syntax_error("expected ':'") }
-#    | a="case" patterns guard? ':' NEWLINE !INDENT {
-#        self.raise_indentation_error(
-#            "expected an indented block after 'case' statement on line %s" % a.lineno
-#        )
-#     }
-#invalid_as_pattern[NoReturn]:
-#    | or_pattern 'as' a="_" {
-#        self.raise_syntax_error_known_location("cannot use '_' as a target", a)
-#     }
-#    | or_pattern 'as' !NAME a=expression {
-#        self.raise_syntax_error_known_location("invalid pattern target", a)
-#     }
-#invalid_class_pattern[NoReturn]:
-#    | name_or_attr '(' a=invalid_class_argument_pattern  {
-#        self.raise_syntax_error_known_range(
-#            "positional patterns follow keyword patterns", a[0], a[-1]
-#        )
-#     }
-#invalid_class_argument_pattern[list]:
-#    | [positional_patterns ','] keyword_patterns ',' a=positional_patterns { a }
+invalid_match_stmt[NoReturn]:
+    | "match" subject_expr !':' {
+        self.check_version(
+            (3, 10),
+            "Pattern matching is",
+            self.raise_syntax_error("expected ':'")
+        )
+     }
+    | a="match" subject=subject_expr ':' NEWLINE !INDENT {
+        self.check_version(
+            (3, 10),
+            "Pattern matching is",
+            self.raise_indentation_error(
+                "expected an indented block after 'match' statement on line %s" % a.lineno
+            )
+        )
+     }
+invalid_case_block[NoReturn]:
+    | "case" patterns guard? !':' { self.raise_syntax_error("expected ':'") }
+    | a="case" patterns guard? ':' NEWLINE !INDENT {
+        self.raise_indentation_error(
+            "expected an indented block after 'case' statement on line %s" % a.lineno
+        )
+     }
+invalid_as_pattern[NoReturn]:
+    | or_pattern 'as' a="_" {
+        self.raise_syntax_error_known_location("cannot use '_' as a target", a)
+     }
+    | or_pattern 'as' !NAME a=expression {
+        self.raise_syntax_error_known_location("invalid pattern target", a)
+     }
+invalid_class_pattern[NoReturn]:
+    | name_or_attr '(' a=invalid_class_argument_pattern  {
+        self.raise_syntax_error_known_range(
+            "positional patterns follow keyword patterns", a[0], a[-1]
+        )
+     }
+invalid_class_argument_pattern[list]:
+    | [positional_patterns ','] keyword_patterns ',' a=positional_patterns { a }
 invalid_if_stmt[NoReturn]:
     | 'if' named_expression NEWLINE { self.raise_syntax_error("expected ':'") }
     | a='if' a=named_expression ':' NEWLINE !INDENT {

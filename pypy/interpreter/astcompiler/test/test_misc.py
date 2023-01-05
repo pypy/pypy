@@ -1,6 +1,8 @@
 from pypy.interpreter.astcompiler.misc import mangle
 from pypy.interpreter.astcompiler.assemble import Instruction, ops
 from pypy.interpreter.astcompiler.assemble import _encode_lnotab_pair
+from pypy.interpreter.astcompiler.codegen import compute_reordering, rot_n
+
 
 def test_mangle():
     assert mangle("foo", "Bar") == "foo"
@@ -67,3 +69,19 @@ def test_encode_lnotab_pair():
     l = []
     _encode_lnotab_pair(4, -1000, l)
     assert l == list("\x04\x80\x00\x80\x00\x80\x00\x80\x00\x80\x00\x80\x00\x80\x00\x98")
+
+def test_compute_reordering():
+    import itertools
+    # exhaustive test up to size 8
+    for size in range(2, 9):
+        target = range(size)
+        for perm in itertools.permutations(range(size)):
+            if perm[0] == len(perm) - 1:
+                continue
+            l = list(perm)
+            rots = compute_reordering(l)
+            l = list(perm)
+            for rot in rots:
+                rot_n(l, rot)
+            assert l == list(reversed(target))
+

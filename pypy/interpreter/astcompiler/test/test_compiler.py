@@ -2131,6 +2131,217 @@ x = brokenargs(c=3)
     def test_cant_annotate_debug(self):
         self.error_test("__debug__ : int", SyntaxError, "cannot assign to __debug__")
 
+    def test_match(self):
+        func = """
+def f(x):
+    class A:
+        y = 13
+    match x:
+        case 1.1+2.2j: return "???"
+        case True: return "True"
+        case 1: return "hello"
+        case 3 | 4: return "3 | 4"
+        case [True]: return "[True]"
+        case [1,2,3]: return "list[1,2,3]"
+        case [1]: return "list[1]"
+        case []: return "emptylist"
+        case [_]: return "list"
+        case True | False as b: return b
+        case a if a: return a
+        case A.y as z: return z
+
+res=(
+        f(1),
+        f(2),
+        f(['']),
+        f([1]),
+        f([1,2,3]),
+        f([1,2,4]),
+        f([1,3,4]),
+        f([2,3,4]),
+        f([1, 2]),
+        f([]),
+        f(True),
+        f(3),
+        f(0),
+        f(False),
+        f(13),
+        f(1.1+2.2j),
+        f([True]),
+)
+"""
+        self.st(func, "res", (
+            "hello",
+            2,
+            "list",
+            "list[1]",
+            "list[1,2,3]",
+            [1,2,4],
+            [1,3,4],
+            [2,3,4],
+            [1,2],
+            "emptylist",
+            "True",
+            "3 | 4",
+            None,
+            False,
+            13,
+            '???',
+            '[True]',
+        ))
+
+    def test_match_sequence_star(self):
+        func = """
+def f(x):
+    match x:
+        case [1, *rest, 4, 5]: return rest
+        case [1, *rest]: return rest
+        case [*rest, 5]: return rest
+        case [*rest]: return rest
+res=(
+    f([1, 2, 3, 4, 5]),
+    f([1, 2, 3]),
+    f([3, 4, 5]),
+    f([2, 3, 4]),
+)
+"""
+        self.st(func, "res", (
+            [2, 3],
+            [2, 3],
+            [3, 4],
+            [2, 3, 4],
+        ))
+
+    def test_match_mapping(self):
+        func = """
+def f(x):
+    match x:
+        case {'x': 42, 'y': 13}: return "{'x': 42, 'y': 13}"
+        case {'x': 13, **rest}: return rest
+        case {'x': 7}: return "{'x': 7}"
+        case {True: 7}: return "{True: 7}"
+        case {}: return "{}"
+        case _: return "_"
+res=(
+    f([]), # not a dict: _
+    f({}), # empty: {}
+    f({'y': 42}), # no match for key: {}
+    f({'x': 21}), # no match for value: {}
+    f({'x': 42, 'y': 7}), # no match for second member's value: {}
+    f({'x': 42, 'y': 13}), # successful match with 2 members: {'x': 42, 'y': 13}
+    f({'x': 42, 'y': 13, 'z': 0}), # successful match with 2 members extraneous property: {'x': 42, 'y': 13}
+    f({'x': 7}), # successful match with a single member: {'x': 7}
+    f({'x': 7, 'y': 13}), # successful match with a single member and extraneous property: {'x': 7}
+    f({'x': 13, 'y': 7}), # successful match with rest capture: {'y': 7}
+    f({True: 7})
+)
+"""
+        self.st(func, "res", (
+            "_",
+            "{}",
+            "{}",
+            "{}",
+            "{}",
+            "{'x': 42, 'y': 13}",
+            "{'x': 42, 'y': 13}",
+            "{'x': 7}",
+            "{'x': 7}",
+            {'y': 7},
+            "{True: 7}",
+        ))
+
+    def test_match_mapping_more(self):
+        func = """
+def f(x):
+    match x:
+        case {f.x: 42}: return "self-attribute"
+        case _: return "_"
+f.x = "u"
+
+res=(
+    f({"u": 42}),
+)
+"""
+        self.st(func, "res", (
+            "self-attribute",
+        ))
+
+
+    def test_match_class(self):
+        func = """
+class C:
+    def __init__(self, x):
+        self.x = x
+C.__match_args__ = ('x',)
+
+def f(x):
+    match x:
+        case C(x) if x is True: return "C(True)"
+        case C(x=y) if y is False: return "C(False)"
+        case C(x=z): return "C(x={})".format(z)
+        case bool(b) if b: return "True"
+        case bool(): return "False"
+res=(
+    f(True),
+    f(False),
+    f(C(True)),
+    f(C(False)),
+    f(C(None)),
+)
+"""
+        self.st(func, "res", (
+            "True",
+            "False",
+            "C(True)",
+            "C(False)",
+            "C(x=None)",
+        ))
+
+    def test_match_class_attribute_missing(self):
+        func = """
+class C: pass
+
+def f(x):
+    match x:
+        case C(attr=y): return y
+c1 = C()
+c2 = C()
+c2.attr = 12
+res=(
+    f(c1),
+    f(c2),
+)
+"""
+        self.st(func, "res", (
+            None,
+            12,
+        ))
+
+    def test_match_complex(self):
+        func = """
+class C: pass
+
+def f(x):
+    match x:
+        case 0 + 0j:
+            return 1
+res=(
+    f(0+0j),
+    f(1+0j),
+)
+"""
+        self.st(func, "res", (
+            1,
+            None,
+        ))
+
+    def test_match_errors(self):
+        self.error_test("""
+match x:
+    case a: pass
+    case 1: pass
+""", SyntaxError, "name capture 'a' makes remaining patterns unreachable")
+
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
