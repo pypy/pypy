@@ -628,6 +628,9 @@ def get_config_vars(*args):
         except AttributeError:
             # sys.abiflags may not be defined on all platforms.
             _CONFIG_VARS['abiflags'] = ''
+        _CONFIG_VARS['implementation'] = _get_implementation()
+        _CONFIG_VARS['implementation_lower'] = _get_implementation().lower()
+        _CONFIG_VARS['LIBRARY'] = ''
         try:
             _CONFIG_VARS['py_version_nodot_plat'] = sys.winver.replace('.', '')
         except AttributeError:
