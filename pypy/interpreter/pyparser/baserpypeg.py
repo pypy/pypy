@@ -796,10 +796,10 @@ class Parser:
         if end_lineno == -1:
             if tok.end_lineno != -1:
                 end_lineno = tok.end_lineno
-                end_column = tok.end_column
+                end_col_offset = tok.end_column
             else:
                 end_lineno = start_lineno
-                end_column = start_col_offset
+                end_col_offset = start_col_offset
 
         if line_from_token:
             line = tok.line
@@ -810,7 +810,8 @@ class Parser:
             )
         raise cls(
             message,
-            start_lineno, start_col_offset + 1, line, self.compile_info.filename, lastlineno=end_lineno
+            start_lineno, start_col_offset + 1, line, self.compile_info.filename,
+            end_lineno=end_lineno, end_offset=end_col_offset + 1
         )
 
     @specialize.argtype(1)
