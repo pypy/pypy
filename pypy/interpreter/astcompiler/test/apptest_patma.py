@@ -179,3 +179,13 @@ match x:
 """)
     assert info.value.msg == "mapping pattern keys may only match literals and attribute lookups"
     assert info.value.lineno == 3
+
+def test_error_key_wrong_kind():
+    with pytest.raises(SyntaxError) as info:
+        exec("""
+match x:
+    case [a, *b, c, *d]:
+        pass
+""")
+    assert info.value.msg == "multiple starred names in sequence pattern"
+    assert info.value.lineno == 3
