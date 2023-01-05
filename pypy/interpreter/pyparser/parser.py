@@ -1,31 +1,6 @@
 """
 A CPython inspired RPython parser.
 """
-from rpython.rlib.objectmodel import not_rpython
-
-class DFA(object):
-    def __init__(self, grammar, symbol_id, states, first):
-        self.grammar = grammar
-        self.symbol_id = symbol_id
-        self.states = states
-        self.first = self._first_to_string(first)
-        self.grammar = grammar
-
-    def could_match_token(self, label_index):
-        pos = label_index >> 3
-        bit = 1 << (label_index & 0b111)
-        return bool(ord(self.first[label_index >> 3]) & bit)
-
-    @staticmethod
-    @not_rpython
-    def _first_to_string(first):
-        l = sorted(first.keys())
-        b = bytearray(32)
-        for label_index in l:
-            pos = label_index >> 3
-            bit = 1 << (label_index & 0b111)
-            b[pos] |= bit
-        return str(b)
 
 class TokenASTBase(object):
     _attrs_ = []
