@@ -459,6 +459,7 @@ sys_flags = (
     "isolated",
     "dev_mode",
     "utf8_mode",
+    "warn_default_encoding",
     "int_max_str_digits",
 )
 # ^^^ Order is significant!  Keep in sync with module.sys.app.sysflags
@@ -473,6 +474,7 @@ default_options = dict.fromkeys(
 default_options["check_hash_based_pycs"] = "default"
 default_options["dev_mode"] = False # needs to be bool
 default_options["utf8_mode"] = -1
+default_options["warn_default_encoding"] = False
 default_options["int_max_str_digits"] = -1
 
 def simple_option(options, name, iterargv):

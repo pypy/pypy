@@ -569,7 +569,11 @@ class AppTestExc(object):
         # harder
         class E2(KeyError, EnvironmentError): pass
         assert str(E2(6)) == '6'
+
     def test_keyerror_subclass(self):
         class E(KeyError):
             pass
         assert str(E(1)) == '1'
+
+    def test_encodingwarning(self):
+        assert isinstance(EncodingWarning('abc'), Warning)

@@ -758,3 +758,7 @@ def test_reconfigure_defaults():
 
     assert txt.detach().getvalue() == b'LF\nCRLF\r\n'
 
+
+def test_text_encoding():
+    assert _io.text_encoding("abc") == "abc"
+    assert _io.text_encoding(None) == "locale"
