@@ -246,7 +246,11 @@ W_TextIOBase.typedef = TypeDef(
 
 
 def _determine_encoding(space, encoding, w_buffer):
-    if encoding is not None:
+    if encoding == "locale":
+        pass
+    elif encoding is None:
+        _maybe_warn_encoding(space)
+    else:
         return space.newtext(encoding)
 
     # Try os.device_encoding(fileno) which is interp_posix.device_encoding
@@ -284,6 +288,31 @@ def _determine_encoding(space, encoding, w_buffer):
             return w_encoding
 
     raise oefmt(space.w_IOError, "could not determine default encoding")
+
+@unwrap_spec(stacklevel=int)
+def text_encoding(space, w_encoding, stacklevel=2):
+    """
+    A helper function to choose the text encoding.
+
+    When encoding is not None, just return it.
+    Otherwise, return the default text encoding (i.e. "locale").
+
+    This function emits an EncodingWarning if *encoding* is None and
+    sys.flags.warn_default_encoding is true.
+
+    This can be used in APIs with an encoding=None parameter
+    that pass it to TextIOWrapper or open.
+    However, please consider using encoding="utf-8" for new APIs.
+    """
+    if space.is_none(w_encoding):
+        _maybe_warn_encoding(space, stacklevel)
+        return space.newtext("locale")
+    return w_encoding
+
+def _maybe_warn_encoding(space, stacklevel=1):
+    if space.sys.get_flag('warn_default_encoding'):
+        space.warn(space.newtext("'encoding' argument not specified."),
+                   space.w_EncodingWarning, stacklevel)
 
 class PositionCookie(object):
     def __init__(self, bigint):

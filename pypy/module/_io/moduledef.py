@@ -4,7 +4,6 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
 
     appleveldefs = {
-        'text_encoding': 'app_io.text_encoding',
     }
 
     interpleveldefs = {
@@ -25,6 +24,7 @@ class Module(MixedModule):
         'BufferedRWPair': 'interp_bufferedio.W_BufferedRWPair',
         'BufferedRandom': 'interp_bufferedio.W_BufferedRandom',
         'TextIOWrapper': 'interp_textio.W_TextIOWrapper',
+        'text_encoding': 'interp_textio.text_encoding',
 
         'open': 'interp_io.open',
         'open_code': 'interp_io.open_code',

@@ -762,3 +762,9 @@ def test_reconfigure_defaults():
 def test_text_encoding():
     assert _io.text_encoding("abc") == "abc"
     assert _io.text_encoding(None) == "locale"
+
+def test_pseudo_encoding_locale():
+    r = _io.BytesIO(b"\xc3\xa9\n\n")
+    t1 = _io.TextIOWrapper(r, encoding="locale")
+    t2 = _io.TextIOWrapper(r)
+    assert t1.encoding == t2.encoding
