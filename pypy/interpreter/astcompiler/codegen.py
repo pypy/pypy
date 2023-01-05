@@ -2142,14 +2142,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
             # stack = [{'x': 42, 'y': 13}]
 
-            # check for duplicates
+            # check for duplicates and wrong kinds of nodes
             w_seen = self.space.newset()
             for key in match_mapping.keys:
                 if isinstance(key, ast.Constant):
                     if self.space.contains_w(w_seen, key.value):
                         keyrepr = self.space.text_w(self.space.repr(key.value))
-                        self.error("mapping pattern checks duplicate key (%s)" % keyrepr, constant)
+                        self.error("mapping pattern checks duplicate key (%s)" % keyrepr, key)
                     self.space.call_method(w_seen, "add", key.value)
+                elif not isinstance(key, ast.Attribute):
+                    self.error("mapping pattern keys may only match literals and attribute lookups", key)
 
             # mostly it's all constants, but not always, can be an Attribute
             # too

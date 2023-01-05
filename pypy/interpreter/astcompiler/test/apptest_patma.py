@@ -170,3 +170,12 @@ match x:
     assert info.value.msg == "mapping pattern checks duplicate key ('a')"
     assert info.value.lineno == 3
 
+def test_error_key_wrong_kind():
+    with pytest.raises(SyntaxError) as info:
+        exec("""
+match x:
+    case {f"{a}": 1}:
+        pass
+""")
+    assert info.value.msg == "mapping pattern keys may only match literals and attribute lookups"
+    assert info.value.lineno == 3
