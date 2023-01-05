@@ -111,7 +111,7 @@ if _HAS_USER_BASE:
         '    platstdlib': '{userbase}/lib/{implementation_lower}',
             'purelib': '{userbase}/lib/{implementation_lower}/site-packages',
             'platlib': '{userbase}/lib/{implementation_lower}/site-packages',
-            'include': '{userbase}/include/python{py_version_short}',
+            'include': '{userbase}/include/{implementation_lower}{py_version_short}',
             'scripts': '{userbase}/bin',
             'data': '{userbase}',
             },
@@ -187,7 +187,7 @@ def is_python_build(check_home=False):
         return _is_python_source_dir(_sys_home)
     return _is_python_source_dir(_PROJECT_BASE)
 
-_PYTHON_BUILD = is_python_build(True)
+_PYTHON_BUILD = False # is_python_build(True)
 
 if _PYTHON_BUILD:
     for scheme in ('posix_prefix', 'posix_home'):
