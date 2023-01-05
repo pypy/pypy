@@ -2,6 +2,7 @@ from ctypes import *
 
 import pytest
 import sys
+import weakref
 
 
 def test_subclass_initializer():
@@ -219,6 +220,16 @@ def test_memoryview_endian():
     c_les = LES()
     mv = memoryview(c_les)
     assert mv.format == 'B'
+def test_weakref():
+    # issue 3883: py_object of weakref
+    class Empty():
+        pass
+
+    e = Empty()
+    r = weakref.ref(e)
+    pr = py_object(r)
+    assert pr.value is e
+
 
 def test_deepcopy_struct():
     # issue 3022: missing __new__ on StructureInstanceAutoFree
