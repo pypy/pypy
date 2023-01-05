@@ -600,12 +600,8 @@ class Parser:
 
     def generate_ast_for_string(self, tokens):
         """Generate AST nodes for strings."""
-        from pypy.interpreter.pyparser.parser import Nonterminal, Terminal
         from pypy.interpreter.astcompiler.fstring import string_parse_literal
-        # bit of a hack, allow fstrings to keep using the old interface
-        return string_parse_literal(
-            self,
-            tokens)
+        return string_parse_literal(self, tokens)
 
     def extract_import_level(self, tokens):
         """Extract the relative import level from the tokens preceding the module name.

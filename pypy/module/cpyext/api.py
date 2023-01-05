@@ -180,7 +180,7 @@ def copy_header_files(cts, dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
-    for name in ["pypy_macros.h", "graminit.h"] + FUNCTIONS_BY_HEADER.keys():
+    for name in ["pypy_macros.h"] + FUNCTIONS_BY_HEADER.keys():
         headers.append(udir.join(name))
     for path in cts.parsed_headers:
         headers.append(path)
@@ -1600,15 +1600,6 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
                          needs_signed=False, add_guards=True)
         else:
             write_header(header_name, header_decls)
-
-    # generate graminit.h
-    graminit_h = udir.join('graminit.h')
-    with graminit_h.open('w', ensure=True) as fid:
-        fid.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */\n\n')
-        for attr in dir(pygram.syms):
-            val = getattr(pygram.syms, attr)
-            if isinstance(val, int):
-                fid.write('#define {} {}\n'.format(attr, val))
 
  
 separate_module_files = [source_dir / "varargwrapper.c",
