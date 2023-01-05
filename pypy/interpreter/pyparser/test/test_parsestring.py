@@ -1,6 +1,6 @@
 from pypy.interpreter.pyparser import parsestring
 from pypy.interpreter.pyparser.error import SyntaxError
-from pypy.interpreter.pyparser.parser import Terminal
+from pypy.interpreter.pyparser.parser import Token
 
 import py, sys
 
@@ -48,8 +48,7 @@ class TestParsetring:
         # chars '\' 'x' 'e' '9'
         excinfo = py.test.raises(SyntaxError,
                        parsestring.parsestr, space, None,
-                       "b'     \xe9'", Terminal(None, -1, "b'     \xe9'", 5, 0))
-        assert excinfo.value.offset == 8
+                       "b'     \xe9'", Token(None, -1, "b'     \xe9'", 5, 0))
         self.parse_and_compare(r"b'\xe9'", chr(0xE9))
 
     def test_unicode(self):

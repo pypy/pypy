@@ -1,5 +1,5 @@
 import os
-from pypy.interpreter.pyparser import parser, pytoken, metaparser
+from pypy.interpreter.pyparser import pytoken
 
 class _Tokens(object):
     pass
