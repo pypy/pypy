@@ -156,11 +156,6 @@ for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
 for name in ('SIGN', 'ADD_DOT_0', 'ALT'):
     constant_names.append('Py_DTSF_%s' % name)
 
-# PyPy-specific flags
-for name in ('FLOAT',):
-    constant_names.append('Py_TPPYPYFLAGS_%s_SUBCLASS' % name)
-
-
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
 globals().update(rffi_platform.configure(CConfig_constants))

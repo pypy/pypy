@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
-    cpython_struct,
+    cpython_struct, build_type_checkers,
     CANNOT_FAIL, cpython_api, PyObject, CONST_STRING)
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
@@ -13,6 +13,8 @@ PyFloatObject = lltype.Ptr(PyFloatObjectStruct)
 PyFloatObjectFields = PyObjectFields + \
     (("ob_fval", rffi.DOUBLE),)
 cpython_struct("PyFloatObject", PyFloatObjectFields, PyFloatObjectStruct)
+
+PyFloat_Check, PyFloat_CheckExact = build_type_checkers("Float", "w_float")
 
 @bootstrap_function
 def init_floatobject(space):
