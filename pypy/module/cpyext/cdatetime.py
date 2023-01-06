@@ -441,6 +441,18 @@ def PyDateTime_DATE_GET_MICROSECOND(space, w_obj):
     except OperationError:
         return 0     # see comments in PyDateTime_DATE_GET_HOUR
 
+@cpython_api([rffi.VOIDP], PyObject, error=CANNOT_FAIL)
+def PyDateTime_DATE_GET_TZINFO(space, w_obj):
+    """Return the tzinfo, a PyObject
+    """
+    try:
+        ret = space.getattr(w_obj, space.newtext("tzinfo"))
+        if not ret:
+            return space.w_None
+        return ret
+    except OperationError:
+        return space.w_None
+
 @cpython_api([rffi.VOIDP], rffi.INT_real, error=CANNOT_FAIL)
 def PyDateTime_TIME_GET_HOUR(space, w_obj):
     """Return the hour, as an int from 0 through 23.
@@ -470,6 +482,18 @@ def PyDateTime_TIME_GET_FOLD(space, w_obj):
     """Return the fold, either 0 or 1
     """
     return space.int_w(space.getattr(w_obj, space.newtext("fold")))
+
+@cpython_api([rffi.VOIDP], PyObject, error=CANNOT_FAIL)
+def PyDateTime_TIME_GET_TZINFO(space, w_obj):
+    """Return the tzinfo, a PyObject
+    """
+    try:
+        ret = space.getattr(w_obj, space.newtext("tzinfo"))
+        if not ret:
+            return space.w_None
+        return ret
+    except OperationError:
+        return space.w_None
 
 # XXX these functions are not present in the Python API
 # But it does not seem possible to expose a different structure
