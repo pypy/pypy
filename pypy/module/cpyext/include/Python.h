@@ -56,6 +56,7 @@
 #include "pymacro.h"
 
 #include "object.h"
+#include "objimpl.h"
 #include "typeslots.h"
 #include "abstract.h"
 #include "pymath.h"

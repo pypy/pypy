@@ -294,6 +294,8 @@ given type object has a specified feature.
 
 PyAPI_FUNC(long) PyType_GetFlags(PyTypeObject*);
 
+PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
+
 #ifdef Py_LIMITED_API
 #define PyType_HasFeature(t,f)  ((PyType_GetFlags(t) & (f)) != 0)
 #else
@@ -315,81 +317,12 @@ PyAPI_FUNC(void*) PyType_GetSlot(PyTypeObject*, int);
 PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
 
 
-/* objimpl.h ----------------------------------------------*/
-#define PyObject_New(type, typeobj) \
-		( (type *) _PyObject_New(typeobj) )
-#define PyObject_NewVar(type, typeobj, n) \
-		( (type *) _PyObject_NewVar((typeobj), (n)) )
+/* Generic type check */
 
-#define _PyObject_SIZE(typeobj) ( (typeobj)->tp_basicsize )
-#define _PyObject_VAR_SIZE(typeobj, nitems)	\
-	(size_t)				\
-	( ( (typeobj)->tp_basicsize +		\
-	    (nitems)*(typeobj)->tp_itemsize +	\
-	    (SIZEOF_VOID_P - 1)			\
-	  ) & ~(SIZEOF_VOID_P - 1)		\
-	)
-
-        
-#define PyObject_INIT(op, typeobj) \
-    ( Py_TYPE(op) = (typeobj), ((PyObject *)(op))->ob_refcnt = 1,\
-      ((PyObject *)(op))->ob_pypy_link = 0, (op) )
-#define PyObject_INIT_VAR(op, typeobj, size) \
-    ( Py_SIZE(op) = (size), PyObject_INIT((op), (typeobj)) )
-
-
-PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
-
-/*
-#define PyObject_NEW(type, typeobj) \
-( (type *) PyObject_Init( \
-	(PyObject *) PyObject_MALLOC( _PyObject_SIZE(typeobj) ), (typeobj)) )
-*/
-#define PyObject_NEW PyObject_New
-#define PyObject_NEW_VAR PyObject_NewVar
-
-/*
-#define PyObject_NEW_VAR(type, typeobj, n) \
-( (type *) PyObject_InitVar( \
-      (PyVarObject *) PyObject_MALLOC(_PyObject_VAR_SIZE((typeobj),(n)) ),\
-      (typeobj), (n)) )
-*/
-
-#define PyObject_GC_New(type, typeobj) \
-                ( (type *) _PyObject_GC_New(typeobj) )
-#define PyObject_GC_NewVar(type, typeobj, size) \
-                ( (type *) _PyObject_GC_NewVar(typeobj, size) )
-
-/* A dummy PyGC_Head, just to please some tests. Don't use it! */
-typedef union _gc_head {
-    char dummy;
-} PyGC_Head;
-
-/* dummy GC macros */
-#define _PyGC_FINALIZED(o) 1
-#define PyType_IS_GC(t) PyType_HasFeature((t), Py_TPFLAGS_HAVE_GC)
-
-#define PyObject_GC_Track(o)      do { } while(0)
-#define PyObject_GC_UnTrack(o)    do { } while(0)
-#define _PyObject_GC_TRACK(o)     do { } while(0)
-#define _PyObject_GC_UNTRACK(o)   do { } while(0)
-
-/* Utility macro to help write tp_traverse functions.
- * To use this macro, the tp_traverse function must name its arguments
- * "visit" and "arg".  This is intended to keep tp_traverse functions
- * looking as much alike as possible.
- */
-#define Py_VISIT(op)                                                    \
-        do {                                                            \
-                if (op) {                                               \
-                        int vret = visit((PyObject *)(op), arg);        \
-                        if (vret)                                       \
-                                return vret;                            \
-                }                                                       \
-        } while (0)
-
-#define PyObject_TypeCheck(ob, tp) \
-    (Py_TYPE(ob) == (tp) || PyType_IsSubtype(Py_TYPE(ob), (tp)))
+static inline int _PyObject_TypeCheck(PyObject *ob, PyTypeObject *type) {
+    return Py_IS_TYPE(ob, type) || PyType_IsSubtype(Py_TYPE(ob), type);
+}
+#define PyObject_TypeCheck(ob, type) _PyObject_TypeCheck(_PyObject_CAST(ob), type)
 
 #define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
 #define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
@@ -426,30 +359,7 @@ PyAPI_FUNC(int) PyBuffer_FromContiguous(Py_buffer *view, void *buf,
 */
 
 
-/* on CPython, these are in objimpl.h */
-
-PyAPI_FUNC(void) PyObject_Free(void *);
-PyAPI_FUNC(void) PyObject_GC_Del(void *);
-
-#define PyObject_MALLOC         PyObject_Malloc
-#define PyObject_REALLOC        PyObject_Realloc
-#define PyObject_FREE           PyObject_Free
-#define PyObject_Del            PyObject_Free
-#define PyObject_DEL            PyObject_Free
-
-PyAPI_FUNC(PyObject *) _PyObject_New(PyTypeObject *);
-PyAPI_FUNC(PyVarObject *) _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
-PyAPI_FUNC(PyObject *) _PyObject_GC_Malloc(size_t);
-PyAPI_FUNC(PyObject *) _PyObject_GC_New(PyTypeObject *);
-PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVar(PyTypeObject *, Py_ssize_t);
-
-PyAPI_FUNC(PyObject *) PyObject_Init(PyObject *, PyTypeObject *);
-PyAPI_FUNC(PyVarObject *) PyObject_InitVar(PyVarObject *,
-                                           PyTypeObject *, Py_ssize_t);
-
-#ifndef Py_LIMITED_API
 PyAPI_FUNC(int) PyObject_CallFinalizerFromDealloc(PyObject *);
-#endif
 
 /*
  * On CPython with Py_REF_DEBUG these use _PyRefTotal, _Py_NegativeRefcount,
