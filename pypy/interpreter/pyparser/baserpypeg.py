@@ -257,6 +257,17 @@ class Parser:
         res = meth(self)
         if res is None:
             tok = self.diagnose()
+            if self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
+                # bit of a heuristic: if the remaining tokens are ENDMARKER,
+                # NEWLINE, DEDENT then more input could fix things, so we raise
+                # "incomplete input"
+                for index in range(self._highwatermark, len(self._tokens)):
+                    typ = tok.token_type
+                    if (typ != tokens.ENDMARKER and typ != tokens.NEWLINE and
+                            typ != tokens.DEDENT):
+                        break
+                else:
+                    self.raise_syntax_error_known_location("incomplete input", tok)
             self.reset()
             self.call_invalid_rules = True
             meth(self) # often raises

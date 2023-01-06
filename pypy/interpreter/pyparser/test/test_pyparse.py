@@ -459,3 +459,41 @@ pass
         ast = self.parse("45 * a", "eval")
         assert ast.body.end_col_offset == 6
 
+class TestIncompleteInput(object):
+    def setup_class(self):
+        self.parser = pyparse.PegParser(self.space)
+
+    def parse(self, source):
+        info = pyparse.CompileInfo("<test>", "single", flags=consts.PyCF_ALLOW_INCOMPLETE_INPUT)
+        return self.parser.parse_source(source, info)
+
+    def check_incomplete(self, inputstring):
+        self.check_error(inputstring, "incomplete input")
+
+    def check_error(self, inputstring, msgfragment='', lineno=-1, offset=-1):
+        with pytest.raises(SyntaxError) as info:
+            self.parse(inputstring)
+        assert msgfragment in info.value.msg
+        return info.value.msg
+
+    def test_simple(self):
+        self.parse("a")
+
+    def test_expression(self):
+        self.check_incomplete("a +")
+
+    def test_if(self):
+        self.check_incomplete("if 1:")
+
+    def test_nested(self):
+        self.check_incomplete("def f(x):\n    if 1:")
+
+    def test_real_error(self):
+        msg = self.check_error("a b c de")
+        assert "incomplete source" not in msg
+
+    def test_triplequote(self):
+        msg = self.check_incomplete("a = '''")
+
+    def test_triplequote(self):
+        msg = self.check_incomplete("a = '''\nabc\def")
