@@ -165,6 +165,7 @@ not implemented for a given type combination.
 #define Py_GT 4
 #define Py_GE 5
 
+
 /* Py3k buffer interface, adapted for PyPy */
     /* Flags for getting buffers */
 #define PyBUF_SIMPLE 0
@@ -295,6 +296,8 @@ given type object has a specified feature.
 PyAPI_FUNC(long) PyType_GetFlags(PyTypeObject*);
 
 PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyObject *) PyType_GenericNew(PyTypeObject *,
+                                               PyObject *, PyObject *);
 
 #ifdef Py_LIMITED_API
 #define PyType_HasFeature(t,f)  ((PyType_GetFlags(t) & (f)) != 0)
@@ -318,6 +321,7 @@ PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
 
 
 /* Generic type check */
+PyAPI_FUNC(int) PyType_IsSubtype(PyTypeObject *, PyTypeObject *);
 
 static inline int _PyObject_TypeCheck(PyObject *ob, PyTypeObject *type) {
     return Py_IS_TYPE(ob, type) || PyType_IsSubtype(Py_TYPE(ob), type);

@@ -1,8 +1,8 @@
-from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.api import cpython_api, PyObject, CANNOT_FAIL
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.module.cpyext.api import (cpython_api, PyObject, PyObjectP,
+    CANNOT_FAIL, cts)
 import pypy.module.__builtin__.operation as operation
 from rpython.rtyper.lltypesystem import rffi
-
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyCallIter_New(space, w_callable, w_sentinel):
@@ -34,6 +34,13 @@ def PyIter_Next(space, w_obj):
         if not e.match(space, space.w_StopIteration):
             raise
     return None
+
+@cpython_api([PyObject, PyObject, PyObjectP], rffi.INT_real, error=-1)
+def PyIter_Send(space, w_iter, w_arg, presult):
+    presult[0] = rffi.cast(PyObject, 0)
+    raise oefmt(space.w_NotImplementedError,
+                "PyIter_Send not implemented yet")
+    return -1
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyIter_Check(space, w_obj):

@@ -13,6 +13,7 @@ PyType_FromSpec(PyType_Spec *spec)
 
 #ifdef CPYEXT_TESTS
 #define _Py_subtype_dealloc _cpyexttest_subtype_dealloc
+#define PyType_IsSubtype cpyexttestPyType_IsSubtype
 #ifdef __GNUC__
 __attribute__((visibility("default")))
 #else
@@ -20,6 +21,7 @@ __declspec(dllexport)
 #endif
 #else  /* CPYEXT_TESTS */
 #define _Py_subtype_dealloc _PyPy_subtype_dealloc
+#define PyType_IsSubtype PyPyType_IsSubtype
 #endif  /* CPYEXT_TESTS */
 void
 _Py_subtype_dealloc(PyObject *obj)
@@ -55,4 +57,49 @@ PyType_GetFlags(PyTypeObject *type)
 {
     return type->tp_flags;
 }
+
+PyObject *
+PyType_GenericNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    return type->tp_alloc(type, 0);
+}
+
+
+/* type test with subclassing support */
+
+static int
+type_is_subtype_base_chain(PyTypeObject *a, PyTypeObject *b)
+{
+    do {
+        if (a == b)
+            return 1;
+        a = a->tp_base;
+    } while (a != NULL);
+
+    return (b == &PyBaseObject_Type);
+}
+
+int
+PyType_IsSubtype(PyTypeObject *a, PyTypeObject *b)
+{
+    PyObject *mro;
+
+    mro = a->tp_mro;
+    if (mro != NULL) {
+        /* Deal with multiple inheritance without recursion
+           by walking the MRO tuple */
+        Py_ssize_t i, n;
+        assert(PyTuple_Check(mro));
+        n = PyTuple_GET_SIZE(mro);
+        for (i = 0; i < n; i++) {
+            if (PyTuple_GET_ITEM(mro, i) == (PyObject *)b)
+                return 1;
+        }
+        return 0;
+    }
+    else
+        /* a is not completely initialized yet; follow tp_base */
+        return type_is_subtype_base_chain(a, b);
+}
+
 
