@@ -149,7 +149,14 @@ typedef struct {
     objobjargproc mp_ass_subscript;
 } PyMappingMethods;
 
-typedef PySendResult (*sendfunc)(PyObject *iter, PyObject *value, PyObject **result);
+/* Result of calling PyIter_Send */
+typedef enum {
+    PYGEN_RETURN = 0,
+    PYGEN_ERROR = -1,
+    PYGEN_NEXT = 1,
+} PySendResult;
+
+typedef int (*sendfunc)(PyObject *iter, PyObject *value, PyObject **result);
 
 typedef struct {
     unaryfunc am_await;

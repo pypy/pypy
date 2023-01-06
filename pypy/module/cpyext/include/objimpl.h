@@ -190,7 +190,9 @@ PyAPI_FUNC(void) PyObject_GC_Track(void *);
 PyAPI_FUNC(void) PyObject_GC_UnTrack(void *);
 #else
 #define _PyObject_GC_Track(o)      do { } while(0)
+#define _PyObject_GC_TRACK(o)      do { } while(0)
 #define _PyObject_GC_UnTrack(o)    do { } while(0)
+#define PyObject_GC_UnTrack(o)    do { } while(0)
 #endif
 
 PyAPI_FUNC(void) PyObject_GC_Del(void *);
