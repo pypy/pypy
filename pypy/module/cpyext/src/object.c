@@ -242,6 +242,7 @@ _Py_NewReference(PyObject *op)
     _Py_RefTotal++;
 #endif
     Py_SET_REFCNT(op, 1);
+    ((PyObject *)(op))->ob_pypy_link = 0;
 #ifdef Py_TRACE_REFS
     _Py_AddToAllObjects(op, 1);
 #endif
