@@ -833,6 +833,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
         self.push_frame_block(F_EXCEPTION_HANDLER, None)
+        handler = None
         for i, handler in enumerate(tr.handlers):
             assert isinstance(handler, ast.ExceptHandler)
             self.update_position(handler.lineno)
@@ -903,6 +904,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_jump(ops.JUMP_FORWARD, end)
             #
             self.use_next_block(next_except)
+        if handler is not None:
             self.update_position(handler.lineno)
         self.pop_frame_block(F_EXCEPTION_HANDLER, None)
         # pypy difference: get rid of exception
