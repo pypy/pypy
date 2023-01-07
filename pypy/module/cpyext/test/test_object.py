@@ -338,10 +338,16 @@ class AppTestObject(AppTestCpythonExtensionBase):
             ("ismapping", "METH_O",
              """
                  PyObject* collections_mod =
-                     PyImport_ImportModule("collections");
+                     PyImport_ImportModule("collections.abc");
+                 if (collections_mod == NULL) {
+                    return NULL;
+                 }
                  PyObject* mapping_t = PyObject_GetAttrString(
                      collections_mod, "Mapping");
                  Py_DECREF(collections_mod);
+                 if (mapping_t == NULL) {
+                    return NULL;
+                 }
                  if (PyObject_IsInstance(args, mapping_t)) {
                      Py_DECREF(mapping_t);
                      Py_RETURN_TRUE;
@@ -358,7 +364,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
                      Py_RETURN_FALSE;
                 }
              """),])
-        import collections
+        import collections.abc
         assert isinstance(dict(), collections.abc.Mapping)
         assert module.ismapping(dict())
         def f():
