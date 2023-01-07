@@ -372,6 +372,9 @@ def main(args):
     parser.add_option("--timeout", dest="timeout", default=None,
                       type="int",
                       help="timeout in secs for test processes")
+    parser.add_option("--cherrypick", dest="cherrypick", default=None,
+                      type=str,
+                      help="tests to run, starting at ROOT")
 
     opts, args = parser.parse_args(args)
 
@@ -402,6 +405,8 @@ def main(args):
         else:
             print >>out, "ignoring non-existant config", config_py_file
 
+    if opts.cherrypick:
+        run_param.cherrypick = opts.cherrypick.split(',')
     if run_param.cherrypick:
         for p in run_param.cherrypick:
             run_param.collect_testdirs(testdirs, root.join(p))
