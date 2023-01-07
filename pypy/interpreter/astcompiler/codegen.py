@@ -903,6 +903,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_jump(ops.JUMP_FORWARD, end)
             #
             self.use_next_block(next_except)
+        self.update_position(handler.lineno)
         self.pop_frame_block(F_EXCEPTION_HANDLER, None)
         # pypy difference: get rid of exception
         self.emit_op(ops.POP_TOP)

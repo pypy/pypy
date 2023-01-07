@@ -796,5 +796,5 @@ def test_co_lines():
     assert entry[1] == len(f.__code__.co_code)
     res = [end - f.__code__.co_firstlineno
                 for start, stop, end in f.__code__.co_lines()]
-    expected_prefix = [1, 2, 3, 2, 1, 4, 5, 6, 7]
-    assert res[:len(expected_prefix)] == expected_prefix
+
+    assert res == [1, 2, 3, 2, 1, 4, 5, 6, 7, 6]
