@@ -8,6 +8,7 @@ import imp, struct, types, sys, os
 
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, applevel
 from pypy.interpreter.astcompiler.consts import (
@@ -490,6 +491,78 @@ class PyCode(eval.Code):
         return space.newtext(b'<code object %s at 0x%s, file "%s", line %d>' % (
             name, self.getaddrstring(space), fn,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno))
+
+    def co_lines(self, space):
+        # from PEP 626:
+        # The co_lines() method will return an iterator which yields tuples of
+        # values, each representing the line number of a range of bytecodes.
+        # Each tuple will consist of three values:
+        #
+        #     • start – The offset (inclusive) of the start of the bytecode
+        #       range
+        #     • end – The offset (exclusive) of the end of the bytecode range
+        #     • line – The line number, or None if the bytecodes in the given
+        #       range do not have a line number.
+        #
+        #
+        # The sequence generated will have the following properties:
+        #
+        #     • The first range in the sequence with have a start of 0
+        #     • The (start, end) ranges will be non-decreasing and consecutive.
+        #       That is, for any pair of tuples the start of the second will
+        #       equal to the end of the first.
+        #     • No range will be backwards, that is end >= start for all
+        #       triples.
+        #     • The final range in the sequence with have end equal to the size
+        #       of the bytecode.
+        #     • line will either be a positive integer, or None
+        return W_LineIterator(self.space, self)
+
+class W_LineIterator(W_Root):
+    def __init__(self, space, w_code):
+        self.space = space
+        self.w_code = w_code
+        self.index = 0 # for now this is still using co_lnotab
+        self.pc = 0
+        self.line = w_code.co_firstlineno
+
+    def descr_iter(self):
+        return self
+
+    def descr_next(self):
+        space = self.space
+        if self.index == -1:
+            raise OperationError(space.w_StopIteration, space.newtext(''))
+        lnotab = self.w_code.co_lnotab
+        start = addr = self.pc
+        line_start = line = self.line
+        for lnotab_index in range(self.index, len(lnotab), 2):
+            addr += ord(lnotab[lnotab_index])
+            line_offset = ord(lnotab[lnotab_index + 1])
+            if line_offset >= 0x80:
+                line_offset -= 0x100
+            line += line_offset
+            if line != line_start:
+                self.line = line
+                self.index = lnotab_index + 2
+                self.pc = addr
+                if lnotab_index == len(lnotab) - 2:
+                    addr = len(self.w_code.co_code)
+                    self.index = -1
+                    self.w_code = None
+                w_res = space.newtuple([
+                    space.newint(start),
+                    space.newint(addr),
+                    space.newint(line)
+                ])
+                return w_res
+        w_res = space.newtuple([
+            space.newint(start),
+            space.newint(len(self.w_code.co_code)),
+            space.newint(line)
+        ])
+        self.index = -1
+        return w_res
 
 def _compute_args_as_cellvars(varnames, cellvars, argcount):
     # Cell vars could shadow already-set arguments.
