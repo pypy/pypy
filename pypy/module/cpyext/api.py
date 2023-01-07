@@ -658,7 +658,7 @@ SYMBOLS_C = [
     '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar',
     'PyTuple_New', '_Py_Dealloc', '_Py_object_dealloc',
-    'PyVectorcall_Call',
+    'PyVectorcall_Call', 'PyState_FindModule', 'PySlice_AdjustIndices',
 ]
 if sys.platform == "win32":
     SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')
@@ -666,6 +666,7 @@ TYPES = {}
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
 BOOTSTRAP_FUNCTIONS = []
+SKIP_GLOBAL = []
 
 # Keep synchronized with pypy.interpreter.app_main.sys_flags and
 # module.sys.app.sysflags. Synchronized in an init_function
@@ -687,6 +688,12 @@ _flags = [
 ]
 
 SYMBOLS_C += [c_name for c_name, _ in _flags]
+
+# static inlined functions in headers need these to be in pypy_macros.h, not in
+# pypy_decls.h
+MANGLE_NAMES = ['PyType_Type', 'PyType_HasFeature']
+SYMBOLS_C += MANGLE_NAMES
+SKIP_GLOBAL += MANGLE_NAMES
 
 # this needs to include all prebuilt pto, otherwise segfaults occur
 register_global('_Py_NoneStruct',
@@ -1562,6 +1569,7 @@ def generate_decls_and_callbacks(db, prefix=''):
     decls = defaultdict(list)
     for decl in FORWARD_DECLS:
         decls[pypy_decl].append("%s;" % (decl,))
+
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         header = decls[header_name]
         for name, func in sorted(header_functions.iteritems()):
@@ -1576,8 +1584,9 @@ def generate_decls_and_callbacks(db, prefix=''):
         elif name.startswith('PyExc_'):
             typ = 'PyObject*'
             header = pypy_decl
-        decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
-        decls[header].append('PyAPI_DATA(%s) %s;' % (typ, name))
+        if name not in SKIP_GLOBAL:
+            decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
+            decls[header].append('PyAPI_DATA(%s) %s;' % (typ, name))
 
     for header_name, header_decls in decls.iteritems():
         # Hardcoded :(
