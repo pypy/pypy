@@ -10,6 +10,9 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
             ("test_borrowing", "METH_NOARGS",
              """
                 PyObject *t = PyTuple_New(1);
+                if (t == NULL) {
+                    return NULL;
+                }
                 PyObject *f = PyFloat_FromDouble(42.0);
                 PyObject *g = NULL;
                 printf("Refcnt1: %ld\\n", f->ob_refcnt);
@@ -34,7 +37,13 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
                 PyObject *i = PyLong_FromLong(42);
                 PyObject *j;
                 PyObject *t1 = PyTuple_Pack(1, i);
+                if (t1 == NULL) {
+                    return NULL;
+                }
                 PyObject *t2 = PyTuple_Pack(1, i);
+                if (t2 == NULL) {
+                    return NULL;
+                }
                 Py_DECREF(i);
 
                 i = PyTuple_GetItem(t1, 0);
