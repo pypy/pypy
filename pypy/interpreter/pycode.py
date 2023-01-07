@@ -1,3 +1,4 @@
+# encoding: utf-8
 """
 Python-style code objects.
 PyCode instances have the same co_xxx arguments as CPython code objects.
