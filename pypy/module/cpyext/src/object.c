@@ -1,3 +1,40 @@
+#include "Python.h"
+
+/* Taken from cpython/Include/internal/pycore_object.h */
+
+// Fast inlined version of PyType_HasFeature()
+static inline int
+_PyType_HasFeature(PyTypeObject *type, unsigned long feature) {
+    return ((type->tp_flags & feature) != 0);
+}
+
+
+/* Inline functions trading binary compatibility for speed:
+   _PyObject_Init() is the fast version of PyObject_Init(), and
+   _PyObject_InitVar() is the fast version of PyObject_InitVar().
+
+   These inline functions must not be called with op=NULL. */
+static inline void
+_PyObject_Init(PyObject *op, PyTypeObject *typeobj)
+{
+    assert(op != NULL);
+    Py_SET_TYPE(op, typeobj);
+    if (_PyType_HasFeature(typeobj, Py_TPFLAGS_HEAPTYPE)) {
+        Py_INCREF(typeobj);
+    }
+    _Py_NewReference(op);
+}
+
+static inline void
+_PyObject_InitVar(PyVarObject *op, PyTypeObject *typeobj, Py_ssize_t size)
+{
+    assert(op != NULL);
+    Py_SET_SIZE(op, size);
+    _PyObject_Init((PyObject *)op, typeobj);
+}
+
+
+
 /* Generic object operations; and implementation of None (NoObject) */
 
 #include "Python.h"
@@ -145,22 +182,25 @@ _PyObject_NewVar(PyTypeObject *type, Py_ssize_t nitems)
 }
 
 PyObject *
-PyObject_Init(PyObject *obj, PyTypeObject *type)
+PyObject_Init(PyObject *op, PyTypeObject *tp)
 {
-    obj->ob_type = type;
-    obj->ob_pypy_link = 0;
-    obj->ob_refcnt = 1;
-    if (PyType_GetFlags(type) & Py_TPFLAGS_HEAPTYPE) {
-        Py_INCREF(type);
+    if (op == NULL) {
+        return PyErr_NoMemory();
     }
-    return obj;
+
+    _PyObject_Init(op, tp);
+    return op;
 }
 
 PyVarObject *
-PyObject_InitVar(PyVarObject *obj, PyTypeObject *type, Py_ssize_t size)
+PyObject_InitVar(PyVarObject *op, PyTypeObject *tp, Py_ssize_t size)
 {
-    obj->ob_size = size;
-    return (PyVarObject*)PyObject_Init((PyObject*)obj, type);
+    if (op == NULL) {
+        return (PyVarObject *) PyErr_NoMemory();
+    }
+
+    _PyObject_InitVar(op, tp, size);
+    return op;
 }
 
 int
@@ -189,3 +229,22 @@ _PyType_Name(PyTypeObject *type)
     }
     return s;
 }
+
+void
+_Py_NewReference(PyObject *op)
+{
+#ifndef PYPY_VERSION
+    if (_Py_tracemalloc_config.tracing) {
+        _PyTraceMalloc_NewReference(op);
+    }
+#endif
+#ifdef Py_REF_DEBUG
+    _Py_RefTotal++;
+#endif
+    Py_SET_REFCNT(op, 1);
+#ifdef Py_TRACE_REFS
+    _Py_AddToAllObjects(op, 1);
+#endif
+}
+
+
