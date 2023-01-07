@@ -13,7 +13,7 @@ PyType_FromSpec(PyType_Spec *spec)
 
 #ifdef CPYEXT_TESTS
 #define _Py_subtype_dealloc _cpyexttest_subtype_dealloc
-#define PyType_IsSubtype cpyexttestPyType_IsSubtype
+#define PyType_IsSubtype cpyexttestType_IsSubtype
 #ifdef __GNUC__
 __attribute__((visibility("default")))
 #else
