@@ -8,7 +8,7 @@ from pypy.interpreter.pyparser.error import SyntaxError
 class TestSymbolTable:
 
     def setup_class(cls):
-        cls.parser = pyparse.PythonParser(cls.space)
+        cls.parser = pyparse.PegParser(cls.space)
 
     def mod_scope(self, source, mode="exec"):
         ec = self.space.getexecutioncontext()
