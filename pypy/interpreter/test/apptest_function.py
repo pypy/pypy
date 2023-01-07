@@ -779,3 +779,22 @@ def test_unpack_dict_without_length():
     assert f(b=2, **A()) == {'b': 2, 'a': 1}
     assert f(**A(), b=2) == {'b': 2, 'a': 1}
 
+def test_co_lines():
+    def f(abc):
+        defghi = (abc +
+                12 *
+                abc)
+        try:
+            1 / abc
+        except ZeroDivisionError:
+            return 12
+    start = 0
+    for entry in f.__code__.co_lines():
+        assert entry[0] == start
+        start = entry[1]
+        assert isinstance(entry[2], int) or entry[2] is None
+    assert entry[1] == len(f.__code__.co_code)
+    res = [end - f.__code__.co_firstlineno
+                for start, stop, end in f.__code__.co_lines()]
+    expected_prefix = [1, 2, 3, 2, 1, 4, 5, 6, 7]
+    assert res[:len(expected_prefix)] == expected_prefix

@@ -553,7 +553,7 @@ def generic_new_descr(W_Type):
 # Definition of the type's descriptors for all the internal types
 
 from pypy.interpreter.eval import Code
-from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
+from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS, W_LineIterator
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SApplicationException
 from pypy.interpreter.module import Module
@@ -700,10 +700,18 @@ PyCode.typedef = TypeDef('code',
     co_name = interp_attrproperty('co_name', cls=PyCode, wrapfn="newtext"),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode, wrapfn="newint"),
     co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode, wrapfn="newbytes"),
+    co_lines = interp2app(PyCode.co_lines),
     replace = interp2app(PyCode.descr_replace),
     __weakref__ = make_weakref_descr(PyCode),
     )
 PyCode.typedef.acceptable_as_base_class = False
+
+W_LineIterator.typedef = TypeDef('line_iterator',
+    __iter__ = interp2app(W_LineIterator.descr_iter),
+    __next__ = interp2app(W_LineIterator.descr_next),
+)
+W_LineIterator.typedef.acceptable_as_base_class = False
+
 
 PyFrame.typedef = TypeDef('frame',
     #__reduce__ = interp2app(PyFrame.descr__reduce__),  --- logic not updated

@@ -25,6 +25,8 @@ class SyntaxError(Exception):
             text = lines[self.lineno - 1]
         w_text = w_filename = space.w_None
         offset = self.offset
+        if self.lineno < 0 or self.offset < 0 or self.end_lineno < 0:
+            import pdb; pdb.set_trace()
         w_lineno = space.newint(self.lineno)
         if self.filename is not None:
             w_filename = space.newfilename(self.filename)
