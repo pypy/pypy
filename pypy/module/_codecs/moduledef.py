@@ -49,6 +49,7 @@ Copyright (c) Corporation for National Research Initiatives.
          'register':       'interp_codecs.register_codec',
          'register_error': 'interp_codecs.register_error',
          'charmap_build' : 'interp_codecs.charmap_build',
+         'unregister' :   'interp_codecs.unregister',
 
          # encoders and decoders
          'ascii_decode'     : 'interp_codecs.ascii_decode',
