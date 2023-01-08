@@ -63,7 +63,7 @@ class AppTestDeque:
             assert len(d) == 0
 
     def test_deque_unhashable(self):
-        from collections import Hashable
+        from collections.abc import Hashable
         d = self.get_deque()
         raises(TypeError, hash, d)
         assert not isinstance(d, Hashable)
