@@ -115,10 +115,17 @@ def test_underunder_attributes():
     assert hasattr(f, '__class__')
 
 def test_classmethod():
-    def f():
-        pass
-    assert classmethod(f).__func__ is f
-    assert staticmethod(f).__func__ is f
+    def f(a: int) -> int:
+        """echo input"""
+        return a
+    sm = staticmethod(f)
+    assert sm(42) == 42
+    for cm in (classmethod(f), sm):
+        assert cm.__func__ is f
+        assert cm.__func__ == cm.__wrapped__
+        for attr in ('__module__', '__name__', '__qualname__', '__doc__',
+                     '__annotations__'):
+            assert getattr(cm, attr) == getattr(f, attr)
 
 def test_write___doc__():
     def f(): "hello"
