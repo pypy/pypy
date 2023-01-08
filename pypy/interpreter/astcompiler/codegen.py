@@ -351,7 +351,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def error(self, msg, node):
         # NB: SyntaxError's offset is 1-based!
         raise SyntaxError(msg, node.lineno, node.col_offset + 1,
-                          filename=self.compile_info.filename)
+                          filename=self.compile_info.filename,
+                          end_lineno=node.end_lineno,
+                          end_offset=node.end_col_offset + 1)
 
     def name_op(self, identifier, ctx, node):
         """Generate an operation appropriate for the scope of the identifier."""

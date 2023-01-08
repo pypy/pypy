@@ -56,11 +56,16 @@ class Scope(object):
     def error(self, msg, ast_node=None):
         if ast_node is None:
             lineno = self.lineno
-            col_offset = self.col_offset
+            col_offset = self.col_offset + 1
+            end_lineno = end_col_offset = 0
         else:
             lineno = ast_node.lineno
             col_offset = ast_node.col_offset
-        raise SyntaxError(msg, lineno, col_offset)
+            end_lineno = ast_node.end_lineno
+            end_col_offset = ast_node.end_col_offset + 1
+        raise SyntaxError(
+            msg, lineno, col_offset,
+            end_lineno=end_lineno, end_offset=end_col_offset)
 
     def lookup(self, name):
         """Find the scope of identifier 'name'."""
@@ -381,7 +386,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def error(self, msg, node):
         # NB: SyntaxError's offset is 1-based!
         raise SyntaxError(msg, node.lineno, node.col_offset + 1,
-                          filename=self.compile_info.filename)
+                          filename=self.compile_info.filename,
+                          end_lineno=node.end_lineno,
+                          end_offset=node.end_col_offset)
 
     def push_scope(self, scope, node):
         """Push a child scope."""
