@@ -778,6 +778,7 @@ class AppTestPartialEvaluation:
         _codecs.register(search_function)
         raises(TypeError, b"hello".decode, "test.mytestenc")
         raises(TypeError, "hello".encode, "test.mytestenc")
+        assert _codecs.unregister(search_function) == 0
 
     def test_codec_wrapped_exception(self):
         import _codecs

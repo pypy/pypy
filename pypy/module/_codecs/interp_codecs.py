@@ -154,6 +154,20 @@ def register_codec(space, w_search_function):
     else:
         raise oefmt(space.w_TypeError, "argument must be callable")
 
+def unregister(space, w_search_function):
+    """unregister(search_function)
+
+    Unregister a codec search function and clear the registry's cache.
+    If the search function is not registered, do nothing."""
+    state = space.fromcache(CodecState)
+    try:
+        state.codec_search_path.remove(w_search_function)
+        state.modified()
+        return space.newint(0)
+    except ValueError:
+        import pdb;pdb.set_trace()
+        return space.newint(-1)
+        
 
 @unwrap_spec(encoding='text')
 def lookup_codec(space, encoding):
