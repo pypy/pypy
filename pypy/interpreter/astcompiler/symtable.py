@@ -53,16 +53,11 @@ class Scope(object):
         self.comp_iter_target = False
         self.comp_iter_expr = 0
 
-    def error(self, msg, ast_node=None):
-        if ast_node is None:
-            lineno = self.lineno
-            col_offset = self.col_offset + 1
-            end_lineno = end_col_offset = 0
-        else:
-            lineno = ast_node.lineno
-            col_offset = ast_node.col_offset
-            end_lineno = ast_node.end_lineno
-            end_col_offset = ast_node.end_col_offset + 1
+    def error(self, msg, ast_node):
+        lineno = ast_node.lineno
+        col_offset = ast_node.col_offset
+        end_lineno = ast_node.end_lineno
+        end_col_offset = ast_node.end_col_offset + 1
         raise SyntaxError(
             msg, lineno, col_offset,
             end_lineno=end_lineno, end_offset=end_col_offset)
