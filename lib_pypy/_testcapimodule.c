@@ -7500,7 +7500,6 @@ PyInit__testcapi(void)
 }
 
 
-#ifndef PYPY_VERSION
 /* Test the C API exposed when PY_SSIZE_T_CLEAN is not defined */
 
 #undef Py_BuildValue
@@ -7580,4 +7579,3 @@ getargs_s_hash_int2(PyObject *self, PyObject *args, PyObject *kwargs)
     PyBuffer_Release(&buf);
     Py_RETURN_NONE;
 }
-#endif
