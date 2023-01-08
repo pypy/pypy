@@ -879,6 +879,7 @@ class TestAstBuilding:
                 assert excinfo.value.msg.startswith("cannot %s %s" % (ctx_type, type_str))
 
     def test_assignment_to_forbidden_names(self):
+        space = self.space
         invalid = (
             "%s = x",
             "%s, x = y",
@@ -902,16 +903,24 @@ class TestAstBuilding:
             "x.%s = y",
             "x.%s += y",
             "%s += 1",
+            "(%s := 1)",
         )
         for name in "__debug__",:
             for template in invalid:
                 input = template % (name,)
                 ast = self.get_ast(input) # error now caught during codegen!
-                ec = self.space.getexecutioncontext()
+                ec = space.getexecutioncontext()
                 with pytest.raises(OperationError) as excinfo:
                     ec.compiler.compile_ast(ast, "", "exec")
-                msg = self.space.text_w(self.space.repr(excinfo.value.get_w_value(self.space)))
+                excinfo.value.normalize_exception(space)
+                w_value = excinfo.value.get_w_value(space)
+                msg = space.text_w(space.repr(w_value))
                 assert ("cannot assign to %s" % (name,)) in msg
+
+                assert space.int_w(w_value.w_end_lineno) == space.int_w(w_value.w_lineno) == 1
+                offset = space.int_w(w_value.w_offset)
+                assert offset >= 1
+                assert offset < space.int_w(w_value.w_end_offset)
 
     def test_delete_forbidden_name(self):
         invalid = (

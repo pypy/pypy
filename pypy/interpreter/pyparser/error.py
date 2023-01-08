@@ -1,3 +1,7 @@
+def wrap_pos(space, num):
+    if num <= 0:
+        return space.w_None
+    return space.newint(num)
 
 class SyntaxError(Exception):
     """Base class for exceptions raised by the parser."""
@@ -71,9 +75,9 @@ class SyntaxError(Exception):
         return space.newtuple([
             space.newtext(self.msg),
             space.newtuple([
-                w_filename, w_lineno, space.newint(offset),
-                w_text, space.newint(self.end_lineno),
-                space.newint(self.end_offset)])])
+                w_filename, w_lineno, wrap_pos(space, offset),
+                w_text, wrap_pos(space, self.end_lineno),
+                wrap_pos(space, self.end_offset)])])
 
     def __str__(self):
         return "%s at pos (%d, %d) in %r" % (

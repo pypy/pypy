@@ -30,6 +30,5 @@ def test_error_message_ast():
 def test_weird_exec_bug():
     with pytest.raises(SyntaxError) as excinfo:
         compile('exec {1:(foo.)}', 'fn', 'exec')
-    print(excinfo.value.offset)
     assert excinfo.value.offset == 6
 
