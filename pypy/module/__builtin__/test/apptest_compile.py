@@ -1,4 +1,4 @@
-from pytest import raises, skip
+from pytest import raises, mark
 import sys
 
 def test_simple():
@@ -89,11 +89,9 @@ def test_null_bytes():
     raises(ValueError, compile, src, 'mymod', 'exec')
     raises(ValueError, compile, src, 'mymod', 'exec', 0)
 
+@mark.pypy_only
 def test_null_bytes_flag():
-    try:
-        from _ast import PyCF_ACCEPT_NULL_BYTES
-    except ImportError:
-        skip('PyPy only (requires _ast.PyCF_ACCEPT_NULL_BYTES)')
+    from _ast import PyCF_ACCEPT_NULL_BYTES
     raises(SyntaxError, compile, '\x00', 'mymod', 'exec',
             PyCF_ACCEPT_NULL_BYTES)
     src = "#abc\x00def\n"
@@ -197,6 +195,7 @@ def test_build_class():
         r"BadMeta.__prepare__() must return a mapping, not NoneType"
     )
 
+@mark.pypy_only
 def test_make_sure_namespace_in_class_is_moduledict():
     import __pypy__
     class A:
