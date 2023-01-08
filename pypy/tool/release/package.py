@@ -366,7 +366,7 @@ def create_package(basedir, options, _fake=False):
         LICENSE.write(license)
     #
     spdir = target.ensure('site-packages', dir=True)
-    shutil.copy(str(basedir.join('lib', IMPLEMENTATION, 'site-packages', 'README')),
+    shutil.copy(str(basedir.join('lib', IMPLEMENTATION, 'site-packages', 'README.txt')),
                 str(spdir))
     #
     if ARCH == 'win32':
