@@ -330,8 +330,6 @@ class W_ArrayBase(W_Root):
 
         Return index of first occurrence of x in the array.
         """
-        if stop < sys.maxint:
-            import pdb; pdb.set_trace()
         res = index_count_array(self, w_x, count=False, start=start, stop=stop)
         if res >= 0:
             return space.newint(res)
