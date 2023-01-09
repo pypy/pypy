@@ -7,7 +7,7 @@ import _ast
 import tempfile
 import types
 from test import support
-from test.support import script_helper
+from test.support import script_helper, check_impl_detail
 from test.support.os_helper import FakePath
 
 

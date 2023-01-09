@@ -2,7 +2,7 @@ import unittest
 import os
 import socket
 import sys
-from test.support import os_helper
+from test.support import os_helper, check_impl_detail
 from test.support import socket_helper
 from test.support.import_helper import import_fresh_module
 from test.support.os_helper import TESTFN

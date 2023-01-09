@@ -7,7 +7,7 @@ executing have not been removed.
 import unittest
 import test.support
 from test import support
-from test.support import os_helper
+from test.support import os_helper, check_impl_detail
 from test.support import socket_helper
 from test.support import captured_stderr
 from test.support.os_helper import TESTFN, EnvironmentVarGuard, change_cwd

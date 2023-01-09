@@ -1,7 +1,7 @@
 # Test the module type
 import unittest
 import weakref
-from test.support import gc_collect
+from test.support import gc_collect, impl_detail
 from test.support import import_helper
 from test.support.script_helper import assert_python_ok
 

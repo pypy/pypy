@@ -8,7 +8,7 @@ import inspect
 import unittest
 import re
 from test import support
-from test.support import Error, captured_output, cpython_only, ALWAYS_EQ
+from test.support import Error, captured_output, cpython_only, ALWAYS_EQ, impl_detail
 from test.support.os_helper import TESTFN, unlink
 from test.support.script_helper import assert_python_ok
 import textwrap

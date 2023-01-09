@@ -5,7 +5,7 @@ import subprocess
 import shutil
 from copy import copy
 
-from test.support import (captured_stdout, PythonSymlink)
+from test.support import (captured_stdout, PythonSymlink, impl_detail)
 from test.support.import_helper import import_module
 from test.support.os_helper import (TESTFN, unlink, skip_unless_symlink,
                                     change_cwd)
