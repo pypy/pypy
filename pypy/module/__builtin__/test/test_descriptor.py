@@ -16,10 +16,10 @@ class AppTestBuiltinApp:
 
     def test_staticmethod_dict(self):
         sm = staticmethod(None)
-        assert sm.__dict__ == {}
+        assert sm.__dict__ == {"__doc__": None}
         sm.x = 42
         assert sm.x == 42
-        assert sm.__dict__ == {"x" : 42}
+        assert sm.__dict__["x"] == 42
         del sm.x
         assert not hasattr(sm, "x")
         raises(TypeError, setattr, sm, '__dict__', [])
@@ -302,10 +302,10 @@ class AppTestBuiltinApp:
 
     def test_classmethod_dict(self):
         cm = classmethod(None)
-        assert cm.__dict__ == {}
+        assert cm.__dict__ == {"__doc__": None}
         cm.x = 42
         assert cm.x == 42
-        assert cm.__dict__ == {"x": 42}
+        assert cm.__dict__["x"] == 42
         del cm.x
         assert not hasattr(cm, "x")
         cm.x = 42

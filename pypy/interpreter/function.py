@@ -672,9 +672,15 @@ class StaticMethod(W_Root):
     def descr_init(self, space, w_function):
         self.w_function = w_function
         w_dict = self.getdict(space)
-        for attr in ['__module__', '__name__', '__qualname__', '__doc__']:
-            w_attr = space.newtext(attr)
-            space.setitem(w_dict, w_attr, space.getattr(w_function, w_attr))
+        for name in ['__module__', '__name__', '__qualname__', '__doc__', '__annotation__']:
+            w_name = space.newtext(name)
+            try:
+                w_attr = space.getattr(w_function, w_name)
+            except OperationError as e:
+                if e.match(space, space.w_AttributeError):
+                    continue
+                raise
+            space.setitem(w_dict, w_name, w_attr)
 
 
     def descr_isabstract(self, space):
@@ -724,10 +730,15 @@ class ClassMethod(W_Root):
     def descr_init(self, space, w_function):
         self.w_function = w_function
         w_dict = self.getdict(space)
-        for attr in ['__module__', '__name__', '__qualname__', '__doc__']:
-            w_attr = space.newtext(attr)
-            space.setitem(w_dict, w_attr, space.getattr(w_function, w_attr))
-
+        for name in ['__module__', '__name__', '__qualname__', '__doc__', '__annotation__']:
+            w_name = space.newtext(name)
+            try:
+                w_attr = space.getattr(w_function, w_name)
+            except OperationError as e:
+                if e.match(space, space.w_AttributeError):
+                    continue
+                raise
+            space.setitem(w_dict, w_name, w_attr)
 
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_function))
