@@ -672,23 +672,13 @@ class StaticMethod(W_Root):
     def descr_init(self, space, w_function):
         self.w_function = w_function
         w_dict = self.getdict(space)
-        for name in ['__module__', '__name__', '__qualname__', '__doc__', '__annotation__']:
-            w_name = space.newtext(name)
-            try:
-                w_attr = space.getattr(w_function, w_name)
-            except OperationError as e:
-                if e.match(space, space.w_AttributeError):
-                    continue
-                raise
-            space.setitem(w_dict, w_name, w_attr)
-
+        _copy_func_attrs(space, w_function, w_dict)
 
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_function))
 
     def descr_call(self, space, __args__):
-        w_args, w_kwds = __args__.topacked()
-        return space.call(self.w_function, w_args, w_kwds)
+        return space.call_args(self.w_function, __args__)
 
 class ClassMethod(W_Root):
     """The classmethod objects."""
@@ -730,23 +720,24 @@ class ClassMethod(W_Root):
     def descr_init(self, space, w_function):
         self.w_function = w_function
         w_dict = self.getdict(space)
-        for name in ['__module__', '__name__', '__qualname__', '__doc__', '__annotation__']:
-            w_name = space.newtext(name)
-            try:
-                w_attr = space.getattr(w_function, w_name)
-            except OperationError as e:
-                if e.match(space, space.w_AttributeError):
-                    continue
-                raise
-            space.setitem(w_dict, w_name, w_attr)
+        _copy_func_attrs(space, w_function, w_dict)
 
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_function))
 
     def descr_call(self, space, __args__):
-        w_args, w_kwds = __args__.topacked()
-        return space.call(self.w_function, w_args, w_kwds)
+        return space.call_args(self.w_function, __args__)
 
+def _copy_func_attrs(space, w_function, w_dict):
+    for name in ['__module__', '__name__', '__qualname__', '__doc__', '__annotations__']:
+        w_name = space.newtext(name)
+        try:
+            w_attr = space.getattr(w_function, w_name)
+        except OperationError as e:
+            if e.match(space, space.w_AttributeError):
+                continue
+            raise
+        space.setitem(w_dict, w_name, w_attr)
 
 class FunctionWithFixedCode(Function):
     can_change_code = False
