@@ -278,9 +278,6 @@ class W_ComplexObject(W_Root):
         val = real_b.lshift(64).or_(imag_b).lshift(IDTAG_SHIFT).int_or_(tag)
         return space.newlong_from_rbigint(val)
 
-    def descr_int(self, space):
-        raise oefmt(space.w_TypeError, "can't convert complex to int")
-
     def _to_complex(self, space, w_obj):
         if isinstance(w_obj, W_ComplexObject):
             return w_obj
@@ -388,9 +385,6 @@ class W_ComplexObject(W_Root):
     def descr_bool(self, space):
         return space.newbool((self.realval != 0.0) or (self.imagval != 0.0))
 
-    def descr_float(self, space):
-        raise oefmt(space.w_TypeError, "can't convert complex to float")
-
     def descr_neg(self, space):
         return W_ComplexObject(-self.realval, -self.imagval)
 
@@ -486,19 +480,6 @@ class W_ComplexObject(W_Root):
         except ZeroDivisionError as e:
             raise oefmt(space.w_ZeroDivisionError, "complex division by zero")
 
-    def descr_floordiv(self, space, w_rhs):
-        raise oefmt(space.w_TypeError, "can't take floor of complex number.")
-    descr_rfloordiv = func_with_new_name(descr_floordiv, 'descr_rfloordiv')
-
-    def descr_mod(self, space, w_rhs):
-        raise oefmt(space.w_TypeError, "can't mod complex numbers.")
-    descr_rmod = func_with_new_name(descr_mod, 'descr_rmod')
-
-    def descr_divmod(self, space, w_rhs):
-        raise oefmt(space.w_TypeError,
-                    "can't take floor or mod of complex number.")
-    descr_rdivmod = func_with_new_name(descr_divmod, 'descr_rdivmod')
-
     @unwrap_spec(w_third_arg=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_third_arg):
         w_exponent = self._to_complex(space, w_exponent)
@@ -557,8 +538,6 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __hash__ = interp2app(W_ComplexObject.descr_hash),
     __format__ = interp2app(W_ComplexObject.descr_format),
     __bool__ = interp2app(W_ComplexObject.descr_bool),
-    __int__ = interp2app(W_ComplexObject.descr_int),
-    __float__ = interp2app(W_ComplexObject.descr_float),
     __neg__ = interp2app(W_ComplexObject.descr_neg),
     __pos__ = interp2app(W_ComplexObject.descr_pos),
     __abs__ = interp2app(W_ComplexObject.descr_abs),
@@ -578,12 +557,6 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __rmul__ = interp2app(W_ComplexObject.descr_rmul),
     __truediv__ = interp2app(W_ComplexObject.descr_truediv),
     __rtruediv__ = interp2app(W_ComplexObject.descr_rtruediv),
-    __floordiv__ = interp2app(W_ComplexObject.descr_floordiv),
-    __rfloordiv__ = interp2app(W_ComplexObject.descr_rfloordiv),
-    __mod__ = interp2app(W_ComplexObject.descr_mod),
-    __rmod__ = interp2app(W_ComplexObject.descr_rmod),
-    __divmod__ = interp2app(W_ComplexObject.descr_divmod),
-    __rdivmod__ = interp2app(W_ComplexObject.descr_rdivmod),
     __pow__ = interp2app(W_ComplexObject.descr_pow),
     __rpow__ = interp2app(W_ComplexObject.descr_rpow),
 
