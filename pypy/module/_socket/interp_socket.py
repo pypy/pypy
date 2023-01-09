@@ -1055,6 +1055,8 @@ class SocketAPI:
         return self.errors_w[applevelerrcls]
 
 def get_error(space, name):
+    if name == "timeout":
+        return space.w_TimeoutError
     return space.fromcache(SocketAPI).get_exception(name)
 
 @specialize.arg(2)

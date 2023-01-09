@@ -1162,6 +1162,10 @@ class AppTestSocketTCP:
         assert events[0][1][0] is s
         assert events[0][1][1] == ('localhost', 0)
 
+    def test_timeout_is_alias(self):
+        import _socket
+        assert _socket.timeout is TimeoutError
+
 class AppTestErrno:
     spaceconfig = {'usemodules': ['_socket', 'select']}
 
