@@ -1729,3 +1729,41 @@ W_Accumulate.typedef = TypeDef("itertools.accumulate",
 "accumulate(iterable) --> accumulate object
 
 Return series of accumulated sums.""")
+
+
+class W_Pairwise(W_Root):
+    'Return series of accumulated sums (or other binary function results).'
+
+    def __init__(self, space, w_iterator):
+        self.space = space
+        w_prev = None
+        self.w_iterator = w_iterator
+        self.w_prev = None
+
+    def iter_w(self):
+        return self
+
+    def next_w(self):
+        space = self.space
+        w_prev = self.w_prev
+        if w_prev is None:
+            w_prev = space.next(self.w_iterator)
+        w_next = space.next(self.w_iterator)
+        w_res = space.newtuple2(w_prev, w_next)
+        self.w_prev = w_next
+        return w_res
+
+def W_Pairwise__new__(space, w_subtype, w_iterable):
+    r = space.allocate_instance(W_Pairwise, w_subtype)
+    r.__init__(space, space.iter(w_iterable))
+    return r
+
+W_Pairwise.typedef = TypeDef("itertools.pairwise",
+    __new__  = interp2app(W_Pairwise__new__),
+    __iter__ = interp2app(W_Pairwise.iter_w),
+    __next__ = interp2app(W_Pairwise.next_w),
+    __doc__  = """\
+Return an iterator of overlapping pairs taken from the input iterator.
+
+    s -> (s0, s1), (s1, s2), (s2, s3), ...
+""")
