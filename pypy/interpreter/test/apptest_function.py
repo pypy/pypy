@@ -125,7 +125,7 @@ def test_classmethod():
         assert cm.__func__ == cm.__wrapped__
         for attr in ('__module__', '__name__', '__qualname__', '__doc__',
                      '__annotations__'):
-            assert getattr(cm, attr) == getattr(f, attr)
+            assert getattr(f, attr) == getattr(cm, attr)
 
 def test_write___doc__():
     def f(): "hello"
