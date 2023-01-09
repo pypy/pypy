@@ -472,3 +472,15 @@ def PyObject_GenericSetDict(space, w_obj, w_value, context):
         raise oefmt(space.w_TypeError, "cannot delete __dict__")
     descr_set_dict(space, w_obj, w_value)
     return 0
+
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+def PyGC_IsEnabled(space):
+    return 0
+
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+def PyGC_Disable(space):
+    return 0
+
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+def PyGC_Enable(space):
+    return 0
