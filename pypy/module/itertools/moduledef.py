@@ -43,6 +43,7 @@ class Module(MixedModule):
         '_groupby'      : 'interp_itertools.W_GroupByIterator',
         'filterfalse'   : 'interp_itertools.W_FilterFalse',
         'islice'        : 'interp_itertools.W_ISlice',
+        'pairwise'      : 'interp_itertools.W_Pairwise',
         'permutations'  : 'interp_itertools.W_Permutations',
         'product'       : 'interp_itertools.W_Product',
         'repeat'        : 'interp_itertools.W_Repeat',
@@ -52,6 +53,7 @@ class Module(MixedModule):
         '_tee'          : 'interp_itertools.W_TeeIterable',
         '_tee_dataobject' : 'interp_itertools.W_TeeChainedListNode',
         'zip_longest'  : 'interp_itertools.W_ZipLongest',
+
     }
 
     appleveldefs = {
