@@ -1,4 +1,4 @@
-from test.support import (gc_collect, bigmemtest, _2G,
+from test.support import (gc_collect, bigmemtest, _2G, impl_detail,
                           cpython_only, captured_stdout,
                           check_disallow_instantiation)
 import locale

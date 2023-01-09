@@ -2,7 +2,7 @@
 # This just tests whether the parser accepts them all.
 
 from test.support import check_syntax_error
-from test.support import import_helper
+from test.support import import_helper, check_impl_detail
 from test.support.warnings_helper import check_syntax_warning
 import inspect
 import unittest
