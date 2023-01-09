@@ -63,104 +63,105 @@ def _get_peer_alt_names(certificate):
 
     # get a memory buffer
     biobuf = lib.BIO_new(lib.BIO_s_mem());
+    try:
+        i = -1
+        while True:
+            i = lib.X509_get_ext_by_NID(certificate, lib.NID_subject_alt_name, i)
+            if i < 0:
+                break
 
-    i = -1
-    while True:
-        i = lib.X509_get_ext_by_NID(certificate, lib.NID_subject_alt_name, i)
-        if i < 0:
-            break
 
+            # now decode the altName
+            ext = lib.X509_get_ext(certificate, i);
+            method = lib.X509V3_EXT_get(ext)
+            if method is ffi.NULL:
+                raise ssl_error("No method for internalizing subjectAltName!")
 
-        # now decode the altName
-        ext = lib.X509_get_ext(certificate, i);
-        method = lib.X509V3_EXT_get(ext)
-        if method is ffi.NULL:
-            raise ssl_error("No method for internalizing subjectAltName!")
+            ext_data = lib.X509_EXTENSION_get_data(ext)
+            ext_data_len = ext_data.length
+            ext_data_value = ffi.new("unsigned char**", ffi.NULL)
+            ext_data_value[0] = ext_data.data
 
-        ext_data = lib.X509_EXTENSION_get_data(ext)
-        ext_data_len = ext_data.length
-        ext_data_value = ffi.new("unsigned char**", ffi.NULL)
-        ext_data_value[0] = ext_data.data
-
-        if method.it != ffi.NULL:
-            names = lib.ASN1_item_d2i(ffi.NULL, ext_data_value, ext_data_len, lib.ASN1_ITEM_ptr(method.it))
-        else:
-            names = method.d2i(ffi.NULL, ext_data_value, ext_data_len)
-
-        names = ffi.cast("GENERAL_NAMES*", names)
-        count = lib.sk_GENERAL_NAME_num(names)
-        for j in range(count):
-            # get a rendering of each name in the set of names
-            name = lib.sk_GENERAL_NAME_value(names, j);
-            _type = name.type
-            if _type == lib.GEN_DIRNAME:
-                # we special-case DirName as a tuple of
-                # tuples of attributes
-                v = _create_tuple_for_X509_NAME(name.d.dirn)
-                peer_alt_names.append(("DirName", v))
-            # GENERAL_NAME_print() doesn't handle NULL bytes in ASN1_string
-            # correctly, CVE-2013-4238
-            elif _type == lib.GEN_EMAIL:
-                v = _string_from_asn1(name.d.rfc822Name)
-                peer_alt_names.append(("email", v))
-            elif _type == lib.GEN_DNS:
-                v = _string_from_asn1(name.d.dNSName)
-                peer_alt_names.append(("DNS", v))
-            elif _type == lib.GEN_URI:
-                v = _string_from_asn1(name.d.uniformResourceIdentifier)
-                peer_alt_names.append(("URI", v))
-            elif _type == lib.GEN_RID:
-                v = "Registered ID"
-                buf = ffi.new("char[2048]")
-
-                length = lib.OBJ_obj2txt(buf, 2047, name.d.rid, 0)
-                if length < 0:
-                    # TODO _setSSLError(NULL, 0, __FILE__, __LINE__);
-                    raise NotImplementedError
-                elif length >= 2048:
-                    v = "<INVALID>"
-                else:
-                    v = _str_with_len(buf, length)
-                peer_alt_names.append(("Registered ID", v))
-            elif _type == lib.GEN_IPADD:
-                # OpenSSL < 3.0.0 adds a trailing \n to IPv6. 3.0.0 removed
-                # the trailing newline. Keep it
-                v = "IP Address"
-                ip = _string_from_asn1(name.d.ip)
-                if name.d.ip.length == 4:
-                    ip_str = '%d.%d.%d.%d' %(ord(ip[0]), ord(ip[1]),
-                                             ord(ip[2]), ord(ip[3]))
-                elif name.d.ip.length == 16:
-                    ip_str = "%X:%X:%X:%X:%X:%X:%X:%X\n" %(
-                        ord(ip[0]) << 8 | ord(ip[1]),
-                        ord(ip[2]) << 8 | ord(ip[3]),
-                        ord(ip[4]) << 8 | ord(ip[5]),
-                        ord(ip[6]) << 8 | ord(ip[7]),
-                        ord(ip[8]) << 8 | ord(ip[9]),
-                        ord(ip[10]) << 8 | ord(ip[11]),
-                        ord(ip[12]) << 8 | ord(ip[13]),
-                        ord(ip[14]) << 8 | ord(ip[15]),
-                    )
-                else:
-                    ip_str = '<invalid>'
-                peer_alt_names.append((v, ip_str))
+            if method.it != ffi.NULL:
+                names = lib.ASN1_item_d2i(ffi.NULL, ext_data_value, ext_data_len, lib.ASN1_ITEM_ptr(method.it))
             else:
-                # for everything else, we use the OpenSSL print form
-                if _type not in (lib.GEN_OTHERNAME, lib.GEN_X400, \
-                                 lib.GEN_EDIPARTY, lib.GEN_IPADD, lib.GEN_RID):
-                    warnings.warn("Unknown general type %d" % _type, RuntimeWarning)
-                    continue
-                lib.BIO_reset(biobuf);
-                lib.GENERAL_NAME_print(biobuf, name);
-                v = _bio_get_str(biobuf)
-                idx = v.find(":")
-                if idx == -1:
-                    raise ValueError("Invalid value %s", v)
-                peer_alt_names.append((v[:idx], v[idx+1:]))
+                names = method.d2i(ffi.NULL, ext_data_value, ext_data_len)
 
-        free_func_addr = ffi.addressof(lib, "GENERAL_NAME_free")
-        lib.sk_GENERAL_NAME_pop_free(names, free_func_addr);
-    lib.BIO_free(biobuf)
+            names = ffi.cast("GENERAL_NAMES*", names)
+            count = lib.sk_GENERAL_NAME_num(names)
+            for j in range(count):
+                # get a rendering of each name in the set of names
+                name = lib.sk_GENERAL_NAME_value(names, j);
+                _type = name.type
+                if _type == lib.GEN_DIRNAME:
+                    # we special-case DirName as a tuple of
+                    # tuples of attributes
+                    v = _create_tuple_for_X509_NAME(name.d.dirn)
+                    peer_alt_names.append(("DirName", v))
+                # GENERAL_NAME_print() doesn't handle NULL bytes in ASN1_string
+                # correctly, CVE-2013-4238
+                elif _type == lib.GEN_EMAIL:
+                    v = _string_from_asn1(name.d.rfc822Name)
+                    peer_alt_names.append(("email", v))
+                elif _type == lib.GEN_DNS:
+                    v = _string_from_asn1(name.d.dNSName)
+                    peer_alt_names.append(("DNS", v))
+                elif _type == lib.GEN_URI:
+                    v = _string_from_asn1(name.d.uniformResourceIdentifier)
+                    peer_alt_names.append(("URI", v))
+                elif _type == lib.GEN_RID:
+                    v = "Registered ID"
+                    buf = ffi.new("char[2048]")
+
+                    length = lib.OBJ_obj2txt(buf, 2047, name.d.rid, 0)
+                    if length < 0:
+                        # TODO _setSSLError(NULL, 0, __FILE__, __LINE__);
+                        raise NotImplementedError
+                    elif length >= 2048:
+                        v = "<INVALID>"
+                    else:
+                        v = _str_with_len(buf, length)
+                    peer_alt_names.append(("Registered ID", v))
+                elif _type == lib.GEN_IPADD:
+                    # OpenSSL < 3.0.0 adds a trailing \n to IPv6. 3.0.0 removed
+                    # the trailing newline. Keep it
+                    v = "IP Address"
+                    ip = _string_from_asn1(name.d.ip)
+                    if name.d.ip.length == 4:
+                        ip_str = '%d.%d.%d.%d' %(ord(ip[0]), ord(ip[1]),
+                                                 ord(ip[2]), ord(ip[3]))
+                    elif name.d.ip.length == 16:
+                        ip_str = "%X:%X:%X:%X:%X:%X:%X:%X\n" %(
+                            ord(ip[0]) << 8 | ord(ip[1]),
+                            ord(ip[2]) << 8 | ord(ip[3]),
+                            ord(ip[4]) << 8 | ord(ip[5]),
+                            ord(ip[6]) << 8 | ord(ip[7]),
+                            ord(ip[8]) << 8 | ord(ip[9]),
+                            ord(ip[10]) << 8 | ord(ip[11]),
+                            ord(ip[12]) << 8 | ord(ip[13]),
+                            ord(ip[14]) << 8 | ord(ip[15]),
+                        )
+                    else:
+                        ip_str = '<invalid>'
+                    peer_alt_names.append((v, ip_str))
+                else:
+                    # for everything else, we use the OpenSSL print form
+                    if _type not in (lib.GEN_OTHERNAME, lib.GEN_X400, \
+                                     lib.GEN_EDIPARTY, lib.GEN_IPADD, lib.GEN_RID):
+                        warnings.warn("Unknown general type %d" % _type, RuntimeWarning)
+                        continue
+                    lib.BIO_reset(biobuf);
+                    lib.GENERAL_NAME_print(biobuf, name);
+                    v = _bio_get_str(biobuf)
+                    idx = v.find(":")
+                    if idx == -1:
+                        raise ValueError("Invalid value %s", v)
+                    peer_alt_names.append((v[:idx], v[idx+1:]))
+
+            free_func_addr = ffi.addressof(lib, "GENERAL_NAME_free")
+            lib.sk_GENERAL_NAME_pop_free(names, free_func_addr);
+    finally:
+        lib.BIO_free(biobuf)
     if peer_alt_names is not None:
         return tuple(peer_alt_names)
     return peer_alt_names
@@ -221,9 +222,8 @@ def _decode_certificate(certificate):
         return None
     retval["version"] = version
 
+    biobuf = lib.BIO_new(lib.BIO_s_mem());
     try:
-        biobuf = lib.BIO_new(lib.BIO_s_mem());
-
         lib.BIO_reset(biobuf);
         serialNumber = lib.X509_get_serialNumber(certificate);
         # should not exceed 20 octets, 160 bits, so buf is big enough
@@ -311,20 +311,21 @@ def _test_decode_cert(path):
     if cert is ffi.NULL:
         lib.BIO_free(cert)
         raise ssl_error("Can't malloc memory to read file")
+    try:
+        epath = path.encode()
+        if lib.BIO_read_filename(cert, epath) <= 0:
+            raise ssl_error("Can't open file")
 
-    epath = path.encode()
-    if lib.BIO_read_filename(cert, epath) <= 0:
-        lib.BIO_free(cert)
-        raise ssl_error("Can't open file")
+        x = lib.PEM_read_bio_X509(cert, ffi.NULL, ffi.NULL, ffi.NULL)
+        if x is ffi.NULL:
+            raise ssl_error("Error reading PEM-encoded file")
 
-    x = lib.PEM_read_bio_X509(cert, ffi.NULL, ffi.NULL, ffi.NULL)
-    if x is ffi.NULL:
-        ssl_error("Error decoding PEM-encoded file")
+        try:
+            retval = _decode_certificate(x)
+        finally:
+            lib.X509_free(x);
 
-    retval = _decode_certificate(x)
-    lib.X509_free(x);
-
-    if cert != ffi.NULL:
+    finally:
         lib.BIO_free(cert)
     return retval
 
