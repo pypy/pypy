@@ -639,6 +639,7 @@ class Method(_Method):
         _Method.__init__(method, space, w_function, w_instance)
         return method
 
+
 class StaticMethod(W_Root):
     """The staticmethod objects."""
     _immutable_fields_ = ['w_function?']
@@ -670,10 +671,24 @@ class StaticMethod(W_Root):
 
     def descr_init(self, space, w_function):
         self.w_function = w_function
+        w_dict = self.getdict(space)
+        for name in ['__module__', '__name__', '__qualname__', '__doc__', '__annotation__']:
+            w_name = space.newtext(name)
+            try:
+                w_attr = space.getattr(w_function, w_name)
+            except OperationError as e:
+                if e.match(space, space.w_AttributeError):
+                    continue
+                raise
+            space.setitem(w_dict, w_name, w_attr)
+
 
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_function))
 
+    def descr_call(self, space, __args__):
+        w_args, w_kwds = __args__.topacked()
+        return space.call(self.w_function, w_args, w_kwds)
 
 class ClassMethod(W_Root):
     """The classmethod objects."""
@@ -714,9 +729,23 @@ class ClassMethod(W_Root):
 
     def descr_init(self, space, w_function):
         self.w_function = w_function
+        w_dict = self.getdict(space)
+        for name in ['__module__', '__name__', '__qualname__', '__doc__', '__annotation__']:
+            w_name = space.newtext(name)
+            try:
+                w_attr = space.getattr(w_function, w_name)
+            except OperationError as e:
+                if e.match(space, space.w_AttributeError):
+                    continue
+                raise
+            space.setitem(w_dict, w_name, w_attr)
 
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_function))
+
+    def descr_call(self, space, __args__):
+        w_args, w_kwds = __args__.topacked()
+        return space.call(self.w_function, w_args, w_kwds)
 
 
 class FunctionWithFixedCode(Function):

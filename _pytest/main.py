@@ -9,7 +9,7 @@ import _pytest._code
 import py
 import pytest
 try:
-    from collections import MutableMapping as MappingMixin
+    from collections.abc import MutableMapping as MappingMixin
 except ImportError:
     from UserDict import DictMixin as MappingMixin
 

@@ -7500,7 +7500,6 @@ PyInit__testcapi(void)
 }
 
 
-#ifndef PYPY_VERSION
 /* Test the C API exposed when PY_SSIZE_T_CLEAN is not defined */
 
 #undef Py_BuildValue
@@ -7550,7 +7549,7 @@ test_buildvalue_issue38913(PyObject *self, PyObject *Py_UNUSED(ignored))
 }
 
 #undef PyArg_ParseTupleAndKeywords
-PyAPI_FUNC(int) PyArg_ParseTupleAndKeywords(PyObject *, PyObject *,
+PyAPI_FUNC(int) PyPyArg_ParseTupleAndKeywords(PyObject *, PyObject *,
                                             const char *, char **, ...);
 
 static PyObject *
@@ -7561,7 +7560,7 @@ getargs_s_hash_int(PyObject *self, PyObject *args, PyObject *kwargs)
     const char *s;
     int len;
     int i = 0;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "w*|s#i", keywords, &buf, &s, &len, &i))
+    if (!PyPyArg_ParseTupleAndKeywords(args, kwargs, "w*|s#i", keywords, &buf, &s, &len, &i))
         return NULL;
     PyBuffer_Release(&buf);
     Py_RETURN_NONE;
@@ -7575,9 +7574,8 @@ getargs_s_hash_int2(PyObject *self, PyObject *args, PyObject *kwargs)
     const char *s;
     int len;
     int i = 0;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "w*|(s#)i", keywords, &buf, &s, &len, &i))
+    if (!PyPyArg_ParseTupleAndKeywords(args, kwargs, "w*|(s#)i", keywords, &buf, &s, &len, &i))
         return NULL;
     PyBuffer_Release(&buf);
     Py_RETURN_NONE;
 }
-#endif

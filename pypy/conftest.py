@@ -40,13 +40,6 @@ def braindead_deindent(self):
 
 py.code.Source.deindent = braindead_deindent
 
-def get_marker(item, name):
-    try:
-        return item.get_closest_marker(name=name)
-    except AttributeError:
-        # pytest < 3.6
-        return item.get_marker(name=name)
-
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
@@ -77,8 +70,16 @@ def pytest_configure(config):
     if mode_A:
         from pypy.tool.pytest.apptest import PythonInterpreter
         config.applevel = PythonInterpreter(config.option.python)
+    elif mode_D:
+        class Applevel():
+            is_pypy = '__pypy__' in sys.builtin_module_names
+        config.applevel = Applevel()
     else:
         config.applevel = None
+    config.addinivalue_line(
+        "markers", "pypy_only: only run test on PyPy"
+    )
+
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
@@ -86,7 +87,7 @@ def pytest_addoption(parser):
            default=False, dest="runappdirect",
            help="run legacy applevel tests directly on the python interpreter " +
                 "specified by --python")
-    group.addoption('--python', type="string", default=PYTHON3,
+    group.addoption('--python', type=str, default=PYTHON3,
            help="python interpreter to run appdirect tests with")
     group.addoption('-D', '--direct-apptest', action="store_true",
            default=False, dest="direct_apptest",
@@ -211,9 +212,15 @@ def skip_on_missing_buildoption(**ropts):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
-    if isinstance(item, py.test.collect.Function):
+    if isinstance(item, pytest.Function):
         config = item.config
-        if item.get_marker(name='pypy_only'):
+        try:
+            pypy_only = item.get_marker(name='pypy_only')
+        except AttributeError:
+            # pytest >= 4.0
+            pypy_only = any([mark.name=="pypy_only" for mark in item.iter_markers()])
+        if pypy_only:
+            print('got pypy_only', config.applevel)
             if config.applevel is not None and not config.applevel.is_pypy:
                 pytest.skip('PyPy-specific test')
         appclass = item.getparent(py.test.Class)
