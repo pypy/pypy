@@ -165,7 +165,6 @@ def unregister(space, w_search_function):
         state.modified()
         return space.newint(0)
     except ValueError:
-        import pdb;pdb.set_trace()
         return space.newint(-1)
         
 
