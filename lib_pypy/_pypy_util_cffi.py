@@ -1,4 +1,4 @@
-
+import __pypy__
 from _pypy_util_cffi_inner import ffi, lib
 
 class StackNew(object):
@@ -13,6 +13,7 @@ class StackNew(object):
         if tp.endswith("[]"):
             tp = tp[:-2] + "*" # XXX dodgu?
         self._p = ffi.cast(tp, lib.malloc(total_size))
+        __pypy__.add_memory_pressure(total_size)
 
     def __enter__(self):
         return self._p
