@@ -25,6 +25,9 @@ class Module(MixedModule):
         'hex'           : 'app_operation.hex',
 
         'breakpoint'    : 'app_breakpoint.breakpoint',
+
+        'aiter'         : 'app_operation.aiter',
+        'anext'         : 'app_operation.anext',
     }
 
     interpleveldefs = {
