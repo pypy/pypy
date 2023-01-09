@@ -596,12 +596,6 @@ class _Method(W_Root):
     def _eq(self, w_other):
         space = self.space
         if not space.is_w(self.w_instance, w_other.w_instance):
-
-
-
-
-
-
             return False
         return space.is_w(self.w_function, w_other.w_function)
 
@@ -680,6 +674,10 @@ class StaticMethod(W_Root):
     def descr_call(self, space, __args__):
         return space.call_args(self.w_function, __args__)
 
+    def descr_repr(self, space):
+        return space.newtext("<staticmethod (%s)>" % (space.text_w(space.repr(self.w_function)), ))
+
+
 class ClassMethod(W_Root):
     """The classmethod objects."""
     _immutable_fields_ = ['w_function?']
@@ -727,6 +725,9 @@ class ClassMethod(W_Root):
 
     def descr_call(self, space, __args__):
         return space.call_args(self.w_function, __args__)
+
+    def descr_repr(self, space):
+        return space.newtext("<classmethod (%s)>" % (space.text_w(space.repr(self.w_function)), ))
 
 def _copy_func_attrs(space, w_function, w_dict):
     for name in ['__module__', '__name__', '__qualname__', '__doc__', '__annotations__']:

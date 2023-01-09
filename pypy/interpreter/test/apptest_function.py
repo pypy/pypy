@@ -127,6 +127,12 @@ def test_classmethod():
                      '__annotations__'):
             assert getattr(f, attr) == getattr(cm, attr)
 
+def test_static_class_method_repr():
+   def f():
+       pass
+   for m in classmethod(f), staticmethod(f):
+       assert repr(f) in repr(m)
+
 def test_write___doc__():
     def f(): "hello"
     assert f.__doc__ == 'hello'
