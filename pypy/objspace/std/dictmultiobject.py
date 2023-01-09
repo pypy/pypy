@@ -11,7 +11,7 @@ from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w, GetSetProperty
 from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.objspace.std.util import negate, generic_alias_class_getitem
 
@@ -1737,6 +1737,10 @@ class W_DictViewValuesObject(W_DictViewObject):
     def descr_reversed(self, space):
         return W_DictMultiIterValuesReversedObject(space, self.w_dict.iterreversed())
 
+def make_mappingproxy(space, w_obj):
+    from pypy.objspace.std.dictproxyobject import W_DictProxyObject
+    assert isinstance(w_obj, W_DictViewObject)
+    return W_DictProxyObject(w_obj.w_dict)
 
 W_DictViewItemsObject.typedef = TypeDef(
     "dict_items",
@@ -1764,6 +1768,7 @@ W_DictViewItemsObject.typedef = TypeDef(
     __rxor__ = interp2app(W_DictViewItemsObject.descr_rxor),
     isdisjoint = interp2app(W_DictViewItemsObject.descr_isdisjoint),
     _dict = interp_attrproperty_w('w_dict', cls=W_DictViewItemsObject),
+    mapping = GetSetProperty(make_mappingproxy),
     )
 
 W_DictViewKeysObject.typedef = TypeDef(
@@ -1792,6 +1797,7 @@ W_DictViewKeysObject.typedef = TypeDef(
     __rxor__ = interp2app(W_DictViewKeysObject.descr_rxor),
     isdisjoint = interp2app(W_DictViewKeysObject.descr_isdisjoint),
     _dict = interp_attrproperty_w('w_dict', cls=W_DictViewKeysObject),
+    mapping = GetSetProperty(make_mappingproxy),
     )
 
 W_DictViewValuesObject.typedef = TypeDef(
@@ -1802,4 +1808,5 @@ W_DictViewValuesObject.typedef = TypeDef(
     __iter__ = interp2app(W_DictViewValuesObject.descr_iter),
     __reversed__ = interp2app(W_DictViewValuesObject.descr_reversed),
     _dict = interp_attrproperty_w('w_dict', cls=W_DictViewValuesObject),
+    mapping = GetSetProperty(make_mappingproxy),
     )

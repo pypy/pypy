@@ -1247,6 +1247,15 @@ class AppTestDictViews:
             items.insert(0, first)
             assert items == list(reversed(meth(d)))
 
+    def test_mapping(self):
+        d = {1: 2, 3: 4}
+        class A:
+            a = 1
+        assert d.keys().mapping == d
+        assert isinstance(d.keys().mapping, type(A.__dict__))
+        assert d.items().mapping == d
+        assert d.values().mapping == d
+
 
 class AppTestStrategies(object):
     def setup_class(cls):
