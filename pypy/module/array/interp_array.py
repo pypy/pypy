@@ -147,13 +147,14 @@ index_count_jd = jit.JitDriver(
     greens = ['count', 'arrclass', 'tp_item'],
     reds = 'auto', name = 'array.index_or_count')
 
-def index_count_array(arr, w_val, count=False):
+def index_count_array(arr, w_val, count=False, start=0, stop=sys.maxint):
     space = arr.space
     tp_item = space.type(w_val)
     arrclass = arr.__class__
     cnt = 0
-    i = 0
-    while i < arr.len:
+    i = start
+    stop = min(stop, arr.len)
+    while i < stop:
         index_count_jd.jit_merge_point(
             tp_item=tp_item, count=count,
             arrclass=arrclass)
@@ -323,12 +324,15 @@ class W_ArrayBase(W_Root):
         cnt = index_count_array(self, w_x, count=True)
         return space.newint(cnt)
 
-    def descr_index(self, space, w_x):
+    @unwrap_spec(start='index', stop='index')
+    def descr_index(self, space, w_x, start=0, stop=sys.maxint):
         """ index(x)
 
         Return index of first occurrence of x in the array.
         """
-        res = index_count_array(self, w_x, count=False)
+        if stop < sys.maxint:
+            import pdb; pdb.set_trace()
+        res = index_count_array(self, w_x, count=False, start=start, stop=stop)
         if res >= 0:
             return space.newint(res)
         raise oefmt(space.w_ValueError, "array.index(x): x not in list")
