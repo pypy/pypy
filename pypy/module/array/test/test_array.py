@@ -805,9 +805,9 @@ class AppTestArray(object):
             assert isinstance(self.array(t), self.array)
 
     def test_iterable(self):
-        import collections
+        import collections.abc
         for t in 'bBhHiIlLfduQq':
-            assert isinstance(self.array(t), collections.Iterable)
+            assert isinstance(self.array(t), collections.abc.Iterable)
 
     def test_subclass(self):
         assert len(self.array('b')) == 0
