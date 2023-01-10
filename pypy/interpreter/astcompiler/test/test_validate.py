@@ -503,6 +503,12 @@ class TestASTValidator:
             self.Attribute(self.Constant(self.space.wrap(3), self.space.w_None), "a", ast.Load),
             [], [], []
         ))
+        self._check_wrong_pattern_error(self.MatchClass(
+            self.Name('A', ast.Load),
+            [],
+            ['True'],
+            [self.MatchSingleton(self.space.w_None)]
+        ))
 
     def test_or(self):
         p1 = self.MatchSingleton(self.space.w_None)

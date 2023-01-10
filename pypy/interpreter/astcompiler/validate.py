@@ -413,7 +413,7 @@ class AstValidator(ast.ASTVisitor):
             else:
                 raise ValidationError("MatchClass cls field can only contain Name or Attribute nodes.")
         for name in node.kwd_attrs:
-            self._validate_expr(name)
+            self._validate_name(name)
         self._validate_patterns(node.patterns)
         self._validate_patterns(node.kwd_patterns)
 
