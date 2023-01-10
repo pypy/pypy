@@ -496,8 +496,9 @@ class Member(W_Root):
             self.typecheck(space, w_obj)
             w_result = w_obj.getslotvalue(self.index)
             if w_result is None:
-                raise OperationError(space.w_AttributeError,
-                                     space.newtext(self.name)) # XXX better message
+                raise oefmt(space.w_AttributeError,
+                            "'%T' object has no attribute '%s'",
+                            w_obj, self.name)
             return w_result
 
     def descr_member_set(self, space, w_obj, w_value):
