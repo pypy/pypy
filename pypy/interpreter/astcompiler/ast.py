@@ -152,6 +152,8 @@ class State:
             w_fields = space.newtuple([space.newtext(f) for f in fields])
             space.setitem_str(w_dict, "_fields", w_fields)
             space.setitem_str(w_dict, "__match_args__", w_fields)
+        else:
+            space.setitem_str(w_dict, "__match_args__", space.newtuple([]))
         if attributes is not None:
             space.setitem_str(w_dict, "_attributes",
                               space.newtuple([space.newtext(a) for a in attributes]))
