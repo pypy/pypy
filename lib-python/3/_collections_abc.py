@@ -1170,11 +1170,3 @@ class MutableSequence(Sequence):
 MutableSequence.register(list)
 MutableSequence.register(bytearray)  # Multiply inheriting, see ByteString
 
-# pypy change: register array here:
-try:
-    from array import array
-except ImportError:
-    pass
-else:
-    MutableSequence.register(array)
-    del array
