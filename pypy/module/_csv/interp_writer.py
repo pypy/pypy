@@ -63,10 +63,14 @@ class W_Writer(W_Root):
                 # Find out if we really need quoting.
                 special_characters = self.special_characters
                 for c in Utf8StringIterator(field):
-                    if c in special_characters:
-                        if c != dialect.quotechar or dialect.doublequote:
-                            quoted = True
-                            break
+                    if c not in special_characters:
+                        continue
+                    if c == dialect.escapechar:
+                        # we want to escape, but not necessarily to quote
+                        continue
+                    if c != dialect.quotechar or dialect.doublequote:
+                        quoted = True
+                        break
                 else:
                     quoted = False
             else:
@@ -100,6 +104,8 @@ class W_Writer(W_Root):
                                 rec.append_code(dialect.quotechar)
                             else:
                                 want_escape = True
+                        if c == dialect.escapechar:
+                            want_escape = True
                     if want_escape:
                         if dialect.escapechar == 0:
                             raise self.error("need to escape, "

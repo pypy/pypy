@@ -78,6 +78,10 @@ class AppTestWriter(object):
         self._write_test(['"'], '\\"',
                          escapechar='\\', quoting = csv.QUOTE_MINIMAL,
                          doublequote = False)
+        self._write_test(['\\', 'a'], '\\\\,a',
+                         escapechar='\\', quoting=csv.QUOTE_MINIMAL)
+        self._write_test(['\\', 'a'], '"\\\\","a"',
+                         escapechar='\\', quoting=csv.QUOTE_ALL)
         self._write_test(['"'], '\\"',
                          escapechar='\\', quoting = csv.QUOTE_NONE)
         self._write_test(['a',1,'p,q'], 'a,1,p\\,q',
@@ -85,3 +89,4 @@ class AppTestWriter(object):
 
     def test_writerows(self):
         self._write_test([['a'],['b','c']], 'a\r\nb,c')
+
