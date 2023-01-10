@@ -348,6 +348,91 @@ class AstValidator(ast.ASTVisitor):
     def visit_Continue(self, node):
         pass
 
+    # pattern matching
+
+    def _validate_patterns(self, patterns, star_ok=False):
+        if patterns:
+            seen_star = False
+            for pattern in patterns:
+                if star_ok and isinstance(pattern, ast.MatchStar):
+                    if seen_star:
+                        raise ValidationError("multiple starred names in sequence pattern")
+                    self._validate_capture(pattern.name)
+                    seen_star = True
+                    continue
+                pattern.walkabout(self)
+
+    def _validate_capture(self, name):
+        if name == "_":
+            raise ValidationError("can't capture name '_' in patterns")
+        self._validate_name(name)
+
+    def visit_Match(self, node):
+        self._validate_nonempty_seq(node.cases, "cases", "Match")
+        self._validate_expr(node.subject)
+        for case_ in node.cases:
+            case_.walkabout(self)
+
+    def visit_match_case(self, node):
+        if node.guard:
+            self._validate_expr(node.guard)
+        self._validate_stmts(node.body)
+        node.pattern.walkabout(self)
+
+    def visit_MatchValue(self, node):
+        self._validate_expr(node.value)
+
+    def visit_MatchSingleton(self, node):
+        if (not self.space.is_w(node.value, self.space.w_True) and
+                not self.space.is_w(node.value, self.space.w_False) and
+                not self.space.is_w(node.value, self.space.w_None)):
+            raise ValidationError(
+                "MatchSingleton can only contain True, False and None")
+
+    def visit_MatchSequence(self, node):
+        self._validate_patterns(node.patterns, star_ok=True)
+
+    def visit_MatchMapping(self, node):
+        if node.keys and node.patterns and len(node.keys) != len(node.patterns):
+            raise ValidationError("MatchMapping doesn't have the same number of keys as patterns")
+        if node.rest is not None:
+            self._validate_capture(node.rest)
+        self._validate_patterns(node.keys)
+
+    def visit_MatchClass(self, node):
+        if len(node.kwd_attrs) != len(node.kwd_patterns):
+            raise ValidationError("MatchClass doesn't have the same number of keyword attributes as patterns")
+        self._validate_expr(node.cls)
+        cls = node.cls
+        while 1:
+            if isinstance(cls, ast.Name):
+                break
+            if isinstance(cls, ast.Attribute):
+                # recurse
+                cls = cls.value
+            else:
+                raise ValidationError("MatchClass cls field can only contain Name or Attribute nodes.")
+        for name in node.kwd_attrs:
+            self._validate_expr(name)
+        self._validate_patterns(node.patterns)
+        self._validate_patterns(node.kwd_patterns)
+
+    def visit_MatchStar(self, node):
+        raise ValidationError("can't use MatchStar here")
+
+    def visit_MatchAs(self, node):
+        if node.name:
+            self._validate_capture(node.name)
+        if node.pattern:
+            if not node.name:
+                raise ValidationError("MatchAs must specify a target name if a pattern is given")
+            node.pattern.walkabout(self)
+
+    def visit_MatchOr(self, node):
+        if len(node.patterns) < 2:
+            raise ValidationError("MatchOr requires at least 2 patterns")
+        self._validate_patterns(node.patterns)
+
     # Expressions
 
     def visit_Name(self, node):
