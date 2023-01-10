@@ -8,7 +8,7 @@ from collections import OrderedDict
 from enum import Enum, IntEnum, EnumMeta, Flag, IntFlag, unique, auto
 from io import StringIO
 from pickle import dumps, loads, PicklingError, HIGHEST_PROTOCOL
-from test.support import ALWAYS_EQ, check__all__, threading_helper
+from test.support import ALWAYS_EQ, check__all__, threading_helper, gc_collect
 from datetime import timedelta
 
 python_version = sys.version_info[:2]
@@ -1979,6 +1979,7 @@ class TestEnum(unittest.TestCase):
         # No strong refs here so these are free to die.
         class_1_ref = weakref.ref(Class1())
         class_2_ref = weakref.ref(Class2())
+        gc_collect() # PyPy modification: collect first
         #
         # The exception raised by Enum creates a reference loop and thus
         # Class2 instances will stick around until the next gargage collection
