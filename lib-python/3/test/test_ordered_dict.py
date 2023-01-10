@@ -543,8 +543,7 @@ class OrderedDictTests:
             key = Key()
             od[key] = i
 
-        # These should not crash harder than by raising KeyError
-        # (they do on CPython, but not on PyPy)
+        # These raise KeyError on CPython but not on PyPy
         try:
             list(od.values())
         except KeyError:
