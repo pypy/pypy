@@ -270,7 +270,7 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args.parse_into_scope(None, fresh_frame.locals_cells_stack_w, func.name,
+        args.parse_into_scope(None, fresh_frame.locals_cells_stack_w, func.qualname,
                               sig, func.defs_w, func.w_kw_defs)
         fresh_frame.init_cells()
         return frame.run(func.name, func.qualname)
@@ -282,7 +282,7 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
+        args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.qualname,
                               sig, func.defs_w, func.w_kw_defs)
         fresh_frame.init_cells()
         return frame.run(func.name, func.qualname)

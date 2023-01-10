@@ -609,7 +609,7 @@ def test_custom_callable_errors():
     assert excinfo.value.args[0].startswith('CallableBadGetattr object')
     with raises(TypeError) as excinfo:
         fn()
-    assert excinfo.value.args[0].startswith('__call__()')
+    assert excinfo.value.args[0].startswith('CallableBadGetattr.__call__()')
     assert fn(1, 2, 3) == (1, 2, 3)
 
 def test_invalid_creation():
@@ -819,3 +819,13 @@ def test_co_lines():
                 for start, stop, end in f.__code__.co_lines()]
 
     assert res == [1, 2, 3, 2, 1, 4, 5, 6, 7, 6]
+
+def test_qualname_in_error():
+    class A:
+        def f(self, x):
+            return x
+
+    with raises(TypeError) as info:
+        A().f()
+    assert "A.f" in str(info.value)
+
