@@ -7559,7 +7559,7 @@ test_buildvalue_issue38913(PyObject *self, PyObject *Py_UNUSED(ignored))
 #ifdef PYPY_VERSION
 #define PyArg_ParseTupleAndKeywords PyPyArg_ParseTupleAndKeywords
 #endif
-PyAPI_FUNC(int) PyPyArg_ParseTupleAndKeywords(PyObject *, PyObject *,
+PyAPI_FUNC(int) PyArg_ParseTupleAndKeywords(PyObject *, PyObject *,
                                             const char *, char **, ...);
 
 static PyObject *
