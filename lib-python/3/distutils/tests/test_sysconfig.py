@@ -10,7 +10,7 @@ import unittest
 from distutils import sysconfig
 from distutils.ccompiler import get_default_compiler
 from distutils.tests import support
-from test.support import run_unittest, swap_item
+from test.support import run_unittest, swap_item, cpython_only
 from test.support.os_helper import TESTFN
 from test.support.warnings_helper import check_warnings
 
