@@ -395,6 +395,23 @@ class DescrOperation(object):
         return w_res
 
     def pow(space, w_obj1, w_obj2, w_obj3):
+        w_res = space._pow(w_obj1, w_obj2, w_obj3)
+        if w_res is None:
+            if space.is_w(w_obj3, space.w_None):
+                raise oefmt(
+                    space.w_TypeError,
+                    "unsupported operand type(s) for ** or pow(): '%T' and '%T'",
+                    w_obj1, w_obj2
+                )
+            else:
+                raise oefmt(
+                    space.w_TypeError,
+                    "unsupported operand type(s) for ** or pow(): '%T', '%T', '%T'",
+                    w_obj1, w_obj2, w_obj3
+                )
+        return w_res
+
+    def _pow(space, w_obj1, w_obj2, w_obj3):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__pow__')
@@ -425,8 +442,7 @@ class DescrOperation(object):
                                                    w_obj3)
             if _check_notimplemented(space, w_res):
                 return w_res
-
-        raise oefmt(space.w_TypeError, "operands do not support **")
+        return None
 
     def inplace_pow(space, w_lhs, w_rhs):
         w_impl = space.lookup(w_lhs, '__ipow__')
@@ -434,7 +450,14 @@ class DescrOperation(object):
             w_res = space.get_and_call_function(w_impl, w_lhs, w_rhs)
             if _check_notimplemented(space, w_res):
                 return w_res
-        return space.pow(w_lhs, w_rhs, space.w_None)
+        w_res = space._pow(w_lhs, w_rhs, space.w_None)
+        if w_res is None:
+            raise oefmt(
+                space.w_TypeError,
+                "unsupported operand type(s) for **=: '%T' and '%T'",
+                w_lhs, w_rhs
+            )
+        return w_res
 
     @use_special_method_shortcut('__contains__',
             lambda space, w_res: space.is_w(space.type(w_res), space.w_bool))

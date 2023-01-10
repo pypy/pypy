@@ -829,3 +829,5 @@ def test_qualname_in_error():
         A().f()
     assert "A.f" in str(info.value)
 
+def test_builtin_function_in_method_objclass():
+    assert list.append.__qualname__ == 'list.append'

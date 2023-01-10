@@ -867,3 +867,17 @@ def test_64bit_hash():
 def test_class_getitem():
     excinfo = raises(TypeError, "int[int]")
     assert "'type' object is not subscriptable" in str(excinfo.value)
+
+def test_error_ipow():
+    with raises(TypeError) as info:
+        x = None
+        x **= 2
+    assert "unsupported operand type(s) for **=: 'NoneType' and 'int'" in str(info.value)
+
+def test_error_pow():
+    with raises(TypeError) as info:
+        None ** 2
+    assert "unsupported operand type(s) for ** or pow(): 'NoneType' and 'int'" in str(info.value)
+    with raises(TypeError) as info:
+        pow(None, 2, 2.1)
+    assert "unsupported operand type(s) for ** or pow(): 'NoneType', 'int', 'float'" in str(info.value)
