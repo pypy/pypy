@@ -57,6 +57,18 @@ class AppTestTraceBackAttributes:
         raises(AttributeError, "member.__name__ = 'x'")
         raises(AttributeError, "member.__objclass__ = X")
 
+    def test_descr_member_errormsg(self):
+        class X(object):
+            __slots__ = ['a']
+        with raises(AttributeError) as info:
+            X().a
+        assert str(info.value) == "'X' object has no attribute 'a'"
+        class Y(X):
+            pass
+        with raises(AttributeError) as info:
+            Y().a
+        assert str(info.value) == "'Y' object has no attribute 'a'"
+
     def test_descr_getsetproperty(self):
         from types import FrameType
         assert FrameType.f_lineno.__name__ == 'f_lineno'
