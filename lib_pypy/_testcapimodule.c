@@ -5629,8 +5629,11 @@ test_refcount_macros(PyObject *self, PyObject *Py_UNUSED(ignored))
     TEST_REFCOUNT();
 }
 
+#ifndef PYPY_VERSION
+// PyPy does not support the stable ABI
 #undef Py_NewRef
 #undef Py_XNewRef
+#endif
 
 // Test Py_NewRef() and Py_XNewRef() functions, after undefining macros.
 static PyObject*
@@ -5680,7 +5683,10 @@ test_py_is_macros(PyObject *self, PyObject *Py_UNUSED(ignored))
     TEST_PY_IS();
 }
 
+#ifndef PYPY_VERSION
+// PyPy does not support the stable ABI
 #undef Py_Is
+#endif
 
 // Test Py_Is() function, after undefining its macro.
 static PyObject*
@@ -7548,7 +7554,11 @@ test_buildvalue_issue38913(PyObject *self, PyObject *Py_UNUSED(ignored))
     Py_RETURN_NONE;
 }
 
+// Using PY_SSIZE_T_CLEAN defines an alternate function, now test without that
 #undef PyArg_ParseTupleAndKeywords
+#ifdef PYPY_VERSION
+#define PyArg_ParseTupleAndKeywords PyPyArg_ParseTupleAndKeywords
+#endif
 PyAPI_FUNC(int) PyPyArg_ParseTupleAndKeywords(PyObject *, PyObject *,
                                             const char *, char **, ...);
 
