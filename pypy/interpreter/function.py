@@ -675,7 +675,7 @@ class StaticMethod(W_Root):
         return space.call_args(self.w_function, __args__)
 
     def descr_repr(self, space):
-        return space.newtext("<staticmethod (%s)>" % (space.text_w(space.repr(self.w_function)), ))
+        return space.newtext("<staticmethod(%s)>" % (space.text_w(space.repr(self.w_function)), ))
 
 
 class ClassMethod(W_Root):
@@ -727,7 +727,7 @@ class ClassMethod(W_Root):
         return space.call_args(self.w_function, __args__)
 
     def descr_repr(self, space):
-        return space.newtext("<classmethod (%s)>" % (space.text_w(space.repr(self.w_function)), ))
+        return space.newtext("<classmethod(%s)>" % (space.text_w(space.repr(self.w_function)), ))
 
 def _copy_func_attrs(space, w_function, w_dict):
     for name in ['__module__', '__name__', '__qualname__', '__doc__', '__annotations__']:
