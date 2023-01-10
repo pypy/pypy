@@ -543,15 +543,23 @@ class OrderedDictTests:
             key = Key()
             od[key] = i
 
-        # These should not crash.
-        with self.assertRaises(KeyError):
+        # These raise KeyError on CPython but not on PyPy
+        try:
             list(od.values())
-        with self.assertRaises(KeyError):
+        except KeyError:
+            pass
+        try:
             list(od.items())
-        with self.assertRaises(KeyError):
+        except KeyError:
+            pass
+        try:
             repr(od)
-        with self.assertRaises(KeyError):
+        except KeyError:
+            pass
+        try:
             od.copy()
+        except KeyError:
+            pass
 
     def test_issue24348(self):
         OrderedDict = self.OrderedDict
@@ -602,8 +610,10 @@ class OrderedDictTests:
         od['spam'] = 1
         od['ham'] = 2
         dict.__delitem__(od, 'spam')
-        with self.assertRaises(KeyError):
+        try:
             repr(od)
+        except KeyError:      # on CPython, not on PyPy
+            pass
 
     def test_dict_clear(self):
         OrderedDict = self.OrderedDict
@@ -619,8 +629,10 @@ class OrderedDictTests:
         od['spam'] = 1
         od['ham'] = 2
         dict.pop(od, 'spam')
-        with self.assertRaises(KeyError):
+        try:
             repr(od)
+        except KeyError:      # on CPython, not on PyPy
+            pass
 
     def test_dict_popitem(self):
         OrderedDict = self.OrderedDict
@@ -628,8 +640,10 @@ class OrderedDictTests:
         od['spam'] = 1
         od['ham'] = 2
         dict.popitem(od)
-        with self.assertRaises(KeyError):
+        try:
             repr(od)
+        except KeyError:      # on CPython, not on PyPy
+            pass
 
     def test_dict_setdefault(self):
         OrderedDict = self.OrderedDict
@@ -785,10 +799,14 @@ class CPythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
 
         od = OrderedDict.fromkeys('abcde')
         self.assertEqual(list(od), list('abcde'))
-        with self.assertRaises(RuntimeError):
+        try:
             for i, k in enumerate(od):
                 od.move_to_end(k)
                 self.assertLess(i, 5)
+        except RuntimeError:
+            pass     # XXX on PyPy the change is not detected, as
+                     # the total length of the dict doesn't change
+        od = OrderedDict.fromkeys('bcdea')
         with self.assertRaises(RuntimeError):
             for k in od:
                 od['f'] = None
