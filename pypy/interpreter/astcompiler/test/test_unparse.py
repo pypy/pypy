@@ -6,7 +6,7 @@ from pypy.interpreter.astcompiler.unparse import unparse, unparse_annotations
 
 class TestAstUnparser:
     def setup_class(cls):
-        cls.parser = pyparse.PythonParser(cls.space)
+        cls.parser = pyparse.PegParser(cls.space)
 
     def get_ast(self, source, p_mode="exec", flags=None):
         if flags is None:
@@ -166,7 +166,7 @@ class TestAstUnparser:
 
 class TestAstUnparseAnnotations(object):
     def setup_class(cls):
-        cls.parser = pyparse.PythonParser(cls.space)
+        cls.parser = pyparse.PegParser(cls.space)
 
     def get_ast(self, source, p_mode="exec", flags=None):
         if flags is None:
