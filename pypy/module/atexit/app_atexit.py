@@ -18,7 +18,6 @@ def register(func, *args, **kwargs):
 def run_exitfuncs():
     "Run all registered exit functions."
     # Maintain the last exception
-    last_exc, last_tb = None, None
     for (func, args, kwargs) in reversed(atexit_callbacks):
         if func is None:
             # unregistered slot
@@ -26,19 +25,10 @@ def run_exitfuncs():
         try:
             func(*args, **kwargs)
         except BaseException as e:
-            last_exc = e
-            last_tb = e.__traceback__
-            if not isinstance(e, SystemExit):
-                import traceback
-                # obscure: we can't use sys.exc_info() here because this
-                # function is an appleveldef which marks its frame as
-                # hidden
-                traceback.print_exception(type(last_exc), last_exc, last_tb)
+            import __pypy__
+            __pypy__.write_unraisable("in atexit callback", e, func)
 
     clear()
-
-    if last_exc is not None:
-        raise last_exc.with_traceback(last_tb)
 
 def clear():
     "Clear the list of previously registered exit functions."
