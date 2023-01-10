@@ -2601,6 +2601,7 @@ class ThreadedEchoServer(threading.Thread):
                                 f" Connection reset by peer: {self.addr}"
                             )
                         else:
+                            handle_error("Test server failure:\n")
                     if 'UNEXPECTED_EOF_WHILE_READING' == err.reason:
                         # PyPy OpenSSL3 needs this, on CPython a
                         # BrokenPipeError is raised which is caught as an
@@ -2609,7 +2610,6 @@ class ThreadedEchoServer(threading.Thread):
                             handle_error("Test server failure:\n")
                         self.close()
                         self.running = False
-                            handle_error("Test server failure:\n")
                     try:
                         self.write(b"ERROR\n")
                     except OSError:
