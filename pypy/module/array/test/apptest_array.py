@@ -7,3 +7,7 @@ def test_index_positions():
     assert a.index(1, start=2) == 3
     with pytest.raises(ValueError):
         a.index(1, start=1, stop=3)
+
+def test_array_is_mutable_sequence():
+    from _collections_abc import MutableSequence
+    assert isinstance(array("B"), MutableSequence)

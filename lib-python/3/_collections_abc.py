@@ -1169,3 +1169,6 @@ class MutableSequence(Sequence):
 
 MutableSequence.register(list)
 MutableSequence.register(bytearray)  # Multiply inheriting, see ByteString
+from array import array
+MutableSequence.register(array)
+del array
