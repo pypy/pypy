@@ -29,6 +29,12 @@ py_functools = import_helper.import_fresh_module('functools',
                                                  blocked=['_functools'])
 c_functools = import_helper.import_fresh_module('functools')
 
+# pypy difference: skip the c_functools tests if _functools does not exist
+try:
+    import _functools
+except ImportError:
+    c_functools = None
+
 decimal = import_helper.import_fresh_module('decimal', fresh=['_decimal'])
 
 @contextlib.contextmanager
