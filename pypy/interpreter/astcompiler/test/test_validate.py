@@ -34,6 +34,14 @@ class TestASTValidator:
         mod = ast.Module([stmt], [])
         self.mod(mod, msg)
 
+    def __getattr__(self, name):
+        nodecls = getattr(ast, name)
+        if isinstance(nodecls, type) and issubclass(nodecls, ast.AST):
+            def make(*args):
+                return nodecls(*(args + POS))
+            return make
+        raise AttributeError(name)
+
     def test_module(self):
         m = ast.Interactive([ast.Expr(ast.Name("x", ast.Store, *POS), *POS)])
         self.mod(m, "must have Load context", "single")
@@ -426,3 +434,77 @@ class TestASTValidator:
             ast_node = ec.compiler.compile_to_ast(source, fn, "exec", 0)
             ec.compiler.validate_ast(ast_node)
             ast_node.to_object(self.space) # does not crash
+
+    def _check_wrong_pattern_error(self, pattern, msg=''):
+        name_x = self.Name('x', ast.Load)
+        stmt = self.Match(
+            name_x,
+            [
+                ast.match_case(
+                    pattern,
+                    None,
+                    [self.Pass()]
+                )
+            ]
+        )
+        self.mod(stmt)
+
+    def test_match_wrong_singleton(self):
+        self._check_wrong_pattern_error(self.MatchSingleton("abc"))
+
+    def test_match_value_store(self):
+        self._check_wrong_pattern_error(
+            self.MatchValue(
+                self.Attribute(
+                    self.Attribute(
+                        self.Name('x', ast.Store),
+                        'y', ast.Load
+                    ),
+                    'z', ast.Load
+                )
+            )
+        )
+
+    def test_match_sequence(self):
+        self._check_wrong_pattern_error(
+            self.MatchSequence([self.MatchStar('a'), self.MatchStar('d')]))
+        self._check_wrong_pattern_error(
+            self.MatchSequence([self.MatchStar('_')]))
+
+    def test_match_mapping(self):
+        self._check_wrong_pattern_error(
+            self.MatchMapping(["a", "b"], [self.MatchSingleton(self.space.w_None)], None))
+        self._check_wrong_pattern_error(
+            self.MatchMapping([], [], "_"))
+
+    def test_match_as(self):
+        self._check_wrong_pattern_error(
+            self.MatchAs(None, "_"))
+        self._check_wrong_pattern_error(
+            self.MatchAs(self.MatchSingleton(self.space.w_None), None))
+
+    def test_match_or(self):
+        p1 = self.MatchSingleton(self.space.w_None)
+        self._check_wrong_pattern_error(
+            self.MatchOr([p1]))
+
+    def test_match_class(self):
+        self._check_wrong_pattern_error(self.MatchClass(
+            self.Name('A', ast.Store),
+            [], [], []
+        ))
+        self._check_wrong_pattern_error(self.MatchClass(
+            self.Name('A', ast.Load),
+            [],
+            ['a'],
+            []
+        ))
+        self._check_wrong_pattern_error(self.MatchClass(
+            self.Attribute(self.Constant(self.space.wrap(3), self.space.w_None), "a", ast.Load),
+            [], [], []
+        ))
+
+    def test_or(self):
+        p1 = self.MatchSingleton(self.space.w_None)
+        self._check_wrong_pattern_error(
+            self.MatchOr([p1]))
