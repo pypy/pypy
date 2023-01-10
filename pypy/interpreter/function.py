@@ -703,7 +703,7 @@ class ClassMethod(W_Root):
             w_klass = space.type(w_obj)
         w_func = self.w_function
         # this creates a Method for functions etc
-        w_bound = space.get(w_func, w_klass)
+        w_bound = space.get(w_func, w_klass, w_klass)
         if w_bound is not w_func:
             return w_bound
         # the object doesn't have a get, but it might still be callable, so

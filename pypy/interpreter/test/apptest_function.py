@@ -772,6 +772,14 @@ def test_classmethod_of_other_descriptor():
     assert Class().inner() == 'spam'
     assert Class().outer() == 'eggs'
 
+def test_classmethod_classmethod():
+    class A:
+        @classmethod
+        @classmethod
+        def f(cls):
+            return cls
+    assert A().f() is A
+
 def test_duplicate_key_kwargs():
     def f(**d): pass
     class A:
