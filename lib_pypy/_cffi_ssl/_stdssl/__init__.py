@@ -2,6 +2,7 @@ import sys
 import os
 import time
 import _thread
+import warnings
 import weakref
 import __pypy__
 
@@ -17,7 +18,7 @@ except ImportError as e:
     raise ModuleNotFoundError(str(e) + msg, name='_cffi_ssl')
 
 from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
-    _decode_certificate, _certificate_to_der)
+    _decode_certificate, _certificate_to_der, _PySSL_CertificateFromX509Stack)
 from _cffi_ssl._stdssl.utility import (_str_with_len, _bytes_with_len,
     _str_to_ffi_buffer, _str_from_buf, _cstr_decode_fs)
 from _cffi_ssl._stdssl.error import (
@@ -116,10 +117,9 @@ if lib.Cryptography_HAS_SSL3_METHOD:
 PROTOCOL_SSLv23 = 2
 PROTOCOL_TLS    = PROTOCOL_SSLv23
 PROTOCOL_TLSv1    = 3
-if lib.Cryptography_HAS_TLSv1_2:
-    PROTOCOL_TLSv1 = 3
-    PROTOCOL_TLSv1_1 = 4
-    PROTOCOL_TLSv1_2 = 5
+PROTOCOL_TLSv1 = 3
+PROTOCOL_TLSv1_1 = 4
+PROTOCOL_TLSv1_2 = 5
 PROTOCOL_TLS_CLIENT = 0x10
 PROTOCOL_TLS_SERVER = 0x11
 HAS_SSLv2 = bool(lib.Cryptography_HAS_SSL2)
@@ -364,7 +364,7 @@ class _SSLSocket(object):
                     # bpo-37428: OpenSSL does not ignore SSL_VERIFY_POST_HANDSHAKE.
                     # Set SSL_VERIFY_POST_HANDSHAKE flag only for server sockets and
                     # only in combination with SSL_VERIFY_PEER flag.
-                    mode = lib.SSL_CTX_get_verify_mode(lib.SSL_get_SSL_CTX(self.ssl))
+                    mode = lib.SSL_get_verify_mode(self.ssl)
                     if (mode & lib.SSL_VERIFY_PEER):
                         verify_cb = lib.SSL_get_verify_callback(self.ssl)
                         mode |= lib.SSL_VERIFY_POST_HANDSHAKE
@@ -537,11 +537,23 @@ class _SSLSocket(object):
             # return cert in DER-encoded format
             return _certificate_to_der(peer_cert)
         else:
-            verification = lib.SSL_CTX_get_verify_mode(lib.SSL_get_SSL_CTX(self.ssl))
+            verification = lib.SSL_get_verify_mode(self.ssl)
             if (verification & lib.SSL_VERIFY_PEER) == 0:
                 return {}
             else:
                 return _decode_certificate(peer_cert)
+
+    def get_verified_chain(self):
+        chain = lib.SSL_get0_verified_chain(self.ssl)
+        if not chain:
+            return None
+        return _PySSL_CertificateFromX509Stack(chain, 1)
+
+    def get_unverified_chain(self):
+        chain = lib.SSL_get_peer_cert_chain(self.ssl)
+        if not chain:
+            return None
+        return _PySSL_CertificateFromX509Stack(chain, 1)
 
     def write(self, bytestring):
         return self._write_with_length(_str_to_ffi_buffer(bytestring), len(bytestring))
@@ -1085,12 +1097,16 @@ class _SSLContext(object):
         self._sni_cb = None
         self._msg_cb = None
         if protocol == PROTOCOL_TLSv1:
+            warnings.warn("ssl.PROTOCOL_TLSv1 is deprecated", DeprecationWarning)
             method = lib.TLSv1_method()
         elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
+            warnings.warn("ssl.PROTOCOL_TLSv1_1 is deprecated", DeprecationWarning)
             method = lib.TLSv1_1_method()
         elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_2 :
+            warnings.warn("ssl.PROTOCOL_TLSv1_2 is deprecated", DeprecationWarning)
             method = lib.TLSv1_2_method()
         elif SSLv3_method_ok and protocol == PROTOCOL_SSLv3:
+            warnings.warn("ssl.PROTOCOL_SSLv3 is deprecated", DeprecationWarning)
             method = lib.SSLv3_method()
         elif lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
             method = lib.SSLv2_method()
@@ -1189,10 +1205,17 @@ class _SSLContext(object):
 
     @options.setter
     def options(self, value):
+        opt_no = (
+            lib.SSL_OP_NO_SSLv2 | lib.SSL_OP_NO_SSLv3 | lib.SSL_OP_NO_TLSv1 |
+            lib.SSL_OP_NO_TLSv1_1 | lib.SSL_OP_NO_TLSv1_2 | lib.SSL_OP_NO_TLSv1_3
+        )
         new_opts = int(value)
         opts = lib.SSL_CTX_get_options(self.ctx)
         clear = opts & ~new_opts
         set = ~opts & new_opts
+        if set & opt_no != 0:
+            warnings.warn("ssl.OP_NO_SSL*/ssl.OP_NO_TLS* options are "
+                          "deprecated", DeprecationWarning, stacklevel=2)
         if clear:
             if lib.Cryptography_HAS_SSL_CTX_CLEAR_OPTIONS:
                 lib.SSL_CTX_clear_options(self.ctx, clear)
@@ -1267,6 +1290,20 @@ class _SSLContext(object):
                                      PROTOCOL_TLS):
                 raise ValueError("The context's protocol doesn't support"
                     "modification of highest and lowest version.")
+
+            # check for deprecations and supported values
+            if v == PROTO_SSLv3:
+                warnings.warn("ssl.TLSVersion.SSLv3 is deprecated", DeprecationWarning)
+            elif v == PROTO_TLSv1:
+                warnings.warn("ssl.TLSVersion.TLSv1 is deprecated", DeprecationWarning)
+            elif v == PROTO_TLSv1_1:
+                warnings.warn("ssl.TLSVersion.TLSv1_1 is deprecated", DeprecationWarning)
+            elif v in (PROTO_MINIMUM_SUPPORTED, PROTO_MAXIMUM_SUPPORTED,
+                       PROTO_TLSv1_2, PROTO_TLSv1_3):
+                pass
+            else:
+                raise ValueError(f"Unsupported TLS/SSL version '{v}'")
+
             if what == 0:
                 if v == PROTO_MINIMUM_SUPPORTED:
                     v = 0
@@ -1283,7 +1320,7 @@ class _SSLContext(object):
                 result = lib.SSL_CTX_set_max_proto_version(self.ctx, v)
             if result == 0:
                 raise ValueError('Unsupported protocol version 0x%x' % v)
-            return 0
+            return result
 
         @property
         def minimum_version(self):
@@ -2008,6 +2045,7 @@ def _RAND_bytes(count, pseudo):
     raise ssl_error(None, errcode=lib.ERR_get_error())
 
 def RAND_pseudo_bytes(count):
+    warnings.warn("ssl.RAND_pseudo_bytes() is deprecated", DeprecationWarning)
     return _RAND_bytes(count, True)
 
 def RAND_bytes(count):
