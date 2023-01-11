@@ -54,10 +54,15 @@ class Scope(object):
         self.comp_iter_expr = 0
 
     def error(self, msg, ast_node):
-        lineno = ast_node.lineno
-        col_offset = ast_node.col_offset
-        end_lineno = ast_node.end_lineno
-        end_col_offset = ast_node.end_col_offset + 1
+        if ast_node is None:
+            lineno = self.lineno
+            col_offset = self.col_offset + 1
+            end_lineno = end_col_offset = 0
+        else:
+            lineno = ast_node.lineno
+            col_offset = ast_node.col_offset + 1
+            end_lineno = ast_node.end_lineno
+            end_col_offset = ast_node.end_col_offset + 1
         raise SyntaxError(
             msg, lineno, col_offset,
             end_lineno=end_lineno, end_offset=end_col_offset)
@@ -685,11 +690,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self._handle_params(arguments.kwonlyargs, True)
         if arguments.vararg:
             self.check_forbidden_name(arguments.vararg.arg, arguments.vararg)
-            self.note_symbol(arguments.vararg.arg, SYM_PARAM)
+            self.note_symbol(arguments.vararg.arg, SYM_PARAM, arguments.vararg)
             scope.note_variable_arg(arguments.vararg)
         if arguments.kwarg:
             self.check_forbidden_name(arguments.kwarg.arg, arguments.kwarg)
-            self.note_symbol(arguments.kwarg.arg, SYM_PARAM)
+            self.note_symbol(arguments.kwarg.arg, SYM_PARAM, arguments.kwarg)
             scope.note_keywords_arg(arguments.kwarg)
 
     def check_forbidden_name(self, name, node):
@@ -735,7 +740,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
             role = SYM_USED
         else:
             role = SYM_ASSIGNED
-        self.note_symbol(name.id, role)
+        self.note_symbol(name.id, role, name)
 
     def visit_Try(self, node):
         self.scope.note_try_start(node)
@@ -765,16 +770,16 @@ class SymtableBuilder(ast.GenericASTVisitor):
                     continue
 
                 if isinstance(parent, FunctionScope):
-                    parent.note_symbol(name, SYM_ASSIGNED)
+                    parent.note_symbol(name, SYM_ASSIGNED, node)
                     if parent.lookup_role(name) & SYM_GLOBAL:
                         flag = SYM_GLOBAL
                     else:
                         flag = SYM_NONLOCAL
-                    scope.note_symbol(name, flag)
+                    scope.note_symbol(name, flag, node)
                     break
                 elif isinstance(parent, ModuleScope):
-                    parent.note_symbol(name, SYM_GLOBAL)
-                    scope.note_symbol(name, SYM_GLOBAL)
+                    parent.note_symbol(name, SYM_GLOBAL, node)
+                    scope.note_symbol(name, SYM_GLOBAL, node)
                 elif isinstance(parent, ClassScope):
                     self.error(
                         "assignment expression within a comprehension cannot be used in a class body",
@@ -785,8 +790,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_MatchAs(self, match_as):
         if match_as.name:
-            self.note_symbol(match_as.name, SYM_ASSIGNED)
+            self.note_symbol(match_as.name, SYM_ASSIGNED, match_as)
 
     def visit_MatchStar(self, match_star):
         if match_star.name:
-            self.note_symbol(match_star.name, SYM_ASSIGNED)
+            self.note_symbol(match_star.name, SYM_ASSIGNED, match_star)

@@ -96,6 +96,7 @@ class BaseTestCompiler:
     def error_test(self, source, exc_type, msg_part=""):
         excinfo = py.test.raises(exc_type, self.simple_test, source, None, None)
         assert msg_part in excinfo.value.msg
+        return excinfo.value
 
 
 class TestCompiler(BaseTestCompiler):
@@ -2341,6 +2342,12 @@ match x:
     case a: pass
     case 1: pass
 """, SyntaxError, "name capture 'a' makes remaining patterns unreachable")
+
+    def test_kwonly_crash(self):
+        exc = self.error_test("def f(p1, *k1, k1=100): pass", SyntaxError)
+        if exc:
+            assert exc.offset == 12
+            assert exc.end_offset == 14
 
 
 class TestDeadCodeGetsRemoved(TestCompiler):
