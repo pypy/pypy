@@ -195,13 +195,19 @@ class UnionType:
 
     def __subclasscheck__(self, other):
         for cls in self.__args__:
+            if cls is None:
+                if other is type(None):
+                    return True
             if issubclass(other, cls):
                 return True
         return False
 
     def __instancecheck__(self, instance):
         for cls in self.__args__:
-            if isinstance(instance, cls):
+            if cls is None:
+                if instance is None:
+                    return True
+            elif isinstance(instance, cls):
                 return True
         return False
 
