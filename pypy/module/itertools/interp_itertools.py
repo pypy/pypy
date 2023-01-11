@@ -1753,7 +1753,7 @@ class W_Pairwise(W_Root):
         self.w_prev = w_next
         return w_res
 
-def W_Pairwise__new__(space, w_subtype, w_iterable):
+def W_Pairwise__new__(space, w_subtype, w_iterable, __posonly__=None):
     r = space.allocate_instance(W_Pairwise, w_subtype)
     r.__init__(space, space.iter(w_iterable))
     return r
