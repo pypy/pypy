@@ -172,6 +172,7 @@ class W_Property(W_Root):
         self.w_fdel = space.w_None
         self.w_doc = space.w_None
         self.getter_doc = False
+        self.w_name = None
 
     @unwrap_spec(w_fget=WrappedDefault(None),
                  w_fset=WrappedDefault(None),
@@ -198,18 +199,27 @@ class W_Property(W_Root):
         if space.is_w(w_obj, space.w_None):
             return self
         if space.is_w(self.w_fget, space.w_None):
-            raise oefmt(space.w_AttributeError, "unreadable attribute")
+            if self.w_name is None:
+                raise oefmt(space.w_AttributeError, "unreadable attribute")
+            else:
+                raise oefmt(space.w_AttributeError, "unreadable attribute %R", self.w_name)
         return space.call_function(self.w_fget, w_obj)
 
     def set(self, space, w_obj, w_value):
         if space.is_w(self.w_fset, space.w_None):
-            raise oefmt(space.w_AttributeError, "can't set attribute")
+            if self.w_name is None:
+                raise oefmt(space.w_AttributeError, "can't set attribute")
+            else:
+                raise oefmt(space.w_AttributeError, "can't set attribute %R", self.w_name)
         space.call_function(self.w_fset, w_obj, w_value)
         return space.w_None
 
     def delete(self, space, w_obj):
         if space.is_w(self.w_fdel, space.w_None):
-            raise oefmt(space.w_AttributeError, "can't delete attribute")
+            if self.w_name is None:
+                raise oefmt(space.w_AttributeError, "can't delete attribute")
+            else:
+                raise oefmt(space.w_AttributeError, "can't delete attribute %R", self.w_name)
         space.call_function(self.w_fdel, w_obj)
         return space.w_None
 
@@ -241,8 +251,15 @@ class W_Property(W_Root):
         else:
             w_doc = self.w_doc
         w_type = self.getclass(space)
-        return space.call_function(w_type, w_getter, w_setter, w_deleter,
-                                   w_doc)
+        w_res = space.call_function(w_type, w_getter, w_setter, w_deleter,
+                                    w_doc)
+        if isinstance(w_res, W_Property):
+            w_res.w_name = self.w_name
+        return w_res
+
+    def set_name(self, space, w_type, w_name):
+        """ Method to set name of a property. """
+        self.w_name = w_name
 
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_fget) or
@@ -278,6 +295,7 @@ class C(object):
     getter = interp2app(W_Property.getter),
     setter = interp2app(W_Property.setter),
     deleter = interp2app(W_Property.deleter),
+    __set_name__ = interp2app(W_Property.set_name),
 )
 # This allows there to be a __doc__ of the property type and a __doc__
 # descriptor for the instances.
