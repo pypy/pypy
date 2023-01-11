@@ -32,6 +32,5 @@ W_NoneObject.typedef = TypeDef("NoneType",
     __new__ = interp2app(W_NoneObject.descr_new),
     __bool__ = interp2app(W_NoneObject.descr_bool),
     __repr__ = interp2app(W_NoneObject.descr_repr),
-    __or__ = interp2app(W_NoneObject.descr_or),
 )
 W_NoneObject.typedef.acceptable_as_base_class = False
