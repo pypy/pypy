@@ -984,11 +984,15 @@ def _new_baseint(space, w_value, w_base=None):
             w_obj = space.trunc(w_value)
             if not space.isinstance_w(w_obj, space.w_int):
                 try:
-                    w_obj = space.int(w_obj)
+                    w_obj = space.index(w_obj)
                 except OperationError as e:
                     if not e.match(space, space.w_TypeError):
                         raise
-                    w_obj = space.index(w_obj)
+                    raise oefmt(
+                        space.w_TypeError,
+                        "__trunc__ returned non-Integral (type '%T')",
+                        w_obj
+                    )
             assert isinstance(w_obj, W_AbstractIntObject)
             return _ensure_baseint(space, w_obj)
         elif space.lookup(w_value, '__index__') is not None:

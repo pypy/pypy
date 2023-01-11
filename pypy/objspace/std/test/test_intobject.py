@@ -551,31 +551,27 @@ class AppTestInt(object):
         class TruncReturnsNonInt(object):
             def __trunc__(self):
                 return Integral()
-        assert int(TruncReturnsNonInt()) == 42
+        with raises(TypeError):
+            int(TruncReturnsNonInt())
 
     def test_trunc_returns_int_subclass(self):
-        class Classic:
-            pass
-        for base in object, Classic:
-            class TruncReturnsNonInt(base):
-                def __trunc__(self):
-                    return True
-            n = int(TruncReturnsNonInt())
-            assert n == 1
-            assert type(n) is int
+        class TruncReturnsNonInt:
+            def __trunc__(self):
+                return True
+        n = int(TruncReturnsNonInt())
+        assert n == 1
+        assert type(n) is int
 
     def test_trunc_returns_int_subclass_2(self):
         class BadInt:
             def __int__(self):
                 return True
-
         class TruncReturnsBadInt:
             def __trunc__(self):
                 return BadInt()
         bad_int = TruncReturnsBadInt()
-        n = int(bad_int)
-        assert n == 1
-        assert type(n) is int
+        with raises(TypeError):
+            int(bad_int)
 
     def test_trunc_returns_index(self):
         class Index:
