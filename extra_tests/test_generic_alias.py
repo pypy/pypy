@@ -185,6 +185,13 @@ def test_union_isinstance():
     assert issubclass(int, u)
     assert issubclass(list, u)
 
+    u2 = UnionType((int, None))
+    assert isinstance(None, u2)
+    assert isinstance(6, u2)
+    assert issubclass(int, u2)
+    assert issubclass(type(None), u2)
+
+
 def test_union_repr():
     u = UnionType((int, list))
     assert repr(u) == "int | list"
