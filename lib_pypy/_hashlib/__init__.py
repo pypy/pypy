@@ -1,11 +1,15 @@
 import sys
-from threading import Lock
+from _thread import allocate_lock as Lock
 from _pypy_openssl import ffi, lib
 from _cffi_ssl._stdssl.utility import (_str_to_ffi_buffer, _bytes_with_len,
         _str_from_buf)
 
-try: from __pypy__ import builtinify
+try: from __pypy__ import ___builtinify
 except ImportError: builtinify = lambda f: f
+
+class UnsupportedDigestmodError(ValueError):
+    pass
+
 
 def get_errstr():
     # From CPython's _setException
@@ -30,21 +34,33 @@ def new(name, string=b'', usedforsecurity=True):
     h.update(string)
     return h
 
+class Immutable(type):
+    def __init__(cls, name, bases, dct):
+        type.__setattr__(cls,"attr",set(dct.keys()))
+        type.__init__(cls, name, bases, dct)
 
-class HASH(object):
+    def __setattr__(cls, name, value):
+        # Mock Py_TPFLAGS_IMMUTABLETYPE
+        qualname = '.'.join([cls.__module__, cls.__name__])
+        raise TypeError(f"cannot set '{name}' attribute of immutable type '{qualname}'")
+
+
+class HASH(object, metaclass=Immutable):
 
     def __init__(self, name=None, copy_from=None, usedforsecurity=True):
-        self.ctx = ffi.NULL
         if name is None:
-            raise TypeError("cannot create '%s' instance" % type(self).__name__)
-        self.name = str(name).lower()
+            qualname = '.'.join([type(self).__module__, type(self).__name__])
+            raise TypeError(f"cannot create '{qualname}' instances")
+        object.__setattr__(self, 'ctx', ffi.NULL)
+        self.ctx = ffi.NULL
+        object.__setattr__(self, 'name', str(name).lower())
         digest_type = self.digest_type_by_name()
-        self.digest_size = lib.EVP_MD_size(digest_type)
+        object.__setattr__(self, 'digest_size', lib.EVP_MD_size(digest_type))
 
         # Allocate a lock for each HASH object.
         # An optimization would be to not release the GIL on small requests,
         # and use a custom lock only when needed.
-        self.lock = Lock()
+        object.__setattr__(self, 'lock', Lock())
 
         # Start EVPnew
         ctx = lib.Cryptography_EVP_MD_CTX_new()
@@ -61,7 +77,7 @@ class HASH(object):
             else:
                 if lib.EVP_DigestInit_ex(ctx, digest_type, ffi.NULL) == 0:
                     raise ValueError(get_errstr())
-            self.ctx = ctx
+            object.__setattr__(self, 'ctx', ctx)
         except:
             # no need to gc ctx! 
             raise
@@ -131,10 +147,15 @@ class HASH(object):
         finally:
             lib.Cryptography_EVP_MD_CTX_free(ctx)
 
+
 class HASHXOF(HASH):
     pass
 
-algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
+class HMAC(HASH):
+    pass
+
+_algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512',
+               'sha3_224', 'sha3_256', 'sha3_384', 'sha3_512')
 
 class NameFetcher:
     def __init__(self):
@@ -159,8 +180,6 @@ def _fetch_names():
 _name_mapping = {
     'blake2s256': 'blake2s',
     'blake2b512': 'blake2b',
-    'shake128': 'shake_128',
-    'shake256': 'shake_256',
     'md5-sha1': 'md5_sha1',
     'sha512-224': 'sha512_224',
     'sha512-256': 'sha512_256',
@@ -200,7 +219,7 @@ def make_new_hash(name, funcname):
     new_hash.__name__ = funcname
     return builtinify(new_hash)
 
-for _name in algorithms:
+for _name in _algorithms:
     _newname = 'openssl_%s' % (_name,)
     globals()[_newname] = make_new_hash(_name, _newname)
 
@@ -232,3 +251,48 @@ if hasattr(lib, 'PKCS5_PBKDF2_HMAC'):
         if r == 0:
             raise ValueError
         return _bytes_with_len(key, dklen)
+
+
+def compare_digest(a, b):
+    """Return 'a == b'.
+
+This function uses an approach designed to prevent
+timing analysis, making it appropriate for cryptography.
+
+a and b must both be of the same type: either str (ASCII only),
+or any bytes-like object.
+
+Note: If a and b are of different lengths, or if an error occurs,
+a timing attack could theoretically reveal information about the
+types and lengths of a and b--but not their values."""
+    raise NotImplementedError()
+
+
+def get_fips_mode():
+    """Determine the OpenSSL FIPS mode of operation.
+
+For OpenSSL 3.0.0 and newer it returns the state of the default provider
+in the default OSSL context. It's not quite the same as FIPS_mode() but good
+enough for unittests.
+
+Effectively any non-zero return value indicates FIPS mode;
+values other than 1 may have additional significance."""
+
+    if lib.OPENSSL_VERSION_NUMBER > 0x30000000:
+        return lib.EVP_default_properties_is_fips_enabled(ffi.NULL)
+    lib.ERR_clear_error()
+    result = lib.FIPS_mode()
+    if result == 0:
+        # If the library was built without support of the FIPS Object Module,
+        # then the function will return 0 with an error code of
+        # CRYPTO_R_FIPS_MODE_NOT_SUPPORTED (0x0f06d065).
+        # But 0 is also a valid result value.
+        errcode = lib.ERR_peek_last_error();
+        if errcode:
+            raise ValueError("could not call FIPS_mode")
+    return result
+
+def hmac_digest(key, msg, digest):
+    """Single-shot HMAC"""
+    raise NotImplementedError()
+
