@@ -775,6 +775,12 @@ class W_TypeObject(W_Root):
         w_union = space.getattr(w_mod, space.newtext("_create_union"))
         return space.call_function(w_union, self, w_other)
 
+    def descr_ror(self, space, w_other):
+        w_builtins = space.getbuiltinmodule('builtins')
+        w_mod = space.call_method(w_builtins, '__import__', space.newtext("_pypy_generic_alias"))
+        w_union = space.getattr(w_mod, space.newtext("_create_union"))
+        return space.call_function(w_union, w_other, self)
+
 
 def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
@@ -1188,6 +1194,7 @@ W_TypeObject.typedef = TypeDef("type",
     __getattribute__ = gateway.interp2app(W_TypeObject.descr_getattribute),
     __prepare__ = gateway.interp2app(descr___prepare__, as_classmethod=True),
     __or__ = gateway.interp2app(W_TypeObject.descr_or),
+    __ror__ = gateway.interp2app(W_TypeObject.descr_ror),
 )
 
 
