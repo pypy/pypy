@@ -48,6 +48,8 @@ const char *OpenSSL_version(int);
 void *OPENSSL_malloc(size_t);
 void OPENSSL_free(void *);
 
+/* Removed in 3.0.0 */
+int FIPS_mode();
 
 /* Signature changed significantly in 1.1.0, only expose there for sanity */
 int Cryptography_CRYPTO_set_mem_functions(
@@ -135,5 +137,6 @@ static const int CRYPTO_MEM_CHECK_ON=0;
 static const int CRYPTO_MEM_CHECK_OFF=0;
 static const int CRYPTO_MEM_CHECK_ENABLE=0;
 static const int CRYPTO_MEM_CHECK_DISABLE=0;
+int (*FIPS_mode)() = NULL;
 #endif
 """

@@ -1,10 +1,21 @@
 import codecs
 
+class Immutable(type):
+    def __init__(cls, name, bases, dct):
+        type.__setattr__(cls,"attr",set(dct.keys()))
+        type.__init__(cls, name, bases, dct)
+
+    def __setattr__(cls, name, value):
+        # Mock Py_TPFLAGS_IMMUTABLETYPE
+        qualname = '.'.join([cls.__module__, cls.__name__])
+        raise TypeError(f"cannot set '{name}' attribute of immutable type '{qualname}'")
+
+
 def make_blake_hash(class_name, cffi_mod):
     _ffi = cffi_mod.ffi
     _lib = cffi_mod.lib
 
-    class _blake:
+    class _blake(metaclass=Immutable):
         SALT_SIZE = _lib.BLAKE_SALTBYTES
         PERSON_SIZE = _lib.BLAKE_PERSONALBYTES
         MAX_KEY_SIZE = _lib.BLAKE_KEYBYTES
@@ -143,8 +154,8 @@ def make_blake_hash(class_name, cffi_mod):
             _ffi.memmove(copy._param, self._param, _ffi.sizeof("blake_param"))
             return copy
 
-    _blake.__name__ = class_name
-    _blake.__qualname__ = class_name
+    type.__setattr__(_blake, '__name__' ,class_name)
+    type.__setattr__(_blake, '__qualname__' ,class_name)
     return _blake
 
 

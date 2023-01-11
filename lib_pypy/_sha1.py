@@ -114,7 +114,19 @@ K = [
     0xCA62C1D6  # (60 <= t <= 79)
     ]
 
-class sha:
+
+class Immutable(type):
+    def __init__(cls, name, bases, dct):
+        type.__setattr__(cls,"attr",set(dct.keys()))
+        type.__init__(cls, name, bases, dct)
+
+    def __setattr__(cls, name, value):
+        # Mock Py_TPFLAGS_IMMUTABLETYPE
+        qualname = '.'.join([cls.__module__, cls.__name__])
+        raise TypeError(f"cannot set '{name}' attribute of immutable type '{qualname}'")
+
+
+class sha(metaclass=Immutable):
     "An implementation of the SHA hash function in pure Python."
 
     digest_size = digestsize = 20

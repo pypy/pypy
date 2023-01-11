@@ -4,7 +4,18 @@ import codecs
 SHA3_MAX_DIGESTSIZE = 64 # 64 Bytes (512 Bits) for 224 to 512
 SHA3_LANESIZE = (20 * 8) # ExtractLane needs max uint64_t[20] extra.
 
-class _sha3:
+class Immutable(type):
+    def __init__(cls, name, bases, dct):
+        type.__setattr__(cls,"attr",set(dct.keys()))
+        type.__init__(cls, name, bases, dct)
+
+    def __setattr__(cls, name, value):
+        # Mock Py_TPFLAGS_IMMUTABLETYPE
+        qualname = '.'.join([cls.__module__, cls.__name__])
+        raise TypeError(f"cannot set '{name}' attribute of immutable type '{qualname}'")
+
+
+class _sha3(metaclass=Immutable):
     _keccak_init = None  # Overridden in subclasses
 
     def __new__(cls, string=None, usedforsecurity=True):

@@ -168,6 +168,8 @@ int EVP_PKEY_get_raw_private_key(const EVP_PKEY *, unsigned char *, size_t *);
 int EVP_PKEY_get_raw_public_key(const EVP_PKEY *, unsigned char *, size_t *);
 /* OpenSSL 1.1.1+ */
 void EVP_MD_CTX_set_flags(EVP_MD_CTX *ctx, int flags);
+// OpenSSL 3.0.0+
+int EVP_default_properties_is_fips_enabled(OSSL_LIB_CTX *libctx);
 """
 
 CUSTOMIZATIONS = """
@@ -212,6 +214,7 @@ int (*EVP_PKEY_set1_tls_encodedpoint)(EVP_PKEY *, const unsigned char *,
 
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_300
 void (*EVP_MD_do_all_provided)(OSSL_LIB_CTX *, void (*)(EVP_MD *, void *), void *) = NULL;
+int(*EVP_default_properties_is_fips_enabled)(OSSL_LIB_CTX *libctx) = NULL;
 #endif
 
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_111

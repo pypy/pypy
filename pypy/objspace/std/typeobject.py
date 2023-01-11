@@ -376,7 +376,7 @@ class W_TypeObject(W_Root):
     def setdictvalue(self, space, name, w_value):
         if not self.is_heaptype():
             raise oefmt(space.w_TypeError,
-                        "can't set attributes on type object '%N'", self)
+                        "cannot set attributes on immutable type object '%N'", self)
         if name == "__del__" and name not in self.dict_w:
             msg = ("a __del__ method added to an existing type will not be "
                    "called")
@@ -397,7 +397,7 @@ class W_TypeObject(W_Root):
             self._cleanup_()    # force un-lazification
         if not (self.is_heaptype() or self.is_cpytype()):
             raise oefmt(space.w_TypeError,
-                        "can't delete attributes on type object '%N'", self)
+                        "cannot delete attributes on immutable type object '%N'", self)
         try:
             del self.dict_w[key]
         except KeyError:
