@@ -577,6 +577,7 @@ class GeneralFloatCases(unittest.TestCase):
         self.assertEqual(hash(float('inf')), sys.hash_info.inf)
         self.assertEqual(hash(float('-inf')), -sys.hash_info.inf)
 
+    @support.cpython_only
     def test_hash_nan(self):
         value = float('nan')
         self.assertEqual(hash(value), object.__hash__(value))
