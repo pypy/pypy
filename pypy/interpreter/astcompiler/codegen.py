@@ -1497,7 +1497,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Starred(self, star):
         if star.ctx != ast.Store:
-            self.error("can't use starred expression here",
+            self.error("cannot use starred expression here",
                        star)
         self.error("starred assignment target must be in a list or tuple", star)
 

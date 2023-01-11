@@ -2349,6 +2349,9 @@ match x:
             assert exc.offset == 12
             assert exc.end_offset == 14
 
+    def test_unpack_stararg_msg(self):
+        exc = self.error_test("(*abc) = 1", SyntaxError, "cannot")
+
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
