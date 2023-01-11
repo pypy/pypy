@@ -480,7 +480,7 @@ or_pattern["ast.MatchOr"]:
         ast.MatchOr(patterns=patterns, LOCATIONS) if len(patterns) > 1 else patterns[0]
      }
 
-closed_pattern:
+closed_pattern (memo):
     | literal_pattern
     | capture_pattern
     | wildcard_pattern
@@ -585,7 +585,7 @@ maybe_star_pattern:
     | star_pattern
     | pattern
 
-star_pattern:
+star_pattern (memo):
     | '*' target=pattern_capture_target { ast.MatchStar(name=target, LOCATIONS) }
     | '*' wildcard_pattern { ast.MatchStar(name=None, LOCATIONS) }
 
