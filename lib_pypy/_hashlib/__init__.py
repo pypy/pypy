@@ -4,7 +4,7 @@ from _pypy_openssl import ffi, lib
 from _cffi_ssl._stdssl.utility import (_str_to_ffi_buffer, _bytes_with_len,
         _str_from_buf)
 
-try: from __pypy__ import ___builtinify
+try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
 
 class UnsupportedDigestmodError(ValueError):
