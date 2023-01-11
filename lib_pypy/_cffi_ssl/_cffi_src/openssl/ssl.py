@@ -2,7 +2,6 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
-from __future__ import absolute_import, division, print_function
 
 INCLUDES = """
 #include <openssl/ssl.h>
@@ -23,7 +22,6 @@ static const long Cryptography_HAS_COMPRESSION;
 static const long Cryptography_HAS_TLSEXT_STATUS_REQ_CB;
 static const long Cryptography_HAS_STATUS_REQ_OCSP_RESP;
 static const long Cryptography_HAS_TLSEXT_STATUS_REQ_TYPE;
-static const long Cryptography_HAS_GET_SERVER_TMP_KEY;
 static const long Cryptography_HAS_SSL_CTX_SET_CLIENT_CERT_ENGINE;
 static const long Cryptography_HAS_SSL_CTX_CLEAR_OPTIONS;
 static const long Cryptography_HAS_DTLS;
@@ -185,17 +183,10 @@ FUNCTIONS = """
 const char *SSL_state_string_long(const SSL *);
 SSL_SESSION *SSL_get1_session(SSL *);
 int SSL_set_session(SSL *, SSL_SESSION *);
-int SSL_get_verify_mode(const SSL *);
-void SSL_set_verify(SSL *, int, int (*)(int, X509_STORE_CTX *));
-void SSL_set_verify_depth(SSL *, int);
-int SSL_get_verify_depth(const SSL *);
 int (*SSL_get_verify_callback(const SSL *))(int, X509_STORE_CTX *);
-void SSL_set_info_callback(SSL *ssl, void (*)(const SSL *, int, int));
-void (*SSL_get_info_callback(const SSL *))(const SSL *, int, int);
 SSL *SSL_new(SSL_CTX *);
 void SSL_free(SSL *);
 int SSL_set_fd(SSL *, int);
-SSL_CTX *SSL_get_SSL_CTX(const SSL *);
 SSL_CTX *SSL_set_SSL_CTX(SSL *, SSL_CTX *);
 BIO *SSL_get_rbio(const SSL *);
 BIO *SSL_get_wbio(const SSL *);
@@ -211,12 +202,12 @@ int SSL_peek(SSL *, void *, int);
 X509 *SSL_get_certificate(const SSL *);
 X509 *SSL_get_peer_certificate(const SSL *);
 int SSL_get_ex_data_X509_STORE_CTX_idx(void);
-int SSL_CTX_set1_param(SSL_CTX *ctx, X509_VERIFY_PARAM *vpm);
-int SSL_set1_param(SSL *ssl, X509_VERIFY_PARAM *vpm);
+void SSL_set_verify(SSL *, int, int (*)(int, X509_STORE_CTX *));
+int SSL_get_verify_mode(const SSL *);
 
 /* Added in 1.0.2 */
 X509_VERIFY_PARAM *SSL_get0_param(SSL *);
-X509_VERIFY_PARAM *SSL_CTX_get0_param(SSL_CTX *ctx);
+X509_VERIFY_PARAM *SSL_CTX_get0_param(SSL_CTX *);
 
 int SSL_use_certificate(SSL *, X509 *);
 int SSL_use_certificate_ASN1(SSL *, const unsigned char *, int);
@@ -230,9 +221,11 @@ int SSL_get_sigalgs(SSL *, int, int *, int *, int *, unsigned char *,
                     unsigned char *);
 
 Cryptography_STACK_OF_X509 *SSL_get_peer_cert_chain(const SSL *);
+Cryptography_STACK_OF_X509 *SSL_get0_verified_chain(const SSL *);
 Cryptography_STACK_OF_X509_NAME *SSL_get_client_CA_list(const SSL *);
 
 int SSL_get_error(const SSL *, int);
+long SSL_get_verify_result(const SSL *ssl);
 int SSL_do_handshake(SSL *);
 int SSL_shutdown(SSL *);
 int SSL_renegotiate(SSL *);
@@ -360,6 +353,7 @@ const COMP_METHOD *SSL_get_current_expansion(SSL *);
 const char *SSL_COMP_get_name(const COMP_METHOD *);
 
 unsigned long SSL_set_mode(SSL *, unsigned long);
+unsigned long SSL_clear_mode(SSL *, unsigned long);
 unsigned long SSL_get_mode(SSL *);
 
 unsigned long SSL_set_options(SSL *, unsigned long);
@@ -577,7 +571,6 @@ int SSL_write_early_data(SSL *, const void *, size_t, size_t *);
 int SSL_read_early_data(SSL *, void *, size_t, size_t *);
 int SSL_CTX_set_max_early_data(SSL_CTX *, uint32_t);
 
-long SSL_get_verify_result(const SSL *ssl);
 
 int SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version);
 int SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version);
@@ -739,23 +732,7 @@ static const long Cryptography_HAS_SET_CERT_CB = 0;
 static const long Cryptography_HAS_SET_CERT_CB = 1;
 #endif
 
-
-/* In OpenSSL 1.0.2i+ the handling of COMP_METHOD when OPENSSL_NO_COMP was
-   changed and we no longer need to typedef void */
-#if (defined(OPENSSL_NO_COMP) && CRYPTOGRAPHY_OPENSSL_LESS_THAN_102I) || \
-    CRYPTOGRAPHY_IS_LIBRESSL
-static const long Cryptography_HAS_COMPRESSION = 0;
-typedef void COMP_METHOD;
-#else
 static const long Cryptography_HAS_COMPRESSION = 1;
-#endif
-
-#if defined(SSL_CTRL_GET_SERVER_TMP_KEY)
-static const long Cryptography_HAS_GET_SERVER_TMP_KEY = 1;
-#else
-static const long Cryptography_HAS_GET_SERVER_TMP_KEY = 0;
-long (*SSL_get_server_tmp_key)(SSL *, EVP_PKEY **) = NULL;
-#endif
 
 /* The setter functions were added in OpenSSL 1.1.0. The getter functions were
    added in OpenSSL 1.1.1. */

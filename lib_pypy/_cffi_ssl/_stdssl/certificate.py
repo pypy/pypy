@@ -8,6 +8,14 @@ from _cffi_ssl._stdssl.error import ssl_error, pyssl_error
 
 X509_NAME_MAXLEN = 256
 
+def _PySSL_CertificateFromX509Stack(stack, upref):
+    len = lib.sk_X509_num(stack)
+    result = [None] * len
+    for i in range(len):
+        cert = lib.sk_X509_value(stack, i)
+    result[i] = cert
+    return result
+
 def _create_tuple_for_attribute(name, value):
     buf = ffi.new("char[]", X509_NAME_MAXLEN)
     length = lib.OBJ_obj2txt(buf, X509_NAME_MAXLEN, name, 0)
