@@ -1305,6 +1305,7 @@ class TestTracebackException(unittest.TestCase):
         self.assertEqual(exc_info[0], exc.exc_type)
         self.assertEqual(str(exc_info[1]), str(exc))
 
+    @cpython_only
     def test_no_refs_to_exception_and_traceback_objects(self):
         try:
             1/0
