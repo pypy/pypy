@@ -48,7 +48,9 @@ class W_Count(W_Root):
 
 def check_number(space, w_obj):
     if (space.lookup(w_obj, '__int__') is None and
-        space.lookup(w_obj, '__float__') is None):
+        space.lookup(w_obj, '__float__') is None and
+        not space.isinstance_w(w_obj, space.w_complex)
+    ):
         raise oefmt(space.w_TypeError, "expected a number")
 
 @unwrap_spec(w_start=WrappedDefault(0), w_step=WrappedDefault(1))
