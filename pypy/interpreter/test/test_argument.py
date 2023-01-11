@@ -798,6 +798,7 @@ class TestErrorHandling(object):
         space = self.space
         msg = space.unwrap(space.appexec([], """():
             def f1(*, c): pass
+            f1.__qualname__ = 'f1'
             try:
                 f1(4)
             except TypeError as e:
@@ -807,6 +808,7 @@ class TestErrorHandling(object):
         #
         msg = space.unwrap(space.appexec([], """():
             def f1(*, c=8): pass
+            f1.__qualname__ = 'f1'
             try:
                 f1(4)
             except TypeError as e:
@@ -816,6 +818,7 @@ class TestErrorHandling(object):
         #
         msg = space.unwrap(space.appexec([], """():
             def f1(a, b, *, c): pass
+            f1.__qualname__ = 'f1'
             try:
                 f1(4, 5, 6)
             except TypeError as e:
@@ -825,6 +828,7 @@ class TestErrorHandling(object):
         #
         msg = space.unwrap(space.appexec([], """():
             def f1(*, c): pass
+            f1.__qualname__ = 'f1'
             try:
                 f1(6, c=7)
             except TypeError as e:
@@ -834,6 +838,7 @@ class TestErrorHandling(object):
         #
         msg = space.unwrap(space.appexec([], """():
             def f1(*, c, d=8, e=9): pass
+            f1.__qualname__ = 'f1'
             try:
                 f1(6, 2, c=7, d=8)
             except TypeError as e:
@@ -843,6 +848,7 @@ class TestErrorHandling(object):
         #
         msg = space.unwrap(space.appexec([], """():
             def f1(*, c, d=8, e=9, **kwds): pass
+            f1.__qualname__ = 'f1'
             try:
                 f1(6, 2, c=7, d=8, morestuff=9)
             except TypeError as e:
@@ -887,31 +893,31 @@ class AppTestArgument:
     @pytest.mark.pypy_only
     def test_error_message(self):
         exc = raises(TypeError, (lambda a, b=2: 0), b=3)
-        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'a'"
+        assert str(exc.value).endswith("<lambda>() missing 1 required positional argument: 'a'")
         exc = raises(TypeError, (lambda: 0), b=3)
-        assert str(exc.value) == "<lambda>() got an unexpected keyword argument 'b'"
+        assert str(exc.value).endswith("<lambda>() got an unexpected keyword argument 'b'")
         exc = raises(TypeError, (lambda a, b: 0), 1, 2, 3, a=1)
-        assert str(exc.value) == "<lambda>() got multiple values for argument 'a'"
+        assert str(exc.value).endswith("<lambda>() got multiple values for argument 'a'")
         exc = raises(TypeError, (lambda a, b=1: 0), 1, 2, 3, a=1)
-        assert str(exc.value) == "<lambda>() got multiple values for argument 'a'"
+        assert str(exc.value).endswith("<lambda>() got multiple values for argument 'a'")
         exc = raises(TypeError, (lambda a, **kw: 0), 1, 2, 3)
-        assert str(exc.value) == "<lambda>() takes 1 positional argument but 3 were given"
+        assert str(exc.value).endswith("<lambda>() takes 1 positional argument but 3 were given")
         exc = raises(TypeError, (lambda a, b=1, **kw: 0), 1, 2, 3)
-        assert str(exc.value) == "<lambda>() takes from 1 to 2 positional arguments but 3 were given"
+        assert str(exc.value).endswith("<lambda>() takes from 1 to 2 positional arguments but 3 were given")
         exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), 1)
-        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
+        assert str(exc.value).endswith("<lambda>() missing 1 required positional argument: 'b'")
         exc = raises(TypeError, (lambda a, b, **kw: 0), 1)
-        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
+        assert str(exc.value).endswith("<lambda>() missing 1 required positional argument: 'b'")
         exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), a=1)
-        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
+        assert str(exc.value).endswith("<lambda>() missing 1 required positional argument: 'b'")
         exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
-        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
+        assert str(exc.value).endswith("<lambda>() missing 1 required positional argument: 'b'")
         exc = raises(TypeError, '(lambda *, a: 0)()')
-        assert str(exc.value) == "<lambda>() missing 1 required keyword-only argument: 'a'"
+        assert str(exc.value).endswith("<lambda>() missing 1 required keyword-only argument: 'a'")
         exc = raises(TypeError, '(lambda *, a=1, b: 0)(a=1)')
-        assert str(exc.value) == "<lambda>() missing 1 required keyword-only argument: 'b'"
+        assert str(exc.value).endswith("<lambda>() missing 1 required keyword-only argument: 'b'")
         exc = raises(TypeError, '(lambda *, kw: 0)(1, kw=3)')
-        assert str(exc.value) == "<lambda>() takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given"
+        assert str(exc.value).endswith("<lambda>() takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given")
 
     @pytest.mark.pypy_only
     def test_error_message_method(self):
@@ -921,14 +927,14 @@ class AppTestArgument:
             def f1(a):
                 pass
         exc = raises(TypeError, lambda : A().f0())
-        assert exc.value.args[0] == "f0() takes 0 positional arguments but 1 was given. Did you forget 'self' in the function definition?"
+        assert exc.value.args[0].endswith("f0() takes 0 positional arguments but 1 was given. Did you forget 'self' in the function definition?")
         exc = raises(TypeError, lambda : A().f1(1))
-        assert exc.value.args[0] == "f1() takes 1 positional argument but 2 were given. Did you forget 'self' in the function definition?"
+        assert exc.value.args[0].endswith("f1() takes 1 positional argument but 2 were given. Did you forget 'self' in the function definition?")
         def f0():
             pass
         exc = raises(TypeError, f0, 1)
         # does not contain the warning about missing self
-        assert exc.value.args[0] == "f0() takes 0 positional arguments but 1 was given"
+        assert exc.value.args[0].endswith("f0() takes 0 positional arguments but 1 was given")
 
     def test_error_message_module_function(self):
         import operator # use countOf because it's defined at applevel
@@ -946,10 +952,10 @@ class AppTestArgument:
                 pass
         m0 = A().f0
         exc = raises(TypeError, lambda : m0())
-        assert exc.value.args[0] == "f0() takes 0 positional arguments but 1 was given. Did you forget 'self' in the function definition?"
+        assert exc.value.args[0].endswith("f0() takes 0 positional arguments but 1 was given. Did you forget 'self' in the function definition?")
         m1 = A().f1
         exc = raises(TypeError, lambda : m1(1))
-        assert exc.value.args[0] == "f1() takes 1 positional argument but 2 were given. Did you forget 'self' in the function definition?"
+        assert exc.value.args[0].endswith("f1() takes 1 positional argument but 2 were given. Did you forget 'self' in the function definition?")
 
 
     def test_unicode_keywords(self):
@@ -959,7 +965,7 @@ class AppTestArgument:
         #
         def f(x): pass
         e = raises(TypeError, "f(**{'ü' : 19})")
-        assert e.value.args[0] == "f() got an unexpected keyword argument 'ü'"
+        assert e.value.args[0].endswith("f() got an unexpected keyword argument 'ü'")
 
     def test_starstarargs_dict_subclass(self):
         def f(**kwargs):
