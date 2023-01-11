@@ -230,3 +230,13 @@ def test_optimize_unpack_sequence_star_no_capture():
     assert a == 1
     assert b == 40
 
+def test_unpack_sequence_bug():
+    def f(w):
+        match w:
+            case (p, q) as x:
+                locals()
+                return p, q, x
+    assert f((1, 2)) == (1, 2, (1, 2))
+    assert "p" not in globals()
+    assert "q" not in globals()
+
