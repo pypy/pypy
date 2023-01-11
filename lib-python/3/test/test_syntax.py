@@ -1313,6 +1313,7 @@ Corner-cases that used to crash:
     SyntaxError: positional patterns follow keyword patterns
 """
 
+import sys
 import re
 import unittest
 
