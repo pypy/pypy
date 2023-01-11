@@ -459,6 +459,13 @@ pass
         ast = self.parse("45 * a", "eval")
         assert ast.body.end_col_offset == 6
 
+    def test_match_deeply_nested(self):
+        self.parse("""
+match x:
+    case [[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]:
+        pass
+""")
+
 class TestIncompleteInput(object):
     def setup_class(self):
         self.parser = pyparse.PegParser(self.space)

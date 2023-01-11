@@ -1701,6 +1701,7 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
+    @memoize
     def closed_pattern(self): # type Optional[Any]
         # closed_pattern: literal_pattern | capture_pattern | wildcard_pattern | value_pattern | group_pattern | sequence_pattern | mapping_pattern | class_pattern
         mark = self._index
@@ -2087,6 +2088,7 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
+    @memoize
     def star_pattern(self): # type Optional[Any]
         # star_pattern: '*' pattern_capture_target | '*' wildcard_pattern
         mark = self._index
