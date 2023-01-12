@@ -13,7 +13,7 @@ class Module(MixedModule):
         'error'     :  'interp_socket.get_error(space, "error")',
         'herror'    :  'interp_socket.get_error(space, "herror")',
         'gaierror'  :  'interp_socket.get_error(space, "gaierror")',
-        'timeout'   :  'interp_socket.get_error(space, "timeout")',
+        'timeout'   :  'space.w_TimeoutError',
         'close'     :  'interp_socket.close',
         'SOMAXCONN' :  'space.wrap(%d)' % SOMAXCONN,
     }

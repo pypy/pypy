@@ -511,7 +511,7 @@ class _SSLSocket(object):
                 sockstate = SOCKET_OPERATION_OK
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise socket.timeout("The handshake operation timed out")
+                raise TimeoutError("The handshake operation timed out")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 raise SSLError("Underlying socket has been closed.")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
@@ -578,7 +578,7 @@ class _SSLSocket(object):
 
         sockstate = _ssl_select(sock, 1, timeout)
         if sockstate == SOCKET_HAS_TIMED_OUT:
-            raise socket.timeout("The write operation timed out")
+            raise TimeoutError("The write operation timed out")
         elif sockstate == SOCKET_HAS_BEEN_CLOSED:
             raise ssl_error("Underlying socket has been closed.")
         elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
@@ -602,7 +602,7 @@ class _SSLSocket(object):
                 sockstate = SOCKET_OPERATION_OK
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise socket.timeout("The write operation timed out")
+                raise TimeoutError("The write operation timed out")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 raise ssl_error("Underlying socket has been closed.")
             elif sockstate == SOCKET_IS_NONBLOCKING:
@@ -668,7 +668,7 @@ class _SSLSocket(object):
                     sockstate = SOCKET_OPERATION_OK
 
                 if sockstate == SOCKET_HAS_TIMED_OUT:
-                    raise socket.timeout("The read operation timed out")
+                    raise TimeoutError("The read operation timed out")
                 elif sockstate == SOCKET_IS_NONBLOCKING:
                     break
                 if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
@@ -726,7 +726,7 @@ class _SSLSocket(object):
                 sockstate = SOCKET_OPERATION_OK
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise socket.timeout("The read operation timed out")
+                raise TimeoutError("The read operation timed out")
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
             if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
@@ -873,9 +873,9 @@ class _SSLSocket(object):
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
                 if err.ssl == SSL_ERROR_WANT_READ:
-                    raise socket.timeout("The read operation timed out")
+                    raise TimeoutError("The read operation timed out")
                 else:
-                    raise socket.timeout("The write operation timed out")
+                    raise TimeoutError("The write operation timed out")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
                 raise ssl_error("Underlying socket too large for select().")
             elif sockstate != SOCKET_OPERATION_OK:
