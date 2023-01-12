@@ -60,6 +60,7 @@ int Cryptography_CRYPTO_set_mem_functions(
 void *Cryptography_malloc_wrapper(size_t, const char *, int);
 void *Cryptography_realloc_wrapper(void *, size_t, const char *, int);
 void Cryptography_free_wrapper(void *, const char *, int);
+int CRYPTO_memcmp(const void *a, const void *b, size_t len);
 """
 
 CUSTOMIZATIONS = """

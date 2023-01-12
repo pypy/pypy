@@ -43,6 +43,9 @@ static const long Cryptography_HAS_EVP_DIGESTFINAL_XOF;
 
 FUNCTIONS = """
 const EVP_CIPHER *EVP_get_cipherbyname(const char *);
+EVP_CIPHER *EVP_CIPHER_fetch(OSSL_LIB_CTX *, const char *, const char *);
+void EVP_CIPHER_free(EVP_CIPHER *);
+
 int EVP_CIPHER_CTX_set_padding(EVP_CIPHER_CTX *, int);
 int EVP_CipherInit_ex(EVP_CIPHER_CTX *, const EVP_CIPHER *, ENGINE *,
                       const unsigned char *, const unsigned char *, int);
@@ -168,8 +171,12 @@ int EVP_PKEY_get_raw_private_key(const EVP_PKEY *, unsigned char *, size_t *);
 int EVP_PKEY_get_raw_public_key(const EVP_PKEY *, unsigned char *, size_t *);
 /* OpenSSL 1.1.1+ */
 void EVP_MD_CTX_set_flags(EVP_MD_CTX *ctx, int flags);
+int EVP_MD_block_size(const EVP_MD *md);
 // OpenSSL 3.0.0+
 int EVP_default_properties_is_fips_enabled(OSSL_LIB_CTX *libctx);
+
+// locally defined for _hashlib
+int EVP_hash(EVP_MD_CTX *ctx, const void *vp, ssize_t len, ssize_t munch);
 """
 
 CUSTOMIZATIONS = """
@@ -210,11 +217,6 @@ static const long Cryptography_HAS_EVP_PKEY_get_set_tls_encodedpoint = 0;
 size_t (*EVP_PKEY_get1_tls_encodedpoint)(EVP_PKEY *, unsigned char **) = NULL;
 int (*EVP_PKEY_set1_tls_encodedpoint)(EVP_PKEY *, const unsigned char *,
                                       size_t) = NULL;
-#endif
-
-#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_300
-void (*EVP_MD_do_all_provided)(OSSL_LIB_CTX *, void (*)(EVP_MD *, void *), void *) = NULL;
-int(*EVP_default_properties_is_fips_enabled)(OSSL_LIB_CTX *libctx) = NULL;
 #endif
 
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_111
@@ -283,4 +285,37 @@ static const long Cryptography_HAS_EVP_DIGESTFINAL_XOF = 1;
 #ifndef EVP_PKEY_POLY1305
 #define EVP_PKEY_POLY1305 NID_poly1305
 #endif
+
+#if CRYPTOGRAPHY_OPENSSL_300_OR_GREATER
+static const long Cryptography_HAS_300_FIPS = 1;
+static const long Cryptography_HAS_300_EVP_CIPHER = 1;
+#else
+static const long Cryptography_HAS_300_FIPS = 0;
+static const long Cryptography_HAS_300_EVP_CIPHER = 0;
+void (*EVP_MD_do_all_provided)(OSSL_LIB_CTX *, void (*)(EVP_MD *, void *), void *) = NULL;
+int (*EVP_default_properties_is_fips_enabled)(OSSL_LIB_CTX *) = NULL;
+int (*EVP_default_properties_enable_fips)(OSSL_LIB_CTX *, int) = NULL;
+EVP_CIPHER * (*EVP_CIPHER_fetch)(OSSL_LIB_CTX *, const char *,
+                                 const char *) = NULL;
+void (*EVP_CIPHER_free)(EVP_CIPHER *) = NULL;
+#endif
+
+int
+EVP_hash(EVP_MD_CTX *ctx, const void *vp, ssize_t len, ssize_t munch)
+{
+    unsigned int process;
+    const unsigned char *cp = (const unsigned char *)vp;
+    while (0 < len) {
+        if (len > munch)
+            process = (unsigned int)munch;
+        else
+            process = (unsigned int)len;
+        if (!EVP_DigestUpdate(ctx, (const void*)cp, process)) {
+            return -1;
+        }
+        len -= process;
+        cp += process;
+    }
+    return 0;
+}
 """
