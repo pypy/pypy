@@ -2602,7 +2602,7 @@ class ThreadedEchoServer(threading.Thread):
                             )
                         else:
                             handle_error("Test server failure:\n")
-                    if 'UNEXPECTED_EOF_WHILE_READING' == err.reason:
+                    if 'UNEXPECTED_EOF_WHILE_READING' == e.reason:
                         # PyPy OpenSSL3 needs this, on CPython a
                         # BrokenPipeError is raised which is caught as an
                         # OSError. In this case do not stop the server.
