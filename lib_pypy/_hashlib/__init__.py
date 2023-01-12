@@ -1,5 +1,7 @@
 import sys
 from _thread import allocate_lock as Lock
+from enum import IntEnum as _IntEnum
+from functools import cache
 from _pypy_openssl import ffi, lib
 from _cffi_ssl._stdssl.utility import (_str_to_ffi_buffer, _bytes_with_len,
         _str_from_buf)
@@ -10,6 +12,12 @@ except ImportError: builtinify = lambda f: f
 class UnsupportedDigestmodError(ValueError):
     pass
 
+class _Py_hash_type(_IntEnum):
+    Py_ht_evp = 0            # usedforsecurity=True (default)
+    Py_ht_evp_nosecurity = 1 # usedforsecurity=False
+    Py_ht_mac = 2           # HMAC
+    Py_ht_pbkdf2 = 3        # PKBDF2
+globals().update(_Py_hash_type.__members__)
 
 def get_errstr():
     # From CPython's _setException
@@ -45,29 +53,36 @@ class Immutable(type):
         raise TypeError(f"cannot set '{name}' attribute of immutable type '{qualname}'")
 
 
+
 class HASH(object, metaclass=Immutable):
 
     def __init__(self, name=None, copy_from=None, usedforsecurity=True):
         if name is None:
             qualname = '.'.join([type(self).__module__, type(self).__name__])
             raise TypeError(f"cannot create '{qualname}' instances")
-        object.__setattr__(self, 'ctx', ffi.NULL)
         self.ctx = ffi.NULL
-        object.__setattr__(self, 'name', str(name).lower())
-        digest_type = self.digest_type_by_name()
-        object.__setattr__(self, 'digest_size', lib.EVP_MD_size(digest_type))
+        self.ctx = ffi.NULL
+        self.name = str(name).lower()
+        digest_type = py_digest_by_name(self.name,
+                         Py_ht_evp if usedforsecurity else Py_ht_evp_nosecurity)
+        self.digest_size = lib.EVP_MD_size(digest_type)
 
         # Allocate a lock for each HASH object.
         # An optimization would be to not release the GIL on small requests,
         # and use a custom lock only when needed.
-        object.__setattr__(self, 'lock', Lock())
+        self.lock = Lock()
 
-        # Start EVPnew
+        self._init_ctx(copy_from, digest_type)
+        if not usedforsecurity and lib.EVP_MD_CTX_FLAG_NON_FIPS_ALLOW:
+            lib.EVP_MD_CTX_set_flags(self.ctx, lib.EVP_MD_CTX_FLAG_NON_FIPS_ALLOW)
+
+    def _init_ctx(self, copy_from, digest_type):
+        # this is EVPnew in _hashopenssl.c
+
         ctx = lib.Cryptography_EVP_MD_CTX_new()
         if ctx == ffi.NULL:
             raise MemoryError
         ctx = ffi.gc(ctx, lib.Cryptography_EVP_MD_CTX_free)
-
 
         try:
             if copy_from is not None:
@@ -77,13 +92,10 @@ class HASH(object, metaclass=Immutable):
             else:
                 if lib.EVP_DigestInit_ex(ctx, digest_type, ffi.NULL) == 0:
                     raise ValueError(get_errstr())
-            object.__setattr__(self, 'ctx', ctx)
+            self.ctx = ctx
         except:
             # no need to gc ctx! 
             raise
-        if not usedforsecurity and lib.EVP_MD_CTX_FLAG_NON_FIPS_ALLOW:
-            lib.EVP_MD_CTX_set_flags(ctx, lib.EVP_MD_CTX_FLAG_NON_FIPS_ALLOW)
-        # End EVPnew
 
     def digest_type_by_name(self):
         ssl_name = _inverse_name_mapping.get(self.name, self.name)
@@ -95,7 +107,7 @@ class HASH(object, metaclass=Immutable):
         return digest_type
 
     def __repr__(self):
-        return "<%s HASH object at 0x%s>" % (self.name, id(self))
+        return "<%s %s object at 0x%s>" % (self.name, type(self), id(self))
 
     def update(self, string):
         if isinstance(string, str):
@@ -104,6 +116,9 @@ class HASH(object, metaclass=Immutable):
             # issue 2756: ffi.from_buffer() cannot handle memoryviews
             string = string.tobytes()
         buf = ffi.from_buffer(string)
+        self._update(buf)
+
+    def _update(self, buf):
         with self.lock:
             # XXX try to not release the GIL for small requests
             if lib.EVP_DigestUpdate(self.ctx, buf, len(buf)) == 0:
@@ -112,7 +127,7 @@ class HASH(object, metaclass=Immutable):
     def copy(self):
         """Return a copy of the hash object."""
         with self.lock:
-            return HASH(self.name, copy_from=self.ctx)
+            return type(self)(self.name, copy_from=self.ctx)
 
     def digest(self):
         """Return the digest value as a string of binary data."""
@@ -133,7 +148,8 @@ class HASH(object, metaclass=Immutable):
         return lib.EVP_MD_CTX_block_size(self.ctx)
 
     def _digest(self):
-        ctx = lib.Cryptography_EVP_MD_CTX_new()
+        # in _hashopenss.c this is EVP_hexdigest_impl
+        ctx = lib.EVP_MD_CTX_new()
         if ctx == ffi.NULL:
             raise MemoryError
         try:
@@ -145,14 +161,67 @@ class HASH(object, metaclass=Immutable):
             lib.EVP_DigestFinal_ex(ctx, buf, ffi.NULL)
             return _bytes_with_len(buf, digest_size)
         finally:
-            lib.Cryptography_EVP_MD_CTX_free(ctx)
+            lib.EVP_MD_CTX_free(ctx)
 
 
 class HASHXOF(HASH):
     pass
 
+
 class HMAC(HASH):
-    pass
+    def __init__(self, name=None, copy_from=None, usedforsecurity=True):
+        HASH.__init__(self, name=name, copy_from=copy_from, usedforsecurity=usedforsecurity)
+        digest_type = py_digest_by_name(self.name,
+                         Py_ht_evp if usedforsecurity else Py_ht_evp_nosecurity)
+        self.digest_size = lib.EVP_MD_size(digest_type)
+
+    @property
+    def block_size(self):
+        md = lib.HMAC_CTX_get_md(self.ctx)
+        if not md:
+            raise ValueError("could not get EVP_MD from HMAC_CTX")
+        return lib.EVP_MD_block_size(md)
+
+    def _digest(self):
+        # _hmac_digest in _hashopenssl.c
+        temp_ctx = lib.HMAC_CTX_new()
+        if temp_ctx == ffi.NULL:
+            raise MemoryError
+        try:
+            with self.lock:
+                if not lib.HMAC_CTX_copy(temp_ctx, self.ctx):
+                    raise ValueError
+            digest_size = self.digest_size
+            buf = ffi.new("unsigned char[]", digest_size)
+            lib.HMAC_Final(temp_ctx, buf, ffi.NULL)
+            return _bytes_with_len(buf, digest_size)
+        finally:
+            lib.HMAC_CTX_free(temp_ctx)
+
+    def _init_ctx(self, copy_from, digest_type):
+        ctx = lib.HMAC_CTX_new()
+        if ctx == ffi.NULL:
+            raise MemoryError
+        ctx = ffi.gc(ctx, lib.HMAC_CTX_free)
+
+        try:
+            if copy_from is not None:
+                if not lib.HMAC_CTX_copy(ctx, copy_from):
+                    raise ValueError
+            else:
+                if lib.HMAC_Init_ex(ctx, _str_to_ffi_buffer(""), 0, digest_type, ffi.NULL) == 0:
+                    raise ValueError(get_errstr())
+            self.ctx = ctx
+        except:
+            # no need to gc ctx! 
+            raise
+
+    def _update(self, buf):
+        with self.lock:
+            # XXX try to not release the GIL for small requests
+            if lib.HMAC_Update(self.ctx, buf, len(buf)) == 0:
+                raise ValueError(get_errstr())
+
 
 _algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512',
                'sha3_224', 'sha3_256', 'sha3_384', 'sha3_512')
@@ -191,11 +260,20 @@ if lib.OPENSSL_VERSION_NUMBER >= int(0x30000000):
     @ffi.callback("void(EVP_MD*, void*)")
     def _openssl_hash_name_mapper(evp_md, userdata):
         return __openssl_hash_name_mapper(evp_md, userdata)
-    
+
+    def PY_EVP_MD_fetch(algorithm, properties):
+        return lib.EVP_MD_fetch(ffi.NULL, algorithm, properties) 
+    def PY_EVP_MD_free(md):
+        lib.EVP_MD_free(md)
 else:
     @ffi.callback("void(EVP_MD*, const char *, const char *, void*)")
     def _openssl_hash_name_mapper(evp_md, from_name, to_name, userdata):
         return __openssl_hash_name_mapper(evp_md, userdata)
+
+    def PY_EVP_MD_fetch(algorithm, properties):
+        return lib.EVP_get_digestbyname(algorithm) 
+    def PY_EVP_MD_free(md):
+        pass
 
 def __openssl_hash_name_mapper(evp_md, userdata):
     if not evp_md:
@@ -209,6 +287,7 @@ def __openssl_hash_name_mapper(evp_md, userdata):
     name_fetcher = ffi.from_handle(userdata)
     name_fetcher.meth_names.append(name)
 
+# Not used internally, exposed in the module
 openssl_md_meth_names = _fetch_names()
 del _fetch_names
 
@@ -265,7 +344,37 @@ or any bytes-like object.
 Note: If a and b are of different lengths, or if an error occurs,
 a timing attack could theoretically reveal information about the
 types and lengths of a and b--but not their values."""
-    raise NotImplementedError()
+
+    res = True
+    if isinstance(a, str) and isinstance(b, str):
+        # ascii unicode str
+        try:
+            c_a = ffi.from_buffer(a.encode("ascii"))
+            c_b = ffi.from_buffer(b.encode("ascii"))
+        except Exception:
+            raise TypeError("comparing strings with non-ASCII characters is "
+                            "not supported")
+        length_a = len(a)
+        length_b = len(b)
+    # fallback to buffer interface for bytes, bytearray and other
+    else:
+        try:
+            b_a = memoryview(a)
+            b_b = memoryview(b)
+        except Exception:
+            raise TypeError("unsupported operand types(s) or combination of "
+                            f"types: '{type(a)}' and '{type(b)}'")
+        if b_a.ndim > 1:
+            raise BufferError("Buffer must be a single dimension")
+        if b_b.ndim > 1:
+            raise BufferError("Buffer must be a single dimension")
+        c_a = ffi.from_buffer(b_a.tobytes())
+        c_b = ffi.from_buffer(b_b.tobytes())
+        length_a = len(b_a)
+        length_b = len(b_b)
+    if length_a != length_b:
+        res = False
+    return (lib.CRYPTO_memcmp(c_a, c_b, length_b) == 0) and res
 
 
 def get_fips_mode():
@@ -292,7 +401,64 @@ values other than 1 may have additional significance."""
             raise ValueError("could not call FIPS_mode")
     return result
 
+
+def py_digest_by_name(name, py_ht):
+    """Get EVP_MD by HID and purpose"""
+
+    ssl_name = _inverse_name_mapping.get(name, name)
+    c_name = _str_to_ffi_buffer(ssl_name)
+    if py_ht in (Py_ht_evp, Py_ht_mac, Py_ht_pbkdf2):
+        digest = PY_EVP_MD_fetch(c_name, ffi.NULL)
+    elif py_ht == Py_ht_evp_nosecurity:
+        digest = PY_EVP_MD_fetch(c_name, _str_to_ffi_buffer("-fips"))
+    if not digest:
+        raise ValueError(f"unsupported hash type {name}")
+    ffi.gc(digest, PY_EVP_MD_free)
+    return digest 
+    
+
+def py_digest_by_digestmod(digestmod):
+    """Get digest EVP from object"""
+    if isinstance(digestmod, str):
+        name_obj = digestmod
+    else:
+        name_obj = digestmod.__name__
+        if name_obj.startswith('openssl_'):
+            name_obj = name_obj[8:]
+    if not name_obj:
+        raise UnsupportedDigestmodError(f"Unsupported digestemod {digestmod}")
+    return py_digest_by_name(name_obj, Py_ht_mac), name_obj
+
+
 def hmac_digest(key, msg, digest):
     """Single-shot HMAC"""
     raise NotImplementedError()
 
+def hmac_new(key, msg=b"", digestmod=None):
+    """Return a new HMAC object"""
+    if len(key) > sys.maxsize:
+        raise OverflowError("key is too long")
+    if not digestmod:
+        raise TypeError("Missing required parameter 'digestmod'")
+    # in cpython this is called with an enum arg that is always Py_ht_mac
+    digest, digestmod =  py_digest_by_digestmod(digestmod)
+    ctx = lib.HMAC_CTX_new()
+    if not ctx:
+        raise ValueError("Could not allocate HMAC_CTX")
+    r = lib.HMAC_Init_ex(ctx, _str_to_ffi_buffer(key), len(key), digest, ffi.NULL)
+    if r == 0:
+        raise ValueError("Could not initialize HMAC_CTX")
+    self = HMAC(digestmod)
+    self.ctx = ctx
+    if msg:
+        # _hmac_update
+        view = memoryview(msg)
+        if len(view) > 2048:  # HASHLIB_GIL_MINSIZE
+            self.lock = Lock()
+            with self.lock():
+                result = lib.HMAC_Update(ctx, _str_to_ffi_buffer(msg), len(view))
+        else:
+            result = lib.HMAC_Update(ctx, _str_to_ffi_buffer(msg), len(view))
+        if r == 0:
+            raise ValueError(f"could not hash msg '{msg}'")
+    return self

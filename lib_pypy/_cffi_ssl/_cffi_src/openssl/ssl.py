@@ -406,10 +406,6 @@ const SSL_METHOD *TLSv1_method(void);
 const SSL_METHOD *TLSv1_server_method(void);
 const SSL_METHOD *TLSv1_client_method(void);
 
-const SSL_METHOD *DTLSv1_method(void);
-const SSL_METHOD *DTLSv1_server_method(void);
-const SSL_METHOD *DTLSv1_client_method(void);
-
 /* Added in 1.0.2 */
 const SSL_METHOD *DTLS_method(void);
 const SSL_METHOD *DTLS_server_method(void);
