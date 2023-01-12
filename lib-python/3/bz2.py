@@ -13,6 +13,7 @@ from builtins import open as _builtin_open
 import io
 import os
 import _compression
+from threading import RLock
 
 from _bz2 import BZ2Compressor, BZ2Decompressor
 
@@ -52,6 +53,9 @@ class BZ2File(_compression.BaseStream):
         If mode is 'r', the input file may be the concatenation of
         multiple compressed streams.
         """
+        # This lock must be recursive, so that BufferedIOBase's
+        # writelines() does not deadlock.
+        self._lock = RLock()
         self._fp = None
         self._closefp = False
         self._mode = _MODE_CLOSED
@@ -227,9 +231,10 @@ class BZ2File(_compression.BaseStream):
             data = memoryview(data)
             length = data.nbytes
 
-        compressed = self._compressor.compress(data)
-        self._fp.write(compressed)
-        self._pos += length
+        with self._lock:
+            compressed = self._compressor.compress(data)
+            self._fp.write(compressed)
+            self._pos += length
         return length
 
     def writelines(self, seq):
