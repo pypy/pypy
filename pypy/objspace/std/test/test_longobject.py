@@ -417,9 +417,7 @@ class AppTestLong:
         class TruncReturnsNonInt(object):
             def __trunc__(self):
                 return Integral()
-        n = int(TruncReturnsNonInt())
-        assert type(n) is int
-        assert n == 42
+        raises(TypeError, int, TruncReturnsNonInt())
 
         class IntSubclass(int):
             pass
