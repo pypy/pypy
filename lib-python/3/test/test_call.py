@@ -1,3 +1,4 @@
+import sys
 import unittest
 from test.support import cpython_only
 try:
@@ -704,7 +705,6 @@ class A:
     def positional_only(arg, /):
         pass
 
-@cpython_only
 class TestErrorMessagesUseQualifiedName(unittest.TestCase):
 
     @contextlib.contextmanager
@@ -723,6 +723,7 @@ class TestErrorMessagesUseQualifiedName(unittest.TestCase):
         with self.check_raises_type_error(msg):
             A.static_no_args("oops it's an arg")
 
+    @cpython_only
     def test_positional_only_passed_as_keyword(self):
         msg = "A.positional_only() got some positional-only arguments passed as keyword arguments: 'arg'"
         with self.check_raises_type_error(msg):
