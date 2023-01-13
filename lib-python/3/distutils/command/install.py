@@ -328,6 +328,8 @@ class install(Command):
                             'exec_prefix': exec_prefix,
                             'abiflags': abiflags,
                             'platlibdir': sys.platlibdir,
+                            'implementation': sysconfig._get_implementation(),
+                            'implementation_lower': sysconfig._get_implementation().lower(),
                            }
 
         if HAS_USER_SITE:
