@@ -240,3 +240,16 @@ def test_unpack_sequence_bug():
     assert "p" not in globals()
     assert "q" not in globals()
 
+def test_or_reordering_bug():
+    def annoying_or(x):
+        match x:
+            case ((a, b, c, d, e, 7) |
+                 (a, b, d, e, c, 8)):
+                        pass
+        out = locals()
+        del out["x"]
+        return out
+
+    res = annoying_or(range(3, 9))
+    exp = dict(a=3, b=4, d=5, e=6, c=7)
+    assert res == exp

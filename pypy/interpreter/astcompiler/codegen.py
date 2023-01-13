@@ -2256,6 +2256,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         end = self.new_block()
 
         control = None
+        control_list = None
         control_origins = None
         outer_match_context = self.match_context
         allow_always_passing = outer_match_context.allow_always_passing
@@ -2274,17 +2275,18 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # make sure that the set of stored names is the same in all
                 # branches
                 if control is None:
-                    control = match_context.names_list
+                    control = match_context.names_stored
+                    control_list = match_context.names_stored
                     control_origins = match_context.names_origins
                 else:
                     # check that the names are the same in the later alternative
                     if len(control) != len(match_context.names_stored):
                         self.error("alternative patterns bind different names", match_or)
                     permutation = [-1] * len(control)
-                    for index, name in enumerate(control):
-                        if name not in match_context.names_stored:
+                    for index, name in enumerate(match_context.names_list):
+                        if name not in control:
                             self.error("alternative patterns bind different names", match_or)
-                        permutation[index] = match_context.names_stored[name]
+                        permutation[index] = control[name]
                     permutation.reverse()
                     rots = compute_reordering(permutation)
                     for rot in rots:
@@ -2299,10 +2301,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         self.use_next_block(end)
         # now we need more rotates! yay yay yay!
-        assert control is not None
-        nstores = len(control)
+        assert control_list is not None
+        nstores = len(control_list)
         nrots = nstores + 1 + outer_match_context.on_top + len(outer_match_context.names_stored)
-        for i, name in enumerate(control):
+        for i, name in enumerate(control_list):
             self.emit_rot_n(nrots)
             outer_match_context.add_name(name, control_origins[i], self)
 
