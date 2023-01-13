@@ -1111,6 +1111,7 @@ class _SSLContext(object):
         elif lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
             method = lib.SSLv2_method()
         elif protocol == PROTOCOL_SSLv23:
+            warnings.warn("ssl.PROTOCOL_TLS is deprecated", DeprecationWarning)
             method = lib.TLS_method()
         elif protocol == PROTOCOL_TLS_CLIENT:
             method = lib.TLS_client_method()
