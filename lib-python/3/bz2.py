@@ -233,8 +233,8 @@ class BZ2File(_compression.BaseStream):
 
         with self._lock:
             compressed = self._compressor.compress(data)
-            self._fp.write(compressed)
-            self._pos += length
+        self._fp.write(compressed)
+        self._pos += length
         return length
 
     def writelines(self, seq):
