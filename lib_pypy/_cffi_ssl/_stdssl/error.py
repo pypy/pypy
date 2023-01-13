@@ -123,11 +123,11 @@ def pyssl_error(obj, ret):
                     # s = obj.get_socket_or_None()
                     if sys.platform == 'win32':
                         if err.ws:
-                            return OSError(err.ws, os.strerror(err.ws))
+                            return fill_sslerror(obj, OSError, err.ws,
+                                                 os.strerror(err.ws), e) 
                     if err.c:
                         ffi.errno = err.c 
-                    errno = ffi.errno
-                    return OSError(errno, os.strerror(errno))
+                    return fill_sslerror(obj, OSError, err.c, os.strerror(err.c), e) 
                 else:
                     errtype = SSLSyscallError
                     errstr = "Some I/O error occurred"
