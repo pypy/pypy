@@ -1,4 +1,5 @@
 import os
+import signal as cpy_signal
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
@@ -473,16 +474,6 @@ def _PyErr_WriteUnraisableMsg(space, where, w_obj):
     operror = state.clear_exception()
     if operror:
         operror.write_unraisable(space, where, w_object=w_obj, with_traceback=True)
-
-@cpython_api([], lltype.Void)
-def PyErr_SetInterrupt(space):
-    """This function simulates the effect of a SIGINT signal arriving --- the
-    next time PyErr_CheckSignals() is called, KeyboardInterrupt will be raised.
-    It may be called without holding the interpreter lock."""
-    if space.check_signal_action is not None:
-        space.check_signal_action.set_interrupt()
-    #else:
-    #   no 'signal' module present, ignore...  We can't return an error here
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_GetExcInfo(space, ptype, pvalue, ptraceback):
