@@ -79,10 +79,10 @@ class HASH(object, metaclass=Immutable):
     def _init_ctx(self, copy_from, digest_type):
         # this is EVPnew in _hashopenssl.c
 
-        ctx = lib.Cryptography_EVP_MD_CTX_new()
+        ctx = lib.EVP_MD_CTX_new()
         if ctx == ffi.NULL:
             raise MemoryError
-        ctx = ffi.gc(ctx, lib.Cryptography_EVP_MD_CTX_free)
+        ctx = ffi.gc(ctx, lib.EVP_MD_CTX_free)
 
         try:
             if copy_from is not None:
