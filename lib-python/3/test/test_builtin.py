@@ -2171,7 +2171,7 @@ class TestSorted(unittest.TestCase):
 class ShutdownTest(unittest.TestCase):
 
     # PyPy doesn't do a gc.collect() at shutdown
-    @cpython_only
+    @support.cpython_only
     def test_cleanup(self):
         # Issue #19255: builtins are still available at shutdown
         code = """if 1:
