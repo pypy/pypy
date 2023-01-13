@@ -26,8 +26,7 @@ from test.support import os_helper
 from test.support import (
     TestFailed, run_with_locale, no_tracing,
     _2G, _4G, bigmemtest,
-    save_restore_warnings_filters,
-    check_impl_detail, impl_detail
+    impl_detail
     )
 from test.support.import_helper import forget
 from test.support.os_helper import TESTFN
