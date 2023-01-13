@@ -3,6 +3,7 @@ Thread support based on OS-level threads.
 """
 
 import os
+from signal import SIGINT
 from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, oefmt
@@ -257,9 +258,16 @@ def exit(space):
 thread to exit silently unless the exception is caught."""
     raise OperationError(space.w_SystemExit, space.w_None)
 
-def interrupt_main(space):
-    """Raise a KeyboardInterrupt in the main thread.
-A subthread can use this function to interrupt the main thread."""
+@unwrap_spec(signum=int)
+def interrupt_main(space, signum=SIGINT):
+    """interrupt_main(signum=signal.sigint)
+
+Simulate the arrival of the given signal in the main thread,
+where the corresponding signal handler will be executed.
+If *signum* is omitted, SIGINT is assumed.
+A subthread can use this function to interrupt the main thread.
+    
+Note: the default signal handler for SIGINT raises ``KeyboardInterrupt``."""
     if space.check_signal_action is None:   # no signal module!
         raise OperationError(space.w_KeyboardInterrupt, space.w_None)
-    space.check_signal_action.set_interrupt()
+    space.check_signal_action.set_interrupt(signum)

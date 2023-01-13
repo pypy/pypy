@@ -1,5 +1,6 @@
 #include <Python.h>
 #include <string.h>
+#include <signal.h>
 
 PyObject *
 PyErr_Format(PyObject *exception, const char *format, ...)
@@ -141,4 +142,32 @@ PyErr_NewExceptionWithDoc(const char *name, const char *doc,
     return ret;
 }
 
+void pypysig_pushback(int);
 
+#ifndef NSIG
+# if defined(_NSIG)
+#  define NSIG _NSIG            /* For BSD/SysV */
+# elif defined(_SIGMAX)
+#  define NSIG (_SIGMAX + 1)    /* For QNX */
+# elif defined(SIGMAX)
+#  define NSIG (SIGMAX + 1)     /* For djgpp */
+# else
+#  define NSIG 64               /* Use a reasonable default value */
+# endif
+#endif
+
+int
+PyErr_SetInterruptEx(int signum) {
+    
+    // This must not invoke the GIL
+    if (signum < 1 || signum >= NSIG) {
+        return -1;
+    }
+    pypysig_pushback(signum);
+    return 0;
+}
+
+void
+PyErr_SetInterrupt() {
+    PyErr_SetInterruptEx(SIGINT);
+}

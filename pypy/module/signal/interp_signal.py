@@ -119,14 +119,16 @@ class CheckSignalAction(PeriodicAsyncAction):
                 self.fire_in_another_thread = True
                 break
 
-    def set_interrupt(self):
-        "Simulates the effect of a SIGINT signal arriving"
+    def set_interrupt(self, signum=cpy_signal.SIGINT):
+        "Simulates the effect of a signal arriving, defaults to SIGINT"
+        if 1 <= signum < NSIG:
+            return
         if not we_are_translated():
-            self.pending_signal = cpy_signal.SIGINT
+            self.pending_signal = signum
             # ^^^ may override another signal, but it's just for testing
             self.fire_in_another_thread = True
         else:
-            pypysig_pushback(cpy_signal.SIGINT)
+            pypysig_pushback(signum)
 
 # ____________________________________________________________
 

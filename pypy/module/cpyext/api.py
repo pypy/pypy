@@ -644,7 +644,7 @@ SYMBOLS_C = [
     'Py_FrozenFlag', # not part of sys.flags
     'Py_UnbufferedStdioFlag',  # not part of sys.flags (python3)
     '_Py_PackageContext', 'PyOS_InputHook',
-    '_Py_PackageContext',
+    '_Py_PackageContext', 'PyErr_SetInterrupt','PyErr_SetInterruptEx',
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
     'PyMem_Malloc', 'PyMem_Calloc', 'PyMem_Realloc', 'PyMem_Free',
@@ -1253,8 +1253,8 @@ def attach_c_functions(space, eci, prefix):
         mangle_name(prefix, '_Py_tuple_new'),
         [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
-    state.C.PyType_GenericNew = rffi.llexternal(
-        mangle_name(prefix, 'PyType_GenericNew'),
+    state.C.tuple_new = rffi.llexternal(
+        mangle_name(prefix, '_Py_tuple_new'),
         [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
     if we_are_translated():
@@ -1623,6 +1623,8 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "tupleobject.c",
                          source_dir / "sliceobject.c",
                          source_dir / "call.c",
+                         # for PyErr pypysig_pushback
+                         translator_c_dir / "src" / "signals.c",
                          ]
 if WIN32:
     separate_module_files.append(source_dir / "pythread_nt.c")
