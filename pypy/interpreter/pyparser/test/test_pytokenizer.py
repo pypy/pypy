@@ -229,3 +229,11 @@ whatisthis"""'''
         check_token_error("a\xc2\xa0b",
                 "invalid non-printable character U+00A0",
                 2)
+
+class TestTokenizer310Changes(object):
+    def test_single_quoted(self):
+        check_token_error('s = "abc\n', "unterminated string literal", pos=5)
+
+    def test_triple_quoted(self):
+        check_token_error('"""abc\n', "unterminated triple-quoted string literal")
+

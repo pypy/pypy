@@ -188,7 +188,7 @@ def generate_tokens(lines, flags):
         if contstrs:
             if not line:
                 raise TokenError(
-                    "end of file (EOF) while scanning triple-quoted string literal",
+                    "unterminated triple-quoted string literal",
                     strstart[2], strstart[0], strstart[1]+1,
                     token_list, lnum-1)
             endmatch = endDFA.recognize(line)
@@ -431,7 +431,7 @@ def generate_tokens(lines, flags):
                 if start < 0:
                     start = pos
                 if start<max and line[start] in single_quoted:
-                    raise TokenError("end of line (EOL) while scanning string literal",
+                    raise TokenError("unterminated string literal",
                              line, lnum, start+1, token_list)
                 if line[pos] == "0":
                     raise TokenError("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
