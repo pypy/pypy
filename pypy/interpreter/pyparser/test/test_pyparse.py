@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import pytest
-from pypy.interpreter.pyparser import pyparse
+from pypy.interpreter.pyparser import pyparse, pytokenizer
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError, TabError
 from pypy.interpreter.astcompiler import consts
 
@@ -74,11 +74,11 @@ stuff = "nothing"
         assert exc.offset in (1, 6)
         assert exc.text.startswith("name another for")
         exc = pytest.raises(SyntaxError, parse, "x = \"blah\n\n\n").value
-        assert exc.msg == "end of line (EOL) while scanning string literal"
+        assert exc.msg == "unterminated string literal"
         assert exc.lineno == 1
         assert exc.offset == 5
         exc = pytest.raises(SyntaxError, parse, "x = '''\n\n\n").value
-        assert exc.msg == "end of file (EOF) while scanning triple-quoted string literal"
+        assert exc.msg == pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR
         assert exc.lineno == 1
         assert exc.offset == 5
         assert exc.end_lineno == 3
