@@ -1720,7 +1720,8 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         is_sequence = (space.issequence_w(w_sequence) and not
                 space.isinstance_w(w_sequence, space.w_unicode) and not
-                space.isinstance_w(w_sequence, space.w_bytes))
+                space.isinstance_w(w_sequence, space.w_bytes) and not
+                space.isinstance_w(w_sequence, space.w_bytearray))
         self.pushvalue(space.newbool(is_sequence))
 
     def MATCH_MAPPING(self, oparg, next_instr):

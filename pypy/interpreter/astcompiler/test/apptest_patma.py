@@ -253,3 +253,25 @@ def test_or_reordering_bug():
     res = annoying_or(range(3, 9))
     exp = dict(a=3, b=4, d=5, e=6, c=7)
     assert res == exp
+
+def test_bytearray_does_not_match_sequence():
+    def sequence_match(x):
+        match x:
+            case [120]:
+                return 1
+            case 120:
+                return 2
+        return 3
+    assert sequence_match(bytearray(b"x")) == 3
+
+
+def test_error_fstring():
+    with pytest.raises(SyntaxError) as info:
+        exec("""
+def fstringbug():
+    match x:
+        case f"{x}":
+            pass
+""")
+    assert info.value.msg == "patterns may only match literals and attribute lookups"
+
