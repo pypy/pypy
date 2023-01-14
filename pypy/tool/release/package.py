@@ -202,7 +202,7 @@ def create_package(basedir, options, _fake=False):
     builddir = py.path.local(options.builddir)
     pypydir = builddir.ensure(name, dir=True)
     if _fake:
-        python_ver = '3.9'
+        python_ver = '3.10'
     else:
         python_ver = get_python_ver(pypy_c)
     IMPLEMENTATION = 'pypy{}'.format(python_ver)
