@@ -16,6 +16,8 @@ WHITESPACES = ' \t\n\r\v\f'
 TYPE_COMMENT_PREFIX = 'type'
 TYPE_IGNORE = 'ignore'
 
+TRIPLE_QUOTE_UNTERMINATED_ERROR = "unterminated triple-quoted string literal"
+
 def match_encoding_declaration(comment):
     """returns the declared encoding or None
 
@@ -188,7 +190,7 @@ def generate_tokens(lines, flags):
         if contstrs:
             if not line:
                 raise TokenError(
-                    "unterminated triple-quoted string literal",
+                    TRIPLE_QUOTE_UNTERMINATED_ERROR,
                     strstart[2], strstart[0], strstart[1]+1,
                     token_list, lnum-1)
             endmatch = endDFA.recognize(line)
