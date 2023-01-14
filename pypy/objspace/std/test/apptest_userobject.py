@@ -174,7 +174,7 @@ def test_del_exception():
             assert " in __del__\n" in x
             assert x.endswith("\nValueError: foo bar\n")
         else:
-            assert 'TypeError: <lambda>() missing 2 required pos' in x
+            assert "TypeError: <lambda>() missing 2 required positional arguments: 'b' and 'c'"
     check_tb(res)
     check_tb(res2)
     check_tb(res3, traceback=False)
