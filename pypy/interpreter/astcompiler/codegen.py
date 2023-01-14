@@ -2276,7 +2276,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # branches
                 if control is None:
                     control = match_context.names_stored
-                    control_list = match_context.names_stored
+                    control_list = match_context.names_list
                     control_origins = match_context.names_origins
                 else:
                     # check that the names are the same in the later alternative
