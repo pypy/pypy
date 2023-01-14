@@ -121,7 +121,7 @@ class CheckSignalAction(PeriodicAsyncAction):
 
     def set_interrupt(self, signum=cpy_signal.SIGINT):
         "Simulates the effect of a signal arriving, defaults to SIGINT"
-        if 1 <= signum < NSIG:
+        if not (1 <= signum < NSIG):
             return
         if not we_are_translated():
             self.pending_signal = signum
