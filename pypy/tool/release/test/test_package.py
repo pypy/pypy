@@ -10,11 +10,11 @@ class TestPackaging:
     def setup_class(cls):
         # make sure we have sort of pypy3-c
         if sys.platform == 'win32':
-            basename = 'pypy3.9-c.exe'
-            cls.rename_pypy_c = 'pypy3.9-c'
-            cls.exe_name_in_archive = 'pypy3.9-c.exe'
+            basename = 'pypy3.10-c.exe'
+            cls.rename_pypy_c = 'pypy3.10-c'
+            cls.exe_name_in_archive = 'pypy3.10-c.exe'
         else:
-            basename = 'pypy3.9-c'
+            basename = 'pypy3.10-c'
             cls.rename_pypy_c = package.POSIX_EXE
             cls.exe_name_in_archive = os.path.join('bin', package.POSIX_EXE)
         cls.pypy_c = py.path.local(pypydir).join('goal', basename)
