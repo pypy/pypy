@@ -2005,6 +2005,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # self.emit_op(ops.POP_TOP)
 
     def visit_MatchValue(self, match_value):
+        # check that it's either a literal or an attribute lookup
+        value = match_value.value
+        if (not isinstance(value, ast.Constant) and
+                not isinstance(value, ast.Attribute)):
+            self.error("patterns may only match literals and attribute lookups",
+                       match_value.value)
         match_value.value.walkabout(self)
         self.emit_compare(ast.Eq)
         self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)

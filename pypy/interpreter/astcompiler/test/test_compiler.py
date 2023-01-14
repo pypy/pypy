@@ -14,7 +14,8 @@ def compile_with_astcompiler(expr, mode, space):
     p = pyparse.PegParser(space)
     info = pyparse.CompileInfo("<test>", mode)
     ast = p.parse_source(expr, info)
-    return codegen.compile_ast(space, ast, info)
+    mod = optimize.optimize_ast(space, ast, info)
+    return codegen.compile_ast(space, mod, info)
 
 def generate_function_code(expr, space):
     from pypy.interpreter.astcompiler.ast import FunctionDef
