@@ -339,8 +339,7 @@ def test_error_messages():
     err = raises(ZeroDivisionError, "1+1j / 0").value
     assert str(err) == "complex division by zero"
     err = raises(TypeError, "1+1j // 0").value
-    assert str(err) == "can't take floor of complex number."
-
+    assert str(err) == "unsupported operand type(s) for //: 'complex' and 'int'"
 
 def test_hash():
     for x in range(-30, 30):
