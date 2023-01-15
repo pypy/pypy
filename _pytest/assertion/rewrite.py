@@ -558,8 +558,25 @@ class AssertionRewriter(ast.NodeVisitor):
                 lineno = item.lineno
                 break
             pos += 1
-        imports = [ast.Import([alias], lineno=lineno, col_offset=0)
-                   for alias in aliases]
+        # Now actually insert the special imports.
+        if sys.version_info >= (3, 10):
+            aliases = [
+                ast.alias("builtins", "@py_builtins", lineno=lineno, col_offset=0),
+                ast.alias(
+                    "_pytest.assertion.rewrite",
+                    "@pytest_ar",
+                    lineno=lineno,
+                    col_offset=0,
+                ),
+            ]
+        else:
+            aliases = [
+                ast.alias("builtins", "@py_builtins"),
+                ast.alias("_pytest.assertion.rewrite", "@pytest_ar"),
+            ]
+        imports = [
+            ast.Import([alias], lineno=lineno, col_offset=0) for alias in aliases
+        ]
         mod.body[pos:pos] = imports
         # Collect asserts.
         nodes = [mod]
