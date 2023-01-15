@@ -727,6 +727,8 @@ times.
 /* end Py3k buffer interface */
 
 PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
+struct PyModuleDef;
+PyAPI_FUNC(PyObject *) _PyType_GetModuleByDef(PyTypeObject *, struct PyModuleDef *);
 
 
 #define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
