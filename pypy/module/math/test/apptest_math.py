@@ -125,3 +125,8 @@ def test_ulp():
     for x in (0.0, 1.0, 2 ** 52, 2 ** 64, INF):
         assert math.ulp(-x) == math.ulp(x)
 
+def test_factorial_raises():
+    with pytest.raises(TypeError) as e:
+        math.factorial(1.2)
+    assert e.value.args[0] == "'float' object cannot be interpreted as an integer"
+

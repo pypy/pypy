@@ -8,13 +8,8 @@ def factorial(x):
     """factorial(x) -> Integral
 
     "Find x!. Raise a ValueError if x is negative or non-integral."""
-    if isinstance(x, float):
-        import warnings
-        warnings.warn("Using factorial() with floats is deprecated", DeprecationWarning)
-        fl = int(x)
-        if fl != x:
-            raise ValueError("float arguments must be integral")
-        x = fl
+    if '__index__' not in dir(x):
+        raise TypeError("'%s' object cannot be interpreted as an integer" % type(x).__name__)
     if x > sys.maxsize:
         raise OverflowError("Too large for a factorial")
 
