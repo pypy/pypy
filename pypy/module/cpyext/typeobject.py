@@ -332,6 +332,8 @@ def update_all_slots(space, w_type, pto):
             if not slot_apifunc:
                 warn_missing_slot(space, method_name, slot_name, w_type)
                 continue
+            if not w_descr:
+                continue
             slot_func_helper = slot_apifunc.get_llhelper(space)
         fill_slot(space, pto, w_type, slot_names, slot_func_helper)
 
