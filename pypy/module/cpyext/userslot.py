@@ -80,6 +80,10 @@ def slot_nb_int(space, w_obj):
 def slot_nb_float(space, w_obj):
     return space.float(w_obj)
 
+@slot_function([PyObject], PyObject)
+def slot_nb_index(space, w_obj):
+    return space.index(w_obj)
+
 #binary functions
 
 @slot_function([PyObject, PyObject], PyObject)
