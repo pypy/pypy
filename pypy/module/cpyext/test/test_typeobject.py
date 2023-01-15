@@ -2091,7 +2091,7 @@ class AppTestHashable(AppTestCpythonExtensionBase):
         raises(TypeError, hash, obj)
         assert type(obj).__dict__['__hash__'] is None
         # this is equivalent to
-        from collections import Hashable
+        from collections.abc import Hashable
         assert not isinstance(obj, Hashable)
 
 
