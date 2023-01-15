@@ -1,5 +1,5 @@
-pytest<=6.0
-setuptools<65.0
+pytest
+setuptools<60.0
 hypothesis
 vmprof
 filelock
