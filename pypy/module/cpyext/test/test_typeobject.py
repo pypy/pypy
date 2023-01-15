@@ -781,7 +781,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.nb_int(F, F(-12.3)) == 666
         class A:
             pass
-        raises(TypeError, module.nb_int, A, A())
+        raises(ValueError, module.nb_int, A, A())
 
     def test_nb_float(self):
         module = self.import_extension('foo', [
