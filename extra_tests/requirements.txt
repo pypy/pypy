@@ -1,4 +1,5 @@
-pytest
+pytest<=4.0 ; python_version < "3.10"
+pytest ; python_version >= "3.10"
 setuptools<60.0
 hypothesis
 vmprof
