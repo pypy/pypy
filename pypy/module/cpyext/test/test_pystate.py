@@ -301,7 +301,12 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                     break
                 time.sleep(0.1)
             assert res == 1
-        assert cancelled_exception # XXX I have no clue whether we can expect this to work or not
+        if self.runappdirect:
+            # only after translation
+            assert cancelled_exception
+        else:
+            # best we can do is check that the test ran
+            pass
 
         # raise to main
         with raises(ValueError):
