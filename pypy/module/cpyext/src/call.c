@@ -161,4 +161,57 @@ PyVectorcall_Call(PyObject *callable, PyObject *tuple, PyObject *kwargs)
     return _Py_CheckFunctionResult(callable, result, NULL);
 }
 
+/* PyEval_CallFunction is exact copy of PyObject_CallFunction.
+ * This function is kept for backward compatibility.
+ */
+PyObject *
+PyEval_CallFunction(PyObject *obj, const char *format, ...)
+{
+    va_list vargs;
+    PyObject *args;
+    PyObject *res;
 
+    va_start(vargs, format);
+
+    args = Py_VaBuildValue(format, vargs);
+    va_end(vargs);
+
+    if (args == NULL)
+        return NULL;
+
+    res = PyEval_CallObject(obj, args);
+    Py_DECREF(args);
+
+    return res;
+}
+ 
+/* PyEval_CallMethod is exact copy of PyObject_CallMethod.
+ * This function is kept for backward compatibility.
+ */
+PyObject *
+PyEval_CallMethod(PyObject *obj, const char *methodname, const char *format, ...)
+{
+    va_list vargs;
+    PyObject *meth;
+    PyObject *args;
+    PyObject *res;
+
+    meth = PyObject_GetAttrString(obj, methodname);
+    if (meth == NULL)
+        return NULL;
+
+    va_start(vargs, format);
+
+    args = Py_VaBuildValue(format, vargs);
+    va_end(vargs);
+
+    if (args == NULL) {
+        Py_DECREF(meth);
+        return NULL;
+    }
+
+    res = PyEval_CallObject(meth, args);
+    Py_DECREF(meth);
+    Py_DECREF(args);
+    return res;
+}
