@@ -616,7 +616,7 @@ SYMBOLS_C = [
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
     'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_get_capsule_type',
 
-    'PyComplex_AsCComplex', 'PyComplex_FromCComplex',
+    'PyComplex_AsCComplex', 'PyComplex_FromCComplex', 'PyNumber_Check', 'PyIndex_Check',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
     'PyBuffer_GetPointer', 'PyBuffer_ToContiguous', 'PyBuffer_FromContiguous',

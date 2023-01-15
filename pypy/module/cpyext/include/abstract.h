@@ -5,12 +5,20 @@ extern "C" {
 #endif
 
      PyAPI_FUNC(int) PyObject_DelItemString(PyObject *o, char *key);
+/* === Number Protocol ================================================== */
 
-       /*
-     Remove the mapping for object, key, from the object *o.
-     Returns -1 on failure.  This is equivalent to
-     the Python statement: del o[key].
-       */
+/* Returns 1 if the object 'o' provides numeric protocols, and 0 otherwise.
+
+   This function always succeeds. */
+PyAPI_FUNC(int) PyNumber_Check(PyObject *o);
+
+
+/* Returns 1 if obj is an index integer (has the nb_index slot of the
+   tp_as_number structure filled in), and 0 otherwise. */
+PyAPI_FUNC(int) PyIndex_Check(PyObject *);
+
+
+/* CPython has these in Include/cpython/abstract.h */
 
 #define PY_VECTORCALL_ARGUMENTS_OFFSET ((size_t)1 << (8 * sizeof(size_t) - 1))
 

@@ -8,32 +8,6 @@ from rpython.rlib.rarithmetic import widen
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.objspace.std import newformat
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyIndex_Check(space, w_obj):
-    """Returns True if o is an index integer (has the nb_index slot of the
-    tp_as_number structure filled in).
-    """
-    # According to CPython, this means: w_obj is not None, and
-    # the type of w_obj has got a method __index__
-    if w_obj is None:
-        return 0
-    if space.lookup(w_obj, '__index__'):
-        return 1
-    return 0
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyNumber_Check(space, w_obj):
-    """Returns 1 if the object o provides numeric protocols, and false otherwise.
-    This function always succeeds."""
-    # According to CPython, this means: w_obj is not None, and
-    # the type of w_obj has got a method __int__ or __float__.
-    if w_obj is None:
-        return 0
-    if (space.lookup(w_obj, '__int__') or space.lookup(w_obj, '__float__') or
-            space.lookup(w_obj, '__index__')):
-        return 1
-    return 0
-
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
 def PyNumber_AsSsize_t(space, w_obj, w_exc):
     """Returns o converted to a Py_ssize_t value if o can be interpreted as an

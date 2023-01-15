@@ -4,26 +4,13 @@ from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.number import (
-    PyIndex_Check, PyNumber_Check, PyNumber_Long,
-    PyNumber_Index, PyNumber_Add,
+    PyNumber_Long, PyNumber_Index, PyNumber_Add,
     PyNumber_Multiply, PyNumber_InPlaceMultiply, PyNumber_Absolute,
     PyNumber_Power, PyNumber_InPlacePower)
 from pypy.module.cpyext.longobject import PyLong_CheckExact
 from pypy.module.cpyext.object import PyObject_Size
 
 class TestIterator(BaseApiTest):
-    def test_check(self, space):
-        assert PyIndex_Check(space, space.wrap(12))
-        assert PyIndex_Check(space, space.wraplong(-12L))
-        assert not PyIndex_Check(space, space.wrap(12.1))
-        assert not PyIndex_Check(space, space.wrap('12'))
-
-        assert PyNumber_Check(space, space.wrap(12))
-        assert PyNumber_Check(space, space.wraplong(-12L))
-        assert PyNumber_Check(space, space.wrap(12.1))
-        assert not PyNumber_Check(space, space.wrap('12'))
-        assert PyNumber_Check(space, space.wrap(1 + 3j))
-
     def test_number_long(self, space):
         w_l = PyNumber_Long(space, space.wrap(123))
         assert PyLong_CheckExact(space, w_l)
@@ -74,26 +61,54 @@ class TestIterator(BaseApiTest):
 
 
 class AppTestCNumber(AppTestCpythonExtensionBase):
-    def test_PyNumber_Check(self):
+    def test_Check(self):
         import sys
         mod = self.import_extension('foo', [
-            ("test_PyNumber_Check", "METH_VARARGS",
+            ("PyNumber_Check", "METH_O",
              '''
-                PyObject *obj = PyTuple_GET_ITEM(args, 0);
-                int val = PyNumber_Check(obj);
+                int val = PyNumber_Check(args);
                 return PyLong_FromLong(val);
-            ''')])
-        val = mod.test_PyNumber_Check(10)
+            '''),
+            ("PyIndex_Check", "METH_O",
+             '''
+                int val = PyNumber_Check(args);
+                return PyLong_FromLong(val);
+            '''),
+        ])
+        val = mod.PyNumber_Check(10)
         assert val == 1
+        assert mod.PyIndex_Check(12)
+        assert mod.PyIndex_Check(-12)
+        assert not mod.PyIndex_Check(12.1)
+        assert not mod.PyIndex_Check('12')
+        assert not mod.PyIndex_Check(1 + 3j)
+
+        assert mod.PyNumber_Check(12)
+        assert mod.PyNumber_Check(-12)
+        assert mod.PyNumber_Check(12.1)
+        assert not mod.PyNumber_Check('12')
+        assert mod.PyNumber_Check(1 + 3j)
         #
         class MyIndex:
             def __index__(self):
                 return 42
-        val = mod.test_PyNumber_Check(MyIndex())
-        if sys.version_info >= (3, 8):
-            assert val == 1
-        else:
-            assert val == 0
+        val = mod.PyNumber_Check(MyIndex())
+        assert val == 1
+
+        # issue 3383: CPython only checks for the presence of __index__,
+        # not that it is valid
+        
+        class Raises:
+            def __index__(self):
+                raise ValueError(42)
+
+        class Missing:
+            pass
+
+        m = Raises()
+        assert mod.PyIndex_Check(m)
+        m = Missing()
+        assert not mod.PyIndex_Check(m)
 
     def test_number_tobase(self):
         import sys
@@ -142,28 +157,6 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         assert mod.pynumber_tobase(num, 8) == '0o10000000000000000000000'
         assert mod.pynumber_tobase(num, 10) == str(num)
         assert mod.pynumber_tobase(num, 16) == '0x40000000000000000'
-
-    def test_index_check(self):
-        # issue 3383: CPython only checks for the presence of __index__,
-        # not that it is valid
-        mod = self.import_extension('foo', [
-            ("check_index", "METH_O",
-            """
-                int res = PyIndex_Check(args);
-                return PyLong_FromLong(res);
-            """)])
-
-        class Raises:
-            def __index__(self):
-                raise ValueError(42)
-
-        class Missing:
-            pass
-
-        m = Raises()
-        assert mod.check_index(m)
-        m = Missing()
-        assert not mod.check_index(m)
 
     def test_number_to_ssize_t(self):
         import sys
