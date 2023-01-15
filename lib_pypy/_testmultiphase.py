@@ -1,5 +1,6 @@
 import imp
 import os
+import shutil
 
 try:
     import cpyext
@@ -15,4 +16,6 @@ try:
         imp.load_module('_testmultiphase', fp, filename, description)
 except ImportError:
     print('could not find _testmultiphase in %s' % output_dir)
-    _pypy_testcapi.compile_shared('_testmultiphase.c', '_testmultiphase', output_dir)
+    x = _pypy_testcapi.compile_shared('_testmultiphase.c', '_testmultiphase', output_dir)
+    # Tests need the c-extension module in the current directory
+    shutil.copy(x__file__, thisdir)

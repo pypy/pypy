@@ -174,12 +174,16 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
 @cpython_api([PyObject, INTP_real], rffi.LONG,
              error=-1)
 def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
+    """Get a C long int from an int object or any object that has an __index__
+    method.
+
+    On overflow, return -1 and set *overflow to 1 or -1 depending on the sign of
+    the result.  Otherwise *overflow is 0.
+
+    For other errors (e.g., TypeError), return -1 and set an error condition.
+    In this case *overflow will be 0.
     """
-    Return a C long representation of the contents of pylong.  If pylong is
-    greater than LONG_MAX or less than LONG_MIN, set *overflow to 1 or -1,
-    respectively, and return -1; otherwise, set *overflow to 0.  If any other
-    exception occurs (for example a TypeError or MemoryError), then -1 will be
-    returned and *overflow will be 0."""
+
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         val = space.int_w(w_long)

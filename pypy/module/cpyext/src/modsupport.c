@@ -530,6 +530,39 @@ PyEval_CallMethod(PyObject *obj, const char *methodname, const char *format, ...
 }
 
 int
+PyModule_AddObjectRef(PyObject *mod, const char *name, PyObject *value)
+{
+    if (!PyModule_Check(mod)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "PyModule_AddObjectRef() first argument "
+                        "must be a module");
+        return -1;
+    }
+    if (!value) {
+        if (!PyErr_Occurred()) {
+            PyErr_SetString(PyExc_SystemError,
+                            "PyModule_AddObjectRef() must be called "
+                            "with an exception raised if value is NULL");
+        }
+        return -1;
+    }
+
+    PyObject *dict = PyModule_GetDict(mod);
+    if (dict == NULL) {
+        /* Internal error -- modules must have a dict! */
+        PyErr_Format(PyExc_SystemError, "module '%s' has no __dict__",
+                     PyModule_GetName(mod));
+        return -1;
+    }
+
+    if (PyDict_SetItemString(dict, name, value)) {
+        return -1;
+    }
+    return 0;
+}
+
+
+int
 PyModule_AddObject(PyObject *m, const char *name, PyObject *o)
 {
     PyObject *dict;

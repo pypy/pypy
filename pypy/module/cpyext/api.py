@@ -593,7 +593,7 @@ SYMBOLS_C = [
     'PyUnicode_FromFormat', 'PyUnicode_FromFormatV', 'PyUnicode_AsWideCharString',
     'PyUnicode_GetSize', 'PyUnicode_GetLength', 'PyUnicode_FromWideChar',
     'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
-    'PyModule_GetDef', 'PyModuleDef_Init', 'PyModule_GetState',
+    'PyModule_GetDef', 'PyModuleDef_Init', 'PyModule_GetState', 'PyModule_AddObjectRef',
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
     '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
     '_PyArg_ParseTupleAndKeywords_SizeT', '_PyArg_VaParse_SizeT',
@@ -621,7 +621,7 @@ SYMBOLS_C = [
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
     'PyBuffer_GetPointer', 'PyBuffer_ToContiguous', 'PyBuffer_FromContiguous',
 
-    'PyImport_ImportModuleLevel',
+    'PyImport_ImportModuleLevel', '_PyType_Name', '_PyType_GetModuleByDef',
 
     'PyOS_getsig', 'PyOS_setsig',
     '_Py_RestoreSignals',
