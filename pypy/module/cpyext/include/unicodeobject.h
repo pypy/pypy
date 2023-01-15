@@ -376,28 +376,6 @@ PyAPI_FUNC(char *) PyUnicode_AsUTF8AndSize(
 #define _PyUnicode_AsString PyUnicode_AsUTF8
 #endif
 
-Py_LOCAL_INLINE(size_t) Py_UNICODE_strlen(const Py_UNICODE *u)
-{
-    size_t res = 0;
-    while(*u++)
-        res++;
-    return res;
-}
-
-Py_LOCAL_INLINE(int)
-Py_UNICODE_strcmp(const Py_UNICODE *s1, const Py_UNICODE *s2)
-{
-    while (*s1 && *s2 && *s1 == *s2)
-        s1++, s2++;
-    if (*s1 && *s2)
-        return (*s1 < *s2) ? -1 : +1;
-    if (*s1)
-        return 1;
-    if (*s2)
-        return -1;
-    return 0;
-}
-
 /* Concat two strings, put the result in *pleft and drop the right object
    (sets *pleft to NULL on error) */
 
