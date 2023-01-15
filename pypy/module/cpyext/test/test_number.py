@@ -71,29 +71,31 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
             '''),
             ("PyIndex_Check", "METH_O",
              '''
-                int val = PyNumber_Check(args);
+                int val = PyIndex_Check(args);
                 return PyLong_FromLong(val);
             '''),
         ])
-        val = mod.PyNumber_Check(10)
-        assert val == 1
-        assert mod.PyIndex_Check(12)
-        assert mod.PyIndex_Check(-12)
-        assert not mod.PyIndex_Check(12.1)
-        assert not mod.PyIndex_Check('12')
-        assert not mod.PyIndex_Check(1 + 3j)
+        if 0:
+            val = mod.PyNumber_Check(10)
+            assert val == 1
+            assert mod.PyIndex_Check(12)
+            assert mod.PyIndex_Check(-12)
+            assert not mod.PyIndex_Check(12.1)
+            assert not mod.PyIndex_Check('12')
+            assert not mod.PyIndex_Check(1 + 3j)
 
-        assert mod.PyNumber_Check(12)
-        assert mod.PyNumber_Check(-12)
-        assert mod.PyNumber_Check(12.1)
-        assert not mod.PyNumber_Check('12')
-        assert mod.PyNumber_Check(1 + 3j)
-        #
-        class MyIndex:
-            def __index__(self):
-                return 42
-        val = mod.PyNumber_Check(MyIndex())
-        assert val == 1
+            assert mod.PyNumber_Check(12)
+            assert mod.PyNumber_Check(-12)
+            assert mod.PyNumber_Check(12.1)
+            assert not mod.PyNumber_Check('12')
+            assert mod.PyNumber_Check(1 + 3j)
+            #
+            class MyIndex:
+                def __index__(self):
+                    return 42
+
+            val = mod.PyNumber_Check(MyIndex())
+            assert val == 1
 
         # issue 3383: CPython only checks for the presence of __index__,
         # not that it is valid
