@@ -135,12 +135,11 @@ class AppTestMath:
         assert math.factorial(1) == 1
         assert math.factorial(2) == 2
         assert math.factorial(5) == 120
-        assert math.factorial(5.) == 120
+        raises(TypeError, math.factorial, 5.0)
         raises(ValueError, math.factorial, -1)
-        raises(ValueError, math.factorial, -1.)
-        raises(ValueError, math.factorial, 1.1)
+        raises(TypeError, math.factorial, -1.0)
+        raises(TypeError, math.factorial, 1.1)
         raises(OverflowError, math.factorial, sys.maxsize+1)
-        raises(OverflowError, math.factorial, 10e100)
 
     def test_log1p(self):
         import math
