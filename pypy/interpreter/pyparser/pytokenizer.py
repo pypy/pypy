@@ -518,19 +518,20 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
 
     # we only need to do that in the cases of *valid* syntax, ie it's a
     # number followed by one of the keywords that starts with [a-f]
-    lastchar = token[-1]
     warn = False
-    if lastchar == 'a':
-        warn = _lookahead(line, end, "nd")
-    elif lastchar == 'e':
-        warn = _lookahead(line, end, "lse")
-    elif lastchar == 'f':
-        warn = _lookahead(line, end, "or")
-    elif lastchar == 'i':
+    if ch == 'a':
+        warn = _lookahead(line, end + 1, "nd")
+    elif ch == 'e':
+        warn = _lookahead(line, end + 1, "lse")
+    elif ch == 'f':
+        warn = _lookahead(line, end + 1, "or")
+    elif ch == 'i':
+        ch = _get_next_or_nul(line, end + 1)
         warn = ch == 'f' or ch == 'n' or ch == 's'
-    elif lastchar == 'n':
-        warn = _lookahead(line, end, "ot")
-    elif lastchar == 'o':
+    elif ch == 'n':
+        warn = _lookahead(line, end + 1, "ot")
+    elif ch == 'o':
+        ch = _get_next_or_nul(line, end + 1)
         warn = ch == 'r'
 
     if warn:
