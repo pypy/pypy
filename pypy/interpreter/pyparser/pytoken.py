@@ -78,6 +78,7 @@ _add_tok('ERRORTOKEN')
 _add_tok("COMMENT")
 _add_tok("NL")
 _add_tok("ENCODING")
+_add_tok("WARNING")
 _add_tok("REVDBMETAVAR", "$NUM")
 
 del _add_tok

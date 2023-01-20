@@ -2353,6 +2353,9 @@ match x:
     def test_unpack_stararg_msg(self):
         exc = self.error_test("(*abc) = 1", SyntaxError, "cannot")
 
+    def test_intliteral_as_it_always_was(self):
+        self.st("x = [0x1for x in [1, 2]]", "x", [31])
+
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block

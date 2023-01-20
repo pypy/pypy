@@ -129,6 +129,9 @@ def raise_invalid_unicode_char(code, token, line, lnum, start, token_list):
             rutf8.unichr_as_utf8(code), h)
     raise TokenError(msg, line, lnum, start + 1, token_list)
 
+def potential_identifier_char(ch):
+    return (ch in NAMECHARS or  # ordinary name
+            ord(ch) >= 0x80)    # unicode
 
 
 DUMMY_DFA = automata.DFA([], [])
@@ -162,7 +165,6 @@ def generate_tokens(lines, flags):
 
     token_list = []
     lnum = continued = 0
-    namechars = NAMECHARS
     numchars = NUMCHARS
     contstrs, needcont = [], False
     indents = [0]
@@ -368,8 +370,7 @@ def generate_tokens(lines, flags):
                         tok = Token(tokens.STRING, token, lnum, start, line, lnum, pos)
                         token_list.append(tok)
                         last_comment = ''
-                elif (initial in namechars or              # ordinary name
-                      ord(initial) >= 0x80):               # unicode identifier
+                elif potential_identifier_char(initial): # unicode identifier
                     verify_identifier(token, line, lnum, start, token_list, flags)
                     # inside 'async def' function or no async_hacks
                     # so recognize them unconditionally.
@@ -481,6 +482,7 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
                 raise TokenError("invalid hexadecimal literal",
                         line, lnum, end, token_list)
     if token.startswith("0b"):
+        kind = "binary"
         nextch = _skip_underscore(ch, line, end)
         if nextch.isdigit():
             raise TokenError("invalid digit '%s' in binary literal" % (nextch, ),
@@ -490,6 +492,7 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
                     line, lnum, end, token_list)
 
     elif token.startswith("0o"):
+        kind = "octal"
         nextch = _skip_underscore(ch, line, end)
         if nextch.isdigit():
             raise TokenError("invalid digit '%s' in octal literal" % (nextch, ),
@@ -499,19 +502,60 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
                     line, lnum, end, token_list)
 
     elif token.startswith("0x"):
+        kind = "hexadecimal"
         if ch == "_":
             raise TokenError("invalid hexadecimal literal",
                     line, lnum, end + 1, token_list)
 
     else:
+        kind = "decimal"
         if ch == "_":
             raise TokenError("invalid decimal literal",
                     line, lnum, end + 1, token_list)
+
+    # now that we've covered the actual error cases, let's see whether we need
+    # to insert a WARNING token
+
+    # we only need to do that in the cases of *valid* syntax, ie it's a
+    # number followed by one of the keywords that starts with [a-f]
+    lastchar = token[-1]
+    warn = False
+    if lastchar == 'a':
+        warn = _lookahead(line, end, "nd")
+    elif lastchar == 'e':
+        warn = _lookahead(line, end, "lse")
+    elif lastchar == 'f':
+        warn = _lookahead(line, end, "or")
+    elif lastchar == 'i':
+        warn = ch == 'f' or ch == 'n' or ch == 's'
+    elif lastchar == 'n':
+        warn = _lookahead(line, end, "ot")
+    elif lastchar == 'o':
+        warn = ch == 'r'
+
+    if warn:
+        # need a warning token
+        token_list.append(Token(tokens.WARNING, "invalid %s literal" % kind,
+                                lnum, start, line, -1, -1))
+    elif potential_identifier_char(ch):
+        # raise an error right here
+        raise TokenError("invalid %s literal" % kind,
+                         line, lnum, start + 1, token_list, lnum, end + 2)
+
 
 def _get_next_or_nul(line, end):
     if end < len(line):
         return line[end]
     return chr(0)
+
+def _lookahead(line, pos, s):
+    if not (pos + len(s) <= len(line)):
+        return False
+    for char in s:
+        if line[pos] != char:
+            return False
+        pos += 1
+    return True
 
 def _skip_underscore(ch, line, end):
     if ch == "_":
