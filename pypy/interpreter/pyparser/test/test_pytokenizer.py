@@ -248,3 +248,11 @@ class TestTokenizer310Changes(object):
             Token(tokens.NEWLINE, '', 2, 0, '\n'),
             Token(tokens.ENDMARKER, '', 2, 0, ''),
             ]
+
+        for line in ("1in 3", "0b01010111and 4", "1 if 0o21231else 2"):
+            tks = tokenize(line)
+            assert any(tokens.WARNING == tok.token_type for tok in tks)
+
+
+    def test_error_number_by_non_keyword_name(self):
+        check_token_error("1a 2", "invalid decimal literal")

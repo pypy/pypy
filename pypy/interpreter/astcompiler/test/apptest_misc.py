@@ -1,7 +1,7 @@
 import pytest
+import warnings
 
 def test_warning_to_error_translation():
-    import warnings
     statement = """\
 def wrong1():
     a = 1
@@ -31,4 +31,20 @@ def test_weird_exec_bug():
     with pytest.raises(SyntaxError) as excinfo:
         compile('exec {1:(foo.)}', 'fn', 'exec')
     assert excinfo.value.offset == 6
+
+
+def test_warning_decimal():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        compile("0x1for 2", "fn", "exec")
+    assert len(w) == 1
+    assert str(w[0].message) == "invalid hexadecimal literal"
+    assert w[0].lineno == 1
+
+    # don't warn if there's an error
+    with warnings.catch_warnings(record=True) as w:
+        with pytest.raises(SyntaxError):
+            warnings.simplefilter("always")
+            compile("0x1for 2 a b c", "fn", "exec")
+    assert len(w) == 0
 
