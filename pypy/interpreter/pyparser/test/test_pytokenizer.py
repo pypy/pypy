@@ -237,3 +237,14 @@ class TestTokenizer310Changes(object):
     def test_triple_quoted(self):
         check_token_error('"""abc\n', "unterminated triple-quoted string literal")
 
+    def test_warn_number_followed_by_keyword(self):
+        line = "0x1for"
+        tks = tokenize(line)
+        assert tks == [
+            Token(tokens.NUMBER, '0x1f', 1, 0, line, 1, 4),
+            Token(tokens.WARNING, 'invalid hexadecimal literal', 1, 0, line),
+            Token(tokens.NAME, 'or', 1, 4, line, 1, 6),
+            Token(tokens.NEWLINE, '', 2, 0, '\n'),
+            Token(tokens.NEWLINE, '', 2, 0, '\n'),
+            Token(tokens.ENDMARKER, '', 2, 0, ''),
+            ]

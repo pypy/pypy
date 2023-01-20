@@ -3179,7 +3179,7 @@ class PythonParser(Parser):
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
             return ast . Constant ( value = self . parse_number ( a ) , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
-        a = self.expect_type(64)
+        a = self.expect_type(65)
         if a:
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column

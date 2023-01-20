@@ -214,6 +214,7 @@ class Parser:
         self._path = "" # XXX
         self.type_ignores = []
         self.compile_info = compile_info
+        self._warnings = []
         for tok in tokenlist:
             # Special handling for TYPE_IGNOREs
             if tok.token_type == tokens.TYPE_IGNORE:
@@ -222,6 +223,9 @@ class Parser:
             if tok.token_type in (tokens.NL, tokens.COMMENT):
                 continue
             if tok.token_type == tokens.ERRORTOKEN and isspace(tok.value):
+                continue
+            if tok.token_type == tokens.WARNING:
+                self._warnings.append(tok)
                 continue
             if (
                 tok.token_type == tokens.NEWLINE
@@ -276,6 +280,9 @@ class Parser:
                 self.raise_indentation_error("unexpected indent")
             self.raise_syntax_error_known_location("invalid syntax", tok)
         assert res
+        # now raise all warnings from the tokenizer
+        for tok in self._warnings:
+            self.deprecation_warn(tok.value, tok)
         return res
 
     def recursive_parse_to_ast(self, str, info):
