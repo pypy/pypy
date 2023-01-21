@@ -618,7 +618,7 @@ class State:
     def make_new_type(self, space, name, base, fields, attributes, default_none_fields, doc):
         w_base = getattr(self, 'w_%s' % base)
         w_dict = space.newdict()
-        space.setitem_str(w_dict, '__module__', space.newtext('_ast'))
+        space.setitem_str(w_dict, '__module__', space.newtext('ast'))
         if fields is not None:
             space.setitem_str(w_dict, "_fields",
                               space.newtuple([space.newtext(f) for f in fields]))
