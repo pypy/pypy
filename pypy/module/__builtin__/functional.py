@@ -1062,7 +1062,10 @@ class W_Zip(W_Root):
     def descr_reduce(self, space):
         w_zip = space.getattr(space.getbuiltinmodule('builtins'),
                 space.newtext('zip'))
-        return space.newtuple([w_zip, space.newtuple(self.iterators_w)])
+        w_iterators = space.newtuple(self.iterators_w)
+        if self.strict:
+            return space.newtuple([w_zip, w_iterators, space.w_True])
+        return space.newtuple2(w_zip, w_iterators)
 
     def iterator_greenkey(self, space):
         # XXX in theory we should tupleize the greenkeys of all the
