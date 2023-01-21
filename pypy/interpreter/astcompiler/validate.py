@@ -395,6 +395,11 @@ class AstValidator(ast.ASTVisitor):
     def visit_MatchMapping(self, node):
         if node.keys and node.patterns and len(node.keys) != len(node.patterns):
             raise ValidationError("MatchMapping doesn't have the same number of keys as patterns")
+        for key in node.keys:
+            if isinstance(key, ast.Constant):
+                continue
+            if not isinstance(key, ast.Attribute):
+                raise ValidationError("can only have Constant or Attribute in the keys of a MatchMapping")
         if node.rest is not None:
             self._validate_capture(node.rest)
         self._validate_patterns(node.keys)
@@ -557,3 +562,7 @@ class AstValidator(ast.ASTVisitor):
     def visit_FunctionType(self, node):
         self._validate_exprs(node.argtypes)
         self._validate_expr(node.returns)
+
+    def visit_Starred(self, node):
+        self._validate_expr(node.value)
+

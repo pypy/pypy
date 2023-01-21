@@ -42,6 +42,12 @@ class TestASTValidator:
             return make
         raise AttributeError(name)
 
+    def Constant(self, value, ctx=None):
+        return ast.Constant(
+            self.space.wrap(value),
+            self.space.w_None if ctx is None else ctx,
+            *POS)
+
     def test_module(self):
         m = ast.Interactive([ast.Expr(ast.Name("x", ast.Store, *POS), *POS)])
         self.mod(m, "must have Load context", "single")
@@ -69,9 +75,9 @@ class TestASTValidator:
         check(arguments(args=args), "must have Load context")
         check(arguments(posonlyargs=args), "must have Load context")
         check(arguments(kwonlyargs=args), "must have Load context")
-        check(arguments(defaults=[ast.Constant(self.space.wrap(3), self.space.w_None, *POS)]),
+        check(arguments(defaults=[self.Constant(3)]),
                        "more positional defaults than args")
-        check(arguments(kw_defaults=[ast.Constant(self.space.wrap(4), self.space.w_None, *POS)]),
+        check(arguments(kw_defaults=[ast.Constant(4)]),
                        "length of kwonlyargs is not the same as kw_defaults")
         args = [ast.arg("x", ast.Name("x", ast.Load, *POS), None, *POS)]
         check(arguments(args=args, defaults=[ast.Name("x", ast.Store, *POS)]),
@@ -500,7 +506,7 @@ class TestASTValidator:
             []
         ))
         self._check_wrong_pattern_error(self.MatchClass(
-            self.Attribute(self.Constant(self.space.wrap(3), self.space.w_None), "a", ast.Load),
+            self.Attribute(self.Constant(3), "a", ast.Load),
             [], [], []
         ))
         self._check_wrong_pattern_error(self.MatchClass(
@@ -510,7 +516,18 @@ class TestASTValidator:
             [self.MatchSingleton(self.space.w_None)]
         ))
 
-    def test_or(self):
-        p1 = self.MatchSingleton(self.space.w_None)
-        self._check_wrong_pattern_error(
-            self.MatchOr([p1]))
+    def test_match_complicated(self):
+        p1 = self.MatchMapping(
+            [
+                self.Constant(True),
+                self.Starred(
+                    self.Name('lol', ast.Load),
+                    ast.Load)],
+            [
+                self.MatchValue(
+                    self.Constant('x')),
+                self.MatchValue(
+                    self.Constant(1))],
+            'legit')
+        self._check_wrong_pattern_error(p1)
+
