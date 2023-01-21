@@ -431,12 +431,39 @@ def namedtuple(typename, field_names, *, rename=False, defaults=None, module=Non
     _make.__func__.__doc__ = (f'Make a new {typename} object from a sequence '
                               'or iterable')
 
-    def _replace(self, /, **kwds):
-        result = self._make(_map(kwds.pop, field_names, self))
-        if kwds:
-            raise ValueError(f'Got unexpected field names: {list(kwds)!r}')
-        return result
+    # PyPy modification (https://foss.heptapod.net/pypy/pypy/-/issues/3884)
+    # faster replace
 
+    parameters = "\n".join(f"    {field}=_not_given," for field in field_names)
+    if field_names:
+        star = "    *,"
+    else:
+        star = ""
+    arguments = "\n".join(
+        f"            {field}=_self.{field} if {field} is _not_given else {field},"
+        for field in field_names
+    )
+    code = f"""\
+_not_given = object()
+_type = type
+_ValueError = ValueError
+_list = list
+def _replace(
+    _self,
+    /,
+{star}
+{parameters}
+    **_kwargs,
+):
+    if _kwargs:
+        raise _ValueError(f"Got unexpected field names: {{_list(_kwargs)!r}}")
+    else:
+        return _type(_self)(
+{arguments}
+            )
+        """
+    exec(code, namespace)
+    _replace = namespace["_replace"]
     _replace.__doc__ = (f'Return a new {typename} object replacing specified '
                         'fields with new values')
 
