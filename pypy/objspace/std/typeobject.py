@@ -135,6 +135,17 @@ class Layout(object):
         return "Layout(%s, %s, %s, %s)" % (self.typedef, self.nslots, self.newslotnames, self.base_layout)
 
 
+def _check_surrogate(space, name):
+    try:
+        check_utf8(name, False)
+    except CheckError as e:
+        raise OperationError(space.w_UnicodeEncodeError,
+             space.newtuple([space.newtext('utf8'),
+                             space.newtext(name),
+                             space.newint(e.pos),
+                             space.newint(e.pos + 1),
+                             space.newtext('surrogates not allowed')]))
+
 # possible values of compares_by_identity_status
 UNKNOWN = 0
 COMPARES_BY_IDENTITY = 1
@@ -182,15 +193,7 @@ class W_TypeObject(W_Root):
                  overridetypedef=None, force_new_layout=False,
                  is_heaptype=True):
         self.space = space
-        try:
-            check_utf8(name, False)
-        except CheckError as e:
-            raise OperationError(space.w_UnicodeEncodeError,
-                 space.newtuple([space.newtext('utf8'),
-                                 space.newtext(name),
-                                 space.newint(e.pos),
-                                 space.newint(e.pos + 1),
-                                 space.newtext('surrogates not allowed')]))
+        _check_surrogate(space, name)
         self.name = name
         self.qualname = None
         self.bases_w = bases_w
@@ -849,10 +852,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     name = space.text_w(w_name)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
-    pos = surrogate_in_utf8(name)
-    if pos >= 0:
-        raise oefmt(space.w_ValueError, "can't encode character in position "
-                    "%d, surrogates not allowed", pos)
+    _check_surrogate(space, name)
     dict_w = {}
     dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
@@ -956,10 +956,7 @@ def descr_set__name__(space, w_type, w_value):
     name = space.text_w(w_value)
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
-    pos = surrogate_in_utf8(name)
-    if pos >= 0:
-        raise oefmt(space.w_ValueError, "can't encode character in position "
-                    "%d, surrogates not allowed", pos)
+    _check_surrogate(space, name)
     w_type.name = name
 
 def descr_get__qualname__(space, w_type):
