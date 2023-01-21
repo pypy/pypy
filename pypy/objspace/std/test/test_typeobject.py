@@ -968,8 +968,9 @@ class AppTestTypeObject:
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
         raises(TypeError, "Abc.__name__ = b'A'")
+        raises(UnicodeEncodeError, "Abc.__name__ = 'A\udcdcB'")
         for v, err in [('G\x00hi', "type name must not contain null characters"),
-                       ('A\udcdcB', "surrogates not allowed")]:
+                       ]:
             try:
                 Abc.__name__ = v
             except ValueError as e:
@@ -1800,7 +1801,7 @@ class AppTestComparesByIdentity:
         assert type.__dict__['__doc__'].__name__ == '__doc__'
 
     def test_type_construct_unicode_surrogate_issue(self):
-        raises(ValueError, type, 'A\udcdcb', (), {})
+        raises(UnicodeEncodeError, type, 'A\udcdcb', (), {})
 
     def test_set_name(self):
         class Descriptor:
