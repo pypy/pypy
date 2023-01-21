@@ -83,7 +83,7 @@ class AppTestAST:
         assert imp.level == 3
 
         body = [ast.ImportFrom(module='time',
-                               names=[ast.alias(name='sleep')],
+                               names=[ast.alias(name='sleep', lineno=1, col_offset=1)],
                                level=None,
                                lineno=1, col_offset=2)]
         mod = ast.Module(body, [])
@@ -92,7 +92,7 @@ class AppTestAST:
     def test_bad_int(self):
         ast = self.ast
         body = [ast.ImportFrom(module='time',
-                               names=[ast.alias(name='sleep')],
+                               names=[ast.alias(name='sleep', lineno=1, col_offset=1)],
                                level='A',
                                lineno=1, col_offset=2)]
         mod = ast.Module(body, [])
