@@ -1629,6 +1629,7 @@ class BuiltinTest(unittest.TestCase):
             self.assertEqual(self.iter_error(z1, ValueError), t)
             self.assertEqual(self.iter_error(z2, ValueError), t)
 
+    @support.cpython_only
     def test_zip_bad_iterable(self):
         exception = TypeError()
 
@@ -2333,9 +2334,6 @@ class TestType(unittest.TestCase):
     def test_bad_slots(self):
         with self.assertRaises(TypeError):
             type('A', (), {'__slots__': b'x'})
-        if check_impl_detail():     # 'int' is variable-sized on CPython 3.x
-            with self.assertRaises(TypeError):
-                type('A', (int,), {'__slots__': 'x'})
         with self.assertRaises(TypeError):
             type('A', (), {'__slots__': ''})
         with self.assertRaises(TypeError):
@@ -2355,6 +2353,12 @@ class TestType(unittest.TestCase):
             type('A', (B,), {'__slots__': '__dict__'})
         with self.assertRaises(TypeError):
             type('A', (B,), {'__slots__': '__weakref__'})
+
+    @support.cpython_only
+    def test_bad_slots_int(self):
+        with self.assertRaises(TypeError):
+            # 'int' is variable-sized on CPython 3.x
+            type('A', (int,), {'__slots__': 'x'})
 
     def test_namespace_order(self):
         # bpo-34320: namespace should preserve order
