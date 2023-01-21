@@ -2030,7 +2030,7 @@ def g():
         """)
         assert self.space.unwrap(w_args) == (
             'unindent does not match any outer indentation level',
-            ('<string>', 3, 2, ' y\n'))
+            ('<string>', 3, 2, ' y\n', None, None)) # XXX this could be , 3, 2 as well
 
     def test_finally_lineno_wrong(self):
         func = """def f(x): # 1
