@@ -330,6 +330,14 @@ class W_ArrayBase(W_Root):
 
         Return index of first occurrence of x in the array.
         """
+        if start < 0:
+            start += self.len
+            if start < 0:
+                start = 0
+        if stop < 0:
+            stop += self.len
+            if stop < 0:
+                stop = 0
         res = index_count_array(self, w_x, count=False, start=start, stop=stop)
         if res >= 0:
             return space.newint(res)
