@@ -155,6 +155,12 @@ class AppTestZip:
         assert "zip() argument 3 is longer than arguments 1-2" in str(exinfo.value)
         assert l == [(1,1,1), (2,2,2)]
 
+    def test_zip_strict_reduce(self):
+        l1 = [1, 2, 3]
+        l2 = [2, 3, 4, 5]
+        res = zip(l1, l2, strict=True).__reduce__()
+        assert len(res) == 3 and res[2] is True
+
     def test_bad_length_hint(self):
         class Foo(object):
             def __length_hint__(self):
