@@ -729,9 +729,6 @@ class ClassMethod(W_Root):
     def descr_reduce_ex(self, space, w_proto):
         raise oefmt(space.w_TypeError, "cannot pickle '%N' object", self)
 
-    def descr_call(self, space, __args__):
-        return space.call_args(self.w_function, __args__)
-
     def descr_repr(self, space):
         return space.newtext("<classmethod(%s)>" % (space.text_w(space.repr(self.w_function)), ))
 

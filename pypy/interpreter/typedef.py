@@ -853,7 +853,6 @@ ClassMethod.typedef = TypeDef(
     __new__=interp2app(ClassMethod.descr_classmethod__new__.im_func),
     __init__=interp2app(ClassMethod.descr_init),
     __get__=interp2app(ClassMethod.descr_classmethod_get),
-    __call__=interp2app(ClassMethod.descr_call),
     __func__=interp_attrproperty_w('w_function', cls=ClassMethod),
     __wrapped__=interp_attrproperty_w('w_function', cls=ClassMethod),
     __isabstractmethod__=GetSetProperty(ClassMethod.descr_isabstract),

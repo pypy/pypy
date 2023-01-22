@@ -837,3 +837,7 @@ def test_qualname_in_error():
 
 def test_builtin_function_in_method_objclass():
     assert list.append.__qualname__ == 'list.append'
+
+def test_classmethod_not_callable():
+    with raises(TypeError):
+        classmethod(lambda x: x)(1)
