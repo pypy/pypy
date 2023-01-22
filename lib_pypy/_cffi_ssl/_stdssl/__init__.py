@@ -72,8 +72,8 @@ VERIFY_DEFAULT = 0
 VERIFY_CRL_CHECK_LEAF = lib.X509_V_FLAG_CRL_CHECK
 VERIFY_CRL_CHECK_CHAIN = lib.X509_V_FLAG_CRL_CHECK | lib.X509_V_FLAG_CRL_CHECK_ALL
 VERIFY_X509_STRICT = lib.X509_V_FLAG_X509_STRICT
-if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
-    VERIFY_X509_TRUSTED_FIRST = lib.X509_V_FLAG_TRUSTED_FIRST
+VERIFY_ALLOW_PROXY_CERTS = lib.X509_V_FLAG_ALLOW_PROXY_CERTS
+VERIFY_X509_TRUSTED_FIRST = lib.X509_V_FLAG_TRUSTED_FIRST
 if lib.Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT:
     HOSTFLAG_NEVER_CHECK_SUBJECT = lib.X509_CHECK_FLAG_NEVER_CHECK_SUBJECT
 
@@ -326,6 +326,13 @@ class _SSLSocket(object):
         ctx = sslctx.ctx
         self.owner = None
 
+        if (socket_type == SSL_SERVER and sslctx.protocol == PROTOCOL_TLS_CLIENT):
+            raise ssl_error("Cannot create a server socket with a "
+                            "PROTOCOL_TLS_CLIENT context", 0)
+        if (socket_type == SSL_CLIENT and sslctx.protocol == PROTOCOL_TLS_SERVER):
+            raise ssl_error("Cannot create a client socket with a "
+                            "PROTOCOL_TLS_SERVER context", 0)
+
         if server_hostname:
             self.server_hostname = server_hostname.decode('ascii', 'strict')
             if '\x00' in self.server_hostname:
@@ -562,9 +569,6 @@ class _SSLSocket(object):
         sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
 
-        if lgt > _MAX_INT:
-            raise OverflowError("string longer than %d bytes" % _MAX_INT)
-
         timeout = _socket_timeout(sock)
         if sock:
             nonblocking = timeout >= 0
@@ -584,9 +588,10 @@ class _SSLSocket(object):
         elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
             raise ssl_error("Underlying socket too large for select().")
 
+        count = ffi.new("size_t[1]", [0])
         while True:
-            length = lib.SSL_write(self.ssl, b, lgt)
-            err = _PySSL_errno(length<=0, self.ssl, length)
+            retval = lib.SSL_write_ex(self.ssl, b, lgt, count)
+            err = _PySSL_errno(retval==0, self.ssl, retval)
             self.err = err
 
             check_signals()
@@ -610,10 +615,9 @@ class _SSLSocket(object):
             if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
                 break
 
-        if length > 0:
-            return length
-        else:
-            raise pyssl_error(self, length)
+        if retval ==0:
+            raise pyssl_error(self, retval)
+        return count[0]
 
     def read(self, length, buffer_into=None):
         if length < 0 and buffer_into is None:
