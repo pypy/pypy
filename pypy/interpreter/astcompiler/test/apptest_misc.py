@@ -56,3 +56,13 @@ def test_warn_assert_tuple():
         assert len(w) == 1
         assert "perhaps remove parentheses" in str(w[0].message)
         assert w[0].lineno == 1
+
+def test_warn_wrong_indices():
+    for sourceline in ["(1, 2) [2, 3]", "(x, y) [a, b]"]:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            compile(sourceline, "fn", "exec")
+        assert len(w) == 1
+        assert "indices must be" in str(w[0].message)
+        assert w[0].lineno == 1
+
