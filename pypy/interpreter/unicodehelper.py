@@ -1300,14 +1300,13 @@ def utf8_encode_utf_16_helper(s, errors,
                                      'surrogates not allowed',
                                      s, index, index+1)
             else:
-                for ch in r:
-                    cp = ord(ch)
-                    if cp < 0xD800 or allow_surrogates:
-                        _STORECHAR(result, cp, byteorder)
-                    else:
-                        errorhandler('strict', public_encoding_name,
-                                     'surrogates not allowed',
-                                 s, index, index+1)
+                # bytes are just copied to the output
+                if len(r) & 1:
+                    # must be an even number of bytes
+                    errorhandler('strict', public_encoding_name,
+                                 'surrogates not allowed',
+                             s, index, index+1)
+                result.append(r)
             if index != newindex:  # Should be uncommon
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
