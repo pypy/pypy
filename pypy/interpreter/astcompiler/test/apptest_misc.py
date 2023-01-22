@@ -48,3 +48,11 @@ def test_warning_decimal():
             compile("0x1for 2 a b c", "fn", "exec")
     assert len(w) == 0
 
+def test_warn_assert_tuple():
+    for sourceline in ["assert(False, 'abc')", "assert(x, 'abc')"]:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            compile(sourceline, "fn", "exec")
+        assert len(w) == 1
+        assert "perhaps remove parentheses" in str(w[0].message)
+        assert w[0].lineno == 1
