@@ -1498,14 +1498,12 @@ def utf8_encode_utf_32_helper(s, errors,
                             'strict', public_encoding_name, 'surrogates not allowed',
                             s, index, index+1)
             else:
-                for ch in r:
-                    cp = ord(ch)
-                    if cp < 0xD800:
-                        _STORECHAR32(result, cp, byteorder)
-                    else:
-                        errorhandler(
-                            'strict', public_encoding_name, 'surrogates not allowed',
-                            s, index, index+1)
+                if len(r) & 0b11:
+                    # length must be divisible by 4
+                    errorhandler(
+                        'strict', public_encoding_name, 'surrogates not allowed',
+                        s, index, index+1)
+                result.append(r)
             s = obj
             if index != newindex:  # Should be uncommon
                 index = newindex
