@@ -1880,14 +1880,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if not index._literal_type:
             return None
 
-        if isinstance(index, ast.Constant) and self.space.isinstance_w(
-            index.value, self.space.w_int
-        ):
-            return None
+        if isinstance(index, ast.Constant):
+            if self.space.isinstance_w(
+                index.value, self.space.w_int
+            ):
+                return None
 
-        if not (
-            isinstance(sub, ast.Constant)
-            and (
+        if (isinstance(sub, ast.Constant)
+            and not (
                 self.space.isinstance_w(sub.value, self.space.w_tuple)
                 or self.space.isinstance_w(sub.value, self.space.w_unicode)
                 or self.space.isinstance_w(sub.value, self.space.w_bytes)
