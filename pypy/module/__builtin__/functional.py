@@ -214,7 +214,7 @@ def min_max(space, args, implementation_of):
                                 implementation_of)
     else:
         raise oefmt(space.w_TypeError,
-                    "%s() expects at least one argument, got 0",
+                    "%s() expected at least one argument, got 0",
                     implementation_of)
 
 def max(space, __args__):
