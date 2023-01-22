@@ -671,6 +671,9 @@ class StaticMethod(W_Root):
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_function))
 
+    def descr_reduce_ex(self, space, w_proto):
+        raise oefmt(space.w_TypeError, "cannot pickle '%N' object", self)
+
     def descr_call(self, space, __args__):
         return space.call_args(self.w_function, __args__)
 
@@ -722,6 +725,9 @@ class ClassMethod(W_Root):
 
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_function))
+
+    def descr_reduce_ex(self, space, w_proto):
+        raise oefmt(space.w_TypeError, "cannot pickle '%N' object", self)
 
     def descr_call(self, space, __args__):
         return space.call_args(self.w_function, __args__)

@@ -133,6 +133,12 @@ def test_static_class_method_repr():
    for m in classmethod(f), staticmethod(f):
        assert repr(f) in repr(m)
 
+def test_cannot_pickle_static_and_classmethod():
+    with pytest.raises(TypeError):
+        staticmethod(lambda : 1).__reduce_ex__(4)
+    with pytest.raises(TypeError):
+        classmethod(lambda cls: 1).__reduce_ex__(4)
+
 def test_write___doc__():
     def f(): "hello"
     assert f.__doc__ == 'hello'
