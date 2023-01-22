@@ -1647,12 +1647,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if not self._call_has_no_star_args(call) or \
            not isinstance(call.func, ast.Attribute):
             return False
+        arg_count = len(call.args) if call.args is not None else 0
+        kw_count = len(call.keywords) if call.keywords is not None else 0
+        if arg_count > MAX_STACKDEPTH_CONTAINERS // 2 or kw_count > MAX_STACKDEPTH_CONTAINERS // 2:
+            return False
         attr_lookup = call.func
         assert isinstance(attr_lookup, ast.Attribute)
         attr_lookup.value.walkabout(self)
         self.emit_op_name(ops.LOAD_METHOD, self.names, attr_lookup.attr)
         self.visit_sequence(call.args)
-        arg_count = len(call.args) if call.args is not None else 0
         if not call.keywords:
             self.emit_op_arg(ops.CALL_METHOD, arg_count)
         else:

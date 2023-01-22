@@ -2873,3 +2873,8 @@ class TestHugeStackDepths:
         w_res = self.run_and_check_stacksize(source)
         assert self.space.unwrap(w_res) == dict.fromkeys(["s" + str(i) for i in range(200)])
 
+    def test_call_method_args(self):
+        args = "1, " * 217
+        source = '(type("A", (), {"f": lambda self, *args: len(args)}))().f(%s)' % args
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.int_w(w_res) == 217
