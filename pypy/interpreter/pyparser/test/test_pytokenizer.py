@@ -36,7 +36,7 @@ class TestTokenizer(object):
     def test_error_parenthesis(self):
         for paren in "([{":
             check_token_error(paren + "1 + 2",
-                              "parenthesis is never closed",
+                              "'%s' was never closed" % paren,
                               1)
 
         for paren in ")]}":
