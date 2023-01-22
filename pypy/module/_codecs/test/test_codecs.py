@@ -1510,3 +1510,35 @@ class AppTestPartialEvaluation:
         _codecs.register_error("test.replace_with_unencodable", replace_with_unencodable)
         res = _codecs.utf_16_le_encode(u'[\udc80]', 'test.replace_with_unencodable')
         assert res == (b'[\x00\xbd\xbe]\x00', 3)
+
+    def test_repeated_pos_return(self):
+        import _codecs
+        class RepeatedPosReturn:
+            def __init__(self, repl="<?>"):
+                self.repl = repl
+                self.pos = 0
+                self.count = 0
+
+            def handle(self, exc):
+                assert exc.start == 4
+                assert exc.end == 5
+                if self.count > 0:
+                    self.count -= 1
+                    return "x", 0
+                return ("x", exc.end)
+
+        handler = RepeatedPosReturn()
+        _codecs.register_error("test.bug36819", handler.handle)
+
+        input = "abcd\udc80"
+        encodings = ["ascii", "utf-8"]  # built-in
+
+        handler.repl = "x"
+        for enc in encodings:
+            # The interpreter should segfault after a handful of attempts.
+            # 50 was chosen to try to ensure a segfault without a fix,
+            # but not OOM a machine with one.
+            handler.count = 50
+            encoded = input.encode(enc, "test.bug36819")
+            assert encoded.decode(enc) == "abcdx" * 51
+

@@ -2,7 +2,7 @@
 import pytest
 
 from pypy.interpreter.unicodehelper import (
-    utf8_encode_utf_8, decode_utf8sp, ErrorHandlerError
+    utf8_encode_utf_8, decode_utf8sp,
 )
 
 from pypy.interpreter.unicodehelper import str_decode_utf8, utf8_encode_latin_1
@@ -56,13 +56,9 @@ def test_encode_utf_8_combine_surrogates():
     assert res == "abcabc"
     assert calls == [u'\udc80', u'\uD800\uDFFF']
 
-def test_bad_error_handler():
-    b = u"\udc80\ud800\udfff".encode("utf-8")
-    def errorhandler(errors, encoding, msg, s, start, end):
-        return '', start, 'b', s # returned index is too small
-
-    pytest.raises(ErrorHandlerError, utf8_encode_utf_8, b, 'strict',
-                  errorhandler=errorhandler, allow_surrogates=False)
+#def test_bad_error_handler():
+    # replaced by the test test_repeated_pos_return
+    # in test_codecs. following CPython's approach
 
 def test_decode_utf8sp():
     space = FakeSpace()
