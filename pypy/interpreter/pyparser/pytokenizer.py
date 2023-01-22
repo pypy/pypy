@@ -283,8 +283,8 @@ def generate_tokens(lines, flags):
         else:                                  # continued statement
             if not line:
                 if parenstack:
-                    _, lnum1, start1, line1 = parenstack[0]
-                    raise TokenError("parenthesis is never closed", line1,
+                    parenkind, lnum1, start1, line1 = parenstack[0]
+                    raise TokenError("'%s' was never closed" % (parenkind, ), line1,
                                      lnum1, start1 + 1, token_list, lnum)
                 raise TokenError("end of file (EOF) in multi-line statement", line,
                                  lnum, 0, token_list) # XXX why is the offset 0 here?
