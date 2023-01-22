@@ -658,21 +658,26 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             self.error("illegal expression for augmented assignment", assign)
 
+    def _assert_test_always_true(self, test):
+        if isinstance(test, ast.Tuple):
+            return len(test.elts) > 0
+        if (isinstance(test, ast.Constant) and
+                self.space.isinstance_w(test.value, self.space.w_tuple)):
+            return self.space.len_w(test.value) > 0
+        return False
+
     def visit_Assert(self, asrt):
+        if self._assert_test_always_true(asrt.test):
+            misc.syntax_warning(
+                self.space,
+                "assertion is always true, perhaps remove parentheses?",
+                self.compile_info.filename,
+                asrt.lineno,
+                asrt.col_offset
+            )
         if self.compile_info.optimize >= 1:
             return
         assert self.compile_info.optimize == 0
-        if isinstance(asrt.test, ast.Tuple):
-            test = asrt.test
-            assert isinstance(test, ast.Tuple)
-            if len(test.elts) > 0:
-                misc.syntax_warning(
-                    self.space,
-                    "assertion is always true, perhaps remove parentheses?",
-                    self.compile_info.filename,
-                    asrt.lineno,
-                    asrt.col_offset
-                )
         end = self.new_block()
         asrt.test.accept_jump_if(self, True, end)
         self.emit_op(ops.LOAD_ASSERTION_ERROR)
