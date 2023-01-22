@@ -37,7 +37,7 @@ class EOFTestCase(unittest.TestCase):
         self.assertIn(b'unterminated triple-quoted string literal (detected at line 3)', err)
 
     def test_eof_with_line_continuation(self):
-        expect = "unexpected EOF while parsing (<string>, line 1)"
+        expect = "unexpected end of file (EOF) while parsing (<string>, line 1)"
         try:
             compile('"\\xhh" \\',  '<string>', 'exec', dont_inherit=True)
         except SyntaxError as msg:
@@ -47,7 +47,7 @@ class EOFTestCase(unittest.TestCase):
 
     def test_line_continuation_EOF(self):
         """A continuation at the end of input must be an error; bpo2180."""
-        expect = 'unexpected EOF while parsing (<string>, line 1)'
+        expect = 'unexpected end of file (EOF) while parsing (<string>, line 1)'
         with self.assertRaises(SyntaxError) as excinfo:
             exec('x = 5\\')
         self.assertEqual(str(excinfo.exception), expect)
@@ -61,13 +61,13 @@ class EOFTestCase(unittest.TestCase):
         with os_helper.temp_dir() as temp_dir:
             file_name = script_helper.make_script(temp_dir, 'foo', '\\')
             rc, out, err = script_helper.assert_python_failure(file_name)
-            self.assertIn(b'unexpected EOF while parsing', err)
+            self.assertIn(b'EOF', err) # PyPy difference: our error is better
             self.assertIn(b'line 1', err)
             self.assertIn(b'\\', err)
 
             file_name = script_helper.make_script(temp_dir, 'foo', 'y = 6\\')
             rc, out, err = script_helper.assert_python_failure(file_name)
-            self.assertIn(b'unexpected EOF while parsing', err)
+            self.assertIn(b'EOF', err) # PyPy difference: our error is better
             self.assertIn(b'line 1', err)
             self.assertIn(b'y = 6\\', err)
 

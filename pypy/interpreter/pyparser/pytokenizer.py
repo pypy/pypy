@@ -129,6 +129,15 @@ def raise_invalid_unicode_char(code, token, line, lnum, start, token_list):
             rutf8.unichr_as_utf8(code), h)
     raise TokenError(msg, line, lnum, start + 1, token_list)
 
+def raise_unterminated_string(is_triple_quoted, line, lineno, column, tokens,
+        end_lineno, end_offset=0):
+    # same arguments as TokenError, ie 1-based offsets
+    if is_triple_quoted:
+        msg = "unterminated triple-quoted string literal (detected at line %s)" % (end_lineno, )
+    else:
+        msg = "unterminated string literal (detected at line %s)" % (end_lineno, )
+    raise TokenError(msg, line, lineno, column, tokens, end_lineno, end_offset)
+
 def potential_identifier_char(ch):
     return (ch in NAMECHARS or  # ordinary name
             ord(ch) >= 0x80)    # unicode
@@ -164,7 +173,8 @@ def generate_tokens(lines, flags):
     """
 
     token_list = []
-    lnum = continued = 0
+    lnum = 0
+    continued = False
     numchars = NUMCHARS
     contstrs, needcont = [], False
     indents = [0]
@@ -182,7 +192,7 @@ def generate_tokens(lines, flags):
     line = ''
     pos = 0
     lines.append("")
-    strstart = (0, 0, "")
+    strstart = (0, 0, "", False) # linenumber, offset, starting_line, is_triple_quoted
     for lines_index, line in enumerate(lines):
         lnum = lnum + 1
         line = universal_newline(line)
@@ -191,10 +201,10 @@ def generate_tokens(lines, flags):
 
         if contstrs:
             if not line:
-                raise TokenError(
-                    TRIPLE_QUOTE_UNTERMINATED_ERROR,
-                    strstart[2], strstart[0], strstart[1]+1,
-                    token_list, lnum-1)
+                assert strstart[3] # must be triple-quoted
+                raise_unterminated_string(strstart[3], strstart[2], strstart[0],
+                                          strstart[1] + 1, token_list,
+                                          lnum - 1, len(line))
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
                 pos = end = endmatch
@@ -207,11 +217,9 @@ def generate_tokens(lines, flags):
             elif (needcont and not line.endswith('\\\n') and
                                not line.endswith('\\\r\n')):
                 contstrs.append(line)
-                tok = Token(tokens.ERRORTOKEN, "".join(contstrs), strstart[0],
-                       strstart[1], line)
-                token_list.append(tok)
-                last_comment = ''
-                contstrs = []
+                raise_unterminated_string(strstart[3], strstart[2], strstart[0],
+                                          strstart[1] + 1, token_list,
+                                          lnum, len(line))
                 continue
             else:
                 contstrs.append(line)
@@ -289,7 +297,7 @@ def generate_tokens(lines, flags):
                 prevline = lines[lines_index - 1]
                 raise TokenError("unexpected end of file (EOF) in multi-line statement", prevline,
                                  lnum - 1, len(prevline) - 1, token_list) # XXX why is the offset 0 here?
-            continued = 0
+            continued = False
 
         while pos < max:
             pseudomatch = pseudoDFA.recognize(line, pos)
@@ -355,14 +363,14 @@ def generate_tokens(lines, flags):
                         token_list.append(tok)
                         last_comment = ''
                     else:
-                        strstart = (lnum, start, line)
+                        strstart = (lnum, start, line, True)
                         contstrs = [line[start:]]
                         break
                 elif initial in single_quoted or \
                     token[:2] in single_quoted or \
                     token[:3] in single_quoted:
                     if token[-1] == '\n':                  # continued string
-                        strstart = (lnum, start, line)
+                        strstart = (lnum, start, line, False)
                         endDFA = (endDFAs[initial] or endDFAs[token[1]] or
                                    endDFAs[token[2]])
                         contstrs, needcont = [line[start:]], True
@@ -402,7 +410,7 @@ def generate_tokens(lines, flags):
                         token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt
-                    continued = 1
+                    continued = True
                 elif initial == '$':
                     token_list.append(Token(tokens.REVDBMETAVAR, token,
                                        lnum, start, line, lnum, pos))
@@ -435,8 +443,8 @@ def generate_tokens(lines, flags):
                 if start < 0:
                     start = pos
                 if start<max and line[start] in single_quoted:
-                    raise TokenError("unterminated string literal",
-                             line, lnum, start+1, token_list)
+                    raise_unterminated_string(False, line, lnum, start+1,
+                                              token_list, lnum, len(line))
                 if line[pos] == "0":
                     raise TokenError("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
                             line, lnum, pos+1, token_list)
