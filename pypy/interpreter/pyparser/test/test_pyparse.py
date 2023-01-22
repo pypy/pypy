@@ -85,7 +85,7 @@ stuff = "nothing"
         for input in ("())", "(()", "((", "))"):
             pytest.raises(SyntaxError, parse, input)
         exc = pytest.raises(SyntaxError, parse, "x = (\n\n(),\n(),").value
-        assert exc.msg == "parenthesis is never closed"
+        assert exc.msg == "'(' was never closed"
         assert exc.lineno == 1
         assert exc.offset == 5
         assert exc.end_lineno == 5
@@ -94,7 +94,8 @@ stuff = "nothing"
         assert exc.lineno == 1
         assert exc.offset == 4
         exc = pytest.raises(SyntaxError, parse, "\\").value
-        assert exc.msg == "end of file (EOF) in multi-line statement"
+        assert exc.msg == "unexpected end of file (EOF) in multi-line statement"
+        assert exc.lineno == 1
 
     def test_is(self):
         self.parse("x is y")

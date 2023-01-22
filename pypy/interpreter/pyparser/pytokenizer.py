@@ -286,8 +286,9 @@ def generate_tokens(lines, flags):
                     parenkind, lnum1, start1, line1 = parenstack[0]
                     raise TokenError("'%s' was never closed" % (parenkind, ), line1,
                                      lnum1, start1 + 1, token_list, lnum)
-                raise TokenError("end of file (EOF) in multi-line statement", line,
-                                 lnum, 0, token_list) # XXX why is the offset 0 here?
+                prevline = lines[lines_index - 1]
+                raise TokenError("unexpected end of file (EOF) in multi-line statement", prevline,
+                                 lnum - 1, len(prevline) - 1, token_list) # XXX why is the offset 0 here?
             continued = 0
 
         while pos < max:
