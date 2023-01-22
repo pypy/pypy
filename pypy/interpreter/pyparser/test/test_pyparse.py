@@ -74,11 +74,12 @@ stuff = "nothing"
         assert exc.offset in (1, 6)
         assert exc.text.startswith("name another for")
         exc = pytest.raises(SyntaxError, parse, "x = \"blah\n\n\n").value
-        assert exc.msg == "unterminated string literal"
-        assert exc.lineno == 1
+        assert exc.msg == "unterminated string literal (detected at line 1)"
+        assert exc.lineno == exc.end_lineno == 1
         assert exc.offset == 5
+        assert exc.end_offset == 10
         exc = pytest.raises(SyntaxError, parse, "x = '''\n\n\n").value
-        assert exc.msg == pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR
+        assert exc.msg.startswith(pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR)
         assert exc.lineno == 1
         assert exc.offset == 5
         assert exc.end_lineno == 3
