@@ -1502,3 +1502,11 @@ class AppTestPartialEvaluation:
         assert res == u'\ufffd\x00\x00\x00\x00'
         res = b'\x00'.decode('utf-32', 'test.replace_with_long')
         assert res == u'\ufffd\x00\x00'
+
+    def test_replace_with_unencodable(self):
+        import _codecs
+        def replace_with_unencodable(exc):
+            return b"\xbd\xbe", exc.end
+        _codecs.register_error("test.replace_with_unencodable", replace_with_unencodable)
+        res = _codecs.utf_16_le_encode(u'[\udc80]', 'test.replace_with_unencodable')
+        assert res == (b'[\x00\xbd\xbe]\x00', 3)

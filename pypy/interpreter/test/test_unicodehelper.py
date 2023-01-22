@@ -9,6 +9,7 @@ from pypy.interpreter.unicodehelper import str_decode_utf8, utf8_encode_latin_1
 from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
 from pypy.interpreter.unicodehelper import utf8_encode_latin_1, str_decode_unicode_escape
 from pypy.interpreter.unicodehelper import str_decode_raw_unicode_escape
+from pypy.interpreter.unicodehelper import utf8_encode_utf_16_le
 from pypy.interpreter import unicodehelper as uh
 from pypy.module._codecs.interp_codecs import CodecState
 
@@ -112,4 +113,16 @@ def test_raw_unicode_escape_backslash_without_escape():
     result, _, l = str_decode_raw_unicode_escape(data, 'strict', True, None)
     assert l == len(data)
     assert result == data
+
+def test_utf16_encode_bytes_replacement_is_simply_copied():
+    def errorhandler(errors, encoding, msg, s, start, end):
+        return 'abcd', end, 'b', s
+
+    res = utf8_encode_utf_16_le(
+        b'[\xed\xb2\x80]', 'strict',
+        errorhandler=errorhandler,
+        allow_surrogates=False
+    )
+    assert res == "[\x00abcd]\x00"
+
 
