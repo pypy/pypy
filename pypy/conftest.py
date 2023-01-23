@@ -26,7 +26,7 @@ else:
     settings.load_profile('default')
 
 # PyPy's command line extra options (these are added
-# to py.test's standard options)
+# to pytest's standard options)
 #
 option = None
 
@@ -38,7 +38,11 @@ def braindead_deindent(self):
     newsource.lines[:] = short.splitlines()
     return newsource
 
-py.code.Source.deindent = braindead_deindent
+try:
+    py.code.Source.deindent = braindead_deindent
+except AttributeError:
+    # no need to dedent on py3.10+
+    pass
 
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
@@ -57,8 +61,8 @@ def pytest_configure(config):
     mode_A = config.getoption('runappdirect')
     mode_D = config.getoption('direct_apptest')
     def py3k_skip(message):
-        py.test.skip('[py3k] %s' % message)
-    py.test.py3k_skip = py3k_skip
+        pytest.skip('[py3k] %s' % message)
+    pytest.py3k_skip = py3k_skip
     if mode_D or not mode_A:
         config.addinivalue_line('python_files', APPLEVEL_FN)
     if not mode_A and not mode_D:  # 'own' tests
@@ -113,12 +117,12 @@ def space(spaceconfig):
 
 
 #
-# Interfacing/Integrating with py.test's collection process
+# Interfacing/Integrating with pytest's collection process
 #
 #
 
 def ensure_pytest_builtin_helpers(helpers='skip raises'.split()):
-    """ hack (py.test.) raises and skip into builtins, needed
+    """ hack (pytest.) raises and skip into builtins, needed
         for applevel tests to run directly on cpython but
         apparently earlier on "raises" was already added
         to module's globals.
@@ -129,11 +133,11 @@ def ensure_pytest_builtin_helpers(helpers='skip raises'.split()):
         import __builtin__ as builtins
     for helper in helpers:
         if not hasattr(builtins, helper):
-            setattr(builtins, helper, getattr(py.test, helper))
+            setattr(builtins, helper, getattr(pytest, helper))
 
 def pytest_sessionstart(session):
     """ before session.main() is called. """
-    # stick py.test raise in module globals -- carefully
+    # stick pytest raise in module globals -- carefully
     ensure_pytest_builtin_helpers()
 
 def pytest_pycollect_makemodule(path, parent):
@@ -154,7 +158,7 @@ def pytest_collection_modifyitems(config, items):
     if config.getoption('runappdirect') or config.getoption('direct_apptest'):
         return
     for item in items:
-        if isinstance(item, py.test.Function):
+        if isinstance(item, pytest.Function):
             if is_applevel(item):
                 item.add_marker('applevel')
             else:
@@ -199,7 +203,7 @@ def skip_on_missing_buildoption(**ropts):
     import sys
     options = getattr(sys, 'pypy_translation_info', None)
     if options is None:
-        py.test.skip("not running on translated pypy3 "
+        pytest.skip("not running on translated pypy3 "
                      "(btw, i would need options: %s)" %
                      (ropts,))
     for opt in ropts:
@@ -207,7 +211,7 @@ def skip_on_missing_buildoption(**ropts):
             break
     else:
         return
-    py.test.skip("need translated pypy3 with: %s, got %s"
+    pytest.skip("need translated pypy3 with: %s, got %s"
                  %(ropts,options))
 
 @pytest.hookimpl(tryfirst=True)
@@ -223,7 +227,7 @@ def pytest_runtest_setup(item):
             print('got pypy_only', config.applevel)
             if config.applevel is not None and not config.applevel.is_pypy:
                 pytest.skip('PyPy-specific test')
-        appclass = item.getparent(py.test.Class)
+        appclass = item.getparent(pytest.Class)
         if appclass is not None:
             from pypy.tool.pytest.objspace import gettestobjspace
             # Make cls.space and cls.runappdirect available in tests.
