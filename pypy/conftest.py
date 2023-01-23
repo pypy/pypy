@@ -1,7 +1,7 @@
 import py, pytest, sys, os, textwrap
 from inspect import isclass
 
-LOOK_FOR_PYTHON3 = 'python3.9'
+LOOK_FOR_PYTHON3 = 'python3.10'
 PYTHON3 = os.getenv('PYTHON3') or py.path.local.sysfind(LOOK_FOR_PYTHON3)
 if PYTHON3 is not None:
     PYTHON3 = str(PYTHON3)
@@ -133,7 +133,11 @@ def ensure_pytest_builtin_helpers(helpers='skip raises'.split()):
         import __builtin__ as builtins
     for helper in helpers:
         if not hasattr(builtins, helper):
-            setattr(builtins, helper, getattr(pytest, helper))
+            try:
+                setattr(builtins, helper, getattr(pytest, helper))
+            except AttributeError:
+                # give up
+                pass
 
 def pytest_sessionstart(session):
     """ before session.main() is called. """
