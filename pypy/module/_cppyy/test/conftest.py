@@ -1,11 +1,16 @@
-import py, sys
+import pytest, sys
 from os.path import abspath, commonprefix, dirname
 
 THIS_DIR = dirname(__file__)
 
-@py.test.mark.tryfirst
+@pytest.mark.tryfirst
 def pytest_runtest_setup(item):
-    if not disabled and py.path.local.sysfind('genreflex') is None:
+    if not disabled:
+        try:
+            import genreflex
+            return
+        except ImportError:
+            pass
         import pypy.module._cppyy.capi.loadable_capi as lcapi
         if 'dummy' in lcapi.backend_library:
             # run only tests that are covered by the dummy backend and tests
@@ -16,20 +21,20 @@ def pytest_runtest_setup(item):
             if not tst in ('test_helper.py', 'test_cppyy.py', 'test_pythonify.py',
                            'test_cpp11features.py', 'test_datatypes.py',
                            'test_pythonization.py'):
-                py.test.skip(infomsg)
+                pytest.skip(infomsg)
             import re
             if tst == 'test_pythonify.py' and \
                 not re.search("AppTestPYTHONIFY.test0[1-5]", item.location[2]):
-                py.test.skip(infomsg)
+                pytest.skip(infomsg)
             elif tst == 'test_cpp11features.py' and \
                 not re.search("AppTestCPP11FEATURES.test02", item.location[2]):
-                py.test.skip(infomsg)
+                pytest.skip(infomsg)
             elif tst == 'test_datatypes.py' and \
                 not re.search("AppTestDATATYPES.test0[1-7]", item.location[2]):
-                py.test.skip(infomsg)
+                pytest.skip(infomsg)
             elif tst == 'test_pythonization.py' and \
                 not re.search("AppTestPYTHONIZATION.test0[0]", item.location[2]):
-                py.test.skip(infomsg)
+                pytest.skip(infomsg)
 
 def pytest_ignore_collect(path, config):
     path = str(path)
@@ -44,11 +49,15 @@ if sys.maxsize > 2**32 and sys.platform == 'win32':
 
 def pytest_configure(config):
     global disabled
+    try:
+        import genreflex
+    except ImportError:
+        genreflex = None
     if disabled or config.getoption('runappdirect') or config.getoption('direct_apptest'):
-        if py.path.local.sysfind('genreflex') is None:
+        if genreflex is None:
             disabled = True  # can't run dummy tests in -A
         return
-    if py.path.local.sysfind('genreflex') is None:
+    if genreflex is None:
         import pypy.module._cppyy.capi.loadable_capi as lcapi
         try:
             import ctypes
