@@ -111,6 +111,11 @@ def test_raw_unicode_escape_backslash_without_escape():
     assert l == len(data)
     assert result == data
 
+def test_raw_unicode_escape_bug_escape_backslash():
+    data = b'\\\\'
+    res = str_decode_raw_unicode_escape(data, 'strict', True, None)
+    assert res[0] == '\\\\'
+
 def test_utf16_encode_bytes_replacement_is_simply_copied():
     def errorhandler(errors, encoding, msg, s, start, end):
         return 'abcd', end, 'b', s
