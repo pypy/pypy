@@ -787,14 +787,8 @@ def utf_8_encode(space, w_obj, errors="strict"):
     if errors is None:
         errors = 'strict'
     state = space.fromcache(CodecState)
-    try:
-        result = unicodehelper.utf8_encode_utf_8(utf8, errors,
-                     state.encode_error_handler, allow_surrogates=False)
-    except unicodehelper.ErrorHandlerError as e:
-        raise oefmt(space.w_IndexError,
-                   "position %d from error handler invalid, already encoded %d",
-                    e.new,e.old)
-
+    result = unicodehelper.utf8_encode_utf_8(utf8, errors,
+                 state.encode_error_handler, allow_surrogates=False)
     return space.newtuple2(space.newbytes(result), space.newint(lgt))
 
 @unwrap_spec(string='bufferstr', errors='text_or_none',
