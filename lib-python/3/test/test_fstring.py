@@ -14,6 +14,7 @@ import sys
 import types
 import decimal
 import unittest
+from test.support import cpython_only
 from test.support.os_helper import temp_cwd
 from test.support.script_helper import assert_python_failure
 
@@ -1307,6 +1308,7 @@ x = (
         self.assertEqual(f'{(x:=10)}', '10')
         self.assertEqual(x, 10)
 
+    @cpython_only # pypy's error message is better
     def test_invalid_syntax_error_message(self):
         with self.assertRaisesRegex(SyntaxError, "f-string: invalid syntax"):
             compile("f'{a $ b}'", "?", "exec")
