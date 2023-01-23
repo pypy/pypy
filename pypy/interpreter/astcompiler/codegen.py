@@ -1154,6 +1154,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # the spec requires that `a.b: int` evaluates `a`
             # and in a non-function scope, also evaluates `int`
             # (N.B.: if the target is of the form `a.b.c`, `a.b` will be evaluated)
+            self.check_forbidden_name(target.attr, assign)
             if not assign.value:
                 attr = target.value
                 self._annotation_evaluate(attr)

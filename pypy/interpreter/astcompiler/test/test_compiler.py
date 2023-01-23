@@ -2132,6 +2132,7 @@ x = brokenargs(c=3)
 
     def test_cant_annotate_debug(self):
         self.error_test("__debug__ : int", SyntaxError, "cannot assign to __debug__")
+        self.error_test("object.__debug__ : int", SyntaxError, "cannot assign to __debug__")
 
     def test_match(self):
         func = """

@@ -759,10 +759,6 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
                 pos -= 1
             break
         ch = s[pos]
-        if ch == "\\":
-            builder.append_char('\\')
-            pos += 1
-            continue
         if s[pos] == 'u':
             digits = 4
             message = "truncated \\uXXXX escape"
@@ -771,7 +767,7 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
             message = "truncated \\UXXXXXXXX escape"
         else:
             builder.append_char('\\')
-            builder.append_char(ch)
+            builder.append_code(ord(ch))
             pos += 1
             continue
         pos += 1
