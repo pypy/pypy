@@ -767,7 +767,7 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
             message = "truncated \\UXXXXXXXX escape"
         else:
             builder.append_char('\\')
-            builder.append_char(ch)
+            builder.append_code(ord(ch))
             pos += 1
             continue
         pos += 1

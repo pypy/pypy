@@ -116,6 +116,10 @@ def test_raw_unicode_escape_bug_escape_backslash():
     res = str_decode_raw_unicode_escape(data, 'strict', True, None)
     assert res[0] == '\\\\'
 
+    data = b'\\\xef'
+    res = str_decode_raw_unicode_escape(data, 'strict', True, None)
+    assert res[0].decode("utf-8") == u'\\\xef'
+
 def test_utf16_encode_bytes_replacement_is_simply_copied():
     def errorhandler(errors, encoding, msg, s, start, end):
         return 'abcd', end, 'b', s
