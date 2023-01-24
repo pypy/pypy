@@ -77,7 +77,7 @@ class TestASTValidator:
         check(arguments(kwonlyargs=args), "must have Load context")
         check(arguments(defaults=[self.Constant(3)]),
                        "more positional defaults than args")
-        check(arguments(kw_defaults=[ast.Constant(4)]),
+        check(arguments(kw_defaults=[self.Constant(4)]),
                        "length of kwonlyargs is not the same as kw_defaults")
         args = [ast.arg("x", ast.Name("x", ast.Load, *POS), None, *POS)]
         check(arguments(args=args, defaults=[ast.Name("x", ast.Store, *POS)]),
