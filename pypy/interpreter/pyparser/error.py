@@ -17,7 +17,14 @@ class SyntaxError(Exception):
         self.end_lineno = end_lineno
         self.end_offset = end_offset
 
-    def find_sourceline_and_wrap_info(self, space, source=None):
+    @staticmethod
+    def fromast(msg, node, filename=None):
+        return SyntaxError(msg, node.lineno, node.col_offset + 1,
+                           filename=filename,
+                           end_lineno=node.end_lineno,
+                           end_offset=node.end_col_offset + 1)
+
+    def find_sourceline_and_wrap_info(self, space, source=None, filename=None):
         """ search for the line of input that caused the error and then return
         a wrapped tuple that can be used to construct a wrapped SyntaxError.
         Optionally pass source, to get better error messages for the case where
@@ -30,11 +37,13 @@ class SyntaxError(Exception):
         w_text = w_filename = space.w_None
         offset = self.offset
         w_lineno = space.newint(self.lineno)
-        if self.filename is not None:
-            w_filename = space.newfilename(self.filename)
-        if text is None and self.filename is not None:
-            w_text = space.appexec([w_filename, w_lineno],
-                """(filename, lineno):
+        if filename is None:
+            filename = self.filename
+        if filename is not None:
+            w_filename = space.newfilename(filename)
+            if text is None:
+                w_text = space.appexec([w_filename, w_lineno],
+                    """(filename, lineno):
                     try:
                         with open(filename) as f:
                             for _ in range(lineno - 1):
@@ -42,7 +51,7 @@ class SyntaxError(Exception):
                             return f.readline()
                     except:  # we can't allow any exceptions here!
                         return None""")
-        elif text is not None:
+        if text is not None:
             from pypy.interpreter.unicodehelper import _str_decode_utf8_slowpath
             # text may not be UTF-8 in case of decoding errors.
             # adjust the encoded text offset to a decoded offset
