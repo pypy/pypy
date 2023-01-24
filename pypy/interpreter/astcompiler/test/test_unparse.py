@@ -1,5 +1,6 @@
 import pytest
 from pypy.interpreter.pyparser import pyparse
+from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.astcompiler import ast, consts
 from pypy.interpreter.astcompiler.unparse import unparse, unparse_annotations
 
@@ -126,13 +127,6 @@ class TestAstUnparser:
         self.check('1 .b')
         self.check('1.5.b')
 
-    def test_yield(self):
-        self.check('(yield)')
-        self.check('(yield 4 + 6)')
-
-    def test_yield_from(self):
-        self.check('(yield from a)')
-
     def test_call(self):
         self.check('f()')
         self.check('f(a)')
@@ -192,3 +186,10 @@ class TestAstUnparseAnnotations(object):
         func = ast.body[0]
         res = unparse_annotations(self.space, func)
         assert self.space.text_w(res.returns.value) == "await some.complicated[0].call(with_args=True or 1 is not 1)"
+
+    def test_yield_not_allowed(self):
+        ast = self.get_ast("""def f():\n    a: (yield)""")
+        func = ast.body[0]
+        with pytest.raises(SyntaxError):
+            unparse_annotations(self.space, func)
+

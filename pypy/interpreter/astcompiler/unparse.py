@@ -1,5 +1,6 @@
 from rpython.rlib.rutf8 import Utf8StringBuilder
 from rpython.rlib.objectmodel import specialize
+from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.astcompiler import ast
 
@@ -342,12 +343,7 @@ class UnparseVisitor(Utf8BuilderVisitor):
         self.append_utf8(node.attr)
 
     def visit_Yield(self, node):
-        if node.value:
-            self.append_ascii("(yield ")
-            self.append_expr(node.value)
-            self.append_ascii(")")
-        else:
-            self.append_ascii("(yield)")
+        raise SyntaxError.fromast("'yield expression' can not be used within an annotation", node)
 
     def visit_YieldFrom(self, node):
         self.append_ascii("(yield from ")

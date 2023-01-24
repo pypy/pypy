@@ -133,13 +133,13 @@ class PythonAstCompiler(PyCodeCompiler):
     def _compile_ast(self, node, info, source=None):
         from pypy.interpreter.astcompiler.unparse import unparse_annotations
         space = self.space
-        if info.flags & consts.CO_FUTURE_ANNOTATIONS:
-            node = unparse_annotations(space, node)
         try:
+            if info.flags & consts.CO_FUTURE_ANNOTATIONS:
+                node = unparse_annotations(space, node)
             mod = optimize.optimize_ast(space, node, info)
             code = codegen.compile_ast(space, mod, info)
         except parseerror.SyntaxError as e:
-            raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source))
+            raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source, info.filename))
         return code
 
     def validate_ast(self, node):
@@ -163,11 +163,11 @@ class PythonAstCompiler(PyCodeCompiler):
             mod = self.parser.parse_source(source, info)
         except parseerror.TabError as e:
             raise OperationError(space.w_TabError,
-                                 e.find_sourceline_and_wrap_info(space))
+                                 e.find_sourceline_and_wrap_info(space, source, info.filename))
         except parseerror.IndentationError as e:
-            raise OperationError(space.w_IndentationError, e.find_sourceline_and_wrap_info(space))
+            raise OperationError(space.w_IndentationError, e.find_sourceline_and_wrap_info(space, source, info.filename))
         except parseerror.SyntaxError as e:
-            raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source))
+            raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source, info.filename))
         return mod
 
     def compile(self, source, filename, mode, flags=0, hidden_applevel=False,
