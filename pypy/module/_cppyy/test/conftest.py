@@ -65,6 +65,7 @@ def pytest_configure(config):
         except Exception as e:
             # build dummy backend (which has reflex info and calls hard-wired)
             import os
+            import py
             from rpython.translator.tool.cbuild import ExternalCompilationInfo
             from rpython.translator.platform import platform, CompilationError
             from rpython.translator import cdir
