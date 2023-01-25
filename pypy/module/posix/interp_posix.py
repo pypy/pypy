@@ -17,6 +17,7 @@ from rpython.rlib.rarithmetic import (
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.rutf8 import codepoints_in_utf8
 
 from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, Unwrapper
@@ -1423,10 +1424,10 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
                             eintr_retry=False)
 
 
-@unwrap_spec(dir_fd=DirFD(rposix.HAVE_SYMLINKAT))
-def symlink(space, w_src, w_dst, w_target_is_directory=None,
+@unwrap_spec(target_is_directory=int, dir_fd=DirFD(rposix.HAVE_SYMLINKAT))
+def symlink(space, w_src, w_dst, target_is_directory=0,
             __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
-    """symlink(src, dst, target_is_directory=False, *, dir_fd=None)
+    """symlink(src, dst, target_is_directory=0, *, dir_fd=None)
 
 Create a symbolic link pointing to src named dst.
 
@@ -1440,8 +1441,19 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     if _WIN32:
-        raise oefmt(space.w_NotImplementedError,
-                    "symlink() is not implemented for PyPy on Windows")
+        src_utf8 = space.utf8_w(fspath(space, w_src))
+        dst_utf8 = space.utf8_w(fspath(space, w_dst))
+        src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
+        dst_wch = rffi.utf82wcharp(dst_utf8, codepoints_in_utf8(dst_utf8))
+        ret = rwin32.os_symlink_impl(src_wch, dst_wch, target_is_directory)
+        rffi.free_wcharp(src_wch) 
+        rffi.free_wcharp(dst_wch) 
+        if ret == 0:
+            error = rwin32.GetLastError_saved()
+            err = WindowsError(error, "symlink failed") 
+            raise wrap_oserror2(space, err, w_filename=w_src,
+                        w_filename2=w_dst, eintr_retry=False)
+        return
     try:
         if rposix.HAVE_SYMLINKAT and dir_fd != DEFAULT_DIR_FD:
             src = space.fsencode_w(w_src)
@@ -1466,6 +1478,28 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
   and path should be relative; path will then be relative to that directory.
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
+    if _WIN32:
+        size = rwin32._Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
+        with rffi.scoped_alloc_buffer(size) as target_buffer:
+            src_utf8 = space.utf8_w(fspath(space, path.w_path))
+            src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
+            result = rffi.CWCHARPP
+            result = lltype.malloc(rffi.CWCHARPP.TO, 1, flavor='raw')
+            result[0] = lltype.nullptr(rffi.CWCHARP.TO)
+            void_buf = rffi.cast(rffi.VOIDP, target_buffer.raw)
+            n = rwin32.os_readlink_impl(src_wch, void_buf,
+                                        rffi.cast(rffi.CWCHARP, result))
+            rffi.free_wcharp(src_wch)
+            if n == -1:
+                error = rwin32.GetLastError_saved()
+                err = WindowsError(error, "symlink failed") 
+                raise wrap_oserror2(space, err, w_filename=path.w_path,
+                            eintr_retry=False)
+                # error
+            if n == -2:
+                raise oefmt(space.w_RuntimeError, "unknown error in symlink") 
+            utf8, codepoints = rffi.wcharp2utf8n(result[0], n)
+        return space.newtext(utf8, codepoints)
     try:
         if rposix.HAVE_READLINKAT and dir_fd != DEFAULT_DIR_FD:
             result = call_rposix(rposix.readlinkat, path, dir_fd)
