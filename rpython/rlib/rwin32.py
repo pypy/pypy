@@ -25,7 +25,7 @@ if WIN32:
         includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winreparse.h'],
         include_dirs = [srcdir, cdir],
         libraries = ['kernel32'],
-        separate_module_files = [srcdir / "winreparse.c"],
+        separate_module_files = [os.path.join(srcdir, "winreparse.c")],
         separate_module_sources =['''
             /* Lifted completely from CPython 3 Modules/posixmodule.c */
             static void __cdecl _Py_silent_invalid_parameter_handler(
