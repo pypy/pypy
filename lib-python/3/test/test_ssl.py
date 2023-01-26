@@ -4,6 +4,7 @@ import sys
 import unittest
 import unittest.mock
 from test import support
+from test.support import cpython_only
 from test.support import import_helper
 from test.support import os_helper
 from test.support import socket_helper
@@ -348,6 +349,7 @@ class BasicSocketTests(unittest.TestCase):
         ssl.OP_NO_TLSv1_2
         self.assertEqual(ssl.PROTOCOL_TLS, ssl.PROTOCOL_SSLv23)
 
+    @cpython_only
     def test_ssl_types(self):
         ssl_types = [
             _ssl._SSLContext,
@@ -2018,13 +2020,14 @@ class SimpleBackgroundTests(unittest.TestCase):
         server.__enter__()
         self.addCleanup(server.__exit__, None, None, None)
 
-    def test_connect(self):
+    def test_connect1(self):
         with test_wrap_socket(socket.socket(socket.AF_INET),
                             cert_reqs=ssl.CERT_NONE) as s:
             s.connect(self.server_addr)
             self.assertEqual({}, s.getpeercert())
             self.assertFalse(s.server_side)
 
+    def test_connect2(self):
         # this should succeed because we specify the root cert
         with test_wrap_socket(socket.socket(socket.AF_INET),
                             cert_reqs=ssl.CERT_REQUIRED,
@@ -2111,7 +2114,7 @@ class SimpleBackgroundTests(unittest.TestCase):
         self.assertRaisesRegex(ssl.SSLError, "certificate verify failed",
                                 s.connect, self.server_addr)
 
-    def test_connect_capath(self):
+    def test_connect_capath1(self):
         # Verify server certificates using the `capath` argument
         # NOTE: the subject hashing algorithm has been changed between
         # OpenSSL 0.9.8n and 1.0.0, as a result the capath directory must
@@ -2125,6 +2128,7 @@ class SimpleBackgroundTests(unittest.TestCase):
             cert = s.getpeercert()
             self.assertTrue(cert)
 
+    def test_connect_capath2(self):
         # Same with a bytes `capath` argument
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx.load_verify_locations(capath=BYTES_CAPATH)
@@ -2134,7 +2138,7 @@ class SimpleBackgroundTests(unittest.TestCase):
             cert = s.getpeercert()
             self.assertTrue(cert)
 
-    def test_connect_cadata(self):
+    def test_connect_cadata1(self):
         with open(SIGNING_CA) as f:
             pem = f.read()
         der = ssl.PEM_cert_to_DER_cert(pem)
@@ -2146,6 +2150,10 @@ class SimpleBackgroundTests(unittest.TestCase):
             cert = s.getpeercert()
             self.assertTrue(cert)
 
+    def test_connect_cadata2(self):
+        with open(SIGNING_CA) as f:
+            pem = f.read()
+        der = ssl.PEM_cert_to_DER_cert(pem)
         # same with DER
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx.load_verify_locations(cadata=der)
@@ -2233,13 +2241,17 @@ class SimpleBackgroundTests(unittest.TestCase):
             ssl.get_server_certificate(self.server_addr, ca_certs=SIGNING_CA,
                                        timeout=0.1)
 
-    def test_ciphers(self):
+    def test_ciphers1(self):
         with test_wrap_socket(socket.socket(socket.AF_INET),
                              cert_reqs=ssl.CERT_NONE, ciphers="ALL") as s:
             s.connect(self.server_addr)
+
+    def test_ciphers2(self):
         with test_wrap_socket(socket.socket(socket.AF_INET),
                              cert_reqs=ssl.CERT_NONE, ciphers="DEFAULT") as s:
             s.connect(self.server_addr)
+
+    def test_ciphers3(self):
         # Error checking can happen at instantiation or when connecting
         with self.assertRaisesRegex(ssl.SSLError, "No cipher can be selected"):
             with socket.socket(socket.AF_INET) as sock:

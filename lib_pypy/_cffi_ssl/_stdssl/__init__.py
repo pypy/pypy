@@ -1154,7 +1154,6 @@ class _SSLContext(object):
         if lib.Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF:
             options |= lib.SSL_OP_IGNORE_UNEXPECTED_EOF
         lib.SSL_CTX_set_options(self.ctx, options)
-        lib.SSL_CTX_set_session_id_context(self.ctx, b"Python", len(b"Python"))
 
         # A bare minimum cipher list without completely broken cipher suites.
         # It's far from perfect but gives users a better head start.
@@ -1162,11 +1161,12 @@ class _SSLContext(object):
             # SSLv2 needs MD5
             default_ciphers = b"HIGH:!aNULL:!eNULL"
         else:
-            default_ciphers = b"HIGH:!aNULL:!eNULL:!MD5"
+            default_ciphers = b"DEFAULT:!aNULL:!eNULL:!MD5:!3DES:!DES:!RC4:!IDEA:!SEED:!aDSS:!SRP:!PSK"
         if not lib.SSL_CTX_set_cipher_list(self.ctx, default_ciphers):
             lib.ERR_clear_error()
             raise SSLError("No cipher can be selected.")
 
+        lib.SSL_CTX_set_mode(self.ctx, lib.SSL_MODE_RELEASE_BUFFERS)
         if HAS_ECDH:
             # Allow automatic ECDH curve selection (on
             # OpenSSL 1.0.2+), or use prime256v1 by default.
@@ -1178,6 +1178,7 @@ class _SSLContext(object):
                 key = lib.EC_KEY_new_by_curve_name(lib.NID_X9_62_prime256v1)
                 lib.SSL_CTX_set_tmp_ecdh(self.ctx, key)
                 lib.EC_KEY_free(key)
+        lib.SSL_CTX_set_session_id_context(self.ctx, b"Python", len(b"Python"))
         params = lib.SSL_CTX_get0_param(self.ctx);
         if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
             # Improve trust chain building when cross-signed intermediate
@@ -1185,6 +1186,7 @@ class _SSLContext(object):
             lib.X509_VERIFY_PARAM_set_flags(params, lib.X509_V_FLAG_TRUSTED_FIRST)
         lib.X509_VERIFY_PARAM_set_hostflags(params, self.hostflags);
         if HAS_TLSv1_3:
+            self._post_handshake_auth = 0
             lib.SSL_CTX_set_post_handshake_auth(self.ctx, self.post_handshake_auth)
         return self
 
