@@ -14,6 +14,7 @@ from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import intmask, r_longlong, widen
 from rpython.rlib import jit
+from rpython.rlib._os_support import POSIX_SIZE_T, POSIX_SSIZE_T
 
 # This module can be imported on any platform,
 # but most symbols are not usable...
@@ -98,7 +99,12 @@ if WIN32:
     c_exit_suppress_iph_del = jit.dont_look_inside(external("exit_suppress_iph",
                                   [rffi.VOIDP], lltype.Void, releasegil=False,
                                   compilation_info=eci))
-
+    c_read = external('wrap_read',
+                  [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
+                  save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=eci)
+    c_write = external('wrap_write',
+                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
+                   save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=eci)
 else:
     eci = ExternalCompilationInfo()
 

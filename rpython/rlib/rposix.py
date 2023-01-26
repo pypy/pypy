@@ -392,12 +392,8 @@ def open(path, flags, mode):
     return handle_posix_error('open', fd)
 
 if os.name == 'nt':
-    c_read = external('wrap_read',
-                  [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
-                  save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=errno_eci)
-    c_write = external('wrap_write',
-                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
-                   save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=errno_eci)
+    c_read = rwin32.c_read
+    c_write = rwin32.c_read
 else:
     c_read = external('read',
                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
