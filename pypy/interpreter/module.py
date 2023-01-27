@@ -165,6 +165,26 @@ class Module(W_Root):
             return space.call_function(w_dir)
         return space.call_function(space.w_list, w_dict)
 
+    # lazy initialization of __annotations__ if not present
+
+    def descr_get_annotations(self, space):
+        w_dict = self.w_dict
+        w_ann = space.finditem(w_dict, space.newtext('__annotations__'))
+        if w_ann is None:
+            w_ann = space.newdict()
+            space.setitem(w_dict, space.newtext('__annotations__'), w_ann)
+        return w_ann
+
+    def descr_set_annotations(self, space, w_ann):
+        space.setitem(self.w_dict, space.newtext('__annotations__'), w_ann)
+
+    def descr_del_annotations(self, space):
+        w_dict = self.w_dict
+        w_ann = space.finditem(w_dict, space.newtext('__annotations__'))
+        if w_ann is None:
+            raise oefmt(space.w_AttributeError, "__annotations__")
+        space.delitem(w_dict, space.newtext('__annotations__'))
+
     # These three methods are needed to implement '__class__' assignment
     # between a module and a subclass of module.  They give every module
     # the ability to have its '__class__' set, manually.  Note that if
