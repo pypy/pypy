@@ -204,6 +204,7 @@ class PropertyTests(unittest.TestCase):
                 return 'Second'
         self.assertEqual(A.__doc__, 'Second')
 
+    @unittest.expectedFailure # pypy has a different error message
     def test_property_set_name_incorrect_args(self):
         p = property()
 
