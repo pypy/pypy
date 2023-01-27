@@ -166,16 +166,6 @@ def connect(database, timeout=5.0, detect_types=0, isolation_level="",
 def _unicode_text_factory(x):
     return unicode(x, 'utf-8')
 
-if sys.version_info[0] < 3:
-    def OptimizedUnicode(s):
-        try:
-            val = unicode(s, "ascii").encode("ascii")
-        except UnicodeDecodeError:
-            val = unicode(s, "utf-8")
-        return val
-else:
-    OptimizedUnicode = _unicode_text_factory
-
 
 class _StatementCache(object):
     def __init__(self, connection, maxcount):
