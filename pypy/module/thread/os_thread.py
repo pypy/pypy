@@ -6,6 +6,7 @@ import os
 from signal import SIGINT
 from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
+from pypy.module.signal.interp_signal import check_signum_in_range
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, Arguments
 
@@ -270,4 +271,5 @@ A subthread can use this function to interrupt the main thread.
 Note: the default signal handler for SIGINT raises ``KeyboardInterrupt``."""
     if space.check_signal_action is None:   # no signal module!
         raise OperationError(space.w_KeyboardInterrupt, space.w_None)
+    check_signum_in_range(space, signum)
     space.check_signal_action.set_interrupt(signum)
