@@ -319,6 +319,13 @@ def test_kwargs_nondict_mapping():
     assert ('argument after ** must be a mapping, not list' in
         str(excinfo.value))
 
+def test_star_error():
+    def f(): pass
+    for expr in ["f(1, *42)", "(1, *1)", "[*1, 2]"]:
+        e = raises(TypeError, expr)
+        assert str(e.value).endswith(
+            "Value after * must be an iterable, not int")
+
 def test_default_arg():
     def func(arg1,arg2=42):
         return arg1, arg2
