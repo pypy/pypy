@@ -20,6 +20,7 @@ from functools import cached_property
 from . import _support as test_support
 from ._support import OS_ENV_LOCK, TZPATH_TEST_LOCK, ZoneInfoTestBase
 from test.support.import_helper import import_module
+from test.support import cpython_only
 
 lzma = import_module('lzma')
 py_zoneinfo, c_zoneinfo = test_support.get_modules()
@@ -1767,7 +1768,7 @@ class TestModule(ZoneInfoTestBase):
 class CTestModule(TestModule):
     module = c_zoneinfo
 
-
+@cpython_only
 class ExtensionBuiltTest(unittest.TestCase):
     """Smoke test to ensure that the C and Python extensions are both tested.
 
