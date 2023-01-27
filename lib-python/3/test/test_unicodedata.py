@@ -239,6 +239,7 @@ class UnicodeMiscTest(UnicodeDatabaseTest):
         # Ensure that the type disallows instantiation (bpo-43916)
         check_disallow_instantiation(self, unicodedata.UCD)
 
+    @cpython_only
     def test_failed_import_during_compiling(self):
         # Issue 4367
         # Decoding \N escapes requires the unicodedata module. If it can't be
