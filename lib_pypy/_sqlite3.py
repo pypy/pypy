@@ -174,20 +174,14 @@ class _StatementCache(object):
         self.cache = OrderedDict()
 
     def get(self, sql):
-        notincache = object()
-        try:
-            stat = self.cache[sql]
-        except KeyError:
-            stat = notincache
-        if stat is notincache:
-            stat = Statement(self.connection, sql)
+        stat = self.cache.get(sql, None)
+        not_there = stat is None
+        if not_there or stat._in_use_token:
+            stat = object.__new__(Statement)
+            stat.__init__(self.connection, sql)
             self.cache[sql] = stat
-            if len(self.cache) > self.maxcount:
+            if not_there and len(self.cache) > self.maxcount:
                 self.cache.popitem(0)
-        else:
-            if stat._in_use_token:
-                stat = Statement(self.connection, sql)
-                self.cache[sql] = stat
         return stat
 
 BEGIN_STATMENTS = (
@@ -1186,6 +1180,9 @@ class Statement(object):
         if _check_remaining_sql(tail):
             raise Warning("You can only execute one statement at a time.")
 
+    def __new__(cls, *args):
+        raise TypeError("cannot create '_sqlite3.Statement' instances")
+
     def __del__(self):
         if self._statement:
             self.__con._finalize_raw_statement(self._statement)
@@ -1513,5 +1510,8 @@ def adapt(val, proto=PrepareProtocol):
                 return adapted
 
     return val
+
+def enable_shared_cache(enable):
+    raise OperationalError("enable_shared_cache not supported on PyPy (and it's deprecated anyway)")
 
 register_adapters_and_converters()
