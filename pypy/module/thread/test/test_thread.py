@@ -218,6 +218,11 @@ class AppTestThread(GenericTestThread):
             _thread.start_new_thread(f, ())
             raises(KeyboardInterrupt, busy_wait)
 
+    def test_interrupt_main_wrong_arg(self):
+        import _thread
+        with raises(ValueError):
+            _thread.interrupt_main(-1)
+
     def test_interrupt_non_main(self):
         import _thread as thread, time, posix as os
         import __pypy__
