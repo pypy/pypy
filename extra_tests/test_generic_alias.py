@@ -191,6 +191,10 @@ def test_union_isinstance():
     assert issubclass(int, u2)
     assert issubclass(type(None), u2)
 
+    with pytest.raises(TypeError):
+        issubclass(int, UnionType((int, GenericAlias(dict, int))))
+    with pytest.raises(TypeError):
+        isinstance(2, UnionType((int, GenericAlias(dict, int))))
 
 def test_union_repr():
     u = UnionType((int, list))

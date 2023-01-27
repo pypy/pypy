@@ -91,7 +91,7 @@ class GenericAlias:
         raise TypeError("issubclass() argument 2 cannot be a parameterized generic")
 
     def __instancecheck__(self, other):
-        raise TypeError("issubclass() argument 2 cannot be a parameterized generic")
+        raise TypeError("isinstance() argument 2 cannot be a parameterized generic")
 
     def __reduce__(self):
         return (type(self), (self.__origin__, self.__args__))
@@ -195,6 +195,9 @@ class UnionType:
 
     def __subclasscheck__(self, other):
         for cls in self.__args__:
+            if isinstance(cls, GenericAlias):
+                raise TypeError("issubclass() argument 2 cannot contain a parameterized generic")
+        for cls in self.__args__:
             if cls is None:
                 if other is type(None):
                     return True
@@ -203,6 +206,9 @@ class UnionType:
         return False
 
     def __instancecheck__(self, instance):
+        for cls in self.__args__:
+            if isinstance(cls, GenericAlias):
+                raise TypeError("isinstance() argument 2 cannot contain a parameterized generic")
         for cls in self.__args__:
             if cls is None:
                 if instance is None:
