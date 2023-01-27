@@ -184,3 +184,16 @@ def test_class_mangling():
     class C:
         __mangled: int
     assert C.__annotations__ == {"_C__mangled": int}
+
+def test_lazy_annotation_creation():
+    for obj in [type(pytest)("abc"), type("A", (), {})]:
+        assert '__annotations__' not in obj.__dict__
+        assert obj.__annotations__ == {}
+        assert '__annotations__' in obj.__dict__
+        x = []
+        obj.__annotations__ = x
+        assert obj.__dict__['__annotations__'] is obj.__annotations__ is x
+        del obj.__annotations__
+        assert '__annotations__' not in obj.__dict__
+
+

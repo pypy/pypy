@@ -743,6 +743,9 @@ Module.typedef = TypeDef("module",
     __dict__ = GetSetProperty(descr_get_dict, cls=Module), # module dictionaries are readonly attributes
     __doc__ = 'module(name[, doc])\n\nCreate a module object.\nThe name must be a string; the optional doc argument can have any type.',
     __weakref__ = make_weakref_descr(Module),
+    __annotations__ = GetSetProperty(Module.descr_get_annotations,
+                                     Module.descr_set_annotations,
+                                     Module.descr_del_annotations),
     )
 
 getset_func_doc = GetSetProperty(Function.fget_func_doc,

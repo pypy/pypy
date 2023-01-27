@@ -785,6 +785,23 @@ class W_TypeObject(W_Root):
         return space.call_function(w_union, w_other, self)
 
 
+    # lazy initialization of __annotations__ if not present
+
+    def descr_get_annotations(self, space):
+        w_ann = self.getdictvalue(space, '__annotations__')
+        if w_ann is None:
+            w_ann = space.newdict()
+            self.setdictvalue(space, '__annotations__', w_ann)
+        return w_ann
+
+    def descr_set_annotations(self, space, w_ann):
+        self.setdictvalue(space, '__annotations__', w_ann)
+
+    def descr_del_annotations(self, space):
+        if not self.deldictvalue(space, '__annotations__'):
+            raise oefmt(space.w_AttributeError, "__annotations__")
+
+
 def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
     if len(__args__.arguments_w) not in (1, 3):
@@ -1192,6 +1209,9 @@ W_TypeObject.typedef = TypeDef("type",
     __prepare__ = gateway.interp2app(descr___prepare__, as_classmethod=True),
     __or__ = gateway.interp2app(W_TypeObject.descr_or),
     __ror__ = gateway.interp2app(W_TypeObject.descr_ror),
+    __annotations__ = GetSetProperty(W_TypeObject.descr_get_annotations,
+                                     W_TypeObject.descr_set_annotations,
+                                     W_TypeObject.descr_del_annotations),
 )
 
 
