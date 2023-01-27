@@ -196,4 +196,8 @@ def test_lazy_annotation_creation():
         del obj.__annotations__
         assert '__annotations__' not in obj.__dict__
 
-
+def test_annotation_builtin_type():
+    with pytest.raises(TypeError):
+        int.__annotations__
+    with pytest.raises(TypeError):
+        int.__annotations__ = 12
