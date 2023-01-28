@@ -25,7 +25,7 @@ if WIN32:
         includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winreparse.h'],
         include_dirs = [srcdir, cdir],
         libraries = ['kernel32'],
-        #separate_module_files = [os.path.join(srcdir, "winreparse.c")],
+        separate_module_files = [os.path.join(srcdir, "winreparse.c")],
         )
 
     def external(name, args, result, compilation_info=eci, **kwds):
@@ -640,16 +640,15 @@ if WIN32:
     # Don't save the err since this is called before checking err in rdynload
     SetErrorMode = winexternal('SetErrorMode', [rffi.UINT], rffi.UINT) 
 
-    if 0:
-        # int os_readlink_impl(wchar_t *path_to_check, char * reparse_data_buffer, 
-        #                  wchar_t *result);
-        # returns the number of wchar_t chars in result, -1 if error, for a given
-        # path_to_check. The result pointer will be somewhere inside the pre-allocated
-        # reparse_data_buffer, which should be of length _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
-        os_readlink_impl = winexternal("os_readlink_impl",
-            [rffi.CWCHARP, rffi.VOIDP, rffi.CWCHARP], rffi.INT,
-            save_err=rffi.RFFI_SAVE_ERRNO)
+    # int os_readlink_impl(wchar_t *path_to_check, char * reparse_data_buffer, 
+    #                  wchar_t *result);
+    # returns the number of wchar_t chars in result, -1 if error, for a given
+    # path_to_check. The result pointer will be somewhere inside the pre-allocated
+    # reparse_data_buffer, which should be of length _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
+    os_readlink_impl = winexternal("os_readlink_impl",
+        [rffi.CWCHARP, rffi.VOIDP, rffi.CWCHARP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
-        os_symlink_impl = winexternal("os_symlink_impl",
-            [rffi.CWCHARP, rffi.CWCHARP, rffi.INT], rffi.INT,
-            save_err=rffi.RFFI_SAVE_ERRNO)
+    os_symlink_impl = winexternal("os_symlink_impl",
+        [rffi.CWCHARP, rffi.CWCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
