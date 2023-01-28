@@ -1441,6 +1441,7 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     if _WIN32:
+        raise oefmt(space.w_NotImplementedError, "symlink not implemented")
         src_utf8 = space.utf8_w(fspath(space, w_src))
         dst_utf8 = space.utf8_w(fspath(space, w_dst))
         src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
@@ -1479,6 +1480,7 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     if _WIN32:
+        raise oefmt(space.w_NotImplementedError, "readlink not implemented")
         size = rwin32._Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
         with rffi.scoped_alloc_buffer(size) as target_buffer:
             src_utf8 = space.utf8_w(fspath(space, path.w_path))
