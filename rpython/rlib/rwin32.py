@@ -641,12 +641,12 @@ if WIN32:
     SetErrorMode = winexternal('SetErrorMode', [rffi.UINT], rffi.UINT) 
 
     # int os_readlink_impl(wchar_t *path_to_check, char * reparse_data_buffer, 
-    #                  wchar_t *result);
+    #                  wchar_t **result);
     # returns the number of wchar_t chars in result, -1 if error, for a given
     # path_to_check. The result pointer will be somewhere inside the pre-allocated
     # reparse_data_buffer, which should be of length _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
     os_readlink_impl = winexternal("os_readlink_impl",
-        [rffi.CWCHARP, rffi.VOIDP, rffi.CWCHARP], rffi.INT,
+        [rffi.CWCHARP, rffi.VOIDP, rffi.CWCHARPP], rffi.INT,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     os_symlink_impl = winexternal("os_symlink_impl",

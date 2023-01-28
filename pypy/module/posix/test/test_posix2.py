@@ -26,7 +26,7 @@ def setup_module(mod):
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
-    if sys.platform == 'darwin':
+    if sys.platform in ('darwin', 'win32'):
         # see issue https://bugs.python.org/issue31380
         bytes_dir = udir.ensure('fixc5x9fier.txt', dir=True)
         file_name = 'cafxe9'
@@ -67,6 +67,7 @@ class AppTestPosix:
         cls.w_pdir = space.wrap(str(pdir))
         cls.w_bytes_dir = space.newbytes(str(bytes_dir))
         cls.w_esurrogate_dir = space.newbytes(str(esurrogate_dir))
+        cls.w_sep = space.wrap(os.sep)
         cls.w_dir_unicode = space.wrap(unicode(dir_unicode)
                                        if dir_unicode is not None else None)
         if hasattr(os, 'getuid'):
@@ -1208,7 +1209,8 @@ class AppTestPosix:
         finally:
             posix.unlink(dest)
 
-    # XXX skip test if dir_fd is unsupported
+    
+    @pytest.mark.skipif("sys.platform == 'win32'")
     def test_symlink_fd(self):
         posix = self.posix
         bytes_dir = self.bytes_dir
@@ -1239,15 +1241,15 @@ class AppTestPosix:
         os = self.posix
         pdir = self.pdir
         src = pdir + "/somefile"
-        dest = pdir + "/file.txt"
+        dest = pdir +  self.sep + "file.txt"
+        if self.sep != "/":
+            # windows prefixes the returned value
+            dest = "\\\\?\\" + dest
         os.symlink(dest, src)
-        try:
-            assert os.readlink(src) == dest
-            assert os.readlink(src.encode()) == dest.encode()
-            assert os.readlink(self.Path(src)) == dest
-            assert os.readlink(self.Path(src.encode())) == dest.encode()
-        finally:
-            os.unlink(src)
+        assert os.readlink(src) == dest
+        assert os.readlink(src.encode()) == dest.encode()
+        assert os.readlink(self.Path(src)) == dest
+        assert os.readlink(self.Path(src.encode())) == dest.encode()
 
     if hasattr(os, 'ftruncate'):
         def test_truncate(self):

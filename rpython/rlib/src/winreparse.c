@@ -28,7 +28,7 @@ void* enter_suppress_iph();
 void exit_suppress_iph(void* handle);
 
 RPY_EXPORTED int
-os_readlink_impl(wchar_t *path_wide, void *target_buffer, wchar_t *result) {
+os_readlink_impl(wchar_t *path_wide, void *target_buffer, wchar_t **result) {
     DWORD n_bytes_returned;
     DWORD io_result = 0;
     HANDLE reparse_point_handle;
@@ -49,7 +49,7 @@ os_readlink_impl(wchar_t *path_wide, void *target_buffer, wchar_t *result) {
             reparse_point_handle,
             FSCTL_GET_REPARSE_POINT,
             0, 0, /* in buffer */
-            target_buffer, sizeof(target_buffer),
+            target_buffer, _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE,
             &n_bytes_returned,
             0 /* we're not using OVERLAPPED_IO */
             );
@@ -63,26 +63,25 @@ os_readlink_impl(wchar_t *path_wide, void *target_buffer, wchar_t *result) {
     long nameLen = 0;
     if (rdb->ReparseTag == IO_REPARSE_TAG_SYMLINK)
     {
-        result = (wchar_t *)((char*)rdb->SymbolicLinkReparseBuffer.PathBuffer +
+        result[0] = (wchar_t *)((char*)rdb->SymbolicLinkReparseBuffer.PathBuffer +
                            rdb->SymbolicLinkReparseBuffer.SubstituteNameOffset);
         nameLen = rdb->SymbolicLinkReparseBuffer.SubstituteNameLength / sizeof(wchar_t);
     }
     else if (rdb->ReparseTag == IO_REPARSE_TAG_MOUNT_POINT)
     {
-        result = (wchar_t*)((char*)rdb->MountPointReparseBuffer.PathBuffer +
+        result[0] = (wchar_t*)((char*)rdb->MountPointReparseBuffer.PathBuffer +
                            rdb->MountPointReparseBuffer.SubstituteNameOffset);
         nameLen = rdb->MountPointReparseBuffer.SubstituteNameLength / sizeof(wchar_t);
     }
     else
     {
-        result = NULL;
+        result[0] = NULL;
         return -2;
     }
-    if (nameLen > 4 && wcsncmp(result, L"\\??\\", 4) == 0) {
-        /* Our buffer is mutable, so this is okay */
-        result[1] = L'\\';
+    if (nameLen > 4 && wcsncmp(result[0], L"\\??\\", 4) == 0) {
+        result[0][1] = L'\\';
     }
-    return 0;
+    return (int)nameLen;
 }
 
 /* Remove the last portion of the path - return 0 on success */
@@ -149,7 +148,6 @@ _check_dirW(LPCWSTR src, LPCWSTR dest)
     if (_joinW(src_resolved, dest_parent, src)) {
         return 0;
     }
-    fwprintf(stdout, L"_check_dirW calling GetFileAttributesExW of %s\n", src_resolved);
     return (
         GetFileAttributesExW(src_resolved, GetFileExInfoStandard, &src_info)
         && src_info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY
