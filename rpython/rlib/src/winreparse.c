@@ -1,6 +1,7 @@
 // #define WIN32_LEAN_AND_MEAN // FSCTL_GET_REPARSE_POINT is not defined in LEAN_AND_MEAN
 #include <windows.h>
 #include <winreparse.h>
+#include <stdio.h>
 
 #ifndef RPY_EXPORTED
 #ifdef __GNUC__
@@ -9,6 +10,18 @@
 #  define RPY_EXPORTED extern __declspec(dllexport)
 #endif
 #endif
+
+static void __cdecl _silent_invalid_parameter_handler(
+    wchar_t const* expression,
+    wchar_t const* function,
+    wchar_t const* file,
+    unsigned int line,
+    uintptr_t pReserved) { }
+
+#define _BEGIN_SUPPRESS_IPH { _invalid_parameter_handler _old_handler = \
+    _set_thread_local_invalid_parameter_handler(_silent_invalid_parameter_handler);
+#define _END_SUPPRESS_IPH _set_thread_local_invalid_parameter_handler(_old_handler); }
+
 
 
 void* enter_suppress_iph();
@@ -136,6 +149,7 @@ _check_dirW(LPCWSTR src, LPCWSTR dest)
     if (_joinW(src_resolved, dest_parent, src)) {
         return 0;
     }
+    fwprintf(stdout, L"_check_dirW calling GetFileAttributesExW of %s\n", src_resolved);
     return (
         GetFileAttributesExW(src_resolved, GetFileExInfoStandard, &src_info)
         && src_info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY
@@ -155,19 +169,19 @@ os_symlink_impl(wchar_t *src, wchar_t *dst, int target_is_directory)
         flags |= SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
     }
 
-    void *handle = enter_suppress_iph();
+    _BEGIN_SUPPRESS_IPH
     /* if src is a directory, ensure flags==1 (target_is_directory bit) */
     if (target_is_directory || _check_dirW(src, dst)) {
         flags |= SYMBOLIC_LINK_FLAG_DIRECTORY;
     }
 
     result = CreateSymbolicLinkW(dst, src, flags);
-    exit_suppress_iph(handle);
+    _END_SUPPRESS_IPH
 
     if (windows_has_symlink_unprivileged_flag && !result &&
         ERROR_INVALID_PARAMETER == GetLastError()) {
 
-        void *handle = enter_suppress_iph();
+        _BEGIN_SUPPRESS_IPH
         /* This error might be caused by
         SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE not being supported.
         Try again, and update windows_has_symlink_unprivileged_flag if we
@@ -180,7 +194,7 @@ os_symlink_impl(wchar_t *src, wchar_t *dst, int target_is_directory)
         */
         flags &= ~(SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE);
         result = CreateSymbolicLinkW(dst, src, flags);
-        exit_suppress_iph(handle);
+        _END_SUPPRESS_IPH
 
         if (result || ERROR_INVALID_PARAMETER != GetLastError()) {
             windows_has_symlink_unprivileged_flag = FALSE;

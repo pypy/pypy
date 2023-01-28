@@ -1443,8 +1443,8 @@ dir_fd may not be implemented on your platform.
     if _WIN32:
         src_utf8 = space.utf8_w(fspath(space, w_src))
         dst_utf8 = space.utf8_w(fspath(space, w_dst))
-        src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
-        dst_wch = rffi.utf82wcharp(dst_utf8, codepoints_in_utf8(dst_utf8))
+        src_wch = rffi.utf82wcharp_ex(src_utf8, codepoints_in_utf8(src_utf8))
+        dst_wch = rffi.utf82wcharp_ex(dst_utf8, codepoints_in_utf8(dst_utf8))
         ret = rwin32.os_symlink_impl(src_wch, dst_wch, target_is_directory)
         rffi.free_wcharp(src_wch) 
         rffi.free_wcharp(dst_wch) 
@@ -1479,10 +1479,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     if _WIN32:
+        raise oefmt(space.w_NotImplementedError, "readlink not implemented")
         size = rwin32._Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
         with rffi.scoped_alloc_buffer(size) as target_buffer:
             src_utf8 = space.utf8_w(fspath(space, path.w_path))
-            src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
+            src_wch = rffi.utf82wcharp_ex(src_utf8, codepoints_in_utf8(src_utf8))
             result = rffi.CWCHARPP
             result = lltype.malloc(rffi.CWCHARPP.TO, 1, flavor='raw')
             result[0] = lltype.nullptr(rffi.CWCHARP.TO)
