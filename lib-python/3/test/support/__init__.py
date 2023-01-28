@@ -17,6 +17,9 @@ import warnings
 
 from .testresult import get_test_runner
 
+# This will create the _testmultiphaseimport c-extension module if it does not exist
+import _testmultiphase_build
+
 
 try:
     from _testcapi import unicode_legacy_string

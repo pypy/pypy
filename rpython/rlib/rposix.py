@@ -38,71 +38,8 @@ class CConstantErrno(CConstant):
         assert index == 0
         ll2ctypes.TLS.errno = value
 
-if os.name == 'nt':
-    includes=['errno.h','stdio.h', 'stdlib.h']
-    separate_module_sources =['''
-        /* Lifted completely from CPython 3 Modules/posixmodule.c */
-        static void __cdecl _Py_silent_invalid_parameter_handler(
-            wchar_t const* expression,
-            wchar_t const* function,
-            wchar_t const* file,
-            unsigned int line,
-            uintptr_t pReserved) {
-        }
-
-        RPY_EXTERN void* enter_suppress_iph(void)
-        {
-            void* ret = _set_thread_local_invalid_parameter_handler(_Py_silent_invalid_parameter_handler);
-            /*fprintf(stdout, "setting %p returning %p\\n", (void*)_Py_silent_invalid_parameter_handler, ret);*/
-            return ret;
-        }
-        RPY_EXTERN void exit_suppress_iph(void*  old_handler)
-        {
-            void * ret;
-            _invalid_parameter_handler _handler = (_invalid_parameter_handler)old_handler;
-            ret = _set_thread_local_invalid_parameter_handler(_handler);
-            /*fprintf(stdout, "exiting, setting %p returning %p\\n", old_handler, ret);*/
-        }
-        RPY_EXTERN size_t wrap_write(int fd, const void* data, size_t count)
-        {
-            _invalid_parameter_handler old = enter_suppress_iph();
-            if (count > 32767 && _isatty(fd)) {
-                // CPython Issue #11395, PyPy Issue #2636: the Windows console
-                // returns an error (12: not enough space error) on writing into
-                // stdout if stdout mode is binary and the length is greater than
-                // 66,000 bytes (or less, depending on heap usage).  Can't easily
-                // test that, because we need 'fd' to be non-redirected...
-                count = 32767;
-            }
-            else if (count > 0x7fffffff)
-            {
-                count = 0x7fffffff;
-            }
-            size_t ret = _write(fd, data, count);
-            exit_suppress_iph(old);
-            return ret;
-        }
-        RPY_EXTERN size_t wrap_read(int fd, const void* buffer, size_t buffer_size)
-        {
-            _invalid_parameter_handler old = enter_suppress_iph();
-            size_t ret = _read(fd, buffer, buffer_size);
-            exit_suppress_iph(old);
-            return ret;
-        }
-    ''',]
-    post_include_bits=['RPY_EXTERN void* enter_suppress_iph();',
-                       'RPY_EXTERN void exit_suppress_iph(void* handle);',
-                       'RPY_EXTERN size_t wrap_write(int, const void*, size_t);',
-                       'RPY_EXTERN size_t wrap_read(int, const void*, size_t);',
-                      ]
-else:
-    separate_module_sources = []
-    post_include_bits = []
-    includes=['errno.h','stdio.h']
 errno_eci = ExternalCompilationInfo(
-    includes=includes,
-    separate_module_sources=separate_module_sources,
-    post_include_bits=post_include_bits,
+    includes=['errno.h','stdio.h']
 )
 
 # Direct getters/setters, don't use directly!
@@ -225,30 +162,17 @@ def external(name, args, result, compilation_info=eci, **kwds):
 
 
 if os.name == 'nt':
-    # is_valid_fd is useful only on MSVC9, and should be deprecated. With it
-    c_enter_suppress_iph = jit.dont_look_inside(external("enter_suppress_iph",
-                                  [], rffi.VOIDP, compilation_info=errno_eci))
-    c_exit_suppress_iph = jit.dont_look_inside(external("exit_suppress_iph",
-                                  [rffi.VOIDP], lltype.Void,
-                                  compilation_info=errno_eci))
-    c_enter_suppress_iph_del = jit.dont_look_inside(external("enter_suppress_iph",
-                                  [], rffi.VOIDP, compilation_info=errno_eci,
-                                  releasegil=False))
-    c_exit_suppress_iph_del = jit.dont_look_inside(external("exit_suppress_iph",
-                                  [rffi.VOIDP], lltype.Void, releasegil=False,
-                                  compilation_info=errno_eci))
-
     class SuppressIPH_del(object):
 
         def __init__(self):
             pass
 
         def __enter__(self):
-            self.invalid_param_hndlr = c_enter_suppress_iph_del()
+            self.invalid_param_hndlr = rwin32.c_enter_suppress_iph_del()
             return self
 
         def __exit__(self, *args):
-            c_exit_suppress_iph_del(self.invalid_param_hndlr)
+            rwin32.c_exit_suppress_iph_del(self.invalid_param_hndlr)
 
     class SuppressIPH(object):
 
@@ -256,11 +180,11 @@ if os.name == 'nt':
             pass
 
         def __enter__(self):
-            self.invalid_param_hndlr = c_enter_suppress_iph()
+            self.invalid_param_hndlr = rwin32.c_enter_suppress_iph()
             return self
 
         def __exit__(self, *args):
-            c_exit_suppress_iph(self.invalid_param_hndlr)
+            rwin32.c_exit_suppress_iph(self.invalid_param_hndlr)
 
 else:
     class SuppressIPH(object):
@@ -468,12 +392,8 @@ def open(path, flags, mode):
     return handle_posix_error('open', fd)
 
 if os.name == 'nt':
-    c_read = external('wrap_read',
-                  [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
-                  save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=errno_eci)
-    c_write = external('wrap_write',
-                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
-                   save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=errno_eci)
+    c_read = rwin32.c_read
+    c_write = rwin32.c_read
 else:
     c_read = external('read',
                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,

@@ -10,19 +10,101 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
+from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import intmask, r_longlong, widen
 from rpython.rlib import jit
+from rpython.rlib._os_support import POSIX_SIZE_T, POSIX_SSIZE_T
 
 # This module can be imported on any platform,
 # but most symbols are not usable...
 WIN32 = os.name == "nt"
+srcdir = os.path.join(os.path.dirname(__file__), 'src')
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h'],
+        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winreparse.h'],
+        include_dirs = [srcdir, cdir],
         libraries = ['kernel32'],
+        separate_module_files = [os.path.join(srcdir, "winreparse.c")],
+        separate_module_sources =['''
+            /* Lifted completely from CPython 3 Modules/posixmodule.c */
+            static void __cdecl _Py_silent_invalid_parameter_handler(
+                wchar_t const* expression,
+                wchar_t const* function,
+                wchar_t const* file,
+                unsigned int line,
+                uintptr_t pReserved) {
+            }
+
+            RPY_EXTERN void* enter_suppress_iph(void)
+            {
+                void* ret = _set_thread_local_invalid_parameter_handler(_Py_silent_invalid_parameter_handler);
+                /*fprintf(stdout, "setting %p returning %p\\n", (void*)_Py_silent_invalid_parameter_handler, ret);*/
+                return ret;
+            }
+            RPY_EXTERN void exit_suppress_iph(void*  old_handler)
+            {
+                void * ret;
+                _invalid_parameter_handler _handler = (_invalid_parameter_handler)old_handler;
+                ret = _set_thread_local_invalid_parameter_handler(_handler);
+                /*fprintf(stdout, "exiting, setting %p returning %p\\n", old_handler, ret);*/
+            }
+            RPY_EXTERN size_t wrap_write(int fd, const void* data, size_t count)
+            {
+                _invalid_parameter_handler old = enter_suppress_iph();
+                if (count > 32767 && _isatty(fd)) {
+                    // CPython Issue #11395, PyPy Issue #2636: the Windows console
+                    // returns an error (12: not enough space error) on writing into
+                    // stdout if stdout mode is binary and the length is greater than
+                    // 66,000 bytes (or less, depending on heap usage).  Can't easily
+                    // test that, because we need 'fd' to be non-redirected...
+                    count = 32767;
+                }
+                else if (count > 0x7fffffff)
+                {
+                    count = 0x7fffffff;
+                }
+                size_t ret = _write(fd, data, count);
+                exit_suppress_iph(old);
+                return ret;
+            }
+            RPY_EXTERN size_t wrap_read(int fd, const void* buffer, size_t buffer_size)
+            {
+                _invalid_parameter_handler old = enter_suppress_iph();
+                size_t ret = _read(fd, buffer, buffer_size);
+                exit_suppress_iph(old);
+                return ret;
+            }
+        ''',],
+        post_include_bits=['RPY_EXTERN void* enter_suppress_iph();',
+                           'RPY_EXTERN void exit_suppress_iph(void* handle);',
+                           'RPY_EXTERN size_t wrap_write(int, const void*, size_t);',
+                           'RPY_EXTERN size_t wrap_read(int, const void*, size_t);',
+                          ],
         )
+
+    def external(name, args, result, compilation_info=eci, **kwds):
+        return rffi.llexternal(name, args, result,
+                               compilation_info=compilation_info, **kwds)
+
+    c_enter_suppress_iph = jit.dont_look_inside(external("enter_suppress_iph",
+                                  [], rffi.VOIDP, compilation_info=eci))
+    c_exit_suppress_iph = jit.dont_look_inside(external("exit_suppress_iph",
+                                  [rffi.VOIDP], lltype.Void,
+                                  compilation_info=eci))
+    c_enter_suppress_iph_del = jit.dont_look_inside(external("enter_suppress_iph",
+                                  [], rffi.VOIDP, compilation_info=eci,
+                                  releasegil=False))
+    c_exit_suppress_iph_del = jit.dont_look_inside(external("exit_suppress_iph",
+                                  [rffi.VOIDP], lltype.Void, releasegil=False,
+                                  compilation_info=eci))
+    c_read = external('wrap_read',
+                  [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
+                  save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=eci)
+    c_write = external('wrap_write',
+                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
+                   save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=eci)
 else:
     eci = ExternalCompilationInfo()
 
@@ -119,6 +201,7 @@ class CConfig:
                        CP_ACP CP_UTF8 CP_UTF7 CP_OEMCP MB_ERR_INVALID_CHARS
                        LOAD_LIBRARY_SEARCH_DEFAULT_DIRS SEM_FAILCRITICALERRORS
                        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
+                       _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -629,3 +712,16 @@ if WIN32:
 
     # Don't save the err since this is called before checking err in rdynload
     SetErrorMode = winexternal('SetErrorMode', [rffi.UINT], rffi.UINT) 
+
+    # int os_readlink_impl(wchar_t *path_to_check, char * reparse_data_buffer, 
+    #                  wchar_t *result);
+    # returns the number of wchar_t chars in result, -1 if error, for a given
+    # path_to_check. The result pointer will be somewhere inside the pre-allocated
+    # reparse_data_buffer, which should be of length _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
+    os_readlink_impl = winexternal("os_readlink_impl",
+        [rffi.CWCHARP, rffi.VOIDP, rffi.CWCHARP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    os_symlink_impl = winexternal("os_symlink_impl",
+        [rffi.CWCHARP, rffi.CWCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)

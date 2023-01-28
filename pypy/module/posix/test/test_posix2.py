@@ -1187,75 +1187,67 @@ class AppTestPosix:
             expected = min(myprio + 3, 19)
             assert os.WEXITSTATUS(status1) == expected
 
-    if sys.platform != 'win32':
-        @pytest.mark.skipif("config.option.runappdirect and sys.platform == 'darwin'")
-        def test_symlink(self):
-            posix = self.posix
-            bytes_dir = self.bytes_dir
-            if bytes_dir is None:
-                skip("encoding not good enough")
-            dest = bytes_dir + b"/file.txt"
-            posix.symlink(bytes_dir + b"/somefile", dest)
-            try:
-                with open(dest) as f:
-                    data = f.read()
-                    assert data == "who cares?"
-            finally:
-                posix.unlink(dest)
-            posix.symlink(memoryview(bytes_dir + b"/somefile"), dest)
-            try:
-                with open(dest) as f:
-                    data = f.read()
-                    assert data == "who cares?"
-            finally:
-                posix.unlink(dest)
+    def test_symlink(self):
+        posix = self.posix
+        bytes_dir = self.bytes_dir
+        if bytes_dir is None:
+            skip("encoding not good enough")
+        dest = bytes_dir + b"/file.txt"
+        posix.symlink(bytes_dir + b"/somefile", dest)
+        try:
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
+        finally:
+            posix.unlink(dest)
+        posix.symlink(memoryview(bytes_dir + b"/somefile"), dest)
+        try:
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
+        finally:
+            posix.unlink(dest)
 
-        # XXX skip test if dir_fd is unsupported
-        def test_symlink_fd(self):
-            posix = self.posix
-            bytes_dir = self.bytes_dir
-            f = posix.open(bytes_dir, posix.O_RDONLY)
-            try:
-                posix.symlink('somefile', 'somelink', dir_fd=f)
-                assert (posix.readlink(bytes_dir + '/somelink'.encode()) ==
-                        'somefile'.encode())
-            finally:
-                posix.close(f)
-                posix.unlink(bytes_dir + '/somelink'.encode())
+    # XXX skip test if dir_fd is unsupported
+    def test_symlink_fd(self):
+        posix = self.posix
+        bytes_dir = self.bytes_dir
+        f = posix.open(bytes_dir, posix.O_RDONLY)
+        try:
+            posix.symlink('somefile', 'somelink', dir_fd=f)
+            assert (posix.readlink(bytes_dir + '/somelink'.encode()) ==
+                    'somefile'.encode())
+        finally:
+            posix.close(f)
+            posix.unlink(bytes_dir + '/somelink'.encode())
 
-        def test_symlink_fspath(self):
-            posix = self.posix
-            bytes_dir = self.bytes_dir
-            if bytes_dir is None:
-                skip("encoding not good enough")
-            dest = self.Path(bytes_dir + b"/file.txt")
-            posix.symlink(self.Path(bytes_dir + b"/somefile"), dest)
-            try:
-                with open(dest) as f:
-                    data = f.read()
-                    assert data == "who cares?"
-            finally:
-                posix.unlink(dest)
+    def test_symlink_fspath(self):
+        posix = self.posix
+        bytes_dir = self.bytes_dir
+        if bytes_dir is None:
+            skip("encoding not good enough")
+        dest = self.Path(bytes_dir + b"/file.txt")
+        posix.symlink(self.Path(bytes_dir + b"/somefile"), dest)
+        try:
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
+        finally:
+            posix.unlink(dest)
 
-        def test_readlink(self):
-            os = self.posix
-            pdir = self.pdir
-            src = pdir + "/somefile"
-            dest = pdir + "/file.txt"
-            os.symlink(dest, src)
-            try:
-                assert os.readlink(src) == dest
-                assert os.readlink(src.encode()) == dest.encode()
-                assert os.readlink(self.Path(src)) == dest
-                assert os.readlink(self.Path(src.encode())) == dest.encode()
-            finally:
-                os.unlink(src)
-
-    else:
-        def test_symlink(self):
-            posix = self.posix
-            with raises(NotImplementedError):
-                posix.symlink('a', 'b')
+    def test_readlink(self):
+        os = self.posix
+        pdir = self.pdir
+        src = pdir + "/somefile"
+        dest = pdir + "/file.txt"
+        os.symlink(dest, src)
+        try:
+            assert os.readlink(src) == dest
+            assert os.readlink(src.encode()) == dest.encode()
+            assert os.readlink(self.Path(src)) == dest
+            assert os.readlink(self.Path(src.encode())) == dest.encode()
+        finally:
+            os.unlink(src)
 
     if hasattr(os, 'ftruncate'):
         def test_truncate(self):
