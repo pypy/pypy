@@ -16,12 +16,16 @@ class suspend:
         yield self.msg
 
 
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_cannot_iterate():
     async def f(x):
         pass
-    pytest.raises(TypeError, "for i in f(5): pass")
-    pytest.raises(TypeError, iter, f(5))
-    pytest.raises(TypeError, next, f(5))
+    
+    with raises(TypeError):
+        for i in f(5):
+             pass
+    raises(TypeError, iter, f(5))
+    raises(TypeError, next, f(5))
 
 
 def test_async_for():
@@ -428,7 +432,8 @@ def test_async_yield_athrow_throw():
     async def ag():
         yield 42
 
-    raises(RuntimeError, ag().athrow(ValueError).throw, LookupError)
+    with raises(LookupError):
+        ag().athrow(ValueError).throw(LookupError)
     # CPython's message makes little sense; PyPy's message is different
 
 def test_async_yield_athrow_while_running():
