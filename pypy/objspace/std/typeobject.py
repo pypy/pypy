@@ -790,6 +790,10 @@ class W_TypeObject(W_Root):
     def descr_get_annotations(self, space):
         w_ann = self.getdictvalue(space, '__annotations__')
         if w_ann is None:
+            if not self.is_heaptype():
+                raise oefmt_attribute_error(
+                    space, self, space.newtext("__annotations__"),
+                    "type object '%N' has no attribute %R")
             w_ann = space.newdict()
             self.setdictvalue(space, '__annotations__', w_ann)
         return w_ann

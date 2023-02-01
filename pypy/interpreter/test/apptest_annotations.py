@@ -197,8 +197,8 @@ def test_lazy_annotation_creation():
         assert '__annotations__' not in obj.__dict__
 
 def test_annotation_builtin_type():
-    assert getattr(int, "__annotations__", None) is None
-    with pytest.raises(TypeError):
+    with pytest.raises(AttributeError):
         int.__annotations__
     with pytest.raises(TypeError):
         int.__annotations__ = 12
+    assert getattr(int, "__annotations__", None) is None
