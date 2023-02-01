@@ -72,8 +72,6 @@ getattr(x, 'y') is equivalent to ``x.y''."""
         if w_defvalue is not None:
             if e.match(space, space.w_AttributeError):
                 return w_defvalue
-            if e.match(space, space.w_TypeError) and space.eq_w(w_name, space.newtext("__annotations__")):
-                return w_defvalue
         raise
 
 def hasattr(space, w_object, w_name):
