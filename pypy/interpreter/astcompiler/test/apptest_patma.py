@@ -275,3 +275,19 @@ def fstringbug():
 """)
     assert info.value.msg == "patterns may only match literals and attribute lookups"
 
+
+def test_collections_abcs():
+    import collections.abc
+    class Seq(collections.abc.Sequence):
+        __getitem__ = None
+
+        def __init__(self, l):
+            self.l = l
+
+        def __len__(self):
+            return self.l
+    match Seq(0):
+        case []:
+            y = 0
+    assert y == 0
+
