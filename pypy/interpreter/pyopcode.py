@@ -1722,12 +1722,12 @@ class __extend__(pyframe.PyFrame):
 
     def MATCH_SEQUENCE(self, oparg, next_instr):
         w_sequence = self.peekvalue()
-        # the semantics of "being a sequence" is a huge mess. CPython checks a
-        # flag in the type, which we don't consistently have. Instead, our
-        # space.issequence_w falls back to the presence of __getitem__, but
-        # this then includes str and bytes. Exclude those explicitly for now
         space = self.space
-        is_sequence = (space.issequence_w(w_sequence) and not
+        is_sequence = space.issequence_w(w_sequence)
+        if not is_sequence:
+            is_sequence = space.w_type(w_sequence).flag_patma_collection == "S"
+
+        is_sequence = (is_sequence and not
                 space.isinstance_w(w_sequence, space.w_unicode) and not
                 space.isinstance_w(w_sequence, space.w_bytes) and not
                 space.isinstance_w(w_sequence, space.w_bytearray))

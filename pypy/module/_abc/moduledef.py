@@ -14,4 +14,6 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
+        "_internal_set_collection_flag_recursive": "interp_abc.set_collection_flag_recursive",
+        "_internal_set_collection_flag": "interp_abc.set_collection_flag",
     }

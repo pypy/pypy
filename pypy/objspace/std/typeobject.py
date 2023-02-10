@@ -16,6 +16,9 @@ from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.rutf8 import CheckError, check_utf8, surrogate_in_utf8
 
+PATMA_SEQUENCE = 1 << 5
+PATMA_MAPPING = 1 << 6
+
 class MutableCell(W_Root):
     def unwrap_cell(self, space):
         raise NotImplementedError("abstract base")
@@ -162,6 +165,7 @@ class W_TypeObject(W_Root):
                           "flag_cpytype",
                           "flag_abstract?",
                           "flag_sequence_bug_compat",
+                          "flag_patma_collection?",
                           "flag_map_or_seq",    # '?' or 'M' or 'S'
                           "compares_by_identity_status?",
                           'hasuserdel',
@@ -207,6 +211,7 @@ class W_TypeObject(W_Root):
         self.flag_heaptype = is_heaptype
         self.flag_abstract = False
         self.flag_sequence_bug_compat = False
+        self.flag_patma_collection = "X" # can be "X", "M", "S", set in the _abc module
         self.flag_map_or_seq = '?'   # '?' means "don't know, check otherwise"
 
         self.layout = None  # the lines below may try to access self.layout
@@ -1126,6 +1131,10 @@ def descr__flags(space, w_type):
         flags |= _CPYTYPE
     if w_type.flag_abstract:
         flags |= _ABSTRACT
+    if w_type.flag_patma_collection == "M":
+        flags |= PATMA_MAPPING
+    elif w_type.flag_patma_collection == "S":
+        flags |= PATMA_SEQUENCE
     return space.newint(flags)
 
 def descr_get__module(space, w_type):

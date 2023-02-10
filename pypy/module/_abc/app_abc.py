@@ -4,7 +4,10 @@ Plain Python definition of the builtin ABC-related functions.
 """
 
 # Cannot use _weakrefset like in _py_abc.py, since it is not a built-in module
+import _abc
 from _weakref import ref
+
+COLLECTION_FLAGS = (1 << 5) | (1 << 6) # Py_TPFLAGS_SEQUENCE | Py_TPFLAGS_MAPPING
 
 # We'll make our own WeakSet instead, with only the functionality that's needed
 # This replaces the easily-forgetable calls to '_add_to_weak_set' and
@@ -73,6 +76,14 @@ def _abc_init(cls):
     cls._abc_negative_cache = SimpleWeakSet()
     cls._abc_negative_cache_version = abc_invalidation_counter
 
+    if isinstance(cls, type):
+        flags = cls.__dict__.get("__abc_tpflags__")
+        if flags is not None:
+            if flags & COLLECTION_FLAGS == COLLECTION_FLAGS:
+                raise TypeError("__abc_tpflags__ cannot be both Py_TPFLAGS_SEQUENCE and Py_TPFLAGS_MAPPING")
+            _abc._internal_set_collection_flag(cls, flags)
+            del cls.__abc_tpflags__
+
 
 def _abc_register(cls, subclass):
     """Internal ABC helper for subclasss registration. Should be never used outside abc module."""
@@ -88,6 +99,10 @@ def _abc_register(cls, subclass):
     cls._abc_registry.add(subclass)
     global abc_invalidation_counter
     abc_invalidation_counter += 1  # Invalidate negative cache
+    if isinstance(cls, type):
+        collection_flag = cls.__flags__ & COLLECTION_FLAGS
+        if collection_flag:
+            _abc._internal_set_collection_flag_recursive(subclass, collection_flag)
     return subclass
 
 
