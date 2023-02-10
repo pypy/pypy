@@ -2124,8 +2124,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if star_index >= 0:
             self.emit_op_arg(ops.UNPACK_EX, left + (right << 8))
             # stack = [(1,2,3,4,5), 5, 4, (2, 3), 1]
-        else:
+        elif length > 0:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
+        else:
+            self.emit_op(ops.POP_TOP)
 
         match_context.on_top += length
         with self.sub_pattern_context():
