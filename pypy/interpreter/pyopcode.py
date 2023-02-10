@@ -1723,14 +1723,18 @@ class __extend__(pyframe.PyFrame):
     def MATCH_SEQUENCE(self, oparg, next_instr):
         w_sequence = self.peekvalue()
         space = self.space
-        is_sequence = space.issequence_w(w_sequence)
-        if not is_sequence:
-            is_sequence = space.w_type(w_sequence).flag_patma_collection == "S"
+        flag_patma_collection = space.type(w_sequence).flag_patma_collection
+        if flag_patma_collection == "M": # a mapping!
+            is_sequence = False
+        else:
+            is_sequence = space.issequence_w(w_sequence)
+            if not is_sequence:
+                is_sequence = flag_patma_collection == "S"
 
-        is_sequence = (is_sequence and not
-                space.isinstance_w(w_sequence, space.w_unicode) and not
-                space.isinstance_w(w_sequence, space.w_bytes) and not
-                space.isinstance_w(w_sequence, space.w_bytearray))
+            is_sequence = (is_sequence and not
+                    space.isinstance_w(w_sequence, space.w_unicode) and not
+                    space.isinstance_w(w_sequence, space.w_bytes) and not
+                    space.isinstance_w(w_sequence, space.w_bytearray))
         self.pushvalue(space.newbool(is_sequence))
 
     def MATCH_MAPPING(self, oparg, next_instr):
