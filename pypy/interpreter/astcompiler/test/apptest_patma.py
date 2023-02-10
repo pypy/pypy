@@ -291,3 +291,8 @@ def test_collections_abcs():
             y = 0
     assert y == 0
 
+    match Seq(34):
+        case [*_]:
+            y = 10
+    assert y == 10
+
