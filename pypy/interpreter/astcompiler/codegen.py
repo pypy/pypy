@@ -2084,9 +2084,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
         # stack = [(1,2,3,4,5)]
 
-        self.emit_op(ops.GET_LEN)
-        # stack = [(1,2,3,4,5), 5]
-
         star_index = -1
         star_captures = False
         for i, pattern in enumerate(patterns):
@@ -2098,22 +2095,29 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         length = len(patterns)
         if star_index >= 0:
-            self.load_const(self.space.newint(length - 1))
-            # stack = [(1,2,3,4,5), 3]
+            if length > 1:
+                self.emit_op(ops.GET_LEN)
+                # stack = [(1,2,3,4,5), 5]
+                self.load_const(self.space.newint(length - 1))
+                # stack = [(1,2,3,4,5), 3]
 
-            self.emit_compare(ast.GtE)
-            # stack = [(1,2,3,4,5), True]
+                self.emit_compare(ast.GtE)
+                # stack = [(1,2,3,4,5), True]
 
-            left = star_index
-            right = length - star_index - 1
+                left = star_index
+                right = length - star_index - 1
+                match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+                # stack = [(1,2,3,4,5)]
         else:
+            self.emit_op(ops.GET_LEN)
+            # stack = [(1,2,3,4,5), 5]
             self.load_const(self.space.newint(length))
             self.emit_compare(ast.Eq)
             left = length - 1
             right = 0
+            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+            # stack = [(1,2,3,4,5)]
 
-        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
-        # stack = [(1,2,3,4,5)]
 
         match_context.on_top -= 1 # the rest consumes the subject
 

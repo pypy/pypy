@@ -296,3 +296,12 @@ def test_collections_abcs():
             y = 10
     assert y == 10
 
+def test_sequence_doesnt_need_length():
+    class A:
+        def __getitem__(self, x):
+            return 1
+    match A():
+        case [*_]:
+            y = 10
+    assert y == 10
+
