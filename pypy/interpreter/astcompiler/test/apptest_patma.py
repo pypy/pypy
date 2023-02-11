@@ -305,3 +305,12 @@ def test_sequence_doesnt_need_length():
             y = 10
     assert y == 10
 
+def test_collections_abc_mapping():
+    import collections.abc
+    class A:
+        pass
+    collections.abc.Mapping.register(A)
+    match A():
+        case [*_]: assert 0, "unreachable"
+        case {}: x = 11121
+    assert x == 11121

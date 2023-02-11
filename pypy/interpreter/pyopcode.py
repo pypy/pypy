@@ -1727,9 +1727,9 @@ class __extend__(pyframe.PyFrame):
         if flag_patma_collection == "M": # a mapping!
             is_sequence = False
         else:
-            is_sequence = space.issequence_w(w_sequence)
+            is_sequence = flag_patma_collection == "S"
             if not is_sequence:
-                is_sequence = flag_patma_collection == "S"
+                is_sequence = space.issequence_w(w_sequence)
 
             is_sequence = (is_sequence and not
                     space.isinstance_w(w_sequence, space.w_unicode) and not
@@ -1739,7 +1739,13 @@ class __extend__(pyframe.PyFrame):
 
     def MATCH_MAPPING(self, oparg, next_instr):
         w_mapping = self.peekvalue()
-        is_mapping = self.space.ismapping_w(w_mapping)
+        flag_patma_collection = self.space.type(w_mapping).flag_patma_collection
+        if flag_patma_collection == "S": # sequence
+            is_mapping = False
+        else:
+            is_mapping = flag_patma_collection == "M"
+            if not is_mapping:
+                is_mapping = self.space.ismapping_w(w_mapping)
         self.pushvalue(self.space.newbool(is_mapping))
 
     def MATCH_CLASS(self, oparg, next_instr):
