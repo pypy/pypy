@@ -1441,6 +1441,8 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     if _WIN32:
+        raise oefmt(space.w_NotImplementedError,
+                    "symlink() is not implemented for PyPy on Windows")
         src_utf8 = space.fsencode_w(w_src)
         dst_utf8 = space.fsencode_w(w_dst)
         src_wch = rffi.utf82wcharp_ex(src_utf8, codepoints_in_utf8(src_utf8))
