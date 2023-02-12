@@ -314,3 +314,11 @@ def test_collections_abc_mapping():
         case [*_]: assert 0, "unreachable"
         case {}: x = 11121
     assert x == 11121
+
+    class B(A): # made after registering
+        pass
+
+    match B():
+        case [*_]: assert 0, "unreachable"
+        case {}: x = 111213434
+    assert x == 111213434
