@@ -30,7 +30,7 @@ from io import BytesIO, StringIO
 
 import unittest
 from test import support
-from test.support import os_helper
+from test.support import os_helper, cpython_only
 from test.support import threading_helper
 
 
@@ -299,6 +299,8 @@ class RequestHandlerLoggingTestCase(BaseTestCase):
 
         def do_GET(self):
             self.send_response(HTTPStatus.OK)
+            # Needed for PyPy ???
+            self.send_header('Connection', 'close')
             self.end_headers()
 
         def do_ERROR(self):
