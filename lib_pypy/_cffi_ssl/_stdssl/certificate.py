@@ -7,13 +7,114 @@ from _cffi_ssl._stdssl.utility import _string_from_asn1, _str_with_len, _bytes_w
 from _cffi_ssl._stdssl.error import ssl_error, pyssl_error
 
 X509_NAME_MAXLEN = 256
+PY_SSL_ENCODING_PEM = lib.SSL_FILETYPE_PEM
+PY_SSL_ENCODING_PEM_AUX = PY_SSL_ENCODING_PEM + 0x100
+PY_SSL_ENCODING_DER = lib.SSL_FILETYPE_ASN1
+
+
+def _PySSL_BytesFromBio(bio):
+    data = ffi.new("char **")
+    size = lib.BIO_get_mem_data(bio, data)
+    if not data[0] or size < 0:
+       raise ValueError("Not a memory BIO")
+    return _bytes_with_len(data[0], size)
+
+def _PySSL_UnicodeFromBio(bio):
+    data = ffi.new("char **")
+    size = lib.BIO_get_mem_data(bio, data)
+    if not data[0] or size < 0:
+       raise ValueError("Not a memory BIO")
+    return _str_with_len(data[0], size)
+
+class Certificate:
+    def __new__(self, *args, **kwargs):
+        raise TypeError("cannot create '_ssl.Certificate' instances")
+
+    def __del__(self):
+        if self._cert:
+            lib.X509_free(self._cert)  
+            self._cert = None
+
+    def _finalize(self):
+        if self._cert:
+            lib.X509_free(self._cert)  
+            self._cert = None
+
+    def __init__(self, cert, upref):
+        self._cert = cert
+        self._hash = -1
+        if upref == 1:
+            lib.X509_up_ref(cert)
+
+    def public_bytes(self, format=PY_SSL_ENCODING_PEM):
+        bio = lib.BIO_new(lib.BIO_s_mem())
+        if format == PY_SSL_ENCODING_PEM:
+            retcode = lib.PEM_write_bio_X509(bio, self._cert)
+        elif format == PY_SSL_ENCODING_PEM_AUX:
+            retcode = lib.PEM_write_bio_X509_AUX(bio, self._cert)
+        elif format == PY_SSL_ENCODING_DER:
+            retcode = lib.i2d_X509_bio(bio, self._cert)
+        else:
+            lib.BIO_free(bio) 
+            raise ValueError("Unsupported format")
+        try:
+            if retcode != 1:
+                raise ssl_error(None)
+            if format == PY_SSL_ENCODING_DER:
+                return _PySSL_BytesFromBio(bio)
+            else:
+                return _PySSL_UnicodeFromBio(bio)
+        finally:
+            lib.BIO_free(bio) 
+            
+    def get_info(self):
+        return _decode_certificate(self._cert)
+
+    def __repr__(self):
+        # subject string is ASCII encoded, UTF-8 chars are quoted
+        osubject = _x509name_print(
+            lib.X509_get_subject_name(self._cert),
+            0,
+            lib.XN_FLAG_RFC2253
+        )
+        return "<Certificate '%s'>" % osubject
+ 
+    def __hash__(self):
+        if self._hash == -1:
+            _hash = lib.X509_subject_name_hash(self._cert)
+            if _hash == -1:
+                self._hash = -2
+            else:
+                self._hash = _hash
+        return self._hash
+
+    def __eq__(self, other):
+        if not type(other) is Certificate:
+            return NotImplemented
+        cmp = lib.X509_cmp(self._cert, other._cert)
+        return cmp == 0
+
+def _x509name_print(name, indent, flags):
+    bio = lib.BIO_new(lib.BIO_s_mem())
+    try:
+        if lib.X509_NAME_print_ex(bio, name, indent, flags) <=0:
+            raise ssl_error(None)
+        return _PySSL_UnicodeFromBio(bio)
+    finally:
+        lib.BIO_free(bio) 
+        
+def newCertificate(cert, upref):
+    self = object.__new__(Certificate)
+    self.__init__(cert, upref)    
+    return self
+            
 
 def _PySSL_CertificateFromX509Stack(stack, upref):
     len = lib.sk_X509_num(stack)
     result = [None] * len
     for i in range(len):
         cert = lib.sk_X509_value(stack, i)
-    result[i] = cert
+        result[i] = newCertificate(cert, upref)
     return result
 
 def _create_tuple_for_attribute(name, value):

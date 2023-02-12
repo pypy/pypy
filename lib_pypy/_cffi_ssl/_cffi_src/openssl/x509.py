@@ -41,6 +41,7 @@ typedef ... NETSCAPE_SPKI;
 typedef ... PKCS8_PRIV_KEY_INFO;
 
 typedef void (*sk_X509_EXTENSION_freefunc)(X509_EXTENSION *);
+static const long XN_FLAG_RFC2253;
 """
 
 FUNCTIONS = """

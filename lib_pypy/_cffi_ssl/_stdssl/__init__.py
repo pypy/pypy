@@ -18,7 +18,8 @@ except ImportError as e:
     raise ModuleNotFoundError(str(e) + msg, name='_cffi_ssl')
 
 from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
-    _decode_certificate, _certificate_to_der, _PySSL_CertificateFromX509Stack)
+    _decode_certificate, _certificate_to_der, _PySSL_CertificateFromX509Stack,
+    newCertificate)
 from _cffi_ssl._stdssl.utility import (_str_with_len, _bytes_with_len,
     _str_to_ffi_buffer, _str_from_buf, _cstr_decode_fs)
 from _cffi_ssl._stdssl.error import (
@@ -31,6 +32,8 @@ from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         SSL_ERROR_ZERO_RETURN, SSL_ERROR_WANT_CONNECT,
         SSL_ERROR_EOF, SSL_ERROR_NO_SOCKET, SSL_ERROR_INVALID_ERROR_CODE,
         pyerr_write_unraisable)
+from _cffi_ssl._stdssl.certificate import PY_SSL_ENCODING_PEM as ENCODING_PEM
+from _cffi_ssl._stdssl.certificate import PY_SSL_ENCODING_DER as ENCODING_DER
 from _cffi_ssl._stdssl import error
 from _pypy_util_cffi import StackNew
 from select import select
@@ -560,7 +563,22 @@ class _SSLSocket(object):
         chain = lib.SSL_get_peer_cert_chain(self.ssl)
         if not chain:
             return None
-        return _PySSL_CertificateFromX509Stack(chain, 1)
+        retval = _PySSL_CertificateFromX509Stack(chain, 1)
+        # OpenSSL does not include peer cert for server side connections
+        if self.socket_type == SSL_SERVER:
+            peer = lib.SSL_get_peer_certificate(self.ssl)
+            if not peer:
+                peerobj = None
+            else:
+                try:
+                    peerobj = newCertificate(peer, 0)
+                except ValueError:
+                    lib.X509_free(peer)
+                    raise
+            retval.insert(0, peerobj)
+        return retval
+                    
+        
 
     def write(self, bytestring):
         return self._write_with_length(_str_to_ffi_buffer(bytestring), len(bytestring))
