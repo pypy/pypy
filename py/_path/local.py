@@ -672,7 +672,8 @@ class LocalPath(FSBase):
                 return sys.modules[modname]
             except KeyError:
                 # we have a custom modname, do a pseudo-import
-                mod = py.std.types.ModuleType(modname)
+                import types
+                mod = types.ModuleType(modname)
                 mod.__file__ = str(self)
                 sys.modules[modname] = mod
                 try:
@@ -717,7 +718,7 @@ class LocalPath(FSBase):
         else:
             if paths is None:
                 if iswin32:
-                    paths = py.std.os.environ['Path'].split(';')
+                    paths = os.environ['Path'].split(';')
                     if '' not in paths and '.' not in paths:
                         paths.append('.')
                     try:
@@ -725,10 +726,10 @@ class LocalPath(FSBase):
                     except KeyError:
                         pass
                     else:
-                        paths = [re.sub('%SystemRoot%', systemroot, path)
+                        paths = [path.replace('%SystemRoot%', systemroot)
                                  for path in paths]
                 else:
-                    paths = py.std.os.environ['PATH'].split(':')
+                    paths = os.environ['PATH'].split(':')
             tryadd = []
             if iswin32:
                 tryadd += os.environ['PATHEXT'].split(os.pathsep)
@@ -759,16 +760,18 @@ class LocalPath(FSBase):
         return cls(x)
     _gethomedir = classmethod(_gethomedir)
 
-    #"""
-    #special class constructors for local filesystem paths
-    #"""
+    # """
+    # special class constructors for local filesystem paths
+    # """
+    @classmethod
     def get_temproot(cls):
         """ return the system's temporary directory
             (where tempfiles are usually created in)
         """
-        return py.path.local(py.std.tempfile.gettempdir())
-    get_temproot = classmethod(get_temproot)
+        import tempfile
+        return py.path.local(tempfile.gettempdir())
 
+    @classmethod
     def mkdtemp(cls, rootdir=None):
         """ return a Path object pointing to a fresh new temporary directory
             (which we created ourself).
@@ -777,7 +780,6 @@ class LocalPath(FSBase):
         if rootdir is None:
             rootdir = cls.get_temproot()
         return cls(py.error.checked_call(tempfile.mkdtemp, dir=str(rootdir)))
-    mkdtemp = classmethod(mkdtemp)
 
     def make_numbered_dir(cls, prefix='session-', rootdir=None, keep=3,
                           lock_timeout = 172800,   # two days
