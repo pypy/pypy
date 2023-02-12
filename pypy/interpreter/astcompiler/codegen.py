@@ -2104,10 +2104,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_compare(ast.GtE)
                 # stack = [(1,2,3,4,5), True]
 
-                left = star_index
-                right = length - star_index - 1
                 match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
                 # stack = [(1,2,3,4,5)]
+            left = star_index
+            right = length - star_index - 1
         else:
             self.emit_op(ops.GET_LEN)
             # stack = [(1,2,3,4,5), 5]
