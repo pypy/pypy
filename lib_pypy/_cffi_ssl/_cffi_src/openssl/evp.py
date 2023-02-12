@@ -174,6 +174,9 @@ int EVP_default_properties_is_fips_enabled(OSSL_LIB_CTX *libctx);
 
 // locally defined for _hashlib
 int EVP_hash(EVP_MD_CTX *ctx, const void *vp, ssize_t len, ssize_t munch);
+EVP_MD *EVP_MD_fetch(OSSL_LIB_CTX *ctx, const char *algorithm,
+                             const char *properties);
+void EVP_MD_free(EVP_MD *md);
 """
 
 CUSTOMIZATIONS = """
