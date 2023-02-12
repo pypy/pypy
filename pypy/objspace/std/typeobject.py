@@ -1285,6 +1285,8 @@ def copy_flags_from_bases(w_self, w_bestbase):
         w_self.hasdict = w_self.hasdict or w_base.hasdict
         w_self.hasuserdel = w_self.hasuserdel or w_base.hasuserdel
         w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
+        if w_self.flag_patma_collection == "X":
+            w_self.flag_patma_collection = w_base.flag_patma_collection
     return hasoldstylebase
 
 def slot_w(space, w_name):
