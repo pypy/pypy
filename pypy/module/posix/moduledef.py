@@ -92,7 +92,6 @@ corresponding Unix manual entries for more information on calls."""
         'unsetenv': 'interp_posix.unsetenv',
         'ftruncate': 'interp_posix.ftruncate',
         'truncate': 'interp_posix.truncate',
-        'readlink': 'interp_posix.readlink',
     }
 
     if hasattr(os, 'chown'):
@@ -113,6 +112,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['killpg'] = 'interp_posix.killpg'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
+    if hasattr(os, 'readlink'):
+        interpleveldefs['readlink'] = 'interp_posix.readlink'
     if hasattr(os, 'fork'):
         interpleveldefs['fork'] = 'interp_posix.fork'
         interpleveldefs['register_at_fork'] = 'interp_posix.register_at_fork'

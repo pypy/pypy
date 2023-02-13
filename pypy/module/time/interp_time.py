@@ -12,7 +12,7 @@ from pypy.module._codecs.locale import (
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
     intmask, r_ulonglong, r_longfloat, r_int64, widen, ovfcheck,
-    ovfcheck_float_to_int, INT_MIN, r_uint)
+    ovfcheck_float_to_int, INT_MIN, r_uint, r_longlong)
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
@@ -1174,7 +1174,7 @@ if _WIN:
                 _setinfo(space, w_info, "QueryPerformanceCounter()", resolution,
                          True, False)
             if return_ns:
-                return space.newint(tolong(diff) * 10**9 // time_state.divisor)
+                return space.newint((diff * r_longlong(10**9)) // r_longlong(time_state.divisor))
             else:
                 return space.newfloat(float(diff) / float(time_state.divisor))
 
