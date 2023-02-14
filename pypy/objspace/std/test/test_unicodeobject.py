@@ -1214,6 +1214,10 @@ class AppTestUnicodeString:
         raises(OverflowError, u'{0:c}'.format, -1)
         raises(OverflowError, u'{0:c}'.format, sys.maxunicode + 1)
 
+    def test_format_0s(self):
+        assert "{0:8s}".format("result") == "result  "
+        assert "{0:0s}".format("result") == "result"
+
     def test_replace_with_buffer(self):
         raises(TypeError, 'abc'.replace, b'b', b'e')
 

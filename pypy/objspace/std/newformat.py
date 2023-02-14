@@ -491,7 +491,7 @@ def make_formatting_class(for_unicode):
                 i += 1
             if not got_fill_char and length - i >= 1 and spec[i] == "0":
                 self._fill_char = self._lit("0")[0]
-                if not got_align:
+                if not got_align and default_align == '>':
                     self._align = "="
                 i += 1
             self._width, i = _parse_int(self.space, spec, i, length)
