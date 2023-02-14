@@ -284,6 +284,9 @@ int (*EVP_default_properties_enable_fips)(OSSL_LIB_CTX *, int) = NULL;
 EVP_CIPHER * (*EVP_CIPHER_fetch)(OSSL_LIB_CTX *, const char *,
                                  const char *) = NULL;
 void (*EVP_CIPHER_free)(EVP_CIPHER *) = NULL;
+EVP_MD *(*EVP_MD_fetch)(OSSL_LIB_CTX *ctx, const char *algorithm,
+                             const char *properties) = NULL;
+void (*EVP_MD_free)(EVP_MD *md) = NULL;
 #endif
 
 int
