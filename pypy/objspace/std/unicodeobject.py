@@ -1175,6 +1175,10 @@ class W_UnicodeObject(W_Root):
             raise
         if times <= 0:
             return self._empty()
+        if times == 1:
+            from pypy.objspace.std.bytesobject import W_BytesObject
+            if type(self) is W_UnicodeObject:
+                return self
         if len(self._utf8) == 1:
             return W_UnicodeObject(self._utf8[0] * times, times)
         return W_UnicodeObject(self._utf8 * times, times * self._len())

@@ -1106,3 +1106,13 @@ class AppTestBytesObject:
         assert b'abc'.removesuffix(b'bc') == b'a'
         assert b'abc'.removesuffix(b'') == b'abc'
         assert b'spam'.removesuffix(b'am') == b'sp'
+
+    def test_id_preserved(self):
+        a = b"abc!"
+        assert a * 1 is a
+
+        class Sub(bytes):
+            pass
+
+        a = Sub(b"abc!")
+        assert a * 1 is not a
