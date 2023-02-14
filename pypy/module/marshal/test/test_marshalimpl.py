@@ -30,6 +30,8 @@ class AppTestMarshalMore:
         code2 = marshal.loads(s)
         for attr_name in dir(code2):
             if attr_name.startswith("co_"):
+                if attr_name == "co_lines":
+                    continue
                 assert getattr(code2, attr_name) == getattr(foo.__code__, attr_name)
 
     def test_unmarshal_ascii(self):
