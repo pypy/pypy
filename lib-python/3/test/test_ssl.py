@@ -2081,18 +2081,29 @@ class SimpleBackgroundTests(unittest.TestCase):
         # SSL established
         self.assertTrue(s.getpeercert())
 
-    def test_connect_with_context(self):
+    def test_connect_with_context_0(self):
         # Same as test_connect, but with a separately created context
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         with ctx.wrap_socket(socket.socket(socket.AF_INET)) as s:
-            s.connect(self.server_addr)
-            self.assertEqual({}, s.getpeercert())
+           s.connect(self.server_addr)
+           self.assertEqual({}, s.getpeercert())
+
+    def test_connect_with_context_1(self):
+        # Same as test_connect, but with a separately created context
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         # Same with a server hostname
         with ctx.wrap_socket(socket.socket(socket.AF_INET),
                             server_hostname="dummy") as s:
             s.connect(self.server_addr)
+
+    def test_connect_with_context_2(self):
+        # Same as test_connect, but with a separately created context
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_REQUIRED
         # This should succeed because we specify the root cert
         ctx.load_verify_locations(SIGNING_CA)
