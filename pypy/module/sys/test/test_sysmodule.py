@@ -976,6 +976,44 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
         _, other_frame = frames.popitem()
         assert other_frame.f_code.co_name in ('other_thread', '?')
 
+    def test_current_exceptions(self):
+        import sys
+        import time
+        import _thread
+
+        # XXX workaround for now: to prevent deadlocks, call
+        # sys._current_frames() once before starting threads.
+        # This is an issue in non-translated versions only.
+        sys._current_frames()
+
+        thread_id = _thread.get_ident()
+        def other_thread():
+            #print("thread started")
+            lock2.release()
+            try:
+                raise ValueError("oops")
+            except ValueError:
+                lock1.acquire()
+        lock1 = _thread.allocate_lock()
+        lock2 = _thread.allocate_lock()
+        lock1.acquire()
+        lock2.acquire()
+        _thread.start_new_thread(other_thread, ())
+
+        def f():
+            lock2.acquire()
+            return sys._current_exceptions()
+
+        exc = f()
+        lock1.release()
+        thisexc = exc.pop(thread_id)
+        assert thisexc == (None, None, None)
+
+        assert len(exc) == 1
+        key, values = exc.popitem()
+        exc_type, exc_value, exc_tb = values
+        assert str(exc_value) == "oops"
+
     def test_intern(self):
         from sys import intern
         raises(TypeError, intern)
