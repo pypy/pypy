@@ -54,7 +54,7 @@ configure_args = ['./configure',
 # to HTTPS
 cffi_dependencies = {
     '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1t.tar.gz',
-             '40dceb51a4f6a5275bde0e6bf20ef4b91bfc32ed57c0552e2e8e15463372b17a',
+             '8dee9b24bdb1dcbf0c3d1e9b02fb8f6bf22165e807f45adeb7c9677536859d3b',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
