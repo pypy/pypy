@@ -16,7 +16,7 @@ def test_astcompiler():
 
 def test_pyparser():
     from pypy.interpreter.pyparser import parser
-    assert not pypypolicy.look_inside_function(parser.Grammar.__init__.im_func)
+    assert not pypypolicy.look_inside_function(parser.Token.__init__.im_func)
 
 def test_property():
     from pypy.module.__builtin__.descriptor import W_Property
