@@ -57,7 +57,8 @@ class Module(MixedModule):
         'get_int_max_str_digits': 'state.get_int_max_str_digits',
 
         '_getframe'             : 'vm._getframe',
-        '_current_frames'       : 'currentframes._current_frames',
+        '_current_frames'       : 'threadmappings._current_frames',
+        '_current_exceptions'   : 'threadmappings._current_exceptions',
         'setrecursionlimit'     : 'vm.setrecursionlimit',
         'getrecursionlimit'     : 'vm.getrecursionlimit',
         'setcheckinterval'      : 'vm.setcheckinterval',
