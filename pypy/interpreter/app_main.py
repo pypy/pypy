@@ -57,6 +57,7 @@ Options and arguments (and corresponding environment variables):
 file   : program read from script file
 -      : program read from stdin (default; interactive mode if a tty)
 arg ...: arguments passed to program in sys.argv[1:]
+
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 """
@@ -66,6 +67,7 @@ Other environment variables:
 PYTHONSTARTUP: file executed on interactive startup (no default)
 PYTHONPATH   : %r-separated list of directories prefixed to the
                default module search path.  The result is sys.path.
+PYTHONPLATLIBDIR : override sys.platlibdir.
 PYTHONCASEOK : ignore case in 'import' statements (Windows).
 PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
 PYTHONFAULTHANDLER: dump the Python traceback on fatal errors.
@@ -1134,6 +1136,7 @@ def entry_point(executable, bargv, argv):
     # can only be used in a virtualenv after 'import site' in run_command_line
     setup_bootstrap_path(executable)
     sys.pypy_initfsencoding()
+    sys.orig_argv[:] = [executable] + argv
     try:
         cmdline = parse_command_line(bargv, argv)
     except CommandLineError as e:

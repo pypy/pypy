@@ -17,6 +17,7 @@ class State:
         self.w_modules = space.newdict(module=True)
         self.w_warnoptions = space.newlist([])
         self.w_argv = space.newlist([])
+        self.w_orig_argv = space.newlist([])
         self.w_int_max_str_digits = space.newint(DEFAULT_MAX_STR_DIGITS)
 
         self.setinitialpath(space)
