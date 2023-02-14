@@ -110,6 +110,10 @@ class StringMethods(object):
             raise
         if times <= 0:
             return self._empty()
+        if times == 1:
+            from pypy.objspace.std.bytesobject import W_BytesObject
+            if type(self) is W_BytesObject:
+                return self
         if self._len() == 1:
             return self._new(self._multi_chr(self._val(space)[0]) * times)
         return self._new(self._val(space) * times)
