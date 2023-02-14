@@ -43,6 +43,7 @@ class Module(MixedModule):
         'path'                  : 'state.get(space).w_path',
         'modules'               : 'state.get(space).w_modules',
         'argv'                  : 'state.get(space).w_argv',
+        'orig_argv'             : 'state.get(space).w_orig_argv',
         'warnoptions'           : 'state.get(space).w_warnoptions',
         'abiflags'              : 'space.wrap("")',
         '_framework': "space.newtext('')",
