@@ -392,21 +392,14 @@ unsigned long SSL_CTX_add_extra_chain_cert(SSL_CTX *, X509 *);
  * TLSv1_1 and TLSv1_2 are recent additions.  Only sufficiently new versions of
  * OpenSSL support them.
  */
+const SSL_METHOD *TLSv1_method(void);
 const SSL_METHOD *TLSv1_1_method(void);
-const SSL_METHOD *TLSv1_1_server_method(void);
-const SSL_METHOD *TLSv1_1_client_method(void);
-
 const SSL_METHOD *TLSv1_2_method(void);
-const SSL_METHOD *TLSv1_2_server_method(void);
-const SSL_METHOD *TLSv1_2_client_method(void);
 
 const SSL_METHOD *SSLv3_method(void);
 const SSL_METHOD *SSLv3_server_method(void);
 const SSL_METHOD *SSLv3_client_method(void);
 
-const SSL_METHOD *TLSv1_method(void);
-const SSL_METHOD *TLSv1_server_method(void);
-const SSL_METHOD *TLSv1_client_method(void);
 
 /* Added in 1.0.2 */
 const SSL_METHOD *DTLS_method(void);
