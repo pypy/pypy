@@ -276,13 +276,13 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print("stdout:")
                 print(bld_stdout)
                 print("stderr:")
-                try:
-                    print(bld_stderr)
-                except Exception:
-                    # the linux64 buildbot chokes on printing non-ascii unicode?
-                    print(_bld_stderr)
-                if status != 0:
-                    raise RuntimeError('building {} failed'.format(key))
+                print(bld_stderr.decode('utf-8'), file=sys.stderr)
+                raise RuntimeError('building {} failed'.format(key))
+            elif key in ("_ssl",):
+                print("stdout:")
+                print(bld_stdout.decode('utf-8'), file=sys.stderr)
+                print("stderr:")
+                print(bld_stderr.decode('utf-8'), file=sys.stderr)
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
