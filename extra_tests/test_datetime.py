@@ -59,13 +59,13 @@ def test_timedelta_init_long():
 def test_unpickle():
     with pytest.raises(TypeError) as e:
         datetime.date('123')
-    assert e.value.args[0].startswith('an integer is required')
+    assert e.value.args[0].startswith("'str' object cannot be")
     with pytest.raises(TypeError) as e:
         datetime.time('123')
-    assert e.value.args[0].startswith('an integer is required')
+    assert e.value.args[0].startswith("'str' object cannot be")
     with pytest.raises(TypeError) as e:
         datetime.datetime('123')
-    assert e.value.args[0].startswith('an integer is required')
+    assert e.value.args[0].startswith("'str' object cannot be")
 
     datetime.time(b'\x01' * 6, None)
     with pytest.raises(TypeError) as exc:
@@ -173,8 +173,6 @@ def test_check_arg_types():
 
     dt10 = datetime.datetime(10, 10, 10, 10, 10, 10, 10)
     for xx in [
-            decimal.Decimal(10),
-            decimal.Decimal('10.9'),
             Number(10),
             SubInt(10),
             Number(SubInt(10)),
@@ -186,10 +184,16 @@ def test_check_arg_types():
         assert dt10 == dtxx
         assert type(dtxx.month) is int
         assert type(dtxx.second) is int
+    for xx in [
+            decimal.Decimal(10),
+            decimal.Decimal('10.9'),
+    ]:
+        with pytest.raises(TypeError):
+            datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
 
     with pytest.raises(TypeError) as exc:
         datetime.datetime(0, 10, '10')
-    assert str(exc.value).startswith('an integer is required')
+    assert str(exc.value).startswith("'str' object cannot be interpreted as an integer")
 
     f10 = Number(10.9)
     datetime.datetime(10, 10, f10)
@@ -199,7 +203,7 @@ def test_check_arg_types():
     s10 = Float(10.9)
     with pytest.raises(TypeError) as exc:
         datetime.datetime(10, 10, s10)
-    assert str(exc.value) == 'integer argument expected, got float'
+    assert str(exc.value) == "'Float' object cannot be interpreted as an integer"
 
     with pytest.raises(TypeError):
         datetime.datetime(10., 10, 10)
