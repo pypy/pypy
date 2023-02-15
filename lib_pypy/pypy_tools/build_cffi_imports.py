@@ -281,25 +281,21 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         try:
             status, bld_stdout, bld_stderr = run_subprocess(str(pypy_c), args,
                                                     cwd=cwd, env=env)
-            if status != 0:
+            try:
+                bld_stdout = bld_stdout.decode('utf-8')
+            except Exception:
+                pass
+            try:
+                bld_stderr = bld_stderr.decode('utf-8')
+            except Exception:
+                pass
+            if status != 0 or key in ("_ssl"):
                 print("stdout:")
-                print(stdout.decode('utf-8'), file=sys.stderr)
+                print(bld_stdout)
                 print("stderr:")
-                try:
-                    bld_stderr = bld_stderr.decode('utf-8')
-                except Exception:
-                    pass
-                print(bld_stderr, file=sys.stderr)
-                raise RuntimeError('building {} failed'.format(key))
-            elif key in ("_ssl",):
-                print("stdout:")
-                print(bld_stdout.decode('utf-8'), file=sys.stderr)
-                print("stderr:")
-                try:
-                    bld_stderr = bld_stderr.decode('utf-8')
-                except Exception:
-                    pass
-                print(bld_stderr, file=sys.stderr)
+                print(bld_stderr)
+                if status != 0:
+                    raise RuntimeError('building {} failed'.format(key))
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
@@ -313,15 +309,23 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             status, stdout, stderr = run_subprocess(pypy3, ['-c', test_script],
                                                     env=env)
             if status != 0:
+                try:
+                    stdout = stdout.decode('utf-8')
+                except Exception:
+                    pass
+                try:
+                    stderr = stderr.decode('utf-8')
+                except Exception:
+                    pass
                 failures.append((key, module))
                 print("build stdout:")
-                print(bld_stdout.decode('utf-8'), file=sys.stderr)
+                print(bld_stdout)
                 print("build stderr:")
-                print(bld_stderr.decode('utf-8'), file=sys.stderr)
+                print(bld_stderr)
                 print("test stdout:")
-                print(stdout.decode('utf-8'), file=sys.stderr)
+                print(stdout)
                 print("test stderr:")
-                print(stderr.decode('utf-8'), file=sys.stderr)
+                print(stderr)
         if os.path.exists(deps_destdir):
             shutil.rmtree(deps_destdir, ignore_errors=True)
     return failures
