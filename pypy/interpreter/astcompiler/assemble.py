@@ -315,9 +315,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         index = self.add_const(obj)
         self.emit_op_arg(ops.LOAD_CONST, index)
 
-    def update_position(self, lineno):
-        """Change the lineno for the next instructions."""
-        self.lineno = lineno
+    def update_position(self, node):
+        """Change the position for the next instructions to that of node."""
+        self.lineno = node.lineno
 
     def new_match_context(self):
         return MatchContext(self)

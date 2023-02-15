@@ -418,7 +418,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 start = 1
                 doc_expr.walkabout(self)
                 if doc_expr.lineno > 0:
-                    self.update_position(doc_expr.lineno)
+                    self.update_position(doc_expr)
                 self.name_op("__doc__", ast.Store, doc_expr)
                 self.scope.doc_removable = True
             self._visit_body(body, start)
@@ -458,7 +458,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if stmt is not None:
                 assert isinstance(stmt, ast.stmt)
                 if stmt.lineno > 0:
-                    self.update_position(stmt.lineno)
+                    self.update_position(stmt)
                 stmt.walkabout(self)
 
     def _make_function(self, code, oparg=0, qualname=None):
@@ -537,7 +537,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         assert len(defaults) > 0
         w_tup = self._tuple_of_consts(defaults)
         if w_tup:
-            self.update_position(defaults[-1].lineno)
+            self.update_position(defaults[-1])
             self.load_const(w_tup)
         else:
             self.visit_sequence(defaults)
@@ -549,11 +549,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if func.decorator_list:
             for dec in func.decorator_list:
                 if dec.lineno > 0:
-                    self.update_position(dec.lineno)
+                    self.update_position(dec)
                 dec.walkabout(self)
 
         if func.lineno > 0:
-            self.update_position(func.lineno)
+            self.update_position(func)
 
         args = func.args
 
@@ -840,7 +840,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         handler = None
         for i, handler in enumerate(tr.handlers):
             assert isinstance(handler, ast.ExceptHandler)
-            self.update_position(handler.lineno)
+            self.update_position(handler)
             next_except = self.new_block()
             if handler.type:
                 self.emit_op(ops.DUP_TOP)
@@ -909,7 +909,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             #
             self.use_next_block(next_except)
         if handler is not None:
-            self.update_position(handler.lineno)
+            self.update_position(handler)
         self.pop_frame_block(F_EXCEPTION_HANDLER, None)
         # pypy difference: get rid of exception
         self.emit_op(ops.POP_TOP)
@@ -1763,7 +1763,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.error("asynchronous comprehension outside of "
                                "an asynchronous function", node)
 
-        self.update_position(node.lineno)
+        self.update_position(node)
         self._make_function(code, qualname=qualname)
         first_comp = node.get_generators()[0]
         assert isinstance(first_comp, ast.comprehension)
@@ -1985,7 +1985,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.emit_op(ops.DUP_TOP)
 
                 assert match_context.on_top == 0
-                self.update_position(case.pattern.lineno)
+                self.update_position(case.pattern)
                 case.pattern.walkabout(self)
                 assert match_context.on_top == 0
                 # the pattern visit methods will conditionally jump away if
@@ -2490,7 +2490,7 @@ class ComprehensionCodeGenerator(AbstractFunctionCodeGenerator):
     def _compile(self, node):
         self.argcount = 1
         assert isinstance(node, ast.expr)
-        self.update_position(node.lineno)
+        self.update_position(node)
         node.build_container_and_load_iter(self)
         self._comp_generator(node, node.get_generators(), 0)
         self._end_comp()
