@@ -112,7 +112,7 @@ def test_hash():
         def __eq__(self, other): pass
     assert B.__hash__ is None
     with raises(TypeError):
-        hash(B()) # because we define __eq__ but not __hash__
+        hash(B())  # because we define __eq__ but not __hash__
 
     class E(object):
         def __hash__(self):

@@ -24,11 +24,13 @@ def test_format_empty_key():
 
 def test_format_wrong_char_dict():
     d = {'i': 23}
-    raises(ValueError, 'a%(i)Zb'.__mod__, d) 
+    with raises(ValueError):
+        'a%(i)Zb'.__mod__(d) 
 
 def test_format_missing():
     d = {'i': 23}
-    raises(KeyError, 'a%(x)sb'.__mod__, d) 
+    with raises(KeyError):
+        'a%(x)sb'.__mod__(d) 
 
 def test_format_error():
     d = {}
