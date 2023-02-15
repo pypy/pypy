@@ -221,7 +221,8 @@ def test_del_attr():
     foo = Foo()
     del foo.x
 
-    raises(AttributeError, "del foo.x")
+    with raises(AttributeError):
+        del foo.x
 
     class Foo:
         def __init__(self):
@@ -229,10 +230,12 @@ def test_del_attr():
 
     foo = Foo()
     del foo.x
-    raises(AttributeError, "del foo.x")
+    with raises(AttributeError):
+        del foo.x
 
 def test_del_attr_class():
     class Foo:
         pass
 
-    raises(AttributeError, "del Foo.x")
+    with raises(AttributeError):
+        del Foo.x

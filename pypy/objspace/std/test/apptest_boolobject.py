@@ -45,7 +45,8 @@ def test_new():
     raises(TypeError, bool.__new__, 42)
 
 def test_cant_subclass_bool():
-    raises(TypeError, "class b(bool): pass")
+    with raises(TypeError):
+        class b(bool): pass
 
 def test_convert_to_bool():
     check = lambda o: raises(TypeError, bool, o)

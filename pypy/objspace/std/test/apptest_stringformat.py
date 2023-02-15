@@ -24,17 +24,20 @@ def test_format_empty_key():
 
 def test_format_wrong_char_dict():
     d = {'i': 23}
-    raises(ValueError, 'a%(i)Zb'.__mod__, d) 
+    with raises(ValueError):
+        'a%(i)Zb'.__mod__(d) 
 
 def test_format_missing():
     d = {'i': 23}
-    raises(KeyError, 'a%(x)sb'.__mod__, d) 
+    with raises(KeyError):
+        'a%(x)sb'.__mod__(d) 
 
 def test_format_error():
     d = {}
     assert '' % d == ''
     n = 5
-    raises(TypeError, "'' % n")
+    with raises(TypeError):
+        '' % n
 
     class MyMapping(object):
         def __getitem__(self, key):
@@ -90,11 +93,14 @@ def test_format_float():
     assert '-23' == '%d' % f
     assert '-23' == '%i' % f
     assert '-23' == '%u' % f
-    e = raises(TypeError, "'%x' % f")
+    with raises(TypeError) as e:
+        '%x' % f
     assert str(e.value).startswith("%x format:")
-    e = raises(TypeError, "'%X' % f")
+    with raises(TypeError) as e:
+        '%X' % f
     assert str(e.value).startswith("%X format:")
-    raises(TypeError, "'%o' % f")
+    with raises(TypeError):
+        '%o' % f
     assert '-23.456' == '%s' % f
     # for 'r' use a float that has an exact decimal rep:
     g = 23.125
@@ -268,7 +274,8 @@ def test___int__index__():
         def __int__(self):
             return self.x
     x = MyInt(33)
-    raises(TypeError, "'%c' % x")
+    with raises(TypeError):
+        '%c' % x
     MyInt.__index__ = lambda self: self.x * 2
     assert '%c' % x == 'B'
 
@@ -285,14 +292,16 @@ def test_index_fails():
 def test_formatting_huge_precision():
     prec = 2**31
     format_string = "%.{}f".format(prec)
-    exc = raises(ValueError, "format_string % 2.34")
+    with raises(ValueError) as exc:
+        format_string % 2.34
     assert str(exc.value) == 'precision too big'
     raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
 
 def test_formatting_huge_width():
     
     format_string = "%{}f".format(sys.maxsize + 1)
-    exc = raises(ValueError, "format_string % 2.34")
+    with raises(ValueError) as exc:
+        format_string % 2.34
     assert str(exc.value) == 'width too big'
 
 def test_wrong_formatchar_error_not_masked_by_not_enough_args():
@@ -411,23 +420,28 @@ def test_missing_cases():
 
 def test_invalid_char():
     f = 4
-    raises(ValueError, '"%\u1234" % (f,)')
+    with raises(ValueError):
+        "%\u1234" % (f,)
 
 def test_invalid_b_with_unicode():
-    raises(ValueError, '"%b" % b"A"')
-    raises(ValueError, '"%b" % 42')
+    with raises(ValueError):
+        "%b" % b"A"
+    with raises(ValueError):
+        "%b" % 42
 
 def test_formatting_huge_precision_u():
     prec = 2**31
     format_string = u"%.{}f".format(prec)
-    exc = raises(ValueError, "format_string % 2.34")
+    with raises(ValueError) as exc:
+        format_string % 2.34
     assert str(exc.value) == 'precision too big'
     raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
 
 def test_formatting_huge_width_u():
     
     format_string = u"%{}f".format(sys.maxsize + 1)
-    exc = raises(ValueError, "format_string % 2.34")
+    with raises(ValueError) as exc:
+        format_string % 2.34
     assert str(exc.value) == 'width too big'
 
 def test_unicode_error_position():
@@ -475,12 +489,14 @@ def test_numeric_bytes():
 def test_char_bytes():
     assert b"<%c>" % 48 == b"<0>"
     assert b"<%c>" % b"?" == b"<?>"
-    raises(TypeError, 'b"<%c>" % "?"')
+    with raises(TypeError):
+        b"<%c>" % "?"
     assert b"<%c>" % bytearray(b"?") == b"<?>"
     class X:
         def __bytes__(self):
             return b'5'
-    raises(TypeError, 'b"<%c>" % X()')
+    with raises(TypeError):
+        b"<%c>" % X()
 
 def test_bytes_bytes():
     assert b"<%b>" % b"123" == b"<123>"
@@ -488,8 +504,10 @@ def test_bytes_bytes():
         def __bytes__(self):
             return b"123"
     assert b"<%b>" % Foo() == b"<123>"
-    raises(TypeError, 'b"<%b>" % 42')
-    raises(TypeError, 'b"<%b>" % "?"')
+    with raises(TypeError):
+        b"<%b>" % 42
+    with raises(TypeError):
+        b"<%b>" % "?"
 
 def test_s_compat_bytes():
     assert b"<%s>" % b"123" == b"<123>"
@@ -497,8 +515,10 @@ def test_s_compat_bytes():
         def __bytes__(self):
             return b"123"
     assert b"<%s>" % Foo() == b"<123>"
-    raises(TypeError, 'b"<%s>" % 42')
-    raises(TypeError, 'b"<%s>" % "?"')
+    with raises(TypeError):
+        b"<%s>" % 42
+    with raises(TypeError):
+        b"<%s>" % "?"
     assert b"<%s>" % memoryview(b"X") == b"<X>"
 
 
@@ -534,9 +554,11 @@ def test_numeric_bytearray():
 def test_char_bytearray():
     assert bytearray(b"<%c>") % 48 == bytearray(b"<0>")
     assert bytearray(b"<%c>") % b"?" == bytearray(b"<?>")
-    raises(TypeError, 'bytearray(b"<%c>") % "?"')
+    with raises(TypeError):
+        bytearray(b"<%c>") % "?"
     assert bytearray(b"<%c>") % bytearray(b"?") == bytearray(b"<?>")
-    raises(TypeError, 'bytearray(b"<%c>") % memoryview(b"X")')
+    with raises(TypeError):
+        bytearray(b"<%c>") % memoryview(b"X")
 
 def test_bytes_bytearray():
     assert bytearray(b"<%b>") % b"123" == bytearray(b"<123>")
@@ -544,8 +566,10 @@ def test_bytes_bytearray():
         def __bytes__(self):
             return b"123"
     assert bytearray(b"<%b>") % Foo() == bytearray(b"<123>")
-    raises(TypeError, 'bytearray(b"<%b>") % 42')
-    raises(TypeError, 'bytearray(b"<%b>") % "?"')
+    with raises(TypeError):
+        bytearray(b"<%b>") % 42
+    with raises(TypeError):
+        bytearray(b"<%b>") % "?"
 
 def test_s_compat_bytearray():
     assert bytearray(b"<%s>") % b"123" == bytearray(b"<123>")
@@ -553,6 +577,8 @@ def test_s_compat_bytearray():
         def __bytes__(self):
             return b"123"
     assert bytearray(b"<%s>") % Foo() == bytearray(b"<123>")
-    raises(TypeError, 'bytearray(b"<%s>") % 42')
-    raises(TypeError, 'bytearray(b"<%s>") % "?"')
+    with raises(TypeError):
+        bytearray(b"<%s>") % 42
+    with raises(TypeError):
+        bytearray(b"<%s>") % "?"
     assert bytearray(b"<%s>") % memoryview(b"X") == bytearray(b"<X>")

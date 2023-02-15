@@ -174,7 +174,8 @@ def test_typechecks():
     class X(object):
         def __bool__(self):
             return myint(1)
-    raises(TypeError, "not X()")
+    with raises(TypeError):
+        not X()
 
 def test_string_subclass():
     class S(str):
@@ -295,23 +296,40 @@ def test_missing_getattribute():
 def test_unordeable_types():
     class A(object): pass
     class zz(object): pass
-    raises(TypeError, "A() < zz()")
-    raises(TypeError, "zz() > A()")
-    raises(TypeError, "A() < A()")
-    raises(TypeError, "A() < None")
-    raises(TypeError, "None < A()")
-    raises(TypeError, "0 < ()")
-    raises(TypeError, "0.0 < ()")
-    raises(TypeError, "0j < ()")
-    raises(TypeError, "0 < []")
-    raises(TypeError, "0.0 < []")
-    raises(TypeError, "0j < []")
-    raises(TypeError, "0 < A()")
-    raises(TypeError, "0.0 < A()")
-    raises(TypeError, "0j < A()")
-    raises(TypeError, "0 < zz()")
-    raises(TypeError, "0.0 < zz()")
-    raises(TypeError, "0j < zz()")
+    with raises(TypeError):
+        A() < zz()
+    with raises(TypeError):
+        zz() > A()
+    with raises(TypeError):
+        A() < A()
+    with raises(TypeError):
+        A() < None
+    with raises(TypeError):
+        None < A()
+    with raises(TypeError):
+        0 < ()
+    with raises(TypeError):
+        0.0 < ()
+    with raises(TypeError):
+        0j < ()
+    with raises(TypeError):
+        0 < []
+    with raises(TypeError):
+        0.0 < []
+    with raises(TypeError):
+        0j < []
+    with raises(TypeError):
+        0 < A()
+    with raises(TypeError):
+        0.0 < A()
+    with raises(TypeError):
+        0j < A()
+    with raises(TypeError):
+        0 < zz()
+    with raises(TypeError):
+        0.0 < zz()
+    with raises(TypeError):
+        0j < zz()
 
 def test_correct_order_error_msg():
     class A(object):
@@ -781,7 +799,8 @@ def test_bool___contains__():
         def __contains__(self, item):
             return CannotConvertToBool()
     x = X()
-    raises(MyError, "'foo' in x")
+    with raises(MyError):
+        'foo' in x
 
 def test_sequence_rmul_overrides():
     class oops(object):
@@ -839,7 +858,8 @@ def test_data_descriptor_without_delete():
             pass
     class A(object):
         d = D()
-    raises(AttributeError, "del A().d")
+    with raises(AttributeError):
+        del A().d
 
 def test_data_descriptor_without_set():
     class D(object):
@@ -847,11 +867,13 @@ def test_data_descriptor_without_set():
             pass
     class A(object):
         d = D()
-    raises(AttributeError, "A().d = 5")
+    with raises(AttributeError):
+        A().d = 5
 
 def test_not_subscriptable_error_gives_keys():
     d = {'key1': {'key2': {'key3': None}}}
-    excinfo = raises(TypeError, "d['key1']['key2']['key3']['key4']['key5']")
+    with raises(TypeError) as excinfo:
+        d['key1']['key2']['key3']['key4']['key5']
     assert "key4" in str(excinfo.value)
 
 def test_64bit_hash():
@@ -865,7 +887,8 @@ def test_64bit_hash():
     assert BigHash() in d
 
 def test_class_getitem():
-    excinfo = raises(TypeError, "int[int]")
+    with raises(TypeError) as excinfo:
+        int[int]
     assert "'type' object is not subscriptable" in str(excinfo.value)
 
 def test_error_ipow():

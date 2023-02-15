@@ -91,7 +91,8 @@ def test_truediv():
     raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
 
 def test_floordiv():
-    raises(TypeError, "3+0j // 0+0j")
+    with raises(TypeError):
+        3+0j // 0+0j
 
 def test_convert():
     exc = raises(TypeError, complex.__int__, 3j)
@@ -136,7 +137,8 @@ def test_richcompare_boundaries():
 
 def test_mod():
     a = 3.33+4.43j
-    raises(TypeError, "a % a")
+    with raises(TypeError):
+        a % a
 
 def test_divmod():
     raises(TypeError, divmod, 1+1j, 0+0j)
@@ -156,8 +158,10 @@ def test_pow():
     assert 3j ** 0j == 1
     assert 3j ** 0 == 1
 
-    raises(ZeroDivisionError, "0j ** a")
-    raises(ZeroDivisionError, "0j ** (3-2j)")
+    with raises(ZeroDivisionError):
+        0j ** a
+    with raises(ZeroDivisionError):
+        0j ** (3-2j)
 
     # The following is used to exercise certain code paths
     assert a ** 105 == a ** 105
@@ -336,10 +340,12 @@ def test_constructor_bad_error_message():
     assert str(err) == "complex() second argument must be a number, not 'dict'"
 
 def test_error_messages():
-    err = raises(ZeroDivisionError, "1+1j / 0").value
-    assert str(err) == "complex division by zero"
-    err = raises(TypeError, "1+1j // 0").value
-    assert str(err) == "unsupported operand type(s) for //: 'complex' and 'int'"
+    with raises(ZeroDivisionError) as err:
+        1+1j / 0
+    assert str(err.value) == "complex division by zero"
+    with raises(TypeError) as err:
+        1+1j // 0
+    assert str(err.value) == "unsupported operand type(s) for //: 'complex' and 'int'"
 
 def test_hash():
     for x in range(-30, 30):
