@@ -36,6 +36,7 @@ def test_pickle():
 
 if hasattr(os, "fork"):
     def test_fork_hook_creates_thread_bug():
+        # Test fixed in 3.10, no longer errors
         import threading
         def daemon():
             while 1:
@@ -53,4 +54,4 @@ if hasattr(os, "fork"):
             os._exit(daemon_thread._ident in threading._active)
 
         pid1, status1 = os.waitpid(pid, 0)
-        assert status1
+        assert status1 == 0
