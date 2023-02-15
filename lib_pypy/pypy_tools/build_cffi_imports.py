@@ -285,13 +285,21 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print("stdout:")
                 print(stdout.decode('utf-8'), file=sys.stderr)
                 print("stderr:")
-                print(bld_stderr.decode('utf-8'), file=sys.stderr)
+                try:
+                    bld_stderr = bld_stderr.decode('utf-8')
+                except Exception:
+                    pass
+                print(bld_stderr, file=sys.stderr)
                 raise RuntimeError('building {} failed'.format(key))
             elif key in ("_ssl",):
                 print("stdout:")
                 print(bld_stdout.decode('utf-8'), file=sys.stderr)
                 print("stderr:")
-                print(bld_stderr.decode('utf-8'), file=sys.stderr)
+                try:
+                    bld_stderr = bld_stderr.decode('utf-8')
+                except Exception:
+                    pass
+                print(bld_stderr, file=sys.stderr)
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
