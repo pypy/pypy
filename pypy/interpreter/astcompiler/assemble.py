@@ -529,6 +529,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             for instr in block.instructions:
                 locations.append(instr.position_info)
+                for extra in range((instr.size() - 2) // 2):
+                    locations.append((-1, -1, -1, -1))
         return encode_positions(locations, self.first_lineno)
 
     def assemble(self):
