@@ -523,30 +523,13 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _build_positions(self, blocks):
         """Build the column offset table (with end column offsets)."""
-        table = []
+        from pypy.interpreter.location import encode_positions
+
+        locations = []
         for block in blocks:
             for instr in block.instructions:
-                lineno, end_lineno, col_offset, end_col_offset = instr.position_info
-                end_line_delta = end_lineno - lineno
-                if (
-                    col_offset >= 255
-                    or end_col_offset >= 255
-                    or col_offset == -1
-                    or end_col_offset == -1
-                    or col_offset > end_col_offset
-                    or end_line_delta < 0
-                    or end_line_delta > 255
-                ):
-                    table.append(chr(0))
-                    table.append(chr(0))
-                    table.append(chr(0))
-                else:
-                    table.append(chr(end_line_delta))
-                    table.append(chr(col_offset + 1))
-                    table.append(chr(end_col_offset + 1))
-
-
-        return ''.join(table)
+                locations.append(instr.position_info)
+        return encode_positions(locations, self.first_lineno)
 
     def assemble(self):
         """Build a PyCode object."""
@@ -565,7 +548,6 @@ class PythonCodeMaker(ast.ASTVisitor):
                 self.first_lineno = 1
         blocks = self.first_block.post_order()
         self._resolve_block_targets(blocks)
-        lnotab = self._build_lnotab(blocks)
         positions = self._build_positions(blocks)
         stack_depth = self._stacksize(blocks)
         consts_w = self.consts_w[:]
@@ -591,10 +573,9 @@ class PythonCodeMaker(ast.ASTVisitor):
                       self.compile_info.filename,
                       self.name,
                       self.first_lineno,
-                      lnotab,
+                      positions,
                       free_names,
                       cell_names,
-                      positions,
                       self.compile_info.hidden_applevel)
 
 
@@ -692,29 +673,6 @@ def _list_from_dict(d, offset=0):
         result[index - offset] = obj
     return result
 
-
-def _encode_lnotab_pair(addr, line, table):
-    while addr > 255:
-        table.append(chr(255))
-        table.append(chr(0))
-        addr -= 255
-    while line < -128:
-        table.append(chr(addr))
-        table.append(chr(-128 + 256))
-        line += 128
-        addr = 0
-    while line > 127:
-        table.append(chr(addr))
-        table.append(chr(127))
-        line -= 127
-        addr = 0
-    table.append(chr(addr))
-
-    # store as signed char
-    assert -128 <= line <= 127
-    if line < 0:
-        line += 256
-    table.append(chr(line))
 
 _static_opcode_stack_effects = {
     ops.NOP: 0,

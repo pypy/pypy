@@ -401,8 +401,7 @@ def marshal_pycode(space, w_pycode, m):
     marshal(space, x.w_filename, m)
     _marshal_unicode(space, x.co_name, m)
     m.put_int(x.co_firstlineno)
-    m.atom_str(TYPE_STRING, x.co_lnotab)
-    m.atom_str(TYPE_STRING, x.co_position_info or space.newtext())
+    m.atom_str(TYPE_STRING, x.co_linetable)
 
 # helper for unmarshalling "tuple of string" objects
 # into rpython-level lists of strings.  Only for code objects.
@@ -441,16 +440,13 @@ def unmarshal_pycode(space, u, tc):
 
     name        = space.utf8_w(u.load_w_obj())
     firstlineno = u.get_int()
-    lnotab      = space.bytes_w(u.load_w_obj())
     position_info = space.bytes_w(u.load_w_obj())
-    if len(position_info) == 0:
-        position_info = space.w_None
     filename = assert_str0(filename)
     PyCode.__init__(w_codeobj,
                   space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
-                  name, firstlineno, lnotab, freevars, cellvars,
-                  position_info, hidden_applevel=u.hidden_applevel)
+                  name, firstlineno, position_info, freevars, cellvars,
+                  hidden_applevel=u.hidden_applevel)
     return w_codeobj
 
 def _marshal_ascii_unicode(space, s, m, w_unicode, w_interned):

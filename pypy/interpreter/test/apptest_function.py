@@ -833,6 +833,16 @@ def test_co_lines():
 
     assert res == [1, 2, 3, 2, 1, 4, 5, 6, 7, 6]
 
+def test_co_lines_off_by_one():
+    def f(x):
+        if x:
+            pass
+        else:
+            return 2
+        return x
+    c = f.__code__.replace(co_firstlineno=1)
+    assert list(c.co_lines()) == [(0, 4, 2), (4, 6, 3), (6, 10, 6), (10, 14, 5)]
+
 def test_qualname_in_error():
     class A:
         def f(self, x):
