@@ -442,34 +442,16 @@ def findlabels(code):
 def findlinestarts(code):
     """Find the offsets in a byte code which are start of lines in the source.
 
-    Generate pairs (offset, lineno) as described in Python/compile.c.
-
+    Generate pairs (offset, lineno)
     """
-    byte_increments = code.co_lnotab[0::2]
-    line_increments = code.co_lnotab[1::2]
-    bytecode_len = len(code.co_code)
-
-    lastlineno = None
-    lineno = code.co_firstlineno
-    addr = 0
-    for byte_incr, line_incr in zip(byte_increments, line_increments):
-        byte_incr = ord(byte_incr)
-        line_incr = ord(line_incr)
-        if byte_incr:
-            if lineno != lastlineno:
-                yield (addr, lineno)
-                lastlineno = lineno
-            addr += byte_incr
-            if addr >= bytecode_len:
-                # The rest of the lnotab byte offsets are past the end of
-                # the bytecode, so the lines were optimized away.
-                return
-        if line_incr >= 0x80:
-            # line_increments is an array of 8-bit signed integers
-            line_incr -= 0x100
-        lineno += line_incr
-    if lineno != lastlineno:
-        yield (addr, lineno)
+    space = code.space
+    co_lines = space.unwrap(space.call_function(space.w_list, code.co_lines(space)))
+    lastline = None
+    for start, end, line in co_lines:
+        if line is not None and line != lastline:
+            lastline = line
+            yield start, line
+    return
 
 class Bytecode:
     """The bytecode operations of a piece of code
