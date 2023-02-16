@@ -286,6 +286,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             except Exception:
                 pass
             try:
+                _bld_stderr = bld_stderr
                 bld_stderr = bld_stderr.decode('utf-8')
             except Exception:
                 pass
@@ -293,7 +294,11 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print("stdout:")
                 print(bld_stdout)
                 print("stderr:")
-                print(bld_stderr)
+                try:
+                    print(bld_stderr)
+                except Exception:
+                    # the linux64 buildbot chokes on printing non-ascii unicode?
+                    print(_bld_stderr)
                 if status != 0:
                     raise RuntimeError('building {} failed'.format(key))
         except:
