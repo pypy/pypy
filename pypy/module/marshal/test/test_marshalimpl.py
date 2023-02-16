@@ -34,6 +34,18 @@ class AppTestMarshalMore:
                     continue
                 assert getattr(code2, attr_name) == getattr(foo.__code__, attr_name)
 
+    def test_marshal_code_positions(self):
+        def foo(a, b):
+            return (
+                a.x +
+                    b.y
+            )
+
+        import marshal
+        s = marshal.dumps(foo.__code__)
+        code2 = marshal.loads(s)
+        assert code2._positions() == foo.__code__._positions()
+
     def test_unmarshal_ascii(self):
         import marshal
         s = marshal.loads(b"a\x04\x00\x00\x00abcd")

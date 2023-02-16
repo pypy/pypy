@@ -42,7 +42,7 @@ def test_mutation():
     with raises(TypeError):
         tb.tb_lineno = "abc"
 
-        
+
 def test_construct():
     frame = sys._getframe()
     tb = get_tb()
@@ -63,3 +63,81 @@ def test_can_subclass():
         class TB(TracebackType):
             pass
 
+class Buffer:
+    def __init__(self):
+        self.data = []
+
+    def write(self, data):
+        self.data.append(data)
+
+    def flush(self):
+        pass
+
+    def get_lines(self):
+        return "".join(self.data).splitlines()
+
+def test_traceback_positions():
+    def division_by_zero(a, b):
+        return (
+            a      + b / 0
+        )
+
+    with raises(ZeroDivisionError) as exc_info:
+        division_by_zero(1, 2)
+
+    original_std_err = sys.stderr
+    sys.stderr = buffer = Buffer()
+    original_exc_format = sys.excepthook(
+        exc_info.type, exc_info.value, exc_info.value.__traceback__
+    )
+    sys.stderr = original_exc_format
+    expected_exc_format = [
+        '    a      + b / 0',
+        '             ^^^^^',
+        'ZeroDivisionError: division by zero'
+    ]
+    assert buffer.get_lines()[-3:] == expected_exc_format
+
+def test_traceback_positions_on_cause():
+    def foo(x):
+        1 + 1/0 + 2
+
+    def bar(x):
+        try:
+            1 + foo(x) + foo(x)
+        except Exception as e:
+            raise ValueError("oh no!") from e
+
+
+    with raises(ValueError) as exc_info:
+        bar(bar(bar(2)))
+
+    original_std_err = sys.stderr
+    sys.stderr = buffer = Buffer()
+    original_exc_format = sys.excepthook(
+        exc_info.type, exc_info.value, exc_info.value.__traceback__
+    )
+    sys.stderr = original_exc_format
+    processed_lines = [
+        line
+        for line in buffer.get_lines()
+        if __file__ not in line
+    ]
+    expected_exc_format = [
+        'Traceback (most recent call last):',
+        '    1 + foo(x) + foo(x)',
+        '        ^^^^^^',
+        '    1 + 1/0 + 2',
+        '        ^^^',
+        'ZeroDivisionError: division by zero',
+        '',
+        'The above exception was the direct cause of the following exception:',
+        '',
+        'Traceback (most recent call last):',
+        '    bar(bar(bar(2)))',
+        '            ^^^^^^',
+        '    raise ValueError("oh no!") from e',
+        '    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^',
+        'ValueError: oh no!'
+    ]
+    assert processed_lines == expected_exc_format

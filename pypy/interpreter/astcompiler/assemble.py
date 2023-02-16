@@ -26,6 +26,7 @@ class Instruction(object):
         if opcode < ops.HAVE_ARGUMENT:
             assert arg == 0
         self.lineno = 0
+        self.position_info = (-1,) * 4
         self.has_jump = False
 
     def size(self):
@@ -204,6 +205,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.posonlyargcount = 0
         self.kwonlyargcount = 0
         self.lineno = 0
+        self.position_info = (-1,) * 4
         self.add_none_to_final_return = True
         self.match_context = None
 
@@ -241,6 +243,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Emit an opcode without an argument."""
         instr = Instruction(op)
         instr.lineno = self.lineno
+        instr.position_info = self.position_info
         if not self.is_dead_code():
             self.current_block.instructions.append(instr)
             if op == ops.RETURN_VALUE:
@@ -251,6 +254,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Emit an opcode with an integer argument."""
         instr = Instruction(op, arg)
         instr.lineno = self.lineno
+        instr.position_info = self.position_info
         if not self.is_dead_code():
             self.current_block.instructions.append(instr)
 
@@ -315,9 +319,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         index = self.add_const(obj)
         self.emit_op_arg(ops.LOAD_CONST, index)
 
+    @specialize.argtype(1)
     def update_position(self, node):
         """Change the position for the next instructions to that of node."""
         self.lineno = node.lineno
+        self.position_info = (node.lineno, node.end_lineno, node.col_offset, node.end_col_offset)
 
     def new_match_context(self):
         return MatchContext(self)
@@ -515,6 +521,33 @@ class PythonCodeMaker(ast.ASTVisitor):
                 offset += instr.size()
         return ''.join(table)
 
+    def _build_positions(self, blocks):
+        """Build the column offset table (with end column offsets)."""
+        table = []
+        for block in blocks:
+            for instr in block.instructions:
+                lineno, end_lineno, col_offset, end_col_offset = instr.position_info
+                end_line_delta = end_lineno - lineno
+                if (
+                    col_offset >= 255
+                    or end_col_offset >= 255
+                    or col_offset == -1
+                    or end_col_offset == -1
+                    or col_offset > end_col_offset
+                    or end_line_delta < 0
+                    or end_line_delta > 255
+                ):
+                    table.append(chr(0))
+                    table.append(chr(0))
+                    table.append(chr(0))
+                else:
+                    table.append(chr(end_line_delta))
+                    table.append(chr(col_offset + 1))
+                    table.append(chr(end_col_offset + 1))
+
+
+        return ''.join(table)
+
     def assemble(self):
         """Build a PyCode object."""
         # Unless it's interactive, every code object must end in a return.
@@ -533,6 +566,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         blocks = self.first_block.post_order()
         self._resolve_block_targets(blocks)
         lnotab = self._build_lnotab(blocks)
+        positions = self._build_positions(blocks)
         stack_depth = self._stacksize(blocks)
         consts_w = self.consts_w[:]
         names = _list_from_dict(self.names)
@@ -560,6 +594,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                       lnotab,
                       free_names,
                       cell_names,
+                      positions,
                       self.compile_info.hidden_applevel)
 
 

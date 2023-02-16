@@ -205,19 +205,33 @@ class FrameBlockInfo(object):
         # for debugging
         return "<FrameBlockInfo kind=%s block=%s end=%s>" % (fblock_kind_to_str[self.kind], self.block, self.end)
 
+
+def _get_positions_for_expr(node):
+    return (
+        node.lineno,
+        node.end_lineno,
+        node.col_offset,
+        node.end_col_offset,
+    )
+
 def update_pos_expr(func):
     def updater(self, expr):
         assert isinstance(expr, ast.expr)
         if expr.lineno > 0:
             new_lineno = expr.lineno
+            new_position_info = _get_positions_for_expr(expr)
         else:
             new_lineno = self.lineno
+            new_position_info = (-1,) * 4
         old_lineno = self.lineno
+        old_position_info = self.position_info
         self.lineno = new_lineno
+        self.position_info = new_position_info
         try:
             return func(self, expr)
         finally:
             self.lineno = old_lineno
+            self.position_info = old_position_info
     updater.func_name = func.func_name + "_pos_updater"
     return updater
 
