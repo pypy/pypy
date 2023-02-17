@@ -81,11 +81,12 @@ def offset2lineno(c, stopat):
 
 def _offset2lineno(linetable, firstlineno, stopat):
     position = 0
+    lineno = -1
     for i in range(stopat + 1):
         tup = _decode_entry(linetable, firstlineno, position)
         position = tup[4]
-        if i == stopat:
-            return tup[0]
+        lineno = tup[0]
+    return lineno
 
 
 # converting back to lnotab
