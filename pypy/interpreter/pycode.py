@@ -431,32 +431,27 @@ class PyCode(eval.Code):
     def descr_positions(self, space):
         """A list of 4-element tuples that represent the position information corresponding to each
         instruction."""
-        from pypy.interpreter.pyframe import marklines
+        from pypy.interpreter.location import _decode_entry
+        def w(space, i):
+            if i == -1:
+                return space.w_None
+            return space.newint(i)
+
         if self.co_linetable == '':
             return space.newlist([])
 
         table_w = []
-        line_numbers = marklines(self)
         prev_line_no = self.co_firstlineno
-        for index in range(0, len(self.co_linetable), 3):
-            end_line_delta = ord(self.co_linetable[index])
-            col_offset = ord(self.co_linetable[index + 1])
-            end_col_offset = ord(self.co_linetable[index + 2])
-            lineno = line_numbers[index // 3]
-            if lineno != -1:
-                prev_line_no = lineno
-            else:
-                lineno = prev_line_no
-
-            if not col_offset or not end_col_offset:
-                tup_w = [space.w_None,] * 4
-            else:
-                tup_w = [
-                    space.newint(lineno),
-                    space.newint(lineno + end_line_delta),
-                    space.newint(col_offset - 1),
-                    space.newint(end_col_offset - 1)
-                ]
+        position = 0
+        table = self.co_linetable
+        while position < len(table):
+            lineno, end_lineno, col_offset, end_col_offset, position = _decode_entry(table, self.co_firstlineno, position)
+            tup_w = [
+                w(lineno),
+                w(end_lineno),
+                w(col_offset),
+                w(end_col_offset)
+            ]
             table_w.append(space.newtuple(tup_w))
         return space.newlist(table_w)
 
@@ -520,7 +515,6 @@ class PyCode(eval.Code):
 
     @property
     def co_lnotab(self):
-        import pdb; pdb.set_trace()
         return self.space.bytes_w(self.fget_co_lnotab())
 
     def fget_co_lnotab(self):
