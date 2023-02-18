@@ -746,8 +746,6 @@ def test_disable_line_tracing():
     print(l)
     assert l == [('f', 'call', None, 0), ('g', 'call', None, 0), ('g', 'return', 6, 1), ('f', 'return', 42, 2)]
 
-test_disable_line_tracing()
-
 def test_opcode_tracing():
     import sys
     assert not sys._getframe().f_trace_opcodes
@@ -780,8 +778,6 @@ def test_opcode_tracing():
         ('g', 'return', 6, 6, 1),
         ('f', 'opcode', None, 6, 1),
         ('f', 'return', 6, 6, 1)]
-
-test_opcode_tracing()
 
 def test_preserve_exc_state_in_generators():
     import sys

@@ -145,6 +145,8 @@ class PyCode(eval.Code):
         self._init_ready()
         self.new_code_hook()
 
+        self._linelist = None # lazily initialized list of line numbers
+
     def frame_stores_global(self, w_globals):
         if self.w_globals is None:
             self.w_globals = w_globals
@@ -447,10 +449,10 @@ class PyCode(eval.Code):
         while position < len(table):
             lineno, end_lineno, col_offset, end_col_offset, position = _decode_entry(table, self.co_firstlineno, position)
             tup_w = [
-                w(lineno),
-                w(end_lineno),
-                w(col_offset),
-                w(end_col_offset)
+                w(space, lineno),
+                w(space, end_lineno),
+                w(space, col_offset),
+                w(space, end_col_offset)
             ]
             table_w.append(space.newtuple(tup_w))
         return space.newlist(table_w)
@@ -515,13 +517,27 @@ class PyCode(eval.Code):
 
     @property
     def co_lnotab(self):
-        return self.space.bytes_w(self.fget_co_lnotab())
+        return self.space.bytes_w(self.fget_co_lnotab(self.space))
 
-    def fget_co_lnotab(self):
+    def fget_co_lnotab(self, space):
         from pypy.interpreter.location import linetable2lnotab
-        return self.space.newbytes(
+        return space.newbytes(
             linetable2lnotab(self.co_linetable, self.co_firstlineno))
 
+    @jit.elidable
+    def _get_lineno_for_pc_tracing(self, pc):
+        """ compute the lineno for a given pc. this is meant to be used when
+        tracing because it uses a bit of extra memory. """
+        from pypy.interpreter.location import _decode_entry
+        if self._linelist is None:
+            l = [-1] * (len(self.co_code) // 2)
+            position = 0
+            for i in range(len(l)):
+                tup = _decode_entry(self.co_linetable, self.co_firstlineno, position)
+                position = tup[-1]
+                l[i] = tup[0]
+            self._linelist = l
+        return self._linelist[pc // 2]
 
 class W_LineIterator(W_Root):
     def __init__(self, space, w_code):
