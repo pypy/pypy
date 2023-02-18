@@ -177,6 +177,9 @@ int EVP_hash(EVP_MD_CTX *ctx, const void *vp, ssize_t len, ssize_t munch);
 EVP_MD *EVP_MD_fetch(OSSL_LIB_CTX *ctx, const char *algorithm,
                              const char *properties);
 void EVP_MD_free(EVP_MD *md);
+unsigned char *HMAC(const EVP_MD *evp_md, const void *key, int key_len,
+                            const unsigned char *data, size_t data_len,
+                            unsigned char *md, unsigned int *md_len);
 """
 
 CUSTOMIZATIONS = """
