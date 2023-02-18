@@ -186,12 +186,12 @@ class ExecutionContext(object):
         d = frame.getorcreatedebug()
         lastline = d.f_lineno
         lineno = frame.pycode._get_lineno_for_pc_tracing(frame.last_instr)
+        d.f_lineno = lineno
         if d.f_trace_lines and lineno != -1:
             # when we are at a start of a line, or executing a backwards jump,
             # produce a line event
             if lastline != lineno or frame.last_instr < d.instr_prev_plus_one:
                 self._trace(frame, 'line', self.space.w_None)
-        d.f_lineno = lineno
         if d.f_trace_opcodes:
             self._trace(frame, 'opcode', self.space.w_None)
 
@@ -330,10 +330,13 @@ class ExecutionContext(object):
                 frame.fast2locals()
             prev_line_tracing = d.is_in_line_tracing
             self.is_tracing += 1
+            old_lineno = d.f_lineno
             try:
                 if event == 'line':
                     d.is_in_line_tracing = True
                 try:
+                    lineno = frame.pycode._get_lineno_for_pc_tracing(frame.last_instr)
+                    d.f_lineno = lineno
                     # from here on, frame is just a normal w_object
                     frame = jit.hint(frame, access_directly=False)
                     w_result = space.call_function(w_callback, frame, space.newtext(event), w_arg)
@@ -348,6 +351,7 @@ class ExecutionContext(object):
                     d.w_f_trace = None
                     raise
             finally:
+                d.f_lineno = old_lineno
                 self.is_tracing -= 1
                 d.is_in_line_tracing = prev_line_tracing
                 if d.w_locals is not None:
