@@ -174,6 +174,8 @@ class HMAC(HASH):
         digest_type = py_digest_by_name(self.name,
                          Py_ht_evp if usedforsecurity else Py_ht_evp_nosecurity)
         self.digest_size = lib.EVP_MD_size(digest_type)
+        self._name = name
+        self.name = f"hmac-{name}"
 
     @property
     def block_size(self):
@@ -221,6 +223,11 @@ class HMAC(HASH):
             # XXX try to not release the GIL for small requests
             if lib.HMAC_Update(self.ctx, buf, len(buf)) == 0:
                 raise ValueError(get_errstr())
+
+    def copy(self):
+        """Return a copy of the hash object."""
+        with self.lock:
+            return type(self)(self._name, copy_from=self.ctx)
 
 
 _algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512',
@@ -432,7 +439,19 @@ def py_digest_by_digestmod(digestmod):
 
 def hmac_digest(key, msg, digest):
     """Single-shot HMAC"""
-    raise NotImplementedError()
+    if len(key) > sys.maxsize:
+        raise OverflowError("key is too long")
+    if len(msg) > sys.maxsize:
+        raise OverflowError("msg is too long")
+    evp, _ = py_digest_by_digestmod(digest)
+    md = ffi.new("unsigned char[]", lib.EVP_MAX_MD_SIZE)
+    md_len = ffi.new("unsigned int[1]", [0])
+    result = lib.HMAC(evp, _str_to_ffi_buffer(key), len(key),
+                      msg, len(msg), md, md_len)
+    
+    if not result:
+        raise ValueError("could not call lib.HMAC")
+    return _bytes_with_len(md, md_len[0])
 
 def hmac_new(key, msg=b"", digestmod=None):
     """Return a new HMAC object"""
