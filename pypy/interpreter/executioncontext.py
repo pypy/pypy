@@ -184,46 +184,14 @@ class ExecutionContext(object):
     def run_trace_func(self, frame):
         code = frame.getcode() # promote the frame!
         d = frame.getorcreatedebug()
-        line = d.f_lineno
-        if not (d.instr_lb <= frame.last_instr < d.instr_ub):
-            size = len(code.co_lnotab) / 2
-            addr = 0
-            line = code.co_firstlineno
-            p = 0
-            lineno = code.co_lnotab
-            while size > 0:
-                c = ord(lineno[p])
-                if (addr + c) > frame.last_instr:
-                    break
-                addr += c
-                if c:
-                    d.instr_lb = addr
-                line_offset = ord(lineno[p + 1])
-                if line_offset >= 0x80:
-                    line_offset -= 0x100
-                line += line_offset
-                p += 2
-                size -= 1
-
-            if size > 0:
-                while True:
-                    size -= 1
-                    if size < 0:
-                        break
-                    addr += ord(lineno[p])
-                    if ord(lineno[p + 1]):
-                        break
-                    p += 2
-                d.instr_ub = addr
-            else:
-                d.instr_ub = sys.maxint
-
-        # when we are at a start of a line, or executing a backwards jump,
-        # produce a line event
-        if d.instr_lb == frame.last_instr or frame.last_instr < d.instr_prev_plus_one:
-            d.f_lineno = line
-            if d.f_trace_lines:
+        lastline = d.f_lineno
+        lineno = frame.pycode._get_lineno_for_pc_tracing(frame.last_instr)
+        if d.f_trace_lines and lineno != -1:
+            # when we are at a start of a line, or executing a backwards jump,
+            # produce a line event
+            if lastline != lineno or frame.last_instr < d.instr_prev_plus_one:
                 self._trace(frame, 'line', self.space.w_None)
+        d.f_lineno = lineno
         if d.f_trace_opcodes:
             self._trace(frame, 'opcode', self.space.w_None)
 

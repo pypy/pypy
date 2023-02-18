@@ -9,16 +9,15 @@ def encode_positions(l, firstlineno):
     # three formats:
     # (1) 0:
     #     no info at all
-    # (2) varint lineno_delta:
+    # (2) varint lineno_delta 0:
     #     just a line number no further info, the lineno_delta is 1 too big and
     #     is relative to co_firstlineno
-    # (3) varint lineno_delta, char col_offset char end_col_offset, char end_lineno_delta
+    # (3) varint lineno_delta, char col_offset, char end_col_offset, char end_lineno_delta
     #     full info, col_offset and end_col_offset are 1 too big to distinguish
     #     from case (2)
 
 
     # XXX clarify what missing values are, 0 or -1?
-    # XXX what about missing lineno?
     table = []
     for position_info in l:
         lineno, end_lineno, col_offset, end_col_offset = position_info
@@ -77,6 +76,8 @@ def decode_positions(table, firstlineno):
     return res
 
 def offset2lineno(c, stopat):
+    if stopat == -1:
+        return c.co_firstlineno
     return _offset2lineno(c.co_linetable, c.co_firstlineno, stopat // 2)
 
 def _offset2lineno(linetable, firstlineno, stopat):
