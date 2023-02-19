@@ -554,12 +554,7 @@ class AppTestImport(BaseFSEncodeTest):
     def test_import_function(self):
         # More tests for __import__
         import sys
-        if sys.version < '3.3':
-            from pkg import function_a
-            assert function_a.g['__package__'] == 'pkg'
-            raises(ImportError, "from pkg import function_b")
-        else:
-            raises(ImportError, "from pkg import function_a")
+        raises(ModuleNotFoundError, "from pkg import function_b")
 
     def test_universal_newlines(self):
         import pkg_univnewlines
