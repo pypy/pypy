@@ -36,13 +36,7 @@ def _group_from_gstruct(res):
 @builtinify
 def getgrgid(gid):
     with _lock:
-        try:
-            res = lib.getgrgid(gid)
-        except TypeError:
-            gid = int(gid)
-            res = lib.getgrgid(gid)
-            import warnings
-            warnings.warn("group id must be int", DeprecationWarning)
+        res = lib.getgrgid(gid)
         if not res:
             # XXX maybe check error eventually
             raise KeyError(gid)
