@@ -1067,6 +1067,10 @@ class W_Zip(W_Root):
             return space.newtuple([w_zip, w_iterators, space.w_True])
         return space.newtuple2(w_zip, w_iterators)
 
+    def descr_setstate(self, space, w_state):
+        strict = space.bool_w(w_state)
+        self.strict = strict
+
     def iterator_greenkey(self, space):
         # XXX in theory we should tupleize the greenkeys of all the
         # sub-iterators, but much more work
@@ -1087,6 +1091,7 @@ W_Zip.typedef = TypeDef(
         __iter__ = interp2app(W_Zip.iter_w),
         __next__ = interp2app(W_Zip.next_w),
         __reduce__ = interp2app(W_Zip.descr_reduce),
+        __setstate__ = interp2app(W_Zip.descr_setstate),
         __doc__  = """\
 zip(*iterables) --> A zip object yielding tuples until an input is exhausted.
 
