@@ -322,6 +322,9 @@ def write_ptr(ptr, ofs, value):
         rffi.cast(T, ptr)[ofs] = value
 
 def segfault_exception(space, reason):
+    # This will cause _rawffi to be pre-installed in sys.modules, and it will
+    # have  __loader__ and __spec__ set to None, so will not be marked as
+    # "built-in"
     w_mod = space.getbuiltinmodule("_rawffi")
     w_exception = space.getattr(w_mod, space.newtext("SegfaultException"))
     return OperationError(w_exception, space.newtext(reason))
