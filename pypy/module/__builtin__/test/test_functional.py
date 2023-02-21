@@ -173,6 +173,20 @@ class AppTestZip:
     def test_repr(self):
         assert repr(zip([1,2,3], [1,2], [1,2,3])).startswith('<zip object ')
 
+    def test_zip_setstate(self):
+        l1 = [1, 2, 3]
+        l2 = [2, 3, 4, 5]
+        z = zip(l1, l2, strict=False)
+        z.__setstate__(True)
+        with raises(ValueError):
+            t = []
+            for v1, v2 in z:
+                t.append((v1, v2))
+        assert t == [(1, 2), (2, 3), (3, 4)]
+
+        
+        
+         
 
 class AppTestFilter:
     def test_None(self):
