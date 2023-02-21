@@ -1019,7 +1019,7 @@ class BuiltinTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             TypeError,
-            'max expected at least 1 argument, got 0'
+            'max.* expected at least (one)|1 argument, got 0'  # PyPy: max(), CPython: max
         ):
             max()
 
@@ -1078,7 +1078,8 @@ class BuiltinTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             TypeError,
-            'min expected at least 1 argument, got 0'
+            'min.* expected at least (one)|1 argument, got 0'  # PyPy: min(), CPython: min
+
         ):
             min()
 
