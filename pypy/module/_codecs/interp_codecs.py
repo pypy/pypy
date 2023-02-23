@@ -162,6 +162,7 @@ def unregister(space, w_search_function):
     state = space.fromcache(CodecState)
     try:
         state.codec_search_path.remove(w_search_function)
+        state.codec_search_cache.clear()
         state.modified()
         return space.newint(0)
     except ValueError:
@@ -202,9 +203,9 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
             raise oefmt(space.w_LookupError,
                         "no codec search functions registered: can't find "
                         "encoding")
+    w_v = space.newtext(normalized_encoding)
     for w_search in state.codec_search_path:
-        w_result = space.call_function(w_search,
-                                       space.newtext(normalized_encoding))
+        w_result = space.call_function(w_search, w_v)
         if not space.is_w(w_result, space.w_None):
             if not (space.isinstance_w(w_result, space.w_tuple) and
                     space.len_w(w_result) == 4):
