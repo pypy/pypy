@@ -272,6 +272,8 @@ print("history", ascii(readline.get_history_item(1)))
                      "this readline version does not support history-size")
     @unittest.skipIf(is_editline,
                      "editline history size configuration is broken")
+    @unittest.skipIf(sys.implementation.name == 'pypy',
+                     "pyrepl does not read INPUTRC: https://github.com/pypy/pyrepl/issues/53")
     def test_history_size(self):
         history_size = 10
         with temp_dir() as test_dir:

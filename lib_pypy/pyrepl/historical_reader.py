@@ -294,8 +294,11 @@ class HistoricalReader(R):
         for i, t in self.transient_history.items():
             if i < len(self.history) and i != self.historyi:
                 self.history[i] = t
-        if ret:
+        if ret and should_auto_add_history:
             self.history.append(ret)
+
+
+should_auto_add_history = True
 
 def test():
     from pyrepl.unix_console import UnixConsole
