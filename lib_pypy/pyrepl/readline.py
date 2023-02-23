@@ -28,7 +28,7 @@ extensions for multiline input.
 
 import sys, os
 from pyrepl import commands
-from pyrepl.historical_reader import HistoricalReader
+from pyrepl import historical_reader
 from pyrepl.completing_reader import CompletingReader
 from pyrepl.unix_console import UnixConsole, _error
 
@@ -56,6 +56,7 @@ __all__ = ['add_history',
            'redisplay',
            'remove_history_item',
            'replace_history_item',
+           'set_auto_history',
            'set_completer',
            'set_completer_delims',
            'set_history_length',
@@ -72,7 +73,7 @@ class ReadlineConfig(object):
     readline_completer = None
     completer_delims = dict.fromkeys(' \t\n`~!@#$%^&*()-=+[{]}\\|;:\'",<>/?')
 
-class ReadlineAlikeReader(HistoricalReader, CompletingReader):
+class ReadlineAlikeReader(historical_reader.HistoricalReader, CompletingReader):
 
     assume_immutable_completions = False
     use_brackets = False
@@ -170,6 +171,10 @@ class ReadlineAlikeReader(HistoricalReader, CompletingReader):
                 self.buffer = self.buffer[:index]
                 if self.pos > len(self.buffer):
                     self.pos = len(self.buffer)
+
+def set_auto_history(_should_auto_add_history):
+    """Enable or disable automatic history"""
+    historical_reader.should_auto_add_history = bool(_should_auto_add_history)
 
 def _get_this_line_indent(buffer, pos):
     indent = 0
