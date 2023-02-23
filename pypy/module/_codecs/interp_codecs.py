@@ -105,7 +105,7 @@ class CodecState(object):
                 if not space.isinstance_w(w_obj, space.w_unicode):
                     raise oefmt(space.w_ValueError,
                             "error handler modified exc.object must be str")
-            obj = space.utf8_w(w_obj) 
+            obj = space.utf8_w(w_obj)
             return space.utf8_w(w_replace), newpos, rettype, obj
         return call_errorhandler
 
@@ -167,7 +167,33 @@ def unregister(space, w_search_function):
         return space.newint(0)
     except ValueError:
         return space.newint(-1)
-        
+
+def normalize(encoding):
+    """ Normalize an encoding name.
+
+        Normalization works as follows: all non-alphanumeric
+        characters except the dot used for Python package names are
+        collapsed and replaced with a single underscore, e.g. '  -;#'
+        becomes '_'. Leading and trailing underscores are removed.
+        Also convert to lower case
+
+        Note that encoding names should be ASCII only.
+
+    """
+    chars = []
+    punct = False
+    for c in encoding:
+        if c.isalnum() or c == '.':
+            if punct and chars:
+                chars.append('_')
+            if ord(c) <= 127:
+                chars.append(c.lower())
+            punct = False
+        else:
+            punct = True
+    return ''.join(chars)
+
+
 
 @unwrap_spec(encoding='text')
 def lookup_codec(space, encoding):
@@ -178,7 +204,7 @@ def lookup_codec(space, encoding):
     assert not (space.config.translating and not we_are_translated()), \
         "lookup_codec() should not be called during translation"
     state = space.fromcache(CodecState)
-    normalized_encoding = encoding.replace(" ", "-").lower()
+    normalized_encoding = normalize(encoding)
     w_result = state.get_codec_from_cache(normalized_encoding)
     if w_result is not None:
         return w_result
