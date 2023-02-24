@@ -846,6 +846,7 @@ class AppTestPartialEvaluation:
         assert NOT_FOUND == _codecs.lookup('BBB-8')
         assert NOT_FOUND == _codecs.lookup('BBB.8')
         assert NOT_FOUND == _codecs.lookup('a\xe9\u20ac-8')
+        _codecs.unregister(search_function)
 
 
     def test_cpytest_decode(self):
