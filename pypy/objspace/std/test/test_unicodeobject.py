@@ -1402,3 +1402,7 @@ class AppTestUnicodeString:
 
         a = Sub(u"abc")
         assert a * 1 is not a
+
+    def test_bad_encoding(self):
+        with raises(UnicodeEncodeError):
+            u"abc".encode("utf-8\udce2\udc80\udc9d")

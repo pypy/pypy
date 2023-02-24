@@ -1489,8 +1489,17 @@ def getdefaultencoding(space):
 
 
 def get_encoding_and_errors(space, w_encoding, w_errors):
-    encoding = None if w_encoding is None else space.text_w(w_encoding)
-    errors = None if w_errors is None else space.text_w(w_errors)
+    from pypy.module._codecs.interp_codecs import utf8_encode_wrapper
+    if w_encoding is None:
+        encoding = None
+    else:
+        utf8 = space.text_w(w_encoding)
+        encoding = utf8_encode_wrapper(space, utf8, "strict")
+    if w_errors is None:
+        errors = None
+    else:
+        utf8 = space.text_w(w_errors)
+        errors = utf8_encode_wrapper(space, utf8, "strict")
     return encoding, errors
 
 def encode_object(space, w_obj, encoding, errors):
