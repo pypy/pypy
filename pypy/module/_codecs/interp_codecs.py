@@ -803,6 +803,10 @@ if getattr(unicodehelper, '_WIN32', False):
         # must return bytes, pos
         return space.newtuple([space.newutf8(result, length), space.newint(len(string))])
 
+def utf8_encode_wrapper(space, utf8, errors):
+    state = space.fromcache(CodecState)
+    return unicodehelper.utf8_encode_utf_8(utf8, errors,
+                 state.encode_error_handler, allow_surrogates=False)
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=False"
@@ -813,9 +817,7 @@ def utf_8_encode(space, w_obj, errors="strict"):
         return space.newtuple2(space.newbytes(utf8), space.newint(lgt))
     if errors is None:
         errors = 'strict'
-    state = space.fromcache(CodecState)
-    result = unicodehelper.utf8_encode_utf_8(utf8, errors,
-                 state.encode_error_handler, allow_surrogates=False)
+    result = utf8_encode_wrapper(space, utf8, errors)
     return space.newtuple2(space.newbytes(result), space.newint(lgt))
 
 @unwrap_spec(string='bufferstr', errors='text_or_none',
