@@ -134,8 +134,9 @@ def _make_parameters(args):
             except AttributeError:
                 pass
             else:
-                for param in params:
-                    add(param)
+                if isinstance(params, tuple):
+                    for param in params:
+                        add(param)
     return tuple(res)
 
 def subs_tvars(obj, params, argitems):
@@ -166,7 +167,7 @@ class UnionType:
     E.g. for int | str
     """
 
-    __slots__ = ("__weakref__", "_args")
+    __slots__ = ("__weakref__", "_args", "__parameters__")
 
     def __init__(self, args):
         # need to deduplicate and flatten
@@ -180,6 +181,7 @@ class UnionType:
                 continue
             res[arg] = None
         self._args = tuple(res)
+        self.__parameters__ = ()
 
     @property
     def __args__(self):
