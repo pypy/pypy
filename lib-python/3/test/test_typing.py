@@ -3886,7 +3886,7 @@ class CollectionsAbcTests(BaseTestCase):
         self.assertIsSubclass(MMC, collections.abc.Mapping)
 
         with self.assertRaises(TypeError):
-            issubclass(MMB[str, str], typing.Mapping)
+            issubclass(MMB[str, str], typing.Mapping)  # MMB[str, str] should be an instance of GenericAlias
         self.assertIsSubclass(MMC, MMA)
 
         class I(typing.Iterable): ...
