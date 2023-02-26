@@ -1,4 +1,5 @@
 import unittest
+from test import support
 from ctypes import *
 
 class StructFieldsTestCase(unittest.TestCase):
@@ -46,7 +47,9 @@ class StructFieldsTestCase(unittest.TestCase):
         Y._fields_ = []
         self.assertRaises(AttributeError, setattr, X, "_fields_", [])
 
+    @support.cpython_only
     def test_5(self):
+        # CPython copies only the first 2 bytes: a + \0
         class X(Structure):
             _fields_ = (("char", c_char * 5),)
 
@@ -54,6 +57,7 @@ class StructFieldsTestCase(unittest.TestCase):
         x.char = b'a\0b\0'
         self.assertEqual(bytes(x), b'a\x00###')
 
+    @support.cpython_only
     def test_gh99275(self):
         class BrokenStructure(Structure):
             def __init_subclass__(cls, **kwargs):
