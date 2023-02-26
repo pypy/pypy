@@ -12,10 +12,11 @@
 
 import sys
 import unittest
-from test.support import captured_stdout
+from test.support import captured_stdout, cpython_only
 
 
 class TestFrozen(unittest.TestCase):
+    @cpython_only
     def test_frozen(self):
         name = '__hello__'
         if name in sys.modules:
