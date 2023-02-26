@@ -9,21 +9,32 @@ import os
 try:
     import cpyext
 except ImportError:
-    raise RuntimeError("must have cpyext")
-import _pypy_testcapi
-cfile = '_ctypes_test.c'
-thisdir = os.path.dirname(__file__)
-output_dir = _pypy_testcapi.get_hashed_dir(os.path.join(thisdir, cfile))
+    raise ModuleNotFoundError("No module named '_ctypes_test'", name='_ctypes_test')
 try:
     import _ctypes
+    _ctypes.PyObj_FromPtr = None
+    del _ctypes
 except ImportError:
     pass    # obscure condition of _ctypes_test.py being imported by py.test
 else:
-    _ctypes.PyObj_FromPtr = None
-    del _ctypes
+    import _pypy_testcapi
+    cfile = '_ctypes_test.c'
+    thisdir = os.path.dirname(__file__)
+    output_dir = _pypy_testcapi.get_hashed_dir(os.path.join(thisdir, cfile))
     try:
-        fp, filename, description = imp.find_module('_ctypes_test', path=[thisdir])
+        fp, filename, description = imp.find_module('_ctypes_test', path=[output_dir])
         with fp:
-            imp.load_module('_ctypes_test', fp, filename, description)
+            mod = imp.load_module('_ctypes_test', fp, filename, description)
     except ImportError:
-        _pypy_testcapi.compile_shared('_ctypes_test.c', '_ctypes_test', thisdir)
+        if os.name == 'nt':
+            # hack around finding compilers on win32
+            try:
+                import setuptools
+            except ImportError:
+                pass
+        mod = _pypy_testcapi.compile_shared(cfile, '_ctypes_test', output_dir)
+        fp, filename, description = imp.find_module('_ctypes_test', path=[output_dir])
+    # importing via load_module skips setting the __file__
+    mod.__file__ = filename
+    
+
