@@ -1,6 +1,7 @@
 import textwrap
 import types
 import unittest
+from test import support
 
 
 def global_function():
@@ -74,6 +75,7 @@ class FunctionPropertiesTest(FuncAttrsTest):
         self.cannot_set_attr(self.b, '__globals__', 2,
                              (AttributeError, TypeError))
 
+    @support.cpython_only
     def test___builtins__(self):
         self.assertIs(self.b.__builtins__, __builtins__)
         self.cannot_set_attr(self.b, '__builtins__', 2,

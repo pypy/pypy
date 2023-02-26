@@ -401,7 +401,8 @@ Miscellaneous
 * the ``__builtins__`` name is always referencing the ``__builtin__`` module,
   never a dictionary as it sometimes is in CPython. Assigning to
   ``__builtins__`` has no effect.  (For usages of tools like
-  RestrictedPython, see `issue #2653`_.)
+  RestrictedPython, see `issue #2653`_.) This also means PyPy does not add
+  a ``__builtins__`` attribute to functions (python3.10+)
 
 * directly calling the internal magic methods of a few built-in types
   with invalid arguments may have a slightly different result.  For
