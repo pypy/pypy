@@ -1451,16 +1451,16 @@ class __extend__(pyframe.PyFrame):
     def LIST_EXTEND(self, oparg, next_instr):
         w = self.popvalue()
         v = self.peekvalue(oparg - 1)
+        space = self.space
         try:
-            self.space.call_method(v, 'extend', w)
+            space.call_method(v, 'extend', w)
         except OperationError as e:
-            if not e.match(self.space, self.space.w_TypeError):
+            if (e.match(space, space.w_TypeError) and
+                    space.is_iterable(w)):
                 raise
-            raise oefmt(self.space.w_TypeError,
+            raise oefmt(space.w_TypeError,
                         "Value after * must be an iterable, not %T",
                         w)
-
-
 
     def LIST_TO_TUPLE(self, oparg, next_instr):
         w_l = self.popvalue()

@@ -360,7 +360,7 @@ class Function(W_Root):
 
     def _check_code_mutable(self, attr):
         if not self.can_change_code:
-            raise oefmt(self.space.w_TypeError,
+            raise oefmt(self.space.w_AttributeError,
                         "Cannot change %s attribute of builtin functions", attr)
 
     def fget_func_defaults(self, space):
@@ -482,7 +482,7 @@ class Function(W_Root):
     def fset_func_code(self, space, w_code):
         from pypy.interpreter.pycode import PyCode
         if not self.can_change_code:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_AttributeError,
                         "Cannot change code attribute of builtin functions")
         code = space.interp_w(Code, w_code)
         closure_len = 0
