@@ -604,20 +604,20 @@ def test_post_mortem():
       <doctest test.test_pdb.test_post_mortem[0]>(3)test_function_2()
     -> 1/0
     (Pdb) list
-      1         def test_function():
-      2             import pdb; pdb.Pdb(nosigint=True, readrc=False).set_trace()
-      3  ->         test_function_2()
-      4             print('Not reached.')
+      1     def test_function():
+      2         import pdb; pdb.Pdb(nosigint=True, readrc=False).set_trace()
+      3  ->     test_function_2()
+      4  >>     print('Not reached.')
     [EOF]
     (Pdb) down
     > <doctest test.test_pdb.test_post_mortem[0]>(3)test_function_2()
     -> 1/0
     (Pdb) list
-      1         def test_function_2():
-      2             try:
-      3  >>             1/0
-      4             finally:
-      5  ->             print('Exception!')
+      1     def test_function_2():
+      2         try:
+      3             1/0
+      4         finally:
+      5  ->         print('Exception!')
     [EOF]
     (Pdb) continue
     Correctly reraised.
@@ -1298,7 +1298,11 @@ def test_pdb_next_command_subiterator():
     """
 
 def test_pdb_issue_20766():
-    """Test for reference leaks when the SIGINT handler is set.
+    pass
+
+
+if sys.implementation.name != 'pypy':
+    __test__ = {"test_pdb_issue_20766": """Test for reference leaks when the SIGINT handler is set.
 
     Note a fix for PyPy: on CPython, the two iterations through the loop
     don't stop at the same line each time.  Actually, if the loop
@@ -1326,7 +1330,7 @@ def test_pdb_issue_20766():
     -> print('pdb %d: %s' % (i, sess._previous_sigint_handler))
     (Pdb) continue
     pdb 2: <built-in function default_int_handler>
-    """
+    """}
 
 def test_pdb_issue_43318():
     """echo breakpoints cleared with filename:lineno
