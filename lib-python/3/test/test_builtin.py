@@ -721,6 +721,7 @@ class BuiltinTest(unittest.TestCase):
             del l['__builtins__']
         self.assertEqual((g, l), ({'a': 1}, {'b': 2}))
 
+    @support.cpython_only
     def test_exec_globals(self):
         if check_impl_detail():
             # strict __builtins__ compliance (CPython)
