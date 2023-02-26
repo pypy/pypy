@@ -1,5 +1,8 @@
 import pytest
 from pytest import raises, skip
+import sys
+
+IS_PYPY = "__pypy__" in sys.builtin_module_names
 
 class C:
     def foo(self):
@@ -190,33 +193,40 @@ def test_write_code():
 def test_write_code_builtin_forbidden():
     def f(*args):
         return 42
-    with raises(TypeError):
+    with raises(AttributeError):
         dir.__code__ = f.__code__
-    with raises(TypeError):
+    with raises(AttributeError):
         list.append.__code__ = f.__code__
 
 def test_write_attributes_builtin_forbidden():
     for func in [dir, dict.get]:
-        with raises(TypeError):
+        with raises(AttributeError):
             func.__defaults__ = (1, )
-        with raises(TypeError):
+        with raises(AttributeError):
             del func.__defaults__
-        with raises(TypeError):
+        with raises(AttributeError):
             func.__doc__ = ""
-        with raises(TypeError):
+        with raises(AttributeError):
             del func.__doc__
-        with raises(TypeError):
+        with raises(AttributeError):
             func.__name__ = ""
-        with raises(TypeError):
+        if func is dir and not IS_PYPY:
+            # Suprisingly, these succeeds
             func.__module__ = ""
-        with raises(TypeError):
             del func.__module__
+        else:
+            # On CPython, dict.get does not have a '__module__' attribute
+            with raises(AttributeError):
+                func.__module__ = ""
+            with raises(AttributeError):
+                del func.__module__
+
 
 def test_write_attributes_builtin_forbidden_py3():
     for func in [dir, dict.get]:
-        with raises(TypeError):
+        with raises(AttributeError):
             func.__qualname__ = "abc"
-        with raises(TypeError):
+        with raises(AttributeError):
             func.__annotations__ = {}
             del func.__annotations__
 
@@ -326,6 +336,17 @@ def test_star_error():
         assert str(e.value).endswith(
             "Value after * must be an iterable, not int")
 
+def test_star_badarg():
+    class BrokenSequence:
+        def __getitem__(self, idx):
+            raise TypeError("myerror")
+
+    def f(): pass
+    
+    with raises(TypeError) as e:
+        f(1, 2, *BrokenSequence())
+    assert str(e.value) == "myerror"
+
 def test_default_arg():
     def func(arg1,arg2=42):
         return arg1, arg2
@@ -374,7 +395,7 @@ def test_get():
     meth = func.__get__(obj, object)
     assert meth() == obj
 
-@pytest.mark.skipif(True, reason="XXX issue #2083")
+@pytest.mark.skipif(IS_PYPY, reason="XXX issue #2083")
 def test_none_get_interaction():
     assert type(None).__repr__(None) == 'None'
 
@@ -420,8 +441,10 @@ def test_call_error_message():
         len()
     except TypeError as e:
         msg = str(e)
-        msg = msg.replace('one', '1') # CPython puts 'one', PyPy '1'
-        assert "len() missing 1 required positional argument: 'obj'" in msg
+        if IS_PYPY:
+            assert "len() missing 1 required positional argument: 'obj'" in msg
+        else:
+            assert "len() takes exactly 1 argument (0 given" in msg
     else:
         assert 0, "did not raise"
 
@@ -429,8 +452,10 @@ def test_call_error_message():
         len(1, 2)
     except TypeError as e:
         msg = str(e)
-        msg = msg.replace('one', '1') # CPython puts 'one', PyPy '1'
-        assert "len() takes 1 positional argument but 2 were given" in msg
+        if IS_PYPY:
+            assert "len() takes 1 positional argument but 2 were given" in msg
+        else:
+            assert "len() takes exactly 1 argument (2 given" in msg
     else:
         assert 0, "did not raise"
 
@@ -609,7 +634,8 @@ def test_method_w_callable_call_function():
 
 class CallableBadGetattr:
     def __getattr__(self, name):
-        # Ensure that __getattr__ doesn't get called
+        if name == "__qualname__":
+            return self.__getattribute__(name)
         raise RuntimeError
 
     def __call__(self, a, b, c):
@@ -619,7 +645,7 @@ def test_custom_callable_errors():
     fn = CallableBadGetattr()
     with raises(TypeError) as excinfo:
         fn(*1)
-    assert excinfo.value.args[0].startswith('CallableBadGetattr object')
+    assert "argument after * must be an iterable" in excinfo.value.args[0]
     with raises(TypeError) as excinfo:
         fn()
     assert excinfo.value.args[0].startswith('CallableBadGetattr.__call__()')

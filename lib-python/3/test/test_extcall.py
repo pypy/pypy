@@ -247,10 +247,10 @@ What about willful misconduct?
     {}
 
 
-    >>> g(1, 2, 3, **{'x': 4, 'y': 5})
+    >>> g(1, 2, 3, **{'x': 4, 'y': 5})    #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: g() got multiple values for argument 'x'
+    TypeError: ...got multiple values for argument 'x'
 
     >>> f(**{1:2})                             #doctest: +ELLIPSIS
     Traceback (most recent call last):
@@ -277,10 +277,10 @@ What about willful misconduct?
       ...
     TypeError: ...
 
-    >>> dir(*h)
+    >>> dir(*h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: dir() argument after * must be an iterable, not function
+    TypeError: ... argument after * must be an iterable, not function
 
     >>> nothing = None
     >>> nothing(*h)  #doctest: +ELLIPSIS
@@ -289,15 +289,15 @@ What about willful misconduct?
     TypeError: ...argument after * must be an iterable, \
 not function
 
-    >>> h(**h)
+    >>> h(**h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: argument after ** must be a mapping, not function
+    TypeError: ...argument after ** must be a mapping, not function
 
-    >>> h(**[])
+    >>> h(**[])  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: argument after ** must be a mapping, not list
+    TypeError: ...argument after ** must be a mapping, not list
 
     >>> h(a=1, **h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
@@ -365,20 +365,20 @@ Test a kwargs mapping with duplicated keys.
     >>> g(**MultiDict([('x', 1), ('y', 2)]))
     1 () {'y': 2}
 
-    >>> g(**MultiDict([('x', 1), ('x', 2)]))
+    >>> g(**MultiDict([('x', 1), ('x', 2)]))  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: test.test_extcall.g() got multiple values for keyword argument 'x'
+    TypeError:...got multiple values for keyword argument 'x'
 
-    >>> g(a=3, **MultiDict([('x', 1), ('x', 2)]))
+    >>> g(a=3, **MultiDict([('x', 1), ('x', 2)]))  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: test.test_extcall.g() got multiple values for keyword argument 'x'
+    TypeError:...got multiple values for keyword argument 'x'
 
-    >>> g(**MultiDict([('a', 3)]), **MultiDict([('x', 1), ('x', 2)]))
+    >>> g(**MultiDict([('a', 3)]), **MultiDict([('x', 1), ('x', 2)]))  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: test.test_extcall.g() got multiple values for keyword argument 'x'
+    TypeError:...got multiple values for keyword argument 'x'
 
 Another helper function
 
