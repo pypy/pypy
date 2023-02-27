@@ -21,6 +21,19 @@ eval[ast.Expression]: a=expressions NEWLINE* ENDMARKER { ast.Expression(body=a) 
 func_type[ast.FunctionType]: '(' a=[type_expressions] ')' '->' b=expression NEWLINE* ENDMARKER { ast.FunctionType(argtypes=a, returns=b) }
 fstring[ast.Expr]: star_expressions
 
+# TYPING ELEMENTS
+# ---------------
+
+# type_expressions allow */** but ignore them
+type_expressions[list]:
+    | a=','.expression+ ',' '*' b=expression ',' '**' c=expression { a + [b, c] }
+    | a=','.expression+ ',' '*' b=expression { a + [b] }
+    | a=','.expression+ ',' '**' b=expression { a + [b] }
+    | '*' a=expression ',' '**' b=expression { [a, b] }
+    | '*' a=expression { [a] }
+    | '**' a=expression { [a] }
+    | a=','.expression+ {a}
+
 # GENERAL STATEMENTS
 # ==================
 
@@ -103,8 +116,6 @@ assignment:
         ast.AugAssign(target = a, op=b[0], value=c, LOCATIONS)
      }
     | invalid_assignment
-
-annotated_rhs: yield_expr | star_expressions
 
 augassign: # rpython hack: to make the numbers compatible with None, wrap in a list
     | '+=' { [ast.Add] }
@@ -214,7 +225,7 @@ class_def[ast.ClassDef]:
 
 class_def_raw[ast.ClassDef]:
     | invalid_class_def_raw
-    | 'class' a=NAME b=['(' z=[arguments] ')' { z }] &&':' c=block {
+    | 'class' a=NAME b=['(' z=[arguments] ')' { z }] ':' c=block {
         ast.ClassDef(
             self.extract_id(a),
             bases=b.args if b else None,
@@ -260,6 +271,12 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
             )
         )
      }
+
+func_type_comment:
+    | NEWLINE t=TYPE_COMMENT &(NEWLINE INDENT) { t }  # Must be followed by indented block
+    | invalid_double_type_comments
+    | TYPE_COMMENT
+
 
 # Function parameters
 # -------------------
@@ -357,7 +374,7 @@ while_stmt[ast.While]:
 
 for_stmt[Union[ast.For, ast.AsyncFor]]:
     | invalid_for_stmt
-    | 'for' t=star_targets 'in' ~ ex=star_expressions &&':' tc=[TYPE_COMMENT] b=block el=[else_block] {
+    | 'for' t=star_targets 'in' ~ ex=star_expressions ':' tc=[TYPE_COMMENT] b=block el=[else_block] {
         ast.For(target=t, iter=ex, body=b, orelse=el, type_comment=tc, LOCATIONS) }
     | ASYNC 'for' t=star_targets 'in' ~ ex=star_expressions ':' tc=[TYPE_COMMENT] b=block el=[else_block] {
         self.check_version(
@@ -658,24 +675,6 @@ keyword_pattern:
 # EXPRESSIONS
 # -----------
 
-expressions:
-    | a=expression b=(',' c=expression { c })+ [','] {
-        ast.Tuple(elts=[a] + b, ctx=Load, LOCATIONS) }
-    | a=expression ',' { ast.Tuple(elts=[a], ctx=Load, LOCATIONS) }
-    | expression
-
-expression (memo):
-    | invalid_expression
-    | a=disjunction 'if' b=disjunction 'else' c=expression {
-        ast.IfExp(body=a, test=b, orelse=c, LOCATIONS)
-     }
-    | disjunction
-    | lambdef
-
-yield_expr:
-    | 'yield' 'from' a=expression { ast.YieldFrom(value=a, LOCATIONS) }
-    | 'yield' a=[star_expressions] { ast.Yield(value=a, LOCATIONS) }
-
 star_expressions:
     | a=star_expression b=(',' c=star_expression { c })+ [','] {
         ast.Tuple(elts=[a] + b, ctx=Load, LOCATIONS) }
@@ -709,6 +708,27 @@ named_expression:
     | assignment_expression
     | invalid_named_expression
     | a=expression !':=' { a }
+
+annotated_rhs: yield_expr | star_expressions
+
+expressions:
+    | a=expression b=(',' c=expression { c })+ [','] {
+        ast.Tuple(elts=[a] + b, ctx=Load, LOCATIONS) }
+    | a=expression ',' { ast.Tuple(elts=[a], ctx=Load, LOCATIONS) }
+    | expression
+
+expression (memo):
+    | invalid_expression
+    | invalid_legacy_expression
+    | a=disjunction 'if' b=disjunction 'else' c=expression {
+        ast.IfExp(body=a, test=b, orelse=c, LOCATIONS)
+     }
+    | disjunction
+    | lambdef
+
+yield_expr:
+    | 'yield' 'from' a=expression { ast.YieldFrom(value=a, LOCATIONS) }
+    | 'yield' a=[star_expressions] { ast.Yield(value=a, LOCATIONS) }
 
 disjunction (memo):
     | a=conjunction b=('or' c=conjunction { c })+ { ast.BoolOp(op=ast.Or, values=[a] + b, LOCATIONS) }
@@ -1124,23 +1144,6 @@ del_t_atom:
     | '[' a=[del_targets] ']' { ast.List(elts=a, ctx=Del, LOCATIONS) }
 
 
-# TYPING ELEMENTS
-# ---------------
-
-# type_expressions allow */** but ignore them
-type_expressions[list]:
-    | a=','.expression+ ',' '*' b=expression ',' '**' c=expression { a + [b, c] }
-    | a=','.expression+ ',' '*' b=expression { a + [b] }
-    | a=','.expression+ ',' '**' b=expression { a + [b] }
-    | '*' a=expression ',' '**' b=expression { [a, b] }
-    | '*' a=expression { [a] }
-    | '**' a=expression { [a] }
-    | a=','.expression+ {a}
-
-func_type_comment:
-    | NEWLINE t=TYPE_COMMENT &(NEWLINE INDENT) { t }  # Must be followed by indented block
-    | invalid_double_type_comments
-    | TYPE_COMMENT
 
 # ========================= END OF THE GRAMMAR ===========================
 
@@ -1158,7 +1161,7 @@ invalid_arguments[NoReturn]:
      }
     | a=expression b=for_if_clauses ',' [args | expression for_if_clauses] {
         self.raise_syntax_error_known_range(
-            "Generator expression must be parenthesized", a, self.get_last_target(b)
+            "Generator expression must be parenthesized", a, self.get_last_comprehension_item(self.get_last(b))
         )
      }
     | a=NAME b='=' expression for_if_clauses {
@@ -1175,7 +1178,7 @@ invalid_arguments[NoReturn]:
         self.raise_syntax_error_known_range(
             "Generator expression must be parenthesized",
             a,
-            self.get_last_target(b),
+            self.get_last_comprehension_item(self.get_last(b)),
         )
      }
     | a=args ',' args {
@@ -1200,18 +1203,18 @@ expression_without_invalid[ast.AST]:
     | disjunction
     | lambdef
 invalid_legacy_expression:
-    | a=NAME !'(' b=expression_without_invalid {
+    | a=NAME !'(' b=star_expressions {
         self.raise_syntax_error_known_range(
-            "Missing parentheses in call to '%s'. Did you mean '%s'(...)?" % (a.id, a.id), a, b,
-        ) if a.id in ("exec", "print") else
+            "Missing parentheses in call to '%s'. Did you mean %s(...)?" % (a.id, a.id), a, b,
+        ) if self.check_legacy_stmt(a) else
         None
      }
 invalid_expression[NoReturn]:
-    | invalid_legacy_expression
     # !(NAME STRING) is not matched so we don't show this error with some invalid string prefixes like: kf"dsfsdf"
     # Soft keywords need to also be ignored because they can be parsed as NAME NAME
     | !(NAME STRING | SOFT_KEYWORD) a=disjunction b=expression_without_invalid {
-        self.raise_syntax_error_known_range("invalid syntax. Perhaps you forgot a comma?", a, b)
+        (None if self.check_legacy_stmt(a) or self._tokens[mark - 1].level == 0 else
+         self.raise_syntax_error_known_range("invalid syntax. Perhaps you forgot a comma?", a, b))
      }
     | a=disjunction 'if' b=disjunction !('else'|':') {
         self.raise_syntax_error_known_range("expected 'else' after 'if' expression", a, b)
@@ -1341,8 +1344,8 @@ invalid_import_from_targets[NoReturn]:
      }
 
 invalid_with_stmt[None]:
-    | [ASYNC] 'with' ','.(expression ['as' star_target])+ &&':' block { self.dummy_name() }
-    | [ASYNC] 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' &&':' block { self.dummy_name() }
+    | [ASYNC] 'with' ','.(expression ['as' star_target])+ n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
+    | [ASYNC] 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
 invalid_with_stmt_indent[NoReturn]:
     | [ASYNC] a='with' ','.(expression ['as' star_target])+ ':' NEWLINE !INDENT {
         self.raise_indentation_error(
@@ -1366,10 +1369,10 @@ invalid_try_stmt[NoReturn]:
      }
 invalid_except_stmt[None]:
     | 'except' a=expression ',' expressions ['as' NAME ] ':' {
-        self.raise_syntax_error_starting_from("exception group must be parenthesized", a)
+        self.raise_syntax_error_starting_from("multiple exception types must be parenthesized", a)
      }
-    | a='except' expression ['as' NAME ] NEWLINE { self.raise_syntax_error("expected ':'") }
-    | a='except' NEWLINE { self.raise_syntax_error("expected ':'") }
+    | a='except' expression ['as' NAME ] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
+    | a='except' n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
 invalid_finally_stmt[NoReturn]:
     | a='finally' ':' NEWLINE !INDENT {
         self.raise_indentation_error(
@@ -1427,7 +1430,7 @@ invalid_class_pattern[NoReturn]:
 invalid_class_argument_pattern[list]:
     | [positional_patterns ','] keyword_patterns ',' a=positional_patterns { a }
 invalid_if_stmt[NoReturn]:
-    | 'if' named_expression NEWLINE { self.raise_syntax_error("expected ':'") }
+    | 'if' named_expression n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='if' a=named_expression ':' NEWLINE !INDENT {
         self.raise_indentation_error(
             "expected an indented block after 'if' statement on line %s" % a.lineno
@@ -1454,6 +1457,7 @@ invalid_while_stmt[NoReturn]:
         )
      }
 invalid_for_stmt[NoReturn]:
+    | [ASYNC] 'for' star_targets 'in' star_expressions n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | [ASYNC] a='for' star_targets 'in' star_expressions ':' NEWLINE !INDENT {
         self.raise_indentation_error(
             "expected an indented block after 'for' statement on line %s" % a.lineno
@@ -1466,6 +1470,7 @@ invalid_def_raw[NoReturn]:
         )
      }
 invalid_class_def_raw[NoReturn]:
+    | 'class' NAME ['(' [arguments] ')'] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='class' NAME ['(' [arguments] ')'] ':' NEWLINE !INDENT {
         self.raise_indentation_error(
             "expected an indented block after class definition on line %s" % a.lineno

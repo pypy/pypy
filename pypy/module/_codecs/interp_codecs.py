@@ -105,7 +105,7 @@ class CodecState(object):
                 if not space.isinstance_w(w_obj, space.w_unicode):
                     raise oefmt(space.w_ValueError,
                             "error handler modified exc.object must be str")
-            obj = space.utf8_w(w_obj) 
+            obj = space.utf8_w(w_obj)
             return space.utf8_w(w_replace), newpos, rettype, obj
         return call_errorhandler
 
@@ -162,11 +162,38 @@ def unregister(space, w_search_function):
     state = space.fromcache(CodecState)
     try:
         state.codec_search_path.remove(w_search_function)
+        state.codec_search_cache.clear()
         state.modified()
         return space.newint(0)
     except ValueError:
         return space.newint(-1)
-        
+
+def normalize(encoding):
+    """ Normalize an encoding name.
+
+        Normalization works as follows: all non-alphanumeric
+        characters except the dot used for Python package names are
+        collapsed and replaced with a single underscore, e.g. '  -;#'
+        becomes '_'. Leading and trailing underscores are removed.
+        Also convert to lower case
+
+        Note that encoding names should be ASCII only.
+
+    """
+    chars = []
+    punct = False
+    for c in encoding:
+        if c.isalnum() or c == '.':
+            if punct and chars:
+                chars.append('_')
+            if ord(c) <= 127:
+                chars.append(c.lower())
+            punct = False
+        else:
+            punct = True
+    return ''.join(chars)
+
+
 
 @unwrap_spec(encoding='text')
 def lookup_codec(space, encoding):
@@ -177,7 +204,7 @@ def lookup_codec(space, encoding):
     assert not (space.config.translating and not we_are_translated()), \
         "lookup_codec() should not be called during translation"
     state = space.fromcache(CodecState)
-    normalized_encoding = encoding.replace(" ", "-").lower()
+    normalized_encoding = normalize(encoding)
     w_result = state.get_codec_from_cache(normalized_encoding)
     if w_result is not None:
         return w_result
@@ -202,9 +229,9 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
             raise oefmt(space.w_LookupError,
                         "no codec search functions registered: can't find "
                         "encoding")
+    w_v = space.newtext(normalized_encoding)
     for w_search in state.codec_search_path:
-        w_result = space.call_function(w_search,
-                                       space.newtext(normalized_encoding))
+        w_result = space.call_function(w_search, w_v)
         if not space.is_w(w_result, space.w_None):
             if not (space.isinstance_w(w_result, space.w_tuple) and
                     space.len_w(w_result) == 4):
@@ -776,6 +803,10 @@ if getattr(unicodehelper, '_WIN32', False):
         # must return bytes, pos
         return space.newtuple([space.newutf8(result, length), space.newint(len(string))])
 
+def utf8_encode_wrapper(space, utf8, errors):
+    state = space.fromcache(CodecState)
+    return unicodehelper.utf8_encode_utf_8(utf8, errors,
+                 state.encode_error_handler, allow_surrogates=False)
 
 # utf-8 functions are not regular, because we have to pass
 # "allow_surrogates=False"
@@ -786,9 +817,7 @@ def utf_8_encode(space, w_obj, errors="strict"):
         return space.newtuple2(space.newbytes(utf8), space.newint(lgt))
     if errors is None:
         errors = 'strict'
-    state = space.fromcache(CodecState)
-    result = unicodehelper.utf8_encode_utf_8(utf8, errors,
-                 state.encode_error_handler, allow_surrogates=False)
+    result = utf8_encode_wrapper(space, utf8, errors)
     return space.newtuple2(space.newbytes(result), space.newint(lgt))
 
 @unwrap_spec(string='bufferstr', errors='text_or_none',

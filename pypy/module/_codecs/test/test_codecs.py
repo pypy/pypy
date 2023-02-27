@@ -779,6 +779,8 @@ class AppTestPartialEvaluation:
         raises(TypeError, b"hello".decode, "test.mytestenc")
         raises(TypeError, "hello".encode, "test.mytestenc")
         assert _codecs.unregister(search_function) == 0
+        # Make sure the function was actually unregistered
+        raises(LookupError, u"abc".encode, "test.mytestenc")
 
     def test_codec_wrapped_exception(self):
         import _codecs
@@ -822,6 +824,30 @@ class AppTestPartialEvaluation:
         assert b"hello".decode("onearg") == u'foo'
         assert _codecs.encode(u"hello", "onearg") == b'foo'
         assert _codecs.decode(b"hello", "onearg") == u'foo'
+
+    def test_codecs_lookup(self):
+        import _codecs
+        FOUND = (1, 2, 3, 4)
+        NOT_FOUND = (None, None, None, None)
+        def search_function(encoding):
+            if encoding == "aaa_8":
+                return FOUND
+            else:
+                return NOT_FOUND
+
+        _codecs.register(search_function)
+        assert FOUND == _codecs.lookup('aaa_8')
+        assert FOUND == _codecs.lookup('AAA-8')
+        assert FOUND == _codecs.lookup('AAA---8')
+        assert FOUND == _codecs.lookup('AAA   8')
+        assert FOUND == _codecs.lookup('aaa\xe9\u20ac-8')
+        assert NOT_FOUND == _codecs.lookup('AAA.8')
+        assert NOT_FOUND == _codecs.lookup('AAA...8')
+        assert NOT_FOUND == _codecs.lookup('BBB-8')
+        assert NOT_FOUND == _codecs.lookup('BBB.8')
+        assert NOT_FOUND == _codecs.lookup('a\xe9\u20ac-8')
+        _codecs.unregister(search_function)
+
 
     def test_cpytest_decode(self):
         import codecs

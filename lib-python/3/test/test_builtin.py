@@ -721,6 +721,7 @@ class BuiltinTest(unittest.TestCase):
             del l['__builtins__']
         self.assertEqual((g, l), ({'a': 1}, {'b': 2}))
 
+    @support.cpython_only
     def test_exec_globals(self):
         code = compile("print('Hello World!')", "", "exec")
         # no builtin function
@@ -1019,7 +1020,7 @@ class BuiltinTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             TypeError,
-            'max expected at least 1 argument, got 0'
+            'max.* expected at least (one)|1 argument, got 0'  # PyPy: max(), CPython: max
         ):
             max()
 
@@ -1078,7 +1079,8 @@ class BuiltinTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             TypeError,
-            'min expected at least 1 argument, got 0'
+            'min.* expected at least (one)|1 argument, got 0'  # PyPy: min(), CPython: min
+
         ):
             min()
 

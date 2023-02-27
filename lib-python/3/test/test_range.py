@@ -4,7 +4,7 @@ import unittest
 import sys
 import pickle
 import itertools
-from test.support import ALWAYS_EQ
+from test.support import ALWAYS_EQ, cpython_only
 
 # pure Python implementations (3 args only), for comparison
 def pyrange(start, stop, step):
@@ -403,7 +403,9 @@ class RangeTest(unittest.TestCase):
                     it = pickle.loads(d)
                     self.assertEqual(list(it), data[1:])
 
+    @cpython_only
     def test_iterator_pickling_overflowing_index(self):
+        # PyPy pickles differently
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             with self.subTest(proto=proto):
                 it = iter(range(2**32 + 2))

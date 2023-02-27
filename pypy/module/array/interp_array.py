@@ -548,7 +548,7 @@ class W_ArrayBase(W_Root):
                     w_dict])
 
         w_bytes = self.descr_tobytes(space)
-        w_array_reconstructor = space.fromcache(State).w_array_reconstructor
+        w_array_reconstructor = space.fromcache(State).get_array_reconstructor(space)
         return space.newtuple([
                 w_array_reconstructor,
                 space.newtuple([space.type(self),
@@ -1289,6 +1289,16 @@ del mytype
 
 class State:
     def __init__(self, space):
+        self.w_array_reconstructor = None
+        pass
+
+    # By lazily calling this, we do not pre-load array into sys.modules. Lazily
+    # loading it will properly set it up as a builtin module
+    def get_array_reconstructor(self, space):
+        if self.w_array_reconstructor:
+            return self.w_array_reconstructor
+
         w_module = space.getbuiltinmodule('array')
         self.w_array_reconstructor = space.getattr(
             w_module, space.newtext("_array_reconstructor"))
+        return self.w_array_reconstructor

@@ -252,3 +252,9 @@ class TestTokenizer310Changes(object):
 
     def test_error_number_by_non_keyword_name(self):
         check_token_error("1a 2", "invalid decimal literal")
+
+    def test_levels(self):
+        line = 'a b (c + d) [[e, f]]'
+        tks = tokenize(line)
+        levels = [token.level for token in tks]
+        assert levels == [0, 0, 1, 1, 1, 1, 0, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0]

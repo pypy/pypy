@@ -67,8 +67,10 @@ class GenericAlias:
         nitems = len(items)
         params = self.__parameters__
         nparams = len(params)
+        if nparams == 0:
+            raise TypeError("There are no type variables left in %s" % type(self))
         if nparams != nitems:
-            raise TypeError
+            raise TypeError("mismatched arguments for %s" % type(self))
         args = self.__args__
         newargs = []
         for i, arg in enumerate(args):
@@ -101,9 +103,12 @@ class GenericAlias:
         return typing.Union[self, other]
 
 def _repr_item(it):
+    import typing
     if it == Ellipsis:
         return "..."
     if type(it) is GenericAlias:
+        return repr(it)
+    if isinstance(it, typing._GenericAlias):
         return repr(it)
     try:
         qualname = getattr(it, "__qualname__")
@@ -134,8 +139,9 @@ def _make_parameters(args):
             except AttributeError:
                 pass
             else:
-                for param in params:
-                    add(param)
+                if isinstance(params, tuple):
+                    for param in params:
+                        add(param)
     return tuple(res)
 
 def subs_tvars(obj, params, argitems):
@@ -166,7 +172,7 @@ class UnionType:
     E.g. for int | str
     """
 
-    __slots__ = ("__weakref__", "_args")
+    __slots__ = ("__weakref__", "_args", "__parameters__")
 
     def __init__(self, args):
         # need to deduplicate and flatten
@@ -180,6 +186,7 @@ class UnionType:
                 continue
             res[arg] = None
         self._args = tuple(res)
+        self.__parameters__ = ()
 
     @property
     def __args__(self):

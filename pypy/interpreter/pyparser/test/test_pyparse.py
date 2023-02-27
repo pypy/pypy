@@ -5,7 +5,7 @@ from pypy.interpreter.pyparser.error import SyntaxError, IndentationError, TabEr
 from pypy.interpreter.astcompiler import consts
 
 
-class TestPythonParser:
+class BaseTestPythonParser:
     spaceconfig = {}
 
     def setup_class(self):
@@ -16,6 +16,7 @@ class TestPythonParser:
             info = pyparse.CompileInfo("<test>", mode, flags=flags)
         return self.parser.parse_source(source, info)
 
+class TestPythonParser(BaseTestPythonParser):
     def test_encoding(self):
         info = pyparse.CompileInfo("<test>", "exec")
         self.parse("""# coding: latin-1
@@ -379,17 +380,55 @@ if 1:
     def test_error_forgotten_chars(self):
         info = pytest.raises(SyntaxError, self.parse, "if 1\n    print 4")
         assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 1
         info = pytest.raises(SyntaxError, self.parse, "for i in range(10)\n    print i")
         assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 1
+        info = pytest.raises(SyntaxError, self.parse, "class A\n    print i")
+        assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 1
+        info = pytest.raises(SyntaxError, self.parse, "with a as b\n    print i")
+        assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 1
+        info = pytest.raises(SyntaxError, self.parse, "try:\n    1\nexcept\n    pass")
+        assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 3
+        info = pytest.raises(SyntaxError, self.parse, "try:\n    1\nexcept IndexError as e\n    pass")
+        assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 3
+        info = pytest.raises(SyntaxError, self.parse, "match x\n    case _:\n        pass")
+        assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 1
+
+        # the following should *not* contain expected ':'
+        info = pytest.raises(SyntaxError, self.parse, "class A&B\n    print i")
+        assert "expected ':'" not in info.value.msg # this must point to the 'range 10'
+        info = pytest.raises(SyntaxError, self.parse, "for i in range 10\n    print i")
+        assert "expected ':'" not in info.value.msg # this must point to the 'range 10'
 
     def test_positional_only_args(self):
         self.parse("def f(a, /): pass")
+
+    def test_forgot_comma_wrong(self):
+        info = pytest.raises(SyntaxError, self.parse, "with block ad something\n    print i")
+        assert "invalid syntax" == info.value.msg
 
     def test_error_print_without_parens(self):
         info = pytest.raises(SyntaxError, self.parse, "print 1")
         assert "Missing parentheses in call to 'print'" in info.value.msg
         info = pytest.raises(SyntaxError, self.parse, "print 1)")
         assert "unmatched" in info.value.msg
+
+    def test_end_location_unparenthized_genexp(self):
+        info = pytest.raises(SyntaxError, self.parse, "f(x for x in range(10), 1)")
+        assert "Generator expression must be parenthesized" in info.value.msg
+        assert info.value.end_offset == 23
+        info = pytest.raises(SyntaxError, self.parse, "f(x for x in range(10) if x != 2, 1)")
+        assert "Generator expression must be parenthesized" in info.value.msg
+        assert info.value.end_offset == 33
+        info = pytest.raises(SyntaxError, self.parse, "f(1, x for x in range(10) if x != 2, 1)")
+        assert "Generator expression must be parenthesized" in info.value.msg
+        assert info.value.end_offset == 36
 
 
 class TestPythonParserRevDB(TestPythonParser):
@@ -409,7 +448,7 @@ class TestPythonParserRevDB(TestPythonParser):
         pytest.raises(SyntaxError, self.parse, '$.5')
 
 
-class TestPythonPegParser(TestPythonParser):
+class TestPythonPegParser(BaseTestPythonParser):
     spaceconfig = {}
 
     def setup_class(self):

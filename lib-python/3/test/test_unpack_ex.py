@@ -336,20 +336,23 @@ Now some general starred expressions (all fail).
       ...
     SyntaxError: starred assignment target must be in a list or tuple
 
+    # PyPy: can't -> cannot
     >>> *a # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    SyntaxError: can't use starred expression here
+    SyntaxError: can...t use starred expression here
 
+    # PyPy: can't -> cannot
     >>> *1 # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    SyntaxError: can't use starred expression here
+    SyntaxError: can...t use starred expression here
 
+    # PyPy: can't -> cannot
     >>> x = *a # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    SyntaxError: can't use starred expression here
+    SyntaxError: can...t use starred expression here
 
     >>> (*x),y = 1, 2 # doctest:+ELLIPSIS
     Traceback (most recent call last):

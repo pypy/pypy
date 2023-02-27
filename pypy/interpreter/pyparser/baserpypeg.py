@@ -162,6 +162,16 @@ def memoize_left_rec(method):
     memoize_left_rec_wrapper.__wrapped__ = method  # type: ignore
     return memoize_left_rec_wrapper
 
+def without_invalid(func):
+    def without_invalid_wrapper(self):
+        old = self.call_invalid_rules
+        try:
+            return func(self)
+        finally:
+            self.call_invalid_rules = old
+    without_invalid_wrapper.func_name = func.func_name + "_without_invalid_wrapper"
+    return without_invalid_wrapper
+
 def isspace(s):
     res = True
     for c in s:
@@ -587,12 +597,10 @@ class Parser:
                    "to avoid decimal conversion limits.")
             self.raise_syntax_error_known_location(msg, tok)
 
-    def get_last_target(self, for_if_clauses):
-        if not for_if_clauses:
+    def get_last(self, l):
+        if not l:
             return None
-        last = for_if_clauses[-1]
-        assert isinstance(last, ast.comprehension)
-        return last.target
+        return l[-1]
 
     def check_last_keyword_no_arg(self, args):
         if not args.keywords:
@@ -927,6 +935,10 @@ class Parser:
                     a.args[-1],
                     self.get_last_comprehension_item(b[-1]))
         return None
+
+    def check_legacy_stmt(self, a):
+        return isinstance(a, ast.Name) and a.id in ('exec', 'print')
+
 
     def revdbmetavar(self, num, lineno, col_offset, end_lineno, end_col_offset):
         if not self.space.config.translation.reverse_debugger:

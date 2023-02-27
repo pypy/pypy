@@ -5291,7 +5291,7 @@ new_hamt(PyObject *self, PyObject *args)
 {
     return _PyContext_NewHamtForTests();
 }
-
+#endif
 
 /* def bad_get(self, obj, cls):
        cls()
@@ -5315,6 +5315,7 @@ bad_get(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
 }
 
 
+#ifndef PYPY_VERSION
 static PyObject *
 encode_locale_ex(PyObject *self, PyObject *args)
 {
@@ -6005,7 +6006,9 @@ static PyMethodDef TestMethods[] = {
     {"test_pythread_tss_key_state", test_pythread_tss_key_state, METH_VARARGS},
 #ifndef PYPY_VERSION
     {"hamt", new_hamt, METH_NOARGS},
+#endif // ifndef PYPY_VERSION
     {"bad_get", (PyCFunction)(void(*)(void))bad_get, METH_FASTCALL},
+#ifndef PYPY_VERSION
     {"EncodeLocaleEx", encode_locale_ex, METH_VARARGS},
     {"DecodeLocaleEx", decode_locale_ex, METH_VARARGS},
 #endif // ifndef PYPY_VERSION
