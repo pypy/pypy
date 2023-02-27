@@ -1178,7 +1178,7 @@ invalid_arguments[NoReturn]:
         self.raise_syntax_error_known_range(
             "Generator expression must be parenthesized",
             a,
-            self.get_last_comprehension_item(b),
+            self.get_last_comprehension_item(self.get_last(b)),
         )
      }
     | a=args ',' args {
@@ -1203,7 +1203,7 @@ expression_without_invalid[ast.AST]:
     | disjunction
     | lambdef
 invalid_legacy_expression:
-    | a=NAME !'(' b=expression_without_invalid {
+    | a=NAME !'(' b=star_expressions {
         self.raise_syntax_error_known_range(
             "Missing parentheses in call to '%s'. Did you mean %s(...)?" % (a.id, a.id), a, b,
         ) if a.id in ("exec", "print") else

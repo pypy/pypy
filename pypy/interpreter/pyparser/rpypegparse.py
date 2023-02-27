@@ -4375,7 +4375,7 @@ class PythonParser(Parser):
                 if a:
                     b = self.for_if_clauses()
                     if b:
-                        return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , self . get_last_comprehension_item ( b ) , )
+                        return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , self . get_last_comprehension_item ( self . get_last ( b ) ) , )
         self._index = mark
         a = self.args()
         if a:
@@ -4442,13 +4442,13 @@ class PythonParser(Parser):
         return None
 
     def invalid_legacy_expression(self): # type Optional[Any]
-        # invalid_legacy_expression: NAME !'(' expression_without_invalid
+        # invalid_legacy_expression: NAME !'(' star_expressions
         mark = self._index
         if self._verbose: log_start(self, 'invalid_legacy_expression')
         a = self.name()
         if a:
             if self.negative_lookahead(PythonParser.expect_type, 7):
-                b = self.expression_without_invalid()
+                b = self.star_expressions()
                 if b:
                     return self . raise_syntax_error_known_range ( "Missing parentheses in call to '%s'. Did you mean %s(...)?" % ( a . id , a . id ) , a , b , ) if a . id in ( "exec" , "print" ) else None
         self._index = mark
