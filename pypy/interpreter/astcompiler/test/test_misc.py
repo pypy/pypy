@@ -1,6 +1,6 @@
 from pypy.interpreter.astcompiler.misc import mangle
 from pypy.interpreter.astcompiler.assemble import Instruction, ops
-from pypy.interpreter.astcompiler.assemble import _encode_lnotab_pair
+from pypy.interpreter.location import _encode_lnotab_pair
 from pypy.interpreter.astcompiler.codegen import compute_reordering, rot_n
 
 
