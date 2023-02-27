@@ -380,8 +380,29 @@ if 1:
     def test_error_forgotten_chars(self):
         info = pytest.raises(SyntaxError, self.parse, "if 1\n    print 4")
         assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 1
         info = pytest.raises(SyntaxError, self.parse, "for i in range(10)\n    print i")
         assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 1
+        info = pytest.raises(SyntaxError, self.parse, "class A\n    print i")
+        assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 1
+        info = pytest.raises(SyntaxError, self.parse, "with a as b\n    print i")
+        assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 1
+        info = pytest.raises(SyntaxError, self.parse, "try:\n    1\nexcept\n    pass")
+        assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 3
+        info = pytest.raises(SyntaxError, self.parse, "try:\n    1\nexcept IndexError as e\n    pass")
+        assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 3
+        info = pytest.raises(SyntaxError, self.parse, "match x\n    case _:\n        pass")
+        assert "expected ':'" in info.value.msg
+        assert info.value.lineno == 1
+
+        # the following should *not* contain expected ':'
+        info = pytest.raises(SyntaxError, self.parse, "class A&B\n    print i")
+        assert "expected ':'" not in info.value.msg # this must point to the 'range 10'
         info = pytest.raises(SyntaxError, self.parse, "for i in range 10\n    print i")
         assert "expected ':'" not in info.value.msg # this must point to the 'range 10'
 

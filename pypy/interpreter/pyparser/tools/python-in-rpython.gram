@@ -225,7 +225,7 @@ class_def[ast.ClassDef]:
 
 class_def_raw[ast.ClassDef]:
     | invalid_class_def_raw
-    | 'class' a=NAME b=['(' z=[arguments] ')' { z }] &&':' c=block {
+    | 'class' a=NAME b=['(' z=[arguments] ')' { z }] ':' c=block {
         ast.ClassDef(
             self.extract_id(a),
             bases=b.args if b else None,
@@ -1343,8 +1343,8 @@ invalid_import_from_targets[NoReturn]:
      }
 
 invalid_with_stmt[None]:
-    | [ASYNC] 'with' ','.(expression ['as' star_target])+ NEWLINE { self.raise_syntax_error("expected ':'") }
-    | [ASYNC] 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' NEWLINE { self.raise_syntax_error("expected ':'") }
+    | [ASYNC] 'with' ','.(expression ['as' star_target])+ n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
+    | [ASYNC] 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
 invalid_with_stmt_indent[NoReturn]:
     | [ASYNC] a='with' ','.(expression ['as' star_target])+ ':' NEWLINE !INDENT {
         self.raise_indentation_error(
@@ -1370,8 +1370,8 @@ invalid_except_stmt[None]:
     | 'except' a=expression ',' expressions ['as' NAME ] ':' {
         self.raise_syntax_error_starting_from("multiple exception types must be parenthesized", a)
      }
-    | a='except' expression ['as' NAME ] NEWLINE { self.raise_syntax_error("expected ':'") }
-    | a='except' NEWLINE { self.raise_syntax_error("expected ':'") }
+    | a='except' expression ['as' NAME ] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
+    | a='except' n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
 invalid_finally_stmt[NoReturn]:
     | a='finally' ':' NEWLINE !INDENT {
         self.raise_indentation_error(
@@ -1429,7 +1429,7 @@ invalid_class_pattern[NoReturn]:
 invalid_class_argument_pattern[list]:
     | [positional_patterns ','] keyword_patterns ',' a=positional_patterns { a }
 invalid_if_stmt[NoReturn]:
-    | 'if' named_expression NEWLINE { self.raise_syntax_error("expected ':'") }
+    | 'if' named_expression n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='if' a=named_expression ':' NEWLINE !INDENT {
         self.raise_indentation_error(
             "expected an indented block after 'if' statement on line %s" % a.lineno
@@ -1456,7 +1456,7 @@ invalid_while_stmt[NoReturn]:
         )
      }
 invalid_for_stmt[NoReturn]:
-    | [ASYNC] 'for' star_targets 'in' star_expressions NEWLINE { self.raise_syntax_error("expected ':'") }
+    | [ASYNC] 'for' star_targets 'in' star_expressions n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | [ASYNC] a='for' star_targets 'in' star_expressions ':' NEWLINE !INDENT {
         self.raise_indentation_error(
             "expected an indented block after 'for' statement on line %s" % a.lineno
@@ -1469,6 +1469,7 @@ invalid_def_raw[NoReturn]:
         )
      }
 invalid_class_def_raw[NoReturn]:
+    | 'class' NAME ['(' [arguments] ')'] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='class' NAME ['(' [arguments] ')'] ':' NEWLINE !INDENT {
         self.raise_indentation_error(
             "expected an indented block after class definition on line %s" % a.lineno
