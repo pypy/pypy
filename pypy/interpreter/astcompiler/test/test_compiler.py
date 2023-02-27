@@ -2526,25 +2526,25 @@ class AppTestCompiler:
                 assert False, snippet
 
         check("def g(): [(yield x) for x in ()]",
-              "'yield' inside list comprehension", 12, 18)
+              "'yield' inside list comprehension", 12, 19)
         check("def g(): [x for x in () if not (yield x)]",
-              "'yield' inside list comprehension", 33, 39)
+              "'yield' inside list comprehension", 33, 40)
         check("def g(): [y for x in () for y in [(yield x)]]",
-              "'yield' inside list comprehension", 36, 42)
+              "'yield' inside list comprehension", 36, 43)
         check("def g(): {(yield x) for x in ()}",
-              "'yield' inside set comprehension", 12, 18)
+              "'yield' inside set comprehension", 12, 19)
         check("def g(): {(yield x): x for x in ()}",
-              "'yield' inside dict comprehension", 12, 18)
+              "'yield' inside dict comprehension", 12, 19)
         check("def g(): {x: (yield x) for x in ()}",
-              "'yield' inside dict comprehension", 15, 21)
+              "'yield' inside dict comprehension", 15, 22)
         check("def g(): ((yield x) for x in ())",
-              "'yield' inside generator expression", 12, 18)
+              "'yield' inside generator expression", 12, 19)
         check("def g(): [(yield from x) for x in ()]",
-              "'yield' inside list comprehension", 12, 23)
+              "'yield' inside list comprehension", 12, 24)
         check("class C: [(yield x) for x in ()]",
-              "'yield' inside list comprehension", 12, 18)
+              "'yield' inside list comprehension", 12, 19)
         check("[(yield abcdefghi) for abcdefghi in ()]",
-              "'yield' inside list comprehension", 3, 17)
+              "'yield' inside list comprehension", 3, 18)
 
     def test_syntax_warnings_missing_comma(self):
         import warnings
