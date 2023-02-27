@@ -391,7 +391,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         raise SyntaxError(msg, node.lineno, node.col_offset + 1,
                           filename=self.compile_info.filename,
                           end_lineno=node.end_lineno,
-                          end_offset=node.end_col_offset)
+                          end_offset=node.end_col_offset + 1)
 
     def push_scope(self, scope, node):
         """Push a child scope."""

@@ -374,6 +374,8 @@ def f():
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.msg == "name 'x' is nonlocal and global"
         assert exc.lineno == 4
+        assert exc.offset == 5
+        assert exc.end_offset == 13
 
         src = """
 def f():
