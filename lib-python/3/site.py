@@ -421,8 +421,12 @@ def setcopyright():
     builtins.copyright = _sitebuiltins._Printer("copyright", sys.copyright)
     licenseargs = None
     if is_pypy:
-        credits = "PyPy is maintained by the PyPy developers\nhttp://pypy.org/"
-        license = "See https://foss.heptapod.net/pypy/pypy/src/default/LICENSE"
+        builtins.credits = _sitebuiltins._Printer(
+            "credits",
+            "PyPy is maintained by the PyPy developers\nhttp://pypy.org/")
+        builtins.license = _sitebuiltins._Printer(
+            "license",
+            "See https://foss.heptapod.net/pypy/pypy/src/default/LICENSE")
     elif sys.platform[:4] == 'java':
         credits = ("Jython is maintained by the Jython developers "
                    "(www.jython.org).")
