@@ -409,7 +409,6 @@ if 1:
     def test_positional_only_args(self):
         self.parse("def f(a, /): pass")
 
-    @pytest.mark.xfail # why is this different in cpy?!
     def test_forgot_comma_wrong(self):
         info = pytest.raises(SyntaxError, self.parse, "with block ad something\n    print i")
         assert "invalid syntax" == info.value.msg
