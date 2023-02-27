@@ -1178,7 +1178,7 @@ invalid_arguments[NoReturn]:
         self.raise_syntax_error_known_range(
             "Generator expression must be parenthesized",
             a,
-            self.get_last_target(b),
+            self.get_last_comprehension_item(b),
         )
      }
     | a=args ',' args {
