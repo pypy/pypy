@@ -508,10 +508,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_ImportFrom(self, imp):
         for alias in imp.names:
-            if self._visit_alias(alias):
+            node = self._visit_alias(alias)
+            if node:
                 if self.scope.note_import_star(imp):
                     msg = "import * only allowed at module level"
-                    self.error(msg, imp)
+                    self.error(msg, node)
 
     def _visit_alias(self, alias):
         assert isinstance(alias, ast.alias)
@@ -520,12 +521,12 @@ class SymtableBuilder(ast.GenericASTVisitor):
         else:
             store_name = alias.name
             if store_name == "*":
-                return True
+                return alias
             dot = store_name.find(".")
             if dot > 0:
                 store_name = store_name[:dot]
         self.note_symbol(store_name, SYM_ASSIGNED)
-        return False
+        return None
 
     def visit_alias(self, alias):
         self._visit_alias(alias)
