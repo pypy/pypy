@@ -379,9 +379,12 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.hash_w(w_obj)
 
-@cpython_api([rffi.DOUBLE], lltype.Signed, error=-1)
-def _Py_HashDouble(space, v):
-    return space.hash_w(space.newfloat(v))
+@cpython_api([PyObject, rffi.DOUBLE], lltype.Signed, error=-1)
+def _Py_HashDouble(space, w_obj, v):
+    """Specific function for double, in CPython this uses the value of v
+    except for nans
+    """
+    return space.hash_w(w_obj)
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):
