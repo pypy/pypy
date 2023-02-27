@@ -172,6 +172,10 @@ class W_BaseException(W_Root):
     def descr_setargs(self, space, w_newargs):
         self.args_w = space.fixedview(w_newargs)
 
+    def descr_delargs(self, space):
+        raise oefmt(space.w_TypeError,
+                "args may not be deleted")
+
     def descr_getcause(self, space):
         return self.w_cause
 
@@ -185,6 +189,10 @@ class W_BaseException(W_Root):
         self.w_cause = w_newcause
         self.suppress_context = True
 
+    def descr_delcause(self, space):
+        raise oefmt(space.w_TypeError,
+                "__cause__ may not be deleted")
+
     def descr_getcontext(self, space):
         return self.w_context
 
@@ -196,6 +204,10 @@ class W_BaseException(W_Root):
                         "BaseException")
         self.w_context = w_newcontext
 
+    def descr_delcontext(self, space):
+        raise oefmt(space.w_TypeError,
+                "__context__ may not be deleted")
+
     def descr_gettraceback(self, space):
         tb = self.w_traceback
         if tb is not None and isinstance(tb, PyTraceback):
@@ -203,17 +215,25 @@ class W_BaseException(W_Root):
             tb.frame.mark_as_escaped()
         return tb
 
+    def descr_settraceback(self, space, w_newtraceback):
+        msg = '__traceback__ must be a traceback or None'
+        if not space.is_w(w_newtraceback, space.w_None):
+            w_newtraceback = check_traceback(space, w_newtraceback, msg)
+        self.w_traceback = w_newtraceback
+
+    def descr_deltraceback(self, space):
+        raise oefmt(space.w_TypeError,
+                "__traceback__ may not be deleted")
+
     def descr_getsuppresscontext(self, space):
         return space.newbool(self.suppress_context)
 
     def descr_setsuppresscontext(self, space, w_value):
         self.suppress_context = space.bool_w(w_value)
 
-    def descr_settraceback(self, space, w_newtraceback):
-        msg = '__traceback__ must be a traceback or None'
-        if not space.is_w(w_newtraceback, space.w_None):
-            w_newtraceback = check_traceback(space, w_newtraceback, msg)
-        self.w_traceback = w_newtraceback
+    def descr_delsuppresscontext(self, space):
+        raise oefmt(space.w_TypeError,
+                "__suppress_context__ may not be deleted")
 
     def getdict(self, space):
         if self.w_dict is None:
@@ -273,16 +293,21 @@ W_BaseException.typedef = TypeDef(
     __setstate__ = interp2app(W_BaseException.descr_setstate),
     with_traceback = interp2app(W_BaseException.descr_with_traceback),
     args = GetSetProperty(W_BaseException.descr_getargs,
-                          W_BaseException.descr_setargs),
+                          W_BaseException.descr_setargs,
+                          W_BaseException.descr_delargs),
     __cause__ = GetSetProperty(W_BaseException.descr_getcause,
-                               W_BaseException.descr_setcause),
+                               W_BaseException.descr_setcause,
+                               W_BaseException.descr_delcause),
     __context__ = GetSetProperty(W_BaseException.descr_getcontext,
-                                 W_BaseException.descr_setcontext),
+                                 W_BaseException.descr_setcontext,
+                                 W_BaseException.descr_delcontext),
     __suppress_context__  = GetSetProperty(
         W_BaseException.descr_getsuppresscontext,
-        W_BaseException.descr_setsuppresscontext),
+        W_BaseException.descr_setsuppresscontext,
+        W_BaseException.descr_delsuppresscontext),
     __traceback__ = GetSetProperty(W_BaseException.descr_gettraceback,
-                                   W_BaseException.descr_settraceback),
+                                   W_BaseException.descr_settraceback,
+                                   W_BaseException.descr_deltraceback),
 )
 
 def _new_exception(name, base, docstring, **kwargs):
