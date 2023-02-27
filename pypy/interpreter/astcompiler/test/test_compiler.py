@@ -2494,39 +2494,47 @@ class AppTestCompiler:
         # compiling the produced AST previously triggered a crash
         compile(ast, '', 'exec')
 
-    def test_warn_yield(self):
+    def test_error_yield(self):
         # These are OK!
         compile("def g(): [x for x in [(yield 1)]]", "<test case>", "exec")
         compile("def g(): [x for x in [(yield from ())]]", "<test case>", "exec")
 
-        def check(snippet, error_msg):
+        def check(snippet, error_msg, offset=-1, end_offset=-1):
+            print(snippet)
             try:
                 compile(snippet, "<test case>", "exec")
             except SyntaxError as exc:
                 assert exc.msg == error_msg
+                assert exc.lineno == 1
+                if offset != -1:
+                    print(exc.offset)
+                    assert exc.offset == offset
+                if end_offset != -1:
+                    print(exc.end_offset)
+                    assert exc.end_offset == end_offset
             else:
                 assert False, snippet
 
         check("def g(): [(yield x) for x in ()]",
-              "'yield' inside list comprehension")
+              "'yield' inside list comprehension", 12, 18)
         check("def g(): [x for x in () if not (yield x)]",
-              "'yield' inside list comprehension")
+              "'yield' inside list comprehension", 33, 39)
         check("def g(): [y for x in () for y in [(yield x)]]",
-              "'yield' inside list comprehension")
+              "'yield' inside list comprehension", 36, 42)
         check("def g(): {(yield x) for x in ()}",
-              "'yield' inside set comprehension")
+              "'yield' inside set comprehension", 12, 18)
         check("def g(): {(yield x): x for x in ()}",
-              "'yield' inside dict comprehension")
+              "'yield' inside dict comprehension", 12, 18)
         check("def g(): {x: (yield x) for x in ()}",
-              "'yield' inside dict comprehension")
+              "'yield' inside dict comprehension", 15, 21)
         check("def g(): ((yield x) for x in ())",
-              "'yield' inside generator expression")
+              "'yield' inside generator expression", 12, 18)
         check("def g(): [(yield from x) for x in ()]",
-              "'yield' inside list comprehension")
+              "'yield' inside list comprehension", 12, 23)
         check("class C: [(yield x) for x in ()]",
-              "'yield' inside list comprehension")
-        check("[(yield x) for x in ()]",
-              "'yield' inside list comprehension")
+              "'yield' inside list comprehension", 12, 18)
+        check("[(yield abcdefghi) for abcdefghi in ()]",
+              "'yield' inside list comprehension", 3, 17)
 
     def test_syntax_warnings_missing_comma(self):
         import warnings

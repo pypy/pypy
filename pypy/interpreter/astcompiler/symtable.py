@@ -266,6 +266,7 @@ class FunctionScope(Scope):
         self.has_variable_arg = False
         self.has_keywords_arg = False
         self.is_generator = False
+        self.yield_node = None
         self.has_yield_inside_try = False
         self.optimized = True
         self.return_with_value = False
@@ -279,11 +280,13 @@ class FunctionScope(Scope):
 
     def note_yield(self, yield_node):
         self.is_generator = True
+        self.yield_node = yield_node
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
 
     def note_yieldFrom(self, yield_node):
         self.is_generator = True
+        self.yield_node = yield_node
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
 
@@ -643,7 +646,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if new_scope.is_generator:
             msg = "'yield' inside %s" % kind
             space = self.space
-            self.error(msg, node)
+            assert new_scope.yield_node is not None
+            self.error(msg, new_scope.yield_node)
 
         new_scope.is_generator |= isinstance(node, ast.GeneratorExp)
 
