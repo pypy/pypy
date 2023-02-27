@@ -21,6 +21,19 @@ eval[ast.Expression]: a=expressions NEWLINE* ENDMARKER { ast.Expression(body=a) 
 func_type[ast.FunctionType]: '(' a=[type_expressions] ')' '->' b=expression NEWLINE* ENDMARKER { ast.FunctionType(argtypes=a, returns=b) }
 fstring[ast.Expr]: star_expressions
 
+# TYPING ELEMENTS
+# ---------------
+
+# type_expressions allow */** but ignore them
+type_expressions[list]:
+    | a=','.expression+ ',' '*' b=expression ',' '**' c=expression { a + [b, c] }
+    | a=','.expression+ ',' '*' b=expression { a + [b] }
+    | a=','.expression+ ',' '**' b=expression { a + [b] }
+    | '*' a=expression ',' '**' b=expression { [a, b] }
+    | '*' a=expression { [a] }
+    | '**' a=expression { [a] }
+    | a=','.expression+ {a}
+
 # GENERAL STATEMENTS
 # ==================
 
@@ -103,8 +116,6 @@ assignment:
         ast.AugAssign(target = a, op=b[0], value=c, LOCATIONS)
      }
     | invalid_assignment
-
-annotated_rhs: yield_expr | star_expressions
 
 augassign: # rpython hack: to make the numbers compatible with None, wrap in a list
     | '+=' { [ast.Add] }
@@ -261,6 +272,12 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
         )
      }
 
+func_type_comment:
+    | NEWLINE t=TYPE_COMMENT &(NEWLINE INDENT) { t }  # Must be followed by indented block
+    | invalid_double_type_comments
+    | TYPE_COMMENT
+
+
 # Function parameters
 # -------------------
 
@@ -357,7 +374,7 @@ while_stmt[ast.While]:
 
 for_stmt[Union[ast.For, ast.AsyncFor]]:
     | invalid_for_stmt
-    | 'for' t=star_targets 'in' ~ ex=star_expressions &&':' tc=[TYPE_COMMENT] b=block el=[else_block] {
+    | 'for' t=star_targets 'in' ~ ex=star_expressions ':' tc=[TYPE_COMMENT] b=block el=[else_block] {
         ast.For(target=t, iter=ex, body=b, orelse=el, type_comment=tc, LOCATIONS) }
     | ASYNC 'for' t=star_targets 'in' ~ ex=star_expressions ':' tc=[TYPE_COMMENT] b=block el=[else_block] {
         self.check_version(
@@ -658,24 +675,6 @@ keyword_pattern:
 # EXPRESSIONS
 # -----------
 
-expressions:
-    | a=expression b=(',' c=expression { c })+ [','] {
-        ast.Tuple(elts=[a] + b, ctx=Load, LOCATIONS) }
-    | a=expression ',' { ast.Tuple(elts=[a], ctx=Load, LOCATIONS) }
-    | expression
-
-expression (memo):
-    | invalid_expression
-    | a=disjunction 'if' b=disjunction 'else' c=expression {
-        ast.IfExp(body=a, test=b, orelse=c, LOCATIONS)
-     }
-    | disjunction
-    | lambdef
-
-yield_expr:
-    | 'yield' 'from' a=expression { ast.YieldFrom(value=a, LOCATIONS) }
-    | 'yield' a=[star_expressions] { ast.Yield(value=a, LOCATIONS) }
-
 star_expressions:
     | a=star_expression b=(',' c=star_expression { c })+ [','] {
         ast.Tuple(elts=[a] + b, ctx=Load, LOCATIONS) }
@@ -709,6 +708,26 @@ named_expression:
     | assignment_expression
     | invalid_named_expression
     | a=expression !':=' { a }
+
+annotated_rhs: yield_expr | star_expressions
+
+expressions:
+    | a=expression b=(',' c=expression { c })+ [','] {
+        ast.Tuple(elts=[a] + b, ctx=Load, LOCATIONS) }
+    | a=expression ',' { ast.Tuple(elts=[a], ctx=Load, LOCATIONS) }
+    | expression
+
+expression (memo):
+    | invalid_expression
+    | a=disjunction 'if' b=disjunction 'else' c=expression {
+        ast.IfExp(body=a, test=b, orelse=c, LOCATIONS)
+     }
+    | disjunction
+    | lambdef
+
+yield_expr:
+    | 'yield' 'from' a=expression { ast.YieldFrom(value=a, LOCATIONS) }
+    | 'yield' a=[star_expressions] { ast.Yield(value=a, LOCATIONS) }
 
 disjunction (memo):
     | a=conjunction b=('or' c=conjunction { c })+ { ast.BoolOp(op=ast.Or, values=[a] + b, LOCATIONS) }
@@ -1124,23 +1143,6 @@ del_t_atom:
     | '[' a=[del_targets] ']' { ast.List(elts=a, ctx=Del, LOCATIONS) }
 
 
-# TYPING ELEMENTS
-# ---------------
-
-# type_expressions allow */** but ignore them
-type_expressions[list]:
-    | a=','.expression+ ',' '*' b=expression ',' '**' c=expression { a + [b, c] }
-    | a=','.expression+ ',' '*' b=expression { a + [b] }
-    | a=','.expression+ ',' '**' b=expression { a + [b] }
-    | '*' a=expression ',' '**' b=expression { [a, b] }
-    | '*' a=expression { [a] }
-    | '**' a=expression { [a] }
-    | a=','.expression+ {a}
-
-func_type_comment:
-    | NEWLINE t=TYPE_COMMENT &(NEWLINE INDENT) { t }  # Must be followed by indented block
-    | invalid_double_type_comments
-    | TYPE_COMMENT
 
 # ========================= END OF THE GRAMMAR ===========================
 
@@ -1341,8 +1343,8 @@ invalid_import_from_targets[NoReturn]:
      }
 
 invalid_with_stmt[None]:
-    | [ASYNC] 'with' ','.(expression ['as' star_target])+ &&':' block { self.dummy_name() }
-    | [ASYNC] 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' &&':' block { self.dummy_name() }
+    | [ASYNC] 'with' ','.(expression ['as' star_target])+ NEWLINE { self.raise_syntax_error("expected ':'") }
+    | [ASYNC] 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' NEWLINE { self.raise_syntax_error("expected ':'") }
 invalid_with_stmt_indent[NoReturn]:
     | [ASYNC] a='with' ','.(expression ['as' star_target])+ ':' NEWLINE !INDENT {
         self.raise_indentation_error(
@@ -1366,7 +1368,7 @@ invalid_try_stmt[NoReturn]:
      }
 invalid_except_stmt[None]:
     | 'except' a=expression ',' expressions ['as' NAME ] ':' {
-        self.raise_syntax_error_starting_from("exception group must be parenthesized", a)
+        self.raise_syntax_error_starting_from("multiple exception types must be parenthesized", a)
      }
     | a='except' expression ['as' NAME ] NEWLINE { self.raise_syntax_error("expected ':'") }
     | a='except' NEWLINE { self.raise_syntax_error("expected ':'") }
@@ -1454,6 +1456,7 @@ invalid_while_stmt[NoReturn]:
         )
      }
 invalid_for_stmt[NoReturn]:
+    | [ASYNC] 'for' star_targets 'in' star_expressions NEWLINE { self.raise_syntax_error("expected ':'") }
     | [ASYNC] a='for' star_targets 'in' star_expressions ':' NEWLINE !INDENT {
         self.raise_indentation_error(
             "expected an indented block after 'for' statement on line %s" % a.lineno
