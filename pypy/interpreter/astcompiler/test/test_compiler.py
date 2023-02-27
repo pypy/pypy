@@ -2401,6 +2401,11 @@ class TestErrorPositions(BaseTestCompiler):
         exc = self.error_test(src, SyntaxError)
         assert exc.offset == src.find("*") + 1
 
+    def test_pos_inner_node_nonsense_walrus(self):
+        exc = self.error_test("[i for i in range(5) if (juhuu := 0) for juhuu in range(5)]", SyntaxError)
+        assert exc.offset == 42
+        assert exc.end_offset == 47
+
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
     def simple_test(self, source, evalexpr, expected):

@@ -95,9 +95,9 @@ class Scope(object):
             new_role |= old_role
         if self.comp_iter_target:
             if new_role & (SYM_GLOBAL | SYM_NONLOCAL):
-                raise SyntaxError(
+                self.error(
                     "comprehension inner loop cannot rebind assignment expression target '%s'" % identifier,
-                    self.lineno, self.col_offset)
+                    ast_node)
             new_role |= SYM_COMP_ITER
         self.roles[mangled] = new_role
         if role & SYM_PARAM:
