@@ -381,6 +381,10 @@ if 1:
         assert "expected ':'" in info.value.msg
         info = pytest.raises(SyntaxError, self.parse, "for i in range(10)\n    print i")
         assert "expected ':'" in info.value.msg
+        info = pytest.raises(SyntaxError, self.parse, "for i in range 10\n    print i")
+        assert "expected ':'" not in info.value.msg # this must point to the 'range 10'
+        #info = pytest.raises(SyntaxError, self.parse, "with block ad something\n    print i")
+        #assert "expected ':'" not in info.value.msg # this must point to the 'range 10'
 
     def test_positional_only_args(self):
         self.parse("def f(a, /): pass")
