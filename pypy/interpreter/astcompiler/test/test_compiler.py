@@ -2395,6 +2395,11 @@ match x:
     def test_intliteral_as_it_always_was(self):
         self.st("x = [0x1for x in [1, 2]]", "x", [31])
 
+class TestErrorPositions(BaseTestCompiler):
+    def test_import_star_in_function_position(self):
+        src = "def f(): from _ import *"
+        exc = self.error_test(src, SyntaxError)
+        assert exc.offset == src.find("*") + 1
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
