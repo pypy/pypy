@@ -4463,7 +4463,7 @@ class PythonParser(Parser):
             if a:
                 b = self.expression_without_invalid()
                 if b:
-                    return ( None if self . check_legacy_stmt ( a ) else self . raise_syntax_error_known_range ( "invalid syntax. Perhaps you forgot a comma?" , a , b ) )
+                    return ( None if self . check_legacy_stmt ( a ) or self . _tokens [mark - 1] . level == 0 else self . raise_syntax_error_known_range ( "invalid syntax. Perhaps you forgot a comma?" , a , b ) )
         self._index = mark
         a = self.disjunction()
         if a:
