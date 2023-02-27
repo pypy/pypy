@@ -581,7 +581,7 @@ class TracebackException:
                 getattr(exc_value, "name", None) is not None:
             suggestion = _compute_suggestion_error(exc_value, exc_traceback)
             if suggestion:
-                self._str += ". Did you mean: %s?" % (suggestion, )
+                self._str += ". Did you mean: '%s'?" % (suggestion, )
         if lookup_lines:
             self._load_lines()
         self.__suppress_context__ = \
