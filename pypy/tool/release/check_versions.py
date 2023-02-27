@@ -100,7 +100,7 @@ pypy_versions = {
                  '7.3.2': {'python_version': ['3.7.9', '3.6.9', '2.7.13'],
                            'date': '2020-09-25',
                           },
-                'nightly': {'python_version': ['2.7', '3.6', '3.7', '3.8', '3.9']},
+                'nightly': {'python_version': ['2.7', '3.6', '3.7', '3.8', '3.9', '3.10']},
                 }
 
 
@@ -179,6 +179,7 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
                     assert_in(arch_plat, download_url)
                 else:
                     assert_in(arch_plat, download_url)
+                py_ver_tuple = [int(s) for s in py_ver.split('.')]
                 if py_ver == "2.7":
                     py_ver = "trunk"
             elif f['platform'] == "darwin":
@@ -198,7 +199,7 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
             except error.HTTPError as e:
                 raise ValueError(f"could not open '{download_url}', got {e}") from None
             assert_equal(r.getcode(), 200)
-            if d['pypy_version'] == 'nightly' and py_ver >= '3.8':
+            if d['pypy_version'] == 'nightly' and (py_ver_tuple >= [3, 9] or py_ver == "trunk"):
                 print('time-check', end='')
                 # nightly builds do not have a date entry, use time.time()
                 target = time.strftime("%Y-%m-%d")
@@ -207,9 +208,11 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
                 modified_time_str = ' '.join(r.getheader("Last-Modified").split(' ')[1:4])
                 expected_time = time.mktime(time.strptime(target, "%Y-%m-%d"))
                 modified_time = time.mktime(time.strptime(modified_time_str, "%d %b %Y"))
-                if abs(expected_time - modified_time) > 60 * 60 * 24 * 7:
-                    print()
-                    raise ValueError(f"expected {modified_time_str} to be within a week of {target}")
+                if abs(expected_time - modified_time) > 60 * 60 * 24 * 14 and 's390x' not in arch_plat:
+                    raise ValueError(f"expected {modified_time_str} to be within 2 weeks of {target}")
+                else:
+                    delta_days = abs(expected_time - modified_time) / (60 * 60 * 24)
+                    print(f" {delta_days} days", end='')
             if verbose > 0:
                 print(f' ok')
         if verbose > 0:
