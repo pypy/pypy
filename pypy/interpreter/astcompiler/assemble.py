@@ -27,13 +27,12 @@ class Instruction(object):
 
     _stack_depth_after = -99 # used before translation only
 
-    def __init__(self, opcode, arg=0):
+    def __init__(self, opcode, arg=0, position_info=(-1, -1, -1, -1)):
         self.opcode = opcode
         self.arg = arg
         if opcode < ops.HAVE_ARGUMENT:
             assert arg == 0
-        self.lineno = 0
-        self.position_info = (-1,) * 4
+        self.position_info = position_info
         self.has_jump = False
 
     def size(self):
@@ -211,7 +210,6 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.argcount = 0
         self.posonlyargcount = 0
         self.kwonlyargcount = 0
-        self.lineno = 0
         self.position_info = (-1,) * 4
         self.add_none_to_final_return = True
         self.match_context = None
@@ -259,18 +257,14 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def emit_op(self, op):
         """Emit an opcode without an argument."""
-        instr = Instruction(op)
-        instr.lineno = self.lineno
-        instr.position_info = self.position_info
+        instr = Instruction(op, position_info=self.position_info)
         if not self.is_dead_code():
             self.emit_instr(instr)
         return instr
 
     def emit_op_arg(self, op, arg):
         """Emit an opcode with an integer argument."""
-        instr = Instruction(op, arg)
-        instr.lineno = self.lineno
-        instr.position_info = self.position_info
+        instr = Instruction(op, arg, position_info=self.position_info)
         if not self.is_dead_code():
             self.emit_instr(instr)
 
@@ -337,8 +331,7 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     @specialize.argtype(1)
     def update_position(self, node):
-        """Change the lineno for the next instructions."""
-        self.lineno = node.lineno
+        """Change the position for the next instructions to that of node."""
         old_position_info = self.position_info
         self.position_info = (node.lineno, node.end_lineno, node.col_offset, node.end_col_offset)
         return old_position_info
@@ -513,31 +506,6 @@ class PythonCodeMaker(ast.ASTVisitor):
                 self._next_stack_depth_walk(block.next_block, depth, (block, None))
         return depth
 
-    def _build_lnotab(self, blocks):
-        """Build the line number table for tracebacks and tracing."""
-        current_line = self.first_lineno
-        current_off = 0
-        table = rstring.StringBuilder()
-        for block in blocks:
-            offset = block.offset
-            for instr in block.instructions:
-                if instr.lineno:
-                    # compute deltas
-                    line = instr.lineno - current_line
-                    addr = offset - current_off
-                    if line:
-                        _encode_lnotab_pair(addr, line, table)
-                        current_line = instr.lineno
-                        current_off = offset
-                offset += instr.size()
-        return table.build()
-
-    def _build_code(self, blocks, size):
-        bytecode = rstring.StringBuilder(size)
-        for block in blocks:
-            block.get_code(bytecode)
-        return bytecode.build()
-
     def _build_positions(self, blocks):
         """Build the column offset table (with end column offsets)."""
         from pypy.interpreter.location import encode_positions
@@ -561,7 +529,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         # Set the first lineno if it is not already explicitly set.
         if self.first_lineno == -1:
             if self.first_block.instructions:
-                self.first_lineno = self.first_block.instructions[0].lineno
+                self.first_lineno = self.first_block.instructions[0].position_info[0]
             else:
                 self.first_lineno = 1
         blocks = self.first_block.post_order()
