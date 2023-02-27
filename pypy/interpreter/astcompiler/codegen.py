@@ -218,19 +218,14 @@ def update_pos_expr(func):
     def updater(self, expr):
         assert isinstance(expr, ast.expr)
         if expr.lineno > 0:
-            new_lineno = expr.lineno
             new_position_info = _get_positions_for_expr(expr)
         else:
-            new_lineno = self.lineno
             new_position_info = (-1,) * 4
-        old_lineno = self.lineno
         old_position_info = self.position_info
-        self.lineno = new_lineno
         self.position_info = new_position_info
         try:
             return func(self, expr)
         finally:
-            self.lineno = old_lineno
             self.position_info = old_position_info
     updater.func_name = func.func_name + "_pos_updater"
     return updater
@@ -305,9 +300,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             finallyblock = fblock.datum
             assert isinstance(finallyblock, ast.Try)
             assert finallyblock.finalbody
-            saved_lineno = self.lineno
+            old_position_info = self.position_info
             self._visit_body(finallyblock.finalbody)
-            self.lineno = saved_lineno
+            self.position_info = old_position_info
             if preserve_tos:
                 self.pop_frame_block(F_POP_VALUE, None)
         elif kind == F_FINALLY_END:
@@ -1065,10 +1060,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.POP_TOP)
 
     def visit_Assign(self, assign):
-        # paranoia assert in this stmt subclass: make sure that the lineno is
-        # already set, should be done by _visit_body
-        assert assign.lineno < 1 or self.lineno == assign.lineno
-
         if self._optimize_unpacking(assign):
             return
         assign.value.walkabout(self)
@@ -2539,7 +2530,7 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self.first_lineno = cls.lineno
         if cls.decorator_list and cls.decorator_list[0].lineno > 0:
             self.first_lineno = cls.decorator_list[0].lineno
-        self.lineno = self.first_lineno
+        self.update_position(cls)
         self.argcount = 1
         # load (global) __name__ ...
         self.name_op("__name__", ast.Load, None)
