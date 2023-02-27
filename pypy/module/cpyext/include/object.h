@@ -730,6 +730,40 @@ PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
 struct PyModuleDef;
 PyAPI_FUNC(PyObject *) _PyType_GetModuleByDef(PyTypeObject *, struct PyModuleDef *);
 
+/* Safely decref `op` and set `op` to `op2`.
+ *
+ * As in case of Py_CLEAR "the obvious" code can be deadly:
+ *
+ *     Py_DECREF(op);
+ *     op = op2;
+ *
+ * The safe way is:
+ *
+ *      Py_SETREF(op, op2);
+ *
+ * That arranges to set `op` to `op2` _before_ decref'ing, so that any code
+ * triggered as a side-effect of `op` getting torn down no longer believes
+ * `op` points to a valid object.
+ *
+ * Py_XSETREF is a variant of Py_SETREF that uses Py_XDECREF instead of
+ * Py_DECREF.
+ */
+
+#define Py_SETREF(op, op2)                      \
+    do {                                        \
+        PyObject *_py_tmp = _PyObject_CAST(op); \
+        (op) = (op2);                           \
+        Py_DECREF(_py_tmp);                     \
+    } while (0)
+
+#define Py_XSETREF(op, op2)                     \
+    do {                                        \
+        PyObject *_py_tmp = _PyObject_CAST(op); \
+        (op) = (op2);                           \
+        Py_XDECREF(_py_tmp);                    \
+    } while (0)
+
+
 
 #define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
 #define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
