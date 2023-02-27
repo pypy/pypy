@@ -1218,6 +1218,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(fblock_kind, body_block)
 
+        self.update_position(wih)
         # end of body, successful outcome, start cleanup
         self.call_exit_with_nones()
         if is_async:

@@ -2086,6 +2086,17 @@ x = [lineno for addr, lineno in dis.findlinestarts(c)]
 """
         self.st(func, "x", [1])
 
+    def test_with_lineno_wrong(self):
+        func = """def with_wrong_lineno():
+    with ABC():
+        g()
+import dis
+co = with_wrong_lineno.__code__
+linestarts = list(dis.findlinestarts(co))
+x = [lineno for addr, lineno in linestarts]
+    """
+        self.st(func, "x", [2, 3, 2])
+
 
     def test_error_in_dead_code(self):
         self.error_test("if 0: break", SyntaxError)
