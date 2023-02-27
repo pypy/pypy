@@ -1161,7 +1161,7 @@ invalid_arguments[NoReturn]:
      }
     | a=expression b=for_if_clauses ',' [args | expression for_if_clauses] {
         self.raise_syntax_error_known_range(
-            "Generator expression must be parenthesized", a, self.get_last_target(b)
+            "Generator expression must be parenthesized", a, self.get_last_comprehension_item(self.get_last(b))
         )
      }
     | a=NAME b='=' expression for_if_clauses {

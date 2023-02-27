@@ -4349,7 +4349,7 @@ class PythonParser(Parser):
                 literal = self.expect_type(12)
                 if literal:
                     opt = self._tmp_142()
-                    return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , self . get_last_target ( b ) )
+                    return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , self . get_last_comprehension_item ( self . get_last ( b ) ) )
         self._index = mark
         a = self.name()
         if a:

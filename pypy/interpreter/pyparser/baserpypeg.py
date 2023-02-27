@@ -597,12 +597,10 @@ class Parser:
                    "to avoid decimal conversion limits.")
             self.raise_syntax_error_known_location(msg, tok)
 
-    def get_last_target(self, for_if_clauses):
-        if not for_if_clauses:
+    def get_last(self, l):
+        if not l:
             return None
-        last = for_if_clauses[-1]
-        assert isinstance(last, ast.comprehension)
-        return last.target
+        return l[-1]
 
     def check_last_keyword_no_arg(self, args):
         if not args.keywords:
