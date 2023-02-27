@@ -2077,7 +2077,7 @@ co = finally_wrong_lineno.__code__
 linestarts = list(dis.findlinestarts(co))
 x = [lineno for addr, lineno in linestarts]
     """
-        self.st(func, "x", [8, 9, 11, 9, 11, 12])
+        self.st(func, "x", [8, 9, 11, 12])
 
     def test_lineno1_eval_bug(self):
         func = """c = compile('z', '<string>', 'eval')

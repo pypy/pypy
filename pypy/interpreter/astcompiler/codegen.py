@@ -942,7 +942,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         exit = self.new_block()
 
         # try block
-
         self.emit_jump(ops.SETUP_FINALLY, end)
         self.use_next_block(body)
         self.push_frame_block(F_FINALLY_TRY, body, end, tr)
@@ -951,6 +950,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             self._visit_body(tr.body)
         self.emit_op(ops.POP_BLOCK)
+
+        # finally block, unexceptional case
         self.pop_frame_block(F_FINALLY_TRY, body)
         self._visit_body(tr.finalbody)
         self.emit_jump(ops.JUMP_FORWARD, exit)
