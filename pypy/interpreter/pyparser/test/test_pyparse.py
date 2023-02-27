@@ -420,6 +420,14 @@ if 1:
         info = pytest.raises(SyntaxError, self.parse, "print 1)")
         assert "unmatched" in info.value.msg
 
+    def test_end_location_unparenthized_genexp(self):
+        info = pytest.raises(SyntaxError, self.parse, "f(x for x in range(10), 1)")
+        assert "Generator expression must be parenthesized" in info.value.msg
+        assert info.value.end_offset == 23
+        info = pytest.raises(SyntaxError, self.parse, "f(x for x in range(10) if x != 2, 1)")
+        assert "Generator expression must be parenthesized" in info.value.msg
+        assert info.value.end_offset == 33
+
 
 class TestPythonParserRevDB(TestPythonParser):
     spaceconfig = {"translation.reverse_debugger": True}
