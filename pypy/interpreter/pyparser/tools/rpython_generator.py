@@ -291,6 +291,9 @@ class RPythonParserGenerator(ParserGenerator, GrammarVisitor):
                 self.print("@memoize_left_rec")
         elif node.memo:
             self.print("@memoize")
+
+        if node.name.endswith("without_invalid"):
+            self.print("@without_invalid")
         node_type = node.type or "Any"
         self.method_name = node.name
         self.print(f"def {node.name}(self): # type Optional[{node_type}]")

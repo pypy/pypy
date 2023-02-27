@@ -5,7 +5,7 @@ from pypy.interpreter.pyparser.error import SyntaxError, IndentationError, TabEr
 from pypy.interpreter.astcompiler import consts
 
 
-class TestPythonParser:
+class BaseTestPythonParser:
     spaceconfig = {}
 
     def setup_class(self):
@@ -16,6 +16,7 @@ class TestPythonParser:
             info = pyparse.CompileInfo("<test>", mode, flags=flags)
         return self.parser.parse_source(source, info)
 
+class TestPythonParser(BaseTestPythonParser):
     def test_encoding(self):
         info = pyparse.CompileInfo("<test>", "exec")
         self.parse("""# coding: latin-1
@@ -383,11 +384,14 @@ if 1:
         assert "expected ':'" in info.value.msg
         info = pytest.raises(SyntaxError, self.parse, "for i in range 10\n    print i")
         assert "expected ':'" not in info.value.msg # this must point to the 'range 10'
-        #info = pytest.raises(SyntaxError, self.parse, "with block ad something\n    print i")
-        #assert "expected ':'" not in info.value.msg # this must point to the 'range 10'
 
     def test_positional_only_args(self):
         self.parse("def f(a, /): pass")
+
+    @pytest.mark.xfail # why is this different in cpy?!
+    def test_forgot_comma_wrong(self):
+        info = pytest.raises(SyntaxError, self.parse, "with block ad something\n    print i")
+        assert "invalid syntax" == info.value.msg
 
     def test_error_print_without_parens(self):
         info = pytest.raises(SyntaxError, self.parse, "print 1")
@@ -413,7 +417,7 @@ class TestPythonParserRevDB(TestPythonParser):
         pytest.raises(SyntaxError, self.parse, '$.5')
 
 
-class TestPythonPegParser(TestPythonParser):
+class TestPythonPegParser(BaseTestPythonParser):
     spaceconfig = {}
 
     def setup_class(self):

@@ -2547,7 +2547,7 @@ class PythonParser(Parser):
 
     @memoize
     def expression(self): # type Optional[Any]
-        # expression: invalid_expression | disjunction 'if' disjunction 'else' expression | disjunction | lambdef
+        # expression: invalid_expression | invalid_legacy_expression | disjunction 'if' disjunction 'else' expression | disjunction | lambdef
         mark = self._index
         if self._verbose: log_start(self, 'expression')
         tok = self.peek()
@@ -2555,6 +2555,11 @@ class PythonParser(Parser):
         if self.call_invalid_rules:
             invalid_expression = self.invalid_expression()
             if invalid_expression:
+                assert 0, 'unreachable'
+            self._index = mark
+        if self.call_invalid_rules:
+            invalid_legacy_expression = self.invalid_legacy_expression()
+            if invalid_legacy_expression:
                 assert 0, 'unreachable'
             self._index = mark
         a = self.disjunction()
@@ -4405,6 +4410,7 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
+    @without_invalid
     def expression_without_invalid(self): # type Optional[ast . AST]
         # expression_without_invalid: disjunction 'if' disjunction 'else' expression | disjunction | lambdef
         mark = self._index
@@ -4444,19 +4450,14 @@ class PythonParser(Parser):
             if self.negative_lookahead(PythonParser.expect_type, 7):
                 b = self.expression_without_invalid()
                 if b:
-                    return self . raise_syntax_error_known_range ( "Missing parentheses in call to '%s'. Did you mean '%s'(...)?" % ( a . id , a . id ) , a , b , ) if a . id in ( "exec" , "print" ) else None
+                    return self . raise_syntax_error_known_range ( "Missing parentheses in call to '%s'. Did you mean %s(...)?" % ( a . id , a . id ) , a , b , ) if a . id in ( "exec" , "print" ) else None
         self._index = mark
         return None
 
     def invalid_expression(self): # type Optional[NoReturn]
-        # invalid_expression: invalid_legacy_expression | !(NAME STRING | SOFT_KEYWORD) disjunction expression_without_invalid | disjunction 'if' disjunction !('else' | ':')
+        # invalid_expression: !(NAME STRING | SOFT_KEYWORD) disjunction expression_without_invalid | disjunction 'if' disjunction !('else' | ':')
         mark = self._index
         if self._verbose: log_start(self, 'invalid_expression')
-        if self.call_invalid_rules:
-            invalid_legacy_expression = self.invalid_legacy_expression()
-            if invalid_legacy_expression:
-                assert 0, 'unreachable'
-            self._index = mark
         if self.negative_lookahead(PythonParser._tmp_144, ):
             a = self.disjunction()
             if a:
