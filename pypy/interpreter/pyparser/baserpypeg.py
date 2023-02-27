@@ -162,6 +162,16 @@ def memoize_left_rec(method):
     memoize_left_rec_wrapper.__wrapped__ = method  # type: ignore
     return memoize_left_rec_wrapper
 
+def without_invalid(func):
+    def without_invalid_wrapper(self):
+        old = self.call_invalid_rules
+        try:
+            return func(self)
+        finally:
+            self.call_invalid_rules = old
+    without_invalid_wrapper.func_name = func.func_name + "_without_invalid_wrapper"
+    return without_invalid_wrapper
+
 def isspace(s):
     res = True
     for c in s:
