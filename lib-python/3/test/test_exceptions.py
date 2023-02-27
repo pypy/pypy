@@ -2567,6 +2567,7 @@ class PEP626Tests(unittest.TestCase):
                 pass
         self.lineno_after_raise(after_with, 2)
 
+    @cpython_only
     def test_missing_lineno_shows_as_none(self):
         def f():
             1/0
