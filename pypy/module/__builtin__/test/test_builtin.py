@@ -498,6 +498,10 @@ class AppTestBuiltinApp:
         b = range(10, 0)
         assert bool(b) is False
 
+    def test_range_bool_arg(self):
+        a = range(True)
+        assert type(a.stop) is int
+
     def test_sorted(self):
         l = []
         sorted_l = sorted(l)
