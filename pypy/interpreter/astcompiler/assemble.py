@@ -339,7 +339,9 @@ class PythonCodeMaker(ast.ASTVisitor):
     def update_position(self, node):
         """Change the lineno for the next instructions."""
         self.lineno = node.lineno
+        old_position_info = self.position_info
         self.position_info = (node.lineno, node.end_lineno, node.col_offset, node.end_col_offset)
+        return old_position_info
 
     def _resolve_block_targets(self, blocks):
         """Compute the arguments of jump instructions."""
