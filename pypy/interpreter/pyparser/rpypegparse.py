@@ -4450,7 +4450,7 @@ class PythonParser(Parser):
             if self.negative_lookahead(PythonParser.expect_type, 7):
                 b = self.star_expressions()
                 if b:
-                    return self . raise_syntax_error_known_range ( "Missing parentheses in call to '%s'. Did you mean %s(...)?" % ( a . id , a . id ) , a , b , ) if a . id in ( "exec" , "print" ) else None
+                    return self . raise_syntax_error_known_range ( "Missing parentheses in call to '%s'. Did you mean %s(...)?" % ( a . id , a . id ) , a , b , ) if self . check_legacy_stmt ( a ) else None
         self._index = mark
         return None
 
@@ -4463,7 +4463,7 @@ class PythonParser(Parser):
             if a:
                 b = self.expression_without_invalid()
                 if b:
-                    return self . raise_syntax_error_known_range ( "invalid syntax. Perhaps you forgot a comma?" , a , b )
+                    return ( None if self . check_legacy_stmt ( a ) else self . raise_syntax_error_known_range ( "invalid syntax. Perhaps you forgot a comma?" , a , b ) )
         self._index = mark
         a = self.disjunction()
         if a:

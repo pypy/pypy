@@ -936,6 +936,10 @@ class Parser:
                     self.get_last_comprehension_item(b[-1]))
         return None
 
+    def check_legacy_stmt(self, a):
+        return isinstance(a, ast.Name) and a.id in ('exec', 'print')
+
+
     def revdbmetavar(self, num, lineno, col_offset, end_lineno, end_col_offset):
         if not self.space.config.translation.reverse_debugger:
             self._raise_syntax_error("Unkown character", lineno, col_offset, end_lineno, end_col_offset)

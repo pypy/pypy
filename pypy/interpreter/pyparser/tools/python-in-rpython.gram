@@ -1206,14 +1206,15 @@ invalid_legacy_expression:
     | a=NAME !'(' b=star_expressions {
         self.raise_syntax_error_known_range(
             "Missing parentheses in call to '%s'. Did you mean %s(...)?" % (a.id, a.id), a, b,
-        ) if a.id in ("exec", "print") else
+        ) if self.check_legacy_stmt(a) else
         None
      }
 invalid_expression[NoReturn]:
     # !(NAME STRING) is not matched so we don't show this error with some invalid string prefixes like: kf"dsfsdf"
     # Soft keywords need to also be ignored because they can be parsed as NAME NAME
     | !(NAME STRING | SOFT_KEYWORD) a=disjunction b=expression_without_invalid {
-        self.raise_syntax_error_known_range("invalid syntax. Perhaps you forgot a comma?", a, b)
+        (None if self.check_legacy_stmt(a) else
+         self.raise_syntax_error_known_range("invalid syntax. Perhaps you forgot a comma?", a, b))
      }
     | a=disjunction 'if' b=disjunction !('else'|':') {
         self.raise_syntax_error_known_range("expected 'else' after 'if' expression", a, b)
