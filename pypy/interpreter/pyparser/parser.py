@@ -6,7 +6,7 @@ class TokenASTBase(object):
     _attrs_ = []
 
 class Token(TokenASTBase):
-    def __init__(self, token_type, value, lineno, column, line, end_lineno=-1, end_column=-1):
+    def __init__(self, token_type, value, lineno, column, line, end_lineno=-1, end_column=-1, level=0):
         self.token_type = token_type
         self.value = value
         self.lineno = lineno
@@ -15,6 +15,7 @@ class Token(TokenASTBase):
         self.line = line
         self.end_lineno = end_lineno
         self.end_column = end_column
+        self.level = level
 
     def __repr__(self):
         from pypy.interpreter.pyparser.pytoken import token_names
