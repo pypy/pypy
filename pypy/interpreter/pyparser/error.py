@@ -1,7 +1,27 @@
+from pypy.interpreter.unicodehelper import _str_decode_utf8_slowpath
+
 def wrap_pos(space, num):
     if num <= 0:
         return space.w_None
     return space.newint(num)
+
+def replace_error_handler(errors, encoding, msg, s, startpos, endpos):
+    return b'\xef\xbf\xbd', endpos, 'b', s
+
+def _adjust_offset(offset, text, unilength):
+    if offset > len(text):
+        offset = unilength
+    elif offset >= 1:
+        offset = offset - 1 # 1-based to 0-based
+        assert offset >= 0
+        # slightly inefficient, call the decoder for text[:offset] too
+        _, offset, _ = _str_decode_utf8_slowpath(
+                text[:offset], 'replace', False, replace_error_handler,
+                True)
+        offset += 1 # convert to 1-based
+    else:
+        offset = 0
+    return offset
 
 class SyntaxError(Exception):
     """Base class for exceptions raised by the parser."""
@@ -35,7 +55,6 @@ class SyntaxError(Exception):
             lines = source.splitlines(True)
             text = lines[self.lineno - 1]
         w_text = w_filename = space.w_None
-        offset = self.offset
         w_lineno = space.newint(self.lineno)
         if filename is None:
             filename = self.filename
@@ -51,8 +70,9 @@ class SyntaxError(Exception):
                             return f.readline()
                     except:  # we can't allow any exceptions here!
                         return None""")
+        offset = self.offset
+        end_offset = self.end_offset
         if text is not None:
-            from pypy.interpreter.unicodehelper import _str_decode_utf8_slowpath
             # text may not be UTF-8 in case of decoding errors.
             # adjust the encoded text offset to a decoded offset
             # XXX do the right thing about continuation lines, which
@@ -63,30 +83,18 @@ class SyntaxError(Exception):
             # codepoint-based index into the decoded unicode-version of
             # self.text
 
-            def replace_error_handler(errors, encoding, msg, s, startpos, endpos):
-                return b'\xef\xbf\xbd', endpos, 'b', s
-
             replacedtext, unilength, _ = _str_decode_utf8_slowpath(
                     text, 'replace', False, replace_error_handler, True)
-            if offset > len(text):
-                offset = unilength
-            elif offset >= 1:
-                offset = offset - 1 # 1-based to 0-based
-                assert offset >= 0
-                # slightly inefficient, call the decoder for text[:offset] too
-                _, offset, _ = _str_decode_utf8_slowpath(
-                        text[:offset], 'replace', False, replace_error_handler,
-                        True)
-                offset += 1 # convert to 1-based
-            else:
-                offset = 0
+            offset = _adjust_offset(offset, text, unilength)
+            # XXX this is wrong if end_lineno != lineno
+            end_offset = _adjust_offset(end_offset, text, unilength)
             w_text = space.newutf8(replacedtext, unilength)
         return space.newtuple([
             space.newtext(self.msg),
             space.newtuple([
                 w_filename, w_lineno, wrap_pos(space, offset),
                 w_text, wrap_pos(space, self.end_lineno),
-                wrap_pos(space, self.end_offset)])])
+                wrap_pos(space, end_offset)])])
 
     def __str__(self):
         return "%s at pos (%d, %d) in %r" % (

@@ -66,3 +66,12 @@ def test_warn_wrong_indices():
         assert "indices must be" in str(w[0].message)
         assert w[0].lineno == 1
 
+def test_error_position_unicode():
+    source = "ááá ßßß úúú"
+    try:
+        compile(source, 'fn', 'exec')
+    except SyntaxError as e:
+        assert e.lineno == e.end_lineno == 1
+        assert e.offset == 5
+        assert e.end_offset == 8
+

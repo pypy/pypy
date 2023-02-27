@@ -2510,17 +2510,14 @@ class AppTestCompiler:
         compile("def g(): [x for x in [(yield from ())]]", "<test case>", "exec")
 
         def check(snippet, error_msg, offset=-1, end_offset=-1):
-            print(snippet)
             try:
                 compile(snippet, "<test case>", "exec")
             except SyntaxError as exc:
                 assert exc.msg == error_msg
                 assert exc.lineno == 1
                 if offset != -1:
-                    print(exc.offset)
                     assert exc.offset == offset
                 if end_offset != -1:
-                    print(exc.end_offset)
                     assert exc.end_offset == end_offset
             else:
                 assert False, snippet
