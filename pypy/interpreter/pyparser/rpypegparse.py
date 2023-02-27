@@ -4375,7 +4375,7 @@ class PythonParser(Parser):
                 if a:
                     b = self.for_if_clauses()
                     if b:
-                        return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , self . get_last_target ( b ) , )
+                        return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , self . get_last_comprehension_item ( b ) , )
         self._index = mark
         a = self.args()
         if a:
