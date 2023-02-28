@@ -525,6 +525,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             else:
                 self.first_lineno = 1
         blocks = self.first_block.post_order()
+        remove_redundant_nops(blocks)
         self._resolve_block_targets(blocks)
         positions = self._build_positions(blocks)
         stack_depth = self._stacksize(blocks)
@@ -644,6 +645,28 @@ class SubMatchContext(object):
     def __exit__(self, *args):
         self.codegen.match_context.allow_always_passing = self.old_value
 
+def _remove_redundant_nops(block):
+    prevlineno = -1
+    source = 0
+    dest = 0
+    while source < len(block):
+        op = block[source]
+        source += 1
+        lineno = op.position_info[0]
+        if op.opcode == ops.NOP:
+            if lineno == -1 or lineno == prevlineno:
+                continue
+            if source < len(block) and lineno == block[source].position_info[0]:
+                continue
+        prevlineno = lineno
+        block[dest] = op
+        dest += 1
+    if dest != len(block):
+        del block[dest:]
+
+def remove_redundant_nops(blocks):
+    for block in blocks:
+        _remove_redundant_nops(block.instructions)
 
 def _list_from_dict(d, offset=0):
     result = [None] * len(d)

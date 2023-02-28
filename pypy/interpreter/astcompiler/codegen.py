@@ -1259,7 +1259,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         pass
 
     def visit_Pass(self, pas):
-        pass
+        self.emit_op(ops.NOP) # for the line numbers
 
     def visit_Expr(self, expr):
         if self.interactive:
