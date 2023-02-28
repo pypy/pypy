@@ -751,7 +751,7 @@ def run_command_line(interactive,
                      dev_mode,
                      utf8_mode,
                      **ignored):
-    # with PyPy in top of CPython we can only have around 100
+    # with PyPy on top of CPython we can only have around 100
     # but we need more in the PyPy level for the compiler package
     if not WE_ARE_TRANSLATED:
         sys.setrecursionlimit(5000)
