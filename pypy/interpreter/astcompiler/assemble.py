@@ -536,6 +536,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         flags = self._get_code_flags()
         # (Only) inherit compilerflags in PyCF_MASK
         flags |= (self.compile_info.flags & consts.PyCF_MASK)
+        if not we_are_translated():
+            self._final_blocks = blocks
         bytecode = ''.join([block.get_code() for block in blocks])
         return PyCode(self.space,
                       self.argcount,
@@ -941,3 +943,9 @@ def _opcode_stack_effect_jump(op):
     raise KeyError
 
 
+def _debug_print_blocks(blocks):
+    labels = {block: i for (i, block) in enumerate(blocks)}
+    for block in blocks:
+        print "L%s:" % labels[block]
+        for instruction in block:
+            print instruction

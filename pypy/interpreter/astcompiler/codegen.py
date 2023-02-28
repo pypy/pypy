@@ -2007,8 +2007,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.name_op(name, ast.Store, match_context.names_origins[i])
 
                 if case.guard:
-                    case.guard.walkabout(self)
-                    self.emit_jump(ops.POP_JUMP_IF_FALSE, match_context.next, True)
+                    case.guard.accept_jump_if(self, False, match_context.next)
 
                 if not is_last_case:
                     self.emit_op(ops.POP_TOP)
