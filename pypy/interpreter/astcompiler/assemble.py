@@ -75,16 +75,15 @@ class Instruction(object):
         self.jump = target
 
     def __repr__(self):
-        data = [ops.opname[self.opcode]]
-        template = "<%s"
+        data = ["<", ops.opname[self.opcode]]
         if self.opcode >= ops.HAVE_ARGUMENT:
-            data.append(self.arg)
-            template += " %i"
-            if self.jump is not None:
-                data.append(self.jump)
-                template += " %s"
-        template += ">"
-        return template % tuple(data)
+            data.append(" ")
+            data.append(str(self.arg))
+            if self.has_jump:
+                data.append(" ")
+                data.append(str(self.jump[0]))
+        data.append(" lineno=%s>" % (self.position_info[0], ))
+        return "".join(data)
 
 
 class Block(object):

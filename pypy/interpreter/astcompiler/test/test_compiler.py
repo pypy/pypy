@@ -2416,6 +2416,15 @@ pass; pass; pass; pass
 pass""", [0, 1, 3, 4, 5, 6])
         assert len(code.co_code) == 18 # check that the NOPs have been reduced
 
+    def test_while_1(self):
+        code = self.get_line_numbers("""while 1:
+    if f(x):
+        pass
+    else:
+        pass
+""", [0, 1, 2, 4])
+        assert len(code.co_code) == 18 # check that the NOPs have been reduced
+
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
         src = "def f(): from _ import *"
