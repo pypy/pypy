@@ -4560,7 +4560,7 @@ class PythonParser(Parser):
             if augassign:
                 _tmp_152 = self._tmp_152()
                 if _tmp_152:
-                    return self . raise_syntax_error_known_location ( "%s is an illegal expression for augmented assignment" % ( self . get_expr_name ( a ) , ) , a )
+                    return self . raise_syntax_error_known_location ( "'%s' is an illegal expression for augmented assignment" % ( self . get_expr_name ( a ) , ) , a )
         self._index = mark
         return None
 
