@@ -818,6 +818,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             anchor = None
             if test_constant == optimize.CONST_NOT_CONST:
                 anchor = self.new_block()
+            else:
+                self.emit_op(ops.NOP)
             loop = self.new_block()
             self.push_frame_block(F_WHILE_LOOP, loop, end)
             self.use_next_block(loop)
