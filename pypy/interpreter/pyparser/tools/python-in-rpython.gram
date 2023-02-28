@@ -1263,7 +1263,7 @@ invalid_assignment[NoReturn]:
      }
     | a=star_expressions augassign (yield_expr | star_expressions) {
         self.raise_syntax_error_known_location(
-            "%s is an illegal expression for augmented assignment" % (self.get_expr_name(a), ), a
+            "'%s' is an illegal expression for augmented assignment" % (self.get_expr_name(a), ), a
         )
      }
 invalid_ann_assign_target[ast.AST]:
