@@ -155,7 +155,8 @@ if 1:
     def test_leading_newlines(self):
         s256 = "".join(["\n"] * 256 + ["spam"])
         co = compile(s256, 'fn', 'exec')
-        self.assertEqual(co.co_firstlineno, 1)
+        if check_impl_detail():
+            self.assertEqual(co.co_firstlineno, 1)
         self.assertEqual(list(co.co_lines()), [(0, 8, 257)])
 
     def test_literals_with_leading_zeroes(self):
