@@ -545,3 +545,7 @@ class TestIncompleteInput(object):
 
     def test_triplequote(self):
         msg = self.check_incomplete("a = '''\nabc\def")
+
+    def test_augmented_assignment(self):
+        msg = self.check_error("(y for y in (1,2)) += 10")
+        assert "'generator expression'" in msg
