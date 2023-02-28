@@ -131,5 +131,3 @@ def linetable2lnotab(linetable, firstlineno):
         pc += 2
     return b"".join(res)
 
-
-
