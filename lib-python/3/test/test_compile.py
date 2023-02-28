@@ -926,6 +926,7 @@ if 1:
                               for (_, _, line) in func.__code__.co_lines() ]
                 self.assertEqual(lines, code_lines)
 
+    @support.cpython_only
     def test_line_number_genexp(self):
 
         def return_genexp():
@@ -941,6 +942,7 @@ if 1:
                       for (_, _, line) in genexp_code.co_lines() ]
         self.assertEqual(genexp_lines, code_lines)
 
+    @support.cpython_only
     def test_line_number_implicit_return_after_async_for(self):
 
         async def test(aseq):
