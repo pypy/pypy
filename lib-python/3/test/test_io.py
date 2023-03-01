@@ -1608,9 +1608,14 @@ class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
         rawio = io.BufferedReader(io.BytesIO(b"12"))
         rawio.readinto = lambda buf: b''
         bufio = self.tp(rawio)
-        with self.assertRaises(OSError) as cm:
-            bufio.readline()
-        self.assertIsInstance(cm.exception.__cause__, TypeError)
+        if sys.implementation.name == 'pypy':
+            with self.assertRaises(TypeError) as cm:
+                bufio.readline()
+            self.assertIsNone(cm.exception.__cause__)
+        else:
+            with self.assertRaises(OSError) as cm:
+                bufio.readline()
+            self.assertIsInstance(cm.exception.__cause__, TypeError)
 
 
 class PyBufferedReaderTest(BufferedReaderTest):
@@ -3075,32 +3080,28 @@ class TextIOWrapperTest(unittest.TestCase):
             StatefulIncrementalDecoder.codecEnabled = 0
 
     def test_multibyte_seek_and_tell(self):
-        f = self.open(os_helper.TESTFN, "w", encoding="euc_jp")
-        f.write("AB\n\u3046\u3048\n")
-        f.close()
+        with open(os_helper.TESTFN, "w", encoding="euc_jp") as f:
+            f.write("AB\n\u3046\u3048\n")
 
-        f = self.open(os_helper.TESTFN, "r", encoding="euc_jp")
-        self.assertEqual(f.readline(), "AB\n")
-        p0 = f.tell()
-        self.assertEqual(f.readline(), "\u3046\u3048\n")
-        p1 = f.tell()
-        f.seek(p0)
-        self.assertEqual(f.readline(), "\u3046\u3048\n")
-        self.assertEqual(f.tell(), p1)
-        f.close()
+        with open(os_helper.TESTFN, "r", encoding="euc_jp") as f:
+            self.assertEqual(f.readline(), "AB\n")
+            p0 = f.tell()
+            self.assertEqual(f.readline(), "\u3046\u3048\n")
+            p1 = f.tell()
+            f.seek(p0)
+            self.assertEqual(f.readline(), "\u3046\u3048\n")
+            self.assertEqual(f.tell(), p1)
 
     def test_seek_with_encoder_state(self):
-        f = self.open(os_helper.TESTFN, "w", encoding="euc_jis_2004")
-        f.write("\u00e6\u0300")
-        p0 = f.tell()
-        f.write("\u00e6")
-        f.seek(p0)
-        f.write("\u0300")
-        f.close()
+        with open(os_helper.TESTFN, "w", encoding="euc_jis_2004") as f:
+            f.write("\u00e6\u0300")
+            p0 = f.tell()
+            f.write("\u00e6")
+            f.seek(p0)
+            f.write("\u0300")
 
-        f = self.open(os_helper.TESTFN, "r", encoding="euc_jis_2004")
-        self.assertEqual(f.readline(), "\u00e6\u0300\u0300")
-        f.close()
+        with open(os_helper.TESTFN, "r", encoding="euc_jis_2004") as f:
+            self.assertEqual(f.readline(), "\u00e6\u0300\u0300")
 
     def test_encoded_writes(self):
         data = "1234567890"
