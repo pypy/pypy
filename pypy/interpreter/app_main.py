@@ -511,17 +511,17 @@ def config_init_int_max_str_digits(env_option, x_option, options):
     maxdigits = -1
     val = prefix = "unknown"
     try:
-        if env_option:
-            val = env_option
-            prefix = "PYTHONINTMAXSTRDIGITS"
-            maxdigits = int(env_option)
-        elif x_option:
+        if x_option:
             val = x_option
             prefix = "-X int_max_str_digits"
             if val is True:
                 val = "option must have '=N'"
                 raise ValueError("bad option")
             maxdigits = int(x_option)
+        elif env_option:
+            val = env_option
+            prefix = "PYTHONINTMAXSTRDIGITS"
+            maxdigits = int(env_option)
         else:
             return 0
     except Exception as e:
