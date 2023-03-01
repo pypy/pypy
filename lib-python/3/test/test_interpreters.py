@@ -5,7 +5,10 @@ from textwrap import dedent
 import unittest
 import time
 
-import _xxsubinterpreters as _interpreters
+try:
+    import _xxsubinterpreters as _interpreters
+except ModuleNotFoundError:
+    raise NotImplementedError("PyPy does not yet handle subinterpreters")
 from test.support import interpreters
 
 
