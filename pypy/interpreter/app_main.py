@@ -651,7 +651,7 @@ def _parse_command_line(argv):
         elif arg in cmdline_options:
             argv = handle_argument(arg, options, iterargv)
         elif arg.startswith("--"):
-            raise CommandLineError('Unknown option %s' % (arg,))
+            raise CommandLineError('unknown option %s' % (arg,))
         #
         # Else interpret the rest of the argument character by character
         else:
@@ -659,7 +659,7 @@ def _parse_command_line(argv):
             next(iterarg)      # skip the '-'
             for c in iterarg:
                 if c not in cmdline_options:
-                    raise CommandLineError('Unknown option: -%s' % (c,))
+                    raise CommandLineError('unknown option: -%s' % (c,))
                 argv = handle_argument(c, options, iterargv, iterarg)
 
     if not argv:
