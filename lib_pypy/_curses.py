@@ -1072,7 +1072,7 @@ def tigetstr(capname):
 def tparm(fmt, i1=0, i2=0, i3=0, i4=0, i5=0, i6=0, i7=0, i8=0, i9=0):
     args = [ffi.cast("int", i) for i in (i1, i2, i3, i4, i5, i6, i7, i8, i9)]
     # fmt is expected to be a byte string; CPython 3.x complains
-    # "TypeError: 'str' does not support the buffer interface", but we
+    # "TypeError: a bytes-like object is required, not 'str'", but we
     # can do better.
     if isinstance(fmt, str):
         # error message modeled on "TypeError: must be str, not bytes"
