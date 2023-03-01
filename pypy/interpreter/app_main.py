@@ -661,7 +661,7 @@ def _parse_command_line(argv):
             next(iterarg)      # skip the '-'
             for c in iterarg:
                 if c not in cmdline_options:
-                    raise CommandLineError('unknown option: -%s' % (c,))
+                    raise CommandLineError('Unknown option: -%s' % (c,))
                 argv = handle_argument(c, options, iterargv, iterarg)
 
     if not argv:
