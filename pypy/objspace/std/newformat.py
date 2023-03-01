@@ -159,13 +159,14 @@ def make_template_formatting_class(for_unicode):
                         i += 1
                         if i == end:
                             raise oefmt(self.space.w_ValueError,
-                                        "expected conversion")
+                                        "end of string while looking for "
+                                        "conversion specifier")
                         conversion = s[i]
                         i += 1
                         if i < end:
                             if s[i] != ':':
                                 raise oefmt(self.space.w_ValueError,
-                                            "expected ':' after format "
+                                            "expected ':' after conversion "
                                             "specifier")
                             i += 1
                     else:
