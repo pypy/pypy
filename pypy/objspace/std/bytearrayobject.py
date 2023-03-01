@@ -1121,10 +1121,26 @@ class BytearrayDocstrings:
         """
 
     def hex():
-        """B.hex() -> unicode
+        """B.hex(...) -> unicode
 
-        Return a string object containing two hexadecimal digits
-        for each byte in the instance B.
+        Create a string of hexadecimal numbers from a bytearray object.
+
+          sep
+            An optional single character or byte to separate hex bytes.
+          bytes_per_sep
+            How many bytes between separators.  Positive values count from the
+            right, negative values count from the left.
+
+        Example:
+        >>> value = bytearray([0xb9, 0x01, 0xef])
+        >>> value.hex()
+        'b901ef'
+        >>> value.hex(':')
+        'b9:01:ef'
+        >>> value.hex(':', 2)
+        'b9:01ef'
+        >>> value.hex(':', -2)
+        'b901:ef'
         """
 
     def removeprefix():
