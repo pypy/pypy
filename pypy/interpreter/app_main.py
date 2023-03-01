@@ -435,9 +435,11 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     # We must never enable the Universal Newline mode on POSIX: CPython
     # never interprets '\r\n' in stdin as meaning just '\n', unlike what
     # it does if you explicitly open a file in text mode.
+    #
+    # Py3.9+: stderr is line buffered even when redirected: bpo-13601
     newline = None if sys.platform == 'win32' else '\n'
     stream = _io.TextIOWrapper(buf, encoding, errors, newline=newline,
-                              line_buffering=unbuffered or raw.isatty(),
+                              line_buffering=unbuffered or fd == 2 or raw.isatty(),
                               write_through=unbuffered)
     stream.mode = mode
     return stream
