@@ -88,9 +88,9 @@ except ImportError:
     hidden_applevel = lambda f: f
     StdErrPrinter = None
 try:
-    from _ast import PyCF_ACCEPT_NULL_BYTES
+    from _ast import PyCF_ACCEPT_NULL_BYTES, PyCF_IGNORE_COOKIE
 except ImportError:
-    PyCF_ACCEPT_NULL_BYTES = 0
+    PyCF_ACCEPT_NULL_BYTES = PyCF_IGNORE_COOKIE = 0
 import errno
 import sys
 
@@ -880,7 +880,14 @@ def run_command_line(interactive,
             else:
                 if not isolated:
                     sys.path.insert(0, '')
-                success = run_toplevel(exec, bytes, mainmodule.__dict__)
+                @hidden_applevel
+                def run_it():
+                    co_python_startup = compile(bytes,
+                                                "<string>", 
+                                                'exec',
+                                                PyCF_IGNORE_COOKIE)
+                    exec(co_python_startup, mainmodule.__dict__)
+                success = run_toplevel(run_it)
         elif run_module != 0:
             # handle the "-m" command
             # Put abspath('') on sys.path
