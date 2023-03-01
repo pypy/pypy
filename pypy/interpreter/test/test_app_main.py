@@ -601,6 +601,23 @@ class TestInteraction:
         child = self.spawn(['-c', 'import sys; print(sys.stdin.mode)'])
         child.expect('r')
 
+    def test_non_interactive_output_buffering(self):
+        import subprocess
+        code = textwrap.dedent("""
+            import sys
+            out = sys.stdout
+            print(out.isatty(), out.write_through, out.line_buffering)
+            err = sys.stderr
+            print(err.isatty(), err.write_through, err.line_buffering)
+        """)
+        args = [get_python3(), app_main, '-c', code]
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, universal_newlines=True)
+        stdout, stderr = proc.communicate()
+        assert stdout.split() == ['False', 'False', 'False', 'False', 'False', 'True']
+
+ 
+
     def test_options_i_m(self, monkeypatch):
         if sys.platform == "win32":
             py.test.skip("close_fds is not supported on Windows platforms")
