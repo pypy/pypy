@@ -189,7 +189,7 @@ class TestParseCommandLine:
                    _xoptions=['foo=bar', 'baz'], run_stdin=True)
 
         self.check([], dict(env, PYTHONDEBUG='1'), sys_argv=[''], run_stdin=True, debug=1)
-        self.check([], dict(env, PYTHONDONTWRITEBYTECODE='1'), sys_argv=[''], run_stdin=True, dont_write_bytecode=1)
+        self.check([], dict(env, PYTHONDONTWRITEBYTECODE='4'), sys_argv=[''], run_stdin=True, dont_write_bytecode=1)
         self.check([], dict(env, PYTHONNOUSERSITE='1'), sys_argv=[''], run_stdin=True, no_user_site=1)
         self.check([], dict(env, PYTHONUNBUFFERED='1'), sys_argv=[''], run_stdin=True, unbuffered=1)
         self.check([], dict(env, PYTHONVERBOSE='1'), sys_argv=[''], run_stdin=True, verbose=1)
