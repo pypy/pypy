@@ -11,6 +11,7 @@ from rpython.rlib.rfloat import (
     float_as_rbigint_ratio, formatd, isfinite)
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -427,7 +428,10 @@ class W_FloatObject(W_Root):
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_hash(self, space):
-        h = _hash_float(self.floatval)
+        if self.user_overridden_class and math.isnan(self.floatval):
+            h = compute_unique_id(self)
+        else:
+            h = _hash_float(self.floatval)
         return space.newint(h)
 
     def descr_format(self, space, w_spec):
