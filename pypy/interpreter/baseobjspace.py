@@ -1621,7 +1621,7 @@ class ObjSpace(object):
             return self._try_buffer_w(w_obj, flags)
         except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
-                        "'%T' does not support the buffer interface", w_obj)
+                        "a bytes-like object is required, not '%T'", w_obj)
 
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
