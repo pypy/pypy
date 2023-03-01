@@ -463,9 +463,10 @@ class BufferedMixin:
     def truncate_w(self, space, w_size):
         self._check_init(space)
         self._check_closed(space, "truncate of closed file")
+        if not self.writable:
+            self._unsupportedoperation(space, "truncate")
         with self.lock:
-            if self.writable:
-                self._flush_and_rewind_unlocked(space)
+            self._flush_and_rewind_unlocked(space)
             # invalidate cached position
             self.abs_pos = -1
 

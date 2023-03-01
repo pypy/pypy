@@ -157,3 +157,12 @@ def test_subclass_bytesio_rawiobase():
     # check that _RawIOBase methods work
     res = _io._RawIOBase.read(x)
     assert res == b'abc'
+
+def test_truncate_on_read_only():
+    rawio = _io.BytesIO(b"abc")
+    bufio = _io.BufferedReader(rawio)
+    assert not bufio.writable()
+    with raises(_io.UnsupportedOperation):
+        bufio.truncate()
+    with raises(_io.UnsupportedOperation):
+        bufio.truncate(0)  
