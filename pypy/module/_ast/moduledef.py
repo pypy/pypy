@@ -10,6 +10,8 @@ class Module(MixedModule):
         "PyCF_ALLOW_TOP_LEVEL_AWAIT" : "space.wrap(%s)" % consts.PyCF_ALLOW_TOP_LEVEL_AWAIT,
         "PyCF_ACCEPT_NULL_BYTES":
                           "space.wrap(%s)" % consts.PyCF_ACCEPT_NULL_BYTES,
+        "PyCF_IGNORE_COOKIE":
+                          "space.wrap(%s)" % consts.PyCF_IGNORE_COOKIE,
         "__version__"   : "space.wrap('82160')",  # from CPython's svn.
         }
     appleveldefs = {}
