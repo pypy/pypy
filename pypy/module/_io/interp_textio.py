@@ -1067,6 +1067,11 @@ class W_TextIOWrapper(W_TextIOBase):
 
         # XXX What if we were just reading?
         if self.encodefunc:
+            # XXX CPython has an optimization if
+            # - isascii(w_text) and
+            # - len(w_text) <= chunk_size and
+            # - is_asciicompat_encoding(self.encodefunc)
+            # then w_bytes = w_text
             w_bytes = self.encodefunc(space, w_text, self.errors)
             self.encoding_start_of_stream = False
         else:
@@ -1074,12 +1079,17 @@ class W_TextIOWrapper(W_TextIOBase):
 
         b = space.bytes_w(w_bytes)
         if not self.pending_bytes:
-            self.pending_bytes = []
+            self.pending_bytes = [b]
             self.pending_bytes_count = 0
-        self.pending_bytes.append(b)
+        elif self.pending_bytes_count + len(b) > self.chunk_size:
+            # Prevent to concatenate more than chunk_size data
+            self._writeflush(space)
+            self.pending_bytes = [b]
+        else:
+            self.pending_bytes.append(b)
         self.pending_bytes_count += len(b)
 
-        if (self.pending_bytes_count > self.chunk_size or
+        if (self.pending_bytes_count >= self.chunk_size or
             needflush or text_needflush):
             self._writeflush(space)
 
