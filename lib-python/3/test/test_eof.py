@@ -36,24 +36,27 @@ class EOFTestCase(unittest.TestCase):
             rc, out, err = script_helper.assert_python_failure(file_name)
         self.assertIn(b'unterminated triple-quoted string literal (detected at line 3)', err)
 
+    if sys.implementation.name == 'pypy':
+        expect_eof = "unexpected end of file (EOF) in multi-line statement (<string>, line 1)"
+    else:
+        expect_eof = "unexpected end of file (EOF) while parsing (<string>, line 1)"
+
     def test_eof_with_line_continuation(self):
-        expect = "unexpected end of file (EOF) while parsing (<string>, line 1)"
         try:
             compile('"\\xhh" \\',  '<string>', 'exec', dont_inherit=True)
         except SyntaxError as msg:
-            self.assertEqual(str(msg), expect)
+            self.assertEqual(str(msg), self.expect_eof)
         else:
             raise support.TestFailed
 
     def test_line_continuation_EOF(self):
         """A continuation at the end of input must be an error; bpo2180."""
-        expect = 'unexpected end of file (EOF) while parsing (<string>, line 1)'
         with self.assertRaises(SyntaxError) as excinfo:
             exec('x = 5\\')
-        self.assertEqual(str(excinfo.exception), expect)
+        self.assertEqual(str(excinfo.exception), self.expect_eof)
         with self.assertRaises(SyntaxError) as excinfo:
             exec('\\')
-        self.assertEqual(str(excinfo.exception), expect)
+        self.assertEqual(str(excinfo.exception), self.expect_eof)
 
     @unittest.skipIf(not sys.executable, "sys.executable required")
     def test_line_continuation_EOF_from_file_bpo2180(self):
