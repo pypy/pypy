@@ -209,4 +209,15 @@ def test_compile_feature_version():
     assert eval(co) == 3
 
 
+@mark.pypy_only
+def test_ignore_cookie():
+    # make sure the latin1 cookie is ignored
+    from _ast import PyCF_IGNORE_COOKIE
+    src = """# coding: latin1
+def fn(): return '%s'
+""" % chr(230)
 
+    co = compile(src, "<string>", "exec", PyCF_IGNORE_COOKIE)
+    ns = {}
+    eval(co, ns)
+    assert ns['fn']() == '%s' % chr(230)
