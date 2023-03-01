@@ -703,12 +703,11 @@ def _parse_command_line(argv):
                 "Fatal Python error: invalid PYTHONUTF8 environment variable value %r\n" % val)
             raise SystemExit(1)
     if options["utf8_mode"] == -1: # neither env var nor -X utf8
-        import _locale
-        lc = _locale.setlocale(_locale.LC_CTYPE, None)
-        if lc == 'C' or lc == 'POSIX':
-            options["utf8_mode"] = 1
-        else:
-            options["utf8_mode"] = 0
+        # See https://docs.python.org/3/library/os.html#utf8-mode
+        # On CPython this can be somehow set to 0 by some combination of locale
+        # and environment variables, but it is not clear to me (mattip) how.
+        # If this is problematic for you, please open an issue.
+        options["utf8_mode"] = 1
 
     if (options["interactive"] or (readenv and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
