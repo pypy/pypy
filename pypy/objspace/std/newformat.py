@@ -91,12 +91,12 @@ def make_template_formatting_class(for_unicode):
                     markup_follows = True
                     if c == "}":
                         if at_end or s[i] != "}":
-                            raise oefmt(space.w_ValueError, "Single '}'")
+                            raise oefmt(space.w_ValueError, "Single '}' encountered in format string")
                         i += 1
                         markup_follows = False
                     if c == "{":
                         if at_end:
-                            raise oefmt(space.w_ValueError, "Single '{'")
+                            raise oefmt(space.w_ValueError, "Single '{' encountered in format string")
                         if s[i] == "{":
                             i += 1
                             markup_follows = False
