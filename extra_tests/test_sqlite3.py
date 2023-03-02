@@ -12,7 +12,7 @@ pypy_only = pytest.mark.skipif('__pypy__' not in sys.builtin_module_names,
     reason="PyPy-only test")
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def con():
     con = _sqlite3.connect(':memory:')
     yield con

@@ -14,7 +14,7 @@ P = import_fresh_module('decimal', blocked=['_decimal'])
 if not C:
     C = P
 
-@pytest.yield_fixture(params=[C, P], ids=['_decimal', '_pydecimal'])
+@pytest.fixture(params=[C, P], ids=['_decimal', '_pydecimal'])
 def module(request):
     yield request.param
 
