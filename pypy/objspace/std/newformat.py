@@ -136,7 +136,7 @@ def make_template_formatting_class(for_unicode):
                             in_second_part = True
                         i += 1
                     if nested:
-                        raise oefmt(space.w_ValueError, "Unmatched '{'")
+                        raise oefmt(space.w_ValueError, "expected '}' before end of string")
                     rendered = self._render_field(field_start, i, recursive, level)
                     out.append(rendered)
                     i += 1
