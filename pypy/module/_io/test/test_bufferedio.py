@@ -570,7 +570,7 @@ class AppTestBufferedWriter:
         import _io
         raw = _io.FileIO(self.tmpfile, 'w+')
         raw.write(b'x' * 20)
-        b = _io.BufferedReader(raw)
+        b = _io.BufferedRandom(raw)
         assert b.seek(8) == 8
         assert b.truncate() == 8
         assert b.tell() == 8
