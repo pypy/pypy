@@ -147,7 +147,14 @@ class AppTestMemoryView(object):
         m = memoryview(b'hello')
         weakref.ref(m)
 
-    def test_getitem_only_ints(self):
+    def test_getitem_only_indexes(self):
+        buf = memoryview(b'hello world')
+
+        class Indexer():
+            def __index__(self):
+                return 0
+        assert buf[0] == buf[Indexer()]
+
         class MyInt(object):
           def __init__(self, x):
             self.x = x
@@ -155,7 +162,6 @@ class AppTestMemoryView(object):
           def __int__(self):
             return self.x
 
-        buf = memoryview(b'hello world')
         raises(TypeError, "buf[MyInt(0)]")
         raises(TypeError, "buf[MyInt(0):MyInt(5)]")
 
