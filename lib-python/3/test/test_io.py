@@ -3080,10 +3080,10 @@ class TextIOWrapperTest(unittest.TestCase):
             StatefulIncrementalDecoder.codecEnabled = 0
 
     def test_multibyte_seek_and_tell(self):
-        with open(os_helper.TESTFN, "w", encoding="euc_jp") as f:
+        with self.open(os_helper.TESTFN, "w", encoding="euc_jp") as f:
             f.write("AB\n\u3046\u3048\n")
 
-        with open(os_helper.TESTFN, "r", encoding="euc_jp") as f:
+        with self.open(os_helper.TESTFN, "r", encoding="euc_jp") as f:
             self.assertEqual(f.readline(), "AB\n")
             p0 = f.tell()
             self.assertEqual(f.readline(), "\u3046\u3048\n")
@@ -3093,14 +3093,14 @@ class TextIOWrapperTest(unittest.TestCase):
             self.assertEqual(f.tell(), p1)
 
     def test_seek_with_encoder_state(self):
-        with open(os_helper.TESTFN, "w", encoding="euc_jis_2004") as f:
+        with self.open(os_helper.TESTFN, "w", encoding="euc_jis_2004") as f:
             f.write("\u00e6\u0300")
             p0 = f.tell()
             f.write("\u00e6")
             f.seek(p0)
             f.write("\u0300")
 
-        with open(os_helper.TESTFN, "r", encoding="euc_jis_2004") as f:
+        with self.open(os_helper.TESTFN, "r", encoding="euc_jis_2004") as f:
             self.assertEqual(f.readline(), "\u00e6\u0300\u0300")
 
     def test_encoded_writes(self):
