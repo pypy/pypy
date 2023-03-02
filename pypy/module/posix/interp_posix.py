@@ -2609,6 +2609,9 @@ def device_encoding(space, fd):
         # application has no console.
         if ccp != 0:
             return space.newtext('cp%d' % ccp)
+    # _Py_GetLocaleEncoding checks preconfig->utf8_mode
+    if space.sys.get_flag('utf8_mode'):
+        return space.newtext("UTF-8")
     from rpython.rlib import rlocale
     if rlocale.HAVE_LANGINFO:
         codeset = rlocale.nl_langinfo(rlocale.CODESET)
