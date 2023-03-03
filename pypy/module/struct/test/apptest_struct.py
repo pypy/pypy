@@ -383,7 +383,7 @@ def test_pack_buffer():
 
     exc = raises(TypeError, struct.pack_into, "ii", b'test', 0, 17, 42)
     if '__pypy__' in sys.modules:
-        assert str(exc.value) == "a read-write bytes-like object is required, not bytes"
+        assert str(exc.value) == "a read-write bytes-like object is required, not 'bytes'"
     exc = raises(struct.error, struct.pack_into, "ii", b[0:1], 0, 17, 42)
     assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes for packing 8 bytes at offset 0 (actual buffer size is 1)"
     exc = raises(struct.error, struct.pack_into, "ii", b, -3, 17, 42)
@@ -401,7 +401,7 @@ def test_unpack_buffer():
     assert struct.unpack_from("ii", memoryview(b)[2:]) == (17, 42)
     assert struct.unpack_from("ii", memoryview(b), 2) == (17, 42)
     exc = raises(TypeError, struct.unpack_from, "ii", 123)
-    assert str(exc.value) == "a bytes-like object is required, not int"
+    assert str(exc.value) == "a bytes-like object is required, not 'int'"
     exc = raises(TypeError, struct.unpack_from, "ii", None)
     assert str(exc.value) == "a bytes-like object is required, not None"
     exc = raises(struct.error, struct.unpack_from, "ii", b'')
