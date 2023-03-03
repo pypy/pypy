@@ -630,6 +630,12 @@ class W_PyCTypeObject(W_TypeObject):
         self._cpy_ref = py_obj
         rawrefcount.create_link_pyobj(self, py_obj)
 
+    def get_flags(self):
+        flags = W_TypeObject.get_flags(self)
+        # Add cpyext-specific flags
+        flags |= rffi.cast(PyTypeObjectPtr, make_ref(self.space, self)).c_tp_flags
+        return flags
+
 @bootstrap_function
 def init_typeobject(space):
     make_typedescr(space.w_type.layout.typedef,

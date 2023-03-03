@@ -810,6 +810,23 @@ class W_TypeObject(W_Root):
         if not self.deldictvalue(space, '__annotations__'):
             raise oefmt(space.w_AttributeError, "__annotations__")
 
+    def get_flags(self):
+        from copy_reg import _HEAPTYPE
+        _CPYTYPE = 1 # used for non-heap types defined in C
+        _ABSTRACT = 1 << 20
+        #
+        flags = 0
+        if self.flag_heaptype:
+            flags |= _HEAPTYPE
+        if self.flag_cpytype:
+            flags |= _CPYTYPE
+        if self.flag_abstract:
+            flags |= _ABSTRACT
+        if self.flag_patma_collection == "M":
+            flags |= PATMA_MAPPING
+        elif self.flag_patma_collection == "S":
+            flags |= PATMA_SEQUENCE
+        return flags
 
 def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
@@ -1119,23 +1136,8 @@ def descr__dir(space, w_type):
     return space.call_function(space.w_list, _classdir(space, w_type))
 
 def descr__flags(space, w_type):
-    from copy_reg import _HEAPTYPE
-    _CPYTYPE = 1 # used for non-heap types defined in C
-    _ABSTRACT = 1 << 20
-    #
     w_type = _check(space, w_type)
-    flags = 0
-    if w_type.flag_heaptype:
-        flags |= _HEAPTYPE
-    if w_type.flag_cpytype:
-        flags |= _CPYTYPE
-    if w_type.flag_abstract:
-        flags |= _ABSTRACT
-    if w_type.flag_patma_collection == "M":
-        flags |= PATMA_MAPPING
-    elif w_type.flag_patma_collection == "S":
-        flags |= PATMA_SEQUENCE
-    return space.newint(flags)
+    return space.newint(w_type.get_flags())
 
 def descr_get__module(space, w_type):
     w_type = _check(space, w_type)

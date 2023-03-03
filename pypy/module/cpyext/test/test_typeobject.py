@@ -1946,6 +1946,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             assert expected == meth(*args1, **kwargs)
             assert expected == wrapped(*args, **kwargs)
 
+        Py_TPFLAGS_HAVE_VECTORCALL = 1 << 11
+        assert module.MethodDescriptor2.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL
+
     def test_fastcall(self):
         module = self.import_extension('foo', [
             ("test_fastcall", "METH_VARARGS",
