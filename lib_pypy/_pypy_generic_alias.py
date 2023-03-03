@@ -176,15 +176,16 @@ class UnionType:
 
     def __init__(self, args):
         # need to deduplicate and flatten
-        res = {} # use insertion ordering of dicts
+        res = []
         todo = list(args)
-        todo.reverse()
-        while todo:
-            arg = todo.pop()
+        def add_recurse(arg):
             if isinstance(arg, UnionType):
-                todo.extend(reversed(arg.__args__))
-                continue
-            res[arg] = None
+                for a in arg.__args__:
+                    add_recurse(a)
+            elif arg not in res:
+                res.append(arg)
+        for a in args:
+            add_recurse(a)
         self._args = tuple(res)
         self.__parameters__ = ()
 
@@ -225,7 +226,8 @@ class UnionType:
         return False
 
     def __repr__(self):
-        return " | ".join([_repr_item(x) for x in self.__args__])
+        ret = " | ".join([_repr_item(x) for x in self.__args__])
+        return ret
 
     def __or__(self, other):
         return _create_union(self, other)

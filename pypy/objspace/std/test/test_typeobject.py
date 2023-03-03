@@ -1606,6 +1606,7 @@ class AppTestTypeObject:
         assert repr(None | int) == "None | int"
         assert repr(int | list[int]) == "int | list[int]"
         assert repr(int | str | list[int]) == "int | str | list[int]"
+        assert repr(int | str | int) == "int | str"
         """
 
 
