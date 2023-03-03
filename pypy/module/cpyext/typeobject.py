@@ -631,14 +631,11 @@ class W_PyCTypeObject(W_TypeObject):
         self._cpy_ref = py_obj
         rawrefcount.create_link_pyobj(self, py_obj)
 
-    def acceptable_as_base_class(self, space):
-        if not self.layout.typedef.acceptable_as_base_class:
-            return False
-        pyref = make_ref(space, self)
-        pto = rffi.cast(PyTypeObjectPtr, pyref)
-        acceptable_as_base_class = bool(widen(pto.c_tp_flags) & Py_TPFLAGS_BASETYPE)
-        decref(space, pyref)
-        return acceptable_as_base_class
+    def get_flags(self):
+        flags = W_TypeObject.get_flags(self)
+        # Add cpyext-specific flags
+        flags |= rffi.cast(PyTypeObjectPtr, make_ref(self.space, self)).c_tp_flags
+        return flags
 
 @bootstrap_function
 def init_typeobject(space):
