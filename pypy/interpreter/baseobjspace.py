@@ -18,6 +18,7 @@ from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
+from pypy.tool.generate_stdlib_module_names import get_stdlib_names
 
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
@@ -647,12 +648,16 @@ class ObjSpace(object):
             if mixedname not in bootstrap_modules:
                 self.install_mixedmodule(mixedname)
 
-        w_builtin_module_names = self.newtuple(
-            [self.newtext(name) for name in sorted(self.builtin_modules)])
+        w_builtin_module_names = self.newtuple([self.newtext(name) for name in sorted(self.builtin_modules)])
+        stdlib = [self.newtext(name) for name in sorted(list(self.builtin_modules.keys()) + get_stdlib_names())]
+        w_stdlib_module_names = self.newfrozenset(stdlib)
+        
 
-        # force this value into the dict without unlazyfying everything
+        # force these value into the dict without unlazyfying everything
         self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
                      w_builtin_module_names)
+        self.setitem(self.sys.w_dict, self.newtext('stdlib_module_names'),
+                     w_stdlib_module_names)
 
 
     def get_builtin_types(self):
