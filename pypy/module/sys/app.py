@@ -164,7 +164,7 @@ class sysflags(metaclass=structseqtype):
 # Set reasonable defaults for testing, in particular set utf8_mode to 1
 # no clue why dev_mode in particular has to be a bool, but CPython has tests
 # for that
-null_sysflags = sysflags((0,)*13 + (False, 1, False, -1))
+null_sysflags = sysflags((0,)*13 + (False, 1, 0, -1))
 null__xoptions = {}
 
 # copied from version.py

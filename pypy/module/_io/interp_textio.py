@@ -302,7 +302,7 @@ def text_encoding(space, w_encoding, stacklevel=2):
     Otherwise, return the default text encoding (i.e. "locale").
 
     This function emits an EncodingWarning if *encoding* is None and
-    sys.flags.warn_default_encoding is true.
+    sys.flags.warn_default_encoding is non-zero.
 
     This can be used in APIs with an encoding=None parameter
     that pass it to TextIOWrapper or open.
@@ -314,7 +314,7 @@ def text_encoding(space, w_encoding, stacklevel=2):
     return w_encoding
 
 def _maybe_warn_encoding(space, stacklevel=1):
-    if space.sys.get_flag('warn_default_encoding'):
+    if space.sys.get_flag('warn_default_encoding') != 0:
         space.warn(space.newtext("'encoding' argument not specified."),
                    space.w_EncodingWarning, stacklevel)
 
