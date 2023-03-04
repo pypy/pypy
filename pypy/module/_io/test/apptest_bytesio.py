@@ -100,12 +100,12 @@ def test_readinto():
         exc = raises(TypeError, readinto, u"hello")
         msg = str(exc.value)
         # print(msg)
-        assert " read-write b" in msg and msg.endswith(", not str")
+        assert " read-write b" in msg and msg.endswith(", not 'str'")
         #
         exc = raises(TypeError, readinto, memoryview(b"hello"))
         msg = str(exc.value)
         # print(msg)
-        assert " read-write b" in msg and msg.endswith(", not memoryview")
+        assert " read-write b" in msg and msg.endswith(", not 'memoryview'")
         #
         b.close()
         assert a1 == b"h"
