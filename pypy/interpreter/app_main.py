@@ -478,7 +478,7 @@ default_options = dict.fromkeys(
 default_options["check_hash_based_pycs"] = "default"
 default_options["dev_mode"] = False # needs to be bool
 default_options["utf8_mode"] = -1
-default_options["warn_default_encoding"] = False
+default_options["warn_default_encoding"] = 0
 default_options["int_max_str_digits"] = -1
 
 def simple_option(options, name, iterargv):
@@ -508,6 +508,8 @@ def X_option(options, xoption, iterargv):
             options["utf8_mode"] = 0
     elif xoption == 'jit-off':
         set_jit_option(options, 'off')
+    elif xoption == 'warn_default_encoding':
+        options["warn_default_encoding"] = 1
 
 def config_init_int_max_str_digits(env_option, x_option, options):
     maxdigits = -1
@@ -706,6 +708,8 @@ def _parse_command_line(argv):
             sys.stderr.write(
                 "Fatal Python error: invalid PYTHONUTF8 environment variable value %r\n" % val)
             raise SystemExit(1)
+        if getenv("PYTHONWARNDEFAULTENCODING"):
+            options["warn_default_encoding"] = 1
     if options["utf8_mode"] == -1: # neither env var nor -X utf8
         # See https://docs.python.org/3/library/os.html#utf8-mode
         # On CPython this can be somehow set to 0 by some combination of locale
