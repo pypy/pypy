@@ -405,6 +405,11 @@ class TestModuleMinimal:
         w_import = self.space.getattr(w_builtin, w_name)
         assert space.is_true(w_import)
 
+    def test_stdlib_module_names(self):
+        space = self.space
+        w_stdlib_module_names = space.getattr(space.sys, space.newtext("stdlib_module_names"))
+        assert space.is_true(w_stdlib_module_names)
+
     def test_sys_import(self):
         from pypy.interpreter.main import run_string
         run_string('import sys', space=self.space)

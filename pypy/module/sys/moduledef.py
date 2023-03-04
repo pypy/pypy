@@ -48,6 +48,7 @@ class Module(MixedModule):
         'abiflags'              : 'space.wrap("")',
         '_framework': "space.newtext('')",
         'builtin_module_names'  : 'space.w_None',
+        'stdlib_module_names'   : 'space.w_None',
         'pypy_getudir'          : 'state.pypy_getudir',    # not translated
         'pypy_find_stdlib'      : 'initpath.pypy_find_stdlib',
         'pypy_find_executable'  : 'initpath.pypy_find_executable',
