@@ -129,7 +129,13 @@ class IntBound(AbstractInfo):
         return 0 <= self.lower
 
     def intersect(self, other):
-        assert not self.known_gt(other) and not self.known_lt(other)
+        from rpython.jit.metainterp.optimize import InvalidLoop
+        if self.known_gt(other) or self.known_lt(other):
+            # they don't overlap, which makes the loop invalid
+            # this never happens in regular linear traces, but it can happen in
+            # combination with unrolling/loop peeling
+            raise InvalidLoop("two integer ranges don't overlap")
+
         r = False
         if self.make_ge_const(other.lower):
             r = True
