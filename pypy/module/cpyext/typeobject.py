@@ -633,7 +633,7 @@ class W_PyCTypeObject(W_TypeObject):
     def get_flags(self):
         flags = W_TypeObject.get_flags(self)
         # Add cpyext-specific flags
-        flags |= rffi.cast(PyTypeObjectPtr, make_ref(self.space, self)).c_tp_flags
+        flags |= widen(rffi.cast(PyTypeObjectPtr, make_ref(self.space, self)).c_tp_flags)
         return flags
 
 @bootstrap_function
