@@ -892,6 +892,10 @@ class GeneralModuleTests(unittest.TestCase):
         self.addCleanup(s.close)
         s.bind(('', 0))
         sockname = s.getsockname()
+        if sys.implementation.name == 'pypy':
+            nonemsg = "is not iterable"
+        else:
+            nonemsg = "not NoneType"
         # 2 args
         with self.assertRaises(TypeError) as cm:
             s.sendto('\u2620', sockname)
@@ -905,7 +909,7 @@ class GeneralModuleTests(unittest.TestCase):
                        "a bytes-like object is required, not complex"])
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', None)
-        self.assertIn('NoneType', str(cm.exception))
+        self.assertIn(nonemsg, str(cm.exception))
         # 3 args
         with self.assertRaises(TypeError) as cm:
             s.sendto('\u2620', 0, sockname)
@@ -919,7 +923,7 @@ class GeneralModuleTests(unittest.TestCase):
                        "a bytes-like object is required, not complex"])
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 0, None)
-        self.assertIn('NoneType', str(cm.exception))
+        self.assertIn(nonemsg, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 'bar', sockname)
         with self.assertRaises(TypeError) as cm:
