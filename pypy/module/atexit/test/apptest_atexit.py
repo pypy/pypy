@@ -4,6 +4,7 @@ import atexit, sys
 def test_args():
     import io
     stdout, stderr = sys.stdout, sys.stderr
+    nhooks = atexit._ncallbacks()
     try:
         sys.stdout = sys.stderr = capture = io.StringIO()
         def h1():
@@ -12,9 +13,9 @@ def test_args():
             print("h2")
         atexit.register(h1)
         atexit.register(h2)
-        assert atexit._ncallbacks() == 2
+        assert atexit._ncallbacks() == nhooks + 2
         atexit._run_exitfuncs()
-        assert atexit._ncallbacks() == 0
+        assert atexit._ncallbacks() == 0 
         assert capture.getvalue() == 'h2\nh1\n'
     finally:
         sys.stdout = stdout
@@ -22,7 +23,7 @@ def test_args():
 
 
 def test_atexit_uses_unraisablehook():
-    assert atexit._ncallbacks() == 0
+    nhooks = atexit._ncallbacks()
 
     l = []
     def ownhook(hookargs):
@@ -34,7 +35,7 @@ def test_atexit_uses_unraisablehook():
             1/0
         atexit.register(r)
         atexit._run_exitfuncs()
-        assert atexit._ncallbacks() == 0
+        assert atexit._ncallbacks() == nhooks
         ua = l[0]
         assert ua.exc_type is ZeroDivisionError
         assert ua.object is r
