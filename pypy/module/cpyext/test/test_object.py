@@ -192,7 +192,21 @@ class TestObject(BaseApiTest):
             PyObject_Hash(space, space.wrap([]))
 
     def test_hash_double(self, space, api):
+        from rpython.rlib.objectmodel import compute_unique_id
         assert api._Py_HashDouble(space.newfloat(72.0), 72.0) == 72
+        # for non-nans the object is ignored anyway
+        assert api._Py_HashDouble(space.newfloat(72.0), 123.0) == 123
+
+        w_F = space.appexec([], """():
+        class F(float):
+            def __hash__(self):
+                return 42
+        return F
+        """)
+        w_f = space.call_function(w_F, space.newfloat(72.0))
+        assert api._Py_HashDouble(w_f, 72.0) == 72
+        w_f = space.call_function(w_F, space.newfloat(float('nan')))
+        assert api._Py_HashDouble(w_f, float('nan')) == compute_unique_id(w_f)
 
     def test_type(self, space, api):
         assert api.PyObject_Type(space.wrap(72)) is space.w_int
