@@ -158,6 +158,11 @@ def newint_from_float(space, floatval):
     else:
         return space.newint(value)
 
+def float_hash(w_float, floatval):
+    if w_float.user_overridden_class and math.isnan(floatval):
+        return compute_unique_id(w_float)
+    else:
+        return _hash_float(floatval)
 
 class W_FloatObject(W_Root):
     """This is a implementation of the app-level 'float' type.
@@ -428,10 +433,7 @@ class W_FloatObject(W_Root):
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_hash(self, space):
-        if self.user_overridden_class and math.isnan(self.floatval):
-            h = compute_unique_id(self)
-        else:
-            h = _hash_float(self.floatval)
+        h = float_hash(self, self.floatval)
         return space.newint(h)
 
     def descr_format(self, space, w_spec):
