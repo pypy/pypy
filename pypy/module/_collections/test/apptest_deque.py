@@ -147,7 +147,7 @@ def test_getitem():
     with raises(IndexError):
         d[-n-1]
     with raises(IndexError):
-        d[n]
+       d[n]
 
 def test_setitem():
     n = 200
