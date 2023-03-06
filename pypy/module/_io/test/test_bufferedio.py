@@ -188,12 +188,12 @@ class AppTestBufferedReader:
             exc = raises(TypeError, readinto, u"hello")
             msg = str(exc.value)
             # print(msg)
-            assert " read-write b" in msg and msg.endswith(", not str")
+            assert " read-write b" in msg and msg.endswith(", not 'str'")
             #
             exc = raises(TypeError, readinto, memoryview(b"hello"))
             msg = str(exc.value)
             # print(msg)
-            assert " read-write b" in msg and msg.endswith(", not memoryview")
+            assert " read-write b" in msg and msg.endswith(", not 'memoryview'")
             #
             f.close()
             assert a == b'a\nb\ncxxxxx'
@@ -570,7 +570,7 @@ class AppTestBufferedWriter:
         import _io
         raw = _io.FileIO(self.tmpfile, 'w+')
         raw.write(b'x' * 20)
-        b = _io.BufferedReader(raw)
+        b = _io.BufferedRandom(raw)
         assert b.seek(8) == 8
         assert b.truncate() == 8
         assert b.tell() == 8

@@ -37,7 +37,7 @@ def test_write():
     assert f.write(b"") == 0
     assert f.write(b"hello") == 5
     exc = raises(TypeError, f.write, u"lo")
-    assert str(exc.value) == "'str' does not support the buffer interface"
+    assert str(exc.value) == "a bytes-like object is required, not 'str'"
     import gc; gc.collect()
     assert f.getvalue() == b"hello"
     f.close()
@@ -100,12 +100,12 @@ def test_readinto():
         exc = raises(TypeError, readinto, u"hello")
         msg = str(exc.value)
         # print(msg)
-        assert " read-write b" in msg and msg.endswith(", not str")
+        assert " read-write b" in msg and msg.endswith(", not 'str'")
         #
         exc = raises(TypeError, readinto, memoryview(b"hello"))
         msg = str(exc.value)
         # print(msg)
-        assert " read-write b" in msg and msg.endswith(", not memoryview")
+        assert " read-write b" in msg and msg.endswith(", not 'memoryview'")
         #
         b.close()
         assert a1 == b"h"
@@ -157,3 +157,12 @@ def test_subclass_bytesio_rawiobase():
     # check that _RawIOBase methods work
     res = _io._RawIOBase.read(x)
     assert res == b'abc'
+
+def test_truncate_on_read_only():
+    rawio = _io.BytesIO(b"abc")
+    bufio = _io.BufferedReader(rawio)
+    assert not bufio.writable()
+    with raises(_io.UnsupportedOperation):
+        bufio.truncate()
+    with raises(_io.UnsupportedOperation):
+        bufio.truncate(0)  

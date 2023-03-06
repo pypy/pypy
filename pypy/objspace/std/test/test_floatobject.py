@@ -188,10 +188,20 @@ class AppTestAppFloatTest:
             assert hash(3.141593) == 671854639
             assert hash(2.5) == 1073741826
         inf = float('inf')
-        nan = float('nan')
         assert hash(inf) == 314159
         assert hash(-inf) == -314159
+
+    def test_float_hash_nan(self):
+        nan = float('nan')
         assert hash(nan) == 0
+        # subclasses must be id-based!
+        class F(float):
+            pass
+        nanf1 = F('nan')
+        nanf2 = F('nan')
+        assert hash(nanf1) != 0
+        assert hash(nanf1) != 0
+        assert hash(nanf1) != hash(nanf2)
 
     def test_int_float(self):
         assert int(42.1234) == 42

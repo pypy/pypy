@@ -225,12 +225,11 @@ def test_intersect():
                     assert not b.contains(n)
 
 def test_intersect_bug():
+    from rpython.jit.metainterp.optimize import InvalidLoop
     b1 = bound(17, 17)
     b2 = bound(1, 1)
-    with pytest.raises(AssertionError):
+    with pytest.raises(InvalidLoop):
         b1.intersect(b2)
-
-
 
 def test_add_bound():
     for _, _, b1 in some_bounds():

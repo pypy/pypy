@@ -270,6 +270,10 @@ def _determine_encoding(space, encoding, w_buffer):
         else:
             if space.isinstance_w(w_encoding, space.w_unicode):
                 return w_encoding
+    if space.sys.get_flag('utf8_mode'):
+        # if device_encoding returns None, CPython does
+        # _Py_GetLocaleEncodingObject, which has this at the top
+        return space.newtext("UTF-8")
 
     # On legacy systems or darwin, try app-level
     # _bootlocale.getprefferedencoding(False)
@@ -298,7 +302,7 @@ def text_encoding(space, w_encoding, stacklevel=2):
     Otherwise, return the default text encoding (i.e. "locale").
 
     This function emits an EncodingWarning if *encoding* is None and
-    sys.flags.warn_default_encoding is true.
+    sys.flags.warn_default_encoding is non-zero.
 
     This can be used in APIs with an encoding=None parameter
     that pass it to TextIOWrapper or open.
@@ -310,7 +314,7 @@ def text_encoding(space, w_encoding, stacklevel=2):
     return w_encoding
 
 def _maybe_warn_encoding(space, stacklevel=1):
-    if space.sys.get_flag('warn_default_encoding'):
+    if space.sys.get_flag('warn_default_encoding') != 0:
         space.warn(space.newtext("'encoding' argument not specified."),
                    space.w_EncodingWarning, stacklevel)
 
@@ -1063,6 +1067,11 @@ class W_TextIOWrapper(W_TextIOBase):
 
         # XXX What if we were just reading?
         if self.encodefunc:
+            # XXX CPython has an optimization if
+            # - isascii(w_text) and
+            # - len(w_text) <= chunk_size and
+            # - is_asciicompat_encoding(self.encodefunc)
+            # then w_bytes = w_text
             w_bytes = self.encodefunc(space, w_text, self.errors)
             self.encoding_start_of_stream = False
         else:
@@ -1070,12 +1079,17 @@ class W_TextIOWrapper(W_TextIOBase):
 
         b = space.bytes_w(w_bytes)
         if not self.pending_bytes:
-            self.pending_bytes = []
+            self.pending_bytes = [b]
             self.pending_bytes_count = 0
-        self.pending_bytes.append(b)
+        elif self.pending_bytes_count + len(b) > self.chunk_size:
+            # Prevent to concatenate more than chunk_size data
+            self._writeflush(space)
+            self.pending_bytes = [b]
+        else:
+            self.pending_bytes.append(b)
         self.pending_bytes_count += len(b)
 
-        if (self.pending_bytes_count > self.chunk_size or
+        if (self.pending_bytes_count >= self.chunk_size or
             needflush or text_needflush):
             self._writeflush(space)
 

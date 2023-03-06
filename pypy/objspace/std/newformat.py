@@ -91,12 +91,12 @@ def make_template_formatting_class(for_unicode):
                     markup_follows = True
                     if c == "}":
                         if at_end or s[i] != "}":
-                            raise oefmt(space.w_ValueError, "Single '}'")
+                            raise oefmt(space.w_ValueError, "Single '}' encountered in format string")
                         i += 1
                         markup_follows = False
                     if c == "{":
                         if at_end:
-                            raise oefmt(space.w_ValueError, "Single '{'")
+                            raise oefmt(space.w_ValueError, "Single '{' encountered in format string")
                         if s[i] == "{":
                             i += 1
                             markup_follows = False
@@ -136,7 +136,7 @@ def make_template_formatting_class(for_unicode):
                             in_second_part = True
                         i += 1
                     if nested:
-                        raise oefmt(space.w_ValueError, "Unmatched '{'")
+                        raise oefmt(space.w_ValueError, "expected '}' before end of string")
                     rendered = self._render_field(field_start, i, recursive, level)
                     out.append(rendered)
                     i += 1
@@ -159,13 +159,14 @@ def make_template_formatting_class(for_unicode):
                         i += 1
                         if i == end:
                             raise oefmt(self.space.w_ValueError,
-                                        "expected conversion")
+                                        "end of string while looking for "
+                                        "conversion specifier")
                         conversion = s[i]
                         i += 1
                         if i < end:
                             if s[i] != ':':
                                 raise oefmt(self.space.w_ValueError,
-                                            "expected ':' after format "
+                                            "expected ':' after conversion "
                                             "specifier")
                             i += 1
                     else:

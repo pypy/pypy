@@ -189,7 +189,7 @@ class TestParseCommandLine:
                    _xoptions=['foo=bar', 'baz'], run_stdin=True)
 
         self.check([], dict(env, PYTHONDEBUG='1'), sys_argv=[''], run_stdin=True, debug=1)
-        self.check([], dict(env, PYTHONDONTWRITEBYTECODE='1'), sys_argv=[''], run_stdin=True, dont_write_bytecode=1)
+        self.check([], dict(env, PYTHONDONTWRITEBYTECODE='4'), sys_argv=[''], run_stdin=True, dont_write_bytecode=1)
         self.check([], dict(env, PYTHONNOUSERSITE='1'), sys_argv=[''], run_stdin=True, no_user_site=1)
         self.check([], dict(env, PYTHONUNBUFFERED='1'), sys_argv=[''], run_stdin=True, unbuffered=1)
         self.check([], dict(env, PYTHONVERBOSE='1'), sys_argv=[''], run_stdin=True, verbose=1)
@@ -202,7 +202,7 @@ class TestParseCommandLine:
     def test_error(self):
         env = os.environ.copy()
         self.check(['-a'], env, output_contains="Unknown option: -a")
-        self.check(['--abc'], env, output_contains="Unknown option --abc")
+        self.check(['--abc'], env, output_contains="unknown option --abc")
 
         self.check([], {'PYPY_DISABLE_JIT': '1'}, sys_argv=[''], run_stdin=True, _jitoptions='off')
 
@@ -600,6 +600,23 @@ class TestInteraction:
         child.expect('w')
         child = self.spawn(['-c', 'import sys; print(sys.stdin.mode)'])
         child.expect('r')
+
+    def test_non_interactive_output_buffering(self):
+        import subprocess
+        code = textwrap.dedent("""
+            import sys
+            out = sys.stdout
+            print(out.isatty(), out.write_through, out.line_buffering)
+            err = sys.stderr
+            print(err.isatty(), err.write_through, err.line_buffering)
+        """)
+        args = [get_python3(), app_main, '-c', code]
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, universal_newlines=True)
+        stdout, stderr = proc.communicate()
+        assert stdout.split() == ['False', 'False', 'False', 'False', 'False', 'True']
+
+ 
 
     def test_options_i_m(self, monkeypatch):
         if sys.platform == "win32":

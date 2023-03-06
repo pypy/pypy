@@ -7,41 +7,27 @@ def getdefaultencoding(space):
 implementation."""
     return space.newtext(space.sys.defaultencoding)
 
+base_encoding = "utf-8"
 if sys.platform == "win32":
-    base_encoding = "utf-8"
     base_error = "strict"
 elif sys.platform == "darwin":
-    base_encoding = "utf-8"
     base_error = "surrogateescape"
 elif sys.platform == "linux2":
-    base_encoding = "utf-8"
     base_error = "surrogateescape"
 else:
-    # In CPython, the default base encoding is NULL. This is paired with a
-    # comment that says "If non-NULL, this is different than the default
-    # encoding for strings". Therefore, the default filesystem encoding is the
-    # default encoding for strings, which is dependent on locale. We assume
-    # utf-8.
-    base_encoding = "utf-8"
+    # Unknown platform
     base_error = "surrogateescape"
 
 def _getfilesystemencoding(space):
+    """If LC_CTYPE is currently C or POSIX, set it to "en_US", and return "utf-8"
+       In CPython this checks other cases, that we ignore 
+    """
     encoding = base_encoding
     if rlocale.HAVE_LANGINFO:
         try:
             oldlocale = rlocale.setlocale(rlocale.LC_CTYPE, None)
-            rlocale.setlocale(rlocale.LC_CTYPE, "")
-            try:
-                loc_codeset = rlocale.nl_langinfo(rlocale.CODESET)
-                if loc_codeset:
-                    codecmod = space.getbuiltinmodule('_codecs')
-                    w_res = space.call_method(codecmod, 'lookup',
-                                              space.newtext(loc_codeset))
-                    if space.is_true(w_res):
-                        w_name = space.getattr(w_res, space.newtext('name'))
-                        encoding = space.text_w(w_name)
-            finally:
-                rlocale.setlocale(rlocale.LC_CTYPE, oldlocale)
+            if oldlocale in ("C", "POSIX"):
+                rlocale.setlocale(rlocale.LC_CTYPE, "en_US.UTF-8")
         except rlocale.LocaleError:
             pass
     return encoding

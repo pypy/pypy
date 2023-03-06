@@ -1540,7 +1540,10 @@ class AppTestPosix:
         import sys
         encoding = self.posix.device_encoding(sys.stdout.fileno())
         # just ensure it returns something reasonable
+        # Pytest can capture stdout, which then returns None for this API
         assert encoding is None or type(encoding) is str
+        if encoding and self.posix.__name__ != "nt":
+            assert encoding == "UTF-8"
 
     if os.name == 'nt':
         def test__getfileinformation(self):

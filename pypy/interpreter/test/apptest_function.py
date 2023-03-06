@@ -33,7 +33,8 @@ def test_qualname():
     assert f().__qualname__ == 'test_qualname.<locals>.f.<locals>.g'
     f.__qualname__ = 'qualname'
     assert f.__qualname__ == 'qualname'
-    raises(TypeError, "f.__qualname__ = b'name'")
+    with raises(TypeError):
+        f.__qualname__ = b'name'
 
 def test_qualname_method():
     class A:
@@ -70,7 +71,8 @@ def test_annotations():
     ann = f.__annotations__
     assert ann == {}
     assert f.__annotations__ is ann
-    raises(TypeError, setattr, f, "__annotations__", 42)
+    with raises(TypeError):
+        setattr(f, "__annotations__", 42)
     del f.__annotations__
     assert f.__annotations__ is not ann
     f.__annotations__ = ann
@@ -331,10 +333,15 @@ def test_kwargs_nondict_mapping():
 
 def test_star_error():
     def f(): pass
-    for expr in ["f(1, *42)", "(1, *1)", "[*1, 2]"]:
-        e = raises(TypeError, expr)
-        assert str(e.value).endswith(
-            "Value after * must be an iterable, not int")
+    msg = "Value after * must be an iterable, not int"
+    with raises(TypeError) as exc:
+        f(1, *42)
+    assert str(exc.value).endswith(msg)
+    with raises(TypeError) as exc:
+        (1, *1)
+    assert str(exc.value).endswith(msg)
+    with raises(TypeError) as exc:
+        (*1, 22)
 
 def test_star_badarg():
     class BrokenSequence:

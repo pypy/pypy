@@ -624,12 +624,15 @@ class SysModuleTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             attr_type.__new__(attr_type, arg)
 
+    @test.support.cpython_only
     def test_sys_flags_no_instantiation(self):
         self.assert_raise_on_new_sys_type(sys.flags)
 
+    @test.support.cpython_only
     def test_sys_version_info_no_instantiation(self):
         self.assert_raise_on_new_sys_type(sys.version_info)
 
+    @test.support.cpython_only
     def test_sys_getwindowsversion_no_instantiation(self):
         # Skip if not being run on Windows.
         test.support.get_attribute(sys, "getwindowsversion")

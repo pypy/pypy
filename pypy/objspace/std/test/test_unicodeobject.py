@@ -1347,7 +1347,7 @@ class AppTestUnicodeString:
         #
         e = raises(TypeError, str, 42, 'supposedly_the_encoding')
         assert str(e.value) in [
-            'decoding to str: a bytes-like object is required, not int',
+            "decoding to str: a bytes-like object is required, not 'int'",
             'decoding to str: need a bytes-like object, int found']
         e = raises(TypeError, str, None, 'supposedly_the_encoding')
         assert str(e.value) in [

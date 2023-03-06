@@ -18,6 +18,7 @@ from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
+from pypy.tool.generate_stdlib_module_names import get_stdlib_names
 
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
@@ -647,12 +648,16 @@ class ObjSpace(object):
             if mixedname not in bootstrap_modules:
                 self.install_mixedmodule(mixedname)
 
-        w_builtin_module_names = self.newtuple(
-            [self.newtext(name) for name in sorted(self.builtin_modules)])
+        w_builtin_module_names = self.newtuple([self.newtext(name) for name in sorted(self.builtin_modules)])
+        stdlib = [self.newtext(name) for name in sorted(list(self.builtin_modules.keys()) + get_stdlib_names())]
+        w_stdlib_module_names = self.newfrozenset(stdlib)
+        
 
-        # force this value into the dict without unlazyfying everything
+        # force these value into the dict without unlazyfying everything
         self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
                      w_builtin_module_names)
+        self.setitem(self.sys.w_dict, self.newtext('stdlib_module_names'),
+                     w_stdlib_module_names)
 
 
     def get_builtin_types(self):
@@ -1493,7 +1498,7 @@ class ObjSpace(object):
             assert isinstance(w_index_or_slice, W_SliceObject)
             start, stop, step = w_index_or_slice.indices3(self, seqlength)
         else:
-            start = self.int_w(w_index_or_slice, allow_conversion=False)
+            start = self.getindex_w(w_index_or_slice, self.w_OverflowError)
             if start < 0:
                 start += seqlength
             if not (0 <= start < seqlength):
@@ -1513,7 +1518,7 @@ class ObjSpace(object):
             start, stop, step, length = w_index_or_slice.indices4(self,
                                                                   seqlength)
         else:
-            start = self.int_w(w_index_or_slice, allow_conversion=False)
+            start = self.getindex_w(w_index_or_slice, self.w_OverflowError)
             if start < 0:
                 start += seqlength
             if not (0 <= start < seqlength):
@@ -1621,7 +1626,7 @@ class ObjSpace(object):
             return self._try_buffer_w(w_obj, flags)
         except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
-                        "'%T' does not support the buffer interface", w_obj)
+                        "a bytes-like object is required, not '%T'", w_obj)
 
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
@@ -1648,7 +1653,7 @@ class ObjSpace(object):
         if self.is_none(w_obj):
             e = oefmt(self.w_TypeError, "a %s is required, not None", expected)
         else:
-            e = oefmt(self.w_TypeError, "a %s is required, not %T", expected, w_obj)
+            e = oefmt(self.w_TypeError, "a %s is required, not '%T'", expected, w_obj)
         raise e
 
     @specialize.arg(1)

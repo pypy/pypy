@@ -88,9 +88,9 @@ except ImportError:
     hidden_applevel = lambda f: f
     StdErrPrinter = None
 try:
-    from _ast import PyCF_ACCEPT_NULL_BYTES
+    from _ast import PyCF_ACCEPT_NULL_BYTES, PyCF_IGNORE_COOKIE
 except ImportError:
-    PyCF_ACCEPT_NULL_BYTES = 0
+    PyCF_ACCEPT_NULL_BYTES = PyCF_IGNORE_COOKIE = 0
 import errno
 import sys
 
@@ -435,9 +435,11 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     # We must never enable the Universal Newline mode on POSIX: CPython
     # never interprets '\r\n' in stdin as meaning just '\n', unlike what
     # it does if you explicitly open a file in text mode.
+    #
+    # Py3.9+: stderr is line buffered even when redirected: bpo-13601
     newline = None if sys.platform == 'win32' else '\n'
     stream = _io.TextIOWrapper(buf, encoding, errors, newline=newline,
-                              line_buffering=unbuffered or raw.isatty(),
+                              line_buffering=unbuffered or fd == 2 or raw.isatty(),
                               write_through=unbuffered)
     stream.mode = mode
     return stream
@@ -476,7 +478,7 @@ default_options = dict.fromkeys(
 default_options["check_hash_based_pycs"] = "default"
 default_options["dev_mode"] = False # needs to be bool
 default_options["utf8_mode"] = -1
-default_options["warn_default_encoding"] = False
+default_options["warn_default_encoding"] = 0
 default_options["int_max_str_digits"] = -1
 
 def simple_option(options, name, iterargv):
@@ -506,22 +508,24 @@ def X_option(options, xoption, iterargv):
             options["utf8_mode"] = 0
     elif xoption == 'jit-off':
         set_jit_option(options, 'off')
+    elif xoption == 'warn_default_encoding':
+        options["warn_default_encoding"] = 1
 
 def config_init_int_max_str_digits(env_option, x_option, options):
     maxdigits = -1
     val = prefix = "unknown"
     try:
-        if env_option:
-            val = env_option
-            prefix = "PYTHONINTMAXSTRDIGITS"
-            maxdigits = int(env_option)
-        elif x_option:
+        if x_option:
             val = x_option
             prefix = "-X int_max_str_digits"
             if val is True:
                 val = "option must have '=N'"
                 raise ValueError("bad option")
             maxdigits = int(x_option)
+        elif env_option:
+            val = env_option
+            prefix = "PYTHONINTMAXSTRDIGITS"
+            maxdigits = int(env_option)
         else:
             return 0
     except Exception as e:
@@ -651,7 +655,7 @@ def _parse_command_line(argv):
         elif arg in cmdline_options:
             argv = handle_argument(arg, options, iterargv)
         elif arg.startswith("--"):
-            raise CommandLineError('Unknown option %s' % (arg,))
+            raise CommandLineError('unknown option %s' % (arg,))
         #
         # Else interpret the rest of the argument character by character
         else:
@@ -678,6 +682,8 @@ def _parse_command_line(argv):
         readenv = True
         parse_env('PYTHONDEBUG', "debug", options)
         parse_env('PYTHONDONTWRITEBYTECODE', "dont_write_bytecode", options)
+        if options['dont_write_bytecode'] > 1:
+            options['dont_write_bytecode'] = 1
         if getenv('PYTHONNOUSERSITE'):
             options["no_user_site"] = 1
         if getenv('PYTHONUNBUFFERED'):
@@ -702,13 +708,14 @@ def _parse_command_line(argv):
             sys.stderr.write(
                 "Fatal Python error: invalid PYTHONUTF8 environment variable value %r\n" % val)
             raise SystemExit(1)
+        if getenv("PYTHONWARNDEFAULTENCODING"):
+            options["warn_default_encoding"] = 1
     if options["utf8_mode"] == -1: # neither env var nor -X utf8
-        import _locale
-        lc = _locale.setlocale(_locale.LC_CTYPE, None)
-        if lc == 'C' or lc == 'POSIX':
-            options["utf8_mode"] = 1
-        else:
-            options["utf8_mode"] = 0
+        # See https://docs.python.org/3/library/os.html#utf8-mode
+        # On CPython this can be somehow set to 0 by some combination of locale
+        # and environment variables, but it is not clear to me (mattip) how.
+        # If this is problematic for you, please open an issue.
+        options["utf8_mode"] = 1
 
     if (options["interactive"] or (readenv and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
@@ -751,7 +758,7 @@ def run_command_line(interactive,
                      dev_mode,
                      utf8_mode,
                      **ignored):
-    # with PyPy in top of CPython we can only have around 100
+    # with PyPy on top of CPython we can only have around 100
     # but we need more in the PyPy level for the compiler package
     if not WE_ARE_TRANSLATED:
         sys.setrecursionlimit(5000)
@@ -881,7 +888,14 @@ def run_command_line(interactive,
             else:
                 if not isolated:
                     sys.path.insert(0, '')
-                success = run_toplevel(exec, bytes, mainmodule.__dict__)
+                @hidden_applevel
+                def run_it():
+                    co_python_startup = compile(bytes,
+                                                "<string>", 
+                                                'exec',
+                                                PyCF_IGNORE_COOKIE)
+                    exec(co_python_startup, mainmodule.__dict__)
+                success = run_toplevel(run_it)
         elif run_module != 0:
             # handle the "-m" command
             # Put abspath('') on sys.path
