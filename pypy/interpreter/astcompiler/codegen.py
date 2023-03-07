@@ -2754,3 +2754,42 @@ def compute_reordering(l):
     assert target == -1
     return rot_sequence
 
+
+def view(startblock):
+    from rpython.translator.tool.graphpage import GraphPage, DotGen
+    blocks = startblock.post_order()
+    graph = DotGen('block')
+    blocknames = {block: "block_%s" % (i, ) for i, block in enumerate(blocks)}
+    for i, block in enumerate(blocks):
+        name = blocknames[block]
+        label = []
+
+        fillcolor = "white"
+        if block is startblock:
+            fillcolor = "gray"
+        color = "black"
+
+        for j, instr in enumerate(block.instructions):
+            str_instr = "%5s: %s" % (instr.position_info[0], ops.opname[instr.opcode])
+            if instr.opcode >= ops.HAVE_ARGUMENT and not instr.has_jump:
+                str_instr += " %s" % (instr.arg, )
+            label.append(str_instr)
+            if instr.has_jump:
+                graph.emit_node(name, shape="box", label="\\l".join(label), fillcolor=fillcolor, color=color)
+                nextname = "block_%s_%s" % (i, j)
+                graph.emit_edge(name, blocknames[instr.jump[0]])
+                if j != len(block.instructions) - 1:
+                    label = []
+                    graph.emit_edge(name, nextname, color="green")
+                    name = nextname
+                    color = "green"
+        graph.emit_node(name, shape="box", label="\\l".join(label), fillcolor=fillcolor, color=color)
+        if block.next_block is not None:
+            graph.emit_edge(name, blocknames[block.next_block])
+
+        from rpython.translator.tool.graphpage import FlowGraphPage
+    p = GraphPage()
+    p.links = {}
+    p.source = graph.generate(target=None)
+    p.display()
+
