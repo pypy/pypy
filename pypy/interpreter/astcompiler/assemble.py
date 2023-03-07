@@ -151,6 +151,9 @@ class Block(object):
                     resultblocks.append(current)
                     stack.pop()
         resultblocks.reverse()
+        if not we_are_translated():
+            for block in resultblocks:
+                block.marked = 0
         return resultblocks
 
     def code_size(self):
@@ -228,6 +231,10 @@ class PythonCodeMaker(ast.ASTVisitor):
             assert block.offset == current_off
             for instr in block.instructions:
                 current_off += instr.size()
+
+    def view(self):
+        from pypy.interpreter.astcompiler.codegen import view
+        return view(self.first_block)
 
     def new_block(self):
         return Block()
@@ -530,7 +537,6 @@ class PythonCodeMaker(ast.ASTVisitor):
     def assemble(self):
         """Build a PyCode object."""
         # Unless it's interactive, every code object must end in a return.
-        from pypy.interpreter.astcompiler.codegen import view
         if not self.current_block.have_return:
             self.no_position_info() # will be duplicated by duplicate_exits_without_lineno
             if self.add_none_to_final_return:
