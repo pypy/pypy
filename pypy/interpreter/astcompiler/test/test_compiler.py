@@ -2398,7 +2398,7 @@ match x:
 
 class TestLinenoChanges310(object):
     def get_line_numbers(self, source, expected):
-        from pypy.tool.dis3 import findlinestarts, Bytecode
+        from pypy.tool.dis3 import findlinestarts
         space = self.space
         code = compile_with_astcompiler(source, 'exec', space)
         got = [line - code.co_firstlineno for (start, line) in findlinestarts(code)]
@@ -2423,7 +2423,15 @@ pass""", [0, 1, 3, 4, 5, 6])
     else:
         pass
 """, [0, 1, 2, 4])
-        assert len(code.co_code) == 18 # check that the NOPs have been reduced
+        assert len(code.co_code) == 20 # check that the NOPs have been reduced
+
+    def test_duplicate_returns(self):
+        code = self.get_line_numbers("""
+if x:
+    pass
+else:
+    pass
+""", [0, 1, 3, 1])
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):

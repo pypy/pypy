@@ -34,6 +34,13 @@ class Instruction(object):
             assert arg == 0
         self.position_info = position_info
         self.has_jump = False
+        self.jump = (None, None)
+
+    def copy(self):
+        res = Instruction(self.opcode, self.arg, self.position_info)
+        res.has_jump = self.has_jump
+        res.jump = self.jump
+        return res
 
     def size(self):
         """Return the size of bytes of this instruction when it is
@@ -106,10 +113,19 @@ class Block(object):
         self.cant_add_instructions = False
         self.auto_inserted_return = False
 
-    def _post_order_see(self, stack):
-        if self.marked == 0:
-            self.marked = 1
-            stack.append(self)
+    def copy(self):
+        assert self.have_return # can only copy blocks with return for now
+        copy = Block()
+        copy.have_return = self.have_return
+        copy.auto_inserted_return = self.auto_inserted_return
+        for instr in self.instructions:
+            copy.instructions.append(instr.copy())
+        return copy
+
+    def _post_order_see(self, stack, nextblock):
+        if nextblock.marked == 0:
+            nextblock.marked = 1
+            stack.append(nextblock)
 
     def post_order(self):
         """Return this block and its children in post order.  This means
@@ -209,7 +225,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.argcount = 0
         self.posonlyargcount = 0
         self.kwonlyargcount = 0
-        self.position_info = (-1,) * 4
+        self.no_position_info()
         self.add_none_to_final_return = True
         self.match_context = None
 
@@ -334,6 +350,15 @@ class PythonCodeMaker(ast.ASTVisitor):
         old_position_info = self.position_info
         self.position_info = (node.lineno, node.end_lineno, node.col_offset, node.end_col_offset)
         return old_position_info
+
+    def no_position_info(self):
+        self.position_info = (-1, ) * 4
+
+    def new_match_context(self):
+        return MatchContext(self)
+
+    def sub_pattern_context(self):
+        return SubMatchContext(self)
 
     def _resolve_block_targets(self, blocks):
         """Compute the arguments of jump instructions."""
@@ -520,7 +545,9 @@ class PythonCodeMaker(ast.ASTVisitor):
     def assemble(self):
         """Build a PyCode object."""
         # Unless it's interactive, every code object must end in a return.
-        if not self.current_block.cant_add_instructions:
+        from pypy.interpreter.astcompiler.codegen import view
+        if not self.current_block.have_return:
+            self.no_position_info() # will be duplicated by duplicate_exits_without_lineno
             if self.add_none_to_final_return:
                 self.load_const(self.space.w_None)
             self.emit_op(ops.RETURN_VALUE)
@@ -532,6 +559,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             else:
                 self.first_lineno = 1
         blocks = self.first_block.post_order()
+        self.duplicate_exits_without_lineno(blocks)
         remove_redundant_nops(blocks)
         self._resolve_block_targets(blocks)
         positions = self._build_positions(blocks)
@@ -566,6 +594,30 @@ class PythonCodeMaker(ast.ASTVisitor):
                       free_names,
                       cell_names,
                       self.compile_info.hidden_applevel)
+    
+    @staticmethod
+    def duplicate_exits_without_lineno(blocks):
+        from pypy.interpreter.astcompiler.codegen import view
+        def return_without_lineno(target):
+            return target.have_return and target.instructions and target.instructions[0].position_info[0] < 0
+
+        for i in range(len(blocks)):
+            block = blocks[i]
+            if not block.instructions or not block.instructions[-1].has_jump:
+                continue
+            target, absolute = block.instructions[-1].jump
+            if return_without_lineno(target):
+                # automatically inserted return, without line number. duplicate it
+                newtarget = target.copy()
+                newtarget.instructions[0].position_info = block.instructions[-1].position_info
+                block.instructions[-1].jump = (newtarget, absolute)
+                blocks.append(newtarget)
+                
+        for block in blocks:
+            if block.instructions and block.next_block and return_without_lineno(block.next_block):
+                # now assign the linenumber to the "fallthrough" implicit
+                # return block too
+                block.next_block.instructions[0].position_info = block.instructions[-1].position_info
 
 
 class DeadCode(object):
@@ -956,5 +1008,5 @@ def _debug_print_blocks(blocks):
     labels = {block: i for (i, block) in enumerate(blocks)}
     for block in blocks:
         print "L%s:" % labels[block]
-        for instruction in block:
+        for instruction in block.instructions:
             print instruction
