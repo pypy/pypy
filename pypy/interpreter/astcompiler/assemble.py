@@ -10,6 +10,12 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.miscutils import string_sort
 from pypy.tool import stdlib_opcode as ops
 
+is_absolute_jump = misc.dict_to_switch(
+    {opcode.index: True
+        for opcode in ops.unrolling_opcode_descs
+        if opcode.index in ops.hasjabs},
+    default=False)
+
 
 class StackDepthComputationError(Exception):
     pass
@@ -37,7 +43,6 @@ class Instruction(object):
 
         The opcode must be a JUMP opcode.
         """
-        assert self.opcode in ops.hasjabs or self.opcode in ops.hasjrel
         self.jump = target
 
     def __repr__(self):
@@ -317,7 +322,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     # we have to trigger another pass
                                     force_redo = True
                                     continue
-                        if instr.opcode in ops.hasjabs:
+                        if is_absolute_jump(instr.opcode):
                             jump_arg = target.offset
                         else:
                             jump_arg = target.offset - offset
