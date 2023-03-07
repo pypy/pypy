@@ -196,7 +196,6 @@ class PythonCodeMaker(ast.ASTVisitor):
     def use_block(self, block):
         """Start emitting bytecode into block."""
         self.current_block = block
-        self.instrs = block.instructions
 
     def use_next_block(self, block=None):
         """Set this block as the next_block for the last and use it."""
@@ -213,7 +212,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         return self.current_block.cant_add_instructions
 
     def emit_instr(self, instr):
-        self.instrs.append(instr)
+        self.current_block.instructions.append(instr)
         op = instr.opcode
         if (
                 op == ops.RETURN_VALUE or
