@@ -593,11 +593,24 @@ class PythonCodeMaker(ast.ASTVisitor):
 
         for i in range(len(blocks)):
             block = blocks[i]
-            if not block.instructions or not block.instructions[-1].has_jump:
+            if not block.instructions:
                 continue
-            target, absolute = block.instructions[-1].jump
-            if return_without_lineno(target):
-                # automatically inserted return, without line number. duplicate it
+            last_op = block.instructions[-1]
+            if not block.instructions or not last_op.has_jump:
+                continue
+            target, absolute = last_op.jump
+            if not return_without_lineno(target):
+                continue
+            # automatically inserted return, without line number
+
+            # if it's an unconditional jump, duplicate it
+            if last_op.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+                block.instructions.pop()
+                for instr in target.instructions:
+                    block.instructions.append(instr.copy())
+                block.have_return = True
+            else:
+                # otherwise copy the block
                 newtarget = target.copy()
                 newtarget.instructions[0].position_info = block.instructions[-1].position_info
                 block.instructions[-1].jump = (newtarget, absolute)

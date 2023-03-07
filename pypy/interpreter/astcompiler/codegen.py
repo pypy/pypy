@@ -16,10 +16,10 @@ from pypy.tool import stdlib_opcode as ops
 
 C_INT_MAX = (2 ** (struct.calcsize('i') * 8)) / 2 - 1
 
-def compile_ast(space, module, info):
+def compile_ast(space, module, info, set_debug_flag=False):
     """Generate a code object from AST."""
     symbols = symtable.SymtableBuilder(space, module, info)
-    return TopLevelCodeGenerator(space, module, symbols, info).assemble()
+    return TopLevelCodeGenerator(space, module, symbols, info, set_debug_flag).assemble()
 
 MAX_STACKDEPTH_CONTAINERS = 100
 
@@ -2379,7 +2379,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
-    def __init__(self, space, tree, symbols, compile_info):
+    def __init__(self, space, tree, symbols, compile_info, set_debug_flag):
+        if not we_are_translated():
+            self._debug_flag = set_debug_flag # to set strategic pdbs
         self.is_async_seen = False
         PythonCodeGenerator.__init__(self, space, "<module>", tree, -1,
                                      symbols, compile_info, qualname=None)
@@ -2784,7 +2786,7 @@ def view(startblock):
                     name = nextname
                     color = "green"
         graph.emit_node(name, shape="box", label="\\l".join(label), fillcolor=fillcolor, color=color)
-        if block.next_block is not None and (not block.instructions or block.instructions[-1].opcode not in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE, ops.RETURN_VALUE, ops.RERAISE)):
+        if block.next_block is not None and (not block.instructions or block.instructions[-1].opcode not in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE, ops.RETURN_VALUE, ops.RERAISE, ops.RAISE_VARARGS)):
             graph.emit_edge(name, blocknames[block.next_block])
 
         from rpython.translator.tool.graphpage import FlowGraphPage

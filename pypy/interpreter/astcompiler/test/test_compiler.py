@@ -10,12 +10,12 @@ from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
 from pypy.interpreter.error import OperationError
 from pypy.tool import stdlib_opcode as ops
 
-def compile_with_astcompiler(expr, mode, space):
+def compile_with_astcompiler(expr, mode, space, set_debug_flag=False):
     p = pyparse.PegParser(space)
     info = pyparse.CompileInfo("<test>", mode)
     ast = p.parse_source(expr, info)
     mod = optimize.optimize_ast(space, ast, info)
-    return codegen.compile_ast(space, mod, info)
+    return codegen.compile_ast(space, mod, info, set_debug_flag)
 
 def generate_function_code(expr, space):
     from pypy.interpreter.astcompiler.ast import FunctionDef
@@ -2400,7 +2400,7 @@ class TestLinenoChanges310(object):
     def get_line_numbers(self, source, expected):
         from pypy.tool.dis3 import findlinestarts
         space = self.space
-        code = compile_with_astcompiler(source, 'exec', space)
+        code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=True)
         got = [line - code.co_firstlineno for (start, line) in findlinestarts(code)]
         # check that there are no two nops with the same lineno
         assert got == expected
