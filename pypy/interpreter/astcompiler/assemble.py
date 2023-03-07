@@ -22,7 +22,7 @@ class Instruction(object):
         self.opcode = opcode
         self.arg = arg
         self.lineno = 0
-        self.has_jump = False
+        self.jump = None
 
     def size(self):
         """Return the size of bytes of this instruction when it is
@@ -32,13 +32,13 @@ class Instruction(object):
             return (6 if self.arg > 0xFFFF else 3)
         return 1
 
-    def jump_to(self, target, absolute=False):
+    def jump_to(self, target):
         """Indicate the target this jump instruction.
 
         The opcode must be a JUMP opcode.
         """
-        self.jump = (target, absolute)
-        self.has_jump = True
+        assert self.opcode in ops.hasjabs or self.opcode in ops.hasjrel
+        self.jump = target
 
     def __repr__(self):
         data = [ops.opname[self.opcode]]
@@ -46,8 +46,8 @@ class Instruction(object):
         if self.opcode >= ops.HAVE_ARGUMENT:
             data.append(self.arg)
             template += " %i"
-            if self.has_jump:
-                data.append(self.jump[0])
+            if self.jump is not None:
+                data.append(self.jump)
                 template += " %s"
         template += ">"
         return template % tuple(data)
@@ -69,10 +69,10 @@ class Block(object):
         self.instructions = []
         self.next_block = None
 
-    def _post_order_see(self, stack, nextblock):
-        if nextblock.marked == 0:
-            nextblock.marked = 1
-            stack.append(nextblock)
+    def _post_order_see(self, stack):
+        if self.marked == 0:
+            self.marked = 1
+            stack.append(self)
 
     def post_order(self):
         """Return this block and its children in post order.  This means
@@ -91,16 +91,16 @@ class Block(object):
             if current.marked == 1:
                 current.marked = 2
                 if current.next_block is not None:
-                    self._post_order_see(stack, current.next_block)
+                    current.next_block._post_order_see(stack)
             else:
                 i = current.marked - 2
                 assert i >= 0
                 while i < len(current.instructions):
                     instr = current.instructions[i]
                     i += 1
-                    if instr.has_jump:
+                    if instr.jump is not None:
                         current.marked = i + 2
-                        self._post_order_see(stack, instr.jump[0])
+                        instr.jump._post_order_see(stack)
                         break
                 else:
                     resultblocks.append(current)
@@ -230,9 +230,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Emit an opcode referencing a name."""
         self.emit_op_arg(op, self.add_name(container, name))
 
-    def emit_jump(self, op, block_to, absolute=False):
+    def emit_jump(self, op, block_to):
         """Emit a jump opcode to another block."""
-        self.emit_op(op).jump_to(block_to, absolute)
+        self.emit_op(op).jump_to(block_to)
 
     def add_name(self, container, name):
         """Get the index of a name in container."""
@@ -296,8 +296,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 offset = block.offset
                 for instr in block.instructions:
                     offset += instr.size()
-                    if instr.has_jump:
-                        target, absolute = instr.jump
+                    if instr.jump is not None:
+                        target = instr.jump
                         op = instr.opcode
                         # Optimize an unconditional jump going to another
                         # unconditional jump.
@@ -305,23 +305,23 @@ class PythonCodeMaker(ast.ASTVisitor):
                             if target.instructions:
                                 target_op = target.instructions[0].opcode
                                 if target_op == ops.JUMP_ABSOLUTE:
-                                    target = target.instructions[0].jump[0]
+                                    target = target.instructions[0].jump
                                     instr.opcode = ops.JUMP_ABSOLUTE
-                                    absolute = True
                                 elif target_op == ops.RETURN_VALUE:
                                     # Replace JUMP_* to a RETURN into
                                     # just a RETURN
                                     instr.opcode = ops.RETURN_VALUE
                                     instr.arg = 0
-                                    instr.has_jump = False
+                                    instr.jump = None
                                     # The size of the code changed,
                                     # we have to trigger another pass
                                     force_redo = True
                                     continue
-                        if absolute:
+                        if instr.opcode in ops.hasjabs:
                             jump_arg = target.offset
                         else:
                             jump_arg = target.offset - offset
+                            assert jump_arg >= 0
                         instr.arg = jump_arg
                         if jump_arg > 0xFFFF:
                             extended_arg_count += 1
@@ -366,7 +366,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             if depth >= self._max_depth:
                 self._max_depth = depth
             jump_op = instr.opcode
-            if instr.has_jump:
+            if instr.jump is not None:
                 target_depth = depth
                 if jump_op == ops.FOR_ITER:
                     target_depth -= 2
@@ -381,7 +381,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 elif (jump_op == ops.JUMP_IF_TRUE_OR_POP or
                       jump_op == ops.JUMP_IF_FALSE_OR_POP):
                     depth -= 1
-                self._next_stack_depth_walk(instr.jump[0], target_depth)
+                self._next_stack_depth_walk(instr.jump, target_depth)
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
                     break
