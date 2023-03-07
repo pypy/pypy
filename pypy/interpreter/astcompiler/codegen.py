@@ -2758,6 +2758,8 @@ def compute_reordering(l):
 def view(startblock):
     from rpython.translator.tool.graphpage import GraphPage, DotGen
     blocks = startblock.post_order()
+    for block in blocks: # make post_order work a second time
+        block.marked = 0
     graph = DotGen('block')
     blocknames = {block: "block_%s" % (i, ) for i, block in enumerate(blocks)}
     for i, block in enumerate(blocks):
@@ -2784,7 +2786,7 @@ def view(startblock):
                     name = nextname
                     color = "green"
         graph.emit_node(name, shape="box", label="\\l".join(label), fillcolor=fillcolor, color=color)
-        if block.next_block is not None:
+        if block.next_block is not None and (not block.instructions or block.instructions[-1].opcode not in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE, ops.RETURN_VALUE, ops.RERAISE)):
             graph.emit_edge(name, blocknames[block.next_block])
 
         from rpython.translator.tool.graphpage import FlowGraphPage
