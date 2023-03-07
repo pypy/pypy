@@ -2433,6 +2433,19 @@ else:
     pass
 """, [0, 1, 3, 1])
 
+    def test_duplicate_reraise(self):
+        import pdb; pdb.set_trace()
+        code = self.get_line_numbers("""
+try:
+    g()
+finally:
+    if h():
+        pass
+    else:
+        pass
+""", [0, 1, 3, 1])
+
+
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
         src = "def f(): from _ import *"
