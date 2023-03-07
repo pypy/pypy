@@ -66,13 +66,15 @@ class Block(object):
     reaches the end of the block, it continues to next_block.
     """
 
-    marked = False
-    have_return = False
-    auto_inserted_return = False
-
     def __init__(self):
         self.instructions = []
         self.next_block = None
+        self.marked = 0
+        # is True if instructions[-1] is one that unconditionally leaves the
+        # execution of the instructions in the block (return, raise,
+        # unconditional jumps)
+        self.cant_add_instructions = False
+        self.auto_inserted_return = False
 
     def _post_order_see(self, stack):
         if self.marked == 0:
@@ -208,7 +210,18 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Return False if any code can be meaningfully added to the
         current block, or True if it would be dead code."""
         # currently only True after a RETURN_VALUE.
-        return self.current_block.have_return
+        return self.current_block.cant_add_instructions
+
+    def emit_instr(self, instr):
+        self.instrs.append(instr)
+        op = instr.opcode
+        if (
+                op == ops.RETURN_VALUE or
+                op == ops.RAISE_VARARGS or
+                op == ops.JUMP_FORWARD or
+                op == ops.JUMP_ABSOLUTE
+        ):
+            self.current_block.cant_add_instructions = True
 
     def emit_op(self, op):
         """Emit an opcode without an argument."""
@@ -217,9 +230,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             instr.lineno = self.lineno
             self.lineno_set = True
         if not self.is_dead_code():
-            self.instrs.append(instr)
-            if op == ops.RETURN_VALUE:
-                self.current_block.have_return = True
+            self.emit_instr(instr)
         return instr
 
     def emit_op_arg(self, op, arg):
@@ -229,7 +240,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             instr.lineno = self.lineno
             self.lineno_set = True
         if not self.is_dead_code():
-            self.instrs.append(instr)
+            self.emit_instr(instr)
 
     def emit_op_name(self, op, container, name):
         """Emit an opcode referencing a name."""
@@ -444,7 +455,7 @@ class PythonCodeMaker(ast.ASTVisitor):
     def assemble(self):
         """Build a PyCode object."""
         # Unless it's interactive, every code object must end in a return.
-        if not self.current_block.have_return:
+        if not self.current_block.cant_add_instructions:
             self.use_next_block()
             if self.add_none_to_final_return:
                 self.load_const(self.space.w_None)
