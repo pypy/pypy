@@ -747,13 +747,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.error("'break' not properly in loop", br)
         self.unwind_fblock(loop_fblock, False)
         assert loop_fblock.end is not None
-        self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.end, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.end)
 
     def visit_Continue(self, cont):
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
             self.error("'continue' not properly in loop", cont)
-        self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.block, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.block)
 
     def visit_For(self, fr):
         start = self.new_block()
@@ -767,7 +767,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.FOR_ITER, cleanup)
         fr.target.walkabout(self)
         self._visit_body(fr.body)
-        self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, start)
         self.use_next_block(cleanup)
         self.pop_frame_block(F_FOR_LOOP, start)
         self._visit_body(fr.orelse)
@@ -793,7 +793,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_BLOCK)
         fr.target.walkabout(self)
         self._visit_body(fr.body)
-        self.emit_jump(ops.JUMP_ABSOLUTE, b_start, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_start)
         self.pop_frame_block(F_FOR_LOOP, b_start)
 
         # except block for errors from __anext__
@@ -826,7 +826,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if test_constant == optimize.CONST_NOT_CONST:
                 wh.test.accept_jump_if(self, False, anchor)
             self._visit_body(wh.body)
-            self.emit_jump(ops.JUMP_ABSOLUTE, loop, True)
+            self.emit_jump(ops.JUMP_ABSOLUTE, loop)
             if test_constant == optimize.CONST_NOT_CONST:
                 self.use_next_block(anchor)
             self.pop_frame_block(F_WHILE_LOOP, loop)
@@ -856,7 +856,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if handler.type:
                 self.emit_op(ops.DUP_TOP)
                 handler.type.walkabout(self)
-                self.emit_jump(ops.JUMP_IF_NOT_EXC_MATCH, next_except, True)
+                self.emit_jump(ops.JUMP_IF_NOT_EXC_MATCH, next_except)
             else:
                 if i != len(tr.handlers) - 1:
                     self.error(
@@ -1220,7 +1220,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
         self.emit_op(ops.POP_TOP)
-        self.emit_jump(ops.JUMP_ABSOLUTE, exit, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, exit)
 
         # exceptional outcome
         self.use_next_block(cleanup)
@@ -1230,7 +1230,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
         exit2 = self.new_block()
-        self.emit_jump(ops.POP_JUMP_IF_TRUE, exit2, True)
+        self.emit_jump(ops.POP_JUMP_IF_TRUE, exit2)
         self.emit_op(ops.RERAISE)
         self.use_next_block(exit2)
         self.emit_op(ops.POP_TOP)
@@ -1319,7 +1319,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.space, self.compile_info)
             if truth == optimize.CONST_NOT_CONST:
                 value.walkabout(self)
-                self.emit_jump(instr, end, True)
+                self.emit_jump(instr, end)
                 continue
             if (truth != optimize.CONST_TRUE) == we_are_and:
                 last = index
@@ -1346,7 +1346,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.DUP_TOP)
             self.emit_op(ops.ROT_THREE)
             self.emit_compare(comp.ops[i - 1])
-            self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup, True)
+            self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup)
             if i < (ops_count - 1):
                 comp.comparators[i].walkabout(self)
         last_op, last_comparator = comp.ops[-1], comp.comparators[-1]
@@ -1721,7 +1721,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             node.accept_comp_iteration(self, gen_index)
         self.use_next_block(if_cleanup)
-        self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, start)
         self.use_next_block(anchor)
 
     def _comp_async_generator(self, node, generators, gen_index):
@@ -1755,7 +1755,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             node.accept_comp_iteration(self, gen_index)
 
         self.use_next_block(b_if_cleanup)
-        self.emit_jump(ops.JUMP_ABSOLUTE, b_start, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_start)
 
         self.use_next_block(b_except)
         self.emit_op(ops.END_ASYNC_FOR)
@@ -2027,13 +2027,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                        match_value.value)
         match_value.value.walkabout(self)
         self.emit_compare(ast.Eq)
-        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
 
     def visit_MatchSingleton(self, match_singleton):
         w_value = match_singleton.value
         self.load_const(w_value)
         self.emit_op_arg(ops.IS_OP, 0)
-        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
 
     def _pattern_store_name(self, name, node, match_context):
         if name is None:
@@ -2089,7 +2089,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.MATCH_SEQUENCE)
         # stack = [(1,2,3,4,5), True]
 
-        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
         # stack = [(1,2,3,4,5)]
 
         star_index = -1
@@ -2112,7 +2112,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_compare(ast.GtE)
                 # stack = [(1,2,3,4,5), True]
 
-                match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+                match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
                 # stack = [(1,2,3,4,5)]
             left = star_index
             right = length - star_index - 1
@@ -2123,7 +2123,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_compare(ast.Eq)
             left = length - 1
             right = 0
-            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
             # stack = [(1,2,3,4,5)]
 
 
@@ -2181,7 +2181,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         match_context.on_top += 1
         # stack = [{'x': 42, 'y': 13}, True]
 
-        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
         # stack = [{'x': 42, 'y': 13}]
 
         if match_mapping.keys:
@@ -2196,7 +2196,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_compare(ast.GtE)
             # stack = [{'x': 42, 'y': 13}, True]
 
-            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
             # stack = [{'x': 42, 'y': 13}]
 
             # check for duplicates and wrong kinds of nodes
@@ -2229,7 +2229,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
 
         match_context.on_top += 2 # extra tuple and keys on top
-        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
         # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
 
         if not length:
@@ -2323,7 +2323,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # compile the "no match" case. pop the copy of the subject and fail
         # unconditionally.
         self.emit_op(ops.POP_TOP)
-        outer_match_context.emit_fail_jump(ops.JUMP_FORWARD, False)
+        outer_match_context.emit_fail_jump(ops.JUMP_FORWARD)
 
         self.use_next_block(end)
         # now we need more rotates! yay yay yay!
@@ -2358,7 +2358,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.MATCH_CLASS, nargs)
         match_context.on_top += 1 # preserve the tuple
 
-        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
 
         with self.sub_pattern_context():
             for i in range(nargs + nattrs):
@@ -2379,7 +2379,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
-    def __init__(self, space, tree, symbols, compile_info, set_debug_flag):
+    def __init__(self, space, tree, symbols, compile_info, set_debug_flag=False):
         if not we_are_translated():
             self._debug_flag = set_debug_flag # to set strategic pdbs
         self.is_async_seen = False
