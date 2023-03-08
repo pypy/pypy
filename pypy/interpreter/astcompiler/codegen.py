@@ -2773,13 +2773,13 @@ def view(startblock):
 
         for j, instr in enumerate(block.instructions):
             str_instr = "%5s: %s" % (instr.position_info[0], ops.opname[instr.opcode])
-            if instr.opcode >= ops.HAVE_ARGUMENT and not instr.has_jump:
+            if instr.opcode >= ops.HAVE_ARGUMENT and instr.jump is None:
                 str_instr += " %s" % (instr.arg, )
             label.append(str_instr)
-            if instr.has_jump:
+            if instr.jump is not None:
                 graph.emit_node(name, shape="box", label="\\l".join(label), fillcolor=fillcolor, color=color)
                 nextname = "block_%s_%s" % (i, j)
-                graph.emit_edge(name, blocknames[instr.jump[0]])
+                graph.emit_edge(name, blocknames[instr.jump])
                 if j != len(block.instructions) - 1:
                     label = []
                     graph.emit_edge(name, nextname, color="green")

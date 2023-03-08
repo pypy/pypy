@@ -209,6 +209,7 @@ def _iter_to_dict(iterable, offset=0):
 
 class PythonCodeMaker(ast.ASTVisitor):
     """Knows how to assemble a PyCode object."""
+    _debug_flag = False
 
     def __init__(self, space, name, first_lineno, scope, compile_info):
         self.space = space
@@ -555,6 +556,8 @@ class PythonCodeMaker(ast.ASTVisitor):
     def assemble(self):
         """Build a PyCode object."""
         # Unless it's interactive, every code object must end in a return.
+        if self._debug_flag:
+            import pdb; pdb.set_trace()
         if not self.current_block.cant_add_instructions:
             self.no_position_info() # will be duplicated by duplicate_exits_without_lineno
             if self.add_none_to_final_return:
