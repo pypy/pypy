@@ -2432,10 +2432,9 @@ if x:
     pass
 else:
     pass
-""", [0, 1, 3, 1])
+""", [0, 1, 3])
 
     def test_duplicate_reraise(self):
-        import pdb; pdb.set_trace()
         code = self.get_line_numbers("""
 try:
     g()
@@ -2444,7 +2443,7 @@ finally:
         pass
     else:
         pass
-""", [0, 1, 3, 1])
+""", [0, 1, 3, 4, 6, 3, 4, 6])
 
 
 class TestErrorPositions(BaseTestCompiler):
