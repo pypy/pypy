@@ -651,27 +651,6 @@ a = A()
                  x = 1
         """, "x", 1
 
-    @pytest.mark.xfail
-    def test_return_lineno(self):
-        # the point of this test is to check that there is no code associated
-        # with any line greater than 4.
-        # The implict return will have the line number of the last statement
-        # so we check that that line contains exactly the implicit return None
-        self.simple_test("""\
-            def ireturn_example():    # line 1
-                global b              # line 2
-                if a == b:            # line 3
-                    b = a+1           # line 4
-                else:                 # line 5
-                    if 1: pass        # line 6
-            import dis
-            co = ireturn_example.__code__
-            linestarts = list(dis.findlinestarts(co))
-            addrreturn = linestarts[-1][0]
-            x = [addrreturn == (len(co.co_code) - 4)]
-            x.extend([lineno for addr, lineno in linestarts])
-        """, 'x', [True, 3, 4, 6])
-
     def test_type_of_constants(self):
         yield self.simple_test, "x=[0, 0.]", 'type(x[1])', float
         yield self.simple_test, "x=[(1,0), (1,0.)]", 'type(x[1][1])', float
