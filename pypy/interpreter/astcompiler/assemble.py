@@ -624,7 +624,7 @@ class PythonCodeMaker(ast.ASTVisitor):
     def duplicate_exits_without_lineno(blocks):
         from pypy.interpreter.astcompiler.codegen import view
         def exit_without_lineno(target):
-            return target.exits_function and target.instructions and target.instructions[0].position_info[0] < 0
+            return target.exits_function and bool(target.instructions) and target.instructions[0].position_info[0] < 0
 
         for i in range(len(blocks)):
             block = blocks[i]

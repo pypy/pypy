@@ -2119,7 +2119,7 @@ def buggy_lnotab():
         1
 x = [c for c in buggy_lnotab.__code__.co_lnotab]
 """
-        self.st(func, "x", [0, 1, 8, 8])
+        self.st(func, "x", [0, 1, 8, 8, 2, 248])
 
     def test_lnotab_backwards_in_expr(self):
         func = """
@@ -2148,7 +2148,7 @@ x = [c for c in expr_lines.__code__.co_consts[1].co_lnotab]
         pass
 x = [c for c in f.__code__.co_lnotab]
 '''
-        self.st(func, 'x', [0, 1, 2, 2, 2, 255])
+        self.st(func, 'x', [0, 1, 2, 2, 2, 255, 12, 252])
 
 
     def test_revdb_metavar(self):
