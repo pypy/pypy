@@ -174,14 +174,49 @@ class Block(object):
             i += instr.size()
         return i
 
-    def get_code(self):
+    def get_code(self, code):
         """Encode the instructions in this block into bytecode."""
-        code = []
+        start_size = len(code)
         for instr in self.instructions:
             instr.encode(code)
-        assert len(code) == self.code_size()
+        assert (len(code) - start_size) == self.code_size()
         assert len(code) & 1 == 0
-        return ''.join(code)
+
+    def jump_thread(self):
+        # do jump threading
+        for instr in self.instructions:
+            target = instr.jump
+            if not target:
+                continue
+            # replace a jump to an empty block with a jump to its successor
+            while not target.instructions:
+                target = instr.jump = target.next_block
+                assert target is not None
+            opcode = instr.opcode
+            target_instr = target.instructions[0]
+            target_opcode = target_instr.opcode
+            # Optimize an unconditional jump going to another
+            # unconditional jump.
+            if opcode == ops.JUMP_ABSOLUTE or opcode == ops.JUMP_FORWARD:
+                if target_opcode == ops.JUMP_ABSOLUTE:
+                    instr.opcode = ops.JUMP_ABSOLUTE
+                    instr.jump = target_instr.jump
+                elif target_opcode == ops.JUMP_FORWARD:
+                    instr.jump = target_instr.jump
+                elif target_opcode == ops.RETURN_VALUE:
+                    # Replace JUMP_* to a RETURN into
+                    # just a RETURN
+                    instr.opcode = ops.RETURN_VALUE
+                    instr.jump = None
+                continue
+            if (opcode == ops.POP_JUMP_IF_FALSE or
+                  opcode == ops.POP_JUMP_IF_TRUE or
+                  opcode == ops.JUMP_IF_FALSE_OR_POP or
+                  opcode == ops.JUMP_IF_TRUE_OR_POP
+            ):
+                if (target_opcode == ops.JUMP_ABSOLUTE or
+                        target_opcode == ops.JUMP_FORWARD):
+                    instr.jump = target_instr.jump
 
 
 def _make_index_dict_filter(syms, flag1, flag2):
@@ -391,36 +426,6 @@ class PythonCodeMaker(ast.ASTVisitor):
                     offset += size
                     if instr.jump is not None:
                         target = instr.jump
-                        op = instr.opcode
-                        # Optimize an unconditional jump going to another
-                        # unconditional jump.
-                        if op == ops.JUMP_ABSOLUTE or op == ops.JUMP_FORWARD:
-                            if target.instructions:
-                                target_op = target.instructions[0].opcode
-                                if target_op == ops.JUMP_ABSOLUTE:
-                                    target = target.instructions[0].jump
-                                    instr.opcode = ops.JUMP_ABSOLUTE
-                                elif target_op == ops.RETURN_VALUE:
-                                    # Replace JUMP_* to a RETURN into
-                                    # just a RETURN
-                                    instr.opcode = ops.RETURN_VALUE
-                                    instr.arg = 0
-                                    instr.jump = None
-                                    # The size of the code maybe have changed,
-                                    # we have to trigger another pass
-                                    if instr.size() != size:
-                                        force_redo = True
-                                    continue
-                        elif target.instructions and (
-                                op == ops.POP_JUMP_IF_FALSE or
-                                op == ops.POP_JUMP_IF_TRUE or
-                                op == ops.JUMP_IF_FALSE_OR_POP or
-                                op == ops.JUMP_IF_TRUE_OR_POP):
-                            target_op = target.instructions[0]
-                            if (target_op.opcode == ops.JUMP_ABSOLUTE or
-                                    target_op.opcode == ops.JUMP_FORWARD):
-                                target = target_op.jump
-                                instr.jump = target
                         if is_absolute_jump(instr.opcode):
                             jump_arg = target.offset
                         else:
@@ -553,6 +558,10 @@ class PythonCodeMaker(ast.ASTVisitor):
                     locations.append((-1, -1, -1, -1))
         return encode_positions(locations, self.first_lineno)
 
+    def jump_thread(self, blocks):
+        for block in blocks:
+            block.jump_thread()
+
     def assemble(self):
         """Build a PyCode object."""
         # Unless it's interactive, every code object must end in a return.
@@ -571,6 +580,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             else:
                 self.first_lineno = 1
         blocks = self.first_block.post_order()
+        self.jump_thread(blocks)
         self.duplicate_exits_without_lineno(blocks)
         remove_redundant_nops(blocks)
         self._resolve_block_targets(blocks)
@@ -586,7 +596,10 @@ class PythonCodeMaker(ast.ASTVisitor):
         flags |= (self.compile_info.flags & consts.PyCF_MASK)
         if not we_are_translated():
             self._final_blocks = blocks
-        bytecode = ''.join([block.get_code() for block in blocks])
+        output = []
+        for block in blocks:
+            block.get_code(output)
+        bytecode = ''.join(output)
         return PyCode(self.space,
                       self.argcount,
                       self.posonlyargcount,

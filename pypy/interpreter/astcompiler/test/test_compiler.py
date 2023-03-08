@@ -29,6 +29,7 @@ def generate_function_code(expr, space):
     generator = codegen.FunctionCodeGenerator(
         space, 'function', function_ast, 1, symbols, info, qualname='function')
     blocks = generator.first_block.post_order()
+    generator.jump_thread(blocks)
     generator._resolve_block_targets(blocks)
     return generator, blocks
 
@@ -2820,6 +2821,7 @@ class TestOptimizations:
                     foo()
             else:
                 baz()
+            return
         """
         source2 = """def springer():
                 while a:
@@ -2827,6 +2829,7 @@ class TestOptimizations:
                     if (c
                         or d):
                         a = foo()
+                return
         """
         for source in source1, source2:
             code, blocks = generate_function_code(source, self.space)
