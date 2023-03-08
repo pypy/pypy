@@ -162,3 +162,9 @@ def test_jump_thread_conditional_jump():
             assert jump1.jump is b3
             assert jump1.opcode == opcode1
 
+def test_block_exits_function():
+    for opcode in (ops.RETURN_VALUE, ops.RAISE_VARARGS, ops.RERAISE):
+        b = Block()
+        b.emit_instr(Instruction(opcode))
+        assert b.exits_function
+        assert b.cant_add_instructions

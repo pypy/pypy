@@ -108,11 +108,24 @@ class Block(object):
         # execution of the instructions in the block (return, raise,
         # unconditional jumps)
         self.cant_add_instructions = False
-        self.block_exits_function = False
+        self.exits_function = False
         self.auto_inserted_return = False
 
-    def have_return(self):
-        return self.instructions and self.instructions[-1].opcode == ops.RETURN_VALUE
+    def emit_instr(self, instr):
+        self.instructions.append(instr)
+        op = instr.opcode
+        if (
+                op == ops.RETURN_VALUE or
+                op == ops.RAISE_VARARGS or
+                op == ops.RERAISE
+        ):
+            self.exits_function = True
+            self.cant_add_instructions = True
+        elif (
+                op == ops.JUMP_FORWARD or
+                op == ops.JUMP_ABSOLUTE
+        ):
+            self.cant_add_instructions = True
 
     def _post_order_see(self, stack):
         if self.marked == 0:
@@ -120,7 +133,6 @@ class Block(object):
             stack.append(self)
 
     def copy(self):
-        assert self.have_return() # can only copy blocks with return for now
         copy = Block()
         copy.auto_inserted_return = self.auto_inserted_return
         for instr in self.instructions:
@@ -304,29 +316,18 @@ class PythonCodeMaker(ast.ASTVisitor):
     def all_dead_code(self):
         return DeadCode(self)
 
-    def emit_instr(self, instr):
-        self.current_block.instructions.append(instr)
-        op = instr.opcode
-        if (
-                op == ops.RETURN_VALUE or
-                op == ops.RAISE_VARARGS or
-                op == ops.JUMP_FORWARD or
-                op == ops.JUMP_ABSOLUTE
-        ):
-            self.current_block.cant_add_instructions = True
-
     def emit_op(self, op):
         """Emit an opcode without an argument."""
         instr = Instruction(op, position_info=self.position_info)
         if not self.is_dead_code():
-            self.emit_instr(instr)
+            self.current_block.emit_instr(instr)
         return instr
 
     def emit_op_arg(self, op, arg):
         """Emit an opcode with an integer argument."""
         instr = Instruction(op, arg, position_info=self.position_info)
         if not self.is_dead_code():
-            self.emit_instr(instr)
+            self.current_block.emit_instr(instr)
 
     def emit_rot_n(self, arg):
         if arg == 2:
@@ -622,8 +623,8 @@ class PythonCodeMaker(ast.ASTVisitor):
     @staticmethod
     def duplicate_exits_without_lineno(blocks):
         from pypy.interpreter.astcompiler.codegen import view
-        def return_without_lineno(target):
-            return target.have_return() and target.instructions and target.instructions[0].position_info[0] < 0
+        def exit_without_lineno(target):
+            return target.exits_function and target.instructions and target.instructions[0].position_info[0] < 0
 
         for i in range(len(blocks)):
             block = blocks[i]
@@ -633,7 +634,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             if not block.instructions or last_op.jump is None:
                 continue
             target = last_op.jump
-            if not return_without_lineno(target):
+            if not exit_without_lineno(target):
                 continue
             # automatically inserted return, without line number
 
@@ -641,6 +642,9 @@ class PythonCodeMaker(ast.ASTVisitor):
             if last_op.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
                 block.instructions.pop()
                 for instr in target.instructions:
+                    instr = instr.copy()
+                    if instr.position_info[0] == -1:
+                        instr.position_info = last_op.position_info
                     block.instructions.append(instr.copy())
             else:
                 # otherwise copy the block
@@ -650,7 +654,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 blocks.append(newtarget)
                 
         for block in blocks:
-            if block.instructions and block.next_block and return_without_lineno(block.next_block):
+            if block.instructions and block.next_block and exit_without_lineno(block.next_block):
                 # now assign the linenumber to the "fallthrough" implicit
                 # return block too
                 block.next_block.instructions[0].position_info = block.instructions[-1].position_info

@@ -955,6 +955,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.push_frame_block(F_FINALLY_END, end)
         self._visit_body(tr.finalbody)
         self.pop_frame_block(F_FINALLY_END, end)
+
+        # the RERAISE will be duplicated by duplicate_exits_without_lineno
+        self.no_position_info()
         self.emit_op(ops.RERAISE)
         self.use_next_block(exit)
 
