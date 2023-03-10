@@ -1999,7 +1999,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
                 if case.guard:
                     case.guard.walkabout(self)
-                    self.emit_jump(ops.POP_JUMP_IF_FALSE, match_context.next, True)
+                    self.emit_jump(ops.POP_JUMP_IF_FALSE, match_context.next)
 
                 if not is_last_case:
                     self.emit_op(ops.POP_TOP)
@@ -2019,13 +2019,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                        match_value.value)
         match_value.value.walkabout(self)
         self.emit_compare(ast.Eq)
-        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
 
     def visit_MatchSingleton(self, match_singleton):
         w_value = match_singleton.value
         self.load_const(w_value)
         self.emit_op_arg(ops.IS_OP, 0)
-        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+        self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
 
     def _pattern_store_name(self, name, node, match_context):
         if name is None:
@@ -2081,7 +2081,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.MATCH_SEQUENCE)
         # stack = [(1,2,3,4,5), True]
 
-        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
         # stack = [(1,2,3,4,5)]
 
         star_index = -1
@@ -2104,7 +2104,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_compare(ast.GtE)
                 # stack = [(1,2,3,4,5), True]
 
-                match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+                match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
                 # stack = [(1,2,3,4,5)]
             left = star_index
             right = length - star_index - 1
@@ -2115,7 +2115,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_compare(ast.Eq)
             left = length - 1
             right = 0
-            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, absolute=True)
+            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
             # stack = [(1,2,3,4,5)]
 
 
@@ -2173,7 +2173,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         match_context.on_top += 1
         # stack = [{'x': 42, 'y': 13}, True]
 
-        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
         # stack = [{'x': 42, 'y': 13}]
 
         if match_mapping.keys:
@@ -2188,7 +2188,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_compare(ast.GtE)
             # stack = [{'x': 42, 'y': 13}, True]
 
-            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+            match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
             # stack = [{'x': 42, 'y': 13}]
 
             # check for duplicates and wrong kinds of nodes
@@ -2221,7 +2221,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
 
         match_context.on_top += 2 # extra tuple and keys on top
-        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
         # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
 
         if not length:
@@ -2315,7 +2315,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # compile the "no match" case. pop the copy of the subject and fail
         # unconditionally.
         self.emit_op(ops.POP_TOP)
-        outer_match_context.emit_fail_jump(ops.JUMP_FORWARD, False)
+        outer_match_context.emit_fail_jump(ops.JUMP_FORWARD)
 
         self.use_next_block(end)
         # now we need more rotates! yay yay yay!
@@ -2350,7 +2350,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.MATCH_CLASS, nargs)
         match_context.on_top += 1 # preserve the tuple
 
-        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE, True)
+        match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
 
         with self.sub_pattern_context():
             for i in range(nargs + nattrs):

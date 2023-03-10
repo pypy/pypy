@@ -633,14 +633,14 @@ class MatchContext(object):
         self._reset_cleanup_blocks()
         self._init_names()
 
-    def emit_fail_jump(self, op, absolute, cleanup=0):
+    def emit_fail_jump(self, op, cleanup=0):
         # emits a (conditional or unconditional) jump to the cleanup block (ie,
         # failure) with the right number of POP_TOPs
         cleanup += self.on_top + len(self.names_stored)
         while cleanup >= len(self.cleanup_blocks):
             self.cleanup_blocks.append(self.codegen.new_block())
         target = self.cleanup_blocks[cleanup]
-        self.codegen.emit_jump(op, target, absolute)
+        self.codegen.emit_jump(op, target)
 
     def __enter__(self, *args):
         self.old_context = self.codegen.match_context
