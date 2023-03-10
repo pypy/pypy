@@ -2098,7 +2098,7 @@ def buggy_lnotab():
         1
 x = [c for c in buggy_lnotab.__code__.co_lnotab]
 """
-        self.st(func, "x", [0, 1, 8, 8, 2, 248])
+        self.st(func, "x", [0, 1, 8, 8, 2, 244])
 
     def test_lnotab_backwards_in_expr(self):
         func = """
@@ -2424,6 +2424,15 @@ finally:
         pass
 """, [0, 1, 3, 4, 6, 3, 4, 6])
 
+    def test_loop_return(self):
+        code = self.get_line_numbers("""
+x = 1               # 0
+for a in range(2):  # 1
+    if a:           # 2
+        x = 1       # 3
+    else:           # 4
+        x = 1       # 5
+""", [0, 1, 2, 3, 5, 1])
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
