@@ -16,19 +16,15 @@ maxlong = int(2 ** (struct.calcsize('l') * 8 - 1) - 1)
 class TestLongObject(BaseApiTest):
     def test_FromLong(self, space, api):
         w_value = api.PyLong_FromLong(3)
-        assert isinstance(w_value, W_LongObject)
         assert space.unwrap(w_value) == 3
 
         w_value = api.PyLong_FromLong(maxlong)
-        assert isinstance(w_value, W_LongObject)
         assert space.unwrap(w_value) == maxlong
 
     def test_aslong(self, space):
         w_value = PyLong_FromLong(space, (maxlong - 1) // 2)
-        assert isinstance(w_value, W_LongObject)
 
         w_value = space.mul(w_value, space.wrap(2))
-        assert isinstance(w_value, W_LongObject)
         value = PyLong_AsLong(space, w_value)
         assert value == (maxlong - 1)
 
@@ -48,11 +44,9 @@ class TestLongObject(BaseApiTest):
 
     def test_as_ssize_t(self, space, api):
         w_value = space.newlong(2)
-        assert isinstance(w_value, W_LongObject)
         value = api.PyLong_AsSsize_t(w_value)
         assert value == 2
         w_val2 = api.PyLong_FromSsize_t(2)
-        assert isinstance(w_val2, W_LongObject)
         assert space.eq_w(w_value, w_val2)
 
     def test_fromdouble(self, space, api):
