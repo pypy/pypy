@@ -47,7 +47,7 @@ class FrameDebugData(object):
     hidden_operationerr      = None
 
     def __init__(self, pycode):
-        self.f_lineno = pycode.co_firstlineno
+        self.f_lineno = -1
         self.w_globals = pycode.w_globals
 
 class PyFrame(W_Root):
@@ -692,10 +692,16 @@ class PyFrame(W_Root):
         if self.get_w_f_trace() is None:
             return space.newint(self.get_last_lineno())
         else:
-            return space.newint(self.getorcreatedebug().f_lineno)
+            f_lineno = self.getorcreatedebug().f_lineno
+            if f_lineno == -1:
+                # means first line number, but we haven's executed anything yet
+                import pdb; pdb.set_trace()
+                f_lineno = self.pycode.co_firstlineno
+            return space.newint(f_lineno)
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Change the line number of the instruction currently being executed."
+        import pdb; pdb.set_trace()
         try:
             new_lineno = space.int_w(w_new_lineno)
         except OperationError:
