@@ -330,7 +330,7 @@ class ExecutionContext(object):
                 frame.fast2locals()
             prev_line_tracing = d.is_in_line_tracing
             self.is_tracing += 1
-            old_lineno = d.f_lineno
+            lineno = old_lineno = d.f_lineno
             try:
                 if event == 'line':
                     d.is_in_line_tracing = True
@@ -351,7 +351,8 @@ class ExecutionContext(object):
                     d.w_f_trace = None
                     raise
             finally:
-                d.f_lineno = old_lineno
+                if d.f_lineno == lineno:
+                    d.f_lineno = old_lineno
                 self.is_tracing -= 1
                 d.is_in_line_tracing = prev_line_tracing
                 if d.w_locals is not None:
