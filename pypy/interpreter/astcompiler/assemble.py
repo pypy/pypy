@@ -20,13 +20,14 @@ is_absolute_jump = misc.dict_to_switch(
 class StackDepthComputationError(Exception):
     pass
 
+UNKNOWN_POSITION = (-1, -1, -1, -1)
 
 class Instruction(object):
     """Represents a single opcode."""
 
     _stack_depth_after = -99 # used before translation only
 
-    def __init__(self, opcode, arg=0, position_info=(-1, -1, -1, -1)):
+    def __init__(self, opcode, arg=0, position_info=UNKNOWN_POSITION):
         self.opcode = opcode
         self.arg = arg
         if opcode < ops.HAVE_ARGUMENT:
@@ -77,6 +78,15 @@ class Instruction(object):
         The opcode must be a JUMP opcode.
         """
         self.jump = target
+
+    def update_position_if_not_set(self, position_info):
+        if self.position_info[0] < 0:
+            self.position_info = position_info
+        else:
+            position_info = self.position_info
+        # returns the value of self.position_info, whether it was written to or
+        # not
+        return position_info
 
     def __repr__(self):
         data = ["<", ops.opname[self.opcode]]
@@ -289,9 +299,9 @@ class PythonCodeMaker(ast.ASTVisitor):
             for instr in block.instructions:
                 current_off += instr.size()
 
-    def view(self):
+    def view(self, blocks=None):
         from pypy.interpreter.astcompiler.codegen import view
-        return view(self.first_block)
+        return view(blocks or self.first_block)
 
     def new_block(self):
         return Block()
@@ -563,6 +573,35 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             block.jump_thread()
 
+    def propagate_positions(self, blocks):
+        # compute predecessors, use the 'marked' attribute for it
+        # depends on blocks being in post-order
+        for block in blocks:
+            block.marked = 0
+        self.first_block.marked += 1
+        for block in blocks:
+            if block.marked == 0: # nobody jumps there, skip
+                continue
+            # mark next_block, but only if the edge can actually be taken
+            if block.next_block and not block.cant_add_instructions:
+                block.next_block.marked += 1
+            for instr in block.instructions:
+                if instr.jump:
+                    instr.jump.marked += 1
+
+        for block in blocks:
+            if not block.instructions or block.marked == 0:
+                continue
+            prev_position = UNKNOWN_POSITION
+            for instr in block.instructions:
+                prev_position = instr.update_position_if_not_set(prev_position)
+                if instr.jump is not None and instr.jump.marked == 1 and instr.jump.instructions:
+                    instr.jump.instructions[0].update_position_if_not_set(prev_position)
+            if block.next_block and block.next_block.marked == 1 and block.instructions:
+                block.instructions[0].update_position_if_not_set(prev_position)
+        for block in blocks:
+            block.marked = 0
+
     def assemble(self):
         """Build a PyCode object."""
         # Unless it's interactive, every code object must end in a return.
@@ -583,6 +622,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         blocks = self.first_block.post_order()
         self.jump_thread(blocks)
         self.duplicate_exits_without_lineno(blocks)
+        self.propagate_positions(blocks)
         remove_redundant_nops(blocks)
         self._resolve_block_targets(blocks)
         positions = self._build_positions(blocks)
