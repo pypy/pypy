@@ -2380,7 +2380,7 @@ class TestLinenoChanges310(object):
     def get_line_numbers(self, source, expected):
         from pypy.tool.dis3 import findlinestarts
         space = self.space
-        code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=True)
+        code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=False)
         got = [line - code.co_firstlineno for (start, line) in findlinestarts(code)]
         # check that there are no two nops with the same lineno
         assert got == expected
@@ -2394,7 +2394,7 @@ else:
 pass; pass; pass; pass; pass; pass; pass
 pass; pass; pass; pass
 pass""", [0, 1, 3, 4, 5, 6])
-        assert len(code.co_code) == 18 # check that the NOPs have been reduced
+        assert len(code.co_code) == 16 # check that the NOPs have been reduced
 
     def test_while_1(self):
         code = self.get_line_numbers("""while 1:
