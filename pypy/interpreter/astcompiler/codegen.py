@@ -884,6 +884,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # second # body
                 self._visit_body(handler.body)
                 self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
+                self.no_position_info() # artificial instructions
                 self.emit_op(ops.POP_BLOCK)
                 self.emit_op(ops.POP_EXCEPT)
                 # name = None; del name
@@ -894,6 +895,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
                 # finally
                 self.use_next_block(cleanup_end)
+                self.no_position_info() # artificial instructions
                 # this is a hack! we emit a NOP to distinguish this from a
                 # "regular" finally. the reason for that is that we do not want
                 # to emit a line trace event if sys.settrace is set for the
@@ -915,6 +917,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.push_frame_block(F_HANDLER_CLEANUP, cleanup_body)
                 self._visit_body(handler.body)
                 self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
+                self.no_position_info() # artificial instructions
                 self.emit_op(ops.POP_EXCEPT)
                 self.emit_jump(ops.JUMP_FORWARD, end)
             #

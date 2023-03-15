@@ -596,6 +596,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             for instr in block.instructions:
                 prev_position = instr.update_position_if_not_set(prev_position)
                 if instr.jump is not None and instr.jump.marked == 1 and instr.jump.instructions:
+                    if instr.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
+                        continue # don't do this for exception handlers
                     instr.jump.instructions[0].update_position_if_not_set(prev_position)
             if block.next_block and block.next_block.marked == 1 and block.instructions:
                 block.instructions[0].update_position_if_not_set(prev_position)
@@ -674,6 +676,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             if not block.instructions or last_op.jump is None:
                 continue
             target = last_op.jump
+            if last_op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
+                continue # don't do this for exception handlers
             if not exit_without_lineno(target):
                 continue
             # automatically inserted return, without line number
