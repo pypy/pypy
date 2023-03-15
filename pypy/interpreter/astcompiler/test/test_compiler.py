@@ -2434,6 +2434,17 @@ for a in range(2):  # 1
         x = 1       # 5
 """, [0, 1, 2, 3, 5, 1])
 
+    def test_dont_propage_through_exception_handler(self):
+        code = self.get_line_numbers("""
+try:
+    raise Exception("abc")
+except Exception as e:
+    if reraise:
+        raise
+    print("after raise")
+""", [0, 1, 2, 3, 4, 5, 2])
+
+
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
         src = "def f(): from _ import *"
