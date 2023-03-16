@@ -515,10 +515,6 @@ class PyCode(eval.Code):
         #     • line will either be a positive integer, or None
         return W_LineIterator(self.space, self)
 
-    @property
-    def co_lnotab(self):
-        return self.space.bytes_w(self.fget_co_lnotab(self.space))
-
     def fget_co_lnotab(self, space):
         from pypy.interpreter.location import linetable2lnotab
         return space.newbytes(
