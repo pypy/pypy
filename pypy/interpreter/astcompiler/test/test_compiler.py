@@ -2486,6 +2486,16 @@ while TRUE:
     break
 """, [0, 1, 2, 3, 4, 1])
 
+    def test_dead_code_shouldnt_impact_positions(self):
+        code = self.get_line_numbers("""
+def func():
+    try:
+        if False:
+            pass
+    except Exception:
+        X
+""", [1, 2, 4, 5, 4], function=True)
+
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
         src = "def f(): from _ import *"
