@@ -824,13 +824,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             anchor = None
             if test_constant == optimize.CONST_NOT_CONST:
                 anchor = self.new_block()
-            else:
-                self.emit_op(ops.NOP)
             loop = self.new_block()
             self.push_frame_block(F_WHILE_LOOP, loop, end)
             self.use_next_block(loop)
             if test_constant == optimize.CONST_NOT_CONST:
                 wh.test.accept_jump_if(self, False, anchor)
+            else:
+                self.emit_op(ops.NOP)
             self._visit_body(wh.body)
             self.emit_jump(ops.JUMP_ABSOLUTE, loop)
             if test_constant == optimize.CONST_NOT_CONST:

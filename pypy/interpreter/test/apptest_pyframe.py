@@ -746,6 +746,27 @@ def test_disable_line_tracing():
     print(l)
     assert l == [('f', 'call', None, 0), ('g', 'call', None, 0), ('g', 'return', 6, 1), ('f', 'return', 42, 2)]
 
+def test_line_tracing_bug_while1():
+    tr = []
+    def tracelines(frame, event, arg):
+        lineno = frame.f_lineno - frame.f_code.co_firstlineno
+        tr.append((event, lineno))
+        return tracelines
+    def tightloop():
+        i = 0
+        while 1:
+            if (i := i + 1) > 2: break
+    sys.settrace(tracelines)
+    tightloop()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1),
+        ('line', 2), ('line', 3),
+        ('line', 2), ('line', 3),
+        ('line', 2), ('line', 3),
+        ('return', 3)
+    ]
+
 def test_opcode_tracing():
     import sys
     assert not sys._getframe().f_trace_opcodes
