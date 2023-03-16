@@ -362,6 +362,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         opcode, op_kind = compare_operations(ast_op_kind)
         self.emit_op_arg(opcode, op_kind)
 
+    def emit_line_tracing_nop(self):
+        self.emit_op(ops.NOP)
+
     def add_name(self, container, name):
         """Get the index of a name in container."""
         name = self.scope.mangle(name)

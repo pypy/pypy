@@ -2477,6 +2477,14 @@ for i in range(3):
         f()
 """, [0, 1, 2, 4, 0])
 
+    def test_break_to_break(self):
+        code = self.get_line_numbers("""
+TRUE = 1
+while TRUE:
+    while TRUE:
+        break
+    break
+""", [0, 1, 2, 3, 4, 1])
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):

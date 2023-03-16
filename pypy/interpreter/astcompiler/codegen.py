@@ -720,14 +720,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         test_constant = if_.test.as_constant_truth(
             self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
-            # add a NOP for line tracing
-            self.emit_op(ops.NOP)
+            self.emit_line_tracing_nop()
             with self.all_dead_code():
                 self._visit_body(if_.body)
             self._visit_body(if_.orelse)
         elif test_constant == optimize.CONST_TRUE:
-            # add a NOP for line tracing
-            self.emit_op(ops.NOP)
+            self.emit_line_tracing_nop()
             self._visit_body(if_.body)
             with self.all_dead_code():
                 self._visit_body(if_.orelse)
@@ -748,6 +746,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
             self.error("'break' not properly in loop", br)
+        self.emit_line_tracing_nop()
         self.unwind_fblock(loop_fblock, False)
         assert loop_fblock.end is not None
         self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.end)
@@ -811,8 +810,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_While(self, wh):
         test_constant = wh.test.as_constant_truth(self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
-            # add a NOP for line tracing
-            self.emit_op(ops.NOP)
+            self.emit_line_tracing_nop()
             with self.all_dead_code():
                 end = self.new_block()
                 loop = self.new_block()
@@ -831,7 +829,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if test_constant == optimize.CONST_NOT_CONST:
                 wh.test.accept_jump_if(self, False, anchor)
             else:
-                self.emit_op(ops.NOP)
+                self.emit_line_tracing_nop()
             self._visit_body(wh.body)
             self.emit_jump(ops.JUMP_ABSOLUTE, loop)
             if test_constant == optimize.CONST_NOT_CONST:
@@ -1266,7 +1264,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         pass
 
     def visit_Pass(self, pas):
-        self.emit_op(ops.NOP) # for the line numbers
+        self.emit_line_tracing_nop()
 
     def visit_Expr(self, expr):
         if self.interactive:

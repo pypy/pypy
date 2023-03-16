@@ -781,6 +781,26 @@ def test_line_tracing_bug_while1():
         ('line', 2), ('line', 2),
         ('return', 2)]
 
+    tr = []
+
+    def func():
+        TRUE = 1
+        while TRUE:
+            while TRUE:
+                break
+            break
+    tr = []
+    sys.settrace(tracelines)
+    func()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1),
+        ('line', 2), ('line', 3),
+        ('line', 4), ('line', 5),
+        ('return', 5)
+    ]
+
+
 def test_opcode_tracing():
     import sys
     assert not sys._getframe().f_trace_opcodes
