@@ -128,10 +128,6 @@ return next yielded value or raise StopIteration."""
             ec.set_sys_exc_info(self.saved_operr)
             self.saved_operr = None
         d = frame.getdebug()
-        if d is not None:
-            # on CPython, those don't live on the frame and start with default
-            # value when running execute_frame
-            d.instr_lb = d.instr_ub = d.instr_prev_plus_one = 0
         self.running = True
         try:
             w_result = frame.execute_frame(w_arg_or_err)
