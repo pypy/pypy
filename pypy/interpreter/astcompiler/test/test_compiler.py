@@ -2377,10 +2377,12 @@ match x:
 
 
 class TestLinenoChanges310(object):
-    def get_line_numbers(self, source, expected):
+    def get_line_numbers(self, source, expected, function=False):
         from pypy.tool.dis3 import findlinestarts
         space = self.space
         code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=False)
+        if function:
+            code = code.co_consts[0]
         got = [line - code.co_firstlineno for (start, line) in findlinestarts(code)]
         # check that there are no two nops with the same lineno
         assert got == expected
@@ -2458,6 +2460,13 @@ while 1:
 x = 2
 """, [0, 1, 3, 5, 6, 7, 8, 9])
 
+    def test_async_for(self):
+        code = self.get_line_numbers("""
+async def doit_async():
+    async for letter in AsyncIteratorWrapper("abc"):
+        x = letter
+    y = 42
+""", [1, 2, 1, 3], function=True)
 
 
 class TestErrorPositions(BaseTestCompiler):
