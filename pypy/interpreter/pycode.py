@@ -539,6 +539,13 @@ class PyCode(eval.Code):
             self._linelist = l
         return self._linelist[pc // 2]
 
+    def _marklines(self):
+        """ return a list of len(co_code) // 2 where every entry is -1 except
+        for those opcodes that start a new line, where the entry is the line
+        number. """
+        from pypy.interpreter.location import marklines
+        return marklines(self.co_linetable, self.co_firstlineno)
+
 class W_LineIterator(W_Root):
     def __init__(self, space, w_code):
         self.space = space

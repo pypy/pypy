@@ -727,7 +727,7 @@ class PyFrame(W_Root):
             raise oefmt(space.w_ValueError,
                         "line %d comes before the current code block", new_lineno)
 
-        lines = marklines(self.pycode)
+        lines = self.pycode._marklines()
         x = first_line_not_before(lines, new_lineno)
 
 
@@ -885,22 +885,6 @@ JUMP_BLOCKSTACK_WITH = 'w'
 JUMP_BLOCKSTACK_LOOP = 'l'
 JUMP_BLOCKSTACK_TRY = 't'
 JUMP_BLOCKSTACK_EXCEPT = 'e'
-
-def marklines(code):
-    res = [-1] * (len(code.co_code) // 2)
-
-    lnotab = code.co_lnotab
-    addr = 0
-    line = code.co_firstlineno
-    res[0] = line
-    for offset in xrange(0, len(lnotab), 2):
-        addr += ord(lnotab[offset])
-        line_offset = ord(lnotab[offset + 1])
-        if line_offset >= 0x80:
-            line_offset -= 0x100
-        line += line_offset
-        res[addr // 2] = line
-    return res
 
 def first_line_not_before(lines, line):
     result = sys.maxint
