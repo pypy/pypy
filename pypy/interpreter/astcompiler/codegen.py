@@ -300,11 +300,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             finallyblock = fblock.datum
             assert isinstance(finallyblock, ast.Try)
             assert finallyblock.finalbody
-            old_position_info = self.position_info
             self._visit_body(finallyblock.finalbody)
-            self.position_info = old_position_info
             if preserve_tos:
                 self.pop_frame_block(F_POP_VALUE, None)
+            self.no_position_info() # make the unwind be artificial
         elif kind == F_FINALLY_END:
             if preserve_tos:
                 self.emit_op(ops.ROT_TWO)
