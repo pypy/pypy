@@ -802,6 +802,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         # except block for errors from __anext__
         self.use_next_block(b_except)
+        # use the 'for' as the position of END_ASYNC_FOR
+        self.update_position(fr.iter)
         self.emit_op(ops.END_ASYNC_FOR)
         self._visit_body(fr.orelse)
 
