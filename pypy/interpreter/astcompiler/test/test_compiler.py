@@ -2496,6 +2496,18 @@ def func():
         X
 """, [1, 2, 4, 5, 4], function=True)
 
+    def test_nested_if_confusion(self):
+        code = self.get_line_numbers("""
+if p:
+    if a:
+        if z:
+            pass
+        else:
+            pass
+else:
+    pass
+""", [0, 1, 2, 3, 5, 7, 1])
+
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
         src = "def f(): from _ import *"
