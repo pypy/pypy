@@ -311,6 +311,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.POP_EXCEPT)
 
         elif kind == F_WITH or kind == F_ASYNC_WITH:
+            node = fblock.datum
+            assert isinstance(node, ast.withitem)
+            self.update_position(node.context_expr)
             self.emit_op(ops.POP_BLOCK)
             if preserve_tos:
                 self.emit_op(ops.ROT_TWO)
@@ -320,6 +323,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.load_const(self.space.w_None)
                 self.emit_op(ops.YIELD_FROM)
             self.emit_op(ops.POP_TOP)
+            self.no_position_info()
         elif kind == F_HANDLER_CLEANUP:
             if fblock.datum:
                 self.emit_op(ops.POP_BLOCK)
@@ -743,15 +747,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(end)
 
     def visit_Break(self, br):
+        self.emit_line_tracing_nop()
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
             self.error("'break' not properly in loop", br)
-        self.emit_line_tracing_nop()
         self.unwind_fblock(loop_fblock, False)
         assert loop_fblock.end is not None
         self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.end)
 
     def visit_Continue(self, cont):
+        self.emit_line_tracing_nop()
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
             self.error("'continue' not properly in loop", cont)
@@ -1203,7 +1208,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             fblock_kind = F_ASYNC_WITH
 
         self.use_next_block(body_block)
-        self.push_frame_block(fblock_kind, body_block, cleanup)
+        self.push_frame_block(fblock_kind, body_block, cleanup, witem)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)
         else:
@@ -1212,6 +1217,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._visit_body(wih.body)
         else:
             self.handle_withitem(wih, pos + 1, is_async=is_async)
+
+        self.no_position_info()
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(fblock_kind, body_block)
 

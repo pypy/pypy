@@ -406,11 +406,15 @@ class PythonCodeMaker(ast.ASTVisitor):
     @specialize.argtype(1)
     def update_position(self, node):
         """Change the position for the next instructions to that of node."""
+        if self.is_dead_code():
+            return self.position_info
         old_position_info = self.position_info
         self.position_info = (node.lineno, node.end_lineno, node.col_offset, node.end_col_offset)
         return old_position_info
 
     def no_position_info(self):
+        if self.is_dead_code():
+            return
         self.position_info = (-1, ) * 4
 
     def new_match_context(self):

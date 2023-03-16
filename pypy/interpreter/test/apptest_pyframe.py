@@ -746,16 +746,24 @@ def test_disable_line_tracing():
     print(l)
     assert l == [('f', 'call', None, 0), ('g', 'call', None, 0), ('g', 'return', 6, 1), ('f', 'return', 42, 2)]
 
-def test_line_tracing_bug_while1():
+def make_tracelines(base=None):
     tr = []
     def tracelines(frame, event, arg):
-        lineno = frame.f_lineno - frame.f_code.co_firstlineno
+        if base:
+            firstlineno = base.__code__.co_firstlineno
+        else:
+            firstlineno = frame.f_code.co_firstlineno
+        lineno = frame.f_lineno - firstlineno
         tr.append((event, lineno))
         return tracelines
+    return tr, tracelines
+
+def test_line_tracing_bug_while1():
     def tightloop():
         i = 0
         while 1:
             if (i := i + 1) > 2: break
+    tr, tracelines = make_tracelines()
     sys.settrace(tracelines)
     tightloop()
     sys.settrace(None)
@@ -767,11 +775,13 @@ def test_line_tracing_bug_while1():
         ('return', 3)
     ]
 
+
+def test_line_tracing_bug_while_oneline():
     def tightloop2():
         i = 0
         while i < 3: i += 1
 
-    tr = []
+    tr, tracelines = make_tracelines()
     sys.settrace(tracelines)
     tightloop2()
     sys.settrace(None)
@@ -781,7 +791,8 @@ def test_line_tracing_bug_while1():
         ('line', 2), ('line', 2),
         ('return', 2)]
 
-    tr = []
+def test_line_tracing_bug_while_break_break():
+    tr, tracelines = make_tracelines()
 
     def func():
         TRUE = 1
@@ -789,7 +800,6 @@ def test_line_tracing_bug_while1():
             while TRUE:
                 break
             break
-    tr = []
     sys.settrace(tracelines)
     func()
     sys.settrace(None)
@@ -798,6 +808,27 @@ def test_line_tracing_bug_while1():
         ('line', 2), ('line', 3),
         ('line', 4), ('line', 5),
         ('return', 5)
+    ]
+
+def test_line_tracing_bug_with():
+    class C:
+        def __enter__(self):
+            return self
+        def __exit__(*args):
+            pass
+    def func_break():
+        for i in (1,2):
+            with C():
+                break
+        pass
+    tr, tracelines = make_tracelines(func_break)
+    sys.settrace(tracelines)
+    func_break()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1), ('line', 2), ('call', -4), ('line', -3),
+        ('return', -3), ('line', 3), ('line', 2), ('call', -2), ('line', -1),
+        ('return', -1), ('line', 4), ('return', 4)
     ]
 
 
