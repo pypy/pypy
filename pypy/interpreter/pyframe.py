@@ -695,13 +695,11 @@ class PyFrame(W_Root):
             f_lineno = self.getorcreatedebug().f_lineno
             if f_lineno == -1:
                 # means first line number, but we haven's executed anything yet
-                import pdb; pdb.set_trace()
                 f_lineno = self.pycode.co_firstlineno
             return space.newint(f_lineno)
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Change the line number of the instruction currently being executed."
-        import pdb; pdb.set_trace()
         try:
             new_lineno = space.int_w(w_new_lineno)
         except OperationError:
