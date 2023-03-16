@@ -677,32 +677,30 @@ class PythonCodeMaker(ast.ASTVisitor):
 
         for i in range(len(blocks)):
             block = blocks[i]
-            if not block.instructions:
-                continue
-            last_op = block.instructions[-1]
-            if not block.instructions or last_op.jump is None:
-                continue
-            target = last_op.jump
-            if last_op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
-                continue # don't do this for exception handlers
-            if not exit_without_lineno(target):
-                continue
-            # automatically inserted return, without line number
+            for op in block.instructions:
+                if op.jump is None:
+                    continue
+                if op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
+                    continue # don't do this for exception handlers
+                target = op.jump
+                if not exit_without_lineno(target):
+                    continue
+                # automatically inserted return, without line number
 
-            # if it's an unconditional jump, duplicate it
-            if last_op.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
-                block.instructions.pop()
-                for instr in target.instructions:
-                    instr = instr.copy()
-                    if instr.position_info[0] == -1:
-                        instr.position_info = last_op.position_info
-                    block.instructions.append(instr.copy())
-            else:
-                # otherwise copy the block
-                newtarget = target.copy()
-                newtarget.instructions[0].position_info = block.instructions[-1].position_info
-                block.instructions[-1].jump = newtarget
-                blocks.append(newtarget)
+                # if it's an unconditional jump, duplicate it
+                if op.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+                    block.instructions.pop()
+                    for instr in target.instructions:
+                        instr = instr.copy()
+                        if instr.position_info[0] == -1:
+                            instr.position_info = op.position_info
+                        block.instructions.append(instr.copy())
+                else:
+                    # otherwise copy the block
+                    newtarget = target.copy()
+                    newtarget.instructions[0].position_info = op.position_info
+                    op.jump = newtarget
+                    blocks.append(newtarget)
                 
         for block in blocks:
             if block.instructions and block.next_block and exit_without_lineno(block.next_block):
