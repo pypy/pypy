@@ -721,10 +721,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         test_constant = if_.test.as_constant_truth(
             self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
+            # add a NOP for line tracing
+            self.emit_op(ops.NOP)
             with self.all_dead_code():
                 self._visit_body(if_.body)
             self._visit_body(if_.orelse)
         elif test_constant == optimize.CONST_TRUE:
+            # add a NOP for line tracing
+            self.emit_op(ops.NOP)
             self._visit_body(if_.body)
             with self.all_dead_code():
                 self._visit_body(if_.orelse)
@@ -806,6 +810,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_While(self, wh):
         test_constant = wh.test.as_constant_truth(self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
+            # add a NOP for line tracing
+            self.emit_op(ops.NOP)
             with self.all_dead_code():
                 end = self.new_block()
                 loop = self.new_block()

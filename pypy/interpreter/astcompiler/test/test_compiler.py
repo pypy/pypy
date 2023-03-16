@@ -2444,6 +2444,21 @@ except Exception as e:
     print("after raise")
 """, [0, 1, 2, 3, 4, 5, 2])
 
+    def test_nop_for_if0_if1(self):
+        code = self.get_line_numbers("""
+x = 1
+while 0:
+    pass
+if 0:
+    pass
+if 1:
+    pass
+while 1:
+    break
+x = 2
+""", [0, 1, 3, 5, 6, 7, 8, 9])
+
+
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
