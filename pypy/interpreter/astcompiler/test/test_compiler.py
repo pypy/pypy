@@ -2468,6 +2468,15 @@ async def doit_async():
     y = 42
 """, [1, 2, 1, 3], function=True)
 
+    def test_break_in_finally(self):
+        code = self.get_line_numbers("""
+for i in range(3):
+    try:
+        break                   # line 7
+    finally:
+        f()
+""", [0, 1, 2, 4, 0])
+
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
