@@ -1820,3 +1820,44 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         assert module.test_pypy_flags(float, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
         assert module.test_pypy_flags(MyFloat, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
 
+    def test_newgetset(self):
+        # Taken from the yara-python project
+        module = self.import_extension('foo', [
+            ('newexc', 'METH_NOARGS',
+             """
+                PyObject *YaraWarningError = PyErr_NewException("foo.YaraWarningError", PyExc_Exception, NULL);
+
+                PyTypeObject *YaraWarningError_type = (PyTypeObject *) YaraWarningError;
+                PyObject* descr = PyDescr_NewGetSet(YaraWarningError_type,
+                                                    YaraWarningError_getsetters);
+                if (PyDict_SetItem(YaraWarningError_type->tp_dict,
+                                   PyDescr_NAME(descr), descr) < 0) {
+                    Py_DECREF(descr);
+                    return NULL;
+                }
+                return YaraWarningError;
+            """),
+            ], prologue="""
+                static PyObject* YaraWarningError_getwarnings(PyObject *self, void* closure)
+                {
+                  PyObject *args = PyObject_GetAttrString(self, "args");
+                  if (!args) {
+                    return NULL;
+                  }
+
+                  PyObject* ret = PyTuple_GetItem(args, 0);
+                  Py_XINCREF(ret);
+                  Py_XDECREF(args);
+                  return ret;
+                }
+
+                static PyGetSetDef YaraWarningError_getsetters[] = {
+                  {"warnings", YaraWarningError_getwarnings, NULL, NULL, NULL},
+                  {NULL}
+                };
+             """)
+        errtype = module.newexc()
+        err = errtype("abc")
+        assert err.warnings == "abc"
+
+
