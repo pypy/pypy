@@ -190,10 +190,11 @@ class ExecutionContext(object):
         if d.f_trace_lines and lineno != -1:
             # when we are at a start of a line, or executing a backwards jump,
             # produce a line event
-            if lastline != lineno:
+            if lastline != lineno or frame.last_instr < d.instr_prev_plus_one:
                 self._trace(frame, 'line', self.space.w_None)
         if d.f_trace_opcodes:
             self._trace(frame, 'opcode', self.space.w_None)
+        d.instr_prev_plus_one = frame.last_instr + 1
 
     @objectmodel.try_inline
     def bytecode_trace_after_exception(self, frame):

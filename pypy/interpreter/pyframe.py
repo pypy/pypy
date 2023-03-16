@@ -35,6 +35,7 @@ class FrameDebugData(object):
     """ A small object that holds debug data for tracing
     """
     w_f_trace                = None
+    instr_prev_plus_one      = 0
     f_lineno                 = 0      # current lineno for tracing
     is_being_profiled        = False
     is_in_line_tracing       = False
