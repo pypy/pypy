@@ -2228,6 +2228,7 @@ class TestEdgeCases(unittest.TestCase):
         self.addCleanup(sys.settrace, sys.gettrace())
         sys.settrace(None)
 
+    @support.cpython_only
     def test_reentrancy(self):
         def foo(*args):
             ...
