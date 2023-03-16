@@ -131,3 +131,15 @@ def linetable2lnotab(linetable, firstlineno):
         pc += 2
     return b"".join(res)
 
+def marklines(linetable, firstlineno):
+    res = []
+    line = -1
+    position = 0
+    while position < len(linetable):
+        lineno, _, _, _, position = _decode_entry(linetable, firstlineno, position)
+        if lineno != line and lineno != -1:
+            res.append(lineno)
+            line = lineno
+        else:
+            res.append(-1)
+    return res

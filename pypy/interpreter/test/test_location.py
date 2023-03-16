@@ -1,7 +1,8 @@
 import pytest
 
 from pypy.interpreter.location import (encode_positions,
-    decode_positions, _offset2lineno, linetable2lnotab)
+    decode_positions, _offset2lineno, linetable2lnotab,
+    marklines)
 
 def check_positions(positions, firstlineno=1, expected=None):
     if expected is None:
@@ -68,3 +69,11 @@ def test_linetable2lnotab():
         assert ord(bdelta) & 1 == 0
     for stopat in range(len(positions)):
         assert lnotab_offset2lineno(lnotab, 1, stopat * 2) == positions[stopat][0]
+
+def test_marklines():
+    positions = [(lineno, lineno, 1, 1) for lineno in [1, 1, 1, 3, -1, 3, 2, -1, -1, -1, 2, 17, -1, 1]]
+    table = encode_positions(positions, 1)
+    lines = marklines(table, 1)
+    assert lines == [1, -1, -1, 3, -1, -1, 2, -1, -1, -1, -1, 17, -1, 1]
+
+
