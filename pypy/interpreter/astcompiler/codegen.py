@@ -909,7 +909,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.name_op(handler.name, ast.Store, handler)
                 self.name_op(handler.name, ast.Del, handler)
 
-                self.emit_op(ops.RERAISE)
+                self.emit_op_arg(ops.RERAISE, 1)
             else:
                 self.emit_op(ops.POP_TOP)
                 self.emit_op(ops.POP_TOP)
@@ -1237,7 +1237,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.YIELD_FROM)
         exit2 = self.new_block()
         self.emit_jump(ops.POP_JUMP_IF_TRUE, exit2)
-        self.emit_op(ops.RERAISE)
+        self.emit_op(ops.RERAISE, 1)
         self.use_next_block(exit2)
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_EXCEPT)

@@ -780,7 +780,7 @@ class __extend__(pyframe.PyFrame):
     def save_and_change_sys_exc_info(self, operationerr):
         ec = self.space.getexecutioncontext()
         last_exception = ec.sys_exc_info()
-        block = SysExcInfoRestorer(last_exception, self.lastblock)
+        block = SysExcInfoRestorer(last_exception, self.lastblock, self.last_instr)
         self.lastblock = block
         if operationerr is not None:   # otherwise, don't change sys_exc_info
             if not self.hide():
@@ -1330,10 +1330,14 @@ class __extend__(pyframe.PyFrame):
             assert 0
         self.pushvalue(w_res)
 
-    def RERAISE(self, jumpby, next_instr):
+    def RERAISE(self, reset_last_instr, next_instr):
         unroller = self.popvalue()
         if not isinstance(unroller, SApplicationException):
             assert 0
+        if reset_last_instr:
+            block = self.lastblock
+            assert isinstance(block, SysExcInfoRestorer)
+            self.last_instr = block.last_instr
         block = self.unrollstack()
         if block is None:
             w_result = unroller.reraise()
@@ -1900,9 +1904,10 @@ class SysExcInfoRestorer(FrameBlock):
     _immutable_ = True
     _opname = 'SYS_EXC_INFO_RESTORER' # it's not associated to any opcode
 
-    def __init__(self, operr, previous):
+    def __init__(self, operr, previous, last_instr):
         self.operr = operr
         self.previous = previous
+        self.last_instr = last_instr
 
     def handle(self, frame, unroller):
         assert False # never called
