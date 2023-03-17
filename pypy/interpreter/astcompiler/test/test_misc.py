@@ -162,6 +162,22 @@ def test_jump_thread_conditional_jump():
             assert jump1.jump is b3
             assert jump1.opcode == opcode1
 
+def test_jump_thread_jump_to_jump_to_jump():
+    for opcode1 in (ops.POP_JUMP_IF_FALSE, ops.POP_JUMP_IF_TRUE,
+            ops.JUMP_IF_FALSE_OR_POP, ops.JUMP_IF_TRUE_OR_POP,
+            ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+        b = Block()
+        b2 = Block()
+        b3 = Block()
+        b4 = Block()
+
+        jump1 = jumpinstr(b, opcode1, b2)
+        jump2 = jumpinstr(b2, ops.JUMP_FORWARD, b3)
+        jump3 = jumpinstr(b3, ops.JUMP_FORWARD, b4)
+        b4.instructions.append(Instruction(ops.NOP))
+        b.jump_thread()
+        assert jump1.jump is b4
+
 def test_block_exits_function():
     for opcode in (ops.RETURN_VALUE, ops.RAISE_VARARGS, ops.RERAISE):
         b = Block()
