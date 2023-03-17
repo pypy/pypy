@@ -206,6 +206,12 @@ class Block(object):
 
     def jump_thread(self):
         # do jump threading
+        # 1) skip empty .next_block
+        if not self.cant_add_instructions:
+            while self.next_block is not None and not self.next_block.instructions:
+                self.next_block = self.next_block.next_block
+
+        # 2) jump-thread instructions
         i = 0
         while i < len(self.instructions):
             instr = self.instructions[i]
@@ -813,24 +819,31 @@ def _remove_redundant_nops(block):
     prevlineno = -1
     source = 0
     dest = 0
-    while source < len(block):
-        op = block[source]
+    instructions = block.instructions
+    while source < len(instructions):
+        op = instructions[source]
         source += 1
         lineno = op.position_info[0]
         if op.opcode == ops.NOP:
             if lineno == -1 or lineno == prevlineno:
                 continue
-            if source < len(block) and lineno == block[source].position_info[0]:
-                continue
+            if source < len(instructions):
+                if lineno == instructions[source].position_info[0]:
+                    continue
+            else:
+                # last instruction in block is a NOP, check the next block
+                if (block.next_block.instructions and
+                        lineno == block.next_block.instructions[0].position_info[0]):
+                    continue
         prevlineno = lineno
-        block[dest] = op
+        instructions[dest] = op
         dest += 1
-    if dest != len(block):
-        del block[dest:]
+    if dest != len(instructions):
+        del instructions[dest:]
 
 def remove_redundant_nops(blocks):
     for block in blocks:
-        _remove_redundant_nops(block.instructions)
+        _remove_redundant_nops(block)
 
 def _list_from_dict(d, offset=0):
     result = [None] * len(d)
