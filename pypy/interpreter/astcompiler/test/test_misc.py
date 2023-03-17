@@ -178,6 +178,18 @@ def test_jump_thread_jump_to_jump_to_jump():
         b.jump_thread()
         assert jump1.jump is b4
 
+def test_jump_thread_fallthrough():
+    b = Block()
+    b.next_block = b2 = Block()
+    b2.next_block = b3 = Block()
+
+    b.instructions.append(Instruction(ops.NOP))
+    b3.instructions.append(Instruction(ops.NOP))
+    import pdb; pdb.set_trace()
+    b.jump_thread()
+    assert b.next_block is b3
+
+
 def test_block_exits_function():
     for opcode in (ops.RETURN_VALUE, ops.RAISE_VARARGS, ops.RERAISE):
         b = Block()
