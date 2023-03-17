@@ -831,6 +831,21 @@ def test_line_tracing_bug_with():
         ('return', -1), ('line', 4), ('return', 4)
     ]
 
+def test_line_tracing_class_implicit_return():
+    def func():
+        class ClassWithCode:
+            if 3 < 9:
+                a = 1
+            else:
+                a = 2
+    tr, tracelines = make_tracelines(func)
+    sys.settrace(tracelines)
+    func()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1), ('call', 1), ('line', 1), ('line', 2),
+        ('line', 3), ('return', 3), ('return', 1)
+    ]
 
 def test_opcode_tracing():
     import sys
