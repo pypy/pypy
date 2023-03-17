@@ -594,19 +594,22 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def propagate_positions(self, blocks):
         # compute predecessors, use the 'marked' attribute for it
-        # depends on blocks being in post-order
+        def increase_incoming(block, todo):
+            block.marked += 1
+            if block.marked == 1:
+                todo.append(block)
         for block in blocks:
             block.marked = 0
-        self.first_block.marked += 1
-        for block in blocks:
-            if block.marked == 0: # nobody jumps there, skip
-                continue
+        self.first_block.marked = 1
+        todo = [self.first_block]
+        while todo:
+            block = todo.pop()
             # mark next_block, but only if the edge can actually be taken
             if block.next_block and not block.cant_add_instructions:
-                block.next_block.marked += 1
+                increase_incoming(block.next_block, todo)
             for instr in block.instructions:
                 if instr.jump:
-                    instr.jump.marked += 1
+                    increase_incoming(instr.jump, todo)
 
         for block in blocks:
             if not block.instructions or block.marked == 0:
@@ -626,7 +629,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             if block.marked == 0:
                 block.instructions = []
                 block.cant_add_instructions = False
-            block.marked = 0
+            else:
+                block.marked = 0
 
     def assemble(self):
         """Build a PyCode object."""
