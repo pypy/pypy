@@ -1281,6 +1281,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif not isinstance(expr.value, ast.Constant):
             expr.value.walkabout(self)
             self.emit_op(ops.POP_TOP)
+        else:
+            self.emit_line_tracing_nop()
 
     @update_pos_expr
     def visit_Yield(self, yie):

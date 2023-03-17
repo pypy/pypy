@@ -2524,6 +2524,14 @@ for i in range(2):
 print(x)
 """, [0, 1, 2, 1, 3])
 
+    def test_ignored_const_produces_lineno(self):
+        code = self.get_line_numbers("""
+1
+'abc'
+(1, 2, 3, None)
+""", [0, 1, 2])
+        import pdb; pdb.set_trace()
+
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
