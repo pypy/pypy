@@ -206,7 +206,10 @@ class Block(object):
 
     def jump_thread(self):
         # do jump threading
-        for instr in self.instructions:
+        i = 0
+        while i < len(self.instructions):
+            instr = self.instructions[i]
+            i += 1
             target = instr.jump
             if not target:
                 continue
@@ -223,8 +226,10 @@ class Block(object):
                 if target_opcode == ops.JUMP_ABSOLUTE:
                     instr.opcode = ops.JUMP_ABSOLUTE
                     instr.jump = target_instr.jump
+                    i -= 1 # look at this instruction again
                 elif target_opcode == ops.JUMP_FORWARD:
                     instr.jump = target_instr.jump
+                    i -= 1 # look at this instruction again
                 elif target_opcode == ops.RETURN_VALUE:
                     # Replace JUMP_* to a RETURN into
                     # just a RETURN
@@ -239,6 +244,7 @@ class Block(object):
                 if (target_opcode == ops.JUMP_ABSOLUTE or
                         target_opcode == ops.JUMP_FORWARD):
                     instr.jump = target_instr.jump
+                    i -= 1 # look at this instruction again
 
 
 def _make_index_dict_filter(syms, flag1, flag2):

@@ -847,6 +847,29 @@ def test_line_tracing_class_implicit_return():
         ('line', 3), ('return', 3), ('return', 1)
     ]
 
+def test_line_tracing_nested_if_with_and():
+    def func_nested_if():
+        if A:
+            if B:
+                if C:
+                    if D:
+                        return False
+            else:
+                return False
+        elif E and F:
+            return True
+    A = B = True
+    C = False
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    func_nested_if()
+    sys.settrace(None)
+    assert ('line', 7) not in tr
+    assert tr == [
+        ('call', 0), ('line', 1), ('line', 2), ('line', 3),
+        ('return', 3)
+    ]
+
 def test_opcode_tracing():
     import sys
     assert not sys._getframe().f_trace_opcodes
