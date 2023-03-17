@@ -321,7 +321,12 @@ class ExecutionContext(object):
                 w_arg = space.newtuple([operr.w_type, w_value,
                                         operr.get_w_traceback(space)])
 
-            d = frame.getorcreatedebug()
+            lineno = frame.pycode._get_lineno_for_pc_tracing(frame.last_instr)
+            if frame.last_instr >= 1:
+                init_lineno = lineno
+            else:
+                init_lineno = -1
+            d = frame.getorcreatedebug(init_lineno=init_lineno)
             if d.w_locals is not None:
                 # only update the w_locals dict if it exists
                 # if it does not exist yet and the tracer accesses it via
@@ -329,12 +334,11 @@ class ExecutionContext(object):
                 frame.fast2locals()
             prev_line_tracing = d.is_in_line_tracing
             self.is_tracing += 1
-            lineno = old_lineno = d.f_lineno
+            old_lineno = d.f_lineno
             try:
                 if event == 'line':
                     d.is_in_line_tracing = True
                 try:
-                    lineno = frame.pycode._get_lineno_for_pc_tracing(frame.last_instr)
                     d.f_lineno = lineno
                     # from here on, frame is just a normal w_object
                     frame = jit.hint(frame, access_directly=False)

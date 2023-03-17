@@ -44,8 +44,8 @@ class FrameDebugData(object):
     w_locals                 = None
     hidden_operationerr      = None
 
-    def __init__(self, pycode):
-        self.f_lineno = -1
+    def __init__(self, pycode, init_lineno=-1):
+        self.f_lineno = init_lineno
         self.w_globals = pycode.w_globals
 
 class PyFrame(W_Root):
@@ -121,9 +121,9 @@ class PyFrame(W_Root):
     def getdebug(self):
         return self.debugdata
 
-    def getorcreatedebug(self):
+    def getorcreatedebug(self, init_lineno=-1):
         if self.debugdata is None:
-            self.debugdata = FrameDebugData(self.pycode)
+            self.debugdata = FrameDebugData(self.pycode, init_lineno)
         return self.debugdata
 
     def get_w_globals(self):
