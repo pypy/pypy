@@ -2516,6 +2516,15 @@ else:
     pass
 """, [0, 1, 2, 3, 5, 7, 1])
 
+    def test_nested_for(self):
+        code = self.get_line_numbers("""
+for i in range(2):
+    for j in range(3):
+        x += i * j
+print(x)
+""", [0, 1, 2, 1, 3])
+
+
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
         src = "def f(): from _ import *"
