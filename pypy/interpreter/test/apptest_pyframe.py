@@ -668,7 +668,7 @@ def test_trace_onliner_if():
     import sys
     l = []
     def trace(frame, event, arg):
-        l.append((frame.f_lineno, event))
+        l.append((frame.f_lineno - frame.f_code.co_firstlineno, event))
         return trace
     def onliners():
         if True: False
@@ -678,9 +678,11 @@ def test_trace_onliner_if():
     onliners()
     sys.settrace(None)
     firstlineno = onliners.__code__.co_firstlineno
-    assert l == [(firstlineno + 0, 'call'),
-                    (firstlineno + 3, 'line'),
-                    (firstlineno + 3, 'return')]
+    print(l)
+    assert l == [(0, 'call'),
+                 (1, 'line'),
+                 (3, 'line'),
+                 (3, 'return')]
 
 def test_set_unset_f_trace():
     import sys
