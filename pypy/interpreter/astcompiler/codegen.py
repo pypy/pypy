@@ -2556,6 +2556,8 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self._maybe_setup_annotations()
         # compile the body proper
         self._handle_body(cls.body)
+
+        self.no_position_info()
         # return the (empty) __class__ cell
         scope = self.scope.lookup("__class__")
         if scope == symtable.SCOPE_CELL_CLASS:
