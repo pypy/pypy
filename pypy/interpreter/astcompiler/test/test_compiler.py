@@ -28,8 +28,16 @@ def generate_function_code(expr, space):
     symbols = symtable.SymtableBuilder(space, ast, info)
     generator = codegen.FunctionCodeGenerator(
         space, 'function', function_ast, 1, symbols, info, qualname='function')
+    if not generator.current_block.cant_add_instructions:
+        generator.no_position_info()
+        if generator.add_none_to_final_return:
+            generator.load_const(space.w_None)
+        generator.emit_op(ops.RETURN_VALUE)
+        generator.current_block.auto_inserted_return = True
     blocks = generator.first_block.post_order()
     generator.jump_thread(blocks)
+    generator.duplicate_exits_without_lineno(blocks)
+    generator.propagate_positions(blocks)
     generator._resolve_block_targets(blocks)
     return generator, blocks
 
@@ -2380,7 +2388,7 @@ class TestLinenoChanges310(object):
     def get_line_numbers(self, source, expected, function=False):
         from pypy.tool.dis3 import findlinestarts
         space = self.space
-        code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=False)
+        code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=True)
         if function:
             code = code.co_consts[0]
         got = [line - code.co_firstlineno for (start, line) in findlinestarts(code)]
@@ -3212,6 +3220,22 @@ class TestOptimizations:
         source = """def f(): x.m(a, b, c, y=1)"""
         counts = self.count_instructions(source)
         assert counts[ops.CALL_METHOD_KW] == 1
+
+    def test_dont_emit_dead_blocks(self):
+        source = """def f():
+        if A:
+            if B:
+                if C:
+                    if D:
+                        return False
+            else:
+                return False
+        elif E and F:
+            return True
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.RETURN_VALUE] == 7
+
 
 class TestHugeStackDepths:
     def run_and_check_stacksize(self, source):
