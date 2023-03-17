@@ -774,6 +774,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.FOR_ITER, cleanup)
         fr.target.walkabout(self)
         self._visit_body(fr.body)
+        self.no_position_info()
         self.emit_jump(ops.JUMP_ABSOLUTE, start)
         self.use_next_block(cleanup)
         self.pop_frame_block(F_FOR_LOOP, start)
