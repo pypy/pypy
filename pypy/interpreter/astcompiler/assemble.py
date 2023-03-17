@@ -615,6 +615,11 @@ class PythonCodeMaker(ast.ASTVisitor):
             if block.next_block and block.next_block.marked == 1 and block.instructions:
                 block.instructions[0].update_position_if_not_set(prev_position)
         for block in blocks:
+            # for blocks with 0 predecessors, don't emit any code for them by
+            # setting the instructions to the empty list
+            if block.marked == 0:
+                block.instructions = []
+                block.cant_add_instructions = False
             block.marked = 0
 
     def assemble(self):
@@ -709,7 +714,9 @@ class PythonCodeMaker(ast.ASTVisitor):
                     blocks.append(newtarget)
                 
         for block in blocks:
-            if block.instructions and block.next_block and exit_without_lineno(block.next_block):
+            if (block.instructions and block.next_block and
+                    not block.cant_add_instructions and
+                    exit_without_lineno(block.next_block)):
                 # now assign the linenumber to the "fallthrough" implicit
                 # return block too
                 block.next_block.instructions[0].position_info = block.instructions[-1].position_info
