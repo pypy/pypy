@@ -3,6 +3,7 @@
 import math
 import os
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import rstring
 
 from pypy.interpreter.astcompiler import ast, misc, symtable
 from pypy.interpreter.error import OperationError
@@ -124,9 +125,8 @@ class Block(object):
             i += instr.size()
         return i
 
-    def get_code(self):
+    def get_code(self, code):
         """Encode the instructions in this block into bytecode."""
-        code = []
         for instr in self.instructions:
             opcode = instr.opcode
             if opcode >= ops.HAVE_ARGUMENT:
@@ -142,7 +142,6 @@ class Block(object):
                 code.append(chr(arg >> 8))
             else:
                 code.append(chr(opcode))
-        return ''.join(code)
 
 
 def _make_index_dict_filter(syms, flag):
@@ -307,6 +306,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             for block in blocks:
                 block.offset = offset
                 offset += block.code_size()
+            totalsize = offset
             for block in blocks:
                 offset = block.offset
                 for instr in block.instructions:
@@ -341,8 +341,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                         if jump_arg > 0xFFFF:
                             extended_arg_count += 1
             if (extended_arg_count == last_extended_arg_count and
-                not force_redo):
-                break
+                    not force_redo):
+                return totalsize
             else:
                 last_extended_arg_count = extended_arg_count
 
@@ -412,7 +412,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Build the line number table for tracebacks and tracing."""
         current_line = self.first_lineno
         current_off = 0
-        table = []
+        table = rstring.StringBuilder()
         push = table.append
         for block in blocks:
             offset = block.offset
@@ -449,7 +449,13 @@ class PythonCodeMaker(ast.ASTVisitor):
                         current_line = instr.lineno
                         current_off = offset
                 offset += instr.size()
-        return ''.join(table)
+        return table.build()
+
+    def _build_code(self, blocks, size):
+        bytecode = rstring.StringBuilder(size)
+        for block in blocks:
+            block.get_code(bytecode)
+        return bytecode.build()
 
     def assemble(self):
         """Build a PyCode object."""
@@ -467,7 +473,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             else:
                 self.first_lineno = 1
         blocks = self.first_block.post_order()
-        self._resolve_block_targets(blocks)
+        size = self._resolve_block_targets(blocks)
         lnotab = self._build_lnotab(blocks)
         stack_depth = self._stacksize(blocks)
         consts_w = self.consts_w[:]
@@ -476,7 +482,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         cell_names = _list_from_dict(self.cell_vars)
         free_names = _list_from_dict(self.free_vars, len(cell_names))
         flags = self._get_code_flags() | self.compile_info.flags
-        bytecode = ''.join([block.get_code() for block in blocks])
+        bytecode = self._build_code(blocks, size)
         return PyCode(self.space,
                       self.argcount,
                       len(self.var_names),
