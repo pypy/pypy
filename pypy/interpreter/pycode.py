@@ -521,7 +521,7 @@ class PyCode(eval.Code):
 
     def get_co_lnotab(self):
         from pypy.interpreter.location import linetable2lnotab
-        linetable2lnotab(self.co_linetable, self.co_firstlineno)
+        return linetable2lnotab(self.co_linetable, self.co_firstlineno)
 
     @jit.elidable
     def _get_lineno_for_pc_tracing(self, pc):
