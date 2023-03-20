@@ -1,4 +1,20 @@
-from rpython.rlib.unicodedata.dawg import encode_varint_unsigned, decode_varint_unsigned
+from rpython.rlib import rstring
+from rpython.rlib.unicodedata.dawg import decode_varint_unsigned
+
+def encode_varint_unsigned(i, res):
+    # XXX can't use code in dawg because that doesn't take a StringBuilder :-(
+    # https://en.wikipedia.org/wiki/LEB128 unsigned variant
+    more = True
+    if i < 0:
+        raise ValueError("only positive numbers supported", i)
+    while more:
+        lowest7bits = i & 0b1111111
+        i >>= 7
+        if i == 0:
+            more = False
+        else:
+            lowest7bits |= 0b10000000
+        res.append(chr(lowest7bits))
 
 def encode_positions(l, firstlineno):
     # l is a list of four-tuples (lineno, end_lineno, col_offset,
@@ -18,7 +34,7 @@ def encode_positions(l, firstlineno):
 
 
     # XXX clarify what missing values are, 0 or -1?
-    table = []
+    table = rstring.StringBuilder(4 * len(l))
     for position_info in l:
         lineno, end_lineno, col_offset, end_col_offset = position_info
         if lineno == -1:
@@ -46,7 +62,7 @@ def encode_positions(l, firstlineno):
             table.append(chr(end_line_delta))
 
 
-    return ''.join(table)
+    return table.build()
 
 def _decode_entry(table, firstlineno, position):
     lineno, position = decode_varint_unsigned(table, position)
