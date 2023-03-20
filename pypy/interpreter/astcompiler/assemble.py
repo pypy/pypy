@@ -374,8 +374,14 @@ class PythonCodeMaker(ast.ASTVisitor):
         opcode, op_kind = compare_operations(ast_op_kind)
         self.emit_op_arg(opcode, op_kind)
 
-    def emit_line_tracing_nop(self):
+    def emit_line_tracing_nop(self, node=None):
+        old_position_info = None
+        if node:
+            old_position_info = self.position_info
+            self.update_position(node)
         self.emit_op(ops.NOP)
+        if node:
+            self.position_info = old_position_info
 
     def add_name(self, container, name):
         """Get the index of a name in container."""
@@ -623,14 +629,30 @@ class PythonCodeMaker(ast.ASTVisitor):
                     instr.jump.instructions[0].update_position_if_not_set(prev_position)
             if block.next_block and block.next_block.marked == 1 and block.instructions:
                 block.instructions[0].update_position_if_not_set(prev_position)
-        for block in blocks:
+        # XXX conceptually a bit weird to do optimizations in here as well,
+        # just because we happen to have the number of predecessors computed
+        for i, block in enumerate(blocks):
             # for blocks with 0 predecessors, don't emit any code for them by
             # setting the instructions to the empty list
             if block.marked == 0:
                 block.instructions = []
                 block.cant_add_instructions = False
-            else:
-                block.marked = 0
+                continue
+            if block.instructions and i < len(blocks) - 1:
+                lastop = block.instructions[-1]
+                if lastop.opcode == ops.JUMP_FORWARD:
+                    # find the block we would fall through
+                    target = None
+                    for j in range(i + 1, len(blocks)):
+                        target = blocks[j]
+                        if target.marked:
+                            break
+                    assert target is not None
+                    if target is lastop.jump:
+                        lastop.opcode = ops.NOP
+                        lastop.jump = None
+                        block.next_block = blocks[i + 1]
+            block.marked = 0
 
     def assemble(self):
         """Build a PyCode object."""

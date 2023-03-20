@@ -2537,7 +2537,7 @@ try:
     assert 0, 'hi'
 except AssertionError as e:
     msg = str(e)
-""", [0, 1, 2, 3, 2, 1])
+""", [0, 1, 2, 3, 2])
 
     def test_assert_looks_at_constants(self):
         code = self.get_line_numbers("""
@@ -2545,6 +2545,18 @@ assert 0,\\
         "abc"
 pass
 """, [0, 1, 0])
+
+    def test_match_optimized(self):
+        code = self.get_line_numbers("""
+match x:
+    case 1 if (
+
+            True):
+        pass
+    case _:
+        pass
+print()
+""", [0, 1, 3, 1, 4, 5, 6, 7])
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
@@ -3274,6 +3286,19 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert counts.get(ops.POP_JUMP_IF_TRUE, 0) == 0
 
+    def test_match_optimized(self):
+        source = """def f():
+            match x:
+                case 1 if (
+
+                        True):
+                    pass
+                case _:
+                    pass
+            print()
+        """
+        counts = self.count_instructions(source)
+        assert counts.get(ops.JUMP_FORWARD, 1) == 1
 
 class TestHugeStackDepths:
     def run_and_check_stacksize(self, source):
