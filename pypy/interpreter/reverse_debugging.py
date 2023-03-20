@@ -152,7 +152,7 @@ def build_co_revdb_linestarts(code):
     # in-between.
     bits = ['\xff'] * (len(code.co_code) + 1)
     if not code.hidden_applevel:
-        lnotab = code.co_lnotab
+        lnotab = code.get_co_lnotab()
         addr = 0
         p = 0
         newline = 1
@@ -189,7 +189,7 @@ def build_co_revdb_linestarts(code):
 def get_final_lineno(code):
     lineno = code.co_firstlineno
     largest_line_no = lineno
-    lnotab = code.co_lnotab
+    lnotab = code.get_co_lnotab()
     p = 1
     while p < len(lnotab):
         line_incr = ord(lnotab[p])
@@ -203,7 +203,7 @@ def get_final_lineno(code):
 
 def find_line_starts(code):
     # RPython version of dis.findlinestarts()
-    lnotab = code.co_lnotab
+    lnotab = code.get_co_lnotab()
     lastlineno = -1
     lineno = code.co_firstlineno
     addr = 0
