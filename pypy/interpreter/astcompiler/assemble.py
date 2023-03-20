@@ -591,15 +591,14 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _build_positions(self, blocks):
         """Build the column offset table (with end column offsets)."""
-        from pypy.interpreter.location import encode_positions
-
-        locations = []
+        from pypy.interpreter.location import encode_single_position
+        table = rstring.StringBuilder()
         for block in blocks:
             for instr in block.instructions:
-                locations.append(instr.position_info)
+                encode_single_position(table, instr.position_info, self.first_lineno)
                 for extra in range((instr.size() - 2) // 2):
-                    locations.append((-1, -1, -1, -1))
-        return encode_positions(locations, self.first_lineno)
+                    encode_single_position(table, UNKNOWN_POSITION, self.first_lineno)
+        return table.build()
 
     def jump_thread(self, blocks):
         for block in blocks:
@@ -701,8 +700,8 @@ class PythonCodeMaker(ast.ASTVisitor):
     def assemble(self):
         """Build a PyCode object."""
         blocks = self._finalize_blocks()
-        positions = self._build_positions(blocks)
         stack_depth = self._stacksize(blocks)
+        positions = self._build_positions(blocks)
         consts_w = self.consts_w[:]
         names = _list_from_dict(self.names)
         var_names = _list_from_dict(self.var_names)

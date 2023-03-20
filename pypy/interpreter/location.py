@@ -19,7 +19,14 @@ def encode_varint_unsigned(i, res):
 def encode_positions(l, firstlineno):
     # l is a list of four-tuples (lineno, end_lineno, col_offset,
     # end_col_offset) coming out of the AST nodes
+    table = rstring.StringBuilder(4 * len(l))
+    for position_info in l:
+        encode_single_position(table, position_info, firstlineno)
 
+
+    return table.build()
+
+def encode_single_position(table, position_info, firstlineno):
     # this is really inefficient for now. we can always change it though
 
     # three formats:
@@ -32,37 +39,32 @@ def encode_positions(l, firstlineno):
     #     full info, col_offset and end_col_offset are 1 too big to distinguish
     #     from case (2)
 
-
     # XXX clarify what missing values are, 0 or -1?
-    table = rstring.StringBuilder(4 * len(l))
-    for position_info in l:
-        lineno, end_lineno, col_offset, end_col_offset = position_info
-        if lineno == -1:
-            table.append(chr(0))
-            continue # case (1)
-        lineno_delta = lineno - firstlineno + 1
-        end_line_delta = end_lineno - lineno
-        # encode lineno_delta as a varsized int
-        encode_varint_unsigned(lineno_delta, table)
+    lineno, end_lineno, col_offset, end_col_offset = position_info
+    if lineno == -1:
+        table.append(chr(0))
+        return
+        # case (1)
+    lineno_delta = lineno - firstlineno + 1
+    end_line_delta = end_lineno - lineno
+    # encode lineno_delta as a varsized int
+    encode_varint_unsigned(lineno_delta, table)
 
-        # the rest gets one byte each (or a single 0 for 'everything invalid')
-        if (
-            col_offset >= 255
-            or end_col_offset >= 255
-            or col_offset == -1
-            or end_col_offset == -1
-            or end_line_delta < 0
-            or end_line_delta > 255
-        ):
-            #
-            table.append(chr(0))
-        else:
-            table.append(chr(col_offset + 1))
-            table.append(chr(end_col_offset + 1))
-            table.append(chr(end_line_delta))
-
-
-    return table.build()
+    # the rest gets one byte each (or a single 0 for 'everything invalid')
+    if (
+        col_offset >= 255
+        or end_col_offset >= 255
+        or col_offset == -1
+        or end_col_offset == -1
+        or end_line_delta < 0
+        or end_line_delta > 255
+    ):
+        #
+        table.append(chr(0))
+    else:
+        table.append(chr(col_offset + 1))
+        table.append(chr(end_col_offset + 1))
+        table.append(chr(end_line_delta))
 
 def _decode_entry(table, firstlineno, position):
     lineno, position = decode_varint_unsigned(table, position)
