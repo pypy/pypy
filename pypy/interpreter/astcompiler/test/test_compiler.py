@@ -2065,7 +2065,7 @@ co = finally_wrong_lineno.__code__
 linestarts = list(dis.findlinestarts(co))
 x = [lineno for addr, lineno in linestarts]
     """
-        self.st(func, "x", [8, 9, 11, 9, 11, 12])
+        self.st(func, "x", [8, 9, 11])
 
     def test_lineno1_eval_bug(self):
         func = """c = compile('z', '<string>', 'eval')
@@ -2106,7 +2106,7 @@ def buggy_lnotab():
         1
 x = [c for c in buggy_lnotab.__code__.co_lnotab]
 """
-        self.st(func, "x", [0, 1, 8, 8, 2, 244])
+        self.st(func, "x", [0, 1, 8, 8, 2, 248])
 
     def test_lnotab_backwards_in_expr(self):
         func = """
@@ -2135,7 +2135,7 @@ x = [c for c in expr_lines.__code__.co_consts[1].co_lnotab]
         pass
 x = [c for c in f.__code__.co_lnotab]
 '''
-        self.st(func, 'x', [0, 1, 2, 2, 2, 255, 12, 252])
+        self.st(func, 'x', [0, 1, 2, 2, 2, 255])
 
 
     def test_revdb_metavar(self):
@@ -2388,7 +2388,7 @@ class TestLinenoChanges310(object):
     def get_line_numbers(self, source, expected, function=False):
         from pypy.tool.dis3 import findlinestarts
         space = self.space
-        code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=True)
+        code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=False)
         if function:
             code = code.co_consts[0]
         got = [line - code.co_firstlineno for (start, line) in findlinestarts(code)]
@@ -2530,7 +2530,14 @@ print(x)
 'abc'
 (1, 2, 3, None)
 """, [0, 1, 2])
-        import pdb; pdb.set_trace()
+
+    def test_assert_bug(self):
+        code = self.get_line_numbers("""
+try:
+    assert 0, 'hi'
+except AssertionError as e:
+    msg = str(e)
+""", [0, 1, 2, 3, 2, 1])
 
 
 class TestErrorPositions(BaseTestCompiler):

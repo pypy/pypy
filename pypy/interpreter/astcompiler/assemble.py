@@ -690,21 +690,40 @@ class PythonCodeMaker(ast.ASTVisitor):
                       cell_names,
                       self.compile_info.hidden_applevel)
     
-    @staticmethod
-    def duplicate_exits_without_lineno(blocks):
+    def duplicate_exits_without_lineno(self, blocks):
+        # XXX this is all a bit wasteful, duplicating blocks that are then
+        # later deleted again etc etc
         from pypy.interpreter.astcompiler.codegen import view
-        def exit_without_lineno(target):
-            return target.exits_function and bool(target.instructions) and target.instructions[0].position_info[0] < 0
-
-        for i in range(len(blocks)):
+        def should_mark_block(block):
+            for instr in block.instructions:
+                if instr.position_info[0] != -1:
+                    return False
+                if instr.jump and instr.jump.marked == 0:
+                    return False
+            if block.next_block and not block.cant_add_instructions:
+                return block.next_block.marked == 1
+            return True
+        for block in blocks:
+            block.marked = 0
+        # mark blocks that are paths to an exit without meeting an instruction
+        # with a line number. uses the fact that blocks is a post-order
+        for i in range(len(blocks) - 1, -1, -1):
             block = blocks[i]
+            # mark block if all instructions in block have -1 as the lineno
+            # *and* all target blocks are also marked
+            block.marked = should_mark_block(block)
+
+        i = 0
+        while i < len(blocks):
+            block = blocks[i]
+            i += 1
             for op in block.instructions:
                 if op.jump is None:
                     continue
                 if op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
                     continue # don't do this for exception handlers
                 target = op.jump
-                if not exit_without_lineno(target):
+                if not target.marked:
                     continue
                 # automatically inserted return, without line number
 
@@ -726,10 +745,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             if (block.instructions and block.next_block and
                     not block.cant_add_instructions and
-                    exit_without_lineno(block.next_block)):
+                    block.next_block.marked):
                 # now assign the linenumber to the "fallthrough" implicit
                 # return block too
                 block.next_block.instructions[0].position_info = block.instructions[-1].position_info
+            block.marked = 0
 
 
 class DeadCode(object):

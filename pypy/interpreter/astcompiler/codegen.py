@@ -854,8 +854,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         body = self.use_next_block(body)
         self.push_frame_block(F_TRY_EXCEPT, body)
         self._visit_body(tr.body)
-        self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_TRY_EXCEPT, body)
+        self.no_position_info()
+        self.emit_op(ops.POP_BLOCK)
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
         self.push_frame_block(F_EXCEPTION_HANDLER, None)
@@ -2783,7 +2784,7 @@ def view(startblock):
     blocknames = {block: "block_%s" % (i, ) for i, block in enumerate(blocks)}
     for i, block in enumerate(blocks):
         name = blocknames[block]
-        label = []
+        label = ["pos in blocks: %s/%s\\n" % (i + 1, len(blocks))]
         if block.marked != 0:
             label.append("marked: %s\\n" % block.marked)
 
