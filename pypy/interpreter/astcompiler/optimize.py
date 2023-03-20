@@ -38,11 +38,18 @@ class __extend__(ast.AST):
 class __extend__(ast.expr):
 
     def accept_jump_if(self, gen, condition, target):
-        self.walkabout(gen)
-        if condition:
-            gen.emit_jump(ops.POP_JUMP_IF_TRUE, target)
-        else:
-            gen.emit_jump(ops.POP_JUMP_IF_FALSE, target)
+        test_constant = self.as_constant_truth(
+            gen.space, gen.compile_info)
+        if test_constant == CONST_NOT_CONST:
+            self.walkabout(gen)
+            if condition:
+                gen.emit_jump(ops.POP_JUMP_IF_TRUE, target)
+            else:
+                gen.emit_jump(ops.POP_JUMP_IF_FALSE, target)
+            return
+        gen.emit_line_tracing_nop(self)
+        if test_constant == condition:
+            gen.emit_jump(ops.JUMP_FORWARD, target)
 
 
 class __extend__(ast.Constant):
