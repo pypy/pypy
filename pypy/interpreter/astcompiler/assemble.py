@@ -146,7 +146,7 @@ class Block(object):
         copy = Block()
         copy.auto_inserted_return = self.auto_inserted_return
         for instr in self.instructions:
-            copy.instructions.append(instr.copy())
+            copy.emit_instr(instr.copy())
         return copy
 
 
@@ -598,7 +598,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             block.jump_thread()
 
-    def propagate_positions(self, blocks):
+    def compute_predecessors_in_marked(self, blocks):
         # compute predecessors, use the 'marked' attribute for it
         def increase_incoming(block, todo):
             block.marked += 1
@@ -617,6 +617,9 @@ class PythonCodeMaker(ast.ASTVisitor):
                 if instr.jump:
                     increase_incoming(instr.jump, todo)
 
+    def propagate_positions(self, blocks):
+        # here block.marked stores the number of predecessor blocks.
+        # use that info to propagate position information
         for block in blocks:
             if not block.instructions or block.marked == 0:
                 continue
@@ -629,8 +632,13 @@ class PythonCodeMaker(ast.ASTVisitor):
                     instr.jump.instructions[0].update_position_if_not_set(prev_position)
             if block.next_block and block.next_block.marked == 1 and block.instructions:
                 block.instructions[0].update_position_if_not_set(prev_position)
-        # XXX conceptually a bit weird to do optimizations in here as well,
-        # just because we happen to have the number of predecessors computed
+
+    def optimize_unreachable_code(self, blocks):
+        # block.marked still stores the predecessor information. use it to
+        # remove all instructions from unreachable blocks, and optimize
+        # JUMP_FORWARD instructions that go to the next block in the sequence
+        # anyway. reset block.marked afterwards
+        last_reachable = None
         for i, block in enumerate(blocks):
             # for blocks with 0 predecessors, don't emit any code for them by
             # setting the instructions to the empty list
@@ -638,6 +646,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 block.instructions = []
                 block.cant_add_instructions = False
                 continue
+            last_reachable = block
             if block.instructions and i < len(blocks) - 1:
                 lastop = block.instructions[-1]
                 if lastop.opcode == ops.JUMP_FORWARD:
@@ -653,6 +662,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                         lastop.jump = None
                         block.next_block = blocks[i + 1]
             block.marked = 0
+        # the last reachable block must have cant_add_instructions
+        assert last_reachable is not None and last_reachable.cant_add_instructions
 
     def assemble(self):
         """Build a PyCode object."""
@@ -673,8 +684,10 @@ class PythonCodeMaker(ast.ASTVisitor):
                 self.first_lineno = 1
         blocks = self.first_block.post_order()
         self.jump_thread(blocks)
+        self.compute_predecessors_in_marked(blocks)
         self.duplicate_exits_without_lineno(blocks)
         self.propagate_positions(blocks)
+        self.optimize_unreachable_code(blocks)
         remove_redundant_nops(blocks)
         self._resolve_block_targets(blocks)
         positions = self._build_positions(blocks)
@@ -713,29 +726,37 @@ class PythonCodeMaker(ast.ASTVisitor):
                       self.compile_info.hidden_applevel)
     
     def duplicate_exits_without_lineno(self, blocks):
-        # XXX this is all a bit wasteful, duplicating blocks that are then
-        # later deleted again etc etc
         from pypy.interpreter.astcompiler.codegen import view
         def should_mark_block(block):
             for instr in block.instructions:
                 if instr.position_info[0] != -1:
                     return False
-                if instr.jump and instr.jump.marked == 0:
+                if instr.jump and (instr.jump.marked & 1) == 0:
                     return False
             if block.next_block and not block.cant_add_instructions:
-                return block.next_block.marked == 1
+                return (block.next_block.marked & 1) == 1
             return True
+        # this is a bit of a mess. we want *two* pieces of info in marked, the
+        # number of predecessors and the "do I need to duplicate". left-shift
+        # marked to have a bit free for the latter
         for block in blocks:
-            block.marked = 0
+            block.marked <<= 1
+
         # mark blocks that are paths to an exit without meeting an instruction
         # with a line number. uses the fact that blocks is a post-order
+        any_mark = False
         for i in range(len(blocks) - 1, -1, -1):
             block = blocks[i]
             # mark block if all instructions in block have -1 as the lineno
             # *and* all target blocks are also marked
-            block.marked = should_mark_block(block)
+            mark = should_mark_block(block)
+            block.marked |= mark
+            any_mark |= mark
 
         i = 0
+        if not any_mark:
+            i = len(blocks)
+
         while i < len(blocks):
             block = blocks[i]
             i += 1
@@ -745,21 +766,28 @@ class PythonCodeMaker(ast.ASTVisitor):
                 if op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
                     continue # don't do this for exception handlers
                 target = op.jump
-                if not target.marked:
+                # only do something if the target has no position info (lowest
+                # bit set)
+                if not target.marked & 1:
                     continue
-                # automatically inserted return, without line number
+
+                # path leading to automatically inserted return or reraise,
+                # without line number
 
                 # if it's an unconditional jump, duplicate it
                 if op.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
                     block.instructions.pop()
+                    target.marked -= 2 # one fewer incoming links
                     for instr in target.instructions:
                         instr = instr.copy()
                         if instr.position_info[0] == -1:
                             instr.position_info = op.position_info
-                        block.instructions.append(instr.copy())
-                else:
-                    # otherwise copy the block
+                        block.emit_instr(instr.copy())
+                elif target.next_block is None and (target.marked >> 1) > 1:
+                    # copy the block, it has more than one predecessor
+                    target.marked -= 2 # one fewer incoming links for old target
                     newtarget = target.copy()
+                    newtarget.marked = 1 << 1 # new target has one incoming link
                     newtarget.instructions[0].position_info = op.position_info
                     op.jump = newtarget
                     blocks.append(newtarget)
@@ -767,11 +795,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             if (block.instructions and block.next_block and
                     not block.cant_add_instructions and
-                    block.next_block.marked):
+                    block.next_block.marked & 1):
                 # now assign the linenumber to the "fallthrough" implicit
                 # return block too
                 block.next_block.instructions[0].position_info = block.instructions[-1].position_info
-            block.marked = 0
+            block.marked >>= 1
 
 
 class DeadCode(object):
