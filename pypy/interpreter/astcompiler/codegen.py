@@ -687,14 +687,21 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self.compile_info.optimize >= 1:
             return
         assert self.compile_info.optimize == 0
-        end = self.new_block()
-        asrt.test.accept_jump_if(self, True, end)
+        test_constant = asrt.test.as_constant_truth(
+            self.space, self.compile_info)
+        if test_constant == optimize.CONST_FALSE:
+            self.emit_line_tracing_nop()
+            end = None
+        else:
+            end = self.new_block()
+            asrt.test.accept_jump_if(self, True, end)
         self.emit_op(ops.LOAD_ASSERTION_ERROR)
         if asrt.msg:
             asrt.msg.walkabout(self)
             self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.emit_op_arg(ops.RAISE_VARARGS, 1)
-        self.use_next_block(end)
+        if end is not None:
+            self.use_next_block(end)
 
     def _binop(self, op):
         return binary_operations(op)
