@@ -28,17 +28,7 @@ def generate_function_code(expr, space):
     symbols = symtable.SymtableBuilder(space, ast, info)
     generator = codegen.FunctionCodeGenerator(
         space, 'function', function_ast, 1, symbols, info, qualname='function')
-    if not generator.current_block.cant_add_instructions:
-        generator.no_position_info()
-        if generator.add_none_to_final_return:
-            generator.load_const(space.w_None)
-        generator.emit_op(ops.RETURN_VALUE)
-        generator.current_block.auto_inserted_return = True
-    blocks = generator.first_block.post_order()
-    generator.jump_thread(blocks)
-    generator.duplicate_exits_without_lineno(blocks)
-    generator.propagate_positions(blocks)
-    generator._resolve_block_targets(blocks)
+    blocks = generator._finalize_blocks()
     return generator, blocks
 
 class BaseTestCompiler:
@@ -2906,6 +2896,7 @@ class AppTestCompiler:
 class TestOptimizations:
     def count_instructions(self, source):
         code, blocks = generate_function_code(source, self.space)
+        self._code = code
         instrs = []
         for block in blocks:
             instrs.extend(block.instructions)

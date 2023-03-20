@@ -375,7 +375,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.emit_op_arg(opcode, op_kind)
 
     def emit_line_tracing_nop(self, node=None):
-        old_position_info = None
+        old_position_info = UNKNOWN_POSITION
         if node:
             old_position_info = self.position_info
             self.update_position(node)
@@ -665,8 +665,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         # the last reachable block must have cant_add_instructions
         assert last_reachable is not None and last_reachable.cant_add_instructions
 
-    def assemble(self):
-        """Build a PyCode object."""
+    def _finalize_blocks(self):
         # Unless it's interactive, every code object must end in a return.
         if self._debug_flag:
             import pdb; pdb.set_trace()
@@ -690,6 +689,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.optimize_unreachable_code(blocks)
         remove_redundant_nops(blocks)
         self._resolve_block_targets(blocks)
+        return blocks
+
+    def assemble(self):
+        """Build a PyCode object."""
+        blocks = self._finalize_blocks()
         positions = self._build_positions(blocks)
         stack_depth = self._stacksize(blocks)
         consts_w = self.consts_w[:]
@@ -760,6 +764,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         while i < len(blocks):
             block = blocks[i]
             i += 1
+            if (block.marked >> 1) == 0:
+                # dead block
+                continue
             for op in block.instructions:
                 if op.jump is None:
                     continue

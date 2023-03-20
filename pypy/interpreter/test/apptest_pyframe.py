@@ -872,6 +872,15 @@ def test_line_tracing_nested_if_with_and():
         ('return', 3)
     ]
 
+    tr[:] = []
+    A = False
+    E = F = False
+    sys.settrace(tracelines)
+    func_nested_if()
+    sys.settrace(None)
+    assert tr[-1] == ('return', 8)
+
+
 def test_line_tracing_nested_except():
     def func():
         try:

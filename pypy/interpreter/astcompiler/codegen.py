@@ -1243,6 +1243,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         # exceptional outcome
         self.use_next_block(cleanup)
+        self.update_position(wih)
         self.emit_op(ops.WITH_EXCEPT_START)
         if is_async:
             self.emit_op(ops.GET_AWAITABLE)
