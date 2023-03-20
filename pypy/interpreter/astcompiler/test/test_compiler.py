@@ -2413,7 +2413,7 @@ pass""", [0, 1, 3, 4, 5, 6])
     else:
         pass
 """, [0, 1, 2, 4])
-        assert len(code.co_code) == 20 # check that the NOPs have been reduced
+        assert len(code.co_code) <= 20 # check that the NOPs have been reduced
 
     def test_duplicate_returns(self):
         code = self.get_line_numbers("""
@@ -2539,6 +2539,12 @@ except AssertionError as e:
     msg = str(e)
 """, [0, 1, 2, 3, 2, 1])
 
+    def test_assert_looks_at_constants(self):
+        code = self.get_line_numbers("""
+assert 0,\\
+        "abc"
+pass
+""", [0, 1, 0])
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
@@ -3259,6 +3265,14 @@ class TestOptimizations:
         """
         counts = self.count_instructions(source)
         assert counts[ops.RETURN_VALUE] == 7
+
+    def test_assert_looks_at_constants(self):
+        source = """def assert0():
+            assert 0,\\
+                    "abc"
+        """
+        counts = self.count_instructions(source)
+        assert counts.get(ops.POP_JUMP_IF_TRUE, 0) == 0
 
 
 class TestHugeStackDepths:
