@@ -611,7 +611,8 @@ class W_IntObject(W_AbstractIntObject):
         return space.newint(_hash_int(self.intval))
 
     def as_w_long(self, space):
-        return space.newlong(self.intval)
+        from pypy.objspace.std.longobject import W_LongObject
+        return W_LongObject.fromint(space, self.intval)
 
     def descr_bool(self, space):
         return space.newbool(self.intval != 0)
