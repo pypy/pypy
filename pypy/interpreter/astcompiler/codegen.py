@@ -723,7 +723,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if ret.value is None:
             self.load_const(self.space.w_None)
         elif not preserve_tos:
-            ret.value.walkabout(self) # Constant
+            value = ret.value
+            assert isinstance(value, ast.Constant)
+            # not using walkabout here because that might mess up line numbers
+            # if there is a finally block
+            self.load_const(value.value)
         self.emit_op(ops.RETURN_VALUE)
 
     def visit_Delete(self, delete):
@@ -2813,7 +2817,7 @@ def view(startblock):
             if instr.jump is not None:
                 graph.emit_node(name, shape="box", label="\\l".join(label), fillcolor=fillcolor, color=color)
                 nextname = "block_%s_%s" % (i, j)
-                graph.emit_edge(name, blocknames[instr.jump])
+                graph.emit_edge(name, blocknames.get(instr.jump, "unknown_block"))
                 if j != len(block.instructions) - 1:
                     label = []
                     graph.emit_edge(name, nextname, color="green")
@@ -2827,7 +2831,7 @@ def view(startblock):
                 color = "black"
             else:
                 color = "grey"
-            graph.emit_edge(name, blocknames[block.next_block], color=color)
+            graph.emit_edge(name, blocknames.get(block.next_block, "unknown_block"), color=color)
 
         from rpython.translator.tool.graphpage import FlowGraphPage
     p = GraphPage()

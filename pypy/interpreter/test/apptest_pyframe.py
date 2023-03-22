@@ -913,6 +913,24 @@ def test_line_tracing_except_no_exception():
     sys.settrace(None)
     assert tr == [('call', 0), ('line', 1), ('line', 2), ('line', 6), ('return', 6)]
 
+def test_line_tracing_return_through_finally():
+    def return_through_finally():
+        try:
+            return 2
+        finally:
+            4
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    return_through_finally()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0),
+        ('line', 1),
+        ('line', 2),
+        ('line', 4),
+        ('return', 4)
+    ]
+
 def test_opcode_tracing():
     import sys
     assert not sys._getframe().f_trace_opcodes
