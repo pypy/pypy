@@ -183,9 +183,8 @@ class Block(object):
                     resultblocks.append(current)
                     stack.pop()
         resultblocks.reverse()
-        if not we_are_translated():
-            for block in resultblocks:
-                block.marked = 0
+        for block in resultblocks:
+            block.marked = 0
         return resultblocks
 
     def code_size(self):
@@ -767,7 +766,10 @@ class PythonCodeMaker(ast.ASTVisitor):
             if (block.marked >> 1) == 0:
                 # dead block
                 continue
-            for op in block.instructions:
+            j = 0
+            while j < len(block.instructions):
+                op = block.instructions[j]
+                j += 1
                 if op.jump is None:
                     continue
                 if op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
@@ -784,18 +786,28 @@ class PythonCodeMaker(ast.ASTVisitor):
                 # if it's an unconditional jump, duplicate it
                 if op.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
                     block.instructions.pop()
+                    j -= 1
                     target.marked -= 2 # one fewer incoming links
                     for instr in target.instructions:
                         instr = instr.copy()
                         if instr.position_info[0] == -1:
                             instr.position_info = op.position_info
-                        block.emit_instr(instr.copy())
-                elif target.next_block is None and (target.marked >> 1) > 1:
+                        copy = instr.copy()
+                        if copy.jump:
+                            copy.jump.marked += 2
+                        block.emit_instr(copy)
+                elif (target.marked >> 1) > 1:
                     # copy the block, it has more than one predecessor
                     target.marked -= 2 # one fewer incoming links for old target
                     newtarget = target.copy()
                     newtarget.marked = 1 << 1 # new target has one incoming link
                     newtarget.instructions[0].position_info = op.position_info
+                    # maintain marked correctly:
+                    if newtarget.next_block:
+                        newtarget.next_block.marked += 2
+                    for copied_op in newtarget.instructions:
+                        if copied_op.jump:
+                            copied_op.jump.marked += 2
                     op.jump = newtarget
                     blocks.append(newtarget)
                 
