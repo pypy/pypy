@@ -899,6 +899,20 @@ def test_line_tracing_nested_except():
         ('return', 3)
     ]
 
+def test_line_tracing_except_no_exception():
+    def tryexceptconsts():
+        try:
+            2
+        except:
+            4
+        finally:
+            6
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    tryexceptconsts()
+    sys.settrace(None)
+    assert tr == [('call', 0), ('line', 1), ('line', 2), ('line', 6), ('return', 6)]
+
 def test_opcode_tracing():
     import sys
     assert not sys._getframe().f_trace_opcodes

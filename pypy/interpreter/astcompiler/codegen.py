@@ -716,6 +716,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         preserve_tos = ret.value is not None and not isinstance(ret.value, ast.Constant)
         if preserve_tos:
             ret.value.walkabout(self)
+        elif ret.value:
+            self.emit_line_tracing_nop(ret.value)
+        self.emit_line_tracing_nop(ret)
         self.unwind_fblock_stack(preserve_tos)
         if ret.value is None:
             self.load_const(self.space.w_None)
@@ -957,6 +960,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._visit_try_except(tr)
         else:
             self._visit_body(tr.body)
+        self.no_position_info()
         self.emit_op(ops.POP_BLOCK)
 
         # finally block, unexceptional case
@@ -1201,7 +1205,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def handle_withitem(self, wih, pos, is_async):
         body_block = self.new_block()
         cleanup = self.new_block()
-        exit = self.new_block()
         witem = wih.items[pos]
         assert isinstance(witem, ast.withitem)
         witem.context_expr.walkabout(self)
@@ -1239,6 +1242,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
         self.emit_op(ops.POP_TOP)
+        exit = self.new_block()
         self.emit_jump(ops.JUMP_ABSOLUTE, exit)
 
         # exceptional outcome

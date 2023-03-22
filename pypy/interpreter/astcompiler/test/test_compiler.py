@@ -2475,6 +2475,15 @@ for i in range(3):
         f()
 """, [0, 1, 2, 4, 0])
 
+    def test_return_in_finally(self):
+        code = self.get_line_numbers("""
+def return_in_finally():
+    try:
+        return
+    finally:
+        f()
+""", [0, 1, 2, 4, 0], function=True)
+
     def test_break_to_break(self):
         code = self.get_line_numbers("""
 TRUE = 1
@@ -2561,6 +2570,14 @@ def buggy():
     else:
         f
 """, [1, 2, 3, 4, 5, 6, 7, 3, 9, 6], function=True)
+
+    def test_return_in_with(self):
+        code = self.get_line_numbers("""
+def withreturn():
+    with C():
+        return
+""", [1, 2, 1], function=True)
+
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
