@@ -215,6 +215,7 @@ class Block(object):
         i = 0
         while i < len(self.instructions):
             instr = self.instructions[i]
+            instr_lineno = instr.position_info[0]
             i += 1
             target = instr.jump
             if not target:
@@ -225,7 +226,17 @@ class Block(object):
                 assert target is not None
             opcode = instr.opcode
             target_instr = target.instructions[0]
+            target_lineno = target_instr.position_info[0]
             target_opcode = target_instr.opcode
+            if ((target_opcode == ops.JUMP_ABSOLUTE or target_opcode == ops.JUMP_FORWARD) and
+                    target_instr.jump.instructions and
+                    target_instr.jump.instructions[0].position_info[0] == target_lineno):
+                # we have an unconditional jump where the jump instruction and
+                # the target of the jump have the same lineno, so it's safe to
+                # skip the jump
+                pass
+            elif target_lineno != instr_lineno and target_lineno != -1 and instr_lineno != -1:
+                continue # don't jump thread to not lose lines
             # Optimize an unconditional jump going to another
             # unconditional jump.
             if opcode == ops.JUMP_ABSOLUTE or opcode == ops.JUMP_FORWARD:

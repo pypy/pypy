@@ -755,6 +755,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if_.test.accept_jump_if(self, False, otherwise)
             self._visit_body(if_.body)
             if if_.orelse:
+                self.no_position_info()
                 self.emit_jump(ops.JUMP_FORWARD, end)
                 self.use_next_block(otherwise)
                 self._visit_body(if_.orelse)
@@ -815,6 +816,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_BLOCK)
         fr.target.walkabout(self)
         self._visit_body(fr.body)
+        self.no_position_info()
         self.emit_jump(ops.JUMP_ABSOLUTE, b_start)
         self.pop_frame_block(F_FOR_LOOP, b_start)
 
@@ -851,6 +853,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             else:
                 self.emit_line_tracing_nop()
             self._visit_body(wh.body)
+            self.update_position(wh)
             self.emit_jump(ops.JUMP_ABSOLUTE, loop)
             if test_constant == optimize.CONST_NOT_CONST:
                 self.use_next_block(anchor)

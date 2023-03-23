@@ -2402,7 +2402,7 @@ pass""", [0, 1, 3, 4, 5, 6])
         pass
     else:
         pass
-""", [0, 1, 2, 4])
+""", [0, 1, 2, 4, 0])
         assert len(code.co_code) <= 20 # check that the NOPs have been reduced
 
     def test_duplicate_returns(self):
@@ -3320,7 +3320,20 @@ class TestOptimizations:
             print()
         """
         counts = self.count_instructions(source)
-        assert counts.get(ops.JUMP_FORWARD, 1) == 1
+        assert counts.get(ops.JUMP_FORWARD, 0) == 1
+
+    @pytest.mark.xfail
+    def test_match_optimize_default(self):
+        source = """def f():
+            match x:
+                case 1:
+                    return 1
+                case _:
+                    return 2
+        """
+        counts = self.count_instructions(source)
+        assert counts.get(ops.POP_TOP, 0) == 0
+
 
 class TestHugeStackDepths:
     def run_and_check_stacksize(self, source):

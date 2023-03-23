@@ -1178,6 +1178,7 @@ class __extend__(pyframe.PyFrame):
         except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
+            #self.space.getexecutioncontext().exception_trace(self, e)
             self._report_stopiteration_sometimes(w_yf, e)
             try:
                 w_stop_value = space.getattr(e.get_w_value(space),
