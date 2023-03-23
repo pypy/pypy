@@ -1178,7 +1178,6 @@ class __extend__(pyframe.PyFrame):
         except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
-            #self.space.getexecutioncontext().exception_trace(self, e)
             self._report_stopiteration_sometimes(w_yf, e)
             try:
                 w_stop_value = space.getattr(e.get_w_value(space),
@@ -1284,8 +1283,9 @@ class __extend__(pyframe.PyFrame):
         # we always report it; if operr has already a stack trace
         # attached (likely from a custom __iter__() method), we also
         # report it; in other cases, we don't.
-        from pypy.interpreter.generator import GeneratorOrCoroutine
+        from pypy.interpreter.generator import GeneratorOrCoroutine, AsyncGenASend
         if (isinstance(w_iterator, GeneratorOrCoroutine) or
+                isinstance(w_iterator, AsyncGenASend) or
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
 
