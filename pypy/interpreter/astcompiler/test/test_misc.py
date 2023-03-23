@@ -119,6 +119,38 @@ def test_jump_thread_jump_to_jump_forward():
         b.jump_thread()
         assert jump1.jump is b3
 
+def test_dont_jump_thread_on_lineno_differences():
+    for opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+        b = Block()
+        b2 = Block()
+        b3 = Block()
+
+        jump1 = jumpinstr(b, opcode, b2)
+        jump1.position_info = (1, -1, -1, -1)
+        jump2 = jumpinstr(b2, ops.RETURN_VALUE, b3)
+        jump2.position_info = (2, -1, -1, -1)
+        b3.instructions.append(Instruction(ops.NOP))
+
+        b.jump_thread()
+        assert jump1.jump is b2 # can't thread to not lose line numbers
+
+def test_uncond_jump_despite_lineno_differences():
+    for opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+        b = Block()
+        b2 = Block()
+        b3 = Block()
+
+        jump1 = jumpinstr(b, opcode, b2)
+        jump1.position_info = (1, -1, -1, -1)
+        jump2 = jumpinstr(b2, ops.JUMP_FORWARD, b3)
+        jump2.position_info = (2, -1, -1, -1)
+        instr3 = Instruction(ops.NOP)
+        instr3.position_info = (2, -1, -1, -1)
+        b3.instructions.append(instr3)
+
+        b.jump_thread()
+        assert jump1.jump is b3 # can't thread to not lose line numbers
+
 def test_jump_thread_jump_to_jump_absolute():
     for opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
         b = Block()
@@ -185,7 +217,6 @@ def test_jump_thread_fallthrough():
 
     b.instructions.append(Instruction(ops.NOP))
     b3.instructions.append(Instruction(ops.NOP))
-    import pdb; pdb.set_trace()
     b.jump_thread()
     assert b.next_block is b3
 
