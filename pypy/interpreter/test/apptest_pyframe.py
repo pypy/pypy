@@ -931,6 +931,40 @@ def test_line_tracing_return_through_finally():
         ('return', 4)
     ]
 
+def test_line_tracing_bug_exception_yieldfrom():
+    async def arange(n):
+        for i in range(n):
+            yield i
+    async def f():
+        async for i in arange(3):
+            if i > 100:
+                break # should never be traced
+
+    tr, tracelines = make_tracelines(f)
+
+    coro = f()
+    try:
+        sys.settrace(tracelines)
+        coro.send(None)
+    except Exception:
+        pass
+    finally:
+        sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1),
+            ('call', -3), ('line', -2), ('line', -1),
+            ('return', -1), ('exception', 1),
+        ('line', 2), ('line', 1),
+            ('call', -1), ('line', -2), ('line', -1),
+            ('return', -1), ('exception', 1),
+        ('line', 2), ('line', 1),
+            ('call', -1), ('line', -2), ('line', -1),
+            ('return', -1), ('exception', 1),
+        ('line', 2), ('line', 1),
+            ('call', -1), ('line', -2),
+            ('return', -2), ('exception', 1),
+        ('return', 1)]
+
 def test_opcode_tracing():
     import sys
     assert not sys._getframe().f_trace_opcodes
