@@ -2482,7 +2482,7 @@ def return_in_finally():
         return
     finally:
         f()
-""", [0, 1, 2, 4, 0], function=True)
+""", [1, 2, 4], function=True)
 
     def test_break_to_break(self):
         code = self.get_line_numbers("""

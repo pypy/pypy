@@ -681,6 +681,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             else:
                 self.first_lineno = 1
         blocks = self.first_block.post_order()
+        remove_redundant_nops(blocks)
         self.jump_thread(blocks)
         self.compute_predecessors_in_marked(blocks)
         self.duplicate_exits_without_lineno(blocks)
