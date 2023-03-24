@@ -250,6 +250,18 @@ def test_jump_forwards_out_of_try_finally_block():
     sys.settrace(None)
     assert output == [5]
 
+def test_jump_forwards_over_listcomp():
+    def jump_forwards_over_listcomp(output):
+        output.append(1)
+        x = [i for i in range(10)]
+        output.append(3)
+    output = []
+    tracer = JumpTracer(jump_forwards_over_listcomp, 2, 3)
+    sys.settrace(tracer.trace)
+    jump_forwards_over_listcomp(output)
+    sys.settrace(None)
+    assert output == [1, 3]
+
 def test_f_lineno_set_firstline():
     seen = []
     def tracer(f, event, *args):

@@ -24,7 +24,7 @@ from pypy.tool import stdlib_opcode
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 SETUP_ASYNC_WITH POP_BLOCK YIELD_VALUE
-NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST
+NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST CALL_FUNCTION
 JUMP_IF_FALSE_OR_POP JUMP_IF_TRUE_OR_POP POP_JUMP_IF_FALSE POP_JUMP_IF_TRUE
 JUMP_IF_NOT_EXC_MATCH JUMP_ABSOLUTE JUMP_FORWARD GET_ITER GET_AITER
 RETURN_VALUE RERAISE RAISE_VARARGS POP_EXCEPT
@@ -954,7 +954,12 @@ def markblocks(code):
                 opcode == GET_ITER or
                 opcode == GET_AITER
             ):
-                block_stack = block_stack + JUMP_BLOCKSTACK_LOOP
+                if i + 2 < len(code.co_code):
+                    next_opcode = ord(code.co_code[i + 2])
+                else:
+                    next_opcode = NOP
+                if next_opcode != CALL_FUNCTION:
+                    block_stack = block_stack + JUMP_BLOCKSTACK_LOOP
                 blocks[i // 2 + 1] = block_stack
             elif opcode == FOR_ITER:
                 blocks[i // 2 + 1] = block_stack
