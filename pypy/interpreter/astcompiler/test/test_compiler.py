@@ -2402,7 +2402,7 @@ pass""", [0, 1, 3, 4, 5, 6])
         pass
     else:
         pass
-""", [0, 1, 2, 4, 0])
+""", [0, 1, 2, 4])
         assert len(code.co_code) <= 20 # check that the NOPs have been reduced
 
     def test_duplicate_returns(self):

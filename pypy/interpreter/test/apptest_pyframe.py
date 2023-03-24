@@ -778,6 +778,39 @@ def test_line_tracing_bug_while1():
     ]
 
 
+def test_line_tracing_bug_while1_2():
+    def tightloop_example():
+        items = range(0, 3)
+        try:
+            i = 0
+            while 1:
+                b = items[i]; i+=1
+        except IndexError:
+            pass
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    tightloop_example()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0),
+        ('line', 1),
+        ('line', 2),
+        ('line', 3),
+        ('line', 4),
+        ('line', 5),
+        ('line', 4),
+        ('line', 5),
+        ('line', 4),
+        ('line', 5),
+        ('line', 4),
+        ('line', 5),
+        ('exception', 5),
+        ('line', 6),
+        ('line', 7),
+        ('return', 7)
+    ]
+
+
 def test_line_tracing_bug_while_oneline():
     def tightloop2():
         i = 0
