@@ -853,7 +853,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             else:
                 self.emit_line_tracing_nop()
             self._visit_body(wh.body)
-            self.update_position(wh)
+            self.no_position_info()
             self.emit_jump(ops.JUMP_ABSOLUTE, loop)
             if test_constant == optimize.CONST_NOT_CONST:
                 self.use_next_block(anchor)
