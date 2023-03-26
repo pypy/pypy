@@ -15,7 +15,7 @@ MODEL_X86_NO_SSE2 = 'x86-without-sse2'
 MODEL_X86_64      = 'x86-64'
 MODEL_ARM         = 'arm'
 MODEL_ARM64       = 'aarch64'
-MODEL_PPC_64      = 'ppc-64'
+MODEL_PPC_64      = 'powerpc64le'
 MODEL_S390_64     = 's390x'
 # don't use '_' in the model strings; they are replaced by '-'
 
