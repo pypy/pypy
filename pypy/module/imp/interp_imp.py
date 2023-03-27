@@ -12,14 +12,14 @@ def extension_suffixes(space):
     suffixes_w = []
     so_ext = importing.get_so_extension(space)
     if 1:   #if space.config.objspace.usemodules.cpyext:
-        suffixes_w.append(space.newtext(so_ext)
+        suffixes_w.append(space.newtext(so_ext))
     # force adding a backward-compatible suffix on powerpc (issue 3834)
     # remove this for new Python versions
     # note that PyPy does not really support big-endian powerpc
     if "powerpc64le" in so_ext:
-        suffixes_w.append(space.newtext(so_ext.replace("powerpc64le", "ppc_64")
+        suffixes_w.append(space.newtext("powerpc64le-linux-gnu"))
     elif "ppc_64" in so_ext:
-        suffixes_w.append(space.newtext(so_ext.replace("ppc_64", "powerpc64le")
+        suffixes_w.append(space.newtext("ppc_64-linux-gnu"))
     return space.newlist(suffixes_w)
 
 def get_magic(space):
