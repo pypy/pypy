@@ -17,9 +17,9 @@ def extension_suffixes(space):
     # remove this for new Python versions
     # note that PyPy does not really support big-endian powerpc
     if "powerpc64le" in so_ext:
-        suffixes_w.append(space..newtext(so_ext.replace("powerpc64le", "ppc_64")
+        suffixes_w.append(space.newtext(so_ext.replace("powerpc64le", "ppc_64")
     elif "ppc_64" in so_ext:
-        suffixes_w.append(space..newtext(so_ext.replace("ppc_64", "powerpc64le")
+        suffixes_w.append(space.newtext(so_ext.replace("ppc_64", "powerpc64le")
     return space.newlist(suffixes_w)
 
 def get_magic(space):
