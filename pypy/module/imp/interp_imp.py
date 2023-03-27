@@ -12,7 +12,7 @@ def extension_suffixes(space):
     suffixes_w = []
     so_ext = importing.get_so_extension(space)
     if 1:   #if space.config.objspace.usemodules.cpyext:
-        suffixes_w.append(space.newtext(so_ext)
+        suffixes_w.append(space.newtext(so_ext))
     return space.newlist(suffixes_w)
 
 def get_magic(space):
