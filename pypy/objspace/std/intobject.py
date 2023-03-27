@@ -612,6 +612,9 @@ class W_IntObject(W_AbstractIntObject):
 
     def as_w_long(self, space):
         from pypy.objspace.std.longobject import W_LongObject
+        from pypy.objspace.std.smalllongobject import W_SmallLongObject
+        if space.config.objspace.std.withsmalllong:
+            return W_SmallLongObject.fromint(self.intval)
         return W_LongObject.fromint(space, self.intval)
 
     def descr_bool(self, space):
