@@ -914,14 +914,14 @@ def markblocks(code):
                 opcode == POP_JUMP_IF_TRUE or
                 opcode == JUMP_IF_NOT_EXC_MATCH
             ):
-                j = _get_arg(code.co_code, i)
+                j = _get_arg(code.co_code, i) * 2
                 if blocks[j // 2] is None and j < i:
                     todo = True
                 assert blocks[j // 2] is None or blocks[j // 2] == block_stack
                 blocks[j // 2] = block_stack
                 blocks[i // 2 + 1] = block_stack
             elif opcode == JUMP_ABSOLUTE:
-                j = _get_arg(code.co_code, i)
+                j = _get_arg(code.co_code, i) * 2
                 if blocks[j // 2] is None and j < i:
                     todo = True
                 assert blocks[j // 2] is None or blocks[j // 2] == block_stack
@@ -930,7 +930,7 @@ def markblocks(code):
                 opcode == SETUP_FINALLY or
                 opcode == SETUP_EXCEPT
             ):
-                j = _get_arg(code.co_code, i) + i + 2
+                j = _get_arg(code.co_code, i) * 2 + i + 2
                 stack = block_stack + JUMP_BLOCKSTACK_EXCEPT
                 assert blocks[j // 2] is None or blocks[j // 2] == stack
                 blocks[j // 2] = stack
@@ -940,14 +940,14 @@ def markblocks(code):
                 opcode == SETUP_WITH or
                 opcode == SETUP_ASYNC_WITH
             ):
-                j = _get_arg(code.co_code, i) + i + 2
+                j = _get_arg(code.co_code, i) * 2 + i + 2
                 stack = block_stack + JUMP_BLOCKSTACK_EXCEPT
                 assert blocks[j // 2] is None or blocks[j // 2] == stack
                 blocks[j // 2] = stack
                 block_stack = block_stack + JUMP_BLOCKSTACK_WITH
                 blocks[i // 2 + 1] = block_stack
             elif opcode == JUMP_FORWARD:
-                j = _get_arg(code.co_code, i) + i + 2
+                j = _get_arg(code.co_code, i) * 2 + i + 2
                 assert blocks[j // 2] is None or blocks[j // 2] == block_stack
                 blocks[j // 2] = block_stack
             elif (
@@ -964,7 +964,7 @@ def markblocks(code):
             elif opcode == FOR_ITER:
                 blocks[i // 2 + 1] = block_stack
                 block_stack = pop_simulated_stack(block_stack)
-                j = _get_arg(code.co_code, i) + i + 2
+                j = _get_arg(code.co_code, i) * 2 + i + 2
                 assert blocks[j // 2] is None or blocks[j // 2] == block_stack
                 blocks[j // 2] = block_stack
             elif (

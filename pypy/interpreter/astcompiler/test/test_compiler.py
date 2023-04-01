@@ -2976,9 +2976,9 @@ class TestOptimizations:
                 offset += instr.size()
             for instr in instrs:
                 if instr.opcode == ops.POP_JUMP_IF_FALSE:
-                    if instr.arg == offset: # points to end, return will be inserted later
+                    if instr.arg * 2 == offset: # points to end, return will be inserted later
                         continue
-                    target = offsets[instr.arg]
+                    target = offsets[instr.arg * 2]
                     assert target.opcode != ops.JUMP_FORWARD and target.opcode != ops.JUMP_ABSOLUTE
 
     def test_const_fold_subscr(self):
