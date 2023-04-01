@@ -1063,14 +1063,14 @@ class __extend__(pyframe.PyFrame):
         res = self.space.contains_w(w_2, w_1) ^ oparg
         self.pushvalue(self.space.newbool(bool(res)))
 
-    def JUMP_IF_NOT_EXC_MATCH(self, oparg, next_instr):
+    def JUMP_IF_NOT_EXC_MATCH(self, target, next_instr):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
         res = self.cmp_exc_match(w_1, w_2)
         if res:
             return next_instr
         else:
-            return oparg
+            return target * 2
 
     def IMPORT_NAME(self, nameindex, next_instr):
         from pypy.module.imp.importing import import_name_fast_path
@@ -1217,11 +1217,11 @@ class __extend__(pyframe.PyFrame):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
         if self.space.reverse_debugging:
-            self._revdb_jump_backward(jumpto)
-        return jumpto
+            self._revdb_jump_backward(jumpto * 2)
+        return jumpto * 2
 
     def JUMP_FORWARD(self, jumpby, next_instr):
-        next_instr += jumpby
+        next_instr += jumpby * 2
         return next_instr
 
     def POP_JUMP_IF_FALSE(self, target, next_instr, ec):
@@ -1265,7 +1265,7 @@ class __extend__(pyframe.PyFrame):
             # iterator exhausted
             self._report_stopiteration_sometimes(w_iterator, e)
             self.popvalue()
-            next_instr += jumpby
+            next_instr += jumpby * 2
         else:
             self.pushvalue(w_nextitem)
         return next_instr
@@ -1291,12 +1291,12 @@ class __extend__(pyframe.PyFrame):
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
         block = ExceptBlock(self.valuestackdepth,
-                            next_instr + offsettoend, self.lastblock)
+                            next_instr + offsettoend * 2, self.lastblock)
         self.lastblock = block
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
         block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend, self.lastblock)
+                             next_instr + offsettoend * 2, self.lastblock)
         self.lastblock = block
 
     def SETUP_WITH(self, offsettoend, next_instr):
@@ -1311,7 +1311,7 @@ class __extend__(pyframe.PyFrame):
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)
         block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend, self.lastblock)
+                             next_instr + offsettoend * 2, self.lastblock)
         self.lastblock = block
         self.pushvalue(w_result)
 
@@ -1586,7 +1586,7 @@ class __extend__(pyframe.PyFrame):
     def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
         res = self.popvalue()
         block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend, self.lastblock)
+                             next_instr + offsettoend * 2, self.lastblock)
         self.lastblock = block
         self.pushvalue(res)
 

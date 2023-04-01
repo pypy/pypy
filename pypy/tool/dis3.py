@@ -430,9 +430,9 @@ def findlabels(code):
     for offset, op, arg in _unpack_opargs(code):
         if arg is not None:
             if op in hasjrel:
-                label = offset + 2 + arg
+                label = offset + 2 + arg*2
             elif op in hasjabs:
-                label = arg
+                label = arg*2
             else:
                 continue
             if label not in labels:

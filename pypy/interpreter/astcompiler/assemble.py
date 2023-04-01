@@ -478,7 +478,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                             jump_arg = target.offset
                         else:
                             jump_arg = target.offset - offset
-                            assert jump_arg >= 0
+                        assert jump_arg >= 0
+                        jump_arg //= 2
                         instr.arg = jump_arg
                         if instr.size() != size:
                             force_redo = True
