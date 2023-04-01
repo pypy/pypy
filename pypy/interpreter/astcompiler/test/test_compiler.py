@@ -28,7 +28,7 @@ def generate_function_code(expr, space):
     symbols = symtable.SymtableBuilder(space, ast, info)
     generator = codegen.FunctionCodeGenerator(
         space, 'function', function_ast, 1, symbols, info, qualname='function')
-    blocks = generator._finalize_blocks()
+    blocks, size = generator._finalize_blocks()
     return generator, blocks
 
 class BaseTestCompiler:

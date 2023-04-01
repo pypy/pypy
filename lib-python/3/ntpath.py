@@ -560,7 +560,9 @@ except ImportError: # not running on Windows - mock up something sensible
     abspath = _abspath_fallback
 
 else:  # use native Windows method on Windows
-    def abspath(path):
+    # Modified for PyPy to add the strict kwarg which is ignored, since
+    # PyPy does not have realpath()
+    def abspath(path, strict=False):
         """Return the absolute version of a path."""
         try:
             return normpath(_getfullpathname(path))

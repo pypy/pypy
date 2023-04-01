@@ -305,10 +305,7 @@ class StdObjSpace(ObjSpace):
         return unpackcomplex(self, w_complex)
 
     def newlong(self, val): # val is an int
-        if self.config.objspace.std.withsmalllong:
-            from pypy.objspace.std.smalllongobject import W_SmallLongObject
-            return W_SmallLongObject.fromint(val)
-        return W_LongObject.fromint(self, val)
+        return wrapint(self, val)
 
     @specialize.argtype(1)
     def newlong_from_rarith_int(self, val): # val is an rarithmetic type

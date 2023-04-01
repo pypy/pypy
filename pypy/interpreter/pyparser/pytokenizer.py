@@ -180,6 +180,7 @@ def generate_tokens(lines, flags):
     indents = [0]
     altindents = [0]
     last_comment = ''
+    # contains the tokens of the opening parens
     parenstack = []
     async_hacks = flags & consts.PyCF_ASYNC_HACKS
     async_def = False
@@ -291,7 +292,11 @@ def generate_tokens(lines, flags):
         else:                                  # continued statement
             if not line:
                 if parenstack:
-                    parenkind, lnum1, start1, line1 = parenstack[0]
+                    openparen = parenstack[0]
+                    parenkind = openparen.value[0]
+                    lnum1 = openparen.lineno
+                    start1 = openparen.column
+                    line1 = openparen.line
                     raise TokenError("'%s' was never closed" % (parenkind, ), line1,
                                      lnum1, start1 + 1, token_list, lnum)
                 prevline = lines[lines_index - 1]
@@ -416,13 +421,30 @@ def generate_tokens(lines, flags):
                                        lnum, start, line, lnum, pos, level=len(parenstack)))
                     last_comment = ''
                 else:
+                    if token in python_opmap:
+                        punct = python_opmap[token]
+                    else:
+                        punct = tokens.OP
+
+                    level_adjustment = 0
                     if initial in '([{':
-                        parenstack.append((initial, lnum, start, line))
+                        level_adjustment = 1
                     elif initial in ')]}':
+                        level_adjustment = -1
+
+                    tok = Token(punct, token, lnum, start, line, lnum, end, level=len(parenstack) + level_adjustment)
+                    if level_adjustment == 1:
+                        parenstack.append(tok)
+                    if level_adjustment == -1:
                         if not parenstack:
                             raise TokenError("unmatched '%s'" % initial, line,
                                              lnum, start + 1, token_list)
-                        opening, lnum1, start1, line1 = parenstack.pop()
+                        openparen = parenstack.pop()
+                        opening = openparen.value[0]
+                        lnum1 = openparen.lineno
+                        start1 = openparen.column
+                        line1 = openparen.line
+
                         if not ((opening == "(" and initial == ")") or
                                 (opening == "[" and initial == "]") or
                                 (opening == "{" and initial == "}")):
@@ -433,11 +455,7 @@ def generate_tokens(lines, flags):
                                 msg += " on line " + str(lnum1)
                             raise TokenError(
                                     msg, line, lnum, start + 1, token_list)
-                    if token in python_opmap:
-                        punct = python_opmap[token]
-                    else:
-                        punct = tokens.OP
-                    token_list.append(Token(punct, token, lnum, start, line, lnum, end, level=len(parenstack)))
+                    token_list.append(tok)
                     last_comment = ''
             else:
                 if start < 0:

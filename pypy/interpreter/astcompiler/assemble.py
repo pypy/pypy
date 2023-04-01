@@ -198,11 +198,11 @@ class Block(object):
 
     def get_code(self, code):
         """Encode the instructions in this block into bytecode."""
-        start_size = len(code)
+        startsize = code.getlength()
         for instr in self.instructions:
             instr.encode(code)
-        assert (len(code) - start_size) == self.code_size()
-        assert len(code) & 1 == 0
+        assert code.getlength() == startsize + self.code_size()
+        assert code.getlength() & 1 == 0
 
     def jump_thread(self):
         # do jump threading
@@ -466,6 +466,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             for block in blocks:
                 block.offset = offset
                 offset += block.code_size()
+            totalsize = offset
             for block in blocks:
                 offset = block.offset
                 for instr in block.instructions:
@@ -483,7 +484,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                             force_redo = True
             if not force_redo:
                 self._check_consistency(blocks)
-                return
+                return totalsize
 
     def _get_code_flags(self):
         """Get an extra flags that should be attached to the code object."""
@@ -604,6 +605,12 @@ class PythonCodeMaker(ast.ASTVisitor):
                     encode_single_position(table, UNKNOWN_POSITION, self.first_lineno)
         return table.build()
 
+    def _build_code(self, blocks, size):
+        bytecode = rstring.StringBuilder(size)
+        for block in blocks:
+            block.get_code(bytecode)
+        return bytecode.build()
+
     def jump_thread(self, blocks):
         for block in blocks:
             block.jump_thread()
@@ -699,12 +706,12 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.propagate_positions(blocks)
         self.optimize_unreachable_code(blocks)
         remove_redundant_nops(blocks)
-        self._resolve_block_targets(blocks)
-        return blocks
+        size = self._resolve_block_targets(blocks)
+        return blocks, size
 
     def assemble(self):
         """Build a PyCode object."""
-        blocks = self._finalize_blocks()
+        blocks, size = self._finalize_blocks()
         stack_depth = self._stacksize(blocks)
         positions = self._build_positions(blocks)
         consts_w = self.consts_w[:]
@@ -713,14 +720,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         cell_names = _list_from_dict(self.cell_vars)
         free_names = _list_from_dict(self.free_vars, len(cell_names))
         flags = self._get_code_flags()
+        bytecode = self._build_code(blocks, size)
         # (Only) inherit compilerflags in PyCF_MASK
         flags |= (self.compile_info.flags & consts.PyCF_MASK)
         if not we_are_translated():
             self._final_blocks = blocks
-        output = []
-        for block in blocks:
-            block.get_code(output)
-        bytecode = ''.join(output)
         return PyCode(self.space,
                       self.argcount,
                       self.posonlyargcount,
