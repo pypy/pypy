@@ -100,6 +100,7 @@ class __extend__(PyFrame):
             return self.popvalue()
 
     def jump_absolute(self, jumpto, next_instr, ec):
+        jumpto *= 2
         if jumpto >= next_instr: # no backward jump, just normal
             return jumpto
         if we_are_jitted():
