@@ -331,8 +331,11 @@ def _get_instructions_bytes(code, varnames=None, names=None, constants=None,
                 argval, argrepr = _get_const_info(arg, constants)
             elif op in hasname:
                 argval, argrepr = _get_name_info(arg, names)
+            elif op in hasjabs:
+                argval = arg*2
+                argrepr = "to " + repr(argval)
             elif op in hasjrel:
-                argval = offset + 2 + arg
+                argval = offset + 2 + arg*2
                 argrepr = "to " + repr(argval)
             elif op in haslocal:
                 argval, argrepr = _get_name_info(arg, varnames)

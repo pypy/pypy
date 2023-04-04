@@ -153,14 +153,14 @@ def test_pytrace_dis_bug():
 \t<module>:           LOAD_CONST    0 (1)
 \t<module>:           CALL_FUNCTION    1 
 \t<module>:           GET_ITER    0 
-\t<module>:           FOR_ITER   12 (to 20)
+\t<module>:           FOR_ITER    6 (to 20)
 \t<module>:           STORE_NAME    1 (i)
 \t<module>:           LOAD_NAME    1 (i)
 \t<module>:           LOAD_CONST    0 (1)
 \t<module>:           INPLACE_ADD    0 
 \t<module>:           STORE_NAME    1 (i)
-\t<module>:           JUMP_ABSOLUTE    8 
-\t<module>:           FOR_ITER   12 (to 20)
+\t<module>:           JUMP_ABSOLUTE    4 (to 8)
+\t<module>:           FOR_ITER    6 (to 20)
 \t<module>:           LOAD_CONST    1 (None)
 \t<module>:           RETURN_VALUE    0 
 """ in output
