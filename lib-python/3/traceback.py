@@ -540,10 +540,11 @@ class StackSummary(list):
                         colno = _byte_offset_to_character_offset(original_line, frame.colno)
                         end_colno = _byte_offset_to_character_offset(original_line, frame.end_colno)
 
-                        row.append('    ')
-                        row.append(' ' * (colno - stripped_characters))
-                        row.append('^' * (end_colno - colno))
-                        row.append('\n')
+                        if end_colno - colno != len(frame.line.strip()):
+                            row.append('    ')
+                            row.append(' ' * (colno - stripped_characters))
+                            row.append('^' * (end_colno - colno))
+                            row.append('\n')
                 # End PyPy3 change
             if frame.locals:
                 for name, value in sorted(frame.locals.items()):

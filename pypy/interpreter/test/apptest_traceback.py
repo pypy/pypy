@@ -137,7 +137,6 @@ def test_traceback_positions_on_cause():
         '    bar(bar(bar(2)))',
         '            ^^^^^^',
         '    raise ValueError("oh no!") from e',
-        '    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^',
         'ValueError: oh no!'
     ]
     assert processed_lines == expected_exc_format
