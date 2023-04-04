@@ -262,8 +262,10 @@ def reprargstring(space, pycode, next_instr, opcode, oparg):
         s += '(' + r + ')'
     elif opcode in opcode3.hasname:
         s +=  '(' + pycode.co_names[oparg] + ')'
+    elif opcode in opcode3.hasjabs:
+        s += '(to ' + repr(oparg*2) + ')'
     elif opcode in opcode3.hasjrel:
-        s +=  '(to ' + repr(next_instr + oparg) + ')'
+        s +=  '(to ' + repr(next_instr + oparg*2) + ')'
     elif opcode in opcode3.haslocal:
         s +=  '(' + pycode.co_varnames[oparg] + ')'
     elif opcode in opcode3.hascompare:
