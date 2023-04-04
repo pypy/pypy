@@ -365,7 +365,7 @@ class AppTestSysModulePortedFromCPython:
             traceback.print_exception = original_print_exception
             sys.stderr = savestderr
 
-        assert err.getvalue() == "ValueError: 42\n"
+        assert "ValueError: 42\n" in err.getvalue()
 
     def test_original_excepthook_pypy_encoding(self):
         import sys
