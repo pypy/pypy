@@ -136,7 +136,7 @@ def test_lineno():
 a: int
     """
     c = compile(s, "f", "exec")
-    assert c.co_firstlineno == 3
+    assert c.co_firstlineno == 1
 
 def test_scoping():
     def f(classvar):

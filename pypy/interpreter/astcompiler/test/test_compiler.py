@@ -2381,7 +2381,9 @@ class TestLinenoChanges310(object):
         code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=False)
         if function:
             code = code.co_consts[0]
-        got = [line - code.co_firstlineno for (start, line) in findlinestarts(code)]
+        lines = [line for (start, line) in findlinestarts(code)]
+        min_line = min(lines) - function
+        got = [line - min_line for line in lines]
         # check that there are no two nops with the same lineno
         assert got == expected
         return code
