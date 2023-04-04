@@ -1,8 +1,10 @@
 import pytest
 
+from hypothesis import given, strategies
+
 from pypy.interpreter.location import (encode_positions,
     decode_positions, _offset2lineno, linetable2lnotab,
-    marklines)
+    marklines, _decode_entry, DecodeError)
 
 def check_positions(positions, firstlineno=1, expected=None):
     if expected is None:
@@ -77,3 +79,19 @@ def test_marklines():
     assert lines == [1, -1, -1, 3, -1, -1, 2, -1, -1, -1, -1, 17, -1, 1]
 
 
+
+# check crash-safety
+
+def go_through_positions(table, firstlineno):
+    position = 0
+    while position < len(table):
+        lineno, end_lineno, col_offset, end_col_offset, position = _decode_entry(table, firstlineno, position)
+
+
+@given(strategies.binary(), strategies.integers(min_value=0, max_value=2**30))
+def test_decode_doesnt_crash(b, firstlineno):
+    try:
+        go_through_positions(b, firstlineno)
+    except Exception as e:
+        if not isinstance(e, DecodeError):
+            raise

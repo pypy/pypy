@@ -262,6 +262,19 @@ def test_jump_forwards_over_listcomp():
     sys.settrace(None)
     assert output == [1, 3]
 
+def test_jump_shouldnt_crash_on_invalid_linetable():
+    def breakit(output):
+        output.append(1)
+        x = [i for i in range(10)]
+        output.append(3)
+    breakit.__code__ = breakit.__code__.replace(co_linetable=breakit.__code__.co_linetable[:-3] + b'\x01\x02')
+    output = []
+    tracer = JumpTracer(breakit, 2, 3)
+    sys.settrace(tracer.trace)
+    with pytest.raises(ValueError): # setting the lineno will raise ValueError
+        breakit(output)
+    sys.settrace(None)
+
 def test_f_lineno_set_firstline():
     seen = []
     def tracer(f, event, *args):
@@ -767,7 +780,10 @@ def make_tracelines(base=None):
             firstlineno = base.__code__.co_firstlineno
         else:
             firstlineno = frame.f_code.co_firstlineno
-        lineno = frame.f_lineno - firstlineno
+        if frame.f_lineno is not None:
+            lineno = frame.f_lineno - firstlineno
+        else:
+            lineno = None
         tr.append((event, lineno))
         return tracelines
     return tr, tracelines
@@ -1009,6 +1025,18 @@ def test_line_tracing_bug_exception_yieldfrom():
             ('call', -1), ('line', -2),
             ('return', -2), ('exception', 1),
         ('return', 1)]
+
+def test_line_tracing_bug_invalid_positions():
+    def breakit():
+        i = 0
+        i += 1
+        return i * 3
+    breakit.__code__ = breakit.__code__.replace(co_linetable=b'\x01\x02')
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    breakit()
+    sys.settrace(None)
+    assert tr == [('call', 0), ('return', 0)]
 
 def test_opcode_tracing():
     import sys

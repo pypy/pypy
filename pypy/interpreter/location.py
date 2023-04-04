@@ -1,5 +1,7 @@
 from rpython.rlib import rstring
-from rpython.rlib.unicodedata.dawg import decode_varint_unsigned
+
+class DecodeError(Exception):
+    pass
 
 def encode_varint_unsigned(i, res):
     # XXX can't use code in dawg because that doesn't take a StringBuilder :-(
@@ -15,6 +17,22 @@ def encode_varint_unsigned(i, res):
         else:
             lowest7bits |= 0b10000000
         res.append(chr(lowest7bits))
+
+def decode_varint_unsigned(b, index=0):
+    # can't use code in dawg because this variant needs to be safe against
+    # invalidly encoded varints
+    res = 0
+    shift = 0
+    while True:
+        byte = ord(b[index])
+        res = res | ((byte & 0b1111111) << shift)
+        index += 1
+        if not (byte & 0b10000000):
+            return res, index
+        shift += 7
+        if index == len(b):
+            raise DecodeError
+
 
 def encode_positions(l, firstlineno):
     # l is a list of four-tuples (lineno, end_lineno, col_offset,
@@ -72,12 +90,16 @@ def _decode_entry(table, firstlineno, position):
         return (-1, -1, -1, -1, position)
     lineno -= 1
     lineno += firstlineno
+    if position == len(table):
+        raise DecodeError
     col_offset = ord(table[position]) - 1
     position += 1
     if col_offset == -1: # was a single 0, no more bytes
         end_col_offset = -1
         end_lineno = -1
     else:
+        if position + 1 >= len(table):
+            raise DecodeError
         end_col_offset = ord(table[position]) - 1
         end_line_delta = ord(table[position + 1])
         position += 2
@@ -96,7 +118,10 @@ def decode_positions(table, firstlineno):
 def offset2lineno(c, stopat):
     if stopat == -1:
         return c.co_firstlineno
-    return _offset2lineno(c.co_linetable, c.co_firstlineno, stopat // 2)
+    try:
+        return _offset2lineno(c.co_linetable, c.co_firstlineno, stopat // 2)
+    except DecodeError:
+        return -1
 
 def _offset2lineno(linetable, firstlineno, stopat):
     position = 0
@@ -139,7 +164,10 @@ def linetable2lnotab(linetable, firstlineno):
     line = firstlineno
     start_pc = pc = 0
     while position < len(linetable):
-        lineno, _, _, _, position = _decode_entry(linetable, firstlineno, position)
+        try:
+            lineno, _, _, _, position = _decode_entry(linetable, firstlineno, position)
+        except DecodeError:
+            return b''
         if lineno != line:
             bdelta = pc - start_pc
             ldelta = lineno - line
