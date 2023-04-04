@@ -75,3 +75,10 @@ def test_error_position_unicode():
         assert e.offset == 5
         assert e.end_offset == 8
 
+
+def test_crash_debug():
+    import ast
+    tree = ast.parse("@deco1\n@deco2()\n@deco3(1)\ndef f(): pass")
+    compile(tree, '<string>', 'exec')
+
+

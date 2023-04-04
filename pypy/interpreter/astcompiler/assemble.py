@@ -2,6 +2,7 @@
 
 import math
 import os
+import sys
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib import rstring
 
@@ -693,12 +694,6 @@ class PythonCodeMaker(ast.ASTVisitor):
                 self.load_const(self.space.w_None)
             self.emit_op(ops.RETURN_VALUE)
             self.current_block.auto_inserted_return = True
-        # Set the first lineno if it is not already explicitly set.
-        if self.first_lineno == -1:
-            if self.first_block.instructions:
-                self.first_lineno = self.first_block.instructions[0].position_info[0]
-            else:
-                self.first_lineno = 1
         blocks = self.first_block.post_order()
         remove_redundant_nops(blocks)
         self.jump_thread(blocks)
@@ -706,7 +701,10 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.duplicate_exits_without_lineno(blocks)
         self.propagate_positions(blocks)
         self.optimize_unreachable_code(blocks)
-        remove_redundant_nops(blocks)
+        mininum_lineno = remove_redundant_nops(blocks)
+        # Set the first lineno if it is not already explicitly set.
+        if self.first_lineno == -1:
+            self.first_lineno = mininum_lineno
         size = self._resolve_block_targets(blocks)
         return blocks, size
 
@@ -926,6 +924,7 @@ class SubMatchContext(object):
         self.codegen.match_context.allow_always_passing = self.old_value
 
 def _remove_redundant_nops(block):
+    mininum_lineno = sys.maxint
     prevlineno = -1
     source = 0
     dest = 0
@@ -934,6 +933,8 @@ def _remove_redundant_nops(block):
         op = instructions[source]
         source += 1
         lineno = op.position_info[0]
+        if 0 < lineno < mininum_lineno:
+            mininum_lineno = lineno
         if op.opcode == ops.NOP:
             if lineno == -1 or lineno == prevlineno:
                 continue
@@ -950,10 +951,15 @@ def _remove_redundant_nops(block):
         dest += 1
     if dest != len(instructions):
         del instructions[dest:]
+    return mininum_lineno
 
 def remove_redundant_nops(blocks):
+    mininum_lineno = sys.maxint
     for block in blocks:
-        _remove_redundant_nops(block)
+        mininum_lineno = min(_remove_redundant_nops(block), mininum_lineno)
+    if mininum_lineno == sys.maxint:
+        mininum_lineno = 1
+    return mininum_lineno
 
 def _list_from_dict(d, offset=0):
     result = [None] * len(d)
