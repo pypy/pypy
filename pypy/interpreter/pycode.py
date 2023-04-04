@@ -433,7 +433,7 @@ class PyCode(eval.Code):
     def descr_positions(self, space):
         """A list of 4-element tuples that represent the position information corresponding to each
         instruction."""
-        from pypy.interpreter.location import _decode_entry
+        from pypy.interpreter.location import _decode_entry, DecodeError
         def w(space, i):
             if i == -1:
                 return space.w_None
@@ -447,7 +447,10 @@ class PyCode(eval.Code):
         position = 0
         table = self.co_linetable
         while position < len(table):
-            lineno, end_lineno, col_offset, end_col_offset, position = _decode_entry(table, self.co_firstlineno, position)
+            try:
+                lineno, end_lineno, col_offset, end_col_offset, position = _decode_entry(table, self.co_firstlineno, position)
+            except DecodeError:
+                break
             tup_w = [
                 w(space, lineno),
                 w(space, end_lineno),
@@ -527,12 +530,15 @@ class PyCode(eval.Code):
     def _get_lineno_for_pc_tracing(self, pc):
         """ compute the lineno for a given pc. this is meant to be used when
         tracing because it uses a bit of extra memory. """
-        from pypy.interpreter.location import _decode_entry
+        from pypy.interpreter.location import _decode_entry, DecodeError
         if self._linelist is None:
             l = [-1] * (len(self.co_code) // 2)
             position = 0
             for i in range(len(l)):
-                tup = _decode_entry(self.co_linetable, self.co_firstlineno, position)
+                try:
+                    tup = _decode_entry(self.co_linetable, self.co_firstlineno, position)
+                except DecodeError:
+                    break
                 position = tup[-1]
                 l[i] = tup[0]
             self._linelist = l
@@ -542,8 +548,11 @@ class PyCode(eval.Code):
         """ return a list of len(co_code) // 2 where every entry is -1 except
         for those opcodes that start a new line, where the entry is the line
         number. """
-        from pypy.interpreter.location import marklines
-        return marklines(self.co_linetable, self.co_firstlineno)
+        from pypy.interpreter.location import marklines, DecodeError
+        try:
+            return marklines(self.co_linetable, self.co_firstlineno)
+        except DecodeError:
+            return [-1] * (len(self.co_code) // 2)
 
 class W_LineIterator(W_Root):
     def __init__(self, space, w_code):
@@ -557,6 +566,15 @@ class W_LineIterator(W_Root):
         return self
 
     def descr_next(self):
+        from pypy.interpreter.location import DecodeError
+        try:
+            return self._next()
+        except DecodeError:
+            self.position = len(self.w_code.co_linetable)
+            space = self.space
+            raise OperationError(space.w_StopIteration, space.newtext(''))
+
+    def _next(self):
         from pypy.interpreter.location import _decode_entry
         space = self.space
         linetable = self.w_code.co_linetable
