@@ -13,6 +13,9 @@ class FakeCode:
         self.co_revdb_linestarts = None
         self.co_filename = co_filename
 
+    def get_co_lnotab(self):
+        return self.co_lnotab
+
 
 try:
     from hypothesis import given, strategies, example
