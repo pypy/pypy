@@ -85,6 +85,8 @@ def encode_single_position(table, position_info, firstlineno):
         table.append(chr(end_line_delta))
 
 def _decode_entry(table, firstlineno, position):
+    if position >= len(table):
+        raise DecodeError
     lineno, position = decode_varint_unsigned(table, position)
     if lineno == 0:
         return (-1, -1, -1, -1, position)

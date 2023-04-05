@@ -1,6 +1,6 @@
 import pytest
 
-from hypothesis import given, strategies
+from hypothesis import given, strategies, example
 
 from pypy.interpreter.location import (encode_positions,
     decode_positions, _offset2lineno, linetable2lnotab,
@@ -105,3 +105,7 @@ def test_decode_doesnt_crash(b, firstlineno):
     except Exception as e:
         if not isinstance(e, DecodeError):
             raise
+
+def test_decode_entry_empty_string():
+    with pytest.raises(DecodeError):
+        _decode_entry(b'', 1, 0)
