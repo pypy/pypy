@@ -122,7 +122,7 @@ def unwrap_list_of_texts(space, w_list):
               PyObject, PyObject, rffi.INT_real, PyObject], PyCodeObject)
 def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                w_code, w_consts, w_names, w_varnames, w_freevars, w_cellvars,
-               w_filename, w_funcname, firstlineno, w_lnotab):
+               w_filename, w_funcname, firstlineno, w_linetable):
     """Return a new code object.  If you need a dummy code object to
     create a frame, use PyCode_NewEmpty() instead.  Calling
     PyCode_New() directly can bind you to a precise Python
@@ -141,7 +141,7 @@ def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                   filename=space.fsencode_w(w_filename),
                   name=space.text_w(w_funcname),
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
-                  lnotab=space.bytes_w(w_lnotab),
+                  linetable=space.bytes_w(w_linetable),
                   freevars=unwrap_list_of_texts(space, w_freevars),
                   cellvars=unwrap_list_of_texts(space, w_cellvars))
 
@@ -162,7 +162,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
                   filename=rffi.charp2str(filename),
                   name=rffi.charp2str(funcname),
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
-                  lnotab="",
+                  linetable="",
                   freevars=[],
                   cellvars=[])
 

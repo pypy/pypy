@@ -1,6 +1,6 @@
 from pypy.interpreter.astcompiler.misc import mangle
-from pypy.interpreter.astcompiler.assemble import Instruction, ops
-from pypy.interpreter.astcompiler.assemble import _encode_lnotab_pair
+from pypy.interpreter.astcompiler.assemble import Instruction, ops, Block
+from pypy.interpreter.location import _encode_lnotab_pair
 from pypy.interpreter.astcompiler.codegen import compute_reordering, rot_n
 
 
@@ -85,3 +85,145 @@ def test_compute_reordering():
                 rot_n(l, rot)
             assert l == list(reversed(target))
 
+def jumpinstr(block, opcode, target):
+    jump = Instruction(opcode)
+    jump.jump = target
+    block.instructions.append(jump)
+    return jump
+
+def test_jump_thread_remove_jump_to_empty():
+    b = Block()
+    b2 = Block()
+    b3 = Block()
+    b4 = Block()
+    b2.next_block = b3
+    b3.next_block = b4
+
+    jump = jumpinstr(b, ops.JUMP_FORWARD, b2)
+
+    b4.instructions.append(Instruction(ops.NOP))
+
+    b.jump_thread()
+    assert jump.jump is b4
+
+def test_jump_thread_jump_to_jump_forward():
+    for opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+        b = Block()
+        b2 = Block()
+        b3 = Block()
+
+        jump1 = jumpinstr(b, opcode, b2)
+        jump2 = jumpinstr(b2, ops.JUMP_FORWARD, b3)
+        b3.instructions.append(Instruction(ops.NOP))
+
+        b.jump_thread()
+        assert jump1.jump is b3
+
+def test_dont_jump_thread_on_lineno_differences():
+    for opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+        b = Block()
+        b2 = Block()
+        b3 = Block()
+
+        jump1 = jumpinstr(b, opcode, b2)
+        jump1.position_info = (1, -1, -1, -1)
+        jump2 = jumpinstr(b2, ops.RETURN_VALUE, b3)
+        jump2.position_info = (2, -1, -1, -1)
+        b3.instructions.append(Instruction(ops.NOP))
+
+        b.jump_thread()
+        assert jump1.jump is b2 # can't thread to not lose line numbers
+
+def test_uncond_jump_despite_lineno_differences():
+    for opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+        b = Block()
+        b2 = Block()
+        b3 = Block()
+
+        jump1 = jumpinstr(b, opcode, b2)
+        jump1.position_info = (1, -1, -1, -1)
+        jump2 = jumpinstr(b2, ops.JUMP_FORWARD, b3)
+        jump2.position_info = (2, -1, -1, -1)
+        instr3 = Instruction(ops.NOP)
+        instr3.position_info = (2, -1, -1, -1)
+        b3.instructions.append(instr3)
+
+        b.jump_thread()
+        assert jump1.jump is b3 # can't thread to not lose line numbers
+
+def test_jump_thread_jump_to_jump_absolute():
+    for opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+        b = Block()
+        b2 = Block()
+        b3 = Block()
+
+        jump1 = jumpinstr(b, opcode, b2)
+        jump2 = jumpinstr(b2, ops.JUMP_ABSOLUTE, b3)
+        b3.instructions.append(Instruction(ops.NOP))
+
+        b.jump_thread()
+        assert jump1.jump is b3
+        assert jump1.opcode == ops.JUMP_ABSOLUTE
+
+def test_jump_thread_jump_to_return():
+    for opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+        b = Block()
+        b2 = Block()
+
+        jump1 = jumpinstr(b, opcode, b2)
+        jump2 = Instruction(ops.RETURN_VALUE)
+        b2.instructions.append(jump2)
+
+        b.jump_thread()
+        assert jump1.jump is None
+        assert jump1.opcode == ops.RETURN_VALUE
+
+def test_jump_thread_conditional_jump():
+    for opcode1 in (ops.POP_JUMP_IF_FALSE, ops.POP_JUMP_IF_TRUE,
+            ops.JUMP_IF_FALSE_OR_POP, ops.JUMP_IF_TRUE_OR_POP):
+        for opcode2 in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+            b = Block()
+            b2 = Block()
+            b3 = Block()
+
+            jump1 = jumpinstr(b, opcode1, b2)
+            jump2 = jumpinstr(b2, opcode2, b3)
+            b3.instructions.append(Instruction(ops.NOP))
+
+            b.jump_thread()
+            assert jump1.jump is b3
+            assert jump1.opcode == opcode1
+
+def test_jump_thread_jump_to_jump_to_jump():
+    for opcode1 in (ops.POP_JUMP_IF_FALSE, ops.POP_JUMP_IF_TRUE,
+            ops.JUMP_IF_FALSE_OR_POP, ops.JUMP_IF_TRUE_OR_POP,
+            ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+        b = Block()
+        b2 = Block()
+        b3 = Block()
+        b4 = Block()
+
+        jump1 = jumpinstr(b, opcode1, b2)
+        jump2 = jumpinstr(b2, ops.JUMP_FORWARD, b3)
+        jump3 = jumpinstr(b3, ops.JUMP_FORWARD, b4)
+        b4.instructions.append(Instruction(ops.NOP))
+        b.jump_thread()
+        assert jump1.jump is b4
+
+def test_jump_thread_fallthrough():
+    b = Block()
+    b.next_block = b2 = Block()
+    b2.next_block = b3 = Block()
+
+    b.instructions.append(Instruction(ops.NOP))
+    b3.instructions.append(Instruction(ops.NOP))
+    b.jump_thread()
+    assert b.next_block is b3
+
+
+def test_block_exits_function():
+    for opcode in (ops.RETURN_VALUE, ops.RAISE_VARARGS, ops.RERAISE):
+        b = Block()
+        b.emit_instr(Instruction(opcode))
+        assert b.exits_function
+        assert b.cant_add_instructions

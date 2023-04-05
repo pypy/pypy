@@ -16,10 +16,10 @@ from pypy.tool import stdlib_opcode as ops
 
 C_INT_MAX = (2 ** (struct.calcsize('i') * 8)) / 2 - 1
 
-def compile_ast(space, module, info):
+def compile_ast(space, module, info, set_debug_flag=False):
     """Generate a code object from AST."""
     symbols = symtable.SymtableBuilder(space, module, info)
-    return TopLevelCodeGenerator(space, module, symbols, info).assemble()
+    return TopLevelCodeGenerator(space, module, symbols, info, set_debug_flag).assemble()
 
 MAX_STACKDEPTH_CONTAINERS = 100
 
@@ -205,19 +205,28 @@ class FrameBlockInfo(object):
         # for debugging
         return "<FrameBlockInfo kind=%s block=%s end=%s>" % (fblock_kind_to_str[self.kind], self.block, self.end)
 
+
+def _get_positions_for_expr(node):
+    return (
+        node.lineno,
+        node.end_lineno,
+        node.col_offset,
+        node.end_col_offset,
+    )
+
 def update_pos_expr(func):
     def updater(self, expr):
         assert isinstance(expr, ast.expr)
         if expr.lineno > 0:
-            new_lineno = expr.lineno
+            new_position_info = _get_positions_for_expr(expr)
         else:
-            new_lineno = self.lineno
-        old_lineno = self.lineno
-        self.lineno = new_lineno
+            new_position_info = (-1,) * 4
+        old_position_info = self.position_info
+        self.position_info = new_position_info
         try:
             return func(self, expr)
         finally:
-            self.lineno = old_lineno
+            self.position_info = old_position_info
     updater.func_name = func.func_name + "_pos_updater"
     return updater
 
@@ -291,11 +300,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             finallyblock = fblock.datum
             assert isinstance(finallyblock, ast.Try)
             assert finallyblock.finalbody
-            saved_lineno = self.lineno
             self._visit_body(finallyblock.finalbody)
-            self.lineno = saved_lineno
             if preserve_tos:
                 self.pop_frame_block(F_POP_VALUE, None)
+            self.no_position_info() # make the unwind be artificial
         elif kind == F_FINALLY_END:
             if preserve_tos:
                 self.emit_op(ops.ROT_TWO)
@@ -303,6 +311,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.POP_EXCEPT)
 
         elif kind == F_WITH or kind == F_ASYNC_WITH:
+            node = fblock.datum
+            assert isinstance(node, ast.withitem)
+            self.update_position(node.context_expr)
             self.emit_op(ops.POP_BLOCK)
             if preserve_tos:
                 self.emit_op(ops.ROT_TWO)
@@ -312,6 +323,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.load_const(self.space.w_None)
                 self.emit_op(ops.YIELD_FROM)
             self.emit_op(ops.POP_TOP)
+            self.no_position_info()
         elif kind == F_HANDLER_CLEANUP:
             if fblock.datum:
                 self.emit_op(ops.POP_BLOCK)
@@ -439,8 +451,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.CALL_FUNCTION, 3)
 
     def visit_Module(self, mod):
-        if not self._handle_body(mod.body):
-            self.first_lineno = self.lineno = 1
+        self._handle_body(mod.body)
 
     def visit_Interactive(self, mod):
         self.interactive = True
@@ -675,14 +686,21 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self.compile_info.optimize >= 1:
             return
         assert self.compile_info.optimize == 0
-        end = self.new_block()
-        asrt.test.accept_jump_if(self, True, end)
+        test_constant = asrt.test.as_constant_truth(
+            self.space, self.compile_info)
+        if test_constant == optimize.CONST_FALSE:
+            self.emit_line_tracing_nop()
+            end = None
+        else:
+            end = self.new_block()
+            asrt.test.accept_jump_if(self, True, end)
         self.emit_op(ops.LOAD_ASSERTION_ERROR)
         if asrt.msg:
             asrt.msg.walkabout(self)
             self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.emit_op_arg(ops.RAISE_VARARGS, 1)
-        self.use_next_block(end)
+        if end is not None:
+            self.use_next_block(end)
 
     def _binop(self, op):
         return binary_operations(op)
@@ -697,11 +715,18 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         preserve_tos = ret.value is not None and not isinstance(ret.value, ast.Constant)
         if preserve_tos:
             ret.value.walkabout(self)
+        elif ret.value:
+            self.emit_line_tracing_nop(ret.value)
+        self.emit_line_tracing_nop(ret)
         self.unwind_fblock_stack(preserve_tos)
         if ret.value is None:
             self.load_const(self.space.w_None)
         elif not preserve_tos:
-            ret.value.walkabout(self) # Constant
+            value = ret.value
+            assert isinstance(value, ast.Constant)
+            # not using walkabout here because that might mess up line numbers
+            # if there is a finally block
+            self.load_const(value.value)
         self.emit_op(ops.RETURN_VALUE)
 
     def visit_Delete(self, delete):
@@ -712,10 +737,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         test_constant = if_.test.as_constant_truth(
             self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
+            self.emit_line_tracing_nop()
             with self.all_dead_code():
                 self._visit_body(if_.body)
             self._visit_body(if_.orelse)
         elif test_constant == optimize.CONST_TRUE:
+            self.emit_line_tracing_nop()
             self._visit_body(if_.body)
             with self.all_dead_code():
                 self._visit_body(if_.orelse)
@@ -727,12 +754,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if_.test.accept_jump_if(self, False, otherwise)
             self._visit_body(if_.body)
             if if_.orelse:
+                self.no_position_info()
                 self.emit_jump(ops.JUMP_FORWARD, end)
                 self.use_next_block(otherwise)
                 self._visit_body(if_.orelse)
         self.use_next_block(end)
 
     def visit_Break(self, br):
+        self.emit_line_tracing_nop()
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
             self.error("'break' not properly in loop", br)
@@ -741,6 +770,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.end)
 
     def visit_Continue(self, cont):
+        self.emit_line_tracing_nop()
         loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
         if loop_fblock is None:
             self.error("'continue' not properly in loop", cont)
@@ -758,6 +788,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.FOR_ITER, cleanup)
         fr.target.walkabout(self)
         self._visit_body(fr.body)
+        self.no_position_info()
         self.emit_jump(ops.JUMP_ABSOLUTE, start)
         self.use_next_block(cleanup)
         self.pop_frame_block(F_FOR_LOOP, start)
@@ -784,11 +815,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_BLOCK)
         fr.target.walkabout(self)
         self._visit_body(fr.body)
+        self.no_position_info()
         self.emit_jump(ops.JUMP_ABSOLUTE, b_start)
         self.pop_frame_block(F_FOR_LOOP, b_start)
 
         # except block for errors from __anext__
         self.use_next_block(b_except)
+        # use the 'for' as the position of END_ASYNC_FOR
+        self.update_position(fr.iter)
         self.emit_op(ops.END_ASYNC_FOR)
         self._visit_body(fr.orelse)
 
@@ -797,6 +831,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_While(self, wh):
         test_constant = wh.test.as_constant_truth(self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
+            self.emit_line_tracing_nop()
             with self.all_dead_code():
                 end = self.new_block()
                 loop = self.new_block()
@@ -814,7 +849,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.use_next_block(loop)
             if test_constant == optimize.CONST_NOT_CONST:
                 wh.test.accept_jump_if(self, False, anchor)
+            else:
+                self.emit_line_tracing_nop()
             self._visit_body(wh.body)
+            self.no_position_info()
             self.emit_jump(ops.JUMP_ABSOLUTE, loop)
             if test_constant == optimize.CONST_NOT_CONST:
                 self.use_next_block(anchor)
@@ -832,8 +870,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         body = self.use_next_block(body)
         self.push_frame_block(F_TRY_EXCEPT, body)
         self._visit_body(tr.body)
-        self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_TRY_EXCEPT, body)
+        self.no_position_info()
+        self.emit_op(ops.POP_BLOCK)
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
         self.push_frame_block(F_EXCEPTION_HANDLER, None)
@@ -873,6 +912,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # second # body
                 self._visit_body(handler.body)
                 self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
+                self.no_position_info() # artificial instructions
                 self.emit_op(ops.POP_BLOCK)
                 self.emit_op(ops.POP_EXCEPT)
                 # name = None; del name
@@ -883,20 +923,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
                 # finally
                 self.use_next_block(cleanup_end)
-                # this is a hack! we emit a NOP to distinguish this from a
-                # "regular" finally. the reason for that is that we do not want
-                # to emit a line trace event if sys.settrace is set for the
-                # following instructions, and the interpeter can use the NOP to
-                # detect this case. CPython has really complicated and broken
-                # logic for this situation instead. See code in
-                # FinallyBlock.handle.
-                self.emit_op(ops.NOP)
+                self.no_position_info() # artificial instructions
                 # name = None; del name
                 self.load_const(self.space.w_None)
                 self.name_op(handler.name, ast.Store, handler)
                 self.name_op(handler.name, ast.Del, handler)
 
-                self.emit_op(ops.RERAISE)
+                self.emit_op_arg(ops.RERAISE, 1)
             else:
                 self.emit_op(ops.POP_TOP)
                 self.emit_op(ops.POP_TOP)
@@ -904,6 +937,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.push_frame_block(F_HANDLER_CLEANUP, cleanup_body)
                 self._visit_body(handler.body)
                 self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
+                self.no_position_info() # artificial instructions
                 self.emit_op(ops.POP_EXCEPT)
                 self.emit_jump(ops.JUMP_FORWARD, end)
             #
@@ -925,7 +959,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         exit = self.new_block()
 
         # try block
-
         self.emit_jump(ops.SETUP_FINALLY, end)
         self.use_next_block(body)
         self.push_frame_block(F_FINALLY_TRY, body, end, tr)
@@ -933,7 +966,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._visit_try_except(tr)
         else:
             self._visit_body(tr.body)
+        self.no_position_info()
         self.emit_op(ops.POP_BLOCK)
+
+        # finally block, unexceptional case
         self.pop_frame_block(F_FINALLY_TRY, body)
         self._visit_body(tr.finalbody)
         self.emit_jump(ops.JUMP_FORWARD, exit)
@@ -943,6 +979,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.push_frame_block(F_FINALLY_END, end)
         self._visit_body(tr.finalbody)
         self.pop_frame_block(F_FINALLY_END, end)
+
+        # the RERAISE will be duplicated by duplicate_exits_without_lineno
+        self.no_position_info()
         self.emit_op(ops.RERAISE)
         self.use_next_block(exit)
 
@@ -1050,10 +1089,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.POP_TOP)
 
     def visit_Assign(self, assign):
-        # paranoia assert in this stmt subclass: make sure that the lineno is
-        # already set, should be done by _visit_body
-        assert assign.lineno < 1 or self.lineno == assign.lineno
-
         if self._optimize_unpacking(assign):
             return
         assign.value.walkabout(self)
@@ -1176,7 +1211,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def handle_withitem(self, wih, pos, is_async):
         body_block = self.new_block()
         cleanup = self.new_block()
-        exit = self.new_block()
         witem = wih.items[pos]
         assert isinstance(witem, ast.withitem)
         witem.context_expr.walkabout(self)
@@ -1192,7 +1226,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             fblock_kind = F_ASYNC_WITH
 
         self.use_next_block(body_block)
-        self.push_frame_block(fblock_kind, body_block, cleanup)
+        self.push_frame_block(fblock_kind, body_block, cleanup, witem)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)
         else:
@@ -1201,9 +1235,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._visit_body(wih.body)
         else:
             self.handle_withitem(wih, pos + 1, is_async=is_async)
+
+        self.no_position_info()
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(fblock_kind, body_block)
 
+        self.update_position(wih)
         # end of body, successful outcome, start cleanup
         self.call_exit_with_nones()
         if is_async:
@@ -1211,10 +1248,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
         self.emit_op(ops.POP_TOP)
+        exit = self.new_block()
         self.emit_jump(ops.JUMP_ABSOLUTE, exit)
 
         # exceptional outcome
         self.use_next_block(cleanup)
+        self.update_position(wih)
         self.emit_op(ops.WITH_EXCEPT_START)
         if is_async:
             self.emit_op(ops.GET_AWAITABLE)
@@ -1222,7 +1261,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.YIELD_FROM)
         exit2 = self.new_block()
         self.emit_jump(ops.POP_JUMP_IF_TRUE, exit2)
-        self.emit_op(ops.RERAISE)
+        self.emit_op_arg(ops.RERAISE, 1)
         self.use_next_block(exit2)
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_EXCEPT)
@@ -1252,7 +1291,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         pass
 
     def visit_Pass(self, pas):
-        pass
+        self.emit_line_tracing_nop()
 
     def visit_Expr(self, expr):
         if self.interactive:
@@ -1261,6 +1300,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif not isinstance(expr.value, ast.Constant):
             expr.value.walkabout(self)
             self.emit_op(ops.POP_TOP)
+        else:
+            self.emit_line_tracing_nop()
 
     @update_pos_expr
     def visit_Yield(self, yie):
@@ -1998,8 +2039,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     self.name_op(name, ast.Store, match_context.names_origins[i])
 
                 if case.guard:
-                    case.guard.walkabout(self)
-                    self.emit_jump(ops.POP_JUMP_IF_FALSE, match_context.next)
+                    case.guard.accept_jump_if(self, False, match_context.next)
 
                 if not is_last_case:
                     self.emit_op(ops.POP_TOP)
@@ -2371,17 +2411,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
-    def __init__(self, space, tree, symbols, compile_info):
+    def __init__(self, space, tree, symbols, compile_info, set_debug_flag=False):
+        if not we_are_translated():
+            self._debug_flag = set_debug_flag # to set strategic pdbs
         self.is_async_seen = False
         PythonCodeGenerator.__init__(self, space, "<module>", tree, -1,
                                      symbols, compile_info, qualname=None)
 
     def _compile(self, tree):
         if isinstance(tree, ast.Module):
-            if tree.body:
-                self.first_lineno = tree.body[0].lineno
-            else:
-                self.first_lineno = self.lineno = 1
+            self.first_lineno = 1
 
         self._maybe_setup_annotations()
         tree.walkabout(self)
@@ -2523,7 +2562,7 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self.first_lineno = cls.lineno
         if cls.decorator_list and cls.decorator_list[0].lineno > 0:
             self.first_lineno = cls.decorator_list[0].lineno
-        self.lineno = self.first_lineno
+        self.update_position(cls)
         self.argcount = 1
         # load (global) __name__ ...
         self.name_op("__name__", ast.Load, None)
@@ -2536,6 +2575,8 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self._maybe_setup_annotations()
         # compile the body proper
         self._handle_body(cls.body)
+
+        self.no_position_info()
         # return the (empty) __class__ cell
         scope = self.scope.lookup("__class__")
         if scope == symtable.SCOPE_CELL_CLASS:
@@ -2745,4 +2786,55 @@ def compute_reordering(l):
         target -= 1
     assert target == -1
     return rot_sequence
+
+
+def view(startblock):
+    from rpython.translator.tool.graphpage import GraphPage, DotGen
+    if isinstance(startblock, list):
+        blocks = startblock
+        startblock = None
+    else:
+        blocks = startblock.post_order()
+    graph = DotGen('block')
+    blocknames = {block: "block_%s" % (i, ) for i, block in enumerate(blocks)}
+    for i, block in enumerate(blocks):
+        name = blocknames[block]
+        label = ["pos in blocks: %s/%s\\n" % (i + 1, len(blocks))]
+        if block.marked != 0:
+            label.append("marked: %s\\n" % block.marked)
+
+        fillcolor = "white"
+        if block is startblock:
+            fillcolor = "gray"
+        color = "black"
+
+        for j, instr in enumerate(block.instructions):
+            str_instr = "%5s: %s" % (instr.position_info[0], ops.opname[instr.opcode])
+            if instr.opcode >= ops.HAVE_ARGUMENT and instr.jump is None:
+                str_instr += " %s" % (instr.arg, )
+            label.append(str_instr)
+            if instr.jump is not None:
+                graph.emit_node(name, shape="box", label="\\l".join(label), fillcolor=fillcolor, color=color)
+                nextname = "block_%s_%s" % (i, j)
+                graph.emit_edge(name, blocknames.get(instr.jump, "unknown_block"))
+                if j != len(block.instructions) - 1:
+                    label = []
+                    graph.emit_edge(name, nextname, color="green")
+                    name = nextname
+                    color = "green"
+        graph.emit_node(name, shape="box", label="\\l".join(label), fillcolor=fillcolor, color=color)
+        if block.next_block is not None:
+            if (not block.instructions or block.instructions[-1].opcode not in
+                    (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE, ops.RETURN_VALUE,
+                        ops.RERAISE, ops.RAISE_VARARGS)):
+                color = "black"
+            else:
+                color = "grey"
+            graph.emit_edge(name, blocknames.get(block.next_block, "unknown_block"), color=color)
+
+        from rpython.translator.tool.graphpage import FlowGraphPage
+    p = GraphPage()
+    p.links = {}
+    p.source = graph.generate(target=None)
+    p.display()
 

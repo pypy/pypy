@@ -250,6 +250,31 @@ def test_jump_forwards_out_of_try_finally_block():
     sys.settrace(None)
     assert output == [5]
 
+def test_jump_forwards_over_listcomp():
+    def jump_forwards_over_listcomp(output):
+        output.append(1)
+        x = [i for i in range(10)]
+        output.append(3)
+    output = []
+    tracer = JumpTracer(jump_forwards_over_listcomp, 2, 3)
+    sys.settrace(tracer.trace)
+    jump_forwards_over_listcomp(output)
+    sys.settrace(None)
+    assert output == [1, 3]
+
+def test_jump_shouldnt_crash_on_invalid_linetable():
+    def breakit(output):
+        output.append(1)
+        x = [i for i in range(10)]
+        output.append(3)
+    breakit.__code__ = breakit.__code__.replace(co_linetable=breakit.__code__.co_linetable[:-3] + b'\x01\x02')
+    output = []
+    tracer = JumpTracer(breakit, 2, 3)
+    sys.settrace(tracer.trace)
+    with pytest.raises(ValueError): # setting the lineno will raise ValueError
+        breakit(output)
+    sys.settrace(None)
+
 def test_f_lineno_set_firstline():
     seen = []
     def tracer(f, event, *args):
@@ -668,7 +693,7 @@ def test_trace_onliner_if():
     import sys
     l = []
     def trace(frame, event, arg):
-        l.append((frame.f_lineno, event))
+        l.append((frame.f_lineno - frame.f_code.co_firstlineno, event))
         return trace
     def onliners():
         if True: False
@@ -678,9 +703,11 @@ def test_trace_onliner_if():
     onliners()
     sys.settrace(None)
     firstlineno = onliners.__code__.co_firstlineno
-    assert l == [(firstlineno + 0, 'call'),
-                    (firstlineno + 3, 'line'),
-                    (firstlineno + 3, 'return')]
+    print(l)
+    assert l == [(0, 'call'),
+                 (1, 'line'),
+                 (3, 'line'),
+                 (3, 'return')]
 
 def test_set_unset_f_trace():
     import sys
@@ -746,7 +773,270 @@ def test_disable_line_tracing():
     print(l)
     assert l == [('f', 'call', None, 0), ('g', 'call', None, 0), ('g', 'return', 6, 1), ('f', 'return', 42, 2)]
 
-test_disable_line_tracing()
+def make_tracelines(base=None):
+    tr = []
+    def tracelines(frame, event, arg):
+        if base:
+            firstlineno = base.__code__.co_firstlineno
+        else:
+            firstlineno = frame.f_code.co_firstlineno
+        if frame.f_lineno is not None:
+            lineno = frame.f_lineno - firstlineno
+        else:
+            lineno = None
+        tr.append((event, lineno))
+        return tracelines
+    return tr, tracelines
+
+def test_line_tracing_bug_while1():
+    def tightloop():
+        i = 0
+        while 1:
+            if (i := i + 1) > 2: break
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    tightloop()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1),
+        ('line', 2), ('line', 3),
+        ('line', 2), ('line', 3),
+        ('line', 2), ('line', 3),
+        ('return', 3)
+    ]
+
+
+def test_line_tracing_bug_while1_2():
+    def tightloop_example():
+        items = range(0, 3)
+        try:
+            i = 0
+            while 1:
+                b = items[i]; i+=1
+        except IndexError:
+            pass
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    tightloop_example()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0),
+        ('line', 1),
+        ('line', 2),
+        ('line', 3),
+        ('line', 4),
+        ('line', 5),
+        ('line', 4),
+        ('line', 5),
+        ('line', 4),
+        ('line', 5),
+        ('line', 4),
+        ('line', 5),
+        ('exception', 5),
+        ('line', 6),
+        ('line', 7),
+        ('return', 7)
+    ]
+
+
+def test_line_tracing_bug_while_oneline():
+    def tightloop2():
+        i = 0
+        while i < 3: i += 1
+
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    tightloop2()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1),
+        ('line', 2), ('line', 2),
+        ('line', 2), ('line', 2),
+        ('return', 2)]
+
+def test_line_tracing_bug_while_break_break():
+    tr, tracelines = make_tracelines()
+
+    def func():
+        TRUE = 1
+        while TRUE:
+            while TRUE:
+                break
+            break
+    sys.settrace(tracelines)
+    func()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1),
+        ('line', 2), ('line', 3),
+        ('line', 4), ('line', 5),
+        ('return', 5)
+    ]
+
+def test_line_tracing_bug_with():
+    class C:
+        def __enter__(self):
+            return self
+        def __exit__(*args):
+            pass
+    def func_break():
+        for i in (1,2):
+            with C():
+                break
+        pass
+    tr, tracelines = make_tracelines(func_break)
+    sys.settrace(tracelines)
+    func_break()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1), ('line', 2), ('call', -4), ('line', -3),
+        ('return', -3), ('line', 3), ('line', 2), ('call', -2), ('line', -1),
+        ('return', -1), ('line', 4), ('return', 4)
+    ]
+
+def test_line_tracing_class_implicit_return():
+    def func():
+        class ClassWithCode:
+            if 3 < 9:
+                a = 1
+            else:
+                a = 2
+    tr, tracelines = make_tracelines(func)
+    sys.settrace(tracelines)
+    func()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1), ('call', 1), ('line', 1), ('line', 2),
+        ('line', 3), ('return', 3), ('return', 1)
+    ]
+
+def test_line_tracing_nested_if_with_and():
+    def func_nested_if():
+        if A:
+            if B:
+                if C:
+                    if D:
+                        return False
+            else:
+                return False
+        elif E and F:
+            return True
+    A = B = True
+    C = False
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    func_nested_if()
+    sys.settrace(None)
+    assert ('line', 7) not in tr
+    assert tr == [
+        ('call', 0), ('line', 1), ('line', 2), ('line', 3),
+        ('return', 3)
+    ]
+
+    tr[:] = []
+    A = False
+    E = F = False
+    sys.settrace(tracelines)
+    func_nested_if()
+    sys.settrace(None)
+    assert tr[-1] == ('return', 8)
+
+
+def test_line_tracing_nested_except():
+    def func():
+        try:
+            try:
+                pass
+            except Exception:
+                pass
+        except Exception:
+            pass
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    func()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1), ('line', 2), ('line', 3),
+        ('return', 3)
+    ]
+
+def test_line_tracing_except_no_exception():
+    def tryexceptconsts():
+        try:
+            2
+        except:
+            4
+        finally:
+            6
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    tryexceptconsts()
+    sys.settrace(None)
+    assert tr == [('call', 0), ('line', 1), ('line', 2), ('line', 6), ('return', 6)]
+
+def test_line_tracing_return_through_finally():
+    def return_through_finally():
+        try:
+            return 2
+        finally:
+            4
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    return_through_finally()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0),
+        ('line', 1),
+        ('line', 2),
+        ('line', 4),
+        ('return', 4)
+    ]
+
+def test_line_tracing_bug_exception_yieldfrom():
+    async def arange(n):
+        for i in range(n):
+            yield i
+    async def f():
+        async for i in arange(3):
+            if i > 100:
+                break # should never be traced
+
+    tr, tracelines = make_tracelines(f)
+
+    coro = f()
+    try:
+        sys.settrace(tracelines)
+        coro.send(None)
+    except Exception:
+        pass
+    finally:
+        sys.settrace(None)
+    assert tr == [
+        ('call', 0), ('line', 1),
+            ('call', -3), ('line', -2), ('line', -1),
+            ('return', -1), ('exception', 1),
+        ('line', 2), ('line', 1),
+            ('call', -1), ('line', -2), ('line', -1),
+            ('return', -1), ('exception', 1),
+        ('line', 2), ('line', 1),
+            ('call', -1), ('line', -2), ('line', -1),
+            ('return', -1), ('exception', 1),
+        ('line', 2), ('line', 1),
+            ('call', -1), ('line', -2),
+            ('return', -2), ('exception', 1),
+        ('return', 1)]
+
+def test_line_tracing_bug_invalid_positions():
+    def breakit():
+        i = 0
+        i += 1
+        return i * 3
+    breakit.__code__ = breakit.__code__.replace(co_linetable=b'\x01\x02')
+    tr, tracelines = make_tracelines()
+    sys.settrace(tracelines)
+    breakit()
+    sys.settrace(None)
+    assert tr == [('call', 0), ('return', 0)]
 
 def test_opcode_tracing():
     import sys
@@ -780,8 +1070,6 @@ def test_opcode_tracing():
         ('g', 'return', 6, 6, 1),
         ('f', 'opcode', None, 6, 1),
         ('f', 'return', 6, 6, 1)]
-
-test_opcode_tracing()
 
 def test_preserve_exc_state_in_generators():
     import sys

@@ -24,7 +24,7 @@ from pypy.tool import stdlib_opcode
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 SETUP_ASYNC_WITH POP_BLOCK YIELD_VALUE
-NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST
+NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST CALL_FUNCTION
 JUMP_IF_FALSE_OR_POP JUMP_IF_TRUE_OR_POP POP_JUMP_IF_FALSE POP_JUMP_IF_TRUE
 JUMP_IF_NOT_EXC_MATCH JUMP_ABSOLUTE JUMP_FORWARD GET_ITER GET_AITER
 RETURN_VALUE RERAISE RAISE_VARARGS POP_EXCEPT
@@ -35,8 +35,6 @@ class FrameDebugData(object):
     """ A small object that holds debug data for tracing
     """
     w_f_trace                = None
-    instr_lb                 = 0
-    instr_ub                 = 0
     instr_prev_plus_one      = 0
     f_lineno                 = 0      # current lineno for tracing
     is_being_profiled        = False
@@ -46,8 +44,8 @@ class FrameDebugData(object):
     w_locals                 = None
     hidden_operationerr      = None
 
-    def __init__(self, pycode):
-        self.f_lineno = pycode.co_firstlineno
+    def __init__(self, pycode, init_lineno=-1):
+        self.f_lineno = init_lineno
         self.w_globals = pycode.w_globals
 
 class PyFrame(W_Root):
@@ -123,9 +121,9 @@ class PyFrame(W_Root):
     def getdebug(self):
         return self.debugdata
 
-    def getorcreatedebug(self):
+    def getorcreatedebug(self, init_lineno=-1):
         if self.debugdata is None:
-            self.debugdata = FrameDebugData(self.pycode)
+            self.debugdata = FrameDebugData(self.pycode, init_lineno)
         return self.debugdata
 
     def get_w_globals(self):
@@ -692,7 +690,11 @@ class PyFrame(W_Root):
         if self.get_w_f_trace() is None:
             return space.newint(self.get_last_lineno())
         else:
-            return space.newint(self.getorcreatedebug().f_lineno)
+            f_lineno = self.getorcreatedebug().f_lineno
+            if f_lineno == -1:
+                # means first line number, but we haven's executed anything yet
+                f_lineno = self.pycode.co_firstlineno
+            return space.newint(f_lineno)
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Change the line number of the instruction currently being executed."
@@ -726,7 +728,7 @@ class PyFrame(W_Root):
             raise oefmt(space.w_ValueError,
                         "line %d comes before the current code block", new_lineno)
 
-        lines = marklines(self.pycode)
+        lines = self.pycode._marklines()
         x = first_line_not_before(lines, new_lineno)
 
 
@@ -885,22 +887,6 @@ JUMP_BLOCKSTACK_LOOP = 'l'
 JUMP_BLOCKSTACK_TRY = 't'
 JUMP_BLOCKSTACK_EXCEPT = 'e'
 
-def marklines(code):
-    res = [-1] * (len(code.co_code) // 2)
-
-    lnotab = code.co_lnotab
-    addr = 0
-    line = code.co_firstlineno
-    res[0] = line
-    for offset in xrange(0, len(lnotab), 2):
-        addr += ord(lnotab[offset])
-        line_offset = ord(lnotab[offset + 1])
-        if line_offset >= 0x80:
-            line_offset -= 0x100
-        line += line_offset
-        res[addr // 2] = line
-    return res
-
 def first_line_not_before(lines, line):
     result = sys.maxint
     for index, l in enumerate(lines):
@@ -928,14 +914,14 @@ def markblocks(code):
                 opcode == POP_JUMP_IF_TRUE or
                 opcode == JUMP_IF_NOT_EXC_MATCH
             ):
-                j = _get_arg(code.co_code, i)
+                j = _get_arg(code.co_code, i) * 2
                 if blocks[j // 2] is None and j < i:
                     todo = True
                 assert blocks[j // 2] is None or blocks[j // 2] == block_stack
                 blocks[j // 2] = block_stack
                 blocks[i // 2 + 1] = block_stack
             elif opcode == JUMP_ABSOLUTE:
-                j = _get_arg(code.co_code, i)
+                j = _get_arg(code.co_code, i) * 2
                 if blocks[j // 2] is None and j < i:
                     todo = True
                 assert blocks[j // 2] is None or blocks[j // 2] == block_stack
@@ -944,7 +930,7 @@ def markblocks(code):
                 opcode == SETUP_FINALLY or
                 opcode == SETUP_EXCEPT
             ):
-                j = _get_arg(code.co_code, i) + i + 2
+                j = _get_arg(code.co_code, i) * 2 + i + 2
                 stack = block_stack + JUMP_BLOCKSTACK_EXCEPT
                 assert blocks[j // 2] is None or blocks[j // 2] == stack
                 blocks[j // 2] = stack
@@ -954,26 +940,31 @@ def markblocks(code):
                 opcode == SETUP_WITH or
                 opcode == SETUP_ASYNC_WITH
             ):
-                j = _get_arg(code.co_code, i) + i + 2
+                j = _get_arg(code.co_code, i) * 2 + i + 2
                 stack = block_stack + JUMP_BLOCKSTACK_EXCEPT
                 assert blocks[j // 2] is None or blocks[j // 2] == stack
                 blocks[j // 2] = stack
                 block_stack = block_stack + JUMP_BLOCKSTACK_WITH
                 blocks[i // 2 + 1] = block_stack
             elif opcode == JUMP_FORWARD:
-                j = _get_arg(code.co_code, i) + i + 2
+                j = _get_arg(code.co_code, i) * 2 + i + 2
                 assert blocks[j // 2] is None or blocks[j // 2] == block_stack
                 blocks[j // 2] = block_stack
             elif (
                 opcode == GET_ITER or
                 opcode == GET_AITER
             ):
-                block_stack = block_stack + JUMP_BLOCKSTACK_LOOP
+                if i + 2 < len(code.co_code):
+                    next_opcode = ord(code.co_code[i + 2])
+                else:
+                    next_opcode = NOP
+                if next_opcode != CALL_FUNCTION:
+                    block_stack = block_stack + JUMP_BLOCKSTACK_LOOP
                 blocks[i // 2 + 1] = block_stack
             elif opcode == FOR_ITER:
                 blocks[i // 2 + 1] = block_stack
                 block_stack = pop_simulated_stack(block_stack)
-                j = _get_arg(code.co_code, i) + i + 2
+                j = _get_arg(code.co_code, i) * 2 + i + 2
                 assert blocks[j // 2] is None or blocks[j // 2] == block_stack
                 blocks[j // 2] = block_stack
             elif (

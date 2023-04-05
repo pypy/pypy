@@ -95,9 +95,9 @@ class Scope(object):
             new_role |= old_role
         if self.comp_iter_target:
             if new_role & (SYM_GLOBAL | SYM_NONLOCAL):
-                raise SyntaxError(
+                self.error(
                     "comprehension inner loop cannot rebind assignment expression target '%s'" % identifier,
-                    self.lineno, self.col_offset)
+                    ast_node)
             new_role |= SYM_COMP_ITER
         self.roles[mangled] = new_role
         if role & SYM_PARAM:
@@ -266,6 +266,7 @@ class FunctionScope(Scope):
         self.has_variable_arg = False
         self.has_keywords_arg = False
         self.is_generator = False
+        self.yield_node = None
         self.has_yield_inside_try = False
         self.optimized = True
         self.return_with_value = False
@@ -279,11 +280,13 @@ class FunctionScope(Scope):
 
     def note_yield(self, yield_node):
         self.is_generator = True
+        self.yield_node = yield_node
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
 
     def note_yieldFrom(self, yield_node):
         self.is_generator = True
+        self.yield_node = yield_node
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
 
@@ -388,7 +391,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         raise SyntaxError(msg, node.lineno, node.col_offset + 1,
                           filename=self.compile_info.filename,
                           end_lineno=node.end_lineno,
-                          end_offset=node.end_col_offset)
+                          end_offset=node.end_col_offset + 1)
 
     def push_scope(self, scope, node):
         """Push a child scope."""
@@ -505,10 +508,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_ImportFrom(self, imp):
         for alias in imp.names:
-            if self._visit_alias(alias):
+            node = self._visit_alias(alias)
+            if node:
                 if self.scope.note_import_star(imp):
                     msg = "import * only allowed at module level"
-                    self.error(msg, imp)
+                    self.error(msg, node)
 
     def _visit_alias(self, alias):
         assert isinstance(alias, ast.alias)
@@ -517,12 +521,12 @@ class SymtableBuilder(ast.GenericASTVisitor):
         else:
             store_name = alias.name
             if store_name == "*":
-                return True
+                return alias
             dot = store_name.find(".")
             if dot > 0:
                 store_name = store_name[:dot]
         self.note_symbol(store_name, SYM_ASSIGNED)
-        return False
+        return None
 
     def visit_alias(self, alias):
         self._visit_alias(alias)
@@ -643,7 +647,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if new_scope.is_generator:
             msg = "'yield' inside %s" % kind
             space = self.space
-            self.error(msg, node)
+            assert new_scope.yield_node is not None
+            self.error(msg, new_scope.yield_node)
 
         new_scope.is_generator |= isinstance(node, ast.GeneratorExp)
 

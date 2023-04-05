@@ -2,6 +2,7 @@
 
 import math
 import os
+import sys
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib import rstring
 
@@ -21,19 +22,25 @@ is_absolute_jump = misc.dict_to_switch(
 class StackDepthComputationError(Exception):
     pass
 
+UNKNOWN_POSITION = (-1, -1, -1, -1)
 
 class Instruction(object):
     """Represents a single opcode."""
 
     _stack_depth_after = -99 # used before translation only
 
-    def __init__(self, opcode, arg=0):
+    def __init__(self, opcode, arg=0, position_info=UNKNOWN_POSITION):
         self.opcode = opcode
         self.arg = arg
         if opcode < ops.HAVE_ARGUMENT:
             assert arg == 0
-        self.lineno = 0
+        self.position_info = position_info
         self.jump = None
+
+    def copy(self):
+        res = Instruction(self.opcode, self.arg, self.position_info)
+        res.jump = self.jump
+        return res
 
     def size(self):
         """Return the size of bytes of this instruction when it is
@@ -74,17 +81,25 @@ class Instruction(object):
         """
         self.jump = target
 
+    def update_position_if_not_set(self, position_info):
+        if self.position_info[0] < 0:
+            self.position_info = position_info
+        else:
+            position_info = self.position_info
+        # returns the value of self.position_info, whether it was written to or
+        # not
+        return position_info
+
     def __repr__(self):
-        data = [ops.opname[self.opcode]]
-        template = "<%s"
+        data = ["<", ops.opname[self.opcode]]
         if self.opcode >= ops.HAVE_ARGUMENT:
-            data.append(self.arg)
-            template += " %i"
+            data.append(" ")
+            data.append(str(self.arg))
             if self.jump is not None:
-                data.append(self.jump)
-                template += " %s"
-        template += ">"
-        return template % tuple(data)
+                data.append(" ")
+                data.append(str(self.jump))
+        data.append(" lineno=%s>" % (self.position_info[0], ))
+        return "".join(data)
 
 
 class Block(object):
@@ -105,12 +120,37 @@ class Block(object):
         # execution of the instructions in the block (return, raise,
         # unconditional jumps)
         self.cant_add_instructions = False
+        self.exits_function = False
         self.auto_inserted_return = False
+
+    def emit_instr(self, instr):
+        self.instructions.append(instr)
+        op = instr.opcode
+        if (
+                op == ops.RETURN_VALUE or
+                op == ops.RAISE_VARARGS or
+                op == ops.RERAISE
+        ):
+            self.exits_function = True
+            self.cant_add_instructions = True
+        elif (
+                op == ops.JUMP_FORWARD or
+                op == ops.JUMP_ABSOLUTE
+        ):
+            self.cant_add_instructions = True
 
     def _post_order_see(self, stack):
         if self.marked == 0:
             self.marked = 1
             stack.append(self)
+
+    def copy(self):
+        copy = Block()
+        copy.auto_inserted_return = self.auto_inserted_return
+        for instr in self.instructions:
+            copy.emit_instr(instr.copy())
+        return copy
+
 
     def post_order(self):
         """Return this block and its children in post order.  This means
@@ -144,6 +184,8 @@ class Block(object):
                     resultblocks.append(current)
                     stack.pop()
         resultblocks.reverse()
+        for block in resultblocks:
+            block.marked = 0
         return resultblocks
 
     def code_size(self):
@@ -162,6 +204,65 @@ class Block(object):
             instr.encode(code)
         assert code.getlength() == startsize + self.code_size()
         assert code.getlength() & 1 == 0
+
+    def jump_thread(self):
+        # do jump threading
+        # 1) skip empty .next_block
+        if not self.cant_add_instructions:
+            while self.next_block is not None and not self.next_block.instructions:
+                self.next_block = self.next_block.next_block
+
+        # 2) jump-thread instructions
+        i = 0
+        while i < len(self.instructions):
+            instr = self.instructions[i]
+            instr_lineno = instr.position_info[0]
+            i += 1
+            target = instr.jump
+            if not target:
+                continue
+            # replace a jump to an empty block with a jump to its successor
+            while not target.instructions:
+                target = instr.jump = target.next_block
+                assert target is not None
+            opcode = instr.opcode
+            target_instr = target.instructions[0]
+            target_lineno = target_instr.position_info[0]
+            target_opcode = target_instr.opcode
+            if ((target_opcode == ops.JUMP_ABSOLUTE or target_opcode == ops.JUMP_FORWARD) and
+                    target_instr.jump.instructions and
+                    target_instr.jump.instructions[0].position_info[0] == target_lineno):
+                # we have an unconditional jump where the jump instruction and
+                # the target of the jump have the same lineno, so it's safe to
+                # skip the jump
+                pass
+            elif target_lineno != instr_lineno and target_lineno != -1 and instr_lineno != -1:
+                continue # don't jump thread to not lose lines
+            # Optimize an unconditional jump going to another
+            # unconditional jump.
+            if opcode == ops.JUMP_ABSOLUTE or opcode == ops.JUMP_FORWARD:
+                if target_opcode == ops.JUMP_ABSOLUTE:
+                    instr.opcode = ops.JUMP_ABSOLUTE
+                    instr.jump = target_instr.jump
+                    i -= 1 # look at this instruction again
+                elif target_opcode == ops.JUMP_FORWARD:
+                    instr.jump = target_instr.jump
+                    i -= 1 # look at this instruction again
+                elif target_opcode == ops.RETURN_VALUE:
+                    # Replace JUMP_* to a RETURN into
+                    # just a RETURN
+                    instr.opcode = ops.RETURN_VALUE
+                    instr.jump = None
+                continue
+            if (opcode == ops.POP_JUMP_IF_FALSE or
+                  opcode == ops.POP_JUMP_IF_TRUE or
+                  opcode == ops.JUMP_IF_FALSE_OR_POP or
+                  opcode == ops.JUMP_IF_TRUE_OR_POP
+            ):
+                if (target_opcode == ops.JUMP_ABSOLUTE or
+                        target_opcode == ops.JUMP_FORWARD):
+                    instr.jump = target_instr.jump
+                    i -= 1 # look at this instruction again
 
 
 def _make_index_dict_filter(syms, flag1, flag2):
@@ -189,6 +290,7 @@ def _iter_to_dict(iterable, offset=0):
 
 class PythonCodeMaker(ast.ASTVisitor):
     """Knows how to assemble a PyCode object."""
+    _debug_flag = False
 
     def __init__(self, space, name, first_lineno, scope, compile_info):
         self.space = space
@@ -210,7 +312,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.argcount = 0
         self.posonlyargcount = 0
         self.kwonlyargcount = 0
-        self.lineno = 0
+        self.no_position_info()
         self.add_none_to_final_return = True
         self.match_context = None
 
@@ -220,6 +322,10 @@ class PythonCodeMaker(ast.ASTVisitor):
             assert block.offset == current_off
             for instr in block.instructions:
                 current_off += instr.size()
+
+    def view(self, blocks=None):
+        from pypy.interpreter.astcompiler.codegen import view
+        return view(blocks or self.first_block)
 
     def new_block(self):
         return Block()
@@ -244,31 +350,18 @@ class PythonCodeMaker(ast.ASTVisitor):
     def all_dead_code(self):
         return DeadCode(self)
 
-    def emit_instr(self, instr):
-        self.current_block.instructions.append(instr)
-        op = instr.opcode
-        if (
-                op == ops.RETURN_VALUE or
-                op == ops.RAISE_VARARGS or
-                op == ops.JUMP_FORWARD or
-                op == ops.JUMP_ABSOLUTE
-        ):
-            self.current_block.cant_add_instructions = True
-
     def emit_op(self, op):
         """Emit an opcode without an argument."""
-        instr = Instruction(op)
-        instr.lineno = self.lineno
+        instr = Instruction(op, position_info=self.position_info)
         if not self.is_dead_code():
-            self.emit_instr(instr)
+            self.current_block.emit_instr(instr)
         return instr
 
     def emit_op_arg(self, op, arg):
         """Emit an opcode with an integer argument."""
-        instr = Instruction(op, arg)
-        instr.lineno = self.lineno
+        instr = Instruction(op, arg, position_info=self.position_info)
         if not self.is_dead_code():
-            self.emit_instr(instr)
+            self.current_block.emit_instr(instr)
 
     def emit_rot_n(self, arg):
         if arg == 2:
@@ -292,6 +385,15 @@ class PythonCodeMaker(ast.ASTVisitor):
         from pypy.interpreter.astcompiler.codegen import compare_operations
         opcode, op_kind = compare_operations(ast_op_kind)
         self.emit_op_arg(opcode, op_kind)
+
+    def emit_line_tracing_nop(self, node=None):
+        old_position_info = UNKNOWN_POSITION
+        if node:
+            old_position_info = self.position_info
+            self.update_position(node)
+        self.emit_op(ops.NOP)
+        if node:
+            self.position_info = old_position_info
 
     def add_name(self, container, name):
         """Get the index of a name in container."""
@@ -331,9 +433,19 @@ class PythonCodeMaker(ast.ASTVisitor):
         index = self.add_const(obj)
         self.emit_op_arg(ops.LOAD_CONST, index)
 
+    @specialize.argtype(1)
     def update_position(self, node):
         """Change the position for the next instructions to that of node."""
-        self.lineno = node.lineno
+        if self.is_dead_code():
+            return self.position_info
+        old_position_info = self.position_info
+        self.position_info = (node.lineno, node.end_lineno, node.col_offset, node.end_col_offset)
+        return old_position_info
+
+    def no_position_info(self):
+        if self.is_dead_code():
+            return
+        self.position_info = (-1, ) * 4
 
     def new_match_context(self):
         return MatchContext(self)
@@ -363,41 +475,12 @@ class PythonCodeMaker(ast.ASTVisitor):
                     offset += size
                     if instr.jump is not None:
                         target = instr.jump
-                        op = instr.opcode
-                        # Optimize an unconditional jump going to another
-                        # unconditional jump.
-                        if op == ops.JUMP_ABSOLUTE or op == ops.JUMP_FORWARD:
-                            if target.instructions:
-                                target_op = target.instructions[0].opcode
-                                if target_op == ops.JUMP_ABSOLUTE:
-                                    target = target.instructions[0].jump
-                                    instr.opcode = ops.JUMP_ABSOLUTE
-                                elif target_op == ops.RETURN_VALUE:
-                                    # Replace JUMP_* to a RETURN into
-                                    # just a RETURN
-                                    instr.opcode = ops.RETURN_VALUE
-                                    instr.arg = 0
-                                    instr.jump = None
-                                    # The size of the code maybe have changed,
-                                    # we have to trigger another pass
-                                    if instr.size() != size:
-                                        force_redo = True
-                                    continue
-                        elif target.instructions and (
-                                op == ops.POP_JUMP_IF_FALSE or
-                                op == ops.POP_JUMP_IF_TRUE or
-                                op == ops.JUMP_IF_FALSE_OR_POP or
-                                op == ops.JUMP_IF_TRUE_OR_POP):
-                            target_op = target.instructions[0]
-                            if (target_op.opcode == ops.JUMP_ABSOLUTE or
-                                    target_op.opcode == ops.JUMP_FORWARD):
-                                target = target_op.jump
-                                instr.jump = target
                         if is_absolute_jump(instr.opcode):
                             jump_arg = target.offset
                         else:
                             jump_arg = target.offset - offset
-                            assert jump_arg >= 0
+                        assert jump_arg >= 0
+                        jump_arg //= 2
                         instr.arg = jump_arg
                         if instr.size() != size:
                             force_redo = True
@@ -513,23 +596,15 @@ class PythonCodeMaker(ast.ASTVisitor):
                 self._next_stack_depth_walk(block.next_block, depth, (block, None))
         return depth
 
-    def _build_lnotab(self, blocks):
-        """Build the line number table for tracebacks and tracing."""
-        current_line = self.first_lineno
-        current_off = 0
+    def _build_positions(self, blocks):
+        """Build the column offset table (with end column offsets)."""
+        from pypy.interpreter.location import encode_single_position
         table = rstring.StringBuilder()
         for block in blocks:
-            offset = block.offset
             for instr in block.instructions:
-                if instr.lineno:
-                    # compute deltas
-                    line = instr.lineno - current_line
-                    addr = offset - current_off
-                    if line:
-                        _encode_lnotab_pair(addr, line, table)
-                        current_line = instr.lineno
-                        current_off = offset
-                offset += instr.size()
+                encode_single_position(table, instr.position_info, self.first_lineno)
+                for extra in range((instr.size() - 2) // 2):
+                    encode_single_position(table, UNKNOWN_POSITION, self.first_lineno)
         return table.build()
 
     def _build_code(self, blocks, size):
@@ -538,24 +613,106 @@ class PythonCodeMaker(ast.ASTVisitor):
             block.get_code(bytecode)
         return bytecode.build()
 
-    def assemble(self):
-        """Build a PyCode object."""
+    def jump_thread(self, blocks):
+        for block in blocks:
+            block.jump_thread()
+
+    def compute_predecessors_in_marked(self, blocks):
+        # compute predecessors, use the 'marked' attribute for it
+        def increase_incoming(block, todo):
+            block.marked += 1
+            if block.marked == 1:
+                todo.append(block)
+        for block in blocks:
+            block.marked = 0
+        self.first_block.marked = 1
+        todo = [self.first_block]
+        while todo:
+            block = todo.pop()
+            # mark next_block, but only if the edge can actually be taken
+            if block.next_block and not block.cant_add_instructions:
+                increase_incoming(block.next_block, todo)
+            for instr in block.instructions:
+                if instr.jump:
+                    increase_incoming(instr.jump, todo)
+
+    def propagate_positions(self, blocks):
+        # here block.marked stores the number of predecessor blocks.
+        # use that info to propagate position information
+        for block in blocks:
+            if not block.instructions or block.marked == 0:
+                continue
+            prev_position = UNKNOWN_POSITION
+            for instr in block.instructions:
+                prev_position = instr.update_position_if_not_set(prev_position)
+                if instr.jump is not None and instr.jump.marked == 1 and instr.jump.instructions:
+                    if instr.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
+                        continue # don't do this for exception handlers
+                    instr.jump.instructions[0].update_position_if_not_set(prev_position)
+            if block.next_block and block.next_block.marked == 1 and block.instructions:
+                block.instructions[0].update_position_if_not_set(prev_position)
+
+    def optimize_unreachable_code(self, blocks):
+        # block.marked still stores the predecessor information. use it to
+        # remove all instructions from unreachable blocks, and optimize
+        # JUMP_FORWARD instructions that go to the next block in the sequence
+        # anyway. reset block.marked afterwards
+        last_reachable = None
+        for i, block in enumerate(blocks):
+            # for blocks with 0 predecessors, don't emit any code for them by
+            # setting the instructions to the empty list
+            if block.marked == 0:
+                block.instructions = []
+                block.cant_add_instructions = False
+                continue
+            last_reachable = block
+            if block.instructions and i < len(blocks) - 1:
+                lastop = block.instructions[-1]
+                if lastop.opcode == ops.JUMP_FORWARD:
+                    # find the block we would fall through
+                    target = None
+                    for j in range(i + 1, len(blocks)):
+                        target = blocks[j]
+                        if target.marked:
+                            break
+                    assert target is not None
+                    if target is lastop.jump:
+                        lastop.opcode = ops.NOP
+                        lastop.jump = None
+                        block.next_block = blocks[i + 1]
+            block.marked = 0
+        # the last reachable block must have cant_add_instructions
+        assert last_reachable is not None and last_reachable.cant_add_instructions
+
+    def _finalize_blocks(self):
         # Unless it's interactive, every code object must end in a return.
+        if self._debug_flag:
+            import pdb; pdb.set_trace()
         if not self.current_block.cant_add_instructions:
+            self.no_position_info() # will be duplicated by duplicate_exits_without_lineno
             if self.add_none_to_final_return:
                 self.load_const(self.space.w_None)
             self.emit_op(ops.RETURN_VALUE)
             self.current_block.auto_inserted_return = True
+        blocks = self.first_block.post_order()
+        remove_redundant_nops(blocks)
+        self.jump_thread(blocks)
+        self.compute_predecessors_in_marked(blocks)
+        self.duplicate_exits_without_lineno(blocks)
+        self.propagate_positions(blocks)
+        self.optimize_unreachable_code(blocks)
+        mininum_lineno = remove_redundant_nops(blocks)
         # Set the first lineno if it is not already explicitly set.
         if self.first_lineno == -1:
-            if self.first_block.instructions:
-                self.first_lineno = self.first_block.instructions[0].lineno
-            else:
-                self.first_lineno = 1
-        blocks = self.first_block.post_order()
+            self.first_lineno = mininum_lineno
         size = self._resolve_block_targets(blocks)
-        lnotab = self._build_lnotab(blocks)
+        return blocks, size
+
+    def assemble(self):
+        """Build a PyCode object."""
+        blocks, size = self._finalize_blocks()
         stack_depth = self._stacksize(blocks)
+        positions = self._build_positions(blocks)
         consts_w = self.consts_w[:]
         names = _list_from_dict(self.names)
         var_names = _list_from_dict(self.var_names)
@@ -565,6 +722,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         bytecode = self._build_code(blocks, size)
         # (Only) inherit compilerflags in PyCF_MASK
         flags |= (self.compile_info.flags & consts.PyCF_MASK)
+        if not we_are_translated():
+            self._final_blocks = blocks
         return PyCode(self.space,
                       self.argcount,
                       self.posonlyargcount,
@@ -579,10 +738,102 @@ class PythonCodeMaker(ast.ASTVisitor):
                       self.compile_info.filename,
                       self.name,
                       self.first_lineno,
-                      lnotab,
+                      positions,
                       free_names,
                       cell_names,
                       self.compile_info.hidden_applevel)
+
+    def duplicate_exits_without_lineno(self, blocks):
+        from pypy.interpreter.astcompiler.codegen import view
+        def should_mark_block(block):
+            for instr in block.instructions:
+                if instr.position_info[0] != -1:
+                    return False
+                if instr.jump and (instr.jump.marked & 1) == 0:
+                    return False
+            if block.next_block and not block.cant_add_instructions:
+                return (block.next_block.marked & 1) == 1
+            return True
+        # this is a bit of a mess. we want *two* pieces of info in marked, the
+        # number of predecessors and the "do I need to duplicate". left-shift
+        # marked to have a bit free for the latter
+        for block in blocks:
+            block.marked <<= 1
+
+        # mark blocks that are paths to an exit without meeting an instruction
+        # with a line number. uses the fact that blocks is a post-order
+        any_mark = False
+        for i in range(len(blocks) - 1, -1, -1):
+            block = blocks[i]
+            # mark block if all instructions in block have -1 as the lineno
+            # *and* all target blocks are also marked
+            mark = should_mark_block(block)
+            block.marked |= mark
+            any_mark |= mark
+
+        i = 0
+        if not any_mark:
+            i = len(blocks)
+
+        while i < len(blocks):
+            block = blocks[i]
+            i += 1
+            if (block.marked >> 1) == 0:
+                # dead block
+                continue
+            j = 0
+            while j < len(block.instructions):
+                op = block.instructions[j]
+                j += 1
+                if op.jump is None:
+                    continue
+                if op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
+                    continue # don't do this for exception handlers
+                target = op.jump
+                # only do something if the target has no position info (lowest
+                # bit set)
+                if not target.marked & 1:
+                    continue
+
+                # path leading to automatically inserted return or reraise,
+                # without line number
+
+                # if it's an unconditional jump, duplicate it
+                if op.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+                    block.instructions.pop()
+                    j -= 1
+                    target.marked -= 2 # one fewer incoming links
+                    for instr in target.instructions:
+                        instr = instr.copy()
+                        if instr.position_info[0] == -1:
+                            instr.position_info = op.position_info
+                        copy = instr.copy()
+                        if copy.jump:
+                            copy.jump.marked += 2
+                        block.emit_instr(copy)
+                elif (target.marked >> 1) > 1:
+                    # copy the block, it has more than one predecessor
+                    target.marked -= 2 # one fewer incoming links for old target
+                    newtarget = target.copy()
+                    newtarget.marked = 1 << 1 # new target has one incoming link
+                    newtarget.instructions[0].position_info = op.position_info
+                    # maintain marked correctly:
+                    if newtarget.next_block:
+                        newtarget.next_block.marked += 2
+                    for copied_op in newtarget.instructions:
+                        if copied_op.jump:
+                            copied_op.jump.marked += 2
+                    op.jump = newtarget
+                    blocks.append(newtarget)
+
+        for block in blocks:
+            if (block.instructions and block.next_block and
+                    not block.cant_add_instructions and
+                    block.next_block.marked & 1):
+                # now assign the linenumber to the "fallthrough" implicit
+                # return block too
+                block.next_block.instructions[0].position_info = block.instructions[-1].position_info
+            block.marked >>= 1
 
 
 class DeadCode(object):
@@ -672,6 +923,43 @@ class SubMatchContext(object):
     def __exit__(self, *args):
         self.codegen.match_context.allow_always_passing = self.old_value
 
+def _remove_redundant_nops(block):
+    mininum_lineno = sys.maxint
+    prevlineno = -1
+    source = 0
+    dest = 0
+    instructions = block.instructions
+    while source < len(instructions):
+        op = instructions[source]
+        source += 1
+        lineno = op.position_info[0]
+        if 0 < lineno < mininum_lineno:
+            mininum_lineno = lineno
+        if op.opcode == ops.NOP:
+            if lineno == -1 or lineno == prevlineno:
+                continue
+            if source < len(instructions):
+                if lineno == instructions[source].position_info[0]:
+                    continue
+            else:
+                # last instruction in block is a NOP, check the next block
+                if (block.next_block.instructions and
+                        lineno == block.next_block.instructions[0].position_info[0]):
+                    continue
+        prevlineno = lineno
+        instructions[dest] = op
+        dest += 1
+    if dest != len(instructions):
+        del instructions[dest:]
+    return mininum_lineno
+
+def remove_redundant_nops(blocks):
+    mininum_lineno = sys.maxint
+    for block in blocks:
+        mininum_lineno = min(_remove_redundant_nops(block), mininum_lineno)
+    if mininum_lineno == sys.maxint:
+        mininum_lineno = 1
+    return mininum_lineno
 
 def _list_from_dict(d, offset=0):
     result = [None] * len(d)
@@ -679,29 +967,6 @@ def _list_from_dict(d, offset=0):
         result[index - offset] = obj
     return result
 
-
-def _encode_lnotab_pair(addr, line, table):
-    while addr > 255:
-        table.append(chr(255))
-        table.append(chr(0))
-        addr -= 255
-    while line < -128:
-        table.append(chr(addr))
-        table.append(chr(-128 + 256))
-        line += 128
-        addr = 0
-    while line > 127:
-        table.append(chr(addr))
-        table.append(chr(127))
-        line -= 127
-        addr = 0
-    table.append(chr(addr))
-
-    # store as signed char
-    assert -128 <= line <= 127
-    if line < 0:
-        line += 256
-    table.append(chr(line))
 
 _static_opcode_stack_effects = {
     ops.NOP: 0,
@@ -970,3 +1235,9 @@ def _opcode_stack_effect_jump(op):
     raise KeyError
 
 
+def _debug_print_blocks(blocks):
+    labels = {block: i for (i, block) in enumerate(blocks)}
+    for block in blocks:
+        print "L%s:" % labels[block]
+        for instruction in block.instructions:
+            print instruction

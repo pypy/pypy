@@ -40,7 +40,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 336 # bump it by 16
+pypy_incremental_magic = 384 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -77,7 +77,7 @@ def replace(self, kwds):
     for attr in ("co_argcount", "co_posonlyargcount", "co_kwonlyargcount",
                  "co_nlocals", "co_stacksize", "co_flags", "co_code",
                  "co_consts", "co_names", "co_varnames", "co_filename",
-                 "co_name", "co_firstlineno", "co_lnotab", "co_freevars",
+                 "co_name", "co_firstlineno", "co_linetable", "co_freevars",
                  "co_cellvars"):
         if attr not in kwds:
             args.append(getattr(self, attr))
@@ -96,16 +96,17 @@ class PyCode(eval.Code):
                           "co_cellvars[*]",
                           "co_code", "co_consts_w[*]", "co_filename", "w_filename",
                           "co_firstlineno", "co_flags", "co_freevars[*]",
-                          "co_lnotab", "co_names_w[*]", "co_nlocals",
+                          "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
                           "_args_as_cellvars[*]",
+                          "co_linetable",
                           "w_globals?",
                           "cell_families[*]"]
 
     def __init__(self, space,  argcount, posonlyargcount, kwonlyargcount,
                      nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
-                     name, firstlineno, lnotab, freevars, cellvars,
+                     name, firstlineno, linetable, freevars, cellvars,
                      hidden_applevel=False, magic=default_magic):
         """Initialize a new code object from parameters given by
         the pypy compiler"""
@@ -132,7 +133,7 @@ class PyCode(eval.Code):
         self.w_filename = space.newfilename(filename)
         self.co_name = name
         self.co_firstlineno = firstlineno
-        self.co_lnotab = lnotab
+        self.co_linetable = linetable
         # store the first globals object that the code object is run in in
         # here. if a frame is run in that globals object, it does not need to
         # store it at all
@@ -143,6 +144,8 @@ class PyCode(eval.Code):
         self._initialize()
         self._init_ready()
         self.new_code_hook()
+
+        self._linelist = None # lazily initialized list of line numbers
 
     def frame_stores_global(self, w_globals):
         if self.w_globals is None:
@@ -213,41 +216,6 @@ class PyCode(eval.Code):
 
     def signature(self):
         return self._signature
-
-    @classmethod
-    def _from_code(cls, space, code, hidden_applevel=False, code_hook=None):
-        """
-        Hack to initialize the code object from a real (CPython) one.
-        """
-        raise TypeError("assert reinterpretation for applevel tests is broken on PyPy3!")
-        assert isinstance(code, types.CodeType)
-        newconsts_w = [None] * len(code.co_consts)
-        num = 0
-        if code_hook is None:
-            code_hook = cls._from_code
-        for const in code.co_consts:
-            if isinstance(const, types.CodeType): # from stable compiler
-                const = code_hook(space, const, hidden_applevel, code_hook)
-            newconsts_w[num] = space.wrap(const)
-            num += 1
-        # stick the underlying CPython magic value, if the code object
-        # comes from there
-        return cls(space, code.co_argcount,
-                      getattr(code, 'co_kwonlyargcount', 0),
-                      code.co_nlocals,
-                      code.co_stacksize,
-                      code.co_flags,
-                      code.co_code,
-                      newconsts_w[:],
-                      list(code.co_names),
-                      list(code.co_varnames),
-                      code.co_filename,
-                      code.co_name,
-                      code.co_firstlineno,
-                      code.co_lnotab,
-                      list(code.co_freevars),
-                      list(code.co_cellvars),
-                      hidden_applevel, cpython_magic)
 
     def _compute_flatcall(self):
         # Speed hack!
@@ -398,13 +366,13 @@ class PyCode(eval.Code):
                  nlocals=int, stacksize=int, flags=int,
                  codestring='bytes',
                  filename='fsencode', name='text', firstlineno=int,
-                 lnotab='bytes', magic=int)
+                 linetable='bytes', magic=int)
     def descr_code__new__(space, w_subtype,
                           argcount, posonlyargcount, kwonlyargcount,
                           nlocals, stacksize, flags,
                           codestring, w_constants, w_names,
                           w_varnames, filename, name, firstlineno,
-                          lnotab, w_freevars=None, w_cellvars=None,
+                          linetable, w_freevars=None, w_cellvars=None,
                           magic=default_magic):
         if argcount < 0:
             raise oefmt(space.w_ValueError,
@@ -433,7 +401,7 @@ class PyCode(eval.Code):
             cellvars = []
         code = space.allocate_instance(PyCode, w_subtype)
         PyCode.__init__(code, space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
-                      varnames, filename, name, firstlineno, lnotab, freevars, cellvars, magic=magic)
+                      varnames, filename, name, firstlineno, linetable, freevars, cellvars, magic=magic)
         return code
 
     def descr__reduce__(self, space):
@@ -455,15 +423,46 @@ class PyCode(eval.Code):
             self.w_filename,
             space.newtext(self.co_name),
             space.newint(self.co_firstlineno),
-            space.newbytes(self.co_lnotab),
+            space.newbytes(self.co_linetable),
             space.newtuple([space.newtext(v) for v in self.co_freevars]),
             space.newtuple([space.newtext(v) for v in self.co_cellvars]),
             space.newint(self.magic),
         ]
         return space.newtuple2(new_inst, space.newtuple(tup))
 
+    def descr_positions(self, space):
+        """A list of 4-element tuples that represent the position information corresponding to each
+        instruction."""
+        from pypy.interpreter.location import _decode_entry, DecodeError
+        def w(space, i):
+            if i == -1:
+                return space.w_None
+            return space.newint(i)
+
+        if self.co_linetable == '':
+            return space.newlist([])
+
+        table_w = []
+        prev_line_no = self.co_firstlineno
+        position = 0
+        table = self.co_linetable
+        while position < len(table):
+            try:
+                lineno, end_lineno, col_offset, end_col_offset, position = _decode_entry(table, self.co_firstlineno, position)
+            except DecodeError:
+                break
+            tup_w = [
+                w(space, lineno),
+                w(space, end_lineno),
+                w(space, col_offset),
+                w(space, end_col_offset)
+            ]
+            table_w.append(space.newtuple(tup_w))
+        return space.newlist(table_w)
+
+
     def descr_replace(self, space, __args__):
-        """ replace(self, /, *, co_argcount=-1, co_posonlyargcount=-1, co_kwonlyargcount=-1, co_nlocals=-1, co_stacksize=-1, co_flags=-1, co_firstlineno=-1, co_code=None, co_consts=None, co_names=None, co_varnames=None, co_freevars=None, co_cellvars=None, co_filename=None, co_name=None, co_lnotab=None)
+        """ replace(self, /, *, co_argcount=-1, co_posonlyargcount=-1, co_kwonlyargcount=-1, co_nlocals=-1, co_stacksize=-1, co_flags=-1, co_firstlineno=-1, co_code=None, co_consts=None, co_names=None, co_varnames=None, co_freevars=None, co_cellvars=None, co_filename=None, co_name=None, co_linetable=None)
  |      Return a new code object with new specified fields.
         """
         w_args, w_kwds = __args__.topacked()
@@ -519,11 +518,47 @@ class PyCode(eval.Code):
         #     • line will either be a positive integer, or None
         return W_LineIterator(self.space, self)
 
+    def fget_co_lnotab(self, space):
+        return space.newbytes(
+            self.get_co_lnotab())
+
+    def get_co_lnotab(self):
+        from pypy.interpreter.location import linetable2lnotab
+        return linetable2lnotab(self.co_linetable, self.co_firstlineno)
+
+    @jit.elidable
+    def _get_lineno_for_pc_tracing(self, pc):
+        """ compute the lineno for a given pc. this is meant to be used when
+        tracing because it uses a bit of extra memory. """
+        from pypy.interpreter.location import _decode_entry, DecodeError
+        if self._linelist is None:
+            l = [-1] * (len(self.co_code) // 2)
+            position = 0
+            for i in range(len(l)):
+                try:
+                    tup = _decode_entry(self.co_linetable, self.co_firstlineno, position)
+                except DecodeError:
+                    break
+                position = tup[-1]
+                l[i] = tup[0]
+            self._linelist = l
+        return self._linelist[pc // 2]
+
+    def _marklines(self):
+        """ return a list of len(co_code) // 2 where every entry is -1 except
+        for those opcodes that start a new line, where the entry is the line
+        number. """
+        from pypy.interpreter.location import marklines, DecodeError
+        try:
+            return marklines(self.co_linetable, self.co_firstlineno)
+        except DecodeError:
+            return [-1] * (len(self.co_code) // 2)
+
 class W_LineIterator(W_Root):
     def __init__(self, space, w_code):
         self.space = space
         self.w_code = w_code
-        self.index = 0 # for now this is still using co_lnotab
+        self.position = 0
         self.pc = 0
         self.line = w_code.co_firstlineno
 
@@ -531,38 +566,38 @@ class W_LineIterator(W_Root):
         return self
 
     def descr_next(self):
-        space = self.space
-        if self.index == -1:
+        from pypy.interpreter.location import DecodeError
+        try:
+            return self._next()
+        except DecodeError:
+            self.position = len(self.w_code.co_linetable)
+            space = self.space
             raise OperationError(space.w_StopIteration, space.newtext(''))
-        lnotab = self.w_code.co_lnotab
-        start = addr = self.pc
-        line_start = line = self.line
-        for lnotab_index in range(self.index, len(lnotab), 2):
-            addr += ord(lnotab[lnotab_index])
-            line_offset = ord(lnotab[lnotab_index + 1])
-            if line_offset >= 0x80:
-                line_offset -= 0x100
-            line += line_offset
-            if line != line_start:
-                self.line = line
-                self.index = lnotab_index + 2
-                self.pc = addr
-                if lnotab_index == len(lnotab) - 2:
-                    addr = len(self.w_code.co_code)
-                    self.index = -1
-                    self.w_code = None
-                w_res = space.newtuple([
-                    space.newint(start),
-                    space.newint(addr),
-                    space.newint(line)
-                ])
-                return w_res
+
+    def _next(self):
+        from pypy.interpreter.location import _decode_entry
+        space = self.space
+        linetable = self.w_code.co_linetable
+        position = self.position
+        if position >= len(linetable):
+            raise OperationError(space.w_StopIteration, space.newtext(''))
+        start = self.pc
+        lineno, _, _, _, position = _decode_entry(linetable, self.w_code.co_firstlineno, position)
+        self.pc += 2
+        while position < len(linetable):
+            next_lineno, _, _, _, next_position = _decode_entry(linetable, self.w_code.co_firstlineno, position)
+            if lineno == next_lineno:
+                position = next_position
+                self.pc += 2
+                continue
+            break
+        assert self.position != position
+        self.position = position
         w_res = space.newtuple([
             space.newint(start),
-            space.newint(len(self.w_code.co_code)),
-            space.newint(line)
+            space.newint(self.pc),
+            space.newint(lineno) if lineno != -1 else space.w_None,
         ])
-        self.index = -1
         return w_res
 
 def _compute_args_as_cellvars(varnames, cellvars, argcount):

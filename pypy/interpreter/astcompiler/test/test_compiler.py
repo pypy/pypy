@@ -10,12 +10,12 @@ from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
 from pypy.interpreter.error import OperationError
 from pypy.tool import stdlib_opcode as ops
 
-def compile_with_astcompiler(expr, mode, space):
+def compile_with_astcompiler(expr, mode, space, set_debug_flag=False):
     p = pyparse.PegParser(space)
     info = pyparse.CompileInfo("<test>", mode)
     ast = p.parse_source(expr, info)
     mod = optimize.optimize_ast(space, ast, info)
-    return codegen.compile_ast(space, mod, info)
+    return codegen.compile_ast(space, mod, info, set_debug_flag)
 
 def generate_function_code(expr, space):
     from pypy.interpreter.astcompiler.ast import FunctionDef
@@ -28,8 +28,7 @@ def generate_function_code(expr, space):
     symbols = symtable.SymtableBuilder(space, ast, info)
     generator = codegen.FunctionCodeGenerator(
         space, 'function', function_ast, 1, symbols, info, qualname='function')
-    blocks = generator.first_block.post_order()
-    generator._resolve_block_targets(blocks)
+    blocks, size = generator._finalize_blocks()
     return generator, blocks
 
 class BaseTestCompiler:
@@ -649,27 +648,6 @@ a = A()
              else:
                  x = 1
         """, "x", 1
-
-    @pytest.mark.xfail
-    def test_return_lineno(self):
-        # the point of this test is to check that there is no code associated
-        # with any line greater than 4.
-        # The implict return will have the line number of the last statement
-        # so we check that that line contains exactly the implicit return None
-        self.simple_test("""\
-            def ireturn_example():    # line 1
-                global b              # line 2
-                if a == b:            # line 3
-                    b = a+1           # line 4
-                else:                 # line 5
-                    if 1: pass        # line 6
-            import dis
-            co = ireturn_example.__code__
-            linestarts = list(dis.findlinestarts(co))
-            addrreturn = linestarts[-1][0]
-            x = [addrreturn == (len(co.co_code) - 4)]
-            x.extend([lineno for addr, lineno in linestarts])
-        """, 'x', [True, 3, 4, 6])
 
     def test_type_of_constants(self):
         yield self.simple_test, "x=[0, 0.]", 'type(x[1])', float
@@ -1466,6 +1444,32 @@ def f():
             x = [y for (x, y) in dis.findlinestarts(co)]
         """, 'x', [4]
 
+    def test_instruction_positions(self):
+        yield self.simple_test, """\
+            def function():
+                return (
+                    a +
+                    b +
+                       c * (
+                        d + 2
+                       )
+                )
+
+            co = function.__code__
+            positions = co._positions()
+        """, 'positions', [
+            (3, 3, 8, 9),
+            (4, 4, 8, 9),
+            (3, 4, 8, 9),
+            (5, 5, 11, 12),
+            (6, 6, 12, 13),
+            (6, 6, 16, 17),
+            (6, 6, 12, 17),
+            (5, 7, 11, 12),
+            (3, 7, 8, 12),
+            (2, 8, 4, 5)
+        ]
+
     def test_many_args(self):
         args = ["a%i" % i for i in range(300)]
         argdef = ", ".join(args)
@@ -2051,7 +2055,7 @@ co = finally_wrong_lineno.__code__
 linestarts = list(dis.findlinestarts(co))
 x = [lineno for addr, lineno in linestarts]
     """
-        self.st(func, "x", [8, 9, 11, 9, 11, 12])
+        self.st(func, "x", [8, 9, 11])
 
     def test_lineno1_eval_bug(self):
         func = """c = compile('z', '<string>', 'eval')
@@ -2059,6 +2063,17 @@ import dis
 x = [lineno for addr, lineno in dis.findlinestarts(c)]
 """
         self.st(func, "x", [1])
+
+    def test_with_lineno_wrong(self):
+        func = """def with_wrong_lineno():
+    with ABC():
+        g()
+import dis
+co = with_wrong_lineno.__code__
+linestarts = list(dis.findlinestarts(co))
+x = [lineno for addr, lineno in linestarts]
+    """
+        self.st(func, "x", [2, 3, 2])
 
 
     def test_error_in_dead_code(self):
@@ -2081,7 +2096,7 @@ def buggy_lnotab():
         1
 x = [c for c in buggy_lnotab.__code__.co_lnotab]
 """
-        self.st(func, "x", [0, 1, 8, 8])
+        self.st(func, "x", [0, 1, 8, 8, 2, 248])
 
     def test_lnotab_backwards_in_expr(self):
         func = """
@@ -2359,6 +2374,224 @@ match x:
         self.st("x = [0x1for x in [1, 2]]", "x", [31])
 
 
+class TestLinenoChanges310(object):
+    def get_line_numbers(self, source, expected, function=False):
+        from pypy.tool.dis3 import findlinestarts
+        space = self.space
+        code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=False)
+        if function:
+            code = code.co_consts[0]
+        lines = [line for (start, line) in findlinestarts(code)]
+        min_line = min(lines) - function
+        got = [line - min_line for line in lines]
+        # check that there are no two nops with the same lineno
+        assert got == expected
+        return code
+
+    def test_linestarts_pass(self):
+        code = self.get_line_numbers("""if x:
+    pass; pass; pass; pass
+else:
+    pass; pass; pass; pass; pass; pass; pass
+pass; pass; pass; pass; pass; pass; pass
+pass; pass; pass; pass
+pass""", [0, 1, 3, 4, 5, 6])
+        assert len(code.co_code) == 16 # check that the NOPs have been reduced
+
+    def test_while_1(self):
+        code = self.get_line_numbers("""while 1:
+    if f(x):
+        pass
+    else:
+        pass
+""", [0, 1, 2, 4])
+        assert len(code.co_code) <= 20 # check that the NOPs have been reduced
+
+    def test_duplicate_returns(self):
+        code = self.get_line_numbers("""
+if x:
+    pass
+else:
+    pass
+""", [0, 1, 3])
+
+    def test_duplicate_reraise(self):
+        code = self.get_line_numbers("""
+try:
+    g()
+finally:
+    if h():
+        pass
+    else:
+        pass
+""", [0, 1, 3, 4, 6, 3, 4, 6])
+
+    def test_loop_return(self):
+        code = self.get_line_numbers("""
+x = 1               # 0
+for a in range(2):  # 1
+    if a:           # 2
+        x = 1       # 3
+    else:           # 4
+        x = 1       # 5
+""", [0, 1, 2, 3, 5, 1])
+
+    def test_dont_propage_through_exception_handler(self):
+        code = self.get_line_numbers("""
+try:
+    raise Exception("abc")
+except Exception as e:
+    if reraise:
+        raise
+    print("after raise")
+""", [0, 1, 2, 3, 4, 5, 2])
+
+    def test_nop_for_if0_if1(self):
+        code = self.get_line_numbers("""
+x = 1
+while 0:
+    pass
+if 0:
+    pass
+if 1:
+    pass
+while 1:
+    break
+x = 2
+""", [0, 1, 3, 5, 6, 7, 8, 9])
+
+    def test_async_for(self):
+        code = self.get_line_numbers("""
+async def doit_async():
+    async for letter in AsyncIteratorWrapper("abc"):
+        x = letter
+    y = 42
+""", [1, 2, 1, 3], function=True)
+
+    def test_break_in_finally(self):
+        code = self.get_line_numbers("""
+for i in range(3):
+    try:
+        break                   # line 7
+    finally:
+        f()
+""", [0, 1, 2, 4, 0])
+
+    def test_return_in_finally(self):
+        code = self.get_line_numbers("""
+def return_in_finally():
+    try:
+        return
+    finally:
+        f()
+""", [1, 2, 4], function=True)
+
+    def test_break_to_break(self):
+        code = self.get_line_numbers("""
+TRUE = 1
+while TRUE:
+    while TRUE:
+        break
+    break
+""", [0, 1, 2, 3, 4, 1])
+
+    def test_dead_code_shouldnt_impact_positions(self):
+        code = self.get_line_numbers("""
+def func():
+    try:
+        if False:
+            pass
+    except Exception:
+        X
+""", [1, 2, 4, 5, 4], function=True)
+
+    def test_nested_if_confusion(self):
+        code = self.get_line_numbers("""
+if p:
+    if a:
+        if z:
+            pass
+        else:
+            pass
+else:
+    pass
+""", [0, 1, 2, 3, 5, 7, 1])
+
+    def test_nested_for(self):
+        code = self.get_line_numbers("""
+for i in range(2):
+    for j in range(3):
+        x += i * j
+print(x)
+""", [0, 1, 2, 1, 3])
+
+    def test_ignored_const_produces_lineno(self):
+        code = self.get_line_numbers("""
+1
+'abc'
+(1, 2, 3, None)
+""", [0, 1, 2])
+
+    def test_assert_bug(self):
+        code = self.get_line_numbers("""
+try:
+    assert 0, 'hi'
+except AssertionError as e:
+    msg = str(e)
+""", [0, 1, 2, 3, 2])
+
+    def test_assert_looks_at_constants(self):
+        code = self.get_line_numbers("""
+assert 0,\\
+        "abc"
+pass
+""", [0, 1, 0])
+
+    def test_match_optimized(self):
+        code = self.get_line_numbers("""
+match x:
+    case 1 if (
+
+            True):
+        pass
+    case _:
+        pass
+print()
+""", [0, 1, 3, 1, 4, 5, 6, 7])
+
+    def test_crash_ifelse_in_except(self):
+        code = self.get_line_numbers("""
+def buggy():
+    try:
+        pass
+    except OSError as exc:
+        if a:
+            pass
+        elif b:
+            pass
+    else:
+        f
+""", [1, 2, 3, 4, 5, 6, 7, 3, 9, 6], function=True)
+
+    def test_return_in_with(self):
+        code = self.get_line_numbers("""
+def withreturn():
+    with C():
+        return
+""", [1, 2, 1], function=True)
+
+
+class TestErrorPositions(BaseTestCompiler):
+    def test_import_star_in_function_position(self):
+        src = "def f(): from _ import *"
+        exc = self.error_test(src, SyntaxError)
+        assert exc.offset == src.find("*") + 1
+
+    def test_pos_inner_node_nonsense_walrus(self):
+        exc = self.error_test("[i for i in range(5) if (juhuu := 0) for juhuu in range(5)]", SyntaxError)
+        assert exc.offset == 42
+        assert exc.end_offset == 47
+
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
     def simple_test(self, source, evalexpr, expected):
@@ -2457,39 +2690,44 @@ class AppTestCompiler:
         # compiling the produced AST previously triggered a crash
         compile(ast, '', 'exec')
 
-    def test_warn_yield(self):
+    def test_error_yield(self):
         # These are OK!
         compile("def g(): [x for x in [(yield 1)]]", "<test case>", "exec")
         compile("def g(): [x for x in [(yield from ())]]", "<test case>", "exec")
 
-        def check(snippet, error_msg):
+        def check(snippet, error_msg, offset=-1, end_offset=-1):
             try:
                 compile(snippet, "<test case>", "exec")
             except SyntaxError as exc:
                 assert exc.msg == error_msg
+                assert exc.lineno == 1
+                if offset != -1:
+                    assert exc.offset == offset
+                if end_offset != -1:
+                    assert exc.end_offset == end_offset
             else:
                 assert False, snippet
 
         check("def g(): [(yield x) for x in ()]",
-              "'yield' inside list comprehension")
+              "'yield' inside list comprehension", 12, 19)
         check("def g(): [x for x in () if not (yield x)]",
-              "'yield' inside list comprehension")
+              "'yield' inside list comprehension", 33, 40)
         check("def g(): [y for x in () for y in [(yield x)]]",
-              "'yield' inside list comprehension")
+              "'yield' inside list comprehension", 36, 43)
         check("def g(): {(yield x) for x in ()}",
-              "'yield' inside set comprehension")
+              "'yield' inside set comprehension", 12, 19)
         check("def g(): {(yield x): x for x in ()}",
-              "'yield' inside dict comprehension")
+              "'yield' inside dict comprehension", 12, 19)
         check("def g(): {x: (yield x) for x in ()}",
-              "'yield' inside dict comprehension")
+              "'yield' inside dict comprehension", 15, 22)
         check("def g(): ((yield x) for x in ())",
-              "'yield' inside generator expression")
+              "'yield' inside generator expression", 12, 19)
         check("def g(): [(yield from x) for x in ()]",
-              "'yield' inside list comprehension")
+              "'yield' inside list comprehension", 12, 24)
         check("class C: [(yield x) for x in ()]",
-              "'yield' inside list comprehension")
-        check("[(yield x) for x in ()]",
-              "'yield' inside list comprehension")
+              "'yield' inside list comprehension", 12, 19)
+        check("[(yield abcdefghi) for abcdefghi in ()]",
+              "'yield' inside list comprehension", 3, 18)
 
     def test_syntax_warnings_missing_comma(self):
         import warnings
@@ -2691,6 +2929,7 @@ class AppTestCompiler:
 class TestOptimizations:
     def count_instructions(self, source):
         code, blocks = generate_function_code(source, self.space)
+        self._code = code
         instrs = []
         for block in blocks:
             instrs.extend(block.instructions)
@@ -2717,6 +2956,7 @@ class TestOptimizations:
                     foo()
             else:
                 baz()
+            return
         """
         source2 = """def springer():
                 while a:
@@ -2724,6 +2964,7 @@ class TestOptimizations:
                     if (c
                         or d):
                         a = foo()
+                return
         """
         for source in source1, source2:
             code, blocks = generate_function_code(source, self.space)
@@ -2737,9 +2978,9 @@ class TestOptimizations:
                 offset += instr.size()
             for instr in instrs:
                 if instr.opcode == ops.POP_JUMP_IF_FALSE:
-                    if instr.arg == offset: # points to end, return will be inserted later
+                    if instr.arg * 2 == offset: # points to end, return will be inserted later
                         continue
-                    target = offsets[instr.arg]
+                    target = offsets[instr.arg * 2]
                     assert target.opcode != ops.JUMP_FORWARD and target.opcode != ops.JUMP_ABSOLUTE
 
     def test_const_fold_subscr(self):
@@ -3045,6 +3286,56 @@ class TestOptimizations:
         source = """def f(): x.m(a, b, c, y=1)"""
         counts = self.count_instructions(source)
         assert counts[ops.CALL_METHOD_KW] == 1
+
+    def test_dont_emit_dead_blocks(self):
+        source = """def f():
+        if A:
+            if B:
+                if C:
+                    if D:
+                        return False
+            else:
+                return False
+        elif E and F:
+            return True
+        """
+        counts = self.count_instructions(source)
+        assert counts[ops.RETURN_VALUE] == 7
+
+    def test_assert_looks_at_constants(self):
+        source = """def assert0():
+            assert 0,\\
+                    "abc"
+        """
+        counts = self.count_instructions(source)
+        assert counts.get(ops.POP_JUMP_IF_TRUE, 0) == 0
+
+    def test_match_optimized(self):
+        source = """def f():
+            match x:
+                case 1 if (
+
+                        True):
+                    pass
+                case _:
+                    pass
+            print()
+        """
+        counts = self.count_instructions(source)
+        assert counts.get(ops.JUMP_FORWARD, 0) == 1
+
+    @pytest.mark.xfail
+    def test_match_optimize_default(self):
+        source = """def f():
+            match x:
+                case 1:
+                    return 1
+                case _:
+                    return 2
+        """
+        counts = self.count_instructions(source)
+        assert counts.get(ops.POP_TOP, 0) == 0
+
 
 class TestHugeStackDepths:
     def run_and_check_stacksize(self, source):

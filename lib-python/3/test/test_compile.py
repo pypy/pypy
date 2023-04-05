@@ -155,7 +155,8 @@ if 1:
     def test_leading_newlines(self):
         s256 = "".join(["\n"] * 256 + ["spam"])
         co = compile(s256, 'fn', 'exec')
-        self.assertEqual(co.co_firstlineno, 1)
+        if check_impl_detail():
+            self.assertEqual(co.co_firstlineno, 1)
         self.assertEqual(list(co.co_lines()), [(0, 8, 257)])
 
     def test_literals_with_leading_zeroes(self):
@@ -925,6 +926,7 @@ if 1:
                               for (_, _, line) in func.__code__.co_lines() ]
                 self.assertEqual(lines, code_lines)
 
+    @support.cpython_only
     def test_line_number_genexp(self):
 
         def return_genexp():
@@ -940,6 +942,7 @@ if 1:
                       for (_, _, line) in genexp_code.co_lines() ]
         self.assertEqual(genexp_lines, code_lines)
 
+    @support.cpython_only
     def test_line_number_implicit_return_after_async_for(self):
 
         async def test(aseq):

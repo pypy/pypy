@@ -422,6 +422,7 @@ class TestEdgeCases(unittest.TestCase):
         self.addCleanup(sys.setprofile, sys.getprofile())
         sys.setprofile(None)
 
+    @support.cpython_only
     def test_reentrancy(self):
         def foo(*args):
             ...

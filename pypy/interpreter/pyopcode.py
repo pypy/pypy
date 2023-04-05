@@ -780,7 +780,7 @@ class __extend__(pyframe.PyFrame):
     def save_and_change_sys_exc_info(self, operationerr):
         ec = self.space.getexecutioncontext()
         last_exception = ec.sys_exc_info()
-        block = SysExcInfoRestorer(last_exception, self.lastblock)
+        block = SysExcInfoRestorer(last_exception, self.lastblock, self.last_instr)
         self.lastblock = block
         if operationerr is not None:   # otherwise, don't change sys_exc_info
             if not self.hide():
@@ -1063,14 +1063,14 @@ class __extend__(pyframe.PyFrame):
         res = self.space.contains_w(w_2, w_1) ^ oparg
         self.pushvalue(self.space.newbool(bool(res)))
 
-    def JUMP_IF_NOT_EXC_MATCH(self, oparg, next_instr):
+    def JUMP_IF_NOT_EXC_MATCH(self, target, next_instr):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
         res = self.cmp_exc_match(w_1, w_2)
         if res:
             return next_instr
         else:
-            return oparg
+            return target * 2
 
     def IMPORT_NAME(self, nameindex, next_instr):
         from pypy.module.imp.importing import import_name_fast_path
@@ -1217,11 +1217,11 @@ class __extend__(pyframe.PyFrame):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
         if self.space.reverse_debugging:
-            self._revdb_jump_backward(jumpto)
-        return jumpto
+            self._revdb_jump_backward(jumpto * 2)
+        return jumpto * 2
 
     def JUMP_FORWARD(self, jumpby, next_instr):
-        next_instr += jumpby
+        next_instr += jumpby * 2
         return next_instr
 
     def POP_JUMP_IF_FALSE(self, target, next_instr, ec):
@@ -1265,7 +1265,7 @@ class __extend__(pyframe.PyFrame):
             # iterator exhausted
             self._report_stopiteration_sometimes(w_iterator, e)
             self.popvalue()
-            next_instr += jumpby
+            next_instr += jumpby * 2
         else:
             self.pushvalue(w_nextitem)
         return next_instr
@@ -1283,19 +1283,20 @@ class __extend__(pyframe.PyFrame):
         # we always report it; if operr has already a stack trace
         # attached (likely from a custom __iter__() method), we also
         # report it; in other cases, we don't.
-        from pypy.interpreter.generator import GeneratorOrCoroutine
+        from pypy.interpreter.generator import GeneratorOrCoroutine, AsyncGenASend
         if (isinstance(w_iterator, GeneratorOrCoroutine) or
+                isinstance(w_iterator, AsyncGenASend) or
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
         block = ExceptBlock(self.valuestackdepth,
-                            next_instr + offsettoend, self.lastblock)
+                            next_instr + offsettoend * 2, self.lastblock)
         self.lastblock = block
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
         block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend, self.lastblock)
+                             next_instr + offsettoend * 2, self.lastblock)
         self.lastblock = block
 
     def SETUP_WITH(self, offsettoend, next_instr):
@@ -1310,7 +1311,7 @@ class __extend__(pyframe.PyFrame):
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)
         block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend, self.lastblock)
+                             next_instr + offsettoend * 2, self.lastblock)
         self.lastblock = block
         self.pushvalue(w_result)
 
@@ -1330,10 +1331,14 @@ class __extend__(pyframe.PyFrame):
             assert 0
         self.pushvalue(w_res)
 
-    def RERAISE(self, jumpby, next_instr):
+    def RERAISE(self, reset_last_instr, next_instr):
         unroller = self.popvalue()
         if not isinstance(unroller, SApplicationException):
             assert 0
+        if reset_last_instr:
+            block = self.lastblock
+            assert isinstance(block, SysExcInfoRestorer)
+            self.last_instr = block.last_instr
         block = self.unrollstack()
         if block is None:
             w_result = unroller.reraise()
@@ -1581,7 +1586,7 @@ class __extend__(pyframe.PyFrame):
     def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
         res = self.popvalue()
         block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend, self.lastblock)
+                             next_instr + offsettoend * 2, self.lastblock)
         self.lastblock = block
         self.pushvalue(res)
 
@@ -1900,9 +1905,10 @@ class SysExcInfoRestorer(FrameBlock):
     _immutable_ = True
     _opname = 'SYS_EXC_INFO_RESTORER' # it's not associated to any opcode
 
-    def __init__(self, operr, previous):
+    def __init__(self, operr, previous, last_instr):
         self.operr = operr
         self.previous = previous
+        self.last_instr = last_instr
 
     def handle(self, frame, unroller):
         assert False # never called
@@ -1956,29 +1962,6 @@ class FinallyBlock(FrameBlock):
         # set the current value of sys_exc_info to operationerr,
         # saving the old value in a custom type of FrameBlock
         frame.save_and_change_sys_exc_info(operationerr)
-        d = frame.getdebug()
-        if d is not None and d.w_f_trace is not None:
-            # we mostly want to force a line trace event next, by setting
-            # instr_prev_plus_one to a high value, simulating a backward jump
-            # to the line trace logic in executioncontext (CPython has the same
-            # code, see test_trace_generator_finalisation for why it's needed)
-
-            # however, we do not want to do that for the artificial non-source
-            # try:...finally: e = None; del e blocks that are introduced for
-            # delete the names of exceptions in cases like
-            # 'except ExceptionClass as e:' because then the line numbers of
-            # that finally: are the last line of the except block, which would
-            # randomly get a trace event. we detect this by having the bytecode
-            # compiler insert a NOP in such a finally. See tests
-            # test_issue_3673 and test_dont_trace_on_reraise2
-            code = frame.pycode
-            opcode = ord(code.co_code[self.handlerposition])
-            debugdata = frame.getdebug()
-            assert debugdata is not None
-            if opcode != opcodedesc.NOP.index:
-                debugdata.instr_prev_plus_one = len(frame.pycode.co_code) + 1
-            else:
-                debugdata.instr_prev_plus_one = 1
         return r_uint(self.handlerposition)   # jump to the handler
 
     def pop_block(self, frame):

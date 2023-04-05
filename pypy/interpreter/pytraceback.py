@@ -3,6 +3,7 @@ import sys
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import oefmt, OperationError
+from pypy.interpreter.location import offset2lineno
 
 # for some strange reason CPython allows the setting of the lineno to be
 # negative. I am not sure why that is useful, but let's use the most negative
@@ -10,24 +11,8 @@ from pypy.interpreter.error import oefmt, OperationError
 # from the frame and lasti"
 LINENO_NOT_COMPUTED = -sys.maxint-1
 
-def offset2lineno(c, stopat):
-    # even position in lnotab denote byte increments, odd line increments.
-    # see dis.findlinestarts in the python std. library for more details
-
-    tab = c.co_lnotab
-    line = c.co_firstlineno
-    addr = 0
-    for i in range(0, len(tab), 2):
-        addr = addr + ord(tab[i])
-        if addr > stopat:
-            break
-        line_offset = ord(tab[i+1])
-        # new in Python 3.6: support for negative line offsets by using a
-        # signed char interpretation for the line offsets
-        if line_offset > 0x80:
-            line_offset -= 0x100
-        line = line + line_offset
-    return line
+"""
+"""
 
 class PyTraceback(baseobjspace.W_Root):
     """Traceback object
