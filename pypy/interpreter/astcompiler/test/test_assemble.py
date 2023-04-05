@@ -1,4 +1,4 @@
-from pypy.interpreter.astcompiler.assemble import Instruction, _remove_redundant_nops
+from pypy.interpreter.astcompiler.assemble import Instruction, _remove_redundant_nops, Block
 from pypy.tool import stdlib_opcode as ops
 
 
@@ -9,13 +9,16 @@ def create(*args):
     res = []
     for i in range(0, len(args), 2):
         res.append(Instruction(args[i], position_info=(args[i+1], -1, -1, -1)))
-    return res
+    block = Block()
+    block.instructions = res
+    block.next_block = Block()
+    return block
 
 def check(block, *args):
     _remove_redundant_nops(block)
     assert len(args) % 2 == 0
     got = []
-    for op in block:
+    for op in block.instructions:
         got.append(op.opcode)
         got.append(op.position_info[0])
     assert got == list(args)
