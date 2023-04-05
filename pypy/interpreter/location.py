@@ -59,7 +59,7 @@ def encode_single_position(table, position_info, firstlineno):
 
     # XXX clarify what missing values are, 0 or -1?
     lineno, end_lineno, col_offset, end_col_offset = position_info
-    if lineno == -1:
+    if lineno == -1 or lineno < firstlineno:
         table.append(chr(0))
         return
         # case (1)

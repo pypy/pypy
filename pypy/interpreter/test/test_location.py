@@ -42,6 +42,16 @@ def test_out_of_range_positions():
     ]
     check_positions(positions, expected=[(5, -1, -1, -1), (6, -1, -1, -1), (6, -1, -1, -1), (7, -1, -1, -1)])
 
+def test_lineno_smaller_than_firstlineno():
+    positions = [
+        (1, 1, 1, 1),
+        (2, 2, 2, 2),
+        (3, 3, 3, 3),
+        (4, 4, 4, 4),
+        (5, 5, 5, 5)
+    ]
+    check_positions(positions, 5, expected=[(-1, -1, -1, -1)] * 4 + [(5, 5, 5, 5)])
+
 
 def test_offset2lineno():
     positions = [(lineno, lineno, 1, 1) for lineno in [1, 1, 5, 3, 23, 1999]]
