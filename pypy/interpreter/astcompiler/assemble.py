@@ -745,7 +745,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                       free_names,
                       cell_names,
                       self.compile_info.hidden_applevel)
-    
+
     def duplicate_exits_without_lineno(self, blocks):
         from pypy.interpreter.astcompiler.codegen import view
         def should_mark_block(block):
@@ -828,7 +828,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                             copied_op.jump.marked += 2
                     op.jump = newtarget
                     blocks.append(newtarget)
-                
+
         for block in blocks:
             if (block.instructions and block.next_block and
                     not block.cant_add_instructions and
