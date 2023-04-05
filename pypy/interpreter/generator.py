@@ -835,9 +835,6 @@ class AsyncGenAThrow(AsyncGenABase):
 
     def do_throw(self, w_type, w_val, w_tb):
         space = self.space
-        if self.state == self.ST_INIT:
-            raise OperationError(self.space.w_RuntimeError,
-                space.newtext("can't do async_generator.athrow().throw()"))
         if self.state == self.ST_CLOSED:
             raise OperationError(
                 self.space.w_RuntimeError,
