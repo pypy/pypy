@@ -531,3 +531,11 @@ class TestASTValidator:
             'legit')
         self._check_wrong_pattern_error(p1)
 
+    def test_match_ellipsis(self):
+        self._check_wrong_pattern_error(self.MatchValue(self.Constant(self.space.w_Ellipsis)))
+
+    def test_match_true(self):
+        self._check_wrong_pattern_error(self.MatchValue(self.Constant(self.space.w_True)))
+
+    def test_match_tuple(self):
+        self._check_wrong_pattern_error(self.MatchValue(self.Constant(self.space.newtuple([]))))

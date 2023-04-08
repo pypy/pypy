@@ -380,7 +380,19 @@ class AstValidator(ast.ASTVisitor):
         node.pattern.walkabout(self)
 
     def visit_MatchValue(self, node):
-        self._validate_expr(node.value)
+        space = self.space
+        value = node.value
+        self._validate_expr(value)
+        if isinstance(value, ast.Constant):
+            w_obj = value.value
+            w_typ = space.type(w_obj)
+            if (space.is_w(w_typ, space.w_int) or
+                    space.is_w(w_typ, space.w_float) or
+                    space.is_w(w_typ, space.w_unicode) or
+                    space.is_w(w_typ, space.w_bytes) or
+                    space.is_w(w_typ, space.w_complex)):
+                return
+            raise ValidationError("unexpected constant inside of a literal pattern")
 
     def visit_MatchSingleton(self, node):
         if (not self.space.is_w(node.value, self.space.w_True) and
