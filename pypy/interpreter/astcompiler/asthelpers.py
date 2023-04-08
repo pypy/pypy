@@ -138,7 +138,7 @@ class __extend__(ast.Call):
 
 class __extend__(ast.BoolOp, ast.BinOp, ast.UnaryOp):
 
-    _description = "operator"
+    _description = "expression"
 
 
 class __extend__(ast.GeneratorExp):
