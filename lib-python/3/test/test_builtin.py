@@ -2297,9 +2297,9 @@ class TestType(unittest.TestCase):
         for doc in 'x', '\xc4', '\U0001f40d', 'x\x00y', b'x', 42, None:
             A = type('A', (), {'__doc__': doc})
             self.assertEqual(A.__doc__, doc)
-        with self.assertRaises(UnicodeEncodeError):
-            # CPython encodes __doc__ into tp_doc
-            type('A', (), {'__doc__': 'x\udcdcy'})
+        if check_impl_detail():     # CPython encodes __doc__ into tp_doc
+            with self.assertRaises(UnicodeEncodeError):
+                type('A', (), {'__doc__': 'x\udcdcy'})
 
         A = type('A', (), {})
         self.assertEqual(A.__doc__, None)
