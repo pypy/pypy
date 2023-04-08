@@ -953,17 +953,24 @@ class TestAstBuilding:
 
     def test_cannot_assign_messages(self):
         invalid = [
-            ("(1, x) = 5", "cannot assign to literal"),
-            ("[x, z, a, {1, 2}] = 12", "cannot assign to set display"),
+            ("(1, x) = 5", "cannot assign to literal", 2, 3),
+            ("[x, z, a, {1, 2}] = 12", "cannot assign to set display", 11, 17),
             ("for (1, x) in []: pass", "cannot assign to literal"),
             ("with foo as (1, 2): pass", "cannot assign to literal"),
             ("(a, *True, c) = (1, 2, 3)", "cannot assign to True"),
-            ("for (x, *(y, z.d())) in b: pass", "cannot assign to function call"),
+            ("for (x, *(y, z.d())) in b: pass", "cannot assign to function call", 14, 19),
+            ("1 + 2 = 3", "cannot assign to expression", 1, 6),
         ]
-        for wrong, msg in invalid:
+        for entry in invalid:
+            wrong = entry[0]
+            msg = entry[1]
+            pos = entry[2:]
             with pytest.raises(SyntaxError) as excinfo:
                 self.get_ast(wrong)
             assert msg in excinfo.value.msg
+            if pos:
+                assert excinfo.value.offset == pos[0]
+                assert excinfo.value.end_offset == pos[1]
 
     def test_assign_bug(self):
         self.get_ast("direct = (__debug__ and optimize == 0)") # used to crash

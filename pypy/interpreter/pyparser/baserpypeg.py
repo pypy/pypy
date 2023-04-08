@@ -529,15 +529,16 @@ class Parser:
         """Get a descriptive name for an expression."""
         return node._get_descr(self.space)
 
-    def get_invalid_target_msg(self, node, assignment_type):
+    def get_invalid_target(self, node, assignment_type):
+        """ returns a tuple msg, node """
         what = self._get_invalid_target(node, assignment_type)
         if what is None:
-            return "invalid syntax"
+            return "invalid syntax", node
         if assignment_type == "delete":
-            return "cannot delete " + self.get_expr_name(what)
+            return "cannot delete " + self.get_expr_name(what), what
         else:
             assert assignment_type in ("assign", "for")
-            return "cannot assign to " + self.get_expr_name(what)
+            return "cannot assign to " + self.get_expr_name(what), what
 
     def _get_invalid_target(self, node, assignment_type):
         def loop(self, lst, assignment_type):
