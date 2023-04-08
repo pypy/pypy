@@ -9,6 +9,9 @@ from pypy.interpreter.astcompiler.assemble import (_opcode_stack_effect,
 def stack_effect(space, opcode, w_oparg=None, w_jump=None):
     "Compute the stack effect of the opcode."
     if opcode == stdlib_opcode.EXTENDED_ARG:
+        if space.is_none(w_oparg):
+            raise oefmt(space.w_ValueError,
+                "stack_effect: opcode requires oparg but oparg was not specified")
         return space.newint(0)
     if opcode >= stdlib_opcode.HAVE_ARGUMENT:
         if space.is_none(w_oparg):
