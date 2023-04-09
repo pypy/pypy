@@ -159,6 +159,12 @@ def test_ga_ror():
     assert float | list[int] == UnionType((float, list[int]))
     assert None | list[int] == UnionType((None, list[int]))
 
+def test_ga_subclass_repr():
+    import types
+    a = list[int]
+    class SubClass(types.GenericAlias): ...
+    d = SubClass(list, float)
+    assert repr(a | d) == repr(a) + " | " + repr(d)
 
 # union tests
 
@@ -230,3 +236,4 @@ def test_union_typevars():
 
 def test_union_type_none():
     assert int | type(None) == int | None
+
