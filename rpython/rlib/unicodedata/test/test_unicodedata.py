@@ -248,3 +248,9 @@ def test_named_sequence():
     code = unicodedb_13_0_0.lookup("KEYCAP DIGIT FIVE", with_named_sequence=True)
     assert unicodedb_13_0_0.lookup_named_sequence(code) == b'5\xef\xb8\x8f\xe2\x83\xa3'
     assert unicodedb_13_0_0.lookup_named_sequence_length(code) == 3
+
+def test_cjk_13_missing_range_bug():
+    assert unicodedb_13_0_0.name(0x30000) == 'CJK UNIFIED IDEOGRAPH-30000'
+    assert unicodedb_13_0_0.name(0x3134a) == 'CJK UNIFIED IDEOGRAPH-3134a'
+    assert unicodedb_13_0_0.name(0x3104f) == 'CJK UNIFIED IDEOGRAPH-3134a'
+
