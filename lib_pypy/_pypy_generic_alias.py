@@ -64,21 +64,9 @@ class GenericAlias:
     def __getitem__(self, items):
         if not isinstance(items, tuple):
             items = (items, )
-        nitems = len(items)
         params = self.__parameters__
-        nparams = len(params)
-        if nparams == 0:
-            raise TypeError("There are no type variables left in %s" % type(self))
-        if nparams != nitems:
-            raise TypeError("mismatched arguments for %s" % type(self))
         args = self.__args__
-        newargs = []
-        for i, arg in enumerate(args):
-            if _is_typevar(arg):
-                iparam = params.index(arg)
-                newargs.append(items[iparam])
-            else:
-                newargs.append(subs_tvars(arg, params, items))
+        newargs = subs_parameters(self, args, params, items)
         return GenericAlias(self.__origin__, tuple(newargs))
 
     def __hash__(self):
@@ -167,6 +155,22 @@ def subs_tvars(obj, params, argitems):
         subargs.append(arg)
     return obj[tuple(subargs)]
 
+def subs_parameters(self, args, params, items):
+    nparams = len(params)
+    nitems = len(items)
+    if nparams == 0:
+        raise TypeError("There are no type variables left in %r" % self)
+    if nparams != nitems:
+        raise TypeError("mismatched arguments for %r" % self)
+    args = args
+    newargs = []
+    for i, arg in enumerate(args):
+        if _is_typevar(arg):
+            iparam = params.index(arg)
+            newargs.append(items[iparam])
+        else:
+            newargs.append(subs_tvars(arg, params, items))
+    return newargs
 
 class UnionType:
     """
@@ -190,7 +194,7 @@ class UnionType:
         for a in args:
             add_recurse(a)
         self._args = tuple(res)
-        self.__parameters__ = ()
+        self.__parameters__ = _make_parameters(args)
 
     @property
     def __args__(self):
@@ -237,6 +241,19 @@ class UnionType:
 
     def __ror__(self, other):
         return _create_union(other, self)
+
+    def __getitem__(self, items):
+        if not isinstance(items, tuple):
+            items = (items, )
+        params = self.__parameters__
+        args = self.__args__
+        newargs = subs_parameters(self, args, params, items)
+        if len(newargs) == 0:
+            return UnionType(())
+        curr = newargs[0]
+        for i in range(1, len(newargs)):
+            curr |= newargs[i]
+        return curr
 
 def _unionable(obj):
     return obj is None or isinstance(obj, (type, UnionType, GenericAlias))
