@@ -697,7 +697,14 @@ class PythonCodeMaker(ast.ASTVisitor):
         if self._debug_flag:
             import pdb; pdb.set_trace()
         if not self.current_block.cant_add_instructions:
-            self.no_position_info() # will be duplicated by duplicate_exits_without_lineno
+            # the implicit return has no position info, unless the function
+            # contains no bytecodes at all. in that case the RETURN_VALUE gets
+            # the firstlineno as the position
+            if (self.current_block is self.first_block and
+                    len(self.current_block.instructions) == 0):
+                self.position_info = (self.first_lineno, -1, -1, -1)
+            else:
+                self.no_position_info() # will be duplicated by duplicate_exits_without_lineno
             if self.add_none_to_final_return:
                 self.load_const(self.space.w_None)
             self.emit_op(ops.RETURN_VALUE)

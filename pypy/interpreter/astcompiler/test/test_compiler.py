@@ -2580,6 +2580,11 @@ def withreturn():
         return
 """, [1, 2, 1], function=True)
 
+    def test_func_without_code(self):
+        code = self.get_line_numbers("""def emptybody():
+            'abc'
+        """, [1], function=True)
+
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
