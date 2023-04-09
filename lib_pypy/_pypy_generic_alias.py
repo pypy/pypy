@@ -110,6 +110,11 @@ def _repr_item(it):
     except AttributeError:
         return repr(it)
 
+def _repr_item_union(it):
+    if it is type(None):
+        return "None"
+    return _repr_item(it)
+
 def _is_typevar(v):
     t = type(v)
     return t.__name__ == "TypeVar" and t.__module__ == "typing"
@@ -186,6 +191,8 @@ class UnionType:
         res = []
         todo = list(args)
         def add_recurse(arg):
+            if arg is None:
+                arg = type(None)
             if isinstance(arg, UnionType):
                 for a in arg.__args__:
                     add_recurse(a)
@@ -233,7 +240,7 @@ class UnionType:
         return False
 
     def __repr__(self):
-        ret = " | ".join([_repr_item(x) for x in self.__args__])
+        ret = " | ".join([_repr_item_union(x) for x in self.__args__])
         return ret
 
     def __or__(self, other):

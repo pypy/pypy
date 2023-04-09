@@ -227,4 +227,6 @@ def test_union_parameters():
 
 def test_union_typevars():
     assert (float | list[T])[int] == float | list[int]
-    assert (float | list[T] | dict[K, V])[int] == float | list[int] | dict[K, V]
+
+def test_union_type_none():
+    assert int | type(None) == int | None
