@@ -254,10 +254,20 @@ class Block(object):
                     instr.opcode = ops.RETURN_VALUE
                     instr.jump = None
                 continue
+            if opcode == ops.JUMP_IF_FALSE_OR_POP:
+                if (target_opcode == ops.JUMP_ABSOLUTE or
+                        target_opcode == ops.JUMP_FORWARD or
+                        target_opcode == ops.JUMP_IF_FALSE_OR_POP):
+                    instr.jump = target_instr.jump
+                    i -= 1 # look at this instruction again
+            if opcode == ops.JUMP_IF_TRUE_OR_POP:
+                if (target_opcode == ops.JUMP_ABSOLUTE or
+                        target_opcode == ops.JUMP_FORWARD or
+                        target_opcode == ops.JUMP_IF_TRUE_OR_POP):
+                    instr.jump = target_instr.jump
+                    i -= 1 # look at this instruction again
             if (opcode == ops.POP_JUMP_IF_FALSE or
-                  opcode == ops.POP_JUMP_IF_TRUE or
-                  opcode == ops.JUMP_IF_FALSE_OR_POP or
-                  opcode == ops.JUMP_IF_TRUE_OR_POP
+                  opcode == ops.POP_JUMP_IF_TRUE
             ):
                 if (target_opcode == ops.JUMP_ABSOLUTE or
                         target_opcode == ops.JUMP_FORWARD):

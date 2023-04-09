@@ -2930,6 +2930,7 @@ class TestOptimizations:
     def count_instructions(self, source):
         code, blocks = generate_function_code(source, self.space)
         self._code = code
+        self._blocks = blocks
         instrs = []
         for block in blocks:
             instrs.extend(block.instructions)
@@ -3336,6 +3337,24 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert counts.get(ops.POP_TOP, 0) == 0
 
+    def test_jump_if_false_or_pop_to_same(self):
+        source = """def f(a, b, c):
+            return ((a and b)
+                    and c)
+        """
+        counts = self.count_instructions(source)
+        assert self._blocks[0].instructions[1].jump.instructions[0].opcode != ops.JUMP_IF_FALSE_OR_POP
+        assert self._blocks[0].instructions[1].jump is self._blocks[-1]
+
+
+    def test_jump_if_true_or_pop_to_same(self):
+        source = """def f(a, b, c):
+            return ((a or b)
+                    or c)
+        """
+        counts = self.count_instructions(source)
+        assert self._blocks[0].instructions[1].jump.instructions[0].opcode != ops.JUMP_IF_TRUE_OR_POP
+        assert self._blocks[0].instructions[1].jump is self._blocks[-1]
 
 class TestHugeStackDepths:
     def run_and_check_stacksize(self, source):
