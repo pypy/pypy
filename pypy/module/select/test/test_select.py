@@ -233,6 +233,14 @@ class _AppTestSelect:
         raises(ValueError, pollster.modify, 1, -1)
         raises(OverflowError, pollster.modify, 1, 1 << 64)
 
+    def test_select_new_forbidden(self):
+        import select
+        pollster = select.poll()
+        Poll = type(select.poll())
+        with raises(TypeError) as info:
+            Poll()
+        assert "cannot create 'select.poll' instances" in str(info.value)
+
 
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
