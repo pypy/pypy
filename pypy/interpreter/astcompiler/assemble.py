@@ -553,6 +553,7 @@ class PythonCodeMaker(ast.ASTVisitor):
              return 0
 
         for instr in block.instructions:
+            orig_depth = depth
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
             if depth < 0:
                 # This is really a fatal error, don't comment out this
@@ -571,12 +572,9 @@ class PythonCodeMaker(ast.ASTVisitor):
                 self._max_depth = depth
             jump_op = instr.opcode
             if instr.jump is not None:
-                target_depth = depth + _opcode_stack_effect_jump(jump_op)
+                target_depth = orig_depth + _opcode_stack_effect_jump(jump_op)
                 if target_depth > self._max_depth:
                     self._max_depth = target_depth
-                if (jump_op == ops.JUMP_IF_TRUE_OR_POP or
-                      jump_op == ops.JUMP_IF_FALSE_OR_POP):
-                    depth -= 1
                 self._next_stack_depth_walk(instr.jump, target_depth, (block, instr))
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
@@ -1082,8 +1080,8 @@ _static_opcode_stack_effects = {
 
     ops.JUMP_FORWARD: 0,
     ops.JUMP_ABSOLUTE: 0,
-    ops.JUMP_IF_TRUE_OR_POP: 0,
-    ops.JUMP_IF_FALSE_OR_POP: 0,
+    ops.JUMP_IF_TRUE_OR_POP: -1,
+    ops.JUMP_IF_FALSE_OR_POP: -1,
     ops.POP_JUMP_IF_TRUE: -1,
     ops.POP_JUMP_IF_FALSE: -1,
     ops.JUMP_IF_NOT_EXC_MATCH: -2,
@@ -1209,13 +1207,13 @@ def _opcode_stack_effect(op, arg):
 
 def _opcode_stack_effect_jump(op):
     if op == ops.FOR_ITER:
-        return -2
+        return -1
     elif op == ops.SETUP_FINALLY:
         return 2
     elif op == ops.SETUP_EXCEPT:
         return 4 # XXX why is this not 3?
     elif op == ops.SETUP_WITH:
-        return 1
+        return 2
     elif op == ops.SETUP_ASYNC_WITH:
         return 1
     elif op == ops.JUMP_IF_TRUE_OR_POP:
@@ -1223,11 +1221,11 @@ def _opcode_stack_effect_jump(op):
     elif op == ops.JUMP_IF_FALSE_OR_POP:
         return 0
     elif op == ops.JUMP_IF_NOT_EXC_MATCH:
-        return 0
+        return -2
     elif op == ops.POP_JUMP_IF_TRUE:
-        return 0
+        return -1
     elif op == ops.POP_JUMP_IF_FALSE:
-        return 0
+        return -1
     elif op == ops.JUMP_FORWARD:
         return 0
     elif op == ops.JUMP_ABSOLUTE:
