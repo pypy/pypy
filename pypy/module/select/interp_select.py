@@ -112,10 +112,15 @@ class Poll(W_Root):
                                             space.newint(revents)))
         return space.newlist(retval_w)
 
+def descr_new(space, w_subtype, __args__):
+    raise oefmt(space.w_TypeError, "cannot create 'select.poll' instances")
+
 pollmethods = {}
 for methodname in 'register modify unregister poll'.split():
     pollmethods[methodname] = interp2app(getattr(Poll, methodname))
+pollmethods['__new__'] = interp2app(descr_new)
 Poll.typedef = TypeDef('select.poll', **pollmethods)
+Poll.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
 
