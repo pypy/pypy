@@ -99,8 +99,11 @@ class GenericAlias:
         return (type(self), (self.__origin__, self.__args__))
 
     def __or__(self, other):
-        import typing
-        return typing.Union[self, other]
+        return _create_union(self, other)
+
+    def __ror__(self, other):
+        return _create_union(other, self)
+
 
 def _repr_item(it):
     import typing
@@ -231,6 +234,9 @@ class UnionType:
 
     def __or__(self, other):
         return _create_union(self, other)
+
+    def __ror__(self, other):
+        return _create_union(other, self)
 
 def _unionable(obj):
     return obj is None or isinstance(obj, (type, UnionType, GenericAlias))

@@ -146,6 +146,20 @@ def test_ga_orig_class_writing_gives_typeerror():
     g = GenericAlias(A, int)
     assert g() is int # does not crash
 
+def test_ga_or_does_not_use_typing():
+    union1 = int | float
+    union2 = list[int] | float
+    assert type(union1) is type(union2)
+
+def test_ga_or():
+    assert list[int] | float == UnionType((list[int], float))
+    assert list[int] | None == UnionType((list[int], None))
+
+def test_ga_ror():
+    assert float | list[int] == UnionType((float, list[int]))
+    assert None | list[int] == UnionType((None, list[int]))
+
+
 # union tests
 
 def test_union_create():
@@ -203,3 +217,8 @@ def test_union_repr():
 def test_union_or():
     u = UnionType((int, list))
     assert u | int == UnionType((int, list))
+
+def test_union_ror():
+    assert None | int == UnionType((None, int))
+    assert None | (int | float) == UnionType((None, int, float))
+
