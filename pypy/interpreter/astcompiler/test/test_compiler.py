@@ -2585,7 +2585,6 @@ def withreturn():
             'abc'
         """, [1], function=True)
 
-
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
         src = "def f(): from _ import *"
@@ -3360,6 +3359,13 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert self._blocks[0].instructions[1].jump.instructions[0].opcode != ops.JUMP_IF_TRUE_OR_POP
         assert self._blocks[0].instructions[1].jump is self._blocks[-1]
+
+    def test_listcomp_assignment_hack(self):
+        self.count_instructions("""def listcomp_assignment_hack():
+            return [y for x in a for y in [f(x)]]
+        """)
+        assert self._code.consts_w[1].co_code.count(chr(ops.FOR_ITER)) == 1
+
 
 class TestHugeStackDepths:
     def run_and_check_stacksize(self, source):

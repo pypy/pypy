@@ -1731,17 +1731,24 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._comp_sync_generator(node, generators, gen_index)
 
     def _comp_sync_generator(self, node, generators, gen_index):
-        start = self.new_block()
-        if_cleanup = self.new_block()
         anchor = self.new_block()
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
-        if gen_index > 0:
-            gen.iter.walkabout(self)
-            self.emit_op(ops.GET_ITER)
-        self.use_next_block(start)
-        self.emit_jump(ops.FOR_ITER, anchor)
-        self.use_next_block()
+        iter = gen.iter
+        if gen_index > 0 and isinstance(iter, ast.List) and len(iter.elts) == 1:
+            # assignment "idiom" (hack really)
+            iter.walkabout(self)
+            start = None
+            if_cleanup = anchor
+        else:
+            if gen_index > 0:
+                iter.walkabout(self)
+                self.emit_op(ops.GET_ITER)
+            start = self.new_block()
+            if_cleanup = self.new_block()
+            self.use_next_block(start)
+            self.emit_jump(ops.FOR_ITER, anchor)
+            self.use_next_block()
         gen.target.walkabout(self)
         if gen.ifs:
             for if_ in gen.ifs:
@@ -1752,8 +1759,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._comp_generator(node, generators, gen_index)
         else:
             node.accept_comp_iteration(self, gen_index)
-        self.use_next_block(if_cleanup)
-        self.emit_jump(ops.JUMP_ABSOLUTE, start)
+        if start is not None:
+            self.use_next_block(if_cleanup)
+            self.emit_jump(ops.JUMP_ABSOLUTE, start)
         self.use_next_block(anchor)
 
     def _comp_async_generator(self, node, generators, gen_index):
