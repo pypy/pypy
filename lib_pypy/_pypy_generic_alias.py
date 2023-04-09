@@ -97,7 +97,7 @@ def _repr_item(it):
     import typing
     if it == Ellipsis:
         return "..."
-    if type(it) is GenericAlias:
+    if isinstance(it, GenericAlias):
         return repr(it)
     if isinstance(it, typing._GenericAlias):
         return repr(it)
