@@ -222,3 +222,9 @@ def test_union_ror():
     assert None | int == UnionType((None, int))
     assert None | (int | float) == UnionType((None, int, float))
 
+def test_union_parameters():
+    assert (int | list[T]).__parameters__ == (T, )
+
+def test_union_typevars():
+    assert (float | list[T])[int] == float | list[int]
+    assert (float | list[T] | dict[K, V])[int] == float | list[int] | dict[K, V]
