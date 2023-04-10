@@ -1075,7 +1075,9 @@ class TestStack(unittest.TestCase):
         s1 = list(traceback.walk_stack(None))
         s2 = deeper()
         self.assertEqual(len(s2) - len(s1), 1)
-        self.assertEqual(s2[1:], s1)
+        # PyPy modification: the top of the stacks are different, one call to
+        # walk_stack is from deeper, the other one from the test function
+        self.assertEqual(s2[2:], s1[1:])
 
     def test_walk_tb(self):
         try:
