@@ -246,7 +246,12 @@ def build_stat_result(space, st):
         if i < rposix_stat.N_INDEXABLE_FIELDS:
             continue
         elif name.startswith('st_'):    # exclude 'nsec_Xtime'
-            w_value = space.newint(getattr(st, name))
+            if not objectmodel.we_are_translated():
+                # mixing os.stat_result with different fields can error
+                if hasattr(st, name):
+                    w_value = space.newint(getattr(st, name))
+            else:
+                w_value = space.newint(getattr(st, name))
             w_result.setdictvalue(space, name, w_value)
 
     # non-rounded values for name-based access
