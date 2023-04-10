@@ -14,7 +14,9 @@ with open(path) as f:
 d = {}
 c = compile(content, path, 'exec')
 exec(c, d, d)
-_levenshtein_distance = d['_levenshtein_distance']
+orig_levenshtein_distance = d['_levenshtein_distance']
+def _levenshtein_distance(a, b):
+    return orig_levenshtein_distance(a, b, max(len(a), len(b)))
 _compute_suggestion_error = d['_compute_suggestion_error']
 TracebackException = d['TracebackException']
 
@@ -22,9 +24,10 @@ TracebackException = d['TracebackException']
 # levensthein tests
 
 def test_levensthein():
-    assert _levenshtein_distance("cat", "sat") == 1
-    assert _levenshtein_distance("cat", "ca") == 1
-    assert _levenshtein_distance("Kätzchen", "Satz") == 6
+    assert _levenshtein_distance("cat", "sat") == 2
+    assert _levenshtein_distance("cat", "ca") == 2
+    assert _levenshtein_distance("cat", "caT") == 1 # case change is only edit distance 1
+    assert _levenshtein_distance("Kätzchen", "Satz") == 9
 
 if given is not None:
     @given(st.text())
@@ -57,10 +60,9 @@ def test_compute_suggestion_attribute_error():
         good = 1
         walk = 2
 
-    assert _compute_suggestion_error(AttributeError(obj=A(), name="god"), None) == "good"
-    assert _compute_suggestion_error(AttributeError(obj=A(), name="wlak"), None) == "walk"
-    assert _compute_suggestion_error(AttributeError(obj=A(), name="good"), None) == None
-    assert _compute_suggestion_error(AttributeError(obj=A(), name="goodabcd"), None) == None
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="god"), None, "god") == "good"
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="good"), None, "good") == None
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="goodabcd"), None, "goodabcd") == None
 
 def fmt(e):
     return "\n".join(
@@ -79,12 +81,12 @@ def test_format_attribute_error():
 def test_compute_suggestion_name_error():
     def f():
         abc = 1
-        ab # abc beats abs!
+        absc # abc beats abs!
 
     try:
         f()
     except NameError as e:
-        assert fmt(e) == "NameError: name 'ab' is not defined. Did you mean: 'abc'?\n"
+        assert fmt(e) == "NameError: name 'absc' is not defined. Did you mean: 'abc'?\n"
 
 def test_compute_suggestion_name_error_from_global():
     def f():
@@ -97,6 +99,12 @@ def test_compute_suggestion_name_error_from_global():
 
 def test_compute_suggestion_name_error_from_builtin():
     try:
-        ab
+        abcs
     except NameError as e:
-        assert fmt(e) == "NameError: name 'ab' is not defined. Did you mean: 'abs'?\n"
+        assert fmt(e) == "NameError: name 'abcs' is not defined. Did you mean: 'abs'?\n"
+
+def test_missing_import():
+    try:
+        math
+    except NameError as e:
+        assert fmt(e) == "NameError: name 'math' is not defined. Did you mean: 'Path'? Or did you forget to import 'math'\n"
