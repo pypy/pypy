@@ -54,10 +54,12 @@ class structseqtype(type):
 
         extra_fields = sorted(fields_by_index.items())
         n_sequence_fields = 0
+        sequence_fields = []
         while extra_fields and extra_fields[0][0] == n_sequence_fields:
             num, field = extra_fields.pop(0)
             field.is_positional = True
             assert not hasattr(field, "_default")
+            sequence_fields.append(field.__name__)
             n_sequence_fields += 1
 
         dict['n_sequence_fields'] = n_sequence_fields
@@ -77,6 +79,7 @@ class structseqtype(type):
         dict['__repr__'] = structseq_repr
         dict['__str__'] = structseq_repr
         dict['_name'] = dict.get('name', classname)
+        dict['__match_args__'] = tuple(sequence_fields)
         return type.__new__(metacls, classname, (tuple,), dict)
 
 

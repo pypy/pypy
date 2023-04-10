@@ -133,3 +133,8 @@ class AppTestStructseq:
         assert x[0] == 0
         x = small((0, 0, 0))
         assert x[0] == (0, 0, 0)
+
+    def test_match_margs(self):
+        small = self.get_small()
+        assert small.__match_args__ == ('one', )
+
