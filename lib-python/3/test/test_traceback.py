@@ -826,7 +826,11 @@ class BaseExceptionReportingTests:
                     pass
         err = self.get_report(A.B.X())
         str_value = 'I am X'
-        str_name = '.'.join([A.B.X.__module__, A.B.X.__qualname__])
+        # PyPy change: remove __main__. from expectation (CPython fails this too occasionally)
+        if A.B.X.__module__ in ('__main__', 'builtins'):
+            str_name = A.B.X.__qualname__
+        else:
+            str_name = '.'.join([A.B.X.__module__, A.B.X.__qualname__])
         exp = "%s: %s\n" % (str_name, str_value)
         self.assertEqual(exp, err)
 
