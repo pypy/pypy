@@ -1722,22 +1722,22 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._compile_comprehension(lc, "<listcomp>",
                                     ComprehensionCodeGenerator)
 
-    def _comp_generator(self, node, generators, gen_index):
+    def _comp_generator(self, node, generators, gen_index=0, built_object_stackdepth=0):
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
         if gen.is_async:
-            self._comp_async_generator(node, generators, gen_index)
+            self._comp_async_generator(node, generators, gen_index, built_object_stackdepth)
         else:
-            self._comp_sync_generator(node, generators, gen_index)
+            self._comp_sync_generator(node, generators, gen_index, built_object_stackdepth)
 
-    def _comp_sync_generator(self, node, generators, gen_index):
+    def _comp_sync_generator(self, node, generators, gen_index, built_object_stackdepth):
         anchor = self.new_block()
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
         iter = gen.iter
         if gen_index > 0 and isinstance(iter, ast.List) and len(iter.elts) == 1:
             # assignment "idiom" (hack really)
-            iter.walkabout(self)
+            iter.elts[0].walkabout(self)
             start = None
             if_cleanup = anchor
         else:
@@ -1749,6 +1749,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.use_next_block(start)
             self.emit_jump(ops.FOR_ITER, anchor)
             self.use_next_block()
+            built_object_stackdepth += 1
         gen.target.walkabout(self)
         if gen.ifs:
             for if_ in gen.ifs:
@@ -1756,9 +1757,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.use_next_block()
         gen_index += 1
         if gen_index < len(generators):
-            self._comp_generator(node, generators, gen_index)
+            self._comp_generator(node, generators, gen_index, built_object_stackdepth)
         else:
-            node.accept_comp_iteration(self, gen_index)
+            node.accept_comp_iteration(self, built_object_stackdepth)
         if start is not None:
             self.use_next_block(if_cleanup)
             self.emit_jump(ops.JUMP_ABSOLUTE, start)
@@ -2539,7 +2540,7 @@ class ComprehensionCodeGenerator(AbstractFunctionCodeGenerator):
         assert isinstance(node, ast.expr)
         self.update_position(node)
         node.build_container_and_load_iter(self)
-        self._comp_generator(node, node.get_generators(), 0)
+        self._comp_generator(node, node.get_generators())
         self._end_comp()
 
     def comprehension_load_iter(self):
