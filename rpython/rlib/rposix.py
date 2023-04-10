@@ -657,7 +657,7 @@ def chdir(path):
                     res = rffi.cast(lltype.Signed, res)
                     assert res > 0
                     new_path = path.str(res)
-        if traits.str is unicode:
+        if traits.suffix == "W":  # unicode
             if new_path[0] == u'\\' or new_path[0] == u'/':  # UNC path
                 return
             magic_envvar = u'=' + new_path[0] + u':'
@@ -855,7 +855,7 @@ def listdir(path):
         win32traits = make_win32_traits(traits)
         path = traits.as_str0(path)
 
-        if traits.str is unicode:
+        if traits.suffix =="W":  # unicode
             if path and path[-1] not in (u'/', u'\\', u':'):
                 path += u'\\'
             mask = path + u'*.*'
@@ -877,7 +877,7 @@ def listdir(path):
             while True:
                 name = traits.charp2str(rffi.cast(traits.CCHARP,
                                                   filedata.c_cFileName))
-                if traits.str is unicode:
+                if traits.suffix =="W":  # unicode
                     if not (name == u"." or name == u".."):
                         result.append(name)
                 else:

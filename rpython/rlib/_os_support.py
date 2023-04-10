@@ -15,7 +15,7 @@ _MACRO_ON_POSIX = True if not _WIN32 else None
 
 
 class StringTraits(object):
-    str = str
+    suffix = "A"
     str0 = s_Str0
     CHAR = rffi.CHAR
     CCHARP = rffi.CCHARP
@@ -49,7 +49,7 @@ class StringTraits(object):
 
 
 class UnicodeTraits(object):
-    str = unicode
+    suffix = "W"
     str0 = s_Unicode0
     CHAR = rffi.WCHAR_T
     CCHARP = rffi.CWCHARP
