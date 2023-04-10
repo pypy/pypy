@@ -304,6 +304,7 @@ class FrameSummary:
             self._line = linecache.getline(self.filename, self.lineno)
         return self._line.strip()
 
+# PyPy modification: adapt to the changes in extract to use a helper function
 def walk_stack(f):
     """Walk a stack yielding the frame and line number for each frame.
 
@@ -311,10 +312,14 @@ def walk_stack(f):
     current stack is used. Usually used with StackSummary.extract.
     """
     if f is None:
-        f = sys._getframe().f_back.f_back
+        f = sys._getframe().f_back
+    return _walk_stack(f)
+
+def _walk_stack(f):
     while f is not None:
         yield f, f.f_lineno
         f = f.f_back
+# end PyPy modification
 
 
 def walk_tb(tb):
