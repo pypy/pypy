@@ -330,7 +330,7 @@ def walk_tb(tb):
 # PyPy 3 change: precise traceback ranges
 def _walk_tb_with_lasti(tb):
     while tb is not None:
-        yield tb.tb_frame, tb.tb_lineno, tb.tb_lasti
+        yield tb.tb_frame, tb.tb_lineno, getattr(tb, 'tb_lasti', None)
         tb = tb.tb_next
 
 def _byte_offset_to_character_offset(str, offset):
