@@ -2376,6 +2376,7 @@ match x:
     def test_bug_comprehension_optimization(self):
         self.st("x = sorted({j*k for i in range(4) for j, k in [(i+1, i+2)]})", "x", [2, 6, 12, 20])
         self.st("x = sorted({j*k for i in range(4) for j in [i+1] for k in [j+1]})", "x", [2, 6, 12, 20])
+        self.st("[*x] = (j*k for i in range(4) for j in [i+1] for k in [j+1])", "x", [2, 6, 12, 20])
 
 
 class TestLinenoChanges310(object):
