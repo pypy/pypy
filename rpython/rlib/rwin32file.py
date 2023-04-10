@@ -284,6 +284,12 @@ def make_win32_traits(traits):
 
         TagInfoSize = 2 * rffi.sizeof(rwin32.DWORD)
 
+        RemoveDirectory = external(
+            'RemoveDirectory' + suffix,
+            [traits.CCHARP],
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
+
     return Win32Traits
 
 def make_longlong(high, low):

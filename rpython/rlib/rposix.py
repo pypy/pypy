@@ -391,17 +391,10 @@ def _as_bytes0(path):
     return res
 
 @specialize.argtype(0)
-def _as_unicode(path):
-    assert path is not None
-    if isinstance(path, unicode):
-        return path
-    else:
-        return path.as_unicode()
-
-@specialize.argtype(0)
 def _as_unicode0(path):
     """Crashes translation if the path contains NUL characters."""
-    res = _as_unicode(path)
+    assert path is not None
+    res = path.as_unicode()
     rstring.check_str0(res)
     return res
 
@@ -685,11 +678,17 @@ def access(path, mode):
     if _WIN32:
         # All files are executable on Windows
         mode = mode & ~os.X_OK
-    if _prefer_unicode(path):
-        error = c_waccess(_as_unicode0(path), mode)
+        traits = _preferred_traits(path)
+        win32traits = make_win32_traits(traits)
+        attr = win32traits.GetFileAttributes(traits.as_str0(path))
+        return_value = ((attr != win32traits.INVALID_FILE_ATTRIBUTES) and 
+            (not (mode & 2) or 
+            not (attr & win32traits.FILE_ATTRIBUTE_READONLY) or 
+            (attr & win32traits.FILE_ATTRIBUTE_DIRECTORY)))
+        return bool(return_value)
     else:
         error = c_access(_as_bytes0(path), mode)
-    return error == 0
+        return error == 0
 
 # This Win32 function is not exposed via os, but needed to get a
 # correct implementation of os.path.abspath.
@@ -1171,10 +1170,8 @@ c_unlink = external('unlink', [rffi.CCHARP], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
 c_mkdir = external('mkdir', [rffi.CCHARP, rffi.MODE_T], rffi.INT,
                    save_err=rffi.RFFI_SAVE_ERRNO)
-c_rmdir = external(UNDERSCORE_ON_WIN32 + 'rmdir', [rffi.CCHARP], rffi.INT,
+c_rmdir = external('rmdir', [rffi.CCHARP], rffi.INT,
                    save_err=rffi.RFFI_SAVE_ERRNO)
-c_wrmdir = external(UNDERSCORE_ON_WIN32 + 'wrmdir', [rffi.CWCHARP], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('unlink')
 @specialize.argtype(0)
@@ -1202,10 +1199,13 @@ def mkdir(path, mode=0o777):
 @specialize.argtype(0)
 @jit.dont_look_inside
 def rmdir(path):
-    if _prefer_unicode(path):
-        handle_posix_error('wrmdir', c_wrmdir(_as_unicode0(path)))
-    else:
+    if not _WIN32:
         handle_posix_error('rmdir', c_rmdir(_as_bytes0(path)))
+    else:
+        traits = _preferred_traits(path)
+        win32traits = make_win32_traits(traits)
+        if not win32traits.RemoveDirectory(traits.as_str0(path)):
+            raise rwin32.lastSavedWindowsError()
 
 c_chmod = external('chmod', [rffi.CCHARP, rffi.MODE_T], rffi.INT,
                    save_err=rffi.RFFI_SAVE_ERRNO)
