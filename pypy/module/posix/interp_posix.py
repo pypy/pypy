@@ -6,6 +6,8 @@ from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rutf8 import codepoints_in_utf8
+from rpython.rtyper.lltypesystem import rffi
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import (
@@ -16,7 +18,7 @@ from pypy.module.sys.interp_encoding import getfilesystemencoding
 
 _WIN32 = sys.platform == 'win32'
 if _WIN32:
-    from rpython.rlib.rwin32 import _MAX_ENV
+    from rpython.rlib.rwin32 import _MAX_ENV, lastSavedWindowsError
 
 c_int = "c_int"
 
@@ -488,10 +490,22 @@ def chdir(space, w_path):
 @unwrap_spec(mode=c_int)
 def mkdir(space, w_path, mode=0777):
     """Create a directory."""
-    try:
-        dispatch_filename(rposix.mkdir)(space, w_path, mode)
-    except OSError as e:
-        raise wrap_oserror2(space, e, w_path)
+    if not _WIN32:
+        path = space.fsencode(w_path)
+        rstring.check_str0(path)
+        result = rposix.widen(rposix.c_mkdir(path, mode))
+        if result < 0:
+            e = OSError(rposix.get_saved_errno(), "")
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+    else:
+        src_utf8 = space.utf8_w(w_path)
+        win32traits = rposix.make_win32_traits(rposix.unicode_traits)
+        src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
+        result = win32traits.CreateDirectory(src_wch, None)
+        rffi.free_wcharp(src_wch) 
+        if not result:
+            e = lastSavedWindowsError()
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
 
 def rmdir(space, w_path):
     """Remove a directory."""
