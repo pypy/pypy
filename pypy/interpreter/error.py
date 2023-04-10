@@ -470,8 +470,9 @@ else:
                                           space.newtext(msg))
         return OperationError(exc, w_error)
 
-@specialize.arg(3)
-def wrap_oserror2(space, e, w_filename=None, w_exception_class=None):
+@specialize.arg(3, 5)
+def wrap_oserror2(space, e, w_filename=None, w_exception_class=None,
+                  w_filename2=None, eintr_retry=False):
     assert isinstance(e, OSError)
 
     if _WINDOWS and isinstance(e, WindowsError):
