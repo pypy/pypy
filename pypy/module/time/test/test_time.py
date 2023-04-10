@@ -672,3 +672,7 @@ class AppTestTime:
         local = time.gmtime()
         assert local.tm_gmtoff is not None
         assert local.tm_zone is not None
+
+    def test_match_args(self):
+        import time
+        assert time.struct_time.__match_args__ == ('tm_year', 'tm_mon', 'tm_mday', 'tm_hour', 'tm_min', 'tm_sec', 'tm_wday', 'tm_yday', 'tm_isdst')
