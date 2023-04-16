@@ -2383,7 +2383,7 @@ class TestLinenoChanges310(object):
     def get_line_numbers(self, source, expected, function=False):
         from pypy.tool.dis3 import findlinestarts
         space = self.space
-        code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=1)
+        code = compile_with_astcompiler(source, 'exec', space, set_debug_flag=False)
         if function:
             code = code.co_consts[0]
         lines = [line for (start, line) in findlinestarts(code)]
