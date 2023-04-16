@@ -1726,7 +1726,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
         if gen.is_async:
-            assert built_object_stackdepth == 0
             self._comp_async_generator(node, generators, gen_index)
         else:
             self._comp_sync_generator(node, generators, gen_index, built_object_stackdepth)
