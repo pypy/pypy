@@ -448,8 +448,12 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Change the position for the next instructions to that of node."""
         if self.is_dead_code():
             return self.position_info
+        if isinstance(node, tuple):
+            position_info = node
+        else:
+            position_info = (node.lineno, node.end_lineno, node.col_offset, node.end_col_offset)
         old_position_info = self.position_info
-        self.position_info = (node.lineno, node.end_lineno, node.col_offset, node.end_col_offset)
+        self.position_info =  position_info
         return old_position_info
 
     def no_position_info(self):

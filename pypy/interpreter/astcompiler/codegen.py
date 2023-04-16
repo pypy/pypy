@@ -1859,6 +1859,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         names = self.names
         ctx = attr.ctx
         attr.value.walkabout(self)
+        # the name has no complete position, give a line number at least
+        self.update_position((attr.end_lineno, -1, -1, -1))
         if ctx == ast.Load:
             self.emit_op_name(ops.LOAD_ATTR, names, attr.attr)
             return
