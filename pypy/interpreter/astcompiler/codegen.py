@@ -1860,14 +1860,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ctx = attr.ctx
         attr.value.walkabout(self)
         # the name has no complete position, give a line number at least
-        self.update_position((attr.end_lineno, -1, -1, -1))
         if ctx == ast.Load:
             self.emit_op_name(ops.LOAD_ATTR, names, attr.attr)
             return
         self.check_forbidden_name(attr.attr, attr, ctx)
         if ctx == ast.Store:
+            self.update_position((attr.end_lineno, -1, -1, -1))
             self.emit_op_name(ops.STORE_ATTR, names, attr.attr)
         elif ctx == ast.Del:
+            self.update_position((attr.end_lineno, -1, -1, -1))
             self.emit_op_name(ops.DELETE_ATTR, names, attr.attr)
         else:
             raise AssertionError("unknown context")
