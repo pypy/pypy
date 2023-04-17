@@ -198,7 +198,8 @@ class PegParser(object):
             tokens = pytokenizer.generate_tokens(source_lines, flags)
         except error.TokenError as e:
             if (compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
-                    pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR in e.msg):
+                    (pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR in e.msg or
+                     'was never closed' in e.msg)):
                 e.msg = "incomplete input"
             e.filename = compile_info.filename
             raise
