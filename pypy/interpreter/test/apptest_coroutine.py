@@ -907,13 +907,15 @@ def test_async_listcomp_bug():
             yield i
 
     async def run_list():
+        return [i + 1 async for seq in f([(10, 20), (30,)])
+                for i in seq]
+
+    assert run_async(run_list()) == ([], [11, 21, 31])
+
+    # this one includes the name binding hack
+    async def run_list():
         return [j async for seq in f([(10, 20), (30,)])
                 for i in seq for j in [i + 1]]
 
     assert run_async(run_list()) == ([], [11, 21, 31])
 
-    async def run_list():
-        return [i + 1 async for seq in f([(10, 20), (30,)])
-                for i in seq]
-
-    assert run_async(run_list()) == ([], [11, 21, 31])
