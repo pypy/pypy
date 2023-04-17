@@ -901,20 +901,19 @@ def test_async_generator_wrapped_value_is_real_type():
             sys.settrace(None)
     raises(StopIteration, run)
 
-def test_ag_running_asend_send():
-    async def agen():
-        await suspend('coro')
-        yield 0
+def test_async_listcomp_bug():
+    async def f(it):
+        for i in it:
+            yield i
 
-    a = agen()
-    assert a.ag_running is False
-    coro = a.asend(None)
-    res = coro.send(None)
-    assert res == 'coro'
-    assert a.ag_running is True
-    with raises(RuntimeError):
-        a.asend(None).send(None)
-    with raises(StopIteration) as info:
-        res = coro.send(None)
-    assert info.value.value == 0
-    assert a.ag_running is False
+    async def run_list():
+        return [j async for seq in f([(10, 20), (30,)])
+                for i in seq for j in [i + 1]]
+
+    assert run_async(run_list()) == ([], [11, 21, 31])
+
+    async def run_list():
+        return [i + 1 async for seq in f([(10, 20), (30,)])
+                for i in seq]
+
+    assert run_async(run_list()) == ([], [11, 21, 31])
