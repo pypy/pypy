@@ -7,17 +7,27 @@ from pypy.module.gc.hook import W_GcCollectStepStats
 @unwrap_spec(generation=int)
 def collect(space, generation=0):
     "Run a full collection.  The optional argument is ignored."
-    # First clear the method and the map cache.
-    # See test_gc for an example of why.
+    _collect(space)
+
+def _collect(space):
     from pypy.objspace.std.typeobject import MethodCache
     from pypy.objspace.std.mapdict import MapAttrCache
+    # First clear the method and the map cache.
+    # See test_gc for an example of why.
     cache = space.fromcache(MethodCache)
     cache.clear()
     cache = space.fromcache(MapAttrCache)
     cache.clear()
 
     rgc.collect()
-    _run_finalizers(space)
+    return _run_finalizers(space)
+
+@unwrap_spec(depth_limit=int)
+def collect_all_finalizers(space, depth_limit=100):
+    for i in range(depth_limit):
+        finalizers_run = _collect(space)
+        if not finalizers_run:
+            break
 
 def _run_finalizers(space):
     # if we are running in gc.disable() mode but gc.collect() is called,
@@ -34,12 +44,10 @@ def _run_finalizers(space):
         # likely to have been added by rgc.collect() above, and actually
         # run them now.  This forces them to run before this function
         # returns, and also always in the enable_finalizers() mode.
-        space.user_del_action._run_finalizers()
+        return space.user_del_action._run_finalizers()
     finally:
         if temp_reenable:
             disable_finalizers(space)
-
-    return space.newint(0)
 
 def enable(space):
     """Non-recursive version.  Enable major collections and finalizers.

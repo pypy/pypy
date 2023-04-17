@@ -119,6 +119,39 @@ class AppTestGC(object):
         assert n >= 2 # at least one step + 1 finalizing
         assert X.deleted == 3
 
+    def test_gc_collect_all_finalizers(self):
+        import gc
+        class Stats:
+            deleted = 0
+        class A:
+            def __init__(self, i, next=None):
+                self.i = i
+                self.next = next
+
+            def __del__(self):
+                Stats.deleted += 1
+                self.next = None
+        curr = None
+        curr2 = None
+        for i in range(20):
+            curr = A(i, curr)
+            curr2 = A(i, curr2)
+        curr = curr2 = None
+        gc.collect_all_finalizers(20)
+        print(Stats.deleted)
+        assert Stats.deleted == 40
+        gc.collect_all_finalizers(20)
+        print(Stats.deleted)
+        assert Stats.deleted == 40
+
+
+
+def main():
+    instances = []
+    prev = None
+    for i in range(100):
+        prev = A(i, prev)
+
 class AppTestGcDumpHeap(object):
     pytestmark = py.test.mark.xfail(run=False)
 

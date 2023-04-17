@@ -608,11 +608,14 @@ class UserDelAction(AsyncAction):
     def _run_finalizers(self):
         # called by perform() when we have to "perform" this action,
         # and also directly at the end of gc.collect).
+        num_run = 0
         while True:
             w_obj = self.space.finalizer_queue.next_dead()
             if w_obj is None:
                 break
             self._call_finalizer(w_obj)
+            num_run += 1
+        return num_run
 
     def gc_disabled(self, w_obj):
         # If we're running in 'gc.disable()' mode, record w_obj in the
