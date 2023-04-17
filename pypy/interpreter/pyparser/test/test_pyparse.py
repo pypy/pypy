@@ -549,3 +549,9 @@ class TestIncompleteInput(object):
     def test_augmented_assignment(self):
         msg = self.check_error("(y for y in (1,2)) += 10")
         assert "'generator expression'" in msg
+
+    def test_parenthesized(self):
+        self.check_incomplete("(a **")
+
+    def test_ifelse(self):
+        self.check_incomplete("if 9==3:\n   pass\nelse:")
