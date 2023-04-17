@@ -1726,7 +1726,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
         if gen.is_async:
-            self._comp_async_generator(node, generators, gen_index)
+            self._comp_async_generator(node, generators, gen_index, built_object_stackdepth)
         else:
             self._comp_sync_generator(node, generators, gen_index, built_object_stackdepth)
 
@@ -1765,7 +1765,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.JUMP_ABSOLUTE, start)
         self.use_next_block(anchor)
 
-    def _comp_async_generator(self, node, generators, gen_index):
+    def _comp_async_generator(self, node, generators, gen_index, built_object_stackdepth):
         b_start = self.new_block()
         b_except = self.new_block()
         b_if_cleanup = self.new_block()
@@ -1789,9 +1789,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 if_.accept_jump_if(self, False, b_if_cleanup)
                 self.use_next_block()
         gen_index += 1
+        built_object_stackdepth += 1
 
         if gen_index < len(generators):
-            self._comp_generator(node, generators, gen_index)
+            self._comp_generator(node, generators, gen_index, built_object_stackdepth)
         else:
             node.accept_comp_iteration(self, gen_index)
 
