@@ -63,3 +63,41 @@ def test_simulate_call():
     assert r4.getint() == 59
     assert not r4.is_constant()
     assert metainterp.history.trace == [(rop.INT_ADD, [i1, i2], None), (rop.INT_ADD, [r1, i1], None), (rop.INT_ADD, [r1, r2], None)]
+
+
+from rpython.rlib import jit
+from rpython.jit.backend.llgraph import runner
+from rpython.jit.metainterp.test import support
+
+
+class TestMiniTrace(object):
+    def mini_interp(self, function, args):
+        stats = support._get_jitcodes(self, runner.LLGraphCPU, function, args)
+        self._run_with_minitrace(args, stats)
+
+    def _run_with_minitrace(self, args, stats):
+        from rpython.jit.metainterp import pyjitpl, history, jitexc
+        cw = self.cw
+        opt = history.Options(listops=True)
+        metainterp_sd = pyjitpl.MetaInterpStaticData(cw.cpu, opt)
+        stats.metainterp_sd = metainterp_sd
+        metainterp_sd.finish_setup(cw)
+        metainterp_sd.finish_setup_descrs()
+
+        [jitdriver_sd] = metainterp_sd.jitdrivers_sd
+        miniinterp_staticdata(metainterp_sd, cw)
+        metainterp = MetaInterp(metainterp_sd)
+        jitdriver_sd, = metainterp_sd.jitdrivers_sd
+        metainterp.compile_and_run_once(jitdriver_sd, *args)
+        import pdb; pdb.set_trace()
+
+    def test_first_loop(self):
+        def f(x, y):
+            res = 0
+            while y > 0:
+                res += x * x
+                x += 1
+                res += x * x
+                y -= 1
+            return res
+        res = self.mini_interp(f, [6, 7])
