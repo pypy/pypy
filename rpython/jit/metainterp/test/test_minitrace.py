@@ -1,64 +1,80 @@
 from rpython.jit.metainterp.minitrace import *
 
+class DummyJitcode:
+    def __init__(self):
+        self.code = "dummy" 
+
 def test_int_add():
-    history = History(2)
-    metainterp = MetaInterp(history)
-    miframe = MIFrame(metainterp)
+    metainterp = MetaInterp("dummy")
+    metainterp.create_empty_history()
+    miframe = MIFrame(metainterp, DummyJitcode())
     metainterp.framestack.append(miframe)
 
     i1 = miframe.registers_i[0] = IntFrontendOp(0, 15)
     i2 = miframe.registers_i[1] = IntFrontendOp(1, 7)
 
-    r1 = miframe.opimpl_int_add(0, 1, 2)
-    r2 = miframe.opimpl_int_add(1, 2, 3)
+    metainterp.history.set_inputargs([i1, i2], "dummy")
 
-    assert r1 is miframe.registers_i[2]
-    assert r2 is miframe.registers_i[3]
+    r1 = miframe.opimpl_int_add(i1, i2)
+
+    # manually write result
+    miframe.registers_i[2] = r1
+
+    r2 = miframe.opimpl_int_add(i2, r1)
 
     assert r1.getint() == 22
     assert metainterp.history.trace == [(rop.INT_ADD, [i1, i2], None), (rop.INT_ADD, [i2, r1], None)]
 
 def test_int_add_const():
-    history = History(0)
-    metainterp = MetaInterp(history)
-    miframe = MIFrame(metainterp)
+    metainterp = MetaInterp("dummy")
+    metainterp.create_empty_history()
+    miframe = MIFrame(metainterp, DummyJitcode())
     metainterp.framestack.append(miframe)
 
-    miframe.registers_i[0] = ConstInt(15)
-    miframe.registers_i[1] = ConstInt(7)
+    metainterp.history.set_inputargs([], "dummy")
 
-    r1 = miframe.opimpl_int_add(0, 1, 2)
+    c1 = miframe.registers_i[0] = ConstInt(15)
+    c2 = miframe.registers_i[1] = ConstInt(7)
 
-    assert r1 is miframe.registers_i[2]
+    r1 = miframe.opimpl_int_add(c1, c2)
+
     assert r1.getint() == 22
     assert r1.is_constant()
     assert metainterp.history.trace == []
 
 def test_simulate_call():
-    history = History(2)
-    metainterp = MetaInterp(history)
-    miframe = MIFrame(metainterp)
+    metainterp = MetaInterp("dummy")
+    metainterp.create_empty_history()
+    miframe = MIFrame(metainterp, DummyJitcode())
     metainterp.framestack.append(miframe)
 
     # setup inputs 0, 1
     i1 = miframe.registers_i[0] = IntFrontendOp(0, 15)
     i2 = miframe.registers_i[1] = IntFrontendOp(1, 7)
 
+    metainterp.history.set_inputargs([i1, i2], "dummy")
+
     # add 0, 1 = 2
-    r1 = miframe.opimpl_int_add(0, 1, 2)
+    r1 = miframe.opimpl_int_add(i1, i2)
+
+    # manually write result
+    miframe.registers_i[2] = r1
 
     # call function with args 2, 0 (function adds args)
-    miframe2 = MIFrame(metainterp)
+    miframe2 = MIFrame(metainterp, DummyJitcode())
     metainterp.framestack.append(miframe2)
     miframe2.registers_i[0] = miframe.registers_i[2]
     miframe2.registers_i[1] = miframe.registers_i[0]
-    r2 = miframe2.opimpl_int_add(0, 1, 2)
+    r2 = miframe2.opimpl_int_add(r1, i1)
+
+    # manually write result
+    miframe2.registers_i[2] = r2
 
     # register 3 contains result
     miframe.registers_i[3] = miframe2.registers_i[2]
 
     # add 2 and 3 = 4
-    r4 = miframe.opimpl_int_add(2, 3, 4)
+    r4 = miframe.opimpl_int_add(r1, r2)
 
     assert r4.getint() == 59
     assert not r4.is_constant()
@@ -89,7 +105,9 @@ class TestMiniTrace(object):
         metainterp = MetaInterp(metainterp_sd)
         jitdriver_sd, = metainterp_sd.jitdrivers_sd
         metainterp.compile_and_run_once(jitdriver_sd, *args)
-        import pdb; pdb.set_trace()
+
+        # TODO assertions
+        assert metainterp.framestack[-1].return_value.getint() == 1323
 
     def test_first_loop(self):
         def f(x, y):

@@ -67,6 +67,7 @@ class MIFrame(object):
         self.registers_i = [None] * 256
         self.registers_r = [None] * 256
         self.registers_f = [None] * 256
+        self.return_value = None # TODO
 
     def setup_call(self, argboxes):
         self.pc = 0
@@ -88,18 +89,33 @@ class MIFrame(object):
                 op = ord(self.bytecode[pc])
                 staticdata.opcode_implementations[op](self, pc)
         except ChangeFrame:
-            pass
+            raise # TODO
 
     @arguments("box", "box")
-    def opimpl_int_add(self, index1, index2, res_index):
-        b1 = self.registers_i[index1]
-        b2 = self.registers_i[index2]
+    def opimpl_int_add(self, b1, b2):
         res = b1.getint() + b2.getint()
         if not (b1.is_constant() and b2.is_constant()):
             res_box = self.metainterp.history.record(rop.INT_ADD, [b1, b2], res)
         else:
             res_box = ConstInt(res)
-        self.registers_i[res_index] = res_box
+        return res_box
+
+    @arguments("box", "box")
+    def opimpl_int_sub(self, b1, b2):
+        res = b1.getint() - b2.getint()
+        if not (b1.is_constant() and b2.is_constant()):
+            res_box = self.metainterp.history.record(rop.INT_ADD, [b1, b2], res)
+        else:
+            res_box = ConstInt(res)
+        return res_box
+
+    @arguments("box", "box")
+    def opimpl_int_mul(self, b1, b2):
+        res = b1.getint() * b2.getint()
+        if not (b1.is_constant() and b2.is_constant()):
+            res_box = self.metainterp.history.record(rop.INT_MUL, [b1, b2], res)
+        else:
+            res_box = ConstInt(res)
         return res_box
 
     @arguments("box")
@@ -110,6 +126,24 @@ class MIFrame(object):
     def opimpl_live(self):
         self.pc += OFFSET_SIZE
 
+    @arguments("box", "box", "label", "orgpc")
+    def opimpl_goto_if_not_int_gt(self, a, b, target, pc):
+        # TODO
+        if a.getint() > b.getint():
+            self.pc = 11 # TODO how to know where the instruction ends?
+        else:
+            self.pc = target
+
+    @arguments("label")
+    def opimpl_goto(self, target):
+        # TODO
+        self.pc = target
+        
+    @arguments("box")
+    def opimpl_int_return(self, b):
+        # TODO
+        self.return_value = b
+        raise ChangeFrame
 
     def not_implemented(self, *args):
         name = self.metainterp.metainterp_sd.opcode_names[ord(self.bytecode[self.pc])]
@@ -166,8 +200,11 @@ class MetaInterp(object):
     def interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
         # a ExitFrameWithException, or a ContinueRunningNormally exception.
-        while True:
-            self.framestack[-1].run_one_step()
+        try:
+            while True:
+                self.framestack[-1].run_one_step()
+        except:
+            pass # TODO
 
 
 def wrap(value, in_const_box=False):
