@@ -42,6 +42,7 @@ class ConstInt(Const):
 class History(object):
     def __init__(self):
         self.trace = []
+        self.snapshots = []
 
     def set_inputargs(self, inputargs, metainterp_sd):
         for i, arg in enumerate(inputargs):
@@ -55,6 +56,8 @@ class History(object):
         return op
 
     def _make_op(self, pos, value):
+        if value is None:
+            return None
         return IntFrontendOp(pos, value)
 
 class MIFrame(object):
@@ -91,6 +94,15 @@ class MIFrame(object):
         except ChangeFrame:
             raise # TODO
 
+    def generate_guard(self, opnum, box=None, extraarg=None, resumepc=-1):
+        if isinstance(box, Const):    # no need for a guard
+            return
+        guard_op = self.metainterp.history.record(opnum, box, None) # TODO
+        
+        # unrealistic implementation of snapshots
+        self.metainterp.history.snapshots.append(self.metainterp.snapshot())
+
+
     @arguments("box", "box")
     def opimpl_int_add(self, b1, b2):
         res = b1.getint() + b2.getint()
@@ -104,7 +116,7 @@ class MIFrame(object):
     def opimpl_int_sub(self, b1, b2):
         res = b1.getint() - b2.getint()
         if not (b1.is_constant() and b2.is_constant()):
-            res_box = self.metainterp.history.record(rop.INT_ADD, [b1, b2], res)
+            res_box = self.metainterp.history.record(rop.INT_SUB, [b1, b2], res)
         else:
             res_box = ConstInt(res)
         return res_box
@@ -127,16 +139,20 @@ class MIFrame(object):
         self.pc += OFFSET_SIZE
 
     @arguments("box", "box", "label", "orgpc")
-    def opimpl_goto_if_not_int_gt(self, a, b, target, pc):
-        # TODO
-        if a.getint() > b.getint():
-            self.pc = 11 # TODO how to know where the instruction ends?
-        else:
+    def opimpl_goto_if_not_int_gt(self, a, b, target, orgpc):
+        res = a.getint() > b.getint()
+        if not (a.is_constant() and b.is_constant()):
+            res_box = self.metainterp.history.record(rop.INT_GT, [a, b], res)
+            if res:
+                opnum = rop.GUARD_TRUE
+            else:
+                opnum = rop.GUARD_FALSE
+            self.generate_guard(opnum, res_box, resumepc=orgpc)
+        if not res:
             self.pc = target
 
     @arguments("label")
     def opimpl_goto(self, target):
-        # TODO
         self.pc = target
         
     @arguments("box")
@@ -154,6 +170,12 @@ class MetaInterp(object):
     def __init__(self, metainterp_sd):
         self.framestack = []
         self.metainterp_sd = metainterp_sd
+
+    def snapshot(self):
+        res = []
+        for frame in self.framestack:
+            res.append((frame.jitcode, frame.pc, frame.registers_i[:], frame.registers_r[:], frame.registers_f[:]))
+        return res
 
     def create_empty_history(self):
         self.history = History()
@@ -203,7 +225,7 @@ class MetaInterp(object):
         try:
             while True:
                 self.framestack[-1].run_one_step()
-        except:
+        except Exception:
             pass # TODO
 
 

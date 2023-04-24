@@ -106,8 +106,7 @@ class TestMiniTrace(object):
         jitdriver_sd, = metainterp_sd.jitdrivers_sd
         metainterp.compile_and_run_once(jitdriver_sd, *args)
 
-        # TODO assertions
-        assert metainterp.framestack[-1].return_value.getint() == 1323
+        self.metainterp = metainterp
 
     def test_first_loop(self):
         def f(x, y):
@@ -119,3 +118,7 @@ class TestMiniTrace(object):
                 y -= 1
             return res
         res = self.mini_interp(f, [6, 7])
+
+        # TODO assertions
+        assert self.metainterp.framestack[-1].return_value.getint() == 1323
+        assert len(self.metainterp.history.snapshots) == 7 + 1
