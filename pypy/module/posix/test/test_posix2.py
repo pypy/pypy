@@ -32,7 +32,7 @@ def setup_module(mod):
         file_name = 'cafxe9'
         surrogate_name = 'foo'
     else:
-        bytes_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+        bytes_dir = udir.ensure(b'fi\xc5\x9fier.txt', dir=True)
         file_name = 'caf\xe9'
         surrogate_name = 'foo\x80'
     bytes_dir.join('somefile').write('who cares?')
@@ -409,16 +409,25 @@ class AppTestPosix:
         import sys
         bytes_dir = self.bytes_dir
         posix = self.posix
+        with raises(OSError):
+            posix.mkdir(bytes_dir)
         result = posix.listdir(bytes_dir)
         assert all(type(x) is bytes for x in result)
         assert b'somefile' in result
-        expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
-        assert expected in result
+        if sys.platform == "win32":
+            expected = b"cafxe9"
+        elif sys.platform == "darwin":
+            expected = b"caf%E9"
+        else:
+            expected = b"caf\xe9"
+        assert expected in result, "got '%s'" % result
 
     def test_listdir_unicode(self):
         if self.dir_unicode is None:
             skip("couldn't encode unicode file name")
         posix = self.posix
+        with raises(OSError):
+            posix.mkdir(self.dir_unicode)
         result = posix.listdir(self.dir_unicode)
         assert all(type(x) is str for x in result)
         assert u'ca\u2014f\xe9' in result
