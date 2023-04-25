@@ -67,6 +67,12 @@ class FileEncoder(object):
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
 
+    def as_utf8(self):
+        ret = self.space.utf8_w(self.w_obj)
+        if '\x00' in ret:
+            raise oefmt(self.space.w_ValueError, "embedded null character")
+        return ret
+
 class FileDecoder(object):
     is_unicode = False
 
@@ -80,6 +86,12 @@ class FileDecoder(object):
     def as_unicode(self):
         ret = self.space.fsdecode_w(self.w_obj).decode('utf-8')
         if u'\x00' in ret:
+            raise oefmt(self.space.w_ValueError, "embedded null character")
+        return ret
+
+    def as_utf8(self):
+        ret = self.space.utf8_w(self.w_obj)
+        if '\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
 
@@ -1441,18 +1453,16 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     if _WIN32:
-        raise oefmt(space.w_NotImplementedError,
-                    "symlink() is not implemented for PyPy on Windows")
         src_utf8 = space.fsencode_w(w_src)
         dst_utf8 = space.fsencode_w(w_dst)
         src_wch = rffi.utf82wcharp_ex(src_utf8, codepoints_in_utf8(src_utf8))
         dst_wch = rffi.utf82wcharp_ex(dst_utf8, codepoints_in_utf8(dst_utf8))
         ret = rwin32.os_symlink_impl(src_wch, dst_wch, target_is_directory)
-        rffi.free_wcharp(src_wch) 
-        rffi.free_wcharp(dst_wch) 
+        rffi.free_wcharp(src_wch)
+        rffi.free_wcharp(dst_wch)
         if ret == 0:
             error = rwin32.GetLastError_saved()
-            err = WindowsError(error, "symlink failed") 
+            err = WindowsError(error, "symlink failed")
             raise wrap_oserror2(space, err, w_filename=w_src,
                         w_filename2=w_dst, eintr_retry=False)
         return
@@ -1493,12 +1503,12 @@ dir_fd may not be implemented on your platform.
                 rffi.free_wcharp(src_wch)
                 if n == -1:
                     error = rwin32.GetLastError_saved()
-                    err = WindowsError(error, "symlink failed") 
+                    err = WindowsError(error, "readlink failed")
                     raise wrap_oserror2(space, err, w_filename=path.w_path,
                                 eintr_retry=False)
                     # error
                 if n == -2:
-                    raise oefmt(space.w_RuntimeError, "unknown error in symlink") 
+                    raise oefmt(space.w_RuntimeError, "unknown error in readlink")
                 utf8, codepoints = rffi.wcharp2utf8n(result[0], n)
                 if space.isinstance_w(path.w_path, space.w_unicode):
                     return space.newtext(utf8, codepoints)
