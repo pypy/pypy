@@ -27,14 +27,16 @@ def setup_module(mod):
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
     if sys.platform in ('darwin', 'win32'):
-        # see issue https://bugs.python.org/issue31380
+        # see issue https://bugs.python.org/issue31380 for darwin
+        # on win32, the host pypy2 currently does not
+        # handle mkdir of unicode correctly
         bytes_dir = udir.ensure('fixc5x9fier.txt', dir=True)
         file_name = 'cafxe9'
         surrogate_name = 'foo'
     else:
         bytes_dir = udir.ensure(b'fi\xc5\x9fier.txt', dir=True)
-        file_name = 'caf\xe9'
-        surrogate_name = 'foo\x80'
+        file_name = b'caf\xe9'
+        surrogate_name = b'foo\x80'
     bytes_dir.join('somefile').write('who cares?')
     bytes_dir.join(file_name).write('who knows?')
     mod.bytes_dir = bytes_dir
@@ -380,6 +382,7 @@ class AppTestPosix:
         posix.chdir(self.esurrogate_dir)
         try:
             cwd = posix.getcwd()
+            print("cwd", cwd, "esurrogate_dir", self.esurrogate_dir)
             assert fsencode(cwd) == posix.getcwdb()
         finally:
             posix.chdir(cwdb)

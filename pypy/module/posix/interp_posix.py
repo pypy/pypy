@@ -1458,11 +1458,11 @@ dir_fd may not be implemented on your platform.
         src_wch = rffi.utf82wcharp_ex(src_utf8, codepoints_in_utf8(src_utf8))
         dst_wch = rffi.utf82wcharp_ex(dst_utf8, codepoints_in_utf8(dst_utf8))
         ret = rwin32.os_symlink_impl(src_wch, dst_wch, target_is_directory)
-        rffi.free_wcharp(src_wch) 
-        rffi.free_wcharp(dst_wch) 
+        rffi.free_wcharp(src_wch)
+        rffi.free_wcharp(dst_wch)
         if ret == 0:
             error = rwin32.GetLastError_saved()
-            err = WindowsError(error, "symlink failed") 
+            err = WindowsError(error, "symlink failed")
             raise wrap_oserror2(space, err, w_filename=w_src,
                         w_filename2=w_dst, eintr_retry=False)
         return
@@ -1503,12 +1503,12 @@ dir_fd may not be implemented on your platform.
                 rffi.free_wcharp(src_wch)
                 if n == -1:
                     error = rwin32.GetLastError_saved()
-                    err = WindowsError(error, "readlink failed") 
+                    err = WindowsError(error, "readlink failed")
                     raise wrap_oserror2(space, err, w_filename=path.w_path,
                                 eintr_retry=False)
                     # error
                 if n == -2:
-                    raise oefmt(space.w_RuntimeError, "unknown error in readlink") 
+                    raise oefmt(space.w_RuntimeError, "unknown error in readlink")
                 utf8, codepoints = rffi.wcharp2utf8n(result[0], n)
                 if space.isinstance_w(path.w_path, space.w_unicode):
                     return space.newtext(utf8, codepoints)
