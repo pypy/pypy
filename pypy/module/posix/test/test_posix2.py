@@ -1912,9 +1912,9 @@ class AppTestPosixUnicode:
 class AppTestUnicodeFilename:
     def setup_class(cls):
         ufilename = (unicode(udir.join('test_unicode_filename_')) +
-                     '\u65e5\u672c.txt') # "Japan"
+                     u'\u65e5\u672c.txt') # "Japan"
         try:
-            f = file(ufilename, 'w')
+            f = open(ufilename, 'w')
         except (UnicodeEncodeError, IOError):
             pytest.skip("encoding not good enough")
         f.write("test")
