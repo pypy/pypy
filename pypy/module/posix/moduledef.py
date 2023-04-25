@@ -82,6 +82,7 @@ corresponding Unix manual entries for more information on calls."""
         'device_encoding': 'interp_posix.device_encoding',
         'get_terminal_size': 'interp_posix.get_terminal_size',
         'symlink': 'interp_posix.symlink',
+        'readlink': 'interp_posix.readlink',
 
         'scandir': 'interp_scandir.scandir',
         'DirEntry': 'interp_scandir.W_DirEntry',
@@ -112,8 +113,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['killpg'] = 'interp_posix.killpg'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
-    if hasattr(os, 'readlink'):
-        interpleveldefs['readlink'] = 'interp_posix.readlink'
     if hasattr(os, 'fork'):
         interpleveldefs['fork'] = 'interp_posix.fork'
         interpleveldefs['register_at_fork'] = 'interp_posix.register_at_fork'

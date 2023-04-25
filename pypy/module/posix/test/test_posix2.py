@@ -27,14 +27,16 @@ def setup_module(mod):
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
     if sys.platform in ('darwin', 'win32'):
-        # see issue https://bugs.python.org/issue31380
+        # see issue https://bugs.python.org/issue31380 for darwin
+        # on win32, the host pypy2 currently does not
+        # handle mkdir of unicode correctly
         bytes_dir = udir.ensure('fixc5x9fier.txt', dir=True)
         file_name = 'cafxe9'
         surrogate_name = 'foo'
     else:
-        bytes_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
-        file_name = 'caf\xe9'
-        surrogate_name = 'foo\x80'
+        bytes_dir = udir.ensure(b'fi\xc5\x9fier.txt', dir=True)
+        file_name = b'caf\xe9'
+        surrogate_name = b'foo\x80'
     bytes_dir.join('somefile').write('who cares?')
     bytes_dir.join(file_name).write('who knows?')
     mod.bytes_dir = bytes_dir
@@ -380,6 +382,7 @@ class AppTestPosix:
         posix.chdir(self.esurrogate_dir)
         try:
             cwd = posix.getcwd()
+            print("cwd", cwd, "esurrogate_dir", self.esurrogate_dir)
             assert fsencode(cwd) == posix.getcwdb()
         finally:
             posix.chdir(cwdb)
@@ -409,16 +412,25 @@ class AppTestPosix:
         import sys
         bytes_dir = self.bytes_dir
         posix = self.posix
+        with raises(OSError):
+            posix.mkdir(bytes_dir)
         result = posix.listdir(bytes_dir)
         assert all(type(x) is bytes for x in result)
         assert b'somefile' in result
-        expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
-        assert expected in result
+        if sys.platform == "win32":
+            expected = b"cafxe9"
+        elif sys.platform == "darwin":
+            expected = b"caf%E9"
+        else:
+            expected = b"caf\xe9"
+        assert expected in result, "got '%s'" % result
 
     def test_listdir_unicode(self):
         if self.dir_unicode is None:
             skip("couldn't encode unicode file name")
         posix = self.posix
+        with raises(OSError):
+            posix.mkdir(self.dir_unicode)
         result = posix.listdir(self.dir_unicode)
         assert all(type(x) is str for x in result)
         assert u'ca\u2014f\xe9' in result
@@ -1903,9 +1915,9 @@ class AppTestPosixUnicode:
 class AppTestUnicodeFilename:
     def setup_class(cls):
         ufilename = (unicode(udir.join('test_unicode_filename_')) +
-                     '\u65e5\u672c.txt') # "Japan"
+                     u'\u65e5\u672c.txt') # "Japan"
         try:
-            f = file(ufilename, 'w')
+            f = open(ufilename, 'w')
         except (UnicodeEncodeError, IOError):
             pytest.skip("encoding not good enough")
         f.write("test")
