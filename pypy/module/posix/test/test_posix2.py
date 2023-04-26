@@ -382,7 +382,7 @@ class AppTestPosix:
         posix.chdir(self.esurrogate_dir)
         try:
             cwd = posix.getcwd()
-            print("cwd", cwd, "esurrogate_dir", self.esurrogate_dir)
+            # print("cwd", cwd, "esurrogate_dir", self.esurrogate_dir)
             assert fsencode(cwd) == posix.getcwdb()
         finally:
             posix.chdir(cwdb)
