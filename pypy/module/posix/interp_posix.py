@@ -90,7 +90,7 @@ class FileDecoder(object):
         return ret
 
     def as_utf8(self):
-        ret = self.space.utf8_w(self.w_obj)
+        ret = self.space.fsdecode_w(self.w_obj)
         if '\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
