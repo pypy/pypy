@@ -587,8 +587,11 @@ class W_ListObject(W_Root):
 
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
+            # important: unpack the slice before computing the length. the
+            # __index__ methods can mutate the list and change its length.
+            start, stop, step = w_index.unpack(space)
             length = self.length()
-            start, stop, step, slicelength = w_index.indices4(space, length)
+            start, stop, step, slicelength = w_index.adjust_indices(start, stop, step, length)
             assert slicelength >= 0
             if slicelength == 0:
                 return make_empty_list(space)
