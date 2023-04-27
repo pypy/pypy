@@ -1509,7 +1509,7 @@ class ObjSpace(object):
             assert isinstance(w_index_or_slice, W_SliceObject)
             start, stop, step = w_index_or_slice.indices3(self, seqlength)
         else:
-            start = self.int_w(w_index_or_slice, allow_conversion=False)
+            start = self.getindex_w(w_index_or_slice, self.w_IndexError)
             if start < 0:
                 start += seqlength
             if not (0 <= start < seqlength):
@@ -1529,7 +1529,7 @@ class ObjSpace(object):
             start, stop, step, length = w_index_or_slice.indices4(self,
                                                                   seqlength)
         else:
-            start = self.int_w(w_index_or_slice, allow_conversion=False)
+            start = self.getindex_w(w_index_or_slice, self.w_IndexError)
             if start < 0:
                 start += seqlength
             if not (0 <= start < seqlength):
