@@ -400,17 +400,17 @@ class OptTraceSplit(Optimizer):
         op.set_forwarded(newop)
         self.emit(newop)
 
-    def _invest_label_jump_dest(self, targetbox, token):
-        for info, ops in self._newopsandinfo:
-            for i, op in enumerate(ops):
-                if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                    if self._insert_label(op, i, ops, targetbox, token):
-                        return
-
-        for i, op in enumerate(self._newoperations):
+    def _check_and_insert_label(self, ops, targetbox, token):
+        for i, op in enumerate(ops):
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                if self._insert_label(op, i, self._newoperations, targetbox, token):
+                if self._insert_label(op, i, ops, targetbox, token):
                     return
+
+    def _invest_label_jump_dest(self, targetbox, token):
+        for _, ops in self._newopsandinfo:
+            self._check_and_insert_label(ops, targetbox, token)
+
+        self._check_and_insert_label(self._newoperations, targetbox, token)
 
     def _insert_label(self, op, i, ops, targetbox, token):
         jd = self.jitdriver_sd
