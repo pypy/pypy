@@ -106,19 +106,13 @@ class BufferView(object):
 
     def _copy_base(self, data, off):
         shapes = self.getshape()
-        step = shapes[0]
+        step = shapes[-1]
         strides = self.getstrides()
+        stride = strides[-1]
         itemsize = self.getitemsize()
-        bytesize = self.getlength()
-        copiedbytes = 0
-        for i in range(step):
-            bytes = self.getbytes(off, itemsize)
+        for i in range(off, off + stride * step, stride):
+            bytes = self.getbytes(i, itemsize)
             data.append(bytes)
-            copiedbytes += len(bytes)
-            off += strides[0]
-            # do notcopy data if the sub buffer is out of bounds
-            if copiedbytes >= bytesize:
-                break
 
     def get_offset(self, space, dim, index):
         "Convert index at dimension `dim` into a byte offset"
