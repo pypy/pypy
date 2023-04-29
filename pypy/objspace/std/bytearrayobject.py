@@ -511,7 +511,11 @@ class W_BytearrayObject(W_Root):
     def descr_getitem(self, space, w_index):
         # optimization: this version doesn't force getdata()
         if isinstance(w_index, W_SliceObject):
-            start, stop, step, sl = w_index.indices4(space, self._len())
+            # important: unpack the slice before computing the length. the
+            # __index__ methods can mutate the list and change its length.
+            start, stop, step = w_index.unpack(space)
+            length = self._len()
+            start, stop, step, sl = w_index.adjust_indices(start, stop, step, length)
             if sl == 0:
                 return self._empty()
             elif step == 1:
