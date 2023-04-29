@@ -287,3 +287,14 @@ def test_index_method():
             return 1
     assert d[A()] == 2
 
+def test_index_method_mutates():
+    d = deque([1, 2, 3, 4, 5])
+    class A(object):
+        def __index__(self):
+            d.clear()
+            return 1
+    with raises(IndexError):
+        d[A()]
+    d = deque([1, 2, 3, 4, 5])
+    with raises(IndexError):
+        d[A()] = 2
