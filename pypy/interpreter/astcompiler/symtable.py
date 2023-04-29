@@ -462,7 +462,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if isinstance(target, ast.Name):
             name = target.id
             old_role = self.scope.lookup_role(name)
-            if assign.simple:
+            if assign.simple and self.scope is not self.stack[0]:
                 if old_role & SYM_GLOBAL:
                     self.error(
                         "annotated name '%s' can't be global" % name,
