@@ -19,7 +19,14 @@ class BufferView(object):
 
     def as_str(self):
         "Returns an interp-level string with the whole content of the buffer."
-        return ''.join(self._copy_buffer())
+        from rpython.rlib.rstring import StringBuilder
+        if self.getndim() == 0:
+            itemsize = self.getitemsize()
+            return self.getbytes(0, itemsize)
+        nchunks = self.getlength()
+        data = StringBuilder(nchunks)
+        self._copy_rec(0, data, 0)
+        return data.build()
 
     def getbytes(self, start, size):
         """Return `size` bytes starting at byte offset `start`.
@@ -83,14 +90,6 @@ class BufferView(object):
                         self.getformat())
         return buf.finish()
 
-    def _copy_buffer(self):
-        if self.getndim() == 0:
-            itemsize = self.getitemsize()
-            return [self.getbytes(0, itemsize)]
-        data = []
-        self._copy_rec(0, data, 0)
-        return data
-
     def _copy_rec(self, idim, data, off):
         shapes = self.getshape()
         shape = shapes[idim]
@@ -109,6 +108,8 @@ class BufferView(object):
         step = shapes[-1]
         strides = self.getstrides()
         stride = strides[-1]
+        if not stride:
+            return
         itemsize = self.getitemsize()
         for i in range(off, off + stride * step, stride):
             bytes = self.getbytes(i, itemsize)
