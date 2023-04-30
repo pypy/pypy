@@ -856,7 +856,9 @@ if _WIN32:
     def win32_attributes_to_mode(win32traits, attributes):
         m = 0
         attributes = widen(attributes)
-        if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
+        if attributes & win32traits.FILE_ATTRIBUTE_REPARSE_POINT:
+            m |= win32traits._S_IFLNK
+        elif attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
             m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
         else:
             m |= win32traits._S_IFREG

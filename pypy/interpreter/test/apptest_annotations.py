@@ -185,6 +185,14 @@ def test_class_mangling():
         __mangled: int
     assert C.__annotations__ == {"_C__mangled": int}
 
+def test_global_annotion_bug():
+    exec("""
+def set():
+    global name
+name:int
+assert __annotations__['name'] == int
+    """)
+
 def test_lazy_annotation_creation():
     for obj in [type(pytest)("abc"), type("A", (), {})]:
         assert '__annotations__' not in obj.__dict__

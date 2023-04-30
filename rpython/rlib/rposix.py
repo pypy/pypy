@@ -1183,9 +1183,12 @@ def unlink(path):
     if not _WIN32:
         handle_posix_error('unlink', c_unlink(_as_bytes0(path)))
     else:
-        traits = _preferred_traits(path)
-        win32traits = make_win32_traits(traits)
-        if not win32traits.DeleteFile(traits.as_str0(path)):
+        win32traits = make_win32_traits(unicode_traits)
+        src_utf8 = path.as_utf8()
+        src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
+        ret = rwin32.os_unlink_impl(src_wch)
+        rffi.free_wcharp(src_wch)
+        if not ret:
             raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('mkdir')

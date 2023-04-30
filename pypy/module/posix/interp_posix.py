@@ -841,7 +841,7 @@ dir_fd may not be implemented on your platform.
             rposix.unlinkat(space.fsencode_w(path.w_path),
                             dir_fd, removedir=False)
         else:
-            call_rposix(rposix.unlink, path)
+            dispatch_filename(rposix.unlink)(space, path.w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
@@ -861,7 +861,7 @@ dir_fd may not be implemented on your platform.
             rposix.unlinkat(space.fsencode_w(path.w_path),
                             dir_fd, removedir=False)
         else:
-            call_rposix(rposix.unlink, path)
+            dispatch_filename(rposix.unlink)(space, path.w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 

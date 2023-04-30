@@ -652,3 +652,6 @@ if WIN32:
     os_symlink_impl = winexternal("os_symlink_impl",
         [rffi.CWCHARP, rffi.CWCHARP, rffi.INT], rffi.INT,
         save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    os_unlink_impl = winexternal("os_unlink_impl", [rffi.CWCHARP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
