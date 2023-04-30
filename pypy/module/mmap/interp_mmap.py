@@ -154,6 +154,7 @@ class W_MMap(W_Root):
                                  self.space.newtext(e.message))
 
     def __len__(self):
+        self.check_valid()
         return self.space.newint(self.mmap.size)
 
     def closed_get(self, space):
@@ -182,10 +183,9 @@ class W_MMap(W_Root):
             raise mmap_error(self.space, v)
 
     def descr_getitem(self, w_index):
-        self.check_valid()
-
         space = self.space
-        start, stop, step, length = space.decode_index4(w_index, self.mmap.size)
+        start, stop, step, length = space.decode_index4(w_index, self)
+        self.check_valid() # decode_index4 can have closed the mmap
         if step == 0:  # index only
             return space.newint(ord(self.mmap.getitem(start)))
         elif step == 1:
@@ -202,10 +202,10 @@ class W_MMap(W_Root):
 
     def descr_setitem(self, w_index, w_value):
         space = self.space
+        start, stop, step, length = space.decode_index4(w_index, self)
         self.check_valid()
         self.check_writeable()
 
-        start, stop, step, length = space.decode_index4(w_index, self.mmap.size)
         if step == 0:  # index only
             value = space.int_w(w_value)
             if not 0 <= value < 256:

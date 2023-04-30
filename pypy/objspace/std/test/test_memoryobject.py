@@ -235,7 +235,21 @@ class AppTestMemoryView(object):
         a = memoryview(b"foobar")._pypy_raw_address()
         assert a != 0
         b = memoryview(bytearray(b"foobar"))._pypy_raw_address()
-        assert b != 0
+
+    def test_mutate_memoryview_while_indexing(self):
+        class A(object):
+            def __index__(self):
+                del data[:]
+                return 1
+        data = bytearray(b'abcefg')
+        v = memoryview(data)
+        with raises(IndexError):
+            v[A()]
+
+        data = bytearray(b'abcefg')
+        v = memoryview(data)
+        with raises(IndexError):
+            v[A()] = b'z'
 
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'

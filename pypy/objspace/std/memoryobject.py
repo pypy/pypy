@@ -202,7 +202,9 @@ class W_MemoryView(W_Root):
             count = 1
         else:
             count = shape[0]
-        return space.decode_index4(w_index, count)
+        # it's ok to use 'unsafe' here, because the index error checking
+        # happens a level deeper on the view access
+        return space.decode_index4_unsafe(w_index, count)
 
     def descr_getitem(self, space, w_index):
         self._check_released(space)
@@ -253,7 +255,7 @@ class W_MemoryView(W_Root):
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         if space.isinstance_w(w_index, space.w_tuple):
             return self._setitem_tuple_indexed(space, w_index, w_obj)
-        start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        start, stop, step, size = space.decode_index4(w_index, self)
         is_slice = space.isinstance_w(w_index, space.w_slice)
         start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
         itemsize = self.getitemsize()

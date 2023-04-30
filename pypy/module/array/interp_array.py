@@ -614,8 +614,8 @@ class W_ArrayBase(W_Root):
     def descr_getitem(self, space, w_idx):
         "x.__getitem__(y) <==> x[y]"
         if not space.isinstance_w(w_idx, space.w_slice):
-            idx, stop, step = space.decode_index(w_idx, self.len)
-            assert step == 0
+            idx, stop, step, slicelength = space.decode_index4(w_idx, self)
+            assert step == 0 and slicelength == 1
             return self.w_getitem(space, idx)
         else:
             return self.getitem_slice(space, w_idx)
@@ -628,7 +628,7 @@ class W_ArrayBase(W_Root):
             self.setitem(space, w_idx, w_item)
 
     def descr_delitem(self, space, w_idx):
-        start, stop, step, size = self.space.decode_index4(w_idx, self.len)
+        start, stop, step, size = self.space.decode_index4(w_idx, self)
         if step != 1:
             # I don't care about efficiency of that so far
             w_lst = self.descr_tolist(space)
@@ -1210,7 +1210,7 @@ def make_array(mytype):
             keepalive_until_here(self)
 
         def getitem_slice(self, space, w_idx):
-            start, stop, step, size = space.decode_index4(w_idx, self.len)
+            start, stop, step, size = space.decode_index4(w_idx, self)
             w_a = mytype.w_class(self.space)
             w_a.setlen(size, overallocate=False)
             assert step != 0
@@ -1225,7 +1225,8 @@ def make_array(mytype):
             return w_a
 
         def setitem(self, space, w_idx, w_item):
-            idx, stop, step = space.decode_index(w_idx, self.len)
+            idx, stop, step, slicelength = space.decode_index4(w_idx, self)
+            assert slicelength == 1
             if step != 0:
                 raise oefmt(self.space.w_TypeError,
                             "can only assign array to array slice")
@@ -1237,7 +1238,7 @@ def make_array(mytype):
             if not isinstance(w_item, W_Array):
                 raise oefmt(space.w_TypeError,
                             "can only assign to a slice array")
-            start, stop, step, size = self.space.decode_index4(w_idx, self.len)
+            start, stop, step, size = self.space.decode_index4(w_idx, self)
             assert step != 0
             if w_item.len != size or self is w_item:
                 if start == self.len and step > 0:

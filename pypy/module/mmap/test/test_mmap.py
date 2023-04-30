@@ -106,6 +106,7 @@ class AppTestMMap:
         m = mmap(f.fileno(), 1)
         m.close()
         raises(ValueError, m.read, 1)
+        raises(ValueError, len, m)
 
     def test_read_byte(self):
         from mmap import mmap
@@ -880,6 +881,26 @@ class AppTestMMap:
         raises(ValueError, m.write, b'abc')
         assert m.tell() == 5000
         m.close()
+
+    def test_close_while_indexing(self):
+        import mmap
+        with open(self.tmpname + "_crash", 'w+b') as f:
+            f.write(b"foobar")
+            f.flush()
+
+            class X(object):
+                def __index__(self):
+                    m.close()
+                    return 1
+
+            m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+            assert m[1] == ord(b"o")
+            with raises(ValueError):
+                m[X()]
+
+            m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+            with raises(ValueError):
+                m[X()] = b"u"
 
     def test_iter_yields_bytes(self):
         # issue 3282: inconsistency in Python 3
