@@ -272,6 +272,19 @@ class Overlapped(object):
         self.read_buffer = _ffi.new("CHAR[]", max(1, size))
         return self.do_WSARecv(handle, self.read_buffer, size, flags)
 
+    def WSARecvInto(self, handle, bufobj, flags):
+        handle = _int2handle(handle)
+        flags = _int2dword(flags)
+        if self.type != OverlappedType.TYPE_NONE:
+            _winapi.raise_WinError()
+        if not isinstance(bufobj, bytearray):
+            raise TypeError("bytearray expected in WSARecvInto")
+        size = len(bufobj)
+        self.type = OverlappedType.TYPE_READINTO
+        self.handle = handle
+        self.read_buffer = _ffi.from_buffer(bufobj)
+        return self.do_WSARecv(handle, self.read_buffer, size, flags)
+
     def do_WSARecv(self, handle, allocatedbuffer, size, flags):
         nread = _ffi.new("LPDWORD")
         wsabuff = _ffi.new("WSABUF[1]")
@@ -358,6 +371,18 @@ class Overlapped(object):
         self.handle = _int2handle(handle)
         self.read_buffer = _ffi.new("CHAR[]", max(1, size))
         return self.do_ReadFile(self.handle, self.read_buffer, size)
+
+    def ReadFileInto(self, handle, bufobj):
+        handle = _int2handle(handle)
+        if self.type != OverlappedType.TYPE_NONE:
+            _winapi.raise_WinError()
+        if not isinstance(bufobj, bytearray):
+            raise TypeError("bytearray expected in ReadFileInto")
+        size = len(bufobj)
+        self.type = OverlappedType.TYPE_READINTO
+        self.handle = handle
+        self.read_buffer = _ffi.from_buffer(bufobj)
+        return self.do_ReadFile(handle, self.read_buffer, size)
 
     def do_ReadFile(self, handle, buf, size):
         nread = _ffi.new('DWORD[1]', [0])
