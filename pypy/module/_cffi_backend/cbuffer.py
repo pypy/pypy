@@ -22,7 +22,7 @@ class MiniBuffer(W_Root):
 
     def descr_getitem(self, space, w_index):
         start, stop, step, size = space.decode_index4(w_index,
-                                                      self.buffer.getlength())
+                                                      self)
         if step == 0:
             return space.newbytes(self.buffer.getitem(start))
         res = self.buffer.getslice(start, step, size)
@@ -30,7 +30,7 @@ class MiniBuffer(W_Root):
 
     def descr_setitem(self, space, w_index, w_newstring):
         start, stop, step, size = space.decode_index4(w_index,
-                                                      self.buffer.getlength())
+                                                      self)
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
         value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO).as_readbuf()

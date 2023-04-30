@@ -156,7 +156,7 @@ class FakeSpace(ObjSpace):
 
         raise NotImplementedError
 
-    def decode_index4(self, w_idx, size):
+    def decode_index4_unsafe(self, w_idx, size):
         if isinstance(w_idx, IntObject):
             return (self.int_w(w_idx), 0, 0, 1)
         else:
