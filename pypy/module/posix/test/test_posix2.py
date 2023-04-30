@@ -1202,12 +1202,25 @@ class AppTestPosix:
 
     def test_symlink(self):
         posix = self.posix
+        import stat
+
+        def islink(path):
+            """Test whether a path is a symbolic link.
+               Taken from ntpath.py
+            """
+            try:
+                st = posix.lstat(path)
+            except (OSError, ValueError, AttributeError):
+                return False
+            return stat.S_ISLNK(st.st_mode)
+
         bytes_dir = self.bytes_dir
         if bytes_dir is None:
             skip("encoding not good enough")
         dest = bytes_dir + b"/file.txt"
         posix.symlink(bytes_dir + b"/somefile", dest)
         try:
+            assert islink(dest)
             with open(dest) as f:
                 data = f.read()
                 assert data == "who cares?"
@@ -1215,9 +1228,17 @@ class AppTestPosix:
             posix.unlink(dest)
         posix.symlink(memoryview(bytes_dir + b"/somefile"), dest)
         try:
+            assert islink(dest)
             with open(dest) as f:
                 data = f.read()
                 assert data == "who cares?"
+        finally:
+            posix.unlink(dest)
+
+        dest = bytes_dir + b"_sym"
+        posix.symlink(bytes_dir, dest)
+        try:
+            assert islink(dest)
         finally:
             posix.unlink(dest)
 
