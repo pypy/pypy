@@ -4317,6 +4317,38 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_jit_choose_r_propagate_class(self):
+        ops = """
+        [i1]
+        p0 = jit_choose_r(i1, ConstPtr(myptr), ConstPtr(myptrb))
+        guard_nonnull(p0) []
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        expected = """
+        [i1]
+        p0 = jit_choose_r(i1, ConstPtr(myptr), ConstPtr(myptrb))
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_jit_choose_r_cant_propagate_class(self):
+        ops = """
+        [i1]
+        p0 = jit_choose_r(i1, ConstPtr(myptr), ConstPtr(myptr2))
+        guard_nonnull(p0) []
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        expected = """
+        [i1]
+        p0 = jit_choose_r(i1, ConstPtr(myptr), ConstPtr(myptr2))
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+
     def test_jit_choose_promote(self):
         ops = """
         [i1]

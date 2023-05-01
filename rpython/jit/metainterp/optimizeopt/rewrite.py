@@ -352,6 +352,23 @@ class OptRewrite(Optimization):
             self.make_equal_to(op, box)
         else:
             return self.emit(op)
+    optimize_JIT_CHOOSE_R = optimize_JIT_CHOOSE_I
+
+    def postprocess_JIT_CHOOSE_R(self, op):
+        info1 = getptrinfo(op.getarg(1))
+        info2 = getptrinfo(op.getarg(2))
+        # we propagate non-nullness and the class (if known) to op if both
+        # arguments have the same info there
+        cpu = self.optimizer.cpu
+        if cpu.supports_guard_gc_type:
+            known_class1 = info1.get_known_class(cpu)
+            known_class2 = info2.get_known_class(cpu)
+            if (known_class1 is not None and known_class2 is not None and
+                    known_class1.same_constant(known_class2)):
+                self.make_constant_class(op, known_class1, False)
+                return
+        if info1.getnullness() == info2.getnullness() == INFO_NONNULL:
+            self.make_nonnull(op)
 
     def optimize_guard(self, op, constbox):
         box = op.getarg(0)
