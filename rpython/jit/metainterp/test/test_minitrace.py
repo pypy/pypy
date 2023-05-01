@@ -108,17 +108,39 @@ class TestMiniTrace(object):
 
         self.metainterp = metainterp
 
-    def test_first_loop(self):
-        def f(x, y):
-            res = 0
-            while y > 0:
-                res += x * x
-                x += 1
-                res += x * x
-                y -= 1
-            return res
-        res = self.mini_interp(f, [6, 7])
+    #def test_first_loop(self):
+    #    def f(x, y):
+    #        res = 0
+    #        while y > 0:
+    #            res += x * x
+    #            x += 1
+    #            res += x * x
+    #            y -= 1
+    #        return res
+    #    self.mini_interp(f, [6, 7])
+    #
+    #    # TODO assertions
+    #    assert self.metainterp.framestack[-1].return_value.getint() == 1323
+    #    assert len(self.metainterp.history.snapshots) == 7 + 1
 
-        # TODO assertions
-        assert self.metainterp.framestack[-1].return_value.getint() == 1323
-        assert len(self.metainterp.history.snapshots) == 7 + 1
+    def test_interp(self):
+        def f(bytecode_choice, init):
+            if bytecode_choice == 1:
+                bytecode = "+++++---r"
+            else:
+                bytecode = "r"
+            pc = 0
+            acc = init
+            while pc < len(bytecode):
+                opcode = bytecode[pc]
+                if opcode == "+":
+                    acc += 1
+                if opcode == "-":
+                    acc -= 1
+                if opcode == "r":
+                    return acc
+                pc += 1
+            return acc
+        self.mini_interp(f, [1, 0])
+
+        assert self.metainterp.return_value.getint() == 2

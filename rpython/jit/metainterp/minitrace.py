@@ -1,5 +1,7 @@
+from rpython.jit.codewriter.jitcode import JitCode
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp import history
+from rpython.jit.metainterp import history, jitexc
+from rpython.jit.metainterp.history import ConstPtrJitCode, ConstInt, IntFrontendOp, History, Const
 from rpython.jit.metainterp.pyjitpl import arguments
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import we_are_translated, specialize, always_inline
@@ -8,57 +10,9 @@ from rpython.jit.codewriter.liveness import OFFSET_SIZE
 class ChangeFrame(Exception):
     pass
 
-
-class AbstractValue(object):
-    def is_constant(self):
-        return False
-
-class FrontendOp(AbstractValue):
-    pass
-
-class IntFrontendOp(FrontendOp):
-    type = history.INT
-
-    def __init__(self, position_and_flags, _resint):
-        self.position_and_flags = position_and_flags
-        self._resint = _resint
-
-    def getint(self):
-        return self._resint
-
-class Const(AbstractValue):
-    def is_constant(self):
-        return True
-
-class ConstInt(Const):
-    type = history.INT
-
-    def __init__(self, value):
-        self.value = value
-
-    def getint(self):
-        return self.value
-
-class History(object):
-    def __init__(self):
-        self.trace = []
-        self.snapshots = []
-
-    def set_inputargs(self, inputargs, metainterp_sd):
-        for i, arg in enumerate(inputargs):
-            arg.position_and_flags = i
-        self.num_inputargs = len(inputargs)
-
-    def record(self, opnum, argboxes, value, descr=None):
-        pos = len(self.trace) + self.num_inputargs
-        op = self._make_op(pos, value)
-        self.trace.append((opnum, argboxes, descr))
-        return op
-
-    def _make_op(self, pos, value):
-        if value is None:
-            return None
-        return IntFrontendOp(pos, value)
+class DoneWithThisFrameInt(Exception):
+    def __init__(self, result):
+        self.result = result
 
 class MIFrame(object):
     debug = True
@@ -72,13 +26,37 @@ class MIFrame(object):
         self.registers_f = [None] * 256
         self.return_value = None # TODO
 
+        self.copy_constants(self.registers_i, jitcode.constants_i, ConstInt)
+        self.copy_constants(self.registers_r, jitcode.constants_r, ConstPtrJitCode)
+        # TODO self.copy_constants(self.registers_f, jitcode.constants_f, ConstFloat)
+
+    @specialize.arg(3)
+    def copy_constants(self, registers, constants, ConstClass):
+        """Copy jitcode.constants[0] to registers[255],
+                jitcode.constants[1] to registers[254],
+                jitcode.constants[2] to registers[253], etc."""
+        i = len(constants) - 1
+        while i >= 0:
+            j = 255 - i
+            assert j >= 0
+            registers[j] = ConstClass(constants[i])
+            i -= 1
+
     def setup_call(self, argboxes):
         self.pc = 0
         count_i = count_r = count_f = 0
         for box in argboxes:
-            # XXX only ints so far
-            self.registers_i[count_i] = box
-            count_i += 1
+            if box.type == history.INT:
+                self.registers_i[count_i] = box
+                count_i += 1
+            elif box.type == history.REF:
+                self.registers_r[count_r] = box
+                count_r += 1
+            elif box.type == history.FLOAT:
+                self.registers_f[count_f] = box
+                count_f += 1
+            else:
+                raise AssertionError(box.type)
 
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves
@@ -92,15 +70,16 @@ class MIFrame(object):
                 op = ord(self.bytecode[pc])
                 staticdata.opcode_implementations[op](self, pc)
         except ChangeFrame:
-            raise # TODO
+            pass
 
     def generate_guard(self, opnum, box=None, extraarg=None, resumepc=-1):
         if isinstance(box, Const):    # no need for a guard
             return
-        guard_op = self.metainterp.history.record(opnum, box, None) # TODO
+        guard_op = self.metainterp.history.record(opnum, [box], None) # TODO
         
         # unrealistic implementation of snapshots
-        self.metainterp.history.snapshots.append(self.metainterp.snapshot())
+        # TODO reimpl 
+        # self.metainterp.history.snapshots.append(self.metainterp.snapshot())
 
 
     @arguments("box", "box")
@@ -151,6 +130,36 @@ class MIFrame(object):
         if not res:
             self.pc = target
 
+    @arguments("box", "box", "label", "orgpc")
+    def opimpl_goto_if_not_int_lt(self, a, b, target, orgpc):
+        res = a.getint() < b.getint()
+        if not (a.is_constant() and b.is_constant()):
+            res_box = self.metainterp.history.record(rop.INT_LT, [a, b], res)
+            if res:
+                opnum = rop.GUARD_TRUE
+            else:
+                opnum = rop.GUARD_FALSE
+            self.generate_guard(opnum, res_box, resumepc=orgpc)
+        if not res:
+            self.pc = target
+
+    @arguments("box", "box", "label", "orgpc")
+    def opimpl_goto_if_not_int_eq(self, a, b, target, orgpc):
+        res = a.getint() == b.getint()
+        if not (a.is_constant() and b.is_constant()):
+            res_box = self.metainterp.history.record(rop.INT_EQ, [a, b], res)
+            if res:
+                opnum = rop.GUARD_TRUE
+            else:
+                opnum = rop.GUARD_FALSE
+            self.generate_guard(opnum, res_box, resumepc=orgpc)
+        if not res:
+            self.pc = target
+
+    @arguments("newframe2")
+    def opimpl_inline_call_ir_i(self, _):
+        raise ChangeFrame
+
     @arguments("label")
     def opimpl_goto(self, target):
         self.pc = target
@@ -159,12 +168,37 @@ class MIFrame(object):
     def opimpl_int_return(self, b):
         # TODO
         self.return_value = b
-        raise ChangeFrame
+        self.metainterp.finishframe()
+    
+    @arguments("box", "box")
+    def opimpl_strgetitem(self, strbox, indexbox):
+        res = ord(strbox._get_str()[indexbox.getint()])
+        return self.metainterp.history.record(rop.STRGETITEM, [strbox, indexbox], res)
 
     def not_implemented(self, *args):
         name = self.metainterp.metainterp_sd.opcode_names[ord(self.bytecode[self.pc])]
-        import pdb; pdb.set_trace()
+        print "bytecode", name, "not implemented"
+        if not we_are_translated():
+            import pdb; pdb.set_trace()
         raise NotImplementedError(name)
+    
+    def fill_registers(self, f, length, position, argcode):
+        assert argcode in 'IRF'
+        code = self.bytecode
+        for i in range(length):
+            index = ord(code[position+i])
+            if   argcode == 'I':
+                reg = self.registers_i[index]
+                f.registers_i[i] = reg
+            elif argcode == 'R':
+                reg = self.registers_r[index]
+                f.registers_r[i] = reg
+            elif argcode == 'F':
+                reg = self.registers_f[index]
+                f.registers_f[i] = reg
+            else:
+                raise AssertionError(argcode)
+
 
 class MetaInterp(object):
     def __init__(self, metainterp_sd):
@@ -218,6 +252,17 @@ class MetaInterp(object):
         f = MIFrame(self, jitcode)
         self.framestack.append(f)
         return f
+    
+    def finishframe(self):
+        frame = self.framestack.pop()
+        if self.framestack:
+            # TODO other return types
+            cur = self.framestack[-1]
+            target_index = ord(cur.bytecode[cur.pc-1])
+            cur.registers_i[target_index] = frame.return_value
+            raise ChangeFrame
+        else:
+            raise DoneWithThisFrameInt(frame.return_value)
 
     def interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
@@ -225,8 +270,8 @@ class MetaInterp(object):
         try:
             while True:
                 self.framestack[-1].run_one_step()
-        except Exception:
-            pass # TODO
+        except DoneWithThisFrameInt as e:
+            self.return_value = e.result
 
 
 def wrap(value, in_const_box=False):
@@ -234,7 +279,9 @@ def wrap(value, in_const_box=False):
     if in_const_box:
         return ConstInt(value)
     else:
-        return IntFrontendOp(0, value)
+        op = IntFrontendOp(0)
+        op.setint(value)
+        return op
 
 
 def miniinterp_staticdata(metainterp_sd, cw):
@@ -289,7 +336,40 @@ def _get_opimpl_method(name, argcodes):
             elif argtype == "boxes3":    # three lists of boxes merged into one
                 assert 0, "unsupported"
             elif argtype == "newframe" or argtype == "newframe2" or argtype == "newframe3":
-                assert 0, "unsupported"
+                # this and the next two are basically equivalent to
+                # jitcode boxes/boxes2/boxes3
+                # instead of allocating the list of boxes, just put everything
+                # into the correct position of a new MIFrame
+
+                # first get the jitcode
+                assert argcodes[next_argcode] == 'd'
+                next_argcode = next_argcode + 1
+                index = ord(code[position]) | (ord(code[position+1])<<8)
+                jitcode = self.metainterp.metainterp_sd.opcode_descrs[index]
+                assert isinstance(jitcode, JitCode)
+                position += 2
+                # make a new frame
+                value = self.metainterp.newframe(jitcode)
+                value.pc = 0
+
+                # now put boxes into the right places
+                length = ord(code[position])
+                self.fill_registers(value, length, position + 1,
+                                    argcodes[next_argcode])
+                next_argcode = next_argcode + 1
+                position += 1 + length
+                if argtype != "newframe": # 2/3 lists of boxes
+                    length = ord(code[position])
+                    self.fill_registers(value, length, position + 1,
+                                        argcodes[next_argcode])
+                    next_argcode = next_argcode + 1
+                    position += 1 + length
+                if argtype == "newframe3": # 3 lists of boxes
+                    length = ord(code[position])
+                    self.fill_registers(value, length, position + 1,
+                                        argcodes[next_argcode])
+                    next_argcode = next_argcode + 1
+                    position += 1 + length
             elif argtype == "orgpc":
                 value = orgpc
             elif argtype == "int":
@@ -349,3 +429,48 @@ def _get_opimpl_method(name, argcodes):
     handler.__name__ = 'handler_' + name
     return handler
 
+def target(*args):
+    from rpython.rlib import jit
+    from rpython.jit.backend.llgraph import runner
+    from rpython.jit.metainterp.test import support
+    from rpython.jit.metainterp import pyjitpl, history, jitexc
+    def function(bytecode_choice, init):
+        if bytecode_choice == 1:
+            bytecode = "+" * 1000000 + "-" * 999999 + "r"
+        else:
+            bytecode = "r"
+        pc = 0
+        acc = init
+        while pc < len(bytecode):
+            opcode = bytecode[pc]
+            if opcode == "+":
+                acc += 1
+            if opcode == "-":
+                acc -= 1
+            if opcode == "r":
+                return acc
+            pc += 1
+        return acc
+    class self:
+        pass
+    stats = support._get_jitcodes(self, runner.LLGraphCPU, function, [1, 0])
+    cw = self.cw
+    opt = history.Options(listops=True)
+    metainterp_sd = pyjitpl.MetaInterpStaticData(cw.cpu, opt)
+    stats.metainterp_sd = metainterp_sd
+    metainterp_sd.finish_setup(cw)
+    metainterp_sd.finish_setup_descrs()
+
+    [jitdriver_sd] = metainterp_sd.jitdrivers_sd
+    miniinterp_staticdata(metainterp_sd, cw)
+
+    def bench_main(args):
+        import time
+        t1 = time.time()
+        metainterp = MetaInterp(metainterp_sd)
+        jitdriver_sd, = metainterp_sd.jitdrivers_sd
+        metainterp.compile_and_run_once(jitdriver_sd, 1, 0)    
+        t2 = time.time()
+        print t2 - t1
+        return 0
+    return bench_main
