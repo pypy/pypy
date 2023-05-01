@@ -208,13 +208,21 @@ def _int_unary_operations():
         for x, y in testcases:
             yield opnum, [x], y
 
+def _int_special_operations():
+    for opnum, testcases in [
+            (rop.JIT_CHOOSE_I, [(0, 4, 5, 4), (1, 4, 5, 5)])
+    ]:
+        for t in testcases:
+            yield opnum, list(t[:-1]), t[-1]
+
 def get_int_tests():
     for opnum, args, retvalue in (
             list(_int_binary_operations()) +
             list(_int_comparison_operations()) +
-            list(_int_unary_operations())):
+            list(_int_unary_operations()) +
+            list(_int_special_operations())):
         yield opnum, [InputArgInt(x) for x in args], retvalue
-        if len(args) > 1:
+        if len(args) == 2:
             assert len(args) == 2
             yield opnum, [InputArgInt(args[0]), ConstInt(args[1])], retvalue
             yield opnum, [ConstInt(args[0]), InputArgInt(args[1])], retvalue

@@ -1501,6 +1501,12 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             self.rm.possibly_free_var(length_box)
             self.rm.possibly_free_var(dstaddr_box)
 
+    def consider_jit_choose_i(self, op):
+        args = op.getarglist()
+        loc1 = self.rm.make_sure_var_in_reg(op.getarg(2), args)
+        loc = self.rm.force_result_in_reg(op, op.getarg(1), args)
+        self.perform(op, [self.loc(op.getarg(0)), loc, loc1], loc)
+
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
 

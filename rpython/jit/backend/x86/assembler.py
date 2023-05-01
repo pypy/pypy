@@ -612,8 +612,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             name = "Loop # %s: %s" % (looptoken.number, loopname)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, full_size)
-        return AsmInfo(ops_offset, rawstart + looppos,
+        res = AsmInfo(ops_offset, rawstart + looppos,
                        size_excluding_failure_stuff - looppos, rawstart)
+        return res
 
     @rgc.no_release_gil
     def assemble_bridge(self, faildescr, inputargs, operations,
@@ -2713,6 +2714,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                     current = 2
                 self.save_into_mem(addr, imm0, imm(current))
             i += current
+
+    def genop_jit_choose_i(self, op, arglocs, resloc):
+        self.test_location(arglocs[0])
+        self.mc.CMOVNE(resloc, arglocs[2])
 
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST

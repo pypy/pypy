@@ -63,18 +63,19 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
     objdump = ('%(command)s -b binary -m %(machine)s '
                '--endian=%(endianness)s '
                '--disassembler-options=intel-mnemonics '
-               '--adjust-vma=%(origin)d -D %(file)s')
+               '--adjust-vma=%(origin)d -D %(file)s -z')
     #
     f = open(tmpfile, 'wb')
     f.write(data)
     f.close()
-    p = subprocess.Popen(objdump % {
+    cmd = objdump % {
         'command': cmd,
         'file': tmpfile,
         'origin': originaddr,
         'machine': objdump_machine_option[backend_name],
-        'endianness': machine_endianness.get(backend_name, 'little'),
-    }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        'endianness': machine_endianness.get(backend_name, 'little')}
+    p = subprocess.Popen(cmd,
+    shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     assert not p.returncode, ('Encountered an error running objdump: %s' %
                               stderr)
