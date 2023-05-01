@@ -4303,3 +4303,32 @@ class TestOptimizeBasic(BaseTestBasic):
         escape_f(f2)
         """
         self.optimize_loop(ops, expected)
+
+    def test_jit_choose_constant(self):
+        ops = """
+        [i1]
+        i2 = jit_choose_i(0, 4, 5)
+        i3 = jit_choose_i(1, 4, 5)
+        jump(i2, i3)
+        """
+        expected = """
+        [i1]
+        jump(4, 5)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_jit_choose_promote(self):
+        ops = """
+        [i1]
+        i2 = jit_choose_i(i1, 0, 1)
+        guard_value(i2, 0) []
+        finish(i1)
+        """
+        expected = """
+        [i1]
+        i2 = jit_choose_i(i1, 0, 1)
+        guard_value(i1, 0) []
+        finish(0)
+        """
+        self.optimize_loop(ops, expected)
+
