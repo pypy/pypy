@@ -2718,6 +2718,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def genop_jit_choose_i(self, op, arglocs, resloc):
         self.test_location(arglocs[0])
         self.mc.CMOVNE(resloc, arglocs[2])
+    genop_jit_choose_r = genop_jit_choose_i
 
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST

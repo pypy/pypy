@@ -1847,6 +1847,16 @@ class BaseBackendTest(Runner):
             res2 = self.execute_operation(rop.CALL_F, [funcbox],'float',calldescr)
         assert res1 < res2 < res1 + 2**32
 
+    def test_jit_choose_r(self):
+        t_box1, T_box, d = self.alloc_instance(self.T)
+        t_box2, T_box, d = self.alloc_instance(self.T)
+        #
+        res = self.execute_operation(rop.JIT_CHOOSE_R, [InputArgInt(1), t_box1, t_box2],
+                                     'ref')
+        assert res == t_box2.getref_base()
+        res = self.execute_operation(rop.JIT_CHOOSE_R, [InputArgInt(0), t_box1, t_box2],
+                                     'ref')
+        assert res == t_box1.getref_base()
 
 class LLtypeBackendTest(BaseBackendTest):
 

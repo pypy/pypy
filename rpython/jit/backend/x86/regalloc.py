@@ -1506,6 +1506,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         loc1 = self.rm.make_sure_var_in_reg(op.getarg(2), args)
         loc = self.rm.force_result_in_reg(op, op.getarg(1), args)
         self.perform(op, [self.loc(op.getarg(0)), loc, loc1], loc)
+    consider_jit_choose_r = consider_jit_choose_i
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
