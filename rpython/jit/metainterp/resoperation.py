@@ -1146,6 +1146,8 @@ _oplist = [
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
     'RECORD_EXACT_VALUE_R/2/n',   # [objptr, objptr]
     'RECORD_EXACT_VALUE_I/2/n',   # [int, int]
+    'JIT_CHOOSE_I/3/i',           # [int, int, int]
+    'JIT_CHOOSE_R/3/r',           # [int, ref, ref]
     'KEEPALIVE/1/n',
     'SAVE_EXCEPTION/0/r',
     'SAVE_EXC_CLASS/0/i',       # XXX kill me

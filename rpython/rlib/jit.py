@@ -1198,6 +1198,33 @@ def ll_record_exact_class(ll_value, ll_cls):
     llop.jit_record_exact_class(lltype.Void, ll_value, ll_cls)
 
 
+@specialize.call_location()
+def choose(condition, value_false, value_true):
+    """ equivalent to 'value_true if condition else value_false' but it does
+    not create a guard in the JIT """
+    if we_are_jitted():
+        return _jit_choose(condition, value_false, value_true)
+    return value_true if condition else value_false
+choose._always_inline_ = 'try'
+
+def _jit_choose(condition, value_false, value_true):
+    return value_true if condition else value_false
+
+class ConditionalCallEntry(ExtRegistryEntry):
+    _about_ = _jit_choose
+
+    def compute_result_annotation(self, *args_s):
+        from rpython.annotator import model as annmodel
+        return annmodel.unionof(args_s[1], args_s[2])
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        resulttype = hop.r_result.lowleveltype
+        args_v = hop.inputargs(lltype.Bool, hop.r_result, hop.r_result)
+        hop.exception_cannot_occur()
+        return hop.genop("jit_choose", args_v, resulttype=resulttype)
+
+
 class Entry(ExtRegistryEntry):
     _about_ = record_exact_class
 

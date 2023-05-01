@@ -15,7 +15,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
     isconstant, isvirtual, set_param, record_exact_class, record_known_result,
-    record_exact_value, loop_unrolling_heuristic)
+    record_exact_value, loop_unrolling_heuristic, choose)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -4986,3 +4986,39 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res2 = self.interp_operations(f, [6])
         assert res1 == res2
         self.check_operations_history(guard_class=1, record_exact_class=0)
+
+    def test_jit_choose(self):
+        driver = JitDriver(greens=[], reds='auto')
+        def f(i):
+            sum = 0
+            while i > 0:
+                driver.jit_merge_point()
+                sum += choose(i & 1 == 0, i, -i)
+                i -= 1
+            return sum
+
+        self.meta_interp(f, [10], backendopt=True)
+        self.check_resops(jit_choose_i=2)
+        self.check_trace_count(1)
+
+    def test_jit_choose_r(self):
+        driver = JitDriver(greens=[], reds='auto')
+        class Bool(object):
+            pass
+        TRUE = Bool()
+        TRUE.value = True
+        FALSE = Bool()
+        FALSE.value = False
+        def f(i):
+            sum = 0
+            while i > 0:
+                driver.jit_merge_point()
+                w_bool = choose(i & 1 == 0, FALSE, TRUE)
+                if promote(w_bool).value:
+                    sum += i
+                i -= 1
+            return sum
+
+        self.meta_interp(f, [10], backendopt=True)
+        self.check_resops(jit_choose_r=2)
+        self.check_trace_count(1)

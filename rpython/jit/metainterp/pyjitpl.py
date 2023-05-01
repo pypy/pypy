@@ -392,6 +392,13 @@ class MIFrame(object):
         if invalid:
             raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
 
+    @arguments("box", "box", "box")
+    def opimpl_jit_choose_i(self, cond_box, box_false, box_true):
+        return self.execute(rop.JIT_CHOOSE_I, cond_box, box_false, box_true)
+
+    @arguments("box", "box", "box")
+    def opimpl_jit_choose_r(self, cond_box, box_false, box_true):
+        return self.execute(rop.JIT_CHOOSE_R, cond_box, box_false, box_true)
 
     @arguments("box")
     def _opimpl_any_return(self, box):
