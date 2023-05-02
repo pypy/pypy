@@ -5022,3 +5022,25 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.meta_interp(f, [10], backendopt=True)
         self.check_resops(jit_choose_r=2)
         self.check_trace_count(1)
+
+    def test_jit_choose_r_blackhole_bug(self):
+        driver = JitDriver(greens=[], reds='auto')
+        class Bool(object):
+            pass
+        TRUE = Bool()
+        TRUE.value = True
+        FALSE = Bool()
+        FALSE.value = False
+        def f(i):
+            sum = 0
+            while i > 0:
+                driver.jit_merge_point()
+                if i & 1 == 0:
+                    sum -= 1
+                w_bool = choose(i & 1 == 0, FALSE, TRUE)
+                if promote(w_bool).value:
+                    sum += i
+                i -= 1
+            return sum
+
+        self.meta_interp(f, [10], backendopt=True) # used to crash

@@ -621,11 +621,11 @@ class BlackholeInterpreter(object):
     def bhimpl_record_exact_value_i(a, b):
         pass
 
-    @arguments("i", "i", "i")
+    @arguments("i", "i", "i", returns='i')
     def bhimpl_jit_choose_i(condition, value_false, value_true):
         return value_true if condition else value_false
 
-    @arguments("i", "r", "r")
+    @arguments("i", "r", "r", returns='r')
     def bhimpl_jit_choose_r(condition, value_false, value_true):
         return value_true if condition else value_false
 
