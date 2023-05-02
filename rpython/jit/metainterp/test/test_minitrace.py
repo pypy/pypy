@@ -135,9 +135,9 @@ class TestMiniTrace(object):
                 opcode = bytecode[pc]
                 if opcode == "+":
                     acc += 1
-                if opcode == "-":
+                elif opcode == "-":
                     acc -= 1
-                if opcode == "r":
+                elif opcode == "r":
                     return acc
                 pc += 1
             return acc
