@@ -1054,6 +1054,9 @@ _oplist = [
     'GETARRAYITEM_GC_PURE/2d/rfi',
     'UNICODELEN/1/i',
     'UNICODEGETITEM/2/i',
+    # conditional move
+    'JIT_CHOOSE_I/3/i',           # [int, int, int]
+    'JIT_CHOOSE_R/3/r',           # [int, ref, ref]
     #
     'LOAD_FROM_GC_TABLE/1/r',    # only emitted by rewrite.py
     'LOAD_EFFECTIVE_ADDRESS/4/i', # only emitted by rewrite.py, only if
@@ -1146,8 +1149,6 @@ _oplist = [
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
     'RECORD_EXACT_VALUE_R/2/n',   # [objptr, objptr]
     'RECORD_EXACT_VALUE_I/2/n',   # [int, int]
-    'JIT_CHOOSE_I/3/i',           # [int, int, int]
-    'JIT_CHOOSE_R/3/r',           # [int, ref, ref]
     'KEEPALIVE/1/n',
     'SAVE_EXCEPTION/0/r',
     'SAVE_EXC_CLASS/0/i',       # XXX kill me

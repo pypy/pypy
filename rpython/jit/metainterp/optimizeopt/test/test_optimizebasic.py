@@ -4364,3 +4364,17 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_jit_choose_pure(self):
+        ops = """
+        [i1]
+        i2 = jit_choose_i(i1, 0, 1)
+        i3 = jit_choose_i(i1, 0, 1)
+        jump(i2, i3)
+        """
+        expected = """
+        [i1]
+        i2 = jit_choose_i(i1, 0, 1)
+        jump(i2, i2)
+        """
+        self.optimize_loop(ops, expected)
+

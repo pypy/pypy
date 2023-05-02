@@ -76,6 +76,19 @@ class RecentPureOps(object):
                 return get_box_replacement(op)
         return None
 
+    def lookup3(self, opt, box0, box1, box2, descr):
+        for i in range(len(self.lst)):
+            op = self.lst[i]
+            if op is None:
+                break
+            if (box0.same_box(get_box_replacement(op.getarg(0))) and
+                box1.same_box(get_box_replacement(op.getarg(1))) and
+                box2.same_box(get_box_replacement(op.getarg(2))) and
+                op.getdescr() is descr):
+                op = self.force_preamble_op(opt, op, i)
+                return get_box_replacement(op)
+        return None
+
     def lookup(self, optimizer, op):
         numargs = op.numargs()
         if numargs == 1:
@@ -86,6 +99,12 @@ class RecentPureOps(object):
             return self.lookup2(optimizer,
                                 get_box_replacement(op.getarg(0)),
                                 get_box_replacement(op.getarg(1)),
+                                op.getdescr())
+        elif numargs == 3:
+            return self.lookup3(optimizer,
+                                get_box_replacement(op.getarg(0)),
+                                get_box_replacement(op.getarg(1)),
+                                get_box_replacement(op.getarg(2)),
                                 op.getdescr())
         else:
             assert False
