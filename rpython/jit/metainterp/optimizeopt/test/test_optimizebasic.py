@@ -4378,3 +4378,19 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_record_exact_value_nonconst(self):
+        ops = """
+        [p0, i2]
+        i1 = getfield_gc_i(p0, descr=valuedescr3)
+        record_exact_value_r(i1, i2)
+        i3 = getfield_gc_i(p0, descr=valuedescr3)
+        escape_i(i3)
+        jump(p0)
+        """
+        expected = """
+        [p0, i2]
+        i1 = getfield_gc_i(p0, descr=valuedescr3)
+        escape_i(i2)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)

@@ -1286,7 +1286,10 @@ class Entry(ExtRegistryEntry):
 
 def record_exact_value(value, const_value):
     """
-    Assure the JIT that value is the same as const_value
+    Assure the JIT that value is the same as const_value.
+
+    (const_value is typically a tracing-time constant, but it can also be
+    something that is cheaper to compute or already known)
     """
     assert value == const_value
     return const_value

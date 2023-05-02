@@ -617,8 +617,10 @@ class OptRewrite(Optimization):
     def optimize_record_exact_value(self, op):
         box = op.getarg(0)
         expectedconstbox = op.getarg(1)
-        assert isinstance(expectedconstbox, Const)
-        self.make_constant(box, expectedconstbox)
+        if isinstance(expectedconstbox, Const):
+            self.make_constant(box, expectedconstbox)
+        else:
+            self.make_equal_to(box, expectedconstbox)
 
     optimize_RECORD_EXACT_VALUE_R = optimize_record_exact_value
     optimize_RECORD_EXACT_VALUE_I = optimize_record_exact_value
