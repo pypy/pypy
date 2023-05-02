@@ -855,10 +855,7 @@ class ObjSpace(object):
 
     @signature(types.any(), types.bool(), returns=types.instance(W_Root))
     def newbool(self, b):
-        if b:
-            return self.w_True
-        else:
-            return self.w_False
+        return jit.choose(b, self.w_False, self.w_True)
 
     def new_interned_w_str(self, w_s):
         assert isinstance(w_s, W_Root)   # and is not None

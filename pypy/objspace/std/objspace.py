@@ -612,7 +612,7 @@ class StdObjSpace(ObjSpace):
     def is_true(self, w_obj):
         # a shortcut for performance
         if type(w_obj) is W_BoolObject:
-            return bool(w_obj.intval)
+            return bool(jit.promote(w_obj).intval)
         return self._DescrOperation_is_true(w_obj)
 
     def getattr(self, w_obj, w_name):
