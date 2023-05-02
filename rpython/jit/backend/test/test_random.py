@@ -534,6 +534,21 @@ class GuardValueOperation(GuardOperation):
         op = ResOperation(self.opnum, [v, other])
         return op, (getint(v) == getint(other))
 
+class ChooseOperation(AbstractOperation):
+    def produce_into(self, builder, r):
+        b = builder.get_bool_var(r)
+        k = r.random()
+        if k < 0.2:
+            v_first = ConstInt(r.random_integer())
+        else:
+            v_first = r.choice(builder.intvars)
+        if k > 0.75:
+            value = r.random_integer()
+            v_second = ConstInt(value)
+        else:
+            v_second = r.choice(builder.intvars)
+        self.put(builder, [b, v_first, v_second])
+
 # ____________________________________________________________
 
 OPERATIONS = []
@@ -608,6 +623,8 @@ OPERATIONS.append(CastFloatToIntOperation(rop.CAST_FLOAT_TO_INT))
 OPERATIONS.append(CastIntToFloatOperation(rop.CAST_INT_TO_FLOAT))
 OPERATIONS.append(CastFloatToIntOperation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG))
 OPERATIONS.append(CastLongLongToFloatOperation(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT))
+
+OPERATIONS.append(ChooseOperation(rop.JIT_CHOOSE_I))
 
 OperationBuilder.OPERATIONS = OPERATIONS
 

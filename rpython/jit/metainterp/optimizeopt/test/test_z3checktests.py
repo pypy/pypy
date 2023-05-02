@@ -163,6 +163,10 @@ class Checker(object):
             elif op.numargs() == 2:
                 arg0 = self.convert(op.getarg(0))
                 arg1 = self.convert(op.getarg(1))
+            elif op.numargs() == 3:
+                arg0 = self.convert(op.getarg(0))
+                arg1 = self.convert(op.getarg(1))
+                arg2 = self.convert(op.getarg(2))
 
             # compute results
             if opname == "int_add":
@@ -234,6 +238,8 @@ class Checker(object):
                 expr = z3.Extract(LONG_BIT * 2 - 1, LONG_BIT, zarg0 * zarg1)
             elif opname == "same_as_i":
                 expr = arg0
+            elif opname == "jit_choose_i":
+                expr = z3.If(arg0 == FALSEBV, arg1, arg2)
             elif op.is_guard():
                 assert state.before
                 cond = self.guard_to_condition(op, state) # was optimized away, must be true
