@@ -400,8 +400,7 @@ class W_BytearrayObject(W_Root):
     def descr_setitem(self, space, w_index, w_other):
         if isinstance(w_index, W_SliceObject):
             sequence2 = makebytearraydata_w(space, w_other)
-            oldsize = self._len()
-            start, stop, step, slicelength = w_index.indices4(space, oldsize)
+            start, stop, step, slicelength = self._unpack_slice(space, w_index)
             if start == 0 and step == 1 and len(sequence2) <= slicelength:
                 self._delete_from_start(slicelength - len(sequence2))
                 slicelength = len(sequence2)
@@ -419,7 +418,7 @@ class W_BytearrayObject(W_Root):
 
     def descr_delitem(self, space, w_idx):
         if isinstance(w_idx, W_SliceObject):
-            start, stop, step, slicelength = w_idx.indices4(space, self._len())
+            start, stop, step, slicelength = self._unpack_slice(space, w_idx)
             if start == 0 and step == 1:
                 self._delete_from_start(slicelength)
             else:
@@ -508,10 +507,17 @@ class W_BytearrayObject(W_Root):
         ofs = self._offset
         return (self._data, start + ofs, end + ofs, ofs)
 
+    def _unpack_slice(self, space, w_index):
+        # important: unpack the slice before computing the length. the
+        # __index__ methods can mutate the list and change its length.
+        start, stop, step = w_index.unpack(space)
+        length = self._len()
+        return w_index.adjust_indices(start, stop, step, length)
+
     def descr_getitem(self, space, w_index):
         # optimization: this version doesn't force getdata()
         if isinstance(w_index, W_SliceObject):
-            start, stop, step, sl = w_index.indices4(space, self._len())
+            start, stop, step, sl = self._unpack_slice(space, w_index)
             if sl == 0:
                 return self._empty()
             elif step == 1:

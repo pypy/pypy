@@ -53,26 +53,26 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1t.tar.gz',
+             '8dee9b24bdb1dcbf0c3d1e9b02fb8f6bf22165e807f45adeb7c9677536859d3b',
+             [
+              ['./config', '--prefix=/usr', 'no-shared'],
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+             ]),
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.8.tar.gz',
+              '6c13d2bf38fdf31eac3ce2a347073673f5d63263398f1f69d0df4a41253e4b3e',
+              [
+               ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
+               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+              ]),
     'lzma': ('http://distfiles.macports.org/xz/xz-5.2.5.tar.bz2',
              '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
              [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1s.tar.gz',
-             'c5ac01e760ee6ff0dab61d6b2bbd30146724d063eb322180c6f18a6f74e4b6aa',
-             [
-              ['./config', '--prefix=/usr', 'no-shared'],
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.7.tar.gz',
-              '83049d042a260e696f62406ac5c08bf706fd84383f945cf21bd61e9ed95c396e',
-              [
-               ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
-               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-              ]),
 }
 
 cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']

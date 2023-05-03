@@ -39,6 +39,9 @@ typedef struct {
     PyDescr_COMMON;
 } PyDescrObject;
 
+#define PyDescr_TYPE(x) (((PyDescrObject *)(x))->d_type)
+#define PyDescr_NAME(x) (((PyDescrObject *)(x))->d_name)
+
 typedef struct {
     PyDescr_COMMON;
     PyMethodDef *d_method;

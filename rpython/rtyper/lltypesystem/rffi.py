@@ -1067,11 +1067,11 @@ def constcharpsize2str(cp, size):
     return charpsize2str(cp, size)
 constcharpsize2str._annenforceargs_ = [lltype.SomePtr(CONST_CCHARP), int]
 
-def str2constcharp(s):
+def str2constcharp(s, track_allocation=True):
     """
     Like str2charp, but returns a CONST_CCHARP instead
     """
-    cp = str2charp(s)
+    cp = str2charp(s, track_allocation)
     return cast(CONST_CCHARP, cp)
 str2constcharp._annenforceargs_ = [str]
 
@@ -1144,6 +1144,32 @@ def utf82wcharp(utf8, utf8len, track_allocation=True):
     w[index] = unichr(0)
     return w
 utf82wcharp._annenforceargs_ = [str, int, bool]
+
+def utf82wcharp_ex(utf8, unilen, track_allocation=True):
+    from rpython.rlib import rutf8
+    # slightly different than utf82wcharp for sizeof(wchar_t) == 2 and
+    # maxunicode==0x10ffff. Very similar to utf8_encode_utf_16_helper
+    # but allocates a buffer, and no error handler. Passes surrogates through.
+    wlen = 0
+    for ch in rutf8.Utf8StringIterator(utf8):
+        if ch > 0xffff:
+            wlen += 1
+        wlen += 1
+    w = lltype.malloc(CWCHARP.TO, wlen + 1, flavor='raw',
+                      track_allocation=track_allocation)
+    index = 0
+    for ch in rutf8.Utf8StringIterator(utf8):
+        if ch > 0xffff:
+            w[index] = unichr(0xD800 | ((ch - 0x10000) >> 10))
+            index += 1
+            w[index] = unichr(0xDC00 | ((ch - 0x10000) & 0x3FF))
+        else:
+            w[index] = unichr(ch)
+        index += 1
+    w[index] = unichr(0)
+    assert wlen == index
+    return w
+utf82wcharp_ex._annenforceargs_ = [str, int, bool]
 
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))

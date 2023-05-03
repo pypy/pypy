@@ -184,7 +184,7 @@ class __extend__(W_NDimArray):
                     arr_index_in_shape = True
             else:
                 if space.isinstance_w(w_item, space.w_slice):
-                    lgt = space.decode_index4(w_item, self.get_shape()[i])[3]
+                    lgt = space.decode_index4_unsafe(w_item, self.get_shape()[i])[3]
                     if not arr_index_in_shape:
                         prefix.append(w_item)
                     res_shape.append(lgt)

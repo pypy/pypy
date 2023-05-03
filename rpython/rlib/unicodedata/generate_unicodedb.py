@@ -798,9 +798,10 @@ def writeUnicodedata(version, version_tuple, table, outfile, base):
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734 or"
                         " 0x2B740 <= code <= 0x2CEA1 or"
-                        " 0x2CEB0 <= code <= 0x2EBE0)")
+                        " 0x2CEB0 <= code <= 0x2EBE0) or"
+                        " 0x30000 <= code <= 0x3134A")
     else:
-        raise ValueError("please look up CJK ranges and fix the script, e.g. here: https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)")
+        raise ValueError("please look up CJK ranges and fix the script, e.g. here: https://www.unicode.org/reports/tr38/tr38-29.html#BlockListing")
 
     write_character_names(outfile, table, base_mod)
 

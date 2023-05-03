@@ -665,3 +665,21 @@ class AppTestBytesArray:
             def __int__(self):
                 return 3
         raises(TypeError, bytearray, WithInt())
+
+    def test_mutate_while_slice(self):
+        class X:
+            def __index__(self):
+                del a[:]
+                return 1
+
+        a = bytearray([0])
+        assert a[:X():2] == bytearray()
+        assert a == bytearray()
+
+        a = bytearray([0])
+        assert a[X():2] == bytearray()
+        assert a == bytearray()
+
+        a = bytearray([0])
+        assert a[0:2:X()] == bytearray()
+        assert a == bytearray()

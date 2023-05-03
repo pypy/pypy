@@ -51,7 +51,10 @@ class GlobalPyobjContainer(object):
 
     def add(self, obj):
         num = len(self.objs)
-        self.objs.append(weakref.ref(obj))
+        if isinstance(obj, weakref.ReferenceType):
+            self.objs.append(obj)
+        else:
+            self.objs.append(weakref.ref(obj))
         return num
 
     def get(self, num):

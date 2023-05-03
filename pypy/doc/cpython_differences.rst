@@ -84,7 +84,7 @@ object and the weakref will be considered as dead at the same time,
 and the callback will not be invoked.  (Issue `#2030`__)
 
 .. __: https://docs.python.org/2/library/weakref.html
-.. __: https://foss.heptapod.net/pypy/pypy/issue/2030/
+.. __: https://foss.heptapod.net/pypy/pypy/-/issues/2030/
 
 ---------------------------------
 
@@ -287,7 +287,7 @@ Another consequence is that ``cmp(float('nan'), float('nan')) == 0``, because
 no good value to return from this call to ``cmp``, because ``cmp`` pretends
 that there is a total order on floats, but that is wrong for NaNs).
 
-.. __: https://foss.heptapod.net/pypy/pypy/issue/1974/different-behaviour-for-collections-of
+.. __: https://foss.heptapod.net/pypy/pypy/-/issues/1974
 
 Permitted ABI tags in extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -623,6 +623,6 @@ that are neither mentioned above nor in :source:`lib_pypy/` are not available in
 
 .. _`is ignored in PyPy`: https://bugs.python.org/issue14621
 .. _`little point`: https://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
-.. _`#2072`: https://foss.heptapod.net/pypy/pypy/issue/2072/
-.. _`issue #2653`: https://foss.heptapod.net/pypy/pypy/issues/2653/
+.. _`#2072`: https://foss.heptapod.net/pypy/pypy/-/issues/2072/
+.. _`issue #2653`: https://foss.heptapod.net/pypy/pypy/-/issues/2653/
 .. _SyntaxError: https://www.pypy.org/posts/2018/04/improving-syntaxerror-in-pypy-5733639208090522433.html

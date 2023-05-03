@@ -3256,6 +3256,39 @@ class BasicTests:
         res = self.interp_operations(f, [127 - 256 * 29])
         assert res == 127
 
+    def test_bug_inline_short_preamble_can_be_inconsistent_in_optimizeopt(self):
+        myjitdriver = JitDriver(greens = [], reds = "auto")
+        class Str(object):
+            _immutable_fields_ = ['s']
+            def __init__(self, s):
+                self.s = s
+
+        empty = Str("")
+        space = Str(" ")
+
+        def f(a, b):
+            line = " " * a + " a" * b
+            token = ""
+            res = []
+            index = 0
+            while True:
+                myjitdriver.jit_merge_point()
+                if index >= len(line):
+                    break
+                char = line[index]
+                index += 1
+                if char == space.s:
+                    if token != empty.s:
+                        res.append(token)
+                        token = empty.s
+                else:
+                    token += char
+            return len(res)
+        args = [50, 50]
+        res = self.meta_interp(f, args)
+        assert res == f(*args)
+
+
 class BaseLLtypeTests(BasicTests):
 
     def test_identityhash(self):

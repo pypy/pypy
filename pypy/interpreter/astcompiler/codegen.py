@@ -470,13 +470,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         current_block, block = self.frame_blocks[-1]
         # Continue cannot be in a finally block.
         if current_block == F_BLOCK_LOOP:
-            self.emit_jump(ops.JUMP_ABSOLUTE, block, True)
+            self.emit_jump(ops.JUMP_ABSOLUTE, block)
         elif current_block == F_BLOCK_EXCEPT or \
                 current_block == F_BLOCK_FINALLY:
             for i in range(len(self.frame_blocks) - 2, -1, -1):
                 f_type, block = self.frame_blocks[i]
                 if f_type == F_BLOCK_LOOP:
-                    self.emit_jump(ops.CONTINUE_LOOP, block, True)
+                    self.emit_jump(ops.CONTINUE_LOOP, block)
                     break
                 if f_type == F_BLOCK_FINALLY_END:
                     self.error("'continue' not supported inside 'finally' "
@@ -501,7 +501,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.FOR_ITER, cleanup)
         fr.target.walkabout(self)
         self.visit_sequence(fr.body)
-        self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, start)
         self.use_next_block(cleanup)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_LOOP, start)
@@ -527,7 +527,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.lineno_set = False
                 wh.test.accept_jump_if(self, False, anchor)
             self.visit_sequence(wh.body)
-            self.emit_jump(ops.JUMP_ABSOLUTE, loop, True)
+            self.emit_jump(ops.JUMP_ABSOLUTE, loop)
             if test_constant == optimize.CONST_NOT_CONST:
                 self.use_next_block(anchor)
             self.emit_op(ops.POP_BLOCK)
@@ -556,7 +556,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op(ops.DUP_TOP)
                 handler.type.walkabout(self)
                 self.emit_op_arg(ops.COMPARE_OP, 10)
-                self.emit_jump(ops.POP_JUMP_IF_FALSE, next_except, True)
+                self.emit_jump(ops.POP_JUMP_IF_FALSE, next_except)
             else:
                 if i != len(te.handlers) - 1:
                     self.error(
@@ -838,7 +838,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         end = self.new_block()
         for value in op.values[:-1]:
             value.walkabout(self)
-            self.emit_jump(instr, end, True)
+            self.emit_jump(instr, end)
         op.values[-1].walkabout(self)
         self.use_next_block(end)
 
@@ -855,7 +855,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.ROT_THREE)
             op_kind = compare_operations(comp.ops[i - 1])
             self.emit_op_arg(ops.COMPARE_OP, op_kind)
-            self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup, True)
+            self.emit_jump(ops.JUMP_IF_FALSE_OR_POP, cleanup)
             if i < (ops_count - 1):
                 comp.comparators[i].walkabout(self)
         last_op, last_comparator = comp.ops[-1], comp.comparators[-1]
@@ -1058,7 +1058,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(ops.LIST_APPEND, gen_index + 1)
             self.use_next_block(skip)
         self.use_next_block(if_cleanup)
-        self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, start)
         self.use_next_block(anchor)
 
     def visit_ListComp(self, lc):
@@ -1102,7 +1102,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             node.accept_comp_iteration(self, gen_index)
         self.use_next_block(if_cleanup)
-        self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, start)
         self.use_next_block(anchor)
 
     def _compile_comprehension(self, node, name, sub_scope):

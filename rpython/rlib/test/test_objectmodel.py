@@ -959,3 +959,9 @@ def test_dict_to_switch_translate():
     t, typer, g = gengraph(f, [int])
     lookupg = t.graphs[1]
     assert summary(lookupg)['direct_call'] == 1 # should be char based
+
+def test_dict_to_switch_default():
+    d = dict_to_switch({1: "one", 2: "two"}, default="three")
+    assert d(1) == "one"
+    assert d(2) == "two"
+    assert d(3) == "three"

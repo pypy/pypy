@@ -1980,17 +1980,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
-    def test_pure_ovf_bug_with_replacement(self):
-        ops = """
-        [i1, i2]
-        i3 = int_add(i2, i1)
-        i4 = int_sub_ovf(i3, i2)
-        guard_no_overflow() []
-        jump(i4)
-        """
-        self.optimize_loop(ops, ops)
-
-    @pytest.mark.xfail() # this test is wrong! it fails in Z3
     def test_pure_ovf_bug_with_arithmetic_rewrites(self):
         ops = """
         [i1, i2]
@@ -2000,13 +1989,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_no_overflow() []
         jump(i4)
         """
-        result = """
-        [i1, i2]
-        i3 = int_add_ovf(i1, i2)
-        guard_no_overflow() []
-        jump(i1)
-        """
-        self.optimize_loop(ops, result)
+        self.optimize_loop(ops, ops)
 
     @pytest.mark.xfail() # this test is wrong! it fails in Z3
     def test_pure_ovf_bug_with_replacement(self):

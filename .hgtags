@@ -157,3 +157,6 @@ bc58732e1737279ed3f090ea3b8f95543893d40f release-pypy3.9-v7.3.10rc2
 451ff45aeccbd4a02d379eb650aec7bcd2751c1e release-pypy2.7-v7.3.10
 c20fe3f310f1d209d69a71d903dd17e5c3cf0de9 release-pypy3.8-v7.3.10
 21401ebc2df332b6be6e3d364a985e951a72bbbd release-pypy3.9-v7.3.10
+646866ee1eabe7bdbdc97b47a40b472991d571e9 release-pypy2.7-v7.3.11
+a9dbdca6fc3286b0addd2240f11d97d8e8de187a release-pypy3.8-v7.3.11
+feeb267ead3e6771d3f2f49b83e1894839f64fb7 release-pypy3.9-v7.3.11

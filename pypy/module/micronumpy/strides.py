@@ -40,7 +40,7 @@ class IntegerChunk(BaseChunk):
         self.w_idx = w_idx
 
     def compute(self, space, base_length, base_stride):
-        start, _, _, _ = space.decode_index4(self.w_idx, base_length)
+        start, _, _, _ = space.decode_index4_unsafe(self.w_idx, base_length)
         return start, 0, 0, 0
 
 
@@ -52,7 +52,7 @@ class SliceChunk(BaseChunk):
         self.w_slice = w_slice
 
     def compute(self, space, base_length, base_stride):
-        start, stop, step, length = space.decode_index4(self.w_slice, base_length)
+        start, stop, step, length = space.decode_index4_unsafe(self.w_slice, base_length)
         stride = base_stride * step
         backstride = base_stride * max(0, length - 1) * step
         return start, length, stride, backstride

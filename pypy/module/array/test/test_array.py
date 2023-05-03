@@ -1074,5 +1074,40 @@ class AppTestArray(object):
         raises(TypeError, "a[MyInt(0)]")
         raises(TypeError, "a[MyInt(0):MyInt(5)]")
 
+    def test_index_special_method(self):
+        class MyInt(object):
+            def __init__(self, x):
+                self.x = x
+
+            def __index__(self):
+                return self.x
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        assert a[MyInt(0)] == 1
+        assert a[MyInt(0):MyInt(5)] == self.array('i', [1, 2, 3, 4, 5])
+
+        a[MyInt(0)] = 2
+        assert a[MyInt(0)] == 2
+        del a[MyInt(0)]
+        assert a == self.array('i', [2, 3, 4, 5, 6])
+
     def test_fresh_array_buffer_str(self):
         assert str(buffer(self.array('i'))) == ''
+
+    def test_mutate_while_slice(self):
+        class X:
+            def __index__(self):
+                del a[:]
+                return 1
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        length = len(a[:X():2])
+        assert length == 0
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        length = len(a[:X():2])
+        assert length == 0
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        length = len(a[:X():2])
+        assert length == 0

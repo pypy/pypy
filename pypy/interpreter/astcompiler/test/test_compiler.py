@@ -1126,6 +1126,15 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST:1, ops.RETURN_VALUE: 1}
 
+    def test_remove_dead_code_after_raise(self):
+        source = """def f(x):
+            raise ValueError
+            x += 1
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_GLOBAL:1, ops.RAISE_VARARGS: 1}
+
+
     def test_remove_dead_jump_after_return(self):
         source = """def f(x, y, z):
             if x:

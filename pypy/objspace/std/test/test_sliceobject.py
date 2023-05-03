@@ -4,6 +4,17 @@ from pypy.objspace.std.sliceobject import normalize_simple_slice
 
 class TestW_SliceObject:
 
+    def test_unpack(self):
+        space = self.space
+        w = space.wrap
+        w_None = space.w_None
+        w_slice = space.newslice(w_None, w_None, w_None)
+        assert w_slice.unpack(space) == (0, sys.maxint, 1)
+        w_slice = space.newslice(w(0), w(6), w(1))
+        assert w_slice.unpack(space) == (0, 6, 1)
+        w_slice = space.newslice(w_None, w_None, w(-1))
+        assert w_slice.unpack(space) == (sys.maxint, -sys.maxint-1, -1)
+
     def test_indices(self):
         space = self.space
         w = space.wrap
@@ -57,9 +68,8 @@ class TestW_SliceObject:
                         sl = space.newslice(w(start), w(stop), w(step))
                         mystart, mystop, mystep, slicelength = sl.indices4(space, length)
                         assert len(range(length)[start:stop:step]) == slicelength
-                        if sys.version_info >= (2, 6):   # doesn't work in 2.5
-                            assert slice(start, stop, step).indices(length) == (
-                                    mystart, mystop, mystep)
+                        assert slice(start, stop, step).indices(length) == (
+                                mystart, mystop, mystep)
 
 class AppTest_SliceObject:
     def test_new(self):

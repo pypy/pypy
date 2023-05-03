@@ -193,7 +193,7 @@ def _errno_after(save_err):
             # ^^^ keep fork() up-to-date too, below
 if _WIN32:
     includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h',
-                'direct.h']
+                'direct.h', 'Windows.h']
     libraries = []
 else:
     if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
@@ -1284,6 +1284,19 @@ def mkfifo(path, mode):
 def mknod(path, mode, dev):
     handle_posix_error('mknod', c_mknod(_as_bytes0(path), mode, dev))
 
+constants =[ # These are added to posix/nt
+             # windows
+             'LOAD_LIBRARY_SEARCH_DEFAULT_DIRS',
+             'LOAD_LIBRARY_SEARCH_APPLICATION_DIR',
+             'LOAD_LIBRARY_SEARCH_SYSTEM32',
+             'LOAD_LIBRARY_SEARCH_USER_DIRS',
+             'LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR',
+             # darwin
+             'COPYFILE_DATA',
+             # linux, darwin
+             'O_CLOEXEC',
+            ]
+darwin_constants = ['COPYFILE_DATA']
 if _WIN32:
     CreatePipe = external('CreatePipe', [rwin32.LPHANDLE,
                                          rwin32.LPHANDLE,
@@ -1295,7 +1308,13 @@ if _WIN32:
                                 rffi.INT)
     HAVE_PIPE2 = False
     HAVE_DUP3 = False
-    O_CLOEXEC = None
+    class CConfig:
+        _compilation_info_ = eci
+    for name in constants:
+        setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
+    config = rffi_platform.configure(CConfig)
+    for name in constants:
+        locals()[name] = config[name]
 else:
     INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
     c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT,
@@ -1304,11 +1323,13 @@ else:
         _compilation_info_ = eci
         HAVE_PIPE2 = rffi_platform.Has('pipe2')
         HAVE_DUP3 = rffi_platform.Has('dup3')
-        O_CLOEXEC = rffi_platform.DefinedConstantInteger('O_CLOEXEC')
+    for name in constants:
+        setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
     config = rffi_platform.configure(CConfig)
+    for name in constants:
+        locals()[name] = config[name]
     HAVE_PIPE2 = config['HAVE_PIPE2']
     HAVE_DUP3 = config['HAVE_DUP3']
-    O_CLOEXEC = config['O_CLOEXEC']
     if HAVE_PIPE2:
         c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
@@ -2123,11 +2144,296 @@ if not _WIN32:
         TIMESPEC = rffi_platform.Struct('struct timespec', [
             ('tv_sec', rffi.TIME_T),
             ('tv_nsec', rffi.LONG)])
+        AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
 
     cConfig = rffi_platform.configure(CConfig)
     globals().update(cConfig)
 
     TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
+
+    class ConfConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=[ 'unistd.h', ],
+        )
+    
+    # Taken from posixmodule.c. Note the avaialbility is determined at
+    # compile time by the host, but filled in by a runtime call to pathconf,
+    # sysconf, or confstr.
+    pathconf_consts_defs = {
+        "PC_ABI_AIO_XFER_MAX": "_PC_ABI_AIO_XFER_MAX",
+        "PC_ABI_ASYNC_IO": "_PC_ABI_ASYNC_IO",
+        "PC_ASYNC_IO": "_PC_ASYNC_IO",
+        "PC_CHOWN_RESTRICTED": "_PC_CHOWN_RESTRICTED",
+        "PC_FILESIZEBITS": "_PC_FILESIZEBITS",
+        "PC_LAST": "_PC_LAST",
+        "PC_LINK_MAX": "_PC_LINK_MAX",
+        "PC_MAX_CANON": "_PC_MAX_CANON",
+        "PC_MAX_INPUT": "_PC_MAX_INPUT",
+        "PC_NAME_MAX": "_PC_NAME_MAX",
+        "PC_NO_TRUNC": "_PC_NO_TRUNC",
+        "PC_PATH_MAX": "_PC_PATH_MAX",
+        "PC_PIPE_BUF": "_PC_PIPE_BUF",
+        "PC_PRIO_IO": "_PC_PRIO_IO",
+        "PC_SOCK_MAXBUF": "_PC_SOCK_MAXBUF",
+        "PC_SYNC_IO": "_PC_SYNC_IO",
+        "PC_VDISABLE": "_PC_VDISABLE",
+        "PC_ACL_ENABLED": "_PC_ACL_ENABLED",
+        "PC_MIN_HOLE_SIZE": "_PC_MIN_HOLE_SIZE",
+        "PC_ALLOC_SIZE_MIN": "_PC_ALLOC_SIZE_MIN",
+        "PC_REC_INCR_XFER_SIZE": "_PC_REC_INCR_XFER_SIZE",
+        "PC_REC_MAX_XFER_SIZE": "_PC_REC_MAX_XFER_SIZE",
+        "PC_REC_MIN_XFER_SIZE": "_PC_REC_MIN_XFER_SIZE",
+        "PC_REC_XFER_ALIGN": "_PC_REC_XFER_ALIGN",
+        "PC_SYMLINK_MAX": "_PC_SYMLINK_MAX",
+        "PC_XATTR_ENABLED": "_PC_XATTR_ENABLED",
+        "PC_XATTR_EXISTS": "_PC_XATTR_EXISTS",
+        "PC_TIMESTAMP_RESOLUTION": "_PC_TIMESTAMP_RESOLUTION",
+    }
+
+    confstr_consts_defs = {
+        "CS_ARCHITECTURE": "_CS_ARCHITECTURE",
+        "CS_GNU_LIBC_VERSION": "_CS_GNU_LIBC_VERSION",
+        "CS_GNU_LIBPTHREAD_VERSION": "_CS_GNU_LIBPTHREAD_VERSION",
+        "CS_HOSTNAME": "_CS_HOSTNAME",
+        "CS_HW_PROVIDER": "_CS_HW_PROVIDER",
+        "CS_HW_SERIAL": "_CS_HW_SERIAL",
+        "CS_INITTAB_NAME": "_CS_INITTAB_NAME",
+        "CS_LFS64_CFLAGS": "_CS_LFS64_CFLAGS",
+        "CS_LFS64_LDFLAGS": "_CS_LFS64_LDFLAGS",
+        "CS_LFS64_LIBS": "_CS_LFS64_LIBS",
+        "CS_LFS64_LINTFLAGS": "_CS_LFS64_LINTFLAGS",
+        "CS_LFS_CFLAGS": "_CS_LFS_CFLAGS",
+        "CS_LFS_LDFLAGS": "_CS_LFS_LDFLAGS",
+        "CS_LFS_LIBS": "_CS_LFS_LIBS",
+        "CS_LFS_LINTFLAGS": "_CS_LFS_LINTFLAGS",
+        "CS_MACHINE": "_CS_MACHINE",
+        "CS_PATH": "_CS_PATH",
+        "CS_RELEASE": "_CS_RELEASE",
+        "CS_SRPC_DOMAIN": "_CS_SRPC_DOMAIN",
+        "CS_SYSNAME": "_CS_SYSNAME",
+        "CS_VERSION": "_CS_VERSION",
+        "CS_XBS5_ILP32_OFF32_CFLAGS": "_CS_XBS5_ILP32_OFF32_CFLAGS",
+        "CS_XBS5_ILP32_OFF32_LDFLAGS": "_CS_XBS5_ILP32_OFF32_LDFLAGS",
+        "CS_XBS5_ILP32_OFF32_LIBS": "_CS_XBS5_ILP32_OFF32_LIBS",
+        "CS_XBS5_ILP32_OFF32_LINTFLAGS": "_CS_XBS5_ILP32_OFF32_LINTFLAGS",
+        "CS_XBS5_ILP32_OFFBIG_CFLAGS": "_CS_XBS5_ILP32_OFFBIG_CFLAGS",
+        "CS_XBS5_ILP32_OFFBIG_LDFLAGS": "_CS_XBS5_ILP32_OFFBIG_LDFLAGS",
+        "CS_XBS5_ILP32_OFFBIG_LIBS": "_CS_XBS5_ILP32_OFFBIG_LIBS",
+        "CS_XBS5_ILP32_OFFBIG_LINTFLAGS": "_CS_XBS5_ILP32_OFFBIG_LINTFLAGS",
+        "CS_XBS5_LP64_OFF64_CFLAGS": "_CS_XBS5_LP64_OFF64_CFLAGS",
+        "CS_XBS5_LP64_OFF64_LDFLAGS": "_CS_XBS5_LP64_OFF64_LDFLAGS",
+        "CS_XBS5_LP64_OFF64_LIBS": "_CS_XBS5_LP64_OFF64_LIBS",
+        "CS_XBS5_LP64_OFF64_LINTFLAGS": "_CS_XBS5_LP64_OFF64_LINTFLAGS",
+        "CS_XBS5_LPBIG_OFFBIG_CFLAGS": "_CS_XBS5_LPBIG_OFFBIG_CFLAGS",
+        "CS_XBS5_LPBIG_OFFBIG_LDFLAGS": "_CS_XBS5_LPBIG_OFFBIG_LDFLAGS",
+        "CS_XBS5_LPBIG_OFFBIG_LIBS": "_CS_XBS5_LPBIG_OFFBIG_LIBS",
+        "CS_XBS5_LPBIG_OFFBIG_LINTFLAGS": "_CS_XBS5_LPBIG_OFFBIG_LINTFLAGS",
+        "MIPS_CS_AVAIL_PROCESSORS": "_MIPS_CS_AVAIL_PROCESSORS",
+        "MIPS_CS_BASE": "_MIPS_CS_BASE",
+        "MIPS_CS_HOSTID": "_MIPS_CS_HOSTID",
+        "MIPS_CS_HW_NAME": "_MIPS_CS_HW_NAME",
+        "MIPS_CS_NUM_PROCESSORS": "_MIPS_CS_NUM_PROCESSORS",
+        "MIPS_CS_OSREL_MAJ": "_MIPS_CS_OSREL_MAJ",
+        "MIPS_CS_OSREL_MIN": "_MIPS_CS_OSREL_MIN",
+        "MIPS_CS_OSREL_PATCH": "_MIPS_CS_OSREL_PATCH",
+        "MIPS_CS_OS_NAME": "_MIPS_CS_OS_NAME",
+        "MIPS_CS_OS_PROVIDER": "_MIPS_CS_OS_PROVIDER",
+        "MIPS_CS_PROCESSORS": "_MIPS_CS_PROCESSORS",
+        "MIPS_CS_SERIAL": "_MIPS_CS_SERIAL",
+        "MIPS_CS_VENDOR": "_MIPS_CS_VENDOR",
+    }
+
+    sysconf_consts_defs = {
+        "SC_2_CHAR_TERM": "_SC_2_CHAR_TERM",
+        "SC_2_C_BIND": "_SC_2_C_BIND",
+        "SC_2_C_DEV": "_SC_2_C_DEV",
+        "SC_2_C_VERSION": "_SC_2_C_VERSION",
+        "SC_2_FORT_DEV": "_SC_2_FORT_DEV",
+        "SC_2_FORT_RUN": "_SC_2_FORT_RUN",
+        "SC_2_LOCALEDEF": "_SC_2_LOCALEDEF",
+        "SC_2_SW_DEV": "_SC_2_SW_DEV",
+        "SC_2_UPE": "_SC_2_UPE",
+        "SC_2_VERSION": "_SC_2_VERSION",
+        "SC_ABI_ASYNCHRONOUS_IO": "_SC_ABI_ASYNCHRONOUS_IO",
+        "SC_ACL": "_SC_ACL",
+        "SC_AIO_LISTIO_MAX": "_SC_AIO_LISTIO_MAX",
+        "SC_AIO_MAX": "_SC_AIO_MAX",
+        "SC_AIO_PRIO_DELTA_MAX": "_SC_AIO_PRIO_DELTA_MAX",
+        "SC_ARG_MAX": "_SC_ARG_MAX",
+        "SC_ASYNCHRONOUS_IO": "_SC_ASYNCHRONOUS_IO",
+        "SC_ATEXIT_MAX": "_SC_ATEXIT_MAX",
+        "SC_AUDIT": "_SC_AUDIT",
+        "SC_AVPHYS_PAGES": "_SC_AVPHYS_PAGES",
+        "SC_BC_BASE_MAX": "_SC_BC_BASE_MAX",
+        "SC_BC_DIM_MAX": "_SC_BC_DIM_MAX",
+        "SC_BC_SCALE_MAX": "_SC_BC_SCALE_MAX",
+        "SC_BC_STRING_MAX": "_SC_BC_STRING_MAX",
+        "SC_CAP": "_SC_CAP",
+        "SC_CHARCLASS_NAME_MAX": "_SC_CHARCLASS_NAME_MAX",
+        "SC_CHAR_BIT": "_SC_CHAR_BIT",
+        "SC_CHAR_MAX": "_SC_CHAR_MAX",
+        "SC_CHAR_MIN": "_SC_CHAR_MIN",
+        "SC_CHILD_MAX": "_SC_CHILD_MAX",
+        "SC_CLK_TCK": "_SC_CLK_TCK",
+        "SC_COHER_BLKSZ": "_SC_COHER_BLKSZ",
+        "SC_COLL_WEIGHTS_MAX": "_SC_COLL_WEIGHTS_MAX",
+        "SC_DCACHE_ASSOC": "_SC_DCACHE_ASSOC",
+        "SC_DCACHE_BLKSZ": "_SC_DCACHE_BLKSZ",
+        "SC_DCACHE_LINESZ": "_SC_DCACHE_LINESZ",
+        "SC_DCACHE_SZ": "_SC_DCACHE_SZ",
+        "SC_DCACHE_TBLKSZ": "_SC_DCACHE_TBLKSZ",
+        "SC_DELAYTIMER_MAX": "_SC_DELAYTIMER_MAX",
+        "SC_EQUIV_CLASS_MAX": "_SC_EQUIV_CLASS_MAX",
+        "SC_EXPR_NEST_MAX": "_SC_EXPR_NEST_MAX",
+        "SC_FSYNC": "_SC_FSYNC",
+        "SC_GETGR_R_SIZE_MAX": "_SC_GETGR_R_SIZE_MAX",
+        "SC_GETPW_R_SIZE_MAX": "_SC_GETPW_R_SIZE_MAX",
+        "SC_ICACHE_ASSOC": "_SC_ICACHE_ASSOC",
+        "SC_ICACHE_BLKSZ": "_SC_ICACHE_BLKSZ",
+        "SC_ICACHE_LINESZ": "_SC_ICACHE_LINESZ",
+        "SC_ICACHE_SZ": "_SC_ICACHE_SZ",
+        "SC_INF": "_SC_INF",
+        "SC_INT_MAX": "_SC_INT_MAX",
+        "SC_INT_MIN": "_SC_INT_MIN",
+        "SC_IOV_MAX": "_SC_IOV_MAX",
+        "SC_IP_SECOPTS": "_SC_IP_SECOPTS",
+        "SC_JOB_CONTROL": "_SC_JOB_CONTROL",
+        "SC_KERN_POINTERS": "_SC_KERN_POINTERS",
+        "SC_KERN_SIM": "_SC_KERN_SIM",
+        "SC_LINE_MAX": "_SC_LINE_MAX",
+        "SC_LOGIN_NAME_MAX": "_SC_LOGIN_NAME_MAX",
+        "SC_LOGNAME_MAX": "_SC_LOGNAME_MAX",
+        "SC_LONG_BIT": "_SC_LONG_BIT",
+        "SC_MAC": "_SC_MAC",
+        "SC_MAPPED_FILES": "_SC_MAPPED_FILES",
+        "SC_MAXPID": "_SC_MAXPID",
+        "SC_MB_LEN_MAX": "_SC_MB_LEN_MAX",
+        "SC_MEMLOCK": "_SC_MEMLOCK",
+        "SC_MEMLOCK_RANGE": "_SC_MEMLOCK_RANGE",
+        "SC_MEMORY_PROTECTION": "_SC_MEMORY_PROTECTION",
+        "SC_MESSAGE_PASSING": "_SC_MESSAGE_PASSING",
+        "SC_MMAP_FIXED_ALIGNMENT": "_SC_MMAP_FIXED_ALIGNMENT",
+        "SC_MQ_OPEN_MAX": "_SC_MQ_OPEN_MAX",
+        "SC_MQ_PRIO_MAX": "_SC_MQ_PRIO_MAX",
+        "SC_NACLS_MAX": "_SC_NACLS_MAX",
+        "SC_NGROUPS_MAX": "_SC_NGROUPS_MAX",
+        "SC_NL_ARGMAX": "_SC_NL_ARGMAX",
+        "SC_NL_LANGMAX": "_SC_NL_LANGMAX",
+        "SC_NL_MSGMAX": "_SC_NL_MSGMAX",
+        "SC_NL_NMAX": "_SC_NL_NMAX",
+        "SC_NL_SETMAX": "_SC_NL_SETMAX",
+        "SC_NL_TEXTMAX": "_SC_NL_TEXTMAX",
+        "SC_NPROCESSORS_CONF": "_SC_NPROCESSORS_CONF",
+        "SC_NPROCESSORS_ONLN": "_SC_NPROCESSORS_ONLN",
+        "SC_NPROC_CONF": "_SC_NPROC_CONF",
+        "SC_NPROC_ONLN": "_SC_NPROC_ONLN",
+        "SC_NZERO": "_SC_NZERO",
+        "SC_OPEN_MAX": "_SC_OPEN_MAX",
+        "SC_PAGESIZE": "_SC_PAGESIZE",
+        "SC_PAGE_SIZE": "_SC_PAGE_SIZE",
+        "SC_PASS_MAX": "_SC_PASS_MAX",
+        "SC_PHYS_PAGES": "_SC_PHYS_PAGES",
+        "SC_PII": "_SC_PII",
+        "SC_PII_INTERNET": "_SC_PII_INTERNET",
+        "SC_PII_INTERNET_DGRAM": "_SC_PII_INTERNET_DGRAM",
+        "SC_PII_INTERNET_STREAM": "_SC_PII_INTERNET_STREAM",
+        "SC_PII_OSI": "_SC_PII_OSI",
+        "SC_PII_OSI_CLTS": "_SC_PII_OSI_CLTS",
+        "SC_PII_OSI_COTS": "_SC_PII_OSI_COTS",
+        "SC_PII_OSI_M": "_SC_PII_OSI_M",
+        "SC_PII_SOCKET": "_SC_PII_SOCKET",
+        "SC_PII_XTI": "_SC_PII_XTI",
+        "SC_POLL": "_SC_POLL",
+        "SC_PRIORITIZED_IO": "_SC_PRIORITIZED_IO",
+        "SC_PRIORITY_SCHEDULING": "_SC_PRIORITY_SCHEDULING",
+        "SC_REALTIME_SIGNALS": "_SC_REALTIME_SIGNALS",
+        "SC_RE_DUP_MAX": "_SC_RE_DUP_MAX",
+        "SC_RTSIG_MAX": "_SC_RTSIG_MAX",
+        "SC_SAVED_IDS": "_SC_SAVED_IDS",
+        "SC_SCHAR_MAX": "_SC_SCHAR_MAX",
+        "SC_SCHAR_MIN": "_SC_SCHAR_MIN",
+        "SC_SELECT": "_SC_SELECT",
+        "SC_SEMAPHORES": "_SC_SEMAPHORES",
+        "SC_SEM_NSEMS_MAX": "_SC_SEM_NSEMS_MAX",
+        "SC_SEM_VALUE_MAX": "_SC_SEM_VALUE_MAX",
+        "SC_SHARED_MEMORY_OBJECTS": "_SC_SHARED_MEMORY_OBJECTS",
+        "SC_SHRT_MAX": "_SC_SHRT_MAX",
+        "SC_SHRT_MIN": "_SC_SHRT_MIN",
+        "SC_SIGQUEUE_MAX": "_SC_SIGQUEUE_MAX",
+        "SC_SIGRT_MAX": "_SC_SIGRT_MAX",
+        "SC_SIGRT_MIN": "_SC_SIGRT_MIN",
+        "SC_SOFTPOWER": "_SC_SOFTPOWER",
+        "SC_SPLIT_CACHE": "_SC_SPLIT_CACHE",
+        "SC_SSIZE_MAX": "_SC_SSIZE_MAX",
+        "SC_STACK_PROT": "_SC_STACK_PROT",
+        "SC_STREAM_MAX": "_SC_STREAM_MAX",
+        "SC_SYNCHRONIZED_IO": "_SC_SYNCHRONIZED_IO",
+        "SC_THREADS": "_SC_THREADS",
+        "SC_THREAD_ATTR_STACKADDR": "_SC_THREAD_ATTR_STACKADDR",
+        "SC_THREAD_ATTR_STACKSIZE": "_SC_THREAD_ATTR_STACKSIZE",
+        "SC_THREAD_DESTRUCTOR_ITERATIONS": "_SC_THREAD_DESTRUCTOR_ITERATIONS",
+        "SC_THREAD_KEYS_MAX": "_SC_THREAD_KEYS_MAX",
+        "SC_THREAD_PRIORITY_SCHEDULING": "_SC_THREAD_PRIORITY_SCHEDULING",
+        "SC_THREAD_PRIO_INHERIT": "_SC_THREAD_PRIO_INHERIT",
+        "SC_THREAD_PRIO_PROTECT": "_SC_THREAD_PRIO_PROTECT",
+        "SC_THREAD_PROCESS_SHARED": "_SC_THREAD_PROCESS_SHARED",
+        "SC_THREAD_SAFE_FUNCTIONS": "_SC_THREAD_SAFE_FUNCTIONS",
+        "SC_THREAD_STACK_MIN": "_SC_THREAD_STACK_MIN",
+        "SC_THREAD_THREADS_MAX": "_SC_THREAD_THREADS_MAX",
+        "SC_TIMERS": "_SC_TIMERS",
+        "SC_TIMER_MAX": "_SC_TIMER_MAX",
+        "SC_TTY_NAME_MAX": "_SC_TTY_NAME_MAX",
+        "SC_TZNAME_MAX": "_SC_TZNAME_MAX",
+        "SC_T_IOV_MAX": "_SC_T_IOV_MAX",
+        "SC_UCHAR_MAX": "_SC_UCHAR_MAX",
+        "SC_UINT_MAX": "_SC_UINT_MAX",
+        "SC_UIO_MAXIOV": "_SC_UIO_MAXIOV",
+        "SC_ULONG_MAX": "_SC_ULONG_MAX",
+        "SC_USHRT_MAX": "_SC_USHRT_MAX",
+        "SC_VERSION": "_SC_VERSION",
+        "SC_WORD_BIT": "_SC_WORD_BIT",
+        "SC_XBS5_ILP32_OFF32": "_SC_XBS5_ILP32_OFF32",
+        "SC_XBS5_ILP32_OFFBIG": "_SC_XBS5_ILP32_OFFBIG",
+        "SC_XBS5_LP64_OFF64": "_SC_XBS5_LP64_OFF64",
+        "SC_XBS5_LPBIG_OFFBIG": "_SC_XBS5_LPBIG_OFFBIG",
+        "SC_XOPEN_CRYPT": "_SC_XOPEN_CRYPT",
+        "SC_XOPEN_ENH_I18N": "_SC_XOPEN_ENH_I18N",
+        "SC_XOPEN_LEGACY": "_SC_XOPEN_LEGACY",
+        "SC_XOPEN_REALTIME": "_SC_XOPEN_REALTIME",
+        "SC_XOPEN_REALTIME_THREADS": "_SC_XOPEN_REALTIME_THREADS",
+        "SC_XOPEN_SHM": "_SC_XOPEN_SHM",
+        "SC_XOPEN_UNIX": "_SC_XOPEN_UNIX",
+        "SC_XOPEN_VERSION": "_SC_XOPEN_VERSION",
+        "SC_XOPEN_XCU_VERSION": "_SC_XOPEN_XCU_VERSION",
+        "SC_XOPEN_XPG2": "_SC_XOPEN_XPG2",
+        "SC_XOPEN_XPG3": "_SC_XOPEN_XPG3",
+        "SC_XOPEN_XPG4": "_SC_XOPEN_XPG4",
+    }
+    for k,v in pathconf_consts_defs.items():
+       setattr(ConfConfig, k, rffi_platform.DefinedConstantInteger(v))
+    for k,v in confstr_consts_defs.items():
+       setattr(ConfConfig, k, rffi_platform.DefinedConstantInteger(v))
+    for k,v in sysconf_consts_defs.items():
+       setattr(ConfConfig, k, rffi_platform.DefinedConstantInteger(v))
+            
+    confConfig = rffi_platform.configure(ConfConfig)
+    pathconf_names = {}
+    confstr_names = {}
+    sysconf_names = {}
+    for k in pathconf_consts_defs:
+        v = confConfig.get(k, None)
+        if v is not None:
+            pathconf_names[k] = v
+    for k in confstr_consts_defs:
+        v = confConfig.get(k, None)
+        if v is not None:
+            confstr_names[k] = v
+    for k in sysconf_consts_defs:
+        v = confConfig.get(k, None)
+        if v is not None:
+            sysconf_names[k] = v
+
+
 
 if HAVE_SCHED_GETPARAM:
     class CConfig:

@@ -1504,6 +1504,35 @@ class AppTestListObject(object):
             while lst:
                 keepalive.append(lst[:])
 
+    def test_mutate_while_slice(self):
+        class X:
+            def __index__(self):
+                del a[:]
+                return 1
+
+        a = [0]
+        assert a[:X():2] == []
+        assert a == []
+
+        a = [0]
+        assert a[X():2] == []
+        assert a == []
+
+        a = [0]
+        assert a[0:2:X()] == []
+        assert a == []
+
+    def test_mutate_while_slice_delete(self):
+        class X(object):
+            def __index__(self):
+                l[:] = [1]
+                print(l)
+                return 10
+
+        l = [1] * 100
+        del l[1:X():2]
+        assert l == [1]
+
     def test___getslice__(self):
         l = [1,2,3,4]
         res = l.__getslice__(0, 2)
