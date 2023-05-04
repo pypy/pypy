@@ -24,7 +24,7 @@ The release includes three different interpreters:
     Python 3.9, including the stdlib for CPython 3.9.16.
 
   - PyPy3.10, which is an interpreter supporting the syntax and the features of
-    Python 3.10, including the stdlib for CPython 3.10.16. This is our first
+    Python 3.10, including the stdlib for CPython 3.10.9. This is our first
     release of 3.10, but based on past experience we are quite confident in
     its compatibility with upstream. Of course, we recommend testing your code
     with this new version before putting it into production. Note it does
