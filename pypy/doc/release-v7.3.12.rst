@@ -3,7 +3,7 @@ PyPy v7.3.12: release of python 2.7, 3.9, and 3.10
 ==================================================
 
 ..
-       Changelog up to commit i7abf55bb5b18
+       Changelog up to commit 365683e7da0d
 
 .. note_::
   This is a pre-release announcement. When the release actually happens, it
@@ -11,8 +11,10 @@ PyPy v7.3.12: release of python 2.7, 3.9, and 3.10
 
 .. _`PyPy blog`: https://pypy.org/blog
 
-The PyPy team is proud to release version 7.3.12 of PyPy. The release includes
-three different interpreters:
+The PyPy team is proud to release version 7.3.12 of PyPy. 
+XXX Need some highlights? Maybe mention that I would be happy for someone else
+to become release manager?
+The release includes three different interpreters:
 
   - PyPy2.7, which is an interpreter supporting the syntax and the features of
     Python 2.7 including the stdlib for CPython 2.7.18+ (the ``+`` is for
@@ -25,7 +27,8 @@ three different interpreters:
     Python 3.10, including the stdlib for CPython 3.10.16. This is our first
     release of 3.10, but based on past experience we are quite confident in
     its compatibility with upstream. Of course, we recommend testing your code
-    with this new version before putting it into production.
+    with this new version before putting it into production. Note it does
+    require a new version of cython that has yet to be released.
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the other 7.3
@@ -117,6 +120,8 @@ Bugfixes
 - Skip cpython pickling of ``range``
 - Support loading c-extension modules with both ``powerpc64le-linux-gnu`` and
   ``ppc_64-linux-gnu`` platform tags (issue 3834_)
+- Fix various cases where a mutating ``__index__`` method could crash the
+  interpreter (issue 3917_)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -143,6 +148,10 @@ Bugfixes
 - Fix for ``tuple.contains(obj)`` using ``item == obj`` (bpo-37648_)
 - Allow indexing with a class with a ``__index__`` method
 - Implement ``__copy__`` and ``__deepcopy__`` for ``zlib`` (de)compressors
+- Fix weirdness about combining annotations and a global declaration of a
+  name in some random function (issue 3925_)
+- Fix wrong implementation of ``_copy_base`` for slices of n-dimensional
+  buffers (issue 3520_)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -152,12 +161,14 @@ Speedups and enhancements
 - Implement ``os.symlink`` and ``os.readlink`` on windows
 - Fix ``os.mkdir`` for unicode handling via teaching rposix about utf-8 paths,
   which could lead to removing the last vestiges of unicode from rpython.
+- Refactor ``os.remove``/``os.unlink`` to take symlink into account on windows
 - Increment ``macosx-version-min`` to 10.9
 - ``space.newlong`` returns a ``W_LongObject`` on pypy3, where there is no
   observable applevel difference between ``W_IntObject`` and ``W_LongObject``
 
 .. _bpo-37648: https://bugs.python.org/issue37648
 .. _GH-100242: https://github.com/python/cpython/issues/100242
+.. _3520: https://foss.heptapod.net/pypy/pypy/-/issues/3520
 .. _3834: https://foss.heptapod.net/pypy/pypy/-/issues/3834
 .. _3874: https://foss.heptapod.net/pypy/pypy/-/issues/3874
 .. _3881: https://foss.heptapod.net/pypy/pypy/-/issues/3881
@@ -166,3 +177,5 @@ Speedups and enhancements
 .. _3887: https://foss.heptapod.net/pypy/pypy/-/issues/3887
 .. _3890: https://foss.heptapod.net/pypy/pypy/-/issues/3890
 .. _3892: https://foss.heptapod.net/pypy/pypy/-/issues/3892
+.. _3917: https://foss.heptapod.net/pypy/pypy/-/issues/3917
+.. _3925: https://foss.heptapod.net/pypy/pypy/-/issues/3925
