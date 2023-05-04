@@ -1566,7 +1566,6 @@ def generate_decls_and_callbacks(db, prefix=''):
     decls = defaultdict(list)
     for decl in FORWARD_DECLS:
         decls[pypy_decl].append("%s;" % (decl,))
-
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         header = decls[header_name]
         for name, func in sorted(header_functions.iteritems()):
