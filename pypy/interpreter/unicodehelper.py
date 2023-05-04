@@ -198,11 +198,6 @@ def _str_decode_latin_1_slowpath(s, errors, final, errorhandler):
             i = end
     return res.build(), len(s), len(s)
 
-class ErrorHandlerError(Exception):
-    def __init__(self, new, old):
-        self.new = new
-        self.old = old
-
 def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
     if len(s) == 0:
         return ''
@@ -221,7 +216,7 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
 
 def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler):
     pos = 0
-    upos = 0
+    index = 0
     result = StringBuilder(len(s))
     while pos < len(s):
         try:
@@ -234,9 +229,9 @@ def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler):
             end = e.pos
             assert end >= 0
             result.append_slice(s, pos, end)
-            upos += rutf8.codepoints_in_utf8(s, start=pos, end=end)
+            index += rutf8.codepoints_in_utf8(s, start=pos, end=end)
             pos = end
-            # Try to get collect surrogates in one pass
+            # Try to collect surrogates in one pass
             # XXX do we care about performance in this case?
             # XXX should this loop for more than one pair?
             delta = 1
@@ -248,20 +243,19 @@ def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler):
                     if 0xDC00 <= uchr <= 0xDFFF:
                         delta += 1
             res, newindex, rettype, obj = errorhandler(errors, 'utf-8',
-                        'surrogates not allowed', s, upos, upos + delta)
+                        'surrogates not allowed', s, index, index + delta)
             if rettype == 'u':
                 try:
                     rutf8.check_ascii(res)
                 except rutf8.CheckError:
                     # this is a weird behaviour of CPython, but it's what happens
-                    errorhandler("strict", 'utf-8', 'surrogates not allowed', s, upos, upos + delta)
+                    errorhandler("strict", 'utf-8', 'surrogates not allowed', s, index, index + delta)
                     assert 0, "unreachable"
             s = obj
             result.append(res)
-            if newindex <= upos:
-                raise ErrorHandlerError(newindex, upos)
-            upos = newindex
-            pos = rutf8._pos_at_index(s, upos)
+            if index != newindex:  # Should be uncommon
+                index = newindex
+                pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
 def utf8_encode_latin_1(s, errors, errorhandler, allow_surrogates=False):
@@ -315,14 +309,12 @@ def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False):
     pos = 0
     while pos < len(s):
         ch = rutf8.codepoint_at_pos(s, pos)
+        startindex = index
+        index += 1
+        pos = rutf8.next_codepoint_pos(s, pos)
         if ch <= 0x7F:
             result.append(chr(ch))
-            index += 1
-            pos = rutf8.next_codepoint_pos(s, pos)
         else:
-            startindex = index
-            pos = rutf8.next_codepoint_pos(s, pos)
-            index += 1
             while pos < len(s) and rutf8.codepoint_at_pos(s, pos) > 0x7F:
                 pos = rutf8.next_codepoint_pos(s, pos)
                 index += 1
@@ -336,10 +328,11 @@ def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False):
                         raise RuntimeError('error handler should not have returned')
                     result.append(chr(cp))
             else:
-                for ch in res:
-                    result.append(ch)
+                result.append(res)
             obj = s
-            pos = rutf8._pos_at_index(s, newindex)
+            if index != newindex:  # Should be uncommon
+                index = newindex
+                pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
 if _WIN32:
@@ -766,10 +759,6 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
                 pos -= 1
             break
         ch = s[pos]
-        if ch == "\\":
-            builder.append_char('\\')
-            pos += 1
-            continue
         if s[pos] == 'u':
             digits = 4
             message = "truncated \\uXXXX escape"
@@ -778,7 +767,7 @@ def str_decode_raw_unicode_escape(s, errors, final=False,
             message = "truncated \\UXXXXXXXX escape"
         else:
             builder.append_char('\\')
-            builder.append_char(ch)
+            builder.append_code(ord(ch))
             pos += 1
             continue
         pos += 1
@@ -1300,14 +1289,13 @@ def utf8_encode_utf_16_helper(s, errors,
                                      'surrogates not allowed',
                                      s, index, index+1)
             else:
-                for ch in r:
-                    cp = ord(ch)
-                    if cp < 0xD800 or allow_surrogates:
-                        _STORECHAR(result, cp, byteorder)
-                    else:
-                        errorhandler('strict', public_encoding_name,
-                                     'surrogates not allowed',
-                                 s, index, index+1)
+                # bytes are just copied to the output
+                if len(r) & 1:
+                    # must be an even number of bytes
+                    errorhandler('strict', public_encoding_name,
+                                 'surrogates not allowed',
+                             s, index, index+1)
+                result.append(r)
             if index != newindex:  # Should be uncommon
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
@@ -1499,14 +1487,12 @@ def utf8_encode_utf_32_helper(s, errors,
                             'strict', public_encoding_name, 'surrogates not allowed',
                             s, index, index+1)
             else:
-                for ch in r:
-                    cp = ord(ch)
-                    if cp < 0xD800:
-                        _STORECHAR32(result, cp, byteorder)
-                    else:
-                        errorhandler(
-                            'strict', public_encoding_name, 'surrogates not allowed',
-                            s, index, index+1)
+                if len(r) & 0b11:
+                    # length must be divisible by 4
+                    errorhandler(
+                        'strict', public_encoding_name, 'surrogates not allowed',
+                        s, index, index+1)
+                result.append(r)
             s = obj
             if index != newindex:  # Should be uncommon
                 index = newindex

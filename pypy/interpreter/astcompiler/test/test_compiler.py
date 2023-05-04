@@ -2130,6 +2130,7 @@ x = brokenargs(c=3)
 
     def test_cant_annotate_debug(self):
         self.error_test("__debug__ : int", SyntaxError, "cannot assign to __debug__")
+        self.error_test("object.__debug__ : int", SyntaxError, "cannot assign to __debug__")
 
 
 class TestDeadCodeGetsRemoved(TestCompiler):
@@ -2577,6 +2578,15 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST:1, ops.RETURN_VALUE: 1}
 
+    def test_remove_dead_code_after_raise(self):
+        source = """def f(x):
+            raise ValueError
+            x += 1
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_GLOBAL:1, ops.RAISE_VARARGS: 1}
+
+
     def test_remove_dead_jump_after_return(self):
         source = """def f(x, y, z):
             if x:
@@ -2873,3 +2883,8 @@ class TestHugeStackDepths:
         w_res = self.run_and_check_stacksize(source)
         assert self.space.unwrap(w_res) == dict.fromkeys(["s" + str(i) for i in range(200)])
 
+    def test_call_method_args(self):
+        args = "1, " * 217
+        source = '(type("A", (), {"f": lambda self, *args: len(args)}))().f(%s)' % args
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.int_w(w_res) == 217

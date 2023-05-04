@@ -235,7 +235,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
 
     def test_thread_interrupt(self):
         import signal # to initialize the signal infrastructure
-        import _thread as thread, time, posix as os
+        import _thread as thread, time
 
         module = self.import_extension('disruptor', [
                 ("surprise", "METH_VARARGS",

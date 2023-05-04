@@ -668,10 +668,11 @@ class ProcessPoolExecutor(_base.Executor):
             _threads_wakeups[self._executor_manager_thread] = \
                 self._executor_manager_thread_wakeup
 
-    def _adjust_process_count_cpython(self):
+    def _adjust_process_count(self):
         # if there's an idle process, we don't need to spawn a new one.
         if self._idle_worker_semaphore.acquire(blocking=False):
-           return
+            return
+
         process_count = len(self._processes)
         if process_count < self._max_workers:
             # Assertion disabled as this codepath is also used to replace a

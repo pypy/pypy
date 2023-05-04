@@ -52,3 +52,7 @@ class AppTestPwd:
         import pwd
         raises(TypeError, pwd.getpwall, 42)
         assert pwd.getpwnam('root') in pwd.getpwall()
+
+    def test_nul_error(self):
+        import pwd
+        raises(ValueError, pwd.getpwnam, "a\x00")

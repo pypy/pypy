@@ -2,13 +2,15 @@
 import pytest
 
 from pypy.interpreter.unicodehelper import (
-    utf8_encode_utf_8, decode_utf8sp, ErrorHandlerError
+    utf8_encode_utf_8, decode_utf8sp,
 )
 
 from pypy.interpreter.unicodehelper import str_decode_utf8, utf8_encode_latin_1
 from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
 from pypy.interpreter.unicodehelper import utf8_encode_latin_1, str_decode_unicode_escape
 from pypy.interpreter.unicodehelper import str_decode_raw_unicode_escape
+from pypy.interpreter.unicodehelper import utf8_encode_utf_16_le
+from pypy.interpreter.unicodehelper import utf8_encode_utf_32_le
 from pypy.interpreter import unicodehelper as uh
 from pypy.module._codecs.interp_codecs import CodecState
 
@@ -54,13 +56,9 @@ def test_encode_utf_8_combine_surrogates():
     assert res == "abcabc"
     assert calls == [u'\udc80', u'\uD800\uDFFF']
 
-def test_bad_error_handler():
-    b = u"\udc80\ud800\udfff".encode("utf-8")
-    def errorhandler(errors, encoding, msg, s, start, end):
-        return '', start, 'b', s # returned index is too small
-
-    pytest.raises(ErrorHandlerError, utf8_encode_utf_8, b, 'strict',
-                  errorhandler=errorhandler, allow_surrogates=False)
+#def test_bad_error_handler():
+    # replaced by the test test_repeated_pos_return
+    # in test_codecs. following CPython's approach
 
 def test_decode_utf8sp():
     space = FakeSpace()
@@ -112,4 +110,36 @@ def test_raw_unicode_escape_backslash_without_escape():
     result, _, l = str_decode_raw_unicode_escape(data, 'strict', True, None)
     assert l == len(data)
     assert result == data
+
+def test_raw_unicode_escape_bug_escape_backslash():
+    data = b'\\\\'
+    res = str_decode_raw_unicode_escape(data, 'strict', True, None)
+    assert res[0] == '\\\\'
+
+    data = b'\\\xef'
+    res = str_decode_raw_unicode_escape(data, 'strict', True, None)
+    assert res[0].decode("utf-8") == u'\\\xef'
+
+def test_utf16_encode_bytes_replacement_is_simply_copied():
+    def errorhandler(errors, encoding, msg, s, start, end):
+        return 'abcd', end, 'b', s
+
+    res = utf8_encode_utf_16_le(
+        b'[\xed\xb2\x80]', 'strict',
+        errorhandler=errorhandler,
+        allow_surrogates=False
+    )
+    assert res == "[\x00abcd]\x00"
+
+
+def test_utf32_encode_bytes_replacement_is_simply_copied():
+    def errorhandler(errors, encoding, msg, s, start, end):
+        return 'abcd', end, 'b', s
+
+    res = utf8_encode_utf_32_le(
+        b'[\xed\xb2\x80]', 'strict',
+        errorhandler=errorhandler,
+        allow_surrogates=False
+    )
+    assert res == "[\x00\x00\x00abcd]\x00\x00\x00"
 

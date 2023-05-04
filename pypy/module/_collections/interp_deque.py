@@ -473,7 +473,7 @@ class W_Deque(W_Root):
 
     def getitem(self, w_index):
         space = self.space
-        start, stop, step = space.decode_index(w_index, self.len)
+        start, stop, step, _ = space.decode_index4(w_index, self)
         if step == 0:  # index only
             b, i = self.locate(start)
             return b.data[i]
@@ -482,7 +482,7 @@ class W_Deque(W_Root):
 
     def setitem(self, w_index, w_newobj):
         space = self.space
-        start, stop, step = space.decode_index(w_index, self.len)
+        start, stop, step, _ = space.decode_index4(w_index, self)
         if step == 0:  # index only
             b, i = self.locate(start)
             b.data[i] = w_newobj
@@ -491,7 +491,7 @@ class W_Deque(W_Root):
 
     def delitem(self, w_index):
         space = self.space
-        start, stop, step = space.decode_index(w_index, self.len)
+        start, stop, step, _ = space.decode_index4(w_index, self)
         if step == 0:  # index only
             self.del_item(start)
         else:

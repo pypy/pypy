@@ -315,7 +315,7 @@ class EnvBuilder:
                         os.path.normcase(f).startswith(('python', 'vcruntime'))
                     ]
             else:
-                # PyPy change: since PyPy does not use a PEP 397 launcer,
+                # PyPy change: since PyPy does not use a PEP 397 launcher,
                 # copy all the exes and dlls.
                 suffixes = [
                     f for f in os.listdir(dirname) if

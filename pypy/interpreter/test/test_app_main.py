@@ -783,6 +783,22 @@ class TestNonInteractive:
         assert crashing_demo_script in data
         assert relpath not in data
 
+    def test_dotdot_in_main_filename(self, demo_script):
+        # corner case: when called like "python ../script.py"
+        # main.__filename__ should be os.getcwd() + '/' + script.py
+        filepath, filename = os.path.split(demo_script)
+        subdir = os.path.join(filepath, 'issue3881')
+        os.mkdir(subdir)
+        olddir = os.getcwd()
+        target = os.path.join('..', filename)
+        try:
+            os.chdir(subdir)
+            data = self.run(target)
+            print(data)
+            assert os.path.join(subdir, target) in data
+        finally:
+            os.chdir(olddir)
+
     def test_crashing_script_on_stdin(self, crashing_demo_script):
         data = self.run(' < "%s"' % (crashing_demo_script,))
         assert 'Hello2' in data

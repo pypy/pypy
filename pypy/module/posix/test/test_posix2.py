@@ -26,15 +26,17 @@ def setup_module(mod):
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
-    if sys.platform == 'darwin':
-        # see issue https://bugs.python.org/issue31380
+    if sys.platform in ('darwin', 'win32'):
+        # see issue https://bugs.python.org/issue31380 for darwin
+        # on win32, the host pypy2 currently does not
+        # handle mkdir of unicode correctly
         bytes_dir = udir.ensure('fixc5x9fier.txt', dir=True)
         file_name = 'cafxe9'
         surrogate_name = 'foo'
     else:
-        bytes_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
-        file_name = 'caf\xe9'
-        surrogate_name = 'foo\x80'
+        bytes_dir = udir.ensure(b'fi\xc5\x9fier.txt', dir=True)
+        file_name = b'caf\xe9'
+        surrogate_name = b'foo\x80'
     bytes_dir.join('somefile').write('who cares?')
     bytes_dir.join(file_name).write('who knows?')
     mod.bytes_dir = bytes_dir
@@ -67,6 +69,7 @@ class AppTestPosix:
         cls.w_pdir = space.wrap(str(pdir))
         cls.w_bytes_dir = space.newbytes(str(bytes_dir))
         cls.w_esurrogate_dir = space.newbytes(str(esurrogate_dir))
+        cls.w_sep = space.wrap(os.sep)
         cls.w_dir_unicode = space.wrap(unicode(dir_unicode)
                                        if dir_unicode is not None else None)
         if hasattr(os, 'getuid'):
@@ -379,6 +382,7 @@ class AppTestPosix:
         posix.chdir(self.esurrogate_dir)
         try:
             cwd = posix.getcwd()
+            # print("cwd", cwd, "esurrogate_dir", self.esurrogate_dir)
             assert fsencode(cwd) == posix.getcwdb()
         finally:
             posix.chdir(cwdb)
@@ -408,16 +412,25 @@ class AppTestPosix:
         import sys
         bytes_dir = self.bytes_dir
         posix = self.posix
+        with raises(OSError):
+            posix.mkdir(bytes_dir)
         result = posix.listdir(bytes_dir)
         assert all(type(x) is bytes for x in result)
         assert b'somefile' in result
-        expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
-        assert expected in result
+        if sys.platform == "win32":
+            expected = b"cafxe9"
+        elif sys.platform == "darwin":
+            expected = b"caf%E9"
+        else:
+            expected = b"caf\xe9"
+        assert expected in result, "got '%s'" % result
 
     def test_listdir_unicode(self):
         if self.dir_unicode is None:
             skip("couldn't encode unicode file name")
         posix = self.posix
+        with raises(OSError):
+            posix.mkdir(self.dir_unicode)
         result = posix.listdir(self.dir_unicode)
         assert all(type(x) is str for x in result)
         assert u'ca\u2014f\xe9' in result
@@ -1187,75 +1200,89 @@ class AppTestPosix:
             expected = min(myprio + 3, 19)
             assert os.WEXITSTATUS(status1) == expected
 
-    if sys.platform != 'win32':
-        @pytest.mark.skipif("config.option.runappdirect and sys.platform == 'darwin'")
-        def test_symlink(self):
-            posix = self.posix
-            bytes_dir = self.bytes_dir
-            if bytes_dir is None:
-                skip("encoding not good enough")
-            dest = bytes_dir + b"/file.txt"
-            posix.symlink(bytes_dir + b"/somefile", dest)
-            try:
-                with open(dest) as f:
-                    data = f.read()
-                    assert data == "who cares?"
-            finally:
-                posix.unlink(dest)
-            posix.symlink(memoryview(bytes_dir + b"/somefile"), dest)
-            try:
-                with open(dest) as f:
-                    data = f.read()
-                    assert data == "who cares?"
-            finally:
-                posix.unlink(dest)
+    def test_symlink(self):
+        posix = self.posix
+        import stat
 
-        # XXX skip test if dir_fd is unsupported
-        def test_symlink_fd(self):
-            posix = self.posix
-            bytes_dir = self.bytes_dir
-            f = posix.open(bytes_dir, posix.O_RDONLY)
+        def islink(path):
+            """Test whether a path is a symbolic link.
+               Taken from ntpath.py
+            """
             try:
-                posix.symlink('somefile', 'somelink', dir_fd=f)
-                assert (posix.readlink(bytes_dir + '/somelink'.encode()) ==
-                        'somefile'.encode())
-            finally:
-                posix.close(f)
-                posix.unlink(bytes_dir + '/somelink'.encode())
+                st = posix.lstat(path)
+            except (OSError, ValueError, AttributeError):
+                return False
+            return stat.S_ISLNK(st.st_mode)
 
-        def test_symlink_fspath(self):
-            posix = self.posix
-            bytes_dir = self.bytes_dir
-            if bytes_dir is None:
-                skip("encoding not good enough")
-            dest = self.Path(bytes_dir + b"/file.txt")
-            posix.symlink(self.Path(bytes_dir + b"/somefile"), dest)
-            try:
-                with open(dest) as f:
-                    data = f.read()
-                    assert data == "who cares?"
-            finally:
-                posix.unlink(dest)
+        bytes_dir = self.bytes_dir
+        if bytes_dir is None:
+            skip("encoding not good enough")
+        dest = bytes_dir + b"/file.txt"
+        posix.symlink(bytes_dir + b"/somefile", dest)
+        try:
+            assert islink(dest)
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
+        finally:
+            posix.unlink(dest)
+        posix.symlink(memoryview(bytes_dir + b"/somefile"), dest)
+        try:
+            assert islink(dest)
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
+        finally:
+            posix.unlink(dest)
 
-        def test_readlink(self):
-            os = self.posix
-            pdir = self.pdir
-            src = pdir + "/somefile"
-            dest = pdir + "/file.txt"
-            os.symlink(dest, src)
-            try:
-                assert os.readlink(src) == dest
-                assert os.readlink(src.encode()) == dest.encode()
-                assert os.readlink(self.Path(src)) == dest
-                assert os.readlink(self.Path(src.encode())) == dest.encode()
-            finally:
-                os.unlink(src)
+        dest = bytes_dir + b"_sym"
+        posix.symlink(bytes_dir, dest)
+        try:
+            assert islink(dest)
+        finally:
+            posix.unlink(dest)
 
-    else:
-        def test_symlink(self):
-            posix = self.posix
-            with raises(NotImplementedError):
-                posix.symlink('a', 'b')
+    
+    @pytest.mark.skipif("sys.platform == 'win32'")
+    def test_symlink_fd(self):
+        posix = self.posix
+        bytes_dir = self.bytes_dir
+        f = posix.open(bytes_dir, posix.O_RDONLY)
+        try:
+            posix.symlink('somefile', 'somelink', dir_fd=f)
+            assert (posix.readlink(bytes_dir + '/somelink'.encode()) ==
+                    'somefile'.encode())
+        finally:
+            posix.close(f)
+            posix.unlink(bytes_dir + '/somelink'.encode())
+
+    def test_symlink_fspath(self):
+        posix = self.posix
+        bytes_dir = self.bytes_dir
+        if bytes_dir is None:
+            skip("encoding not good enough")
+        dest = self.Path(bytes_dir + b"/file.txt")
+        posix.symlink(self.Path(bytes_dir + b"/somefile"), dest)
+        try:
+            with open(dest) as f:
+                data = f.read()
+                assert data == "who cares?"
+        finally:
+            posix.unlink(dest)
+
+    def test_readlink(self):
+        os = self.posix
+        pdir = self.pdir
+        src = pdir + "/somefile"
+        dest = pdir +  self.sep + "file.txt"
+        if self.sep != "/":
+            # windows prefixes the returned value
+            dest = "\\\\?\\" + dest
+        os.symlink(dest, src)
+        assert os.readlink(src) == dest
+        assert os.readlink(src.encode()) == dest.encode()
+        assert os.readlink(self.Path(src)) == dest
+        assert os.readlink(self.Path(src.encode())) == dest.encode()
 
     if hasattr(os, 'ftruncate'):
         def test_truncate(self):
@@ -1909,9 +1936,9 @@ class AppTestPosixUnicode:
 class AppTestUnicodeFilename:
     def setup_class(cls):
         ufilename = (unicode(udir.join('test_unicode_filename_')) +
-                     '\u65e5\u672c.txt') # "Japan"
+                     u'\u65e5\u672c.txt') # "Japan"
         try:
-            f = file(ufilename, 'w')
+            f = open(ufilename, 'w')
         except (UnicodeEncodeError, IOError):
             pytest.skip("encoding not good enough")
         f.write("test")

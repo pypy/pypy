@@ -1,3 +1,8 @@
+"""
+This will create the _ctypes_test c-extension module. Unlike _testcapi, the
+extension cannot be wrapped with a _ctypes_test.py module since test.importlib
+explicitly does a c-extension import
+"""
 import imp
 import os
 

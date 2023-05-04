@@ -114,7 +114,7 @@ def test_socketio():
 
     proc = SocketProc([exe])
     output, error = proc.communicate("")
-    assert output.startswith('HTTP/1.0 400 Bad request')
+    assert output.startswith('HTTP/1.1 400 Bad Request')
 
 def test_oserror():
     def entry_point(argv):

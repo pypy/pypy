@@ -184,3 +184,12 @@ def test_class_mangling():
     class C:
         __mangled: int
     assert C.__annotations__ == {"_C__mangled": int}
+
+def test_global_annotion_bug():
+    exec("""
+def set():
+    global name
+name:int
+assert __annotations__['name'] == int
+    """)
+

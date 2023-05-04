@@ -147,7 +147,14 @@ class AppTestMemoryView(object):
         m = memoryview(b'hello')
         weakref.ref(m)
 
-    def test_getitem_only_ints(self):
+    def test_getitem_only_indexes(self):
+        buf = memoryview(b'hello world')
+
+        class Indexer():
+            def __index__(self):
+                return 0
+        assert buf[0] == buf[Indexer()]
+
         class MyInt(object):
           def __init__(self, x):
             self.x = x
@@ -155,7 +162,6 @@ class AppTestMemoryView(object):
           def __int__(self):
             return self.x
 
-        buf = memoryview(b'hello world')
         raises(TypeError, "buf[MyInt(0)]")
         raises(TypeError, "buf[MyInt(0):MyInt(5)]")
 
@@ -229,7 +235,21 @@ class AppTestMemoryView(object):
         a = memoryview(b"foobar")._pypy_raw_address()
         assert a != 0
         b = memoryview(bytearray(b"foobar"))._pypy_raw_address()
-        assert b != 0
+
+    def test_mutate_memoryview_while_indexing(self):
+        class A(object):
+            def __index__(self):
+                del data[:]
+                return 1
+        data = bytearray(b'abcefg')
+        v = memoryview(data)
+        with raises(IndexError):
+            v[A()]
+
+        data = bytearray(b'abcefg')
+        v = memoryview(data)
+        with raises(IndexError):
+            v[A()] = b'z'
 
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
@@ -356,6 +376,13 @@ class AppTestMemoryView(object):
         m2 = m.toreadonly()
         m3 = m2[1:4]
         m3.readonly
+
+    def test_strided_bug(self):
+        m = memoryview(b'abcdefghijklmnop')
+        m2 = m.cast("B", (4,4))
+        assert bytes(m2[:]) == b'abcdefghijklmnop'
+        assert bytes(m2[::-1]) == b'mnopijklefghabcd'
+
 
 class AppTestCtypes(object):
     spaceconfig = dict(usemodules=['sys', '_rawffi'])
@@ -583,3 +610,29 @@ class AppTestMemoryViewReversed(object):
             raises(NotImplementedError, list, reversed(rview))
             assert rview.tolist() == [[1,2,3],[9,7,5]]
             assert rview[::-1].tolist() == [[9,7,5], [1,2,3]]
+
+def test_slice_of_strided_as_str_bug(space):
+    from rpython.rlib.buffer import StringBuffer
+    from pypy.objspace.std.memoryobject import BufferViewND
+    from pypy.interpreter.buffer import SimpleView
+    b = StringBuffer(b"abcdefghijklmnop")
+    v = SimpleView(b)
+    m = BufferViewND(v, 2, [4, 4], [4, 1])
+    assert m.as_str() == b"abcdefghijklmnop"
+    m2 = m.new_slice(0, 1, 4)
+    assert m2.as_str() == b"abcdefghijklmnop"
+    m2 = m.new_slice(1, 1, 3)
+    assert m2.as_str() == b"efghijklmnop"
+    m2 = m.new_slice(1, 1, 2)
+    assert m2.as_str() == b"efghijkl"
+    m2 = m.new_slice(3, -1, 4)
+    assert m2.as_str() == b'mnopijklefghabcd'
+
+def test_reverse_slice(space):
+    from rpython.rlib.buffer import StringBuffer
+    from pypy.interpreter.buffer import SimpleView
+    content = b"abcdefghijklmnop"
+    b = StringBuffer(content)
+    v = SimpleView(b)
+    m = v.new_slice(len(content)-1, -1, len(content))
+    assert m.as_str() == content[::-1]

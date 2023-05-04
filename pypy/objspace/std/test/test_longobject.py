@@ -47,6 +47,11 @@ class TestW_LongObject:
         assert space.eq_w(z, space.newint(1))
         assert not isinstance(z, lobj.W_LongObject)
 
+    def test_space_newlong_gives_int(self):
+        space = self.space
+        w_x = space.newlong(2)
+        assert not isinstance(w_x, lobj.W_LongObject)
+
 class AppTestLong:
 
     def w__long(self, obj):

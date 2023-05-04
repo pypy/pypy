@@ -46,6 +46,7 @@ def GetCConfigGlobal():
         _S_IFREG = platform.ConstantInteger('_S_IFREG')
         _S_IFCHR = platform.ConstantInteger('_S_IFCHR')
         _S_IFIFO = platform.ConstantInteger('_S_IFIFO')
+        _S_IFLNK = platform.ConstantInteger('_S_IFIFO')
         _O_APPEND = platform.ConstantInteger('_O_APPEND')
         _O_CREAT  = platform.ConstantInteger('_O_CREAT')
         _O_EXCL   = platform.ConstantInteger('_O_EXCL')
@@ -171,6 +172,11 @@ def make_win32_traits(traits):
                        _O_RDONLY _O_WRONLY _O_BINARY
                     '''.split():
             locals()[name] = config[name]
+        
+        # Windows doesn't define S_IFLNK but rposix_stat maps
+        # IO_REPARSE_TAG_SYMLINK to S_IFLNK
+        _S_IFLNK = 0120000
+
         LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
         GET_FILEEX_INFO_LEVELS = rffi.ULONG # an enumeration
 

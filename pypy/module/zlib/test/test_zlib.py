@@ -362,16 +362,18 @@ class AppTestZlib(object):
         assert zdict == uncomp
 
     def test_decompress_copy(self):
-        decompressor = self.zlib.decompressobj()
-        d1 = decompressor.decompress(self.compressed[:10])
-        assert d1
+        import copy
+        for func in [lambda d: d.copy(), copy.copy, copy.deepcopy]:
+            decompressor = self.zlib.decompressobj()
+            d1 = decompressor.decompress(self.compressed[:10])
+            assert d1
 
-        copied = decompressor.copy()
+            copied = func(decompressor)
 
-        from_copy = copied.decompress(self.compressed[10:])
-        from_decompressor = decompressor.decompress(self.compressed[10:])
+            from_copy = copied.decompress(self.compressed[10:])
+            from_decompressor = decompressor.decompress(self.compressed[10:])
 
-        assert (d1 + from_copy) == (d1 + from_decompressor)
+            assert (d1 + from_copy) == (d1 + from_decompressor)
 
     def test_cannot_copy_decompressor_with_stream_in_inconsistent_state(self):
         if self.runappdirect: skip("can't run with -A")
@@ -397,16 +399,18 @@ class AppTestZlib(object):
         assert decompressor.copy().unused_data == unused_data
 
     def test_compress_copy(self):
-        compressor = self.zlib.compressobj()
-        d1 = compressor.compress(self.expanded[:10])
-        assert d1
+        import copy
+        for func in [lambda c: c.copy(), copy.copy, copy.deepcopy]:
+            compressor = self.zlib.compressobj()
+            d1 = compressor.compress(self.expanded[:10])
+            assert d1
 
-        copied = compressor.copy()
+            copied = func(compressor)
 
-        from_copy = copied.compress(self.expanded[10:])
-        from_compressor = compressor.compress(self.expanded[10:])
+            from_copy = copied.compress(self.expanded[10:])
+            from_compressor = compressor.compress(self.expanded[10:])
 
-        assert (d1 + from_copy) == (d1 + from_compressor)
+            assert (d1 + from_copy) == (d1 + from_compressor)
 
     @py.test.mark.skipif(rzlib.ZLIB_VERSION in ('1.2.7', '1.2.8', '1.2.3'), reason='does not error check')
     def test_cannot_copy_compressor_with_stream_in_inconsistent_state(self):

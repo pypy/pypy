@@ -204,6 +204,13 @@ class AppTestScandir(object):
         assert isinstance(d, posix.DirEntry)
         assert repr(d) == "<DirEntry 'file1'>"
 
+    def test_direntry_unpicklable(self):
+        import pickle
+        posix = self.posix
+        d = next(posix.scandir(self.dir1))
+        with raises(TypeError):
+            pickle.dumps(d)
+
     def test_fspath(self):
         posix = self.posix
         d = next(posix.scandir(self.dir1))

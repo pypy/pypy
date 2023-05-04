@@ -202,7 +202,9 @@ class W_MemoryView(W_Root):
             count = 1
         else:
             count = shape[0]
-        return space.decode_index4(w_index, count)
+        # it's ok to use 'unsafe' here, because the index error checking
+        # happens a level deeper on the view access
+        return space.decode_index4_unsafe(w_index, count)
 
     def descr_getitem(self, space, w_index):
         self._check_released(space)
@@ -253,7 +255,7 @@ class W_MemoryView(W_Root):
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         if space.isinstance_w(w_index, space.w_tuple):
             return self._setitem_tuple_indexed(space, w_index, w_obj)
-        start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        start, stop, step, size = space.decode_index4(w_index, self)
         is_slice = space.isinstance_w(w_index, space.w_slice)
         start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
         itemsize = self.getitemsize()
@@ -705,9 +707,6 @@ class IndirectView(BufferView):
     def getlength(self):
         return self.parent.getlength()
 
-    def as_str(self):
-        return self.parent.as_str()
-
     def as_str_and_offset_maybe(self):
         return self.parent.as_str_and_offset_maybe()
 
@@ -786,37 +785,4 @@ class BufferViewND(IndirectView):
         for i in range(self.ndim):
             tot *= self.shape[i]
         return tot * self.getitemsize()
-
-    def as_str(self):
-        from rpython.rlib.rstring import StringBuilder
-        nchunks = self.getlength()
-        res = StringBuilder(nchunks)
-        if self.ndim == 0:
-            return self.parent.as_str()
-        elif self.ndim == 1:
-            itemsize = self.getitemsize()
-            stride = self.strides[0]
-            for i in range(0, nchunks):
-                res.append(self.getbytes(i * stride, itemsize))
-        else:
-            self._as_str_rec(res, 0, 0)
-        return res.build()
-
-    def _as_str_rec(self, res, start, idim):
-        dim = idim + 1
-        stride = self.strides[idim]
-        itemsize = self.getitemsize()
-        dimshape = self.shape[idim]
-        #
-        if dim >= self.ndim:
-            bytecount = (stride * dimshape)
-            for pos in range(start, start + bytecount, stride):
-                res.append(self.getbytes(pos, itemsize))
-            return 
-        items = [None] * dimshape
-        for i in range(dimshape):
-            self._as_str_rec(res, start, dim)
-            start += stride
-
- 
 

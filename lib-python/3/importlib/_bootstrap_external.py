@@ -359,8 +359,7 @@ _code_type = type(_write_atomic.__code__)
 try:
     MAGIC_NUMBER
 except NameError:
-    import imp
-    MAGIC_NUMBER = imp.get_magic()
+    MAGIC_NUMBER = _imp.get_magic()
 
 _RAW_MAGIC_NUMBER = int.from_bytes(MAGIC_NUMBER, 'little')  # For import.c
 

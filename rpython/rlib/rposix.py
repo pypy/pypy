@@ -8,8 +8,9 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib import debug, jit, rstring, rthread, types
 from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
-    POSIX_SIZE_T, POSIX_SSIZE_T,
+    POSIX_SIZE_T, POSIX_SSIZE_T, unicode_traits,
     _prefer_unicode, _preferred_traits, _preferred_traits2)
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
 from rpython.rlib.rarithmetic import intmask, widen
@@ -1182,9 +1183,12 @@ def unlink(path):
     if not _WIN32:
         handle_posix_error('unlink', c_unlink(_as_bytes0(path)))
     else:
-        traits = _preferred_traits(path)
-        win32traits = make_win32_traits(traits)
-        if not win32traits.DeleteFile(traits.as_str0(path)):
+        win32traits = make_win32_traits(unicode_traits)
+        src_utf8 = path.as_utf8()
+        src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
+        ret = rwin32.os_unlink_impl(src_wch)
+        rffi.free_wcharp(src_wch)
+        if not ret:
             raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('mkdir')
@@ -1193,9 +1197,12 @@ def mkdir(path, mode=0o777):
     if not _WIN32:
         handle_posix_error('mkdir', c_mkdir(_as_bytes0(path), mode))
     else:
-        traits = _preferred_traits(path)
-        win32traits = make_win32_traits(traits)
-        if not win32traits.CreateDirectory(traits.as_str0(path), None):
+        win32traits = make_win32_traits(unicode_traits)
+        src_utf8 = path.as_utf8()
+        src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
+        result = win32traits.CreateDirectory(src_wch, None)
+        rffi.free_wcharp(src_wch) 
+        if not result:
             raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('rmdir')

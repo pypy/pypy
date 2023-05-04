@@ -794,3 +794,21 @@ class AppTestBytesArray:
     def test_removesuffix(self):
         assert bytearray(b'abc').removesuffix(b'x') == bytearray(b'abc')
         assert bytearray(b'abc').removesuffix(b'bc') == bytearray(b'a')
+
+    def test_mutate_while_slice(self):
+        class X:
+            def __index__(self):
+                del a[:]
+                return 1
+
+        a = bytearray([0])
+        assert a[:X():2] == bytearray()
+        assert a == bytearray()
+
+        a = bytearray([0])
+        assert a[X():2] == bytearray()
+        assert a == bytearray()
+
+        a = bytearray([0])
+        assert a[0:2:X()] == bytearray()
+        assert a == bytearray()

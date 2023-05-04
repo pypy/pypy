@@ -166,6 +166,10 @@ class Compress(ZLibObject):
             raise zlib_error(space, e.msg)
         return Compress(space=space, stream=copied)
 
+    def descr_deepcopy(self, space, w_memo):
+        return self.copy(space)
+
+
     @unwrap_spec(mode="c_int")
     def flush(self, space, mode=rzlib.Z_FINISH):
         """
@@ -228,6 +232,8 @@ Compress.typedef = TypeDef(
     'Compress',
     __new__ = interp2app(Compress___new__),
     copy = interp2app(Compress.copy),
+    __copy__ = interp2app(Compress.copy),
+    __deepcopy__ = interp2app(Compress.descr_deepcopy),
     compress = interp2app(Compress.compress),
     flush = interp2app(Compress.flush),
     __doc__ = """compressobj([level]) -- Return a compressor object.
@@ -332,6 +338,9 @@ class Decompress(ZLibObject):
             zdict=self.zdict,
         )
 
+    def descr_deepcopy(self, space, w_memo):
+        return self.copy(space)
+
     def flush(self, space, w_length=None):
         """
         flush( [length] ) -- This is kept for backward compatibility,
@@ -391,6 +400,8 @@ Decompress.typedef = TypeDef(
     'Decompress',
     __new__ = interp2app(Decompress___new__),
     copy = interp2app(Decompress.copy),
+    __copy__ = interp2app(Decompress.copy),
+    __deepcopy__ = interp2app(Decompress.descr_deepcopy),
     decompress = interp2app(Decompress.decompress),
     flush = interp2app(Decompress.flush),
     unused_data = interp_attrproperty('unused_data', Decompress, wrapfn="newbytes"),

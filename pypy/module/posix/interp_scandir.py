@@ -397,6 +397,10 @@ class W_DirEntry(W_Root):
             inode = st.st_ino
         return space.newint(inode)
 
+    def descr_reduce_ex(self, space, w_protocol):
+        raise oefmt(space.w_TypeError,
+                    "cannot pickle '%T' object", self)
+
 
 W_DirEntry.typedef = TypeDef(
     'posix.DirEntry',
@@ -415,5 +419,6 @@ W_DirEntry.typedef = TypeDef(
     inode = interp2app(W_DirEntry.descr_inode),
     __class_getitem__ = interp2app(
         generic_alias_class_getitem, as_classmethod=True),
+    __reduce_ex__ = interp2app(W_DirEntry.descr_reduce_ex),
 )
 W_DirEntry.typedef.acceptable_as_base_class = False

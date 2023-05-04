@@ -3,12 +3,19 @@
 import math
 import os
 from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib import rstring
 
 from pypy.interpreter.astcompiler import ast, consts, misc, symtable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.miscutils import string_sort
 from pypy.tool import stdlib_opcode as ops
+
+is_absolute_jump = misc.dict_to_switch(
+    {opcode.index: True
+        for opcode in ops.unrolling_opcode_descs
+        if opcode.index in ops.hasjabs},
+    default=False)
 
 
 class StackDepthComputationError(Exception):
@@ -24,7 +31,7 @@ class Instruction(object):
         if opcode < ops.HAVE_ARGUMENT:
             assert arg == 0
         self.lineno = 0
-        self.has_jump = False
+        self.jump = None
 
     def size(self):
         """Return the size of bytes of this instruction when it is
@@ -58,13 +65,12 @@ class Instruction(object):
             code.append(chr(arg & 0xff))
 
 
-    def jump_to(self, target, absolute=False):
+    def jump_to(self, target):
         """Indicate the target this jump instruction.
 
         The opcode must be a JUMP opcode.
         """
-        self.jump = (target, absolute)
-        self.has_jump = True
+        self.jump = target
 
     def __repr__(self):
         data = [ops.opname[self.opcode]]
@@ -72,8 +78,8 @@ class Instruction(object):
         if self.opcode >= ops.HAVE_ARGUMENT:
             data.append(self.arg)
             template += " %i"
-            if self.has_jump:
-                data.append(self.jump[0])
+            if self.jump is not None:
+                data.append(self.jump)
                 template += " %s"
         template += ">"
         return template % tuple(data)
@@ -89,18 +95,20 @@ class Block(object):
 
     _source = None
 
-    marked = False
-    have_return = False
-    auto_inserted_return = False
-
     def __init__(self):
         self.instructions = []
         self.next_block = None
+        self.marked = 0
+        # is True if instructions[-1] is one that unconditionally leaves the
+        # execution of the instructions in the block (return, raise,
+        # unconditional jumps)
+        self.cant_add_instructions = False
+        self.auto_inserted_return = False
 
-    def _post_order_see(self, stack, nextblock):
-        if nextblock.marked == 0:
-            nextblock.marked = 1
-            stack.append(nextblock)
+    def _post_order_see(self, stack):
+        if self.marked == 0:
+            self.marked = 1
+            stack.append(self)
 
     def post_order(self):
         """Return this block and its children in post order.  This means
@@ -119,16 +127,16 @@ class Block(object):
             if current.marked == 1:
                 current.marked = 2
                 if current.next_block is not None:
-                    self._post_order_see(stack, current.next_block)
+                    current.next_block._post_order_see(stack)
             else:
                 i = current.marked - 2
                 assert i >= 0
                 while i < len(current.instructions):
                     instr = current.instructions[i]
                     i += 1
-                    if instr.has_jump:
+                    if instr.jump is not None:
                         current.marked = i + 2
-                        self._post_order_see(stack, instr.jump[0])
+                        instr.jump._post_order_see(stack)
                         break
                 else:
                     resultblocks.append(current)
@@ -145,14 +153,13 @@ class Block(object):
             i += instr.size()
         return i
 
-    def get_code(self):
+    def get_code(self, code):
         """Encode the instructions in this block into bytecode."""
-        code = []
+        startsize = code.getlength()
         for instr in self.instructions:
             instr.encode(code)
-        assert len(code) == self.code_size()
-        assert len(code) & 1 == 0
-        return ''.join(code)
+        assert code.getlength() == startsize + self.code_size()
+        assert code.getlength() & 1 == 0
 
 
 def _make_index_dict_filter(syms, flag1, flag2):
@@ -229,19 +236,28 @@ class PythonCodeMaker(ast.ASTVisitor):
     def is_dead_code(self):
         """Return False if any code can be meaningfully added to the
         current block, or True if it would be dead code."""
-        return self._is_dead_code or self.current_block.have_return
+        return self._is_dead_code or self.current_block.cant_add_instructions
 
     def all_dead_code(self):
         return DeadCode(self)
+
+    def emit_instr(self, instr):
+        self.current_block.instructions.append(instr)
+        op = instr.opcode
+        if (
+                op == ops.RETURN_VALUE or
+                op == ops.RAISE_VARARGS or
+                op == ops.JUMP_FORWARD or
+                op == ops.JUMP_ABSOLUTE
+        ):
+            self.current_block.cant_add_instructions = True
 
     def emit_op(self, op):
         """Emit an opcode without an argument."""
         instr = Instruction(op)
         instr.lineno = self.lineno
         if not self.is_dead_code():
-            self.current_block.instructions.append(instr)
-            if op == ops.RETURN_VALUE:
-                self.current_block.have_return = True
+            self.emit_instr(instr)
         return instr
 
     def emit_op_arg(self, op, arg):
@@ -249,15 +265,15 @@ class PythonCodeMaker(ast.ASTVisitor):
         instr = Instruction(op, arg)
         instr.lineno = self.lineno
         if not self.is_dead_code():
-            self.current_block.instructions.append(instr)
+            self.emit_instr(instr)
 
     def emit_op_name(self, op, container, name):
         """Emit an opcode referencing a name."""
         self.emit_op_arg(op, self.add_name(container, name))
 
-    def emit_jump(self, op, block_to, absolute=False):
+    def emit_jump(self, op, block_to):
         """Emit a jump opcode to another block."""
-        self.emit_op(op).jump_to(block_to, absolute)
+        self.emit_op(op).jump_to(block_to)
 
     def add_name(self, container, name):
         """Get the index of a name in container."""
@@ -315,13 +331,14 @@ class PythonCodeMaker(ast.ASTVisitor):
             for block in blocks:
                 block.offset = offset
                 offset += block.code_size()
+            totalsize = offset
             for block in blocks:
                 offset = block.offset
                 for instr in block.instructions:
                     size = instr.size()
                     offset += size
-                    if instr.has_jump:
-                        target, absolute = instr.jump
+                    if instr.jump is not None:
+                        target = instr.jump
                         op = instr.opcode
                         # Optimize an unconditional jump going to another
                         # unconditional jump.
@@ -329,15 +346,14 @@ class PythonCodeMaker(ast.ASTVisitor):
                             if target.instructions:
                                 target_op = target.instructions[0].opcode
                                 if target_op == ops.JUMP_ABSOLUTE:
-                                    target = target.instructions[0].jump[0]
+                                    target = target.instructions[0].jump
                                     instr.opcode = ops.JUMP_ABSOLUTE
-                                    absolute = True
                                 elif target_op == ops.RETURN_VALUE:
                                     # Replace JUMP_* to a RETURN into
                                     # just a RETURN
                                     instr.opcode = ops.RETURN_VALUE
                                     instr.arg = 0
-                                    instr.has_jump = False
+                                    instr.jump = None
                                     # The size of the code maybe have changed,
                                     # we have to trigger another pass
                                     if instr.size() != size:
@@ -351,18 +367,19 @@ class PythonCodeMaker(ast.ASTVisitor):
                             target_op = target.instructions[0]
                             if (target_op.opcode == ops.JUMP_ABSOLUTE or
                                     target_op.opcode == ops.JUMP_FORWARD):
-                                target = target_op.jump[0]
-                                instr.jump = target, absolute
-                        if absolute:
+                                target = target_op.jump
+                                instr.jump = target
+                        if is_absolute_jump(instr.opcode):
                             jump_arg = target.offset
                         else:
                             jump_arg = target.offset - offset
+                            assert jump_arg >= 0
                         instr.arg = jump_arg
                         if instr.size() != size:
                             force_redo = True
             if not force_redo:
                 self._check_consistency(blocks)
-                return
+                return totalsize
 
     def _get_code_flags(self):
         """Get an extra flags that should be attached to the code object."""
@@ -408,6 +425,7 @@ class PythonCodeMaker(ast.ASTVisitor):
              return 0
 
         for instr in block.instructions:
+            orig_depth = depth
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
             if depth < 0:
                 # This is really a fatal error, don't comment out this
@@ -422,14 +440,11 @@ class PythonCodeMaker(ast.ASTVisitor):
             if depth >= self._max_depth:
                 self._max_depth = depth
             jump_op = instr.opcode
-            if instr.has_jump:
-                target_depth = depth + _opcode_stack_effect_jump(jump_op)
+            if instr.jump is not None:
+                target_depth = orig_depth + _opcode_stack_effect_jump(jump_op)
                 if target_depth > self._max_depth:
                     self._max_depth = target_depth
-                if (jump_op == ops.JUMP_IF_TRUE_OR_POP or
-                      jump_op == ops.JUMP_IF_FALSE_OR_POP):
-                    depth -= 1
-                self._next_stack_depth_walk(instr.jump[0], target_depth, (block, instr))
+                self._next_stack_depth_walk(instr.jump, target_depth, (block, instr))
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
                     break
@@ -450,7 +465,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Build the line number table for tracebacks and tracing."""
         current_line = self.first_lineno
         current_off = 0
-        table = []
+        table = rstring.StringBuilder()
         for block in blocks:
             offset = block.offset
             for instr in block.instructions:
@@ -463,13 +478,18 @@ class PythonCodeMaker(ast.ASTVisitor):
                         current_line = instr.lineno
                         current_off = offset
                 offset += instr.size()
-        return ''.join(table)
+        return table.build()
+
+    def _build_code(self, blocks, size):
+        bytecode = rstring.StringBuilder(size)
+        for block in blocks:
+            block.get_code(bytecode)
+        return bytecode.build()
 
     def assemble(self):
         """Build a PyCode object."""
         # Unless it's interactive, every code object must end in a return.
-        if not self.current_block.have_return:
-            self.use_next_block()
+        if not self.current_block.cant_add_instructions:
             if self.add_none_to_final_return:
                 self.load_const(self.space.w_None)
             self.emit_op(ops.RETURN_VALUE)
@@ -481,7 +501,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             else:
                 self.first_lineno = 1
         blocks = self.first_block.post_order()
-        self._resolve_block_targets(blocks)
+        size = self._resolve_block_targets(blocks)
         lnotab = self._build_lnotab(blocks)
         stack_depth = self._stacksize(blocks)
         consts_w = self.consts_w[:]
@@ -490,9 +510,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         cell_names = _list_from_dict(self.cell_vars)
         free_names = _list_from_dict(self.free_vars, len(cell_names))
         flags = self._get_code_flags()
+        bytecode = self._build_code(blocks, size)
         # (Only) inherit compilerflags in PyCF_MASK
         flags |= (self.compile_info.flags & consts.PyCF_MASK)
-        bytecode = ''.join([block.get_code() for block in blocks])
         return PyCode(self.space,
                       self.argcount,
                       self.posonlyargcount,
@@ -669,8 +689,8 @@ _static_opcode_stack_effects = {
 
     ops.JUMP_FORWARD: 0,
     ops.JUMP_ABSOLUTE: 0,
-    ops.JUMP_IF_TRUE_OR_POP: 0,
-    ops.JUMP_IF_FALSE_OR_POP: 0,
+    ops.JUMP_IF_TRUE_OR_POP: -1,
+    ops.JUMP_IF_FALSE_OR_POP: -1,
     ops.POP_JUMP_IF_TRUE: -1,
     ops.POP_JUMP_IF_FALSE: -1,
     ops.JUMP_IF_NOT_EXC_MATCH: -2,
@@ -788,13 +808,13 @@ def _opcode_stack_effect(op, arg):
 
 def _opcode_stack_effect_jump(op):
     if op == ops.FOR_ITER:
-        return -2
+        return -1
     elif op == ops.SETUP_FINALLY:
         return 2
     elif op == ops.SETUP_EXCEPT:
         return 4 # XXX why is this not 3?
     elif op == ops.SETUP_WITH:
-        return 1
+        return 2
     elif op == ops.SETUP_ASYNC_WITH:
         return 1
     elif op == ops.JUMP_IF_TRUE_OR_POP:
@@ -802,11 +822,11 @@ def _opcode_stack_effect_jump(op):
     elif op == ops.JUMP_IF_FALSE_OR_POP:
         return 0
     elif op == ops.JUMP_IF_NOT_EXC_MATCH:
-        return 0
+        return -2
     elif op == ops.POP_JUMP_IF_TRUE:
-        return 0
+        return -1
     elif op == ops.POP_JUMP_IF_FALSE:
-        return 0
+        return -1
     elif op == ops.JUMP_FORWARD:
         return 0
     elif op == ops.JUMP_ABSOLUTE:

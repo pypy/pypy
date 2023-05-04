@@ -1,3 +1,4 @@
+import os
 import sys
 from _cffi_ssl import _cffi_src
 sys.modules['_cffi_src'] = _cffi_src
@@ -60,7 +61,7 @@ ffi = build_ffi_for_binding(
 
 if __name__ == '__main__':
     ffi.compile(verbose=True)
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' and "PYPY_PACKAGE_NO_DLLS" not in os.environ:
         # copy dlls from externals to the pwd
         # maybe we should link to libraries instead of the dlls
         # to avoid this mess

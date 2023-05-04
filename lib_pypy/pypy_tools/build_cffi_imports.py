@@ -63,15 +63,15 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1s.tar.gz',
-             'c5ac01e760ee6ff0dab61d6b2bbd30146724d063eb322180c6f18a6f74e4b6aa',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1t.tar.gz',
+             '8dee9b24bdb1dcbf0c3d1e9b02fb8f6bf22165e807f45adeb7c9677536859d3b',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.7.tar.gz',
-              '83049d042a260e696f62406ac5c08bf706fd84383f945cf21bd61e9ed95c396e',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.8.tar.gz',
+              '6c13d2bf38fdf31eac3ce2a347073673f5d63263398f1f69d0df4a41253e4b3e',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
@@ -151,7 +151,10 @@ def _build_dependency(name, patches=[]):
 
     # make sure the hash matches
     if _sha256(archive) != dgst:
-        return 1, '{} archive {} hash mismatch'.format(name, archive), ''
+        return (
+            1,
+            '{} archive {} hash mismatch'.format(name, archive).encode('utf8'),
+            b'')
 
     shutil.rmtree(deps_destdir, ignore_errors=True)
     os.makedirs(deps_destdir)
@@ -278,17 +281,26 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         try:
             status, bld_stdout, bld_stderr = run_subprocess(str(pypy_c), args,
                                                     cwd=cwd, env=env)
-            if status != 0:
+            try:
+                bld_stdout = bld_stdout.decode('utf-8')
+            except Exception:
+                pass
+            try:
+                _bld_stderr = bld_stderr
+                bld_stderr = bld_stderr.decode('utf-8')
+            except Exception:
+                pass
+            if status != 0 or key in ("_ssl"):
                 print("stdout:")
-                print(stdout.decode('utf-8'), file=sys.stderr)
+                print(bld_stdout)
                 print("stderr:")
-                print(bld_stderr.decode('utf-8'), file=sys.stderr)
-                raise RuntimeError('building {} failed'.format(key))
-            elif key in ("_ssl",):
-                print("stdout:")
-                print(bld_stdout, file=sys.stderr)
-                print("stderr:")
-                print(bld_stderr, file=sys.stderr)
+                try:
+                    print(bld_stderr)
+                except Exception:
+                    # the linux64 buildbot chokes on printing non-ascii unicode?
+                    print(_bld_stderr)
+                if status != 0:
+                    raise RuntimeError('building {} failed'.format(key))
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
@@ -302,15 +314,23 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             status, stdout, stderr = run_subprocess(pypy3, ['-c', test_script],
                                                     env=env)
             if status != 0:
+                try:
+                    stdout = stdout.decode('utf-8')
+                except Exception:
+                    pass
+                try:
+                    stderr = stderr.decode('utf-8')
+                except Exception:
+                    pass
                 failures.append((key, module))
                 print("build stdout:")
-                print(bld_stdout.decode('utf-8'), file=sys.stderr)
+                print(bld_stdout)
                 print("build stderr:")
-                print(bld_stderr.decode('utf-8'), file=sys.stderr)
+                print(bld_stderr)
                 print("test stdout:")
-                print(stdout.decode('utf-8'), file=sys.stderr)
+                print(stdout)
                 print("test stderr:")
-                print(stderr.decode('utf-8'), file=sys.stderr)
+                print(stderr)
         if os.path.exists(deps_destdir):
             shutil.rmtree(deps_destdir, ignore_errors=True)
     return failures

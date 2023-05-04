@@ -67,7 +67,7 @@ class W_FlatIterator(W_NDimArray):
                 space.isinstance_w(w_idx, space.w_slice)):
             raise oefmt(space.w_IndexError, 'unsupported iterator index')
         try:
-            start, stop, step, length = space.decode_index4(w_idx, self.iter.size)
+            start, stop, step, length = space.decode_index4_unsafe(w_idx, self.iter.size)
             state = self.iter.goto(start)
             if length == 1:
                 return self.iter.getitem(state)
@@ -82,7 +82,7 @@ class W_FlatIterator(W_NDimArray):
         if not (space.isinstance_w(w_idx, space.w_int) or
                 space.isinstance_w(w_idx, space.w_slice)):
             raise oefmt(space.w_IndexError, 'unsupported iterator index')
-        start, stop, step, length = space.decode_index4(w_idx, self.iter.size)
+        start, stop, step, length = space.decode_index4_unsafe(w_idx, self.iter.size)
         try:
             state = self.iter.goto(start)
             dtype = self.base.get_dtype()
