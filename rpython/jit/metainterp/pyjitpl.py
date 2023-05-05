@@ -71,28 +71,26 @@ class MIFrame(object):
         # this is not None for frames that are recursive portal calls
         self.greenkey = greenkey
         # copy the constants in place
-        self.copy_constants(self.registers_i, jitcode.constants_i, ConstInt)
-        self.copy_constants(self.registers_r, jitcode.constants_r, ConstPtrJitCode)
-        self.copy_constants(self.registers_f, jitcode.constants_f, ConstFloat)
+        self.copy_constants(self.registers_i, jitcode.constants_i, jitcode.num_regs_i(), ConstInt)
+        self.copy_constants(self.registers_r, jitcode.constants_r, jitcode.num_regs_r(), ConstPtrJitCode)
+        self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f(), ConstFloat)
         self._result_argcode = 'v'
         # for resume.py operation
         self.parent_snapshot = None
         # counter for unrolling inlined loops
         self.unroll_iterations = 1
 
-    @specialize.arg(3)
-    def copy_constants(self, registers, constants, ConstClass):
-        """Copy jitcode.constants[0] to registers[255],
-                jitcode.constants[1] to registers[254],
-                jitcode.constants[2] to registers[253], etc."""
+    @specialize.arg(4)
+    def copy_constants(self, registers, constants, targetindex, ConstClass):
+        """Copy jitcode.constants[0] to registers[self.jitcode.num_regs_x() + 0],
+                jitcode.constants[1] to registers[self.jitcode.num_regs_x() + 1],
+                jitcode.constants[2] to registers[self.jitcode.num_regs_x() + 2],
+                etc."""
         if nonconst.NonConstant(0):             # force the right type
             constants[0] = ConstClass.value     # (useful for small tests)
-        i = len(constants) - 1
-        while i >= 0:
-            j = 255 - i
-            assert j >= 0
-            registers[j] = ConstClass(constants[i])
-            i -= 1
+        for i in range(len(constants)):
+            registers[targetindex] = ConstClass(constants[i])
+            targetindex += 1
 
     def cleanup_registers(self):
         # To avoid keeping references alive, this cleans up the registers_r.

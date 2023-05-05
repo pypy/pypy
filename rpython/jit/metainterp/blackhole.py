@@ -313,9 +313,9 @@ class BlackholeInterpreter(object):
             # but it should be minimized by the fact that a given
             # BlackholeInterpreter instance is likely to be reused with
             # exactly the same jitcode, so we don't do the copy again.
-            self.copy_constants(self.registers_i, jitcode.constants_i)
-            self.copy_constants(self.registers_r, jitcode.constants_r)
-            self.copy_constants(self.registers_f, jitcode.constants_f)
+            self.copy_constants(self.registers_i, jitcode.constants_i, jitcode.num_regs_i())
+            self.copy_constants(self.registers_r, jitcode.constants_r, jitcode.num_regs_r())
+            self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f())
         self.jitcode = jitcode
         self.position = position
 
@@ -421,18 +421,15 @@ class BlackholeInterpreter(object):
                 from rpython.rlib.rvmprof import cintf
                 cintf.jit_rvmprof_code(0, arg2)
 
-    def copy_constants(self, registers, constants):
+    def copy_constants(self, registers, constants, targetindex):
         """Copy jitcode.constants[0] to registers[255],
                 jitcode.constants[1] to registers[254],
                 jitcode.constants[2] to registers[253], etc."""
         make_sure_not_resized(registers)
         make_sure_not_resized(constants)
-        i = len(constants) - 1
-        while i >= 0:
-            j = 255 - i
-            assert j >= 0
-            registers[j] = constants[i]
-            i -= 1
+        for i in range(len(constants)):
+            registers[targetindex] = constants[i]
+            targetindex += 1
     copy_constants._annspecialcase_ = 'specialize:arglistitemtype(1)'
 
     # ----------

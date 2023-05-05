@@ -58,9 +58,10 @@ def test_simple_const():
 
 def test_simple_bigconst():
     jitcode = JitCode("test")
-    jitcode.setup("\x00\xFD\x01\x02"
+    jitcode.setup("\x00\x05\x01\x02"
                   "\x01\x02",
-                  [666, 666, 10042, 666])
+                  [666, 666, 10042, 666],
+                  num_regs_i=3)
     blackholeinterp = getblackholeinterp({'int_sub/ii>i': 0,
                                           'int_return/i': 1})
     blackholeinterp.setposition(jitcode, 0)
