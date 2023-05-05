@@ -266,7 +266,8 @@ def check_list_of_plain_integers(s_arg, bookkeeper):
     from rpython.annotator import model as annmodel
     assert isinstance(s_arg, annmodel.SomeList)
     s_arg.listdef.never_resize()
-    assert s_arg.listdef.listitem.s_value.knowntype is int
+    s_value = s_arg.listdef.listitem.s_value
+    assert s_value.knowntype is int or isinstance(s_value, annmodel.SomeImpossibleValue)
 
 def _check_int(s_arg, bookkeeper):
     assert s_arg.knowntype is int
@@ -276,6 +277,7 @@ def plain_int(x):
     check_annotation(x, _check_int)
     return x
 
+EMPTY_LIST_I = [] # shared
 
 class BlackholeInterpreter(object):
 
@@ -295,7 +297,7 @@ class BlackholeInterpreter(object):
             default_i = MissingValue()
             default_r = MissingValue()
             default_f = MissingValue()
-        self.registers_i = None
+        self.registers_i = EMPTY_LIST_I
         self.registers_r = None
         self.registers_f = None
         self.tmpreg_i = default_i
