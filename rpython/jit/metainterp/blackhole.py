@@ -251,6 +251,7 @@ class BlackholeInterpBuilder(object):
             return BlackholeInterpreter(self, self.num_interpreters)
 
     def release_interp(self, interp):
+        return
         interp.cleanup_registers()
         interp.back = self.blackholeinterps
         self.blackholeinterps = interp
