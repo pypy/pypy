@@ -55,25 +55,38 @@ class MIFrame(object):
 
     def __init__(self, metainterp):
         self.metainterp = metainterp
-        self.registers_i = [None] * 256
-        self.registers_r = [None] * 256
-        self.registers_f = [None] * 256
+        self.registers_i = None
+        self.registers_r = None
+        self.registers_f = None
 
     def setup(self, jitcode, greenkey=None):
         # if not translated, fill the registers with MissingValue()
         if not we_are_translated():
-            self.registers_i = [MissingValue()] * 256
-            self.registers_r = [MissingValue()] * 256
-            self.registers_f = [MissingValue()] * 256
+            missing = MissingValue()
+        else:
+            missing = None
         assert isinstance(jitcode, JitCode)
         self.jitcode = jitcode
         self.bytecode = jitcode.code
         # this is not None for frames that are recursive portal calls
         self.greenkey = greenkey
-        # copy the constants in place
-        self.copy_constants(self.registers_i, jitcode.constants_i, jitcode.num_regs_i(), ConstInt)
-        self.copy_constants(self.registers_r, jitcode.constants_r, jitcode.num_regs_r(), ConstPtrJitCode)
-        self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f(), ConstFloat)
+        # create registers_* lists and copy the constants in place
+        num_regs_and_consts_i = jitcode.num_regs_and_consts_i()
+        num_regs_and_consts_r = jitcode.num_regs_and_consts_r()
+        num_regs_and_consts_f = jitcode.num_regs_and_consts_f()
+        debug_start("jit-frame")
+        debug_print("name metainterp", jitcode.name)
+        debug_print("size", num_regs_and_consts_i, num_regs_and_consts_r, num_regs_and_consts_f)
+        debug_stop("jit-frame")
+        if num_regs_and_consts_i:
+            self.registers_i = [missing] * num_regs_and_consts_i
+            self.copy_constants(self.registers_i, jitcode.constants_i, jitcode.num_regs_i(), ConstInt)
+        if num_regs_and_consts_r:
+            self.registers_r = [missing] * num_regs_and_consts_r
+            self.copy_constants(self.registers_r, jitcode.constants_r, jitcode.num_regs_r(), ConstPtrJitCode)
+        if num_regs_and_consts_f:
+            self.registers_f = [missing] * num_regs_and_consts_f
+            self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f(), ConstFloat)
         self._result_argcode = 'v'
         # for resume.py operation
         self.parent_snapshot = None
@@ -2256,7 +2269,6 @@ class MetaInterp(object):
         # to the current loop -- the outermost one.  Be careful, because
         # during recursion we can also see other jitdrivers.
         self.portal_trace_positions = []
-        self.free_frames_list = []
         self.last_exc_value = lltype.nullptr(rclass.OBJECT)
         self.forced_virtualizable = None
         self.partial_trace = None
@@ -2309,10 +2321,7 @@ class MetaInterp(object):
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (jitcode.jitdriver_sd, greenkey, self.history.get_trace_position()))
-        if len(self.free_frames_list) > 0:
-            f = self.free_frames_list.pop()
-        else:
-            f = MIFrame(self)
+        f = MIFrame(self)
         f.setup(jitcode, greenkey)
         self.framestack.append(f)
         return f
@@ -2340,7 +2349,6 @@ class MetaInterp(object):
         # MIFrame objects all the time; they are a bit big, with their
         # 3*256 register entries.
         frame.cleanup_registers()
-        self.free_frames_list.append(frame)
 
     def finishframe(self, resultbox, leave_portal_frame=True):
         # handle a non-exceptional return from the current frame

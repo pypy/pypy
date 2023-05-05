@@ -16,6 +16,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
 
 SIZE_LIVE_OP = OFFSET_SIZE + 1
@@ -240,6 +241,7 @@ class BlackholeInterpBuilder(object):
         return handler
 
     def acquire_interp(self):
+        return BlackholeInterpreter(self)
         res = self.blackholeinterps
         if res is not None:
             self.blackholeinterps = res.back
@@ -277,14 +279,13 @@ def plain_int(x):
 
 class BlackholeInterpreter(object):
 
-    def __init__(self, builder, count_interpreter):
+    def __init__(self, builder):
         self.builder            = builder
         self.cpu                = builder.cpu
         self.dispatch_loop      = builder.dispatch_loop
         self.descrs             = builder.descrs
         self.op_catch_exception = builder.op_catch_exception
         self.op_rvmprof_code    = builder.op_rvmprof_code
-        self.count_interpreter  = count_interpreter
         #
         if we_are_translated():
             default_i = 0
@@ -294,27 +295,42 @@ class BlackholeInterpreter(object):
             default_i = MissingValue()
             default_r = MissingValue()
             default_f = MissingValue()
-        self.registers_i = [default_i] * 256
-        self.registers_r = [default_r] * 256
-        self.registers_f = [default_f] * 256
+        self.registers_i = None
+        self.registers_r = None
+        self.registers_f = None
         self.tmpreg_i = default_i
         self.tmpreg_r = default_r
         self.tmpreg_f = default_f
         self.jitcode = None
-        self.back = None # chain unused interpreters together via this
         check_annotation(self.registers_i, check_list_of_plain_integers)
 
     def __repr__(self):
-        return '<BHInterp #%d>' % self.count_interpreter
+        return '<BHInterp %s>' % self.jitcode
 
     def setposition(self, jitcode, position):
-        if jitcode is not self.jitcode:
-            # the real performance impact of the following code is unclear,
-            # but it should be minimized by the fact that a given
-            # BlackholeInterpreter instance is likely to be reused with
-            # exactly the same jitcode, so we don't do the copy again.
+        num_regs_and_consts_i = jitcode.num_regs_and_consts_i()
+        num_regs_and_consts_r = jitcode.num_regs_and_consts_r()
+        num_regs_and_consts_f = jitcode.num_regs_and_consts_f()
+        debug_start("jit-frame")
+        debug_print("name blackhole", jitcode.name)
+        debug_print("size", num_regs_and_consts_i, num_regs_and_consts_r, num_regs_and_consts_f)
+        debug_stop("jit-frame")
+        if we_are_translated():
+            default_i = 0
+            default_r = NULL
+            default_f = longlong.ZEROF
+        else:
+            default_i = MissingValue()
+            default_r = MissingValue()
+            default_f = MissingValue()
+        if num_regs_and_consts_i:
+            self.registers_i = [default_i] * num_regs_and_consts_i
             self.copy_constants(self.registers_i, jitcode.constants_i, jitcode.num_regs_i())
+        if num_regs_and_consts_r:
+            self.registers_r = [default_r] * num_regs_and_consts_r
             self.copy_constants(self.registers_r, jitcode.constants_r, jitcode.num_regs_r())
+        if num_regs_and_consts_f:
+            self.registers_f = [default_f] * num_regs_and_consts_f
             self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f())
         self.jitcode = jitcode
         self.position = position
