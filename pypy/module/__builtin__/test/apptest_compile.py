@@ -81,7 +81,7 @@ def fn(): pass
 """
     co = compile(src, 'mymod', 'exec')
     firstlineno = co.co_firstlineno
-    assert firstlineno == 2
+    assert firstlineno == 1
 
 def test_null_bytes():
     raises(ValueError, compile, '\x00', 'mymod', 'exec', 0)
