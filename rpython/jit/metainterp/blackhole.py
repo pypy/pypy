@@ -55,7 +55,6 @@ class BlackholeInterpBuilder(object):
         self.setup_insns(asm.insns)
         self.setup_descrs(asm.descrs)
         self.metainterp_sd = metainterp_sd
-        self.num_interpreters = 0
         self.blackholeinterps = None
 
     def _cleanup_(self):
@@ -241,17 +240,14 @@ class BlackholeInterpBuilder(object):
         return handler
 
     def acquire_interp(self):
-        return BlackholeInterpreter(self)
         res = self.blackholeinterps
         if res is not None:
             self.blackholeinterps = res.back
             return res
         else:
-            self.num_interpreters += 1
-            return BlackholeInterpreter(self, self.num_interpreters)
+            return BlackholeInterpreter(self)
 
     def release_interp(self, interp):
-        return
         interp.cleanup_registers()
         interp.back = self.blackholeinterps
         self.blackholeinterps = interp
@@ -314,10 +310,6 @@ class BlackholeInterpreter(object):
         num_regs_and_consts_i = jitcode.num_regs_and_consts_i()
         num_regs_and_consts_r = jitcode.num_regs_and_consts_r()
         num_regs_and_consts_f = jitcode.num_regs_and_consts_f()
-        debug_start("jit-frame")
-        debug_print("name blackhole", jitcode.name)
-        debug_print("size", num_regs_and_consts_i, num_regs_and_consts_r, num_regs_and_consts_f)
-        debug_stop("jit-frame")
         if we_are_translated():
             default_i = 0
             default_r = NULL
@@ -327,13 +319,16 @@ class BlackholeInterpreter(object):
             default_r = MissingValue()
             default_f = MissingValue()
         if num_regs_and_consts_i:
-            self.registers_i = [default_i] * num_regs_and_consts_i
+            if self.registers_i is None or len(self.registers_i) < num_regs_and_consts_i:
+                self.registers_i = [default_i] * num_regs_and_consts_i
             self.copy_constants(self.registers_i, jitcode.constants_i, jitcode.num_regs_i())
         if num_regs_and_consts_r:
-            self.registers_r = [default_r] * num_regs_and_consts_r
+            if self.registers_r is None or len(self.registers_r) < num_regs_and_consts_r:
+                self.registers_r = [default_r] * num_regs_and_consts_r
             self.copy_constants(self.registers_r, jitcode.constants_r, jitcode.num_regs_r())
         if num_regs_and_consts_f:
-            self.registers_f = [default_f] * num_regs_and_consts_f
+            if self.registers_f is None or len(self.registers_f) < num_regs_and_consts_f:
+                self.registers_f = [default_f] * num_regs_and_consts_f
             self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f())
         self.jitcode = jitcode
         self.position = position

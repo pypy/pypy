@@ -61,10 +61,6 @@ class MIFrame(object):
 
     def setup(self, jitcode, greenkey=None):
         # if not translated, fill the registers with MissingValue()
-        if not we_are_translated():
-            missing = MissingValue()
-        else:
-            missing = None
         assert isinstance(jitcode, JitCode)
         self.jitcode = jitcode
         self.bytecode = jitcode.code
@@ -74,19 +70,12 @@ class MIFrame(object):
         num_regs_and_consts_i = jitcode.num_regs_and_consts_i()
         num_regs_and_consts_r = jitcode.num_regs_and_consts_r()
         num_regs_and_consts_f = jitcode.num_regs_and_consts_f()
-        debug_start("jit-frame")
-        debug_print("name metainterp", jitcode.name)
-        debug_print("size", num_regs_and_consts_i, num_regs_and_consts_r, num_regs_and_consts_f)
-        debug_stop("jit-frame")
         if num_regs_and_consts_i:
-            self.registers_i = [missing] * num_regs_and_consts_i
-            self.copy_constants(self.registers_i, jitcode.constants_i, jitcode.num_regs_i(), ConstInt)
+            self.registers_i = self.copy_constants(self.registers_i, jitcode.constants_i, jitcode.num_regs_i(), ConstInt)
         if num_regs_and_consts_r:
-            self.registers_r = [missing] * num_regs_and_consts_r
-            self.copy_constants(self.registers_r, jitcode.constants_r, jitcode.num_regs_r(), ConstPtrJitCode)
+            self.registers_r = self.copy_constants(self.registers_r, jitcode.constants_r, jitcode.num_regs_r(), ConstPtrJitCode)
         if num_regs_and_consts_f:
-            self.registers_f = [missing] * num_regs_and_consts_f
-            self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f(), ConstFloat)
+            self.registers_f = self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f(), ConstFloat)
         self._result_argcode = 'v'
         # for resume.py operation
         self.parent_snapshot = None
@@ -99,11 +88,23 @@ class MIFrame(object):
                 jitcode.constants[1] to registers[self.jitcode.num_regs_x() + 1],
                 jitcode.constants[2] to registers[self.jitcode.num_regs_x() + 2],
                 etc."""
+        if not we_are_translated():
+            missing = MissingValue()
+        else:
+            missing = None
+        num_regs_and_consts = targetindex + len(constants)
+        # increase size if its too small
+        if registers is None or len(registers) < num_regs_and_consts:
+            registers = [missing] * num_regs_and_consts
+        elif not we_are_translated():
+            for i in range(len(registers)):
+                registers[i] = missing
         if nonconst.NonConstant(0):             # force the right type
             constants[0] = ConstClass.value     # (useful for small tests)
         for i in range(len(constants)):
             registers[targetindex] = ConstClass(constants[i])
             targetindex += 1
+        return registers
 
     def cleanup_registers(self):
         # To avoid keeping references alive, this cleans up the registers_r.
@@ -2269,6 +2270,7 @@ class MetaInterp(object):
         # to the current loop -- the outermost one.  Be careful, because
         # during recursion we can also see other jitdrivers.
         self.portal_trace_positions = []
+        self.free_frames_list = []
         self.last_exc_value = lltype.nullptr(rclass.OBJECT)
         self.forced_virtualizable = None
         self.partial_trace = None
@@ -2321,7 +2323,10 @@ class MetaInterp(object):
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (jitcode.jitdriver_sd, greenkey, self.history.get_trace_position()))
-        f = MIFrame(self)
+        if len(self.free_frames_list) > 0:
+            f = self.free_frames_list.pop()
+        else:
+            f = MIFrame(self)
         f.setup(jitcode, greenkey)
         self.framestack.append(f)
         return f
@@ -2349,6 +2354,7 @@ class MetaInterp(object):
         # MIFrame objects all the time; they are a bit big, with their
         # 3*256 register entries.
         frame.cleanup_registers()
+        self.free_frames_list.append(frame)
 
     def finishframe(self, resultbox, leave_portal_frame=True):
         # handle a non-exceptional return from the current frame
