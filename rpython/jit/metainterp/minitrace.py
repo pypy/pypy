@@ -1,7 +1,7 @@
-from rpython.jit.codewriter.jitcode import JitCode
+from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp import history, jitexc
-from rpython.jit.metainterp.history import ConstPtrJitCode, ConstInt, IntFrontendOp, History, Const
+from rpython.jit.metainterp.history import ConstFloat, ConstPtrJitCode, ConstInt, IntFrontendOp, History, Const
 from rpython.jit.metainterp.pyjitpl import arguments
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import we_are_translated, specialize, always_inline
@@ -21,13 +21,19 @@ class MIFrame(object):
         self.metainterp = metainterp
         self.jitcode = jitcode
         self.bytecode = jitcode.code
-        self.registers_i = [None] * 256
-        self.registers_r = [None] * 256
-        self.registers_f = [None] * 256
+        self.registers_i = [None] * 128
+        self.registers_r = [None] * 128
+        self.registers_f = [None] * 128
+
+        # TODO seg fault
+        #self.registers_i = [None] * jitcode.num_regs_i()
+        #self.registers_r = [None] * jitcode.num_regs_r()
+        #self.registers_f = [None] * jitcode.num_regs_f()
+        
         self.return_value = None # TODO
 
-        self.copy_constants(self.registers_i, jitcode.constants_i, ConstInt)
-        self.copy_constants(self.registers_r, jitcode.constants_r, ConstPtrJitCode)
+        # self.copy_constants(self.registers_i, jitcode.constants_i, ConstInt)
+        # self.copy_constants(self.registers_r, jitcode.constants_r, ConstPtrJitCode)
         # TODO self.copy_constants(self.registers_f, jitcode.constants_f, ConstFloat)
 
     @specialize.arg(3)
@@ -173,7 +179,22 @@ class MIFrame(object):
     @arguments("box", "box")
     def opimpl_strgetitem(self, strbox, indexbox):
         res = ord(strbox._get_str()[indexbox.getint()])
+        if strbox.is_constant() and indexbox.getint():
+            return ConstInt(res)
         return self.metainterp.history.record(rop.STRGETITEM, [strbox, indexbox], res)
+    
+    @arguments("box", "descr", "orgpc")
+    def opimpl_switch(self, valuebox, switchdict, orgpc):
+        search_value = valuebox.getint()
+        assert isinstance(switchdict, SwitchDictDescr)
+        try:
+            target = switchdict.dict[search_value]
+        except KeyError:
+            # TODO
+            pass
+        if not valuebox.is_constant():
+            self.generate_guard(rop.GUARD_VALUE, valuebox, resumepc=orgpc)
+        self.pc = target
 
     def not_implemented(self, *args):
         name = self.metainterp.metainterp_sd.opcode_names[ord(self.bytecode[self.pc])]
@@ -182,22 +203,38 @@ class MIFrame(object):
             import pdb; pdb.set_trace()
         raise NotImplementedError(name)
     
-    def fill_registers(self, f, length, position, argcode):
+    def fill_registers(self, f, length, position, argcode, old_jitcode):
         assert argcode in 'IRF'
         code = self.bytecode
         for i in range(length):
             index = ord(code[position+i])
-            if   argcode == 'I':
-                reg = self.registers_i[index]
-                f.registers_i[i] = reg
-            elif argcode == 'R':
-                reg = self.registers_r[index]
-                f.registers_r[i] = reg
-            elif argcode == 'F':
-                reg = self.registers_f[index]
-                f.registers_f[i] = reg
+            if index >= 128:
+                if   argcode == 'I':
+                    assert len(old_jitcode.constants_i) > (255 - index)
+                    reg = ConstInt(old_jitcode.constants_i[255 - index])
+                    f.registers_i[i] = reg
+                elif argcode == 'R':
+                    assert len(old_jitcode.constants_r) > (255 - index)
+                    reg = ConstPtrJitCode(old_jitcode.constants_r[255 - index])
+                    f.registers_r[i] = reg
+                # TODO
+                #elif argcode == 'F':
+                #    reg = ConstFloat(old_jitcode.constants_f[255 - index])
+                #    f.registers_f[i] = reg
+                else:
+                    raise AssertionError(argcode)
             else:
-                raise AssertionError(argcode)
+                if   argcode == 'I':
+                    reg = self.registers_i[index]
+                    f.registers_i[i] = reg
+                elif argcode == 'R':
+                    reg = self.registers_r[index]
+                    f.registers_r[i] = reg
+                elif argcode == 'F':
+                    reg = self.registers_f[index]
+                    f.registers_f[i] = reg
+                else:
+                    raise AssertionError(argcode)
 
 
 class MetaInterp(object):
@@ -321,9 +358,25 @@ def _get_opimpl_method(name, argcodes):
                     value = self.registers_f[ord(code[position])]
                 else:
                     raise AssertionError("bad argcode")
+                
+                if value is None:
+                    if argcode == 'i':
+                        value = ConstInt(self.jitcode.constants_i[255 - ord(code[position])])
+                    elif argcode == 'r':
+                        value = ConstPtrJitCode(self.jitcode.constants_r[255 - ord(code[position])])
+                    # TODO
+                    # elif argcode == 'f':
+                    #    value = self.jitcode.constants_f[255 - ord(code[position])]
+
                 position += 1
             elif argtype == "descr" or argtype == "jitcode":
-                assert 0, "unsupported"
+                assert argcodes[next_argcode] == 'd'
+                next_argcode = next_argcode + 1
+                index = ord(code[position]) | (ord(code[position+1])<<8)
+                value = self.metainterp.metainterp_sd.opcode_descrs[index]
+                if argtype == "jitcode":
+                    assert isinstance(value, JitCode)
+                position += 2
             elif argtype == "label":
                 assert argcodes[next_argcode] == 'L'
                 next_argcode = next_argcode + 1
@@ -355,19 +408,19 @@ def _get_opimpl_method(name, argcodes):
                 # now put boxes into the right places
                 length = ord(code[position])
                 self.fill_registers(value, length, position + 1,
-                                    argcodes[next_argcode])
+                                    argcodes[next_argcode], self.jitcode)
                 next_argcode = next_argcode + 1
                 position += 1 + length
                 if argtype != "newframe": # 2/3 lists of boxes
                     length = ord(code[position])
                     self.fill_registers(value, length, position + 1,
-                                        argcodes[next_argcode])
+                                        argcodes[next_argcode], self.jitcode)
                     next_argcode = next_argcode + 1
                     position += 1 + length
                 if argtype == "newframe3": # 3 lists of boxes
                     length = ord(code[position])
                     self.fill_registers(value, length, position + 1,
-                                        argcodes[next_argcode])
+                                        argcodes[next_argcode], self.jitcode)
                     next_argcode = next_argcode + 1
                     position += 1 + length
             elif argtype == "orgpc":
