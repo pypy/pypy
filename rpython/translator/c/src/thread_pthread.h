@@ -80,6 +80,8 @@ RPY_EXTERN
 Signed RPyThreadSetStackSize(Signed);
 RPY_EXTERN
 void RPyThreadAfterFork(void);
+RPY_EXTERN
+int RPyThread_kill(Signed id, int signal);
 
 
 #define pypy_compare_and_swap(ptr, oldval, newval)  \
