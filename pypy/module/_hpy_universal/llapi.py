@@ -12,7 +12,7 @@ INCLUDE_DIR = BASE_DIR.join('include')
 DEBUG_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'debug', 'src')
 
 eci = ExternalCompilationInfo(
-    compile_extra = ["-DHPY_UNIVERSAL_ABI"],
+    compile_extra = ["-DHPY_ABI_UNIVERSAL"],
     includes=["hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h"],
     include_dirs=[
         cdir,                       # for precommondefs.h
