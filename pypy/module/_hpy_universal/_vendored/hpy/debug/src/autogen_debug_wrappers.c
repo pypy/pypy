@@ -1605,6 +1605,7 @@ int debug_ctx_Capsule_Set(HPyContext *dctx, DHPy capsule, _HPyCapsule_key key, v
     return universal_result;
 }
 
+#ifndef HPY_ABI_UNIVERSAL
 DHPy debug_ctx_FromPyObject(HPyContext *dctx, cpy_PyObject *obj)
 {
     if (!get_ctx_info(dctx)->is_valid) {
@@ -1627,6 +1628,7 @@ cpy_PyObject *debug_ctx_AsPyObject(HPyContext *dctx, DHPy h)
     get_ctx_info(dctx)->is_valid = true;
     return universal_result;
 }
+#endif
 
 void debug_ctx_Field_Store(HPyContext *dctx, DHPy target_object, HPyField *target_field, DHPy h)
 {

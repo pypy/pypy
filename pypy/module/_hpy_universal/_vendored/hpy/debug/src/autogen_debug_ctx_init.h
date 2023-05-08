@@ -162,8 +162,10 @@ DHPy debug_ctx_Capsule_New(HPyContext *dctx, void *pointer, const char *utf8_nam
 void *debug_ctx_Capsule_Get(HPyContext *dctx, DHPy capsule, _HPyCapsule_key key, const char *utf8_name);
 int debug_ctx_Capsule_IsValid(HPyContext *dctx, DHPy capsule, const char *utf8_name);
 int debug_ctx_Capsule_Set(HPyContext *dctx, DHPy capsule, _HPyCapsule_key key, void *value);
+#ifndef HPY_ABI_UNIVERSAL
 DHPy debug_ctx_FromPyObject(HPyContext *dctx, cpy_PyObject *obj);
 cpy_PyObject *debug_ctx_AsPyObject(HPyContext *dctx, DHPy h);
+#endif
 void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx, HPyFunc_Signature sig, HPyCFunction func, void *args);
 HPyListBuilder debug_ctx_ListBuilder_New(HPyContext *dctx, HPy_ssize_t size);
 void debug_ctx_ListBuilder_Set(HPyContext *dctx, HPyListBuilder builder, HPy_ssize_t index, DHPy h_item);
@@ -428,8 +430,10 @@ static inline void debug_ctx_init_fields(HPyContext *dctx, HPyContext *uctx)
     dctx->ctx_Capsule_Get = &debug_ctx_Capsule_Get;
     dctx->ctx_Capsule_IsValid = &debug_ctx_Capsule_IsValid;
     dctx->ctx_Capsule_Set = &debug_ctx_Capsule_Set;
+#ifndef HPY_ABI_UNIVERSAL
     dctx->ctx_FromPyObject = &debug_ctx_FromPyObject;
     dctx->ctx_AsPyObject = &debug_ctx_AsPyObject;
+#endif
     dctx->ctx_CallRealFunctionFromTrampoline = &debug_ctx_CallRealFunctionFromTrampoline;
     dctx->ctx_ListBuilder_New = &debug_ctx_ListBuilder_New;
     dctx->ctx_ListBuilder_Set = &debug_ctx_ListBuilder_Set;
