@@ -89,7 +89,7 @@ def startup(space, w_mod):
     if not hasattr(space, 'is_fake_objspace'):
         # the following lines break test_ztranslation :(
         handles = state.get_handle_manager(debug=False)
-        h_debug_mod = llapi.HPyInit__debug(handles.ctx)
+        h_debug_mod = llapi.HPyInit__debug()
         w_debug_mod = handles.consume(h_debug_mod)
         w_set_on_invalid_handle = get_set_on_invalid_handle(space)
         w_debug_mod.setdictvalue(space, 'set_on_invalid_handle', w_set_on_invalid_handle)

@@ -566,6 +566,7 @@ HPyInitFunc = cts.gettype('HPyInitFunc')
 
 cpy_PyMethodDef = cts.gettype('cpy_PyMethodDef')
 HPyModuleDef = cts.gettype('HPyModuleDef')
+HPyModuleDefP = cts.gettype('HPyModuleDef *')
 # CTypeSpace converts "PyMethodDef*" into lltype.Ptr(PyMethodDef), but we
 # want a CArrayPtr instead, so that we can index the items inside
 # HPyModule_Create
@@ -618,5 +619,5 @@ hpy_debug_close_handle = rffi.llexternal(
     compilation_info=eci, _nowrapper=True)
 
 HPyInit__debug = rffi.llexternal(
-    'pypy_HPyInit__debug', [HPyContext], HPy,
+    'pypy_HPyInit__debug', [], HPyModuleDefP,
     compilation_info=eci, _nowrapper=True)
