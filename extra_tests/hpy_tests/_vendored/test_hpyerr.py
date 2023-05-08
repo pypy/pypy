@@ -6,7 +6,7 @@ class TestErr(HPyTest):
     def test_NoMemory(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            HPyDef_METH(f, "f", HPyFunc_NOARGS)
             static HPy f_impl(HPyContext *ctx, HPy self)
             {
                 return HPyErr_NoMemory(ctx);
@@ -19,7 +19,7 @@ class TestErr(HPyTest):
 
     def test_FatalError(self, python_subprocess, fatal_exit_code):
         mod = self.compile_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            HPyDef_METH(f, "f", HPyFunc_NOARGS)
             static HPy f_impl(HPyContext *ctx, HPy self)
             {
                 HPy_FatalError(ctx, "boom!");
@@ -49,7 +49,7 @@ class TestErr(HPyTest):
     def test_HPyErr_Occurred(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 HPyLong_AsLong(ctx, arg);
@@ -69,7 +69,7 @@ class TestErr(HPyTest):
     def test_HPyErr_Cleared(self):
         import sys
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            HPyDef_METH(f, "f", HPyFunc_NOARGS)
             static HPy f_impl(HPyContext *ctx, HPy self)
             {
                 HPyErr_SetString(ctx, ctx->h_ValueError, "hello world");
@@ -85,13 +85,13 @@ class TestErr(HPyTest):
     def test_HPyErr_SetString(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            HPyDef_METH(f, "f", HPyFunc_NOARGS)
             static HPy f_impl(HPyContext *ctx, HPy self)
             {
                 return HPyErr_SetString(ctx, ctx->h_ValueError, "error message");
             }
 
-            HPyDef_METH(g, "g", g_impl, HPyFunc_NOARGS)
+            HPyDef_METH(g, "g", HPyFunc_NOARGS)
             static HPy g_impl(HPyContext *ctx, HPy self)
             {
                 HPyErr_SetString(ctx, ctx->h_ValueError, "error message");
@@ -113,7 +113,7 @@ class TestErr(HPyTest):
     def test_HPyErr_SetObject(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 return HPyErr_SetObject(ctx, ctx->h_ValueError, arg);
@@ -131,7 +131,7 @@ class TestErr(HPyTest):
         mod = self.make_module("""
             #include <errno.h>
 
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy type)
             {{
                 errno = {errno};
@@ -152,9 +152,9 @@ class TestErr(HPyTest):
         mod = self.make_module("""
             #include <errno.h>
 
-            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
             static HPy f_impl(HPyContext *ctx, HPy self,
-                              HPy *args, HPy_ssize_t nargs)
+                              const HPy *args, size_t nargs)
             {{
                 HPy type, file1, file2;
                 if (!HPyArg_Parse(ctx, NULL, args, nargs, "OOO", &type, &file1, &file2))
@@ -189,7 +189,7 @@ class TestErr(HPyTest):
         mod = self.make_module("""
             #include <errno.h>
 
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy type)
             {{
                 errno = {errno};
@@ -207,7 +207,7 @@ class TestErr(HPyTest):
     def test_h_exceptions(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 HPy h_dict, h_err;
@@ -335,9 +335,9 @@ class TestErr(HPyTest):
     def test_h_unicode_exceptions(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
             static HPy f_impl(HPyContext *ctx, HPy self,
-                              HPy *args, HPy_ssize_t nargs)
+                              const HPy *args, size_t nargs)
             {
                 HPy h_key, h_args, h_kw;
                 HPy h_dict, h_err, h_err_value;
@@ -392,7 +392,7 @@ class TestErr(HPyTest):
     def test_h_warnings(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 HPy h_dict, h_err;
@@ -440,7 +440,7 @@ class TestErr(HPyTest):
     def test_HPyErr_WarnEx(self):
         import warnings
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 switch (HPyLong_AsLong(ctx, arg)) {
@@ -477,8 +477,8 @@ class TestErr(HPyTest):
 
     def test_errorval_returned_by_api_functions_hpy(self):
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
-            static HPy f_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs)
             {
                 HPy a = HPy_NULL;
                 HPy b = HPy_NULL;
@@ -503,7 +503,7 @@ class TestErr(HPyTest):
 
     def test_errorval_returned_by_api_functions_int(self):
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 HPy_ssize_t length = HPy_Length(ctx, arg);
@@ -522,8 +522,8 @@ class TestErr(HPyTest):
     def test_HPyErr_NewException(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
-            static HPy f_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs)
             {
                 // MSVC doesn't allow "static HPy h_FooErr = HPy_NULL"
                 // so we do an initialization dance instead.
@@ -602,8 +602,8 @@ class TestErr(HPyTest):
     def test_exception_matches(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
-            static HPy f_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs)
             {
                 HPyTracker ht;
                 HPy fun, fun_args;
@@ -674,7 +674,7 @@ class TestErr(HPyTest):
 
     def test_HPyErr_WriteUnraisable(self, python_subprocess):
         mod = self.compile_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            HPyDef_METH(f, "f", HPyFunc_NOARGS)
             static HPy f_impl(HPyContext *ctx, HPy self)
             {
                 HPyErr_SetString(ctx, ctx->h_ValueError, "error message");
@@ -692,3 +692,17 @@ class TestErr(HPyTest):
         result = python_subprocess.run(mod, "mod.f()")
         assert result.returncode == 0
 
+
+    def test_HPyErr_Format(self):
+        import pytest
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                return HPyErr_Format(ctx, ctx->h_ValueError, "Formatted '%S' and %d", arg, 42);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        with pytest.raises(ValueError, match="Formatted 'error message' and 42"):
+            mod.f("error message")

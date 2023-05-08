@@ -1,4 +1,11 @@
+import pytest
 from .support import HPyTest
+from hpy.devel.abitag import get_hpy_ext_suffix
+
+@pytest.fixture(params=['cpython', 'universal', 'hybrid', 'debug'])
+def hpy_abi(request):
+    abi = request.param
+    yield abi
 
 
 class TestImporting(HPyTest):
@@ -41,11 +48,8 @@ class TestImporting(HPyTest):
         assert mod.__spec__.name == 'mytest'
         assert mod.__file__
 
-        if hpy_abi == 'cpython':
-            from sysconfig import get_config_var
-            ext = get_config_var('EXT_SUFFIX')
-        else:
-            ext = '.hpy.so'
-
+        if hpy_abi == 'debug':
+            hpy_abi = 'universal'
+        ext_suffix = get_hpy_ext_suffix(hpy_abi)
         assert repr(mod) == '<module \'mytest\' from {}>'.format(
-            repr(str(tmpdir.join('mytest' + ext))))
+            repr(str(tmpdir.join('mytest' + ext_suffix))))

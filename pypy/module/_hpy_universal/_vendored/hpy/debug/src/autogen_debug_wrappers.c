@@ -12,713 +12,1759 @@
 
 #include "debug_internal.h"
 
-DHPy debug_ctx_Module_Create(HPyContext *dctx, HPyModuleDef *def)
-{
-    return DHPy_open(dctx, HPyModule_Create(get_info(dctx)->uctx, def));
-}
-
 DHPy debug_ctx_Dup(HPyContext *dctx, DHPy h)
 {
-    return DHPy_open(dctx, HPy_Dup(get_info(dctx)->uctx, DHPy_unwrap(dctx, h)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Dup(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-DHPy debug_ctx_Long_FromLong(HPyContext *dctx, long value)
+DHPy debug_ctx_Long_FromInt32_t(HPyContext *dctx, int32_t value)
 {
-    return DHPy_open(dctx, HPyLong_FromLong(get_info(dctx)->uctx, value));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyLong_FromInt32_t(get_info(dctx)->uctx, value);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-DHPy debug_ctx_Long_FromUnsignedLong(HPyContext *dctx, unsigned long value)
+DHPy debug_ctx_Long_FromUInt32_t(HPyContext *dctx, uint32_t value)
 {
-    return DHPy_open(dctx, HPyLong_FromUnsignedLong(get_info(dctx)->uctx, value));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyLong_FromUInt32_t(get_info(dctx)->uctx, value);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-DHPy debug_ctx_Long_FromLongLong(HPyContext *dctx, long long v)
+DHPy debug_ctx_Long_FromInt64_t(HPyContext *dctx, int64_t v)
 {
-    return DHPy_open(dctx, HPyLong_FromLongLong(get_info(dctx)->uctx, v));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyLong_FromInt64_t(get_info(dctx)->uctx, v);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-DHPy debug_ctx_Long_FromUnsignedLongLong(HPyContext *dctx, unsigned long long v)
+DHPy debug_ctx_Long_FromUInt64_t(HPyContext *dctx, uint64_t v)
 {
-    return DHPy_open(dctx, HPyLong_FromUnsignedLongLong(get_info(dctx)->uctx, v));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyLong_FromUInt64_t(get_info(dctx)->uctx, v);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Long_FromSize_t(HPyContext *dctx, size_t value)
 {
-    return DHPy_open(dctx, HPyLong_FromSize_t(get_info(dctx)->uctx, value));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyLong_FromSize_t(get_info(dctx)->uctx, value);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Long_FromSsize_t(HPyContext *dctx, HPy_ssize_t value)
 {
-    return DHPy_open(dctx, HPyLong_FromSsize_t(get_info(dctx)->uctx, value));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyLong_FromSsize_t(get_info(dctx)->uctx, value);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-long debug_ctx_Long_AsLong(HPyContext *dctx, DHPy h)
+int32_t debug_ctx_Long_AsInt32_t(HPyContext *dctx, DHPy h)
 {
-    return HPyLong_AsLong(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int32_t universal_result = HPyLong_AsInt32_t(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-unsigned long debug_ctx_Long_AsUnsignedLong(HPyContext *dctx, DHPy h)
+uint32_t debug_ctx_Long_AsUInt32_t(HPyContext *dctx, DHPy h)
 {
-    return HPyLong_AsUnsignedLong(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    uint32_t universal_result = HPyLong_AsUInt32_t(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-unsigned long debug_ctx_Long_AsUnsignedLongMask(HPyContext *dctx, DHPy h)
+uint32_t debug_ctx_Long_AsUInt32_tMask(HPyContext *dctx, DHPy h)
 {
-    return HPyLong_AsUnsignedLongMask(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    uint32_t universal_result = HPyLong_AsUInt32_tMask(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-long long debug_ctx_Long_AsLongLong(HPyContext *dctx, DHPy h)
+int64_t debug_ctx_Long_AsInt64_t(HPyContext *dctx, DHPy h)
 {
-    return HPyLong_AsLongLong(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int64_t universal_result = HPyLong_AsInt64_t(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-unsigned long long debug_ctx_Long_AsUnsignedLongLong(HPyContext *dctx, DHPy h)
+uint64_t debug_ctx_Long_AsUInt64_t(HPyContext *dctx, DHPy h)
 {
-    return HPyLong_AsUnsignedLongLong(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    uint64_t universal_result = HPyLong_AsUInt64_t(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-unsigned long long debug_ctx_Long_AsUnsignedLongLongMask(HPyContext *dctx, DHPy h)
+uint64_t debug_ctx_Long_AsUInt64_tMask(HPyContext *dctx, DHPy h)
 {
-    return HPyLong_AsUnsignedLongLongMask(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    uint64_t universal_result = HPyLong_AsUInt64_tMask(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 size_t debug_ctx_Long_AsSize_t(HPyContext *dctx, DHPy h)
 {
-    return HPyLong_AsSize_t(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    size_t universal_result = HPyLong_AsSize_t(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 HPy_ssize_t debug_ctx_Long_AsSsize_t(HPyContext *dctx, DHPy h)
 {
-    return HPyLong_AsSsize_t(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy_ssize_t universal_result = HPyLong_AsSsize_t(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 void *debug_ctx_Long_AsVoidPtr(HPyContext *dctx, DHPy h)
 {
-    return HPyLong_AsVoidPtr(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    void * universal_result = HPyLong_AsVoidPtr(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 double debug_ctx_Long_AsDouble(HPyContext *dctx, DHPy h)
 {
-    return HPyLong_AsDouble(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    double universal_result = HPyLong_AsDouble(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_Float_FromDouble(HPyContext *dctx, double v)
 {
-    return DHPy_open(dctx, HPyFloat_FromDouble(get_info(dctx)->uctx, v));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyFloat_FromDouble(get_info(dctx)->uctx, v);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 double debug_ctx_Float_AsDouble(HPyContext *dctx, DHPy h)
 {
-    return HPyFloat_AsDouble(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    double universal_result = HPyFloat_AsDouble(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-DHPy debug_ctx_Bool_FromLong(HPyContext *dctx, long v)
+DHPy debug_ctx_Bool_FromBool(HPyContext *dctx, bool v)
 {
-    return DHPy_open(dctx, HPyBool_FromLong(get_info(dctx)->uctx, v));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyBool_FromBool(get_info(dctx)->uctx, v);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 HPy_ssize_t debug_ctx_Length(HPyContext *dctx, DHPy h)
 {
-    return HPy_Length(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy_ssize_t universal_result = HPy_Length(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 int debug_ctx_Number_Check(HPyContext *dctx, DHPy h)
 {
-    return HPyNumber_Check(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyNumber_Check(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_Add(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_Add(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Add(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Subtract(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_Subtract(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Subtract(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Multiply(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_Multiply(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Multiply(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_MatrixMultiply(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_MatrixMultiply(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_MatrixMultiply(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_FloorDivide(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_FloorDivide(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_FloorDivide(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_TrueDivide(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_TrueDivide(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_TrueDivide(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Remainder(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_Remainder(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Remainder(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Divmod(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_Divmod(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Divmod(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Power(HPyContext *dctx, DHPy h1, DHPy h2, DHPy h3)
 {
-    return DHPy_open(dctx, HPy_Power(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2), DHPy_unwrap(dctx, h3)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    HPy dh_h3 = DHPy_unwrap(dctx, h3);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Power(get_info(dctx)->uctx, dh_h1, dh_h2, dh_h3);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Negative(HPyContext *dctx, DHPy h1)
 {
-    return DHPy_open(dctx, HPy_Negative(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Negative(get_info(dctx)->uctx, dh_h1);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Positive(HPyContext *dctx, DHPy h1)
 {
-    return DHPy_open(dctx, HPy_Positive(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Positive(get_info(dctx)->uctx, dh_h1);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Absolute(HPyContext *dctx, DHPy h1)
 {
-    return DHPy_open(dctx, HPy_Absolute(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Absolute(get_info(dctx)->uctx, dh_h1);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Invert(HPyContext *dctx, DHPy h1)
 {
-    return DHPy_open(dctx, HPy_Invert(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Invert(get_info(dctx)->uctx, dh_h1);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Lshift(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_Lshift(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Lshift(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Rshift(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_Rshift(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Rshift(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_And(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_And(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_And(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Xor(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_Xor(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Xor(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Or(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_Or(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Or(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Index(HPyContext *dctx, DHPy h1)
 {
-    return DHPy_open(dctx, HPy_Index(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Index(get_info(dctx)->uctx, dh_h1);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Long(HPyContext *dctx, DHPy h1)
 {
-    return DHPy_open(dctx, HPy_Long(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Long(get_info(dctx)->uctx, dh_h1);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Float(HPyContext *dctx, DHPy h1)
 {
-    return DHPy_open(dctx, HPy_Float(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Float(get_info(dctx)->uctx, dh_h1);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceAdd(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceAdd(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceAdd(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceSubtract(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceSubtract(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceSubtract(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceMultiply(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceMultiply(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceMultiply(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceMatrixMultiply(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceMatrixMultiply(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceMatrixMultiply(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceFloorDivide(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceFloorDivide(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceFloorDivide(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceTrueDivide(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceTrueDivide(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceTrueDivide(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceRemainder(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceRemainder(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceRemainder(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlacePower(HPyContext *dctx, DHPy h1, DHPy h2, DHPy h3)
 {
-    return DHPy_open(dctx, HPy_InPlacePower(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2), DHPy_unwrap(dctx, h3)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    HPy dh_h3 = DHPy_unwrap(dctx, h3);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlacePower(get_info(dctx)->uctx, dh_h1, dh_h2, dh_h3);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceLshift(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceLshift(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceLshift(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceRshift(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceRshift(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceRshift(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceAnd(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceAnd(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceAnd(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceXor(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceXor(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceXor(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_InPlaceOr(HPyContext *dctx, DHPy h1, DHPy h2)
 {
-    return DHPy_open(dctx, HPy_InPlaceOr(get_info(dctx)->uctx, DHPy_unwrap(dctx, h1), DHPy_unwrap(dctx, h2)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h1 = DHPy_unwrap(dctx, h1);
+    HPy dh_h2 = DHPy_unwrap(dctx, h2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_InPlaceOr(get_info(dctx)->uctx, dh_h1, dh_h2);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 int debug_ctx_Callable_Check(HPyContext *dctx, DHPy h)
 {
-    return HPyCallable_Check(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyCallable_Check(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_CallTupleDict(HPyContext *dctx, DHPy callable, DHPy args, DHPy kw)
 {
-    return DHPy_open(dctx, HPy_CallTupleDict(get_info(dctx)->uctx, DHPy_unwrap(dctx, callable), DHPy_unwrap(dctx, args), DHPy_unwrap(dctx, kw)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_callable = DHPy_unwrap(dctx, callable);
+    HPy dh_args = DHPy_unwrap(dctx, args);
+    HPy dh_kw = DHPy_unwrap(dctx, kw);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_CallTupleDict(get_info(dctx)->uctx, dh_callable, dh_args, dh_kw);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 void debug_ctx_FatalError(HPyContext *dctx, const char *message)
 {
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
     HPy_FatalError(get_info(dctx)->uctx, message);
+    get_ctx_info(dctx)->is_valid = true;
 }
 
-void debug_ctx_Err_SetString(HPyContext *dctx, DHPy h_type, const char *message)
+void debug_ctx_Err_SetString(HPyContext *dctx, DHPy h_type, const char *utf8_message)
 {
-    HPyErr_SetString(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), message);
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h_type = DHPy_unwrap(dctx, h_type);
+    get_ctx_info(dctx)->is_valid = false;
+    HPyErr_SetString(get_info(dctx)->uctx, dh_h_type, utf8_message);
+    get_ctx_info(dctx)->is_valid = true;
 }
 
 void debug_ctx_Err_SetObject(HPyContext *dctx, DHPy h_type, DHPy h_value)
 {
-    HPyErr_SetObject(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), DHPy_unwrap(dctx, h_value));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h_type = DHPy_unwrap(dctx, h_type);
+    HPy dh_h_value = DHPy_unwrap(dctx, h_value);
+    get_ctx_info(dctx)->is_valid = false;
+    HPyErr_SetObject(get_info(dctx)->uctx, dh_h_type, dh_h_value);
+    get_ctx_info(dctx)->is_valid = true;
 }
 
 DHPy debug_ctx_Err_SetFromErrnoWithFilename(HPyContext *dctx, DHPy h_type, const char *filename_fsencoded)
 {
-    return DHPy_open(dctx, HPyErr_SetFromErrnoWithFilename(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), filename_fsencoded));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h_type = DHPy_unwrap(dctx, h_type);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyErr_SetFromErrnoWithFilename(get_info(dctx)->uctx, dh_h_type, filename_fsencoded);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 void debug_ctx_Err_SetFromErrnoWithFilenameObjects(HPyContext *dctx, DHPy h_type, DHPy filename1, DHPy filename2)
 {
-    HPyErr_SetFromErrnoWithFilenameObjects(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), DHPy_unwrap(dctx, filename1), DHPy_unwrap(dctx, filename2));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h_type = DHPy_unwrap(dctx, h_type);
+    HPy dh_filename1 = DHPy_unwrap(dctx, filename1);
+    HPy dh_filename2 = DHPy_unwrap(dctx, filename2);
+    get_ctx_info(dctx)->is_valid = false;
+    HPyErr_SetFromErrnoWithFilenameObjects(get_info(dctx)->uctx, dh_h_type, dh_filename1, dh_filename2);
+    get_ctx_info(dctx)->is_valid = true;
 }
 
 int debug_ctx_Err_Occurred(HPyContext *dctx)
 {
-    return HPyErr_Occurred(get_info(dctx)->uctx);
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyErr_Occurred(get_info(dctx)->uctx);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 int debug_ctx_Err_ExceptionMatches(HPyContext *dctx, DHPy exc)
 {
-    return HPyErr_ExceptionMatches(get_info(dctx)->uctx, DHPy_unwrap(dctx, exc));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_exc = DHPy_unwrap(dctx, exc);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyErr_ExceptionMatches(get_info(dctx)->uctx, dh_exc);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 void debug_ctx_Err_NoMemory(HPyContext *dctx)
 {
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
     HPyErr_NoMemory(get_info(dctx)->uctx);
+    get_ctx_info(dctx)->is_valid = true;
 }
 
 void debug_ctx_Err_Clear(HPyContext *dctx)
 {
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
     HPyErr_Clear(get_info(dctx)->uctx);
+    get_ctx_info(dctx)->is_valid = true;
 }
 
-DHPy debug_ctx_Err_NewException(HPyContext *dctx, const char *name, DHPy base, DHPy dict)
+DHPy debug_ctx_Err_NewException(HPyContext *dctx, const char *utf8_name, DHPy base, DHPy dict)
 {
-    return DHPy_open(dctx, HPyErr_NewException(get_info(dctx)->uctx, name, DHPy_unwrap(dctx, base), DHPy_unwrap(dctx, dict)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_base = DHPy_unwrap(dctx, base);
+    HPy dh_dict = DHPy_unwrap(dctx, dict);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyErr_NewException(get_info(dctx)->uctx, utf8_name, dh_base, dh_dict);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-DHPy debug_ctx_Err_NewExceptionWithDoc(HPyContext *dctx, const char *name, const char *doc, DHPy base, DHPy dict)
+DHPy debug_ctx_Err_NewExceptionWithDoc(HPyContext *dctx, const char *utf8_name, const char *utf8_doc, DHPy base, DHPy dict)
 {
-    return DHPy_open(dctx, HPyErr_NewExceptionWithDoc(get_info(dctx)->uctx, name, doc, DHPy_unwrap(dctx, base), DHPy_unwrap(dctx, dict)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_base = DHPy_unwrap(dctx, base);
+    HPy dh_dict = DHPy_unwrap(dctx, dict);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyErr_NewExceptionWithDoc(get_info(dctx)->uctx, utf8_name, utf8_doc, dh_base, dh_dict);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-int debug_ctx_Err_WarnEx(HPyContext *dctx, DHPy category, const char *message, HPy_ssize_t stack_level)
+int debug_ctx_Err_WarnEx(HPyContext *dctx, DHPy category, const char *utf8_message, HPy_ssize_t stack_level)
 {
-    return HPyErr_WarnEx(get_info(dctx)->uctx, DHPy_unwrap(dctx, category), message, stack_level);
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_category = DHPy_unwrap(dctx, category);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyErr_WarnEx(get_info(dctx)->uctx, dh_category, utf8_message, stack_level);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 void debug_ctx_Err_WriteUnraisable(HPyContext *dctx, DHPy obj)
 {
-    HPyErr_WriteUnraisable(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPyErr_WriteUnraisable(get_info(dctx)->uctx, dh_obj);
+    get_ctx_info(dctx)->is_valid = true;
 }
 
 int debug_ctx_IsTrue(HPyContext *dctx, DHPy h)
 {
-    return HPy_IsTrue(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_IsTrue(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_GetAttr(HPyContext *dctx, DHPy obj, DHPy name)
 {
-    return DHPy_open(dctx, HPy_GetAttr(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), DHPy_unwrap(dctx, name)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    HPy dh_name = DHPy_unwrap(dctx, name);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_GetAttr(get_info(dctx)->uctx, dh_obj, dh_name);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-DHPy debug_ctx_GetAttr_s(HPyContext *dctx, DHPy obj, const char *name)
+DHPy debug_ctx_GetAttr_s(HPyContext *dctx, DHPy obj, const char *utf8_name)
 {
-    return DHPy_open(dctx, HPy_GetAttr_s(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), name));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_GetAttr_s(get_info(dctx)->uctx, dh_obj, utf8_name);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 int debug_ctx_HasAttr(HPyContext *dctx, DHPy obj, DHPy name)
 {
-    return HPy_HasAttr(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), DHPy_unwrap(dctx, name));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    HPy dh_name = DHPy_unwrap(dctx, name);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_HasAttr(get_info(dctx)->uctx, dh_obj, dh_name);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-int debug_ctx_HasAttr_s(HPyContext *dctx, DHPy obj, const char *name)
+int debug_ctx_HasAttr_s(HPyContext *dctx, DHPy obj, const char *utf8_name)
 {
-    return HPy_HasAttr_s(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), name);
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_HasAttr_s(get_info(dctx)->uctx, dh_obj, utf8_name);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 int debug_ctx_SetAttr(HPyContext *dctx, DHPy obj, DHPy name, DHPy value)
 {
-    return HPy_SetAttr(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), DHPy_unwrap(dctx, name), DHPy_unwrap(dctx, value));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    HPy dh_name = DHPy_unwrap(dctx, name);
+    HPy dh_value = DHPy_unwrap(dctx, value);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_SetAttr(get_info(dctx)->uctx, dh_obj, dh_name, dh_value);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-int debug_ctx_SetAttr_s(HPyContext *dctx, DHPy obj, const char *name, DHPy value)
+int debug_ctx_SetAttr_s(HPyContext *dctx, DHPy obj, const char *utf8_name, DHPy value)
 {
-    return HPy_SetAttr_s(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), name, DHPy_unwrap(dctx, value));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    HPy dh_value = DHPy_unwrap(dctx, value);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_SetAttr_s(get_info(dctx)->uctx, dh_obj, utf8_name, dh_value);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_GetItem(HPyContext *dctx, DHPy obj, DHPy key)
 {
-    return DHPy_open(dctx, HPy_GetItem(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), DHPy_unwrap(dctx, key)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    HPy dh_key = DHPy_unwrap(dctx, key);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_GetItem(get_info(dctx)->uctx, dh_obj, dh_key);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_GetItem_i(HPyContext *dctx, DHPy obj, HPy_ssize_t idx)
 {
-    return DHPy_open(dctx, HPy_GetItem_i(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), idx));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_GetItem_i(get_info(dctx)->uctx, dh_obj, idx);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-DHPy debug_ctx_GetItem_s(HPyContext *dctx, DHPy obj, const char *key)
+DHPy debug_ctx_GetItem_s(HPyContext *dctx, DHPy obj, const char *utf8_key)
 {
-    return DHPy_open(dctx, HPy_GetItem_s(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), key));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_GetItem_s(get_info(dctx)->uctx, dh_obj, utf8_key);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 int debug_ctx_Contains(HPyContext *dctx, DHPy container, DHPy key)
 {
-    return HPy_Contains(get_info(dctx)->uctx, DHPy_unwrap(dctx, container), DHPy_unwrap(dctx, key));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_container = DHPy_unwrap(dctx, container);
+    HPy dh_key = DHPy_unwrap(dctx, key);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_Contains(get_info(dctx)->uctx, dh_container, dh_key);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 int debug_ctx_SetItem(HPyContext *dctx, DHPy obj, DHPy key, DHPy value)
 {
-    return HPy_SetItem(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), DHPy_unwrap(dctx, key), DHPy_unwrap(dctx, value));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    HPy dh_key = DHPy_unwrap(dctx, key);
+    HPy dh_value = DHPy_unwrap(dctx, value);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_SetItem(get_info(dctx)->uctx, dh_obj, dh_key, dh_value);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 int debug_ctx_SetItem_i(HPyContext *dctx, DHPy obj, HPy_ssize_t idx, DHPy value)
 {
-    return HPy_SetItem_i(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), idx, DHPy_unwrap(dctx, value));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    HPy dh_value = DHPy_unwrap(dctx, value);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_SetItem_i(get_info(dctx)->uctx, dh_obj, idx, dh_value);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-int debug_ctx_SetItem_s(HPyContext *dctx, DHPy obj, const char *key, DHPy value)
+int debug_ctx_SetItem_s(HPyContext *dctx, DHPy obj, const char *utf8_key, DHPy value)
 {
-    return HPy_SetItem_s(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), key, DHPy_unwrap(dctx, value));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    HPy dh_value = DHPy_unwrap(dctx, value);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_SetItem_s(get_info(dctx)->uctx, dh_obj, utf8_key, dh_value);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
+}
+
+int debug_ctx_DelItem(HPyContext *dctx, DHPy obj, DHPy key)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    HPy dh_key = DHPy_unwrap(dctx, key);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_DelItem(get_info(dctx)->uctx, dh_obj, dh_key);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
+}
+
+int debug_ctx_DelItem_i(HPyContext *dctx, DHPy obj, HPy_ssize_t idx)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_DelItem_i(get_info(dctx)->uctx, dh_obj, idx);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
+}
+
+int debug_ctx_DelItem_s(HPyContext *dctx, DHPy obj, const char *utf8_key)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_DelItem_s(get_info(dctx)->uctx, dh_obj, utf8_key);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_Type(HPyContext *dctx, DHPy obj)
 {
-    return DHPy_open(dctx, HPy_Type(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj)));
-}
-
-int debug_ctx_TypeCheck(HPyContext *dctx, DHPy obj, DHPy type)
-{
-    return HPy_TypeCheck(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), DHPy_unwrap(dctx, type));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Type(get_info(dctx)->uctx, dh_obj);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 int debug_ctx_Is(HPyContext *dctx, DHPy obj, DHPy other)
 {
-    return HPy_Is(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj), DHPy_unwrap(dctx, other));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    HPy dh_other = DHPy_unwrap(dctx, other);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_Is(get_info(dctx)->uctx, dh_obj, dh_other);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-void *debug_ctx_AsStruct(HPyContext *dctx, DHPy h)
+HPyType_BuiltinShape debug_ctx_Type_GetBuiltinShape(HPyContext *dctx, DHPy h_type)
 {
-    return HPy_AsStruct(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
-}
-
-void *debug_ctx_AsStructLegacy(HPyContext *dctx, DHPy h)
-{
-    return HPy_AsStructLegacy(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h_type = DHPy_unwrap(dctx, h_type);
+    get_ctx_info(dctx)->is_valid = false;
+    HPyType_BuiltinShape universal_result = _HPyType_GetBuiltinShape(get_info(dctx)->uctx, dh_h_type);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_New(HPyContext *dctx, DHPy h_type, void **data)
 {
-    return DHPy_open(dctx, _HPy_New(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_type), data));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h_type = DHPy_unwrap(dctx, h_type);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = _HPy_New(get_info(dctx)->uctx, dh_h_type, data);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Repr(HPyContext *dctx, DHPy obj)
 {
-    return DHPy_open(dctx, HPy_Repr(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Repr(get_info(dctx)->uctx, dh_obj);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Str(HPyContext *dctx, DHPy obj)
 {
-    return DHPy_open(dctx, HPy_Str(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Str(get_info(dctx)->uctx, dh_obj);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_ASCII(HPyContext *dctx, DHPy obj)
 {
-    return DHPy_open(dctx, HPy_ASCII(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_ASCII(get_info(dctx)->uctx, dh_obj);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Bytes(HPyContext *dctx, DHPy obj)
 {
-    return DHPy_open(dctx, HPy_Bytes(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Bytes(get_info(dctx)->uctx, dh_obj);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_RichCompare(HPyContext *dctx, DHPy v, DHPy w, int op)
 {
-    return DHPy_open(dctx, HPy_RichCompare(get_info(dctx)->uctx, DHPy_unwrap(dctx, v), DHPy_unwrap(dctx, w), op));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_v = DHPy_unwrap(dctx, v);
+    HPy dh_w = DHPy_unwrap(dctx, w);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_RichCompare(get_info(dctx)->uctx, dh_v, dh_w, op);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 int debug_ctx_RichCompareBool(HPyContext *dctx, DHPy v, DHPy w, int op)
 {
-    return HPy_RichCompareBool(get_info(dctx)->uctx, DHPy_unwrap(dctx, v), DHPy_unwrap(dctx, w), op);
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_v = DHPy_unwrap(dctx, v);
+    HPy dh_w = DHPy_unwrap(dctx, w);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_RichCompareBool(get_info(dctx)->uctx, dh_v, dh_w, op);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 HPy_hash_t debug_ctx_Hash(HPyContext *dctx, DHPy obj)
 {
-    return HPy_Hash(get_info(dctx)->uctx, DHPy_unwrap(dctx, obj));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy_hash_t universal_result = HPy_Hash(get_info(dctx)->uctx, dh_obj);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 int debug_ctx_Bytes_Check(HPyContext *dctx, DHPy h)
 {
-    return HPyBytes_Check(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyBytes_Check(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 HPy_ssize_t debug_ctx_Bytes_Size(HPyContext *dctx, DHPy h)
 {
-    return HPyBytes_Size(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy_ssize_t universal_result = HPyBytes_Size(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 HPy_ssize_t debug_ctx_Bytes_GET_SIZE(HPyContext *dctx, DHPy h)
 {
-    return HPyBytes_GET_SIZE(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy_ssize_t universal_result = HPyBytes_GET_SIZE(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-char *debug_ctx_Bytes_AsString(HPyContext *dctx, DHPy h)
+DHPy debug_ctx_Bytes_FromString(HPyContext *dctx, const char *bytes)
 {
-    return HPyBytes_AsString(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyBytes_FromString(get_info(dctx)->uctx, bytes);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-char *debug_ctx_Bytes_AS_STRING(HPyContext *dctx, DHPy h)
+DHPy debug_ctx_Bytes_FromStringAndSize(HPyContext *dctx, const char *bytes, HPy_ssize_t len)
 {
-    return HPyBytes_AS_STRING(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
-}
-
-DHPy debug_ctx_Bytes_FromString(HPyContext *dctx, const char *v)
-{
-    return DHPy_open(dctx, HPyBytes_FromString(get_info(dctx)->uctx, v));
-}
-
-DHPy debug_ctx_Bytes_FromStringAndSize(HPyContext *dctx, const char *v, HPy_ssize_t len)
-{
-    return DHPy_open(dctx, HPyBytes_FromStringAndSize(get_info(dctx)->uctx, v, len));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyBytes_FromStringAndSize(get_info(dctx)->uctx, bytes, len);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Unicode_FromString(HPyContext *dctx, const char *utf8)
 {
-    return DHPy_open(dctx, HPyUnicode_FromString(get_info(dctx)->uctx, utf8));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_FromString(get_info(dctx)->uctx, utf8);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 int debug_ctx_Unicode_Check(HPyContext *dctx, DHPy h)
 {
-    return HPyUnicode_Check(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyUnicode_Check(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_Unicode_AsASCIIString(HPyContext *dctx, DHPy h)
 {
-    return DHPy_open(dctx, HPyUnicode_AsASCIIString(get_info(dctx)->uctx, DHPy_unwrap(dctx, h)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_AsASCIIString(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Unicode_AsLatin1String(HPyContext *dctx, DHPy h)
 {
-    return DHPy_open(dctx, HPyUnicode_AsLatin1String(get_info(dctx)->uctx, DHPy_unwrap(dctx, h)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_AsLatin1String(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Unicode_AsUTF8String(HPyContext *dctx, DHPy h)
 {
-    return DHPy_open(dctx, HPyUnicode_AsUTF8String(get_info(dctx)->uctx, DHPy_unwrap(dctx, h)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_AsUTF8String(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Unicode_FromWideChar(HPyContext *dctx, const wchar_t *w, HPy_ssize_t size)
 {
-    return DHPy_open(dctx, HPyUnicode_FromWideChar(get_info(dctx)->uctx, w, size));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_FromWideChar(get_info(dctx)->uctx, w, size);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Unicode_DecodeFSDefault(HPyContext *dctx, const char *v)
 {
-    return DHPy_open(dctx, HPyUnicode_DecodeFSDefault(get_info(dctx)->uctx, v));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_DecodeFSDefault(get_info(dctx)->uctx, v);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Unicode_DecodeFSDefaultAndSize(HPyContext *dctx, const char *v, HPy_ssize_t size)
 {
-    return DHPy_open(dctx, HPyUnicode_DecodeFSDefaultAndSize(get_info(dctx)->uctx, v, size));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_DecodeFSDefaultAndSize(get_info(dctx)->uctx, v, size);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 DHPy debug_ctx_Unicode_EncodeFSDefault(HPyContext *dctx, DHPy h)
 {
-    return DHPy_open(dctx, HPyUnicode_EncodeFSDefault(get_info(dctx)->uctx, DHPy_unwrap(dctx, h)));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_EncodeFSDefault(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 HPy_UCS4 debug_ctx_Unicode_ReadChar(HPyContext *dctx, DHPy h, HPy_ssize_t index)
 {
-    return HPyUnicode_ReadChar(get_info(dctx)->uctx, DHPy_unwrap(dctx, h), index);
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy_UCS4 universal_result = HPyUnicode_ReadChar(get_info(dctx)->uctx, dh_h, index);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-DHPy debug_ctx_Unicode_DecodeASCII(HPyContext *dctx, const char *s, HPy_ssize_t size, const char *errors)
+DHPy debug_ctx_Unicode_DecodeASCII(HPyContext *dctx, const char *ascii, HPy_ssize_t size, const char *errors)
 {
-    return DHPy_open(dctx, HPyUnicode_DecodeASCII(get_info(dctx)->uctx, s, size, errors));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_DecodeASCII(get_info(dctx)->uctx, ascii, size, errors);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
-DHPy debug_ctx_Unicode_DecodeLatin1(HPyContext *dctx, const char *s, HPy_ssize_t size, const char *errors)
+DHPy debug_ctx_Unicode_DecodeLatin1(HPyContext *dctx, const char *latin1, HPy_ssize_t size, const char *errors)
 {
-    return DHPy_open(dctx, HPyUnicode_DecodeLatin1(get_info(dctx)->uctx, s, size, errors));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_DecodeLatin1(get_info(dctx)->uctx, latin1, size, errors);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
+}
+
+DHPy debug_ctx_Unicode_FromEncodedObject(HPyContext *dctx, DHPy obj, const char *encoding, const char *errors)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_obj = DHPy_unwrap(dctx, obj);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyUnicode_FromEncodedObject(get_info(dctx)->uctx, dh_obj, encoding, errors);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 int debug_ctx_List_Check(HPyContext *dctx, DHPy h)
 {
-    return HPyList_Check(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyList_Check(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_List_New(HPyContext *dctx, HPy_ssize_t len)
 {
-    return DHPy_open(dctx, HPyList_New(get_info(dctx)->uctx, len));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyList_New(get_info(dctx)->uctx, len);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 int debug_ctx_List_Append(HPyContext *dctx, DHPy h_list, DHPy h_item)
 {
-    return HPyList_Append(get_info(dctx)->uctx, DHPy_unwrap(dctx, h_list), DHPy_unwrap(dctx, h_item));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h_list = DHPy_unwrap(dctx, h_list);
+    HPy dh_h_item = DHPy_unwrap(dctx, h_item);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyList_Append(get_info(dctx)->uctx, dh_h_list, dh_h_item);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 int debug_ctx_Dict_Check(HPyContext *dctx, DHPy h)
 {
-    return HPyDict_Check(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyDict_Check(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_Dict_New(HPyContext *dctx)
 {
-    return DHPy_open(dctx, HPyDict_New(get_info(dctx)->uctx));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyDict_New(get_info(dctx)->uctx);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
+}
+
+DHPy debug_ctx_Dict_Keys(HPyContext *dctx, DHPy h)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyDict_Keys(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
+}
+
+DHPy debug_ctx_Dict_Copy(HPyContext *dctx, DHPy h)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyDict_Copy(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 int debug_ctx_Tuple_Check(HPyContext *dctx, DHPy h)
 {
-    return HPyTuple_Check(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyTuple_Check(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
-DHPy debug_ctx_Import_ImportModule(HPyContext *dctx, const char *name)
+int debug_ctx_Slice_Unpack(HPyContext *dctx, DHPy slice, HPy_ssize_t *start, HPy_ssize_t *stop, HPy_ssize_t *step)
 {
-    return DHPy_open(dctx, HPyImport_ImportModule(get_info(dctx)->uctx, name));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_slice = DHPy_unwrap(dctx, slice);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPySlice_Unpack(get_info(dctx)->uctx, dh_slice, start, stop, step);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
+}
+
+DHPy debug_ctx_Import_ImportModule(HPyContext *dctx, const char *utf8_name)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyImport_ImportModule(get_info(dctx)->uctx, utf8_name);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
+}
+
+DHPy debug_ctx_Capsule_New(HPyContext *dctx, void *pointer, const char *utf8_name, HPyCapsule_Destructor *destructor)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyCapsule_New(get_info(dctx)->uctx, pointer, utf8_name, destructor);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
+}
+
+void *debug_ctx_Capsule_Get(HPyContext *dctx, DHPy capsule, _HPyCapsule_key key, const char *utf8_name)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_capsule = DHPy_unwrap(dctx, capsule);
+    get_ctx_info(dctx)->is_valid = false;
+    void * universal_result = HPyCapsule_Get(get_info(dctx)->uctx, dh_capsule, key, utf8_name);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
+}
+
+int debug_ctx_Capsule_IsValid(HPyContext *dctx, DHPy capsule, const char *utf8_name)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_capsule = DHPy_unwrap(dctx, capsule);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyCapsule_IsValid(get_info(dctx)->uctx, dh_capsule, utf8_name);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
+}
+
+int debug_ctx_Capsule_Set(HPyContext *dctx, DHPy capsule, _HPyCapsule_key key, void *value)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_capsule = DHPy_unwrap(dctx, capsule);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPyCapsule_Set(get_info(dctx)->uctx, dh_capsule, key, value);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 DHPy debug_ctx_FromPyObject(HPyContext *dctx, cpy_PyObject *obj)
 {
-    return DHPy_open(dctx, HPy_FromPyObject(get_info(dctx)->uctx, obj));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_FromPyObject(get_info(dctx)->uctx, obj);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 cpy_PyObject *debug_ctx_AsPyObject(HPyContext *dctx, DHPy h)
 {
-    return HPy_AsPyObject(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
-}
-
-HPyListBuilder debug_ctx_ListBuilder_New(HPyContext *dctx, HPy_ssize_t initial_size)
-{
-    return HPyListBuilder_New(get_info(dctx)->uctx, initial_size);
-}
-
-void debug_ctx_ListBuilder_Set(HPyContext *dctx, HPyListBuilder builder, HPy_ssize_t index, DHPy h_item)
-{
-    HPyListBuilder_Set(get_info(dctx)->uctx, builder, index, DHPy_unwrap(dctx, h_item));
-}
-
-DHPy debug_ctx_ListBuilder_Build(HPyContext *dctx, HPyListBuilder builder)
-{
-    return DHPy_open(dctx, HPyListBuilder_Build(get_info(dctx)->uctx, builder));
-}
-
-void debug_ctx_ListBuilder_Cancel(HPyContext *dctx, HPyListBuilder builder)
-{
-    HPyListBuilder_Cancel(get_info(dctx)->uctx, builder);
-}
-
-HPyTupleBuilder debug_ctx_TupleBuilder_New(HPyContext *dctx, HPy_ssize_t initial_size)
-{
-    return HPyTupleBuilder_New(get_info(dctx)->uctx, initial_size);
-}
-
-void debug_ctx_TupleBuilder_Set(HPyContext *dctx, HPyTupleBuilder builder, HPy_ssize_t index, DHPy h_item)
-{
-    HPyTupleBuilder_Set(get_info(dctx)->uctx, builder, index, DHPy_unwrap(dctx, h_item));
-}
-
-DHPy debug_ctx_TupleBuilder_Build(HPyContext *dctx, HPyTupleBuilder builder)
-{
-    return DHPy_open(dctx, HPyTupleBuilder_Build(get_info(dctx)->uctx, builder));
-}
-
-void debug_ctx_TupleBuilder_Cancel(HPyContext *dctx, HPyTupleBuilder builder)
-{
-    HPyTupleBuilder_Cancel(get_info(dctx)->uctx, builder);
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    cpy_PyObject * universal_result = HPy_AsPyObject(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 void debug_ctx_Field_Store(HPyContext *dctx, DHPy target_object, HPyField *target_field, DHPy h)
 {
-    HPyField_Store(get_info(dctx)->uctx, DHPy_unwrap(dctx, target_object), target_field, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_target_object = DHPy_unwrap(dctx, target_object);
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPyField_Store(get_info(dctx)->uctx, dh_target_object, target_field, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
 }
 
 DHPy debug_ctx_Field_Load(HPyContext *dctx, DHPy source_object, HPyField source_field)
 {
-    return DHPy_open(dctx, HPyField_Load(get_info(dctx)->uctx, DHPy_unwrap(dctx, source_object), source_field));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_source_object = DHPy_unwrap(dctx, source_object);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyField_Load(get_info(dctx)->uctx, dh_source_object, source_field);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 void debug_ctx_ReenterPythonExecution(HPyContext *dctx, HPyThreadState state)
 {
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
     HPy_ReenterPythonExecution(get_info(dctx)->uctx, state);
+    get_ctx_info(dctx)->is_valid = true;
 }
 
 HPyThreadState debug_ctx_LeavePythonExecution(HPyContext *dctx)
 {
-    return HPy_LeavePythonExecution(get_info(dctx)->uctx);
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPyThreadState universal_result = HPy_LeavePythonExecution(get_info(dctx)->uctx);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 
 void debug_ctx_Global_Store(HPyContext *dctx, HPyGlobal *global, DHPy h)
 {
-    HPyGlobal_Store(get_info(dctx)->uctx, global, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    HPyGlobal_Store(get_info(dctx)->uctx, global, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
 }
 
 DHPy debug_ctx_Global_Load(HPyContext *dctx, HPyGlobal global)
 {
-    return DHPy_open(dctx, HPyGlobal_Load(get_info(dctx)->uctx, global));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyGlobal_Load(get_info(dctx)->uctx, global);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
 }
 
 void debug_ctx_Dump(HPyContext *dctx, DHPy h)
 {
-    _HPy_Dump(get_info(dctx)->uctx, DHPy_unwrap(dctx, h));
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    _HPy_Dump(get_info(dctx)->uctx, dh_h);
+    get_ctx_info(dctx)->is_valid = true;
+}
+
+DHPy debug_ctx_Compile_s(HPyContext *dctx, const char *utf8_source, const char *utf8_filename, HPy_SourceKind kind)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_Compile_s(get_info(dctx)->uctx, utf8_source, utf8_filename, kind);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
+}
+
+DHPy debug_ctx_EvalCode(HPyContext *dctx, DHPy code, DHPy globals, DHPy locals)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_code = DHPy_unwrap(dctx, code);
+    HPy dh_globals = DHPy_unwrap(dctx, globals);
+    HPy dh_locals = DHPy_unwrap(dctx, locals);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPy_EvalCode(get_info(dctx)->uctx, dh_code, dh_globals, dh_locals);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
+}
+
+DHPy debug_ctx_ContextVar_New(HPyContext *dctx, const char *name, DHPy default_value)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_default_value = DHPy_unwrap(dctx, default_value);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyContextVar_New(get_info(dctx)->uctx, name, dh_default_value);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
+}
+
+DHPy debug_ctx_ContextVar_Set(HPyContext *dctx, DHPy context_var, DHPy value)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_context_var = DHPy_unwrap(dctx, context_var);
+    HPy dh_value = DHPy_unwrap(dctx, value);
+    get_ctx_info(dctx)->is_valid = false;
+    HPy universal_result = HPyContextVar_Set(get_info(dctx)->uctx, dh_context_var, dh_value);
+    get_ctx_info(dctx)->is_valid = true;
+    return DHPy_open(dctx, universal_result);
+}
+
+int debug_ctx_SetCallFunction(HPyContext *dctx, DHPy h, HPyCallFunction *func)
+{
+    if (!get_ctx_info(dctx)->is_valid) {
+        report_invalid_debug_context();
+    }
+    HPy dh_h = DHPy_unwrap(dctx, h);
+    get_ctx_info(dctx)->is_valid = false;
+    int universal_result = HPy_SetCallFunction(get_info(dctx)->uctx, dh_h, func);
+    get_ctx_info(dctx)->is_valid = true;
+    return universal_result;
 }
 

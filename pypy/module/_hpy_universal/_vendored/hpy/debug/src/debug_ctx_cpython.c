@@ -13,7 +13,7 @@
    for HPy, so uctx contains the logic to call HPy functions from CPython, by
    using _HPy_CallRealFunctionFromTrampoline.
 
-   uctx->ctx_CallRealFunctionFromTrampoline convers PyObject* into UHPy. So
+   uctx->ctx_CallRealFunctionFromTrampoline converts PyObject* into UHPy. So
    for the debug mode we need to:
 
        1. convert the PyObject* args into UHPys.
@@ -24,7 +24,9 @@
 #include <Python.h>
 #include "debug_internal.h"
 #include "hpy/runtime/ctx_type.h" // for call_traverseproc_from_trampoline
+#include "hpy/runtime/ctx_module.h"
 #include "handles.h" // for _py2h and _h2py
+
 #if defined(_MSC_VER)
 # include <malloc.h>   /* for alloca() */
 #endif
@@ -69,45 +71,50 @@ static void _buffer_py2h(HPyContext *dctx, const Py_buffer *src, HPy_buffer *des
     dest->internal = src->internal;
 }
 
+static HPyContext* _switch_to_next_dctx_from_cache(HPyContext *current_dctx) {
+    HPyContext *next_dctx = hpy_debug_get_next_dctx_from_cache(current_dctx);
+    if (next_dctx == NULL) {
+        HPyErr_NoMemory(current_dctx);
+        get_ctx_info(current_dctx)->is_valid = false;
+        get_ctx_info(next_dctx)->is_valid = true;
+        return NULL;
+    }
+    get_ctx_info(current_dctx)->is_valid = false;
+    get_ctx_info(next_dctx)->is_valid = true;
+    return next_dctx;
+}
+
+static void _switch_back_to_original_dctx(HPyContext *original_dctx, HPyContext *next_dctx) {
+    get_ctx_info(next_dctx)->is_valid = false;
+    get_ctx_info(original_dctx)->is_valid = true;
+}
+
 void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
                                               HPyFunc_Signature sig,
                                               void *func, void *args)
 {
     switch (sig) {
-    case HPyFunc_NOARGS: {
-        HPyFunc_noargs f = (HPyFunc_noargs)func;
-        _HPyFunc_args_NOARGS *a = (_HPyFunc_args_NOARGS*)args;
-        DHPy dh_self = _py2dh(dctx, a->self);
-        DHPy dh_result = f(dctx, dh_self);
-        DHPy_close_and_check(dctx, dh_self);
-        a->result = _dh2py(dctx, dh_result);
-        DHPy_close(dctx, dh_result);
-        return;
-    }
-    case HPyFunc_O: {
-        HPyFunc_o f = (HPyFunc_o)func;
-        _HPyFunc_args_O *a = (_HPyFunc_args_O*)args;
-        DHPy dh_self = _py2dh(dctx, a->self);
-        DHPy dh_arg = _py2dh(dctx, a->arg);
-        DHPy dh_result = f(dctx, dh_self, dh_arg);
-        DHPy_close_and_check(dctx, dh_self);
-        DHPy_close_and_check(dctx, dh_arg);
-        a->result = _dh2py(dctx, dh_result);
-        DHPy_close(dctx, dh_result);
-        return;
-    }
     case HPyFunc_VARARGS: {
         HPyFunc_varargs f = (HPyFunc_varargs)func;
         _HPyFunc_args_VARARGS *a = (_HPyFunc_args_VARARGS*)args;
         DHPy dh_self = _py2dh(dctx, a->self);
-        Py_ssize_t nargs = PyTuple_GET_SIZE(a->args);
-        DHPy *dh_args = (DHPy *)alloca(nargs * sizeof(DHPy));
-        for (Py_ssize_t i = 0; i < nargs; i++) {
-            dh_args[i] = _py2dh(dctx, PyTuple_GET_ITEM(a->args, i));
+        DHPy *dh_args = (DHPy *)alloca(a->nargs * sizeof(DHPy));
+        for (HPy_ssize_t i = 0; i < a->nargs; i++) {
+            dh_args[i] = _py2dh(dctx, a->args[i]);
         }
-        DHPy dh_result = f(dctx, dh_self, dh_args, nargs);
+
+        HPyContext *next_dctx = _switch_to_next_dctx_from_cache(dctx);
+        if (next_dctx == NULL) {
+            a->result = NULL;
+            return;
+        }
+
+        DHPy dh_result = f(next_dctx, dh_self, dh_args, a->nargs);
+
+        _switch_back_to_original_dctx(dctx, next_dctx);
+
         DHPy_close_and_check(dctx, dh_self);
-        for (Py_ssize_t i = 0; i < nargs; i++) {
+        for (HPy_ssize_t i = 0; i < a->nargs; i++) {
             DHPy_close_and_check(dctx, dh_args[i]);
         }
         a->result = _dh2py(dctx, dh_result);
@@ -118,18 +125,30 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
         HPyFunc_keywords f = (HPyFunc_keywords)func;
         _HPyFunc_args_KEYWORDS *a = (_HPyFunc_args_KEYWORDS*)args;
         DHPy dh_self = _py2dh(dctx, a->self);
-        Py_ssize_t nargs = PyTuple_GET_SIZE(a->args);
-        DHPy *dh_args = (DHPy *)alloca(nargs * sizeof(DHPy));
-        for (Py_ssize_t i = 0; i < nargs; i++) {
-            dh_args[i] = _py2dh(dctx, PyTuple_GET_ITEM(a->args, i));
+        size_t n_kwnames = a->kwnames != NULL ? PyTuple_GET_SIZE(a->kwnames) : 0;
+        size_t nargs = PyVectorcall_NARGS(a->nargsf);
+        size_t nargs_with_kw = nargs + n_kwnames;
+        DHPy *dh_args = (DHPy *)alloca(nargs_with_kw * sizeof(DHPy));
+        for (size_t i = 0; i < nargs_with_kw; i++) {
+            dh_args[i] = _py2dh(dctx, a->args[i]);
         }
-        DHPy dh_kw = _py2dh(dctx, a->kw);
-        DHPy dh_result = f(dctx, dh_self, dh_args, nargs, dh_kw);
+        DHPy dh_kwnames = _py2dh(dctx, a->kwnames);
+
+        HPyContext *next_dctx = _switch_to_next_dctx_from_cache(dctx);
+        if (next_dctx == NULL) {
+            a->result = NULL;
+            return;
+        }
+
+        DHPy dh_result = f(next_dctx, dh_self, dh_args, nargs, dh_kwnames);
+
+        _switch_back_to_original_dctx(dctx, next_dctx);
+
         DHPy_close_and_check(dctx, dh_self);
-        for (Py_ssize_t i = 0; i < nargs; i++) {
+        for (size_t i = 0; i < nargs_with_kw; i++) {
             DHPy_close_and_check(dctx, dh_args[i]);
         }
-        DHPy_close_and_check(dctx, dh_kw);
+        DHPy_close_and_check(dctx, dh_kwnames);
         a->result = _dh2py(dctx, dh_result);
         DHPy_close(dctx, dh_result);
         return;
@@ -144,7 +163,17 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
             dh_args[i] = _py2dh(dctx, PyTuple_GET_ITEM(a->args, i));
         }
         DHPy dh_kw = _py2dh(dctx, a->kw);
-        a->result = f(dctx, dh_self, dh_args, nargs, dh_kw);
+
+        HPyContext *next_dctx = _switch_to_next_dctx_from_cache(dctx);
+        if (next_dctx == NULL) {
+            a->result = -1;
+            return;
+        }
+
+        a->result = f(next_dctx, dh_self, dh_args, nargs, dh_kw);
+
+        _switch_back_to_original_dctx(dctx, next_dctx);
+
         DHPy_close_and_check(dctx, dh_self);
         for (Py_ssize_t i = 0; i < nargs; i++) {
             DHPy_close_and_check(dctx, dh_args[i]);
@@ -152,12 +181,52 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
         DHPy_close_and_check(dctx, dh_kw);
         return;
     }
+    case HPyFunc_NEWFUNC: {
+        HPyFunc_newfunc f = (HPyFunc_newfunc)func;
+        _HPyFunc_args_NEWFUNC *a = (_HPyFunc_args_NEWFUNC*)args;
+        DHPy dh_self = _py2dh(dctx, a->self);
+        Py_ssize_t nargs = PyTuple_GET_SIZE(a->args);
+        DHPy *dh_args = (DHPy *)alloca(nargs * sizeof(DHPy));
+        for (Py_ssize_t i = 0; i < nargs; i++) {
+            dh_args[i] = _py2dh(dctx, PyTuple_GET_ITEM(a->args, i));
+        }
+        DHPy dh_kw = _py2dh(dctx, a->kw);
+
+        HPyContext *next_dctx = _switch_to_next_dctx_from_cache(dctx);
+        if (next_dctx == NULL) {
+            a->result = NULL;
+            return;
+        }
+
+        DHPy dh_result = f(next_dctx, dh_self, dh_args, nargs, dh_kw);
+
+        _switch_back_to_original_dctx(dctx, next_dctx);
+
+        DHPy_close_and_check(dctx, dh_self);
+        for (Py_ssize_t i = 0; i < nargs; i++) {
+            DHPy_close_and_check(dctx, dh_args[i]);
+        }
+        DHPy_close_and_check(dctx, dh_kw);
+        a->result = _dh2py(dctx, dh_result);
+        DHPy_close(dctx, dh_result);
+        return;
+    }
     case HPyFunc_GETBUFFERPROC: {
         HPyFunc_getbufferproc f = (HPyFunc_getbufferproc)func;
         _HPyFunc_args_GETBUFFERPROC *a = (_HPyFunc_args_GETBUFFERPROC*)args;
         HPy_buffer hbuf;
         DHPy dh_self = _py2dh(dctx, a->self);
-        a->result = f(dctx, dh_self, &hbuf, a->flags);
+
+        HPyContext *next_dctx = _switch_to_next_dctx_from_cache(dctx);
+        if (next_dctx == NULL) {
+            a->result = -1;
+            return;
+        }
+
+        a->result = f(next_dctx, dh_self, &hbuf, a->flags);
+
+        _switch_back_to_original_dctx(dctx, next_dctx);
+
         DHPy_close_and_check(dctx, dh_self);
         if (a->result < 0) {
             a->view->obj = NULL;
@@ -173,7 +242,16 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
         HPy_buffer hbuf;
         _buffer_py2h(dctx, a->view, &hbuf);
         DHPy dh_self = _py2dh(dctx, a->self);
-        f(dctx, dh_self, &hbuf);
+
+        HPyContext *next_dctx = _switch_to_next_dctx_from_cache(dctx);
+        if (next_dctx == NULL) {
+            return;
+        }
+
+        f(next_dctx, dh_self, &hbuf);
+
+        _switch_back_to_original_dctx(dctx, next_dctx);
+
         DHPy_close_and_check(dctx, dh_self);
         // XXX: copy back from hbuf?
         HPy_Close(dctx, hbuf.obj);
@@ -182,8 +260,36 @@ void debug_ctx_CallRealFunctionFromTrampoline(HPyContext *dctx,
     case HPyFunc_TRAVERSEPROC: {
         HPyFunc_traverseproc f = (HPyFunc_traverseproc)func;
         _HPyFunc_args_TRAVERSEPROC *a = (_HPyFunc_args_TRAVERSEPROC*)args;
+
+        HPyContext *next_dctx = _switch_to_next_dctx_from_cache(dctx);
+        if (next_dctx == NULL) {
+            a->result = -1;
+            return;
+        }
+
         a->result = call_traverseproc_from_trampoline(f, a->self,
                                                       a->visit, a->arg);
+
+        _switch_back_to_original_dctx(dctx, next_dctx);
+        return;
+    }
+    case HPyFunc_CAPSULE_DESTRUCTOR: {
+        HPyFunc_Capsule_Destructor f = (HPyFunc_Capsule_Destructor)func;
+        PyObject *capsule = (PyObject *)args;
+        const char *name = PyCapsule_GetName(capsule);
+        f(name, PyCapsule_GetPointer(capsule, name),
+                PyCapsule_GetContext(capsule));
+        return;
+    }
+    case HPyFunc_MOD_CREATE: {
+        HPyFunc_unaryfunc f = (HPyFunc_unaryfunc)func;
+        _HPyFunc_args_UNARYFUNC *a = (_HPyFunc_args_UNARYFUNC*)args;
+        DHPy dh_arg0 = _py2dh(dctx, a->arg0);
+        DHPy dh_result = f(dctx, dh_arg0);
+        DHPy_close_and_check(dctx, dh_arg0);
+        a->result = _dh2py(dctx, dh_result);
+        _HPyModule_CheckCreateSlotResult(&a->result);
+        DHPy_close(dctx, dh_result);
         return;
     }
 #include "autogen_debug_ctx_call.i"

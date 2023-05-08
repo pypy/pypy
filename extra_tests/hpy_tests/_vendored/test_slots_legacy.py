@@ -1,17 +1,16 @@
 """ HPyType slot tests on legacy types. """
 
-from .support import HPyTest
+from .support import HPyTest, make_hpy_abi_fixture
 from .test_hpytype_legacy import LegacyPointTemplate
 from .test_slots import TestSlots as _TestSlots, TestSqSlots as _TestSqSlots
 
+hpy_abi = make_hpy_abi_fixture('with hybrid')
 
 class TestLegacySlots(_TestSlots):
-
     ExtensionTemplate = LegacyPointTemplate
 
 
 class TestLegacySqSlots(_TestSqSlots):
-
     ExtensionTemplate = LegacyPointTemplate
 
 
@@ -31,7 +30,7 @@ class TestCustomLegacySlotsFeatures(HPyTest):
                 return Py_BuildValue("OO", self, other);
             }
 
-            HPyDef_SLOT(Dummy_abs, Dummy_abs_impl, HPy_nb_absolute);
+            HPyDef_SLOT(Dummy_abs, HPy_nb_absolute);
             static HPy Dummy_abs_impl(HPyContext *ctx, HPy self)
             {
                 return HPyLong_FromLong(ctx, 1234);
@@ -48,7 +47,7 @@ class TestCustomLegacySlotsFeatures(HPyTest):
             };
             static HPyType_Spec Dummy_spec = {
                 .name = "mytest.Dummy",
-                .legacy = true,
+                .builtin_shape = HPyType_BuiltinShape_Legacy,
                 .legacy_slots = Dummy_type_slots,
                 .defines = Dummy_defines
             };
@@ -71,7 +70,7 @@ class TestCustomLegacySlotsFeatures(HPyTest):
                 return arg;
             }
 
-            HPyDef_METH(Dummy_bar, "bar", Dummy_bar_impl, HPyFunc_NOARGS)
+            HPyDef_METH(Dummy_bar, "bar", HPyFunc_NOARGS)
             static HPy Dummy_bar_impl(HPyContext *ctx, HPy self)
             {
                 return HPyLong_FromLong(ctx, 1234);
@@ -94,7 +93,7 @@ class TestCustomLegacySlotsFeatures(HPyTest):
 
             static HPyType_Spec dummy_type_spec = {
                 .name = "mytest.Dummy",
-                .legacy = true,
+                .builtin_shape = HPyType_BuiltinShape_Legacy,
                 .legacy_slots = dummy_type_slots,
                 .defines = dummy_type_defines
             };
@@ -118,8 +117,8 @@ class TestCustomLegacySlotsFeatures(HPyTest):
                 long y;
             } PointObject;
 
-            HPyDef_SLOT(Point_new, Point_new_impl, HPy_tp_new)
-            static HPy Point_new_impl(HPyContext *ctx, HPy cls, HPy *args,
+            HPyDef_SLOT(Point_new, HPy_tp_new)
+            static HPy Point_new_impl(HPyContext *ctx, HPy cls, const HPy *args,
                                       HPy_ssize_t nargs, HPy kw)
             {
                 PointObject *point;
@@ -153,7 +152,7 @@ class TestCustomLegacySlotsFeatures(HPyTest):
             static HPyType_Spec Point_spec = {
                 .name = "mytest.Point",
                 .basicsize = sizeof(PointObject),
-                .legacy = true,
+                .builtin_shape = HPyType_BuiltinShape_Legacy,
                 .legacy_slots = legacy_slots,
                 .defines = Point_defines
             };
@@ -182,8 +181,8 @@ class TestCustomLegacySlotsFeatures(HPyTest):
                 long y;
             } PointObject;
 
-            HPyDef_SLOT(Point_new, Point_new_impl, HPy_tp_new)
-            static HPy Point_new_impl(HPyContext *ctx, HPy cls, HPy *args,
+            HPyDef_SLOT(Point_new, HPy_tp_new)
+            static HPy Point_new_impl(HPyContext *ctx, HPy cls, const HPy *args,
                                       HPy_ssize_t nargs, HPy kw)
             {
                 PointObject *point;
@@ -219,7 +218,7 @@ class TestCustomLegacySlotsFeatures(HPyTest):
             static HPyType_Spec Point_spec = {
                 .name = "mytest.Point",
                 .basicsize = sizeof(PointObject),
-                .legacy = true,
+                .builtin_shape = HPyType_BuiltinShape_Legacy,
                 .legacy_slots = legacy_slots,
                 .defines = Point_defines
             };
@@ -253,7 +252,7 @@ class TestCustomLegacySlotsFeatures(HPyTest):
 
             static HPyType_Spec dummy_type_spec = {
                 .name = "mytest.Dummy",
-                .legacy = false,
+                .builtin_shape = HPyType_BuiltinShape_Object,
                 .legacy_slots = dummy_type_slots,
             };
 
@@ -263,4 +262,4 @@ class TestCustomLegacySlotsFeatures(HPyTest):
         with pytest.raises(TypeError) as err:
             self.make_module(mod_src)
         assert str(err.value) == (
-            "cannot specify .legacy_slots without setting .legacy=true")
+            "cannot specify .legacy_slots without setting .builtin_shape=HPyType_BuiltinShape_Legacy")
