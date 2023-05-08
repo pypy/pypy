@@ -2352,7 +2352,7 @@ class MetaInterp(object):
                     (jitcode.jitdriver_sd, None, self.history.get_trace_position()))
         # we save the freed MIFrames to avoid needing to re-create new
         # MIFrame objects all the time; they are a bit big, with their
-        # 3*256 register entries.
+        # up to 3*256 register entries.
         frame.cleanup_registers()
         self.free_frames_list.append(frame)
 
