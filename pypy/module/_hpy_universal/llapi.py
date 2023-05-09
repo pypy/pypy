@@ -81,10 +81,22 @@ typedef struct _HPyGlobal_s {
 } _struct_HPyGlobal_s;
 typedef HPy_ssize_t HPyGlobal;
 
+typedef enum {
+    HPyType_BuiltinShape_Legacy = -1,
+    HPyType_BuiltinShape_Object = 0,
+    HPyType_BuiltinShape_Type = 1,
+    HPyType_BuiltinShape_Long = 2,
+    HPyType_BuiltinShape_Float = 3,
+    HPyType_BuiltinShape_Unicode = 4,
+    HPyType_BuiltinShape_Tuple = 5,
+    HPyType_BuiltinShape_List = 6,
+} HPyType_BuiltinShape;
+
+// sync with hpy/devel/include/hpy/universal/autogen.h
 typedef struct _HPyContext_s {
     const char *name; // used just to make debugging and testing easier
     void *_private;   // used by implementations to store custom data
-    int ctx_version;
+    int abi_version;
     struct _HPy_s h_None;
     struct _HPy_s h_True;
     struct _HPy_s h_False;
@@ -162,21 +174,20 @@ typedef struct _HPyContext_s {
     struct _HPy_s h_UnicodeType;
     struct _HPy_s h_TupleType;
     struct _HPy_s h_ListType;
-    void * ctx_Module_Create;
     void * ctx_Dup;
     void * ctx_Close;
-    void * ctx_Long_FromLong;
-    void * ctx_Long_FromUnsignedLong;
-    void * ctx_Long_FromLongLong;
-    void * ctx_Long_FromUnsignedLongLong;
+    void * ctx_Long_FromInt32_t;
+    void * ctx_Long_FromUInt32_t;
+    void * ctx_Long_FromInt64_t;
+    void * ctx_Long_FromUInt64_t;
     void * ctx_Long_FromSize_t;
     void * ctx_Long_FromSsize_t;
-    void * ctx_Long_AsLong;
-    void * ctx_Long_AsUnsignedLong;
-    void * ctx_Long_AsUnsignedLongMask;
-    void * ctx_Long_AsLongLong;
-    void * ctx_Long_AsUnsignedLongLong;
-    void * ctx_Long_AsUnsignedLongLongMask;
+    void * ctx_Long_AsInt32_t;
+    void * ctx_Long_AsUInt32_t;
+    void * ctx_Long_AsUInt32_tMask;
+    void * ctx_Long_AsInt64_t;
+    void * ctx_Long_AsUInt64_t;
+    void * ctx_Long_AsUUInt64_tMask;
     void * ctx_Long_AsSize_t;
     void * ctx_Long_AsSsize_t;
     void * ctx_Long_AsVoidPtr;
@@ -314,6 +325,41 @@ typedef struct _HPyContext_s {
     void * ctx_Global_Store;
     void * ctx_Global_Load;
     void * ctx_Dump;
+    void * ctx_AsStruct_Type;
+    void * ctx_AsStruct_Long;
+    void * ctx_AsStruct_Float;
+    void * ctx_AsStruct_Unicode;
+    void * ctx_AsStruct_Tuple;
+    void * ctx_AsStruct_List;
+    HPyType_BuiltinShape ctx_Type_GetBuiltinShape;
+    int ctx_DelItem;
+    int ctx_DelItem_i;
+    int ctx_DelItem_s;
+    HPy h_ComplexType;
+    HPy h_BytesType;
+    HPy h_MemoryViewType;
+    HPy h_CapsuleType;
+    HPy h_SliceType;
+    HPy h_Builtins;
+    HPy * ctx_Capsule_New;
+    void * ctx_Capsule_Get;
+    int ctx_Capsule_IsValid;
+    int ctx_Capsule_Set;
+    HPy ctx_Compile_s;
+    HPy ctx_EvalCode;
+    HPy ctx_ContextVar_New;
+    short ctx_ContextVar_Get;
+    HPy ctx_ContextVar_Set;
+    const char *ctx_Type_GetName;
+    int ctx_Type_IsSubtype;
+    HPy ctx_Unicode_FromEncodedObject;
+    HPy ctx_Unicode_Substring;
+    HPy ctx_Dict_Keys;
+    HPy ctx_Dict_Copy;
+    int ctx_Slice_Unpack;
+    int ctx_SetCallFunction;
+    HPy ctx_Call;
+    HPy ctx_CallMethod;
 } _struct_HPyContext_s;
 
 
