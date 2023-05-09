@@ -34,7 +34,11 @@ class TestExtra(HPyTest):
         import pytest
         with pytest.raises(RuntimeError):
             self.make_module("""
-                HPy_MODINIT(test)
+                static HPyModuleDef moduledef = {
+                    .doc = "hpymod with HPy ABI: " HPY_ABI,
+                };
+
+                HPy_MODINIT(test, moduledef)
                 static HPy init_test_impl(HPyContext *ctx)
                 {
                     HPyErr_SetString(ctx, ctx->h_RuntimeError, "foo");
@@ -46,7 +50,11 @@ class TestExtra(HPyTest):
         import pytest
         with pytest.raises(SystemError):
             self.make_module("""
-                HPy_MODINIT(test)
+                static HPyModuleDef moduledef = {
+                    .doc = "hpymod with HPy ABI: " HPY_ABI,
+                };
+
+                HPy_MODINIT(test, moduledef)
                 static HPy init_test_impl(HPyContext *ctx)
                 {
                     return HPy_NULL;
