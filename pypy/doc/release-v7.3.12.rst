@@ -165,9 +165,12 @@ Speedups and enhancements
 - Increment ``macosx-version-min`` to 10.9
 - ``space.newlong`` returns a ``W_LongObject`` on pypy3, where there is no
   observable applevel difference between ``W_IntObject`` and ``W_LongObject``
+- Provide ``_PyEval_GetAsyncGenFirstiter`` and ``_PyEval_GetAsyncGenFinalizer``
+  for use by cython, towards fixing issue 3280_
 
 .. _bpo-37648: https://bugs.python.org/issue37648
 .. _GH-100242: https://github.com/python/cpython/issues/100242
+.. _3280: https://foss.heptapod.net/pypy/pypy/-/issues/3280
 .. _3520: https://foss.heptapod.net/pypy/pypy/-/issues/3520
 .. _3834: https://foss.heptapod.net/pypy/pypy/-/issues/3834
 .. _3874: https://foss.heptapod.net/pypy/pypy/-/issues/3874
