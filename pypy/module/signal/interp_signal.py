@@ -11,7 +11,7 @@ from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
     PeriodicAsyncAction)
 from pypy.interpreter.gateway import unwrap_spec
 
-from rpython.rlib import jit, rgc, rposix, rposix_stat
+from rpython.rlib import jit, rgc, rposix, rposix_stat, rthread
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.rsignal import *
@@ -391,7 +391,7 @@ def getitimer(space, which):
 @unwrap_spec(tid=int, signum=int)
 def pthread_kill(space, tid, signum):
     "Send a signal to a thread."
-    ret = c_pthread_kill(tid, signum)
+    ret = rthread.c_pthread_kill(tid, signum)
     if widen(ret) < 0:
         raise exception_from_saved_errno(space, space.w_OSError)
     # the signal may have been send to the current thread

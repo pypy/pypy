@@ -110,7 +110,7 @@ def create_module_from_def_and_spec(space, moddef, w_spec, name):
             slot = rffi.cast(lltype.Signed, cur_slot[0].c_slot)
             if slot == 0:
                 break
-            elif slot == 1:
+            elif slot == 1: # Py_mod_create
                 if createf:
                     raise oefmt(space.w_SystemError,
                                 "module %s has multiple create slots", name)
@@ -160,7 +160,7 @@ def exec_def(space, mod, moddef):
             rffi.VOIDP.TO, moddef.c_m_size, flavor='raw', zero=True)
     pyobj = rffi.cast(PyObject, mod)
     while cur_slot and rffi.cast(lltype.Signed, cur_slot[0].c_slot):
-        if rffi.cast(lltype.Signed, cur_slot[0].c_slot) == 2:
+        if rffi.cast(lltype.Signed, cur_slot[0].c_slot) == 2:  # Py_mod_exec
             execf = rffi.cast(execfunctype, cur_slot[0].c_value)
             res = generic_cpy_call_dont_convert_result(space, execf, pyobj)
             state = space.fromcache(State)
