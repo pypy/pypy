@@ -43,8 +43,8 @@ Contributors
   Seo Sanghyeon
   Romain Guillebert
   Ronny Pfannschmidt
-  Justin Peel
   Yusuke Izawa
+  Justin Peel
   Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
@@ -234,6 +234,7 @@ Contributors
   Arianna Avanzini
   Matt Billenstein
   Sebastian Berg
+  Tim Matussek
   Jacek Generowicz
   Sylvain Thenault
   Alejandro J. Cura
