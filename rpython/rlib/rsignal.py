@@ -109,9 +109,6 @@ if sys.platform != 'win32':
                            save_err=rffi.RFFI_SAVE_ERRNO)
     c_getitimer = external('getitimer', [rffi.INT, itimervalP], rffi.INT)
 
-c_pthread_kill = external('pthread_kill', [lltype.Signed, rffi.INT], rffi.INT,
-                          save_err=rffi.RFFI_SAVE_ERRNO)
-
 if sys.platform != 'win32':
     c_strsignal = external('strsignal', [rffi.INT], rffi.CCHARP)
     def strsignal(signum):
