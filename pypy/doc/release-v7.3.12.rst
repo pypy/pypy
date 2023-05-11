@@ -12,8 +12,8 @@ PyPy v7.3.12: release of python 2.7, 3.9, and 3.10
 .. _`PyPy blog`: https://pypy.org/blog
 
 The PyPy team is proud to release version 7.3.12 of PyPy. 
-XXX Need some highlights? Maybe mention that I would be happy for someone else
-to become release manager?
+There are only minimal bugfixes since the last release. We did implement
+support for symlinks in Windows, and are releasing a Python3.10 version.
 The release includes three different interpreters:
 
   - PyPy2.7, which is an interpreter supporting the syntax and the features of
@@ -48,7 +48,7 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: bug fixes,
 `PyPy`_ and `RPython`_ documentation improvements, or general `help`_ with making
 RPython's JIT even better. Since the previous release, we have accepted
-contributions from XXXX new contributor, thanks for pitching in, and welcome
+contributions from one new contributor, thanks for pitching in, and welcome
 to the project!
 
 If you are a python library maintainer and use C-extensions, please consider
