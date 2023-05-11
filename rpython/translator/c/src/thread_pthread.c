@@ -225,7 +225,11 @@ RPyThread_get_thread_native_id(void)
     return (unsigned long) native_id;
 }
 
-
+int
+RPyThread_kill(Signed id, int signal)
+{
+    return pthread_kill((pthread_t)id, signal);
+}
 
 /************************************************************/
 #ifdef USE_SEMAPHORES

@@ -12,8 +12,8 @@ PyPy v7.3.12: release of python 2.7, 3.9, and 3.10
 .. _`PyPy blog`: https://pypy.org/blog
 
 The PyPy team is proud to release version 7.3.12 of PyPy. 
-XXX Need some highlights? Maybe mention that I would be happy for someone else
-to become release manager?
+There are only minimal bugfixes since the last release. We did implement
+support for symlinks in Windows, and are releasing a Python3.10 version.
 The release includes three different interpreters:
 
   - PyPy2.7, which is an interpreter supporting the syntax and the features of
@@ -24,7 +24,7 @@ The release includes three different interpreters:
     Python 3.9, including the stdlib for CPython 3.9.16.
 
   - PyPy3.10, which is an interpreter supporting the syntax and the features of
-    Python 3.10, including the stdlib for CPython 3.10.16. This is our first
+    Python 3.10, including the stdlib for CPython 3.10.9. This is our first
     release of 3.10, but based on past experience we are quite confident in
     its compatibility with upstream. Of course, we recommend testing your code
     with this new version before putting it into production. Note it does
@@ -48,7 +48,7 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: bug fixes,
 `PyPy`_ and `RPython`_ documentation improvements, or general `help`_ with making
 RPython's JIT even better. Since the previous release, we have accepted
-contributions from XXXX new contributor, thanks for pitching in, and welcome
+contributions from one new contributor, thanks for pitching in, and welcome
 to the project!
 
 If you are a python library maintainer and use C-extensions, please consider
@@ -165,9 +165,12 @@ Speedups and enhancements
 - Increment ``macosx-version-min`` to 10.9
 - ``space.newlong`` returns a ``W_LongObject`` on pypy3, where there is no
   observable applevel difference between ``W_IntObject`` and ``W_LongObject``
+- Provide ``_PyEval_GetAsyncGenFirstiter`` and ``_PyEval_GetAsyncGenFinalizer``
+  for use by cython, towards fixing issue 3280_
 
 .. _bpo-37648: https://bugs.python.org/issue37648
 .. _GH-100242: https://github.com/python/cpython/issues/100242
+.. _3280: https://foss.heptapod.net/pypy/pypy/-/issues/3280
 .. _3520: https://foss.heptapod.net/pypy/pypy/-/issues/3520
 .. _3834: https://foss.heptapod.net/pypy/pypy/-/issues/3834
 .. _3874: https://foss.heptapod.net/pypy/pypy/-/issues/3874
