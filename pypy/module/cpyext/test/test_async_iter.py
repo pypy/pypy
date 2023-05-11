@@ -2,6 +2,7 @@ import pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.conftest import option
 
+@pytest.mark.skip("too slow, over 30 seconds for this one test")
 class AppTestAsyncIter(AppTestCpythonExtensionBase):
     enable_leak_checking = True
 

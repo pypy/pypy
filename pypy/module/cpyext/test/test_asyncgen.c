@@ -7309,6 +7309,10 @@ __Pyx_async_gen_repr(__pyx_CoroutineObject *o)
                                 o->gi_qualname ? o->gi_qualname : Py_None, o);
 }
 #if PY_VERSION_HEX >= 0x030600B0
+
+extern PyObject* _PyEval_GetAsyncGenFirstiter(void);
+extern PyObject* _PyEval_GetAsyncGenFinalizer(void);
+
 static int
 __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)
 {
@@ -7320,12 +7324,12 @@ __Pyx_async_gen_init_hooks(__pyx_PyAsyncGenObject *o)
     }
     o->ag_hooks_inited = 1;
     tstate = __Pyx_PyThreadState_Current;
-    finalizer = tstate->async_gen_finalizer;
+    finalizer = _PyEval_GetAsyncGenFinalizer();
     if (finalizer) {
         Py_INCREF(finalizer);
         o->ag_finalizer = finalizer;
     }
-    firstiter = tstate->async_gen_firstiter;
+    firstiter = _PyEval_GetAsyncGenFirstiter();
     if (firstiter) {
         PyObject *res;
 #if CYTHON_UNPACK_METHODS
