@@ -313,3 +313,15 @@ def Py_LeaveRecursiveCall(space):
     # A NOP in PyPy
     if not we_are_translated():
         limit = 0
+
+@cpython_api([], PyObject, result_borrowed=True)
+def _PyEval_GetAsyncGenFirstiter(space):
+    # sys.get_asyncgen_hooks().firstiter
+    ec = space.getexecutioncontext()
+    return ec.w_asyncgen_firstiter_fn
+
+@cpython_api([], PyObject, result_borrowed=True)
+def _PyEval_GetAsyncGenFinalizer(space):
+    # sys.get_asyncgen_hooks().finalizer
+    ec = space.getexecutioncontext()
+    return ec.w_asyncgen_finalizer_fn
