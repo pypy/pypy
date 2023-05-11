@@ -2378,7 +2378,6 @@ def ttyname(space, fd):
 
 
 def confname_w(space, w_name, namespace):
-    # XXX slightly non-nice, reuses the sysconf of the underlying os module
     if space.isinstance_w(w_name, space.w_unicode):
         try:
             num = namespace[space.text_w(w_name)]
@@ -2401,7 +2400,7 @@ def sysconf_names():
 
 @unwrap_spec(fd=c_int)
 def fpathconf(space, fd, w_name):
-    num = confname_w(space, w_name, os.pathconf_names)
+    num = confname_w(space, w_name, rposix.pathconf_names)
     try:
         res = os.fpathconf(fd, num)
     except OSError as e:

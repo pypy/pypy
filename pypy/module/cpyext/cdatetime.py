@@ -206,11 +206,11 @@ def type_dealloc(space, py_obj):
 def timedeltatype_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated py_obj from the w_obj"
     py_delta = rffi.cast(PyDateTime_Delta, py_obj)
-    days = space.int_w(space.getattr(w_obj, space.newtext('days')))
+    days = space.int_w(space.getattr(w_obj, space.newtext('_days')))
     py_delta.c_days = cts.cast('int', days)
-    seconds = space.int_w(space.getattr(w_obj, space.newtext('seconds')))
+    seconds = space.int_w(space.getattr(w_obj, space.newtext('_seconds')))
     py_delta.c_seconds = cts.cast('int', seconds)
-    microseconds = space.int_w(space.getattr(w_obj, space.newtext('microseconds')))
+    microseconds = space.int_w(space.getattr(w_obj, space.newtext('_microseconds')))
     py_delta.c_microseconds = cts.cast('int', microseconds)
 
 # Constructors. They are better used as macros.

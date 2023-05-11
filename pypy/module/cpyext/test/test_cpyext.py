@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext import api
-from pypy.module.cpyext.api import cts, create_extension_module
+from pypy.module.cpyext.api import cts, create_extension_module, exec_extension_module
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.state import State
 from rpython.tool import leakfinder
@@ -63,6 +63,7 @@ class SpaceCompiler(SystemCompilationInfo):
                 return FakeSpec
             ''')
             w_mod = create_extension_module(space, w_spec)
+            exec_extension_module(space, w_mod)
             return w_mod
 
 
