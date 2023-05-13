@@ -223,9 +223,8 @@ def test_getaddrinfo_ipv6(space, w_socket):
     w_tup2 = space.getitem(w_tup, space.newint(4))
     w_canon = space.getitem(w_tup2, space.newint(0))
     canon_name = space.text_w(w_canon)
-    # Includes the scope ID, CPython removes it
-    # See issue 3628
-    assert '%' in canon_name
+    # Make sure the scope ID (the `%1` part) is removed (issue 3628, 3938)
+    assert '%' not in canon_name
 
 @pytest.mark.skipif("not hasattr(socket, 'sethostname')")
 def test_sethostname(space, w_socket):
