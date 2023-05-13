@@ -460,6 +460,8 @@ class AppTestSocket:
             s.connect(("www.python.org", 80))
         except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
+        except ConnectionRefusedError as ex:
+            skip("Connection Refused - probably no connection: %s" % str(ex.args))
         name = s.getpeername() # Will raise socket.error if not connected
         assert name[1] == 80
         s.close()
@@ -675,6 +677,8 @@ class AppTestSocket:
             s.connect(("www.python.org", 80))
         except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
+        except ConnectionRefusedError as ex:
+            skip("Connection Refused - probably no connection: %s" % str(ex.args))
         exc = raises(TypeError, s.send, None)
         assert str(exc.value).startswith("a bytes-like object is required,")
         assert s.send(memoryview(b'')) == 0
@@ -798,11 +802,17 @@ class AppTestSocket:
     def test_hostname_unicode(self):
         import _socket
         domain = u"испытание.pythontest.net"
-        _socket.gethostbyname(domain)
-        _socket.gethostbyname_ex(domain)
-        _socket.getaddrinfo(domain, 0, _socket.AF_UNSPEC, _socket.SOCK_STREAM)
+        try:
+            _socket.gethostbyname(domain)
+            _socket.gethostbyname_ex(domain)
+            _socket.getaddrinfo(domain, 0, _socket.AF_UNSPEC, _socket.SOCK_STREAM)
+        except _socket.gaierror as ex:
+            skip("GAIError - probably no connection: %s" % str(ex.args))
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-        s.connect((domain, 80))
+        try:
+            s.connect((domain, 80))
+        except ConnectionRefusedError as ex:
+            skip("Connection Refused - probably no connection: %s" % str(ex.args))
         s.close()
         raises(TypeError, s.connect, (domain + '\x00', 80))
 
