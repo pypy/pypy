@@ -35,3 +35,31 @@ class AppTestAsyncIter(AppTestCpythonExtensionBase):
         assert result == [123, 456, 789]
 
 
+    def test_async_gen_exception_04(self):
+        """module is this code after running through cython
+            ZERO = 0
+
+            async def gen():
+                yield 123
+                1 / ZERO
+
+            def test_last_yield(g):
+                ai = g.__aiter__()
+                an = ai.__anext__()
+                try:
+                    next(an) 
+                except StopIteration as ex:
+                    return ex.args
+                else:
+                    return None 
+             
+        """
+        module = self.import_module(name='test_async_gen_exception_04')
+        g = module.gen()
+        # This fails, When written in pure-python it passes.I think the problem
+        # is that PyErr_Fetch(), which calls state.clear_exception(), which
+        # calls stat.get_execution_context(), does not properly fill the
+        # `value` properly for async errors
+        result = module.test_last_yield(g)
+        assert result == 123 
+""
