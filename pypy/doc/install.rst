@@ -2,7 +2,7 @@ Downloading and Installing PyPy
 ===============================
 
 Just like CPython, you need a base interpreter environment and then can install
-extra packages. The choices for a base interpreter are:
+extra packages. The choices for installing the base interpreter are:
 
 - Use conda (x86_64 windows, macOS, linux, arm64 linux)
 - Use your distribution package manager (linux)
