@@ -1157,6 +1157,8 @@ class AppTestArray(object):
         a = self.array('i', [1, 2, 3, 4, 5, 6])
         length = len(a[:X():2])
         assert length == 0
+        # make sure array.__del__ is called before the leak check
+        import gc; gc.collect()
 
 class AppTestArrayReconstructor:
     spaceconfig = dict(usemodules=('array', 'struct'))
