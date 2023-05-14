@@ -4592,12 +4592,14 @@ static CYTHON_INLINE PyObject *__Pyx_PyIter_Next2(PyObject* iterator, PyObject* 
     PyObject* next;
     iternextfunc iternext = Py_TYPE(iterator)->tp_iternext;
     if (likely(iternext)) {
-#if CYTHON_USE_TYPE_SLOTS
+#if 1 || CYTHON_USE_TYPE_SLOTS
         next = iternext(iterator);
         if (likely(next))
             return next;
+#ifndef PYPY_VERSION
         if (unlikely(iternext == &_PyObject_NextNotImplemented))
             return NULL;
+#endif
 #else
         next = PyIter_Next(iterator);
         if (likely(next))

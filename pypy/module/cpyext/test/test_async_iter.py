@@ -2,7 +2,6 @@ import pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.conftest import option
 
-@pytest.mark.skip("too slow, over 30 seconds for this one test")
 class AppTestAsyncIter(AppTestCpythonExtensionBase):
     enable_leak_checking = True
 
@@ -56,10 +55,6 @@ class AppTestAsyncIter(AppTestCpythonExtensionBase):
         """
         module = self.import_module(name='test_async_gen_exception_04')
         g = module.gen()
-        # This fails, When written in pure-python it passes.I think the problem
-        # is that PyErr_Fetch(), which calls state.clear_exception(), which
-        # calls stat.get_execution_context(), does not properly fill the
-        # `value` properly for async errors
         result = module.test_last_yield(g)
         assert result == 123 
 ""
