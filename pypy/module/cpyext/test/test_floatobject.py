@@ -192,7 +192,7 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
                  return PyFloat_FromDouble(Py_NAN);
              """),
             ])
-        if '__pypy__' not in sys.builtin_module_names:
+        if sys.platform == 'win32':
             # CPython does not enforce bit-compatibility between the NANs
             import math
             assert math.isnan(module.test())
