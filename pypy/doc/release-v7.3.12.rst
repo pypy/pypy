@@ -180,5 +180,6 @@ Speedups and enhancements
 .. _3887: https://foss.heptapod.net/pypy/pypy/-/issues/3887
 .. _3890: https://foss.heptapod.net/pypy/pypy/-/issues/3890
 .. _3892: https://foss.heptapod.net/pypy/pypy/-/issues/3892
+.. _3906: https://foss.heptapod.net/pypy/pypy/-/issues/3906
 .. _3917: https://foss.heptapod.net/pypy/pypy/-/issues/3917
 .. _3925: https://foss.heptapod.net/pypy/pypy/-/issues/3925
