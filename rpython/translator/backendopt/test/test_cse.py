@@ -256,3 +256,8 @@ class TestCSE(object):
                 x = Sub()
             return x.f() + x.f()
         self.check(f, [int], getfield=2)
+
+    def test_int_simplification(self):
+        def f(a, b):
+            return 1 * (0 + ((a + 0) - 0) * 1) + (b & 0) + (0 & b) + ((0 | b) - (b | 0))
+        self.check(f, [int, int], int_add=0, int_sub=0, int_mul=0, int_and=0, int_or=0)

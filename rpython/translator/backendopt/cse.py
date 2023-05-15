@@ -1,6 +1,6 @@
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.flowspace.model import mkentrymap, Variable
+from rpython.flowspace.model import mkentrymap, Variable, Constant
 from rpython.translator.backendopt import removenoops
 from rpython.translator import simplify
 
@@ -85,9 +85,49 @@ class Cache(object):
             return var
         return self.variable_families.find_rep(var)
 
+    def is_const(self, arg, val):
+        arg = self._var_rep(arg)
+        return isinstance(arg, Constant) and arg == Constant(val, arg.concretetype)
+
     def cse_block(self, block, inputlink):
         number_same_as = 0
         for op in block.operations:
+            # do a bunch of arithmetic rewrites
+            if op.opname == "int_add":
+                if self.is_const(op.args[0], 0):
+                    self._replace_with(op, op.args[1])
+                    continue
+                if self.is_const(op.args[1], 0):
+                    self._replace_with(op, op.args[0])
+                    continue
+            elif op.opname == "int_mul":
+                if self.is_const(op.args[0], 1):
+                    self._replace_with(op, op.args[1])
+                    continue
+                if self.is_const(op.args[1], 1):
+                    self._replace_with(op, op.args[0])
+                    continue
+            elif op.opname == "int_sub":
+                if self.is_const(op.args[1], 0):
+                    self._replace_with(op, op.args[0])
+                    continue
+                if self._var_rep(op.args[0]) == self._var_rep(op.args[1]):
+                    self._replace_with(op, Constant(0, op.result.concretetype))
+            elif op.opname == "int_and":
+                if self.is_const(op.args[0], 0):
+                    self._replace_with(op, op.args[0])
+                    continue
+                if self.is_const(op.args[1], 0):
+                    self._replace_with(op, op.args[1])
+                    continue
+            elif op.opname == "int_or":
+                if self.is_const(op.args[0], 0):
+                    self._replace_with(op, op.args[1])
+                    continue
+                if self.is_const(op.args[1], 0):
+                    self._replace_with(op, op.args[0])
+                    continue
+
             if op.opname == "cast_pointer":
                 # cast_pointer is a pretty strange operation! it introduces
                 # more aliases, that confuse the CSE pass. Therefore we unify
@@ -95,6 +135,7 @@ class Cache(object):
                 # folding.
                 self.variable_families.union(op.args[0], op.result)
                 # don't do anything further
+                continue
             elif can_fold(op):
                 key = (op.opname, op.result.concretetype,
                        tuple([self._var_rep(arg) for arg in op.args]))
@@ -118,7 +159,7 @@ class Cache(object):
                 field = op.args[1].value
                 if op.args[0].concretetype.TO._immutable_field(field):
                     # it's an initializing store
-                    key = ('getfield', op.result.concretetype,
+                    key = ('getfield', op.args[2].concretetype,
                            (self._var_rep(op.args[0]), self._var_rep(op.args[1])))
                     self.purecache[key] = op.args[2]
                 else:
