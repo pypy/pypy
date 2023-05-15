@@ -277,8 +277,8 @@ class Function(W_Root):
         code = self.code
         if isinstance(code, BuiltinCode):
             new_inst = mod.get('builtin_function')
-            return space.newtuple([new_inst,
-                                   space.newtuple([space.newtext(code.identifier)])])
+            return space.newtuple2(new_inst,
+                                   space.newtuple([space.newtext(code.identifier)]))
 
         new_inst = mod.get('func_new')
         if self.closure is None:
@@ -635,7 +635,7 @@ class Method(W_Root):
             tup = [self.w_function, w_instance]
         else:
             tup = [self.w_function, w_instance, self.w_class]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple2(new_inst, space.newtuple(tup))
 
 
 class StaticMethod(W_Root):

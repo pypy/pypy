@@ -240,6 +240,8 @@ class CallControl(object):
             funcobj = op.args[0].value._obj
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
                 "%r in %s: getcalldescr() with a non-default call ABI" % (op, calling_graph))
+            assert getattr(funcobj, 'natural_arity', -1) == -1, (
+                "JIT backend does not support natural_arity calls, please wrap it in a helper")
             func = getattr(funcobj, '_callable', None)
             elidable = getattr(func, "_elidable_function_", False)
             loopinvariant = getattr(func, "_jit_loop_invariant_", False)
@@ -248,8 +250,11 @@ class CallControl(object):
                                            "loop-invariant function!")
             if getattr(func, "_call_aroundstate_target_", None):
                 tgt_func, tgt_saveerr = func._call_aroundstate_target_
+                assert getattr(tgt_func._obj, 'natural_arity', -1) == -1, (
+                    "JIT backend does not support natural_arity calls, please wrap it in a helper")
                 tgt_func = llmemory.cast_ptr_to_adr(tgt_func)
                 call_release_gil_target = (tgt_func, tgt_saveerr)
+            
         elif op.opname == 'indirect_call':
             # check that we're not trying to call indirectly some
             # function with the special flags

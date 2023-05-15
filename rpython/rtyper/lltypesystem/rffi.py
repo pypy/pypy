@@ -168,6 +168,7 @@ def llexternal(name, args, result, _callable=None,
                                  random_effects_on_gcobjs=
                                      random_effects_on_gcobjs,
                                  calling_conv=calling_conv,
+                                 natural_arity=natural_arity,
                                  **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
@@ -221,8 +222,9 @@ def llexternal(name, args, result, _callable=None,
         #
         # '_call_aroundstate_target_' is used by the JIT to generate a
         # CALL_RELEASE_GIL directly to 'funcptr'.  This doesn't work if
-        # 'funcptr' might be a C macro, though.
-        if macro is None:
+        # 'funcptr' might be a C macro, though. We also can't do variadic
+        # calls
+        if macro is None and natural_arity == -1:
             call_external_function._call_aroundstate_target_ = funcptr, save_err
         #
         call_external_function = func_with_new_name(call_external_function,
@@ -234,6 +236,7 @@ def llexternal(name, args, result, _callable=None,
         # the low-level function pointer carelessly
         # ...well, unless it's a macro, in which case we still have
         # to hide it from the JIT...
+
         need_wrapper = (macro is not None or save_err != RFFI_ERR_NONE)
         # ...and unless we're on Windows and the calling convention is
         # 'win' or 'unknown'
@@ -1064,11 +1067,11 @@ def constcharpsize2str(cp, size):
     return charpsize2str(cp, size)
 constcharpsize2str._annenforceargs_ = [lltype.SomePtr(CONST_CCHARP), int]
 
-def str2constcharp(s):
+def str2constcharp(s, track_allocation=True):
     """
     Like str2charp, but returns a CONST_CCHARP instead
     """
-    cp = str2charp(s)
+    cp = str2charp(s, track_allocation)
     return cast(CONST_CCHARP, cp)
 str2constcharp._annenforceargs_ = [str]
 
@@ -1127,6 +1130,8 @@ def wcharp2utf8n(w, maxlen):
 
 def utf82wcharp(utf8, utf8len, track_allocation=True):
     from rpython.rlib import rutf8
+    if not we_are_translated():
+        assert utf8len == rutf8.codepoints_in_utf8(utf8)
 
     if track_allocation:
         w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=True)
@@ -1139,6 +1144,32 @@ def utf82wcharp(utf8, utf8len, track_allocation=True):
     w[index] = unichr(0)
     return w
 utf82wcharp._annenforceargs_ = [str, int, bool]
+
+def utf82wcharp_ex(utf8, unilen, track_allocation=True):
+    from rpython.rlib import rutf8
+    # slightly different than utf82wcharp for sizeof(wchar_t) == 2 and
+    # maxunicode==0x10ffff. Very similar to utf8_encode_utf_16_helper
+    # but allocates a buffer, and no error handler. Passes surrogates through.
+    wlen = 0
+    for ch in rutf8.Utf8StringIterator(utf8):
+        if ch > 0xffff:
+            wlen += 1
+        wlen += 1
+    w = lltype.malloc(CWCHARP.TO, wlen + 1, flavor='raw',
+                      track_allocation=track_allocation)
+    index = 0
+    for ch in rutf8.Utf8StringIterator(utf8):
+        if ch > 0xffff:
+            w[index] = unichr(0xD800 | ((ch - 0x10000) >> 10))
+            index += 1
+            w[index] = unichr(0xDC00 | ((ch - 0x10000) & 0x3FF))
+        else:
+            w[index] = unichr(ch)
+        index += 1
+    w[index] = unichr(0)
+    assert wlen == index
+    return w
+utf82wcharp_ex._annenforceargs_ = [str, int, bool]
 
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))

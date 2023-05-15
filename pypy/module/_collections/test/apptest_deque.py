@@ -279,3 +279,22 @@ def test_free():
     d.pop()
     gc.collect(); gc.collect(); gc.collect()
     assert X.freed
+
+def test_index_method():
+    d = deque([1, 2, 3, 4, 5])
+    class A(object):
+        def __index__(self):
+            return 1
+    assert d[A()] == 2
+
+def test_index_method_mutates():
+    d = deque([1, 2, 3, 4, 5])
+    class A(object):
+        def __index__(self):
+            d.clear()
+            return 1
+    with raises(IndexError):
+        d[A()]
+    d = deque([1, 2, 3, 4, 5])
+    with raises(IndexError):
+        d[A()] = 2

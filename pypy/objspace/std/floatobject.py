@@ -36,6 +36,9 @@ def float2string(x, code, precision):
         s = "nan"
     return s
 
+def float_repr(x):
+    return float2string(x, 'r', 0)
+
 
 def detect_floatformat():
     from rpython.rtyper.lltypesystem import rffi, lltype
@@ -384,7 +387,7 @@ class W_FloatObject(W_Root):
             return W_FloatObject(space.float_w(w_obj))
 
     def descr_repr(self, space):
-        return space.newtext(float2string(self.floatval, 'r', 0))
+        return space.newtext(float_repr(self.floatval))
 
     def descr_str(self, space):
         return space.newtext(float2string(self.floatval, 'g', DTSF_STR_PRECISION))
@@ -400,7 +403,7 @@ class W_FloatObject(W_Root):
         w_other = self._to_float(space, w_other)
         if w_other is None:
             return space.w_NotImplemented
-        return space.newtuple([self, w_other])
+        return space.newtuple2(self, w_other)
 
     def descr_nonzero(self, space):
         return space.newbool(self.floatval != 0.0)
@@ -608,7 +611,7 @@ class W_FloatObject(W_Root):
         w_num = space.newlong_from_rbigint(num)
         w_den = space.newlong_from_rbigint(den)
         # Try to return int
-        return space.newtuple([space.int(w_num), space.int(w_den)])
+        return space.newtuple2(space.int(w_num), space.int(w_den))
 
     def descr_hex(self, space):
         TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4

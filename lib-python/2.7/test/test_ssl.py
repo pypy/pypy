@@ -111,7 +111,7 @@ def is_ubuntu():
         # The workaround is not required for 18.04, but doesn't hurt either.
         with open("/etc/os-release") as f:
             return "ubuntu" in f.read()
-    except OSError:
+    except (IOError, OSError):
         return False
 
 if is_ubuntu():

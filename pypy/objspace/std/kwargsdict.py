@@ -128,7 +128,7 @@ class KwargsDictStrategy(DictStrategy):
     def items(self, w_dict):
         space = self.space
         keys, values_w = self.unerase(w_dict.dstorage)
-        return [space.newtuple([self.wrap(keys[i]), values_w[i]])
+        return [space.newtuple2(self.wrap(keys[i]), values_w[i])
                 for i in range(len(keys))]
 
     def popitem(self, w_dict):

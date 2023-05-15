@@ -555,6 +555,7 @@ def get_config_vars(*args):
                 break
         _CONFIG_VARS['INCLUDEPY'] = os.path.join(_CONFIG_VARS['prefix'],
                                                  'include')
+        _CONFIG_VARS['CONFINCLUDEPY'] = _CONFIG_VARS['INCLUDEPY']
 
     if args:
         vals = []

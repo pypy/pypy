@@ -397,15 +397,19 @@ class catch_warnings(object):
 # If either if the compiled regexs are None, match anything.
 _warnings_defaults = False
 try:
+    import _warnings
+except ImportError:
+    filters = []
+    defaultaction = "default"
+    onceregistry = {}
+else:
+    # the del is for pypy's celldict: make the globals "never mutated" ones
+    del warn, warn_explicit
     from _warnings import (filters, default_action, once_registry,
                             warn, warn_explicit)
     defaultaction = default_action
     onceregistry = once_registry
     _warnings_defaults = True
-except ImportError:
-    filters = []
-    defaultaction = "default"
-    onceregistry = {}
 
 
 # Module initialization

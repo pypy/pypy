@@ -329,9 +329,11 @@ class ParserGenerator(object):
         # ITEM: '[' ALTERNATIVES ']' | ATOM ['+' | '*']
         if self.test_token(token.OP, "["):
             self.advance_token()
-            start_state, end_state = self.parse_alternatives()
+            start_state = NFA()
+            first_state, end_state = self.parse_alternatives()
             self.expect(token.OP, "]")
-            # Bypass the rule if this is optional.
+            # Commit to the rule, or bypass it.
+            start_state.arc(first_state)
             start_state.arc(end_state)
             return start_state, end_state
         else:

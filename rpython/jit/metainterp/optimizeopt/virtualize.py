@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import info, optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (
-    make_dispatcher_method, get_box_replacement)
+    make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.rawbuffer import InvalidRawOperation
 from .info import getrawptrinfo, getptrinfo
 from rpython.jit.metainterp.resoperation import rop, ResOperation
@@ -422,3 +422,4 @@ dispatch_opt = make_dispatcher_method(OptVirtualize, 'optimize_',
 OptVirtualize.propagate_forward = dispatch_opt
 dispatch_postprocess = make_dispatcher_method(OptVirtualize, 'postprocess_')
 OptVirtualize.propagate_postprocess = dispatch_postprocess
+OptVirtualize.have_postprocess_op = have_dispatcher_method(OptVirtualize, 'postprocess_')

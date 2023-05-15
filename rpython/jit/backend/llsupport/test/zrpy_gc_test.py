@@ -81,6 +81,7 @@ def compile(f, gc, **kwds):
     from rpython.translator.translator import TranslationContext
     from rpython.jit.metainterp.warmspot import apply_jit
     from rpython.translator.c import genc
+    from rpython.translator.backendopt.all import backend_optimizations
     #
     t = TranslationContext()
     t.config.translation.gc = gc
@@ -106,6 +107,13 @@ def compile(f, gc, **kwds):
             for (obj, attr), oldvalue in old_value.items():
                 setattr(obj, attr, oldvalue)
 
+    backend_optimizations(t,
+                          graphs=t.graphs,
+                          merge_if_blocks=True,
+                          constfold=True,
+                          remove_asserts=True,
+                          really_remove_asserts=True,
+                          replace_we_are_jitted=False)
     cbuilder = genc.CStandaloneBuilder(t, f, t.config)
     cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
     cbuilder.compile()

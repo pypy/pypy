@@ -4,7 +4,7 @@ from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2)
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
-from rpython.rlib.rposix import c_read, get_saved_errno
+from rpython.rlib.rposix import c_read, get_saved_errno, open
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
@@ -166,10 +166,9 @@ class W_FileIO(W_RawIOBase):
                     raise oefmt(space.w_ValueError,
                                 "Cannot use closefd=False with file name")
 
-                from pypy.module.posix.interp_posix import (
-                    dispatch_filename, rposix)
+                from pypy.module.posix.interp_posix import dispatch_filename
                 try:
-                    self.fd = dispatch_filename(rposix.open)(
+                    self.fd = dispatch_filename(open)(
                         space, w_name, flags, 0666)
                 except OSError as e:
                     raise wrap_oserror2(space, e, w_name,

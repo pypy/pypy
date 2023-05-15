@@ -265,6 +265,10 @@ class WarmEnterState(object):
         self.increment_trace_eagerness = self._compute_threshold(value)
 
     def set_param_trace_limit(self, value):
+        if value < 0:
+            raise ValueError
+        if value > self.warmrunnerdesc.metainterp_sd.opencoder_model.MAX_TRACE_LIMIT:
+            raise ValueError
         self.trace_limit = value
 
     def set_param_decay(self, decay):
@@ -301,6 +305,9 @@ class WarmEnterState(object):
         if self.warmrunnerdesc:
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.retrace_limit = value
+
+    def set_param_pureop_historylength(self, value):
+        self.pureop_historylength = value
 
     def set_param_max_retrace_guards(self, value):
         if self.warmrunnerdesc:
@@ -642,6 +649,11 @@ class WarmEnterState(object):
             def dont_trace_here(*greenargs):
                 cell = JitCell._ensure_jit_cell_at_key(*greenargs)
                 cell.flags |= JC_DONT_TRACE_HERE
+
+            @staticmethod
+            def mark_as_being_traced(*greenargs):
+                cell = JitCell._ensure_jit_cell_at_key(*greenargs)
+                cell.flags |= JC_TRACING
         #
         self.JitCell = JitCell
         return JitCell
@@ -678,6 +690,11 @@ class WarmEnterState(object):
             cell = JitCell.ensure_jit_cell_at_key(greenkey)
             cell.flags |= JC_DONT_TRACE_HERE
         self.dont_trace_here = dont_trace_here
+
+        def mark_as_being_traced(greenkey):
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_TRACING
+        self.mark_as_being_traced = mark_as_being_traced
 
         def mark_force_finish_tracing(greenkey):
             """ mark greenkey as "please definitely finish a trace for it the

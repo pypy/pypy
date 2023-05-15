@@ -330,3 +330,62 @@ def test_empty_statement():
         r = cur.execute(sql)
         assert r.description is None
         assert cur.fetchall() == []
+
+def test_description_insert():
+    conn = _sqlite3.connect(":memory:")
+
+    cursor = conn.cursor()
+
+    cursor.execute("""create table foo (x int, y int)""")
+    cursor.execute(
+        """insert into foo (x, y) values (1, 1), (2, 2), (3, 3), (4, 4)"""
+    )
+    cursor.execute(
+        """insert into foo (x, y) values (5, 5), (6, 6)
+        RETURNING x, y"""
+    )
+
+    assert cursor.description == (
+        ("x", None, None, None, None, None, None),
+        ("y", None, None, None, None, None, None),
+    )
+
+
+def test_description_update():
+    conn = _sqlite3.connect(":memory:")
+
+    cursor = conn.cursor()
+
+    cursor.execute("""create table foo (x int, y int)""")
+    cursor.execute(
+        """insert into foo (x, y) values (1, 1), (2, 2), (3, 3), (4, 4)"""
+    )
+    cursor.execute(
+        """update foo set y=y+5 where x in (2, 3)
+        RETURNING x, y"""
+    )
+
+    assert cursor.description == (
+        ("x", None, None, None, None, None, None),
+        ("y", None, None, None, None, None, None),
+    )
+
+
+def test_description_delete():
+    conn = _sqlite3.connect(":memory:")
+
+    cursor = conn.cursor()
+
+    cursor.execute("""create table foo (x int, y int)""")
+    cursor.execute(
+        """insert into foo (x, y) values (1, 1), (2, 2), (3, 3), (4, 4)"""
+    )
+    cursor.execute(
+        """delete from foo where x in (1, 4)
+        RETURNING x, y"""
+    )
+
+    assert cursor.description == (
+        ("x", None, None, None, None, None, None),
+        ("y", None, None, None, None, None, None),
+    )

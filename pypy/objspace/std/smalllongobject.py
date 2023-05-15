@@ -296,7 +296,7 @@ class W_SmallLongObject(W_AbstractLongObject):
             raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
         # no overflow possible
         m = x % y
-        return space.newtuple([W_SmallLongObject(z), W_SmallLongObject(m)])
+        return space.newtuple2(W_SmallLongObject(z), W_SmallLongObject(m))
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod)
 
     def _lshift(self, space, w_other):

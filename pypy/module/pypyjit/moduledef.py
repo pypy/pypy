@@ -10,6 +10,7 @@ class Module(MixedModule):
         'not_from_assembler': 'interp_jit.W_NotFromAssembler',
         'get_jitcell_at_key': 'interp_jit.get_jitcell_at_key',
         'dont_trace_here': 'interp_jit.dont_trace_here',
+        'mark_as_being_traced': 'interp_jit.mark_as_being_traced',
         'trace_next_iteration': 'interp_jit.trace_next_iteration',
         'trace_next_iteration_hash': 'interp_jit.trace_next_iteration_hash',
         'releaseall': 'interp_jit.releaseall',

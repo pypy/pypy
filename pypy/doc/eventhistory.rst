@@ -6,7 +6,7 @@ More sprints
     all year round.  **This page is no longer maintained!**  See `our blog`_
     for upcoming events.
 
-.. _our blog: https://morepypy.blogspot.com/
+.. _our blog: https://www.pypy.org/blog
 
 
 EuroPython PyPy sprint 6-9 July 2006

@@ -85,7 +85,7 @@ class GCTest(object):
         for i in range(1, 15):
             res = self.interpret(append_to_list, [i, i - 1])
             assert res == i - 1 # crashes if constants are not considered roots
-            
+
     def test_string_concatenation(self):
         #curr = simulator.current_size
         def concat(j):
@@ -401,8 +401,8 @@ class GCTest(object):
                                  ('y', llmemory.Address))
         T = lltype.GcStruct('T', ('z', lltype.Signed))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(gc, obj, callback, arg):
-            gc._trace_callback(callback, arg, obj + offset_of_x)
+        def customtrace(gc, obj, callback, arg1, arg2):
+            gc._trace_callback(callback, arg1, arg2, obj + offset_of_x)
         lambda_customtrace = lambda: customtrace
         #
         for attrname in ['x', 'y']:
@@ -1058,12 +1058,12 @@ class GCTest(object):
             assert rgc.get_gcflag_extra(a1) == False
             assert rgc.get_gcflag_extra(a2) == False
         self.interpret(fn, [])
-    
+
     def test_register_custom_trace_hook(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         called = []
 
-        def trace_hook(gc, obj, callback, arg):
+        def trace_hook(gc, obj, callback, arg1, arg2):
             called.append("called")
         lambda_trace_hook = lambda: trace_hook
 
@@ -1117,7 +1117,7 @@ class GCTest(object):
     def test_gettypeid(self):
         class A(object):
             pass
-        
+
         def fn():
             a = A()
             return rgc.get_typeid(a)

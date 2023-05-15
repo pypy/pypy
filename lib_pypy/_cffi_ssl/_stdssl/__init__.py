@@ -3,6 +3,7 @@ import os
 import time
 import thread as _thread
 import weakref
+import __pypy__
 
 try:
     from _pypy_openssl import ffi
@@ -1004,10 +1005,10 @@ class _SSLContext(object):
         else:
             raise ValueError("invalid protocol version")
 
-        ctx = lib.SSL_CTX_new(method)
-        if ctx == ffi.NULL:
-            raise ssl_error("failed to allocate SSL context")
         self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
+        __pypy__.add_memory_pressure(1000)
+        if self.ctx == ffi.NULL:
+            raise ssl_error("failed to allocate SSL context")
         self._post_handshake_auth = 0;
         self._protocol = protocol
         self.hostflags = lib.X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS
@@ -1041,7 +1042,7 @@ class _SSLContext(object):
             default_ciphers = b"HIGH:!aNULL:!eNULL"
         else:
             default_ciphers = b"HIGH:!aNULL:!eNULL:!MD5"
-        if not lib.SSL_CTX_set_cipher_list(ctx, default_ciphers):
+        if not lib.SSL_CTX_set_cipher_list(self.ctx, default_ciphers):
             lib.ERR_clear_error()
             raise SSLError("No cipher can be selected.")
 

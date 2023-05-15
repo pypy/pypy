@@ -144,7 +144,7 @@ class ModuleDictStrategy(DictStrategy):
     def items(self, w_dict):
         space = self.space
         iterator = self.unerase(w_dict.dstorage).iteritems
-        return [space.newtuple([_wrapkey(space, key), unwrap_cell(self.space, cell)])
+        return [space.newtuple2(_wrapkey(space, key), unwrap_cell(self.space, cell))
                 for key, cell in iterator()]
 
     def clear(self, w_dict):

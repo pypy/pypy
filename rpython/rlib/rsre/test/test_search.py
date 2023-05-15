@@ -227,7 +227,7 @@ class BaseTestSearch:
                     assert res.match_start == self.P(ik)
                     assert res.match_end == self.P(ik)
                 else:
-                    assert match is None
+                    #assert match is None # this is only true on cpy2 (but not on pypy2/3 and cpy3)
                     assert res is None
 
 
@@ -259,8 +259,8 @@ class TestSearchUtf8(BaseTestSearch):
 
     def test_literal_uni_ignore(self):
         r = get_code(u"(?i)\u0135")
-        assert self.match(r, u'\u0134')
-        assert self.match(r, u'\u0134'.lower())
+        assert self.match(r, u'\u0134'.encode('utf-8'))
+        assert self.match(r, u'\u0134'.lower().encode('utf-8'))
         assert not self.match(r, "a")
         assert not self.match(r, "A")
 
@@ -275,9 +275,9 @@ class TestSearchUtf8(BaseTestSearch):
 
     def test_in_uni_ignore_repeat_one(self):
         r = get_code(u"(?i)[^ab]*$")
-        assert self.match(r, u'zzstzc')
-        assert self.match(r, u'c')
-        assert self.match(r, u'üüü\u0134c')
+        assert self.match(r, u'zzstzc'.encode('utf-8'))
+        assert self.match(r, u'c'.encode('utf-8'))
+        assert self.match(r, u'üüü\u0134c'.encode('utf-8'))
         assert not self.match(r, 'cccca')
         assert not self.match(r, 'bc')
         assert not self.match(r, 'b')

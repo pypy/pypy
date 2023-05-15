@@ -41,7 +41,7 @@ class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
 
 @specialize.call_location()
-def walk_stack_root(invoke, arg0, arg1, start, addr, is_minor):
+def walk_stack_root(invoke, arg0, arg1, arg2, start, addr, is_minor):
     skip = 0
     while addr != start:
         addr -= sizeofaddr
@@ -54,7 +54,7 @@ def walk_stack_root(invoke, arg0, arg1, start, addr, is_minor):
             n = llmemory.cast_adr_to_int(content)
             if n & 1 == 0:
                 if content:   # non-0, non-odd: a regular ptr
-                    invoke(arg0, arg1, addr)
+                    invoke(arg0, arg1, arg2, addr)
             else:
                 # odd number: a skip bitmask
                 if n > 0:       # initially, an unmarked value
@@ -90,7 +90,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.decr_stack = decr_stack
 
         self.invoke_collect_stack_root = specialize.call_location()(
-            lambda arg0, arg1, addr: arg0(self.gc, addr))
+            lambda arg0, arg1, arg2, addr: arg0(self.gc, addr))
 
         self.shadow_stack_pool = ShadowStackPool(gcdata)
         rsd = gctransformer.root_stack_depth
@@ -124,7 +124,7 @@ class ShadowStackRootWalker(BaseRootWalker):
             is_minor = False
             gcdata.can_look_at_partial_stack = True
         walk_stack_root(self.invoke_collect_stack_root, collect_stack_root,
-                        None, gcdata.root_stack_base, gcdata.root_stack_top,
+                        None, None, gcdata.root_stack_base, gcdata.root_stack_top,
                         is_minor=is_minor)
 
     def need_thread_support(self, gctransformer, getfn):
@@ -398,9 +398,9 @@ def get_shadowstackref(root_walker, gctransformer):
                                      rtti=True)
     SHADOWSTACKREFPTR.TO.become(SHADOWSTACKREF)
 
-    def customtrace(gc, obj, callback, arg):
+    def customtrace(gc, obj, callback, arg1, arg2):
         obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
-        walk_stack_root(gc._trace_callback, callback, arg, obj.base, obj.top,
+        walk_stack_root(gc._trace_callback, callback, arg1, arg2, obj.base, obj.top,
                         is_minor=False)   # xxx optimize?
 
     gc = gctransformer.gcdata.gc

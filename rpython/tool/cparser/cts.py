@@ -58,7 +58,7 @@ class DelayedStruct(object):
 
 class CTypeSpace(object):
     def __init__(self, parser=None, definitions=None, macros=None,
-                 headers=None, includes=None):
+                 headers=None, includes=None, include_dirs=None):
         self.definitions = definitions if definitions is not None else {}
         self.macros = macros if macros is not None else {}
         self.structs = {}
@@ -75,6 +75,10 @@ class CTypeSpace(object):
         if includes is not None:
             for header in includes:
                 self.include(header)
+        if include_dirs is not None:
+            self.include_dirs = include_dirs[:]
+        else:
+            self.include_dirs = []
 
     def include(self, other):
         self.ctx.include(other.ctx)
@@ -161,7 +165,8 @@ class CTypeSpace(object):
             compile_extra = []
         return ExternalCompilationInfo(
             post_include_bits=all_sources, includes=all_headers,
-            compile_extra=compile_extra)
+            compile_extra=compile_extra,
+            include_dirs=self.include_dirs)
 
     def configure_types(self):
         for name, (obj, quals) in self.ctx._declarations.iteritems():

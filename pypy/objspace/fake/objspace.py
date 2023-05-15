@@ -173,6 +173,9 @@ class FakeObjSpace(ObjSpace):
             is_root(w_x)
         return w_some_obj()
 
+    def newtuple2(self, w_a, w_b):
+        return w_some_obj()
+
     def newset(self, list_w=None):
         if list_w is not None:
             for w_x in list_w:
@@ -335,11 +338,7 @@ class FakeObjSpace(ObjSpace):
         is_root(w_subtype)
         return instantiate(cls)
 
-    def decode_index(self, w_index_or_slice, seqlength):
-        is_root(w_index_or_slice)
-        return (NonConstant(42), NonConstant(42), NonConstant(42))
-
-    def decode_index4(self, w_index_or_slice, seqlength):
+    def decode_index4(self, w_index_or_slice, w_obj):
         is_root(w_index_or_slice)
         return (NonConstant(42), NonConstant(42),
                 NonConstant(42), NonConstant(42))

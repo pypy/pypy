@@ -1376,10 +1376,12 @@ class rop(object):
         return rop._JIT_DEBUG_FIRST <= opnum <= rop._JIT_DEBUG_LAST
 
     @staticmethod
+    @specialize.arg_or_var(0)
     def is_always_pure(opnum):
         return rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
 
     @staticmethod
+    @specialize.arg_or_var(0)
     def is_pure_with_descr(opnum, descr):
         if rop.is_always_pure(opnum):
             return True

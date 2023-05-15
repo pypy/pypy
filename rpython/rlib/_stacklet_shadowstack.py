@@ -46,14 +46,14 @@ def stacklet_destructor(stacklet):
 
 SIZEADDR = llmemory.sizeof(llmemory.Address)
 
-def customtrace(gc, obj, callback, arg):
+def customtrace(gc, obj, callback, arg1, arg2):
     from rpython.memory.gctransform.shadowstack import walk_stack_root
 
     stacklet = llmemory.cast_adr_to_ptr(obj, STACKLET_PTR)
     sscopy = stacklet.s_sscopy
     if sscopy:
         length_bytes = sscopy.signed[0]
-        walk_stack_root(gc._trace_callback, callback, arg,
+        walk_stack_root(gc._trace_callback, callback, arg1, arg2,
                         sscopy + SIZEADDR, sscopy + SIZEADDR + length_bytes,
                         is_minor=False)
 lambda_customtrace = lambda: customtrace

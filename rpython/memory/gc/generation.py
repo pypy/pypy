@@ -208,7 +208,7 @@ class GenerationGC(SemiSpaceGC):
             # due to inlining).
             maxlength_for_minimal_nursery = (self.min_nursery_size // 4 //
                                              raw_malloc_usage(itemsize))
-            
+
             # The actual maximum length for our nursery depends on how
             # many times our nursery is bigger than the minimal size.
             # The computation is done in this roundabout way so that
@@ -329,7 +329,7 @@ class GenerationGC(SemiSpaceGC):
             self.header(obj).tid |= GCFLAG_NO_HEAP_PTRS
             # ^^^ the flag we just added will be removed immediately if
             # the object still contains pointers to younger objects
-            self.trace(obj, self._trace_external_obj, obj)
+            self.trace(obj, self.make_callback('_trace_external_obj'), self, obj)
         stack.delete()
 
     def _trace_external_obj(self, pointer, obj):
@@ -447,7 +447,7 @@ class GenerationGC(SemiSpaceGC):
         """obj must not be in the nursery.  This copies all the
         young objects it references out of the nursery.
         """
-        self.trace(obj, self._trace_drag_out, None)
+        self.trace(obj, self.make_callback('_trace_drag_out'), self, None)
 
     def _trace_drag_out(self, pointer, ignored):
         if self.is_in_nursery(pointer.address[0]):
@@ -591,14 +591,14 @@ class GenerationGC(SemiSpaceGC):
         if tid & GCFLAG_NO_YOUNG_PTRS:
             ll_assert(not self.is_in_nursery(obj),
                       "nursery object with GCFLAG_NO_YOUNG_PTRS")
-            self.trace(obj, self._debug_no_nursery_pointer, None)
+            self.trace(obj, self.make_callback('_debug_no_nursery_pointer'), self, None)
         elif not self.is_in_nursery(obj):
             ll_assert(self._d_oopty.contains(obj),
                       "missing from old_objects_pointing_to_young")
         if tid & GCFLAG_NO_HEAP_PTRS:
             ll_assert(self.is_last_generation(obj),
                       "GCFLAG_NO_HEAP_PTRS on non-3rd-generation object")
-            self.trace(obj, self._debug_no_gen1or2_pointer, None)
+            self.trace(obj, self.make_callback('_debug_no_gen1or2_pointer'), self, None)
         elif self.is_last_generation(obj):
             ll_assert(self._d_lgro.contains(obj),
                       "missing from last_generation_root_objects")

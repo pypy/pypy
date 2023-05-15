@@ -95,8 +95,18 @@ PyInt_FromLong(long ival)
 }
 
 /* this is CPython's int_dealloc */
+#ifdef CPYEXT_TESTS
+#define _Py_int_dealloc _cpyexttest_int_dealloc
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_int_dealloc _PyPy_int_dealloc
+#endif  /* CPYEXT_TESTS */
 void
-_PyPy_int_dealloc(PyObject *obj)
+_Py_int_dealloc(PyObject *obj)
 {
     PyIntObject *v = (PyIntObject *)obj;
     if (PyInt_CheckExact(v)) {

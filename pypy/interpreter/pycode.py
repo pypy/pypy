@@ -416,7 +416,7 @@ class PyCode(eval.Code):
             space.newtuple([space.newtext(v) for v in self.co_cellvars]),
             space.newint(self.magic),
         ]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple2(new_inst, space.newtuple(tup))
 
     def get_repr(self):
         return "<code object %s, file '%s', line %d>" % (
@@ -471,10 +471,10 @@ def _convert_const(space, w_a):
     w_type = space.type(w_a)
     if space.is_w(w_type, space.w_unicode):
         # unicodes are supposed to compare by value, but not equal to bytes
-        return space.newtuple([w_type, w_a])
+        return space.newtuple2(w_type, w_a)
     if space.is_w(w_type, space.w_bytes):
         # and vice versa
-        return space.newtuple([w_type, w_a])
+        return space.newtuple2(w_type, w_a)
     if type(w_a) is PyCode:
         return w_a
     # for tuples and frozensets convert recursively

@@ -45,7 +45,7 @@ class BaseTestUnroll(BaseTest):
         compile_data = PreambleCompileData(
             trace, inputargs, enable_opts=self.enable_opts)
         start_state, newops = compile_data.optimize_trace(
-            self.metainterp_sd, None, {})
+            self.metainterp_sd, self.jitdriver_sd, {})
         preamble.operations = newops
         preamble.inputargs = start_state.renamed_inputargs
         return start_state, loop, preamble

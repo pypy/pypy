@@ -13,8 +13,8 @@ Incminimark first allocates objects in so called *nursery* - place for young
 objects, where allocation is very cheap, being just a pointer bump. The nursery
 size is a very crucial variable - depending on your workload (one or many
 processes) and cache sizes you might want to experiment with it via
-*PYPY_GC_NURSERY* environment variable. When the nursery is full, there is
-performed a minor collection. Freed objects are no longer referencable and
+*PYPY_GC_NURSERY* environment variable. When the nursery is full, a minor
+collection is performed. Freed objects are no longer referencable and
 just die, just by not being referenced any more; on the other hand, objects
 found to still be alive must survive and are copied from the nursery
 to the old generation. Either to arenas, which are collections
@@ -164,15 +164,15 @@ GC hooks are user-defined functions which are called whenever a specific GC
 event occur, and can be used to monitor GC activity and pauses.  You can
 install the hooks by setting the following attributes:
 
-``gc.hook.on_gc_minor``
+``gc.hooks.on_gc_minor``
     Called whenever a minor collection occurs. It corresponds to
     ``gc-minor`` sections inside ``PYPYLOG``.
 
-``gc.hook.on_gc_collect_step``
+``gc.hooks.on_gc_collect_step``
     Called whenever an incremental step of a major collection occurs. It
     corresponds to ``gc-collect-step`` sections inside ``PYPYLOG``.
 
-``gc.hook.on_gc_collect``
+``gc.hooks.on_gc_collect``
     Called after the last incremental step, when a major collection is fully
     done. It corresponds to ``gc-collect-done`` sections inside ``PYPYLOG``.
 
@@ -196,7 +196,7 @@ hook was called.
 On the other hand, all the other fields of the ``stats`` object are relative
 only to the **last** event of the series.
 
-The attributes for ``GcMinorStats`` are:
+The attributes for ``GcMinorStats`` in the ``on_gc_minor`` hook are:
 
 ``count``
     The number of minor collections occurred since the last hook call.
@@ -222,7 +222,7 @@ The attributes for ``GcMinorStats`` are:
 
 .. _GcCollectStepStats:
 
-The attributes for ``GcCollectStepStats`` are:
+The attributes for ``GcCollectStepStats`` in the ``on_gc_collect_step`` hook are:
 
 ``count``, ``duration``, ``duration_min``, ``duration_max``
     See above.
@@ -240,7 +240,7 @@ inside ``gc.GcCollectStepStats``: ``STATE_SCANNING``, ``STATE_MARKING``,
 to get a string representation of it by indexing the ``GC_STATES`` tuple.
 
 
-The attributes for ``GcCollectStats`` are:
+The attributes for ``GcCollectStats`` in the ``on_gc_collect`` hook are:
 
 ``count``
     See above.
@@ -260,7 +260,10 @@ The attributes for ``GcCollectStats`` are:
     Total number of bytes used by raw-malloced objects, before and after the
     major collection.
 
-Note that ``GcCollectStats`` has **not** got a ``duration`` field. This is
+``pinned_objects``
+    the number of pinned objects.
+
+Note that ``GcCollectStats`` does **not** have a ``duration`` field. This is
 because all the GC work is done inside ``gc-collect-step``:
 ``gc-collect-done`` is used only to give additional stats, but doesn't do any
 actual work.

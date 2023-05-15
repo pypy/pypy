@@ -1,5 +1,6 @@
 import pytest
 import os
+import sys
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.pyobject import make_ref, decref
 from pypy.module.cpyext.test.test_api import BaseApiTest
@@ -250,6 +251,8 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 skip('numpy not importable')
             cls.w_numpy_include = [numpy.get_include()]
         else:
+            if '__pypy__' in sys.builtin_module_names:
+                skip('cannot run tests untranslated on top of PyPy')
             numpy_incl = os.path.abspath(os.path.dirname(__file__) +
                                          '/../include/_numpypy')
             assert os.path.exists(numpy_incl)

@@ -1228,6 +1228,22 @@ class AppTestListObject(object):
         l.append(l)
         assert repr(l) == '[[...]]'
 
+    def test_repr_strategies(self):
+        assert repr([]) == '[]'
+        assert repr([1, 2, 3]) == '[1, 2, 3]'
+        assert repr([1.1, 2.1, 3.1]) == '[1.1, 2.1, 3.1]'
+        assert repr([1.1, 2.1, 3.1, float('nan')]) == '[1.1, 2.1, 3.1, nan]'
+        # mixed
+        assert repr([100, 23, -1.1, 2.1, 3.1, float('nan')]) == '[100, 23, -1.1, 2.1, 3.1, nan]'
+        # bytes
+        assert repr(['a', 'b', 'c']) == "['a', 'b', 'c']"
+        # asciilist
+        assert repr([u'a', u'b', u'c']) == "[u'a', u'b', u'c']"
+        # some objects
+        o1 = object()
+        d = {1: 2, None: False}
+        assert repr([o1, d]) == '[%r, %r]' % (o1, d)
+
     def test_append(self):
         l = []
         l.append('X')
@@ -1487,6 +1503,35 @@ class AppTestListObject(object):
             A()
             while lst:
                 keepalive.append(lst[:])
+
+    def test_mutate_while_slice(self):
+        class X:
+            def __index__(self):
+                del a[:]
+                return 1
+
+        a = [0]
+        assert a[:X():2] == []
+        assert a == []
+
+        a = [0]
+        assert a[X():2] == []
+        assert a == []
+
+        a = [0]
+        assert a[0:2:X()] == []
+        assert a == []
+
+    def test_mutate_while_slice_delete(self):
+        class X(object):
+            def __index__(self):
+                l[:] = [1]
+                print(l)
+                return 10
+
+        l = [1] * 100
+        del l[1:X():2]
+        assert l == [1]
 
     def test___getslice__(self):
         l = [1,2,3,4]

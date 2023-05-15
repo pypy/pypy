@@ -168,7 +168,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         flag <<= 1
         if self.pendingcr:
             flag |= 1
-        return space.newtuple([w_buffer, space.newint(flag)])
+        return space.newtuple2(w_buffer, space.newint(flag))
 
     def setstate_w(self, space, w_state):
         w_buffer, w_flag = space.unpackiterable(w_state, 2)
@@ -177,7 +177,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         flag >>= 1
 
         if self.w_decoder and not space.is_w(self.w_decoder, space.w_None):
-            w_state = space.newtuple([w_buffer, space.newint(flag)])
+            w_state = space.newtuple2(w_buffer, space.newint(flag))
             space.call_method(self.w_decoder, "setstate", w_state)
 
 W_IncrementalNewlineDecoder.typedef = TypeDef(
@@ -582,7 +582,7 @@ class W_TextIOWrapper(W_TextIOBase):
             w_name_str = space.newtext("")
         else:
             w_name_str = space.mod(space.newtext("name=%r "), w_name)
-        w_args = space.newtuple([w_name_str, self.w_encoding])
+        w_args = space.newtuple2(w_name_str, self.w_encoding)
         return space.mod(
             space.newtext("<_io.TextIOWrapper %sencoding=%r>"), w_args
         )
@@ -942,8 +942,8 @@ class W_TextIOWrapper(W_TextIOBase):
             space.call_method(self.w_decoder, "reset")
         else:
             space.call_method(self.w_decoder, "setstate",
-                              space.newtuple([space.newbytes(""),
-                                              space.newint(cookie.dec_flags)]))
+                              space.newtuple2(space.newbytes(""),
+                                              space.newint(cookie.dec_flags)))
 
     def _encoder_setstate(self, space, cookie):
         if cookie.start_pos == 0 and cookie.dec_flags == 0:
