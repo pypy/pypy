@@ -241,3 +241,18 @@ class TestCSE(object):
             a = A()
             return type(a) is A
         self.check(f, [int], getfield=0)
+
+    def test_repeated_typeptr(self):
+        class Cls(object):
+            def f(self):
+                return 1
+        class Sub(Cls):
+            def f(self):
+                return 2
+        def f(i):
+            if i:
+                x = Cls()
+            else:
+                x = Sub()
+            return x.f() + x.f()
+        self.check(f, [int], getfield=2)

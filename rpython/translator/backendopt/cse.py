@@ -15,7 +15,12 @@ def has_side_effects(op):
         return True
 
 def can_fold(op):
-    return getattr(llop, op.opname).canfold
+    if getattr(llop, op.opname).canfold:
+        return True
+    if op.opname == "getfield":
+        field = op.args[1].value
+        return op.args[0].concretetype.TO._immutable_field(field)
+    return False
 
 
 class Cache(object):
@@ -111,9 +116,15 @@ class Cache(object):
                 pass
             elif op.opname == 'setfield':
                 field = op.args[1].value
-                self.clear_for(op.args[0].concretetype, field)
-                target = self._var_rep(op.args[0])
-                self.heapcache[target, field] = op.args[2]
+                if op.args[0].concretetype.TO._immutable_field(field):
+                    # it's an initializing store
+                    key = ('getfield', op.result.concretetype,
+                           (self._var_rep(op.args[0]), self._var_rep(op.args[1])))
+                    self.purecache[key] = op.args[2]
+                else:
+                    self.clear_for(op.args[0].concretetype, field)
+                    target = self._var_rep(op.args[0])
+                    self.heapcache[target, field] = op.args[2]
             elif has_side_effects(op):
                 self.heapcache.clear()
         return number_same_as
