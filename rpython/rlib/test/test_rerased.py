@@ -34,7 +34,7 @@ erase_list_X, unerase_list_X = new_erasing_pair("list of X")
 def test_simple():
     x1 = X()
     e = eraseX(x1)
-    #assert is_integer(e) is False
+    assert is_integer(e) is False
     assert uneraseX(e) is x1
 
 def test_simple_none():
@@ -43,7 +43,7 @@ def test_simple_none():
 
 def test_simple_int():
     e = erase_int(15)
-    #assert is_integer(e) is True
+    assert is_integer(e) is True
     assert unerase_int(e) == 15
 
 def test_simple_int_overflow():
@@ -57,7 +57,7 @@ def test_simple_int_overflow():
 def test_list():
     l = [X()]
     e = erase_list_X(l)
-    #assert is_integer(e) is False
+    assert is_integer(e) is False
     assert unerase_list_X(e) is l
 
 def test_deepcopy():
@@ -78,7 +78,7 @@ def test_annotate_2():
     def f():
         x1 = X()
         e = eraseX(x1)
-        #assert not is_integer(e)
+        assert not is_integer(e)
         x2 = uneraseX(e)
         return x2
     a = make_annotator()
@@ -89,7 +89,7 @@ def test_annotate_2():
 def test_annotate_3():
     def f():
         e = erase_int(16)
-        #assert is_integer(e)
+        assert is_integer(e)
         x2 = unerase_int(e)
         return x2
     a = make_annotator()
@@ -203,7 +203,7 @@ class TestRErased(BaseRtypingTest):
         def f():
             x1 = X()
             e = eraseX(x1)
-            #assert not is_integer(e)
+            assert not is_integer(e)
             x2 = uneraseX(e)
             return x2
         x = self.interpret(f, [])
@@ -212,7 +212,7 @@ class TestRErased(BaseRtypingTest):
     def test_rtype_3(self):
         def f():
             e = erase_int(16)
-            #assert is_integer(e)
+            assert is_integer(e)
             x2 = unerase_int(e)
             return x2
         x = self.interpret(f, [])
@@ -225,8 +225,8 @@ class TestRErased(BaseRtypingTest):
         e2 = eraseX(x1)
 
         def f():
-            #assert is_integer(e1)
-            #assert not is_integer(e2)
+            assert is_integer(e1)
+            assert not is_integer(e2)
             x1.foobar += 1
             x2 = unerase_int(e1) + uneraseX(e2).foobar
             return x2
@@ -246,8 +246,6 @@ class TestRErased(BaseRtypingTest):
         l2.storage = erase_empty(None)
 
         def f():
-            #assert is_integer(e1)
-            #assert not is_integer(e2)
             x1.foobar += 1
             x2 = uneraseX(l1.storage).foobar + (unerase_empty(l2.storage) is None)
             return x2
@@ -260,7 +258,7 @@ class TestRErased(BaseRtypingTest):
                 e = erase_int(i)
             except OverflowError:
                 return -1
-            #assert is_integer(e)
+            assert is_integer(e)
             return unerase_int(e)
         x = self.interpret(f, [16])
         assert x == 16
@@ -294,7 +292,7 @@ class TestRErased(BaseRtypingTest):
             else:
                 l = prebuilt_l
                 e = prebuilt_e
-            #assert is_integer(e) is False
+            assert is_integer(e) is False
             assert unerase_list_X(e) is l
         self.interpret(l, [0])
         self.interpret(l, [1])

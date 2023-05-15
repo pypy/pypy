@@ -38,6 +38,8 @@ def unerase_int(y):
     assert is_valid_int(y._x)
     return y._x
 
+def is_integer(x):
+    return x._identity is _identity_for_ints
 
 class ErasingPairIdentity(object):
 
@@ -172,6 +174,23 @@ class Entry(ExtRegistryEntry):
         [v] = hop.inputargs(hop.args_r[0])
         assert isinstance(hop.s_result, annmodel.SomeInteger)
         return _rtype_unerase_int(hop, v)
+
+class Entry(ExtRegistryEntry):
+    _about_ = is_integer
+
+    def compute_result_annotation(self, s_obj):
+        assert _some_erased().contains(s_obj)
+        return annmodel.SomeBool()
+
+    def specialize_call(self, hop):
+        [v] = hop.inputargs(hop.args_r[0])
+        assert isinstance(hop.s_result, annmodel.SomeInteger)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_is_integer, v)
+
+def ll_is_integer(gcref):
+    x = llop.cast_ptr_to_int(lltype.Signed, gcref)
+    return x & 1 == 1
 
 def ll_unerase_int(gcref):
     x = llop.cast_ptr_to_int(lltype.Signed, gcref)
