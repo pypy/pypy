@@ -144,9 +144,17 @@ def pyssl_error(obj, ret):
             err_lib = lib.ERR_GET_LIB(e)
             err_reason = lib.ERR_GET_REASON(e)
             reason_str = ERR_CODES_TO_NAMES.get((err_lib, err_reason), None)
-            if (lib.ERR_GET_LIB(e) == lib.ERR_LIB_SSL and 
+            if (err_lib == lib.ERR_LIB_SSL and 
                     reason_str == 'CERTIFICATE_VERIFY_FAILED'):
                 errtype = SSLCertVerificationError
+            if lib.Cryptography_HAS_UNEXPECTED_EOF_WHILE_READING:
+                # OpenSSL 3.0 changed transport EOF from SSL_ERROR_SYSCALL with
+                # zero return value to SSL_ERROR_SSL with a special error code.
+                if (lib.ERR_GET_LIB(e) == lib.ERR_LIB_SSL and
+                        err_reason == lib.SSL_R_UNEXPECTED_EOF_WHILE_READING):
+                    errval = SSL_ERROR_EOF
+                    errtype = SSLEOFError
+                    errstr = "EOF occurred in violation of protocol"
         else:
             errstr = "Invalid error code"
             errval = SSL_ERROR_INVALID_ERROR_CODE

@@ -13,10 +13,6 @@ static const int Cryptography_HAS_EC_CODES;
 static const int Cryptography_HAS_RSA_R_PKCS_DECODING_ERROR;
 static const int Cryptography_HAS_EVP_R_MEMORY_LIMIT_EXCEEDED;
 
-static const int ERR_LIB_DH;
-static const int ERR_LIB_EVP;
-static const int ERR_LIB_EC;
-static const int ERR_LIB_PEM;
 static const int ERR_LIB_ASN1;
 static const int ERR_LIB_ASYNC;
 static const int ERR_LIB_BIO;
@@ -184,6 +180,9 @@ static const int SSL_AD_BAD_CERTIFICATE_STATUS_RESPONSE;
 static const int SSL_AD_BAD_CERTIFICATE_HASH_VALUE;
 static const int SSL_AD_UNKNOWN_PSK_IDENTITY;
 
+static const int SSL_R_UNEXPECTED_EOF_WHILE_READING;
+static const int Cryptography_HAS_UNEXPECTED_EOF_WHILE_READING;
+
 static const int X509_R_CERT_ALREADY_IN_HASH_TABLE;
 static const int X509_R_KEY_VALUES_MISMATCH;
 """
@@ -233,4 +232,14 @@ static const int ERR_LIB_OSSL_ENCODER = -42;
 static const int ERR_LIB_PROP = -42;
 static const int ERR_LIB_PROV = -42;
 #endif
+
+/* SSL_R_UNEXPECTED_EOF_WHILE_READING is needed for pyOpenSSL
+   with OpenSSL 3+ */
+#if defined(SSL_R_UNEXPECTED_EOF_WHILE_READING)
+#define Cryptography_HAS_UNEXPECTED_EOF_WHILE_READING 1
+#else
+#define Cryptography_HAS_UNEXPECTED_EOF_WHILE_READING 0
+#define SSL_R_UNEXPECTED_EOF_WHILE_READING 0
+#endif
+
 """
