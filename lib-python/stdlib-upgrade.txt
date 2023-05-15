@@ -6,7 +6,7 @@ Process for upgrading the stdlib to a new cpython version
     overly detailed
 
 0. make sure your working dir is clean
-1. check out the branch vendor/stdlib-3.9
+1. check out this branch
 2. upgrade the files there
    2a. `rm -rf lib-python/3/*`
    2b. copy the files from the cpython repo
