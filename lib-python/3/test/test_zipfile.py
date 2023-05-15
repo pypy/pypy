@@ -10,6 +10,7 @@ import string
 import struct
 import subprocess
 import sys
+from test.support.script_helper import assert_python_ok
 import time
 import unittest
 import unittest.mock as mock
@@ -2933,7 +2934,69 @@ class TestPath(unittest.TestCase):
         a, b, g = root.iterdir()
         with a.open(encoding="utf-8") as strm:
             data = strm.read()
-        assert data == "content of a"
+        self.assertEqual(data, "content of a")
+        with a.open('r', "utf-8") as strm:  # not a kw, no gh-101144 TypeError
+            data = strm.read()
+        self.assertEqual(data, "content of a")
+
+    def test_open_encoding_utf16(self):
+        in_memory_file = io.BytesIO()
+        zf = zipfile.ZipFile(in_memory_file, "w")
+        zf.writestr("path/16.txt", "This was utf-16".encode("utf-16"))
+        zf.filename = "test_open_utf16.zip"
+        root = zipfile.Path(zf)
+        (path,) = root.iterdir()
+        u16 = path.joinpath("16.txt")
+        with u16.open('r', "utf-16") as strm:
+            data = strm.read()
+        self.assertEqual(data, "This was utf-16")
+        with u16.open(encoding="utf-16") as strm:
+            data = strm.read()
+        self.assertEqual(data, "This was utf-16")
+
+    def test_open_encoding_errors(self):
+        in_memory_file = io.BytesIO()
+        zf = zipfile.ZipFile(in_memory_file, "w")
+        zf.writestr("path/bad-utf8.bin", b"invalid utf-8: \xff\xff.")
+        zf.filename = "test_read_text_encoding_errors.zip"
+        root = zipfile.Path(zf)
+        (path,) = root.iterdir()
+        u16 = path.joinpath("bad-utf8.bin")
+
+        # encoding= as a positional argument for gh-101144.
+        data = u16.read_text("utf-8", errors="ignore")
+        self.assertEqual(data, "invalid utf-8: .")
+        with u16.open("r", "utf-8", errors="surrogateescape") as f:
+            self.assertEqual(f.read(), "invalid utf-8: \udcff\udcff.")
+
+        # encoding= both positional and keyword is an error; gh-101144.
+        with self.assertRaisesRegex(TypeError, "encoding"):
+            data = u16.read_text("utf-8", encoding="utf-8")
+
+        # both keyword arguments work.
+        with u16.open("r", encoding="utf-8", errors="strict") as f:
+            # error during decoding with wrong codec.
+            with self.assertRaises(UnicodeDecodeError):
+                f.read()
+
+    def test_encoding_warnings(self):
+        """EncodingWarning must blame the read_text and open calls."""
+        code = '''\
+import io, zipfile
+with zipfile.ZipFile(io.BytesIO(), "w") as zf:
+    zf.filename = '<test_encoding_warnings in memory zip file>'
+    zf.writestr("path/file.txt", b"Spanish Inquisition")
+    root = zipfile.Path(zf)
+    (path,) = root.iterdir()
+    file_path = path.joinpath("file.txt")
+    unused = file_path.read_text()  # should warn
+    file_path.open("r").close()  # should warn
+'''
+        proc = assert_python_ok('-X', 'warn_default_encoding', '-c', code)
+        warnings = proc.err.splitlines()
+        self.assertEqual(len(warnings), 2, proc.err)
+        self.assertRegex(warnings[0], rb"^<string>:8: EncodingWarning:")
+        self.assertRegex(warnings[1], rb"^<string>:9: EncodingWarning:")
 
     def test_open_write(self):
         """
@@ -2975,6 +3038,7 @@ class TestPath(unittest.TestCase):
         root = zipfile.Path(alpharep)
         a, b, g = root.iterdir()
         assert a.read_text(encoding="utf-8") == "content of a"
+        a.read_text("utf-8")  # No positional arg TypeError per gh-101144.
         assert a.read_bytes() == b"content of a"
 
     @pass_alpharep
@@ -3144,6 +3208,79 @@ class TestPath(unittest.TestCase):
         for alpharep in self.zipfile_alpharep():
             file = cls(alpharep).joinpath('some dir').parent
             assert isinstance(file, cls)
+
+    @pass_alpharep
+    def test_extract_orig_with_implied_dirs(self, alpharep):
+        """
+        A zip file wrapped in a Path should extract even with implied dirs.
+        """
+        source_path = self.zipfile_ondisk(alpharep)
+        zf = zipfile.ZipFile(source_path)
+        # wrap the zipfile for its side effect
+        zipfile.Path(zf)
+        zf.extractall(source_path.parent)
+
+
+class StripExtraTests(unittest.TestCase):
+    # Note: all of the "z" characters are technically invalid, but up
+    # to 3 bytes at the end of the extra will be passed through as they
+    # are too short to encode a valid extra.
+
+    ZIP64_EXTRA = 1
+
+    def test_no_data(self):
+        s = struct.Struct("<HH")
+        a = s.pack(self.ZIP64_EXTRA, 0)
+        b = s.pack(2, 0)
+        c = s.pack(3, 0)
+
+        self.assertEqual(b'', zipfile._strip_extra(a, (self.ZIP64_EXTRA,)))
+        self.assertEqual(b, zipfile._strip_extra(b, (self.ZIP64_EXTRA,)))
+        self.assertEqual(
+            b+b"z", zipfile._strip_extra(b+b"z", (self.ZIP64_EXTRA,)))
+
+        self.assertEqual(b+c, zipfile._strip_extra(a+b+c, (self.ZIP64_EXTRA,)))
+        self.assertEqual(b+c, zipfile._strip_extra(b+a+c, (self.ZIP64_EXTRA,)))
+        self.assertEqual(b+c, zipfile._strip_extra(b+c+a, (self.ZIP64_EXTRA,)))
+
+    def test_with_data(self):
+        s = struct.Struct("<HH")
+        a = s.pack(self.ZIP64_EXTRA, 1) + b"a"
+        b = s.pack(2, 2) + b"bb"
+        c = s.pack(3, 3) + b"ccc"
+
+        self.assertEqual(b"", zipfile._strip_extra(a, (self.ZIP64_EXTRA,)))
+        self.assertEqual(b, zipfile._strip_extra(b, (self.ZIP64_EXTRA,)))
+        self.assertEqual(
+            b+b"z", zipfile._strip_extra(b+b"z", (self.ZIP64_EXTRA,)))
+
+        self.assertEqual(b+c, zipfile._strip_extra(a+b+c, (self.ZIP64_EXTRA,)))
+        self.assertEqual(b+c, zipfile._strip_extra(b+a+c, (self.ZIP64_EXTRA,)))
+        self.assertEqual(b+c, zipfile._strip_extra(b+c+a, (self.ZIP64_EXTRA,)))
+
+    def test_multiples(self):
+        s = struct.Struct("<HH")
+        a = s.pack(self.ZIP64_EXTRA, 1) + b"a"
+        b = s.pack(2, 2) + b"bb"
+
+        self.assertEqual(b"", zipfile._strip_extra(a+a, (self.ZIP64_EXTRA,)))
+        self.assertEqual(b"", zipfile._strip_extra(a+a+a, (self.ZIP64_EXTRA,)))
+        self.assertEqual(
+            b"z", zipfile._strip_extra(a+a+b"z", (self.ZIP64_EXTRA,)))
+        self.assertEqual(
+            b+b"z", zipfile._strip_extra(a+a+b+b"z", (self.ZIP64_EXTRA,)))
+
+        self.assertEqual(b, zipfile._strip_extra(a+a+b, (self.ZIP64_EXTRA,)))
+        self.assertEqual(b, zipfile._strip_extra(a+b+a, (self.ZIP64_EXTRA,)))
+        self.assertEqual(b, zipfile._strip_extra(b+a+a, (self.ZIP64_EXTRA,)))
+
+    def test_too_short(self):
+        self.assertEqual(b"", zipfile._strip_extra(b"", (self.ZIP64_EXTRA,)))
+        self.assertEqual(b"z", zipfile._strip_extra(b"z", (self.ZIP64_EXTRA,)))
+        self.assertEqual(
+            b"zz", zipfile._strip_extra(b"zz", (self.ZIP64_EXTRA,)))
+        self.assertEqual(
+            b"zzz", zipfile._strip_extra(b"zzz", (self.ZIP64_EXTRA,)))
 
 
 if __name__ == "__main__":
