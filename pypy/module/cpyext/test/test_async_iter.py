@@ -2,6 +2,7 @@ import pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.conftest import option
 
+
 @pytest.mark.skip("too slow, over 30 seconds for this one test")
 class AppTestAsyncIter(AppTestCpythonExtensionBase):
     enable_leak_checking = True
@@ -35,3 +36,28 @@ class AppTestAsyncIter(AppTestCpythonExtensionBase):
         assert result == [123, 456, 789]
 
 
+    def test_async_gen_exception_04(self):
+        """module is this code after running through cython, then making some
+           small adjustments (see https://github.com/cython/cython/pull/5429)
+            ZERO = 0
+
+            async def gen():
+                yield 123
+                1 / ZERO
+
+            def test_last_yield(g):
+                ai = g.__aiter__()
+                an = ai.__anext__()
+                try:
+                    next(an) 
+                except StopIteration as ex:
+                    return ex.args
+                else:
+                    return None 
+             
+        """
+        module = self.import_module(name='test_async_gen_exception_04')
+        g = module.gen()
+        result = module.test_last_yield(g)
+        assert result == 123 
+""

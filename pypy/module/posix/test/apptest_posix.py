@@ -54,6 +54,10 @@ def test_putenv_invalid_name():
 def test_all_pathconf_defined():
     import sys
     import posix
-    fd = sys.stdin.fileno()
+    try:
+        fd = sys.stdin.fileno()
+    except ValueError:
+        # translated test run with a fake sys.stdin with no fileno
+        fd = 1
     for name in posix.pathconf_names:
         posix.fpathconf(fd, name) # does not crash

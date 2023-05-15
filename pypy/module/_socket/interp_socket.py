@@ -26,7 +26,9 @@ def addr_as_object(addr, fd, space):
         return space.newtuple2(space.newtext(addr.get_host()),
                                space.newint(addr.get_port()))
     elif isinstance(addr, rsocket.INET6Address):
-        return space.newtuple([space.newtext(addr.get_host()),
+        # For IPv6 remove the scope ID, see issue 3938
+        host = addr.get_host()
+        return space.newtuple([space.newtext(host.split("%")[0]),
                                space.newint(addr.get_port()),
                                space.newint(addr.get_flowinfo()),
                                space.newint(addr.get_scope_id())])
