@@ -234,6 +234,7 @@ int SSL_renegotiate(SSL *);
 int SSL_renegotiate_pending(SSL *);
 const char *SSL_get_cipher_list(const SSL *, int);
 Cryptography_STACK_OF_SSL_CIPHER *SSL_get_ciphers(const SSL *);
+Cryptography_STACK_OF_SSL_CIPHER *SSL_get_client_ciphers(const SSL *);
 
 /*  context */
 void SSL_CTX_free(SSL_CTX *);
@@ -466,6 +467,7 @@ void SSL_get0_next_proto_negotiated(const SSL *,
 
 int sk_SSL_CIPHER_num(Cryptography_STACK_OF_SSL_CIPHER *);
 const SSL_CIPHER *sk_SSL_CIPHER_value(Cryptography_STACK_OF_SSL_CIPHER *, int);
+int sk_SSL_CIPHER_find(Cryptography_STACK_OF_SSL_CIPHER *, const SSL_CIPHER *);
 
 /* ALPN APIs were introduced in OpenSSL 1.0.2.  To continue to support earlier
  * versions some special handling of these is necessary.
